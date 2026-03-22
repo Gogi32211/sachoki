@@ -2,12 +2,21 @@ import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
 
 const TABS = [
-  { id: 'bull',   label: 'Bull ≥4',   color: 'text-green-400' },
-  { id: 'strong', label: 'Strong ≥6', color: 'text-emerald-300' },
-  { id: 'fire',   label: '🔥 Fire ≥8', color: 'text-yellow-400' },
-  { id: 'bear',   label: 'Bear ≥3',   color: 'text-red-400' },
-  { id: 'all',    label: 'All',       color: 'text-gray-400' },
+  { id: 'bull',   label: 'Bull ≥4',    color: 'text-green-400' },
+  { id: 'strong', label: 'Strong ≥6',  color: 'text-emerald-300' },
+  { id: 'fire',   label: 'Fire ≥8',    color: 'text-yellow-400' },
+  { id: 'bear',   label: 'Bear ≥3',    color: 'text-red-400' },
+  { id: 'all',    label: 'All',        color: 'text-gray-400' },
 ]
+
+// Volume bucket colors
+const BUCKET_COLORS = {
+  W:  { bg: '#c3c0d3', text: '#1a1a2e' },
+  L:  { bg: '#0099ff', text: '#fff' },
+  N:  { bg: '#ffd000', text: '#1a1a1a' },
+  B:  { bg: '#e48100', text: '#fff' },
+  VB: { bg: '#b02020', text: '#fff' },
+}
 
 const MIN_SCORES = [0, 2, 4, 6, 8]
 
@@ -48,6 +57,27 @@ function LSigBadge({ label }) {
       {label}
     </span>
   )
+}
+
+function BucketCell({ bucket }) {
+  if (!bucket) return <span className="text-gray-600">—</span>
+  const c = BUCKET_COLORS[bucket]
+  if (!c) return <span className="text-xs font-mono text-gray-400">{bucket}</span>
+  return (
+    <span
+      className="text-xs font-bold px-1 py-0.5 rounded font-mono"
+      style={{ backgroundColor: c.bg, color: c.text }}
+    >
+      {bucket}
+    </span>
+  )
+}
+
+function CandleDirCell({ dir }) {
+  if (!dir) return null
+  const cfg = { U: '▲', D: '▼', O: '●' }
+  const cls  = { U: 'text-green-400', D: 'text-red-400', O: 'text-gray-500' }
+  return <span className={`text-xs font-bold ${cls[dir] || 'text-gray-500'}`}>{cfg[dir] || dir}</span>
 }
 
 function rowBg(row) {
@@ -166,7 +196,9 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
                 <th className="text-center px-2 py-2">Score</th>
                 <th className="text-center px-2 py-2">T/Z</th>
                 <th className="text-center px-2 py-2">L-Sig</th>
-                <th className="text-left px-2 py-2 hidden md:table-cell">3-Bar</th>
+                <th className="text-center px-1 py-2 hidden md:table-cell">Bkt</th>
+                <th className="text-center px-1 py-2 hidden md:table-cell">Dir</th>
+                <th className="text-left px-2 py-2 hidden lg:table-cell">3-Bar</th>
                 <th className="text-right px-2 py-2">Price</th>
                 <th className="text-right px-2 py-2">Chg%</th>
               </tr>
@@ -191,7 +223,13 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
                   <td className="text-center px-2 py-2">
                     <LSigBadge label={row.l_signal} />
                   </td>
-                  <td className="px-2 py-2 text-gray-400 font-mono hidden md:table-cell max-w-[140px] truncate">
+                  <td className="text-center px-1 py-2 hidden md:table-cell">
+                    <BucketCell bucket={row.vol_bucket} />
+                  </td>
+                  <td className="text-center px-1 py-2 hidden md:table-cell">
+                    <CandleDirCell dir={row.candle_dir} />
+                  </td>
+                  <td className="px-2 py-2 text-gray-400 font-mono hidden lg:table-cell max-w-[140px] truncate">
                     {row.pattern_3bar}
                   </td>
                   <td className="text-right px-2 py-2 text-gray-200">

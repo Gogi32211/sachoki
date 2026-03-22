@@ -178,6 +178,16 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
 
         pat = " → ".join(sigs["sig_name"].tail(3).tolist())
 
+        # Extra WLNBB fields for display
+        vol_bucket = candle_dir = l_combo = ""
+        try:
+            last_w = wlnbb.iloc[-1]
+            vol_bucket = str(last_w.get("vol_bucket", ""))
+            candle_dir = str(last_w.get("candle_dir", ""))
+            l_combo    = str(last_w.get("l_combo", "NONE"))
+        except Exception:
+            pass
+
         return {
             "ticker":       ticker,
             "sig_id":       last_sig,
@@ -190,6 +200,9 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
             "volume":       volume,
             "change_pct":   change_pct,
             "interval":     interval,
+            "vol_bucket":   vol_bucket,
+            "candle_dir":   candle_dir,
+            "l_combo":      l_combo,
         }
     except Exception as exc:
         log.debug("Scanner skip %s: %s", ticker, exc)
@@ -336,6 +349,9 @@ def get_results(
             "volume":       r[8],
             "change_pct":   r[9],
             "scanned_at":   r[10],
+            # These fields are not stored in the DB yet; front-end shows them when live
+            "vol_bucket":   "",
+            "candle_dir":   "",
         }
         for r in rows
     ]

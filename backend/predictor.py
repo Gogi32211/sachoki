@@ -63,8 +63,8 @@ def predict_next(df: pd.DataFrame, lookback: int = 5000) -> dict:
             outcomes2.append(int(sigs[i + 2]))
 
     return {
-        "3bar": _summarize(pat3, sig3_label, outcomes3),
-        "2bar": _summarize(pat2, sig2_label, outcomes2),
+        "tz_3bar": _summarize(pat3, sig3_label, outcomes3),
+        "tz_2bar": _summarize(pat2, sig2_label, outcomes2),
     }
 
 
@@ -100,4 +100,4 @@ def _summarize(pattern: str, signals: str, outcomes: list[int]) -> dict:
 
 def _empty() -> dict:
     empty = {"pattern": "", "signals": "", "total_matches": 0, "top_outcomes": []}
-    return {"3bar": empty, "2bar": empty}
+    return {"tz_3bar": empty, "tz_2bar": empty}

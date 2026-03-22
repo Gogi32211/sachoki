@@ -12,8 +12,10 @@ from fastapi.staticfiles import StaticFiles
 
 from data import fetch_ohlcv
 from signal_engine import compute_signals
-from wlnbb_engine import compute_wlnbb
+from wlnbb_engine import compute_wlnbb, score_last_bar, score_bars, l_signal_label
 from predictor import predict_next
+from l_sequence_predictor import predict_l_next
+from stats_engine import compute_tz_l_matrix
 from scanner import (
     run_scan, get_results, get_last_scan_time,
     save_watchlist, load_watchlist,
@@ -92,12 +94,14 @@ def _df_to_records(df) -> list[dict]:
     for col in ["is_bull", "is_bear"]:
         if col in records.columns:
             records[col] = records[col].astype(bool)
-    # Convert any bool columns (WLNBB)
+    # Convert bool columns to plain bool (handles numpy bool_)
+    bool_cols = [c for c in records.columns
+                 if records[c].dtype == object and c not in ("date", "sig_name", "l_combo", "vol_bucket", "candle_dir")]
     for col in records.columns:
-        if records[col].dtype == object:
+        if col in ("date", "sig_name", "l_combo", "vol_bucket", "candle_dir"):
             continue
         try:
-            if records[col].dtype == bool:
+            if str(records[col].dtype) == "bool":
                 records[col] = records[col].astype(bool)
         except Exception:
             pass
@@ -108,18 +112,20 @@ def _df_to_records(df) -> list[dict]:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "tz-signal-dashboard", "version": "1.0"}
+    return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.1"}
 
 
-# ── Signals ───────────────────────────────────────────────────────────────────
+# ── Signals (now includes WLNBB columns + per-bar scores) ────────────────────
 
 @app.get("/api/signals/{ticker}")
 def api_signals(ticker: str, tf: str = "1d", bars: int = 150):
-    """OHLCV + T/Z signal columns for a single ticker."""
+    """OHLCV + T/Z signal columns + WLNBB overlays for a single ticker."""
     try:
-        df   = fetch_ohlcv(ticker, interval=tf, bars=bars)
-        sigs = compute_signals(df)
-        out  = df.join(sigs)
+        df    = fetch_ohlcv(ticker, interval=tf, bars=bars)
+        sigs  = compute_signals(df)
+        wlnbb = compute_wlnbb(df)
+        scores = score_bars(sigs["sig_id"], wlnbb)
+        out   = df.join(sigs).join(wlnbb).join(scores)
         return _df_to_records(out)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
@@ -163,14 +169,23 @@ def api_watchlist(
             )
             sig = sigs.iloc[-1]
 
-            # WLNBB quick score
+            # WLNBB quick score + extra fields
             try:
                 wlnbb = compute_wlnbb(df)
-                from wlnbb_engine import score_last_bar, l_signal_label
                 bull_score, bear_score = score_last_bar(int(sig["sig_id"]), wlnbb)
-                l_sig = l_signal_label(wlnbb.iloc[-1])
+                last_w = wlnbb.iloc[-1]
+                l_sig       = l_signal_label(last_w)
+                vol_bucket  = str(last_w.get("vol_bucket", ""))
+                candle_dir  = str(last_w.get("candle_dir", ""))
+                l_combo     = str(last_w.get("l_combo", "NONE"))
+                blue        = bool(last_w.get("BLUE", False))
+                cci_ready   = bool(last_w.get("CCI_READY", False))
+                pre_pump    = bool(last_w.get("PRE_PUMP", False))
             except Exception:
-                bull_score, bear_score, l_sig = 0, 0, ""
+                bull_score, bear_score = 0, 0
+                l_sig = vol_bucket = candle_dir = ""
+                l_combo = "NONE"
+                blue = cci_ready = pre_pump = False
 
             result.append({
                 "ticker":      ticker,
@@ -183,6 +198,12 @@ def api_watchlist(
                 "bull_score":  bull_score,
                 "bear_score":  bear_score,
                 "l_signal":    l_sig,
+                "vol_bucket":  vol_bucket,
+                "candle_dir":  candle_dir,
+                "l_combo":     l_combo,
+                "blue":        blue,
+                "cci_ready":   cci_ready,
+                "pre_pump":    pre_pump,
             })
         except Exception as exc:
             result.append({"ticker": ticker, "error": str(exc)})
@@ -201,16 +222,50 @@ def api_watchlist_save(body: dict):
     return {"status": "ok", "count": len(tickers)}
 
 
-# ── Predict ───────────────────────────────────────────────────────────────────
+# ── Predict (T/Z + L-combo, all 4 predictors) ────────────────────────────────
 
 @app.get("/api/predict/{ticker}")
 def api_predict(ticker: str, tf: str = "1d"):
-    """3-bar and 2-bar next-signal prediction."""
+    """3-bar and 2-bar next-signal prediction for T/Z signals and L combos."""
     try:
-        df   = fetch_ohlcv(ticker, interval=tf, bars=5000)
-        sigs = compute_signals(df)
-        full = df.join(sigs)
-        return predict_next(full)
+        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
+        sigs  = compute_signals(df)
+        full  = df.join(sigs)
+        tz    = predict_next(full)          # {"tz_3bar": ..., "tz_2bar": ...}
+
+        wlnbb = compute_wlnbb(df)
+        full_w = full.join(wlnbb)
+        l_preds = predict_l_next(full_w)   # {"l_3bar": ..., "l_2bar": ...}
+
+        return {**tz, **l_preds}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── L-Predict (dedicated endpoint) ───────────────────────────────────────────
+
+@app.get("/api/l-predict/{ticker}")
+def api_l_predict(ticker: str, tf: str = "1d"):
+    """L-combo 2-bar and 3-bar sequence predictors."""
+    try:
+        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
+        wlnbb = compute_wlnbb(df)
+        return predict_l_next(wlnbb)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+# ── T/Z × L Stats ─────────────────────────────────────────────────────────────
+
+@app.get("/api/tz-l-stats/{ticker}")
+def api_tz_l_stats(ticker: str, tf: str = "1d"):
+    """25 × 12 T/Z signal × L-column co-occurrence matrix."""
+    try:
+        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
+        sigs  = compute_signals(df)
+        wlnbb = compute_wlnbb(df)
+        combined = sigs.join(wlnbb)
+        return {"matrix": compute_tz_l_matrix(combined)}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 

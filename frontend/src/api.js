@@ -17,7 +17,7 @@ async function post(path, body) {
 }
 
 export const api = {
-  // Signals + chart
+  // Signals + chart (now includes WLNBB columns + per-bar scores)
   signals: (ticker, tf = '1d', bars = 150) =>
     get(`/api/signals/${ticker}?tf=${tf}&bars=${bars}`),
 
@@ -32,9 +32,17 @@ export const api = {
   watchlistSave: (tickers) =>
     post('/api/watchlist/save', { tickers }),
 
-  // Predictor
+  // Predictor (T/Z + L-combo, 4 tables)
   predict: (ticker, tf = '1d') =>
     get(`/api/predict/${ticker}?tf=${tf}`),
+
+  // L-combo predictor (dedicated)
+  lPredict: (ticker, tf = '1d') =>
+    get(`/api/l-predict/${ticker}?tf=${tf}`),
+
+  // T/Z × L stats matrix
+  tzLStats: (ticker, tf = '1d') =>
+    get(`/api/tz-l-stats/${ticker}?tf=${tf}`),
 
   // Scanner
   scanResults: (tf = '1d', limit = 100, tab = 'all', min_score = 0) =>

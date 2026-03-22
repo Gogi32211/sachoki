@@ -2,14 +2,18 @@
 wlnbb_engine.py — Volume Bollinger Bands L-signal engine.
 
 Computes per bar:
-  bucket label (W/L/N/B/VB)
-  L34, L43, L64, L22  — combined L-signals
+  vol_bucket     (W/L/N/B/VB)
+  vol_up_adapted / vol_down_adapted  (bool)
+  L1, L2, L3, L4, L5, L6            (bool raw — NOT mutually exclusive)
+  L34, L43, L64, L22, L1L2, L2L5    (bool combined)
+  l_combo                             (str  e.g. "L3|L4", "NONE")
   BLUE, FRI34, UI
   FUCHSIA_RH, FUCHSIA_RL
   PRE_PUMP  (VSA accumulation cluster)
   CCI_READY
   BO_UP, BO_DN, BX_UP, BX_DN
   vol_zscore, rsi, cci_sma
+  candle_dir  ("U"/"D"/"O")
 """
 from __future__ import annotations
 
@@ -62,22 +66,35 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     bkt = np.where(v.values >= (vol_upper + vol_mid).values, 4, bkt)
     bucket = pd.Series(bkt.astype(np.int8), index=df.index)
 
-    # ── Volume Direction ──────────────────────────────────────────────────
+    # ── Volume Direction (adapted — bucket transitions take priority) ─────
     pb = bucket.shift(1)
     pv = v.shift(1)
-    vol_up   = ((bucket > pb) | ((bucket == pb) & (v > pv))).fillna(False)
-    vol_down = ((bucket < pb) | ((bucket == pb) & (v < pv))).fillna(False)
+    vol_up_adapted   = ((bucket > pb) | ((bucket == pb) & (v > pv))).fillna(False)
+    vol_down_adapted = ((bucket < pb) | ((bucket == pb) & (v < pv))).fillna(False)
 
-    # ── L-signal raws ─────────────────────────────────────────────────────
-    l3r = vol_up & (c > c.shift(1))
-    l4r = vol_up & (c <= h.shift(1))
-    l6r = vol_up & (c < c.shift(1))
+    # ── Raw L-signals (NOT mutually exclusive) ────────────────────────────
+    up_close   = c > c.shift(1)
+    down_close = c < c.shift(1)
+    no_new_high = c <= h.shift(1)   # uses high[1]
+    no_new_low  = c >= l.shift(1)   # uses low[1]
+
+    L1 = vol_down_adapted & up_close
+    L2 = vol_down_adapted & no_new_low
+    L3 = vol_up_adapted   & up_close
+    L4 = vol_up_adapted   & no_new_high
+    L5 = vol_down_adapted & down_close
+    L6 = vol_up_adapted   & down_close
 
     # ── Combined L-signals ────────────────────────────────────────────────
-    L34 = l3r & l4r & (c >= o)   # quiet bull accumulation
-    L43 = l6r & l4r & (c >  o)   # bullish reversal
-    L64 = l6r & l4r & (c <  o)   # bearish
-    L22 = l3r & l4r & (c <  o)   # distribution (bear candle)
+    L34  = L3 & L4 & (c >= o)   # quiet bull accumulation
+    L22  = L3 & L4 & (c <  o)   # distribution (bear candle)
+    L64  = L6 & L4               # bearish
+    L43  = L6 & L4 & (c >  o)   # bullish reversal
+    L1L2 = L1 & L2
+    L2L5 = L2 & L5
+
+    # ── L-combo string encoding ───────────────────────────────────────────
+    l_combo = _build_l_combo(L1, L2, L3, L4, L5, L6)
 
     # ── RSI (14) ──────────────────────────────────────────────────────────
     rsi = _rsi(c, _RSI_PERIOD)
@@ -95,17 +112,17 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     # ── FUCHSIA ───────────────────────────────────────────────────────────
     rsi_roll_max = rsi.rolling(50, min_periods=1).max().shift(1)
     rsi_roll_min = rsi.rolling(50, min_periods=1).min().shift(1)
-    FUCHSIA_RH = (rsi >= rsi_roll_max.fillna(rsi)) & ~vol_up
-    FUCHSIA_RL = (rsi <= rsi_roll_min.fillna(rsi)) & ~vol_up
+    FUCHSIA_RH = (rsi >= rsi_roll_max.fillna(rsi)) & ~vol_up_adapted
+    FUCHSIA_RL = (rsi <= rsi_roll_min.fillna(rsi)) & ~vol_up_adapted
 
     # ── CCI ───────────────────────────────────────────────────────────────
     cci     = _cci(h, l, c, _CCI_PERIOD)
     cci_sma = cci.rolling(_CCI_SMA, min_periods=1).mean()
-    cci_rng5 = (cci_sma.rolling(5, min_periods=1).max()
-                - cci_sma.rolling(5, min_periods=1).min())
+    cci_rng6 = (cci_sma.rolling(6, min_periods=1).max()
+                - cci_sma.rolling(6, min_periods=1).min())
     CCI_READY = (
         (cci_sma >= -110) & (cci_sma <= -50)
-        & (cci_rng5 <= 15)
+        & (cci_rng6 <= 25)
         & (cci_sma.diff() > 0)
         & (c > o)
     )
@@ -143,20 +160,37 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── Bucket label ──────────────────────────────────────────────────────
     _BKT = {0: "W", 1: "L", 2: "N", 3: "B", 4: "VB"}
-    bucket_lbl = bucket.map(_BKT)
+    vol_bucket = bucket.map(_BKT)
+
+    # ── Candle direction ──────────────────────────────────────────────────
+    candle_dir = pd.Series(
+        np.where(c > o, "U", np.where(c < o, "D", "O")),
+        index=df.index,
+    )
 
     return pd.DataFrame({
-        "bucket":     bucket_lbl,
-        "vol_zscore": vol_z.round(2),
-        "rsi":        rsi.round(2),
-        "cci_sma":    cci_sma.round(2),
-        "L34": L34,  "L43": L43,  "L64": L64,  "L22": L22,
+        "vol_bucket":      vol_bucket,
+        "vol_up_adapted":  vol_up_adapted,
+        "vol_down_adapted": vol_down_adapted,
+        "vol_zscore":      vol_z.round(2),
+        "rsi":             rsi.round(2),
+        "cci_sma":         cci_sma.round(2),
+        # Raw L signals
+        "L1": L1, "L2": L2, "L3": L3, "L4": L4, "L5": L5, "L6": L6,
+        # Combined L signals
+        "L34": L34, "L43": L43, "L64": L64, "L22": L22,
+        "L1L2": L1L2, "L2L5": L2L5,
+        # L-combo string
+        "l_combo": l_combo,
+        # Secondary signals
         "BLUE": BLUE, "FRI34": FRI34, "UI": UI,
         "FUCHSIA_RH": FUCHSIA_RH, "FUCHSIA_RL": FUCHSIA_RL,
         "PRE_PUMP": PRE_PUMP,
         "CCI_READY": CCI_READY,
         "BO_UP": BO_UP, "BO_DN": BO_DN,
         "BX_UP": BX_UP, "BX_DN": BX_DN,
+        # Candle direction
+        "candle_dir": candle_dir,
     }, index=df.index)
 
 
@@ -185,14 +219,15 @@ def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
         bear += 1
 
     # L-signals (last bar)
-    if bool(last.get("L34")):   bull += 2
-    if bool(last.get("L43")):   bull += 1
+    if bool(last.get("L34")):      bull += 2
+    if bool(last.get("L43")):      bull += 1
     if bool(last.get("CCI_READY")): bull += 2
-    if bool(last.get("BLUE")):  bull += 1
-    if bool(last.get("FRI34")): bull += 2   # BLUE + L34
-    if bool(last.get("BO_UP")): bull += 1
-    if bool(last.get("BX_UP")): bull += 1
-    if bool(last.get("UI")):    bull += 1
+    if bool(last.get("BLUE")):     bull += 1
+    if bool(last.get("FRI34")):    bull += 2   # BLUE + L34
+    if bool(last.get("BO_UP")):    bull += 1
+    if bool(last.get("BX_UP")):    bull += 1
+    if bool(last.get("UI")):       bull += 1
+    if bool(last.get("L1L2")):     bull += 1
 
     # PRE_PUMP in last 3 bars
     if last3["PRE_PUMP"].any():    bull += 1
@@ -204,20 +239,82 @@ def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
     if bool(last.get("BO_DN")):      bear += 1
     if bool(last.get("BX_DN")):      bear += 1
 
-    return min(bull, 10), bear
+    return min(bull, 10), min(bear, 10)
+
+
+def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute (bull_score, bear_score) for every bar in the DataFrame.
+    Returns DataFrame with columns bull_score, bear_score (int8, capped at 10).
+    """
+    n = len(wlnbb)
+    bulls = np.zeros(n, dtype=np.int32)
+    bears = np.zeros(n, dtype=np.int32)
+
+    sig_arr = sig_id_series.reindex(wlnbb.index).fillna(0).values.astype(np.int32)
+
+    # T/Z signal contributions (vectorized)
+    t4_t6 = (sig_arr == 6) | (sig_arr == 8)
+    any_t  = (sig_arr >= 1) & (sig_arr <= 11)
+    z4_z6  = (sig_arr == 17) | (sig_arr == 19)
+    any_z  = (sig_arr >= 12) & (sig_arr <= 25)
+
+    bulls += np.where(t4_t6, 2, np.where(any_t, 1, 0))
+    bears += np.where(z4_z6, 2, np.where(any_z, 1, 0))
+
+    # Bull L-signal contributions
+    for col, pts in [
+        ("L34", 2), ("L43", 1), ("CCI_READY", 2), ("BLUE", 1),
+        ("FRI34", 2), ("BO_UP", 1), ("BX_UP", 1), ("UI", 1), ("L1L2", 1),
+    ]:
+        if col in wlnbb.columns:
+            bulls += wlnbb[col].values.astype(bool).astype(np.int32) * pts
+
+    # PRE_PUMP in rolling 3-bar window
+    if "PRE_PUMP" in wlnbb.columns:
+        pp_roll = wlnbb["PRE_PUMP"].rolling(3, min_periods=1).max()
+        bulls += pp_roll.values.astype(bool).astype(np.int32)
+
+    # Bear L-signal contributions
+    for col, pts in [
+        ("L22", 2), ("L64", 1), ("FUCHSIA_RH", 1), ("BO_DN", 1), ("BX_DN", 1),
+    ]:
+        if col in wlnbb.columns:
+            bears += wlnbb[col].values.astype(bool).astype(np.int32) * pts
+
+    bulls = np.clip(bulls, 0, 10).astype(np.int8)
+    bears = np.clip(bears, 0, 10).astype(np.int8)
+
+    return pd.DataFrame(
+        {"bull_score": bulls, "bear_score": bears},
+        index=wlnbb.index,
+    )
 
 
 def l_signal_label(last_row: pd.Series) -> str:
     """Return the highest-priority L-signal name or ''."""
     for name in ("FRI34", "L34", "L43", "L64", "L22",
-                 "CCI_READY", "BLUE", "BO_UP", "BO_DN",
-                 "BX_UP", "BX_DN", "PRE_PUMP"):
+                 "CCI_READY", "BLUE", "L1L2", "L2L5",
+                 "BO_UP", "BO_DN", "BX_UP", "BX_DN", "PRE_PUMP",
+                 "L3", "L1", "L2", "L4", "L6", "L5"):
         if bool(last_row.get(name)):
             return name
     return ""
 
 
 # ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _build_l_combo(L1, L2, L3, L4, L5, L6) -> pd.Series:
+    """Encode active L1-L6 signals as sorted pipe-joined string per bar."""
+    labels = ["L1", "L2", "L3", "L4", "L5", "L6"]
+    arrs   = [L1.values, L2.values, L3.values, L4.values, L5.values, L6.values]
+    mat    = np.column_stack(arrs)  # shape (n, 6)
+    result = []
+    for row in mat:
+        active = [lbl for lbl, v in zip(labels, row) if v]
+        result.append("|".join(active) if active else "NONE")
+    return pd.Series(result, index=L1.index, dtype=object)
+
 
 def _norm(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
