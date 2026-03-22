@@ -18,26 +18,32 @@ log = logging.getLogger(__name__)
 
 
 # ---------------------------------------------------------------------------
-# Scheduler
+# Scheduler (instantiated inside lifespan to avoid module-level crashes)
 # ---------------------------------------------------------------------------
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.cron import CronTrigger
 
-_scheduler = BackgroundScheduler(timezone="America/New_York")
-_scheduler.add_job(
-    lambda: run_scan("1d"),
-    CronTrigger(hour="9,12,15", minute="30"),
-    id="daily_scan",
-    replace_existing=True,
-)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    _scheduler.start()
-    log.info("Scheduler started")
+    try:
+        scheduler = BackgroundScheduler(timezone="America/New_York")
+        scheduler.add_job(
+            lambda: run_scan("1d"),
+            CronTrigger(hour="9,12,15", minute="30"),
+            id="daily_scan",
+            replace_existing=True,
+        )
+        scheduler.start()
+        log.info("Scheduler started")
+    except Exception as exc:
+        log.warning("Scheduler failed to start: %s", exc)
+        scheduler = None
+
     yield
-    _scheduler.shutdown(wait=False)
+
+    if scheduler and scheduler.running:
+        scheduler.shutdown(wait=False)
 
 
 # ---------------------------------------------------------------------------
