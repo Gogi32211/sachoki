@@ -1,0 +1,5 @@
+[phases.build]
+cmds = ["pip install -r requirements.txt"]
+
+[start]
+cmd = "python -c \"import signal_engine; print('signal_engine OK')\""
