@@ -77,7 +77,7 @@ def api_signals(ticker: str, tf: str = "1d", bars: int = 100):
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
         sigs = compute_signals(df)
         out = df.join(sigs)
-        out.index = out.index.astype(str)
+        out.index = out.index.strftime('%Y-%m-%d')
         records = out.reset_index().rename(columns={"index": "date"})
         # Ensure JSON-serialisable types
         for col in ["sig_id", "bc", "zc"]:
