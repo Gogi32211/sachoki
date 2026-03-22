@@ -7,6 +7,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
 
 from data import fetch_ohlcv
 from signal_engine import compute_signals
@@ -64,8 +65,8 @@ app.add_middleware(
 # Routes
 # ---------------------------------------------------------------------------
 
-@app.get("/")
-def root():
+@app.get("/api/health")
+def health():
     return {"status": "ok", "service": "tz-signal-dashboard"}
 
 
@@ -144,3 +145,12 @@ def api_watchlist(
         except Exception as exc:
             result.append({"ticker": ticker, "error": str(exc)})
     return result
+
+
+# ---------------------------------------------------------------------------
+# Serve React frontend (must be last — catches all unmatched paths)
+# ---------------------------------------------------------------------------
+import os as _os
+_static = _os.path.join(_os.path.dirname(__file__), "static")
+if _os.path.isdir(_static):
+    app.mount("/", StaticFiles(directory=_static, html=True), name="static")
