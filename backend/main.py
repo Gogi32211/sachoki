@@ -78,7 +78,8 @@ def api_signals(ticker: str, tf: str = "1d", bars: int = 100):
         sigs = compute_signals(df)
         out = df.join(sigs)
         out.index = out.index.strftime('%Y-%m-%d')
-        records = out.reset_index().rename(columns={"index": "date"})
+        out.index.name = "date"
+        records = out.reset_index()
         # Ensure JSON-serialisable types
         for col in ["sig_id", "bc", "zc"]:
             if col in records.columns:

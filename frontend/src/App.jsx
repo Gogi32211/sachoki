@@ -15,7 +15,7 @@ export default function App() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
-          TZ Signal Dashboard
+          TZ Signal Dashboard <span className="text-xs font-normal text-gray-500">v1.0</span>
         </h1>
         <TickerInput
           watchlist={watchlist}
