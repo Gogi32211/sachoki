@@ -1,0 +1,7 @@
+# Root railway.toml — defines both services from the same repo.
+# In the Railway dashboard, create two services and set their
+# "Root Directory" to backend/ and frontend/ respectively.
+# Each service will use its own Dockerfile.
+
+[build]
+builder = "DOCKERFILE"
