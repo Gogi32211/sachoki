@@ -103,7 +103,7 @@ def compute_signals(
     isBear = c < o
 
     p1Bull = (c.shift(1) > o.shift(1))
-    p1Bear = (c.shift(1) < o.shift(1)) | isDoji.shift(1).fillna(False)
+    p1Bear = (c.shift(1) < o.shift(1)) | isDoji.shift(1).fillna(False).astype(bool)
 
     pBody = (c.shift(1) - o.shift(1)).abs()
     pTop  = np.maximum(o.shift(1), c.shift(1))
