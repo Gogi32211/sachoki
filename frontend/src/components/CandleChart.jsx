@@ -60,25 +60,34 @@ export default function CandleChart({ ticker, tf }) {
 
     api.signals(ticker, tf, 150)
       .then((rows) => {
+        // Normalise time: always YYYY-MM-DD, filter out any bad rows
+        const toTime = (r) => {
+          const d = r.date ?? r.Datetime ?? r.Date
+          if (!d) return null
+          return String(d).slice(0, 10)
+        }
+
         const candles = rows
-          .filter((r) => r.close != null)
+          .filter((r) => r.close != null && toTime(r))
           .map((r) => ({
-            time: r.date?.split('T')[0] ?? r.date,
-            open: r.open,
-            high: r.high,
-            low: r.low,
-            close: r.close,
+            time: toTime(r),
+            open: Number(r.open),
+            high: Number(r.high),
+            low: Number(r.low),
+            close: Number(r.close),
           }))
 
+        // markers must be sorted by time for lightweight-charts
         const markers = rows
-          .filter((r) => r.sig_id > 0)
+          .filter((r) => r.sig_id > 0 && toTime(r))
           .map((r) => ({
-            time: r.date?.split('T')[0] ?? r.date,
+            time: toTime(r),
             position: r.is_bull ? 'belowBar' : 'aboveBar',
             color: r.is_bull ? SIG_COLOR.bull : SIG_COLOR.bear,
             shape: r.is_bull ? 'arrowUp' : 'arrowDown',
             text: r.sig_name,
           }))
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
 
         seriesRef.current.setData(candles)
         seriesRef.current.setMarkers(markers)

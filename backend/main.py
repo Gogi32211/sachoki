@@ -77,13 +77,29 @@ def api_signals(ticker: str, tf: str = "1d", bars: int = 100):
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
         sigs = compute_signals(df)
         out = df.join(sigs)
-        out.index = out.index.strftime('%Y-%m-%d')
+        # Normalise index to plain YYYY-MM-DD strings regardless of tz/name
+        try:
+            date_strs = out.index.strftime('%Y-%m-%d')
+        except AttributeError:
+            # index is already strings
+            date_strs = out.index.astype(str).str[:10]
+        out = out.copy()
+        out.index = date_strs
         out.index.name = "date"
         records = out.reset_index()
+        # Make sure the column is always called "date" (handle any index name)
+        first_col = records.columns[0]
+        if first_col != "date":
+            records = records.rename(columns={first_col: "date"})
+        # Clean date values: strip time/tz component just in case
+        records["date"] = records["date"].astype(str).str[:10]
         # Ensure JSON-serialisable types
         for col in ["sig_id", "bc", "zc"]:
             if col in records.columns:
                 records[col] = records[col].astype(int)
+        for col in ["is_bull", "is_bear"]:
+            if col in records.columns:
+                records[col] = records[col].astype(bool)
         return records.to_dict(orient="records")
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
