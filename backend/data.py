@@ -69,18 +69,12 @@ def fetch_ohlcv(ticker: str, interval: str = "1d", bars: int = 500) -> pd.DataFr
 
     period = TF_PERIOD.get(interval, "5y")
     try:
-        raw = yf.download(
-            ticker, period=period, interval=interval,
-            progress=False, auto_adjust=True, threads=False,
-        )
+        raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
     except Exception as e:
         raise RuntimeError(f"yfinance error for {ticker}: {e}")
 
     if raw is None or raw.empty:
         raise RuntimeError(f"No data returned for {ticker}")
-
-    if isinstance(raw.columns, pd.MultiIndex):
-        raw.columns = raw.columns.get_level_values(0)
 
     raw.columns = [str(c).lower() for c in raw.columns]
 

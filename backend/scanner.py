@@ -90,15 +90,10 @@ def run_scan(interval: str = "1d") -> int:
 
     for ticker in tickers:
         try:
-            raw = yf.download(
-                ticker, period="90d", interval=interval,
-                progress=False, auto_adjust=True, threads=False,
-            )
+            raw = yf.Ticker(ticker).history(period="90d", interval=interval, auto_adjust=True)
             if raw is None or raw.empty or len(raw) < 5:
                 continue
 
-            if isinstance(raw.columns, pd.MultiIndex):
-                raw.columns = raw.columns.get_level_values(0)
             raw.columns = [str(c).lower() for c in raw.columns]
 
             df = raw[["open", "high", "low", "close"]].dropna()
