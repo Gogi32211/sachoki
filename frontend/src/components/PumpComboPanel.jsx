@@ -41,11 +41,20 @@ export default function PumpComboPanel() {
     setError(null)
     api.pumpTrigger(threshold, window, comboLen)
       .then(() => {
-        // Poll for results after 5s
-        setTimeout(() => {
-          setMining(false)
-          load()
-        }, 5000)
+        // Poll every 30s until results arrive (mining takes ~15 min)
+        const poll = () => {
+          api.pumpCombos(threshold, window, comboLen)
+            .then(d => {
+              if (d.combos && d.combos.length > 0) {
+                setCombos(d.combos)
+                setMining(false)
+              } else {
+                setTimeout(poll, 30_000)
+              }
+            })
+            .catch(() => setTimeout(poll, 30_000))
+        }
+        setTimeout(poll, 30_000)
       })
       .catch(e => { setError(e.message); setMining(false) })
   }
