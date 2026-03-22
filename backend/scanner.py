@@ -57,18 +57,25 @@ _FALLBACK = [
 ]
 
 
-MAX_TICKERS = 700  # cap to keep scans fast
+MAX_TICKERS = 700  # expanded ticker universe
 
 
 def get_tickers() -> list[str]:
-    try:
-        tables = pd.read_html(
-            "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
-            attrs={"id": "constituents"},
-        )
-        sp500 = [t.replace(".", "-") for t in tables[0]["Symbol"].tolist()]
-    except Exception:
-        sp500 = []
+    sp500 = []
+    for url in [
+        "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
+        "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
+    ]:
+        try:
+            if "wikipedia" in url:
+                t = pd.read_html(url, attrs={"id": "constituents"})[0]["Symbol"].tolist()
+            else:
+                t = pd.read_csv(url)["Symbol"].tolist()
+            sp500.extend([x.replace(".", "-") for x in t])
+            if len(sp500) >= 500:
+                break
+        except Exception:
+            pass
     combined = list(dict.fromkeys(sp500 + _FALLBACK))
     return combined[:MAX_TICKERS]
 
