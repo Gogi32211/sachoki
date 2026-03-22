@@ -1,105 +1,110 @@
-import { useEffect, useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
 
 function SigBadge({ sig_id, sig_name }) {
   const bull = sig_id >= 1 && sig_id <= 11
-  const cls = bull ? 'bg-green-700 text-green-100' : 'bg-red-700 text-red-100'
+  const bear = sig_id >= 12 && sig_id <= 25
+  if (!bull && !bear) return null
   return (
-    <span className={`text-xs font-bold px-2 py-0.5 rounded font-mono ${cls}`}>
+    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-mono font-semibold
+      ${bull ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
       {sig_name}
     </span>
   )
 }
 
-export default function ScannerPanel({ tf }) {
-  const [rows, setRows] = useState([])
-  const [loading, setLoading] = useState(false)
-  const [scanning, setScanning] = useState(false)
+export default function ScannerPanel({ tf, onSelectTicker }) {
+  const [results, setResults] = useState([])
   const [lastScan, setLastScan] = useState(null)
+  const [loading, setLoading]  = useState(false)
+  const [scanning, setScanning] = useState(false)
+  const [error, setError]      = useState(null)
 
-  function loadResults() {
+  const load = useCallback(() => {
     setLoading(true)
-    api.scanResults(tf, 50)
-      .then((data) => {
-        setRows(data)
-        if (data.length) setLastScan(data[0].scanned_at)
+    setError(null)
+    api.scanResults(tf, 100)
+      .then(d => {
+        setResults(d.results || [])
+        setLastScan(d.last_scan)
       })
-      .catch(console.error)
+      .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }
-
-  function triggerScan() {
-    setScanning(true)
-    api.scanTrigger(tf)
-      .then(() => {
-        // Poll for results after 30s
-        setTimeout(loadResults, 30_000)
-      })
-      .catch(console.error)
-      .finally(() => setTimeout(() => setScanning(false), 30_000))
-  }
-
-  useEffect(() => {
-    loadResults()
   }, [tf])
 
-  const ts = lastScan
-    ? new Date(lastScan).toLocaleTimeString()
-    : 'never'
+  useEffect(() => { load() }, [load])
+
+  const scan = () => {
+    setScanning(true)
+    api.scanTrigger(tf)
+      .then(() => setTimeout(() => { setScanning(false); load() }, 3000))
+      .catch(e => { setError(e.message); setScanning(false) })
+  }
+
+  const fmtTime = (iso) => {
+    if (!iso) return null
+    try { return new Date(iso).toLocaleString() } catch { return iso }
+  }
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800">
+    <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
-        <div>
-          <span className="font-semibold text-sm">Scanner</span>
-          <span className="ml-2 text-xs text-gray-500">last: {ts}</span>
+        <div className="flex items-center gap-3">
+          <span className="font-semibold text-sm text-white">T/Z Scanner</span>
+          {lastScan && (
+            <span className="text-xs text-gray-500">Last: {fmtTime(lastScan)}</span>
+          )}
         </div>
         <button
-          onClick={triggerScan}
+          onClick={scan}
           disabled={scanning}
-          className="bg-blue-700 hover:bg-blue-600 disabled:opacity-50 rounded px-3 py-1 text-xs font-semibold"
+          className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
         >
           {scanning ? 'Scanning…' : 'Scan Now'}
         </button>
       </div>
 
-      <div className="overflow-auto max-h-72">
-        {loading && (
-          <div className="py-6 text-center text-gray-600 text-sm animate-pulse">
-            Loading results…
+      {error && <div className="px-4 py-2 text-xs text-red-400">{error}</div>}
+
+      <div className="overflow-auto flex-1">
+        {loading ? (
+          <div className="px-4 py-8 text-center text-gray-500 text-xs">Loading…</div>
+        ) : results.length === 0 ? (
+          <div className="px-4 py-8 text-center text-gray-500 text-xs">
+            No results — trigger a scan first.
           </div>
-        )}
-        {!loading && rows.length === 0 && (
-          <div className="py-6 text-center text-gray-600 text-sm">
-            No results — click Scan Now
-          </div>
-        )}
-        {rows.length > 0 && (
-          <table className="w-full text-sm">
+        ) : (
+          <table className="w-full text-xs">
             <thead>
-              <tr className="text-xs text-gray-500 bg-gray-950 sticky top-0">
-                <th className="px-3 py-2 text-left">Ticker</th>
-                <th className="px-3 py-2 text-left">Signal</th>
-                <th className="px-3 py-2 text-left">Pattern (3-bar)</th>
-                <th className="px-3 py-2 text-right">Time</th>
+              <tr className="text-gray-400 border-b border-gray-800 sticky top-0 bg-gray-900">
+                <th className="text-left px-3 py-2">Ticker</th>
+                <th className="text-center px-2 py-2">Signal</th>
+                <th className="text-left px-2 py-2 hidden md:table-cell">3-Bar Pattern</th>
+                <th className="text-right px-2 py-2">Price</th>
+                <th className="text-right px-2 py-2">Chg%</th>
               </tr>
             </thead>
             <tbody>
-              {rows.map((r, i) => (
+              {results.map((row, i) => (
                 <tr
                   key={i}
-                  className="border-t border-gray-800 hover:bg-gray-800 transition-colors"
+                  onClick={() => onSelectTicker?.(row.ticker)}
+                  className="border-b border-gray-800/40 cursor-pointer hover:bg-gray-800/50"
                 >
-                  <td className="px-3 py-2 font-bold font-mono">{r.ticker}</td>
-                  <td className="px-3 py-2">
-                    <SigBadge sig_id={r.sig_id} sig_name={r.sig_name} />
+                  <td className="px-3 py-2 font-semibold text-white">{row.ticker}</td>
+                  <td className="text-center px-2 py-2">
+                    <SigBadge sig_id={row.sig_id} sig_name={row.sig_name} />
                   </td>
-                  <td className="px-3 py-2 text-gray-400 text-xs font-mono">
-                    {r.pattern_3bar}
+                  <td className="px-2 py-2 text-gray-400 font-mono hidden md:table-cell max-w-[160px] truncate">
+                    {row.pattern_3bar}
                   </td>
-                  <td className="px-3 py-2 text-right text-xs text-gray-500">
-                    {r.scanned_at
-                      ? new Date(r.scanned_at).toLocaleTimeString()
+                  <td className="text-right px-2 py-2 text-gray-200">
+                    {row.last_price ? `$${Number(row.last_price).toFixed(2)}` : '—'}
+                  </td>
+                  <td className={`text-right px-2 py-2 font-medium
+                    ${(row.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                    {row.change_pct != null
+                      ? `${row.change_pct >= 0 ? '+' : ''}${Number(row.change_pct).toFixed(2)}%`
                       : '—'}
                   </td>
                 </tr>
