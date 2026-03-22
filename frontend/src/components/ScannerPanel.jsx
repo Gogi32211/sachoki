@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api'
 
 function SigBadge({ sig_id, sig_name }) {
@@ -18,7 +18,9 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
   const [lastScan, setLastScan] = useState(null)
   const [loading, setLoading]  = useState(false)
   const [scanning, setScanning] = useState(false)
+  const [progress, setProgress] = useState(null)   // { done, total, found }
   const [error, setError]      = useState(null)
+  const pollRef = useRef(null)
 
   const load = useCallback(() => {
     setLoading(true)
@@ -34,11 +36,40 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
 
   useEffect(() => { load() }, [load])
 
+  // Poll /api/scan/status while scanning
+  const startPolling = () => {
+    if (pollRef.current) return
+    pollRef.current = setInterval(() => {
+      api.scanStatus()
+        .then(s => {
+          setProgress({ done: s.done, total: s.total, found: s.found })
+          if (!s.running) {
+            stopPolling()
+            setScanning(false)
+            setProgress(null)
+            load()
+          }
+        })
+        .catch(() => {})
+    }, 1000)
+  }
+
+  const stopPolling = () => {
+    if (pollRef.current) {
+      clearInterval(pollRef.current)
+      pollRef.current = null
+    }
+  }
+
+  useEffect(() => () => stopPolling(), [])
+
   const scan = () => {
     setScanning(true)
+    setProgress({ done: 0, total: 0, found: 0 })
+    setError(null)
     api.scanTrigger(tf)
-      .then(() => setTimeout(() => { setScanning(false); load() }, 3000))
-      .catch(e => { setError(e.message); setScanning(false) })
+      .then(() => startPolling())
+      .catch(e => { setError(e.message); setScanning(false); setProgress(null) })
   }
 
   const fmtTime = (iso) => {
@@ -46,12 +77,16 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
     try { return new Date(iso).toLocaleString() } catch { return iso }
   }
 
+  const pct = progress && progress.total > 0
+    ? Math.round((progress.done / progress.total) * 100)
+    : null
+
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
         <div className="flex items-center gap-3">
           <span className="font-semibold text-sm text-white">T/Z Scanner</span>
-          {lastScan && (
+          {lastScan && !scanning && (
             <span className="text-xs text-gray-500">Last: {fmtTime(lastScan)}</span>
           )}
         </div>
@@ -63,6 +98,29 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
           {scanning ? 'Scanning…' : 'Scan Now'}
         </button>
       </div>
+
+      {/* Progress bar */}
+      {scanning && progress && (
+        <div className="px-4 py-2 border-b border-gray-800">
+          <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+            <span>
+              {progress.total > 0
+                ? `${progress.done} / ${progress.total} tickers`
+                : 'Starting…'}
+            </span>
+            <span>{progress.found} signals found</span>
+          </div>
+          <div className="w-full bg-gray-700 rounded-full h-1.5">
+            <div
+              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
+              style={{ width: pct != null ? `${pct}%` : '0%' }}
+            />
+          </div>
+          {pct != null && (
+            <div className="text-right text-xs text-gray-500 mt-0.5">{pct}%</div>
+          )}
+        </div>
+      )}
 
       {error && <div className="px-4 py-2 text-xs text-red-400">{error}</div>}
 

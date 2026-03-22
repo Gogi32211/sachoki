@@ -20,6 +20,15 @@ log = logging.getLogger(__name__)
 
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
+# ── Scan progress state (shared across threads) ───────────────────────────────
+_scan_state: dict = {
+    "running": False,
+    "done": 0,
+    "total": 0,
+    "found": 0,
+    "interval": "",
+}
+
 # ── Ticker universe ───────────────────────────────────────────────────────────
 
 _FALLBACK = [
@@ -48,17 +57,21 @@ _FALLBACK = [
 ]
 
 
+MAX_TICKERS = 200  # cap to keep scans fast
+
+
 def get_tickers() -> list[str]:
-    """Try Wikipedia S&P 500; fall back to hardcoded list."""
+    """Try Wikipedia S&P 500; fall back to hardcoded list. Capped at MAX_TICKERS."""
     try:
         tables = pd.read_html(
             "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
             attrs={"id": "constituents"},
         )
         sp500 = tables[0]["Symbol"].tolist()
-        return [t.replace(".", "-") for t in sp500]
+        tickers = [t.replace(".", "-") for t in sp500]
     except Exception:
-        return list(dict.fromkeys(_FALLBACK))  # deduplicated
+        tickers = list(dict.fromkeys(_FALLBACK))  # deduplicated
+    return tickers[:MAX_TICKERS]
 
 
 # ── DB schema ─────────────────────────────────────────────────────────────────
@@ -211,7 +224,12 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
 
 # ── Main scan ─────────────────────────────────────────────────────────────────
 
-def run_scan(interval: str = "1d", workers: int = 5) -> int:
+def get_scan_progress() -> dict:
+    """Return a copy of the current scan progress state."""
+    return dict(_scan_state)
+
+
+def run_scan(interval: str = "1d", workers: int = 8) -> int:
     """
     Scan all tickers. Save results to SQLite incrementally.
     Returns count of results saved.
@@ -219,6 +237,9 @@ def run_scan(interval: str = "1d", workers: int = 5) -> int:
     _init_db()
     tickers = get_tickers()
     now_iso = datetime.now(timezone.utc).isoformat()
+
+    _scan_state.update({"running": True, "done": 0, "total": len(tickers),
+                        "found": 0, "interval": interval})
 
     con = sqlite3.connect(DB_PATH)
     cur = con.execute(
@@ -234,12 +255,14 @@ def run_scan(interval: str = "1d", workers: int = 5) -> int:
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(_scan_ticker, t, interval): t for t in tickers}
         for fut in as_completed(futures):
+            _scan_state["done"] += 1
             row = fut.result()
             if row is None:
                 continue
             row["scan_id"]   = scan_id
             row["scanned_at"] = now_iso
             results.append(row)
+            _scan_state["found"] = len(results)
 
             # Write incrementally every 20 results
             if len(results) % 20 == 0:
@@ -268,6 +291,7 @@ def run_scan(interval: str = "1d", workers: int = 5) -> int:
     con.commit()
     con.close()
 
+    _scan_state["running"] = False
     log.info("Scan %d complete: %d results", scan_id, len(results))
     return len(results)
 

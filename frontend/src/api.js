@@ -49,6 +49,8 @@ export const api = {
     get(`/api/scan/results?tf=${tf}&limit=${limit}&tab=${tab}&min_score=${min_score}`),
   scanTrigger: (tf = '1d') =>
     post(`/api/scan/trigger?tf=${tf}`),
+  scanStatus: () =>
+    get('/api/scan/status'),
 
   // Combined
   combinedScan: (tf = '1d', min_score = 4, tab = 'bull', limit = 100) =>
