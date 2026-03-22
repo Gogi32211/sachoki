@@ -57,21 +57,21 @@ _FALLBACK = [
 ]
 
 
-MAX_TICKERS = 200  # cap to keep scans fast
+MAX_TICKERS = 700  # cap to keep scans fast
 
 
 def get_tickers() -> list[str]:
-    """Try Wikipedia S&P 500; fall back to hardcoded list. Capped at MAX_TICKERS."""
     try:
         tables = pd.read_html(
             "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
             attrs={"id": "constituents"},
         )
-        sp500 = tables[0]["Symbol"].tolist()
-        tickers = [t.replace(".", "-") for t in sp500]
+        sp500 = [t.replace(".", "-") for t in tables[0]["Symbol"].tolist()]
     except Exception:
-        tickers = list(dict.fromkeys(_FALLBACK))  # deduplicated
-    return tickers[:MAX_TICKERS]
+        sp500 = []
+    combined = list(dict.fromkeys(sp500 + _FALLBACK))
+    return combined[:MAX_TICKERS]
+
 
 
 # ── DB schema ─────────────────────────────────────────────────────────────────
