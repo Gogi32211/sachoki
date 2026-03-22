@@ -18,6 +18,7 @@ from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
 from scanner import (
     run_scan, get_results, get_last_scan_time,
+    get_scan_progress,
     save_watchlist, load_watchlist,
     save_settings, load_settings,
 )
@@ -288,7 +289,13 @@ def api_scan_results(
 @app.post("/api/scan/trigger")
 def api_scan_trigger(background_tasks: BackgroundTasks, tf: str = "1d"):
     background_tasks.add_task(run_scan, tf)
-    return {"status": "scan started", "estimated_seconds": 120}
+    return {"status": "scan started"}
+
+
+@app.get("/api/scan/status")
+def api_scan_status():
+    """Current scan progress: running, done, total, found."""
+    return get_scan_progress()
 
 
 # ── Combined scan ─────────────────────────────────────────────────────────────

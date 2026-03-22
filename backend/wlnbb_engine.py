@@ -3,7 +3,7 @@ wlnbb_engine.py — Volume Bollinger Bands L-signal engine.
 
 Computes per bar:
   vol_bucket     (W/L/N/B/VB)
-  vol_up_adapted / vol_down_adapted  (bool)
+  vol_up / vol_down  (bool — simple v > v[1] / v < v[1])
   L1, L2, L3, L4, L5, L6            (bool raw — NOT mutually exclusive)
   L34, L43, L64, L22, L1L2, L2L5    (bool combined)
   l_combo                             (str  e.g. "L3|L4", "NONE")
@@ -66,11 +66,10 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     bkt = np.where(v.values >= (vol_upper + vol_mid).values, 4, bkt)
     bucket = pd.Series(bkt.astype(np.int8), index=df.index)
 
-    # ── Volume Direction (adapted — bucket transitions take priority) ─────
-    pb = bucket.shift(1)
+    # ── Volume Direction (simple: current vs previous volume) ────────────
     pv = v.shift(1)
-    vol_up_adapted   = ((bucket > pb) | ((bucket == pb) & (v > pv))).fillna(False)
-    vol_down_adapted = ((bucket < pb) | ((bucket == pb) & (v < pv))).fillna(False)
+    vol_up_adapted   = (v > pv).fillna(False)
+    vol_down_adapted = (v < pv).fillna(False)
 
     # ── Raw L-signals (NOT mutually exclusive) ────────────────────────────
     up_close   = c > c.shift(1)
