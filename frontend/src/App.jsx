@@ -6,6 +6,7 @@ import PredictorPanel from './components/PredictorPanel'
 import ScannerPanel from './components/ScannerPanel'
 import CombinedScanPanel from './components/CombinedScanPanel'
 import PumpComboPanel from './components/PumpComboPanel'
+import HowItWorksPanel from './components/HowItWorksPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -23,6 +24,7 @@ const TABS = [
   { id: 'predictor', label: 'Predictor' },
   { id: 'scanner',   label: 'T/Z Scanner' },
   { id: 'pumps',     label: 'Pump Combos' },
+  { id: 'howitworks', label: 'How It Works' },
 ]
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
@@ -138,6 +140,10 @@ export default function App() {
 
           {activeTab === 'pumps' && (
             <PumpComboPanel />
+          )}
+
+          {activeTab === 'howitworks' && (
+            <HowItWorksPanel />
           )}
         </div>
       </div>
