@@ -30,16 +30,34 @@ const TZ_SIGNALS = [
 
 // ── WLNBB L signal filter options ─────────────────────────────────────────────
 const L_SIGNALS = [
-  { key: 'fri34',    label: 'FRI34',    color: 'text-cyan-300' },
-  { key: 'l34',      label: 'L34',      color: 'text-blue-300' },
-  { key: 'l43',      label: 'L43',      color: 'text-teal-300' },
-  { key: 'l64',      label: 'L64',      color: 'text-orange-400' },
-  { key: 'l22',      label: 'L22',      color: 'text-red-400' },
-  { key: 'cci_ready',label: 'CCI_RDY',  color: 'text-violet-300' },
-  { key: 'blue',     label: 'BLUE',     color: 'text-sky-300' },
-  { key: 'bo_up',    label: 'BO_UP',    color: 'text-lime-300' },
-  { key: 'bx_up',    label: 'BX_UP',    color: 'text-lime-400' },
-  { key: 'pre_pump', label: 'PRE_PUMP', color: 'text-purple-300' },
+  // WLNBB L signals
+  { key: 'fri34',     label: 'FRI34',    color: 'text-cyan-300' },
+  { key: 'l34',       label: 'L34',      color: 'text-blue-300' },
+  { key: 'l43',       label: 'L43',      color: 'text-teal-300' },
+  { key: 'l64',       label: 'L64',      color: 'text-orange-400' },
+  { key: 'l22',       label: 'L22',      color: 'text-red-400' },
+  { key: 'cci_ready', label: 'CCI_RDY', color: 'text-violet-300' },
+  { key: 'blue',      label: 'BLUE',     color: 'text-sky-300' },
+  { key: 'bo_up',     label: 'BO_UP',    color: 'text-lime-300' },
+  { key: 'bx_up',     label: 'BX_UP',    color: 'text-lime-400' },
+  { key: 'pre_pump',  label: 'PRE_PMP',  color: 'text-purple-300' },
+  // WLNBB FUCHSIA (RH/RL from 260315)
+  { key: 'fuchsia_rh', label: 'RH',     color: 'text-fuchsia-400' },
+  { key: 'fuchsia_rl', label: 'RL',     color: 'text-fuchsia-300' },
+  // 260312 VSA signals
+  { key: 'sq',        label: 'SQ',       color: 'text-cyan-400' },
+  { key: 'ns',        label: 'NS',       color: 'text-lime-400' },
+  { key: 'nd',        label: 'ND',       color: 'text-red-400' },
+  { key: 'sig3_up',   label: '3↑',       color: 'text-blue-300' },
+  { key: 'sig3_dn',   label: '3↓',       color: 'text-orange-400' },
+  // 3112_2C wick reversal
+  { key: 'wick_bull', label: 'WICK↑',    color: 'text-emerald-300' },
+  { key: 'wick_bear', label: 'WICK↓',    color: 'text-rose-400' },
+  // 250115 CISD sequences
+  { key: 'cisd_seq',  label: 'C++--',    color: 'text-lime-300' },
+  { key: 'cisd_ppm',  label: 'C++-',     color: 'text-green-300' },
+  { key: 'cisd_mpm',  label: 'C-+-',     color: 'text-red-300' },
+  { key: 'cisd_pmm',  label: 'C+--',     color: 'text-fuchsia-300' },
 ]
 
 const LABEL_TO_SIG = Object.fromEntries(SIGNALS.map(s => [s.label, s]))
