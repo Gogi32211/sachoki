@@ -345,7 +345,7 @@ COMBO_LABELS = {
 }
 
 
-def last_n_active(combo_df: pd.DataFrame, n: int = 7) -> dict[str, bool]:
+def last_n_active(combo_df: pd.DataFrame, n: int = 3) -> dict[str, bool]:
     """
     For each signal column, return True if it fired at any point in the last n bars.
     State signals (cons_atr, bias_up, bias_down) use last bar only.

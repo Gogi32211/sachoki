@@ -65,7 +65,7 @@ export const api = {
   // 260323 Combo scan
   comboScan: (signal = 'all', limit = 200) =>
     get(`/api/combo-scan?signal=${signal}&limit=${limit}`),
-  comboScanTrigger: (tf = '1d', n_bars = 7) =>
+  comboScanTrigger: (tf = '1d', n_bars = 3) =>
     post(`/api/combo-scan/trigger?tf=${tf}&n_bars=${n_bars}`),
   comboScanStatus: () =>
     get('/api/combo-scan/status'),

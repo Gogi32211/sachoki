@@ -215,7 +215,7 @@ def _init_db() -> None:
             started_at   TEXT,
             completed_at TEXT,
             result_count INTEGER DEFAULT 0,
-            n_bars       INTEGER DEFAULT 7
+            n_bars       INTEGER DEFAULT 3
         );
 
         CREATE TABLE IF NOT EXISTS pump_combos (
@@ -564,7 +564,7 @@ def get_combo_scan_progress() -> dict:
     return dict(_combo_state)
 
 
-def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 7) -> dict | None:
+def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 3) -> dict | None:
     """Compute 260323 combo signals for the last bar (and last n_bars) of a ticker."""
     try:
         raw = yf.Ticker(ticker).history(
@@ -606,7 +606,7 @@ def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 7) -> dict | No
         return None
 
 
-def run_combo_scan(interval: str = "1d", n_bars: int = 7, workers: int = 8) -> int:
+def run_combo_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> int:
     """Scan all tickers for 260323 combo signals. Saves results to SQLite."""
     _init_db()
     tickers  = get_tickers()
