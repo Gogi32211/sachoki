@@ -371,7 +371,7 @@ def api_combo_scan(
 def api_combo_scan_trigger(
     background_tasks: BackgroundTasks,
     tf: str = "1d",
-    n_bars: int = 7,
+    n_bars: int = 3,
 ):
     background_tasks.add_task(run_combo_scan, tf, n_bars)
     return {"status": "combo scan started"}
