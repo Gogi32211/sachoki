@@ -69,6 +69,8 @@ export const api = {
     post(`/api/combo-scan/trigger?tf=${tf}&n_bars=${n_bars}`),
   comboScanStatus: () =>
     get('/api/combo-scan/status'),
+  comboScanDebug: (ticker, tf = '1d', rows = 7, n_bars = 3) =>
+    get(`/api/combo-scan/debug/${ticker}?tf=${tf}&rows=${rows}&n_bars=${n_bars}`),
 
   // Settings
   getSettings: () => get('/api/settings'),

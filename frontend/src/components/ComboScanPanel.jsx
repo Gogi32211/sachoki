@@ -52,12 +52,13 @@ function rowBg(signals) {
 }
 
 export default function ComboScanPanel({ tf, onSelectTicker }) {
-  const [selected,  setSelected]  = useState(new Set())   // selected signal keys
+  const [selected,   setSelected]  = useState(new Set())   // selected signal keys
   const [allResults, setAllResults] = useState([])
-  const [lastScan,  setLastScan]  = useState(null)
-  const [loading,   setLoading]   = useState(false)
-  const [scanning,  setScanning]  = useState(false)
-  const [error,     setError]     = useState(null)
+  const [lastScan,   setLastScan]  = useState(null)
+  const [loading,    setLoading]   = useState(false)
+  const [scanning,   setScanning]  = useState(false)
+  const [error,      setError]     = useState(null)
+  const [debug,      setDebug]     = useState(null)   // { ticker, loading, data, error }
 
   // Always fetch all results; filtering is client-side
   const load = useCallback(() => {
@@ -106,6 +107,13 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
       return [...selected].every(k => rowKeys.has(k))
     })
   }, [allResults, selected])
+
+  const openDebug = (ticker) => {
+    setDebug({ ticker, loading: true, data: null, error: null })
+    api.comboScanDebug(ticker, tf)
+      .then(d  => setDebug(prev => prev?.ticker === ticker ? { ...prev, loading: false, data: d } : prev))
+      .catch(e => setDebug(prev => prev?.ticker === ticker ? { ...prev, loading: false, error: e.message } : prev))
+  }
 
   const fmtTime = (iso) => {
     if (!iso) return null
@@ -201,7 +209,8 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
                 return (
                   <tr
                     key={i}
-                    onClick={() => onSelectTicker?.(row.ticker)}
+                    onClick={e => e.shiftKey ? openDebug(row.ticker) : onSelectTicker?.(row.ticker)}
+                    title="Click → chart | Shift+Click → debug bars"
                     className={`border-b border-gray-800/40 cursor-pointer hover:bg-gray-800/50 ${rowBg(row.signals)}`}
                   >
                     <td className="px-3 py-2 font-semibold text-white">{row.ticker}</td>
@@ -224,6 +233,65 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
           </table>
         )}
       </div>
+
+      {/* ── Debug Modal ────────────────────────────────────────────────────── */}
+      {debug && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70"
+             onClick={() => setDebug(null)}>
+          <div className="bg-gray-900 border border-gray-700 rounded-xl p-5 w-[700px] max-w-full max-h-[80vh] overflow-auto shadow-2xl"
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between mb-3">
+              <span className="font-bold text-white text-sm">{debug.ticker} — bolo 7 bari (n_bars=3)</span>
+              <button onClick={() => setDebug(null)} className="text-gray-400 hover:text-white text-lg leading-none">×</button>
+            </div>
+
+            {debug.loading && <div className="text-xs text-gray-400 py-4 text-center">Loading…</div>}
+            {debug.error   && <div className="text-xs text-red-400 py-2">{debug.error}</div>}
+
+            {debug.data && (
+              <>
+                {/* Active signals summary */}
+                <div className="mb-3 flex flex-wrap gap-1 items-center">
+                  <span className="text-xs text-gray-500 mr-1">Active (last {debug.data.n_bars} bars):</span>
+                  {debug.data.active.length === 0
+                    ? <span className="text-xs text-gray-600">none</span>
+                    : debug.data.active.map(lbl => <SignalBadge key={lbl} label={lbl} />)
+                  }
+                </div>
+
+                {/* Per-bar table */}
+                <table className="w-full text-xs">
+                  <thead>
+                    <tr className="text-gray-400 border-b border-gray-700">
+                      <th className="text-left py-1 pr-3 w-28">Date</th>
+                      <th className="text-left py-1">Signals fired</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {[...debug.data.bars].reverse().map((bar, i) => (
+                      <tr key={i} className={`border-b border-gray-800/50 ${i < debug.data.n_bars ? 'bg-indigo-950/30' : ''}`}>
+                        <td className="py-1.5 pr-3 font-mono text-gray-300">
+                          {bar.date}
+                          {i < debug.data.n_bars && (
+                            <span className="ml-1 text-indigo-400 text-[10px]">← n_bars</span>
+                          )}
+                        </td>
+                        <td className="py-1 flex flex-wrap gap-1">
+                          {bar.signals.length === 0
+                            ? <span className="text-gray-700">—</span>
+                            : bar.signals.map(lbl => <SignalBadge key={lbl} label={lbl} />)
+                          }
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+                <p className="mt-2 text-[10px] text-gray-600">Highlighted rows = last {debug.data.n_bars} bars checked by scan</p>
+              </>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Legend ─────────────────────────────────────────────────────────── */}
       <div className="px-4 py-2 border-t border-gray-800 flex flex-wrap gap-x-4 gap-y-1">
