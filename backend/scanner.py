@@ -15,6 +15,7 @@ import yfinance as yf
 
 from signal_engine import compute_signals, SIG_NAMES
 from wlnbb_engine import compute_wlnbb, score_last_bar, l_signal_label
+from combo_engine import compute_combo, last_n_active, active_signal_labels
 
 log = logging.getLogger(__name__)
 
@@ -32,6 +33,7 @@ _scan_state: dict = {
 # ── Ticker universe ───────────────────────────────────────────────────────────
 
 _FALLBACK = [
+    # Mega-cap / S&P 500 core
     "AAPL","MSFT","GOOGL","AMZN","NVDA","META","TSLA","BRK-B","JPM","JNJ",
     "V","PG","UNH","HD","MA","ABBV","MRK","LLY","CVX","PEP","KO","AVGO",
     "BAC","COST","MCD","WMT","TMO","CSCO","ACN","CRM","ABT","LIN","DHR",
@@ -42,18 +44,72 @@ _FALLBACK = [
     "VRTX","CL","ITW","CI","EOG","SLB","EMR","AON","APD","ICE","MCO",
     "FIS","NSC","TGT","FISV","EW","GD","DXCM","FDX","HUM","WM","FCX",
     "OXY","MPC","PSA","MRNA","KLAC","LRCX","SNPS","CDNS","MCHP","AMAT",
+    # Tech / Growth
     "MU","PANW","CRWD","SNOW","PLTR","SQ","SHOP","UBER","LYFT","ABNB",
     "COIN","RBLX","HOOD","SOFI","AFRM","UPST","RIVN","LCID","NIO",
     "BABA","JD","PDD","BIDU","DDOG","NET","ZS","OKTA","TWLO","MDB",
     "ESTC","HUBS","GTLB","U","DOCN","CFLT","IOT","TOST","ASAN","BILL",
     "DUOL","APPN","AI","PATH","BRZE","SEMR","SPT","MNDY","WIX",
+    # Auto / Transport
     "F","GM","TM","HMC","RACE","XPEV","LI",
     "DAL","UAL","AAL","LUV","ALK","JBLU",
+    # Leisure / Gaming
     "CCL","RCL","NCLH","MGM","WYNN","LVS","CZR","PENN","DKNG",
-    "DIS","PARA","WBD","ROKU","SPOT","TTWO","EA",
-    "XOM","COP","HAL","BKR","MRO","DVN","FANG","PXD",
-    "GLD","SLV","NEM","AEM","WPM","FNV","RGLD",
-    "SPY","QQQ","IWM","DIA","EEM","XLF","XLE","XLK","XLV",
+    "DIS","PARA","WBD","ROKU","SPOT","TTWO","EA","ATVI","NTES","BILI",
+    # Energy
+    "XOM","COP","HAL","BKR","MRO","DVN","FANG","PXD","VLO","PSX","HES",
+    "APA","NOV","RIG","WTI","CTRA","MTDR",
+    # Metals / Mining
+    "GLD","SLV","NEM","AEM","WPM","FNV","RGLD","GOLD","KGC","AGI",
+    # ETFs
+    "SPY","QQQ","IWM","DIA","EEM","XLF","XLE","XLK","XLV","XBI","ARKK",
+    # S&P 500 mid-tier
+    "MMM","AOS","ABT","AIG","ARE","AFL","ALB","ALGN","ALLE","LNT",
+    "AEE","AEP","AXP","AMT","AWK","AMP","ADM","APTV","ACGL","ADI",
+    "APH","AIZ","T","ATO","AZO","AVB","AVY","AXON","BKR","BALL",
+    "BAX","BDX","BBY","BIO","TECH","BIIB","BXP","BSX","BA","BWA",
+    "BR","BF-B","BLDR","BRO","CHRW","CDNS","CZR","CPT","CPB","COF",
+    "CAH","KMX","CCL","CARR","CTLT","CAT","CBOE","CBRE","CDW","CE",
+    "COR","CNC","CNP","CF","CHTR","CME","SCHW","LNG","CVX","CMG",
+    "CB","CHD","CI","CINF","CTAS","CSCO","C","CFG","CLX","CMI",
+    "CMS","KO","CTSH","CL","CMCSA","CAG","COP","ED","STZ","CEG",
+    "COO","CPT","CPRT","GLW","CTRA","CSGP","COST","CTRA","CCI","CSX",
+    "CMI","CVS","DHI","DHR","DRI","DVA","DAY","DE","DAL","XRAY",
+    "DVN","DXCM","FANG","DLR","DFS","DG","DLTR","D","DPZ","ODFL",
+    "DOV","DOW","DHI","DTE","DUK","DRE","DD","EMN","ETN","EBAY",
+    "ECL","EIX","EW","EA","ELV","LLY","EMR","ENPH","ETR","EOG",
+    "EPAM","EQT","EFX","EQIX","EQR","ESS","EL","EG","ES","RE",
+    "EXC","EXPE","EXPD","EXR","XOM","FFIV","FDS","FICO","FAST",
+    "FRT","FDX","FIS","FITB","FSLR","FE","FLT","FMC","F","FTNT",
+    "FTV","FOXA","FOX","BEN","FCX","GRMN","IT","GEHC","GEN","GNRC",
+    "GIS","GL","GPC","GWW","HAL","HIG","HAS","HCA","PEAK","HSIC",
+    "HES","HPE","HLT","HOLX","HD","HON","HRL","HST","HWM","HPQ",
+    "HUBB","HUM","HBAN","HII","IBM","IEX","IDXX","ITW","ILMN","INCY",
+    "IR","PODD","INTC","ICE","IFF","IP","IPG","INTU","ISRG","IVZ",
+    "INVH","IQV","IRM","JBHT","JBL","JKHY","J","JNJ","JCI","JPM",
+    "JNPR","K","KVUE","KDP","KEY","KEYS","KMB","KIM","KMI","KHC",
+    "KR","LHX","LH","LRCX","LW","LVS","LDOS","LEN","LNC","LIN",
+    "LYV","LKQ","LMT","L","LOW","LULU","LYB","MTB","MRO","MPC",
+    "MKTX","MAR","MMC","MLM","MAS","MA","MTCH","MKC","MCD","MCK",
+    "MDT","MRK","META","MET","MTD","MGM","MCHP","MU","MSFT","MAA",
+    "MRNA","MHK","MOH","TAP","MDLZ","MPWR","MNST","MCO","MS","MSI",
+    "MSCI","NDAQ","NTAP","NFLX","NWL","NEM","NWSA","NWS","NEE","NKE",
+    "NI","NDSN","NSC","NTRS","NOC","NCLH","NRG","NUE","NVDA","NVR",
+    "NXPI","ORLY","OXY","ODFL","OMC","ON","OKE","ORCL","OTIS","PCAR",
+    "PKG","PANW","PH","PAYX","PAYC","PYPL","PNR","PEP","PFE","PCG",
+    "PM","PSX","PNW","PXD","PNC","POOL","PPG","PPL","PFG","PG",
+    "PGR","PLD","PRU","PEG","PTC","PSA","PHM","QRVO","PWR","QCOM",
+    "DGX","RL","RJF","RTX","O","REG","REGN","RF","RSG","RMD",
+    "RVTY","ROK","ROL","ROP","ROST","RCL","SPGI","CRM","SBAC","SLB",
+    "STX","SEE","SRE","NOW","SHW","SPG","SWKS","SJM","SNA","SOLV",
+    "SO","LUV","SWK","SBUX","STT","STLD","STE","SYK","SMCI","SYF",
+    "SNPS","SYY","TMUS","TROW","TTWO","TPR","TGT","TEL","TDY","TFX",
+    "TER","TSLA","TXN","TXT","TMO","TJX","TSCO","TT","TDG","TRV",
+    "TRMB","TFC","TYL","USB","UDR","ULTA","UNP","UAL","UPS","URI",
+    "UNH","UHS","VLO","VTR","VRSN","VRSK","VZ","VRTX","VTRS","VICI",
+    "V","VMC","WRB","GWW","WAB","WBA","WMT","WBD","WM","WAT",
+    "WEC","WFC","WELL","WST","WDC","WRK","WY","WHR","WMB","WTW",
+    "WYNN","XEL","XYL","YUM","ZBRA","ZBH","ZION","ZTS",
 ]
 
 
@@ -61,6 +117,7 @@ MAX_TICKERS = 700  # expanded ticker universe
 
 
 def get_tickers() -> list[str]:
+    """Combine Wikipedia S&P 500 + fallback list, deduplicated. Capped at MAX_TICKERS."""
     sp500 = []
     for url in [
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
@@ -78,7 +135,6 @@ def get_tickers() -> list[str]:
             pass
     combined = list(dict.fromkeys(sp500 + _FALLBACK))
     return combined[:MAX_TICKERS]
-
 
 
 # ── DB schema ─────────────────────────────────────────────────────────────────
@@ -121,6 +177,45 @@ def _init_db() -> None:
         CREATE TABLE IF NOT EXISTS settings (
             key   TEXT PRIMARY KEY,
             value TEXT
+        );
+
+        CREATE TABLE IF NOT EXISTS combo_scan_results (
+            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id    INTEGER DEFAULT 0,
+            ticker     TEXT NOT NULL,
+            signals    TEXT DEFAULT '',
+            buy_2809   INTEGER DEFAULT 0,
+            um_2809    INTEGER DEFAULT 0,
+            svs_2809   INTEGER DEFAULT 0,
+            conso_2809 INTEGER DEFAULT 0,
+            cons_atr   INTEGER DEFAULT 0,
+            bias_up    INTEGER DEFAULT 0,
+            bias_down  INTEGER DEFAULT 0,
+            atr_brk    INTEGER DEFAULT 0,
+            bb_brk     INTEGER DEFAULT 0,
+            hilo_buy   INTEGER DEFAULT 0,
+            hilo_sell  INTEGER DEFAULT 0,
+            rtv        INTEGER DEFAULT 0,
+            preup3     INTEGER DEFAULT 0,
+            preup2     INTEGER DEFAULT 0,
+            preup50    INTEGER DEFAULT 0,
+            preup89    INTEGER DEFAULT 0,
+            sig3g      INTEGER DEFAULT 0,
+            rocket     INTEGER DEFAULT 0,
+            last_price REAL DEFAULT 0,
+            volume     INTEGER DEFAULT 0,
+            change_pct REAL DEFAULT 0,
+            scanned_at TEXT
+        );
+        CREATE INDEX IF NOT EXISTS idx_combo_scan
+            ON combo_scan_results(scanned_at DESC);
+
+        CREATE TABLE IF NOT EXISTS combo_scan_runs (
+            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            started_at   TEXT,
+            completed_at TEXT,
+            result_count INTEGER DEFAULT 0,
+            n_bars       INTEGER DEFAULT 7
         );
 
         CREATE TABLE IF NOT EXISTS pump_combos (
@@ -444,3 +539,189 @@ def load_settings() -> dict:
     rows = con.execute("SELECT key, value FROM settings").fetchall()
     con.close()
     return {r[0]: r[1] for r in rows}
+
+
+# ── Combo scan (260323) ────────────────────────────────────────────────────────
+
+_combo_state: dict = {
+    "running": False,
+    "done": 0,
+    "total": 0,
+    "found": 0,
+}
+
+_COMBO_BOOL_COLS = [
+    "buy_2809", "um_2809", "svs_2809", "conso_2809",
+    "cons_atr", "bias_up", "bias_down",
+    "atr_brk", "bb_brk",
+    "hilo_buy", "hilo_sell", "rtv",
+    "preup3", "preup2", "preup50", "preup89",
+    "sig3g", "rocket",
+]
+
+
+def get_combo_scan_progress() -> dict:
+    return dict(_combo_state)
+
+
+def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 7) -> dict | None:
+    """Compute 260323 combo signals for the last bar (and last n_bars) of a ticker."""
+    try:
+        raw = yf.Ticker(ticker).history(
+            period="90d", interval=interval, auto_adjust=True
+        )
+        if raw is None or raw.empty or len(raw) < 20:
+            return None
+
+        raw.columns = [str(c).lower() for c in raw.columns]
+        needed = ["open", "high", "low", "close"]
+        df = raw[needed + (["volume"] if "volume" in raw.columns else [])].dropna()
+        if len(df) < 20:
+            return None
+
+        combo = compute_combo(df)
+        active = last_n_active(combo, n_bars)
+
+        # Skip tickers with no active signals
+        if not any(active.values()):
+            return None
+
+        last  = df.iloc[-1]
+        prev  = df.iloc[-2] if len(df) > 1 else last
+        price = float(last["close"])
+        prev_p = float(prev["close"])
+        chg   = round((price - prev_p) / prev_p * 100, 2) if prev_p else 0.0
+        vol   = int(last.get("volume", 0)) if "volume" in df.columns else 0
+
+        return {
+            "ticker":     ticker,
+            "signals":    ",".join(active_signal_labels(active)),
+            "last_price": round(price, 2),
+            "volume":     vol,
+            "change_pct": chg,
+            **{col: int(active.get(col, False)) for col in _COMBO_BOOL_COLS},
+        }
+    except Exception as exc:
+        log.debug("Combo skip %s: %s", ticker, exc)
+        return None
+
+
+def run_combo_scan(interval: str = "1d", n_bars: int = 7, workers: int = 8) -> int:
+    """Scan all tickers for 260323 combo signals. Saves results to SQLite."""
+    _init_db()
+    tickers  = get_tickers()
+    now_iso  = datetime.now(timezone.utc).isoformat()
+
+    _combo_state.update({"running": True, "done": 0,
+                         "total": len(tickers), "found": 0})
+
+    con = sqlite3.connect(DB_PATH)
+    cur = con.execute(
+        "INSERT INTO combo_scan_runs (started_at, n_bars) VALUES (?,?)",
+        (now_iso, n_bars),
+    )
+    scan_id = cur.lastrowid
+    con.commit()
+    con.close()
+
+    results = []
+    with ThreadPoolExecutor(max_workers=workers) as pool:
+        futures = {
+            pool.submit(_scan_combo_ticker, t, interval, n_bars): t
+            for t in tickers
+        }
+        for fut in as_completed(futures):
+            _combo_state["done"] += 1
+            row = fut.result()
+            if row is None:
+                continue
+            row["scan_id"]    = scan_id
+            row["scanned_at"] = now_iso
+            results.append(row)
+            _combo_state["found"] = len(results)
+
+            if len(results) % 20 == 0:
+                _flush_combo(results[-20:])
+
+    remainder = results[-(len(results) % 20) or len(results):]
+    if remainder:
+        _flush_combo(remainder)
+
+    con = sqlite3.connect(DB_PATH)
+    con.execute(
+        "UPDATE combo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
+        (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
+    )
+    # Keep only last 2 scan runs
+    con.execute("""
+        DELETE FROM combo_scan_results
+        WHERE scan_id NOT IN (
+            SELECT id FROM combo_scan_runs ORDER BY id DESC LIMIT 2
+        )
+    """)
+    con.commit()
+    con.close()
+
+    _combo_state["running"] = False
+    log.info("Combo scan %d done: %d results", scan_id, len(results))
+    return len(results)
+
+
+def _flush_combo(rows: list[dict]) -> None:
+    if not rows:
+        return
+    cols      = ["scan_id", "ticker", "signals", "last_price", "volume",
+                 "change_pct", "scanned_at"] + _COMBO_BOOL_COLS
+    placeholders = ", ".join(f":{c}" for c in cols)
+    col_names    = ", ".join(cols)
+    con = sqlite3.connect(DB_PATH)
+    con.executemany(
+        f"INSERT INTO combo_scan_results ({col_names}) VALUES ({placeholders})",
+        rows,
+    )
+    con.commit()
+    con.close()
+
+
+def get_combo_results(
+    signal_filter: str = "all",
+    limit: int = 200,
+) -> list[dict]:
+    """Return latest combo scan results, optionally filtered by signal column."""
+    _init_db()
+    con = sqlite3.connect(DB_PATH)
+
+    last_run = con.execute(
+        "SELECT MAX(id) FROM combo_scan_runs"
+    ).fetchone()[0]
+    if last_run is None:
+        con.close()
+        return []
+
+    where = "scan_id=?"
+    params: list = [last_run]
+    if signal_filter != "all" and signal_filter in _COMBO_BOOL_COLS:
+        where += f" AND {signal_filter}=1"
+
+    cols = ["ticker", "signals", "last_price", "volume", "change_pct",
+            "scanned_at"] + _COMBO_BOOL_COLS
+    col_str = ", ".join(cols)
+
+    rows = con.execute(
+        f"SELECT {col_str} FROM combo_scan_results "
+        f"WHERE {where} ORDER BY scanned_at DESC LIMIT ?",
+        (*params, limit),
+    ).fetchall()
+    con.close()
+
+    return [dict(zip(cols, r)) for r in rows]
+
+
+def get_last_combo_scan_time() -> str | None:
+    _init_db()
+    con = sqlite3.connect(DB_PATH)
+    row = con.execute(
+        "SELECT completed_at FROM combo_scan_runs ORDER BY id DESC LIMIT 1"
+    ).fetchone()
+    con.close()
+    return row[0] if row else None

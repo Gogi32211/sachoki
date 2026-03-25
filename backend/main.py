@@ -21,6 +21,8 @@ from scanner import (
     get_scan_progress,
     save_watchlist, load_watchlist,
     save_settings, load_settings,
+    run_combo_scan, get_combo_results, get_last_combo_scan_time,
+    get_combo_scan_progress,
 )
 from pump_finder import find_pump_combos, save_pump_combos, get_pump_combos
 
@@ -350,6 +352,34 @@ def api_pump_trigger(
 
     background_tasks.add_task(_run)
     return {"status": "started", "estimated_minutes": 15}
+
+
+# ── 260323 Combo scan ─────────────────────────────────────────────────────────
+
+@app.get("/api/combo-scan")
+def api_combo_scan(
+    signal: str = "all",
+    limit: int = 200,
+):
+    """Latest 260323 combo scan results. signal: all | buy_2809 | rocket | ..."""
+    results   = get_combo_results(signal_filter=signal, limit=limit)
+    last_time = get_last_combo_scan_time()
+    return {"results": results, "last_scan": last_time}
+
+
+@app.post("/api/combo-scan/trigger")
+def api_combo_scan_trigger(
+    background_tasks: BackgroundTasks,
+    tf: str = "1d",
+    n_bars: int = 7,
+):
+    background_tasks.add_task(run_combo_scan, tf, n_bars)
+    return {"status": "combo scan started"}
+
+
+@app.get("/api/combo-scan/status")
+def api_combo_scan_status():
+    return get_combo_scan_progress()
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
