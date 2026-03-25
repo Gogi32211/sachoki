@@ -21,6 +21,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 from combo_engine import compute_combo, last_n_active, active_signal_labels
 from signal_engine import compute_signals
 from wlnbb_engine import compute_wlnbb, score_last_bar, l_signal_label
+from sq_engine   import compute_sq
+from wick_engine import compute_wick
+from cisd_engine import compute_cisd
 
 log = logging.getLogger(__name__)
 
@@ -45,11 +48,24 @@ _TZ_WEIGHT = {
     "T9": 1, "T10": 1, "T3": 1, "T11": 1, "T5": 1,
 }
 
+_EXTRA_COLS = [
+    # WLNBB L signals
+    "l34", "l43", "l64", "l22", "cci_ready", "blue", "fri34", "pre_pump", "bo_up", "bx_up",
+    # WLNBB FUCHSIA
+    "fuchsia_rh", "fuchsia_rl",
+    # 260312 VSA
+    "sq", "ns", "nd", "sig3_up", "sig3_dn",
+    # 3112_2C wick
+    "wick_bull", "wick_bear",
+    # 250115 CISD
+    "cisd_seq", "cisd_ppm", "cisd_mpm", "cisd_pmm",
+]
+
 _RESULT_COLS = [
     "ticker", "power_score", "combo_signals", "combo_score",
     "tz_sig", "tz_bull", "tz_weight", "wlnbb_bull", "l_signal",
     "last_price", "change_pct",
-]
+] + _EXTRA_COLS
 
 
 # ── DB init ────────────────────────────────────────────────────────────────────
@@ -65,22 +81,55 @@ def _init_db() -> None:
             n_bars       INTEGER DEFAULT 3
         );
         CREATE TABLE IF NOT EXISTS power_scan_results (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
-            scan_id      INTEGER,
-            ticker       TEXT NOT NULL,
-            power_score  REAL    DEFAULT 0,
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            scan_id       INTEGER,
+            ticker        TEXT NOT NULL,
+            power_score   REAL    DEFAULT 0,
             combo_signals TEXT,
-            combo_score  INTEGER DEFAULT 0,
-            tz_sig       TEXT    DEFAULT '',
-            tz_bull      INTEGER DEFAULT 0,
-            tz_weight    INTEGER DEFAULT 0,
-            wlnbb_bull   INTEGER DEFAULT 0,
-            l_signal     TEXT    DEFAULT '',
-            last_price   REAL,
-            change_pct   REAL,
-            scanned_at   TEXT
+            combo_score   INTEGER DEFAULT 0,
+            tz_sig        TEXT    DEFAULT '',
+            tz_bull       INTEGER DEFAULT 0,
+            tz_weight     INTEGER DEFAULT 0,
+            wlnbb_bull    INTEGER DEFAULT 0,
+            l_signal      TEXT    DEFAULT '',
+            last_price    REAL,
+            change_pct    REAL,
+            scanned_at    TEXT,
+            l34           INTEGER DEFAULT 0,
+            l43           INTEGER DEFAULT 0,
+            l64           INTEGER DEFAULT 0,
+            l22           INTEGER DEFAULT 0,
+            cci_ready     INTEGER DEFAULT 0,
+            blue          INTEGER DEFAULT 0,
+            fri34         INTEGER DEFAULT 0,
+            pre_pump      INTEGER DEFAULT 0,
+            bo_up         INTEGER DEFAULT 0,
+            bx_up         INTEGER DEFAULT 0,
+            fuchsia_rh    INTEGER DEFAULT 0,
+            fuchsia_rl    INTEGER DEFAULT 0,
+            sq            INTEGER DEFAULT 0,
+            ns            INTEGER DEFAULT 0,
+            nd            INTEGER DEFAULT 0,
+            sig3_up       INTEGER DEFAULT 0,
+            sig3_dn       INTEGER DEFAULT 0,
+            wick_bull     INTEGER DEFAULT 0,
+            wick_bear     INTEGER DEFAULT 0,
+            cisd_seq      INTEGER DEFAULT 0,
+            cisd_ppm      INTEGER DEFAULT 0,
+            cisd_mpm      INTEGER DEFAULT 0,
+            cisd_pmm      INTEGER DEFAULT 0
         );
     """)
+    # Migration: add extra columns if missing (for older DBs)
+    existing = {
+        row[1] for row in con.execute(
+            "PRAGMA table_info(power_scan_results)"
+        ).fetchall()
+    }
+    for col in _EXTRA_COLS:
+        if col not in existing:
+            defn = "TEXT DEFAULT ''" if col == "tz_sig" else "INTEGER DEFAULT 0"
+            con.execute(f"ALTER TABLE power_scan_results ADD COLUMN {col} {defn}")
     con.commit()
     con.close()
 
@@ -135,18 +184,66 @@ def _scan_power_ticker(ticker: str, interval: str, n_bars: int) -> dict | None:
         prev_p = float(prev["close"])
         chg    = round((price - prev_p) / prev_p * 100, 2) if prev_p else 0.0
 
+        # ── Extra signals (all engines) ────────────────────────────────────────
+        extra: dict = {col: 0 for col in _EXTRA_COLS}
+        last_w = wlnbb.iloc[-1]
+        extra.update({
+            "l34":       int(bool(last_w.get("L34",       False))),
+            "l43":       int(bool(last_w.get("L43",       False))),
+            "l64":       int(bool(last_w.get("L64",       False))),
+            "l22":       int(bool(last_w.get("L22",       False))),
+            "cci_ready": int(bool(last_w.get("CCI_READY", False))),
+            "blue":      int(bool(last_w.get("BLUE",      False))),
+            "fri34":     int(bool(last_w.get("FRI34",     False))),
+            "pre_pump":  int(bool(last_w.get("PRE_PUMP",  False))),
+            "bo_up":     int(bool(last_w.get("BO_UP",     False))),
+            "bx_up":     int(bool(last_w.get("BX_UP",     False))),
+            "fuchsia_rh":int(bool(last_w.get("FUCHSIA_RH",False))),
+            "fuchsia_rl":int(bool(last_w.get("FUCHSIA_RL",False))),
+        })
+        try:
+            sq_df = compute_sq(df);  last_s = sq_df.iloc[-1]
+            extra.update({
+                "sq":      int(bool(last_s.get("SQ",      False))),
+                "ns":      int(bool(last_s.get("NS",      False))),
+                "nd":      int(bool(last_s.get("ND",      False))),
+                "sig3_up": int(bool(last_s.get("SIG3_UP", False))),
+                "sig3_dn": int(bool(last_s.get("SIG3_DN", False))),
+            })
+        except Exception:
+            pass
+        try:
+            wk_df = compute_wick(df);  last_wk = wk_df.iloc[-1]
+            extra.update({
+                "wick_bull": int(bool(last_wk.get("WICK_BULL_CONFIRM", False))),
+                "wick_bear": int(bool(last_wk.get("WICK_BEAR_CONFIRM", False))),
+            })
+        except Exception:
+            pass
+        try:
+            c_tail = compute_cisd(df).tail(3)
+            extra.update({
+                "cisd_seq": int(c_tail["CISD_SEQ"].any()),
+                "cisd_ppm": int(c_tail["CISD_PPM"].any()),
+                "cisd_mpm": int(c_tail["CISD_MPM"].any()),
+                "cisd_pmm": int(c_tail["CISD_PMM"].any()),
+            })
+        except Exception:
+            pass
+
         return {
-            "ticker":       ticker,
-            "power_score":  round(power_score, 1),
+            "ticker":        ticker,
+            "power_score":   round(power_score, 1),
             "combo_signals": ",".join(combo_labels),
-            "combo_score":  combo_score,
-            "tz_sig":       tz_name if tz_bull else "",
-            "tz_bull":      int(tz_bull),
-            "tz_weight":    tz_weight,
-            "wlnbb_bull":   bull_score,
-            "l_signal":     l_sig,
-            "last_price":   round(price, 2),
-            "change_pct":   chg,
+            "combo_score":   combo_score,
+            "tz_sig":        tz_name if tz_bull else "",
+            "tz_bull":       int(tz_bull),
+            "tz_weight":     tz_weight,
+            "wlnbb_bull":    bull_score,
+            "l_signal":      l_sig,
+            "last_price":    round(price, 2),
+            "change_pct":    chg,
+            **extra,
         }
     except Exception as exc:
         log.debug("Power skip %s: %s", ticker, exc)
