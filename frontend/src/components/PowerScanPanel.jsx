@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
+import { exportToTV } from '../utils/exportTickers'
 
 // ── 260323 signal badge colours ───────────────────────────────────────────────
 const COMBO_STYLE = {
@@ -68,7 +69,7 @@ function ScoreBar({ value, max = 20 }) {
   )
 }
 
-export default function PowerScanPanel({ tf, onSelectTicker }) {
+export default function PowerScanPanel({ tf, onSelectTicker, onAddToJournal }) {
   const [results,  setResults]  = useState([])
   const [lastScan, setLastScan] = useState(null)
   const [loading,  setLoading]  = useState(false)
@@ -118,6 +119,15 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">{results.length} tickers</span>
+          {results.length > 0 && (
+            <button
+              onClick={() => exportToTV(results.map(r => r.ticker), 'power_scan.txt')}
+              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+              title="Export tickers for TradingView watchlist"
+            >
+              Export TV
+            </button>
+          )}
           <button
             onClick={scan}
             disabled={scanning}
@@ -158,6 +168,7 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
                 <th className="text-left px-2 py-2 w-24">Score</th>
                 <th className="text-right px-2 py-2 w-20">Price</th>
                 <th className="text-right px-2 py-2 w-16">Chg%</th>
+                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -200,6 +211,19 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
                     <td className={`text-right px-2 py-2 font-medium
                       ${row.change_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {row.change_pct >= 0 ? '+' : ''}{row.change_pct?.toFixed(2)}%
+                    </td>
+                    <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
+                      <button
+                        onClick={() => onAddToJournal?.({
+                          ticker:  row.ticker,
+                          source:  'Power',
+                          signals: row.combo_signals,
+                          score:   row.power_score,
+                          price:   row.last_price,
+                        })}
+                        className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
+                        title="Add to journal"
+                      >+</button>
                     </td>
                   </tr>
                 )

@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
+import { exportToTV } from '../utils/exportTickers'
 
 const TABS = [
   { id: 'bull',   label: 'Bull ≥4',    color: 'text-green-400' },
@@ -88,7 +89,7 @@ function rowBg(row) {
   return ''
 }
 
-export default function CombinedScanPanel({ tf, onSelectTicker }) {
+export default function CombinedScanPanel({ tf, onSelectTicker, onAddToJournal }) {
   const [tab, setTab]         = useState('bull')
   const [minScore, setMinScore] = useState(4)
   const [results, setResults] = useState([])
@@ -141,13 +142,24 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
             </span>
           )}
         </div>
-        <button
-          onClick={scan}
-          disabled={scanning}
-          className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
-        >
-          {scanning ? 'Scanning…' : 'Scan Now'}
-        </button>
+        <div className="flex items-center gap-2">
+          {results.length > 0 && (
+            <button
+              onClick={() => exportToTV(results.map(r => r.ticker), 'combined_scan.txt')}
+              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+              title="Export tickers for TradingView watchlist"
+            >
+              Export TV
+            </button>
+          )}
+          <button
+            onClick={scan}
+            disabled={scanning}
+            className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
+          >
+            {scanning ? 'Scanning…' : 'Scan Now'}
+          </button>
+        </div>
       </div>
 
       {/* Sub-tabs + min score */}
@@ -201,6 +213,7 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
                 <th className="text-left px-2 py-2 hidden lg:table-cell">3-Bar</th>
                 <th className="text-right px-2 py-2">Price</th>
                 <th className="text-right px-2 py-2">Chg%</th>
+                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -238,6 +251,19 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
                   <td className={`text-right px-2 py-2 font-medium
                     ${row.change_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {row.change_pct >= 0 ? '+' : ''}{row.change_pct?.toFixed(2)}%
+                  </td>
+                  <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onAddToJournal?.({
+                        ticker:  row.ticker,
+                        source:  'Combined',
+                        signals: row.sig_name,
+                        score:   tab === 'bear' ? row.bear_score : row.bull_score,
+                        price:   row.last_price,
+                      })}
+                      className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
+                      title="Add to journal"
+                    >+</button>
                   </td>
                 </tr>
               ))}

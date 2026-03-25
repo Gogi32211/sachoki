@@ -1,5 +1,6 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api'
+import { exportToTV } from '../utils/exportTickers'
 
 function SigBadge({ sig_id, sig_name }) {
   const bull = sig_id >= 1 && sig_id <= 11
@@ -13,7 +14,7 @@ function SigBadge({ sig_id, sig_name }) {
   )
 }
 
-export default function ScannerPanel({ tf, onSelectTicker }) {
+export default function ScannerPanel({ tf, onSelectTicker, onAddToJournal }) {
   const [results, setResults] = useState([])
   const [lastScan, setLastScan] = useState(null)
   const [loading, setLoading]  = useState(false)
@@ -90,13 +91,24 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
             <span className="text-xs text-gray-500">Last: {fmtTime(lastScan)}</span>
           )}
         </div>
-        <button
-          onClick={scan}
-          disabled={scanning}
-          className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
-        >
-          {scanning ? 'Scanning…' : 'Scan Now'}
-        </button>
+        <div className="flex items-center gap-2">
+          {results.length > 0 && (
+            <button
+              onClick={() => exportToTV(results.map(r => r.ticker), 'tz_scanner.txt')}
+              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
+              title="Export tickers for TradingView watchlist"
+            >
+              Export TV
+            </button>
+          )}
+          <button
+            onClick={scan}
+            disabled={scanning}
+            className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
+          >
+            {scanning ? 'Scanning…' : 'Scan Now'}
+          </button>
+        </div>
       </div>
 
       {/* Progress bar */}
@@ -140,6 +152,7 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
                 <th className="text-left px-2 py-2 hidden md:table-cell">3-Bar Pattern</th>
                 <th className="text-right px-2 py-2">Price</th>
                 <th className="text-right px-2 py-2">Chg%</th>
+                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -164,6 +177,18 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
                     {row.change_pct != null
                       ? `${row.change_pct >= 0 ? '+' : ''}${Number(row.change_pct).toFixed(2)}%`
                       : '—'}
+                  </td>
+                  <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
+                    <button
+                      onClick={() => onAddToJournal?.({
+                        ticker:  row.ticker,
+                        source:  'T/Z Scan',
+                        signals: row.sig_name,
+                        price:   row.last_price,
+                      })}
+                      className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
+                      title="Add to journal"
+                    >+</button>
                   </td>
                 </tr>
               ))}
