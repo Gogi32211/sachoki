@@ -24,6 +24,7 @@ from scanner import (
     run_combo_scan, get_combo_results, get_last_combo_scan_time,
     get_combo_scan_progress,
 )
+from combo_engine import compute_combo, last_n_active, COMBO_LABELS
 from pump_finder import find_pump_combos, save_pump_combos, get_pump_combos
 
 logging.basicConfig(level=logging.INFO)
@@ -380,6 +381,46 @@ def api_combo_scan_trigger(
 @app.get("/api/combo-scan/status")
 def api_combo_scan_status():
     return get_combo_scan_progress()
+
+
+@app.get("/api/combo-scan/debug/{ticker}")
+def api_combo_scan_debug(ticker: str, tf: str = "1d", rows: int = 7, n_bars: int = 3):
+    """
+    Show last `rows` bars of combo signals for a ticker.
+    Helps diagnose which bars triggered which signals.
+    """
+    import yfinance as yf
+    try:
+        df = yf.Ticker(ticker.upper()).history(period="90d", interval=tf, auto_adjust=True)
+        if df.empty:
+            raise HTTPException(status_code=404, detail=f"No data for {ticker}")
+        df.columns = [c.lower() for c in df.columns]
+        combo = compute_combo(df)
+        active = last_n_active(combo, n_bars)
+
+        tail = combo.tail(rows)
+        signal_cols = list(COMBO_LABELS.keys())
+
+        bar_rows = []
+        for date, row in tail.iterrows():
+            fired = [COMBO_LABELS[c] for c in signal_cols if row.get(c, False)]
+            bar_rows.append({
+                "date":    str(date.date()) if hasattr(date, "date") else str(date),
+                "signals": fired,
+            })
+
+        active_labels = [COMBO_LABELS[k] for k, v in active.items() if v]
+
+        return {
+            "ticker":       ticker.upper(),
+            "n_bars":       n_bars,
+            "active":       active_labels,
+            "bars":         bar_rows,
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
 
 
 # ── Settings ──────────────────────────────────────────────────────────────────
