@@ -23,10 +23,26 @@ const SIGNALS = [
   { key: 'um_2809',   label: 'UM',     color: 'text-teal-300',     bg: 'bg-teal-900/40' },
 ]
 
-const KEY_TO_SIG   = Object.fromEntries(SIGNALS.map(s => [s.key,   s]))
-const LABEL_TO_SIG = Object.fromEntries(SIGNALS.map(s => [s.label, s]))
+// ── T/Z signal filter options (bullish) ───────────────────────────────────────
+const TZ_SIGNALS = [
+  'T4', 'T6', 'T1G', 'T2G', 'T1', 'T2', 'T9', 'T10', 'T3', 'T11', 'T5',
+]
 
-// Map server-returned label → signal key (for multi-select matching)
+// ── WLNBB L signal filter options ─────────────────────────────────────────────
+const L_SIGNALS = [
+  { key: 'fri34',    label: 'FRI34',    color: 'text-cyan-300' },
+  { key: 'l34',      label: 'L34',      color: 'text-blue-300' },
+  { key: 'l43',      label: 'L43',      color: 'text-teal-300' },
+  { key: 'l64',      label: 'L64',      color: 'text-orange-400' },
+  { key: 'l22',      label: 'L22',      color: 'text-red-400' },
+  { key: 'cci_ready',label: 'CCI_RDY',  color: 'text-violet-300' },
+  { key: 'blue',     label: 'BLUE',     color: 'text-sky-300' },
+  { key: 'bo_up',    label: 'BO_UP',    color: 'text-lime-300' },
+  { key: 'bx_up',    label: 'BX_UP',    color: 'text-lime-400' },
+  { key: 'pre_pump', label: 'PRE_PUMP', color: 'text-purple-300' },
+]
+
+const LABEL_TO_SIG = Object.fromEntries(SIGNALS.map(s => [s.label, s]))
 const LABEL_TO_KEY = Object.fromEntries(SIGNALS.map(s => [s.label, s.key]))
 
 function SignalBadge({ label }) {
@@ -43,25 +59,47 @@ function SignalBadge({ label }) {
   )
 }
 
+function TZBadge({ sig }) {
+  if (!sig) return <span className="text-gray-600">—</span>
+  return (
+    <span className="px-1.5 py-0.5 rounded text-xs font-mono font-semibold text-green-300 bg-green-900/50">
+      {sig}
+    </span>
+  )
+}
+
+function LBadges({ row }) {
+  const active = L_SIGNALS.filter(s => row[s.key])
+  if (active.length === 0) return <span className="text-gray-600">—</span>
+  return (
+    <div className="flex flex-wrap gap-0.5">
+      {active.map(s => (
+        <span key={s.key} className={`text-xs font-mono ${s.color}`}>{s.label}</span>
+      ))}
+    </div>
+  )
+}
+
 function rowBg(signals) {
   const labels = signals ? signals.split(',') : []
-  if (labels.includes('ROCKET'))   return 'bg-red-950/20'
-  if (labels.includes('BUY'))      return 'bg-lime-950/20'
-  if (labels.includes('3G'))       return 'bg-cyan-950/20'
-  if (labels.includes('P3'))       return 'bg-yellow-950/20'
+  if (labels.includes('ROCKET')) return 'bg-red-950/20'
+  if (labels.includes('BUY'))    return 'bg-lime-950/20'
+  if (labels.includes('3G'))     return 'bg-cyan-950/20'
+  if (labels.includes('P3'))     return 'bg-yellow-950/20'
   return ''
 }
 
 export default function ComboScanPanel({ tf, onSelectTicker }) {
-  const [selected,   setSelected]  = useState(new Set())   // selected signal keys
+  const [selected,   setSelected]   = useState(new Set())   // 260323 combo AND filter
+  const [selectedTZ, setSelectedTZ] = useState(new Set())   // T/Z OR filter
+  const [selectedL,  setSelectedL]  = useState(new Set())   // L signal AND filter
   const [allResults, setAllResults] = useState([])
-  const [lastScan,   setLastScan]  = useState(null)
-  const [loading,    setLoading]   = useState(false)
-  const [scanning,   setScanning]  = useState(false)
-  const [error,      setError]     = useState(null)
-  const [debug,      setDebug]     = useState(null)   // { ticker, loading, data, error }
+  const [lastScan,   setLastScan]   = useState(null)
+  const [loading,    setLoading]    = useState(false)
+  const [scanning,   setScanning]   = useState(false)
+  const [error,      setError]      = useState(null)
+  const [debug,      setDebug]      = useState(null)
 
-  // Always fetch all results; filtering is client-side
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
@@ -75,7 +113,6 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
   }, [])
 
   useEffect(() => { load() }, [load])
-
   useEffect(() => {
     const id = setInterval(load, 60_000)
     return () => clearInterval(id)
@@ -88,8 +125,8 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
       .catch(e => { setError(e.message); setScanning(false) })
   }
 
-  const toggleSignal = (key) => {
-    setSelected(prev => {
+  const toggle = (set, setFn, key) => {
+    setFn(prev => {
       const next = new Set(prev)
       if (next.has(key)) next.delete(key)
       else next.add(key)
@@ -97,17 +134,29 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
     })
   }
 
-  const clearAll = () => setSelected(new Set())
-
-  // Client-side AND filter: ticker must have ALL selected signals
+  // Three-layer client-side filter:
+  //   1. 260323 combo: AND — all selected combo signal keys must be present
+  //   2. T/Z: OR — at least one selected T/Z name must match tz_sig
+  //   3. L: AND — all selected L keys must be 1
   const results = useMemo(() => {
-    if (selected.size === 0) return allResults
     return allResults.filter(row => {
-      const rowLabels = row.signals ? row.signals.split(',').filter(Boolean) : []
-      const rowKeys   = new Set(rowLabels.map(l => LABEL_TO_KEY[l]).filter(Boolean))
-      return [...selected].every(k => rowKeys.has(k))
+      // 260323 combo AND filter
+      if (selected.size > 0) {
+        const rowLabels = row.signals ? row.signals.split(',').filter(Boolean) : []
+        const rowKeys   = new Set(rowLabels.map(l => LABEL_TO_KEY[l]).filter(Boolean))
+        if (![...selected].every(k => rowKeys.has(k))) return false
+      }
+      // T/Z OR filter
+      if (selectedTZ.size > 0) {
+        if (!selectedTZ.has(row.tz_sig)) return false
+      }
+      // L AND filter
+      if (selectedL.size > 0) {
+        if (![...selectedL].every(k => row[k])) return false
+      }
+      return true
     })
-  }, [allResults, selected])
+  }, [allResults, selected, selectedTZ, selectedL])
 
   const openDebug = (ticker) => {
     setDebug({ ticker, loading: true, data: null, error: null })
@@ -121,6 +170,8 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
     try { return new Date(iso).toLocaleString() } catch { return iso }
   }
 
+  const anyFilter = selected.size > 0 || selectedTZ.size > 0 || selectedL.size > 0
+
   return (
     <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
 
@@ -133,6 +184,14 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
           )}
         </div>
         <div className="flex items-center gap-2">
+          {anyFilter && (
+            <button
+              onClick={() => { setSelected(new Set()); setSelectedTZ(new Set()); setSelectedL(new Set()) }}
+              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-yellow-400"
+            >
+              Clear filters
+            </button>
+          )}
           {results.length > 0 && (
             <button
               onClick={() => exportToTV(results.map(r => r.ticker), 'combo_scan.txt')}
@@ -152,26 +211,25 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
         </div>
       </div>
 
-      {/* ── Signal filter buttons (multi-select AND) ─────────────────────── */}
-      <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-800 flex-wrap">
-        {/* All / Clear button */}
+      {/* ── 260323 Combo filter (AND) ─────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-800/60 flex-wrap">
+        <span className="text-[10px] text-gray-600 uppercase tracking-wide w-12 shrink-0">260323</span>
         <button
-          onClick={clearAll}
-          className={`text-xs px-2 py-1 rounded transition-colors
+          onClick={() => setSelected(new Set())}
+          className={`text-xs px-2 py-0.5 rounded transition-colors
             ${selected.size === 0
-              ? 'bg-gray-600 text-white font-semibold'
+              ? 'bg-gray-700 text-white font-semibold'
               : 'text-gray-500 hover:text-gray-300'}`}
         >
           All
         </button>
-
         {SIGNALS.map(s => {
           const active = selected.has(s.key)
           return (
             <button
               key={s.key}
-              onClick={() => toggleSignal(s.key)}
-              className={`text-xs px-2 py-1 rounded font-mono transition-colors
+              onClick={() => toggle(selected, setSelected, s.key)}
+              className={`text-xs px-2 py-0.5 rounded font-mono transition-colors
                 ${active
                   ? `${s.bg} ${s.color} font-semibold ring-1 ring-current`
                   : 'text-gray-500 hover:text-gray-300'}`}
@@ -180,14 +238,79 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
             </button>
           )
         })}
-
-        {/* AND badge when multiple selected */}
         {selected.size >= 2 && (
           <span className="ml-1 text-xs text-indigo-400 font-semibold bg-indigo-900/40 px-2 py-0.5 rounded">
             AND ×{selected.size}
           </span>
         )}
+      </div>
 
+      {/* ── T/Z filter (OR) ──────────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-800/60 flex-wrap">
+        <span className="text-[10px] text-gray-600 uppercase tracking-wide w-12 shrink-0">T/Z</span>
+        <button
+          onClick={() => setSelectedTZ(new Set())}
+          className={`text-xs px-2 py-0.5 rounded transition-colors
+            ${selectedTZ.size === 0
+              ? 'bg-gray-700 text-white font-semibold'
+              : 'text-gray-500 hover:text-gray-300'}`}
+        >
+          All
+        </button>
+        {TZ_SIGNALS.map(sig => {
+          const active = selectedTZ.has(sig)
+          return (
+            <button
+              key={sig}
+              onClick={() => toggle(selectedTZ, setSelectedTZ, sig)}
+              className={`text-xs px-2 py-0.5 rounded font-mono transition-colors
+                ${active
+                  ? 'bg-green-900/60 text-green-300 font-semibold ring-1 ring-green-400'
+                  : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {sig}
+            </button>
+          )
+        })}
+        {selectedTZ.size >= 2 && (
+          <span className="ml-1 text-xs text-green-400 font-semibold bg-green-900/30 px-2 py-0.5 rounded">
+            OR ×{selectedTZ.size}
+          </span>
+        )}
+      </div>
+
+      {/* ── L signal filter (AND) ────────────────────────────────────────── */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-800 flex-wrap">
+        <span className="text-[10px] text-gray-600 uppercase tracking-wide w-12 shrink-0">L-Sig</span>
+        <button
+          onClick={() => setSelectedL(new Set())}
+          className={`text-xs px-2 py-0.5 rounded transition-colors
+            ${selectedL.size === 0
+              ? 'bg-gray-700 text-white font-semibold'
+              : 'text-gray-500 hover:text-gray-300'}`}
+        >
+          All
+        </button>
+        {L_SIGNALS.map(s => {
+          const active = selectedL.has(s.key)
+          return (
+            <button
+              key={s.key}
+              onClick={() => toggle(selectedL, setSelectedL, s.key)}
+              className={`text-xs px-2 py-0.5 rounded font-mono transition-colors
+                ${active
+                  ? `bg-gray-700 ${s.color} font-semibold ring-1 ring-current`
+                  : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {s.label}
+            </button>
+          )
+        })}
+        {selectedL.size >= 2 && (
+          <span className="ml-1 text-xs text-sky-400 font-semibold bg-sky-900/30 px-2 py-0.5 rounded">
+            AND ×{selectedL.size}
+          </span>
+        )}
         <span className="ml-auto text-xs text-gray-500">{results.length} tickers</span>
       </div>
 
@@ -199,8 +322,8 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
           <div className="px-4 py-8 text-center text-gray-500 text-xs">Loading…</div>
         ) : results.length === 0 ? (
           <div className="px-4 py-8 text-center text-gray-500 text-xs">
-            {selected.size > 0
-              ? `No tickers with all ${selected.size} selected signals.`
+            {anyFilter
+              ? 'No tickers match the current filters.'
               : 'No results — press Scan Now first.'}
           </div>
         ) : (
@@ -208,7 +331,9 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
             <thead>
               <tr className="text-gray-400 border-b border-gray-800 sticky top-0 bg-gray-900">
                 <th className="text-left px-3 py-2 w-20">Ticker</th>
-                <th className="text-left px-2 py-2">Signals</th>
+                <th className="text-left px-2 py-2">260323</th>
+                <th className="text-left px-2 py-2 w-14">T/Z</th>
+                <th className="text-left px-2 py-2">L-Sig</th>
                 <th className="text-right px-2 py-2 w-20">Price</th>
                 <th className="text-right px-2 py-2 w-16">Chg%</th>
               </tr>
@@ -228,6 +353,12 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
                       <div className="flex flex-wrap gap-1">
                         {labels.map(lbl => <SignalBadge key={lbl} label={lbl} />)}
                       </div>
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <TZBadge sig={row.tz_sig} />
+                    </td>
+                    <td className="px-2 py-1.5">
+                      <LBadges row={row} />
                     </td>
                     <td className="text-right px-2 py-2 text-gray-200 font-mono">
                       ${row.last_price?.toFixed(2)}
@@ -260,7 +391,6 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
 
             {debug.data && (
               <>
-                {/* Active signals summary */}
                 <div className="mb-3 flex flex-wrap gap-1 items-center">
                   <span className="text-xs text-gray-500 mr-1">Active (last {debug.data.n_bars} bars):</span>
                   {debug.data.active.length === 0
@@ -268,8 +398,6 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
                     : debug.data.active.map(lbl => <SignalBadge key={lbl} label={lbl} />)
                   }
                 </div>
-
-                {/* Per-bar table */}
                 <table className="w-full text-xs">
                   <thead>
                     <tr className="text-gray-400 border-b border-gray-700">

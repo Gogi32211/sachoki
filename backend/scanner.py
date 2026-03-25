@@ -17,6 +17,12 @@ from signal_engine import compute_signals, SIG_NAMES
 from wlnbb_engine import compute_wlnbb, score_last_bar, l_signal_label
 from combo_engine import compute_combo, last_n_active, active_signal_labels
 
+# ── Combo L-signal boolean columns ────────────────────────────────────────────
+_COMBO_L_COLS = [
+    "l34", "l43", "l64", "l22",
+    "cci_ready", "blue", "fri34", "pre_pump", "bo_up", "bx_up",
+]
+
 log = logging.getLogger(__name__)
 
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
@@ -210,6 +216,17 @@ def _init_db() -> None:
             preup89    INTEGER DEFAULT 0,
             sig3g      INTEGER DEFAULT 0,
             rocket     INTEGER DEFAULT 0,
+            tz_sig     TEXT DEFAULT '',
+            l34        INTEGER DEFAULT 0,
+            l43        INTEGER DEFAULT 0,
+            l64        INTEGER DEFAULT 0,
+            l22        INTEGER DEFAULT 0,
+            cci_ready  INTEGER DEFAULT 0,
+            blue       INTEGER DEFAULT 0,
+            fri34      INTEGER DEFAULT 0,
+            pre_pump   INTEGER DEFAULT 0,
+            bo_up      INTEGER DEFAULT 0,
+            bx_up      INTEGER DEFAULT 0,
             last_price REAL DEFAULT 0,
             volume     INTEGER DEFAULT 0,
             change_pct REAL DEFAULT 0,
@@ -255,6 +272,28 @@ def _init_db() -> None:
     ]:
         if col not in existing:
             con.execute(f"ALTER TABLE scan_results ADD COLUMN {col} {defn}")
+
+    # Migrate combo_scan_results: add T/Z + L columns if missing
+    existing_combo = {
+        row[1]
+        for row in con.execute("PRAGMA table_info(combo_scan_results)").fetchall()
+    }
+    for col, defn in [
+        ("tz_sig",   "TEXT DEFAULT ''"),
+        ("l34",      "INTEGER DEFAULT 0"),
+        ("l43",      "INTEGER DEFAULT 0"),
+        ("l64",      "INTEGER DEFAULT 0"),
+        ("l22",      "INTEGER DEFAULT 0"),
+        ("cci_ready","INTEGER DEFAULT 0"),
+        ("blue",     "INTEGER DEFAULT 0"),
+        ("fri34",    "INTEGER DEFAULT 0"),
+        ("pre_pump", "INTEGER DEFAULT 0"),
+        ("bo_up",    "INTEGER DEFAULT 0"),
+        ("bx_up",    "INTEGER DEFAULT 0"),
+    ]:
+        if col not in existing_combo:
+            con.execute(f"ALTER TABLE combo_scan_results ADD COLUMN {col} {defn}")
+
     con.commit()
     con.close()
 
@@ -601,13 +640,45 @@ def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 3) -> dict | No
         chg   = round((price - prev_p) / prev_p * 100, 2) if prev_p else 0.0
         vol   = int(last.get("volume", 0)) if "volume" in df.columns else 0
 
+        # ── T/Z Signal (last bar) ─────────────────────────────────────────
+        tz_sig = ""
+        try:
+            sigs     = compute_signals(df)
+            last_sig = sigs.iloc[-1]
+            if bool(last_sig["is_bull"]):
+                tz_sig = str(last_sig["sig_name"])
+        except Exception:
+            pass
+
+        # ── WLNBB L signals (last bar) ────────────────────────────────────
+        l_flags: dict = {col: 0 for col in _COMBO_L_COLS}
+        try:
+            wlnbb  = compute_wlnbb(df)
+            last_w = wlnbb.iloc[-1]
+            l_flags = {
+                "l34":      int(bool(last_w.get("L34",      False))),
+                "l43":      int(bool(last_w.get("L43",      False))),
+                "l64":      int(bool(last_w.get("L64",      False))),
+                "l22":      int(bool(last_w.get("L22",      False))),
+                "cci_ready":int(bool(last_w.get("CCI_READY",False))),
+                "blue":     int(bool(last_w.get("BLUE",     False))),
+                "fri34":    int(bool(last_w.get("FRI34",    False))),
+                "pre_pump": int(bool(last_w.get("PRE_PUMP", False))),
+                "bo_up":    int(bool(last_w.get("BO_UP",    False))),
+                "bx_up":    int(bool(last_w.get("BX_UP",    False))),
+            }
+        except Exception:
+            pass
+
         return {
             "ticker":     ticker,
             "signals":    ",".join(active_signal_labels(active)),
+            "tz_sig":     tz_sig,
             "last_price": round(price, 2),
             "volume":     vol,
             "change_pct": chg,
             **{col: int(active.get(col, False)) for col in _COMBO_BOOL_COLS},
+            **l_flags,
         }
     except Exception as exc:
         log.debug("Combo skip %s: %s", ticker, exc)
@@ -678,8 +749,9 @@ def run_combo_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
 def _flush_combo(rows: list[dict]) -> None:
     if not rows:
         return
-    cols      = ["scan_id", "ticker", "signals", "last_price", "volume",
-                 "change_pct", "scanned_at"] + _COMBO_BOOL_COLS
+    cols      = (["scan_id", "ticker", "signals", "tz_sig", "last_price", "volume",
+                  "change_pct", "scanned_at"]
+                 + _COMBO_BOOL_COLS + _COMBO_L_COLS)
     placeholders = ", ".join(f":{c}" for c in cols)
     col_names    = ", ".join(cols)
     con = _db()
@@ -711,8 +783,9 @@ def get_combo_results(
     if signal_filter != "all" and signal_filter in _COMBO_BOOL_COLS:
         where += f" AND {signal_filter}=1"
 
-    cols = ["ticker", "signals", "last_price", "volume", "change_pct",
-            "scanned_at"] + _COMBO_BOOL_COLS
+    cols = (["ticker", "signals", "tz_sig", "last_price", "volume", "change_pct",
+             "scanned_at"]
+            + _COMBO_BOOL_COLS + _COMBO_L_COLS)
     col_str = ", ".join(cols)
 
     rows = con.execute(

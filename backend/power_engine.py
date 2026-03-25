@@ -26,6 +26,14 @@ log = logging.getLogger(__name__)
 
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
+
+def _db() -> sqlite3.Connection:
+    con = sqlite3.connect(DB_PATH, timeout=30)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=30000")
+    return con
+
+
 # ── Progress state ─────────────────────────────────────────────────────────────
 _power_state: dict = {"running": False, "done": 0, "total": 0, "found": 0}
 
@@ -47,7 +55,7 @@ _RESULT_COLS = [
 # ── DB init ────────────────────────────────────────────────────────────────────
 
 def _init_db() -> None:
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.executescript("""
         CREATE TABLE IF NOT EXISTS power_scan_runs (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -157,7 +165,7 @@ def run_power_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
     _power_state.update({"running": True, "done": 0,
                          "total": len(tickers), "found": 0})
 
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     cur = con.execute(
         "INSERT INTO power_scan_runs (started_at, n_bars) VALUES (?,?)",
         (now_iso, n_bars),
@@ -186,7 +194,7 @@ def run_power_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
         insert_cols  = ["scan_id", "scanned_at"] + _RESULT_COLS
         placeholders = ", ".join(f":{c}" for c in insert_cols)
         col_names    = ", ".join(insert_cols)
-        con = sqlite3.connect(DB_PATH)
+        con = _db()
         con.executemany(
             f"INSERT INTO power_scan_results ({col_names}) VALUES ({placeholders})",
             results,
@@ -212,7 +220,7 @@ def run_power_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
 
 def get_power_results(limit: int = 200) -> list[dict]:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     last_run = con.execute(
         "SELECT MAX(id) FROM power_scan_runs"
     ).fetchone()[0]
@@ -230,7 +238,7 @@ def get_power_results(limit: int = 200) -> list[dict]:
 
 def get_last_power_scan_time() -> str | None:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     row = con.execute(
         "SELECT completed_at FROM power_scan_runs ORDER BY id DESC LIMIT 1"
     ).fetchone()
