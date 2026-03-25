@@ -18,8 +18,6 @@ import logging
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-import yfinance as yf
-
 from combo_engine import compute_combo, last_n_active, active_signal_labels
 from signal_engine import compute_signals
 from wlnbb_engine import compute_wlnbb, score_last_bar, l_signal_label
@@ -83,6 +81,7 @@ def _init_db() -> None:
 
 def _scan_power_ticker(ticker: str, interval: str, n_bars: int) -> dict | None:
     try:
+        import yfinance as yf
         raw = yf.Ticker(ticker).history(
             period="90d", interval=interval, auto_adjust=True
         )
