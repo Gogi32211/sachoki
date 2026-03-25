@@ -124,9 +124,27 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
 
   const scan = () => {
     setScanning(true)
+    setError(null)
     api.powerScanTrigger(tf)
-      .then(() => setTimeout(() => { setScanning(false); load() }, 3000))
+      .then(() => _pollUntilDone())
       .catch(e => { setError(e.message); setScanning(false) })
+  }
+
+  // Poll /api/power-scan/status until running=false, then reload results
+  const _pollUntilDone = () => {
+    const interval = setInterval(() => {
+      api.powerScanStatus()
+        .then(s => {
+          if (!s.running) {
+            clearInterval(interval)
+            setScanning(false)
+            load()
+          }
+        })
+        .catch(() => { clearInterval(interval); setScanning(false) })
+    }, 2000)
+    // safety: stop after 5 minutes
+    setTimeout(() => { clearInterval(interval); setScanning(false); load() }, 300_000)
   }
 
   const toggle = (set, setFn, key) => {
@@ -179,8 +197,11 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
           )}
           <button
             onClick={scan} disabled={scanning}
-            className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
+            className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white flex items-center gap-1.5"
           >
+            {scanning && (
+              <span className="inline-block w-2 h-2 rounded-full bg-white animate-pulse" />
+            )}
             {scanning ? 'Scanning…' : 'Scan Now'}
           </button>
         </div>
@@ -233,6 +254,16 @@ export default function PowerScanPanel({ tf, onSelectTicker }) {
           </span>
         )}
       </div>
+
+      {/* ── Scan progress ──────────────────────────────────────────────────── */}
+      {scanning && (
+        <div className="px-4 py-1.5 border-b border-gray-800 bg-indigo-950/30">
+          <div className="flex items-center gap-2 text-xs text-indigo-300">
+            <span className="animate-pulse">●</span>
+            <span>Scanning 700 tickers — gamocdileba 1–3 wuti...</span>
+          </div>
+        </div>
+      )}
 
       {/* ── Score legend ───────────────────────────────────────────────────── */}
       <div className="flex items-center gap-4 px-4 py-1 border-b border-gray-800 text-xs text-gray-500">
