@@ -25,10 +25,6 @@ from scanner import (
     get_combo_scan_progress,
 )
 from combo_engine import compute_combo, last_n_active, COMBO_LABELS
-from power_engine import (
-    run_power_scan, get_power_results,
-    get_last_power_scan_time, get_power_scan_progress,
-)
 from pump_finder import find_pump_combos, save_pump_combos, get_pump_combos
 
 logging.basicConfig(level=logging.INFO)
@@ -431,6 +427,7 @@ def api_combo_scan_debug(ticker: str, tf: str = "1d", rows: int = 7, n_bars: int
 
 @app.get("/api/power-scan")
 def api_power_scan(limit: int = 200):
+    from power_engine import get_power_results, get_last_power_scan_time
     results   = get_power_results(limit=limit)
     last_time = get_last_power_scan_time()
     return {"results": results, "last_scan": last_time}
@@ -442,12 +439,14 @@ def api_power_scan_trigger(
     tf: str = "1d",
     n_bars: int = 3,
 ):
+    from power_engine import run_power_scan
     background_tasks.add_task(run_power_scan, tf, n_bars)
     return {"status": "power scan started"}
 
 
 @app.get("/api/power-scan/status")
 def api_power_scan_status():
+    from power_engine import get_power_scan_progress
     return get_power_scan_progress()
 
 
