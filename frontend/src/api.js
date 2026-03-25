@@ -72,6 +72,14 @@ export const api = {
   comboScanDebug: (ticker, tf = '1d', rows = 7, n_bars = 3) =>
     get(`/api/combo-scan/debug/${ticker}?tf=${tf}&rows=${rows}&n_bars=${n_bars}`),
 
+  // Power Scan (260323 + T/Z + WLNBB confluence)
+  powerScan: (limit = 200) =>
+    get(`/api/power-scan?limit=${limit}`),
+  powerScanTrigger: (tf = '1d', n_bars = 3) =>
+    post(`/api/power-scan/trigger?tf=${tf}&n_bars=${n_bars}`),
+  powerScanStatus: () =>
+    get('/api/power-scan/status'),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
