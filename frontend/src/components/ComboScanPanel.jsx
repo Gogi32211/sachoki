@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api'
 
 // ── Signal definitions — matches Pine Script 260323 ───────────────────────────
@@ -22,7 +22,11 @@ const SIGNALS = [
   { key: 'um_2809',   label: 'UM',     color: 'text-teal-300',     bg: 'bg-teal-900/40' },
 ]
 
+const KEY_TO_SIG   = Object.fromEntries(SIGNALS.map(s => [s.key,   s]))
 const LABEL_TO_SIG = Object.fromEntries(SIGNALS.map(s => [s.label, s]))
+
+// Map server-returned label → signal key (for multi-select matching)
+const LABEL_TO_KEY = Object.fromEntries(SIGNALS.map(s => [s.label, s.key]))
 
 function SignalBadge({ label }) {
   const sig = LABEL_TO_SIG[label]
@@ -48,24 +52,25 @@ function rowBg(signals) {
 }
 
 export default function ComboScanPanel({ tf, onSelectTicker }) {
-  const [filterKey, setFilterKey] = useState('all')
-  const [results,   setResults]   = useState([])
+  const [selected,  setSelected]  = useState(new Set())   // selected signal keys
+  const [allResults, setAllResults] = useState([])
   const [lastScan,  setLastScan]  = useState(null)
   const [loading,   setLoading]   = useState(false)
   const [scanning,  setScanning]  = useState(false)
   const [error,     setError]     = useState(null)
 
+  // Always fetch all results; filtering is client-side
   const load = useCallback(() => {
     setLoading(true)
     setError(null)
-    api.comboScan(filterKey, 200)
+    api.comboScan('all', 500)
       .then(d => {
-        setResults(d.results || [])
+        setAllResults(d.results || [])
         setLastScan(d.last_scan)
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [filterKey])
+  }, [])
 
   useEffect(() => { load() }, [load])
 
@@ -80,6 +85,27 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
       .then(() => setTimeout(() => { setScanning(false); load() }, 3000))
       .catch(e => { setError(e.message); setScanning(false) })
   }
+
+  const toggleSignal = (key) => {
+    setSelected(prev => {
+      const next = new Set(prev)
+      if (next.has(key)) next.delete(key)
+      else next.add(key)
+      return next
+    })
+  }
+
+  const clearAll = () => setSelected(new Set())
+
+  // Client-side AND filter: ticker must have ALL selected signals
+  const results = useMemo(() => {
+    if (selected.size === 0) return allResults
+    return allResults.filter(row => {
+      const rowLabels = row.signals ? row.signals.split(',').filter(Boolean) : []
+      const rowKeys   = new Set(rowLabels.map(l => LABEL_TO_KEY[l]).filter(Boolean))
+      return [...selected].every(k => rowKeys.has(k))
+    })
+  }, [allResults, selected])
 
   const fmtTime = (iso) => {
     if (!iso) return null
@@ -108,29 +134,42 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
         </div>
       </div>
 
-      {/* ── Signal filter buttons ───────────────────────────────────────────── */}
+      {/* ── Signal filter buttons (multi-select AND) ─────────────────────── */}
       <div className="flex items-center gap-1 px-3 py-2 border-b border-gray-800 flex-wrap">
+        {/* All / Clear button */}
         <button
-          onClick={() => setFilterKey('all')}
+          onClick={clearAll}
           className={`text-xs px-2 py-1 rounded transition-colors
-            ${filterKey === 'all'
+            ${selected.size === 0
               ? 'bg-gray-600 text-white font-semibold'
               : 'text-gray-500 hover:text-gray-300'}`}
         >
           All
         </button>
-        {SIGNALS.map(s => (
-          <button
-            key={s.key}
-            onClick={() => setFilterKey(filterKey === s.key ? 'all' : s.key)}
-            className={`text-xs px-2 py-1 rounded font-mono transition-colors
-              ${filterKey === s.key
-                ? `${s.bg} ${s.color} font-semibold ring-1 ring-current`
-                : 'text-gray-500 hover:text-gray-300'}`}
-          >
-            {s.label}
-          </button>
-        ))}
+
+        {SIGNALS.map(s => {
+          const active = selected.has(s.key)
+          return (
+            <button
+              key={s.key}
+              onClick={() => toggleSignal(s.key)}
+              className={`text-xs px-2 py-1 rounded font-mono transition-colors
+                ${active
+                  ? `${s.bg} ${s.color} font-semibold ring-1 ring-current`
+                  : 'text-gray-500 hover:text-gray-300'}`}
+            >
+              {s.label}
+            </button>
+          )
+        })}
+
+        {/* AND badge when multiple selected */}
+        {selected.size >= 2 && (
+          <span className="ml-1 text-xs text-indigo-400 font-semibold bg-indigo-900/40 px-2 py-0.5 rounded">
+            AND ×{selected.size}
+          </span>
+        )}
+
         <span className="ml-auto text-xs text-gray-500">{results.length} tickers</span>
       </div>
 
@@ -142,7 +181,9 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
           <div className="px-4 py-8 text-center text-gray-500 text-xs">Loading…</div>
         ) : results.length === 0 ? (
           <div className="px-4 py-8 text-center text-gray-500 text-xs">
-            No results — press <span className="text-white font-semibold">Scan Now</span> first.
+            {selected.size > 0
+              ? `No tickers with all ${selected.size} selected signals.`
+              : 'No results — press Scan Now first.'}
           </div>
         ) : (
           <table className="w-full text-xs">
