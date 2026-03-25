@@ -16,11 +16,23 @@ import yfinance as yf
 from signal_engine import compute_signals, SIG_NAMES
 from wlnbb_engine import compute_wlnbb, score_last_bar, l_signal_label
 from combo_engine import compute_combo, last_n_active, active_signal_labels
+from sq_engine   import compute_sq
+from wick_engine import compute_wick
+from cisd_engine import compute_cisd
 
-# ── Combo L-signal boolean columns ────────────────────────────────────────────
+# ── Combo extra boolean columns ───────────────────────────────────────────────
 _COMBO_L_COLS = [
+    # WLNBB L signals
     "l34", "l43", "l64", "l22",
     "cci_ready", "blue", "fri34", "pre_pump", "bo_up", "bx_up",
+    # WLNBB FUCHSIA RH/RL (from 260315)
+    "fuchsia_rh", "fuchsia_rl",
+    # 260312 VSA signals
+    "sq", "ns", "nd", "sig3_up", "sig3_dn",
+    # 3112_2C wick reversal
+    "wick_bull", "wick_bear",
+    # 250115 CISD sequences
+    "cisd_seq", "cisd_ppm", "cisd_mpm", "cisd_pmm",
 ]
 
 log = logging.getLogger(__name__)
@@ -227,6 +239,19 @@ def _init_db() -> None:
             pre_pump   INTEGER DEFAULT 0,
             bo_up      INTEGER DEFAULT 0,
             bx_up      INTEGER DEFAULT 0,
+            fuchsia_rh INTEGER DEFAULT 0,
+            fuchsia_rl INTEGER DEFAULT 0,
+            sq         INTEGER DEFAULT 0,
+            ns         INTEGER DEFAULT 0,
+            nd         INTEGER DEFAULT 0,
+            sig3_up    INTEGER DEFAULT 0,
+            sig3_dn    INTEGER DEFAULT 0,
+            wick_bull  INTEGER DEFAULT 0,
+            wick_bear  INTEGER DEFAULT 0,
+            cisd_seq   INTEGER DEFAULT 0,
+            cisd_ppm   INTEGER DEFAULT 0,
+            cisd_mpm   INTEGER DEFAULT 0,
+            cisd_pmm   INTEGER DEFAULT 0,
             last_price REAL DEFAULT 0,
             volume     INTEGER DEFAULT 0,
             change_pct REAL DEFAULT 0,
@@ -273,23 +298,36 @@ def _init_db() -> None:
         if col not in existing:
             con.execute(f"ALTER TABLE scan_results ADD COLUMN {col} {defn}")
 
-    # Migrate combo_scan_results: add T/Z + L columns if missing
+    # Migrate combo_scan_results: add all extra columns if missing
     existing_combo = {
         row[1]
         for row in con.execute("PRAGMA table_info(combo_scan_results)").fetchall()
     }
     for col, defn in [
-        ("tz_sig",   "TEXT DEFAULT ''"),
-        ("l34",      "INTEGER DEFAULT 0"),
-        ("l43",      "INTEGER DEFAULT 0"),
-        ("l64",      "INTEGER DEFAULT 0"),
-        ("l22",      "INTEGER DEFAULT 0"),
-        ("cci_ready","INTEGER DEFAULT 0"),
-        ("blue",     "INTEGER DEFAULT 0"),
-        ("fri34",    "INTEGER DEFAULT 0"),
-        ("pre_pump", "INTEGER DEFAULT 0"),
-        ("bo_up",    "INTEGER DEFAULT 0"),
-        ("bx_up",    "INTEGER DEFAULT 0"),
+        ("tz_sig",    "TEXT DEFAULT ''"),
+        ("l34",       "INTEGER DEFAULT 0"),
+        ("l43",       "INTEGER DEFAULT 0"),
+        ("l64",       "INTEGER DEFAULT 0"),
+        ("l22",       "INTEGER DEFAULT 0"),
+        ("cci_ready", "INTEGER DEFAULT 0"),
+        ("blue",      "INTEGER DEFAULT 0"),
+        ("fri34",     "INTEGER DEFAULT 0"),
+        ("pre_pump",  "INTEGER DEFAULT 0"),
+        ("bo_up",     "INTEGER DEFAULT 0"),
+        ("bx_up",     "INTEGER DEFAULT 0"),
+        ("fuchsia_rh","INTEGER DEFAULT 0"),
+        ("fuchsia_rl","INTEGER DEFAULT 0"),
+        ("sq",        "INTEGER DEFAULT 0"),
+        ("ns",        "INTEGER DEFAULT 0"),
+        ("nd",        "INTEGER DEFAULT 0"),
+        ("sig3_up",   "INTEGER DEFAULT 0"),
+        ("sig3_dn",   "INTEGER DEFAULT 0"),
+        ("wick_bull", "INTEGER DEFAULT 0"),
+        ("wick_bear", "INTEGER DEFAULT 0"),
+        ("cisd_seq",  "INTEGER DEFAULT 0"),
+        ("cisd_ppm",  "INTEGER DEFAULT 0"),
+        ("cisd_mpm",  "INTEGER DEFAULT 0"),
+        ("cisd_pmm",  "INTEGER DEFAULT 0"),
     ]:
         if col not in existing_combo:
             con.execute(f"ALTER TABLE combo_scan_results ADD COLUMN {col} {defn}")
@@ -650,23 +688,63 @@ def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 3) -> dict | No
         except Exception:
             pass
 
-        # ── WLNBB L signals (last bar) ────────────────────────────────────
+        # ── WLNBB L + FUCHSIA signals (last bar) ─────────────────────────
         l_flags: dict = {col: 0 for col in _COMBO_L_COLS}
         try:
             wlnbb  = compute_wlnbb(df)
             last_w = wlnbb.iloc[-1]
-            l_flags = {
-                "l34":      int(bool(last_w.get("L34",      False))),
-                "l43":      int(bool(last_w.get("L43",      False))),
-                "l64":      int(bool(last_w.get("L64",      False))),
-                "l22":      int(bool(last_w.get("L22",      False))),
-                "cci_ready":int(bool(last_w.get("CCI_READY",False))),
-                "blue":     int(bool(last_w.get("BLUE",     False))),
-                "fri34":    int(bool(last_w.get("FRI34",    False))),
-                "pre_pump": int(bool(last_w.get("PRE_PUMP", False))),
-                "bo_up":    int(bool(last_w.get("BO_UP",    False))),
-                "bx_up":    int(bool(last_w.get("BX_UP",    False))),
-            }
+            l_flags.update({
+                "l34":       int(bool(last_w.get("L34",       False))),
+                "l43":       int(bool(last_w.get("L43",       False))),
+                "l64":       int(bool(last_w.get("L64",       False))),
+                "l22":       int(bool(last_w.get("L22",       False))),
+                "cci_ready": int(bool(last_w.get("CCI_READY", False))),
+                "blue":      int(bool(last_w.get("BLUE",      False))),
+                "fri34":     int(bool(last_w.get("FRI34",     False))),
+                "pre_pump":  int(bool(last_w.get("PRE_PUMP",  False))),
+                "bo_up":     int(bool(last_w.get("BO_UP",     False))),
+                "bx_up":     int(bool(last_w.get("BX_UP",     False))),
+                "fuchsia_rh":int(bool(last_w.get("FUCHSIA_RH",False))),
+                "fuchsia_rl":int(bool(last_w.get("FUCHSIA_RL",False))),
+            })
+        except Exception:
+            pass
+
+        # ── 260312 VSA signals (last bar) ─────────────────────────────────
+        try:
+            sq_df  = compute_sq(df)
+            last_s = sq_df.iloc[-1]
+            l_flags.update({
+                "sq":      int(bool(last_s.get("SQ",      False))),
+                "ns":      int(bool(last_s.get("NS",      False))),
+                "nd":      int(bool(last_s.get("ND",      False))),
+                "sig3_up": int(bool(last_s.get("SIG3_UP", False))),
+                "sig3_dn": int(bool(last_s.get("SIG3_DN", False))),
+            })
+        except Exception:
+            pass
+
+        # ── 3112_2C wick signals (last bar) ──────────────────────────────
+        try:
+            wick_df = compute_wick(df)
+            last_wk = wick_df.iloc[-1]
+            l_flags.update({
+                "wick_bull": int(bool(last_wk.get("WICK_BULL_CONFIRM", False))),
+                "wick_bear": int(bool(last_wk.get("WICK_BEAR_CONFIRM", False))),
+            })
+        except Exception:
+            pass
+
+        # ── 250115 CISD sequences (fired in last 3 bars) ──────────────────
+        try:
+            cisd_df = compute_cisd(df)
+            tail3   = cisd_df.tail(3)
+            l_flags.update({
+                "cisd_seq": int(tail3["CISD_SEQ"].any()),
+                "cisd_ppm": int(tail3["CISD_PPM"].any()),
+                "cisd_mpm": int(tail3["CISD_MPM"].any()),
+                "cisd_pmm": int(tail3["CISD_PMM"].any()),
+            })
         except Exception:
             pass
 
