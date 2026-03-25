@@ -89,7 +89,7 @@ function rowBg(row) {
   return ''
 }
 
-export default function CombinedScanPanel({ tf, onSelectTicker, onAddToJournal }) {
+export default function CombinedScanPanel({ tf, onSelectTicker }) {
   const [tab, setTab]         = useState('bull')
   const [minScore, setMinScore] = useState(4)
   const [results, setResults] = useState([])
@@ -213,7 +213,6 @@ export default function CombinedScanPanel({ tf, onSelectTicker, onAddToJournal }
                 <th className="text-left px-2 py-2 hidden lg:table-cell">3-Bar</th>
                 <th className="text-right px-2 py-2">Price</th>
                 <th className="text-right px-2 py-2">Chg%</th>
-                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -251,19 +250,6 @@ export default function CombinedScanPanel({ tf, onSelectTicker, onAddToJournal }
                   <td className={`text-right px-2 py-2 font-medium
                     ${row.change_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {row.change_pct >= 0 ? '+' : ''}{row.change_pct?.toFixed(2)}%
-                  </td>
-                  <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => onAddToJournal?.({
-                        ticker:  row.ticker,
-                        source:  'Combined',
-                        signals: row.sig_name,
-                        score:   tab === 'bear' ? row.bear_score : row.bull_score,
-                        price:   row.last_price,
-                      })}
-                      className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
-                      title="Add to journal"
-                    >+</button>
                   </td>
                 </tr>
               ))}
