@@ -139,8 +139,16 @@ def get_tickers() -> list[str]:
 
 # ── DB schema ─────────────────────────────────────────────────────────────────
 
+def _db() -> sqlite3.Connection:
+    """Open a DB connection with WAL mode and a generous lock timeout."""
+    con = sqlite3.connect(DB_PATH, timeout=30)
+    con.execute("PRAGMA journal_mode=WAL")
+    con.execute("PRAGMA busy_timeout=30000")
+    return con
+
+
 def _init_db() -> None:
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.executescript("""
         CREATE TABLE IF NOT EXISTS scan_results (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -343,7 +351,7 @@ def run_scan(interval: str = "1d", workers: int = 8) -> int:
     _scan_state.update({"running": True, "done": 0, "total": len(tickers),
                         "found": 0, "interval": interval})
 
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     cur = con.execute(
         "INSERT INTO scan_runs (interval, started_at) VALUES (?,?)",
         (interval, now_iso),
@@ -376,7 +384,7 @@ def run_scan(interval: str = "1d", workers: int = 8) -> int:
         _flush(remainder)
 
     # Update scan_run record
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.execute(
         "UPDATE scan_runs SET completed_at=?, result_count=? WHERE id=?",
         (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
@@ -401,7 +409,7 @@ def run_scan(interval: str = "1d", workers: int = 8) -> int:
 def _flush(rows: list[dict]) -> None:
     if not rows:
         return
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.executemany(
         "INSERT INTO scan_results "
         "(scan_id,ticker,sig_id,sig_name,pattern_3bar,l_signal,"
@@ -425,7 +433,7 @@ def get_results(
 ) -> list[dict]:
     """Return latest scan results. tab: all | bull | bear | strong | fire"""
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
 
     # Filter by last scan_id for this interval
     last_run = con.execute(
@@ -485,7 +493,7 @@ def get_results(
 
 def get_last_scan_time(interval: str = "1d") -> str | None:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     row = con.execute(
         "SELECT completed_at FROM scan_runs WHERE interval=? "
         "ORDER BY id DESC LIMIT 1",
@@ -500,7 +508,7 @@ def get_last_scan_time(interval: str = "1d") -> str | None:
 def save_watchlist(tickers: list[str]) -> None:
     _init_db()
     now = datetime.now(timezone.utc).isoformat()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.execute("DELETE FROM watchlist")
     con.executemany(
         "INSERT OR REPLACE INTO watchlist (ticker, added_at) VALUES (?, ?)",
@@ -512,7 +520,7 @@ def save_watchlist(tickers: list[str]) -> None:
 
 def load_watchlist() -> list[str]:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     rows = con.execute(
         "SELECT ticker FROM watchlist ORDER BY added_at"
     ).fetchall()
@@ -524,7 +532,7 @@ def load_watchlist() -> list[str]:
 
 def save_settings(settings: dict) -> None:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.executemany(
         "INSERT OR REPLACE INTO settings (key, value) VALUES (?, ?)",
         [(k, str(v)) for k, v in settings.items()],
@@ -535,7 +543,7 @@ def save_settings(settings: dict) -> None:
 
 def load_settings() -> dict:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     rows = con.execute("SELECT key, value FROM settings").fetchall()
     con.close()
     return {r[0]: r[1] for r in rows}
@@ -615,7 +623,7 @@ def run_combo_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
     _combo_state.update({"running": True, "done": 0,
                          "total": len(tickers), "found": 0})
 
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     cur = con.execute(
         "INSERT INTO combo_scan_runs (started_at, n_bars) VALUES (?,?)",
         (now_iso, n_bars),
@@ -647,7 +655,7 @@ def run_combo_scan(interval: str = "1d", n_bars: int = 3, workers: int = 8) -> i
     if remainder:
         _flush_combo(remainder)
 
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.execute(
         "UPDATE combo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
         (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
@@ -674,7 +682,7 @@ def _flush_combo(rows: list[dict]) -> None:
                  "change_pct", "scanned_at"] + _COMBO_BOOL_COLS
     placeholders = ", ".join(f":{c}" for c in cols)
     col_names    = ", ".join(cols)
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     con.executemany(
         f"INSERT INTO combo_scan_results ({col_names}) VALUES ({placeholders})",
         rows,
@@ -689,7 +697,7 @@ def get_combo_results(
 ) -> list[dict]:
     """Return latest combo scan results, optionally filtered by signal column."""
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
 
     last_run = con.execute(
         "SELECT MAX(id) FROM combo_scan_runs"
@@ -719,7 +727,7 @@ def get_combo_results(
 
 def get_last_combo_scan_time() -> str | None:
     _init_db()
-    con = sqlite3.connect(DB_PATH)
+    con = _db()
     row = con.execute(
         "SELECT completed_at FROM combo_scan_runs ORDER BY id DESC LIMIT 1"
     ).fetchone()
