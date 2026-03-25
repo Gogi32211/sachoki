@@ -62,6 +62,14 @@ export const api = {
   pumpTrigger: (threshold = 2.0, window = 20, combo_len = 3) =>
     post(`/api/pump-combos/trigger?threshold=${threshold}&window=${window}&combo_len=${combo_len}`),
 
+  // 260323 Combo scan
+  comboScan: (signal = 'all', limit = 200) =>
+    get(`/api/combo-scan?signal=${signal}&limit=${limit}`),
+  comboScanTrigger: (tf = '1d', n_bars = 7) =>
+    post(`/api/combo-scan/trigger?tf=${tf}&n_bars=${n_bars}`),
+  comboScanStatus: () =>
+    get('/api/combo-scan/status'),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),

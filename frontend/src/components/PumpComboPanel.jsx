@@ -107,7 +107,7 @@ export default function PumpComboPanel() {
       {/* Mining status */}
       {mining && (
         <div className="px-4 py-2 text-xs text-purple-400 animate-pulse">
-          Mining 500 tickers… this takes ~15 min. Results will appear when done.
+          Mining 700 tickers… this takes ~15 min. Results will appear when done.
         </div>
       )}
 

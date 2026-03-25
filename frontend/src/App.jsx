@@ -8,6 +8,7 @@ import CombinedScanPanel from './components/CombinedScanPanel'
 import PumpComboPanel from './components/PumpComboPanel'
 import TZLStatsPanel from './components/TZLStatsPanel'
 import HowItWorksPanel from './components/HowItWorksPanel'
+import ComboScanPanel from './components/ComboScanPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -22,6 +23,7 @@ const LS = {
 
 const TABS = [
   { id: 'combined',  label: 'Combined Scan' },
+  { id: 'combo260',  label: '260323 Combo' },
   { id: 'predictor', label: 'Predictor' },
   { id: 'scanner',   label: 'T/Z Scanner' },
   { id: 'tzlstats',  label: 'T/Z × L Stats' },
@@ -130,6 +132,10 @@ export default function App() {
         <div className="min-h-[340px]">
           {activeTab === 'combined' && (
             <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />
+          )}
+
+          {activeTab === 'combo260' && (
+            <ComboScanPanel tf={tf} onSelectTicker={handleSelect} />
           )}
 
           {activeTab === 'predictor' && (
