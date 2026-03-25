@@ -284,9 +284,13 @@ def api_scan_results(
     min_score: int = 0,
 ):
     """Latest scan results from DB. tab: all | bull | bear | strong | fire"""
-    results = get_results(interval=tf, limit=limit, min_bull=min_score, tab=tab)
-    last_time = get_last_scan_time(tf)
-    return {"results": results, "last_scan": last_time}
+    try:
+        results   = get_results(interval=tf, limit=limit, min_bull=min_score, tab=tab)
+        last_time = get_last_scan_time(tf)
+        return {"results": results, "last_scan": last_time}
+    except Exception as exc:
+        log.exception("scan/results error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/api/scan/trigger")
@@ -311,9 +315,13 @@ def api_combined_scan(
     limit: int = 100,
 ):
     """Tickers with combined score >= threshold, sorted by score desc."""
-    results = get_results(interval=tf, limit=limit, min_bull=min_score, tab=tab)
-    last_time = get_last_scan_time(tf)
-    return {"results": results, "last_scan": last_time}
+    try:
+        results   = get_results(interval=tf, limit=limit, min_bull=min_score, tab=tab)
+        last_time = get_last_scan_time(tf)
+        return {"results": results, "last_scan": last_time}
+    except Exception as exc:
+        log.exception("combined-scan error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 # ── Pump combos ───────────────────────────────────────────────────────────────
@@ -363,9 +371,13 @@ def api_combo_scan(
     limit: int = 200,
 ):
     """Latest 260323 combo scan results. signal: all | buy_2809 | rocket | ..."""
-    results   = get_combo_results(signal_filter=signal, limit=limit)
-    last_time = get_last_combo_scan_time()
-    return {"results": results, "last_scan": last_time}
+    try:
+        results   = get_combo_results(signal_filter=signal, limit=limit)
+        last_time = get_last_combo_scan_time()
+        return {"results": results, "last_scan": last_time}
+    except Exception as exc:
+        log.exception("combo-scan error: %s", exc)
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/api/combo-scan/trigger")
