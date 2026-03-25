@@ -52,7 +52,7 @@ function rowBg(signals) {
   return ''
 }
 
-export default function ComboScanPanel({ tf, onSelectTicker, onAddToJournal }) {
+export default function ComboScanPanel({ tf, onSelectTicker }) {
   const [selected,   setSelected]  = useState(new Set())   // selected signal keys
   const [allResults, setAllResults] = useState([])
   const [lastScan,   setLastScan]  = useState(null)
@@ -211,7 +211,6 @@ export default function ComboScanPanel({ tf, onSelectTicker, onAddToJournal }) {
                 <th className="text-left px-2 py-2">Signals</th>
                 <th className="text-right px-2 py-2 w-20">Price</th>
                 <th className="text-right px-2 py-2 w-16">Chg%</th>
-                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -236,18 +235,6 @@ export default function ComboScanPanel({ tf, onSelectTicker, onAddToJournal }) {
                     <td className={`text-right px-2 py-2 font-medium
                       ${row.change_pct >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                       {row.change_pct >= 0 ? '+' : ''}{row.change_pct?.toFixed(2)}%
-                    </td>
-                    <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
-                      <button
-                        onClick={() => onAddToJournal?.({
-                          ticker:  row.ticker,
-                          source:  '260323',
-                          signals: row.signals,
-                          price:   row.last_price,
-                        })}
-                        className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
-                        title="Add to journal"
-                      >+</button>
                     </td>
                   </tr>
                 )

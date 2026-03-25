@@ -14,7 +14,7 @@ function SigBadge({ sig_id, sig_name }) {
   )
 }
 
-export default function ScannerPanel({ tf, onSelectTicker, onAddToJournal }) {
+export default function ScannerPanel({ tf, onSelectTicker }) {
   const [results, setResults] = useState([])
   const [lastScan, setLastScan] = useState(null)
   const [loading, setLoading]  = useState(false)
@@ -152,7 +152,6 @@ export default function ScannerPanel({ tf, onSelectTicker, onAddToJournal }) {
                 <th className="text-left px-2 py-2 hidden md:table-cell">3-Bar Pattern</th>
                 <th className="text-right px-2 py-2">Price</th>
                 <th className="text-right px-2 py-2">Chg%</th>
-                <th className="px-2 py-2 w-8"></th>
               </tr>
             </thead>
             <tbody>
@@ -177,18 +176,6 @@ export default function ScannerPanel({ tf, onSelectTicker, onAddToJournal }) {
                     {row.change_pct != null
                       ? `${row.change_pct >= 0 ? '+' : ''}${Number(row.change_pct).toFixed(2)}%`
                       : '—'}
-                  </td>
-                  <td className="px-2 py-2" onClick={e => e.stopPropagation()}>
-                    <button
-                      onClick={() => onAddToJournal?.({
-                        ticker:  row.ticker,
-                        source:  'T/Z Scan',
-                        signals: row.sig_name,
-                        price:   row.last_price,
-                      })}
-                      className="text-gray-600 hover:text-blue-400 transition-colors text-base leading-none"
-                      title="Add to journal"
-                    >+</button>
                   </td>
                 </tr>
               ))}
