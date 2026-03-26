@@ -735,15 +735,15 @@ def _scan_combo_ticker(ticker: str, interval: str, n_bars: int = 3) -> dict | No
         except Exception:
             pass
 
-        # ── 250115 CISD sequences (fired in last 3 bars) ──────────────────
+        # ── 250115 CISD sequences (last bar only) ─────────────────────────
         try:
-            cisd_df = compute_cisd(df)
-            tail3   = cisd_df.tail(3)
+            cisd_df  = compute_cisd(df)
+            last_c   = cisd_df.iloc[-1]
             l_flags.update({
-                "cisd_seq": int(tail3["CISD_SEQ"].any()),
-                "cisd_ppm": int(tail3["CISD_PPM"].any()),
-                "cisd_mpm": int(tail3["CISD_MPM"].any()),
-                "cisd_pmm": int(tail3["CISD_PMM"].any()),
+                "cisd_seq": int(bool(last_c["CISD_SEQ"])),
+                "cisd_ppm": int(bool(last_c["CISD_PPM"])),
+                "cisd_mpm": int(bool(last_c["CISD_MPM"])),
+                "cisd_pmm": int(bool(last_c["CISD_PMM"])),
             })
         except Exception:
             pass

@@ -221,12 +221,12 @@ def _scan_power_ticker(ticker: str, interval: str, n_bars: int) -> dict | None:
         except Exception:
             pass
         try:
-            c_tail = compute_cisd(df).tail(3)
+            last_c = compute_cisd(df).iloc[-1]
             extra.update({
-                "cisd_seq": int(c_tail["CISD_SEQ"].any()),
-                "cisd_ppm": int(c_tail["CISD_PPM"].any()),
-                "cisd_mpm": int(c_tail["CISD_MPM"].any()),
-                "cisd_pmm": int(c_tail["CISD_PMM"].any()),
+                "cisd_seq": int(bool(last_c["CISD_SEQ"])),
+                "cisd_ppm": int(bool(last_c["CISD_PPM"])),
+                "cisd_mpm": int(bool(last_c["CISD_MPM"])),
+                "cisd_pmm": int(bool(last_c["CISD_PMM"])),
             })
         except Exception:
             pass
