@@ -462,6 +462,29 @@ def api_power_scan_status():
     return get_power_scan_progress()
 
 
+# ── BR Scan (260328 Break Readiness) ──────────────────────────────────────────
+
+@app.get("/api/br-scan")
+def api_br_scan(limit: int = 300, min_br: float = 0, entry: str = "all"):
+    from br_engine import get_br_results, get_last_br_scan_time
+    results   = get_br_results(limit=limit, min_br=min_br, entry_filter=entry)
+    last_time = get_last_br_scan_time()
+    return {"results": results, "last_scan": last_time}
+
+
+@app.post("/api/br-scan/trigger")
+def api_br_scan_trigger(background_tasks: BackgroundTasks, tf: str = "1d"):
+    from br_engine import run_br_scan
+    background_tasks.add_task(run_br_scan, tf)
+    return {"status": "br scan started"}
+
+
+@app.get("/api/br-scan/status")
+def api_br_scan_status():
+    from br_engine import get_br_scan_progress
+    return get_br_scan_progress()
+
+
 # ── Settings ──────────────────────────────────────────────────────────────────
 
 @app.get("/api/settings")
