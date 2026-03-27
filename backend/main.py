@@ -465,10 +465,10 @@ def api_power_scan_status():
 # ── BR Scan (260328 Break Readiness) ──────────────────────────────────────────
 
 @app.get("/api/br-scan")
-def api_br_scan(limit: int = 300, min_br: float = 0, entry: str = "all"):
+def api_br_scan(limit: int = 300, min_br: float = 0, entry: str = "all", tf: str = "1d"):
     from br_engine import get_br_results, get_last_br_scan_time
-    results   = get_br_results(limit=limit, min_br=min_br, entry_filter=entry)
-    last_time = get_last_br_scan_time()
+    results   = get_br_results(limit=limit, min_br=min_br, entry_filter=entry, tf=tf)
+    last_time = get_last_br_scan_time(tf=tf)
     return {"results": results, "last_scan": last_time}
 
 
