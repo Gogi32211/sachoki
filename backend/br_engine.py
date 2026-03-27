@@ -384,6 +384,7 @@ def _init_db() -> None:
     con.executescript("""
         CREATE TABLE IF NOT EXISTS br_scan_runs (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            tf           TEXT    DEFAULT '1d',
             started_at   TEXT,
             completed_at TEXT,
             result_count INTEGER DEFAULT 0
@@ -424,13 +425,17 @@ def _init_db() -> None:
             scanned_at    TEXT
         );
     """)
-    # Migration: add new columns if missing
+    # Migration: add new columns if missing (br_scan_results)
     existing = {r[1] for r in con.execute("PRAGMA table_info(br_scan_results)").fetchall()}
     for col, defn in [("master_score", "REAL DEFAULT 0"),
                       ("combo_score",  "INTEGER DEFAULT 0"),
                       ("combo_labels", "TEXT DEFAULT ''")]:
         if col not in existing:
             con.execute(f"ALTER TABLE br_scan_results ADD COLUMN {col} {defn}")
+    # Migration: add tf to br_scan_runs if missing
+    run_cols = {r[1] for r in con.execute("PRAGMA table_info(br_scan_runs)").fetchall()}
+    if "tf" not in run_cols:
+        con.execute("ALTER TABLE br_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
     con.commit()
     con.close()
 
@@ -536,7 +541,7 @@ def run_br_scan(interval: str = "1d", workers: int = 8) -> int:
 
     con = _db()
     scan_id = con.execute(
-        "INSERT INTO br_scan_runs (started_at) VALUES (?)", (now_iso,)
+        "INSERT INTO br_scan_runs (tf, started_at) VALUES (?, ?)", (interval, now_iso)
     ).lastrowid
     con.commit()
     con.close()
@@ -584,13 +589,18 @@ def get_br_results(
     limit: int = 300,
     min_br: float = 0,
     entry_filter: str = "all",   # all | buy | bc | big | go | up
+    tf: str = "1d",
 ) -> list[dict]:
     _init_db()
     con = _db()
     try:
         row = con.execute(
-            "SELECT id FROM br_scan_runs ORDER BY id DESC LIMIT 1"
+            "SELECT id FROM br_scan_runs WHERE tf = ? ORDER BY id DESC LIMIT 1",
+            (tf,),
         ).fetchone()
+        if not row:
+            # Fallback: latest run regardless of tf
+            row = con.execute("SELECT id FROM br_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
         if not row:
             return []
         scan_id = row[0]
@@ -628,13 +638,18 @@ def get_br_results(
         con.close()
 
 
-def get_last_br_scan_time() -> str | None:
+def get_last_br_scan_time(tf: str = "1d") -> str | None:
     _init_db()
     con = _db()
     try:
         row = con.execute(
-            "SELECT completed_at FROM br_scan_runs ORDER BY id DESC LIMIT 1"
+            "SELECT completed_at FROM br_scan_runs WHERE tf = ? ORDER BY id DESC LIMIT 1",
+            (tf,),
         ).fetchone()
+        if row is None:
+            row = con.execute(
+                "SELECT completed_at FROM br_scan_runs ORDER BY id DESC LIMIT 1"
+            ).fetchone()
         return row[0] if row else None
     finally:
         con.close()

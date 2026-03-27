@@ -74,7 +74,10 @@ const BR_THRESHOLDS = [
   { label: 'BR≥71', value: 71  },
 ]
 
-export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
+const BR_TF_OPTIONS = ['1w', '1d', '4h', '1h']
+
+export default function BRScanPanel({ tf: globalTf = '1d', onSelectTicker }) {
+  const [localTf,    setLocalTf]   = useState('1d')
   const [allResults, setAllResults] = useState([])
   const [lastScan,   setLastScan]   = useState(null)
   const [scanning,   setScanning]   = useState(false)
@@ -84,13 +87,13 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
   const [selTZ,      setSelTZ]      = useState(new Set())   // T/Z OR filter
   const [selL,       setSelL]       = useState(new Set())   // L-sig AND filter
 
-  const load = () => {
-    api.brScan(500, 0, 'all')
+  const load = (tf = localTf) => {
+    api.brScan(500, 0, 'all', tf)
       .then(d => { setAllResults(d.results || []); setLastScan(d.last_scan) })
       .catch(e => setError(e.message))
   }
 
-  useEffect(() => { load() }, [])
+  useEffect(() => { load(localTf) }, [localTf])
 
   // Client-side filter
   const results = useMemo(() => {
@@ -110,24 +113,25 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
   })
 
   const _poll = () => {
+    const tf = localTf
     const iv = setInterval(() => {
       api.brScanStatus()
         .then(s => {
           if (!s.running) {
             clearInterval(iv)
             setScanning(false)
-            load()
+            load(tf)
           }
         })
         .catch(() => { clearInterval(iv); setScanning(false) })
     }, 2000)
-    setTimeout(() => { clearInterval(iv); setScanning(false); load() }, 300_000)
+    setTimeout(() => { clearInterval(iv); setScanning(false); load(tf) }, 300_000)
   }
 
   const scan = () => {
     setScanning(true)
     setError(null)
-    api.brScanTrigger(tf)
+    api.brScanTrigger(localTf)
       .then(() => _poll())
       .catch(e => { setError(e.message); setScanning(false) })
   }
@@ -138,7 +142,7 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
   return (
     <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs">
 
-      {/* ── Row 1: Scan + Entry + BR threshold ── */}
+      {/* ── Row 1: Scan + TF + Entry + BR threshold ── */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-800">
         <button
           onClick={scan} disabled={scanning}
@@ -148,6 +152,22 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
         >
           {scanning ? <span className="animate-pulse">● Scanning…</span> : '▶ Scan'}
         </button>
+
+        {/* Timeframe selector */}
+        <div className="flex gap-1 border border-gray-700 rounded p-0.5">
+          {BR_TF_OPTIONS.map(t => (
+            <button
+              key={t}
+              onClick={() => setLocalTf(t)}
+              className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
+                ${localTf === t
+                  ? 'bg-blue-600 text-white'
+                  : 'text-gray-400 hover:text-white'}`}
+            >
+              {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
 
         <span className="text-gray-500">Entry:</span>
         {ENTRY_FILTERS.map(f => (
