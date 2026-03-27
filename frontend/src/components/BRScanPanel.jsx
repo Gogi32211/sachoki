@@ -152,6 +152,7 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
           <thead className="sticky top-0 bg-gray-900 z-10">
             <tr className="text-gray-500 text-left">
               <th className="px-2 py-1.5 font-medium">Ticker</th>
+              <th className="px-2 py-1.5 font-medium text-center">Score</th>
               <th className="px-2 py-1.5 font-medium text-center">BR%</th>
               <th className="px-2 py-1.5 font-medium text-center">CONS</th>
               <th className="px-2 py-1.5 font-medium text-center">CAP</th>
@@ -176,8 +177,13 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
                   {r.ticker}
                 </td>
 
+                {/* Master score */}
+                <td className={`px-2 py-1 text-center font-mono font-bold ${brColor(r.master_score ?? r.br_score)}`}>
+                  {fmt(r.master_score ?? r.br_score, 1)}
+                </td>
+
                 {/* BR% */}
-                <td className={`px-2 py-1 text-center font-mono ${brColor(r.br_score)}`}>
+                <td className={`px-2 py-1 text-center font-mono text-gray-400`}>
                   {fmt(r.br_score, 1)}
                 </td>
 
@@ -221,7 +227,10 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
                 {/* Extra signal badges */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
-                    {r.tz_bull  ? <span className="text-lime-300 bg-lime-900/40 px-1 rounded">T</span>  : null}
+                    {r.combo_labels && r.combo_labels.split(',').filter(Boolean).map(lb => (
+                      <span key={lb} className="text-orange-300 bg-orange-900/30 px-1 rounded">{lb}</span>
+                    ))}
+                    {r.tz_bull  ? <span className="text-lime-300 bg-lime-900/40 px-1 rounded">T:{r.tz_sig}</span>  : null}
                     {r.blue     ? <span className="text-sky-300  bg-sky-900/40  px-1 rounded">BL</span> : null}
                     {r.fri34    ? <span className="text-cyan-300 bg-cyan-900/40 px-1 rounded">FRI</span>: null}
                     {r.l34      ? <span className="text-blue-300 bg-blue-900/30 px-1 rounded">L34</span>: null}
@@ -249,7 +258,7 @@ export default function BRScanPanel({ tf = '1d', onSelectTicker }) {
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={11} className="px-4 py-8 text-center text-gray-600">
+                <td colSpan={12} className="px-4 py-8 text-center text-gray-600">
                   No results — press Scan to run
                 </td>
               </tr>

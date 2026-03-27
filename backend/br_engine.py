@@ -25,7 +25,7 @@ import pandas as pd
 
 from signal_engine import compute_signals
 from wlnbb_engine  import compute_wlnbb
-from combo_engine  import compute_combo
+from combo_engine  import compute_combo, last_n_active, active_signal_labels
 from wick_engine   import compute_wick
 from cisd_engine   import compute_cisd
 
@@ -362,13 +362,20 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
 
 
 # ── DB init ───────────────────────────────────────────────────────────────────
+_TZ_WEIGHT = {
+    "T4": 4, "T6": 4, "T1G": 3, "T2G": 3,
+    "T1": 2, "T2": 2, "T9": 1, "T10": 1, "T3": 1, "T11": 1, "T5": 1,
+}
+
 _BR_COLS = [
+    "master_score",
     "br_score", "cons_bars", "cap_count", "accum_cluster",
     "me_bull", "me_bear", "me_count",
     "buy", "bc", "big", "go", "up",
     "tz_bull", "tz_sig", "blue", "fri34", "l34",
     "rtv", "sig3g", "raw_p3", "raw_p89",
     "wick_bull", "cisd_ppm", "cisd_seq",
+    "combo_score", "combo_labels",
 ]
 
 
@@ -385,6 +392,7 @@ def _init_db() -> None:
             id            INTEGER PRIMARY KEY AUTOINCREMENT,
             scan_id       INTEGER,
             ticker        TEXT NOT NULL,
+            master_score  REAL    DEFAULT 0,
             br_score      REAL    DEFAULT 0,
             cons_bars     INTEGER DEFAULT 0,
             cap_count     INTEGER DEFAULT 0,
@@ -409,11 +417,20 @@ def _init_db() -> None:
             wick_bull     INTEGER DEFAULT 0,
             cisd_ppm      INTEGER DEFAULT 0,
             cisd_seq      INTEGER DEFAULT 0,
+            combo_score   INTEGER DEFAULT 0,
+            combo_labels  TEXT    DEFAULT '',
             last_price    REAL,
             change_pct    REAL,
             scanned_at    TEXT
         );
     """)
+    # Migration: add new columns if missing
+    existing = {r[1] for r in con.execute("PRAGMA table_info(br_scan_results)").fetchall()}
+    for col, defn in [("master_score", "REAL DEFAULT 0"),
+                      ("combo_score",  "INTEGER DEFAULT 0"),
+                      ("combo_labels", "TEXT DEFAULT ''")]:
+        if col not in existing:
+            con.execute(f"ALTER TABLE br_scan_results ADD COLUMN {col} {defn}")
     con.commit()
     con.close()
 
@@ -451,8 +468,28 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
         price      = float(row["close"])
         change_pct = round((price - float(prev["close"])) / float(prev["close"]) * 100, 2)
 
+        # ── Combo signals (260323) ────────────────────────────────────────────
+        try:
+            combo        = compute_combo(df)
+            active       = last_n_active(combo, 3)
+            combo_score  = sum(1 for v in active.values() if v)
+            combo_labels = ",".join(active_signal_labels(active))
+        except Exception:
+            combo_score, combo_labels = 0, ""
+
+        # ── Master score ──────────────────────────────────────────────────────
+        tz_w   = _TZ_WEIGHT.get(str(last["tz_sig"]), 0) if bool(last["tz_bull"]) else 0
+        l_pts  = int(bool(last["l34"])) + int(bool(last["blue"])) + int(bool(last["fri34"]))
+        master_score = round(min(100.0,
+            float(last["br_score"]) * 0.5 +
+            min(combo_score * 6, 24) +
+            tz_w * 3 +
+            l_pts * 3
+        ), 1)
+
         return {
             "ticker":        ticker,
+            "master_score":  master_score,
             "br_score":      float(last["br_score"]),
             "cons_bars":     int(last["cons_bars"]),
             "cap_count":     int(last["cap_count"]),
@@ -477,6 +514,8 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
             "wick_bull":     int(bool(last["wick_bull"])),
             "cisd_ppm":      int(bool(last["cisd_ppm"])),
             "cisd_seq":      int(bool(last["cisd_seq"])),
+            "combo_score":   combo_score,
+            "combo_labels":  combo_labels,
             "last_price":    price,
             "change_pct":    change_pct,
         }
@@ -563,24 +602,26 @@ def get_br_results(
             where += f" AND {entry_filter} = 1"
 
         rows = con.execute(
-            f"""SELECT ticker, br_score, cons_bars, cap_count, accum_cluster,
+            f"""SELECT ticker, master_score, br_score, cons_bars, cap_count, accum_cluster,
                        me_bull, me_bear, me_count,
                        buy, bc, big, go, up,
                        tz_bull, tz_sig, blue, fri34, l34,
                        rtv, sig3g, raw_p3, raw_p89, wick_bull, cisd_ppm, cisd_seq,
+                       combo_score, combo_labels,
                        last_price, change_pct, scanned_at
                 FROM br_scan_results
                 WHERE {where}
-                ORDER BY br_score DESC
+                ORDER BY master_score DESC
                 LIMIT ?""",
             params + [limit],
         ).fetchall()
 
-        keys = ["ticker", "br_score", "cons_bars", "cap_count", "accum_cluster",
+        keys = ["ticker", "master_score", "br_score", "cons_bars", "cap_count", "accum_cluster",
                 "me_bull", "me_bear", "me_count",
                 "buy", "bc", "big", "go", "up",
                 "tz_bull", "tz_sig", "blue", "fri34", "l34",
                 "rtv", "sig3g", "raw_p3", "raw_p89", "wick_bull", "cisd_ppm", "cisd_seq",
+                "combo_score", "combo_labels",
                 "last_price", "change_pct", "scanned_at"]
         return [dict(zip(keys, r)) for r in rows]
     finally:
