@@ -10,6 +10,7 @@ import TZLStatsPanel from './components/TZLStatsPanel'
 import HowItWorksPanel from './components/HowItWorksPanel'
 import ComboScanPanel from './components/ComboScanPanel'
 import PowerScanPanel from './components/PowerScanPanel'
+import BRScanPanel from './components/BRScanPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -29,6 +30,7 @@ const TABS = [
   { id: 'scanner',   label: 'T/Z Scanner' },
   { id: 'tzlstats',  label: 'T/Z × L Stats' },
   { id: 'power',     label: 'Power Scan' },
+  { id: 'brscan',    label: 'BR Scan' },
   { id: 'pumps',     label: 'Pump Combos' },
   { id: 'howitworks', label: 'How It Works' },
 ]
@@ -154,6 +156,10 @@ export default function App() {
 
           {activeTab === 'power' && (
             <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
+          )}
+
+          {activeTab === 'brscan' && (
+            <BRScanPanel tf={tf} onSelectTicker={handleSelect} />
           )}
 
           {activeTab === 'pumps' && (

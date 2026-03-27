@@ -80,6 +80,14 @@ export const api = {
   powerScanStatus: () =>
     get('/api/power-scan/status'),
 
+  // BR Scan (260328 Break Readiness)
+  brScan: (limit = 300, min_br = 0, entry = 'all') =>
+    get(`/api/br-scan?limit=${limit}&min_br=${min_br}&entry=${entry}`),
+  brScanTrigger: (tf = '1d') =>
+    post(`/api/br-scan/trigger?tf=${tf}`),
+  brScanStatus: () =>
+    get('/api/br-scan/status'),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
