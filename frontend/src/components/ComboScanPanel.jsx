@@ -139,8 +139,23 @@ export default function ComboScanPanel({ tf, onSelectTicker }) {
   const scan = () => {
     setScanning(true)
     api.comboScanTrigger(tf)
-      .then(() => setTimeout(() => { setScanning(false); load() }, 3000))
+      .then(() => _pollUntilDone())
       .catch(e => { setError(e.message); setScanning(false) })
+  }
+
+  const _pollUntilDone = () => {
+    const iv = setInterval(() => {
+      api.comboScanStatus()
+        .then(s => {
+          if (!s.running) {
+            clearInterval(iv)
+            setScanning(false)
+            load()
+          }
+        })
+        .catch(() => { clearInterval(iv); setScanning(false) })
+    }, 2000)
+    setTimeout(() => { clearInterval(iv); setScanning(false); load() }, 300_000)
   }
 
   const toggle = (set, setFn, key) => {
