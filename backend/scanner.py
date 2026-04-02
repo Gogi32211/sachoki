@@ -19,6 +19,7 @@ from combo_engine import compute_combo, last_n_active, active_signal_labels
 from sq_engine   import compute_sq
 from wick_engine import compute_wick
 from cisd_engine import compute_cisd
+from vabs_engine import compute_vabs
 
 # ── Combo extra boolean columns ───────────────────────────────────────────────
 _COMBO_L_COLS = [
@@ -294,6 +295,33 @@ def _init_db() -> None:
         ("last_price",  "REAL DEFAULT 0"),
         ("volume",      "INTEGER DEFAULT 0"),
         ("change_pct",  "REAL DEFAULT 0"),
+        # VABS signals
+        ("abs_sig",     "INTEGER DEFAULT 0"),
+        ("climb_sig",   "INTEGER DEFAULT 0"),
+        ("load_sig",    "INTEGER DEFAULT 0"),
+        ("best_sig",    "INTEGER DEFAULT 0"),
+        ("strong_sig",  "INTEGER DEFAULT 0"),
+        ("vbo_up",      "INTEGER DEFAULT 0"),
+        ("vbo_dn",      "INTEGER DEFAULT 0"),
+        ("ns",          "INTEGER DEFAULT 0"),
+        ("nd",          "INTEGER DEFAULT 0"),
+        ("sc",          "INTEGER DEFAULT 0"),
+        ("bc",          "INTEGER DEFAULT 0"),
+        ("sq",          "INTEGER DEFAULT 0"),
+        # Combo signals
+        ("buy_2809",    "INTEGER DEFAULT 0"),
+        ("rocket",      "INTEGER DEFAULT 0"),
+        ("sig3g",       "INTEGER DEFAULT 0"),
+        ("rtv",         "INTEGER DEFAULT 0"),
+        ("hilo_buy",    "INTEGER DEFAULT 0"),
+        ("atr_brk",     "INTEGER DEFAULT 0"),
+        ("bb_brk",      "INTEGER DEFAULT 0"),
+        # WLNBB display
+        ("vol_bucket",  "TEXT DEFAULT ''"),
+        ("candle_dir",  "TEXT DEFAULT ''"),
+        ("l_combo",     "TEXT DEFAULT ''"),
+        # Wick
+        ("wick_bull",   "INTEGER DEFAULT 0"),
     ]:
         if col not in existing:
             con.execute(f"ALTER TABLE scan_results ADD COLUMN {col} {defn}")
@@ -336,6 +364,93 @@ def _init_db() -> None:
     con.close()
 
 
+# ── Extended scoring ──────────────────────────────────────────────────────────
+
+def _ext_score(last_sig: int, wlnbb_last, vabs_last, combo_last, wick_last) -> tuple[int, int]:
+    """
+    Compute (bull_score, bear_score) from all engine signals on the last bar.
+    Scores are capped at 10.
+
+    Bullish weights:
+      T4/T6 engulf: +2   |  other T: +1
+      FRI34: +2  |  L34/L43: +1 each  |  BLUE/CCI_READY/BO_UP: +1
+      BEST: +4  |  STRONG: +3  |  VBO_UP: +3
+      (ABS+CLIMB+LOAD if no BEST/STRONG/VBO: up to +3)
+      NS/SQ recent (embedded in BEST): +1 standalone
+      ROCKET: +3  |  BUY_2809: +2  |  SIG3G: +2
+      RTV/PREUP/ATR_BRK/BB_BRK/HILO_BUY: +1 each
+      WICK_BULL_CONFIRM: +1
+
+    Bearish weights:
+      Z4/Z6 engulf: +2  |  other Z: +1
+      L22: +2  |  L64/BO_DN/BX_DN/FUCHSIA_RH: +1
+      VBO_DN: +2  |  BC: +1  |  ND: +1
+      HILO_SELL/BIAS_DOWN: +1
+    """
+    def g(row, key, default=False):
+        if row is None:
+            return default
+        try:
+            v = row.get(key, default) if hasattr(row, 'get') else getattr(row, key, default)
+            return bool(v)
+        except Exception:
+            return default
+
+    bull = 0
+    bear = 0
+
+    # ── T/Z signal ────────────────────────────────────────────────────────
+    if last_sig in (6, 8):           bull += 2   # T4, T6 (full engulf)
+    elif 1 <= last_sig <= 11:        bull += 1   # other T
+    if last_sig in (17, 19):         bear += 2   # Z4, Z6 (full engulf)
+    elif 12 <= last_sig <= 25:       bear += 1   # other Z
+
+    # ── WLNBB signals ────────────────────────────────────────────────────
+    if g(wlnbb_last, "FRI34"):       bull += 2
+    elif g(wlnbb_last, "L34"):       bull += 1
+    if g(wlnbb_last, "L43"):         bull += 1
+    if g(wlnbb_last, "BLUE"):        bull += 1
+    if g(wlnbb_last, "CCI_READY"):   bull += 1
+    if g(wlnbb_last, "BO_UP") or g(wlnbb_last, "BX_UP"):   bull += 1
+    if g(wlnbb_last, "L22"):         bear += 2
+    if g(wlnbb_last, "L64"):         bear += 1
+    if g(wlnbb_last, "BO_DN") or g(wlnbb_last, "BX_DN"):   bear += 1
+    if g(wlnbb_last, "FUCHSIA_RH"):  bear += 1
+
+    # ── VABS signals (exclusive priority for combined vol signals) ────────
+    if g(vabs_last, "best_sig"):
+        bull += 4
+    elif g(vabs_last, "strong_sig"):
+        bull += 3
+    elif g(vabs_last, "vbo_up"):
+        bull += 3
+    else:
+        sub = (int(g(vabs_last, "abs_sig")) +
+               int(g(vabs_last, "climb_sig")) +
+               int(g(vabs_last, "load_sig")))
+        bull += min(sub, 2)
+    if g(vabs_last, "vbo_dn"):       bear += 2
+    if g(vabs_last, "bc"):           bear += 1
+    if g(vabs_last, "nd"):           bear += 1
+
+    # ── Combo signals ─────────────────────────────────────────────────────
+    if g(combo_last, "rocket"):      bull += 3
+    elif g(combo_last, "buy_2809"):  bull += 2
+    if g(combo_last, "sig3g"):       bull += 2
+    if g(combo_last, "rtv") or g(combo_last, "preup3") or g(combo_last, "preup2"):
+        bull += 1
+    if g(combo_last, "atr_brk") or g(combo_last, "bb_brk"):
+        bull += 1
+    if g(combo_last, "hilo_buy"):    bull += 1
+    if g(combo_last, "hilo_sell"):   bear += 1
+    if g(combo_last, "bias_down"):   bear += 1
+
+    # ── Wick signals ──────────────────────────────────────────────────────
+    if g(wick_last, "WICK_BULL_CONFIRM"): bull += 1
+
+    return min(bull, 10), min(bear, 10)
+
+
 # ── Per-ticker processing ─────────────────────────────────────────────────────
 
 def _scan_ticker(ticker: str, interval: str) -> dict | None:
@@ -356,15 +471,74 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
         last_sig = int(sigs["sig_id"].iloc[-1])
 
         # WLNBB
+        wlnbb_last = None
+        l_sig = ""
+        vol_bucket = candle_dir = l_combo = ""
         try:
             wlnbb = compute_wlnbb(df)
-            bull_score, bear_score = score_last_bar(last_sig, wlnbb)
+            wlnbb_last = dict(wlnbb.iloc[-1])
             l_sig = l_signal_label(wlnbb.iloc[-1])
+            last_w = wlnbb.iloc[-1]
+            _bkt_map = {0: "W", 1: "L", 2: "N", 3: "B", 4: "VB"}
+            vol_bucket = _bkt_map.get(int(last_w.get("vol_bucket", 0)), "")
+            candle_dir = str(last_w.get("candle_dir", ""))
+            l_combo    = str(last_w.get("l_combo", "NONE"))
         except Exception:
-            bull_score, bear_score, l_sig = 0, 0, ""
+            pass
 
-        # Only keep bars where T/Z fired OR combined score is meaningful
-        if last_sig == 0 and bull_score < 2 and bear_score < 2:
+        # VABS signals
+        vabs_last = None
+        abs_sig = climb_sig = load_sig = best_sig = strong_sig = False
+        vbo_up = vbo_dn = ns = nd = sc = bc = sq = False
+        try:
+            vabs = compute_vabs(df)
+            vabs_last = dict(vabs.iloc[-1])
+            abs_sig   = bool(vabs_last.get("abs_sig", False))
+            climb_sig = bool(vabs_last.get("climb_sig", False))
+            load_sig  = bool(vabs_last.get("load_sig", False))
+            best_sig  = bool(vabs_last.get("best_sig", False))
+            strong_sig = bool(vabs_last.get("strong_sig", False))
+            vbo_up    = bool(vabs_last.get("vbo_up", False))
+            vbo_dn    = bool(vabs_last.get("vbo_dn", False))
+            ns        = bool(vabs_last.get("ns", False))
+            nd        = bool(vabs_last.get("nd", False))
+            sc        = bool(vabs_last.get("sc", False))
+            bc        = bool(vabs_last.get("bc", False))
+            sq        = bool(vabs_last.get("sq", False))
+        except Exception:
+            pass
+
+        # Combo signals
+        combo_last = None
+        buy_2809 = rocket = sig3g = rtv = hilo_buy = atr_brk = bb_brk = False
+        try:
+            combo = compute_combo(df)
+            combo_last = dict(combo.iloc[-1])
+            buy_2809 = bool(combo_last.get("buy_2809", False))
+            rocket   = bool(combo_last.get("rocket", False))
+            sig3g    = bool(combo_last.get("sig3g", False))
+            rtv      = bool(combo_last.get("rtv", False))
+            hilo_buy = bool(combo_last.get("hilo_buy", False))
+            atr_brk  = bool(combo_last.get("atr_brk", False))
+            bb_brk   = bool(combo_last.get("bb_brk", False))
+        except Exception:
+            pass
+
+        # Wick signals
+        wick_last = None
+        wick_bull = False
+        try:
+            wick = compute_wick(df)
+            wick_last = dict(wick.iloc[-1])
+            wick_bull = bool(wick_last.get("WICK_BULL_CONFIRM", False))
+        except Exception:
+            pass
+
+        # Extended scoring
+        bull_score, bear_score = _ext_score(last_sig, wlnbb_last, vabs_last, combo_last, wick_last)
+
+        # Skip tickers with no meaningful signal
+        if last_sig == 0 and bull_score < 1 and bear_score < 1:
             return None
 
         last_row = df.iloc[-1]
@@ -377,16 +551,6 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
         volume = int(last_row.get("volume", 0)) if "volume" in df.columns else 0
 
         pat = " → ".join(sigs["sig_name"].tail(3).tolist())
-
-        # Extra WLNBB fields for display
-        vol_bucket = candle_dir = l_combo = ""
-        try:
-            last_w = wlnbb.iloc[-1]
-            vol_bucket = str(last_w.get("vol_bucket", ""))
-            candle_dir = str(last_w.get("candle_dir", ""))
-            l_combo    = str(last_w.get("l_combo", "NONE"))
-        except Exception:
-            pass
 
         return {
             "ticker":       ticker,
@@ -403,6 +567,29 @@ def _scan_ticker(ticker: str, interval: str) -> dict | None:
             "vol_bucket":   vol_bucket,
             "candle_dir":   candle_dir,
             "l_combo":      l_combo,
+            # VABS
+            "abs_sig":      int(abs_sig),
+            "climb_sig":    int(climb_sig),
+            "load_sig":     int(load_sig),
+            "best_sig":     int(best_sig),
+            "strong_sig":   int(strong_sig),
+            "vbo_up":       int(vbo_up),
+            "vbo_dn":       int(vbo_dn),
+            "ns":           int(ns),
+            "nd":           int(nd),
+            "sc":           int(sc),
+            "bc":           int(bc),
+            "sq":           int(sq),
+            # Combo
+            "buy_2809":     int(buy_2809),
+            "rocket":       int(rocket),
+            "sig3g":        int(sig3g),
+            "rtv":          int(rtv),
+            "hilo_buy":     int(hilo_buy),
+            "atr_brk":      int(atr_brk),
+            "bb_brk":       int(bb_brk),
+            # Wick
+            "wick_bull":    int(wick_bull),
         }
     except Exception as exc:
         log.debug("Scanner skip %s: %s", ticker, exc)
@@ -490,9 +677,17 @@ def _flush(rows: list[dict]) -> None:
     con.executemany(
         "INSERT INTO scan_results "
         "(scan_id,ticker,sig_id,sig_name,pattern_3bar,l_signal,"
-        " bull_score,bear_score,last_price,volume,change_pct,interval,scanned_at) "
+        " bull_score,bear_score,last_price,volume,change_pct,interval,scanned_at,"
+        " vol_bucket,candle_dir,l_combo,"
+        " abs_sig,climb_sig,load_sig,best_sig,strong_sig,vbo_up,vbo_dn,"
+        " ns,nd,sc,bc,sq,"
+        " buy_2809,rocket,sig3g,rtv,hilo_buy,atr_brk,bb_brk,wick_bull) "
         "VALUES (:scan_id,:ticker,:sig_id,:sig_name,:pattern_3bar,:l_signal,"
-        " :bull_score,:bear_score,:last_price,:volume,:change_pct,:interval,:scanned_at)",
+        " :bull_score,:bear_score,:last_price,:volume,:change_pct,:interval,:scanned_at,"
+        " :vol_bucket,:candle_dir,:l_combo,"
+        " :abs_sig,:climb_sig,:load_sig,:best_sig,:strong_sig,:vbo_up,:vbo_dn,"
+        " :ns,:nd,:sc,:bc,:sq,"
+        " :buy_2809,:rocket,:sig3g,:rtv,:hilo_buy,:atr_brk,:bb_brk,:wick_bull)",
         rows,
     )
     con.commit()
@@ -540,32 +735,26 @@ def get_results(
     where = " AND ".join(filters)
     rows = con.execute(
         f"SELECT ticker,sig_id,sig_name,pattern_3bar,l_signal,"
-        f"bull_score,bear_score,last_price,volume,change_pct,scanned_at "
+        f"bull_score,bear_score,last_price,volume,change_pct,scanned_at,"
+        f"vol_bucket,candle_dir,l_combo,"
+        f"abs_sig,climb_sig,load_sig,best_sig,strong_sig,vbo_up,vbo_dn,"
+        f"ns,nd,sc,bc,sq,"
+        f"buy_2809,rocket,sig3g,rtv,hilo_buy,atr_brk,bb_brk,wick_bull "
         f"FROM scan_results WHERE {where} "
         f"ORDER BY bull_score DESC, sig_id DESC LIMIT ?",
         (*params, limit),
     ).fetchall()
     con.close()
 
-    return [
-        {
-            "ticker":       r[0],
-            "sig_id":       r[1],
-            "sig_name":     r[2],
-            "pattern_3bar": r[3],
-            "l_signal":     r[4],
-            "bull_score":   r[5],
-            "bear_score":   r[6],
-            "last_price":   r[7],
-            "volume":       r[8],
-            "change_pct":   r[9],
-            "scanned_at":   r[10],
-            # These fields are not stored in the DB yet; front-end shows them when live
-            "vol_bucket":   "",
-            "candle_dir":   "",
-        }
-        for r in rows
+    keys = [
+        "ticker","sig_id","sig_name","pattern_3bar","l_signal",
+        "bull_score","bear_score","last_price","volume","change_pct","scanned_at",
+        "vol_bucket","candle_dir","l_combo",
+        "abs_sig","climb_sig","load_sig","best_sig","strong_sig","vbo_up","vbo_dn",
+        "ns","nd","sc","bc","sq",
+        "buy_2809","rocket","sig3g","rtv","hilo_buy","atr_brk","bb_brk","wick_bull",
     ]
+    return [dict(zip(keys, r)) for r in rows]
 
 
 def get_last_scan_time(interval: str = "1d") -> str | None:
