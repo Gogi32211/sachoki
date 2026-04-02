@@ -134,9 +134,188 @@ _FALLBACK = [
 
 MAX_TICKERS = 700  # expanded ticker universe
 
+# ── NASDAQ extended (beyond S&P 500 overlap) ──────────────────────────────────
+_NASDAQ_EXTRA = [
+    # NASDAQ-100 core (non-S&P overlap)
+    "ADSK","ANSS","ASML","ATVI","AZN","BIIB","BMRN","CDNS","CPRT","CSGP",
+    "CTSH","DLTR","DXCM","EA","EXC","FAST","GEHC","GILD","HON","IDXX",
+    "ILMN","INTC","INTU","ISRG","KDP","KHC","KLAC","LRCX","MCHP","MDLZ",
+    "MELI","MNST","MRNA","MRVL","MTCH","MU","NTES","NXPI","ODFL","ON",
+    "ORLY","PAYX","PCAR","PYPL","REGN","ROST","SBUX","SGEN","SIRI","SNPS",
+    "TEAM","TMUS","TXN","VRSK","VRTX","WBA","WDAY","XEL","ZM","ZS",
+    # Mid-cap NASDAQ growth $3-50 range
+    "AEHR","AGIO","ALKS","ALNY","AMRN","APLS","ARCT","ARDX","ARWR","AXSM",
+    "BBIO","BEAM","BHVN","BLUE","BNGO","BOLT","BYND","CARA","CCXI","CERE",
+    "CLDX","CLFD","CMPS","CPRX","CRSP","CTXS","CVAC","CYTK","DCPH","DNLI",
+    "EDIT","EIDX","ENSG","ENTA","EPZM","ESPR","ETNB","EXAS","EXEL","FATE",
+    "FOLD","FROG","FSLR","FULC","GBTC","GCBC","GEVO","GLNG","GLSI","GNMK",
+    "HALO","HIMS","HOOK","HRZN","ICVX","IMVT","INMD","INVA","IOVA","IRTC",
+    "ITCI","JANX","KALV","KROS","KURA","LAUR","LGND","LMNX","LNTH","LPSN",
+    "LQDA","LSCC","LUNA","LYRA","MARA","MASI","MBIO","MDXG","MERC","MGNX",
+    "MGTX","MIME","MIRM","MIST","MLCO","MNKD","MODN","MPWR","MRUS","MTEM",
+    "NBIX","NBTX","NCNO","NKTR","NNOX","NRIX","NSTG","NTLA","NTRA","NVAX",
+    "NVST","OCGN","OFIX","OMCL","OMGA","ONCT","OPEN","OPRA","ORIC","ORMP",
+    "ORPH","OTRK","PACIFIC","PAYO","PBYI","PCVX","PETQ","PLRX","PNTM","POET",
+    "PRAX","PRGO","PRLB","PRTA","PRVB","PTCT","PTGX","PXMD","PYXS","RGEN",
+    "RNLX","RPID","RPTX","RVMD","RXMD","SAVA","SBGI","SCPH","SEER","SESN",
+    "SGMO","SILK","SILO","SMAR","SMMT","SRPT","SSKN","STAA","STOK","SURF",
+    "SVRA","SWAV","SYRS","TELA","TENB","TGTX","TLRY","TMDX","TNXP","TRDA",
+    "TRIL","TRVI","TTEC","TYME","TZOO","VCNX","VERA","VIEW","VNDA","VNET",
+    "VORB","VREX","VSAT","VXRT","WIX","WORX","WTRH","XBIT","XCUR","XENE",
+    "XFOR","XNCR","XOMA","XTLB","YMAB","YTEN","ZNTL","ZSAN","ZYXI",
+    # More NASDAQ mid-cap tech & growth
+    "ACMR","AIOT","AKAM","ALRM","AMKR","APOG","APPN","ARQT","ASYS","AVAV",
+    "AVLR","AXNX","BAND","BFAM","BIGC","BLKB","BPMC","CALX","CDMO","CELH",
+    "CENTA","CERE","CGEM","CHKP","CLBT","CLOV","CMCO","CNXN","COHR","COOP",
+    "COUP","CRUS","CSII","CTLP","DAVA","DBTX","DFIN","DGII","DIOD","DOCN",
+    "DOMO","DSGX","DXPE","EBIX","EDAC","EFSC","EGAN","EMKR","EOLS","EPAY",
+    "EXPO","EXTR","FARO","FBIZ","FCNC-A","FEAM","FIVE","FIVN","FLGT","FLIR",
+    "FORM","FORR","FOSL","FROG","FSLY","FWRG","GKOS","GLBE","GOCO","GOLF",
+    "GOTU","GRFS","GRWG","GSIT","GTHX","GTLS","GUYS","HAIN","HALO","HCAT",
+    "HIBB","HLIO","HMST","HNST","HRTX","HSAI","HTBK","HTHI","HUBG","IDCC",
+    "IIIN","IIIV","IMXI","INFA","INFU","INPX","INSM","INSP","IOSP","IPGP",
+    "IRBT","IRDM","IRTC","JCOM","JNVR","JOBY","KADX","KALA","KBAL","KFRC",
+    "KIDS","KNSA","KNSL","KNTK","KOPN","KRYS","KTOS","KWEB","LAKE","LBAI",
+    "LCII","LGIH","LKFN","LLNW","LMAT","LMNR","LNDC","LOPE","LPSN","LQDT",
+    "LSEA","LSTR","LVOX","LWLG","LYTS","MANT","MBIN","MBUU","MCBC","MCRI",
+    "MGEE","MGNI","MGRC","MGTX","MLAB","MLKN","MMSI","MNRO","MOFG","MORN",
+]
 
-def get_tickers() -> list[str]:
-    """Combine Wikipedia S&P 500 + fallback list, deduplicated. Capped at MAX_TICKERS."""
+# ── Russell 2000 representative fallback (~500 small-caps) ────────────────────
+_RUSSELL2K_FALLBACK = [
+    "ACLS","ACMR","ACRX","ACST","ACTG","ACVA","ACXP","ADAP","ADEA","ADMA",
+    "ADMP","ADMS","ADTN","ADVM","AEAC","AEHR","AEIS","AEON","AEYE","AEZS",
+    "AFAR","AFBI","AFCG","AFRI","AGBA","AGEN","AGFS","AGIL","AGIO","AGMH",
+    "AGYS","AHCO","AHPA","AHPI","AIOT","AIXI","AJRD","AKAM","AKBA","AKTS",
+    "ALBT","ALCO","ALEC","ALGT","ALIM","ALKT","ALLK","ALNY","ALOT","ALRM",
+    "ALRS","ALSA","ALTO","ALXO","AMAG","AMBC","AMCI","AMEH","AMGN","AMIC",
+    "AMKR","AMNB","AMOT","AMPH","AMRN","AMRS","AMSC","AMSF","AMTB","AMWD",
+    "ANAB","ANAT","ANCN","ANDE","ANET","ANGI","ANIP","ANKA","ANSS","ANTE",
+    "ANTX","ANZU","AORT","APDN","APEI","APGE","APLD","APLE","APLS","APLT",
+    "APOG","APOP","APRE","APPS","APRE","APTO","APTX","APVO","APWC","APYX",
+    "AQMS","AQST","ARAV","ARCT","ARDX","AREC","ARGX","ARHS","ARID","ARIS",
+    "ARIZ","ARKO","ARLS","ARMK","ARMP","ARPA","ARQT","ARQQ","ARRY","ARSD",
+    "ARTE","ARTL","ARTNA","ARTW","ARWR","ARYA","ASAI","ASAX","ASGN","ASLE",
+    "ASLN","ASMB","ASML","ASNS","ASPI","ASPS","ASPU","ASRT","ASST","ASTE",
+    "ASTL","ASTR","ASTS","ASUR","ASYS","ATAI","ATEC","ATEN","ATEX","ATGL",
+    "ATHA","ATHE","ATIP","ATLO","ATMP","ATNI","ATNM","ATRC","ATRI","ATRS",
+    "ATSG","ATSP","ATUS","ATVI","ATXI","ATXS","AUBN","AUDC","AUGX","AURC",
+    "AUUD","AVAH","AVAV","AVCO","AVGO","AVIR","AVNS","AVNT","AVPT","AVRO",
+    "AVRX","AVTE","AVTR","AVXL","AVYA","AXDX","AXGN","AXIL","AXNX","AXSM",
+    "AXTI","AZEK","AZPN","AZTA","AZUL","BAND","BANF","BANL","BANR","BANX",
+    "BARK","BASH","BASI","BATL","BAYA","BBCP","BBGI","BBIO","BBSI","BCAB",
+    "BCAL","BCBP","BCEL","BCML","BCOV","BCOW","BCPC","BCRX","BCSA","BCSF",
+    "BCYC","BDGE","BDRX","BDSX","BDTX","BEEM","BENF","BFAM","BFIN","BFLY",
+    "BFRI","BGCP","BGFV","BGRY","BHVN","BIMI","BIOL","BIOX","BIVI","BJRI",
+    "BKKT","BKNG","BKTI","BKYI","BLBD","BLBX","BLCO","BLDE","BLFS","BLFY",
+    "BLKB","BLMS","BLND","BLNK","BLPH","BLRX","BLSA","BLTE","BLUR","BLVD",
+    "BMBL","BMNM","BMRA","BMRC","BMRN","BMTC","BNGO","BNIX","BNRG","BNSO",
+    "BNTC","BNTX","BOCH","BOKF","BOLT","BPMC","BPTH","BRDG","BRDS","BREZ",
+    "BRID","BRKL","BRKR","BRLI","BRMK","BROG","BRTX","BRVI","BSAC","BSBK",
+    "BSET","BSGM","BSQR","BSRR","BSVN","BSYN","BTAI","BTBT","BTCS","BTMD",
+    "BTRN","BTRS","BTTX","BTNB","BTWN","BTXN","BUKS","BURL","BYFC","BYND",
+    "BYSI","BZFD","CALB","CALC","CALT","CALX","CAMP","CANO","CAPS","CARA",
+    "CARE","CARG","CARV","CASH","CASI","CASS","CATC","CATS","CBFV","CBKM",
+    "CBNK","CBSH","CBST","CCBG","CCCC","CCEL","CCEP","CCIX","CCLD","CCNE",
+    "CCNX","CCOJ","CCOL","CCRD","CCRN","CCSI","CCXI","CDMO","CDNA","CDNS",
+    "CDRE","CDRO","CDTX","CDXC","CDXS","CELC","CELH","CEMI","CENT","CERN",
+    "CERS","CERT","CEVA","CFFE","CFFI","CFFN","CFLT","CFNB","CFRX","CFVI",
+    "CGBD","CGEM","CGEN","CGNT","CGRN","CGRO","CHCO","CHDN","CHEF","CHEK",
+    "CHGG","CHKP","CHMG","CHPT","CHRS","CHUY","CIFR","CINF","CINT","CION",
+    "CISO","CIVB","CIVG","CIZN","CJET","CKPT","CLBK","CLBT","CLCC","CLDT",
+    "CLDX","CLFD","CLGN","CLIR","CLMT","CLNE","CLNN","CLOA","CLPT","CLRB",
+    "CLRO","CLSD","CLSK","CLST","CLVT","CLWT","CMBT","CMCO","CMCT","CMDX",
+]
+
+# ── Universe configs ──────────────────────────────────────────────────────────
+UNIVERSE_CONFIGS: dict = {
+    "sp500":       {"label": "S&P 500",       "min_price": 0.0,  "max_price": 1e9, "fetch": "sp500"},
+    "nasdaq_low":  {"label": "NASDAQ $3–20",  "min_price": 3.0,  "max_price": 20.0, "fetch": "nasdaq"},
+    "nasdaq_mid":  {"label": "NASDAQ $21–50", "min_price": 21.0, "max_price": 50.0, "fetch": "nasdaq"},
+    "russell2k":   {"label": "Russell 2000",  "min_price": 0.0,  "max_price": 1e9, "fetch": "russell2k"},
+}
+
+
+def get_nasdaq_tickers(limit: int = 700) -> list[str]:
+    """NASDAQ-100 (Wikipedia) + extended NASDAQ mid-cap list."""
+    tickers: list[str] = []
+    # Try NASDAQ-100 from Wikipedia
+    for url in [
+        "https://en.wikipedia.org/wiki/Nasdaq-100",
+    ]:
+        try:
+            tables = pd.read_html(url)
+            for tbl in tables:
+                cols = [str(c).lower() for c in tbl.columns]
+                if any("ticker" in c or "symbol" in c for c in cols):
+                    col = next(c for c in tbl.columns if "ticker" in str(c).lower() or "symbol" in str(c).lower())
+                    tickers.extend([str(t).replace(".", "-") for t in tbl[col].dropna().tolist()])
+                    break
+            if len(tickers) >= 50:
+                break
+        except Exception:
+            pass
+    # Also pull NASDAQ-100 from GitHub CSV fallback
+    if len(tickers) < 50:
+        try:
+            df = pd.read_csv(
+                "https://raw.githubusercontent.com/datasets/nasdaq-listings/master/data/nasdaq-listed.csv"
+            )
+            col = next((c for c in df.columns if "symbol" in c.lower() or "ticker" in c.lower()), None)
+            if col:
+                tickers.extend(df[col].dropna().tolist())
+        except Exception:
+            pass
+    # Combine with extra list and _FALLBACK NASDAQ stocks
+    tickers.extend(_NASDAQ_EXTRA)
+    # Also include tech-heavy stocks from _FALLBACK
+    tickers.extend([t for t in _FALLBACK if t not in tickers])
+    return list(dict.fromkeys([str(t).strip() for t in tickers if t]))[:limit]
+
+
+def get_russell2000_tickers(limit: int = 700) -> list[str]:
+    """Fetch IWM holdings (Russell 2000) from iShares, fallback to static list."""
+    tickers: list[str] = []
+    # iShares IWM holdings CSV
+    iwm_urls = [
+        "https://www.ishares.com/us/products/239710/ishares-russell-2000-etf/1467271812596.ajax?fileType=csv&fileName=IWM_holdings&dataType=fund",
+        "https://raw.githubusercontent.com/AhmedNadar/russell-2000/main/russell2000.csv",
+    ]
+    for url in iwm_urls:
+        try:
+            df = pd.read_csv(url, skiprows=9 if "ishares" in url else 0, nrows=2100)
+            col = next(
+                (c for c in df.columns if str(c).lower() in ("ticker", "symbol", "name")),
+                None
+            )
+            if col is None:
+                col = df.columns[0]
+            raw = df[col].dropna().tolist()
+            tickers = [str(t).strip().replace(".", "-") for t in raw
+                       if isinstance(t, str) and t.strip() and t.strip() != "-"
+                       and not any(c.isspace() and len(t) > 6 for c in t)]
+            if len(tickers) >= 100:
+                break
+        except Exception:
+            pass
+    if len(tickers) < 100:
+        tickers = list(_RUSSELL2K_FALLBACK)
+    return list(dict.fromkeys(tickers))[:limit]
+
+
+def get_universe_tickers(universe: str = "sp500", limit: int = 700) -> list[str]:
+    """Return ticker list for the given universe key."""
+    cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
+    fetch = cfg["fetch"]
+    if fetch == "nasdaq":
+        return get_nasdaq_tickers(limit)
+    elif fetch == "russell2k":
+        return get_russell2000_tickers(limit)
+    else:
+        return get_tickers()  # sp500 default
+
+
+
     sp500 = []
     for url in [
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",

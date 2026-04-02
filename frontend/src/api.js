@@ -89,10 +89,10 @@ export const api = {
     get('/api/br-scan/status'),
 
   // Turbo Scan (unified all-engine)
-  turboScan: (limit = 500, min_score = 0, direction = 'bull', tf = '1d') =>
-    get(`/api/turbo-scan?limit=${limit}&min_score=${min_score}&direction=${direction}&tf=${tf}`),
-  turboScanTrigger: (tf = '1d') =>
-    post(`/api/turbo-scan/trigger?tf=${tf}`),
+  turboScan: (limit = 500, min_score = 0, direction = 'bull', tf = '1d', universe = 'sp500') =>
+    get(`/api/turbo-scan?limit=${limit}&min_score=${min_score}&direction=${direction}&tf=${tf}&universe=${universe}`),
+  turboScanTrigger: (tf = '1d', universe = 'sp500') =>
+    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}`),
   turboScanStatus: () =>
     get('/api/turbo-scan/status'),
 
