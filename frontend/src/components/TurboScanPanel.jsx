@@ -1,6 +1,14 @@
 import { useState, useEffect, useMemo } from 'react'
 import { api } from '../api'
 
+// ── Universes ─────────────────────────────────────────────────────────────────
+const UNIVERSES = [
+  { key: 'sp500',      label: 'S&P 500',       desc: '~700 tickers',         cls: 'text-blue-300'   },
+  { key: 'nasdaq_low', label: 'NASDAQ $3–20',  desc: 'NASDAQ, low-price',    cls: 'text-cyan-300'   },
+  { key: 'nasdaq_mid', label: 'NASDAQ $21–50', desc: 'NASDAQ, mid-price',    cls: 'text-teal-300'   },
+  { key: 'russell2k',  label: 'Russell 2000',  desc: 'IWM small-caps',       cls: 'text-orange-300' },
+]
+
 // ── Timeframes ────────────────────────────────────────────────────────────────
 const TF_OPTS = ['1w', '1d', '4h', '1h']
 
@@ -72,6 +80,7 @@ const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TurboScanPanel({ onSelectTicker }) {
   const [localTf,    setLocalTf]    = useState('1d')
+  const [universe,   setUniverse]   = useState('sp500')
   const [allResults, setAllResults] = useState([])
   const [lastScan,   setLastScan]   = useState(null)
   const [scanning,   setScanning]   = useState(false)
@@ -80,13 +89,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [direction,  setDirection]  = useState('bull')
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
 
-  const load = (tf = localTf) => {
-    api.turboScan(500, 0, 'all', tf)
+  const load = (tf = localTf, uni = universe) => {
+    api.turboScan(500, 0, 'all', tf, uni)
       .then(d => { setAllResults(d.results || []); setLastScan(d.last_scan) })
       .catch(e => setError(e.message))
   }
 
-  useEffect(() => { load(localTf) }, [localTf])
+  useEffect(() => { load(localTf, universe) }, [localTf, universe])
 
   // ── Client-side filter ─────────────────────────────────────────────────────
   const results = useMemo(() => {
@@ -107,26 +116,48 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   // ── Poll until done ────────────────────────────────────────────────────────
   const _poll = () => {
-    const tf = localTf
-    const iv = setInterval(() => {
+    const tf  = localTf
+    const uni = universe
+    const iv  = setInterval(() => {
       api.turboScanStatus()
         .then(s => {
-          if (!s.running) { clearInterval(iv); setScanning(false); load(tf) }
+          if (!s.running) { clearInterval(iv); setScanning(false); load(tf, uni) }
         })
         .catch(() => { clearInterval(iv); setScanning(false) })
     }, 2000)
-    setTimeout(() => { clearInterval(iv); setScanning(false); load(tf) }, 360_000)
+    setTimeout(() => { clearInterval(iv); setScanning(false); load(tf, uni) }, 360_000)
   }
 
   const scan = () => {
     setScanning(true); setError(null)
-    api.turboScanTrigger(localTf)
+    api.turboScanTrigger(localTf, universe)
       .then(() => _poll())
       .catch(e => { setError(e.message); setScanning(false) })
   }
 
   return (
     <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs">
+
+      {/* ── Row 0: Universe selector ── */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
+        <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
+        {UNIVERSES.map(u => (
+          <button key={u.key}
+            onClick={() => { setUniverse(u.key); setAllResults([]) }}
+            title={u.desc}
+            className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+              ${universe === u.key
+                ? `${u.cls} border-current bg-gray-800`
+                : 'text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-500'}`}>
+            {u.label}
+          </button>
+        ))}
+        <span className="text-gray-600 text-xs ml-1">
+          {universe === 'nasdaq_low' && '· price $3–20'}
+          {universe === 'nasdaq_mid' && '· price $21–50'}
+          {universe === 'russell2k'  && '· small-cap IWM'}
+        </span>
+      </div>
 
       {/* ── Row 1: TF + Scan + Direction + Score ── */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-800">
@@ -198,7 +229,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       {/* Progress / error */}
       {scanning && (
         <div className="px-4 py-1.5 border-b border-gray-800 bg-violet-950/30 text-violet-300 animate-pulse">
-          ⚡ TURBO scanning all engines on {allResults.length > 0 ? `${allResults.length} tickers` : 'tickers'} — 2-4 minutes…
+          ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} — 2-4 minutes…
         </div>
       )}
       {error && <div className="px-4 py-1.5 text-red-400 border-b border-gray-800">{error}</div>}

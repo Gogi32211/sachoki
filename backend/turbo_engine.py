@@ -101,6 +101,7 @@ def _init_db() -> None:
         CREATE TABLE IF NOT EXISTS turbo_scan_runs (
             id           INTEGER PRIMARY KEY AUTOINCREMENT,
             tf           TEXT    DEFAULT '1d',
+            universe     TEXT    DEFAULT 'sp500',
             started_at   TEXT,
             completed_at TEXT,
             result_count INTEGER DEFAULT 0
@@ -125,6 +126,8 @@ def _init_db() -> None:
     run_cols = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_runs)").fetchall()}
     if "tf" not in run_cols:
         con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
+    if "universe" not in run_cols:
+        con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN universe TEXT DEFAULT 'sp500'")
     con.commit()
     con.close()
 
@@ -186,7 +189,12 @@ def _calc_turbo_score(r: dict) -> float:
 
 
 # ── Per-ticker worker ─────────────────────────────────────────────────────────
-def _scan_turbo_ticker(ticker: str, interval: str) -> dict | None:
+def _scan_turbo_ticker(
+    ticker: str,
+    interval: str,
+    min_price: float = 0.0,
+    max_price: float = 1e9,
+) -> dict | None:
     try:
         import yfinance as yf
         from datetime import date as _date
@@ -218,6 +226,10 @@ def _scan_turbo_ticker(ticker: str, interval: str) -> dict | None:
         prev_p = float(df["close"].iloc[-2]) if len(df) >= 2 else price
         row["last_price"] = round(price, 2)
         row["change_pct"] = round((price - prev_p) / prev_p * 100, 2) if prev_p else 0.0
+
+        # ── Price range filter ─────────────────────────────────────────────
+        if price < min_price or price > max_price:
+            return None
 
         # ── T/Z signals ────────────────────────────────────────────────────
         sig_df  = compute_signals(df)
@@ -305,25 +317,38 @@ def _scan_turbo_ticker(ticker: str, interval: str) -> dict | None:
 
 
 # ── Scan runner ───────────────────────────────────────────────────────────────
-def run_turbo_scan(interval: str = "1d", workers: int = 8) -> int:
-    from scanner import get_tickers
+def run_turbo_scan(
+    interval: str = "1d",
+    universe: str = "sp500",
+    workers: int = 8,
+) -> int:
+    from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
 
     _init_db()
-    tickers = get_tickers()
-    _turbo_state.update({"running": True, "done": 0, "total": len(tickers), "found": 0})
+    cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
+    min_price = float(cfg["min_price"])
+    max_price = float(cfg["max_price"])
+
+    tickers = get_universe_tickers(universe)
+    _turbo_state.update({"running": True, "done": 0, "total": len(tickers), "found": 0,
+                         "universe": universe})
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
     scan_id = con.execute(
-        "INSERT INTO turbo_scan_runs (tf, started_at) VALUES (?, ?)", (interval, now_iso)
+        "INSERT INTO turbo_scan_runs (tf, universe, started_at) VALUES (?, ?, ?)",
+        (interval, universe, now_iso),
     ).lastrowid
     con.commit()
     con.close()
 
     results: list[dict] = []
     with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {pool.submit(_scan_turbo_ticker, t, interval): t for t in tickers}
+        futures = {
+            pool.submit(_scan_turbo_ticker, t, interval, min_price, max_price): t
+            for t in tickers
+        }
         for fut in as_completed(futures):
             _turbo_state["done"] += 1
             row = fut.result()
@@ -378,12 +403,14 @@ def get_turbo_results(
     min_score: float = 0,
     direction: str = "bull",  # bull | bear | all
     tf: str = "1d",
+    universe: str = "sp500",
 ) -> list[dict]:
     _init_db()
     con = _db()
     try:
         row = con.execute(
-            "SELECT id FROM turbo_scan_runs WHERE tf=? ORDER BY id DESC LIMIT 1", (tf,)
+            "SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
+            (tf, universe),
         ).fetchone()
         if not row:
             row = con.execute("SELECT id FROM turbo_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
@@ -409,12 +436,13 @@ def get_turbo_results(
         con.close()
 
 
-def get_last_turbo_scan_time(tf: str = "1d") -> str | None:
+def get_last_turbo_scan_time(tf: str = "1d", universe: str = "sp500") -> str | None:
     _init_db()
     con = _db()
     try:
         row = con.execute(
-            "SELECT completed_at FROM turbo_scan_runs WHERE tf=? ORDER BY id DESC LIMIT 1", (tf,)
+            "SELECT completed_at FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
+            (tf, universe),
         ).fetchone()
         if not row:
             row = con.execute("SELECT completed_at FROM turbo_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
