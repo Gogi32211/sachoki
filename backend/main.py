@@ -462,6 +462,29 @@ def api_power_scan_status():
     return get_power_scan_progress()
 
 
+# ── TURBO Scan (unified all-engine scan) ─────────────────────────────────────
+
+@app.get("/api/turbo-scan")
+def api_turbo_scan(limit: int = 500, min_score: float = 0, direction: str = "bull", tf: str = "1d"):
+    from turbo_engine import get_turbo_results, get_last_turbo_scan_time
+    results   = get_turbo_results(limit=limit, min_score=min_score, direction=direction, tf=tf)
+    last_time = get_last_turbo_scan_time(tf=tf)
+    return {"results": results, "last_scan": last_time}
+
+
+@app.post("/api/turbo-scan/trigger")
+def api_turbo_scan_trigger(background_tasks: BackgroundTasks, tf: str = "1d"):
+    from turbo_engine import run_turbo_scan
+    background_tasks.add_task(run_turbo_scan, tf)
+    return {"status": "turbo scan started"}
+
+
+@app.get("/api/turbo-scan/status")
+def api_turbo_scan_status():
+    from turbo_engine import get_turbo_progress
+    return get_turbo_progress()
+
+
 # ── BR Scan (260328 Break Readiness) ──────────────────────────────────────────
 
 @app.get("/api/br-scan")

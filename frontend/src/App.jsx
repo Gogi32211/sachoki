@@ -11,6 +11,7 @@ import HowItWorksPanel from './components/HowItWorksPanel'
 import ComboScanPanel from './components/ComboScanPanel'
 import PowerScanPanel from './components/PowerScanPanel'
 import BRScanPanel from './components/BRScanPanel'
+import TurboScanPanel from './components/TurboScanPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -24,14 +25,15 @@ const LS = {
 }
 
 const TABS = [
-  { id: 'combined',  label: 'Combined Scan' },
-  { id: 'combo260',  label: '260323 Combo' },
-  { id: 'predictor', label: 'Predictor' },
-  { id: 'scanner',   label: 'T/Z Scanner' },
-  { id: 'tzlstats',  label: 'T/Z × L Stats' },
-  { id: 'power',     label: 'Power Scan' },
-  { id: 'brscan',    label: 'BR Scan' },
-  { id: 'pumps',     label: 'Pump Combos' },
+  { id: 'turbo',      label: '⚡ TURBO' },
+  { id: 'combined',   label: 'Combined Scan' },
+  { id: 'combo260',   label: '260323 Combo' },
+  { id: 'predictor',  label: 'Predictor' },
+  { id: 'scanner',    label: 'T/Z Scanner' },
+  { id: 'tzlstats',   label: 'T/Z × L Stats' },
+  { id: 'power',      label: 'Power Scan' },
+  { id: 'brscan',     label: 'BR Scan' },
+  { id: 'pumps',      label: 'Pump Combos' },
   { id: 'howitworks', label: 'How It Works' },
 ]
 
@@ -156,6 +158,10 @@ export default function App() {
 
           {activeTab === 'power' && (
             <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
+          )}
+
+          {activeTab === 'turbo' && (
+            <TurboScanPanel onSelectTicker={handleSelect} />
           )}
 
           {activeTab === 'brscan' && (
