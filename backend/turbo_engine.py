@@ -29,6 +29,7 @@ from wick_engine   import compute_wick
 from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
 from br_engine     import compute_br
+from ultra_engine  import compute_260308_l88, compute_ultra_v2
 
 log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
@@ -75,6 +76,16 @@ _TURBO_COLS = [
     "br_score",
     # meta
     "vol_bucket",
+    # RSI / CCI
+    "rsi", "cci",
+    # 260308 + L88
+    "sig_260308", "sig_l88",
+    # ULTRA v2
+    "eb_bull", "eb_bear",
+    "fbo_bull", "fbo_bear",
+    "bf_buy", "bf_sell",
+    "ultra_3up", "ultra_3dn",
+    "best_long", "best_short",
 ]
 
 
@@ -88,7 +99,7 @@ def _db() -> sqlite3.Connection:
 
 def _col_def(c: str) -> str:
     _TEXT = {"tz_sig", "vol_bucket"}
-    _REAL = {"turbo_score", "br_score"}
+    _REAL = {"turbo_score", "br_score", "rsi", "cci"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
@@ -120,7 +131,7 @@ def _init_db() -> None:
     existing = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_results)").fetchall()}
     for col in _TURBO_COLS:
         if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket") else "REAL" if col in ("turbo_score", "br_score") else "INTEGER"
+            typ = "TEXT" if col in ("tz_sig", "vol_bucket") else "REAL" if col in ("turbo_score", "br_score", "rsi", "cci") else "INTEGER"
             default = "''" if col in ("tz_sig", "vol_bucket") else "0"
             con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
     run_cols = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_runs)").fetchall()}
@@ -184,6 +195,18 @@ def _calc_turbo_score(r: dict) -> float:
 
     # BR% bonus (max 8)
     s += min(float(r.get("br_score") or 0) * 0.1, 8)
+
+    # 260308 + L88 (max 5)
+    if r.get("sig_l88"):      s += 5
+    elif r.get("sig_260308"): s += 3
+
+    # ULTRA v2 (max 8)
+    if r.get("best_long"):    s += 8
+    else:
+        if r.get("fbo_bull"): s += 4
+        if r.get("eb_bull"):  s += 4
+        if r.get("bf_buy"):   s += 3
+    if r.get("ultra_3up"):    s += 4
 
     return round(min(100.0, s), 1)
 
@@ -306,6 +329,56 @@ def _scan_turbo_ticker(
         except Exception:
             row["br_score"] = 0.0
 
+        # ── RSI(14) ────────────────────────────────────────────────────────
+        try:
+            delta = df["close"].diff()
+            gain  = delta.where(delta > 0, 0.0).ewm(alpha=1 / 14, adjust=False).mean()
+            loss  = (-delta.where(delta < 0, 0.0)).ewm(alpha=1 / 14, adjust=False).mean()
+            rs    = gain / loss.replace(0, np.nan)
+            rsi_s = 100 - (100 / (1 + rs))
+            row["rsi"] = round(float(rsi_s.iloc[-1]), 1)
+        except Exception:
+            row["rsi"] = 0.0
+
+        # ── CCI(20) ────────────────────────────────────────────────────────
+        try:
+            tp     = (df["high"] + df["low"] + df["close"]) / 3
+            tp_ma  = tp.rolling(20).mean()
+            mad    = tp.rolling(20).apply(lambda x: np.mean(np.abs(x - np.mean(x))), raw=True)
+            cci_s  = (tp - tp_ma) / (0.015 * mad.replace(0, np.nan))
+            row["cci"] = round(float(cci_s.iloc[-1]), 1)
+        except Exception:
+            row["cci"] = 0.0
+
+        # ── 260308 + L88 ───────────────────────────────────────────────────
+        try:
+            u308   = compute_260308_l88(df)
+            last_u = u308.iloc[-1]
+            row["sig_260308"] = int(bool(last_u.get("sig_260308", False)))
+            row["sig_l88"]    = int(bool(last_u.get("sig_l88",    False)))
+        except Exception:
+            row["sig_260308"] = 0
+            row["sig_l88"]    = 0
+
+        # ── ULTRA v2 ───────────────────────────────────────────────────────
+        try:
+            uv2    = compute_ultra_v2(df)
+            last_u = uv2.iloc[-1]
+            row["eb_bull"]    = int(bool(last_u.get("eb_bull",    False)))
+            row["eb_bear"]    = int(bool(last_u.get("eb_bear",    False)))
+            row["fbo_bull"]   = int(bool(last_u.get("fbo_bull",   False)))
+            row["fbo_bear"]   = int(bool(last_u.get("fbo_bear",   False)))
+            row["bf_buy"]     = int(bool(last_u.get("bf_buy",     False)))
+            row["bf_sell"]    = int(bool(last_u.get("bf_sell",    False)))
+            row["ultra_3up"]  = int(bool(last_u.get("ultra_3up",  False)))
+            row["ultra_3dn"]  = int(bool(last_u.get("ultra_3dn",  False)))
+            row["best_long"]  = int(bool(last_u.get("best_long",  False)))
+            row["best_short"] = int(bool(last_u.get("best_short", False)))
+        except Exception:
+            for k in ("eb_bull","eb_bear","fbo_bull","fbo_bear","bf_buy","bf_sell",
+                      "ultra_3up","ultra_3dn","best_long","best_short"):
+                row[k] = 0
+
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
 
@@ -393,6 +466,10 @@ _QUERY_COLS = (
     "bias_up, bias_down, cons_atr, "
     "fri34, fri43, l34, l43, l64, l22, blue, cci_ready, bo_up, bx_up, fuchsia_rl, "
     "wick_bull, wick_bear, cisd_ppm, cisd_seq, "
+    "rsi, cci, "
+    "sig_260308, sig_l88, "
+    "eb_bull, eb_bear, fbo_bull, fbo_bear, bf_buy, bf_sell, "
+    "ultra_3up, ultra_3dn, best_long, best_short, "
     "last_price, change_pct, scanned_at"
 )
 _QUERY_KEYS = [c.strip() for c in _QUERY_COLS.split(",")]
