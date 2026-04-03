@@ -303,20 +303,9 @@ def get_russell2000_tickers(limit: int = 700) -> list[str]:
     return list(dict.fromkeys(tickers))[:limit]
 
 
-def get_universe_tickers(universe: str = "sp500", limit: int = 700) -> list[str]:
-    """Return ticker list for the given universe key."""
-    cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
-    fetch = cfg["fetch"]
-    if fetch == "nasdaq":
-        return get_nasdaq_tickers(limit)
-    elif fetch == "russell2k":
-        return get_russell2000_tickers(limit)
-    else:
-        return get_tickers()  # sp500 default
-
-
-
-    sp500 = []
+def get_tickers(limit: int = 700) -> list[str]:
+    """S&P 500 tickers from Wikipedia + _FALLBACK."""
+    sp500: list[str] = []
     for url in [
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
         "https://raw.githubusercontent.com/datasets/s-and-p-500-companies/main/data/constituents.csv",
@@ -332,7 +321,19 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 700) -> list[str]
         except Exception:
             pass
     combined = list(dict.fromkeys(sp500 + _FALLBACK))
-    return combined[:MAX_TICKERS]
+    return combined[:limit]
+
+
+def get_universe_tickers(universe: str = "sp500", limit: int = 700) -> list[str]:
+    """Return ticker list for the given universe key."""
+    cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
+    fetch = cfg["fetch"]
+    if fetch == "nasdaq":
+        return get_nasdaq_tickers(limit)
+    elif fetch == "russell2k":
+        return get_russell2000_tickers(limit)
+    else:
+        return get_tickers(limit)
 
 
 # ── DB schema ─────────────────────────────────────────────────────────────────
