@@ -72,8 +72,8 @@ export default function App() {
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
-          TZ Signal Dashboard{' '}
-          <span className="text-xs font-normal text-gray-500">v2.2</span>
+          Sachoki Screener{' '}
+          <span className="text-xs font-normal text-gray-500">v3.1</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
