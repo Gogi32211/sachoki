@@ -27,8 +27,8 @@ def compute_delta(
     stack_len:    int   = 3,
     abs_vol_mult: float = 1.5,
     abs_body_pct: float = 0.30,
-    delta_mult1:  float = 2.0,
-    delta_mult2:  float = 4.0,
+    delta_mult1:  float = 1.5,
+    delta_mult2:  float = 5.0,
     div_len:      int   = 3,
 ) -> pd.DataFrame:
     """Return DataFrame with 13 columns (delta + 12 signal booleans)."""
