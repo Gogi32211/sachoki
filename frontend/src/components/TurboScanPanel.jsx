@@ -40,6 +40,12 @@ const SIG_GROUPS = [
   { key: 'ns',         label: 'NS',     cls: 'text-teal-300'   },
   { key: 'sq',         label: 'SQ',     cls: 'text-cyan-400'   },
   { key: 'wick_bull',  label: 'WICK↑', cls: 'text-emerald-400'},
+  { key: 'best_long',  label: 'BEST↑', cls: 'text-yellow-300' },
+  { key: 'sig_l88',    label: 'L88',    cls: 'text-violet-300' },
+  { key: 'sig_260308', label: '260308', cls: 'text-purple-300' },
+  { key: 'fbo_bull',   label: 'FBO↑',  cls: 'text-sky-300'    },
+  { key: 'eb_bull',    label: 'EB↑',   cls: 'text-amber-300'  },
+  { key: 'bf_buy',     label: '4BF',    cls: 'text-pink-300'   },
 ]
 
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
@@ -88,6 +94,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
+  const [exported,   setExported]   = useState(false)
 
   const load = (tf = localTf, uni = universe) => {
     api.turboScan(500, 0, 'all', tf, uni)
@@ -113,6 +120,14 @@ export default function TurboScanPanel({ onSelectTicker }) {
     n.has(key) ? n.delete(key) : n.add(key)
     return n
   })
+
+  const exportTickers = () => {
+    const tickers = results.map(r => r.ticker).join(',')
+    navigator.clipboard.writeText(tickers).then(() => {
+      setExported(true)
+      setTimeout(() => setExported(false), 2000)
+    })
+  }
 
   // ── Poll until done ────────────────────────────────────────────────────────
   const _poll = () => {
@@ -181,6 +196,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
           {scanning ? <span className="animate-pulse">⚡ Scanning…</span> : '⚡ TURBO'}
         </button>
 
+        {/* Export button */}
+        <button onClick={exportTickers} disabled={results.length === 0}
+          title="Copy tickers to clipboard (TradingView watchlist)"
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+            ${exported
+              ? 'border-lime-500 text-lime-300 bg-lime-900/30'
+              : results.length === 0
+                ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                : 'border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white'}`}>
+          {exported ? '✓ Copied' : '⬇ Export'}
+        </button>
+
         {/* Direction */}
         <div className="flex gap-0.5">
           {DIR_OPTS.map(d => (
@@ -245,7 +272,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
               <th className="px-2 py-1.5 font-medium">Combo</th>
-              <th className="px-2 py-1.5 font-medium">L-Sig</th>
+              <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
+              <th className="px-2 py-1.5 font-medium text-center">RSI</th>
+              <th className="px-2 py-1.5 font-medium text-center">CCI</th>
               <th className="px-2 py-1.5 font-medium text-center">BR%</th>
               <th className="px-2 py-1.5 font-medium text-right">Price</th>
               <th className="px-2 py-1.5 font-medium text-right">%</th>
@@ -319,7 +348,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   </div>
                 </td>
 
-                {/* L-signals / WLNBB */}
+                {/* L-signals / WLNBB / Ultra */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
                     {r.fri34      ? <Badge label="FRI34" cls="text-cyan-300 bg-cyan-900/40" /> : null}
@@ -336,7 +365,28 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.cisd_ppm   ? <Badge label="C++-" cls="text-green-300 bg-green-900/30" /> : null}
                     {r.cisd_seq   ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}
                     {r.fuchsia_rl ? <Badge label="RL"   cls="text-fuchsia-300 bg-fuchsia-900/30" /> : null}
+                    {/* Ultra v2 */}
+                    {r.best_long  ? <Badge label="BEST↑" cls="text-yellow-200 bg-yellow-800/60 ring-1 ring-yellow-500" /> : null}
+                    {r.fbo_bull && !r.best_long ? <Badge label="FBO↑" cls="text-sky-300 bg-sky-900/40" /> : null}
+                    {r.eb_bull    ? <Badge label="EB↑"  cls="text-amber-300 bg-amber-900/30" /> : null}
+                    {r.bf_buy     ? <Badge label="4BF"  cls="text-pink-300 bg-pink-900/30" /> : null}
+                    {r.ultra_3up  ? <Badge label="3↑"   cls="text-lime-300 bg-lime-900/20" /> : null}
+                    {/* 260308 */}
+                    {r.sig_l88    ? <Badge label="L88"  cls="text-violet-200 bg-violet-800/50 ring-1 ring-violet-500" /> : null}
+                    {r.sig_260308 && !r.sig_l88 ? <Badge label="260308" cls="text-purple-300 bg-purple-900/30" /> : null}
                   </div>
+                </td>
+
+                {/* RSI */}
+                <td className={`px-2 py-1 text-center font-mono text-xs
+                  ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 30 ? 'text-lime-400' : 'text-gray-400'}`}>
+                  {r.rsi != null ? fmt(r.rsi, 0) : '—'}
+                </td>
+
+                {/* CCI */}
+                <td className={`px-2 py-1 text-center font-mono text-xs
+                  ${r.cci >= 100 ? 'text-lime-400' : r.cci <= -100 ? 'text-red-400' : 'text-gray-400'}`}>
+                  {r.cci != null ? fmt(r.cci, 0) : '—'}
                 </td>
 
                 {/* BR% */}
@@ -358,7 +408,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={10} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={12} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : 'Press ⚡ TURBO to scan all engines'}
