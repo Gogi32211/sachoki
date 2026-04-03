@@ -145,68 +145,74 @@ def _init_db() -> None:
 
 # ── Score calculator ──────────────────────────────────────────────────────────
 def _calc_turbo_score(r: dict) -> float:
-    s = 0.0
-
-    # VABS (max ~19)
+    """
+    Score grouped into 4 capped families to prevent double-counting:
+      Volume/accum  cap 22  — VABS, Wyckoff, 260308/L88
+      Breakout      cap 15  — ULTRA v2, BO/BX
+      Combo/trend   cap 14  — Combo signals
+      L-structure   cap 13  — T/Z, WLNBB
+    Context (Wick, CISD, BR%) uncapped (max ~14).
+    Grand max ~78; Fire tier at ≥65 requires alignment across families.
+    """
+    # ── Volume / accumulation family (cap 22) ─────────────────────────────
+    vol = 0.0
     if r.get("best_sig"):
-        s += 15
+        vol += 15
     elif r.get("strong_sig"):
-        s += 9
+        vol += 9
     if r.get("vbo_up"):
-        s += 6
+        vol += 6
     if not r.get("best_sig") and not r.get("strong_sig"):
         vol_cnt = int(r.get("abs_sig", 0)) + int(r.get("climb_sig", 0)) + int(r.get("load_sig", 0))
-        s += min(vol_cnt * 3, 7)
+        vol += min(vol_cnt * 3, 7)
+    if r.get("ns"):   vol += 4
+    if r.get("sq"):   vol += 4
+    if r.get("sc"):   vol += 2
+    if r.get("sig_l88"):       vol += 5
+    elif r.get("sig_260308"):  vol += 3
+    s = min(vol, 22)
 
-    # Wyckoff (max 8)
-    if r.get("ns"):  s += 4
-    if r.get("sq"):  s += 4
-    if r.get("sc"):  s += 2
+    # ── Breakout / expansion family (cap 15) ──────────────────────────────
+    brk = 0.0
+    if r.get("best_long"):
+        brk += 8
+    else:
+        if r.get("fbo_bull"): brk += 4
+        if r.get("eb_bull"):  brk += 4
+        if r.get("bf_buy"):   brk += 3
+    if r.get("ultra_3up"):             brk += 4
+    if r.get("bo_up") or r.get("bx_up"): brk += 3
+    s += min(brk, 15)
 
-    # Combo (max 12)
+    # ── Combo / momentum family (cap 14) ──────────────────────────────────
+    combo = 0.0
     if r.get("rocket"):
-        s += 12
+        combo += 12
     elif r.get("buy_2809"):
-        s += 8
-    if r.get("sig3g"):    s += 4
-    if r.get("rtv"):      s += 3
-    if r.get("hilo_buy"): s += 2
-    if r.get("atr_brk") or r.get("bb_brk"): s += 2
+        combo += 8
+    if r.get("sig3g"):    combo += 4
+    if r.get("rtv"):      combo += 3
+    if r.get("hilo_buy"): combo += 2
+    if r.get("atr_brk") or r.get("bb_brk"): combo += 2
+    s += min(combo, 14)
 
-    # T/Z (max 7)
-    s += _TZ_W.get(r.get("tz_sig", ""), 0)
-
-    # WLNBB (max 9)
+    # ── L-structure / trend family (cap 13) ───────────────────────────────
+    trend = 0.0
+    trend += _TZ_W.get(r.get("tz_sig", ""), 0)
     if r.get("fri34"):
-        s += 6
+        trend += 6
     elif r.get("fri43"):
-        s += 4
-    if r.get("bo_up") or r.get("bx_up"): s += 3
-    if r.get("l34") and not r.get("fri34"): s += 3
-    if r.get("blue"):      s += 2
-    if r.get("cci_ready"): s += 2
+        trend += 4
+    if r.get("l34") and not r.get("fri34"): trend += 3
+    if r.get("blue"):      trend += 2
+    if r.get("cci_ready"): trend += 2
+    s += min(trend, 13)
 
-    # Wick (max 3)
+    # ── Context / confirmation (uncapped, max ~14) ────────────────────────
     if r.get("wick_bull"): s += 3
-
-    # CISD (max 2)
     if r.get("cisd_ppm"):   s += 2
     elif r.get("cisd_seq"): s += 1
-
-    # BR% bonus (max 8)
     s += min(float(r.get("br_score") or 0) * 0.1, 8)
-
-    # 260308 + L88 (max 5)
-    if r.get("sig_l88"):      s += 5
-    elif r.get("sig_260308"): s += 3
-
-    # ULTRA v2 (max 8)
-    if r.get("best_long"):    s += 8
-    else:
-        if r.get("fbo_bull"): s += 4
-        if r.get("eb_bull"):  s += 4
-        if r.get("bf_buy"):   s += 3
-    if r.get("ultra_3up"):    s += 4
 
     return round(min(100.0, s), 1)
 

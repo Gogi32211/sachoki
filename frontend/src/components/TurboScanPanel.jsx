@@ -28,24 +28,76 @@ const DIR_OPTS = [
   { key: 'bear', label: 'BEAR' },
 ]
 
-// ── Signal group quick-filters ────────────────────────────────────────────────
+// ── All signal filters — grouped by engine family ─────────────────────────────
+// divider:true = thin separator between groups
+// custom: fn(row)→bool for computed filters
 const SIG_GROUPS = [
-  { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'   },
+  // ── VABS ──────────────────────────────────────────────────────────────
+  { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
   { key: 'strong_sig', label: 'STRONG', cls: 'text-emerald-300' },
-  { key: 'rocket',     label: '🚀',     cls: 'text-red-300'    },
-  { key: 'buy_2809',   label: 'BUY',    cls: 'text-lime-400'   },
-  { key: 'sig3g',      label: '3G',     cls: 'text-cyan-300'   },
-  { key: 'vbo_up',     label: 'VBO↑',  cls: 'text-green-300'  },
-  { key: 'fri34',      label: 'FRI34',  cls: 'text-cyan-400'   },
-  { key: 'ns',         label: 'NS',     cls: 'text-teal-300'   },
-  { key: 'sq',         label: 'SQ',     cls: 'text-cyan-400'   },
-  { key: 'wick_bull',  label: 'WICK↑', cls: 'text-emerald-400'},
-  { key: 'best_long',  label: 'BEST↑', cls: 'text-yellow-300' },
-  { key: 'sig_l88',    label: 'L88',    cls: 'text-violet-300' },
-  { key: 'sig_260308', label: '260308', cls: 'text-purple-300' },
-  { key: 'fbo_bull',   label: 'FBO↑',  cls: 'text-sky-300'    },
-  { key: 'eb_bull',    label: 'EB↑',   cls: 'text-amber-300'  },
-  { key: 'bf_buy',     label: '4BF',    cls: 'text-pink-300'   },
+  { key: 'vbo_up',     label: 'VBO↑',  cls: 'text-green-300'   },
+  { key: 'abs_sig',    label: 'ABS',    cls: 'text-teal-300'    },
+  { key: 'climb_sig',  label: 'CLB',    cls: 'text-cyan-300'    },
+  { key: 'load_sig',   label: 'LD',     cls: 'text-blue-300'    },
+  { divider: true },
+  // ── Wyckoff ───────────────────────────────────────────────────────────
+  { key: 'ns',         label: 'NS',     cls: 'text-teal-300'    },
+  { key: 'sq',         label: 'SQ',     cls: 'text-cyan-400'    },
+  { key: 'sc',         label: 'SC',     cls: 'text-orange-300'  },
+  { key: 'nd',         label: 'ND',     cls: 'text-pink-300'    },
+  { divider: true },
+  // ── Combo ─────────────────────────────────────────────────────────────
+  { key: 'rocket',     label: '🚀',     cls: 'text-red-300'     },
+  { key: 'buy_2809',   label: 'BUY',    cls: 'text-lime-400'    },
+  { key: 'sig3g',      label: '3G',     cls: 'text-cyan-300'    },
+  { key: 'rtv',        label: 'RTV',    cls: 'text-blue-300'    },
+  { key: 'hilo_buy',   label: 'HILO↑', cls: 'text-green-300'   },
+  { key: 'atr_brk',    label: 'ATR↑',  cls: 'text-emerald-300' },
+  { key: 'bb_brk',     label: 'BB↑',   cls: 'text-teal-300'    },
+  { key: 'bias_up',    label: '↑BIAS', cls: 'text-green-400'   },
+  { divider: true },
+  // ── T/Z ───────────────────────────────────────────────────────────────
+  { key: '_tz_bull',   label: 'T/Z↑',  cls: 'text-violet-300',
+    custom: r => !!r.tz_sig },
+  { key: '_tz_strong', label: 'T4/T6', cls: 'text-violet-200',
+    custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
+  { divider: true },
+  // ── WLNBB / L-signals ─────────────────────────────────────────────────
+  { key: 'fri34',      label: 'FRI34',  cls: 'text-cyan-400'    },
+  { key: 'fri43',      label: 'FRI43',  cls: 'text-sky-300'     },
+  { key: 'l34',        label: 'L34',    cls: 'text-blue-300'    },
+  { key: 'l43',        label: 'L43',    cls: 'text-teal-300'    },
+  { key: 'l64',        label: 'L64',    cls: 'text-orange-300'  },
+  { key: 'l22',        label: 'L22',    cls: 'text-red-300'     },
+  { key: 'blue',       label: 'BL',     cls: 'text-sky-300'     },
+  { key: 'cci_ready',  label: 'CCI',    cls: 'text-violet-300'  },
+  { key: 'bo_up',      label: 'BO↑',   cls: 'text-lime-300'    },
+  { key: 'bx_up',      label: 'BX↑',   cls: 'text-lime-400'    },
+  { key: 'fuchsia_rl', label: 'RL',     cls: 'text-fuchsia-300' },
+  { divider: true },
+  // ── Wick / CISD ───────────────────────────────────────────────────────
+  { key: 'wick_bull',  label: 'WK↑',   cls: 'text-emerald-400' },
+  { key: 'cisd_ppm',   label: 'C+-',    cls: 'text-green-300'   },
+  { key: 'cisd_seq',   label: 'C+--',   cls: 'text-lime-300'    },
+  { divider: true },
+  // ── ULTRA v2 ──────────────────────────────────────────────────────────
+  { key: 'best_long',  label: 'BEST↑', cls: 'text-yellow-300'  },
+  { key: 'fbo_bull',   label: 'FBO↑',  cls: 'text-sky-300'     },
+  { key: 'eb_bull',    label: 'EB↑',   cls: 'text-amber-300'   },
+  { key: 'bf_buy',     label: '4BF',    cls: 'text-pink-300'    },
+  { key: 'ultra_3up',  label: '3↑',     cls: 'text-lime-300'    },
+  { divider: true },
+  // ── 260308 + L88 ──────────────────────────────────────────────────────
+  { key: 'sig_l88',    label: 'L88',    cls: 'text-violet-200'  },
+  { key: 'sig_260308', label: '260308', cls: 'text-purple-300'  },
+  { divider: true },
+  // ── Context ───────────────────────────────────────────────────────────
+  { key: '_br_hot',    label: 'BR≥70', cls: 'text-lime-400',
+    custom: r => (r.br_score || 0) >= 70 },
+  { key: '_rsi_os',    label: 'RSI≤35', cls: 'text-lime-300',
+    custom: r => (r.rsi || 100) <= 35 },
+  { key: '_rsi_ob',    label: 'RSI≥70', cls: 'text-red-400',
+    custom: r => (r.rsi || 0) >= 70 },
 ]
 
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
@@ -83,6 +135,28 @@ function Badge({ label, cls }) {
 // ── fmt helper ────────────────────────────────────────────────────────────────
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
 
+// ── Score reason tooltip ──────────────────────────────────────────────────────
+function scoreReason(r) {
+  const p = []
+  if (r.best_sig)        p.push('BEST★')
+  else if (r.strong_sig) p.push('STRONG')
+  if (r.best_long)       p.push('BEST↑')
+  else if (r.fbo_bull)   p.push('FBO↑')
+  if (r.sig_l88)         p.push('L88')
+  else if (r.sig_260308) p.push('260308')
+  if (r.rocket)          p.push('🚀')
+  else if (r.buy_2809)   p.push('BUY')
+  if (r.tz_sig)          p.push(r.tz_sig)
+  if (r.fri34)           p.push('FRI34')
+  else if (r.fri43)      p.push('FRI43')
+  if (r.ns)              p.push('NS')
+  if (r.sq)              p.push('SQ')
+  if (r.vbo_up)          p.push('VBO↑')
+  if (r.ultra_3up)       p.push('3↑')
+  if (r.br_score >= 71)  p.push(`BR${Math.round(r.br_score)}`)
+  return p.slice(0, 6).join(' · ')
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TurboScanPanel({ onSelectTicker }) {
   const [localTf,    setLocalTf]    = useState('1d')
@@ -110,7 +184,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (r.turbo_score < minScore) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
-      if (selSigs.size > 0 && ![...selSigs].every(k => r[k])) return false
+      if (selSigs.size > 0) {
+        const ok = [...selSigs].every(k => {
+          const sig = SIG_GROUPS.find(s => !s.divider && s.key === k)
+          return sig?.custom ? sig.custom(r) : !!r[k]
+        })
+        if (!ok) return false
+      }
       return true
     })
   }, [allResults, minScore, direction, selSigs])
@@ -238,27 +318,45 @@ export default function TurboScanPanel({ onSelectTicker }) {
           ))}
         </div>
 
-        {/* Stats */}
-        <span className="ml-auto text-gray-600 shrink-0">
+        {/* Stats + stale warning */}
+        <span className="ml-auto text-gray-600 shrink-0 flex items-center gap-1.5">
           {results.length} / {allResults.length}
-          {lastScan && ` · ${lastScan.slice(0,16).replace('T',' ')}`}
+          {lastScan && (() => {
+            const ageH = (Date.now() - new Date(lastScan).getTime()) / 3_600_000
+            return (
+              <span className={ageH > 2 ? 'text-yellow-500' : 'text-gray-600'}>
+                {ageH > 2 ? '⚠ ' : ''}{lastScan.slice(0,16).replace('T',' ')}
+                {ageH > 2 && ` (${Math.floor(ageH)}h ago)`}
+              </span>
+            )
+          })()}
         </span>
       </div>
 
-      {/* ── Row 2: Signal AND filter ── */}
-      <div className="flex flex-wrap items-center gap-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/30">
-        <span className="text-gray-500 w-8 shrink-0">SIG</span>
+      {/* ── Row 2: Signal AND filter (all signals, scrollable) ── */}
+      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/30 overflow-x-auto whitespace-nowrap">
+        <span className="text-gray-500 text-xs shrink-0 mr-0.5">SIG</span>
         <button onClick={() => setSelSigs(new Set())}
-          className={`px-2 py-0.5 rounded text-xs ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+          className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
           All
         </button>
-        {SIG_GROUPS.map(s => (
-          <button key={s.key} onClick={() => toggleSig(s.key)}
-            className={`px-2 py-0.5 rounded text-xs transition-colors
-              ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
-            {s.label}
+        {SIG_GROUPS.map((s, i) =>
+          s.divider
+            ? <span key={`div-${i}`} className="text-gray-700 shrink-0 select-none px-0.5">│</span>
+            : (
+              <button key={s.key} onClick={() => toggleSig(s.key)}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                  ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+                {s.label}
+              </button>
+            )
+        )}
+        {selSigs.size > 0 && (
+          <button onClick={() => setSelSigs(new Set())}
+            className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+            ✕ clear
           </button>
-        ))}
+        )}
       </div>
 
       {/* Progress / error */}
@@ -303,8 +401,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 </td>
 
                 {/* Score */}
-                <td className={`px-2 py-1 text-center font-mono font-bold text-sm ${scoreColor(r.turbo_score)}`}>
-                  {fmt(r.turbo_score, 1)}
+                <td className="px-2 py-1 text-center" title={scoreReason(r)}>
+                  <div className={`font-mono font-bold text-sm ${scoreColor(r.turbo_score)}`}>
+                    {fmt(r.turbo_score, 1)}
+                  </div>
+                  <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
+                    {scoreReason(r)}
+                  </div>
                 </td>
 
                 {/* T/Z signal */}
