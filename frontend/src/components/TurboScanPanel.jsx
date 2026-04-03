@@ -91,8 +91,16 @@ const SIG_GROUPS = [
   { key: 'sig_l88',    label: 'L88',    cls: 'text-violet-200'  },
   { key: 'sig_260308', label: '260308', cls: 'text-purple-300'  },
   { divider: true },
+  // ── Delta / order-flow (260403) ────────────────────────────────────────
+  { key: 'd_blast_bull',  label: 'ΔΔ↑',  cls: 'text-yellow-300'  },
+  { key: 'd_surge_bull',  label: 'Δ↑',   cls: 'text-teal-300'    },
+  { key: 'd_strong_bull', label: 'B/S↑', cls: 'text-lime-300'    },
+  { key: 'd_absorb_bull', label: 'Ab↑',  cls: 'text-yellow-400'  },
+  { key: 'd_div_bull',    label: 'T↓',   cls: 'text-cyan-300'    },
+  { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
+  { divider: true },
   // ── Context ───────────────────────────────────────────────────────────
-  { key: '_br_hot',    label: 'BR≥70', cls: 'text-lime-400',
+  { key: '_br_hot',    label: 'BR≥70',  cls: 'text-lime-400',
     custom: r => (r.br_score || 0) >= 70 },
   { key: '_rsi_os',    label: 'RSI≤35', cls: 'text-lime-300',
     custom: r => (r.rsi || 100) <= 35 },
@@ -333,8 +341,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
         </span>
       </div>
 
-      {/* ── Row 2: Signal AND filter (all signals, scrollable) ── */}
-      <div className="flex items-center gap-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/30 overflow-x-auto whitespace-nowrap">
+      {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-gray-800 bg-gray-900/30">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5">SIG</span>
         <button onClick={() => setSelSigs(new Set())}
           className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
@@ -342,7 +350,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         </button>
         {SIG_GROUPS.map((s, i) =>
           s.divider
-            ? <span key={`div-${i}`} className="text-gray-700 shrink-0 select-none px-0.5">│</span>
+            ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
             : (
               <button key={s.key} onClick={() => toggleSig(s.key)}
                 className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
@@ -419,7 +427,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   ) : '—'}
                 </td>
 
-                {/* VABS */}
+                {/* VABS + Delta */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
                     {r.best_sig   ? <Badge label="BEST★" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-500" /> : null}
@@ -429,6 +437,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.abs_sig    ? <Badge label="ABS"  cls="bg-teal-800 text-teal-200" /> : null}
                     {r.climb_sig  ? <Badge label="CLB"  cls="bg-cyan-800 text-cyan-200" /> : null}
                     {r.load_sig   ? <Badge label="LD"   cls="bg-blue-800 text-blue-200" /> : null}
+                    {/* Delta signals */}
+                    {r.d_blast_bull  ? <Badge label="ΔΔ↑" cls="bg-yellow-700/60 text-yellow-200 ring-1 ring-yellow-500" /> : null}
+                    {r.d_surge_bull && !r.d_blast_bull ? <Badge label="Δ↑"  cls="bg-teal-800/60 text-teal-200" /> : null}
+                    {r.d_strong_bull ? <Badge label="B/S↑" cls="bg-lime-900/50 text-lime-300" /> : null}
+                    {r.d_absorb_bull ? <Badge label="Ab↑"  cls="bg-yellow-900/50 text-yellow-300" /> : null}
+                    {r.d_div_bull    ? <Badge label="T↓"   cls="bg-cyan-900/50 text-cyan-300" /> : null}
+                    {r.d_cd_bull  && !r.d_div_bull ? <Badge label="cd↑" cls="bg-sky-900/40 text-sky-300" /> : null}
                   </div>
                 </td>
 

@@ -30,6 +30,7 @@ from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
 from br_engine     import compute_br
 from ultra_engine  import compute_260308_l88, compute_ultra_v2
+from delta_engine  import compute_delta
 
 log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
@@ -76,6 +77,13 @@ _TURBO_COLS = [
     "br_score",
     # meta
     "vol_bucket",
+    # Delta / order-flow (260403)
+    "d_strong_bull", "d_strong_bear",
+    "d_absorb_bull", "d_absorb_bear",
+    "d_div_bull",    "d_div_bear",
+    "d_cd_bull",     "d_cd_bear",
+    "d_surge_bull",  "d_surge_bear",
+    "d_blast_bull",  "d_blast_bear",
     # RSI / CCI
     "rsi", "cci",
     # 260308 + L88
@@ -208,6 +216,16 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("cci_ready"): trend += 2
     s += min(trend, 13)
 
+    # ── Delta / order-flow family (cap 10) ───────────────────────────────
+    dlt = 0.0
+    if r.get("d_blast_bull"):        dlt += 6
+    elif r.get("d_surge_bull"):      dlt += 4
+    if r.get("d_strong_bull"):       dlt += 5
+    if r.get("d_absorb_bull"):       dlt += 4
+    if r.get("d_div_bull"):          dlt += 3
+    elif r.get("d_cd_bull"):         dlt += 2
+    s += min(dlt, 10)
+
     # ── Context / confirmation (uncapped, max ~14) ────────────────────────
     if r.get("wick_bull"): s += 3
     if r.get("cisd_ppm"):   s += 2
@@ -334,6 +352,20 @@ def _scan_turbo_ticker(
             row["br_score"] = round(float(br_df["br_score"].iloc[-1]), 1)
         except Exception:
             row["br_score"] = 0.0
+
+        # ── Delta / order-flow (260403) ────────────────────────────────────
+        try:
+            ddf    = compute_delta(df)
+            last_d = ddf.iloc[-1]
+            for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
+                        "div_bull","div_bear","cd_bull","cd_bear",
+                        "surge_bull","surge_bear","blast_bull","blast_bear"):
+                row[f"d_{col}"] = int(bool(last_d.get(col, False)))
+        except Exception:
+            for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
+                        "div_bull","div_bear","cd_bull","cd_bear",
+                        "surge_bull","surge_bear","blast_bull","blast_bear"):
+                row[f"d_{col}"] = 0
 
         # ── RSI(14) ────────────────────────────────────────────────────────
         try:
@@ -477,6 +509,8 @@ _QUERY_COLS = (
     "fri34, fri43, l34, l43, l64, l22, blue, cci_ready, bo_up, bx_up, fuchsia_rl, "
     "wick_bull, wick_bear, cisd_ppm, cisd_seq, "
     "rsi, cci, "
+    "d_strong_bull, d_absorb_bull, d_div_bull, d_cd_bull, d_surge_bull, d_blast_bull, "
+    "d_strong_bear, d_absorb_bear, d_div_bear, d_cd_bear, d_surge_bear, d_blast_bear, "
     "sig_260308, sig_l88, "
     "eb_bull, eb_bear, fbo_bull, fbo_bear, bf_buy, bf_sell, "
     "ultra_3up, ultra_3dn, best_long, best_short, "
