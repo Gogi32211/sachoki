@@ -485,7 +485,9 @@ def api_turbo_scan_trigger(
     tf: str = "1d",
     universe: str = "sp500",
 ):
-    from turbo_engine import run_turbo_scan
+    from turbo_engine import run_turbo_scan, get_turbo_progress
+    if get_turbo_progress().get("running"):
+        raise HTTPException(status_code=409, detail="Scan already running")
     background_tasks.add_task(run_turbo_scan, tf, universe)
     return {"status": "turbo scan started", "tf": tf, "universe": universe}
 
