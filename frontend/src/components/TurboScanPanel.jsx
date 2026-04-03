@@ -147,7 +147,14 @@ export default function TurboScanPanel({ onSelectTicker }) {
     setScanning(true); setError(null)
     api.turboScanTrigger(localTf, universe)
       .then(() => _poll())
-      .catch(e => { setError(e.message); setScanning(false) })
+      .catch(e => {
+        // 409 = scan already running — just poll for it
+        if (e.status === 409 || (e.message && e.message.includes('409'))) {
+          _poll()
+        } else {
+          setError(e.message); setScanning(false)
+        }
+      })
   }
 
   return (

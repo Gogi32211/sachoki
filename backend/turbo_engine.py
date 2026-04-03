@@ -417,43 +417,47 @@ def run_turbo_scan(
     con.close()
 
     results: list[dict] = []
-    with ThreadPoolExecutor(max_workers=workers) as pool:
-        futures = {
-            pool.submit(_scan_turbo_ticker, t, interval, min_price, max_price): t
-            for t in tickers
-        }
-        for fut in as_completed(futures):
-            _turbo_state["done"] += 1
-            row = fut.result()
-            if row:
-                row["scan_id"]    = scan_id
-                row["scanned_at"] = now_iso
-                results.append(row)
-                _turbo_state["found"] += 1
+    try:
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            futures = {
+                pool.submit(_scan_turbo_ticker, t, interval, min_price, max_price): t
+                for t in tickers
+            }
+            for fut in as_completed(futures):
+                _turbo_state["done"] += 1
+                row = fut.result()
+                if row:
+                    row["scan_id"]    = scan_id
+                    row["scanned_at"] = now_iso
+                    results.append(row)
+                    _turbo_state["found"] += 1
 
-    if results:
-        con = _db()
-        cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
-        ph   = ", ".join(f":{c}" for c in cols)
-        con.executemany(
-            f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})",
-            results,
-        )
-        con.execute(
-            "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
-            (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
-        )
-        # Keep last 3 runs per tf
-        con.execute("""
-            DELETE FROM turbo_scan_results WHERE scan_id NOT IN (
-                SELECT id FROM turbo_scan_runs ORDER BY id DESC LIMIT 3
+        if results:
+            con = _db()
+            cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
+            ph   = ", ".join(f":{c}" for c in cols)
+            con.executemany(
+                f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})",
+                results,
             )
-        """)
-        con.commit()
-        con.close()
+            con.execute(
+                "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
+            )
+            # Keep last 3 completed runs per tf+universe combo
+            con.execute("""
+                DELETE FROM turbo_scan_results WHERE scan_id NOT IN (
+                    SELECT id FROM turbo_scan_runs
+                    WHERE tf=? AND universe=? AND completed_at IS NOT NULL
+                    ORDER BY id DESC LIMIT 3
+                )
+            """, (interval, universe))
+            con.commit()
+            con.close()
+    finally:
+        _turbo_state["running"] = False
 
-    _turbo_state["running"] = False
-    log.info("Turbo scan done: %d/%d tickers, tf=%s", len(results), len(tickers), interval)
+    log.info("Turbo scan done: %d/%d tickers, tf=%s universe=%s", len(results), len(tickers), interval, universe)
     return len(results)
 
 
@@ -490,9 +494,7 @@ def get_turbo_results(
             (tf, universe),
         ).fetchone()
         if not row:
-            row = con.execute("SELECT id FROM turbo_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
-        if not row:
-            return []
+            return []   # no scan yet for this tf+universe — don't leak another universe's data
         scan_id = row[0]
 
         where  = "scan_id = ? AND turbo_score >= ?"
@@ -521,8 +523,6 @@ def get_last_turbo_scan_time(tf: str = "1d", universe: str = "sp500") -> str | N
             "SELECT completed_at FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
             (tf, universe),
         ).fetchone()
-        if not row:
-            row = con.execute("SELECT completed_at FROM turbo_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
         return row[0] if row else None
     finally:
         con.close()
