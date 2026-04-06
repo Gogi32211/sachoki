@@ -309,7 +309,8 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
             cpv += float(hlc3.iloc[i] * v.iloc[i])
             cvv += float(v.iloc[i])
         cpv_arr[i] = cpv; cvv_arr[i] = cvv
-    vwap_ll  = pd.Series(np.where(cvv_arr == 0, c.values, cpv_arr / cvv_arr), index=idx)
+    with np.errstate(divide='ignore', invalid='ignore'):
+        vwap_ll = pd.Series(np.where(cvv_arr == 0, c.values, np.divide(cpv_arr, cvv_arr, where=cvv_arr != 0, out=c.values.copy())), index=idx)
     buy_sig  = (vwap_ll > ema34) & (vwap_ll.shift(1) <= ema34.shift(1))
 
     lb2_arr  = np.full(n, np.nan); lb2 = np.nan
