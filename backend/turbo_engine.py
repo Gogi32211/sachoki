@@ -37,17 +37,46 @@ log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # ── Progress ──────────────────────────────────────────────────────────────────
-_turbo_state: dict = {"running": False, "done": 0, "total": 0, "found": 0, "started_at": 0, "error": None}
+_turbo_state: dict = {
+    "running": False,
+    "done": 0,
+    "total": 0,
+    "found": 0,
+    "failed": 0,
+    "fetched_from_massive": 0,
+    "started_at": 0,
+    "completed_at": None,
+    "universe": None,
+    "interval": None,
+    "error": None,
+}
 
 _SCAN_TIMEOUT = 30 * 60  # 30 minutes max before auto-reset
 
 
 def get_turbo_progress() -> dict:
     state = dict(_turbo_state)
+    now = time.time()
     # auto-reset if stuck longer than timeout
-    if state["running"] and time.time() - state.get("started_at", 0) > _SCAN_TIMEOUT:
+    if state["running"] and now - state.get("started_at", 0) > _SCAN_TIMEOUT:
         _turbo_state["running"] = False
         state["running"] = False
+    # compute elapsed
+    if state.get("started_at"):
+        state["elapsed"] = round(now - state["started_at"], 1) if state["running"] else (
+            round((state.get("completed_at") or now) - state["started_at"], 1)
+        )
+    else:
+        state["elapsed"] = 0
+    # estimate remaining
+    done = state.get("done", 0)
+    total = state.get("total", 0)
+    elapsed = state["elapsed"]
+    if state["running"] and done > 5 and total > done:
+        rate = done / elapsed if elapsed > 0 else 0
+        state["eta"] = round((total - done) / rate, 0) if rate > 0 else None
+    else:
+        state["eta"] = None
     return state
 
 
@@ -460,8 +489,11 @@ def run_turbo_scan(
     min_price = float(cfg["min_price"])
     max_price = float(cfg["max_price"])
 
-    _turbo_state.update({"running": True, "done": 0, "total": 0, "found": 0,
-                         "universe": universe, "started_at": time.time(), "error": None})
+    _turbo_state.update({
+        "running": True, "done": 0, "total": 0, "found": 0, "failed": 0,
+        "fetched_from_massive": 0, "universe": universe, "interval": interval,
+        "started_at": time.time(), "completed_at": None, "error": None,
+    })
     try:
         tickers = get_universe_tickers(universe)
     except Exception as exc:
@@ -470,6 +502,7 @@ def run_turbo_scan(
         return 0
 
     _turbo_state["total"] = len(tickers)
+    _turbo_state["fetched_from_massive"] = len(tickers)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
@@ -499,6 +532,8 @@ def run_turbo_scan(
                     batch.append(row)
                     found += 1
                     _turbo_state["found"] += 1
+                else:
+                    _turbo_state["failed"] += 1
                 # flush every 50 results so progress survives restart
                 if len(batch) >= 50:
                     con = _db()
@@ -533,9 +568,10 @@ def run_turbo_scan(
         con.close()
     finally:
         _turbo_state["running"] = False
+        _turbo_state["completed_at"] = time.time()
 
-    log.info("Turbo scan done: %d/%d tickers, tf=%s universe=%s", len(results), len(tickers), interval, universe)
-    return len(results)
+    log.info("Turbo scan done: %d/%d tickers, tf=%s universe=%s", found, len(tickers), interval, universe)
+    return found
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
