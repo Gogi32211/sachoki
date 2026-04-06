@@ -513,6 +513,15 @@ def run_turbo_scan(
             """, (interval, universe, interval, universe))
             con.commit()
             con.close()
+        else:
+            # always mark scan as completed even with 0 results
+            con = _db()
+            con.execute(
+                "UPDATE turbo_scan_runs SET completed_at=?, result_count=0 WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), scan_id),
+            )
+            con.commit()
+            con.close()
     finally:
         _turbo_state["running"] = False
 
