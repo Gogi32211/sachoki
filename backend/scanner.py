@@ -229,10 +229,11 @@ _RUSSELL2K_FALLBACK = [
 
 # ── Universe configs ──────────────────────────────────────────────────────────
 UNIVERSE_CONFIGS: dict = {
-    "sp500":       {"label": "S&P 500",       "min_price": 0.0,  "max_price": 1e9, "fetch": "sp500"},
+    "sp500":       {"label": "S&P 500",       "min_price": 0.0,  "max_price": 1e9,  "fetch": "sp500"},
     "nasdaq_low":  {"label": "NASDAQ $3–20",  "min_price": 3.0,  "max_price": 20.0, "fetch": "nasdaq"},
     "nasdaq_mid":  {"label": "NASDAQ $21–50", "min_price": 21.0, "max_price": 50.0, "fetch": "nasdaq"},
-    "russell2k":   {"label": "Russell 2000",  "min_price": 0.0,  "max_price": 1e9, "fetch": "russell2k"},
+    "russell2k":   {"label": "Russell 2000",  "min_price": 0.0,  "max_price": 1e9,  "fetch": "russell2k"},
+    "all_us":      {"label": "All US (Polygon)", "min_price": 1.0, "max_price": 1e9, "fetch": "all_us"},
 }
 
 
@@ -324,16 +325,25 @@ def get_tickers(limit: int = 700) -> list[str]:
     return combined[:limit]
 
 
-def get_universe_tickers(universe: str = "sp500", limit: int = 700) -> list[str]:
+def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[str]:
     """Return ticker list for the given universe key."""
     cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
     fetch = cfg["fetch"]
     if fetch == "nasdaq":
-        return get_nasdaq_tickers(limit)
+        return get_nasdaq_tickers(min(limit, 700))
     elif fetch == "russell2k":
-        return get_russell2000_tickers(limit)
+        return get_russell2000_tickers(min(limit, 700))
+    elif fetch == "all_us":
+        try:
+            from data_polygon import get_all_us_tickers, polygon_available
+            if polygon_available():
+                return get_all_us_tickers(limit=limit)
+        except Exception:
+            pass
+        # fallback to sp500 if Polygon not available
+        return get_tickers(700)
     else:
-        return get_tickers(limit)
+        return get_tickers(min(limit, 700))
 
 
 # ── DB schema ─────────────────────────────────────────────────────────────────

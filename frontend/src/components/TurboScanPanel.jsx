@@ -3,10 +3,11 @@ import { api } from '../api'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
-  { key: 'sp500',      label: 'S&P 500',       desc: '~700 tickers',         cls: 'text-blue-300'   },
-  { key: 'nasdaq_low', label: 'NASDAQ $3–20',  desc: 'NASDAQ, low-price',    cls: 'text-cyan-300'   },
-  { key: 'nasdaq_mid', label: 'NASDAQ $21–50', desc: 'NASDAQ, mid-price',    cls: 'text-teal-300'   },
-  { key: 'russell2k',  label: 'Russell 2000',  desc: 'IWM small-caps',       cls: 'text-orange-300' },
+  { key: 'sp500',      label: 'S&P 500',         desc: '~500 large-caps',       cls: 'text-blue-300'   },
+  { key: 'nasdaq_low', label: 'NASDAQ $3–20',    desc: 'NASDAQ, low-price',     cls: 'text-cyan-300'   },
+  { key: 'nasdaq_mid', label: 'NASDAQ $21–50',   desc: 'NASDAQ, mid-price',     cls: 'text-teal-300'   },
+  { key: 'russell2k',  label: 'Russell 2000',    desc: 'IWM small-caps',        cls: 'text-orange-300' },
+  { key: 'all_us',     label: '🌐 All US',       desc: '~8K tickers (Polygon)', cls: 'text-violet-300' },
 ]
 
 // ── Timeframes ────────────────────────────────────────────────────────────────
@@ -267,6 +268,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           {universe === 'nasdaq_low' && '· price $3–20'}
           {universe === 'nasdaq_mid' && '· price $21–50'}
           {universe === 'russell2k'  && '· small-cap IWM'}
+          {universe === 'all_us'     && '· requires POLYGON_API_KEY'}
         </span>
       </div>
 
