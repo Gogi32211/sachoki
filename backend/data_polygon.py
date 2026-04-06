@@ -129,9 +129,6 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         "market":  market,
         "locale":  "us",
         "active":  "true",
-        "type":    "CS",
-        "sort":    "market_cap",
-        "order":   "desc",
         "limit":   1000,
         "apiKey":  _key(),
     }
@@ -147,5 +144,5 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         params = {"apiKey": _key()}
         time.sleep(0.15)
 
-    log.info("Massive: fetched %d common stock tickers (All US)", len(tickers))
+    log.info("Massive: fetched %d tickers (All US)", len(tickers))
     return tickers[:limit]
