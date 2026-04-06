@@ -243,16 +243,27 @@ def _scan_turbo_ticker(
     max_price: float = 1e9,
 ) -> dict | None:
     try:
-        import yfinance as yf
-        from datetime import date as _date
+        from data_polygon import fetch_bars, polygon_available
 
-        period = "180d" if interval in ("1d", "1wk") else "60d"
-        raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
-        if raw is None or raw.empty or len(raw) < 50:
-            return None
+        days = 180 if interval in ("1d", "1wk") else 60
 
-        raw.columns = [str(c).lower() for c in raw.columns]
-        df = raw[["open", "high", "low", "close", "volume"]].dropna()
+        # ── Fetch OHLCV — Polygon first, yfinance fallback ─────────────────
+        df = None
+        if polygon_available():
+            try:
+                df = fetch_bars(ticker, interval=interval, days=days)
+            except Exception as exc:
+                log.debug("Polygon skip %s: %s — falling back to yfinance", ticker, exc)
+
+        if df is None or df.empty:
+            import yfinance as yf
+            period = "180d" if interval in ("1d", "1wk") else "60d"
+            raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
+            if raw is None or raw.empty:
+                return None
+            raw.columns = [str(c).lower() for c in raw.columns]
+            df = raw[["open", "high", "low", "close", "volume"]].dropna()
+
         if len(df) < 50:
             return None
 
