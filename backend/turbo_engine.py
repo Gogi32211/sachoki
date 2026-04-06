@@ -473,55 +473,57 @@ def run_turbo_scan(
     con.commit()
     con.close()
 
-    results: list[dict] = []
+    cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
+    ph   = ", ".join(f":{c}" for c in cols)
+    found = 0
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
                 pool.submit(_scan_turbo_ticker, t, interval, min_price, max_price): t
                 for t in tickers
             }
+            batch: list[dict] = []
             for fut in as_completed(futures):
                 _turbo_state["done"] += 1
                 row = fut.result()
                 if row:
                     row["scan_id"]    = scan_id
                     row["scanned_at"] = now_iso
-                    results.append(row)
+                    batch.append(row)
+                    found += 1
                     _turbo_state["found"] += 1
+                # flush every 50 results so progress survives restart
+                if len(batch) >= 50:
+                    con = _db()
+                    con.executemany(f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})", batch)
+                    con.commit()
+                    con.close()
+                    batch.clear()
+            # flush remaining
+            if batch:
+                con = _db()
+                con.executemany(f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})", batch)
+                con.commit()
+                con.close()
 
-        if results:
-            con = _db()
-            cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
-            ph   = ", ".join(f":{c}" for c in cols)
-            con.executemany(
-                f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})",
-                results,
+        # mark completed
+        con = _db()
+        con.execute(
+            "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
+            (datetime.now(timezone.utc).isoformat(), found, scan_id),
+        )
+        # Keep last 3 completed runs per tf+universe combo (only touch this tf+universe)
+        con.execute("""
+            DELETE FROM turbo_scan_results WHERE scan_id IN (
+                SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
+            ) AND scan_id NOT IN (
+                SELECT id FROM turbo_scan_runs
+                WHERE tf=? AND universe=? AND completed_at IS NOT NULL
+                ORDER BY id DESC LIMIT 3
             )
-            con.execute(
-                "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
-                (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
-            )
-            # Keep last 3 completed runs per tf+universe combo (only touch this tf+universe)
-            con.execute("""
-                DELETE FROM turbo_scan_results WHERE scan_id IN (
-                    SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
-                ) AND scan_id NOT IN (
-                    SELECT id FROM turbo_scan_runs
-                    WHERE tf=? AND universe=? AND completed_at IS NOT NULL
-                    ORDER BY id DESC LIMIT 3
-                )
-            """, (interval, universe, interval, universe))
-            con.commit()
-            con.close()
-        else:
-            # always mark scan as completed even with 0 results
-            con = _db()
-            con.execute(
-                "UPDATE turbo_scan_runs SET completed_at=?, result_count=0 WHERE id=?",
-                (datetime.now(timezone.utc).isoformat(), scan_id),
-            )
-            con.commit()
-            con.close()
+        """, (interval, universe, interval, universe))
+        con.commit()
+        con.close()
     finally:
         _turbo_state["running"] = False
 
