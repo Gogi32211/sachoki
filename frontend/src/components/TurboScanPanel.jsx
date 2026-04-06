@@ -552,7 +552,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 <td colSpan={12} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
-                    : 'Press ⚡ TURBO to scan all engines'}
+                    : lastScan
+                      ? 'Scan completed — 0 results found (try a different universe or timeframe)'
+                      : 'Press ⚡ TURBO to scan all engines'}
                 </td>
               </tr>
             )}
