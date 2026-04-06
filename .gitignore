@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 *.pyo
 *.pyd
+node_modules/
+frontend/dist/
+frontend/package-lock.json
