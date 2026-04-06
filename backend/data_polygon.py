@@ -119,8 +119,9 @@ def polygon_available() -> bool:
 
 def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]:
     """
-    Fetch all active US stock tickers from Polygon reference endpoint.
-    Requires Starter plan+. Returns list of ticker strings.
+    Fetch active US common stocks from Massive API sorted by market cap desc.
+    Excludes ETFs, warrants, preferred shares (type=CS only).
+    Requires MASSIVE_API_KEY.
     """
     tickers: list[str] = []
     url = f"{_BASE}/v3/reference/tickers"
@@ -128,6 +129,9 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         "market":  market,
         "locale":  "us",
         "active":  "true",
+        "type":    "CS",
+        "sort":    "market_cap",
+        "order":   "desc",
         "limit":   1000,
         "apiKey":  _key(),
     }
@@ -139,10 +143,9 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
             sym = t.get("ticker", "")
             if sym:
                 tickers.append(sym)
-        # pagination
         url    = data.get("next_url")
-        params = {"apiKey": _key()}   # next_url already has other params
-        time.sleep(0.2)
+        params = {"apiKey": _key()}
+        time.sleep(0.15)
 
-    log.info("Polygon: fetched %d tickers", len(tickers))
+    log.info("Massive: fetched %d common stock tickers (All US)", len(tickers))
     return tickers[:limit]
