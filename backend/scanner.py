@@ -334,12 +334,10 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[s
     elif fetch == "russell2k":
         return get_russell2000_tickers(min(limit, 700))
     elif fetch == "all_us":
-        try:
-            from data_polygon import get_all_us_tickers, polygon_available
-            if polygon_available():
-                return get_all_us_tickers(limit=limit)
-        except Exception:
-            pass
+        from data_polygon import get_all_us_tickers, polygon_available
+        if not polygon_available():
+            raise RuntimeError("MASSIVE_API_KEY not set — All US universe requires Massive API key")
+        return get_all_us_tickers(limit=limit)
         # fallback to sp500 if Polygon not available
         return get_tickers(700)
     else:

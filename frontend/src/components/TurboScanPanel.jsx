@@ -174,6 +174,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [lastScan,   setLastScan]   = useState(null)
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
+  const [massiveReady, setMassiveReady] = useState(null)
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
@@ -186,6 +187,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   }
 
   useEffect(() => { load(localTf, universe) }, [localTf, universe])
+  useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Client-side filter ─────────────────────────────────────────────────────
   const results = useMemo(() => {
@@ -268,7 +270,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
           {universe === 'nasdaq_low' && '· price $3–20'}
           {universe === 'nasdaq_mid' && '· price $21–50'}
           {universe === 'russell2k'  && '· small-cap IWM'}
-          {universe === 'all_us'     && '· requires POLYGON_API_KEY'}
+          {universe === 'all_us' && massiveReady === false && <span className="text-red-400">· MASSIVE_API_KEY not set</span>}
+          {universe === 'all_us' && massiveReady === true  && <span className="text-green-500">· Massive API ready</span>}
         </span>
       </div>
 

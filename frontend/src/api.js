@@ -101,4 +101,6 @@ export const api = {
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
+
+  getConfig: () => get('/api/config'),
 }
