@@ -103,4 +103,8 @@ export const api = {
   saveSettings: (s) => post('/api/settings', s),
 
   getConfig: () => get('/api/config'),
+
+  // Admin
+  adminScanHistory: () => get('/api/admin/scan-history'),
+  adminScanStart:   (tf, universe) => post(`/api/admin/scan-start?tf=${tf}&universe=${universe}`),
 }

@@ -12,6 +12,7 @@ import ComboScanPanel from './components/ComboScanPanel'
 import PowerScanPanel from './components/PowerScanPanel'
 import BRScanPanel from './components/BRScanPanel'
 import TurboScanPanel from './components/TurboScanPanel'
+import AdminPanel from './components/AdminPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -35,6 +36,7 @@ const TABS = [
   { id: 'brscan',     label: 'BR Scan' },
   { id: 'pumps',      label: 'Pump Combos' },
   { id: 'howitworks', label: 'How It Works' },
+  { id: 'admin',      label: '⚙ Admin' },
 ]
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
@@ -73,7 +75,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v3.5</span>
+          <span className="text-xs font-normal text-gray-500">v3.6</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
@@ -174,6 +176,9 @@ export default function App() {
 
           {activeTab === 'howitworks' && (
             <HowItWorksPanel />
+          )}
+          {activeTab === 'admin' && (
+            <AdminPanel />
           )}
         </div>
       </div>

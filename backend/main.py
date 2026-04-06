@@ -511,6 +511,32 @@ def api_turbo_scan_reset():
     return {"ok": True, "message": "Scan state reset"}
 
 
+@app.get("/api/admin/scan-history")
+def api_admin_scan_history():
+    from turbo_engine import _db, _init_db
+    _init_db()
+    con = _db()
+    try:
+        rows = con.execute("""
+            SELECT id, tf, universe, started_at, completed_at, result_count
+            FROM turbo_scan_runs ORDER BY id DESC LIMIT 20
+        """).fetchall()
+        return [{"id": r[0], "tf": r[1], "universe": r[2],
+                 "started_at": r[3], "completed_at": r[4], "result_count": r[5]}
+                for r in rows]
+    finally:
+        con.close()
+
+
+@app.post("/api/admin/scan-start")
+def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500"):
+    from turbo_engine import run_turbo_scan, get_turbo_progress
+    if get_turbo_progress().get("running"):
+        raise HTTPException(status_code=409, detail="Scan already running")
+    background_tasks.add_task(run_turbo_scan, tf, universe)
+    return {"ok": True, "tf": tf, "universe": universe}
+
+
 # ── BR Scan (260328 Break Readiness) ──────────────────────────────────────────
 
 @app.get("/api/br-scan")
