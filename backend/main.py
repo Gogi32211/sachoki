@@ -498,6 +498,13 @@ def api_turbo_scan_status():
     return get_turbo_progress()
 
 
+@app.post("/api/turbo-scan/reset")
+def api_turbo_scan_reset():
+    from turbo_engine import _turbo_state
+    _turbo_state["running"] = False
+    return {"ok": True, "message": "Scan state reset"}
+
+
 # ── BR Scan (260328 Break Readiness) ──────────────────────────────────────────
 
 @app.get("/api/br-scan")
