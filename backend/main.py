@@ -477,10 +477,19 @@ def api_turbo_scan(
     direction: str = "bull",
     tf: str = "1d",
     universe: str = "sp500",
+    price_min: float = 0,
+    price_max: float = 1e9,
+    rsi_min: float = 0,
+    rsi_max: float = 100,
+    cci_min: float = -9999,
+    cci_max: float = 9999,
 ):
     from turbo_engine import get_turbo_results, get_last_turbo_scan_time
     results   = get_turbo_results(limit=limit, min_score=min_score, direction=direction,
-                                  tf=tf, universe=universe)
+                                  tf=tf, universe=universe,
+                                  price_min=price_min, price_max=price_max,
+                                  rsi_min=rsi_min, rsi_max=rsi_max,
+                                  cci_min=cci_min, cci_max=cci_max)
     last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
     return {"results": results, "last_scan": last_time}
 
