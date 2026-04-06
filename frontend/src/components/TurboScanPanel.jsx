@@ -240,7 +240,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         setScanning(false)
         const msg = e?.detail || e?.message || String(e)
         if (msg.includes('409') || msg.toLowerCase().includes('already running')) {
-          setError('Another scan is in progress — wait for it to finish, then try again')
+          setError('__stuck__')
         } else {
           setError(msg)
         }
@@ -375,7 +375,20 @@ export default function TurboScanPanel({ onSelectTicker }) {
           ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} — 2-4 minutes…
         </div>
       )}
-      {error && <div className="px-4 py-1.5 text-red-400 border-b border-gray-800">{error}</div>}
+      {error && (
+        <div className="px-4 py-1.5 text-red-400 border-b border-gray-800 flex items-center gap-3">
+          {error === '__stuck__'
+            ? <>
+                <span>Another scan is in progress — wait for it to finish, then try again</span>
+                <button
+                  onClick={() => api.turboScanReset().then(() => setError(null))}
+                  className="px-2 py-0.5 text-xs bg-red-900/50 hover:bg-red-800/60 border border-red-700 rounded">
+                  Force Reset
+                </button>
+              </>
+            : error}
+        </div>
+      )}
 
       {/* ── Table ── */}
       <div className="overflow-auto flex-1">

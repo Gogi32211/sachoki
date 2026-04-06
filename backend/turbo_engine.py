@@ -16,6 +16,7 @@ from __future__ import annotations
 import os
 import sqlite3
 import logging
+import time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
@@ -36,11 +37,18 @@ log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # ── Progress ──────────────────────────────────────────────────────────────────
-_turbo_state: dict = {"running": False, "done": 0, "total": 0, "found": 0}
+_turbo_state: dict = {"running": False, "done": 0, "total": 0, "found": 0, "started_at": 0}
+
+_SCAN_TIMEOUT = 30 * 60  # 30 minutes max before auto-reset
 
 
 def get_turbo_progress() -> dict:
-    return dict(_turbo_state)
+    state = dict(_turbo_state)
+    # auto-reset if stuck longer than timeout
+    if state["running"] and time.time() - state.get("started_at", 0) > _SCAN_TIMEOUT:
+        _turbo_state["running"] = False
+        state["running"] = False
+    return state
 
 
 # ── T/Z signal weights ────────────────────────────────────────────────────────
@@ -454,7 +462,7 @@ def run_turbo_scan(
 
     tickers = get_universe_tickers(universe)
     _turbo_state.update({"running": True, "done": 0, "total": len(tickers), "found": 0,
-                         "universe": universe})
+                         "universe": universe, "started_at": time.time()})
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
@@ -493,14 +501,16 @@ def run_turbo_scan(
                 "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
                 (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
             )
-            # Keep last 3 completed runs per tf+universe combo
+            # Keep last 3 completed runs per tf+universe combo (only touch this tf+universe)
             con.execute("""
-                DELETE FROM turbo_scan_results WHERE scan_id NOT IN (
+                DELETE FROM turbo_scan_results WHERE scan_id IN (
+                    SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
+                ) AND scan_id NOT IN (
                     SELECT id FROM turbo_scan_runs
                     WHERE tf=? AND universe=? AND completed_at IS NOT NULL
                     ORDER BY id DESC LIMIT 3
                 )
-            """, (interval, universe))
+            """, (interval, universe, interval, universe))
             con.commit()
             con.close()
     finally:

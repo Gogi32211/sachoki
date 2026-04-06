@@ -95,6 +95,8 @@ export const api = {
     post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}`),
   turboScanStatus: () =>
     get('/api/turbo-scan/status'),
+  turboScanReset: () =>
+    post('/api/turbo-scan/reset'),
 
   // Settings
   getSettings: () => get('/api/settings'),
