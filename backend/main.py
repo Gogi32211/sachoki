@@ -71,6 +71,12 @@ app.add_middleware(
 )
 
 
+@app.get("/api/config")
+def api_config():
+    from data_polygon import polygon_available
+    return {"massive_api_ready": polygon_available()}
+
+
 # ── Utilities ─────────────────────────────────────────────────────────────────
 
 def _normalise_date(idx) -> list[str]:
