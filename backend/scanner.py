@@ -229,11 +229,10 @@ _RUSSELL2K_FALLBACK = [
 
 # ── Universe configs ──────────────────────────────────────────────────────────
 UNIVERSE_CONFIGS: dict = {
-    "sp500":       {"label": "S&P 500",       "min_price": 0.0,  "max_price": 1e9,  "fetch": "sp500"},
-    "nasdaq_low":  {"label": "NASDAQ $3–20",  "min_price": 3.0,  "max_price": 20.0, "fetch": "nasdaq"},
-    "nasdaq_mid":  {"label": "NASDAQ $21–50", "min_price": 21.0, "max_price": 50.0, "fetch": "nasdaq"},
-    "russell2k":   {"label": "Russell 2000",  "min_price": 0.0,  "max_price": 1e9,  "fetch": "russell2k"},
-    "all_us":      {"label": "All US",  "min_price": 0.7, "max_price": 1e9, "fetch": "all_us"},
+    "sp500":     {"label": "S&P 500",    "min_price": 0.0, "max_price": 1e9, "fetch": "sp500"},
+    "nasdaq":    {"label": "NASDAQ",     "min_price": 0.0, "max_price": 1e9, "fetch": "nasdaq_massive"},
+    "russell2k": {"label": "Russell 2K", "min_price": 0.0, "max_price": 1e9, "fetch": "russell2k_massive"},
+    "all_us":    {"label": "All US",     "min_price": 0.7, "max_price": 1e9, "fetch": "all_us"},
 }
 
 
@@ -329,18 +328,28 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[s
     """Return ticker list for the given universe key."""
     cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
     fetch = cfg["fetch"]
-    if fetch == "nasdaq":
+
+    if fetch == "nasdaq_massive":
+        from data_polygon import get_exchange_tickers, polygon_available
+        if polygon_available():
+            return get_exchange_tickers("XNAS", limit=min(limit, 5_000))
+        # fallback: Wikipedia + static list
         return get_nasdaq_tickers(min(limit, 700))
-    elif fetch == "russell2k":
+
+    elif fetch == "russell2k_massive":
+        from data_polygon import get_all_us_tickers, polygon_available
+        if polygon_available():
+            # Russell 2000 ≈ all CS stocks (Massive returns ~8k; scanner price-filters later)
+            return get_all_us_tickers(limit=min(limit, 5_000))
         return get_russell2000_tickers(min(limit, 700))
+
     elif fetch == "all_us":
         from data_polygon import get_all_us_tickers, polygon_available
         if not polygon_available():
             raise RuntimeError("MASSIVE_API_KEY not set — All US universe requires Massive API key")
         return get_all_us_tickers(limit=limit)
-        # fallback to sp500 if Polygon not available
-        return get_tickers(700)
-    else:
+
+    else:  # sp500
         return get_tickers(min(limit, 700))
 
 

@@ -147,3 +147,36 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
 
     log.info("Massive: fetched %d tickers (All US)", len(tickers))
     return tickers[:limit]
+
+
+def get_exchange_tickers(exchange: str, limit: int = 5_000) -> list[str]:
+    """
+    Fetch active US common stocks from a specific exchange via Massive API.
+    exchange examples: "XNAS" (NASDAQ), "XNYS" (NYSE), "XASE" (NYSE American).
+    Requires MASSIVE_API_KEY.
+    """
+    tickers: list[str] = []
+    url = f"{_BASE}/v3/reference/tickers"
+    params = {
+        "market":   "stocks",
+        "locale":   "us",
+        "active":   "true",
+        "type":     "CS",
+        "exchange": exchange,
+        "limit":    1000,
+        "apiKey":   _key(),
+    }
+    while url and len(tickers) < limit:
+        r = requests.get(url, params=params, timeout=20)
+        r.raise_for_status()
+        data = r.json()
+        for t in data.get("results", []):
+            sym = t.get("ticker", "")
+            if sym:
+                tickers.append(sym)
+        url    = data.get("next_url")
+        params = {"apiKey": _key()}
+        time.sleep(0.15)
+
+    log.info("Massive: fetched %d tickers (exchange=%s)", len(tickers), exchange)
+    return tickers[:limit]

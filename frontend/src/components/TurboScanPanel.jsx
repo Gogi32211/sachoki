@@ -3,15 +3,14 @@ import { api } from '../api'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
-  { key: 'sp500',      label: 'S&P 500',         desc: '~500 large-caps',       cls: 'text-blue-300'   },
-  { key: 'nasdaq_low', label: 'NASDAQ $3–20',    desc: 'NASDAQ, low-price',     cls: 'text-cyan-300'   },
-  { key: 'nasdaq_mid', label: 'NASDAQ $21–50',   desc: 'NASDAQ, mid-price',     cls: 'text-teal-300'   },
-  { key: 'russell2k',  label: 'Russell 2000',    desc: 'IWM small-caps',        cls: 'text-orange-300' },
-  { key: 'all_us',     label: '🌐 All US',       desc: '~8K tickers (Polygon)', cls: 'text-violet-300' },
+  { key: 'sp500',     label: 'S&P 500',      desc: '~500 large-caps',     cls: 'text-blue-300'   },
+  { key: 'nasdaq',    label: 'NASDAQ',        desc: '~4K NASDAQ stocks',   cls: 'text-cyan-300'   },
+  { key: 'russell2k', label: 'Russell 2K',   desc: 'All US small-caps',   cls: 'text-orange-300' },
+  { key: 'all_us',    label: '🌐 All US',    desc: '~8K tickers (Massive)',cls: 'text-violet-300' },
 ]
 
 // ── Timeframes ────────────────────────────────────────────────────────────────
-const TF_OPTS = ['1w', '1d', '4h', '1h']
+const TF_OPTS = ['1wk', '1d', '4h', '1h']
 
 // ── Score thresholds ──────────────────────────────────────────────────────────
 const SCORE_THRESHOLDS = [
@@ -64,17 +63,28 @@ const SIG_GROUPS = [
     custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
-  { key: 'fri34',      label: 'FRI34',  cls: 'text-cyan-400'    },
-  { key: 'fri43',      label: 'FRI43',  cls: 'text-sky-300'     },
-  { key: 'l34',        label: 'L34',    cls: 'text-blue-300'    },
-  { key: 'l43',        label: 'L43',    cls: 'text-teal-300'    },
-  { key: 'l64',        label: 'L64',    cls: 'text-orange-300'  },
-  { key: 'l22',        label: 'L22',    cls: 'text-red-300'     },
-  { key: 'blue',       label: 'BL',     cls: 'text-sky-300'     },
-  { key: 'cci_ready',  label: 'CCI',    cls: 'text-violet-300'  },
-  { key: 'bo_up',      label: 'BO↑',   cls: 'text-lime-300'    },
-  { key: 'bx_up',      label: 'BX↑',   cls: 'text-lime-400'    },
-  { key: 'fuchsia_rl', label: 'RL',     cls: 'text-fuchsia-300' },
+  { key: 'fri34',         label: 'FRI34',    cls: 'text-cyan-400'     },
+  { key: 'fri43',         label: 'FRI43',    cls: 'text-sky-300'      },
+  { key: 'fri64',         label: 'FRI64',    cls: 'text-indigo-300'   },
+  { key: 'l34',           label: 'L34',      cls: 'text-blue-300'     },
+  { key: 'l43',           label: 'L43',      cls: 'text-teal-300'     },
+  { key: 'l64',           label: 'L64',      cls: 'text-orange-300'   },
+  { key: 'l22',           label: 'L22',      cls: 'text-red-300'      },
+  { key: 'l555',          label: 'L555',     cls: 'text-rose-400'     },
+  { key: 'only_l2l4',     label: 'L2L4',     cls: 'text-sky-400'      },
+  { key: 'blue',          label: 'BL',       cls: 'text-sky-300'      },
+  { key: 'cci_ready',     label: 'CCI',      cls: 'text-violet-300'   },
+  { key: 'cci_0_retest',  label: 'CCI0R',    cls: 'text-violet-400'   },
+  { key: 'cci_blue_turn', label: 'CCIB',     cls: 'text-purple-300'   },
+  { key: 'bo_up',         label: 'BO↑',      cls: 'text-lime-300'     },
+  { key: 'bo_dn',         label: 'BO↓',      cls: 'text-red-400'      },
+  { key: 'bx_up',         label: 'BX↑',      cls: 'text-lime-400'     },
+  { key: 'bx_dn',         label: 'BX↓',      cls: 'text-red-400'      },
+  { key: 'be_up',         label: 'BE↑',      cls: 'text-emerald-300'  },
+  { key: 'be_dn',         label: 'BE↓',      cls: 'text-red-300'      },
+  { key: 'fuchsia_rh',    label: 'RH',       cls: 'text-fuchsia-400'  },
+  { key: 'fuchsia_rl',    label: 'RL',       cls: 'text-fuchsia-300'  },
+  { key: 'pre_pump',      label: 'PP',       cls: 'text-yellow-400'   },
   { divider: true },
   // ── Wick / CISD ───────────────────────────────────────────────────────
   { key: 'wick_bull',  label: 'WK↑',   cls: 'text-emerald-400' },
@@ -182,9 +192,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [direction,  setDirection]  = useState('bull')
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [exported,   setExported]   = useState(false)
+  const [sortBy,     setSortBy]     = useState('turbo_score')
+  const [sortDir,    setSortDir]    = useState('desc')
 
   const load = (tf = localTf, uni = universe) => {
-    api.turboScan(2000, 0, 'all', tf, uni)
+    api.turboScan(10000, 0, 'all', tf, uni)
       .then(d => { setAllResults(d.results || []); setLastScan(d.last_scan) })
       .catch(e => setError(e.message))
   }
@@ -192,9 +204,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
   useEffect(() => { load(localTf, universe) }, [localTf, universe])
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
-  // ── Client-side filter ─────────────────────────────────────────────────────
+  // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
-    return allResults.filter(r => {
+    const filtered = allResults.filter(r => {
       if (r.turbo_score < minScore) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
@@ -207,7 +219,29 @@ export default function TurboScanPanel({ onSelectTicker }) {
       }
       return true
     })
-  }, [allResults, minScore, direction, selSigs])
+    // sort
+    const mul = sortDir === 'asc' ? 1 : -1
+    filtered.sort((a, b) => {
+      const av = a[sortBy] ?? 0
+      const bv = b[sortBy] ?? 0
+      if (typeof av === 'string') return mul * av.localeCompare(bv)
+      return mul * (av - bv)
+    })
+    return filtered
+  }, [allResults, minScore, direction, selSigs, sortBy, sortDir])
+
+  const toggleSort = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortBy(col); setSortDir('desc') }
+  }
+
+  const SortTh = ({ col, children, cls = '' }) => (
+    <th
+      className={`px-2 py-1.5 font-medium cursor-pointer select-none hover:text-white transition-colors ${cls}`}
+      onClick={() => toggleSort(col)}>
+      {children}{sortBy === col ? (sortDir === 'desc' ? ' ↓' : ' ↑') : ''}
+    </th>
+  )
 
   const toggleSig = key => setSelSigs(prev => {
     const n = new Set(prev)
@@ -274,11 +308,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
           </button>
         ))}
         <span className="text-gray-600 text-xs ml-1">
-          {universe === 'nasdaq_low' && '· price $3–20'}
-          {universe === 'nasdaq_mid' && '· price $21–50'}
-          {universe === 'russell2k'  && '· small-cap IWM'}
-          {universe === 'all_us' && massiveReady === false && <span className="text-red-400">· MASSIVE_API_KEY not set</span>}
-          {universe === 'all_us' && massiveReady === true  && <span className="text-green-500">· Massive API ready</span>}
+          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') && massiveReady === false && <span className="text-red-400">· MASSIVE_API_KEY not set (will use fallback list)</span>}
+          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') && massiveReady === true  && <span className="text-green-500">· Massive API ready</span>}
         </span>
       </div>
 
@@ -405,18 +436,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
         <table className="w-full border-collapse">
           <thead className="sticky top-0 bg-gray-900 z-10 text-gray-500 text-left">
             <tr>
-              <th className="px-2 py-1.5 font-medium">Ticker</th>
-              <th className="px-2 py-1.5 font-medium text-center">Score</th>
-              <th className="px-2 py-1.5 font-medium text-center">T/Z</th>
+              <SortTh col="ticker">Ticker</SortTh>
+              <SortTh col="turbo_score" cls="text-center">Score</SortTh>
+              <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
               <th className="px-2 py-1.5 font-medium">Combo</th>
               <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
-              <th className="px-2 py-1.5 font-medium text-center">RSI</th>
-              <th className="px-2 py-1.5 font-medium text-center">CCI</th>
-              <th className="px-2 py-1.5 font-medium text-center">BR%</th>
-              <th className="px-2 py-1.5 font-medium text-right">Price</th>
-              <th className="px-2 py-1.5 font-medium text-right">%</th>
+              <SortTh col="rsi" cls="text-center">RSI</SortTh>
+              <SortTh col="cci" cls="text-center">CCI</SortTh>
+              <SortTh col="br_score" cls="text-center">BR%</SortTh>
+              <SortTh col="last_price" cls="text-right">Price</SortTh>
+              <SortTh col="change_pct" cls="text-right">%</SortTh>
             </tr>
           </thead>
           <tbody>
@@ -502,20 +533,31 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 {/* L-signals / WLNBB / Ultra */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
-                    {r.fri34      ? <Badge label="FRI34" cls="text-cyan-300 bg-cyan-900/40" /> : null}
-                    {r.fri43      ? <Badge label="FRI43" cls="text-sky-300 bg-sky-900/40" /> : null}
-                    {r.l34  && !r.fri34 ? <Badge label="L34"  cls="text-blue-300 bg-blue-900/30" /> : null}
-                    {r.l43  && !r.fri43 ? <Badge label="L43"  cls="text-teal-300 bg-teal-900/30" /> : null}
-                    {r.l64        ? <Badge label="L64"  cls="text-orange-400 bg-orange-900/30" /> : null}
-                    {r.l22        ? <Badge label="L22"  cls="text-red-400 bg-red-900/30" /> : null}
-                    {r.blue       ? <Badge label="BL"   cls="text-sky-300 bg-sky-900/30" /> : null}
-                    {r.cci_ready  ? <Badge label="CCI"  cls="text-violet-300 bg-violet-900/30" /> : null}
-                    {r.bo_up      ? <Badge label="BO↑"  cls="text-lime-300 bg-lime-900/30" /> : null}
-                    {r.bx_up      ? <Badge label="BX↑"  cls="text-lime-400 bg-lime-900/20" /> : null}
-                    {r.wick_bull  ? <Badge label="WK↑"  cls="text-emerald-300 bg-emerald-900/30" /> : null}
-                    {r.cisd_ppm   ? <Badge label="C++-" cls="text-green-300 bg-green-900/30" /> : null}
-                    {r.cisd_seq   ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}
-                    {r.fuchsia_rl ? <Badge label="RL"   cls="text-fuchsia-300 bg-fuchsia-900/30" /> : null}
+                    {r.fri34            ? <Badge label="FRI34" cls="text-cyan-300 bg-cyan-900/40" /> : null}
+                    {r.fri43            ? <Badge label="FRI43" cls="text-sky-300 bg-sky-900/40" /> : null}
+                    {r.fri64            ? <Badge label="FRI64" cls="text-indigo-300 bg-indigo-900/40" /> : null}
+                    {r.l34  && !r.fri34 ? <Badge label="L34"   cls="text-blue-300 bg-blue-900/30" /> : null}
+                    {r.l43  && !r.fri43 ? <Badge label="L43"   cls="text-teal-300 bg-teal-900/30" /> : null}
+                    {r.l64  && !r.fri64 ? <Badge label="L64"   cls="text-orange-400 bg-orange-900/30" /> : null}
+                    {r.l22              ? <Badge label="L22"   cls="text-red-400 bg-red-900/30" /> : null}
+                    {r.l555             ? <Badge label="L555"  cls="text-rose-400 bg-rose-900/30" /> : null}
+                    {r.only_l2l4        ? <Badge label="L2L4"  cls="text-sky-400 bg-sky-900/20" /> : null}
+                    {r.blue             ? <Badge label="BL"    cls="text-sky-300 bg-sky-900/30" /> : null}
+                    {r.cci_ready        ? <Badge label="CCI"   cls="text-violet-300 bg-violet-900/30" /> : null}
+                    {r.cci_0_retest     ? <Badge label="CCI0R" cls="text-violet-400 bg-violet-900/30" /> : null}
+                    {r.cci_blue_turn    ? <Badge label="CCIB"  cls="text-purple-300 bg-purple-900/30" /> : null}
+                    {r.bo_up            ? <Badge label="BO↑"   cls="text-lime-300 bg-lime-900/30" /> : null}
+                    {r.bo_dn            ? <Badge label="BO↓"   cls="text-red-400 bg-red-900/20" /> : null}
+                    {r.bx_up            ? <Badge label="BX↑"   cls="text-lime-400 bg-lime-900/20" /> : null}
+                    {r.bx_dn            ? <Badge label="BX↓"   cls="text-red-400 bg-red-900/20" /> : null}
+                    {r.be_up            ? <Badge label="BE↑"   cls="text-emerald-300 bg-emerald-900/30" /> : null}
+                    {r.be_dn            ? <Badge label="BE↓"   cls="text-red-300 bg-red-900/20" /> : null}
+                    {r.fuchsia_rh       ? <Badge label="RH"    cls="text-fuchsia-400 bg-fuchsia-900/30" /> : null}
+                    {r.fuchsia_rl       ? <Badge label="RL"    cls="text-fuchsia-300 bg-fuchsia-900/20" /> : null}
+                    {r.pre_pump         ? <Badge label="PP"    cls="text-yellow-400 bg-yellow-900/30" /> : null}
+                    {r.wick_bull        ? <Badge label="WK↑"   cls="text-emerald-300 bg-emerald-900/30" /> : null}
+                    {r.cisd_ppm         ? <Badge label="C++-"  cls="text-green-300 bg-green-900/30" /> : null}
+                    {r.cisd_seq         ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}
                     {/* Ultra v2 */}
                     {r.best_long  ? <Badge label="BEST↑" cls="text-yellow-200 bg-yellow-800/60 ring-1 ring-yellow-500" /> : null}
                     {r.fbo_bull && !r.best_long ? <Badge label="FBO↑" cls="text-sky-300 bg-sky-900/40" /> : null}

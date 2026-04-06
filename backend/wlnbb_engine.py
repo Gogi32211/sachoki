@@ -106,6 +106,8 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
                   - rsi.rolling(3, min_periods=1).min())
     BLUE  = (vol_z >= _BLUE_Z) & (rsi_range3 <= _BLUE_FLAT)
     FRI34 = BLUE & L34
+    FRI43 = BLUE & L43
+    FRI64 = BLUE & L64
     UI    = (BLUE.astype(int).rolling(10, min_periods=1).sum() >= 2)
 
     # ── FUCHSIA ───────────────────────────────────────────────────────────
@@ -126,6 +128,19 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         & (c > o)
     )
 
+    # ── CCI_0_RETEST_OK: CCI bounces off 0 line (was above, dipped to 0, now up) ──
+    cci_prev1 = cci_sma.shift(1).fillna(0)
+    cci_prev2 = cci_sma.shift(2).fillna(0)
+    CCI_0_RETEST_OK = (
+        (cci_prev2 > 10)      # was above 0
+        & (cci_prev1 <= 5)    # dipped near/below 0
+        & (cci_sma > cci_prev1)  # now turning up
+        & (cci_sma > 0)
+    )
+
+    # ── CCI_BLUE_TURN: BLUE spike while CCI turns from negative to positive ──
+    CCI_BLUE_TURN = BLUE & (cci_sma > 0) & (cci_prev1 <= 0)
+
     # ── VSA / PRE_PUMP ────────────────────────────────────────────────────
     avg_rng = (h - l).rolling(20, min_periods=1).mean()
     avg_vol = v.rolling(20, min_periods=1).mean()
@@ -140,6 +155,22 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     vsa_hits = (squat | nosupply | nod | climax).astype(int)
     vsa_sum  = vsa_hits.rolling(_PP_WINDOW, min_periods=1).sum()
     PRE_PUMP = _cooldown(vsa_sum >= _PP_MIN, _PP_COOL)
+
+    # ── L555: two consecutive L5 bars (persistent sell pressure) ─────────
+    L555 = L5 & L5.shift(1).fillna(False)
+
+    # ── ONLY_L2L4: quiet accumulation — L2 or L4, no strong signals ──────
+    ONLY_L2L4 = (L2 | L4) & ~L3 & ~L1 & ~L5 & ~L6
+
+    # ── Price Bollinger Bands (20-period, 2-std) ──────────────────────────
+    price_mid   = c.rolling(20, min_periods=1).mean()
+    price_std   = c.rolling(20, min_periods=1).std().fillna(0)
+    price_upper = price_mid + 2.0 * price_std
+    price_lower = price_mid - 2.0 * price_std
+
+    # ── BE_UP / BE_DN: Band Expansion breakout ────────────────────────────
+    BE_UP = (c > price_upper) & (c.shift(1).fillna(c) <= price_upper.shift(1).fillna(price_upper))
+    BE_DN = (c < price_lower) & (c.shift(1).fillna(c) >= price_lower.shift(1).fillna(price_lower))
 
     # ── BO / BX levels ────────────────────────────────────────────────────
     l34_hi = _ffill_when(h, L34)
@@ -179,13 +210,20 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         # Combined L signals
         "L34": L34, "L43": L43, "L64": L64, "L22": L22,
         "L1L2": L1L2, "L2L5": L2L5,
+        # Extended L signals
+        "L555": L555, "ONLY_L2L4": ONLY_L2L4,
         # L-combo string
         "l_combo": l_combo,
         # Secondary signals
-        "BLUE": BLUE, "FRI34": FRI34, "UI": UI,
+        "BLUE": BLUE,
+        "FRI34": FRI34, "FRI43": FRI43, "FRI64": FRI64,
+        "UI": UI,
         "FUCHSIA_RH": FUCHSIA_RH, "FUCHSIA_RL": FUCHSIA_RL,
         "PRE_PUMP": PRE_PUMP,
         "CCI_READY": CCI_READY,
+        "CCI_0_RETEST_OK": CCI_0_RETEST_OK,
+        "CCI_BLUE_TURN": CCI_BLUE_TURN,
+        "BE_UP": BE_UP, "BE_DN": BE_DN,
         "BO_UP": BO_UP, "BO_DN": BO_DN,
         "BX_UP": BX_UP, "BX_DN": BX_DN,
         # Candle direction

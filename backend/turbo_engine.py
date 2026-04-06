@@ -104,8 +104,13 @@ _TURBO_COLS = [
     # T/Z
     "tz_sig", "tz_bull",
     # WLNBB
-    "fri34", "fri43", "l34", "l43", "l64", "l22",
-    "blue", "cci_ready", "bo_up", "bx_up", "fuchsia_rl",
+    "fri34", "fri43", "fri64",
+    "l34", "l43", "l64", "l22", "l555", "only_l2l4",
+    "blue", "cci_ready", "cci_0_retest", "cci_blue_turn",
+    "bo_up", "bo_dn", "bx_up", "bx_dn",
+    "be_up", "be_dn",
+    "fuchsia_rh", "fuchsia_rl",
+    "pre_pump",
     # Wick
     "wick_bull", "wick_bear",
     # CISD
@@ -282,7 +287,12 @@ def _scan_turbo_ticker(
     try:
         from data_polygon import fetch_bars, polygon_available
 
-        days = 180 if interval in ("1d", "1wk") else 60
+        if interval in ("1wk", "1w"):
+            days = 400   # need 50+ weekly bars
+        elif interval == "1d":
+            days = 180
+        else:
+            days = 90    # 4h, 1h, 30m, 15m
 
         # ── Fetch OHLCV — Polygon first, yfinance fallback ─────────────────
         df = None
@@ -334,20 +344,31 @@ def _scan_turbo_ticker(
         row["tz_bull"] = int(tz_bull)
         row["tz_sig"]  = tz_name
 
-        # ── WLNBB (L signals, FRI, BLUE, BO, CCI) ─────────────────────────
+        # ── WLNBB (L signals, FRI, BLUE, BO, BX, BE, CCI) ─────────────────
         wlnbb    = compute_wlnbb(df)
         last_w   = wlnbb.iloc[-1]
-        row["fri34"]     = int(bool(last_w.get("FRI34",      False)))
-        row["fri43"]     = int(bool(last_w.get("FRI43",      False) if "FRI43" in last_w.index else False))
-        row["l34"]       = int(bool(last_w.get("L34",        False)))
-        row["l43"]       = int(bool(last_w.get("L43",        False)))
-        row["l64"]       = int(bool(last_w.get("L64",        False)))
-        row["l22"]       = int(bool(last_w.get("L22",        False)))
-        row["blue"]      = int(bool(last_w.get("BLUE",       False)))
-        row["cci_ready"] = int(bool(last_w.get("CCI_READY",  False)))
-        row["bo_up"]     = int(bool(last_w.get("BO_UP",      False)))
-        row["bx_up"]     = int(bool(last_w.get("BX_UP",      False)))
-        row["fuchsia_rl"]= int(bool(last_w.get("FUCHSIA_RL", False)))
+        row["fri34"]         = int(bool(last_w.get("FRI34",          False)))
+        row["fri43"]         = int(bool(last_w.get("FRI43",          False)))
+        row["fri64"]         = int(bool(last_w.get("FRI64",          False)))
+        row["l34"]           = int(bool(last_w.get("L34",            False)))
+        row["l43"]           = int(bool(last_w.get("L43",            False)))
+        row["l64"]           = int(bool(last_w.get("L64",            False)))
+        row["l22"]           = int(bool(last_w.get("L22",            False)))
+        row["l555"]          = int(bool(last_w.get("L555",           False)))
+        row["only_l2l4"]     = int(bool(last_w.get("ONLY_L2L4",      False)))
+        row["blue"]          = int(bool(last_w.get("BLUE",           False)))
+        row["cci_ready"]     = int(bool(last_w.get("CCI_READY",      False)))
+        row["cci_0_retest"]  = int(bool(last_w.get("CCI_0_RETEST_OK",False)))
+        row["cci_blue_turn"] = int(bool(last_w.get("CCI_BLUE_TURN",  False)))
+        row["bo_up"]         = int(bool(last_w.get("BO_UP",          False)))
+        row["bo_dn"]         = int(bool(last_w.get("BO_DN",          False)))
+        row["bx_up"]         = int(bool(last_w.get("BX_UP",          False)))
+        row["bx_dn"]         = int(bool(last_w.get("BX_DN",          False)))
+        row["be_up"]         = int(bool(last_w.get("BE_UP",          False)))
+        row["be_dn"]         = int(bool(last_w.get("BE_DN",          False)))
+        row["fuchsia_rh"]    = int(bool(last_w.get("FUCHSIA_RH",     False)))
+        row["fuchsia_rl"]    = int(bool(last_w.get("FUCHSIA_RL",     False)))
+        row["pre_pump"]      = int(bool(last_w.get("PRE_PUMP",       False)))
         bkt = str(last_w.get("vol_bucket", ""))
         row["vol_bucket"] = bkt
 
@@ -581,7 +602,10 @@ _QUERY_COLS = (
     "ns, nd, sc, bc, sq, "
     "buy_2809, rocket, sig3g, rtv, hilo_buy, hilo_sell, atr_brk, bb_brk, "
     "bias_up, bias_down, cons_atr, "
-    "fri34, fri43, l34, l43, l64, l22, blue, cci_ready, bo_up, bx_up, fuchsia_rl, "
+    "fri34, fri43, fri64, l34, l43, l64, l22, l555, only_l2l4, "
+    "blue, cci_ready, cci_0_retest, cci_blue_turn, "
+    "bo_up, bo_dn, bx_up, bx_dn, be_up, be_dn, "
+    "fuchsia_rh, fuchsia_rl, pre_pump, "
     "wick_bull, wick_bear, cisd_ppm, cisd_seq, "
     "rsi, cci, "
     "d_strong_bull, d_absorb_bull, d_div_bull, d_cd_bull, d_surge_bull, d_blast_bull, "
@@ -595,7 +619,7 @@ _QUERY_KEYS = [c.strip() for c in _QUERY_COLS.split(",")]
 
 
 def get_turbo_results(
-    limit: int = 2000,
+    limit: int = 10000,
     min_score: float = 0,
     direction: str = "bull",
     tf: str = "1d",
