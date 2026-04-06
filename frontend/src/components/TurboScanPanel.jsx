@@ -227,7 +227,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
     const iv  = setInterval(() => {
       api.turboScanStatus()
         .then(s => {
-          if (!s.running) { clearInterval(iv); setScanning(false); load(tf, uni) }
+          if (!s.running) {
+            clearInterval(iv); setScanning(false)
+            if (s.error) setError(s.error)
+            else load(tf, uni)
+          }
         })
         .catch(() => { clearInterval(iv); setScanning(false) })
     }, 2000)

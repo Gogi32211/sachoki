@@ -37,7 +37,7 @@ log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # ── Progress ──────────────────────────────────────────────────────────────────
-_turbo_state: dict = {"running": False, "done": 0, "total": 0, "found": 0, "started_at": 0}
+_turbo_state: dict = {"running": False, "done": 0, "total": 0, "found": 0, "started_at": 0, "error": None}
 
 _SCAN_TIMEOUT = 30 * 60  # 30 minutes max before auto-reset
 
@@ -460,9 +460,16 @@ def run_turbo_scan(
     min_price = float(cfg["min_price"])
     max_price = float(cfg["max_price"])
 
-    tickers = get_universe_tickers(universe)
-    _turbo_state.update({"running": True, "done": 0, "total": len(tickers), "found": 0,
-                         "universe": universe, "started_at": time.time()})
+    _turbo_state.update({"running": True, "done": 0, "total": 0, "found": 0,
+                         "universe": universe, "started_at": time.time(), "error": None})
+    try:
+        tickers = get_universe_tickers(universe)
+    except Exception as exc:
+        _turbo_state.update({"running": False, "error": str(exc)})
+        log.error("Failed to fetch tickers for universe=%s: %s", universe, exc)
+        return 0
+
+    _turbo_state["total"] = len(tickers)
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
