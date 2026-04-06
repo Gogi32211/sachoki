@@ -184,7 +184,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [exported,   setExported]   = useState(false)
 
   const load = (tf = localTf, uni = universe) => {
-    api.turboScan(500, 0, 'all', tf, uni)
+    api.turboScan(2000, 0, 'all', tf, uni)
       .then(d => { setAllResults(d.results || []); setLastScan(d.last_scan) })
       .catch(e => setError(e.message))
   }
