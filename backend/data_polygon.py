@@ -1,8 +1,10 @@
 """
 data_polygon.py — Massive (formerly Polygon.io) OHLCV data fetcher.
 
-API key is read from the POLYGON_API_KEY environment variable.
-Falls back gracefully so callers can catch and use yfinance instead.
+API key is read from the MASSIVE_API_KEY environment variable
+(POLYGON_API_KEY also accepted for backwards compatibility).
+
+Base URL: https://api.massive.com  (fallback: https://api.polygon.io)
 
 Interval mapping:
   "1d"  → 1 day       "1wk" / "1w" → 1 week
@@ -25,10 +27,10 @@ import requests
 
 log = logging.getLogger(__name__)
 
-_BASE   = "https://api.polygon.io"
-_KEY    = os.environ.get("POLYGON_API_KEY", "")
+# Massive (new name) first, Polygon (old name) as fallback
+_BASE = os.environ.get("MASSIVE_BASE", "https://api.massive.com")
 
-_SPAN: dict[str, tuple[int, str]] = {
+_SPAN = {
     "1d":  (1, "day"),
     "1wk": (1, "week"),
     "1w":  (1, "week"),
@@ -43,9 +45,11 @@ _RATE_DELAY = 0.08   # ~12 req/s across workers
 
 
 def _key() -> str:
-    k = os.environ.get("POLYGON_API_KEY", _KEY)
+    # check both env var names
+    k = (os.environ.get("MASSIVE_API_KEY") or
+         os.environ.get("POLYGON_API_KEY") or "")
     if not k:
-        raise EnvironmentError("POLYGON_API_KEY not set")
+        raise EnvironmentError("MASSIVE_API_KEY not set")
     return k
 
 
@@ -108,8 +112,9 @@ def fetch_bars(
 
 
 def polygon_available() -> bool:
-    """True if POLYGON_API_KEY is set in environment."""
-    return bool(os.environ.get("POLYGON_API_KEY", _KEY))
+    """True if MASSIVE_API_KEY (or POLYGON_API_KEY) is set in environment."""
+    return bool(os.environ.get("MASSIVE_API_KEY") or
+                os.environ.get("POLYGON_API_KEY"))
 
 
 def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]:
