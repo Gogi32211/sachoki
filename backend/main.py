@@ -472,7 +472,7 @@ def api_power_scan_status():
 
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
-    limit: int = 2000,
+    limit: int = 10000,
     min_score: float = 0,
     direction: str = "bull",
     tf: str = "1d",

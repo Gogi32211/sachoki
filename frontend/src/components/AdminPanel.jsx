@@ -2,11 +2,10 @@ import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 
 const UNIVERSES = [
-  { key: 'sp500',      label: 'S&P 500' },
-  { key: 'nasdaq_low', label: 'NASDAQ $3–20' },
-  { key: 'nasdaq_mid', label: 'NASDAQ $21–50' },
-  { key: 'russell2k',  label: 'Russell 2000' },
-  { key: 'all_us',     label: 'All US' },
+  { key: 'sp500',     label: 'S&P 500'    },
+  { key: 'nasdaq',    label: 'NASDAQ'      },
+  { key: 'russell2k', label: 'Russell 2K'  },
+  { key: 'all_us',    label: 'All US'      },
 ]
 const TFS = ['1d', '4h', '1h', '1wk']
 
