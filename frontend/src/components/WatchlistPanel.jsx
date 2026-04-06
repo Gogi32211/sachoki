@@ -79,7 +79,7 @@ function ScoreBar({ bull, bear }) {
   )
 }
 
-export default function WatchlistPanel({ tickers, tf, selected, onSelect }) {
+export default function WatchlistPanel({ tickers, tf, selected, onSelect, onRemove }) {
   const [data, setData] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -114,12 +114,15 @@ export default function WatchlistPanel({ tickers, tf, selected, onSelect }) {
           <div className="px-4 py-6 text-center text-gray-600 text-sm">No tickers</div>
         )}
         {data.map((row) => (
-          <button
+          <div
             key={row.ticker}
-            onClick={() => onSelect(row.ticker)}
-            className={`w-full text-left px-4 py-2.5 hover:bg-gray-800 transition-colors
+            className={`relative flex items-stretch hover:bg-gray-800 transition-colors group
               ${selected === row.ticker ? 'bg-gray-800 border-l-2 border-blue-500' : ''}`}
           >
+            <button
+              onClick={() => onSelect(row.ticker)}
+              className="flex-1 text-left px-4 py-2.5"
+            >
             {/* Row 1: ticker + badge cluster */}
             <div className="flex items-center justify-between gap-1 flex-wrap">
               <span className="font-bold text-sm text-white">{row.ticker}</span>
@@ -151,7 +154,15 @@ export default function WatchlistPanel({ tickers, tf, selected, onSelect }) {
                 <ScoreBar bull={row.bull_score} bear={row.bear_score} />
               </>
             )}
-          </button>
+            </button>
+            {onRemove && (
+              <button
+                onClick={e => { e.stopPropagation(); onRemove(row.ticker) }}
+                className="opacity-0 group-hover:opacity-100 px-2 text-gray-600 hover:text-red-400 transition-all text-lg leading-none"
+                title="Remove from watchlist"
+              >×</button>
+            )}
+          </div>
         ))}
       </div>
     </div>

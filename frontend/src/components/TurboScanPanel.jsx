@@ -84,8 +84,11 @@ const SIG_GROUPS = [
   // ── ULTRA v2 ──────────────────────────────────────────────────────────
   { key: 'best_long',  label: 'BEST↑', cls: 'text-yellow-300'  },
   { key: 'fbo_bull',   label: 'FBO↑',  cls: 'text-sky-300'     },
+  { key: 'fbo_bear',   label: 'FBO↓',  cls: 'text-red-400'     },
   { key: 'eb_bull',    label: 'EB↑',   cls: 'text-amber-300'   },
+  { key: 'eb_bear',    label: 'EB↓',   cls: 'text-red-400'     },
   { key: 'bf_buy',     label: '4BF',    cls: 'text-pink-300'    },
+  { key: 'bf_sell',    label: '4BF↓',   cls: 'text-red-400'    },
   { key: 'ultra_3up',  label: '3↑',     cls: 'text-lime-300'    },
   { divider: true },
   // ── 260308 + L88 ──────────────────────────────────────────────────────
@@ -516,8 +519,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {/* Ultra v2 */}
                     {r.best_long  ? <Badge label="BEST↑" cls="text-yellow-200 bg-yellow-800/60 ring-1 ring-yellow-500" /> : null}
                     {r.fbo_bull && !r.best_long ? <Badge label="FBO↑" cls="text-sky-300 bg-sky-900/40" /> : null}
+                    {r.fbo_bear   ? <Badge label="FBO↓" cls="text-red-300 bg-red-900/30" /> : null}
                     {r.eb_bull    ? <Badge label="EB↑"  cls="text-amber-300 bg-amber-900/30" /> : null}
+                    {r.eb_bear    ? <Badge label="EB↓"  cls="text-red-300 bg-red-900/30" /> : null}
                     {r.bf_buy     ? <Badge label="4BF"  cls="text-pink-300 bg-pink-900/30" /> : null}
+                    {r.bf_sell    ? <Badge label="4BF↓" cls="text-red-300 bg-red-900/30" /> : null}
                     {r.ultra_3up  ? <Badge label="3↑"   cls="text-lime-300 bg-lime-900/20" /> : null}
                     {/* 260308 */}
                     {r.sig_l88    ? <Badge label="L88"  cls="text-violet-200 bg-violet-800/50 ring-1 ring-violet-500" /> : null}
