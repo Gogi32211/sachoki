@@ -233,7 +233,7 @@ UNIVERSE_CONFIGS: dict = {
     "nasdaq_low":  {"label": "NASDAQ $3–20",  "min_price": 3.0,  "max_price": 20.0, "fetch": "nasdaq"},
     "nasdaq_mid":  {"label": "NASDAQ $21–50", "min_price": 21.0, "max_price": 50.0, "fetch": "nasdaq"},
     "russell2k":   {"label": "Russell 2000",  "min_price": 0.0,  "max_price": 1e9,  "fetch": "russell2k"},
-    "all_us":      {"label": "All US (Polygon)", "min_price": 1.0, "max_price": 1e9, "fetch": "all_us"},
+    "all_us":      {"label": "All US Top 1500", "min_price": 1.0, "max_price": 1e9, "fetch": "all_us"},
 }
 
 
