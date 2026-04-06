@@ -314,12 +314,19 @@ def _scan_turbo_ticker(
         if len(df) < 50:
             return None
 
-        # Drop today's incomplete bar for daily/weekly
-        if interval in ("1d", "1wk"):
+        # Drop today's bar ONLY while US market is still open.
+        # Market closes 4pm ET = 20:00 UTC (EDT) / 21:00 UTC (EST).
+        # Use 21:30 UTC as conservative cutoff — after that, bar is final.
+        if interval in ("1d", "1wk", "1w"):
             last_dt = df.index[-1]
             if hasattr(last_dt, "date"):
                 last_dt = last_dt.date()
-            if last_dt == datetime.now(timezone.utc).date():
+            now_utc  = datetime.now(timezone.utc)
+            today    = now_utc.date()
+            mins_utc = now_utc.hour * 60 + now_utc.minute
+            # Mon–Fri, before 21:30 UTC → market may still be open → bar incomplete
+            market_open = (now_utc.weekday() < 5) and (mins_utc < 21 * 60 + 30)
+            if last_dt == today and market_open:
                 df = df.iloc[:-1]
         if len(df) < 40:
             return None
