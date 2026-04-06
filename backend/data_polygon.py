@@ -129,6 +129,7 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         "market":  market,
         "locale":  "us",
         "active":  "true",
+        "type":    "CS",
         "limit":   1000,
         "apiKey":  _key(),
     }
