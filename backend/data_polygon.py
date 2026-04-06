@@ -117,11 +117,11 @@ def polygon_available() -> bool:
                 os.environ.get("POLYGON_API_KEY"))
 
 
-def get_all_us_tickers(market: str = "stocks", limit: int = 1_500) -> list[str]:
+def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]:
     """
-    Fetch top US stock tickers from Massive API sorted by market cap (most liquid first).
-    Filters to common stocks only (type=CS), excludes ETFs/warrants.
-    Requires MASSIVE_API_KEY. Returns list of ticker strings.
+    Fetch active US common stocks from Massive API sorted by market cap desc.
+    Excludes ETFs, warrants, preferred shares (type=CS only).
+    Requires MASSIVE_API_KEY.
     """
     tickers: list[str] = []
     url = f"{_BASE}/v3/reference/tickers"
@@ -129,7 +129,7 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 1_500) -> list[str]:
         "market":  market,
         "locale":  "us",
         "active":  "true",
-        "type":    "CS",        # common stocks only
+        "type":    "CS",
         "sort":    "market_cap",
         "order":   "desc",
         "limit":   1000,
@@ -147,5 +147,5 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 1_500) -> list[str]:
         params = {"apiKey": _key()}
         time.sleep(0.15)
 
-    log.info("Massive: fetched %d tickers (All US)", len(tickers))
+    log.info("Massive: fetched %d common stock tickers (All US)", len(tickers))
     return tickers[:limit]
