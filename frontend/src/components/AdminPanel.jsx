@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
-import api from '../api'
+import { api } from '../api'
 
 const UNIVERSES = [
   { key: 'sp500',      label: 'S&P 500' },
