@@ -21,13 +21,42 @@ function pct(done, total) {
   return Math.min(100, Math.round((done / total) * 100))
 }
 
+function NumInput({ label, value, onChange, min, max, step = 1, placeholder }) {
+  return (
+    <div className="flex flex-col gap-0.5">
+      <label className="text-gray-500 text-xs">{label}</label>
+      <input
+        type="number" value={value} min={min} max={max} step={step}
+        placeholder={placeholder}
+        onChange={e => onChange(e.target.value === '' ? '' : Number(e.target.value))}
+        className="w-20 px-2 py-1 rounded bg-gray-800 border border-gray-700 text-gray-200 text-xs focus:border-blue-500 outline-none"
+      />
+    </div>
+  )
+}
+
 export default function AdminPanel() {
   const [status,   setStatus]   = useState(null)
   const [history,  setHistory]  = useState([])
   const [universe, setUniverse] = useState('sp500')
   const [tf,       setTf]       = useState('1d')
   const [error,    setError]    = useState(null)
+  const [priceMin, setPriceMin] = useState('')
+  const [priceMax, setPriceMax] = useState('')
+  const [rsiMin,   setRsiMin]   = useState('')
+  const [rsiMax,   setRsiMax]   = useState('')
+  const [cciMin,   setCciMin]   = useState('')
+  const [cciMax,   setCciMax]   = useState('')
   const pollRef = useRef(null)
+
+  const filters = {
+    price_min: priceMin !== '' ? Number(priceMin) : 0,
+    price_max: priceMax !== '' ? Number(priceMax) : 1e9,
+    rsi_min:   rsiMin   !== '' ? Number(rsiMin)   : 0,
+    rsi_max:   rsiMax   !== '' ? Number(rsiMax)   : 100,
+    cci_min:   cciMin   !== '' ? Number(cciMin)   : -9999,
+    cci_max:   cciMax   !== '' ? Number(cciMax)   : 9999,
+  }
 
   const fetchStatus = () =>
     api.turboScanStatus().then(setStatus).catch(() => {})
@@ -131,6 +160,24 @@ export default function AdminPanel() {
               Force Stop
             </button>
           )}
+        </div>
+        {/* ── Filters ── */}
+        <div className="border-t border-gray-800 pt-3">
+          <div className="text-xs text-gray-500 mb-2">Result Filters (applied to displayed results)</div>
+          <div className="flex flex-wrap gap-4">
+            <div className="flex gap-2 items-end">
+              <NumInput label="Price Min $" value={priceMin} onChange={setPriceMin} min={0} step={0.1} placeholder="0" />
+              <NumInput label="Price Max $" value={priceMax} onChange={setPriceMax} min={0} step={1}   placeholder="∞" />
+            </div>
+            <div className="flex gap-2 items-end">
+              <NumInput label="RSI Min" value={rsiMin} onChange={setRsiMin} min={0}   max={100} placeholder="0"   />
+              <NumInput label="RSI Max" value={rsiMax} onChange={setRsiMax} min={0}   max={100} placeholder="100" />
+            </div>
+            <div className="flex gap-2 items-end">
+              <NumInput label="CCI Min" value={cciMin} onChange={setCciMin} min={-500} max={500} step={10} placeholder="-∞" />
+              <NumInput label="CCI Max" value={cciMax} onChange={setCciMax} min={-500} max={500} step={10} placeholder="∞"  />
+            </div>
+          </div>
         </div>
         {error && <div className="text-red-400 text-xs">{error}</div>}
       </div>

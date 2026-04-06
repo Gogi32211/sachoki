@@ -89,8 +89,16 @@ export const api = {
     get('/api/br-scan/status'),
 
   // Turbo Scan (unified all-engine)
-  turboScan: (limit = 500, min_score = 0, direction = 'bull', tf = '1d', universe = 'sp500') =>
-    get(`/api/turbo-scan?limit=${limit}&min_score=${min_score}&direction=${direction}&tf=${tf}&universe=${universe}`),
+  turboScan: (limit = 2000, min_score = 0, direction = 'bull', tf = '1d', universe = 'sp500', filters = {}) => {
+    const p = new URLSearchParams({ limit, min_score, direction, tf, universe })
+    if (filters.price_min > 0)    p.set('price_min', filters.price_min)
+    if (filters.price_max < 1e9)  p.set('price_max', filters.price_max)
+    if (filters.rsi_min > 0)      p.set('rsi_min',   filters.rsi_min)
+    if (filters.rsi_max < 100)    p.set('rsi_max',   filters.rsi_max)
+    if (filters.cci_min > -9999)  p.set('cci_min',   filters.cci_min)
+    if (filters.cci_max < 9999)   p.set('cci_max',   filters.cci_max)
+    return get(`/api/turbo-scan?${p}`)
+  },
   turboScanTrigger: (tf = '1d', universe = 'sp500') =>
     post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}`),
   turboScanStatus: () =>

@@ -595,11 +595,17 @@ _QUERY_KEYS = [c.strip() for c in _QUERY_COLS.split(",")]
 
 
 def get_turbo_results(
-    limit: int = 500,
+    limit: int = 2000,
     min_score: float = 0,
-    direction: str = "bull",  # bull | bear | all
+    direction: str = "bull",
     tf: str = "1d",
     universe: str = "sp500",
+    price_min: float = 0,
+    price_max: float = 1e9,
+    rsi_min: float = 0,
+    rsi_max: float = 100,
+    cci_min: float = -9999,
+    cci_max: float = 9999,
 ) -> list[dict]:
     _init_db()
     con = _db()
@@ -609,7 +615,7 @@ def get_turbo_results(
             (tf, universe),
         ).fetchone()
         if not row:
-            return []   # no scan yet for this tf+universe — don't leak another universe's data
+            return []
         scan_id = row[0]
 
         where  = "scan_id = ? AND turbo_score >= ?"
@@ -619,6 +625,19 @@ def get_turbo_results(
             where += " AND tz_bull = 1"
         elif direction == "bear":
             where += " AND tz_bull = 0"
+
+        if price_min > 0:
+            where += " AND last_price >= ?"; params.append(price_min)
+        if price_max < 1e8:
+            where += " AND last_price <= ?"; params.append(price_max)
+        if rsi_min > 0:
+            where += " AND rsi >= ?"; params.append(rsi_min)
+        if rsi_max < 100:
+            where += " AND rsi <= ?"; params.append(rsi_max)
+        if cci_min > -9999:
+            where += " AND cci >= ?"; params.append(cci_min)
+        if cci_max < 9999:
+            where += " AND cci <= ?"; params.append(cci_max)
 
         rows = con.execute(
             f"SELECT {_QUERY_COLS} FROM turbo_scan_results WHERE {where} "
