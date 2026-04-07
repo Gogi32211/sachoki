@@ -290,12 +290,13 @@ def api_pooled_stats_build(
     background_tasks: BackgroundTasks,
     universe: str = "sp500",
     interval: str = "1d",
+    max_tickers: int = 2000,
 ):
     from pooled_stats import build_pooled_stats, get_pooled_state
     if get_pooled_state().get("running"):
         raise HTTPException(status_code=409, detail="Build already running")
-    background_tasks.add_task(build_pooled_stats, universe, interval)
-    return {"status": "started", "universe": universe, "interval": interval}
+    background_tasks.add_task(build_pooled_stats, universe, interval, 6, max_tickers)
+    return {"status": "started", "universe": universe, "interval": interval, "max_tickers": max_tickers}
 
 
 @app.get("/api/pooled-stats/status")

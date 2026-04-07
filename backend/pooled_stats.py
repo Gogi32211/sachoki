@@ -145,8 +145,14 @@ def _worker(ticker: str, interval: str, days: int) -> dict | None:
 
 # ── Build job ─────────────────────────────────────────────────────────────────
 
-def build_pooled_stats(universe: str = "sp500", interval: str = "1d", workers: int = 6) -> None:
-    """Background task: scan all tickers and persist pooled stats to DB."""
+def build_pooled_stats(
+    universe: str = "sp500",
+    interval: str = "1d",
+    workers: int = 6,
+    max_tickers: int = 2000,
+) -> None:
+    """Background task: scan up to max_tickers (random sample) and persist pooled stats."""
+    import random
     global _pooled_state
     from scanner import get_universe_tickers
 
@@ -162,6 +168,8 @@ def build_pooled_stats(universe: str = "sp500", interval: str = "1d", workers: i
         _pooled_state.update({"running": False, "error": str(exc)})
         return
 
+    if len(tickers) > max_tickers:
+        tickers = random.sample(tickers, max_tickers)
     _pooled_state["total"] = len(tickers)
     days = 1500 if interval in ("1d", "1wk", "1w") else 300
 

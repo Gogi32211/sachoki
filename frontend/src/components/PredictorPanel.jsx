@@ -143,7 +143,7 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
 
   const build = () => {
     setError(null)
-    api.pooledStatsBuild(universe, interval)
+    api.pooledStatsBuild(universe, interval, 2000)
       .then(() => { setBuilding(true); setTimeout(fetchStatus, 3000) })
       .catch(e => setError(e.message))
   }
@@ -158,7 +158,7 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
         <>
           <span className="text-lime-400">✓ Built</span>
           <span className="text-gray-500">
-            {data.ticker_count} tickers · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
+            {data.ticker_count} tickers{data.ticker_count < 2100 ? ' (random sample)' : ''} · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
           </span>
           <span className="text-gray-600">
             {data.built_at ? new Date(data.built_at).toLocaleString() : ''}

@@ -37,8 +37,8 @@ export const api = {
     get(`/api/predict/${ticker}?tf=${tf}`),
   pooledPredict: (ticker, tf = '1d', universe = 'sp500') =>
     get(`/api/pooled-predict/${ticker}?tf=${tf}&universe=${universe}`),
-  pooledStatsBuild: (universe = 'sp500', interval = '1d') =>
-    post(`/api/pooled-stats/build?universe=${universe}&interval=${interval}`),
+  pooledStatsBuild: (universe = 'sp500', interval = '1d', max_tickers = 2000) =>
+    post(`/api/pooled-stats/build?universe=${universe}&interval=${interval}&max_tickers=${max_tickers}`),
   pooledStatsStatus: (universe = 'sp500', interval = '1d') =>
     get(`/api/pooled-stats/status?universe=${universe}&interval=${interval}`),
 
