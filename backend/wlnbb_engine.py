@@ -156,37 +156,60 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     vsa_sum  = vsa_hits.rolling(_PP_WINDOW, min_periods=1).sum()
     PRE_PUMP = _cooldown(vsa_sum >= _PP_MIN, _PP_COOL)
 
-    # ── L555: two consecutive L5 bars (persistent sell pressure) ─────────
-    L555 = L5 & L5.shift(1).fillna(False)
+    # ── L555: escalating alternating L34/L43 sequence ────────────────────
+    # Fires when current L43 follows a recent L34 (within seqBars) with
+    # higher volume, OR current L34 follows a recent L43 with higher volume.
+    _L555_SEQ_BARS = 7
+    v_arr    = v.values
+    L34_arr  = L34.values
+    L43_arr  = L43.values
+    L555_arr = np.zeros(len(df), dtype=bool)
+    _last_l34_i   = -100;  _last_l34_vol = 0.0
+    _last_l43_i   = -100;  _last_l43_vol = 0.0
+    for _i in range(len(df)):
+        _vi = v_arr[_i]
+        if L43_arr[_i] and (_i - _last_l34_i) <= _L555_SEQ_BARS and _vi > _last_l34_vol:
+            L555_arr[_i] = True
+        elif L34_arr[_i] and (_i - _last_l43_i) <= _L555_SEQ_BARS and _vi > _last_l43_vol:
+            L555_arr[_i] = True
+        if L34_arr[_i]:
+            _last_l34_i = _i;  _last_l34_vol = _vi
+        if L43_arr[_i]:
+            _last_l43_i = _i;  _last_l43_vol = _vi
+    L555 = pd.Series(L555_arr, index=df.index)
 
-    # ── ONLY_L2L4: quiet accumulation — L2 or L4, no strong signals ──────
-    ONLY_L2L4 = (L2 | L4) & ~L3 & ~L1 & ~L5 & ~L6
+    # ── ONLY_L2 / ONLY_L4 / ONLY_L2L4: pure single-L accumulation ────────
+    # ONLY_L2 = L2 without any other L signal
+    # ONLY_L4 = L4 without any other L signal (including no L2)
+    ONLY_L2   = L2 & ~L1 & ~L3 & ~L4 & ~L5 & ~L6
+    ONLY_L4   = L4 & ~L1 & ~L2 & ~L3 & ~L5 & ~L6
+    ONLY_L2L4 = ONLY_L2 | ONLY_L4
 
-    # ── Price Bollinger Bands (20-period, 2-std) ──────────────────────────
-    price_mid   = c.rolling(20, min_periods=1).mean()
-    price_std   = c.rolling(20, min_periods=1).std().fillna(0)
-    price_upper = price_mid + 2.0 * price_std
-    price_lower = price_mid - 2.0 * price_std
+    # ── BO / BX — use BODY high/low of setup bar (not candle high/low) ────
+    # L34: bull candle (close >= open) → bodyHigh=close, bodyLow=open
+    # L43: bull candle (close  > open) → bodyHigh=close, bodyLow=open
+    l34_body_hi = _ffill_when(c, L34)   # close of last L34 bar
+    l34_body_lo = _ffill_when(o, L34)   # open  of last L34 bar
+    l43_body_hi = _ffill_when(c, L43)   # close of last L43 bar
+    l43_body_lo = _ffill_when(o, L43)   # open  of last L43 bar
 
-    # ── BE_UP / BE_DN: Band Expansion breakout ────────────────────────────
-    BE_UP = (c > price_upper) & (c.shift(1).fillna(c) <= price_upper.shift(1).fillna(price_upper))
-    BE_DN = (c < price_lower) & (c.shift(1).fillna(c) >= price_lower.shift(1).fillna(price_lower))
+    prev_above_l34 = (c.shift(1) > l34_body_hi.shift(1)).fillna(False)
+    prev_below_l34 = (c.shift(1) < l34_body_lo.shift(1)).fillna(False)
+    prev_above_l43 = (c.shift(1) > l43_body_hi.shift(1)).fillna(False)
+    prev_below_l43 = (c.shift(1) < l43_body_lo.shift(1)).fillna(False)
 
-    # ── BO / BX levels ────────────────────────────────────────────────────
-    l34_hi = _ffill_when(h, L34)
-    l34_lo = _ffill_when(l, L34)
-    l43_hi = _ffill_when(h, L43)
-    l43_lo = _ffill_when(l, L43)
+    BO_UP = (c > l34_body_hi) & ~prev_above_l34 & ~L34 & (l34_body_hi > 0)
+    BO_DN = (c < l34_body_lo) & ~prev_below_l34 & ~L34 & (l34_body_lo > 0)
+    BX_UP = (c > l43_body_hi) & ~prev_above_l43 & ~L43 & (l43_body_hi > 0)
+    BX_DN = (c < l43_body_lo) & ~prev_below_l43 & ~L43 & (l43_body_lo > 0)
 
-    prev_above_l34 = (c.shift(1) > l34_hi.shift(1)).fillna(False)
-    prev_below_l34 = (c.shift(1) < l34_lo.shift(1)).fillna(False)
-    prev_above_l43 = (c.shift(1) > l43_hi.shift(1)).fillna(False)
-    prev_below_l43 = (c.shift(1) < l43_lo.shift(1)).fillna(False)
-
-    BO_UP = (c > l34_hi) & ~prev_above_l34 & ~L34 & (l34_hi > 0)
-    BO_DN = (c < l34_lo) & ~prev_below_l34 & ~L34 & (l34_lo > 0)
-    BX_UP = (c > l43_hi) & ~prev_above_l43 & ~L43 & (l43_hi > 0)
-    BX_DN = (c < l43_lo) & ~prev_below_l43 & ~L43 & (l43_lo > 0)
+    # ── BE_UP / BE_DN: Breakout-Engulf ───────────────────────────────────
+    # BE_UP: current bar fully engulfs L34 body from below —
+    #   close > L34 body high AND open < L34 body low (bull engulf)
+    # BE_DN: current bar fully engulfs L43 body from above —
+    #   close < L43 body low  AND open > L43 body high (bear engulf)
+    BE_UP = (c > l34_body_hi) & (o < l34_body_lo) & ~L34 & (l34_body_hi > 0)
+    BE_DN = (c < l43_body_lo) & (o > l43_body_hi) & ~L43 & (l43_body_lo > 0)
 
     # ── Bucket label ──────────────────────────────────────────────────────
     _BKT = {0: "W", 1: "L", 2: "N", 3: "B", 4: "VB"}
