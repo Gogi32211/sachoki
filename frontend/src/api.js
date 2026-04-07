@@ -35,6 +35,12 @@ export const api = {
   // Predictor (T/Z + L-combo, 4 tables)
   predict: (ticker, tf = '1d') =>
     get(`/api/predict/${ticker}?tf=${tf}`),
+  pooledPredict: (ticker, tf = '1d', universe = 'sp500') =>
+    get(`/api/pooled-predict/${ticker}?tf=${tf}&universe=${universe}`),
+  pooledStatsBuild: (universe = 'sp500', interval = '1d') =>
+    post(`/api/pooled-stats/build?universe=${universe}&interval=${interval}`),
+  pooledStatsStatus: (universe = 'sp500', interval = '1d') =>
+    get(`/api/pooled-stats/status?universe=${universe}&interval=${interval}`),
 
   // L-combo predictor (dedicated)
   lPredict: (ticker, tf = '1d') =>
