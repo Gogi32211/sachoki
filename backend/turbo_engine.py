@@ -136,6 +136,8 @@ _TURBO_COLS = [
     "bf_buy", "bf_sell",
     "ultra_3up", "ultra_3dn",
     "best_long", "best_short",
+    # RS / Relative Strength vs SPY+IWM
+    "rs", "rs_strong",
 ]
 
 
@@ -196,42 +198,37 @@ def _init_db() -> None:
 # ── Score calculator ──────────────────────────────────────────────────────────
 def _calc_turbo_score(r: dict) -> float:
     """
-    Score grouped into 4 capped families to prevent double-counting:
-      Volume/accum  cap 22  — VABS, Wyckoff, 260308/L88
-      Breakout      cap 15  — ULTRA v2, BO/BX
+    Score grouped into 4 capped families — RAW signals only, no composites.
+      Volume/accum  cap 22  — VABS atomic (abs/climb/load), Wyckoff, 260308/L88
+      Breakout      cap 15  — ULTRA v2 atomic (fbo/eb/bf), BO/BX, RS
       Combo/trend   cap 14  — Combo signals
       L-structure   cap 13  — T/Z, WLNBB
     Context (Wick, CISD, BR%) uncapped (max ~14).
-    Grand max ~78; Fire tier at ≥65 requires alignment across families.
     """
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
+    # Only atomic VABS signals — no best_sig / strong_sig composites
     vol = 0.0
-    if r.get("best_sig"):
-        vol += 15
-    elif r.get("strong_sig"):
-        vol += 9
-    if r.get("vbo_up"):
-        vol += 6
-    if not r.get("best_sig") and not r.get("strong_sig"):
-        vol_cnt = int(r.get("abs_sig", 0)) + int(r.get("climb_sig", 0)) + int(r.get("load_sig", 0))
-        vol += min(vol_cnt * 3, 7)
-    if r.get("ns"):   vol += 4
-    if r.get("sq"):   vol += 4
-    if r.get("sc"):   vol += 2
-    if r.get("sig_l88"):       vol += 5
-    elif r.get("sig_260308"):  vol += 3
+    if r.get("abs_sig"):   vol += 5
+    if r.get("climb_sig"): vol += 4
+    if r.get("load_sig"):  vol += 4
+    if r.get("vbo_up"):    vol += 6
+    if r.get("ns"):        vol += 5
+    if r.get("sq"):        vol += 4
+    if r.get("sc"):        vol += 2
+    if r.get("sig_l88"):        vol += 5
+    elif r.get("sig_260308"):   vol += 3
     s = min(vol, 22)
 
     # ── Breakout / expansion family (cap 15) ──────────────────────────────
+    # Only atomic ULTRA signals — no best_long composite
     brk = 0.0
-    if r.get("best_long"):
-        brk += 8
-    else:
-        if r.get("fbo_bull"): brk += 4
-        if r.get("eb_bull"):  brk += 4
-        if r.get("bf_buy"):   brk += 3
-    if r.get("ultra_3up"):             brk += 4
+    if r.get("fbo_bull"):  brk += 5
+    if r.get("eb_bull"):   brk += 4
+    if r.get("bf_buy"):    brk += 4
+    if r.get("ultra_3up"): brk += 4
     if r.get("bo_up") or r.get("bx_up"): brk += 3
+    if r.get("rs_strong"): brk += 5
+    elif r.get("rs"):      brk += 3
     s += min(brk, 15)
 
     # ── Combo / momentum family (cap 14) ──────────────────────────────────
@@ -283,6 +280,9 @@ def _scan_turbo_ticker(
     interval: str,
     min_price: float = 0.0,
     max_price: float = 1e9,
+    lookback_n: int = 1,
+    spy_chg: float | None = None,
+    iwm_chg: float | None = None,
 ) -> dict | None:
     try:
         from data_polygon import fetch_bars, polygon_available
@@ -343,6 +343,14 @@ def _scan_turbo_ticker(
         if price < min_price or price > max_price:
             return None
 
+        # Helper: extract bool signal from last N bars
+        def _sig(frame, col, n=lookback_n):
+            if col not in frame.columns:
+                return 0
+            if n <= 1:
+                return int(bool(frame.iloc[-1].get(col, False)))
+            return int(bool(frame.tail(n)[col].any()))
+
         # ── T/Z signals ────────────────────────────────────────────────────
         sig_df  = compute_signals(df)
         last_s  = sig_df.iloc[-1]
@@ -354,73 +362,69 @@ def _scan_turbo_ticker(
         # ── WLNBB (L signals, FRI, BLUE, BO, BX, BE, CCI) ─────────────────
         wlnbb    = compute_wlnbb(df)
         last_w   = wlnbb.iloc[-1]
-        row["fri34"]         = int(bool(last_w.get("FRI34",          False)))
-        row["fri43"]         = int(bool(last_w.get("FRI43",          False)))
-        row["fri64"]         = int(bool(last_w.get("FRI64",          False)))
-        row["l34"]           = int(bool(last_w.get("L34",            False)))
-        row["l43"]           = int(bool(last_w.get("L43",            False)))
-        row["l64"]           = int(bool(last_w.get("L64",            False)))
-        row["l22"]           = int(bool(last_w.get("L22",            False)))
-        row["l555"]          = int(bool(last_w.get("L555",           False)))
-        row["only_l2l4"]     = int(bool(last_w.get("ONLY_L2L4",      False)))
-        row["blue"]          = int(bool(last_w.get("BLUE",           False)))
-        row["cci_ready"]     = int(bool(last_w.get("CCI_READY",      False)))
-        row["cci_0_retest"]  = int(bool(last_w.get("CCI_0_RETEST_OK",False)))
-        row["cci_blue_turn"] = int(bool(last_w.get("CCI_BLUE_TURN",  False)))
-        row["bo_up"]         = int(bool(last_w.get("BO_UP",          False)))
-        row["bo_dn"]         = int(bool(last_w.get("BO_DN",          False)))
-        row["bx_up"]         = int(bool(last_w.get("BX_UP",          False)))
-        row["bx_dn"]         = int(bool(last_w.get("BX_DN",          False)))
-        row["be_up"]         = int(bool(last_w.get("BE_UP",          False)))
-        row["be_dn"]         = int(bool(last_w.get("BE_DN",          False)))
-        row["fuchsia_rh"]    = int(bool(last_w.get("FUCHSIA_RH",     False)))
-        row["fuchsia_rl"]    = int(bool(last_w.get("FUCHSIA_RL",     False)))
-        row["pre_pump"]      = int(bool(last_w.get("PRE_PUMP",       False)))
+        row["fri34"]         = _sig(wlnbb, "FRI34")
+        row["fri43"]         = _sig(wlnbb, "FRI43")
+        row["fri64"]         = _sig(wlnbb, "FRI64")
+        row["l34"]           = _sig(wlnbb, "L34")
+        row["l43"]           = _sig(wlnbb, "L43")
+        row["l64"]           = _sig(wlnbb, "L64")
+        row["l22"]           = _sig(wlnbb, "L22")
+        row["l555"]          = _sig(wlnbb, "L555")
+        row["only_l2l4"]     = _sig(wlnbb, "ONLY_L2L4")
+        row["blue"]          = _sig(wlnbb, "BLUE")
+        row["cci_ready"]     = _sig(wlnbb, "CCI_READY")
+        row["cci_0_retest"]  = _sig(wlnbb, "CCI_0_RETEST_OK")
+        row["cci_blue_turn"] = _sig(wlnbb, "CCI_BLUE_TURN")
+        row["bo_up"]         = _sig(wlnbb, "BO_UP")
+        row["bo_dn"]         = _sig(wlnbb, "BO_DN")
+        row["bx_up"]         = _sig(wlnbb, "BX_UP")
+        row["bx_dn"]         = _sig(wlnbb, "BX_DN")
+        row["be_up"]         = _sig(wlnbb, "BE_UP")
+        row["be_dn"]         = _sig(wlnbb, "BE_DN")
+        row["fuchsia_rh"]    = _sig(wlnbb, "FUCHSIA_RH")
+        row["fuchsia_rl"]    = _sig(wlnbb, "FUCHSIA_RL")
+        row["pre_pump"]      = _sig(wlnbb, "PRE_PUMP")
         bkt = str(last_w.get("vol_bucket", ""))
         row["vol_bucket"] = bkt
 
         # ── Combo (2809, CONS, Bias, HILO, RTV, 3G, ROCKET, BRK) ─────────
         combo   = compute_combo(df)
-        last_c  = combo.iloc[-1]
-        row["buy_2809"]  = int(bool(last_c.get("buy_2809",  False)))
-        row["rocket"]    = int(bool(last_c.get("rocket",    False)))
-        row["sig3g"]     = int(bool(last_c.get("sig3g",     False)))
-        row["rtv"]       = int(bool(last_c.get("rtv",       False)))
-        row["hilo_buy"]  = int(bool(last_c.get("hilo_buy",  False)))
-        row["hilo_sell"] = int(bool(last_c.get("hilo_sell", False)))
-        row["atr_brk"]   = int(bool(last_c.get("atr_brk",  False)))
-        row["bb_brk"]    = int(bool(last_c.get("bb_brk",   False)))
-        row["bias_up"]   = int(bool(last_c.get("bias_up",  False)))
-        row["bias_down"] = int(bool(last_c.get("bias_down",False)))
-        row["cons_atr"]  = int(bool(last_c.get("cons_atr", False)))
+        row["buy_2809"]  = _sig(combo, "buy_2809")
+        row["rocket"]    = _sig(combo, "rocket")
+        row["sig3g"]     = _sig(combo, "sig3g")
+        row["rtv"]       = _sig(combo, "rtv")
+        row["hilo_buy"]  = _sig(combo, "hilo_buy")
+        row["hilo_sell"] = _sig(combo, "hilo_sell")
+        row["atr_brk"]   = _sig(combo, "atr_brk")
+        row["bb_brk"]    = _sig(combo, "bb_brk")
+        row["bias_up"]   = _sig(combo, "bias_up")
+        row["bias_down"] = _sig(combo, "bias_down")
+        row["cons_atr"]  = _sig(combo, "cons_atr")
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
-        last_v  = vabs.iloc[-1]
-        row["abs_sig"]   = int(bool(last_v.get("abs_sig",   False)))
-        row["climb_sig"] = int(bool(last_v.get("climb_sig", False)))
-        row["load_sig"]  = int(bool(last_v.get("load_sig",  False)))
-        row["ns"]        = int(bool(last_v.get("ns",        False)))
-        row["nd"]        = int(bool(last_v.get("nd",        False)))
-        row["sc"]        = int(bool(last_v.get("sc",        False)))
-        row["bc"]        = int(bool(last_v.get("bc",        False)))
-        row["sq"]        = int(bool(last_v.get("sq",        False)))
-        row["best_sig"]  = int(bool(last_v.get("best_sig",  False)))
-        row["strong_sig"]= int(bool(last_v.get("strong_sig",False)))
-        row["vbo_up"]    = int(bool(last_v.get("vbo_up",    False)))
-        row["vbo_dn"]    = int(bool(last_v.get("vbo_dn",    False)))
+        row["abs_sig"]    = _sig(vabs, "abs_sig")
+        row["climb_sig"]  = _sig(vabs, "climb_sig")
+        row["load_sig"]   = _sig(vabs, "load_sig")
+        row["ns"]         = _sig(vabs, "ns")
+        row["nd"]         = _sig(vabs, "nd")
+        row["sc"]         = _sig(vabs, "sc")
+        row["bc"]         = _sig(vabs, "bc")
+        row["sq"]         = _sig(vabs, "sq")
+        row["best_sig"]   = _sig(vabs, "best_sig")
+        row["strong_sig"] = _sig(vabs, "strong_sig")
+        row["vbo_up"]     = _sig(vabs, "vbo_up")
+        row["vbo_dn"]     = _sig(vabs, "vbo_dn")
 
         # ── Wick ───────────────────────────────────────────────────────────
         wick   = compute_wick(df)
-        last_wk= wick.iloc[-1]
-        row["wick_bull"] = int(bool(last_wk.get("WICK_BULL_CONFIRM", False)))
-        row["wick_bear"] = int(bool(last_wk.get("WICK_BEAR_CONFIRM", False)))
+        row["wick_bull"] = _sig(wick, "WICK_BULL_CONFIRM")
+        row["wick_bear"] = _sig(wick, "WICK_BEAR_CONFIRM")
 
         # ── CISD ───────────────────────────────────────────────────────────
         cisd   = compute_cisd(df)
-        last_ci= cisd.iloc[-1]
-        row["cisd_ppm"]  = int(bool(last_ci.get("CISD_PPM", False)))
-        row["cisd_seq"]  = int(bool(last_ci.get("CISD_SEQ", False)))
+        row["cisd_ppm"]  = _sig(cisd, "CISD_PPM")
+        row["cisd_seq"]  = _sig(cisd, "CISD_SEQ")
 
         # ── BR% readiness score ────────────────────────────────────────────
         try:
@@ -431,12 +435,11 @@ def _scan_turbo_ticker(
 
         # ── Delta / order-flow (260403) ────────────────────────────────────
         try:
-            ddf    = compute_delta(df)
-            last_d = ddf.iloc[-1]
+            ddf = compute_delta(df)
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
                         "surge_bull","surge_bear","blast_bull","blast_bear"):
-                row[f"d_{col}"] = int(bool(last_d.get(col, False)))
+                row[f"d_{col}"] = _sig(ddf, col)
         except Exception:
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
@@ -476,22 +479,40 @@ def _scan_turbo_ticker(
 
         # ── ULTRA v2 ───────────────────────────────────────────────────────
         try:
-            uv2    = compute_ultra_v2(df)
-            last_u = uv2.iloc[-1]
-            row["eb_bull"]    = int(bool(last_u.get("eb_bull",    False)))
-            row["eb_bear"]    = int(bool(last_u.get("eb_bear",    False)))
-            row["fbo_bull"]   = int(bool(last_u.get("fbo_bull",   False)))
-            row["fbo_bear"]   = int(bool(last_u.get("fbo_bear",   False)))
-            row["bf_buy"]     = int(bool(last_u.get("bf_buy",     False)))
-            row["bf_sell"]    = int(bool(last_u.get("bf_sell",    False)))
-            row["ultra_3up"]  = int(bool(last_u.get("ultra_3up",  False)))
-            row["ultra_3dn"]  = int(bool(last_u.get("ultra_3dn",  False)))
-            row["best_long"]  = int(bool(last_u.get("best_long",  False)))
-            row["best_short"] = int(bool(last_u.get("best_short", False)))
+            uv2 = compute_ultra_v2(df)
+            row["eb_bull"]    = _sig(uv2, "eb_bull")
+            row["eb_bear"]    = _sig(uv2, "eb_bear")
+            row["fbo_bull"]   = _sig(uv2, "fbo_bull")
+            row["fbo_bear"]   = _sig(uv2, "fbo_bear")
+            row["bf_buy"]     = _sig(uv2, "bf_buy")
+            row["bf_sell"]    = _sig(uv2, "bf_sell")
+            row["ultra_3up"]  = _sig(uv2, "ultra_3up")
+            row["ultra_3dn"]  = _sig(uv2, "ultra_3dn")
+            row["best_long"]  = _sig(uv2, "best_long")
+            row["best_short"] = _sig(uv2, "best_short")
         except Exception:
             for k in ("eb_bull","eb_bear","fbo_bull","fbo_bear","bf_buy","bf_sell",
                       "ultra_3up","ultra_3dn","best_long","best_short"):
                 row[k] = 0
+
+        # ── RS / Relative Strength vs SPY + IWM ───────────────────────────
+        # RS: ticker up ≥ 0.5% while SPY AND IWM both down ≥ 0.3%
+        # RS+: RS AND high volume (bucket B or VB)
+        try:
+            if spy_chg is not None and iwm_chg is not None:
+                rs_cond = (
+                    row["change_pct"] >= 0.5
+                    and spy_chg <= -0.3
+                    and iwm_chg <= -0.3
+                )
+                row["rs"] = int(rs_cond)
+                row["rs_strong"] = int(rs_cond and bkt in ("B", "VB"))
+            else:
+                row["rs"] = 0
+                row["rs_strong"] = 0
+        except Exception:
+            row["rs"] = 0
+            row["rs_strong"] = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
@@ -508,6 +529,7 @@ def run_turbo_scan(
     interval: str = "1d",
     universe: str = "sp500",
     workers: int = 8,
+    lookback_n: int = 5,
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -529,6 +551,34 @@ def run_turbo_scan(
         log.error("Failed to fetch tickers for universe=%s: %s", universe, exc)
         return 0
 
+    # ── Fetch SPY + IWM once for RS computation ────────────────────────────
+    spy_chg: float | None = None
+    iwm_chg: float | None = None
+    try:
+        from data_polygon import fetch_bars, polygon_available
+        days = 5
+        for _sym, _attr in (("SPY", "spy_chg"), ("IWM", "iwm_chg")):
+            _df = None
+            if polygon_available():
+                try:
+                    _df = fetch_bars(_sym, interval=interval, days=days)
+                except Exception:
+                    pass
+            if _df is None or _df.empty:
+                import yfinance as yf
+                _raw = yf.Ticker(_sym).history(period="5d", interval=interval, auto_adjust=True)
+                if _raw is not None and not _raw.empty:
+                    _raw.columns = [str(c).lower() for c in _raw.columns]
+                    _df = _raw[["close"]].dropna()
+            if _df is not None and len(_df) >= 2:
+                _chg = (_df["close"].iloc[-1] - _df["close"].iloc[-2]) / _df["close"].iloc[-2] * 100
+                if _attr == "spy_chg":
+                    spy_chg = round(float(_chg), 3)
+                else:
+                    iwm_chg = round(float(_chg), 3)
+    except Exception as exc:
+        log.debug("Could not fetch SPY/IWM for RS: %s", exc)
+
     _turbo_state["total"] = len(tickers)
     _turbo_state["fetched_from_massive"] = len(tickers)
     now_iso = datetime.now(timezone.utc).isoformat()
@@ -547,7 +597,10 @@ def run_turbo_scan(
     try:
         with ThreadPoolExecutor(max_workers=workers) as pool:
             futures = {
-                pool.submit(_scan_turbo_ticker, t, interval, min_price, max_price): t
+                pool.submit(
+                    _scan_turbo_ticker, t, interval, min_price, max_price,
+                    lookback_n, spy_chg, iwm_chg
+                ): t
                 for t in tickers
             }
             batch: list[dict] = []

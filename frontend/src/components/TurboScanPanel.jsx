@@ -113,6 +113,10 @@ const SIG_GROUPS = [
   { key: 'd_div_bull',    label: 'T↓',   cls: 'text-cyan-300'    },
   { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
   { divider: true },
+  // ── RS / Relative Strength ────────────────────────────────────────────
+  { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
+  { key: 'rs',         label: 'RS',     cls: 'text-green-400'   },
+  { divider: true },
   // ── Context ───────────────────────────────────────────────────────────
   { key: '_br_hot',    label: 'BR≥70',  cls: 'text-lime-400',
     custom: r => (r.br_score || 0) >= 70 },
@@ -194,6 +198,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
+  const [lookbackN,  setLookbackN]  = useState(5)
 
   const load = (tf = localTf, uni = universe) => {
     api.turboScan(10000, 0, 'all', tf, uni)
@@ -277,7 +282,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   const scan = () => {
     setScanning(true); setError(null)
-    api.turboScanTrigger(localTf, universe)
+    api.turboScanTrigger(localTf, universe, lookbackN)
       .then(() => _poll())
       .catch(e => {
         setScanning(false)
@@ -365,6 +370,19 @@ export default function TurboScanPanel({ onSelectTicker }) {
               className={`px-2 py-0.5 rounded text-xs transition-colors
                 ${minScore === t.value ? 'bg-amber-600 text-black font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
               {t.label}
+            </button>
+          ))}
+        </div>
+
+        {/* Last N bars selector */}
+        <div className="flex items-center gap-0.5 ml-1">
+          <span className="text-gray-500 text-xs mr-0.5">N=</span>
+          {[1, 3, 5, 10].map(n => (
+            <button key={n} onClick={() => setLookbackN(n)}
+              className={`px-2 py-0.5 rounded text-xs transition-colors
+                ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+              title={`Check last ${n} bar${n > 1 ? 's' : ''} for signals`}>
+              {n}
             </button>
           ))}
         </div>
@@ -500,6 +518,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.d_absorb_bull ? <Badge label="Ab↑"  cls="bg-yellow-900/50 text-yellow-300" /> : null}
                     {r.d_div_bull    ? <Badge label="T↓"   cls="bg-cyan-900/50 text-cyan-300" /> : null}
                     {r.d_cd_bull  && !r.d_div_bull ? <Badge label="cd↑" cls="bg-sky-900/40 text-sky-300" /> : null}
+                    {r.rs_strong ? <Badge label="RS+" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : r.rs ? <Badge label="RS" cls="bg-green-900/50 text-green-300" /> : null}
                   </div>
                 </td>
 

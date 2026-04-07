@@ -99,8 +99,8 @@ export const api = {
     if (filters.cci_max < 9999)   p.set('cci_max',   filters.cci_max)
     return get(`/api/turbo-scan?${p}`)
   },
-  turboScanTrigger: (tf = '1d', universe = 'sp500') =>
-    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}`),
+  turboScanTrigger: (tf = '1d', universe = 'sp500', lookback_n = 5) =>
+    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}&lookback_n=${lookback_n}`),
   turboScanStatus: () =>
     get('/api/turbo-scan/status'),
   turboScanReset: () =>
