@@ -146,10 +146,12 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     )
 
     # ── Common indicators ─────────────────────────────────────────────────────
-    ema9  = close.ewm(span=9,  adjust=False).mean()
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
-    ema89 = close.ewm(span=89, adjust=False).mean()
+    ema9   = close.ewm(span=9,   adjust=False).mean()
+    ema20  = close.ewm(span=20,  adjust=False).mean()
+    ema34  = close.ewm(span=34,  adjust=False).mean()
+    ema50  = close.ewm(span=50,  adjust=False).mean()
+    ema89  = close.ewm(span=89,  adjust=False).mean()
+    ema200 = close.ewm(span=200, adjust=False).mean()
 
     avg_vol  = volume.rolling(20, min_periods=1).mean().replace(0, np.nan)
     rsi14    = _rsi(close, 14)
@@ -261,16 +263,47 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     vix_conf    = vix_fired | vix_fired.shift(1).fillna(False)
     rtv         = rsi_buy_rtv & bearish_rtv & reversal & vix_conf
 
-    # ── PREUP (EMA crosses) ───────────────────────────────────────────────────
-    cx9  = (open_ < ema9)  & (close > ema9)
-    cx20 = (open_ < ema20) & (close > ema20)
-    cx50 = (open_ < ema50) & (close > ema50)
-    cx89 = (open_ < ema89) & (close > ema89)
+    # ── PREUP — EMA cross ↑ (bar opens below EMA, closes above)  ─────────────
+    # Priority: P66 > P55 > P89 > P3 > P2 > P50  (matches TZ_OSC Pine Script)
+    cx9   = (open_ < ema9)   & (close > ema9)
+    cx20  = (open_ < ema20)  & (close > ema20)
+    cx34  = (open_ < ema34)  & (close > ema34)
+    cx50  = (open_ < ema50)  & (close > ema50)
+    cx89  = (open_ < ema89)  & (close > ema89)
+    cx200 = (open_ < ema200) & (close > ema200)
 
-    preup3  = cx9 & cx20 & cx50
-    preup2  = cx9 & cx20 & ~preup3
-    preup50 = cx50 & ~cx9 & ~cx20
-    preup89 = cx89
+    raw_p66 = cx200 & (cx9 | cx20 | cx34 | cx50 | cx89)
+    raw_p55 = cx89  & (cx9 | cx20 | cx34 | cx50 | cx200)
+    raw_p3  = cx9 & cx20 & cx50
+    raw_p2  = cx9 & cx20
+
+    preup66 = raw_p66
+    preup55 = raw_p55  & ~raw_p66
+    preup89 = cx89     & ~raw_p55 & ~raw_p66
+    preup3  = raw_p3   & ~raw_p55 & ~raw_p66 & ~cx89
+    preup2  = raw_p2   & ~raw_p3  & ~raw_p55 & ~raw_p66 & ~cx89
+    preup50 = cx50     & ~raw_p2  & ~raw_p3  & ~raw_p55 & ~raw_p66 & ~cx89
+
+    # ── PREDN — EMA drop ↓ (bar opens above EMA, closes below) ───────────────
+    # Priority: D66 > D55 > D89 > D3 > D2 > D50
+    dx9   = (open_ > ema9)   & (close < ema9)
+    dx20  = (open_ > ema20)  & (close < ema20)
+    dx34  = (open_ > ema34)  & (close < ema34)
+    dx50  = (open_ > ema50)  & (close < ema50)
+    dx89  = (open_ > ema89)  & (close < ema89)
+    dx200 = (open_ > ema200) & (close < ema200)
+
+    raw_d66 = dx200 & (dx9 | dx20 | dx34 | dx50 | dx89)
+    raw_d55 = dx89  & (dx9 | dx20 | dx34 | dx50 | dx200)
+    raw_d3  = dx9 & dx20 & dx50
+    raw_d2  = dx9 & dx20
+
+    predn66 = raw_d66
+    predn55 = raw_d55  & ~raw_d66
+    predn89 = dx89     & ~raw_d55 & ~raw_d66
+    predn3  = raw_d3   & ~raw_d55 & ~raw_d66 & ~dx89
+    predn2  = raw_d2   & ~raw_d3  & ~raw_d55 & ~raw_d66 & ~dx89
+    predn50 = dx50     & ~raw_d2  & ~raw_d3  & ~raw_d55 & ~raw_d66 & ~dx89
 
     # ── 3G (Gap above EMA9 + EMA20 + EMA50) ──────────────────────────────────
     # prev bar close fully below all 3 EMAs;
@@ -303,10 +336,20 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
         "hilo_buy":   hilo_buy,
         "hilo_sell":  hilo_sell,
         "rtv":        rtv,
+        # PREUP (EMA cross ↑) — P66 strongest
+        "preup66":    preup66,
+        "preup55":    preup55,
+        "preup89":    preup89,
         "preup3":     preup3,
         "preup2":     preup2,
         "preup50":    preup50,
-        "preup89":    preup89,
+        # PREDN (EMA drop ↓) — D66 strongest
+        "predn66":    predn66,
+        "predn55":    predn55,
+        "predn89":    predn89,
+        "predn3":     predn3,
+        "predn2":     predn2,
+        "predn50":    predn50,
         "sig3g":      sig3g,
         "rocket":     rocket,
     }, index=df.index)

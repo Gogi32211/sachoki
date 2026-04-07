@@ -110,8 +110,23 @@ const SIG_GROUPS = [
   { key: 'd_surge_bull',  label: 'Δ↑',   cls: 'text-teal-300'    },
   { key: 'd_strong_bull', label: 'B/S↑', cls: 'text-lime-300'    },
   { key: 'd_absorb_bull', label: 'Ab↑',  cls: 'text-yellow-400'  },
+  { key: 'd_spring',      label: 'SPR',  cls: 'text-lime-300'    },
   { key: 'd_div_bull',    label: 'T↓',   cls: 'text-cyan-300'    },
+  { key: 'd_vd_div_bull', label: 'NS',   cls: 'text-teal-400'    },
   { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
+  { divider: true },
+  // ── PREUP — EMA cross ↑ ──────────────────────────────────────────────
+  { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
+  { key: 'preup55', label: 'P55', cls: 'text-emerald-300' },
+  { key: 'preup89', label: 'P89', cls: 'text-teal-300'    },
+  { divider: true },
+  // ── PREDN — EMA drop ↓ ───────────────────────────────────────────────
+  { key: 'predn66', label: 'D66', cls: 'text-red-300'     },
+  { key: 'predn55', label: 'D55', cls: 'text-red-400'     },
+  { key: 'predn89', label: 'D89', cls: 'text-orange-400'  },
+  { key: 'predn3',  label: 'D3',  cls: 'text-orange-300'  },
+  { key: 'predn2',  label: 'D2',  cls: 'text-red-300'     },
+  { key: 'predn50', label: 'D50', cls: 'text-orange-300'  },
   { divider: true },
   // ── RS / Relative Strength ────────────────────────────────────────────
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
@@ -518,7 +533,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.d_absorb_bull ? <Badge label="Ab↑"  cls="bg-yellow-900/50 text-yellow-300" /> : null}
                     {r.d_div_bull    ? <Badge label="T↓"   cls="bg-cyan-900/50 text-cyan-300" /> : null}
                     {r.d_cd_bull  && !r.d_div_bull ? <Badge label="cd↑" cls="bg-sky-900/40 text-sky-300" /> : null}
+                    {r.d_spring       ? <Badge label="SPR" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : null}
+                    {r.d_vd_div_bull && !r.d_spring ? <Badge label="NS" cls="bg-teal-900/40 text-teal-300" /> : null}
                     {r.rs_strong ? <Badge label="RS+" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : r.rs ? <Badge label="RS" cls="bg-green-900/50 text-green-300" /> : null}
+                    {/* PREUP — EMA cross ↑ */}
+                    {r.preup66 ? <Badge label="P66" cls="text-lime-200 bg-lime-800/60 ring-1 ring-lime-400" /> : r.preup55 ? <Badge label="P55" cls="text-emerald-200 bg-emerald-800/50" /> : r.preup89 ? <Badge label="P89" cls="text-teal-300 bg-teal-900/40" /> : null}
+                    {/* PREDN — EMA drop ↓ */}
+                    {r.predn66 ? <Badge label="D66" cls="text-red-200 bg-red-900/60 ring-1 ring-red-400" /> : r.predn55 ? <Badge label="D55" cls="text-red-300 bg-red-900/50" /> : r.predn89 ? <Badge label="D89" cls="text-orange-300 bg-orange-900/40" /> : r.predn3 ? <Badge label="D3" cls="text-orange-300 bg-orange-900/30" /> : r.predn2 ? <Badge label="D2" cls="text-red-300 bg-red-900/30" /> : r.predn50 ? <Badge label="D50" cls="text-orange-300 bg-orange-900/20" /> : null}
                   </div>
                 </td>
 

@@ -119,13 +119,15 @@ _TURBO_COLS = [
     "br_score",
     # meta
     "vol_bucket",
-    # Delta / order-flow (260403)
+    # Delta / order-flow (260403 V2)
     "d_strong_bull", "d_strong_bear",
     "d_absorb_bull", "d_absorb_bear",
     "d_div_bull",    "d_div_bear",
     "d_cd_bull",     "d_cd_bear",
     "d_surge_bull",  "d_surge_bear",
     "d_blast_bull",  "d_blast_bear",
+    "d_vd_div_bull", "d_vd_div_bear",
+    "d_spring",      "d_upthrust",
     # RSI / CCI
     "rsi", "cci",
     # 260308 + L88
@@ -138,6 +140,10 @@ _TURBO_COLS = [
     "best_long", "best_short",
     # RS / Relative Strength vs SPY+IWM
     "rs", "rs_strong",
+    # PREUP (EMA cross ↑)
+    "preup66", "preup55", "preup89",
+    # PREDN (EMA drop ↓)
+    "predn66", "predn55", "predn89", "predn3", "predn2", "predn50",
 ]
 
 
@@ -255,15 +261,24 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("cci_ready"): trend += 2
     s += min(trend, 13)
 
-    # ── Delta / order-flow family (cap 10) ───────────────────────────────
+    # ── Delta / order-flow family (cap 12) ───────────────────────────────
     dlt = 0.0
     if r.get("d_blast_bull"):        dlt += 6
     elif r.get("d_surge_bull"):      dlt += 4
     if r.get("d_strong_bull"):       dlt += 5
     if r.get("d_absorb_bull"):       dlt += 4
-    if r.get("d_div_bull"):          dlt += 3
+    if r.get("d_spring"):            dlt += 6   # Wyckoff Spring (bear trap + absorption)
+    elif r.get("d_div_bull"):        dlt += 3
+    if r.get("d_vd_div_bull"):       dlt += 3   # vol↓ delta↑ (no supply)
     elif r.get("d_cd_bull"):         dlt += 2
-    s += min(dlt, 10)
+    s += min(dlt, 12)
+
+    # ── EMA cross family (cap 8) ──────────────────────────────────────────
+    ema_x = 0.0
+    if r.get("preup66"):   ema_x += 8   # crossed EMA200 + another  (very strong)
+    elif r.get("preup55"): ema_x += 6   # crossed EMA89 + another
+    elif r.get("preup89"): ema_x += 4   # crossed EMA89 alone
+    s += min(ema_x, 8)
 
     # ── Context / confirmation (uncapped, max ~14) ────────────────────────
     if r.get("wick_bull"): s += 3
@@ -387,7 +402,7 @@ def _scan_turbo_ticker(
         bkt = str(last_w.get("vol_bucket", ""))
         row["vol_bucket"] = bkt
 
-        # ── Combo (2809, CONS, Bias, HILO, RTV, 3G, ROCKET, BRK) ─────────
+        # ── Combo (2809, CONS, Bias, HILO, RTV, 3G, ROCKET, BRK, PREUP/DN) ─
         combo   = compute_combo(df)
         row["buy_2809"]  = _sig(combo, "buy_2809")
         row["rocket"]    = _sig(combo, "rocket")
@@ -400,6 +415,18 @@ def _scan_turbo_ticker(
         row["bias_up"]   = _sig(combo, "bias_up")
         row["bias_down"] = _sig(combo, "bias_down")
         row["cons_atr"]  = _sig(combo, "cons_atr")
+        # PREUP — EMA cross ↑ (strongest = P66)
+        row["preup66"]   = _sig(combo, "preup66")
+        row["preup55"]   = _sig(combo, "preup55")
+        row["preup89"]   = _sig(combo, "preup89")
+        # preup3/2/50 already in existing _TURBO_COLS as part of combo
+        # PREDN — EMA drop ↓ (strongest = D66)
+        row["predn66"]   = _sig(combo, "predn66")
+        row["predn55"]   = _sig(combo, "predn55")
+        row["predn89"]   = _sig(combo, "predn89")
+        row["predn3"]    = _sig(combo, "predn3")
+        row["predn2"]    = _sig(combo, "predn2")
+        row["predn50"]   = _sig(combo, "predn50")
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
@@ -433,17 +460,19 @@ def _scan_turbo_ticker(
         except Exception:
             row["br_score"] = 0.0
 
-        # ── Delta / order-flow (260403) ────────────────────────────────────
+        # ── Delta / order-flow (260403 V2) ────────────────────────────────
         try:
             ddf = compute_delta(df)
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
-                        "surge_bull","surge_bear","blast_bull","blast_bear"):
+                        "surge_bull","surge_bear","blast_bull","blast_bear",
+                        "vd_div_bull","vd_div_bear","spring","upthrust"):
                 row[f"d_{col}"] = _sig(ddf, col)
         except Exception:
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
-                        "surge_bull","surge_bear","blast_bull","blast_bear"):
+                        "surge_bull","surge_bear","blast_bull","blast_bear",
+                        "vd_div_bull","vd_div_bear","spring","upthrust"):
                 row[f"d_{col}"] = 0
 
         # ── RSI(14) ────────────────────────────────────────────────────────
