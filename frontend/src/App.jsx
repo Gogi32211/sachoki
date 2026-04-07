@@ -163,9 +163,10 @@ export default function App() {
             <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
           )}
 
-          {activeTab === 'turbo' && (
-            <TurboScanPanel onSelectTicker={handleSelect} />
-          )}
+          {/* TURBO: always mounted so scan results survive tab switches */}
+          <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
+            <TurboScanPanel onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }} />
+          </div>
 
           {activeTab === 'brscan' && (
             <BRScanPanel tf={tf} onSelectTicker={handleSelect} />
