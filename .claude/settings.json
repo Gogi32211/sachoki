@@ -1,0 +1,16 @@
+{
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 -c \"\nimport sys, json, re\ndata = json.load(sys.stdin)\nf = data.get('tool_input', {}).get('file_path', '') or ''\nif not (('/backend/' in f or '/frontend/src/' in f) and 'App.jsx' not in f):\n    sys.exit(0)\napp = '/home/user/sachoki/frontend/src/App.jsx'\ntext = open(app).read()\nm = re.search(r'v(\\\\d+)\\\\.(\\\\d+)(?:\\\\.(\\\\d+))?(?=</span>)', text)\nif not m:\n    sys.exit(0)\nmajor, minor, patch = m.group(1), m.group(2), m.group(3)\nnew_patch = int(patch) + 1 if patch else 1\nnew_ver = f'v{major}.{minor}.{new_patch}'\nopen(app, 'w').write(text.replace(m.group(0), new_ver, 1))\n\" 2>/dev/null || true",
+            "statusMessage": "Bumping version…"
+          }
+        ]
+      }
+    ]
+  }
+}
