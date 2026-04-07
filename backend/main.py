@@ -252,6 +252,61 @@ def api_predict(ticker: str, tf: str = "1d"):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/api/pooled-predict/{ticker}")
+def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
+    """Query pooled cross-universe stats for the ticker's current T/Z + L sequences."""
+    try:
+        from pooled_stats import get_pooled_predict, get_pooled_status
+        from signal_engine import compute_signals
+        from wlnbb_engine import compute_wlnbb
+
+        status = get_pooled_status(universe, tf)
+        if not status.get("available"):
+            return {"error": "not_built", "status": status,
+                    "tz_3bar": {"total_matches": 0, "top_outcomes": []},
+                    "tz_2bar": {"total_matches": 0, "top_outcomes": []},
+                    "l_3bar":  {"total_matches": 0, "top_outcomes": []},
+                    "l_2bar":  {"total_matches": 0, "top_outcomes": []}}
+
+        df    = fetch_ohlcv(ticker, interval=tf, bars=200)
+        sigs  = compute_signals(df)
+        wlnbb = compute_wlnbb(df)
+
+        sig_ids  = sigs["sig_id"].values
+        l_combos = wlnbb["l_combo"].values
+
+        sig3 = tuple(int(s) for s in sig_ids[-3:])
+        sig2 = tuple(int(s) for s in sig_ids[-2:])
+        l3   = tuple(str(s) for s in l_combos[-3:])
+        l2   = tuple(str(s) for s in l_combos[-2:])
+
+        return get_pooled_predict(sig3, sig2, l3, l2, universe, tf)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/pooled-stats/build")
+def api_pooled_stats_build(
+    background_tasks: BackgroundTasks,
+    universe: str = "sp500",
+    interval: str = "1d",
+):
+    from pooled_stats import build_pooled_stats, get_pooled_state
+    if get_pooled_state().get("running"):
+        raise HTTPException(status_code=409, detail="Build already running")
+    background_tasks.add_task(build_pooled_stats, universe, interval)
+    return {"status": "started", "universe": universe, "interval": interval}
+
+
+@app.get("/api/pooled-stats/status")
+def api_pooled_stats_status(universe: str = "sp500", interval: str = "1d"):
+    from pooled_stats import get_pooled_state, get_pooled_status
+    return {
+        "job":  get_pooled_state(),
+        "data": get_pooled_status(universe, interval),
+    }
+
+
 # ── L-Predict (dedicated endpoint) ───────────────────────────────────────────
 
 @app.get("/api/l-predict/{ticker}")
