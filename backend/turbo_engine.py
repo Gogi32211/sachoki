@@ -330,17 +330,22 @@ def _scan_turbo_ticker(
             return None
 
         # Drop today's bar ONLY while US market is still open.
-        # Market closes 4pm ET = 20:00 UTC (EDT) / 21:00 UTC (EST).
-        # Use 21:30 UTC as conservative cutoff — after that, bar is final.
+        # Use ET timezone so DST is handled automatically:
+        # EDT (Mar-Nov): market closes 16:00 ET = 20:00 UTC
+        # EST (Nov-Mar): market closes 16:00 ET = 21:00 UTC
+        # Buffer: keep bar after 16:15 ET to allow API finalization.
         if interval in ("1d", "1wk", "1w"):
             last_dt = df.index[-1]
             if hasattr(last_dt, "date"):
                 last_dt = last_dt.date()
-            now_utc  = datetime.now(timezone.utc)
-            today    = now_utc.date()
-            mins_utc = now_utc.hour * 60 + now_utc.minute
-            # Mon–Fri, before 21:30 UTC → market may still be open → bar incomplete
-            market_open = (now_utc.weekday() < 5) and (mins_utc < 21 * 60 + 30)
+            import pytz as _pytz
+            _et  = _pytz.timezone("America/New_York")
+            now_utc = datetime.now(timezone.utc)
+            now_et  = now_utc.astimezone(_et)
+            today   = now_utc.date()
+            mins_et = now_et.hour * 60 + now_et.minute
+            # Mon–Fri, before 16:15 ET → market may still be open → bar incomplete
+            market_open = (now_et.weekday() < 5) and (mins_et < 16 * 60 + 15)
             if last_dt == today and market_open:
                 df = df.iloc[:-1]
         if len(df) < 40:
