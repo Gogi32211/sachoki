@@ -31,7 +31,8 @@ from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
 from br_engine     import compute_br
 from ultra_engine  import compute_260308_l88, compute_ultra_v2
-from delta_engine  import compute_delta
+from delta_engine   import compute_delta
+from wyckoff_engine import compute_wyckoff_accum, compute_wyckoff_dist
 
 log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
@@ -95,8 +96,14 @@ _TURBO_COLS = [
     # VABS
     "best_sig", "strong_sig", "vbo_up", "vbo_dn",
     "abs_sig", "climb_sig", "load_sig",
-    # Wyckoff
+    # Wyckoff (VABS legacy)
     "ns", "nd", "sc", "bc", "sq",
+    # Wyckoff Accumulation (260225)
+    "wyk_sc", "wyk_ar", "wyk_st", "wyk_spring", "wyk_sos", "wyk_lps",
+    "wyk_accum", "wyk_markup",
+    # Wyckoff Distribution (260225)
+    "wyk_bc", "wyk_ard", "wyk_std", "wyk_utad", "wyk_sow", "wyk_lpsy",
+    "wyk_dist", "wyk_markdown",
     # Combo / 2809
     "buy_2809", "rocket", "sig3g", "rtv",
     "hilo_buy", "hilo_sell", "atr_brk", "bb_brk",
@@ -229,6 +236,12 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("sc"):        vol += 2
     if r.get("sig_l88"):        vol += 5
     elif r.get("sig_260308"):   vol += 3
+    # Wyckoff Accumulation (260225) — additive, higher priority phase = more points
+    if r.get("wyk_spring"):     vol += 7   # optimal entry — bear trap + absorption
+    elif r.get("wyk_lps"):      vol += 5   # buy-the-dip after SOS breakout
+    elif r.get("wyk_sos"):      vol += 5   # SOS/JAC breakout confirmation
+    elif r.get("wyk_markup"):   vol += 3   # in markup/breakout phase (context)
+    elif r.get("wyk_accum"):    vol += 2   # accumulation in progress (context)
     s = min(vol, 22)
 
     # ── Breakout / expansion family (cap 15) ──────────────────────────────
@@ -241,6 +254,10 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("bo_up") or r.get("bx_up"): brk += 3
     if r.get("rs_strong"): brk += 5
     elif r.get("rs"):      brk += 3
+    # Wyckoff Distribution is a bearish context — subtract from bull score
+    if r.get("wyk_sow"):      brk -= 4   # SOW: confirmed breakdown
+    elif r.get("wyk_markdown"):brk -= 3  # in markdown phase
+    elif r.get("wyk_dist"):    brk -= 1  # distribution in progress
     s += min(brk, 15)
 
     # ── Combo / momentum family (cap 14) ──────────────────────────────────
@@ -474,6 +491,28 @@ def _scan_turbo_ticker(
         row["strong_sig"] = _sig(vabs, "strong_sig")
         row["vbo_up"]     = _sig(vabs, "vbo_up")
         row["vbo_dn"]     = _sig(vabs, "vbo_dn")
+
+        # ── Wyckoff Accumulation (260225) ─────────────────────────────────
+        try:
+            wya = compute_wyckoff_accum(df)
+            for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
+                       "wyk_accum","wyk_markup"):
+                row[_c] = _sig(wya, _c)
+        except Exception:
+            for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
+                       "wyk_accum","wyk_markup"):
+                row[_c] = 0
+
+        # ── Wyckoff Distribution (260225) ──────────────────────────────────
+        try:
+            wyd = compute_wyckoff_dist(df)
+            for _c in ("wyk_bc","wyk_ard","wyk_std","wyk_utad","wyk_sow","wyk_lpsy",
+                       "wyk_dist","wyk_markdown"):
+                row[_c] = _sig(wyd, _c)
+        except Exception:
+            for _c in ("wyk_bc","wyk_ard","wyk_std","wyk_utad","wyk_sow","wyk_lpsy",
+                       "wyk_dist","wyk_markdown"):
+                row[_c] = 0
 
         # ── Wick ───────────────────────────────────────────────────────────
         wick   = compute_wick(df)

@@ -94,26 +94,35 @@ export default function HowItWorksPanel() {
                 </tr>
               </thead>
               <tbody>
-                <ScoreRow engine="VABS (22)" signal="BEST★" pts="+15" />
-                <ScoreRow engine="VABS (22)" signal="STRONG" pts="+9" />
-                <ScoreRow engine="VABS (22)" signal="VBO↑" pts="+6" />
-                <ScoreRow engine="Breakout (15)" signal="BEST↑ (FBO+4BF)" pts="+8" />
-                <ScoreRow engine="Breakout (15)" signal="FBO↑ or EB↑" pts="+4 each" />
+                <ScoreRow engine="Vol/Accum (22)" signal="wyk_spring (260225)" pts="+7" />
+                <ScoreRow engine="Vol/Accum (22)" signal="VBO↑" pts="+6" />
+                <ScoreRow engine="Vol/Accum (22)" signal="NS (no supply)" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="L88 signal" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="wyk_sos / wyk_lps" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="CLB / LD / SQ" pts="+4 each" />
+                <ScoreRow engine="Vol/Accum (22)" signal="wyk_markup (phase)" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="SC / 260308" pts="+2–3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="wyk_accum (phase)" pts="+2" />
+                <ScoreRow engine="Breakout (15)" signal="FBO↑ (bear trap)" pts="+5" />
                 <ScoreRow engine="Breakout (15)" signal="RS+ (vs SPY+IWM)" pts="+5" />
+                <ScoreRow engine="Breakout (15)" signal="EB↑ / 4BF / 3↑" pts="+4 each" />
                 <ScoreRow engine="Breakout (15)" signal="RS (relative strength)" pts="+3" />
                 <ScoreRow engine="Breakout (15)" signal="BO↑ / BX↑" pts="+3" />
-                <ScoreRow engine="Breakout (15)" signal="L88 signal" pts="+5" />
+                <ScoreRow engine="Breakout (15)" signal="wyk_sow (bearish)" pts="−4" />
                 <ScoreRow engine="Combo (14)" signal="🚀 ROCKET" pts="+12" />
                 <ScoreRow engine="Combo (14)" signal="BUY 2809" pts="+8" />
-                <ScoreRow engine="Combo (14)" signal="3G gap" pts="+4" />
                 <ScoreRow engine="Combo (14)" signal="CD (Bull Dom + B)" pts="+5" />
+                <ScoreRow engine="Combo (14)" signal="3G gap" pts="+4" />
                 <ScoreRow engine="Combo (14)" signal="CA (Bull Att + B)" pts="+3" />
                 <ScoreRow engine="Combo (14)" signal="CW (Bear Weak + B)" pts="+2" />
                 <ScoreRow engine="L-struct (13)" signal="T4 / T6" pts="+7" />
-                <ScoreRow engine="L-struct (13)" signal="T1G / T2G" pts="+5" />
                 <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
-                <ScoreRow engine="Delta (12)" signal="Spring (Wyckoff)" pts="+6" />
-                <ScoreRow engine="Delta (12)" signal="Blast↑ (delta surge)" pts="+6" />
+                <ScoreRow engine="L-struct (13)" signal="T1G / T2G" pts="+5" />
+                <ScoreRow engine="Delta (12)" signal="d_spring (Wyckoff)" pts="+6" />
+                <ScoreRow engine="Delta (12)" signal="d_blast_bull" pts="+6" />
+                <ScoreRow engine="Delta (12)" signal="d_strong_bull" pts="+5" />
+                <ScoreRow engine="Delta (12)" signal="d_absorb_bull" pts="+4" />
                 <ScoreRow engine="EMA-cross (8)" signal="P66 (cross EMA200+)" pts="+8" />
                 <ScoreRow engine="EMA-cross (8)" signal="P55 (cross EMA89+)" pts="+6" />
                 <ScoreRow engine="EMA-cross (8)" signal="P89 (cross EMA89)" pts="+4" />
@@ -263,6 +272,66 @@ export default function HowItWorksPanel() {
             <Row label="RS" cls="text-green-400">ticker up ≥ 0.5% while SPY AND IWM are both down ≥ 0.3% on the same bar</Row>
             <Row label="RS+" cls="text-lime-300">RS condition AND ticker is in the high-volume bucket (B or VB)</Row>
           </ul>
+        </Section>
+
+        {/* ── Wyckoff Accumulation / Distribution ── */}
+        <Section title="Wyckoff Accumulation & Distribution (260225 — wyckoff_engine)">
+          <p className="mb-2">
+            Two independent state machines that track where a ticker sits in the classic Wyckoff cycle.
+            Each carries forward bar-by-bar; cycles reset after completion or after{' '}
+            <Tag>cycleMaxBars=160</Tag> bars without completing.
+          </p>
+
+          <p className="text-gray-400 mt-2 mb-1 font-medium">Accumulation state machine (bullish)</p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="wSC" cls="text-orange-300">
+              Selling Climax — wide-spread down bar, high volume ({'>'}1.8× avg), close near low,
+              EMA14 below EMA50. Start of base.
+            </Row>
+            <Row label="AR" cls="text-yellow-300">
+              Automatic Rally — first up bar closing above SC high after the climax.
+            </Row>
+            <Row label="ST" cls="text-amber-300">
+              Secondary Test — pullback into SC zone on lower volume; holds above SC low.
+            </Row>
+            <Row label="SPR" cls="text-lime-300">
+              Spring — brief dip below SC low that recovers immediately. Classic bear trap.
+              Scored <Tag cls="text-lime-300">+7</Tag> (highest atomic signal in Vol/Accum family).
+            </Row>
+            <Row label="SOS" cls="text-lime-400">
+              Sign of Strength / JAC — strong close above AR high on rising volume. Breakout.
+              Scored <Tag cls="text-lime-300">+5</Tag>.
+            </Row>
+            <Row label="LPS" cls="text-green-300">
+              Last Point of Support — minor dip after SOS on low volume; holds support.
+              Buy-the-dip confirmation. Scored <Tag cls="text-lime-300">+5</Tag>.
+            </Row>
+            <Row label="ACC" cls="text-cyan-300">Accumulation active (states 1–4, pre-breakout). Context +2.</Row>
+            <Row label="MKP" cls="text-lime-300">Markup phase (states 5–6, post-SOS). Context +3.</Row>
+          </ul>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Distribution state machine (bearish)</p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="wBC" cls="text-red-300">
+              Buying Climax — wide-spread up bar, high volume, close near high, EMA14 above EMA50. Potential top.
+            </Row>
+            <Row label="ARD" cls="text-pink-300">Automatic Reaction — sharp decline below BC low.</Row>
+            <Row label="STD" cls="text-rose-300">Secondary Test (dist) — rally back toward BC zone, lower volume, stalls.</Row>
+            <Row label="UTAD" cls="text-orange-400">
+              Upthrust After Distribution — brief push above BC high that closes back below. Bull trap.
+            </Row>
+            <Row label="SOW" cls="text-red-400">
+              Sign of Weakness — strong close below ARD low. Breakdown.
+              Reduces bull score by <Tag cls="text-red-400">−4</Tag>.
+            </Row>
+            <Row label="LPSY" cls="text-rose-400">Last Point of Supply — minor rally on low volume that fails.</Row>
+            <Row label="DST" cls="text-red-400">Distribution active (states 1–4). Context −1.</Row>
+            <Row label="MKD" cls="text-red-500">Markdown phase (states 5–6, post-SOW). Context −3.</Row>
+          </ul>
+
+          <p className="mt-2 text-gray-500 text-xs">
+            Parameters: cycleMaxBars=160, emaFast=14, emaSlow=50, hiVolMult=1.8, wideSpreadATR=1.2.
+          </p>
         </Section>
 
         {/* ── VABS ── */}

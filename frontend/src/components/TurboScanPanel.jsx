@@ -40,11 +40,30 @@ const SIG_GROUPS = [
   { key: 'climb_sig',  label: 'CLB',    cls: 'text-cyan-300'    },
   { key: 'load_sig',   label: 'LD',     cls: 'text-blue-300'    },
   { divider: true },
-  // ── Wyckoff ───────────────────────────────────────────────────────────
+  // ── Wyckoff (VABS legacy) ─────────────────────────────────────────────
   { key: 'ns',         label: 'NS',     cls: 'text-teal-300'    },
   { key: 'sq',         label: 'SQ',     cls: 'text-cyan-400'    },
   { key: 'sc',         label: 'SC',     cls: 'text-orange-300'  },
   { key: 'nd',         label: 'ND',     cls: 'text-pink-300'    },
+  { divider: true },
+  // ── Wyckoff Accumulation (260225) ─────────────────────────────────────
+  { key: 'wyk_spring', label: 'SPR',    cls: 'text-lime-300'    },
+  { key: 'wyk_sos',    label: 'SOS',    cls: 'text-lime-400'    },
+  { key: 'wyk_lps',    label: 'LPS',    cls: 'text-green-300'   },
+  { key: 'wyk_sc',     label: 'wSC',    cls: 'text-orange-300'  },
+  { key: 'wyk_ar',     label: 'AR',     cls: 'text-yellow-300'  },
+  { key: 'wyk_st',     label: 'ST',     cls: 'text-amber-300'   },
+  { key: 'wyk_accum',  label: 'ACC',    cls: 'text-cyan-300'    },
+  { key: 'wyk_markup', label: 'MKP',    cls: 'text-lime-300'    },
+  // ── Wyckoff Distribution (260225) ─────────────────────────────────────
+  { key: 'wyk_sow',      label: 'SOW',  cls: 'text-red-400'     },
+  { key: 'wyk_utad',     label: 'UTAD', cls: 'text-orange-400'  },
+  { key: 'wyk_lpsy',     label: 'LPSY', cls: 'text-rose-400'    },
+  { key: 'wyk_bc',       label: 'wBC',  cls: 'text-red-300'     },
+  { key: 'wyk_ard',      label: 'ARD',  cls: 'text-pink-300'    },
+  { key: 'wyk_std',      label: 'STD',  cls: 'text-rose-300'    },
+  { key: 'wyk_dist',     label: 'DST',  cls: 'text-red-400'     },
+  { key: 'wyk_markdown', label: 'MKD',  cls: 'text-red-500'     },
   { divider: true },
   // ── Combo ─────────────────────────────────────────────────────────────
   { key: 'buy_2809',   label: 'BUY',    cls: 'text-lime-400'    },
@@ -565,11 +584,34 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 {/* Wyckoff */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
+                    {/* VABS legacy */}
                     {r.ns ? <Badge label="NS" cls="bg-teal-900 text-teal-300" /> : null}
                     {r.sq ? <Badge label="SQ" cls="bg-cyan-900 text-cyan-300" /> : null}
                     {r.sc ? <Badge label="SC" cls="bg-orange-900 text-orange-300" /> : null}
                     {r.bc ? <Badge label="BC" cls="bg-rose-900 text-rose-300" /> : null}
                     {r.nd ? <Badge label="ND" cls="bg-pink-900 text-pink-300" /> : null}
+                    {/* Wyckoff Accumulation 260225 — best signal wins */}
+                    {r.wyk_spring ? <Badge label="SPR" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-400 font-bold" /> : null}
+                    {r.wyk_sos    ? <Badge label="SOS" cls="bg-lime-800/70 text-lime-200 ring-1 ring-lime-500" /> : null}
+                    {r.wyk_lps    ? <Badge label="LPS" cls="bg-green-800/70 text-green-200" /> : null}
+                    {r.wyk_sc  && !r.wyk_spring ? <Badge label="wSC" cls="bg-orange-900/70 text-orange-200" /> : null}
+                    {r.wyk_ar     ? <Badge label="AR"  cls="bg-yellow-900/60 text-yellow-200" /> : null}
+                    {r.wyk_st     ? <Badge label="ST"  cls="bg-amber-900/60 text-amber-200" /> : null}
+                    {r.wyk_accum && !r.wyk_spring && !r.wyk_sos && !r.wyk_lps && !r.wyk_sc && !r.wyk_st
+                      ? <Badge label="ACC" cls="bg-cyan-900/50 text-cyan-300" /> : null}
+                    {r.wyk_markup && !r.wyk_sos && !r.wyk_lps
+                      ? <Badge label="MKP" cls="bg-lime-900/40 text-lime-300" /> : null}
+                    {/* Wyckoff Distribution 260225 */}
+                    {r.wyk_sow    ? <Badge label="SOW"  cls="bg-red-800 text-red-200 ring-1 ring-red-500 font-bold" /> : null}
+                    {r.wyk_utad   ? <Badge label="UTAD" cls="bg-orange-800/70 text-orange-200" /> : null}
+                    {r.wyk_lpsy   ? <Badge label="LPSY" cls="bg-rose-800/70 text-rose-200" /> : null}
+                    {r.wyk_bc  && !r.wyk_utad ? <Badge label="wBC" cls="bg-red-900/70 text-red-200" /> : null}
+                    {r.wyk_ard    ? <Badge label="ARD"  cls="bg-pink-900/60 text-pink-200" /> : null}
+                    {r.wyk_std    ? <Badge label="STD"  cls="bg-rose-900/60 text-rose-200" /> : null}
+                    {r.wyk_dist && !r.wyk_sow && !r.wyk_utad && !r.wyk_bc && !r.wyk_std
+                      ? <Badge label="DST" cls="bg-red-900/40 text-red-400" /> : null}
+                    {r.wyk_markdown && !r.wyk_sow && !r.wyk_lpsy
+                      ? <Badge label="MKD" cls="bg-red-900/50 text-red-400" /> : null}
                   </div>
                 </td>
 
