@@ -125,7 +125,10 @@ const SIG_GROUPS = [
   { key: 'pre_pump',      label: 'PP',       cls: 'text-yellow-400'   },
   { divider: true },
   // ── Wick / CISD ───────────────────────────────────────────────────────
-  { key: 'wick_bull',  label: 'WK↑',   cls: 'text-emerald-400' },
+  { key: 'x2g_wick',   label: 'X2G',    cls: 'text-cyan-300'    },
+  { key: 'x1x_wick',   label: 'X1G',    cls: 'text-lime-300'    },
+  { key: 'x3_wick',    label: 'X3',     cls: 'text-yellow-300'  },
+  { key: 'wick_bull',  label: 'WK↑',    cls: 'text-emerald-400' },
   { key: 'cisd_ppm',   label: 'C+-',    cls: 'text-green-300'   },
   { key: 'cisd_seq',   label: 'C+--',   cls: 'text-lime-300'    },
   { divider: true },
@@ -236,12 +239,17 @@ function scoreReason(r) {
   return p.slice(0, 6).join(' · ')
 }
 
+// ── Turbo scan localStorage cache ─────────────────────────────────────────────
+const _tsKey  = (tf, uni) => `sachoki_turbo_${tf}_${uni}`
+const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
+const _tsSet  = (tf, uni, data) => { try { localStorage.setItem(_tsKey(tf, uni), JSON.stringify(data)) } catch {} }
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TurboScanPanel({ onSelectTicker }) {
   const [localTf,    setLocalTf]    = useState('1d')
   const [universe,   setUniverse]   = useState('sp500')
-  const [allResults, setAllResults] = useState([])
-  const [lastScan,   setLastScan]   = useState(null)
+  const [allResults, setAllResults] = useState(() => _tsGet('1d', 'sp500')?.results || [])
+  const [lastScan,   setLastScan]   = useState(() => _tsGet('1d', 'sp500')?.lastScan || null)
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
   const [massiveReady, setMassiveReady] = useState(null)
@@ -255,8 +263,20 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
 
   const load = (tf = localTf, uni = universe) => {
+    // show cached data immediately while fetching
+    const cached = _tsGet(tf, uni)
+    if (cached?.results?.length) {
+      setAllResults(cached.results)
+      setLastScan(cached.lastScan)
+    }
     api.turboScan(10000, 0, 'all', tf, uni)
-      .then(d => { setAllResults(d.results || []); setLastScan(d.last_scan) })
+      .then(d => {
+        const results = d.results || []
+        const ls = d.last_scan
+        setAllResults(results)
+        setLastScan(ls)
+        _tsSet(tf, uni, { results, lastScan: ls })
+      })
       .catch(e => setError(e.message))
   }
 
@@ -717,6 +737,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.fuchsia_rh       ? <Badge label="RH"    cls="text-fuchsia-400 bg-fuchsia-900/30" /> : null}
                     {r.fuchsia_rl       ? <Badge label="RL"    cls="text-fuchsia-300 bg-fuchsia-900/20" /> : null}
                     {r.pre_pump         ? <Badge label="PP"    cls="text-yellow-400 bg-yellow-900/30" /> : null}
+                    {r.x2g_wick         ? <Badge label="X2G"   cls="text-cyan-200 bg-cyan-800/60 ring-1 ring-cyan-400 font-bold" /> : null}
+                    {r.x1x_wick && !r.x2g_wick ? <Badge label="X1G" cls="text-lime-200 bg-lime-800/50 ring-1 ring-lime-400" /> : null}
+                    {r.x3_wick          ? <Badge label="X3"    cls="text-yellow-300 bg-yellow-900/40" /> : null}
                     {r.wick_bull        ? <Badge label="WK↑"   cls="text-emerald-300 bg-emerald-900/30" /> : null}
                     {r.cisd_ppm         ? <Badge label="C++-"  cls="text-green-300 bg-green-900/30" /> : null}
                     {r.cisd_seq         ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}

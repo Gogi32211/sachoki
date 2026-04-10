@@ -26,7 +26,7 @@ import pandas as pd
 from signal_engine import compute_signals, compute_b_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, compute_tz_state
-from wick_engine   import compute_wick
+from wick_engine   import compute_wick, compute_wick_x
 from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
 from br_engine     import compute_br
@@ -124,8 +124,10 @@ _TURBO_COLS = [
     "be_up", "be_dn",
     "fuchsia_rh", "fuchsia_rl",
     "pre_pump",
-    # Wick
+    # Wick (3112_2C legacy confirm)
     "wick_bull", "wick_bear",
+    # Wick X signals (260402_WICK)
+    "x2g_wick", "x1x_wick", "x3_wick",
     # CISD
     "cisd_ppm", "cisd_seq",
     # BR
@@ -307,8 +309,11 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("preup89"): ema_x += 4   # crossed EMA89 alone
     s += min(ema_x, 8)
 
-    # ── Context / confirmation (uncapped, max ~14) ────────────────────────
-    if r.get("wick_bull"): s += 3
+    # ── Context / confirmation (uncapped, max ~18) ────────────────────────
+    if r.get("x2g_wick"):   s += 5   # strongest wick-filtered reversal
+    elif r.get("x1x_wick"): s += 4   # reversal from bearish prior bar
+    elif r.get("x3_wick"):  s += 2   # generic wick-shape alignment
+    if r.get("wick_bull"):  s += 3   # legacy 2-candle confirm
     if r.get("cisd_ppm"):   s += 2
     elif r.get("cisd_seq"): s += 1
     s += min(float(r.get("br_score") or 0) * 0.1, 8)
@@ -514,10 +519,19 @@ def _scan_turbo_ticker(
                        "wyk_dist","wyk_markdown"):
                 row[_c] = 0
 
-        # ── Wick ───────────────────────────────────────────────────────────
+        # ── Wick (3112_2C legacy) ─────────────────────────────────────────
         wick   = compute_wick(df)
         row["wick_bull"] = _sig(wick, "WICK_BULL_CONFIRM")
         row["wick_bear"] = _sig(wick, "WICK_BEAR_CONFIRM")
+
+        # ── Wick X (260402_WICK) ──────────────────────────────────────────
+        try:
+            wx = compute_wick_x(df)
+            row["x2g_wick"] = _sig(wx, "x2g_wick")
+            row["x1x_wick"] = _sig(wx, "x1x_wick")
+            row["x3_wick"]  = _sig(wx, "x3_wick")
+        except Exception:
+            row["x2g_wick"] = row["x1x_wick"] = row["x3_wick"] = 0
 
         # ── CISD ───────────────────────────────────────────────────────────
         cisd   = compute_cisd(df)

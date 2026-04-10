@@ -126,7 +126,10 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="EMA-cross (8)" signal="P66 (cross EMA200+)" pts="+8" />
                 <ScoreRow engine="EMA-cross (8)" signal="P55 (cross EMA89+)" pts="+6" />
                 <ScoreRow engine="EMA-cross (8)" signal="P89 (cross EMA89)" pts="+4" />
-                <ScoreRow engine="Context" signal="Wick Bull confirm" pts="+3" />
+                <ScoreRow engine="Context" signal="X2G (wick reversal)" pts="+5" />
+                <ScoreRow engine="Context" signal="X1G (wick reversal)" pts="+4" />
+                <ScoreRow engine="Context" signal="X3 (wick align)" pts="+2" />
+                <ScoreRow engine="Context" signal="WK↑ legacy confirm" pts="+3" />
                 <ScoreRow engine="Context" signal="BR% readiness" pts="+0.1×score, max 8" />
               </tbody>
             </table>
@@ -395,9 +398,37 @@ export default function HowItWorksPanel() {
         <Section title="BR Score + Wick + CISD">
           <ul className="list-disc list-inside space-y-1">
             <Row label="BR 0–100">Breakout Readiness — consolidation tightness + volume build-up + trend + proximity to resistance</Row>
-            <Row label="WK↑" cls="text-emerald-300">Long lower wick (≥ 2× body) on above-average volume — strong buyer rejection</Row>
+            <Row label="WK↑" cls="text-emerald-300">Long lower wick (≥ 2× body) on above-average volume — strong buyer rejection (legacy)</Row>
             <Row label="C+- / C+--">Change In State of Delivery — shift from distribution to accumulation</Row>
           </ul>
+        </Section>
+
+        {/* ── Wick X signals ── */}
+        <Section title="260402_WICK — X2G / X1X / X3 (wick_engine)">
+          <p className="mb-2">
+            Wick-filtered reversal signals. Each checks the current bar's wick shape
+            (lower wick ≥ 2× upper wick) combined with the shape of the prior bar(s).
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="X2G" cls="text-cyan-300">
+              T2G/T2 continuation: prev bar was bullish, current opens at/above prev open and
+              closes above prev close — both bars have dominant wick shape aligned.
+              Scored <Tag cls="text-lime-300">+5</Tag> (strongest wick signal).
+            </Row>
+            <Row label="X1G" cls="text-lime-300">
+              T1G/T1 reversal: prev bar was bearish, current reverses and closes above
+              prev open — prev bar has dominant upper wick (exhaustion), current has lower wick.
+              Scored <Tag cls="text-lime-300">+4</Tag>.
+            </Row>
+            <Row label="X3" cls="text-yellow-300">
+              Generic bullish wick alignment: current bar has dominant lower wick AND
+              either bar[1] or bar[2] also had a dominant wick. Fires only when X2G/X1G absent.
+              Scored <Tag cls="text-lime-300">+2</Tag>.
+            </Row>
+          </ul>
+          <p className="mt-2 text-gray-500 text-xs">
+            wickMult=2.0: dominant wick must be ≥ 2× the opposing wick to qualify.
+          </p>
         </Section>
 
         {/* ── Predictor ── */}
