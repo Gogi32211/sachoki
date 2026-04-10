@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from signal_engine import compute_signals
 
 
 # ── Internal helpers ───────────────────────────────────────────────────────────
@@ -413,3 +414,101 @@ def active_signal_labels(active: dict[str, bool]) -> list[str]:
         for k in COMBO_SIGNAL_PRIORITY
         if active.get(k)
     ]
+
+
+# ── TZ State Machine ──────────────────────────────────────────────────────────
+
+def compute_tz_state(df: pd.DataFrame) -> pd.Series:
+    """
+    Compute TZ trend regime state (0-5) per bar using T/Z pattern dominance.
+
+    States:
+      0 = Bear Dominance   1 = Bear Weakening   2 = Bull Attempt
+      3 = Bull Dominance   4 = Bull Weakening   5 = Bear Attempt
+
+    Based on 260410_COMBO Pine Script defaults:
+      fastLen=3, slowLen=7, confirmCount=2, minSlowDom=4.0, weakRatio=0.70
+      EMA fast=20, EMA slow=50, swingLookback=10
+    """
+    sig = compute_signals(df)
+    bc  = sig["bc"].fillna(0).astype(int)
+    zc  = sig["zc"].fillna(0).astype(int)
+
+    close = df["close"]
+    high  = df["high"]
+    low   = df["low"]
+
+    # T/Z weights from Pine Script tWeight/zWeight
+    _TW = {1: 4.0, 2: 4.0, 3: 3.0, 4: 3.0, 5: 2.0, 6: 2.0,
+           7: 1.0, 8: 1.0, 9: 1.0, 10: 1.0, 11: 0.75}
+    _ZW = {1: 4.0, 2: 4.0, 3: 3.0, 4: 3.0, 5: 2.0, 6: 2.0,
+           7: 1.0, 8: 1.0, 9: 1.0, 10: 1.0, 11: 1.0,
+           12: 0.75, 13: 1.0, 14: 0.25}
+
+    tW = pd.Series([_TW.get(x, 0.0) for x in bc], index=bc.index)
+    zW = pd.Series([_ZW.get(x, 0.0) for x in zc], index=zc.index)
+
+    tDomFast = tW.rolling(3, min_periods=1).sum()
+    tDomSlow = tW.rolling(7, min_periods=1).sum()
+    zDomFast = zW.rolling(3, min_periods=1).sum()
+    zDomSlow = zW.rolling(7, min_periods=1).sum()
+
+    tCount = (bc > 0).astype(float).rolling(3, min_periods=1).sum()
+    zCount = (zc > 0).astype(float).rolling(3, min_periods=1).sum()
+
+    strongT = bc.isin([1, 2, 3, 4])   # T4/T6/T1G/T2G
+    strongZ = zc.isin([1, 2, 3, 4])   # Z4/Z6/Z1G/Z2G
+    strongTRec = strongT.astype(float).rolling(3, min_periods=1).max().astype(bool)
+    strongZRec = strongZ.astype(float).rolling(3, min_periods=1).max().astype(bool)
+
+    ema20  = close.ewm(span=20, adjust=False).mean()
+    ema50  = close.ewm(span=50, adjust=False).mean()
+    swHigh = high.shift(1).rolling(10, min_periods=1).max()
+    swLow  = low.shift(1).rolling(10, min_periods=1).min()
+
+    bull_dom = (
+        (tDomSlow > zDomSlow) & (tDomFast > zDomFast) &
+        (tCount >= 2) & strongTRec &
+        (close > ema20) & (close > ema50) & (close > swHigh)
+    )
+    bear_dom = (
+        (zDomSlow > tDomSlow) & (zDomFast > tDomFast) &
+        (zCount >= 2) & strongZRec &
+        (close < ema20) & (close < ema50) & (close < swLow)
+    )
+    bull_att = (
+        (tDomFast > zDomFast) & (tCount >= 2) & strongTRec & (close > ema20)
+    )
+    bear_att = (
+        (zDomFast > tDomFast) & (zCount >= 2) & strongZRec & (close < ema20)
+    )
+    bear_weak = (
+        (zDomSlow > tDomSlow) & (zDomSlow >= 4.0) &
+        (tDomFast >= zDomFast * 0.70) & ~strongZRec
+    )
+    bull_weak = (
+        (tDomSlow > zDomSlow) & (tDomSlow >= 4.0) &
+        (zDomFast >= tDomFast * 0.70) & ~strongTRec
+    )
+
+    # Stateful forward-carry (Pine Script var int tzState)
+    n   = len(df)
+    bd  = bull_dom.fillna(False).to_numpy()
+    brd = bear_dom.fillna(False).to_numpy()
+    ba  = bull_att.fillna(False).to_numpy()
+    bra = bear_att.fillna(False).to_numpy()
+    bw  = bear_weak.fillna(False).to_numpy()
+    blw = bull_weak.fillna(False).to_numpy()
+
+    st = np.zeros(n, dtype=np.int8)
+    for i in range(1, n):
+        p = st[i - 1]
+        if   bd[i]:  st[i] = 3
+        elif brd[i]: st[i] = 0
+        elif ba[i]:  st[i] = 2
+        elif bra[i]: st[i] = 5
+        elif bw[i]:  st[i] = 1
+        elif blw[i]: st[i] = 4
+        else:        st[i] = p
+
+    return pd.Series(st, index=df.index, name="tz_state")

@@ -47,14 +47,33 @@ const SIG_GROUPS = [
   { key: 'nd',         label: 'ND',     cls: 'text-pink-300'    },
   { divider: true },
   // ── Combo ─────────────────────────────────────────────────────────────
-  { key: 'rocket',     label: '🚀',     cls: 'text-red-300'     },
   { key: 'buy_2809',   label: 'BUY',    cls: 'text-lime-400'    },
+  { key: 'rocket',     label: '🚀',     cls: 'text-red-300'     },
   { key: 'sig3g',      label: '3G',     cls: 'text-cyan-300'    },
   { key: 'rtv',        label: 'RTV',    cls: 'text-blue-300'    },
   { key: 'hilo_buy',   label: 'HILO↑', cls: 'text-green-300'   },
   { key: 'atr_brk',    label: 'ATR↑',  cls: 'text-emerald-300' },
   { key: 'bb_brk',     label: 'BB↑',   cls: 'text-teal-300'    },
   { key: 'bias_up',    label: '↑BIAS', cls: 'text-green-400'   },
+  { key: 'um_2809',    label: 'UM',     cls: 'text-teal-300'    },
+  { key: 'svs_2809',   label: 'SVS',    cls: 'text-orange-300'  },
+  { key: 'conso_2809', label: 'CON',    cls: 'text-yellow-300'  },
+  { divider: true },
+  // ── B signals (260410/260321) ─────────────────────────────────────────
+  { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
+  { key: 'ca',  label: 'CA',  cls: 'text-cyan-300'    },
+  { key: 'cw',  label: 'CW',  cls: 'text-yellow-300'  },
+  { key: 'b1',  label: 'B1',  cls: 'text-orange-400'  },
+  { key: 'b2',  label: 'B2',  cls: 'text-gray-300'    },
+  { key: 'b3',  label: 'B3',  cls: 'text-sky-300'     },
+  { key: 'b4',  label: 'B4',  cls: 'text-gray-300'    },
+  { key: 'b5',  label: 'B5',  cls: 'text-cyan-400'    },
+  { key: 'b6',  label: 'B6',  cls: 'text-gray-300'    },
+  { key: 'b7',  label: 'B7',  cls: 'text-green-400'   },
+  { key: 'b8',  label: 'B8',  cls: 'text-blue-400'    },
+  { key: 'b9',  label: 'B9',  cls: 'text-gray-300'    },
+  { key: 'b10', label: 'B10', cls: 'text-lime-400'    },
+  { key: 'b11', label: 'B11', cls: 'text-fuchsia-400' },
   { divider: true },
   // ── T/Z ───────────────────────────────────────────────────────────────
   { key: '_tz_bull',   label: 'T/Z↑',  cls: 'text-violet-300',
@@ -567,6 +586,23 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.bias_up   ? <Badge label="↑BIAS" cls="bg-green-900 text-green-300" /> : null}
                     {r.hilo_sell ? <Badge label="HILO↓" cls="bg-rose-900 text-rose-300" /> : null}
                     {r.bias_down ? <Badge label="↓BIAS" cls="bg-red-900 text-red-300" /> : null}
+                    {r.um_2809    ? <Badge label="UM"   cls="bg-teal-800 text-teal-200" /> : null}
+                    {r.svs_2809   ? <Badge label="SVS"  cls="bg-orange-800 text-orange-200" /> : null}
+                    {r.conso_2809 ? <Badge label="CON"  cls="bg-yellow-800/60 text-yellow-200" /> : null}
+                    {/* B confluences */}
+                    {r.cd ? <Badge label="CD" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-400" /> : r.ca ? <Badge label="CA" cls="bg-cyan-800 text-cyan-200 ring-1 ring-cyan-400" /> : r.cw ? <Badge label="CW" cls="bg-yellow-800/70 text-yellow-200 ring-1 ring-yellow-400" /> : null}
+                    {/* B1-B11 raw signals */}
+                    {r.b1  ? <Badge label="B1"  cls="bg-orange-800/60 text-orange-200" /> : null}
+                    {r.b2  ? <Badge label="B2"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.b3  ? <Badge label="B3"  cls="bg-sky-800/60 text-sky-200" /> : null}
+                    {r.b4  ? <Badge label="B4"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.b5  ? <Badge label="B5"  cls="bg-cyan-800/60 text-cyan-200" /> : null}
+                    {r.b6  ? <Badge label="B6"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.b7  ? <Badge label="B7"  cls="bg-green-800/60 text-green-200" /> : null}
+                    {r.b8  ? <Badge label="B8"  cls="bg-blue-800/60 text-blue-200" /> : null}
+                    {r.b9  ? <Badge label="B9"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.b10 ? <Badge label="B10" cls="bg-lime-800/60 text-lime-200" /> : null}
+                    {r.b11 ? <Badge label="B11" cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
                   </div>
                 </td>
 

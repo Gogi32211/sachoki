@@ -23,9 +23,9 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 import pandas as pd
 
-from signal_engine import compute_signals
+from signal_engine import compute_signals, compute_b_signals
 from wlnbb_engine  import compute_wlnbb
-from combo_engine  import compute_combo
+from combo_engine  import compute_combo, compute_tz_state
 from wick_engine   import compute_wick
 from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
@@ -97,10 +97,16 @@ _TURBO_COLS = [
     "abs_sig", "climb_sig", "load_sig",
     # Wyckoff
     "ns", "nd", "sc", "bc", "sq",
-    # Combo
+    # Combo / 2809
     "buy_2809", "rocket", "sig3g", "rtv",
     "hilo_buy", "hilo_sell", "atr_brk", "bb_brk",
     "bias_up", "bias_down", "cons_atr",
+    "um_2809", "svs_2809", "conso_2809",
+    # B signals (260410/260321)
+    "b1", "b2", "b3", "b4", "b5",
+    "b6", "b7", "b8", "b9", "b10", "b11",
+    # TZ state + confluences
+    "tz_state", "ca", "cd", "cw",
     # T/Z
     "tz_sig", "tz_bull",
     # WLNBB
@@ -247,6 +253,10 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("rtv"):      combo += 3
     if r.get("hilo_buy"): combo += 2
     if r.get("atr_brk") or r.get("bb_brk"): combo += 2
+    # B-signal confluences (CA=Bull Attempt+B, CD=Bull Dom+B, CW=Bear Weak+B)
+    if r.get("cd"):   combo += 5
+    elif r.get("ca"): combo += 3
+    elif r.get("cw"): combo += 2
     s += min(combo, 14)
 
     # ── L-structure / trend family (cap 13) ───────────────────────────────
@@ -420,6 +430,10 @@ def _scan_turbo_ticker(
         row["bias_up"]   = _sig(combo, "bias_up")
         row["bias_down"] = _sig(combo, "bias_down")
         row["cons_atr"]  = _sig(combo, "cons_atr")
+        # 2809 phase labels (UM/SVS/CONSO)
+        row["um_2809"]    = _sig(combo, "um_2809")
+        row["svs_2809"]   = _sig(combo, "svs_2809")
+        row["conso_2809"] = _sig(combo, "conso_2809")
         # PREUP — EMA cross ↑ (strongest = P66)
         row["preup66"]   = _sig(combo, "preup66")
         row["preup55"]   = _sig(combo, "preup55")
@@ -432,6 +446,19 @@ def _scan_turbo_ticker(
         row["predn3"]    = _sig(combo, "predn3")
         row["predn2"]    = _sig(combo, "predn2")
         row["predn50"]   = _sig(combo, "predn50")
+
+        # ── B signals (260410/260321) ──────────────────────────────────────
+        b_sigs = compute_b_signals(df)
+        for _b in range(1, 12):
+            row[f"b{_b}"] = _sig(b_sigs, f"b{_b}")
+        # ── TZ state machine + CA/CD/CW ────────────────────────────────────
+        tz_st = compute_tz_state(df)
+        row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
+        _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
+        _last_st = row["tz_state"]
+        row["ca"] = int(_any_b and _last_st == 2)  # Bull Attempt + B
+        row["cd"] = int(_any_b and _last_st == 3)  # Bull Dom + B
+        row["cw"] = int(_any_b and _last_st == 1)  # Bear Weakening + B
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)

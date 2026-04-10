@@ -222,3 +222,152 @@ def _norm(df: pd.DataFrame) -> pd.DataFrame:
 def ok3(sig_series: pd.Series) -> pd.Series:
     """True where any of the last 3 bars has a non-NONE signal."""
     return (sig_series != NONE).astype(int).rolling(3, min_periods=1).sum() > 0
+
+
+# ---------------------------------------------------------------------------
+# B1–B11  (260321_B_BUILDER / 260410_COMBO)
+# ---------------------------------------------------------------------------
+# Pine bc priority codes: T4=1,T6=2,T1G=3,T2G=4,T1=5,T2=6,T9=7,T10=8,T3=9,T11=10,T5=11
+# Pine zc priority codes: Z4=1,Z6=2,Z1G=3,Z2G=4,Z1=5,Z2=6,Z8=7,Z9=8,Z10=9,Z3=10,
+#                         Z11=11,Z5=12,Z12=13,Z7=14
+# These match bc_arr/zc_arr values from compute_signals() above.
+
+def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Compute B1–B11 buy patterns using T/Z signal combinations.
+    Returns DataFrame with boolean columns b1..b11.
+    """
+    sig  = compute_signals(df)
+    bc   = sig["bc"].fillna(0).astype(int)
+    zc   = sig["zc"].fillna(0).astype(int)
+    cls  = df["close"] if "close" in df.columns else df[df.columns[3]]
+    opn  = df["open"]  if "open"  in df.columns else df[df.columns[0]]
+
+    fv = 0  # fill_value for shifted series
+    bc1 = bc.shift(1, fill_value=fv).astype(int)
+    bc2 = bc.shift(2, fill_value=fv).astype(int)
+    bc3 = bc.shift(3, fill_value=fv).astype(int)
+    bc6 = bc.shift(6, fill_value=fv).astype(int)
+    zc1 = zc.shift(1, fill_value=fv).astype(int)
+    zc2 = zc.shift(2, fill_value=fv).astype(int)
+    zc3 = zc.shift(3, fill_value=fv).astype(int)
+    c1  = cls.shift(1)
+
+    # ── B1 ────────────────────────────────────────────────────────────────────
+    B1 = (
+        ((bc2==9)  & (bc==1)) |             # T3[2] T4
+        ((bc3==9)  & (bc==1)) |             # T3[3] T4
+        ((bc6==9)  & (bc==1)) |             # T3[6] T4
+        ((zc3==3)  & (bc==4)) |             # Z1G[3] T2G
+        ((zc1==4)  & (bc==1)) |             # Z2G[1] T4
+        ((zc1==2)  & (bc==1)) |             # Z6[1]  T4
+        ((bc2==10) & (bc==2)) |             # T11[2] T6
+        ((bc1==11) & (bc==6)) |             # T5[1]  T2
+        ((bc1==10) & (bc==1)) |             # T11[1] T4
+        ((bc1==10) & (bc==4)) |             # T11[1] T2G
+        ((zc2==11) & (zc1==4)  & (bc==9)) | # Z11[2] Z2G[1] T3
+        ((zc2==2)  & (zc1==6)  & (bc==5)) | # Z6[2]  Z2[1]  T1
+        ((bc1==5)  & (bc==4))               # T1[1]  T2G
+    )
+
+    # ── B2 ────────────────────────────────────────────────────────────────────
+    B2 = (
+        ((zc2==6)  & (bc1==3)  & (bc==6)) | # Z2[2]  T1G[1] T2
+        ((bc2==9)  & (bc1==4)  & (bc==6)) | # T3[2]  T2G[1] T2
+        ((bc2==6)  & (zc1==12) & (bc==1)) | # T2[2]  Z5[1]  T4
+        ((zc2==6)  & (bc1==9)  & (bc==6)) | # Z2[2]  T3[1]  T2
+        ((bc2==1)  & (bc1==8)  & (bc==4)) | # T4[2]  T10[1] T2G
+        ((zc2==6)  & (zc1==4)  & (bc==7)) | # Z2[2]  Z2G[1] T9
+        ((zc2==6)  & (bc1==7)  & (bc==1)) | # Z2[2]  T9[1]  T4
+        ((bc2==6)  & (zc1==5)  & (bc==1))   # T2[2]  Z1[1]  T4
+    )
+
+    # ── B3  (260321 — more complete) ──────────────────────────────────────────
+    _B3_strong2 = bc2.isin([3, 4, 1, 7, 11])  # T1G/T2G/T4/T9/T5 at bar[-2]
+    _B3_target  = bc.isin([7, 5, 9])           # T9/T1/T3 at current
+    B3 = (
+        ((bc2==2)  & (bc==5)) |              # T6[2] T1
+        ((bc1==9)  & (bc==2)) |              # T3[1] T6
+        ((zc2==10) & (zc1==6)  & (bc==9)) | # Z3[2] Z2[1] T3
+        ((zc2==10) & (bc1==9)  & (bc==6)) | # Z3[2] T3[1] T2
+        (_B3_strong2 & (zc1==1) & _B3_target) | # (T1G/T2G/T4/T9/T5)[2] Z4[1] (T9/T1/T3)
+        ((bc1==8)  & bc.isin([3, 4, 2, 6]))  # T10[1] (T1G/T2G/T6/T2)
+    )
+
+    # ── B4 ────────────────────────────────────────────────────────────────────
+    B4 = (
+        ((zc1==1) & (bc==3)) |                                     # Z4[1] T1G
+        (((zc2==4) | (bc2==11)) & ((bc1==1) | (bc1==3)) & (bc==4)) | # (Z2G/T5)[2] (T4/T1G)[1] T2G
+        ((zc2==1) & (bc1==5) & (bc==6))                            # Z4[2] T1[1] T2
+    )
+
+    # ── B5 ────────────────────────────────────────────────────────────────────
+    B5 = (
+        ((zc2==1)  & (bc1==11) & ((bc==6) | (bc==4))) | # Z4[2]  T5[1] (T2/T2G)
+        ((zc2==12) & (bc1==11) & (bc==4)) |              # Z5[2]  T5[1] T2G
+        ((zc2==4)  & (bc1==11) & (bc==4)) |              # Z2G[2] T5[1] T2G
+        ((zc2==6)  & (bc1==11) & (bc==2))                # Z2[2]  T5[1] T6
+    )
+
+    # ── B6 ────────────────────────────────────────────────────────────────────
+    B6 = (
+        ((zc2==3)  & (zc1==4)  & ((bc==3) | (bc==7))) | # Z1G[2] Z2G[1] (T1G/T9)
+        ((zc2==10) & (zc1==4)  & (bc==3)) |              # Z3[2]  Z2G[1] T1G
+        (((zc2==6) | (zc2==12) | (zc2==4)) & (bc1==7) & (bc==2)) # (Z2/Z5/Z2G)[2] T9[1] T6
+    )
+
+    # ── B7 ────────────────────────────────────────────────────────────────────
+    B7 = (
+        ((zc2==12) & (zc1==6) & (bc==5)) | # Z5[2] Z2[1] T1
+        ((bc2==7)  & (bc1==6) & (bc==6)) | # T9[2] T2[1] T2
+        ((bc1==5)  & (bc==6)) |             # T1[1] T2
+        ((bc1==7)  & (bc==4)) |             # T9[1] T2G
+        ((bc1==7)  & (bc==1)) |             # T9[1] T4
+        ((bc1==7)  & (bc==6)) |             # T9[1] T2
+        ((bc1==6)  & (bc==4)) |             # T2[1] T2G
+        ((bc1==1)  & (bc==4)) |             # T4[1] T2G
+        ((bc1==3)  & (bc==4))               # T1G[1] T2G
+    )
+
+    # ── B8  (260321 version with T1G[2] T1G) ─────────────────────────────────
+    B8 = (
+        ((bc2==3)  & (bc==3)) |              # T1G[2] T1G
+        ((zc2==4)  & (bc==3)) |              # Z2G[2] T1G
+        (((zc1==4) | (zc1==3)) & (bc==3)) |  # (Z2G/Z1G)[1] T1G
+        ((zc2==3)  & (bc==3)) |              # Z1G[2] T1G
+        ((zc2==2)  & (bc==3)) |              # Z6[2]  T1G
+        ((bc2==7)  & (zc1==8) & (bc==9))     # T9[2]  Z9[1]  T3
+    )
+
+    # ── B9 ────────────────────────────────────────────────────────────────────
+    B9 = (
+        ((zc1==8)  & (bc==1)) |                                         # Z9[1] T4
+        ((zc3==9)  & (zc2==4) & (bc1==7) & (cls > opn))  # Z10[3] Z2G[2] T9[1] close>open
+    )
+
+    # ── B10 ───────────────────────────────────────────────────────────────────
+    B10_s1 = (
+        ((zc2==9)  & (zc1==4)  & (bc==5)) |  # Z10[2] Z2G[1] T1
+        ((zc1==9)  & ((bc==5)  | (bc==1))) |  # Z10[1] (T1/T4)
+        ((zc2==9)  & (zc1==11) & (zc==14)) |  # Z10[2] Z11[1] Z7
+        ((zc2==9)  & (zc1==4)  & (bc==3))     # Z10[2] Z2G[1] T1G
+    )
+    B10_s2 = ((zc2==9) & ((zc1==2) | (bc1==7)) & ((bc==5) | (bc==2)))
+    B10_s3 = (((zc2==2) | (zc2==4)) & (zc1==9) & ((bc==3) | (bc==2)))
+    B10 = B10_s1 | B10_s2 | B10_s3
+
+    # ── B11  (260321 version with extra seq) ─────────────────────────────────
+    B11 = (
+        ((zc1==11) & ((bc==5)  | (bc==1))) |  # Z11[1] (T1/T4)
+        ((bc2==9)  & (bc1==10) & (bc==6)) |   # T3[2]  T11[1] T2
+        ((zc2==10) & (zc1==9)  & (zc==11)) |  # Z3[2]  Z10[1] Z11
+        ((zc2==8)  & (zc1==9)  & (cls > c1)) | # Z9[2]  Z10[1] close>close[1]
+        ((zc2==2)  & (zc1==9)  & (cls > c1)) | # Z6[2]  Z10[1] close>close[1]
+        (((bc3==9) | (bc3==1)) & (zc2==1) & (zc1==6) & ((bc==7) | (bc==3)))  # (T3/T4)[3] Z4[2] Z2[1] (T9/T1G)
+    )
+
+    return pd.DataFrame(
+        {"b1": B1, "b2": B2, "b3": B3, "b4": B4, "b5": B5,
+         "b6": B6, "b7": B7, "b8": B8, "b9": B9, "b10": B10, "b11": B11},
+        index=df.index,
+    ).fillna(False)
