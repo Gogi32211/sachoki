@@ -823,12 +823,13 @@ def get_turbo_results(
         if cci_max < 9999:
             where += " AND cci <= ?"; params.append(cci_max)
 
+        con.row_factory = sqlite3.Row
         rows = con.execute(
-            f"SELECT {_QUERY_COLS} FROM turbo_scan_results WHERE {where} "
+            f"SELECT * FROM turbo_scan_results WHERE {where} "
             f"ORDER BY turbo_score DESC LIMIT ?",
             params + [limit],
         ).fetchall()
-        return [dict(zip(_QUERY_KEYS, r)) for r in rows]
+        return [dict(r) for r in rows]
     finally:
         con.close()
 

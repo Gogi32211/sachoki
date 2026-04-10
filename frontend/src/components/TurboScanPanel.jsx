@@ -252,6 +252,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
   const [lookbackN,  setLookbackN]  = useState(5)
+  const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
 
   const load = (tf = localTf, uni = universe) => {
     api.turboScan(10000, 0, 'all', tf, uni)
@@ -307,8 +308,21 @@ export default function TurboScanPanel({ onSelectTicker }) {
     return n
   })
 
+  const togglePicked = (ticker, e) => {
+    e.stopPropagation()
+    setPickedTickers(prev => {
+      const n = new Set(prev)
+      n.has(ticker) ? n.delete(ticker) : n.add(ticker)
+      return n
+    })
+  }
+
   const exportTickers = () => {
-    const tickers = results.map(r => r.ticker).join(',')
+    // if specific rows are checked export those; else export all visible (filtered)
+    const src = pickedTickers.size > 0
+      ? results.filter(r => pickedTickers.has(r.ticker))
+      : results
+    const tickers = src.map(r => r.ticker).join(',')
     navigator.clipboard.writeText(tickers).then(() => {
       setExported(true)
       setTimeout(() => setExported(false), 2000)
@@ -395,15 +409,29 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
         {/* Export button */}
         <button onClick={exportTickers} disabled={results.length === 0}
-          title="Copy tickers to clipboard (TradingView watchlist)"
+          title={pickedTickers.size > 0 ? `Copy ${pickedTickers.size} selected tickers` : 'Copy all visible tickers (TradingView watchlist)'}
           className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
             ${exported
               ? 'border-lime-500 text-lime-300 bg-lime-900/30'
               : results.length === 0
                 ? 'border-gray-700 text-gray-600 cursor-not-allowed'
-                : 'border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white'}`}>
-          {exported ? '✓ Copied' : '⬇ Export'}
+                : pickedTickers.size > 0
+                  ? 'border-yellow-500 text-yellow-300 bg-yellow-900/20 hover:border-yellow-400'
+                  : 'border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white'}`}>
+          {exported
+            ? '✓ Copied'
+            : pickedTickers.size > 0
+              ? `⬇ Export (${pickedTickers.size})`
+              : '⬇ Export'}
         </button>
+        {/* Clear selection */}
+        {pickedTickers.size > 0 && (
+          <button onClick={() => setPickedTickers(new Set())}
+            className="px-2 py-0.5 rounded text-xs text-gray-500 hover:text-red-400 transition-colors"
+            title="Clear row selection">
+            ✕ deselect
+          </button>
+        )}
 
         {/* Direction */}
         <div className="flex gap-0.5">
@@ -507,6 +535,15 @@ export default function TurboScanPanel({ onSelectTicker }) {
         <table className="w-full border-collapse">
           <thead className="sticky top-0 bg-gray-900 z-10 text-gray-500 text-left">
             <tr>
+              <th className="px-2 py-1.5 w-5">
+                <input type="checkbox" className="accent-indigo-500 cursor-pointer"
+                  title="Select/deselect all visible"
+                  checked={results.length > 0 && results.every(r => pickedTickers.has(r.ticker))}
+                  onChange={e => {
+                    if (e.target.checked) setPickedTickers(new Set(results.map(r => r.ticker)))
+                    else setPickedTickers(new Set())
+                  }} />
+              </th>
               <SortTh col="ticker">Ticker</SortTh>
               <SortTh col="turbo_score" cls="text-center">Score</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
@@ -526,6 +563,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <tr key={r.ticker}
                 className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(r.turbo_score)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}>
+
+                {/* Checkbox */}
+                <td className="px-2 py-1 w-5" onClick={e => e.stopPropagation()}>
+                  <input type="checkbox" className="accent-indigo-500 cursor-pointer"
+                    checked={pickedTickers.has(r.ticker)}
+                    onChange={e => togglePicked(r.ticker, e)} />
+                </td>
 
                 {/* Ticker */}
                 <td className="px-2 py-1 font-mono font-semibold text-blue-300">

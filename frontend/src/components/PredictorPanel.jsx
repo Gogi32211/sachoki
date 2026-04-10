@@ -191,9 +191,20 @@ const SOURCES = [
 
 const UNIVERSES_POOL = ['sp500', 'nasdaq', 'russell2k']
 
+// ── localStorage cache helpers ────────────────────────────────────────────────
+const _lsKey = (type, ticker, tf, uni = '') =>
+  `sachoki_pred_${type}_${ticker}_${tf}${uni ? '_' + uni : ''}`
+
+const _lsGet = (key) => {
+  try { return JSON.parse(localStorage.getItem(key) || 'null') } catch { return null }
+}
+const _lsSet = (key, val) => {
+  try { localStorage.setItem(key, JSON.stringify(val)) } catch {}
+}
+
 export default function PredictorPanel({ ticker, tf }) {
-  const [tickerData, setTickerData] = useState(null)
-  const [pooledData, setPooledData] = useState(null)
+  const [tickerData, setTickerData] = useState(() => _lsGet(_lsKey('tz', ticker, tf)))
+  const [pooledData, setPooledData] = useState(() => _lsGet(_lsKey('pool', ticker, tf, 'sp500')))
   const [loading,    setLoading]    = useState(false)
   const [error,      setError]      = useState(null)
   const [source,     setSource]     = useState('both')
@@ -204,7 +215,10 @@ export default function PredictorPanel({ ticker, tf }) {
     setError(null)
     setLoading(true)
     api.predict(ticker, tf)
-      .then(setTickerData)
+      .then(d => {
+        setTickerData(d)
+        _lsSet(_lsKey('tz', ticker, tf), d)
+      })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
   }, [ticker, tf])
@@ -212,12 +226,27 @@ export default function PredictorPanel({ ticker, tf }) {
   const fetchPooled = useCallback(() => {
     if (!ticker) return
     api.pooledPredict(ticker, tf, poolUni)
-      .then(d => { if (!d.error) setPooledData(d) })
+      .then(d => {
+        if (!d.error) {
+          setPooledData(d)
+          _lsSet(_lsKey('pool', ticker, tf, poolUni), d)
+        }
+      })
       .catch(() => {})
   }, [ticker, tf, poolUni])
 
-  useEffect(() => { fetchTicker() }, [fetchTicker])
-  useEffect(() => { fetchPooled() }, [fetchPooled])
+  // Restore cached data when ticker/tf/poolUni changes, then fetch fresh in background
+  useEffect(() => {
+    const cached = _lsGet(_lsKey('tz', ticker, tf))
+    if (cached) setTickerData(cached)
+    fetchTicker()
+  }, [fetchTicker])
+
+  useEffect(() => {
+    const cached = _lsGet(_lsKey('pool', ticker, tf, poolUni))
+    if (cached) setPooledData(cached)
+    fetchPooled()
+  }, [fetchPooled])
 
   const empty = { pattern: '', signals: '', total_matches: 0, top_outcomes: [] }
   const td = tickerData
@@ -234,6 +263,13 @@ export default function PredictorPanel({ ticker, tf }) {
         <span className="font-semibold text-sm">Next-Bar Predictor — {ticker}</span>
         <div className="flex items-center gap-2">
           {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
+          {!loading && (
+            <button onClick={() => { fetchTicker(); fetchPooled() }}
+              title="Refresh predictions"
+              className="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-400 hover:text-white transition-colors">
+              ↺
+            </button>
+          )}
           {error   && <span className="text-xs text-red-400">{error}</span>}
 
           {/* Pool universe selector */}
