@@ -127,7 +127,7 @@ _TURBO_COLS = [
     # Wick (3112_2C legacy confirm)
     "wick_bull", "wick_bear",
     # Wick X signals (260402_WICK)
-    "x2g_wick", "x1x_wick", "x3_wick",
+    "x2g_wick", "x2_wick", "x1g_wick", "x1_wick", "x3_wick",
     # CISD
     "cisd_ppm", "cisd_seq",
     # BR
@@ -310,9 +310,11 @@ def _calc_turbo_score(r: dict) -> float:
     s += min(ema_x, 8)
 
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
-    if r.get("x2g_wick"):   s += 5   # strongest wick-filtered reversal
-    elif r.get("x1x_wick"): s += 4   # reversal from bearish prior bar
-    elif r.get("x3_wick"):  s += 2   # generic wick-shape alignment
+    if r.get("x2g_wick"):        s += 5   # X2G: gap-open continuation, both wicks aligned
+    elif r.get("x2_wick"):      s += 4   # X2:  inside-open continuation, wicks aligned
+    elif r.get("x1g_wick"):     s += 4   # X1G: gap-open reversal from bearish bar
+    elif r.get("x1_wick"):      s += 3   # X1:  inside-open reversal from bearish bar
+    elif r.get("x3_wick"):      s += 2   # X3:  generic wick alignment
     if r.get("wick_bull"):  s += 3   # legacy 2-candle confirm
     if r.get("cisd_ppm"):   s += 2
     elif r.get("cisd_seq"): s += 1
@@ -528,10 +530,12 @@ def _scan_turbo_ticker(
         try:
             wx = compute_wick_x(df)
             row["x2g_wick"] = _sig(wx, "x2g_wick")
-            row["x1x_wick"] = _sig(wx, "x1x_wick")
+            row["x2_wick"]  = _sig(wx, "x2_wick")
+            row["x1g_wick"] = _sig(wx, "x1g_wick")
+            row["x1_wick"]  = _sig(wx, "x1_wick")
             row["x3_wick"]  = _sig(wx, "x3_wick")
         except Exception:
-            row["x2g_wick"] = row["x1x_wick"] = row["x3_wick"] = 0
+            row["x2g_wick"] = row["x2_wick"] = row["x1g_wick"] = row["x1_wick"] = row["x3_wick"] = 0
 
         # ── CISD ───────────────────────────────────────────────────────────
         cisd   = compute_cisd(df)

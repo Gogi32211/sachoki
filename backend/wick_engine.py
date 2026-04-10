@@ -180,20 +180,28 @@ def compute_wick_x(df: pd.DataFrame, wick_mult: float = 2.0) -> pd.DataFrame:
     x1g_raw = is_bear1 & (o > c1) & (o > o1) & (c > o1) & is_bull
     x1_raw  = is_bear1 & (o >= c1) & (o1 >= o) & (c > o1) & is_bull
 
-    # ── Final signals ────────────────────────────────────────────────────────
-    x2g_wick = ((x2g_raw | x2_raw) & wc_prev & wc_curr) | (x2g_raw & wc_prev_bull & wc_curr)
-    x1x_wick = (x1g_raw | x1_raw) & wc_prev
-    x3_wick  = wc_curr & (wc_prev | wc_prev2) & is_bull
+    # ── Final composite booleans (matching Pine X2G_WICK / X1X_WICK) ────────
+    x2g_wick_all = ((x2g_raw | x2_raw) & wc_prev & wc_curr) | (x2g_raw & wc_prev_bull & wc_curr)
+    x1x_wick_all = (x1g_raw | x1_raw) & wc_prev
+    x3_wick      = wc_curr & (wc_prev | wc_prev2) & is_bull
+
+    # Split into individual variant columns (matching Pine plotshape labels)
+    x2g_wick = x2g_wick_all &  x2g_raw          # X2G: gap-open continuation
+    x2_wick  = x2g_wick_all & ~x2g_raw           # X2:  inside-open continuation
+    x1g_wick = x1x_wick_all &  x1g_raw           # X1G: gap-open reversal
+    x1_wick  = x1x_wick_all & ~x1g_raw           # X1:  inside-open reversal
 
     # Zero out first 2 bars (roll artifacts)
-    for arr in (x2g_wick, x1x_wick, x3_wick):
+    for arr in (x2g_wick, x2_wick, x1g_wick, x1_wick, x3_wick):
         arr[:2] = False
 
     out = pd.DataFrame(index=df.index)
     out["x2g_wick"] = x2g_wick.astype(int)
-    out["x1x_wick"] = x1x_wick.astype(int)
-    # X3 only fires when neither X2G nor X1X fires (per Pine display logic)
-    out["x3_wick"]  = (x3_wick & ~x2g_wick & ~x1x_wick).astype(int)
+    out["x2_wick"]  = x2_wick.astype(int)
+    out["x1g_wick"] = x1g_wick.astype(int)
+    out["x1_wick"]  = x1_wick.astype(int)
+    # X3 only fires when neither X2G/X2 nor X1X fires (per Pine display logic)
+    out["x3_wick"]  = (x3_wick & ~x2g_wick_all & ~x1x_wick_all).astype(int)
     return out
 
 

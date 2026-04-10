@@ -125,10 +125,12 @@ const SIG_GROUPS = [
   { key: 'pre_pump',      label: 'PP',       cls: 'text-yellow-400'   },
   { divider: true },
   // ── Wick / CISD ───────────────────────────────────────────────────────
-  { key: 'x2g_wick',   label: 'X2G',    cls: 'text-cyan-300'    },
-  { key: 'x1x_wick',   label: 'X1G',    cls: 'text-lime-300'    },
-  { key: 'x3_wick',    label: 'X3',     cls: 'text-yellow-300'  },
-  { key: 'wick_bull',  label: 'WK↑',    cls: 'text-emerald-400' },
+  { key: 'x2g_wick',  label: 'X2G',  cls: 'text-cyan-300'    },
+  { key: 'x2_wick',   label: 'X2',   cls: 'text-sky-300'     },
+  { key: 'x1g_wick',  label: 'X1G',  cls: 'text-lime-300'    },
+  { key: 'x1_wick',   label: 'X1',   cls: 'text-green-300'   },
+  { key: 'x3_wick',   label: 'X3',   cls: 'text-yellow-300'  },
+  { key: 'wick_bull', label: 'WK↑',  cls: 'text-emerald-400' },
   { key: 'cisd_ppm',   label: 'C+-',    cls: 'text-green-300'   },
   { key: 'cisd_seq',   label: 'C+--',   cls: 'text-lime-300'    },
   { divider: true },
@@ -737,9 +739,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.fuchsia_rh       ? <Badge label="RH"    cls="text-fuchsia-400 bg-fuchsia-900/30" /> : null}
                     {r.fuchsia_rl       ? <Badge label="RL"    cls="text-fuchsia-300 bg-fuchsia-900/20" /> : null}
                     {r.pre_pump         ? <Badge label="PP"    cls="text-yellow-400 bg-yellow-900/30" /> : null}
-                    {r.x2g_wick         ? <Badge label="X2G"   cls="text-cyan-200 bg-cyan-800/60 ring-1 ring-cyan-400 font-bold" /> : null}
-                    {r.x1x_wick && !r.x2g_wick ? <Badge label="X1G" cls="text-lime-200 bg-lime-800/50 ring-1 ring-lime-400" /> : null}
-                    {r.x3_wick          ? <Badge label="X3"    cls="text-yellow-300 bg-yellow-900/40" /> : null}
+                    {r.x2g_wick ? <Badge label="X2G" cls="text-cyan-200 bg-cyan-800/60 ring-1 ring-cyan-400 font-bold" /> : null}
+                    {r.x2_wick  ? <Badge label="X2"  cls="text-sky-200 bg-sky-800/50" /> : null}
+                    {r.x1g_wick ? <Badge label="X1G" cls="text-lime-200 bg-lime-800/50 ring-1 ring-lime-400" /> : null}
+                    {r.x1_wick  ? <Badge label="X1"  cls="text-green-200 bg-green-800/40" /> : null}
+                    {r.x3_wick  ? <Badge label="X3"  cls="text-yellow-300 bg-yellow-900/40" /> : null}
                     {r.wick_bull        ? <Badge label="WK↑"   cls="text-emerald-300 bg-emerald-900/30" /> : null}
                     {r.cisd_ppm         ? <Badge label="C++-"  cls="text-green-300 bg-green-900/30" /> : null}
                     {r.cisd_seq         ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}
