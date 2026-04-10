@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState, useCallback, useRef } from 'react'
 import { api } from '../api'
 
 // ── T/Z outcome table ─────────────────────────────────────────────────────────
@@ -122,9 +122,17 @@ function LOutcomeTable({ data, title, color, pooled = false }) {
 
 // ── Pooled stats status bar ────────────────────────────────────────────────────
 function PooledStatusBar({ universe, interval, onBuildDone }) {
-  const [status, setStatus] = useState(null)
+  const [status,   setStatus]   = useState(null)
   const [building, setBuilding] = useState(false)
-  const [error, setError] = useState(null)
+  const [error,    setError]    = useState(null)
+  const autoTriggered = useRef(false)
+
+  const build = useCallback((silent = false) => {
+    if (!silent) setError(null)
+    api.pooledStatsBuild(universe, interval, 2000)
+      .then(() => { setBuilding(true) })
+      .catch(e => { if (!silent) setError(e.message) })
+  }, [universe, interval])
 
   const fetchStatus = useCallback(() => {
     api.pooledStatsStatus(universe, interval).then(s => {
@@ -135,18 +143,20 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
       } else if (building) {
         setBuilding(false)
         onBuildDone?.()
+      } else if (!s.data?.available && !autoTriggered.current) {
+        // auto-build silently when stats are missing (e.g. after Railway restart)
+        autoTriggered.current = true
+        build(true)
+        setTimeout(fetchStatus, 4000)
       }
     }).catch(() => {})
-  }, [universe, interval, building])
+  }, [universe, interval, building, build])
 
-  useEffect(() => { fetchStatus() }, [universe, interval])
-
-  const build = () => {
-    setError(null)
-    api.pooledStatsBuild(universe, interval, 2000)
-      .then(() => { setBuilding(true); setTimeout(fetchStatus, 3000) })
-      .catch(e => setError(e.message))
-  }
+  // Reset auto-trigger flag when universe/interval changes
+  useEffect(() => {
+    autoTriggered.current = false
+    fetchStatus()
+  }, [universe, interval])
 
   const data = status?.data
   const job  = status?.job
@@ -158,23 +168,26 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
         <>
           <span className="text-lime-400">✓ Built</span>
           <span className="text-gray-500">
-            {data.ticker_count} tickers{data.ticker_count < 2100 ? ' (random sample)' : ''} · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
+            {data.ticker_count} tickers · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
           </span>
           <span className="text-gray-600">
             {data.built_at ? new Date(data.built_at).toLocaleString() : ''}
           </span>
         </>
       ) : (
-        <span className="text-yellow-500">Not built yet</span>
+        <span className="text-yellow-500">
+          {job?.running || building ? 'Building…' : 'Not built yet'}
+        </span>
       )}
-      {job?.running ? (
+      {(job?.running || building) ? (
         <span className="text-violet-400 animate-pulse">
-          ⚡ Building… {job.done}/{job.total} tickers ({job.elapsed}s)
+          ⚡ {job?.done ?? '…'}/{job?.total ?? '…'} tickers
+          {job?.elapsed ? ` (${job.elapsed}s)` : ''}
         </span>
       ) : (
-        <button onClick={build}
+        <button onClick={() => build(false)}
           className="px-2 py-0.5 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium ml-1">
-          {data?.available ? '↺ Rebuild' : '⚡ Build SP500 Stats'}
+          {data?.available ? '↺ Rebuild' : '⚡ Build'}
         </button>
       )}
       {error && <span className="text-red-400">{error}</span>}

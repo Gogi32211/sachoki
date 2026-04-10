@@ -52,6 +52,21 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
+    # Auto-build pooled stats for sp500 1d on startup if not present
+    try:
+        from pooled_stats import get_pooled_status, build_pooled_stats, get_pooled_state
+        status = get_pooled_status("sp500", "1d")
+        if not status.get("available") and not get_pooled_state().get("running"):
+            import threading
+            log.info("Pooled stats not found — auto-building sp500 1d in background")
+            threading.Thread(
+                target=build_pooled_stats,
+                args=("sp500", "1d", 6, 2000),
+                daemon=True,
+            ).start()
+    except Exception as exc:
+        log.warning("Auto-build pooled stats failed: %s", exc)
+
     yield
 
     if scheduler and scheduler.running:
