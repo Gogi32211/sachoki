@@ -261,8 +261,14 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
-  const [lookbackN,  setLookbackN]  = useState(5)
+  const [lookbackN,  setLookbackN]  = useState(1)
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
+
+  // which TFs have a cache entry for current universe
+  const tfCached = useMemo(
+    () => Object.fromEntries(TF_OPTS.map(t => [t, !!_tsGet(t, universe)?.results?.length])),
+    [universe, allResults]  // re-check when results change (after scan saves cache)
+  )
 
   const load = (tf = localTf, uni = universe) => {
     // show cached data immediately while fetching
@@ -275,9 +281,17 @@ export default function TurboScanPanel({ onSelectTicker }) {
       .then(d => {
         const results = d.results || []
         const ls = d.last_scan
-        setAllResults(results)
-        setLastScan(ls)
-        _tsSet(tf, uni, { results, lastScan: ls })
+        if (results.length > 0) {
+          // backend has real data — use it and refresh cache
+          setAllResults(results)
+          setLastScan(ls)
+          _tsSet(tf, uni, { results, lastScan: ls })
+        } else if (!cached?.results?.length) {
+          // no cache AND no backend data — show empty
+          setAllResults([])
+          setLastScan(null)
+        }
+        // else: backend returned empty but cache exists → keep showing cache
       })
       .catch(e => setError(e.message))
   }
@@ -285,31 +299,46 @@ export default function TurboScanPanel({ onSelectTicker }) {
   useEffect(() => { load(localTf, universe) }, [localTf, universe])
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
+  // ── Effective score column based on selected N ────────────────────────────
+  const effectiveScoreCol = lookbackN >= 10 ? 'turbo_score_n10'
+                          : lookbackN >= 5  ? 'turbo_score_n5'
+                          : 'turbo_score'
+
   // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
     const filtered = allResults.filter(r => {
-      if (r.turbo_score < minScore) return false
+      // score threshold against N-appropriate score
+      const score = r[effectiveScoreCol] ?? r.turbo_score ?? 0
+      if (score < minScore) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
+        // parse ages once per row (cached on the object)
+        if (!r._ages && r.sig_ages) {
+          try { r._ages = JSON.parse(r.sig_ages) } catch { r._ages = {} }
+        }
+        const ages = r._ages || {}
         const ok = [...selSigs].every(k => {
           const sig = SIG_GROUPS.find(s => !s.divider && s.key === k)
-          return sig?.custom ? sig.custom(r) : !!r[k]
+          if (sig?.custom) return sig.custom(r)
+          if (lookbackN > 1 && k in ages) return ages[k] < lookbackN
+          return !!r[k]
         })
         if (!ok) return false
       }
       return true
     })
-    // sort
+    // sort: use N-appropriate score column when sorting by score
     const mul = sortDir === 'asc' ? 1 : -1
     filtered.sort((a, b) => {
-      const av = a[sortBy] ?? 0
-      const bv = b[sortBy] ?? 0
+      const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
+      const av = a[col] ?? 0
+      const bv = b[col] ?? 0
       if (typeof av === 'string') return mul * av.localeCompare(bv)
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, sortBy, sortDir])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -410,13 +439,17 @@ export default function TurboScanPanel({ onSelectTicker }) {
       {/* ── Row 1: TF + Scan + Direction + Score ── */}
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-800">
 
-        {/* TF selector */}
+        {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
           {TF_OPTS.map(t => (
             <button key={t} onClick={() => setLocalTf(t)}
-              className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
+              title={tfCached[t] ? `${t.toUpperCase()} — cached (instant)` : `${t.toUpperCase()} — no cache, scan first`}
+              className={`relative px-2 py-0.5 rounded text-xs font-medium transition-colors
                 ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
               {t.toUpperCase()}
+              {tfCached[t] && (
+                <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-green-400" />
+              )}
             </button>
           ))}
         </div>
@@ -477,15 +510,15 @@ export default function TurboScanPanel({ onSelectTicker }) {
           ))}
         </div>
 
-        {/* Last N bars selector */}
-        <div className="flex items-center gap-0.5 ml-1">
+        {/* N= lookback selector — client-side, no rescan needed */}
+        <div className="flex items-center gap-0.5 ml-1" title="Signal lookback window — no rescan needed">
           <span className="text-gray-500 text-xs mr-0.5">N=</span>
-          {[1, 3, 5, 10].map(n => (
+          {[1, 5, 10].map(n => (
             <button key={n} onClick={() => setLookbackN(n)}
               className={`px-2 py-0.5 rounded text-xs transition-colors
                 ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-              title={`Check last ${n} bar${n > 1 ? 's' : ''} for signals`}>
-              {n}
+              title={n === 1 ? 'Current bar only' : `Signal fired in last ${n} bars`}>
+              {n}d
             </button>
           ))}
         </div>
@@ -567,7 +600,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   }} />
               </th>
               <SortTh col="ticker">Ticker</SortTh>
-              <SortTh col="turbo_score" cls="text-center">Score</SortTh>
+              <SortTh col="turbo_score" cls="text-center">
+                Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
+              </SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
@@ -583,7 +618,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           <tbody>
             {results.map(r => (
               <tr key={r.ticker}
-                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(r.turbo_score)}`}
+                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(r[effectiveScoreCol] ?? r.turbo_score ?? 0)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}>
 
                 {/* Checkbox */}
@@ -601,11 +636,16 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   )}
                 </td>
 
-                {/* Score */}
+                {/* Score — shows N-appropriate score */}
                 <td className="px-2 py-1 text-center" title={scoreReason(r)}>
-                  <div className={`font-mono font-bold text-sm ${scoreColor(r.turbo_score)}`}>
-                    {fmt(r.turbo_score, 1)}
-                  </div>
+                  {(() => {
+                    const sc = r[effectiveScoreCol] ?? r.turbo_score ?? 0
+                    return (
+                      <div className={`font-mono font-bold text-sm ${scoreColor(sc)}`}>
+                        {fmt(sc, 1)}
+                      </div>
+                    )
+                  })()}
                   <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
                     {scoreReason(r)}
                   </div>
