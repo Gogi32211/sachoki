@@ -602,8 +602,9 @@ def api_admin_scan_history():
             SELECT id, tf, universe, started_at, completed_at, result_count
             FROM turbo_scan_runs ORDER BY id DESC LIMIT 20
         """).fetchall()
-        return [{"id": r[0], "tf": r[1], "universe": r[2],
-                 "started_at": r[3], "completed_at": r[4], "result_count": r[5]}
+        return [{"id": r["id"], "tf": r["tf"], "universe": r["universe"],
+                 "started_at": r["started_at"], "completed_at": r["completed_at"],
+                 "result_count": r["result_count"]}
                 for r in rows]
     finally:
         con.close()

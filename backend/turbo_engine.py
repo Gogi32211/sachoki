@@ -14,7 +14,6 @@ turbo_score tiers:
 from __future__ import annotations
 
 import os
-import sqlite3
 import logging
 import time
 from datetime import datetime, timezone
@@ -23,6 +22,8 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import json
 import numpy as np
 import pandas as pd
+
+from db import get_db, USE_PG, pk_col
 
 from signal_engine import compute_signals, compute_b_signals
 from wlnbb_engine  import compute_wlnbb
@@ -36,7 +37,6 @@ from delta_engine   import compute_delta
 from wyckoff_engine import compute_wyckoff_accum, compute_wyckoff_dist
 
 log = logging.getLogger(__name__)
-DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # ── Progress ──────────────────────────────────────────────────────────────────
 _turbo_state: dict = {
@@ -169,11 +169,8 @@ _TURBO_COLS = [
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def _db() -> sqlite3.Connection:
-    con = sqlite3.connect(DB_PATH, timeout=30)
-    con.execute("PRAGMA journal_mode=WAL")
-    con.execute("PRAGMA busy_timeout=30000")
-    return con
+def _db():
+    return get_db()
 
 
 def _col_def(c: str) -> str:
@@ -185,11 +182,12 @@ def _col_def(c: str) -> str:
 
 
 def _init_db() -> None:
-    con = _db()
+    con = get_db()
     cols_sql = "\n".join(_col_def(c) for c in _TURBO_COLS)
+    _pk = pk_col()
     con.executescript(f"""
         CREATE TABLE IF NOT EXISTS turbo_scan_runs (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           {_pk},
             tf           TEXT    DEFAULT '1d',
             universe     TEXT    DEFAULT 'sp500',
             started_at   TEXT,
@@ -197,7 +195,7 @@ def _init_db() -> None:
             result_count INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS turbo_scan_results (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         {_pk},
             scan_id    INTEGER,
             ticker     TEXT NOT NULL,
 {cols_sql}
@@ -206,14 +204,15 @@ def _init_db() -> None:
             scanned_at TEXT
         );
     """)
+    con.commit()
     # migration: add any missing columns
-    existing = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_results)").fetchall()}
+    existing = con.table_columns("turbo_scan_results")
     for col in _TURBO_COLS:
         if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket") else "REAL" if col in ("turbo_score", "br_score", "rsi", "cci") else "INTEGER"
-            default = "''" if col in ("tz_sig", "vol_bucket") else "0"
+            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci") else "INTEGER"
+            default = "''" if col in ("tz_sig", "vol_bucket", "sig_ages") else "0"
             con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
-    run_cols = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_runs)").fetchall()}
+    run_cols = con.table_columns("turbo_scan_runs")
     if "tf" not in run_cols:
         con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
     if "universe" not in run_cols:
@@ -926,8 +925,9 @@ def run_turbo_scan(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
+    _ret = " RETURNING id" if USE_PG else ""
     scan_id = con.execute(
-        "INSERT INTO turbo_scan_runs (tf, universe, started_at) VALUES (?, ?, ?)",
+        f"INSERT INTO turbo_scan_runs (tf, universe, started_at) VALUES (?, ?, ?){_ret}",
         (interval, universe, now_iso),
     ).lastrowid
     con.commit()
@@ -1042,7 +1042,7 @@ def get_turbo_results(
         ).fetchone()
         if not row:
             return []
-        scan_id = row[0]
+        scan_id = row["id"]
 
         where  = "scan_id = ? AND turbo_score >= ?"
         params: list = [scan_id, min_score]
@@ -1065,13 +1065,12 @@ def get_turbo_results(
         if cci_max < 9999:
             where += " AND cci <= ?"; params.append(cci_max)
 
-        con.row_factory = sqlite3.Row
         rows = con.execute(
             f"SELECT * FROM turbo_scan_results WHERE {where} "
             f"ORDER BY turbo_score DESC LIMIT ?",
             params + [limit],
         ).fetchall()
-        return [dict(r) for r in rows]
+        return rows
     finally:
         con.close()
 
@@ -1084,6 +1083,6 @@ def get_last_turbo_scan_time(tf: str = "1d", universe: str = "sp500") -> str | N
             "SELECT completed_at FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
             (tf, universe),
         ).fetchone()
-        return row[0] if row else None
+        return row["completed_at"] if row else None
     finally:
         con.close()
