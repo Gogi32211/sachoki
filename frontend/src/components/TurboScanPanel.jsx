@@ -73,6 +73,7 @@ const SIG_GROUPS = [
   { key: 'hilo_buy',   label: 'HILO↑', cls: 'text-green-300'   },
   { key: 'atr_brk',    label: 'ATR↑',  cls: 'text-emerald-300' },
   { key: 'bb_brk',     label: 'BB↑',   cls: 'text-teal-300'    },
+  { key: 'va',         label: 'VA',    cls: 'text-lime-300'    },
   { key: 'bias_up',    label: '↑BIAS', cls: 'text-green-400'   },
   { key: 'um_2809',    label: 'UM',     cls: 'text-teal-300'    },
   { key: 'svs_2809',   label: 'SVS',    cls: 'text-orange-300'  },
@@ -97,13 +98,16 @@ const SIG_GROUPS = [
   { key: 'g2',  label: 'G2',  cls: 'text-cyan-300'    },
   { key: 'g4',  label: 'G4',  cls: 'text-fuchsia-300' },
   { key: 'g6',  label: 'G6',  cls: 'text-orange-300'  },
-  { key: 'g11', label: 'G11', cls: 'text-yellow-300'  },
+  { key: 'g11',       label: 'G11',  cls: 'text-yellow-300'  },
+  { key: 'seq_bcont', label: 'SBC',  cls: 'text-violet-300'  },
   { divider: true },
   // ── T/Z ───────────────────────────────────────────────────────────────
-  { key: '_tz_bull',   label: 'T/Z↑',  cls: 'text-violet-300',
+  { key: '_tz_bull',   label: 'T/Z↑',   cls: 'text-violet-300',
     custom: r => !!r.tz_sig },
-  { key: '_tz_strong', label: 'T4/T6', cls: 'text-violet-200',
+  { key: '_tz_strong', label: 'T4/T6',  cls: 'text-violet-200',
     custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
+  { key: 'tz_bull_flip', label: 'TZ→3', cls: 'text-lime-300'    },
+  { key: 'tz_attempt',   label: 'TZ→2', cls: 'text-cyan-300'    },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: 'fri34',         label: 'FRI34',    cls: 'text-cyan-400'     },
@@ -737,6 +741,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.hilo_buy  ? <Badge label="HILO↑" cls="bg-green-800 text-green-200" /> : null}
                     {r.atr_brk   ? <Badge label="ATR↑"  cls="bg-emerald-800 text-emerald-200" /> : null}
                     {r.bb_brk    ? <Badge label="BB↑"   cls="bg-teal-800 text-teal-200" /> : null}
+                    {r.va        ? <Badge label="VA"    cls="bg-lime-800/70 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.bias_up   ? <Badge label="↑BIAS" cls="bg-green-900 text-green-300" /> : null}
                     {r.hilo_sell ? <Badge label="HILO↓" cls="bg-rose-900 text-rose-300" /> : null}
                     {r.bias_down ? <Badge label="↓BIAS" cls="bg-red-900 text-red-300" /> : null}
@@ -763,6 +768,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.g4  ? <Badge label="G4"  cls="bg-fuchsia-700/60 text-fuchsia-200" /> : null}
                     {r.g6  ? <Badge label="G6"  cls="bg-orange-700/60 text-orange-200" /> : null}
                     {r.g11 ? <Badge label="G11" cls="bg-yellow-700/60 text-yellow-200" /> : null}
+                    {r.seq_bcont   ? <Badge label="SBC"  cls="bg-violet-800/60 text-violet-200" /> : null}
+                    {r.tz_bull_flip ? <Badge label="TZ→3" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
+                    {r.tz_attempt && !r.tz_bull_flip ? <Badge label="TZ→2" cls="bg-cyan-800/50 text-cyan-200" /> : null}
                   </div>
                 </td>
 

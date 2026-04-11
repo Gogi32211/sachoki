@@ -115,8 +115,13 @@ _TURBO_COLS = [
     "b6", "b7", "b8", "b9", "b10", "b11",
     # G signals (260410) — armed by Z10/Z11/Z12, no RSI filter
     "g1", "g2", "g4", "g6", "g11",
-    # TZ state + confluences
+    # seqBContLite (260412) — continuation sequence T/Z patterns
+    "seq_bcont",
+    # VA — ATR Volume Confirm crossover (260402_COMBO_OSC)
+    "va",
+    # TZ state + confluences + transition signals (260412)
     "tz_state", "ca", "cd", "cw",
+    "tz_bull_flip", "tz_attempt",
     # T/Z
     "tz_sig", "tz_bull",
     # WLNBB
@@ -252,6 +257,7 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("wyk_sos"):      vol += 5   # SOS/JAC breakout confirmation
     elif r.get("wyk_markup"):   vol += 3   # in markup/breakout phase (context)
     elif r.get("wyk_accum"):    vol += 2   # accumulation in progress (context)
+    if r.get("va"):             vol += 3   # 260402 ATR Vol Confirm — vol/avgVol just crossed >2×
     s = min(vol, 22)
 
     # ── Breakout / expansion family (cap 15) ──────────────────────────────
@@ -284,11 +290,14 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("cd"):   combo += 5
     elif r.get("ca"): combo += 3
     elif r.get("cw"): combo += 2
+    if r.get("seq_bcont"): combo += 3   # 260412 continuation-lite sequence
     s += min(combo, 14)
 
     # ── L-structure / trend family (cap 13) ───────────────────────────────
     trend = 0.0
     trend += _TZ_W.get(r.get("tz_sig", ""), 0)
+    if r.get("tz_bull_flip"): trend += 4   # 260412 TZ just flipped to Bull Dominance
+    elif r.get("tz_attempt"): trend += 2   # 260412 TZ just entered Reversal Attempt
     if r.get("fri34"):
         trend += 6
     elif r.get("fri43"):
@@ -498,7 +507,31 @@ def _scan_turbo_ticker(
         row["g4"]  = _sig(g_sigs, "g4")
         row["g6"]  = _sig(g_sigs, "g6")
         row["g11"] = _sig(g_sigs, "g11")
-        # ── TZ state machine + CA/CD/CW ────────────────────────────────────
+        # ── seqBContLite (260412) — continuation-lite sequence ────────────
+        try:
+            _sig_obj  = compute_signals(df)
+            _bc_ser   = _sig_obj["bc"].fillna(0).astype(int)
+            _bc_c  = int(_bc_ser.iloc[-1]) if len(_bc_ser) > 0 else 0
+            _bc_p1 = int(_bc_ser.iloc[-2]) if len(_bc_ser) > 1 else 0
+            _bc_p2 = int(_bc_ser.iloc[-3]) if len(_bc_ser) > 2 else 0
+            row["seq_bcont"] = int(
+                (_bc_p2 in {5, 3, 6, 4, 7} and _bc_c == 1) or   # T1/T1G/T2/T2G/T9 @-2 → T4
+                (_bc_p1 in {9, 10, 11}      and _bc_c in {1, 2}) or  # T3/T11/T5 @-1 → T4/T6
+                (_bc_p1 in {1, 4, 9}        and _bc_c == 2)          # T4/T2G/T3 @-1 → T6
+            )
+        except Exception:
+            row["seq_bcont"] = 0
+        # ── VA — ATR Volume Confirm (260402_COMBO_OSC) ────────────────────
+        # volConfirmATR = ta.crossover(volume / ta.sma(volume, 20), 2.0)
+        try:
+            _avg_vol  = df["volume"].rolling(20, min_periods=1).mean()
+            _vr       = df["volume"] / _avg_vol.replace(0, np.nan)
+            _vr_now   = float(_vr.iloc[-1])  if not pd.isna(_vr.iloc[-1])  else 0.0
+            _vr_prev  = float(_vr.iloc[-2])  if len(_vr) > 1 and not pd.isna(_vr.iloc[-2]) else 0.0
+            row["va"] = int(_vr_now > 2.0 and _vr_prev <= 2.0)
+        except Exception:
+            row["va"] = 0
+        # ── TZ state machine + CA/CD/CW + transition signals (260412) ─────
         tz_st = compute_tz_state(df)
         row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
         _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
@@ -506,6 +539,15 @@ def _scan_turbo_ticker(
         row["ca"] = int(_any_b and _last_st == 2)  # Bull Attempt + B
         row["cd"] = int(_any_b and _last_st == 3)  # Bull Dom + B
         row["cw"] = int(_any_b and _last_st == 1)  # Bear Weakening + B
+        # TZ transition: bullFlip=state just became 3, attempt=state just became 2
+        if len(tz_st) >= 2:
+            _tz_prev = int(tz_st.iloc[-2])
+            _tz_curr = int(tz_st.iloc[-1])
+            row["tz_bull_flip"] = int(_tz_curr == 3 and _tz_prev != 3)
+            row["tz_attempt"]   = int(_tz_curr == 2 and _tz_prev != 2)
+        else:
+            row["tz_bull_flip"] = 0
+            row["tz_attempt"]   = 0
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
@@ -724,6 +766,9 @@ def _scan_turbo_ticker(
             "g4":  _sa(g_sigs, "g4"),
             "g6":  _sa(g_sigs, "g6"),
             "g11": _sa(g_sigs, "g11"),
+            # seqBContLite + VA (stored as 0/1, age = 0 if fired today)
+            "seq_bcont": 0 if row.get("seq_bcont") else 999,
+            "va":        0 if row.get("va")        else 999,
             # VABS
             "abs_sig":    _sa(vabs, "abs_sig"),
             "climb_sig":  _sa(vabs, "climb_sig"),

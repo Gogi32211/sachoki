@@ -102,6 +102,7 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Vol/Accum (22)" signal="wyk_sos / wyk_lps" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="CLB / LD / SQ" pts="+4 each" />
                 <ScoreRow engine="Vol/Accum (22)" signal="wyk_markup (phase)" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="VA (vol/avg crossed >2×)" pts="+3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="SC / 260308" pts="+2–3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="wyk_accum (phase)" pts="+2" />
                 <ScoreRow engine="Breakout (15)" signal="FBO↑ (bear trap)" pts="+5" />
@@ -115,8 +116,11 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Combo (14)" signal="CD (Bull Dom + B)" pts="+5" />
                 <ScoreRow engine="Combo (14)" signal="3G gap" pts="+4" />
                 <ScoreRow engine="Combo (14)" signal="CA (Bull Att + B)" pts="+3" />
+                <ScoreRow engine="Combo (14)" signal="SBC (seqBContLite)" pts="+3" />
                 <ScoreRow engine="Combo (14)" signal="CW (Bear Weak + B)" pts="+2" />
                 <ScoreRow engine="L-struct (13)" signal="T4 / T6" pts="+7" />
+                <ScoreRow engine="L-struct (13)" signal="TZ→3 (Bull Dom flip)" pts="+4" />
+                <ScoreRow engine="L-struct (13)" signal="TZ→2 (Rev Attempt)" pts="+2" />
                 <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
                 <ScoreRow engine="L-struct (13)" signal="T1G / T2G" pts="+5" />
                 <ScoreRow engine="Delta (12)" signal="d_spring (Wyckoff)" pts="+6" />
@@ -224,6 +228,41 @@ export default function HowItWorksPanel() {
           <p className="mt-2 text-gray-500 text-xs">
             State resets after the G signal fires — each new Z10/Z11/Z12 (or T10/T11 for G11) starts a fresh setup.
           </p>
+        </Section>
+
+        {/* ── VA + SBC + TZ Transitions ── */}
+        <Section title="VA / SBC / TZ Transitions (260402_COMBO_OSC + 260412_TZ_SHIFT)">
+          <p className="mb-2">
+            Two additional engines contribute new signals that are not part of the core T/Z or B/G families.
+          </p>
+
+          <p className="text-gray-400 mb-1 font-medium">VA — ATR Volume Confirm (260402_COMBO_OSC)</p>
+          <p className="mb-2 text-gray-400 text-xs">
+            Fires when the current bar's volume ratio (volume ÷ 20-bar avg) crosses above 2.0 — i.e.,
+            the bar's volume is the first to exceed twice the recent average. Uses a Pine-style
+            <span className="font-mono"> ta.crossover</span> condition.
+          </p>
+          <ul className="list-disc list-inside space-y-1 mb-3">
+            <Row label="VA" cls="text-lime-300">vol/avg_vol just crossed above 2× — sudden volume surge</Row>
+          </ul>
+
+          <p className="text-gray-400 mb-1 font-medium">SBC — seqBContLite (260412_TZ_SHIFT)</p>
+          <p className="mb-2 text-gray-400 text-xs">
+            Continuation-lite sequences using T/Z priority codes. Three pattern families:
+          </p>
+          <ul className="list-disc list-inside space-y-1 mb-3">
+            <Row label="SBC" cls="text-violet-300">T1/T1G/T2/T2G/T9 two bars ago → T4 now; or T3/T11/T5 one bar ago → T4/T6; or T4/T2G/T3 one bar ago → T6</Row>
+          </ul>
+
+          <p className="text-gray-400 mb-1 font-medium">TZ Transition Signals (260412_TZ_SHIFT)</p>
+          <p className="mb-2 text-gray-400 text-xs">
+            Detects the bar where the TZ state machine transitions into a new regime. Fires only on
+            the first bar of that state — unlike tz_state which persists.
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="TZ→3" cls="text-lime-300">TZ state just flipped to Bull Dominance (state 3 ≠ prev state)</Row>
+            <Row label="TZ→2" cls="text-cyan-300">TZ state just entered Bull Attempt / Reversal (state 2 ≠ prev state)</Row>
+          </ul>
         </Section>
 
         {/* ── Delta Engine ── */}
