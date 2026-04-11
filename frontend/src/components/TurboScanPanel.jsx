@@ -78,21 +78,16 @@ const SIG_GROUPS = [
   { key: 'svs_2809',   label: 'SVS',    cls: 'text-orange-300'  },
   { key: 'conso_2809', label: 'CON',    cls: 'text-yellow-300'  },
   { divider: true },
-  // ── B signals (260410/260321) ─────────────────────────────────────────
+  // ── B / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
   { key: 'ca',  label: 'CA',  cls: 'text-cyan-300'    },
   { key: 'cw',  label: 'CW',  cls: 'text-yellow-300'  },
-  { key: 'b1',  label: 'B1',  cls: 'text-orange-400'  },
   { key: 'b2',  label: 'B2',  cls: 'text-gray-300'    },
-  { key: 'b3',  label: 'B3',  cls: 'text-sky-300'     },
-  { key: 'b4',  label: 'B4',  cls: 'text-gray-300'    },
-  { key: 'b5',  label: 'B5',  cls: 'text-cyan-400'    },
-  { key: 'b6',  label: 'B6',  cls: 'text-gray-300'    },
-  { key: 'b7',  label: 'B7',  cls: 'text-green-400'   },
-  { key: 'b8',  label: 'B8',  cls: 'text-blue-400'    },
-  { key: 'b9',  label: 'B9',  cls: 'text-gray-300'    },
-  { key: 'b10', label: 'B10', cls: 'text-lime-400'    },
-  { key: 'b11', label: 'B11', cls: 'text-fuchsia-400' },
+  { key: 'g1',  label: 'G1',  cls: 'text-lime-300'    },
+  { key: 'g2',  label: 'G2',  cls: 'text-cyan-300'    },
+  { key: 'g4',  label: 'G4',  cls: 'text-fuchsia-300' },
+  { key: 'g6',  label: 'G6',  cls: 'text-orange-300'  },
+  { key: 'g11', label: 'G11', cls: 'text-yellow-300'  },
   { divider: true },
   // ── T/Z ───────────────────────────────────────────────────────────────
   { key: '_tz_bull',   label: 'T/Z↑',  cls: 'text-violet-300',
@@ -302,6 +297,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   // ── Effective score column based on selected N ────────────────────────────
   const effectiveScoreCol = lookbackN >= 10 ? 'turbo_score_n10'
                           : lookbackN >= 5  ? 'turbo_score_n5'
+                          : lookbackN >= 3  ? 'turbo_score_n3'
                           : 'turbo_score'
 
   // ── Client-side filter + sort ──────────────────────────────────────────────
@@ -513,7 +509,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {/* N= lookback selector — client-side, no rescan needed */}
         <div className="flex items-center gap-0.5 ml-1" title="Signal lookback window — no rescan needed">
           <span className="text-gray-500 text-xs mr-0.5">N=</span>
-          {[1, 5, 10].map(n => (
+          {[1, 3, 5, 10].map(n => (
             <button key={n} onClick={() => setLookbackN(n)}
               className={`px-2 py-0.5 rounded text-xs transition-colors
                 ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
@@ -739,18 +735,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.conso_2809 ? <Badge label="CON"  cls="bg-yellow-800/60 text-yellow-200" /> : null}
                     {/* B confluences */}
                     {r.cd ? <Badge label="CD" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-400" /> : r.ca ? <Badge label="CA" cls="bg-cyan-800 text-cyan-200 ring-1 ring-cyan-400" /> : r.cw ? <Badge label="CW" cls="bg-yellow-800/70 text-yellow-200 ring-1 ring-yellow-400" /> : null}
-                    {/* B1-B11 raw signals */}
-                    {r.b1  ? <Badge label="B1"  cls="bg-orange-800/60 text-orange-200" /> : null}
+                    {/* B2 + G signals */}
                     {r.b2  ? <Badge label="B2"  cls="bg-gray-700 text-gray-200" /> : null}
-                    {r.b3  ? <Badge label="B3"  cls="bg-sky-800/60 text-sky-200" /> : null}
-                    {r.b4  ? <Badge label="B4"  cls="bg-gray-700 text-gray-200" /> : null}
-                    {r.b5  ? <Badge label="B5"  cls="bg-cyan-800/60 text-cyan-200" /> : null}
-                    {r.b6  ? <Badge label="B6"  cls="bg-gray-700 text-gray-200" /> : null}
-                    {r.b7  ? <Badge label="B7"  cls="bg-green-800/60 text-green-200" /> : null}
-                    {r.b8  ? <Badge label="B8"  cls="bg-blue-800/60 text-blue-200" /> : null}
-                    {r.b9  ? <Badge label="B9"  cls="bg-gray-700 text-gray-200" /> : null}
-                    {r.b10 ? <Badge label="B10" cls="bg-lime-800/60 text-lime-200" /> : null}
-                    {r.b11 ? <Badge label="B11" cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
+                    {r.g1  ? <Badge label="G1"  cls="bg-lime-700/60 text-lime-200" /> : null}
+                    {r.g2  ? <Badge label="G2"  cls="bg-cyan-700/60 text-cyan-200" /> : null}
+                    {r.g4  ? <Badge label="G4"  cls="bg-fuchsia-700/60 text-fuchsia-200" /> : null}
+                    {r.g6  ? <Badge label="G6"  cls="bg-orange-700/60 text-orange-200" /> : null}
+                    {r.g11 ? <Badge label="G11" cls="bg-yellow-700/60 text-yellow-200" /> : null}
                   </div>
                 </td>
 

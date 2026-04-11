@@ -25,7 +25,7 @@ import pandas as pd
 
 from db import get_db, USE_PG, pk_col
 
-from signal_engine import compute_signals, compute_b_signals
+from signal_engine import compute_signals, compute_b_signals, compute_g_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, compute_tz_state
 from wick_engine   import compute_wick, compute_wick_x
@@ -110,9 +110,10 @@ _TURBO_COLS = [
     "hilo_buy", "hilo_sell", "atr_brk", "bb_brk",
     "bias_up", "bias_down", "cons_atr",
     "um_2809", "svs_2809", "conso_2809",
-    # B signals (260410/260321)
-    "b1", "b2", "b3", "b4", "b5",
-    "b6", "b7", "b8", "b9", "b10", "b11",
+    # B signals (260321) — only B2
+    "b2",
+    # G signals (260410) — armed by Z10/Z11/Z12, no RSI filter
+    "g1", "g2", "g4", "g6", "g11",
     # TZ state + confluences
     "tz_state", "ca", "cd", "cw",
     # T/Z
@@ -160,7 +161,8 @@ _TURBO_COLS = [
     "preup66", "preup55", "preup89",
     # PREDN (EMA drop ↓)
     "predn66", "predn55", "predn89", "predn3", "predn2", "predn50",
-    # N=5 and N=10 scores (client-side N= switching without rescan)
+    # N=3, N=5 and N=10 scores (client-side N= switching without rescan)
+    "turbo_score_n3",
     "turbo_score_n5",
     "turbo_score_n10",
     # Signal ages JSON {"signal_key": bars_since_last_fire, ...}
@@ -175,7 +177,7 @@ def _db():
 
 def _col_def(c: str) -> str:
     _TEXT = {"tz_sig", "vol_bucket", "sig_ages"}
-    _REAL = {"turbo_score", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci"}
+    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
@@ -209,7 +211,7 @@ def _init_db() -> None:
     existing = con.table_columns("turbo_scan_results")
     for col in _TURBO_COLS:
         if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci") else "INTEGER"
+            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci") else "INTEGER"
             default = "''" if col in ("tz_sig", "vol_bucket", "sig_ages") else "0"
             con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
     run_cols = con.table_columns("turbo_scan_runs")
@@ -368,7 +370,7 @@ def _scan_turbo_ticker(
 
         if df is None or df.empty:
             import yfinance as yf
-            period = "180d" if interval in ("1d", "1wk") else "60d"
+            period = "5y" if interval in ("1wk", "1w") else "180d" if interval == "1d" else "60d"
             raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
             if raw is None or raw.empty:
                 return None
@@ -484,18 +486,23 @@ def _scan_turbo_ticker(
         row["predn2"]    = _sig(combo, "predn2")
         row["predn50"]   = _sig(combo, "predn50")
 
-        # ── B signals (260410/260321) ──────────────────────────────────────
+        # ── B2 signal (260321) ────────────────────────────────────────────
         b_sigs = compute_b_signals(df)
-        for _b in range(1, 12):
-            row[f"b{_b}"] = _sig(b_sigs, f"b{_b}")
+        row["b2"] = _sig(b_sigs, "b2")
+        # ── G signals (260410) — armed by Z10/Z11/Z12, no RSI filter ─────
+        g_sigs = compute_g_signals(df)
+        row["g1"]  = _sig(g_sigs, "g1")
+        row["g2"]  = _sig(g_sigs, "g2")
+        row["g4"]  = _sig(g_sigs, "g4")
+        row["g6"]  = _sig(g_sigs, "g6")
+        row["g11"] = _sig(g_sigs, "g11")
         # ── TZ state machine + CA/CD/CW ────────────────────────────────────
         tz_st = compute_tz_state(df)
         row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
-        _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
         _last_st = row["tz_state"]
-        row["ca"] = int(_any_b and _last_st == 2)  # Bull Attempt + B
-        row["cd"] = int(_any_b and _last_st == 3)  # Bull Dom + B
-        row["cw"] = int(_any_b and _last_st == 1)  # Bear Weakening + B
+        row["ca"] = int(row.get("b2", 0) and _last_st == 2)  # Bull Attempt + B2
+        row["cd"] = int(row.get("b2", 0) and _last_st == 3)  # Bull Dom + B2
+        row["cw"] = int(row.get("b2", 0) and _last_st == 1)  # Bear Weakening + B2
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
@@ -706,8 +713,14 @@ def _scan_turbo_ticker(
             "predn3":     _sa(combo, "predn3"),
             "predn2":     _sa(combo, "predn2"),
             "predn50":    _sa(combo, "predn50"),
-            # B signals
-            **{f"b{i}": _sa(b_sigs, f"b{i}") for i in range(1, 12)},
+            # B2 signal
+            "b2":  _sa(b_sigs, "b2"),
+            # G signals
+            "g1":  _sa(g_sigs, "g1"),
+            "g2":  _sa(g_sigs, "g2"),
+            "g4":  _sa(g_sigs, "g4"),
+            "g6":  _sa(g_sigs, "g6"),
+            "g11": _sa(g_sigs, "g11"),
             # VABS
             "abs_sig":    _sa(vabs, "abs_sig"),
             "climb_sig":  _sa(vabs, "climb_sig"),
@@ -784,8 +797,8 @@ def _scan_turbo_ticker(
             "d_upthrust":    _sa(ddf, "upthrust"),
         }, separators=(',', ':'))
 
-        # N=5 and N=10 turbo scores
-        for _n, _key in ((5, "turbo_score_n5"), (10, "turbo_score_n10")):
+        # N=3, N=5 and N=10 turbo scores
+        for _n, _key in ((3, "turbo_score_n3"), (5, "turbo_score_n5"), (10, "turbo_score_n10")):
             _r = {
                 # Volume / accum
                 "abs_sig":    _sn(vabs,  "abs_sig",    _n),

@@ -225,6 +225,68 @@ def ok3(sig_series: pd.Series) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
+# G signals  (260410_G_BUILDER)
+# ---------------------------------------------------------------------------
+# G1  = first T1  after Z10 / Z11 / Z12
+# G2  = first T1G after Z10 / Z11 / Z12
+# G4  = first T4  after Z10 / Z11 / Z12
+# G6  = first T6  after Z10 / Z11 / Z12
+# G11 = first T1  after T10 or T11
+# No RSI filter applied here.
+
+def compute_g_signals(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Stateful G-signal state machine matching 260410_G_BUILDER Pine logic.
+    Returns DataFrame with boolean columns: g1, g2, g4, g6, g11.
+    """
+    sig = compute_signals(df)
+    sid = sig["sig_id"].values.astype(int)
+    n   = len(sid)
+
+    g1  = np.zeros(n, dtype=bool)
+    g2  = np.zeros(n, dtype=bool)
+    g4  = np.zeros(n, dtype=bool)
+    g6  = np.zeros(n, dtype=bool)
+    g11 = np.zeros(n, dtype=bool)
+
+    # sig_id constants (from the ID table above)
+    # T1G=1, T1=2, T4=6, T6=8, T10=10, T11=11
+    # Z10=23, Z11=24, Z12=25
+
+    g_armed   = False  # armed by Z10/Z11/Z12, fires on first T1/T1G/T4/T6
+    g11_armed = False  # armed by T10/T11, fires on first T1
+
+    for i in range(n):
+        s = sid[i]
+
+        # G1/G2/G4/G6 ---------------------------------------------------
+        trigger_z = s in (23, 24, 25)   # Z10, Z11, Z12
+        g1_raw  = g_armed and s == 2    # T1
+        g2_raw  = g_armed and s == 1    # T1G
+        g4_raw  = g_armed and s == 6    # T4
+        g6_raw  = g_armed and s == 8    # T6
+        any_g   = g1_raw or g2_raw or g4_raw or g6_raw
+
+        g1[i]  = g1_raw
+        g2[i]  = g2_raw
+        g4[i]  = g4_raw
+        g6[i]  = g6_raw
+
+        g_armed = (g_armed or trigger_z) and not any_g
+
+        # G11 ------------------------------------------------------------
+        g11_trigger = s in (10, 11)     # T10, T11
+        g11_raw = g11_armed and s == 2  # T1
+        g11[i]  = g11_raw
+        g11_armed = (g11_armed or g11_trigger) and not g11_raw
+
+    return pd.DataFrame(
+        {"g1": g1, "g2": g2, "g4": g4, "g6": g6, "g11": g11},
+        index=df.index,
+    )
+
+
+# ---------------------------------------------------------------------------
 # B1–B11  (260321_B_BUILDER / 260410_COMBO)
 # ---------------------------------------------------------------------------
 # Pine bc priority codes: T4=1,T6=2,T1G=3,T2G=4,T1=5,T2=6,T9=7,T10=8,T3=9,T11=10,T5=11
