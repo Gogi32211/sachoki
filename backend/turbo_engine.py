@@ -14,14 +14,16 @@ turbo_score tiers:
 from __future__ import annotations
 
 import os
-import sqlite3
 import logging
 import time
 from datetime import datetime, timezone
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
+import json
 import numpy as np
 import pandas as pd
+
+from db import get_db, USE_PG, pk_col
 
 from signal_engine import compute_signals, compute_b_signals
 from wlnbb_engine  import compute_wlnbb
@@ -35,7 +37,6 @@ from delta_engine   import compute_delta
 from wyckoff_engine import compute_wyckoff_accum, compute_wyckoff_dist
 
 log = logging.getLogger(__name__)
-DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # ── Progress ──────────────────────────────────────────────────────────────────
 _turbo_state: dict = {
@@ -159,31 +160,34 @@ _TURBO_COLS = [
     "preup66", "preup55", "preup89",
     # PREDN (EMA drop ↓)
     "predn66", "predn55", "predn89", "predn3", "predn2", "predn50",
+    # N=5 and N=10 scores (client-side N= switching without rescan)
+    "turbo_score_n5",
+    "turbo_score_n10",
+    # Signal ages JSON {"signal_key": bars_since_last_fire, ...}
+    "sig_ages",
 ]
 
 
 # ── Helpers ───────────────────────────────────────────────────────────────────
-def _db() -> sqlite3.Connection:
-    con = sqlite3.connect(DB_PATH, timeout=30)
-    con.execute("PRAGMA journal_mode=WAL")
-    con.execute("PRAGMA busy_timeout=30000")
-    return con
+def _db():
+    return get_db()
 
 
 def _col_def(c: str) -> str:
-    _TEXT = {"tz_sig", "vol_bucket"}
-    _REAL = {"turbo_score", "br_score", "rsi", "cci"}
+    _TEXT = {"tz_sig", "vol_bucket", "sig_ages"}
+    _REAL = {"turbo_score", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
 
 
 def _init_db() -> None:
-    con = _db()
+    con = get_db()
     cols_sql = "\n".join(_col_def(c) for c in _TURBO_COLS)
+    _pk = pk_col()
     con.executescript(f"""
         CREATE TABLE IF NOT EXISTS turbo_scan_runs (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           {_pk},
             tf           TEXT    DEFAULT '1d',
             universe     TEXT    DEFAULT 'sp500',
             started_at   TEXT,
@@ -191,7 +195,7 @@ def _init_db() -> None:
             result_count INTEGER DEFAULT 0
         );
         CREATE TABLE IF NOT EXISTS turbo_scan_results (
-            id         INTEGER PRIMARY KEY AUTOINCREMENT,
+            id         {_pk},
             scan_id    INTEGER,
             ticker     TEXT NOT NULL,
 {cols_sql}
@@ -200,14 +204,15 @@ def _init_db() -> None:
             scanned_at TEXT
         );
     """)
+    con.commit()
     # migration: add any missing columns
-    existing = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_results)").fetchall()}
+    existing = con.table_columns("turbo_scan_results")
     for col in _TURBO_COLS:
         if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket") else "REAL" if col in ("turbo_score", "br_score", "rsi", "cci") else "INTEGER"
-            default = "''" if col in ("tz_sig", "vol_bucket") else "0"
+            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci") else "INTEGER"
+            default = "''" if col in ("tz_sig", "vol_bucket", "sig_ages") else "0"
             con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
-    run_cols = {r[1] for r in con.execute("PRAGMA table_info(turbo_scan_runs)").fetchall()}
+    run_cols = con.table_columns("turbo_scan_runs")
     if "tf" not in run_cols:
         con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
     if "universe" not in run_cols:
@@ -323,13 +328,23 @@ def _calc_turbo_score(r: dict) -> float:
     return round(min(100.0, s), 1)
 
 
+def _sig_age(frame: "pd.DataFrame | None", col: str, max_age: int = 30) -> int:
+    """Bars since signal last fired (0 = current bar). Returns max_age if never."""
+    if frame is None or col not in frame.columns:
+        return max_age
+    vals = frame[col].values.astype(bool)
+    for i in range(len(vals) - 1, -1, -1):
+        if vals[i]:
+            return len(vals) - 1 - i
+    return max_age
+
+
 # ── Per-ticker worker ─────────────────────────────────────────────────────────
 def _scan_turbo_ticker(
     ticker: str,
     interval: str,
     min_price: float = 0.0,
     max_price: float = 1e9,
-    lookback_n: int = 1,
     spy_chg: float | None = None,
     iwm_chg: float | None = None,
 ) -> dict | None:
@@ -397,13 +412,11 @@ def _scan_turbo_ticker(
         if price < min_price or price > max_price:
             return None
 
-        # Helper: extract bool signal from last N bars
-        def _sig(frame, col, n=lookback_n):
+        # Helper: extract bool signal from last N bars (always N=1; ages stored separately)
+        def _sig(frame, col, n=1):
             if col not in frame.columns:
                 return 0
-            if n <= 1:
-                return int(bool(frame.iloc[-1].get(col, False)))
-            return int(bool(frame.tail(n)[col].any()))
+            return int(bool(frame.iloc[-1][col]))
 
         # ── T/Z signals ────────────────────────────────────────────────────
         sig_df  = compute_signals(df)
@@ -500,6 +513,7 @@ def _scan_turbo_ticker(
         row["vbo_dn"]     = _sig(vabs, "vbo_dn")
 
         # ── Wyckoff Accumulation (260225) ─────────────────────────────────
+        wya = wyd = wx = ddf = u308 = uv2 = None   # pre-initialise for age computation
         try:
             wya = compute_wyckoff_accum(df)
             for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
@@ -635,6 +649,215 @@ def _scan_turbo_ticker(
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
 
+        # ── Signal ages + N=5 / N=10 scores (for client N= switching) ──────
+        def _sa(frame, col):
+            return _sig_age(frame, col)
+
+        def _sn(frame, col, n):
+            if frame is None or col not in frame.columns:
+                return 0
+            return int(frame[col].iloc[-n:].any())
+
+        row["sig_ages"] = json.dumps({
+            # WLNBB
+            "fri34":         _sa(wlnbb, "FRI34"),
+            "fri43":         _sa(wlnbb, "FRI43"),
+            "fri64":         _sa(wlnbb, "FRI64"),
+            "l34":           _sa(wlnbb, "L34"),
+            "l43":           _sa(wlnbb, "L43"),
+            "l64":           _sa(wlnbb, "L64"),
+            "l22":           _sa(wlnbb, "L22"),
+            "l555":          _sa(wlnbb, "L555"),
+            "only_l2l4":     _sa(wlnbb, "ONLY_L2L4"),
+            "blue":          _sa(wlnbb, "BLUE"),
+            "cci_ready":     _sa(wlnbb, "CCI_READY"),
+            "cci_0_retest":  _sa(wlnbb, "CCI_0_RETEST_OK"),
+            "cci_blue_turn": _sa(wlnbb, "CCI_BLUE_TURN"),
+            "bo_up":         _sa(wlnbb, "BO_UP"),
+            "bo_dn":         _sa(wlnbb, "BO_DN"),
+            "bx_up":         _sa(wlnbb, "BX_UP"),
+            "bx_dn":         _sa(wlnbb, "BX_DN"),
+            "be_up":         _sa(wlnbb, "BE_UP"),
+            "be_dn":         _sa(wlnbb, "BE_DN"),
+            "fuchsia_rh":    _sa(wlnbb, "FUCHSIA_RH"),
+            "fuchsia_rl":    _sa(wlnbb, "FUCHSIA_RL"),
+            "pre_pump":      _sa(wlnbb, "PRE_PUMP"),
+            # Combo
+            "buy_2809":   _sa(combo, "buy_2809"),
+            "rocket":     _sa(combo, "rocket"),
+            "sig3g":      _sa(combo, "sig3g"),
+            "rtv":        _sa(combo, "rtv"),
+            "hilo_buy":   _sa(combo, "hilo_buy"),
+            "hilo_sell":  _sa(combo, "hilo_sell"),
+            "atr_brk":    _sa(combo, "atr_brk"),
+            "bb_brk":     _sa(combo, "bb_brk"),
+            "bias_up":    _sa(combo, "bias_up"),
+            "bias_down":  _sa(combo, "bias_down"),
+            "cons_atr":   _sa(combo, "cons_atr"),
+            "um_2809":    _sa(combo, "um_2809"),
+            "svs_2809":   _sa(combo, "svs_2809"),
+            "conso_2809": _sa(combo, "conso_2809"),
+            "preup66":    _sa(combo, "preup66"),
+            "preup55":    _sa(combo, "preup55"),
+            "preup89":    _sa(combo, "preup89"),
+            "predn66":    _sa(combo, "predn66"),
+            "predn55":    _sa(combo, "predn55"),
+            "predn89":    _sa(combo, "predn89"),
+            "predn3":     _sa(combo, "predn3"),
+            "predn2":     _sa(combo, "predn2"),
+            "predn50":    _sa(combo, "predn50"),
+            # B signals
+            **{f"b{i}": _sa(b_sigs, f"b{i}") for i in range(1, 12)},
+            # VABS
+            "abs_sig":    _sa(vabs, "abs_sig"),
+            "climb_sig":  _sa(vabs, "climb_sig"),
+            "load_sig":   _sa(vabs, "load_sig"),
+            "ns":         _sa(vabs, "ns"),
+            "nd":         _sa(vabs, "nd"),
+            "sc":         _sa(vabs, "sc"),
+            "bc":         _sa(vabs, "bc"),
+            "sq":         _sa(vabs, "sq"),
+            "best_sig":   _sa(vabs, "best_sig"),
+            "strong_sig": _sa(vabs, "strong_sig"),
+            "vbo_up":     _sa(vabs, "vbo_up"),
+            "vbo_dn":     _sa(vabs, "vbo_dn"),
+            # Wyckoff Accum
+            "wyk_sc":     _sa(wya, "wyk_sc"),
+            "wyk_ar":     _sa(wya, "wyk_ar"),
+            "wyk_st":     _sa(wya, "wyk_st"),
+            "wyk_spring": _sa(wya, "wyk_spring"),
+            "wyk_sos":    _sa(wya, "wyk_sos"),
+            "wyk_lps":    _sa(wya, "wyk_lps"),
+            "wyk_accum":  _sa(wya, "wyk_accum"),
+            "wyk_markup": _sa(wya, "wyk_markup"),
+            # Wyckoff Dist
+            "wyk_bc":       _sa(wyd, "wyk_bc"),
+            "wyk_ard":      _sa(wyd, "wyk_ard"),
+            "wyk_std":      _sa(wyd, "wyk_std"),
+            "wyk_utad":     _sa(wyd, "wyk_utad"),
+            "wyk_sow":      _sa(wyd, "wyk_sow"),
+            "wyk_lpsy":     _sa(wyd, "wyk_lpsy"),
+            "wyk_dist":     _sa(wyd, "wyk_dist"),
+            "wyk_markdown": _sa(wyd, "wyk_markdown"),
+            # Wick
+            "wick_bull": _sa(wick, "WICK_BULL_CONFIRM"),
+            "wick_bear": _sa(wick, "WICK_BEAR_CONFIRM"),
+            # Wick X
+            "x2g_wick": _sa(wx, "x2g_wick"),
+            "x2_wick":  _sa(wx, "x2_wick"),
+            "x1g_wick": _sa(wx, "x1g_wick"),
+            "x1_wick":  _sa(wx, "x1_wick"),
+            "x3_wick":  _sa(wx, "x3_wick"),
+            # CISD
+            "cisd_ppm": _sa(cisd, "CISD_PPM"),
+            "cisd_seq": _sa(cisd, "CISD_SEQ"),
+            # 260308 / L88
+            "sig_260308": _sa(u308, "sig_260308"),
+            "sig_l88":    _sa(u308, "sig_l88"),
+            # Ultra v2
+            "eb_bull":    _sa(uv2, "eb_bull"),
+            "eb_bear":    _sa(uv2, "eb_bear"),
+            "fbo_bull":   _sa(uv2, "fbo_bull"),
+            "fbo_bear":   _sa(uv2, "fbo_bear"),
+            "bf_buy":     _sa(uv2, "bf_buy"),
+            "bf_sell":    _sa(uv2, "bf_sell"),
+            "ultra_3up":  _sa(uv2, "ultra_3up"),
+            "ultra_3dn":  _sa(uv2, "ultra_3dn"),
+            "best_long":  _sa(uv2, "best_long"),
+            "best_short": _sa(uv2, "best_short"),
+            # Delta
+            "d_strong_bull": _sa(ddf, "strong_bull"),
+            "d_strong_bear": _sa(ddf, "strong_bear"),
+            "d_absorb_bull": _sa(ddf, "absorb_bull"),
+            "d_absorb_bear": _sa(ddf, "absorb_bear"),
+            "d_div_bull":    _sa(ddf, "div_bull"),
+            "d_div_bear":    _sa(ddf, "div_bear"),
+            "d_cd_bull":     _sa(ddf, "cd_bull"),
+            "d_cd_bear":     _sa(ddf, "cd_bear"),
+            "d_surge_bull":  _sa(ddf, "surge_bull"),
+            "d_surge_bear":  _sa(ddf, "surge_bear"),
+            "d_blast_bull":  _sa(ddf, "blast_bull"),
+            "d_blast_bear":  _sa(ddf, "blast_bear"),
+            "d_vd_div_bull": _sa(ddf, "vd_div_bull"),
+            "d_vd_div_bear": _sa(ddf, "vd_div_bear"),
+            "d_spring":      _sa(ddf, "spring"),
+            "d_upthrust":    _sa(ddf, "upthrust"),
+        }, separators=(',', ':'))
+
+        # N=5 and N=10 turbo scores
+        for _n, _key in ((5, "turbo_score_n5"), (10, "turbo_score_n10")):
+            _r = {
+                # Volume / accum
+                "abs_sig":    _sn(vabs,  "abs_sig",    _n),
+                "climb_sig":  _sn(vabs,  "climb_sig",  _n),
+                "load_sig":   _sn(vabs,  "load_sig",   _n),
+                "vbo_up":     _sn(vabs,  "vbo_up",     _n),
+                "ns":         _sn(vabs,  "ns",          _n),
+                "sq":         _sn(vabs,  "sq",          _n),
+                "sc":         _sn(vabs,  "sc",          _n),
+                "sig_l88":    _sn(u308,  "sig_l88",    _n),
+                "sig_260308": _sn(u308,  "sig_260308", _n),
+                "wyk_spring": _sn(wya,   "wyk_spring", _n),
+                "wyk_lps":    _sn(wya,   "wyk_lps",    _n),
+                "wyk_sos":    _sn(wya,   "wyk_sos",    _n),
+                "wyk_markup": _sn(wya,   "wyk_markup", _n),
+                "wyk_accum":  _sn(wya,   "wyk_accum",  _n),
+                # Breakout
+                "fbo_bull":     _sn(uv2,   "fbo_bull",   _n),
+                "eb_bull":      _sn(uv2,   "eb_bull",    _n),
+                "bf_buy":       _sn(uv2,   "bf_buy",     _n),
+                "ultra_3up":    _sn(uv2,   "ultra_3up",  _n),
+                "bo_up":        _sn(wlnbb, "BO_UP",      _n),
+                "bx_up":        _sn(wlnbb, "BX_UP",      _n),
+                "rs_strong":    row.get("rs_strong", 0),
+                "rs":           row.get("rs", 0),
+                "wyk_sow":      _sn(wyd,   "wyk_sow",     _n),
+                "wyk_markdown": _sn(wyd,   "wyk_markdown", _n),
+                "wyk_dist":     _sn(wyd,   "wyk_dist",    _n),
+                # Combo
+                "rocket":   _sn(combo, "rocket",   _n),
+                "buy_2809": _sn(combo, "buy_2809", _n),
+                "sig3g":    _sn(combo, "sig3g",    _n),
+                "rtv":      _sn(combo, "rtv",      _n),
+                "hilo_buy": _sn(combo, "hilo_buy", _n),
+                "atr_brk":  _sn(combo, "atr_brk",  _n),
+                "bb_brk":   _sn(combo, "bb_brk",   _n),
+                "cd":  row.get("cd", 0),
+                "ca":  row.get("ca", 0),
+                "cw":  row.get("cw", 0),
+                # L-structure
+                "tz_sig":    tz_name,
+                "fri34":     _sn(wlnbb, "FRI34",     _n),
+                "fri43":     _sn(wlnbb, "FRI43",     _n),
+                "l34":       _sn(wlnbb, "L34",       _n),
+                "blue":      _sn(wlnbb, "BLUE",      _n),
+                "cci_ready": _sn(wlnbb, "CCI_READY", _n),
+                # Delta
+                "d_blast_bull":  _sn(ddf, "blast_bull",  _n),
+                "d_surge_bull":  _sn(ddf, "surge_bull",  _n),
+                "d_strong_bull": _sn(ddf, "strong_bull", _n),
+                "d_absorb_bull": _sn(ddf, "absorb_bull", _n),
+                "d_spring":      _sn(ddf, "spring",      _n),
+                "d_div_bull":    _sn(ddf, "div_bull",    _n),
+                "d_vd_div_bull": _sn(ddf, "vd_div_bull", _n),
+                "d_cd_bull":     _sn(ddf, "cd_bull",     _n),
+                # EMA cross
+                "preup66": _sn(combo, "preup66", _n),
+                "preup55": _sn(combo, "preup55", _n),
+                "preup89": _sn(combo, "preup89", _n),
+                # Context (wick / cisd / br unchanged)
+                "x2g_wick": _sn(wx,   "x2g_wick",          _n),
+                "x2_wick":  _sn(wx,   "x2_wick",           _n),
+                "x1g_wick": _sn(wx,   "x1g_wick",          _n),
+                "x1_wick":  _sn(wx,   "x1_wick",           _n),
+                "x3_wick":  _sn(wx,   "x3_wick",           _n),
+                "wick_bull": _sn(wick, "WICK_BULL_CONFIRM", _n),
+                "cisd_ppm":  _sn(cisd, "CISD_PPM",         _n),
+                "cisd_seq":  _sn(cisd, "CISD_SEQ",         _n),
+                "br_score":  row.get("br_score", 0),
+            }
+            row[_key] = _calc_turbo_score(_r)
+
         return row
 
     except Exception as exc:
@@ -702,8 +925,9 @@ def run_turbo_scan(
     now_iso = datetime.now(timezone.utc).isoformat()
 
     con = _db()
+    _ret = " RETURNING id" if USE_PG else ""
     scan_id = con.execute(
-        "INSERT INTO turbo_scan_runs (tf, universe, started_at) VALUES (?, ?, ?)",
+        f"INSERT INTO turbo_scan_runs (tf, universe, started_at) VALUES (?, ?, ?){_ret}",
         (interval, universe, now_iso),
     ).lastrowid
     con.commit()
@@ -717,7 +941,7 @@ def run_turbo_scan(
             futures = {
                 pool.submit(
                     _scan_turbo_ticker, t, interval, min_price, max_price,
-                    lookback_n, spy_chg, iwm_chg
+                    spy_chg, iwm_chg
                 ): t
                 for t in tickers
             }
@@ -818,7 +1042,7 @@ def get_turbo_results(
         ).fetchone()
         if not row:
             return []
-        scan_id = row[0]
+        scan_id = row["id"]
 
         where  = "scan_id = ? AND turbo_score >= ?"
         params: list = [scan_id, min_score]
@@ -841,13 +1065,12 @@ def get_turbo_results(
         if cci_max < 9999:
             where += " AND cci <= ?"; params.append(cci_max)
 
-        con.row_factory = sqlite3.Row
         rows = con.execute(
             f"SELECT * FROM turbo_scan_results WHERE {where} "
             f"ORDER BY turbo_score DESC LIMIT ?",
             params + [limit],
         ).fetchall()
-        return [dict(r) for r in rows]
+        return rows
     finally:
         con.close()
 
@@ -860,6 +1083,6 @@ def get_last_turbo_scan_time(tf: str = "1d", universe: str = "sp500") -> str | N
             "SELECT completed_at FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
             (tf, universe),
         ).fetchone()
-        return row[0] if row else None
+        return row["completed_at"] if row else None
     finally:
         con.close()

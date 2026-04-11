@@ -14,7 +14,6 @@ from __future__ import annotations
 
 import os
 import logging
-import sqlite3
 import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
@@ -22,9 +21,9 @@ from datetime import datetime, timezone
 
 from signal_engine import SIG_NAMES, BULLISH_SIGS, BEARISH_SIGS
 from wlnbb_engine import compute_wlnbb
+from db import get_db, USE_PG, pk_col
 
 log = logging.getLogger(__name__)
-DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
 # L-combo inter-bar separator (§ never appears inside an l_combo value)
 _SEP = "§"
@@ -41,16 +40,41 @@ _pooled_state: dict = {
 
 # ── DB ────────────────────────────────────────────────────────────────────────
 
-def _db() -> sqlite3.Connection:
-    con = sqlite3.connect(DB_PATH, timeout=30)
-    con.execute("PRAGMA journal_mode=WAL")
-    con.execute("PRAGMA busy_timeout=30000")
-    return con
+def _db():
+    return get_db()
+
+
+# SQL for upsert (different syntax SQLite vs PostgreSQL)
+if USE_PG:
+    _UPSERT_TZ = (
+        "INSERT INTO pooled_tz_stats "
+        "(universe,interval,pattern_len,sig_seq,next_sig_id,count) "
+        "VALUES (%s,%s,%s,%s,%s,%s) "
+        "ON CONFLICT (universe,interval,pattern_len,sig_seq,next_sig_id) "
+        "DO UPDATE SET count=excluded.count"
+    )
+    _UPSERT_L = (
+        "INSERT INTO pooled_l_stats "
+        "(universe,interval,pattern_len,l_seq,next_l,count) "
+        "VALUES (%s,%s,%s,%s,%s,%s) "
+        "ON CONFLICT (universe,interval,pattern_len,l_seq,next_l) "
+        "DO UPDATE SET count=excluded.count"
+    )
+else:
+    _UPSERT_TZ = (
+        "INSERT OR REPLACE INTO pooled_tz_stats "
+        "(universe,interval,pattern_len,sig_seq,next_sig_id,count) VALUES (?,?,?,?,?,?)"
+    )
+    _UPSERT_L = (
+        "INSERT OR REPLACE INTO pooled_l_stats "
+        "(universe,interval,pattern_len,l_seq,next_l,count) VALUES (?,?,?,?,?,?)"
+    )
 
 
 def _init_db() -> None:
-    con = _db()
-    con.executescript("""
+    con = get_db()
+    _pk = pk_col()
+    con.executescript(f"""
         CREATE TABLE IF NOT EXISTS pooled_tz_stats (
             universe    TEXT NOT NULL,
             interval    TEXT NOT NULL,
@@ -70,7 +94,7 @@ def _init_db() -> None:
             PRIMARY KEY (universe, interval, pattern_len, l_seq, next_l)
         );
         CREATE TABLE IF NOT EXISTS pooled_stats_meta (
-            id           INTEGER PRIMARY KEY AUTOINCREMENT,
+            id           {_pk},
             universe     TEXT NOT NULL,
             interval     TEXT NOT NULL,
             built_at     TEXT NOT NULL,
@@ -211,16 +235,8 @@ def build_pooled_stats(
         for (seq, nxt), cnt in all_l2.items()
     ]
 
-    con.executemany(
-        "INSERT OR REPLACE INTO pooled_tz_stats "
-        "(universe,interval,pattern_len,sig_seq,next_sig_id,count) VALUES (?,?,?,?,?,?)",
-        tz_rows,
-    )
-    con.executemany(
-        "INSERT OR REPLACE INTO pooled_l_stats "
-        "(universe,interval,pattern_len,l_seq,next_l,count) VALUES (?,?,?,?,?,?)",
-        l_rows,
-    )
+    con.executemany(_UPSERT_TZ, tz_rows)
+    con.executemany(_UPSERT_L,  l_rows)
     con.execute(
         "INSERT INTO pooled_stats_meta "
         "(universe,interval,built_at,ticker_count,tz_patterns,l_patterns) VALUES (?,?,?,?,?,?)",
@@ -297,34 +313,34 @@ def get_pooled_predict(
     l2_label   = " → ".join(str(s) for s in l_seq_2)
 
     def _fmt_tz(rows: list, label: str) -> dict:
-        total = sum(r[1] for r in rows)
+        total = sum(r["c"] for r in rows)
         return {
             "signals": label,
             "total_matches": total,
             "top_outcomes": [
                 {
-                    "sig_id":   r[0],
-                    "sig_name": SIG_NAMES.get(r[0], "NONE"),
-                    "count":    r[1],
-                    "pct":      round(r[1] / total * 100) if total else 0,
-                    "is_bull":  r[0] in BULLISH_SIGS,
-                    "is_bear":  r[0] in BEARISH_SIGS,
+                    "sig_id":   int(r["next_sig_id"]),
+                    "sig_name": SIG_NAMES.get(int(r["next_sig_id"]), "NONE"),
+                    "count":    r["c"],
+                    "pct":      round(r["c"] / total * 100) if total else 0,
+                    "is_bull":  int(r["next_sig_id"]) in BULLISH_SIGS,
+                    "is_bear":  int(r["next_sig_id"]) in BEARISH_SIGS,
                 }
                 for r in rows
             ],
         }
 
     def _fmt_l(rows: list, label: str) -> dict:
-        total = sum(r[1] for r in rows)
+        total = sum(r["c"] for r in rows)
         return {
             "pattern": label,
             "total_matches": total,
             "top_outcomes": [
                 {
-                    "l_combo":    r[0],
-                    "count":      r[1],
-                    "pct":        round(r[1] / total * 100) if total else 0,
-                    "is_bullish": _l_bias(r[0]),
+                    "l_combo":    r["next_l"],
+                    "count":      r["c"],
+                    "pct":        round(r["c"] / total * 100) if total else 0,
+                    "is_bullish": _l_bias(r["next_l"]),
                 }
                 for r in rows
             ],
@@ -354,10 +370,10 @@ def get_pooled_status(universe: str = "sp500", interval: str = "1d") -> dict:
         if row:
             return {
                 "available": True,
-                "built_at":     row[0],
-                "ticker_count": row[1],
-                "tz_patterns":  row[2],
-                "l_patterns":   row[3],
+                "built_at":     row["built_at"],
+                "ticker_count": row["ticker_count"],
+                "tz_patterns":  row["tz_patterns"],
+                "l_patterns":   row["l_patterns"],
             }
     except Exception:
         pass
