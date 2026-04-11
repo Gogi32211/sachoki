@@ -613,10 +613,11 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: flo
     _init_db()
     con = _db()
     try:
-        run = con.fetchone(
+        con.execute(
             "SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
             (tf, universe),
         )
+        run = con.fetchone()
         if not run:
             return {"pairs": [], "signal_counts": {}, "n_tickers": 0, "scan_id": None}
 
@@ -625,10 +626,11 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: flo
         from turbo_engine import _TURBO_COLS as _tc
         valid = [s for s in _CORR_SIGS if s in _tc]
         cols_sql = ", ".join(f'"{c}"' for c in valid)
-        rows = con.fetchall(
+        con.execute(
             f"SELECT {cols_sql} FROM turbo_scan_results WHERE scan_id=?",
             (scan_id,),
         )
+        rows = con.fetchall()
         n = len(rows)
         if n == 0:
             return {"pairs": [], "signal_counts": {}, "n_tickers": 0, "scan_id": scan_id}
