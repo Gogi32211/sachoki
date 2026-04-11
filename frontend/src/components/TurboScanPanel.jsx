@@ -191,6 +191,8 @@ const SIG_GROUPS = [
     custom: r => (r.rsi || 100) <= 35 },
   { key: '_rsi_ob',    label: 'RSI≥70', cls: 'text-red-400',
     custom: r => (r.rsi || 0) >= 70 },
+  { key: '_yf_only',   label: 'yf',     cls: 'text-orange-400',
+    custom: r => r.data_source === 'yfinance' },
 ]
 
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
@@ -643,6 +645,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   {r.ticker}
                   {r.vol_bucket && (
                     <span className="ml-1 text-gray-600 font-normal">{r.vol_bucket}</span>
+                  )}
+                  {r.data_source === 'yfinance' && (
+                    <span
+                      title="Data from yfinance fallback — may differ from Polygon (splits, adjusted prices)"
+                      className="ml-1 text-[8px] text-orange-400/60 font-normal align-top">yf</span>
                   )}
                 </td>
 

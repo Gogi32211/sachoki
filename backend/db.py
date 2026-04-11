@@ -17,7 +17,18 @@ import sqlite3
 from typing import Any
 
 DATABASE_URL: str | None = os.environ.get("DATABASE_URL")
-DB_PATH: str = os.environ.get("DB_PATH", "/tmp/scanner.db")
+
+def _resolve_db_path() -> str:
+    """Return SQLite path: explicit DB_PATH env → /data volume → /tmp fallback."""
+    explicit = os.environ.get("DB_PATH")
+    if explicit:
+        return explicit
+    # Auto-detect Railway persistent volume mounted at /data
+    if os.path.isdir("/data"):
+        return "/data/scanner.db"
+    return "/tmp/scanner.db"
+
+DB_PATH: str = _resolve_db_path()
 USE_PG: bool = bool(DATABASE_URL)
 
 
@@ -64,6 +75,10 @@ class Conn:
             self._cur = self._pg.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             self._sqlite = None
         else:
+            # Ensure parent directory exists (e.g. /data volume on Railway)
+            _db_dir = os.path.dirname(DB_PATH)
+            if _db_dir:
+                os.makedirs(_db_dir, exist_ok=True)
             self._sqlite = sqlite3.connect(DB_PATH, timeout=30)
             self._sqlite.execute("PRAGMA journal_mode=WAL")
             self._sqlite.execute("PRAGMA busy_timeout=30000")

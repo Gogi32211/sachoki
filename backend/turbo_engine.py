@@ -173,6 +173,8 @@ _TURBO_COLS = [
     "turbo_score_n10",
     # Signal ages JSON {"signal_key": bars_since_last_fire, ...}
     "sig_ages",
+    # Data source: "polygon" | "yfinance" (shown as badge in UI)
+    "data_source",
 ]
 
 
@@ -182,7 +184,7 @@ def _db():
 
 
 def _col_def(c: str) -> str:
-    _TEXT = {"tz_sig", "vol_bucket", "sig_ages"}
+    _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
     _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
@@ -372,6 +374,7 @@ def _scan_turbo_ticker(
 
         # ── Fetch OHLCV — Polygon first, yfinance fallback ─────────────────
         df = None
+        _data_source = "polygon"
         if polygon_available():
             try:
                 df = fetch_bars(ticker, interval=interval, days=days)
@@ -379,6 +382,7 @@ def _scan_turbo_ticker(
                 log.debug("Polygon skip %s: %s — falling back to yfinance", ticker, exc)
 
         if df is None or df.empty:
+            _data_source = "yfinance"
             import yfinance as yf
             period = "5y" if interval in ("1wk", "1w") else "180d" if interval == "1d" else "60d"
             raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
@@ -412,7 +416,7 @@ def _scan_turbo_ticker(
         if len(df) < 40:
             return None
 
-        row: dict = {"ticker": ticker}
+        row: dict = {"ticker": ticker, "data_source": _data_source}
 
         # ── Price / change ─────────────────────────────────────────────────
         price  = float(df["close"].iloc[-1])
