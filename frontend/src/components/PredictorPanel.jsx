@@ -22,6 +22,15 @@ function TZOutcomeTable({ data, title, color, pooled = false }) {
           {data.total_matches >= 50 && <span className="text-[9px] bg-lime-900/40 px-1 rounded">high confidence</span>}
           {data.total_matches >= 15 && data.total_matches < 50 && <span className="text-[9px] bg-yellow-900/40 px-1 rounded">moderate</span>}
           {data.total_matches > 0 && data.total_matches < 15 && <span className="text-[9px] bg-gray-800 px-1 rounded">low</span>}
+          {/* Regime split */}
+          {data.bull_matches > 0 && (
+            <span className="ml-auto text-[9px] text-gray-500">
+              <span className="text-lime-400">🟢{data.bull_bull_pct}%</span>
+              <span className="text-gray-600"> ({data.bull_matches}n) </span>
+              <span className="text-red-400">🔴{data.bear_bull_pct}%</span>
+              <span className="text-gray-600"> ({data.bear_matches}n)</span>
+            </span>
+          )}
         </div>
         <table className="w-full text-sm">
           <thead>
@@ -273,7 +282,15 @@ export default function PredictorPanel({ ticker, tf }) {
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-wrap gap-2">
-        <span className="font-semibold text-sm">Next-Bar Predictor — {ticker}</span>
+        <span className="font-semibold text-sm">
+          Next-Bar Predictor — {ticker}
+          {td?.current_regime === 'bull' && (
+            <span className="ml-2 text-[9px] bg-lime-900/50 text-lime-400 px-1.5 py-0.5 rounded font-normal">🟢 Bull Regime</span>
+          )}
+          {td?.current_regime === 'bear' && (
+            <span className="ml-2 text-[9px] bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded font-normal">🔴 Bear Regime</span>
+          )}
+        </span>
         <div className="flex items-center gap-2">
           {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
           {!loading && (

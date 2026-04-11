@@ -592,6 +592,80 @@ def api_turbo_scan_reset():
     return {"ok": True, "message": "Scan state reset"}
 
 
+# ── Signal correlation matrix ─────────────────────────────────────────────────
+_CORR_SIGS = [
+    "best_sig", "vbo_up", "ns", "abs_sig", "load_sig",
+    "wyk_spring", "wyk_sos", "wyk_lps",
+    "d_spring", "d_strong_bull", "d_blast_bull", "d_absorb_bull",
+    "rocket", "buy_2809", "sig_l88",
+    "fri34", "fri43", "l34", "preup66", "preup55",
+    "rs_strong", "tz_bull_flip", "tz_attempt",
+    "g1", "g2", "b10", "b1", "va", "seq_bcont",
+]
+
+@app.get("/api/signal-correlation")
+def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: float = 15.0):
+    """
+    Compute pairwise signal co-occurrence from the latest turbo scan results.
+    Returns top pairs sorted by max co-occurrence percentage.
+    """
+    from turbo_engine import _db, _init_db
+    _init_db()
+    con = _db()
+    try:
+        run = con.fetchone(
+            "SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=? ORDER BY id DESC LIMIT 1",
+            (tf, universe),
+        )
+        if not run:
+            return {"pairs": [], "signal_counts": {}, "n_tickers": 0, "scan_id": None}
+
+        scan_id = run["id"]
+        # Only use signals that exist as columns
+        from turbo_engine import _TURBO_COLS as _tc
+        valid = [s for s in _CORR_SIGS if s in _tc]
+        cols_sql = ", ".join(f'"{c}"' for c in valid)
+        rows = con.fetchall(
+            f"SELECT {cols_sql} FROM turbo_scan_results WHERE scan_id=?",
+            (scan_id,),
+        )
+        n = len(rows)
+        if n == 0:
+            return {"pairs": [], "signal_counts": {}, "n_tickers": 0, "scan_id": scan_id}
+
+        counts = {s: sum(1 for r in rows if r.get(s)) for s in valid}
+
+        pairs = []
+        for i, a in enumerate(valid):
+            for b in valid[i+1:]:
+                if counts[a] == 0 or counts[b] == 0:
+                    continue
+                both = sum(1 for r in rows if r.get(a) and r.get(b))
+                if both == 0:
+                    continue
+                pct_a = round(both / counts[a] * 100)
+                pct_b = round(both / counts[b] * 100)
+                max_pct = max(pct_a, pct_b)
+                if max_pct >= min_pct:
+                    pairs.append({
+                        "sig_a": a, "sig_b": b,
+                        "both": both,
+                        "a_count": counts[a], "b_count": counts[b],
+                        "pct_a": pct_a, "pct_b": pct_b,
+                        "max_pct": max_pct,
+                    })
+
+        pairs.sort(key=lambda x: -x["max_pct"])
+        return {
+            "pairs": pairs[:60],
+            "signal_counts": {s: counts[s] for s in valid},
+            "n_tickers": n,
+            "scan_id": scan_id,
+        }
+    finally:
+        con.close()
+
+
 @app.get("/api/admin/scan-history")
 def api_admin_scan_history():
     from turbo_engine import _db, _init_db

@@ -112,6 +112,10 @@ export const api = {
   turboScanReset: () =>
     post('/api/turbo-scan/reset'),
 
+  // Signal correlation
+  signalCorrelation: (tf = '1d', universe = 'sp500', min_pct = 15) =>
+    get(`/api/signal-correlation?tf=${tf}&universe=${universe}&min_pct=${min_pct}`),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),

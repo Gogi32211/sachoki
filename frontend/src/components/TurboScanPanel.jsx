@@ -230,26 +230,79 @@ function Badge({ label, cls }) {
 // ── fmt helper ────────────────────────────────────────────────────────────────
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
 
-// ── Score reason tooltip ──────────────────────────────────────────────────────
+// ── Score reason — grouped by family, shown as tooltip + inline line ─────────
 function scoreReason(r) {
-  const p = []
-  if (r.best_sig)        p.push('BEST★')
-  else if (r.strong_sig) p.push('STRONG')
-  if (r.best_long)       p.push('BEST↑')
-  else if (r.fbo_bull)   p.push('FBO↑')
-  if (r.sig_l88)         p.push('L88')
-  else if (r.sig_260308) p.push('260308')
-  if (r.rocket)          p.push('🚀')
-  else if (r.buy_2809)   p.push('BUY')
-  if (r.tz_sig)          p.push(r.tz_sig)
-  if (r.fri34)           p.push('FRI34')
-  else if (r.fri43)      p.push('FRI43')
-  if (r.ns)              p.push('NS')
-  if (r.sq)              p.push('SQ')
-  if (r.vbo_up)          p.push('VBO↑')
-  if (r.ultra_3up)       p.push('3↑')
-  if (r.br_score >= 71)  p.push(`BR${Math.round(r.br_score)}`)
-  return p.slice(0, 6).join(' · ')
+  const parts = []
+
+  // Vol/VABS family
+  const vol = []
+  if (r.best_sig)  vol.push('BEST★')
+  else if (r.strong_sig) vol.push('STR')
+  if (r.vbo_up)    vol.push('VBO↑')
+  if (r.wyk_spring) vol.push('wSPR')
+  else if (r.wyk_sos) vol.push('SOS')
+  else if (r.wyk_lps) vol.push('LPS')
+  if (r.ns)        vol.push('NS')
+  else if (r.sq)   vol.push('SQ')
+  if (r.load_sig)  vol.push('LD')
+  if (r.va)        vol.push('VA')
+  if (r.sig_l88)   vol.push('L88')
+  if (vol.length)  parts.push(`Vol:${vol.join('+')}`)
+
+  // Breakout family
+  const brk = []
+  if (r.fbo_bull)   brk.push('FBO↑')
+  if (r.eb_bull)    brk.push('EB↑')
+  if (r.rs_strong)  brk.push('RS+')
+  else if (r.rs)    brk.push('RS')
+  if (r.ultra_3up)  brk.push('3↑')
+  if (brk.length)   parts.push(`Brk:${brk.join('+')}`)
+
+  // Combo family
+  const cmb = []
+  if (r.rocket)    cmb.push('🚀')
+  else if (r.buy_2809) cmb.push('BUY')
+  if (r.cd)        cmb.push('CD')
+  else if (r.ca)   cmb.push('CA')
+  else if (r.cw)   cmb.push('CW')
+  if (r.seq_bcont) cmb.push('SBC')
+  if (cmb.length)  parts.push(`Cmb:${cmb.join('+')}`)
+
+  // Trend/TZ family
+  const trd = []
+  if (r.tz_sig)        trd.push(r.tz_sig)
+  if (r.tz_bull_flip)  trd.push('TZ→3')
+  else if (r.tz_attempt) trd.push('TZ→2')
+  if (r.fri34)         trd.push('FRI34')
+  else if (r.fri43)    trd.push('FRI43')
+  else if (r.l34)      trd.push('L34')
+  if (r.preup66)       trd.push('P66')
+  else if (r.preup55)  trd.push('P55')
+  if (trd.length)      parts.push(`Trd:${trd.join('+')}`)
+
+  // Delta family
+  const dlt = []
+  if (r.d_spring)      dlt.push('SPR')
+  if (r.d_blast_bull)  dlt.push('ΔΔ↑')
+  else if (r.d_surge_bull) dlt.push('Δ↑')
+  if (r.d_strong_bull) dlt.push('B/S↑')
+  if (r.d_absorb_bull) dlt.push('Ab↑')
+  if (dlt.length)      parts.push(`Δ:${dlt.join('+')}`)
+
+  // B/G signals (show first 3)
+  const bg = []
+  for (let i = 1; i <= 11; i++) { if (r[`b${i}`]) bg.push(`B${i}`) }
+  for (const k of ['g1','g2','g4','g6','g11']) { if (r[k]) bg.push(k.toUpperCase()) }
+  if (bg.length) parts.push(bg.slice(0, 4).join('+'))
+
+  // Context
+  if (r.br_score >= 71) parts.push(`BR${Math.round(r.br_score)}`)
+
+  const sc = r.turbo_score ?? 0
+  const tier = sc >= 65 ? '🔥' : sc >= 50 ? '★' : sc >= 35 ? '▲' : ''
+  return parts.length
+    ? `${tier} ${parts.join(' | ')} → ${sc.toFixed(1)}`
+    : `score ${sc.toFixed(1)}`
 }
 
 // ── Turbo scan localStorage cache ─────────────────────────────────────────────

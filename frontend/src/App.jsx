@@ -13,6 +13,7 @@ import PowerScanPanel from './components/PowerScanPanel'
 import BRScanPanel from './components/BRScanPanel'
 import TurboScanPanel from './components/TurboScanPanel'
 import AdminPanel from './components/AdminPanel'
+import SignalCorrelPanel from './components/SignalCorrelPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -35,6 +36,7 @@ const TABS = [
   { id: 'power',      label: 'Power Scan' },
   { id: 'brscan',     label: 'BR Scan' },
   { id: 'pumps',      label: 'Pump Combos' },
+  { id: 'corr',       label: '📊 Corr' },
   { id: 'howitworks', label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
 ]
@@ -75,7 +77,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v3.9.183</span>
+          <span className="text-xs font-normal text-gray-500">v3.9.190</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
@@ -174,6 +176,10 @@ export default function App() {
 
           {activeTab === 'pumps' && (
             <PumpComboPanel />
+          )}
+
+          {activeTab === 'corr' && (
+            <SignalCorrelPanel />
           )}
 
           {activeTab === 'howitworks' && (
