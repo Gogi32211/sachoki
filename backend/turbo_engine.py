@@ -110,8 +110,9 @@ _TURBO_COLS = [
     "hilo_buy", "hilo_sell", "atr_brk", "bb_brk",
     "bias_up", "bias_down", "cons_atr",
     "um_2809", "svs_2809", "conso_2809",
-    # B signals (260321) — only B2
-    "b2",
+    # B signals (260321) — B1–B11, no RSI filter
+    "b1", "b2", "b3", "b4", "b5",
+    "b6", "b7", "b8", "b9", "b10", "b11",
     # G signals (260410) — armed by Z10/Z11/Z12, no RSI filter
     "g1", "g2", "g4", "g6", "g11",
     # TZ state + confluences
@@ -486,9 +487,10 @@ def _scan_turbo_ticker(
         row["predn2"]    = _sig(combo, "predn2")
         row["predn50"]   = _sig(combo, "predn50")
 
-        # ── B2 signal (260321) ────────────────────────────────────────────
+        # ── B signals (260321) — B1–B11, no RSI filter ───────────────────
         b_sigs = compute_b_signals(df)
-        row["b2"] = _sig(b_sigs, "b2")
+        for _b in range(1, 12):
+            row[f"b{_b}"] = _sig(b_sigs, f"b{_b}")
         # ── G signals (260410) — armed by Z10/Z11/Z12, no RSI filter ─────
         g_sigs = compute_g_signals(df)
         row["g1"]  = _sig(g_sigs, "g1")
@@ -499,10 +501,11 @@ def _scan_turbo_ticker(
         # ── TZ state machine + CA/CD/CW ────────────────────────────────────
         tz_st = compute_tz_state(df)
         row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
+        _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
         _last_st = row["tz_state"]
-        row["ca"] = int(row.get("b2", 0) and _last_st == 2)  # Bull Attempt + B2
-        row["cd"] = int(row.get("b2", 0) and _last_st == 3)  # Bull Dom + B2
-        row["cw"] = int(row.get("b2", 0) and _last_st == 1)  # Bear Weakening + B2
+        row["ca"] = int(_any_b and _last_st == 2)  # Bull Attempt + B
+        row["cd"] = int(_any_b and _last_st == 3)  # Bull Dom + B
+        row["cw"] = int(_any_b and _last_st == 1)  # Bear Weakening + B
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
@@ -713,8 +716,8 @@ def _scan_turbo_ticker(
             "predn3":     _sa(combo, "predn3"),
             "predn2":     _sa(combo, "predn2"),
             "predn50":    _sa(combo, "predn50"),
-            # B2 signal
-            "b2":  _sa(b_sigs, "b2"),
+            # B signals
+            **{f"b{i}": _sa(b_sigs, f"b{i}") for i in range(1, 12)},
             # G signals
             "g1":  _sa(g_sigs, "g1"),
             "g2":  _sa(g_sigs, "g2"),

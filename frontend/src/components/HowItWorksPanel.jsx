@@ -162,11 +162,11 @@ export default function HowItWorksPanel() {
         </Section>
 
         {/* ── B Signals ── */}
-        <Section title="B1–B11 Signals (260321 / 260410)">
+        <Section title="B1–B11 Signals (260321_B_BUILDER)">
           <p className="mb-2">
             Multi-bar pattern sequences built on top of T/Z codes. Each B signal describes a
             specific 2–3 bar sequence (e.g. "Z10 two bars ago, Z2G one bar ago, T1 now") that
-            historically precedes reversals.
+            historically precedes reversals. <span className="text-yellow-300">No RSI filter applied</span> — raw pattern logic only.
           </p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="B1" cls="text-orange-400">T3→T4 sequences and Z2G/Z6 absorption into T4</Row>
@@ -202,6 +202,28 @@ export default function HowItWorksPanel() {
             <Row label="CA" cls="text-cyan-300">any B signal in Bull Attempt state</Row>
             <Row label="CW" cls="text-yellow-300">any B signal in Bear Weakening state — early reversal</Row>
           </ul>
+        </Section>
+
+        {/* ── G Signals ── */}
+        <Section title="G1 / G2 / G4 / G6 / G11 Signals (260410_G_BUILDER)">
+          <p className="mb-2">
+            Stateful setup signals that require a bearish trigger bar first, then fire on the
+            first matching bullish confirmation. <span className="text-yellow-300">No RSI filter.</span>
+          </p>
+          <p className="text-gray-400 mb-1 font-medium">G1 / G2 / G4 / G6 — armed by Z10, Z11 or Z12</p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="G1" cls="text-lime-300">first T1 after Z10 / Z11 / Z12 — inside-bar base then reversal</Row>
+            <Row label="G2" cls="text-cyan-300">first T1G after Z10 / Z11 / Z12 — gap-up reversal after bearish inside bar</Row>
+            <Row label="G4" cls="text-fuchsia-300">first T4 after Z10 / Z11 / Z12 — engulfing reversal after base</Row>
+            <Row label="G6" cls="text-orange-300">first T6 after Z10 / Z11 / Z12 — bull-on-bull engulfing after base</Row>
+          </ul>
+          <p className="text-gray-400 mt-3 mb-1 font-medium">G11 — armed by T10 or T11</p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="G11" cls="text-yellow-300">first T1 after T10 or T11 — reversal after bullish inside bars</Row>
+          </ul>
+          <p className="mt-2 text-gray-500 text-xs">
+            State resets after the G signal fires — each new Z10/Z11/Z12 (or T10/T11 for G11) starts a fresh setup.
+          </p>
         </Section>
 
         {/* ── Delta Engine ── */}
