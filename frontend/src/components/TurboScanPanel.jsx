@@ -193,6 +193,16 @@ const SIG_GROUPS = [
     custom: r => (r.rsi || 0) >= 70 },
   { key: '_yf_only',   label: 'yf',     cls: 'text-orange-400',
     custom: r => r.data_source === 'yfinance' },
+  { divider: true },
+  // ── Cross-engine diversity filters ────────────────────────────────────────
+  { key: '_cross2',  label: '⚡×2+', cls: 'text-yellow-300',
+    custom: r => engineFamilies(r).size >= 2 },
+  { key: '_cross3',  label: '⚡×3+', cls: 'text-lime-300',
+    custom: r => engineFamilies(r).size >= 3 },
+  { key: '_cross4',  label: '⚡×4+', cls: 'text-lime-400',
+    custom: r => engineFamilies(r).size >= 4 },
+  { key: '_early',   label: '[E]',   cls: 'text-sky-300',
+    custom: r => setupPhase(r) === 'Early' },
 ]
 
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
