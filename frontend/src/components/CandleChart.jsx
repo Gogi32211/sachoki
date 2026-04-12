@@ -134,6 +134,8 @@ export default function CandleChart({ ticker, tf }) {
         seriesRef.current.setData(candles)
         seriesRef.current.setMarkers(markers)
         if (volSeriesRef.current) volSeriesRef.current.setData(volumes)
+        // Reset both axes so new ticker's price range fills the pane
+        chartRef.current.priceScale('right').applyOptions({ autoScale: true })
         chartRef.current.timeScale().fitContent()
       })
       .catch((e) => setError(e.message))
