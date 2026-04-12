@@ -116,6 +116,10 @@ export const api = {
   signalCorrelation: (tf = '1d', universe = 'sp500', min_pct = 15) =>
     get(`/api/signal-correlation?tf=${tf}&universe=${universe}&min_pct=${min_pct}`),
 
+  // Single-ticker Turbo analysis
+  turboAnalyze: (ticker, tf = '1d') =>
+    get(`/api/turbo-analyze/${ticker}?tf=${tf}`),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),

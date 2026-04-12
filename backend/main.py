@@ -647,6 +647,22 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: flo
     }
 
 
+# ── Single-ticker Turbo analysis ──────────────────────────────────────────────
+@app.get("/api/turbo-analyze/{ticker}")
+def api_turbo_analyze(ticker: str, tf: str = "1d"):
+    """
+    Run the full Turbo signal engine on a single ticker and return the same
+    row format as the TURBO scan — identical scoring, all signals, all badges.
+    """
+    from turbo_engine import _scan_turbo_ticker, _calc_turbo_score
+    ticker = ticker.upper().strip()
+    row = _scan_turbo_ticker(ticker, interval=tf)
+    if row is None:
+        raise HTTPException(status_code=404, detail=f"Could not fetch data for {ticker}")
+    row["turbo_score"] = _calc_turbo_score(row)
+    return row
+
+
 @app.get("/api/admin/scan-history")
 def api_admin_scan_history():
     from turbo_engine import _db, _init_db

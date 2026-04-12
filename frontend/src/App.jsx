@@ -14,6 +14,7 @@ import BRScanPanel from './components/BRScanPanel'
 import TurboScanPanel from './components/TurboScanPanel'
 import AdminPanel from './components/AdminPanel'
 import SignalCorrelPanel from './components/SignalCorrelPanel'
+import TickerAnalysisPanel from './components/TickerAnalysisPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -37,6 +38,7 @@ const TABS = [
   { id: 'brscan',     label: 'BR Scan' },
   { id: 'pumps',      label: 'Pump Combos' },
   { id: 'corr',       label: '📊 Corr' },
+  { id: 'analyze',    label: '🔍 Analyze' },
   { id: 'howitworks', label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
 ]
@@ -77,7 +79,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v3.9.198</span>
+          <span className="text-xs font-normal text-gray-500">v3.9.201</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
@@ -180,6 +182,10 @@ export default function App() {
 
           {activeTab === 'corr' && (
             <SignalCorrelPanel />
+          )}
+
+          {activeTab === 'analyze' && (
+            <TickerAnalysisPanel />
           )}
 
           {activeTab === 'howitworks' && (
