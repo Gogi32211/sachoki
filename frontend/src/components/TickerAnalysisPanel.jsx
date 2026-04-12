@@ -13,7 +13,7 @@ function engineFamilies(r) {
     fams.add('Δ')
   if (r.tz_sig || r.tz_bull_flip || r.tz_attempt)
     fams.add('T/Z')
-  if (r.fri34 || r.fri43 || r.l34 || r.preup66 || r.preup55)
+  if (r.fri34 || r.fri43 || r.l34 || r.preup66 || r.preup55 || r.preup3 || r.preup2 || r.preup50)
     fams.add('L')
   if (r.rocket || r.buy_2809 || r.seq_bcont)
     fams.add('Cmb')
@@ -134,6 +134,10 @@ function SignalGrid({ r, ages, N }) {
         show('l34')     && ['l34',     'L34',   'B'],
         show('preup66') && ['preup66', 'P66',   'A'],
         show('preup55') && ['preup55', 'P55',   'B'],
+        show('preup89') && ['preup89', 'P89',   'B'],
+        show('preup3')  && ['preup3',  'P3',    null],
+        show('preup2')  && ['preup2',  'P2',    null],
+        show('preup50') && ['preup50', 'P50',   null],
         show('blue')    && ['blue',    'BLUE',  null],
       ].filter(Boolean),
     },

@@ -164,7 +164,7 @@ _TURBO_COLS = [
     # RS / Relative Strength vs SPY+IWM
     "rs", "rs_strong",
     # PREUP (EMA cross ↑)
-    "preup66", "preup55", "preup89",
+    "preup66", "preup55", "preup89", "preup3", "preup2", "preup50",
     # PREDN (EMA drop ↓)
     "predn66", "predn55", "predn89", "predn3", "predn2", "predn50",
     # N=3, N=5 and N=10 scores (client-side N= switching without rescan)
@@ -492,7 +492,9 @@ def _scan_turbo_ticker(
         row["preup66"]   = _sig(combo, "preup66")
         row["preup55"]   = _sig(combo, "preup55")
         row["preup89"]   = _sig(combo, "preup89")
-        # preup3/2/50 already in existing _TURBO_COLS as part of combo
+        row["preup3"]    = _sig(combo, "preup3")
+        row["preup2"]    = _sig(combo, "preup2")
+        row["preup50"]   = _sig(combo, "preup50")
         # PREDN — EMA drop ↓ (strongest = D66)
         row["predn66"]   = _sig(combo, "predn66")
         row["predn55"]   = _sig(combo, "predn55")
@@ -757,6 +759,9 @@ def _scan_turbo_ticker(
             "preup66":    _sa(combo, "preup66"),
             "preup55":    _sa(combo, "preup55"),
             "preup89":    _sa(combo, "preup89"),
+            "preup3":     _sa(combo, "preup3"),
+            "preup2":     _sa(combo, "preup2"),
+            "preup50":    _sa(combo, "preup50"),
             "predn66":    _sa(combo, "predn66"),
             "predn55":    _sa(combo, "predn55"),
             "predn89":    _sa(combo, "predn89"),
@@ -911,6 +916,9 @@ def _scan_turbo_ticker(
                 "preup66": _sn(combo, "preup66", _n),
                 "preup55": _sn(combo, "preup55", _n),
                 "preup89": _sn(combo, "preup89", _n),
+                "preup3":  _sn(combo, "preup3",  _n),
+                "preup2":  _sn(combo, "preup2",  _n),
+                "preup50": _sn(combo, "preup50", _n),
                 # Context (wick / cisd / br unchanged)
                 "x2g_wick": _sn(wx,   "x2g_wick",          _n),
                 "x2_wick":  _sn(wx,   "x2_wick",           _n),
