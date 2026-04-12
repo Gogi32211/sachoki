@@ -49,113 +49,121 @@ function Badge({ label, cls }) {
   return <span className={`px-1.5 py-0.5 rounded text-[10px] leading-tight ${cls}`}>{label}</span>
 }
 
-// ── Tier badge (A / B / context) ─────────────────────────────────────────────
-function TierBadge({ label, tier }) {
+// ── Tier badge with optional age indicator ────────────────────────────────────
+// age=0 → current bar (bright), age>0 → dimmed + "Nd" label
+function TierBadge({ label, tier, age }) {
+  const isOld = age > 0
   const cls = tier === 'A'
-    ? 'bg-lime-900/50 text-lime-300 ring-1 ring-lime-600'
+    ? isOld ? 'bg-lime-900/20 text-lime-400/50 ring-1 ring-lime-700/40'
+            : 'bg-lime-900/50 text-lime-300 ring-1 ring-lime-600'
     : tier === 'B'
-    ? 'bg-sky-900/40 text-sky-300 ring-1 ring-sky-700'
-    : 'bg-gray-800 text-gray-400'
+    ? isOld ? 'bg-sky-900/20 text-sky-400/50 ring-1 ring-sky-800/40'
+            : 'bg-sky-900/40 text-sky-300 ring-1 ring-sky-700'
+    : isOld ? 'bg-gray-800/50 text-gray-600'
+            : 'bg-gray-800 text-gray-400'
   return (
     <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] leading-tight ${cls}`}>
-      <span className="text-[8px] opacity-60">{tier}</span>
+      {tier && <span className="text-[8px] opacity-50">{tier}</span>}
       <span className="font-mono font-semibold">{label}</span>
+      {isOld && <span className="text-[8px] opacity-60 ml-0.5">{age}d</span>}
     </span>
   )
 }
 
-// ── Signal grid — shows all active signals grouped by family ─────────────────
-function SignalGrid({ r }) {
+// ── Signal grid — N-bar lookback using sig_ages ───────────────────────────────
+// ages = parsed sig_ages dict; N = lookback in bars
+// signal is shown if ages[key] < N (age 0 = current bar, 1 = 1 bar ago, etc.)
+function SignalGrid({ r, ages, N }) {
+  // For signals without age tracking (delta, tz_state derived), fall back to row boolean
+  const age  = (key) => ages?.[key] ?? (r[key] ? 0 : 999)
+  const show = (key) => age(key) < N
+
   const groups = [
     {
-      label: 'VABS / Vol', tier: 'A',
-      items: [
-        r.best_sig    && ['BEST★', 'A'],
-        r.strong_sig  && ['STR',   'A'],
-        r.vbo_up      && ['VBO↑',  'A'],
-        r.abs_sig     && ['ABS',   'B'],
-        r.ns          && ['NS',    'B'],
-        r.sq          && ['SQ',    'B'],
-        r.load_sig    && ['LD',    'B'],
-        r.va          && ['VA',    'B'],
-        r.sig_l88     && ['L88',   'B'],
+      label: 'VABS / Vol', items: [
+        show('best_sig')   && ['best_sig',   'BEST★', 'A'],
+        show('strong_sig') && ['strong_sig', 'STR',   'A'],
+        show('vbo_up')     && ['vbo_up',     'VBO↑',  'A'],
+        show('abs_sig')    && ['abs_sig',    'ABS',   'B'],
+        show('ns')         && ['ns',         'NS',    'B'],
+        show('sq')         && ['sq',         'SQ',    'B'],
+        show('load_sig')   && ['load_sig',   'LD',    'B'],
+        show('va')         && ['va',         'VA',    'B'],
+        show('sig_l88')    && ['sig_l88',    'L88',   'B'],
       ].filter(Boolean),
     },
     {
-      label: 'Wyckoff', tier: 'A',
-      items: [
-        r.wyk_spring  && ['wSPR',  'A'],
-        r.wyk_sos     && ['SOS',   'A'],
-        r.wyk_lps     && ['LPS',   'B'],
-        r.wyk_accum   && ['ACC',   'B'],
-        r.wyk_markup  && ['MKP',   'B'],
-        r.wyk_sc      && ['wSC',   null],
-        r.wyk_ar      && ['AR',    null],
-        r.wyk_st      && ['ST',    null],
+      label: 'Wyckoff', items: [
+        show('wyk_spring') && ['wyk_spring', 'wSPR', 'A'],
+        show('wyk_sos')    && ['wyk_sos',    'SOS',  'A'],
+        show('wyk_lps')    && ['wyk_lps',    'LPS',  'B'],
+        show('wyk_accum')  && ['wyk_accum',  'ACC',  'B'],
+        show('wyk_markup') && ['wyk_markup', 'MKP',  'B'],
+        show('wyk_sc')     && ['wyk_sc',     'wSC',  null],
+        show('wyk_ar')     && ['wyk_ar',     'AR',   null],
+        show('wyk_st')     && ['wyk_st',     'ST',   null],
       ].filter(Boolean),
     },
     {
-      label: 'Delta / Order Flow', tier: 'A',
-      items: [
-        r.d_spring       && ['dSPR',  'A'],
-        r.d_blast_bull   && ['ΔΔ↑',   'A'],
-        r.d_surge_bull   && ['Δ↑',    'B'],
-        r.d_strong_bull  && ['B/S↑',  'B'],
-        r.d_absorb_bull  && ['Ab↑',   'B'],
-        r.d_div_bull     && ['T↓',    null],
-        r.d_vd_div_bull  && ['NS',    null],
+      label: 'Delta / Order Flow', items: [
+        show('d_spring')      && ['d_spring',      'dSPR', 'A'],
+        show('d_blast_bull')  && ['d_blast_bull',  'ΔΔ↑',  'A'],
+        show('d_surge_bull')  && ['d_surge_bull',  'Δ↑',   'B'],
+        show('d_strong_bull') && ['d_strong_bull', 'B/S↑', 'B'],
+        show('d_absorb_bull') && ['d_absorb_bull', 'Ab↑',  'B'],
+        show('d_div_bull')    && ['d_div_bull',    'T↓',   null],
+        show('d_vd_div_bull') && ['d_vd_div_bull', 'NS',   null],
       ].filter(Boolean),
     },
     {
-      label: 'T/Z Candlestick', tier: 'A',
-      items: [
-        r.tz_sig         && [r.tz_sig,  ['T4','T6','T1G','T2G'].includes(r.tz_sig) ? 'A' : 'B'],
-        r.tz_bull_flip   && ['TZ→3',   'B'],
-        r.tz_attempt     && ['TZ→2',   null],
-        r.ca             && ['CA',     null],
-        r.cd             && ['CD',     null],
-        r.cw             && ['CW',     null],
+      label: 'T/Z Candlestick', items: [
+        r.tz_sig        && ['tz_sig',       r.tz_sig,  ['T4','T6','T1G','T2G'].includes(r.tz_sig) ? 'A' : 'B'],
+        show('tz_bull_flip') && ['tz_bull_flip', 'TZ→3', 'B'],
+        show('tz_attempt')   && ['tz_attempt',   'TZ→2', null],
+        r.ca && ['ca', 'CA', null],
+        r.cd && ['cd', 'CD', null],
+        r.cw && ['cw', 'CW', null],
       ].filter(Boolean),
     },
     {
-      label: 'WLNBB / L-structure', tier: 'A',
-      items: [
-        r.fri34   && ['FRI34',  'A'],
-        r.fri43   && ['FRI43',  'B'],
-        r.l34     && ['L34',    'B'],
-        r.preup66 && ['P66',    'A'],
-        r.preup55 && ['P55',    'B'],
-        r.blue    && ['BLUE',   null],
+      label: 'WLNBB / L-structure', items: [
+        show('fri34')   && ['fri34',   'FRI34', 'A'],
+        show('fri43')   && ['fri43',   'FRI43', 'B'],
+        show('l34')     && ['l34',     'L34',   'B'],
+        show('preup66') && ['preup66', 'P66',   'A'],
+        show('preup55') && ['preup55', 'P55',   'B'],
+        show('blue')    && ['blue',    'BLUE',  null],
       ].filter(Boolean),
     },
     {
-      label: 'Combo / 2809', tier: 'A',
-      items: [
-        r.rocket     && ['🚀',    'A'],
-        r.buy_2809   && ['BUY',   'A'],
-        r.seq_bcont  && ['SBC',   'B'],
-        r.sig3g      && ['3G',    null],
-        r.rtv        && ['RTV',   null],
-        r.hilo_buy   && ['HILO↑', null],
-        r.atr_brk    && ['ATR↑',  null],
-        r.bb_brk     && ['BB↑',   null],
+      label: 'Combo / 2809', items: [
+        show('rocket')    && ['rocket',    '🚀',    'A'],
+        show('buy_2809')  && ['buy_2809',  'BUY',   'A'],
+        show('seq_bcont') && ['seq_bcont', 'SBC',   'B'],
+        show('sig3g')     && ['sig3g',     '3G',    null],
+        show('rtv')       && ['rtv',       'RTV',   null],
+        show('hilo_buy')  && ['hilo_buy',  'HILO↑', null],
+        show('atr_brk')   && ['atr_brk',  'ATR↑',  null],
+        show('bb_brk')    && ['bb_brk',   'BB↑',   null],
       ].filter(Boolean),
     },
     {
-      label: 'Breakout / ULTRA', tier: 'B',
-      items: [
-        r.fbo_bull   && ['FBO↑',  'A'],
-        r.eb_bull    && ['EB↑',   'A'],
-        r.rs_strong  && ['RS+',   'B'],
-        r.rs         && ['RS',    null],
-        r.ultra_3up  && ['3↑',    null],
+      label: 'Breakout / ULTRA', items: [
+        r.fbo_bull  && ['fbo_bull',  'FBO↑', 'A'],
+        r.eb_bull   && ['eb_bull',   'EB↑',  'A'],
+        r.rs_strong && ['rs_strong', 'RS+',  'B'],
+        r.rs        && ['rs',        'RS',   null],
+        r.ultra_3up && ['ultra_3up', '3↑',   null],
       ].filter(Boolean),
     },
     {
-      label: 'B / G Signals', tier: null,
-      items: [
-        ...[1,2,3,4,5,6,7,8,9,10,11].filter(i => r[`b${i}`]).map(i => [`B${i}`, i === 1 || i === 10 ? 'B' : null]),
-        ...['g1','g2','g4','g6','g11'].filter(k => r[k]).map(k => [k.toUpperCase(), 'B']),
+      label: 'B / G Signals', items: [
+        ...[1,2,3,4,5,6,7,8,9,10,11]
+          .filter(i => show(`b${i}`))
+          .map(i => [`b${i}`, `B${i}`, i === 1 || i === 10 ? 'B' : null]),
+        ...['g1','g2','g4','g6','g11']
+          .filter(k => show(k))
+          .map(k => [k, k.toUpperCase(), 'B']),
       ],
     },
   ]
@@ -166,17 +174,21 @@ function SignalGrid({ r }) {
         <div key={g.label}>
           <div className="text-[10px] text-gray-600 uppercase tracking-wide mb-1">{g.label}</div>
           <div className="flex flex-wrap gap-1">
-            {g.items.map(([lbl, tier]) => (
-              <TierBadge key={lbl} label={lbl} tier={tier} />
+            {g.items.map(([key, lbl, tier]) => (
+              <TierBadge key={key} label={lbl} tier={tier} age={age(key)} />
             ))}
           </div>
         </div>
       ))}
+      {groups.every(g => g.items.length === 0) && (
+        <div className="text-gray-600 text-xs">No signals fired in the last {N} bar{N > 1 ? 's' : ''}</div>
+      )}
     </div>
   )
 }
 
 const TF_OPTS = ['1wk', '1d', '4h', '1h', '30m']
+const N_OPTS  = [1, 3, 5, 10]
 
 // ─────────────────────────────────────────────────────────────────────────────
 export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange }) {
@@ -187,6 +199,7 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
   const [added,   setAdded]   = useState(false)
+  const [N,       setN]       = useState(1)
 
   const analyze = (sym = input, timeframe = tf) => {
     const t = sym.trim().toUpperCase()
@@ -255,6 +268,17 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
             <button key={t} onClick={() => changeTf(t)}
               className={`px-2 py-0.5 rounded text-xs ${tf === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
               {t.toUpperCase()}
+            </button>
+          ))}
+        </div>
+
+        {/* N selector */}
+        <div className="flex items-center gap-1">
+          <span className="text-gray-600 text-[10px]">N=</span>
+          {N_OPTS.map(n => (
+            <button key={n} onClick={() => setN(n)}
+              className={`px-2 py-0.5 rounded text-xs ${N === n ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              {n}d
             </button>
           ))}
         </div>
@@ -339,13 +363,14 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
           {/* ── Active signals ────────────────────────────────────────── */}
           <div>
             <div className="text-xs text-gray-500 font-semibold uppercase tracking-wide mb-2">
-              Active Signals
+              Signals — last {N} bar{N > 1 ? 's' : ''}
               <span className="ml-2 font-normal text-gray-600 normal-case">
-                <span className="text-lime-300/70">A</span> = Tier A (strong surfaced) ·{' '}
-                <span className="text-sky-300/70">B</span> = context amplifier
+                <span className="text-lime-300/70">A</span> = Tier A ·{' '}
+                <span className="text-sky-300/70">B</span> = amplifier ·{' '}
+                <span className="text-gray-500">dimmed = fired N days ago</span>
               </span>
             </div>
-            <SignalGrid r={r} />
+            <SignalGrid r={r} ages={(() => { try { return JSON.parse(r.sig_ages || '{}') } catch { return {} } })()} N={N} />
           </div>
 
           {/* ── Predictor ─────────────────────────────────────────────── */}
