@@ -230,11 +230,53 @@ function Badge({ label, cls }) {
 // ── fmt helper ────────────────────────────────────────────────────────────────
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
 
+// ── Engine family membership (for cross-engine diversity scoring) ─────────────
+// Each set represents a truly independent engine/observation model.
+// Signals from different sets = orthogonal evidence.
+// Signals from the same set = same-theme cluster (high conviction, lower diversity).
+function engineFamilies(r) {
+  const fams = new Set()
+  // VABS (volume/accumulation state machine)
+  if (r.best_sig || r.strong_sig || r.vbo_up || r.abs_sig || r.ns || r.sq || r.load_sig || r.va)
+    fams.add('Vol')
+  // Wyckoff accumulation structure
+  if (r.wyk_spring || r.wyk_sos || r.wyk_lps || r.wyk_accum || r.wyk_markup)
+    fams.add('Wyk')
+  // Delta / order-flow (260403)
+  if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull)
+    fams.add('Δ')
+  // T/Z candlestick state engine
+  if (r.tz_sig || r.tz_bull_flip || r.tz_attempt)
+    fams.add('T/Z')
+  // WLNBB / L-structure / EMA-cross
+  if (r.fri34 || r.fri43 || r.l34 || r.preup66 || r.preup55)
+    fams.add('L')
+  // Combo/2809 (multi-condition composites)
+  if (r.rocket || r.buy_2809 || r.seq_bcont)
+    fams.add('Cmb')
+  // Breakout / ULTRA / RS
+  if (r.fbo_bull || r.eb_bull || r.rs_strong || r.ultra_3up)
+    fams.add('Brk')
+  return fams
+}
+
+// ── Setup timing phase ────────────────────────────────────────────────────────
+// Early = phase C / fresh regime flip  (best risk/reward, needs more confirmation)
+// Mid   = LPS / T4 / EMA cross        (structure confirmed, still actionable)
+// Late  = confirmed breakout combo     (high conviction but entry may be extended)
+function setupPhase(r) {
+  const early = r.wyk_spring || r.d_spring || r.tz_bull_flip
+  const late  = (r.rocket || r.buy_2809) && (r.fbo_bull || r.eb_bull || r.vbo_up)
+  if (early && !late) return 'Early'
+  if (late)           return 'Late'
+  return null  // mid / neutral — don't label
+}
+
 // ── Score reason — grouped by family, shown as tooltip + inline line ─────────
 function scoreReason(r) {
   const parts = []
 
-  // Vol/VABS family
+  // Vol/VABS family (VABS + Wyckoff share Vol cap but are sub-families)
   const vol = []
   if (r.best_sig)  vol.push('BEST★')
   else if (r.strong_sig) vol.push('STR')
@@ -289,7 +331,7 @@ function scoreReason(r) {
   if (r.d_absorb_bull) dlt.push('Ab↑')
   if (dlt.length)      parts.push(`Δ:${dlt.join('+')}`)
 
-  // B/G signals (show first 3)
+  // B/G signals (show first 4)
   const bg = []
   for (let i = 1; i <= 11; i++) { if (r[`b${i}`]) bg.push(`B${i}`) }
   for (const k of ['g1','g2','g4','g6','g11']) { if (r[k]) bg.push(k.toUpperCase()) }
@@ -300,8 +342,17 @@ function scoreReason(r) {
 
   const sc = r.turbo_score ?? 0
   const tier = sc >= 65 ? '🔥' : sc >= 50 ? '★' : sc >= 35 ? '▲' : ''
+
+  // Cross-engine diversity indicator — how many independent engine families fired
+  const n = engineFamilies(r).size
+  const cross = n >= 4 ? '⚡×4' : n === 3 ? '⚡×3' : n === 2 ? '⚡×2' : ''
+
+  // Timing phase (Early setup vs Late/confirmed)
+  const phase = setupPhase(r)
+  const phaseTag = phase === 'Early' ? ' [E]' : phase === 'Late' ? ' [L]' : ''
+
   return parts.length
-    ? `${tier} ${parts.join(' | ')} → ${sc.toFixed(1)}`
+    ? `${tier}${cross ? ' ' + cross : ''} ${parts.join(' | ')}${phaseTag} → ${sc.toFixed(1)}`
     : `score ${sc.toFixed(1)}`
 }
 

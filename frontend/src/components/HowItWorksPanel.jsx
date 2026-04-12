@@ -503,6 +503,107 @@ export default function HowItWorksPanel() {
           </p>
         </Section>
 
+        {/* ── Signal Tier Guide ── */}
+        <Section title="Signal Tier Guide — How to Read Setups">
+          <p className="mb-3 text-gray-400">
+            Not all signals are equal. The key principle: <span className="text-white font-semibold">cross-engine confluence &gt; same-engine cluster</span>.
+            Multiple independent engines agreeing on direction is stronger than many signals from the same family.
+            The TURBO score reason line shows <Tag cls="text-lime-300">⚡×N</Tag> where N = number of distinct engine families active.
+          </p>
+
+          {/* A-tier */}
+          <div className="mb-4">
+            <p className="text-white font-semibold mb-1">Tier A — Strong surfaced signals</p>
+            <p className="text-gray-500 text-xs mb-2">
+              Already high-conviction on their own. Note: BEST★ and BUY/🚀 are themselves composite — they already passed multiple sub-conditions internally.
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {[
+                ['BEST★', 'text-lime-300',   'VABS composite — highest vol+structure conditions met'],
+                ['wSPR',  'text-lime-300',   'Wyckoff Spring — Phase C reversal below support'],
+                ['T4/T6', 'text-violet-300', 'Candlestick T4/T6 state — strongest T/Z pattern'],
+                ['VBO↑',  'text-green-300',  'Volume Breakout Up — breakout confirmed by volume'],
+                ['P66',   'text-lime-300',   'EMA66 cross ↑ — trend regime confirmed'],
+                ['🚀/BUY','text-red-300',    'Rocket / Buy 2809 — multi-condition combo trigger'],
+              ].map(([lbl, cls, desc]) => (
+                <div key={lbl} className="bg-gray-800 rounded px-2 py-1">
+                  <span className={`font-mono font-semibold ${cls}`}>{lbl}</span>
+                  <span className="text-gray-500 ml-1">{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* B-tier */}
+          <div className="mb-4">
+            <p className="text-white font-semibold mb-1">Tier B — Context amplifiers</p>
+            <p className="text-gray-500 text-xs mb-2">
+              Rarely sufficient alone, but significantly strengthen a Tier A signal.
+              These represent regime confirmation, structural re-test, or readiness context.
+            </p>
+            <div className="flex flex-wrap gap-2 text-xs">
+              {[
+                ['TZ→3', 'text-lime-300',   'T/Z just flipped bullish — fresh regime change'],
+                ['LPS',  'text-green-300',  'Wyckoff Last Point of Support — structure re-test before markup'],
+                ['FRI34','text-cyan-400',   'WLNBB weekly L-structure confirmation'],
+                ['RS+',  'text-lime-300',   'Relative strength vs SPY+IWM — sector leadership'],
+                ['BR%',  'text-lime-400',   'Break-readiness context score ≥ 71'],
+                ['CA/CD','text-lime-300',   'T/Z confluence context signals'],
+              ].map(([lbl, cls, desc]) => (
+                <div key={lbl} className="bg-gray-800 rounded px-2 py-1">
+                  <span className={`font-mono font-semibold ${cls}`}>{lbl}</span>
+                  <span className="text-gray-500 ml-1">{desc}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* C-tier combos */}
+          <div className="mb-4">
+            <p className="text-white font-semibold mb-1">Tier C — Best cross-engine combos (with timing)</p>
+            <p className="text-gray-500 text-xs mb-2">
+              These pairs/triples draw from genuinely different observation models — structure, state, flow, breakout.
+              <Tag cls="text-sky-300"> [E]</Tag> = early phase (Phase C / fresh flip, best R/R, less confirmation).
+              <Tag cls="text-orange-300"> [L]</Tag> = late/confirmed (strong conviction, possibly extended entry).
+            </p>
+            <table className="text-xs w-full max-w-2xl">
+              <thead>
+                <tr className="text-gray-500 text-left border-b border-gray-800">
+                  <th className="pb-1 pr-4">Combo</th>
+                  <th className="pb-1 pr-4">Engines</th>
+                  <th className="pb-1 pr-4">Phase</th>
+                  <th className="pb-1">Why it works</th>
+                </tr>
+              </thead>
+              <tbody className="space-y-1">
+                {[
+                  ['wSPR + VBO↑',         'Wyk + VABS',         'Early',   'Structure spring confirmed by volume breakout'],
+                  ['T4/T6 + TZ→3',        'T/Z + T/Z regime',   'Early→Mid','Strongest T/Z pattern into fresh bullish flip'],
+                  ['FRI34 + VBO↑ + RS+',  'L + VABS + Brk',     'Mid',     'Weekly structure + volume + sector leadership'],
+                  ['wLPS + T4 + BR%',     'Wyk + T/Z + Context','Mid',     'Re-test confirmed by state + readiness context'],
+                  ['wSPR + dSPR + Ab↑',  'Wyk + Δ + Δ',        'Early',   'Same theme cluster — high conviction, less diversity'],
+                  ['B1/B10 + CD + VBO↑',  'B/G + Cmb + VABS',   'Late [L]','Confirmed breakout — conviction high, entry may be extended'],
+                ].map(([combo, engines, phase, why]) => (
+                  <tr key={combo} className="border-b border-gray-800/40">
+                    <td className="py-1 pr-4 font-mono text-white">{combo}</td>
+                    <td className="py-1 pr-4 text-gray-500">{engines}</td>
+                    <td className={`py-1 pr-4 ${phase.includes('[L]') ? 'text-orange-400' : phase === 'Early' ? 'text-sky-300' : 'text-gray-400'}`}>{phase}</td>
+                    <td className="py-1 text-gray-500">{why}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Caution box */}
+          <div className="bg-gray-800/50 border border-gray-700 rounded p-3 text-xs text-gray-400 mt-2">
+            <span className="text-yellow-300 font-semibold">Caution:</span> The Corr panel shows co-occurrence frequency, not forward expectancy.
+            High co-occurrence ≠ high win rate. Use Corr to <span className="text-white">discover</span> candidate combos,
+            then validate with Predictor bull% and actual risk/reward.
+            Missing dimension: drawdown and timing in the price cycle.
+          </div>
+        </Section>
+
         {/* ── Predictor ── */}
         <Section title="Predictor">
           <p className="mb-2">
