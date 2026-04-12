@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { api } from '../api'
 import PredictorPanel from './PredictorPanel'
-import CandleChart from './CandleChart'
 
 // ── Engine family detection (mirrors TurboScanPanel logic) ───────────────────
 function engineFamilies(r) {
@@ -180,7 +179,7 @@ function SignalGrid({ r }) {
 const TF_OPTS = ['1wk', '1d', '4h', '1h', '30m']
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TickerAnalysisPanel({ onAddToWatchlist }) {
+export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange }) {
   const [input,   setInput]   = useState('')
   const [ticker,  setTicker]  = useState('')
   const [tf,      setTf]      = useState('1d')
@@ -195,6 +194,7 @@ export default function TickerAnalysisPanel({ onAddToWatchlist }) {
     setTicker(t)
     setAdded(false)
     setLoading(true); setError(null); setResult(null)
+    onChartChange?.({ ticker: t, tf: timeframe })
     api.turboAnalyze(t, timeframe)
       .then(d => { setResult(d); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
@@ -202,7 +202,10 @@ export default function TickerAnalysisPanel({ onAddToWatchlist }) {
 
   const changeTf = (t) => {
     setTf(t)
-    if (ticker) analyze(ticker, t)
+    if (ticker) {
+      onChartChange?.({ ticker, tf: t })
+      analyze(ticker, t)
+    }
   }
 
   const handleAdd = () => {
@@ -215,7 +218,6 @@ export default function TickerAnalysisPanel({ onAddToWatchlist }) {
   const onKeyDown = (e) => { if (e.key === 'Enter') analyze() }
 
   const r = result
-  const chartTicker = ticker || null   // show chart as soon as ticker is set
 
   const n     = r ? engineFamilies(r).size : 0
   const cross = n >= 4 ? '⚡×4' : n === 3 ? '⚡×3' : n === 2 ? '⚡×2' : ''
@@ -258,13 +260,6 @@ export default function TickerAnalysisPanel({ onAddToWatchlist }) {
         </div>
       </div>
 
-      {/* ── Chart (shown as soon as a ticker is entered) ────────────────── */}
-      {chartTicker && (
-        <div className="border-b border-gray-800">
-          <CandleChart ticker={chartTicker} tf={tf} />
-        </div>
-      )}
-
       {loading && (
         <div className="px-4 py-6 text-center text-gray-500 animate-pulse">Analyzing {ticker}…</div>
       )}
@@ -272,7 +267,7 @@ export default function TickerAnalysisPanel({ onAddToWatchlist }) {
         <div className="px-4 py-4 text-red-400">{error}</div>
       )}
 
-      {!chartTicker && !loading && !r && !error && (
+      {!ticker && !loading && !r && !error && (
         <div className="px-4 py-10 text-center text-gray-600">
           Enter a ticker and press Analyze or Enter
         </div>

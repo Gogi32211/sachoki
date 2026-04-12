@@ -59,6 +59,8 @@ export default function App() {
     () => LS.get('active_tab', 'combined')
   )
 
+  const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
+
   // Persist on change
   useEffect(() => { LS.set('watchlist', watchlist) }, [watchlist])
   useEffect(() => { LS.set('selected_ticker', selected) }, [selected])
@@ -79,7 +81,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v3.9.203</span>
+          <span className="text-xs font-normal text-gray-500">v3.9.207</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
@@ -119,7 +121,10 @@ export default function App() {
           />
         </div>
         <div className="col-span-12 md:col-span-9">
-          <CandleChart ticker={selected} tf={tf} />
+          <CandleChart
+            ticker={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.ticker : selected}
+            tf={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.tf : tf}
+          />
         </div>
       </div>
 
@@ -185,7 +190,10 @@ export default function App() {
           )}
 
           {activeTab === 'analyze' && (
-            <TickerAnalysisPanel onAddToWatchlist={handleAddTicker} />
+            <TickerAnalysisPanel
+              onAddToWatchlist={handleAddTicker}
+              onChartChange={setAnalyzeChart}
+            />
           )}
 
           {activeTab === 'howitworks' && (
