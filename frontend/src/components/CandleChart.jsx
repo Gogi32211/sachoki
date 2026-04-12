@@ -79,11 +79,21 @@ export default function CandleChart({ ticker, tf }) {
     setError(null)
     setLoading(true)
 
-    api.signals(ticker, tf, 150)
+    const bars = ['30m', '15m'].includes(tf) ? 300 : 150
+    api.signals(ticker, tf, bars)
       .then((rows) => {
+        // Intraday TFs need Unix timestamps (seconds) — not date strings —
+        // because multiple bars share the same calendar date.
+        const isIntraday = ['30m', '15m', '1h', '4h'].includes(tf)
+
         const toTime = (r) => {
           const d = r.date ?? r.Datetime ?? r.Date
           if (!d) return null
+          if (isIntraday) {
+            // Parse ISO/space-separated datetime → Unix seconds (UTC)
+            const ms = new Date(String(d).replace(' ', 'T')).getTime()
+            return isNaN(ms) ? null : Math.floor(ms / 1000)
+          }
           return String(d).slice(0, 10)
         }
 
