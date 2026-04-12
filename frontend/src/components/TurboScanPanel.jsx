@@ -171,6 +171,9 @@ const SIG_GROUPS = [
   { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
   { key: 'preup55', label: 'P55', cls: 'text-emerald-300' },
   { key: 'preup89', label: 'P89', cls: 'text-teal-300'    },
+  { key: 'preup3',  label: 'P3',  cls: 'text-cyan-300'    },
+  { key: 'preup2',  label: 'P2',  cls: 'text-cyan-400'    },
+  { key: 'preup50', label: 'P50', cls: 'text-sky-300'     },
   { divider: true },
   // ── PREDN — EMA drop ↓ ───────────────────────────────────────────────
   { key: 'predn66', label: 'D66', cls: 'text-red-300'     },
@@ -259,7 +262,7 @@ function engineFamilies(r) {
   if (r.tz_sig || r.tz_bull_flip || r.tz_attempt)
     fams.add('T/Z')
   // WLNBB / L-structure / EMA-cross
-  if (r.fri34 || r.fri43 || r.l34 || r.preup66 || r.preup55)
+  if (r.fri34 || r.fri43 || r.l34 || r.preup66 || r.preup55 || r.preup3 || r.preup2 || r.preup50)
     fams.add('L')
   // Combo/2809 (multi-condition composites)
   if (r.rocket || r.buy_2809 || r.seq_bcont)
@@ -328,8 +331,12 @@ function scoreReason(r) {
   if (r.fri34)         trd.push('FRI34')
   else if (r.fri43)    trd.push('FRI43')
   else if (r.l34)      trd.push('L34')
-  if (r.preup66)       trd.push('P66')
-  else if (r.preup55)  trd.push('P55')
+  if (r.preup66)        trd.push('P66')
+  else if (r.preup55)   trd.push('P55')
+  else if (r.preup89)   trd.push('P89')
+  else if (r.preup3)    trd.push('P3')
+  else if (r.preup2)    trd.push('P2')
+  else if (r.preup50)   trd.push('P50')
   if (trd.length)      parts.push(`Trd:${trd.join('+')}`)
 
   // Delta family
@@ -812,7 +819,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.d_vd_div_bull && !r.d_spring ? <Badge label="NS" cls="bg-teal-900/40 text-teal-300" /> : null}
                     {r.rs_strong ? <Badge label="RS+" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : r.rs ? <Badge label="RS" cls="bg-green-900/50 text-green-300" /> : null}
                     {/* PREUP — EMA cross ↑ */}
-                    {r.preup66 ? <Badge label="P66" cls="text-lime-200 bg-lime-800/60 ring-1 ring-lime-400" /> : r.preup55 ? <Badge label="P55" cls="text-emerald-200 bg-emerald-800/50" /> : r.preup89 ? <Badge label="P89" cls="text-teal-300 bg-teal-900/40" /> : null}
+                    {r.preup66 ? <Badge label="P66" cls="text-lime-200 bg-lime-800/60 ring-1 ring-lime-400" /> : r.preup55 ? <Badge label="P55" cls="text-emerald-200 bg-emerald-800/50" /> : r.preup89 ? <Badge label="P89" cls="text-teal-300 bg-teal-900/40" /> : r.preup3 ? <Badge label="P3" cls="text-cyan-300 bg-cyan-900/40" /> : r.preup2 ? <Badge label="P2" cls="text-cyan-400 bg-cyan-900/30" /> : r.preup50 ? <Badge label="P50" cls="text-sky-300 bg-sky-900/40" /> : null}
                     {/* PREDN — EMA drop ↓ */}
                     {r.predn66 ? <Badge label="D66" cls="text-red-200 bg-red-900/60 ring-1 ring-red-400" /> : r.predn55 ? <Badge label="D55" cls="text-red-300 bg-red-900/50" /> : r.predn89 ? <Badge label="D89" cls="text-orange-300 bg-orange-900/40" /> : r.predn3 ? <Badge label="D3" cls="text-orange-300 bg-orange-900/30" /> : r.predn2 ? <Badge label="D2" cls="text-red-300 bg-red-900/30" /> : r.predn50 ? <Badge label="D50" cls="text-orange-300 bg-orange-900/20" /> : null}
                   </div>
