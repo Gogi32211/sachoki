@@ -79,7 +79,7 @@ export default function CandleChart({ ticker, tf }) {
     setError(null)
     setLoading(true)
 
-    const bars = ['30m', '15m'].includes(tf) ? 300 : 150
+    const bars = tf === '15m' ? 400 : ['30m', '1h'].includes(tf) ? 300 : tf === '4h' ? 200 : 150
     api.signals(ticker, tf, bars)
       .then((rows) => {
         // Intraday TFs need Unix timestamps (seconds) — not date strings —

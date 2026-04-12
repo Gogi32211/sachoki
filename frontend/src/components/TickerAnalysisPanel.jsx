@@ -65,7 +65,7 @@ function TierBadge({ label, tier, age }) {
     <span className={`inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded text-[10px] leading-tight ${cls}`}>
       {tier && <span className="text-[8px] opacity-50">{tier}</span>}
       <span className="font-mono font-semibold">{label}</span>
-      {isOld && <span className="text-[8px] opacity-60 ml-0.5">{age}d</span>}
+      {isOld && <span className="text-[8px] opacity-60 ml-0.5">{age}b</span>}
     </span>
   )
 }
@@ -284,15 +284,16 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
           ))}
         </div>
 
-        {/* N selector */}
+        {/* N selector — bar count lookback */}
         <div className="flex items-center gap-1">
-          <span className="text-gray-600 text-[10px]">N=</span>
+          <span className="text-gray-600 text-[10px]">last</span>
           {N_OPTS.map(n => (
             <button key={n} onClick={() => setN(n)}
               className={`px-2 py-0.5 rounded text-xs ${N === n ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-              {n}d
+              {n}
             </button>
           ))}
+          <span className="text-gray-600 text-[10px]">bars</span>
         </div>
       </div>
 
@@ -379,7 +380,7 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
               <span className="ml-2 font-normal text-gray-600 normal-case">
                 <span className="text-lime-300/70">A</span> = Tier A ·{' '}
                 <span className="text-sky-300/70">B</span> = amplifier ·{' '}
-                <span className="text-gray-500">dimmed = fired N days ago</span>
+                <span className="text-gray-500">dimmed = fired N bars ago</span>
               </span>
             </div>
             <SignalGrid r={r} ages={(() => { try { return JSON.parse(r.sig_ages || '{}') } catch { return {} } })()} N={N} />
