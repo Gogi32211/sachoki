@@ -117,7 +117,7 @@ function SignalGrid({ r, ages, N }) {
     },
     {
       label: 'T/Z Candlestick', items: [
-        r.tz_sig        && ['tz_sig',       r.tz_sig,  ['T4','T6','T1G','T2G'].includes(r.tz_sig) ? 'A' : 'B'],
+        r.tz_sig        && ['tz_sig',       r.tz_sig + (r.l_combo && r.l_combo !== 'NONE' ? ` [${r.l_combo}]` : ''),  ['T4','T6','T1G','T2G'].includes(r.tz_sig) ? 'A' : 'B'],
         show('tz_bull_flip') && ['tz_bull_flip', 'TZ→3', 'B'],
         show('tz_attempt')   && ['tz_attempt',   'TZ→2', null],
         r.ca && ['ca', 'CA', null],
@@ -127,6 +127,8 @@ function SignalGrid({ r, ages, N }) {
     },
     {
       label: 'WLNBB / L-structure', items: [
+        r.l_combo && r.l_combo !== 'NONE' && r.l_combo !== ''
+          && ['_lcombo', r.l_combo, null],
         show('fri34')   && ['fri34',   'FRI34', 'A'],
         show('fri43')   && ['fri43',   'FRI43', 'B'],
         show('l34')     && ['l34',     'L34',   'B'],
@@ -154,6 +156,16 @@ function SignalGrid({ r, ages, N }) {
         r.rs_strong && ['rs_strong', 'RS+',  'B'],
         r.rs        && ['rs',        'RS',   null],
         r.ultra_3up && ['ultra_3up', '3↑',   null],
+      ].filter(Boolean),
+    },
+    {
+      label: 'Wick X signals', items: [
+        show('x2g_wick') && ['x2g_wick', 'X2G', 'A'],
+        show('x2_wick')  && ['x2_wick',  'X2',  'A'],
+        show('x1g_wick') && ['x1g_wick', 'X1G', 'B'],
+        show('x1_wick')  && ['x1_wick',  'X1',  'B'],
+        show('x3_wick')  && ['x3_wick',  'X3',  null],
+        show('wick_bull') && ['wick_bull', 'W↑', null],
       ].filter(Boolean),
     },
     {

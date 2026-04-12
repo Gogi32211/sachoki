@@ -469,6 +469,7 @@ def _scan_turbo_ticker(
         row["pre_pump"]      = _sig(wlnbb, "PRE_PUMP")
         bkt = str(last_w.get("vol_bucket", ""))
         row["vol_bucket"] = bkt
+        row["l_combo"] = str(last_w.get("l_combo", "")) or ""
 
         # ── Combo (2809, CONS, Bias, HILO, RTV, 3G, ROCKET, BRK, PREUP/DN) ─
         combo   = compute_combo(df)
