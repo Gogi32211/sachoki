@@ -104,7 +104,24 @@ def _normalise_date(idx) -> list[str]:
 
 def _df_to_records(df) -> list[dict]:
     """Convert DataFrame to JSON-safe list of dicts with a 'date' column."""
-    dates = _normalise_date(df.index)
+    idx = df.index
+    # Detect intraday: DatetimeIndex where any bar has a non-midnight time
+    is_intraday = False
+    try:
+        is_intraday = hasattr(idx, 'hour') and bool(idx.minute.any() or idx.hour.any())
+    except Exception:
+        pass
+
+    if is_intraday:
+        # Preserve full "YYYY-MM-DD HH:MM:SS" — strip tz so JSON is clean
+        try:
+            tz_naive = idx.tz_localize(None) if idx.tz is None else idx.tz_convert('UTC').tz_localize(None)
+            dates = list(tz_naive.strftime('%Y-%m-%d %H:%M:%S'))
+        except Exception:
+            dates = [str(v)[:19].replace('T', ' ') for v in idx]
+    else:
+        dates = _normalise_date(idx)
+
     df = df.copy()
     df.index = dates
     df.index.name = "date"
@@ -112,7 +129,8 @@ def _df_to_records(df) -> list[dict]:
     first = records.columns[0]
     if first != "date":
         records = records.rename(columns={first: "date"})
-    records["date"] = records["date"].astype(str).str[:10]
+    if not is_intraday:
+        records["date"] = records["date"].astype(str).str[:10]
     for col in ["sig_id", "bc", "zc"]:
         if col in records.columns:
             records[col] = records[col].astype(int)
