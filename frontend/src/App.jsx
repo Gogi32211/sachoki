@@ -79,7 +79,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v3.9.201</span>
+          <span className="text-xs font-normal text-gray-500">v3.9.203</span>
         </h1>
         <div className="flex items-center gap-3">
           {/* Timeframe selector */}
@@ -185,7 +185,7 @@ export default function App() {
           )}
 
           {activeTab === 'analyze' && (
-            <TickerAnalysisPanel />
+            <TickerAnalysisPanel onAddToWatchlist={handleAddTicker} />
           )}
 
           {activeTab === 'howitworks' && (

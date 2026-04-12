@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import PredictorPanel from './PredictorPanel'
+import CandleChart from './CandleChart'
 
 // ── Engine family detection (mirrors TurboScanPanel logic) ───────────────────
 function engineFamilies(r) {
@@ -179,29 +180,44 @@ function SignalGrid({ r }) {
 const TF_OPTS = ['1wk', '1d', '4h', '1h', '30m']
 
 // ─────────────────────────────────────────────────────────────────────────────
-export default function TickerAnalysisPanel() {
+export default function TickerAnalysisPanel({ onAddToWatchlist }) {
   const [input,   setInput]   = useState('')
   const [ticker,  setTicker]  = useState('')
   const [tf,      setTf]      = useState('1d')
   const [result,  setResult]  = useState(null)
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
+  const [added,   setAdded]   = useState(false)
 
   const analyze = (sym = input, timeframe = tf) => {
     const t = sym.trim().toUpperCase()
     if (!t) return
     setTicker(t)
+    setAdded(false)
     setLoading(true); setError(null); setResult(null)
     api.turboAnalyze(t, timeframe)
       .then(d => { setResult(d); setLoading(false) })
       .catch(e => { setError(e.message); setLoading(false) })
   }
 
+  const changeTf = (t) => {
+    setTf(t)
+    if (ticker) analyze(ticker, t)
+  }
+
+  const handleAdd = () => {
+    if (result?.ticker && onAddToWatchlist) {
+      onAddToWatchlist(result.ticker)
+      setAdded(true)
+    }
+  }
+
   const onKeyDown = (e) => { if (e.key === 'Enter') analyze() }
 
   const r = result
+  const chartTicker = ticker || null   // show chart as soon as ticker is set
 
-  const n   = r ? engineFamilies(r).size : 0
+  const n     = r ? engineFamilies(r).size : 0
   const cross = n >= 4 ? '⚡×4' : n === 3 ? '⚡×3' : n === 2 ? '⚡×2' : ''
   const phase = r ? setupPhase(r) : null
 
@@ -217,7 +233,7 @@ export default function TickerAnalysisPanel() {
         <div className="flex items-center gap-1 ml-auto">
           <input
             value={input}
-            onChange={e => setInput(e.target.value.toUpperCase())}
+            onChange={e => { setInput(e.target.value.toUpperCase()) }}
             onKeyDown={onKeyDown}
             placeholder="e.g. RGTI"
             className="bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white
@@ -234,7 +250,7 @@ export default function TickerAnalysisPanel() {
         {/* TF selector */}
         <div className="flex gap-0.5">
           {TF_OPTS.map(t => (
-            <button key={t} onClick={() => { setTf(t); if (ticker) analyze(ticker, t) }}
+            <button key={t} onClick={() => changeTf(t)}
               className={`px-2 py-0.5 rounded text-xs ${tf === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
               {t.toUpperCase()}
             </button>
@@ -242,14 +258,21 @@ export default function TickerAnalysisPanel() {
         </div>
       </div>
 
+      {/* ── Chart (shown as soon as a ticker is entered) ────────────────── */}
+      {chartTicker && (
+        <div className="border-b border-gray-800">
+          <CandleChart ticker={chartTicker} tf={tf} />
+        </div>
+      )}
+
       {loading && (
-        <div className="px-4 py-10 text-center text-gray-500 animate-pulse">Analyzing {input}…</div>
+        <div className="px-4 py-6 text-center text-gray-500 animate-pulse">Analyzing {ticker}…</div>
       )}
       {error && (
         <div className="px-4 py-4 text-red-400">{error}</div>
       )}
 
-      {!loading && !r && !error && (
+      {!chartTicker && !loading && !r && !error && (
         <div className="px-4 py-10 text-center text-gray-600">
           Enter a ticker and press Analyze or Enter
         </div>
@@ -260,15 +283,13 @@ export default function TickerAnalysisPanel() {
 
           {/* ── Score summary ─────────────────────────────────────────── */}
           <div className={`rounded-lg p-4 border border-gray-700 ${scoreBg(r.turbo_score)}`}>
-            <div className="flex items-baseline gap-3 mb-1">
+            <div className="flex items-center gap-3 mb-1 flex-wrap">
               <span className="text-2xl font-bold text-white">{r.ticker}</span>
               <span className={`text-xl font-bold ${scoreColor(r.turbo_score)}`}>
                 {r.turbo_score?.toFixed(1)}
               </span>
               <span className="text-gray-500">Turbo Score</span>
-              {cross && (
-                <span className="text-lime-300 font-semibold">{cross}</span>
-              )}
+              {cross && <span className="text-lime-300 font-semibold">{cross}</span>}
               {phase === 'Early' && (
                 <span className="text-sky-300 text-[10px] bg-sky-900/30 px-1.5 py-0.5 rounded">[E] Early</span>
               )}
@@ -277,6 +298,20 @@ export default function TickerAnalysisPanel() {
               )}
               {r.data_source === 'yfinance' && (
                 <span className="text-orange-400/60 text-[9px]">yf</span>
+              )}
+
+              {/* ── Add to watchlist button ── */}
+              {onAddToWatchlist && (
+                <button
+                  onClick={handleAdd}
+                  disabled={added}
+                  className={`ml-auto px-3 py-1 rounded text-xs font-semibold transition-colors
+                    ${added
+                      ? 'bg-lime-800/50 text-lime-400 cursor-default'
+                      : 'bg-gray-700 hover:bg-lime-700 text-gray-300 hover:text-white'}`}
+                >
+                  {added ? '✓ Added' : '+ Watchlist'}
+                </button>
               )}
             </div>
 
