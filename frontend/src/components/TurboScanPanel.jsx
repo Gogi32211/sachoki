@@ -162,7 +162,7 @@ const SIG_GROUPS = [
   { key: 'd_surge_bull',  label: 'Δ↑',   cls: 'text-teal-300'    },
   { key: 'd_strong_bull', label: 'B/S↑', cls: 'text-lime-300'    },
   { key: 'd_absorb_bull', label: 'Ab↑',  cls: 'text-yellow-400'  },
-  { key: 'd_spring',      label: 'SPR',  cls: 'text-lime-300'    },
+  { key: 'd_spring',      label: 'dSPR', cls: 'text-lime-300'    },
   { key: 'd_div_bull',    label: 'T↓',   cls: 'text-cyan-300'    },
   { key: 'd_vd_div_bull', label: 'NS',   cls: 'text-teal-400'    },
   { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
@@ -282,7 +282,7 @@ function scoreReason(r) {
 
   // Delta family
   const dlt = []
-  if (r.d_spring)      dlt.push('SPR')
+  if (r.d_spring)      dlt.push('dSPR')
   if (r.d_blast_bull)  dlt.push('ΔΔ↑')
   else if (r.d_surge_bull) dlt.push('Δ↑')
   if (r.d_strong_bull) dlt.push('B/S↑')
@@ -747,7 +747,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.d_absorb_bull ? <Badge label="Ab↑"  cls="bg-yellow-900/50 text-yellow-300" /> : null}
                     {r.d_div_bull    ? <Badge label="T↓"   cls="bg-cyan-900/50 text-cyan-300" /> : null}
                     {r.d_cd_bull  && !r.d_div_bull ? <Badge label="cd↑" cls="bg-sky-900/40 text-sky-300" /> : null}
-                    {r.d_spring       ? <Badge label="SPR" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : null}
+                    {r.d_spring       ? <Badge label="dSPR" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : null}
                     {r.d_vd_div_bull && !r.d_spring ? <Badge label="NS" cls="bg-teal-900/40 text-teal-300" /> : null}
                     {r.rs_strong ? <Badge label="RS+" cls="bg-lime-800/60 text-lime-200 ring-1 ring-lime-500" /> : r.rs ? <Badge label="RS" cls="bg-green-900/50 text-green-300" /> : null}
                     {/* PREUP — EMA cross ↑ */}
