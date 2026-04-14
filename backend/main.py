@@ -61,7 +61,7 @@ async def lifespan(app: FastAPI):
             log.info("Pooled stats not found — auto-building sp500 1d in background")
             threading.Thread(
                 target=build_pooled_stats,
-                args=("sp500", "1d", 6, 2000),
+                args=("sp500", "1d", 3, 2000),  # 3 workers (was 6) to limit RAM
                 daemon=True,
             ).start()
     except Exception as exc:

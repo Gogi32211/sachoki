@@ -13,6 +13,7 @@ turbo_score tiers:
 """
 from __future__ import annotations
 
+import gc
 import os
 import logging
 import time
@@ -943,7 +944,7 @@ def _scan_turbo_ticker(
 def run_turbo_scan(
     interval: str = "1d",
     universe: str = "sp500",
-    workers: int = 8,
+    workers: int = 4,
     lookback_n: int = 5,
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
@@ -1038,6 +1039,7 @@ def run_turbo_scan(
                     con.commit()
                     con.close()
                     batch.clear()
+                    gc.collect()  # release DataFrame memory between batches
             # flush remaining
             if batch:
                 con = _db()
