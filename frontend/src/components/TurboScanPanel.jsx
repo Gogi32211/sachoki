@@ -108,8 +108,8 @@ const SIG_GROUPS = [
     custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
   { key: 'tz_bull_flip', label: 'TZ→3', cls: 'text-lime-300'    },
   { key: 'tz_attempt',   label: 'TZ→2', cls: 'text-cyan-300'    },
-  { key: 'tz_weak_bull', label: 'W+',   cls: 'text-yellow-300'  },
-  { key: 'tz_weak_bear', label: 'W-',   cls: 'text-red-400'     },
+  { key: '_tz_weak', label: 'W', cls: 'text-yellow-300',
+    custom: r => r.tz_weak_bull || r.tz_weak_bear },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: 'fri34',         label: 'FRI34',    cls: 'text-cyan-400'     },
@@ -400,6 +400,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [sortDir,    setSortDir]    = useState('desc')
   const [lookbackN,  setLookbackN]  = useState(1)
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
+  const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -545,7 +546,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   const scan = () => {
     setScanning(true); setError(null)
-    api.turboScanTrigger(localTf, universe, lookbackN)
+    api.turboScanTrigger(localTf, universe, lookbackN, partialDay)
       .then(() => _poll())
       .catch(e => {
         setScanning(false)
@@ -605,6 +606,16 @@ export default function TurboScanPanel({ onSelectTicker }) {
             ${scanning ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                        : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
           {scanning ? <span className="animate-pulse">⚡ Scanning…</span> : '⚡ TURBO'}
+        </button>
+
+        {/* Partial-day preview toggle — include today's open bar */}
+        <button onClick={() => setPartialDay(p => !p)}
+          title="Include today's in-progress daily bar (scan during market hours for an early read)"
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+            ${partialDay
+              ? 'border-amber-400 text-amber-300 bg-amber-900/30'
+              : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>
+          ~Preview
         </button>
 
         {/* Export button */}
@@ -670,6 +681,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
         {/* Stats + stale warning */}
         <span className="ml-auto text-gray-600 shrink-0 flex items-center gap-1.5">
+          {partialDay && <span className="text-amber-400 font-medium">~preview</span>}
           {results.length} / {allResults.length}
           {lastScan && (() => {
             const ageH = (Date.now() - new Date(lastScan).getTime()) / 3_600_000

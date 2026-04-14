@@ -365,6 +365,7 @@ def _scan_turbo_ticker(
     max_price: float = 1e9,
     spy_chg: float | None = None,
     iwm_chg: float | None = None,
+    partial_day: bool = False,
 ) -> dict | None:
     try:
         from data_polygon import fetch_bars, polygon_available
@@ -399,11 +400,9 @@ def _scan_turbo_ticker(
             return None
 
         # Drop today's bar ONLY while US market is still open.
-        # Use ET timezone so DST is handled automatically:
-        # EDT (Mar-Nov): market closes 16:00 ET = 20:00 UTC
-        # EST (Nov-Mar): market closes 16:00 ET = 21:00 UTC
-        # Buffer: keep bar after 16:15 ET to allow API finalization.
-        if interval in ("1d", "1wk", "1w"):
+        # partial_day=True skips this — intentionally keeps the in-progress bar
+        # so signals can be computed on the partial daily candle (intraday preview).
+        if interval in ("1d", "1wk", "1w") and not partial_day:
             last_dt = df.index[-1]
             if hasattr(last_dt, "date"):
                 last_dt = last_dt.date()
@@ -975,6 +974,7 @@ def run_turbo_scan(
     universe: str = "sp500",
     workers: int = 4,
     lookback_n: int = 5,
+    partial_day: bool = False,
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -987,6 +987,7 @@ def run_turbo_scan(
     _turbo_state.update({
         "running": True, "done": 0, "total": 0, "found": 0, "failed": 0,
         "fetched_from_massive": 0, "universe": universe, "interval": interval,
+        "partial_day": partial_day,
         "started_at": time.time(), "completed_at": None, "error": None,
     })
     try:
@@ -1045,7 +1046,7 @@ def run_turbo_scan(
             futures = {
                 pool.submit(
                     _scan_turbo_ticker, t, interval, min_price, max_price,
-                    spy_chg, iwm_chg
+                    spy_chg, iwm_chg, partial_day
                 ): t
                 for t in tickers
             }

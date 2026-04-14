@@ -589,12 +589,13 @@ def api_turbo_scan_trigger(
     tf: str = "1d",
     universe: str = "sp500",
     lookback_n: int = 5,
+    partial_day: bool = False,
 ):
     from turbo_engine import run_turbo_scan, get_turbo_progress
     if get_turbo_progress().get("running"):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n)
-    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n}
+    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n, partial_day)
+    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day}
 
 
 @app.get("/api/turbo-scan/status")
