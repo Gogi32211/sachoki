@@ -1009,6 +1009,11 @@ def run_turbo_scan(
         log.error("Failed to fetch tickers for universe=%s: %s", universe, exc)
         return 0
 
+    # ── Filter: keep only plain US common-stock primary-listing tickers ────
+    # Removes "CFLT B" (space=secondary class), "BF.B" (dot=preferred), etc.
+    from data_polygon import _is_valid_stock_ticker
+    tickers = [t for t in tickers if _is_valid_stock_ticker(t)]
+
     # ── Fetch SPY + IWM once for RS computation ────────────────────────────
     spy_chg: float | None = None
     iwm_chg: float | None = None

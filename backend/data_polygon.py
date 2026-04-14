@@ -30,6 +30,16 @@ log = logging.getLogger(__name__)
 # Massive (new name) first, Polygon (old name) as fallback
 _BASE = os.environ.get("MASSIVE_BASE", "https://api.massive.com")
 
+# Valid US common-stock ticker: 1-5 uppercase letters, optional hyphen+letter
+# Rejects: "CFLT B" (space = secondary class), "BF.B" (dot = preferred),
+#          "NWS/A" (slash = unit), pure numbers, warrants, etc.
+import re as _re
+_VALID_TICKER_RE = _re.compile(r'^[A-Z]{1,5}(-[A-Z]{1,2})?$')
+
+def _is_valid_stock_ticker(sym: str) -> bool:
+    """Return True only for plain US common-stock primary-listing tickers."""
+    return bool(_VALID_TICKER_RE.match(sym))
+
 _SPAN = {
     "1d":  (1, "day"),
     "1wk": (1, "week"),
@@ -139,7 +149,7 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         data = r.json()
         for t in data.get("results", []):
             sym = t.get("ticker", "")
-            if sym:
+            if sym and _is_valid_stock_ticker(sym):
                 tickers.append(sym)
         url    = data.get("next_url")
         params = {"apiKey": _key()}
@@ -172,7 +182,7 @@ def get_exchange_tickers(exchange: str, limit: int = 5_000) -> list[str]:
         data = r.json()
         for t in data.get("results", []):
             sym = t.get("ticker", "")
-            if sym:
+            if sym and _is_valid_stock_ticker(sym):
                 tickers.append(sym)
         url    = data.get("next_url")
         params = {"apiKey": _key()}

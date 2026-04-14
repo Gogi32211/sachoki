@@ -78,10 +78,8 @@ _FALLBACK = [
     # Energy
     "XOM","COP","HAL","BKR","MRO","DVN","FANG","PXD","VLO","PSX","HES",
     "APA","NOV","RIG","WTI","CTRA","MTDR",
-    # Metals / Mining
-    "GLD","SLV","NEM","AEM","WPM","FNV","RGLD","GOLD","KGC","AGI",
-    # ETFs
-    "SPY","QQQ","IWM","DIA","EEM","XLF","XLE","XLK","XLV","XBI","ARKK",
+    # Metals / Mining stocks (no ETFs — GLD/SLV removed)
+    "NEM","AEM","WPM","FNV","RGLD","GOLD","KGC","AGI",
     # S&P 500 mid-tier
     "MMM","AOS","ABT","AIG","ARE","AFL","ALB","ALGN","ALLE","LNT",
     "AEE","AEP","AXP","AMT","AWK","AMP","ADM","APTV","ACGL","ADI",
@@ -304,7 +302,8 @@ def get_russell2000_tickers(limit: int = 700) -> list[str]:
 
 
 def get_tickers(limit: int = 700) -> list[str]:
-    """S&P 500 tickers from Wikipedia + _FALLBACK."""
+    """S&P 500 tickers from Wikipedia + _FALLBACK (common stocks only, no ETFs)."""
+    from data_polygon import _is_valid_stock_ticker
     sp500: list[str] = []
     for url in [
         "https://en.wikipedia.org/wiki/List_of_S%26P_500_companies",
@@ -321,6 +320,7 @@ def get_tickers(limit: int = 700) -> list[str]:
         except Exception:
             pass
     combined = list(dict.fromkeys(sp500 + _FALLBACK))
+    combined = [t for t in combined if _is_valid_stock_ticker(t)]
     return combined[:limit]
 
 
