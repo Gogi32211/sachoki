@@ -9,7 +9,7 @@ function engineFamilies(r) {
     fams.add('Vol')
   if (r.wyk_spring || r.wyk_sos || r.wyk_lps || r.wyk_accum || r.wyk_markup)
     fams.add('Wyk')
-  if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull)
+  if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull || r.d_flip_bull || r.d_orange_bull)
     fams.add('Δ')
   if (r.tz_sig || r.tz_bull_flip || r.tz_attempt)
     fams.add('T/Z')
@@ -113,6 +113,8 @@ function SignalGrid({ r, ages, N }) {
         show('d_absorb_bull') && ['d_absorb_bull', 'Ab↑',  'B'],
         show('d_div_bull')    && ['d_div_bull',    'T↓',   null],
         show('d_vd_div_bull') && ['d_vd_div_bull', 'NS',   null],
+        show('d_flip_bull')   && ['d_flip_bull',   'FLP↑', 'B'],
+        show('d_orange_bull') && ['d_orange_bull', 'ORG↑', null],
       ].filter(Boolean),
     },
     {

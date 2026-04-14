@@ -166,6 +166,8 @@ const SIG_GROUPS = [
   { key: 'd_div_bull',    label: 'T↓',   cls: 'text-cyan-300'    },
   { key: 'd_vd_div_bull', label: 'NS',   cls: 'text-teal-400'    },
   { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
+  { key: 'd_flip_bull',   label: 'FLP↑', cls: 'text-orange-300'  },
+  { key: 'd_orange_bull', label: 'ORG↑', cls: 'text-orange-400'  },
   { divider: true },
   // ── PREUP — EMA cross ↑ ──────────────────────────────────────────────
   { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
@@ -256,7 +258,7 @@ function engineFamilies(r) {
   if (r.wyk_spring || r.wyk_sos || r.wyk_lps || r.wyk_accum || r.wyk_markup)
     fams.add('Wyk')
   // Delta / order-flow (260403)
-  if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull)
+  if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull || r.d_flip_bull || r.d_orange_bull)
     fams.add('Δ')
   // T/Z candlestick state engine
   if (r.tz_sig || r.tz_bull_flip || r.tz_attempt)
@@ -502,15 +504,22 @@ export default function TurboScanPanel({ onSelectTicker }) {
   }
 
   const exportTickers = () => {
-    // if specific rows are checked export those; else export all visible (filtered)
     const src = pickedTickers.size > 0
       ? results.filter(r => pickedTickers.has(r.ticker))
       : results
-    const tickers = src.map(r => r.ticker).join(',')
-    navigator.clipboard.writeText(tickers).then(() => {
-      setExported(true)
-      setTimeout(() => setExported(false), 2000)
-    })
+    const text = src.map(r => r.ticker).join('\n')
+    const blob = new Blob([text], { type: 'text/plain' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    const date = new Date().toISOString().slice(0, 10)
+    a.href     = url
+    a.download = `sachoki-${date}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setExported(true)
+    setTimeout(() => setExported(false), 2000)
   }
 
   // ── Poll until done ────────────────────────────────────────────────────────

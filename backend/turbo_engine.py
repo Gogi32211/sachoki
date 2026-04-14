@@ -152,6 +152,7 @@ _TURBO_COLS = [
     "d_blast_bull",  "d_blast_bear",
     "d_vd_div_bull", "d_vd_div_bear",
     "d_spring",      "d_upthrust",
+    "d_flip_bull",   "d_flip_bear",   "d_orange_bull",
     # RSI / CCI
     "rsi", "cci",
     # 260308 + L88
@@ -629,7 +630,8 @@ def _scan_turbo_ticker(
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
                         "surge_bull","surge_bear","blast_bull","blast_bear",
-                        "vd_div_bull","vd_div_bear","spring","upthrust"):
+                        "vd_div_bull","vd_div_bear","spring","upthrust",
+                        "flip_bull","flip_bear","orange_bull"):
                 row[f"d_{col}"] = _sig(ddf, col)
         except Exception:
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
@@ -854,6 +856,9 @@ def _scan_turbo_ticker(
             "d_vd_div_bear": _sa(ddf, "vd_div_bear"),
             "d_spring":      _sa(ddf, "spring"),
             "d_upthrust":    _sa(ddf, "upthrust"),
+            "d_flip_bull":   _sa(ddf, "flip_bull"),
+            "d_flip_bear":   _sa(ddf, "flip_bear"),
+            "d_orange_bull": _sa(ddf, "orange_bull"),
         }, separators=(',', ':'))
 
         # N=3, N=5 and N=10 turbo scores
@@ -913,6 +918,8 @@ def _scan_turbo_ticker(
                 "d_div_bull":    _sn(ddf, "div_bull",    _n),
                 "d_vd_div_bull": _sn(ddf, "vd_div_bull", _n),
                 "d_cd_bull":     _sn(ddf, "cd_bull",     _n),
+                "d_flip_bull":   _sn(ddf, "flip_bull",   _n),
+                "d_orange_bull": _sn(ddf, "orange_bull", _n),
                 # EMA cross
                 "preup66": _sn(combo, "preup66", _n),
                 "preup55": _sn(combo, "preup55", _n),

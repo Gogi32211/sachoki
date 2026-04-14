@@ -121,6 +121,18 @@ def compute_delta(
     spring   = div_bull & absorb_bull   # bear trap + absorbed selling
     upthrust = div_bear & absorb_bear   # bull trap + absorbed buying
 
+    # ── Delta Flip sequence ───────────────────────────────────────────────
+    # flip_bull: bull surge/blast now, after bear surge/blast 1-2 bars ago
+    # flip_bear: bear surge/blast now, after bull surge/blast 1-2 bars ago
+    any_bull = surge_bull | blast_bull
+    any_bear = surge_bear | blast_bear
+    flip_bull = any_bull & (any_bear.shift(1).fillna(False) | any_bear.shift(2).fillna(False))
+    flip_bear = any_bear & (any_bull.shift(1).fillna(False) | any_bull.shift(2).fillna(False))
+
+    # ── Orange Bull: same-bar contradiction ───────────────────────────────
+    # bear delta on a bullish close (or bull delta on a bearish close)
+    orange_bull = (any_bear & (c > o)) | (any_bull & (c < o))
+
     return pd.DataFrame({
         "delta":        delta.round(0),
         "strong_bull":  strong_bull,
@@ -139,5 +151,8 @@ def compute_delta(
         "vd_div_bear":  vd_div_bear,
         "spring":       spring,
         "upthrust":     upthrust,
+        "flip_bull":    flip_bull,
+        "flip_bear":    flip_bear,
+        "orange_bull":  orange_bull,
     }, index=df.index)
 
