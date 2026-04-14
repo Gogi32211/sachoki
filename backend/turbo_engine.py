@@ -123,6 +123,8 @@ _TURBO_COLS = [
     # TZ state + confluences + transition signals (260412)
     "tz_state", "ca", "cd", "cw",
     "tz_bull_flip", "tz_attempt",
+    # W signals — Bear Dominance→Weakening transition (260414)
+    "tz_weak_bull", "tz_weak_bear",
     # T/Z
     "tz_sig", "tz_bull",
     # WLNBB
@@ -557,6 +559,23 @@ def _scan_turbo_ticker(
         else:
             row["tz_bull_flip"] = 0
             row["tz_attempt"]   = 0
+        # W signals: earlyWeakening = tzState just moved from 0 (Bear Dom) → 1 (Bear Weak)
+        if len(tz_st) >= 2:
+            _ew = int(tz_st.iloc[-1]) == 1 and int(tz_st.iloc[-2]) == 0
+            _bar_bull = df["close"].iloc[-1] > df["open"].iloc[-1]
+            row["tz_weak_bull"] = int(_ew and _bar_bull)
+            row["tz_weak_bear"] = int(_ew and not _bar_bull)
+            # Full-series W signals for sig_ages
+            _tz_st_shifted = tz_st.shift(1, fill_value=0).astype(int)
+            _early_weak_ser = (tz_st.astype(int) == 1) & (_tz_st_shifted == 0)
+            _bull_bar_ser   = df["close"] > df["open"]
+            _tz_weak_df = pd.DataFrame({
+                "tz_weak_bull": _early_weak_ser & _bull_bar_ser,
+                "tz_weak_bear": _early_weak_ser & ~_bull_bar_ser,
+            }, index=df.index)
+        else:
+            row["tz_weak_bull"] = 0
+            row["tz_weak_bear"] = 0
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
         vabs    = compute_vabs(df)
@@ -574,7 +593,7 @@ def _scan_turbo_ticker(
         row["vbo_dn"]     = _sig(vabs, "vbo_dn")
 
         # ── Wyckoff Accumulation (260225) ─────────────────────────────────
-        wya = wyd = wx = ddf = u308 = uv2 = None   # pre-initialise for age computation
+        wya = wyd = wx = ddf = u308 = uv2 = _tz_weak_df = None   # pre-initialise for age computation
         try:
             wya = compute_wyckoff_accum(df)
             for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
@@ -859,6 +878,9 @@ def _scan_turbo_ticker(
             "d_flip_bull":   _sa(ddf, "flip_bull"),
             "d_flip_bear":   _sa(ddf, "flip_bear"),
             "d_orange_bull": _sa(ddf, "orange_bull"),
+            # W signals
+            "tz_weak_bull":  _sa(_tz_weak_df, "tz_weak_bull"),
+            "tz_weak_bear":  _sa(_tz_weak_df, "tz_weak_bear"),
         }, separators=(',', ':'))
 
         # N=3, N=5 and N=10 turbo scores

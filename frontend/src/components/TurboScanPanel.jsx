@@ -108,6 +108,8 @@ const SIG_GROUPS = [
     custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
   { key: 'tz_bull_flip', label: 'TZ→3', cls: 'text-lime-300'    },
   { key: 'tz_attempt',   label: 'TZ→2', cls: 'text-cyan-300'    },
+  { key: 'tz_weak_bull', label: 'W+',   cls: 'text-yellow-300'  },
+  { key: 'tz_weak_bear', label: 'W-',   cls: 'text-red-400'     },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: 'fri34',         label: 'FRI34',    cls: 'text-cyan-400'     },
@@ -168,6 +170,7 @@ const SIG_GROUPS = [
   { key: 'd_cd_bull',     label: 'cd↑',  cls: 'text-sky-300'     },
   { key: 'd_flip_bull',   label: 'FLP↑', cls: 'text-orange-300'  },
   { key: 'd_orange_bull', label: 'ORG↑', cls: 'text-orange-400'  },
+  { key: 'd_vd_div_bear', label: 'ND',   cls: 'text-red-400'     },
   { divider: true },
   // ── PREUP — EMA cross ↑ ──────────────────────────────────────────────
   { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
