@@ -133,26 +133,37 @@ def compute_delta(
     # bear delta on a bullish close (or bull delta on a bearish close)
     orange_bull = (any_bear & (c > o)) | (any_bull & (c < o))
 
+    # ── Granular contradiction signals ────────────────────────────────────
+    # blast/surge on a candle that contradicts the delta direction
+    blast_bull_red  = blast_bull  & (c < o)   # ΔΔ bull + red candle  → hidden buying
+    blast_bear_grn  = blast_bear  & (c > o)   # ΔΔ bear + green candle → hidden selling
+    surge_bull_red  = surge_bull  & (c < o)   # Δ  bull + red candle
+    surge_bear_grn  = surge_bear  & (c > o)   # Δ  bear + green candle
+
     return pd.DataFrame({
-        "delta":        delta.round(0),
-        "strong_bull":  strong_bull,
-        "strong_bear":  strong_bear,
-        "absorb_bull":  absorb_bull,
-        "absorb_bear":  absorb_bear,
-        "div_bull":     div_bull,
-        "div_bear":     div_bear,
-        "cd_bull":      cd_bull,
-        "cd_bear":      cd_bear,
-        "surge_bull":   surge_bull,
-        "surge_bear":   surge_bear,
-        "blast_bull":   blast_bull,
-        "blast_bear":   blast_bear,
-        "vd_div_bull":  vd_div_bull,
-        "vd_div_bear":  vd_div_bear,
-        "spring":       spring,
-        "upthrust":     upthrust,
-        "flip_bull":    flip_bull,
-        "flip_bear":    flip_bear,
-        "orange_bull":  orange_bull,
+        "delta":           delta.round(0),
+        "strong_bull":     strong_bull,
+        "strong_bear":     strong_bear,
+        "absorb_bull":     absorb_bull,
+        "absorb_bear":     absorb_bear,
+        "div_bull":        div_bull,
+        "div_bear":        div_bear,
+        "cd_bull":         cd_bull,
+        "cd_bear":         cd_bear,
+        "surge_bull":      surge_bull,
+        "surge_bear":      surge_bear,
+        "blast_bull":      blast_bull,
+        "blast_bear":      blast_bear,
+        "vd_div_bull":     vd_div_bull,
+        "vd_div_bear":     vd_div_bear,
+        "spring":          spring,
+        "upthrust":        upthrust,
+        "flip_bull":       flip_bull,
+        "flip_bear":       flip_bear,
+        "orange_bull":     orange_bull,
+        "blast_bull_red":  blast_bull_red,
+        "blast_bear_grn":  blast_bear_grn,
+        "surge_bull_red":  surge_bull_red,
+        "surge_bear_grn":  surge_bear_grn,
     }, index=df.index)
 

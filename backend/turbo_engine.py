@@ -155,6 +155,8 @@ _TURBO_COLS = [
     "d_vd_div_bull", "d_vd_div_bear",
     "d_spring",      "d_upthrust",
     "d_flip_bull",   "d_flip_bear",   "d_orange_bull",
+    "d_blast_bull_red", "d_blast_bear_grn",
+    "d_surge_bull_red", "d_surge_bear_grn",
     # RSI / CCI
     "rsi", "cci",
     # 260308 + L88
@@ -649,13 +651,17 @@ def _scan_turbo_ticker(
                         "div_bull","div_bear","cd_bull","cd_bear",
                         "surge_bull","surge_bear","blast_bull","blast_bear",
                         "vd_div_bull","vd_div_bear","spring","upthrust",
-                        "flip_bull","flip_bear","orange_bull"):
+                        "flip_bull","flip_bear","orange_bull",
+                        "blast_bull_red","blast_bear_grn",
+                        "surge_bull_red","surge_bear_grn"):
                 row[f"d_{col}"] = _sig(ddf, col)
         except Exception:
             for col in ("strong_bull","strong_bear","absorb_bull","absorb_bear",
                         "div_bull","div_bear","cd_bull","cd_bear",
                         "surge_bull","surge_bear","blast_bull","blast_bear",
-                        "vd_div_bull","vd_div_bear","spring","upthrust"):
+                        "vd_div_bull","vd_div_bear","spring","upthrust",
+                        "blast_bull_red","blast_bear_grn",
+                        "surge_bull_red","surge_bear_grn"):
                 row[f"d_{col}"] = 0
 
         # ── RSI(14) ────────────────────────────────────────────────────────
@@ -874,9 +880,13 @@ def _scan_turbo_ticker(
             "d_vd_div_bear": _sa(ddf, "vd_div_bear"),
             "d_spring":      _sa(ddf, "spring"),
             "d_upthrust":    _sa(ddf, "upthrust"),
-            "d_flip_bull":   _sa(ddf, "flip_bull"),
-            "d_flip_bear":   _sa(ddf, "flip_bear"),
-            "d_orange_bull": _sa(ddf, "orange_bull"),
+            "d_flip_bull":       _sa(ddf, "flip_bull"),
+            "d_flip_bear":       _sa(ddf, "flip_bear"),
+            "d_orange_bull":     _sa(ddf, "orange_bull"),
+            "d_blast_bull_red":  _sa(ddf, "blast_bull_red"),
+            "d_blast_bear_grn":  _sa(ddf, "blast_bear_grn"),
+            "d_surge_bull_red":  _sa(ddf, "surge_bull_red"),
+            "d_surge_bear_grn":  _sa(ddf, "surge_bear_grn"),
             # W signals
             "tz_weak_bull":  _sa(_tz_weak_df, "tz_weak_bull"),
             "tz_weak_bear":  _sa(_tz_weak_df, "tz_weak_bear"),
@@ -940,7 +950,9 @@ def _scan_turbo_ticker(
                 "d_vd_div_bull": _sn(ddf, "vd_div_bull", _n),
                 "d_cd_bull":     _sn(ddf, "cd_bull",     _n),
                 "d_flip_bull":   _sn(ddf, "flip_bull",   _n),
-                "d_orange_bull": _sn(ddf, "orange_bull", _n),
+                "d_orange_bull":    _sn(ddf, "orange_bull",    _n),
+                "d_blast_bull_red": _sn(ddf, "blast_bull_red", _n),
+                "d_surge_bull_red": _sn(ddf, "surge_bull_red", _n),
                 # EMA cross
                 "preup66": _sn(combo, "preup66", _n),
                 "preup55": _sn(combo, "preup55", _n),
