@@ -181,6 +181,8 @@ _TURBO_COLS = [
     "sig_ages",
     # Data source: "polygon" | "yfinance" (shown as badge in UI)
     "data_source",
+    # Average daily volume (20-bar SMA) — used for volume filter
+    "avg_vol",
 ]
 
 
@@ -191,7 +193,7 @@ def _db():
 
 def _col_def(c: str) -> str:
     _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
-    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci"}
+    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci", "avg_vol"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
@@ -368,6 +370,7 @@ def _scan_turbo_ticker(
     spy_chg: float | None = None,
     iwm_chg: float | None = None,
     partial_day: bool = False,
+    min_volume: float = 100_000,
 ) -> dict | None:
     try:
         from data_polygon import fetch_bars, polygon_available
@@ -431,6 +434,12 @@ def _scan_turbo_ticker(
 
         # ── Price range filter ─────────────────────────────────────────────
         if price < min_price or price > max_price:
+            return None
+
+        # ── Average volume filter (20-bar SMA) ────────────────────────────
+        avg_vol = float(df["volume"].rolling(20, min_periods=5).mean().iloc[-1])
+        row["avg_vol"] = round(avg_vol, 0)
+        if min_volume > 0 and avg_vol < min_volume:
             return None
 
         # Helper: extract bool signal from last N bars (always N=1; ages stored separately)
@@ -987,6 +996,7 @@ def run_turbo_scan(
     workers: int = 4,
     lookback_n: int = 5,
     partial_day: bool = False,
+    min_volume: float = 100_000,
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -1063,7 +1073,7 @@ def run_turbo_scan(
             futures = {
                 pool.submit(
                     _scan_turbo_ticker, t, interval, min_price, max_price,
-                    spy_chg, iwm_chg, partial_day
+                    spy_chg, iwm_chg, partial_day, min_volume
                 ): t
                 for t in tickers
             }
@@ -1155,6 +1165,7 @@ def get_turbo_results(
     rsi_max: float = 100,
     cci_min: float = -9999,
     cci_max: float = 9999,
+    vol_min: float = 0,
 ) -> list[dict]:
     _init_db()
     con = _db()
@@ -1187,6 +1198,8 @@ def get_turbo_results(
             where += " AND cci >= ?"; params.append(cci_min)
         if cci_max < 9999:
             where += " AND cci <= ?"; params.append(cci_max)
+        if vol_min > 0:
+            where += " AND avg_vol >= ?"; params.append(vol_min)
 
         rows = con.execute(
             f"SELECT * FROM turbo_scan_results WHERE {where} "

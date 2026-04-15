@@ -405,6 +405,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [lookbackN,  setLookbackN]  = useState(1)
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
+  const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -419,7 +420,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       setAllResults(cached.results)
       setLastScan(cached.lastScan)
     }
-    api.turboScan(10000, 0, 'all', tf, uni)
+    api.turboScan(10000, 0, 'all', tf, uni, { vol_min: volMin })
       .then(d => {
         const results = d.results || []
         const ls = d.last_scan
@@ -438,7 +439,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       .catch(e => setError(e.message))
   }
 
-  useEffect(() => { load(localTf, universe) }, [localTf, universe])
+  useEffect(() => { load(localTf, universe) }, [localTf, universe, volMin])
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Effective score column based on selected N ────────────────────────────
@@ -550,7 +551,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   const scan = () => {
     setScanning(true); setError(null)
-    api.turboScanTrigger(localTf, universe, lookbackN, partialDay)
+    api.turboScanTrigger(localTf, universe, lookbackN, partialDay, volMin)
       .then(() => _poll())
       .catch(e => {
         setScanning(false)
@@ -679,6 +680,19 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
               title={n === 1 ? 'Current bar only' : `Signal fired in last ${n} bars`}>
               {n}d
+            </button>
+          ))}
+        </div>
+
+        {/* Volume filter — min avg daily volume */}
+        <div className="flex items-center gap-0.5 ml-1" title="Min average daily volume">
+          <span className="text-gray-500 text-xs mr-0.5">Vol≥</span>
+          {[0, 100_000, 500_000, 1_000_000, 5_000_000].map(v => (
+            <button key={v} onClick={() => { setVolMin(v); load(localTf, universe) }}
+              className={`px-2 py-0.5 rounded text-xs transition-colors
+                ${volMin === v ? 'bg-cyan-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+              title={v === 0 ? 'No volume filter' : `Avg volume ≥ ${v.toLocaleString()}`}>
+              {v === 0 ? 'All' : v >= 1_000_000 ? `${v/1_000_000}M` : `${v/1_000}K`}
             </button>
           ))}
         </div>
@@ -1003,6 +1017,15 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 {/* Change % */}
                 <td className={`px-2 py-1 text-right font-mono ${r.change_pct >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
                   {r.change_pct >= 0 ? '+' : ''}{fmt(r.change_pct)}%
+                  {r.avg_vol > 0 && (
+                    <span className="ml-1 text-gray-600 font-normal text-xs">
+                      {r.avg_vol >= 1_000_000
+                        ? `${(r.avg_vol/1_000_000).toFixed(1)}M`
+                        : r.avg_vol >= 1_000
+                          ? `${Math.round(r.avg_vol/1_000)}K`
+                          : Math.round(r.avg_vol)}
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

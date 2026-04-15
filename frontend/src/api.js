@@ -103,10 +103,11 @@ export const api = {
     if (filters.rsi_max < 100)    p.set('rsi_max',   filters.rsi_max)
     if (filters.cci_min > -9999)  p.set('cci_min',   filters.cci_min)
     if (filters.cci_max < 9999)   p.set('cci_max',   filters.cci_max)
+    if (filters.vol_min > 0)      p.set('vol_min',   filters.vol_min)
     return get(`/api/turbo-scan?${p}`)
   },
-  turboScanTrigger: (tf = '1d', universe = 'sp500', lookback_n = 5, partialDay = false) =>
-    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}&lookback_n=${lookback_n}&partial_day=${partialDay}`),
+  turboScanTrigger: (tf = '1d', universe = 'sp500', lookback_n = 5, partialDay = false, minVolume = 100000) =>
+    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}&lookback_n=${lookback_n}&partial_day=${partialDay}&min_volume=${minVolume}`),
   turboScanStatus: () =>
     get('/api/turbo-scan/status'),
   turboScanReset: () =>
