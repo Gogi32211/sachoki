@@ -573,6 +573,7 @@ def api_turbo_scan(
     cci_min: float = -9999,
     cci_max: float = 9999,
     vol_min: float = 0,
+    vol_max: float = 0,
 ):
     from turbo_engine import get_turbo_results, get_last_turbo_scan_time
     results   = get_turbo_results(limit=limit, min_score=min_score, direction=direction,
@@ -580,7 +581,7 @@ def api_turbo_scan(
                                   price_min=price_min, price_max=price_max,
                                   rsi_min=rsi_min, rsi_max=rsi_max,
                                   cci_min=cci_min, cci_max=cci_max,
-                                  vol_min=vol_min)
+                                  vol_min=vol_min, vol_max=vol_max)
     last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
     return {"results": results, "last_scan": last_time}
 
@@ -592,7 +593,7 @@ def api_turbo_scan_trigger(
     universe: str = "sp500",
     lookback_n: int = 5,
     partial_day: bool = False,
-    min_volume: float = 100_000,
+    min_volume: float = 0,
 ):
     from turbo_engine import run_turbo_scan, get_turbo_progress
     if get_turbo_progress().get("running"):

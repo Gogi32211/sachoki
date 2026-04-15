@@ -370,7 +370,7 @@ def _scan_turbo_ticker(
     spy_chg: float | None = None,
     iwm_chg: float | None = None,
     partial_day: bool = False,
-    min_volume: float = 100_000,
+    min_volume: float = 0,
 ) -> dict | None:
     try:
         from data_polygon import fetch_bars, polygon_available
@@ -996,7 +996,7 @@ def run_turbo_scan(
     workers: int = 4,
     lookback_n: int = 5,
     partial_day: bool = False,
-    min_volume: float = 100_000,
+    min_volume: float = 0,
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -1166,6 +1166,7 @@ def get_turbo_results(
     cci_min: float = -9999,
     cci_max: float = 9999,
     vol_min: float = 0,
+    vol_max: float = 0,
 ) -> list[dict]:
     _init_db()
     con = _db()
@@ -1200,6 +1201,8 @@ def get_turbo_results(
             where += " AND cci <= ?"; params.append(cci_max)
         if vol_min > 0:
             where += " AND avg_vol >= ?"; params.append(vol_min)
+        if vol_max > 0:
+            where += " AND avg_vol < ?";  params.append(vol_max)
 
         rows = con.execute(
             f"SELECT * FROM turbo_scan_results WHERE {where} "

@@ -406,6 +406,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
+  const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -420,7 +421,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       setAllResults(cached.results)
       setLastScan(cached.lastScan)
     }
-    api.turboScan(10000, 0, 'all', tf, uni, { vol_min: volMin })
+    api.turboScan(10000, 0, 'all', tf, uni, { vol_min: volMin, vol_max: volMax })
       .then(d => {
         const results = d.results || []
         const ls = d.last_scan
@@ -439,7 +440,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       .catch(e => setError(e.message))
   }
 
-  useEffect(() => { load(localTf, universe) }, [localTf, universe, volMin])
+  useEffect(() => { load(localTf, universe) }, [localTf, universe, volMin, volMax])
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Effective score column based on selected N ────────────────────────────
@@ -684,17 +685,28 @@ export default function TurboScanPanel({ onSelectTicker }) {
           ))}
         </div>
 
-        {/* Volume filter — min avg daily volume */}
-        <div className="flex items-center gap-0.5 ml-1" title="Min average daily volume">
-          <span className="text-gray-500 text-xs mr-0.5">Vol≥</span>
-          {[0, 100_000, 500_000, 1_000_000, 5_000_000].map(v => (
-            <button key={v} onClick={() => { setVolMin(v); load(localTf, universe) }}
-              className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${volMin === v ? 'bg-cyan-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-              title={v === 0 ? 'No volume filter' : `Avg volume ≥ ${v.toLocaleString()}`}>
-              {v === 0 ? 'All' : v >= 1_000_000 ? `${v/1_000_000}M` : `${v/1_000}K`}
-            </button>
-          ))}
+        {/* Volume filter */}
+        <div className="flex items-center gap-0.5 ml-1" title="Avg daily volume filter">
+          <span className="text-gray-500 text-xs mr-0.5">Vol</span>
+          {[
+            { label: 'All',   min: 0,         max: 0         },
+            { label: '<100K', min: 0,         max: 100_000   },
+            { label: '100K+', min: 100_000,   max: 0         },
+            { label: '500K+', min: 500_000,   max: 0         },
+            { label: '1M+',   min: 1_000_000, max: 0         },
+            { label: '5M+',   min: 5_000_000, max: 0         },
+          ].map(({ label, min, max }) => {
+            const active = volMin === min && volMax === max
+            return (
+              <button key={label}
+                onClick={() => { setVolMin(min); setVolMax(max) }}
+                className={`px-2 py-0.5 rounded text-xs transition-colors
+                  ${active ? 'bg-cyan-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                title={label === 'All' ? 'No volume filter' : label === '<100K' ? 'Avg volume < 100K' : `Avg volume ≥ ${min.toLocaleString()}`}>
+                {label}
+              </button>
+            )
+          })}
         </div>
 
         {/* Stats + stale warning */}
