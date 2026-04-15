@@ -236,9 +236,20 @@ _BENCH_TICKERS = {"sp500": "SPY", "nasdaq": "QQQ", "russell2k": "IWM"}
 
 def get_bench_tz_stats(universe: str = "sp500", interval: str = "1d") -> dict:
     """
-    Return T/Z stats for the benchmark index (SPY/QQQ/IWM).
-    Results are cached for 24 h to avoid repeated heavy fetches.
+    Return T/Z frequency stats for the benchmark universe.
+    Uses pooled aggregate stats (all stocks in the universe) when available —
+    falls back to the index ETF (SPY/QQQ/IWM) if not yet built.
     """
+    # Primary: pooled aggregate across all universe stocks
+    try:
+        from pooled_stats import get_pooled_tz_freq
+        pooled = get_pooled_tz_freq(universe, interval)
+        if pooled:
+            return pooled
+    except Exception:
+        pass
+
+    # Fallback: single benchmark ETF, cached for 24 h
     bench = _BENCH_TICKERS.get(universe, "SPY")
     cache_key = f"{bench}_{interval}"
     cached = _bench_cache.get(cache_key)

@@ -8,6 +8,7 @@ for use as a high-sample-size baseline in the predictor.
 Usage:
   build_pooled_stats(universe='sp500', interval='1d')   # background job
   get_pooled_predict(sig3, sig2, l3, l2, universe, interval)  # query
+  get_pooled_tz_freq(universe, interval)                 # per-signal frequency stats
   get_pooled_status(universe, interval)
 """
 from __future__ import annotations
@@ -18,6 +19,8 @@ import time
 from collections import Counter
 from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import datetime, timezone
+
+import numpy as np
 
 from signal_engine import SIG_NAMES, BULLISH_SIGS, BEARISH_SIGS
 from wlnbb_engine import compute_wlnbb
@@ -70,6 +73,18 @@ else:
         "(universe,interval,pattern_len,l_seq,next_l,count) VALUES (?,?,?,?,?,?)"
     )
 
+if USE_PG:
+    _UPSERT_FREQ = (
+        "INSERT INTO pooled_tz_freq_stats (universe,interval,sig_id,count) "
+        "VALUES (%s,%s,%s,%s) "
+        "ON CONFLICT (universe,interval,sig_id) DO UPDATE SET count=excluded.count"
+    )
+else:
+    _UPSERT_FREQ = (
+        "INSERT OR REPLACE INTO pooled_tz_freq_stats "
+        "(universe,interval,sig_id,count) VALUES (?,?,?,?)"
+    )
+
 
 def _init_db() -> None:
     con = get_db()
@@ -101,6 +116,22 @@ def _init_db() -> None:
             ticker_count INTEGER NOT NULL,
             tz_patterns  INTEGER NOT NULL,
             l_patterns   INTEGER NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS pooled_tz_freq_stats (
+            universe TEXT NOT NULL,
+            interval TEXT NOT NULL,
+            sig_id   INTEGER NOT NULL,
+            count    INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (universe, interval, sig_id)
+        );
+        CREATE TABLE IF NOT EXISTS pooled_tz_freq_meta (
+            id         {_pk},
+            universe   TEXT NOT NULL,
+            interval   TEXT NOT NULL,
+            total_bars INTEGER NOT NULL DEFAULT 0,
+            bull_bars  INTEGER NOT NULL DEFAULT 0,
+            bear_bars  INTEGER NOT NULL DEFAULT 0,
+            doji_bars  INTEGER NOT NULL DEFAULT 0
         );
     """)
     con.commit()
@@ -160,7 +191,23 @@ def _worker(ticker: str, interval: str, days: int) -> dict | None:
             seq = f"{l_combos[i]}{_SEP}{l_combos[i+1]}"
             l2[(seq, str(l_combos[i + 2]))] += 1
 
-        return {"tz3": tz3, "tz2": tz2, "l3": l3, "l2": l2}
+        # Per-bar and per-signal frequency (for aggregate T/Z stats)
+        c_arr = df["close"].to_numpy(dtype=float)
+        o_arr = df["open"].to_numpy(dtype=float)
+        h_arr = df["high"].to_numpy(dtype=float)
+        l_arr = df["low"].to_numpy(dtype=float)
+        rng  = h_arr - l_arr
+        body = np.abs(c_arr - o_arr)
+        is_doji = body / np.where(rng > 1e-9, rng, 1e-9) <= 0.05
+        freq = {
+            "total_bars": n,
+            "bull_bars":  int((c_arr > o_arr).sum()),
+            "bear_bars":  int((c_arr < o_arr).sum()),
+            "doji_bars":  int(is_doji.sum()),
+            "sig_counts": Counter(int(s) for s in sig_ids),
+        }
+
+        return {"tz3": tz3, "tz2": tz2, "l3": l3, "l2": l2, "freq": freq}
 
     except Exception as exc:
         log.debug("pooled_stats skip %s: %s", ticker, exc)
@@ -202,6 +249,8 @@ def build_pooled_stats(
     all_tz2: Counter = Counter()
     all_l3:  Counter = Counter()
     all_l2:  Counter = Counter()
+    all_sig_counts: Counter = Counter()
+    all_total_bars = all_bull_bars = all_bear_bars = all_doji_bars = 0
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
         futures = {pool.submit(_worker, t, interval, days): t for t in tickers}
@@ -213,6 +262,13 @@ def build_pooled_stats(
                 all_tz2 += result["tz2"]
                 all_l3  += result["l3"]
                 all_l2  += result["l2"]
+                f = result.get("freq")
+                if f:
+                    all_total_bars += f["total_bars"]
+                    all_bull_bars  += f["bull_bars"]
+                    all_bear_bars  += f["bear_bars"]
+                    all_doji_bars  += f["doji_bars"]
+                    all_sig_counts += f["sig_counts"]
 
     # Write to DB (replace old data for this universe+interval)
     con = _db()
@@ -243,12 +299,24 @@ def build_pooled_stats(
         (universe, interval, datetime.now(timezone.utc).isoformat(),
          len(tickers), len(tz_rows), len(l_rows)),
     )
+
+    # Persist T/Z signal frequency aggregate
+    con.execute("DELETE FROM pooled_tz_freq_stats WHERE universe=? AND interval=?", (universe, interval))
+    con.execute("DELETE FROM pooled_tz_freq_meta   WHERE universe=? AND interval=?", (universe, interval))
+    freq_rows = [(universe, interval, sid, cnt) for sid, cnt in all_sig_counts.items()]
+    con.executemany(_UPSERT_FREQ, freq_rows)
+    con.execute(
+        "INSERT INTO pooled_tz_freq_meta "
+        "(universe,interval,total_bars,bull_bars,bear_bars,doji_bars) VALUES (?,?,?,?,?,?)",
+        (universe, interval, all_total_bars, all_bull_bars, all_bear_bars, all_doji_bars),
+    )
+
     con.commit()
     con.close()
 
     _pooled_state.update({"running": False})
-    log.info("pooled_stats built: universe=%s interval=%s tz=%d l=%d",
-             universe, interval, len(tz_rows), len(l_rows))
+    log.info("pooled_stats built: universe=%s interval=%s tz=%d l=%d freq=%d",
+             universe, interval, len(tz_rows), len(l_rows), len(freq_rows))
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
@@ -352,6 +420,80 @@ def get_pooled_predict(
         "l_3bar":  _fmt_l(l3_rows, l3_label),
         "l_2bar":  _fmt_l(l2_rows, l2_label),
     }
+
+
+# ── Aggregate T/Z frequency ───────────────────────────────────────────────────
+
+def get_pooled_tz_freq(universe: str = "sp500", interval: str = "1d") -> dict | None:
+    """
+    Return aggregate T/Z signal frequency stats built from all universe tickers.
+    Returns None if frequency stats haven't been built yet.
+    """
+    try:
+        _init_db()
+        con = _db()
+        freq_rows = con.execute(
+            "SELECT sig_id, count FROM pooled_tz_freq_stats "
+            "WHERE universe=? AND interval=?",
+            (universe, interval),
+        ).fetchall()
+        if not freq_rows:
+            con.close()
+            return None
+        meta = con.execute(
+            "SELECT total_bars, bull_bars, bear_bars, doji_bars "
+            "FROM pooled_tz_freq_meta WHERE universe=? AND interval=? "
+            "ORDER BY id DESC LIMIT 1",
+            (universe, interval),
+        ).fetchone()
+        con.close()
+
+        sig_counts = {int(r["sig_id"]): int(r["count"]) for r in freq_rows}
+        total_bars = int(meta["total_bars"]) if meta else 0
+        bull_bars  = int(meta["bull_bars"])  if meta else 0
+        bear_bars  = int(meta["bear_bars"])  if meta else 0
+        doji_bars  = int(meta["doji_bars"])  if meta else 0
+
+        from predictor import _T_SIGS, _Z_SIGS
+
+        def _pct(n: int, d: int) -> float:
+            return round(n / d * 100, 1) if d > 0 else 0.0
+
+        t_counts = {s: sig_counts.get(s, 0) for s in _T_SIGS}
+        z_counts = {s: sig_counts.get(s, 0) for s in _Z_SIGS}
+        t_total  = sum(t_counts.values())
+        z_total  = sum(z_counts.values())
+
+        t_signals = [
+            {"sig_id": s, "name": SIG_NAMES[s], "count": t_counts[s],
+             "group_pct": _pct(t_counts[s], t_total),
+             "bar_pct":   _pct(t_counts[s], bull_bars)}
+            for s in _T_SIGS
+        ]
+        z_signals = [
+            {"sig_id": s, "name": SIG_NAMES[s], "count": z_counts[s],
+             "group_pct": _pct(z_counts[s], z_total),
+             "bar_pct":   _pct(z_counts[s], doji_bars if s == 20 else bear_bars)}
+            for s in _Z_SIGS
+        ]
+
+        uni_label = {"sp500": "SP500", "nasdaq": "NASDAQ", "russell2k": "R2K"}.get(
+            universe, universe.upper()
+        )
+        return {
+            "total_bars": total_bars,
+            "bull_bars":  bull_bars,
+            "bear_bars":  bear_bars,
+            "doji_bars":  doji_bars,
+            "t_total":    t_total,
+            "z_total":    z_total,
+            "t_signals":  t_signals,
+            "z_signals":  z_signals,
+            "bench_ticker": f"{uni_label} pooled",
+        }
+    except Exception as exc:
+        log.debug("get_pooled_tz_freq: %s", exc)
+        return None
 
 
 # ── Status ────────────────────────────────────────────────────────────────────
