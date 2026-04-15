@@ -52,16 +52,23 @@ async def lifespan(app: FastAPI):
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
-    # Auto-build pooled stats for sp500 1d on startup if not present
+    # Auto-build pooled stats for sp500 1d on startup if not present,
+    # OR if patterns exist but the new freq tables are empty (post-upgrade migration).
     try:
-        from pooled_stats import get_pooled_status, build_pooled_stats, get_pooled_state
+        from pooled_stats import get_pooled_status, build_pooled_stats, get_pooled_state, get_pooled_tz_freq
         status = get_pooled_status("sp500", "1d")
-        if not status.get("available") and not get_pooled_state().get("running"):
+        freq   = get_pooled_tz_freq("sp500", "1d") if status.get("available") else None
+        needs_build = (
+            not status.get("available")          # first run: no patterns yet
+            or (status.get("available") and freq is None)  # upgrade: freq tables empty
+        )
+        if needs_build and not get_pooled_state().get("running"):
             import threading
-            log.info("Pooled stats not found — auto-building sp500 1d in background")
+            reason = "no patterns" if not status.get("available") else "freq stats missing (upgrade)"
+            log.info("Auto-building sp500 1d pooled stats: %s", reason)
             threading.Thread(
                 target=build_pooled_stats,
-                args=("sp500", "1d", 3, 2000),  # 3 workers (was 6) to limit RAM
+                args=("sp500", "1d", 3, 2000),  # 3 workers to limit RAM
                 daemon=True,
             ).start()
     except Exception as exc:
