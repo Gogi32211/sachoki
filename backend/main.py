@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from data import fetch_ohlcv
 from signal_engine import compute_signals
 from wlnbb_engine import compute_wlnbb, score_last_bar, score_bars, l_signal_label
-from predictor import predict_next
+from predictor import predict_next, compute_tz_stats, get_bench_tz_stats
 from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
 from scanner import (
@@ -280,7 +280,9 @@ def api_predict(ticker: str, tf: str = "1d"):
         full_w = full.join(wlnbb)
         l_preds = predict_l_next(full_w)   # {"l_3bar": ..., "l_2bar": ...}
 
-        return {**tz, **l_preds}
+        tz_stats = compute_tz_stats(full)
+
+        return {**tz, **l_preds, "tz_stats": tz_stats}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -313,7 +315,9 @@ def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
         l3   = tuple(str(s) for s in l_combos[-3:])
         l2   = tuple(str(s) for s in l_combos[-2:])
 
-        return get_pooled_predict(sig3, sig2, l3, l2, universe, tf)
+        result = get_pooled_predict(sig3, sig2, l3, l2, universe, tf)
+        result["bench_tz_stats"] = get_bench_tz_stats(universe, tf)
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
