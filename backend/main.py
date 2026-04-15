@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from data import fetch_ohlcv
 from signal_engine import compute_signals
 from wlnbb_engine import compute_wlnbb, score_last_bar, score_bars, l_signal_label
-from predictor import predict_next, compute_tz_stats, get_bench_tz_stats
+from predictor import predict_next, compute_tz_stats, get_bench_tz_stats, compute_tz_matrix
 from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
 from scanner import (
@@ -287,9 +287,10 @@ def api_predict(ticker: str, tf: str = "1d"):
         full_w = full.join(wlnbb)
         l_preds = predict_l_next(full_w)   # {"l_3bar": ..., "l_2bar": ...}
 
-        tz_stats = compute_tz_stats(full)
+        tz_stats   = compute_tz_stats(full)
+        tz_matrix  = compute_tz_matrix(full)
 
-        return {**tz, **l_preds, "tz_stats": tz_stats}
+        return {**tz, **l_preds, "tz_stats": tz_stats, "tz_matrix": tz_matrix}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -298,7 +299,7 @@ def api_predict(ticker: str, tf: str = "1d"):
 def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
     """Query pooled cross-universe stats for the ticker's current T/Z + L sequences."""
     try:
-        from pooled_stats import get_pooled_predict, get_pooled_status
+        from pooled_stats import get_pooled_predict, get_pooled_status, get_pooled_tz_matrix
         from signal_engine import compute_signals
         from wlnbb_engine import compute_wlnbb
 
@@ -308,7 +309,8 @@ def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
                     "tz_3bar": {"total_matches": 0, "top_outcomes": []},
                     "tz_2bar": {"total_matches": 0, "top_outcomes": []},
                     "l_3bar":  {"total_matches": 0, "top_outcomes": []},
-                    "l_2bar":  {"total_matches": 0, "top_outcomes": []}}
+                    "l_2bar":  {"total_matches": 0, "top_outcomes": []},
+                    "bench_tz_matrix": {"bar1": {}, "bar2": {}}}
 
         df    = fetch_ohlcv(ticker, interval=tf, bars=200)
         sigs  = compute_signals(df)
@@ -323,7 +325,8 @@ def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
         l2   = tuple(str(s) for s in l_combos[-2:])
 
         result = get_pooled_predict(sig3, sig2, l3, l2, universe, tf)
-        result["bench_tz_stats"] = get_bench_tz_stats(universe, tf)
+        result["bench_tz_stats"]  = get_bench_tz_stats(universe, tf)
+        result["bench_tz_matrix"] = get_pooled_tz_matrix(universe, tf)
         return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))

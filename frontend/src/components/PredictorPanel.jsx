@@ -1,6 +1,98 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { api } from '../api'
 
+// ── Signal metadata ───────────────────────────────────────────────────────────
+const _SIG_NAMES = {
+  0:'—', 1:'T1G', 2:'T1', 3:'T2G', 4:'T2', 5:'T3', 6:'T4', 7:'T5', 8:'T6',
+  9:'T9', 10:'T10', 11:'T11',
+  12:'Z1G', 13:'Z1', 14:'Z2G', 15:'Z2', 16:'Z3', 17:'Z4', 18:'Z5', 19:'Z6',
+  20:'Z7', 21:'Z8', 22:'Z9', 23:'Z10', 24:'Z11', 25:'Z12',
+}
+const _COL_IDS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+const _ROW_IDS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
+
+function _cellBg(pct, colId) {
+  if (pct < 1) return undefined
+  const op = Math.min(pct / 28, 1) * 0.80
+  if (colId === 0)  return `rgba(107,114,128,${op})`
+  if (colId <= 11)  return `rgba(34,197,94,${op})`
+  return `rgba(239,68,68,${op})`
+}
+
+// ── T/Z Transition Matrix (chess-board) ───────────────────────────────────────
+function TZMatrix({ matrixData, label, sublabel, offset }) {
+  const data = (offset === 1 ? matrixData?.bar1 : matrixData?.bar2) ?? {}
+  const hasData = Object.keys(data).length > 0
+
+  return (
+    <div className="mb-4">
+      {/* Panel header */}
+      <div className="px-3 py-2 bg-violet-900/40 rounded-t-lg text-sm font-bold text-violet-300 flex items-center justify-between">
+        <span>T/Z Transition Matrix — Bar +{offset}</span>
+        {sublabel && <span className="text-[10px] font-normal opacity-70">{sublabel}</span>}
+      </div>
+      <div className="border border-gray-800 rounded-b-lg overflow-hidden">
+        {!hasData ? (
+          <div className="px-3 py-6 text-center text-gray-600 text-xs">No data</div>
+        ) : (
+          <div className="overflow-x-auto">
+            <table className="text-[10px] border-collapse w-full">
+              <thead>
+                <tr className="bg-gray-900/80">
+                  <th className="sticky left-0 z-10 bg-gray-900 px-2 py-1.5 text-left text-gray-500 font-normal whitespace-nowrap border-r border-gray-800" style={{minWidth:'46px'}}>
+                    ↓ / →
+                  </th>
+                  {_COL_IDS.map(c => (
+                    <th key={c}
+                      className={`px-1 py-1.5 text-center font-mono font-bold
+                        ${c === 0 ? 'text-gray-500' : c <= 11 ? 'text-green-400' : 'text-red-400'}
+                        ${c === 12 ? 'border-l border-gray-700' : ''}`}
+                      style={{minWidth:'34px'}}>
+                      {_SIG_NAMES[c]}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {_ROW_IDS.map((rowId, idx) => {
+                  const row  = data[String(rowId)] ?? {}
+                  const tot  = Object.values(row).reduce((a, b) => a + b, 0)
+                  const isZ  = rowId >= 12
+                  return (
+                    <tr key={rowId}
+                      className={`border-t border-gray-800/50
+                        ${idx === 10 ? 'border-t-2 border-gray-600' : ''}
+                      `}>
+                      {/* Row header */}
+                      <td className={`sticky left-0 z-10 bg-gray-950 px-2 py-0.5 font-mono font-bold border-r border-gray-800
+                        ${isZ ? 'text-red-400' : 'text-green-400'}`}>
+                        {_SIG_NAMES[rowId]}
+                      </td>
+                      {_COL_IDS.map(colId => {
+                        const cnt = row[String(colId)] ?? 0
+                        const pct = tot > 0 ? cnt / tot * 100 : 0
+                        return (
+                          <td key={colId}
+                            className={`text-center px-0.5 py-0.5 font-mono
+                              ${colId === 12 ? 'border-l border-gray-700' : ''}
+                              ${pct >= 2 ? 'text-white' : 'text-transparent'}`}
+                            style={{backgroundColor: _cellBg(pct, colId)}}>
+                            {pct >= 2 ? Math.round(pct) + '%' : '·'}
+                          </td>
+                        )
+                      })}
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
 // ── T/Z outcome table ─────────────────────────────────────────────────────────
 function TZOutcomeTable({ data, title, color, pooled = false }) {
   return (
@@ -337,12 +429,14 @@ const _lsSet = (key, val) => {
 }
 
 export default function PredictorPanel({ ticker, tf }) {
-  const [tickerData, setTickerData] = useState(() => _lsGet(_lsKey('tz', ticker, tf)))
-  const [pooledData, setPooledData] = useState(() => _lsGet(_lsKey('pool', ticker, tf, 'sp500')))
-  const [loading,    setLoading]    = useState(false)
-  const [error,      setError]      = useState(null)
-  const [source,     setSource]     = useState('both')
-  const [poolUni,    setPoolUni]    = useState('sp500')
+  const [tickerData,    setTickerData]    = useState(() => _lsGet(_lsKey('tz', ticker, tf)))
+  const [pooledData,    setPooledData]    = useState(() => _lsGet(_lsKey('pool', ticker, tf, 'sp500')))
+  const [loading,       setLoading]       = useState(false)
+  const [error,         setError]         = useState(null)
+  const [source,        setSource]        = useState('both')
+  const [poolUni,       setPoolUni]       = useState('sp500')
+  const [view,          setView]          = useState('stats')   // 'stats' | 'matrix'
+  const [matrixOffset,  setMatrixOffset]  = useState(1)          // 1 = bar+1, 2 = bar+2
 
   const fetchTicker = useCallback(() => {
     if (!ticker) return
@@ -435,6 +529,20 @@ export default function PredictorPanel({ ticker, tf }) {
               </button>
             ))}
           </div>
+
+          {/* Stats / Matrix view toggle */}
+          <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
+            <button onClick={() => setView('stats')}
+              className={`px-2 py-0.5 rounded text-xs transition-colors
+                ${view === 'stats' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white'}`}>
+              Stats
+            </button>
+            <button onClick={() => setView('matrix')}
+              className={`px-2 py-0.5 rounded text-xs transition-colors
+                ${view === 'matrix' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white'}`}>
+              Matrix
+            </button>
+          </div>
         </div>
       </div>
 
@@ -443,7 +551,44 @@ export default function PredictorPanel({ ticker, tf }) {
         <PooledStatusBar universe={poolUni} interval={tf} onBuildDone={fetchPooled} />
       )}
 
-      {/* 4 tables (2×2 or 2×4 depending on source) */}
+      {/* ── Matrix view ── */}
+      {view === 'matrix' && (
+        <div className="p-3">
+          {/* Bar offset toggle */}
+          <div className="flex gap-1 mb-3">
+            {[1, 2].map(o => (
+              <button key={o} onClick={() => setMatrixOffset(o)}
+                className={`px-3 py-1 rounded text-xs font-medium transition-colors
+                  ${matrixOffset === o ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                Bar +{o}
+              </button>
+            ))}
+            <span className="ml-2 text-[10px] text-gray-600 self-center">
+              % = how often each signal appears after the row signal
+            </span>
+          </div>
+
+          {showTicker && (
+            <TZMatrix
+              matrixData={td?.tz_matrix}
+              label={ticker}
+              sublabel={ticker}
+              offset={matrixOffset}
+            />
+          )}
+          {showPooled && (
+            <TZMatrix
+              matrixData={pd?.bench_tz_matrix}
+              label="T/Z Transition Matrix"
+              sublabel={pd?.bench_tz_stats?.bench_ticker ?? poolUni}
+              offset={matrixOffset}
+            />
+          )}
+        </div>
+      )}
+
+      {/* ── Stats view (predictions + frequency) ── */}
+      {view === 'stats' && (
       <div className="p-3 space-y-3">
 
         {/* Row 1: T/Z 3-bar */}
@@ -535,6 +680,7 @@ export default function PredictorPanel({ ticker, tf }) {
           showPooled={showPooled}
         />
       </div>
+      )}  {/* end stats view */}
 
       {!ticker && (
         <div className="pb-6 text-center text-gray-600 text-sm">Select a ticker</div>

@@ -422,6 +422,55 @@ def get_pooled_predict(
     }
 
 
+# ── Transition matrix (bar+1, bar+2) ─────────────────────────────────────────
+
+def get_pooled_tz_matrix(universe: str = "sp500", interval: str = "1d") -> dict:
+    """
+    Derive T/Z transition matrix from existing pooled_tz_stats (pattern_len=2).
+
+    From each (A,B)→C row:
+      bar+1: source=A, next=B   (what signal followed A directly)
+      bar+2: source=A, next=C   (what signal appeared 2 bars after A)
+
+    Returns {"bar1": {src: {nxt: count}}, "bar2": {src: {nxt: count}}}
+    """
+    try:
+        _init_db()
+        con = _db()
+        rows = con.execute(
+            "SELECT sig_seq, next_sig_id, count FROM pooled_tz_stats "
+            "WHERE universe=? AND interval=? AND pattern_len=2",
+            (universe, interval),
+        ).fetchall()
+        con.close()
+
+        if not rows:
+            return {"bar1": {}, "bar2": {}}
+
+        bar1: dict = {}
+        bar2: dict = {}
+
+        for row in rows:
+            parts = row["sig_seq"].split(",")
+            src = str(int(parts[0]))
+            n1  = str(int(parts[1]))
+            n2  = str(int(row["next_sig_id"]))
+            cnt = int(row["count"])
+
+            if src not in bar1:
+                bar1[src] = {}
+            bar1[src][n1] = bar1[src].get(n1, 0) + cnt
+
+            if src not in bar2:
+                bar2[src] = {}
+            bar2[src][n2] = bar2[src].get(n2, 0) + cnt
+
+        return {"bar1": bar1, "bar2": bar2}
+    except Exception as exc:
+        log.debug("get_pooled_tz_matrix: %s", exc)
+        return {"bar1": {}, "bar2": {}}
+
+
 # ── Aggregate T/Z frequency ───────────────────────────────────────────────────
 
 def get_pooled_tz_freq(universe: str = "sp500", interval: str = "1d") -> dict | None:

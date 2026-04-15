@@ -151,8 +151,7 @@ def _empty() -> dict:
 
 # ── T/Z signal frequency statistics ──────────────────────────────────────────
 
-def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
-    """
+def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:    """
     Count each T and Z signal over all bars and compute group% and bar%.
 
     Pine Script 260415 compatible:
@@ -221,6 +220,43 @@ def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
         "t_signals":  t_signals,
         "z_signals":  z_signals,
     }
+
+
+def compute_tz_matrix(df: pd.DataFrame) -> dict:
+    """
+    Compute signal transition matrix for bar+1 and bar+2.
+
+    Returns
+    -------
+    {
+      "bar1": {"<src_id>": {"<next_id>": count, ...}, ...},
+      "bar2": { same structure, 2 bars ahead }
+    }
+    Keys are string integers (JSON-safe).
+    """
+    if "sig_id" not in df.columns:
+        return {"bar1": {}, "bar2": {}}
+
+    sigs = df["sig_id"].to_numpy(dtype=np.int16)
+
+    c1 = Counter(zip(sigs[:-1].tolist(), sigs[1:].tolist()))
+    c2 = Counter(zip(sigs[:-2].tolist(), sigs[2:].tolist()))
+
+    bar1: dict = {}
+    for (s, n), cnt in c1.items():
+        k = str(s)
+        if k not in bar1:
+            bar1[k] = {}
+        bar1[k][str(n)] = cnt
+
+    bar2: dict = {}
+    for (s, n), cnt in c2.items():
+        k = str(s)
+        if k not in bar2:
+            bar2[k] = {}
+        bar2[k][str(n)] = cnt
+
+    return {"bar1": bar1, "bar2": bar2}
 
 
 def _empty_stats() -> dict:
