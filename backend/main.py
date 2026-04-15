@@ -370,15 +370,40 @@ def api_l_predict(ticker: str, tf: str = "1d"):
 
 # ── T/Z × L Stats ─────────────────────────────────────────────────────────────
 
+import time as _time
+_bench_tzl_cache: dict = {}  # {"SPY_1d": {"matrix": [...], "ts": float}}
+
+
+def _get_bench_tzl(ticker: str, tf: str) -> list:
+    """Compute (or return cached) T/Z×L matrix for a benchmark ticker. 24 h TTL."""
+    key = f"{ticker}_{tf}"
+    cached = _bench_tzl_cache.get(key)
+    if cached and (_time.time() - cached["ts"]) < 86400:
+        return cached["matrix"]
+    try:
+        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
+        sigs  = compute_signals(df)
+        wlnbb = compute_wlnbb(df)
+        matrix = compute_tz_l_matrix(sigs.join(wlnbb))
+        _bench_tzl_cache[key] = {"matrix": matrix, "ts": _time.time()}
+        return matrix
+    except Exception:
+        return []
+
+
 @app.get("/api/tz-l-stats/{ticker}")
 def api_tz_l_stats(ticker: str, tf: str = "1d"):
-    """25 × 12 T/Z signal × L-column co-occurrence matrix."""
+    """25 × 12 T/Z signal × L-column co-occurrence matrix + SPY/QQQ benchmarks."""
     try:
         df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
         sigs  = compute_signals(df)
         wlnbb = compute_wlnbb(df)
         combined = sigs.join(wlnbb)
-        return {"matrix": compute_tz_l_matrix(combined)}
+        return {
+            "matrix":    compute_tz_l_matrix(combined),
+            "bench_spy": _get_bench_tzl("SPY", tf),
+            "bench_qqq": _get_bench_tzl("QQQ", tf),
+        }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
