@@ -151,7 +151,8 @@ def _empty() -> dict:
 
 # ── T/Z signal frequency statistics ──────────────────────────────────────────
 
-def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:    """
+def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
+    """
     Count each T and Z signal over all bars and compute group% and bar%.
 
     Pine Script 260415 compatible:
