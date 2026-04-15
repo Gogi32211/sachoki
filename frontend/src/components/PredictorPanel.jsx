@@ -69,6 +69,118 @@ function TZOutcomeTable({ data, title, color, pooled = false }) {
   )
 }
 
+// ── T/Z signal frequency statistics ──────────────────────────────────────────
+function TZStatsSection({ tickerStats, benchStats, ticker, showTicker, showPooled }) {
+  if (!showTicker && !showPooled) return null
+  const ts = tickerStats
+  const bs = benchStats
+  if (!ts && !bs) return null
+
+  const benchLabel = bs?.bench_ticker ?? 'Bench'
+
+  // Render one half-panel (ticker or benchmark)
+  function StatsPanel({ s, label, sublabel, colorCls }) {
+    if (!s || s.total_bars === 0) return (
+      <div className="flex-1 min-w-0">
+        <div className={`px-3 py-2 rounded-t-lg text-sm font-bold flex items-center justify-between ${colorCls}`}>
+          <span>{label}</span>
+          {sublabel && <span className="text-[10px] font-normal opacity-70">{sublabel}</span>}
+        </div>
+        <div className="border border-gray-800 rounded-b-lg px-3 py-6 text-center text-gray-600 text-xs">No data</div>
+      </div>
+    )
+
+    const tSigs = s.t_signals ?? []
+    const zSigs = s.z_signals ?? []
+
+    return (
+      <div className="flex-1 min-w-0">
+        {/* Header */}
+        <div className={`px-3 py-2 rounded-t-lg text-sm font-bold flex items-center justify-between ${colorCls}`}>
+          <span>{label}</span>
+          {sublabel && <span className="text-[10px] font-normal opacity-70">{sublabel}</span>}
+        </div>
+        <div className="border border-gray-800 rounded-b-lg overflow-hidden">
+          {/* Bar type counts */}
+          <div className="px-3 py-2 bg-gray-900 border-b border-gray-800 flex flex-wrap gap-3 text-xs text-gray-400">
+            <span className="text-gray-500">{s.total_bars} bars</span>
+            <span><span className="text-green-400">{s.bull_bars}</span> bull</span>
+            <span><span className="text-red-400">{s.bear_bars}</span> bear</span>
+            <span><span className="text-gray-400">{s.doji_bars}</span> doji</span>
+            <span className="ml-auto">
+              <span className="text-green-500 font-mono">{s.t_total}T</span>
+              <span className="text-gray-600 mx-1">/</span>
+              <span className="text-red-400 font-mono">{s.z_total}Z</span>
+            </span>
+          </div>
+          {/* T + Z tables side by side */}
+          <div className="flex">
+            {/* T signals */}
+            <div className="flex-1 border-r border-gray-800">
+              <div className="px-2 py-1 bg-green-950/30 border-b border-gray-800 text-[10px] font-bold text-green-400 flex gap-2">
+                <span className="flex-1">T Signal</span>
+                <span className="w-8 text-right">n</span>
+                <span className="w-10 text-right">grp%</span>
+                <span className="w-10 text-right">bar%</span>
+              </div>
+              {tSigs.map(row => (
+                <div key={row.sig_id}
+                  className={`px-2 py-0.5 flex items-center gap-2 border-t border-gray-800/60 text-xs
+                    ${row.count > 0 ? 'text-green-300' : 'text-gray-600'}`}>
+                  <span className="flex-1 font-mono font-semibold">{row.name}</span>
+                  <span className="w-8 text-right">{row.count || ''}</span>
+                  <span className="w-10 text-right">{row.count ? row.group_pct + '%' : ''}</span>
+                  <span className="w-10 text-right">{row.count ? row.bar_pct + '%' : ''}</span>
+                </div>
+              ))}
+            </div>
+            {/* Z signals */}
+            <div className="flex-1">
+              <div className="px-2 py-1 bg-red-950/30 border-b border-gray-800 text-[10px] font-bold text-red-400 flex gap-2">
+                <span className="flex-1">Z Signal</span>
+                <span className="w-8 text-right">n</span>
+                <span className="w-10 text-right">grp%</span>
+                <span className="w-10 text-right">bar%</span>
+              </div>
+              {zSigs.map(row => (
+                <div key={row.sig_id}
+                  className={`px-2 py-0.5 flex items-center gap-2 border-t border-gray-800/60 text-xs
+                    ${row.count > 0 ? (row.sig_id === 20 ? 'text-gray-400' : 'text-red-300') : 'text-gray-600'}`}>
+                  <span className="flex-1 font-mono font-semibold">{row.name}</span>
+                  <span className="w-8 text-right">{row.count || ''}</span>
+                  <span className="w-10 text-right">{row.count ? row.group_pct + '%' : ''}</span>
+                  <span className="w-10 text-right">{row.count ? row.bar_pct + '%' : ''}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  return (
+    <div className="flex gap-3">
+      {showTicker && (
+        <StatsPanel
+          s={ts}
+          label="T/Z Signal Frequency"
+          sublabel={ticker}
+          colorCls="bg-violet-900/50 text-violet-300"
+        />
+      )}
+      {showPooled && (
+        <StatsPanel
+          s={bs}
+          label="T/Z Signal Frequency"
+          sublabel={benchLabel}
+          colorCls="bg-violet-800/40 text-violet-200"
+        />
+      )}
+    </div>
+  )
+}
+
 // ── L-combo outcome table ─────────────────────────────────────────────────────
 function LOutcomeTable({ data, title, color, pooled = false }) {
   return (
@@ -413,6 +525,15 @@ export default function PredictorPanel({ ticker, tf }) {
             />
           )}
         </div>
+
+        {/* Row 5: T/Z Signal Frequency Statistics */}
+        <TZStatsSection
+          tickerStats={td?.tz_stats}
+          benchStats={pd?.bench_tz_stats}
+          ticker={ticker}
+          showTicker={showTicker}
+          showPooled={showPooled}
+        />
       </div>
 
       {!ticker && (

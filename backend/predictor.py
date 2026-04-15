@@ -1,13 +1,22 @@
 """
 predictor.py — 3-bar and 2-bar next-bar signal prediction with regime split.
+Also: T/Z signal frequency statistics (counts, group%, bar%) per Pine Script 260415.
 """
 from __future__ import annotations
+import time
 from collections import Counter
 
 import numpy as np
 import pandas as pd
 
 from signal_engine import SIG_NAMES, BULLISH_SIGS, BEARISH_SIGS
+
+# ── T/Z signal frequency — signal ID lists ────────────────────────────────────
+_T_SIGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]   # T1G … T11
+_Z_SIGS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]  # Z1G … Z12
+
+# Benchmark stats cache: {"SPY_1d": {"stats": {...}, "ts": float}}
+_bench_cache: dict = {}
 
 
 def predict_next(df: pd.DataFrame, lookback: int = 5000) -> dict:
@@ -138,3 +147,115 @@ def _empty() -> dict:
     empty = {"pattern": "", "signals": "", "total_matches": 0, "top_outcomes": [],
              "bull_matches": 0, "bear_matches": 0, "bull_bull_pct": 0, "bear_bull_pct": 0}
     return {"current_regime": "unknown", "tz_3bar": empty, "tz_2bar": empty}
+
+
+# ── T/Z signal frequency statistics ──────────────────────────────────────────
+
+def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
+    """
+    Count each T and Z signal over all bars and compute group% and bar%.
+
+    Pine Script 260415 compatible:
+      group% = count / t_total  (or z_total)
+      bar%   = count / bull_bars (T), count / bear_bars (Z), count / doji_bars (Z7)
+    """
+    if "sig_id" not in df.columns or "close" not in df.columns:
+        return _empty_stats()
+
+    c    = df["close"].to_numpy(dtype=float)
+    o    = df["open"].to_numpy(dtype=float)
+    h    = df["high"].to_numpy(dtype=float)
+    lw   = df["low"].to_numpy(dtype=float)
+    sigs = df["sig_id"].to_numpy(dtype=np.int8)
+
+    rng     = h - lw
+    body    = np.abs(c - o)
+    is_doji = body / np.where(rng > 1e-9, rng, 1e-9) <= doji_thresh
+    bull    = c > o
+    bear    = c < o
+
+    bull_bars  = int(bull.sum())
+    bear_bars  = int(bear.sum())
+    doji_bars  = int(is_doji.sum())
+    total_bars = len(sigs)
+
+    t_counts = {sid: int((sigs == sid).sum()) for sid in _T_SIGS}
+    z_counts = {sid: int((sigs == sid).sum()) for sid in _Z_SIGS}
+
+    t_total = sum(t_counts.values())
+    z_total = sum(z_counts.values())
+
+    def _pct(n: int, d: int) -> float:
+        return round(n / d * 100, 1) if d > 0 else 0.0
+
+    t_signals = [
+        {
+            "sig_id":    sid,
+            "name":      SIG_NAMES[sid],
+            "count":     t_counts[sid],
+            "group_pct": _pct(t_counts[sid], t_total),
+            "bar_pct":   _pct(t_counts[sid], bull_bars),
+        }
+        for sid in _T_SIGS
+    ]
+
+    z_signals = [
+        {
+            "sig_id":    sid,
+            "name":      SIG_NAMES[sid],
+            "count":     z_counts[sid],
+            "group_pct": _pct(z_counts[sid], z_total),
+            # Z7 (doji signal) uses doji_bars as denominator
+            "bar_pct":   _pct(z_counts[sid], doji_bars if sid == 20 else bear_bars),
+        }
+        for sid in _Z_SIGS
+    ]
+
+    return {
+        "total_bars": total_bars,
+        "bull_bars":  bull_bars,
+        "bear_bars":  bear_bars,
+        "doji_bars":  doji_bars,
+        "t_total":    t_total,
+        "z_total":    z_total,
+        "t_signals":  t_signals,
+        "z_signals":  z_signals,
+    }
+
+
+def _empty_stats() -> dict:
+    t = [{"sig_id": s, "name": SIG_NAMES[s], "count": 0, "group_pct": 0.0, "bar_pct": 0.0}
+         for s in _T_SIGS]
+    z = [{"sig_id": s, "name": SIG_NAMES[s], "count": 0, "group_pct": 0.0, "bar_pct": 0.0}
+         for s in _Z_SIGS]
+    return {"total_bars": 0, "bull_bars": 0, "bear_bars": 0, "doji_bars": 0,
+            "t_total": 0, "z_total": 0, "t_signals": t, "z_signals": z}
+
+
+_BENCH_TICKERS = {"sp500": "SPY", "nasdaq": "QQQ", "russell2k": "IWM"}
+
+def get_bench_tz_stats(universe: str = "sp500", interval: str = "1d") -> dict:
+    """
+    Return T/Z stats for the benchmark index (SPY/QQQ/IWM).
+    Results are cached for 24 h to avoid repeated heavy fetches.
+    """
+    bench = _BENCH_TICKERS.get(universe, "SPY")
+    cache_key = f"{bench}_{interval}"
+    cached = _bench_cache.get(cache_key)
+    if cached and (time.time() - cached["ts"]) < 86400:
+        return cached["stats"]
+
+    try:
+        from data import fetch_ohlcv
+        from signal_engine import compute_signals
+        df   = fetch_ohlcv(bench, interval=interval, bars=5000)
+        sigs = compute_signals(df)
+        full = df.join(sigs)
+        stats = compute_tz_stats(full)
+        stats["bench_ticker"] = bench
+        _bench_cache[cache_key] = {"stats": stats, "ts": time.time()}
+        return stats
+    except Exception:
+        s = _empty_stats()
+        s["bench_ticker"] = bench
+        return s
