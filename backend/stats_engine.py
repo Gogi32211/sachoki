@@ -18,9 +18,9 @@ GOOD_FOR_Z = {"L2", "L5", "L6", "L22", "L64"}
 
 SIG_ORDER = [
     (1,  "T1G"), (2,  "T1"),  (3,  "T2G"), (4,  "T2"),  (5,  "T3"),
-    (6,  "T4"),  (7,  "T5"),  (8,  "T6"),  (9,  "T9"),  (10, "T10"), (11, "T11"),
-    (12, "Z1G"), (13, "Z1"),  (14, "Z2G"), (15, "Z2"),  (16, "Z3"),
-    (17, "Z4"),  (18, "Z5"),  (19, "Z6"),  (20, "Z7"),  (21, "Z8"),
+    (6,  "T4"),  (7,  "T5"),  (8,  "T6"),  (9,  "T9"),  (10, "T10"), (11, "T11"), (12, "T12"),
+    (13, "Z1G"), (14, "Z1"),  (15, "Z2G"), (16, "Z2"),  (17, "Z3"),
+    (18, "Z4"),  (19, "Z5"),  (20, "Z6"),  (21, "Z7"),
     (22, "Z9"),  (23, "Z10"), (24, "Z11"), (25, "Z12"),
 ]
 
@@ -49,7 +49,7 @@ def compute_tz_l_matrix(df: pd.DataFrame) -> list[dict]:
     result = []
 
     for sig_id, sig_name in SIG_ORDER:
-        is_t = sig_id <= 11
+        is_t = sig_id <= 12
         subset = df[df["sig_id"] == sig_id] if "sig_id" in df.columns else df.iloc[0:0]
         total = len(subset)
 

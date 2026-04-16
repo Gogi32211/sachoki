@@ -271,11 +271,11 @@ def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
     # T/Z signal
     if sig_id in (6, 8):           # T4, T6
         bull += 2
-    elif 1 <= sig_id <= 11:        # other T
+    elif 1 <= sig_id <= 12:        # other T
         bull += 1
-    elif sig_id in (17, 19):       # Z4, Z6
+    elif sig_id in (18, 20):       # Z4, Z6
         bear += 2
-    elif 12 <= sig_id <= 25:       # other Z
+    elif 13 <= sig_id <= 25:       # other Z
         bear += 1
 
     # L-signals (last bar)

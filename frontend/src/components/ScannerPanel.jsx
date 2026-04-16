@@ -3,8 +3,8 @@ import { api } from '../api'
 import { exportToTV } from '../utils/exportTickers'
 
 function SigBadge({ sig_id, sig_name }) {
-  const bull = sig_id >= 1 && sig_id <= 11
-  const bear = sig_id >= 12 && sig_id <= 25
+  const bull = sig_id >= 1 && sig_id <= 12
+  const bear = sig_id >= 13 && sig_id <= 25
   if (!bull && !bear) return null
   return (
     <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-mono font-semibold

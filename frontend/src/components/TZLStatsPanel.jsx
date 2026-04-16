@@ -100,7 +100,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
             const benchRow = isDiff ? benchLookup[row.sig_id] : null
             return (
               <>
-                {idx === 11 && (
+                {idx === 12 && (
                   <tr key="sep">
                     <td colSpan={L_COLS.length + 2} className="py-1">
                       <div className="border-t border-gray-700" />
