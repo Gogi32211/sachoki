@@ -12,8 +12,8 @@ import pandas as pd
 from signal_engine import SIG_NAMES, BULLISH_SIGS, BEARISH_SIGS
 
 # ── T/Z signal frequency — signal ID lists ────────────────────────────────────
-_T_SIGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]   # T1G … T11
-_Z_SIGS = [12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]  # Z1G … Z12
+_T_SIGS = [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]   # T1G … T12
+_Z_SIGS = [13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25]  # Z1G … Z12
 
 # Benchmark stats cache: {"SPY_1d": {"stats": {...}, "ts": float}}
 _bench_cache: dict = {}
@@ -170,7 +170,7 @@ def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
 
     rng     = h - lw
     body    = np.abs(c - o)
-    is_doji = body / np.where(rng > 1e-9, rng, 1e-9) <= doji_thresh
+    is_doji = c == o
     bull    = c > o
     bear    = c < o
 
@@ -206,7 +206,7 @@ def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:
             "count":     z_counts[sid],
             "group_pct": _pct(z_counts[sid], z_total),
             # Z7 (doji signal) uses doji_bars as denominator
-            "bar_pct":   _pct(z_counts[sid], doji_bars if sid == 20 else bear_bars),
+            "bar_pct":   _pct(z_counts[sid], doji_bars if sid == 21 else bear_bars),
         }
         for sid in _Z_SIGS
     ]

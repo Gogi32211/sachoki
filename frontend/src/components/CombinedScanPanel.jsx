@@ -110,7 +110,7 @@ function Badges({ row, defs, lSignalStr }) {
 
 function TZBadge({ sig_id, sig_name }) {
   if (!sig_name || sig_name === 'NONE') return null
-  const bull = sig_id >= 1 && sig_id <= 11
+  const bull = sig_id >= 1 && sig_id <= 12
   return (
     <span className={`text-xs px-1.5 py-0.5 rounded font-mono font-semibold
       ${bull ? 'bg-green-900/60 text-green-300' : 'bg-red-900/60 text-red-300'}`}>

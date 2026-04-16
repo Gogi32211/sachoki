@@ -4,9 +4,9 @@ import { api } from '../api'
 // ── Signal metadata ───────────────────────────────────────────────────────────
 const _SIG_NAMES = {
   0:'—', 1:'T1G', 2:'T1', 3:'T2G', 4:'T2', 5:'T3', 6:'T4', 7:'T5', 8:'T6',
-  9:'T9', 10:'T10', 11:'T11',
-  12:'Z1G', 13:'Z1', 14:'Z2G', 15:'Z2', 16:'Z3', 17:'Z4', 18:'Z5', 19:'Z6',
-  20:'Z7', 21:'Z8', 22:'Z9', 23:'Z10', 24:'Z11', 25:'Z12',
+  9:'T9', 10:'T10', 11:'T11', 12:'T12',
+  13:'Z1G', 14:'Z1', 15:'Z2G', 16:'Z2', 17:'Z3', 18:'Z4', 19:'Z5', 20:'Z6',
+  21:'Z7', 22:'Z9', 23:'Z10', 24:'Z11', 25:'Z12',
 }
 const _COL_IDS = [0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
 const _ROW_IDS = [1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25]
@@ -15,7 +15,7 @@ function _cellBg(pct, colId) {
   if (pct < 1) return undefined
   const op = Math.min(pct / 28, 1) * 0.80
   if (colId === 0)  return `rgba(107,114,128,${op})`
-  if (colId <= 11)  return `rgba(34,197,94,${op})`
+  if (colId <= 12)  return `rgba(34,197,94,${op})`
   return `rgba(239,68,68,${op})`
 }
 
@@ -45,8 +45,8 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
                   {_COL_IDS.map(c => (
                     <th key={c}
                       className={`px-1 py-1.5 text-center font-mono font-bold
-                        ${c === 0 ? 'text-gray-500' : c <= 11 ? 'text-green-400' : 'text-red-400'}
-                        ${c === 12 ? 'border-l border-gray-700' : ''}`}
+                        ${c === 0 ? 'text-gray-500' : c <= 12 ? 'text-green-400' : 'text-red-400'}
+                        ${c === 13 ? 'border-l border-gray-700' : ''}`}
                       style={{minWidth:'34px'}}>
                       {_SIG_NAMES[c]}
                     </th>
@@ -57,11 +57,11 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
                 {_ROW_IDS.map((rowId, idx) => {
                   const row  = data[String(rowId)] ?? {}
                   const tot  = Object.values(row).reduce((a, b) => a + b, 0)
-                  const isZ  = rowId >= 12
+                  const isZ  = rowId >= 13
                   return (
                     <tr key={rowId}
                       className={`border-t border-gray-800/50
-                        ${idx === 10 ? 'border-t-2 border-gray-600' : ''}
+                        ${idx === 11 ? 'border-t-2 border-gray-600' : ''}
                       `}>
                       {/* Row header */}
                       <td className={`sticky left-0 z-10 bg-gray-950 px-2 py-0.5 font-mono font-bold border-r border-gray-800
@@ -74,7 +74,7 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
                         return (
                           <td key={colId}
                             className={`text-center px-0.5 py-0.5 font-mono
-                              ${colId === 12 ? 'border-l border-gray-700' : ''}
+                              ${colId === 13 ? 'border-l border-gray-700' : ''}
                               ${pct >= 2 ? 'text-white' : 'text-transparent'}`}
                             style={{backgroundColor: _cellBg(pct, colId)}}>
                             {pct >= 2 ? Math.round(pct) + '%' : '·'}

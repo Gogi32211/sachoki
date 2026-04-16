@@ -550,7 +550,7 @@ def get_pooled_tzl_matrix(universe: str = "sp500", interval: str = "1d") -> list
 
         result = []
         for sig_id, sig_name in SIG_ORDER:
-            is_t     = sig_id <= 11
+            is_t     = sig_id <= 12
             sig_data = data.get(sig_id, {})
             total    = sig_data.get("_total", 0)
             counts   = {col: sig_data.get(col, 0) for col in L_COLS}
@@ -632,7 +632,7 @@ def get_pooled_tz_freq(universe: str = "sp500", interval: str = "1d") -> dict | 
         z_signals = [
             {"sig_id": s, "name": SIG_NAMES[s], "count": z_counts[s],
              "group_pct": _pct(z_counts[s], z_total),
-             "bar_pct":   _pct(z_counts[s], doji_bars if s == 20 else bear_bars)}
+             "bar_pct":   _pct(z_counts[s], doji_bars if s == 21 else bear_bars)}
             for s in _Z_SIGS
         ]
 

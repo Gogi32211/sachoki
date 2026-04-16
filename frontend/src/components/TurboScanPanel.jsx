@@ -219,7 +219,7 @@ const SIG_GROUPS = [
 
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
 const TZ_STRONG = new Set(['T4','T6','T1G','T2G'])
-const TZ_BEAR   = new Set(['Z4','Z6','Z1G','Z2G','Z1','Z2','Z3','Z5','Z7','Z8','Z9','Z10','Z11','Z12'])
+const TZ_BEAR   = new Set(['Z4','Z6','Z1G','Z2G','Z1','Z2','Z3','Z5','Z7','Z9','Z10','Z11','Z12'])
 
 // ── Colour helpers ────────────────────────────────────────────────────────────
 function scoreColor(s) {
