@@ -52,9 +52,14 @@ _turbo_state: dict = {
     "universe": None,
     "interval": None,
     "error": None,
+    "tfs_total": 1,
+    "tfs_done": 0,
 }
 
 _SCAN_TIMEOUT = 30 * 60  # 30 minutes max before auto-reset
+
+# All main timeframes covered by a single scan
+ALL_SCAN_TFS = ['1wk', '1d', '4h', '1h']
 
 
 def get_turbo_progress() -> dict:
@@ -1128,6 +1133,39 @@ def run_turbo_scan(
 
     log.info("Turbo scan done: %d/%d tickers, tf=%s universe=%s", found, len(tickers), interval, universe)
     return found
+
+
+# ── Multi-TF scan ─────────────────────────────────────────────────────────────
+
+def run_turbo_scan_all_tfs(
+    universe: str = "sp500",
+    workers: int = 4,
+    lookback_n: int = 5,
+    partial_day: bool = False,
+    min_volume: float = 0,
+) -> dict:
+    """
+    Run turbo scan for all main timeframes (1wk, 1d, 4h, 1h) in sequence.
+    One call covers all TFs so switching the TF display button needs no rescan.
+    """
+    global _turbo_state
+    _turbo_state.update({"tfs_total": len(ALL_SCAN_TFS), "tfs_done": 0})
+    results: dict = {}
+    try:
+        for i, tf in enumerate(ALL_SCAN_TFS):
+            _turbo_state["tfs_done"] = i
+            found = run_turbo_scan(tf, universe, workers, lookback_n, partial_day, min_volume)
+            results[tf] = found
+            # run_turbo_scan sets running=False in its finally block;
+            # restore it so the next TF's scan can proceed.
+            if i < len(ALL_SCAN_TFS) - 1:
+                _turbo_state["running"] = True
+    finally:
+        _turbo_state["running"] = False
+        _turbo_state["completed_at"] = time.time()
+        _turbo_state["tfs_done"] = len(ALL_SCAN_TFS)
+    log.info("Multi-TF turbo scan done: %s, universe=%s", results, universe)
+    return results
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
