@@ -407,7 +407,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
-  const [scanStatus,  setScanStatus]  = useState(null)   // {interval, tfs_done, tfs_total}
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -539,30 +538,20 @@ export default function TurboScanPanel({ onSelectTicker }) {
     const iv  = setInterval(() => {
       api.turboScanStatus()
         .then(s => {
-          if (s.running) {
-            // update progress display (current TF + overall progress)
-            setScanStatus({
-              interval:  s.interval,
-              tfs_done:  s.tfs_done  ?? 0,
-              tfs_total: s.tfs_total ?? 1,
-            })
-          } else {
-            clearInterval(iv); setScanning(false); setScanStatus(null)
+          if (!s.running) {
+            clearInterval(iv); setScanning(false)
             if (s.error) setError(s.error)
-            else {
-              // Refresh caches for ALL TFs; only update displayed state for the active TF
-              TF_OPTS.forEach(t => load(t, uni, t !== activeTf))
-            }
+            else load(activeTf, uni)
           }
         })
-        .catch(() => { clearInterval(iv); setScanning(false); setScanStatus(null) })
+        .catch(() => { clearInterval(iv); setScanning(false) })
     }, 2000)
-    setTimeout(() => { clearInterval(iv); setScanning(false); setScanStatus(null); load(activeTf, uni) }, 360_000)
+    setTimeout(() => { clearInterval(iv); setScanning(false); load(activeTf, uni) }, 360_000)
   }
 
   const scan = () => {
     setScanning(true); setError(null)
-    api.turboScanTrigger(universe, lookbackN, partialDay, volMin)
+    api.turboScanTrigger(localTf, universe, lookbackN, partialDay, volMin)
       .then(() => _poll())
       .catch(e => {
         setScanning(false)
@@ -622,12 +611,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
             ${scanning ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                        : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
           {scanning
-            ? <span className="animate-pulse">
-                {scanStatus
-                  ? `⚡ ${(scanStatus.interval || '').toUpperCase()} (${scanStatus.tfs_done + 1}/${scanStatus.tfs_total})…`
-                  : '⚡ Scanning…'}
-              </span>
-            : '⚡ TURBO (all TFs)'}
+            ? <span className="animate-pulse">⚡ Scanning…</span>
+            : '⚡ TURBO'}
         </button>
 
         {/* Partial-day preview toggle — include today's open bar */}
@@ -770,7 +755,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       {/* Progress / error */}
       {scanning && (
         <div className="px-4 py-1.5 border-b border-gray-800 bg-violet-950/30 text-violet-300 animate-pulse">
-          ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} — 2-4 minutes…
+          ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()}) — 1-2 minutes…
         </div>
       )}
       {error && (
