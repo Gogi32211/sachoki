@@ -3,7 +3,7 @@ turbo_engine.py — TURBO combined scan engine.
 
 Runs ALL signal engines per ticker and produces a single turbo_score (0-100)
 covering: VABS, Wyckoff, Combo (2809), T/Z patterns, WLNBB (L/FRI/BLUE),
-Wick, CISD, and BR% readiness.
+Wick.
 
 turbo_score tiers:
   55+  Fire   — multiple strong signals aligning
@@ -30,12 +30,9 @@ from signal_engine import compute_signals, compute_b_signals, compute_g_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, compute_tz_state
 from wick_engine   import compute_wick, compute_wick_x
-from cisd_engine   import compute_cisd
 from vabs_engine   import compute_vabs
-from br_engine     import compute_br
 from ultra_engine  import compute_260308_l88, compute_ultra_v2
 from delta_engine   import compute_delta
-from wyckoff_engine import compute_wyckoff_accum, compute_wyckoff_dist
 
 log = logging.getLogger(__name__)
 
@@ -105,12 +102,6 @@ _TURBO_COLS = [
     "abs_sig", "climb_sig", "load_sig",
     # Wyckoff (VABS legacy)
     "ns", "nd", "sc", "bc", "sq",
-    # Wyckoff Accumulation (260225)
-    "wyk_sc", "wyk_ar", "wyk_st", "wyk_spring", "wyk_sos", "wyk_lps",
-    "wyk_accum", "wyk_markup",
-    # Wyckoff Distribution (260225)
-    "wyk_bc", "wyk_ard", "wyk_std", "wyk_utad", "wyk_sow", "wyk_lpsy",
-    "wyk_dist", "wyk_markdown",
     # Combo / 2809
     "buy_2809", "rocket", "sig3g", "rtv",
     "hilo_buy", "hilo_sell", "atr_brk", "bb_brk",
@@ -144,10 +135,6 @@ _TURBO_COLS = [
     "wick_bull", "wick_bear",
     # Wick X signals (260402_WICK)
     "x2g_wick", "x2_wick", "x1g_wick", "x1_wick", "x3_wick",
-    # CISD
-    "cisd_ppm", "cisd_seq",
-    # BR
-    "br_score",
     # meta
     "vol_bucket",
     # Delta / order-flow (260403 V2)
@@ -198,7 +185,7 @@ def _db():
 
 def _col_def(c: str) -> str:
     _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
-    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci", "avg_vol"}
+    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci", "avg_vol"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
@@ -232,7 +219,7 @@ def _init_db() -> None:
     existing = con.table_columns("turbo_scan_results")
     for col in _TURBO_COLS:
         if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "br_score", "rsi", "cci") else "INTEGER"
+            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci") else "INTEGER"
             default = "''" if col in ("tz_sig", "vol_bucket", "sig_ages") else "0"
             con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
     run_cols = con.table_columns("turbo_scan_runs")
@@ -252,7 +239,7 @@ def _calc_turbo_score(r: dict) -> float:
       Breakout      cap 15  — ULTRA v2 atomic (fbo/eb/bf), BO/BX, RS
       Combo/trend   cap 14  — Combo signals
       L-structure   cap 13  — T/Z, WLNBB
-    Context (Wick, CISD, BR%) uncapped (max ~14).
+    Context (Wick) uncapped (max ~18).
     """
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
     # Only atomic VABS signals — no best_sig / strong_sig composites
@@ -266,12 +253,6 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("sc"):        vol += 2
     if r.get("sig_l88"):        vol += 5
     elif r.get("sig_260308"):   vol += 3
-    # Wyckoff Accumulation (260225) — additive, higher priority phase = more points
-    if r.get("wyk_spring"):     vol += 7   # optimal entry — bear trap + absorption
-    elif r.get("wyk_lps"):      vol += 5   # buy-the-dip after SOS breakout
-    elif r.get("wyk_sos"):      vol += 5   # SOS/JAC breakout confirmation
-    elif r.get("wyk_markup"):   vol += 3   # in markup/breakout phase (context)
-    elif r.get("wyk_accum"):    vol += 2   # accumulation in progress (context)
     if r.get("va"):             vol += 3   # 260402 ATR Vol Confirm — vol/avgVol just crossed >2×
     s = min(vol, 22)
 
@@ -285,10 +266,6 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("bo_up") or r.get("bx_up"): brk += 3
     if r.get("rs_strong"): brk += 5
     elif r.get("rs"):      brk += 3
-    # Wyckoff Distribution is a bearish context — subtract from bull score
-    if r.get("wyk_sow"):      brk -= 4   # SOW: confirmed breakdown
-    elif r.get("wyk_markdown"):brk -= 3  # in markdown phase
-    elif r.get("wyk_dist"):    brk -= 1  # distribution in progress
     s += min(brk, 15)
 
     # ── Combo / momentum family (cap 14) ──────────────────────────────────
@@ -348,9 +325,6 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("x1_wick"):      s += 3   # X1:  inside-open reversal from bearish bar
     elif r.get("x3_wick"):      s += 2   # X3:  generic wick alignment
     if r.get("wick_bull"):  s += 3   # legacy 2-candle confirm
-    if r.get("cisd_ppm"):   s += 2
-    elif r.get("cisd_seq"): s += 1
-    s += min(float(r.get("br_score") or 0) * 0.1, 8)
 
     return round(min(100.0, s), 1)
 
@@ -607,28 +581,7 @@ def _scan_turbo_ticker(
         row["vbo_up"]     = _sig(vabs, "vbo_up")
         row["vbo_dn"]     = _sig(vabs, "vbo_dn")
 
-        # ── Wyckoff Accumulation (260225) ─────────────────────────────────
-        wya = wyd = wx = ddf = u308 = uv2 = _tz_weak_df = None   # pre-initialise for age computation
-        try:
-            wya = compute_wyckoff_accum(df)
-            for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
-                       "wyk_accum","wyk_markup"):
-                row[_c] = _sig(wya, _c)
-        except Exception:
-            for _c in ("wyk_sc","wyk_ar","wyk_st","wyk_spring","wyk_sos","wyk_lps",
-                       "wyk_accum","wyk_markup"):
-                row[_c] = 0
-
-        # ── Wyckoff Distribution (260225) ──────────────────────────────────
-        try:
-            wyd = compute_wyckoff_dist(df)
-            for _c in ("wyk_bc","wyk_ard","wyk_std","wyk_utad","wyk_sow","wyk_lpsy",
-                       "wyk_dist","wyk_markdown"):
-                row[_c] = _sig(wyd, _c)
-        except Exception:
-            for _c in ("wyk_bc","wyk_ard","wyk_std","wyk_utad","wyk_sow","wyk_lpsy",
-                       "wyk_dist","wyk_markdown"):
-                row[_c] = 0
+        wx = ddf = u308 = uv2 = _tz_weak_df = None   # pre-initialise for age computation
 
         # ── Wick (3112_2C legacy) ─────────────────────────────────────────
         wick   = compute_wick(df)
@@ -645,18 +598,6 @@ def _scan_turbo_ticker(
             row["x3_wick"]  = _sig(wx, "x3_wick")
         except Exception:
             row["x2g_wick"] = row["x2_wick"] = row["x1g_wick"] = row["x1_wick"] = row["x3_wick"] = 0
-
-        # ── CISD ───────────────────────────────────────────────────────────
-        cisd   = compute_cisd(df)
-        row["cisd_ppm"]  = _sig(cisd, "CISD_PPM")
-        row["cisd_seq"]  = _sig(cisd, "CISD_SEQ")
-
-        # ── BR% readiness score ────────────────────────────────────────────
-        try:
-            br_df = compute_br(df)
-            row["br_score"] = round(float(br_df["br_score"].iloc[-1]), 1)
-        except Exception:
-            row["br_score"] = 0.0
 
         # ── Delta / order-flow (260403 V2) ────────────────────────────────
         try:
@@ -833,24 +774,6 @@ def _scan_turbo_ticker(
             "strong_sig": _sa(vabs, "strong_sig"),
             "vbo_up":     _sa(vabs, "vbo_up"),
             "vbo_dn":     _sa(vabs, "vbo_dn"),
-            # Wyckoff Accum
-            "wyk_sc":     _sa(wya, "wyk_sc"),
-            "wyk_ar":     _sa(wya, "wyk_ar"),
-            "wyk_st":     _sa(wya, "wyk_st"),
-            "wyk_spring": _sa(wya, "wyk_spring"),
-            "wyk_sos":    _sa(wya, "wyk_sos"),
-            "wyk_lps":    _sa(wya, "wyk_lps"),
-            "wyk_accum":  _sa(wya, "wyk_accum"),
-            "wyk_markup": _sa(wya, "wyk_markup"),
-            # Wyckoff Dist
-            "wyk_bc":       _sa(wyd, "wyk_bc"),
-            "wyk_ard":      _sa(wyd, "wyk_ard"),
-            "wyk_std":      _sa(wyd, "wyk_std"),
-            "wyk_utad":     _sa(wyd, "wyk_utad"),
-            "wyk_sow":      _sa(wyd, "wyk_sow"),
-            "wyk_lpsy":     _sa(wyd, "wyk_lpsy"),
-            "wyk_dist":     _sa(wyd, "wyk_dist"),
-            "wyk_markdown": _sa(wyd, "wyk_markdown"),
             # Wick
             "wick_bull": _sa(wick, "WICK_BULL_CONFIRM"),
             "wick_bear": _sa(wick, "WICK_BEAR_CONFIRM"),
@@ -860,9 +783,6 @@ def _scan_turbo_ticker(
             "x1g_wick": _sa(wx, "x1g_wick"),
             "x1_wick":  _sa(wx, "x1_wick"),
             "x3_wick":  _sa(wx, "x3_wick"),
-            # CISD
-            "cisd_ppm": _sa(cisd, "CISD_PPM"),
-            "cisd_seq": _sa(cisd, "CISD_SEQ"),
             # 260308 / L88
             "sig_260308": _sa(u308, "sig_260308"),
             "sig_l88":    _sa(u308, "sig_l88"),
@@ -919,11 +839,6 @@ def _scan_turbo_ticker(
                 "sc":         _sn(vabs,  "sc",          _n),
                 "sig_l88":    _sn(u308,  "sig_l88",    _n),
                 "sig_260308": _sn(u308,  "sig_260308", _n),
-                "wyk_spring": _sn(wya,   "wyk_spring", _n),
-                "wyk_lps":    _sn(wya,   "wyk_lps",    _n),
-                "wyk_sos":    _sn(wya,   "wyk_sos",    _n),
-                "wyk_markup": _sn(wya,   "wyk_markup", _n),
-                "wyk_accum":  _sn(wya,   "wyk_accum",  _n),
                 # Breakout
                 "fbo_bull":     _sn(uv2,   "fbo_bull",   _n),
                 "eb_bull":      _sn(uv2,   "eb_bull",    _n),
@@ -933,9 +848,6 @@ def _scan_turbo_ticker(
                 "bx_up":        _sn(wlnbb, "BX_UP",      _n),
                 "rs_strong":    row.get("rs_strong", 0),
                 "rs":           row.get("rs", 0),
-                "wyk_sow":      _sn(wyd,   "wyk_sow",     _n),
-                "wyk_markdown": _sn(wyd,   "wyk_markdown", _n),
-                "wyk_dist":     _sn(wyd,   "wyk_dist",    _n),
                 # Combo
                 "rocket":   _sn(combo, "rocket",   _n),
                 "buy_2809": _sn(combo, "buy_2809", _n),
@@ -974,16 +886,13 @@ def _scan_turbo_ticker(
                 "preup3":  _sn(combo, "preup3",  _n),
                 "preup2":  _sn(combo, "preup2",  _n),
                 "preup50": _sn(combo, "preup50", _n),
-                # Context (wick / cisd / br unchanged)
+                # Context (wick)
                 "x2g_wick": _sn(wx,   "x2g_wick",          _n),
                 "x2_wick":  _sn(wx,   "x2_wick",           _n),
                 "x1g_wick": _sn(wx,   "x1g_wick",          _n),
                 "x1_wick":  _sn(wx,   "x1_wick",           _n),
                 "x3_wick":  _sn(wx,   "x3_wick",           _n),
                 "wick_bull": _sn(wick, "WICK_BULL_CONFIRM", _n),
-                "cisd_ppm":  _sn(cisd, "CISD_PPM",         _n),
-                "cisd_seq":  _sn(cisd, "CISD_SEQ",         _n),
-                "br_score":  row.get("br_score", 0),
             }
             row[_key] = _calc_turbo_score(_r)
 
@@ -1175,7 +1084,7 @@ def run_turbo_scan_all_tfs(
 
 # ── Query ─────────────────────────────────────────────────────────────────────
 _QUERY_COLS = (
-    "ticker, turbo_score, br_score, vol_bucket, tz_sig, tz_bull, "
+    "ticker, turbo_score, vol_bucket, tz_sig, tz_bull, "
     "best_sig, strong_sig, vbo_up, vbo_dn, abs_sig, climb_sig, load_sig, "
     "ns, nd, sc, bc, sq, "
     "buy_2809, rocket, sig3g, rtv, hilo_buy, hilo_sell, atr_brk, bb_brk, "
@@ -1184,7 +1093,7 @@ _QUERY_COLS = (
     "blue, cci_ready, cci_0_retest, cci_blue_turn, "
     "bo_up, bo_dn, bx_up, bx_dn, be_up, be_dn, "
     "fuchsia_rh, fuchsia_rl, pre_pump, "
-    "wick_bull, wick_bear, cisd_ppm, cisd_seq, "
+    "wick_bull, wick_bear, "
     "rsi, cci, "
     "d_strong_bull, d_absorb_bull, d_div_bull, d_cd_bull, d_surge_bull, d_blast_bull, "
     "d_strong_bear, d_absorb_bear, d_div_bear, d_cd_bear, d_surge_bear, d_blast_bear, "

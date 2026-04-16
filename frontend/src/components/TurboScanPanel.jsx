@@ -46,25 +46,6 @@ const SIG_GROUPS = [
   { key: 'sc',         label: 'SC',     cls: 'text-orange-300'  },
   { key: 'nd',         label: 'ND',     cls: 'text-pink-300'    },
   { divider: true },
-  // ── Wyckoff Accumulation (260225) ─────────────────────────────────────
-  { key: 'wyk_spring', label: 'SPR',    cls: 'text-lime-300'    },
-  { key: 'wyk_sos',    label: 'SOS',    cls: 'text-lime-400'    },
-  { key: 'wyk_lps',    label: 'LPS',    cls: 'text-green-300'   },
-  { key: 'wyk_sc',     label: 'wSC',    cls: 'text-orange-300'  },
-  { key: 'wyk_ar',     label: 'AR',     cls: 'text-yellow-300'  },
-  { key: 'wyk_st',     label: 'ST',     cls: 'text-amber-300'   },
-  { key: 'wyk_accum',  label: 'ACC',    cls: 'text-cyan-300'    },
-  { key: 'wyk_markup', label: 'MKP',    cls: 'text-lime-300'    },
-  // ── Wyckoff Distribution (260225) ─────────────────────────────────────
-  { key: 'wyk_sow',      label: 'SOW',  cls: 'text-red-400'     },
-  { key: 'wyk_utad',     label: 'UTAD', cls: 'text-orange-400'  },
-  { key: 'wyk_lpsy',     label: 'LPSY', cls: 'text-rose-400'    },
-  { key: 'wyk_bc',       label: 'wBC',  cls: 'text-red-300'     },
-  { key: 'wyk_ard',      label: 'ARD',  cls: 'text-pink-300'    },
-  { key: 'wyk_std',      label: 'STD',  cls: 'text-rose-300'    },
-  { key: 'wyk_dist',     label: 'DST',  cls: 'text-red-400'     },
-  { key: 'wyk_markdown', label: 'MKD',  cls: 'text-red-500'     },
-  { divider: true },
   // ── Combo ─────────────────────────────────────────────────────────────
   { key: 'buy_2809',   label: 'BUY',    cls: 'text-lime-400'    },
   { key: 'rocket',     label: '🚀',     cls: 'text-red-300'     },
@@ -142,8 +123,6 @@ const SIG_GROUPS = [
   { key: 'x1_wick',   label: 'X1',   cls: 'text-green-300'   },
   { key: 'x3_wick',   label: 'X3',   cls: 'text-yellow-300'  },
   { key: 'wick_bull', label: 'WK↑',  cls: 'text-emerald-400' },
-  { key: 'cisd_ppm',   label: 'C+-',    cls: 'text-green-300'   },
-  { key: 'cisd_seq',   label: 'C+--',   cls: 'text-lime-300'    },
   { divider: true },
   // ── ULTRA v2 ──────────────────────────────────────────────────────────
   { key: 'best_long',  label: 'BEST↑', cls: 'text-yellow-300'  },
@@ -197,8 +176,6 @@ const SIG_GROUPS = [
   { key: 'rs',         label: 'RS',     cls: 'text-green-400'   },
   { divider: true },
   // ── Context ───────────────────────────────────────────────────────────
-  { key: '_br_hot',    label: 'BR≥70',  cls: 'text-lime-400',
-    custom: r => (r.br_score || 0) >= 70 },
   { key: '_rsi_os',    label: 'RSI≤35', cls: 'text-lime-300',
     custom: r => (r.rsi || 100) <= 35 },
   { key: '_rsi_ob',    label: 'RSI≥70', cls: 'text-red-400',
@@ -237,13 +214,6 @@ function scoreBg(s) {
   return ''
 }
 
-function brColor(v) {
-  if (v >= 71) return 'text-lime-400'
-  if (v >= 50) return 'text-yellow-300'
-  if (v >= 30) return 'text-gray-400'
-  return 'text-gray-600'
-}
-
 // ── Badge component ───────────────────────────────────────────────────────────
 function Badge({ label, cls }) {
   return <span className={`px-1 rounded text-[10px] leading-tight ${cls}`}>{label}</span>
@@ -261,9 +231,6 @@ function engineFamilies(r) {
   // VABS (volume/accumulation state machine)
   if (r.best_sig || r.strong_sig || r.vbo_up || r.abs_sig || r.ns || r.sq || r.load_sig || r.va)
     fams.add('Vol')
-  // Wyckoff accumulation structure
-  if (r.wyk_spring || r.wyk_sos || r.wyk_lps || r.wyk_accum || r.wyk_markup)
-    fams.add('Wyk')
   // Delta / order-flow (260403)
   if (r.d_spring || r.d_strong_bull || r.d_absorb_bull || r.d_blast_bull || r.d_surge_bull || r.d_flip_bull || r.d_orange_bull)
     fams.add('Δ')
@@ -287,7 +254,7 @@ function engineFamilies(r) {
 // Mid   = LPS / T4 / EMA cross        (structure confirmed, still actionable)
 // Late  = confirmed breakout combo     (high conviction but entry may be extended)
 function setupPhase(r) {
-  const early = r.wyk_spring || r.d_spring || r.tz_bull_flip
+  const early = r.d_spring || r.tz_bull_flip
   const late  = (r.rocket || r.buy_2809) && (r.fbo_bull || r.eb_bull || r.vbo_up)
   if (early && !late) return 'Early'
   if (late)           return 'Late'
@@ -303,9 +270,6 @@ function scoreReason(r) {
   if (r.best_sig)  vol.push('BEST★')
   else if (r.strong_sig) vol.push('STR')
   if (r.vbo_up)    vol.push('VBO↑')
-  if (r.wyk_spring) vol.push('wSPR')
-  else if (r.wyk_sos) vol.push('SOS')
-  else if (r.wyk_lps) vol.push('LPS')
   if (r.ns)        vol.push('NS')
   else if (r.sq)   vol.push('SQ')
   if (r.load_sig)  vol.push('LD')
@@ -362,9 +326,6 @@ function scoreReason(r) {
   for (let i = 1; i <= 11; i++) { if (r[`b${i}`]) bg.push(`B${i}`) }
   for (const k of ['g1','g2','g4','g6','g11']) { if (r[k]) bg.push(k.toUpperCase()) }
   if (bg.length) parts.push(bg.slice(0, 4).join('+'))
-
-  // Context
-  if (r.br_score >= 71) parts.push(`BR${Math.round(r.br_score)}`)
 
   const sc = r.turbo_score ?? 0
   const tier = sc >= 65 ? '🔥' : sc >= 50 ? '★' : sc >= 35 ? '▲' : ''
@@ -798,7 +759,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
               <SortTh col="rsi" cls="text-center">RSI</SortTh>
               <SortTh col="cci" cls="text-center">CCI</SortTh>
-              <SortTh col="br_score" cls="text-center">BR%</SortTh>
               <SortTh col="last_price" cls="text-right">Price</SortTh>
               <SortTh col="change_pct" cls="text-right">%</SortTh>
             </tr>
@@ -889,28 +849,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.sc ? <Badge label="SC" cls="bg-orange-900 text-orange-300" /> : null}
                     {r.bc ? <Badge label="BC" cls="bg-rose-900 text-rose-300" /> : null}
                     {r.nd ? <Badge label="ND" cls="bg-pink-900 text-pink-300" /> : null}
-                    {/* Wyckoff Accumulation 260225 — best signal wins */}
-                    {r.wyk_spring ? <Badge label="SPR" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-400 font-bold" /> : null}
-                    {r.wyk_sos    ? <Badge label="SOS" cls="bg-lime-800/70 text-lime-200 ring-1 ring-lime-500" /> : null}
-                    {r.wyk_lps    ? <Badge label="LPS" cls="bg-green-800/70 text-green-200" /> : null}
-                    {r.wyk_sc  && !r.wyk_spring ? <Badge label="wSC" cls="bg-orange-900/70 text-orange-200" /> : null}
-                    {r.wyk_ar     ? <Badge label="AR"  cls="bg-yellow-900/60 text-yellow-200" /> : null}
-                    {r.wyk_st     ? <Badge label="ST"  cls="bg-amber-900/60 text-amber-200" /> : null}
-                    {r.wyk_accum && !r.wyk_spring && !r.wyk_sos && !r.wyk_lps && !r.wyk_sc && !r.wyk_st
-                      ? <Badge label="ACC" cls="bg-cyan-900/50 text-cyan-300" /> : null}
-                    {r.wyk_markup && !r.wyk_sos && !r.wyk_lps
-                      ? <Badge label="MKP" cls="bg-lime-900/40 text-lime-300" /> : null}
-                    {/* Wyckoff Distribution 260225 */}
-                    {r.wyk_sow    ? <Badge label="SOW"  cls="bg-red-800 text-red-200 ring-1 ring-red-500 font-bold" /> : null}
-                    {r.wyk_utad   ? <Badge label="UTAD" cls="bg-orange-800/70 text-orange-200" /> : null}
-                    {r.wyk_lpsy   ? <Badge label="LPSY" cls="bg-rose-800/70 text-rose-200" /> : null}
-                    {r.wyk_bc  && !r.wyk_utad ? <Badge label="wBC" cls="bg-red-900/70 text-red-200" /> : null}
-                    {r.wyk_ard    ? <Badge label="ARD"  cls="bg-pink-900/60 text-pink-200" /> : null}
-                    {r.wyk_std    ? <Badge label="STD"  cls="bg-rose-900/60 text-rose-200" /> : null}
-                    {r.wyk_dist && !r.wyk_sow && !r.wyk_utad && !r.wyk_bc && !r.wyk_std
-                      ? <Badge label="DST" cls="bg-red-900/40 text-red-400" /> : null}
-                    {r.wyk_markdown && !r.wyk_sow && !r.wyk_lpsy
-                      ? <Badge label="MKD" cls="bg-red-900/50 text-red-400" /> : null}
                   </div>
                 </td>
 
@@ -988,8 +926,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.x1_wick  ? <Badge label="X1"  cls="text-green-200 bg-green-800/40" /> : null}
                     {r.x3_wick  ? <Badge label="X3"  cls="text-yellow-300 bg-yellow-900/40" /> : null}
                     {r.wick_bull        ? <Badge label="WK↑"   cls="text-emerald-300 bg-emerald-900/30" /> : null}
-                    {r.cisd_ppm         ? <Badge label="C++-"  cls="text-green-300 bg-green-900/30" /> : null}
-                    {r.cisd_seq         ? <Badge label="C++--" cls="text-lime-300 bg-lime-900/20" /> : null}
                     {/* Ultra v2 */}
                     {r.best_long  ? <Badge label="BEST↑" cls="text-yellow-200 bg-yellow-800/60 ring-1 ring-yellow-500" /> : null}
                     {r.fbo_bull && !r.best_long ? <Badge label="FBO↑" cls="text-sky-300 bg-sky-900/40" /> : null}
@@ -1017,11 +953,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   {r.cci != null ? fmt(r.cci, 0) : '—'}
                 </td>
 
-                {/* BR% */}
-                <td className={`px-2 py-1 text-center font-mono ${brColor(r.br_score)}`}>
-                  {fmt(r.br_score, 0)}
-                </td>
-
                 {/* Price */}
                 <td className="px-2 py-1 text-right font-mono text-gray-200">
                   ${fmt(r.last_price)}
@@ -1045,7 +976,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={12} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={11} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
