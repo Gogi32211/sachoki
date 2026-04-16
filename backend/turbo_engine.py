@@ -1002,6 +1002,7 @@ def run_turbo_scan(
     lookback_n: int = 5,
     partial_day: bool = False,
     min_volume: float = 0,
+    _keep_running: bool = False,  # internal: skip running=False at end (used by all-TF wrapper)
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -1128,8 +1129,9 @@ def run_turbo_scan(
         con.commit()
         con.close()
     finally:
-        _turbo_state["running"] = False
-        _turbo_state["completed_at"] = time.time()
+        if not _keep_running:
+            _turbo_state["running"] = False
+            _turbo_state["completed_at"] = time.time()
 
     log.info("Turbo scan done: %d/%d tickers, tf=%s universe=%s", found, len(tickers), interval, universe)
     return found
@@ -1154,12 +1156,15 @@ def run_turbo_scan_all_tfs(
     try:
         for i, tf in enumerate(ALL_SCAN_TFS):
             _turbo_state["tfs_done"] = i
-            found = run_turbo_scan(tf, universe, workers, lookback_n, partial_day, min_volume)
+            is_last = (i == len(ALL_SCAN_TFS) - 1)
+            # _keep_running=True suppresses the running=False that run_turbo_scan
+            # normally sets in its finally block — avoids the race where the 2-second
+            # frontend poll catches running=False between consecutive TF scans.
+            found = run_turbo_scan(
+                tf, universe, workers, lookback_n, partial_day, min_volume,
+                _keep_running=not is_last,
+            )
             results[tf] = found
-            # run_turbo_scan sets running=False in its finally block;
-            # restore it so the next TF's scan can proceed.
-            if i < len(ALL_SCAN_TFS) - 1:
-                _turbo_state["running"] = True
     finally:
         _turbo_state["running"] = False
         _turbo_state["completed_at"] = time.time()
