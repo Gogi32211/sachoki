@@ -6,16 +6,15 @@ All operations are vectorized; no row-level Python loops.
 
 Signal IDs
 ----------
-Bullish (T):  0=NONE 1=T1G 2=T1 3=T2G 4=T2 5=T3 6=T4 7=T5 8=T6 9=T9 10=T10 11=T11
-Bearish (Z):  12=Z1G 13=Z1 14=Z2G 15=Z2 16=Z3 17=Z4 18=Z5 19=Z6
-              20=Z7(doji) 21=Z8 22=Z9 23=Z10 24=Z11 25=Z12
+Bullish (T):  0=NONE 1=T1G 2=T1 3=T2G 4=T2 5=T3 6=T4 7=T5 8=T6 9=T9 10=T10 11=T11 12=T12
+Bearish (Z):  13=Z1G 14=Z1 15=Z2G 16=Z2 17=Z3 18=Z4 19=Z5 20=Z6
+              21=Z7(doji) 22=Z9 23=Z10 24=Z11 25=Z12
 
-Priority bullish (highest wins):  T4 > T6 > T1G > T2G > T1 > T2 > T9 > T10 > T3 > T11 > T5
-Priority bearish (highest wins):  Z4 > Z6 > Z1G > Z2G > Z1 > Z2 > Z8 > Z9 > Z10 > Z3 > Z11 > Z5 > Z12 > Z7
+Priority bullish (highest wins):  T4 > T6 > T1G > T2G > T1 > T2 > T9 > T10 > T3 > T11 > T5 > T12
+Priority bearish (highest wins):  Z4 > Z6 > Z1G > Z2G > Z1 > Z2 > Z9 > Z10 > Z3 > Z11 > Z5 > Z12 > Z7
 
 Rules:
   - If any bullish fires → bearish codes are 0 for that bar
-  - Z8 fires only if NO other Z signal on same bar
   - Z7 (doji) fires only if NO bullish AND NO other bearish signal
 """
 
@@ -30,32 +29,30 @@ pd.set_option("future.no_silent_downcasting", True)
 # Signal ID constants
 # ---------------------------------------------------------------------------
 NONE = 0
-T1G, T1, T2G, T2, T3, T4, T5, T6, T9, T10, T11 = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11
-Z1G, Z1, Z2G, Z2, Z3, Z4, Z5, Z6 = 12, 13, 14, 15, 16, 17, 18, 19
-Z7, Z8, Z9, Z10, Z11, Z12 = 20, 21, 22, 23, 24, 25
+T1G, T1, T2G, T2, T3, T4, T5, T6, T9, T10, T11, T12 = 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12
+Z1G, Z1, Z2G, Z2, Z3, Z4, Z5, Z6 = 13, 14, 15, 16, 17, 18, 19, 20
+Z7, Z9, Z10, Z11, Z12 = 21, 22, 23, 24, 25
 
 SIG_NAMES: dict[int, str] = {
     0: "NONE",
     1: "T1G", 2: "T1", 3: "T2G", 4: "T2", 5: "T3", 6: "T4", 7: "T5", 8: "T6",
-    9: "T9", 10: "T10", 11: "T11",
-    12: "Z1G", 13: "Z1", 14: "Z2G", 15: "Z2", 16: "Z3", 17: "Z4", 18: "Z5", 19: "Z6",
-    20: "Z7", 21: "Z8", 22: "Z9", 23: "Z10", 24: "Z11", 25: "Z12",
+    9: "T9", 10: "T10", 11: "T11", 12: "T12",
+    13: "Z1G", 14: "Z1", 15: "Z2G", 16: "Z2", 17: "Z3", 18: "Z4", 19: "Z5", 20: "Z6",
+    21: "Z7", 22: "Z9", 23: "Z10", 24: "Z11", 25: "Z12",
 }
 
-BULLISH_SIGS = frozenset(range(1, 12))
-BEARISH_SIGS = frozenset(range(12, 26))
+BULLISH_SIGS = frozenset(range(1, 13))
+BEARISH_SIGS = frozenset(range(13, 26))
 
-# bc priority code -> signal id
-_BC_TO_SID = {1: 6, 2: 8, 3: 1, 4: 3, 5: 2, 6: 4, 7: 9, 8: 10, 9: 5, 10: 11, 11: 7}
-# zc priority code -> signal id
-_ZC_TO_SID = {1: 17, 2: 19, 3: 12, 4: 14, 5: 13, 6: 15, 7: 21, 8: 22,
-              9: 23, 10: 16, 11: 24, 12: 18, 13: 25, 14: 20}
+_BC_TO_SID = {1: 6, 2: 8, 3: 1, 4: 3, 5: 2, 6: 4, 7: 9, 8: 10, 9: 5, 10: 11, 11: 7, 12: 12}
+_ZC_TO_SID = {1: 18, 2: 20, 3: 13, 4: 15, 5: 14, 6: 16, 7: 22,
+              8: 23, 9: 17, 10: 24, 11: 19, 12: 25, 13: 21}
 
-_BC_SID_MAP = np.zeros(12, dtype=np.int8)
+_BC_SID_MAP = np.zeros(13, dtype=np.int8)
 for _k, _v in _BC_TO_SID.items():
     _BC_SID_MAP[_k] = _v
 
-_ZC_SID_MAP = np.zeros(15, dtype=np.int8)
+_ZC_SID_MAP = np.zeros(14, dtype=np.int8)
 for _k, _v in _ZC_TO_SID.items():
     _ZC_SID_MAP[_k] = _v
 
@@ -80,8 +77,8 @@ def compute_signals(
     Returns
     -------
     DataFrame with columns:
-        bc (int8)     - bullish priority code 0-11
-        zc (int8)     - bearish priority code 0-14
+        bc (int8)     - bullish priority code 0-12
+        zc (int8)     - bearish priority code 0-13
         sig_id (int8) - final signal 0-25
         sig_name (str)
         is_bull (bool)
@@ -98,8 +95,7 @@ def compute_signals(
     bdy = (c - o).abs()
     mintick = 1e-10
 
-    isDoji = (rng > 0) & ((bdy / rng.replace(0, np.nan)) <= doji_thresh)
-    isDoji = isDoji.fillna(False)
+    isDoji = (c == o)
 
     isBull = c > o
     isBear = c < o
@@ -138,11 +134,12 @@ def compute_signals(
     cT6  = p1Bull & isBull & engOk
     cT9  = p1Bear & isBull & insOk
     cT10 = p1Bull & isBull & insOk
-    cT11 = p1Bull & (o < o.shift(1)) & ((c < c.shift(1)) | (c < o.shift(1))) & isBull
+    cT11 = p1Bull & isBull & (o < o.shift(1)) & (c >= o.shift(1)) & (c < c.shift(1))
+    cT12 = p1Bull & isBull & (o < o.shift(1)) & (c < o.shift(1))
 
     # ── Bearish patterns (direct Pine translation) ────────────────────────
     cZ1G = p1Bull & (o < c.shift(1)) & (o < o.shift(1)) & (c < o.shift(1)) & isBear
-    cZ1  = p1Bull & (o <= c.shift(1)) & (o > o.shift(1)) & (c < o.shift(1)) & isBear
+    cZ1  = p1Bull & (o <= c.shift(1)) & (o <= o.shift(1)) & (c < o.shift(1)) & isBear
     cZ2G = p1Bear & (o <= o.shift(1)) & (o < c.shift(1)) & (c < c.shift(1)) & isBear
     cZ2  = p1Bear & (o <= o.shift(1)) & (o >= c.shift(1)) & (c < c.shift(1)) & isBear
     cZ3  = (p1Bull & isBear & (o > o.shift(1)) & (o > c.shift(1))
@@ -156,32 +153,30 @@ def compute_signals(
     cZ11 = p1Bear & (o > o.shift(1)) & isBear & ((c > c.shift(1)) | (c > o.shift(1)))
     cZ12 = p1Bull & (o <= o.shift(1)) & isBear
 
-    cZ8b = p1Bull & (o > c.shift(1)) & isBear & (c >= o.shift(1))
     anyZ = (cZ1G | cZ1 | cZ2G | cZ2 | cZ3 | cZ4 | cZ5 | cZ6
             | cZ9 | cZ10 | cZ11 | cZ12)
-    cZ8  = cZ8b & ~anyZ
 
-    anyB = cT1G | cT1 | cT2G | cT2 | cT3 | cT4 | cT5 | cT6 | cT9 | cT10 | cT11
+    anyB = cT1G | cT1 | cT2G | cT2 | cT3 | cT4 | cT5 | cT6 | cT9 | cT10 | cT11 | cT12
     cZ7c = isDoji & ~anyB & ~anyZ
 
     # ── bc priority code ──────────────────────────────────────────────────
-    # T4?1 : T6?2 : T1G?3 : T2G?4 : T1?5 : T2?6 : T9?7 : T10?8 : T3?9 : T11?10 : T5?11 : 0
+    # T4?1 : T6?2 : T1G?3 : T2G?4 : T1?5 : T2?6 : T9?7 : T10?8 : T3?9 : T11?10 : T5?11 : T12?12 : 0
     bc_arr = np.zeros(len(df), dtype=np.int8)
     for code, cond in [
         (1, cT4), (2, cT6), (3, cT1G), (4, cT2G), (5, cT1),
-        (6, cT2), (7, cT9), (8, cT10), (9, cT3), (10, cT11), (11, cT5),
+        (6, cT2), (7, cT9), (8, cT10), (9, cT3), (10, cT11), (11, cT5), (12, cT12),
     ]:
         mask = cond.fillna(False).to_numpy() & (bc_arr == 0)
         bc_arr[mask] = code
 
     # ── zc priority code ──────────────────────────────────────────────────
-    # Z4?1 : Z6?2 : Z1G?3 : Z2G?4 : Z1?5 : Z2?6 : Z8?7 : Z9?8 : Z10?9 :
-    # Z3?10 : Z11?11 : Z5?12 : Z12?13 : Z7c?14 : 0
+    # Z4?1 : Z6?2 : Z1G?3 : Z2G?4 : Z1?5 : Z2?6 : Z9?7 : Z10?8 :
+    # Z3?9 : Z11?10 : Z5?11 : Z12?12 : Z7c?13 : 0
     zc_arr = np.zeros(len(df), dtype=np.int8)
     for code, cond in [
         (1, cZ4), (2, cZ6), (3, cZ1G), (4, cZ2G), (5, cZ1),
-        (6, cZ2), (7, cZ8), (8, cZ9), (9, cZ10), (10, cZ3),
-        (11, cZ11), (12, cZ5), (13, cZ12), (14, cZ7c),
+        (6, cZ2), (7, cZ9), (8, cZ10), (9, cZ3),
+        (10, cZ11), (11, cZ5), (12, cZ12), (13, cZ7c),
     ]:
         mask = cond.fillna(False).to_numpy() & (zc_arr == 0)
         zc_arr[mask] = code
@@ -289,9 +284,9 @@ def compute_g_signals(df: pd.DataFrame) -> pd.DataFrame:
 # ---------------------------------------------------------------------------
 # B1–B11  (260321_B_BUILDER / 260410_COMBO)
 # ---------------------------------------------------------------------------
-# Pine bc priority codes: T4=1,T6=2,T1G=3,T2G=4,T1=5,T2=6,T9=7,T10=8,T3=9,T11=10,T5=11
-# Pine zc priority codes: Z4=1,Z6=2,Z1G=3,Z2G=4,Z1=5,Z2=6,Z8=7,Z9=8,Z10=9,Z3=10,
-#                         Z11=11,Z5=12,Z12=13,Z7=14
+# Pine bc priority codes: T4=1,T6=2,T1G=3,T2G=4,T1=5,T2=6,T9=7,T10=8,T3=9,T11=10,T5=11,T12=12
+# Pine zc priority codes: Z4=1,Z6=2,Z1G=3,Z2G=4,Z1=5,Z2=6,Z9=7,Z10=8,Z3=9,
+#                         Z11=10,Z5=11,Z12=12,Z7=13
 # These match bc_arr/zc_arr values from compute_signals() above.
 
 def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
@@ -319,7 +314,7 @@ def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
     B1 = (
         ((bc1==11) & (bc==6)) |              # T5[1]  T2
         ((bc1==10) & (bc==4)) |              # T11[1] T2G
-        ((zc2==11) & bc.isin([9, 5, 3])) |  # Z11[2] (T3/T1/T1G)
+        ((zc2==10) & bc.isin([9, 5, 3])) |  # Z11[2] (T3/T1/T1G)
         ((zc2==2)  & (zc1==6) & (bc==5)) |  # Z6[2]  Z2[1]  T1
         ((bc1==5)  & (bc==4)) |              # T1[1]  T2G
         ((bc1==7)  & (bc==6)) |              # T9[1]  T2
@@ -341,8 +336,8 @@ def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
     _B3_strong2 = bc2.isin([3, 4, 1, 7, 11])  # T1G/T2G/T4/T9/T5 at bar[-2]
     B3 = (
         ((bc2==2)  & (bc==5)) |              # T6[2]  T1
-        ((zc2==10) & (zc1==6)  & (bc==9)) | # Z3[2]  Z2[1] T3
-        ((zc2==10) & (bc1==9)  & (bc==6)) | # Z3[2]  T3[1] T2
+        ((zc2==9) & (zc1==6)  & (bc==9)) | # Z3[2]  Z2[1] T3
+        ((zc2==9) & (bc1==9)  & (bc==6)) | # Z3[2]  T3[1] T2
         (_B3_strong2 & (zc1==1) & bc.isin([5, 9])) | # (T1G/T2G/T4/T9/T5)[2] Z4[1] (T1/T3)
         ((bc1==8)  & bc.isin([3, 4, 6]))    # T10[1] (T1G/T2G/T2)
     )
@@ -353,7 +348,7 @@ def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
     # ── B5 ────────────────────────────────────────────────────────────────────
     B5 = (
         ((zc2==1)  & (bc1==11) & ((bc==6) | (bc==4))) | # Z4[2]  T5[1] (T2/T2G)
-        ((zc2==12) & (bc1==11) & (bc==4)) |              # Z5[2]  T5[1] T2G
+        ((zc2==11) & (bc1==11) & (bc==4)) |              # Z5[2]  T5[1] T2G
         ((zc2==4)  & (bc1==11) & (bc==4)) |              # Z2G[2] T5[1] T2G
         ((zc2==6)  & (bc1==11) & (bc==2))                # Z2[2]  T5[1] T6
     )
@@ -366,7 +361,7 @@ def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
 
     # ── B7 ────────────────────────────────────────────────────────────────────
     B7 = (
-        ((zc2==12) & (zc1==6) & (bc==5)) | # Z5[2]  Z2[1] T1
+        ((zc2==11) & (zc1==6) & (bc==5)) | # Z5[2]  Z2[1] T1
         ((bc2==7)  & (bc1==6) & (bc==6)) | # T9[2]  T2[1] T2
         ((bc1==5)  & (bc==6)) |             # T1[1]  T2
         ((bc1==6)  & (bc==4)) |             # T2[1]  T2G
@@ -381,33 +376,33 @@ def compute_b_signals(df: pd.DataFrame) -> pd.DataFrame:
         (((zc1==4) | (zc1==3)) & (bc==3)) |  # (Z2G/Z1G)[1] T1G
         ((zc2==3)  & (bc==3)) |              # Z1G[2] T1G
         ((zc2==2)  & (bc==3)) |              # Z6[2]  T1G
-        ((bc2==7)  & (zc1==8) & (bc==9)) |  # T9[2]  Z9[1]  T3
-        ((zc2==10) & (zc1==4) & (bc==3))    # Z3[2]  Z2G[1] T1G
+        ((bc2==7)  & (zc1==7) & (bc==9)) |  # T9[2]  Z9[1]  T3
+        ((zc2==9) & (zc1==4) & (bc==3))    # Z3[2]  Z2G[1] T1G
     )
 
     # ── B9 ────────────────────────────────────────────────────────────────────
     B9 = (
-        (zc3==9) & (zc2==4) & (bc1==7) & (cls > opn)  # Z10[3] Z2G[2] T9[1] close>open
+        (zc3==8) & (zc2==4) & (bc1==7) & (cls > opn)  # Z10[3] Z2G[2] T9[1] close>open
     )
 
     # ── B10 ───────────────────────────────────────────────────────────────────
     B10_s1 = (
-        ((zc2==9)  & (zc1==4)  & (bc==5)) |  # Z10[2] Z2G[1] T1
-        ((zc1==9)  & ((bc==5)  | (bc==1))) |  # Z10[1] (T1/T4)
-        ((zc2==9)  & (zc1==11) & (zc==14)) |  # Z10[2] Z11[1] Z7
-        ((zc2==9)  & (zc1==4)  & (bc==3))     # Z10[2] Z2G[1] T1G
+        ((zc2==8)  & (zc1==4)  & (bc==5)) |  # Z10[2] Z2G[1] T1
+        ((zc1==8)  & ((bc==5)  | (bc==1))) |  # Z10[1] (T1/T4)
+        ((zc2==8)  & (zc1==10) & (zc==13)) |  # Z10[2] Z11[1] Z7
+        ((zc2==8)  & (zc1==4)  & (bc==3))     # Z10[2] Z2G[1] T1G
     )
-    B10_s2 = ((zc2==9) & ((zc1==2) | (bc1==7)) & ((bc==5) | (bc==2)))
-    B10_s3 = (((zc2==2) | (zc2==4)) & (zc1==9) & ((bc==3) | (bc==2)))
+    B10_s2 = ((zc2==8) & ((zc1==2) | (bc1==7)) & ((bc==5) | (bc==2)))
+    B10_s3 = (((zc2==2) | (zc2==4)) & (zc1==8) & ((bc==3) | (bc==2)))
     B10 = B10_s1 | B10_s2 | B10_s3
 
     # ── B11 ───────────────────────────────────────────────────────────────────
     B11 = (
-        ((zc1==11) & (bc==5)) |              # Z11[1] T1
+        ((zc1==10) & (bc==5)) |              # Z11[1] T1
         ((bc2==9)  & (bc1==10) & (bc==6)) |  # T3[2]  T11[1] T2
-        ((zc2==10) & (zc1==9)  & (zc==11)) | # Z3[2]  Z10[1] Z11
-        ((zc2==8)  & (zc1==9)  & (cls > c1)) | # Z9[2] Z10[1] close>close[1]
-        ((zc2==2)  & (zc1==9)  & (cls > c1)) | # Z6[2] Z10[1] close>close[1]
+        ((zc2==9) & (zc1==8)  & (zc==10)) | # Z3[2]  Z10[1] Z11
+        ((zc2==7)  & (zc1==8)  & (cls > c1)) | # Z9[2] Z10[1] close>close[1]
+        ((zc2==2)  & (zc1==8)  & (cls > c1)) | # Z6[2] Z10[1] close>close[1]
         (((bc3==9) | (bc3==1)) & (zc2==1) & (zc1==6) & bc.isin([7, 3])) | # (T3/T4)[3] Z4[2] Z2[1] (T9/T1G)
         ((zc2==6)  & (bc1==3)  & (bc==6)) |  # Z2[2]  T1G[1] T2
         ((bc2==9)  & (bc1==4)  & (bc==6)) |  # T3[2]  T2G[1] T2
