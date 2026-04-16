@@ -649,17 +649,17 @@ def api_turbo_scan(
 @app.post("/api/turbo-scan/trigger")
 def api_turbo_scan_trigger(
     background_tasks: BackgroundTasks,
-    tf: str = "1d",
+    tf: str = "all",        # kept for backward compat; ignored — always scans all TFs
     universe: str = "sp500",
     lookback_n: int = 5,
     partial_day: bool = False,
     min_volume: float = 0,
 ):
-    from turbo_engine import run_turbo_scan, get_turbo_progress
+    from turbo_engine import run_turbo_scan_all_tfs, get_turbo_progress
     if get_turbo_progress().get("running"):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n, partial_day, min_volume)
-    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day, "min_volume": min_volume}
+    background_tasks.add_task(run_turbo_scan_all_tfs, universe, 8, lookback_n, partial_day, min_volume)
+    return {"status": "turbo scan started (all TFs)", "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day, "min_volume": min_volume}
 
 
 @app.get("/api/turbo-scan/status")
