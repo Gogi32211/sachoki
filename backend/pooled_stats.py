@@ -79,11 +79,24 @@ if USE_PG:
         "VALUES (%s,%s,%s,%s) "
         "ON CONFLICT (universe,interval,sig_id) DO UPDATE SET count=excluded.count"
     )
+    _UPSERT_TZL = (
+        "INSERT INTO pooled_tzl_stats (universe,interval,sig_id,l_col,count) "
+        "VALUES (%s,%s,%s,%s,%s) "
+        "ON CONFLICT (universe,interval,sig_id,l_col) DO UPDATE SET count=excluded.count"
+    )
 else:
     _UPSERT_FREQ = (
         "INSERT OR REPLACE INTO pooled_tz_freq_stats "
         "(universe,interval,sig_id,count) VALUES (?,?,?,?)"
     )
+    _UPSERT_TZL = (
+        "INSERT OR REPLACE INTO pooled_tzl_stats "
+        "(universe,interval,sig_id,l_col,count) VALUES (?,?,?,?,?)"
+    )
+
+# L columns used in TZ×L co-occurrence (must match stats_engine.L_COLS)
+_TZLCOLS = ["L1", "L2", "L3", "L4", "L5", "L6",
+            "L34", "L22", "L64", "L43", "L1L2", "L2L5"]
 
 
 def _init_db() -> None:
@@ -132,6 +145,14 @@ def _init_db() -> None:
             bull_bars  INTEGER NOT NULL DEFAULT 0,
             bear_bars  INTEGER NOT NULL DEFAULT 0,
             doji_bars  INTEGER NOT NULL DEFAULT 0
+        );
+        CREATE TABLE IF NOT EXISTS pooled_tzl_stats (
+            universe TEXT NOT NULL,
+            interval TEXT NOT NULL,
+            sig_id   INTEGER NOT NULL,
+            l_col    TEXT NOT NULL,
+            count    INTEGER NOT NULL DEFAULT 0,
+            PRIMARY KEY (universe, interval, sig_id, l_col)
         );
     """)
     con.commit()
@@ -207,7 +228,22 @@ def _worker(ticker: str, interval: str, days: int) -> dict | None:
             "sig_counts": Counter(int(s) for s in sig_ids),
         }
 
-        return {"tz3": tz3, "tz2": tz2, "l3": l3, "l2": l2, "freq": freq}
+        # T/Z × L co-occurrence (for pooled TZ×L matrix)
+        combined = sigs.join(wlnbb)
+        tzl: Counter = Counter()
+        for sid in range(1, 26):
+            mask  = combined["sig_id"] == sid
+            total = int(mask.sum())
+            if total == 0:
+                continue
+            tzl[(sid, "_total")] = total
+            for col in _TZLCOLS:
+                if col in combined.columns:
+                    cnt = int(combined.loc[mask, col].astype(bool).sum())
+                    if cnt > 0:
+                        tzl[(sid, col)] = cnt
+
+        return {"tz3": tz3, "tz2": tz2, "l3": l3, "l2": l2, "freq": freq, "tzl": tzl}
 
     except Exception as exc:
         log.debug("pooled_stats skip %s: %s", ticker, exc)
@@ -250,6 +286,7 @@ def build_pooled_stats(
     all_l3:  Counter = Counter()
     all_l2:  Counter = Counter()
     all_sig_counts: Counter = Counter()
+    all_tzl:        Counter = Counter()
     all_total_bars = all_bull_bars = all_bear_bars = all_doji_bars = 0
 
     with ThreadPoolExecutor(max_workers=workers) as pool:
@@ -269,6 +306,8 @@ def build_pooled_stats(
                     all_bear_bars  += f["bear_bars"]
                     all_doji_bars  += f["doji_bars"]
                     all_sig_counts += f["sig_counts"]
+                if result.get("tzl"):
+                    all_tzl += result["tzl"]
 
     # Write to DB (replace old data for this universe+interval)
     con = _db()
@@ -311,12 +350,18 @@ def build_pooled_stats(
         (universe, interval, all_total_bars, all_bull_bars, all_bear_bars, all_doji_bars),
     )
 
+    # Persist T/Z × L co-occurrence aggregate
+    con.execute("DELETE FROM pooled_tzl_stats WHERE universe=? AND interval=?", (universe, interval))
+    tzl_rows = [(universe, interval, sid, col, cnt)
+                for (sid, col), cnt in all_tzl.items()]
+    con.executemany(_UPSERT_TZL, tzl_rows)
+
     con.commit()
     con.close()
 
     _pooled_state.update({"running": False})
-    log.info("pooled_stats built: universe=%s interval=%s tz=%d l=%d freq=%d",
-             universe, interval, len(tz_rows), len(l_rows), len(freq_rows))
+    log.info("pooled_stats built: universe=%s interval=%s tz=%d l=%d freq=%d tzl=%d",
+             universe, interval, len(tz_rows), len(l_rows), len(freq_rows), len(tzl_rows))
 
 
 # ── Query ─────────────────────────────────────────────────────────────────────
@@ -469,6 +514,71 @@ def get_pooled_tz_matrix(universe: str = "sp500", interval: str = "1d") -> dict:
     except Exception as exc:
         log.debug("get_pooled_tz_matrix: %s", exc)
         return {"bar1": {}, "bar2": {}}
+
+
+# ── Pooled T/Z × L co-occurrence matrix ──────────────────────────────────────
+
+def get_pooled_tzl_matrix(universe: str = "sp500", interval: str = "1d") -> list | None:
+    """
+    Return pooled T/Z × L co-occurrence matrix (same format as compute_tz_l_matrix)
+    aggregated across all tickers in the universe.  Returns None if not built yet.
+    """
+    try:
+        _init_db()
+        con = _db()
+        rows = con.execute(
+            "SELECT sig_id, l_col, count FROM pooled_tzl_stats "
+            "WHERE universe=? AND interval=?",
+            (universe, interval),
+        ).fetchall()
+        con.close()
+
+        if not rows:
+            return None
+
+        # Build lookup: {sig_id: {l_col: count}}
+        data: dict = {}
+        for row in rows:
+            sid = int(row["sig_id"])
+            col = row["l_col"]
+            cnt = int(row["count"])
+            if sid not in data:
+                data[sid] = {}
+            data[sid][col] = cnt
+
+        from stats_engine import SIG_ORDER, L_COLS, GOOD_FOR_T, GOOD_FOR_Z
+
+        result = []
+        for sig_id, sig_name in SIG_ORDER:
+            is_t     = sig_id <= 11
+            sig_data = data.get(sig_id, {})
+            total    = sig_data.get("_total", 0)
+            counts   = {col: sig_data.get(col, 0) for col in L_COLS}
+            max_cnt  = max(counts.values()) if any(counts.values()) else 0
+
+            cols_meta: dict = {}
+            for col in L_COLS:
+                cnt  = counts[col]
+                pct  = round(cnt / total * 100) if total > 0 else 0
+                is_gold = cnt == max_cnt and cnt > 0
+                is_good = (col in GOOD_FOR_T) if is_t else (col in GOOD_FOR_Z)
+                is_bad  = (col in GOOD_FOR_Z) if is_t else (col in GOOD_FOR_T)
+                color   = "gold" if is_gold else ("green" if is_good and cnt > 0
+                          else ("red" if is_bad and cnt > 0 else ""))
+                cols_meta[col] = {"count": cnt, "pct": pct, "color": color}
+
+            result.append({
+                "sig_id":   sig_id,
+                "sig_name": sig_name,
+                "is_bull":  is_t,
+                "total":    total,
+                "cols":     cols_meta,
+            })
+
+        return result
+    except Exception as exc:
+        log.debug("get_pooled_tzl_matrix: %s", exc)
+        return None
 
 
 # ── Aggregate T/Z frequency ───────────────────────────────────────────────────

@@ -55,16 +55,22 @@ async def lifespan(app: FastAPI):
     # Auto-build pooled stats for sp500 1d on startup if not present,
     # OR if patterns exist but the new freq tables are empty (post-upgrade migration).
     try:
-        from pooled_stats import get_pooled_status, build_pooled_stats, get_pooled_state, get_pooled_tz_freq
+        from pooled_stats import (get_pooled_status, build_pooled_stats,
+                                   get_pooled_state, get_pooled_tz_freq,
+                                   get_pooled_tzl_matrix)
         status = get_pooled_status("sp500", "1d")
-        freq   = get_pooled_tz_freq("sp500", "1d") if status.get("available") else None
+        avail  = status.get("available")
+        freq   = get_pooled_tz_freq("sp500", "1d")    if avail else None
+        tzl    = get_pooled_tzl_matrix("sp500", "1d") if avail else None
         needs_build = (
-            not status.get("available")          # first run: no patterns yet
-            or (status.get("available") and freq is None)  # upgrade: freq tables empty
+            not avail                               # first run: no patterns yet
+            or (avail and freq is None)             # upgrade: freq tables empty
+            or (avail and tzl  is None)             # upgrade: tzl table empty
         )
         if needs_build and not get_pooled_state().get("running"):
             import threading
-            reason = "no patterns" if not status.get("available") else "freq stats missing (upgrade)"
+            reason = ("no patterns" if not avail
+                      else "freq/tzl stats missing (upgrade)")
             log.info("Auto-building sp500 1d pooled stats: %s", reason)
             threading.Thread(
                 target=build_pooled_stats,
@@ -372,10 +378,25 @@ def api_l_predict(ticker: str, tf: str = "1d"):
 
 import time as _time
 _bench_tzl_cache: dict = {}  # {"SPY_1d": {"matrix": [...], "ts": float}}
+_BENCH_UNI_MAP = {"SPY": "sp500", "QQQ": "nasdaq", "IWM": "russell2k"}
 
 
 def _get_bench_tzl(ticker: str, tf: str) -> list:
-    """Compute (or return cached) T/Z×L matrix for a benchmark ticker. 24 h TTL."""
+    """
+    Return T/Z×L co-occurrence matrix for a benchmark.
+    Tries pooled aggregate (all universe stocks) first; falls back to single ticker.
+    """
+    universe = _BENCH_UNI_MAP.get(ticker)
+    if universe:
+        try:
+            from pooled_stats import get_pooled_tzl_matrix
+            pooled = get_pooled_tzl_matrix(universe, tf)
+            if pooled:
+                return pooled
+        except Exception:
+            pass
+
+    # Fallback: single benchmark ticker, cached 24 h
     key = f"{ticker}_{tf}"
     cached = _bench_tzl_cache.get(key)
     if cached and (_time.time() - cached["ts"]) < 86400:
