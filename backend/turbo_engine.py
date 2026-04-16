@@ -3,7 +3,7 @@ turbo_engine.py — TURBO combined scan engine.
 
 Runs ALL signal engines per ticker and produces a single turbo_score (0-100)
 covering: VABS, Wyckoff, Combo (2809), T/Z patterns, WLNBB (L/FRI/BLUE),
-Wick, CISD, and BR% readiness.
+Wick.
 
 turbo_score tiers:
   55+  Fire   — multiple strong signals aligning
@@ -239,7 +239,7 @@ def _calc_turbo_score(r: dict) -> float:
       Breakout      cap 15  — ULTRA v2 atomic (fbo/eb/bf), BO/BX, RS
       Combo/trend   cap 14  — Combo signals
       L-structure   cap 13  — T/Z, WLNBB
-    Context (Wick, CISD, BR%) uncapped (max ~14).
+    Context (Wick) uncapped (max ~18).
     """
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
     # Only atomic VABS signals — no best_sig / strong_sig composites
@@ -886,7 +886,7 @@ def _scan_turbo_ticker(
                 "preup3":  _sn(combo, "preup3",  _n),
                 "preup2":  _sn(combo, "preup2",  _n),
                 "preup50": _sn(combo, "preup50", _n),
-                # Context (wick / cisd / br unchanged)
+                # Context (wick)
                 "x2g_wick": _sn(wx,   "x2g_wick",          _n),
                 "x2_wick":  _sn(wx,   "x2_wick",           _n),
                 "x1g_wick": _sn(wx,   "x1g_wick",          _n),
