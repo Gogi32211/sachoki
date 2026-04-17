@@ -570,6 +570,60 @@ def api_save_settings(body: dict):
     return {"status": "ok"}
 
 
+@app.get("/api/config")
+def api_config():
+    from data_polygon import polygon_available
+    return {"massive_api_ready": polygon_available()}
+
+
+@app.get("/api/turbo-analyze/{ticker}")
+def api_turbo_analyze(ticker: str, tf: str = "1d"):
+    from turbo_engine import _scan_turbo_ticker
+    result = _scan_turbo_ticker(ticker.upper(), tf)
+    if result is None:
+        raise HTTPException(status_code=404, detail="Not Found")
+    return result
+
+
+@app.get("/api/signal-correlation")
+def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int = 15):
+    from turbo_engine import get_turbo_results, _TURBO_COLS
+    rows = get_turbo_results(limit=5000, min_score=0, direction="all", tf=tf, universe=universe)
+    if not rows:
+        return {"n_tickers": 0, "signal_counts": {}, "pairs": []}
+
+    # Boolean signal columns only
+    bool_cols = [c for c in _TURBO_COLS if c not in {
+        "turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10",
+        "rsi", "cci", "avg_vol", "tz_sig", "vol_bucket", "sig_ages", "data_source", "tz_state",
+    }]
+
+    import numpy as np
+    n = len(rows)
+    # Build matrix
+    mat = {c: np.array([int(bool(r.get(c, 0))) for r in rows], dtype=np.int8) for c in bool_cols}
+    counts = {c: int(mat[c].sum()) for c in bool_cols}
+
+    pairs = []
+    cols_with_signals = [c for c in bool_cols if counts[c] > 0]
+    for i, a in enumerate(cols_with_signals):
+        for b in cols_with_signals[i+1:]:
+            both = int((mat[a] & mat[b]).sum())
+            if both == 0:
+                continue
+            ca, cb = counts[a], counts[b]
+            pct_a = round(both / ca * 100) if ca else 0
+            pct_b = round(both / cb * 100) if cb else 0
+            max_pct = max(pct_a, pct_b)
+            if max_pct >= min_pct:
+                pairs.append({"sig_a": a, "sig_b": b, "both": both,
+                               "a_count": ca, "b_count": cb,
+                               "pct_a": pct_a, "pct_b": pct_b, "max_pct": max_pct})
+
+    pairs.sort(key=lambda x: -x["max_pct"])
+    return {"n_tickers": n, "signal_counts": counts, "pairs": pairs}
+
+
 @app.get("/api/admin/scan-history")
 def api_admin_scan_history():
     from turbo_engine import _db, _init_db
