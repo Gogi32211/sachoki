@@ -615,6 +615,7 @@ def _scan_turbo_ticker(
                         "div_bull","div_bear","cd_bull","cd_bear",
                         "surge_bull","surge_bear","blast_bull","blast_bear",
                         "vd_div_bull","vd_div_bear","spring","upthrust",
+                        "flip_bull","flip_bear","orange_bull",
                         "blast_bull_red","blast_bear_grn",
                         "surge_bull_red","surge_bear_grn"):
                 row[f"d_{col}"] = 0
@@ -1161,7 +1162,14 @@ def get_turbo_results(
             f"ORDER BY turbo_score DESC LIMIT ?",
             params + [limit],
         ).fetchall()
-        return rows
+        # Sanitize NaN/Inf floats so JSON serialization never fails
+        clean = []
+        for row in rows:
+            clean.append({
+                k: (0.0 if isinstance(v, float) and (v != v or v == float('inf') or v == float('-inf')) else v)
+                for k, v in row.items()
+            })
+        return clean
     finally:
         con.close()
 
