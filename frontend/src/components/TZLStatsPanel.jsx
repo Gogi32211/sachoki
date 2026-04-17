@@ -142,7 +142,10 @@ const VIEWS = [
   { key: 'vs_qqq', label: 'vs QQQ'  },
 ]
 
+const TF_OPTS = ['1wk', '1d', '4h', '1h']
+
 export default function TZLStatsPanel({ ticker, tf }) {
+  const [localTf, setLocalTf] = useState(tf || '1d')
   const [data,    setData]    = useState(null)   // {matrix, bench_spy, bench_qqq}
   const [loading, setLoading] = useState(false)
   const [error,   setError]   = useState(null)
@@ -152,11 +155,11 @@ export default function TZLStatsPanel({ ticker, tf }) {
     if (!ticker) return
     setLoading(true)
     setError(null)
-    api.tzLStats(ticker, tf)
+    api.tzLStats(ticker, localTf)
       .then(d => setData(d))
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [ticker, tf])
+  }, [ticker, localTf])
 
   const benchMatrix =
     (view === 'spy' || view === 'vs_spy') ? data?.bench_spy :
@@ -167,7 +170,18 @@ export default function TZLStatsPanel({ ticker, tf }) {
     <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col">
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-wrap gap-2">
-        <span className="font-semibold text-sm">T/Z × L Co-occurrence — {ticker}</span>
+        <div className="flex items-center gap-2">
+          <span className="font-semibold text-sm">T/Z × L Co-occurrence — {ticker}</span>
+          <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
+            {TF_OPTS.map(t => (
+              <button key={t} onClick={() => setLocalTf(t)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
+                  ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                {t.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-3 flex-wrap">
           {/* Legend */}
           <div className="flex items-center gap-2 text-xs">
