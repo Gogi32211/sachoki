@@ -428,7 +428,10 @@ const _lsSet = (key, val) => {
   try { localStorage.setItem(key, JSON.stringify(val)) } catch {}
 }
 
+const TF_OPTS_PRED = ['1wk', '1d', '4h', '1h']
+
 export default function PredictorPanel({ ticker, tf }) {
+  const [localTf,       setLocalTf]       = useState(tf || '1d')
   const [tickerData,    setTickerData]    = useState(() => _lsGet(_lsKey('tz', ticker, tf)))
   const [pooledData,    setPooledData]    = useState(() => _lsGet(_lsKey('pool', ticker, tf, 'sp500')))
   const [loading,       setLoading]       = useState(false)
@@ -442,36 +445,36 @@ export default function PredictorPanel({ ticker, tf }) {
     if (!ticker) return
     setError(null)
     setLoading(true)
-    api.predict(ticker, tf)
+    api.predict(ticker, localTf)
       .then(d => {
         setTickerData(d)
-        _lsSet(_lsKey('tz', ticker, tf), d)
+        _lsSet(_lsKey('tz', ticker, localTf), d)
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
-  }, [ticker, tf])
+  }, [ticker, localTf])
 
   const fetchPooled = useCallback(() => {
     if (!ticker) return
-    api.pooledPredict(ticker, tf, poolUni)
+    api.pooledPredict(ticker, localTf, poolUni)
       .then(d => {
         if (!d.error) {
           setPooledData(d)
-          _lsSet(_lsKey('pool', ticker, tf, poolUni), d)
+          _lsSet(_lsKey('pool', ticker, localTf, poolUni), d)
         }
       })
       .catch(() => {})
-  }, [ticker, tf, poolUni])
+  }, [ticker, localTf, poolUni])
 
-  // Restore cached data when ticker/tf/poolUni changes, then fetch fresh in background
+  // Restore cached data when ticker/localTf/poolUni changes, then fetch fresh in background
   useEffect(() => {
-    const cached = _lsGet(_lsKey('tz', ticker, tf))
+    const cached = _lsGet(_lsKey('tz', ticker, localTf))
     if (cached) setTickerData(cached)
     fetchTicker()
   }, [fetchTicker])
 
   useEffect(() => {
-    const cached = _lsGet(_lsKey('pool', ticker, tf, poolUni))
+    const cached = _lsGet(_lsKey('pool', ticker, localTf, poolUni))
     if (cached) setPooledData(cached)
     fetchPooled()
   }, [fetchPooled])
@@ -488,15 +491,26 @@ export default function PredictorPanel({ ticker, tf }) {
 
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800 flex-wrap gap-2">
-        <span className="font-semibold text-sm">
-          Next-Bar Predictor — {ticker}
-          {td?.current_regime === 'bull' && (
-            <span className="ml-2 text-[9px] bg-lime-900/50 text-lime-400 px-1.5 py-0.5 rounded font-normal">🟢 Bull Regime</span>
-          )}
-          {td?.current_regime === 'bear' && (
-            <span className="ml-2 text-[9px] bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded font-normal">🔴 Bear Regime</span>
-          )}
-        </span>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="font-semibold text-sm">
+            Next-Bar Predictor — {ticker}
+            {td?.current_regime === 'bull' && (
+              <span className="ml-2 text-[9px] bg-lime-900/50 text-lime-400 px-1.5 py-0.5 rounded font-normal">🟢 Bull Regime</span>
+            )}
+            {td?.current_regime === 'bear' && (
+              <span className="ml-2 text-[9px] bg-red-900/50 text-red-400 px-1.5 py-0.5 rounded font-normal">🔴 Bear Regime</span>
+            )}
+          </span>
+          <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
+            {TF_OPTS_PRED.map(t => (
+              <button key={t} onClick={() => setLocalTf(t)}
+                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
+                  ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                {t.toUpperCase()}
+              </button>
+            ))}
+          </div>
+        </div>
         <div className="flex items-center gap-2">
           {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
           {!loading && (
@@ -548,7 +562,7 @@ export default function PredictorPanel({ ticker, tf }) {
 
       {/* Pooled stats status + build */}
       {(source === 'pooled' || source === 'both') && (
-        <PooledStatusBar universe={poolUni} interval={tf} onBuildDone={fetchPooled} />
+        <PooledStatusBar universe={poolUni} interval={localTf} onBuildDone={fetchPooled} />
       )}
 
       {/* ── Matrix view ── */}
