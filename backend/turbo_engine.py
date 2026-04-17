@@ -26,6 +26,7 @@ import pandas as pd
 
 from db import get_db, USE_PG, pk_col
 
+from indicators    import rsi as _rsi_ind, cci as _cci_ind
 from signal_engine import compute_signals, compute_b_signals, compute_g_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, compute_tz_state
@@ -638,22 +639,13 @@ def _scan_turbo_ticker(
 
         # ── RSI(14) ────────────────────────────────────────────────────────
         try:
-            delta = df["close"].diff()
-            gain  = delta.where(delta > 0, 0.0).ewm(alpha=1 / 14, adjust=False).mean()
-            loss  = (-delta.where(delta < 0, 0.0)).ewm(alpha=1 / 14, adjust=False).mean()
-            rs    = gain / loss.replace(0, np.nan)
-            rsi_s = 100 - (100 / (1 + rs))
-            row["rsi"] = round(float(rsi_s.iloc[-1]), 1)
+            row["rsi"] = round(float(_rsi_ind(df["close"], 14).iloc[-1]), 1)
         except Exception:
             row["rsi"] = 0.0
 
         # ── CCI(20) ────────────────────────────────────────────────────────
         try:
-            tp     = (df["high"] + df["low"] + df["close"]) / 3
-            tp_ma  = tp.rolling(20).mean()
-            mad    = tp.rolling(20).apply(lambda x: np.mean(np.abs(x - np.mean(x))), raw=True)
-            cci_s  = (tp - tp_ma) / (0.015 * mad.replace(0, np.nan))
-            row["cci"] = round(float(cci_s.iloc[-1]), 1)
+            row["cci"] = round(float(_cci_ind(df["high"], df["low"], df["close"], 20).iloc[-1]), 1)
         except Exception:
             row["cci"] = 0.0
 

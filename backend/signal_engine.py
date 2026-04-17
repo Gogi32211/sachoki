@@ -22,6 +22,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from indicators import norm_ohlcv as _norm_ohlcv
 
 pd.set_option("future.no_silent_downcasting", True)
 
@@ -202,12 +203,7 @@ def compute_signals(
 
 
 def _norm(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = [str(c).lower() for c in df.columns]
-    missing = {"open", "high", "low", "close"} - set(df.columns)
-    if missing:
-        raise ValueError(f"Missing columns: {missing}")
-    return df
+    return _norm_ohlcv(df)
 
 
 # ---------------------------------------------------------------------------
