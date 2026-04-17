@@ -360,12 +360,8 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
       } else if (building) {
         setBuilding(false)
         onBuildDone?.()
-      } else if (!s.data?.available && !autoTriggered.current) {
-        // auto-build silently when stats are missing (e.g. after Railway restart)
-        autoTriggered.current = true
-        build(true)
-        setTimeout(fetchStatus, 4000)
       }
+      // No auto-build — user must press Build manually
     }).catch(() => {})
   }, [universe, interval, building, build])
 
