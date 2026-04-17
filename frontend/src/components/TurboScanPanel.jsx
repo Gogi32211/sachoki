@@ -1,4 +1,5 @@
-import { useState, useEffect, useMemo, useRef } from 'react'
+import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
+import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
@@ -343,6 +344,116 @@ function scoreReason(r) {
     : `score ${sc.toFixed(1)}`
 }
 
+// ── Mini chart popup ──────────────────────────────────────────────────────────
+function MiniChartPopup({ row, tf, pos, onClose }) {
+  const containerRef = useRef(null)
+  const chartRef     = useRef(null)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    if (!containerRef.current) return
+    const chart = createChart(containerRef.current, {
+      layout: { background: { color: '#030712' }, textColor: '#9ca3af' },
+      grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
+      crosshair: { mode: 1 },
+      rightPriceScale: { borderColor: '#374151' },
+      timeScale: { borderColor: '#374151', timeVisible: false },
+      width: 320,
+      height: 180,
+      handleScroll: false,
+      handleScale: false,
+    })
+    const series = chart.addCandlestickSeries({
+      upColor: '#22c55e', downColor: '#ef4444',
+      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
+      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
+    })
+    chartRef.current = chart
+
+    api.signals(row.ticker, tf, 60)
+      .then(d => {
+        const bars = (d.bars || []).map(b => ({
+          time: b.time, open: b.open, high: b.high, low: b.low, close: b.close,
+        })).filter(b => b.time)
+        if (bars.length) {
+          series.setData(bars)
+          chart.timeScale().fitContent()
+        }
+        setLoading(false)
+      })
+      .catch(() => setLoading(false))
+
+    return () => { try { chart.remove() } catch {} }
+  }, [row.ticker, tf])
+
+  // position: try right of cursor, flip left if too close to right edge
+  const POPUP_W = 340
+  const POPUP_H = 320
+  const vw = window.innerWidth
+  const vh = window.innerHeight
+  let left = pos.x + 16
+  if (left + POPUP_W > vw - 8) left = pos.x - POPUP_W - 8
+  let top = pos.y - 60
+  if (top + POPUP_H > vh - 8) top = vh - POPUP_H - 8
+  if (top < 8) top = 8
+
+  const chg = row.change_pct ?? 0
+  const bullish = row.tz_bull
+
+  return (
+    <div
+      className="fixed z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs text-gray-100 pointer-events-none"
+      style={{ left, top, width: POPUP_W }}
+    >
+      {/* Header */}
+      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
+        <div className="flex items-center gap-2">
+          <span className="font-mono font-bold text-blue-300 text-sm">{row.ticker}</span>
+          {row.vol_bucket && <span className="text-gray-500">{row.vol_bucket}</span>}
+          {row.tz_sig && (
+            <span className={`font-mono font-semibold ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
+              {row.tz_sig}
+            </span>
+          )}
+        </div>
+        <div className="text-right">
+          <span className="font-mono text-gray-100 text-sm">${fmt(row.last_price)}</span>
+          <span className={`ml-2 font-mono ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
+            {chg >= 0 ? '+' : ''}{fmt(chg)}%
+          </span>
+        </div>
+      </div>
+
+      {/* Stats row */}
+      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-gray-800 text-gray-400">
+        <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.rsi, 0)}</span></span>
+        <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.cci, 0)}</span></span>
+        <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
+        {row.avg_vol > 0 && (
+          <span className="ml-auto">
+            {row.avg_vol >= 1_000_000 ? `${(row.avg_vol/1_000_000).toFixed(1)}M` : row.avg_vol >= 1_000 ? `${Math.round(row.avg_vol/1_000)}K` : Math.round(row.avg_vol)}
+          </span>
+        )}
+      </div>
+
+      {/* Chart */}
+      <div className="relative">
+        <div ref={containerRef} style={{ width: 320, height: 180 }} />
+        {loading && (
+          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 text-gray-500">
+            Loading…
+          </div>
+        )}
+      </div>
+
+      {/* Signal summary */}
+      <div className="px-3 py-1.5 text-gray-500 text-[10px] truncate border-t border-gray-800">
+        {scoreReason(row)}
+      </div>
+    </div>
+  )
+}
+
 // ── Turbo scan localStorage cache ─────────────────────────────────────────────
 const _tsKey  = (tf, uni) => `sachoki_turbo_${tf}_${uni}`
 const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
@@ -369,6 +480,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
+  const [hoverPopup,  setHoverPopup]  = useState(null)   // { row, pos }
+  const hoverTimer = useRef(null)
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -493,8 +606,24 @@ export default function TurboScanPanel({ onSelectTicker }) {
     setTimeout(() => setExported(false), 2000)
   }
 
+  const handleRowEnter = useCallback((e, row) => {
+    clearTimeout(hoverTimer.current)
+    const rect = e.currentTarget.getBoundingClientRect()
+    hoverTimer.current = setTimeout(() => {
+      setHoverPopup({ row, pos: { x: rect.right, y: rect.top + rect.height / 2 } })
+    }, 350)
+  }, [])
+
+  const handleRowLeave = useCallback(() => {
+    clearTimeout(hoverTimer.current)
+    setHoverPopup(null)
+  }, [])
+
   // cleanup on unmount
-  useEffect(() => () => { if (pollIvRef.current) clearInterval(pollIvRef.current) }, [])
+  useEffect(() => () => {
+    if (pollIvRef.current) clearInterval(pollIvRef.current)
+    clearTimeout(hoverTimer.current)
+  }, [])
 
   // ── Poll until done ────────────────────────────────────────────────────────
   const _stopPoll = () => {
@@ -536,7 +665,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs">
+    <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs" onMouseLeave={handleRowLeave}>
+      {hoverPopup && (
+        <MiniChartPopup row={hoverPopup.row} tf={localTf} pos={hoverPopup.pos} onClose={() => setHoverPopup(null)} />
+      )}
 
       {/* ── Row 0: Universe selector ── */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
@@ -777,7 +909,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
             {results.map(r => (
               <tr key={r.ticker}
                 className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(r[effectiveScoreCol] ?? r.turbo_score ?? 0)}`}
-                onClick={() => onSelectTicker?.(r.ticker)}>
+                onClick={() => onSelectTicker?.(r.ticker)}
+                onMouseEnter={e => handleRowEnter(e, r)}
+                onMouseLeave={handleRowLeave}>
 
                 {/* Checkbox */}
                 <td className="px-2 py-1 w-5" onClick={e => e.stopPropagation()}>
