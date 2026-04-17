@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { api } from '../api'
 
 // Signal label map → shorter display names
@@ -99,6 +99,26 @@ export default function SignalCorrelPanel() {
           className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">
           ↺
         </button>
+
+        {sorted.length > 0 && (
+          <button
+            onClick={() => {
+              const header = 'Signal A,Signal B,Together,A fires,B fires,% of A,% of B,max%'
+              const rows = sorted.map(p =>
+                `${p.sig_a},${p.sig_b},${p.both},${p.a_count},${p.b_count},${p.pct_a}%,${p.pct_b}%,${p.max_pct}%`
+              )
+              const csv = [header, ...rows].join('\n')
+              const url = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }))
+              const a = document.createElement('a')
+              a.href = url
+              a.download = `signal_correlation_${tf}_${universe}_min${minPct}pct.csv`
+              a.click()
+              URL.revokeObjectURL(url)
+            }}
+            className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">
+            ⬇ CSV
+          </button>
+        )}
       </div>
 
       {/* Stats bar */}
