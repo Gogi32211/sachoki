@@ -1,23 +1,13 @@
 """
 ultra_engine.py — 260308+L88 and 260315 ULTRA v2 signal engines.
-
-260308: Volume jump (vol >= prev × 2, bull candle, delta expansion)
-L88:    260308 + L34/L43 context (current or previous bar)
-
-ULTRA v2:
-  EB       — Extended Bar (big body, tiny wicks)
-  FBO      — Failed Breakout (breakout reversal)
-  4BF      — Four Bar Fractal (David Paul)
-  VSA      — SQ / NS / ND / SIG3_UP / SIG3_DN
-  BEST     — FBO + 4BF confluence
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from indicators import atr as _atr_hlc
 
 
-# ── 260308 + L88 ─────────────────────────────────────────────────────────────
 def compute_260308_l88(
     df: pd.DataFrame,
     vol_mult: float = 2.0,
@@ -38,7 +28,6 @@ def compute_260308_l88(
 
     sig_260308 = vol_higher & vol_jump & bull_cand & delta_ok
 
-    # L34 / L43 from wlnbb (imported here to avoid circular deps)
     try:
         from wlnbb_engine import compute_wlnbb
         wl   = compute_wlnbb(df)
@@ -56,15 +45,10 @@ def compute_260308_l88(
     }, index=df.index)
 
 
-# ── ATR helper (EMA) ──────────────────────────────────────────────────────────
 def _atr(df: pd.DataFrame, n: int = 14) -> pd.Series:
-    h, l, c = df["high"], df["low"], df["close"]
-    prev_c = c.shift(1)
-    tr = pd.concat([h - l, (h - prev_c).abs(), (l - prev_c).abs()], axis=1).max(axis=1)
-    return tr.ewm(alpha=1 / n, adjust=False).mean()
+    return _atr_hlc(df["high"], df["low"], df["close"], n)
 
 
-# ── 260315 ULTRA v2 ───────────────────────────────────────────────────────────
 def compute_ultra_v2(
     df: pd.DataFrame,
     eb_body_mult: float = 1.5,
@@ -83,38 +67,30 @@ def compute_ultra_v2(
     c, o, h, l = df["close"], df["open"], df["high"], df["low"]
     v = df["volume"] if "volume" in df.columns else pd.Series(1.0, index=df.index)
 
-    # ── Extended Bar ──────────────────────────────────────────────────────────
     curr_body  = (c - o).abs()
     avg_body   = (c - o).abs().shift(1).rolling(eb_lookback, min_periods=1).mean()
-    curr_top   = c.where(c >= o, o)   # max(c, o)
-    curr_bot   = c.where(c <= o, o)   # min(c, o)
+    curr_top   = c.where(c >= o, o)
+    curr_bot   = c.where(c <= o, o)
     upper_wick = h - curr_top
     lower_wick = curr_bot - l
     total_wick = upper_wick + lower_wick
     big_body   = curr_body >= avg_body * eb_body_mult
-    # little_tail: total_wick <= body × ratio  (avoid div-by-zero)
     little_tail = total_wick <= curr_body.replace(0, np.nan) * eb_wick_ratio
     little_tail = little_tail.fillna(False)
     eb_raw  = big_body & little_tail
     eb_bull = eb_raw & (c > o)
     eb_bear = eb_raw & (c < o)
 
-    # ── Failed Breakout ───────────────────────────────────────────────────────
     n_bar_high = h.shift(1).rolling(fbo_lookback, min_periods=1).max()
     n_bar_low  = l.shift(1).rolling(fbo_lookback, min_periods=1).min()
-    # failed BULL breakout → price closes back inside → bearish signal
     fbo_bear = (h > n_bar_high) & (c < n_bar_high) & (c < o)
-    # failed BEAR breakout → bullish signal
     fbo_bull = (l < n_bar_low)  & (c > n_bar_low)  & (c > o)
 
-    # ── Four Bar Fractal ──────────────────────────────────────────────────────
     bf_buy  = (c > h.shift(1)) & (c > h.shift(3))
     bf_sell = (c < l.shift(1)) & (c < l.shift(3))
 
-    # ── Inside Bar ───────────────────────────────────────────────────────────
     inside_bar = (h <= h.shift(1)) & (l >= l.shift(1))
 
-    # ── VSA ───────────────────────────────────────────────────────────────────
     vol_ma = v.rolling(vol_len, min_periods=1).mean()
     hi_vol = v >= vol_ma * hi_vol_mult
     lo_vol = v <= vol_ma * lo_vol_mult
@@ -140,7 +116,6 @@ def compute_ultra_v2(
     sig3_up = effort_recent & test_recent & confirm_up
     sig3_dn = effort_recent & test_recent & confirm_dn
 
-    # ── BEST: FBO + 4BF confluence ───────────────────────────────────────────
     best_long  = fbo_bull & bf_buy
     best_short = fbo_bear & bf_sell
 
