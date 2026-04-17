@@ -350,16 +350,20 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
   const chartRef     = useRef(null)
   const [loading, setLoading] = useState(true)
 
+  const CHART_W = 780
+  const CHART_H = 380
+
   useEffect(() => {
     if (!containerRef.current) return
+    const isIntraday = ['30m', '15m', '1h', '4h'].includes(tf)
     const chart = createChart(containerRef.current, {
       layout: { background: { color: '#030712' }, textColor: '#9ca3af' },
       grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: '#374151' },
-      timeScale: { borderColor: '#374151', timeVisible: false },
-      width: 320,
-      height: 180,
+      timeScale: { borderColor: '#374151', timeVisible: isIntraday },
+      width: CHART_W,
+      height: CHART_H,
       handleScroll: false,
       handleScale: false,
     })
@@ -370,11 +374,21 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
     })
     chartRef.current = chart
 
-    api.signals(row.ticker, tf, 60)
-      .then(d => {
-        const bars = (d.bars || []).map(b => ({
-          time: b.time, open: b.open, high: b.high, low: b.low, close: b.close,
-        })).filter(b => b.time)
+    api.signals(row.ticker, tf, 80)
+      .then(rows => {
+        const toTime = r => {
+          const d = r.date ?? r.Datetime ?? r.Date
+          if (!d) return null
+          if (isIntraday) {
+            const ms = new Date(String(d).replace(' ', 'T')).getTime()
+            return isNaN(ms) ? null : Math.floor(ms / 1000)
+          }
+          return String(d).slice(0, 10)
+        }
+        const bars = rows
+          .filter(r => r.close != null && toTime(r))
+          .map(r => ({ time: toTime(r), open: Number(r.open), high: Number(r.high), low: Number(r.low), close: Number(r.close) }))
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
         if (bars.length) {
           series.setData(bars)
           chart.timeScale().fitContent()
@@ -387,18 +401,17 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
   }, [row.ticker, tf])
 
   // position: try right of cursor, flip left if too close to right edge
-  const POPUP_W = 340
-  const POPUP_H = 320
+  const POPUP_W = 820
+  const POPUP_H = 520
   const vw = window.innerWidth
   const vh = window.innerHeight
   let left = pos.x + 16
   if (left + POPUP_W > vw - 8) left = pos.x - POPUP_W - 8
-  let top = pos.y - 60
+  let top = pos.y - 80
   if (top + POPUP_H > vh - 8) top = vh - POPUP_H - 8
   if (top < 8) top = 8
 
   const chg = row.change_pct ?? 0
-  const bullish = row.tz_bull
 
   return (
     <div
@@ -406,26 +419,26 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       style={{ left, top, width: POPUP_W }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-3 py-2 border-b border-gray-700">
-        <div className="flex items-center gap-2">
-          <span className="font-mono font-bold text-blue-300 text-sm">{row.ticker}</span>
-          {row.vol_bucket && <span className="text-gray-500">{row.vol_bucket}</span>}
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
+        <div className="flex items-center gap-3">
+          <span className="font-mono font-bold text-blue-300 text-base">{row.ticker}</span>
+          {row.vol_bucket && <span className="text-gray-500 text-sm">{row.vol_bucket}</span>}
           {row.tz_sig && (
-            <span className={`font-mono font-semibold ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
+            <span className={`font-mono font-semibold text-sm ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
               {row.tz_sig}
             </span>
           )}
         </div>
         <div className="text-right">
-          <span className="font-mono text-gray-100 text-sm">${fmt(row.last_price)}</span>
-          <span className={`ml-2 font-mono ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
+          <span className="font-mono text-gray-100 text-base">${fmt(row.last_price)}</span>
+          <span className={`ml-2 font-mono text-sm ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
             {chg >= 0 ? '+' : ''}{fmt(chg)}%
           </span>
         </div>
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-3 px-3 py-1.5 border-b border-gray-800 text-gray-400">
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-gray-800 text-gray-400">
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
@@ -438,7 +451,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
       {/* Chart */}
       <div className="relative">
-        <div ref={containerRef} style={{ width: 320, height: 180 }} />
+        <div ref={containerRef} style={{ width: CHART_W, height: CHART_H }} />
         {loading && (
           <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 text-gray-500">
             Loading…
@@ -447,7 +460,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Signal summary */}
-      <div className="px-3 py-1.5 text-gray-500 text-[10px] truncate border-t border-gray-800">
+      <div className="px-4 py-2 text-gray-400 text-xs truncate border-t border-gray-800">
         {scoreReason(row)}
       </div>
     </div>
