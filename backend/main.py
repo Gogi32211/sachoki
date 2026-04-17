@@ -595,8 +595,23 @@ def api_turbo_analyze(ticker: str, tf: str = "1d"):
 
 @app.get("/api/signal-correlation")
 def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int = 15):
-    from turbo_engine import get_turbo_results, _TURBO_COLS
+    from turbo_engine import get_turbo_results, _TURBO_COLS, _init_db, _db
+    import numpy as np
+
+    # Try requested universe first; fall back to latest scan for this tf regardless of universe
     rows = get_turbo_results(limit=5000, min_score=0, direction="all", tf=tf, universe=universe)
+    if not rows:
+        _init_db()
+        con = _db()
+        try:
+            row = con.execute(
+                "SELECT id, universe FROM turbo_scan_runs WHERE tf=? ORDER BY id DESC LIMIT 1", (tf,)
+            ).fetchone()
+        finally:
+            con.close()
+        if row:
+            rows = get_turbo_results(limit=5000, min_score=0, direction="all", tf=tf, universe=row["universe"])
+
     if not rows:
         return {"n_tickers": 0, "signal_counts": {}, "pairs": []}
 
@@ -606,9 +621,7 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int
         "rsi", "cci", "avg_vol", "tz_sig", "vol_bucket", "sig_ages", "data_source", "tz_state",
     }]
 
-    import numpy as np
     n = len(rows)
-    # Build matrix
     mat = {c: np.array([int(bool(r.get(c, 0))) for r in rows], dtype=np.int8) for c in bool_cols}
     counts = {c: int(mat[c].sum()) for c in bool_cols}
 
