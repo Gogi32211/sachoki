@@ -89,3 +89,69 @@ def compute_wick(
         },
         index=df.index,
     )
+
+
+def compute_wick_x(df: pd.DataFrame, wick_mult: float = 2.0) -> pd.DataFrame:
+    df = df.copy()
+    df.columns = [str(c).lower() for c in df.columns]
+
+    o = df["open"].values.astype(float)
+    h = df["high"].values.astype(float)
+    l = df["low"].values.astype(float)
+    c = df["close"].values.astype(float)
+    mt = 1e-10
+
+    def upper_wick(h_, o_, c_):
+        return h_ - np.maximum(o_, c_)
+
+    def lower_wick(o_, c_, l_):
+        return np.minimum(o_, c_) - l_
+
+    uw0 = upper_wick(h, o, c)
+    lw0 = lower_wick(o, c, l)
+
+    h1 = np.roll(h, 1); o1 = np.roll(o, 1); c1 = np.roll(c, 1); l1 = np.roll(l, 1)
+    uw1 = upper_wick(h1, o1, c1)
+    lw1 = lower_wick(o1, c1, l1)
+
+    h2 = np.roll(h, 2); o2 = np.roll(o, 2); c2 = np.roll(c, 2); l2 = np.roll(l, 2)
+    uw2 = upper_wick(h2, o2, c2)
+    lw2 = lower_wick(o2, c2, l2)
+
+    lw1_safe     = np.maximum(lw1, mt)
+    wc_prev      = (lw1 == 0) | (uw1 >= wick_mult * lw1_safe)
+    uw1_safe     = np.maximum(uw1, mt)
+    wc_prev_bull = (uw1 == 0) | (lw1 >= wick_mult * uw1_safe)
+    lw2_safe     = np.maximum(lw2, mt)
+    wc_prev2     = (lw2 == 0) | (uw2 >= wick_mult * lw2_safe)
+    uw0_safe     = np.maximum(uw0, mt)
+    wc_curr      = (uw0 == 0) | (lw0 >= wick_mult * uw0_safe)
+
+    is_bull  = c  > o
+    is_bull1 = c1 > o1
+    is_bear1 = c1 < o1
+
+    x2g_raw = is_bull1 & (o >= o1) & (o >  c1) & (c > c1) & is_bull
+    x2_raw  = is_bull1 & (o >= o1) & (o <= c1) & (c > c1) & is_bull
+    x1g_raw = is_bear1 & (o > c1)  & (o > o1)  & (c > o1) & is_bull
+    x1_raw  = is_bear1 & (o >= c1) & (o1 >= o) & (c > o1) & is_bull
+
+    x2g_wick_all = ((x2g_raw | x2_raw) & wc_prev & wc_curr) | (x2g_raw & wc_prev_bull & wc_curr)
+    x1x_wick_all = (x1g_raw | x1_raw) & wc_prev
+    x3_wick      = wc_curr & (wc_prev | wc_prev2) & is_bull
+
+    x2g_wick = x2g_wick_all &  x2g_raw
+    x2_wick  = x2g_wick_all & ~x2g_raw
+    x1g_wick = x1x_wick_all &  x1g_raw
+    x1_wick  = x1x_wick_all & ~x1g_raw
+
+    for arr in (x2g_wick, x2_wick, x1g_wick, x1_wick, x3_wick):
+        arr[:2] = False
+
+    out = pd.DataFrame(index=df.index)
+    out["x2g_wick"] = x2g_wick.astype(int)
+    out["x2_wick"]  = x2_wick.astype(int)
+    out["x1g_wick"] = x1g_wick.astype(int)
+    out["x1_wick"]  = x1_wick.astype(int)
+    out["x3_wick"]  = (x3_wick & ~x2g_wick_all & ~x1x_wick_all).astype(int)
+    return out
