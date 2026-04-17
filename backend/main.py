@@ -428,17 +428,33 @@ def api_power_scan_status():
 
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
-    limit: int = 500,
+    limit: int = 10000,
     min_score: float = 0,
     direction: str = "bull",
     tf: str = "1d",
     universe: str = "sp500",
+    price_min: float = 0,
+    price_max: float = 1e9,
+    rsi_min: float = 0,
+    rsi_max: float = 100,
+    cci_min: float = -9999,
+    cci_max: float = 9999,
+    vol_min: float = 0,
+    vol_max: float = 0,
 ):
-    from turbo_engine import get_turbo_results, get_last_turbo_scan_time
-    results   = get_turbo_results(limit=limit, min_score=min_score, direction=direction,
-                                  tf=tf, universe=universe)
-    last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
-    return {"results": results, "last_scan": last_time}
+    try:
+        from turbo_engine import get_turbo_results, get_last_turbo_scan_time
+        results   = get_turbo_results(limit=limit, min_score=min_score, direction=direction,
+                                      tf=tf, universe=universe,
+                                      price_min=price_min, price_max=price_max,
+                                      rsi_min=rsi_min, rsi_max=rsi_max,
+                                      cci_min=cci_min, cci_max=cci_max,
+                                      vol_min=vol_min, vol_max=vol_max)
+        last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
+        return {"results": results, "last_scan": last_time}
+    except Exception as exc:
+        log.exception("turbo-scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
 
 
 @app.post("/api/turbo-scan/trigger")
@@ -446,12 +462,15 @@ def api_turbo_scan_trigger(
     background_tasks: BackgroundTasks,
     tf: str = "1d",
     universe: str = "sp500",
+    lookback_n: int = 5,
+    partial_day: bool = False,
+    min_volume: float = 0,
 ):
     from turbo_engine import run_turbo_scan, get_turbo_progress
     if get_turbo_progress().get("running"):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background_tasks.add_task(run_turbo_scan, tf, universe)
-    return {"status": "turbo scan started", "tf": tf, "universe": universe}
+    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n, partial_day, min_volume)
+    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day, "min_volume": min_volume}
 
 
 @app.get("/api/turbo-scan/status")
