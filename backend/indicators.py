@@ -7,6 +7,8 @@ Public functions
 ----------------
 norm_ohlcv(df, require_volume)  — normalise column names, optionally validate
 rma(series, period)             — Wilder's Moving Average
+ema(series, span)               — Exponential Moving Average
+bollinger_bands(series, …)      — (basis, upper, lower) Bollinger Bands
 rsi(series, period, fillna_val) — RSI (Wilder smoothing)
 atr(high, low, close, period)   — Average True Range
 cci(high, low, close, period)   — Commodity Channel Index
@@ -41,6 +43,19 @@ def norm_ohlcv(df: pd.DataFrame, require_volume: bool = False) -> pd.DataFrame:
 
 def rma(series: pd.Series, period: int) -> pd.Series:
     return series.ewm(alpha=1.0 / period, adjust=False).mean()
+
+
+def ema(series: pd.Series, span: int) -> pd.Series:
+    return series.ewm(span=span, adjust=False).mean()
+
+
+def bollinger_bands(
+    series: pd.Series, period: int = 20, num_std: float = 2.0
+) -> tuple[pd.Series, pd.Series, pd.Series]:
+    """Returns (basis, upper, lower)."""
+    basis = series.rolling(period, min_periods=1).mean()
+    std   = series.rolling(period, min_periods=1).std()
+    return basis, basis + num_std * std, basis - num_std * std
 
 
 # ── Oscillators ───────────────────────────────────────────────────────────────

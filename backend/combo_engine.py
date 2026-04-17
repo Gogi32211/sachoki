@@ -10,6 +10,7 @@ from indicators import (
     rsi as _rsi, atr as _atr, macd as _macd_ind,
     crossover as _crossover, psar as _psar,
     apply_cooldown as _apply_cooldown,
+    ema as _ema, bollinger_bands as _bb,
 )
 
 
@@ -24,18 +25,16 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
         else pd.Series(0.0, index=df.index)
     )
 
-    ema9  = close.ewm(span=9,  adjust=False).mean()
-    ema20 = close.ewm(span=20, adjust=False).mean()
-    ema50 = close.ewm(span=50, adjust=False).mean()
-    ema89 = close.ewm(span=89, adjust=False).mean()
+    ema9  = _ema(close, 9)
+    ema20 = _ema(close, 20)
+    ema50 = _ema(close, 50)
+    ema89 = _ema(close, 89)
 
     avg_vol  = volume.rolling(20, min_periods=1).mean().replace(0, np.nan)
     rsi14    = _rsi(close, 14)
     atr14    = _atr(high, low, close, 14)
 
-    bb_basis = close.rolling(20, min_periods=1).mean()
-    bb_std   = close.rolling(20, min_periods=1).std()
-    bb_upper = bb_basis + 2.0 * bb_std
+    bb_basis, bb_upper, _ = _bb(close, 20, 2.0)
 
     prev_close = close.shift(1).replace(0, np.nan)
 
