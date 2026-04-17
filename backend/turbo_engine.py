@@ -216,19 +216,35 @@ def _init_db() -> None:
     """)
     con.commit()
     # migration: add any missing columns
-    existing = con.table_columns("turbo_scan_results")
-    for col in _TURBO_COLS:
-        if col not in existing:
-            typ = "TEXT" if col in ("tz_sig", "vol_bucket", "sig_ages") else "REAL" if col in ("turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci") else "INTEGER"
-            default = "''" if col in ("tz_sig", "vol_bucket", "sig_ages") else "0"
-            con.execute(f"ALTER TABLE turbo_scan_results ADD COLUMN {col} {typ} DEFAULT {default}")
-    run_cols = con.table_columns("turbo_scan_runs")
-    if "tf" not in run_cols:
-        con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
-    if "universe" not in run_cols:
-        con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN universe TEXT DEFAULT 'sp500'")
-    con.commit()
-    con.close()
+    _TEXT_COLS = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
+    _REAL_COLS = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10",
+                  "rsi", "cci", "avg_vol"}
+    try:
+        existing = con.table_columns("turbo_scan_results")
+        for col in _TURBO_COLS:
+            if col not in existing:
+                typ     = "TEXT" if col in _TEXT_COLS else "REAL" if col in _REAL_COLS else "INTEGER"
+                default = "''"   if col in _TEXT_COLS else "0"
+                # Use IF NOT EXISTS on PG to avoid race-condition failures across workers
+                if_not = "IF NOT EXISTS " if USE_PG else ""
+                con.execute(
+                    f"ALTER TABLE turbo_scan_results ADD COLUMN {if_not}{col} {typ} DEFAULT {default}"
+                )
+        run_cols = con.table_columns("turbo_scan_runs")
+        if "tf" not in run_cols:
+            con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
+        if "universe" not in run_cols:
+            con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN universe TEXT DEFAULT 'sp500'")
+        con.commit()
+    except Exception as _mig_exc:
+        log.warning("_init_db migration warning (non-fatal): %s", _mig_exc)
+        try:
+            if USE_PG:
+                con._pg.rollback()
+        except Exception:
+            pass
+    finally:
+        con.close()
 
 
 # ── Score calculator ──────────────────────────────────────────────────────────
