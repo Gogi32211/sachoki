@@ -236,16 +236,18 @@ def api_watchlist_save(body: dict):
 @app.get("/api/predict/{ticker}")
 def api_predict(ticker: str, tf: str = "1d"):
     try:
+        from predictor import compute_tz_stats
         df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
         sigs  = compute_signals(df)
         full  = df.join(sigs)
         tz    = predict_next(full)
+        tz_stats = compute_tz_stats(full)
 
         wlnbb = compute_wlnbb(df)
         full_w = full.join(wlnbb)
         l_preds = predict_l_next(full_w)
 
-        return {**tz, **l_preds}
+        return {**tz, **l_preds, "tz_stats": tz_stats}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -298,11 +300,17 @@ def api_pooled_stats_status(universe: str = "sp500", interval: str = "1d"):
 @app.get("/api/tz-l-stats/{ticker}")
 def api_tz_l_stats(ticker: str, tf: str = "1d"):
     try:
-        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
-        sigs  = compute_signals(df)
-        wlnbb = compute_wlnbb(df)
-        combined = sigs.join(wlnbb)
-        return {"matrix": compute_tz_l_matrix(combined)}
+        def _matrix(sym):
+            d = fetch_ohlcv(sym, interval=tf, bars=5000)
+            return compute_tz_l_matrix(compute_signals(d).join(compute_wlnbb(d)))
+
+        matrix = _matrix(ticker.upper())
+        try:    bench_spy = _matrix("SPY")
+        except: bench_spy = None
+        try:    bench_qqq = _matrix("QQQ")
+        except: bench_qqq = None
+
+        return {"matrix": matrix, "bench_spy": bench_spy, "bench_qqq": bench_qqq}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
