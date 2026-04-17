@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useRef } from 'react'
 import { api } from '../api'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
@@ -356,6 +356,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [lastScan,   setLastScan]   = useState(() => _tsGet('1d', 'sp500')?.lastScan || null)
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
+  const pollIvRef   = useRef(null)   // interval handle — prevents duplicate polls
   const [massiveReady, setMassiveReady] = useState(null)
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
@@ -492,25 +493,34 @@ export default function TurboScanPanel({ onSelectTicker }) {
     setTimeout(() => setExported(false), 2000)
   }
 
+  // cleanup on unmount
+  useEffect(() => () => { if (pollIvRef.current) clearInterval(pollIvRef.current) }, [])
+
   // ── Poll until done ────────────────────────────────────────────────────────
+  const _stopPoll = () => {
+    if (pollIvRef.current) { clearInterval(pollIvRef.current); pollIvRef.current = null }
+  }
+
   const _poll = () => {
+    _stopPoll()  // kill any previous poll before starting a new one
     const activeTf = localTf
     const uni      = universe
-    const iv  = setInterval(() => {
+    pollIvRef.current = setInterval(() => {
       api.turboScanStatus()
         .then(s => {
           if (!s.running) {
-            clearInterval(iv); setScanning(false)
+            _stopPoll(); setScanning(false)
             if (s.error) setError(s.error)
             else load(activeTf, uni)
           }
         })
-        .catch(() => { clearInterval(iv); setScanning(false) })
+        .catch(() => { _stopPoll(); setScanning(false) })
     }, 2000)
-    setTimeout(() => { clearInterval(iv); setScanning(false); load(activeTf, uni) }, 360_000)
+    setTimeout(() => { _stopPoll(); setScanning(false); load(activeTf, uni) }, 360_000)
   }
 
   const scan = () => {
+    if (scanning) return  // guard against double-trigger
     setScanning(true); setError(null)
     api.turboScanTrigger(localTf, universe, lookbackN, partialDay, volMin)
       .then(() => _poll())
