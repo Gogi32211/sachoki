@@ -344,7 +344,11 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
     if (!silent) setError(null)
     api.pooledStatsBuild(universe, interval, 2000)
       .then(() => { setBuilding(true) })
-      .catch(e => { if (!silent) setError(e.message) })
+      .catch(e => {
+        // 409 = already running — treat as success
+        if (e.message?.startsWith('409')) { setBuilding(true); return }
+        if (!silent) setError(e.message)
+      })
   }, [universe, interval])
 
   const fetchStatus = useCallback(() => {

@@ -290,9 +290,9 @@ def api_pooled_stats_build(
 @app.get("/api/pooled-stats/status")
 def api_pooled_stats_status(universe: str = "sp500", interval: str = "1d"):
     from pooled_stats import get_pooled_status, get_pooled_state
-    status = get_pooled_status(universe, interval)
-    state  = get_pooled_state()
-    return {**status, "running": state.get("running", False)}
+    data  = get_pooled_status(universe, interval)
+    state = get_pooled_state()
+    return {"data": data, "job": state}
 
 
 @app.get("/api/tz-l-stats/{ticker}")
