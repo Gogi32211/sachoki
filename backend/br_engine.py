@@ -1,16 +1,5 @@
 """
 br_engine.py — Break Readiness (BR%) scan engine.
-
-Translates Pine Script 260328 to Python. Computes a composite 0-100
-readiness score per bar and VWAP×EMA34 entry signals (BUY/BC/BIG/GO/UP).
-
-Result columns stored per ticker (last bar):
-  br_score, cons_bars, cap_count, accum_cluster,
-  me_bull, me_bear, me_count,
-  buy, bc, big, go, up,
-  tz_bull, tz_sig, blue, fri34, l34, rtv, sig3g, raw_p3, raw_p89,
-  wick_bull, cisd_ppm, cisd_seq,
-  last_price, change_pct
 """
 from __future__ import annotations
 
@@ -23,6 +12,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 import numpy as np
 import pandas as pd
 
+from indicators    import rsi as _rsi_ind, atr as _atr_hlc
 from signal_engine import compute_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, last_n_active, active_signal_labels
@@ -32,7 +22,6 @@ from cisd_engine   import compute_cisd
 log = logging.getLogger(__name__)
 DB_PATH = os.environ.get("DB_PATH", "/tmp/scanner.db")
 
-# ── Progress ─────────────────────────────────────────────────────────────────
 _br_state: dict = {"running": False, "done": 0, "total": 0, "found": 0}
 
 
@@ -40,7 +29,6 @@ def get_br_scan_progress() -> dict:
     return dict(_br_state)
 
 
-# ── Helpers ───────────────────────────────────────────────────────────────────
 def _db() -> sqlite3.Connection:
     con = sqlite3.connect(DB_PATH, timeout=30)
     con.execute("PRAGMA journal_mode=WAL")
@@ -49,31 +37,19 @@ def _db() -> sqlite3.Connection:
 
 
 def _rsi(s: pd.Series, n: int) -> pd.Series:
-    d = s.diff()
-    u = d.clip(lower=0)
-    dn = (-d).clip(lower=0)
-    rs = (u.ewm(alpha=1/n, adjust=False).mean() /
-          dn.ewm(alpha=1/n, adjust=False).mean().replace(0, np.nan))
-    return 100 - 100 / (1 + rs)
+    return _rsi_ind(s, n)
 
 
 def _atr(df: pd.DataFrame, n: int) -> pd.Series:
-    h, l, c = df["high"], df["low"], df["close"]
-    tr = pd.concat([h - l,
-                    (h - c.shift(1)).abs(),
-                    (l - c.shift(1)).abs()], axis=1).max(axis=1)
-    return tr.ewm(alpha=1/n, adjust=False).mean()
+    return _atr_hlc(df["high"], df["low"], df["close"], n)
 
 
-# ── Core compute ──────────────────────────────────────────────────────────────
 def compute_br(df: pd.DataFrame) -> pd.DataFrame:
-    """Return a DataFrame (same index as df) with br_score + all sub-signals."""
     c, o, h, l = df["close"], df["open"], df["high"], df["low"]
     v = df["volume"] if "volume" in df.columns else pd.Series(1.0, index=df.index)
     n = len(df)
     idx = df.index
 
-    # ── A1) CONS — ATR Squeeze ────────────────────────────────────────────────
     atr14   = _atr(df, 14)
     squeeze = atr14 < atr14.rolling(20).mean() * 0.6
     cb_arr  = np.zeros(n)
@@ -84,7 +60,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     cons_bars     = pd.Series(cb_arr, index=idx)
     cons_strength = np.minimum(100.0, cb_arr * 5.0)
 
-    # ── A2) CAP — RSI V-bottom ────────────────────────────────────────────────
     rsi14     = _rsi(c, 14)
     cap_sig   = ((rsi14.shift(1) >= 20) & (rsi14.shift(1) <= 32) &
                  (rsi14.shift(2) > rsi14.shift(1)) & (rsi14 > rsi14.shift(1)) &
@@ -94,7 +69,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     cap_count = (cap_cum - cap_cum.shift(20).fillna(0)).clip(lower=0)
     cap_str   = np.minimum(100.0, cap_count.values * 20.0)
 
-    # ── A3) ACCUM — Volume accumulation ──────────────────────────────────────
     vma20    = v.rolling(20).mean()
     vr       = (v / vma20.replace(0, np.nan)).fillna(0)
     rr       = ((h - l) / (h - l).rolling(20).mean().replace(0, np.nan)).fillna(1)
@@ -109,7 +83,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     acc_cluster = (acc_cum - acc_cum.shift(20).fillna(0)).clip(lower=0)
     acc_str     = np.minimum(100.0, acc_cluster.values * 25.0)
 
-    # ── A4) VOL readiness ─────────────────────────────────────────────────────
     vma       = v.rolling(20).mean()
     vc1       = v > vma * 1.5
     vc2       = v > vma * 2.5
@@ -117,15 +90,12 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     bear_bar  = c < o
     vol_pen   = np.where(bear_bar & vc2, -40.0, np.where(bear_bar & vc1, -20.0, 0.0))
 
-    # ── A5) RSI Phase ─────────────────────────────────────────────────────────
     rsi_ph = np.where(rsi14 < 30, 0.0,
              np.where(rsi14 <= 40, 50.0,
              np.where(rsi14 >= 50, 100.0, 75.0)))
 
-    # ── Base (avg 5 components) ───────────────────────────────────────────────
     base = (cons_strength + cap_str + acc_str + vol_str + rsi_ph) / 5.0
 
-    # ── B1) ATR Volume Confirm ────────────────────────────────────────────────
     avg_vol_atr  = v.rolling(20).mean()
     vc_atr_up    = (v > avg_vol_atr * 2.0) & (c > o)
     lv_arr       = np.full(n, np.nan)
@@ -139,7 +109,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     atr_bon   = np.where(vc_atr_up, 6.0, 0.0)
     atr_bon2  = np.where(strong2, 10.0, 0.0)
 
-    # ── B2) GMMA zones ────────────────────────────────────────────────────────
     em = c.ewm(span=20, adjust=False).mean()
     es1, el1 = c.ewm(span=3, adjust=False).mean(), c.ewm(span=5, adjust=False).mean()
     es2, el2 = c.ewm(span=8, adjust=False).mean(), c.ewm(span=50, adjust=False).mean()
@@ -149,7 +118,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     tz2  = dz2 & (o < el2) & (c > es2)
     gmma = np.where(tz2, 15.0, np.where(tz1, 10.0, 0.0))
 
-    # ── B3) RSI TL break / retest ─────────────────────────────────────────────
     rh20     = rsi14.rolling(20).max().shift(1)
     tl_brk   = (rsi14 > rh20) & (rsi14.shift(1) <= rh20.shift(1))
     lb_arr   = np.full(n, np.nan)
@@ -162,22 +130,18 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     tl_ret   = (~np.isnan(lb_arr)) & (bfb > 0) & (bfb <= 20) & ((rsi14.values - rh20.values) > 0) & ((rsi14.values - rh20.values) <= 7.0) & (~tl_brk.values)
     tl_bon   = np.where(tl_brk, 15.0, 0.0) + np.where(tl_ret, 15.0, 0.0)
 
-    # ── B4) RSI Momentum ──────────────────────────────────────────────────────
     rsi_mom = np.where((c > o) & (rsi14 > rsi14.shift(1)), 2.0,
               np.where((c < o) & (rsi14 < rsi14.shift(1)), -2.0, 0.0))
 
-    # ── C1) EMA89 ─────────────────────────────────────────────────────────────
     ema89    = c.ewm(span=89, adjust=False).mean()
     e89_bon  = np.where(c > ema89, 10.0, -15.0)
 
-    # ── C2) NS – No Supply ────────────────────────────────────────────────────
     spr    = h - l
     clv_ns = ((c - l) / spr.replace(0, np.nan)).fillna(0.5)
     ns_bar = (spr < atr14 * 0.8) & (v < vma20 * 0.9) & (c < c.shift(1)) & (clv_ns >= 0.45)
     ns_rec = ns_bar.rolling(5, min_periods=1).max().astype(bool)
     ns_bon = np.where(ns_rec, 8.0, 0.0)
 
-    # ── C3) L34/L43 ───────────────────────────────────────────────────────────
     vm = v.rolling(20).mean(); vstd = v.rolling(20).std()
     vlo = vm - vstd; vup = vm + vstd
     isw = v < vlo; isl = (~isw) & (v < vm)
@@ -195,7 +159,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     l34_rec = (l34r | l43r).rolling(5, min_periods=1).max().astype(bool)
     l34_bon = np.where(l34_rec, 8.0, 0.0)
 
-    # ── C4) DP Structure proximity ────────────────────────────────────────────
     lk = 50
     h_np, l_np = h.values, l.values
     dp_loh = np.full(n, np.nan); dp_hol = np.full(n, np.nan)
@@ -209,13 +172,11 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     dp_brk   = (c > dp_loh_s) & (c.shift(1) <= dp_loh_s.shift(1))
     dp_bon   = np.where(dp_brk, 12.0, np.where(dp_near, 8.0, 0.0))
 
-    # ── D1) T/Z ───────────────────────────────────────────────────────────────
     tz_df    = compute_signals(df)
     is_bull  = tz_df["is_bull"].astype(bool)
     is_bear  = tz_df["is_bear"].astype(bool)
     tz_bon   = np.where(is_bull, 10.0, np.where(is_bear, -12.0, 0.0))
 
-    # ── D2) BLUE / FRI / ST / UI ──────────────────────────────────────────────
     wdf      = compute_wlnbb(df)
     blue_f   = wdf.get("BLUE",  pd.Series(False, index=idx)).astype(bool)
     fri34_f  = wdf.get("FRI34", pd.Series(False, index=idx)).astype(bool)
@@ -227,14 +188,12 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     fri_bon  = np.where(fri34_f, 12.0, 0.0)
     stui_bon = np.where(ui_sig, 8.0, np.where(st_sig, 5.0, 0.0))
 
-    # ── E1) 2W ────────────────────────────────────────────────────────────────
     wkdf     = compute_wick(df)
     wk_bull  = wkdf.get("WICK_BULL_CONFIRM", pd.Series(False, index=idx)).astype(bool)
     wk_bear  = wkdf.get("WICK_BEAR_CONFIRM", pd.Series(False, index=idx)).astype(bool)
     wk_pat   = wkdf.get("WICK_PATTERN",      pd.Series(False, index=idx)).astype(bool)
     w2_bon   = np.where(wk_bull, 10.0, np.where(wk_bear, -8.0, np.where(wk_pat, 6.0, 0.0)))
 
-    # ── E2) CISD ──────────────────────────────────────────────────────────────
     cdf      = compute_cisd(df)
     c_ppm    = cdf.get("CISD_PPM", pd.Series(False, index=idx)).astype(bool)
     c_seq    = cdf.get("CISD_SEQ", pd.Series(False, index=idx)).astype(bool)
@@ -243,7 +202,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     cisd_bon = np.where(c_ppm, 12.0, np.where(c_seq, 10.0,
                np.where(c_pmm, -10.0, np.where(c_mpm, -8.0, 0.0))))
 
-    # ── F1) Mega Engulf ───────────────────────────────────────────────────────
     me_lb  = 10; me_min = 3
     h_np2  = h.values; l_np2 = l.values
     me_cnt = np.zeros(n)
@@ -258,7 +216,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     me_bon   = np.where(me_bull & (me_count >= 6), 12.0,
                np.where(me_bull, 8.0, np.where(me_bear, -10.0, 0.0)))
 
-    # ── F2) PREUP / 3G ───────────────────────────────────────────────────────
     cob     = compute_combo(df)
     p3_f    = cob.get("preup3",  pd.Series(False, index=idx)).astype(bool)
     p89_f   = cob.get("preup89", pd.Series(False, index=idx)).astype(bool)
@@ -270,7 +227,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     sig3g    = prev_bl2 & cur_abv
     pre_bon  = np.where(sig3g, 12.0, np.where(p3_f, 10.0, np.where(p89_f, 8.0, 0.0)))
 
-    # ── F3) RTV ───────────────────────────────────────────────────────────────
     rsi2_s   = _rsi(c, 2)
     rtv_base = ((rsi2_s.shift(1) < 20) & (rsi2_s > 20) &
                 ((c.shift(1) < o.shift(1)) | (c.shift(2) < o.shift(2))) &
@@ -282,20 +238,17 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     rtv_sig  = rtv_base & (vix_f | vix_f.shift(1).fillna(False))
     rtv_bon  = np.where(rtv_sig, 8.0, 0.0)
 
-    # ── Combo bonuses ─────────────────────────────────────────────────────────
     cap_vcomb = cap_sig & (vc_atr_up.values.astype(bool))
     cap_bvcomb = cap_sig.shift(1).fillna(False) & tl_brk & vc_atr_up
     cap_rtv    = cap_sig.shift(1).fillna(False) & pd.Series(tl_ret, index=idx) & pd.Series(strong2, index=idx)
     cmb_bon    = np.where(cap_rtv, 20.0, np.where(cap_bvcomb, 12.0, np.where(cap_vcomb, 8.0, 0.0)))
 
-    # ── Final BR score ─────────────────────────────────────────────────────────
     bonus = (atr_bon + atr_bon2 + gmma + tl_bon + rsi_mom + e89_bon +
              ns_bon + l34_bon + dp_bon + vol_pen + tz_bon +
              blue_bon + fri_bon + stui_bon + w2_bon + cisd_bon +
              me_bon + pre_bon + rtv_bon + cmb_bon)
     br_score = pd.Series(np.clip(base + bonus, 0, 100), index=idx).round(1)
 
-    # ── VWAP(LL) × EMA34 entry signals ───────────────────────────────────────
     ema34  = c.ewm(span=34, adjust=False).mean()
     is_ll  = l == l.rolling(5).min()
     hlc3   = (h + l + c) / 3
@@ -309,8 +262,7 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
             cpv += float(hlc3.iloc[i] * v.iloc[i])
             cvv += float(v.iloc[i])
         cpv_arr[i] = cpv; cvv_arr[i] = cvv
-    with np.errstate(divide='ignore', invalid='ignore'):
-        vwap_ll = pd.Series(np.where(cvv_arr == 0, c.values, np.divide(cpv_arr, cvv_arr, where=cvv_arr != 0, out=c.values.copy())), index=idx)
+    vwap_ll  = pd.Series(np.where(cvv_arr == 0, c.values, cpv_arr / cvv_arr), index=idx)
     buy_sig  = (vwap_ll > ema34) & (vwap_ll.shift(1) <= ema34.shift(1))
 
     lb2_arr  = np.full(n, np.nan); lb2 = np.nan
@@ -362,7 +314,6 @@ def compute_br(df: pd.DataFrame) -> pd.DataFrame:
     }, index=idx)
 
 
-# ── DB init ───────────────────────────────────────────────────────────────────
 _TZ_WEIGHT = {
     "T4": 4, "T6": 4, "T1G": 3, "T2G": 3,
     "T1": 2, "T2": 2, "T9": 1, "T10": 1, "T3": 1, "T11": 1, "T5": 1,
@@ -426,14 +377,12 @@ def _init_db() -> None:
             scanned_at    TEXT
         );
     """)
-    # Migration: add new columns if missing (br_scan_results)
     existing = {r[1] for r in con.execute("PRAGMA table_info(br_scan_results)").fetchall()}
     for col, defn in [("master_score", "REAL DEFAULT 0"),
                       ("combo_score",  "INTEGER DEFAULT 0"),
                       ("combo_labels", "TEXT DEFAULT ''")]:
         if col not in existing:
             con.execute(f"ALTER TABLE br_scan_results ADD COLUMN {col} {defn}")
-    # Migration: add tf to br_scan_runs if missing
     run_cols = {r[1] for r in con.execute("PRAGMA table_info(br_scan_runs)").fetchall()}
     if "tf" not in run_cols:
         con.execute("ALTER TABLE br_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
@@ -441,7 +390,6 @@ def _init_db() -> None:
     con.close()
 
 
-# ── Per-ticker worker ─────────────────────────────────────────────────────────
 def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
     try:
         import yfinance as yf
@@ -455,7 +403,6 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
         if len(df) < 40:
             return None
 
-        # Drop today's incomplete bar
         last_date = df.index[-1]
         if hasattr(last_date, "date"):
             last_date = last_date.date()
@@ -474,7 +421,6 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
         price      = float(row["close"])
         change_pct = round((price - float(prev["close"])) / float(prev["close"]) * 100, 2)
 
-        # ── Combo signals (260323) ────────────────────────────────────────────
         try:
             combo        = compute_combo(df)
             active       = last_n_active(combo, 3)
@@ -483,7 +429,6 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
         except Exception:
             combo_score, combo_labels = 0, ""
 
-        # ── Master score ──────────────────────────────────────────────────────
         tz_w   = _TZ_WEIGHT.get(str(last["tz_sig"]), 0) if bool(last["tz_bull"]) else 0
         l_pts  = int(bool(last["l34"])) + int(bool(last["blue"])) + int(bool(last["fri34"]))
         master_score = round(min(100.0,
@@ -530,7 +475,6 @@ def _scan_br_ticker(ticker: str, interval: str) -> dict | None:
         return None
 
 
-# ── Scan runner ───────────────────────────────────────────────────────────────
 def run_br_scan(interval: str = "1d", workers: int = 8) -> int:
     from scanner import get_tickers
     global _br_state
@@ -571,7 +515,6 @@ def run_br_scan(interval: str = "1d", workers: int = 8) -> int:
             "UPDATE br_scan_runs SET completed_at=?, result_count=? WHERE id=?",
             (datetime.now(timezone.utc).isoformat(), len(results), scan_id),
         )
-        # Keep last 2 scan runs
         con.execute("""
             DELETE FROM br_scan_results WHERE scan_id NOT IN (
                 SELECT id FROM br_scan_runs ORDER BY id DESC LIMIT 2
@@ -585,11 +528,10 @@ def run_br_scan(interval: str = "1d", workers: int = 8) -> int:
     return len(results)
 
 
-# ── Query ─────────────────────────────────────────────────────────────────────
 def get_br_results(
     limit: int = 300,
     min_br: float = 0,
-    entry_filter: str = "all",   # all | buy | bc | big | go | up
+    entry_filter: str = "all",
     tf: str = "1d",
 ) -> list[dict]:
     _init_db()
@@ -600,7 +542,6 @@ def get_br_results(
             (tf,),
         ).fetchone()
         if not row:
-            # Fallback: latest run regardless of tf
             row = con.execute("SELECT id FROM br_scan_runs ORDER BY id DESC LIMIT 1").fetchone()
         if not row:
             return []

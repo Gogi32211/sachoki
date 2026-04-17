@@ -1,141 +1,18 @@
 """
 combo_engine.py — 260323 Pine Script combo signals ported to Python.
-
-Signals computed:
-  2809:   buy_2809, um_2809, svs_2809, conso_2809
-  Bias:   cons_atr, bias_up, bias_down
-  Breaks: atr_brk, bb_brk
-  HILO:   hilo_buy, hilo_sell
-  RTV:    rtv
-  PREUP:  preup3, preup2, preup50, preup89
-  ROCKET: rocket
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from signal_engine import compute_signals
+from indicators import (
+    rsi as _rsi, atr as _atr, macd as _macd_ind,
+    crossover as _crossover, psar as _psar,
+    apply_cooldown as _apply_cooldown,
+)
 
-
-# ── Internal helpers ───────────────────────────────────────────────────────────
-
-def _rma(series: pd.Series, period: int) -> pd.Series:
-    """Wilder's Moving Average (alpha = 1/period). Used in RSI and ATR."""
-    return series.ewm(alpha=1.0 / period, adjust=False).mean()
-
-
-def _rsi(series: pd.Series, period: int) -> pd.Series:
-    """RSI using Wilder's smoothing, matching Pine Script ta.rsi()."""
-    delta = series.diff()
-    up    = delta.clip(lower=0)
-    down  = (-delta).clip(lower=0)
-    avg_u = _rma(up, period)
-    avg_d = _rma(down, period).replace(0, np.nan)
-    rs    = avg_u / avg_d
-    return 100.0 - (100.0 / (1.0 + rs))
-
-
-def _atr(high: pd.Series, low: pd.Series, close: pd.Series, period: int) -> pd.Series:
-    """Average True Range using Wilder's smoothing."""
-    prev_c = close.shift(1)
-    tr = pd.concat([
-        high - low,
-        (high - prev_c).abs(),
-        (low  - prev_c).abs(),
-    ], axis=1).max(axis=1)
-    return _rma(tr, period)
-
-
-def _macd(close: pd.Series, fast: int = 12, slow: int = 26, signal: int = 9):
-    """Returns (macd_line, macd_signal, macd_hist)."""
-    ema_f     = close.ewm(span=fast,   adjust=False).mean()
-    ema_s     = close.ewm(span=slow,   adjust=False).mean()
-    macd_line = ema_f - ema_s
-    macd_sig  = macd_line.ewm(span=signal, adjust=False).mean()
-    return macd_line, macd_sig, macd_line - macd_sig
-
-
-def _crossover(a: pd.Series, level: float) -> pd.Series:
-    """True on bars where a crosses above level (a[i] > level and a[i-1] <= level)."""
-    return (a > level) & (a.shift(1) <= level)
-
-
-def _psar(high: np.ndarray, low: np.ndarray,
-          af_start: float = 0.02, af_step: float = 0.02,
-          af_max: float = 0.2) -> np.ndarray:
-    """
-    Parabolic SAR — sequential computation matching Pine Script ta.sar().
-    Returns array of SAR values aligned with input arrays.
-    """
-    n    = len(high)
-    psar = np.empty(n, dtype=np.float64)
-    bull = True
-    af   = af_start
-    ep   = high[0]
-    psar[0] = low[0]
-
-    for i in range(1, n):
-        if bull:
-            psar[i] = psar[i - 1] + af * (ep - psar[i - 1])
-            psar[i] = min(psar[i], low[i - 1])
-            if i > 1:
-                psar[i] = min(psar[i], low[i - 2])
-
-            if low[i] < psar[i]:          # reversal → bearish
-                bull    = False
-                psar[i] = ep
-                ep      = low[i]
-                af      = af_start
-            else:
-                if high[i] > ep:
-                    ep = high[i]
-                    af = min(af + af_step, af_max)
-        else:
-            psar[i] = psar[i - 1] + af * (ep - psar[i - 1])
-            psar[i] = max(psar[i], high[i - 1])
-            if i > 1:
-                psar[i] = max(psar[i], high[i - 2])
-
-            if high[i] > psar[i]:         # reversal → bullish
-                bull    = True
-                psar[i] = ep
-                ep      = high[i]
-                af      = af_start
-            else:
-                if low[i] < ep:
-                    ep = low[i]
-                    af = min(af + af_step, af_max)
-
-    return psar
-
-
-def _apply_cooldown(series: pd.Series, cooldown: int) -> pd.Series:
-    """Suppress signals within `cooldown` bars after each fired signal."""
-    arr  = series.to_numpy(dtype=bool, copy=True)
-    last = -(cooldown + 1)
-    for i in range(len(arr)):
-        if arr[i]:
-            if i - last < cooldown:
-                arr[i] = False
-            else:
-                last = i
-    return pd.Series(arr, index=series.index)
-
-
-# ── Main signal computation ────────────────────────────────────────────────────
 
 def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute all 260323 combo signals from OHLCV data.
-
-    Parameters
-    ----------
-    df : DataFrame with columns open, high, low, close, [volume]
-
-    Returns
-    -------
-    DataFrame of boolean columns, one per signal, same index as df.
-    """
     close  = df["close"]
     open_  = df["open"]
     high   = df["high"]
@@ -146,13 +23,10 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
         else pd.Series(0.0, index=df.index)
     )
 
-    # ── Common indicators ─────────────────────────────────────────────────────
-    ema9   = close.ewm(span=9,   adjust=False).mean()
-    ema20  = close.ewm(span=20,  adjust=False).mean()
-    ema34  = close.ewm(span=34,  adjust=False).mean()
-    ema50  = close.ewm(span=50,  adjust=False).mean()
-    ema89  = close.ewm(span=89,  adjust=False).mean()
-    ema200 = close.ewm(span=200, adjust=False).mean()
+    ema9  = close.ewm(span=9,  adjust=False).mean()
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    ema50 = close.ewm(span=50, adjust=False).mean()
+    ema89 = close.ewm(span=89, adjust=False).mean()
 
     avg_vol  = volume.rolling(20, min_periods=1).mean().replace(0, np.nan)
     rsi14    = _rsi(close, 14)
@@ -164,16 +38,13 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
 
     prev_close = close.shift(1).replace(0, np.nan)
 
-    # ── 2809: upmove ──────────────────────────────────────────────────────────
     trend_up   = (ema9 > ema20) & (ema20 > ema50)
     roc_40     = (close - close.shift(40)) / close.shift(40).replace(0, np.nan) * 100.0
     vol_max40  = volume.rolling(40, min_periods=10).max()
     upmove_ok  = trend_up & (roc_40 >= 8.0) & (vol_max40 > avg_vol * 1.4)
 
-    # UM phase label: first bar upmove_ok becomes True
     um_2809 = upmove_ok & ~upmove_ok.shift(1).fillna(False)
 
-    # ── 2809: consolidation gate ──────────────────────────────────────────────
     cons_high = high.shift(1).rolling(6, min_periods=6).max()
     cons_low  = low.shift(1).rolling(6, min_periods=6).min()
 
@@ -188,17 +59,14 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
 
     tight_gate = tight_by_range | tight_by_atr | tight_by_ema
 
-    # CONSO phase label: first bar tight_gate becomes True
     conso_2809 = tight_gate & ~tight_gate.shift(1).fillna(False)
 
-    # NR7 alternative gate
     bar_range = high - low
     nr_min    = bar_range.rolling(7, min_periods=4).min().shift(1)
     nr7_prev  = bar_range.shift(1) <= nr_min + 1e-10
     nr_pct_ok = (bar_range.shift(1) / prev_close * 100.0) <= 5.0
     alt_gate  = nr7_prev & nr_pct_ok
 
-    # ── 2809: breakout + cooldown ─────────────────────────────────────────────
     brk_cons  = (high > cons_high) & (volume > avg_vol * 1.2)
     brk_nr    = (high > high.shift(1)) & (volume > avg_vol * 1.2)
     break_gate = (tight_gate & brk_cons) | (alt_gate & brk_nr)
@@ -206,17 +74,14 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     buy_raw  = upmove_ok & break_gate
     buy_2809 = _apply_cooldown(buy_raw, cooldown=6)
 
-    # SVS: volume ratio crosses threshold on a green bar
     vol_ratio = volume / avg_vol
     svs_2809  = _crossover(vol_ratio, 1.4) & (close > open_)
 
-    # ── CONS ATR + Bias ───────────────────────────────────────────────────────
     atr_ma14 = atr14.rolling(14, min_periods=1).mean().replace(0, np.nan)
     cons_atr  = atr14 < atr_ma14 * 0.80
 
-    _, _, macd_hist = _macd(close)
+    _, _, macd_hist = _macd_ind(close)
 
-    # Score: EMA trend=±2, BB pos=±1, RSI=±1, MACD=±1  → range -5..+5
     score = pd.Series(
         np.where((ema9 > ema20) & (ema20 > ema50),  2.0,
         np.where((ema9 < ema20) & (ema20 < ema50), -2.0, 0.0)),
@@ -229,7 +94,6 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     bias_up   = cons_atr & (score >= 2)
     bias_down = cons_atr & (score <= -2)
 
-    # ── ATR Breakout ──────────────────────────────────────────────────────────
     atr10           = _atr(high, low, close, 10)
     consol_atr      = atr10 < atr10.shift(1) * 0.6
     avg_vol20       = volume.rolling(20, min_periods=1).mean().replace(0, np.nan)
@@ -239,18 +103,15 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     vol_conf_atr    = _crossover(vol_ratio_atr, 2.0)
     atr_brk         = consol_atr & brk_conf_atr & vol_conf_atr
 
-    # ── BB Breakout ───────────────────────────────────────────────────────────
     vol_ma_boll      = volume.rolling(20, min_periods=1).mean().replace(0, np.nan)
     vol_ratio_boll   = volume / vol_ma_boll
     vol_conf_boll    = _crossover(vol_ratio_boll, 1.5)
     bb_brk           = (close > bb_upper) & vol_conf_boll & (rsi14 > 55)
 
-    # ── HILO (RSI-2 anchors) ──────────────────────────────────────────────────
     rsi2      = _rsi(close, 2)
     hilo_buy  = _crossover(rsi2, 20.0)
     hilo_sell = (rsi2.shift(1) > 80) & (rsi2 < 80)
 
-    # ── RTV (RSI-2 reversal + Williams VIX Fix) ───────────────────────────────
     rsi_buy_rtv = _crossover(rsi2, 20.0)
     bearish_rtv = (close.shift(1) < open_.shift(1)) | (close.shift(2) < open_.shift(2))
     reversal    = close > open_
@@ -264,51 +125,16 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     vix_conf    = vix_fired | vix_fired.shift(1).fillna(False)
     rtv         = rsi_buy_rtv & bearish_rtv & reversal & vix_conf
 
-    # ── PREUP — EMA cross ↑ (bar opens below EMA, closes above)  ─────────────
-    # Priority: P66 > P55 > P89 > P3 > P2 > P50  (matches TZ_OSC Pine Script)
-    cx9   = (open_ < ema9)   & (close > ema9)
-    cx20  = (open_ < ema20)  & (close > ema20)
-    cx34  = (open_ < ema34)  & (close > ema34)
-    cx50  = (open_ < ema50)  & (close > ema50)
-    cx89  = (open_ < ema89)  & (close > ema89)
-    cx200 = (open_ < ema200) & (close > ema200)
+    cx9  = (open_ < ema9)  & (close > ema9)
+    cx20 = (open_ < ema20) & (close > ema20)
+    cx50 = (open_ < ema50) & (close > ema50)
+    cx89 = (open_ < ema89) & (close > ema89)
 
-    raw_p66 = cx200 & (cx9 | cx20 | cx34 | cx50 | cx89)
-    raw_p55 = cx89  & (cx9 | cx20 | cx34 | cx50 | cx200)
-    raw_p3  = cx9 & cx20 & cx50
-    raw_p2  = cx9 & cx20
+    preup3  = cx9 & cx20 & cx50
+    preup2  = cx9 & cx20 & ~preup3
+    preup50 = cx50 & ~cx9 & ~cx20
+    preup89 = cx89
 
-    preup66 = raw_p66
-    preup55 = raw_p55  & ~raw_p66
-    preup89 = cx89     & ~raw_p55 & ~raw_p66
-    preup3  = raw_p3   & ~raw_p55 & ~raw_p66 & ~cx89
-    preup2  = raw_p2   & ~raw_p3  & ~raw_p55 & ~raw_p66 & ~cx89
-    preup50 = cx50     & ~raw_p2  & ~raw_p3  & ~raw_p55 & ~raw_p66 & ~cx89
-
-    # ── PREDN — EMA drop ↓ (bar opens above EMA, closes below) ───────────────
-    # Priority: D66 > D55 > D89 > D3 > D2 > D50
-    dx9   = (open_ > ema9)   & (close < ema9)
-    dx20  = (open_ > ema20)  & (close < ema20)
-    dx34  = (open_ > ema34)  & (close < ema34)
-    dx50  = (open_ > ema50)  & (close < ema50)
-    dx89  = (open_ > ema89)  & (close < ema89)
-    dx200 = (open_ > ema200) & (close < ema200)
-
-    raw_d66 = dx200 & (dx9 | dx20 | dx34 | dx50 | dx89)
-    raw_d55 = dx89  & (dx9 | dx20 | dx34 | dx50 | dx200)
-    raw_d3  = dx9 & dx20 & dx50
-    raw_d2  = dx9 & dx20
-
-    predn66 = raw_d66
-    predn55 = raw_d55  & ~raw_d66
-    predn89 = dx89     & ~raw_d55 & ~raw_d66
-    predn3  = raw_d3   & ~raw_d55 & ~raw_d66 & ~dx89
-    predn2  = raw_d2   & ~raw_d3  & ~raw_d55 & ~raw_d66 & ~dx89
-    predn50 = dx50     & ~raw_d2  & ~raw_d3  & ~raw_d55 & ~raw_d66 & ~dx89
-
-    # ── 3G (Gap above EMA9 + EMA20 + EMA50) ──────────────────────────────────
-    # prev bar close fully below all 3 EMAs;
-    # current bar opens AND closes fully above all 3 EMAs
     prev_below_all3  = (close.shift(1) < ema9.shift(1)) & \
                        (close.shift(1) < ema20.shift(1)) & \
                        (close.shift(1) < ema50.shift(1))
@@ -316,14 +142,12 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     curr_close_above = (close > ema9) & (close > ema20) & (close > ema50)
     sig3g            = prev_below_all3 & curr_open_above & curr_close_above
 
-    # ── ROCKET ────────────────────────────────────────────────────────────────
     psar_arr    = _psar(high.to_numpy(), low.to_numpy())
     psar_s      = pd.Series(psar_arr, index=df.index)
     strong_bull = (close - open_) / open_.replace(0, np.nan) * 100.0 > 2.0
     vol_burst   = volume > avg_vol * 2.0
     rocket      = buy_2809 & strong_bull & vol_burst & (close > psar_s)
 
-    # ── Assemble ──────────────────────────────────────────────────────────────
     out = pd.DataFrame({
         "buy_2809":   buy_2809,
         "um_2809":    um_2809,
@@ -337,28 +161,16 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
         "hilo_buy":   hilo_buy,
         "hilo_sell":  hilo_sell,
         "rtv":        rtv,
-        # PREUP (EMA cross ↑) — P66 strongest
-        "preup66":    preup66,
-        "preup55":    preup55,
-        "preup89":    preup89,
         "preup3":     preup3,
         "preup2":     preup2,
         "preup50":    preup50,
-        # PREDN (EMA drop ↓) — D66 strongest
-        "predn66":    predn66,
-        "predn55":    predn55,
-        "predn89":    predn89,
-        "predn3":     predn3,
-        "predn2":     predn2,
-        "predn50":    predn50,
+        "preup89":    preup89,
         "sig3g":      sig3g,
         "rocket":     rocket,
     }, index=df.index)
 
     return out.fillna(False)
 
-
-# ── Signal priority and labels (for scan display) ──────────────────────────────
 
 COMBO_SIGNAL_PRIORITY = [
     "rocket", "buy_2809", "sig3g", "bb_brk", "atr_brk", "rtv",
@@ -390,10 +202,6 @@ COMBO_LABELS = {
 
 
 def last_n_active(combo_df: pd.DataFrame, n: int = 3) -> dict[str, bool]:
-    """
-    For each signal column, return True if it fired at any point in the last n bars.
-    State signals (cons_atr, bias_up, bias_down) use last bar only.
-    """
     STATE_SIGNALS = {"cons_atr", "bias_up", "bias_down"}
     tail = combo_df.tail(n)
     last = combo_df.iloc[-1] if len(combo_df) > 0 else combo_df.iloc[0]
@@ -408,107 +216,8 @@ def last_n_active(combo_df: pd.DataFrame, n: int = 3) -> dict[str, bool]:
 
 
 def active_signal_labels(active: dict[str, bool]) -> list[str]:
-    """Return ordered list of human-readable labels for active signals."""
     return [
         COMBO_LABELS[k]
         for k in COMBO_SIGNAL_PRIORITY
         if active.get(k)
     ]
-
-
-# ── TZ State Machine ──────────────────────────────────────────────────────────
-
-def compute_tz_state(df: pd.DataFrame) -> pd.Series:
-    """
-    Compute TZ trend regime state (0-5) per bar using T/Z pattern dominance.
-
-    States:
-      0 = Bear Dominance   1 = Bear Weakening   2 = Bull Attempt
-      3 = Bull Dominance   4 = Bull Weakening   5 = Bear Attempt
-
-    Based on 260410_COMBO Pine Script defaults:
-      fastLen=3, slowLen=7, confirmCount=2, minSlowDom=4.0, weakRatio=0.70
-      EMA fast=20, EMA slow=50, swingLookback=10
-    """
-    sig = compute_signals(df)
-    bc  = sig["bc"].fillna(0).astype(int)
-    zc  = sig["zc"].fillna(0).astype(int)
-
-    close = df["close"]
-    high  = df["high"]
-    low   = df["low"]
-
-    # T/Z weights from Pine Script tWeight/zWeight
-    _TW = {1: 4.0, 2: 4.0, 3: 3.0, 4: 3.0, 5: 2.0, 6: 2.0,
-           7: 1.0, 8: 1.0, 9: 1.0, 10: 1.0, 11: 0.75}
-    _ZW = {1: 4.0, 2: 4.0, 3: 3.0, 4: 3.0, 5: 2.0, 6: 2.0,
-           7: 1.0, 8: 1.0, 9: 1.0, 10: 1.0, 11: 1.0,
-           12: 0.75, 13: 1.0, 14: 0.25}
-
-    tW = pd.Series([_TW.get(x, 0.0) for x in bc], index=bc.index)
-    zW = pd.Series([_ZW.get(x, 0.0) for x in zc], index=zc.index)
-
-    tDomFast = tW.rolling(3, min_periods=1).sum()
-    tDomSlow = tW.rolling(7, min_periods=1).sum()
-    zDomFast = zW.rolling(3, min_periods=1).sum()
-    zDomSlow = zW.rolling(7, min_periods=1).sum()
-
-    tCount = (bc > 0).astype(float).rolling(3, min_periods=1).sum()
-    zCount = (zc > 0).astype(float).rolling(3, min_periods=1).sum()
-
-    strongT = bc.isin([1, 2, 3, 4])   # T4/T6/T1G/T2G
-    strongZ = zc.isin([1, 2, 3, 4])   # Z4/Z6/Z1G/Z2G
-    strongTRec = strongT.astype(float).rolling(3, min_periods=1).max().astype(bool)
-    strongZRec = strongZ.astype(float).rolling(3, min_periods=1).max().astype(bool)
-
-    ema20  = close.ewm(span=20, adjust=False).mean()
-    ema50  = close.ewm(span=50, adjust=False).mean()
-    swHigh = high.shift(1).rolling(10, min_periods=1).max()
-    swLow  = low.shift(1).rolling(10, min_periods=1).min()
-
-    bull_dom = (
-        (tDomSlow > zDomSlow) & (tDomFast > zDomFast) &
-        (tCount >= 2) & strongTRec &
-        (close > ema20) & (close > ema50) & (close > swHigh)
-    )
-    bear_dom = (
-        (zDomSlow > tDomSlow) & (zDomFast > tDomFast) &
-        (zCount >= 2) & strongZRec &
-        (close < ema20) & (close < ema50) & (close < swLow)
-    )
-    bull_att = (
-        (tDomFast > zDomFast) & (tCount >= 2) & strongTRec & (close > ema20)
-    )
-    bear_att = (
-        (zDomFast > tDomFast) & (zCount >= 2) & strongZRec & (close < ema20)
-    )
-    bear_weak = (
-        (zDomSlow > tDomSlow) & (zDomSlow >= 4.0) &
-        (tDomFast >= zDomFast * 0.70) & ~strongZRec
-    )
-    bull_weak = (
-        (tDomSlow > zDomSlow) & (tDomSlow >= 4.0) &
-        (zDomFast >= tDomFast * 0.70) & ~strongTRec
-    )
-
-    # Stateful forward-carry (Pine Script var int tzState)
-    n   = len(df)
-    bd  = bull_dom.fillna(False).to_numpy()
-    brd = bear_dom.fillna(False).to_numpy()
-    ba  = bull_att.fillna(False).to_numpy()
-    bra = bear_att.fillna(False).to_numpy()
-    bw  = bear_weak.fillna(False).to_numpy()
-    blw = bull_weak.fillna(False).to_numpy()
-
-    st = np.zeros(n, dtype=np.int8)
-    for i in range(1, n):
-        p = st[i - 1]
-        if   bd[i]:  st[i] = 3
-        elif brd[i]: st[i] = 0
-        elif ba[i]:  st[i] = 2
-        elif bra[i]: st[i] = 5
-        elif bw[i]:  st[i] = 1
-        elif blw[i]: st[i] = 4
-        else:        st[i] = p
-
-    return pd.Series(st, index=df.index, name="tz_state")

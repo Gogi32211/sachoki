@@ -1,64 +1,37 @@
 """
 wlnbb_engine.py — Volume Bollinger Bands L-signal engine.
-
-Computes per bar:
-  vol_bucket     (W/L/N/B/VB)
-  vol_up / vol_down  (bool — simple v > v[1] / v < v[1])
-  L1, L2, L3, L4, L5, L6            (bool raw — NOT mutually exclusive)
-  L34, L43, L64, L22, L1L2, L2L5    (bool combined)
-  l_combo                             (str  e.g. "L3|L4", "NONE")
-  BLUE, FRI34, UI
-  FUCHSIA_RH, FUCHSIA_RL
-  PRE_PUMP  (VSA accumulation cluster)
-  CCI_READY
-  BO_UP, BO_DN, BX_UP, BX_DN
-  vol_zscore, rsi, cci_sma
-  candle_dir  ("U"/"D"/"O")
 """
 from __future__ import annotations
 
 import numpy as np
 import pandas as pd
+from indicators import norm_ohlcv, rsi as _rsi_ind, cci as _cci_ind, ffill_when, cooldown
 
-# ── Parameters ───────────────────────────────────────────────────────────────
 _BB_PERIOD   = 20
 _BB_STD      = 1
 _RSI_PERIOD  = 14
 _CCI_PERIOD  = 20
 _CCI_SMA     = 14
 _BLUE_Z      = 1.1
-_BLUE_FLAT   = 5.0      # RSI range <= 5 over last 3 bars
-_PP_WINDOW   = 20       # PRE_PUMP: count VSA hits in last N bars
-_PP_MIN      = 2        # minimum hits to fire
-_PP_COOL     = 6        # cooldown bars after firing
+_BLUE_FLAT   = 5.0
+_PP_WINDOW   = 20
+_PP_MIN      = 2
+_PP_COOL     = 6
 
-
-# ── Public API ────────────────────────────────────────────────────────────────
 
 def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
-    """
-    Parameters
-    ----------
-    df : DataFrame with lowercase columns open, high, low, close, volume.
-
-    Returns
-    -------
-    DataFrame (same index) with all WLNBB columns.
-    """
-    df = _norm(df)
+    df = norm_ohlcv(df)
     o = df["open"]
     h = df["high"]
     l = df["low"]
     c = df["close"]
     v = df["volume"]
 
-    # ── Volume Bollinger Bands ────────────────────────────────────────────
     vol_mid   = v.rolling(_BB_PERIOD, min_periods=1).mean()
     vol_std   = v.rolling(_BB_PERIOD, min_periods=1).std().fillna(0)
     vol_upper = vol_mid + _BB_STD * vol_std
     vol_lower = (vol_mid - _BB_STD * vol_std).clip(lower=0)
 
-    # ── Volume Buckets (W=0 L=1 N=2 B=3 VB=4) ────────────────────────────
     bkt = np.zeros(len(v), dtype=np.int8)
     bkt = np.where(v.values >= vol_lower.values, 1, bkt)
     bkt = np.where(v.values >= vol_mid.values,   2, bkt)
@@ -66,16 +39,14 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     bkt = np.where(v.values >= (vol_upper + vol_mid).values, 4, bkt)
     bucket = pd.Series(bkt.astype(np.int8), index=df.index)
 
-    # ── Volume Direction (simple: current vs previous volume) ────────────
     pv = v.shift(1)
     vol_up_adapted   = (v > pv).fillna(False)
     vol_down_adapted = (v < pv).fillna(False)
 
-    # ── Raw L-signals (NOT mutually exclusive) ────────────────────────────
     up_close   = c > c.shift(1)
     down_close = c < c.shift(1)
-    no_new_high = c <= h.shift(1)   # uses high[1]
-    no_new_low  = c >= l.shift(1)   # uses low[1]
+    no_new_high = c <= h.shift(1)
+    no_new_low  = c >= l.shift(1)
 
     L1 = vol_down_adapted & up_close
     L2 = vol_down_adapted & no_new_low
@@ -84,40 +55,31 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     L5 = vol_down_adapted & down_close
     L6 = vol_up_adapted   & down_close
 
-    # ── Combined L-signals ────────────────────────────────────────────────
-    L34  = L3 & L4 & (c >= o)   # quiet bull accumulation
-    L22  = L3 & L4 & (c <  o)   # distribution (bear candle)
-    L64  = L6 & L4               # bearish
-    L43  = L6 & L4 & (c >  o)   # bullish reversal
+    L34  = L3 & L4 & (c >= o)
+    L22  = L3 & L4 & (c <  o)
+    L64  = L6 & L4
+    L43  = L6 & L4 & (c >  o)
     L1L2 = L1 & L2
     L2L5 = L2 & L5
 
-    # ── L-combo string encoding ───────────────────────────────────────────
     l_combo = _build_l_combo(L1, L2, L3, L4, L5, L6)
 
-    # ── RSI (14) ──────────────────────────────────────────────────────────
-    rsi = _rsi(c, _RSI_PERIOD)
+    rsi = _rsi_ind(c, _RSI_PERIOD, fillna_val=50)
 
-    # ── Volume z-score ────────────────────────────────────────────────────
     vol_z = ((v - vol_mid) / vol_std.replace(0, np.nan)).fillna(0)
 
-    # ── BLUE: z-spike + RSI flat ──────────────────────────────────────────
     rsi_range3 = (rsi.rolling(3, min_periods=1).max()
                   - rsi.rolling(3, min_periods=1).min())
     BLUE  = (vol_z >= _BLUE_Z) & (rsi_range3 <= _BLUE_FLAT)
     FRI34 = BLUE & L34
-    FRI43 = BLUE & L43
-    FRI64 = BLUE & L64
     UI    = (BLUE.astype(int).rolling(10, min_periods=1).sum() >= 2)
 
-    # ── FUCHSIA ───────────────────────────────────────────────────────────
     rsi_roll_max = rsi.rolling(50, min_periods=1).max().shift(1)
     rsi_roll_min = rsi.rolling(50, min_periods=1).min().shift(1)
     FUCHSIA_RH = (rsi >= rsi_roll_max.fillna(rsi)) & ~vol_up_adapted
     FUCHSIA_RL = (rsi <= rsi_roll_min.fillna(rsi)) & ~vol_up_adapted
 
-    # ── CCI ───────────────────────────────────────────────────────────────
-    cci     = _cci(h, l, c, _CCI_PERIOD)
+    cci     = _cci_ind(h, l, c, _CCI_PERIOD)
     cci_sma = cci.rolling(_CCI_SMA, min_periods=1).mean()
     cci_rng6 = (cci_sma.rolling(6, min_periods=1).max()
                 - cci_sma.rolling(6, min_periods=1).min())
@@ -128,20 +90,6 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         & (c > o)
     )
 
-    # ── CCI_0_RETEST_OK: CCI bounces off 0 line (was above, dipped to 0, now up) ──
-    cci_prev1 = cci_sma.shift(1).fillna(0)
-    cci_prev2 = cci_sma.shift(2).fillna(0)
-    CCI_0_RETEST_OK = (
-        (cci_prev2 > 10)      # was above 0
-        & (cci_prev1 <= 5)    # dipped near/below 0
-        & (cci_sma > cci_prev1)  # now turning up
-        & (cci_sma > 0)
-    )
-
-    # ── CCI_BLUE_TURN: BLUE spike while CCI turns from negative to positive ──
-    CCI_BLUE_TURN = BLUE & (cci_sma > 0) & (cci_prev1 <= 0)
-
-    # ── VSA / PRE_PUMP ────────────────────────────────────────────────────
     avg_rng = (h - l).rolling(20, min_periods=1).mean()
     avg_vol = v.rolling(20, min_periods=1).mean()
     rng     = h - l
@@ -154,68 +102,26 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
 
     vsa_hits = (squat | nosupply | nod | climax).astype(int)
     vsa_sum  = vsa_hits.rolling(_PP_WINDOW, min_periods=1).sum()
-    PRE_PUMP = _cooldown(vsa_sum >= _PP_MIN, _PP_COOL)
+    PRE_PUMP = cooldown(vsa_sum >= _PP_MIN, _PP_COOL)
 
-    # ── L555: escalating alternating L34/L43 sequence ────────────────────
-    # Fires when current L43 follows a recent L34 (within seqBars) with
-    # higher volume, OR current L34 follows a recent L43 with higher volume.
-    _L555_SEQ_BARS = 7
-    v_arr    = v.values
-    L34_arr  = L34.values
-    L43_arr  = L43.values
-    L555_arr = np.zeros(len(df), dtype=bool)
-    _last_l34_i   = -100;  _last_l34_vol = 0.0
-    _last_l43_i   = -100;  _last_l43_vol = 0.0
-    for _i in range(len(df)):
-        _vi = v_arr[_i]
-        if L43_arr[_i] and (_i - _last_l34_i) <= _L555_SEQ_BARS and _vi > _last_l34_vol:
-            L555_arr[_i] = True
-        elif L34_arr[_i] and (_i - _last_l43_i) <= _L555_SEQ_BARS and _vi > _last_l43_vol:
-            L555_arr[_i] = True
-        if L34_arr[_i]:
-            _last_l34_i = _i;  _last_l34_vol = _vi
-        if L43_arr[_i]:
-            _last_l43_i = _i;  _last_l43_vol = _vi
-    L555 = pd.Series(L555_arr, index=df.index)
+    l34_hi = ffill_when(h, L34)
+    l34_lo = ffill_when(l, L34)
+    l43_hi = ffill_when(h, L43)
+    l43_lo = ffill_when(l, L43)
 
-    # ── ONLY_L2 / ONLY_L4 / ONLY_L2L4: pure single-L accumulation ────────
-    # ONLY_L2 = L2 without any other L signal
-    # ONLY_L4 = L4 without any other L signal (including no L2)
-    ONLY_L2   = L2 & ~L1 & ~L3 & ~L4 & ~L5 & ~L6
-    ONLY_L4   = L4 & ~L1 & ~L2 & ~L3 & ~L5 & ~L6
-    ONLY_L2L4 = ONLY_L2 | ONLY_L4
+    prev_above_l34 = (c.shift(1) > l34_hi.shift(1)).fillna(False)
+    prev_below_l34 = (c.shift(1) < l34_lo.shift(1)).fillna(False)
+    prev_above_l43 = (c.shift(1) > l43_hi.shift(1)).fillna(False)
+    prev_below_l43 = (c.shift(1) < l43_lo.shift(1)).fillna(False)
 
-    # ── BO / BX — use BODY high/low of setup bar (not candle high/low) ────
-    # L34: bull candle (close >= open) → bodyHigh=close, bodyLow=open
-    # L43: bull candle (close  > open) → bodyHigh=close, bodyLow=open
-    l34_body_hi = _ffill_when(c, L34)   # close of last L34 bar
-    l34_body_lo = _ffill_when(o, L34)   # open  of last L34 bar
-    l43_body_hi = _ffill_when(c, L43)   # close of last L43 bar
-    l43_body_lo = _ffill_when(o, L43)   # open  of last L43 bar
+    BO_UP = (c > l34_hi) & ~prev_above_l34 & ~L34 & (l34_hi > 0)
+    BO_DN = (c < l34_lo) & ~prev_below_l34 & ~L34 & (l34_lo > 0)
+    BX_UP = (c > l43_hi) & ~prev_above_l43 & ~L43 & (l43_hi > 0)
+    BX_DN = (c < l43_lo) & ~prev_below_l43 & ~L43 & (l43_lo > 0)
 
-    prev_above_l34 = (c.shift(1) > l34_body_hi.shift(1)).fillna(False)
-    prev_below_l34 = (c.shift(1) < l34_body_lo.shift(1)).fillna(False)
-    prev_above_l43 = (c.shift(1) > l43_body_hi.shift(1)).fillna(False)
-    prev_below_l43 = (c.shift(1) < l43_body_lo.shift(1)).fillna(False)
-
-    BO_UP = (c > l34_body_hi) & ~prev_above_l34 & ~L34 & (l34_body_hi > 0)
-    BO_DN = (c < l34_body_lo) & ~prev_below_l34 & ~L34 & (l34_body_lo > 0)
-    BX_UP = (c > l43_body_hi) & ~prev_above_l43 & ~L43 & (l43_body_hi > 0)
-    BX_DN = (c < l43_body_lo) & ~prev_below_l43 & ~L43 & (l43_body_lo > 0)
-
-    # ── BE_UP / BE_DN: Breakout-Engulf ───────────────────────────────────
-    # BE_UP: current bar fully engulfs L34 body from below —
-    #   close > L34 body high AND open < L34 body low (bull engulf)
-    # BE_DN: current bar fully engulfs L43 body from above —
-    #   close < L43 body low  AND open > L43 body high (bear engulf)
-    BE_UP = (c > l34_body_hi) & (o < l34_body_lo) & ~L34 & (l34_body_hi > 0)
-    BE_DN = (c < l43_body_lo) & (o > l43_body_hi) & ~L43 & (l43_body_lo > 0)
-
-    # ── Bucket label ──────────────────────────────────────────────────────
     _BKT = {0: "W", 1: "L", 2: "N", 3: "B", 4: "VB"}
     vol_bucket = bucket.map(_BKT)
 
-    # ── Candle direction ──────────────────────────────────────────────────
     candle_dir = pd.Series(
         np.where(c > o, "U", np.where(c < o, "D", "O")),
         index=df.index,
@@ -228,37 +134,21 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         "vol_zscore":      vol_z.round(2),
         "rsi":             rsi.round(2),
         "cci_sma":         cci_sma.round(2),
-        # Raw L signals
         "L1": L1, "L2": L2, "L3": L3, "L4": L4, "L5": L5, "L6": L6,
-        # Combined L signals
         "L34": L34, "L43": L43, "L64": L64, "L22": L22,
         "L1L2": L1L2, "L2L5": L2L5,
-        # Extended L signals
-        "L555": L555, "ONLY_L2L4": ONLY_L2L4,
-        # L-combo string
         "l_combo": l_combo,
-        # Secondary signals
-        "BLUE": BLUE,
-        "FRI34": FRI34, "FRI43": FRI43, "FRI64": FRI64,
-        "UI": UI,
+        "BLUE": BLUE, "FRI34": FRI34, "UI": UI,
         "FUCHSIA_RH": FUCHSIA_RH, "FUCHSIA_RL": FUCHSIA_RL,
         "PRE_PUMP": PRE_PUMP,
         "CCI_READY": CCI_READY,
-        "CCI_0_RETEST_OK": CCI_0_RETEST_OK,
-        "CCI_BLUE_TURN": CCI_BLUE_TURN,
-        "BE_UP": BE_UP, "BE_DN": BE_DN,
         "BO_UP": BO_UP, "BO_DN": BO_DN,
         "BX_UP": BX_UP, "BX_DN": BX_DN,
-        # Candle direction
         "candle_dir": candle_dir,
     }, index=df.index)
 
 
 def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
-    """
-    Compute (bull_score, bear_score) for the last bar.
-    wlnbb must be the full WLNBB output DataFrame.
-    """
     if wlnbb.empty:
         return 0, 0
 
@@ -268,31 +158,27 @@ def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
     bull = 0
     bear = 0
 
-    # T/Z signal
-    if sig_id in (6, 8):           # T4, T6
+    if sig_id in (6, 8):
         bull += 2
-    elif 1 <= sig_id <= 12:        # other T
+    elif 1 <= sig_id <= 11:
         bull += 1
-    elif sig_id in (18, 20):       # Z4, Z6
+    elif sig_id in (17, 19):
         bear += 2
-    elif 13 <= sig_id <= 25:       # other Z
+    elif 12 <= sig_id <= 25:
         bear += 1
 
-    # L-signals (last bar)
     if bool(last.get("L34")):      bull += 2
     if bool(last.get("L43")):      bull += 1
     if bool(last.get("CCI_READY")): bull += 2
     if bool(last.get("BLUE")):     bull += 1
-    if bool(last.get("FRI34")):    bull += 2   # BLUE + L34
+    if bool(last.get("FRI34")):    bull += 2
     if bool(last.get("BO_UP")):    bull += 1
     if bool(last.get("BX_UP")):    bull += 1
     if bool(last.get("UI")):       bull += 1
     if bool(last.get("L1L2")):     bull += 1
 
-    # PRE_PUMP in last 3 bars
     if last3["PRE_PUMP"].any():    bull += 1
 
-    # Bear components
     if bool(last.get("L22")):        bear += 2
     if bool(last.get("L64")):        bear += 1
     if bool(last.get("FUCHSIA_RH")): bear += 1
@@ -303,17 +189,12 @@ def score_last_bar(sig_id: int, wlnbb: pd.DataFrame) -> tuple[int, int]:
 
 
 def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
-    """
-    Compute (bull_score, bear_score) for every bar in the DataFrame.
-    Returns DataFrame with columns bull_score, bear_score (int8, capped at 10).
-    """
     n = len(wlnbb)
     bulls = np.zeros(n, dtype=np.int32)
     bears = np.zeros(n, dtype=np.int32)
 
     sig_arr = sig_id_series.reindex(wlnbb.index).fillna(0).values.astype(np.int32)
 
-    # T/Z signal contributions (vectorized)
     t4_t6 = (sig_arr == 6) | (sig_arr == 8)
     any_t  = (sig_arr >= 1) & (sig_arr <= 11)
     z4_z6  = (sig_arr == 17) | (sig_arr == 19)
@@ -322,7 +203,6 @@ def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
     bulls += np.where(t4_t6, 2, np.where(any_t, 1, 0))
     bears += np.where(z4_z6, 2, np.where(any_z, 1, 0))
 
-    # Bull L-signal contributions
     for col, pts in [
         ("L34", 2), ("L43", 1), ("CCI_READY", 2), ("BLUE", 1),
         ("FRI34", 2), ("BO_UP", 1), ("BX_UP", 1), ("UI", 1), ("L1L2", 1),
@@ -330,12 +210,10 @@ def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
         if col in wlnbb.columns:
             bulls += wlnbb[col].values.astype(bool).astype(np.int32) * pts
 
-    # PRE_PUMP in rolling 3-bar window
     if "PRE_PUMP" in wlnbb.columns:
         pp_roll = wlnbb["PRE_PUMP"].rolling(3, min_periods=1).max()
         bulls += pp_roll.values.astype(bool).astype(np.int32)
 
-    # Bear L-signal contributions
     for col, pts in [
         ("L22", 2), ("L64", 1), ("FUCHSIA_RH", 1), ("BO_DN", 1), ("BX_DN", 1),
     ]:
@@ -352,7 +230,6 @@ def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
 
 
 def l_signal_label(last_row: pd.Series) -> str:
-    """Return the highest-priority L-signal name or ''."""
     for name in ("FRI34", "L34", "L43", "L64", "L22",
                  "CCI_READY", "BLUE", "L1L2", "L2L5",
                  "BO_UP", "BO_DN", "BX_UP", "BX_DN", "PRE_PUMP",
@@ -362,57 +239,12 @@ def l_signal_label(last_row: pd.Series) -> str:
     return ""
 
 
-# ── Helpers ──────────────────────────────────────────────────────────────────
-
 def _build_l_combo(L1, L2, L3, L4, L5, L6) -> pd.Series:
-    """Encode active L1-L6 signals as sorted pipe-joined string per bar."""
     labels = ["L1", "L2", "L3", "L4", "L5", "L6"]
     arrs   = [L1.values, L2.values, L3.values, L4.values, L5.values, L6.values]
-    mat    = np.column_stack(arrs)  # shape (n, 6)
+    mat    = np.column_stack(arrs)
     result = []
     for row in mat:
         active = [lbl for lbl, v in zip(labels, row) if v]
         result.append("|".join(active) if active else "NONE")
     return pd.Series(result, index=L1.index, dtype=object)
-
-
-def _norm(df: pd.DataFrame) -> pd.DataFrame:
-    df = df.copy()
-    df.columns = [str(c).lower() for c in df.columns]
-    if "volume" not in df.columns:
-        df["volume"] = 1.0
-    return df
-
-
-def _rsi(series: pd.Series, period: int = 14) -> pd.Series:
-    delta = series.diff()
-    gain  = delta.clip(lower=0).ewm(alpha=1/period, min_periods=period, adjust=False).mean()
-    loss  = (-delta.clip(upper=0)).ewm(alpha=1/period, min_periods=period, adjust=False).mean()
-    rs    = gain / loss.replace(0, np.nan)
-    return (100 - 100 / (1 + rs)).fillna(50)
-
-
-def _cci(high: pd.Series, low: pd.Series, close: pd.Series, period: int = 20) -> pd.Series:
-    tp  = (high + low + close) / 3.0
-    ma  = tp.rolling(period, min_periods=1).mean()
-    md  = tp.rolling(period, min_periods=1).apply(
-        lambda x: np.abs(x - x.mean()).mean(), raw=True
-    )
-    return ((tp - ma) / (0.015 * md.replace(0, np.nan))).fillna(0)
-
-
-def _ffill_when(series: pd.Series, condition: pd.Series) -> pd.Series:
-    """Forward-fill series values from the last bar where condition is True."""
-    return series.where(condition).ffill().fillna(0)
-
-
-def _cooldown(condition: pd.Series, cooldown: int) -> pd.Series:
-    """Suppress re-firing for `cooldown` bars after each True."""
-    arr = condition.values
-    out = np.zeros(len(arr), dtype=bool)
-    last = -(cooldown + 1)
-    for i in range(len(arr)):
-        if arr[i] and (i - last) > cooldown:
-            out[i] = True
-            last = i
-    return pd.Series(out, index=condition.index)
