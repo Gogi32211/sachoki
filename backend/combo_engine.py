@@ -73,7 +73,7 @@ def compute_combo(df: pd.DataFrame) -> pd.DataFrame:
     break_gate = (tight_gate & brk_cons) | (alt_gate & brk_nr)
 
     buy_raw  = upmove_ok & break_gate
-    buy_2809 = _apply_cooldown(buy_raw, cooldown=6)
+    buy_2809 = _apply_cooldown(buy_raw, 6)
 
     vol_ratio = volume / avg_vol
     svs_2809  = _crossover(vol_ratio, 1.4) & (close > open_)
