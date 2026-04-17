@@ -349,6 +349,11 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
   const containerRef = useRef(null)
   const chartRef     = useRef(null)
   const [loading, setLoading] = useState(true)
+  const [info, setInfo] = useState(null)
+
+  useEffect(() => {
+    api.tickerInfo(row.ticker).then(setInfo).catch(() => {})
+  }, [row.ticker])
 
   const CHART_W = 780
   const CHART_H = 380
@@ -420,16 +425,22 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
     >
       {/* Header */}
       <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
-        <div className="flex items-center gap-3">
-          <span className="font-mono font-bold text-blue-300 text-base">{row.ticker}</span>
-          {row.vol_bucket && <span className="text-gray-500 text-sm">{row.vol_bucket}</span>}
+        <div className="flex items-center gap-3 min-w-0">
+          <span className="font-mono font-bold text-blue-300 text-base shrink-0">{row.ticker}</span>
+          {row.vol_bucket && <span className="text-gray-500 text-sm shrink-0">{row.vol_bucket}</span>}
           {row.tz_sig && (
-            <span className={`font-mono font-semibold text-sm ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
+            <span className={`font-mono font-semibold text-sm shrink-0 ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
               {row.tz_sig}
             </span>
           )}
+          {info?.name && info.name !== row.ticker && (
+            <span className="text-gray-300 text-sm truncate">{info.name}</span>
+          )}
+          {info?.sector && (
+            <span className="text-gray-500 text-xs shrink-0 bg-gray-800 px-1.5 py-0.5 rounded">{info.sector}</span>
+          )}
         </div>
-        <div className="text-right">
+        <div className="text-right shrink-0 ml-3">
           <span className="font-mono text-gray-100 text-base">${fmt(row.last_price)}</span>
           <span className={`ml-2 font-mono text-sm ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
             {chg >= 0 ? '+' : ''}{fmt(chg)}%
@@ -513,15 +524,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
       .then(d => {
         const results = d.results || []
         const ls = d.last_scan
+        if (!silent) setLastScan(ls || null)
         if (results.length > 0) {
           _tsSet(tf, uni, { results, lastScan: ls })
-          if (!silent) {
-            setAllResults(results)
-            setLastScan(ls)
-          }
+          if (!silent) setAllResults(results)
         } else if (!cached?.results?.length && !silent) {
           setAllResults([])
-          setLastScan(null)
         }
       })
       .catch(e => { if (!silent) setError(e.message) })
@@ -688,7 +696,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
-            onClick={() => { setUniverse(u.key); setAllResults([]) }}
+            onClick={() => { setUniverse(u.key); setAllResults([]); setLastScan(null) }}
             title={u.desc}
             className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
               ${universe === u.key
@@ -709,7 +717,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
           {TF_OPTS.map(t => (
-            <button key={t} onClick={() => setLocalTf(t)}
+            <button key={t} onClick={() => { setLocalTf(t); setLastScan(null) }}
               title={tfCached[t] ? `${t.toUpperCase()} — cached (instant)` : `${t.toUpperCase()} — no cache, scan first`}
               className={`relative px-2 py-0.5 rounded text-xs font-medium transition-colors
                 ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>

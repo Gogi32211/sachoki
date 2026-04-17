@@ -114,6 +114,28 @@ def health():
     return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.1"}
 
 
+_ticker_info_cache: dict = {}
+
+@app.get("/api/ticker-info/{ticker}")
+def api_ticker_info(ticker: str):
+    t = ticker.upper()
+    if t in _ticker_info_cache:
+        return _ticker_info_cache[t]
+    try:
+        import yfinance as yf
+        info = yf.Ticker(t).info or {}
+        result = {
+            "ticker":  t,
+            "name":    info.get("longName") or info.get("shortName") or t,
+            "sector":  info.get("sector") or "",
+            "industry": info.get("industry") or "",
+        }
+    except Exception:
+        result = {"ticker": t, "name": t, "sector": "", "industry": ""}
+    _ticker_info_cache[t] = result
+    return result
+
+
 @app.get("/api/signals/{ticker}")
 def api_signals(ticker: str, tf: str = "1d", bars: int = 150):
     try:

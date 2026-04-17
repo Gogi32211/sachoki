@@ -21,6 +21,9 @@ export const api = {
   signals: (ticker, tf = '1d', bars = 150) =>
     get(`/api/signals/${ticker}?tf=${tf}&bars=${bars}`),
 
+  tickerInfo: (ticker) =>
+    get(`/api/ticker-info/${ticker}`),
+
   wlnbb: (ticker, tf = '1d', bars = 150) =>
     get(`/api/wlnbb/${ticker}?tf=${tf}&bars=${bars}`),
 
