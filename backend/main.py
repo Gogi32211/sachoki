@@ -260,6 +260,41 @@ def api_l_predict(ticker: str, tf: str = "1d"):
         raise HTTPException(status_code=400, detail=str(e))
 
 
+@app.get("/api/pooled-predict/{ticker}")
+def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
+    try:
+        from pooled_stats import get_pooled_predict
+        df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
+        sigs  = compute_signals(df)
+        wlnbb = compute_wlnbb(df)
+        combined = sigs.join(wlnbb)
+        return get_pooled_predict(combined, universe=universe, interval=tf)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/pooled-stats/build")
+def api_pooled_stats_build(
+    background_tasks: BackgroundTasks,
+    universe: str = "sp500",
+    interval: str = "1d",
+    max_tickers: int = 2000,
+):
+    from pooled_stats import build_pooled_stats, get_pooled_state
+    if get_pooled_state().get("running"):
+        raise HTTPException(status_code=409, detail="Pooled stats build already running")
+    background_tasks.add_task(build_pooled_stats, universe, interval, 6, max_tickers)
+    return {"ok": True, "universe": universe, "interval": interval}
+
+
+@app.get("/api/pooled-stats/status")
+def api_pooled_stats_status(universe: str = "sp500", interval: str = "1d"):
+    from pooled_stats import get_pooled_status, get_pooled_state
+    status = get_pooled_status(universe, interval)
+    state  = get_pooled_state()
+    return {**status, "running": state.get("running", False)}
+
+
 @app.get("/api/tz-l-stats/{ticker}")
 def api_tz_l_stats(ticker: str, tf: str = "1d"):
     try:
