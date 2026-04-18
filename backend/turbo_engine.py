@@ -289,6 +289,7 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("sq"):        vol += 4
     if r.get("sc"):        vol += 2
     if r.get("svs_2809"):  vol += 3   # volume expansion within conso_2809 setup
+    if r.get("um_2809"):   vol += 3   # NASDAQ: 67% A with tz_bull, 49% with bf_buy
     if r.get("sig_l88"):        vol += 5
     elif r.get("sig_260308"):   vol += 3
     if r.get("va"):             vol += 3
@@ -315,7 +316,7 @@ def _calc_turbo_score(r: dict) -> float:
         combo += 8
     if r.get("sig3g"):    combo += 4
     if r.get("rtv"):      combo += 3
-    if r.get("hilo_buy"): combo += 2
+    if r.get("hilo_buy"): combo += 4   # NASDAQ: 93% A with conso_2809, raised from +2
     if r.get("atr_brk") or r.get("bb_brk"): combo += 2
     if r.get("cd"):   combo += 5
     elif r.get("ca"): combo += 3
