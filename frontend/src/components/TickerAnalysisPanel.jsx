@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { api } from '../api'
 import PredictorPanel from './PredictorPanel'
+import { pwlAdd, pwlHas } from './PersonalWatchlistPanel'
 
 // ── Engine family detection (mirrors TurboScanPanel logic) ───────────────────
 function engineFamilies(r) {
@@ -246,8 +247,12 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
   }
 
   const handleAdd = () => {
-    if (result?.ticker && onAddToWatchlist) {
-      onAddToWatchlist(result.ticker)
+    if (result?.ticker) {
+      onAddToWatchlist?.(result.ticker)
+      // also save to personal watchlist with full signal snapshot
+      if (!pwlHas(result.ticker, result._tf || '1d')) {
+        pwlAdd({ ...result, _tf: result._tf || '1d' })
+      }
       setAdded(true)
     }
   }

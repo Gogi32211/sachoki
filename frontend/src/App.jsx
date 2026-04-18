@@ -83,7 +83,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.0.62</span>
+          <span className="text-xs font-normal text-gray-500">v4.0.68</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -144,22 +144,10 @@ export default function App() {
           </div>
 
           {activeTab === 'watchlist' && (
-            <div className="grid grid-cols-12 gap-3 pt-2">
-              <div className="col-span-12 md:col-span-4">
-                <WatchlistPanel
-                  tickers={watchlist}
-                  tf={tf}
-                  selected={selected}
-                  onSelect={handleSelect}
-                  onRemove={handleRemoveTicker}
-                />
-              </div>
-              <div className="col-span-12 md:col-span-8">
-                <PersonalWatchlistPanel
-                  onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }}
-                />
-              </div>
-            </div>
+            <PersonalWatchlistPanel
+              watchlistTickers={watchlist}
+              onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }}
+            />
           )}
 
           {activeTab === 'combined' && (
