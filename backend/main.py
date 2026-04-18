@@ -642,6 +642,23 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int
                                "pct_a": pct_a, "pct_b": pct_b, "max_pct": max_pct})
 
     pairs.sort(key=lambda x: -x["max_pct"])
+
+    # Compute top-C signal for each A-B pair (ABC chain)
+    for p in pairs:
+        ab_mask = mat[p["sig_a"]] & mat[p["sig_b"]]
+        ab_n = p["both"]
+        best_c, best_pct = None, 0
+        for c in cols_with_signals:
+            if c == p["sig_a"] or c == p["sig_b"]:
+                continue
+            cnt = int((ab_mask & mat[c]).sum())
+            if cnt > 0:
+                pct = round(cnt / ab_n * 100)
+                if pct > best_pct:
+                    best_pct, best_c = pct, c
+        p["top_c"] = best_c
+        p["pct_c"] = best_pct
+
     return {"n_tickers": n, "signal_counts": counts, "pairs": pairs}
 
 
