@@ -484,11 +484,14 @@ const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsK
 const _tsSet  = (tf, uni, data) => { try { localStorage.setItem(_tsKey(tf, uni), JSON.stringify(data)) } catch {} }
 
 // ─────────────────────────────────────────────────────────────────────────────
+const _initTf  = () => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } }
+const _initUni = () => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } }
+
 export default function TurboScanPanel({ onSelectTicker }) {
-  const [localTf,    setLocalTf]    = useState('1d')
-  const [universe,   setUniverse]   = useState('sp500')
-  const [allResults, setAllResults] = useState(() => _tsGet('1d', 'sp500')?.results || [])
-  const [lastScan,   setLastScan]   = useState(() => _tsGet('1d', 'sp500')?.lastScan || null)
+  const [localTf,    setLocalTf]    = useState(_initTf)
+  const [universe,   setUniverse]   = useState(_initUni)
+  const [allResults, setAllResults] = useState(() => { const tf = _initTf(); const uni = _initUni(); return _tsGet(tf, uni)?.results || [] })
+  const [lastScan,   setLastScan]   = useState(() => { const tf = _initTf(); const uni = _initUni(); return _tsGet(tf, uni)?.lastScan || null })
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
   const pollIvRef   = useRef(null)   // interval handle — prevents duplicate polls
@@ -696,7 +699,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
-            onClick={() => { setUniverse(u.key); setAllResults([]); setLastScan(null) }}
+            onClick={() => { setUniverse(u.key); setAllResults([]); setLastScan(null); try { localStorage.setItem('sachoki_turbo_uni', u.key) } catch {} }}
             title={u.desc}
             className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
               ${universe === u.key
@@ -717,7 +720,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
           {TF_OPTS.map(t => (
-            <button key={t} onClick={() => { setLocalTf(t); setLastScan(null) }}
+            <button key={t} onClick={() => { setLocalTf(t); setLastScan(null); try { localStorage.setItem('sachoki_turbo_tf', t) } catch {} }}
               title={tfCached[t] ? `${t.toUpperCase()} — cached (instant)` : `${t.toUpperCase()} — no cache, scan first`}
               className={`relative px-2 py-0.5 rounded text-xs font-medium transition-colors
                 ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
