@@ -482,7 +482,36 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // ── Turbo scan localStorage cache ─────────────────────────────────────────────
 const _tsKey  = (tf, uni) => `sachoki_turbo_${tf}_${uni}`
 const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
-const _tsSet  = (tf, uni, data) => { try { localStorage.setItem(_tsKey(tf, uni), JSON.stringify(data)) } catch {} }
+
+// Keep only fields needed for display — omit 0-valued booleans to save space
+const KEEP_ALWAYS = new Set([
+  'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
+  'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
+  'vol_bucket','data_source','sig_ages',
+])
+function _slimRow(r) {
+  const out = {}
+  for (const [k, v] of Object.entries(r)) {
+    if (k.startsWith('_') || k === 'scan_id') continue
+    if (KEEP_ALWAYS.has(k)) { if (v != null) out[k] = v; continue }
+    if (v === 1) out[k] = 1  // only store truthy signal flags
+  }
+  return out
+}
+
+export function turboCacheSet(tf, uni, results, lastScan) {
+  try {
+    localStorage.setItem(_tsKey(tf, uni), JSON.stringify({ results: results.map(_slimRow), lastScan }))
+  } catch (e) {
+    // quota exceeded — store top 500 by score only
+    try {
+      const top = [...results].sort((a, b) => (b.turbo_score ?? 0) - (a.turbo_score ?? 0)).slice(0, 500)
+      localStorage.setItem(_tsKey(tf, uni), JSON.stringify({ results: top.map(_slimRow), lastScan, truncated: true }))
+    } catch {}
+  }
+}
+
+const _tsSet = turboCacheSet
 
 // ─────────────────────────────────────────────────────────────────────────────
 const _initTf  = () => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } }
@@ -558,7 +587,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         const results = d.results || []
         const ls = d.last_scan
         if (results.length > 0) {
-          _tsSet(tf, uni, { results, lastScan: ls })
+          turboCacheSet(tf, uni, results, ls)
           setAllResults(results)
           setLastScan(ls || null)
         }
@@ -595,8 +624,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
       // score threshold against N-appropriate score
       const score = r[effectiveScoreCol] ?? r.turbo_score ?? 0
       if (score < minScore) return false
-      if (volMin > 0 && (r.avg_vol ?? 0) < volMin) return false
-      if (volMax > 0 && (r.avg_vol ?? 0) > volMax) return false
+      if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
+      if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
