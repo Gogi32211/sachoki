@@ -327,9 +327,9 @@ def _calc_turbo_score(r: dict) -> float:
     # ── L-structure / trend family (cap 13) ───────────────────────────────
     trend = 0.0
     trend += _TZ_W.get(r.get("tz_sig", ""), 0)
-    # tz_bull_flip ⊂ bf_buy (100% overlap) — don't double-count when bf_buy already scored
+    # tz_bull_flip: 100%A/98%C triple (FLP↑+4BF+T/Z↑) — strong pattern, raised +1→+3 with bf_buy
     if r.get("tz_bull_flip"):
-        trend += 1 if has_bf_buy else 4
+        trend += 3 if has_bf_buy else 4
     elif r.get("tz_attempt"):
         trend += 2
     if r.get("fri34"):
@@ -366,7 +366,7 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("x1g_wick"):    s += 4
     elif r.get("x1_wick"):     s += 3
     elif r.get("x3_wick"):     s += 2
-    if r.get("wick_bull"):     s += 3
+    if r.get("wick_bull"):     s += 5   # 94% C-anchor in WK↑+4BF+T/Z↑ triple, raised +3→+5
 
     return round(min(100.0, s), 1)
 
