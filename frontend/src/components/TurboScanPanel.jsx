@@ -483,6 +483,22 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 const _tsKey  = (tf, uni) => `sachoki_turbo_${tf}_${uni}`
 const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
 
+const _ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
+const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us']
+
+// Evict the oldest cached entry to free space
+function _evictOldest(exceptKey) {
+  const entries = []
+  for (const tf of _ALL_TF) for (const uni of _ALL_UNI) {
+    const key = _tsKey(tf, uni)
+    if (key === exceptKey) continue
+    const d = _tsGet(tf, uni)
+    if (d) entries.push({ key, ts: d.lastScan || '' })
+  }
+  entries.sort((a, b) => a.ts.localeCompare(b.ts))
+  if (entries[0]) { try { localStorage.removeItem(entries[0].key) } catch {} }
+}
+
 // Keep only fields needed for display — omit 0-valued booleans to save space
 const KEEP_ALWAYS = new Set([
   'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
@@ -500,14 +516,22 @@ function _slimRow(r) {
 }
 
 export function turboCacheSet(tf, uni, results, lastScan) {
+  const key = _tsKey(tf, uni)
+  const payload = { results: results.map(_slimRow), lastScan }
+  const write = (p) => localStorage.setItem(key, JSON.stringify(p))
   try {
-    localStorage.setItem(_tsKey(tf, uni), JSON.stringify({ results: results.map(_slimRow), lastScan }))
-  } catch (e) {
-    // quota exceeded — store top 500 by score only
+    write(payload)
+  } catch {
+    _evictOldest(key)  // free space, retry
     try {
-      const top = [...results].sort((a, b) => (b.turbo_score ?? 0) - (a.turbo_score ?? 0)).slice(0, 500)
-      localStorage.setItem(_tsKey(tf, uni), JSON.stringify({ results: top.map(_slimRow), lastScan, truncated: true }))
-    } catch {}
+      write(payload)
+    } catch {
+      // last resort: top 500 only
+      try {
+        const top = [...results].sort((a,b) => (b.turbo_score??0)-(a.turbo_score??0)).slice(0,500)
+        write({ results: top.map(_slimRow), lastScan, truncated: true })
+      } catch {}
+    }
   }
 }
 
@@ -568,9 +592,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
     [universe, allResults]  // re-check when results change (after scan saves cache)
   )
 
-  // Read from localStorage only — never hits the server
+  // Read from localStorage — fall back to all_us cache if specific universe has no data
   const loadFromCache = useCallback((tf, uni) => {
-    const cached = _tsGet(tf, uni)
+    let cached = _tsGet(tf, uni)
+    // If no specific cache, try all_us (covers all sub-universes)
+    if (!cached?.results?.length && uni !== 'all_us') {
+      cached = _tsGet(tf, 'all_us')
+    }
     if (cached?.results?.length) {
       setAllResults(cached.results)
       setLastScan(cached.lastScan || null)
