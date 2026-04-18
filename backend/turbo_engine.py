@@ -117,6 +117,8 @@ _TURBO_COLS = [
     "seq_bcont",
     # VA — ATR Volume Confirm crossover (260402_COMBO_OSC)
     "va",
+    # Volume spike signals (vs 20-bar SMA)
+    "vol_spike_10x", "vol_spike_20x",
     # TZ state + confluences + transition signals (260412)
     "tz_state", "ca", "cd", "cw",
     "tz_bull_flip", "tz_attempt",
@@ -573,6 +575,17 @@ def _scan_turbo_ticker(
             row["va"] = int(_vr_now > 2.0 and _vr_prev <= 2.0)
         except Exception:
             row["va"] = 0
+        # ── Volume spike vs previous bar ──────────────────────────────────
+        try:
+            _vs_cur  = float(df["volume"].iloc[-1])
+            _vs_prev = float(df["volume"].iloc[-2]) if len(df) >= 2 else 0.0
+            _vs_ratio = _vs_cur / _vs_prev if _vs_prev > 0 else 0.0
+            row["vol_spike_10x"] = int(_vs_ratio >= 10.0)
+            row["vol_spike_20x"] = int(_vs_ratio >= 20.0)
+        except Exception:
+            row["vol_spike_10x"] = 0
+            row["vol_spike_20x"] = 0
+
         # ── TZ state machine + CA/CD/CW + transition signals (260412) ─────
         tz_st = compute_tz_state(df)
         row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
