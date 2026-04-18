@@ -575,11 +575,11 @@ def _scan_turbo_ticker(
             row["va"] = int(_vr_now > 2.0 and _vr_prev <= 2.0)
         except Exception:
             row["va"] = 0
-        # ── Volume spike signals (vs 20-bar SMA) ─────────────────────────
+        # ── Volume spike vs previous bar ──────────────────────────────────
         try:
-            _vs_avg = df["volume"].rolling(20, min_periods=5).mean().iloc[-1]
-            _vs_cur = float(df["volume"].iloc[-1])
-            _vs_ratio = _vs_cur / _vs_avg if _vs_avg > 0 else 0.0
+            _vs_cur  = float(df["volume"].iloc[-1])
+            _vs_prev = float(df["volume"].iloc[-2]) if len(df) >= 2 else 0.0
+            _vs_ratio = _vs_cur / _vs_prev if _vs_prev > 0 else 0.0
             row["vol_spike_10x"] = int(_vs_ratio >= 10.0)
             row["vol_spike_20x"] = int(_vs_ratio >= 20.0)
         except Exception:
