@@ -41,7 +41,7 @@ export function pwlHas(ticker, tf) {
 
 // ── Signal label map (same as SignalCorrelPanel) ───────────────────────────────
 const SIG_LABEL = {
-  vol_spike_20x:'V×20', vol_spike_10x:'V×10',
+  vol_spike_20x:'V×20', vol_spike_10x:'V×10', vol_spike_5x:'V×5',
   conso_2809:'CON', um_2809:'UM', svs_2809:'SVS', buy_2809:'BUY', rocket:'🚀',
   sig3g:'3G', rtv:'RTV', hilo_buy:'HILO↑', atr_brk:'ATR↑', bb_brk:'BB↑',
   bias_up:'↑BIAS', va:'VA', seq_bcont:'SBC', ca:'CA', cd:'CD', cw:'CW',
