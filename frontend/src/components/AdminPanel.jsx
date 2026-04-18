@@ -46,7 +46,9 @@ export default function AdminPanel() {
   const [rsiMax,   setRsiMax]   = useState('')
   const [cciMin,   setCciMin]   = useState('')
   const [cciMax,   setCciMax]   = useState('')
-  const pollRef = useRef(null)
+  const [caching,  setCaching]  = useState(false)
+  const pollRef    = useRef(null)
+  const scanParams = useRef({ tf: '1d', uni: 'sp500' })
 
   const filters = {
     price_min: priceMin !== '' ? Number(priceMin) : 0,
@@ -73,17 +75,35 @@ export default function AdminPanel() {
     return () => clearInterval(pollRef.current)
   }, [])
 
-  // refresh history when scan finishes
+  // refresh history + cache results when scan finishes
   const prevRunning = useRef(false)
   useEffect(() => {
-    if (prevRunning.current && status && !status.running) {
+    if (prevRunning.current && status && !status.running && !status.error) {
       fetchHistory()
+      // Save scan results to localStorage so Turbo panel shows them instantly
+      const { tf: scanTf, uni: scanUni } = scanParams.current
+      setCaching(true)
+      api.turboScan(10000, 0, 'all', scanTf, scanUni, {})
+        .then(d => {
+          const results = d.results || []
+          if (results.length > 0) {
+            try {
+              const key = `sachoki_turbo_${scanTf}_${scanUni}`
+              localStorage.setItem(key, JSON.stringify({ results, lastScan: d.last_scan }))
+              localStorage.setItem('sachoki_turbo_tf',  scanTf)
+              localStorage.setItem('sachoki_turbo_uni', scanUni)
+              window.dispatchEvent(new CustomEvent('sachoki:scan-cached', { detail: { tf: scanTf, uni: scanUni } }))
+            } catch {}
+          }
+        })
+        .finally(() => setCaching(false))
     }
     prevRunning.current = status?.running ?? false
   }, [status?.running])
 
   const startScan = () => {
     setError(null)
+    scanParams.current = { tf, uni: universe }
     api.adminScanStart(tf, universe)
       .then(() => fetchStatus())
       .catch(e => setError(e?.detail || e?.message || String(e)))
@@ -221,7 +241,10 @@ export default function AdminPanel() {
             </div>
           )}
           {!running && !scanErr && done > 0 && (
-            <div className="text-green-400 text-xs">✓ Scan completed — {found} tickers pushed to Turbo</div>
+            <div className="text-green-400 text-xs">
+              ✓ Scan completed — {found} tickers
+              {caching ? ' · saving to Turbo cache…' : ' · cached in Turbo ✓'}
+            </div>
           )}
         </div>
       )}

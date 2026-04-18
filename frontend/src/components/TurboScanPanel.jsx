@@ -567,6 +567,20 @@ export default function TurboScanPanel({ onSelectTicker }) {
   }, [])
 
   useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
+
+  // Listen for Admin-triggered scan completing — switch universe/tf and reload cache
+  useEffect(() => {
+    const onCached = (e) => {
+      const { tf: newTf, uni: newUni } = e.detail
+      if (newTf !== localTf) { setLocalTf(newTf); try { localStorage.setItem('sachoki_turbo_tf', newTf) } catch {} }
+      if (newUni !== universe) { setUniverse(newUni); try { localStorage.setItem('sachoki_turbo_uni', newUni) } catch {} }
+      // if same tf/uni, deps didn't change so trigger reload manually
+      if (newTf === localTf && newUni === universe) loadFromCache(newTf, newUni)
+    }
+    window.addEventListener('sachoki:scan-cached', onCached)
+    return () => window.removeEventListener('sachoki:scan-cached', onCached)
+  }, [localTf, universe, loadFromCache])
+
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Effective score column based on selected N ────────────────────────────
