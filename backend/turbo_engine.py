@@ -251,39 +251,62 @@ def _init_db() -> None:
 # ── Score calculator ──────────────────────────────────────────────────────────
 def _calc_turbo_score(r: dict) -> float:
     """
-    Score grouped into 4 capped families — RAW signals only, no composites.
-      Volume/accum  cap 22  — VABS atomic (abs/climb/load), Wyckoff, 260308/L88
-      Breakout      cap 15  — ULTRA v2 atomic (fbo/eb/bf), BO/BX, RS
+    Statistics-based scoring v2 (derived from 593-ticker, 1209-pair co-occurrence analysis).
+    Core backbone: conso_2809 (79% freq) → tz_bull (65%) → bf_buy (43%).
+    Rarer signals score higher; redundant subsets don't double-count.
+      Backbone      cap 18  — conso_2809, tz_bull, chain bonus
+      Volume/accum  cap 22  — VABS atomic, Wyckoff, 260308/L88, svs_2809
+      Breakout      cap 18  — ULTRA v2, BO/BX (rare→+5), RS
       Combo/trend   cap 14  — Combo signals
-      L-structure   cap 13  — T/Z, WLNBB
+      L-structure   cap 13  — T/Z, WLNBB; tz_bull_flip de-duped vs bf_buy
+      Delta         cap 12  — Order-flow
+      EMA cross     cap 8   — preup series
     Context (Wick) uncapped (max ~18).
     """
+    has_conso   = bool(r.get("conso_2809"))
+    has_tz_bull = bool(r.get("tz_bull"))
+    has_bf_buy  = bool(r.get("bf_buy"))
+
+    # ── Backbone / setup chain (cap 18) ───────────────────────────────────
+    # Weights inverse-proportional to frequency: conso 79%→4, tz_bull 65%→6
+    # Chain bonus rewards co-occurrence of the full 3-signal backbone
+    bkb = 0.0
+    if has_conso:   bkb += 4
+    if has_tz_bull: bkb += 6
+    if has_conso and has_tz_bull and has_bf_buy:
+        bkb += 8   # full bullish chain — statistically most predictive combo
+    elif has_conso and has_tz_bull:
+        bkb += 3   # partial chain (setup without entry confirmation)
+    s = min(bkb, 18)
+
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
-    # Only atomic VABS signals — no best_sig / strong_sig composites
     vol = 0.0
     if r.get("abs_sig"):   vol += 5
     if r.get("climb_sig"): vol += 4
-    if r.get("load_sig"):  vol += 4
+    if r.get("load_sig"):  vol += 4   # strong_sig ⊂ load_sig (100%) — load_sig is superset
     if r.get("vbo_up"):    vol += 6
     if r.get("ns"):        vol += 5
     if r.get("sq"):        vol += 4
     if r.get("sc"):        vol += 2
+    if r.get("svs_2809"):  vol += 3   # volume expansion within conso_2809 setup
+    if r.get("um_2809"):   vol += 3   # NASDAQ: 67% A with tz_bull, 49% with bf_buy
     if r.get("sig_l88"):        vol += 5
     elif r.get("sig_260308"):   vol += 3
-    if r.get("va"):             vol += 3   # 260402 ATR Vol Confirm — vol/avgVol just crossed >2×
-    s = min(vol, 22)
+    if r.get("va"):             vol += 3
+    s += min(vol, 22)
 
-    # ── Breakout / expansion family (cap 15) ──────────────────────────────
-    # Only atomic ULTRA signals — no best_long composite
+    # ── Breakout / expansion family (cap 18) ──────────────────────────────
+    # bf_buy: 43% freq → raised +4→+6 (medium rarity, strong entry signal)
+    # bo_up:  14% freq → raised +3→+5 (rare → higher information value)
     brk = 0.0
-    if r.get("fbo_bull"):  brk += 5
-    if r.get("eb_bull"):   brk += 4
-    if r.get("bf_buy"):    brk += 4
-    if r.get("ultra_3up"): brk += 4
-    if r.get("bo_up") or r.get("bx_up"): brk += 3
-    if r.get("rs_strong"): brk += 5
-    elif r.get("rs"):      brk += 3
-    s += min(brk, 15)
+    if has_bf_buy:          brk += 6
+    if r.get("fbo_bull"):   brk += 5
+    if r.get("eb_bull"):    brk += 4
+    if r.get("ultra_3up"):  brk += 4
+    if r.get("bo_up") or r.get("bx_up"): brk += 5
+    if r.get("rs_strong"):  brk += 5
+    elif r.get("rs"):       brk += 3
+    s += min(brk, 18)
 
     # ── Combo / momentum family (cap 14) ──────────────────────────────────
     combo = 0.0
@@ -293,20 +316,22 @@ def _calc_turbo_score(r: dict) -> float:
         combo += 8
     if r.get("sig3g"):    combo += 4
     if r.get("rtv"):      combo += 3
-    if r.get("hilo_buy"): combo += 2
+    if r.get("hilo_buy"): combo += 4   # NASDAQ: 93% A with conso_2809, raised from +2
     if r.get("atr_brk") or r.get("bb_brk"): combo += 2
-    # B-signal confluences (CA=Bull Attempt+B, CD=Bull Dom+B, CW=Bear Weak+B)
     if r.get("cd"):   combo += 5
     elif r.get("ca"): combo += 3
     elif r.get("cw"): combo += 2
-    if r.get("seq_bcont"): combo += 3   # 260412 continuation-lite sequence
+    if r.get("seq_bcont"): combo += 3
     s += min(combo, 14)
 
     # ── L-structure / trend family (cap 13) ───────────────────────────────
     trend = 0.0
     trend += _TZ_W.get(r.get("tz_sig", ""), 0)
-    if r.get("tz_bull_flip"): trend += 4   # 260412 TZ just flipped to Bull Dominance
-    elif r.get("tz_attempt"): trend += 2   # 260412 TZ just entered Reversal Attempt
+    # tz_bull_flip ⊂ bf_buy (100% overlap) — don't double-count when bf_buy already scored
+    if r.get("tz_bull_flip"):
+        trend += 1 if has_bf_buy else 4
+    elif r.get("tz_attempt"):
+        trend += 2
     if r.get("fri34"):
         trend += 6
     elif r.get("fri43"):
@@ -322,26 +347,26 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("d_surge_bull"):      dlt += 4
     if r.get("d_strong_bull"):       dlt += 5
     if r.get("d_absorb_bull"):       dlt += 4
-    if r.get("d_spring"):            dlt += 6   # Wyckoff Spring (bear trap + absorption)
+    if r.get("d_spring"):            dlt += 6
     elif r.get("d_div_bull"):        dlt += 3
-    if r.get("d_vd_div_bull"):       dlt += 3   # vol↓ delta↑ (no supply)
+    if r.get("d_vd_div_bull"):       dlt += 3
     elif r.get("d_cd_bull"):         dlt += 2
     s += min(dlt, 12)
 
     # ── EMA cross family (cap 8) ──────────────────────────────────────────
     ema_x = 0.0
-    if r.get("preup66"):   ema_x += 8   # crossed EMA200 + another  (very strong)
-    elif r.get("preup55"): ema_x += 6   # crossed EMA89 + another
-    elif r.get("preup89"): ema_x += 4   # crossed EMA89 alone
+    if r.get("preup66"):   ema_x += 8
+    elif r.get("preup55"): ema_x += 6
+    elif r.get("preup89"): ema_x += 4
     s += min(ema_x, 8)
 
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
-    if r.get("x2g_wick"):        s += 5   # X2G: gap-open continuation, both wicks aligned
-    elif r.get("x2_wick"):      s += 4   # X2:  inside-open continuation, wicks aligned
-    elif r.get("x1g_wick"):     s += 4   # X1G: gap-open reversal from bearish bar
-    elif r.get("x1_wick"):      s += 3   # X1:  inside-open reversal from bearish bar
-    elif r.get("x3_wick"):      s += 2   # X3:  generic wick alignment
-    if r.get("wick_bull"):  s += 3   # legacy 2-candle confirm
+    if r.get("x2g_wick"):      s += 5
+    elif r.get("x2_wick"):     s += 4
+    elif r.get("x1g_wick"):    s += 4
+    elif r.get("x1_wick"):     s += 3
+    elif r.get("x3_wick"):     s += 2
+    if r.get("wick_bull"):     s += 3
 
     return round(min(100.0, s), 1)
 
