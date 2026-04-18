@@ -93,10 +93,45 @@ function SignalChips({ entry, n }) {
   )
 }
 
-export default function PersonalWatchlistPanel({ onSelectTicker }) {
+// Pull latest scan data for a list of tickers from localStorage turbo cache
+function useWatchingRows(tickers) {
+  return useMemo(() => {
+    if (!tickers?.length) return []
+    const tf  = (() => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } })()
+    const uni = (() => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } })()
+    const key = `sachoki_turbo_${tf}_${uni}`
+    try {
+      const cache = JSON.parse(localStorage.getItem(key) || 'null')
+      const rows  = cache?.results || []
+      return tickers
+        .map(t => rows.find(r => r.ticker === t))
+        .filter(Boolean)
+        .map(r => ({
+          ticker:     r.ticker,
+          tf,
+          score:      r.turbo_score ?? 0,
+          price:      r.last_price  ?? null,
+          change_pct: r.change_pct  ?? null,
+          tz_sig:     r.tz_sig      ?? '',
+          tz_bull:    r.tz_bull     ?? 0,
+          sig_ages:   r.sig_ages    ?? '{}',
+          _signals:   Object.fromEntries(
+            Object.entries(r).filter(([k, v]) =>
+              typeof v === 'number' && v === 1 &&
+              !['scan_id','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
+                'last_price','change_pct','rsi','cci','avg_vol'].includes(k)
+            )
+          ),
+        }))
+    } catch { return [] }
+  }, [tickers])
+}
+
+export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTickers }) {
   const [items,   setItems]   = useState(pwlLoad)
   const [n,       setN]       = useState(5)
   const [sortBy,  setSortBy]  = useState('addedAt')
+  const watchingRows = useWatchingRows(watchlistTickers)
 
   const refresh = () => setItems(pwlLoad())
 
@@ -144,16 +179,53 @@ export default function PersonalWatchlistPanel({ onSelectTicker }) {
           className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">↺</button>
       </div>
 
-      {sorted.length === 0 && (
+      {/* Watching section — tickers from regular watchlist */}
+      {watchingRows.length > 0 && (
+        <div className="border-b border-gray-800">
+          <div className="px-4 py-1.5 text-[10px] text-gray-600 uppercase tracking-wider bg-gray-800/30">
+            Watching ({watchingRows.length})
+          </div>
+          <table className="w-full">
+            <tbody>
+              {watchingRows.map((entry, i) => (
+                <tr key={i}
+                  onClick={() => onSelectTicker?.(entry.ticker)}
+                  className="border-b border-gray-800/30 hover:bg-gray-800/40 cursor-pointer">
+                  <td className="px-3 py-1.5 font-semibold text-white w-20">{entry.ticker}</td>
+                  <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry.tz_sig || '—'}</td>
+                  <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry.score.toFixed(1)}</td>
+                  <td className="px-2 py-1.5 max-w-xs"><SignalChips entry={entry} n={n} /></td>
+                  <td className="px-2 py-1.5 text-gray-400 w-20">
+                    {entry.price != null ? `$${Number(entry.price).toFixed(2)}` : '—'}
+                  </td>
+                  <td className={`px-2 py-1.5 w-16 ${entry.change_pct > 0 ? 'text-green-400' : entry.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                    {entry.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(1)}%` : ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {sorted.length === 0 && watchingRows.length === 0 && (
         <div className="px-4 py-10 text-center text-gray-600">
           No saved tickers — press ★ on any Turbo scan row to save
         </div>
       )}
+      {sorted.length === 0 && watchingRows.length > 0 && (
+        <div className="px-4 py-4 text-center text-gray-600 text-[11px]">
+          No saved tickers yet — press ★ on any Turbo scan row to save
+        </div>
+      )}
 
       {sorted.length > 0 && (
-        <div className="overflow-auto max-h-[560px]">
+        <div className="overflow-auto max-h-[420px]">
+          <div className="px-4 py-1.5 text-[10px] text-gray-600 uppercase tracking-wider bg-gray-800/30 sticky top-0">
+            Saved from scan ({sorted.length})
+          </div>
           <table className="w-full">
-            <thead className="sticky top-0 bg-gray-900 border-b border-gray-800">
+            <thead className="sticky top-7 bg-gray-900 border-b border-gray-800">
               <tr>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium w-6"></th>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Ticker</th>
