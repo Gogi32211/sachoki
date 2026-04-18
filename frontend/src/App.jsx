@@ -140,13 +140,13 @@ export default function App() {
         <div className="min-h-[400px]">
           {/* TURBO: always mounted so scan results survive tab switches */}
           <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
-            <TurboScanPanel onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }} />
+            <TurboScanPanel onSelectTicker={handleSelect} />
           </div>
 
           {activeTab === 'watchlist' && (
             <PersonalWatchlistPanel
               watchlistTickers={watchlist}
-              onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }}
+              onSelectTicker={handleSelect}
               onAddTicker={handleAddTicker}
               onRemoveTicker={handleRemoveTicker}
             />
