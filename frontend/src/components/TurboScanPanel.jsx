@@ -37,6 +37,8 @@ const SIG_GROUPS = [
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
   { key: 'strong_sig', label: 'STRONG', cls: 'text-emerald-300' },
+  { key: 'vol_spike_20x', label: 'V×20', cls: 'text-red-300 font-bold' },
+  { key: 'vol_spike_10x', label: 'V×10', cls: 'text-orange-300'  },
   { key: 'vbo_up',     label: 'VBO↑',  cls: 'text-green-300'   },
   { key: 'abs_sig',    label: 'ABS',    cls: 'text-teal-300'    },
   { key: 'climb_sig',  label: 'CLB',    cls: 'text-cyan-300'    },
@@ -1090,6 +1092,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 {/* VABS + Delta */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5">
+                    {r.vol_spike_20x ? <Badge label="V×20" cls="bg-red-700 text-red-100 ring-1 ring-red-400 font-bold" /> : r.vol_spike_10x ? <Badge label="V×10" cls="bg-orange-700/80 text-orange-100 ring-1 ring-orange-400" /> : null}
                     {r.best_sig   ? <Badge label="BEST★" cls="bg-lime-800 text-lime-200 ring-1 ring-lime-500" /> : null}
                     {r.strong_sig && !r.best_sig ? <Badge label="STR"  cls="bg-emerald-800 text-emerald-200" /> : null}
                     {r.vbo_up     ? <Badge label="VBO↑" cls="bg-green-700 text-white" /> : null}
