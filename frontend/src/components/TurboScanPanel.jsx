@@ -539,29 +539,34 @@ export default function TurboScanPanel({ onSelectTicker }) {
     [universe, allResults]  // re-check when results change (after scan saves cache)
   )
 
-  // silent=true: update localStorage cache only, don't change displayed state
-  const load = (tf = localTf, uni = universe, silent = false) => {
+  // Read from localStorage only — never hits the server
+  const loadFromCache = useCallback((tf, uni) => {
     const cached = _tsGet(tf, uni)
-    if (!silent && cached?.results?.length) {
+    if (cached?.results?.length) {
       setAllResults(cached.results)
-      setLastScan(cached.lastScan)
+      setLastScan(cached.lastScan || null)
+    } else {
+      setAllResults([])
+      setLastScan(null)
     }
-    api.turboScan(10000, 0, 'all', tf, uni, { vol_min: volMin, vol_max: volMax })
+  }, [])
+
+  // Fetch fresh results from server after a scan completes, then cache
+  const fetchFreshResults = useCallback((tf, uni) => {
+    api.turboScan(10000, 0, 'all', tf, uni, {})
       .then(d => {
         const results = d.results || []
         const ls = d.last_scan
-        if (!silent) setLastScan(ls || null)
         if (results.length > 0) {
           _tsSet(tf, uni, { results, lastScan: ls })
-          if (!silent) setAllResults(results)
-        } else if (!cached?.results?.length && !silent) {
-          setAllResults([])
+          setAllResults(results)
+          setLastScan(ls || null)
         }
       })
-      .catch(e => { if (!silent) setError(e.message) })
-  }
+      .catch(e => setError(e.message))
+  }, [])
 
-  useEffect(() => { load(localTf, universe) }, [localTf, universe, volMin, volMax])
+  useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Effective score column based on selected N ────────────────────────────
@@ -576,6 +581,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
       // score threshold against N-appropriate score
       const score = r[effectiveScoreCol] ?? r.turbo_score ?? 0
       if (score < minScore) return false
+      if (volMin > 0 && (r.avg_vol ?? 0) < volMin) return false
+      if (volMax > 0 && (r.avg_vol ?? 0) > volMax) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
@@ -604,7 +611,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -687,12 +694,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
           if (!s.running) {
             _stopPoll(); setScanning(false)
             if (s.error) setError(s.error)
-            else load(activeTf, uni)
+            else fetchFreshResults(activeTf, uni)
           }
         })
         .catch(() => { _stopPoll(); setScanning(false) })
     }, 2000)
-    setTimeout(() => { _stopPoll(); setScanning(false); load(activeTf, uni) }, 360_000)
+    setTimeout(() => { _stopPoll(); setScanning(false); fetchFreshResults(activeTf, uni) }, 360_000)
   }
 
   const scan = () => {
