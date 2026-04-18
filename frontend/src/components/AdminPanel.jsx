@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
+import { turboCacheSet } from './TurboScanPanel'
 
 const UNIVERSES = [
   { key: 'sp500',     label: 'S&P 500'    },
@@ -87,13 +88,12 @@ export default function AdminPanel() {
         .then(d => {
           const results = d.results || []
           if (results.length > 0) {
+            turboCacheSet(scanTf, scanUni, results, d.last_scan)
             try {
-              const key = `sachoki_turbo_${scanTf}_${scanUni}`
-              localStorage.setItem(key, JSON.stringify({ results, lastScan: d.last_scan }))
               localStorage.setItem('sachoki_turbo_tf',  scanTf)
               localStorage.setItem('sachoki_turbo_uni', scanUni)
-              window.dispatchEvent(new CustomEvent('sachoki:scan-cached', { detail: { tf: scanTf, uni: scanUni } }))
             } catch {}
+            window.dispatchEvent(new CustomEvent('sachoki:scan-cached', { detail: { tf: scanTf, uni: scanUni } }))
           }
         })
         .finally(() => setCaching(false))
