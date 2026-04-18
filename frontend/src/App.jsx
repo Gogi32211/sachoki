@@ -15,6 +15,7 @@ import TurboScanPanel from './components/TurboScanPanel'
 import AdminPanel from './components/AdminPanel'
 import SignalCorrelPanel from './components/SignalCorrelPanel'
 import TickerAnalysisPanel from './components/TickerAnalysisPanel'
+import PersonalWatchlistPanel from './components/PersonalWatchlistPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -29,6 +30,7 @@ const LS = {
 
 const TABS = [
   { id: 'turbo',      label: '⚡ TURBO' },
+  { id: 'watchlist',  label: '⭐ Watchlist' },
   { id: 'combined',   label: 'Combined Scan' },
   { id: 'combo260',   label: '260323 Combo' },
   { id: 'predictor',  label: 'Predictor' },
@@ -81,10 +83,9 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.0.56</span>
+          <span className="text-xs font-normal text-gray-500">v4.0.62</span>
         </h1>
         <div className="flex items-center gap-3">
-          {/* Timeframe selector */}
           <div className="flex gap-1">
             {TF_OPTIONS.map(t => (
               <button
@@ -109,34 +110,23 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Top row: Watchlist + Chart ──────────────────────────────────── */}
-      <div className="grid grid-cols-12 gap-3" style={{ minHeight: '420px' }}>
-        <div className="col-span-12 md:col-span-3">
-          <WatchlistPanel
-            tickers={watchlist}
-            tf={tf}
-            selected={selected}
-            onSelect={handleSelect}
-            onRemove={handleRemoveTicker}
-          />
-        </div>
-        <div className="col-span-12 md:col-span-9">
-          <CandleChart
-            ticker={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.ticker : selected}
-            tf={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.tf : tf}
-          />
-        </div>
+      {/* ── Top: Chart (full width) ─────────────────────────────────────── */}
+      <div style={{ minHeight: '340px' }}>
+        <CandleChart
+          ticker={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.ticker : selected}
+          tf={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.tf : tf}
+        />
       </div>
 
       {/* ── Bottom: Tab bar + panels ────────────────────────────────────── */}
       <div className="flex flex-col gap-0 flex-1">
         {/* Tab buttons */}
-        <div className="flex gap-1 border-b border-gray-800">
+        <div className="flex flex-wrap gap-1 border-b border-gray-800">
           {TABS.map(tab => (
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`text-xs px-4 py-2 rounded-t transition-colors border-b-2
+              className={`text-xs px-3 py-2 rounded-t transition-colors border-b-2
                 ${activeTab === tab.id
                   ? 'border-blue-500 text-blue-400 bg-gray-900'
                   : 'border-transparent text-gray-500 hover:text-gray-300 bg-transparent'}`}
@@ -147,7 +137,31 @@ export default function App() {
         </div>
 
         {/* Tab content */}
-        <div className="min-h-[340px]">
+        <div className="min-h-[400px]">
+          {/* TURBO: always mounted so scan results survive tab switches */}
+          <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
+            <TurboScanPanel onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }} />
+          </div>
+
+          {activeTab === 'watchlist' && (
+            <div className="grid grid-cols-12 gap-3 pt-2">
+              <div className="col-span-12 md:col-span-4">
+                <WatchlistPanel
+                  tickers={watchlist}
+                  tf={tf}
+                  selected={selected}
+                  onSelect={handleSelect}
+                  onRemove={handleRemoveTicker}
+                />
+              </div>
+              <div className="col-span-12 md:col-span-8">
+                <PersonalWatchlistPanel
+                  onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }}
+                />
+              </div>
+            </div>
+          )}
+
           {activeTab === 'combined' && (
             <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />
           )}
@@ -171,11 +185,6 @@ export default function App() {
           {activeTab === 'power' && (
             <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
           )}
-
-          {/* TURBO: always mounted so scan results survive tab switches */}
-          <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
-            <TurboScanPanel onSelectTicker={(t) => { handleSelect(t); setActiveTab('predictor') }} />
-          </div>
 
           {activeTab === 'brscan' && (
             <BRScanPanel tf={tf} onSelectTicker={handleSelect} />

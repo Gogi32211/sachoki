@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createChart } from 'lightweight-charts'
 import { api } from '../api'
+import { pwlAdd, pwlHas, pwlRemove } from './PersonalWatchlistPanel'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
@@ -487,6 +488,21 @@ const _tsSet  = (tf, uni, data) => { try { localStorage.setItem(_tsKey(tf, uni),
 const _initTf  = () => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } }
 const _initUni = () => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } }
 
+function StarBtn({ ticker, tf }) {
+  const [saved, setSaved] = useState(() => pwlHas(ticker, tf))
+  return (
+    <button
+      title={saved ? 'Remove from watchlist' : 'Save to watchlist'}
+      className={`text-sm transition-colors ${saved ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-400'}`}
+      onClick={e => {
+        e.stopPropagation()
+        setSaved(s => !s)
+      }}>
+      ★
+    </button>
+  )
+}
+
 export default function TurboScanPanel({ onSelectTicker }) {
   const [localTf,    setLocalTf]    = useState(_initTf)
   const [universe,   setUniverse]   = useState(_initUni)
@@ -504,6 +520,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [sortDir,    setSortDir]    = useState('desc')
   const [lookbackN,  setLookbackN]  = useState(1)
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
+
+  const _pwlToggle = (row) => {
+    const r = { ...row, _tf: localTf }
+    if (pwlHas(row.ticker, localTf)) { pwlRemove(row.ticker, localTf) }
+    else { pwlAdd(r) }
+  }
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
@@ -942,6 +964,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   <input type="checkbox" className="accent-indigo-500 cursor-pointer"
                     checked={pickedTickers.has(r.ticker)}
                     onChange={e => togglePicked(r.ticker, e)} />
+                </td>
+
+                {/* Star / save to personal watchlist */}
+                <td className="px-1 py-1 w-5" onClick={e => { e.stopPropagation(); _pwlToggle(r) }}>
+                  <StarBtn ticker={r.ticker} tf={localTf} />
                 </td>
 
                 {/* Ticker */}
