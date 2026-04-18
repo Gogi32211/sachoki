@@ -488,7 +488,7 @@ const _tsSet  = (tf, uni, data) => { try { localStorage.setItem(_tsKey(tf, uni),
 const _initTf  = () => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } }
 const _initUni = () => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } }
 
-function StarBtn({ ticker, tf }) {
+function StarBtn({ ticker, tf, onToggle }) {
   const [saved, setSaved] = useState(() => pwlHas(ticker, tf))
   return (
     <button
@@ -496,6 +496,7 @@ function StarBtn({ ticker, tf }) {
       className={`text-sm transition-colors ${saved ? 'text-yellow-400' : 'text-gray-700 hover:text-yellow-400'}`}
       onClick={e => {
         e.stopPropagation()
+        onToggle?.()
         setSaved(s => !s)
       }}>
       ★
@@ -967,8 +968,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 </td>
 
                 {/* Star / save to personal watchlist */}
-                <td className="px-1 py-1 w-5" onClick={e => { e.stopPropagation(); _pwlToggle(r) }}>
-                  <StarBtn ticker={r.ticker} tf={localTf} />
+                <td className="px-1 py-1 w-5">
+                  <StarBtn ticker={r.ticker} tf={localTf} onToggle={() => _pwlToggle(r)} />
                 </td>
 
                 {/* Ticker */}
