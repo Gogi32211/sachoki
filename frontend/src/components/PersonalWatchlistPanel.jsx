@@ -93,47 +93,69 @@ function SignalChips({ entry, n }) {
   )
 }
 
-// Pull latest scan data for a list of tickers from localStorage turbo cache
+const ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us']
+const ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
+const SKIP_COLS = new Set(['scan_id','turbo_score','turbo_score_n3','turbo_score_n5',
+  'turbo_score_n10','last_price','change_pct','rsi','cci','avg_vol'])
+
+function _toEntry(r, tf) {
+  return {
+    ticker:     r.ticker,
+    tf,
+    score:      r.turbo_score ?? 0,
+    price:      r.last_price  ?? null,
+    change_pct: r.change_pct  ?? null,
+    tz_sig:     r.tz_sig      ?? '',
+    sig_ages:   r.sig_ages    ?? '{}',
+    _signals:   Object.fromEntries(
+      Object.entries(r).filter(([k, v]) => typeof v === 'number' && v === 1 && !SKIP_COLS.has(k))
+    ),
+  }
+}
+
+// Search ALL cached universe+tf combos for the requested tickers
 function useWatchingRows(tickers) {
   return useMemo(() => {
     if (!tickers?.length) return []
-    const tf  = (() => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } })()
-    const uni = (() => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } })()
-    const key = `sachoki_turbo_${tf}_${uni}`
-    try {
-      const cache = JSON.parse(localStorage.getItem(key) || 'null')
-      const rows  = cache?.results || []
-      return tickers
-        .map(t => rows.find(r => r.ticker === t))
-        .filter(Boolean)
-        .map(r => ({
-          ticker:     r.ticker,
-          tf,
-          score:      r.turbo_score ?? 0,
-          price:      r.last_price  ?? null,
-          change_pct: r.change_pct  ?? null,
-          tz_sig:     r.tz_sig      ?? '',
-          tz_bull:    r.tz_bull     ?? 0,
-          sig_ages:   r.sig_ages    ?? '{}',
-          _signals:   Object.fromEntries(
-            Object.entries(r).filter(([k, v]) =>
-              typeof v === 'number' && v === 1 &&
-              !['scan_id','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
-                'last_price','change_pct','rsi','cci','avg_vol'].includes(k)
-            )
-          ),
-        }))
-    } catch { return [] }
+    const found = {}
+    // prefer current tf/uni first so freshest scan wins
+    const curTf  = (() => { try { return localStorage.getItem('sachoki_turbo_tf')  || '1d'    } catch { return '1d'    } })()
+    const curUni = (() => { try { return localStorage.getItem('sachoki_turbo_uni') || 'sp500' } catch { return 'sp500' } })()
+    const tfsOrd = [curTf, ...ALL_TF.filter(t => t !== curTf)]
+    const uniOrd = [curUni, ...ALL_UNI.filter(u => u !== curUni)]
+    for (const tf of tfsOrd) {
+      for (const uni of uniOrd) {
+        try {
+          const raw = localStorage.getItem(`sachoki_turbo_${tf}_${uni}`)
+          if (!raw) continue
+          const rows = JSON.parse(raw)?.results || []
+          for (const r of rows) {
+            if (tickers.includes(r.ticker) && !found[r.ticker])
+              found[r.ticker] = _toEntry(r, tf)
+          }
+        } catch {}
+        if (Object.keys(found).length === tickers.length) break
+      }
+      if (Object.keys(found).length === tickers.length) break
+    }
+    return tickers.map(t => found[t]).filter(Boolean)
   }, [tickers])
 }
 
-export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTickers }) {
-  const [items,   setItems]   = useState(pwlLoad)
-  const [n,       setN]       = useState(5)
-  const [sortBy,  setSortBy]  = useState('addedAt')
+export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTickers, onAddTicker, onRemoveTicker }) {
+  const [items,    setItems]    = useState(pwlLoad)
+  const [n,        setN]        = useState(5)
+  const [sortBy,   setSortBy]   = useState('addedAt')
+  const [addInput, setAddInput] = useState('')
   const watchingRows = useWatchingRows(watchlistTickers)
 
   const refresh = () => setItems(pwlLoad())
+
+  const handleAddTicker = (e) => {
+    e.preventDefault()
+    const t = addInput.trim().toUpperCase()
+    if (t) { onAddTicker?.(t); setAddInput('') }
+  }
 
   const remove = (ticker, tf) => {
     pwlRemove(ticker, tf)
@@ -179,30 +201,52 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">↺</button>
       </div>
 
+      {/* Add ticker input */}
+      {onAddTicker && (
+        <form onSubmit={handleAddTicker} className="flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-gray-800/20">
+          <input
+            value={addInput}
+            onChange={e => setAddInput(e.target.value.toUpperCase())}
+            placeholder="Add ticker… (e.g. AAPL)"
+            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+          />
+          <button type="submit"
+            className="px-3 py-1 rounded bg-blue-700 text-white text-xs hover:bg-blue-600">+ Add</button>
+        </form>
+      )}
+
       {/* Watching section — tickers from regular watchlist */}
-      {watchingRows.length > 0 && (
+      {(watchlistTickers?.length > 0) && (
         <div className="border-b border-gray-800">
           <div className="px-4 py-1.5 text-[10px] text-gray-600 uppercase tracking-wider bg-gray-800/30">
-            Watching ({watchingRows.length})
+            Watching ({watchlistTickers.length}){watchingRows.length < watchlistTickers.length ? ` · ${watchlistTickers.length - watchingRows.length} not in cache — run Turbo scan first` : ''}
           </div>
           <table className="w-full">
             <tbody>
-              {watchingRows.map((entry, i) => (
-                <tr key={i}
-                  onClick={() => onSelectTicker?.(entry.ticker)}
-                  className="border-b border-gray-800/30 hover:bg-gray-800/40 cursor-pointer">
-                  <td className="px-3 py-1.5 font-semibold text-white w-20">{entry.ticker}</td>
-                  <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry.tz_sig || '—'}</td>
-                  <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry.score.toFixed(1)}</td>
-                  <td className="px-2 py-1.5 max-w-xs"><SignalChips entry={entry} n={n} /></td>
-                  <td className="px-2 py-1.5 text-gray-400 w-20">
-                    {entry.price != null ? `$${Number(entry.price).toFixed(2)}` : '—'}
-                  </td>
-                  <td className={`px-2 py-1.5 w-16 ${entry.change_pct > 0 ? 'text-green-400' : entry.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
-                    {entry.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(1)}%` : ''}
-                  </td>
-                </tr>
-              ))}
+              {watchlistTickers.map((ticker, i) => {
+                const entry = watchingRows.find(r => r.ticker === ticker)
+                return (
+                  <tr key={i}
+                    onClick={() => onSelectTicker?.(ticker)}
+                    className="border-b border-gray-800/30 hover:bg-gray-800/40 cursor-pointer">
+                    <td className="px-3 py-1.5 font-semibold text-white w-20">{ticker}</td>
+                    <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry?.tz_sig || '—'}</td>
+                    <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry ? entry.score.toFixed(1) : '—'}</td>
+                    <td className="px-2 py-1.5 flex-1">{entry ? <SignalChips entry={entry} n={n} /> : <span className="text-gray-700 text-[10px]">no scan data</span>}</td>
+                    <td className="px-2 py-1.5 text-gray-400 w-20">
+                      {entry?.price != null ? `$${Number(entry.price).toFixed(2)}` : ''}
+                    </td>
+                    <td className={`px-2 py-1.5 w-16 ${entry?.change_pct > 0 ? 'text-green-400' : entry?.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                      {entry?.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(1)}%` : ''}
+                    </td>
+                    {onRemoveTicker && (
+                      <td className="px-2 py-1.5 w-6" onClick={e => { e.stopPropagation(); onRemoveTicker(ticker) }}>
+                        <button className="text-gray-700 hover:text-red-400 transition-colors" title="Remove">✕</button>
+                      </td>
+                    )}
+                  </tr>
+                )
+              })}
             </tbody>
           </table>
         </div>
