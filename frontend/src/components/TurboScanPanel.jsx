@@ -1055,15 +1055,26 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
                 {/* Ticker */}
                 <td className="px-2 py-1 font-mono font-semibold text-blue-300">
-                  {r.ticker}
-                  {r.vol_bucket && (
-                    <span className="ml-1 text-gray-600 font-normal">{r.vol_bucket}</span>
-                  )}
-                  {r.data_source === 'yfinance' && (
-                    <span
-                      title="Data from yfinance fallback — may differ from Polygon (splits, adjusted prices)"
-                      className="ml-1 text-[8px] text-orange-400/60 font-normal align-top">yf</span>
-                  )}
+                  <div className="flex items-center gap-1">
+                    <span>{r.ticker}</span>
+                    {r.vol_bucket && (
+                      <span className="text-gray-600 font-normal">{r.vol_bucket}</span>
+                    )}
+                    {r.data_source === 'yfinance' && (
+                      <span
+                        title="Data from yfinance fallback — may differ from Polygon (splits, adjusted prices)"
+                        className="text-[8px] text-orange-400/60 font-normal align-top">yf</span>
+                    )}
+                    <a
+                      href={`https://www.tradingview.com/chart/?symbol=${r.ticker}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`Open ${r.ticker} on TradingView`}
+                      onClick={e => e.stopPropagation()}
+                      className="text-gray-600 hover:text-blue-400 transition-colors text-[10px] leading-none">
+                      ↗
+                    </a>
+                  </div>
                 </td>
 
                 {/* Score — shows N-appropriate score */}
