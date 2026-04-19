@@ -22,7 +22,7 @@ from __future__ import annotations
 
 import numpy as np
 import pandas as pd
-from indicators import norm_ohlcv as _norm_ohlcv
+from indicators import norm_ohlcv as _norm_ohlcv, rsi as _rsi
 
 pd.set_option("future.no_silent_downcasting", True)
 
@@ -216,60 +216,79 @@ def ok3(sig_series: pd.Series) -> pd.Series:
 
 
 # ---------------------------------------------------------------------------
-# G signals  (260410_G_BUILDER)
+# G signals  (260410_G_BUILDER — window mode + RSI filter)
 # ---------------------------------------------------------------------------
-# G1  = first T1  after Z10 / Z11 / Z12
-# G2  = first T1G after Z10 / Z11 / Z12
-# G4  = first T4  after Z10 / Z11 / Z12
-# G6  = first T6  after Z10 / Z11 / Z12
-# G11 = first T1  after T10 or T11
-# No RSI filter applied here.
+# Z10/Z11/Z12 trigger → window of MAX_BARS_AFTER_TRIGGER bars
+#   G1  = T1  within window + RSI rising
+#   G2  = T1G within window + RSI rising
+#   G4  = T4  within window + RSI rising
+#   G6  = T6  within window + RSI rising
+# T10/T11 trigger → window of MAX_BARS_AFTER_TRIGGER bars
+#   G11 = T1  within window + RSI rising
+# RSI filter: rsi(14)[i] >= rsi(14)[i-2]  (rsiCompareBars=2)
+
+MAX_BARS_AFTER_TRIGGER = 10
+_RSI_LEN   = 14
+_RSI_CMPBARS = 2
 
 def compute_g_signals(df: pd.DataFrame) -> pd.DataFrame:
     """
-    Stateful G-signal state machine matching 260410_G_BUILDER Pine logic.
+    Window-based G-signal logic matching 260410_G_BUILDER Pine Script.
+    All T1/T1G/T4/T6 within MAX_BARS_AFTER_TRIGGER bars of Z10/Z11/Z12 fire.
+    RSI filter: current RSI >= RSI from _RSI_CMPBARS bars ago.
     Returns DataFrame with boolean columns: g1, g2, g4, g6, g11.
     """
     sig = compute_signals(df)
     sid = sig["sig_id"].values.astype(int)
     n   = len(sid)
 
+    # ── RSI filter (vectorized) ──────────────────────────────────────────────
+    close_col = [c for c in df.columns if c.lower() == "close"][0]
+    rsi_vals  = _rsi(df[close_col], _RSI_LEN).values
+    rsi_pass  = np.zeros(n, dtype=bool)
+    for i in range(n):
+        prev_i = i - _RSI_CMPBARS
+        if np.isnan(rsi_vals[i]) or prev_i < 0 or np.isnan(rsi_vals[prev_i]):
+            rsi_pass[i] = False
+        else:
+            rsi_pass[i] = rsi_vals[i] >= rsi_vals[prev_i]
+
+    # ── Window counters ──────────────────────────────────────────────────────
     g1  = np.zeros(n, dtype=bool)
     g2  = np.zeros(n, dtype=bool)
     g4  = np.zeros(n, dtype=bool)
     g6  = np.zeros(n, dtype=bool)
     g11 = np.zeros(n, dtype=bool)
 
-    # sig_id constants (from the ID table above)
-    # T1G=1, T1=2, T4=6, T6=8, T10=10, T11=11
-    # Z10=23, Z11=24, Z12=25
-
-    g_armed   = False  # armed by Z10/Z11/Z12, fires on first T1/T1G/T4/T6
-    g11_armed = False  # armed by T10/T11, fires on first T1
+    bars_since_z   = n + 1  # large sentinel = not yet triggered
+    bars_since_g11 = n + 1
 
     for i in range(n):
         s = sid[i]
 
-        # G1/G2/G4/G6 ---------------------------------------------------
-        trigger_z = s in (23, 24, 25)   # Z10, Z11, Z12
-        g1_raw  = g_armed and s == 2    # T1
-        g2_raw  = g_armed and s == 1    # T1G
-        g4_raw  = g_armed and s == 6    # T4
-        g6_raw  = g_armed and s == 8    # T6
-        any_g   = g1_raw or g2_raw or g4_raw or g6_raw
+        # ── Z-trigger window (Z10=23, Z11=24, Z12=25) ───────────────────
+        if s in (23, 24, 25):
+            bars_since_z = 0
+        else:
+            bars_since_z += 1
 
-        g1[i]  = g1_raw
-        g2[i]  = g2_raw
-        g4[i]  = g4_raw
-        g6[i]  = g6_raw
+        z_active = 1 <= bars_since_z <= MAX_BARS_AFTER_TRIGGER
 
-        g_armed = (g_armed or trigger_z) and not any_g
+        if z_active and rsi_pass[i]:
+            g1[i] = (s == T1)   # 2
+            g2[i] = (s == T1G)  # 1
+            g4[i] = (s == T4)   # 6
+            g6[i] = (s == T6)   # 8
 
-        # G11 ------------------------------------------------------------
-        g11_trigger = s in (10, 11)     # T10, T11
-        g11_raw = g11_armed and s == 2  # T1
-        g11[i]  = g11_raw
-        g11_armed = (g11_armed or g11_trigger) and not g11_raw
+        # ── G11 trigger window (T10=10, T11=11) ─────────────────────────
+        if s in (T10, T11):
+            bars_since_g11 = 0
+        else:
+            bars_since_g11 += 1
+
+        g11_active = 1 <= bars_since_g11 <= MAX_BARS_AFTER_TRIGGER
+        if g11_active and rsi_pass[i]:
+            g11[i] = (s == T1)
 
     return pd.DataFrame(
         {"g1": g1, "g2": g2, "g4": g4, "g6": g6, "g11": g11},
