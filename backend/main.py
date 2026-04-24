@@ -265,12 +265,24 @@ def api_l_predict(ticker: str, tf: str = "1d"):
 @app.get("/api/pooled-predict/{ticker}")
 def api_pooled_predict(ticker: str, tf: str = "1d", universe: str = "sp500"):
     try:
-        from pooled_stats import get_pooled_predict
+        from pooled_stats import get_pooled_predict, get_pooled_tz_freq, get_pooled_tz_matrix
         df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
         sigs  = compute_signals(df)
         wlnbb = compute_wlnbb(df)
-        combined = sigs.join(wlnbb)
-        return get_pooled_predict(combined, universe=universe, interval=tf)
+
+        sig_ids  = sigs["sig_id"].to_numpy()
+        l_combos = wlnbb["l_combo"].values
+
+        sig_seq_3 = tuple(int(s) for s in sig_ids[-3:])
+        sig_seq_2 = tuple(int(s) for s in sig_ids[-2:])
+        l_seq_3   = tuple(str(l) for l in l_combos[-3:])
+        l_seq_2   = tuple(str(l) for l in l_combos[-2:])
+
+        result = get_pooled_predict(sig_seq_3, sig_seq_2, l_seq_3, l_seq_2,
+                                    universe=universe, interval=tf)
+        result["bench_tz_stats"]  = get_pooled_tz_freq(universe, tf)
+        result["bench_tz_matrix"] = get_pooled_tz_matrix(universe, tf)
+        return result
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
