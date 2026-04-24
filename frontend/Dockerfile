@@ -1,22 +1,25 @@
-FROM node:20-alpine AS builder
+# ── Stage 1: Build React frontend ────────────────────────────────────────────
+FROM node:20-alpine AS frontend-build
+WORKDIR /app/frontend
 
-WORKDIR /app
-COPY package*.json ./
+COPY frontend/package.json ./
 RUN npm install
 
-COPY . .
-
-# Inject API URL at build time (Railway sets this as a build var)
-ARG VITE_API_URL=""
-ENV VITE_API_URL=$VITE_API_URL
-
+COPY frontend/ ./
 RUN npm run build
 
-# ── Serve with nginx ──────────────────────────────────────────────────────
-FROM nginx:alpine
+# ── Stage 2: Python runtime ───────────────────────────────────────────────────
+FROM python:3.11-slim
+WORKDIR /app
 
-COPY --from=builder /app/dist /usr/share/nginx/html
-COPY nginx.conf /etc/nginx/conf.d/default.conf
+COPY backend/requirements.txt backend/*.py ./
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy built React app into ./static (served by FastAPI StaticFiles)
+COPY --from=frontend-build /app/frontend/dist ./static
+
+ENV DB_PATH=/tmp/scanner.db
 
 EXPOSE 8080
-CMD ["nginx", "-g", "daemon off;"]
+
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port 8080"]
