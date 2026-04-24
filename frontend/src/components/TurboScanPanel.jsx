@@ -632,11 +632,16 @@ export default function TurboScanPanel({ onSelectTicker }) {
   // Listen for Admin-triggered scan completing — switch universe/tf and reload cache
   useEffect(() => {
     const onCached = (e) => {
-      const { tf: newTf, uni: newUni } = e.detail
+      const { tf: newTf, uni: newUni, results, lastScan } = e.detail
       if (newTf !== localTf) { setLocalTf(newTf); try { localStorage.setItem('sachoki_turbo_tf', newTf) } catch {} }
       if (newUni !== universe) { setUniverse(newUni); try { localStorage.setItem('sachoki_turbo_uni', newUni) } catch {} }
-      // if same tf/uni, deps didn't change so trigger reload manually
-      if (newTf === localTf && newUni === universe) loadFromCache(newTf, newUni)
+      // Use results from event directly — avoids stale localStorage read
+      if (results?.length > 0 && newTf === localTf && newUni === universe) {
+        setAllResults(results)
+        setLastScan(lastScan || null)
+      } else if (newTf === localTf && newUni === universe) {
+        loadFromCache(newTf, newUni)
+      }
     }
     window.addEventListener('sachoki:scan-cached', onCached)
     return () => window.removeEventListener('sachoki:scan-cached', onCached)
