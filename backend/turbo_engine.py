@@ -111,7 +111,7 @@ _TURBO_COLS = [
     # B signals (260321) — B1–B11, no RSI filter
     "b1", "b2", "b3", "b4", "b5",
     "b6", "b7", "b8", "b9", "b10", "b11",
-    # G signals (260410) — window 10 bars after Z10/Z11/Z12, RSI rising filter
+    # G signals (260410) — armed by Z10/Z11/Z12, no RSI filter
     "g1", "g2", "g4", "g6", "g11",
     # seqBContLite (260412) — continuation sequence T/Z patterns
     "seq_bcont",
