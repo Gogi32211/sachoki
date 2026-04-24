@@ -5,3 +5,12 @@
 body {
   @apply bg-gray-950 text-gray-100 font-sans;
 }
+
+/* Scrollbar styling */
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: transparent; }
+::-webkit-scrollbar-thumb { background: #374357; border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: #536070; }
+
+/* Smooth tab transitions */
+button { transition-property: color, background-color, border-color; transition-duration: 150ms; }
