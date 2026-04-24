@@ -173,6 +173,8 @@ _TURBO_COLS = [
     "rgti_orange", "rgti_green", "rgti_greencirc", "smx",
     # PARA (260420) — Parabola Start Detector v3.6
     "para_prep", "para_start", "para_plus", "para_retest",
+    # FLY (260424) — ABCD EMA DP pattern
+    "fly_abcd", "fly_cd", "fly_bd", "fly_ad",
     # PREUP (EMA cross ↑)
     "preup66", "preup55", "preup89", "preup3", "preup2", "preup50",
     # PREDN (EMA drop ↓)
@@ -819,6 +821,17 @@ def _scan_turbo_ticker(
             row["para_retest"] = _para.get("para_retest", 0)
         except Exception:
             for _k in _PARA_KEYS:
+                row[_k] = 0
+
+        # ── FLY (260424) — ABCD EMA DP ───────────────────────────────────
+        _FLY_KEYS = ("fly_abcd", "fly_cd", "fly_bd", "fly_ad")
+        try:
+            from fly_engine import compute_fly_abcd
+            _fly = compute_fly_abcd(df)
+            for _k in _FLY_KEYS:
+                row[_k] = _fly.get(_k, 0)
+        except Exception:
+            for _k in _FLY_KEYS:
                 row[_k] = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────

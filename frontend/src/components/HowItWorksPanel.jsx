@@ -83,7 +83,7 @@ export default function HowItWorksPanel() {
             <Row label="Base ≥ 20" cls="text-gray-300">sparse signals, worth watching</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100)</p>
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — current weights</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
@@ -94,48 +94,193 @@ export default function HowItWorksPanel() {
                 </tr>
               </thead>
               <tbody>
-                <ScoreRow engine="Vol/Accum (22)" signal="wyk_spring (260225)" pts="+7" />
+                {/* Backbone */}
+                <ScoreRow engine="Backbone (18)" signal="conso_2809 (CON)" pts="+4" />
+                <ScoreRow engine="Backbone (18)" signal="tz_bull (T/Z bull state)" pts="+6" />
+                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull + bf_buy chain" pts="+8 bonus" />
+                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull (partial chain)" pts="+3 bonus" />
+                {/* Vol/Accum */}
                 <ScoreRow engine="Vol/Accum (22)" signal="VBO↑" pts="+6" />
                 <ScoreRow engine="Vol/Accum (22)" signal="NS (no supply)" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="L88 signal" pts="+5" />
-                <ScoreRow engine="Vol/Accum (22)" signal="wyk_sos / wyk_lps" pts="+5" />
-                <ScoreRow engine="Vol/Accum (22)" signal="CLB / LD / SQ" pts="+4 each" />
-                <ScoreRow engine="Vol/Accum (22)" signal="wyk_markup (phase)" pts="+3" />
-                <ScoreRow engine="Vol/Accum (22)" signal="VA (vol/avg crossed >2×)" pts="+3" />
-                <ScoreRow engine="Vol/Accum (22)" signal="SC / 260308" pts="+2–3" />
-                <ScoreRow engine="Vol/Accum (22)" signal="wyk_accum (phase)" pts="+2" />
-                <ScoreRow engine="Breakout (15)" signal="FBO↑ (bear trap)" pts="+5" />
-                <ScoreRow engine="Breakout (15)" signal="RS+ (vs SPY+IWM)" pts="+5" />
-                <ScoreRow engine="Breakout (15)" signal="EB↑ / 4BF / 3↑" pts="+4 each" />
-                <ScoreRow engine="Breakout (15)" signal="RS (relative strength)" pts="+3" />
-                <ScoreRow engine="Breakout (15)" signal="BO↑ / BX↑" pts="+3" />
-                <ScoreRow engine="Breakout (15)" signal="wyk_sow (bearish)" pts="−4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="SQ (stopping quantity)" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="CLB (climb)" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="LD (load)" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="SVS 2809 (vol spike in conso)" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="UM 2809 (upmove label)" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="VA (vol/avg >2× crossover)" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="260308" pts="+3" />
+                <ScoreRow engine="Vol/Accum (22)" signal="SC (selling climax)" pts="+2" />
+                {/* Breakout */}
+                <ScoreRow engine="Breakout (18)" signal="4BF (bf_buy)" pts="+6" />
+                <ScoreRow engine="Breakout (18)" signal="FBO↑ (bear trap)" pts="+5" />
+                <ScoreRow engine="Breakout (18)" signal="RS+ (vs SPY+IWM)" pts="+5" />
+                <ScoreRow engine="Breakout (18)" signal="BO↑ / BX↑" pts="+5" />
+                <ScoreRow engine="Breakout (18)" signal="EB↑ / 3↑" pts="+4 each" />
+                <ScoreRow engine="Breakout (18)" signal="RS (relative strength)" pts="+3" />
+                {/* Combo */}
                 <ScoreRow engine="Combo (14)" signal="🚀 ROCKET" pts="+12" />
                 <ScoreRow engine="Combo (14)" signal="BUY 2809" pts="+8" />
                 <ScoreRow engine="Combo (14)" signal="CD (Bull Dom + B)" pts="+5" />
+                <ScoreRow engine="Combo (14)" signal="HILO↑" pts="+4" />
                 <ScoreRow engine="Combo (14)" signal="3G gap" pts="+4" />
                 <ScoreRow engine="Combo (14)" signal="CA (Bull Att + B)" pts="+3" />
                 <ScoreRow engine="Combo (14)" signal="SBC (seqBContLite)" pts="+3" />
+                <ScoreRow engine="Combo (14)" signal="RTV" pts="+3" />
                 <ScoreRow engine="Combo (14)" signal="CW (Bear Weak + B)" pts="+2" />
+                <ScoreRow engine="Combo (14)" signal="ATR↑ / BB↑" pts="+2" />
+                {/* L-structure */}
                 <ScoreRow engine="L-struct (13)" signal="T4 / T6" pts="+7" />
-                <ScoreRow engine="L-struct (13)" signal="TZ→3 (Bull Dom flip)" pts="+4" />
-                <ScoreRow engine="L-struct (13)" signal="TZ→2 (Rev Attempt)" pts="+2" />
-                <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
                 <ScoreRow engine="L-struct (13)" signal="T1G / T2G" pts="+5" />
-                <ScoreRow engine="Delta (12)" signal="d_spring (Wyckoff)" pts="+6" />
+                <ScoreRow engine="L-struct (13)" signal="T1 / T2" pts="+4" />
+                <ScoreRow engine="L-struct (13)" signal="T9 / T10" pts="+3" />
+                <ScoreRow engine="L-struct (13)" signal="T3 / T11" pts="+2" />
+                <ScoreRow engine="L-struct (13)" signal="T5" pts="+1" />
+                <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
+                <ScoreRow engine="L-struct (13)" signal="FRI43" pts="+4" />
+                <ScoreRow engine="L-struct (13)" signal="L34 (without FRI34)" pts="+3" />
+                <ScoreRow engine="L-struct (13)" signal="TZ→3 (Bull Dom flip)" pts="+3 or +4" />
+                <ScoreRow engine="L-struct (13)" signal="TZ→2 (Rev Attempt)" pts="+2" />
+                <ScoreRow engine="L-struct (13)" signal="BL (blue trend)" pts="+2" />
+                <ScoreRow engine="L-struct (13)" signal="CCI ready" pts="+2" />
+                {/* Delta */}
                 <ScoreRow engine="Delta (12)" signal="d_blast_bull" pts="+6" />
+                <ScoreRow engine="Delta (12)" signal="d_spring (Wyckoff)" pts="+6" />
                 <ScoreRow engine="Delta (12)" signal="d_strong_bull" pts="+5" />
                 <ScoreRow engine="Delta (12)" signal="d_absorb_bull" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="d_surge_bull" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="d_div_bull / vd_div" pts="+3" />
+                <ScoreRow engine="Delta (12)" signal="d_cd_bull" pts="+2" />
+                {/* EMA cross */}
                 <ScoreRow engine="EMA-cross (8)" signal="P66 (cross EMA200+)" pts="+8" />
                 <ScoreRow engine="EMA-cross (8)" signal="P55 (cross EMA89+)" pts="+6" />
                 <ScoreRow engine="EMA-cross (8)" signal="P89 (cross EMA89)" pts="+4" />
-                <ScoreRow engine="Context" signal="X2G (gap-open continuation)" pts="+5" />
-                <ScoreRow engine="Context" signal="X2 / X1G (wick reversal)" pts="+4" />
-                <ScoreRow engine="Context" signal="X1 (inside reversal)" pts="+3" />
-                <ScoreRow engine="Context" signal="X3 (wick align)" pts="+2" />
-                <ScoreRow engine="Context" signal="WK↑ legacy confirm" pts="+3" />
-                <ScoreRow engine="Context" signal="BR% readiness" pts="+0.1×score, max 8" />
+                {/* Context */}
+                <ScoreRow engine="Context (uncapped)" signal="WK↑ legacy confirm" pts="+5" />
+                <ScoreRow engine="Context (uncapped)" signal="X2G (gap continuation)" pts="+5" />
+                <ScoreRow engine="Context (uncapped)" signal="X2 / X1G (wick reversal)" pts="+4 each" />
+                <ScoreRow engine="Context (uncapped)" signal="X1 (inside reversal)" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="X3 (wick align)" pts="+2" />
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">New signal families — scores TBD (discuss)</p>
+          <p className="text-gray-500 text-xs mb-2">
+            These signals are computed and shown as badges but not yet added to the turbo_score formula.
+            Suggested starting ranges shown — adjust based on hit-rate testing.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Family</th>
+                  <th className="text-left py-1 pr-4">Signal</th>
+                  <th className="text-left py-1 pr-4 text-yellow-500">Current pts</th>
+                  <th className="text-left py-1 text-sky-400">Suggested range</th>
+                </tr>
+              </thead>
+              <tbody>
+                {/* RGTI */}
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">LL (Lower-Low setup)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+3 to +5 — entry within pullback</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">UP (uptrend align)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+3 to +5</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">↑↑ (UPUP multi-TF)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+4 to +6 — confirmed bull alignment</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">↑↑↑ (UPUPUP strongest)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+5 to +7</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">ORG (orange — bear dominates but reversal)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+2 to +4 — contrarian</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">GRN (green — bull stack aligned)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+4 to +6 — strong trend</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-gray-300">GC (green circle — near EMA in bull)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+3 to +5 — pullback entry</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">SMX 260402</td>
+                  <td className="py-0.5 pr-4 text-gray-300">SMX (near recent low in uptrend)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+4 to +6 — rare, high-conviction entry</td>
+                </tr>
+                {/* PARA */}
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
+                  <td className="py-0.5 pr-4 text-gray-300">PREP (pre-parabola compression zone)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+2 to +3 — early context</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
+                  <td className="py-0.5 pr-4 text-gray-300">PARA (parabola start)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+5 to +7</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
+                  <td className="py-0.5 pr-4 text-gray-300">PARA+ (with dry vol or V+E)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+6 to +9 — stronger confirmation</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
+                  <td className="py-0.5 pr-4 text-gray-300">RETEST (pullback re-entry)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+4 to +6 — lower risk entry</td>
+                </tr>
+                {/* FLY */}
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
+                  <td className="py-0.5 pr-4 text-gray-300">ABCD (full A→B→C→D sequence)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+6 to +8 — full pattern confirmation</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
+                  <td className="py-0.5 pr-4 text-gray-300">CD (C→D with EMA seq)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+3 to +5</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
+                  <td className="py-0.5 pr-4 text-gray-300">BD (B→D with EMA seq)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+3 to +4</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
+                  <td className="py-0.5 pr-4 text-gray-300">AD (A→D with EMA seq)</td>
+                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
+                  <td className="py-0.5 text-sky-400">+4 to +5 — strong base then breakout</td>
+                </tr>
               </tbody>
             </table>
           </div>
@@ -602,6 +747,68 @@ export default function HowItWorksPanel() {
             then validate with Predictor bull% and actual risk/reward.
             Missing dimension: drawdown and timing in the price cycle.
           </div>
+        </Section>
+
+        {/* ── FLY ABCD ── */}
+        <Section title="FLY ABCD EMA DP (260424 — fly_engine)">
+          <p className="mb-2">
+            Sequence detector using T/Z role codes to find ABCD patterns, confirmed by an EMA
+            drop-then-recovery context at the anchor bar. D must fire on the current bar.
+          </p>
+          <p className="text-gray-400 mb-1 font-medium">Role assignments (by T/Z code)</p>
+          <ul className="list-disc list-inside space-y-1 mb-3">
+            <Row label="A (anchor)" cls="text-red-400">ZC {'{3,4}'} — Z1G, Z2G: strong bearish reversal bar</Row>
+            <Row label="B (base)"   cls="text-orange-300">ZC {'{9,1,2,5,10,8,12,7}'} — various bearish codes: continuation or trap bar</Row>
+            <Row label="C (coil)"   cls="text-cyan-300">BC {'{9,10,12,7,5}'} — T3,T11,T12,T9,T1: moderate bullish recovery bar</Row>
+            <Row label="D (drive)"  cls="text-lime-300">BC {'{1,2,4,6}'} — T4,T6,T2G,T2: strong bullish breakout bar (fires on current bar)</Row>
+          </ul>
+          <p className="text-gray-400 mb-1 font-medium">EMA context filter (checked at each anchor bar)</p>
+          <p className="text-gray-400 text-xs mb-2">
+            Requires: an EMA drop (E1) followed by an EMA cross-up (E2), both within 30 bars of the
+            anchor. E1 must be older than E2. This ensures the setup had a dip-and-recovery structure.
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="ABCD" cls="text-lime-300">Full sequence A→B→C on current D, EMA seq at A, all within 30 bars</Row>
+            <Row label="CD"   cls="text-cyan-300">C within 20 bars before D, EMA seq at C</Row>
+            <Row label="BD"   cls="text-blue-300">B within 20 bars before D, EMA seq at B</Row>
+            <Row label="AD"   cls="text-violet-300">A within 20 bars before D, EMA seq at A</Row>
+          </ul>
+        </Section>
+
+        {/* ── RGTI + SMX ── */}
+        <Section title="RGTI 260404 + SMX 260402 — Multi-TF EMA Alignment (rgti_engine)">
+          <p className="mb-2">
+            Multi-timeframe EMA alignment patterns. Requires 4H, 1H, and 15m data simultaneously.
+            For daily/weekly scans, 1H is fetched and resampled to 4H count-based.
+          </p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="LL"  cls="text-purple-300">Lower-Low: price above EMA50/20 on 4H but EMAs showing deceleration; 1H+15m aligned</Row>
+            <Row label="UP"  cls="text-blue-300">Uptrend: 4H EMA stack bullish + EMA9 above EMA200; 1H/15m price/EMA confirmed</Row>
+            <Row label="↑↑"  cls="text-fuchsia-300">UPUP: 4H+1H+15m all show aligned bull stack; 1H bullish candle</Row>
+            <Row label="↑↑↑" cls="text-sky-300">UPUPUP: EMA200 driving above EMA50 across timeframes</Row>
+            <Row label="ORG" cls="text-orange-300">Orange: bear EMA stack on 4H/1H but 15m crossing up — early reversal</Row>
+            <Row label="GRN" cls="text-green-300">Green: 4H+1H EMA deeply stacked bull; 15m breakout candle</Row>
+            <Row label="GC"  cls="text-emerald-300">Green Circle: 4H bull stack but price dipping toward EMA — pullback entry</Row>
+            <Row label="SMX" cls="text-lime-300">SMX: 4H bear stack + 1H recovery + 15m reversal + near 20-bar low (high R/R entry)</Row>
+          </ul>
+        </Section>
+
+        {/* ── PARA ── */}
+        <Section title="PARA 260420 — Parabola Start Detector v3.6 (para_engine)">
+          <p className="mb-2">
+            Stateful campaign system that detects the start of parabolic moves following base compression.
+            Four sequential signal types from setup → entry → retest.
+          </p>
+          <ul className="list-disc list-inside space-y-1 mb-2">
+            <Row label="PREP"  cls="text-green-300">Pre-parabola zone: base compressed + EMA aligned + price below breakout level. First bar entering zone.</Row>
+            <Row label="PARA"  cls="text-lime-300">Parabola Start: base compressed → seed bar (breakout + volume ignition + candle quality) → follow-through. Campaign opens.</Row>
+            <Row label="PARA+" cls="text-cyan-300">PARA with dry volume or V+E (volume+EMA) coincidence — highest conviction breakout.</Row>
+            <Row label="RETEST" cls="text-emerald-300">Pullback re-entry within open campaign: price dips near EMA, holds, bullish candle with volume. Up to 2 retests per campaign.</Row>
+          </ul>
+          <p className="text-gray-500 text-xs">
+            Campaign resets on: close below EMA50, consecutive closes below EMA20, or 18%+ drawdown from campaign high below EMA9.
+            Daily chart uses relaxed parameters (wider base tolerance, more memory).
+          </p>
         </Section>
 
         {/* ── Predictor ── */}
