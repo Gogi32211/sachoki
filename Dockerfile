@@ -12,11 +12,8 @@ RUN npm run build
 FROM python:3.11-slim
 WORKDIR /app
 
-COPY backend/requirements.txt .
+COPY backend/requirements.txt backend/*.py ./
 RUN pip install --no-cache-dir -r requirements.txt
-
-# Copy backend source (*.py explicitly — avoids BuildKit checksum bug with dir COPY)
-COPY backend/*.py .
 
 # Copy built React app into ./static (served by FastAPI StaticFiles)
 COPY --from=frontend-build /app/frontend/dist ./static
