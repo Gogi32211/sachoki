@@ -305,7 +305,25 @@ def compute_para(df: pd.DataFrame, is_daily: bool = False) -> dict:
             para_start  = int(para_arr[-1]),
             para_plus   = int(plus_arr[-1]),
             para_retest = int(rtest_arr[-1]),
+            # internal arrays exposed for series mode
+            _prep_arr   = prep_sig,
+            _para_arr   = para_arr,
+            _plus_arr   = plus_arr,
+            _rtest_arr  = rtest_arr,
         )
 
     except Exception:
         return zero
+
+
+def compute_para_series(df: pd.DataFrame, is_daily: bool = False) -> "pd.DataFrame | None":
+    """Return per-bar PARA signals as a DataFrame (all bars, not just last)."""
+    res = compute_para(df, is_daily=is_daily)
+    if not res or "_para_arr" not in res:
+        return None
+    return pd.DataFrame({
+        "para_start":  res["_para_arr"].astype(bool),
+        "para_plus":   res["_plus_arr"].astype(bool),
+        "para_retest": res["_rtest_arr"].astype(bool),
+        "para_prep":   res["_prep_arr"].astype(bool),
+    })
