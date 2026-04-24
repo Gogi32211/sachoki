@@ -168,6 +168,9 @@ _TURBO_COLS = [
     "best_long", "best_short",
     # RS / Relative Strength vs SPY+IWM
     "rs", "rs_strong",
+    # RGTI (260404) + SMX (260402) — multi-TF EMA alignment signals
+    "rgti_ll", "rgti_up", "rgti_upup", "rgti_upupup",
+    "rgti_orange", "rgti_green", "rgti_greencirc", "smx",
     # PREUP (EMA cross ↑)
     "preup66", "preup55", "preup89", "preup3", "preup2", "preup50",
     # PREDN (EMA drop ↓)
@@ -386,6 +389,29 @@ def _sig_age(frame: "pd.DataFrame | None", col: str, max_age: int = 30) -> int:
         if vals[i]:
             return len(vals) - 1 - i
     return max_age
+
+
+# ── RGTI/SMX multi-TF helper ──────────────────────────────────────────────────
+def _fetch_htf(ticker: str, interval: str, days: int) -> "pd.DataFrame | None":
+    """Fetch intraday OHLCV bars for RGTI/SMX multi-TF computation."""
+    from data_polygon import fetch_bars, polygon_available
+    df = None
+    if polygon_available():
+        try:
+            df = fetch_bars(ticker, interval=interval, days=days)
+        except Exception:
+            pass
+    if df is None or df.empty:
+        import yfinance as yf
+        period = "60d" if days <= 60 else "90d"
+        try:
+            raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
+            if raw is not None and not raw.empty:
+                raw.columns = [str(c).lower() for c in raw.columns]
+                df = raw[["open", "high", "low", "close", "volume"]].dropna()
+        except Exception:
+            pass
+    return df if df is not None and len(df) >= 20 else None
 
 
 # ── Per-ticker worker ─────────────────────────────────────────────────────────
@@ -748,6 +774,36 @@ def _scan_turbo_ticker(
         except Exception:
             row["rs"] = 0
             row["rs_strong"] = 0
+
+        # ── RGTI (260404) + SMX (260402) — multi-TF EMA signals ──────────────
+        _RGTI_KEYS = ("rgti_ll", "rgti_up", "rgti_upup", "rgti_upupup",
+                      "rgti_orange", "rgti_green", "rgti_greencirc", "smx")
+        try:
+            from rgti_engine import compute_rgti_smx, resample_to_4h
+            _df4h_r = _df1h_r = _df15m_r = None
+            if interval == "4h":
+                _df4h_r = df
+                _df1h_r = _fetch_htf(ticker, "1h", 60)
+            elif interval == "1h":
+                _df1h_r = df
+                _df4h_r = resample_to_4h(df)
+            else:  # 1d, 1wk — fetch 1H, resample to 4H
+                _df1h_r = _fetch_htf(ticker, "1h", 60)
+                if _df1h_r is not None:
+                    _df4h_r = resample_to_4h(_df1h_r)
+            if _df4h_r is not None and _df1h_r is not None:
+                _df15m_r = _fetch_htf(ticker, "15m", 15)
+            if _df4h_r is not None and _df1h_r is not None and _df15m_r is not None:
+                _rgti = compute_rgti_smx(_df4h_r, _df1h_r, _df15m_r, price,
+                                         float(df["open"].iloc[-1]), df)
+                for _k in _RGTI_KEYS:
+                    row[_k] = _rgti.get(_k, 0)
+            else:
+                for _k in _RGTI_KEYS:
+                    row[_k] = 0
+        except Exception:
+            for _k in _RGTI_KEYS:
+                row[_k] = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
