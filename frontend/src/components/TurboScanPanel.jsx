@@ -211,6 +211,12 @@ const SIG_GROUPS = [
   { key: 'rgti_greencirc',label: 'GC',   cls: 'text-emerald-300'  },
   { key: 'smx',           label: 'SMX',  cls: 'text-lime-300'     },
   { divider: true },
+  // ── FLY 260424 — ABCD EMA DP ──────────────────────────────────────────
+  { key: 'fly_abcd', label: 'ABCD', cls: 'text-lime-300 font-semibold' },
+  { key: 'fly_cd',   label: 'CD',   cls: 'text-cyan-300'   },
+  { key: 'fly_bd',   label: 'BD',   cls: 'text-blue-300'   },
+  { key: 'fly_ad',   label: 'AD',   cls: 'text-violet-300' },
+  { divider: true },
   // ── Context ───────────────────────────────────────────────────────────
   { key: '_rsi_os',    label: 'RSI≤35', cls: 'text-lime-300',
     custom: r => (r.rsi || 100) <= 35 },
@@ -1242,6 +1248,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.para_start && !r.para_plus ? <Badge label="PARA" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.para_prep   ? <Badge label="PREP"  cls="bg-green-800/60 text-green-200" /> : null}
                     {r.para_retest ? <Badge label="RTEST" cls="bg-emerald-700/60 text-emerald-200 ring-1 ring-emerald-400" /> : null}
+                    {/* FLY 260424 */}
+                    {r.fly_abcd ? <Badge label="ABCD" cls="bg-lime-700/70 text-lime-100 ring-1 ring-lime-400 font-bold" /> : null}
+                    {r.fly_cd && !r.fly_abcd ? <Badge label="CD" cls="bg-cyan-700/60 text-cyan-200" /> : null}
+                    {r.fly_bd && !r.fly_abcd ? <Badge label="BD" cls="bg-blue-700/60 text-blue-200" /> : null}
+                    {r.fly_ad && !r.fly_abcd ? <Badge label="AD" cls="bg-violet-700/60 text-violet-200" /> : null}
                   </div>
                 </td>
 
