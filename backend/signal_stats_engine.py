@@ -90,6 +90,31 @@ SIGNAL_LABELS: dict[str, str] = {
     "b1":  "F1", "b2":  "F2", "b3":  "F3", "b4":  "F4",
     "b5":  "F5", "b6":  "F6", "b7":  "F7", "b8":  "F8",
     "b9":  "F9", "b10": "F10","b11": "F11",
+    # G signals (260410)
+    "g1": "G1", "g2": "G2", "g4": "G4", "g6": "G6", "g11": "G11",
+    # W signal — Bear Weakening + bullish bar
+    "tz_weak_bull":  "W (BearWeak↑)",
+    # Combo / 2809 extras
+    "conso_2809":    "CON (consolidation)",
+    "um_2809":       "UM (upmove)",
+    "svs_2809":      "SVS (vol spike in conso)",
+    "bias_up":       "↑BIAS",
+    # PREDN (EMA drop — bearish context)
+    "predn66": "D66 (drop EMA200)", "predn55": "D55", "predn89": "D89",
+    "predn3":  "D3", "predn2": "D2",
+    # WLNBB extras
+    "l64":          "L64",
+    "l22":          "L22",
+    "fuchsia_rh":   "RH (fuchsia high)",
+    "fuchsia_rl":   "RL (fuchsia low)",
+    "bo_dn":        "BO↓",
+    "bx_up":        "BX↑",
+    "bx_dn":        "BX↓",
+    "be_dn":        "BE↓",
+    # Volume spikes (vs previous bar)
+    "vol_spike_5x":  "Vol×5",
+    "vol_spike_10x": "Vol×10",
+    "vol_spike_20x": "Vol×20",
 }
 
 # ── OHLCV fetch ───────────────────────────────────────────────────────────────
@@ -148,8 +173,10 @@ def compute_signal_cols(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     tz_st = compute_tz_state(df)
     tz_arr = tz_st.astype(int).values[:n]
     tz_prev = np.concatenate([[0], tz_arr[:-1]])
-    cols["tz_bull_flip"] = (tz_arr == 3) & (tz_prev != 3)
-    cols["tz_attempt"]   = (tz_arr == 2) & (tz_prev != 2)
+    cols["tz_bull_flip"]  = (tz_arr == 3) & (tz_prev != 3)
+    cols["tz_attempt"]    = (tz_arr == 2) & (tz_prev != 2)
+    bar_bull = (df["close"].values[:n] > df["open"].values[:n])
+    cols["tz_weak_bull"]  = (tz_arr == 1) & bar_bull   # W: Bear Weakening + green bar
 
     # ── VABS ─────────────────────────────────────────────────────────────────
     vabs = compute_vabs(df)
@@ -160,7 +187,11 @@ def compute_signal_cols(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     wlnbb = compute_wlnbb(df)
     wmap = {
         "FRI34":"fri34","FRI43":"fri43","FRI64":"fri64","L34":"l34","L43":"l43",
-        "BO_UP":"bo_up","BX_UP":"bx_up","BE_UP":"be_up","BE_DN":"be_dn",
+        "L64":"l64","L22":"l22",
+        "BO_UP":"bo_up","BO_DN":"bo_dn",
+        "BX_UP":"bx_up","BX_DN":"bx_dn",
+        "BE_UP":"be_up","BE_DN":"be_dn",
+        "FUCHSIA_RH":"fuchsia_rh","FUCHSIA_RL":"fuchsia_rl",
         "BLUE":"blue","CCI_READY":"cci_ready","PRE_PUMP":"pre_pump",
     }
     for src, dst in wmap.items():
@@ -169,10 +200,28 @@ def compute_signal_cols(df: pd.DataFrame, interval: str) -> pd.DataFrame:
     # ── Combo ─────────────────────────────────────────────────────────────────
     combo = compute_combo(df)
     for c in ("buy_2809","rocket","sig3g","rtv","hilo_buy","atr_brk","bb_brk","va",
-              "conso_2809","um_2809","svs_2809",
+              "conso_2809","um_2809","svs_2809","bias_up",
               "preup66","preup55","preup89","preup3","preup2","preup50",
-              "predn66","predn55","predn89"):
+              "predn66","predn55","predn89","predn3","predn2"):
         cols[c] = _get(combo, c)
+
+    # ── G signals (260410) ────────────────────────────────────────────────────
+    try:
+        from signal_engine import compute_g_signals
+        g_sigs = compute_g_signals(df)
+        for c in ("g1","g2","g4","g6","g11"):
+            cols[c] = _get(g_sigs, c)
+    except Exception:
+        for c in ("g1","g2","g4","g6","g11"):
+            cols[c] = np.zeros(n, dtype=bool)
+
+    # ── Volume spikes (vs previous bar) ──────────────────────────────────────
+    _vol = df["volume"].values.astype(float)
+    _vs = np.zeros(n, dtype=float)
+    _vs[1:] = np.where(_vol[:-1] > 0, _vol[1:] / _vol[:-1], 0.0)
+    cols["vol_spike_5x"]  = _vs >= 5.0
+    cols["vol_spike_10x"] = _vs >= 10.0
+    cols["vol_spike_20x"] = _vs >= 20.0
 
     # ── B signals → any_b → CD/CA/CW ─────────────────────────────────────────
     b_sigs = compute_b_signals(df)
