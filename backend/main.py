@@ -619,6 +619,97 @@ def api_signal_stats(
     return run_signal_stats(ticker.upper(), tf, sig_list, combo=combo, min_n=min_n)
 
 
+# ── Pooled signal stats (SP500 aggregate) ─────────────────────────────────────
+_SS_POOLED: dict = {}  # key: f"{universe}_{tf}"
+
+
+def _ss_pooled_worker(universe: str, tf: str, signals: list, max_tickers: int = 500):
+    import threading
+    key = f"{universe}_{tf}"
+    _SS_POOLED[key] = {"status": "running", "done": 0, "total": 0, "results": {}, "error": None}
+    try:
+        from scanner import get_universe_tickers
+        from signal_stats_engine import run_signal_stats, SIGNAL_LABELS
+        tickers = get_universe_tickers(universe)[:max_tickers]
+        _SS_POOLED[key]["total"] = len(tickers)
+        if not signals:
+            signals = list(SIGNAL_LABELS.keys())
+
+        # Aggregation: signal -> list of per-ticker stat dicts
+        agg: dict = {s: [] for s in signals}
+
+        from concurrent.futures import ThreadPoolExecutor, as_completed
+
+        def _one(t):
+            try:
+                return run_signal_stats(t, tf, signals, combo=False, min_n=1)
+            except Exception:
+                return None
+
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            futs = {ex.submit(_one, t): t for t in tickers}
+            for fut in as_completed(futs):
+                res = fut.result()
+                if res and "results" in res:
+                    for s, st in res["results"].items():
+                        if s in agg and st.get("n", 0) > 0:
+                            agg[s].append(st)
+                _SS_POOLED[key]["done"] += 1
+
+        # Weighted-average aggregation
+        pooled = {}
+        for sig, stats_list in agg.items():
+            if not stats_list:
+                continue
+            total_n = sum(s["n"] for s in stats_list)
+            if total_n < 5:
+                continue
+            def _wavg(field):
+                return sum(s.get(field, 0) * s["n"] for s in stats_list) / total_n
+            pooled[sig] = {
+                "n":          total_n,
+                "tickers":    len(stats_list),
+                "bull_rate":  round(_wavg("bull_rate"), 3),
+                "avg_1bar":   round(_wavg("avg_1bar"), 2),
+                "avg_3bar":   round(_wavg("avg_3bar"), 2),
+                "avg_5bar":   round(_wavg("avg_5bar"), 2),
+                "mae_3":      round(_wavg("mae_3"), 2),
+                "false_rate": round(_wavg("false_rate"), 3),
+            }
+
+        _SS_POOLED[key].update({
+            "status":   "done",
+            "results":  pooled,
+            "labels":   {k: SIGNAL_LABELS.get(k, k) for k in pooled},
+            "universe": universe,
+            "tf":       tf,
+        })
+    except Exception as exc:
+        _SS_POOLED[key].update({"status": "error", "error": str(exc)})
+
+
+@app.post("/api/signal-stats/pooled/build")
+def api_ss_pooled_build(
+    background_tasks: BackgroundTasks,
+    tf: str = "1d",
+    universe: str = "sp500",
+    signals: str = "",
+    max_tickers: int = 500,
+):
+    key = f"{universe}_{tf}"
+    if _SS_POOLED.get(key, {}).get("status") == "running":
+        raise HTTPException(status_code=409, detail="Build already running")
+    sig_list = [s.strip() for s in signals.split(",") if s.strip()]
+    background_tasks.add_task(_ss_pooled_worker, universe, tf, sig_list, max_tickers)
+    return {"ok": True, "universe": universe, "tf": tf}
+
+
+@app.get("/api/signal-stats/pooled/status")
+def api_ss_pooled_status(tf: str = "1d", universe: str = "sp500"):
+    key = f"{universe}_{tf}"
+    return _SS_POOLED.get(key, {"status": "idle"})
+
+
 @app.get("/api/signal-correlation")
 def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int = 15):
     from turbo_engine import get_turbo_results, _TURBO_COLS, _init_db, _db

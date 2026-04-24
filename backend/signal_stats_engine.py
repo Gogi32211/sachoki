@@ -81,6 +81,11 @@ SIGNAL_LABELS: dict[str, str] = {
     "para_start":    "PARA",
     "para_plus":     "PARA+",
     "para_retest":   "RETEST",
+    # FLY 260424
+    "fly_abcd":      "FLY ABCD",
+    "fly_cd":        "FLY CD",
+    "fly_bd":        "FLY BD",
+    "fly_ad":        "FLY AD",
 }
 
 # ── OHLCV fetch ───────────────────────────────────────────────────────────────
@@ -228,6 +233,16 @@ def compute_signal_cols(df: pd.DataFrame, interval: str) -> pd.DataFrame:
             raise ValueError("para_df is None")
     except Exception:
         cols["para_start"] = cols["para_plus"] = cols["para_retest"] = np.zeros(n, dtype=bool)
+
+    # ── FLY 260424 (full series) ──────────────────────────────────────────────
+    try:
+        from fly_engine import compute_fly_series
+        fly_df = compute_fly_series(df)
+        for c in ("fly_abcd", "fly_cd", "fly_bd", "fly_ad"):
+            cols[c] = fly_df[c].values[:n]
+    except Exception:
+        for c in ("fly_abcd", "fly_cd", "fly_bd", "fly_ad"):
+            cols[c] = np.zeros(n, dtype=bool)
 
     return pd.DataFrame(cols, index=df.index[:n])
 
