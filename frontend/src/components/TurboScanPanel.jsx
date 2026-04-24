@@ -490,29 +490,39 @@ const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsK
 const _ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
 const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us']
 
-// Evict the oldest cached entry to free space
-function _evictOldest(exceptKey) {
-  const entries = []
+// Evict ALL cached entries except the one being written
+function _evictAll(exceptKey) {
   for (const tf of _ALL_TF) for (const uni of _ALL_UNI) {
     const key = _tsKey(tf, uni)
     if (key === exceptKey) continue
-    const d = _tsGet(tf, uni)
-    if (d) entries.push({ key, ts: d.lastScan || '' })
+    try { localStorage.removeItem(key) } catch {}
   }
-  entries.sort((a, b) => a.ts.localeCompare(b.ts))
-  if (entries[0]) { try { localStorage.removeItem(entries[0].key) } catch {} }
 }
 
 // Keep only fields needed for display — omit 0-valued booleans to save space
+// sig_ages handled separately: only keep entries with age < 15 to cut size
 const KEEP_ALWAYS = new Set([
   'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
   'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
-  'vol_bucket','data_source','sig_ages',
+  'vol_bucket','data_source',
 ])
 function _slimRow(r) {
   const out = {}
   for (const [k, v] of Object.entries(r)) {
     if (k.startsWith('_') || k === 'scan_id') continue
+    if (k === 'sig_ages') {
+      if (v) {
+        try {
+          const ages = JSON.parse(v)
+          const compact = {}
+          for (const [sk, sv] of Object.entries(ages)) {
+            if (sv < 15) compact[sk] = sv
+          }
+          if (Object.keys(compact).length > 0) out[k] = JSON.stringify(compact)
+        } catch {}
+      }
+      continue
+    }
     if (KEEP_ALWAYS.has(k)) { if (v != null) out[k] = v; continue }
     if (v === 1) out[k] = 1  // only store truthy signal flags
   }
@@ -526,13 +536,13 @@ export function turboCacheSet(tf, uni, results, lastScan) {
   try {
     write(payload)
   } catch {
-    _evictOldest(key)  // free space, retry
+    _evictAll(key)  // free ALL space, retry
     try {
       write(payload)
     } catch {
-      // last resort: top 500 only
+      // last resort: top 1000 by score
       try {
-        const top = [...results].sort((a,b) => (b.turbo_score??0)-(a.turbo_score??0)).slice(0,500)
+        const top = [...results].sort((a,b) => (b.turbo_score??0)-(a.turbo_score??0)).slice(0,1000)
         write({ results: top.map(_slimRow), lastScan, truncated: true })
       } catch {}
     }
