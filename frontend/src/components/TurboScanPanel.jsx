@@ -195,6 +195,12 @@ const SIG_GROUPS = [
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
   { key: 'rs',         label: 'RS',     cls: 'text-green-400'   },
   { divider: true },
+  // ── PARA 260420 — Parabola Start Detector ─────────────────────────────
+  { key: 'para_prep',   label: 'PREP',   cls: 'text-green-300'   },
+  { key: 'para_start',  label: 'PARA',   cls: 'text-lime-300'    },
+  { key: 'para_plus',   label: 'PARA+',  cls: 'text-cyan-300 font-semibold' },
+  { key: 'para_retest', label: 'RETEST', cls: 'text-emerald-300' },
+  { divider: true },
   // ── RGTI 260404 + SMX 260402 — multi-TF EMA ───────────────────────────
   { key: 'rgti_ll',       label: 'LL',   cls: 'text-purple-300'   },
   { key: 'rgti_up',       label: 'UP',   cls: 'text-blue-300'     },
@@ -1231,6 +1237,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.rgti_orange   ? <Badge label="ORG"  cls="bg-orange-700/60 text-orange-200" /> : null}
                     {r.rgti_green    ? <Badge label="GRN"  cls="bg-green-800/60 text-green-200" /> : null}
                     {r.rgti_greencirc? <Badge label="GC"   cls="bg-emerald-800/60 text-emerald-200" /> : null}
+                    {/* PARA 260420 */}
+                    {r.para_plus   ? <Badge label="PARA+" cls="bg-cyan-700/70 text-cyan-100 ring-1 ring-cyan-400 font-bold" /> : null}
+                    {r.para_start && !r.para_plus ? <Badge label="PARA" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
+                    {r.para_prep   ? <Badge label="PREP"  cls="bg-green-800/60 text-green-200" /> : null}
+                    {r.para_retest ? <Badge label="RTEST" cls="bg-emerald-700/60 text-emerald-200 ring-1 ring-emerald-400" /> : null}
                   </div>
                 </td>
 

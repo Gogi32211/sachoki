@@ -171,6 +171,8 @@ _TURBO_COLS = [
     # RGTI (260404) + SMX (260402) — multi-TF EMA alignment signals
     "rgti_ll", "rgti_up", "rgti_upup", "rgti_upupup",
     "rgti_orange", "rgti_green", "rgti_greencirc", "smx",
+    # PARA (260420) — Parabola Start Detector v3.6
+    "para_prep", "para_start", "para_plus", "para_retest",
     # PREUP (EMA cross ↑)
     "preup66", "preup55", "preup89", "preup3", "preup2", "preup50",
     # PREDN (EMA drop ↓)
@@ -803,6 +805,20 @@ def _scan_turbo_ticker(
                     row[_k] = 0
         except Exception:
             for _k in _RGTI_KEYS:
+                row[_k] = 0
+
+        # ── PARA (260420) — Parabola Start Detector v3.6 ─────────────────
+        _PARA_KEYS = ("para_prep", "para_start", "para_plus", "para_retest")
+        try:
+            from para_engine import compute_para
+            _is_daily = interval in ("1d", "1wk", "1w")
+            _para = compute_para(df, is_daily=_is_daily)
+            row["para_prep"]   = _para.get("prep",        0)
+            row["para_start"]  = _para.get("para_start",  0)
+            row["para_plus"]   = _para.get("para_plus",   0)
+            row["para_retest"] = _para.get("para_retest", 0)
+        except Exception:
+            for _k in _PARA_KEYS:
                 row[_k] = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
