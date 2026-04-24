@@ -93,7 +93,7 @@ export default function AdminPanel() {
               localStorage.setItem('sachoki_turbo_tf',  scanTf)
               localStorage.setItem('sachoki_turbo_uni', scanUni)
             } catch {}
-            window.dispatchEvent(new CustomEvent('sachoki:scan-cached', { detail: { tf: scanTf, uni: scanUni } }))
+            window.dispatchEvent(new CustomEvent('sachoki:scan-cached', { detail: { tf: scanTf, uni: scanUni, results, lastScan: d.last_scan } }))
           }
         })
         .finally(() => setCaching(false))
