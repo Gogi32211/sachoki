@@ -94,12 +94,12 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
 }
 
 // ── T/Z outcome table ─────────────────────────────────────────────────────────
-function TZOutcomeTable({ data, title, color, pooled = false }) {
+function TZOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500 Pooled' }) {
   return (
     <div className="flex-1 min-w-0">
       <div className={`px-3 py-2 rounded-t-lg text-sm font-bold flex items-center justify-between ${color}`}>
         <span>{title}</span>
-        {pooled && <span className="text-[10px] font-normal opacity-70">SP500 Pooled</span>}
+        {pooled && <span className="text-[10px] font-normal opacity-70">{poolLabel}</span>}
       </div>
       <div className="border border-gray-800 rounded-b-lg overflow-hidden">
         <div className="px-3 py-2 bg-gray-900 border-b border-gray-800 text-xs text-gray-400">
@@ -274,12 +274,12 @@ function TZStatsSection({ tickerStats, benchStats, ticker, showTicker, showPoole
 }
 
 // ── L-combo outcome table ─────────────────────────────────────────────────────
-function LOutcomeTable({ data, title, color, pooled = false }) {
+function LOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500 Pooled' }) {
   return (
     <div className="flex-1 min-w-0">
       <div className={`px-3 py-2 rounded-t-lg text-sm font-bold flex items-center justify-between ${color}`}>
         <span>{title}</span>
-        {pooled && <span className="text-[10px] font-normal opacity-70">SP500 Pooled</span>}
+        {pooled && <span className="text-[10px] font-normal opacity-70">{poolLabel}</span>}
       </div>
       <div className="border border-gray-800 rounded-b-lg overflow-hidden">
         <div className="px-3 py-2 bg-gray-900 border-b border-gray-800 text-xs text-gray-400">
@@ -406,6 +406,8 @@ const SOURCES = [
 const UNIVERSES_POOL = ['sp500', 'nasdaq', 'russell2k']
 
 // ── localStorage cache helpers ────────────────────────────────────────────────
+const _UNI_LABEL = { sp500: 'SP500 Pooled', nasdaq: 'NASDAQ Pooled', russell2k: 'R2K Pooled' }
+
 const _lsKey = (type, ticker, tf, uni = '') =>
   `sachoki_pred_${type}_${ticker}_${tf}${uni ? '_' + uni : ''}`
 
@@ -609,6 +611,7 @@ export default function PredictorPanel({ ticker, tf }) {
               title="T/Z 3-Bar"
               color="bg-blue-800/40 text-blue-200"
               pooled={true}
+              poolLabel={_UNI_LABEL[poolUni] ?? 'Pooled'}
             />
           )}
         </div>
@@ -629,6 +632,7 @@ export default function PredictorPanel({ ticker, tf }) {
               title="T/Z 2-Bar"
               color="bg-orange-800/40 text-orange-200"
               pooled={true}
+              poolLabel={_UNI_LABEL[poolUni] ?? 'Pooled'}
             />
           )}
         </div>
@@ -649,6 +653,7 @@ export default function PredictorPanel({ ticker, tf }) {
               title="L-Signal 3-Bar"
               color="bg-teal-800/40 text-teal-200"
               pooled={true}
+              poolLabel={_UNI_LABEL[poolUni] ?? 'Pooled'}
             />
           )}
         </div>
@@ -669,6 +674,7 @@ export default function PredictorPanel({ ticker, tf }) {
               title="L-Signal 2-Bar"
               color="bg-amber-800/40 text-amber-200"
               pooled={true}
+              poolLabel={_UNI_LABEL[poolUni] ?? 'Pooled'}
             />
           )}
         </div>
