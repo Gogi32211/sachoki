@@ -736,6 +736,7 @@ def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int
     bool_cols = [c for c in _TURBO_COLS if c not in {
         "turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10",
         "rsi", "cci", "avg_vol", "tz_sig", "vol_bucket", "sig_ages", "data_source", "tz_state",
+        "any_f",  # derived aggregate (any F1-F11) — always redundant with individual F signals
     }]
 
     n = len(rows)

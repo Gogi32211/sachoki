@@ -83,7 +83,7 @@ export default function HowItWorksPanel() {
             <Row label="Base ≥ 20" cls="text-gray-300">sparse signals, worth watching</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — current weights</p>
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — weights v3 (calibrated on SP500 pooled stats, 500 tickers 2yr)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
@@ -100,13 +100,13 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Backbone (18)" signal="conso + tz_bull + bf_buy chain" pts="+8 bonus" />
                 <ScoreRow engine="Backbone (18)" signal="conso + tz_bull (partial chain)" pts="+3 bonus" />
                 {/* Vol/Accum */}
-                <ScoreRow engine="Vol/Accum (22)" signal="VBO↑" pts="+6" />
-                <ScoreRow engine="Vol/Accum (22)" signal="NS (no supply)" pts="+5" />
-                <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="VBO↑  [Avg3 2.37%]" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)  [Avg3 2.58%]" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="L88 signal" pts="+5" />
-                <ScoreRow engine="Vol/Accum (22)" signal="SQ (stopping quantity)" pts="+4" />
-                <ScoreRow engine="Vol/Accum (22)" signal="CLB (climb)" pts="+4" />
-                <ScoreRow engine="Vol/Accum (22)" signal="LD (load)" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="SQ  [Win% 57.5%, Avg3 2.63%]" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="CLB (climb)  [Avg3 2.80%]" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="LD (load)  [Avg3 2.69%]" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="NS (no supply)  [Avg3 2.35%]" pts="+4" />
                 <ScoreRow engine="Vol/Accum (22)" signal="SVS 2809 (vol spike in conso)" pts="+3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="UM 2809 (upmove label)" pts="+3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="VA (vol/avg >2× crossover)" pts="+3" />
@@ -117,7 +117,8 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Breakout (18)" signal="FBO↑ (bear trap)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="RS+ (vs SPY+IWM)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="BO↑ / BX↑" pts="+5" />
-                <ScoreRow engine="Breakout (18)" signal="EB↑ / 3↑" pts="+4 each" />
+                <ScoreRow engine="Breakout (18)" signal="EB↑  [Avg3 2.39%]" pts="+3" />
+                <ScoreRow engine="Breakout (18)" signal="3↑  [Avg3 1.65% — weakest]" pts="+2" />
                 <ScoreRow engine="Breakout (18)" signal="RS (relative strength)" pts="+3" />
                 {/* Combo */}
                 <ScoreRow engine="Combo (14)" signal="🚀 ROCKET" pts="+12" />
@@ -139,25 +140,30 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="L-struct (13)" signal="T5" pts="+1" />
                 <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
                 <ScoreRow engine="L-struct (13)" signal="FRI43" pts="+4" />
-                <ScoreRow engine="L-struct (13)" signal="L34 (without FRI34)" pts="+3" />
+                <ScoreRow engine="L-struct (13)" signal="L34 (without FRI34)  [Avg3 2.41%]" pts="+3" />
                 <ScoreRow engine="L-struct (13)" signal="TZ→3 (Bull Dom flip)" pts="+3 or +4" />
                 <ScoreRow engine="L-struct (13)" signal="TZ→2 (Rev Attempt)" pts="+2" />
-                <ScoreRow engine="L-struct (13)" signal="BL (blue trend)" pts="+2" />
+                <ScoreRow engine="L-struct (13)" signal="BL (blue trend)  [Avg3 2.76%]" pts="+3" />
                 <ScoreRow engine="L-struct (13)" signal="CCI ready" pts="+2" />
+                <ScoreRow engine="L-struct (13)" signal="L43 (without FRI)  [Avg3 2.60%]" pts="+2" />
                 {/* Delta */}
-                <ScoreRow engine="Delta (12)" signal="d_blast_bull" pts="+6" />
-                <ScoreRow engine="Delta (12)" signal="d_spring (Wyckoff)" pts="+6" />
-                <ScoreRow engine="Delta (12)" signal="d_strong_bull" pts="+5" />
-                <ScoreRow engine="Delta (12)" signal="d_absorb_bull" pts="+4" />
-                <ScoreRow engine="Delta (12)" signal="d_surge_bull" pts="+4" />
-                <ScoreRow engine="Delta (12)" signal="d_div_bull / vd_div" pts="+3" />
-                <ScoreRow engine="Delta (12)" signal="d_cd_bull" pts="+2" />
+                <ScoreRow engine="Delta (12)" signal="dSPR — d_spring  [Avg3 3.36% 🥇 #1]" pts="+6" />
+                <ScoreRow engine="Delta (12)" signal="Ab↑ — d_absorb_bull  [Avg3 2.99% 🥉 #3]" pts="+6" />
+                <ScoreRow engine="Delta (12)" signal="ΔΔ↑ — d_blast_bull  [Avg3 2.46%]" pts="+5" />
+                <ScoreRow engine="Delta (12)" signal="Δ↑ — d_surge_bull  [Avg3 2.43%]" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="T↓ — d_div_bull  [Avg3 2.54%]" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="B/S↑ — d_strong_bull  [Avg3 2.03% Win%48.9%]" pts="+2" />
+                <ScoreRow engine="Delta (12)" signal="d_vd_div_bull / d_cd_bull" pts="+3 / +2" />
                 {/* EMA cross */}
                 <ScoreRow engine="EMA-cross (8)" signal="P66 (cross EMA200+)" pts="+8" />
                 <ScoreRow engine="EMA-cross (8)" signal="P55 (cross EMA89+)" pts="+6" />
                 <ScoreRow engine="EMA-cross (8)" signal="P89 (cross EMA89)" pts="+4" />
+                <ScoreRow engine="EMA-cross (8)" signal="P3  [Avg3 2.48%]" pts="+3" />
+                <ScoreRow engine="EMA-cross (8)" signal="P2  [Avg3 2.40%]" pts="+2" />
                 {/* Context */}
                 <ScoreRow engine="Context (uncapped)" signal="WK↑ legacy confirm" pts="+5" />
+                <ScoreRow engine="Context (uncapped)" signal="RETEST (PARA)  [Avg3 2.35% False%6.3%]" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="PARA / PARA+" pts="+2" />
                 <ScoreRow engine="Context (uncapped)" signal="X2G (gap continuation)" pts="+5" />
                 <ScoreRow engine="Context (uncapped)" signal="X2 / X1G (wick reversal)" pts="+4 each" />
                 <ScoreRow engine="Context (uncapped)" signal="X1 (inside reversal)" pts="+3" />
