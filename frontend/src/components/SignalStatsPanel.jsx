@@ -65,6 +65,18 @@ const SIGNAL_GROUPS = [
   { key: 'fly_cd',      label: 'FLY CD'},
   { key: 'fly_bd',      label: 'FLY BD'},
   { key: 'fly_ad',      label: 'FLY AD'},
+  { header: 'F signals' },
+  { key: 'b1',  label: 'F1'  },
+  { key: 'b2',  label: 'F2'  },
+  { key: 'b3',  label: 'F3'  },
+  { key: 'b4',  label: 'F4'  },
+  { key: 'b5',  label: 'F5'  },
+  { key: 'b6',  label: 'F6'  },
+  { key: 'b7',  label: 'F7'  },
+  { key: 'b8',  label: 'F8'  },
+  { key: 'b9',  label: 'F9'  },
+  { key: 'b10', label: 'F10' },
+  { key: 'b11', label: 'F11' },
 ]
 
 const ALL_KEYS = SIGNAL_GROUPS.filter(s => s.key).map(s => s.key)

@@ -86,6 +86,10 @@ SIGNAL_LABELS: dict[str, str] = {
     "fly_cd":        "FLY CD",
     "fly_bd":        "FLY BD",
     "fly_ad":        "FLY AD",
+    # F signals (b1-b11)
+    "b1":  "F1", "b2":  "F2", "b3":  "F3", "b4":  "F4",
+    "b5":  "F5", "b6":  "F6", "b7":  "F7", "b8":  "F8",
+    "b9":  "F9", "b10": "F10","b11": "F11",
 }
 
 # ── OHLCV fetch ───────────────────────────────────────────────────────────────
