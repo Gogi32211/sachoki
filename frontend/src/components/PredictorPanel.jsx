@@ -338,16 +338,14 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
   const [status,   setStatus]   = useState(null)
   const [building, setBuilding] = useState(false)
   const [error,    setError]    = useState(null)
-  const autoTriggered = useRef(false)
 
-  const build = useCallback((silent = false) => {
-    if (!silent) setError(null)
+  const build = useCallback(() => {
+    setError(null)
     api.pooledStatsBuild(universe, interval, 2000)
       .then(() => { setBuilding(true) })
       .catch(e => {
-        // 409 = already running — treat as success
         if (e.message?.startsWith('409')) { setBuilding(true); return }
-        if (!silent) setError(e.message)
+        setError(e.message)
       })
   }, [universe, interval])
 
@@ -356,54 +354,44 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
       setStatus(s)
       if (s.job?.running) {
         setBuilding(true)
-        setTimeout(fetchStatus, 3000)  // poll while building
+        setTimeout(fetchStatus, 3000)
       } else if (building) {
         setBuilding(false)
         onBuildDone?.()
       }
-      // No auto-build — user must press Build manually
     }).catch(() => {})
-  }, [universe, interval, building, build])
+  }, [universe, interval, building])
 
-  // Reset auto-trigger flag when universe/interval changes
   useEffect(() => {
-    autoTriggered.current = false
     fetchStatus()
   }, [universe, interval])
 
   const data = status?.data
   const job  = status?.job
+  const isRunning = job?.running || building
 
   return (
-    <div className="flex items-center gap-3 px-3 py-2 bg-gray-900/60 border-b border-gray-800 text-xs">
-      <span className="text-gray-500 font-medium">SP500 Pooled:</span>
-      {data?.available ? (
-        <>
-          <span className="text-lime-400">✓ Built</span>
-          <span className="text-gray-500">
-            {data.ticker_count} tickers · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
-          </span>
-          <span className="text-gray-600">
-            {data.built_at ? new Date(data.built_at).toLocaleString() : ''}
-          </span>
-        </>
-      ) : (
-        <span className="text-yellow-500">
-          {job?.running || building ? 'Building…' : 'Not built yet'}
-        </span>
-      )}
-      {(job?.running || building) ? (
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900/60 border-b border-gray-800 text-xs">
+      <span className="text-gray-600">Pooled:</span>
+      {isRunning ? (
         <span className="text-violet-400 animate-pulse">
-          ⚡ {job?.done ?? '…'}/{job?.total ?? '…'} tickers
-          {job?.elapsed ? ` (${job.elapsed}s)` : ''}
+          ⚡ {job?.done ?? '…'}/{job?.total ?? '…'} tickers…
+        </span>
+      ) : data?.available ? (
+        <span className="text-gray-600">
+          ✓ {data.ticker_count} tickers · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
+          {data.built_at && <span className="ml-1 text-gray-700">{new Date(data.built_at).toLocaleString()}</span>}
         </span>
       ) : (
-        <button onClick={() => build(false)}
-          className="px-2 py-0.5 rounded bg-violet-700 hover:bg-violet-600 text-white text-xs font-medium ml-1">
-          {data?.available ? '↺ Rebuild' : '⚡ Build'}
+        <span className="text-gray-600">—</span>
+      )}
+      {!isRunning && (
+        <button onClick={build}
+          className="ml-auto px-2 py-0.5 rounded bg-gray-800 hover:bg-violet-700 text-gray-500 hover:text-white text-xs transition-colors">
+          {data?.available ? '↺' : '⚡ Build'}
         </button>
       )}
-      {error && <span className="text-red-400">{error}</span>}
+      {error && <span className="text-red-400 ml-1">{error}</span>}
     </div>
   )
 }
