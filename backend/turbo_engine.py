@@ -28,6 +28,7 @@ from db import get_db, USE_PG, pk_col
 
 from indicators    import rsi as _rsi_ind, cci as _cci_ind
 from signal_engine import compute_signals, compute_b_signals, compute_g_signals
+from f_engine import compute_f_signals
 from wlnbb_engine  import compute_wlnbb
 from combo_engine  import compute_combo, compute_tz_state
 from wick_engine   import compute_wick, compute_wick_x
@@ -111,6 +112,9 @@ _TURBO_COLS = [
     # B signals (260321) — B1–B11, no RSI filter
     "b1", "b2", "b3", "b4", "b5",
     "b6", "b7", "b8", "b9", "b10", "b11",
+    # F signals (260418 F Builder) — F1–F11 + any_f
+    "f1", "f2", "f3", "f4", "f5", "f6",
+    "f7", "f8", "f9", "f10", "f11", "any_f",
     # G signals (260410) — armed by Z10/Z11/Z12, no RSI filter
     "g1", "g2", "g4", "g6", "g11",
     # seqBContLite (260412) — continuation sequence T/Z patterns
@@ -544,6 +548,16 @@ def _scan_turbo_ticker(
         b_sigs = compute_b_signals(df)
         for _b in range(1, 12):
             row[f"b{_b}"] = _sig(b_sigs, f"b{_b}")
+        # ── F signals (260418 F Builder) — F1–F11 + any_f ────────────────
+        try:
+            f_sigs = compute_f_signals(df)
+            for _f in range(1, 12):
+                row[f"f{_f}"] = _sig(f_sigs, f"f{_f}")
+            row["any_f"] = _sig(f_sigs, "any_f")
+        except Exception:
+            for _f in range(1, 12):
+                row[f"f{_f}"] = 0
+            row["any_f"] = 0
         # ── G signals (260410) — armed by Z10/Z11/Z12, no RSI filter ─────
         g_sigs = compute_g_signals(df)
         row["g1"]  = _sig(g_sigs, "g1")
