@@ -17,8 +17,8 @@ WORKDIR /app
 COPY backend/requirements.txt ./requirements.txt
 RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy backend source
-COPY backend/ .
+# Copy backend source (*.py explicitly — avoids BuildKit checksum bug with dir COPY)
+COPY backend/*.py .
 
 # Copy compiled React app into /app/static
 COPY --from=frontend-builder /frontend/dist ./static
