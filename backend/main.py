@@ -606,6 +606,19 @@ def api_turbo_analyze(ticker: str, tf: str = "1d"):
     return result
 
 
+@app.get("/api/signal-stats/{ticker}")
+def api_signal_stats(
+    ticker: str,
+    tf: str = "1d",
+    signals: str = "tz_bull,best_sig,vbo_up",
+    combo: bool = False,
+    min_n: int = 5,
+):
+    from signal_stats_engine import run_signal_stats
+    sig_list = [s.strip() for s in signals.split(",") if s.strip()]
+    return run_signal_stats(ticker.upper(), tf, sig_list, combo=combo, min_n=min_n)
+
+
 @app.get("/api/signal-correlation")
 def api_signal_correlation(tf: str = "1d", universe: str = "sp500", min_pct: int = 15):
     from turbo_engine import get_turbo_results, _TURBO_COLS, _init_db, _db

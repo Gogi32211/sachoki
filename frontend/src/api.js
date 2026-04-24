@@ -125,6 +125,12 @@ export const api = {
   turboAnalyze: (ticker, tf = '1d') =>
     get(`/api/turbo-analyze/${ticker}?tf=${tf}`),
 
+  // Signal stats — per-ticker signal performance analyzer
+  signalStats: (ticker, tf = '1d', signals = [], combo = false, minN = 5) => {
+    const p = new URLSearchParams({ tf, signals: signals.join(','), combo, min_n: minN })
+    return get(`/api/signal-stats/${ticker}?${p}`)
+  },
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
