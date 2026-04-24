@@ -181,6 +181,16 @@ const SIG_GROUPS = [
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
   { key: 'rs',         label: 'RS',     cls: 'text-green-400'   },
   { divider: true },
+  // ── RGTI 260404 + SMX 260402 — multi-TF EMA ───────────────────────────
+  { key: 'rgti_ll',       label: 'LL',   cls: 'text-purple-300'   },
+  { key: 'rgti_up',       label: 'UP',   cls: 'text-blue-300'     },
+  { key: 'rgti_upup',     label: '↑↑',   cls: 'text-fuchsia-300'  },
+  { key: 'rgti_upupup',   label: '↑↑↑',  cls: 'text-sky-300'      },
+  { key: 'rgti_orange',   label: 'ORG',  cls: 'text-orange-300'   },
+  { key: 'rgti_green',    label: 'GRN',  cls: 'text-green-300'    },
+  { key: 'rgti_greencirc',label: 'GC',   cls: 'text-emerald-300'  },
+  { key: 'smx',           label: 'SMX',  cls: 'text-lime-300'     },
+  { divider: true },
   // ── Context ───────────────────────────────────────────────────────────
   { key: '_rsi_os',    label: 'RSI≤35', cls: 'text-lime-300',
     custom: r => (r.rsi || 100) <= 35 },
@@ -1198,6 +1208,15 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.seq_bcont   ? <Badge label="SBC"  cls="bg-violet-800/60 text-violet-200" /> : null}
                     {r.tz_bull_flip ? <Badge label="TZ→3" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.tz_attempt && !r.tz_bull_flip ? <Badge label="TZ→2" cls="bg-cyan-800/50 text-cyan-200" /> : null}
+                    {/* RGTI 260404 + SMX 260402 */}
+                    {r.smx           ? <Badge label="SMX"  cls="bg-lime-700/70 text-lime-200 ring-1 ring-lime-400 font-bold" /> : null}
+                    {r.rgti_ll       ? <Badge label="LL"   cls="bg-purple-800/60 text-purple-200 ring-1 ring-purple-400" /> : null}
+                    {r.rgti_up       ? <Badge label="UP"   cls="bg-blue-800/60 text-blue-200 ring-1 ring-blue-400" /> : null}
+                    {r.rgti_upup     ? <Badge label="↑↑"   cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
+                    {r.rgti_upupup   ? <Badge label="↑↑↑"  cls="bg-sky-800/60 text-sky-200" /> : null}
+                    {r.rgti_orange   ? <Badge label="ORG"  cls="bg-orange-700/60 text-orange-200" /> : null}
+                    {r.rgti_green    ? <Badge label="GRN"  cls="bg-green-800/60 text-green-200" /> : null}
+                    {r.rgti_greencirc? <Badge label="GC"   cls="bg-emerald-800/60 text-emerald-200" /> : null}
                   </div>
                 </td>
 
