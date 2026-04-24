@@ -293,13 +293,15 @@ def _calc_turbo_score(r: dict) -> float:
     s = min(bkb, 18)
 
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
+    # Weights revised v3 per SP500 pooled stats (500 tickers, 2yr):
+    #   CLB Avg3=2.80 → +5; VBO Avg3=2.37 → +5; NS Avg3=2.35 → +4; SQ Win%=57.5% → +5
     vol = 0.0
     if r.get("abs_sig"):   vol += 5
-    if r.get("climb_sig"): vol += 4
-    if r.get("load_sig"):  vol += 4   # strong_sig ⊂ load_sig (100%) — load_sig is superset
-    if r.get("vbo_up"):    vol += 6
-    if r.get("ns"):        vol += 5
-    if r.get("sq"):        vol += 4
+    if r.get("climb_sig"): vol += 5   # Avg3=2.80 (RAISE 4→5)
+    if r.get("load_sig"):  vol += 4
+    if r.get("vbo_up"):    vol += 5   # Avg3=2.37 (LOWER 6→5)
+    if r.get("ns"):        vol += 4   # Avg3=2.35 (LOWER 5→4)
+    if r.get("sq"):        vol += 5   # Win%=57.5%, Avg3=2.63 (RAISE 4→5)
     if r.get("sc"):        vol += 2
     if r.get("svs_2809"):  vol += 3   # volume expansion within conso_2809 setup
     if r.get("um_2809"):   vol += 3   # NASDAQ: 67% A with tz_bull, 49% with bf_buy
@@ -314,8 +316,8 @@ def _calc_turbo_score(r: dict) -> float:
     brk = 0.0
     if has_bf_buy:          brk += 6
     if r.get("fbo_bull"):   brk += 5
-    if r.get("eb_bull"):    brk += 4
-    if r.get("ultra_3up"):  brk += 4
+    if r.get("eb_bull"):    brk += 3   # Avg3=2.39 (LOWER 4→3)
+    if r.get("ultra_3up"):  brk += 2   # Avg3=1.65 WORST signal (LOWER 4→2)
     if r.get("bo_up") or r.get("bx_up"): brk += 5
     if r.get("rs_strong"):  brk += 5
     elif r.get("rs"):       brk += 3
@@ -350,18 +352,22 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("fri43"):
         trend += 4
     if r.get("l34") and not r.get("fri34"): trend += 3
-    if r.get("blue"):      trend += 2
+    if r.get("blue"):      trend += 3   # Avg3=2.76 (RAISE 2→3)
     if r.get("cci_ready"): trend += 2
+    if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 2  # Avg3=2.60 (ADD)
     s += min(trend, 13)
 
     # ── Delta / order-flow family (cap 12) ───────────────────────────────
+    # Delta weights revised v3 per SP500 pooled stats:
+    #   dSPR #1 overall Avg3=3.36 → +6; Ab↑ #3 Avg3=2.99 → +6 (RAISE 4→6)
+    #   B/S↑ Win%=48.9% Avg3=2.03 → +2 (MAJOR LOWER 5→2); ΔΔ↑ Avg3=2.46 → +5 (LOWER 6→5)
     dlt = 0.0
-    if r.get("d_blast_bull"):        dlt += 6
+    if r.get("d_blast_bull"):        dlt += 5   # Avg3=2.46 (LOWER 6→5)
     elif r.get("d_surge_bull"):      dlt += 4
-    if r.get("d_strong_bull"):       dlt += 5
-    if r.get("d_absorb_bull"):       dlt += 4
-    if r.get("d_spring"):            dlt += 6
-    elif r.get("d_div_bull"):        dlt += 3
+    if r.get("d_strong_bull"):       dlt += 2   # Avg3=2.03 Win%=48.9% (MAJOR LOWER 5→2)
+    if r.get("d_absorb_bull"):       dlt += 6   # Avg3=2.99 #3 overall (RAISE 4→6)
+    if r.get("d_spring"):            dlt += 6   # Avg3=3.36 #1 overall — keep
+    elif r.get("d_div_bull"):        dlt += 4   # Avg3=2.54 (RAISE 3→4)
     if r.get("d_vd_div_bull"):       dlt += 3
     elif r.get("d_cd_bull"):         dlt += 2
     s += min(dlt, 12)
@@ -371,6 +377,8 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("preup66"):   ema_x += 8
     elif r.get("preup55"): ema_x += 6
     elif r.get("preup89"): ema_x += 4
+    elif r.get("preup3"):  ema_x += 3   # Avg3=2.48 (ADD)
+    elif r.get("preup2"):  ema_x += 2   # Avg3=2.40 (ADD)
     s += min(ema_x, 8)
 
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
@@ -380,6 +388,10 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("x1_wick"):     s += 3
     elif r.get("x3_wick"):     s += 2
     if r.get("wick_bull"):     s += 5   # 94% C-anchor in WK↑+4BF+T/Z↑ triple, raised +3→+5
+
+    # PARA 260420 — confirmed by pooled stats (RETEST False%=6.3% lowest)
+    if r.get("para_retest"):                           s += 3
+    elif r.get("para_plus") or r.get("para_start"):    s += 2
 
     return round(min(100.0, s), 1)
 
