@@ -131,6 +131,12 @@ export const api = {
     return get(`/api/signal-stats/${ticker}?${p}`)
   },
 
+  // Signal stats — pooled SP500 aggregate
+  signalStatsPooledBuild: (tf = '1d', universe = 'sp500', signals = [], maxTickers = 500) =>
+    post(`/api/signal-stats/pooled/build?tf=${tf}&universe=${universe}&signals=${signals.join(',')}&max_tickers=${maxTickers}`),
+  signalStatsPooledStatus: (tf = '1d', universe = 'sp500') =>
+    get(`/api/signal-stats/pooled/status?tf=${tf}&universe=${universe}`),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
