@@ -236,18 +236,19 @@ def api_watchlist_save(body: dict):
 @app.get("/api/predict/{ticker}")
 def api_predict(ticker: str, tf: str = "1d"):
     try:
-        from predictor import compute_tz_stats
+        from predictor import compute_tz_stats, compute_tz_matrix
         df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
         sigs  = compute_signals(df)
         full  = df.join(sigs)
         tz    = predict_next(full)
-        tz_stats = compute_tz_stats(full)
+        tz_stats  = compute_tz_stats(full)
+        tz_matrix = compute_tz_matrix(full)
 
         wlnbb = compute_wlnbb(df)
         full_w = full.join(wlnbb)
         l_preds = predict_l_next(full_w)
 
-        return {**tz, **l_preds, "tz_stats": tz_stats}
+        return {**tz, **l_preds, "tz_stats": tz_stats, "tz_matrix": tz_matrix}
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
