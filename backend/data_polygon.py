@@ -127,6 +127,21 @@ def polygon_available() -> bool:
                 os.environ.get("POLYGON_API_KEY"))
 
 
+def _fetch_ticker_page(url: str, params: dict, timeout: int = 30) -> dict:
+    """GET one page of ticker results with up to 3 retries on timeout/connection error."""
+    for attempt in range(3):
+        try:
+            r = requests.get(url, params=params, timeout=timeout)
+            r.raise_for_status()
+            return r.json()
+        except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
+            if attempt == 2:
+                raise
+            wait = 2 ** attempt  # 1s, 2s
+            log.warning("Massive ticker page timeout (attempt %d/3), retry in %ds: %s", attempt + 1, wait, exc)
+            time.sleep(wait)
+
+
 def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]:
     """
     Fetch active US common stocks from Massive API sorted by market cap desc.
@@ -144,9 +159,7 @@ def get_all_us_tickers(market: str = "stocks", limit: int = 10_000) -> list[str]
         "apiKey":  _key(),
     }
     while url and len(tickers) < limit:
-        r = requests.get(url, params=params, timeout=20)
-        r.raise_for_status()
-        data = r.json()
+        data = _fetch_ticker_page(url, params)
         for t in data.get("results", []):
             sym = t.get("ticker", "")
             if sym and _is_valid_stock_ticker(sym):
@@ -177,9 +190,7 @@ def get_exchange_tickers(exchange: str, limit: int = 5_000) -> list[str]:
         "apiKey":   _key(),
     }
     while url and len(tickers) < limit:
-        r = requests.get(url, params=params, timeout=20)
-        r.raise_for_status()
-        data = r.json()
+        data = _fetch_ticker_page(url, params)
         for t in data.get("results", []):
             sym = t.get("ticker", "")
             if sym and _is_valid_stock_ticker(sym):

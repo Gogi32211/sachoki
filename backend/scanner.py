@@ -332,22 +332,31 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[s
     if fetch == "nasdaq_massive":
         from data_polygon import get_exchange_tickers, polygon_available
         if polygon_available():
-            return get_exchange_tickers("XNAS", limit=min(limit, 5_000))
-        # fallback: Wikipedia + static list
+            try:
+                return get_exchange_tickers("XNAS", limit=min(limit, 5_000))
+            except Exception as exc:
+                log.warning("Massive NASDAQ fetch failed (%s) — using static fallback", exc)
         return get_nasdaq_tickers(min(limit, 700))
 
     elif fetch == "russell2k_massive":
         from data_polygon import get_all_us_tickers, polygon_available
         if polygon_available():
-            # Russell 2000 ≈ all CS stocks (Massive returns ~8k; scanner price-filters later)
-            return get_all_us_tickers(limit=min(limit, 5_000))
+            try:
+                return get_all_us_tickers(limit=min(limit, 5_000))
+            except Exception as exc:
+                log.warning("Massive Russell2k fetch failed (%s) — using static fallback", exc)
         return get_russell2000_tickers(min(limit, 700))
 
     elif fetch == "all_us":
         from data_polygon import get_all_us_tickers, polygon_available
         if not polygon_available():
             raise RuntimeError("MASSIVE_API_KEY not set — All US universe requires Massive API key")
-        return get_all_us_tickers(limit=limit)
+        try:
+            return get_all_us_tickers(limit=limit)
+        except Exception as exc:
+            log.warning("Massive All US fetch failed (%s) — using SP500+NASDAQ fallback", exc)
+            combined = get_tickers(700) + get_nasdaq_tickers(700)
+            return list(dict.fromkeys(combined))
 
     else:  # sp500
         return get_tickers(min(limit, 700))
