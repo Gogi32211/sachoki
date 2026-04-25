@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import TickerInput from './components/TickerInput'
 import WatchlistPanel from './components/WatchlistPanel'
 import CandleChart from './components/CandleChart'
@@ -64,8 +64,12 @@ export default function App() {
   const [activeTab, setActiveTab] = useState(
     () => LS.get('active_tab', 'combined')
   )
-
   const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
+
+  // Superchart owns its own ticker/tf so the global chart follows it
+  const [scTicker, setScTicker] = useState(null)
+  const [scTf, setScTf]         = useState('1d')
+  const chartInstanceRef        = useRef(null)
 
   // Persist on change
   useEffect(() => { LS.set('watchlist', watchlist) }, [watchlist])
@@ -81,13 +85,23 @@ export default function App() {
   const handleRemoveTicker = (t) =>
     setWatchlist(prev => prev.filter(x => x !== t))
 
+  // Which ticker/tf the global chart shows
+  const chartTicker =
+    activeTab === 'superchart' && scTicker ? scTicker :
+    activeTab === 'analyze'    && analyzeChart.ticker ? analyzeChart.ticker :
+    selected
+  const chartTf =
+    activeTab === 'superchart' && scTicker ? scTf :
+    activeTab === 'analyze'    && analyzeChart.ticker ? analyzeChart.tf :
+    tf
+
   return (
     <div className="min-h-screen bg-gray-950 text-gray-100 p-3 flex flex-col gap-3">
       {/* ── Header ─────────────────────────────────────────────────────── */}
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.3.41</span>
+          <span className="text-xs font-normal text-gray-500">v4.3.44</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -114,106 +128,109 @@ export default function App() {
         </div>
       </div>
 
-      {/* ── Top: Chart (full width) ─────────────────────────────────────── */}
+      {/* ── Tab bar — moved above chart ─────────────────────────────────── */}
+      <div className="flex flex-wrap gap-1 border-b border-gray-800">
+        {TABS.map(tab => (
+          <button
+            key={tab.id}
+            onClick={() => setActiveTab(tab.id)}
+            className={`text-xs px-3 py-2 rounded-t transition-colors border-b-2
+              ${activeTab === tab.id
+                ? 'border-blue-500 text-blue-400 bg-gray-900'
+                : 'border-transparent text-gray-500 hover:text-gray-300 bg-transparent'}`}
+          >
+            {tab.label}
+          </button>
+        ))}
+      </div>
+
+      {/* ── Chart — always visible, controlled by active tab ───────────── */}
       <div style={{ minHeight: '340px' }}>
         <CandleChart
-          ticker={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.ticker : selected}
-          tf={activeTab === 'analyze' && analyzeChart.ticker ? analyzeChart.tf : tf}
+          ticker={chartTicker}
+          tf={chartTf}
+          chartInstanceRef={chartInstanceRef}
         />
       </div>
 
-      {/* ── Bottom: Tab bar + panels ────────────────────────────────────── */}
-      <div className="flex flex-col gap-0 flex-1">
-        {/* Tab buttons */}
-        <div className="flex flex-wrap gap-1 border-b border-gray-800">
-          {TABS.map(tab => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`text-xs px-3 py-2 rounded-t transition-colors border-b-2
-                ${activeTab === tab.id
-                  ? 'border-blue-500 text-blue-400 bg-gray-900'
-                  : 'border-transparent text-gray-500 hover:text-gray-300 bg-transparent'}`}
-            >
-              {tab.label}
-            </button>
-          ))}
+      {/* ── Tab content ─────────────────────────────────────────────────── */}
+      <div className="min-h-[400px]">
+        {/* TURBO: always mounted so scan results survive tab switches */}
+        <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
+          <TurboScanPanel onSelectTicker={handleSelect} />
         </div>
 
-        {/* Tab content */}
-        <div className="min-h-[400px]">
-          {/* TURBO: always mounted so scan results survive tab switches */}
-          <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
-            <TurboScanPanel onSelectTicker={handleSelect} />
-          </div>
+        {activeTab === 'watchlist' && (
+          <PersonalWatchlistPanel
+            watchlistTickers={watchlist}
+            onSelectTicker={handleSelect}
+            onAddTicker={handleAddTicker}
+            onRemoveTicker={handleRemoveTicker}
+          />
+        )}
 
-          {activeTab === 'watchlist' && (
-            <PersonalWatchlistPanel
-              watchlistTickers={watchlist}
-              onSelectTicker={handleSelect}
-              onAddTicker={handleAddTicker}
-              onRemoveTicker={handleRemoveTicker}
-            />
-          )}
+        {activeTab === 'combined' && (
+          <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />
+        )}
 
-          {activeTab === 'combined' && (
-            <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />
-          )}
+        {activeTab === 'combo260' && (
+          <ComboScanPanel tf={tf} onSelectTicker={handleSelect} />
+        )}
 
-          {activeTab === 'combo260' && (
-            <ComboScanPanel tf={tf} onSelectTicker={handleSelect} />
-          )}
+        {activeTab === 'predictor' && (
+          <PredictorPanel ticker={selected} tf={tf} />
+        )}
 
-          {activeTab === 'predictor' && (
-            <PredictorPanel ticker={selected} tf={tf} />
-          )}
+        {activeTab === 'scanner' && (
+          <ScannerPanel tf={tf} onSelectTicker={handleSelect} />
+        )}
 
-          {activeTab === 'scanner' && (
-            <ScannerPanel tf={tf} onSelectTicker={handleSelect} />
-          )}
+        {activeTab === 'tzlstats' && (
+          <TZLStatsPanel ticker={selected} tf={tf} />
+        )}
 
-          {activeTab === 'tzlstats' && (
-            <TZLStatsPanel ticker={selected} tf={tf} />
-          )}
+        {activeTab === 'power' && (
+          <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
+        )}
 
-          {activeTab === 'power' && (
-            <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
-          )}
+        {activeTab === 'brscan' && (
+          <BRScanPanel tf={tf} onSelectTicker={handleSelect} />
+        )}
 
-          {activeTab === 'brscan' && (
-            <BRScanPanel tf={tf} onSelectTicker={handleSelect} />
-          )}
+        {activeTab === 'pumps' && (
+          <PumpComboPanel />
+        )}
 
-          {activeTab === 'pumps' && (
-            <PumpComboPanel />
-          )}
+        {activeTab === 'corr' && (
+          <SignalCorrelPanel />
+        )}
 
-          {activeTab === 'corr' && (
-            <SignalCorrelPanel />
-          )}
+        {activeTab === 'sigstats' && (
+          <SignalStatsPanel ticker={selected} tf={tf} />
+        )}
 
-          {activeTab === 'sigstats' && (
-            <SignalStatsPanel ticker={selected} tf={tf} />
-          )}
+        {activeTab === 'superchart' && (
+          <SuperchartPanel
+            initialTicker={selected}
+            initialTf={tf}
+            chartInstanceRef={chartInstanceRef}
+            onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }}
+          />
+        )}
 
-          {activeTab === 'superchart' && (
-            <SuperchartPanel initialTicker={selected} />
-          )}
+        {activeTab === 'analyze' && (
+          <TickerAnalysisPanel
+            onAddToWatchlist={handleAddTicker}
+            onChartChange={setAnalyzeChart}
+          />
+        )}
 
-          {activeTab === 'analyze' && (
-            <TickerAnalysisPanel
-              onAddToWatchlist={handleAddTicker}
-              onChartChange={setAnalyzeChart}
-            />
-          )}
-
-          {activeTab === 'howitworks' && (
-            <HowItWorksPanel />
-          )}
-          {activeTab === 'admin' && (
-            <AdminPanel />
-          )}
-        </div>
+        {activeTab === 'howitworks' && (
+          <HowItWorksPanel />
+        )}
+        {activeTab === 'admin' && (
+          <AdminPanel />
+        )}
       </div>
     </div>
   )

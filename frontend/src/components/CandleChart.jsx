@@ -16,7 +16,7 @@ const SIG_COLOR = {
   bear: '#ef4444',
 }
 
-export default function CandleChart({ ticker, tf }) {
+export default function CandleChart({ ticker, tf, chartInstanceRef }) {
   const containerRef = useRef(null)
   const chartRef     = useRef(null)
   const seriesRef    = useRef(null)
@@ -60,6 +60,7 @@ export default function CandleChart({ ticker, tf }) {
     chartRef.current    = chart
     seriesRef.current   = series
     volSeriesRef.current = volSeries
+    if (chartInstanceRef) chartInstanceRef.current = chart
 
     const ro = new ResizeObserver(() => {
       if (containerRef.current)
@@ -70,6 +71,7 @@ export default function CandleChart({ ticker, tf }) {
     return () => {
       ro.disconnect()
       chart.remove()
+      if (chartInstanceRef) chartInstanceRef.current = null
     }
   }, [])
 

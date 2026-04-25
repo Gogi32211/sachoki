@@ -808,9 +808,10 @@ def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", univ
 
 
 @app.get("/api/bar_signals/{ticker}")
-def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
+def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     """Per-bar signal matrix for SuperChart view."""
     import pandas as pd
+    import numpy as np
     from signal_engine import compute_g_signals, compute_b_signals
     from f_engine import compute_f_signals
     from fly_engine import compute_fly_series
@@ -845,6 +846,14 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
     except Exception:
         g_sigs = _EDF
     try:
+        b_sigs = compute_b_signals(df)
+    except Exception:
+        b_sigs = _EDF
+    try:
+        combo_df = compute_combo(df)
+    except Exception:
+        combo_df = _EDF
+    try:
         vabs = compute_vabs(df)
     except Exception:
         vabs = _EDF
@@ -853,13 +862,16 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
     except Exception:
         wick = _EDF
 
+    # Vol spike ratio (current bar vs previous bar)
+    vol_prev  = df["volume"].shift(1)
+    vol_ratio = (df["volume"] / vol_prev.replace(0, np.nan)).fillna(0)
+
     isIntraday = tf in ("4h", "1h", "30m", "15m")
     result = []
 
     for i in range(len(df)):
         row = df.iloc[i]
         ts  = df.index[i]
-
         date_val = int(ts.timestamp()) if isIntraday else str(ts)[:10]
 
         def _b(frame, col):
@@ -897,6 +909,28 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
         # G signals
         g_list = [f"G{n}" for n in [1, 2, 4, 6, 11] if _b(g_sigs, f"g{n}")]
 
+        # B signals
+        b_list = [f"B{n}" for n in range(1, 12) if _b(b_sigs, f"b{n}")]
+
+        # Combo signals
+        combo_map = [
+            ("rocket", "ROCKET"), ("buy_2809", "BUY"), ("sig3g", "3G"),
+            ("bb_brk", "BB↑"), ("atr_brk", "ATR↑"), ("rtv", "RTV"),
+            ("preup3", "P3"), ("preup2", "P2"), ("preup50", "P50"), ("preup89", "P89"),
+            ("hilo_buy", "HILO↑"), ("hilo_sell", "HILO↓"),
+            ("bias_up", "↑BIAS"), ("bias_down", "↓BIAS"),
+            ("cons_atr", "CONS"), ("um_2809", "UM"), ("svs_2809", "SVS"),
+            ("conso_2809", "CONSO"),
+        ]
+        combo_list = [lbl for col, lbl in combo_map if _b(combo_df, col)]
+
+        # Vol spike
+        vr = float(vol_ratio.iloc[i])
+        vol_list = []
+        if vr >= 20: vol_list.append("20×")
+        elif vr >= 10: vol_list.append("10×")
+        elif vr >= 5:  vol_list.append("5×")
+
         # VABS signals
         vabs_map = [
             ("vbo_up", "VBO↑"), ("vbo_dn", "VBO↓"),
@@ -924,13 +958,16 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
             "close":      float(row["close"]),
             "volume":     float(row["volume"]),
             "vol_bucket": vol_bkt,
-            "tz":   tz,
-            "l":    l_list,
-            "f":    f_list,
-            "fly":  fly_list,
-            "g":    g_list,
-            "vabs": vabs_list,
-            "wick": wick_list,
+            "tz":    tz,
+            "l":     l_list,
+            "f":     f_list,
+            "fly":   fly_list,
+            "g":     g_list,
+            "b":     b_list,
+            "combo": combo_list,
+            "vol":   vol_list,
+            "vabs":  vabs_list,
+            "wick":  wick_list,
         })
 
     return result
