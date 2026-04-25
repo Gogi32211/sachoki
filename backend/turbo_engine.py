@@ -264,17 +264,18 @@ def _init_db() -> None:
 # ── Score calculator ──────────────────────────────────────────────────────────
 def _calc_turbo_score(r: dict) -> float:
     """
-    Statistics-based scoring v2 (derived from 593-ticker, 1209-pair co-occurrence analysis).
+    Statistics-based scoring v3 (SP500 pooled stats, 500 tickers 2yr + co-occurrence analysis).
     Core backbone: conso_2809 (79% freq) → tz_bull (65%) → bf_buy (43%).
     Rarer signals score higher; redundant subsets don't double-count.
       Backbone      cap 18  — conso_2809, tz_bull, chain bonus
       Volume/accum  cap 22  — VABS atomic, Wyckoff, 260308/L88, svs_2809
       Breakout      cap 18  — ULTRA v2, BO/BX (rare→+5), RS
       Combo/trend   cap 14  — Combo signals
-      L-structure   cap 13  — T/Z, WLNBB; tz_bull_flip de-duped vs bf_buy
+      L-structure   cap 13  — T/Z, WLNBB, RL Avg3=2.80, W Avg3=2.42
       Delta         cap 12  — Order-flow
       EMA cross     cap 8   — preup series
-    Context (Wick) uncapped (max ~18).
+      G signals     cap 10  — G2 Avg3=2.64%/Win%=54.9% (best)
+    Context (Wick+PARA+FLY+Vol×10) uncapped (max ~25).
     """
     has_conso   = bool(r.get("conso_2809"))
     has_tz_bull = bool(r.get("tz_bull"))
@@ -352,9 +353,11 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("fri43"):
         trend += 4
     if r.get("l34") and not r.get("fri34"): trend += 3
-    if r.get("blue"):      trend += 3   # Avg3=2.76 (RAISE 2→3)
-    if r.get("cci_ready"): trend += 2
+    if r.get("blue"):         trend += 3   # Avg3=2.76 (RAISE 2→3)
+    if r.get("cci_ready"):    trend += 2
     if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 2  # Avg3=2.60 (ADD)
+    if r.get("fuchsia_rl"):   trend += 3   # Avg3=2.80% Win%=53.3% (ADD v3)
+    if r.get("tz_weak_bull"): trend += 2   # W — BearWeak↑ early turn (ADD v3)
     s += min(trend, 13)
 
     # ── Delta / order-flow family (cap 12) ───────────────────────────────
@@ -381,6 +384,16 @@ def _calc_turbo_score(r: dict) -> float:
     elif r.get("preup2"):  ema_x += 2   # Avg3=2.40 (ADD)
     s += min(ema_x, 8)
 
+    # ── G signals family (cap 10) ─────────────────────────────────────────
+    # SP500 pooled: G2 Avg3=2.64% Win%=54.9% — best G; others estimated from SP500 data
+    g_sig = 0.0
+    if r.get("g2"):   g_sig += 4   # Avg3=2.64% Win%=54.9% — best
+    if r.get("g4"):   g_sig += 3
+    if r.get("g1"):   g_sig += 3
+    if r.get("g6"):   g_sig += 2
+    if r.get("g11"):  g_sig += 2
+    s += min(g_sig, 10)
+
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
     if r.get("x2g_wick"):      s += 5
     elif r.get("x2_wick"):     s += 4
@@ -392,6 +405,13 @@ def _calc_turbo_score(r: dict) -> float:
     # PARA 260420 — confirmed by pooled stats (RETEST False%=6.3% lowest)
     if r.get("para_retest"):                           s += 3
     elif r.get("para_plus") or r.get("para_start"):    s += 2
+
+    # FLY 260424 — all sub-types 100% co-correlated; score once by strongest pattern
+    if r.get("fly_abcd"):                              s += 4
+    elif r.get("fly_cd") or r.get("fly_bd") or r.get("fly_ad"): s += 3
+
+    # Vol spike — rare confirmation; Vol×5 Win%=49.6% (too noisy), Vol×10 Win%=61.8% only
+    if r.get("vol_spike_10x"): s += 3   # Avg3=5.51% Win%=61.8% (ADD v3)
 
     return round(min(100.0, s), 1)
 
