@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import TickerInput from './components/TickerInput'
 import WatchlistPanel from './components/WatchlistPanel'
 import CandleChart from './components/CandleChart'
@@ -67,9 +67,15 @@ export default function App() {
   const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
 
   // Superchart owns its own ticker/tf so the global chart follows it
-  const [scTicker, setScTicker] = useState(null)
-  const [scTf, setScTf]         = useState('1d')
-  const chartInstanceRef        = useRef(null)
+  const [scTicker, setScTicker]   = useState(null)
+  const [scTf, setScTf]           = useState('1d')
+  const chartInstanceRef          = useRef(null)
+  const [chartReady, setChartReady] = useState(false)
+
+  const handleChartReady = useCallback((chart) => {
+    chartInstanceRef.current = chart
+    setChartReady(!!chart)
+  }, [])
 
   // Persist on change
   useEffect(() => { LS.set('watchlist', watchlist) }, [watchlist])
@@ -101,7 +107,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.3.44</span>
+          <span className="text-xs font-normal text-gray-500">v4.3.46</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -149,7 +155,7 @@ export default function App() {
         <CandleChart
           ticker={chartTicker}
           tf={chartTf}
-          chartInstanceRef={chartInstanceRef}
+          onChartReady={handleChartReady}
         />
       </div>
 
@@ -214,6 +220,7 @@ export default function App() {
             initialTicker={selected}
             initialTf={tf}
             chartInstanceRef={chartInstanceRef}
+            chartReady={chartReady}
             onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }}
           />
         )}
