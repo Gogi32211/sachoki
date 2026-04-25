@@ -330,10 +330,11 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[s
     fetch = cfg["fetch"]
 
     if fetch == "nasdaq_massive":
-        from data_polygon import get_exchange_tickers, polygon_available
+        from data_polygon import get_all_us_tickers, polygon_available
         if polygon_available():
             try:
-                return get_exchange_tickers("XNAS", limit=min(limit, 5_000))
+                # get_all_us_tickers returns all US CS sorted by market cap — covers NASDAQ fully
+                return get_all_us_tickers(limit=min(limit, 5_000))
             except Exception as exc:
                 log.warning("Massive NASDAQ fetch failed (%s) — using static fallback", exc)
         return get_nasdaq_tickers(min(limit, 700))
