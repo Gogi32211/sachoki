@@ -324,40 +324,90 @@ def get_tickers(limit: int = 700) -> list[str]:
     return combined[:limit]
 
 
+_TICKER_CACHE_TTL = 23 * 3600  # 23 hours
+
+
+def _cached_massive_tickers(cache_key: str, fetcher, fallback, limit: int) -> list[str]:
+    """
+    Fetch tickers from Massive API with file-based cache (TTL=23h).
+    On timeout/error uses cache if available, else static fallback.
+    """
+    import tempfile, pickle, os as _os
+    cache_path = _os.path.join(tempfile.gettempdir(), f"sachoki_tickers_{cache_key}.pkl")
+
+    def _load_cache():
+        try:
+            if _os.path.exists(cache_path):
+                age = time.time() - _os.path.getmtime(cache_path)
+                if age < _TICKER_CACHE_TTL:
+                    with open(cache_path, "rb") as f:
+                        data = pickle.load(f)
+                    log.info("Ticker cache hit (%s): %d tickers (age %.0fh)", cache_key, len(data), age/3600)
+                    return data
+        except Exception:
+            pass
+        return None
+
+    def _save_cache(tickers):
+        try:
+            with open(cache_path, "wb") as f:
+                pickle.dump(tickers, f)
+        except Exception:
+            pass
+
+    from data_polygon import polygon_available
+    if polygon_available():
+        try:
+            tickers = fetcher(limit=limit)
+            _save_cache(tickers)
+            return tickers
+        except Exception as exc:
+            log.warning("Massive fetch failed (%s) — trying cache", exc)
+            cached = _load_cache()
+            if cached:
+                return cached[:limit]
+            log.warning("No cache available — using static fallback")
+    else:
+        cached = _load_cache()
+        if cached:
+            return cached[:limit]
+
+    return fallback()
+
+
 def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[str]:
     """Return ticker list for the given universe key."""
     cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
     fetch = cfg["fetch"]
 
     if fetch == "nasdaq_massive":
-        from data_polygon import get_all_us_tickers, polygon_available
-        if polygon_available():
-            try:
-                # get_all_us_tickers returns all US CS sorted by market cap — covers NASDAQ fully
-                return get_all_us_tickers(limit=min(limit, 5_000))
-            except Exception as exc:
-                log.warning("Massive NASDAQ fetch failed (%s) — using static fallback", exc)
-        return get_nasdaq_tickers(min(limit, 700))
+        from data_polygon import get_exchange_tickers
+        return _cached_massive_tickers(
+            "nasdaq",
+            lambda limit: get_exchange_tickers("XNAS", limit=min(limit, 5_000)),
+            lambda: get_nasdaq_tickers(700),
+            limit,
+        )
 
     elif fetch == "russell2k_massive":
-        from data_polygon import get_all_us_tickers, polygon_available
-        if polygon_available():
-            try:
-                return get_all_us_tickers(limit=min(limit, 5_000))
-            except Exception as exc:
-                log.warning("Massive Russell2k fetch failed (%s) — using static fallback", exc)
-        return get_russell2000_tickers(min(limit, 700))
+        from data_polygon import get_all_us_tickers
+        return _cached_massive_tickers(
+            "russell2k",
+            lambda limit: get_all_us_tickers(limit=min(limit, 5_000)),
+            lambda: get_russell2000_tickers(700),
+            limit,
+        )
 
     elif fetch == "all_us":
         from data_polygon import get_all_us_tickers, polygon_available
         if not polygon_available():
             raise RuntimeError("MASSIVE_API_KEY not set — All US universe requires Massive API key")
-        try:
-            return get_all_us_tickers(limit=limit)
-        except Exception as exc:
-            log.warning("Massive All US fetch failed (%s) — using SP500+NASDAQ fallback", exc)
-            combined = get_tickers(700) + get_nasdaq_tickers(700)
-            return list(dict.fromkeys(combined))
+        return _cached_massive_tickers(
+            "all_us",
+            lambda limit: get_all_us_tickers(limit=limit),
+            lambda: list(dict.fromkeys(get_tickers(700) + get_nasdaq_tickers(700))),
+            limit,
+        )
 
     else:  # sp500
         return get_tickers(min(limit, 700))
