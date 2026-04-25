@@ -807,6 +807,135 @@ def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", univ
     return {"ok": True, "tf": tf, "universe": universe}
 
 
+@app.get("/api/bar_signals/{ticker}")
+def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 80):
+    """Per-bar signal matrix for SuperChart view."""
+    import pandas as pd
+    from signal_engine import compute_g_signals, compute_b_signals
+    from f_engine import compute_f_signals
+    from fly_engine import compute_fly_series
+    from vabs_engine import compute_vabs
+    from wick_engine import compute_wick
+
+    try:
+        df = fetch_ohlcv(ticker, interval=tf, bars=bars)
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+    _EDF = pd.DataFrame()
+
+    try:
+        sig_df = compute_signals(df)
+    except Exception:
+        sig_df = _EDF
+    try:
+        wlnbb = compute_wlnbb(df)
+    except Exception:
+        wlnbb = _EDF
+    try:
+        f_sigs = compute_f_signals(df)
+    except Exception:
+        f_sigs = _EDF
+    try:
+        fly_sigs = compute_fly_series(df)
+    except Exception:
+        fly_sigs = _EDF
+    try:
+        g_sigs = compute_g_signals(df)
+    except Exception:
+        g_sigs = _EDF
+    try:
+        vabs = compute_vabs(df)
+    except Exception:
+        vabs = _EDF
+    try:
+        wick = compute_wick(df)
+    except Exception:
+        wick = _EDF
+
+    isIntraday = tf in ("4h", "1h", "30m", "15m")
+    result = []
+
+    for i in range(len(df)):
+        row = df.iloc[i]
+        ts  = df.index[i]
+
+        date_val = int(ts.timestamp()) if isIntraday else str(ts)[:10]
+
+        def _b(frame, col):
+            if frame is None or frame.empty or col not in frame.columns:
+                return False
+            return bool(frame.iloc[i][col])
+
+        # T/Z signal name
+        tz = ""
+        if not sig_df.empty and "sig_id" in sig_df.columns:
+            if int(sig_df.iloc[i]["sig_id"]) > 0:
+                tz = str(sig_df.iloc[i].get("sig_name", ""))
+
+        # L / FRI / BLUE / BO / BX / RL / RH signals
+        l_map = [
+            ("L34", "L34"), ("L43", "L43"), ("L64", "L64"), ("L22", "L22"),
+            ("FRI34", "FRI34"), ("BLUE", "BL"), ("CCI_READY", "CCI"),
+            ("BO_UP", "BO↑"), ("BO_DN", "BO↓"),
+            ("BX_UP", "BX↑"), ("BX_DN", "BX↓"),
+            ("FUCHSIA_RL", "RL"), ("FUCHSIA_RH", "RH"), ("PRE_PUMP", "PP"),
+        ]
+        l_list = [lbl for col, lbl in l_map if _b(wlnbb, col)]
+
+        # F signals
+        f_list = [f"F{n}" for n in range(1, 12) if _b(f_sigs, f"f{n}")]
+
+        # FLY — show strongest only
+        fly_list = []
+        for col, lbl in [("fly_abcd", "FLY"), ("fly_cd", "FLY-CD"),
+                          ("fly_bd", "FLY-BD"), ("fly_ad", "FLY-AD")]:
+            if _b(fly_sigs, col):
+                fly_list.append(lbl)
+                break
+
+        # G signals
+        g_list = [f"G{n}" for n in [1, 2, 4, 6, 11] if _b(g_sigs, f"g{n}")]
+
+        # VABS signals
+        vabs_map = [
+            ("vbo_up", "VBO↑"), ("vbo_dn", "VBO↓"),
+            ("ns", "NS"), ("nd", "ND"), ("sc", "SC"), ("bc", "BC"),
+            ("sq", "SQ"), ("abs_sig", "ABS"), ("climb_sig", "CLM"), ("load_sig", "LOAD"),
+        ]
+        vabs_list = [lbl for col, lbl in vabs_map if _b(vabs, col)]
+
+        # Wick signals
+        wick_map = [
+            ("WICK_BULL_CONFIRM", "WC↑"), ("WICK_BEAR_CONFIRM", "WC↓"),
+            ("WICK_BULL_PATTERN", "WP↑"), ("WICK_BEAR_PATTERN", "WP↓"),
+        ]
+        wick_list = [lbl for col, lbl in wick_map if _b(wick, col)]
+
+        vol_bkt = ""
+        if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
+            vol_bkt = str(wlnbb.iloc[i]["vol_bucket"])
+
+        result.append({
+            "date":       date_val,
+            "open":       float(row["open"]),
+            "high":       float(row["high"]),
+            "low":        float(row["low"]),
+            "close":      float(row["close"]),
+            "volume":     float(row["volume"]),
+            "vol_bucket": vol_bkt,
+            "tz":   tz,
+            "l":    l_list,
+            "f":    f_list,
+            "fly":  fly_list,
+            "g":    g_list,
+            "vabs": vabs_list,
+            "wick": wick_list,
+        })
+
+    return result
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")

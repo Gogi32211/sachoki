@@ -17,6 +17,7 @@ import SignalCorrelPanel from './components/SignalCorrelPanel'
 import TickerAnalysisPanel from './components/TickerAnalysisPanel'
 import PersonalWatchlistPanel from './components/PersonalWatchlistPanel'
 import SignalStatsPanel from './components/SignalStatsPanel'
+import SuperchartPanel from './components/SuperchartPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -42,6 +43,7 @@ const TABS = [
   { id: 'pumps',      label: 'Pump Combos' },
   { id: 'corr',       label: '📊 Corr' },
   { id: 'sigstats',   label: '📈 Stats' },
+  { id: 'superchart', label: '📋 Superchart' },
   { id: 'analyze',    label: '🔍 Analyze' },
   { id: 'howitworks', label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
@@ -85,7 +87,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.3.38</span>
+          <span className="text-xs font-normal text-gray-500">v4.3.41</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -192,6 +194,10 @@ export default function App() {
 
           {activeTab === 'sigstats' && (
             <SignalStatsPanel ticker={selected} tf={tf} />
+          )}
+
+          {activeTab === 'superchart' && (
+            <SuperchartPanel initialTicker={selected} />
           )}
 
           {activeTab === 'analyze' && (

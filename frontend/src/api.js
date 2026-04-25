@@ -137,6 +137,10 @@ export const api = {
   signalStatsPooledStatus: (tf = '1d', universe = 'sp500') =>
     get(`/api/signal-stats/pooled/status?tf=${tf}&universe=${universe}`),
 
+  // Superchart — per-bar signal matrix
+  barSignals: (ticker, tf = '1d', bars = 80) =>
+    get(`/api/bar_signals/${ticker}?tf=${tf}&bars=${bars}`),
+
   // Settings
   getSettings: () => get('/api/settings'),
   saveSettings: (s) => post('/api/settings', s),
