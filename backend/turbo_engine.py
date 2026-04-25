@@ -533,21 +533,30 @@ def _scan_turbo_ticker(
 
         # Helper: extract bool signal from last N bars (always N=1; ages stored separately)
         def _sig(frame, col, n=1):
-            if col not in frame.columns:
+            if frame is None or col not in frame.columns:
                 return 0
             return int(bool(frame.iloc[-1][col]))
 
+        _EDF = pd.DataFrame()  # empty fallback — _sig returns 0 for any col
+
         # ── T/Z signals ────────────────────────────────────────────────────
-        sig_df  = compute_signals(df)
-        last_s  = sig_df.iloc[-1]
-        tz_bull = bool(last_s.get("is_bull", False))
-        tz_name = str(last_s.get("sig_name", "")) if tz_bull else ""
+        try:
+            sig_df  = compute_signals(df)
+            last_s  = sig_df.iloc[-1]
+            tz_bull = bool(last_s.get("is_bull", False))
+            tz_name = str(last_s.get("sig_name", "")) if tz_bull else ""
+        except Exception:
+            sig_df = _EDF; tz_bull = False; tz_name = ""
         row["tz_bull"] = int(tz_bull)
         row["tz_sig"]  = tz_name
 
         # ── WLNBB (L signals, FRI, BLUE, BO, BX, BE, CCI) ─────────────────
-        wlnbb    = compute_wlnbb(df)
-        last_w   = wlnbb.iloc[-1]
+        try:
+            wlnbb  = compute_wlnbb(df)
+            last_w = wlnbb.iloc[-1]
+            bkt    = str(last_w.get("vol_bucket", ""))
+        except Exception:
+            wlnbb = _EDF; last_w = {}; bkt = ""
         row["fri34"]         = _sig(wlnbb, "FRI34")
         row["fri43"]         = _sig(wlnbb, "FRI43")
         row["fri64"]         = _sig(wlnbb, "FRI64")
@@ -570,12 +579,14 @@ def _scan_turbo_ticker(
         row["fuchsia_rh"]    = _sig(wlnbb, "FUCHSIA_RH")
         row["fuchsia_rl"]    = _sig(wlnbb, "FUCHSIA_RL")
         row["pre_pump"]      = _sig(wlnbb, "PRE_PUMP")
-        bkt = str(last_w.get("vol_bucket", ""))
-        row["vol_bucket"] = bkt
-        row["l_combo"] = str(last_w.get("l_combo", "")) or ""
+        row["vol_bucket"]    = bkt
+        row["l_combo"]       = str(last_w.get("l_combo", "")) if isinstance(last_w, dict) else ""
 
         # ── Combo (2809, CONS, Bias, HILO, RTV, 3G, ROCKET, BRK, PREUP/DN) ─
-        combo   = compute_combo(df)
+        try:
+            combo = compute_combo(df)
+        except Exception:
+            combo = _EDF
         row["buy_2809"]  = _sig(combo, "buy_2809")
         row["rocket"]    = _sig(combo, "rocket")
         row["sig3g"]     = _sig(combo, "sig3g")
@@ -587,18 +598,15 @@ def _scan_turbo_ticker(
         row["bias_up"]   = _sig(combo, "bias_up")
         row["bias_down"] = _sig(combo, "bias_down")
         row["cons_atr"]  = _sig(combo, "cons_atr")
-        # 2809 phase labels (UM/SVS/CONSO)
         row["um_2809"]    = _sig(combo, "um_2809")
         row["svs_2809"]   = _sig(combo, "svs_2809")
         row["conso_2809"] = _sig(combo, "conso_2809")
-        # PREUP — EMA cross ↑ (strongest = P66)
         row["preup66"]   = _sig(combo, "preup66")
         row["preup55"]   = _sig(combo, "preup55")
         row["preup89"]   = _sig(combo, "preup89")
         row["preup3"]    = _sig(combo, "preup3")
         row["preup2"]    = _sig(combo, "preup2")
         row["preup50"]   = _sig(combo, "preup50")
-        # PREDN — EMA drop ↓ (strongest = D66)
         row["predn66"]   = _sig(combo, "predn66")
         row["predn55"]   = _sig(combo, "predn55")
         row["predn89"]   = _sig(combo, "predn89")
@@ -607,7 +615,10 @@ def _scan_turbo_ticker(
         row["predn50"]   = _sig(combo, "predn50")
 
         # ── B signals (260321) — B1–B11, no RSI filter ───────────────────
-        b_sigs = compute_b_signals(df)
+        try:
+            b_sigs = compute_b_signals(df)
+        except Exception:
+            b_sigs = _EDF
         for _b in range(1, 12):
             row[f"b{_b}"] = _sig(b_sigs, f"b{_b}")
         # ── F signals (260418 F Builder) — F1–F11 + any_f ────────────────
@@ -621,7 +632,10 @@ def _scan_turbo_ticker(
                 row[f"f{_f}"] = 0
             row["any_f"] = 0
         # ── G signals (260410) — armed by Z10/Z11/Z12, no RSI filter ─────
-        g_sigs = compute_g_signals(df)
+        try:
+            g_sigs = compute_g_signals(df)
+        except Exception:
+            g_sigs = _EDF
         row["g1"]  = _sig(g_sigs, "g1")
         row["g2"]  = _sig(g_sigs, "g2")
         row["g4"]  = _sig(g_sigs, "g4")
@@ -660,46 +674,47 @@ def _scan_turbo_ticker(
             row["vol_spike_10x"] = int(_vs_ratio >= 10.0)
             row["vol_spike_20x"] = int(_vs_ratio >= 20.0)
         except Exception:
-            row["vol_spike_10x"] = 0
-            row["vol_spike_20x"] = 0
+            row["vol_spike_5x"] = row["vol_spike_10x"] = row["vol_spike_20x"] = 0
 
         # ── TZ state machine + CA/CD/CW + transition signals (260412) ─────
-        tz_st = compute_tz_state(df)
-        row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
-        _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
-        _last_st = row["tz_state"]
-        row["ca"] = int(_any_b and _last_st == 2)  # Bull Attempt + B
-        row["cd"] = int(_any_b and _last_st == 3)  # Bull Dom + B
-        row["cw"] = int(_any_b and _last_st == 1)  # Bear Weakening + B
-        # TZ transition: bullFlip=state just became 3, attempt=state just became 2
-        if len(tz_st) >= 2:
-            _tz_prev = int(tz_st.iloc[-2])
-            _tz_curr = int(tz_st.iloc[-1])
-            row["tz_bull_flip"] = int(_tz_curr == 3 and _tz_prev != 3)
-            row["tz_attempt"]   = int(_tz_curr == 2 and _tz_prev != 2)
-        else:
-            row["tz_bull_flip"] = 0
-            row["tz_attempt"]   = 0
-        # W signals: earlyWeakening = tzState just moved from 0 (Bear Dom) → 1 (Bear Weak)
-        if len(tz_st) >= 2:
-            _ew = int(tz_st.iloc[-1]) == 1 and int(tz_st.iloc[-2]) == 0
-            _bar_bull = df["close"].iloc[-1] > df["open"].iloc[-1]
-            row["tz_weak_bull"] = int(_ew and _bar_bull)
-            row["tz_weak_bear"] = int(_ew and not _bar_bull)
-            # Full-series W signals for sig_ages
-            _tz_st_shifted = tz_st.shift(1, fill_value=0).astype(int)
-            _early_weak_ser = (tz_st.astype(int) == 1) & (_tz_st_shifted == 0)
-            _bull_bar_ser   = df["close"] > df["open"]
-            _tz_weak_df = pd.DataFrame({
-                "tz_weak_bull": _early_weak_ser & _bull_bar_ser,
-                "tz_weak_bear": _early_weak_ser & ~_bull_bar_ser,
-            }, index=df.index)
-        else:
-            row["tz_weak_bull"] = 0
-            row["tz_weak_bear"] = 0
+        _tz_weak_df = None  # pre-init here so it stays valid after W block
+        try:
+            tz_st = compute_tz_state(df)
+            row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
+            _any_b = any(row.get(f"b{_b}", 0) for _b in range(1, 12))
+            _last_st = row["tz_state"]
+            row["ca"] = int(_any_b and _last_st == 2)
+            row["cd"] = int(_any_b and _last_st == 3)
+            row["cw"] = int(_any_b and _last_st == 1)
+            if len(tz_st) >= 2:
+                _tz_prev = int(tz_st.iloc[-2])
+                _tz_curr = int(tz_st.iloc[-1])
+                row["tz_bull_flip"] = int(_tz_curr == 3 and _tz_prev != 3)
+                row["tz_attempt"]   = int(_tz_curr == 2 and _tz_prev != 2)
+                _ew = _tz_curr == 1 and _tz_prev == 0
+                _bar_bull = df["close"].iloc[-1] > df["open"].iloc[-1]
+                row["tz_weak_bull"] = int(_ew and _bar_bull)
+                row["tz_weak_bear"] = int(_ew and not _bar_bull)
+                _tz_st_shifted = tz_st.shift(1, fill_value=0).astype(int)
+                _early_weak_ser = (tz_st.astype(int) == 1) & (_tz_st_shifted == 0)
+                _bull_bar_ser   = df["close"] > df["open"]
+                _tz_weak_df = pd.DataFrame({
+                    "tz_weak_bull": _early_weak_ser & _bull_bar_ser,
+                    "tz_weak_bear": _early_weak_ser & ~_bull_bar_ser,
+                }, index=df.index)
+            else:
+                row["tz_bull_flip"] = row["tz_attempt"] = 0
+                row["tz_weak_bull"] = row["tz_weak_bear"] = 0
+        except Exception:
+            row["tz_state"] = row["ca"] = row["cd"] = row["cw"] = 0
+            row["tz_bull_flip"] = row["tz_attempt"] = 0
+            row["tz_weak_bull"] = row["tz_weak_bear"] = 0
 
         # ── VABS (ABS, CLIMB, LOAD, Wyckoff, BEST, STRONG, VBO) ───────────
-        vabs    = compute_vabs(df)
+        try:
+            vabs = compute_vabs(df)
+        except Exception:
+            vabs = _EDF
         row["abs_sig"]    = _sig(vabs, "abs_sig")
         row["climb_sig"]  = _sig(vabs, "climb_sig")
         row["load_sig"]   = _sig(vabs, "load_sig")
@@ -713,10 +728,13 @@ def _scan_turbo_ticker(
         row["vbo_up"]     = _sig(vabs, "vbo_up")
         row["vbo_dn"]     = _sig(vabs, "vbo_dn")
 
-        wx = ddf = u308 = uv2 = _tz_weak_df = None   # pre-initialise for age computation
+        wx = ddf = u308 = uv2 = None  # pre-initialise for age computation (NOT _tz_weak_df)
 
         # ── Wick (3112_2C legacy) ─────────────────────────────────────────
-        wick   = compute_wick(df)
+        try:
+            wick = compute_wick(df)
+        except Exception:
+            wick = _EDF
         row["wick_bull"] = _sig(wick, "WICK_BULL_CONFIRM")
         row["wick_bear"] = _sig(wick, "WICK_BEAR_CONFIRM")
 
