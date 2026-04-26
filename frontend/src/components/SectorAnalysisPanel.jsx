@@ -28,6 +28,23 @@ const SORT_COLS = [
   { key: 'trend_label', label: 'Trend',       sortable: true  },
 ]
 
+const RANK_COLS = [
+  { key: 'return_1d',  label: '1D %'      },
+  { key: 'return_5d',  label: '5D %'      },
+  { key: 'return_20d', label: '20D %'     },
+  { key: 'vs_spy_5d',  label: 'vs SPY 5D' },
+  { key: 'vs_spy_20d', label: 'vs SPY 20D'},
+]
+
+const SECTOR_HOLDINGS = {
+  XLC:  ['META','GOOGL','GOOG'],  XLY: ['AMZN','TSLA','HD'],
+  XLP:  ['PG','KO','PEP'],        XLE: ['XOM','CVX','COP'],
+  XLF:  ['BRK-B','JPM','V'],      XLV: ['LLY','UNH','JNJ'],
+  XLI:  ['RTX','CAT','GE'],       XLB: ['LIN','APD','FCX'],
+  XLRE: ['PLD','AMT','EQIX'],     XLK: ['NVDA','AAPL','MSFT'],
+  XLU:  ['NEE','SO','DUK'],
+}
+
 const TF_OPTIONS = ['1W', '1M', '3M', '6M', 'YTD', '1Y']
 const TF_DAYS    = { '1W': 5, '1M': 21, '3M': 63, '6M': 126, '1Y': 252 }
 
@@ -694,6 +711,159 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   )
 }
 
+function TopStocksSection({ etf, detail, loading }) {
+  const [tab, setTab] = useState('holdings')
+  const TABS = [
+    { id: 'holdings', label: 'Top Holdings'   },
+    { id: 'gainers',  label: 'Top Gainers'    },
+    { id: 'losers',   label: 'Top Losers'     },
+    { id: 'volume',   label: 'Volume Leaders' },
+  ]
+  const holdings = detail?.data?.holdings || []
+
+  if (!etf) return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-xs text-gray-600 text-center">
+      Select a sector to view top stocks.
+    </div>
+  )
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+        Top Stocks in {etf}
+      </div>
+      <div className="flex gap-1 flex-wrap">
+        {TABS.map(t => (
+          <button key={t.id} onClick={() => setTab(t.id)}
+            className={`text-xs px-2.5 py-1 rounded transition-colors
+              ${tab === t.id ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+            {t.label}
+          </button>
+        ))}
+      </div>
+      {loading && <div className="text-xs text-gray-500 animate-pulse">Loading…</div>}
+      {!loading && tab === 'holdings' && (
+        holdings.length === 0
+          ? <div className="text-xs text-gray-600">Holdings data unavailable.</div>
+          : (
+            <div className="overflow-hidden rounded-lg border border-gray-800">
+              <table className="w-full text-xs">
+                <thead>
+                  <tr className="bg-gray-800/60 border-b border-gray-700">
+                    <th className="px-2 py-1.5 text-left text-gray-500 font-medium">Symbol</th>
+                    <th className="px-2 py-1.5 text-left text-gray-500 font-medium">Company</th>
+                    <th className="px-2 py-1.5 text-right text-gray-500 font-medium">Weight %</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {holdings.map((h, i) => (
+                    <tr key={h.symbol || i} className="border-b border-gray-700/30 last:border-0 hover:bg-gray-800/20">
+                      <td className="px-2 py-1.5 font-mono font-bold text-white">{h.symbol}</td>
+                      <td className="px-2 py-1.5 text-gray-400 truncate max-w-[140px]">{h.name}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-gray-300">
+                        {h.weight != null ? `${Number(h.weight).toFixed(1)}%` : '—'}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+              <div className="px-2 py-1 text-xs text-amber-600/60">Static / fallback holdings data</div>
+            </div>
+          )
+      )}
+      {!loading && tab !== 'holdings' && (
+        <div className="text-xs text-gray-600 bg-gray-800/30 rounded-lg px-3 py-4 text-center">
+          Mover data unavailable in this version.
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TopSectorDrivers({ sectors }) {
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Top Sector Drivers Today</div>
+      <div className="text-xs text-amber-600/60">Static / fallback — live prices unavailable</div>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
+        {sectors.map(s => (
+          <div key={s.ticker} className="bg-gray-800/40 rounded-lg p-2 flex flex-col gap-1">
+            <div className="flex items-center justify-between">
+              <span className="text-xs font-mono font-bold text-white">{s.ticker}</span>
+              <span className={`text-xs font-mono ${pctCls(s.return_1d)}`}>{fmtPct(s.return_1d)}</span>
+            </div>
+            <div className="flex flex-col gap-0.5">
+              {(SECTOR_HOLDINGS[s.ticker] || []).map(t => (
+                <span key={t} className="text-xs text-gray-400 font-mono">{t}</span>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  )
+}
+
+function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, onSelect }) {
+  const sorted = [...sectors]
+    .filter(s => s[rankMetric] != null)
+    .sort((a, b) => b[rankMetric] - a[rankMetric])
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+      <div className="flex items-center gap-3 flex-wrap">
+        <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Strength Ranking</div>
+        <div className="flex gap-1 flex-wrap">
+          {RANK_COLS.map(c => (
+            <button key={c.key} onClick={() => onMetricChange(c.key)}
+              className={`text-xs px-2 py-0.5 rounded transition-colors
+                ${rankMetric === c.key ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              {c.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div className="overflow-x-auto rounded-lg border border-gray-800">
+        <table className="w-full text-xs border-collapse" style={{ minWidth: 580 }}>
+          <thead>
+            <tr className="bg-gray-800/60 border-b border-gray-700">
+              <th className="px-2 py-2 text-left text-gray-500 font-medium w-7">#</th>
+              <th className="px-2 py-2 text-left text-gray-500 font-medium">ETF</th>
+              <th className="px-2 py-2 text-left text-gray-500 font-medium">Sector</th>
+              <th className="px-2 py-2 text-right text-gray-500 font-medium">1D %</th>
+              <th className="px-2 py-2 text-right text-gray-500 font-medium">5D %</th>
+              <th className="px-2 py-2 text-right text-gray-500 font-medium">20D %</th>
+              <th className="px-2 py-2 text-right text-gray-500 font-medium">vSPY 20D</th>
+              <th className="px-2 py-2 text-left text-gray-500 font-medium">Quadrant</th>
+              <th className="px-2 py-2 text-left text-gray-500 font-medium">EMA</th>
+            </tr>
+          </thead>
+          <tbody>
+            {sorted.map((s, i) => (
+              <tr key={s.ticker} onClick={() => onSelect(s.ticker)}
+                className={`border-b border-gray-800/40 cursor-pointer transition-colors
+                  ${selected === s.ticker ? 'bg-blue-900/20' : 'hover:bg-gray-800/20'}`}>
+                <td className="px-2 py-1.5 text-gray-500 font-mono">{i + 1}</td>
+                <td className="px-2 py-1.5 font-mono font-bold text-white">{s.ticker}</td>
+                <td className="px-2 py-1.5 text-gray-300 truncate max-w-[100px]">{shorten(s.name)}</td>
+                <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_1d)}`}>{fmtPct(s.return_1d)}</td>
+                <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</td>
+                <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_20d)}`}>{fmtPct(s.return_20d)}</td>
+                <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.vs_spy_20d)}`}>{fmtPct(s.vs_spy_20d)}</td>
+                <td className="px-2 py-1.5">
+                  <Badge cls={trendCls(s.rrg_quadrant || s.trend_label)} label={s.rrg_quadrant || s.trend_label} />
+                </td>
+                <td className="px-2 py-1.5">
+                  <Badge cls={emaCls(s.ema_stack)} label={s.ema_stack} />
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ─────────────────────────────────────────────────────────────
 export default function SectorAnalysisPanel({ onSelectTicker }) {
   const [overview,   setOverview]   = useState(null)
@@ -710,6 +880,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
 
   const [heatMetric, setHeatMetric] = useState('return_1d')
   const [chartTf,    setChartTf]    = useState('3M')
+  const [rankMetric, setRankMetric] = useState('vs_spy_20d')
 
   // Overview fetch (once on mount)
   useEffect(() => {
@@ -831,7 +1002,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
         </div>
       </div>
 
-      {/* 7 ── Sector Rotation Map (RRG) */}
+      {/* 6 ── Sector Rotation Map (RRG) */}
       <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2">
         <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
         <div className="text-xs text-gray-500">X-axis: RS Ratio vs SPY · Y-axis: RS Momentum · Dashed lines = trails</div>
@@ -840,6 +1011,24 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
           : <RRGChart data={rrgData} selected={selectedEtf} onSelect={handleSelect} />
         }
       </div>
+
+      {/* 7 ── Top Stocks + Top Sector Drivers */}
+      <div className="flex flex-col xl:flex-row gap-3">
+        <div className="flex-1 min-w-0">
+          <TopStocksSection etf={selectedEtf} detail={detail} loading={detLoading} />
+        </div>
+        <div className="xl:w-80 flex-shrink-0">
+          <TopSectorDrivers sectors={sectors} />
+        </div>
+      </div>
+
+      {/* 8 ── Sector Strength Ranking */}
+      {sectors.length > 0 && (
+        <SectorStrengthRanking
+          sectors={sectors} rankMetric={rankMetric}
+          onMetricChange={setRankMetric} selected={selectedEtf} onSelect={handleSelect}
+        />
+      )}
 
       {/* Backend data warnings */}
       {overview.errors?.length > 0 && (
