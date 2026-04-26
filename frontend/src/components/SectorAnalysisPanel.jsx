@@ -296,7 +296,7 @@ function SectorHeatmap({ sectors, metric, selected, onSelect }) {
     <div className="text-xs text-gray-500 py-4 text-center">No sector data</div>
   )
   return (
-    <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
+    <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
       {sectors.map(s => {
         const val  = s[metric]
         const isUp = val != null && val > 0
@@ -305,21 +305,21 @@ function SectorHeatmap({ sectors, metric, selected, onSelect }) {
           <button
             key={s.ticker}
             onClick={() => onSelect(s.ticker)}
-            className={`${heatCls(val)} rounded-xl p-3 flex flex-col items-start gap-1 text-left
+            className={`${heatCls(val)} rounded-xl p-4 flex flex-col items-start gap-1.5 text-left
                         cursor-pointer transition-all border-2
-                        ${selected === s.ticker ? 'border-blue-400 ring-1 ring-blue-400/50' : 'border-transparent'}
+                        ${selected === s.ticker ? 'border-blue-400 ring-2 ring-blue-400/40' : 'border-transparent'}
                         hover:brightness-125`}
           >
             <div className="flex items-center justify-between w-full">
-              <span className="text-sm font-bold font-mono">{s.ticker}</span>
-              <span className="text-sm">{isUp ? '↑' : isDn ? '↓' : '—'}</span>
+              <span className="text-base font-bold font-mono tracking-wide">{s.ticker}</span>
+              <span className="text-lg leading-none">{isUp ? '↑' : isDn ? '↓' : '—'}</span>
             </div>
-            <span className="text-xs opacity-75 leading-tight">{shorten(s.name)}</span>
-            <span className="text-sm font-mono font-bold">
+            <span className="text-xs opacity-80 leading-snug">{s.name}</span>
+            <span className="text-lg font-mono font-bold leading-tight">
               {val == null ? '—' : `${val > 0 ? '+' : ''}${Number(val).toFixed(2)}%`}
             </span>
             {s.trend_label && (
-              <span className={`text-xs px-1 py-0.5 rounded font-medium ${trendCls(s.trend_label)}`}>
+              <span className={`text-xs px-1.5 py-0.5 rounded font-semibold ${trendCls(s.trend_label)}`}>
                 {s.trend_label}
               </span>
             )}
@@ -365,14 +365,14 @@ function MoneyFlowSection({ sectors, selected, onSelect }) {
               ? <span className="text-xs text-gray-600 italic">None</span>
               : buckets[key].map(s => (
                   <button key={s.ticker} onClick={() => onSelect(s.ticker)}
-                    className={`text-left rounded-md px-2 py-1 transition-colors
-                      ${selected === s.ticker ? 'bg-blue-900/40 border border-blue-700/50' : 'bg-gray-800/50 hover:bg-gray-700/50'}`}>
-                    <div className="flex items-center justify-between">
-                      <span className="text-xs font-mono font-bold text-white">{s.ticker}</span>
-                      <span className={`text-xs font-mono ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</span>
+                    className={`text-left rounded-lg px-3 py-2 transition-colors
+                      ${selected === s.ticker ? 'bg-blue-900/40 border border-blue-700/50' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
+                    <div className="flex items-center justify-between gap-2">
+                      <span className="text-sm font-mono font-bold text-white">{s.ticker}</span>
+                      <span className={`text-sm font-mono font-semibold ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</span>
                     </div>
-                    <div className="text-xs text-gray-500 truncate">{shorten(s.name)}</div>
-                    <div className={`text-xs font-mono ${pctCls(s.vs_spy_20d)}`}>
+                    <div className="text-xs text-gray-400 truncate mt-0.5">{shorten(s.name)}</div>
+                    <div className={`text-xs font-mono mt-0.5 ${pctCls(s.vs_spy_20d)}`}>
                       vSPY 20D: {fmtPct(s.vs_spy_20d)}
                     </div>
                   </button>
@@ -394,15 +394,15 @@ function RRGChart({ data, selected, onSelect }) {
     <div className="text-xs text-gray-600 text-center py-8">RRG data unavailable.</div>
   )
 
-  const W = 420, H = 340, PAD = 44
+  const W = 600, H = 420, PAD = 52
   const CX = W / 2, CY = H / 2
 
   const allX = valid.map(d => d.rs_ratio)
   const allY = valid.map(d => d.rs_mom)
   const xSpan = Math.max(Math.max(...allX) - Math.min(...allX), 3)
   const ySpan = Math.max(Math.max(...allY) - Math.min(...allY), 3)
-  const xScale = (W - PAD * 2) / (xSpan * 1.4)
-  const yScale = (H - PAD * 2) / (ySpan * 1.4)
+  const xScale = (W - PAD * 2) / (xSpan * 1.5)
+  const yScale = (H - PAD * 2) / (ySpan * 1.5)
 
   const toSvg = (rx, rm) => ({
     x: CX + (rx - 100) * xScale,
@@ -411,23 +411,23 @@ function RRGChart({ data, selected, onSelect }) {
 
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-gray-950 border border-gray-800"
-      style={{ maxHeight: 340 }}>
+      style={{ maxHeight: 420 }}>
       {/* Quadrant fills */}
-      <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.12" />
-      <rect x={PAD} y={PAD} width={CX-PAD}   height={CY-PAD}   fill="#1e3a5f" fillOpacity="0.12" />
-      <rect x={PAD} y={CY}  width={CX-PAD}   height={H-CY-PAD} fill="#7f1d1d" fillOpacity="0.12" />
-      <rect x={CX}  y={CY}  width={W-CX-PAD} height={H-CY-PAD} fill="#713f12" fillOpacity="0.12" />
+      <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.15" />
+      <rect x={PAD} y={PAD} width={CX-PAD}   height={CY-PAD}   fill="#1e3a5f" fillOpacity="0.15" />
+      <rect x={PAD} y={CY}  width={CX-PAD}   height={H-CY-PAD} fill="#7f1d1d" fillOpacity="0.15" />
+      <rect x={CX}  y={CY}  width={W-CX-PAD} height={H-CY-PAD} fill="#713f12" fillOpacity="0.15" />
       {/* Quadrant labels */}
-      <text x={W-PAD-4} y={PAD+12}    textAnchor="end"   fill="#4ade80" fontSize="9" opacity="0.7">LEADING</text>
-      <text x={PAD+4}   y={PAD+12}    textAnchor="start" fill="#60a5fa" fontSize="9" opacity="0.7">IMPROVING</text>
-      <text x={PAD+4}   y={H-PAD-4}   textAnchor="start" fill="#f87171" fontSize="9" opacity="0.7">LAGGING</text>
-      <text x={W-PAD-4} y={H-PAD-4}   textAnchor="end"   fill="#fbbf24" fontSize="9" opacity="0.7">WEAKENING</text>
+      <text x={W-PAD-6} y={PAD+16}   textAnchor="end"   fill="#4ade80" fontSize="12" opacity="0.8" fontWeight="600">LEADING</text>
+      <text x={PAD+6}   y={PAD+16}   textAnchor="start" fill="#60a5fa" fontSize="12" opacity="0.8" fontWeight="600">IMPROVING</text>
+      <text x={PAD+6}   y={H-PAD-6}  textAnchor="start" fill="#f87171" fontSize="12" opacity="0.8" fontWeight="600">LAGGING</text>
+      <text x={W-PAD-6} y={H-PAD-6}  textAnchor="end"   fill="#fbbf24" fontSize="12" opacity="0.8" fontWeight="600">WEAKENING</text>
       {/* Axes */}
-      <line x1={PAD} y1={CY} x2={W-PAD} y2={CY} stroke="#374151" strokeWidth="1" />
-      <line x1={CX}  y1={PAD} x2={CX}  y2={H-PAD} stroke="#374151" strokeWidth="1" />
-      <text x={W/2} y={H-6}   textAnchor="middle" fill="#6b7280" fontSize="9">RS Ratio →</text>
-      <text x={10}  y={H/2}   textAnchor="middle" fill="#6b7280" fontSize="9"
-        transform={`rotate(-90,10,${H/2})`}>Momentum ↑</text>
+      <line x1={PAD} y1={CY} x2={W-PAD} y2={CY} stroke="#4b5563" strokeWidth="1.5" />
+      <line x1={CX}  y1={PAD} x2={CX}  y2={H-PAD} stroke="#4b5563" strokeWidth="1.5" />
+      <text x={W/2} y={H-8}   textAnchor="middle" fill="#6b7280" fontSize="11">RS Ratio →</text>
+      <text x={14}  y={H/2}   textAnchor="middle" fill="#6b7280" fontSize="11"
+        transform={`rotate(-90,14,${H/2})`}>Momentum ↑</text>
       {/* Trails */}
       {valid.map(d => {
         const tr = d.trail_ratio, tm = d.trail_mom
@@ -438,7 +438,7 @@ function RRGChart({ data, selected, onSelect }) {
         }).join(' ')
         return <polyline key={`t_${d.ticker}`} points={pts} fill="none"
           stroke={QUADRANT_DOT[d.trend_label] || '#9ca3af'}
-          strokeWidth="1" strokeOpacity="0.3" strokeDasharray="3,2" />
+          strokeWidth="1.5" strokeOpacity="0.35" strokeDasharray="4,3" />
       })}
       {/* Dots */}
       {valid.map(d => {
@@ -451,11 +451,11 @@ function RRGChart({ data, selected, onSelect }) {
             onClick={() => onSelect(d.ticker)}
             onMouseEnter={() => setHovered(d.ticker)}
             onMouseLeave={() => setHovered(null)}>
-            <circle cx={x} cy={y} r={isSel ? 9 : isHov ? 8 : 6}
+            <circle cx={x} cy={y} r={isSel ? 11 : isHov ? 10 : 8}
               fill={color} fillOpacity={isSel ? 1 : 0.85}
-              stroke={isSel ? '#fff' : 'none'} strokeWidth="2" />
-            <text x={x} y={y-10} textAnchor="middle" fill={color} fontSize="9"
-              fontWeight={isSel ? 'bold' : 'normal'}>{d.ticker}</text>
+              stroke={isSel ? '#fff' : 'none'} strokeWidth="2.5" />
+            <text x={x} y={y - 13} textAnchor="middle" fill={color} fontSize="11"
+              fontWeight={isSel ? 'bold' : '600'}>{d.ticker}</text>
           </g>
         )
       })}
@@ -464,15 +464,15 @@ function RRGChart({ data, selected, onSelect }) {
         const d = valid.find(v => v.ticker === hovered)
         if (!d) return null
         const { x, y } = toSvg(d.rs_ratio, d.rs_mom)
-        const tx = x > W * 0.7 ? x - 92 : x + 10
-        const ty = y < 70 ? y + 10 : y - 60
+        const tx = x > W * 0.7 ? x - 110 : x + 12
+        const ty = y < 80 ? y + 12 : y - 68
         return (
           <g>
-            <rect x={tx} y={ty} width={90} height={50} rx="4"
-              fill="#1f2937" stroke="#374151" strokeWidth="1" />
-            <text x={tx+6} y={ty+14} fill="#f9fafb" fontSize="10" fontWeight="bold">{d.ticker}</text>
-            <text x={tx+6} y={ty+26} fill="#9ca3af" fontSize="8">{shorten(d.name)}</text>
-            <text x={tx+6} y={ty+38} fill="#9ca3af" fontSize="8">
+            <rect x={tx} y={ty} width={108} height={58} rx="5"
+              fill="#1f2937" stroke="#4b5563" strokeWidth="1" />
+            <text x={tx+8} y={ty+16} fill="#f9fafb" fontSize="12" fontWeight="bold">{d.ticker}</text>
+            <text x={tx+8} y={ty+30} fill="#9ca3af" fontSize="10">{shorten(d.name)}</text>
+            <text x={tx+8} y={ty+44} fill="#9ca3af" fontSize="10">
               RS {d.rs_ratio?.toFixed(1)} / Mom {d.rs_mom?.toFixed(1)}
             </text>
           </g>
