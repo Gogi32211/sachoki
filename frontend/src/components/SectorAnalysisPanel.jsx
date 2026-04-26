@@ -538,6 +538,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
   const [detError,    setDetError]    = useState(null)
 
   const [heatMetric, setHeatMetric] = useState('return_1d')
+  const [chartTf,    setChartTf]    = useState('3M')
 
   // Overview fetch (once on mount)
   useEffect(() => {
@@ -592,14 +593,17 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
   return (
     <div className="flex flex-col gap-3 p-1">
 
-      {/* 1 ── Benchmark Cards */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
-        {benchmarks.length > 0
-          ? benchmarks.map(b => <BenchCard key={b.ticker} b={b} />)
-          : ['SPY','QQQ','IWM','DIA'].map(t => (
-              <div key={t} className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-xs text-gray-600">{t} —</div>
-            ))
-        }
+      {/* 1 ── Benchmark Cards + Export */}
+      <div className="flex flex-col gap-2">
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {benchmarks.length > 0
+            ? benchmarks.map(b => <BenchCard key={b.ticker} b={b} />)
+            : ['SPY','QQQ','IWM','DIA'].map(t => (
+                <div key={t} className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-xs text-gray-600">{t} —</div>
+              ))
+          }
+        </div>
+        {sectors.length > 0 && <WatchlistExport sectors={sectors} />}
       </div>
 
       {/* 2 ── Risk Banner */}
@@ -642,7 +646,8 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
         {/* Detail Panel */}
         <div className="xl:w-72 flex-shrink-0">
           <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">Detail</div>
-          <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError} />
+          <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError}
+            chartTf={chartTf} onTfChange={setChartTf} />
         </div>
       </div>
 
