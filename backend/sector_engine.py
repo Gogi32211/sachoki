@@ -286,6 +286,7 @@ def _build_row(
         "rs_ratio":        round(rs_ratio, 2),
         "rs_mom":          round(rs_mom,   2),
         "trend_label":     _trend_label(rs_ratio, rs_mom),
+        "rrg_quadrant":    _trend_label(rs_ratio, rs_mom),
     }
 
 
@@ -296,7 +297,7 @@ _NULL_FIELDS = [
     "vs_spy_1d", "vs_spy_5d", "vs_spy_20d", "vs_spy_50d", "vs_spy_200d",
     "ema20", "ema50", "ema200",
     "price_vs_ema20", "price_vs_ema50", "price_vs_ema200",
-    "ema_stack", "rs_ratio", "rs_mom", "trend_label",
+    "ema_stack", "rs_ratio", "rs_mom", "trend_label", "rrg_quadrant",
 ]
 
 
@@ -444,8 +445,12 @@ def get_sector_detail(etf: str) -> dict:
             "last_updated": round(time.time()),
             "data": {
                 **row,
-                "history":  history,
-                "holdings": HOLDINGS.get(tkr, []),
+                "history":           history,
+                "holdings":          HOLDINGS.get(tkr, []),
+                "top_gainers":       [],
+                "top_losers":        [],
+                "volume_leaders":    [],
+                "data_source_status": "static_fallback" if not errors else "live",
             },
             "errors": errors,
         }
