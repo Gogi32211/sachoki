@@ -89,10 +89,10 @@ def get_turbo_progress() -> dict:
 
 # ── T/Z signal weights ────────────────────────────────────────────────────────
 _TZ_W = {
-    "T4": 7, "T6": 7,
-    "T1G": 5, "T2G": 5,
-    "T1": 4, "T2": 4,
-    "T9": 3, "T10": 3,
+    "T4": 9, "T6": 9,
+    "T1G": 6, "T2G": 8,
+    "T1": 7, "T2": 5,
+    "T9": 4, "T10": 4,
     "T3": 2, "T11": 2, "T5": 1,
 }
 
@@ -318,6 +318,7 @@ def _calc_turbo_score(r: dict) -> float:
     if has_bf_buy:          brk += 6
     if r.get("fbo_bull"):   brk += 5
     if r.get("eb_bull"):    brk += 3   # Avg3=2.39 (LOWER 4→3)
+    if r.get("be_up"):      brk += 4   # BE breakout — pre-breakout signal
     if r.get("ultra_3up"):  brk += 2   # Avg3=1.65 WORST signal (LOWER 4→2)
     if r.get("bo_up") or r.get("bx_up"): brk += 5
     if r.get("rs_strong"):  brk += 5
@@ -352,13 +353,13 @@ def _calc_turbo_score(r: dict) -> float:
         trend += 6
     elif r.get("fri43"):
         trend += 4
-    if r.get("l34") and not r.get("fri34"): trend += 3
+    if r.get("l34") and not r.get("fri34"): trend += 5
     if r.get("blue"):         trend += 3   # Avg3=2.76 (RAISE 2→3)
     if r.get("cci_ready"):    trend += 2
-    if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 2  # Avg3=2.60 (ADD)
+    if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 4  # Avg3=2.60 (RAISE 2→4)
     if r.get("fuchsia_rl"):   trend += 3   # Avg3=2.80% Win%=53.3% (ADD v3)
     if r.get("tz_weak_bull"): trend += 2   # W — BearWeak↑ early turn (ADD v3)
-    s += min(trend, 13)
+    s += min(trend, 17)
 
     # ── Delta / order-flow family (cap 12) ───────────────────────────────
     # Delta weights revised v3 per SP500 pooled stats:
@@ -379,10 +380,10 @@ def _calc_turbo_score(r: dict) -> float:
     ema_x = 0.0
     if r.get("preup66"):   ema_x += 8
     elif r.get("preup55"): ema_x += 6
-    elif r.get("preup89"): ema_x += 4
-    elif r.get("preup3"):  ema_x += 3   # Avg3=2.48 (ADD)
-    elif r.get("preup2"):  ema_x += 2   # Avg3=2.40 (ADD)
-    s += min(ema_x, 8)
+    elif r.get("preup89"): ema_x += 5
+    elif r.get("preup3"):  ema_x += 5   # RAISE 3→5 (pre-breakout attention)
+    elif r.get("preup2"):  ema_x += 4   # RAISE 2→4 (pre-breakout attention)
+    s += min(ema_x, 10)
 
     # ── G signals family (cap 10) ─────────────────────────────────────────
     # SP500 pooled: G2 Avg3=2.64% Win%=54.9% — best G; others estimated from SP500 data
