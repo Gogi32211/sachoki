@@ -410,8 +410,8 @@ function RRGChart({ data, selected, onSelect }) {
   })
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-gray-950 border border-gray-800"
-      style={{ maxHeight: 420 }}>
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full rounded-xl bg-gray-950 border border-gray-800"
+      style={{ minHeight: 300 }}>
       {/* Quadrant fills */}
       <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.15" />
       <rect x={PAD} y={PAD} width={CX-PAD}   height={CY-PAD}   fill="#1e3a5f" fillOpacity="0.15" />
@@ -980,36 +980,42 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
         <MoneyFlowSection sectors={sectors} selected={selectedEtf} onSelect={handleSelect} />
       )}
 
-      {/* 5+6 ── Table + Detail side by side */}
-      <div className="flex flex-col xl:flex-row gap-3">
+      {/* 5 ── Table + RRG (left) | Detail (right, full height) */}
+      <div className="flex flex-col xl:flex-row gap-3 xl:items-stretch">
 
-        {/* Overview Table */}
-        <div className="flex-1 min-w-0">
-          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">
-            Sector Overview — {sectors.length} ETFs
+        {/* Left column: table on top, RRG below */}
+        <div className="flex-1 min-w-0 flex flex-col gap-3">
+          <div>
+            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">
+              Sector Overview — {sectors.length} ETFs
+            </div>
+            {sectors.length === 0
+              ? <div className="text-xs text-gray-600 py-4 text-center">No sector data returned</div>
+              : <SectorTable sectors={sectors} selected={selectedEtf} onSelect={handleSelect} />
+            }
           </div>
-          {sectors.length === 0
-            ? <div className="text-xs text-gray-600 py-4 text-center">No sector data returned</div>
-            : <SectorTable sectors={sectors} selected={selectedEtf} onSelect={handleSelect} />
-          }
+
+          {/* RRG directly after table, fills remaining space */}
+          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2 flex-1">
+            <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
+            <div className="text-xs text-gray-500">RS Ratio vs SPY (X) · RS Momentum (Y) · Dashed = trails</div>
+            <div className="flex-1 min-h-[300px]">
+              {rrgLoading
+                ? <div className="h-full flex items-center justify-center text-gray-500 text-xs animate-pulse">Loading RRG…</div>
+                : <RRGChart data={rrgData} selected={selectedEtf} onSelect={handleSelect} />
+              }
+            </div>
+          </div>
         </div>
 
-        {/* Detail Panel */}
-        <div className="xl:w-72 flex-shrink-0">
+        {/* Right column: Detail panel */}
+        <div className="xl:w-80 flex-shrink-0 flex flex-col">
           <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">Detail</div>
-          <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError}
-            chartTf={chartTf} onTfChange={setChartTf} />
+          <div className="flex-1">
+            <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError}
+              chartTf={chartTf} onTfChange={setChartTf} />
+          </div>
         </div>
-      </div>
-
-      {/* 6 ── Sector Rotation Map (RRG) */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2">
-        <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
-        <div className="text-xs text-gray-500">X-axis: RS Ratio vs SPY · Y-axis: RS Momentum · Dashed lines = trails</div>
-        {rrgLoading
-          ? <div className="h-40 flex items-center justify-center text-gray-500 text-xs animate-pulse">Loading RRG…</div>
-          : <RRGChart data={rrgData} selected={selectedEtf} onSelect={handleSelect} />
-        }
       </div>
 
       {/* 7 ── Top Stocks + Top Sector Drivers */}
