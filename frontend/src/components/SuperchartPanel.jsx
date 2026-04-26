@@ -34,14 +34,17 @@ const ROWS = [
     label: 'L',
     getSigs: (b) => b.l ?? [],
     chipCls: (s) => {
-      if (s.startsWith('FRI')) return 'bg-cyan-900 text-cyan-300'
-      if (s === 'BL')          return 'bg-sky-900 text-sky-300'
-      if (s === 'CCI')         return 'bg-violet-900 text-violet-300'
-      if (s === 'RL')          return 'bg-fuchsia-900 text-fuchsia-300'
-      if (s === 'RH')          return 'bg-fuchsia-900 text-fuchsia-400'
-      if (s === 'PP')          return 'bg-yellow-900 text-yellow-300'
-      if (s.includes('↑'))     return 'bg-lime-900 text-lime-300'
-      if (s.includes('↓'))     return 'bg-red-900 text-red-400'
+      if (s.startsWith('FRI'))                   return 'bg-cyan-900 text-cyan-300'
+      if (s === 'BL')                            return 'bg-sky-900 text-sky-300'
+      if (s === 'CCI' || s === 'CCI0R' || s === 'CCIB') return 'bg-violet-900 text-violet-300'
+      if (s === 'RL')                            return 'bg-fuchsia-900 text-fuchsia-300'
+      if (s === 'RH')                            return 'bg-fuchsia-900 text-fuchsia-400'
+      if (s === 'PP')                            return 'bg-yellow-900 text-yellow-300'
+      if (s === 'L555' || s === 'L22')           return 'bg-rose-900 text-rose-300'
+      if (s === 'L2L4')                          return 'bg-sky-900 text-sky-400'
+      if (s.includes('BE'))                      return 'bg-emerald-900 text-emerald-300'
+      if (s.includes('↑'))                       return 'bg-lime-900 text-lime-300'
+      if (s.includes('↓'))                       return 'bg-red-900 text-red-400'
       return 'bg-blue-900 text-blue-300'
     },
   },
@@ -71,13 +74,26 @@ const ROWS = [
   },
   {
     key: 'combo',
-    label: 'CMB',
+    label: 'I',
     getSigs: (b) => (b.combo ?? []).filter(s => !PREUP_SET.has(s)),
     chipCls: (s) => {
       if (s === 'ROCKET' || s === 'BUY') return 'bg-green-900 text-green-200 font-bold'
       if (s.includes('↑') || s === '3G') return 'bg-lime-900 text-lime-300'
       if (s.includes('↓') || s === 'CONS' || s === '↓BIAS') return 'bg-red-900 text-red-300'
       return 'bg-teal-900 text-teal-300'
+    },
+  },
+  {
+    key: 'ultra',
+    label: 'ULT',
+    getSigs: (b) => b.ultra ?? [],
+    chipCls: (s) => {
+      if (s === 'BEST↑' || s === '4BF')   return 'bg-yellow-800 text-yellow-200 font-bold'
+      if (s === 'FBO↑' || s === 'EB↑' || s === '3↑') return 'bg-lime-900 text-lime-300'
+      if (s === 'FBO↓' || s === 'EB↓' || s === '4BF↓') return 'bg-red-900 text-red-300'
+      if (s === 'L88')   return 'bg-violet-900 text-violet-200 font-bold'
+      if (s === '260308') return 'bg-purple-900 text-purple-300'
+      return 'bg-sky-900 text-sky-300'
     },
   },
   {
@@ -90,9 +106,13 @@ const ROWS = [
     key: 'vabs',
     label: 'VABS',
     getSigs: (b) => b.vabs ?? [],
-    chipCls: (s) => s.includes('↑') || ['NS', 'ABS', 'CLM', 'LOAD'].includes(s)
-      ? 'bg-lime-900 text-lime-300'
-      : 'bg-red-900/70 text-red-300',
+    chipCls: (s) => {
+      if (s === 'BEST★') return 'bg-lime-800 text-lime-200 font-bold'
+      if (s === 'STRONG') return 'bg-emerald-900 text-emerald-200'
+      if (s.includes('↑') || ['NS', 'ABS', 'CLM', 'LOAD'].includes(s))
+        return 'bg-lime-900 text-lime-300'
+      return 'bg-red-900/70 text-red-300'
+    },
   },
   {
     key: 'wick',
@@ -270,7 +290,7 @@ export default function SuperchartPanel({
                     <th key={i} style={{ width: CELL_W, minWidth: CELL_W }}
                         className="font-normal px-0 py-0 text-center border-r border-gray-900/40">
                       <div className="flex flex-col items-center gap-px pb-0.5">
-                        <span className="text-gray-600 font-mono" style={{ fontSize: 7 }}>
+                        <span className="text-gray-600 font-mono" style={{ fontSize: 9 }}>
                           {fmtDate(b.date, isIntraday)}
                         </span>
                         <div className="rounded-sm"
@@ -287,7 +307,7 @@ export default function SuperchartPanel({
                     <td
                       className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
                                  text-right border-r border-gray-800 font-mono whitespace-nowrap"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 8, lineHeight: 1 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10, lineHeight: 1 }}>
                       {row.label}
                     </td>
                     {bars.map((b, i) => {
@@ -300,7 +320,7 @@ export default function SuperchartPanel({
                             {sigs.map(s => (
                               <span key={s}
                                 className={`px-0.5 rounded font-mono leading-none ${row.chipCls(s)}`}
-                                style={{ fontSize: 8 }}>
+                                style={{ fontSize: 10 }}>
                                 {s}
                               </span>
                             ))}
@@ -311,11 +331,35 @@ export default function SuperchartPanel({
                   </tr>
                 ))}
 
+                {/* Score row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10 }}>
+                    score
+                  </td>
+                  {bars.map((b, i) => {
+                    const s = b.bull_score ?? 0
+                    const cls = s >= 7 ? 'text-lime-300 font-bold'
+                              : s >= 5 ? 'text-green-400'
+                              : s >= 3 ? 'text-yellow-400'
+                              : s > 0  ? 'text-gray-400'
+                              : 'text-gray-700'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
+                        style={{ fontSize: 10, width: CELL_W, minWidth: CELL_W }}>
+                        {s > 0 ? s : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+
                 {/* Close price row */}
                 <tr className="border-t border-gray-700">
                   <td className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
                                  text-right border-r border-gray-800 font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 8 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10 }}>
                     close
                   </td>
                   {bars.map((b, i) => {
@@ -325,7 +369,7 @@ export default function SuperchartPanel({
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono
                                     ${up ? 'text-green-400' : 'text-red-400'}`}
-                        style={{ fontSize: 8, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 10, width: CELL_W, minWidth: CELL_W }}>
                         {b.close >= 1000 ? b.close.toFixed(0)
                           : b.close >= 100 ? b.close.toFixed(1)
                           : b.close.toFixed(2)}
