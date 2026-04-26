@@ -1027,6 +1027,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "ultra_3up":   _b(ultraV2, "ultra_3up"),
             "bo_up":       _b(wlnbb, "BO_UP"),
             "bx_up":       _b(wlnbb, "BX_UP"),
+            "be_up":       _b(wlnbb, "BE_UP"),
             # Combo / momentum (+ stateful: cd/ca/cw/seq_bcont/va)
             "rocket":      _b(combo_df, "rocket"),
             "buy_2809":    _b(combo_df, "buy_2809"),
