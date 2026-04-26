@@ -119,6 +119,43 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     BX_UP = (c > l43_hi) & ~prev_above_l43 & ~L43 & (l43_hi > 0)
     BX_DN = (c < l43_lo) & ~prev_below_l43 & ~L43 & (l43_lo > 0)
 
+    # ── BE (Breakout + full-body Engulf) ─────────────────────────────────────
+    # Tracks the BODY (open/close) of the last setup candle, not wick.
+    # Setup source: last L34 or L22 bar for BE_UP_BO / BE_DN_BO
+    #               last L43 bar         for BE_UP_BX / BE_DN_BX
+    # BE fires when the current candle opens beyond the setup body low/high
+    # AND closes beyond the setup body high/low in one move (full engulf).
+    body_hi = pd.concat([o, c], axis=1).max(axis=1)
+    body_lo = pd.concat([o, c], axis=1).min(axis=1)
+
+    # BO setup: last L34 (bullish body) or L22 (bearish body)
+    setup_event    = L34 | L22
+    setup_body_hi  = ffill_when(body_hi, setup_event)
+    setup_body_lo  = ffill_when(body_lo, setup_event)
+
+    prev_above_setup = (c.shift(1) > setup_body_hi.shift(1)).fillna(False)
+    prev_below_setup = (c.shift(1) < setup_body_lo.shift(1)).fillna(False)
+
+    bo_break_up = (c > setup_body_hi) & ~prev_above_setup & ~setup_event & (setup_body_hi > 0) & (c > o)
+    bo_break_dn = (c < setup_body_lo) & ~prev_below_setup & ~setup_event & (setup_body_lo > 0) & (c < o)
+    BE_UP_BO = bo_break_up & (o <= setup_body_lo)
+    BE_DN_BO = bo_break_dn & (o >= setup_body_hi)
+
+    # BX setup: last L43 (c > o so body_hi = close, body_lo = open)
+    bx_body_hi = ffill_when(body_hi, L43)
+    bx_body_lo = ffill_when(body_lo, L43)
+
+    prev_above_bx = (c.shift(1) > bx_body_hi.shift(1)).fillna(False)
+    prev_below_bx = (c.shift(1) < bx_body_lo.shift(1)).fillna(False)
+
+    bx_break_up = (c > bx_body_hi) & ~prev_above_bx & ~L43 & (bx_body_hi > 0) & (c > o)
+    bx_break_dn = (c < bx_body_lo) & ~prev_below_bx & ~L43 & (bx_body_lo > 0) & (c < o)
+    BE_UP_BX = bx_break_up & (o <= bx_body_lo)
+    BE_DN_BX = bx_break_dn & (o >= bx_body_hi)
+
+    BE_UP = BE_UP_BO | BE_UP_BX
+    BE_DN = BE_DN_BO | BE_DN_BX
+
     _BKT = {0: "W", 1: "L", 2: "N", 3: "B", 4: "VB"}
     vol_bucket = bucket.map(_BKT)
 
@@ -144,6 +181,7 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         "CCI_READY": CCI_READY,
         "BO_UP": BO_UP, "BO_DN": BO_DN,
         "BX_UP": BX_UP, "BX_DN": BX_DN,
+        "BE_UP": BE_UP, "BE_DN": BE_DN,
         "candle_dir": candle_dir,
     }, index=df.index)
 
@@ -232,7 +270,7 @@ def score_bars(sig_id_series: pd.Series, wlnbb: pd.DataFrame) -> pd.DataFrame:
 def l_signal_label(last_row: pd.Series) -> str:
     for name in ("FRI34", "L34", "L43", "L64", "L22",
                  "CCI_READY", "BLUE", "L1L2", "L2L5",
-                 "BO_UP", "BO_DN", "BX_UP", "BX_DN", "PRE_PUMP",
+                 "BE_UP", "BE_DN", "BO_UP", "BO_DN", "BX_UP", "BX_DN", "PRE_PUMP",
                  "L3", "L1", "L2", "L4", "L6", "L5"):
         if bool(last_row.get(name)):
             return name
