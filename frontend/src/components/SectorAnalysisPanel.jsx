@@ -155,6 +155,74 @@ function MiniChart({ dates, values, label, uid }) {
   )
 }
 
+function HoldingsTable({ holdings }) {
+  if (!holdings?.length) return (
+    <div className="text-xs text-gray-600 text-center py-2">Holdings data unavailable.</div>
+  )
+  return (
+    <div className="flex flex-col gap-1">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Top Holdings</span>
+        <span className="text-xs text-amber-600/70">Static / fallback data</span>
+      </div>
+      <div className="bg-gray-800/40 rounded-lg overflow-hidden">
+        <table className="w-full text-xs">
+          <thead>
+            <tr className="border-b border-gray-700/60">
+              <th className="px-2 py-1 text-left text-gray-500 font-medium">Symbol</th>
+              <th className="px-2 py-1 text-left text-gray-500 font-medium">Name</th>
+              <th className="px-2 py-1 text-right text-gray-500 font-medium">Weight</th>
+            </tr>
+          </thead>
+          <tbody>
+            {holdings.map((h, i) => (
+              <tr key={h.symbol || i} className="border-b border-gray-700/30 last:border-0">
+                <td className="px-2 py-1 font-mono font-bold text-white">{h.symbol}</td>
+                <td className="px-2 py-1 text-gray-400 truncate max-w-[120px]">{h.name}</td>
+                <td className="px-2 py-1 text-right font-mono text-gray-300">
+                  {h.weight != null ? `${Number(h.weight).toFixed(1)}%` : '—'}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+function WatchlistExport({ sectors }) {
+  const download = (type) => {
+    let content, mimeType, filename
+    if (type === 'txt') {
+      content  = sectors.map(s => s.ticker).join('\n')
+      mimeType = 'text/plain'
+      filename = 'sector_watchlist.txt'
+    } else {
+      content  = 'ticker,sector\n' + sectors.map(s => `${s.ticker},${s.name}`).join('\n')
+      mimeType = 'text/csv'
+      filename = 'sector_watchlist.csv'
+    }
+    const url = URL.createObjectURL(new Blob([content], { type: mimeType }))
+    const a   = document.createElement('a')
+    a.href = url; a.download = filename; a.click()
+    URL.revokeObjectURL(url)
+  }
+  return (
+    <div className="flex items-center gap-1.5">
+      <span className="text-xs text-gray-500">Export:</span>
+      <button onClick={() => download('txt')}
+        className="text-xs px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors">
+        TXT
+      </button>
+      <button onClick={() => download('csv')}
+        className="text-xs px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors">
+        CSV
+      </button>
+    </div>
+  )
+}
+
 function BenchCard({ b }) {
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex flex-col gap-1 min-w-0">
