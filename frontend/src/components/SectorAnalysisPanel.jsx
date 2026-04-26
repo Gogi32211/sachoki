@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api'
 
 // ── Metric options for heatmap toggle ─────────────────────────────────────────
@@ -30,6 +30,14 @@ const SORT_COLS = [
 
 const TF_OPTIONS = ['1W', '1M', '3M', '6M', 'YTD', '1Y']
 const TF_DAYS    = { '1W': 5, '1M': 21, '3M': 63, '6M': 126, '1Y': 252 }
+
+const QUADRANT_DOT = {
+  LEADING:   '#4ade80',
+  IMPROVING: '#60a5fa',
+  WEAKENING: '#fbbf24',
+  LAGGING:   '#f87171',
+  NEUTRAL:   '#9ca3af',
+}
 
 function sliceByTf(dates, arr, tf) {
   if (!dates?.length || !arr?.length) return { dates: [], arr: [] }
@@ -266,34 +274,194 @@ function RegimeBanner({ regime }) {
   )
 }
 
-function Heatmap({ sectors, metric, selected, onSelect }) {
+function SectorHeatmap({ sectors, metric, selected, onSelect }) {
   if (!sectors.length) return (
     <div className="text-xs text-gray-500 py-4 text-center">No sector data</div>
   )
   return (
-    <div className="grid gap-1.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(90px, 1fr))' }}>
+    <div className="grid gap-2" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(120px, 1fr))' }}>
       {sectors.map(s => {
-        const val = s[metric]
+        const val  = s[metric]
+        const isUp = val != null && val > 0
+        const isDn = val != null && val < 0
         return (
           <button
             key={s.ticker}
             onClick={() => onSelect(s.ticker)}
-            className={`${heatCls(val)} rounded-lg p-2 flex flex-col items-center gap-0.5
+            className={`${heatCls(val)} rounded-xl p-3 flex flex-col items-start gap-1 text-left
                         cursor-pointer transition-all border-2
                         ${selected === s.ticker ? 'border-blue-400 ring-1 ring-blue-400/50' : 'border-transparent'}
                         hover:brightness-125`}
           >
-            <span className="text-xs font-bold font-mono">{s.ticker}</span>
-            <span className="text-center opacity-70 leading-tight" style={{ fontSize: 9 }}>
-              {shorten(s.name)}
-            </span>
-            <span className="text-xs font-mono font-bold mt-0.5">
+            <div className="flex items-center justify-between w-full">
+              <span className="text-sm font-bold font-mono">{s.ticker}</span>
+              <span className="text-sm">{isUp ? '↑' : isDn ? '↓' : '—'}</span>
+            </div>
+            <span className="text-xs opacity-75 leading-tight">{shorten(s.name)}</span>
+            <span className="text-sm font-mono font-bold">
               {val == null ? '—' : `${val > 0 ? '+' : ''}${Number(val).toFixed(2)}%`}
             </span>
+            {s.trend_label && (
+              <span className={`text-xs px-1 py-0.5 rounded font-medium ${trendCls(s.trend_label)}`}>
+                {s.trend_label}
+              </span>
+            )}
           </button>
         )
       })}
     </div>
+  )
+}
+
+function MoneyFlowSection({ sectors, selected, onSelect }) {
+  const buckets = { LEADING: [], IMPROVING: [], WEAKENING: [], LAGGING: [] }
+  sectors.forEach(s => {
+    const q = s.trend_label
+    if (buckets[q]) buckets[q].push(s)
+  })
+
+  const leading   = buckets.LEADING.map(s => s.ticker)
+  const improving = buckets.IMPROVING.map(s => s.ticker)
+  const lagging   = buckets.LAGGING.map(s => s.ticker)
+
+  let summary = ''
+  if (leading.length)   summary += `Money is currently concentrated in ${leading.join(' and ')}. `
+  if (improving.length) summary += `${improving.join(', ')} ${improving.length === 1 ? 'is' : 'are'} rotating into strength. `
+  if (lagging.length)   summary += `${lagging.join(', ')} ${lagging.length === 1 ? 'is' : 'are'} lagging the market.`
+  if (!summary) summary = 'Sector rotation direction is unclear. Leadership is mixed.'
+
+  const COLS = [
+    { key: 'LEADING',   label: 'Leading',   border: 'border-green-800/60', head: 'text-green-400'  },
+    { key: 'IMPROVING', label: 'Improving', border: 'border-blue-800/60',  head: 'text-blue-400'   },
+    { key: 'WEAKENING', label: 'Weakening', border: 'border-amber-800/60', head: 'text-amber-400'  },
+    { key: 'LAGGING',   label: 'Lagging',   border: 'border-red-800/60',   head: 'text-red-400'    },
+  ]
+
+  return (
+    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Money Flow / Sector Rotation</div>
+      <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
+        {COLS.map(({ key, label, border, head }) => (
+          <div key={key} className={`border ${border} rounded-lg p-2 flex flex-col gap-1.5`}>
+            <div className={`text-xs font-bold uppercase tracking-wide ${head}`}>{label}</div>
+            {buckets[key].length === 0
+              ? <span className="text-xs text-gray-600 italic">None</span>
+              : buckets[key].map(s => (
+                  <button key={s.ticker} onClick={() => onSelect(s.ticker)}
+                    className={`text-left rounded-md px-2 py-1 transition-colors
+                      ${selected === s.ticker ? 'bg-blue-900/40 border border-blue-700/50' : 'bg-gray-800/50 hover:bg-gray-700/50'}`}>
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-mono font-bold text-white">{s.ticker}</span>
+                      <span className={`text-xs font-mono ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</span>
+                    </div>
+                    <div className="text-xs text-gray-500 truncate">{shorten(s.name)}</div>
+                    <div className={`text-xs font-mono ${pctCls(s.vs_spy_20d)}`}>
+                      vSPY 20D: {fmtPct(s.vs_spy_20d)}
+                    </div>
+                  </button>
+                ))
+            }
+          </div>
+        ))}
+      </div>
+      <div className="text-xs text-gray-400 bg-gray-800/40 rounded-lg px-3 py-2 leading-relaxed">{summary}</div>
+    </div>
+  )
+}
+
+function RRGChart({ data, selected, onSelect }) {
+  const [hovered, setHovered] = useState(null)
+  const valid = (data || []).filter(d => d.rs_ratio != null && d.rs_mom != null)
+
+  if (!valid.length) return (
+    <div className="text-xs text-gray-600 text-center py-8">RRG data unavailable.</div>
+  )
+
+  const W = 420, H = 340, PAD = 44
+  const CX = W / 2, CY = H / 2
+
+  const allX = valid.map(d => d.rs_ratio)
+  const allY = valid.map(d => d.rs_mom)
+  const xSpan = Math.max(Math.max(...allX) - Math.min(...allX), 3)
+  const ySpan = Math.max(Math.max(...allY) - Math.min(...allY), 3)
+  const xScale = (W - PAD * 2) / (xSpan * 1.4)
+  const yScale = (H - PAD * 2) / (ySpan * 1.4)
+
+  const toSvg = (rx, rm) => ({
+    x: CX + (rx - 100) * xScale,
+    y: CY - (rm - 100) * yScale,
+  })
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full rounded-xl bg-gray-950 border border-gray-800"
+      style={{ maxHeight: 340 }}>
+      {/* Quadrant fills */}
+      <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.12" />
+      <rect x={PAD} y={PAD} width={CX-PAD}   height={CY-PAD}   fill="#1e3a5f" fillOpacity="0.12" />
+      <rect x={PAD} y={CY}  width={CX-PAD}   height={H-CY-PAD} fill="#7f1d1d" fillOpacity="0.12" />
+      <rect x={CX}  y={CY}  width={W-CX-PAD} height={H-CY-PAD} fill="#713f12" fillOpacity="0.12" />
+      {/* Quadrant labels */}
+      <text x={W-PAD-4} y={PAD+12}    textAnchor="end"   fill="#4ade80" fontSize="9" opacity="0.7">LEADING</text>
+      <text x={PAD+4}   y={PAD+12}    textAnchor="start" fill="#60a5fa" fontSize="9" opacity="0.7">IMPROVING</text>
+      <text x={PAD+4}   y={H-PAD-4}   textAnchor="start" fill="#f87171" fontSize="9" opacity="0.7">LAGGING</text>
+      <text x={W-PAD-4} y={H-PAD-4}   textAnchor="end"   fill="#fbbf24" fontSize="9" opacity="0.7">WEAKENING</text>
+      {/* Axes */}
+      <line x1={PAD} y1={CY} x2={W-PAD} y2={CY} stroke="#374151" strokeWidth="1" />
+      <line x1={CX}  y1={PAD} x2={CX}  y2={H-PAD} stroke="#374151" strokeWidth="1" />
+      <text x={W/2} y={H-6}   textAnchor="middle" fill="#6b7280" fontSize="9">RS Ratio →</text>
+      <text x={10}  y={H/2}   textAnchor="middle" fill="#6b7280" fontSize="9"
+        transform={`rotate(-90,10,${H/2})`}>Momentum ↑</text>
+      {/* Trails */}
+      {valid.map(d => {
+        const tr = d.trail_ratio, tm = d.trail_mom
+        if (!tr?.length || tr.length < 2) return null
+        const pts = tr.map((rx, i) => {
+          const p = toSvg(rx, tm?.[i] ?? 100)
+          return `${p.x},${p.y}`
+        }).join(' ')
+        return <polyline key={`t_${d.ticker}`} points={pts} fill="none"
+          stroke={QUADRANT_DOT[d.trend_label] || '#9ca3af'}
+          strokeWidth="1" strokeOpacity="0.3" strokeDasharray="3,2" />
+      })}
+      {/* Dots */}
+      {valid.map(d => {
+        const { x, y } = toSvg(d.rs_ratio, d.rs_mom)
+        const isSel = selected === d.ticker
+        const isHov = hovered  === d.ticker
+        const color = QUADRANT_DOT[d.trend_label] || '#9ca3af'
+        return (
+          <g key={d.ticker} style={{ cursor: 'pointer' }}
+            onClick={() => onSelect(d.ticker)}
+            onMouseEnter={() => setHovered(d.ticker)}
+            onMouseLeave={() => setHovered(null)}>
+            <circle cx={x} cy={y} r={isSel ? 9 : isHov ? 8 : 6}
+              fill={color} fillOpacity={isSel ? 1 : 0.85}
+              stroke={isSel ? '#fff' : 'none'} strokeWidth="2" />
+            <text x={x} y={y-10} textAnchor="middle" fill={color} fontSize="9"
+              fontWeight={isSel ? 'bold' : 'normal'}>{d.ticker}</text>
+          </g>
+        )
+      })}
+      {/* Hover tooltip */}
+      {hovered && (() => {
+        const d = valid.find(v => v.ticker === hovered)
+        if (!d) return null
+        const { x, y } = toSvg(d.rs_ratio, d.rs_mom)
+        const tx = x > W * 0.7 ? x - 92 : x + 10
+        const ty = y < 70 ? y + 10 : y - 60
+        return (
+          <g>
+            <rect x={tx} y={ty} width={90} height={50} rx="4"
+              fill="#1f2937" stroke="#374151" strokeWidth="1" />
+            <text x={tx+6} y={ty+14} fill="#f9fafb" fontSize="10" fontWeight="bold">{d.ticker}</text>
+            <text x={tx+6} y={ty+26} fill="#9ca3af" fontSize="8">{shorten(d.name)}</text>
+            <text x={tx+6} y={ty+38} fill="#9ca3af" fontSize="8">
+              RS {d.rs_ratio?.toFixed(1)} / Mom {d.rs_mom?.toFixed(1)}
+            </text>
+          </g>
+        )
+      })()}
+    </svg>
   )
 }
 
@@ -537,6 +705,9 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
   const [detLoading,  setDetLoading]  = useState(false)
   const [detError,    setDetError]    = useState(null)
 
+  const [rrgData,    setRrgData]    = useState(null)
+  const [rrgLoading, setRrgLoading] = useState(false)
+
   const [heatMetric, setHeatMetric] = useState('return_1d')
   const [chartTf,    setChartTf]    = useState('3M')
 
@@ -547,6 +718,13 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
     api.sectorOverview()
       .then(d => { setOverview(d); setOvLoading(false) })
       .catch(e => { setOvError(e.message); setOvLoading(false) })
+  }, [])
+
+  useEffect(() => {
+    setRrgLoading(true)
+    api.sectorRRG(12)
+      .then(d => { setRrgData(d?.data || []); setRrgLoading(false) })
+      .catch(() => { setRrgData([]); setRrgLoading(false) })
   }, [])
 
   // Detail fetch whenever selected ETF changes
@@ -609,27 +787,29 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
       {/* 2 ── Risk Banner */}
       <RegimeBanner regime={regime} />
 
-      {/* 3 ── Heatmap + metric toggle */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-3 flex flex-col gap-2">
-        <div className="flex items-center gap-1 flex-wrap">
-          <span className="text-xs text-gray-500 mr-1 font-medium">Metric:</span>
-          {METRICS.map(m => (
-            <button
-              key={m.key}
-              onClick={() => setHeatMetric(m.key)}
-              className={`text-xs px-2 py-0.5 rounded transition-colors
-                ${heatMetric === m.key
-                  ? 'bg-blue-600 text-white font-semibold'
-                  : 'bg-gray-800 text-gray-400 hover:text-white'}`}
-            >
-              {m.label}
-            </button>
-          ))}
+      {/* 3 ── Sector Heatmap */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Heatmap</span>
+          <div className="flex gap-1 flex-wrap">
+            {METRICS.map(m => (
+              <button key={m.key} onClick={() => setHeatMetric(m.key)}
+                className={`text-xs px-2 py-0.5 rounded transition-colors
+                  ${heatMetric === m.key ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {m.label}
+              </button>
+            ))}
+          </div>
         </div>
-        <Heatmap sectors={sectors} metric={heatMetric} selected={selectedEtf} onSelect={handleSelect} />
+        <SectorHeatmap sectors={sectors} metric={heatMetric} selected={selectedEtf} onSelect={handleSelect} />
       </div>
 
-      {/* 4+5 ── Table + Detail side by side */}
+      {/* 4 ── Money Flow / Rotation */}
+      {sectors.length > 0 && (
+        <MoneyFlowSection sectors={sectors} selected={selectedEtf} onSelect={handleSelect} />
+      )}
+
+      {/* 5+6 ── Table + Detail side by side */}
       <div className="flex flex-col xl:flex-row gap-3">
 
         {/* Overview Table */}
@@ -649,6 +829,16 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
           <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError}
             chartTf={chartTf} onTfChange={setChartTf} />
         </div>
+      </div>
+
+      {/* 7 ── Sector Rotation Map (RRG) */}
+      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2">
+        <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
+        <div className="text-xs text-gray-500">X-axis: RS Ratio vs SPY · Y-axis: RS Momentum · Dashed lines = trails</div>
+        {rrgLoading
+          ? <div className="h-40 flex items-center justify-center text-gray-500 text-xs animate-pulse">Loading RRG…</div>
+          : <RRGChart data={rrgData} selected={selectedEtf} onSelect={handleSelect} />
+        }
       </div>
 
       {/* Backend data warnings */}
