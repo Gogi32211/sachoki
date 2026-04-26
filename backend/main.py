@@ -1122,58 +1122,82 @@ from sector_engine import (
     get_sector_overview,
     get_sector_detail,
     get_sector_rrg,
-    get_heatmap,
-    get_holdings,
+    get_sector_heatmap,
     get_macro_matrix,
 )
 
 
-@app.get("/api/sector/overview")
-def api_sector_overview():
+def _sector_err(exc: Exception) -> dict:
+    """Stable error envelope so sector endpoints never return raw 500 text."""
+    return {
+        "ok": False,
+        "last_updated": round(__import__("time").time()),
+        "data": None,
+        "errors": [str(exc)],
+    }
+
+
+# Primary routes — /api/sectors/ (plural)
+@app.get("/api/sectors/overview")
+def api_sectors_overview():
     try:
         return get_sector_overview()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return _sector_err(exc)
 
 
-@app.get("/api/sector/detail/{ticker}")
-def api_sector_detail(ticker: str):
-    try:
-        return get_sector_detail(ticker)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.get("/api/sector/rrg")
-def api_sector_rrg(trail: int = 12):
+@app.get("/api/sectors/rrg")
+def api_sectors_rrg(trail: int = 12):
     try:
         return get_sector_rrg(trail=trail)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return _sector_err(exc)
 
 
-@app.get("/api/sector/heatmap")
-def api_sector_heatmap(metric: str = "d1"):
+@app.get("/api/sectors/heatmap")
+def api_sectors_heatmap(metric: str = "return_1d"):
     try:
-        return get_heatmap(metric)
+        return get_sector_heatmap(metric)
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return _sector_err(exc)
 
 
-@app.get("/api/sector/holdings/{ticker}")
-def api_sector_holdings(ticker: str):
-    try:
-        return get_holdings(ticker)
-    except Exception as exc:
-        raise HTTPException(status_code=400, detail=str(exc))
-
-
-@app.get("/api/sector/macro")
-def api_sector_macro():
+@app.get("/api/sectors/macro")
+def api_sectors_macro():
     try:
         return get_macro_matrix()
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=str(exc))
+        return _sector_err(exc)
+
+
+# Must be registered AFTER the fixed-path routes above to avoid shadowing them
+@app.get("/api/sectors/{etf}")
+def api_sectors_detail(etf: str):
+    try:
+        return get_sector_detail(etf)
+    except Exception as exc:
+        return _sector_err(exc)
+
+
+# Backward-compatible aliases — /api/sector/ (singular, kept for any existing callers)
+@app.get("/api/sector/overview")
+def api_sector_overview_alias():
+    return api_sectors_overview()
+
+
+@app.get("/api/sector/rrg")
+def api_sector_rrg_alias(trail: int = 12):
+    return api_sectors_rrg(trail=trail)
+
+
+@app.get("/api/sector/heatmap")
+def api_sector_heatmap_alias(metric: str = "return_1d"):
+    return api_sectors_heatmap(metric=metric)
+
+
+@app.get("/api/sector/detail/{ticker}")
+def api_sector_detail_alias(ticker: str):
+    return api_sectors_detail(ticker)
 
 
 _static = os.path.join(os.path.dirname(__file__), "static")
