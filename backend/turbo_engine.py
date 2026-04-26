@@ -318,7 +318,7 @@ def _calc_turbo_score(r: dict) -> float:
     if has_bf_buy:          brk += 6
     if r.get("fbo_bull"):   brk += 5
     if r.get("eb_bull"):    brk += 3   # Avg3=2.39 (LOWER 4→3)
-    if r.get("be_up"):      brk += 4   # BE breakout — pre-breakout signal
+    if r.get("be_up"):      brk += 10  # BE breakout — full-body engulf
     if r.get("ultra_3up"):  brk += 2   # Avg3=1.65 WORST signal (LOWER 4→2)
     if r.get("bo_up") or r.get("bx_up"): brk += 5
     if r.get("rs_strong"):  brk += 5
