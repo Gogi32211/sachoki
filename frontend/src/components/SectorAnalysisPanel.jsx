@@ -391,7 +391,7 @@ function DetailMetricRow({ label, value, isCurrency, isPct, isDiff }) {
   )
 }
 
-function DetailPanel({ etf, detail, loading, error }) {
+function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   if (!etf) return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-600 text-xs">
       Select a sector to view details
@@ -413,7 +413,11 @@ function DetailPanel({ etf, detail, loading, error }) {
     </div>
   )
 
-  const d = detail.data
+  const d   = detail.data
+  const hist = d.history || {}
+  const { arr: prices } = sliceByTf(hist.dates, hist.prices, chartTf)
+  const { arr: rs }     = sliceByTf(hist.dates, hist.rs,     chartTf)
+
   return (
     <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
       {/* Header */}
@@ -435,6 +439,23 @@ function DetailPanel({ etf, detail, loading, error }) {
         </div>
       </div>
 
+      {/* Timeframe selector */}
+      <div className="flex gap-1 flex-wrap">
+        {TF_OPTIONS.map(t => (
+          <button key={t} onClick={() => onTfChange?.(t)}
+            className={`text-xs px-2 py-0.5 rounded transition-colors
+              ${chartTf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+            {t}
+          </button>
+        ))}
+      </div>
+
+      {/* Mini charts */}
+      <div className="bg-gray-800/40 rounded-lg p-3 flex flex-col gap-3">
+        <MiniChart values={prices} label="Price" uid={`${etf}_price`} />
+        <MiniChart values={rs}     label="RS vs SPY" uid={`${etf}_rs`} />
+      </div>
+
       {/* EMA Stack badge */}
       {d.ema_stack && (
         <div className="flex items-center gap-2">
@@ -448,9 +469,9 @@ function DetailPanel({ etf, detail, loading, error }) {
       {/* Performance */}
       <div className="bg-gray-800/40 rounded-lg p-3">
         <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Performance</div>
-        <DetailMetricRow label="5D Return"   value={d.return_5d}  isPct />
-        <DetailMetricRow label="20D Return"  value={d.return_20d} isPct />
-        <DetailMetricRow label="50D Return"  value={d.return_50d} isPct />
+        <DetailMetricRow label="5D Return"   value={d.return_5d}   isPct />
+        <DetailMetricRow label="20D Return"  value={d.return_20d}  isPct />
+        <DetailMetricRow label="50D Return"  value={d.return_50d}  isPct />
         <DetailMetricRow label="200D Return" value={d.return_200d} isPct />
       </div>
 
@@ -467,13 +488,13 @@ function DetailPanel({ etf, detail, loading, error }) {
       {/* Technical */}
       <div className="bg-gray-800/40 rounded-lg p-3">
         <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Technical Context</div>
-        <DetailMetricRow label="EMA 20"       value={d.ema20}  isCurrency />
-        <DetailMetricRow label="EMA 50"       value={d.ema50}  isCurrency />
-        <DetailMetricRow label="EMA 200"      value={d.ema200} isCurrency />
+        <DetailMetricRow label="EMA 20"  value={d.ema20}  isCurrency />
+        <DetailMetricRow label="EMA 50"  value={d.ema50}  isCurrency />
+        <DetailMetricRow label="EMA 200" value={d.ema200} isCurrency />
         <div className="border-t border-gray-700/50 my-1" />
-        <DetailMetricRow label="vs EMA 20"    value={d.price_vs_ema20}  isDiff />
-        <DetailMetricRow label="vs EMA 50"    value={d.price_vs_ema50}  isDiff />
-        <DetailMetricRow label="vs EMA 200"   value={d.price_vs_ema200} isDiff />
+        <DetailMetricRow label="vs EMA 20"  value={d.price_vs_ema20}  isDiff />
+        <DetailMetricRow label="vs EMA 50"  value={d.price_vs_ema50}  isDiff />
+        <DetailMetricRow label="vs EMA 200" value={d.price_vs_ema200} isDiff />
         <div className="border-t border-gray-700/50 my-1" />
         <div className="flex justify-between items-center py-0.5">
           <span className="text-xs text-gray-500">RS Ratio</span>
@@ -487,6 +508,15 @@ function DetailPanel({ etf, detail, loading, error }) {
             {d.rs_mom != null ? Number(d.rs_mom).toFixed(2) : '—'}
           </span>
         </div>
+      </div>
+
+      {/* Holdings */}
+      <HoldingsTable holdings={d.holdings} />
+
+      {/* Top Movers */}
+      <div className="bg-gray-800/40 rounded-lg p-3">
+        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Top Movers</div>
+        <div className="text-xs text-gray-600">Top movers data unavailable in this version.</div>
       </div>
 
       {detail.errors?.length > 0 && (
