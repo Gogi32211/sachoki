@@ -214,8 +214,8 @@ def _bench_trend(close: float, e50: float, e200: float) -> str:
 def _rrg_series(
     sector_df: pd.DataFrame,
     spy_df: pd.DataFrame,
-    window: int = 10,
-    mom_bars: int = 5,
+    window: int = 20,
+    mom_bars: int = 1,
 ) -> tuple[pd.Series, pd.Series]:
     common = sector_df.index.intersection(spy_df.index)
     sc = sector_df.loc[common, "close"]
