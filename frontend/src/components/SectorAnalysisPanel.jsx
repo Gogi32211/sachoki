@@ -28,6 +28,22 @@ const SORT_COLS = [
   { key: 'trend_label', label: 'Trend',       sortable: true  },
 ]
 
+const TF_OPTIONS = ['1W', '1M', '3M', '6M', 'YTD', '1Y']
+const TF_DAYS    = { '1W': 5, '1M': 21, '3M': 63, '6M': 126, '1Y': 252 }
+
+function sliceByTf(dates, arr, tf) {
+  if (!dates?.length || !arr?.length) return { dates: [], arr: [] }
+  let startIdx = 0
+  if (tf === 'YTD') {
+    const ytdStart = `${new Date().getFullYear()}-01-01`
+    startIdx = dates.findIndex(d => d >= ytdStart)
+    if (startIdx === -1) startIdx = 0
+  } else {
+    startIdx = Math.max(0, dates.length - (TF_DAYS[tf] ?? 63))
+  }
+  return { dates: dates.slice(startIdx), arr: arr.slice(startIdx) }
+}
+
 const SHORT_NAME = {
   'Communication Services': 'Comm Svcs',
   'Consumer Discretionary': 'Cnsmr Disc',
@@ -92,6 +108,52 @@ function benchTrendCls(t) {
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
+
+function MiniChart({ dates, values, label, uid }) {
+  if (!values?.length) return (
+    <div className="h-12 flex items-center justify-center text-xs text-gray-600">No data</div>
+  )
+  const valid = values.filter(v => v != null)
+  if (!valid.length) return (
+    <div className="h-12 flex items-center justify-center text-xs text-gray-600">No data</div>
+  )
+  const min = Math.min(...valid)
+  const max = Math.max(...valid)
+  const range = max - min || 1
+  const W = 200, H = 44
+  const pts = values
+    .map((v, i) => v != null
+      ? `${(i / Math.max(values.length - 1, 1)) * W},${H - ((v - min) / range) * (H - 2) - 1}`
+      : null)
+    .filter(Boolean).join(' ')
+  const last  = valid[valid.length - 1]
+  const first = valid[0]
+  const pct   = first !== 0 ? ((last - first) / Math.abs(first)) * 100 : 0
+  const isUp  = pct >= 0
+  const stroke = isUp ? '#4ade80' : '#f87171'
+  const gradId = `mg_${uid}`
+  const fillPts = `0,${H} ${pts} ${W},${H}`
+  return (
+    <div className="flex flex-col gap-0.5">
+      <div className="flex items-center justify-between">
+        <span className="text-xs text-gray-500">{label}</span>
+        <span className={`text-xs font-mono font-bold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
+          {isUp ? '+' : ''}{pct.toFixed(2)}%
+        </span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} preserveAspectRatio="none" className="w-full rounded" style={{ height: 44 }}>
+        <defs>
+          <linearGradient id={gradId} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%"   stopColor={stroke} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={stroke} stopOpacity="0.0"  />
+          </linearGradient>
+        </defs>
+        <polygon points={fillPts} fill={`url(#${gradId})`} />
+        <polyline points={pts} fill="none" stroke={stroke} strokeWidth="1.5" strokeLinejoin="round" />
+      </svg>
+    </div>
+  )
+}
 
 function BenchCard({ b }) {
   return (
