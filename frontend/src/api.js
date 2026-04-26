@@ -150,4 +150,12 @@ export const api = {
   // Admin
   adminScanHistory: () => get('/api/admin/scan-history'),
   adminScanStart:   (tf, universe) => post(`/api/admin/scan-start?tf=${tf}&universe=${universe}`),
+
+  // Sector Analysis
+  sectorOverview:  ()           => get('/api/sector/overview'),
+  sectorDetail:    (ticker)     => get(`/api/sector/detail/${ticker}`),
+  sectorRRG:       (trail = 12) => get(`/api/sector/rrg?trail=${trail}`),
+  sectorHeatmap:   (metric)     => get(`/api/sector/heatmap?metric=${metric}`),
+  sectorHoldings:  (ticker)     => get(`/api/sector/holdings/${ticker}`),
+  sectorMacro:     ()           => get('/api/sector/macro'),
 }
