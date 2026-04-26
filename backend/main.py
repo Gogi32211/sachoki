@@ -1117,6 +1117,65 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     return result
 
 
+# ── Sector Analysis ────────────────────────────────────────────────────────────
+from sector_engine import (
+    get_sector_overview,
+    get_sector_detail,
+    get_sector_rrg,
+    get_heatmap,
+    get_holdings,
+    get_macro_matrix,
+)
+
+
+@app.get("/api/sector/overview")
+def api_sector_overview():
+    try:
+        return get_sector_overview()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/sector/detail/{ticker}")
+def api_sector_detail(ticker: str):
+    try:
+        return get_sector_detail(ticker)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/sector/rrg")
+def api_sector_rrg(trail: int = 12):
+    try:
+        return get_sector_rrg(trail=trail)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/sector/heatmap")
+def api_sector_heatmap(metric: str = "d1"):
+    try:
+        return get_heatmap(metric)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/sector/holdings/{ticker}")
+def api_sector_holdings(ticker: str):
+    try:
+        return get_holdings(ticker)
+    except Exception as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@app.get("/api/sector/macro")
+def api_sector_macro():
+    try:
+        return get_macro_matrix()
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
