@@ -817,6 +817,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     from fly_engine import compute_fly_series
     from vabs_engine import compute_vabs
     from wick_engine import compute_wick
+    from ultra_engine import compute_260308_l88, compute_ultra_v2
+    from wlnbb_engine import score_bars
 
     try:
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
@@ -861,6 +863,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         wick = compute_wick(df)
     except Exception:
         wick = _EDF
+    try:
+        ultra260 = compute_260308_l88(df)
+    except Exception:
+        ultra260 = _EDF
+    try:
+        ultraV2 = compute_ultra_v2(df)
+    except Exception:
+        ultraV2 = _EDF
+    try:
+        scores = score_bars(sig_df["sig_id"], wlnbb) if not sig_df.empty else _EDF
+    except Exception:
+        scores = _EDF
 
     # Vol spike ratio (current bar vs previous bar)
     vol_prev  = df["volume"].shift(1)
@@ -885,12 +899,16 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             if int(sig_df.iloc[i]["sig_id"]) > 0:
                 tz = str(sig_df.iloc[i].get("sig_name", ""))
 
-        # L / FRI / BLUE / BO / BX / RL / RH signals
+        # L / FRI / BLUE / BO / BX / BE / RL / RH / CCI signals
         l_map = [
             ("L34", "L34"), ("L43", "L43"), ("L64", "L64"), ("L22", "L22"),
-            ("FRI34", "FRI34"), ("BLUE", "BL"), ("CCI_READY", "CCI"),
+            ("L555", "L555"), ("ONLY_L2L4", "L2L4"),
+            ("FRI34", "FRI34"), ("FRI43", "FRI43"), ("FRI64", "FRI64"),
+            ("BLUE", "BL"), ("CCI_READY", "CCI"),
+            ("CCI_0_RETEST_OK", "CCI0R"), ("CCI_BLUE_TURN", "CCIB"),
             ("BO_UP", "BO↑"), ("BO_DN", "BO↓"),
             ("BX_UP", "BX↑"), ("BX_DN", "BX↓"),
+            ("BE_UP", "BE↑"), ("BE_DN", "BE↓"),
             ("FUCHSIA_RL", "RL"), ("FUCHSIA_RH", "RH"), ("PRE_PUMP", "PP"),
         ]
         l_list = [lbl for col, lbl in l_map if _b(wlnbb, col)]
@@ -933,6 +951,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
 
         # VABS signals
         vabs_map = [
+            ("best_sig", "BEST★"), ("strong_sig", "STRONG"),
             ("vbo_up", "VBO↑"), ("vbo_dn", "VBO↓"),
             ("ns", "NS"), ("nd", "ND"), ("sc", "SC"), ("bc", "BC"),
             ("sq", "SQ"), ("abs_sig", "ABS"), ("climb_sig", "CLM"), ("load_sig", "LOAD"),
@@ -946,6 +965,22 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         ]
         wick_list = [lbl for col, lbl in wick_map if _b(wick, col)]
 
+        # ULTRA v2 signals
+        ultra_map = [
+            ("best_long", "BEST↑"), ("fbo_bull", "FBO↑"), ("fbo_bear", "FBO↓"),
+            ("eb_bull", "EB↑"), ("eb_bear", "EB↓"),
+            ("bf_buy", "4BF"), ("bf_sell", "4BF↓"),
+            ("ultra_3up", "3↑"),
+        ]
+        ultra_list = [lbl for col, lbl in ultra_map if _b(ultraV2, col)]
+        if _b(ultra260, "sig_l88"):       ultra_list.append("L88")
+        elif _b(ultra260, "sig_260308"):  ultra_list.append("260308")
+
+        # Bull score per bar
+        bull_score_val = 0
+        if not scores.empty and "bull_score" in scores.columns:
+            bull_score_val = int(scores.iloc[i]["bull_score"])
+
         vol_bkt = ""
         if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
             vol_bkt = str(wlnbb.iloc[i]["vol_bucket"])
@@ -958,16 +993,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "close":      float(row["close"]),
             "volume":     float(row["volume"]),
             "vol_bucket": vol_bkt,
-            "tz":    tz,
-            "l":     l_list,
-            "f":     f_list,
-            "fly":   fly_list,
-            "g":     g_list,
-            "b":     b_list,
-            "combo": combo_list,
-            "vol":   vol_list,
-            "vabs":  vabs_list,
-            "wick":  wick_list,
+            "tz":        tz,
+            "l":         l_list,
+            "f":         f_list,
+            "fly":       fly_list,
+            "g":         g_list,
+            "b":         b_list,
+            "combo":     combo_list,
+            "vol":       vol_list,
+            "vabs":      vabs_list,
+            "wick":      wick_list,
+            "ultra":     ultra_list,
+            "bull_score": bull_score_val,
         })
 
     return result
