@@ -155,7 +155,6 @@ function MiniCandle({ b, globalMin, globalRange, h = MINI_H }) {
 
 export default function SuperchartPanel({
   initialTicker = 'AAPL', initialTf = '1d',
-  chartInstanceRef, chartReady,
   onTickerChange,
 }) {
   const [ticker, setTicker]     = useState(initialTicker)
@@ -165,7 +164,6 @@ export default function SuperchartPanel({
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
   const matrixRef  = useRef(null)
-  const syncingRef = useRef(false)
   const isIntraday = ['4h', '1h', '30m', '15m'].includes(tf)
 
   // Mini-candle global price range
@@ -185,9 +183,7 @@ export default function SuperchartPanel({
     api.barSignals(t, f, barsForTf(f))
       .then(data => {
         setBars(data)
-        // After bars load, reset chart view and scroll matrix to newest
         setTimeout(() => {
-          chartInstanceRef?.current?.timeScale().fitContent()
           if (matrixRef.current)
             matrixRef.current.scrollLeft = matrixRef.current.scrollWidth
         }, 120)
@@ -197,35 +193,6 @@ export default function SuperchartPanel({
   }, [])
 
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
-
-  // ── Chart ↔ Matrix bidirectional sync ──────────────────────────────────────
-  // chartReady (not chartInstanceRef.current) is the correct React dep trigger
-  useEffect(() => {
-    const chart = chartInstanceRef?.current
-    if (!chart || !bars.length) return
-
-    const onRangeChange = (range) => {
-      if (syncingRef.current || !matrixRef.current || !range) return
-      syncingRef.current = true
-      const from = Math.max(0, Math.floor(range.from))
-      matrixRef.current.scrollLeft = from * CELL_W
-      requestAnimationFrame(() => { syncingRef.current = false })
-    }
-
-    chart.timeScale().subscribeVisibleLogicalRangeChange(onRangeChange)
-    return () => chart.timeScale().unsubscribeVisibleLogicalRangeChange(onRangeChange)
-  }, [chartReady, bars.length]) // chartReady flip is the reliable React trigger
-
-  const handleMatrixScroll = () => {
-    const chart = chartInstanceRef?.current
-    if (syncingRef.current || !chart || !matrixRef.current) return
-    syncingRef.current = true
-    const from  = matrixRef.current.scrollLeft / CELL_W
-    const range = chart.timeScale().getVisibleLogicalRange()
-    const width = range ? range.to - range.from : 20
-    chart.timeScale().setVisibleLogicalRange({ from, to: from + width })
-    requestAnimationFrame(() => { syncingRef.current = false })
-  }
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -267,7 +234,6 @@ export default function SuperchartPanel({
           <div
             ref={matrixRef}
             className="overflow-x-auto overflow-y-hidden"
-            onScroll={handleMatrixScroll}
           >
             <table className="text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
@@ -331,19 +297,20 @@ export default function SuperchartPanel({
                   </tr>
                 ))}
 
-                {/* Score row */}
+                {/* Turbo score row */}
                 <tr className="border-t border-gray-700/60">
                   <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
                                  text-right border-r border-gray-800 font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10 }}>
-                    score
+                    turbo
                   </td>
                   {bars.map((b, i) => {
-                    const s = b.bull_score ?? 0
-                    const cls = s >= 7 ? 'text-lime-300 font-bold'
-                              : s >= 5 ? 'text-green-400'
-                              : s >= 3 ? 'text-yellow-400'
-                              : s > 0  ? 'text-gray-400'
+                    const s = b.turbo_score ?? 0
+                    const cls = s >= 65 ? 'text-lime-300 font-bold'
+                              : s >= 50 ? 'text-green-400 font-bold'
+                              : s >= 35 ? 'text-yellow-400'
+                              : s >= 20 ? 'text-gray-300'
+                              : s > 0   ? 'text-gray-500'
                               : 'text-gray-700'
                     return (
                       <td key={i}
