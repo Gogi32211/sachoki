@@ -818,7 +818,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     from vabs_engine import compute_vabs
     from wick_engine import compute_wick
     from ultra_engine import compute_260308_l88, compute_ultra_v2
-    from wlnbb_engine import score_bars
+    from turbo_engine import _calc_turbo_score
 
     try:
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
@@ -871,11 +871,6 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         ultraV2 = compute_ultra_v2(df)
     except Exception:
         ultraV2 = _EDF
-    try:
-        scores = score_bars(sig_df["sig_id"], wlnbb) if not sig_df.empty else _EDF
-    except Exception:
-        scores = _EDF
-
     # Vol spike ratio (current bar vs previous bar)
     vol_prev  = df["volume"].shift(1)
     vol_ratio = (df["volume"] / vol_prev.replace(0, np.nan)).fillna(0)
@@ -976,10 +971,77 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         if _b(ultra260, "sig_l88"):       ultra_list.append("L88")
         elif _b(ultra260, "sig_260308"):  ultra_list.append("260308")
 
-        # Bull score per bar
-        bull_score_val = 0
-        if not scores.empty and "bull_score" in scores.columns:
-            bull_score_val = int(scores.iloc[i]["bull_score"])
+        # Turbo score per bar — same formula as Turbo scanner
+        tz_s = ""
+        if not sig_df.empty and "sig_id" in sig_df.columns:
+            tz_s = str(sig_df.iloc[i].get("sig_name", ""))
+        is_bull_bar = not sig_df.empty and bool(sig_df.iloc[i].get("is_bull", False))
+        sig_row = {
+            # Backbone
+            "conso_2809":  _b(combo_df, "conso_2809"),
+            "tz_bull":     is_bull_bar,
+            "bf_buy":      _b(ultraV2, "bf_buy"),
+            # Volume / accum
+            "abs_sig":     _b(vabs, "abs_sig"),
+            "climb_sig":   _b(vabs, "climb_sig"),
+            "load_sig":    _b(vabs, "load_sig"),
+            "vbo_up":      _b(vabs, "vbo_up"),
+            "ns":          _b(vabs, "ns"),
+            "sq":          _b(vabs, "sq"),
+            "sc":          _b(vabs, "sc"),
+            "svs_2809":    _b(combo_df, "svs_2809"),
+            "um_2809":     _b(combo_df, "um_2809"),
+            "sig_l88":     _b(ultra260, "sig_l88"),
+            "sig_260308":  _b(ultra260, "sig_260308"),
+            # Breakout
+            "fbo_bull":    _b(ultraV2, "fbo_bull"),
+            "eb_bull":     _b(ultraV2, "eb_bull"),
+            "ultra_3up":   _b(ultraV2, "ultra_3up"),
+            "bo_up":       _b(wlnbb, "BO_UP"),
+            "bx_up":       _b(wlnbb, "BX_UP"),
+            # Combo / momentum
+            "rocket":      _b(combo_df, "rocket"),
+            "buy_2809":    _b(combo_df, "buy_2809"),
+            "sig3g":       _b(combo_df, "sig3g"),
+            "rtv":         _b(combo_df, "rtv"),
+            "hilo_buy":    _b(combo_df, "hilo_buy"),
+            "atr_brk":     _b(combo_df, "atr_brk"),
+            "bb_brk":      _b(combo_df, "bb_brk"),
+            # L-structure / trend
+            "tz_sig":      tz_s,
+            "fri34":       _b(wlnbb, "FRI34"),
+            "fri43":       _b(wlnbb, "FRI43"),
+            "l34":         _b(wlnbb, "L34"),
+            "l43":         _b(wlnbb, "L43"),
+            "blue":        _b(wlnbb, "BLUE"),
+            "cci_ready":   _b(wlnbb, "CCI_READY"),
+            "fuchsia_rl":  _b(wlnbb, "FUCHSIA_RL"),
+            # EMA cross / preup
+            "preup89":     _b(combo_df, "preup89"),
+            "preup3":      _b(combo_df, "preup3"),
+            "preup2":      _b(combo_df, "preup2"),
+            # G signals
+            "g1":  _b(g_sigs, "g1"),
+            "g2":  _b(g_sigs, "g2"),
+            "g4":  _b(g_sigs, "g4"),
+            "g6":  _b(g_sigs, "g6"),
+            "g11": _b(g_sigs, "g11"),
+            # Wick context
+            "x2g_wick":  _b(wick, "x2g_wick"),
+            "x2_wick":   _b(wick, "x2_wick"),
+            "x1g_wick":  _b(wick, "x1g_wick"),
+            "x1_wick":   _b(wick, "x1_wick"),
+            "x3_wick":   _b(wick, "x3_wick"),
+            "wick_bull": _b(wick, "WICK_BULL_CONFIRM"),
+            # FLY context
+            "fly_abcd": _b(fly_sigs, "fly_abcd"),
+            "fly_cd":   _b(fly_sigs, "fly_cd"),
+            "fly_bd":   _b(fly_sigs, "fly_bd"),
+            "fly_ad":   _b(fly_sigs, "fly_ad"),
+            # Vol spike context
+            "vol_spike_10x": float(vol_ratio.iloc[i]) >= 10,
+        }
+        turbo_score_val = _calc_turbo_score(sig_row)
 
         vol_bkt = ""
         if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
@@ -1003,8 +1065,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "vol":       vol_list,
             "vabs":      vabs_list,
             "wick":      wick_list,
-            "ultra":     ultra_list,
-            "bull_score": bull_score_val,
+            "ultra":       ultra_list,
+            "turbo_score": turbo_score_val,
         })
 
     return result
