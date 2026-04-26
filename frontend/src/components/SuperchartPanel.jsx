@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api'
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
-const CELL_W  = 52   // px per bar column
-const HDR_W   = 36   // px for the sticky label column
+const CELL_W  = 56   // px per bar column
+const HDR_W   = 38   // px for the sticky label column
 const MINI_H  = 24   // px height of mini-candle row
 
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
@@ -256,7 +256,7 @@ export default function SuperchartPanel({
                     <th key={i} style={{ width: CELL_W, minWidth: CELL_W }}
                         className="font-normal px-0 py-0 text-center border-r border-gray-900/40">
                       <div className="flex flex-col items-center gap-px pb-0.5">
-                        <span className="text-gray-600 font-mono" style={{ fontSize: 9 }}>
+                        <span className="text-gray-600 font-mono" style={{ fontSize: 11 }}>
                           {fmtDate(b.date, isIntraday)}
                         </span>
                         <div className="rounded-sm"
@@ -273,7 +273,7 @@ export default function SuperchartPanel({
                     <td
                       className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
                                  text-right border-r border-gray-800 font-mono whitespace-nowrap"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10, lineHeight: 1 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11, lineHeight: 1 }}>
                       {row.label}
                     </td>
                     {bars.map((b, i) => {
@@ -286,7 +286,7 @@ export default function SuperchartPanel({
                             {sigs.map(s => (
                               <span key={s}
                                 className={`px-0.5 rounded font-mono leading-none ${row.chipCls(s)}`}
-                                style={{ fontSize: 10 }}>
+                                style={{ fontSize: 11 }}>
                                 {s}
                               </span>
                             ))}
@@ -301,7 +301,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-gray-700/60">
                   <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
                                  text-right border-r border-gray-800 font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     turbo
                   </td>
                   {bars.map((b, i) => {
@@ -315,7 +315,7 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
-                        style={{ fontSize: 10, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
                         {s > 0 ? s : ''}
                       </td>
                     )
@@ -326,7 +326,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-gray-700">
                   <td className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
                                  text-right border-r border-gray-800 font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 10 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     close
                   </td>
                   {bars.map((b, i) => {
@@ -336,7 +336,7 @@ export default function SuperchartPanel({
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono
                                     ${up ? 'text-green-400' : 'text-red-400'}`}
-                        style={{ fontSize: 10, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
                         {b.close >= 1000 ? b.close.toFixed(0)
                           : b.close >= 100 ? b.close.toFixed(1)
                           : b.close.toFixed(2)}
