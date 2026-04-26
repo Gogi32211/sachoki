@@ -819,6 +819,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     from wick_engine import compute_wick
     from ultra_engine import compute_260308_l88, compute_ultra_v2
     from turbo_engine import _calc_turbo_score
+    from combo_engine import compute_tz_state
 
     try:
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
@@ -871,6 +872,33 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         ultraV2 = compute_ultra_v2(df)
     except Exception:
         ultraV2 = _EDF
+    try:
+        tz_state_ser = compute_tz_state(df)
+    except Exception:
+        tz_state_ser = pd.Series(0, index=df.index, dtype=np.int8)
+    tz_state_prev = tz_state_ser.shift(1, fill_value=0).astype(int)
+
+    # seq_bcont vectorized from bc column
+    try:
+        _bc = sig_df["bc"].fillna(0).astype(int) if not sig_df.empty else pd.Series(0, index=df.index)
+        _bc_p1 = _bc.shift(1, fill_value=0).astype(int)
+        _bc_p2 = _bc.shift(2, fill_value=0).astype(int)
+        seq_bcont_ser = (
+            (_bc_p2.isin([5, 3, 6, 4, 7]) & (_bc == 1)) |
+            (_bc_p1.isin([9, 10, 11])      & (_bc.isin([1, 2]))) |
+            (_bc_p1.isin([1, 4, 9])        & (_bc == 2))
+        ).astype(int)
+    except Exception:
+        seq_bcont_ser = pd.Series(0, index=df.index)
+
+    # VA — volume ATR crossover (vol/sma20 crosses above 2.0)
+    try:
+        _avg20 = df["volume"].rolling(20, min_periods=1).mean()
+        _vr    = (df["volume"] / _avg20.replace(0, np.nan)).fillna(0)
+        va_ser = ((_vr > 2.0) & (_vr.shift(1, fill_value=0) <= 2.0)).astype(int)
+    except Exception:
+        va_ser = pd.Series(0, index=df.index)
+
     # Vol spike ratio (current bar vs previous bar)
     vol_prev  = df["volume"].shift(1)
     vol_ratio = (df["volume"] / vol_prev.replace(0, np.nan)).fillna(0)
@@ -999,7 +1027,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "ultra_3up":   _b(ultraV2, "ultra_3up"),
             "bo_up":       _b(wlnbb, "BO_UP"),
             "bx_up":       _b(wlnbb, "BX_UP"),
-            # Combo / momentum
+            # Combo / momentum (+ stateful: cd/ca/cw/seq_bcont/va)
             "rocket":      _b(combo_df, "rocket"),
             "buy_2809":    _b(combo_df, "buy_2809"),
             "sig3g":       _b(combo_df, "sig3g"),
@@ -1007,8 +1035,24 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "hilo_buy":    _b(combo_df, "hilo_buy"),
             "atr_brk":     _b(combo_df, "atr_brk"),
             "bb_brk":      _b(combo_df, "bb_brk"),
+            "seq_bcont":   bool(seq_bcont_ser.iloc[i]),
+            "va":          bool(va_ser.iloc[i]),
+            # cd/ca/cw from tz_state + any B signal
+            "cd": bool(int(tz_state_ser.iloc[i]) == 3 and
+                       any(_b(b_sigs, f"b{n}") for n in range(1, 12))),
+            "ca": bool(int(tz_state_ser.iloc[i]) == 2 and
+                       any(_b(b_sigs, f"b{n}") for n in range(1, 12))),
+            "cw": bool(int(tz_state_ser.iloc[i]) == 1 and
+                       any(_b(b_sigs, f"b{n}") for n in range(1, 12))),
             # L-structure / trend
-            "tz_sig":      tz_s,
+            "tz_sig":        tz_s,
+            "tz_bull_flip":  bool(int(tz_state_ser.iloc[i]) == 3 and
+                                  int(tz_state_prev.iloc[i]) != 3),
+            "tz_attempt":    bool(int(tz_state_ser.iloc[i]) == 2 and
+                                  int(tz_state_prev.iloc[i]) != 2),
+            "tz_weak_bull":  bool(int(tz_state_ser.iloc[i]) == 1 and
+                                  int(tz_state_prev.iloc[i]) == 0 and
+                                  float(df["close"].iloc[i]) > float(df["open"].iloc[i])),
             "fri34":       _b(wlnbb, "FRI34"),
             "fri43":       _b(wlnbb, "FRI43"),
             "l34":         _b(wlnbb, "L34"),
