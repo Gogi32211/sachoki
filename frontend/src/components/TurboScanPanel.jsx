@@ -167,6 +167,8 @@ const SIG_GROUPS = [
   { key: 'd_vd_div_bear',     label: 'ND',     cls: 'text-red-400'     },
   { divider: true },
   // ── PREUP — EMA cross ↑ ──────────────────────────────────────────────
+  { key: '_any_p', label: 'ANY P', cls: 'text-cyan-200 font-semibold',
+    custom: r => !!(r.preup66 || r.preup55 || r.preup89 || r.preup3 || r.preup2 || r.preup50) },
   { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
   { key: 'preup55', label: 'P55', cls: 'text-emerald-300' },
   { key: 'preup89', label: 'P89', cls: 'text-teal-300'    },
@@ -175,12 +177,32 @@ const SIG_GROUPS = [
   { key: 'preup50', label: 'P50', cls: 'text-sky-300'     },
   { divider: true },
   // ── PREDN — EMA drop ↓ ───────────────────────────────────────────────
+  { key: '_any_d', label: 'ANY D', cls: 'text-red-300 font-semibold',
+    custom: r => !!(r.predn66 || r.predn55 || r.predn89 || r.predn3 || r.predn2 || r.predn50) },
   { key: 'predn66', label: 'D66', cls: 'text-red-300'     },
   { key: 'predn55', label: 'D55', cls: 'text-red-400'     },
   { key: 'predn89', label: 'D89', cls: 'text-orange-400'  },
   { key: 'predn3',  label: 'D3',  cls: 'text-orange-300'  },
   { key: 'predn2',  label: 'D2',  cls: 'text-red-300'     },
   { key: 'predn50', label: 'D50', cls: 'text-orange-300'  },
+  { divider: true },
+  // ── Price vs EMA ─────────────────────────────────────────────────────
+  { key: '_gt_ema200', label: 'P>200', cls: 'text-lime-300',
+    custom: r => r.ema200 > 0 && r.last_price > r.ema200 },
+  { key: '_gt_ema89',  label: 'P>89',  cls: 'text-emerald-300',
+    custom: r => r.ema89  > 0 && r.last_price > r.ema89  },
+  { key: '_gt_ema50',  label: 'P>50',  cls: 'text-teal-300',
+    custom: r => r.ema50  > 0 && r.last_price > r.ema50  },
+  { key: '_gt_ema20',  label: 'P>20',  cls: 'text-cyan-300',
+    custom: r => r.ema20  > 0 && r.last_price > r.ema20  },
+  { key: '_lt_ema20',  label: 'P<20',  cls: 'text-red-400',
+    custom: r => r.ema20  > 0 && r.last_price < r.ema20  },
+  { key: '_lt_ema50',  label: 'P<50',  cls: 'text-orange-400',
+    custom: r => r.ema50  > 0 && r.last_price < r.ema50  },
+  { key: '_lt_ema89',  label: 'P<89',  cls: 'text-orange-300',
+    custom: r => r.ema89  > 0 && r.last_price < r.ema89  },
+  { key: '_lt_ema200', label: 'P<200', cls: 'text-red-300',
+    custom: r => r.ema200 > 0 && r.last_price < r.ema200 },
   { divider: true },
   // ── RS / Relative Strength ────────────────────────────────────────────
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
@@ -532,6 +554,7 @@ const KEEP_ALWAYS = new Set([
   'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
   'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
   'vol_bucket','data_source',
+  'ema20','ema50','ema89','ema200',
 ])
 function _slimRow(r) {
   const out = {}
