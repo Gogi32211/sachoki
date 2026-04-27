@@ -395,6 +395,70 @@ def _calc_turbo_score(r: dict) -> float:
     if r.get("g11"):  g_sig += 2
     s += min(g_sig, 10)
 
+    # ── Backtest-proven confluence bonuses (cap 18) ───────────────────────
+    # Source: Run 25 (n=2254, Jan–Apr 2026). Signal mapping:
+    #   D4 ≡ d_absorb_bull | d_spring   (institutional absorption)
+    #   D6 ≡ d_surge_bull  | d_blast_bull (delta surge/blast)
+    #   L34 ≡ l34 | fri34               (WLNBB setup bar)
+    _d4  = bool(r.get("d_absorb_bull") or r.get("d_spring"))
+    _d6  = bool(r.get("d_surge_bull")  or r.get("d_blast_bull"))
+    _l34 = bool(r.get("l34") or r.get("fri34"))
+    _be  = bool(r.get("be_up"))
+    _l34_r3 = bool(r.get("_l34_recent_3b") or r.get("_fri34_recent_3b"))
+    _dabs_r5 = bool(r.get("_dabsorb_recent_5b"))
+
+    conf = 0.0
+    # ── Tier 1: SAME-BAR confluences ──────────────────────────────────────
+    # D6+BE_UP same bar: +6.26% avg 5d, 71% win rate, FP 15.6%  (n=32)
+    if _d6 and _be:
+        conf += 12
+    # D4+L34 same bar:  +2.53% avg 5d, 70.8% win, FP only 4.2% (n=24)
+    if _d4 and _l34:
+        conf += 8
+    # D4+BE_UP same bar: +2.89% avg 5d, alpha +3.47%            (n=52)
+    if _d4 and _be:
+        conf += 6
+
+    # ── Tier 2: SEQUENCE bonuses (prior setup → trigger fires) ────────────
+    # L34 fired 1-3 bars ago, D4 fires now → L34_THEN_D4_3B: +7.87% (n=31)
+    if _l34_r3 and _d4 and not _l34:
+        conf += 10
+    # L34 fired 1-3 bars ago, BE_UP fires now → TRIGGER_AFTER_L34: +1.77% (n=55)
+    if _l34_r3 and _be and not _l34:
+        conf += 5
+    # D4 fired 1-5 bars ago, BE_UP fires now → D4_THEN_BEUP_5B: +5.33% (n=54)
+    if _dabs_r5 and _be and not _d4:
+        conf += 8
+
+    # ── Tier 3: State bonuses ─────────────────────────────────────────────
+    # ACCUMULATION_READY analog (ns+tight range+l34): +1.17% avg, 66.1% win
+    if r.get("ns") and r.get("cons_atr") and _l34:
+        conf += 4
+
+    s += min(conf, 18)
+
+    # ── Kill / penalty conditions ─────────────────────────────────────────
+    # ISOLATED G trigger (no L34/BE_UP/D4): -1.80% avg, 34.7% of all FPs
+    if (r.get("g4") or r.get("g6")) and not _l34 and not _be and not _d4:
+        s -= 4
+    # d_strong_bull alone (no structure): IMPULSE_ONLY path -1.66% avg 5d
+    if r.get("d_strong_bull") and not _l34 and not _be and not _d4 and not _d6:
+        s -= 3
+    # D6+L34 without BE_UP: avg_5d -2.52% (opposite of D6+BE_UP which is +6.26%)
+    if _d6 and _l34 and not _be:
+        s -= 5
+    # OVERHEATED EXPANSION: RSI > 75 without delta absorption confirmation
+    _rsi = float(r.get("rsi", 50.0))
+    if _rsi > 80 and not _d4 and not _d6:
+        s -= 6
+    elif _rsi > 75 and not _d4 and not _d6 and not _be:
+        s -= 3
+    # Buying Climax (bc) without BE_UP: distribution risk, mean-reversion likely
+    if r.get("bc") and not _be:
+        s -= 3
+
+    s = max(0.0, s)
+
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
     if r.get("x2g_wick"):      s += 5
     elif r.get("x2_wick"):     s += 4
@@ -884,6 +948,21 @@ def _scan_turbo_ticker(
         except Exception:
             for _k in _FLY_KEYS:
                 row[_k] = 0
+
+        # ── Sequence age flags for confluence scoring ─────────────────────
+        # Computed here (wlnbb + ddf available) and passed into _calc_turbo_score.
+        # _l34_recent_3b: L34/FRI34 fired 1-3 bars ago (not current bar)
+        # _dabsorb_recent_5b: d_absorb_bull or d_spring fired 1-5 bars ago
+        try:
+            _l34_age_v   = _sig_age(wlnbb, "L34",   max_age=10)
+            _fri34_age_v = _sig_age(wlnbb, "FRI34", max_age=10)
+            _dabs_age_v  = _sig_age(ddf, "absorb_bull", max_age=10)
+            _dspr_age_v  = _sig_age(ddf, "spring",      max_age=10)
+            row["_l34_recent_3b"]     = int(0 < _l34_age_v   <= 3)
+            row["_fri34_recent_3b"]   = int(0 < _fri34_age_v  <= 3)
+            row["_dabsorb_recent_5b"] = int(0 < min(_dabs_age_v, _dspr_age_v) <= 5)
+        except Exception:
+            row["_l34_recent_3b"] = row["_fri34_recent_3b"] = row["_dabsorb_recent_5b"] = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
