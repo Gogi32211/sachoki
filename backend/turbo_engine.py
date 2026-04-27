@@ -189,6 +189,8 @@ _TURBO_COLS = [
     "data_source",
     # Average daily volume (20-bar SMA) — used for volume filter
     "avg_vol",
+    # EMA values for price-vs-EMA frontend filters
+    "ema20", "ema50", "ema89", "ema200",
 ]
 
 
@@ -199,7 +201,8 @@ def _db():
 
 def _col_def(c: str) -> str:
     _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
-    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci", "avg_vol"}
+    _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci", "avg_vol",
+             "ema20", "ema50", "ema89", "ema200"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
