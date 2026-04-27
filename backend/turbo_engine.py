@@ -589,6 +589,16 @@ def _scan_turbo_ticker(
         row["last_price"] = round(price, 2)
         row["change_pct"] = round((price - prev_p) / prev_p * 100, 2) if prev_p else 0.0
 
+        # ── EMA values for price-vs-EMA filters ───────────────────────────
+        try:
+            _c = df["close"]
+            row["ema20"]  = round(float(_c.ewm(span=20,  adjust=False).mean().iloc[-1]), 4)
+            row["ema50"]  = round(float(_c.ewm(span=50,  adjust=False).mean().iloc[-1]), 4)
+            row["ema89"]  = round(float(_c.ewm(span=89,  adjust=False).mean().iloc[-1]), 4)
+            row["ema200"] = round(float(_c.ewm(span=200, adjust=False).mean().iloc[-1]), 4)
+        except Exception:
+            row["ema20"] = row["ema50"] = row["ema89"] = row["ema200"] = 0.0
+
         # ── Price range filter ─────────────────────────────────────────────
         if price < min_price or price > max_price:
             return None
