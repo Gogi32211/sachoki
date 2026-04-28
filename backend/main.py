@@ -4,6 +4,7 @@ main.py — FastAPI app + APScheduler + all API routes.
 from __future__ import annotations
 import os
 import logging
+import concurrent.futures
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
@@ -133,6 +134,54 @@ def api_ticker_info(ticker: str):
     except Exception:
         result = {"ticker": t, "name": t, "sector": "", "industry": ""}
     _ticker_info_cache[t] = result
+    return result
+
+
+@app.post("/api/ticker-info-batch")
+def api_ticker_info_batch(body: dict):
+    """Batch sector/name lookup for up to 200 tickers. Returns {ticker: {sector,...}}."""
+    tickers = [str(t).upper() for t in (body.get("tickers") or [])[:200]]
+    result: dict = {}
+
+    need_fetch: list[str] = []
+    for t in tickers:
+        if t in _ticker_info_cache:
+            result[t] = _ticker_info_cache[t]
+        else:
+            need_fetch.append(t)
+
+    if need_fetch:
+        def _fetch_one(t: str):
+            try:
+                import yfinance as yf
+                info = yf.Ticker(t).info or {}
+                r = {
+                    "ticker": t,
+                    "name":   info.get("longName") or info.get("shortName") or t,
+                    "sector": info.get("sector") or "",
+                    "industry": info.get("industry") or "",
+                }
+            except Exception:
+                r = {"ticker": t, "name": t, "sector": "", "industry": ""}
+            _ticker_info_cache[t] = r
+            return t, r
+
+        pool = concurrent.futures.ThreadPoolExecutor(max_workers=min(8, len(need_fetch)))
+        futures = {pool.submit(_fetch_one, t): t for t in need_fetch}
+        done, _ = concurrent.futures.wait(futures, timeout=15)
+        pool.shutdown(wait=False)
+
+        for fut in done:
+            try:
+                t, r = fut.result()
+                result[t] = r
+            except Exception:
+                pass
+
+        for t in need_fetch:
+            if t not in result:
+                result[t] = {"ticker": t, "name": t, "sector": "", "industry": ""}
+
     return result
 
 
