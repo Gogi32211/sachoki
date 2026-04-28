@@ -1172,6 +1172,8 @@ def _scan_turbo_ticker(
             }
             row[_key] = _calc_turbo_score(_r)
 
+        row.setdefault("sector", "")  # not fetched in bulk scan; column exists in DB
+
         return row
 
     except Exception as exc:
@@ -1430,6 +1432,11 @@ def run_turbo_scan(
                 if row:
                     row["scan_id"]    = scan_id
                     row["scanned_at"] = now_iso
+                    # Guard: fill any DB column missing from the row (e.g. newly added cols)
+                    _TEXT_FILL = {"tz_sig", "vol_bucket", "sig_ages", "data_source", "sector"}
+                    for _c in cols:
+                        if _c not in row:
+                            row[_c] = "" if _c in _TEXT_FILL else 0
                     batch.append(row)
                     found += 1
                     _turbo_state["found"] += 1
