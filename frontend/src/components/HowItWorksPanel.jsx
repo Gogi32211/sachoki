@@ -343,7 +343,7 @@ export default function HowItWorksPanel() {
                 {[
                   ['N',      'number of times signal fired in the 2-year window'],
                   ['Bull%',  '% of fires where the next bar closed higher'],
-                  ['+1bar',  'avg % return on the very next bar's close'],
+                  ['+1bar',  "avg % return on the very next bar's close"],
                   ['max3',   'avg max-high reached within the next 3 bars (best exit opportunity)'],
                   ['max5',   'avg max-high reached within the next 5 bars — primary ranking metric'],
                   ['DD3',    'avg max drawdown (lowest low) over the next 3 bars — risk side'],
