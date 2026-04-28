@@ -21,8 +21,15 @@ export default function CandleChart({ ticker, tf, onChartReady }) {
   const chartRef     = useRef(null)
   const seriesRef    = useRef(null)
   const volSeriesRef = useRef(null)
-  const [error, setError]     = useState(null)
-  const [loading, setLoading] = useState(false)
+  const [error, setError]       = useState(null)
+  const [loading, setLoading]   = useState(false)
+  const [tickerInfo, setTickerInfo] = useState(null)
+
+  useEffect(() => {
+    if (!ticker) return
+    setTickerInfo(null)
+    api.tickerInfo(ticker).then(setTickerInfo).catch(() => {})
+  }, [ticker])
 
   // Init chart once
   useEffect(() => {
@@ -150,6 +157,11 @@ export default function CandleChart({ ticker, tf, onChartReady }) {
         <div className="flex items-center gap-3">
           <span className="font-semibold text-sm">
             {ticker} <span className="text-gray-500 font-normal">{tf}</span>
+            {tickerInfo?.sector && (
+              <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+                {tickerInfo.sector}
+              </span>
+            )}
           </span>
           {/* Bucket legend */}
           <div className="hidden md:flex items-center gap-1.5 text-xs text-gray-500">
