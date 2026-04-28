@@ -18,7 +18,8 @@ import os
 import logging
 import time
 from datetime import datetime, timezone
-from concurrent.futures import ThreadPoolExecutor, as_completed
+import concurrent.futures
+from concurrent.futures import ThreadPoolExecutor, as_completed, wait as _cf_wait, FIRST_COMPLETED
 
 import json
 import numpy as np
@@ -1379,22 +1380,46 @@ def run_turbo_scan(
     cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
     ph   = ", ".join(f":{c}" for c in cols)
     found = 0
+    pool = ThreadPoolExecutor(max_workers=workers)
     try:
-        with ThreadPoolExecutor(max_workers=workers) as pool:
-            futures = {
-                pool.submit(
-                    _scan_turbo_ticker, t, interval, min_price, max_price,
-                    spy_chg, iwm_chg, partial_day, min_volume
-                ): t
-                for t in tickers
-            }
-            batch: list[dict] = []
-            for fut in as_completed(futures):
-                if not _turbo_state.get("running", True):
-                    log.info("Turbo scan stopped by Force Stop")
-                    break
+        futures = {
+            pool.submit(
+                _scan_turbo_ticker, t, interval, min_price, max_price,
+                spy_chg, iwm_chg, partial_day, min_volume
+            ): t
+            for t in tickers
+        }
+        batch: list[dict] = []
+        remaining = set(futures.keys())
+
+        # Poll with a 45-second timeout per round: if no worker finishes in 45s
+        # all active threads are stuck on a hung socket — abort immediately
+        # instead of waiting forever (old `as_completed` + `with pool` combo
+        # would block the process until the stuck threads finally timeout).
+        while remaining:
+            if not _turbo_state.get("running", True):
+                log.info("Turbo scan stopped by Force Stop")
+                for f in remaining:
+                    f.cancel()
+                break
+            done_futs, remaining = _cf_wait(
+                remaining, timeout=45, return_when=FIRST_COMPLETED
+            )
+            if not done_futs:
+                log.error(
+                    "Turbo scan: no progress in 45s, %d workers stuck — aborting",
+                    len(remaining),
+                )
+                _turbo_state["error"] = f"Aborted: {len(remaining)} workers stuck (network hang)"
+                for f in remaining:
+                    f.cancel()
+                break
+            for fut in done_futs:
                 _turbo_state["done"] += 1
-                row = fut.result()
+                try:
+                    row = fut.result(timeout=1)
+                except Exception:
+                    row = None
                 if row:
                     row["scan_id"]    = scan_id
                     row["scanned_at"] = now_iso
@@ -1411,12 +1436,13 @@ def run_turbo_scan(
                     con.close()
                     batch.clear()
                     gc.collect()  # release DataFrame memory between batches
-            # flush remaining
-            if batch:
-                con = _db()
-                con.executemany(f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})", batch)
-                con.commit()
-                con.close()
+
+        # flush remaining
+        if batch:
+            con = _db()
+            con.executemany(f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})", batch)
+            con.commit()
+            con.close()
 
         # mark completed
         con = _db()
@@ -1437,6 +1463,10 @@ def run_turbo_scan(
         con.commit()
         con.close()
     finally:
+        try:
+            pool.shutdown(wait=False, cancel_futures=True)
+        except TypeError:
+            pool.shutdown(wait=False)
         if not _keep_running:
             _turbo_state["running"] = False
             _turbo_state["completed_at"] = time.time()
