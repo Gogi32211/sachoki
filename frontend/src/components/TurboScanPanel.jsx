@@ -660,6 +660,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
   const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
+  const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
@@ -717,6 +718,28 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
 
+  // Lazy-batch sector fetch: after results load, fetch sectors for tickers missing them
+  useEffect(() => {
+    if (!allResults.length) return
+    const sorted = [...allResults].sort((a, b) => (b.turbo_score ?? 0) - (a.turbo_score ?? 0))
+    const missing = sorted
+      .filter(r => !r.sector && !sectorMap[r.ticker])
+      .slice(0, 200)
+      .map(r => r.ticker)
+    if (!missing.length) return
+    api.tickerInfoBatch(missing)
+      .then(data => {
+        setSectorMap(prev => {
+          const next = { ...prev }
+          for (const [ticker, info] of Object.entries(data)) {
+            if (info.sector) next[ticker] = info.sector
+          }
+          return next
+        })
+      })
+      .catch(() => {})
+  }, [allResults]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Listen for Admin-triggered scan completing — switch universe/tf and reload cache
   useEffect(() => {
     const onCached = (e) => {
@@ -751,7 +774,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (score < minScore) return false
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
-      if (secFilter && !(r.sector || '').toLowerCase().includes(secFilter)) return false
+      if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
@@ -780,7 +803,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1103,9 +1126,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
             {s.label}
           </button>
         ))}
-        {secFilter && (
-          <span className="ml-1 text-gray-600 text-xs">
-            — sector data available after next scan
+        {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
+          <span className="ml-1 text-gray-600 text-xs animate-pulse">
+            — loading sectors…
           </span>
         )}
       </div>

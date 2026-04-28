@@ -615,9 +615,6 @@ def _scan_turbo_ticker(
         except Exception:
             row["ema20"] = row["ema50"] = row["ema89"] = row["ema200"] = 0.0
 
-        # ── Sector (GICS, cached from yfinance info) ──────────────────────
-        row["sector"] = _get_sector(ticker)
-
         # ── Price range filter ─────────────────────────────────────────────
         if price < min_price or price > max_price:
             return None
@@ -1212,6 +1209,117 @@ def _scan_turbo_ticker(
         return None
 
 
+# ── Fast-path: copy sub-universe results from a recent all_us scan ────────────
+def _copy_from_allus_if_recent(interval: str, universe: str) -> int | None:
+    """
+    If a recent all_us scan exists for this interval, copy + filter its results
+    for the requested sub-universe without re-scanning. Returns row count or None.
+    Cutoff: 36 h for daily/weekly, 2 h for intraday.
+    """
+    cutoff_h = 36 if interval in ("1d", "1wk") else 2
+    con = _db()
+    try:
+        row = con.execute(
+            "SELECT id, completed_at FROM turbo_scan_runs "
+            "WHERE tf=? AND universe='all_us' AND completed_at IS NOT NULL "
+            "ORDER BY id DESC LIMIT 1",
+            (interval,),
+        ).fetchone()
+    finally:
+        con.close()
+    if not row:
+        return None
+    try:
+        ca_str = row["completed_at"].rstrip("Z").split("+")[0]
+        ca = datetime.fromisoformat(ca_str).replace(tzinfo=timezone.utc)
+        if (datetime.now(timezone.utc) - ca).total_seconds() / 3600 > cutoff_h:
+            return None
+    except Exception:
+        return None
+
+    all_us_scan_id = row["id"]
+
+    # Build sub-universe ticker set from static fallback lists (instant, no network)
+    try:
+        from scanner import _FALLBACK, _NASDAQ_EXTRA, _RUSSELL2K_FALLBACK
+        if universe == "sp500":
+            tickers_set = set(_FALLBACK)
+        elif universe == "nasdaq":
+            tickers_set = set(list(_FALLBACK) + list(_NASDAQ_EXTRA))
+        else:  # russell2k
+            tickers_set = set(list(_FALLBACK) + list(_RUSSELL2K_FALLBACK))
+    except Exception:
+        return None
+
+    # Augment with pickle cache if available (populated by previous full scans)
+    import tempfile as _tmp, pickle as _pkl, os as _os
+    cache_key = universe if universe != "russell2k" else "russell2k"
+    _cp = _os.path.join(_tmp.gettempdir(), f"sachoki_tickers_{cache_key}.pkl")
+    try:
+        if _os.path.exists(_cp):
+            with open(_cp, "rb") as f:
+                cached = _pkl.load(f)
+            if cached:
+                tickers_set = tickers_set | set(cached)
+    except Exception:
+        pass
+
+    now_iso = datetime.now(timezone.utc).isoformat()
+    con = _db()
+    try:
+        _ret = " RETURNING id" if USE_PG else ""
+        scan_id = con.execute(
+            f"INSERT INTO turbo_scan_runs (tf, universe, started_at, completed_at) VALUES (?, ?, ?, ?){_ret}",
+            (interval, universe, now_iso, now_iso),
+        ).lastrowid
+        con.commit()
+
+        rows = con.execute(
+            "SELECT * FROM turbo_scan_results WHERE scan_id=?",
+            (all_us_scan_id,),
+        ).fetchall()
+
+        batch: list[dict] = []
+        for r in rows:
+            if r["ticker"] not in tickers_set:
+                continue
+            d = {k: v for k, v in r.items() if k != "id"}
+            d["scan_id"] = scan_id
+            d["scanned_at"] = now_iso
+            batch.append(d)
+
+        if batch:
+            cols = list(batch[0].keys())
+            ph = ", ".join(f":{c}" for c in cols)
+            con.executemany(
+                f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})",
+                batch,
+            )
+
+        found = len(batch)
+        con.execute(
+            "UPDATE turbo_scan_runs SET result_count=? WHERE id=?",
+            (found, scan_id),
+        )
+        con.execute("""
+            DELETE FROM turbo_scan_results WHERE scan_id IN (
+                SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
+            ) AND scan_id NOT IN (
+                SELECT id FROM turbo_scan_runs
+                WHERE tf=? AND universe=? AND completed_at IS NOT NULL
+                ORDER BY id DESC LIMIT 3
+            )
+        """, (interval, universe, interval, universe))
+        con.commit()
+    finally:
+        con.close()
+
+    log.info("Fast-copy %d results all_us→%s tf=%s (age %.1fh)",
+             found, universe, interval,
+             (datetime.now(timezone.utc) - ca).total_seconds() / 3600)
+    return found
+
+
 # ── Scan runner ───────────────────────────────────────────────────────────────
 def run_turbo_scan(
     interval: str = "1d",
@@ -1236,6 +1344,19 @@ def run_turbo_scan(
         "partial_day": partial_day,
         "started_at": time.time(), "completed_at": None, "error": None,
     })
+
+    # ── Fast path: derive sub-universe from a recent all_us scan ─────────────
+    if universe in ("sp500", "nasdaq", "russell2k"):
+        found = _copy_from_allus_if_recent(interval, universe)
+        if found is not None:
+            _turbo_state.update({
+                "done": found, "total": found, "found": found,
+            })
+            if not _keep_running:
+                _turbo_state["running"] = False
+                _turbo_state["completed_at"] = time.time()
+            return found
+
     try:
         tickers = get_universe_tickers(universe)
     except Exception as exc:
