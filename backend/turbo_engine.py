@@ -38,6 +38,20 @@ from delta_engine   import compute_delta
 
 log = logging.getLogger(__name__)
 
+# ── Sector cache (survives for process lifetime; sectors rarely change) ────────
+_SECTOR_CACHE: dict[str, str] = {}
+
+def _get_sector(ticker: str) -> str:
+    if ticker in _SECTOR_CACHE:
+        return _SECTOR_CACHE[ticker]
+    try:
+        import yfinance as yf
+        s = yf.Ticker(ticker).info.get("sector", "") or ""
+    except Exception:
+        s = ""
+    _SECTOR_CACHE[ticker] = s
+    return s
+
 # ── Progress ──────────────────────────────────────────────────────────────────
 _turbo_state: dict = {
     "running": False,
