@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect, useCallback, useMemo } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'react'
 import { api } from '../api'
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
@@ -157,14 +157,26 @@ export default function SuperchartPanel({
   initialTicker = 'AAPL', initialTf = '1d',
   onTickerChange,
 }) {
-  const [ticker, setTicker]     = useState(initialTicker)
-  const [inputVal, setInputVal] = useState(initialTicker)
-  const [tf, setTf]             = useState(initialTf)
-  const [bars, setBars]         = useState([])
-  const [loading, setLoading]   = useState(false)
-  const [error, setError]       = useState(null)
+  const [ticker, setTicker]       = useState(initialTicker)
+  const [inputVal, setInputVal]   = useState(initialTicker)
+  const [tf, setTf]               = useState(initialTf)
+  const [bars, setBars]           = useState([])
+  const [loading, setLoading]     = useState(false)
+  const [error, setError]         = useState(null)
+  const [showStats, setShowStats] = useState(false)
+  const [statsData, setStatsData] = useState(null)
+  const [statsLoading, setStatsLoading] = useState(false)
+  const [statsSort, setStatsSort] = useState('avg_5bar')
   const matrixRef  = useRef(null)
   const isIntraday = ['4h', '1h', '30m', '15m'].includes(tf)
+
+  // Stats rows sorted by selected column
+  const sortedStats = useMemo(() => {
+    if (!statsData?.results) return []
+    return Object.entries(statsData.results)
+      .filter(([, v]) => (v.n ?? 0) >= 3 && !v.warning)
+      .sort(([, a], [, b]) => (b[statsSort] ?? -999) - (a[statsSort] ?? -999))
+  }, [statsData, statsSort])
 
   // Mini-candle global price range
   const { globalMin, globalRange } = useMemo(() => {
@@ -192,7 +204,19 @@ export default function SuperchartPanel({
       .finally(() => setLoading(false))
   }, [])
 
+  const loadStats = useCallback((t, f) => {
+    setStatsLoading(true)
+    api.signalStats(t, f, [], false, 3)
+      .then(d => setStatsData(d))
+      .catch(() => setStatsData(null))
+      .finally(() => setStatsLoading(false))
+  }, [])
+
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
+
+  useEffect(() => {
+    if (showStats) { setStatsData(null); loadStats(ticker, tf) }
+  }, [ticker, tf])
 
   const handleSubmit = (e) => {
     e.preventDefault()
@@ -224,6 +248,18 @@ export default function SuperchartPanel({
             </button>
           ))}
         </div>
+        <button
+          onClick={() => {
+            const next = !showStats
+            setShowStats(next)
+            if (next && !statsData) loadStats(ticker, tf)
+          }}
+          className={`text-xs px-2 py-1 rounded transition-colors border
+            ${showStats
+              ? 'bg-violet-700 border-violet-500 text-white'
+              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
+          📊 Stats
+        </button>
         {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
         {error   && <span className="text-xs text-red-400">{error}</span>}
       </div>
@@ -347,6 +383,91 @@ export default function SuperchartPanel({
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {/* ── Signal Statistics Panel ── */}
+      {showStats && (
+        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-800 bg-gray-950">
+            <span className="text-xs font-semibold text-violet-300">Signal Performance — {ticker} {tf.toUpperCase()}</span>
+            <span className="text-xs text-gray-500">avg max-high over next N bars · sorted by</span>
+            {statsLoading && <span className="text-xs text-gray-500 animate-pulse ml-auto">loading…</span>}
+          </div>
+
+          {statsLoading ? (
+            <div className="p-6 text-xs text-gray-600 text-center animate-pulse">Computing stats for all signals…</div>
+          ) : !statsData || statsData.error ? (
+            <div className="p-4 text-xs text-red-400">Could not load stats — {statsData?.error ?? 'unknown error'}</div>
+          ) : sortedStats.length === 0 ? (
+            <div className="p-4 text-xs text-gray-500">Not enough data (need ≥3 occurrences per signal)</div>
+          ) : (
+            <div className="overflow-x-auto">
+              <table className="w-full text-xs border-collapse">
+                <thead>
+                  <tr className="border-b border-gray-700 bg-gray-950 text-gray-500 select-none">
+                    <th className="text-left px-3 py-1.5 sticky left-0 bg-gray-950 font-normal">Signal</th>
+                    {[
+                      ['n',         'N',     'occurrences'],
+                      ['bull_rate', 'Bull%', 'next bar closed higher'],
+                      ['avg_1bar',  '+1bar', 'avg % close next bar'],
+                      ['avg_3bar',  'max3',  'avg max-high over 3 bars'],
+                      ['avg_5bar',  'max5',  'avg max-high over 5 bars ★'],
+                      ['mae_3',     'DD3',   'avg max drawdown over 3 bars'],
+                      ['false_rate','False%','% fires with no gain over 3 bars'],
+                    ].map(([col, label, title]) => (
+                      <th key={col}
+                        title={title}
+                        onClick={() => setStatsSort(col)}
+                        className={`text-right px-2 py-1.5 cursor-pointer whitespace-nowrap font-normal hover:text-white transition-colors
+                          ${statsSort === col ? 'text-violet-300 bg-violet-950/40' : ''}`}>
+                        {label}{statsSort === col ? ' ▼' : ''}
+                      </th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {sortedStats.map(([key, st], idx) => {
+                    const label = statsData.labels?.[key] ?? key
+                    return (
+                      <tr key={key}
+                        className={`border-b border-gray-800/40 hover:bg-gray-800/30 ${idx === 0 && statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}`}>
+                        <td className="px-3 py-1 sticky left-0 bg-gray-900 text-gray-300 whitespace-nowrap font-mono" style={{ fontSize: 11 }}>
+                          {label}
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono text-gray-400">{st.n}</td>
+                        <td className={`px-2 py-1 text-right font-mono
+                          ${st.bull_rate >= 0.65 ? 'text-lime-300' : st.bull_rate >= 0.55 ? 'text-green-400' : st.bull_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {Math.round(st.bull_rate * 100)}%
+                        </td>
+                        <td className={`px-2 py-1 text-right font-mono ${st.avg_1bar > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                          {st.avg_1bar > 0 ? '+' : ''}{st.avg_1bar?.toFixed(1)}%
+                        </td>
+                        <td className={`px-2 py-1 text-right font-mono ${st.avg_3bar > 1.5 ? 'text-green-400' : st.avg_3bar > 0 ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {st.avg_3bar > 0 ? '+' : ''}{st.avg_3bar?.toFixed(1)}%
+                        </td>
+                        <td className={`px-2 py-1 text-right font-mono font-semibold
+                          ${statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}
+                          ${st.avg_5bar > 4 ? 'text-lime-300' : st.avg_5bar > 2 ? 'text-green-400' : st.avg_5bar > 0 ? 'text-gray-300' : 'text-gray-600'}`}>
+                          {st.avg_5bar > 0 ? '+' : ''}{st.avg_5bar?.toFixed(1)}%
+                        </td>
+                        <td className="px-2 py-1 text-right font-mono text-red-400/80">
+                          {st.mae_3?.toFixed(1)}%
+                        </td>
+                        <td className={`px-2 py-1 text-right font-mono
+                          ${st.false_rate < 0.25 ? 'text-green-400' : st.false_rate < 0.4 ? 'text-yellow-400' : 'text-red-400'}`}>
+                          {Math.round(st.false_rate * 100)}%
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+              <div className="px-3 py-2 text-xs text-gray-600">
+                {statsData.bars} bars analysed · signals with &lt;3 occurrences hidden · click column header to re-sort
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>

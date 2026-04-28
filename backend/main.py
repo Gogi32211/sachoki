@@ -669,12 +669,14 @@ def api_turbo_analyze(ticker: str, tf: str = "1d"):
 def api_signal_stats(
     ticker: str,
     tf: str = "1d",
-    signals: str = "tz_bull,best_sig,vbo_up",
+    signals: str = "",
     combo: bool = False,
-    min_n: int = 5,
+    min_n: int = 3,
 ):
-    from signal_stats_engine import run_signal_stats
+    from signal_stats_engine import run_signal_stats, SIGNAL_LABELS
     sig_list = [s.strip() for s in signals.split(",") if s.strip()]
+    if not sig_list:
+        sig_list = list(SIGNAL_LABELS.keys())
     return run_signal_stats(ticker.upper(), tf, sig_list, combo=combo, min_n=min_n)
 
 
