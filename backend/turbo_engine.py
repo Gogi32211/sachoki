@@ -1403,11 +1403,11 @@ def run_turbo_scan(
                     f.cancel()
                 break
             done_futs, remaining = _cf_wait(
-                remaining, timeout=45, return_when=FIRST_COMPLETED
+                remaining, timeout=90, return_when=FIRST_COMPLETED
             )
             if not done_futs:
                 log.error(
-                    "Turbo scan: no progress in 45s, %d workers stuck — aborting",
+                    "Turbo scan: no progress in 90s, %d workers stuck — aborting",
                     len(remaining),
                 )
                 _turbo_state["error"] = f"Aborted: {len(remaining)} workers stuck (network hang)"
