@@ -24,6 +24,9 @@ export const api = {
   tickerInfo: (ticker) =>
     get(`/api/ticker-info/${ticker}`),
 
+  tickerInfoBatch: (tickers) =>
+    post('/api/ticker-info-batch', { tickers }),
+
   wlnbb: (ticker, tf = '1d', bars = 150) =>
     get(`/api/wlnbb/${ticker}?tf=${tf}&bars=${bars}`),
 
