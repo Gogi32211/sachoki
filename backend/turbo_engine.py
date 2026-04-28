@@ -222,7 +222,8 @@ def _init_db() -> None:
             universe     TEXT    DEFAULT 'sp500',
             started_at   TEXT,
             completed_at TEXT,
-            result_count INTEGER DEFAULT 0
+            result_count INTEGER DEFAULT 0,
+            is_complete  INTEGER DEFAULT NULL
         );
         CREATE TABLE IF NOT EXISTS turbo_scan_results (
             id         {_pk},
@@ -255,6 +256,8 @@ def _init_db() -> None:
             con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN tf TEXT DEFAULT '1d'")
         if "universe" not in run_cols:
             con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN universe TEXT DEFAULT 'sp500'")
+        if "is_complete" not in run_cols:
+            con.execute("ALTER TABLE turbo_scan_runs ADD COLUMN is_complete INTEGER DEFAULT NULL")
         con.commit()
     except Exception as _mig_exc:
         log.warning("_init_db migration warning (non-fatal): %s", _mig_exc)
@@ -1187,8 +1190,9 @@ def _copy_from_allus_if_recent(interval: str, universe: str) -> int | None:
     con = _db()
     try:
         row = con.execute(
-            "SELECT id, completed_at FROM turbo_scan_runs "
+            "SELECT id, completed_at, result_count FROM turbo_scan_runs "
             "WHERE tf=? AND universe='all_us' AND completed_at IS NOT NULL "
+            "AND is_complete = 1 "
             "ORDER BY id DESC LIMIT 1",
             (interval,),
         ).fetchone()
@@ -1236,7 +1240,7 @@ def _copy_from_allus_if_recent(interval: str, universe: str) -> int | None:
     try:
         _ret = " RETURNING id" if USE_PG else ""
         scan_id = con.execute(
-            f"INSERT INTO turbo_scan_runs (tf, universe, started_at, completed_at) VALUES (?, ?, ?, ?){_ret}",
+            f"INSERT INTO turbo_scan_runs (tf, universe, started_at, completed_at, is_complete) VALUES (?, ?, ?, ?, 1){_ret}",
             (interval, universe, now_iso, now_iso),
         ).lastrowid
         con.commit()
@@ -1273,7 +1277,7 @@ def _copy_from_allus_if_recent(interval: str, universe: str) -> int | None:
                 SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
             ) AND scan_id NOT IN (
                 SELECT id FROM turbo_scan_runs
-                WHERE tf=? AND universe=? AND completed_at IS NOT NULL
+                WHERE tf=? AND universe=? AND is_complete=1
                 ORDER BY id DESC LIMIT 3
             )
         """, (interval, universe, interval, universe))
@@ -1391,8 +1395,9 @@ def run_turbo_scan(
         }
         batch: list[dict] = []
         remaining = set(futures.keys())
+        aborted = False
 
-        # Poll with a 45-second timeout per round: if no worker finishes in 45s
+        # Poll with a 90-second timeout per round: if no worker finishes in 90s
         # all active threads are stuck on a hung socket — abort immediately
         # instead of waiting forever (old `as_completed` + `with pool` combo
         # would block the process until the stuck threads finally timeout).
@@ -1401,6 +1406,7 @@ def run_turbo_scan(
                 log.info("Turbo scan stopped by Force Stop")
                 for f in remaining:
                     f.cancel()
+                aborted = True
                 break
             done_futs, remaining = _cf_wait(
                 remaining, timeout=90, return_when=FIRST_COMPLETED
@@ -1413,6 +1419,7 @@ def run_turbo_scan(
                 _turbo_state["error"] = f"Aborted: {len(remaining)} workers stuck (network hang)"
                 for f in remaining:
                     f.cancel()
+                aborted = True
                 break
             for fut in done_futs:
                 _turbo_state["done"] += 1
@@ -1444,24 +1451,32 @@ def run_turbo_scan(
             con.commit()
             con.close()
 
-        # mark completed
-        con = _db()
-        con.execute(
-            "UPDATE turbo_scan_runs SET completed_at=?, result_count=? WHERE id=?",
-            (datetime.now(timezone.utc).isoformat(), found, scan_id),
-        )
-        # Keep last 3 completed runs per tf+universe combo (only touch this tf+universe)
-        con.execute("""
-            DELETE FROM turbo_scan_results WHERE scan_id IN (
-                SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
-            ) AND scan_id NOT IN (
-                SELECT id FROM turbo_scan_runs
-                WHERE tf=? AND universe=? AND completed_at IS NOT NULL
-                ORDER BY id DESC LIMIT 3
+        if not aborted:
+            # mark completed — only for scans that ran to full completion
+            con = _db()
+            con.execute(
+                "UPDATE turbo_scan_runs SET completed_at=?, result_count=?, is_complete=1 WHERE id=?",
+                (datetime.now(timezone.utc).isoformat(), found, scan_id),
             )
-        """, (interval, universe, interval, universe))
-        con.commit()
-        con.close()
+            # Keep last 3 completed runs per tf+universe combo (only touch this tf+universe)
+            con.execute("""
+                DELETE FROM turbo_scan_results WHERE scan_id IN (
+                    SELECT id FROM turbo_scan_runs WHERE tf=? AND universe=?
+                ) AND scan_id NOT IN (
+                    SELECT id FROM turbo_scan_runs
+                    WHERE tf=? AND universe=? AND is_complete=1
+                    ORDER BY id DESC LIMIT 3
+                )
+            """, (interval, universe, interval, universe))
+            con.commit()
+            con.close()
+        else:
+            # aborted — remove partial results so they don't accumulate
+            con = _db()
+            con.execute("DELETE FROM turbo_scan_results WHERE scan_id=?", (scan_id,))
+            con.execute("DELETE FROM turbo_scan_runs WHERE id=?", (scan_id,))
+            con.commit()
+            con.close()
     finally:
         try:
             pool.shutdown(wait=False, cancel_futures=True)
