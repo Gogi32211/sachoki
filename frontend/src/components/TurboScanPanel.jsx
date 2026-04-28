@@ -88,6 +88,21 @@ const SIG_GROUPS = [
   { key: 'g11',       label: 'G11',  cls: 'text-yellow-300'  },
   { key: 'seq_bcont', label: 'SBC',  cls: 'text-violet-300'  },
   { divider: true },
+  // ── B signals (260321_B_BUILDER) — T/Z multi-bar sequences ───────────
+  { key: '_any_b', label: 'ANY B', cls: 'text-amber-200 font-semibold',
+    custom: r => !!(r.b1||r.b2||r.b3||r.b4||r.b5||r.b6||r.b7||r.b8||r.b9||r.b10||r.b11) },
+  { key: 'b1',  label: 'B1',  cls: 'text-lime-300'    },
+  { key: 'b2',  label: 'B2',  cls: 'text-cyan-300'    },
+  { key: 'b3',  label: 'B3',  cls: 'text-teal-300'    },
+  { key: 'b4',  label: 'B4',  cls: 'text-blue-300'    },
+  { key: 'b5',  label: 'B5',  cls: 'text-green-300'   },
+  { key: 'b6',  label: 'B6',  cls: 'text-emerald-300' },
+  { key: 'b7',  label: 'B7',  cls: 'text-sky-300'     },
+  { key: 'b8',  label: 'B8',  cls: 'text-indigo-300'  },
+  { key: 'b9',  label: 'B9',  cls: 'text-violet-300'  },
+  { key: 'b10', label: 'B10', cls: 'text-purple-300'  },
+  { key: 'b11', label: 'B11', cls: 'text-fuchsia-300' },
+  { divider: true },
   // ── T/Z ───────────────────────────────────────────────────────────────
   { key: '_tz_bull',   label: 'T/Z↑',   cls: 'text-violet-300',
     custom: r => !!r.tz_sig },
@@ -1246,6 +1261,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.g6  ? <Badge label="G6"  cls="bg-orange-700/60 text-orange-200" /> : null}
                     {r.g11 ? <Badge label="G11" cls="bg-yellow-700/60 text-yellow-200" /> : null}
                     {r.seq_bcont   ? <Badge label="SBC"  cls="bg-violet-800/60 text-violet-200" /> : null}
+                    {/* B signals (260321) */}
+                    {r.b1  ? <Badge label="B1"  cls="bg-lime-800/60 text-lime-200" /> : null}
+                    {r.b2  ? <Badge label="B2"  cls="bg-cyan-800/60 text-cyan-200" /> : null}
+                    {r.b3  ? <Badge label="B3"  cls="bg-teal-800/60 text-teal-200" /> : null}
+                    {r.b4  ? <Badge label="B4"  cls="bg-blue-800/60 text-blue-200" /> : null}
+                    {r.b5  ? <Badge label="B5"  cls="bg-green-800/60 text-green-200" /> : null}
+                    {r.b6  ? <Badge label="B6"  cls="bg-emerald-800/60 text-emerald-200" /> : null}
+                    {r.b7  ? <Badge label="B7"  cls="bg-sky-800/60 text-sky-200" /> : null}
+                    {r.b8  ? <Badge label="B8"  cls="bg-indigo-800/60 text-indigo-200" /> : null}
+                    {r.b9  ? <Badge label="B9"  cls="bg-violet-800/60 text-violet-200" /> : null}
+                    {r.b10 ? <Badge label="B10" cls="bg-purple-800/60 text-purple-200" /> : null}
+                    {r.b11 ? <Badge label="B11" cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
                     {r.tz_bull_flip ? <Badge label="TZ→3" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.tz_attempt && !r.tz_bull_flip ? <Badge label="TZ→2" cls="bg-cyan-800/50 text-cyan-200" /> : null}
                     {/* RGTI 260404 + SMX 260402 */}
