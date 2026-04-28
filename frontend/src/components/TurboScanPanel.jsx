@@ -446,6 +446,12 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       borderUpColor: '#22c55e', borderDownColor: '#ef4444',
       wickUpColor: '#22c55e', wickDownColor: '#ef4444',
     })
+    const volSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'vol',
+      color: '#374151',
+    })
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
     chartRef.current = chart
 
     api.signals(row.ticker, tf, 80)
@@ -463,8 +469,13 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
           .filter(r => r.close != null && toTime(r))
           .map(r => ({ time: toTime(r), open: Number(r.open), high: Number(r.high), low: Number(r.low), close: Number(r.close) }))
           .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+        const volumes = rows
+          .filter(r => r.volume != null && toTime(r))
+          .map(r => ({ time: toTime(r), value: Number(r.volume), color: '#374151' }))
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
         if (bars.length) {
           series.setData(bars)
+          volSeries.setData(volumes)
           chart.timeScale().fitContent()
         }
         setLoading(false)
@@ -570,6 +581,7 @@ const KEEP_ALWAYS = new Set([
   'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
   'vol_bucket','data_source',
   'ema20','ema50','ema89','ema200',
+  'sector',
 ])
 function _slimRow(r) {
   const out = {}
@@ -647,6 +659,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [massiveReady, setMassiveReady] = useState(null)
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
+  const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
@@ -738,6 +751,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (score < minScore) return false
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
+      if (secFilter && !(r.sector || '').toLowerCase().includes(secFilter)) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
@@ -766,7 +780,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1061,6 +1075,38 @@ export default function TurboScanPanel({ onSelectTicker }) {
             className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
             ✕ clear
           </button>
+        )}
+      </div>
+
+      {/* ── Row 3: Sector filter ── */}
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Sector</span>
+        {[
+          { label: 'All',  val: '',            cls: 'text-gray-400' },
+          { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
+          { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
+          { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
+          { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
+          { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
+          { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
+          { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
+          { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
+          { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
+          { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
+          { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
+        ].map(s => (
+          <button key={s.val} onClick={() => setSecFilter(s.val)}
+            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+              ${secFilter === s.val
+                ? `${s.cls} bg-gray-700 font-semibold`
+                : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+            {s.label}
+          </button>
+        ))}
+        {secFilter && (
+          <span className="ml-1 text-gray-600 text-xs">
+            — sector data available after next scan
+          </span>
         )}
       </div>
 
