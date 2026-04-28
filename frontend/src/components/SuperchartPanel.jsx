@@ -212,6 +212,42 @@ export default function SuperchartPanel({
       .finally(() => setStatsLoading(false))
   }, [])
 
+  const exportCsv = useCallback(() => {
+    if (!bars.length) return
+    const join = (arr) => (arr ?? []).join(' ')
+    const headers = [
+      'date','open','high','low','close','vol_bucket','turbo_score',
+      'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
+    ]
+    const rows = bars.map(b => [
+      b.date,
+      b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
+      b.vol_bucket ?? '',
+      b.turbo_score ?? 0,
+      b.tz?.startsWith('Z') ? b.tz : '',
+      b.tz?.startsWith('T') ? b.tz : '',
+      join(b.l),
+      join(b.f),
+      join(b.fly),
+      join(b.g),
+      join(b.b),
+      join((b.combo ?? []).filter(s => !PREUP_SET.has(s))),
+      join(b.ultra),
+      join(b.vol),
+      join(b.vabs),
+      join(b.wick),
+    ])
+    const csv = [headers, ...rows]
+      .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
+      .join('\n')
+    const blob = new Blob([csv], { type: 'text/csv' })
+    const a = document.createElement('a')
+    a.href = URL.createObjectURL(blob)
+    a.download = `${ticker}_${tf}_signals.csv`
+    a.click()
+    URL.revokeObjectURL(a.href)
+  }, [bars, ticker, tf])
+
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
 
   useEffect(() => {
@@ -260,6 +296,14 @@ export default function SuperchartPanel({
               : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
           📊 Stats
         </button>
+        {bars.length > 0 && (
+          <button
+            onClick={exportCsv}
+            title={`Download ${ticker} ${tf.toUpperCase()} signal data as CSV`}
+            className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:text-white transition-colors">
+            ⬇ CSV
+          </button>
+        )}
         {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
         {error   && <span className="text-xs text-red-400">{error}</span>}
       </div>
