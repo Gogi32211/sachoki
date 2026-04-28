@@ -507,16 +507,17 @@ def _fetch_htf(ticker: str, interval: str, days: int) -> "pd.DataFrame | None":
             df = fetch_bars(ticker, interval=interval, days=days)
         except Exception:
             pass
-    if df is None or df.empty:
+        return df if df is not None and len(df) >= 20 else None
+    # Only try yfinance when Polygon is not configured
+    try:
         import yfinance as yf
         period = "60d" if days <= 60 else "90d"
-        try:
-            raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
-            if raw is not None and not raw.empty:
-                raw.columns = [str(c).lower() for c in raw.columns]
-                df = raw[["open", "high", "low", "close", "volume"]].dropna()
-        except Exception:
-            pass
+        raw = yf.Ticker(ticker).history(period=period, interval=interval, auto_adjust=True)
+        if raw is not None and not raw.empty:
+            raw.columns = [str(c).lower() for c in raw.columns]
+            df = raw[["open", "high", "low", "close", "volume"]].dropna()
+    except Exception:
+        pass
     return df if df is not None and len(df) >= 20 else None
 
 
