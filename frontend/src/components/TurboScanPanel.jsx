@@ -88,6 +88,21 @@ const SIG_GROUPS = [
   { key: 'g11',       label: 'G11',  cls: 'text-yellow-300'  },
   { key: 'seq_bcont', label: 'SBC',  cls: 'text-violet-300'  },
   { divider: true },
+  // ── B signals (260321_B_BUILDER) — T/Z multi-bar sequences ───────────
+  { key: '_any_b', label: 'ANY B', cls: 'text-amber-200 font-semibold',
+    custom: r => !!(r.b1||r.b2||r.b3||r.b4||r.b5||r.b6||r.b7||r.b8||r.b9||r.b10||r.b11) },
+  { key: 'b1',  label: 'B1',  cls: 'text-lime-300'    },
+  { key: 'b2',  label: 'B2',  cls: 'text-cyan-300'    },
+  { key: 'b3',  label: 'B3',  cls: 'text-teal-300'    },
+  { key: 'b4',  label: 'B4',  cls: 'text-blue-300'    },
+  { key: 'b5',  label: 'B5',  cls: 'text-green-300'   },
+  { key: 'b6',  label: 'B6',  cls: 'text-emerald-300' },
+  { key: 'b7',  label: 'B7',  cls: 'text-sky-300'     },
+  { key: 'b8',  label: 'B8',  cls: 'text-indigo-300'  },
+  { key: 'b9',  label: 'B9',  cls: 'text-violet-300'  },
+  { key: 'b10', label: 'B10', cls: 'text-purple-300'  },
+  { key: 'b11', label: 'B11', cls: 'text-fuchsia-300' },
+  { divider: true },
   // ── T/Z ───────────────────────────────────────────────────────────────
   { key: '_tz_bull',   label: 'T/Z↑',   cls: 'text-violet-300',
     custom: r => !!r.tz_sig },
@@ -167,6 +182,8 @@ const SIG_GROUPS = [
   { key: 'd_vd_div_bear',     label: 'ND',     cls: 'text-red-400'     },
   { divider: true },
   // ── PREUP — EMA cross ↑ ──────────────────────────────────────────────
+  { key: '_any_p', label: 'ANY P', cls: 'text-cyan-200 font-semibold',
+    custom: r => !!(r.preup66 || r.preup55 || r.preup89 || r.preup3 || r.preup2 || r.preup50) },
   { key: 'preup66', label: 'P66', cls: 'text-lime-300'    },
   { key: 'preup55', label: 'P55', cls: 'text-emerald-300' },
   { key: 'preup89', label: 'P89', cls: 'text-teal-300'    },
@@ -175,12 +192,32 @@ const SIG_GROUPS = [
   { key: 'preup50', label: 'P50', cls: 'text-sky-300'     },
   { divider: true },
   // ── PREDN — EMA drop ↓ ───────────────────────────────────────────────
+  { key: '_any_d', label: 'ANY D', cls: 'text-red-300 font-semibold',
+    custom: r => !!(r.predn66 || r.predn55 || r.predn89 || r.predn3 || r.predn2 || r.predn50) },
   { key: 'predn66', label: 'D66', cls: 'text-red-300'     },
   { key: 'predn55', label: 'D55', cls: 'text-red-400'     },
   { key: 'predn89', label: 'D89', cls: 'text-orange-400'  },
   { key: 'predn3',  label: 'D3',  cls: 'text-orange-300'  },
   { key: 'predn2',  label: 'D2',  cls: 'text-red-300'     },
   { key: 'predn50', label: 'D50', cls: 'text-orange-300'  },
+  { divider: true },
+  // ── Price vs EMA ─────────────────────────────────────────────────────
+  { key: '_gt_ema200', label: 'P>200', cls: 'text-lime-300',
+    custom: r => r.ema200 > 0 && r.last_price > r.ema200 },
+  { key: '_gt_ema89',  label: 'P>89',  cls: 'text-emerald-300',
+    custom: r => r.ema89  > 0 && r.last_price > r.ema89  },
+  { key: '_gt_ema50',  label: 'P>50',  cls: 'text-teal-300',
+    custom: r => r.ema50  > 0 && r.last_price > r.ema50  },
+  { key: '_gt_ema20',  label: 'P>20',  cls: 'text-cyan-300',
+    custom: r => r.ema20  > 0 && r.last_price > r.ema20  },
+  { key: '_lt_ema20',  label: 'P<20',  cls: 'text-red-400',
+    custom: r => r.ema20  > 0 && r.last_price < r.ema20  },
+  { key: '_lt_ema50',  label: 'P<50',  cls: 'text-orange-400',
+    custom: r => r.ema50  > 0 && r.last_price < r.ema50  },
+  { key: '_lt_ema89',  label: 'P<89',  cls: 'text-orange-300',
+    custom: r => r.ema89  > 0 && r.last_price < r.ema89  },
+  { key: '_lt_ema200', label: 'P<200', cls: 'text-red-300',
+    custom: r => r.ema200 > 0 && r.last_price < r.ema200 },
   { divider: true },
   // ── RS / Relative Strength ────────────────────────────────────────────
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
@@ -409,6 +446,12 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       borderUpColor: '#22c55e', borderDownColor: '#ef4444',
       wickUpColor: '#22c55e', wickDownColor: '#ef4444',
     })
+    const volSeries = chart.addHistogramSeries({
+      priceFormat: { type: 'volume' },
+      priceScaleId: 'vol',
+      color: '#374151',
+    })
+    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
     chartRef.current = chart
 
     api.signals(row.ticker, tf, 80)
@@ -426,8 +469,13 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
           .filter(r => r.close != null && toTime(r))
           .map(r => ({ time: toTime(r), open: Number(r.open), high: Number(r.high), low: Number(r.low), close: Number(r.close) }))
           .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
+        const volumes = rows
+          .filter(r => r.volume != null && toTime(r))
+          .map(r => ({ time: toTime(r), value: Number(r.volume), color: '#374151' }))
+          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
         if (bars.length) {
           series.setData(bars)
+          volSeries.setData(volumes)
           chart.timeScale().fitContent()
         }
         setLoading(false)
@@ -532,6 +580,8 @@ const KEEP_ALWAYS = new Set([
   'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
   'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
   'vol_bucket','data_source',
+  'ema20','ema50','ema89','ema200',
+  'sector',
 ])
 function _slimRow(r) {
   const out = {}
@@ -609,6 +659,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [massiveReady, setMassiveReady] = useState(null)
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
+  const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
+  const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
@@ -666,6 +718,28 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
   useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
 
+  // Lazy-batch sector fetch: after results load, fetch sectors for tickers missing them
+  useEffect(() => {
+    if (!allResults.length) return
+    const sorted = [...allResults].sort((a, b) => (b.turbo_score ?? 0) - (a.turbo_score ?? 0))
+    const missing = sorted
+      .filter(r => !r.sector && !sectorMap[r.ticker])
+      .slice(0, 200)
+      .map(r => r.ticker)
+    if (!missing.length) return
+    api.tickerInfoBatch(missing)
+      .then(data => {
+        setSectorMap(prev => {
+          const next = { ...prev }
+          for (const [ticker, info] of Object.entries(data)) {
+            if (info.sector) next[ticker] = info.sector
+          }
+          return next
+        })
+      })
+      .catch(() => {})
+  }, [allResults]) // eslint-disable-line react-hooks/exhaustive-deps
+
   // Listen for Admin-triggered scan completing — switch universe/tf and reload cache
   useEffect(() => {
     const onCached = (e) => {
@@ -700,6 +774,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (score < minScore) return false
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
+      if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
@@ -728,7 +803,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1026,6 +1101,38 @@ export default function TurboScanPanel({ onSelectTicker }) {
         )}
       </div>
 
+      {/* ── Row 3: Sector filter ── */}
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Sector</span>
+        {[
+          { label: 'All',  val: '',            cls: 'text-gray-400' },
+          { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
+          { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
+          { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
+          { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
+          { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
+          { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
+          { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
+          { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
+          { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
+          { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
+          { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
+        ].map(s => (
+          <button key={s.val} onClick={() => setSecFilter(s.val)}
+            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+              ${secFilter === s.val
+                ? `${s.cls} bg-gray-700 font-semibold`
+                : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+            {s.label}
+          </button>
+        ))}
+        {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
+          <span className="ml-1 text-gray-600 text-xs animate-pulse">
+            — loading sectors…
+          </span>
+        )}
+      </div>
+
       {/* Progress / error */}
       {scanning && (
         <div className="px-4 py-1.5 border-b border-gray-800 bg-violet-950/30 text-violet-300 animate-pulse">
@@ -1223,6 +1330,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.g6  ? <Badge label="G6"  cls="bg-orange-700/60 text-orange-200" /> : null}
                     {r.g11 ? <Badge label="G11" cls="bg-yellow-700/60 text-yellow-200" /> : null}
                     {r.seq_bcont   ? <Badge label="SBC"  cls="bg-violet-800/60 text-violet-200" /> : null}
+                    {/* B signals (260321) */}
+                    {r.b1  ? <Badge label="B1"  cls="bg-lime-800/60 text-lime-200" /> : null}
+                    {r.b2  ? <Badge label="B2"  cls="bg-cyan-800/60 text-cyan-200" /> : null}
+                    {r.b3  ? <Badge label="B3"  cls="bg-teal-800/60 text-teal-200" /> : null}
+                    {r.b4  ? <Badge label="B4"  cls="bg-blue-800/60 text-blue-200" /> : null}
+                    {r.b5  ? <Badge label="B5"  cls="bg-green-800/60 text-green-200" /> : null}
+                    {r.b6  ? <Badge label="B6"  cls="bg-emerald-800/60 text-emerald-200" /> : null}
+                    {r.b7  ? <Badge label="B7"  cls="bg-sky-800/60 text-sky-200" /> : null}
+                    {r.b8  ? <Badge label="B8"  cls="bg-indigo-800/60 text-indigo-200" /> : null}
+                    {r.b9  ? <Badge label="B9"  cls="bg-violet-800/60 text-violet-200" /> : null}
+                    {r.b10 ? <Badge label="B10" cls="bg-purple-800/60 text-purple-200" /> : null}
+                    {r.b11 ? <Badge label="B11" cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
                     {r.tz_bull_flip ? <Badge label="TZ→3" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.tz_attempt && !r.tz_bull_flip ? <Badge label="TZ→2" cls="bg-cyan-800/50 text-cyan-200" /> : null}
                     {/* RGTI 260404 + SMX 260402 */}
