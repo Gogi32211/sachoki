@@ -297,6 +297,84 @@ export default function HowItWorksPanel() {
           </p>
         </Section>
 
+        {/* ── Superchart ── */}
+        <Section title="📊 Superchart — Signal Matrix + Statistics">
+          <p className="mb-2">
+            The Superchart shows a horizontal scrollable matrix: each <Tag cls="text-blue-300">column = one bar (date)</Tag>,
+            each <Tag cls="text-blue-300">row = one signal group</Tag>. Every signal engine's output
+            for the selected ticker and timeframe is visible at a glance — useful for studying
+            confluences and reviewing historical setups.
+          </p>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Signal Rows</p>
+          <ul className="list-disc list-inside space-y-1">
+            <Row label="Z"    cls="text-red-300">Z-signals (T/Z bearish) + PREUP labels (P2, P3…)</Row>
+            <Row label="T"    cls="text-green-300">T-signals (T/Z bullish — T4, T6, T1G, T2G…)</Row>
+            <Row label="L"    cls="text-blue-300">WLNBB: L34, FRI34, BL, BLUE, CCI, BO↑, BX↑, BE…</Row>
+            <Row label="F"    cls="text-orange-300">F-Builder signals (F1–F11, 260418)</Row>
+            <Row label="FLY"  cls="text-purple-300">FLY ABCD pattern signals (260424)</Row>
+            <Row label="G"    cls="text-violet-300">G-Builder signals (G1, G2, G4, G6, G11, 260410)</Row>
+            <Row label="B"    cls="text-amber-300">B-Builder signals (B1–B11, 260321)</Row>
+            <Row label="I"    cls="text-teal-300">2809 Phase labels (CONSO, UM, SVS, HILO↑, ROCKET, 3G…)</Row>
+            <Row label="ULT"  cls="text-yellow-300">Ultra v2: 4BF, EB↑, FBO↑, 3↑, L88, 260308</Row>
+            <Row label="VOL"  cls="text-pink-300">VABS volume signals: VBO↑, NS, ND, STRONG, ABS, LOAD, CLM</Row>
+            <Row label="VABS" cls="text-lime-300">VABS pattern: BEST★, STRONG, ABS, CLM, VBO↑, SQ, BC, NS</Row>
+            <Row label="WICK" cls="text-sky-300">Wick X confirmation signals: WP↑, WC↑, X2G, X2, X1G</Row>
+            <Row label="turbo" cls="text-lime-300">Composite turbo score (0–100) for that bar</Row>
+            <Row label="close" cls="text-gray-300">Closing price (green = up, red = down vs previous bar)</Row>
+          </ul>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">📊 Stats Button — Signal Performance</p>
+          <p className="mb-1">
+            Clicking <Tag cls="text-violet-300">📊 Stats</Tag> fetches 2 years of history, runs
+            all engines, and computes forward performance for every signal. Results are shown as
+            a ranked table (default sort: <Tag cls="text-lime-300">max5</Tag> — highest average
+            gain). Auto-refreshes when ticker or TF changes.
+          </p>
+          <div className="overflow-x-auto mt-1">
+            <table className="text-xs border-collapse">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Column</th>
+                  <th className="text-left py-1">Meaning</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['N',      'number of times signal fired in the 2-year window'],
+                  ['Bull%',  '% of fires where the next bar closed higher'],
+                  ['+1bar',  'avg % return on the very next bar's close'],
+                  ['max3',   'avg max-high reached within the next 3 bars (best exit opportunity)'],
+                  ['max5',   'avg max-high reached within the next 5 bars — primary ranking metric'],
+                  ['DD3',    'avg max drawdown (lowest low) over the next 3 bars — risk side'],
+                  ['False%', '% of fires with zero gain over next 3 bars — false signal rate'],
+                ].map(([col, desc]) => (
+                  <tr key={col} className="border-b border-gray-800/40">
+                    <td className="py-0.5 pr-4 font-mono text-violet-300">{col}</td>
+                    <td className="py-0.5 text-gray-400">{desc}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="mt-2 text-gray-500 text-xs">
+            Click any column header to re-sort. Signals with fewer than 3 historical occurrences
+            are hidden. The stats use only the selected ticker's own price history — not pooled SP500 data.
+          </p>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">⬇ CSV Export</p>
+          <p>
+            Clicking <Tag cls="text-gray-300">⬇ CSV</Tag> downloads the entire visible matrix as
+            a spreadsheet-ready file named <Tag>{`{TICKER}_{tf}_signals.csv`}</Tag>. Each row is one bar.
+            Signal groups are space-joined within their cell so the file opens cleanly in Excel or
+            Google Sheets for custom filtering and back-testing.
+          </p>
+          <ul className="list-disc list-inside mt-1 space-y-1 text-gray-400">
+            <li>Columns: date, open, high, low, close, vol_bucket, turbo_score, Z, T, L, F, FLY, G, B, Combo, ULT, VOL, VABS, WICK</li>
+            <li>Multiple signals per cell are space-separated (e.g. <Tag cls="text-orange-300">"F3 F4 F7"</Tag>)</li>
+          </ul>
+        </Section>
+
         {/* ── T/Z Signals ── */}
         <Section title="T/Z Signals (signal_engine)">
           <p className="mb-2">
