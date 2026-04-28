@@ -88,7 +88,7 @@ def fetch_bars(
 
     for attempt in range(3):
         try:
-            r = requests.get(url, params=params, timeout=15)
+            r = requests.get(url, params=params, timeout=(5, 10))
             if r.status_code == 429:
                 wait = 1 * (attempt + 1)  # 1s, 2s, 3s — keep workers moving
                 log.debug("Polygon rate-limit %s, waiting %ds", ticker, wait)
@@ -127,11 +127,11 @@ def polygon_available() -> bool:
                 os.environ.get("POLYGON_API_KEY"))
 
 
-def _fetch_ticker_page(url: str, params: dict, timeout: int = 30) -> dict:
+def _fetch_ticker_page(url: str, params: dict, timeout: int = 15) -> dict:
     """GET one page of ticker results with up to 3 retries on timeout/connection error."""
     for attempt in range(3):
         try:
-            r = requests.get(url, params=params, timeout=timeout)
+            r = requests.get(url, params=params, timeout=(5, timeout))
             r.raise_for_status()
             return r.json()
         except (requests.exceptions.Timeout, requests.exceptions.ConnectionError) as exc:
