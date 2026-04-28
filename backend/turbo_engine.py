@@ -913,35 +913,11 @@ def _scan_turbo_ticker(
             row["rs"] = 0
             row["rs_strong"] = 0
 
-        # ── RGTI (260404) + SMX (260402) — multi-TF EMA signals ──────────────
+        # ── RGTI (260404) + SMX (260402) — disabled (extra API calls slow scan) ──
         _RGTI_KEYS = ("rgti_ll", "rgti_up", "rgti_upup", "rgti_upupup",
                       "rgti_orange", "rgti_green", "rgti_greencirc", "smx")
-        try:
-            from rgti_engine import compute_rgti_smx, resample_to_4h
-            _df4h_r = _df1h_r = _df15m_r = None
-            if interval == "4h":
-                _df4h_r = df
-                _df1h_r = _fetch_htf(ticker, "1h", 60)
-            elif interval == "1h":
-                _df1h_r = df
-                _df4h_r = resample_to_4h(df)
-            else:  # 1d, 1wk — fetch 1H, resample to 4H
-                _df1h_r = _fetch_htf(ticker, "1h", 60)
-                if _df1h_r is not None:
-                    _df4h_r = resample_to_4h(_df1h_r)
-            if _df4h_r is not None and _df1h_r is not None:
-                _df15m_r = _fetch_htf(ticker, "15m", 15)
-            if _df4h_r is not None and _df1h_r is not None and _df15m_r is not None:
-                _rgti = compute_rgti_smx(_df4h_r, _df1h_r, _df15m_r, price,
-                                         float(df["open"].iloc[-1]), df)
-                for _k in _RGTI_KEYS:
-                    row[_k] = _rgti.get(_k, 0)
-            else:
-                for _k in _RGTI_KEYS:
-                    row[_k] = 0
-        except Exception:
-            for _k in _RGTI_KEYS:
-                row[_k] = 0
+        for _k in _RGTI_KEYS:
+            row[_k] = 0
 
         # ── PARA (260420) — Parabola Start Detector v3.6 ─────────────────
         _PARA_KEYS = ("para_prep", "para_start", "para_plus", "para_retest")
