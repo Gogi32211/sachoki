@@ -38,20 +38,6 @@ from delta_engine   import compute_delta
 
 log = logging.getLogger(__name__)
 
-# ── Sector cache (survives for process lifetime; sectors rarely change) ────────
-_SECTOR_CACHE: dict[str, str] = {}
-
-def _get_sector(ticker: str) -> str:
-    if ticker in _SECTOR_CACHE:
-        return _SECTOR_CACHE[ticker]
-    try:
-        import yfinance as yf
-        s = yf.Ticker(ticker).info.get("sector", "") or ""
-    except Exception:
-        s = ""
-    _SECTOR_CACHE[ticker] = s
-    return s
-
 # ── Progress ──────────────────────────────────────────────────────────────────
 _turbo_state: dict = {
     "running": False,
@@ -565,6 +551,9 @@ def _scan_turbo_ticker(
                 log.debug("Polygon skip %s: %s — falling back to yfinance", ticker, exc)
 
         if df is None or df.empty:
+            if polygon_available():
+                return None  # Polygon configured but returned no data — skip ticker
+            # Polygon not configured: try yfinance (no timeout guard — use only without Polygon)
             _data_source = "yfinance"
             import yfinance as yf
             period = "5y" if interval in ("1wk", "1w") else "180d" if interval == "1d" else "60d"
@@ -1382,7 +1371,7 @@ def run_turbo_scan(
                     _df = fetch_bars(_sym, interval=interval, days=days)
                 except Exception:
                     pass
-            if _df is None or _df.empty:
+            if (_df is None or _df.empty) and not polygon_available():
                 import yfinance as yf
                 _raw = yf.Ticker(_sym).history(period="5d", interval=interval, auto_adjust=True)
                 if _raw is not None and not _raw.empty:
@@ -1424,6 +1413,9 @@ def run_turbo_scan(
             }
             batch: list[dict] = []
             for fut in as_completed(futures):
+                if not _turbo_state.get("running", True):
+                    log.info("Turbo scan stopped by Force Stop")
+                    break
                 _turbo_state["done"] += 1
                 row = fut.result()
                 if row:
