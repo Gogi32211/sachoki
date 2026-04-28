@@ -606,6 +606,16 @@ def api_turbo_scan_status():
     return get_turbo_progress()
 
 
+@app.post("/api/turbo-scan/reset")
+def api_turbo_scan_reset():
+    import time as _t
+    from turbo_engine import _turbo_state
+    _turbo_state["running"] = False
+    _turbo_state["completed_at"] = _t.time()
+    _turbo_state["error"] = "Manually stopped"
+    return {"status": "stopped"}
+
+
 @app.get("/api/br-scan")
 def api_br_scan(limit: int = 300, min_br: float = 0, entry: str = "all", tf: str = "1d"):
     from br_engine import get_br_results, get_last_br_scan_time
