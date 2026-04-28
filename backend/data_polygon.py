@@ -90,7 +90,7 @@ def fetch_bars(
         try:
             r = requests.get(url, params=params, timeout=15)
             if r.status_code == 429:
-                wait = 12 * (attempt + 1)
+                wait = 1 * (attempt + 1)  # 1s, 2s, 3s — keep workers moving
                 log.debug("Polygon rate-limit %s, waiting %ds", ticker, wait)
                 time.sleep(wait)
                 continue
