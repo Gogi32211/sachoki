@@ -38,6 +38,20 @@ from delta_engine   import compute_delta
 
 log = logging.getLogger(__name__)
 
+# ── Sector cache (survives for process lifetime; sectors rarely change) ────────
+_SECTOR_CACHE: dict[str, str] = {}
+
+def _get_sector(ticker: str) -> str:
+    if ticker in _SECTOR_CACHE:
+        return _SECTOR_CACHE[ticker]
+    try:
+        import yfinance as yf
+        s = yf.Ticker(ticker).info.get("sector", "") or ""
+    except Exception:
+        s = ""
+    _SECTOR_CACHE[ticker] = s
+    return s
+
 # ── Progress ──────────────────────────────────────────────────────────────────
 _turbo_state: dict = {
     "running": False,
@@ -191,6 +205,8 @@ _TURBO_COLS = [
     "avg_vol",
     # EMA values for price-vs-EMA frontend filters
     "ema20", "ema50", "ema89", "ema200",
+    # GICS sector (from yfinance info, cached)
+    "sector",
 ]
 
 
@@ -200,7 +216,7 @@ def _db():
 
 
 def _col_def(c: str) -> str:
-    _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source"}
+    _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source", "sector"}
     _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci", "avg_vol",
              "ema20", "ema50", "ema89", "ema200"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
@@ -598,6 +614,9 @@ def _scan_turbo_ticker(
             row["ema200"] = round(float(_c.ewm(span=200, adjust=False).mean().iloc[-1]), 4)
         except Exception:
             row["ema20"] = row["ema50"] = row["ema89"] = row["ema200"] = 0.0
+
+        # ── Sector (GICS, cached from yfinance info) ──────────────────────
+        row["sector"] = _get_sector(ticker)
 
         # ── Price range filter ─────────────────────────────────────────────
         if price < min_price or price > max_price:
