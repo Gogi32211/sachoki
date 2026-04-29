@@ -218,6 +218,9 @@ export default function SuperchartPanel({
     const headers = [
       'date','open','high','low','close','vol_bucket','turbo_score',
       'rtb_phase','rtb_total','rtb_transition',
+      'rtb_build','rtb_turn','rtb_ready','rtb_late','rtb_bonus3',
+      'dbg_context_ready','dbg_t4_ctx','dbg_t6_ctx','dbg_t4t6_activation_plus',
+      'dbg_launch_cluster_count','dbg_pending_phase','dbg_pending_phase_count',
       'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
     ]
     const rows = bars.map(b => [
@@ -228,6 +231,18 @@ export default function SuperchartPanel({
       b.rtb_phase ?? '',
       b.rtb_total ?? 0,
       b.rtb_transition ?? '',
+      b.rtb_build ?? 0,
+      b.rtb_turn ?? 0,
+      b.rtb_ready ?? 0,
+      b.rtb_late ?? 0,
+      b.rtb_bonus3 ?? 0,
+      b.dbg_context_ready ? 1 : 0,
+      b.dbg_t4_ctx ? 1 : 0,
+      b.dbg_t6_ctx ? 1 : 0,
+      b.dbg_t4t6_activation_plus ? 1 : 0,
+      b.dbg_launch_cluster_count ?? 0,
+      b.dbg_pending_phase ?? '',
+      b.dbg_pending_phase_count ?? 0,
       b.tz?.startsWith('Z') ? b.tz : '',
       b.tz?.startsWith('T') ? b.tz : '',
       join(b.l),

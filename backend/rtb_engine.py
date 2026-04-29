@@ -185,6 +185,8 @@ def _calc_turn(row: dict, history: list[dict]) -> float:
         ("T1G",         5),   # tz_sig checks follow
         ("T1",          4),
         ("T9",          4),
+        ("T4",          4),   # pre-breakout trigger — contributes to turn like T1/T9
+        ("T6",          4),   # pre-breakout trigger
         ("g2",          4),
         ("T3",          3),
         ("T11",         3),
@@ -379,7 +381,7 @@ def _calc_ready(row: dict, history: list[dict]) -> float:
         return _any_tz(h5, _CTX_TZ | _Z4, 5)
 
     t4t6 = 0.0
-    if tz_cur in {"T4", "T6"} and not any(_b(row, s) for s in _LATE_SIGS):
+    if tz_cur in {"T4", "T6"} and sum(1 for s in _LATE_SIGS if _b(row, s)) < 2:
         if _has_context():
             t4t6 = 5                       # T4/T6_CONTEXT_READY (+5, was +6)
             _ACT = {"l34","sq","climb_sig","sig_260308","tz_bull_flip"}
@@ -644,7 +646,8 @@ def calc_rtb_v4(
             return True
         return _any_tz(h5, _CTX_TZ_D | _Z4, 5)
 
-    no_live = not any(_b(row, s) for s in _LATE_SIGS_D)
+    _late_count = sum(1 for s in _LATE_SIGS_D if _b(row, s))
+    no_live = _late_count < 2
     dbg_ctx = _dbg_has_ctx()
     dbg_t4_ctx  = (tz_cur == "T4") and no_live and dbg_ctx
     dbg_t6_ctx  = (tz_cur == "T6") and no_live and dbg_ctx
