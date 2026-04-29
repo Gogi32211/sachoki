@@ -975,6 +975,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     _rtb_prev_phase    = "0"
     _rtb_prev_age      = 0
     _rtb_soft_streak   = 0
+    _rtb_pending_phase = ""
+    _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
 
     result = []
@@ -1178,13 +1180,16 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                            vol_bucket=vol_bkt)
                 # history: most-recent-first (history[0] = 1 bar ago)
                 _hist = list(reversed(_rtb_history[-5:]))
-                _res  = _rtb_v4(_sr, _hist, _rtb_prev_phase, _rtb_prev_age, _rtb_soft_streak)
+                _res  = _rtb_v4(_sr, _hist, _rtb_prev_phase, _rtb_prev_age,
+                                _rtb_soft_streak, _rtb_pending_phase, _rtb_pending_count)
                 rtb_phase_val      = _res["rtb_phase"]
                 rtb_total_val      = round(float(_res["rtb_total"]), 1)
                 rtb_transition_val = _res["rtb_transition"]
                 _rtb_prev_phase    = rtb_phase_val
                 _rtb_prev_age      = _res["rtb_phase_age"]
                 _rtb_soft_streak   = _res["_soft_streak"]
+                _rtb_pending_phase = _res["_pending_phase"]
+                _rtb_pending_count = _res["_pending_phase_count"]
                 _rtb_history.append(_sr)
             except Exception:
                 pass

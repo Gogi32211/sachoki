@@ -92,6 +92,15 @@ _Z4  = {"Z9",  "Z10", "Z11", "Z12"}
 _TZ_COIL = {"T1", "T9", "T3", "T11", "T12"}
 _TZ_TURN_TOP = {"T1", "T1G", "T9"}
 
+# ── Phase rank for hysteresis distance calculation ────────────────────────────
+_PHASE_RANK: dict[str, int] = {"0": 0, "A": 1, "B": 2, "C": 3, "D": 4}
+
+# ── Launch-cluster signals (used for A→D guard and hysteresis exception) ──────
+_LAUNCH_CLUSTER_SIGS = frozenset({
+    "vbo_up", "bo_up", "bx_up", "bf_buy", "be_up",
+    "buy_2809", "rocket", "fly_abcd",
+})
+
 
 # ═════════════════════════════════════════════════════════════════════════════
 # A phase — BUILD  (cap 12)
@@ -526,26 +535,26 @@ def calc_rtb_v4(
     prev_phase: str = "0",
     prev_phase_age: int = 0,
     soft_streak: int = 0,
+    pending_phase: str = "",
+    pending_phase_count: int = 0,
 ) -> dict:
     """
     Compute RTB v4 scores for one bar.
 
     Parameters
     ──────────
-    row           Current bar signal dict (turbo row format).
-                  Should include vol_bucket, tz_sig, and optionally
-                  close / open / high for accurate W-dot and reclaim checks.
-    history       Recent bars most-recent-first.
-                  history[0] = previous bar, history[1] = 2 bars ago, …
-                  Pass at least 5 bars for full rule coverage.
-    prev_phase    Phase from the immediately preceding bar.
-    prev_phase_age Consecutive bars the previous phase has run.
-    soft_streak   Consecutive bars where all three components were < 4
-                  (carry from previous bar for soft-reset tracking).
+    row                  Current bar signal dict (turbo row format).
+    history              Recent bars most-recent-first (history[0] = prev bar).
+                         Pass at least 5 bars for full rule coverage.
+    prev_phase           Phase returned for the immediately preceding bar.
+    prev_phase_age       Consecutive bars the previous phase has run.
+    soft_streak          Carry-forward counter for soft-reset logic.
+    pending_phase        Phase awaiting hysteresis confirmation.
+    pending_phase_count  How many consecutive bars this pending phase has held.
 
     Returns
     ───────
-    Dict with all output fields plus '_soft_streak' (carry-forward state).
+    Dict with all output fields plus carry-forward state keys prefixed '_'.
     """
     build  = _calc_build(row, history)
     turn   = _calc_turn(row, history)
@@ -554,31 +563,99 @@ def calc_rtb_v4(
     late   = _calc_late(row)
     total  = max(0.0, build + turn + ready + bonus3 - late)
 
-    ph = _phase(build, turn, ready, late, total)
+    ph_raw = _phase(build, turn, ready, late, total)
 
-    # Hard reset: any bearish kill signal wipes the phase
+    # ── Hard reset ─────────────────────────────────────────────────────────
     hard = any(_b(row, k) for k in _HARD_RESET_KEYS)
     if hard:
-        ph = "0"
+        ph_raw = "0"
 
-    # Soft reset: 3 consecutive bars with every component below threshold
+    # ── Soft reset ─────────────────────────────────────────────────────────
     new_streak = (soft_streak + 1) if (build < 4 and turn < 4 and ready < 4) else 0
     soft = new_streak >= 3
     if soft:
-        ph = "0"
+        ph_raw = "0"
         new_streak = 0
 
-    # ── A→D guard: direct jump requires ≥2 launch signals ────────────────
-    # Prevents T4/T6 or weak-late bars from snapping straight to D from A.
-    _LAUNCH_SIGS = {"vbo_up","bo_up","bx_up","bf_buy","be_up","buy_2809","rocket","fly_abcd"}
-    launch_count = sum(1 for s in _LAUNCH_SIGS if _b(row, s))
-    if not hard and not soft and prev_phase == "A" and ph == "D" and launch_count < 2:
-        ph = _phase_no_d(build, turn, ready, late)
+    # ── Launch cluster count (shared by A→D guard + hysteresis exception) ─
+    launch_count = sum(1 for s in _LAUNCH_CLUSTER_SIGS if _b(row, s))
+    strong_launch = launch_count >= 3   # ≥3 signals → bypass hysteresis
 
+    # ── A→D guard: requires ≥2 launch signals ──────────────────────────────
+    # Example: T4 fires, late=6 from one VBO but turn>=6 qualifies D.
+    #          Without a second launch signal, this is NOT a real breakout
+    #          from accumulation — stay at C/B/A instead.
+    if not hard and not soft and prev_phase == "A" and ph_raw == "D" and launch_count < 2:
+        ph_raw = _phase_no_d(build, turn, ready, late)
+
+    # ── D→A guard: require late < 3 before recovering toward A ─────────────
+    # If signals are dying but late is still elevated, stock is not yet
+    # clear — hold at D until late pressure truly subsides.
+    if not hard and not soft and prev_phase == "D" and ph_raw == "A" and late >= 3:
+        ph_raw = "D"
+
+    # ── Hysteresis: large phase jumps need 2 consecutive bars ──────────────
+    # Covered transitions (|rank_new − rank_prev| ≥ 2):
+    #   A→D (3), D→A (3), D→B (2), 0→C (3), 0→D (4) …
+    # Exception: strong launch cluster (≥3 signals) confirms immediately.
+    new_pending_phase = ""
+    new_pending_count = 0
+
+    if not hard and not soft and not strong_launch:
+        prev_rank = _PHASE_RANK.get(prev_phase, 0)
+        new_rank  = _PHASE_RANK.get(ph_raw, 0)
+        dist = abs(new_rank - prev_rank)
+        if dist >= 2:
+            if pending_phase == ph_raw:
+                confirmed = pending_phase_count + 1
+                if confirmed >= 2:
+                    ph = ph_raw            # confirmed — commit the jump
+                else:
+                    ph = prev_phase        # still waiting
+                    new_pending_phase = ph_raw
+                    new_pending_count = confirmed
+            else:
+                ph = prev_phase            # new candidate — wait one more bar
+                new_pending_phase = ph_raw
+                new_pending_count = 1
+        else:
+            ph = ph_raw                    # normal small step — no delay
+    else:
+        ph = ph_raw                        # hard/soft/strong-launch bypass
+
+    # ── Transition label + age ─────────────────────────────────────────────
     tr  = _transition(prev_phase, ph, hard, soft)
     age = (prev_phase_age + 1) if ph == prev_phase else 1
 
+    # ── Debug / context fields ─────────────────────────────────────────────
+    h5     = history[:5]
+    tz_cur = _tz(row)
+    _CTX_SIGS_D = {"l64","l34","l43","l22","sq","d_spring",
+                   "climb_sig","abs_sig","ns","f1","g1"}
+    _CTX_TZ_D   = {"T1","T1G","T9","Z9","Z10","Z11","Z12"}
+    _LATE_SIGS_D = {"vbo_up","bo_up","bx_up","bf_buy","be_up","buy_2809","rocket"}
+    _ACT_D       = {"l34","sq","climb_sig","sig_260308","tz_bull_flip"}
+
+    def _dbg_has_ctx() -> bool:
+        for s in _CTX_SIGS_D:
+            if _b(row, s) or _any_sig(h5, s, 5):
+                return True
+        if tz_cur in _CTX_TZ_D:
+            return True
+        return _any_tz(h5, _CTX_TZ_D | _Z4, 5)
+
+    no_live = not any(_b(row, s) for s in _LATE_SIGS_D)
+    dbg_ctx = _dbg_has_ctx()
+    dbg_t4_ctx  = (tz_cur == "T4") and no_live and dbg_ctx
+    dbg_t6_ctx  = (tz_cur == "T6") and no_live and dbg_ctx
+    dbg_t4t6_ap = (
+        tz_cur in {"T4", "T6"} and no_live and dbg_ctx and
+        (any(_b(row, s) for s in _ACT_D) or
+         any(_b(row, s) for s in {"fly_cd","fly_bd","fly_ad","fly_abcd"}))
+    )
+
     return {
+        # ── Primary outputs ──────────────────────────────────────────────
         "rtb_build":      round(build,  1),
         "rtb_turn":       round(turn,   1),
         "rtb_ready":      round(ready,  1),
@@ -588,8 +665,18 @@ def calc_rtb_v4(
         "rtb_phase":      ph,
         "rtb_transition": tr,
         "rtb_phase_age":  age,
-        "_soft_streak":   new_streak,
+        # ── Carry-forward state ──────────────────────────────────────────
+        "_soft_streak":         new_streak,
+        "_pending_phase":       new_pending_phase,
+        "_pending_phase_count": new_pending_count,
+        # ── Debug fields ─────────────────────────────────────────────────
+        "dbg_context_ready":        dbg_ctx,
+        "dbg_t4_ctx":               dbg_t4_ctx,
+        "dbg_t6_ctx":               dbg_t6_ctx,
+        "dbg_t4t6_activation_plus": dbg_t4t6_ap,
         "dbg_launch_cluster_count": launch_count,
+        "dbg_pending_phase":        new_pending_phase,
+        "dbg_pending_phase_count":  new_pending_count,
     }
 
 
@@ -691,13 +778,15 @@ def _test():
           f"phase={r['rtb_phase']} total={r['rtb_total']:.1f}")
     passed += int(ok)
 
-    # 10. A→D allowed: rocket + be_up (launch_count=2 ≥ 2) → D
-    r = calc_rtb_v4(
-        {"conso_2809":1, "tz_sig":"T1G", "l34":1, "climb_sig":1,
-         "rocket":1, "be_up":1},
-        history=[], prev_phase="A"
-    )
-    total += 1; passed += check("A→D allowed (rocket+be_up)", r, "D")
+    # 10. A→D allowed: rocket + be_up (launch_count=2 ≥ 2) → D after 2 bars
+    #     Hysteresis (dist=3) still requires 2 consecutive bars unless ≥3 signals.
+    row_ad = {"conso_2809":1, "tz_sig":"T1G", "l34":1, "climb_sig":1,
+              "rocket":1, "be_up":1}
+    r10a = calc_rtb_v4(row_ad, history=[], prev_phase="A")
+    r10b = calc_rtb_v4(row_ad, history=[], prev_phase="A",
+                       pending_phase=r10a["_pending_phase"],
+                       pending_phase_count=r10a["_pending_phase_count"])
+    total += 1; passed += check("A→D allowed after 2 bars (rocket+be_up)", r10b, "D")
 
     # 11. D tighten: late=6 but turn<6 AND ready<5 AND total<18 → NOT D
     r = calc_rtb_v4(
@@ -709,6 +798,40 @@ def _test():
     print(f"  [{'PASS' if ok else 'FAIL'}] D tighten (late=6, weak turn/ready): "
           f"phase={r['rtb_phase']} total={r['rtb_total']:.1f} late={r['rtb_late']:.1f}")
     passed += int(ok)
+
+    # 12. Hysteresis: 0→C needs 2 bars
+    strong_c = {"conso_2809":1,"tz_sig":"T1G","l34":1,"climb_sig":1,
+                "x2g_wick":1,"svs_2809":1,"vol_bucket":"N"}
+    r1 = calc_rtb_v4(strong_c, history=[], prev_phase="0")
+    # bar 1: should stay at "0" (pending C, count=1)
+    ok1 = r1["rtb_phase"] == "0"
+    r2  = calc_rtb_v4(strong_c, history=[], prev_phase="0",
+                      pending_phase=r1["_pending_phase"],
+                      pending_phase_count=r1["_pending_phase_count"])
+    # bar 2: should confirm C
+    ok2 = r2["rtb_phase"] == "C"
+    ok = ok1 and ok2
+    print(f"  [{'PASS' if ok else 'FAIL'}] Hysteresis 0→C (bar1={r1['rtb_phase']}, bar2={r2['rtb_phase']})")
+    total += 1; passed += int(ok)
+
+    # 13. D→A guard: late=4 blocks recovery to A (stays D)
+    r = calc_rtb_v4(
+        {"conso_2809":1, "vol_bucket":"W"},   # build=9, turn=0 → raw phase=A; late=0<3 ok
+        history=[], prev_phase="D"
+    )
+    # raw phase = A (build=9, turn=0), late=0 < 3 → D→A NOT blocked by guard
+    # but hysteresis (dist=3) should hold at D bar-1
+    ok = r["rtb_phase"] == "D"
+    print(f"  [{'PASS' if ok else 'FAIL'}] D→A hysteresis bar1 stays D (phase={r['rtb_phase']} pending={r['_pending_phase']})")
+    total += 1; passed += int(ok)
+
+    # 14. Strong launch bypasses hysteresis: 0→D with ≥3 signals → immediate
+    r = calc_rtb_v4(
+        {"conso_2809":1,"tz_sig":"T1G","l34":1,"climb_sig":1,
+         "rocket":1,"be_up":1,"vbo_up":1},   # launch_count=3 → strong_launch
+        history=[], prev_phase="0"
+    )
+    total += 1; passed += check("Strong launch bypasses hysteresis (0→D)", r, "D")
 
     print(f"\n  {passed}/{total} tests passed")
     return passed == total
