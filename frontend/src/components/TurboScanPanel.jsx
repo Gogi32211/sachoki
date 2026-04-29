@@ -666,6 +666,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
+  const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
   const [lookbackN,  setLookbackN]  = useState(1)
