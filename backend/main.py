@@ -965,6 +965,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     vol_ratio = (df["volume"] / vol_prev.replace(0, np.nan)).fillna(0)
 
     isIntraday = tf in ("4h", "1h", "30m", "15m")
+
+    # RTB v4 — per-bar sequential state
+    try:
+        from rtb_engine import calc_rtb_v4 as _rtb_v4
+        _rtb_ok = True
+    except Exception:
+        _rtb_ok = False
+    _rtb_prev_phase    = "0"
+    _rtb_prev_age      = 0
+    _rtb_soft_streak   = 0
+    _rtb_history: list = []   # chronological sig_rows (oldest first)
+
     result = []
 
     for i in range(len(df)):
@@ -1153,6 +1165,30 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
             vol_bkt = str(wlnbb.iloc[i]["vol_bucket"])
 
+        # RTB v4 per-bar
+        rtb_phase_val      = ""
+        rtb_total_val      = 0.0
+        rtb_transition_val = ""
+        if _rtb_ok:
+            try:
+                _sr = dict(sig_row,
+                           close=float(row["close"]),
+                           open=float(row["open"]),
+                           high=float(row["high"]),
+                           vol_bucket=vol_bkt)
+                # history: most-recent-first (history[0] = 1 bar ago)
+                _hist = list(reversed(_rtb_history[-5:]))
+                _res  = _rtb_v4(_sr, _hist, _rtb_prev_phase, _rtb_prev_age, _rtb_soft_streak)
+                rtb_phase_val      = _res["rtb_phase"]
+                rtb_total_val      = round(float(_res["rtb_total"]), 1)
+                rtb_transition_val = _res["rtb_transition"]
+                _rtb_prev_phase    = rtb_phase_val
+                _rtb_prev_age      = _res["rtb_phase_age"]
+                _rtb_soft_streak   = _res["_soft_streak"]
+                _rtb_history.append(_sr)
+            except Exception:
+                pass
+
         result.append({
             "date":       date_val,
             "open":       float(row["open"]),
@@ -1171,8 +1207,11 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "vol":       vol_list,
             "vabs":      vabs_list,
             "wick":      wick_list,
-            "ultra":       ultra_list,
-            "turbo_score": turbo_score_val,
+            "ultra":          ultra_list,
+            "turbo_score":    turbo_score_val,
+            "rtb_phase":      rtb_phase_val,
+            "rtb_total":      rtb_total_val,
+            "rtb_transition": rtb_transition_val,
         })
 
     return result

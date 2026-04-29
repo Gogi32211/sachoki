@@ -345,6 +345,19 @@ export default function TickerAnalysisPanel({ onAddToWatchlist, onChartChange })
               {phase === 'Late' && (
                 <span className="text-orange-300 text-[10px] bg-orange-900/30 px-1.5 py-0.5 rounded">[L] Late</span>
               )}
+              {r.rtb_phase && r.rtb_phase !== '0' && (
+                <span
+                  title={`RTB v4 | Phase ${r.rtb_phase} | Build ${r.rtb_build ?? 0} Turn ${r.rtb_turn ?? 0} Ready ${r.rtb_ready ?? 0} Late ${r.rtb_late ?? 0}${r.rtb_transition ? ' | ' + r.rtb_transition : ''}`}
+                  className={`text-[10px] px-1.5 py-0.5 rounded font-bold cursor-default ${
+                    r.rtb_phase === 'C' ? 'bg-lime-700/80 text-lime-100 ring-1 ring-lime-400' :
+                    r.rtb_phase === 'B' ? 'bg-sky-800/80  text-sky-200  ring-1 ring-sky-500' :
+                    r.rtb_phase === 'A' ? 'bg-gray-700    text-gray-300' :
+                    /* D */              'bg-orange-800/70 text-orange-200'
+                  }`}>
+                  RTB {r.rtb_phase}
+                  <span className="font-normal ml-1 opacity-70">{Math.round(r.rtb_total ?? 0)}</span>
+                </span>
+              )}
               {r.data_source === 'yfinance' && (
                 <span className="text-orange-400/60 text-[9px]">yf</span>
               )}

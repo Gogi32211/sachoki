@@ -217,6 +217,7 @@ export default function SuperchartPanel({
     const join = (arr) => (arr ?? []).join(' ')
     const headers = [
       'date','open','high','low','close','vol_bucket','turbo_score',
+      'rtb_phase','rtb_total','rtb_transition',
       'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
     ]
     const rows = bars.map(b => [
@@ -224,6 +225,9 @@ export default function SuperchartPanel({
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
       b.vol_bucket ?? '',
       b.turbo_score ?? 0,
+      b.rtb_phase ?? '',
+      b.rtb_total ?? 0,
+      b.rtb_transition ?? '',
       b.tz?.startsWith('Z') ? b.tz : '',
       b.tz?.startsWith('T') ? b.tz : '',
       join(b.l),
@@ -397,6 +401,44 @@ export default function SuperchartPanel({
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
                         style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
                         {s > 0 ? s : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* RTB v4 phase row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    rtb
+                  </td>
+                  {bars.map((b, i) => {
+                    const ph = b.rtb_phase
+                    if (!ph || ph === '0') return (
+                      <td key={i} style={{ width: CELL_W, minWidth: CELL_W }}
+                          className="border-r border-gray-900/20" />
+                    )
+                    const bgCls =
+                      ph === 'C' ? 'bg-lime-700/80 text-lime-100 ring-1 ring-lime-500' :
+                      ph === 'B' ? 'bg-sky-800/80  text-sky-200  ring-1 ring-sky-600' :
+                      ph === 'A' ? 'bg-gray-700    text-gray-300' :
+                      /* D */      'bg-orange-800/70 text-orange-200'
+                    const isTransition = b.rtb_transition && b.rtb_transition.includes('TO')
+                    return (
+                      <td key={i}
+                        className="px-0 py-px text-center border-r border-gray-900/20"
+                        style={{ width: CELL_W, minWidth: CELL_W }}
+                        title={b.rtb_transition ? `${ph} — ${b.rtb_transition} (${b.rtb_total})` : `Phase ${ph} (${b.rtb_total})`}>
+                        <div className="flex flex-col items-center gap-px">
+                          <span className={`inline-block font-bold px-0.5 rounded font-mono leading-none ${bgCls} ${isTransition ? 'ring-2' : ''}`}
+                            style={{ fontSize: 11 }}>
+                            {ph}
+                          </span>
+                          <span className="font-mono text-gray-500 leading-none" style={{ fontSize: 9 }}>
+                            {b.rtb_total > 0 ? b.rtb_total.toFixed(0) : ''}
+                          </span>
+                        </div>
                       </td>
                     )
                   })}
