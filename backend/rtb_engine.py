@@ -354,9 +354,11 @@ def _calc_ready(row: dict, history: list[dict]) -> float:
 
     # ── T4/T6 context-ready rules ─────────────────────────────────────────────
     # T4/T6 are valid C-phase core triggers only when context already exists.
+    # context_ready: any of these in current bar OR last 5 bars
     _CTX_SIGS  = {"l64","l34","l43","l22","sq","d_spring",
-                  "climb_sig","abs_sig","f1","g1","tz_bull_flip"}
+                  "climb_sig","abs_sig","ns","f1","g1"}
     _CTX_TZ    = {"T1","T1G","T9","Z9","Z10","Z11","Z12"}
+    # launch/live cluster signals that push T4/T6 to late side instead
     _LATE_SIGS = {"vbo_up","bo_up","bx_up","bf_buy","be_up","buy_2809","rocket"}
 
     def _has_context() -> bool:
@@ -370,7 +372,7 @@ def _calc_ready(row: dict, history: list[dict]) -> float:
     t4t6 = 0.0
     if tz_cur in {"T4", "T6"} and not any(_b(row, s) for s in _LATE_SIGS):
         if _has_context():
-            t4t6 = 6                       # T4/T6_CONTEXT_READY
+            t4t6 = 5                       # T4/T6_CONTEXT_READY (+5, was +6)
             _ACT = {"l34","sq","climb_sig","sig_260308","tz_bull_flip"}
             if any(_b(row, s) for s in _ACT) or fly_score > 0:
                 t4t6 += 3                  # T4T6_ACTIVATION_PLUS
@@ -475,14 +477,29 @@ def _calc_late(row: dict) -> float:
 # Phase + transition classification
 # ═════════════════════════════════════════════════════════════════════════════
 
-def _phase(build: float, turn: float, ready: float, late: float) -> str:
-    if late >= 5:
+def _phase(build: float, turn: float, ready: float, late: float,
+           total: float = 0.0) -> str:
+    # D: late penalty alone is NOT enough — must also have strong turn/ready/total
+    if late >= 5 and (turn >= 6 or ready >= 5 or total >= 18):
         return "D"
-    if build >= 5 and turn >= 6 and ready >= 5 and late <= 4:
+    # C: ready threshold lowered 5→4; late ceiling raised 4→6
+    if build >= 5 and turn >= 6 and ready >= 4 and late <= 6:
         return "C"
-    if build >= 5 and turn >= 6 and ready < 5 and late <= 4:
+    # B: same entry criteria as before; late ceiling aligned with C
+    if build >= 5 and turn >= 6 and late <= 6:
         return "B"
     if build >= 5 and turn < 6:
+        return "A"
+    return "0"
+
+
+def _phase_no_d(build: float, turn: float, ready: float, late: float) -> str:
+    """Best non-D classification — used when A→D direct jump is blocked."""
+    if build >= 5 and turn >= 6 and ready >= 4 and late <= 6:
+        return "C"
+    if build >= 5 and turn >= 6 and late <= 6:
+        return "B"
+    if build >= 5:
         return "A"
     return "0"
 
@@ -537,7 +554,7 @@ def calc_rtb_v4(
     late   = _calc_late(row)
     total  = max(0.0, build + turn + ready + bonus3 - late)
 
-    ph = _phase(build, turn, ready, late)
+    ph = _phase(build, turn, ready, late, total)
 
     # Hard reset: any bearish kill signal wipes the phase
     hard = any(_b(row, k) for k in _HARD_RESET_KEYS)
@@ -550,6 +567,13 @@ def calc_rtb_v4(
     if soft:
         ph = "0"
         new_streak = 0
+
+    # ── A→D guard: direct jump requires ≥2 launch signals ────────────────
+    # Prevents T4/T6 or weak-late bars from snapping straight to D from A.
+    _LAUNCH_SIGS = {"vbo_up","bo_up","bx_up","bf_buy","be_up","buy_2809","rocket","fly_abcd"}
+    launch_count = sum(1 for s in _LAUNCH_SIGS if _b(row, s))
+    if not hard and not soft and prev_phase == "A" and ph == "D" and launch_count < 2:
+        ph = _phase_no_d(build, turn, ready, late)
 
     tr  = _transition(prev_phase, ph, hard, soft)
     age = (prev_phase_age + 1) if ph == prev_phase else 1
@@ -565,6 +589,7 @@ def calc_rtb_v4(
         "rtb_transition": tr,
         "rtb_phase_age":  age,
         "_soft_streak":   new_streak,
+        "dbg_launch_cluster_count": launch_count,
     }
 
 
@@ -654,6 +679,36 @@ def _test():
         history=hist_ctx, prev_phase="B"
     )
     total += 1; passed += check("T4 context-ready (→C)", r, "C")
+
+    # 9. A→D blocked: only rocket (launch_count=1 < 2) → must NOT be D
+    r = calc_rtb_v4(
+        {"conso_2809":1, "tz_sig":"T1G", "l34":1, "climb_sig":1, "rocket":1},
+        history=[], prev_phase="A"
+    )
+    total += 1
+    ok = r["rtb_phase"] != "D"
+    print(f"  [{'PASS' if ok else 'FAIL'}] A→D blocked (rocket only): "
+          f"phase={r['rtb_phase']} total={r['rtb_total']:.1f}")
+    passed += int(ok)
+
+    # 10. A→D allowed: rocket + be_up (launch_count=2 ≥ 2) → D
+    r = calc_rtb_v4(
+        {"conso_2809":1, "tz_sig":"T1G", "l34":1, "climb_sig":1,
+         "rocket":1, "be_up":1},
+        history=[], prev_phase="A"
+    )
+    total += 1; passed += check("A→D allowed (rocket+be_up)", r, "D")
+
+    # 11. D tighten: late=6 but turn<6 AND ready<5 AND total<18 → NOT D
+    r = calc_rtb_v4(
+        {"conso_2809":1, "be_up":1},          # be_up=6 → late=6; build only, no turn
+        history=[], prev_phase="B"
+    )
+    total += 1
+    ok = r["rtb_phase"] != "D"
+    print(f"  [{'PASS' if ok else 'FAIL'}] D tighten (late=6, weak turn/ready): "
+          f"phase={r['rtb_phase']} total={r['rtb_total']:.1f} late={r['rtb_late']:.1f}")
+    passed += int(ok)
 
     print(f"\n  {passed}/{total} tests passed")
     return passed == total
