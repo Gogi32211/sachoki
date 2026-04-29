@@ -1171,6 +1171,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         rtb_phase_val      = ""
         rtb_total_val      = 0.0
         rtb_transition_val = ""
+        rtb_build_val      = 0.0
+        rtb_turn_val       = 0.0
+        rtb_ready_val      = 0.0
+        rtb_late_val       = 0.0
+        rtb_bonus3_val     = 0.0
+        dbg_context_ready_val        = False
+        dbg_t4_ctx_val               = False
+        dbg_t6_ctx_val               = False
+        dbg_t4t6_activation_plus_val = False
+        dbg_launch_cluster_count_val = 0
+        dbg_pending_phase_val        = ""
+        dbg_pending_phase_count_val  = 0
         if _rtb_ok:
             try:
                 _sr = dict(sig_row,
@@ -1185,6 +1197,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                 rtb_phase_val      = _res["rtb_phase"]
                 rtb_total_val      = round(float(_res["rtb_total"]), 1)
                 rtb_transition_val = _res["rtb_transition"]
+                rtb_build_val      = round(float(_res["rtb_build"]),  1)
+                rtb_turn_val       = round(float(_res["rtb_turn"]),   1)
+                rtb_ready_val      = round(float(_res["rtb_ready"]),  1)
+                rtb_late_val       = round(float(_res["rtb_late"]),   1)
+                rtb_bonus3_val     = round(float(_res["rtb_bonus3"]), 1)
+                dbg_context_ready_val        = bool(_res["dbg_context_ready"])
+                dbg_t4_ctx_val               = bool(_res["dbg_t4_ctx"])
+                dbg_t6_ctx_val               = bool(_res["dbg_t6_ctx"])
+                dbg_t4t6_activation_plus_val = bool(_res["dbg_t4t6_activation_plus"])
+                dbg_launch_cluster_count_val = int(_res["dbg_launch_cluster_count"])
+                dbg_pending_phase_val        = _res["dbg_pending_phase"]
+                dbg_pending_phase_count_val  = int(_res["dbg_pending_phase_count"])
                 _rtb_prev_phase    = rtb_phase_val
                 _rtb_prev_age      = _res["rtb_phase_age"]
                 _rtb_soft_streak   = _res["_soft_streak"]
@@ -1217,6 +1241,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "rtb_phase":      rtb_phase_val,
             "rtb_total":      rtb_total_val,
             "rtb_transition": rtb_transition_val,
+            "rtb_build":      rtb_build_val,
+            "rtb_turn":       rtb_turn_val,
+            "rtb_ready":      rtb_ready_val,
+            "rtb_late":       rtb_late_val,
+            "rtb_bonus3":     rtb_bonus3_val,
+            "dbg_context_ready":        dbg_context_ready_val,
+            "dbg_t4_ctx":               dbg_t4_ctx_val,
+            "dbg_t6_ctx":               dbg_t6_ctx_val,
+            "dbg_t4t6_activation_plus": dbg_t4t6_activation_plus_val,
+            "dbg_launch_cluster_count": dbg_launch_cluster_count_val,
+            "dbg_pending_phase":        dbg_pending_phase_val,
+            "dbg_pending_phase_count":  dbg_pending_phase_count_val,
         })
 
     return result
