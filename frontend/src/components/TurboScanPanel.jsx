@@ -665,7 +665,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
   const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
-  const [exported,   setExported]   = useState(false)
+  const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
   const [lookbackN,  setLookbackN]  = useState(1)
@@ -778,6 +778,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
       if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
+      if (rtbPhase && (r.rtb_phase || '0') !== rtbPhase) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (selSigs.size > 0) {
@@ -806,7 +807,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       return mul * (av - bv)
     })
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1132,6 +1133,36 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
           <span className="ml-1 text-gray-600 text-xs animate-pulse">
             — loading sectors…
+          </span>
+        )}
+      </div>
+
+      {/* ── Row 4: RTB Phase filter ── */}
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
+        {[
+          { label: 'All',    val: '', cls: 'text-gray-400' },
+          { label: 'A — Build',    val: 'A', cls: 'text-gray-300',
+            title: 'Build phase: base forming, drying volume, accumulation — no turn yet' },
+          { label: 'B — Turn',     val: 'B', cls: 'text-sky-300',
+            title: 'Turn phase: first real reversal bar, momentum changed — not yet breakout-ready' },
+          { label: 'C — Ready',    val: 'C', cls: 'text-lime-300',
+            title: 'Ready phase: prime pre-breakout stalking zone (1-3 bars before breakout)' },
+          { label: 'D — Late',     val: 'D', cls: 'text-orange-300',
+            title: 'Late/breakout-live: move already launching — chase risk high' },
+        ].map(s => (
+          <button key={s.val} onClick={() => setRtbPhase(s.val)}
+            title={s.title}
+            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+              ${rtbPhase === s.val
+                ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
+                : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+            {s.label}
+          </button>
+        ))}
+        {rtbPhase && (
+          <span className="ml-2 text-gray-600 text-xs">
+            {results.length} ticker{results.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
