@@ -582,6 +582,9 @@ const KEEP_ALWAYS = new Set([
   'vol_bucket','data_source',
   'ema20','ema50','ema89','ema200',
   'sector',
+  // RTB v4
+  'rtb_build','rtb_turn','rtb_ready','rtb_bonus3',
+  'rtb_late','rtb_total','rtb_phase','rtb_transition','rtb_phase_age',
 ])
 function _slimRow(r) {
   const out = {}
@@ -1172,6 +1175,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <SortTh col="turbo_score" cls="text-center">
                 Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
               </SortTh>
+              <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
@@ -1240,6 +1244,22 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
                     {scoreReason(r)}
                   </div>
+                </td>
+
+                {/* RTB v4 phase + score */}
+                <td className="px-2 py-1 text-center"
+                  title={r.rtb_phase ? `RTB v4 | Phase ${r.rtb_phase} | Build ${r.rtb_build} Turn ${r.rtb_turn} Ready ${r.rtb_ready} Late ${r.rtb_late} | ${r.rtb_transition ?? ''}` : 'No RTB data'}>
+                  {r.rtb_phase && r.rtb_phase !== '0' ? (
+                    <div className="leading-none">
+                      <span className={`inline-block font-bold text-[10px] px-1 rounded ${
+                        r.rtb_phase === 'C' ? 'bg-lime-700/80 text-lime-100 ring-1 ring-lime-400' :
+                        r.rtb_phase === 'B' ? 'bg-sky-800/80  text-sky-200  ring-1 ring-sky-500' :
+                        r.rtb_phase === 'A' ? 'bg-gray-700    text-gray-300' :
+                        /* D */ 'bg-orange-800/70 text-orange-200'
+                      }`}>{r.rtb_phase}</span>
+                      <div className="font-mono text-[10px] text-gray-400 mt-0.5">{(r.rtb_total ?? 0).toFixed(0)}</div>
+                    </div>
+                  ) : <span className="text-gray-700">—</span>}
                 </td>
 
                 {/* T/Z signal */}

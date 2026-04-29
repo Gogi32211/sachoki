@@ -194,6 +194,11 @@ _TURBO_COLS = [
     "ema20", "ema50", "ema89", "ema200",
     # GICS sector (from yfinance info, cached)
     "sector",
+    # RTB v4 — Reversal-To-Breakout phase scores
+    "rtb_build", "rtb_turn", "rtb_ready", "rtb_bonus3",
+    "rtb_late", "rtb_total",
+    "rtb_phase", "rtb_transition",
+    "rtb_phase_age",
 ]
 
 
@@ -203,9 +208,11 @@ def _db():
 
 
 def _col_def(c: str) -> str:
-    _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source", "sector"}
+    _TEXT = {"tz_sig", "vol_bucket", "sig_ages", "data_source", "sector",
+             "rtb_phase", "rtb_transition"}
     _REAL = {"turbo_score", "turbo_score_n3", "turbo_score_n5", "turbo_score_n10", "rsi", "cci", "avg_vol",
-             "ema20", "ema50", "ema89", "ema200"}
+             "ema20", "ema50", "ema89", "ema200",
+             "rtb_build", "rtb_turn", "rtb_ready", "rtb_bonus3", "rtb_late", "rtb_total"}
     typ     = "TEXT"    if c in _TEXT else "REAL" if c in _REAL else "INTEGER"
     default = "''"      if c in _TEXT else "0"
     return f"    {c}  {typ}  DEFAULT {default},"
@@ -766,6 +773,7 @@ def _scan_turbo_ticker(
 
         # ── TZ state machine + CA/CD/CW + transition signals (260412) ─────
         _tz_weak_df = None  # pre-init here so it stays valid after W block
+        tz_st = None       # pre-init so RTB block can safely reference it
         try:
             tz_st = compute_tz_state(df)
             row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
@@ -965,6 +973,80 @@ def _scan_turbo_ticker(
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row)
+
+        # ── RTB v4 score ───────────────────────────────────────────────────
+        try:
+            from rtb_engine import calc_rtb_v4
+
+            # tz_st is from compute_tz_state(df) computed earlier in the W block.
+            # Build 5-bar history dicts; index i means -(i+1) bars from last bar.
+            def _hv(frame, col, i):
+                if frame is None or col not in frame.columns: return 0
+                try: return int(bool(frame.iloc[-(i+1)][col]))
+                except Exception: return 0
+
+            def _rtb_hist_bar(i: int) -> dict:
+                # tz_sig for bar i: read from sig_df (is_bull + sig_name)
+                tz_s = ""
+                if sig_df is not None and len(sig_df) > i:
+                    try:
+                        s = sig_df.iloc[-(i+1)]
+                        tz_s = str(s.get("sig_name","")) if s.get("is_bull") else ""
+                    except Exception: pass
+                # tz_bull_flip / tz_attempt from tz_st series
+                tzf = tza = 0
+                try:
+                    if tz_st is not None and len(tz_st) > i + 1:
+                        cur_st  = int(tz_st.iloc[-(i+1)])
+                        prev_st = int(tz_st.iloc[-(i+2)])
+                        tzf = int(cur_st == 3 and prev_st != 3)
+                        tza = int(cur_st == 2 and prev_st != 2)
+                except Exception: pass
+                cl = float(df["close"].iloc[-(i+1)]) if len(df) > i else 0.0
+                op = float(df["open"].iloc[-(i+1)])  if len(df) > i else 0.0
+                hi = float(df["high"].iloc[-(i+1)])  if len(df) > i else 0.0
+                bkt = ""
+                if wlnbb is not None and "vol_bucket" in wlnbb.columns:
+                    try: bkt = str(wlnbb.iloc[-(i+1)]["vol_bucket"])
+                    except Exception: pass
+                return {
+                    "vol_bucket": bkt, "tz_sig": tz_s,
+                    "tz_bull_flip": tzf, "tz_attempt": tza,
+                    "close": cl, "open": op, "high": hi,
+                    "l34": _hv(wlnbb,"L34",i),   "fri34": _hv(wlnbb,"FRI34",i),
+                    "l43": _hv(wlnbb,"L43",i),   "l64":   _hv(wlnbb,"L64",i),
+                    "l22": _hv(wlnbb,"L22",i),
+                    "abs_sig":   _hv(vabs,"abs_sig",i),
+                    "climb_sig": _hv(vabs,"climb_sig",i),
+                    "load_sig":  _hv(vabs,"load_sig",i),
+                    "ns":        _hv(vabs,"ns",i),
+                    "sq":        _hv(vabs,"sq",i),
+                    "conso_2809":    _hv(combo,"conso_2809",i),
+                    "d_spring":      _hv(ddf,"spring",i),
+                    "d_absorb_bull": _hv(ddf,"absorb_bull",i),
+                    "f1": _hv(f_sigs,"f1",i) if f_sigs is not None else 0,
+                    "g1": _hv(g_sigs,"g1",i) if g_sigs is not None else 0,
+                }
+
+            rtb_history = [_rtb_hist_bar(i) for i in range(1, 6)]
+            row["close"] = float(df["close"].iloc[-1])
+            row["open"]  = float(df["open"].iloc[-1])
+            row["high"]  = float(df["high"].iloc[-1])
+            rtb = calc_rtb_v4(row, rtb_history)
+            row["rtb_build"]      = rtb["rtb_build"]
+            row["rtb_turn"]       = rtb["rtb_turn"]
+            row["rtb_ready"]      = rtb["rtb_ready"]
+            row["rtb_bonus3"]     = rtb["rtb_bonus3"]
+            row["rtb_late"]       = rtb["rtb_late"]
+            row["rtb_total"]      = rtb["rtb_total"]
+            row["rtb_phase"]      = rtb["rtb_phase"]
+            row["rtb_transition"] = rtb["rtb_transition"]
+            row["rtb_phase_age"]  = rtb["rtb_phase_age"]
+        except Exception:
+            row["rtb_build"] = row["rtb_turn"] = row["rtb_ready"] = 0.0
+            row["rtb_bonus3"] = row["rtb_late"] = row["rtb_total"] = 0.0
+            row["rtb_phase"] = row["rtb_transition"] = ""
+            row["rtb_phase_age"] = 0
 
         # ── Signal ages + N=5 / N=10 scores (for client N= switching) ──────
         def _sa(frame, col):
