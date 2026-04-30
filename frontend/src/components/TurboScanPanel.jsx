@@ -915,6 +915,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
   }
 
+  // When N>1, override per-signal booleans with age-window check so badges
+  // show signals that fired within the last N bars, not just the last bar.
+  const withAges = (raw) => {
+    if (lookbackN === 1) return raw
+    if (!raw._ages && raw.sig_ages) {
+      try { raw._ages = JSON.parse(raw.sig_ages) } catch { raw._ages = {} }
+    }
+    const ov = {}
+    for (const [k, a] of Object.entries(raw._ages || {})) ov[k] = a < lookbackN ? 1 : 0
+    return { ...raw, ...ov }
+  }
+
   return (
     <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs" onMouseLeave={handleRowLeave}>
       {hoverPopup && (
@@ -1220,11 +1232,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
             </tr>
           </thead>
           <tbody>
-            {results.map(r => (
+            {results.map(_raw => {
+              const r = withAges(_raw)
+              return (
               <tr key={r.ticker}
-                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(r[effectiveScoreCol] ?? r.turbo_score ?? 0)}`}
+                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}
-                onMouseEnter={e => handleRowEnter(e, r)}
+                onMouseEnter={e => handleRowEnter(e, _raw)}
                 onMouseLeave={handleRowLeave}>
 
                 {/* Checkbox */}
@@ -1495,7 +1509,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   )}
                 </td>
               </tr>
-            ))}
+              )
+            })}
 
             {results.length === 0 && !scanning && (
               <tr>
