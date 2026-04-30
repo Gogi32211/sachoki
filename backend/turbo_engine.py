@@ -772,8 +772,9 @@ def _scan_turbo_ticker(
             row["vol_spike_5x"] = row["vol_spike_10x"] = row["vol_spike_20x"] = 0
 
         # ── TZ state machine + CA/CD/CW + transition signals (260412) ─────
-        _tz_weak_df = None  # pre-init here so it stays valid after W block
-        tz_st = None       # pre-init so RTB block can safely reference it
+        _tz_weak_df  = None  # pre-init here so it stays valid after W block
+        _tz_trans_df = None  # tz_bull_flip / tz_attempt series for N-scores
+        tz_st = None         # pre-init so RTB block can safely reference it
         try:
             tz_st = compute_tz_state(df)
             row["tz_state"] = int(tz_st.iloc[-1]) if len(tz_st) else 0
@@ -797,6 +798,11 @@ def _scan_turbo_ticker(
                 _tz_weak_df = pd.DataFrame({
                     "tz_weak_bull": _early_weak_ser & _bull_bar_ser,
                     "tz_weak_bear": _early_weak_ser & ~_bull_bar_ser,
+                }, index=df.index)
+                _tz_curr_i = tz_st.astype(int)
+                _tz_trans_df = pd.DataFrame({
+                    "tz_bull_flip": (_tz_curr_i == 3) & (_tz_st_shifted != 3),
+                    "tz_attempt":   (_tz_curr_i == 2) & (_tz_st_shifted != 2),
                 }, index=df.index)
             else:
                 row["tz_bull_flip"] = row["tz_attempt"] = 0
@@ -933,25 +939,33 @@ def _scan_turbo_ticker(
 
         # ── PARA (260420) — Parabola Start Detector v3.6 ─────────────────
         _PARA_KEYS = ("para_prep", "para_start", "para_plus", "para_retest")
+        _para_ser = None
         try:
-            from para_engine import compute_para
+            from para_engine import compute_para_series as _cpara_ser
             _is_daily = interval in ("1d", "1wk", "1w")
-            _para = compute_para(df, is_daily=_is_daily)
-            row["para_prep"]   = _para.get("prep",        0)
-            row["para_start"]  = _para.get("para_start",  0)
-            row["para_plus"]   = _para.get("para_plus",   0)
-            row["para_retest"] = _para.get("para_retest", 0)
+            _para_ser = _cpara_ser(df, is_daily=_is_daily)
+            if _para_ser is not None:
+                _lp = _para_ser.iloc[-1]
+                row["para_prep"]   = int(bool(_lp.get("para_prep",   False)))
+                row["para_start"]  = int(bool(_lp.get("para_start",  False)))
+                row["para_plus"]   = int(bool(_lp.get("para_plus",   False)))
+                row["para_retest"] = int(bool(_lp.get("para_retest", False)))
+            else:
+                for _k in _PARA_KEYS:
+                    row[_k] = 0
         except Exception:
             for _k in _PARA_KEYS:
                 row[_k] = 0
 
         # ── FLY (260424) — ABCD EMA DP ───────────────────────────────────
         _FLY_KEYS = ("fly_abcd", "fly_cd", "fly_bd", "fly_ad")
+        _fly_ser = None
         try:
-            from fly_engine import compute_fly_abcd
-            _fly = compute_fly_abcd(df)
+            from fly_engine import compute_fly_series as _cfly_ser
+            _fly_ser = _cfly_ser(df)
+            _lf = _fly_ser.iloc[-1]
             for _k in _FLY_KEYS:
-                row[_k] = _fly.get(_k, 0)
+                row[_k] = int(bool(_lf.get(_k, False)))
         except Exception:
             for _k in _FLY_KEYS:
                 row[_k] = 0
@@ -1182,6 +1196,22 @@ def _scan_turbo_ticker(
             # W signals
             "tz_weak_bull":  _sa(_tz_weak_df, "tz_weak_bull"),
             "tz_weak_bear":  _sa(_tz_weak_df, "tz_weak_bear"),
+            # TZ transition signals
+            "tz_bull_flip":  _sa(_tz_trans_df, "tz_bull_flip"),
+            "tz_attempt":    _sa(_tz_trans_df, "tz_attempt"),
+            # F signals (260418) — previously missing from age tracking
+            **({f"f{_fi}": _sa(f_sigs, f"f{_fi}") for _fi in range(1, 12)} if f_sigs is not None else {f"f{_fi}": 30 for _fi in range(1, 12)}),
+            "any_f": (_sa(f_sigs, "any_f") if f_sigs is not None else 30),
+            # PARA signals
+            "para_prep":    _sa(_para_ser, "para_prep"),
+            "para_start":   _sa(_para_ser, "para_start"),
+            "para_plus":    _sa(_para_ser, "para_plus"),
+            "para_retest":  _sa(_para_ser, "para_retest"),
+            # FLY signals
+            "fly_abcd": _sa(_fly_ser, "fly_abcd"),
+            "fly_cd":   _sa(_fly_ser, "fly_cd"),
+            "fly_bd":   _sa(_fly_ser, "fly_bd"),
+            "fly_ad":   _sa(_fly_ser, "fly_ad"),
         }, separators=(',', ':'))
 
         # N=3, N=5 and N=10 turbo scores
@@ -1251,6 +1281,34 @@ def _scan_turbo_ticker(
                 "x1_wick":  _sn(wx,   "x1_wick",           _n),
                 "x3_wick":  _sn(wx,   "x3_wick",           _n),
                 "wick_bull": _sn(wick, "WICK_BULL_CONFIRM", _n),
+                # Backbone (were missing — high-weight signals)
+                "conso_2809": _sn(combo,  "conso_2809", _n),
+                "tz_bull":    _sn(sig_df, "is_bull",    _n),
+                # Breakout additions
+                "be_up":    _sn(wlnbb, "BE_UP", _n),
+                # Volume additions
+                "svs_2809": _sn(combo, "svs_2809", _n),
+                "um_2809":  _sn(combo, "um_2809",  _n),
+                # L-structure additions
+                "l43":          _sn(wlnbb,        "L43",        _n),
+                "fuchsia_rl":   _sn(wlnbb,        "FUCHSIA_RL", _n),
+                "tz_bull_flip": _sn(_tz_trans_df,  "tz_bull_flip", _n),
+                "tz_attempt":   _sn(_tz_trans_df,  "tz_attempt",   _n),
+                "tz_weak_bull": _sn(_tz_weak_df,   "tz_weak_bull", _n),
+                # G signals
+                "g1":  _sn(g_sigs, "g1",  _n),
+                "g2":  _sn(g_sigs, "g2",  _n),
+                "g4":  _sn(g_sigs, "g4",  _n),
+                "g6":  _sn(g_sigs, "g6",  _n),
+                "g11": _sn(g_sigs, "g11", _n),
+                # Context additions (para + fly)
+                "para_retest": _sn(_para_ser, "para_retest", _n),
+                "para_plus":   _sn(_para_ser, "para_plus",   _n),
+                "para_start":  _sn(_para_ser, "para_start",  _n),
+                "fly_abcd": _sn(_fly_ser, "fly_abcd", _n),
+                "fly_cd":   _sn(_fly_ser, "fly_cd",   _n),
+                "fly_bd":   _sn(_fly_ser, "fly_bd",   _n),
+                "fly_ad":   _sn(_fly_ser, "fly_ad",   _n),
             }
             row[_key] = _calc_turbo_score(_r)
 
