@@ -1569,7 +1569,7 @@ def run_turbo_scan(
                     row = fut.result(timeout=1)
                 except Exception:
                     row = None
-                if row:
+                if row and row.get("turbo_score", 0) >= 5:
                     row["scan_id"]    = scan_id
                     row["scanned_at"] = now_iso
                     # Guard: fill any DB column missing from the row (e.g. newly added cols)

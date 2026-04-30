@@ -689,22 +689,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
     [universe, allResults]  // re-check when results change (after scan saves cache)
   )
 
-  // Read from localStorage — fall back to all_us cache if specific universe has no data
-  const loadFromCache = useCallback((tf, uni) => {
-    let cached = _tsGet(tf, uni)
-    // If no specific cache, try all_us (covers all sub-universes)
-    if (!cached?.results?.length && uni !== 'all_us') {
-      cached = _tsGet(tf, 'all_us')
-    }
-    if (cached?.results?.length) {
-      setAllResults(cached.results)
-      setLastScan(cached.lastScan || null)
-    } else {
-      setAllResults([])
-      setLastScan(null)
-    }
-  }, [])
-
   // Fetch fresh results from server after a scan completes, then cache
   const fetchFreshResults = useCallback((tf, uni) => {
     api.turboScan(10000, 0, 'all', tf, uni, {})
@@ -719,6 +703,26 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
       .catch(e => setError(e.message))
   }, [])
+
+  // Read from localStorage — fall back to all_us cache if specific universe has no data
+  const loadFromCache = useCallback((tf, uni) => {
+    let cached = _tsGet(tf, uni)
+    // If no specific cache, try all_us (covers all sub-universes)
+    if (!cached?.results?.length && uni !== 'all_us') {
+      cached = _tsGet(tf, 'all_us')
+    }
+    if (cached?.results?.length) {
+      setAllResults(cached.results)
+      setLastScan(cached.lastScan || null)
+      // Cache was truncated due to localStorage size limit — silently refetch full data
+      if (cached.truncated) {
+        fetchFreshResults(tf, uni)
+      }
+    } else {
+      setAllResults([])
+      setLastScan(null)
+    }
+  }, [fetchFreshResults])
 
   useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
 
