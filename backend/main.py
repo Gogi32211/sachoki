@@ -8,6 +8,7 @@ import concurrent.futures
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
@@ -684,6 +685,13 @@ def api_signal_stats(
 # ── Pooled signal stats (SP500 aggregate) ─────────────────────────────────────
 _SS_POOLED: dict = {}  # key: f"{universe}_{tf}"
 
+# ── Stock Stat scan state ─────────────────────────────────────────────────────
+_stock_stat_state: dict = {
+    "running": False, "done": 0, "total": 0,
+    "error": None, "output_path": None, "output_size": 0,
+    "tf": None, "universe": None, "elapsed": 0.0,
+}
+
 
 def _ss_pooled_worker(universe: str, tf: str, signals: list, max_tickers: int = 500):
     import threading
@@ -1257,6 +1265,109 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         })
 
     return result
+
+
+# ── Stock Stat — bulk per-bar signal CSV for entire universe ──────────────────
+
+def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
+    import csv, time
+    from scanner import get_universe_tickers
+
+    t0 = time.time()
+    _stock_stat_state.update(
+        running=True, done=0, total=0, error=None,
+        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0
+    )
+    _PREUP = {"P2", "P3", "P50", "P89"}
+
+    try:
+        tickers = get_universe_tickers(universe)
+        _stock_stat_state["total"] = len(tickers)
+
+        os.makedirs("stock_stat_output", exist_ok=True)
+        out_path = f"stock_stat_output/stock_stat_{universe}_{tf}.csv"
+
+        headers = [
+            "ticker", "date", "open", "high", "low", "close", "volume",
+            "vol_bucket", "turbo_score", "rtb_phase", "rtb_total", "rtb_transition",
+            "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
+        ]
+
+        def _j(lst): return " ".join(lst) if lst else ""
+
+        with open(out_path, "w", newline="", encoding="utf-8") as fh:
+            wr = csv.writer(fh)
+            wr.writerow(headers)
+            for idx, ticker in enumerate(tickers):
+                try:
+                    bd = api_bar_signals(ticker, tf, bars)
+                    for b in bd:
+                        tz = b.get("tz", "")
+                        wr.writerow([
+                            ticker,
+                            b.get("date", ""),
+                            round(b.get("open", 0), 4),
+                            round(b.get("high", 0), 4),
+                            round(b.get("low", 0), 4),
+                            round(b.get("close", 0), 4),
+                            round(b.get("volume", 0), 0),
+                            b.get("vol_bucket", ""),
+                            b.get("turbo_score", 0),
+                            b.get("rtb_phase", ""),
+                            b.get("rtb_total", 0),
+                            b.get("rtb_transition", ""),
+                            tz if tz.startswith("Z") else "",
+                            tz if tz.startswith("T") else "",
+                            _j(b.get("l", [])),
+                            _j(b.get("f", [])),
+                            _j(b.get("fly", [])),
+                            _j(b.get("g", [])),
+                            _j(b.get("b", [])),
+                            _j([s for s in b.get("combo", []) if s not in _PREUP]),
+                            _j(b.get("ultra", [])),
+                            _j(b.get("vol", [])),
+                            _j(b.get("vabs", [])),
+                            _j(b.get("wick", [])),
+                        ])
+                except Exception:
+                    pass
+                _stock_stat_state["done"] = idx + 1
+                _stock_stat_state["elapsed"] = round(time.time() - t0, 1)
+
+        fsize = os.path.getsize(out_path)
+        _stock_stat_state.update(
+            running=False, output_path=out_path,
+            output_size=fsize, elapsed=round(time.time() - t0, 1)
+        )
+    except Exception as e:
+        _stock_stat_state.update(
+            running=False, error=str(e),
+            elapsed=round(time.time() - t0, 1)
+        )
+
+
+@app.post("/api/stock-stat/trigger")
+def api_stock_stat_trigger(
+    background_tasks: BackgroundTasks,
+    tf: str = "1d", universe: str = "sp500", bars: int = 60,
+):
+    if _stock_stat_state["running"]:
+        raise HTTPException(400, "Stock Stat scan already running")
+    background_tasks.add_task(run_stock_stat, tf, universe, bars)
+    return {"ok": True}
+
+
+@app.get("/api/stock-stat/status")
+def api_stock_stat_status():
+    return _stock_stat_state
+
+
+@app.get("/api/stock-stat/download")
+def api_stock_stat_download():
+    path = _stock_stat_state.get("output_path")
+    if not path or not os.path.exists(path):
+        raise HTTPException(404, "No output file — run a scan first")
+    return FileResponse(path, media_type="text/csv", filename=os.path.basename(path))
 
 
 # ── Sector Analysis ────────────────────────────────────────────────────────────

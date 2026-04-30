@@ -53,6 +53,14 @@ export default function AdminPanel() {
   const pollRef    = useRef(null)
   const scanParams = useRef({ tf: '1d', uni: 'sp500' })
 
+  // ── Stock Stat state ──
+  const [ssUni,    setSsUni]    = useState('sp500')
+  const [ssTf,     setSsTf]     = useState('1d')
+  const [ssBars,   setSsBars]   = useState(60)
+  const [ssStatus, setSsStatus] = useState(null)
+  const [ssError,  setSsError]  = useState(null)
+  const ssPollRef  = useRef(null)
+
   const setCacheMode = (val) => { setCacheBackend(val); setCacheModeS(val) }
 
   const filters = {
@@ -104,6 +112,23 @@ export default function AdminPanel() {
     }
     prevRunning.current = status?.running ?? false
   }, [status?.running])
+
+  // ── Stock Stat polling ──
+  const fetchSsStatus = () =>
+    api.stockStatStatus().then(setSsStatus).catch(() => {})
+
+  useEffect(() => {
+    fetchSsStatus()
+    ssPollRef.current = setInterval(fetchSsStatus, 2000)
+    return () => clearInterval(ssPollRef.current)
+  }, [])
+
+  const startStockStat = () => {
+    setSsError(null)
+    api.stockStatTrigger(ssTf, ssUni, ssBars)
+      .then(() => fetchSsStatus())
+      .catch(e => setSsError(e?.detail || e?.message || String(e)))
+  }
 
   const startScan = () => {
     setError(null)
@@ -320,6 +345,90 @@ export default function AdminPanel() {
               </tbody>
             </table>
           )}
+      </div>
+
+      {/* ── Stock Stat ── */}
+      <div className="bg-gray-900 rounded-lg p-4 border border-gray-800 space-y-3">
+        <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">
+          Stock Stat — Bulk Signal CSV
+        </div>
+        <div className="text-xs text-gray-600">
+          Runs bar-level signal computation for every ticker in the universe and exports a combined CSV (same columns as Superchart CSV).
+          SP500 ≈ 5–10 min · Russell 2K ≈ 20–40 min · All US ≈ 1–2 h
+        </div>
+        <div className="flex flex-wrap gap-2 items-end">
+          <div className="flex gap-1">
+            {UNIVERSES.map(u => (
+              <button key={u.key}
+                onClick={() => setSsUni(u.key)}
+                disabled={ssStatus?.running}
+                className={`px-2.5 py-1 rounded text-xs border transition-colors disabled:opacity-40
+                  ${ssUni === u.key
+                    ? 'bg-blue-800 border-blue-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}>
+                {u.label}
+              </button>
+            ))}
+          </div>
+          <div className="flex gap-1">
+            {TFS.map(t => (
+              <button key={t}
+                onClick={() => setSsTf(t)}
+                disabled={ssStatus?.running}
+                className={`px-2.5 py-1 rounded text-xs border transition-colors disabled:opacity-40
+                  ${ssTf === t
+                    ? 'bg-purple-800 border-purple-500 text-white'
+                    : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}>
+                {t}
+              </button>
+            ))}
+          </div>
+          <NumInput label="Bars" value={ssBars} onChange={setSsBars} min={10} max={500} />
+          <button
+            onClick={startStockStat}
+            disabled={ssStatus?.running}
+            className="px-4 py-1.5 rounded text-xs font-semibold bg-teal-600 hover:bg-teal-500 text-white disabled:opacity-40 disabled:cursor-not-allowed transition-colors">
+            📊 Run Stock Stat
+          </button>
+        </div>
+
+        {/* Progress */}
+        {ssStatus && (ssStatus.running || ssStatus.output_path || ssStatus.error) && (
+          <div className="space-y-2">
+            <div className="w-full bg-gray-800 rounded-full h-2">
+              <div
+                className={`h-2 rounded-full transition-all ${ssStatus.running ? 'bg-teal-500' : 'bg-green-600'}`}
+                style={{ width: `${pct(ssStatus.done ?? 0, ssStatus.total || 1)}%` }}
+              />
+            </div>
+            <div className="flex flex-wrap gap-4 text-xs">
+              <span className="text-gray-400">
+                {ssStatus.done ?? 0} / {ssStatus.total ?? 0} tickers
+              </span>
+              <span className="text-gray-500">{fmt(ssStatus.elapsed)}</span>
+              {ssStatus.universe && (
+                <span className="text-gray-600">{ssStatus.universe} · {ssStatus.tf}</span>
+              )}
+            </div>
+            {ssStatus.error && (
+              <div className="text-red-400 text-xs">Error: {ssStatus.error}</div>
+            )}
+            {!ssStatus.running && !ssStatus.error && ssStatus.output_path && (
+              <div className="flex items-center gap-3">
+                <span className="text-green-400 text-xs">
+                  ✓ Done — {ssStatus.done} tickers · {Math.round((ssStatus.output_size ?? 0) / 1024 / 1024 * 10) / 10} MB
+                </span>
+                <a
+                  href={api.stockStatDownloadUrl()}
+                  download
+                  className="px-3 py-1 rounded text-xs font-semibold bg-green-700 hover:bg-green-600 text-white transition-colors">
+                  ⬇ Download CSV
+                </a>
+              </div>
+            )}
+          </div>
+        )}
+        {ssError && <div className="text-red-400 text-xs">{ssError}</div>}
       </div>
 
     </div>
