@@ -154,6 +154,13 @@ export const api = {
   adminScanHistory: () => get('/api/admin/scan-history'),
   adminScanStart:   (tf, universe, minStoreScore = 5) => post(`/api/admin/scan-start?tf=${tf}&universe=${universe}&min_store_score=${minStoreScore}`),
 
+  // Stock Stat — bulk per-bar signal CSV
+  stockStatTrigger: (tf = '1d', universe = 'sp500', bars = 60) =>
+    post(`/api/stock-stat/trigger?tf=${tf}&universe=${universe}&bars=${bars}`),
+  stockStatStatus: () =>
+    get('/api/stock-stat/status'),
+  stockStatDownloadUrl: () => BASE + '/api/stock-stat/download',
+
   // Sector Analysis
   sectorOverview: ()               => get('/api/sectors/overview'),
   sectorDetail:   (etf)            => get(`/api/sectors/${etf}`),
