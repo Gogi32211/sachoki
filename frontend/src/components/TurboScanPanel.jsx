@@ -659,6 +659,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
   const pollIvRef   = useRef(null)   // interval handle — prevents duplicate polls
+  const fetchSeqRef = useRef(0)      // monotonic counter — discard stale fetches
   const [massiveReady, setMassiveReady] = useState(null)
   const [minScore,   setMinScore]   = useState(0)
   const [direction,  setDirection]  = useState('bull')
@@ -689,10 +690,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
     [universe, allResults]  // re-check when results change (after scan saves cache)
   )
 
-  // Fetch fresh results from server after a scan completes, then cache
+  // Fetch fresh results from server after a scan completes, then cache.
+  // Uses fetchSeqRef to discard responses from stale (superseded) requests.
   const fetchFreshResults = useCallback((tf, uni) => {
+    const seq = ++fetchSeqRef.current
     api.turboScan(10000, 0, 'all', tf, uni, {})
       .then(d => {
+        if (seq !== fetchSeqRef.current) return  // superseded by a newer fetch
         const results = d.results || []
         const ls = d.last_scan
         if (results.length > 0) {
@@ -701,7 +705,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           setLastScan(ls || null)
         }
       })
-      .catch(e => setError(e.message))
+      .catch(e => { if (seq === fetchSeqRef.current) setError(e.message) })
   }, [])
 
   // Read from localStorage — fall back to all_us cache if specific universe has no data
@@ -724,7 +728,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
     }
   }, [fetchFreshResults])
 
-  useEffect(() => { loadFromCache(localTf, universe) }, [localTf, universe])
+  useEffect(() => {
+    loadFromCache(localTf, universe)       // instant from cache (may be stale)
+    fetchFreshResults(localTf, universe)   // always refresh from server in background
+  }, [localTf, universe]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lazy-batch sector fetch: after results load, fetch sectors for tickers missing them
   useEffect(() => {
