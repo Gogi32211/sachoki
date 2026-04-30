@@ -1289,7 +1289,11 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
 
         headers = [
             "ticker", "date", "open", "high", "low", "close", "volume",
-            "vol_bucket", "turbo_score", "rtb_phase", "rtb_total", "rtb_transition",
+            "vol_bucket", "turbo_score",
+            "rtb_phase", "rtb_total", "rtb_transition",
+            "rtb_build", "rtb_turn", "rtb_ready", "rtb_late", "rtb_bonus3",
+            "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
+            "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
             "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
         ]
 
@@ -1316,6 +1320,18 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             b.get("rtb_phase", ""),
                             b.get("rtb_total", 0),
                             b.get("rtb_transition", ""),
+                            b.get("rtb_build", 0),
+                            b.get("rtb_turn", 0),
+                            b.get("rtb_ready", 0),
+                            b.get("rtb_late", 0),
+                            b.get("rtb_bonus3", 0),
+                            1 if b.get("dbg_context_ready") else 0,
+                            1 if b.get("dbg_t4_ctx") else 0,
+                            1 if b.get("dbg_t6_ctx") else 0,
+                            1 if b.get("dbg_t4t6_activation_plus") else 0,
+                            b.get("dbg_launch_cluster_count", 0),
+                            b.get("dbg_pending_phase", ""),
+                            b.get("dbg_pending_phase_count", 0),
                             tz if tz.startswith("Z") else "",
                             tz if tz.startswith("T") else "",
                             _j(b.get("l", [])),
