@@ -88,14 +88,20 @@ def get_turbo_progress() -> dict:
     return state
 
 
-# ── T/Z signal weights ────────────────────────────────────────────────────────
-_TZ_W = {
+# ── T/Z signal weights (profile-specific) ────────────────────────────────────
+_TZ_W_BASE = {
     "T4": 9, "T6": 9,
     "T1G": 6, "T2G": 8,
     "T1": 7, "T2": 5,
     "T9": 4, "T10": 4,
     "T3": 2, "T11": 2, "T5": 1,
 }
+# SP500: T4/T6 weaker as standalone signals on large-caps
+_TZ_W_SP500  = {**_TZ_W_BASE, "T4": 6, "T6": 6}
+# NASDAQ: T4/T6 are pre-breakout triggers; context combos give the full uplift
+_TZ_W_NASDAQ = {**_TZ_W_BASE, "T4": 7, "T6": 7, "T1": 5, "T9": 3}
+# Backward-compat alias
+_TZ_W = _TZ_W_BASE
 
 # ── DB columns ────────────────────────────────────────────────────────────────
 _TURBO_COLS = [
@@ -278,7 +284,7 @@ def _init_db() -> None:
 
 
 # ── Score calculator ──────────────────────────────────────────────────────────
-def _calc_turbo_score(r: dict) -> float:
+def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     """
     Statistics-based scoring v3 (SP500 pooled stats, 500 tickers 2yr + co-occurrence analysis).
     Core backbone: conso_2809 (79% freq) → tz_bull (65%) → bf_buy (43%).
@@ -359,7 +365,8 @@ def _calc_turbo_score(r: dict) -> float:
 
     # ── L-structure / trend family (cap 13) ───────────────────────────────
     trend = 0.0
-    trend += _TZ_W.get(r.get("tz_sig", ""), 0)
+    _tz_w = _TZ_W_NASDAQ if profile == "nasdaq" else _TZ_W_SP500
+    trend += _tz_w.get(r.get("tz_sig", ""), 0)
     # tz_bull_flip: 100%A/98%C triple (FLP↑+4BF+T/Z↑) — strong pattern, raised +1→+3 with bf_buy
     if r.get("tz_bull_flip"):
         trend += 3 if has_bf_buy else 4
@@ -453,6 +460,83 @@ def _calc_turbo_score(r: dict) -> float:
 
     s += min(conf, 18)
 
+    # ── SP500 profile combo bonuses (cap 20) ──────────────────────────────────
+    # Based on pooled SP500 1D analysis — strongest contextual combos
+    if profile == "sp500":
+        _ztrap_r = bool(r.get("_ztrap_recent_5b"))
+        _l64_rp  = bool(r.get("_l64_recent_5b"))
+        _l43_rp  = bool(r.get("_l43_recent_5b"))
+        _l22_rp  = bool(r.get("_l22_recent_5b"))
+        _t1_t1g  = r.get("tz_sig", "") in ("T1", "T1G")
+        sp_cb = 0.0
+        # SQ + CLM + Ztrap_recent: accumulation surge inside trap context
+        if r.get("sq") and r.get("climb_sig") and _ztrap_r:
+            sp_cb += 12
+        # SQ + LOAD + Ztrap_recent: loading + squeeze in trap zone
+        if r.get("sq") and r.get("load_sig") and _ztrap_r:
+            sp_cb += 12
+        # NS + UM: supply exhaustion + institutional ignition
+        if r.get("ns") and r.get("um_2809"):
+            sp_cb += 10
+        # L43_recent + CLM + Ztrap: structural reset + climber in trap
+        if _l43_rp and r.get("climb_sig") and _ztrap_r:
+            sp_cb += 10
+        # L64_recent + T1/T1G + SVS: long structural base + turn + volume expansion
+        if _l64_rp and _t1_t1g and r.get("svs_2809"):
+            sp_cb += 12
+        # L22/L64_context + SQ + Ztrap: structural context + squeeze in trap
+        if (_l22_rp or _l64_rp) and r.get("sq") and _ztrap_r:
+            sp_cb += 8
+        s += min(sp_cb, 20)
+
+    # ── NASDAQ profile combo bonuses (cap 25) ─────────────────────────────────
+    # Based on pooled NASDAQ 1D analysis — UM-centric, C-phase, B_TO_C combos
+    elif profile == "nasdaq":
+        _c_phase = r.get("rtb_phase") == "C"
+        _btoc    = r.get("rtb_transition") == "B_TO_C"
+        _ztrap_r = bool(r.get("_ztrap_recent_5b"))
+        _l64_rp  = bool(r.get("_l64_recent_5b"))
+        _l22_rp  = bool(r.get("_l22_recent_5b"))
+        _blue_rp = bool(r.get("_blue_recent_5b"))
+        _um      = bool(r.get("um_2809"))
+        _tz_cur  = r.get("tz_sig", "")
+        _t6      = (_tz_cur == "T6")
+        _t4      = (_tz_cur == "T4")
+        nq_cb = 0.0
+        # Tier 1 — strongest NASDAQ combos
+        # ZTRAP_T6_C: trap context + T6 trigger + C phase
+        if _ztrap_r and _t6 and _c_phase:
+            nq_cb += 14
+        # L64_UM_T6: structural base + ignition + breakout trigger
+        if _l64_rp and _um and _t6:
+            nq_cb += 14
+        # UM_BE: institutional ignition + full-body breakout engulf
+        if _um and r.get("be_up"):
+            nq_cb += 12
+        # ZTRAP_UM_T4: trap + ignition + T4 reversal bar
+        if _ztrap_r and _um and _t4:
+            nq_cb += 12
+        # T6_BTOC: T6 trigger exactly on B→C phase transition
+        if _t6 and _btoc:
+            nq_cb += 12
+        # Tier 2 — supportive NASDAQ combos
+        # SQ_BL_C: accumulation squeeze + bullish label + C phase
+        if r.get("sq") and (r.get("blue") or _blue_rp) and _c_phase:
+            nq_cb += 8
+        # LOAD_BL_C: loading + bullish label + C phase
+        if r.get("load_sig") and (r.get("blue") or _blue_rp) and _c_phase:
+            nq_cb += 8
+        # UM_VBO: institutional ignition + volume breakout
+        if _um and r.get("vbo_up"):
+            nq_cb += 8
+        # UM_BX: institutional ignition + BB breakout
+        if _um and r.get("bx_up"):
+            nq_cb += 8
+        # L22/L64 + SQ + LOAD: double volume activation in structural context
+        if (_l22_rp or _l64_rp) and r.get("sq") and r.get("load_sig"):
+            nq_cb += 8
+        s += min(nq_cb, 25)
+
     # ── Kill / penalty conditions ─────────────────────────────────────────
     # ISOLATED G trigger (no L34/BE_UP/D4): -1.80% avg, 34.7% of all FPs
     if (r.get("g4") or r.get("g6")) and not _l34 and not _be and not _d4:
@@ -472,6 +556,23 @@ def _calc_turbo_score(r: dict) -> float:
     # Buying Climax (bc) without BE_UP: distribution risk, mean-reversion likely
     if r.get("bc") and not _be:
         s -= 3
+
+    # ── NASDAQ-specific demotions ──────────────────────────────────────────────
+    if profile == "nasdaq":
+        # RL alone: weak on pooled NASDAQ without activation context
+        if r.get("fuchsia_rl") and not r.get("um_2809") and not _be and not r.get("vbo_up") and not r.get("bx_up"):
+            s -= 2
+        # T4/T6 without any NASDAQ context: slight demotion (combos give the uplift)
+        if r.get("tz_sig", "") in ("T4", "T6"):
+            _has_nq_ctx = (
+                bool(r.get("_ztrap_recent_5b")) or
+                bool(r.get("_l64_recent_5b"))   or
+                bool(r.get("um_2809"))           or
+                r.get("rtb_phase") == "C"        or
+                r.get("rtb_transition") == "B_TO_C"
+            )
+            if not _has_nq_ctx:
+                s -= 2
 
     s = max(0.0, s)
 
@@ -542,6 +643,7 @@ def _scan_turbo_ticker(
     iwm_chg: float | None = None,
     partial_day: bool = False,
     min_volume: float = 0,
+    profile: str = "sp500",
 ) -> dict | None:
     try:
         from data_polygon import fetch_bars, polygon_available
@@ -985,8 +1087,29 @@ def _scan_turbo_ticker(
         except Exception:
             row["_l34_recent_3b"] = row["_fri34_recent_3b"] = row["_dabsorb_recent_5b"] = 0
 
+        # ── Profile-scoring lookback flags (Z-trap, L-family, BLUE recent) ─────
+        try:
+            _ZTRAP_NAMES = {"Z9", "Z10", "Z11", "Z12"}
+            _ztrap_r = 0
+            if sig_df is not None and not sig_df.empty and "sig_name" in sig_df.columns:
+                for _zi in range(1, min(6, len(sig_df))):
+                    try:
+                        if str(sig_df["sig_name"].iloc[-_zi] or "") in _ZTRAP_NAMES:
+                            _ztrap_r = 1
+                            break
+                    except Exception:
+                        pass
+            row["_ztrap_recent_5b"] = _ztrap_r
+            row["_l64_recent_5b"]   = _sn(wlnbb, "L64",  5)
+            row["_l43_recent_5b"]   = _sn(wlnbb, "L43",  5)
+            row["_l22_recent_5b"]   = _sn(wlnbb, "L22",  5)
+            row["_blue_recent_5b"]  = _sn(wlnbb, "BLUE", 5)
+        except Exception:
+            row["_ztrap_recent_5b"] = row["_l64_recent_5b"] = row["_l43_recent_5b"] = 0
+            row["_l22_recent_5b"]   = row["_blue_recent_5b"] = 0
+
         # ── TURBO SCORE ────────────────────────────────────────────────────
-        row["turbo_score"] = _calc_turbo_score(row)
+        row["turbo_score"] = _calc_turbo_score(row, profile)
 
         # ── RTB v4 score ───────────────────────────────────────────────────
         try:
@@ -1310,7 +1433,7 @@ def _scan_turbo_ticker(
                 "fly_bd":   _sn(_fly_ser, "fly_bd",   _n),
                 "fly_ad":   _sn(_fly_ser, "fly_ad",   _n),
             }
-            row[_key] = _calc_turbo_score(_r)
+            row[_key] = _calc_turbo_score(_r, profile)
 
         row.setdefault("sector", "")  # not fetched in bulk scan; column exists in DB
 
@@ -1529,10 +1652,11 @@ def run_turbo_scan(
     found = 0
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
+        _profile = "nasdaq" if universe == "nasdaq" else "sp500"
         futures = {
             pool.submit(
                 _scan_turbo_ticker, t, interval, min_price, max_price,
-                spy_chg, iwm_chg, partial_day, min_volume
+                spy_chg, iwm_chg, partial_day, min_volume, _profile
             ): t
             for t in tickers
         }
