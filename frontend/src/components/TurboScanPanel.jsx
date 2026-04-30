@@ -1237,6 +1237,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     else setPickedTickers(new Set())
                   }} />
               </th>
+              <th className="px-1 py-1.5 w-5 font-medium text-gray-500" title="Watchlist">★</th>
               <SortTh col="ticker">Ticker</SortTh>
               <SortTh col="turbo_score" cls="text-center">
                 Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}

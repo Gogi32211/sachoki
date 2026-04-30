@@ -1169,7 +1169,24 @@ def _scan_turbo_ticker(
             row["close"] = float(df["close"].iloc[-1])
             row["open"]  = float(df["open"].iloc[-1])
             row["high"]  = float(df["high"].iloc[-1])
-            rtb = calc_rtb_v4(row, rtb_history)
+
+            # Sequential warm-up: replay last 10 bars to derive correct
+            # prev_phase / soft_streak / pending state before final bar.
+            # Without this, hysteresis always starts from "0" and blocks
+            # most non-A phases, producing empty RTB in the scan.
+            _wp = "0"; _wa = 0; _ws = 0; _wpp = ""; _wpc = 0
+            _n_warmup = min(10, len(df) - 1)
+            for _wi in range(_n_warmup, 0, -1):
+                _wb = _rtb_hist_bar(_wi)
+                _wh = [_rtb_hist_bar(_wi + k) for k in range(1, 6)]
+                _wr = calc_rtb_v4(_wb, _wh, _wp, _wa, _ws, _wpp, _wpc)
+                _wp  = _wr["rtb_phase"]
+                _wa  = _wr["rtb_phase_age"]
+                _ws  = _wr["_soft_streak"]
+                _wpp = _wr["_pending_phase"]
+                _wpc = _wr["_pending_phase_count"]
+
+            rtb = calc_rtb_v4(row, rtb_history, _wp, _wa, _ws, _wpp, _wpc)
             row["rtb_build"]      = rtb["rtb_build"]
             row["rtb_turn"]       = rtb["rtb_turn"]
             row["rtb_ready"]      = rtb["rtb_ready"]
