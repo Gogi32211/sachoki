@@ -316,13 +316,13 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     s = min(bkb, 18)
 
     # ── Volume / accumulation family (cap 22) ─────────────────────────────
-    # Weights revised v3 per SP500 pooled stats (500 tickers, 2yr):
-    #   CLB Avg3=2.80 → +5; VBO Avg3=2.37 → +5; NS Avg3=2.35 → +4; SQ Win%=57.5% → +5
+    # Weights v4 per optimization analysis (SP500 pooled stats):
+    #   CLB Avg3=2.80 → +5; LD Avg3=2.69 → +5; VBO Avg3=2.37 → +4; NS Avg3=2.35 → +4
     vol = 0.0
     if r.get("abs_sig"):   vol += 5
-    if r.get("climb_sig"): vol += 5   # Avg3=2.80 (RAISE 4→5)
-    if r.get("load_sig"):  vol += 4
-    if r.get("vbo_up"):    vol += 5   # Avg3=2.37 (LOWER 6→5)
+    if r.get("climb_sig"): vol += 5   # Avg3=2.80
+    if r.get("load_sig"):  vol += 5   # Avg3=2.69 (RAISE 4→5)
+    if r.get("vbo_up"):    vol += 4   # Avg3=2.37 (LOWER 5→4)
     if r.get("ns"):        vol += 4   # Avg3=2.35 (LOWER 5→4)
     if r.get("sq"):        vol += 5   # Win%=57.5%, Avg3=2.63 (RAISE 4→5)
     if r.get("sc"):        vol += 2
@@ -339,9 +339,9 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     brk = 0.0
     if has_bf_buy:          brk += 6
     if r.get("fbo_bull"):   brk += 5
-    if r.get("eb_bull"):    brk += 3   # Avg3=2.39 (LOWER 4→3)
+    if r.get("eb_bull"):    brk += 4   # Avg3=2.39 (RAISE 3→4)
     if r.get("be_up"):      brk += 10  # BE breakout — full-body engulf
-    if r.get("ultra_3up"):  brk += 2   # Avg3=1.65 WORST signal (LOWER 4→2)
+    if r.get("ultra_3up"):  brk += 3   # Avg3=1.65 (RAISE 2→3)
     if r.get("bo_up") or r.get("bx_up"): brk += 5
     if r.get("rs_strong"):  brk += 5
     elif r.get("rs"):       brk += 3
@@ -377,24 +377,22 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     elif r.get("fri43"):
         trend += 4
     if r.get("l34") and not r.get("fri34"): trend += 5
-    if r.get("blue"):         trend += 3   # Avg3=2.76 (RAISE 2→3)
+    if r.get("blue"):         trend += 5   # Avg3=2.76 (RAISE 3→5)
     if r.get("cci_ready"):    trend += 2
-    if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 4  # Avg3=2.60 (RAISE 2→4)
-    if r.get("fuchsia_rl"):   trend += 3   # Avg3=2.80% Win%=53.3% (ADD v3)
+    if r.get("l43") and not r.get("fri43") and not r.get("fri34"): trend += 5  # Avg3=2.60 (RAISE 4→5)
+    if r.get("fuchsia_rl"):   trend += 5   # Avg3=2.80% (RAISE 3→5)
     if r.get("tz_weak_bull"): trend += 2   # W — BearWeak↑ early turn (ADD v3)
     s += min(trend, 17)
 
     # ── Delta / order-flow family (cap 12) ───────────────────────────────
-    # Delta weights revised v3 per SP500 pooled stats:
-    #   dSPR #1 overall Avg3=3.36 → +6; Ab↑ #3 Avg3=2.99 → +6 (RAISE 4→6)
-    #   B/S↑ Win%=48.9% Avg3=2.03 → +2 (MAJOR LOWER 5→2); ΔΔ↑ Avg3=2.46 → +5 (LOWER 6→5)
+    # Delta weights v4: dSPR +6; Ab↑ +6; ΔΔ↑ +5; Δ↑ +5; T↓ +5; B/S↑ +4
     dlt = 0.0
-    if r.get("d_blast_bull"):        dlt += 5   # Avg3=2.46 (LOWER 6→5)
-    elif r.get("d_surge_bull"):      dlt += 4
-    if r.get("d_strong_bull"):       dlt += 2   # Avg3=2.03 Win%=48.9% (MAJOR LOWER 5→2)
-    if r.get("d_absorb_bull"):       dlt += 6   # Avg3=2.99 #3 overall (RAISE 4→6)
-    if r.get("d_spring"):            dlt += 6   # Avg3=3.36 #1 overall — keep
-    elif r.get("d_div_bull"):        dlt += 4   # Avg3=2.54 (RAISE 3→4)
+    if r.get("d_blast_bull"):        dlt += 5   # Avg3=2.46
+    elif r.get("d_surge_bull"):      dlt += 5   # Avg3=2.43 (RAISE 4→5)
+    if r.get("d_strong_bull"):       dlt += 4   # Avg3=2.03 (RAISE 2→4)
+    if r.get("d_absorb_bull"):       dlt += 6   # Avg3=2.99 #3 overall
+    if r.get("d_spring"):            dlt += 6   # Avg3=3.36 #1 overall
+    elif r.get("d_div_bull"):        dlt += 5   # Avg3=2.54 (RAISE 4→5)
     if r.get("d_vd_div_bull"):       dlt += 3
     elif r.get("d_cd_bull"):         dlt += 2
     s += min(dlt, 12)
@@ -409,9 +407,9 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     s += min(ema_x, 10)
 
     # ── G signals family (cap 10) ─────────────────────────────────────────
-    # SP500 pooled: G2 Avg3=2.64% Win%=54.9% — best G; others estimated from SP500 data
+    # SP500 pooled: G2 Avg3=2.64% Win%=54.9% — best G (RAISE 4→5)
     g_sig = 0.0
-    if r.get("g2"):   g_sig += 4   # Avg3=2.64% Win%=54.9% — best
+    if r.get("g2"):   g_sig += 5   # Avg3=2.64% Win%=54.9% (RAISE 4→5)
     if r.get("g4"):   g_sig += 3
     if r.get("g1"):   g_sig += 3
     if r.get("g6"):   g_sig += 2
@@ -432,26 +430,26 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
 
     conf = 0.0
     # ── Tier 1: SAME-BAR confluences ──────────────────────────────────────
-    # D6+BE_UP same bar: +6.26% avg 5d, 71% win rate, FP 15.6%  (n=32)
+    # D6+BE_UP same bar: +6.26% avg 5d, 71% win rate  (n=32)
     if _d6 and _be:
         conf += 12
-    # D4+L34 same bar:  +2.53% avg 5d, 70.8% win, FP only 4.2% (n=24)
+    # D4+L34 same bar:  +2.53% avg 5d, 70.8% win  (n=24) — LOWER 8→5
     if _d4 and _l34:
-        conf += 8
-    # D4+BE_UP same bar: +2.89% avg 5d, alpha +3.47%            (n=52)
+        conf += 5
+    # D4+BE_UP same bar: +2.89% avg 5d  (n=52) — LOWER 6→5
     if _d4 and _be:
-        conf += 6
+        conf += 5
 
     # ── Tier 2: SEQUENCE bonuses (prior setup → trigger fires) ────────────
-    # L34 fired 1-3 bars ago, D4 fires now → L34_THEN_D4_3B: +7.87% (n=31)
+    # L34 fired 1-3 bars ago, D4 fires now → L34_THEN_D4_3B: +7.87% (n=31) — RAISE 10→15
     if _l34_r3 and _d4 and not _l34:
-        conf += 10
-    # L34 fired 1-3 bars ago, BE_UP fires now → TRIGGER_AFTER_L34: +1.77% (n=55)
+        conf += 15
+    # L34 fired 1-3 bars ago, BE_UP fires now → TRIGGER_AFTER_L34: +1.77% (n=55) — LOWER 5→3
     if _l34_r3 and _be and not _l34:
-        conf += 5
-    # D4 fired 1-5 bars ago, BE_UP fires now → D4_THEN_BEUP_5B: +5.33% (n=54)
+        conf += 3
+    # D4 fired 1-5 bars ago, BE_UP fires now → D4_THEN_BEUP_5B: +5.33% (n=54) — RAISE 8→10
     if _dabs_r5 and _be and not _d4:
-        conf += 8
+        conf += 10
 
     # ── Tier 3: State bonuses ─────────────────────────────────────────────
     # ACCUMULATION_READY analog (ns+tight range+l34): +1.17% avg, 66.1% win
@@ -592,8 +590,8 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     if r.get("fly_abcd"):                              s += 4
     elif r.get("fly_cd") or r.get("fly_bd") or r.get("fly_ad"): s += 3
 
-    # Vol spike — rare confirmation; Vol×5 Win%=49.6% (too noisy), Vol×10 Win%=61.8% only
-    if r.get("vol_spike_10x"): s += 3   # Avg3=5.51% Win%=61.8% (ADD v3)
+    # Vol spike — Avg3=5.51% Win%=61.8% — massively undervalued, RAISE 3→10
+    if r.get("vol_spike_10x"): s += 10  # Avg3=5.51% Win%=61.8% (RAISE 3→10)
 
     return round(min(100.0, s), 1)
 

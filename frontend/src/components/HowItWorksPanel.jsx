@@ -100,12 +100,12 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Backbone (18)" signal="conso + tz_bull + bf_buy — full chain bonus" pts="+8" />
                 <ScoreRow engine="Backbone (18)" signal="conso + tz_bull — partial chain bonus" pts="+3" />
                 {/* Vol/Accum */}
-                <ScoreRow engine="Vol/Accum (22)" signal="VBO↑  [Avg3 2.37%]" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)  [Avg3 2.58%]" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="L88 signal" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="SQ  [Win% 57.5%, Avg3 2.63%]" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="CLB (climb)  [Avg3 2.80%]" pts="+5" />
-                <ScoreRow engine="Vol/Accum (22)" signal="LD (load)  [Avg3 2.69%]" pts="+4" />
+                <ScoreRow engine="Vol/Accum (22)" signal="LD (load)  [Avg3 2.69%]" pts="+5" />
+                <ScoreRow engine="Vol/Accum (22)" signal="VBO↑  [Avg3 2.37%]" pts="+4" />
                 <ScoreRow engine="Vol/Accum (22)" signal="NS (no supply)  [Avg3 2.35%]" pts="+4" />
                 <ScoreRow engine="Vol/Accum (22)" signal="SVS 2809 (vol spike in conso)" pts="+3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="UM 2809 (upmove label)" pts="+3" />
@@ -118,9 +118,9 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Breakout (18)" signal="FBO↑ (bear trap)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="RS+ (vs SPY+IWM)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="BO↑ / BX↑" pts="+5" />
-                <ScoreRow engine="Breakout (18)" signal="EB↑  [Avg3 2.39%]" pts="+3" />
+                <ScoreRow engine="Breakout (18)" signal="EB↑  [Avg3 2.39%]" pts="+4" />
                 <ScoreRow engine="Breakout (18)" signal="RS (relative strength)" pts="+3" />
-                <ScoreRow engine="Breakout (18)" signal="3↑  [Avg3 1.65% — weakest]" pts="+2" />
+                <ScoreRow engine="Breakout (18)" signal="3↑  [Avg3 1.65%]" pts="+3" />
                 {/* Combo */}
                 <ScoreRow engine="Combo (14)" signal="🚀 ROCKET" pts="+12" />
                 <ScoreRow engine="Combo (14)" signal="BUY 2809" pts="+8" />
@@ -142,12 +142,12 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="L-struct (17)" signal="FRI43" pts="+4" />
                 <ScoreRow engine="L-struct (17)" signal="T4 / T6  [NASDAQ]" pts="+7" />
                 <ScoreRow engine="L-struct (17)" signal="T4 / T6  [SP500]" pts="+6" />
-                <ScoreRow engine="L-struct (17)" signal="L43 (without FRI)  [Avg3 2.60%]" pts="+4" />
+                <ScoreRow engine="L-struct (17)" signal="L43 (without FRI)  [Avg3 2.60%]" pts="+5" />
+                <ScoreRow engine="L-struct (17)" signal="BL (blue trend)  [Avg3 2.76%]" pts="+5" />
+                <ScoreRow engine="L-struct (17)" signal="RL (fuchsia)  [Avg3 2.80%]" pts="+5" />
                 <ScoreRow engine="L-struct (17)" signal="T9 / T10  [SP500]  /  T10 [NASDAQ]" pts="+4" />
-                <ScoreRow engine="L-struct (17)" signal="TZ→3 (Bull Dom flip) + bf_buy" pts="+3" />
                 <ScoreRow engine="L-struct (17)" signal="TZ→3 (Bull Dom flip) alone" pts="+4" />
-                <ScoreRow engine="L-struct (17)" signal="BL (blue trend)  [Avg3 2.76%]" pts="+3" />
-                <ScoreRow engine="L-struct (17)" signal="RL (fuchsia)  [Avg3 2.80%]" pts="+3" />
+                <ScoreRow engine="L-struct (17)" signal="TZ→3 (Bull Dom flip) + bf_buy" pts="+3" />
                 <ScoreRow engine="L-struct (17)" signal="T9  [NASDAQ]" pts="+3" />
                 <ScoreRow engine="L-struct (17)" signal="TZ→2 (Rev Attempt)" pts="+2" />
                 <ScoreRow engine="L-struct (17)" signal="CCI ready" pts="+2" />
@@ -158,10 +158,10 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Delta (12)" signal="dSPR — d_spring  [Avg3 3.36% 🥇 #1]" pts="+6" />
                 <ScoreRow engine="Delta (12)" signal="Ab↑ — d_absorb_bull  [Avg3 2.99% 🥉 #3]" pts="+6" />
                 <ScoreRow engine="Delta (12)" signal="ΔΔ↑ — d_blast_bull  [Avg3 2.46%]" pts="+5" />
-                <ScoreRow engine="Delta (12)" signal="Δ↑ — d_surge_bull  [Avg3 2.43%]" pts="+4" />
-                <ScoreRow engine="Delta (12)" signal="T↓ — d_div_bull  [Avg3 2.54%]" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="Δ↑ — d_surge_bull  [Avg3 2.43%]" pts="+5" />
+                <ScoreRow engine="Delta (12)" signal="T↓ — d_div_bull  [Avg3 2.54%]" pts="+5" />
                 <ScoreRow engine="Delta (12)" signal="VD↓ — d_vd_div_bull" pts="+3" />
-                <ScoreRow engine="Delta (12)" signal="B/S↑ — d_strong_bull  [Avg3 2.03% Win%48.9%]" pts="+2" />
+                <ScoreRow engine="Delta (12)" signal="B/S↑ — d_strong_bull  [Avg3 2.03% Win%48.9%]" pts="+4" />
                 <ScoreRow engine="Delta (12)" signal="CD↑ — d_cd_bull" pts="+2" />
                 {/* EMA cross */}
                 <ScoreRow engine="EMA-cross (10)" signal="P66 (cross EMA200+)" pts="+8" />
@@ -170,7 +170,7 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="EMA-cross (10)" signal="P3  [Avg3 2.48%]" pts="+5" />
                 <ScoreRow engine="EMA-cross (10)" signal="P2  [Avg3 2.40%]" pts="+4" />
                 {/* G signals */}
-                <ScoreRow engine="G signals (10)" signal="G2  [Avg3 2.64% Win%54.9% — best]" pts="+4" />
+                <ScoreRow engine="G signals (10)" signal="G2  [Avg3 2.64% Win%54.9% — best]" pts="+5" />
                 <ScoreRow engine="G signals (10)" signal="G4 / G1" pts="+3 each" />
                 <ScoreRow engine="G signals (10)" signal="G6 / G11" pts="+2 each" />
                 {/* Context — uncapped, max ~18 */}
@@ -181,7 +181,7 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Context (uncapped)" signal="X1 (inside reversal)" pts="+3" />
                 <ScoreRow engine="Context (uncapped)" signal="RETEST (PARA)  [False%6.3%]" pts="+3" />
                 <ScoreRow engine="Context (uncapped)" signal="FLY CD / BD / AD" pts="+3" />
-                <ScoreRow engine="Context (uncapped)" signal="Vol×10 spike  [Avg3 5.51% Win%61.8%]" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="Vol×10 spike  [Avg3 5.51% Win%61.8%]" pts="+10" />
                 <ScoreRow engine="Context (uncapped)" signal="PARA / PARA+" pts="+2" />
                 <ScoreRow engine="Context (uncapped)" signal="X3 (wick align)" pts="+2" />
               </tbody>
@@ -199,12 +199,12 @@ export default function HowItWorksPanel() {
                 </tr>
               </thead>
               <tbody>
+                <ScoreRow engine="L34_then_D4 (3B)" signal="L34 fired 1–3 bars ago, D4 now — +7.87% (n=31)" pts="+15" />
                 <ScoreRow engine="D6 + BE↑ same bar" signal="+6.26% avg 5d, 71% win (n=32)" pts="+12" />
-                <ScoreRow engine="L34_then_D4 (3B)" signal="L34 fired 1–3 bars ago, D4 now — +7.87% (n=31)" pts="+10" />
-                <ScoreRow engine="D4 + L34 same bar" signal="+2.53% avg 5d, 70.8% win (n=24)" pts="+8" />
-                <ScoreRow engine="D4_then_BE↑ (5B)" signal="D4 fired 1–5 bars ago, BE↑ now — +5.33% (n=54)" pts="+8" />
-                <ScoreRow engine="D4 + BE↑ same bar" signal="+2.89% avg 5d, alpha +3.47% (n=52)" pts="+6" />
-                <ScoreRow engine="L34_then_BE↑ (3B)" signal="L34 fired 1–3 bars ago, BE↑ now — +1.77% (n=55)" pts="+5" />
+                <ScoreRow engine="D4_then_BE↑ (5B)" signal="D4 fired 1–5 bars ago, BE↑ now — +5.33% (n=54)" pts="+10" />
+                <ScoreRow engine="D4 + L34 same bar" signal="+2.53% avg 5d, 70.8% win (n=24)" pts="+5" />
+                <ScoreRow engine="D4 + BE↑ same bar" signal="+2.89% avg 5d, alpha +3.47% (n=52)" pts="+5" />
+                <ScoreRow engine="L34_then_BE↑ (3B)" signal="L34 fired 1–3 bars ago, BE↑ now — +1.77% (n=55)" pts="+3" />
                 <ScoreRow engine="NS + cons_atr + L34" signal="Accumulation-ready analog — 66.1% win" pts="+4" />
               </tbody>
             </table>
