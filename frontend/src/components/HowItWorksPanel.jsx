@@ -83,7 +83,7 @@ export default function HowItWorksPanel() {
             <Row label="Base ≥ 20" cls="text-gray-300">sparse signals, worth watching</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — weights v3 (calibrated on SP500 pooled stats, 500 tickers 2yr)</p>
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — weights v3 (SP500 pooled stats, 500 tickers 2yr)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
@@ -97,8 +97,8 @@ export default function HowItWorksPanel() {
                 {/* Backbone */}
                 <ScoreRow engine="Backbone (18)" signal="conso_2809 (CON)" pts="+4" />
                 <ScoreRow engine="Backbone (18)" signal="tz_bull (T/Z bull state)" pts="+6" />
-                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull + bf_buy chain" pts="+8 bonus" />
-                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull (partial chain)" pts="+3 bonus" />
+                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull + bf_buy — full chain bonus" pts="+8" />
+                <ScoreRow engine="Backbone (18)" signal="conso + tz_bull — partial chain bonus" pts="+3" />
                 {/* Vol/Accum */}
                 <ScoreRow engine="Vol/Accum (22)" signal="VBO↑  [Avg3 2.37%]" pts="+5" />
                 <ScoreRow engine="Vol/Accum (22)" signal="ABS (absorption)  [Avg3 2.58%]" pts="+5" />
@@ -113,13 +113,14 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Vol/Accum (22)" signal="260308" pts="+3" />
                 <ScoreRow engine="Vol/Accum (22)" signal="SC (selling climax)" pts="+2" />
                 {/* Breakout */}
+                <ScoreRow engine="Breakout (18)" signal="BE↑ (full-body engulf)" pts="+10" />
                 <ScoreRow engine="Breakout (18)" signal="4BF (bf_buy)" pts="+6" />
                 <ScoreRow engine="Breakout (18)" signal="FBO↑ (bear trap)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="RS+ (vs SPY+IWM)" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="BO↑ / BX↑" pts="+5" />
                 <ScoreRow engine="Breakout (18)" signal="EB↑  [Avg3 2.39%]" pts="+3" />
-                <ScoreRow engine="Breakout (18)" signal="3↑  [Avg3 1.65% — weakest]" pts="+2" />
                 <ScoreRow engine="Breakout (18)" signal="RS (relative strength)" pts="+3" />
+                <ScoreRow engine="Breakout (18)" signal="3↑  [Avg3 1.65% — weakest]" pts="+2" />
                 {/* Combo */}
                 <ScoreRow engine="Combo (14)" signal="🚀 ROCKET" pts="+12" />
                 <ScoreRow engine="Combo (14)" signal="BUY 2809" pts="+8" />
@@ -131,51 +132,192 @@ export default function HowItWorksPanel() {
                 <ScoreRow engine="Combo (14)" signal="RTV" pts="+3" />
                 <ScoreRow engine="Combo (14)" signal="CW (Bear Weak + B)" pts="+2" />
                 <ScoreRow engine="Combo (14)" signal="ATR↑ / BB↑" pts="+2" />
-                {/* L-structure */}
-                <ScoreRow engine="L-struct (13)" signal="T4 / T6" pts="+7" />
-                <ScoreRow engine="L-struct (13)" signal="T1G / T2G" pts="+5" />
-                <ScoreRow engine="L-struct (13)" signal="T1 / T2" pts="+4" />
-                <ScoreRow engine="L-struct (13)" signal="T9 / T10" pts="+3" />
-                <ScoreRow engine="L-struct (13)" signal="T3 / T11" pts="+2" />
-                <ScoreRow engine="L-struct (13)" signal="T5" pts="+1" />
-                <ScoreRow engine="L-struct (13)" signal="FRI34" pts="+6" />
-                <ScoreRow engine="L-struct (13)" signal="FRI43" pts="+4" />
-                <ScoreRow engine="L-struct (13)" signal="L34 (without FRI34)  [Avg3 2.41%]" pts="+3" />
-                <ScoreRow engine="L-struct (13)" signal="TZ→3 (Bull Dom flip)" pts="+3 or +4" />
-                <ScoreRow engine="L-struct (13)" signal="TZ→2 (Rev Attempt)" pts="+2" />
-                <ScoreRow engine="L-struct (13)" signal="BL (blue trend)  [Avg3 2.76%]" pts="+3" />
-                <ScoreRow engine="L-struct (13)" signal="CCI ready" pts="+2" />
-                <ScoreRow engine="L-struct (13)" signal="L43 (without FRI)  [Avg3 2.60%]" pts="+2" />
+                {/* L-structure — T/Z weights are profile-dependent */}
+                <ScoreRow engine="L-struct (17)" signal="T2G" pts="+8 (both)" />
+                <ScoreRow engine="L-struct (17)" signal="T1  [SP500]" pts="+7" />
+                <ScoreRow engine="L-struct (17)" signal="T1G  [both]" pts="+6" />
+                <ScoreRow engine="L-struct (17)" signal="FRI34" pts="+6" />
+                <ScoreRow engine="L-struct (17)" signal="T2 / T1 [NASDAQ]" pts="+5" />
+                <ScoreRow engine="L-struct (17)" signal="L34 (without FRI34)" pts="+5" />
+                <ScoreRow engine="L-struct (17)" signal="FRI43" pts="+4" />
+                <ScoreRow engine="L-struct (17)" signal="T4 / T6  [NASDAQ]" pts="+7" />
+                <ScoreRow engine="L-struct (17)" signal="T4 / T6  [SP500]" pts="+6" />
+                <ScoreRow engine="L-struct (17)" signal="L43 (without FRI)  [Avg3 2.60%]" pts="+4" />
+                <ScoreRow engine="L-struct (17)" signal="T9 / T10  [SP500]  /  T10 [NASDAQ]" pts="+4" />
+                <ScoreRow engine="L-struct (17)" signal="TZ→3 (Bull Dom flip) + bf_buy" pts="+3" />
+                <ScoreRow engine="L-struct (17)" signal="TZ→3 (Bull Dom flip) alone" pts="+4" />
+                <ScoreRow engine="L-struct (17)" signal="BL (blue trend)  [Avg3 2.76%]" pts="+3" />
+                <ScoreRow engine="L-struct (17)" signal="RL (fuchsia)  [Avg3 2.80%]" pts="+3" />
+                <ScoreRow engine="L-struct (17)" signal="T9  [NASDAQ]" pts="+3" />
+                <ScoreRow engine="L-struct (17)" signal="TZ→2 (Rev Attempt)" pts="+2" />
+                <ScoreRow engine="L-struct (17)" signal="CCI ready" pts="+2" />
+                <ScoreRow engine="L-struct (17)" signal="W (tz_weak_bull — BearWeak turn)" pts="+2" />
+                <ScoreRow engine="L-struct (17)" signal="T3 / T11" pts="+2" />
+                <ScoreRow engine="L-struct (17)" signal="T5" pts="+1" />
                 {/* Delta */}
                 <ScoreRow engine="Delta (12)" signal="dSPR — d_spring  [Avg3 3.36% 🥇 #1]" pts="+6" />
                 <ScoreRow engine="Delta (12)" signal="Ab↑ — d_absorb_bull  [Avg3 2.99% 🥉 #3]" pts="+6" />
                 <ScoreRow engine="Delta (12)" signal="ΔΔ↑ — d_blast_bull  [Avg3 2.46%]" pts="+5" />
                 <ScoreRow engine="Delta (12)" signal="Δ↑ — d_surge_bull  [Avg3 2.43%]" pts="+4" />
                 <ScoreRow engine="Delta (12)" signal="T↓ — d_div_bull  [Avg3 2.54%]" pts="+4" />
+                <ScoreRow engine="Delta (12)" signal="VD↓ — d_vd_div_bull" pts="+3" />
                 <ScoreRow engine="Delta (12)" signal="B/S↑ — d_strong_bull  [Avg3 2.03% Win%48.9%]" pts="+2" />
-                <ScoreRow engine="Delta (12)" signal="d_vd_div_bull / d_cd_bull" pts="+3 / +2" />
+                <ScoreRow engine="Delta (12)" signal="CD↑ — d_cd_bull" pts="+2" />
                 {/* EMA cross */}
-                <ScoreRow engine="EMA-cross (8)" signal="P66 (cross EMA200+)" pts="+8" />
-                <ScoreRow engine="EMA-cross (8)" signal="P55 (cross EMA89+)" pts="+6" />
-                <ScoreRow engine="EMA-cross (8)" signal="P89 (cross EMA89)" pts="+4" />
-                <ScoreRow engine="EMA-cross (8)" signal="P3  [Avg3 2.48%]" pts="+3" />
-                <ScoreRow engine="EMA-cross (8)" signal="P2  [Avg3 2.40%]" pts="+2" />
-                {/* Context */}
-                <ScoreRow engine="Context (uncapped)" signal="WK↑ legacy confirm" pts="+5" />
-                <ScoreRow engine="Context (uncapped)" signal="RETEST (PARA)  [Avg3 2.35% False%6.3%]" pts="+3" />
-                <ScoreRow engine="Context (uncapped)" signal="PARA / PARA+" pts="+2" />
+                <ScoreRow engine="EMA-cross (10)" signal="P66 (cross EMA200+)" pts="+8" />
+                <ScoreRow engine="EMA-cross (10)" signal="P55 (cross EMA89+)" pts="+6" />
+                <ScoreRow engine="EMA-cross (10)" signal="P89 (cross EMA89)" pts="+5" />
+                <ScoreRow engine="EMA-cross (10)" signal="P3  [Avg3 2.48%]" pts="+5" />
+                <ScoreRow engine="EMA-cross (10)" signal="P2  [Avg3 2.40%]" pts="+4" />
+                {/* G signals */}
+                <ScoreRow engine="G signals (10)" signal="G2  [Avg3 2.64% Win%54.9% — best]" pts="+4" />
+                <ScoreRow engine="G signals (10)" signal="G4 / G1" pts="+3 each" />
+                <ScoreRow engine="G signals (10)" signal="G6 / G11" pts="+2 each" />
+                {/* Context — uncapped, max ~18 */}
+                <ScoreRow engine="Context (uncapped)" signal="WK↑ (wick_bull) — bull wick confirm" pts="+5" />
                 <ScoreRow engine="Context (uncapped)" signal="X2G (gap continuation)" pts="+5" />
                 <ScoreRow engine="Context (uncapped)" signal="X2 / X1G (wick reversal)" pts="+4 each" />
+                <ScoreRow engine="Context (uncapped)" signal="FLY ABCD (full A→B→C→D)" pts="+4" />
                 <ScoreRow engine="Context (uncapped)" signal="X1 (inside reversal)" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="RETEST (PARA)  [False%6.3%]" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="FLY CD / BD / AD" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="Vol×10 spike  [Avg3 5.51% Win%61.8%]" pts="+3" />
+                <ScoreRow engine="Context (uncapped)" signal="PARA / PARA+" pts="+2" />
                 <ScoreRow engine="Context (uncapped)" signal="X3 (wick align)" pts="+2" />
               </tbody>
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">New signal families — scores TBD (discuss)</p>
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Backtest Confluence Bonuses (cap 18) — Run 25, n=2254, Jan–Apr 2026</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Pattern</th>
+                  <th className="text-left py-1 pr-4">Condition</th>
+                  <th className="text-left py-1">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ScoreRow engine="D6 + BE↑ same bar" signal="+6.26% avg 5d, 71% win (n=32)" pts="+12" />
+                <ScoreRow engine="L34_then_D4 (3B)" signal="L34 fired 1–3 bars ago, D4 now — +7.87% (n=31)" pts="+10" />
+                <ScoreRow engine="D4 + L34 same bar" signal="+2.53% avg 5d, 70.8% win (n=24)" pts="+8" />
+                <ScoreRow engine="D4_then_BE↑ (5B)" signal="D4 fired 1–5 bars ago, BE↑ now — +5.33% (n=54)" pts="+8" />
+                <ScoreRow engine="D4 + BE↑ same bar" signal="+2.89% avg 5d, alpha +3.47% (n=52)" pts="+6" />
+                <ScoreRow engine="L34_then_BE↑ (3B)" signal="L34 fired 1–3 bars ago, BE↑ now — +1.77% (n=55)" pts="+5" />
+                <ScoreRow engine="NS + cons_atr + L34" signal="Accumulation-ready analog — 66.1% win" pts="+4" />
+              </tbody>
+            </table>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">
+            D4 = d_absorb_bull | d_spring · D6 = d_surge_bull | d_blast_bull · L34 = l34 | fri34
+          </p>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">SP500 Profile Combo Bonuses (cap 20)</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Combo</th>
+                  <th className="text-left py-1 pr-4">Signals required</th>
+                  <th className="text-left py-1">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ScoreRow engine="SQ + CLM + Ztrap₅" signal="accumulation surge inside trap context" pts="+12" />
+                <ScoreRow engine="SQ + LOAD + Ztrap₅" signal="loading + squeeze in trap zone" pts="+12" />
+                <ScoreRow engine="L64₅ + T1/T1G + SVS" signal="long structural base + turn + vol expansion" pts="+12" />
+                <ScoreRow engine="NS + UM" signal="supply exhaustion + institutional ignition" pts="+10" />
+                <ScoreRow engine="L43₅ + CLM + Ztrap₅" signal="structural reset + climber in trap" pts="+10" />
+                <ScoreRow engine="(L22₅|L64₅) + SQ + Ztrap₅" signal="structural context + squeeze in trap" pts="+8" />
+              </tbody>
+            </table>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">Ztrap₅ / L64₅ / L43₅ / L22₅ = signal fired within last 5 bars</p>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">NASDAQ Profile Combo Bonuses (cap 25)</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Combo</th>
+                  <th className="text-left py-1 pr-4">Signals required</th>
+                  <th className="text-left py-1">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                <ScoreRow engine="ZTRAP_T6_C" signal="Ztrap₅ + T6 + RTB phase C" pts="+14" />
+                <ScoreRow engine="L64_UM_T6" signal="L64₅ + UM_2809 + T6" pts="+14" />
+                <ScoreRow engine="UM_BE" signal="UM_2809 + BE↑" pts="+12" />
+                <ScoreRow engine="ZTRAP_UM_T4" signal="Ztrap₅ + UM_2809 + T4" pts="+12" />
+                <ScoreRow engine="T6_BTOC" signal="T6 + RTB transition B→C" pts="+12" />
+                <ScoreRow engine="SQ_BL_C" signal="SQ + (BLUE | blue₅) + RTB phase C" pts="+8" />
+                <ScoreRow engine="LOAD_BL_C" signal="LOAD + (BLUE | blue₅) + RTB phase C" pts="+8" />
+                <ScoreRow engine="UM_VBO" signal="UM_2809 + VBO↑" pts="+8" />
+                <ScoreRow engine="UM_BX" signal="UM_2809 + BX↑" pts="+8" />
+                <ScoreRow engine="L22/L64_SQ_LOAD" signal="(L22₅|L64₅) + SQ + LOAD" pts="+8" />
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Kill / Penalty Conditions</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Condition</th>
+                  <th className="text-left py-1 pr-4">Reason</th>
+                  <th className="text-left py-1 text-red-400">Penalty</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">RSI &gt; 80, no D4/D6</td>
+                  <td className="py-0.5 pr-4 text-gray-500">overheated, no absorption</td>
+                  <td className="py-0.5 text-red-400">−6</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">D6 + L34, no BE↑</td>
+                  <td className="py-0.5 pr-4 text-gray-500">avg 5d −2.52% (opposite of D6+BE↑)</td>
+                  <td className="py-0.5 text-red-400">−5</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">Isolated G4/G6 (no L34/BE↑/D4)</td>
+                  <td className="py-0.5 pr-4 text-gray-500">34.7% of all false positives</td>
+                  <td className="py-0.5 text-red-400">−4</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">RSI &gt; 75, no D4/D6/BE↑</td>
+                  <td className="py-0.5 pr-4 text-gray-500">extended without structure</td>
+                  <td className="py-0.5 text-red-400">−3</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">BC without BE↑</td>
+                  <td className="py-0.5 pr-4 text-gray-500">buying climax — distribution risk</td>
+                  <td className="py-0.5 text-red-400">−3</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">d_strong_bull alone (no structure)</td>
+                  <td className="py-0.5 pr-4 text-gray-500">IMPULSE_ONLY path avg −1.66%</td>
+                  <td className="py-0.5 text-red-400">−3</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300 italic">NASDAQ: RL without UM/BE↑/VBO↑/BX↑</td>
+                  <td className="py-0.5 pr-4 text-gray-500">weak on NASDAQ without activation</td>
+                  <td className="py-0.5 text-red-400">−2</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300 italic">NASDAQ: T4/T6 without context</td>
+                  <td className="py-0.5 pr-4 text-gray-500">combos provide the uplift, not T alone</td>
+                  <td className="py-0.5 text-red-400">−2</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Signal families — scores TBD</p>
           <p className="text-gray-500 text-xs mb-2">
-            These signals are computed and shown as badges but not yet added to the turbo_score formula.
-            Suggested starting ranges shown — adjust based on hit-rate testing.
+            Computed and shown as badges but not yet added to the turbo_score formula.
           </p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
@@ -183,109 +325,24 @@ export default function HowItWorksPanel() {
                 <tr className="text-gray-500 border-b border-gray-700">
                   <th className="text-left py-1 pr-4">Family</th>
                   <th className="text-left py-1 pr-4">Signal</th>
-                  <th className="text-left py-1 pr-4 text-yellow-500">Current pts</th>
                   <th className="text-left py-1 text-sky-400">Suggested range</th>
                 </tr>
               </thead>
               <tbody>
-                {/* RGTI */}
                 <tr className="border-b border-gray-800/50">
                   <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">LL (Lower-Low setup)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+3 to +5 — entry within pullback</td>
+                  <td className="py-0.5 pr-4 text-gray-300">LL / UP / ↑↑ / ↑↑↑</td>
+                  <td className="py-0.5 text-sky-400">+3 to +7 depending on tier</td>
                 </tr>
                 <tr className="border-b border-gray-800/50">
                   <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">UP (uptrend align)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+3 to +5</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">↑↑ (UPUP multi-TF)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+4 to +6 — confirmed bull alignment</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">↑↑↑ (UPUPUP strongest)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+5 to +7</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">ORG (orange — bear dominates but reversal)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+2 to +4 — contrarian</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">GRN (green — bull stack aligned)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+4 to +6 — strong trend</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">GC (green circle — near EMA in bull)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+3 to +5 — pullback entry</td>
+                  <td className="py-0.5 pr-4 text-gray-300">ORG / GRN / GC</td>
+                  <td className="py-0.5 text-sky-400">+2 to +6 depending on tier</td>
                 </tr>
                 <tr className="border-b border-gray-800/50">
                   <td className="py-0.5 pr-4 text-gray-500">SMX 260402</td>
                   <td className="py-0.5 pr-4 text-gray-300">SMX (near recent low in uptrend)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
                   <td className="py-0.5 text-sky-400">+4 to +6 — rare, high-conviction entry</td>
-                </tr>
-                {/* PARA */}
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
-                  <td className="py-0.5 pr-4 text-gray-300">PREP (pre-parabola compression zone)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+2 to +3 — early context</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
-                  <td className="py-0.5 pr-4 text-gray-300">PARA (parabola start)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+5 to +7</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
-                  <td className="py-0.5 pr-4 text-gray-300">PARA+ (with dry vol or V+E)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+6 to +9 — stronger confirmation</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">PARA 260420</td>
-                  <td className="py-0.5 pr-4 text-gray-300">RETEST (pullback re-entry)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+4 to +6 — lower risk entry</td>
-                </tr>
-                {/* FLY */}
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
-                  <td className="py-0.5 pr-4 text-gray-300">ABCD (full A→B→C→D sequence)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+6 to +8 — full pattern confirmation</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
-                  <td className="py-0.5 pr-4 text-gray-300">CD (C→D with EMA seq)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+3 to +5</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
-                  <td className="py-0.5 pr-4 text-gray-300">BD (B→D with EMA seq)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+3 to +4</td>
-                </tr>
-                <tr className="border-b border-gray-800/50">
-                  <td className="py-0.5 pr-4 text-gray-500">FLY 260424</td>
-                  <td className="py-0.5 pr-4 text-gray-300">AD (A→D with EMA seq)</td>
-                  <td className="py-0.5 pr-4 text-yellow-500">0</td>
-                  <td className="py-0.5 text-sky-400">+4 to +5 — strong base then breakout</td>
                 </tr>
               </tbody>
             </table>
