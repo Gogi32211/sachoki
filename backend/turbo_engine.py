@@ -1442,6 +1442,7 @@ def run_turbo_scan(
     partial_day: bool = False,
     min_volume: float = 0,
     _keep_running: bool = False,  # internal: skip running=False at end (used by all-TF wrapper)
+    min_store_score: float = 5,   # D+A=5 (localStorage), C=0 (IndexedDB — store all)
 ) -> int:
     from scanner import get_universe_tickers, UNIVERSE_CONFIGS
     global _turbo_state
@@ -1569,7 +1570,7 @@ def run_turbo_scan(
                     row = fut.result(timeout=1)
                 except Exception:
                     row = None
-                if row and row.get("turbo_score", 0) >= 5:
+                if row and row.get("turbo_score", 0) >= min_store_score:
                     row["scan_id"]    = scan_id
                     row["scanned_at"] = now_iso
                     # Guard: fill any DB column missing from the row (e.g. newly added cols)
@@ -1645,6 +1646,7 @@ def run_turbo_scan_all_tfs(
     lookback_n: int = 5,
     partial_day: bool = False,
     min_volume: float = 0,
+    min_store_score: float = 5,
 ) -> dict:
     """
     Run turbo scan for all main timeframes (1wk, 1d, 4h, 1h) in sequence.
@@ -1663,6 +1665,7 @@ def run_turbo_scan_all_tfs(
             found = run_turbo_scan(
                 tf, universe, workers, lookback_n, partial_day, min_volume,
                 _keep_running=not is_last,
+                min_store_score=min_store_score,
             )
             results[tf] = found
     finally:

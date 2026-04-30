@@ -592,12 +592,13 @@ def api_turbo_scan_trigger(
     lookback_n: int = 5,
     partial_day: bool = False,
     min_volume: float = 0,
+    min_store_score: float = 5,
 ):
     from turbo_engine import run_turbo_scan, get_turbo_progress
     if get_turbo_progress().get("running"):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n, partial_day, min_volume)
-    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day, "min_volume": min_volume}
+    background_tasks.add_task(run_turbo_scan, tf, universe, 8, lookback_n, partial_day, min_volume, False, min_store_score)
+    return {"status": "turbo scan started", "tf": tf, "universe": universe, "lookback_n": lookback_n, "partial_day": partial_day, "min_volume": min_volume, "min_store_score": min_store_score}
 
 
 @app.get("/api/turbo-scan/status")
@@ -860,12 +861,12 @@ def api_admin_scan_history():
 
 
 @app.post("/api/admin/scan-start")
-def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500"):
+def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500", min_store_score: float = 5):
     from turbo_engine import run_turbo_scan, get_turbo_progress
     if get_turbo_progress().get("running"):
         raise HTTPException(status_code=409, detail="Scan already running")
-    background_tasks.add_task(run_turbo_scan, tf, universe)
-    return {"ok": True, "tf": tf, "universe": universe}
+    background_tasks.add_task(run_turbo_scan, tf, universe, 8, 5, False, 0, False, min_store_score)
+    return {"ok": True, "tf": tf, "universe": universe, "min_store_score": min_store_score}
 
 
 @app.get("/api/bar_signals/{ticker}")

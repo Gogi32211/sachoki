@@ -113,8 +113,8 @@ export const api = {
     if (filters.vol_max > 0)      p.set('vol_max',   filters.vol_max)
     return get(`/api/turbo-scan?${p}`)
   },
-  turboScanTrigger: (tf = '1d', universe = 'sp500', lookback_n = 5, partialDay = false, minVolume = 0) =>
-    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}&lookback_n=${lookback_n}&partial_day=${partialDay}&min_volume=${minVolume}`),
+  turboScanTrigger: (tf = '1d', universe = 'sp500', lookback_n = 5, partialDay = false, minVolume = 0, minStoreScore = 5) =>
+    post(`/api/turbo-scan/trigger?tf=${tf}&universe=${universe}&lookback_n=${lookback_n}&partial_day=${partialDay}&min_volume=${minVolume}&min_store_score=${minStoreScore}`),
   turboScanStatus: () =>
     get('/api/turbo-scan/status'),
   turboScanReset: () =>
@@ -152,7 +152,7 @@ export const api = {
 
   // Admin
   adminScanHistory: () => get('/api/admin/scan-history'),
-  adminScanStart:   (tf, universe) => post(`/api/admin/scan-start?tf=${tf}&universe=${universe}`),
+  adminScanStart:   (tf, universe, minStoreScore = 5) => post(`/api/admin/scan-start?tf=${tf}&universe=${universe}&min_store_score=${minStoreScore}`),
 
   // Sector Analysis
   sectorOverview: ()               => get('/api/sectors/overview'),

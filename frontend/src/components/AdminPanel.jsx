@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef } from 'react'
 import { api } from '../api'
 import { turboCacheSet } from './TurboScanPanel'
+import { getCacheBackend, setCacheBackend } from '../turboCache'
 
 const UNIVERSES = [
   { key: 'sp500',     label: 'S&P 500'    },
@@ -47,9 +48,12 @@ export default function AdminPanel() {
   const [rsiMax,   setRsiMax]   = useState('')
   const [cciMin,   setCciMin]   = useState('')
   const [cciMax,   setCciMax]   = useState('')
-  const [caching,  setCaching]  = useState(false)
+  const [caching,     setCaching]     = useState(false)
+  const [cacheMode,   setCacheModeS]  = useState(() => getCacheBackend())
   const pollRef    = useRef(null)
   const scanParams = useRef({ tf: '1d', uni: 'sp500' })
+
+  const setCacheMode = (val) => { setCacheBackend(val); setCacheModeS(val) }
 
   const filters = {
     price_min: priceMin !== '' ? Number(priceMin) : 0,
@@ -104,7 +108,7 @@ export default function AdminPanel() {
   const startScan = () => {
     setError(null)
     scanParams.current = { tf, uni: universe }
-    api.adminScanStart(tf, universe)
+    api.adminScanStart(tf, universe, cacheMode === 'idb' ? 0 : 5)
       .then(() => fetchStatus())
       .catch(e => setError(e?.detail || e?.message || String(e)))
   }
@@ -135,6 +139,32 @@ export default function AdminPanel() {
         }`}>
           {running ? '⟳ Running' : 'Idle'}
         </span>
+      </div>
+
+      {/* ── Cache Backend Toggle ── */}
+      <div className="bg-gray-900 rounded-lg p-4 border border-gray-800 space-y-2">
+        <div className="text-xs text-gray-400 font-medium uppercase tracking-wide">Cache Backend</div>
+        <div className="flex gap-2 flex-wrap items-start">
+          {[
+            { key: 'ls',  label: 'D+A — localStorage',  desc: 'score≥5 filter · fast · 5 MB limit' },
+            { key: 'idb', label: 'C — IndexedDB',        desc: 'all tickers · no size limit · robust' },
+          ].map(m => (
+            <button key={m.key}
+              onClick={() => setCacheMode(m.key)}
+              className={`flex flex-col items-start px-3 py-2 rounded border text-xs transition-colors
+                ${cacheMode === m.key
+                  ? 'bg-teal-900 border-teal-500 text-teal-100'
+                  : 'bg-gray-800 border-gray-700 text-gray-400 hover:border-gray-500'}`}>
+              <span className="font-semibold">{m.label}</span>
+              <span className="text-gray-500 mt-0.5">{m.desc}</span>
+            </button>
+          ))}
+        </div>
+        <p className="text-xs text-gray-600">
+          {cacheMode === 'idb'
+            ? 'IndexedDB: all tickers stored (no score filter). Scan stores ~5000 results.'
+            : 'localStorage: only score≥5 tickers stored (~2000). Smaller, faster.'}
+        </p>
       </div>
 
       {/* ── Start Controls ── */}

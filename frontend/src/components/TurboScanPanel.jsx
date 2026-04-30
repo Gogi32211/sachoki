@@ -2,6 +2,7 @@ import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
 import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 import { pwlAdd, pwlHas, pwlRemove } from './PersonalWatchlistPanel'
+import { idbGet, idbSet, getCacheBackend } from '../turboCache'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
@@ -610,6 +611,12 @@ function _slimRow(r) {
 }
 
 export function turboCacheSet(tf, uni, results, lastScan) {
+  if (getCacheBackend() === 'idb') {
+    // IndexedDB: no size limit, store full results without slimming
+    idbSet(tf, uni, results, lastScan)
+    return
+  }
+  // localStorage path (D+A): slim rows + truncation fallback
   const key = _tsKey(tf, uni)
   const payload = { results: results.map(_slimRow), lastScan }
   const write = (p) => localStorage.setItem(key, JSON.stringify(p))
@@ -708,20 +715,23 @@ export default function TurboScanPanel({ onSelectTicker }) {
       .catch(e => { if (seq === fetchSeqRef.current) setError(e.message) })
   }, [])
 
-  // Read from localStorage — fall back to all_us cache if specific universe has no data
-  const loadFromCache = useCallback((tf, uni) => {
-    let cached = _tsGet(tf, uni)
-    // If no specific cache, try all_us (covers all sub-universes)
-    if (!cached?.results?.length && uni !== 'all_us') {
-      cached = _tsGet(tf, 'all_us')
+  // Read from cache (IDB or localStorage) and populate allResults if empty
+  const loadFromCache = useCallback(async (tf, uni) => {
+    let cached
+    if (getCacheBackend() === 'idb') {
+      cached = await idbGet(tf, uni)
+    } else {
+      cached = _tsGet(tf, uni)
+      if (!cached?.results?.length && uni !== 'all_us') {
+        cached = _tsGet(tf, 'all_us')
+      }
+      if (cached?.truncated) {
+        fetchFreshResults(tf, uni)
+      }
     }
     if (cached?.results?.length) {
       setAllResults(cached.results)
       setLastScan(cached.lastScan || null)
-      // Cache was truncated due to localStorage size limit — silently refetch full data
-      if (cached.truncated) {
-        fetchFreshResults(tf, uni)
-      }
     } else {
       setAllResults([])
       setLastScan(null)
@@ -913,7 +923,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const scan = () => {
     if (scanning) return  // guard against double-trigger
     setScanning(true); setError(null)
-    api.turboScanTrigger(localTf, universe, lookbackN, partialDay, volMin)
+    api.turboScanTrigger(localTf, universe, lookbackN, partialDay, volMin,
+                         getCacheBackend() === 'idb' ? 0 : 5)
       .then(() => _poll())
       .catch(e => {
         setScanning(false)
