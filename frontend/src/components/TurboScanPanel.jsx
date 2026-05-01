@@ -251,11 +251,24 @@ const SIG_GROUPS = [
   { key: 'gog_g3p',  label: 'G3P',  cls: 'text-green-500 font-bold'       },
   { key: 'gog_g1l',  label: 'G1L',  cls: 'text-emerald-300 font-semibold' },
   { key: 'gog_g2l',  label: 'G2L',  cls: 'text-emerald-400 font-semibold' },
+  { key: 'gog_g3l',  label: 'G3L',  cls: 'text-emerald-500 font-semibold' },
   { key: 'gog_g1c',  label: 'G1C',  cls: 'text-teal-300 font-semibold'    },
+  { key: 'gog_g2c',  label: 'G2C',  cls: 'text-teal-400 font-semibold'    },
+  { key: 'gog_g3c',  label: 'G3C',  cls: 'text-teal-500 font-semibold'    },
   { key: '_gog_any_p', label: '★GOG+', cls: 'text-lime-300 font-bold',
     custom: r => !!(r.gog_g1p || r.gog_g2p || r.gog_g3p) },
   { key: '_not_ext', label: '!EXT', cls: 'text-sky-300',
     custom: r => !r.already_extended },
+  { divider: true },
+  // ── GOG Context Signals ───────────────────────────────────────────────
+  { key: 'ctx_lds',  label: 'LDS',  cls: 'text-blue-300'    },
+  { key: 'ctx_ldc',  label: 'LDC',  cls: 'text-blue-400'    },
+  { key: 'ctx_ldp',  label: 'LDP',  cls: 'text-blue-200 font-semibold' },
+  { key: 'ctx_lrc',  label: 'LRC',  cls: 'text-violet-300'  },
+  { key: 'ctx_lrp',  label: 'LRP',  cls: 'text-violet-200 font-semibold' },
+  { key: 'ctx_wrc',  label: 'WRC',  cls: 'text-indigo-300'  },
+  { key: 'ctx_sqb',  label: 'SQB',  cls: 'text-cyan-300'    },
+  { key: 'ctx_bct',  label: 'BCT',  cls: 'text-cyan-200 font-semibold' },
   { divider: true },
   // ── FLY 260424 — ABCD EMA DP ──────────────────────────────────────────
   { key: 'fly_abcd', label: 'ABCD', cls: 'text-lime-300 font-semibold' },
@@ -309,6 +322,18 @@ function Badge({ label, cls }) {
 
 // ── fmt helper ────────────────────────────────────────────────────────────────
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
+
+// ── GOG tier badge colour ─────────────────────────────────────────────────────
+function gogTierCls(tier) {
+  if (!tier) return ''
+  if (tier === 'G1P' || tier === 'G2P' || tier === 'G3P')
+    return 'bg-green-800 text-green-100 ring-1 ring-green-400 font-bold'
+  if (tier === 'G1L' || tier === 'G2L' || tier === 'G3L')
+    return 'bg-emerald-800 text-emerald-100 ring-1 ring-emerald-400'
+  if (tier === 'G1C' || tier === 'G2C' || tier === 'G3C')
+    return 'bg-teal-800 text-teal-100 ring-1 ring-teal-400'
+  return 'bg-fuchsia-800 text-fuchsia-100 ring-1 ring-fuchsia-400'
+}
 
 // ── Engine family membership (for cross-engine diversity scoring) ─────────────
 // Each set represents a truly independent engine/observation model.
@@ -1261,6 +1286,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               </SortTh>
               <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
+              <SortTh col="gog_score" cls="text-center">GOG</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
               <th className="px-2 py-1.5 font-medium">Combo</th>
@@ -1355,6 +1381,25 @@ export default function TurboScanPanel({ onSelectTicker }) {
                       {r.tz_sig}
                     </span>
                   ) : '—'}
+                </td>
+
+                {/* GOG tier + score */}
+                <td className="px-2 py-1 text-center">
+                  {r.gog_tier ? (
+                    <div className="flex flex-col items-center gap-0.5">
+                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${gogTierCls(r.gog_tier)}`}>
+                        {r.gog_tier}
+                      </span>
+                      {r.gog_score > 0 && (
+                        <span className="font-mono text-[10px] text-gray-400">
+                          {Number(r.gog_score).toFixed(0)}
+                        </span>
+                      )}
+                      {r.already_extended ? (
+                        <span className="text-[8px] text-orange-400 font-bold leading-none">EXT</span>
+                      ) : null}
+                    </div>
+                  ) : <span className="text-gray-700 text-xs">—</span>}
                 </td>
 
                 {/* VABS + Delta */}
