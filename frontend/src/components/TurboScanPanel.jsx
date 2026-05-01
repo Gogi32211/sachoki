@@ -335,6 +335,38 @@ function gogTierCls(tier) {
   return 'bg-fuchsia-800 text-fuchsia-100 ring-1 ring-fuchsia-400'
 }
 
+// ── Context token colour ───────────────────────────────────────────────────────
+function ctxTokCls(tok) {
+  if (tok === 'LDP' || tok === 'LRP') return 'bg-green-900 text-green-200 font-semibold'
+  if (tok === 'LDC' || tok === 'LRC') return 'bg-teal-900 text-teal-200'
+  if (tok === 'LDS' || tok === 'LD')  return 'bg-cyan-900 text-cyan-300'
+  if (tok === 'BCT')                  return 'bg-blue-900 text-blue-200 font-semibold'
+  if (tok === 'SQB')                  return 'bg-blue-900 text-blue-300'
+  if (tok === 'WRC' || tok === 'F8C') return 'bg-slate-700 text-slate-200'
+  return 'bg-gray-800 text-gray-400'
+}
+
+// ── Active context tokens from a turbo row (priority order) ───────────────────
+const CTX_PRIO = [
+  ['ctx_ldp','LDP'],['ctx_lrp','LRP'],
+  ['ctx_ldc','LDC'],['ctx_lrc','LRC'],
+  ['ctx_lds','LDS'],['ctx_ld','LD'],
+  ['ctx_bct','BCT'],['ctx_sqb','SQB'],
+  ['ctx_wrc','WRC'],['ctx_f8c','F8C'],['ctx_svs','SVS'],
+]
+function ctxTokens(r) {
+  return CTX_PRIO.filter(([k]) => r[k]).map(([, t]) => t)
+}
+
+// ── SIGNAL_SCORE chip colour ───────────────────────────────────────────────────
+function scoreCls(n) {
+  if (n >= 120) return 'text-yellow-300 font-bold'
+  if (n >= 100) return 'text-lime-300 font-bold'
+  if (n >= 80)  return 'text-green-300 font-semibold'
+  if (n >= 60)  return 'text-teal-300'
+  return 'text-gray-400'
+}
+
 // ── Engine family membership (for cross-engine diversity scoring) ─────────────
 // Each set represents a truly independent engine/observation model.
 // Signals from different sets = orthogonal evidence.
@@ -1286,7 +1318,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               </SortTh>
               <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
-              <SortTh col="gog_score" cls="text-center">GOG</SortTh>
+              <SortTh col="signal_score" cls="text-center">GOG</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
               <th className="px-2 py-1.5 font-medium">Combo</th>
@@ -1383,23 +1415,36 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   ) : '—'}
                 </td>
 
-                {/* GOG tier + score */}
+                {/* GOG tier + context signals + SIGNAL_SCORE */}
                 <td className="px-2 py-1 text-center">
-                  {r.gog_tier ? (
-                    <div className="flex flex-col items-center gap-0.5">
-                      <span className={`text-[10px] px-1.5 py-0.5 rounded ${gogTierCls(r.gog_tier)}`}>
-                        {r.gog_tier}
-                      </span>
-                      {r.gog_score > 0 && (
-                        <span className="font-mono text-[10px] text-gray-400">
-                          {Number(r.gog_score).toFixed(0)}
-                        </span>
-                      )}
-                      {r.already_extended ? (
-                        <span className="text-[8px] text-orange-400 font-bold leading-none">EXT</span>
-                      ) : null}
-                    </div>
-                  ) : <span className="text-gray-700 text-xs">—</span>}
+                  {(() => {
+                    const ctx = ctxTokens(r)
+                    const score = r.signal_score ?? 0
+                    const hasContent = r.gog_tier || ctx.length > 0 || score > 0
+                    if (!hasContent) return <span className="text-gray-700 text-xs">—</span>
+                    return (
+                      <div className="flex flex-col items-center gap-0.5">
+                        {r.gog_tier && (
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${gogTierCls(r.gog_tier)}`}>
+                            {r.gog_tier}
+                          </span>
+                        )}
+                        {ctx.slice(0, 2).map(tok => (
+                          <span key={tok} className={`text-[9px] px-1 py-0 rounded leading-tight ${ctxTokCls(tok)}`}>
+                            {tok}
+                          </span>
+                        ))}
+                        {score > 0 && (
+                          <span className={`font-mono text-[10px] leading-none ${scoreCls(score)}`}>
+                            {score}
+                          </span>
+                        )}
+                        {r.already_extended ? (
+                          <span className="text-[8px] text-orange-400 font-bold leading-none">EXT</span>
+                        ) : null}
+                      </div>
+                    )
+                  })()}
                 </td>
 
                 {/* VABS + Delta */}
