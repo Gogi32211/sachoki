@@ -213,6 +213,8 @@ _TURBO_COLS = [
     # Extended lookback flags — ALL-US profile (15b / 10b windows)
     "_ztrap_recent_15b", "_l64_recent_15b", "_l22_recent_15b",
     "_l43_recent_10b", "_ns_recent_5b", "_t10t11_recent_5b",
+    # Composite setup signals (260501) — SMX/AKAN/NNN/MX/GOG
+    "smx_sig", "akan_sig", "nnn_sig", "mx_sig", "gog_sig",
 ]
 
 
@@ -697,6 +699,17 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
             s -= 2
 
     s = max(0.0, s)
+
+    # ── Composite setup signals (SMX / AKAN / NNN / MX / GOG) — cap 12 ──────
+    # Incremental value over already-scored primitives (VBO, T6, L-signals, etc.)
+    # AKAN is a strict superset of SMX so only the higher score applies.
+    _setup = 0.0
+    if r.get("akan_sig"):  _setup += 8   # full sequence + final trigger + pressure
+    elif r.get("smx_sig"): _setup += 6   # context + real/early trigger
+    if r.get("nnn_sig"):   _setup += 6   # bottom Z/T compression + ignition
+    if r.get("mx_sig"):    _setup += 5   # momentum continuation cluster
+    if r.get("gog_sig"):   _setup += 4   # VBO confirmed in primed setup context
+    s += min(_setup, 12)
 
     # ── Context / confirmation (uncapped, max ~18) ────────────────────────
     if r.get("x2g_wick"):      s += 5
@@ -1246,6 +1259,126 @@ def _scan_turbo_ticker(
             row["_t10t11_recent_5b"] = row["_l64_recent_15b"] = row["_l22_recent_15b"]  = 0
             row["_l43_recent_10b"]   = row["_ns_recent_5b"]   = 0
 
+        # ── SMX / AKAN / NNN / MX / GOG composite setup signals (260501) ─────
+        # Faithful Python translation of the 260501 PineScript indicators.
+        # Uses already-computed frames: wlnbb, vabs, sig_df, combo, f_sigs, uv2.
+        try:
+            def _inN(fr, col, n):
+                """Signal fired in last N bars (including current bar)."""
+                if fr is None or col not in fr.columns:
+                    return False
+                return bool(fr[col].iloc[-n:].astype(bool).any())
+
+            _lc = float(df["close"].iloc[-1])
+            _lo = float(df["open"].iloc[-1])
+            _tz_c = row.get("tz_sig", "")
+
+            # Support: any L-signal in last 18 bars
+            _sup18 = bool(
+                _inN(wlnbb, "L34",  18) or _inN(wlnbb, "L43",  18) or
+                _inN(wlnbb, "L64",  18) or _inN(wlnbb, "L22",  18) or _inN(wlnbb, "L555", 18)
+            )
+            # Absorption: volume activation in last 12 bars
+            _abs12 = bool(
+                _inN(vabs, "abs_sig",  12) or _inN(vabs, "climb_sig", 12) or
+                _inN(vabs, "load_sig", 12) or _inN(vabs, "vbo_up",    12) or
+                _inN(vabs, "sq",       12) or _inN(vabs, "ns",        12)
+            )
+            # Pre-turn structure: bullish bar or breakout-class signal
+            _pre_turn = bool(
+                _lc > _lo or row.get("be_up") or row.get("vbo_up") or
+                row.get("bo_up") or row.get("bx_up") or row.get("sig_260308")
+            )
+
+            # ── SMX — pre-breakout: sequence context + T6/F/VBO/BE trigger ──
+            _smx_real  = bool(
+                _tz_c == "T6" or row.get("f3") or row.get("f6") or
+                row.get("vbo_up") or row.get("be_up") or row.get("bo_up") or row.get("bx_up")
+            )
+            _smx_early = bool(
+                _tz_c in ("T1", "T1G", "T4", "T2", "T2G") and (
+                    row.get("load_sig") or row.get("vbo_up") or row.get("be_up") or
+                    _inN(vabs, "load_sig", 3) or _inN(vabs, "vbo_up", 3)
+                )
+            )
+            _smx_ctx = _sup18 and (
+                _abs12 or bool(row.get("vbo_up")) or bool(row.get("load_sig")) or bool(row.get("sq"))
+            )
+            row["smx_sig"] = int(_smx_ctx and (_smx_real or _smx_early) and _pre_turn)
+
+            # ── AKAN — strict: full sequence + final trigger + near-high pressure ─
+            _akan_fin = bool(
+                _tz_c == "T6" or row.get("f3") or row.get("f6") or
+                row.get("vbo_up") or row.get("be_up") or row.get("bo_up") or
+                row.get("bx_up") or row.get("sig_260308") or row.get("sig_l88")
+            )
+            _hi10 = float(df["high"].iloc[-10:].max()) if len(df) >= 10 else _lc
+            _akan_press = bool(
+                (_hi10 > 0 and ((_hi10 - _lc) / (_lc or 1.0)) * 100.0 <= 30.0) or
+                row.get("vbo_up") or row.get("be_up") or row.get("bo_up")
+            )
+            row["akan_sig"] = int(_sup18 and _abs12 and _akan_fin and _akan_press and _pre_turn)
+
+            # ── NNN — bottom Z/T compression + ignition trigger ─────────────
+            _ZB = {"Z4", "Z6", "Z9", "Z10", "Z11", "Z12"}
+            _ZL = {"Z10", "Z11", "Z12"}
+            _TB = {"T10", "T11", "T12"}
+            _hz = 0; _lz = 0; _bt = 0
+            if sig_df is not None and not sig_df.empty and "sig_name" in sig_df.columns:
+                for _ni in range(1, min(15, len(sig_df))):
+                    try:
+                        _sv = str(sig_df["sig_name"].iloc[-_ni] or "")
+                        _bv = bool(sig_df.iloc[-_ni].get("is_bull", False))
+                        if not _bv and _sv in _ZB:
+                            _hz = 1
+                            if _sv in _ZL and _ni <= 10:
+                                _lz = 1
+                        if _bv and _sv in _TB and _ni <= 10:
+                            _bt = 1
+                    except Exception:
+                        pass
+            _nnn_comp = bool(_hz or _lz or _bt)
+            _nnn_ctx  = bool((_abs12 and _sup18) or (_nnn_comp and (_abs12 or _sup18)))
+            _nnn_ign  = bool(
+                _tz_c in ("T6", "T3", "T2G", "T2") or row.get("vbo_up") or row.get("be_up") or
+                row.get("bo_up") or row.get("bx_up") or row.get("sig_260308") or row.get("sig_l88") or
+                row.get("bf_buy") or row.get("f3") or row.get("f6")
+            )
+            row["nnn_sig"] = int(((_nnn_comp and _nnn_ctx) or (_sup18 and _abs12)) and _nnn_ign and _pre_turn)
+
+            # ── MX — momentum continuation after recent ignition ──────────────
+            _rcnt_ign = bool(
+                row.get("nnn_sig") or _inN(vabs, "vbo_up", 6) or
+                _inN(wlnbb, "BE_UP", 6) or _inN(wlnbb, "BO_UP", 6)
+            )
+            _mom_now = bool(
+                row.get("vbo_up") or row.get("bf_buy") or row.get("sig_260308") or row.get("sig_l88") or
+                row.get("be_up") or row.get("bo_up") or row.get("bx_up") or
+                row.get("buy_2809") or row.get("bb_brk") or row.get("atr_brk")
+            )
+            _turn_now = bool(
+                _tz_c in ("T6", "T2G", "T2") or row.get("vbo_up") or row.get("be_up") or
+                row.get("bo_up") or (len(df) >= 2 and _lc > float(df["high"].iloc[-2]))
+            )
+            _mx_strct = bool(_rcnt_ign or _nnn_comp or (_sup18 and _abs12))
+            row["mx_sig"] = int(_mx_strct and _mom_now and _turn_now and _pre_turn)
+
+            # ── GOG — VBO confirmed in primed setup context ────────────────────
+            _gog_base = bool(
+                row.get("smx_sig") or row.get("akan_sig") or
+                row.get("nnn_sig") or row.get("mx_sig")
+            )
+            _gog_rcnt = bool(
+                _sup18 and _abs12 and (
+                    _inN(vabs, "load_sig", 5) or _inN(vabs, "sq", 5) or
+                    _inN(wlnbb, "L34", 5) or _inN(wlnbb, "L43", 5)
+                )
+            )
+            row["gog_sig"] = int(bool(row.get("vbo_up")) and (_gog_base or _gog_rcnt))
+
+        except Exception:
+            row["smx_sig"] = row["akan_sig"] = row["nnn_sig"] = row["mx_sig"] = row["gog_sig"] = 0
+
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row, profile)
 
@@ -1490,6 +1623,12 @@ def _scan_turbo_ticker(
             "fly_cd":   _sa(_fly_ser, "fly_cd"),
             "fly_bd":   _sa(_fly_ser, "fly_bd"),
             "fly_ad":   _sa(_fly_ser, "fly_ad"),
+            # Composite setup signals (260501)
+            "smx_sig":  0 if row.get("smx_sig")  else 999,
+            "akan_sig": 0 if row.get("akan_sig") else 999,
+            "nnn_sig":  0 if row.get("nnn_sig")  else 999,
+            "mx_sig":   0 if row.get("mx_sig")   else 999,
+            "gog_sig":  0 if row.get("gog_sig")  else 999,
         }, separators=(',', ':'))
 
         # N=3, N=5 and N=10 turbo scores
@@ -1587,6 +1726,12 @@ def _scan_turbo_ticker(
                 "fly_cd":   _sn(_fly_ser, "fly_cd",   _n),
                 "fly_bd":   _sn(_fly_ser, "fly_bd",   _n),
                 "fly_ad":   _sn(_fly_ser, "fly_ad",   _n),
+                # Composite setup signals — use current-bar value for all N windows
+                "smx_sig":  row.get("smx_sig",  0),
+                "akan_sig": row.get("akan_sig", 0),
+                "nnn_sig":  row.get("nnn_sig",  0),
+                "mx_sig":   row.get("mx_sig",   0),
+                "gog_sig":  row.get("gog_sig",  0),
             }
             row[_key] = _calc_turbo_score(_r, profile)
 
