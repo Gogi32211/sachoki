@@ -240,6 +240,13 @@ const SIG_GROUPS = [
   { key: 'rgti_greencirc',label: 'GC',   cls: 'text-emerald-300'  },
   { key: 'smx',           label: 'SMX',  cls: 'text-lime-300'     },
   { divider: true },
+  // ── 260501 Composite setup signals ────────────────────────────────────
+  { key: 'smx_sig',  label: 'SM',   cls: 'text-lime-300 font-semibold'    },
+  { key: 'akan_sig', label: 'A',    cls: 'text-orange-300 font-semibold'  },
+  { key: 'nnn_sig',  label: 'N',    cls: 'text-cyan-300 font-semibold'    },
+  { key: 'mx_sig',   label: 'MX',   cls: 'text-pink-300 font-semibold'    },
+  { key: 'gog_sig',  label: 'GOG',  cls: 'text-fuchsia-300 font-semibold' },
+  { divider: true },
   // ── FLY 260424 — ABCD EMA DP ──────────────────────────────────────────
   { key: 'fly_abcd', label: 'ABCD', cls: 'text-lime-300 font-semibold' },
   { key: 'fly_cd',   label: 'CD',   cls: 'text-cyan-300'   },
@@ -1447,6 +1454,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {r.para_start && !r.para_plus ? <Badge label="PARA" cls="bg-lime-700/60 text-lime-200 ring-1 ring-lime-400" /> : null}
                     {r.para_prep   ? <Badge label="PREP"  cls="bg-green-800/60 text-green-200" /> : null}
                     {r.para_retest ? <Badge label="RTEST" cls="bg-emerald-700/60 text-emerald-200 ring-1 ring-emerald-400" /> : null}
+                    {/* 260501 Composite setup signals */}
+                    {r.akan_sig ? <Badge label="A"   cls="bg-orange-700/80 text-orange-100 ring-1 ring-orange-400 font-bold" /> : null}
+                    {r.smx_sig  ? <Badge label="SM"  cls="bg-lime-700/80 text-lime-100 ring-1 ring-lime-400 font-bold" /> : null}
+                    {r.nnn_sig  ? <Badge label="N"   cls="bg-cyan-700/80 text-cyan-100 ring-1 ring-cyan-400 font-bold" /> : null}
+                    {r.mx_sig   ? <Badge label="MX"  cls="bg-pink-700/80 text-pink-100 ring-1 ring-pink-400 font-bold" /> : null}
+                    {r.gog_sig  ? <Badge label="GOG" cls="bg-fuchsia-700/80 text-fuchsia-100 ring-1 ring-fuchsia-400 font-bold" /> : null}
                     {/* FLY 260424 */}
                     {r.fly_abcd ? <Badge label="ABCD" cls="bg-lime-700/70 text-lime-100 ring-1 ring-lime-400 font-bold" /> : null}
                     {r.fly_cd && !r.fly_abcd ? <Badge label="CD" cls="bg-cyan-700/60 text-cyan-200" /> : null}
