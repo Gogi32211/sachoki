@@ -1358,7 +1358,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "rtb_build", "rtb_turn", "rtb_ready", "rtb_late", "rtb_bonus3",
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
             "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
-            "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
+            "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK", "SETUP",
         ]
 
         def _j(lst): return " ".join(lst) if lst else ""
@@ -1408,6 +1408,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             _j(b.get("vol", [])),
                             _j(b.get("vabs", [])),
                             _j(b.get("wick", [])),
+                            _j(b.get("setup", [])),
                         ])
                 except Exception:
                     pass
