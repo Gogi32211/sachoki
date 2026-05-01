@@ -988,56 +988,24 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
 
-    # ── SMX/AKAN/NNN/MX/GOG composite setup signals — vectorized ─────────────
+    # ── GOG Priority Engine (260501 FULL + F8) — vectorized precomputation ──────
     try:
-        def _sv(frame, col):
-            if frame is None or frame.empty or col not in frame.columns:
-                return pd.Series(False, index=df.index)
-            return frame[col].fillna(0).astype(bool)
-        def _roll(ser, n):
-            return ser.rolling(n, min_periods=1).max().astype(bool)
-        _vbo_up_sv = _sv(vabs, "vbo_up"); _be_up_sv = _sv(wlnbb, "BE_UP")
-        _bo_up_sv  = _sv(wlnbb, "BO_UP"); _bx_up_sv = _sv(wlnbb, "BX_UP")
-        _f3_sv = _sv(f_sigs, "f3"); _f6_sv = _sv(f_sigs, "f6")
-        _ld_sv = _sv(vabs, "load_sig"); _sq_sv = _sv(vabs, "sq"); _ns_sv = _sv(vabs, "ns")
-        _abs_sv = _sv(vabs, "abs_sig"); _clm_sv = _sv(vabs, "climb_sig")
-        _l88_sv = _sv(ultra260, "sig_l88"); _260308_sv = _sv(ultra260, "sig_260308")
-        _bf_sv  = _sv(ultraV2, "bf_buy")
-        if not sig_df.empty and "sig_name" in sig_df.columns:
-            _tz_nm    = sig_df["sig_name"].fillna("")
-            _t6_sv    = (_tz_nm == "T6").astype(bool)
-            _tearly_sv = _tz_nm.isin({"T1","T1G","T4","T2","T2G"}).astype(bool)
-            _t_ign_sv  = _tz_nm.isin({"T6","T3","T2G","T2"}).astype(bool)
-            _is_bull_sv = sig_df["is_bull"].astype(bool) if "is_bull" in sig_df.columns else pd.Series(False, index=df.index)
-            _zb_sv = (~_is_bull_sv) & _tz_nm.isin({"Z4","Z6","Z9","Z10","Z11","Z12"})
-            _zl_sv = (~_is_bull_sv) & _tz_nm.isin({"Z10","Z11","Z12"})
-            _tb_sv = _is_bull_sv & _tz_nm.isin({"T10","T11","T12"})
-        else:
-            _t6_sv = _tearly_sv = _t_ign_sv = pd.Series(False, index=df.index)
-            _zb_sv = _zl_sv = _tb_sv = pd.Series(False, index=df.index)
-        _sup18_sv = _roll(_sv(wlnbb,"L34")|_sv(wlnbb,"L43")|_sv(wlnbb,"L64")|_sv(wlnbb,"L22")|_sv(wlnbb,"L555"), 18)
-        _abs12_sv = _roll(_abs_sv|_clm_sv|_ld_sv|_vbo_up_sv|_sq_sv|_ns_sv, 12)
-        _pturn_sv = (df["close"]>df["open"])|_be_up_sv|_vbo_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv
-        _smx_real_sv = _t6_sv|_f3_sv|_f6_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv
-        _smx_ctx_sv  = _sup18_sv & (_abs12_sv|_vbo_up_sv|_ld_sv|_sq_sv)
-        _smx_sv = (_smx_ctx_sv & (_smx_real_sv|(_tearly_sv&_roll(_ld_sv|_vbo_up_sv|_be_up_sv,3))) & _pturn_sv).astype(bool)
-        _hi10_sv = df["high"].rolling(10, min_periods=1).max()
-        _dist_sv = ((_hi10_sv-df["close"]) / df["close"].replace(0,np.nan)).fillna(0)*100.0
-        _akan_fin_sv = _t6_sv|_f3_sv|_f6_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv|_l88_sv
-        _akan_sv = (_sup18_sv & _abs12_sv & _akan_fin_sv & ((_dist_sv<=30)|_vbo_up_sv|_be_up_sv|_bo_up_sv) & _pturn_sv).astype(bool)
-        _nnn_comp_sv = _roll(_zb_sv,14)|_roll(_zl_sv,10)|_roll(_tb_sv,10)
-        _nnn_ctx_sv  = (_abs12_sv&_sup18_sv)|(_nnn_comp_sv&(_abs12_sv|_sup18_sv))
-        _nnn_ign_sv  = _t6_sv|_t_ign_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv|_l88_sv|_bf_sv|_f3_sv|_f6_sv
-        _nnn_sv = (((_nnn_comp_sv&_nnn_ctx_sv)|(_sup18_sv&_abs12_sv))&_nnn_ign_sv&_pturn_sv).astype(bool)
-        _rcnt_ign_sv = _nnn_sv|_roll(_vbo_up_sv,6)|_roll(_be_up_sv,6)|_roll(_bo_up_sv,6)
-        _mom_now_sv  = _vbo_up_sv|_bf_sv|_260308_sv|_l88_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_sv(combo_df,"buy_2809")|_sv(combo_df,"bb_brk")|_sv(combo_df,"atr_brk")
-        _turn_now_sv = _t6_sv|_t_ign_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|(df["close"]>df["high"].shift(1).fillna(0))
-        _mx_sv = ((_rcnt_ign_sv|_nnn_comp_sv|(_sup18_sv&_abs12_sv))&_mom_now_sv&_turn_now_sv&_pturn_sv).astype(bool)
-        _gog_base_sv = _smx_sv|_akan_sv|_nnn_sv|_mx_sv
-        _gog_rcnt_sv = _sup18_sv&_abs12_sv&_roll(_ld_sv|_sq_sv|_sv(wlnbb,"L34")|_sv(wlnbb,"L43"),5)
-        _gog_sv = (_vbo_up_sv&(_gog_base_sv|_gog_rcnt_sv)).astype(bool)
+        from gog_engine import compute_gog_signals as _cgog, compute_forward_stats as _cfwd
+        _gog_df = _cgog(df, wlnbb, sig_df, f_sigs, vabs, ultra260, ultraV2, combo_df)
+        _fwd_df = _cfwd(df, _gog_df)
     except Exception:
-        _smx_sv = _akan_sv = _nnn_sv = _mx_sv = _gog_sv = pd.Series(False, index=df.index)
+        _gog_df = pd.DataFrame(index=df.index)
+        _fwd_df = pd.DataFrame(index=df.index)
+
+    def _gv(col, i, default=0):
+        if col not in _gog_df.columns: return default
+        v = _gog_df[col].iloc[i]
+        return v if v is not None and not (isinstance(v, float) and np.isnan(v)) else default
+
+    def _fv(col, i, default=None):
+        if col not in _fwd_df.columns: return default
+        v = _fwd_df[col].iloc[i]
+        return None if (v is None or (isinstance(v, float) and np.isnan(v))) else v
 
     result = []
 
@@ -1221,18 +1189,17 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             # Vol spike context
             "vol_spike_10x": float(vol_ratio.iloc[i]) >= 10,
             # Composite setup signals
-            "smx_sig":  bool(_smx_sv.iloc[i]),
-            "akan_sig": bool(_akan_sv.iloc[i]),
-            "nnn_sig":  bool(_nnn_sv.iloc[i]),
-            "mx_sig":   bool(_mx_sv.iloc[i]),
-            "gog_sig":  bool(_gog_sv.iloc[i]),
+            "smx_sig":  bool(_gv("SM",  i)),
+            "akan_sig": bool(_gv("A",   i)),
+            "nnn_sig":  bool(_gv("N",   i)),
+            "mx_sig":   bool(_gv("MX",  i)),
+            "gog_sig":  bool(_gv("GOG_SCORE", i, 0) > 0),
         }
-        setup_list = []
-        if sig_row["akan_sig"]:  setup_list.append("A")
-        elif sig_row["smx_sig"]: setup_list.append("SM")
-        if sig_row["nnn_sig"]:   setup_list.append("N")
-        if sig_row["mx_sig"]:    setup_list.append("MX")
-        if sig_row["gog_sig"]:   setup_list.append("GOG")
+        # GOG per-bar data from engine
+        gog_tier_val  = str(_gv("GOG_TIER",  i, ""))
+        gog_score_val = float(_gv("GOG_SCORE", i, 0.0))
+        setup_list    = str(_gv("SETUP",   i, "")).split() if _gv("SETUP", i, "") else []
+        context_list  = str(_gv("CONTEXT", i, "")).split() if _gv("CONTEXT", i, "") else []
         turbo_score_val = _calc_turbo_score(sig_row)
 
         vol_bkt = ""
@@ -1309,6 +1276,46 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "vabs":      vabs_list,
             "wick":      wick_list,
             "setup":     setup_list,
+            "context":   context_list,
+            "gog_tier":  gog_tier_val,
+            "gog_score": gog_score_val,
+            # GOG boosted tiers (bool)
+            "g1p":  int(_gv("G1P",i)), "g2p": int(_gv("G2P",i)), "g3p": int(_gv("G3P",i)),
+            "g1l":  int(_gv("G1L",i)), "g2l": int(_gv("G2L",i)), "g3l": int(_gv("G3L",i)),
+            "g1c":  int(_gv("G1C",i)), "g2c": int(_gv("G2C",i)), "g3c": int(_gv("G3C",i)),
+            "gog1": int(_gv("GOG1",i)),"gog2":int(_gv("GOG2",i)),"gog3":int(_gv("GOG3",i)),
+            # Raw supporting signals
+            "raw_load":   int(_gv("LOAD",i)),       "raw_sq":     int(_gv("SQ",i)),
+            "raw_w":      int(_gv("W",i)),           "raw_f8":     int(_gv("F8",i)),
+            "raw_vbo_up": int(_gv("VBO_UP",i)),      "raw_be_up":  int(_gv("BE_UP",i)),
+            "raw_bo_up":  int(_gv("BO_UP",i)),       "raw_bx_up":  int(_gv("BX_UP",i)),
+            "raw_t10":    int(_gv("T10",i)),          "raw_t11":    int(_gv("T11",i)),
+            "raw_t12":    int(_gv("T12",i)),          "raw_z10":    int(_gv("Z10",i)),
+            "raw_z11":    int(_gv("Z11",i)),          "raw_z12":    int(_gv("Z12",i)),
+            # Diagnostics
+            "already_extended": int(_gv("already_extended_flag",i)),
+            "pct_change_5d":    round(float(_gv("pct_change_5d",i,0)), 2),
+            "pct_change_10d":   round(float(_gv("pct_change_10d",i,0)), 2),
+            "distance_to_20d_high_pct": round(float(_gv("distance_to_20d_high_pct",i,0)), 2),
+            "volume_ratio_20d": round(float(_gv("volume_ratio_20d",i,0)), 2),
+            "gap_pct":          round(float(_gv("gap_pct",i,0)), 2),
+            # Forward stats
+            "fwd_close_1d":   _fv("fwd_close_1d",i),
+            "fwd_close_3d":   _fv("fwd_close_3d",i),
+            "fwd_close_5d":   _fv("fwd_close_5d",i),
+            "fwd_close_10d":  _fv("fwd_close_10d",i),
+            "max_high_5d_pct":  _fv("max_high_5d_pct",i),
+            "max_high_10d_pct": _fv("max_high_10d_pct",i),
+            "hit_5pct_5d":    int(_fv("hit_5pct_5d",i) or 0),
+            "hit_5pct_10d":   int(_fv("hit_5pct_10d",i) or 0),
+            "hit_10pct_5d":   int(_fv("hit_10pct_5d",i) or 0),
+            "hit_10pct_10d":  int(_fv("hit_10pct_10d",i) or 0),
+            "vbo_within_5":   int(_fv("vbo_within_5",i) or 0),
+            "vbo_within_10":  int(_fv("vbo_within_10",i) or 0),
+            "bars_to_next_vbo": _fv("bars_to_next_vbo",i),
+            "gog_within_5":   int(_fv("gog_within_5",i) or 0),
+            "gog_within_10":  int(_fv("gog_within_10",i) or 0),
+            "bars_to_next_gog": _fv("bars_to_next_gog",i),
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,
@@ -1358,7 +1365,23 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "rtb_build", "rtb_turn", "rtb_ready", "rtb_late", "rtb_bonus3",
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
             "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
-            "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK", "SETUP",
+            "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
+            # GOG Priority Engine
+            "SETUP", "CONTEXT", "GOG_TIER", "GOG_SCORE",
+            "A", "SM", "N", "MX",
+            "GOG1", "GOG2", "GOG3",
+            "G1P", "G2P", "G3P", "G1L", "G2L", "G3L", "G1C", "G2C", "G3C",
+            "LD", "LDS", "LDC", "LDP", "LRC", "LRP", "WRC", "F8C", "SQB", "BCT", "SVS",
+            "LOAD", "SQ", "W", "F8", "VBO_UP", "BE_UP", "BO_UP", "BX_UP",
+            "T10", "T11", "T12", "Z10", "Z11", "Z12",
+            "ALREADY_EXTENDED",
+            "PCT_5D", "PCT_10D", "DIST_20D_HIGH", "VOL_RATIO_20D", "GAP_PCT",
+            # Forward stats
+            "FWD_1D", "FWD_3D", "FWD_5D", "FWD_10D",
+            "MAX_HIGH_5D", "MAX_HIGH_10D",
+            "HIT_5PCT_5D", "HIT_5PCT_10D", "HIT_10PCT_5D", "HIT_10PCT_10D",
+            "VBO_W5", "VBO_W10", "BARS_TO_VBO",
+            "GOG_W5", "GOG_W10", "BARS_TO_GOG",
         ]
 
         def _j(lst): return " ".join(lst) if lst else ""
@@ -1408,7 +1431,51 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             _j(b.get("vol", [])),
                             _j(b.get("vabs", [])),
                             _j(b.get("wick", [])),
+                            # GOG Priority Engine columns
                             _j(b.get("setup", [])),
+                            _j(b.get("context", [])),
+                            b.get("gog_tier", ""),
+                            b.get("gog_score", 0),
+                            b.get("smx_sig", 0) if not b.get("akan_sig") else 0,  # SM only if not A
+                            b.get("akan_sig", 0),  # A
+                            b.get("nnn_sig", 0),   # N
+                            b.get("mx_sig", 0),    # MX
+                            b.get("gog1", 0), b.get("gog2", 0), b.get("gog3", 0),
+                            b.get("g1p", 0), b.get("g2p", 0), b.get("g3p", 0),
+                            b.get("g1l", 0), b.get("g2l", 0), b.get("g3l", 0),
+                            b.get("g1c", 0), b.get("g2c", 0), b.get("g3c", 0),
+                            # Context signals (from context list)
+                            1 if "LD"  in b.get("context", []) else 0,
+                            1 if "LDS" in b.get("context", []) else 0,
+                            1 if "LDC" in b.get("context", []) else 0,
+                            1 if "LDP" in b.get("context", []) else 0,
+                            1 if "LRC" in b.get("context", []) else 0,
+                            1 if "LRP" in b.get("context", []) else 0,
+                            1 if "WRC" in b.get("context", []) else 0,
+                            1 if "F8C" in b.get("context", []) else 0,
+                            1 if "SQB" in b.get("context", []) else 0,
+                            1 if "BCT" in b.get("context", []) else 0,
+                            1 if "SVS" in b.get("context", []) else 0,
+                            # Raw supporting
+                            b.get("raw_load",0), b.get("raw_sq",0), b.get("raw_w",0), b.get("raw_f8",0),
+                            b.get("raw_vbo_up",0), b.get("raw_be_up",0), b.get("raw_bo_up",0), b.get("raw_bx_up",0),
+                            b.get("raw_t10",0), b.get("raw_t11",0), b.get("raw_t12",0),
+                            b.get("raw_z10",0), b.get("raw_z11",0), b.get("raw_z12",0),
+                            # Diagnostics
+                            b.get("already_extended", 0),
+                            b.get("pct_change_5d", ""), b.get("pct_change_10d", ""),
+                            b.get("distance_to_20d_high_pct", ""),
+                            b.get("volume_ratio_20d", ""), b.get("gap_pct", ""),
+                            # Forward stats
+                            b.get("fwd_close_1d",""), b.get("fwd_close_3d",""),
+                            b.get("fwd_close_5d",""), b.get("fwd_close_10d",""),
+                            b.get("max_high_5d_pct",""), b.get("max_high_10d_pct",""),
+                            b.get("hit_5pct_5d",0), b.get("hit_5pct_10d",0),
+                            b.get("hit_10pct_5d",0), b.get("hit_10pct_10d",0),
+                            b.get("vbo_within_5",0), b.get("vbo_within_10",0),
+                            b.get("bars_to_next_vbo",""),
+                            b.get("gog_within_5",0), b.get("gog_within_10",0),
+                            b.get("bars_to_next_gog",""),
                         ])
                 except Exception:
                     pass

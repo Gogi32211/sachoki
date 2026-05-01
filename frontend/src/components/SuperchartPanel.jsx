@@ -122,14 +122,40 @@ const ROWS = [
   },
   {
     key: 'setup',
-    label: 'SMX',
+    label: 'SETUP',
     getSigs: (b) => b.setup ?? [],
     chipCls: (s) => {
       if (s === 'A')   return 'bg-orange-800/80 text-orange-100 ring-1 ring-orange-400 font-bold'
       if (s === 'SM')  return 'bg-lime-800/80 text-lime-100 ring-1 ring-lime-400 font-bold'
       if (s === 'N')   return 'bg-cyan-800/80 text-cyan-100 ring-1 ring-cyan-400 font-bold'
       if (s === 'MX')  return 'bg-pink-800/80 text-pink-100 ring-1 ring-pink-400 font-bold'
-      if (s === 'GOG') return 'bg-fuchsia-800/80 text-fuchsia-100 ring-1 ring-fuchsia-400 font-bold'
+      return 'bg-gray-800 text-gray-300'
+    },
+  },
+  {
+    key: 'gog',
+    label: 'GOG',
+    getSigs: (b) => b.gog_tier ? [b.gog_tier] : [],
+    chipCls: (s) => {
+      if (s.startsWith('G1P') || s.startsWith('G2P') || s.startsWith('G3P'))
+        return 'bg-green-800 text-green-100 ring-1 ring-green-400 font-bold'
+      if (s.startsWith('G1L') || s.startsWith('G2L') || s.startsWith('G3L'))
+        return 'bg-emerald-800 text-emerald-100 ring-1 ring-emerald-400 font-bold'
+      if (s.startsWith('G1C') || s.startsWith('G2C') || s.startsWith('G3C'))
+        return 'bg-teal-800 text-teal-100 ring-1 ring-teal-400 font-bold'
+      return 'bg-fuchsia-800 text-fuchsia-100 ring-1 ring-fuchsia-400 font-bold'
+    },
+  },
+  {
+    key: 'context',
+    label: 'CTX',
+    getSigs: (b) => b.context ?? [],
+    chipCls: (s) => {
+      if (s === 'LDP' || s === 'LRP') return 'bg-green-900 text-green-200 font-semibold'
+      if (s === 'LDC' || s === 'LRC') return 'bg-teal-900 text-teal-200'
+      if (s === 'LDS' || s === 'LD')  return 'bg-cyan-900 text-cyan-300'
+      if (s === 'SQB' || s === 'BCT') return 'bg-blue-900 text-blue-200'
+      if (s === 'WRC' || s === 'F8C') return 'bg-slate-700 text-slate-200'
       return 'bg-gray-800 text-gray-300'
     },
   },
@@ -234,7 +260,11 @@ export default function SuperchartPanel({
       'rtb_build','rtb_turn','rtb_ready','rtb_late','rtb_bonus3',
       'dbg_context_ready','dbg_t4_ctx','dbg_t6_ctx','dbg_t4t6_activation_plus',
       'dbg_launch_cluster_count','dbg_pending_phase','dbg_pending_phase_count',
-      'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK','SETUP',
+      'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
+      'SETUP','CONTEXT','GOG_TIER','GOG_SCORE',
+      'FWD_1D','FWD_3D','FWD_5D','FWD_10D','MAX_HIGH_5D','MAX_HIGH_10D',
+      'HIT_5PCT_5D','HIT_10PCT_5D','VBO_W5','GOG_W5','BARS_TO_VBO','BARS_TO_GOG',
+      'ALREADY_EXT','PCT_5D','PCT_10D','DIST_20D_HIGH','VOL_RATIO_20D',
     ]
     const rows = bars.map(b => [
       b.date,
@@ -269,6 +299,17 @@ export default function SuperchartPanel({
       join(b.vabs),
       join(b.wick),
       join(b.setup),
+      join(b.context),
+      b.gog_tier ?? '',
+      b.gog_score ?? 0,
+      b.fwd_close_1d ?? '', b.fwd_close_3d ?? '', b.fwd_close_5d ?? '', b.fwd_close_10d ?? '',
+      b.max_high_5d_pct ?? '', b.max_high_10d_pct ?? '',
+      b.hit_5pct_5d ?? 0, b.hit_10pct_5d ?? 0,
+      b.vbo_within_5 ?? 0, b.gog_within_5 ?? 0,
+      b.bars_to_next_vbo ?? '', b.bars_to_next_gog ?? '',
+      b.already_extended ?? 0,
+      b.pct_change_5d ?? '', b.pct_change_10d ?? '',
+      b.distance_to_20d_high_pct ?? '', b.volume_ratio_20d ?? '',
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
