@@ -100,6 +100,8 @@ _TZ_W_BASE = {
 _TZ_W_SP500  = {**_TZ_W_BASE, "T4": 6, "T6": 6}
 # NASDAQ: T4/T6 are pre-breakout triggers; context combos give the full uplift
 _TZ_W_NASDAQ = {**_TZ_W_BASE, "T4": 7, "T6": 7, "T1": 5, "T9": 3}
+# ALL-US: T1 reclaim is the cleanest reversal; T4/T6 heavily demoted (combo block provides uplift)
+_TZ_W_ALL_US = {**_TZ_W_BASE, "T4": 3, "T6": 3, "T1": 8, "T1G": 6, "T2G": 5, "T2": 4, "T9": 4}
 # Backward-compat alias
 _TZ_W = _TZ_W_BASE
 
@@ -205,6 +207,12 @@ _TURBO_COLS = [
     "rtb_late", "rtb_total",
     "rtb_phase", "rtb_transition",
     "rtb_phase_age",
+    # Profile lookback flags — 5b window
+    "_ztrap_recent_5b", "_l64_recent_5b", "_l43_recent_5b", "_l22_recent_5b",
+    "_blue_recent_5b", "_l34_recent_3b", "_fri34_recent_3b", "_dabsorb_recent_5b",
+    # Extended lookback flags — ALL-US profile (15b / 10b windows)
+    "_ztrap_recent_15b", "_l64_recent_15b", "_l22_recent_15b",
+    "_l43_recent_10b", "_ns_recent_5b", "_t10t11_recent_5b",
 ]
 
 
@@ -365,7 +373,12 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
 
     # ── L-structure / trend family (cap 13) ───────────────────────────────
     trend = 0.0
-    _tz_w = _TZ_W_NASDAQ if profile == "nasdaq" else _TZ_W_SP500
+    if profile == "nasdaq":
+        _tz_w = _TZ_W_NASDAQ
+    elif profile == "all_us":
+        _tz_w = _TZ_W_ALL_US
+    else:
+        _tz_w = _TZ_W_SP500
     trend += _tz_w.get(r.get("tz_sig", ""), 0)
     # tz_bull_flip: 100%A/98%C triple (FLP↑+4BF+T/Z↑) — strong pattern, raised +1→+3 with bf_buy
     if r.get("tz_bull_flip"):
@@ -571,6 +584,117 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
             )
             if not _has_nq_ctx:
                 s -= 2
+
+    # ── ALL-US profile — combo bonuses + bearish breakdown (cap 22 bull) ────────
+    # Design: combo-gated, background+activation model.
+    # Background window ~15b (Ztrap, L64/L22/L43), trigger window ~5b (SQ/CLM/LOAD/T1/SVS).
+    elif profile == "all_us":
+        # Read extended lookback flags (populated by _scan_turbo_ticker)
+        _ztrap_5  = bool(r.get("_ztrap_recent_5b"))
+        _ztrap_15 = bool(r.get("_ztrap_recent_15b"))
+        _l64_15   = bool(r.get("_l64_recent_15b"))
+        _l22_15   = bool(r.get("_l22_recent_15b"))
+        _l43_10   = bool(r.get("_l43_recent_10b"))
+        _ns_5     = bool(r.get("_ns_recent_5b"))
+        _ztrap_bg = _ztrap_5 or _ztrap_15         # any recent trap background
+        _l_struct = _l64_15 or _l22_15            # broad structural support
+        _sq       = bool(r.get("sq"))
+        _clm      = bool(r.get("climb_sig"))
+        _load     = bool(r.get("load_sig"))
+        _svs      = bool(r.get("svs_2809"))
+        _t1_cur   = r.get("tz_sig", "") == "T1"
+        _t1g_cur  = r.get("tz_sig", "") == "T1G"
+        _t1_any   = _t1_cur or _t1g_cur
+
+        # ── BULLISH COMBO BLOCK ───────────────────────────────────────────
+        au_bull = 0.0
+
+        # Tier 1 — structure + activation + trap (all 3 present) [n production-ready]
+        if _sq and _clm and _ztrap_bg:
+            au_bull += 14  # SQ_CLM_ZTRAP: stop-action + climber inside trap
+        if _sq and _load and _ztrap_bg:
+            au_bull += 12  # SQ_LOAD_ZTRAP: squeeze + loading in trap context
+        if _l64_15 and _t1_any and _svs:
+            au_bull += 12  # L64_T1_SVS: structural base + reclaim + ignition
+        if (_l22_15 or _l64_15) and _sq and _ztrap_bg:
+            au_bull += 12  # L22L64_SQ_ZTRAP: support context + activation + trap
+
+        # Tier 2 — two-element combos with strong context [production-ready]
+        if _l43_10 and _clm and _ztrap_bg:
+            au_bull += 10  # L43_CLM_ZTRAP: structural reset + climb in trap
+        if _t1_any and _svs and _ns_5:
+            au_bull += 10  # T1_SVS_NS: reclaim + ignition + supply drying up
+        if _l64_15 and _clm and _load:
+            au_bull += 9   # L64_CLM_LOAD: structural context + dual activation
+        if _sq and bool(r.get("ns")) and _ztrap_bg:
+            au_bull += 8   # SQ_NS_ZTRAP: squeeze + no-supply in trap zone
+        if (_l22_15 or _l64_15) and _load and _clm and not _ztrap_bg:
+            au_bull += 7   # L_LOAD_CLM: activation without trap (moderate)
+
+        # Tier 3 — established backtest patterns (from Run 25, adjusted for ALL-US)
+        _d4   = bool(r.get("d_absorb_bull") or r.get("d_spring"))
+        _d6   = bool(r.get("d_surge_bull")  or r.get("d_blast_bull"))
+        _l34  = bool(r.get("l34") or r.get("fri34"))
+        _be   = bool(r.get("be_up"))
+        _l34_r3  = bool(r.get("_l34_recent_3b") or r.get("_fri34_recent_3b"))
+        _dabs_r5 = bool(r.get("_dabsorb_recent_5b"))
+        if _d6 and _be:
+            au_bull += 10   # D6+BE↑ same bar (conservative vs SP500 12)
+        if _l34_r3 and _d4 and not _l34:
+            au_bull += 12   # L34→D4 sequence (conservative vs SP500 15)
+        if _dabs_r5 and _be and not _d4:
+            au_bull += 8    # D4→BE↑ sequence
+
+        s += min(au_bull, 22)
+
+        # ── ALL-US SPECIFIC DEMOTIONS ─────────────────────────────────────
+        # Single-signal noise reduction for the broad universe
+        _has_struct = _l_struct or _l43_10 or _ztrap_bg or _l34
+        _has_activ  = _sq or _clm or _load or _svs or _t1_any
+
+        # UM alone (no structure or activation): very noisy in ALL-US
+        if r.get("um_2809") and not _has_struct and not _has_activ:
+            s -= 3
+        # T4/T6 alone (no Ztrap or L-support): demoted in ALL-US (combo block = uplift)
+        if r.get("tz_sig", "") in ("T4", "T6"):
+            if not _ztrap_bg and not _l_struct:
+                s -= 3
+        # RL alone (no activation or structure): demoted
+        if r.get("fuchsia_rl") and not _has_activ and not _be:
+            s -= 2
+        # B/S↑ alone (no L34/BE/D4/D6)
+        if r.get("d_strong_bull") and not _l34 and not _be and not _d4 and not _d6:
+            s -= 2
+        # RSI overheated without institutional support
+        _rsi_au = float(r.get("rsi", 50.0))
+        if _rsi_au > 80 and not _d4 and not _d6:
+            s -= 5
+        elif _rsi_au > 75 and not _d4 and not _d6 and not _be:
+            s -= 2
+
+        # ── BEARISH BREAKDOWN BLOCK ───────────────────────────────────────
+        # Separate from bullish logic; applied as negative score adjustment.
+        _t10t11_cur    = r.get("tz_sig", "") in ("T10", "T11", "T12")
+        _t10t11_r5     = bool(r.get("_t10t11_recent_5b"))
+        _rh            = bool(r.get("fuchsia_rh"))
+        _bo_dn         = bool(r.get("bo_dn"))
+        _bx_dn         = bool(r.get("bx_dn"))
+        _breakdown     = _bo_dn or _bx_dn
+
+        # Rule B1: T10/T11 + breakdown confirmation — strongest bearish signal
+        if (_t10t11_cur or _t10t11_r5) and _breakdown:
+            s -= 8
+        # Rule B2: RH + breakdown — reversal failure
+        elif _rh and _breakdown:
+            s -= 8
+        # Rule B3: RH + T10/T11 recent — top-building context (no breakdown yet)
+        if _rh and (_t10t11_cur or _t10t11_r5):
+            s -= 5
+        # Background weakness penalty (less severe, context only)
+        if _t10t11_cur and not _breakdown:
+            s -= 2
+        if _rh and not _breakdown and not _t10t11_cur:
+            s -= 2
 
     s = max(0.0, s)
 
@@ -1088,23 +1212,39 @@ def _scan_turbo_ticker(
         # ── Profile-scoring lookback flags (Z-trap, L-family, BLUE recent) ─────
         try:
             _ZTRAP_NAMES = {"Z9", "Z10", "Z11", "Z12"}
+            _BEAR_TOP    = {"T10", "T11", "T12"}
             _ztrap_r = 0
+            _ztrap_r15 = 0
+            _t10t11_r = 0
             if sig_df is not None and not sig_df.empty and "sig_name" in sig_df.columns:
-                for _zi in range(1, min(6, len(sig_df))):
+                for _zi in range(1, min(16, len(sig_df))):
                     try:
-                        if str(sig_df["sig_name"].iloc[-_zi] or "") in _ZTRAP_NAMES:
-                            _ztrap_r = 1
-                            break
+                        _sn_val = str(sig_df["sig_name"].iloc[-_zi] or "")
+                        if _sn_val in _ZTRAP_NAMES:
+                            _ztrap_r15 = 1
+                            if _zi <= 5:
+                                _ztrap_r = 1
+                        if _sn_val in _BEAR_TOP and _zi <= 5:
+                            _t10t11_r = 1
                     except Exception:
                         pass
-            row["_ztrap_recent_5b"] = _ztrap_r
-            row["_l64_recent_5b"]   = _sn(wlnbb, "L64",  5)
-            row["_l43_recent_5b"]   = _sn(wlnbb, "L43",  5)
-            row["_l22_recent_5b"]   = _sn(wlnbb, "L22",  5)
-            row["_blue_recent_5b"]  = _sn(wlnbb, "BLUE", 5)
+            row["_ztrap_recent_5b"]  = _ztrap_r
+            row["_ztrap_recent_15b"] = _ztrap_r15
+            row["_t10t11_recent_5b"] = _t10t11_r
+            row["_l64_recent_5b"]    = _sn(wlnbb, "L64",  5)
+            row["_l43_recent_5b"]    = _sn(wlnbb, "L43",  5)
+            row["_l22_recent_5b"]    = _sn(wlnbb, "L22",  5)
+            row["_blue_recent_5b"]   = _sn(wlnbb, "BLUE", 5)
+            # Extended windows for ALL-US profile
+            row["_l64_recent_15b"]   = _sn(wlnbb, "L64",  15)
+            row["_l22_recent_15b"]   = _sn(wlnbb, "L22",  15)
+            row["_l43_recent_10b"]   = _sn(wlnbb, "L43",  10)
+            row["_ns_recent_5b"]     = _sn(vabs,  "ns",    5)
         except Exception:
-            row["_ztrap_recent_5b"] = row["_l64_recent_5b"] = row["_l43_recent_5b"] = 0
-            row["_l22_recent_5b"]   = row["_blue_recent_5b"] = 0
+            row["_ztrap_recent_5b"]  = row["_l64_recent_5b"]  = row["_l43_recent_5b"] = 0
+            row["_l22_recent_5b"]    = row["_blue_recent_5b"] = row["_ztrap_recent_15b"] = 0
+            row["_t10t11_recent_5b"] = row["_l64_recent_15b"] = row["_l22_recent_15b"]  = 0
+            row["_l43_recent_10b"]   = row["_ns_recent_5b"]   = 0
 
         # ── TURBO SCORE ────────────────────────────────────────────────────
         row["turbo_score"] = _calc_turbo_score(row, profile)
@@ -1667,7 +1807,11 @@ def run_turbo_scan(
     found = 0
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
-        _profile = "nasdaq" if universe == "nasdaq" else "sp500"
+        _profile = (
+            "nasdaq"  if universe == "nasdaq"  else
+            "all_us"  if universe == "all_us"  else
+            "sp500"
+        )
         futures = {
             pool.submit(
                 _scan_turbo_ticker, t, interval, min_price, max_price,
