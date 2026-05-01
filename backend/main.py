@@ -988,6 +988,57 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
 
+    # ── SMX/AKAN/NNN/MX/GOG composite setup signals — vectorized ─────────────
+    try:
+        def _sv(frame, col):
+            if frame is None or frame.empty or col not in frame.columns:
+                return pd.Series(False, index=df.index)
+            return frame[col].fillna(0).astype(bool)
+        def _roll(ser, n):
+            return ser.rolling(n, min_periods=1).max().astype(bool)
+        _vbo_up_sv = _sv(vabs, "vbo_up"); _be_up_sv = _sv(wlnbb, "BE_UP")
+        _bo_up_sv  = _sv(wlnbb, "BO_UP"); _bx_up_sv = _sv(wlnbb, "BX_UP")
+        _f3_sv = _sv(f_sigs, "f3"); _f6_sv = _sv(f_sigs, "f6")
+        _ld_sv = _sv(vabs, "load_sig"); _sq_sv = _sv(vabs, "sq"); _ns_sv = _sv(vabs, "ns")
+        _abs_sv = _sv(vabs, "abs_sig"); _clm_sv = _sv(vabs, "climb_sig")
+        _l88_sv = _sv(ultra260, "sig_l88"); _260308_sv = _sv(ultra260, "sig_260308")
+        _bf_sv  = _sv(ultraV2, "bf_buy")
+        if not sig_df.empty and "sig_name" in sig_df.columns:
+            _tz_nm    = sig_df["sig_name"].fillna("")
+            _t6_sv    = (_tz_nm == "T6").astype(bool)
+            _tearly_sv = _tz_nm.isin({"T1","T1G","T4","T2","T2G"}).astype(bool)
+            _t_ign_sv  = _tz_nm.isin({"T6","T3","T2G","T2"}).astype(bool)
+            _is_bull_sv = sig_df["is_bull"].astype(bool) if "is_bull" in sig_df.columns else pd.Series(False, index=df.index)
+            _zb_sv = (~_is_bull_sv) & _tz_nm.isin({"Z4","Z6","Z9","Z10","Z11","Z12"})
+            _zl_sv = (~_is_bull_sv) & _tz_nm.isin({"Z10","Z11","Z12"})
+            _tb_sv = _is_bull_sv & _tz_nm.isin({"T10","T11","T12"})
+        else:
+            _t6_sv = _tearly_sv = _t_ign_sv = pd.Series(False, index=df.index)
+            _zb_sv = _zl_sv = _tb_sv = pd.Series(False, index=df.index)
+        _sup18_sv = _roll(_sv(wlnbb,"L34")|_sv(wlnbb,"L43")|_sv(wlnbb,"L64")|_sv(wlnbb,"L22")|_sv(wlnbb,"L555"), 18)
+        _abs12_sv = _roll(_abs_sv|_clm_sv|_ld_sv|_vbo_up_sv|_sq_sv|_ns_sv, 12)
+        _pturn_sv = (df["close"]>df["open"])|_be_up_sv|_vbo_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv
+        _smx_real_sv = _t6_sv|_f3_sv|_f6_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv
+        _smx_ctx_sv  = _sup18_sv & (_abs12_sv|_vbo_up_sv|_ld_sv|_sq_sv)
+        _smx_sv = (_smx_ctx_sv & (_smx_real_sv|(_tearly_sv&_roll(_ld_sv|_vbo_up_sv|_be_up_sv,3))) & _pturn_sv).astype(bool)
+        _hi10_sv = df["high"].rolling(10, min_periods=1).max()
+        _dist_sv = ((_hi10_sv-df["close"]) / df["close"].replace(0,np.nan)).fillna(0)*100.0
+        _akan_fin_sv = _t6_sv|_f3_sv|_f6_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv|_l88_sv
+        _akan_sv = (_sup18_sv & _abs12_sv & _akan_fin_sv & ((_dist_sv<=30)|_vbo_up_sv|_be_up_sv|_bo_up_sv) & _pturn_sv).astype(bool)
+        _nnn_comp_sv = _roll(_zb_sv,14)|_roll(_zl_sv,10)|_roll(_tb_sv,10)
+        _nnn_ctx_sv  = (_abs12_sv&_sup18_sv)|(_nnn_comp_sv&(_abs12_sv|_sup18_sv))
+        _nnn_ign_sv  = _t6_sv|_t_ign_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_260308_sv|_l88_sv|_bf_sv|_f3_sv|_f6_sv
+        _nnn_sv = (((_nnn_comp_sv&_nnn_ctx_sv)|(_sup18_sv&_abs12_sv))&_nnn_ign_sv&_pturn_sv).astype(bool)
+        _rcnt_ign_sv = _nnn_sv|_roll(_vbo_up_sv,6)|_roll(_be_up_sv,6)|_roll(_bo_up_sv,6)
+        _mom_now_sv  = _vbo_up_sv|_bf_sv|_260308_sv|_l88_sv|_be_up_sv|_bo_up_sv|_bx_up_sv|_sv(combo_df,"buy_2809")|_sv(combo_df,"bb_brk")|_sv(combo_df,"atr_brk")
+        _turn_now_sv = _t6_sv|_t_ign_sv|_vbo_up_sv|_be_up_sv|_bo_up_sv|(df["close"]>df["high"].shift(1).fillna(0))
+        _mx_sv = ((_rcnt_ign_sv|_nnn_comp_sv|(_sup18_sv&_abs12_sv))&_mom_now_sv&_turn_now_sv&_pturn_sv).astype(bool)
+        _gog_base_sv = _smx_sv|_akan_sv|_nnn_sv|_mx_sv
+        _gog_rcnt_sv = _sup18_sv&_abs12_sv&_roll(_ld_sv|_sq_sv|_sv(wlnbb,"L34")|_sv(wlnbb,"L43"),5)
+        _gog_sv = (_vbo_up_sv&(_gog_base_sv|_gog_rcnt_sv)).astype(bool)
+    except Exception:
+        _smx_sv = _akan_sv = _nnn_sv = _mx_sv = _gog_sv = pd.Series(False, index=df.index)
+
     result = []
 
     for i in range(len(df)):
@@ -1169,7 +1220,19 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "fly_ad":   _b(fly_sigs, "fly_ad"),
             # Vol spike context
             "vol_spike_10x": float(vol_ratio.iloc[i]) >= 10,
+            # Composite setup signals
+            "smx_sig":  bool(_smx_sv.iloc[i]),
+            "akan_sig": bool(_akan_sv.iloc[i]),
+            "nnn_sig":  bool(_nnn_sv.iloc[i]),
+            "mx_sig":   bool(_mx_sv.iloc[i]),
+            "gog_sig":  bool(_gog_sv.iloc[i]),
         }
+        setup_list = []
+        if sig_row["akan_sig"]:  setup_list.append("A")
+        elif sig_row["smx_sig"]: setup_list.append("SM")
+        if sig_row["nnn_sig"]:   setup_list.append("N")
+        if sig_row["mx_sig"]:    setup_list.append("MX")
+        if sig_row["gog_sig"]:   setup_list.append("GOG")
         turbo_score_val = _calc_turbo_score(sig_row)
 
         vol_bkt = ""
@@ -1245,6 +1308,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "vol":       vol_list,
             "vabs":      vabs_list,
             "wick":      wick_list,
+            "setup":     setup_list,
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,

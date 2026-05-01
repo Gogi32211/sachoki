@@ -120,6 +120,19 @@ const ROWS = [
     getSigs: (b) => b.wick ?? [],
     chipCls: (s) => s.includes('↑') ? 'bg-sky-900 text-sky-300' : 'bg-red-900/50 text-red-300',
   },
+  {
+    key: 'setup',
+    label: 'SMX',
+    getSigs: (b) => b.setup ?? [],
+    chipCls: (s) => {
+      if (s === 'A')   return 'bg-orange-800/80 text-orange-100 ring-1 ring-orange-400 font-bold'
+      if (s === 'SM')  return 'bg-lime-800/80 text-lime-100 ring-1 ring-lime-400 font-bold'
+      if (s === 'N')   return 'bg-cyan-800/80 text-cyan-100 ring-1 ring-cyan-400 font-bold'
+      if (s === 'MX')  return 'bg-pink-800/80 text-pink-100 ring-1 ring-pink-400 font-bold'
+      if (s === 'GOG') return 'bg-fuchsia-800/80 text-fuchsia-100 ring-1 ring-fuchsia-400 font-bold'
+      return 'bg-gray-800 text-gray-300'
+    },
+  },
 ]
 
 function barsForTf(tf) {
@@ -221,7 +234,7 @@ export default function SuperchartPanel({
       'rtb_build','rtb_turn','rtb_ready','rtb_late','rtb_bonus3',
       'dbg_context_ready','dbg_t4_ctx','dbg_t6_ctx','dbg_t4t6_activation_plus',
       'dbg_launch_cluster_count','dbg_pending_phase','dbg_pending_phase_count',
-      'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
+      'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK','SETUP',
     ]
     const rows = bars.map(b => [
       b.date,
@@ -255,6 +268,7 @@ export default function SuperchartPanel({
       join(b.vol),
       join(b.vabs),
       join(b.wick),
+      join(b.setup),
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
