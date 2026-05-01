@@ -690,6 +690,7 @@ _stock_stat_state: dict = {
     "running": False, "done": 0, "total": 0,
     "error": None, "output_path": None, "output_size": 0,
     "tf": None, "universe": None, "elapsed": 0.0,
+    "validation": None,
 }
 
 
@@ -1292,30 +1293,55 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "raw_t10":    int(_gv("T10",i)),          "raw_t11":    int(_gv("T11",i)),
             "raw_t12":    int(_gv("T12",i)),          "raw_z10":    int(_gv("Z10",i)),
             "raw_z11":    int(_gv("Z11",i)),          "raw_z12":    int(_gv("Z12",i)),
+            "raw_l34":    int(_gv("L34",i)),          "raw_l43":    int(_gv("L43",i)),
+            "raw_l64":    int(_gv("L64",i)),          "raw_l22":    int(_gv("L22",i)),
+            "raw_z4":     int(_gv("Z4",i)),           "raw_z6":     int(_gv("Z6",i)),
+            "raw_z9":     int(_gv("Z9",i)),
+            "raw_f3":     int(_gv("F3",i)),           "raw_f4":     int(_gv("F4",i)),
+            "raw_f6":     int(_gv("F6",i)),           "raw_f11":    int(_gv("F11",i)),
+            "raw_bf4":    int(_gv("BF4",i)),
+            "raw_sig260308": int(_gv("SIG_260308",i)),
+            "raw_l88":    int(_gv("L88",i)),          "raw_um":     int(_gv("UM",i)),
+            "raw_svs_raw":int(_gv("SVS_RAW",i)),      "raw_cons":   int(_gv("CONS",i)),
+            "raw_buy_here":   int(_gv("BUY_HERE",i)),
+            "raw_atr_brk":    int(_gv("ATR_BREAKOUT",i)),
+            "raw_bb_brk":     int(_gv("BOLL_BREAKOUT",i)),
+            "raw_hilo_buy":   int(_gv("HILO_BUY",i)),
+            "raw_rtv":    int(_gv("RTV",i)),
+            "raw_three_g":int(_gv("THREE_G",i)),      "raw_rocket": int(_gv("ROCKET",i)),
+            "all_signals": str(_gv("ALL_SIGNALS", i, "")),
             # Diagnostics
             "already_extended": int(_gv("already_extended_flag",i)),
+            "pct_change_3d":    round(float(_gv("pct_change_3d",i,0)), 2),
             "pct_change_5d":    round(float(_gv("pct_change_5d",i,0)), 2),
             "pct_change_10d":   round(float(_gv("pct_change_10d",i,0)), 2),
+            "pct_from_20d_high":  round(float(_gv("pct_from_20d_high",i,0)), 2),
+            "pct_from_20d_low":   round(float(_gv("pct_from_20d_low",i,0)), 2),
             "distance_to_20d_high_pct": round(float(_gv("distance_to_20d_high_pct",i,0)), 2),
             "volume_ratio_20d": round(float(_gv("volume_ratio_20d",i,0)), 2),
+            "dollar_volume":    round(float(_gv("dollar_volume",i,0)), 0),
             "gap_pct":          round(float(_gv("gap_pct",i,0)), 2),
-            # Forward stats
+            # Forward stats (note: gog_engine suffixes are '5d'/'10d')
             "fwd_close_1d":   _fv("fwd_close_1d",i),
             "fwd_close_3d":   _fv("fwd_close_3d",i),
             "fwd_close_5d":   _fv("fwd_close_5d",i),
             "fwd_close_10d":  _fv("fwd_close_10d",i),
             "max_high_5d_pct":  _fv("max_high_5d_pct",i),
             "max_high_10d_pct": _fv("max_high_10d_pct",i),
-            "hit_5pct_5d":    int(_fv("hit_5pct_5d",i) or 0),
+            "hit_5pct_5d":    int(_fv("hit_5pct_5d",i)  or 0),
             "hit_5pct_10d":   int(_fv("hit_5pct_10d",i) or 0),
-            "hit_10pct_5d":   int(_fv("hit_10pct_5d",i) or 0),
+            "hit_10pct_5d":   int(_fv("hit_10pct_5d",i)  or 0),
             "hit_10pct_10d":  int(_fv("hit_10pct_10d",i) or 0),
-            "vbo_within_5":   int(_fv("vbo_within_5",i) or 0),
-            "vbo_within_10":  int(_fv("vbo_within_10",i) or 0),
+            "vbo_within_5":   int(_fv("vbo_within_5d",i)  or 0),
+            "vbo_within_10":  int(_fv("vbo_within_10d",i) or 0),
             "bars_to_next_vbo": _fv("bars_to_next_vbo",i),
-            "gog_within_5":   int(_fv("gog_within_5",i) or 0),
-            "gog_within_10":  int(_fv("gog_within_10",i) or 0),
+            "gog_within_5":   int(_fv("gog_within_5d",i)  or 0),
+            "gog_within_10":  int(_fv("gog_within_10d",i) or 0),
             "bars_to_next_gog": _fv("bars_to_next_gog",i),
+            "ret_to_next_vbo_close": _fv("ret_to_next_vbo_close",i),
+            "ret_to_next_vbo_high":  _fv("ret_to_next_vbo_high",i),
+            "ret_to_next_gog_close": _fv("ret_to_next_gog_close",i),
+            "ret_to_next_gog_high":  _fv("ret_to_next_gog_high",i),
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,
@@ -1341,15 +1367,159 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
 # ── Stock Stat — bulk per-bar signal CSV for entire universe ──────────────────
 
 def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
-    import csv, time
+    import csv, time, collections
     from scanner import get_universe_tickers
 
     t0 = time.time()
     _stock_stat_state.update(
         running=True, done=0, total=0, error=None,
-        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0
+        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0,
+        validation=None,
     )
     _PREUP = {"P2", "P3", "P50", "P89"}
+
+    # ── GOG tier priority for the CSV (user-specified order) ──────────────────
+    _GOG_PRIO_KEYS = [
+        ("G1P","g1p"), ("G1C","g1c"), ("G1L","g1l"), ("GOG1","gog1"),
+        ("G2P","g2p"), ("G2C","g2c"), ("G2L","g2l"), ("GOG2","gog2"),
+        ("G3P","g3p"), ("G3C","g3c"), ("G3L","g3l"), ("GOG3","gog3"),
+    ]
+    # GOG base scores for SIGNAL_SCORE (separate from gog_engine GOG_SCORE)
+    _GOG_BASE_SCORES = {
+        "G1P":100,"G1C":88,"G1L":82,"GOG1":70,
+        "G2P":62, "G2C":55,"G2L":45,"GOG2":35,
+        "G3P":60, "G3C":52,"G3L":48,"GOG3":42,
+    }
+
+    def _signal_score(b):
+        """Compute SIGNAL_SCORE, RESEARCH_SCORE, SIGNAL_BUCKET, REGIME for a bar dict."""
+        setup = b.get("setup", [])
+        if isinstance(setup, str):
+            setup = setup.split()
+        setup_set = set(setup)
+
+        ctx = b.get("context", [])
+        if isinstance(ctx, str):
+            ctx = ctx.split()
+        ctx_set = set(ctx)
+
+        # 7.1 GOG Base — new priority/scores (separate from engine GOG_SCORE)
+        gog_tier_s = ""
+        for t, k in _GOG_PRIO_KEYS:
+            if b.get(k):
+                gog_tier_s = t
+                break
+        gog_base = _GOG_BASE_SCORES.get(gog_tier_s, 0)
+
+        # 7.2 Premium Context
+        ldp = 1 if "LDP" in ctx_set else 0
+        lrp = 1 if "LRP" in ctx_set else 0
+        prem_raw = 22 * ldp + 26 * lrp
+        premium_score = min(prem_raw, 35) if (ldp and lrp) else prem_raw
+
+        # 7.3 Load Family Context (max of LD/LDS/LDC; LDP already in premium)
+        load_score = max(
+            8  if "LD"  in ctx_set else 0,
+            11 if "LDS" in ctx_set else 0,
+            16 if "LDC" in ctx_set else 0,
+        )
+
+        # 7.4 L-Reclaim (skip LRC if LRP already scored in premium)
+        lrc = 1 if "LRC" in ctx_set else 0
+        l_reclaim_score = 0 if lrp else 12 * lrc
+
+        # 7.5 Compression Context
+        wrc = 1 if "WRC" in ctx_set else 0
+        f8c = 1 if "F8C" in ctx_set else 0
+        comp_raw = 10 * wrc + 12 * f8c
+        comp_score = min(comp_raw, 18) if (wrc and f8c) else comp_raw
+
+        # 7.6 SQ/BCT/SVS
+        sqb = 1 if "SQB" in ctx_set else 0
+        bct = 1 if "BCT" in ctx_set else 0
+        svs = 1 if "SVS" in ctx_set else 0
+        sq_bct_score = (18 + 6 * svs) if bct else (14 * sqb + 6 * svs)
+
+        # 7.7 Base Setup Family
+        ha = 1 if "A"  in setup_set else 0
+        hs = 1 if "SM" in setup_set else 0
+        hn = 1 if "N"  in setup_set else 0
+        hm = 1 if "MX" in setup_set else 0
+        if not gog_base:
+            pts = 10*ha + 10*hs + 4*hn + 5*hm
+            if ha and hs and hn and hm: pts += 12
+            elif (ha or hs) and (hn or hm): pts += 8
+            setup_score = pts
+        else:
+            setup_score = min(8, 10*ha + 10*hs + 4*hn + 5*hm)
+
+        # 7.8 Raw Supporting Signal Score (capped at 25)
+        def _rb(k): return 1 if b.get(k) else 0
+        raw = (
+              6*_rb("raw_load")   + 5*_rb("raw_sq")      + 3*_rb("raw_w")        + 5*_rb("raw_f8")
+            + 4*_rb("raw_l34")   + 3*_rb("raw_l43")     + 3*_rb("raw_l64")      + 5*_rb("raw_l22")
+            + 8*_rb("raw_vbo_up")+ 5*_rb("raw_bo_up")   + 6*_rb("raw_be_up")    + 4*_rb("raw_bx_up")
+            + 5*_rb("raw_f3")    + 4*_rb("raw_f4")      + 6*_rb("raw_f6")       + 4*_rb("raw_f11")
+            + 2*_rb("raw_t10")   + 2*_rb("raw_t11")     + 2*_rb("raw_t12")
+            + 4*_rb("raw_z10")   + 4*_rb("raw_z11")     + 3*_rb("raw_z12")
+            + 3*_rb("raw_z4")    + 3*_rb("raw_z6")      + 3*_rb("raw_z9")
+            + 5*_rb("raw_bf4")   + 7*_rb("raw_sig260308")+ 8*_rb("raw_l88")     + 4*_rb("raw_um")
+            + 5*_rb("raw_svs_raw")+ 8*_rb("raw_buy_here")+ 7*_rb("raw_atr_brk") + 7*_rb("raw_bb_brk")
+            + 4*_rb("raw_hilo_buy")+ 3*_rb("raw_rtv")   + 6*_rb("raw_three_g")  + 8*_rb("raw_rocket")
+        )
+        raw_support_score = min(raw, 25)
+
+        # 7.9 Research Forward Score (future data — separate column only)
+        btv = b.get("bars_to_next_vbo")
+        btg = b.get("bars_to_next_gog")
+        vbo_w5  = btv is not None and 1 <= btv <= 5
+        vbo_w10 = btv is not None and 1 <= btv <= 10
+        gog_w5  = btg is not None and 1 <= btg <= 5
+        gog_w10 = btg is not None and 1 <= btg <= 10
+        fwd_pts = 0
+        if vbo_w5:    fwd_pts += 10
+        elif vbo_w10: fwd_pts += 6
+        if gog_w5:    fwd_pts += 12
+        elif gog_w10: fwd_pts += 8
+
+        # 7.10 Risk Penalty
+        ext = int(bool(b.get("already_extended")))
+        risk_penalty = 15 * ext
+
+        # 7.11 Final
+        total = (gog_base + premium_score + load_score + l_reclaim_score
+                 + comp_score + sq_bct_score + setup_score + raw_support_score
+                 - risk_penalty)
+        sig_score = max(0, min(160, int(round(total))))
+        research_score = sig_score + fwd_pts
+
+        # Regime
+        if ext and gog_tier_s in ("G1P","G1C","G1L"):
+            regime = "PARABOLIC_GOG"
+        elif not ext and gog_tier_s:
+            regime = "CLEAN_GOG"
+        elif not gog_tier_s and (premium_score or load_score or comp_score):
+            regime = "WATCH_CONTEXT"
+        else:
+            regime = ""
+
+        # 8. Bucket
+        if sig_score >= 120:   bucket = "ELITE"
+        elif sig_score >= 100: bucket = "A_PLUS"
+        elif sig_score >= 80:  bucket = "A"
+        elif sig_score >= 60:  bucket = "B"
+        elif sig_score >= 40:  bucket = "WATCH"
+        elif sig_score >= 20:  bucket = "LOW_WATCH"
+        else:                  bucket = "NO_SIGNAL"
+        if ext and sig_score >= 80:
+            bucket += "_EXTENDED"
+
+        return sig_score, research_score, bucket, regime, gog_tier_s, vbo_w5, vbo_w10, gog_w5, gog_w10
+
+    # ── Helpers ───────────────────────────────────────────────────────────────
+    def _j(lst): return " ".join(lst) if lst else ""
+    def _ctx(b, tok): return 1 if tok in b.get("context", []) else 0
+    def _fmt(v): return "" if v is None else v
 
     try:
         tickers = get_universe_tickers(universe)
@@ -1366,55 +1536,156 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
             "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
             "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
-            # GOG Priority Engine
-            "SETUP", "CONTEXT", "GOG_TIER", "GOG_SCORE",
+            # ── Text Summary ──────────────────────────────────────────────────
+            "SETUP", "CONTEXT", "GOG_TIER", "ALL_SIGNALS",
+            # ── Scoring ───────────────────────────────────────────────────────
+            "GOG_SCORE",
+            "SIGNAL_SCORE", "SIGNAL_BUCKET", "RESEARCH_SCORE", "REGIME",
+            # ── Base Setup Booleans ───────────────────────────────────────────
             "A", "SM", "N", "MX",
+            # ── Raw GOG ──────────────────────────────────────────────────────
             "GOG1", "GOG2", "GOG3",
+            # ── Boosted GOG ──────────────────────────────────────────────────
             "G1P", "G2P", "G3P", "G1L", "G2L", "G3L", "G1C", "G2C", "G3C",
+            # ── Context Signals ───────────────────────────────────────────────
             "LD", "LDS", "LDC", "LDP", "LRC", "LRP", "WRC", "F8C", "SQB", "BCT", "SVS",
-            "LOAD", "SQ", "W", "F8", "VBO_UP", "BE_UP", "BO_UP", "BX_UP",
-            "T10", "T11", "T12", "Z10", "Z11", "Z12",
+            # ── Raw / Supporting ──────────────────────────────────────────────
+            "LOAD", "SQ", "W", "F8",
+            "L34", "L43", "L64", "L22",
+            "VBO_UP", "BO_UP", "BE_UP", "BX_UP",
+            "T10", "T11", "T12",
+            "Z10", "Z11", "Z12", "Z4", "Z6", "Z9",
+            "F3", "F4", "F6", "F11",
+            "4BF", "SIG_260308", "L88", "UM", "SVS_RAW", "CONS",
+            "BUY_HERE", "ATR_BREAKOUT", "BOLL_BREAKOUT", "HILO_BUY",
+            "RTV", "THREE_G", "ROCKET",
+            # ── Diagnostics ───────────────────────────────────────────────────
             "ALREADY_EXTENDED",
-            "PCT_5D", "PCT_10D", "DIST_20D_HIGH", "VOL_RATIO_20D", "GAP_PCT",
-            # Forward stats
-            "FWD_1D", "FWD_3D", "FWD_5D", "FWD_10D",
-            "MAX_HIGH_5D", "MAX_HIGH_10D",
-            "HIT_5PCT_5D", "HIT_5PCT_10D", "HIT_10PCT_5D", "HIT_10PCT_10D",
-            "VBO_W5", "VBO_W10", "BARS_TO_VBO",
-            "GOG_W5", "GOG_W10", "BARS_TO_GOG",
+            "PCT_CHANGE_3D", "PCT_CHANGE_5D", "PCT_CHANGE_10D",
+            "PCT_FROM_20D_HIGH", "PCT_FROM_20D_LOW",
+            "DISTANCE_TO_20D_HIGH_PCT",
+            "VOLUME_RATIO_20D", "DOLLAR_VOLUME", "GAP_PCT",
+            # ── Forward Returns ───────────────────────────────────────────────
+            "RET_1D", "RET_3D", "RET_5D", "RET_10D",
+            "MAX_RET_5D", "MAX_RET_10D",
+            "HIT_5D_5PCT", "HIT_5D_10PCT", "HIT_10D_5PCT", "HIT_10D_10PCT",
+            # ── Next Event ────────────────────────────────────────────────────
+            "BARS_TO_VBO", "BARS_TO_GOG",
+            "VBO_W5", "VBO_W10", "GOG_W5", "GOG_W10",
+            "RET_TO_NEXT_VBO_CLOSE", "RET_TO_NEXT_VBO_HIGH",
+            "RET_TO_NEXT_GOG_CLOSE", "RET_TO_NEXT_GOG_HIGH",
         ]
 
-        def _j(lst): return " ".join(lst) if lst else ""
+        # Validation accumulators
+        _val_rows       = 0
+        _val_tickers    = set()
+        _val_tier_cnt   = collections.Counter()
+        _val_bucket_cnt = collections.Counter()
+        _val_top20      = []   # (sig_score, ticker, date, gog_tier)
+        _val_setup_mismatch = 0
+        _val_window_mismatch = 0
 
         with open(out_path, "w", newline="", encoding="utf-8") as fh:
             wr = csv.writer(fh)
             wr.writerow(headers)
+
             for idx, ticker in enumerate(tickers):
                 try:
                     bd = api_bar_signals(ticker, tf, bars)
                     for b in bd:
                         tz = b.get("tz", "")
+
+                        # ── Setup tokens (exact token match, not substring) ──
+                        setup_lst = b.get("setup", [])
+                        if isinstance(setup_lst, str):
+                            setup_lst = setup_lst.split()
+                        setup_set = set(setup_lst)
+                        setup_str = " ".join(setup_lst)
+
+                        # ── Context tokens ──────────────────────────────────
+                        ctx_lst = b.get("context", [])
+                        if isinstance(ctx_lst, str):
+                            ctx_lst = ctx_lst.split()
+                        ctx_set = set(ctx_lst)
+                        ctx_str = " ".join(ctx_lst)
+
+                        # ── A/SM/N/MX — derive from setup tokens ────────────
+                        col_A  = 1 if "A"  in setup_set else 0
+                        col_SM = 1 if "SM" in setup_set else 0
+                        col_N  = 1 if "N"  in setup_set else 0
+                        col_MX = 1 if "MX" in setup_set else 0
+
+                        # ── GOG_TIER with user priority order ───────────────
+                        gog_tier_csv = ""
+                        for t_name, t_key in _GOG_PRIO_KEYS:
+                            if b.get(t_key):
+                                gog_tier_csv = t_name
+                                break
+
+                        # ── ALL_SIGNALS text ────────────────────────────────
+                        all_sig_parts = [p for p in [setup_str, gog_tier_csv, ctx_str] if p]
+                        all_signals_str = b.get("all_signals","") or " ".join(all_sig_parts)
+
+                        # ── BARS_TO_VBO / GOG ───────────────────────────────
+                        btv = b.get("bars_to_next_vbo")
+                        btg = b.get("bars_to_next_gog")
+
+                        # ── VBO_W5/W10/GOG_W5/W10 from bars_to (correct) ───
+                        vbo_w5  = 1 if (btv is not None and 0 <= btv <= 5)  else 0
+                        vbo_w10 = 1 if (btv is not None and 0 <= btv <= 10) else 0
+                        gog_w5  = 1 if (btg is not None and 0 <= btg <= 5)  else 0
+                        gog_w10 = 1 if (btg is not None and 0 <= btg <= 10) else 0
+
+                        # ── SIGNAL_SCORE ────────────────────────────────────
+                        (sig_score, research_score, bucket, regime,
+                         _gts, _vw5, _vw10, _gw5, _gw10) = _signal_score(b)
+
+                        # ── Validation checks ───────────────────────────────
+                        _val_rows += 1
+                        _val_tickers.add(ticker)
+                        _val_tier_cnt[gog_tier_csv or "NONE"] += 1
+                        _val_bucket_cnt[bucket] += 1
+                        _val_top20.append((sig_score, ticker, b.get("date",""), gog_tier_csv))
+                        if len(_val_top20) > 20:
+                            _val_top20.sort(reverse=True)
+                            _val_top20 = _val_top20[:20]
+
+                        # Setup mismatch: boolean vs token
+                        bool_a  = 1 if b.get("akan_sig") else 0
+                        bool_sm = 1 if b.get("smx_sig")  else 0
+                        bool_n  = 1 if b.get("nnn_sig")  else 0
+                        bool_mx = 1 if b.get("mx_sig")   else 0
+                        if (bool_a!=col_A or bool_sm!=col_SM or
+                                bool_n!=col_N or bool_mx!=col_MX):
+                            _val_setup_mismatch += 1
+
+                        # VBO/GOG window mismatch: boolean vs bars_to
+                        vbo_w10_check = b.get("vbo_within_10", 0)
+                        gog_w10_check = b.get("gog_within_10", 0)
+                        if vbo_w10_check != vbo_w10 or gog_w10_check != gog_w10:
+                            _val_window_mismatch += 1
+
                         wr.writerow([
                             ticker,
                             b.get("date", ""),
                             round(b.get("open", 0), 4),
                             round(b.get("high", 0), 4),
-                            round(b.get("low", 0), 4),
-                            round(b.get("close", 0), 4),
-                            round(b.get("volume", 0), 0),
+                            round(b.get("low",  0), 4),
+                            round(b.get("close",0), 4),
+                            round(b.get("volume",0), 0),
                             b.get("vol_bucket", ""),
                             b.get("turbo_score", 0),
                             b.get("rtb_phase", ""),
                             b.get("rtb_total", 0),
                             b.get("rtb_transition", ""),
                             b.get("rtb_build", 0),
-                            b.get("rtb_turn", 0),
+                            b.get("rtb_turn",  0),
                             b.get("rtb_ready", 0),
-                            b.get("rtb_late", 0),
-                            b.get("rtb_bonus3", 0),
+                            b.get("rtb_late",  0),
+                            b.get("rtb_bonus3",0),
                             1 if b.get("dbg_context_ready") else 0,
-                            1 if b.get("dbg_t4_ctx") else 0,
-                            1 if b.get("dbg_t6_ctx") else 0,
+                            1 if b.get("dbg_t4_ctx")        else 0,
+                            1 if b.get("dbg_t6_ctx")        else 0,
                             1 if b.get("dbg_t4t6_activation_plus") else 0,
                             b.get("dbg_launch_cluster_count", 0),
                             b.get("dbg_pending_phase", ""),
@@ -1431,51 +1702,89 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             _j(b.get("vol", [])),
                             _j(b.get("vabs", [])),
                             _j(b.get("wick", [])),
-                            # GOG Priority Engine columns
-                            _j(b.get("setup", [])),
-                            _j(b.get("context", [])),
-                            b.get("gog_tier", ""),
+                            # ── Text Summary ──────────────────────────────
+                            setup_str,
+                            ctx_str,
+                            gog_tier_csv,
+                            all_signals_str,
+                            # ── Scoring ───────────────────────────────────
                             b.get("gog_score", 0),
-                            b.get("smx_sig", 0) if not b.get("akan_sig") else 0,  # SM only if not A
-                            b.get("akan_sig", 0),  # A
-                            b.get("nnn_sig", 0),   # N
-                            b.get("mx_sig", 0),    # MX
-                            b.get("gog1", 0), b.get("gog2", 0), b.get("gog3", 0),
-                            b.get("g1p", 0), b.get("g2p", 0), b.get("g3p", 0),
-                            b.get("g1l", 0), b.get("g2l", 0), b.get("g3l", 0),
-                            b.get("g1c", 0), b.get("g2c", 0), b.get("g3c", 0),
-                            # Context signals (from context list)
-                            1 if "LD"  in b.get("context", []) else 0,
-                            1 if "LDS" in b.get("context", []) else 0,
-                            1 if "LDC" in b.get("context", []) else 0,
-                            1 if "LDP" in b.get("context", []) else 0,
-                            1 if "LRC" in b.get("context", []) else 0,
-                            1 if "LRP" in b.get("context", []) else 0,
-                            1 if "WRC" in b.get("context", []) else 0,
-                            1 if "F8C" in b.get("context", []) else 0,
-                            1 if "SQB" in b.get("context", []) else 0,
-                            1 if "BCT" in b.get("context", []) else 0,
-                            1 if "SVS" in b.get("context", []) else 0,
-                            # Raw supporting
-                            b.get("raw_load",0), b.get("raw_sq",0), b.get("raw_w",0), b.get("raw_f8",0),
-                            b.get("raw_vbo_up",0), b.get("raw_be_up",0), b.get("raw_bo_up",0), b.get("raw_bx_up",0),
-                            b.get("raw_t10",0), b.get("raw_t11",0), b.get("raw_t12",0),
-                            b.get("raw_z10",0), b.get("raw_z11",0), b.get("raw_z12",0),
-                            # Diagnostics
+                            sig_score,
+                            bucket,
+                            research_score,
+                            regime,
+                            # ── Base Setup Booleans ───────────────────────
+                            col_A, col_SM, col_N, col_MX,
+                            # ── Raw GOG ───────────────────────────────────
+                            b.get("gog1",0), b.get("gog2",0), b.get("gog3",0),
+                            # ── Boosted GOG ───────────────────────────────
+                            b.get("g1p",0), b.get("g2p",0), b.get("g3p",0),
+                            b.get("g1l",0), b.get("g2l",0), b.get("g3l",0),
+                            b.get("g1c",0), b.get("g2c",0), b.get("g3c",0),
+                            # ── Context Signals ───────────────────────────
+                            1 if "LD"  in ctx_set else 0,
+                            1 if "LDS" in ctx_set else 0,
+                            1 if "LDC" in ctx_set else 0,
+                            1 if "LDP" in ctx_set else 0,
+                            1 if "LRC" in ctx_set else 0,
+                            1 if "LRP" in ctx_set else 0,
+                            1 if "WRC" in ctx_set else 0,
+                            1 if "F8C" in ctx_set else 0,
+                            1 if "SQB" in ctx_set else 0,
+                            1 if "BCT" in ctx_set else 0,
+                            1 if "SVS" in ctx_set else 0,
+                            # ── Raw / Supporting ──────────────────────────
+                            b.get("raw_load",0),   b.get("raw_sq",0),
+                            b.get("raw_w",0),       b.get("raw_f8",0),
+                            b.get("raw_l34",0),     b.get("raw_l43",0),
+                            b.get("raw_l64",0),     b.get("raw_l22",0),
+                            b.get("raw_vbo_up",0),  b.get("raw_bo_up",0),
+                            b.get("raw_be_up",0),   b.get("raw_bx_up",0),
+                            b.get("raw_t10",0),     b.get("raw_t11",0),
+                            b.get("raw_t12",0),
+                            b.get("raw_z10",0),     b.get("raw_z11",0),
+                            b.get("raw_z12",0),     b.get("raw_z4",0),
+                            b.get("raw_z6",0),      b.get("raw_z9",0),
+                            b.get("raw_f3",0),      b.get("raw_f4",0),
+                            b.get("raw_f6",0),      b.get("raw_f11",0),
+                            b.get("raw_bf4",0),     b.get("raw_sig260308",0),
+                            b.get("raw_l88",0),     b.get("raw_um",0),
+                            b.get("raw_svs_raw",0), b.get("raw_cons",0),
+                            b.get("raw_buy_here",0),b.get("raw_atr_brk",0),
+                            b.get("raw_bb_brk",0),  b.get("raw_hilo_buy",0),
+                            b.get("raw_rtv",0),     b.get("raw_three_g",0),
+                            b.get("raw_rocket",0),
+                            # ── Diagnostics ───────────────────────────────
                             b.get("already_extended", 0),
-                            b.get("pct_change_5d", ""), b.get("pct_change_10d", ""),
-                            b.get("distance_to_20d_high_pct", ""),
-                            b.get("volume_ratio_20d", ""), b.get("gap_pct", ""),
-                            # Forward stats
-                            b.get("fwd_close_1d",""), b.get("fwd_close_3d",""),
-                            b.get("fwd_close_5d",""), b.get("fwd_close_10d",""),
-                            b.get("max_high_5d_pct",""), b.get("max_high_10d_pct",""),
-                            b.get("hit_5pct_5d",0), b.get("hit_5pct_10d",0),
-                            b.get("hit_10pct_5d",0), b.get("hit_10pct_10d",0),
-                            b.get("vbo_within_5",0), b.get("vbo_within_10",0),
-                            b.get("bars_to_next_vbo",""),
-                            b.get("gog_within_5",0), b.get("gog_within_10",0),
-                            b.get("bars_to_next_gog",""),
+                            _fmt(b.get("pct_change_3d","")),
+                            _fmt(b.get("pct_change_5d","")),
+                            _fmt(b.get("pct_change_10d","")),
+                            _fmt(b.get("pct_from_20d_high","")),
+                            _fmt(b.get("pct_from_20d_low","")),
+                            _fmt(b.get("distance_to_20d_high_pct","")),
+                            _fmt(b.get("volume_ratio_20d","")),
+                            _fmt(b.get("dollar_volume","")),
+                            _fmt(b.get("gap_pct","")),
+                            # ── Forward Returns ───────────────────────────
+                            _fmt(b.get("fwd_close_1d")),
+                            _fmt(b.get("fwd_close_3d")),
+                            _fmt(b.get("fwd_close_5d")),
+                            _fmt(b.get("fwd_close_10d")),
+                            _fmt(b.get("max_high_5d_pct")),
+                            _fmt(b.get("max_high_10d_pct")),
+                            b.get("hit_5pct_5d",0),    # HIT_5D_5PCT
+                            b.get("hit_10pct_5d",0),   # HIT_5D_10PCT
+                            b.get("hit_5pct_10d",0),   # HIT_10D_5PCT
+                            b.get("hit_10pct_10d",0),  # HIT_10D_10PCT
+                            # ── Next Event ────────────────────────────────
+                            _fmt(btv),
+                            _fmt(btg),
+                            vbo_w5, vbo_w10,
+                            gog_w5, gog_w10,
+                            _fmt(b.get("ret_to_next_vbo_close")),
+                            _fmt(b.get("ret_to_next_vbo_high")),
+                            _fmt(b.get("ret_to_next_gog_close")),
+                            _fmt(b.get("ret_to_next_gog_high")),
                         ])
                 except Exception:
                     pass
@@ -1483,9 +1792,26 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 _stock_stat_state["elapsed"] = round(time.time() - t0, 1)
 
         fsize = os.path.getsize(out_path)
+
+        # ── Validation Summary ────────────────────────────────────────────────
+        _val_top20.sort(reverse=True)
+        validation = {
+            "total_rows":         _val_rows,
+            "ticker_count":       len(_val_tickers),
+            "by_gog_tier":        dict(_val_tier_cnt.most_common()),
+            "by_signal_bucket":   dict(_val_bucket_cnt.most_common()),
+            "top20_by_score": [
+                {"score": s, "ticker": t, "date": d, "gog_tier": g}
+                for s, t, d, g in _val_top20
+            ],
+            "setup_bool_token_mismatches": _val_setup_mismatch,
+            "window_flag_mismatches":      _val_window_mismatch,
+        }
+
         _stock_stat_state.update(
             running=False, output_path=out_path,
-            output_size=fsize, elapsed=round(time.time() - t0, 1)
+            output_size=fsize, elapsed=round(time.time() - t0, 1),
+            validation=validation,
         )
     except Exception as e:
         _stock_stat_state.update(
