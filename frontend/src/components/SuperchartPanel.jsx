@@ -159,6 +159,19 @@ const ROWS = [
       return 'bg-gray-800 text-gray-300'
     },
   },
+  {
+    key: 'score',
+    label: 'SCORE',
+    getSigs: (b) => (b.signal_score ?? 0) >= 20 ? [b.signal_score] : [],
+    chipCls: (s) => {
+      const n = Number(s)
+      if (n >= 120) return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
+      if (n >= 100) return 'bg-lime-800 text-lime-100 font-bold ring-1 ring-lime-400'
+      if (n >= 80)  return 'bg-green-900 text-green-200 font-semibold'
+      if (n >= 60)  return 'bg-teal-900 text-teal-300'
+      return 'bg-gray-800 text-gray-400'
+    },
+  },
 ]
 
 function barsForTf(tf) {
@@ -261,11 +274,41 @@ export default function SuperchartPanel({
       'dbg_context_ready','dbg_t4_ctx','dbg_t6_ctx','dbg_t4t6_activation_plus',
       'dbg_launch_cluster_count','dbg_pending_phase','dbg_pending_phase_count',
       'Z','T','L','F','FLY','G','B','Combo','ULT','VOL','VABS','WICK',
-      'SETUP','CONTEXT','GOG_TIER','GOG_SCORE',
+      // ── Text Summary
+      'SETUP','CONTEXT','GOG_TIER','ALL_SIGNALS',
+      // ── Primary Scores
+      'GOG_SCORE','SIGNAL_SCORE','SIGNAL_BUCKET','RESEARCH_SCORE','REGIME',
+      // ── Score Sub-Components
+      'GOG_BASE_SCORE','PREMIUM_CONTEXT_SCORE','LOAD_CONTEXT_SCORE','L_RECLAIM_SCORE',
+      'COMPRESSION_CONTEXT_SCORE','SQ_BCT_SCORE','BASE_SETUP_SCORE','RAW_SUPPORT_SCORE',
+      'RISK_PENALTY','RESEARCH_FORWARD_SCORE',
+      // ── Setup / GOG booleans
+      'A','SM','N','MX',
+      'GOG1','GOG2','GOG3','G1P','G2P','G3P','G1L','G2L','G3L','G1C','G2C','G3C',
+      // ── Context signals
+      'LD','LDS','LDC','LDP','LRC','LRP','WRC','F8C','SQB','BCT','SVS',
+      // ── Raw signals
+      'LOAD','SQ','W','F8',
+      'L34','L43','L64','L22',
+      'VBO_UP','BO_UP','BE_UP','BX_UP',
+      'T10','T11','T12','Z10','Z11','Z12','Z4','Z6','Z9',
+      'F3','F4','F6','F11','4BF','SIG_260308','L88','UM','SVS_RAW','CONS',
+      'BUY_HERE','ATR_BREAKOUT','BOLL_BREAKOUT','HILO_BUY','RTV','THREE_G','ROCKET',
+      // ── Diagnostics
+      'ALREADY_EXTENDED_FLAG',
+      'PCT_CHANGE_3D','PCT_CHANGE_5D','PCT_CHANGE_10D',
+      'PCT_FROM_20D_HIGH','PCT_FROM_20D_LOW','DIST_20D_HIGH','VOL_RATIO_20D',
+      'DOLLAR_VOLUME','GAP_PCT',
+      // ── Forward returns
       'FWD_1D','FWD_3D','FWD_5D','FWD_10D','MAX_HIGH_5D','MAX_HIGH_10D',
-      'HIT_5PCT_5D','HIT_10PCT_5D','VBO_W5','GOG_W5','BARS_TO_VBO','BARS_TO_GOG',
-      'ALREADY_EXT','PCT_5D','PCT_10D','DIST_20D_HIGH','VOL_RATIO_20D',
+      'HIT_5PCT_5D','HIT_10PCT_5D','HIT_5PCT_10D','HIT_10PCT_10D',
+      // ── Next event
+      'BARS_TO_VBO','BARS_TO_GOG',
+      'VBO_W5','VBO_W10','GOG_W5','GOG_W10',
+      'RET_TO_NEXT_VBO_CLOSE','RET_TO_NEXT_VBO_HIGH',
+      'RET_TO_NEXT_GOG_CLOSE','RET_TO_NEXT_GOG_HIGH',
     ]
+    const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const rows = bars.map(b => [
       b.date,
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
@@ -298,18 +341,56 @@ export default function SuperchartPanel({
       join(b.vol),
       join(b.vabs),
       join(b.wick),
-      join(b.setup),
-      join(b.context),
-      b.gog_tier ?? '',
+      // ── Text Summary
+      join(b.setup), join(b.context), b.gog_tier ?? '', b.all_signals ?? '',
+      // ── Primary Scores
       b.gog_score ?? 0,
+      b.signal_score ?? 0, b.signal_bucket ?? '', b.research_score ?? 0, b.regime ?? '',
+      // ── Score Sub-Components
+      b.gog_base_score ?? 0, b.premium_context_score ?? 0, b.load_context_score ?? 0,
+      b.l_reclaim_score ?? 0, b.compression_context_score ?? 0, b.sq_bct_score ?? 0,
+      b.base_setup_score ?? 0, b.raw_support_score ?? 0,
+      b.risk_penalty ?? 0, b.research_forward_score ?? 0,
+      // ── Setup / GOG booleans
+      (b.setup ?? []).includes('A')  ? 1 : 0,
+      (b.setup ?? []).includes('SM') ? 1 : 0,
+      (b.setup ?? []).includes('N')  ? 1 : 0,
+      (b.setup ?? []).includes('MX') ? 1 : 0,
+      b.gog1 ?? 0, b.gog2 ?? 0, b.gog3 ?? 0,
+      b.g1p ?? 0, b.g2p ?? 0, b.g3p ?? 0,
+      b.g1l ?? 0, b.g2l ?? 0, b.g3l ?? 0,
+      b.g1c ?? 0, b.g2c ?? 0, b.g3c ?? 0,
+      // ── Context signals
+      ctx(b,'LD'), ctx(b,'LDS'), ctx(b,'LDC'), ctx(b,'LDP'),
+      ctx(b,'LRC'), ctx(b,'LRP'), ctx(b,'WRC'), ctx(b,'F8C'),
+      ctx(b,'SQB'), ctx(b,'BCT'), ctx(b,'SVS'),
+      // ── Raw signals
+      b.raw_load ?? 0, b.raw_sq ?? 0, b.raw_w ?? 0, b.raw_f8 ?? 0,
+      b.raw_l34 ?? 0, b.raw_l43 ?? 0, b.raw_l64 ?? 0, b.raw_l22 ?? 0,
+      b.raw_vbo_up ?? 0, b.raw_bo_up ?? 0, b.raw_be_up ?? 0, b.raw_bx_up ?? 0,
+      b.raw_t10 ?? 0, b.raw_t11 ?? 0, b.raw_t12 ?? 0,
+      b.raw_z10 ?? 0, b.raw_z11 ?? 0, b.raw_z12 ?? 0,
+      b.raw_z4 ?? 0, b.raw_z6 ?? 0, b.raw_z9 ?? 0,
+      b.raw_f3 ?? 0, b.raw_f4 ?? 0, b.raw_f6 ?? 0, b.raw_f11 ?? 0,
+      b.raw_bf4 ?? 0, b.raw_sig260308 ?? 0, b.raw_l88 ?? 0, b.raw_um ?? 0,
+      b.raw_svs_raw ?? 0, b.raw_cons ?? 0,
+      b.raw_buy_here ?? 0, b.raw_atr_brk ?? 0, b.raw_bb_brk ?? 0,
+      b.raw_hilo_buy ?? 0, b.raw_rtv ?? 0, b.raw_three_g ?? 0, b.raw_rocket ?? 0,
+      // ── Diagnostics
+      b.already_extended ?? 0,
+      b.pct_change_3d ?? '', b.pct_change_5d ?? '', b.pct_change_10d ?? '',
+      b.pct_from_20d_high ?? '', b.pct_from_20d_low ?? '',
+      b.distance_to_20d_high_pct ?? '', b.volume_ratio_20d ?? '',
+      b.dollar_volume ?? '', b.gap_pct ?? '',
+      // ── Forward returns
       b.fwd_close_1d ?? '', b.fwd_close_3d ?? '', b.fwd_close_5d ?? '', b.fwd_close_10d ?? '',
       b.max_high_5d_pct ?? '', b.max_high_10d_pct ?? '',
-      b.hit_5pct_5d ?? 0, b.hit_10pct_5d ?? 0,
-      b.vbo_within_5 ?? 0, b.gog_within_5 ?? 0,
+      b.hit_5pct_5d ?? 0, b.hit_10pct_5d ?? 0, b.hit_5pct_10d ?? 0, b.hit_10pct_10d ?? 0,
+      // ── Next event
       b.bars_to_next_vbo ?? '', b.bars_to_next_gog ?? '',
-      b.already_extended ?? 0,
-      b.pct_change_5d ?? '', b.pct_change_10d ?? '',
-      b.distance_to_20d_high_pct ?? '', b.volume_ratio_20d ?? '',
+      b.vbo_within_5 ?? 0, b.vbo_within_10 ?? 0, b.gog_within_5 ?? 0, b.gog_within_10 ?? 0,
+      b.ret_to_next_vbo_close ?? '', b.ret_to_next_vbo_high ?? '',
+      b.ret_to_next_gog_close ?? '', b.ret_to_next_gog_high ?? '',
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))

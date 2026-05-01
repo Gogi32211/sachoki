@@ -1361,37 +1361,46 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "dbg_pending_phase_count":  dbg_pending_phase_count_val,
         })
 
+        # Score sub-components (requires module-level _signal_score)
+        try:
+            _sc = _signal_score(result[-1])
+            result[-1].update({
+                "signal_score":              _sc["signal_score"],
+                "signal_bucket":             _sc["signal_bucket"],
+                "research_score":            _sc["research_score"],
+                "regime":                    _sc["regime"],
+                "gog_base_score":            _sc["gog_base_score"],
+                "premium_context_score":     _sc["premium_context_score"],
+                "load_context_score":        _sc["load_context_score"],
+                "l_reclaim_score":           _sc["l_reclaim_score"],
+                "compression_context_score": _sc["compression_context_score"],
+                "sq_bct_score":              _sc["sq_bct_score"],
+                "base_setup_score":          _sc["base_setup_score"],
+                "raw_support_score":         _sc["raw_support_score"],
+                "risk_penalty":              _sc["risk_penalty"],
+                "research_forward_score":    _sc["research_forward_score"],
+            })
+        except Exception:
+            pass
+
     return result
 
 
-# ── Stock Stat — bulk per-bar signal CSV for entire universe ──────────────────
+# ── Module-level: GOG tier priority & scoring (shared by api_bar_signals + run_stock_stat) ──
 
-def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
-    import csv, time, collections
-    from scanner import get_universe_tickers
+_GOG_PRIO_KEYS = [
+    ("G1P","g1p"), ("G1C","g1c"), ("G1L","g1l"), ("GOG1","gog1"),
+    ("G2P","g2p"), ("G2C","g2c"), ("G2L","g2l"), ("GOG2","gog2"),
+    ("G3P","g3p"), ("G3C","g3c"), ("G3L","g3l"), ("GOG3","gog3"),
+]
+_GOG_BASE_SCORES = {
+    "G1P":100,"G1C":88,"G1L":82,"GOG1":70,
+    "G2P":62, "G2C":55,"G2L":45,"GOG2":35,
+    "G3P":60, "G3C":52,"G3L":48,"GOG3":42,
+}
 
-    t0 = time.time()
-    _stock_stat_state.update(
-        running=True, done=0, total=0, error=None,
-        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0,
-        validation=None,
-    )
-    _PREUP = {"P2", "P3", "P50", "P89"}
 
-    # ── GOG tier priority for the CSV (user-specified order) ──────────────────
-    _GOG_PRIO_KEYS = [
-        ("G1P","g1p"), ("G1C","g1c"), ("G1L","g1l"), ("GOG1","gog1"),
-        ("G2P","g2p"), ("G2C","g2c"), ("G2L","g2l"), ("GOG2","gog2"),
-        ("G3P","g3p"), ("G3C","g3c"), ("G3L","g3l"), ("GOG3","gog3"),
-    ]
-    # GOG base scores for SIGNAL_SCORE (separate from gog_engine GOG_SCORE)
-    _GOG_BASE_SCORES = {
-        "G1P":100,"G1C":88,"G1L":82,"GOG1":70,
-        "G2P":62, "G2C":55,"G2L":45,"GOG2":35,
-        "G3P":60, "G3C":52,"G3L":48,"GOG3":42,
-    }
-
-    def _signal_score(b):
+def _signal_score(b):
         """
         Compute all SIGNAL_SCORE sub-components.
         Returns a dict with every sub-score and derived field.
@@ -1540,6 +1549,21 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "gog_w5":  gog_w5,
             "gog_w10": gog_w10,
         }
+
+
+# ── Stock Stat — bulk per-bar signal CSV for entire universe ──────────────────
+
+def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
+    import csv, time, collections
+    from scanner import get_universe_tickers
+
+    t0 = time.time()
+    _stock_stat_state.update(
+        running=True, done=0, total=0, error=None,
+        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0,
+        validation=None,
+    )
+    _PREUP = {"P2", "P3", "P50", "P89"}
 
     # ── Helpers ───────────────────────────────────────────────────────────────
     def _j(lst): return " ".join(lst) if lst else ""
