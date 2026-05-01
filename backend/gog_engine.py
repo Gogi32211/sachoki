@@ -931,4 +931,26 @@ def compute_forward_stats(df, gog_df):
     result['ctx_to_vbo_close_return'] = ctx_to_vbo_close
     result['ctx_to_vbo_high_return']  = ctx_to_vbo_high
 
+    # All-bar next-event returns (within 10 bars; NaN if next event > 10 bars away)
+    ret_vbo_close = np.full(n, np.nan)
+    ret_vbo_high  = np.full(n, np.nan)
+    ret_gog_close = np.full(n, np.nan)
+    ret_gog_high  = np.full(n, np.nan)
+    for i in range(n):
+        cl_i = close[i]
+        if cl_i == 0:
+            continue
+        jv = _nxt_vbo[i]
+        if jv >= 0 and (jv - i) <= 10:
+            ret_vbo_close[i] = (close[jv] - cl_i) / cl_i * 100
+            ret_vbo_high[i]  = (high[jv]  - cl_i) / cl_i * 100
+        jg = _nxt_gog[i]
+        if jg >= 0 and (jg - i) <= 10:
+            ret_gog_close[i] = (close[jg] - cl_i) / cl_i * 100
+            ret_gog_high[i]  = (high[jg]  - cl_i) / cl_i * 100
+    result['ret_to_next_vbo_close'] = ret_vbo_close
+    result['ret_to_next_vbo_high']  = ret_vbo_high
+    result['ret_to_next_gog_close'] = ret_gog_close
+    result['ret_to_next_gog_high']  = ret_gog_high
+
     return result
