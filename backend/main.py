@@ -579,6 +579,39 @@ def api_turbo_scan(
                                       cci_min=cci_min, cci_max=cci_max,
                                       vol_min=vol_min, vol_max=vol_max)
         last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
+
+        # Compute SIGNAL_SCORE per row from stored GOG/CTX/setup fields
+        _CTX_MAP = [
+            ("LD","ctx_ld"),("LDS","ctx_lds"),("LDC","ctx_ldc"),("LDP","ctx_ldp"),
+            ("LRC","ctx_lrc"),("LRP","ctx_lrp"),("WRC","ctx_wrc"),("F8C","ctx_f8c"),
+            ("SQB","ctx_sqb"),("BCT","ctx_bct"),("SVS","ctx_svs"),
+        ]
+        for row in results:
+            ctx = [tok for tok, key in _CTX_MAP if row.get(key)]
+            setup = []
+            if row.get("akan_sig"): setup.append("A")
+            if row.get("smx_sig"):  setup.append("SM")
+            if row.get("nnn_sig"):  setup.append("N")
+            if row.get("mx_sig"):   setup.append("MX")
+            _bar = {
+                "g1p":  row.get("gog_g1p",  0), "g1c": row.get("gog_g1c", 0),
+                "g1l":  row.get("gog_g1l",  0), "gog1":row.get("gog_gog1",0),
+                "g2p":  row.get("gog_g2p",  0), "g2c": row.get("gog_g2c", 0),
+                "g2l":  row.get("gog_g2l",  0), "gog2":row.get("gog_gog2",0),
+                "g3p":  row.get("gog_g3p",  0), "g3c": row.get("gog_g3c", 0),
+                "g3l":  row.get("gog_g3l",  0), "gog3":row.get("gog_gog3",0),
+                "context": ctx, "setup": setup,
+                "already_extended": row.get("already_extended", 0),
+                "bars_to_next_vbo": None, "bars_to_next_gog": None,
+            }
+            try:
+                _sc = _signal_score(_bar)
+                row["signal_score"]  = _sc["signal_score"]
+                row["signal_bucket"] = _sc["signal_bucket"]
+            except Exception:
+                row["signal_score"]  = 0
+                row["signal_bucket"] = ""
+
         return {"results": results, "last_scan": last_time}
     except Exception as exc:
         log.exception("turbo-scan error")
