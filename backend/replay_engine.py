@@ -322,22 +322,38 @@ def _validate_score_source(rows: List[dict]) -> Optional[str]:
 
 def _classify_missed_winners(rows: List[dict]) -> None:
     """
-    Classify missed winners using prior lookback of the same ticker's score history.
-    Mutually exclusive by construction; no future data used.
+    Classify ALL missed winners using prior-lookback of the same ticker's score history.
+    Categories are mutually exclusive and exhaustive — every missed row gets exactly one.
 
-    TRUE_MISSED_WINNER   — BIG_WIN_10D=True, score < 60, not extended, AND no prior
-                           actionable score/regime/model in the 20 bars before this date.
-                           The scoring formula genuinely missed the setup.
-    CAUGHT_EARLY_WINNER  — BIG_WIN_10D=True, score < 60, not extended, AND a prior
-                           date within 20 bars had an actionable score/regime/model.
-                           The system surfaced the ticker earlier; this is follow-through.
-    LATE_OR_WEAK_CATCH   — Already extended at signal time. Entry would have been chasing.
+    TRUE_MISSED_WINNER   — BIG_WIN_10D=True, FINAL_BULL_SCORE<60, not extended,
+                           AND no prior actionable score/regime/model in the 20 trading
+                           sessions before this date for this ticker.
+    CAUGHT_EARLY_WINNER  — BIG_WIN_10D=True, FINAL_BULL_SCORE<60, not extended,
+                           AND at least one prior row within 20 sessions was actionable
+                           (score>=60 OR bullish regime OR named model present).
+    LATE_OR_WEAK_CATCH   — BIG_WIN_10D=True, FINAL_BULL_SCORE<60,
+                           AND already_extended=True at signal time.
 
-    Example: SNDK 2026-03-30 → CAUGHT_EARLY_WINNER because 03-03 (86), 03-06 (64),
-    03-25 (92), 03-26 (105) are all actionable prior entries within 20 trading days.
+    Classification is prior-lookback only — no GOG/VBO timing, no future data.
+    SNDK 2026-03-30 → CAUGHT_EARLY because 03-03(86), 03-06(64), 03-25(92),
+    03-26(105) are all actionable prior entries within 20 sessions.
     """
     from collections import defaultdict
 
+    # ── Step 1: initialize all prior-catch fields to defaults ──────────────────
+    for r in rows:
+        r["_prior_actionable"]     = False
+        r["_best_prior_score_3d"]  = 0.0
+        r["_best_prior_score_5d"]  = 0.0
+        r["_best_prior_score_10d"] = 0.0
+        r["_best_prior_score_20d"] = 0.0
+        r["_best_prior_date_20d"]  = ""
+        r["_best_prior_regime_20d"]= ""
+        r["_days_since_best_prior"]= 0
+        if not r.get("_missed"):
+            r["_missed_cat"] = ""
+
+    # ── Step 2: classify ticker-by-ticker using date-sorted history ────────────
     ticker_rows: Dict[str, List[dict]] = defaultdict(list)
     for r in rows:
         t = _str(r, "ticker")
@@ -351,19 +367,8 @@ def _classify_missed_winners(rows: List[dict]) -> None:
             pass
 
         for i, r in enumerate(trows):
-            # Default prior-catch fields for every row (missed or not)
-            r["_prior_actionable"]     = False
-            r["_best_prior_score_3d"]  = 0.0
-            r["_best_prior_score_5d"]  = 0.0
-            r["_best_prior_score_10d"] = 0.0
-            r["_best_prior_score_20d"] = 0.0
-            r["_best_prior_date_20d"]  = ""
-            r["_best_prior_regime_20d"]= ""
-            r["_days_since_best_prior"]= 0
-
             if not r.get("_missed"):
-                r["_missed_cat"] = ""
-                continue
+                continue  # already set to "" in step 1
 
             window   = trows[max(0, i - _PRIOR_LOOKBACK_BARS):i]
             cur_date = _str(r, "date")
@@ -375,15 +380,15 @@ def _classify_missed_winners(rows: List[dict]) -> None:
 
             best_row = (max(window, key=lambda p: _f(p.get("FINAL_BULL_SCORE", 0)))
                         if window else None)
-            r["_best_prior_date_20d"]  = _str(best_row, "date")        if best_row else ""
-            r["_best_prior_regime_20d"]= _str(best_row, "FINAL_REGIME") if best_row else ""
-            r["_days_since_best_prior"]= (_days_between(r["_best_prior_date_20d"], cur_date)
-                                          if r["_best_prior_date_20d"] else 0)
+            r["_best_prior_date_20d"]   = _str(best_row, "date")         if best_row else ""
+            r["_best_prior_regime_20d"] = _str(best_row, "FINAL_REGIME") if best_row else ""
+            r["_days_since_best_prior"] = (_days_between(r["_best_prior_date_20d"], cur_date)
+                                           if r["_best_prior_date_20d"] else 0)
 
             had_prior = any(_is_prior_actionable(p) for p in window)
             r["_prior_actionable"] = had_prior
 
-            # Mutually exclusive classification — exactly one branch fires
+            # Exactly one branch fires — mutually exclusive by construction
             if r["_ext"]:
                 r["_missed_cat"] = "LATE_OR_WEAK_CATCH"
             elif had_prior:
@@ -391,12 +396,54 @@ def _classify_missed_winners(rows: List[dict]) -> None:
             else:
                 r["_missed_cat"] = "TRUE_MISSED_WINNER"
 
-    # Integrity check: every missed row must have a non-empty category
-    uncategorized = [r for r in rows if r.get("_missed") and not r.get("_missed_cat")]
-    if uncategorized:
-        log.warning("_classify_missed_winners: %d missed rows have no category", len(uncategorized))
-        for r in uncategorized:
-            r["_missed_cat"] = "LATE_OR_WEAK_CATCH"  # safe fallback
+    # ── Step 3: catch any missed rows that had no ticker (fallback) ─────────────
+    # Rows without a ticker string were skipped above; classify as LATE to be safe.
+    for r in rows:
+        if r.get("_missed") and not r.get("_missed_cat"):
+            r["_missed_cat"] = "LATE_OR_WEAK_CATCH"
+            log.warning("Row with empty ticker classified as LATE: %s %s",
+                        r.get("ticker", ""), r.get("date", ""))
+
+
+def _validate_categories(rows: List[dict]) -> Optional[str]:
+    """
+    Verify that categories are mutually exclusive and exhaustive.
+    Returns an error string on failure, None on success.
+    Checks:
+      category_sum == total_missed
+      overlap_count == 0
+    """
+    missed = [r for r in rows if r.get("_missed")]
+    total  = len(missed)
+
+    true_n   = sum(1 for r in missed if r.get("_missed_cat") == "TRUE_MISSED_WINNER")
+    caught_n = sum(1 for r in missed if r.get("_missed_cat") == "CAUGHT_EARLY_WINNER")
+    late_n   = sum(1 for r in missed if r.get("_missed_cat") == "LATE_OR_WEAK_CATCH")
+    cat_sum  = true_n + caught_n + late_n
+
+    errors = []
+    if cat_sum != total:
+        uncategorized = total - cat_sum
+        errors.append(
+            f"category_sum({cat_sum}) != total_missed({total}); "
+            f"uncategorized_rows={uncategorized}"
+        )
+
+    def _keys(cat: str):
+        return {(_str(r, "ticker"), _str(r, "date"))
+                for r in missed if r.get("_missed_cat") == cat}
+
+    tc = _keys("TRUE_MISSED_WINNER") & _keys("CAUGHT_EARLY_WINNER")
+    tl = _keys("TRUE_MISSED_WINNER") & _keys("LATE_OR_WEAK_CATCH")
+    cl = _keys("CAUGHT_EARLY_WINNER") & _keys("LATE_OR_WEAK_CATCH")
+    overlap = len(tc) + len(tl) + len(cl)
+    if overlap:
+        errors.append(f"overlap_count={overlap} (TC={len(tc)}, TL={len(tl)}, CL={len(cl)})")
+
+    if errors:
+        return ("Replay validation failed: " + "; ".join(errors) +
+                ". Re-run Stock Stat or check classification logic.")
+    return None
 
 
 # ─── Compute replay labels ─────────────────────────────────────────────────────
@@ -719,8 +766,9 @@ def true_missed_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
 
 def caught_early_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
     """
-    Rows where a GOG or VBO event fired within 6-10 bars. The signal was a valid
-    early entry; the scoring missed it because the confirming event was still forming.
+    BIG_WIN_10D=True, FINAL_BULL_SCORE<60, not extended, AND at least one prior row
+    within 20 sessions for the same ticker was actionable (score>=60, bullish regime,
+    or named model). The system surfaced the ticker earlier; this is a follow-through entry.
     """
     subset = sorted(
         [r for r in rows if r.get("_missed_cat") == "CAUGHT_EARLY_WINNER"],
@@ -733,9 +781,8 @@ def caught_early_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
 
 def late_or_weak_catches(rows: List[dict], top_n: int = 300) -> List[dict]:
     """
-    Rows where either the signal fired when already extended, or no clean event
-    (GOG/VBO) was confirmed within 10 bars. May indicate momentum chasing or
-    signals that are too noisy to score reliably.
+    BIG_WIN_10D=True, FINAL_BULL_SCORE<60, AND already_extended=True at signal time.
+    Entry would have been chasing price — not a scoring formula failure.
     """
     subset = sorted(
         [r for r in rows if r.get("_missed_cat") == "LATE_OR_WEAK_CATCH"],
@@ -930,30 +977,37 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
                      f"vs <20 bucket: **{low.get('avg_ret_10d')}**")
         lines.append(f"- FINAL_BULL_SCORE 140+ BIG_WIN_10D rate: **{elite.get('big_win_10d_rate')}**")
 
-    # Missed winner category breakdown
+    # Missed winner category breakdown — use ACTUAL counts, not capped file counts
     mw_all  = reports.get("missed_winners", [])
-    tmw     = reports.get("true_missed_winners", [])
-    cew     = reports.get("caught_early_winners", [])
-    lowc    = reports.get("late_or_weak_catches", [])
-    total_m = len(mw_all)
+    counts  = reports.get("category_counts", {})
+    total_m = counts.get("total_missed") or len(mw_all)
     if total_m:
+        true_n   = counts.get("true_missed",  0)
+        caught_n = counts.get("caught_early", 0)
+        late_n   = counts.get("late_or_weak", 0)
+        cat_sum  = true_n + caught_n + late_n
+        sum_check = "✓ PASS" if cat_sum == total_m else f"✗ FAIL (sum={cat_sum} ≠ total={total_m})"
+
         lines += ["", "## 2. Missed Winner Breakdown", ""]
-        lines.append(f"Total missed big winners (max_high_10d ≥ 20%, score < 60): **{total_m}**")
+        lines.append(f"Total missed big winners (max_high_10d ≥ 20%, FINAL_BULL_SCORE < 60): **{total_m}**")
+        lines.append(f"Category sum check: {sum_check}")
         lines.append("")
-        lines.append("| Category | Count | % of Missed | Avg Max High 10D |")
-        lines.append("|----------|-------|-------------|-----------------|")
-        for label, subset in [
-            ("TRUE_MISSED_WINNERS",  tmw),
-            ("CAUGHT_EARLY_WINNERS", cew),
-            ("LATE_OR_WEAK_CATCHES", lowc),
+        lines.append("| Category | Actual Count | File Rows (top_n) | % of Missed | Avg Max High 10D |")
+        lines.append("|----------|-------------|-------------------|-------------|-----------------|")
+        for label, actual_n, file_key in [
+            ("TRUE_MISSED_WINNERS",  true_n,   "true_missed_winners"),
+            ("CAUGHT_EARLY_WINNERS", caught_n, "caught_early_winners"),
+            ("LATE_OR_WEAK_CATCHES", late_n,   "late_or_weak_catches"),
         ]:
-            pct = round(len(subset) / total_m * 100, 1) if total_m else 0
-            avg_mh = _mean([r.get("max_high_10d", 0) for r in subset]) if subset else None
-            lines.append(f"| {label} | {len(subset)} | {pct}% | {avg_mh} |")
+            file_rows = reports.get(file_key, [])
+            file_n    = len(file_rows)
+            pct       = round(actual_n / total_m * 100, 1) if total_m else 0
+            avg_mh    = _mean([r.get("max_high_10d", 0) for r in file_rows]) if file_rows else None
+            lines.append(f"| {label} | {actual_n} | {file_n} | {pct}% | {avg_mh} |")
         lines.append("")
-        lines.append("- **TRUE_MISSED_WINNERS** = GOG/VBO event within 5 bars, not extended → scoring fix needed")
-        lines.append("- **CAUGHT_EARLY_WINNERS** = GOG/VBO event within 6-10 bars → valid early entry, confirm later")
-        lines.append("- **LATE_OR_WEAK_CATCHES** = already extended or no event confirmation → noise/momentum")
+        lines.append("- **TRUE_MISSED_WINNERS** — no prior actionable score/regime/model in 20 sessions → scoring formula gap")
+        lines.append("- **CAUGHT_EARLY_WINNERS** — prior actionable entry existed within 20 sessions → was catchable earlier")
+        lines.append("- **LATE_OR_WEAK_CATCHES** — already extended at signal time → not a scoring failure")
 
     # Regime table
     rp = reports.get("regime_perf", [])
@@ -1065,8 +1119,23 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         _state["progress"] = 2; _state["message"] = "Computing replay labels..."
         rows = _label_rows(rows)
 
-        # 2b — Classify missed winners (prior-lookback pass; requires full labeled dataset)
+        # 2b — Classify missed winners (prior-lookback; requires full labeled dataset)
         _classify_missed_winners(rows)
+
+        # 2c — Validate categories: exhaustive + mutually exclusive
+        cat_err = _validate_categories(rows)
+        if cat_err:
+            raise RuntimeError(cat_err)
+
+        # 2d — Store actual category counts BEFORE any top_n capping
+        category_counts = {
+            "total_missed":  sum(1 for r in rows if r.get("_missed")),
+            "true_missed":   sum(1 for r in rows if r.get("_missed_cat") == "TRUE_MISSED_WINNER"),
+            "caught_early":  sum(1 for r in rows if r.get("_missed_cat") == "CAUGHT_EARLY_WINNER"),
+            "late_or_weak":  sum(1 for r in rows if r.get("_missed_cat") == "LATE_OR_WEAK_CATCH"),
+        }
+        cached["category_counts"] = category_counts
+        log.info("Category counts: %s", category_counts)
 
         # 3 — Score bucket
         _state["progress"] = 3; _state["message"] = "Score bucket performance..."
@@ -1097,16 +1166,32 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         cached["missed_winners"] = _save("missed_winners", missed_winners(rows))
 
         # 10 — TRUE_MISSED_WINNERS
-        _state["progress"] = 10; _state["message"] = "True missed winners (event-confirmed, not extended)..."
+        _state["progress"] = 10; _state["message"] = "True missed winners (no prior actionable in 20 sessions)..."
         cached["true_missed_winners"] = _save("true_missed_winners", true_missed_winners(rows))
 
         # 11 — CAUGHT_EARLY_WINNERS
-        _state["progress"] = 11; _state["message"] = "Caught early winners (event confirmed 6-10 bars)..."
+        _state["progress"] = 11; _state["message"] = "Caught early winners (prior actionable entry existed)..."
         cached["caught_early_winners"] = _save("caught_early_winners", caught_early_winners(rows))
 
         # 12 — LATE_OR_WEAK_CATCHES
-        _state["progress"] = 12; _state["message"] = "Late or weak catches (extended / no event)..."
+        _state["progress"] = 12; _state["message"] = "Late or weak catches (already extended at signal time)..."
         cached["late_or_weak_catches"] = _save("late_or_weak_catches", late_or_weak_catches(rows))
+
+        # 12b — Cross-validate file counts vs actual category counts
+        file_check_errors = []
+        for report_key, count_key, top_n_cap in [
+            ("true_missed_winners",  "true_missed",  300),
+            ("caught_early_winners", "caught_early", 300),
+            ("late_or_weak_catches", "late_or_weak", 300),
+        ]:
+            expected = min(category_counts[count_key], top_n_cap)
+            actual   = len(cached.get(report_key, []))
+            if expected != actual:
+                file_check_errors.append(
+                    f"{report_key}: expected {expected} rows (min({count_key}={category_counts[count_key]}, {top_n_cap})), got {actual}"
+                )
+        if file_check_errors:
+            raise RuntimeError("File count mismatch: " + "; ".join(file_check_errors))
 
         # 13 — False positives
         _state["progress"] = 13; _state["message"] = "False positives..."
