@@ -18,7 +18,7 @@ _state: Dict[str, Any] = {
     "started_at":   None,
     "completed_at": None,
     "progress":     0,
-    "total_steps":  15,
+    "total_steps":  18,
     "error":        None,
     "reports":      {},       # name → {rows, path, generated_at}
     "tf":           "1d",
@@ -184,7 +184,18 @@ _MODEL_COLS = [
     "MDL_L22_BCT","MDL_L22_LRP","MDL_BE_GOG1","MDL_BO_GOG1","MDL_Z10_GOG1",
     "MDL_LOAD_GOG1","MDL_260_GOG1","MDL_RKT_GOG1","MDL_F8_SVS","MDL_F8_CONS",
     "MDL_L22_SQB","MDL_3UP_GOG1","MDL_BLUE_GOG1","MDL_BX_GOG1","MDL_UM_LRP",
+    # Rebound models (v4.4)
+    "MDL_TZ_FLIP_Z","MDL_TZ_FLIP_WKUP","MDL_TZ3_VBO_DN",
+    "MDL_ABS_RL","MDL_ABS_RH","MDL_BLUE_EBUP",
+    "MDL_BEANY_F7_NDDELTA","MDL_CA_WKDN_UNDER50",
+    "MDL_CA_NDVABS_UNDER50","MDL_RH_TZ3_UNDER200",
+    "MDL_BEANY_BODN_NDDELTA",
+    # Rocket models (v4.4)
+    "MDL_SC_UM","MDL_SC_VOL5X","MDL_PARA_PLUS_UM",
+    "MDL_PARA_START_UM","MDL_PARA_RETEST_UM",
+    # Aggregated flags
     "HAS_ELITE_MODEL","HAS_BEAR_MODEL",
+    "HAS_REBOUND_MODEL","HAS_STRONG_BULL_MODEL","HAS_HARD_BEAR_MODEL",
 ]
 
 # Current score weights per signal (approximate, for "scored weak" analysis)
@@ -227,6 +238,11 @@ _SIG_WEIGHTS = {
     "SIG_D_DN_GREEN": ("HARD_BEAR_SCORE", 12),
     "SIG_DD_DN_GREEN": ("HARD_BEAR_SCORE", 15),
     "SIG_ND_DELTA": ("HARD_BEAR_SCORE", 10),
+    # v4.4 rebound signals
+    "SIG_TZ_FLIP": ("REBOUND_SQUEEZE_SCORE", 8),
+    "SIG_WK_UP": ("REBOUND_SQUEEZE_SCORE", 6),
+    "SIG_RL": ("REBOUND_SQUEEZE_SCORE", 5),
+    "SIG_CA": ("REBOUND_SQUEEZE_SCORE", 5),
 }
 
 
@@ -241,6 +257,28 @@ def _nonzero_cols(rows: List[dict], cols: List[str]) -> List[str]:
             if c in r and _f(r.get(c, 0)) > 0:
                 present.add(c)
     return [c for c in cols if c in present]
+
+
+# ─── Missed winner category (event-based) ─────────────────────────────────────
+
+def _missed_category(r: dict) -> str:
+    """
+    Classify a missed big winner using event confirmation columns.
+
+    TRUE_MISSED_WINNER   — GOG or VBO fired within 5 bars, not extended.
+                           The system had signals that should have been caught.
+    CAUGHT_EARLY_WINNER  — GOG or VBO fired within 6-10 bars, not extended.
+                           Valid early entry; the event confirmed later.
+    LATE_OR_WEAK_CATCH   — Already extended at signal time, or no event within
+                           10 bars (noisy/momentum move without clean confirmation).
+    """
+    if r.get("_ext"):
+        return "LATE_OR_WEAK_CATCH"
+    if _bool(r, "GOG_W5") or _bool(r, "VBO_W5"):
+        return "TRUE_MISSED_WINNER"
+    if _bool(r, "GOG_W10") or _bool(r, "VBO_W10"):
+        return "CAUGHT_EARLY_WINNER"
+    return "LATE_OR_WEAK_CATCH"
 
 
 # ─── Compute replay labels ─────────────────────────────────────────────────────
@@ -274,6 +312,16 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         r["_fail10"]= ret10 <= -12.0 or max5 <= -12.0
         r["_ext"]   = _bool(r, "ALREADY_EXTENDED_FLAG")
 
+        # Event-based fields (v4.4 stock_stat columns)
+        r["_gog_w5"]      = _bool(r, "GOG_W5")
+        r["_gog_w10"]     = _bool(r, "GOG_W10")
+        r["_vbo_w5"]      = _bool(r, "VBO_W5")
+        r["_vbo_w10"]     = _bool(r, "VBO_W10")
+        r["_bars_to_gog"] = _n(r, "BARS_TO_GOG")
+        r["_bars_to_vbo"] = _n(r, "BARS_TO_VBO")
+        r["_ret_to_gog"]  = _n(r, "RET_TO_NEXT_GOG_HIGH")
+        r["_ret_to_vbo"]  = _n(r, "RET_TO_NEXT_VBO_HIGH")
+
         r["_missed"]  = r["_bw10"] and fbs < 60 and hbs < 40
         r["_fp"]      = fbs >= 100 and r["_fail10"]
         r["_ls_win"]  = fbs < 40  and r["_bw10"]
@@ -281,6 +329,10 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         r["_hs_fail"] = fbs >= 100 and r["_fail10"]
         r["_rkt_miss"]= r["_para"] and rocket < 25
         r["_bear_win"]= _str(r, "FINAL_REGIME") == "BEARISH_PHASE" and r["_bw10"]
+
+        # Classify missed winners (requires _ext, _gog_w*, _vbo_w* already set above)
+        r["_missed_cat"] = _missed_category(r) if r["_missed"] else ""
+
     return rows
 
 
@@ -308,16 +360,22 @@ def _agg(rows: List[dict]) -> dict:
 
 # ─── Section 5: Score bucket performance ──────────────────────────────────────
 
+# All v4.4 score components — order matters for display
 _SCORE_COLS = [
-    ("FINAL_BULL_SCORE",      "FINAL_BULL"),
-    ("SIGNAL_SCORE",          "SIGNAL"),
-    ("turbo_score",           "TURBO"),
-    ("CLEAN_ENTRY_SCORE",     "CLEAN_ENTRY"),
-    ("SHAKEOUT_ABSORB_SCORE", "SHAKEOUT_ABSORB"),
-    ("ROCKET_SCORE",          "ROCKET"),
-    ("HARD_BEAR_SCORE",       "HARD_BEAR"),
-    ("BEARISH_RISK_SCORE",    "BEARISH_RISK"),
-    ("rtb_total",             "RTB"),
+    ("FINAL_BULL_SCORE",        "FINAL_BULL"),
+    ("GOG_SCORE",               "GOG"),
+    ("SIGNAL_SCORE",            "SIGNAL"),
+    ("turbo_score",             "TURBO"),
+    ("CLEAN_ENTRY_SCORE",       "CLEAN_ENTRY"),
+    ("SHAKEOUT_ABSORB_SCORE",   "SHAKEOUT_ABSORB"),
+    ("ROCKET_SCORE",            "ROCKET"),
+    ("EXTRA_BULL_SCORE",        "EXTRA_BULL"),
+    ("EXPERIMENTAL_SCORE",      "EXPERIMENTAL"),
+    ("REBOUND_SQUEEZE_SCORE",   "REBOUND_SQUEEZE"),
+    ("HARD_BEAR_SCORE",         "HARD_BEAR"),
+    ("VOLATILITY_RISK_SCORE",   "VOLATILITY_RISK"),
+    ("BEARISH_RISK_SCORE",      "BEARISH_RISK"),   # backward-compat alias
+    ("rtb_total",               "RTB"),
 ]
 
 _BUCKET_EDGES = [(0,20,"<20"),(20,40,"20-39"),(40,60,"40-59"),(60,80,"60-79"),
@@ -441,7 +499,7 @@ def model_perf(rows: List[dict]) -> List[dict]:
     return out
 
 
-# ─── Section 7: Missed big winners ────────────────────────────────────────────
+# ─── Miss reason (internal helper) ────────────────────────────────────────────
 
 def _miss_reason(r: dict) -> str:
     fbs    = _f(r.get("FINAL_BULL_SCORE", 0))
@@ -461,34 +519,94 @@ def _miss_reason(r: dict) -> str:
     active = _active_sigs(r)
     if not any(s in _SCORED for s in active):
         parts.append("E:all_unscored_signals")
-    if not _f(r.get("HAS_ELITE_MODEL", 0)):
+    if not _f(r.get("HAS_ELITE_MODEL", 0)) and not _f(r.get("HAS_REBOUND_MODEL", 0)):
         parts.append("D:no_named_model")
     return "|".join(parts) if parts else "J:unknown"
 
+
+def _missed_row(r: dict) -> dict:
+    """Build a standard missed-winner output row."""
+    return {
+        "ticker":             _str(r, "ticker"),
+        "date":               _str(r, "date"),
+        "close":              _n(r, "close"),
+        "missed_category":    r.get("_missed_cat", ""),
+        "final_bull_score":   _n(r, "FINAL_BULL_SCORE"),
+        "gog_score":          _n(r, "GOG_SCORE"),
+        "turbo_score":        _n(r, "turbo_score"),
+        "signal_score":       _n(r, "SIGNAL_SCORE"),
+        "rocket_score":       _n(r, "ROCKET_SCORE"),
+        "rebound_squeeze_score": _n(r, "REBOUND_SQUEEZE_SCORE"),
+        "rtb_score":          _n(r, "rtb_total"),
+        "final_regime":       _str(r, "FINAL_REGIME"),
+        "final_score_bucket": _str(r, "FINAL_SCORE_BUCKET"),
+        "already_extended":   int(r["_ext"]),
+        "gog_w5":             int(r["_gog_w5"]),
+        "gog_w10":            int(r["_gog_w10"]),
+        "vbo_w5":             int(r["_vbo_w5"]),
+        "vbo_w10":            int(r["_vbo_w10"]),
+        "bars_to_gog":        r["_bars_to_gog"],
+        "bars_to_vbo":        r["_bars_to_vbo"],
+        "ret_to_gog_high":    r["_ret_to_gog"],
+        "ret_to_vbo_high":    r["_ret_to_vbo"],
+        "ret_3d":             r["_ret3"],
+        "ret_5d":             r["_ret5"],
+        "ret_10d":            r["_ret10"],
+        "max_high_5d":        r["_max5"],
+        "max_high_10d":       r["_max10"],
+        "active_signals":     "|".join(_active_sigs(r)),
+        "likely_miss_reason": _miss_reason(r),
+    }
+
+
+# ─── Section 7: All missed big winners (unified) ──────────────────────────────
+
 def missed_winners(rows: List[dict], top_n: int = 500) -> List[dict]:
     missed = sorted([r for r in rows if r["_missed"]], key=lambda r: -r["_max10"])
-    out = []
-    for r in missed[:top_n]:
-        out.append({
-            "ticker":           _str(r, "ticker"),
-            "date":             _str(r, "date"),
-            "close":            _n(r, "close"),
-            "final_bull_score": _n(r, "FINAL_BULL_SCORE"),
-            "turbo_score":      _n(r, "turbo_score"),
-            "signal_score":     _n(r, "SIGNAL_SCORE"),
-            "rtb_score":        _n(r, "rtb_total"),
-            "final_regime":     _str(r, "FINAL_REGIME"),
-            "final_score_bucket": _str(r, "FINAL_SCORE_BUCKET"),
-            "already_extended": int(r["_ext"]),
-            "ret_3d":           r["_ret3"],
-            "ret_5d":           r["_ret5"],
-            "ret_10d":          r["_ret10"],
-            "max_high_5d":      r["_max5"],
-            "max_high_10d":     r["_max10"],
-            "active_signals":   "|".join(_active_sigs(r)),
-            "likely_miss_reason": _miss_reason(r),
-        })
-    return out
+    return [_missed_row(r) for r in missed[:top_n]]
+
+
+# ─── Section 7a: TRUE_MISSED_WINNERS ──────────────────────────────────────────
+
+def true_missed_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
+    """
+    Rows where a GOG or VBO event fired within 5 bars and the system was not
+    extended. The scoring formula genuinely missed a clean setup.
+    """
+    subset = sorted(
+        [r for r in rows if r.get("_missed_cat") == "TRUE_MISSED_WINNER"],
+        key=lambda r: -r["_max10"],
+    )
+    return [_missed_row(r) for r in subset[:top_n]]
+
+
+# ─── Section 7b: CAUGHT_EARLY_WINNERS ─────────────────────────────────────────
+
+def caught_early_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
+    """
+    Rows where a GOG or VBO event fired within 6-10 bars. The signal was a valid
+    early entry; the scoring missed it because the confirming event was still forming.
+    """
+    subset = sorted(
+        [r for r in rows if r.get("_missed_cat") == "CAUGHT_EARLY_WINNER"],
+        key=lambda r: -r["_max10"],
+    )
+    return [_missed_row(r) for r in subset[:top_n]]
+
+
+# ─── Section 7c: LATE_OR_WEAK_CATCHES ─────────────────────────────────────────
+
+def late_or_weak_catches(rows: List[dict], top_n: int = 300) -> List[dict]:
+    """
+    Rows where either the signal fired when already extended, or no clean event
+    (GOG/VBO) was confirmed within 10 bars. May indicate momentum chasing or
+    signals that are too noisy to score reliably.
+    """
+    subset = sorted(
+        [r for r in rows if r.get("_missed_cat") == "LATE_OR_WEAK_CATCH"],
+        key=lambda r: -r["_max10"],
+    )
+    return [_missed_row(r) for r in subset[:top_n]]
 
 
 # ─── Section 8: False positives ───────────────────────────────────────────────
@@ -520,6 +638,7 @@ def false_positives(rows: List[dict], top_n: int = 500) -> List[dict]:
             "final_regime":       _str(r, "FINAL_REGIME"),
             "final_score_bucket": _str(r, "FINAL_SCORE_BUCKET"),
             "hard_bear_score":    _n(r, "HARD_BEAR_SCORE", "BEARISH_RISK_SCORE"),
+            "volatility_risk_score": _n(r, "VOLATILITY_RISK_SCORE"),
             "already_extended":   int(r["_ext"]),
             "ret_5d":             r["_ret5"],
             "ret_10d":            r["_ret10"],
@@ -578,7 +697,7 @@ def scored_weak(rows: List[dict], min_count: int = 20) -> List[dict]:
         avg_ret  = _mean([r["_ret10"] for r in sr])
         bw_rate  = _rate([r["_bw10"]  for r in sr])
         fail_rate= _rate([r["_fail10"]for r in sr])
-        is_bear = component == "HARD_BEAR_SCORE"
+        is_bear = component in ("HARD_BEAR_SCORE", "VOLATILITY_RISK_SCORE")
         if is_bear:
             rec = "keep_bearish" if (avg_ret or 0) < 0 else "review_context"
         elif (avg_ret or 0) < 0 and not is_bear:
@@ -616,6 +735,8 @@ def filter_miss_audit(rows: List[dict]) -> List[dict]:
         ("NO_ELITE_MODEL",         lambda r: not _f(r.get("HAS_ELITE_MODEL",0))),
         ("HARD_BEAR >= 40",        lambda r: _f(r.get("HARD_BEAR_SCORE",r.get("BEARISH_RISK_SCORE",0))) >= 40),
         ("NEUTRAL_OR_LOW_REGIME",  lambda r: _str(r,"FINAL_REGIME") in ("NEUTRAL_OR_LOW","","NONE")),
+        ("REBOUND_SQUEEZE < 10",   lambda r: _f(r.get("REBOUND_SQUEEZE_SCORE",0)) < 10),
+        ("NO_REBOUND_MODEL",       lambda r: not _f(r.get("HAS_REBOUND_MODEL",0))),
     ]
     out = []
     for name, fn in filters:
@@ -639,33 +760,6 @@ def filter_miss_audit(rows: List[dict]) -> List[dict]:
 
 
 # ─── Section 4: Split analytics ───────────────────────────────────────────────
-
-def _fetch_splits(tickers: List[str], min_date: str) -> List[dict]:
-    """Try yfinance for split events; returns empty list on any failure."""
-    events = []
-    try:
-        import yfinance as yf
-        for t in tickers:
-            try:
-                splits = yf.Ticker(t).splits
-                if splits is None or len(splits) == 0:
-                    continue
-                for dt, ratio in splits.items():
-                    ds = dt.strftime("%Y-%m-%d") if hasattr(dt, "strftime") else str(dt)[:10]
-                    if ds < min_date:
-                        continue
-                    events.append({
-                        "ticker": t, "split_date": ds,
-                        "split_ratio": float(ratio),
-                        "split_type": "FORWARD_SPLIT" if ratio > 1 else
-                                      ("REVERSE_SPLIT" if ratio < 1 else "UNKNOWN"),
-                    })
-            except Exception:
-                pass
-    except ImportError:
-        pass
-    return events
-
 
 def split_analytics(rows: List[dict]) -> dict:
     return {
@@ -701,6 +795,31 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
                      f"vs <20 bucket: **{low.get('avg_ret_10d')}**")
         lines.append(f"- FINAL_BULL_SCORE 140+ BIG_WIN_10D rate: **{elite.get('big_win_10d_rate')}**")
 
+    # Missed winner category breakdown
+    mw_all  = reports.get("missed_winners", [])
+    tmw     = reports.get("true_missed_winners", [])
+    cew     = reports.get("caught_early_winners", [])
+    lowc    = reports.get("late_or_weak_catches", [])
+    total_m = len(mw_all)
+    if total_m:
+        lines += ["", "## 2. Missed Winner Breakdown", ""]
+        lines.append(f"Total missed big winners (max_high_10d ≥ 20%, score < 60): **{total_m}**")
+        lines.append("")
+        lines.append("| Category | Count | % of Missed | Avg Max High 10D |")
+        lines.append("|----------|-------|-------------|-----------------|")
+        for label, subset in [
+            ("TRUE_MISSED_WINNERS",  tmw),
+            ("CAUGHT_EARLY_WINNERS", cew),
+            ("LATE_OR_WEAK_CATCHES", lowc),
+        ]:
+            pct = round(len(subset) / total_m * 100, 1) if total_m else 0
+            avg_mh = _mean([r.get("max_high_10d", 0) for r in subset]) if subset else None
+            lines.append(f"| {label} | {len(subset)} | {pct}% | {avg_mh} |")
+        lines.append("")
+        lines.append("- **TRUE_MISSED_WINNERS** = GOG/VBO event within 5 bars, not extended → scoring fix needed")
+        lines.append("- **CAUGHT_EARLY_WINNERS** = GOG/VBO event within 6-10 bars → valid early entry, confirm later")
+        lines.append("- **LATE_OR_WEAK_CATCHES** = already extended or no event confirmation → noise/momentum")
+
     # Regime table
     rp = reports.get("regime_perf", [])
     if rp:
@@ -719,12 +838,11 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
             lines.append(f"- {s['signal']} (n={s['count']}, ret={s.get('avg_ret_10d')}, "
                          f"bw={s.get('big_win_10d_rate')}, fail={s.get('fail_10d_rate')})")
 
-    # Missed reasons
-    mw = reports.get("missed_winners", [])
-    if mw:
+    # Missed reasons (from all missed winners)
+    if mw_all:
         from collections import Counter
         reason_counts: Counter = Counter()
-        for r in mw:
+        for r in mw_all:
             for part in r.get("likely_miss_reason","").split("|"):
                 reason_counts[part.split(":")[0]] += 1
         lines += ["", "## 13. Biggest missed opportunity causes", ""]
@@ -765,13 +883,14 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
     lines += [
         "", "---", "",
         "## 24. Recommended next steps", "",
-        "1. Review **Scored But Weak** table for signals to reduce/remove",
-        "2. Review **Active Unscored** table for signals to add",
-        "3. Check **Missed Big Winners** for regime/filter issues",
-        "4. Check **False Positives** for volatility/extension risk gaps",
-        "5. If split data is available, review **Split Breakout Analysis**",
+        "1. Focus on **TRUE_MISSED_WINNERS** — these need scoring formula fixes",
+        "2. Review **CAUGHT_EARLY_WINNERS** — consider holding or confirming later",
+        "3. **LATE_OR_WEAK_CATCHES** can be deprioritized — mostly noise/extension",
+        "4. Review **Scored But Weak** table for signals to reduce/remove",
+        "5. Review **Active Unscored** table for signals to add",
+        "6. Check **False Positives** for volatility/extension risk gaps",
         "",
-        "*Generated by Sachoki Replay Analytics Engine*",
+        "*Generated by Sachoki Replay Analytics Engine v4.4*",
     ]
     return "\n".join(lines)
 
@@ -830,28 +949,40 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         _state["progress"] = 8; _state["message"] = "Named model performance..."
         _save("model_perf", model_perf(rows))
 
-        # 9 — Missed winners
-        _state["progress"] = 9; _state["message"] = "Missed big winners..."
+        # 9 — All missed winners (unified)
+        _state["progress"] = 9; _state["message"] = "Missed big winners (all categories)..."
         cached["missed_winners"] = _save("missed_winners", missed_winners(rows))
 
-        # 10 — False positives
-        _state["progress"] = 10; _state["message"] = "False positives..."
+        # 10 — TRUE_MISSED_WINNERS
+        _state["progress"] = 10; _state["message"] = "True missed winners (event-confirmed, not extended)..."
+        cached["true_missed_winners"] = _save("true_missed_winners", true_missed_winners(rows))
+
+        # 11 — CAUGHT_EARLY_WINNERS
+        _state["progress"] = 11; _state["message"] = "Caught early winners (event confirmed 6-10 bars)..."
+        cached["caught_early_winners"] = _save("caught_early_winners", caught_early_winners(rows))
+
+        # 12 — LATE_OR_WEAK_CATCHES
+        _state["progress"] = 12; _state["message"] = "Late or weak catches (extended / no event)..."
+        cached["late_or_weak_catches"] = _save("late_or_weak_catches", late_or_weak_catches(rows))
+
+        # 13 — False positives
+        _state["progress"] = 13; _state["message"] = "False positives..."
         cached["false_positives"] = _save("false_positives", false_positives(rows))
 
-        # 11 — Unscored
-        _state["progress"] = 11; _state["message"] = "Active unscored signals..."
+        # 14 — Unscored
+        _state["progress"] = 14; _state["message"] = "Active unscored signals..."
         _save("unscored_signals", unscored_signals(rows, min_count=20))
 
-        # 12 — Scored weak
-        _state["progress"] = 12; _state["message"] = "Scored but weak signals..."
+        # 15 — Scored weak
+        _state["progress"] = 15; _state["message"] = "Scored but weak signals..."
         _save("scored_weak", scored_weak(rows, min_count=20))
 
-        # 13 — Filter audit
-        _state["progress"] = 13; _state["message"] = "Filter miss audit..."
+        # 16 — Filter audit
+        _state["progress"] = 16; _state["message"] = "Filter miss audit..."
         _save("filter_miss_audit", filter_miss_audit(rows))
 
-        # 14 — Splits
-        _state["progress"] = 14; _state["message"] = "Split analytics..."
+        # 17 — Splits
+        _state["progress"] = 17; _state["message"] = "Split analytics..."
         try:
             sr = split_analytics(rows)
             _save("split_events", sr.get("events", []))
@@ -860,10 +991,11 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             cached["split_analytics"] = sr
         except Exception as _se:
             log.warning("Split analytics skipped: %s", _se)
-            cached["split_analytics"] = {"available": False, "message": str(_se), "events": [], "missed": [], "false_positives": []}
+            cached["split_analytics"] = {"available": False, "message": str(_se),
+                                          "events": [], "missed": [], "false_positives": []}
 
-        # 15 — Summary
-        _state["progress"] = 15; _state["message"] = "Writing summary..."
+        # 18 — Summary
+        _state["progress"] = 18; _state["message"] = "Writing summary..."
         md = _md_summary(cached, gen_at, tf, universe, len(rows))
         md_path = os.path.join(REPLAY_OUTPUT_DIR, "replay_summary.md")
         with open(md_path, "w", encoding="utf-8") as f:
