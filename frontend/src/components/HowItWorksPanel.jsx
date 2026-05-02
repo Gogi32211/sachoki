@@ -696,7 +696,7 @@ export default function HowItWorksPanel() {
                   ['rtb_turn',   'B-phase: reversal candle + reclaim level + flow signal', 14],
                   ['rtb_ready',  'C-phase: breakout triggers approaching or present',  12],
                   ['rtb_bonus3', '3-bar context: recent volume/signal cluster bonus',    8],
-                  ['rtb_late',   'D-phase penalty: breakout already in progress',      −12],
+                  ['rtb_late',   'D-phase penalty: breakout already in progress',      -12],
                 ].map(([field, desc, cap]) => (
                   <tr key={field} className="border-b border-gray-800/50">
                     <td className={`py-0.5 pr-4 font-mono ${cap < 0 ? 'text-red-400' : 'text-lime-300'}`}>{field}</td>
