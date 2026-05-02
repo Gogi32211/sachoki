@@ -354,6 +354,378 @@ export default function HowItWorksPanel() {
           </p>
         </Section>
 
+        {/* ── SIGNAL_SCORE ── */}
+        <Section title="📐 SIGNAL_SCORE (0–160) — GOG + Context Scoring">
+          <p className="mb-2">
+            A structured score built on top of the GOG tier system. Unlike the TURBO score
+            (which counts signal density), SIGNAL_SCORE quantifies <em>setup quality</em>:
+            a strong GOG tier with the right context tokens can reach 160 pts.
+            Visible in the Superchart SCORE row, the Turbo GOG column, and all CSV exports.
+          </p>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">7.1 — GOG Base Score (highest active tier wins)</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Tier</th>
+                  <th className="text-left py-1 pr-4">Meaning</th>
+                  <th className="text-left py-1">Base pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['G1P', 'GOG-1 Premium — top-tier setup',           100, 'text-yellow-300'],
+                  ['G1C', 'GOG-1 Classic — strong standard setup',      88, 'text-lime-300'],
+                  ['G1L', 'GOG-1 Lite — valid but lighter context',      82, 'text-lime-400'],
+                  ['GOG1','GOG-1 — basic Grail-Of-Grails tier 1',        70, 'text-green-300'],
+                  ['G2P', 'GOG-2 Premium',                               62, 'text-teal-300'],
+                  ['G2C', 'GOG-2 Classic',                               55, 'text-teal-400'],
+                  ['G2L', 'GOG-2 Lite',                                  45, 'text-cyan-300'],
+                  ['GOG2','GOG-2 base',                                  35, 'text-cyan-400'],
+                  ['G3P', 'GOG-3 Premium',                               60, 'text-blue-300'],
+                  ['G3C', 'GOG-3 Classic',                               52, 'text-blue-400'],
+                  ['G3L', 'GOG-3 Lite',                                  48, 'text-sky-300'],
+                  ['GOG3','GOG-3 base',                                  42, 'text-sky-400'],
+                ].map(([tier, desc, pts, cls]) => (
+                  <tr key={tier} className="border-b border-gray-800/50">
+                    <td className={`py-0.5 pr-4 font-mono font-semibold ${cls}`}>{tier}</td>
+                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
+                    <td className="py-0.5 text-lime-400">+{pts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.2–7.6 — Context Bonus Score</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">§</th>
+                  <th className="text-left py-1 pr-4">Component</th>
+                  <th className="text-left py-1 pr-4">Token(s)</th>
+                  <th className="text-left py-1">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Premium Context</td>
+                  <td className="py-0.5 pr-4 font-mono text-green-300">LDP</td>
+                  <td className="py-0.5 text-lime-400">+22</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Premium Context</td>
+                  <td className="py-0.5 pr-4 font-mono text-green-300">LRP</td>
+                  <td className="py-0.5 text-lime-400">+26</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
+                  <td className="py-0.5 pr-4 text-gray-400 text-xs italic">both LDP + LRP</td>
+                  <td className="py-0.5 pr-4 font-mono text-gray-500">LDP+LRP</td>
+                  <td className="py-0.5 text-orange-400">capped at 35</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Load Context <span className="text-gray-500">(max of)</span></td>
+                  <td className="py-0.5 pr-4 font-mono text-cyan-300">LD</td>
+                  <td className="py-0.5 text-lime-400">+8</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Load Context</td>
+                  <td className="py-0.5 pr-4 font-mono text-cyan-300">LDS</td>
+                  <td className="py-0.5 text-lime-400">+11</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Load Context</td>
+                  <td className="py-0.5 pr-4 font-mono text-teal-300">LDC</td>
+                  <td className="py-0.5 text-lime-400">+16</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.4</td>
+                  <td className="py-0.5 pr-4 text-gray-300">L-Reclaim <span className="text-gray-500">(skipped if LRP)</span></td>
+                  <td className="py-0.5 pr-4 font-mono text-cyan-300">LRC</td>
+                  <td className="py-0.5 text-lime-400">+12</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Compression</td>
+                  <td className="py-0.5 pr-4 font-mono text-slate-300">WRC</td>
+                  <td className="py-0.5 text-lime-400">+10</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
+                  <td className="py-0.5 pr-4 text-gray-300">Compression</td>
+                  <td className="py-0.5 pr-4 font-mono text-slate-300">F8C</td>
+                  <td className="py-0.5 text-lime-400">+12</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
+                  <td className="py-0.5 pr-4 text-gray-400 text-xs italic">both WRC + F8C</td>
+                  <td className="py-0.5 pr-4 font-mono text-gray-500">WRC+F8C</td>
+                  <td className="py-0.5 text-orange-400">capped at 18</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.6</td>
+                  <td className="py-0.5 pr-4 text-gray-300">SQ/BCT (BCT supersedes SQB)</td>
+                  <td className="py-0.5 pr-4 font-mono text-blue-300">BCT</td>
+                  <td className="py-0.5 text-lime-400">+18 (+6 if SVS)</td>
+                </tr>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-600">7.6</td>
+                  <td className="py-0.5 pr-4 text-gray-300">SQ/BCT</td>
+                  <td className="py-0.5 pr-4 font-mono text-blue-300">SQB</td>
+                  <td className="py-0.5 text-lime-400">+14 (+6 if SVS)</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.7 — Base Setup Family Score</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Token</th>
+                  <th className="text-left py-1 pr-4">Meaning</th>
+                  <th className="text-left py-1">Points</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['A',   'AKAN setup',       '+10'],
+                  ['SM',  'SMX setup',         '+10'],
+                  ['N',   'NNN setup',          '+4'],
+                  ['MX',  'MX setup',           '+5'],
+                  ['A+SM+N+MX', 'all four active — full combo bonus', '+12 extra'],
+                  ['(A|SM)+(N|MX)', 'partial combo', '+8 extra'],
+                ].map(([tok, desc, pts]) => (
+                  <tr key={tok} className="border-b border-gray-800/50">
+                    <td className="py-0.5 pr-4 font-mono text-violet-300">{tok}</td>
+                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
+                    <td className="py-0.5 text-lime-400">{pts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">
+            When a GOG tier is active, base setup total is capped at 8 (bonus points are not wasted — they still count within cap).
+          </p>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.8 — Raw Support Score (hard cap: 25 pts)</p>
+          <p className="text-gray-500 text-xs mb-1">Individual signal booleans from the current bar. Highest-value signals shown:</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Signal</th>
+                  <th className="text-left py-1 pr-4">Key</th>
+                  <th className="text-left py-1">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['VBO↑',    'raw_vbo_up',    8],
+                  ['L88',     'raw_l88',       8],
+                  ['BUY HERE','raw_buy_here',  8],
+                  ['ROCKET',  'raw_rocket',    8],
+                  ['ATR Break','raw_atr_brk',  7],
+                  ['BB Break', 'raw_bb_brk',   7],
+                  ['260308',  'raw_sig260308', 7],
+                  ['3G Gap',  'raw_three_g',   6],
+                  ['LD Load', 'raw_load',      6],
+                  ['BE↑',     'raw_be_up',     6],
+                  ['F6',      'raw_f6',        6],
+                  ['BO↑',     'raw_bo_up',     5],
+                  ['SQ',      'raw_sq',        5],
+                  ['F8',      'raw_f8',        5],
+                  ['L22',     'raw_l22',       5],
+                  ['SVS raw', 'raw_svs_raw',   5],
+                  ['4BF',     'raw_bf4',       5],
+                  ['F3',      'raw_f3',        5],
+                  ['UM',      'raw_um',        4],
+                  ['L34',     'raw_l34',       4],
+                  ['BX↑',     'raw_bx_up',     4],
+                  ['HILO↑',   'raw_hilo_buy',  4],
+                  ['F4/F11',  'raw_f4/f11',    4],
+                  ['Z10/Z11', 'raw_z10/z11',   4],
+                  ['L43',     'raw_l43',       3],
+                  ['Z12/Z4/Z6/Z9', 'raw_z…',  3],
+                  ['W (wick)', 'raw_w',         3],
+                  ['RTV',     'raw_rtv',       3],
+                  ['T10/T11/T12','raw_t1x',    2],
+                ].map(([sig, key, pts]) => (
+                  <tr key={sig} className="border-b border-gray-800/50">
+                    <td className="py-0.5 pr-4 font-mono text-gray-300">{sig}</td>
+                    <td className="py-0.5 pr-4 text-gray-600 font-mono text-[10px]">{key}</td>
+                    <td className="py-0.5 text-lime-400">+{pts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.9 — Research Forward Score (future data — CSV only)</p>
+          <p className="text-gray-500 text-xs mb-1">
+            Added only in CSV exports, not in live scoring. Uses look-ahead data unavailable in real-time.
+          </p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Condition</th>
+                  <th className="text-left py-1">Pts</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['VBO fires within next 5 bars', '+10'],
+                  ['VBO fires within next 6–10 bars', '+6'],
+                  ['GOG fires within next 5 bars', '+12'],
+                  ['GOG fires within next 6–10 bars', '+8'],
+                ].map(([cond, pts]) => (
+                  <tr key={cond} className="border-b border-gray-800/50">
+                    <td className="py-0.5 pr-4 text-gray-300">{cond}</td>
+                    <td className="py-0.5 text-sky-400">{pts}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.10 — Risk Penalty</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse mt-1">
+              <tbody>
+                <tr className="border-b border-gray-800/50">
+                  <td className="py-0.5 pr-4 text-gray-300">ALREADY_EXTENDED flag</td>
+                  <td className="py-0.5 text-red-400">−15</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-gray-500 text-xs mt-1">
+            Buckets: the SIGNAL_SCORE bucket appends <span className="font-mono">_EXTENDED</span> when
+            already_extended=1 and score ≥ 80 (e.g. <span className="font-mono text-orange-400">A_EXTENDED</span>).
+          </p>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Score Buckets</p>
+          <div className="flex flex-wrap gap-2 text-xs mt-1">
+            {[
+              ['ELITE',       '≥ 120', 'bg-yellow-700 text-yellow-100 ring-1 ring-yellow-400'],
+              ['A_PLUS',      '≥ 100', 'bg-lime-800 text-lime-100 ring-1 ring-lime-400'],
+              ['A',           '≥ 80',  'bg-green-900 text-green-200'],
+              ['B',           '≥ 60',  'bg-teal-900 text-teal-300'],
+              ['WATCH',       '≥ 40',  'bg-gray-800 text-gray-300'],
+              ['LOW_WATCH',   '≥ 20',  'bg-gray-800 text-gray-500'],
+              ['NO_SIGNAL',   '< 20',  'bg-gray-900 text-gray-600'],
+            ].map(([bucket, range, cls]) => (
+              <div key={bucket} className={`rounded px-2 py-1 font-mono font-semibold ${cls}`}>
+                {bucket} <span className="font-normal opacity-70">{range}</span>
+              </div>
+            ))}
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">7.11 — Final Formula</p>
+          <div className="bg-gray-800/60 rounded p-2 text-xs font-mono text-gray-300">
+            SIGNAL_SCORE = GOG_BASE + PREMIUM_CTX + LOAD_CTX + L_RECLAIM<br/>
+            {'             '}+ COMPRESSION + SQ_BCT + BASE_SETUP + RAW_SUPPORT(cap 25)<br/>
+            {'             '}− RISK_PENALTY &nbsp; &nbsp; → clamped 0–160<br/>
+            <br/>
+            RESEARCH_SCORE = SIGNAL_SCORE + RESEARCH_FORWARD (CSV only)
+          </div>
+        </Section>
+
+        {/* ── RTB SCORE ── */}
+        <Section title="📈 RTB SCORE — Reversal-To-Breakout Phase Score">
+          <p className="mb-2">
+            A sequential phase model that tracks where a ticker sits in the journey from
+            dead base / downtrend → accumulation → first reversal → breakout-ready state.
+            Each phase contributes a sub-score; the phase is determined bar-by-bar with hysteresis.
+          </p>
+
+          <p className="text-gray-400 mt-3 mb-1 font-medium">Phases</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Phase</th>
+                  <th className="text-left py-1 pr-4">Name</th>
+                  <th className="text-left py-1 pr-4">What it captures</th>
+                  <th className="text-left py-1">Score field (cap)</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['0',  'No signal',  'No structure detected yet',                                 '—'],
+                  ['A',  'BUILD',      'Dead base / quiet accumulation — CONSO, L64/L22, W-dot, NS, LD, SQ/dSPR', 'rtb_build (12)'],
+                  ['B',  'TURN',       'First reversal candle — L34/FRI34 reclaim, TZ→3, dSPR, CLM, L88, complex B-rules', 'rtb_turn (14)'],
+                  ['C',  'READY',      'Pre-breakout readiness — SVS/UM, EMA/BB proximity, breakout candle cluster', 'rtb_ready (12)'],
+                  ['D',  'LATE',       'Post-breakout — breakout signals have already fired; penalised', 'rtb_late (−12)'],
+                ].map(([ph, name, desc, field]) => (
+                  <tr key={ph} className="border-b border-gray-800/50">
+                    <td className="py-0.5 pr-4 font-mono font-bold text-blue-300">{ph}</td>
+                    <td className="py-0.5 pr-4 font-semibold text-gray-200">{name}</td>
+                    <td className="py-0.5 pr-4 text-gray-400 text-[11px]">{desc}</td>
+                    <td className="py-0.5 font-mono text-lime-400 text-[11px]">{field}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Score Components</p>
+          <div className="overflow-x-auto">
+            <table className="text-xs border-collapse w-full mt-1">
+              <thead>
+                <tr className="text-gray-500 border-b border-gray-700">
+                  <th className="text-left py-1 pr-4">Field</th>
+                  <th className="text-left py-1 pr-4">Description</th>
+                  <th className="text-left py-1">Cap</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[
+                  ['rtb_build',  'A-phase: base structure + dryness + Wyckoff context', 12],
+                  ['rtb_turn',   'B-phase: reversal candle + reclaim level + flow signal', 14],
+                  ['rtb_ready',  'C-phase: breakout triggers approaching or present',  12],
+                  ['rtb_bonus3', '3-bar context: recent volume/signal cluster bonus',    8],
+                  ['rtb_late',   'D-phase penalty: breakout already in progress',      −12],
+                ].map(([field, desc, cap]) => (
+                  <tr key={field} className="border-b border-gray-800/50">
+                    <td className={`py-0.5 pr-4 font-mono ${cap < 0 ? 'text-red-400' : 'text-lime-300'}`}>{field}</td>
+                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
+                    <td className={`py-0.5 font-semibold ${cap < 0 ? 'text-red-400' : 'text-gray-300'}`}>{cap > 0 ? `+${cap}` : cap}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <div className="bg-gray-800/60 rounded p-2 text-xs font-mono text-gray-300 mt-2">
+            rtb_total = max(0, rtb_build + rtb_turn + rtb_ready + rtb_bonus3 − rtb_late)
+          </div>
+
+          <p className="text-gray-400 mt-4 mb-1 font-medium">Phase Transitions</p>
+          <div className="flex flex-wrap gap-2 text-xs mt-1">
+            {[
+              'A_START', 'A_HOLD', 'A_TO_B', 'B_HOLD', 'B_TO_C', 'C_HOLD', 'C_TO_D', 'RESET_HARD', 'RESET_SOFT'
+            ].map(t => (
+              <span key={t} className="bg-gray-800 text-gray-300 font-mono px-2 py-0.5 rounded">{t}</span>
+            ))}
+          </div>
+          <p className="text-gray-500 text-xs mt-2">
+            Phase progression requires hysteresis confirmation — the new phase must score higher than
+            the previous phase for at least 1 bar before a transition is committed.
+            Hard reset on strong distribution signals; soft reset on extended runs without new evidence.
+          </p>
+        </Section>
+
         {/* ── Superchart ── */}
         <Section title="📊 Superchart — Signal Matrix + Statistics">
           <p className="mb-2">
@@ -378,6 +750,7 @@ export default function HowItWorksPanel() {
             <Row label="VABS" cls="text-lime-300">VABS pattern: BEST★, STRONG, ABS, CLM, VBO↑, SQ, BC, NS</Row>
             <Row label="WICK" cls="text-sky-300">Wick X confirmation signals: WP↑, WC↑, X2G, X2, X1G</Row>
             <Row label="turbo" cls="text-lime-300">Composite turbo score (0–100) for that bar</Row>
+            <Row label="SCORE" cls="text-yellow-300">SIGNAL_SCORE (0–160) — shown only when ≥ 20; color-coded by bucket (yellow=ELITE, lime=A_PLUS…)</Row>
             <Row label="close" cls="text-gray-300">Closing price (green = up, red = down vs previous bar)</Row>
           </ul>
 
@@ -427,8 +800,9 @@ export default function HowItWorksPanel() {
             Google Sheets for custom filtering and back-testing.
           </p>
           <ul className="list-disc list-inside mt-1 space-y-1 text-gray-400">
-            <li>Columns: date, open, high, low, close, vol_bucket, turbo_score, Z, T, L, F, FLY, G, B, Combo, ULT, VOL, VABS, WICK</li>
+            <li>~100 columns: date, OHLCV, scores, GOG_TIER, CONTEXT, SETUP, signal groups (Z/T/L/F/FLY/G/B/Combo/ULT/VOL/VABS/WICK), RTB fields, SIGNAL_SCORE sub-components, and ~90 individual SIG_* boolean columns</li>
             <li>Multiple signals per cell are space-separated (e.g. <Tag cls="text-orange-300">"F3 F4 F7"</Tag>)</li>
+            <li>SIG_* boolean columns enable combo analysis — filter rows where <Tag cls="text-lime-300">SIG_BEST=1</Tag> AND <Tag cls="text-cyan-300">SIG_L34=1</Tag> etc.</li>
           </ul>
         </Section>
 
