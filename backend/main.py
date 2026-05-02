@@ -606,11 +606,15 @@ def api_turbo_scan(
             }
             try:
                 _sc = _signal_score(_bar)
-                row["signal_score"]  = _sc["signal_score"]
-                row["signal_bucket"] = _sc["signal_bucket"]
+                row["signal_score"]       = _sc["signal_score"]
+                row["signal_bucket"]      = _sc["signal_bucket"]
+                row["rocket_score"]       = _sc.get("rocket_score", 0)
+                row["bearish_risk_score"] = _sc.get("bearish_risk_score", 0)
+                row["final_bull_score"]   = _sc.get("final_bull_score", 0)
+                row["final_regime"]       = _sc.get("final_regime", "")
             except Exception:
-                row["signal_score"]  = 0
-                row["signal_bucket"] = ""
+                row["signal_score"]       = 0
+                row["signal_bucket"]      = ""
 
         return {"results": results, "last_scan": last_time}
     except Exception as exc:
@@ -1380,8 +1384,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "sig_best":    int(_b(vabs,"best_sig")),
             "sig_strong":  int(_b(vabs,"strong_sig")),
             "sig_vbo_dn":  int(_b(vabs,"vbo_dn")),
-            "sig_ns":      int(_b(vabs,"ns")),
-            "sig_nd":      int(_b(vabs,"nd")),
+            "sig_ns_vabs": int(_b(vabs,"ns")),
+            "sig_nd_vabs": int(_b(vabs,"nd")),
             "sig_sc":      int(_b(vabs,"sc")),
             "sig_bc":      int(_b(vabs,"bc")),
             "sig_abs":     int(_b(vabs,"abs_sig")),
@@ -1469,6 +1473,63 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "sig_ca":  1 if (int(tz_state_ser.iloc[i])==2 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
             "sig_cw":  1 if (int(tz_state_ser.iloc[i])==1 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
             "sig_seq_bcont": int(bool(seq_bcont_ser.iloc[i])),
+            # ── NS/ND Delta (disambiguated from VABS NS/ND)
+            "sig_ns_delta": int(_b(combo_df,"d_vd_div_bull") if combo_df is not None and not combo_df.empty and "d_vd_div_bull" in combo_df.columns else 0),
+            "sig_nd_delta": int(_b(combo_df,"d_vd_div_bear") if combo_df is not None and not combo_df.empty and "d_vd_div_bear" in combo_df.columns else 0),
+            # ── Meta family any-flags
+            "sig_any_f":  int(any(_b(f_sigs,f"f{n}") for n in range(1,12))),
+            "sig_any_b":  int(any(_b(b_sigs,f"b{n}") for n in range(1,12))),
+            "sig_any_p":  int(any(_b(combo_df,k) for k in ["preup66","preup55","preup89","preup50","preup3","preup2"])),
+            "sig_any_d":  int(any(_b(combo_df,k) for k in ["predn66","predn55","predn89","predn50","predn3","predn2"])),
+            "sig_l_any":  int(any(_b(wlnbb,k) for k in ["L34","L43","L64","L22","L555","ONLY_L2L4","FRI34","FRI43","FRI64"])),
+            "sig_be_any": int(_b(wlnbb,"BE_UP") or _b(wlnbb,"BE_DN")),
+            "sig_gog_plus": int(any(bool(_gv(k,i)) for k in ["G1P","G1L","G1C","G2P","G2L","G2C","G3P","G3L","G3C"])),
+            "sig_not_ext":  int(not bool(_gv("already_extended_flag",i))),
+            # ── Price vs EMA (use ema fields from bar if available)
+            "sig_price_gt_20":  int(float(row.get("close",0) or 0) > float(row.get("ema20",0) or 0) > 0),
+            "sig_price_gt_50":  int(float(row.get("close",0) or 0) > float(row.get("ema50",0) or 0) > 0),
+            "sig_price_gt_89":  int(float(row.get("close",0) or 0) > float(row.get("ema89",0) or 0) > 0),
+            "sig_price_gt_200": int(float(row.get("close",0) or 0) > float(row.get("ema200",0) or 0) > 0),
+            "sig_price_lt_20":  int(float(row.get("ema20",0) or 0)  > float(row.get("close",0) or 0) > 0),
+            "sig_price_lt_50":  int(float(row.get("ema50",0) or 0)  > float(row.get("close",0) or 0) > 0),
+            "sig_price_lt_89":  int(float(row.get("ema89",0) or 0)  > float(row.get("close",0) or 0) > 0),
+            "sig_price_lt_200": int(float(row.get("ema200",0) or 0) > float(row.get("close",0) or 0) > 0),
+            # ── RSI filters
+            "sig_rsi_le_35": int(float(row.get("rsi", 50) or 50) <= 35),
+            "sig_rsi_ge_70": int(float(row.get("rsi", 50) or 50) >= 70),
+            # ── Data source
+            "sig_yf_source": 0,
+            # ── P66/P55 (combo_df may not have these)
+            "sig_p66": int(_b(combo_df,"preup66")),
+            "sig_p55": int(_b(combo_df,"preup55")),
+            # ── D-family PREDN
+            "sig_d66": int(_b(combo_df,"predn66")),
+            "sig_d55": int(_b(combo_df,"predn55")),
+            "sig_d89": int(_b(combo_df,"predn89")),
+            "sig_d50": int(_b(combo_df,"predn50")),
+            "sig_d3":  int(_b(combo_df,"predn3")),
+            "sig_d2":  int(_b(combo_df,"predn2")),
+            # ── Delta extras
+            "sig_flp_up":      int(_b(combo_df,"d_flip_bull") if combo_df is not None and not combo_df.empty and "d_flip_bull" in combo_df.columns else 0),
+            "sig_org_up":      int(_b(combo_df,"d_orange_bull") if combo_df is not None and not combo_df.empty and "d_orange_bull" in combo_df.columns else 0),
+            "sig_dd_up_red":   int(_b(combo_df,"d_blast_bull_red") if combo_df is not None and not combo_df.empty and "d_blast_bull_red" in combo_df.columns else 0),
+            "sig_d_up_red":    int(_b(combo_df,"d_surge_bull_red") if combo_df is not None and not combo_df.empty and "d_surge_bull_red" in combo_df.columns else 0),
+            "sig_d_dn_green":  int(_b(combo_df,"d_surge_bear_grn") if combo_df is not None and not combo_df.empty and "d_surge_bear_grn" in combo_df.columns else 0),
+            "sig_dd_dn_green": int(_b(combo_df,"d_blast_bear_grn") if combo_df is not None and not combo_df.empty and "d_blast_bear_grn" in combo_df.columns else 0),
+            # ── CISD
+            "sig_cisd_cplus":       int(_b(combo_df,"cisd_cplus") if combo_df is not None and not combo_df.empty and "cisd_cplus" in combo_df.columns else 0),
+            "sig_cisd_cplus_minus": int(_b(combo_df,"cisd_cplus_minus") if combo_df is not None and not combo_df.empty and "cisd_cplus_minus" in combo_df.columns else 0),
+            "sig_cisd_cplus_mm":    int(_b(combo_df,"cisd_cplus_minus_minus") if combo_df is not None and not combo_df.empty and "cisd_cplus_minus_minus" in combo_df.columns else 0),
+            # ── PARA context
+            "sig_para_prep":   int(_b(combo_df,"para_prep") if combo_df is not None and not combo_df.empty and "para_prep" in combo_df.columns else 0),
+            "sig_para_start":  int(_b(combo_df,"para_start") if combo_df is not None and not combo_df.empty and "para_start" in combo_df.columns else 0),
+            "sig_para_plus":   int(_b(combo_df,"para_plus") if combo_df is not None and not combo_df.empty and "para_plus" in combo_df.columns else 0),
+            "sig_para_retest": int(_b(combo_df,"para_retest") if combo_df is not None and not combo_df.empty and "para_retest" in combo_df.columns else 0),
+            # ── Cross-engine lightning count (placeholders, patched below)
+            "sig_cross_2plus": 0,
+            "sig_cross_3plus": 0,
+            "sig_cross_4plus": 0,
+            "sig_early_e":     int(bool(_b(combo_df,"d_spring") if combo_df is not None and not combo_df.empty and "d_spring" in combo_df.columns else False) or bool(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_ser.iloc[i]) != int(tz_state_prev.iloc[i]))),
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,
@@ -1488,6 +1549,21 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "dbg_pending_phase_count":  dbg_pending_phase_count_val,
         })
 
+        # ── Cross-engine family count patch ─────────────────────────────────────
+        _r = result[-1]
+        _fam = 0
+        if any(_r.get(k) for k in ["sig_best","sig_strong","sig_abs","sig_clm","sig_ns_vabs","sig_nd_vabs"]): _fam += 1
+        if any(_r.get(k) for k in ["sig_best_up","sig_fbo_up","sig_eb_up","sig_3up","sig_4bf_dn"]): _fam += 1
+        if any(_r.get(k) for k in ["sig_fri34","sig_fri43","sig_l555","sig_l2l4","sig_blue","sig_cci"]): _fam += 1
+        if any(_r.get(f"sig_b{n}") for n in range(1,12)): _fam += 1
+        if any(_r.get(f"sig_g{k}") for k in [1,2,4,6,11]): _fam += 1
+        if any(_r.get(f"sig_f{n}") for n in range(1,12)): _fam += 1
+        if any(_r.get(k) for k in ["sig_fly_abcd","sig_fly_cd","sig_fly_bd","sig_fly_ad"]): _fam += 1
+        if any(_r.get(k) for k in ["sig_p66","sig_p55","sig_p89","sig_p3","sig_p2","sig_p50"]): _fam += 1
+        result[-1]["sig_cross_2plus"] = int(_fam >= 2)
+        result[-1]["sig_cross_3plus"] = int(_fam >= 3)
+        result[-1]["sig_cross_4plus"] = int(_fam >= 4)
+
         # Score sub-components (requires module-level _signal_score)
         try:
             _sc = _signal_score(result[-1])
@@ -1506,6 +1582,12 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                 "raw_support_score":         _sc["raw_support_score"],
                 "risk_penalty":              _sc["risk_penalty"],
                 "research_forward_score":    _sc["research_forward_score"],
+                "rocket_score":              _sc["rocket_score"],
+                "bearish_risk_score":        _sc["bearish_risk_score"],
+                "experimental_score":        _sc["experimental_score"],
+                "extra_bull_score":          _sc["extra_bull_score"],
+                "final_bull_score":          _sc["final_bull_score"],
+                "final_regime":              _sc["final_regime"],
             })
         except Exception:
             pass
@@ -1655,6 +1737,235 @@ def _signal_score(b):
         if ext and signal_score >= 80:
             bucket += "_EXTENDED"
 
+        # ── Helper: read sig_* boolean fields (0 if missing)
+        def _s(k): return bool(b.get(k, 0))
+
+        # ── ROCKET_SCORE ────────────────────────────────────────────────────────
+        rocket_pts = 0
+        # Vol 20x
+        if _s("sig_vol_20x"): rocket_pts += 8
+        # F-family combos
+        if _s("sig_f8") and (_s("sig_svs") or _s("sig_conso")):
+            rocket_pts += 25
+        elif _s("sig_f8") and any(_s(k) for k in ["sig_bct","ctx_bct","ctx_sqb","ctx_lrp","ctx_ldp"]):
+            rocket_pts += 12
+        if _s("sig_f6") and any(b.get(k,0) for k in ["g1c","g1l"]): rocket_pts += 10
+        if _s("sig_f11") and any(_s(k) for k in ["ctx_sqb","ctx_bct"]): rocket_pts += 10
+        # FLY combos
+        if _s("sig_fly_abcd"):
+            rocket_pts += 10
+            if _s("sig_svs"):  rocket_pts += 5
+        # PARA
+        if _s("sig_para_plus"):
+            rocket_pts += 18
+            if _s("sig_svs"): rocket_pts += 7
+        elif _s("sig_para_start"): rocket_pts += 10
+        # ANY_P combos
+        _any_p = any(_s(k) for k in ["sig_p66","sig_p55","sig_p89","sig_p3","sig_p2","sig_p50"])
+        if _any_p and any(b.get(k,0) for k in ["g1c","g1l"]): rocket_pts += 8
+        if _any_p and any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): rocket_pts += 8
+        if _any_p and any(_s(k) for k in ["ctx_bct","ctx_sqb"]): rocket_pts += 7
+        if _any_p and (_s("sig_f8") or f8c): rocket_pts += 7
+        if _any_p and _s("sig_svs"): rocket_pts += 8
+        rocket_score = int(rocket_pts)
+
+        # ── BEARISH_RISK_SCORE ──────────────────────────────────────────────────
+        bear_pts = 0
+        bias_dn = _s("sig_bias_dn")
+        # ND_VABS bearish pair
+        if _s("sig_nd_vabs") and bias_dn: bear_pts += 8
+        # BE_DN
+        if _s("sig_be_dn"): bear_pts += 20
+        # RH extended
+        if _s("sig_rh") and bool(b.get("already_extended",0)): bear_pts += 10
+        # FBO_DN
+        if _s("sig_fbo_dn"): bear_pts += 20
+        # EB_DN
+        if _s("sig_eb_dn"): bear_pts += 12
+        # 4BF_DN
+        if _s("sig_4bf_dn"): bear_pts += 15
+        # BEST_UP bearish context
+        if _s("sig_best_up") and (bias_dn or _s("sig_bc")): bear_pts += 35
+        # D-family (PREDN)
+        _predn_pts = 0
+        if _s("sig_d66"):  _predn_pts = max(_predn_pts, 10)
+        if _s("sig_d89"):  _predn_pts = max(_predn_pts, 10)
+        if _s("sig_d55"):  _predn_pts = max(_predn_pts, 9)
+        if _s("sig_d50"):  _predn_pts = max(_predn_pts, 8)
+        if _s("sig_d3"):   _predn_pts = max(_predn_pts, 7)
+        if _s("sig_d2"):   _predn_pts = max(_predn_pts, 7)
+        _any_d = _predn_pts > 0
+        bear_pts += _predn_pts
+        if _any_d and bias_dn: bear_pts += 15
+        # Delta bearish
+        if _s("sig_d_dn_green"): bear_pts += 10
+        if _s("sig_dd_dn_green"): bear_pts += 12
+        if _s("sig_nd_delta"): bear_pts += 10
+        if (_s("sig_d_dn_green") or _s("sig_dd_dn_green") or _s("sig_nd_delta")) and bias_dn:
+            bear_pts += 20
+        # Price below EMAs
+        if _s("sig_price_lt_20"):  bear_pts += 2
+        if _s("sig_price_lt_50"):  bear_pts += 3
+        if _s("sig_price_lt_89"):  bear_pts += 4
+        if _s("sig_price_lt_200"): bear_pts += 5
+        # RSI extended
+        if _s("sig_rsi_ge_70") and bool(b.get("already_extended",0)): bear_pts += 6
+        # ANY_P bearish context
+        if _any_p and bias_dn: bear_pts += 15
+        if _any_p and gog_tier_s in ("GOG2","G2L","G2C","G2P"): bear_pts += 12
+        # PARA overextended
+        if _s("sig_para_start") and bias_dn: bear_pts += 30
+        # FLY with bias_dn
+        if any(_s(k) for k in ["sig_fly_abcd","sig_fly_cd","sig_fly_bd","sig_fly_ad"]) and bias_dn:
+            bear_pts += 20
+        # CISD minus patterns with bias_dn
+        if (_s("sig_cisd_cplus_minus") or _s("sig_cisd_cplus_mm")) and bias_dn:
+            bear_pts += 10
+        bearish_risk_score = int(bear_pts)
+
+        # ── EXPERIMENTAL_SCORE ──────────────────────────────────────────────────
+        exp_pts = 0
+        if _s("sig_para_prep"): exp_pts += 5
+        # FLY experimental (until stats validated)
+        _fly_pts = 0
+        if _s("sig_fly_abcd"): _fly_pts += 10
+        elif _s("sig_fly_cd"):  _fly_pts += 7
+        elif _s("sig_fly_bd"):  _fly_pts += 6
+        elif _s("sig_fly_ad"):  _fly_pts += 6
+        exp_pts += min(_fly_pts, 20)
+        experimental_score = int(exp_pts)
+
+        # ── ADDITIONAL BULLISH SCORE ITEMS (extend signal_score) ────────────────
+        extra_bull = 0
+        # STRONG
+        if _s("sig_strong"): extra_bull += 8
+        # Vol family
+        if _s("sig_vol_5x"): extra_bull += 6
+        # BIAS_UP
+        if _s("sig_bias_up"): extra_bull += 5
+        # F-family unscored members
+        if _s("sig_f1"): extra_bull += 3
+        if _s("sig_f2"): extra_bull += 3
+        if _s("sig_f5"): extra_bull += 2
+        if _s("sig_f7"): extra_bull += 2
+        if _s("sig_f9"): extra_bull += 3
+        if _s("sig_f10"): extra_bull += 3
+        _any_f = any(_s(f"sig_f{n}") for n in range(1,12))
+        _specific_f_scored = any(_s(f"sig_f{n}") for n in [3,4,6,8,11])
+        if _any_f and not (_specific_f_scored or any(_s(f"sig_f{n}") for n in [1,2,5,7,9,10])):
+            extra_bull += 3
+        # B-family (cap 10)
+        _b_pts = sum(2 for n in range(1,12) if _s(f"sig_b{n}"))
+        extra_bull += min(_b_pts, 10)
+        # FRI64, L64, L22, L555, L2L4
+        if _s("sig_fri64"): extra_bull += 4
+        if b.get("raw_l64",0): extra_bull += 4
+        if b.get("raw_l22",0): extra_bull += 6
+        if _s("sig_l555"): extra_bull += 5
+        if _s("sig_l2l4"): extra_bull += 4
+        # L combos
+        if b.get("raw_l22",0) and any(_s(k) for k in ["ctx_sqb","ctx_bct"]): extra_bull += 8
+        # CCI0R, CCIB, PP
+        if _s("sig_cci0r"): extra_bull += 5
+        if _s("sig_ccib"):  extra_bull += 5
+        if _s("sig_pp"):    extra_bull += 5
+        # BEST_UP + GOG combo (positive case)
+        if _s("sig_best_up") and any(b.get(k,0) for k in ["g1c","g1l"]): extra_bull += 5
+        # Delta extras
+        if _s("sig_flp_up"): extra_bull += 5
+        if _s("sig_org_up"): extra_bull += 4
+        if _s("sig_dd_up_red"): extra_bull += 4
+        if _s("sig_d_up_red"):  extra_bull += 3
+        # P50
+        if _s("sig_p50"): extra_bull += 6
+        # ANY_P fallback
+        _any_p_scored = any(_s(k) for k in ["sig_p66","sig_p55","sig_p89","sig_p3","sig_p2"])
+        if _any_p and not _any_p_scored: extra_bull += 3
+        # PARA scored signals
+        if _s("sig_para_plus"):
+            para_bull = 16
+            if any(b.get(k,0) for k in ["g1c","g1l","gog1"]): para_bull += 16
+            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): para_bull += 12
+            elif any(_s(k) for k in ["ctx_bct","ctx_sqb"]): para_bull += 10
+            elif _s("sig_svs"): para_bull += 12
+            elif _s("sig_f8") or f8c: para_bull += 10
+            extra_bull += para_bull
+        elif _s("sig_para_start"):
+            para_bull = 10
+            if any(b.get(k,0) for k in ["g1c","g1l"]): para_bull += 12
+            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): para_bull += 12
+            elif any(_s(k) for k in ["ctx_bct","ctx_sqb"]): para_bull += 10
+            elif _s("sig_svs"): para_bull += 12
+            extra_bull += para_bull
+        if _s("sig_para_retest"):
+            retest_bull = 8
+            if any(b.get(k,0) for k in ["g1c","g1l"]): retest_bull += 10
+            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): retest_bull += 10
+            extra_bull += retest_bull
+        # FLY bullish
+        _fly_bull = 0
+        if _s("sig_fly_abcd"):
+            _fly_bull += 10
+            if _s("sig_svs"): _fly_bull += 5
+            if any(_s(k) for k in ["ctx_bct","ctx_sqb"]): _fly_bull += 4
+            if any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): _fly_bull += 4
+            if any(b.get(k,0) for k in ["g1c","g1l"]): _fly_bull += 2
+        elif _s("sig_fly_cd"):
+            _fly_bull += 7
+            if _s("sig_svs"): _fly_bull += 5
+            if any(_s(k) for k in ["ctx_bct","ctx_sqb"]): _fly_bull += 3
+        elif _s("sig_fly_bd") or _s("sig_fly_ad"):
+            _fly_bull += 6
+            if _s("sig_f8") or f8c: _fly_bull += 2
+        extra_bull += _fly_bull
+        # CISD
+        if _s("sig_cisd_cplus"):
+            cisd_pts = 6
+            if any(b.get(k,0) for k in ["g1c","g1l"]): cisd_pts += 8
+            elif _s("sig_f8") or f8c: cisd_pts += 8
+            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp","ctx_bct","ctx_sqb"]): cisd_pts += 8
+            elif _s("sig_svs"): cisd_pts += 6
+            extra_bull += cisd_pts
+        elif _s("sig_cisd_cplus_minus"): extra_bull += 5
+        elif _s("sig_cisd_cplus_mm"):    extra_bull += 4
+        # GOG_PLUS
+        _gog_plus = any(b.get(k,0) for k in ["g1p","g1l","g1c","g2p","g2l","g2c","g3p","g3l","g3c"])
+        if _gog_plus: extra_bull += 8
+        # CROSS engine bonuses
+        if b.get("sig_cross_4plus",0): extra_bull += 15
+        elif b.get("sig_cross_3plus",0): extra_bull += 10
+        elif b.get("sig_cross_2plus",0): extra_bull += 5
+        # EARLY_E
+        if b.get("sig_early_e",0): extra_bull += 8
+        # Price > EMA bonuses
+        if _s("sig_price_gt_200"): extra_bull += 5
+        elif _s("sig_price_gt_89"): extra_bull += 4
+        elif _s("sig_price_gt_50"): extra_bull += 3
+        elif _s("sig_price_gt_20"): extra_bull += 2
+        # RSI oversold watch
+        if _s("sig_rsi_le_35"): extra_bull += 3
+
+        # ── FINAL_BULL_SCORE ────────────────────────────────────────────────────
+        final_bull_raw = signal_score + extra_bull + min(rocket_score, 35) + min(experimental_score, 20) - bearish_risk_score
+        final_bull_score = max(0, min(180, int(round(final_bull_raw))))
+
+        # ── FINAL_REGIME ─────────────────────────────────────────────────────────
+        _ext = bool(b.get("already_extended", 0))
+        if bearish_risk_score >= 70:
+            final_regime = "BEARISH_PHASE"
+        elif final_bull_score >= 120 and not _ext:
+            final_regime = "ELITE_CLEAN_BULL"
+        elif final_bull_score >= 100 and not _ext:
+            final_regime = "A_PLUS_CLEAN_BULL"
+        elif rocket_score >= 45:
+            final_regime = "ROCKET_WATCH"
+        elif signal_score >= 60 and not gog_tier_s:
+            final_regime = "EARLY_WATCH"
+        elif _ext and final_bull_score >= 80:
+            final_regime = "PARABOLIC_EXTENDED"
+        else:
+            final_regime = "NEUTRAL_OR_LOW"
+
         return {
             "signal_score":              signal_score,
             "research_score":            research_score,
@@ -1675,6 +1986,12 @@ def _signal_score(b):
             "vbo_w10": vbo_w10,
             "gog_w5":  gog_w5,
             "gog_w10": gog_w10,
+            "rocket_score":          rocket_score,
+            "bearish_risk_score":    bearish_risk_score,
+            "experimental_score":    experimental_score,
+            "extra_bull_score":      int(extra_bull),
+            "final_bull_score":      final_bull_score,
+            "final_regime":          final_regime,
         }
 
 
@@ -1764,7 +2081,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             # ── All TurboScan signal booleans ─────────────────────────────────
             # VABS
             "SIG_BEST", "SIG_STRONG", "SIG_VBO_DN",
-            "SIG_NS", "SIG_ND", "SIG_SC", "SIG_BC", "SIG_ABS", "SIG_CLM",
+            "SIG_NS_VABS", "SIG_ND_VABS", "SIG_SC", "SIG_BC", "SIG_ABS", "SIG_CLM",
             # UltraV2
             "SIG_BEST_UP", "SIG_FBO_UP", "SIG_EB_UP", "SIG_3UP",
             "SIG_FBO_DN", "SIG_EB_DN", "SIG_4BF_DN",
@@ -1797,6 +2114,32 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "SIG_TZ", "SIG_T", "SIG_Z",
             "SIG_TZ3", "SIG_TZ2", "SIG_TZ_FLIP",
             "SIG_CD", "SIG_CA", "SIG_CW", "SIG_SEQ_BCONT",
+            # ── NS/ND Delta (disambiguated)
+            "SIG_NS_DELTA", "SIG_ND_DELTA",
+            # ── Meta family any-flags
+            "SIG_ANY_F", "SIG_ANY_B", "SIG_ANY_P", "SIG_ANY_D",
+            "SIG_L_ANY", "SIG_BE_ANY", "SIG_GOG_PLUS", "SIG_NOT_EXT",
+            # ── Price vs EMA
+            "PRICE_GT_20", "PRICE_GT_50", "PRICE_GT_89", "PRICE_GT_200",
+            "PRICE_LT_20", "PRICE_LT_50", "PRICE_LT_89", "PRICE_LT_200",
+            # ── RSI filters
+            "RSI_LE_35", "RSI_GE_70",
+            # ── Source / cross
+            "YF_SOURCE", "CROSS_2PLUS", "CROSS_3PLUS", "CROSS_4PLUS", "EARLY_E",
+            # ── P66/P55
+            "SIG_P66", "SIG_P55",
+            # ── D-family
+            "SIG_D66", "SIG_D55", "SIG_D89", "SIG_D50", "SIG_D3", "SIG_D2",
+            # ── Delta extras
+            "SIG_FLP_UP", "SIG_ORG_UP", "SIG_DD_UP_RED", "SIG_D_UP_RED",
+            "SIG_D_DN_GREEN", "SIG_DD_DN_GREEN",
+            # ── CISD
+            "SIG_CISD_CPLUS", "SIG_CISD_CPLUS_MINUS", "SIG_CISD_CPLUS_MM",
+            # ── PARA context
+            "SIG_PARA_PREP", "SIG_PARA_START", "SIG_PARA_PLUS", "SIG_PARA_RETEST",
+            # ── Composite scores
+            "ROCKET_SCORE", "BEARISH_RISK_SCORE", "EXPERIMENTAL_SCORE",
+            "EXTRA_BULL_SCORE", "FINAL_BULL_SCORE", "FINAL_REGIME",
         ]
 
         def _build_row(ticker, b):
@@ -1860,6 +2203,12 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             raw_support_s     = sc["raw_support_score"]
             risk_pen          = sc["risk_penalty"]
             research_fwd_s    = sc["research_forward_score"]
+            rocket_s          = sc.get("rocket_score", 0)
+            bearish_risk_s    = sc.get("bearish_risk_score", 0)
+            experimental_s    = sc.get("experimental_score", 0)
+            extra_bull_s      = sc.get("extra_bull_score", 0)
+            final_bull_s      = sc.get("final_bull_score", 0)
+            final_regime_s    = sc.get("final_regime", "")
             already_ext       = b.get("already_extended", 0)
 
             return (gog_tier_csv, sig_score, b.get("gog_score", 0),
@@ -1984,7 +2333,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 # ── All TurboScan signal booleans ──────────────────
                 # VABS
                 b.get("sig_best",0),   b.get("sig_strong",0), b.get("sig_vbo_dn",0),
-                b.get("sig_ns",0),     b.get("sig_nd",0),     b.get("sig_sc",0),
+                b.get("sig_ns_vabs",0), b.get("sig_nd_vabs",0), b.get("sig_sc",0),
                 b.get("sig_bc",0),     b.get("sig_abs",0),    b.get("sig_clm",0),
                 # UltraV2
                 b.get("sig_best_up",0),b.get("sig_fbo_up",0), b.get("sig_eb_up",0),
@@ -2030,6 +2379,42 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 b.get("sig_tz3",0),    b.get("sig_tz2",0),    b.get("sig_tz_flip",0),
                 b.get("sig_cd",0),     b.get("sig_ca",0),     b.get("sig_cw",0),
                 b.get("sig_seq_bcont",0),
+                # NS/ND Delta
+                b.get("sig_ns_delta",0), b.get("sig_nd_delta",0),
+                # Meta flags
+                b.get("sig_any_f",0),    b.get("sig_any_b",0),
+                b.get("sig_any_p",0),    b.get("sig_any_d",0),
+                b.get("sig_l_any",0),    b.get("sig_be_any",0),
+                b.get("sig_gog_plus",0), b.get("sig_not_ext",0),
+                # Price vs EMA
+                b.get("sig_price_gt_20",0),  b.get("sig_price_gt_50",0),
+                b.get("sig_price_gt_89",0),  b.get("sig_price_gt_200",0),
+                b.get("sig_price_lt_20",0),  b.get("sig_price_lt_50",0),
+                b.get("sig_price_lt_89",0),  b.get("sig_price_lt_200",0),
+                # RSI
+                b.get("sig_rsi_le_35",0), b.get("sig_rsi_ge_70",0),
+                # Source / cross
+                b.get("sig_yf_source",0),
+                b.get("sig_cross_2plus",0), b.get("sig_cross_3plus",0),
+                b.get("sig_cross_4plus",0), b.get("sig_early_e",0),
+                # P66/P55
+                b.get("sig_p66",0), b.get("sig_p55",0),
+                # D-family
+                b.get("sig_d66",0), b.get("sig_d55",0), b.get("sig_d89",0),
+                b.get("sig_d50",0), b.get("sig_d3",0),  b.get("sig_d2",0),
+                # Delta extras
+                b.get("sig_flp_up",0),    b.get("sig_org_up",0),
+                b.get("sig_dd_up_red",0), b.get("sig_d_up_red",0),
+                b.get("sig_d_dn_green",0),b.get("sig_dd_dn_green",0),
+                # CISD
+                b.get("sig_cisd_cplus",0),
+                b.get("sig_cisd_cplus_minus",0), b.get("sig_cisd_cplus_mm",0),
+                # PARA context
+                b.get("sig_para_prep",0),   b.get("sig_para_start",0),
+                b.get("sig_para_plus",0),   b.get("sig_para_retest",0),
+                # Composite scores
+                rocket_s, bearish_risk_s, experimental_s,
+                extra_bull_s, final_bull_s, final_regime_s,
             ])
 
         # Validation accumulators
