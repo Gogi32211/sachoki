@@ -2883,6 +2883,82 @@ def api_sector_detail_alias(ticker: str):
     return api_sectors_detail(ticker)
 
 
+# ── Replay Analytics ──────────────────────────────────────────────────────────
+import replay_engine as _re
+
+
+@app.post("/api/replay/run")
+def api_replay_run(background_tasks: BackgroundTasks,
+                   tf: str = "1d", universe: str = "sp500"):
+    st = _re.get_state()
+    if st["status"] == "running":
+        raise HTTPException(400, "Replay already running")
+    background_tasks.add_task(_re.run_replay, tf, universe)
+    return {"ok": True, "message": "Replay analytics started"}
+
+
+@app.get("/api/replay/status")
+def api_replay_status():
+    return _re.get_state()
+
+
+@app.get("/api/replay/reports")
+def api_replay_reports():
+    return {"reports": _re.get_report_list()}
+
+
+@app.get("/api/replay/report/{report_name}")
+def api_replay_report(report_name: str, page: int = 1, page_size: int = 500):
+    data, err = _re.load_report(report_name, page, page_size)
+    if err:
+        raise HTTPException(404, err)
+    return data
+
+
+@app.get("/api/replay/export/{report_name}")
+def api_replay_export(report_name: str):
+    # Summary markdown
+    if report_name == "summary_md":
+        path = os.path.join(_re.REPLAY_OUTPUT_DIR, "replay_summary.md")
+        if not os.path.exists(path):
+            raise HTTPException(404, "Summary not generated yet")
+        return FileResponse(path, media_type="text/markdown", filename="replay_summary.md")
+    path = os.path.join(_re.REPLAY_OUTPUT_DIR, f"replay_{report_name}.csv")
+    if not os.path.exists(path):
+        raise HTTPException(404, f"Report not found: {report_name}")
+    return FileResponse(path, media_type="text/csv", filename=f"replay_{report_name}.csv")
+
+
+@app.get("/api/replay/export-all")
+def api_replay_export_all():
+    from fastapi.responses import Response
+    try:
+        data = _re.export_zip()
+    except Exception as e:
+        raise HTTPException(500, str(e))
+    from datetime import datetime as _dt
+    fname = f"replay_analytics_reports_{_dt.now().strftime('%Y%m%d_%H%M%S')}.zip"
+    return Response(content=data, media_type="application/zip",
+                    headers={"Content-Disposition": f"attachment; filename={fname}"})
+
+
+@app.get("/api/replay/splits/summary")
+def api_replay_splits_summary():
+    data, err = _re.load_report("split_events")
+    if err or not data:
+        return {"available": False, "message": err or "No split data"}
+    evts = data.get("rows", [])
+    fwd  = [e for e in evts if e.get("split_type") == "FORWARD_SPLIT"]
+    rev  = [e for e in evts if e.get("split_type") == "REVERSE_SPLIT"]
+    return {
+        "available": True,
+        "total_events": len(evts),
+        "forward_splits": len(fwd),
+        "reverse_splits": len(rev),
+        "message": _re.get_state().get("message", ""),
+    }
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
