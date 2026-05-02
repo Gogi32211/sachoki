@@ -125,9 +125,6 @@ const SECTIONS = [
   { id: 'unscored_signals',   label: 'Unscored Signals', icon: '🔍' },
   { id: 'scored_weak',        label: 'Scored Weak',      icon: '📉' },
   { id: 'filter_miss_audit',  label: 'Filter Audit',     icon: '🔎' },
-  { id: 'split_events',       label: 'Split Events',     icon: '✂️' },
-  { id: 'split_missed',       label: 'Missed Splits',    icon: '📍' },
-  { id: 'split_false_positives', label: 'Split FP',      icon: '❌' },
   { id: 'summary_md',         label: 'Summary',          icon: '📝' },
 ]
 
@@ -262,44 +259,6 @@ const COLS = {
     { key: 'avg_max_high_10d_missed',    label: 'Avg MaxH Missed', fmt: pct },
     { key: 'top_missed_examples',        label: 'Examples' },
   ],
-  split_events: [
-    { key: 'ticker',                   label: 'Ticker' },
-    { key: 'split_date',               label: 'Date' },
-    { key: 'split_type',               label: 'Type' },
-    { key: 'split_ratio',              label: 'Ratio' },
-    { key: 'split_day_close',          label: 'Close',   fmt: num2 },
-    { key: 'final_bull_score',         label: 'FBS' },
-    { key: 'turbo_score',              label: 'Turbo' },
-    { key: 'final_regime',             label: 'Regime' },
-    { key: 'post_split_ret_5d',        label: 'Ret5D',   color: true, fmt: pct },
-    { key: 'post_split_ret_10d',       label: 'Ret10D',  color: true, fmt: pct },
-    { key: 'post_split_max5d',         label: 'Max5D',   fmt: pct },
-    { key: 'post_split_max10d',        label: 'Max10D',  fmt: pct },
-    { key: 'post_split_breakout_10d',  label: 'BOut10D' },
-    { key: 'post_split_parabolic_30d', label: 'Para30D' },
-    { key: 'post_split_fail_10d',      label: 'Fail10D' },
-    { key: 'active_signals_split_day', label: 'Signals' },
-  ],
-  split_missed: [
-    { key: 'ticker',              label: 'Ticker' },
-    { key: 'split_date',          label: 'Date' },
-    { key: 'split_type',          label: 'Type' },
-    { key: 'split_ratio',         label: 'Ratio' },
-    { key: 'final_bull_score',    label: 'FBS' },
-    { key: 'final_regime',        label: 'Regime' },
-    { key: 'post_split_max10d',   label: 'Max10D', fmt: pct },
-    { key: 'active_signals_split_day', label: 'Signals' },
-  ],
-  split_false_positives: [
-    { key: 'ticker',              label: 'Ticker' },
-    { key: 'split_date',          label: 'Date' },
-    { key: 'split_type',          label: 'Type' },
-    { key: 'split_ratio',         label: 'Ratio' },
-    { key: 'final_bull_score',    label: 'FBS' },
-    { key: 'final_regime',        label: 'Regime' },
-    { key: 'post_split_ret_10d',  label: 'Ret10D', color: true, fmt: pct },
-    { key: 'active_signals_split_day', label: 'Signals' },
-  ],
 }
 
 // ─── Section view ──────────────────────────────────────────────────────────────
@@ -323,16 +282,18 @@ function SectionView({ sectionId, reportList }) {
     }
   }, [sectionId])
 
+  // Reset state when section changes
   useEffect(() => {
-    if (prevId.current !== sectionId) {
-      prevId.current = sectionId
-      setData(null); setSearch(''); setError(null)
-      // Only load if report exists
-      if (reportList.some(r => r.name === sectionId || sectionId === 'summary_md')) {
-        load()
-      }
-    }
-  }, [sectionId, load, reportList])
+    setData(null); setSearch(''); setError(null)
+    prevId.current = sectionId
+  }, [sectionId])
+
+  // Load when section or reportList changes and we have no data yet
+  useEffect(() => {
+    if (data || loading) return
+    const hasReport = reportList.some(r => r.name === sectionId) || sectionId === 'summary_md'
+    if (hasReport) load()
+  }, [sectionId, reportList, data, loading, load])
 
   const exportCsv = () => {
     window.location.href = `${API}/api/replay/export/${sectionId}`

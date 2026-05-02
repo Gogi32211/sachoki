@@ -668,78 +668,10 @@ def _fetch_splits(tickers: List[str], min_date: str) -> List[dict]:
 
 
 def split_analytics(rows: List[dict]) -> dict:
-    tickers = list({_str(r, "ticker") for r in rows if _str(r, "ticker")})
-    dates   = sorted({_str(r, "date") for r in rows if _str(r, "date")})
-    if not dates or not tickers:
-        return {"available": False, "message": "No ticker/date data in dataset.",
-                "events": [], "missed": [], "false_positives": []}
-
-    min_date = dates[0]
-    split_evts = _fetch_splits(tickers, min_date)
-
-    if not split_evts:
-        return {
-            "available": False,
-            "message": "No split events found via yfinance in dataset date range. "
-                       "Connect yfinance or add split data to enable split analysis.",
-            "events": [], "missed": [], "false_positives": [],
-        }
-
-    # Build ticker→date→row index
-    by_td: Dict[str, Dict[str, dict]] = {}
-    for r in rows:
-        t = _str(r, "ticker"); d = _str(r, "date")
-        if t and d:
-            by_td.setdefault(t, {})[d] = r
-
-    event_rows = []
-    for evt in split_evts:
-        t  = evt["ticker"]
-        sd = evt["split_date"]
-        tr = by_td.get(t, {})
-        # Find nearest row to split date
-        sr = tr.get(sd) or (tr.get(min(tr.keys(), key=lambda d: abs(d.replace("-","") + "0" if len(d) < 10 else d))) if tr else None)
-        if sr is None:
-            continue
-        sc = _n(sr, "close")
-        if sc <= 0:
-            continue
-        row = {
-            **evt,
-            "split_day_close":    sc,
-            "final_bull_score":   _n(sr, "FINAL_BULL_SCORE"),
-            "turbo_score":        _n(sr, "turbo_score"),
-            "signal_score":       _n(sr, "SIGNAL_SCORE"),
-            "rtb_score":          _n(sr, "rtb_total"),
-            "clean_entry_score":  _n(sr, "CLEAN_ENTRY_SCORE"),
-            "rocket_score":       _n(sr, "ROCKET_SCORE"),
-            "hard_bear_score":    _n(sr, "HARD_BEAR_SCORE","BEARISH_RISK_SCORE"),
-            "final_regime":       _str(sr, "FINAL_REGIME"),
-            "final_score_bucket": _str(sr, "FINAL_SCORE_BUCKET"),
-            "post_split_ret_5d":  sr.get("_ret5",  _f(sr.get("RET_5D",  0))),
-            "post_split_ret_10d": sr.get("_ret10", _f(sr.get("RET_10D", 0))),
-            "post_split_max5d":   sr.get("_max5",  _f(sr.get("MAX_RET_5D",  0))),
-            "post_split_max10d":  sr.get("_max10", _f(sr.get("MAX_RET_10D", 0))),
-            "post_split_breakout_10d":  int(sr.get("_max10", _f(sr.get("MAX_RET_10D",0))) >= 20.0),
-            "post_split_parabolic_30d": int(sr.get("_max10", _f(sr.get("MAX_RET_10D",0))) >= 30.0),
-            "post_split_fail_10d":      int(sr.get("_fail10", _f(sr.get("RET_10D",0)) <= -12.0)),
-            "active_signals_split_day": "|".join(_active_sigs(sr)),
-        }
-        event_rows.append(row)
-
-    missed = [e for e in event_rows if e["post_split_breakout_10d"] and e["final_bull_score"] < 60]
-    fps    = [e for e in event_rows if e["final_bull_score"] >= 100 and e["post_split_fail_10d"]]
-    fwd    = [e for e in event_rows if e["split_type"] == "FORWARD_SPLIT"]
-    rev    = [e for e in event_rows if e["split_type"] == "REVERSE_SPLIT"]
-    msg    = (f"Analyzed {len(event_rows)} split events "
-              f"({len(fwd)} forward, {len(rev)} reverse). "
-              f"Missed breakouts: {len(missed)}. Split false positives: {len(fps)}.")
     return {
-        "available": True,
-        "message": msg,
-        "events": event_rows,
-        "missed": missed,
-        "false_positives": fps,
+        "available": False,
+        "message": "Split analytics disabled.",
+        "events": [], "missed": [], "false_positives": [],
     }
 
 
@@ -919,12 +851,16 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         _save("filter_miss_audit", filter_miss_audit(rows))
 
         # 14 — Splits
-        _state["progress"] = 14; _state["message"] = "Split analytics (fetching split data)..."
-        sr = split_analytics(rows)
-        _save("split_events", sr.get("events", []))
-        _save("split_missed", sr.get("missed", []))
-        _save("split_false_positives", sr.get("false_positives", []))
-        cached["split_analytics"] = sr
+        _state["progress"] = 14; _state["message"] = "Split analytics..."
+        try:
+            sr = split_analytics(rows)
+            _save("split_events", sr.get("events", []))
+            _save("split_missed", sr.get("missed", []))
+            _save("split_false_positives", sr.get("false_positives", []))
+            cached["split_analytics"] = sr
+        except Exception as _se:
+            log.warning("Split analytics skipped: %s", _se)
+            cached["split_analytics"] = {"available": False, "message": str(_se), "events": [], "missed": [], "false_positives": []}
 
         # 15 — Summary
         _state["progress"] = 15; _state["message"] = "Writing summary..."
