@@ -1375,6 +1375,100 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "ret_to_next_vbo_high":  _fv("ret_to_next_vbo_high",i),
             "ret_to_next_gog_close": _fv("ret_to_next_gog_close",i),
             "ret_to_next_gog_high":  _fv("ret_to_next_gog_high",i),
+            # ── All TurboScan signal booleans ─────────────────────────────────
+            # VABS individual
+            "sig_best":    int(_b(vabs,"best_sig")),
+            "sig_strong":  int(_b(vabs,"strong_sig")),
+            "sig_vbo_dn":  int(_b(vabs,"vbo_dn")),
+            "sig_ns":      int(_b(vabs,"ns")),
+            "sig_nd":      int(_b(vabs,"nd")),
+            "sig_sc":      int(_b(vabs,"sc")),
+            "sig_bc":      int(_b(vabs,"bc")),
+            "sig_abs":     int(_b(vabs,"abs_sig")),
+            "sig_clm":     int(_b(vabs,"climb_sig")),
+            # UltraV2 individual
+            "sig_best_up": int(_b(ultraV2,"best_long")),
+            "sig_fbo_up":  int(_b(ultraV2,"fbo_bull")),
+            "sig_eb_up":   int(_b(ultraV2,"eb_bull")),
+            "sig_3up":     int(_b(ultraV2,"ultra_3up")),
+            "sig_fbo_dn":  int(_b(ultraV2,"fbo_bear")),
+            "sig_eb_dn":   int(_b(ultraV2,"eb_bear")),
+            "sig_4bf_dn":  int(_b(ultraV2,"bf_sell")),
+            # L sub-signals
+            "sig_fri34":   int(_b(wlnbb,"FRI34")),
+            "sig_fri43":   int(_b(wlnbb,"FRI43")),
+            "sig_fri64":   int(_b(wlnbb,"FRI64")),
+            "sig_l555":    int(_b(wlnbb,"L555")),
+            "sig_l2l4":    int(_b(wlnbb,"ONLY_L2L4")),
+            "sig_blue":    int(_b(wlnbb,"BLUE")),
+            "sig_cci":     int(_b(wlnbb,"CCI_READY")),
+            "sig_cci0r":   int(_b(wlnbb,"CCI_0_RETEST_OK")),
+            "sig_ccib":    int(_b(wlnbb,"CCI_BLUE_TURN")),
+            "sig_bo_dn":   int(_b(wlnbb,"BO_DN")),
+            "sig_bx_dn":   int(_b(wlnbb,"BX_DN")),
+            "sig_be_dn":   int(_b(wlnbb,"BE_DN")),
+            "sig_rl":      int(_b(wlnbb,"FUCHSIA_RL")),
+            "sig_rh":      int(_b(wlnbb,"FUCHSIA_RH")),
+            "sig_pp":      int(_b(wlnbb,"PRE_PUMP")),
+            # G individual
+            "sig_g1":      int(_b(g_sigs,"g1")),
+            "sig_g2":      int(_b(g_sigs,"g2")),
+            "sig_g4":      int(_b(g_sigs,"g4")),
+            "sig_g6":      int(_b(g_sigs,"g6")),
+            "sig_g11":     int(_b(g_sigs,"g11")),
+            # B individual
+            "sig_b1":  int(_b(b_sigs,"b1")),  "sig_b2":  int(_b(b_sigs,"b2")),
+            "sig_b3":  int(_b(b_sigs,"b3")),  "sig_b4":  int(_b(b_sigs,"b4")),
+            "sig_b5":  int(_b(b_sigs,"b5")),  "sig_b6":  int(_b(b_sigs,"b6")),
+            "sig_b7":  int(_b(b_sigs,"b7")),  "sig_b8":  int(_b(b_sigs,"b8")),
+            "sig_b9":  int(_b(b_sigs,"b9")),  "sig_b10": int(_b(b_sigs,"b10")),
+            "sig_b11": int(_b(b_sigs,"b11")),
+            # F individual (F1–F11)
+            "sig_f1":  int(_b(f_sigs,"f1")),  "sig_f2":  int(_b(f_sigs,"f2")),
+            "sig_f3":  int(_b(f_sigs,"f3")),  "sig_f4":  int(_b(f_sigs,"f4")),
+            "sig_f5":  int(_b(f_sigs,"f5")),  "sig_f6":  int(_b(f_sigs,"f6")),
+            "sig_f7":  int(_b(f_sigs,"f7")),  "sig_f8":  int(_b(f_sigs,"f8")),
+            "sig_f9":  int(_b(f_sigs,"f9")),  "sig_f10": int(_b(f_sigs,"f10")),
+            "sig_f11": int(_b(f_sigs,"f11")),
+            # FLY sub-types
+            "sig_fly_abcd": int(_b(fly_sigs,"fly_abcd")),
+            "sig_fly_cd":   int(_b(fly_sigs,"fly_cd")),
+            "sig_fly_bd":   int(_b(fly_sigs,"fly_bd")),
+            "sig_fly_ad":   int(_b(fly_sigs,"fly_ad")),
+            # Wick sub-types
+            "sig_wk_up":    int(_b(wick,"WICK_BULL_PATTERN")),
+            "sig_wk_dn":    int(_b(wick,"WICK_BEAR_PATTERN")),
+            "sig_x1":       int(_b(wick,"x1_wick")),
+            "sig_x2":       int(_b(wick,"x2_wick")),
+            "sig_x1g":      int(_b(wick,"x1g_wick")),
+            "sig_x3":       int(_b(wick,"x3_wick")),
+            # Combo sub-types
+            "sig_bias_up":  int(_b(combo_df,"bias_up")),
+            "sig_bias_dn":  int(_b(combo_df,"bias_down")),
+            "sig_svs":      int(_b(combo_df,"svs_2809")),
+            "sig_conso":    int(_b(combo_df,"conso_2809")),
+            "sig_p2":       int(_b(combo_df,"preup2")),
+            "sig_p3":       int(_b(combo_df,"preup3")),
+            "sig_p50":      int(_b(combo_df,"preup50")),
+            "sig_p89":      int(_b(combo_df,"preup89")),
+            "sig_buy":      int(_b(combo_df,"buy_2809")),
+            "sig_3g":       int(_b(combo_df,"sig3g")),
+            # VA + volume spikes
+            "sig_va":       int(bool(va_ser.iloc[i])),
+            "sig_vol_5x":   int(float(vol_ratio.iloc[i]) >= 5),
+            "sig_vol_10x":  int(float(vol_ratio.iloc[i]) >= 10),
+            "sig_vol_20x":  int(float(vol_ratio.iloc[i]) >= 20),
+            # TZ/state booleans
+            "sig_tz":       1 if tz else 0,
+            "sig_t":        1 if tz.startswith("T") else 0,
+            "sig_z":        1 if tz.startswith("Z") else 0,
+            "sig_tz3":      int(int(tz_state_ser.iloc[i]) == 3),
+            "sig_tz2":      int(int(tz_state_ser.iloc[i]) == 2),
+            "sig_tz_flip":  int(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_prev.iloc[i]) != 3),
+            "sig_cd":  1 if (int(tz_state_ser.iloc[i])==3 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
+            "sig_ca":  1 if (int(tz_state_ser.iloc[i])==2 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
+            "sig_cw":  1 if (int(tz_state_ser.iloc[i])==1 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
+            "sig_seq_bcont": int(bool(seq_bcont_ser.iloc[i])),
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,
@@ -1667,6 +1761,42 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "VBO_W5", "VBO_W10", "GOG_W5", "GOG_W10",
             "RET_TO_NEXT_VBO_CLOSE", "RET_TO_NEXT_VBO_HIGH",
             "RET_TO_NEXT_GOG_CLOSE", "RET_TO_NEXT_GOG_HIGH",
+            # ── All TurboScan signal booleans ─────────────────────────────────
+            # VABS
+            "SIG_BEST", "SIG_STRONG", "SIG_VBO_DN",
+            "SIG_NS", "SIG_ND", "SIG_SC", "SIG_BC", "SIG_ABS", "SIG_CLM",
+            # UltraV2
+            "SIG_BEST_UP", "SIG_FBO_UP", "SIG_EB_UP", "SIG_3UP",
+            "SIG_FBO_DN", "SIG_EB_DN", "SIG_4BF_DN",
+            # L sub
+            "SIG_FRI34", "SIG_FRI43", "SIG_FRI64",
+            "SIG_L555", "SIG_L2L4", "SIG_BLUE",
+            "SIG_CCI", "SIG_CCI0R", "SIG_CCIB",
+            "SIG_BO_DN", "SIG_BX_DN", "SIG_BE_DN",
+            "SIG_RL", "SIG_RH", "SIG_PP",
+            # G individual
+            "SIG_G1", "SIG_G2", "SIG_G4", "SIG_G6", "SIG_G11",
+            # B individual
+            "SIG_B1", "SIG_B2", "SIG_B3", "SIG_B4", "SIG_B5", "SIG_B6",
+            "SIG_B7", "SIG_B8", "SIG_B9", "SIG_B10", "SIG_B11",
+            # F individual
+            "SIG_F1", "SIG_F2", "SIG_F3", "SIG_F4", "SIG_F5", "SIG_F6",
+            "SIG_F7", "SIG_F8", "SIG_F9", "SIG_F10", "SIG_F11",
+            # FLY sub-types
+            "SIG_FLY_ABCD", "SIG_FLY_CD", "SIG_FLY_BD", "SIG_FLY_AD",
+            # Wick sub-types
+            "SIG_WK_UP", "SIG_WK_DN",
+            "SIG_X1", "SIG_X2", "SIG_X1G", "SIG_X3",
+            # Combo sub-types
+            "SIG_BIAS_UP", "SIG_BIAS_DN", "SIG_SVS", "SIG_CONSO",
+            "SIG_P2", "SIG_P3", "SIG_P50", "SIG_P89",
+            "SIG_BUY", "SIG_3G",
+            # VA + vol spikes
+            "SIG_VA", "SIG_VOL_5X", "SIG_VOL_10X", "SIG_VOL_20X",
+            # TZ / state
+            "SIG_TZ", "SIG_T", "SIG_Z",
+            "SIG_TZ3", "SIG_TZ2", "SIG_TZ_FLIP",
+            "SIG_CD", "SIG_CA", "SIG_CW", "SIG_SEQ_BCONT",
         ]
 
         def _build_row(ticker, b):
@@ -1851,6 +1981,55 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 _fmt(b.get("ret_to_next_vbo_high")),
                 _fmt(b.get("ret_to_next_gog_close")),
                 _fmt(b.get("ret_to_next_gog_high")),
+                # ── All TurboScan signal booleans ──────────────────
+                # VABS
+                b.get("sig_best",0),   b.get("sig_strong",0), b.get("sig_vbo_dn",0),
+                b.get("sig_ns",0),     b.get("sig_nd",0),     b.get("sig_sc",0),
+                b.get("sig_bc",0),     b.get("sig_abs",0),    b.get("sig_clm",0),
+                # UltraV2
+                b.get("sig_best_up",0),b.get("sig_fbo_up",0), b.get("sig_eb_up",0),
+                b.get("sig_3up",0),    b.get("sig_fbo_dn",0), b.get("sig_eb_dn",0),
+                b.get("sig_4bf_dn",0),
+                # L sub
+                b.get("sig_fri34",0),  b.get("sig_fri43",0),  b.get("sig_fri64",0),
+                b.get("sig_l555",0),   b.get("sig_l2l4",0),   b.get("sig_blue",0),
+                b.get("sig_cci",0),    b.get("sig_cci0r",0),  b.get("sig_ccib",0),
+                b.get("sig_bo_dn",0),  b.get("sig_bx_dn",0),  b.get("sig_be_dn",0),
+                b.get("sig_rl",0),     b.get("sig_rh",0),     b.get("sig_pp",0),
+                # G individual
+                b.get("sig_g1",0),     b.get("sig_g2",0),     b.get("sig_g4",0),
+                b.get("sig_g6",0),     b.get("sig_g11",0),
+                # B individual
+                b.get("sig_b1",0),  b.get("sig_b2",0),  b.get("sig_b3",0),
+                b.get("sig_b4",0),  b.get("sig_b5",0),  b.get("sig_b6",0),
+                b.get("sig_b7",0),  b.get("sig_b8",0),  b.get("sig_b9",0),
+                b.get("sig_b10",0), b.get("sig_b11",0),
+                # F individual
+                b.get("sig_f1",0),  b.get("sig_f2",0),  b.get("sig_f3",0),
+                b.get("sig_f4",0),  b.get("sig_f5",0),  b.get("sig_f6",0),
+                b.get("sig_f7",0),  b.get("sig_f8",0),  b.get("sig_f9",0),
+                b.get("sig_f10",0), b.get("sig_f11",0),
+                # FLY sub
+                b.get("sig_fly_abcd",0), b.get("sig_fly_cd",0),
+                b.get("sig_fly_bd",0),   b.get("sig_fly_ad",0),
+                # Wick sub
+                b.get("sig_wk_up",0),  b.get("sig_wk_dn",0),
+                b.get("sig_x1",0),     b.get("sig_x2",0),
+                b.get("sig_x1g",0),    b.get("sig_x3",0),
+                # Combo sub
+                b.get("sig_bias_up",0),b.get("sig_bias_dn",0),
+                b.get("sig_svs",0),    b.get("sig_conso",0),
+                b.get("sig_p2",0),     b.get("sig_p3",0),
+                b.get("sig_p50",0),    b.get("sig_p89",0),
+                b.get("sig_buy",0),    b.get("sig_3g",0),
+                # VA + vol
+                b.get("sig_va",0),     b.get("sig_vol_5x",0),
+                b.get("sig_vol_10x",0),b.get("sig_vol_20x",0),
+                # TZ / state
+                b.get("sig_tz",0),     b.get("sig_t",0),      b.get("sig_z",0),
+                b.get("sig_tz3",0),    b.get("sig_tz2",0),    b.get("sig_tz_flip",0),
+                b.get("sig_cd",0),     b.get("sig_ca",0),     b.get("sig_cw",0),
+                b.get("sig_seq_bcont",0),
             ])
 
         # Validation accumulators
