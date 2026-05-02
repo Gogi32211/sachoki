@@ -278,6 +278,8 @@ export default function SuperchartPanel({
       'SETUP','CONTEXT','GOG_TIER','ALL_SIGNALS',
       // ── Primary Scores
       'GOG_SCORE','SIGNAL_SCORE','SIGNAL_BUCKET','RESEARCH_SCORE','REGIME',
+      'ROCKET_SCORE','BEARISH_RISK_SCORE','EXPERIMENTAL_SCORE','EXTRA_BULL_SCORE',
+      'FINAL_BULL_SCORE','FINAL_REGIME',
       // ── Score Sub-Components
       'GOG_BASE_SCORE','PREMIUM_CONTEXT_SCORE','LOAD_CONTEXT_SCORE','L_RECLAIM_SCORE',
       'COMPRESSION_CONTEXT_SCORE','SQ_BCT_SCORE','BASE_SETUP_SCORE','RAW_SUPPORT_SCORE',
@@ -310,7 +312,7 @@ export default function SuperchartPanel({
       // ── All TurboScan signal booleans
       // VABS
       'SIG_BEST','SIG_STRONG','SIG_VBO_DN',
-      'SIG_NS','SIG_ND','SIG_SC','SIG_BC','SIG_ABS','SIG_CLM',
+      'SIG_NS_VABS','SIG_ND_VABS','SIG_SC','SIG_BC','SIG_ABS','SIG_CLM',
       // UltraV2
       'SIG_BEST_UP','SIG_FBO_UP','SIG_EB_UP','SIG_3UP',
       'SIG_FBO_DN','SIG_EB_DN','SIG_4BF_DN',
@@ -341,6 +343,29 @@ export default function SuperchartPanel({
       'SIG_TZ','SIG_T','SIG_Z',
       'SIG_TZ3','SIG_TZ2','SIG_TZ_FLIP',
       'SIG_CD','SIG_CA','SIG_CW','SIG_SEQ_BCONT',
+      // ── NS/ND Delta (disambiguated from VABS)
+      'SIG_NS_DELTA','SIG_ND_DELTA',
+      // ── Meta family any-flags
+      'SIG_ANY_F','SIG_ANY_B','SIG_ANY_P','SIG_ANY_D',
+      'SIG_L_ANY','SIG_BE_ANY','SIG_GOG_PLUS','SIG_NOT_EXT',
+      // ── Price vs EMA
+      'PRICE_GT_20','PRICE_GT_50','PRICE_GT_89','PRICE_GT_200',
+      'PRICE_LT_20','PRICE_LT_50','PRICE_LT_89','PRICE_LT_200',
+      // ── RSI filters
+      'RSI_LE_35','RSI_GE_70',
+      // ── Source / cross-engine
+      'YF_SOURCE','CROSS_2PLUS','CROSS_3PLUS','CROSS_4PLUS','EARLY_E',
+      // ── P66/P55
+      'SIG_P66','SIG_P55',
+      // ── D-family PREDN
+      'SIG_D66','SIG_D55','SIG_D89','SIG_D50','SIG_D3','SIG_D2',
+      // ── Delta extras
+      'SIG_FLP_UP','SIG_ORG_UP','SIG_DD_UP_RED','SIG_D_UP_RED',
+      'SIG_D_DN_GREEN','SIG_DD_DN_GREEN',
+      // ── CISD
+      'SIG_CISD_CPLUS','SIG_CISD_CPLUS_MINUS','SIG_CISD_CPLUS_MM',
+      // ── PARA context
+      'SIG_PARA_PREP','SIG_PARA_START','SIG_PARA_PLUS','SIG_PARA_RETEST',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -381,6 +406,8 @@ export default function SuperchartPanel({
       // ── Primary Scores
       b.gog_score ?? 0,
       b.signal_score ?? 0, b.signal_bucket ?? '', b.research_score ?? 0, b.regime ?? '',
+      b.rocket_score ?? 0, b.bearish_risk_score ?? 0, b.experimental_score ?? 0,
+      b.extra_bull_score ?? 0, b.final_bull_score ?? 0, b.final_regime ?? '',
       // ── Score Sub-Components
       b.gog_base_score ?? 0, b.premium_context_score ?? 0, b.load_context_score ?? 0,
       b.l_reclaim_score ?? 0, b.compression_context_score ?? 0, b.sq_bct_score ?? 0,
@@ -428,7 +455,7 @@ export default function SuperchartPanel({
       b.ret_to_next_gog_close ?? '', b.ret_to_next_gog_high ?? '',
       // ── All TurboScan signal booleans
       s(b,'sig_best'), s(b,'sig_strong'), s(b,'sig_vbo_dn'),
-      s(b,'sig_ns'), s(b,'sig_nd'), s(b,'sig_sc'), s(b,'sig_bc'), s(b,'sig_abs'), s(b,'sig_clm'),
+      s(b,'sig_ns_vabs'), s(b,'sig_nd_vabs'), s(b,'sig_sc'), s(b,'sig_bc'), s(b,'sig_abs'), s(b,'sig_clm'),
       s(b,'sig_best_up'), s(b,'sig_fbo_up'), s(b,'sig_eb_up'), s(b,'sig_3up'),
       s(b,'sig_fbo_dn'), s(b,'sig_eb_dn'), s(b,'sig_4bf_dn'),
       s(b,'sig_fri34'), s(b,'sig_fri43'), s(b,'sig_fri64'),
@@ -449,6 +476,36 @@ export default function SuperchartPanel({
       s(b,'sig_tz'), s(b,'sig_t'), s(b,'sig_z'),
       s(b,'sig_tz3'), s(b,'sig_tz2'), s(b,'sig_tz_flip'),
       s(b,'sig_cd'), s(b,'sig_ca'), s(b,'sig_cw'), s(b,'sig_seq_bcont'),
+      // ── NS/ND Delta
+      s(b,'sig_ns_delta'), s(b,'sig_nd_delta'),
+      // ── Meta flags
+      s(b,'sig_any_f'), s(b,'sig_any_b'), s(b,'sig_any_p'), s(b,'sig_any_d'),
+      s(b,'sig_l_any'), s(b,'sig_be_any'), s(b,'sig_gog_plus'), s(b,'sig_not_ext'),
+      // ── Price vs EMA
+      s(b,'sig_price_gt_20'), s(b,'sig_price_gt_50'),
+      s(b,'sig_price_gt_89'), s(b,'sig_price_gt_200'),
+      s(b,'sig_price_lt_20'), s(b,'sig_price_lt_50'),
+      s(b,'sig_price_lt_89'), s(b,'sig_price_lt_200'),
+      // ── RSI
+      s(b,'sig_rsi_le_35'), s(b,'sig_rsi_ge_70'),
+      // ── Source / cross
+      s(b,'sig_yf_source'),
+      s(b,'sig_cross_2plus'), s(b,'sig_cross_3plus'),
+      s(b,'sig_cross_4plus'), s(b,'sig_early_e'),
+      // ── P66/P55
+      s(b,'sig_p66'), s(b,'sig_p55'),
+      // ── D-family
+      s(b,'sig_d66'), s(b,'sig_d55'), s(b,'sig_d89'),
+      s(b,'sig_d50'), s(b,'sig_d3'),  s(b,'sig_d2'),
+      // ── Delta extras
+      s(b,'sig_flp_up'),    s(b,'sig_org_up'),
+      s(b,'sig_dd_up_red'), s(b,'sig_d_up_red'),
+      s(b,'sig_d_dn_green'), s(b,'sig_dd_dn_green'),
+      // ── CISD
+      s(b,'sig_cisd_cplus'), s(b,'sig_cisd_cplus_minus'), s(b,'sig_cisd_cplus_mm'),
+      // ── PARA context
+      s(b,'sig_para_prep'), s(b,'sig_para_start'),
+      s(b,'sig_para_plus'), s(b,'sig_para_retest'),
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
