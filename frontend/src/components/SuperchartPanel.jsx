@@ -162,13 +162,18 @@ const ROWS = [
   {
     key: 'score',
     label: 'SCORE',
-    getSigs: (b) => (b.signal_score ?? 0) >= 20 ? [b.signal_score] : [],
+    getSigs: (b) => {
+      const fbs = b.final_bull_score ?? 0
+      const ss  = b.signal_score ?? 0
+      const score = fbs > 0 ? fbs : ss
+      return score >= 20 ? [score] : []
+    },
     chipCls: (s) => {
       const n = Number(s)
-      if (n >= 120) return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
-      if (n >= 100) return 'bg-lime-800 text-lime-100 font-bold ring-1 ring-lime-400'
-      if (n >= 80)  return 'bg-green-900 text-green-200 font-semibold'
-      if (n >= 60)  return 'bg-teal-900 text-teal-300'
+      if (n >= 140) return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
+      if (n >= 115) return 'bg-lime-800 text-lime-100 font-bold ring-1 ring-lime-400'
+      if (n >= 90)  return 'bg-green-900 text-green-200 font-semibold'
+      if (n >= 65)  return 'bg-teal-900 text-teal-300'
       return 'bg-gray-800 text-gray-400'
     },
   },
@@ -278,8 +283,19 @@ export default function SuperchartPanel({
       'SETUP','CONTEXT','GOG_TIER','ALL_SIGNALS',
       // ── Primary Scores
       'GOG_SCORE','SIGNAL_SCORE','SIGNAL_BUCKET','RESEARCH_SCORE','REGIME',
-      'ROCKET_SCORE','BEARISH_RISK_SCORE','EXPERIMENTAL_SCORE','EXTRA_BULL_SCORE',
-      'FINAL_BULL_SCORE','FINAL_REGIME',
+      // ── New score system
+      'CLEAN_ENTRY_SCORE','SHAKEOUT_ABSORB_SCORE','ROCKET_SCORE',
+      'EXTRA_BULL_SCORE','EXPERIMENTAL_SCORE',
+      'HARD_BEAR_SCORE','VOLATILITY_RISK_SCORE',
+      'FINAL_BULL_SCORE','FINAL_REGIME','FINAL_SCORE_BUCKET',
+      // ── Model booleans
+      'MDL_UM_GOG1','MDL_BH_GOG1','MDL_F8_GOG1','MDL_F8_BCT','MDL_F8_LRP',
+      'MDL_L22_BCT','MDL_L22_LRP','MDL_BE_GOG1','MDL_BO_GOG1','MDL_Z10_GOG1',
+      'MDL_LOAD_GOG1','MDL_260_GOG1','MDL_RKT_GOG1','MDL_F8_SVS','MDL_F8_CONS',
+      'MDL_L22_SQB','MDL_3UP_GOG1','MDL_BLUE_GOG1','MDL_BX_GOG1','MDL_UM_LRP',
+      'HAS_ELITE_MODEL','HAS_BEAR_MODEL',
+      // ── Backward compat
+      'BEARISH_RISK_SCORE',
       // ── Score Sub-Components
       'GOG_BASE_SCORE','PREMIUM_CONTEXT_SCORE','LOAD_CONTEXT_SCORE','L_RECLAIM_SCORE',
       'COMPRESSION_CONTEXT_SCORE','SQ_BCT_SCORE','BASE_SETUP_SCORE','RAW_SUPPORT_SCORE',
@@ -406,8 +422,23 @@ export default function SuperchartPanel({
       // ── Primary Scores
       b.gog_score ?? 0,
       b.signal_score ?? 0, b.signal_bucket ?? '', b.research_score ?? 0, b.regime ?? '',
-      b.rocket_score ?? 0, b.bearish_risk_score ?? 0, b.experimental_score ?? 0,
-      b.extra_bull_score ?? 0, b.final_bull_score ?? 0, b.final_regime ?? '',
+      // ── New score system
+      b.clean_entry_score ?? 0, b.shakeout_absorb_score ?? 0, b.rocket_score ?? 0,
+      b.extra_bull_score ?? 0, b.experimental_score ?? 0,
+      b.hard_bear_score ?? 0, b.volatility_risk_score ?? 0,
+      b.final_bull_score ?? 0, b.final_regime ?? '', b.final_score_bucket ?? '',
+      // ── Model booleans
+      b.mdl_um_gog1 ?? 0, b.mdl_bh_gog1 ?? 0, b.mdl_f8_gog1 ?? 0,
+      b.mdl_f8_bct ?? 0,  b.mdl_f8_lrp ?? 0,
+      b.mdl_l22_bct ?? 0, b.mdl_l22_lrp ?? 0, b.mdl_be_gog1 ?? 0,
+      b.mdl_bo_gog1 ?? 0, b.mdl_z10_gog1 ?? 0,
+      b.mdl_load_gog1 ?? 0, b.mdl_260_gog1 ?? 0, b.mdl_rkt_gog1 ?? 0,
+      b.mdl_f8_svs ?? 0, b.mdl_f8_cons ?? 0,
+      b.mdl_l22_sqb ?? 0, b.mdl_3up_gog1 ?? 0, b.mdl_blue_gog1 ?? 0,
+      b.mdl_bx_gog1 ?? 0, b.mdl_um_lrp ?? 0,
+      b.has_elite_model ?? 0, b.has_bear_model ?? 0,
+      // ── Backward compat
+      b.bearish_risk_score ?? 0,
       // ── Score Sub-Components
       b.gog_base_score ?? 0, b.premium_context_score ?? 0, b.load_context_score ?? 0,
       b.l_reclaim_score ?? 0, b.compression_context_score ?? 0, b.sq_bct_score ?? 0,
