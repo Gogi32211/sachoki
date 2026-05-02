@@ -259,26 +259,58 @@ def _nonzero_cols(rows: List[dict], cols: List[str]) -> List[str]:
     return [c for c in cols if c in present]
 
 
-# ─── Missed winner category (event-based) ─────────────────────────────────────
+# ─── Missed winner classification (prior-lookback, no future data) ────────────
 
-def _missed_category(r: dict) -> str:
-    """
-    Classify a missed big winner using event confirmation columns.
+# A prior date with FINAL_BULL_SCORE >= this means the system had an actionable
+# entry opportunity before the missed-winner date.
+_ACTIONABLE_SCORE_THRESHOLD = 60
+_PRIOR_LOOKBACK_BARS        = 30  # trading days to look back per ticker
 
-    TRUE_MISSED_WINNER   — GOG or VBO fired within 5 bars, not extended.
-                           The system had signals that should have been caught.
-    CAUGHT_EARLY_WINNER  — GOG or VBO fired within 6-10 bars, not extended.
-                           Valid early entry; the event confirmed later.
-    LATE_OR_WEAK_CATCH   — Already extended at signal time, or no event within
-                           10 bars (noisy/momentum move without clean confirmation).
+def _classify_missed_winners(rows: List[dict]) -> None:
     """
-    if r.get("_ext"):
-        return "LATE_OR_WEAK_CATCH"
-    if _bool(r, "GOG_W5") or _bool(r, "VBO_W5"):
-        return "TRUE_MISSED_WINNER"
-    if _bool(r, "GOG_W10") or _bool(r, "VBO_W10"):
-        return "CAUGHT_EARLY_WINNER"
-    return "LATE_OR_WEAK_CATCH"
+    Classify missed winners using prior lookback of the same ticker's score history.
+    Mutually exclusive categories, no future data leakage.
+
+    TRUE_MISSED_WINNER   — No prior actionable signal (FINAL_BULL_SCORE >= 60)
+                           in the last 30 bars for this ticker, and not already
+                           extended. The scoring formula genuinely missed the setup.
+    CAUGHT_EARLY_WINNER  — A prior date within the lookback window had an
+                           actionable score. The system surfaced the ticker earlier;
+                           this later date is a duplicate / follow-through, not a miss.
+    LATE_OR_WEAK_CATCH   — Already extended at signal time. Entry would have been
+                           chasing price; not a scoring failure.
+
+    Example: SNDK 2026-03-30 is CAUGHT_EARLY_WINNER because 03-03, 03-06, 03-25,
+    03-26 all had FINAL_BULL_SCORE >= 60, giving actionable prior entries.
+    """
+    from collections import defaultdict
+
+    ticker_rows: Dict[str, List[dict]] = defaultdict(list)
+    for r in rows:
+        t = _str(r, "ticker")
+        if t:
+            ticker_rows[t].append(r)
+
+    for trows in ticker_rows.values():
+        try:
+            trows.sort(key=lambda r: _str(r, "date"))
+        except Exception:
+            pass
+
+        for i, r in enumerate(trows):
+            if not r.get("_missed"):
+                r["_missed_cat"] = ""
+                continue
+
+            if r.get("_ext"):
+                r["_missed_cat"] = "LATE_OR_WEAK_CATCH"
+                continue
+
+            had_prior = any(
+                _f(trows[j].get("FINAL_BULL_SCORE", 0)) >= _ACTIONABLE_SCORE_THRESHOLD
+                for j in range(max(0, i - _PRIOR_LOOKBACK_BARS), i)
+            )
+            r["_missed_cat"] = "CAUGHT_EARLY_WINNER" if had_prior else "TRUE_MISSED_WINNER"
 
 
 # ─── Compute replay labels ─────────────────────────────────────────────────────
@@ -329,9 +361,7 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         r["_hs_fail"] = fbs >= 100 and r["_fail10"]
         r["_rkt_miss"]= r["_para"] and rocket < 25
         r["_bear_win"]= _str(r, "FINAL_REGIME") == "BEARISH_PHASE" and r["_bw10"]
-
-        # Classify missed winners (requires _ext, _gog_w*, _vbo_w* already set above)
-        r["_missed_cat"] = _missed_category(r) if r["_missed"] else ""
+        r["_missed_cat"] = ""  # filled by _classify_missed_winners() after full dataset is labeled
 
     return rows
 
@@ -924,6 +954,7 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         # 2 — Label
         _state["progress"] = 2; _state["message"] = "Computing replay labels..."
         rows = _label_rows(rows)
+        _classify_missed_winners(rows)   # prior-lookback pass; requires full dataset
 
         # 3 — Score bucket
         _state["progress"] = 3; _state["message"] = "Score bucket performance..."
