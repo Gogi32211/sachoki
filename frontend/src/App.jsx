@@ -109,7 +109,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.3.578</span>
+          <span className="text-xs font-normal text-gray-500">v4.3.587</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
