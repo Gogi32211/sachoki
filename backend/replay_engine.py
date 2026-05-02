@@ -261,27 +261,80 @@ def _nonzero_cols(rows: List[dict], cols: List[str]) -> List[str]:
 
 # ─── Missed winner classification (prior-lookback, no future data) ────────────
 
-# A prior date with FINAL_BULL_SCORE >= this means the system had an actionable
-# entry opportunity before the missed-winner date.
-_ACTIONABLE_SCORE_THRESHOLD = 60
-_PRIOR_LOOKBACK_BARS        = 30  # trading days to look back per ticker
+_ACTIONABLE_SCORE    = 60   # FINAL_BULL_SCORE >= this = actionable prior entry
+_PRIOR_LOOKBACK_BARS = 20   # trading sessions to look back per ticker
+
+# Regimes that are NOT actionable (too bearish / neutral to enter)
+_NON_ACTIONABLE_REGIMES = {"BEARISH_PHASE", "NEUTRAL_OR_LOW", "NONE", ""}
+
+# Model columns that indicate an actionable named model is present
+_ACTIONABLE_MODEL_COLS = ["HAS_ELITE_MODEL", "HAS_REBOUND_MODEL", "HAS_STRONG_BULL_MODEL"]
+
+# v4.4 score columns that must be present in stock_stat for scoring to be current
+_V44_REQUIRED_SCORE_COLS = [
+    "GOG_SCORE", "REBOUND_SQUEEZE_SCORE", "EXTRA_BULL_SCORE",
+    "VOLATILITY_RISK_SCORE", "EXPERIMENTAL_SCORE",
+]
+
+
+def _is_prior_actionable(r: dict) -> bool:
+    """True if a prior row represents an actionable entry opportunity."""
+    if _f(r.get("FINAL_BULL_SCORE", 0)) >= _ACTIONABLE_SCORE:
+        return True
+    regime = _str(r, "FINAL_REGIME")
+    if regime and regime not in _NON_ACTIONABLE_REGIMES:
+        return True
+    if any(_f(r.get(m, 0)) > 0 for m in _ACTIONABLE_MODEL_COLS):
+        return True
+    return False
+
+
+def _days_between(d1: str, d2: str) -> int:
+    try:
+        from datetime import date as _date
+        return (_date.fromisoformat(d2) - _date.fromisoformat(d1)).days
+    except Exception:
+        return 0
+
+
+def _best_score_in_window(trows: list, i: int, n: int) -> float:
+    return max((_f(p.get("FINAL_BULL_SCORE", 0)) for p in trows[max(0, i - n):i]),
+               default=0.0)
+
+
+def _validate_score_source(rows: List[dict]) -> Optional[str]:
+    """
+    Validate that stock_stat was generated with the current (v4.4) scoring.
+    Returns an error string if stale/mismatched, None if OK.
+    """
+    if not rows:
+        return None
+    first = rows[0]
+    missing = [c for c in _V44_REQUIRED_SCORE_COLS if c not in first]
+    if missing:
+        return (
+            "Replay scoring mismatch detected. Reports are stale or using a different "
+            f"scoring function. v4.4 columns absent from stock_stat: {', '.join(missing)}. "
+            "Re-run Stock Stat scan to regenerate data with current scoring."
+        )
+    return None
+
 
 def _classify_missed_winners(rows: List[dict]) -> None:
     """
     Classify missed winners using prior lookback of the same ticker's score history.
-    Mutually exclusive categories, no future data leakage.
+    Mutually exclusive by construction; no future data used.
 
-    TRUE_MISSED_WINNER   — No prior actionable signal (FINAL_BULL_SCORE >= 60)
-                           in the last 30 bars for this ticker, and not already
-                           extended. The scoring formula genuinely missed the setup.
-    CAUGHT_EARLY_WINNER  — A prior date within the lookback window had an
-                           actionable score. The system surfaced the ticker earlier;
-                           this later date is a duplicate / follow-through, not a miss.
-    LATE_OR_WEAK_CATCH   — Already extended at signal time. Entry would have been
-                           chasing price; not a scoring failure.
+    TRUE_MISSED_WINNER   — BIG_WIN_10D=True, score < 60, not extended, AND no prior
+                           actionable score/regime/model in the 20 bars before this date.
+                           The scoring formula genuinely missed the setup.
+    CAUGHT_EARLY_WINNER  — BIG_WIN_10D=True, score < 60, not extended, AND a prior
+                           date within 20 bars had an actionable score/regime/model.
+                           The system surfaced the ticker earlier; this is follow-through.
+    LATE_OR_WEAK_CATCH   — Already extended at signal time. Entry would have been chasing.
 
-    Example: SNDK 2026-03-30 is CAUGHT_EARLY_WINNER because 03-03, 03-06, 03-25,
-    03-26 all had FINAL_BULL_SCORE >= 60, giving actionable prior entries.
+    Example: SNDK 2026-03-30 → CAUGHT_EARLY_WINNER because 03-03 (86), 03-06 (64),
+    03-25 (92), 03-26 (105) are all actionable prior entries within 20 trading days.
     """
     from collections import defaultdict
 
@@ -298,19 +351,52 @@ def _classify_missed_winners(rows: List[dict]) -> None:
             pass
 
         for i, r in enumerate(trows):
+            # Default prior-catch fields for every row (missed or not)
+            r["_prior_actionable"]     = False
+            r["_best_prior_score_3d"]  = 0.0
+            r["_best_prior_score_5d"]  = 0.0
+            r["_best_prior_score_10d"] = 0.0
+            r["_best_prior_score_20d"] = 0.0
+            r["_best_prior_date_20d"]  = ""
+            r["_best_prior_regime_20d"]= ""
+            r["_days_since_best_prior"]= 0
+
             if not r.get("_missed"):
                 r["_missed_cat"] = ""
                 continue
 
-            if r.get("_ext"):
-                r["_missed_cat"] = "LATE_OR_WEAK_CATCH"
-                continue
+            window   = trows[max(0, i - _PRIOR_LOOKBACK_BARS):i]
+            cur_date = _str(r, "date")
 
-            had_prior = any(
-                _f(trows[j].get("FINAL_BULL_SCORE", 0)) >= _ACTIONABLE_SCORE_THRESHOLD
-                for j in range(max(0, i - _PRIOR_LOOKBACK_BARS), i)
-            )
-            r["_missed_cat"] = "CAUGHT_EARLY_WINNER" if had_prior else "TRUE_MISSED_WINNER"
+            r["_best_prior_score_3d"]  = _best_score_in_window(trows, i, 3)
+            r["_best_prior_score_5d"]  = _best_score_in_window(trows, i, 5)
+            r["_best_prior_score_10d"] = _best_score_in_window(trows, i, 10)
+            r["_best_prior_score_20d"] = _best_score_in_window(trows, i, 20)
+
+            best_row = (max(window, key=lambda p: _f(p.get("FINAL_BULL_SCORE", 0)))
+                        if window else None)
+            r["_best_prior_date_20d"]  = _str(best_row, "date")        if best_row else ""
+            r["_best_prior_regime_20d"]= _str(best_row, "FINAL_REGIME") if best_row else ""
+            r["_days_since_best_prior"]= (_days_between(r["_best_prior_date_20d"], cur_date)
+                                          if r["_best_prior_date_20d"] else 0)
+
+            had_prior = any(_is_prior_actionable(p) for p in window)
+            r["_prior_actionable"] = had_prior
+
+            # Mutually exclusive classification — exactly one branch fires
+            if r["_ext"]:
+                r["_missed_cat"] = "LATE_OR_WEAK_CATCH"
+            elif had_prior:
+                r["_missed_cat"] = "CAUGHT_EARLY_WINNER"
+            else:
+                r["_missed_cat"] = "TRUE_MISSED_WINNER"
+
+    # Integrity check: every missed row must have a non-empty category
+    uncategorized = [r for r in rows if r.get("_missed") and not r.get("_missed_cat")]
+    if uncategorized:
+        log.warning("_classify_missed_winners: %d missed rows have no category", len(uncategorized))
+        for r in uncategorized:
+            r["_missed_cat"] = "LATE_OR_WEAK_CATCH"  # safe fallback
 
 
 # ─── Compute replay labels ─────────────────────────────────────────────────────
@@ -555,37 +641,55 @@ def _miss_reason(r: dict) -> str:
 
 
 def _missed_row(r: dict) -> dict:
-    """Build a standard missed-winner output row."""
+    """
+    Build a standard missed-winner output row.
+    final_bull_score is read directly from the stock_stat CSV column — same value
+    as per-ticker export and all other replay reports.
+    """
     return {
-        "ticker":             _str(r, "ticker"),
-        "date":               _str(r, "date"),
-        "close":              _n(r, "close"),
-        "missed_category":    r.get("_missed_cat", ""),
-        "final_bull_score":   _n(r, "FINAL_BULL_SCORE"),
-        "gog_score":          _n(r, "GOG_SCORE"),
-        "turbo_score":        _n(r, "turbo_score"),
-        "signal_score":       _n(r, "SIGNAL_SCORE"),
-        "rocket_score":       _n(r, "ROCKET_SCORE"),
-        "rebound_squeeze_score": _n(r, "REBOUND_SQUEEZE_SCORE"),
-        "rtb_score":          _n(r, "rtb_total"),
-        "final_regime":       _str(r, "FINAL_REGIME"),
-        "final_score_bucket": _str(r, "FINAL_SCORE_BUCKET"),
-        "already_extended":   int(r["_ext"]),
-        "gog_w5":             int(r["_gog_w5"]),
-        "gog_w10":            int(r["_gog_w10"]),
-        "vbo_w5":             int(r["_vbo_w5"]),
-        "vbo_w10":            int(r["_vbo_w10"]),
-        "bars_to_gog":        r["_bars_to_gog"],
-        "bars_to_vbo":        r["_bars_to_vbo"],
-        "ret_to_gog_high":    r["_ret_to_gog"],
-        "ret_to_vbo_high":    r["_ret_to_vbo"],
-        "ret_3d":             r["_ret3"],
-        "ret_5d":             r["_ret5"],
-        "ret_10d":            r["_ret10"],
-        "max_high_5d":        r["_max5"],
-        "max_high_10d":       r["_max10"],
-        "active_signals":     "|".join(_active_sigs(r)),
-        "likely_miss_reason": _miss_reason(r),
+        # ── Identity ──────────────────────────────────────────────────────────
+        "ticker":                    _str(r, "ticker"),
+        "date":                      _str(r, "date"),
+        "close":                     _n(r, "close"),
+        "missed_category":           r.get("_missed_cat", ""),
+        # ── Scores (direct from stock_stat CSV — same source as per-ticker export)
+        "final_bull_score":          _n(r, "FINAL_BULL_SCORE"),
+        "gog_score":                 _n(r, "GOG_SCORE"),
+        "turbo_score":               _n(r, "turbo_score"),
+        "signal_score":              _n(r, "SIGNAL_SCORE"),
+        "rocket_score":              _n(r, "ROCKET_SCORE"),
+        "rebound_squeeze_score":     _n(r, "REBOUND_SQUEEZE_SCORE"),
+        "rtb_score":                 _n(r, "rtb_total"),
+        # ── Context ───────────────────────────────────────────────────────────
+        "final_regime":              _str(r, "FINAL_REGIME"),
+        "final_score_bucket":        _str(r, "FINAL_SCORE_BUCKET"),
+        "already_extended":          int(r["_ext"]),
+        # ── Prior-catch fields (lookback classification evidence) ─────────────
+        "prior_actionable_found":    int(r.get("_prior_actionable", False)),
+        "best_prior_score_3d":       r.get("_best_prior_score_3d",  0.0),
+        "best_prior_score_5d":       r.get("_best_prior_score_5d",  0.0),
+        "best_prior_score_10d":      r.get("_best_prior_score_10d", 0.0),
+        "best_prior_score_20d":      r.get("_best_prior_score_20d", 0.0),
+        "best_prior_date_20d":       r.get("_best_prior_date_20d",  ""),
+        "best_prior_regime_20d":     r.get("_best_prior_regime_20d",""),
+        "days_since_best_prior_catch": r.get("_days_since_best_prior", 0),
+        # ── GOG/VBO event timing (informational only — not used for classification)
+        "gog_w5":                    int(r["_gog_w5"]),
+        "gog_w10":                   int(r["_gog_w10"]),
+        "vbo_w5":                    int(r["_vbo_w5"]),
+        "vbo_w10":                   int(r["_vbo_w10"]),
+        "bars_to_gog":               r["_bars_to_gog"],
+        "bars_to_vbo":               r["_bars_to_vbo"],
+        "ret_to_gog_high":           r["_ret_to_gog"],
+        "ret_to_vbo_high":           r["_ret_to_vbo"],
+        # ── Outcomes ─────────────────────────────────────────────────────────
+        "ret_3d":                    r["_ret3"],
+        "ret_5d":                    r["_ret5"],
+        "ret_10d":                   r["_ret10"],
+        "max_high_5d":               r["_max5"],
+        "max_high_10d":              r["_max10"],
+        "active_signals":            "|".join(_active_sigs(r)),
+        "likely_miss_reason":        _miss_reason(r),
     }
 
 
@@ -600,8 +704,9 @@ def missed_winners(rows: List[dict], top_n: int = 500) -> List[dict]:
 
 def true_missed_winners(rows: List[dict], top_n: int = 300) -> List[dict]:
     """
-    Rows where a GOG or VBO event fired within 5 bars and the system was not
-    extended. The scoring formula genuinely missed a clean setup.
+    BIG_WIN_10D=True, FINAL_BULL_SCORE < 60, not extended, AND no prior actionable
+    score/regime/model in the 20 trading days before this date for the same ticker.
+    These are genuine scoring formula gaps.
     """
     subset = sorted(
         [r for r in rows if r.get("_missed_cat") == "TRUE_MISSED_WINNER"],
@@ -951,10 +1056,17 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             raise RuntimeError(err)
         _state["row_count"] = len(rows)
 
+        # 1b — Validate scoring version (fails fast if CSV is stale)
+        score_err = _validate_score_source(rows)
+        if score_err:
+            raise RuntimeError(score_err)
+
         # 2 — Label
         _state["progress"] = 2; _state["message"] = "Computing replay labels..."
         rows = _label_rows(rows)
-        _classify_missed_winners(rows)   # prior-lookback pass; requires full dataset
+
+        # 2b — Classify missed winners (prior-lookback pass; requires full labeled dataset)
+        _classify_missed_winners(rows)
 
         # 3 — Score bucket
         _state["progress"] = 3; _state["message"] = "Score bucket performance..."
