@@ -307,8 +307,43 @@ export default function SuperchartPanel({
       'VBO_W5','VBO_W10','GOG_W5','GOG_W10',
       'RET_TO_NEXT_VBO_CLOSE','RET_TO_NEXT_VBO_HIGH',
       'RET_TO_NEXT_GOG_CLOSE','RET_TO_NEXT_GOG_HIGH',
+      // ── All TurboScan signal booleans
+      // VABS
+      'SIG_BEST','SIG_STRONG','SIG_VBO_DN',
+      'SIG_NS','SIG_ND','SIG_SC','SIG_BC','SIG_ABS','SIG_CLM',
+      // UltraV2
+      'SIG_BEST_UP','SIG_FBO_UP','SIG_EB_UP','SIG_3UP',
+      'SIG_FBO_DN','SIG_EB_DN','SIG_4BF_DN',
+      // L sub
+      'SIG_FRI34','SIG_FRI43','SIG_FRI64',
+      'SIG_L555','SIG_L2L4','SIG_BLUE',
+      'SIG_CCI','SIG_CCI0R','SIG_CCIB',
+      'SIG_BO_DN','SIG_BX_DN','SIG_BE_DN',
+      'SIG_RL','SIG_RH','SIG_PP',
+      // G individual
+      'SIG_G1','SIG_G2','SIG_G4','SIG_G6','SIG_G11',
+      // B individual
+      'SIG_B1','SIG_B2','SIG_B3','SIG_B4','SIG_B5','SIG_B6',
+      'SIG_B7','SIG_B8','SIG_B9','SIG_B10','SIG_B11',
+      // F individual
+      'SIG_F1','SIG_F2','SIG_F3','SIG_F4','SIG_F5','SIG_F6',
+      'SIG_F7','SIG_F8','SIG_F9','SIG_F10','SIG_F11',
+      // FLY sub
+      'SIG_FLY_ABCD','SIG_FLY_CD','SIG_FLY_BD','SIG_FLY_AD',
+      // Wick sub
+      'SIG_WK_UP','SIG_WK_DN','SIG_X1','SIG_X2','SIG_X1G','SIG_X3',
+      // Combo sub
+      'SIG_BIAS_UP','SIG_BIAS_DN','SIG_SVS','SIG_CONSO',
+      'SIG_P2','SIG_P3','SIG_P50','SIG_P89','SIG_BUY','SIG_3G',
+      // VA + vol
+      'SIG_VA','SIG_VOL_5X','SIG_VOL_10X','SIG_VOL_20X',
+      // TZ / state
+      'SIG_TZ','SIG_T','SIG_Z',
+      'SIG_TZ3','SIG_TZ2','SIG_TZ_FLIP',
+      'SIG_CD','SIG_CA','SIG_CW','SIG_SEQ_BCONT',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
+    const s = (b, k) => b[k] ?? 0
     const rows = bars.map(b => [
       b.date,
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
@@ -391,6 +426,29 @@ export default function SuperchartPanel({
       b.vbo_within_5 ?? 0, b.vbo_within_10 ?? 0, b.gog_within_5 ?? 0, b.gog_within_10 ?? 0,
       b.ret_to_next_vbo_close ?? '', b.ret_to_next_vbo_high ?? '',
       b.ret_to_next_gog_close ?? '', b.ret_to_next_gog_high ?? '',
+      // ── All TurboScan signal booleans
+      s(b,'sig_best'), s(b,'sig_strong'), s(b,'sig_vbo_dn'),
+      s(b,'sig_ns'), s(b,'sig_nd'), s(b,'sig_sc'), s(b,'sig_bc'), s(b,'sig_abs'), s(b,'sig_clm'),
+      s(b,'sig_best_up'), s(b,'sig_fbo_up'), s(b,'sig_eb_up'), s(b,'sig_3up'),
+      s(b,'sig_fbo_dn'), s(b,'sig_eb_dn'), s(b,'sig_4bf_dn'),
+      s(b,'sig_fri34'), s(b,'sig_fri43'), s(b,'sig_fri64'),
+      s(b,'sig_l555'), s(b,'sig_l2l4'), s(b,'sig_blue'),
+      s(b,'sig_cci'), s(b,'sig_cci0r'), s(b,'sig_ccib'),
+      s(b,'sig_bo_dn'), s(b,'sig_bx_dn'), s(b,'sig_be_dn'),
+      s(b,'sig_rl'), s(b,'sig_rh'), s(b,'sig_pp'),
+      s(b,'sig_g1'), s(b,'sig_g2'), s(b,'sig_g4'), s(b,'sig_g6'), s(b,'sig_g11'),
+      s(b,'sig_b1'), s(b,'sig_b2'), s(b,'sig_b3'), s(b,'sig_b4'), s(b,'sig_b5'), s(b,'sig_b6'),
+      s(b,'sig_b7'), s(b,'sig_b8'), s(b,'sig_b9'), s(b,'sig_b10'), s(b,'sig_b11'),
+      s(b,'sig_f1'), s(b,'sig_f2'), s(b,'sig_f3'), s(b,'sig_f4'), s(b,'sig_f5'), s(b,'sig_f6'),
+      s(b,'sig_f7'), s(b,'sig_f8'), s(b,'sig_f9'), s(b,'sig_f10'), s(b,'sig_f11'),
+      s(b,'sig_fly_abcd'), s(b,'sig_fly_cd'), s(b,'sig_fly_bd'), s(b,'sig_fly_ad'),
+      s(b,'sig_wk_up'), s(b,'sig_wk_dn'), s(b,'sig_x1'), s(b,'sig_x2'), s(b,'sig_x1g'), s(b,'sig_x3'),
+      s(b,'sig_bias_up'), s(b,'sig_bias_dn'), s(b,'sig_svs'), s(b,'sig_conso'),
+      s(b,'sig_p2'), s(b,'sig_p3'), s(b,'sig_p50'), s(b,'sig_p89'), s(b,'sig_buy'), s(b,'sig_3g'),
+      s(b,'sig_va'), s(b,'sig_vol_5x'), s(b,'sig_vol_10x'), s(b,'sig_vol_20x'),
+      s(b,'sig_tz'), s(b,'sig_t'), s(b,'sig_z'),
+      s(b,'sig_tz3'), s(b,'sig_tz2'), s(b,'sig_tz_flip'),
+      s(b,'sig_cd'), s(b,'sig_ca'), s(b,'sig_cw'), s(b,'sig_seq_bcont'),
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
