@@ -261,7 +261,7 @@ def _nonzero_cols(rows: List[dict], cols: List[str]) -> List[str]:
 
 # ─── Missed winner classification (prior-lookback, no future data) ────────────
 
-_ACTIONABLE_SCORE    = 60   # FINAL_BULL_SCORE >= this = actionable prior entry
+_ACTIONABLE_SCORE    = 60   # bull score >= this = actionable prior entry
 _PRIOR_LOOKBACK_BARS = 20   # trading sessions to look back per ticker
 
 # Regimes that are NOT actionable (too bearish / neutral to enter)
@@ -270,16 +270,23 @@ _NON_ACTIONABLE_REGIMES = {"BEARISH_PHASE", "NEUTRAL_OR_LOW", "NONE", ""}
 # Model columns that indicate an actionable named model is present
 _ACTIONABLE_MODEL_COLS = ["HAS_ELITE_MODEL", "HAS_REBOUND_MODEL", "HAS_STRONG_BULL_MODEL"]
 
-# v4.4 score columns that must be present in stock_stat for scoring to be current
-_V44_REQUIRED_SCORE_COLS = [
-    "GOG_SCORE", "REBOUND_SQUEEZE_SCORE", "EXTRA_BULL_SCORE",
-    "VOLATILITY_RISK_SCORE", "EXPERIMENTAL_SCORE",
-]
+
+# ── Canonical bull-score reader ────────────────────────────────────────────
+# Stock Stat scan and per-ticker (Superchart) export both call
+# turbo_engine._calc_turbo_score() and write the result as `turbo_score`.
+# The legacy `FINAL_BULL_SCORE` column was never produced by any scoring code,
+# so we read `turbo_score` as the canonical value, with `FINAL_BULL_SCORE`
+# accepted only as a forward-compat fallback if a future scoring layer adds it.
+def _bull_score(r: dict) -> float:
+    v = r.get("FINAL_BULL_SCORE")
+    if v not in (None, ""):
+        return _f(v)
+    return _f(r.get("turbo_score", 0))
 
 
 def _is_prior_actionable(r: dict) -> bool:
     """True if a prior row represents an actionable entry opportunity."""
-    if _f(r.get("FINAL_BULL_SCORE", 0)) >= _ACTIONABLE_SCORE:
+    if _bull_score(r) >= _ACTIONABLE_SCORE:
         return True
     regime = _str(r, "FINAL_REGIME")
     if regime and regime not in _NON_ACTIONABLE_REGIMES:
@@ -298,24 +305,23 @@ def _days_between(d1: str, d2: str) -> int:
 
 
 def _best_score_in_window(trows: list, i: int, n: int) -> float:
-    return max((_f(p.get("FINAL_BULL_SCORE", 0)) for p in trows[max(0, i - n):i]),
+    return max((_bull_score(p) for p in trows[max(0, i - n):i]),
                default=0.0)
 
 
 def _validate_score_source(rows: List[dict]) -> Optional[str]:
     """
-    Validate that stock_stat was generated with the current (v4.4) scoring.
-    Returns an error string if stale/mismatched, None if OK.
+    Validate that stock_stat has the canonical scoring column.
+    Stock Stat, Superchart, and Replay all read `turbo_score` (produced by
+    turbo_engine._calc_turbo_score). Returns None if column is present.
     """
     if not rows:
         return None
     first = rows[0]
-    missing = [c for c in _V44_REQUIRED_SCORE_COLS if c not in first]
-    if missing:
+    if "turbo_score" not in first and "FINAL_BULL_SCORE" not in first:
         return (
-            "Replay scoring mismatch detected. Reports are stale or using a different "
-            f"scoring function. v4.4 columns absent from stock_stat: {', '.join(missing)}. "
-            "Re-run Stock Stat scan to regenerate data with current scoring."
+            "Replay scoring source missing: stock_stat CSV has neither "
+            "`turbo_score` nor `FINAL_BULL_SCORE`. Re-run Stock Stat scan."
         )
     return None
 
@@ -378,7 +384,7 @@ def _classify_missed_winners(rows: List[dict]) -> None:
             r["_best_prior_score_10d"] = _best_score_in_window(trows, i, 10)
             r["_best_prior_score_20d"] = _best_score_in_window(trows, i, 20)
 
-            best_row = (max(window, key=lambda p: _f(p.get("FINAL_BULL_SCORE", 0)))
+            best_row = (max(window, key=lambda p: _bull_score(p))
                         if window else None)
             r["_best_prior_date_20d"]   = _str(best_row, "date")         if best_row else ""
             r["_best_prior_regime_20d"] = _str(best_row, "FINAL_REGIME") if best_row else ""
@@ -405,25 +411,16 @@ def _classify_missed_winners(rows: List[dict]) -> None:
                         r.get("ticker", ""), r.get("date", ""))
 
 
-# ─── Regression test cases (cross-checks against per-ticker export) ──────────
+# ─── Regression test cases ─────────────────────────────────────────────────
 #
-# Update these whenever scoring is intentionally changed and verified against
-# per-ticker export. The replay run aborts if stock_stat scores diverge from
-# these reference values (point F: single canonical scoring source).
+# Stock Stat, Superchart, and Replay all read the SAME canonical column
+# (`turbo_score`) produced by turbo_engine._calc_turbo_score. There is no
+# separate per-ticker scoring path to cross-check against, so per-ticker
+# regression cases are not used. Add real reference values here only after
+# verifying them against the live per-ticker (Superchart) export.
 
-_SCORE_REGRESSION_CASES = {
-    # (ticker, date) -> expected FINAL_BULL_SCORE from per-ticker export
-    ("SNDK", "2026-03-03"):  86,
-    ("SNDK", "2026-03-06"):  64,
-    ("SNDK", "2026-03-10"):  68,
-    ("SNDK", "2026-03-25"):  92,
-    ("SNDK", "2026-03-26"): 105,
-}
-
-# (ticker, date) -> expected category. Verified against per-ticker scores above.
-_CLASSIFICATION_REGRESSION_CASES = [
-    ("SNDK", "2026-03-30", "CAUGHT_EARLY_WINNER"),
-]
+_SCORE_REGRESSION_CASES: Dict[Tuple[str, str], float] = {}
+_CLASSIFICATION_REGRESSION_CASES: List[Tuple[str, str, str]] = []
 
 
 def _clean_output_dir() -> int:
@@ -452,7 +449,7 @@ def _validate_score_samples(rows: List[dict]) -> Optional[str]:
         r = by_key.get((ticker, date))
         if r is None:
             continue  # row not in this dataset (different universe/tf)
-        actual = _f(r.get("FINAL_BULL_SCORE", 0))
+        actual = _bull_score(r)
         if abs(actual - expected) > 5:
             mismatches.append(
                 f"{ticker} {date}: stock_stat={actual:.0f}, per-ticker_export={expected}"
@@ -535,7 +532,7 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         ret10 = _n(r, "RET_10D")
         max5  = _n(r, "MAX_RET_5D")
         max10 = _n(r, "MAX_RET_10D")
-        fbs   = _n(r, "FINAL_BULL_SCORE")
+        fbs   = _bull_score(r)
         hbs   = _n(r, "HARD_BEAR_SCORE", "BEARISH_RISK_SCORE")
         rocket= _n(r, "ROCKET_SCORE")
 
@@ -744,7 +741,7 @@ def model_perf(rows: List[dict]) -> List[dict]:
 # ─── Miss reason (internal helper) ────────────────────────────────────────────
 
 def _miss_reason(r: dict) -> str:
-    fbs    = _f(r.get("FINAL_BULL_SCORE", 0))
+    fbs    = _bull_score(r)
     regime = _str(r, "FINAL_REGIME")
     rocket = _f(r.get("ROCKET_SCORE", 0))
     parts  = []
@@ -779,7 +776,7 @@ def _missed_row(r: dict) -> dict:
         "close":                     _n(r, "close"),
         "missed_category":           r.get("_missed_cat", ""),
         # ── Scores (direct from stock_stat CSV — same source as per-ticker export)
-        "final_bull_score":          _n(r, "FINAL_BULL_SCORE"),
+        "final_bull_score":          _bull_score(r),
         "gog_score":                 _n(r, "GOG_SCORE"),
         "turbo_score":               _n(r, "turbo_score"),
         "signal_score":              _n(r, "SIGNAL_SCORE"),
@@ -905,7 +902,7 @@ def false_positives(rows: List[dict], top_n: int = 500) -> List[dict]:
             "ticker":             _str(r, "ticker"),
             "date":               _str(r, "date"),
             "close":              _n(r, "close"),
-            "final_bull_score":   _n(r, "FINAL_BULL_SCORE"),
+            "final_bull_score":   _bull_score(r),
             "final_regime":       _str(r, "FINAL_REGIME"),
             "final_score_bucket": _str(r, "FINAL_SCORE_BUCKET"),
             "hard_bear_score":    _n(r, "HARD_BEAR_SCORE", "BEARISH_RISK_SCORE"),
@@ -1000,8 +997,8 @@ def scored_weak(rows: List[dict], min_count: int = 20) -> List[dict]:
 def filter_miss_audit(rows: List[dict]) -> List[dict]:
     filters = [
         ("ALREADY_EXTENDED_FLAG", lambda r: r["_ext"]),
-        ("FINAL_BULL_SCORE < 40",  lambda r: _f(r.get("FINAL_BULL_SCORE",0)) < 40),
-        ("FINAL_BULL_SCORE < 60",  lambda r: _f(r.get("FINAL_BULL_SCORE",0)) < 60),
+        ("FINAL_BULL_SCORE < 40",  lambda r: _bull_score(r) < 40),
+        ("FINAL_BULL_SCORE < 60",  lambda r: _bull_score(r) < 60),
         ("BEARISH_PHASE_REGIME",   lambda r: _str(r,"FINAL_REGIME") == "BEARISH_PHASE"),
         ("NO_ELITE_MODEL",         lambda r: not _f(r.get("HAS_ELITE_MODEL",0))),
         ("HARD_BEAR >= 40",        lambda r: _f(r.get("HARD_BEAR_SCORE",r.get("BEARISH_RISK_SCORE",0))) >= 40),
