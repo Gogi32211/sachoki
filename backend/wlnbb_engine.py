@@ -61,6 +61,8 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     L43  = L6 & L4 & (c >  o)
     L1L2 = L1 & L2
     L2L5 = L2 & L5
+    L555 = L5 & L5.shift(1).fillna(False) & L5.shift(2).fillna(False)
+    ONLY_L2L4 = L2 & L4 & ~L1 & ~L3 & ~L5 & ~L6
 
     l_combo = _build_l_combo(L1, L2, L3, L4, L5, L6)
 
@@ -72,6 +74,8 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
                   - rsi.rolling(3, min_periods=1).min())
     BLUE  = (vol_z >= _BLUE_Z) & (rsi_range3 <= _BLUE_FLAT)
     FRI34 = BLUE & L34
+    FRI43 = BLUE & L43
+    FRI64 = BLUE & L64
     UI    = (BLUE.astype(int).rolling(10, min_periods=1).sum() >= 2)
 
     rsi_roll_max = rsi.rolling(50, min_periods=1).max().shift(1)
@@ -89,6 +93,12 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         & (cci_sma.diff() > 0)
         & (c > o)
     )
+    CCI_0_RETEST_OK = (
+        (cci_sma >= -15) & (cci_sma <= 30)
+        & (cci_sma.diff() > 0)
+        & (cci_sma.shift(1).fillna(-100.0) < 0)
+    )
+    CCI_BLUE_TURN = BLUE & (cci_sma.diff() > 0) & (cci_sma < 0)
 
     avg_rng = (h - l).rolling(20, min_periods=1).mean()
     avg_vol = v.rolling(20, min_periods=1).mean()
@@ -174,11 +184,14 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
         "L1": L1, "L2": L2, "L3": L3, "L4": L4, "L5": L5, "L6": L6,
         "L34": L34, "L43": L43, "L64": L64, "L22": L22,
         "L1L2": L1L2, "L2L5": L2L5,
+        "L555": L555, "ONLY_L2L4": ONLY_L2L4,
         "l_combo": l_combo,
-        "BLUE": BLUE, "FRI34": FRI34, "UI": UI,
+        "BLUE": BLUE, "FRI34": FRI34, "FRI43": FRI43, "FRI64": FRI64, "UI": UI,
         "FUCHSIA_RH": FUCHSIA_RH, "FUCHSIA_RL": FUCHSIA_RL,
         "PRE_PUMP": PRE_PUMP,
         "CCI_READY": CCI_READY,
+        "CCI_0_RETEST_OK": CCI_0_RETEST_OK,
+        "CCI_BLUE_TURN":   CCI_BLUE_TURN,
         "BO_UP": BO_UP, "BO_DN": BO_DN,
         "BX_UP": BX_UP, "BX_DN": BX_DN,
         "BE_UP": BE_UP, "BE_DN": BE_DN,

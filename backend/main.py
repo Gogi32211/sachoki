@@ -973,6 +973,28 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     except Exception:
         wick = _EDF
     try:
+        from wick_engine import compute_wick_x as _cwx
+        wick_x = _cwx(df)
+    except Exception:
+        wick_x = _EDF
+    try:
+        from delta_engine import compute_delta as _cdelta
+        delta_df = _cdelta(df)
+    except Exception:
+        delta_df = _EDF
+    try:
+        from cisd_engine import compute_cisd as _ccisd
+        cisd_df = _ccisd(df)
+    except Exception:
+        cisd_df = _EDF
+    try:
+        from para_engine import compute_para_series as _cpara
+        para_df = _cpara(df)
+        if para_df is None:
+            para_df = _EDF
+    except Exception:
+        para_df = _EDF
+    try:
         ultra260 = compute_260308_l88(df)
     except Exception:
         ultra260 = _EDF
@@ -1006,6 +1028,35 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         va_ser = ((_vr > 2.0) & (_vr.shift(1, fill_value=0) <= 2.0)).astype(int)
     except Exception:
         va_ser = pd.Series(0, index=df.index)
+
+    # EMA series for price-vs-EMA filters and predn/preup signals
+    try:
+        _cls = df["close"]
+        _opn = df["open"]
+        _e9   = _cls.ewm(span=9,   adjust=False).mean()
+        ema20_s  = _cls.ewm(span=20,  adjust=False).mean()
+        ema50_s  = _cls.ewm(span=50,  adjust=False).mean()
+        ema55_s  = _cls.ewm(span=55,  adjust=False).mean()
+        ema66_s  = _cls.ewm(span=66,  adjust=False).mean()
+        ema89_s  = _cls.ewm(span=89,  adjust=False).mean()
+        ema200_s = _cls.ewm(span=200, adjust=False).mean()
+        # predn: bar opens above EMA and closes below it
+        _cx9dn  = (_opn > _e9)      & (_cls < _e9)
+        _cx20dn = (_opn > ema20_s)  & (_cls < ema20_s)
+        _cx50dn = (_opn > ema50_s)  & (_cls < ema50_s)
+        predn3_s  = _cx9dn & _cx20dn & _cx50dn
+        predn2_s  = _cx9dn & _cx20dn & ~predn3_s
+        predn50_s = _cx50dn & ~_cx9dn & ~_cx20dn
+        predn55_s = (_opn > ema55_s)  & (_cls < ema55_s)
+        predn66_s = (_opn > ema66_s)  & (_cls < ema66_s)
+        predn89_s = (_opn > ema89_s)  & (_cls < ema89_s)
+        # preup66/55
+        preup66_s = (_opn < ema66_s) & (_cls > ema66_s)
+        preup55_s = (_opn < ema55_s) & (_cls > ema55_s)
+    except Exception:
+        ema20_s = ema50_s = ema55_s = ema66_s = ema89_s = ema200_s = pd.Series(0.0, index=df.index)
+        predn3_s = predn2_s = predn50_s = predn55_s = predn66_s = predn89_s = pd.Series(False, index=df.index)
+        preup66_s = preup55_s = pd.Series(False, index=df.index)
 
     # Vol spike ratio (current bar vs previous bar)
     vol_prev  = df["volume"].shift(1)
@@ -1212,12 +1263,12 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "g4":  _b(g_sigs, "g4"),
             "g6":  _b(g_sigs, "g6"),
             "g11": _b(g_sigs, "g11"),
-            # Wick context
-            "x2g_wick":  _b(wick, "x2g_wick"),
-            "x2_wick":   _b(wick, "x2_wick"),
-            "x1g_wick":  _b(wick, "x1g_wick"),
-            "x1_wick":   _b(wick, "x1_wick"),
-            "x3_wick":   _b(wick, "x3_wick"),
+            # Wick context (x-type from compute_wick_x, confirm from compute_wick)
+            "x2g_wick":  _b(wick_x, "x2g_wick"),
+            "x2_wick":   _b(wick_x, "x2_wick"),
+            "x1g_wick":  _b(wick_x, "x1g_wick"),
+            "x1_wick":   _b(wick_x, "x1_wick"),
+            "x3_wick":   _b(wick_x, "x3_wick"),
             "wick_bull": _b(wick, "WICK_BULL_CONFIRM"),
             # FLY context
             "fly_abcd": _b(fly_sigs, "fly_abcd"),
@@ -1442,10 +1493,10 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             # Wick sub-types
             "sig_wk_up":    int(_b(wick,"WICK_BULL_PATTERN")),
             "sig_wk_dn":    int(_b(wick,"WICK_BEAR_PATTERN")),
-            "sig_x1":       int(_b(wick,"x1_wick")),
-            "sig_x2":       int(_b(wick,"x2_wick")),
-            "sig_x1g":      int(_b(wick,"x1g_wick")),
-            "sig_x3":       int(_b(wick,"x3_wick")),
+            "sig_x1":       int(_b(wick_x,"x1_wick")),
+            "sig_x2":       int(_b(wick_x,"x2_wick")),
+            "sig_x1g":      int(_b(wick_x,"x1g_wick")),
+            "sig_x3":       int(_b(wick_x,"x3_wick")),
             # Combo sub-types
             "sig_bias_up":  int(_b(combo_df,"bias_up")),
             "sig_bias_dn":  int(_b(combo_df,"bias_down")),
@@ -1473,63 +1524,74 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "sig_ca":  1 if (int(tz_state_ser.iloc[i])==2 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
             "sig_cw":  1 if (int(tz_state_ser.iloc[i])==1 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
             "sig_seq_bcont": int(bool(seq_bcont_ser.iloc[i])),
-            # ── NS/ND Delta (disambiguated from VABS NS/ND)
-            "sig_ns_delta": int(_b(combo_df,"d_vd_div_bull") if combo_df is not None and not combo_df.empty and "d_vd_div_bull" in combo_df.columns else 0),
-            "sig_nd_delta": int(_b(combo_df,"d_vd_div_bear") if combo_df is not None and not combo_df.empty and "d_vd_div_bear" in combo_df.columns else 0),
+            # ── NS/ND Delta (from delta_engine: vd_div_bull/bear)
+            "sig_ns_delta": int(_b(delta_df, "vd_div_bull")),
+            "sig_nd_delta": int(_b(delta_df, "vd_div_bear")),
             # ── Meta family any-flags
             "sig_any_f":  int(any(_b(f_sigs,f"f{n}") for n in range(1,12))),
             "sig_any_b":  int(any(_b(b_sigs,f"b{n}") for n in range(1,12))),
-            "sig_any_p":  int(any(_b(combo_df,k) for k in ["preup66","preup55","preup89","preup50","preup3","preup2"])),
-            "sig_any_d":  int(any(_b(combo_df,k) for k in ["predn66","predn55","predn89","predn50","predn3","predn2"])),
+            "sig_any_p":  int(any([
+                bool(preup66_s.iloc[i]), bool(preup55_s.iloc[i]),
+                _b(combo_df,"preup89"), _b(combo_df,"preup50"),
+                _b(combo_df,"preup3"),  _b(combo_df,"preup2"),
+            ])),
+            "sig_any_d":  int(any([
+                bool(predn66_s.iloc[i]), bool(predn55_s.iloc[i]),
+                bool(predn89_s.iloc[i]), bool(predn50_s.iloc[i]),
+                bool(predn3_s.iloc[i]),  bool(predn2_s.iloc[i]),
+            ])),
             "sig_l_any":  int(any(_b(wlnbb,k) for k in ["L34","L43","L64","L22","L555","ONLY_L2L4","FRI34","FRI43","FRI64"])),
             "sig_be_any": int(_b(wlnbb,"BE_UP") or _b(wlnbb,"BE_DN")),
             "sig_gog_plus": int(any(bool(_gv(k,i)) for k in ["G1P","G1L","G1C","G2P","G2L","G2C","G3P","G3L","G3C"])),
             "sig_not_ext":  int(not bool(_gv("already_extended_flag",i))),
-            # ── Price vs EMA (use ema fields from bar if available)
-            "sig_price_gt_20":  int(float(row.get("close",0) or 0) > float(row.get("ema20",0) or 0) > 0),
-            "sig_price_gt_50":  int(float(row.get("close",0) or 0) > float(row.get("ema50",0) or 0) > 0),
-            "sig_price_gt_89":  int(float(row.get("close",0) or 0) > float(row.get("ema89",0) or 0) > 0),
-            "sig_price_gt_200": int(float(row.get("close",0) or 0) > float(row.get("ema200",0) or 0) > 0),
-            "sig_price_lt_20":  int(float(row.get("ema20",0) or 0)  > float(row.get("close",0) or 0) > 0),
-            "sig_price_lt_50":  int(float(row.get("ema50",0) or 0)  > float(row.get("close",0) or 0) > 0),
-            "sig_price_lt_89":  int(float(row.get("ema89",0) or 0)  > float(row.get("close",0) or 0) > 0),
-            "sig_price_lt_200": int(float(row.get("ema200",0) or 0) > float(row.get("close",0) or 0) > 0),
-            # ── RSI filters
-            "sig_rsi_le_35": int(float(row.get("rsi", 50) or 50) <= 35),
-            "sig_rsi_ge_70": int(float(row.get("rsi", 50) or 50) >= 70),
+            # ── Price vs EMA (precomputed series)
+            "sig_price_gt_20":  int(float(row["close"]) > float(ema20_s.iloc[i])  > 0),
+            "sig_price_gt_50":  int(float(row["close"]) > float(ema50_s.iloc[i])  > 0),
+            "sig_price_gt_89":  int(float(row["close"]) > float(ema89_s.iloc[i])  > 0),
+            "sig_price_gt_200": int(float(row["close"]) > float(ema200_s.iloc[i]) > 0),
+            "sig_price_lt_20":  int(float(ema20_s.iloc[i])  > float(row["close"]) > 0),
+            "sig_price_lt_50":  int(float(ema50_s.iloc[i])  > float(row["close"]) > 0),
+            "sig_price_lt_89":  int(float(ema89_s.iloc[i])  > float(row["close"]) > 0),
+            "sig_price_lt_200": int(float(ema200_s.iloc[i]) > float(row["close"]) > 0),
+            # ── RSI filters (from wlnbb rsi column)
+            "sig_rsi_le_35": int(float(wlnbb.iloc[i]["rsi"] if not wlnbb.empty and "rsi" in wlnbb.columns else 50) <= 35),
+            "sig_rsi_ge_70": int(float(wlnbb.iloc[i]["rsi"] if not wlnbb.empty and "rsi" in wlnbb.columns else 50) >= 70),
             # ── Data source
             "sig_yf_source": 0,
-            # ── P66/P55 (combo_df may not have these)
-            "sig_p66": int(_b(combo_df,"preup66")),
-            "sig_p55": int(_b(combo_df,"preup55")),
-            # ── D-family PREDN
-            "sig_d66": int(_b(combo_df,"predn66")),
-            "sig_d55": int(_b(combo_df,"predn55")),
-            "sig_d89": int(_b(combo_df,"predn89")),
-            "sig_d50": int(_b(combo_df,"predn50")),
-            "sig_d3":  int(_b(combo_df,"predn3")),
-            "sig_d2":  int(_b(combo_df,"predn2")),
-            # ── Delta extras
-            "sig_flp_up":      int(_b(combo_df,"d_flip_bull") if combo_df is not None and not combo_df.empty and "d_flip_bull" in combo_df.columns else 0),
-            "sig_org_up":      int(_b(combo_df,"d_orange_bull") if combo_df is not None and not combo_df.empty and "d_orange_bull" in combo_df.columns else 0),
-            "sig_dd_up_red":   int(_b(combo_df,"d_blast_bull_red") if combo_df is not None and not combo_df.empty and "d_blast_bull_red" in combo_df.columns else 0),
-            "sig_d_up_red":    int(_b(combo_df,"d_surge_bull_red") if combo_df is not None and not combo_df.empty and "d_surge_bull_red" in combo_df.columns else 0),
-            "sig_d_dn_green":  int(_b(combo_df,"d_surge_bear_grn") if combo_df is not None and not combo_df.empty and "d_surge_bear_grn" in combo_df.columns else 0),
-            "sig_dd_dn_green": int(_b(combo_df,"d_blast_bear_grn") if combo_df is not None and not combo_df.empty and "d_blast_bear_grn" in combo_df.columns else 0),
-            # ── CISD
-            "sig_cisd_cplus":       int(_b(combo_df,"cisd_cplus") if combo_df is not None and not combo_df.empty and "cisd_cplus" in combo_df.columns else 0),
-            "sig_cisd_cplus_minus": int(_b(combo_df,"cisd_cplus_minus") if combo_df is not None and not combo_df.empty and "cisd_cplus_minus" in combo_df.columns else 0),
-            "sig_cisd_cplus_mm":    int(_b(combo_df,"cisd_cplus_minus_minus") if combo_df is not None and not combo_df.empty and "cisd_cplus_minus_minus" in combo_df.columns else 0),
-            # ── PARA context
-            "sig_para_prep":   int(_b(combo_df,"para_prep") if combo_df is not None and not combo_df.empty and "para_prep" in combo_df.columns else 0),
-            "sig_para_start":  int(_b(combo_df,"para_start") if combo_df is not None and not combo_df.empty and "para_start" in combo_df.columns else 0),
-            "sig_para_plus":   int(_b(combo_df,"para_plus") if combo_df is not None and not combo_df.empty and "para_plus" in combo_df.columns else 0),
-            "sig_para_retest": int(_b(combo_df,"para_retest") if combo_df is not None and not combo_df.empty and "para_retest" in combo_df.columns else 0),
+            # ── P66/P55 (precomputed EMA crossover)
+            "sig_p66": int(bool(preup66_s.iloc[i])),
+            "sig_p55": int(bool(preup55_s.iloc[i])),
+            # ── D-family PREDN (precomputed EMA crossdown)
+            "sig_d66": int(bool(predn66_s.iloc[i])),
+            "sig_d55": int(bool(predn55_s.iloc[i])),
+            "sig_d89": int(bool(predn89_s.iloc[i])),
+            "sig_d50": int(bool(predn50_s.iloc[i])),
+            "sig_d3":  int(bool(predn3_s.iloc[i])),
+            "sig_d2":  int(bool(predn2_s.iloc[i])),
+            # ── Delta extras (from delta_engine)
+            "sig_flp_up":      int(_b(delta_df, "flip_bull")),
+            "sig_org_up":      int(_b(delta_df, "orange_bull")),
+            "sig_dd_up_red":   int(_b(delta_df, "blast_bull_red")),
+            "sig_d_up_red":    int(_b(delta_df, "surge_bull_red")),
+            "sig_d_dn_green":  int(_b(delta_df, "surge_bear_grn")),
+            "sig_dd_dn_green": int(_b(delta_df, "blast_bear_grn")),
+            # ── CISD (from cisd_engine)
+            "sig_cisd_cplus":       int(_b(cisd_df, "PLUS_CISD")),
+            "sig_cisd_cplus_minus": int(_b(cisd_df, "CISD_PPM")),
+            "sig_cisd_cplus_mm":    int(_b(cisd_df, "CISD_PMM")),
+            # ── PARA context (from para_engine compute_para_series)
+            "sig_para_prep":   int(_b(para_df, "para_prep")),
+            "sig_para_start":  int(_b(para_df, "para_start")),
+            "sig_para_plus":   int(_b(para_df, "para_plus")),
+            "sig_para_retest": int(_b(para_df, "para_retest")),
             # ── Cross-engine lightning count (placeholders, patched below)
             "sig_cross_2plus": 0,
             "sig_cross_3plus": 0,
             "sig_cross_4plus": 0,
-            "sig_early_e":     int(bool(_b(combo_df,"d_spring") if combo_df is not None and not combo_df.empty and "d_spring" in combo_df.columns else False) or bool(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_ser.iloc[i]) != int(tz_state_prev.iloc[i]))),
+            "sig_early_e": int(
+                _b(delta_df, "spring")
+                or bool(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_ser.iloc[i]) != int(tz_state_prev.iloc[i]))
+            ),
             "ultra":          ultra_list,
             "turbo_score":    turbo_score_val,
             "rtb_phase":      rtb_phase_val,
