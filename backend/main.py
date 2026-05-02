@@ -606,15 +606,21 @@ def api_turbo_scan(
             }
             try:
                 _sc = _signal_score(_bar)
-                row["signal_score"]       = _sc["signal_score"]
-                row["signal_bucket"]      = _sc["signal_bucket"]
-                row["rocket_score"]       = _sc.get("rocket_score", 0)
-                row["bearish_risk_score"] = _sc.get("bearish_risk_score", 0)
-                row["final_bull_score"]   = _sc.get("final_bull_score", 0)
-                row["final_regime"]       = _sc.get("final_regime", "")
+                row["signal_score"]          = _sc["signal_score"]
+                row["signal_bucket"]         = _sc["signal_bucket"]
+                row["clean_entry_score"]     = _sc.get("clean_entry_score", 0)
+                row["shakeout_absorb_score"] = _sc.get("shakeout_absorb_score", 0)
+                row["rocket_score"]          = _sc.get("rocket_score", 0)
+                row["hard_bear_score"]       = _sc.get("hard_bear_score", 0)
+                row["bearish_risk_score"]    = _sc.get("bearish_risk_score", 0)
+                row["final_bull_score"]      = _sc.get("final_bull_score", 0)
+                row["final_regime"]          = _sc.get("final_regime", "")
+                row["final_score_bucket"]    = _sc.get("final_score_bucket", "")
+                row["has_elite_model"]       = _sc.get("has_elite_model", 0)
+                row["has_bear_model"]        = _sc.get("has_bear_model", 0)
             except Exception:
-                row["signal_score"]       = 0
-                row["signal_bucket"]      = ""
+                row["signal_score"]          = 0
+                row["signal_bucket"]         = ""
 
         return {"results": results, "last_scan": last_time}
     except Exception as exc:
@@ -1644,12 +1650,39 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                 "raw_support_score":         _sc["raw_support_score"],
                 "risk_penalty":              _sc["risk_penalty"],
                 "research_forward_score":    _sc["research_forward_score"],
+                "clean_entry_score":         _sc["clean_entry_score"],
+                "shakeout_absorb_score":     _sc["shakeout_absorb_score"],
                 "rocket_score":              _sc["rocket_score"],
-                "bearish_risk_score":        _sc["bearish_risk_score"],
-                "experimental_score":        _sc["experimental_score"],
                 "extra_bull_score":          _sc["extra_bull_score"],
+                "experimental_score":        _sc["experimental_score"],
+                "hard_bear_score":           _sc["hard_bear_score"],
+                "bearish_risk_score":        _sc["bearish_risk_score"],
+                "volatility_risk_score":     _sc["volatility_risk_score"],
                 "final_bull_score":          _sc["final_bull_score"],
                 "final_regime":              _sc["final_regime"],
+                "final_score_bucket":        _sc["final_score_bucket"],
+                "mdl_um_gog1":               _sc["mdl_um_gog1"],
+                "mdl_bh_gog1":               _sc["mdl_bh_gog1"],
+                "mdl_f8_gog1":               _sc["mdl_f8_gog1"],
+                "mdl_f8_bct":                _sc["mdl_f8_bct"],
+                "mdl_f8_lrp":                _sc["mdl_f8_lrp"],
+                "mdl_l22_bct":               _sc["mdl_l22_bct"],
+                "mdl_l22_lrp":               _sc["mdl_l22_lrp"],
+                "mdl_be_gog1":               _sc["mdl_be_gog1"],
+                "mdl_bo_gog1":               _sc["mdl_bo_gog1"],
+                "mdl_z10_gog1":              _sc["mdl_z10_gog1"],
+                "mdl_load_gog1":             _sc["mdl_load_gog1"],
+                "mdl_260_gog1":              _sc["mdl_260_gog1"],
+                "mdl_rkt_gog1":              _sc["mdl_rkt_gog1"],
+                "mdl_f8_svs":                _sc["mdl_f8_svs"],
+                "mdl_f8_cons":               _sc["mdl_f8_cons"],
+                "mdl_l22_sqb":               _sc["mdl_l22_sqb"],
+                "mdl_3up_gog1":              _sc["mdl_3up_gog1"],
+                "mdl_blue_gog1":             _sc["mdl_blue_gog1"],
+                "mdl_bx_gog1":               _sc["mdl_bx_gog1"],
+                "mdl_um_lrp":                _sc["mdl_um_lrp"],
+                "has_elite_model":           _sc["has_elite_model"],
+                "has_bear_model":            _sc["has_bear_model"],
             })
         except Exception:
             pass
@@ -1799,236 +1832,313 @@ def _signal_score(b):
         if ext and signal_score >= 80:
             bucket += "_EXTENDED"
 
-        # ── Helper: read sig_* boolean fields (0 if missing)
+        # ── Helpers ─────────────────────────────────────────────────────────────
         def _s(k): return bool(b.get(k, 0))
+
+        # Context shorthands
+        _BCT = "BCT" in ctx_set
+        _SQB = "SQB" in ctx_set
+        _LRP = "LRP" in ctx_set
+        _LDP = "LDP" in ctx_set
+        _LRC = "LRC" in ctx_set
+        _WRC = "WRC" in ctx_set
+        _F8C = "F8C" in ctx_set
+        _SVS = "SVS" in ctx_set
+        _ext = bool(b.get("already_extended", 0))
+
+        # GOG tier shorthands
+        _g1c    = bool(b.get("g1c",  0))
+        _g1l    = bool(b.get("g1l",  0))
+        _g1p    = bool(b.get("g1p",  0))
+        _gog1   = bool(b.get("gog1", 0))
+        _g1_top = _g1c or _g1l
+        _g1_any = _g1_top or _gog1
+        _g1p_confirmed = _g1p and (
+            _rb("raw_um") or _rb("raw_buy_here") or _rb("raw_f8") or
+            _F8C or _BCT or _SQB or _LRC or _LRP or _LDP
+        )
+
+        # Absorption: signals that absorb bear pressure
+        _abs_signals = (
+            _s("sig_abs") or _BCT or _SQB or
+            bool(_rb("raw_um")) or bool(_rb("raw_buy_here"))
+        )
+
+        # ── CLEAN_ENTRY_SCORE ────────────────────────────────────────────────────
+        ce_pts = 0
+
+        # GOG contribution (priority order, non-additive for GOG itself)
+        if _g1p_confirmed:        ce_pts += 30
+        elif _g1c:                ce_pts += 25
+        elif _g1l:                ce_pts += 20
+        elif _gog1:               ce_pts += 15
+        elif b.get("g2c", 0):     ce_pts += 18
+        elif b.get("g2l", 0):     ce_pts += 14
+        elif b.get("gog2", 0):    ce_pts += 10
+        elif b.get("g3c", 0):     ce_pts += 12
+        elif b.get("g3l", 0):     ce_pts += 10
+        elif b.get("gog3", 0):    ce_pts += 8
+
+        # Core signal contributions (evidence-based, non-zero stats)
+        if _rb("raw_buy_here"):   ce_pts += 20
+        if _rb("raw_um"):         ce_pts += 15
+        if _rb("raw_sig260308"):  ce_pts += 12
+        if _rb("raw_f8"):         ce_pts += 12
+        if _rb("raw_be_up"):      ce_pts += 12
+        if _rb("raw_load"):       ce_pts += 10
+        if _rb("raw_cons"):       ce_pts += 10
+        if _rb("raw_l22"):        ce_pts += 10
+        if _rb("raw_f6"):         ce_pts += 10
+        if _rb("raw_rocket"):     ce_pts += 10
+        if _rb("raw_z10"):        ce_pts += 8
+        if _rb("raw_z11"):        ce_pts += 8
+        if _rb("raw_t12"):        ce_pts += 8
+        if _rb("raw_sq"):         ce_pts += 8
+        if _rb("raw_bo_up"):      ce_pts += 8
+        if _rb("raw_bx_up"):      ce_pts += 8
+        if _rb("raw_l64"):        ce_pts += 7
+        if _s("sig_3up"):         ce_pts += 8
+        if _s("sig_blue"):        ce_pts += 6
+        if _s("sig_b6"):          ce_pts += 5
+        if _s("sig_b8"):          ce_pts += 5
+        if _rb("raw_f3"):         ce_pts += 5
+        if _rb("raw_f4"):         ce_pts += 5
+        if _rb("raw_f11"):        ce_pts += 5
+        if _rb("raw_l34"):        ce_pts += 4
+        if _rb("raw_l43"):        ce_pts += 4
+
+        # Context multiplier bonuses (only when there is a core signal)
+        if ce_pts > 0:
+            if _BCT:              ce_pts += 10
+            elif _SQB:            ce_pts += 8
+            if _LRP:              ce_pts += 12
+            elif _LDP:            ce_pts += 8
+            elif _LRC:            ce_pts += 6
+            if _F8C:              ce_pts += 6
+            elif _WRC:            ce_pts += 5
+            if _SVS:              ce_pts += 5
+
+        # Specific high-value combos
+        if _rb("raw_l22") and (_BCT or _SQB): ce_pts += 8
+        if _rb("raw_um") and _g1_any:          ce_pts += 5
+        if _rb("raw_buy_here") and _g1_any:    ce_pts += 5
+
+        clean_entry_score = max(0, min(120, int(ce_pts)))
+
+        # ── SHAKEOUT_ABSORB_SCORE ────────────────────────────────────────────────
+        sha_pts = 0
+        _has_dn = False
+        if _s("sig_be_dn"):   sha_pts += 18; _has_dn = True
+        if _s("sig_eb_dn"):   sha_pts += 15; _has_dn = True
+        if _s("sig_4bf_dn"):  sha_pts += 12; _has_dn = True
+        if _s("sig_wk_dn"):   sha_pts += 10; _has_dn = True
+
+        if _has_dn and _abs_signals:
+            if _rb("raw_buy_here"): sha_pts += 12
+            if _rb("raw_um"):       sha_pts += 8
+            if _BCT:                sha_pts += 8
+            elif _SQB:              sha_pts += 6
+            if _s("sig_abs"):       sha_pts += 10
+            if _g1_any:             sha_pts += 8
+
+        shakeout_absorb_score = max(0, min(60, int(sha_pts)))
 
         # ── ROCKET_SCORE ────────────────────────────────────────────────────────
         rocket_pts = 0
-        # Vol 20x
-        if _s("sig_vol_20x"): rocket_pts += 8
-        # F-family combos
-        if _s("sig_f8") and (_s("sig_svs") or _s("sig_conso")):
-            rocket_pts += 25
-        elif _s("sig_f8") and any(_s(k) for k in ["sig_bct","ctx_bct","ctx_sqb","ctx_lrp","ctx_ldp"]):
-            rocket_pts += 12
-        if _s("sig_f6") and any(b.get(k,0) for k in ["g1c","g1l"]): rocket_pts += 10
-        if _s("sig_f11") and any(_s(k) for k in ["ctx_sqb","ctx_bct"]): rocket_pts += 10
-        # FLY combos
-        if _s("sig_fly_abcd"):
+        if _s("sig_para_plus"):    rocket_pts += 25
+        elif _s("sig_para_start"): rocket_pts += 15
+        if _s("sig_vol_20x"):      rocket_pts += 10
+        elif _s("sig_vol_10x"):    rocket_pts += 6
+        elif _s("sig_vol_5x"):     rocket_pts += 4
+        if _rb("raw_rocket"):      rocket_pts += 12
+        if _rb("raw_f8") and (_s("sig_svs") or _s("sig_conso")):
+            rocket_pts += 20
+        elif _rb("raw_f8") and (_BCT or _SQB or _LRP or _LDP):
             rocket_pts += 10
-            if _s("sig_svs"):  rocket_pts += 5
-        # PARA
-        if _s("sig_para_plus"):
-            rocket_pts += 18
-            if _s("sig_svs"): rocket_pts += 7
-        elif _s("sig_para_start"): rocket_pts += 10
-        # ANY_P combos
-        _any_p = any(_s(k) for k in ["sig_p66","sig_p55","sig_p89","sig_p3","sig_p2","sig_p50"])
-        if _any_p and any(b.get(k,0) for k in ["g1c","g1l"]): rocket_pts += 8
-        if _any_p and any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): rocket_pts += 8
-        if _any_p and any(_s(k) for k in ["ctx_bct","ctx_sqb"]): rocket_pts += 7
-        if _any_p and (_s("sig_f8") or f8c): rocket_pts += 7
-        if _any_p and _s("sig_svs"): rocket_pts += 8
-        rocket_score = int(rocket_pts)
+        if _s("sig_seq_bcont"):    rocket_pts += 8
+        if any(_s(k) for k in ["sig_p66","sig_p55"]) and _g1_any:
+            rocket_pts += 8
+        if _rb("raw_f6") and _g1_top:
+            rocket_pts += 8
+        rocket_score = max(0, int(rocket_pts))
 
-        # ── BEARISH_RISK_SCORE ──────────────────────────────────────────────────
-        bear_pts = 0
-        bias_dn = _s("sig_bias_dn")
-        # ND_VABS bearish pair
-        if _s("sig_nd_vabs") and bias_dn: bear_pts += 8
-        # BE_DN
-        if _s("sig_be_dn"): bear_pts += 20
-        # RH extended
-        if _s("sig_rh") and bool(b.get("already_extended",0)): bear_pts += 10
-        # FBO_DN
-        if _s("sig_fbo_dn"): bear_pts += 20
-        # EB_DN
-        if _s("sig_eb_dn"): bear_pts += 12
-        # 4BF_DN
-        if _s("sig_4bf_dn"): bear_pts += 15
-        # BEST_UP bearish context
-        if _s("sig_best_up") and (bias_dn or _s("sig_bc")): bear_pts += 35
-        # D-family (PREDN)
-        _predn_pts = 0
-        if _s("sig_d66"):  _predn_pts = max(_predn_pts, 10)
-        if _s("sig_d89"):  _predn_pts = max(_predn_pts, 10)
-        if _s("sig_d55"):  _predn_pts = max(_predn_pts, 9)
-        if _s("sig_d50"):  _predn_pts = max(_predn_pts, 8)
-        if _s("sig_d3"):   _predn_pts = max(_predn_pts, 7)
-        if _s("sig_d2"):   _predn_pts = max(_predn_pts, 7)
-        _any_d = _predn_pts > 0
-        bear_pts += _predn_pts
-        if _any_d and bias_dn: bear_pts += 15
-        # Delta bearish
-        if _s("sig_d_dn_green"): bear_pts += 10
-        if _s("sig_dd_dn_green"): bear_pts += 12
-        if _s("sig_nd_delta"): bear_pts += 10
-        if (_s("sig_d_dn_green") or _s("sig_dd_dn_green") or _s("sig_nd_delta")) and bias_dn:
-            bear_pts += 20
-        # Price below EMAs
-        if _s("sig_price_lt_20"):  bear_pts += 2
-        if _s("sig_price_lt_50"):  bear_pts += 3
-        if _s("sig_price_lt_89"):  bear_pts += 4
-        if _s("sig_price_lt_200"): bear_pts += 5
-        # RSI extended
-        if _s("sig_rsi_ge_70") and bool(b.get("already_extended",0)): bear_pts += 6
-        # ANY_P bearish context
-        if _any_p and bias_dn: bear_pts += 15
-        if _any_p and gog_tier_s in ("GOG2","G2L","G2C","G2P"): bear_pts += 12
-        # PARA overextended
-        if _s("sig_para_start") and bias_dn: bear_pts += 30
-        # FLY with bias_dn
-        if any(_s(k) for k in ["sig_fly_abcd","sig_fly_cd","sig_fly_bd","sig_fly_ad"]) and bias_dn:
-            bear_pts += 20
-        # CISD minus patterns with bias_dn
-        if (_s("sig_cisd_cplus_minus") or _s("sig_cisd_cplus_mm")) and bias_dn:
-            bear_pts += 10
-        bearish_risk_score = int(bear_pts)
+        # ── EXTRA_BULL_SCORE ─────────────────────────────────────────────────────
+        extra_bull = 0
+        # D-family bullish (NOT bearish by default per spec)
+        if _s("sig_d50"):          extra_bull += 6
+        if _s("sig_d2"):           extra_bull += 6
+        if _s("sig_d55"):          extra_bull += 5
+        if _s("sig_d66"):          extra_bull += 5
+        if _s("sig_d89"):          extra_bull += 4
+        if _s("sig_d3"):           extra_bull += 4
+        # Weak helpers
+        if _s("sig_bias_up"):      extra_bull += 5
+        if _s("sig_fri64"):        extra_bull += 5
+        if _s("sig_l555"):         extra_bull += 6
+        if _s("sig_cci0r"):        extra_bull += 4
+        if _s("sig_ccib"):         extra_bull += 4
+        if _s("sig_fri43"):        extra_bull += 3
+        if _s("sig_fri34"):        extra_bull += 2
+        if _s("sig_p50"):          extra_bull += 5
+        if _s("sig_flp_up"):       extra_bull += 4
+        if _s("sig_org_up"):       extra_bull += 3
+        if _s("sig_dd_up_red"):    extra_bull += 3
+        if _s("sig_d_up_red"):     extra_bull += 2
+        # Price > EMA small bonuses
+        if _s("sig_price_gt_200"): extra_bull += 3
+        elif _s("sig_price_gt_89"):extra_bull += 2
+        elif _s("sig_price_gt_50"):extra_bull += 1
+        # RSI oversold
+        if _s("sig_rsi_le_35"):    extra_bull += 3
+        # BEST_UP only in positive context
+        if _s("sig_best_up") and _g1_top and not _s("sig_bias_dn") and not _s("sig_bc"):
+            extra_bull += 8
+        elif _s("sig_best_up") and (_BCT or _LRP) and not _s("sig_bias_dn"):
+            extra_bull += 5
+        extra_bull_score = max(0, min(30, int(extra_bull)))
 
         # ── EXPERIMENTAL_SCORE ──────────────────────────────────────────────────
         exp_pts = 0
-        if _s("sig_para_prep"): exp_pts += 5
-        # FLY experimental (until stats validated)
-        _fly_pts = 0
-        if _s("sig_fly_abcd"): _fly_pts += 10
-        elif _s("sig_fly_cd"):  _fly_pts += 7
-        elif _s("sig_fly_bd"):  _fly_pts += 6
-        elif _s("sig_fly_ad"):  _fly_pts += 6
-        exp_pts += min(_fly_pts, 20)
-        experimental_score = int(exp_pts)
+        if _s("sig_para_prep"):     exp_pts += 5
+        if _s("sig_cisd_cplus"):    exp_pts += 8
+        elif _s("sig_cisd_cplus_minus"): exp_pts += 3
+        if _s("sig_fly_abcd"):      exp_pts += 8
+        elif _s("sig_fly_cd"):      exp_pts += 5
+        elif _s("sig_fly_bd") or _s("sig_fly_ad"): exp_pts += 4
+        experimental_score = max(0, min(15, int(exp_pts)))
 
-        # ── ADDITIONAL BULLISH SCORE ITEMS (extend signal_score) ────────────────
-        extra_bull = 0
-        # STRONG
-        if _s("sig_strong"): extra_bull += 8
-        # Vol family
-        if _s("sig_vol_5x"): extra_bull += 6
-        # BIAS_UP
-        if _s("sig_bias_up"): extra_bull += 5
-        # F-family unscored members
-        if _s("sig_f1"): extra_bull += 3
-        if _s("sig_f2"): extra_bull += 3
-        if _s("sig_f5"): extra_bull += 2
-        if _s("sig_f7"): extra_bull += 2
-        if _s("sig_f9"): extra_bull += 3
-        if _s("sig_f10"): extra_bull += 3
-        _any_f = any(_s(f"sig_f{n}") for n in range(1,12))
-        _specific_f_scored = any(_s(f"sig_f{n}") for n in [3,4,6,8,11])
-        if _any_f and not (_specific_f_scored or any(_s(f"sig_f{n}") for n in [1,2,5,7,9,10])):
-            extra_bull += 3
-        # B-family (cap 10)
-        _b_pts = sum(2 for n in range(1,12) if _s(f"sig_b{n}"))
-        extra_bull += min(_b_pts, 10)
-        # FRI64, L64, L22, L555, L2L4
-        if _s("sig_fri64"): extra_bull += 4
-        if b.get("raw_l64",0): extra_bull += 4
-        if b.get("raw_l22",0): extra_bull += 6
-        if _s("sig_l555"): extra_bull += 5
-        if _s("sig_l2l4"): extra_bull += 4
-        # L combos
-        if b.get("raw_l22",0) and any(_s(k) for k in ["ctx_sqb","ctx_bct"]): extra_bull += 8
-        # CCI0R, CCIB, PP
-        if _s("sig_cci0r"): extra_bull += 5
-        if _s("sig_ccib"):  extra_bull += 5
-        if _s("sig_pp"):    extra_bull += 5
-        # BEST_UP + GOG combo (positive case)
-        if _s("sig_best_up") and any(b.get(k,0) for k in ["g1c","g1l"]): extra_bull += 5
-        # Delta extras
-        if _s("sig_flp_up"): extra_bull += 5
-        if _s("sig_org_up"): extra_bull += 4
-        if _s("sig_dd_up_red"): extra_bull += 4
-        if _s("sig_d_up_red"):  extra_bull += 3
-        # P50
-        if _s("sig_p50"): extra_bull += 6
-        # ANY_P fallback
-        _any_p_scored = any(_s(k) for k in ["sig_p66","sig_p55","sig_p89","sig_p3","sig_p2"])
-        if _any_p and not _any_p_scored: extra_bull += 3
-        # PARA scored signals
-        if _s("sig_para_plus"):
-            para_bull = 16
-            if any(b.get(k,0) for k in ["g1c","g1l","gog1"]): para_bull += 16
-            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): para_bull += 12
-            elif any(_s(k) for k in ["ctx_bct","ctx_sqb"]): para_bull += 10
-            elif _s("sig_svs"): para_bull += 12
-            elif _s("sig_f8") or f8c: para_bull += 10
-            extra_bull += para_bull
-        elif _s("sig_para_start"):
-            para_bull = 10
-            if any(b.get(k,0) for k in ["g1c","g1l"]): para_bull += 12
-            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): para_bull += 12
-            elif any(_s(k) for k in ["ctx_bct","ctx_sqb"]): para_bull += 10
-            elif _s("sig_svs"): para_bull += 12
-            extra_bull += para_bull
-        if _s("sig_para_retest"):
-            retest_bull = 8
-            if any(b.get(k,0) for k in ["g1c","g1l"]): retest_bull += 10
-            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): retest_bull += 10
-            extra_bull += retest_bull
-        # FLY bullish
-        _fly_bull = 0
-        if _s("sig_fly_abcd"):
-            _fly_bull += 10
-            if _s("sig_svs"): _fly_bull += 5
-            if any(_s(k) for k in ["ctx_bct","ctx_sqb"]): _fly_bull += 4
-            if any(_s(k) for k in ["ctx_lrp","ctx_ldp"]): _fly_bull += 4
-            if any(b.get(k,0) for k in ["g1c","g1l"]): _fly_bull += 2
-        elif _s("sig_fly_cd"):
-            _fly_bull += 7
-            if _s("sig_svs"): _fly_bull += 5
-            if any(_s(k) for k in ["ctx_bct","ctx_sqb"]): _fly_bull += 3
-        elif _s("sig_fly_bd") or _s("sig_fly_ad"):
-            _fly_bull += 6
-            if _s("sig_f8") or f8c: _fly_bull += 2
-        extra_bull += _fly_bull
-        # CISD
-        if _s("sig_cisd_cplus"):
-            cisd_pts = 6
-            if any(b.get(k,0) for k in ["g1c","g1l"]): cisd_pts += 8
-            elif _s("sig_f8") or f8c: cisd_pts += 8
-            elif any(_s(k) for k in ["ctx_lrp","ctx_ldp","ctx_bct","ctx_sqb"]): cisd_pts += 8
-            elif _s("sig_svs"): cisd_pts += 6
-            extra_bull += cisd_pts
-        elif _s("sig_cisd_cplus_minus"): extra_bull += 5
-        elif _s("sig_cisd_cplus_mm"):    extra_bull += 4
-        # GOG_PLUS
-        _gog_plus = any(b.get(k,0) for k in ["g1p","g1l","g1c","g2p","g2l","g2c","g3p","g3l","g3c"])
-        if _gog_plus: extra_bull += 8
-        # CROSS engine bonuses
-        if b.get("sig_cross_4plus",0): extra_bull += 15
-        elif b.get("sig_cross_3plus",0): extra_bull += 10
-        elif b.get("sig_cross_2plus",0): extra_bull += 5
-        # EARLY_E
-        if b.get("sig_early_e",0): extra_bull += 8
-        # Price > EMA bonuses
-        if _s("sig_price_gt_200"): extra_bull += 5
-        elif _s("sig_price_gt_89"): extra_bull += 4
-        elif _s("sig_price_gt_50"): extra_bull += 3
-        elif _s("sig_price_gt_20"): extra_bull += 2
-        # RSI oversold watch
-        if _s("sig_rsi_le_35"): extra_bull += 3
+        # ── HARD_BEAR_SCORE (replaces BEARISH_RISK_SCORE) ───────────────────────
+        bear_pts = 0
+        _bias_dn = _s("sig_bias_dn")
+        _bc      = _s("sig_bc")
+        if _s("sig_fbo_dn"):                         bear_pts += 20
+        if _s("sig_be_dn") and not _abs_signals:     bear_pts += 15
+        if _s("sig_eb_dn") and not _abs_signals:     bear_pts += 10
+        if _s("sig_4bf_dn") and not _abs_signals:    bear_pts += 8
+        if _bias_dn:                                  bear_pts += 6
+        if _bc:                                       bear_pts += 6
+        if _s("sig_nd_vabs") and _bias_dn:            bear_pts += 8
+        if _s("sig_rh") and _ext:                     bear_pts += 10
+        if _s("sig_rsi_ge_70") and _ext:              bear_pts += 5
+        if _s("sig_d_dn_green") and _bias_dn:         bear_pts += 12
+        if _s("sig_dd_dn_green") and _bias_dn:        bear_pts += 15
+        if _s("sig_nd_delta") and _bias_dn:           bear_pts += 10
+        if _s("sig_best_up") and (_bias_dn or _bc):   bear_pts += 30
+        if _s("sig_para_start") and _bias_dn:         bear_pts += 25
+        if any(_s(k) for k in ["sig_fly_abcd","sig_fly_cd"]) and _bias_dn:
+            bear_pts += 15
+        if _s("sig_price_lt_200"):   bear_pts += 8
+        elif _s("sig_price_lt_89"):  bear_pts += 5
+        elif _s("sig_price_lt_50"):  bear_pts += 3
+        if _abs_signals:             bear_pts = max(0, bear_pts - 10)
+        hard_bear_score = max(0, int(bear_pts))
 
-        # ── FINAL_BULL_SCORE ────────────────────────────────────────────────────
-        final_bull_raw = signal_score + extra_bull + min(rocket_score, 35) + min(experimental_score, 20) - bearish_risk_score
+        # ── VOLATILITY_RISK_SCORE ────────────────────────────────────────────────
+        vr_pts = 0
+        if _ext:                          vr_pts += 8
+        if _s("sig_rh"):                  vr_pts += 5
+        if _s("sig_rsi_ge_70"):           vr_pts += 4
+        if _ext and _s("sig_para_plus"):  vr_pts += 8
+        if _ext and _s("sig_rh"):         vr_pts += 6
+        volatility_risk_score = max(0, int(vr_pts))
+
+        # ── FINAL_BULL_SCORE ─────────────────────────────────────────────────────
+        final_bull_raw = (
+            clean_entry_score
+            + min(shakeout_absorb_score, 45)
+            + min(rocket_score, 40)
+            + min(extra_bull_score, 20)
+            + min(experimental_score, 15)
+            - min(volatility_risk_score, 25)
+            - min(hard_bear_score, 60)
+        )
         final_bull_score = max(0, min(180, int(round(final_bull_raw))))
 
+        # ── Named model booleans ─────────────────────────────────────────────────
+        _um  = bool(_rb("raw_um"))
+        _bh  = bool(_rb("raw_buy_here"))
+        _f8  = bool(_rb("raw_f8"))
+        _l22 = bool(_rb("raw_l22"))
+        _be  = bool(_rb("raw_be_up"))
+        _bo  = bool(_rb("raw_bo_up"))
+        _bx  = bool(_rb("raw_bx_up"))
+        _z10 = bool(_rb("raw_z10"))
+        _rkt = bool(_rb("raw_rocket"))
+        _ldd = bool(_rb("raw_load"))
+        _sig260 = bool(_rb("raw_sig260308"))
+        _sv  = _s("sig_svs")
+        _con = _s("sig_conso")
+        _3up = _s("sig_3up")
+        _blu = _s("sig_blue")
+
+        mdl_um_gog1   = _um   and _g1_top
+        mdl_bh_gog1   = _bh   and _g1_any
+        mdl_f8_gog1   = _f8   and _g1_top
+        mdl_f8_bct    = _f8   and _BCT
+        mdl_f8_lrp    = _f8   and _LRP
+        mdl_l22_bct   = _l22  and _BCT
+        mdl_l22_lrp   = _l22  and _LRP
+        mdl_be_gog1   = _be   and _g1_top
+        mdl_bo_gog1   = _bo   and _g1_top
+        mdl_z10_gog1  = _z10  and _g1_any
+        mdl_load_gog1 = _ldd  and _g1_top
+        mdl_260_gog1  = _sig260 and _g1_top
+        mdl_rkt_gog1  = _rkt  and _g1_any
+        mdl_f8_svs    = _f8   and _sv
+        mdl_f8_cons   = _f8   and _con
+        mdl_l22_sqb   = _l22  and _SQB
+        mdl_3up_gog1  = _3up  and (_g1_top or _g1p)
+        mdl_blue_gog1 = _blu  and _g1_top
+        mdl_bx_gog1   = _bx   and _g1_top
+        mdl_um_lrp    = _um   and _LRP
+
+        has_elite_model = any([
+            mdl_um_gog1, mdl_bh_gog1, mdl_f8_gog1, mdl_f8_bct,
+            mdl_f8_lrp, mdl_l22_bct, mdl_l22_lrp, mdl_be_gog1,
+            mdl_bo_gog1, mdl_z10_gog1, mdl_load_gog1, mdl_260_gog1,
+            mdl_rkt_gog1, mdl_f8_svs, mdl_f8_cons, mdl_l22_sqb,
+            mdl_3up_gog1, mdl_blue_gog1, mdl_bx_gog1, mdl_um_lrp,
+        ])
+        has_bear_model = hard_bear_score >= 25 and (
+            _s("sig_fbo_dn") or
+            (_s("sig_be_dn") and not _abs_signals) or
+            (_s("sig_best_up") and (_bias_dn or _bc)) or
+            (_s("sig_para_start") and _bias_dn)
+        )
+
         # ── FINAL_REGIME ─────────────────────────────────────────────────────────
-        _ext = bool(b.get("already_extended", 0))
-        if bearish_risk_score >= 70:
+        if hard_bear_score >= 40:
             final_regime = "BEARISH_PHASE"
-        elif final_bull_score >= 120 and not _ext:
+        elif has_elite_model and not _ext and final_bull_score >= 115:
             final_regime = "ELITE_CLEAN_BULL"
         elif final_bull_score >= 100 and not _ext:
             final_regime = "A_PLUS_CLEAN_BULL"
-        elif rocket_score >= 45:
+        elif final_bull_score >= 75 and not _ext:
+            final_regime = "CLEAN_ENTRY"
+        elif shakeout_absorb_score >= 25:
+            final_regime = "SHAKEOUT_ABSORB"
+        elif rocket_score >= 35:
             final_regime = "ROCKET_WATCH"
-        elif signal_score >= 60 and not gog_tier_s:
+        elif clean_entry_score >= 20:
             final_regime = "EARLY_WATCH"
-        elif _ext and final_bull_score >= 80:
+        elif _ext and final_bull_score >= 70:
             final_regime = "PARABOLIC_EXTENDED"
         else:
             final_regime = "NEUTRAL_OR_LOW"
 
+        # ── FINAL_SCORE_BUCKET ───────────────────────────────────────────────────
+        if   final_bull_score >= 140: final_score_bucket = "ELITE"
+        elif final_bull_score >= 115: final_score_bucket = "A_PLUS"
+        elif final_bull_score >= 90:  final_score_bucket = "A"
+        elif final_bull_score >= 65:  final_score_bucket = "B"
+        elif final_bull_score >= 40:  final_score_bucket = "WATCH"
+        elif final_bull_score >= 20:  final_score_bucket = "LOW_WATCH"
+        else:                         final_score_bucket = "NO_SIGNAL"
+        if _ext and final_bull_score >= 70:
+            final_score_bucket += "_EXTENDED"
+
         return {
+            # Legacy (unchanged)
             "signal_score":              signal_score,
             "research_score":            research_score,
             "signal_bucket":             bucket,
@@ -2048,14 +2158,49 @@ def _signal_score(b):
             "vbo_w10": vbo_w10,
             "gog_w5":  gog_w5,
             "gog_w10": gog_w10,
-            "rocket_score":          rocket_score,
-            "bearish_risk_score":    bearish_risk_score,
-            "experimental_score":    experimental_score,
-            "extra_bull_score":      int(extra_bull),
-            "final_bull_score":      final_bull_score,
-            "final_regime":          final_regime,
+            # New score components
+            "clean_entry_score":       clean_entry_score,
+            "shakeout_absorb_score":   shakeout_absorb_score,
+            "rocket_score":            rocket_score,
+            "extra_bull_score":        extra_bull_score,
+            "experimental_score":      experimental_score,
+            "hard_bear_score":         hard_bear_score,
+            "volatility_risk_score":   volatility_risk_score,
+            "final_bull_score":        final_bull_score,
+            "final_regime":            final_regime,
+            "final_score_bucket":      final_score_bucket,
+            "bearish_risk_score":      hard_bear_score,   # backward compat
+            # Model booleans
+            "mdl_um_gog1":    int(mdl_um_gog1),
+            "mdl_bh_gog1":    int(mdl_bh_gog1),
+            "mdl_f8_gog1":    int(mdl_f8_gog1),
+            "mdl_f8_bct":     int(mdl_f8_bct),
+            "mdl_f8_lrp":     int(mdl_f8_lrp),
+            "mdl_l22_bct":    int(mdl_l22_bct),
+            "mdl_l22_lrp":    int(mdl_l22_lrp),
+            "mdl_be_gog1":    int(mdl_be_gog1),
+            "mdl_bo_gog1":    int(mdl_bo_gog1),
+            "mdl_z10_gog1":   int(mdl_z10_gog1),
+            "mdl_load_gog1":  int(mdl_load_gog1),
+            "mdl_260_gog1":   int(mdl_260_gog1),
+            "mdl_rkt_gog1":   int(mdl_rkt_gog1),
+            "mdl_f8_svs":     int(mdl_f8_svs),
+            "mdl_f8_cons":    int(mdl_f8_cons),
+            "mdl_l22_sqb":    int(mdl_l22_sqb),
+            "mdl_3up_gog1":   int(mdl_3up_gog1),
+            "mdl_blue_gog1":  int(mdl_blue_gog1),
+            "mdl_bx_gog1":    int(mdl_bx_gog1),
+            "mdl_um_lrp":     int(mdl_um_lrp),
+            "has_elite_model": int(has_elite_model),
+            "has_bear_model":  int(has_bear_model),
         }
 
+
+_REGIME_SORT = {
+    "ELITE_CLEAN_BULL": 0, "A_PLUS_CLEAN_BULL": 1, "CLEAN_ENTRY": 2,
+    "SHAKEOUT_ABSORB": 3, "ROCKET_WATCH": 4, "EARLY_WATCH": 5,
+    "PARABOLIC_EXTENDED": 6, "NEUTRAL_OR_LOW": 7, "BEARISH_PHASE": 8,
+}
 
 # ── Stock Stat — bulk per-bar signal CSV for entire universe ──────────────────
 
@@ -2199,9 +2344,19 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "SIG_CISD_CPLUS", "SIG_CISD_CPLUS_MINUS", "SIG_CISD_CPLUS_MM",
             # ── PARA context
             "SIG_PARA_PREP", "SIG_PARA_START", "SIG_PARA_PLUS", "SIG_PARA_RETEST",
-            # ── Composite scores
-            "ROCKET_SCORE", "BEARISH_RISK_SCORE", "EXPERIMENTAL_SCORE",
-            "EXTRA_BULL_SCORE", "FINAL_BULL_SCORE", "FINAL_REGIME",
+            # ── Composite scores (new system)
+            "CLEAN_ENTRY_SCORE", "SHAKEOUT_ABSORB_SCORE",
+            "ROCKET_SCORE", "EXTRA_BULL_SCORE", "EXPERIMENTAL_SCORE",
+            "HARD_BEAR_SCORE", "VOLATILITY_RISK_SCORE",
+            "FINAL_BULL_SCORE", "FINAL_REGIME", "FINAL_SCORE_BUCKET",
+            # ── Named model booleans
+            "MDL_UM_GOG1", "MDL_BH_GOG1", "MDL_F8_GOG1", "MDL_F8_BCT", "MDL_F8_LRP",
+            "MDL_L22_BCT", "MDL_L22_LRP", "MDL_BE_GOG1", "MDL_BO_GOG1", "MDL_Z10_GOG1",
+            "MDL_LOAD_GOG1", "MDL_260_GOG1", "MDL_RKT_GOG1", "MDL_F8_SVS", "MDL_F8_CONS",
+            "MDL_L22_SQB", "MDL_3UP_GOG1", "MDL_BLUE_GOG1", "MDL_BX_GOG1", "MDL_UM_LRP",
+            "HAS_ELITE_MODEL", "HAS_BEAR_MODEL",
+            # ── Backward compat
+            "BEARISH_RISK_SCORE",
         ]
 
         def _build_row(ticker, b):
@@ -2265,12 +2420,17 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             raw_support_s     = sc["raw_support_score"]
             risk_pen          = sc["risk_penalty"]
             research_fwd_s    = sc["research_forward_score"]
+            clean_entry_s     = sc.get("clean_entry_score", 0)
+            sha_s             = sc.get("shakeout_absorb_score", 0)
             rocket_s          = sc.get("rocket_score", 0)
-            bearish_risk_s    = sc.get("bearish_risk_score", 0)
-            experimental_s    = sc.get("experimental_score", 0)
             extra_bull_s      = sc.get("extra_bull_score", 0)
+            experimental_s    = sc.get("experimental_score", 0)
+            hard_bear_s       = sc.get("hard_bear_score", 0)
+            bearish_risk_s    = sc.get("bearish_risk_score", 0)
+            vol_risk_s        = sc.get("volatility_risk_score", 0)
             final_bull_s      = sc.get("final_bull_score", 0)
             final_regime_s    = sc.get("final_regime", "")
+            final_bucket_s    = sc.get("final_score_bucket", "")
             already_ext       = b.get("already_extended", 0)
 
             return (gog_tier_csv, sig_score, b.get("gog_score", 0),
@@ -2474,9 +2634,25 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 # PARA context
                 b.get("sig_para_prep",0),   b.get("sig_para_start",0),
                 b.get("sig_para_plus",0),   b.get("sig_para_retest",0),
-                # Composite scores
-                rocket_s, bearish_risk_s, experimental_s,
-                extra_bull_s, final_bull_s, final_regime_s,
+                # Composite scores (new system)
+                clean_entry_s, sha_s,
+                rocket_s, extra_bull_s, experimental_s,
+                hard_bear_s, vol_risk_s,
+                final_bull_s, final_regime_s, final_bucket_s,
+                # Named model booleans
+                sc.get("mdl_um_gog1",0),   sc.get("mdl_bh_gog1",0),
+                sc.get("mdl_f8_gog1",0),   sc.get("mdl_f8_bct",0),
+                sc.get("mdl_f8_lrp",0),    sc.get("mdl_l22_bct",0),
+                sc.get("mdl_l22_lrp",0),   sc.get("mdl_be_gog1",0),
+                sc.get("mdl_bo_gog1",0),   sc.get("mdl_z10_gog1",0),
+                sc.get("mdl_load_gog1",0), sc.get("mdl_260_gog1",0),
+                sc.get("mdl_rkt_gog1",0),  sc.get("mdl_f8_svs",0),
+                sc.get("mdl_f8_cons",0),   sc.get("mdl_l22_sqb",0),
+                sc.get("mdl_3up_gog1",0),  sc.get("mdl_blue_gog1",0),
+                sc.get("mdl_bx_gog1",0),   sc.get("mdl_um_lrp",0),
+                sc.get("has_elite_model",0), sc.get("has_bear_model",0),
+                # Backward compat
+                bearish_risk_s,
             ])
 
         # Validation accumulators
@@ -2529,8 +2705,16 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                         if vbo_w10_val != vbo_w10_chk or gog_w10_val != gog_w10_chk:
                             _val_window_mismatch += 1
 
-                        # Sort key: extended asc, signal_score desc, gog_score desc, dollar_vol desc
-                        sort_key = (already_ext, -sig_score, -float(gog_score_raw or 0), -float(dv or 0))
+                        # Sort key: regime priority, final_bull desc, gog_score desc, dollar_vol desc
+                        _fr = row_list[headers.index("FINAL_REGIME")]
+                        _fb = row_list[headers.index("FINAL_BULL_SCORE")]
+                        sort_key = (
+                            already_ext,
+                            _REGIME_SORT.get(_fr, 7),
+                            -float(_fb or 0),
+                            -float(gog_score_raw or 0),
+                            -float(dv or 0),
+                        )
                         all_rows.append((sort_key, row_list))
                     except Exception:
                         pass
