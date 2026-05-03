@@ -761,6 +761,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
     if (pwlHas(row.ticker, localTf)) { pwlRemove(row.ticker, localTf) }
     else { pwlAdd(r) }
   }
+  const [sweetSpotFilter, setSweetSpotFilter] = useState(false)
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
@@ -879,6 +880,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (rtbPhase && (r.rtb_phase || '0') !== rtbPhase) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
+      if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -895,17 +897,24 @@ export default function TurboScanPanel({ onSelectTicker }) {
       }
       return true
     })
-    // sort: use N-appropriate score column when sorting by score
+    // sort: when Sweet Spot filter active, sort by profile_score then turbo_score
     const mul = sortDir === 'asc' ? 1 : -1
-    filtered.sort((a, b) => {
-      const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
-      const av = a[col] ?? 0
-      const bv = b[col] ?? 0
-      if (typeof av === 'string') return mul * av.localeCompare(bv)
-      return mul * (av - bv)
-    })
+    if (sweetSpotFilter) {
+      filtered.sort((a, b) =>
+        (b.profile_score ?? 0) - (a.profile_score ?? 0) ||
+        (b[effectiveScoreCol] ?? b.turbo_score ?? 0) - (a[effectiveScoreCol] ?? a.turbo_score ?? 0)
+      )
+    } else {
+      filtered.sort((a, b) => {
+        const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
+        const av = a[col] ?? 0
+        const bv = b[col] ?? 0
+        if (typeof av === 'string') return mul * av.localeCompare(bv)
+        return mul * (av - bv)
+      })
+    }
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase])
+  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1278,6 +1287,37 @@ export default function TurboScanPanel({ onSelectTicker }) {
         )}
       </div>
 
+      {/* ── Row 5: Profile Sweet Spot filter ── */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Profile</span>
+        <button
+          onClick={() => setSweetSpotFilter(f => !f)}
+          title="Show only tickers in sweet_spot_active=true AND late_warning=false. Sorted by profile_score DESC, then turbo_score DESC."
+          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            sweetSpotFilter
+              ? 'bg-green-900/60 text-green-300 border-green-600 ring-1 ring-green-500'
+              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+          }`}>
+          ⭐ Sweet Spot
+        </button>
+        {sweetSpotFilter && (
+          <span className="text-xs text-gray-500">
+            {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score
+          </span>
+        )}
+        {sweetSpotFilter && (
+          <button onClick={() => setSweetSpotFilter(false)}
+            className="ml-1 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+            ✕ clear
+          </button>
+        )}
+        <span className="ml-auto text-gray-600 text-xs">
+          Profile score is additive context only — does not replace canonical score
+          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us' || universe === 'split') &&
+            <span className="ml-1 text-amber-600"> · NASDAQ profile is experimental</span>}
+        </span>
+      </div>
+
       {/* Progress / error */}
       {scanning && (
         <div className="px-4 py-1.5 border-b border-gray-800 bg-violet-950/30 text-violet-300 animate-pulse">
@@ -1325,6 +1365,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <th className="px-2 py-1.5 font-medium">Wyck</th>
               <th className="px-2 py-1.5 font-medium">Combo</th>
               <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
+              <SortTh col="profile_score" cls="text-center" title="Profile playbook score — additive context, not canonical score">Pf Score</SortTh>
+              <th className="px-2 py-1.5 font-medium text-center" title="Profile category: SWEET_SPOT / BUILDING / WATCH / LATE">Category</th>
               <SortTh col="rsi" cls="text-center">RSI</SortTh>
               <SortTh col="cci" cls="text-center">CCI</SortTh>
               <SortTh col="last_price" cls="text-right">Price</SortTh>
@@ -1619,6 +1661,30 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   </div>
                 </td>
 
+                {/* Profile Score */}
+                <td className="px-2 py-1 text-center font-mono text-xs text-gray-400"
+                  title={r.matched_profile_pairs?.length ? `Pairs: ${r.matched_profile_pairs.join(', ')}` : r.profile_name}>
+                  {r.profile_score != null ? r.profile_score : '—'}
+                </td>
+
+                {/* Profile Category */}
+                <td className="px-2 py-1 text-center">
+                  {r.profile_category ? (() => {
+                    const cfg = {
+                      SWEET_SPOT: { bg: 'bg-green-900/60', text: 'text-green-300', border: 'border-green-700/60', icon: '⭐' },
+                      BUILDING:   { bg: 'bg-yellow-900/40', text: 'text-yellow-300', border: 'border-yellow-700/40', icon: '↑' },
+                      WATCH:      { bg: 'bg-gray-800/60',   text: 'text-gray-500',  border: 'border-gray-700/40',  icon: '' },
+                      LATE:       { bg: 'bg-amber-900/50',  text: 'text-amber-300', border: 'border-amber-700/60', icon: '⚠' },
+                    }[r.profile_category] || { bg: 'bg-gray-800', text: 'text-gray-500', border: 'border-gray-700', icon: '' }
+                    return (
+                      <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${cfg.bg} ${cfg.text} ${cfg.border}`}
+                        title={`Profile: ${r.profile_name}${r.profile_experimental ? ' (experimental)' : ''}${r.matched_profile_signals?.length ? `\nSignals: ${r.matched_profile_signals.join(', ')}` : ''}`}>
+                        {cfg.icon}{cfg.icon ? ' ' : ''}{r.profile_category}
+                      </span>
+                    )
+                  })() : '—'}
+                </td>
+
                 {/* RSI */}
                 <td className={`px-2 py-1 text-center font-mono text-xs
                   ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 30 ? 'text-lime-400' : 'text-gray-400'}`}>
@@ -1676,7 +1742,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={universe === 'split' ? 16 : 15} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={universe === 'split' ? 18 : 17} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
