@@ -1266,7 +1266,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "wick":      wick_list,
             "ultra":          ultra_list,
             "turbo_score":           turbo_score_val,
-            # ── Canonical score columns (same value for same input, all modules) ──
+            # ── Canonical score columns — uppercase (stock_stat CSV / replay engine) ──
             "FINAL_BULL_SCORE":      canonical["FINAL_BULL_SCORE"],
             "ROCKET_SCORE":          canonical["ROCKET_SCORE"],
             "CLEAN_ENTRY_SCORE":     canonical["CLEAN_ENTRY_SCORE"],
@@ -1281,6 +1281,22 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "HAS_STRONG_BULL_MODEL": canonical["HAS_STRONG_BULL_MODEL"],
             "FINAL_REGIME":          canonical["FINAL_REGIME"],
             "FINAL_SCORE_BUCKET":    canonical["FINAL_SCORE_BUCKET"],
+            # ── Lowercase aliases — required by SuperchartPanel.jsx CSV export ──
+            # JavaScript key access is case-sensitive; b.final_bull_score !== b.FINAL_BULL_SCORE
+            "final_bull_score":      canonical["FINAL_BULL_SCORE"],
+            "rocket_score":          canonical["ROCKET_SCORE"],
+            "clean_entry_score":     canonical["CLEAN_ENTRY_SCORE"],
+            "shakeout_absorb_score": canonical["SHAKEOUT_ABSORB_SCORE"],
+            "extra_bull_score":      canonical["EXTRA_BULL_SCORE"],
+            "experimental_score":    canonical["EXPERIMENTAL_SCORE"],
+            "rebound_squeeze_score": canonical["REBOUND_SQUEEZE_SCORE"],
+            "hard_bear_score":       canonical["HARD_BEAR_SCORE"],
+            "volatility_risk_score": canonical["VOLATILITY_RISK_SCORE"],
+            "has_elite_model":       canonical["HAS_ELITE_MODEL"],
+            "has_rebound_model":     canonical["HAS_REBOUND_MODEL"],
+            "has_strong_bull_model": canonical["HAS_STRONG_BULL_MODEL"],
+            "final_regime":          canonical["FINAL_REGIME"],
+            "final_score_bucket":    canonical["FINAL_SCORE_BUCKET"],
             "rtb_phase":      rtb_phase_val,
             "rtb_total":      rtb_total_val,
             "rtb_transition": rtb_transition_val,

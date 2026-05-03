@@ -449,30 +449,32 @@ _CONSISTENCY_DATES = {
 
 def _score_consistency_check(rows: List[dict], tf: str = "1d") -> Tuple[List[dict], dict]:
     """
-    Validate stock_stat scores against live canonical engine scores for
-    SNDK and INTC.  Fetches fresh bar data via api_bar_signals (with 150 bars
-    warmup, same as Superchart) and compares FINAL_BULL_SCORE + FINAL_REGIME.
+    Validate three-way consistency for SNDK and INTC reference dates:
+      1. canonical (live api_bar_signals, uppercase keys)  — source of truth
+      2. stock_stat CSV rows                               — what replay reads
+      3. per-ticker export keys (lowercase keys on live bar) — what SuperchartPanel.jsx reads
 
-    Returns (check_rows, summary_dict).
-    check_rows: one row per (ticker, date) validated → written to CSV.
-    summary_dict: { status, mismatch_count, mismatches }.
+    Returns (check_rows, export_check_rows, summary_dict).
+    Callers unpack the first two lists and write them to separate CSVs.
+    Hard-fails (status="fail") if any exported FINAL_BULL_SCORE is 0/empty
+    while the canonical score is nonzero.
     """
     try:
         from main import api_bar_signals  # import here to avoid circular at module load
     except Exception as e:
         log.warning("score_consistency_check: cannot import api_bar_signals: %s", e)
-        return [], {"status": "not_run", "mismatch_count": 0, "mismatches": []}
+        return [], [], {"status": "not_run", "mismatch_count": 0, "mismatches": []}
 
     by_key = {(_str(r, "ticker"), _str(r, "date")): r for r in rows}
-    check_rows: List[dict] = []
-    mismatches: List[str] = []
+    check_rows: List[dict]        = []
+    export_check_rows: List[dict] = []
+    mismatches: List[str]         = []
 
     for ticker in _CONSISTENCY_TICKERS:
         dates = _CONSISTENCY_DATES.get(ticker, [])
         if not dates:
             continue
         try:
-            # Fetch with 150-bar warmup so indicators are fully stable
             live_bars = api_bar_signals(ticker, tf, 150)
         except Exception as e:
             log.warning("score_consistency_check: fetch %s failed: %s", ticker, e)
@@ -484,42 +486,72 @@ def _score_consistency_check(rows: List[dict], tf: str = "1d") -> Tuple[List[dic
             live = live_by_date.get(date)
             stat = by_key.get((ticker, date))
 
-            live_score   = _f(live.get("FINAL_BULL_SCORE", 0)) if live else None
-            live_regime  = live.get("FINAL_REGIME", "") if live else None
-            live_bucket  = live.get("FINAL_SCORE_BUCKET", "") if live else None
-            stat_score   = _bull_score(stat) if stat else None
-            stat_regime  = _str(stat, "FINAL_REGIME") if stat else None
-            stat_bucket  = _str(stat, "FINAL_SCORE_BUCKET") if stat else None
+            # ── Canonical (uppercase) — source of truth ─────────────────────
+            canonical_score  = _f(live.get("FINAL_BULL_SCORE", 0))  if live else None
+            canonical_regime = live.get("FINAL_REGIME", "")          if live else None
+            canonical_bucket = live.get("FINAL_SCORE_BUCKET", "")    if live else None
 
+            # ── Stock-stat CSV ──────────────────────────────────────────────
+            stat_score  = _bull_score(stat)             if stat else None
+            stat_regime = _str(stat, "FINAL_REGIME")    if stat else None
+            stat_bucket = _str(stat, "FINAL_SCORE_BUCKET") if stat else None
+
+            # ── Per-ticker export (lowercase keys — what SuperchartPanel reads) ─
+            exported_score  = _f(live.get("final_bull_score", 0))  if live else None
+            exported_regime = live.get("final_regime", "")          if live else None
+            exported_bucket = live.get("final_score_bucket", "")    if live else None
+
+            # ── Status for stock_stat vs canonical ──────────────────────────
             if live is None:
                 status = "MISSING_LIVE_ROW"
             elif stat is None:
                 status = "MISSING_STAT_ROW"
             else:
-                score_diff = abs((live_score or 0) - (stat_score or 0))
-                regime_ok  = live_regime == stat_regime
+                score_diff = abs((canonical_score or 0) - (stat_score or 0))
+                regime_ok  = canonical_regime == stat_regime
                 if score_diff > 1 or not regime_ok:
                     status = "MISMATCH"
                     mismatches.append(
-                        f"{ticker} {date}: live={live_score}/{live_regime} "
+                        f"{ticker} {date}: canonical={canonical_score}/{canonical_regime} "
                         f"stat={stat_score}/{stat_regime} diff={score_diff:.1f}"
                     )
                 else:
                     status = "OK"
 
+            # ── Status for per-ticker export vs canonical ────────────────────
+            if live is None:
+                export_status = "MISSING_LIVE_ROW"
+            else:
+                canonical_nz = (canonical_score or 0) != 0
+                exported_zero = (exported_score or 0) == 0
+                if canonical_nz and exported_zero:
+                    export_status = "EXPORT_ZERO_BUG"
+                    mismatches.append(
+                        f"{ticker} {date}: exported_final_bull_score=0 but canonical={canonical_score} "
+                        f"— lowercase key missing from api_bar_signals response"
+                    )
+                elif exported_score != canonical_score or exported_regime != canonical_regime:
+                    export_status = "EXPORT_MISMATCH"
+                    mismatches.append(
+                        f"{ticker} {date}: exported={exported_score}/{exported_regime} "
+                        f"canonical={canonical_score}/{canonical_regime}"
+                    )
+                else:
+                    export_status = "OK"
+
             check_rows.append({
                 "ticker":                        ticker,
                 "date":                          date,
                 "status":                        status,
-                "live_final_bull_score":         live_score,
+                "live_final_bull_score":         canonical_score,
                 "stat_final_bull_score":         stat_score,
-                "score_diff":                    round(abs((live_score or 0) - (stat_score or 0)), 1)
-                                                 if live_score is not None and stat_score is not None else "",
-                "live_final_regime":             live_regime,
+                "score_diff":                    round(abs((canonical_score or 0) - (stat_score or 0)), 1)
+                                                 if canonical_score is not None and stat_score is not None else "",
+                "live_final_regime":             canonical_regime,
                 "stat_final_regime":             stat_regime,
-                "regime_match":                  int(live_regime == stat_regime)
-                                                 if live_regime is not None and stat_regime is not None else "",
-                "live_final_score_bucket":       live_bucket,
+                "regime_match":                  int(canonical_regime == stat_regime)
+                                                 if canonical_regime is not None and stat_regime is not None else "",
+                "live_final_score_bucket":       canonical_bucket,
                 "stat_final_score_bucket":       stat_bucket,
                 "live_rocket_score":             _f(live.get("ROCKET_SCORE", 0)) if live else "",
                 "stat_rocket_score":             _n(stat, "ROCKET_SCORE") if stat else "",
@@ -531,13 +563,33 @@ def _score_consistency_check(rows: List[dict], tf: str = "1d") -> Tuple[List[dic
                 "stat_rebound_squeeze_score":    _n(stat, "REBOUND_SQUEEZE_SCORE") if stat else "",
             })
 
-    mismatch_count = sum(1 for r in check_rows if r["status"] == "MISMATCH")
+            export_check_rows.append({
+                "ticker":                     ticker,
+                "date":                       date,
+                "status":                     export_status,
+                "exported_final_bull_score":  exported_score,
+                "canonical_final_bull_score": canonical_score,
+                "score_match":                int(exported_score == canonical_score)
+                                              if exported_score is not None and canonical_score is not None else "",
+                "exported_final_regime":      exported_regime,
+                "canonical_final_regime":     canonical_regime,
+                "regime_match":               int(exported_regime == canonical_regime)
+                                              if exported_regime is not None and canonical_regime is not None else "",
+                "exported_final_score_bucket":  exported_bucket,
+                "canonical_final_score_bucket": canonical_bucket,
+                "bucket_match":               int(exported_bucket == canonical_bucket)
+                                              if exported_bucket is not None and canonical_bucket is not None else "",
+            })
+
+    hard_fail_statuses = {"EXPORT_ZERO_BUG", "EXPORT_MISMATCH", "MISMATCH"}
+    mismatch_count = sum(1 for r in check_rows + export_check_rows
+                         if r.get("status") in hard_fail_statuses)
     summary = {
         "status": "ok" if mismatch_count == 0 else "fail",
         "mismatch_count": mismatch_count,
         "mismatches": mismatches,
     }
-    return check_rows, summary
+    return check_rows, export_check_rows, summary
 
 
 def _clean_output_dir() -> int:
@@ -1588,9 +1640,9 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             cached["split_analytics"] = {"available": False, "message": str(_se),
                                           "events": [], "missed": [], "false_positives": []}
 
-        # 17b — Score consistency check (live vs stock_stat)
+        # 17b — Score consistency check (live vs stock_stat + export key validation)
         _state["progress"] = 17; _state["message"] = "Score consistency check (SNDK/INTC)..."
-        sc_rows, sc_summary = _score_consistency_check(rows, tf)
+        sc_rows, export_rows, sc_summary = _score_consistency_check(rows, tf)
         cached["score_consistency"] = sc_summary
         if sc_rows:
             sc_path = os.path.join(REPLAY_OUTPUT_DIR, "replay_score_consistency_check.csv")
@@ -1598,12 +1650,17 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             _state["reports"]["score_consistency_check"] = {
                 "rows": len(sc_rows), "path": sc_path, "generated_at": gen_at
             }
+        if export_rows:
+            ex_path = os.path.join(REPLAY_OUTPUT_DIR, "export_score_consistency_check.csv")
+            _write_csv(ex_path, export_rows, gen_at)
+            _state["reports"]["export_score_consistency_check"] = {
+                "rows": len(export_rows), "path": ex_path, "generated_at": gen_at
+            }
         if sc_summary["status"] == "fail":
             mismatch_lines = "\n  ".join(sc_summary["mismatches"])
             raise RuntimeError(
-                f"Score consistency validation FAILED — {sc_summary['mismatch_count']} mismatch(es) "
-                f"between live canonical scores and stock_stat CSV.\n"
-                f"Re-run Stock Stat scan (bars ≥ 150) then re-run Replay.\n"
+                f"Score consistency validation FAILED — {sc_summary['mismatch_count']} mismatch(es).\n"
+                f"Check replay_score_consistency_check.csv and export_score_consistency_check.csv.\n"
                 f"Mismatches:\n  {mismatch_lines}"
             )
 
