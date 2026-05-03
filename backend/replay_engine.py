@@ -1704,23 +1704,29 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             f.write(md)
         _state["reports"]["summary_md"] = {"rows": 1, "path": md_path, "generated_at": gen_at}
 
-        # 19 — TP/SL path-based analytics
+        # 19 — TP/SL path-based analytics (streaming to avoid OOM)
         _state["progress"] = 19; _state["message"] = "TP/SL path analytics..."
         try:
             from tpsl_engine import run_tpsl_analytics
-            tpsl_reports = run_tpsl_analytics(rows, cached)
+            tpsl_reports = run_tpsl_analytics(rows, cached, output_dir=REPLAY_OUTPUT_DIR)
             for rname, data in tpsl_reports.items():
                 if rname.endswith("_md_content"):
-                    # Markdown file — strip the _content suffix to get the base name
                     base = rname[: -len("_md_content")]
                     md_out = os.path.join(REPLAY_OUTPUT_DIR, f"replay_{base}.md")
                     with open(md_out, "w", encoding="utf-8") as f:
                         f.write(data)
                     _state["reports"][base + "_md"] = {
-                        "rows": 1, "path": md_out, "generated_at": gen_at
+                        "rows": 1, "path": md_out, "generated_at": gen_at,
                     }
                 elif isinstance(data, list):
                     _save(rname, data)
+                elif isinstance(data, dict) and data.get("streamed"):
+                    # tpsl_trades was streamed directly to disk by the engine
+                    _state["reports"][rname] = {
+                        "rows": data.get("rows", 0),
+                        "path": data.get("path", ""),
+                        "generated_at": gen_at,
+                    }
         except Exception as _tpsl_e:
             log.warning("TP/SL analytics failed (non-fatal): %s", _tpsl_e)
             _save("tpsl_validation", [{
