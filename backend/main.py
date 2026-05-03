@@ -1346,7 +1346,16 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             wr.writerow(headers)
             for idx, ticker in enumerate(tickers):
                 try:
-                    bd = api_bar_signals(ticker, tf, bars)
+                    # Fetch at least 150 bars so all rolling indicators (EMA, RSI,
+                    # CCI, WLNBB) are fully warmed up — same as Superchart default.
+                    # Then trim to the last `bars` rows so the CSV size stays
+                    # consistent with the user's requested window.  This ensures
+                    # stock_stat scores match what Superchart displays for the
+                    # same ticker/date.
+                    effective_bars = max(bars, 150)
+                    bd = api_bar_signals(ticker, tf, effective_bars)
+                    if len(bd) > bars:
+                        bd = bd[-bars:]
                     for b in bd:
                         tz = b.get("tz", "")
                         wr.writerow([
