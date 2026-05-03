@@ -562,14 +562,14 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
     return () => { try { chart.remove() } catch {} }
   }, [row.ticker, tf])
 
-  // position: try right of cursor, flip left if too close to right edge
+  // position: below the row, right side; flip left if too close to edge
   const POPUP_W = 820
   const POPUP_H = 520
   const vw = window.innerWidth
   const vh = window.innerHeight
   let left = pos.x + 16
   if (left + POPUP_W > vw - 8) left = pos.x - POPUP_W - 8
-  let top = pos.y - 80
+  let top = pos.y + 20   // start below the row center (≈ row bottom + gap)
   if (top + POPUP_H > vh - 8) top = vh - POPUP_H - 8
   if (top < 8) top = 8
 
