@@ -5,18 +5,13 @@ import CandleChart from './components/CandleChart'
 import PredictorPanel from './components/PredictorPanel'
 import ScannerPanel from './components/ScannerPanel'
 import CombinedScanPanel from './components/CombinedScanPanel'
-import PumpComboPanel from './components/PumpComboPanel'
 import TZLStatsPanel from './components/TZLStatsPanel'
 import HowItWorksPanel from './components/HowItWorksPanel'
-import ComboScanPanel from './components/ComboScanPanel'
-import PowerScanPanel from './components/PowerScanPanel'
-import BRScanPanel from './components/BRScanPanel'
 import TurboScanPanel from './components/TurboScanPanel'
 import AdminPanel from './components/AdminPanel'
 import SignalCorrelPanel from './components/SignalCorrelPanel'
 import TickerAnalysisPanel from './components/TickerAnalysisPanel'
 import PersonalWatchlistPanel from './components/PersonalWatchlistPanel'
-import SignalStatsPanel from './components/SignalStatsPanel'
 import SuperchartPanel from './components/SuperchartPanel'
 import SectorAnalysisPanel from './components/SectorAnalysisPanel'
 import ReplayPanel from './components/ReplayPanel'
@@ -36,15 +31,10 @@ const TABS = [
   { id: 'turbo',      label: '⚡ TURBO' },
   { id: 'watchlist',  label: '⭐ Watchlist' },
   { id: 'combined',   label: 'Combined Scan' },
-  { id: 'combo260',   label: '260323 Combo' },
   { id: 'predictor',  label: 'Predictor' },
   { id: 'scanner',    label: 'T/Z Scanner' },
   { id: 'tzlstats',   label: 'T/Z × L Stats' },
-  { id: 'power',      label: 'Power Scan' },
-  { id: 'brscan',     label: 'BR Scan' },
-  { id: 'pumps',      label: 'Pump Combos' },
   { id: 'corr',       label: '📊 Corr' },
-  { id: 'sigstats',   label: '📈 Stats' },
   { id: 'superchart', label: '📋 Superchart' },
   { id: 'sectors',    label: '🌐 Sectors' },
   { id: 'analyze',    label: '🔍 Analyze' },
@@ -54,6 +44,8 @@ const TABS = [
 ]
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
+
+const VALID_TAB_IDS = new Set(TABS.map(t => t.id))
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -65,9 +57,10 @@ export default function App() {
   const [tf, setTf]               = useState(
     () => LS.get('tf', '1d')
   )
-  const [activeTab, setActiveTab] = useState(
-    () => LS.get('active_tab', 'combined')
-  )
+  const [activeTab, setActiveTab] = useState(() => {
+    const saved = LS.get('active_tab', 'combined')
+    return VALID_TAB_IDS.has(saved) ? saved : 'combined'
+  })
   const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
 
   // Superchart owns its own ticker/tf so the global chart follows it
@@ -111,7 +104,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.3.326</span>
+          <span className="text-xs font-normal text-gray-500">v4.3.327</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -183,10 +176,6 @@ export default function App() {
           <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />
         )}
 
-        {activeTab === 'combo260' && (
-          <ComboScanPanel tf={tf} onSelectTicker={handleSelect} />
-        )}
-
         {activeTab === 'predictor' && (
           <PredictorPanel ticker={selected} tf={tf} />
         )}
@@ -199,24 +188,8 @@ export default function App() {
           <TZLStatsPanel ticker={selected} tf={tf} />
         )}
 
-        {activeTab === 'power' && (
-          <PowerScanPanel tf={tf} onSelectTicker={handleSelect} />
-        )}
-
-        {activeTab === 'brscan' && (
-          <BRScanPanel tf={tf} onSelectTicker={handleSelect} />
-        )}
-
-        {activeTab === 'pumps' && (
-          <PumpComboPanel />
-        )}
-
         {activeTab === 'corr' && (
           <SignalCorrelPanel />
-        )}
-
-        {activeTab === 'sigstats' && (
-          <SignalStatsPanel ticker={selected} tf={tf} />
         )}
 
         {activeTab === 'superchart' && (
