@@ -154,12 +154,49 @@ def _bull_score(r: dict) -> float:
     return _f(r.get("turbo_score", 0))
 
 
+# Stock-stat CSV signal string columns (space-joined token lists)
+_STRING_SIG_COLS = ["Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK"]
+
+# Composite model flags present in stock_stat CSV (individual MDL_* are not)
+_COMPOSITE_MODEL_FLAGS = [
+    "HAS_ELITE_MODEL", "HAS_REBOUND_MODEL", "HAS_STRONG_BULL_MODEL",
+    "HAS_BEAR_MODEL", "HAS_HARD_BEAR_MODEL",
+]
+
+
+def _parse_signals_from_strings(r: dict) -> List[str]:
+    """Parse active signal tokens from grouped space-joined string columns in stock_stat CSV."""
+    signals = []
+    for col in _STRING_SIG_COLS:
+        v = r.get(col, "")
+        if v and isinstance(v, str):
+            signals.extend(t for t in v.split() if t)
+    return signals
+
+
 def _active_sigs(r: dict) -> List[str]:
-    return [c for c in _ALL_SIG_COLS if c in r and _f(r[c]) > 0]
+    """
+    Return active signal names for a row.
+    Tries individual boolean SIG_* columns first (api_bar_signals dicts),
+    falls back to parsing grouped string columns (stock_stat CSV rows).
+    """
+    bool_sigs = [c for c in _ALL_SIG_COLS if c in r and _f(r.get(c, 0)) > 0]
+    if bool_sigs:
+        return bool_sigs
+    return _parse_signals_from_strings(r)
 
 
 def _active_models(r: dict) -> List[str]:
-    return [m for m in _MODEL_COLS if _f(r.get(m, 0)) > 0]
+    """
+    Return active model names for a row.
+    Uses composite flags (HAS_ELITE_MODEL etc.) which are present in stock_stat CSV,
+    plus individual MDL_* flags when available.
+    """
+    out = [m for m in _MODEL_COLS if _f(r.get(m, 0)) > 0]
+    if out:
+        return out
+    # Fallback: composite flags only
+    return [m for m in _COMPOSITE_MODEL_FLAGS if _f(r.get(m, 0)) > 0]
 
 
 def _score_range_label(fbs: float) -> str:
@@ -952,6 +989,10 @@ def _classify_signal(agg: dict) -> str:
 # ─── Validation ───────────────────────────────────────────────────────────────
 
 def tpsl_validation(trade_rows: List[dict]) -> List[dict]:
+    """
+    Basic integrity checks on trade_rows.  Post-report checks (signal_perf nonempty,
+    category counts, etc.) are appended by run_tpsl_analytics() after all reports run.
+    """
     checks: List[dict] = []
 
     def _chk(name, passed, detail=""):
@@ -1307,18 +1348,38 @@ def run_tpsl_analytics(
     trade_rows = compute_tpsl_trades(rows)
     log.info("TP/SL analytics: %d trade rows produced", len(trade_rows))
 
-    missed_full = cached.get("missed_winners_full", [])
-    caught_full = cached.get("caught_early_winners_full", [])
-    late_full   = cached.get("late_or_weak_catches_full", [])
-    fp_rows     = cached.get("false_positives", [])
+    # Use category-specific full lists (not the combined missed_winners_full which
+    # contains all 3 categories merged — that would cause all rows to show as the
+    # first category label passed to tpsl_missed_big_winners)
+    true_missed_full = cached.get("true_missed_winners_full",   [])
+    caught_full      = cached.get("caught_early_winners_full",  [])
+    late_full        = cached.get("late_or_weak_catches_full",  [])
+    fp_rows          = cached.get("false_positives", [])
 
-    # Run validation
+    # Category count targets for validation (from pre-computed counts)
+    category_counts = cached.get("category_counts", {})
+
+    # Build signal-presence check on a sample of source rows
+    sample_sigs = _active_sigs(rows[0]) if rows else []
+    signal_cols_present = bool(sample_sigs) or any(
+        r.get(col) for r in rows[:20] for col in _STRING_SIG_COLS
+    )
+    model_cols_present = any(
+        _f(r.get(m, 0)) > 0 for r in rows[:100] for m in _COMPOSITE_MODEL_FLAGS
+    )
+
+    # Run basic trade-row validation
     val_checks = tpsl_validation(trade_rows)
 
     reports: Dict[str, object] = {}
 
     reports["tpsl_trades"]        = trade_rows
-    reports["tpsl_signal_perf"]   = tpsl_signal_perf(trade_rows)
+    sig_perf   = tpsl_signal_perf(trade_rows)
+    pair_perf  = tpsl_pair_combo_perf(trade_rows)
+    triple_perf = tpsl_triple_combo_perf(trade_rows)
+    missed_big = tpsl_missed_big_winners(trade_rows, true_missed_full, caught_full, late_full)
+    caught_timing = tpsl_caught_early_timing(trade_rows, caught_full)
+    reports["tpsl_signal_perf"]   = sig_perf
     reports["tpsl_model_perf"]    = tpsl_model_perf(trade_rows)
     reports["tpsl_regime_perf"]   = tpsl_regime_perf(trade_rows)
     reports["tpsl_score_bucket_perf"]         = tpsl_score_bucket_perf(trade_rows)
@@ -1326,12 +1387,78 @@ def run_tpsl_analytics(
     reports["tpsl_readiness_phase_perf"]      = tpsl_readiness_phase_perf(trade_rows)
     reports["tpsl_actionability_bucket_perf"] = tpsl_actionability_bucket_perf(trade_rows)
     reports["tpsl_component_bucket_perf"]     = tpsl_component_bucket_perf(trade_rows)
-    reports["tpsl_pair_combo_perf"]           = tpsl_pair_combo_perf(trade_rows)
-    reports["tpsl_triple_combo_perf"]         = tpsl_triple_combo_perf(trade_rows)
-    reports["tpsl_missed_big_winners"]        = tpsl_missed_big_winners(trade_rows, missed_full, caught_full, late_full)
+    reports["tpsl_pair_combo_perf"]           = pair_perf
+    reports["tpsl_triple_combo_perf"]         = triple_perf
+    reports["tpsl_missed_big_winners"]        = missed_big
     reports["tpsl_false_positives"]           = tpsl_false_positives(trade_rows, fp_rows)
-    reports["tpsl_caught_early_timing"]       = tpsl_caught_early_timing(trade_rows, caught_full)
-    reports["tpsl_validation"]                = val_checks
+    reports["tpsl_caught_early_timing"]       = caught_timing
+
+    # ── Post-report validation checks ─────────────────────────────────────────
+    def _chk(name, passed, detail=""):
+        val_checks.append({
+            "validation_name": name,
+            "status":          "PASS" if passed else "FAIL",
+            "details":         detail,
+        })
+
+    # Signal / model presence
+    _chk("signal_columns_present", signal_cols_present,
+         "signal string columns readable" if signal_cols_present else
+         "no signal data found in source rows — stock_stat CSV missing signal columns")
+    _chk("model_columns_present", model_cols_present,
+         "composite model flags present" if model_cols_present else
+         "no model flag columns found in source rows")
+
+    # active_signals nonempty rate (spot-check first 200 trade rows, SAME_DAY only)
+    sample_tr = [r for r in trade_rows[:2000]
+                 if r.get("entry_mode") == "SAME_DAY_CLOSE" and r.get("preset_name") == "CLEAN_SWING"]
+    nonempty_sig = sum(1 for r in sample_tr if r.get("active_signals"))
+    sig_rate = round(nonempty_sig / len(sample_tr), 4) if sample_tr else 0.0
+    _chk("active_signals_nonempty_rate", sig_rate > 0.01,
+         f"{sig_rate:.1%} of sampled rows have non-empty active_signals")
+
+    # Report nonempty checks
+    _chk("tpsl_signal_perf_nonempty", bool(sig_perf),
+         f"{len(sig_perf)} rows" if sig_perf else "EMPTY — signal data missing from source rows")
+    _chk("tpsl_pair_combo_perf_nonempty", bool(pair_perf),
+         f"{len(pair_perf)} rows" if pair_perf else "EMPTY — insufficient signal pair data")
+    _chk("tpsl_triple_combo_perf_nonempty", bool(triple_perf),
+         f"{len(triple_perf)} rows" if triple_perf else "EMPTY — insufficient signal triple data")
+
+    # Missed category counts must match base (if category_counts available)
+    if category_counts:
+        base_true  = category_counts.get("true_missed",  0)
+        base_caught = category_counts.get("caught_early", 0)
+        base_late  = category_counts.get("late_or_weak", 0)
+        # Unique (ticker, date) per category in missed_big overlay
+        cats_seen: Dict[str, set] = defaultdict(set)
+        for r in missed_big:
+            if r.get("entry_mode") == "SAME_DAY_CLOSE" and r.get("preset_name") == "CLEAN_SWING":
+                cats_seen[r.get("category", "")].add((r.get("ticker"), r.get("date")))
+        overlay_true   = len(cats_seen.get("TRUE_MISSED_WINNER",  set()))
+        overlay_caught = len(cats_seen.get("CAUGHT_EARLY_WINNER", set()))
+        overlay_late   = len(cats_seen.get("LATE_OR_WEAK_CATCH",  set()))
+        counts_ok = (
+            overlay_true == base_true and
+            overlay_caught == base_caught and
+            overlay_late == base_late
+        )
+        _chk("tpsl_missed_category_counts_match_base", counts_ok,
+             f"TRUE={overlay_true}/{base_true} CAUGHT={overlay_caught}/{base_caught} "
+             f"LATE={overlay_late}/{base_late}")
+    else:
+        _chk("tpsl_missed_category_counts_match_base", True,
+             "category_counts not available for comparison")
+
+    # Caught-early timing is fed exclusively from caught_full (CAUGHT_EARLY_WINNER list)
+    # Validate by checking that row count equals caught_full × entry_modes × presets
+    expected_caught = len(caught_full) * len(ENTRY_MODES) * len(TPSL_PRESETS)
+    caught_ok = len(caught_timing) == expected_caught
+    _chk("tpsl_caught_early_only_uses_caught_rows", caught_ok,
+         f"{len(caught_timing)} rows == {len(caught_full)} CAUGHT_EARLY × "
+         f"{len(ENTRY_MODES)} modes × {len(TPSL_PRESETS)} presets = {expected_caught}")
+
+    reports["tpsl_validation"] = val_checks
 
     # Markdown reports (stored as strings; caller writes them as .md files)
     reports["tpsl_summary_md_content"]        = tpsl_summary_md(trade_rows, val_checks, gen_at)
