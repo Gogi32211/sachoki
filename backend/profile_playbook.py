@@ -64,8 +64,8 @@ PROFILES: Dict[str, dict] = {
             ("BUY", "Z3"): 6, ("LOAD", "T10"): 6,
             ("SVS", "T10"): 6, ("FRI43", "T10"): 6,
         },
-        "sweet_spot": (45, 65),
-        "late_threshold": 75,
+        "sweet_spot": (18, 38),
+        "late_threshold": 48,
     },
     "SP500_20_50": {
         "universe": "sp500",
@@ -88,8 +88,8 @@ PROFILES: Dict[str, dict] = {
             ("LOAD", "T10"): 7, ("SVS", "T10"): 7, ("FRI43", "T10"): 7,
             ("G1", "SVS"): 7, ("G4", "LOAD"): 7,
         },
-        "sweet_spot": (50, 70),
-        "late_threshold": 80,
+        "sweet_spot": (20, 42),
+        "late_threshold": 52,
     },
     "SP500_50_150": {
         "universe": "sp500",
@@ -111,8 +111,8 @@ PROFILES: Dict[str, dict] = {
             ("CCI", "HILO_DN"): 7, ("LOAD", "T10"): 7, ("SVS", "T10"): 7,
             ("FRI43", "T10"): 7, ("G1", "SVS"): 7, ("G4", "LOAD"): 7,
         },
-        "sweet_spot": (55, 75),
-        "late_threshold": 85,
+        "sweet_spot": (20, 45),
+        "late_threshold": 55,
     },
     "SP500_150_300": {
         "universe": "sp500",
@@ -133,8 +133,8 @@ PROFILES: Dict[str, dict] = {
             ("LOAD", "T10"): 7, ("SVS", "T10"): 7,
             ("FRI43", "T10"): 7, ("G1", "SVS"): 7,
         },
-        "sweet_spot": (55, 75),
-        "late_threshold": 85,
+        "sweet_spot": (20, 45),
+        "late_threshold": 55,
     },
     "SP500_300_PLUS": {
         "universe": "sp500",
@@ -153,8 +153,8 @@ PROFILES: Dict[str, dict] = {
             ("BL", "F10"): 10, ("CCI", "G11"): 9,
             ("LOAD", "T10"): 8, ("SVS", "T10"): 8, ("FRI43", "T10"): 8,
         },
-        "sweet_spot": (40, 60),
-        "late_threshold": 70,
+        "sweet_spot": (15, 30),
+        "late_threshold": 38,
     },
     "NASDAQ_PENNY": {
         "universe": "nasdaq",
@@ -173,8 +173,8 @@ PROFILES: Dict[str, dict] = {
         "pair_bonuses": {
             ("SC", "T1"): 10, ("5X", "CONSO"): 8, ("BIAS_DN", "VBO_UP"): 8,
         },
-        "sweet_spot": (45, 75),
-        "late_threshold": 85,
+        "sweet_spot": (18, 38),
+        "late_threshold": 48,
     },
     "NASDAQ_REAL": {
         "universe": "nasdaq",
@@ -197,8 +197,8 @@ PROFILES: Dict[str, dict] = {
             ("5X", "Z3"): 7, ("CCIB", "UM"): 7, ("STRONG", "T11"): 7,
             ("B11", "T3"): 7, ("T11", "WC_UP"): 7,
         },
-        "sweet_spot": (45, 75),
-        "late_threshold": 85,
+        "sweet_spot": (18, 40),
+        "late_threshold": 50,
     },
 }
 
