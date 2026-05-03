@@ -614,10 +614,14 @@ def api_turbo_scan(
                 row["rebound_squeeze_score"]  = _sc.get("rebound_squeeze_score", 0)
                 row["hard_bear_score"]        = _sc.get("hard_bear_score", 0)
                 row["bearish_risk_score"]     = _sc.get("bearish_risk_score", 0)
+                row["weak_stacking_risk"]     = _sc.get("weak_stacking_risk", 0)
                 row["final_bull_score"]       = _sc.get("final_bull_score", 0)
                 row["final_regime"]           = _sc.get("final_regime", "")
                 row["final_score_bucket"]     = _sc.get("final_score_bucket", "")
                 row["has_rebound_model"]      = _sc.get("has_rebound_model", 0)
+                row["has_shakeout_model"]     = _sc.get("has_shakeout_model", 0)
+                row["has_rocket_model"]       = _sc.get("has_rocket_model", 0)
+                row["has_strong_clean_model"] = _sc.get("has_strong_clean_model", 0)
                 row["has_strong_bull_model"]  = _sc.get("has_strong_bull_model", 0)
                 row["has_elite_model"]        = _sc.get("has_elite_model", 0)
                 row["has_bear_model"]         = _sc.get("has_bear_model", 0)
@@ -1662,6 +1666,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                 "hard_bear_score":           _sc["hard_bear_score"],
                 "bearish_risk_score":        _sc["bearish_risk_score"],
                 "volatility_risk_score":     _sc["volatility_risk_score"],
+                "weak_stacking_risk":        _sc["weak_stacking_risk"],
                 "final_bull_score":          _sc["final_bull_score"],
                 "final_regime":              _sc["final_regime"],
                 "final_score_bucket":        _sc["final_score_bucket"],
@@ -1696,12 +1701,39 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
                 "mdl_ca_ndvabs_under50":     _sc["mdl_ca_ndvabs_under50"],
                 "mdl_rh_tz3_under200":       _sc["mdl_rh_tz3_under200"],
                 "mdl_beany_bodn_nddelta":    _sc["mdl_beany_bodn_nddelta"],
+                "mdl_tz_conso":              _sc["mdl_tz_conso"],
+                "mdl_tz_abs":                _sc["mdl_tz_abs"],
+                "mdl_tz3_abs":               _sc["mdl_tz3_abs"],
+                "mdl_tz3_rl":                _sc["mdl_tz3_rl"],
+                "mdl_z_conso":               _sc["mdl_z_conso"],
+                "mdl_z_abs":                 _sc["mdl_z_abs"],
+                "mdl_tz_flip_abs":           _sc["mdl_tz_flip_abs"],
+                "mdl_conso_ndvabs":          _sc["mdl_conso_ndvabs"],
+                "mdl_tz_under50":            _sc["mdl_tz_under50"],
+                "mdl_tz3_under50":           _sc["mdl_tz3_under50"],
+                "mdl_z_under200":            _sc["mdl_z_under200"],
+                "mdl_tz_nddelta":            _sc["mdl_tz_nddelta"],
                 "mdl_sc_um":                 _sc["mdl_sc_um"],
                 "mdl_sc_vol5x":              _sc["mdl_sc_vol5x"],
                 "mdl_para_plus_um":          _sc["mdl_para_plus_um"],
                 "mdl_para_start_um":         _sc["mdl_para_start_um"],
                 "mdl_para_retest_um":        _sc["mdl_para_retest_um"],
+                "mdl_sc_vol10x":             _sc["mdl_sc_vol10x"],
+                "mdl_sc_vol20x":             _sc["mdl_sc_vol20x"],
+                "mdl_sc_bct":                _sc["mdl_sc_bct"],
+                "mdl_sc_sqb":                _sc["mdl_sc_sqb"],
+                "mdl_sc_lrp":                _sc["mdl_sc_lrp"],
+                "mdl_rkt_vol5x":             _sc["mdl_rkt_vol5x"],
+                "mdl_rkt_vol10x":            _sc["mdl_rkt_vol10x"],
+                "mdl_sc_gog1":               _sc["mdl_sc_gog1"],
+                "mdl_para_vol5x":            _sc["mdl_para_vol5x"],
+                "mdl_para_vol10x":           _sc["mdl_para_vol10x"],
+                "mdl_um_vol5x":              _sc["mdl_um_vol5x"],
+                "mdl_f8_vol5x":              _sc["mdl_f8_vol5x"],
                 "has_rebound_model":         _sc["has_rebound_model"],
+                "has_shakeout_model":        _sc["has_shakeout_model"],
+                "has_rocket_model":          _sc["has_rocket_model"],
+                "has_strong_clean_model":    _sc["has_strong_clean_model"],
                 "has_strong_bull_model":     _sc["has_strong_bull_model"],
                 "has_hard_bear_model":       _sc["has_hard_bear_model"],
                 "has_elite_model":           _sc["has_elite_model"],
@@ -1909,7 +1941,7 @@ def _signal_score(b):
         if _rb("raw_buy_here"):   ce_pts += 20
         if _rb("raw_um"):         ce_pts += 15
         if _rb("raw_sig260308"):  ce_pts += 12
-        if _rb("raw_f8"):         ce_pts += 8   # reduced — standalone F8 is noisy
+        if _rb("raw_f8"):         ce_pts += 2   # standalone F8 is noisy; combo bonus via models
         if _rb("raw_be_up"):      ce_pts += 12
         if _rb("raw_load"):       ce_pts += 10
         if _rb("raw_cons"):       ce_pts += 10
@@ -1925,10 +1957,10 @@ def _signal_score(b):
         if _rb("raw_l64"):        ce_pts += 7
         if _s("sig_3up"):         ce_pts += 8
         if _s("sig_blue"):        ce_pts += 6
-        if _s("sig_b6"):          ce_pts += 5
+        if _s("sig_b6"):          ce_pts += 2
         if _s("sig_b8"):          ce_pts += 5
-        if _rb("raw_f3"):         ce_pts += 5
-        if _rb("raw_f4"):         ce_pts += 5
+        if _rb("raw_f3"):         ce_pts += 2
+        if _rb("raw_f4"):         ce_pts += 2
         if _rb("raw_f11"):        ce_pts += 5
         if _rb("raw_l34"):        ce_pts += 4
         if _rb("raw_l43"):        ce_pts += 4
@@ -1957,7 +1989,7 @@ def _signal_score(b):
         if _s("sig_be_dn"):   sha_pts += 20; _has_dn = True
         if _s("sig_eb_dn"):   sha_pts += 18; _has_dn = True
         if _s("sig_4bf_dn"):  sha_pts += 15; _has_dn = True
-        if _s("sig_wk_dn"):   sha_pts += 12; _has_dn = True
+        if _s("sig_wk_dn"):   _has_dn = True          # 0 pts standalone
         if _s("sig_bo_dn"):   sha_pts += 10; _has_dn = True
 
         if _has_dn and _abs_signals:
@@ -1967,6 +1999,7 @@ def _signal_score(b):
             elif _SQB:              sha_pts += 8
             if _s("sig_abs"):       sha_pts += 12
             if _g1_any:             sha_pts += 8
+            if _s("sig_wk_dn"):     sha_pts += 8   # wk_dn only scores when absorbed
 
         if _has_dn and _s("sig_ca"):                          sha_pts += 8
         if _has_dn and _s("sig_nd_delta"):                    sha_pts += 6
@@ -1977,6 +2010,7 @@ def _signal_score(b):
 
         # ── ROCKET_SCORE ────────────────────────────────────────────────────────
         rocket_pts = 0
+        if _s("sig_sc"):           rocket_pts += 10   # standalone SC contribution
         if _s("sig_para_plus"):    rocket_pts += 30
         elif _s("sig_para_start"): rocket_pts += 18
         if _s("sig_vol_20x"):      rocket_pts += 12
@@ -1997,6 +2031,32 @@ def _signal_score(b):
             rocket_pts += 8
         if _s("sig_para_retest") and _rb("raw_um"):
             rocket_pts += 12
+        # New rocket model booleans (defined here for use in has_rocket_model later)
+        mdl_sc_vol10x   = _s("sig_sc") and _s("sig_vol_10x")
+        mdl_sc_vol20x   = _s("sig_sc") and _s("sig_vol_20x")
+        mdl_sc_bct      = _s("sig_sc") and _BCT
+        mdl_sc_sqb      = _s("sig_sc") and _SQB
+        mdl_sc_lrp      = _s("sig_sc") and _LRP
+        mdl_rkt_vol5x   = bool(_rb("raw_rocket")) and _s("sig_vol_5x")
+        mdl_rkt_vol10x  = bool(_rb("raw_rocket")) and _s("sig_vol_10x")
+        mdl_sc_gog1     = _s("sig_sc") and _g1_any
+        mdl_para_vol5x  = _s("sig_para_start") and _s("sig_vol_5x")
+        mdl_para_vol10x = _s("sig_para_start") and _s("sig_vol_10x")
+        mdl_um_vol5x    = bool(_rb("raw_um")) and _s("sig_vol_5x")
+        mdl_f8_vol5x    = bool(_rb("raw_f8")) and _s("sig_vol_5x")
+        # Rocket model bonuses
+        if mdl_sc_vol10x:   rocket_pts += 20
+        if mdl_sc_vol20x:   rocket_pts += 28
+        if mdl_sc_bct:      rocket_pts += 15
+        if mdl_sc_sqb:      rocket_pts += 12
+        if mdl_sc_lrp:      rocket_pts += 15
+        if mdl_rkt_vol5x:   rocket_pts += 12
+        if mdl_rkt_vol10x:  rocket_pts += 18
+        if mdl_sc_gog1:     rocket_pts += 18
+        if mdl_para_vol5x:  rocket_pts += 12
+        if mdl_para_vol10x: rocket_pts += 18
+        if mdl_um_vol5x:    rocket_pts += 15
+        if mdl_f8_vol5x:    rocket_pts += 10
         rocket_score = max(0, int(rocket_pts))
 
         # ── EXTRA_BULL_SCORE ─────────────────────────────────────────────────────
@@ -2008,13 +2068,13 @@ def _signal_score(b):
         if _s("sig_d89"):          extra_bull += 4
         if _s("sig_d3"):           extra_bull += 4
         # Replay-confirmed additions
-        if _s("sig_sc"):           extra_bull += 5
+        if _s("sig_sc"):           extra_bull += 8   # strengthened
         if _s("sig_g4"):           extra_bull += 4
         if _s("sig_cci"):          extra_bull += 3
         if _s("sig_cci0r"):        extra_bull += 4
         if _s("sig_ccib"):         extra_bull += 4
         if _s("sig_fri64"):        extra_bull += 5
-        if _s("sig_l555"):         extra_bull += 6
+        # sig_l555 removed — too noisy standalone
         if _s("sig_fri43"):        extra_bull += 3
         if _s("sig_fri34"):        extra_bull += 2
         if _s("sig_p50"):          extra_bull += 5
@@ -2030,11 +2090,23 @@ def _signal_score(b):
             extra_bull += 8
         elif _s("sig_best_up") and (_BCT or _LRP) and not _s("sig_bias_dn"):
             extra_bull += 5
+        # Rebound-context signals (replay-confirmed)
+        if _s("sig_cw"):           extra_bull += 5
+        if _s("sig_g1"):           extra_bull += 4
+        if _s("sig_b5"):           extra_bull += 4
+        if _s("sig_p2"):           extra_bull += 4
+        if _s("sig_abs"):          extra_bull += 5
+        if _s("sig_be_any"):       extra_bull += 4
+        if _s("sig_rl"):           extra_bull += 5
+        if _s("sig_vbo_dn"):       extra_bull += 3
+        if _s("sig_any_d"):        extra_bull += 3
+        if _s("sig_ns_delta"):     extra_bull += 5
+        if _s("sig_nd_delta"):     extra_bull += 6
         extra_bull_score = max(0, min(40, int(extra_bull)))
 
         # ── EXPERIMENTAL_SCORE ──────────────────────────────────────────────────
         exp_pts = 0
-        if _s("sig_para_prep"):             exp_pts += 5
+        if _s("sig_para_prep"):             exp_pts += 2
         if _s("sig_cisd_cplus"):            exp_pts += 8
         elif _s("sig_cisd_cplus_minus"):    exp_pts += 3
         if _s("sig_fly_abcd"):              exp_pts += 8
@@ -2065,6 +2137,32 @@ def _signal_score(b):
         if _s("sig_price_lt_200") and _s("sig_rh") and _s("sig_tz3"):  rss_pts += 38
         if _s("sig_be_any") and _s("sig_f7") and _s("sig_nd_delta"):   rss_pts += 38
         if _s("sig_be_any") and _s("sig_bo_dn") and _s("sig_nd_delta"):rss_pts += 32
+        # New structural rebound models (TZ/Z/CONSO/EMA combos — replay-confirmed missed winners)
+        mdl_tz_conso     = _s("sig_tz") and _s("sig_conso")
+        mdl_tz_abs       = _s("sig_tz") and _s("sig_abs")
+        mdl_tz3_abs      = _s("sig_tz3") and _s("sig_abs")
+        mdl_tz3_rl       = _s("sig_tz3") and _s("sig_rl")
+        mdl_z_conso      = _s("sig_z") and _s("sig_conso")
+        mdl_z_abs        = _s("sig_z") and _s("sig_abs")
+        mdl_tz_flip_abs  = _s("sig_tz_flip") and _s("sig_abs")
+        mdl_conso_ndvabs = _s("sig_conso") and _s("sig_nd_vabs")
+        mdl_tz_under50   = _s("sig_tz") and _s("sig_price_lt_50")
+        mdl_tz3_under50  = _s("sig_tz3") and _s("sig_price_lt_50")
+        mdl_z_under200   = _s("sig_z") and _s("sig_price_lt_200")
+        mdl_tz_nddelta   = _s("sig_tz") and _s("sig_nd_delta")
+        # Structural model bonuses
+        if mdl_tz_conso:     rss_pts += 20
+        if mdl_tz_abs:       rss_pts += 22
+        if mdl_tz3_abs:      rss_pts += 28
+        if mdl_tz3_rl:       rss_pts += 22
+        if mdl_z_conso:      rss_pts += 18
+        if mdl_z_abs:        rss_pts += 20
+        if mdl_tz_flip_abs:  rss_pts += 28
+        if mdl_conso_ndvabs: rss_pts += 20
+        if mdl_tz_under50:   rss_pts += 15
+        if mdl_tz3_under50:  rss_pts += 22
+        if mdl_z_under200:   rss_pts += 15
+        if mdl_tz_nddelta:   rss_pts += 18
         rebound_squeeze_score = max(0, int(rss_pts))
 
         # ── HARD_BEAR_SCORE ──────────────────────────────────────────────────────
@@ -2100,26 +2198,13 @@ def _signal_score(b):
         if _ext:                                 vr_pts += 8
         if _s("sig_rh"):                         vr_pts += 5
         if _s("sig_rsi_ge_70"):                  vr_pts += 4
-        if _s("sig_bias_up") and _ext:           vr_pts += 6
+        if _s("sig_bias_up"):                    vr_pts += 8   # always, not just extended
         if _ext and _s("sig_para_plus"):         vr_pts += 8
         if _ext and _s("sig_rh"):               vr_pts += 6
         if _g2c or _g2l or _gog2:               vr_pts += 3
         volatility_risk_score = max(0, int(vr_pts))
 
-        # ── FINAL_BULL_SCORE ─────────────────────────────────────────────────────
-        final_bull_raw = (
-            clean_entry_score
-            + min(shakeout_absorb_score, 60)
-            + min(rocket_score, 45)
-            + min(extra_bull_score, 30)
-            + min(experimental_score, 15)
-            + min(rebound_squeeze_score, 35)
-            - min(volatility_risk_score, 25)
-            - min(hard_bear_score, 50)
-        )
-        final_bull_score = max(0, min(180, int(round(final_bull_raw))))
-
-        # ── Named model booleans (existing) ──────────────────────────────────────
+        # ── Named model booleans ─────────────────────────────────────────────────
         _um  = bool(_rb("raw_um"))
         _bh  = bool(_rb("raw_buy_here"))
         _f8  = bool(_rb("raw_f8"))
@@ -2157,32 +2242,27 @@ def _signal_score(b):
         mdl_bx_gog1   = _bx   and _g1_top
         mdl_um_lrp    = _um   and _LRP
 
-        # Rebound models (new)
-        mdl_tz_flip_z        = _s("sig_tz_flip") and (_s("sig_z") or _s("sig_abs"))
-        mdl_tz_flip_wkup     = _s("sig_tz_flip") and _s("sig_wk_up")
-        mdl_tz3_vbo_dn       = _s("sig_tz3") and _s("sig_vbo_dn")
-        mdl_abs_rl           = _s("sig_abs") and _s("sig_rl")
-        mdl_abs_rh           = _s("sig_abs") and _s("sig_rh")
-        mdl_blue_ebup        = _blu and _s("sig_eb_up")
-        mdl_beany_f7_nddelta = _s("sig_be_any") and _s("sig_f7") and _s("sig_nd_delta")
-        mdl_ca_wkdn_under50  = _s("sig_ca") and _s("sig_wk_dn") and _s("sig_price_lt_50")
-        mdl_ca_ndvabs_under50= _s("sig_ca") and _s("sig_nd_vabs") and _s("sig_price_lt_50")
-        mdl_rh_tz3_under200  = _s("sig_rh") and _s("sig_tz3") and _s("sig_price_lt_200")
+        # Rebound models (existing)
+        mdl_tz_flip_z         = _s("sig_tz_flip") and (_s("sig_z") or _s("sig_abs"))
+        mdl_tz_flip_wkup      = _s("sig_tz_flip") and _s("sig_wk_up")
+        mdl_tz3_vbo_dn        = _s("sig_tz3") and _s("sig_vbo_dn")
+        mdl_abs_rl            = _s("sig_abs") and _s("sig_rl")
+        mdl_abs_rh            = _s("sig_abs") and _s("sig_rh")
+        mdl_blue_ebup         = _blu and _s("sig_eb_up")
+        mdl_beany_f7_nddelta  = _s("sig_be_any") and _s("sig_f7") and _s("sig_nd_delta")
+        mdl_ca_wkdn_under50   = _s("sig_ca") and _s("sig_wk_dn") and _s("sig_price_lt_50")
+        mdl_ca_ndvabs_under50 = _s("sig_ca") and _s("sig_nd_vabs") and _s("sig_price_lt_50")
+        mdl_rh_tz3_under200   = _s("sig_rh") and _s("sig_tz3") and _s("sig_price_lt_200")
         mdl_beany_bodn_nddelta= _s("sig_be_any") and _s("sig_bo_dn") and _s("sig_nd_delta")
 
-        # Rocket models (new)
+        # Rocket models (existing)
         mdl_sc_um          = _s("sig_sc") and _um
         mdl_sc_vol5x       = _s("sig_sc") and _s("sig_vol_5x")
         mdl_para_plus_um   = _s("sig_para_plus") and _um
         mdl_para_start_um  = _s("sig_para_start") and _um
         mdl_para_retest_um = _s("sig_para_retest") and _um
 
-        has_rebound_model = any([
-            mdl_tz_flip_z, mdl_abs_rl, mdl_ca_wkdn_under50,
-            mdl_rh_tz3_under200, mdl_beany_f7_nddelta,
-            mdl_beany_bodn_nddelta, mdl_ca_ndvabs_under50,
-        ])
-
+        # ── Aggregated flags ─────────────────────────────────────────────────────
         has_elite_model = any([
             mdl_um_gog1, mdl_bh_gog1, mdl_f8_gog1, mdl_f8_bct,
             mdl_f8_lrp, mdl_l22_bct, mdl_l22_lrp, mdl_be_gog1,
@@ -2191,9 +2271,29 @@ def _signal_score(b):
             mdl_3up_gog1, mdl_blue_gog1, mdl_bx_gog1, mdl_um_lrp,
         ])
 
-        has_strong_bull_model = has_elite_model or has_rebound_model or any([
-            mdl_sc_um, mdl_sc_vol5x, mdl_para_plus_um, mdl_para_start_um, mdl_para_retest_um,
+        has_rebound_model = any([
+            mdl_tz_flip_z, mdl_abs_rl, mdl_ca_wkdn_under50,
+            mdl_rh_tz3_under200, mdl_beany_f7_nddelta,
+            mdl_beany_bodn_nddelta, mdl_ca_ndvabs_under50,
+            # New structural rebound models
+            mdl_tz_conso, mdl_tz_abs, mdl_tz3_abs, mdl_tz3_rl,
+            mdl_z_conso, mdl_z_abs, mdl_tz_flip_abs, mdl_conso_ndvabs,
+            mdl_tz_under50, mdl_tz3_under50, mdl_z_under200, mdl_tz_nddelta,
         ])
+
+        has_shakeout_model = shakeout_absorb_score >= 30
+
+        has_rocket_model = rocket_score >= 20 or any([
+            mdl_sc_um, mdl_sc_vol5x, mdl_sc_vol10x, mdl_sc_vol20x,
+            mdl_sc_bct, mdl_sc_sqb, mdl_sc_lrp, mdl_sc_gog1,
+            mdl_para_plus_um, mdl_para_start_um, mdl_para_retest_um,
+            mdl_rkt_vol5x, mdl_rkt_vol10x, mdl_para_vol5x, mdl_para_vol10x,
+            mdl_um_vol5x, mdl_f8_vol5x,
+        ])
+
+        has_strong_clean_model = has_elite_model and clean_entry_score >= 40
+
+        has_strong_bull_model = has_elite_model or has_rebound_model or has_rocket_model
 
         has_bear_model = hard_bear_score >= 25 and (
             _s("sig_fbo_dn") or
@@ -2204,20 +2304,64 @@ def _signal_score(b):
 
         has_hard_bear_model = hard_bear_score >= 45
 
+        # ── Pre-penalty FBS and WEAK_STACKING_RISK ───────────────────────────────
+        _pre_penalty_fbs = max(0, int(round(
+            clean_entry_score
+            + min(shakeout_absorb_score, 60)
+            + min(rocket_score, 50)
+            + min(extra_bull_score, 30)
+            + min(experimental_score, 15)
+            + min(rebound_squeeze_score, 45)
+            - min(volatility_risk_score, 25)
+            - min(hard_bear_score, 50)
+        )))
+
+        _weak_sig_count = sum([
+            bool(_rb("raw_f8")) and not any([_g1_any, _BCT, _LRP, _sv, _con]),
+            _s("sig_b6") and not _g1_any,
+            _s("sig_l555"),
+            bool(_rb("raw_f3")) and not _g1_any,
+            bool(_rb("raw_f4")) and not _g1_any,
+            _s("sig_para_prep") and not any([_g1_any, _s("sig_sc")]),
+        ])
+
+        wsr_pts = 0
+        if _weak_sig_count >= 2 and not has_strong_bull_model:
+            wsr_pts += (_weak_sig_count - 1) * 6
+        if not has_strong_bull_model and _pre_penalty_fbs >= 55 and extra_bull_score >= 15:
+            wsr_pts += 12
+        if not has_elite_model and _pre_penalty_fbs >= 80:
+            wsr_pts += 10
+        weak_stacking_risk = max(0, min(50, int(wsr_pts)))
+
+        # ── FINAL_BULL_SCORE ─────────────────────────────────────────────────────
+        final_bull_raw = (
+            clean_entry_score
+            + min(shakeout_absorb_score, 60)
+            + min(rocket_score, 50)
+            + min(extra_bull_score, 30)
+            + min(experimental_score, 15)
+            + min(rebound_squeeze_score, 45)
+            - min(volatility_risk_score, 25)
+            - min(hard_bear_score, 50)
+            - min(weak_stacking_risk, 35)
+        )
+        final_bull_score = max(0, min(180, int(round(final_bull_raw))))
+
         # ── FINAL_REGIME (11-level priority) ────────────────────────────────────
-        if hard_bear_score >= 45 and not has_rebound_model and shakeout_absorb_score < 35:
+        if hard_bear_score >= 45 and not has_rebound_model and shakeout_absorb_score < 30:
             final_regime = "BEARISH_PHASE"
-        elif hard_bear_score >= 35 and (has_rebound_model or shakeout_absorb_score >= 35):
+        elif hard_bear_score >= 35 and (has_rebound_model or shakeout_absorb_score >= 30):
             final_regime = "RISK_REBOUND"
-        elif rebound_squeeze_score >= 35 and hard_bear_score < 45:
+        elif rebound_squeeze_score >= 30 and hard_bear_score < 45:
             final_regime = "REBOUND_SQUEEZE"
-        elif shakeout_absorb_score >= 35 and hard_bear_score < 45:
+        elif shakeout_absorb_score >= 30 and hard_bear_score < 45:
             final_regime = "SHAKEOUT_ABSORB"
-        elif rocket_score >= 22 and hard_bear_score < 45:
+        elif rocket_score >= 20 and hard_bear_score < 45:
             final_regime = "ROCKET_WATCH"
-        elif final_bull_score >= 85 and has_strong_bull_model and not _ext:
+        elif final_bull_score >= 90 and has_elite_model and weak_stacking_risk < 10:
             final_regime = "ELITE_CLEAN_BULL"
-        elif final_bull_score >= 70 and has_strong_bull_model and not _ext:
+        elif final_bull_score >= 75 and has_strong_bull_model and weak_stacking_risk < 20 and hard_bear_score < 35:
             final_regime = "A_PLUS_CLEAN_BULL"
         elif final_bull_score >= 55 and hard_bear_score < 45:
             final_regime = "CLEAN_ENTRY"
@@ -2230,16 +2374,23 @@ def _signal_score(b):
             final_regime = "NEUTRAL_OR_LOW"
 
         # ── FINAL_SCORE_BUCKET ───────────────────────────────────────────────────
-        if   final_bull_score >= 120: final_score_bucket = "S_PLUS"
-        elif final_bull_score >= 100: final_score_bucket = "S"
-        elif final_bull_score >= 80:  final_score_bucket = "A_PLUS"
-        elif final_bull_score >= 60:  final_score_bucket = "A"
+        if   final_bull_score >= 100: final_score_bucket = "S_PLUS"
+        elif final_bull_score >= 85:  final_score_bucket = "S"
+        elif final_bull_score >= 70:  final_score_bucket = "A_PLUS"
+        elif final_bull_score >= 55:  final_score_bucket = "A"
         elif final_bull_score >= 40:  final_score_bucket = "B"
-        elif final_bull_score >= 20:  final_score_bucket = "WATCH"
+        elif final_bull_score >= 25:  final_score_bucket = "WATCH"
         elif final_bull_score >= 10:  final_score_bucket = "LOW_WATCH"
         else:                         final_score_bucket = "NO_SIGNAL"
+        # Regime-based overrides
+        if final_regime == "BEARISH_PHASE":
+            final_score_bucket = "BEARISH_RISK"
+        elif final_regime == "RISK_REBOUND":
+            final_score_bucket = "RISK_REBOUND"
         if _ext and final_bull_score >= 60:
             final_score_bucket += "_EXTENDED"
+        if weak_stacking_risk >= 25:
+            final_score_bucket += "_WEAK_STACK"
 
         return {
             # Legacy (unchanged)
@@ -2271,6 +2422,7 @@ def _signal_score(b):
             "rebound_squeeze_score":     rebound_squeeze_score,
             "hard_bear_score":           hard_bear_score,
             "volatility_risk_score":     volatility_risk_score,
+            "weak_stacking_risk":        weak_stacking_risk,
             "final_bull_score":          final_bull_score,
             "final_regime":              final_regime,
             "final_score_bucket":        final_score_bucket,
@@ -2296,7 +2448,7 @@ def _signal_score(b):
             "mdl_blue_gog1":  int(mdl_blue_gog1),
             "mdl_bx_gog1":    int(mdl_bx_gog1),
             "mdl_um_lrp":     int(mdl_um_lrp),
-            # Rebound models
+            # Existing rebound models
             "mdl_tz_flip_z":          int(mdl_tz_flip_z),
             "mdl_tz_flip_wkup":       int(mdl_tz_flip_wkup),
             "mdl_tz3_vbo_dn":         int(mdl_tz3_vbo_dn),
@@ -2308,25 +2460,54 @@ def _signal_score(b):
             "mdl_ca_ndvabs_under50":  int(mdl_ca_ndvabs_under50),
             "mdl_rh_tz3_under200":    int(mdl_rh_tz3_under200),
             "mdl_beany_bodn_nddelta": int(mdl_beany_bodn_nddelta),
-            # Rocket models
+            # New structural rebound models
+            "mdl_tz_conso":      int(mdl_tz_conso),
+            "mdl_tz_abs":        int(mdl_tz_abs),
+            "mdl_tz3_abs":       int(mdl_tz3_abs),
+            "mdl_tz3_rl":        int(mdl_tz3_rl),
+            "mdl_z_conso":       int(mdl_z_conso),
+            "mdl_z_abs":         int(mdl_z_abs),
+            "mdl_tz_flip_abs":   int(mdl_tz_flip_abs),
+            "mdl_conso_ndvabs":  int(mdl_conso_ndvabs),
+            "mdl_tz_under50":    int(mdl_tz_under50),
+            "mdl_tz3_under50":   int(mdl_tz3_under50),
+            "mdl_z_under200":    int(mdl_z_under200),
+            "mdl_tz_nddelta":    int(mdl_tz_nddelta),
+            # Existing rocket models
             "mdl_sc_um":          int(mdl_sc_um),
             "mdl_sc_vol5x":       int(mdl_sc_vol5x),
             "mdl_para_plus_um":   int(mdl_para_plus_um),
             "mdl_para_start_um":  int(mdl_para_start_um),
             "mdl_para_retest_um": int(mdl_para_retest_um),
+            # New rocket models
+            "mdl_sc_vol10x":   int(mdl_sc_vol10x),
+            "mdl_sc_vol20x":   int(mdl_sc_vol20x),
+            "mdl_sc_bct":      int(mdl_sc_bct),
+            "mdl_sc_sqb":      int(mdl_sc_sqb),
+            "mdl_sc_lrp":      int(mdl_sc_lrp),
+            "mdl_rkt_vol5x":   int(mdl_rkt_vol5x),
+            "mdl_rkt_vol10x":  int(mdl_rkt_vol10x),
+            "mdl_sc_gog1":     int(mdl_sc_gog1),
+            "mdl_para_vol5x":  int(mdl_para_vol5x),
+            "mdl_para_vol10x": int(mdl_para_vol10x),
+            "mdl_um_vol5x":    int(mdl_um_vol5x),
+            "mdl_f8_vol5x":    int(mdl_f8_vol5x),
             # Aggregated flags
-            "has_rebound_model":     int(has_rebound_model),
-            "has_strong_bull_model": int(has_strong_bull_model),
-            "has_hard_bear_model":   int(has_hard_bear_model),
-            "has_elite_model":       int(has_elite_model),
-            "has_bear_model":        int(has_bear_model),
+            "has_rebound_model":      int(has_rebound_model),
+            "has_shakeout_model":     int(has_shakeout_model),
+            "has_rocket_model":       int(has_rocket_model),
+            "has_strong_clean_model": int(has_strong_clean_model),
+            "has_strong_bull_model":  int(has_strong_bull_model),
+            "has_hard_bear_model":    int(has_hard_bear_model),
+            "has_elite_model":        int(has_elite_model),
+            "has_bear_model":         int(has_bear_model),
         }
 
 
 _REGIME_SORT = {
-    "ELITE_CLEAN_BULL": 0, "A_PLUS_CLEAN_BULL": 1, "CLEAN_ENTRY": 2,
-    "REBOUND_SQUEEZE": 3, "SHAKEOUT_ABSORB": 4, "RISK_REBOUND": 5,
-    "ROCKET_WATCH": 6, "EARLY_WATCH": 7,
+    "RISK_REBOUND": 0, "REBOUND_SQUEEZE": 1, "SHAKEOUT_ABSORB": 2,
+    "ROCKET_WATCH": 3, "ELITE_CLEAN_BULL": 4, "A_PLUS_CLEAN_BULL": 5,
+    "CLEAN_ENTRY": 6, "EARLY_WATCH": 7,
     "PARABOLIC_EXTENDED": 8, "NEUTRAL_OR_LOW": 9, "BEARISH_PHASE": 10,
 }
 
@@ -2476,7 +2657,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "CLEAN_ENTRY_SCORE", "SHAKEOUT_ABSORB_SCORE",
             "ROCKET_SCORE", "EXTRA_BULL_SCORE", "EXPERIMENTAL_SCORE",
             "REBOUND_SQUEEZE_SCORE",
-            "HARD_BEAR_SCORE", "VOLATILITY_RISK_SCORE",
+            "HARD_BEAR_SCORE", "VOLATILITY_RISK_SCORE", "WEAK_STACKING_RISK",
             "FINAL_BULL_SCORE", "FINAL_REGIME", "FINAL_SCORE_BUCKET",
             # ── Named model booleans (existing)
             "MDL_UM_GOG1", "MDL_BH_GOG1", "MDL_F8_GOG1", "MDL_F8_BCT", "MDL_F8_LRP",
@@ -2484,17 +2665,26 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "MDL_LOAD_GOG1", "MDL_260_GOG1", "MDL_RKT_GOG1", "MDL_F8_SVS", "MDL_F8_CONS",
             "MDL_L22_SQB", "MDL_3UP_GOG1", "MDL_BLUE_GOG1", "MDL_BX_GOG1", "MDL_UM_LRP",
             "HAS_ELITE_MODEL", "HAS_BEAR_MODEL",
-            # ── Rebound models (new)
+            # ── Existing rebound models
             "MDL_TZ_FLIP_Z", "MDL_TZ_FLIP_WKUP", "MDL_TZ3_VBO_DN",
             "MDL_ABS_RL", "MDL_ABS_RH", "MDL_BLUE_EBUP",
             "MDL_BEANY_F7_NDDELTA", "MDL_CA_WKDN_UNDER50",
             "MDL_CA_NDVABS_UNDER50", "MDL_RH_TZ3_UNDER200",
             "MDL_BEANY_BODN_NDDELTA",
-            # ── Rocket models (new)
+            # ── New structural rebound models
+            "MDL_TZ_CONSO", "MDL_TZ_ABS", "MDL_TZ3_ABS", "MDL_TZ3_RL",
+            "MDL_Z_CONSO", "MDL_Z_ABS", "MDL_TZ_FLIP_ABS", "MDL_CONSO_NDVABS",
+            "MDL_TZ_UNDER50", "MDL_TZ3_UNDER50", "MDL_Z_UNDER200", "MDL_TZ_NDDELTA",
+            # ── Existing rocket models
             "MDL_SC_UM", "MDL_SC_VOL5X", "MDL_PARA_PLUS_UM",
             "MDL_PARA_START_UM", "MDL_PARA_RETEST_UM",
-            # ── Aggregated flags (new)
-            "HAS_REBOUND_MODEL", "HAS_STRONG_BULL_MODEL", "HAS_HARD_BEAR_MODEL",
+            # ── New rocket models
+            "MDL_SC_VOL10X", "MDL_SC_VOL20X", "MDL_SC_BCT", "MDL_SC_SQB", "MDL_SC_LRP",
+            "MDL_RKT_VOL5X", "MDL_RKT_VOL10X", "MDL_SC_GOG1",
+            "MDL_PARA_VOL5X", "MDL_PARA_VOL10X", "MDL_UM_VOL5X", "MDL_F8_VOL5X",
+            # ── Aggregated flags
+            "HAS_REBOUND_MODEL", "HAS_SHAKEOUT_MODEL", "HAS_ROCKET_MODEL",
+            "HAS_STRONG_CLEAN_MODEL", "HAS_STRONG_BULL_MODEL", "HAS_HARD_BEAR_MODEL",
             # ── Backward compat
             "BEARISH_RISK_SCORE",
         ]
@@ -2569,6 +2759,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             hard_bear_s         = sc.get("hard_bear_score", 0)
             bearish_risk_s      = sc.get("bearish_risk_score", 0)
             vol_risk_s          = sc.get("volatility_risk_score", 0)
+            weak_stacking_s     = sc.get("weak_stacking_risk", 0)
             final_bull_s        = sc.get("final_bull_score", 0)
             final_regime_s      = sc.get("final_regime", "")
             final_bucket_s      = sc.get("final_score_bucket", "")
@@ -2779,7 +2970,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 clean_entry_s, sha_s,
                 rocket_s, extra_bull_s, experimental_s,
                 rebound_squeeze_s,
-                hard_bear_s, vol_risk_s,
+                hard_bear_s, vol_risk_s, weak_stacking_s,
                 final_bull_s, final_regime_s, final_bucket_s,
                 # Named model booleans (existing)
                 sc.get("mdl_um_gog1",0),   sc.get("mdl_bh_gog1",0),
@@ -2793,20 +2984,35 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 sc.get("mdl_3up_gog1",0),  sc.get("mdl_blue_gog1",0),
                 sc.get("mdl_bx_gog1",0),   sc.get("mdl_um_lrp",0),
                 sc.get("has_elite_model",0), sc.get("has_bear_model",0),
-                # Rebound models (new)
+                # Existing rebound models
                 sc.get("mdl_tz_flip_z",0),        sc.get("mdl_tz_flip_wkup",0),
                 sc.get("mdl_tz3_vbo_dn",0),       sc.get("mdl_abs_rl",0),
                 sc.get("mdl_abs_rh",0),            sc.get("mdl_blue_ebup",0),
                 sc.get("mdl_beany_f7_nddelta",0),  sc.get("mdl_ca_wkdn_under50",0),
                 sc.get("mdl_ca_ndvabs_under50",0), sc.get("mdl_rh_tz3_under200",0),
                 sc.get("mdl_beany_bodn_nddelta",0),
-                # Rocket models (new)
+                # New structural rebound models
+                sc.get("mdl_tz_conso",0),    sc.get("mdl_tz_abs",0),
+                sc.get("mdl_tz3_abs",0),     sc.get("mdl_tz3_rl",0),
+                sc.get("mdl_z_conso",0),     sc.get("mdl_z_abs",0),
+                sc.get("mdl_tz_flip_abs",0), sc.get("mdl_conso_ndvabs",0),
+                sc.get("mdl_tz_under50",0),  sc.get("mdl_tz3_under50",0),
+                sc.get("mdl_z_under200",0),  sc.get("mdl_tz_nddelta",0),
+                # Existing rocket models
                 sc.get("mdl_sc_um",0),         sc.get("mdl_sc_vol5x",0),
                 sc.get("mdl_para_plus_um",0),  sc.get("mdl_para_start_um",0),
                 sc.get("mdl_para_retest_um",0),
-                # Aggregated flags (new)
-                sc.get("has_rebound_model",0), sc.get("has_strong_bull_model",0),
-                sc.get("has_hard_bear_model",0),
+                # New rocket models
+                sc.get("mdl_sc_vol10x",0),  sc.get("mdl_sc_vol20x",0),
+                sc.get("mdl_sc_bct",0),     sc.get("mdl_sc_sqb",0),
+                sc.get("mdl_sc_lrp",0),     sc.get("mdl_rkt_vol5x",0),
+                sc.get("mdl_rkt_vol10x",0), sc.get("mdl_sc_gog1",0),
+                sc.get("mdl_para_vol5x",0), sc.get("mdl_para_vol10x",0),
+                sc.get("mdl_um_vol5x",0),   sc.get("mdl_f8_vol5x",0),
+                # Aggregated flags
+                sc.get("has_rebound_model",0),     sc.get("has_shakeout_model",0),
+                sc.get("has_rocket_model",0),      sc.get("has_strong_clean_model",0),
+                sc.get("has_strong_bull_model",0), sc.get("has_hard_bear_model",0),
                 # Backward compat
                 bearish_risk_s,
             ])
