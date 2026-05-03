@@ -56,7 +56,7 @@ export default function AdminPanel() {
   // ── Stock Stat state ──
   const [ssUni,    setSsUni]    = useState('sp500')
   const [ssTf,     setSsTf]     = useState('1d')
-  const [ssBars,   setSsBars]   = useState(60)
+  const [ssBars,   setSsBars]   = useState(150)
   const [ssStatus, setSsStatus] = useState(null)
   const [ssError,  setSsError]  = useState(null)
   const ssPollRef  = useRef(null)
