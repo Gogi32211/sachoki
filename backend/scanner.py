@@ -231,6 +231,7 @@ UNIVERSE_CONFIGS: dict = {
     "nasdaq":    {"label": "NASDAQ",     "min_price": 0.0, "max_price": 1e9, "fetch": "nasdaq_massive"},
     "russell2k": {"label": "Russell 2K", "min_price": 0.0, "max_price": 1e9, "fetch": "russell2k_massive"},
     "all_us":    {"label": "All US",     "min_price": 0.7, "max_price": 1e9, "fetch": "all_us"},
+    "split":     {"label": "Splits",     "min_price": 0.0, "max_price": 1e9, "fetch": "split"},
 }
 
 
@@ -408,6 +409,10 @@ def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[s
             lambda: list(dict.fromkeys(get_tickers(700) + get_nasdaq_tickers(700))),
             limit,
         )
+
+    elif fetch == "split":
+        from split_universe import split_service
+        return split_service.get_split_tickers()[:limit]
 
     else:  # sp500
         return get_tickers(min(limit, 700))
