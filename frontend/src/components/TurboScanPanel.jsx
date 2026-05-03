@@ -10,6 +10,8 @@ const UNIVERSES = [
   { key: 'nasdaq',    label: 'NASDAQ',        desc: '~4K NASDAQ stocks',   cls: 'text-cyan-300'   },
   { key: 'russell2k', label: 'Russell 2K',   desc: 'All US small-caps',   cls: 'text-orange-300' },
   { key: 'all_us',    label: '🌐 All US',    desc: '~8K tickers (Massive)',cls: 'text-violet-300' },
+  { key: 'split',     label: '✂️ SPLIT',     desc: 'Reverse splits: −7d / +5d window',
+                                                                            cls: 'text-amber-300'  },
 ]
 
 // ── Timeframes ────────────────────────────────────────────────────────────────
@@ -638,7 +640,7 @@ const _tsKey  = (tf, uni) => `sachoki_turbo_${tf}_${uni}`
 const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
 
 const _ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
-const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us']
+const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us', 'split']
 
 // Evict ALL cached entries except the one being written
 function _evictAll(exceptKey) {
@@ -1327,6 +1329,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <SortTh col="cci" cls="text-center">CCI</SortTh>
               <SortTh col="last_price" cls="text-right">Price</SortTh>
               <SortTh col="change_pct" cls="text-right">%</SortTh>
+              {universe === 'split' && (
+                <th className="px-2 py-1.5 font-medium text-amber-300" title="Split ratio + days from execution">Split</th>
+              )}
             </tr>
           </thead>
           <tbody>
@@ -1644,13 +1649,34 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     </span>
                   )}
                 </td>
+
+                {/* Split status (only when SPLIT universe) */}
+                {universe === 'split' && (
+                  <td className="px-2 py-1 text-center font-mono text-xs">
+                    {r.split_date ? (
+                      <span className={`px-1.5 py-0.5 rounded font-semibold ${
+                        r.split_status === 'upcoming'
+                          ? 'bg-amber-900/40 text-amber-300 border border-amber-700/60'
+                          : 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60'
+                      }`}
+                        title={`${r.split_status === 'upcoming' ? 'Upcoming' : 'Executed'} ${r.split_date}`}>
+                        {r.split_ratio}
+                        <span className="ml-1 text-gray-400 font-normal">
+                          {r.split_status === 'upcoming'
+                            ? `in ${Math.abs(r.split_days_offset)}d`
+                            : `${Math.abs(r.split_days_offset)}d ago`}
+                        </span>
+                      </span>
+                    ) : '—'}
+                  </td>
+                )}
               </tr>
               )
             })}
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={11} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={universe === 'split' ? 16 : 15} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan

@@ -580,7 +580,25 @@ def api_turbo_scan(
                                       cci_min=cci_min, cci_max=cci_max,
                                       vol_min=vol_min, vol_max=vol_max)
         last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
-        return {"results": results, "last_scan": last_time}
+
+        # Enrich split-universe rows with split metadata (date, ratio, status)
+        meta: dict = {}
+        if universe == "split":
+            try:
+                from split_universe import split_service
+                smeta = split_service.get_split_meta()
+                for r in results:
+                    s = smeta.get(r.get("ticker"))
+                    if s:
+                        r["split_date"]        = s["split_date"]
+                        r["split_ratio"]       = s["ratio_str"]
+                        r["split_status"]      = s["status"]
+                        r["split_days_offset"] = s["days_offset"]
+                meta["split_count"] = len(smeta)
+            except Exception as exc:
+                log.warning("split metadata enrich failed: %s", exc)
+
+        return {"results": results, "last_scan": last_time, "meta": meta}
     except Exception as exc:
         log.exception("turbo-scan error")
         raise HTTPException(status_code=500, detail=str(exc))
