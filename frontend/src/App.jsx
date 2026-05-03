@@ -104,7 +104,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.4.40</span>
+          <span className="text-xs font-normal text-gray-500">v4.4.42</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -147,7 +147,8 @@ export default function App() {
         ))}
       </div>
 
-      {/* ── Chart — always visible, controlled by active tab ───────────── */}
+      {/* ── Chart — hidden on turbo tab (uses its own popup) ──────────────── */}
+      {activeTab !== 'turbo' && (
       <div style={{ minHeight: '340px' }}>
         <CandleChart
           ticker={chartTicker}
@@ -155,6 +156,7 @@ export default function App() {
           onChartReady={handleChartReady}
         />
       </div>
+      )}
 
       {/* ── Tab content ─────────────────────────────────────────────────── */}
       <div className="min-h-[400px]">
