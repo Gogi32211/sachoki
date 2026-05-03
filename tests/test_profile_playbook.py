@@ -119,20 +119,16 @@ def test_empty_signals_gives_watch():
     assert not result["late_warning"]
 
 def test_sweet_spot_detection():
-    # SP500_50_150 sweet_spot = (55, 75)
-    # Need enough signals to reach score >= 55:
-    # Single: FLY_BD(5)+BB_UP(5)+FRI43(4)+BUY(4)+SVS(4)+260308(4)+BX_UP(4)+G11(3)+LOAD(3)+F9(3) = 39
-    # Pairs:  BL+F10(10)+CCI+G11(9)+LOAD+T10(7)+SVS+T10(7)+FRI43+T10(7) = 40 → total 79
-    signals = {"FLY_BD", "BB_UP", "FRI43", "BUY", "SVS", "260308", "BX_UP",
-               "BL", "F10", "CCI", "G11", "T10", "LOAD", "F9"}
+    # SP500_50_150 sweet_spot = (20, 45)
+    # FLY_BD(5)+BUY(4)+BX_UP(4)+LOAD(3) = 16 single; LOAD+T10(7) pair → total 23
+    signals = {"FLY_BD", "BUY", "BX_UP", "LOAD", "T10"}
     result = compute_profile_score(signals, "SP500_50_150")
-    assert result["profile_score"] >= 55
-    assert result["profile_category"] in {"SWEET_SPOT", "LATE", "BUILDING"}
+    assert result["profile_score"] >= 20
+    assert result["profile_category"] in {"SWEET_SPOT", "LATE"}
 
 def test_late_warning():
     profile = "SP500_50_150"
-    # sweet_spot=(55,75), late_threshold=85
-    # Max score: all single signals + all pairs
+    # Activate all signals + all pair members — should reach LATE (score > late_threshold=55)
     signals = set(PROFILES[profile]["signal_weights"].keys())
     for pair in PROFILES[profile]["pair_bonuses"]:
         signals.update(pair)
@@ -141,13 +137,13 @@ def test_late_warning():
     assert result["profile_category"] in {"WATCH", "BUILDING", "SWEET_SPOT", "LATE"}
 
 def test_building_category():
-    # BUILDING: score >= sweet_low * 0.70 but not sweet_spot
-    # SP500_50_150: sweet_low=55, threshold = 55*0.7 = 38.5
-    # Get score around 40-54
-    signals = {"FLY_BD", "BB_UP", "FRI43", "BUY", "SVS", "260308", "BX_UP"}
+    # BUILDING: score >= sweet_low * 0.70 but < sweet_low
+    # SP500_50_150: sweet_low=20, building_threshold = 20*0.7 = 14
+    # FLY_BD(5)+BUY(4) = 9; F9(3)+ABS(3) = 15 → BUILDING
+    signals = {"FLY_BD", "BUY", "F9", "ABS"}
     result = compute_profile_score(signals, "SP500_50_150")
-    # 5+5+4+4+4+4+4 = 30; might be WATCH depending on score
-    assert result["profile_category"] in {"WATCH", "BUILDING", "SWEET_SPOT", "LATE"}
+    # 5+4+3+3 = 15 → BUILDING (14 <= 15 < 20)
+    assert result["profile_category"] in {"BUILDING", "SWEET_SPOT"}
 
 
 # ── Row enrichment safety ─────────────────────────────────────────────────────
