@@ -1332,17 +1332,16 @@ def run_tpsl_analytics(
     """
     gen_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Gate: score consistency must have passed
+    # Score consistency warning (non-blocking — TP/SL always runs)
     sc = cached.get("score_consistency", {})
+    sc_warning: Optional[str] = None
     if sc.get("status") == "fail":
-        log.error("TP/SL analytics aborted because canonical score consistency failed.")
-        return {
-            "tpsl_validation": [{
-                "validation_name": "score_consistency_gate",
-                "status":          "FAIL",
-                "details":         "TP/SL analytics aborted because canonical score consistency failed.",
-            }]
-        }
+        sc_warning = (
+            f"Score consistency check found {sc.get('mismatch_count', 0)} mismatch(es); "
+            "TP/SL reports may reflect inconsistent source data. "
+            "See replay_score_consistency_check.csv."
+        )
+        log.warning("TP/SL: %s", sc_warning)
 
     log.info("TP/SL analytics: computing trade simulations for %d rows ...", len(rows))
     trade_rows = compute_tpsl_trades(rows)
@@ -1370,6 +1369,12 @@ def run_tpsl_analytics(
 
     # Run basic trade-row validation
     val_checks = tpsl_validation(trade_rows)
+    if sc_warning:
+        val_checks.insert(0, {
+            "validation_name": "score_consistency_warning",
+            "status":          "WARN",
+            "details":         sc_warning,
+        })
 
     reports: Dict[str, object] = {}
 
