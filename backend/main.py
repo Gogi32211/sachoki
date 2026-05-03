@@ -1538,6 +1538,69 @@ def api_sector_detail_alias(ticker: str):
     return api_sectors_detail(ticker)
 
 
+# ── Replay Analytics ──────────────────────────────────────────────────────────
+import replay_engine as _re
+import csv as _csv
+import io as _io
+from fastapi.responses import Response as _Response
+
+
+@app.post("/api/replay/run")
+def api_replay_run(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500"):
+    state = _re.get_state()
+    if state.get("status") == "running":
+        raise HTTPException(400, "Replay already running")
+    background_tasks.add_task(_re.run_replay, tf, universe)
+    return {"status": "started"}
+
+
+@app.get("/api/replay/status")
+def api_replay_status():
+    return _re.get_state()
+
+
+@app.get("/api/replay/reports")
+def api_replay_reports():
+    return {"reports": _re.get_report_list()}
+
+
+@app.get("/api/replay/report/{name}")
+def api_replay_report(name: str, page: int = 1, page_size: int = 500):
+    data, err = _re.load_report(name, page, page_size)
+    if err:
+        raise HTTPException(404, err)
+    return data
+
+
+@app.get("/api/replay/export/{name}")
+def api_replay_export(name: str):
+    data, err = _re.load_report(name, 1, 999999)
+    if err:
+        raise HTTPException(404, err)
+    rows = data.get("rows", [])
+    if not rows:
+        raise HTTPException(404, "No data for section")
+    buf = _io.StringIO()
+    w = _csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+    w.writeheader()
+    w.writerows(rows)
+    return _Response(
+        buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="replay_{name}.csv"'},
+    )
+
+
+@app.get("/api/replay/export-all")
+def api_replay_export_all():
+    data = _re.export_zip()
+    return _Response(
+        data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="replay_analytics.zip"'},
+    )
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
