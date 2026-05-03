@@ -76,7 +76,15 @@ def _write_csv(path: str, rows: List[dict], generated_at: str = "") -> int:
 
 
 def _load_stock_stat(tf="1d", universe="sp500") -> Tuple[Optional[List[dict]], Optional[str]]:
-    path = os.path.join(STOCK_STAT_DIR, f"stock_stat_{universe}_{tf}.csv")
+    # nasdaq_1 / nasdaq_2 are virtual halves of the full nasdaq file
+    batch: Optional[int] = None
+    actual_universe = universe
+    if universe == "nasdaq_1":
+        actual_universe, batch = "nasdaq", 1
+    elif universe == "nasdaq_2":
+        actual_universe, batch = "nasdaq", 2
+
+    path = os.path.join(STOCK_STAT_DIR, f"stock_stat_{actual_universe}_{tf}.csv")
     if not os.path.exists(path):
         return None, f"File not found: {path}. Run Stock Stat first."
     rows = []
@@ -86,6 +94,15 @@ def _load_stock_stat(tf="1d", universe="sp500") -> Tuple[Optional[List[dict]], O
                 rows.append(dict(row))
     except Exception as e:
         return None, str(e)
+
+    if batch is not None:
+        tickers = sorted({r.get("ticker", r.get("Ticker", "")) for r in rows})
+        mid = len(tickers) // 2
+        half = set(tickers[:mid] if batch == 1 else tickers[mid:])
+        rows = [r for r in rows if r.get("ticker", r.get("Ticker", "")) in half]
+        log.info("nasdaq batch=%d: %d of %d tickers (%d rows)",
+                 batch, len(half), len(tickers), len(rows))
+
     return rows, None
 
 
