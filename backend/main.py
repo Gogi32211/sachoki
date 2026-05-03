@@ -18,6 +18,7 @@ from wlnbb_engine import compute_wlnbb, score_last_bar, score_bars, l_signal_lab
 from predictor import predict_next
 from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
+from canonical_scoring_engine import compute_canonical_score, get_scoring_metadata, SCORING_ENGINE_NAME, SCORING_ENGINE_VERSION
 from scanner import (
     run_scan, get_results, get_last_scan_time,
     get_scan_progress,
@@ -629,6 +630,7 @@ def api_turbo_scan(
                 row["signal_score"]          = 0
                 row["signal_bucket"]         = ""
 
+
         return {"results": results, "last_scan": last_time}
     except Exception as exc:
         log.exception("turbo-scan error")
@@ -740,7 +742,6 @@ _stock_stat_state: dict = {
     "running": False, "done": 0, "total": 0,
     "error": None, "output_path": None, "output_size": 0,
     "tf": None, "universe": None, "elapsed": 0.0,
-    "validation": None,
 }
 
 
@@ -986,28 +987,6 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     except Exception:
         wick = _EDF
     try:
-        from wick_engine import compute_wick_x as _cwx
-        wick_x = _cwx(df)
-    except Exception:
-        wick_x = _EDF
-    try:
-        from delta_engine import compute_delta as _cdelta
-        delta_df = _cdelta(df)
-    except Exception:
-        delta_df = _EDF
-    try:
-        from cisd_engine import compute_cisd as _ccisd
-        cisd_df = _ccisd(df)
-    except Exception:
-        cisd_df = _EDF
-    try:
-        from para_engine import compute_para_series as _cpara
-        para_df = _cpara(df)
-        if para_df is None:
-            para_df = _EDF
-    except Exception:
-        para_df = _EDF
-    try:
         ultra260 = compute_260308_l88(df)
     except Exception:
         ultra260 = _EDF
@@ -1042,35 +1021,6 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     except Exception:
         va_ser = pd.Series(0, index=df.index)
 
-    # EMA series for price-vs-EMA filters and predn/preup signals
-    try:
-        _cls = df["close"]
-        _opn = df["open"]
-        _e9   = _cls.ewm(span=9,   adjust=False).mean()
-        ema20_s  = _cls.ewm(span=20,  adjust=False).mean()
-        ema50_s  = _cls.ewm(span=50,  adjust=False).mean()
-        ema55_s  = _cls.ewm(span=55,  adjust=False).mean()
-        ema66_s  = _cls.ewm(span=66,  adjust=False).mean()
-        ema89_s  = _cls.ewm(span=89,  adjust=False).mean()
-        ema200_s = _cls.ewm(span=200, adjust=False).mean()
-        # predn: bar opens above EMA and closes below it
-        _cx9dn  = (_opn > _e9)      & (_cls < _e9)
-        _cx20dn = (_opn > ema20_s)  & (_cls < ema20_s)
-        _cx50dn = (_opn > ema50_s)  & (_cls < ema50_s)
-        predn3_s  = _cx9dn & _cx20dn & _cx50dn
-        predn2_s  = _cx9dn & _cx20dn & ~predn3_s
-        predn50_s = _cx50dn & ~_cx9dn & ~_cx20dn
-        predn55_s = (_opn > ema55_s)  & (_cls < ema55_s)
-        predn66_s = (_opn > ema66_s)  & (_cls < ema66_s)
-        predn89_s = (_opn > ema89_s)  & (_cls < ema89_s)
-        # preup66/55
-        preup66_s = (_opn < ema66_s) & (_cls > ema66_s)
-        preup55_s = (_opn < ema55_s) & (_cls > ema55_s)
-    except Exception:
-        ema20_s = ema50_s = ema55_s = ema66_s = ema89_s = ema200_s = pd.Series(0.0, index=df.index)
-        predn3_s = predn2_s = predn50_s = predn55_s = predn66_s = predn89_s = pd.Series(False, index=df.index)
-        preup66_s = preup55_s = pd.Series(False, index=df.index)
-
     # Vol spike ratio (current bar vs previous bar)
     vol_prev  = df["volume"].shift(1)
     vol_ratio = (df["volume"] / vol_prev.replace(0, np.nan)).fillna(0)
@@ -1089,25 +1039,6 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     _rtb_pending_phase = ""
     _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
-
-    # ── GOG Priority Engine (260501 FULL + F8) — vectorized precomputation ──────
-    try:
-        from gog_engine import compute_gog_signals as _cgog, compute_forward_stats as _cfwd
-        _gog_df = _cgog(df, wlnbb, sig_df, f_sigs, vabs, ultra260, ultraV2, combo_df)
-        _fwd_df = _cfwd(df, _gog_df)
-    except Exception:
-        _gog_df = pd.DataFrame(index=df.index)
-        _fwd_df = pd.DataFrame(index=df.index)
-
-    def _gv(col, i, default=0):
-        if col not in _gog_df.columns: return default
-        v = _gog_df[col].iloc[i]
-        return v if v is not None and not (isinstance(v, float) and np.isnan(v)) else default
-
-    def _fv(col, i, default=None):
-        if col not in _fwd_df.columns: return default
-        v = _fwd_df[col].iloc[i]
-        return None if (v is None or (isinstance(v, float) and np.isnan(v))) else v
 
     result = []
 
@@ -1276,12 +1207,12 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "g4":  _b(g_sigs, "g4"),
             "g6":  _b(g_sigs, "g6"),
             "g11": _b(g_sigs, "g11"),
-            # Wick context (x-type from compute_wick_x, confirm from compute_wick)
-            "x2g_wick":  _b(wick_x, "x2g_wick"),
-            "x2_wick":   _b(wick_x, "x2_wick"),
-            "x1g_wick":  _b(wick_x, "x1g_wick"),
-            "x1_wick":   _b(wick_x, "x1_wick"),
-            "x3_wick":   _b(wick_x, "x3_wick"),
+            # Wick context
+            "x2g_wick":  _b(wick, "x2g_wick"),
+            "x2_wick":   _b(wick, "x2_wick"),
+            "x1g_wick":  _b(wick, "x1g_wick"),
+            "x1_wick":   _b(wick, "x1_wick"),
+            "x3_wick":   _b(wick, "x3_wick"),
             "wick_bull": _b(wick, "WICK_BULL_CONFIRM"),
             # FLY context
             "fly_abcd": _b(fly_sigs, "fly_abcd"),
@@ -1290,19 +1221,26 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "fly_ad":   _b(fly_sigs, "fly_ad"),
             # Vol spike context
             "vol_spike_10x": float(vol_ratio.iloc[i]) >= 10,
-            # Composite setup signals
-            "smx_sig":  bool(_gv("SM",  i)),
-            "akan_sig": bool(_gv("A",   i)),
-            "nnn_sig":  bool(_gv("N",   i)),
-            "mx_sig":   bool(_gv("MX",  i)),
-            "gog_sig":  bool(_gv("GOG_SCORE", i, 0) > 0),
+            # ── Additional flags for canonical sub-score computation ────────
+            # F-signal entries (CLEAN_ENTRY_SCORE)
+            "f3":  _b(f_sigs, "f3"),
+            "f4":  _b(f_sigs, "f4"),
+            "f6":  _b(f_sigs, "f6"),
+            "f8":  _b(f_sigs, "f8"),
+            "f11": _b(f_sigs, "f11"),
+            # B-signal breakout confirms (CLEAN_ENTRY_SCORE)
+            "b6":  _b(b_sigs, "b6"),
+            "b8":  _b(b_sigs, "b8"),
+            # Bear / risk signals (HARD_BEAR_SCORE)
+            "fbo_bear":   _b(ultraV2, "fbo_bear"),
+            "eb_bear":    _b(ultraV2, "eb_bear"),
+            "bo_dn":      _b(wlnbb, "BO_DN"),
+            "bx_dn":      _b(wlnbb, "BX_DN"),
+            "fuchsia_rh": _b(wlnbb, "FUCHSIA_RH"),
         }
-        # GOG per-bar data from engine
-        gog_tier_val  = str(_gv("GOG_TIER",  i, ""))
-        gog_score_val = float(_gv("GOG_SCORE", i, 0.0))
-        setup_list    = str(_gv("SETUP",   i, "")).split() if _gv("SETUP", i, "") else []
-        context_list  = str(_gv("CONTEXT", i, "")).split() if _gv("CONTEXT", i, "") else []
-        turbo_score_val = _calc_turbo_score(sig_row)
+        # ── Canonical scoring — single call for all score columns ──────────
+        canonical = compute_canonical_score(sig_row)
+        turbo_score_val = canonical["turbo_score"]
 
         vol_bkt = ""
         if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
@@ -1377,236 +1315,23 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "vol":       vol_list,
             "vabs":      vabs_list,
             "wick":      wick_list,
-            "setup":     setup_list,
-            "context":   context_list,
-            "gog_tier":  gog_tier_val,
-            "gog_score": gog_score_val,
-            # GOG boosted tiers (bool)
-            "g1p":  int(_gv("G1P",i)), "g2p": int(_gv("G2P",i)), "g3p": int(_gv("G3P",i)),
-            "g1l":  int(_gv("G1L",i)), "g2l": int(_gv("G2L",i)), "g3l": int(_gv("G3L",i)),
-            "g1c":  int(_gv("G1C",i)), "g2c": int(_gv("G2C",i)), "g3c": int(_gv("G3C",i)),
-            "gog1": int(_gv("GOG1",i)),"gog2":int(_gv("GOG2",i)),"gog3":int(_gv("GOG3",i)),
-            # Raw supporting signals
-            "raw_load":   int(_gv("LOAD",i)),       "raw_sq":     int(_gv("SQ",i)),
-            "raw_w":      int(_gv("W",i)),           "raw_f8":     int(_gv("F8",i)),
-            "raw_vbo_up": int(_gv("VBO_UP",i)),      "raw_be_up":  int(_gv("BE_UP",i)),
-            "raw_bo_up":  int(_gv("BO_UP",i)),       "raw_bx_up":  int(_gv("BX_UP",i)),
-            "raw_t10":    int(_gv("T10",i)),          "raw_t11":    int(_gv("T11",i)),
-            "raw_t12":    int(_gv("T12",i)),          "raw_z10":    int(_gv("Z10",i)),
-            "raw_z11":    int(_gv("Z11",i)),          "raw_z12":    int(_gv("Z12",i)),
-            "raw_l34":    int(_gv("L34",i)),          "raw_l43":    int(_gv("L43",i)),
-            "raw_l64":    int(_gv("L64",i)),          "raw_l22":    int(_gv("L22",i)),
-            "raw_z4":     int(_gv("Z4",i)),           "raw_z6":     int(_gv("Z6",i)),
-            "raw_z9":     int(_gv("Z9",i)),
-            "raw_f3":     int(_gv("F3",i)),           "raw_f4":     int(_gv("F4",i)),
-            "raw_f6":     int(_gv("F6",i)),           "raw_f11":    int(_gv("F11",i)),
-            "raw_bf4":    int(_gv("BF4",i)),
-            "raw_sig260308": int(_gv("SIG_260308",i)),
-            "raw_l88":    int(_gv("L88",i)),          "raw_um":     int(_gv("UM",i)),
-            "raw_svs_raw":int(_gv("SVS_RAW",i)),      "raw_cons":   int(_gv("CONS",i)),
-            "raw_buy_here":   int(_gv("BUY_HERE",i)),
-            "raw_atr_brk":    int(_gv("ATR_BREAKOUT",i)),
-            "raw_bb_brk":     int(_gv("BOLL_BREAKOUT",i)),
-            "raw_hilo_buy":   int(_gv("HILO_BUY",i)),
-            "raw_rtv":    int(_gv("RTV",i)),
-            "raw_three_g":int(_gv("THREE_G",i)),      "raw_rocket": int(_gv("ROCKET",i)),
-            "all_signals": str(_gv("ALL_SIGNALS", i, "")),
-            # Diagnostics
-            "already_extended": int(_gv("already_extended_flag",i)),
-            "pct_change_3d":    round(float(_gv("pct_change_3d",i,0)), 2),
-            "pct_change_5d":    round(float(_gv("pct_change_5d",i,0)), 2),
-            "pct_change_10d":   round(float(_gv("pct_change_10d",i,0)), 2),
-            "pct_from_20d_high":  round(float(_gv("pct_from_20d_high",i,0)), 2),
-            "pct_from_20d_low":   round(float(_gv("pct_from_20d_low",i,0)), 2),
-            "distance_to_20d_high_pct": round(float(_gv("distance_to_20d_high_pct",i,0)), 2),
-            "volume_ratio_20d": round(float(_gv("volume_ratio_20d",i,0)), 2),
-            "dollar_volume":    round(float(_gv("dollar_volume",i,0)), 0),
-            "gap_pct":          round(float(_gv("gap_pct",i,0)), 2),
-            # Forward stats (note: gog_engine suffixes are '5d'/'10d')
-            "fwd_close_1d":   _fv("fwd_close_1d",i),
-            "fwd_close_3d":   _fv("fwd_close_3d",i),
-            "fwd_close_5d":   _fv("fwd_close_5d",i),
-            "fwd_close_10d":  _fv("fwd_close_10d",i),
-            "max_high_5d_pct":  _fv("max_high_5d_pct",i),
-            "max_high_10d_pct": _fv("max_high_10d_pct",i),
-            "hit_5pct_5d":    int(_fv("hit_5pct_5d",i)  or 0),
-            "hit_5pct_10d":   int(_fv("hit_5pct_10d",i) or 0),
-            "hit_10pct_5d":   int(_fv("hit_10pct_5d",i)  or 0),
-            "hit_10pct_10d":  int(_fv("hit_10pct_10d",i) or 0),
-            "vbo_within_5":   int(_fv("vbo_within_5d",i)  or 0),
-            "vbo_within_10":  int(_fv("vbo_within_10d",i) or 0),
-            "bars_to_next_vbo": _fv("bars_to_next_vbo",i),
-            "gog_within_5":   int(_fv("gog_within_5d",i)  or 0),
-            "gog_within_10":  int(_fv("gog_within_10d",i) or 0),
-            "bars_to_next_gog": _fv("bars_to_next_gog",i),
-            "ret_to_next_vbo_close": _fv("ret_to_next_vbo_close",i),
-            "ret_to_next_vbo_high":  _fv("ret_to_next_vbo_high",i),
-            "ret_to_next_gog_close": _fv("ret_to_next_gog_close",i),
-            "ret_to_next_gog_high":  _fv("ret_to_next_gog_high",i),
-            # ── All TurboScan signal booleans ─────────────────────────────────
-            # VABS individual
-            "sig_best":    int(_b(vabs,"best_sig")),
-            "sig_strong":  int(_b(vabs,"strong_sig")),
-            "sig_vbo_dn":  int(_b(vabs,"vbo_dn")),
-            "sig_ns_vabs": int(_b(vabs,"ns")),
-            "sig_nd_vabs": int(_b(vabs,"nd")),
-            "sig_sc":      int(_b(vabs,"sc")),
-            "sig_bc":      int(_b(vabs,"bc")),
-            "sig_abs":     int(_b(vabs,"abs_sig")),
-            "sig_clm":     int(_b(vabs,"climb_sig")),
-            # UltraV2 individual
-            "sig_best_up": int(_b(ultraV2,"best_long")),
-            "sig_fbo_up":  int(_b(ultraV2,"fbo_bull")),
-            "sig_eb_up":   int(_b(ultraV2,"eb_bull")),
-            "sig_3up":     int(_b(ultraV2,"ultra_3up")),
-            "sig_fbo_dn":  int(_b(ultraV2,"fbo_bear")),
-            "sig_eb_dn":   int(_b(ultraV2,"eb_bear")),
-            "sig_4bf_dn":  int(_b(ultraV2,"bf_sell")),
-            # L sub-signals
-            "sig_fri34":   int(_b(wlnbb,"FRI34")),
-            "sig_fri43":   int(_b(wlnbb,"FRI43")),
-            "sig_fri64":   int(_b(wlnbb,"FRI64")),
-            "sig_l555":    int(_b(wlnbb,"L555")),
-            "sig_l2l4":    int(_b(wlnbb,"ONLY_L2L4")),
-            "sig_blue":    int(_b(wlnbb,"BLUE")),
-            "sig_cci":     int(_b(wlnbb,"CCI_READY")),
-            "sig_cci0r":   int(_b(wlnbb,"CCI_0_RETEST_OK")),
-            "sig_ccib":    int(_b(wlnbb,"CCI_BLUE_TURN")),
-            "sig_bo_dn":   int(_b(wlnbb,"BO_DN")),
-            "sig_bx_dn":   int(_b(wlnbb,"BX_DN")),
-            "sig_be_dn":   int(_b(wlnbb,"BE_DN")),
-            "sig_rl":      int(_b(wlnbb,"FUCHSIA_RL")),
-            "sig_rh":      int(_b(wlnbb,"FUCHSIA_RH")),
-            "sig_pp":      int(_b(wlnbb,"PRE_PUMP")),
-            # G individual
-            "sig_g1":      int(_b(g_sigs,"g1")),
-            "sig_g2":      int(_b(g_sigs,"g2")),
-            "sig_g4":      int(_b(g_sigs,"g4")),
-            "sig_g6":      int(_b(g_sigs,"g6")),
-            "sig_g11":     int(_b(g_sigs,"g11")),
-            # B individual
-            "sig_b1":  int(_b(b_sigs,"b1")),  "sig_b2":  int(_b(b_sigs,"b2")),
-            "sig_b3":  int(_b(b_sigs,"b3")),  "sig_b4":  int(_b(b_sigs,"b4")),
-            "sig_b5":  int(_b(b_sigs,"b5")),  "sig_b6":  int(_b(b_sigs,"b6")),
-            "sig_b7":  int(_b(b_sigs,"b7")),  "sig_b8":  int(_b(b_sigs,"b8")),
-            "sig_b9":  int(_b(b_sigs,"b9")),  "sig_b10": int(_b(b_sigs,"b10")),
-            "sig_b11": int(_b(b_sigs,"b11")),
-            # F individual (F1–F11)
-            "sig_f1":  int(_b(f_sigs,"f1")),  "sig_f2":  int(_b(f_sigs,"f2")),
-            "sig_f3":  int(_b(f_sigs,"f3")),  "sig_f4":  int(_b(f_sigs,"f4")),
-            "sig_f5":  int(_b(f_sigs,"f5")),  "sig_f6":  int(_b(f_sigs,"f6")),
-            "sig_f7":  int(_b(f_sigs,"f7")),  "sig_f8":  int(_b(f_sigs,"f8")),
-            "sig_f9":  int(_b(f_sigs,"f9")),  "sig_f10": int(_b(f_sigs,"f10")),
-            "sig_f11": int(_b(f_sigs,"f11")),
-            # FLY sub-types
-            "sig_fly_abcd": int(_b(fly_sigs,"fly_abcd")),
-            "sig_fly_cd":   int(_b(fly_sigs,"fly_cd")),
-            "sig_fly_bd":   int(_b(fly_sigs,"fly_bd")),
-            "sig_fly_ad":   int(_b(fly_sigs,"fly_ad")),
-            # Wick sub-types
-            "sig_wk_up":    int(_b(wick,"WICK_BULL_PATTERN")),
-            "sig_wk_dn":    int(_b(wick,"WICK_BEAR_PATTERN")),
-            "sig_x1":       int(_b(wick_x,"x1_wick")),
-            "sig_x2":       int(_b(wick_x,"x2_wick")),
-            "sig_x1g":      int(_b(wick_x,"x1g_wick")),
-            "sig_x3":       int(_b(wick_x,"x3_wick")),
-            # Combo sub-types
-            "sig_bias_up":  int(_b(combo_df,"bias_up")),
-            "sig_bias_dn":  int(_b(combo_df,"bias_down")),
-            "sig_svs":      int(_b(combo_df,"svs_2809")),
-            "sig_conso":    int(_b(combo_df,"conso_2809")),
-            "sig_p2":       int(_b(combo_df,"preup2")),
-            "sig_p3":       int(_b(combo_df,"preup3")),
-            "sig_p50":      int(_b(combo_df,"preup50")),
-            "sig_p89":      int(_b(combo_df,"preup89")),
-            "sig_buy":      int(_b(combo_df,"buy_2809")),
-            "sig_3g":       int(_b(combo_df,"sig3g")),
-            # VA + volume spikes
-            "sig_va":       int(bool(va_ser.iloc[i])),
-            "sig_vol_5x":   int(float(vol_ratio.iloc[i]) >= 5),
-            "sig_vol_10x":  int(float(vol_ratio.iloc[i]) >= 10),
-            "sig_vol_20x":  int(float(vol_ratio.iloc[i]) >= 20),
-            # TZ/state booleans
-            "sig_tz":       1 if tz else 0,
-            "sig_t":        1 if tz.startswith("T") else 0,
-            "sig_z":        1 if tz.startswith("Z") else 0,
-            "sig_tz3":      int(int(tz_state_ser.iloc[i]) == 3),
-            "sig_tz2":      int(int(tz_state_ser.iloc[i]) == 2),
-            "sig_tz_flip":  int(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_prev.iloc[i]) != 3),
-            "sig_cd":  1 if (int(tz_state_ser.iloc[i])==3 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
-            "sig_ca":  1 if (int(tz_state_ser.iloc[i])==2 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
-            "sig_cw":  1 if (int(tz_state_ser.iloc[i])==1 and any(_b(b_sigs,f"b{n}") for n in range(1,12))) else 0,
-            "sig_seq_bcont": int(bool(seq_bcont_ser.iloc[i])),
-            # ── NS/ND Delta (from delta_engine: vd_div_bull/bear)
-            "sig_ns_delta": int(_b(delta_df, "vd_div_bull")),
-            "sig_nd_delta": int(_b(delta_df, "vd_div_bear")),
-            # ── Meta family any-flags
-            "sig_any_f":  int(any(_b(f_sigs,f"f{n}") for n in range(1,12))),
-            "sig_any_b":  int(any(_b(b_sigs,f"b{n}") for n in range(1,12))),
-            "sig_any_p":  int(any([
-                bool(preup66_s.iloc[i]), bool(preup55_s.iloc[i]),
-                _b(combo_df,"preup89"), _b(combo_df,"preup50"),
-                _b(combo_df,"preup3"),  _b(combo_df,"preup2"),
-            ])),
-            "sig_any_d":  int(any([
-                bool(predn66_s.iloc[i]), bool(predn55_s.iloc[i]),
-                bool(predn89_s.iloc[i]), bool(predn50_s.iloc[i]),
-                bool(predn3_s.iloc[i]),  bool(predn2_s.iloc[i]),
-            ])),
-            "sig_l_any":  int(any(_b(wlnbb,k) for k in ["L34","L43","L64","L22","L555","ONLY_L2L4","FRI34","FRI43","FRI64"])),
-            "sig_be_any": int(_b(wlnbb,"BE_UP") or _b(wlnbb,"BE_DN")),
-            "sig_gog_plus": int(any(bool(_gv(k,i)) for k in ["G1P","G1L","G1C","G2P","G2L","G2C","G3P","G3L","G3C"])),
-            "sig_not_ext":  int(not bool(_gv("already_extended_flag",i))),
-            # ── Price vs EMA (precomputed series)
-            "sig_price_gt_20":  int(float(row["close"]) > float(ema20_s.iloc[i])  > 0),
-            "sig_price_gt_50":  int(float(row["close"]) > float(ema50_s.iloc[i])  > 0),
-            "sig_price_gt_89":  int(float(row["close"]) > float(ema89_s.iloc[i])  > 0),
-            "sig_price_gt_200": int(float(row["close"]) > float(ema200_s.iloc[i]) > 0),
-            "sig_price_lt_20":  int(float(ema20_s.iloc[i])  > float(row["close"]) > 0),
-            "sig_price_lt_50":  int(float(ema50_s.iloc[i])  > float(row["close"]) > 0),
-            "sig_price_lt_89":  int(float(ema89_s.iloc[i])  > float(row["close"]) > 0),
-            "sig_price_lt_200": int(float(ema200_s.iloc[i]) > float(row["close"]) > 0),
-            # ── RSI filters (from wlnbb rsi column)
-            "sig_rsi_le_35": int(float(wlnbb.iloc[i]["rsi"] if not wlnbb.empty and "rsi" in wlnbb.columns else 50) <= 35),
-            "sig_rsi_ge_70": int(float(wlnbb.iloc[i]["rsi"] if not wlnbb.empty and "rsi" in wlnbb.columns else 50) >= 70),
-            # ── Data source
-            "sig_yf_source": 0,
-            # ── P66/P55 (precomputed EMA crossover)
-            "sig_p66": int(bool(preup66_s.iloc[i])),
-            "sig_p55": int(bool(preup55_s.iloc[i])),
-            # ── D-family PREDN (precomputed EMA crossdown)
-            "sig_d66": int(bool(predn66_s.iloc[i])),
-            "sig_d55": int(bool(predn55_s.iloc[i])),
-            "sig_d89": int(bool(predn89_s.iloc[i])),
-            "sig_d50": int(bool(predn50_s.iloc[i])),
-            "sig_d3":  int(bool(predn3_s.iloc[i])),
-            "sig_d2":  int(bool(predn2_s.iloc[i])),
-            # ── Delta extras (from delta_engine)
-            "sig_flp_up":      int(_b(delta_df, "flip_bull")),
-            "sig_org_up":      int(_b(delta_df, "orange_bull")),
-            "sig_dd_up_red":   int(_b(delta_df, "blast_bull_red")),
-            "sig_d_up_red":    int(_b(delta_df, "surge_bull_red")),
-            "sig_d_dn_green":  int(_b(delta_df, "surge_bear_grn")),
-            "sig_dd_dn_green": int(_b(delta_df, "blast_bear_grn")),
-            # ── CISD (from cisd_engine)
-            "sig_cisd_cplus":       int(_b(cisd_df, "PLUS_CISD")),
-            "sig_cisd_cplus_minus": int(_b(cisd_df, "CISD_PPM")),
-            "sig_cisd_cplus_mm":    int(_b(cisd_df, "CISD_PMM")),
-            # ── PARA context (from para_engine compute_para_series)
-            "sig_para_prep":   int(_b(para_df, "para_prep")),
-            "sig_para_start":  int(_b(para_df, "para_start")),
-            "sig_para_plus":   int(_b(para_df, "para_plus")),
-            "sig_para_retest": int(_b(para_df, "para_retest")),
-            # ── Cross-engine lightning count (placeholders, patched below)
-            "sig_cross_2plus": 0,
-            "sig_cross_3plus": 0,
-            "sig_cross_4plus": 0,
-            "sig_early_e": int(
-                _b(delta_df, "spring")
-                or bool(int(tz_state_ser.iloc[i]) == 3 and int(tz_state_ser.iloc[i]) != int(tz_state_prev.iloc[i]))
-            ),
             "ultra":          ultra_list,
-            "turbo_score":    turbo_score_val,
+            "turbo_score":           turbo_score_val,
+            # ── Canonical score columns (same value for same input, all modules) ──
+            "FINAL_BULL_SCORE":      canonical["FINAL_BULL_SCORE"],
+            "ROCKET_SCORE":          canonical["ROCKET_SCORE"],
+            "CLEAN_ENTRY_SCORE":     canonical["CLEAN_ENTRY_SCORE"],
+            "SHAKEOUT_ABSORB_SCORE": canonical["SHAKEOUT_ABSORB_SCORE"],
+            "EXTRA_BULL_SCORE":      canonical["EXTRA_BULL_SCORE"],
+            "EXPERIMENTAL_SCORE":    canonical["EXPERIMENTAL_SCORE"],
+            "REBOUND_SQUEEZE_SCORE": canonical["REBOUND_SQUEEZE_SCORE"],
+            "HARD_BEAR_SCORE":       canonical["HARD_BEAR_SCORE"],
+            "VOLATILITY_RISK_SCORE": canonical["VOLATILITY_RISK_SCORE"],
+            "HAS_ELITE_MODEL":       canonical["HAS_ELITE_MODEL"],
+            "HAS_REBOUND_MODEL":     canonical["HAS_REBOUND_MODEL"],
+            "HAS_STRONG_BULL_MODEL": canonical["HAS_STRONG_BULL_MODEL"],
+            "FINAL_REGIME":          canonical["FINAL_REGIME"],
+            "FINAL_SCORE_BUCKET":    canonical["FINAL_SCORE_BUCKET"],
             "rtb_phase":      rtb_phase_val,
             "rtb_total":      rtb_total_val,
             "rtb_transition": rtb_transition_val,
@@ -2520,15 +2245,9 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
     t0 = time.time()
     _stock_stat_state.update(
         running=True, done=0, total=0, error=None,
-        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0,
-        validation=None,
+        output_path=None, output_size=0, tf=tf, universe=universe, elapsed=0.0
     )
     _PREUP = {"P2", "P3", "P50", "P89"}
-
-    # ── Helpers ───────────────────────────────────────────────────────────────
-    def _j(lst): return " ".join(lst) if lst else ""
-    def _ctx(b, tok): return 1 if tok in b.get("context", []) else 0
-    def _fmt(v): return "" if v is None else v
 
     try:
         tickers = get_universe_tickers(universe)
@@ -2540,6 +2259,14 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
         headers = [
             "ticker", "date", "open", "high", "low", "close", "volume",
             "vol_bucket", "turbo_score",
+            # ── Canonical score columns (single source of truth) ──────────────
+            "FINAL_BULL_SCORE",
+            "ROCKET_SCORE", "CLEAN_ENTRY_SCORE", "SHAKEOUT_ABSORB_SCORE",
+            "EXTRA_BULL_SCORE", "EXPERIMENTAL_SCORE", "REBOUND_SQUEEZE_SCORE",
+            "HARD_BEAR_SCORE", "VOLATILITY_RISK_SCORE",
+            "HAS_ELITE_MODEL", "HAS_REBOUND_MODEL", "HAS_STRONG_BULL_MODEL",
+            "FINAL_REGIME", "FINAL_SCORE_BUCKET",
+            # ── RTB ───────────────────────────────────────────────────────────
             "rtb_phase", "rtb_total", "rtb_transition",
             "rtb_build", "rtb_turn", "rtb_ready", "rtb_late", "rtb_bonus3",
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
@@ -2689,10 +2416,12 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "BEARISH_RISK_SCORE",
         ]
 
+        def _j(lst): return " ".join(lst) if lst else ""
+        def _ctx(b, tok): return 1 if tok in b.get("context", []) else 0
+        def _fmt(v): return "" if v is None else v
+
         def _build_row(ticker, b):
             """Build one CSV row list from a bar dict."""
-            tz = b.get("tz", "")
-
             # Setup tokens (exact, not substring)
             setup_lst = b.get("setup", [])
             if isinstance(setup_lst, str):
@@ -3096,40 +2825,12 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 wr.writerow(row_list)
 
         fsize = os.path.getsize(out_path)
-
-        # Write extended/parabolic CSV (ALREADY_EXTENDED_FLAG=1 AND SIGNAL_SCORE>=80)
-        ext_path = out_path.replace(".csv", "_extended.csv")
-        ext_idx  = headers.index("ALREADY_EXTENDED_FLAG")
-        sig_idx  = headers.index("SIGNAL_SCORE")
-        ext_rows = [r for _, r in all_rows
-                    if int(r[ext_idx] or 0) == 1 and int(r[sig_idx] or 0) >= 80]
-        with open(ext_path, "w", newline="", encoding="utf-8") as fh:
-            wr = csv.writer(fh)
-            wr.writerow(headers)
-            for row_list in ext_rows:
-                wr.writerow(row_list)
-
-        # Validation Summary
-        _val_top20.sort(reverse=True)
-        validation = {
-            "total_rows":          _val_rows,
-            "ticker_count":        len(_val_tickers),
-            "by_gog_tier":         dict(_val_tier_cnt.most_common()),
-            "by_signal_bucket":    dict(_val_bucket_cnt.most_common()),
-            "top20_by_score": [
-                {"score": s, "ticker": t, "date": d, "gog_tier": g}
-                for s, t, d, g in _val_top20[:20]
-            ],
-            "setup_bool_token_mismatches": _val_setup_mismatch,
-            "window_flag_mismatches":      _val_window_mismatch,
-            "extended_rows":       len(ext_rows),
-            "extended_path":       ext_path,
-        }
-
         _stock_stat_state.update(
             running=False, output_path=out_path,
             output_size=fsize, elapsed=round(time.time() - t0, 1),
-            validation=validation,
+            scoring_engine=SCORING_ENGINE_NAME,
+            scoring_version=SCORING_ENGINE_VERSION,
+            bars_used=bars,
         )
     except Exception as e:
         _stock_stat_state.update(
@@ -3247,16 +2948,18 @@ def api_sector_detail_alias(ticker: str):
 
 # ── Replay Analytics ──────────────────────────────────────────────────────────
 import replay_engine as _re
+import csv as _csv
+import io as _io
+from fastapi.responses import Response as _Response
 
 
 @app.post("/api/replay/run")
-def api_replay_run(background_tasks: BackgroundTasks,
-                   tf: str = "1d", universe: str = "sp500"):
-    st = _re.get_state()
-    if st["status"] == "running":
+def api_replay_run(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500"):
+    state = _re.get_state()
+    if state.get("status") == "running":
         raise HTTPException(400, "Replay already running")
     background_tasks.add_task(_re.run_replay, tf, universe)
-    return {"ok": True, "message": "Replay analytics started"}
+    return {"status": "started"}
 
 
 @app.get("/api/replay/status")
@@ -3269,56 +2972,41 @@ def api_replay_reports():
     return {"reports": _re.get_report_list()}
 
 
-@app.get("/api/replay/report/{report_name}")
-def api_replay_report(report_name: str, page: int = 1, page_size: int = 500):
-    data, err = _re.load_report(report_name, page, page_size)
+@app.get("/api/replay/report/{name}")
+def api_replay_report(name: str, page: int = 1, page_size: int = 500):
+    data, err = _re.load_report(name, page, page_size)
     if err:
         raise HTTPException(404, err)
     return data
 
 
-@app.get("/api/replay/export/{report_name}")
-def api_replay_export(report_name: str):
-    # Summary markdown
-    if report_name == "summary_md":
-        path = os.path.join(_re.REPLAY_OUTPUT_DIR, "replay_summary.md")
-        if not os.path.exists(path):
-            raise HTTPException(404, "Summary not generated yet")
-        return FileResponse(path, media_type="text/markdown", filename="replay_summary.md")
-    path = os.path.join(_re.REPLAY_OUTPUT_DIR, f"replay_{report_name}.csv")
-    if not os.path.exists(path):
-        raise HTTPException(404, f"Report not found: {report_name}")
-    return FileResponse(path, media_type="text/csv", filename=f"replay_{report_name}.csv")
+@app.get("/api/replay/export/{name}")
+def api_replay_export(name: str):
+    data, err = _re.load_report(name, 1, 999999)
+    if err:
+        raise HTTPException(404, err)
+    rows = data.get("rows", [])
+    if not rows:
+        raise HTTPException(404, "No data for section")
+    buf = _io.StringIO()
+    w = _csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+    w.writeheader()
+    w.writerows(rows)
+    return _Response(
+        buf.getvalue(),
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="replay_{name}.csv"'},
+    )
 
 
 @app.get("/api/replay/export-all")
 def api_replay_export_all():
-    from fastapi.responses import Response
-    try:
-        data = _re.export_zip()
-    except Exception as e:
-        raise HTTPException(500, str(e))
-    from datetime import datetime as _dt
-    fname = f"replay_analytics_reports_{_dt.now().strftime('%Y%m%d_%H%M%S')}.zip"
-    return Response(content=data, media_type="application/zip",
-                    headers={"Content-Disposition": f"attachment; filename={fname}"})
-
-
-@app.get("/api/replay/splits/summary")
-def api_replay_splits_summary():
-    data, err = _re.load_report("split_events")
-    if err or not data:
-        return {"available": False, "message": err or "No split data"}
-    evts = data.get("rows", [])
-    fwd  = [e for e in evts if e.get("split_type") == "FORWARD_SPLIT"]
-    rev  = [e for e in evts if e.get("split_type") == "REVERSE_SPLIT"]
-    return {
-        "available": True,
-        "total_events": len(evts),
-        "forward_splits": len(fwd),
-        "reverse_splits": len(rev),
-        "message": _re.get_state().get("message", ""),
-    }
+    data = _re.export_zip()
+    return _Response(
+        data,
+        media_type="application/zip",
+        headers={"Content-Disposition": 'attachment; filename="replay_analytics.zip"'},
+    )
 
 
 _static = os.path.join(os.path.dirname(__file__), "static")

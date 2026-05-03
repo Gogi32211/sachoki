@@ -48,9 +48,9 @@ const TABS = [
   { id: 'superchart', label: '📋 Superchart' },
   { id: 'sectors',    label: '🌐 Sectors' },
   { id: 'analyze',    label: '🔍 Analyze' },
+  { id: 'replay',     label: '🔬 Replay' },
   { id: 'howitworks', label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
-  { id: 'replay',     label: '🔬 Replay' },
 ]
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
@@ -111,7 +111,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.5.700</span>
+          <span className="text-xs font-normal text-gray-500">v4.5.702</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -238,14 +238,15 @@ export default function App() {
           />
         )}
 
+        {activeTab === 'replay' && (
+          <ReplayPanel />
+        )}
+
         {activeTab === 'howitworks' && (
           <HowItWorksPanel />
         )}
         {activeTab === 'admin' && (
           <AdminPanel />
-        )}
-        {activeTab === 'replay' && (
-          <ReplayPanel />
         )}
       </div>
     </div>
