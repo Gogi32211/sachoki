@@ -1457,30 +1457,57 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
         for reason, cnt in fc.most_common(8):
             lines.append(f"- {reason}: **{cnt}** cases")
 
+    # TP/SL section — only included when TP/SL actually ran
+    tpsl_status   = reports.get("tpsl_status", "skipped")
+    tpsl_n_trades = reports.get("tpsl_n_trades", 0)
+    tpsl_files    = reports.get("tpsl_files", []) or []
+    if tpsl_status == "ok" and tpsl_files:
+        lines += [
+            "", "---", "",
+            "## 15. TP/SL Path Analytics", "",
+            f"TP/SL analytics generated: **{tpsl_n_trades:,} trade rows** across "
+            f"{len(tpsl_files)} files.",
+            "",
+            "| Report | Purpose |",
+            "|--------|---------|",
+        ]
+        descriptions = {
+            "replay_tpsl_trades.csv":                    "Row-level trade simulations (all presets × entry modes)",
+            "replay_tpsl_signal_perf.csv":               "TP/SL by signal with classification label",
+            "replay_tpsl_model_perf.csv":                "TP/SL by named model",
+            "replay_tpsl_regime_perf.csv":               "TP/SL by FINAL_REGIME",
+            "replay_tpsl_score_bucket_perf.csv":         "TP/SL by FINAL_SCORE_BUCKET",
+            "replay_tpsl_score_range_perf.csv":          "TP/SL by score range (<25/25-54/55-99/100+)",
+            "replay_tpsl_pair_combo_perf.csv":           "TP/SL by signal pair",
+            "replay_tpsl_triple_combo_perf.csv":         "TP/SL by signal triple",
+            "replay_tpsl_missed_big_winners.csv":        "Missed/caught/late category × TP/SL",
+            "replay_tpsl_false_positives.csv":           "FP classification: TRUE/TRADEABLE/VOLATILE",
+            "replay_tpsl_caught_early_timing.csv":       "Prior-date entry timing for caught-early",
+            "replay_tpsl_readiness_phase_perf.csv":      "TP/SL by READINESS_PHASE",
+            "replay_tpsl_actionability_bucket_perf.csv": "TP/SL by ACTIONABILITY_SCORE bucket",
+            "replay_tpsl_component_bucket_perf.csv":     "TP/SL by score-component buckets",
+            "replay_tpsl_validation.csv":                "Validation results",
+            "replay_tpsl_summary.md":                    "TP/SL analytics full summary",
+            "replay_tpsl_implementation_audit.md":       "Implementation audit and changelog",
+        }
+        for fname in sorted(tpsl_files):
+            lines.append(f"| {fname} | {descriptions.get(fname, '')} |")
+        lines += [
+            "",
+            "Presets: SCALP_FAST / CLEAN_SWING / MOMENTUM_SWING / PARABOLIC / "
+            "LOOSE_WATCH / STRUCTURAL_BUILD / VERY_TIGHT / WIDE_MOMENTUM  ",
+            "Entry modes: SAME_DAY_CLOSE / NEXT_DAY_OPEN  ",
+        ]
+    elif tpsl_status == "failed":
+        lines += [
+            "", "---", "",
+            "## 15. TP/SL Path Analytics", "",
+            "TP/SL analytics **FAILED**. See `replay_tpsl_validation.csv` for the error reason.",
+        ]
+    # tpsl_status == "skipped" → omit the section entirely
+
     lines += [
         "", "---", "",
-        "## 15. TP/SL Path Analytics", "",
-        "TP/SL analytics have been generated. See individual reports:",
-        "",
-        "| Report | Purpose |",
-        "|--------|---------|",
-        "| replay_tpsl_trades.csv | Row-level trade simulations (all presets × entry modes) |",
-        "| replay_tpsl_signal_perf.csv | TP/SL by signal with classification label |",
-        "| replay_tpsl_model_perf.csv | TP/SL by named model |",
-        "| replay_tpsl_regime_perf.csv | TP/SL by FINAL_REGIME |",
-        "| replay_tpsl_score_bucket_perf.csv | TP/SL by FINAL_SCORE_BUCKET |",
-        "| replay_tpsl_score_range_perf.csv | TP/SL by score range (<25/25-54/55-99/100+) |",
-        "| replay_tpsl_missed_big_winners.csv | Missed/caught/late category × TP/SL |",
-        "| replay_tpsl_false_positives.csv | FP classification: TRUE/TRADEABLE/VOLATILE |",
-        "| replay_tpsl_caught_early_timing.csv | Prior-date entry timing for caught-early |",
-        "| replay_tpsl_summary.md | TP/SL analytics full summary |",
-        "| replay_tpsl_implementation_audit.md | Implementation audit and changelog |",
-        "",
-        "Presets: SCALP_FAST / CLEAN_SWING / MOMENTUM_SWING / PARABOLIC / "
-        "LOOSE_WATCH / STRUCTURAL_BUILD / VERY_TIGHT / WIDE_MOMENTUM  ",
-        "Entry modes: SAME_DAY_CLOSE / NEXT_DAY_OPEN  ",
-        "",
-        "---", "",
         "## 24. Recommended next steps", "",
         "1. Focus on **TRUE_MISSED_WINNERS** — these need scoring formula fixes",
         "2. Review **CAUGHT_EARLY_WINNERS** — consider holding or confirming later",
@@ -1488,8 +1515,13 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
         "4. Review **Scored But Weak** table for signals to reduce/remove",
         "5. Review **Active Unscored** table for signals to add",
         "6. Check **False Positives** for volatility/extension risk gaps",
-        "7. Review **replay_tpsl_score_range_perf.csv** to validate phase-meter hypothesis",
-        "8. Review **replay_tpsl_signal_perf.csv** to identify FAST_ENTRY vs WATCHLIST signals",
+    ]
+    if tpsl_status == "ok":
+        lines += [
+            "7. Review **replay_tpsl_score_range_perf.csv** to validate phase-meter hypothesis",
+            "8. Review **replay_tpsl_signal_perf.csv** to identify FAST_ENTRY vs WATCHLIST signals",
+        ]
+    lines += [
         "",
         "*Generated by Sachoki Replay Analytics Engine v4.4*",
     ]
@@ -1652,17 +1684,14 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         _save("filter_miss_audit", filter_miss_audit(rows))
 
         # 17 — Splits
-        _state["progress"] = 17; _state["message"] = "Split analytics..."
-        try:
-            sr = split_analytics(rows)
-            _save("split_events", sr.get("events", []))
-            _save("split_missed", sr.get("missed", []))
-            _save("split_false_positives", sr.get("false_positives", []))
-            cached["split_analytics"] = sr
-        except Exception as _se:
-            log.warning("Split analytics skipped: %s", _se)
-            cached["split_analytics"] = {"available": False, "message": str(_se),
-                                          "events": [], "missed": [], "false_positives": []}
+        # 17 — Split analytics: DISABLED (per project decision; module retained
+        # but not invoked because it is unreliable on the NASDAQ universe).
+        _state["progress"] = 17; _state["message"] = "Split analytics (disabled)..."
+        cached["split_analytics"] = {
+            "available": False,
+            "message":   "split analytics disabled",
+            "events": [], "missed": [], "false_positives": [],
+        }
 
         # 17b — Score consistency check (live vs stock_stat + export key validation)
         _state["progress"] = 17; _state["message"] = "Score consistency check (SNDK/INTC)..."
@@ -1696,16 +1725,12 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         except Exception:
             cached["scoring_metadata"] = {}
 
-        # 18 — Summary
-        _state["progress"] = 18; _state["message"] = "Writing summary..."
-        md = _md_summary(cached, gen_at, tf, universe, len(rows))
-        md_path = os.path.join(REPLAY_OUTPUT_DIR, "replay_summary.md")
-        with open(md_path, "w", encoding="utf-8") as f:
-            f.write(md)
-        _state["reports"]["summary_md"] = {"rows": 1, "path": md_path, "generated_at": gen_at}
-
-        # 19 — TP/SL path-based analytics (streaming to avoid OOM)
-        _state["progress"] = 19; _state["message"] = "TP/SL path analytics..."
+        # 18 — TP/SL path-based analytics (streaming to avoid OOM)
+        # Run before summary so the summary can reflect actual TP/SL status.
+        _state["progress"] = 18; _state["message"] = "TP/SL path analytics..."
+        tpsl_status = "skipped"
+        tpsl_n_trades = 0
+        tpsl_files: List[str] = []
         try:
             from tpsl_engine import run_tpsl_analytics
             tpsl_reports = run_tpsl_analytics(rows, cached, output_dir=REPLAY_OUTPUT_DIR)
@@ -1718,8 +1743,10 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                     _state["reports"][base + "_md"] = {
                         "rows": 1, "path": md_out, "generated_at": gen_at,
                     }
+                    tpsl_files.append(f"replay_{base}.md")
                 elif isinstance(data, list):
                     _save(rname, data)
+                    tpsl_files.append(f"replay_{rname}.csv")
                 elif isinstance(data, dict) and data.get("streamed"):
                     # tpsl_trades was streamed directly to disk by the engine
                     _state["reports"][rname] = {
@@ -1727,13 +1754,32 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                         "path": data.get("path", ""),
                         "generated_at": gen_at,
                     }
+                    tpsl_n_trades = int(data.get("rows", 0))
+                    tpsl_files.append(f"replay_{rname}.csv")
+            tpsl_status = "ok"
+            log.info("TP/SL analytics completed: %d trades, %d files written",
+                     tpsl_n_trades, len(tpsl_files))
         except Exception as _tpsl_e:
             log.warning("TP/SL analytics failed (non-fatal): %s", _tpsl_e)
+            tpsl_status = "failed"
             _save("tpsl_validation", [{
                 "validation_name": "engine_error",
                 "status":          "FAIL",
                 "details":         str(_tpsl_e),
             }])
+            tpsl_files = ["replay_tpsl_validation.csv"]
+
+        cached["tpsl_status"]   = tpsl_status
+        cached["tpsl_n_trades"] = tpsl_n_trades
+        cached["tpsl_files"]    = tpsl_files
+
+        # 19 — Summary (after TP/SL so it can include accurate TP/SL section)
+        _state["progress"] = 19; _state["message"] = "Writing summary..."
+        md = _md_summary(cached, gen_at, tf, universe, len(rows))
+        md_path = os.path.join(REPLAY_OUTPUT_DIR, "replay_summary.md")
+        with open(md_path, "w", encoding="utf-8") as f:
+            f.write(md)
+        _state["reports"]["summary_md"] = {"rows": 1, "path": md_path, "generated_at": gen_at}
 
         _state.update(status="completed", completed_at=_now(), message="Done.")
 
