@@ -272,15 +272,16 @@ _ACTIONABLE_MODEL_COLS = ["HAS_ELITE_MODEL", "HAS_REBOUND_MODEL", "HAS_STRONG_BU
 
 
 # ── Canonical bull-score reader ────────────────────────────────────────────
-# Stock Stat scan and per-ticker (Superchart) export both call
-# turbo_engine._calc_turbo_score() and write the result as `turbo_score`.
-# The legacy `FINAL_BULL_SCORE` column was never produced by any scoring code,
-# so we read `turbo_score` as the canonical value, with `FINAL_BULL_SCORE`
-# accepted only as a forward-compat fallback if a future scoring layer adds it.
+# FINAL_BULL_SCORE is now written to stock_stat CSV by canonical_scoring_engine.
+# It equals turbo_score (both computed from the same _calc_turbo_score call).
+# This reader accepts either column name; stock_stat CSV always has FINAL_BULL_SCORE
+# after the canonical engine upgrade.
 def _bull_score(r: dict) -> float:
     v = r.get("FINAL_BULL_SCORE")
     if v not in (None, ""):
-        return _f(v)
+        f = _f(v)
+        if f != 0.0 or v in ("0", "0.0"):
+            return f
     return _f(r.get("turbo_score", 0))
 
 
@@ -311,17 +312,28 @@ def _best_score_in_window(trows: list, i: int, n: int) -> float:
 
 def _validate_score_source(rows: List[dict]) -> Optional[str]:
     """
-    Validate that stock_stat has the canonical scoring column.
-    Stock Stat, Superchart, and Replay all read `turbo_score` (produced by
-    turbo_engine._calc_turbo_score). Returns None if column is present.
+    Validate that stock_stat was generated with the canonical scoring engine
+    (canonical_scoring_engine.py). After the upgrade, FINAL_BULL_SCORE and
+    FINAL_REGIME are written to the CSV alongside turbo_score.
+    If these columns are absent the CSV was built with old code → warn to re-run.
     """
     if not rows:
         return None
     first = rows[0]
-    if "turbo_score" not in first and "FINAL_BULL_SCORE" not in first:
+    has_score = "FINAL_BULL_SCORE" in first or "turbo_score" in first
+    if not has_score:
         return (
-            "Replay scoring source missing: stock_stat CSV has neither "
-            "`turbo_score` nor `FINAL_BULL_SCORE`. Re-run Stock Stat scan."
+            "stock_stat CSV is missing both FINAL_BULL_SCORE and turbo_score. "
+            "Re-run Stock Stat scan to regenerate with the canonical scoring engine."
+        )
+    # Soft warning: canonical columns absent means old stock_stat
+    missing_canonical = [c for c in ("FINAL_BULL_SCORE", "FINAL_REGIME", "ROCKET_SCORE")
+                         if c not in first]
+    if missing_canonical:
+        log.warning(
+            "stock_stat missing canonical columns %s — re-run Stock Stat for full analytics. "
+            "Replay will use turbo_score as FINAL_BULL_SCORE fallback.",
+            missing_canonical,
         )
     return None
 
@@ -421,6 +433,111 @@ def _classify_missed_winners(rows: List[dict]) -> None:
 
 _SCORE_REGRESSION_CASES: Dict[Tuple[str, str], float] = {}
 _CLASSIFICATION_REGRESSION_CASES: List[Tuple[str, str, str]] = []
+
+# Tickers/dates to validate in score consistency check.
+# Scores are fetched live from the canonical engine (api_bar_signals) and
+# compared against what's in stock_stat so any drift is caught at run time.
+_CONSISTENCY_TICKERS = ["SNDK", "INTC"]
+_CONSISTENCY_DATES = {
+    "SNDK": ["2026-03-03", "2026-03-06", "2026-03-10",
+             "2026-03-25", "2026-03-26", "2026-03-30",
+             "2026-04-01", "2026-04-02"],
+    "INTC": ["2026-03-25", "2026-03-26", "2026-03-30",
+             "2026-04-01", "2026-04-02", "2026-04-22"],
+}
+
+
+def _score_consistency_check(rows: List[dict], tf: str = "1d") -> Tuple[List[dict], dict]:
+    """
+    Validate stock_stat scores against live canonical engine scores for
+    SNDK and INTC.  Fetches fresh bar data via api_bar_signals (with 150 bars
+    warmup, same as Superchart) and compares FINAL_BULL_SCORE + FINAL_REGIME.
+
+    Returns (check_rows, summary_dict).
+    check_rows: one row per (ticker, date) validated → written to CSV.
+    summary_dict: { status, mismatch_count, mismatches }.
+    """
+    try:
+        from main import api_bar_signals  # import here to avoid circular at module load
+    except Exception as e:
+        log.warning("score_consistency_check: cannot import api_bar_signals: %s", e)
+        return [], {"status": "not_run", "mismatch_count": 0, "mismatches": []}
+
+    by_key = {(_str(r, "ticker"), _str(r, "date")): r for r in rows}
+    check_rows: List[dict] = []
+    mismatches: List[str] = []
+
+    for ticker in _CONSISTENCY_TICKERS:
+        dates = _CONSISTENCY_DATES.get(ticker, [])
+        if not dates:
+            continue
+        try:
+            # Fetch with 150-bar warmup so indicators are fully stable
+            live_bars = api_bar_signals(ticker, tf, 150)
+        except Exception as e:
+            log.warning("score_consistency_check: fetch %s failed: %s", ticker, e)
+            continue
+
+        live_by_date = {b.get("date", ""): b for b in live_bars}
+
+        for date in dates:
+            live = live_by_date.get(date)
+            stat = by_key.get((ticker, date))
+
+            live_score   = _f(live.get("FINAL_BULL_SCORE", 0)) if live else None
+            live_regime  = live.get("FINAL_REGIME", "") if live else None
+            live_bucket  = live.get("FINAL_SCORE_BUCKET", "") if live else None
+            stat_score   = _bull_score(stat) if stat else None
+            stat_regime  = _str(stat, "FINAL_REGIME") if stat else None
+            stat_bucket  = _str(stat, "FINAL_SCORE_BUCKET") if stat else None
+
+            if live is None:
+                status = "MISSING_LIVE_ROW"
+            elif stat is None:
+                status = "MISSING_STAT_ROW"
+            else:
+                score_diff = abs((live_score or 0) - (stat_score or 0))
+                regime_ok  = live_regime == stat_regime
+                if score_diff > 1 or not regime_ok:
+                    status = "MISMATCH"
+                    mismatches.append(
+                        f"{ticker} {date}: live={live_score}/{live_regime} "
+                        f"stat={stat_score}/{stat_regime} diff={score_diff:.1f}"
+                    )
+                else:
+                    status = "OK"
+
+            check_rows.append({
+                "ticker":                        ticker,
+                "date":                          date,
+                "status":                        status,
+                "live_final_bull_score":         live_score,
+                "stat_final_bull_score":         stat_score,
+                "score_diff":                    round(abs((live_score or 0) - (stat_score or 0)), 1)
+                                                 if live_score is not None and stat_score is not None else "",
+                "live_final_regime":             live_regime,
+                "stat_final_regime":             stat_regime,
+                "regime_match":                  int(live_regime == stat_regime)
+                                                 if live_regime is not None and stat_regime is not None else "",
+                "live_final_score_bucket":       live_bucket,
+                "stat_final_score_bucket":       stat_bucket,
+                "live_rocket_score":             _f(live.get("ROCKET_SCORE", 0)) if live else "",
+                "stat_rocket_score":             _n(stat, "ROCKET_SCORE") if stat else "",
+                "live_clean_entry_score":        _f(live.get("CLEAN_ENTRY_SCORE", 0)) if live else "",
+                "stat_clean_entry_score":        _n(stat, "CLEAN_ENTRY_SCORE") if stat else "",
+                "live_hard_bear_score":          _f(live.get("HARD_BEAR_SCORE", 0)) if live else "",
+                "stat_hard_bear_score":          _n(stat, "HARD_BEAR_SCORE") if stat else "",
+                "live_rebound_squeeze_score":    _f(live.get("REBOUND_SQUEEZE_SCORE", 0)) if live else "",
+                "stat_rebound_squeeze_score":    _n(stat, "REBOUND_SQUEEZE_SCORE") if stat else "",
+            })
+
+    mismatch_count = sum(1 for r in check_rows if r["status"] == "MISMATCH")
+    summary = {
+        "status": "ok" if mismatch_count == 0 else "fail",
+        "mismatch_count": mismatch_count,
+        "mismatches": mismatches,
+    }
+    return check_rows, summary
 
 
 def _clean_output_dir() -> int:
@@ -522,17 +639,111 @@ def _validate_categories(rows: List[dict]) -> Optional[str]:
     return None
 
 
+# ─── Forward-return computation (from OHLCV in stock_stat CSV) ────────────────
+
+def _compute_forward_returns(rows: List[dict]) -> None:
+    """
+    Compute forward return labels from OHLCV data already in stock_stat CSV.
+    Mutates rows in-place, adding:
+        RET_1D, RET_3D, RET_5D, RET_10D   — close-to-close % return
+        MAX_RET_5D, MAX_RET_10D            — max intrabar high % vs entry close
+        ALREADY_EXTENDED_FLAG              — 1 if price is >20% above 10-bar low
+
+    Called before _label_rows() so these fields are available for labeling.
+    Rows that are near the end of the dataset (no future bars) get 0 for returns.
+    """
+    from collections import defaultdict
+
+    # Group by ticker, sort by date
+    by_ticker: Dict[str, List[dict]] = defaultdict(list)
+    for r in rows:
+        t = _str(r, "ticker")
+        if t:
+            by_ticker[t].append(r)
+
+    for trows in by_ticker.values():
+        trows.sort(key=lambda r: _str(r, "date"))
+        n = len(trows)
+        for i, r in enumerate(trows):
+            c0 = _f(r.get("close", 0))
+            if c0 <= 0:
+                r["RET_1D"] = 0.0
+                r["RET_3D"] = 0.0
+                r["RET_5D"] = 0.0
+                r["RET_10D"] = 0.0
+                r["MAX_RET_5D"] = 0.0
+                r["MAX_RET_10D"] = 0.0
+                r["ALREADY_EXTENDED_FLAG"] = 0
+                continue
+
+            def _fwd_close(k):
+                j = i + k
+                if j < n:
+                    return _f(trows[j].get("close", 0))
+                return 0.0
+
+            def _fwd_high(lo, hi):
+                highs = []
+                for k in range(lo, min(hi + 1, n - i)):
+                    h = _f(trows[i + k].get("high", 0))
+                    if h > 0:
+                        highs.append(h)
+                return max(highs) if highs else 0.0
+
+            c1  = _fwd_close(1)
+            c3  = _fwd_close(3)
+            c5  = _fwd_close(5)
+            c10 = _fwd_close(10)
+
+            r["RET_1D"]  = round((c1  / c0 - 1) * 100, 4) if c1  > 0 else 0.0
+            r["RET_3D"]  = round((c3  / c0 - 1) * 100, 4) if c3  > 0 else 0.0
+            r["RET_5D"]  = round((c5  / c0 - 1) * 100, 4) if c5  > 0 else 0.0
+            r["RET_10D"] = round((c10 / c0 - 1) * 100, 4) if c10 > 0 else 0.0
+
+            max_h5  = _fwd_high(1, 5)
+            max_h10 = _fwd_high(1, 10)
+            r["MAX_RET_5D"]  = round((max_h5  / c0 - 1) * 100, 4) if max_h5  > 0 else 0.0
+            r["MAX_RET_10D"] = round((max_h10 / c0 - 1) * 100, 4) if max_h10 > 0 else 0.0
+
+            # ALREADY_EXTENDED: close > 20% above the lowest close in prior 10 bars
+            prior_closes = [_f(trows[j].get("close", 0))
+                            for j in range(max(0, i - 10), i)
+                            if _f(trows[j].get("close", 0)) > 0]
+            if prior_closes:
+                low10 = min(prior_closes)
+                r["ALREADY_EXTENDED_FLAG"] = int(low10 > 0 and (c0 / low10 - 1) > 0.20)
+            else:
+                r["ALREADY_EXTENDED_FLAG"] = 0
+
+    # Rows with no ticker get zero returns
+    for r in rows:
+        if not _str(r, "ticker"):
+            for col in ("RET_1D", "RET_3D", "RET_5D", "RET_10D",
+                        "MAX_RET_5D", "MAX_RET_10D", "ALREADY_EXTENDED_FLAG"):
+                r.setdefault(col, 0.0)
+
+
 # ─── Compute replay labels ─────────────────────────────────────────────────────
 
 def _label_rows(rows: List[dict]) -> List[dict]:
+    """
+    Add replay classification labels to each row.
+    Reads forward returns from RET_* / MAX_RET_* columns (computed by
+    _compute_forward_returns before this call) and canonical score columns
+    (FINAL_BULL_SCORE, HARD_BEAR_SCORE, ROCKET_SCORE, FINAL_REGIME) now
+    present in stock_stat CSV since canonical_scoring_engine upgrade.
+    """
     for r in rows:
-        ret1  = _n(r, "RET_1D")
-        ret3  = _n(r, "RET_3D")
-        ret5  = _n(r, "RET_5D")
-        ret10 = _n(r, "RET_10D")
-        max5  = _n(r, "MAX_RET_5D")
-        max10 = _n(r, "MAX_RET_10D")
-        fbs   = _bull_score(r)
+        # Forward returns — computed from OHLCV by _compute_forward_returns()
+        ret1  = _f(r.get("RET_1D",  0))
+        ret3  = _f(r.get("RET_3D",  0))
+        ret5  = _f(r.get("RET_5D",  0))
+        ret10 = _f(r.get("RET_10D", 0))
+        max5  = _f(r.get("MAX_RET_5D",  0))
+        max10 = _f(r.get("MAX_RET_10D", 0))
+
+        # Canonical score columns (now in stock_stat CSV via canonical engine)
+        fbs   = _bull_score(r)                                     # FINAL_BULL_SCORE / turbo_score
         hbs   = _n(r, "HARD_BEAR_SCORE", "BEARISH_RISK_SCORE")
         rocket= _n(r, "ROCKET_SCORE")
 
@@ -553,16 +764,7 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         r["_fail10"]= ret10 <= -12.0 or max5 <= -12.0
         r["_ext"]   = _bool(r, "ALREADY_EXTENDED_FLAG")
 
-        # Event-based fields (v4.4 stock_stat columns)
-        r["_gog_w5"]      = _bool(r, "GOG_W5")
-        r["_gog_w10"]     = _bool(r, "GOG_W10")
-        r["_vbo_w5"]      = _bool(r, "VBO_W5")
-        r["_vbo_w10"]     = _bool(r, "VBO_W10")
-        r["_bars_to_gog"] = _n(r, "BARS_TO_GOG")
-        r["_bars_to_vbo"] = _n(r, "BARS_TO_VBO")
-        r["_ret_to_gog"]  = _n(r, "RET_TO_NEXT_GOG_HIGH")
-        r["_ret_to_vbo"]  = _n(r, "RET_TO_NEXT_VBO_HIGH")
-
+        # Missed winner: big 10D win that the system scored below threshold
         r["_missed"]  = r["_bw10"] and fbs < 60 and hbs < 40
         r["_fp"]      = fbs >= 100 and r["_fail10"]
         r["_ls_win"]  = fbs < 40  and r["_bw10"]
@@ -570,7 +772,7 @@ def _label_rows(rows: List[dict]) -> List[dict]:
         r["_hs_fail"] = fbs >= 100 and r["_fail10"]
         r["_rkt_miss"]= r["_para"] and rocket < 25
         r["_bear_win"]= _str(r, "FINAL_REGIME") == "BEARISH_PHASE" and r["_bw10"]
-        r["_missed_cat"] = ""  # filled by _classify_missed_winners() after full dataset is labeled
+        r["_missed_cat"] = ""  # filled by _classify_missed_winners()
 
     return rows
 
@@ -1040,17 +1242,43 @@ def split_analytics(rows: List[dict]) -> dict:
 # ─── Markdown summary ─────────────────────────────────────────────────────────
 
 def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> str:
+    from canonical_scoring_engine import SCORING_ENGINE_NAME, SCORING_ENGINE_VERSION
+    meta = reports.get("scoring_metadata", {})
+    score_eng = meta.get("scoring_engine_name", SCORING_ENGINE_NAME)
+    score_ver = meta.get("scoring_engine_version", SCORING_ENGINE_VERSION)
+    bars_used = meta.get("bars_used", "unknown")
+    score_consistency = reports.get("score_consistency", {})
+    sc_status = score_consistency.get("status", "not_run")
+    sc_mismatches = score_consistency.get("mismatch_count", 0)
+
     lines = [
         "# Replay Analytics Summary",
-        f"",
+        "",
         f"Generated: {gen_at}  ",
-        f"Dataset: **{universe}** / **{tf}** — {n:,} rows",
+        f"Dataset: **{universe}** / **{tf}** — {n:,} rows  ",
+        f"Scoring engine: **{score_eng}** v{score_ver}  ",
+        f"Canonical score source: **true**  ",
+        f"Bars used in stock_stat: **{bars_used}**",
         "",
         "---",
         "",
-        "## 1. Executive Summary",
+        "## 0. Score Consistency",
         "",
     ]
+    if sc_status == "ok":
+        lines.append("✓ Score consistency: **PASS** — all sampled scores match canonical engine.")
+    elif sc_status == "not_run":
+        lines.append("⚠ Score consistency check: **not run** (no reference samples configured).")
+    else:
+        lines += [
+            f"✗ Score consistency: **FAIL** — {sc_mismatches} mismatch(es) detected.",
+            "",
+            "**Replay score consistency validation FAILED. Reports should not be used.**",
+            "",
+            "Re-run Stock Stat scan to regenerate data with the canonical scoring engine,",
+            "then re-run Replay.",
+        ]
+    lines += ["", "---", "", "## 1. Executive Summary", ""]
 
     # Score monotonicity
     sbp = reports.get("score_bucket_perf", [])
@@ -1232,8 +1460,12 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         if sample_err:
             raise RuntimeError(sample_err)
 
-        # 2 — Label
-        _state["progress"] = 2; _state["message"] = "Computing replay labels..."
+        # 2 — Forward returns (computed from OHLCV in stock_stat CSV)
+        _state["progress"] = 2; _state["message"] = "Computing forward returns from OHLCV..."
+        _compute_forward_returns(rows)
+
+        # 2a — Label
+        _state["message"] = "Computing replay labels..."
         rows = _label_rows(rows)
 
         # 2b — Classify missed winners (prior-lookback; requires full labeled dataset)
@@ -1355,6 +1587,32 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             log.warning("Split analytics skipped: %s", _se)
             cached["split_analytics"] = {"available": False, "message": str(_se),
                                           "events": [], "missed": [], "false_positives": []}
+
+        # 17b — Score consistency check (live vs stock_stat)
+        _state["progress"] = 17; _state["message"] = "Score consistency check (SNDK/INTC)..."
+        sc_rows, sc_summary = _score_consistency_check(rows, tf)
+        cached["score_consistency"] = sc_summary
+        if sc_rows:
+            sc_path = os.path.join(REPLAY_OUTPUT_DIR, "replay_score_consistency_check.csv")
+            _write_csv(sc_path, sc_rows, gen_at)
+            _state["reports"]["score_consistency_check"] = {
+                "rows": len(sc_rows), "path": sc_path, "generated_at": gen_at
+            }
+        if sc_summary["status"] == "fail":
+            mismatch_lines = "\n  ".join(sc_summary["mismatches"])
+            raise RuntimeError(
+                f"Score consistency validation FAILED — {sc_summary['mismatch_count']} mismatch(es) "
+                f"between live canonical scores and stock_stat CSV.\n"
+                f"Re-run Stock Stat scan (bars ≥ 150) then re-run Replay.\n"
+                f"Mismatches:\n  {mismatch_lines}"
+            )
+
+        try:
+            from canonical_scoring_engine import get_scoring_metadata
+            sc_meta = get_scoring_metadata()
+            cached["scoring_metadata"] = sc_meta
+        except Exception:
+            cached["scoring_metadata"] = {}
 
         # 18 — Summary
         _state["progress"] = 18; _state["message"] = "Writing summary..."
