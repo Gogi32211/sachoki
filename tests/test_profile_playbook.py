@@ -119,16 +119,16 @@ def test_empty_signals_gives_watch():
     assert not result["late_warning"]
 
 def test_sweet_spot_detection():
-    # SP500_50_150 sweet_spot = (20, 45)
-    # FLY_BD(5)+BUY(4)+BX_UP(4)+LOAD(3) = 16 single; LOAD+T10(7) pair → total 23
-    signals = {"FLY_BD", "BUY", "BX_UP", "LOAD", "T10"}
+    # SP500_50_150 sweet_spot = (12, 32)
+    # FLY_BD(5)+BUY(4)+BX_UP(4) = 13 → SWEET_SPOT
+    signals = {"FLY_BD", "BUY", "BX_UP"}
     result = compute_profile_score(signals, "SP500_50_150")
-    assert result["profile_score"] >= 20
+    assert result["profile_score"] >= 12
     assert result["profile_category"] in {"SWEET_SPOT", "LATE"}
 
 def test_late_warning():
     profile = "SP500_50_150"
-    # Activate all signals + all pair members — should reach LATE (score > late_threshold=55)
+    # Activate all signals + all pair members — should reach high score
     signals = set(PROFILES[profile]["signal_weights"].keys())
     for pair in PROFILES[profile]["pair_bonuses"]:
         signals.update(pair)
@@ -137,12 +137,11 @@ def test_late_warning():
     assert result["profile_category"] in {"WATCH", "BUILDING", "SWEET_SPOT", "LATE"}
 
 def test_building_category():
-    # BUILDING: score >= sweet_low * 0.70 but < sweet_low
-    # SP500_50_150: sweet_low=20, building_threshold = 20*0.7 = 14
-    # FLY_BD(5)+BUY(4) = 9; F9(3)+ABS(3) = 15 → BUILDING
-    signals = {"FLY_BD", "BUY", "F9", "ABS"}
+    # BUILDING: score >= sweet_low*0.70 but < sweet_low
+    # SP500_50_150: sweet_low=12, building_threshold=8.4
+    # FLY_BD(5)+BUY(4) = 9 → BUILDING (8.4 <= 9 < 12)
+    signals = {"FLY_BD", "BUY"}
     result = compute_profile_score(signals, "SP500_50_150")
-    # 5+4+3+3 = 15 → BUILDING (14 <= 15 < 20)
     assert result["profile_category"] in {"BUILDING", "SWEET_SPOT"}
 
 
