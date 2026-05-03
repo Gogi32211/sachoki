@@ -446,8 +446,14 @@ export default function ReplayPanel() {
           {/* Universe / TF selectors */}
           <select value={universe} onChange={e => setUniverse(e.target.value)}
             className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200">
-            {['sp500','nasdaq','russell2k','all_us'].map(u =>
-              <option key={u} value={u}>{u}</option>)}
+            {[
+              { v: 'sp500',     l: 'sp500' },
+              { v: 'nasdaq',    l: 'nasdaq (full)' },
+              { v: 'nasdaq_1',  l: 'nasdaq A–M (½)' },
+              { v: 'nasdaq_2',  l: 'nasdaq N–Z (½)' },
+              { v: 'russell2k', l: 'russell2k' },
+              { v: 'all_us',    l: 'all_us' },
+            ].map(({ v, l }) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select value={tf} onChange={e => setTf(e.target.value)}
             className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200">
