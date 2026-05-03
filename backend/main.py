@@ -598,6 +598,14 @@ def api_turbo_scan(
             except Exception as exc:
                 log.warning("split metadata enrich failed: %s", exc)
 
+        # Enrich all rows with profile playbook fields (additive context only,
+        # does not modify canonical scoring columns)
+        try:
+            from profile_playbook import enrich_row_with_profile
+            results = [enrich_row_with_profile(r, universe) for r in results]
+        except Exception as exc:
+            log.warning("profile playbook enrichment failed: %s", exc)
+
         return {"results": results, "last_scan": last_time, "meta": meta}
     except Exception as exc:
         log.exception("turbo-scan error")
