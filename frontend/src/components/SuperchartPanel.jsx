@@ -763,6 +763,99 @@ export default function SuperchartPanel({
                     )
                   })}
                 </tr>
+
+                {/* RSI row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    RSI
+                  </td>
+                  {bars.map((b, i) => {
+                    const v = b.rsi ?? b.RSI
+                    if (v == null || v === 0) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
+                    const cls = v <= 35 ? 'text-lime-300 font-bold' : v >= 70 ? 'text-red-400 font-bold' : 'text-gray-400'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        {Math.round(v)}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* CCI row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    CCI
+                  </td>
+                  {bars.map((b, i) => {
+                    const v = b.cci ?? b.CCI
+                    if (v == null) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
+                    const cls = v >= 100 ? 'text-lime-300 font-bold' : v <= -100 ? 'text-red-400 font-bold' : 'text-gray-400'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        {Math.round(v)}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* Pf Score row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    Pf
+                  </td>
+                  {bars.map((b, i) => {
+                    const v = b.profile_score
+                    if (!v) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
+                    const cls = v >= 20 ? 'text-lime-300 font-bold' : v >= 12 ? 'text-yellow-400' : 'text-gray-500'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        {v}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* Category row */}
+                <tr className="border-t border-gray-700">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    Cat
+                  </td>
+                  {bars.map((b, i) => {
+                    const cat = b.profile_category
+                    if (!cat || cat === 'WATCH') return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
+                    const cls =
+                      cat === 'SWEET_SPOT' ? 'text-green-300 font-bold' :
+                      cat === 'BUILDING'   ? 'text-yellow-400' :
+                      cat === 'LATE'       ? 'text-amber-500' : 'text-gray-600'
+                    const label =
+                      cat === 'SWEET_SPOT' ? '⭐' :
+                      cat === 'BUILDING'   ? '↑' :
+                      cat === 'LATE'       ? '⚠' : ''
+                    return (
+                      <td key={i}
+                        className={`px-0 py-0.5 text-center border-r border-gray-900/20 ${cls}`}
+                        title={cat}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        {label}
+                      </td>
+                    )
+                  })}
+                </tr>
+
               </tbody>
             </table>
           </div>
