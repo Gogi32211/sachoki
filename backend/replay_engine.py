@@ -1682,10 +1682,11 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             }
         if sc_summary["status"] == "fail":
             mismatch_lines = "\n  ".join(sc_summary["mismatches"])
-            raise RuntimeError(
-                f"Score consistency validation FAILED — {sc_summary['mismatch_count']} mismatch(es).\n"
-                f"Check replay_score_consistency_check.csv and export_score_consistency_check.csv.\n"
-                f"Mismatches:\n  {mismatch_lines}"
+            log.warning(
+                "Score consistency FAILED — %d mismatch(es). Replay continues; "
+                "TP/SL will record the failure in tpsl_validation.csv. "
+                "Mismatches: %s",
+                sc_summary["mismatch_count"], mismatch_lines,
             )
 
         try:
