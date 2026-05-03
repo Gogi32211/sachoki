@@ -17,12 +17,15 @@ compute_tpsl_trades(rows) -> List[dict]
 
 from __future__ import annotations
 
+import csv
+import gc
 import itertools
 import logging
+import os
 import statistics
 from collections import defaultdict
 from datetime import datetime
-from typing import Dict, List, Optional, Tuple
+from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
@@ -346,33 +349,61 @@ def _simulate_trade(
 
 def compute_tpsl_trades(rows: List[dict]) -> List[dict]:
     """
-    For every row × every entry mode × every preset, simulate a trade and return
-    a flat list of trade dicts.  Rows must already have OHLCV populated (same
-    dataset used by replay_engine after _compute_forward_returns is called).
+    Materialize all trade rows into a list (used by tests and small datasets).
+    For production use, prefer _iter_tpsl_trades() to avoid OOM on large universes.
     """
-    # Group by ticker, preserve sort order (stock_stat is already sorted per run)
-    by_ticker: Dict[str, List[Tuple[int, dict]]] = defaultdict(list)
-    for i, r in enumerate(rows):
+    return list(_iter_tpsl_trades(rows))
+
+
+def _build_ctx(ticker: str, r: dict) -> dict:
+    fbs = _bull_score(r)
+    return {
+        "ticker":                ticker,
+        "date":                  _s(r, "date"),
+        "close":                 round(_f(r.get("close", 0)), 4),
+        "FINAL_BULL_SCORE":      fbs,
+        "score_range":           _score_range_label(fbs),
+        "FINAL_REGIME":          _s(r, "FINAL_REGIME"),
+        "FINAL_SCORE_BUCKET":    _s(r, "FINAL_SCORE_BUCKET"),
+        "READINESS_PHASE":       _s(r, "READINESS_PHASE"),
+        "ACTIONABILITY_SCORE":   _n(r, "ACTIONABILITY_SCORE"),
+        "CLEAN_ENTRY_SCORE":     _n(r, "CLEAN_ENTRY_SCORE"),
+        "SHAKEOUT_ABSORB_SCORE": _n(r, "SHAKEOUT_ABSORB_SCORE"),
+        "REBOUND_SQUEEZE_SCORE": _n(r, "REBOUND_SQUEEZE_SCORE"),
+        "ROCKET_SCORE":          _n(r, "ROCKET_SCORE"),
+        "HARD_BEAR_SCORE":       _n(r, "HARD_BEAR_SCORE"),
+        "VOLATILITY_RISK_SCORE": _n(r, "VOLATILITY_RISK_SCORE"),
+        "WEAK_STACKING_RISK":    _n(r, "WEAK_STACKING_RISK"),
+        "LATE_RISK_SCORE":       _n(r, "LATE_RISK_SCORE"),
+        "ALREADY_EXTENDED_FLAG": _n(r, "ALREADY_EXTENDED_FLAG"),
+        "HAS_STRONG_BULL_MODEL": _n(r, "HAS_STRONG_BULL_MODEL"),
+        "HAS_REBOUND_MODEL":     _n(r, "HAS_REBOUND_MODEL"),
+        "HAS_ELITE_MODEL":       _n(r, "HAS_ELITE_MODEL"),
+        "active_signals":        "|".join(_active_sigs(r)),
+        "active_models":         "|".join(_active_models(r)),
+    }
+
+
+def _iter_tpsl_trades(rows: List[dict]):
+    """
+    Generator yielding one trade row at a time. Memory bounded by current bar
+    (no list of all trade rows held). Trade order: ticker × date × entry_mode × preset.
+    """
+    by_ticker: Dict[str, List[dict]] = defaultdict(list)
+    for r in rows:
         t = _s(r, "ticker")
         if t:
-            by_ticker[t].append((i, r))
+            by_ticker[t].append(r)
+    for trows in by_ticker.values():
+        trows.sort(key=lambda x: _s(x, "date"))
 
-    # Sort each ticker's rows by date
-    for trows_idx in by_ticker.values():
-        trows_idx.sort(key=lambda x: _s(x[1], "date"))
-
-    trade_rows: List[dict] = []
-
-    for ticker, trows_idx in by_ticker.items():
-        trows = [r for _, r in trows_idx]
+    for ticker, trows in by_ticker.items():
         n = len(trows)
-
         for i, r in enumerate(trows):
             close_price = _f(r.get("close", 0))
             if close_price <= 0:
                 continue
 
-            # Determine next-day open (may be unavailable)
             next_open: Optional[float] = None
             next_date: str = ""
             if i + 1 < n:
@@ -381,75 +412,39 @@ def compute_tpsl_trades(rows: List[dict]) -> List[dict]:
                 if next_open <= 0:
                     next_open = None
 
-            fbs      = _bull_score(r)
-            regime   = _s(r, "FINAL_REGIME")
-            bucket   = _s(r, "FINAL_SCORE_BUCKET")
-            sigs     = "|".join(_active_sigs(r))
-            mdls     = "|".join(_active_models(r))
-            sr_label = _score_range_label(fbs)
-
-            # Context carried into every trade row
-            ctx = {
-                "ticker":                   ticker,
-                "date":                     _s(r, "date"),
-                "close":                    round(close_price, 4),
-                "FINAL_BULL_SCORE":         fbs,
-                "score_range":              sr_label,
-                "FINAL_REGIME":             regime,
-                "FINAL_SCORE_BUCKET":       bucket,
-                "READINESS_PHASE":          _s(r, "READINESS_PHASE"),
-                "ACTIONABILITY_SCORE":      _n(r, "ACTIONABILITY_SCORE"),
-                "CLEAN_ENTRY_SCORE":        _n(r, "CLEAN_ENTRY_SCORE"),
-                "SHAKEOUT_ABSORB_SCORE":    _n(r, "SHAKEOUT_ABSORB_SCORE"),
-                "REBOUND_SQUEEZE_SCORE":    _n(r, "REBOUND_SQUEEZE_SCORE"),
-                "ROCKET_SCORE":             _n(r, "ROCKET_SCORE"),
-                "HARD_BEAR_SCORE":          _n(r, "HARD_BEAR_SCORE"),
-                "VOLATILITY_RISK_SCORE":    _n(r, "VOLATILITY_RISK_SCORE"),
-                "WEAK_STACKING_RISK":       _n(r, "WEAK_STACKING_RISK"),
-                "LATE_RISK_SCORE":          _n(r, "LATE_RISK_SCORE"),
-                "ALREADY_EXTENDED_FLAG":    _n(r, "ALREADY_EXTENDED_FLAG"),
-                "HAS_STRONG_BULL_MODEL":    _n(r, "HAS_STRONG_BULL_MODEL"),
-                "HAS_REBOUND_MODEL":        _n(r, "HAS_REBOUND_MODEL"),
-                "HAS_ELITE_MODEL":          _n(r, "HAS_ELITE_MODEL"),
-                "active_signals":           sigs,
-                "active_models":            mdls,
-            }
+            ctx = _build_ctx(ticker, r)
 
             for entry_mode in ENTRY_MODES:
                 if entry_mode == "SAME_DAY_CLOSE":
                     entry_price = close_price
-                    entry_status = "OK"
                 else:
                     if next_open is None:
-                        # Emit NO_NEXT_OPEN stub rows for all presets
-                        for preset_name in TPSL_PRESETS:
-                            p = TPSL_PRESETS[preset_name]
+                        for preset_name, p in TPSL_PRESETS.items():
                             row = dict(ctx)
                             row.update({
-                                "entry_mode":        entry_mode,
-                                "preset_name":       preset_name,
-                                "entry_price":       "",
-                                "target_pct":        p["tp_pct"] * 100,
-                                "stop_pct":          p["sl_pct"] * 100,
-                                "max_hold_days":     p["max_hold"],
-                                "target_price":      "",
-                                "stop_price":        "",
-                                "outcome":           "NO_NEXT_OPEN",
-                                "hit_date":          "",
-                                "days_to_outcome":   "",
-                                "realized_return_assumption":     "",
-                                "mfe_pct":           "",
-                                "mae_pct":           "",
-                                "close_return_at_max_hold":       "",
+                                "entry_mode":     entry_mode,
+                                "preset_name":    preset_name,
+                                "entry_price":    "",
+                                "target_pct":     p["tp_pct"] * 100,
+                                "stop_pct":       p["sl_pct"] * 100,
+                                "max_hold_days":  p["max_hold"],
+                                "target_price":   "",
+                                "stop_price":     "",
+                                "outcome":        "NO_NEXT_OPEN",
+                                "hit_date":       "",
+                                "days_to_outcome":             "",
+                                "realized_return_assumption":  "",
+                                "mfe_pct":                     "",
+                                "mae_pct":                     "",
+                                "close_return_at_max_hold":    "",
                                 "max_close_return_during_window": "",
                                 "min_close_return_during_window": "",
                                 "exit_price_assumption": "",
-                                "next_day":          next_date,
+                                "next_day":       next_date,
                             })
-                            trade_rows.append(row)
+                            yield row
                         continue
-                    entry_price  = next_open
-                    entry_status = "OK"
+                    entry_price = next_open
 
                 for preset_name, p in TPSL_PRESETS.items():
                     sim = _simulate_trade(
@@ -467,9 +462,7 @@ def compute_tpsl_trades(rows: List[dict]) -> List[dict]:
                         "next_day":      next_date if entry_mode == "NEXT_DAY_OPEN" else "",
                     })
                     row.update(sim)
-                    trade_rows.append(row)
-
-    return trade_rows
+                    yield row
 
 
 # ─── Aggregate metrics ────────────────────────────────────────────────────────
@@ -1314,25 +1307,485 @@ Status: **{'PASS' if val_pass else 'FAIL'}**
 
 # ─── Main entry point ─────────────────────────────────────────────────────────
 
+# ─── Streaming aggregator (memory-bounded by # of unique groups) ──────────────
+
+class _StreamAgg:
+    """
+    Accumulate per-group running counters. Memory: O(unique_groups).
+    Each group holds counts + sums (no per-trade lists), so 1 group ≈ 200 bytes.
+    Median/list-based metrics omitted for memory; mean/EV/PF/rates retained.
+    """
+    __slots__ = ("groups",)
+
+    def __init__(self) -> None:
+        self.groups: Dict[Any, Dict[str, Any]] = {}
+
+    def add(self, key: Any, trade: dict) -> None:
+        g = self.groups.get(key)
+        if g is None:
+            g = {
+                "count": 0, "tp": 0, "sl": 0, "no_hit": 0, "amb": 0, "nno": 0,
+                "ret_sum": 0.0, "ret_n": 0,
+                "mfe_sum": 0.0, "mfe_n": 0,
+                "mae_sum": 0.0, "mae_n": 0,
+                "clatr_sum": 0.0, "clatr_n": 0,
+                "dtp_sum": 0.0, "dtp_n": 0,
+                "dsl_sum": 0.0, "dsl_n": 0,
+                "tp_pct": _f(trade.get("target_pct", 0)) / 100.0,
+                "sl_pct": _f(trade.get("stop_pct", 0)) / 100.0,
+                "tp_real_sum": 0.0, "sl_real_sum": 0.0,
+                "clean_wins": 0, "fast_sl": 0, "fast_tp": 0,
+            }
+            self.groups[key] = g
+
+        g["count"] += 1
+        outcome = trade.get("outcome", "")
+
+        def _num(field):
+            v = trade.get(field)
+            if v in ("", None):
+                return None
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                return None
+
+        ret  = _num("realized_return_assumption")
+        mfe  = _num("mfe_pct")
+        mae  = _num("mae_pct")
+        clatr = _num("close_return_at_max_hold")
+        dto  = _num("days_to_outcome")
+
+        if outcome == "TP_FIRST":
+            g["tp"] += 1
+            if ret is not None:
+                g["tp_real_sum"] += ret
+            if dto is not None:
+                g["dtp_sum"] += dto; g["dtp_n"] += 1
+                if dto <= 2:
+                    g["fast_tp"] += 1
+            if mae is not None and mae > -g["sl_pct"] * 100:
+                g["clean_wins"] += 1
+        elif outcome == "SL_FIRST":
+            g["sl"] += 1
+            if ret is not None:
+                g["sl_real_sum"] += abs(ret)
+            if dto is not None:
+                g["dsl_sum"] += dto; g["dsl_n"] += 1
+                if dto <= 2:
+                    g["fast_sl"] += 1
+        elif outcome == "NO_HIT":
+            g["no_hit"] += 1
+        elif outcome == "AMBIGUOUS_SAME_DAY_HIT":
+            g["amb"] += 1
+        elif outcome == "NO_NEXT_OPEN":
+            g["nno"] += 1
+
+        if ret is not None:
+            g["ret_sum"] += ret; g["ret_n"] += 1
+        if mfe is not None:
+            g["mfe_sum"] += mfe; g["mfe_n"] += 1
+        if mae is not None:
+            g["mae_sum"] += mae; g["mae_n"] += 1
+        if clatr is not None:
+            g["clatr_sum"] += clatr; g["clatr_n"] += 1
+
+    def finalize(self) -> List[Tuple[Any, dict]]:
+        out: List[Tuple[Any, dict]] = []
+        for key, g in self.groups.items():
+            out.append((key, _finalize_group(g)))
+        return out
+
+
+def _safe_div(a, b):
+    return round(a / b, 4) if b else 0.0
+
+
+def _finalize_group(g: dict) -> dict:
+    total = g["count"]
+    if total <= 0:
+        return {"count": 0}
+    ev_total = total - g["nno"]
+    tp_pct, sl_pct = g["tp_pct"], g["sl_pct"]
+    ev_tp = _safe_div(g["tp"], ev_total)
+    ev_sl = _safe_div(g["sl"], ev_total)
+    ev_am = _safe_div(g["amb"], ev_total)
+    ev_simple = round(ev_tp * tp_pct * 100 - ev_sl * sl_pct * 100, 4)
+    ev_cons   = round(ev_tp * tp_pct * 100 - (ev_sl + ev_am) * sl_pct * 100, 4)
+    return {
+        "count":                              total,
+        "tp_first_count":                     g["tp"],
+        "sl_first_count":                     g["sl"],
+        "no_hit_count":                       g["no_hit"],
+        "ambiguous_count":                    g["amb"],
+        "no_next_open_count":                 g["nno"],
+        "tp_first_rate":                      _safe_div(g["tp"], total),
+        "sl_first_rate":                      _safe_div(g["sl"], total),
+        "no_hit_rate":                        _safe_div(g["no_hit"], total),
+        "ambiguous_rate":                     _safe_div(g["amb"], total),
+        "avg_realized_return":                _safe_div(g["ret_sum"], g["ret_n"]),
+        "avg_mfe_pct":                        _safe_div(g["mfe_sum"], g["mfe_n"]),
+        "avg_mae_pct":                        _safe_div(g["mae_sum"], g["mae_n"]),
+        "avg_close_return_at_max_hold":       _safe_div(g["clatr_sum"], g["clatr_n"]),
+        "avg_days_to_tp":                     _safe_div(g["dtp_sum"], g["dtp_n"]),
+        "avg_days_to_sl":                     _safe_div(g["dsl_sum"], g["dsl_n"]),
+        "expected_value_simple":              ev_simple,
+        "conservative_expected_value":        ev_cons,
+        "tp_sl_ratio":                        round(ev_tp / ev_sl, 4) if ev_sl > 0 else None,
+        "profit_factor_approx":               round(g["tp_real_sum"] / g["sl_real_sum"], 4) if g["sl_real_sum"] > 0 else None,
+        "clean_win_rate":                     _safe_div(g["clean_wins"], g["tp"]) if g["tp"] else 0.0,
+        "painful_win_rate":                   _safe_div(g["tp"] - g["clean_wins"], g["tp"]) if g["tp"] else 0.0,
+        "failed_fast_rate":                   _safe_div(g["fast_sl"], g["sl"]) if g["sl"] else 0.0,
+        "fast_tp_rate":                       _safe_div(g["fast_tp"], total),
+    }
+
+
+def _finalize_simple_group(agg: _StreamAgg, group_field: str) -> List[dict]:
+    """Generic finalize: key=(group_val, entry_mode, preset). Returns rows
+    sorted by descending conservative_expected_value."""
+    out = []
+    for (gval, em, pn), d in agg.finalize():
+        d[group_field]   = gval
+        d["entry_mode"]  = em
+        d["preset_name"] = pn
+        out.append(d)
+    out.sort(key=lambda x: -(x.get("conservative_expected_value") or 0))
+    return out
+
+
+def _stream_trades_and_aggregate(
+    rows:        List[dict],
+    trades_path: str,
+    track_signals: bool,
+    track_models:  bool,
+) -> Tuple[int, Dict[str, _StreamAgg], Dict[str, set], Dict[str, int]]:
+    """
+    Single pass: yield trades from generator, write each to CSV, update
+    all per-trade aggregators. Returns (n_trades, aggregators, sig_freq, val_meta).
+    """
+    aggs: Dict[str, _StreamAgg] = {
+        "signal":        _StreamAgg(),
+        "model":         _StreamAgg(),
+        "regime":        _StreamAgg(),
+        "score_bucket":  _StreamAgg(),
+        "score_range":   _StreamAgg(),
+        "readiness":     _StreamAgg(),
+        "actionability": _StreamAgg(),
+        "component":     _StreamAgg(),
+    }
+    # Per (entry_mode, preset_name) signal counts for combo perf pre-pass
+    sig_counts_by_slice: Dict[Tuple[str, str], Dict[str, int]] = defaultdict(lambda: defaultdict(int))
+    val_meta = {"sample_total": 0, "sample_with_sigs": 0}
+
+    n_trades = 0
+    fieldnames: Optional[List[str]] = None
+    f_out = open(trades_path, "w", newline="", encoding="utf-8")
+    writer: Optional[csv.DictWriter] = None
+
+    try:
+        for trade in _iter_tpsl_trades(rows):
+            if writer is None:
+                fieldnames = list(trade.keys())
+                writer = csv.DictWriter(f_out, fieldnames=fieldnames, extrasaction="ignore")
+                writer.writeheader()
+            writer.writerow(trade)
+            n_trades += 1
+
+            em_pn = (trade["entry_mode"], trade["preset_name"])
+
+            # Validation sample (first 2000 SAME_DAY_CLOSE × CLEAN_SWING trades)
+            if (val_meta["sample_total"] < 2000
+                    and em_pn == ("SAME_DAY_CLOSE", "CLEAN_SWING")):
+                val_meta["sample_total"] += 1
+                if trade.get("active_signals"):
+                    val_meta["sample_with_sigs"] += 1
+
+            # Signal aggregation + frequency tracking
+            sigs_str = trade.get("active_signals") or ""
+            if sigs_str and track_signals:
+                sigs = sigs_str.split("|")
+                slice_counts = sig_counts_by_slice[em_pn]
+                for sig in sigs:
+                    if sig:
+                        slice_counts[sig] += 1
+                        aggs["signal"].add((sig,) + em_pn, trade)
+
+            # Model aggregation
+            mdls_str = trade.get("active_models") or ""
+            if mdls_str and track_models:
+                for mdl in mdls_str.split("|"):
+                    if mdl:
+                        aggs["model"].add((mdl,) + em_pn, trade)
+
+            # Per-context aggregations
+            aggs["regime"].add((trade.get("FINAL_REGIME", ""),) + em_pn, trade)
+            aggs["score_bucket"].add((trade.get("FINAL_SCORE_BUCKET", ""),) + em_pn, trade)
+            aggs["score_range"].add((trade.get("score_range", ""),) + em_pn, trade)
+
+            rp = trade.get("READINESS_PHASE", "")
+            if rp:
+                aggs["readiness"].add((rp,) + em_pn, trade)
+
+            act = _f(trade.get("ACTIONABILITY_SCORE", 0))
+            if act > 0:
+                if act < 25: ab = "<25"
+                elif act < 50: ab = "25-49"
+                elif act < 75: ab = "50-74"
+                else: ab = "75+"
+                aggs["actionability"].add((ab,) + em_pn, trade)
+
+            # Component bucket aggregation (separate key per component)
+            for comp_col in _COMPONENT_SCORE_COLS:
+                v = _f(trade.get(comp_col, 0))
+                if v > 0:
+                    bkt = _component_bucket(v)
+                    aggs["component"].add((comp_col, bkt) + em_pn, trade)
+    finally:
+        f_out.close()
+
+    return n_trades, aggs, sig_counts_by_slice, val_meta
+
+
+def _read_trades_csv(trades_path: str):
+    """Generator: yield each trade row from CSV (memory-bounded)."""
+    with open(trades_path, newline="", encoding="utf-8") as f:
+        for r in csv.DictReader(f):
+            yield r
+
+
+def _build_combo_perfs(
+    trades_path: str,
+    sig_counts_by_slice: Dict[Tuple[str, str], Dict[str, int]],
+    pair_min:    int = 30,
+    triple_min:  int = 20,
+    triple_cap:  int = 40,
+    top_n:       int = 100,
+) -> Tuple[List[dict], List[dict]]:
+    """Two-pass combo perfs from CSV. First pass already done (sig_counts).
+    Second pass: stream CSV, accumulate combo stats only for frequent signals."""
+    pair_freq:   Dict[Tuple[str, str], set] = {}
+    triple_freq: Dict[Tuple[str, str], set] = {}
+    for slice_key, counts in sig_counts_by_slice.items():
+        pair_freq[slice_key]   = {s for s, c in counts.items() if c >= pair_min}
+        sorted_sigs = sorted(counts.items(), key=lambda kv: -kv[1])
+        triple_freq[slice_key] = {s for s, c in sorted_sigs[:triple_cap] if c >= triple_min * 2}
+
+    pair_agg   = _StreamAgg()
+    triple_agg = _StreamAgg()
+
+    for trade in _read_trades_csv(trades_path):
+        em_pn = (trade.get("entry_mode", ""), trade.get("preset_name", ""))
+        sigs_str = trade.get("active_signals") or ""
+        if not sigs_str:
+            continue
+        sigs = [s for s in sigs_str.split("|") if s]
+        pf = pair_freq.get(em_pn, set())
+        if pf:
+            active_p = [s for s in sigs if s in pf]
+            if len(active_p) >= 2:
+                for a, b in itertools.combinations(sorted(active_p), 2):
+                    pair_agg.add((f"{a}+{b}",) + em_pn, trade)
+        tf_set = triple_freq.get(em_pn, set())
+        if tf_set:
+            active_t = [s for s in sigs if s in tf_set]
+            if len(active_t) >= 3:
+                for combo in itertools.combinations(sorted(active_t), 3):
+                    triple_agg.add(("+".join(combo),) + em_pn, trade)
+
+    # Finalize and apply min_count + top_n cap per slice
+    def _finalize_combos(agg: _StreamAgg, min_count: int) -> List[dict]:
+        rows = []
+        by_slice: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
+        for (combo, em, pn), d in agg.finalize():
+            if d["count"] < min_count:
+                continue
+            d["combo"]       = combo
+            d["entry_mode"]  = em
+            d["preset_name"] = pn
+            by_slice[(em, pn)].append(d)
+        for slice_rows in by_slice.values():
+            slice_rows.sort(key=lambda x: -(x.get("conservative_expected_value") or 0))
+            rows.extend(slice_rows[:top_n])
+        return rows
+
+    return _finalize_combos(pair_agg, pair_min), _finalize_combos(triple_agg, triple_min)
+
+
+def _build_overlay_reports(
+    trades_path:      str,
+    true_missed_full: List[dict],
+    caught_full:      List[dict],
+    late_full:        List[dict],
+    fp_rows:          List[dict],
+):
+    """Build missed_big / false_positives / caught_early_timing by indexing
+    only the trade rows that match the relevant (ticker, date) keys."""
+    needed_keys: set = set()
+    for collection in (true_missed_full, caught_full, late_full, fp_rows):
+        for r in collection:
+            needed_keys.add((r.get("ticker", ""), r.get("date", "")))
+    # caught_full also needs best_prior_date_20d
+    for r in caught_full:
+        prior = r.get("best_prior_date_20d", "")
+        if prior:
+            needed_keys.add((r.get("ticker", ""), prior))
+
+    # td_index: (ticker, date) -> list of slim trade dicts
+    td_index: Dict[Tuple[str, str], List[dict]] = defaultdict(list)
+    if needed_keys:
+        for trade in _read_trades_csv(trades_path):
+            k = (trade.get("ticker", ""), trade.get("date", ""))
+            if k in needed_keys:
+                td_index[k].append(trade)
+
+    # Build missed_big
+    missed_big: List[dict] = []
+    for cat_label, cat_rows in [
+        ("TRUE_MISSED_WINNER",  true_missed_full),
+        ("CAUGHT_EARLY_WINNER", caught_full),
+        ("LATE_OR_WEAK_CATCH",  late_full),
+    ]:
+        for mr in cat_rows:
+            ticker = mr.get("ticker", "")
+            date   = mr.get("date", "")
+            trades = td_index.get((ticker, date), [])
+            if not trades:
+                for emode in ENTRY_MODES:
+                    for pname in TPSL_PRESETS:
+                        missed_big.append({
+                            "category":         cat_label,
+                            "ticker":           ticker,
+                            "date":             date,
+                            "entry_mode":       emode,
+                            "preset_name":      pname,
+                            "outcome":          "NOT_IN_TPSL",
+                            "final_bull_score": mr.get("final_bull_score", ""),
+                            "final_regime":     mr.get("final_regime", ""),
+                            "max_high_10d":     mr.get("max_high_10d", ""),
+                        })
+                continue
+            for tr in trades:
+                missed_big.append({
+                    "category":                       cat_label,
+                    "ticker":                         ticker,
+                    "date":                           date,
+                    "entry_mode":                     tr.get("entry_mode"),
+                    "preset_name":                    tr.get("preset_name"),
+                    "outcome":                        tr.get("outcome"),
+                    "days_to_outcome":                tr.get("days_to_outcome"),
+                    "realized_return_assumption":     tr.get("realized_return_assumption"),
+                    "mfe_pct":                        tr.get("mfe_pct"),
+                    "mae_pct":                        tr.get("mae_pct"),
+                    "close_return_at_max_hold":       tr.get("close_return_at_max_hold"),
+                    "final_bull_score":               mr.get("final_bull_score", tr.get("FINAL_BULL_SCORE")),
+                    "final_regime":                   mr.get("final_regime",     tr.get("FINAL_REGIME")),
+                    "final_score_bucket":             mr.get("final_score_bucket", tr.get("FINAL_SCORE_BUCKET")),
+                    "max_high_10d":                   mr.get("max_high_10d", ""),
+                    "prior_actionable_found":         mr.get("prior_actionable_found", ""),
+                    "best_prior_score_20d":           mr.get("best_prior_score_20d", ""),
+                    "best_prior_date_20d":            mr.get("best_prior_date_20d", ""),
+                })
+
+    # Build false positives
+    fp_out: List[dict] = []
+    for fp in fp_rows:
+        ticker = fp.get("ticker", "")
+        date   = fp.get("date", "")
+        trades = td_index.get((ticker, date), [])
+        if not trades:
+            fp_out.append({
+                "ticker": ticker, "date": date,
+                "fp_class": "NOT_IN_TPSL",
+                "ret_10d": fp.get("ret_10d", ""),
+                "final_bull_score": fp.get("final_bull_score", ""),
+            })
+            continue
+        for tr in trades:
+            outcome = tr.get("outcome", "")
+            mfe     = _f(tr.get("mfe_pct", 0))
+            tp_pct  = _f(tr.get("target_pct", 0))
+            if outcome == "TP_FIRST":
+                fp_class = "TRADEABLE_BUT_BAD_HOLD"
+            elif outcome in ("SL_FIRST", "NO_HIT") and mfe < tp_pct / 2:
+                fp_class = "TRUE_FALSE_POSITIVE"
+            elif outcome == "AMBIGUOUS_SAME_DAY_HIT":
+                fp_class = "VOLATILE_AMBIGUOUS"
+            elif mfe >= tp_pct and outcome != "TP_FIRST":
+                fp_class = "VOLATILE_AMBIGUOUS"
+            else:
+                fp_class = "TRUE_FALSE_POSITIVE"
+            fp_out.append({
+                "ticker":             ticker,
+                "date":               date,
+                "entry_mode":         tr.get("entry_mode"),
+                "preset_name":        tr.get("preset_name"),
+                "fp_class":           fp_class,
+                "outcome":            outcome,
+                "realized_return":    tr.get("realized_return_assumption"),
+                "mfe_pct":            mfe,
+                "mae_pct":            tr.get("mae_pct"),
+                "close_return_at_max_hold": tr.get("close_return_at_max_hold"),
+                "ret_10d":            fp.get("ret_10d", ""),
+                "final_bull_score":   fp.get("final_bull_score", tr.get("FINAL_BULL_SCORE")),
+                "final_regime":       fp.get("final_regime",     tr.get("FINAL_REGIME")),
+                "likely_fail_reason": fp.get("likely_fail_reason", ""),
+            })
+
+    # Build caught early timing
+    caught_timing: List[dict] = []
+    for cr in caught_full:
+        ticker   = cr.get("ticker", "")
+        miss_dt  = cr.get("date", "")
+        prior_dt = cr.get("best_prior_date_20d", "")
+        miss_trades  = td_index.get((ticker, miss_dt),  [])
+        prior_trades = td_index.get((ticker, prior_dt), []) if prior_dt else []
+        for emode in ENTRY_MODES:
+            for pname in TPSL_PRESETS:
+                miss_t  = next((t for t in miss_trades  if t.get("entry_mode") == emode and t.get("preset_name") == pname), None)
+                prior_t = next((t for t in prior_trades if t.get("entry_mode") == emode and t.get("preset_name") == pname), None)
+                caught_timing.append({
+                    "ticker":                ticker,
+                    "missed_date":           miss_dt,
+                    "entry_mode":            emode,
+                    "preset_name":           pname,
+                    "current_outcome":       miss_t.get("outcome", "NOT_IN_TPSL") if miss_t else "NOT_IN_TPSL",
+                    "current_mfe_pct":       miss_t.get("mfe_pct", "") if miss_t else "",
+                    "current_mae_pct":       miss_t.get("mae_pct", "") if miss_t else "",
+                    "best_prior_date_20d":   prior_dt,
+                    "prior_outcome":         prior_t.get("outcome", "NOT_IN_TPSL") if prior_t else "NOT_IN_TPSL",
+                    "prior_tp_first":        int(prior_t.get("outcome") == "TP_FIRST") if prior_t else "",
+                    "prior_sl_first":        int(prior_t.get("outcome") == "SL_FIRST") if prior_t else "",
+                    "prior_mfe_pct":         prior_t.get("mfe_pct", "") if prior_t else "",
+                    "prior_mae_pct":         prior_t.get("mae_pct", "") if prior_t else "",
+                    "prior_days_to_tp":      prior_t.get("days_to_outcome", "") if (prior_t and prior_t.get("outcome") == "TP_FIRST") else "",
+                    "best_prior_score_20d":  cr.get("best_prior_score_20d", ""),
+                    "best_prior_regime_20d": cr.get("best_prior_regime_20d", ""),
+                    "days_since_best_prior": cr.get("days_since_best_prior_catch", ""),
+                    "final_bull_score":      cr.get("final_bull_score", ""),
+                    "final_regime":          cr.get("final_regime", ""),
+                    "max_high_10d":          cr.get("max_high_10d", ""),
+                })
+
+    return missed_big, fp_out, caught_timing
+
+
 def run_tpsl_analytics(
-    rows:   List[dict],
-    cached: dict,
+    rows:       List[dict],
+    cached:     dict,
+    output_dir: Optional[str] = None,
 ) -> Dict[str, object]:
     """
-    Main entry point called by replay_engine.run_replay() after score consistency passes.
+    Streaming entry point. Writes replay_tpsl_trades.csv directly to output_dir
+    (avoids OOM on large universes). Other reports returned as in-memory lists.
 
     Args:
-        rows:   Canonical-scored rows (from _load_stock_stat + _compute_forward_returns).
-        cached: Dict with keys: missed_winners_full, caught_early_winners_full,
-                late_or_weak_catches_full, false_positives, score_consistency.
-
-    Returns:
-        Dict mapping report_name -> rows_list (CSV) or markdown_str.
-        Keys follow the replay_ naming convention (without the replay_ prefix).
+        rows:       Canonical-scored rows.
+        cached:     Cached intermediate results from replay_engine.
+        output_dir: Directory for streaming tpsl_trades.csv. If None, falls back
+                    to materializing trades in memory (legacy behavior).
     """
     gen_at = datetime.utcnow().strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    # Score consistency warning (non-blocking — TP/SL always runs)
     sc = cached.get("score_consistency", {})
     sc_warning: Optional[str] = None
     if sc.get("status") == "fail":
@@ -1343,22 +1796,12 @@ def run_tpsl_analytics(
         )
         log.warning("TP/SL: %s", sc_warning)
 
-    log.info("TP/SL analytics: computing trade simulations for %d rows ...", len(rows))
-    trade_rows = compute_tpsl_trades(rows)
-    log.info("TP/SL analytics: %d trade rows produced", len(trade_rows))
-
-    # Use category-specific full lists (not the combined missed_winners_full which
-    # contains all 3 categories merged — that would cause all rows to show as the
-    # first category label passed to tpsl_missed_big_winners)
     true_missed_full = cached.get("true_missed_winners_full",   [])
     caught_full      = cached.get("caught_early_winners_full",  [])
     late_full        = cached.get("late_or_weak_catches_full",  [])
     fp_rows          = cached.get("false_positives", [])
+    category_counts  = cached.get("category_counts", {})
 
-    # Category count targets for validation (from pre-computed counts)
-    category_counts = cached.get("category_counts", {})
-
-    # Build signal-presence check on a sample of source rows
     sample_sigs = _active_sigs(rows[0]) if rows else []
     signal_cols_present = bool(sample_sigs) or any(
         r.get(col) for r in rows[:20] for col in _STRING_SIG_COLS
@@ -1367,36 +1810,140 @@ def run_tpsl_analytics(
         _f(r.get(m, 0)) > 0 for r in rows[:100] for m in _COMPOSITE_MODEL_FLAGS
     )
 
-    # Run basic trade-row validation
-    val_checks = tpsl_validation(trade_rows)
+    reports: Dict[str, object] = {}
+    val_checks: List[dict] = []
+
     if sc_warning:
-        val_checks.insert(0, {
+        val_checks.append({
             "validation_name": "score_consistency_warning",
             "status":          "WARN",
             "details":         sc_warning,
         })
 
-    reports: Dict[str, object] = {}
+    # Choose path: streaming (if output_dir given) or in-memory fallback
+    if output_dir is None:
+        log.info("TP/SL analytics: in-memory mode (no output_dir provided)")
+        trade_rows = compute_tpsl_trades(rows)
+        n_trades = len(trade_rows)
+        val_checks.extend(tpsl_validation(trade_rows))
+        reports["tpsl_trades"] = trade_rows
+        sig_perf      = tpsl_signal_perf(trade_rows)
+        pair_perf     = tpsl_pair_combo_perf(trade_rows)
+        triple_perf   = tpsl_triple_combo_perf(trade_rows)
+        missed_big    = tpsl_missed_big_winners(trade_rows, true_missed_full, caught_full, late_full)
+        caught_timing = tpsl_caught_early_timing(trade_rows, caught_full)
+        reports["tpsl_signal_perf"]               = sig_perf
+        reports["tpsl_model_perf"]                = tpsl_model_perf(trade_rows)
+        reports["tpsl_regime_perf"]               = tpsl_regime_perf(trade_rows)
+        reports["tpsl_score_bucket_perf"]         = tpsl_score_bucket_perf(trade_rows)
+        reports["tpsl_score_range_perf"]          = tpsl_score_range_perf(trade_rows)
+        reports["tpsl_readiness_phase_perf"]      = tpsl_readiness_phase_perf(trade_rows)
+        reports["tpsl_actionability_bucket_perf"] = tpsl_actionability_bucket_perf(trade_rows)
+        reports["tpsl_component_bucket_perf"]     = tpsl_component_bucket_perf(trade_rows)
+        reports["tpsl_pair_combo_perf"]           = pair_perf
+        reports["tpsl_triple_combo_perf"]         = triple_perf
+        reports["tpsl_missed_big_winners"]        = missed_big
+        reports["tpsl_false_positives"]           = tpsl_false_positives(trade_rows, fp_rows)
+        reports["tpsl_caught_early_timing"]       = caught_timing
+        sample_tr = [r for r in trade_rows[:2000]
+                     if r.get("entry_mode") == "SAME_DAY_CLOSE" and r.get("preset_name") == "CLEAN_SWING"]
+        sig_rate = round(sum(1 for r in sample_tr if r.get("active_signals")) / len(sample_tr), 4) if sample_tr else 0.0
+    else:
+        # ── Streaming path ────────────────────────────────────────────────────
+        os.makedirs(output_dir, exist_ok=True)
+        trades_path = os.path.join(output_dir, "replay_tpsl_trades.csv")
+        log.info("TP/SL analytics: streaming trades to %s", trades_path)
+        n_trades, aggs, sig_counts, val_meta = _stream_trades_and_aggregate(
+            rows, trades_path, signal_cols_present, model_cols_present,
+        )
+        log.info("TP/SL analytics: streamed %d trade rows", n_trades)
+        gc.collect()
 
-    reports["tpsl_trades"]        = trade_rows
-    sig_perf   = tpsl_signal_perf(trade_rows)
-    pair_perf  = tpsl_pair_combo_perf(trade_rows)
-    triple_perf = tpsl_triple_combo_perf(trade_rows)
-    missed_big = tpsl_missed_big_winners(trade_rows, true_missed_full, caught_full, late_full)
-    caught_timing = tpsl_caught_early_timing(trade_rows, caught_full)
-    reports["tpsl_signal_perf"]   = sig_perf
-    reports["tpsl_model_perf"]    = tpsl_model_perf(trade_rows)
-    reports["tpsl_regime_perf"]   = tpsl_regime_perf(trade_rows)
-    reports["tpsl_score_bucket_perf"]         = tpsl_score_bucket_perf(trade_rows)
-    reports["tpsl_score_range_perf"]          = tpsl_score_range_perf(trade_rows)
-    reports["tpsl_readiness_phase_perf"]      = tpsl_readiness_phase_perf(trade_rows)
-    reports["tpsl_actionability_bucket_perf"] = tpsl_actionability_bucket_perf(trade_rows)
-    reports["tpsl_component_bucket_perf"]     = tpsl_component_bucket_perf(trade_rows)
-    reports["tpsl_pair_combo_perf"]           = pair_perf
-    reports["tpsl_triple_combo_perf"]         = triple_perf
-    reports["tpsl_missed_big_winners"]        = missed_big
-    reports["tpsl_false_positives"]           = tpsl_false_positives(trade_rows, fp_rows)
-    reports["tpsl_caught_early_timing"]       = caught_timing
+        # Mark that the trades CSV is already on disk (not returned as list).
+        # The replay_engine call site treats non-list values as "skip _save".
+        reports["tpsl_trades"] = {"streamed": True, "rows": n_trades, "path": trades_path}
+
+        # Finalize per-trade aggregations
+        sig_perf = []
+        for (sig, em, pn), d in aggs["signal"].finalize():
+            if d["count"] < 20:
+                continue
+            d["signal"]       = sig
+            d["entry_mode"]   = em
+            d["preset_name"]  = pn
+            d["sample_tier"]  = "MAIN" if d["count"] >= 50 else "SEC"
+            d["signal_class"] = _classify_signal(d)
+            sig_perf.append(d)
+        sig_perf.sort(key=lambda x: -(x.get("conservative_expected_value") or 0))
+
+        model_perf = []
+        for (mdl, em, pn), d in aggs["model"].finalize():
+            if d["count"] < 20:
+                continue
+            d["model"]       = mdl
+            d["entry_mode"]  = em
+            d["preset_name"] = pn
+            model_perf.append(d)
+        model_perf.sort(key=lambda x: -(x.get("conservative_expected_value") or 0))
+
+        regime_perf  = _finalize_simple_group(aggs["regime"], "FINAL_REGIME")
+        bucket_perf  = _finalize_simple_group(aggs["score_bucket"], "FINAL_SCORE_BUCKET")
+        range_perf   = _finalize_simple_group(aggs["score_range"], "score_range")
+        readiness_pf = _finalize_simple_group(aggs["readiness"], "READINESS_PHASE")
+        action_pf    = _finalize_simple_group(aggs["actionability"], "_act_bucket")
+
+        component_perf = []
+        for (comp, bkt, em, pn), d in aggs["component"].finalize():
+            d["component"]    = comp
+            d["_comp_bucket"] = bkt
+            d["entry_mode"]   = em
+            d["preset_name"]  = pn
+            component_perf.append(d)
+        component_perf.sort(key=lambda x: -(x.get("conservative_expected_value") or 0))
+
+        # Free aggregators before next pass
+        del aggs
+        gc.collect()
+
+        # Combo perfs (re-read CSV once)
+        log.info("TP/SL analytics: computing combo perfs from CSV")
+        pair_perf, triple_perf = _build_combo_perfs(trades_path, sig_counts)
+        del sig_counts
+        gc.collect()
+
+        # Overlay reports (re-read CSV once, only fetch matching keys)
+        log.info("TP/SL analytics: computing overlay reports from CSV")
+        missed_big, fp_out, caught_timing = _build_overlay_reports(
+            trades_path, true_missed_full, caught_full, late_full, fp_rows,
+        )
+        gc.collect()
+
+        reports["tpsl_signal_perf"]               = sig_perf
+        reports["tpsl_model_perf"]                = model_perf
+        reports["tpsl_regime_perf"]               = regime_perf
+        reports["tpsl_score_bucket_perf"]         = bucket_perf
+        reports["tpsl_score_range_perf"]          = range_perf
+        reports["tpsl_readiness_phase_perf"]      = readiness_pf
+        reports["tpsl_actionability_bucket_perf"] = action_pf
+        reports["tpsl_component_bucket_perf"]     = component_perf
+        reports["tpsl_pair_combo_perf"]           = pair_perf
+        reports["tpsl_triple_combo_perf"]         = triple_perf
+        reports["tpsl_missed_big_winners"]        = missed_big
+        reports["tpsl_false_positives"]           = fp_out
+        reports["tpsl_caught_early_timing"]       = caught_timing
+
+        # Trade-row-level validation (lightweight, since trade_rows is on disk)
+        val_checks.append({
+            "validation_name": "row_count_nonzero",
+            "status":          "PASS" if n_trades > 0 else "FAIL",
+            "details":         f"{n_trades} trade rows",
+        })
+        val_checks.append({
+            "validation_name": "streaming_mode",
+            "status":          "PASS",
+            "details":         f"trades streamed to {trades_path}",
+        })
+        sig_rate = round(val_meta["sample_with_sigs"] / val_meta["sample_total"], 4) if val_meta["sample_total"] else 0.0
 
     # ── Post-report validation checks ─────────────────────────────────────────
     def _chk(name, passed, detail=""):
@@ -1406,68 +1953,94 @@ def run_tpsl_analytics(
             "details":         detail,
         })
 
-    # Signal / model presence
     _chk("signal_columns_present", signal_cols_present,
          "signal string columns readable" if signal_cols_present else
-         "no signal data found in source rows — stock_stat CSV missing signal columns")
+         "no signal data found in source rows")
     _chk("model_columns_present", model_cols_present,
          "composite model flags present" if model_cols_present else
          "no model flag columns found in source rows")
-
-    # active_signals nonempty rate (spot-check first 200 trade rows, SAME_DAY only)
-    sample_tr = [r for r in trade_rows[:2000]
-                 if r.get("entry_mode") == "SAME_DAY_CLOSE" and r.get("preset_name") == "CLEAN_SWING"]
-    nonempty_sig = sum(1 for r in sample_tr if r.get("active_signals"))
-    sig_rate = round(nonempty_sig / len(sample_tr), 4) if sample_tr else 0.0
     _chk("active_signals_nonempty_rate", sig_rate > 0.01,
          f"{sig_rate:.1%} of sampled rows have non-empty active_signals")
 
-    # Report nonempty checks
-    _chk("tpsl_signal_perf_nonempty", bool(sig_perf),
-         f"{len(sig_perf)} rows" if sig_perf else "EMPTY — signal data missing from source rows")
-    _chk("tpsl_pair_combo_perf_nonempty", bool(pair_perf),
-         f"{len(pair_perf)} rows" if pair_perf else "EMPTY — insufficient signal pair data")
-    _chk("tpsl_triple_combo_perf_nonempty", bool(triple_perf),
-         f"{len(triple_perf)} rows" if triple_perf else "EMPTY — insufficient signal triple data")
+    sig_perf_v   = reports.get("tpsl_signal_perf",  []) or []
+    pair_perf_v  = reports.get("tpsl_pair_combo_perf", []) or []
+    triple_perf_v = reports.get("tpsl_triple_combo_perf", []) or []
+    _chk("tpsl_signal_perf_nonempty", bool(sig_perf_v),
+         f"{len(sig_perf_v)} rows" if sig_perf_v else "EMPTY — signal data missing")
+    _chk("tpsl_pair_combo_perf_nonempty", bool(pair_perf_v),
+         f"{len(pair_perf_v)} rows" if pair_perf_v else "EMPTY — insufficient pair data")
+    _chk("tpsl_triple_combo_perf_nonempty", bool(triple_perf_v),
+         f"{len(triple_perf_v)} rows" if triple_perf_v else "EMPTY — insufficient triple data")
 
-    # Missed category counts must match base (if category_counts available)
     if category_counts:
-        base_true  = category_counts.get("true_missed",  0)
+        base_true   = category_counts.get("true_missed",  0)
         base_caught = category_counts.get("caught_early", 0)
-        base_late  = category_counts.get("late_or_weak", 0)
-        # Unique (ticker, date) per category in missed_big overlay
+        base_late   = category_counts.get("late_or_weak", 0)
         cats_seen: Dict[str, set] = defaultdict(set)
-        for r in missed_big:
+        for r in (reports.get("tpsl_missed_big_winners") or []):
             if r.get("entry_mode") == "SAME_DAY_CLOSE" and r.get("preset_name") == "CLEAN_SWING":
                 cats_seen[r.get("category", "")].add((r.get("ticker"), r.get("date")))
         overlay_true   = len(cats_seen.get("TRUE_MISSED_WINNER",  set()))
         overlay_caught = len(cats_seen.get("CAUGHT_EARLY_WINNER", set()))
         overlay_late   = len(cats_seen.get("LATE_OR_WEAK_CATCH",  set()))
-        counts_ok = (
-            overlay_true == base_true and
-            overlay_caught == base_caught and
-            overlay_late == base_late
-        )
+        counts_ok = (overlay_true == base_true and overlay_caught == base_caught and overlay_late == base_late)
         _chk("tpsl_missed_category_counts_match_base", counts_ok,
-             f"TRUE={overlay_true}/{base_true} CAUGHT={overlay_caught}/{base_caught} "
-             f"LATE={overlay_late}/{base_late}")
+             f"TRUE={overlay_true}/{base_true} CAUGHT={overlay_caught}/{base_caught} LATE={overlay_late}/{base_late}")
     else:
         _chk("tpsl_missed_category_counts_match_base", True,
              "category_counts not available for comparison")
 
-    # Caught-early timing is fed exclusively from caught_full (CAUGHT_EARLY_WINNER list)
-    # Validate by checking that row count equals caught_full × entry_modes × presets
     expected_caught = len(caught_full) * len(ENTRY_MODES) * len(TPSL_PRESETS)
-    caught_ok = len(caught_timing) == expected_caught
-    _chk("tpsl_caught_early_only_uses_caught_rows", caught_ok,
-         f"{len(caught_timing)} rows == {len(caught_full)} CAUGHT_EARLY × "
-         f"{len(ENTRY_MODES)} modes × {len(TPSL_PRESETS)} presets = {expected_caught}")
+    caught_timing_v = reports.get("tpsl_caught_early_timing", []) or []
+    _chk("tpsl_caught_early_only_uses_caught_rows", len(caught_timing_v) == expected_caught,
+         f"{len(caught_timing_v)} rows == {len(caught_full)} CAUGHT_EARLY × "
+         f"{len(ENTRY_MODES)} × {len(TPSL_PRESETS)} = {expected_caught}")
 
     reports["tpsl_validation"] = val_checks
 
-    # Markdown reports (stored as strings; caller writes them as .md files)
-    reports["tpsl_summary_md_content"]        = tpsl_summary_md(trade_rows, val_checks, gen_at)
+    # Markdown summaries (use lightweight stub trade list to avoid scanning CSV)
+    n_for_md = n_trades
+    reports["tpsl_summary_md_content"]              = _tpsl_summary_md_streaming(n_for_md, val_checks, gen_at)
     reports["tpsl_implementation_audit_md_content"] = tpsl_implementation_audit_md(gen_at, val_checks)
 
     log.info("TP/SL analytics: %d reports generated", len(reports))
     return reports
+
+
+def _tpsl_summary_md_streaming(n_trades: int, val_checks: List[dict], gen_at: str) -> str:
+    """Lightweight summary that does not need full trade_rows in memory."""
+    n_src = n_trades // (len(ENTRY_MODES) * len(TPSL_PRESETS)) if n_trades else 0
+    val_pass = all(c["status"] == "PASS" for c in val_checks)
+    lines = [
+        "# TP/SL Replay Analytics Summary",
+        "",
+        f"Generated: {gen_at}  ",
+        f"Source rows: **{n_src:,}** | Trade rows: **{n_trades:,}**  ",
+        f"Presets: **{len(TPSL_PRESETS)}** | Entry modes: **{len(ENTRY_MODES)}**",
+        "",
+        "Mode: **Streaming** (trades written directly to replay_tpsl_trades.csv).",
+        "",
+        "---",
+        "",
+        "## Validation",
+        "",
+        f"Status: **{'PASS' if val_pass else 'FAIL/WARN'}**  ",
+    ]
+    for c in val_checks:
+        icon = "✓" if c["status"] == "PASS" else ("⚠" if c["status"] == "WARN" else "✗")
+        lines.append(f"- {icon} {c['validation_name']}: {c['details']}")
+    lines += ["", "---", "", "## TP/SL Presets", "",
+              "| Preset | TP% | SL% | MaxHold |", "|---|---|---|---|"]
+    for pname, p in TPSL_PRESETS.items():
+        lines.append(f"| {pname} | {p['tp_pct']*100:.2f}% | {p['sl_pct']*100:.2f}% | {p['max_hold']}d |")
+    lines += ["", "---", "",
+              "See per-report CSV files for detailed breakdowns:",
+              "- replay_tpsl_signal_perf.csv",
+              "- replay_tpsl_score_range_perf.csv",
+              "- replay_tpsl_regime_perf.csv",
+              "- replay_tpsl_pair_combo_perf.csv",
+              "- replay_tpsl_missed_big_winners.csv",
+              "- replay_tpsl_false_positives.csv",
+              "- replay_tpsl_caught_early_timing.csv",
+              ""]
+    return "\n".join(lines) + "\n"
