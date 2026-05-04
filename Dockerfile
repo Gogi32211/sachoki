@@ -13,6 +13,7 @@ FROM python:3.11-slim
 WORKDIR /app
 
 COPY backend/requirements.txt backend/*.py ./
+COPY backend/analyzers/ ./analyzers/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy built React app into ./static (served by FastAPI StaticFiles)
