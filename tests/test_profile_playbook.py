@@ -23,6 +23,7 @@ from profile_playbook import (
     PROFILE_PLAYBOOK_VERSION,
     PROFILE_BTB_CAPS,
     PROFILE_BTB_WEAK_CONFIRM_PROFILES,
+    BTB_SWEET_SPOT_ALLOWED_PROFILES,
 )
 
 
@@ -658,6 +659,7 @@ def test_config_snapshot_has_required_keys():
         "profiles", "bear_context_signals", "bear_context_standalone_cap",
         "bull_confirm_signals", "sequence_bonuses", "sequence_bonus_cap",
         "profile_btb_caps", "profile_btb_weak_confirm_profiles",
+        "btb_sweet_spot_allowed_profiles",
     }
     for k in required:
         assert k in snap, f"Config snapshot missing key: {k}"
@@ -666,6 +668,7 @@ def test_config_snapshot_has_required_keys():
     assert snap["sequence_bonus_cap"] == SEQUENCE_BONUS_CAP
     assert snap["profile_btb_caps"] == dict(PROFILE_BTB_CAPS)
     assert "SP500_300_PLUS" in snap["profile_btb_weak_confirm_profiles"]
+    assert snap["btb_sweet_spot_allowed_profiles"] == sorted(BTB_SWEET_SPOT_ALLOWED_PROFILES)
 
 
 # ── Test 11 — SP500_300_PLUS per-profile BTB cap ─────────────────────────────
@@ -748,6 +751,8 @@ def test_btb_audit_fields_without_history():
     assert pf["btb_category_upgrade"]     == 0
     assert pf["btb_created_sweet_spot"]   == 0
     assert pf["base_profile_score_without_btb"] == pf["profile_score"]
+    assert "btb_late_clamped"              in pf
+    assert "btb_sweet_spot_allowed_profile" in pf
 
 
 # ── Test 10 — Output validation (distribution check) ─────────────────────────
@@ -782,9 +787,67 @@ def test_bear_to_bull_fields_present_in_result():
         "bear_to_bull_bars_ago", "bear_to_bull_bonus", "bear_to_bull_pairs",
         "base_profile_score_without_btb", "category_without_btb", "category_with_btb",
         "btb_category_upgrade", "btb_created_sweet_spot",
+        "btb_late_clamped", "btb_sweet_spot_allowed_profile",
     }
     for k in required_keys:
         assert k in pf, f"Missing key in result: {k}"
+
+
+# ── BTB v3 gate tests ─────────────────────────────────────────────────────────
+
+def test_btb_late_never_created():
+    """BTB that would push into LATE is clamped to SWEET_SPOT + btb_late_clamped=1.
+
+    SP500_50_150: sweet_spot=(12,42), late_threshold=42.
+    Signals below produce base=38 (SWEET_SPOT), then BTB(+5)=43 → LATE → clamped.
+    """
+    hist = [{"EB_DN"}]
+    row = {
+        "close": 100.0,
+        "fly":   ["FLY-BD"],
+        "combo": ["BUY", "SVS", "BB↑"],
+        "l":     ["FRI43", "BX↑"],
+        "g":     ["G4", "G11"],
+        "vabs":  ["ABS"],
+        "f":     ["F10", "F9"],
+    }
+    pf = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["profile_name"] == "SP500_50_150"
+    assert pf["category_without_btb"] == "SWEET_SPOT"
+    assert pf["profile_category"] == "SWEET_SPOT"
+    assert pf["btb_late_clamped"] == 1
+
+
+def test_btb_sweet_spot_blocked_for_lt20():
+    """SP500_LT20 cannot reach SWEET_SPOT via BTB."""
+    hist = [{"EB_DN"}]
+    row  = {"close": 10.0, "combo": ["BUY", "SVS"], "vabs": ["CLM"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["profile_name"] == "SP500_LT20"
+    assert pf["profile_category"] != "SWEET_SPOT"
+    assert pf["btb_sweet_spot_allowed_profile"] == 0
+
+
+def test_btb_sweet_spot_blocked_for_300_plus():
+    """SP500_300_PLUS cannot reach SWEET_SPOT via BTB."""
+    hist = [{"EB_DN"}]
+    row  = {"close": 400.0, "combo": ["BUY", "SVS"], "vabs": ["ABS"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["profile_name"] == "SP500_300_PLUS"
+    assert pf["profile_category"] != "SWEET_SPOT"
+    assert pf["btb_sweet_spot_allowed_profile"] == 0
+
+
+def test_btb_sweet_spot_allowed_for_mid_profiles():
+    """SP500_50_150 (allowed) can reach SWEET_SPOT via BTB from BUILDING."""
+    hist = [{"EB_DN"}]
+    row  = {"close": 100.0, "combo": ["BUY", "SVS"], "vabs": ["ABS"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["profile_name"] == "SP500_50_150"
+    assert pf["btb_sweet_spot_allowed_profile"] == 1
+    # If BTB created SWEET_SPOT, it should be allowed
+    if pf["btb_created_sweet_spot"] == 1:
+        assert pf["profile_category"] == "SWEET_SPOT"
 
 
 if __name__ == "__main__":

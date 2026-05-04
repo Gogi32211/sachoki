@@ -24,7 +24,7 @@ import time as _time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 # ── Version ───────────────────────────────────────────────────────────────────
-PROFILE_PLAYBOOK_VERSION = "2026-05-04-btb-calibration-v2"
+PROFILE_PLAYBOOK_VERSION = "2026-05-04-btb-calibration-v3"
 
 # ── Signal aliases ─────────────────────────────────────────────────────────────
 SIGNAL_ALIASES: Dict[str, str] = {
@@ -133,6 +133,10 @@ PROFILE_BTB_CAPS: Dict[str, int] = {
 # Profiles where BTB confirmations via L34/VBO_UP/BO_UP are scaled down by 50%
 # (these are noisier on high-price stocks where momentum signals matter more)
 PROFILE_BTB_WEAK_CONFIRM_PROFILES: Set[str] = {"SP500_300_PLUS"}
+
+# Profiles where BTB is allowed to upgrade a row to SWEET_SPOT.
+# Validated on v2 replay: only mid-range SP500 profiles show positive BTB-SWEET_SPOT perf.
+BTB_SWEET_SPOT_ALLOWED_PROFILES: Set[str] = {"SP500_20_50", "SP500_50_150", "SP500_150_300"}
 
 # ── Profile definitions ───────────────────────────────────────────────────────
 PROFILES: Dict[str, dict] = {
@@ -622,18 +626,25 @@ def compute_profile_playbook_for_row(
 
     # ── Total score + category (with and without BTB) ─────────────────────────
     base_profile_score_without_btb = base_score + bear_standalone
+    btb_late_clamped               = False
+    btb_sweet_spot_allowed_profile = int(profile_name in BTB_SWEET_SPOT_ALLOWED_PROFILES)
 
     if profile:
         category_without_btb, _, _ = _score_to_category(base_profile_score_without_btb, profile)
         total_score = base_profile_score_without_btb + bear_to_bull_bonus
         category_with_btb_raw, sweet_spot_active, late_warning = _score_to_category(total_score, profile)
-        # Gate: WATCH-base rows cannot be BTB-pushed into SWEET_SPOT or LATE
-        if category_without_btb == "WATCH" and category_with_btb_raw in {"SWEET_SPOT", "LATE"}:
-            cat = "BUILDING"
-            sweet_spot_active = False
+        cat = category_with_btb_raw
+        # Gate 1: BTB must never create LATE — clamp to SWEET_SPOT first
+        if category_without_btb != "LATE" and cat == "LATE":
+            cat = "SWEET_SPOT"
+            sweet_spot_active = True
             late_warning      = False
-        else:
-            cat = category_with_btb_raw
+            btb_late_clamped  = True
+        # Gate 2: BTB-created SWEET_SPOT only allowed for specific profiles
+        if category_without_btb != "SWEET_SPOT" and cat == "SWEET_SPOT":
+            if profile_name not in BTB_SWEET_SPOT_ALLOWED_PROFILES:
+                cat = "BUILDING"
+                sweet_spot_active = False
         category_with_btb = cat
     else:
         category_without_btb  = "WATCH"
@@ -678,6 +689,8 @@ def compute_profile_playbook_for_row(
         "category_with_btb":               category_with_btb,
         "btb_category_upgrade":            int(btb_category_upgrade),
         "btb_created_sweet_spot":          int(btb_created_sweet_spot),
+        "btb_late_clamped":                int(btb_late_clamped),
+        "btb_sweet_spot_allowed_profile":  btb_sweet_spot_allowed_profile,
         # legacy fields (kept for backward compatibility)
         "profile_role":              profile.get("role")              if profile else None,
         "profile_description":       profile.get("description")       if profile else None,
@@ -876,4 +889,5 @@ def get_playbook_config_snapshot() -> dict:
         "sequence_bonus_cap":       SEQUENCE_BONUS_CAP,
         "profile_btb_caps":         dict(PROFILE_BTB_CAPS),
         "profile_btb_weak_confirm_profiles": sorted(PROFILE_BTB_WEAK_CONFIRM_PROFILES),
+        "btb_sweet_spot_allowed_profiles":   sorted(BTB_SWEET_SPOT_ALLOWED_PROFILES),
     }
