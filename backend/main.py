@@ -905,7 +905,7 @@ def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", univ
 
 
 @app.get("/api/bar_signals/{ticker}")
-def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
+def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500"):
     """Per-bar signal matrix for SuperChart view."""
     import pandas as pd
     import numpy as np
@@ -917,6 +917,11 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
     from ultra_engine import compute_260308_l88, compute_ultra_v2
     from turbo_engine import _calc_turbo_score
     from combo_engine import compute_tz_state
+    try:
+        from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row as _pex
+        _pf_ok = True
+    except Exception:
+        _pf_ok = False
 
     try:
         df = fetch_ohlcv(ticker, interval=tf, bars=bars)
@@ -1221,6 +1226,32 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
         if not wlnbb.empty and "vol_bucket" in wlnbb.columns:
             vol_bkt = str(wlnbb.iloc[i]["vol_bucket"])
 
+        # RSI and CCI (from wlnbb)
+        rsi_val = None
+        cci_val = None
+        if not wlnbb.empty:
+            if "rsi" in wlnbb.columns:
+                rsi_val = float(wlnbb.iloc[i]["rsi"])
+            if "cci_sma" in wlnbb.columns:
+                cci_val = float(wlnbb.iloc[i]["cci_sma"])
+
+        # Profile enrichment per bar
+        pf_score = 0
+        pf_cat   = "WATCH"
+        if _pf_ok:
+            try:
+                _row_proxy = {"close": float(row["close"]), "tz_sig": tz_s}
+                _row_proxy.update({k: (1 if v else 0) if isinstance(v, bool) else v
+                                   for k, v in sig_row.items()
+                                   if isinstance(v, (bool, int, float))})
+                _pname = get_profile(_row_proxy, universe)
+                _sigs  = _pex(_row_proxy)
+                _pd    = compute_profile_score(_sigs, _pname)
+                pf_score = _pd["profile_score"]
+                pf_cat   = _pd["profile_category"]
+            except Exception:
+                pass
+
         # RTB v4 per-bar
         rtb_phase_val      = ""
         rtb_total_val      = 0.0
@@ -1338,6 +1369,12 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150):
             "dbg_launch_cluster_count": dbg_launch_cluster_count_val,
             "dbg_pending_phase":        dbg_pending_phase_val,
             "dbg_pending_phase_count":  dbg_pending_phase_count_val,
+            # ── RSI / CCI (numeric values for SuperChart display) ──────────────
+            "rsi":              rsi_val,
+            "cci":              cci_val,
+            # ── Profile playbook per-bar ───────────────────────────────────────
+            "profile_score":    pf_score,
+            "profile_category": pf_cat,
         })
 
     return result
