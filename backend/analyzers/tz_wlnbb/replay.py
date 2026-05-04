@@ -3,10 +3,11 @@ import csv
 import io
 import json
 import random
+import re
 import statistics
 import zipfile
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from .config import TZ_WLNBB_VERSION, DEFAULT_LOOKBACK_TRADING_DAYS
@@ -149,9 +150,15 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
     for r in rows:
         by_ticker.setdefault(r.get("ticker", ""), []).append(r)
 
-    # Sort each ticker by date
+    # Sort each ticker chronologically (parse dates to avoid lexicographic mis-sort)
+    def _parse_date(d: str):
+        try:
+            return datetime.strptime(d, "%Y-%m-%d")
+        except Exception:
+            return datetime.min
+
     for t in by_ticker:
-        by_ticker[t].sort(key=lambda x: x.get("date", ""))
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
 
     seq2_groups: Dict[tuple, list] = {}  # (family, pattern, lag, uni, tf) -> [outcome_rows]
     seq3_groups: Dict[tuple, list] = {}  # (family, pattern, lag1, lag2, uni, tf) -> [outcome_rows]
@@ -276,8 +283,18 @@ def _suspicious_patterns(seq_rows: List[dict]) -> List[dict]:
     return sorted(result, key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
 
 
+def _date_forward(date_str: str, n: int) -> str:
+    """Return date_str + n calendar days as YYYY-MM-DD, or '' on error."""
+    try:
+        return (datetime.strptime(date_str, "%Y-%m-%d") + timedelta(days=n)).strftime("%Y-%m-%d")
+    except Exception:
+        return ""
+
+
 def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
-    """Sample rows with forward returns for manual validation."""
+    """Sample rows with forward returns for manual validation.
+    Includes expected future dates (calendar) so values can be verified in a price chart.
+    """
     with_returns = [r for r in rows if r.get("ret_10d") not in (None, "", "None")]
     # take spread: first 50, last 50, random middle 100
     sample = with_returns[:50]
@@ -285,30 +302,85 @@ def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
         mid = with_returns[50:-50]
         sample += random.sample(mid, min(100, len(mid)))
         sample += with_returns[-50:]
-    fields = ["ticker", "date", "close", "ret_1d", "ret_3d", "ret_5d", "ret_10d",
+    fields = ["ticker", "date", "date_plus_1", "date_plus_3", "date_plus_5", "date_plus_10",
+              "close", "ret_1d", "ret_3d", "ret_5d", "ret_10d",
               "max_high_5d", "max_high_10d", "max_drawdown_5d", "max_drawdown_10d",
               "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
               "big_win_10d", "fail_10d", "t_signal", "z_signal", "l_signal"]
-    return [{f: r.get(f, "") for f in fields} for r in sample[:n]]
+    result = []
+    for r in sample[:n]:
+        row_out = {f: r.get(f, "") for f in fields}
+        d = r.get("date", "")
+        row_out["date_plus_1"]  = _date_forward(d, 1)
+        row_out["date_plus_3"]  = _date_forward(d, 3)
+        row_out["date_plus_5"]  = _date_forward(d, 5)
+        row_out["date_plus_10"] = _date_forward(d, 10)
+        result.append(row_out)
+    return result
+
+
+def _date_order_audit(rows: List[dict]) -> List[dict]:
+    """
+    Verify chronological ordering of dates per ticker.
+    Returns one row per ticker summarising any ordering issues.
+    """
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+
+    issues = []
+    for ticker, t_rows in by_ticker.items():
+        dates = [r.get("date", "") for r in t_rows]
+        parsed = []
+        invalid = 0
+        for d in dates:
+            try:
+                parsed.append(datetime.strptime(d, "%Y-%m-%d"))
+            except Exception:
+                parsed.append(None)
+                invalid += 1
+        out_of_order = sum(
+            1 for i in range(1, len(parsed))
+            if parsed[i] is not None and parsed[i - 1] is not None and parsed[i] < parsed[i - 1]
+        )
+        issues.append({
+            "ticker": ticker,
+            "total_rows": len(t_rows),
+            "invalid_date_format": invalid,
+            "out_of_order_count": out_of_order,
+            "first_date": dates[0] if dates else "",
+            "last_date": dates[-1] if dates else "",
+            "status": "OK" if out_of_order == 0 and invalid == 0 else "ISSUE",
+        })
+
+    issues.sort(key=lambda x: -(x["out_of_order_count"] + x["invalid_date_format"]))
+    return issues
 
 
 def _unscored_audit(rows: List[dict]) -> List[dict]:
     """
     Find any signal column values that don't appear in the known signal registry.
+    L dynamic combos (e.g. L12, L346) matching ^L[1-6]+$ are considered valid.
     """
-    from .config import ALL_KNOWN_SIGNALS
+    from .config import ALL_KNOWN_SIGNALS, is_known_l_signal
     unknown: Dict[str, dict] = {}
     for r in rows:
         for col in ("t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal"):
             sig = r.get(col, "")
-            if sig and sig not in ALL_KNOWN_SIGNALS:
-                d = unknown.setdefault(sig, {"raw_signal": sig, "normalized_signal": sig,
-                                             "source_column": col, "count": 0,
-                                             "tickers": [], "dates": []})
-                d["count"] += 1
-                if len(d["tickers"]) < 3:
-                    d["tickers"].append(r.get("ticker", ""))
-                    d["dates"].append(r.get("date", ""))
+            if not sig:
+                continue
+            if sig in ALL_KNOWN_SIGNALS:
+                continue
+            # Dynamic L combos like L12, L346 are valid
+            if col == "l_signal" and is_known_l_signal(sig):
+                continue
+            d = unknown.setdefault(sig, {"raw_signal": sig, "normalized_signal": sig,
+                                         "source_column": col, "count": 0,
+                                         "tickers": [], "dates": []})
+            d["count"] += 1
+            if len(d["tickers"]) < 3:
+                d["tickers"].append(r.get("ticker", ""))
+                d["dates"].append(r.get("date", ""))
     result = []
     for sig, d in unknown.items():
         result.append({
@@ -422,8 +494,14 @@ def generate_replay_zip(
     suspicious = _suspicious_patterns(sq)
     validation_examples = _return_validation_examples(rows)
     unscored = _unscored_audit(rows)
+    date_audit = _date_order_audit(rows)
     meta = _build_metadata(rows, universe, tf, ticker_count, audit)
     config_snap = get_config_snapshot()
+
+    # Attach date audit summary to metadata
+    issue_tickers = [r["ticker"] for r in date_audit if r["status"] == "ISSUE"]
+    meta["date_order_issues"] = len(issue_tickers)
+    meta["date_order_issue_tickers_sample"] = issue_tickers[:10]
 
     def _to_csv_bytes(data: list, fields: list) -> bytes:
         buf = io.StringIO()
@@ -470,13 +548,21 @@ def generate_replay_zip(
                     _to_csv_bytes(unscored, unscored_fields))
 
         val_fields = [
-            "ticker", "date", "close", "ret_1d", "ret_3d", "ret_5d", "ret_10d",
+            "ticker", "date", "date_plus_1", "date_plus_3", "date_plus_5", "date_plus_10",
+            "close", "ret_1d", "ret_3d", "ret_5d", "ret_10d",
             "max_high_5d", "max_high_10d", "max_drawdown_5d", "max_drawdown_10d",
             "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
             "big_win_10d", "fail_10d", "t_signal", "z_signal", "l_signal",
         ]
         zf.writestr("replay_tz_wlnbb_return_validation_examples.csv",
                     _to_csv_bytes(validation_examples, val_fields))
+
+        date_audit_fields = [
+            "ticker", "total_rows", "invalid_date_format", "out_of_order_count",
+            "first_date", "last_date", "status",
+        ]
+        zf.writestr("replay_tz_wlnbb_date_order_audit.csv",
+                    _to_csv_bytes(date_audit, date_audit_fields))
 
         zf.writestr("replay_tz_wlnbb_metadata.json",
                     json.dumps(meta, indent=2))

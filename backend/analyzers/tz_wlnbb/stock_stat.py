@@ -13,7 +13,7 @@ from .signal_extraction import compute_signals_for_ticker
 log = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS = [
-    "ticker", "date", "universe", "timeframe", "open", "high", "low", "close", "volume",
+    "ticker", "date", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
     "tz_wlnbb_version",
     "ema9", "ema20", "ema34", "ema50", "ema89", "ema200",
     "t_signal", "z_signal", "t_raw_signals", "z_raw_signals", "bull_priority_code", "bear_priority_code",
@@ -147,6 +147,7 @@ def generate_stock_stat(
     bars: int = 500,  # now calendar_days (default 500 ≈ 320+ trading days)
     output_path: Optional[str] = None,
     progress_callback: Optional[Callable[[int, int], None]] = None,
+    early_stop_fn: Optional[Callable[[], bool]] = None,
 ) -> Tuple[str, dict]:
     """Generate stock_stat CSV. Returns (output_path, audit_dict)."""
     if output_path is None:
@@ -166,21 +167,28 @@ def generate_stock_stat(
         writer.writerow(OUTPUT_COLUMNS)
 
         for ticker in tickers:
+            if early_stop_fn and early_stop_fn():
+                log.info("tz_wlnbb stock_stat: early stop requested after %d tickers", audit["tickers_processed"])
+                break
             try:
                 df = fetch_ohlcv_fn(ticker, tf, bars)
                 if df is None or len(df) < 2:
                     continue
-                df = compute_signals_for_ticker(df, universe)
 
-                # Add date column from index if not present
+                # Extract date from datetime index BEFORE compute_signals_for_ticker
+                # resets it to integer 0,1,2... via reset_index(drop=True).
                 if "date" not in df.columns:
-                    try:
-                        df["date"] = df.index.strftime("%Y-%m-%d")
-                    except Exception:
-                        df["date"] = [str(v)[:10] for v in df.index]
+                    df["date"] = pd.to_datetime(df.index).strftime("%Y-%m-%d")
 
-                # Sort by date ascending before computing forward returns + context
-                df = df.sort_values("date").reset_index(drop=True)
+                df = compute_signals_for_ticker(df, universe)
+                # date column is now preserved as a regular column (not the index).
+
+                # Sort chronologically using datetime parsing, not lexicographic string sort.
+                df = df.sort_values(
+                    by="date",
+                    key=lambda s: pd.to_datetime(s, errors="coerce"),
+                ).reset_index(drop=True)
+                df["bar_index"] = range(len(df))
 
                 # Add forward returns (single-ticker, close-to-close)
                 df = add_forward_returns(df)
@@ -215,7 +223,7 @@ def generate_stock_stat(
                         return v
 
                     writer.writerow([
-                        ticker, date_val, universe, tf,
+                        ticker, date_val, int(row.get("bar_index", 0)), universe, tf,
                         _val(row.get("open")), _val(row.get("high")),
                         _val(row.get("low")), _val(row.get("close")),
                         _val(row.get("volume")),
