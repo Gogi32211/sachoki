@@ -39,6 +39,20 @@ def _primary_signal(r: dict) -> str:
     )
 
 
+def _bar_events(r: dict) -> list:
+    """Return list of (family, signal_name) tuples for every signal active on a bar.
+    Each bar may emit multiple events (e.g. T4 + L34 + PREUP coexist), enabling
+    base sequence detection across all families (Z_to_L, L_to_T, PREUP_after_Z, etc).
+    """
+    events = []
+    if r.get("t_signal"):     events.append(("T",     r["t_signal"]))
+    if r.get("z_signal"):     events.append(("Z",     r["z_signal"]))
+    if r.get("l_signal"):     events.append(("L",     r["l_signal"]))
+    if r.get("preup_signal"): events.append(("PREUP", r["preup_signal"]))
+    if r.get("predn_signal"): events.append(("PREDN", r["predn_signal"]))
+    return events
+
+
 def _full_label(r: dict) -> str:
     """Get suffix-aware full label for the primary signal in a row."""
     if r.get("t_signal"):
@@ -577,55 +591,75 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
         n = len(t_rows)
         for i in range(n):
             curr = t_rows[i]
-            curr_sig = _primary_signal(curr)
-            if not curr_sig:
+            curr_events = _bar_events(curr)
+            if not curr_events:
                 continue
             uni = curr.get("universe", "")
             timeframe = curr.get("timeframe", "")
 
-            # 2-bar sequences: look back 1–5 bars
-            for lag in range(1, 6):
-                if i - lag < 0:
-                    break
-                prev = t_rows[i - lag]
-                prev_sig = _primary_signal(prev)
-                if not prev_sig:
-                    continue
-                fam = sequence_family(prev_sig, curr_sig)
-                if not fam:
-                    continue
-                pattern = f"{prev_sig}->{curr_sig}"
-                key = (fam, pattern, lag, uni, timeframe)
-                seq2_groups.setdefault(key, []).append(curr)
-                if key not in seq2_labels:
-                    seq2_labels[key] = (_full_label(prev), _full_label(curr))
-                break  # only closest prev signal per current bar
+            # 2-bar sequences: for each curr family event, find nearest prev bar
+            # with at least one event forming a known sequence_family combo.
+            for _, curr_sig in curr_events:
+                for lag in range(1, 6):
+                    if i - lag < 0:
+                        break
+                    prev = t_rows[i - lag]
+                    prev_events = _bar_events(prev)
+                    if not prev_events:
+                        continue
+                    matched = False
+                    for _, prev_sig in prev_events:
+                        fam = sequence_family(prev_sig, curr_sig)
+                        if not fam:
+                            continue
+                        pattern = f"{prev_sig}->{curr_sig}"
+                        key = (fam, pattern, lag, uni, timeframe)
+                        seq2_groups.setdefault(key, []).append(curr)
+                        if key not in seq2_labels:
+                            seq2_labels[key] = (_full_label(prev), _full_label(curr))
+                        matched = True
+                    if matched:
+                        break  # nearest matching prev bar for this curr event
 
-            # 3-bar sequences: look back combinations
-            for lag1 in range(1, 4):
-                if i - lag1 < 0:
-                    break
-                mid = t_rows[i - lag1]
-                mid_sig = _primary_signal(mid)
-                if not mid_sig:
-                    continue
-                for lag2 in range(lag1 + 1, lag1 + 4):
-                    if i - lag2 < 0:
+            # 3-bar sequences: for each curr family event, find nearest mid event
+            # with valid family combo, then nearest prev2 event with valid combo.
+            for _, curr_sig in curr_events:
+                mid_found = False
+                for lag1 in range(1, 4):
+                    if i - lag1 < 0 or mid_found:
                         break
-                    prev2 = t_rows[i - lag2]
-                    prev2_sig = _primary_signal(prev2)
-                    if not prev2_sig:
-                        break
-                    fam = (f"{signal_family(prev2_sig)}_to_"
-                           f"{signal_family(mid_sig)}_to_"
-                           f"{signal_family(curr_sig)}")
-                    pattern = f"{prev2_sig}->{mid_sig}->{curr_sig}"
-                    key = (fam, pattern, lag1, lag2, uni, timeframe)
-                    seq3_groups.setdefault(key, []).append(curr)
-                    if key not in seq3_labels:
-                        seq3_labels[key] = (_full_label(prev2), _full_label(curr))
-                    break
-                break
+                    mid = t_rows[i - lag1]
+                    mid_events = _bar_events(mid)
+                    if not mid_events:
+                        continue
+                    for _, mid_sig in mid_events:
+                        if not sequence_family(mid_sig, curr_sig):
+                            continue
+                        # find prev2 for this (mid_sig, curr_sig) chain
+                        for lag2 in range(lag1 + 1, lag1 + 4):
+                            if i - lag2 < 0:
+                                break
+                            prev2 = t_rows[i - lag2]
+                            prev2_events = _bar_events(prev2)
+                            if not prev2_events:
+                                continue
+                            p2_matched = False
+                            for _, prev2_sig in prev2_events:
+                                if not sequence_family(prev2_sig, mid_sig):
+                                    continue
+                                fam = (f"{signal_family(prev2_sig)}_to_"
+                                       f"{signal_family(mid_sig)}_to_"
+                                       f"{signal_family(curr_sig)}")
+                                pattern = f"{prev2_sig}->{mid_sig}->{curr_sig}"
+                                key = (fam, pattern, lag1, lag2, uni, timeframe)
+                                seq3_groups.setdefault(key, []).append(curr)
+                                if key not in seq3_labels:
+                                    seq3_labels[key] = (_full_label(prev2), _full_label(curr))
+                                p2_matched = True
+                            if p2_matched:
+                                break  # nearest prev2 for this mid->curr chain
+                        mid_found = True
+                    # outer continues to next lag1 if no mid event matched
 
     result = []
 
@@ -792,17 +826,21 @@ def _sequence_event_audit(rows: List[dict]) -> List[dict]:
     for ticker, t_rows in by_ticker.items():
         n = len(t_rows)
         for i in range(n):
-            curr = t_rows[i]
-            curr_sig = _primary_signal(curr)
-            if not curr_sig:
+            curr_events = _bar_events(t_rows[i])
+            if not curr_events:
                 continue
+            # has any signal within next 5 bars?
+            has_next = False
             for lag in range(1, 6):
                 if i + lag >= n:
                     break
-                nxt_sig = _primary_signal(t_rows[i + lag])
-                if nxt_sig:
-                    used_in_seq[curr_sig] = used_in_seq.get(curr_sig, 0) + 1
+                if _bar_events(t_rows[i + lag]):
+                    has_next = True
                     break
+            if not has_next:
+                continue
+            for _, curr_sig in curr_events:
+                used_in_seq[curr_sig] = used_in_seq.get(curr_sig, 0) + 1
 
     result = []
     for sig, cnt in signal_counts.items():
@@ -1027,6 +1065,8 @@ def get_config_snapshot() -> dict:
         },
         "composite_label_format": "composite_core + full_suffix",
         "composite_core_format": "T_signal + L_signal (e.g. T3L25, Z4L64, L34, T4)",
+        "base_sequence_scope": "multi-family (T, Z, L, PREUP, PREDN) — every signal on a bar emits an event",
+        "composite_sequence_scope": "T/Z + L composite labels (full_label including suffixes)",
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
     }
 
