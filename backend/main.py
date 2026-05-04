@@ -1379,9 +1379,36 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
             "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
             "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
+            # ── Profile playbook ──────────────────────────────────────────────
+            "profile_name", "profile_score", "profile_category",
+            "sweet_spot_active", "late_warning",
         ]
 
         def _j(lst): return " ".join(lst) if lst else ""
+
+        try:
+            from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row as _pex
+            _profile_ok = True
+        except ImportError:
+            _profile_ok = False
+
+        def _profile_row(b: dict, uni: str, ok: bool) -> list:
+            if not ok:
+                return ["", 0, "WATCH", 0, 0]
+            try:
+                row_proxy = {"close": b.get("close", 0), "tz_sig": b.get("tz", "")}
+                for k, v in b.items():
+                    if isinstance(v, bool):
+                        row_proxy[k] = 1 if v else 0
+                    elif isinstance(v, (int, float)) and k not in row_proxy:
+                        row_proxy[k] = v
+                pname = get_profile(row_proxy, uni)
+                sigs  = _pex(row_proxy)
+                pd    = compute_profile_score(sigs, pname)
+                return [pname, pd["profile_score"], pd["profile_category"],
+                        int(pd["sweet_spot_active"]), int(pd["late_warning"])]
+            except Exception:
+                return ["", 0, "WATCH", 0, 0]
 
         with open(out_path, "w", newline="", encoding="utf-8") as fh:
             wr = csv.writer(fh)
@@ -1452,7 +1479,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             _j(b.get("vol", [])),
                             _j(b.get("vabs", [])),
                             _j(b.get("wick", [])),
-                        ])
+                        ] + _profile_row(b, universe, _profile_ok))
                 except Exception:
                     pass
                 _stock_stat_state["done"] = idx + 1

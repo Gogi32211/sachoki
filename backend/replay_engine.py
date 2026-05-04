@@ -1009,6 +1009,51 @@ def model_perf(rows: List[dict]) -> List[dict]:
     return out
 
 
+# ─── Section 12: Profile playbook performance ─────────────────────────────────
+
+def profile_perf(rows: List[dict]) -> List[dict]:
+    """Group rows by profile_name × profile_category; compute standard perf metrics."""
+    groups: Dict[str, list] = {}
+    for r in rows:
+        pname = r.get("profile_name") or "UNKNOWN"
+        pcat  = r.get("profile_category") or "WATCH"
+        key   = f"{pname}|{pcat}"
+        groups.setdefault(key, []).append(r)
+    out = []
+    for key, grp in sorted(groups.items(), key=lambda x: -x[1][0].get("profile_score", 0) if x[1] else 0):
+        pname, pcat = key.split("|", 1)
+        d = _agg(grp)
+        d["profile_name"]     = pname
+        d["profile_category"] = pcat
+        d["avg_pf_score"]     = round(_mean([float(r.get("profile_score", 0)) for r in grp]), 1)
+        tops = sorted(grp, key=lambda r: -r["_max10"])[:3]
+        d["top_examples"] = "|".join(
+            f"{_str(r,'ticker')}@{_str(r,'date')}(+{r['_max10']:.1f}%)" for r in tops)
+        out.append(d)
+    out.sort(key=lambda x: (x["profile_name"], x["profile_category"]))
+    return out
+
+
+def sweet_spot_perf(rows: List[dict]) -> List[dict]:
+    """Compare sweet_spot_active=True vs False per profile; key validation report."""
+    by_profile: Dict[str, Dict[str, list]] = {}
+    for r in rows:
+        pname = r.get("profile_name") or "UNKNOWN"
+        is_ss = bool(r.get("sweet_spot_active"))
+        by_profile.setdefault(pname, {}).setdefault("sweet" if is_ss else "other", []).append(r)
+    out = []
+    for pname, buckets in sorted(by_profile.items()):
+        for label, grp in buckets.items():
+            if not grp:
+                continue
+            d = _agg(grp)
+            d["profile_name"] = pname
+            d["bucket"]       = label   # "sweet" | "other"
+            d["avg_pf_score"] = round(_mean([float(r.get("profile_score", 0)) for r in grp]), 1)
+            out.append(d)
+    return out
+
+
 # ─── Miss reason (internal helper) ────────────────────────────────────────────
 
 def _miss_reason(r: dict) -> str:
@@ -1585,6 +1630,30 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         if sample_err:
             raise RuntimeError(sample_err)
 
+        # 1d — Enrich rows with profile playbook (profile_name, profile_score, profile_category)
+        _state["message"] = "Enriching rows with profile playbook..."
+        try:
+            from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row
+            for r in rows:
+                try:
+                    pname = get_profile(r, universe)
+                    sigs  = extract_signals_from_turbo_row(r)
+                    pd    = compute_profile_score(sigs, pname)
+                    r["profile_name"]     = pname
+                    r["profile_score"]    = pd["profile_score"]
+                    r["profile_category"] = pd["profile_category"]
+                    r["sweet_spot_active"] = int(pd["sweet_spot_active"])
+                    r["late_warning"]     = int(pd["late_warning"])
+                except Exception:
+                    r.setdefault("profile_name",     "UNKNOWN")
+                    r.setdefault("profile_score",    0)
+                    r.setdefault("profile_category", "WATCH")
+                    r.setdefault("sweet_spot_active", 0)
+                    r.setdefault("late_warning",      0)
+            log.info("Profile enrichment complete: %d rows", len(rows))
+        except ImportError:
+            log.warning("profile_playbook not available — skipping profile enrichment")
+
         # 2 — Forward returns (computed from OHLCV in stock_stat CSV)
         _state["progress"] = 2; _state["message"] = "Computing forward returns from OHLCV..."
         _compute_forward_returns(rows)
@@ -1639,6 +1708,11 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         # 8 — Model perf
         _state["progress"] = 8; _state["message"] = "Named model performance..."
         _save("model_perf", model_perf(rows))
+
+        # 8b — Profile playbook performance
+        _state["message"] = "Profile playbook performance..."
+        cached["profile_perf"]       = _save("profile_perf",       profile_perf(rows))
+        cached["sweet_spot_perf"]    = _save("sweet_spot_perf",    sweet_spot_perf(rows))
 
         # 9 — All missed winners (unified) — full + top500
         _state["progress"] = 9; _state["message"] = "Missed big winners (all categories)..."
