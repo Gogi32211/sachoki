@@ -22,6 +22,15 @@ def _safe_float(v):
         return None
 
 
+def _reward_risk(avg_mfe, avg_mae):
+    """MFE / abs(MAE). None if either is None or MAE=0."""
+    if avg_mfe is None or avg_mae is None:
+        return None
+    if avg_mae == 0:
+        return None
+    return round(avg_mfe / abs(avg_mae), 3)
+
+
 def _primary_signal(r: dict) -> str:
     """Get the primary signal name for a row (T > Z > L > PREUP > PREDN)."""
     return (
@@ -207,6 +216,332 @@ def _suffix_perf(rows: List[dict]) -> List[dict]:
             "big_win_10d_rate": _rate("big_win_10d"),
             "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _composite_perf(rows: List[dict]) -> List[dict]:
+    """
+    Group by composite_full_label + composite_core + all suffix components.
+    Critical file: answers whether T3L25NE works better than T3 alone, etc.
+    """
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        cfl = r.get("composite_full_label", "") or r.get("composite_primary_label", "")
+        if not cfl:
+            continue
+        key = (
+            cfl,
+            r.get("composite_core", ""),
+            r.get("composite_full_suffix", "") or r.get("composite_suffix", ""),
+            r.get("t_signal", ""), r.get("z_signal", ""), r.get("l_signal", ""),
+            r.get("ne_suffix", ""), r.get("wick_suffix", ""), r.get("penetration_suffix", ""),
+            r.get("universe", ""), r.get("timeframe", ""),
+        )
+        groups.setdefault(key, []).append(r)
+
+    result = []
+    for (cfl, core, fsuf, ts, zs, ls, ne, wk, pen, uni, tf), grp in groups.items():
+        def _avg(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals), 4) if vals else None
+        def _med(k, g=grp):
+            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
+            if not vals: return None
+            m = len(vals) // 2
+            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
+        def _rate(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals) * 100, 2) if vals else None
+
+        avg_mfe = _avg("mfe_10d")
+        avg_mae = _avg("mae_10d")
+        result.append({
+            "composite_full_label": cfl, "composite_core": core, "composite_full_suffix": fsuf,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
+            "full_suffix": ne + wk + pen,
+            "universe": uni, "timeframe": tf, "count": len(grp),
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
+            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _wick_behavior_perf(rows: List[dict]) -> List[dict]:
+    """
+    Group by wick_suffix + penetration_suffix + full_suffix + ne_suffix + signal context.
+    Answers: Is U after T4 continuation or exhaustion? Is R after Z4 absorption?
+    """
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        wk  = r.get("wick_suffix", "")
+        pen = r.get("penetration_suffix", "")
+        ne  = r.get("ne_suffix", "")
+        full = ne + wk + pen
+        ts  = r.get("t_signal", "")
+        zs  = r.get("z_signal", "")
+        ls  = r.get("l_signal", "")
+        ps  = r.get("preup_signal", "")
+        ds  = r.get("predn_signal", "")
+        uni = r.get("universe", "")
+        tf  = r.get("timeframe", "")
+        if not any([wk, pen]):
+            continue
+        key = (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf)
+        groups.setdefault(key, []).append(r)
+
+    result = []
+    for (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf), grp in groups.items():
+        def _avg(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals), 4) if vals else None
+        def _med(k, g=grp):
+            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
+            if not vals: return None
+            m = len(vals) // 2
+            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
+        def _rate(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals) * 100, 2) if vals else None
+
+        avg_mfe = _avg("mfe_10d")
+        avg_mae = _avg("mae_10d")
+        result.append({
+            "wick_suffix": wk, "penetration_suffix": pen, "full_suffix": full, "ne_suffix": ne,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "preup_signal": ps, "predn_signal": ds,
+            "universe": uni, "timeframe": tf, "count": len(grp),
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
+            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
+    """
+    2-bar and 3-bar sequences using composite full labels.
+    E.g. Z4L64ER -> T4L34NDP (base: Z4->T4)
+    """
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+
+    def _parse_date(d):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    seq2: Dict[tuple, list] = {}
+    seq3: Dict[tuple, list] = {}
+    # Store first-seen full labels per key
+    seq2_labels: Dict[tuple, tuple] = {}
+    seq3_labels: Dict[tuple, tuple] = {}
+
+    def _clabel(r):
+        return (r.get("composite_primary_label") or
+                r.get("composite_full_label") or
+                _full_label(r) or "")
+
+    def _csuf(r):
+        return r.get("ne_suffix", "") + r.get("wick_suffix", "") + r.get("penetration_suffix", "")
+
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_lbl = _clabel(curr)
+            curr_base = _primary_signal(curr)
+            if not curr_lbl:
+                continue
+            uni = curr.get("universe", "")
+            tf  = curr.get("timeframe", "")
+
+            # 2-bar sequences
+            for lag in range(1, 6):
+                if i - lag < 0:
+                    break
+                prev = t_rows[i - lag]
+                prev_lbl = _clabel(prev)
+                prev_base = _primary_signal(prev)
+                if not prev_lbl:
+                    continue
+                composite_pat = f"{prev_lbl}->{curr_lbl}"
+                base_pat      = f"{prev_base}->{curr_base}"
+                key = (composite_pat, base_pat, lag, uni, tf)
+                seq2.setdefault(key, []).append(curr)
+                if key not in seq2_labels:
+                    seq2_labels[key] = (
+                        prev_lbl, curr_lbl,
+                        _csuf(prev), _csuf(curr),
+                        prev.get("wick_suffix", ""), prev.get("penetration_suffix", ""),
+                        curr.get("wick_suffix", ""), curr.get("penetration_suffix", ""),
+                    )
+                break
+
+            # 3-bar sequences
+            for lag1 in range(1, 4):
+                if i - lag1 < 0: break
+                mid = t_rows[i - lag1]
+                mid_lbl = _clabel(mid)
+                if not mid_lbl: continue
+                for lag2 in range(lag1 + 1, lag1 + 4):
+                    if i - lag2 < 0: break
+                    prev2 = t_rows[i - lag2]
+                    prev2_lbl = _clabel(prev2)
+                    if not prev2_lbl: break
+                    composite_pat = f"{prev2_lbl}->{mid_lbl}->{curr_lbl}"
+                    base_pat = (f"{_primary_signal(prev2)}->"
+                                f"{_primary_signal(mid)}->{curr_base}")
+                    key = (composite_pat, base_pat, lag1, lag2, uni, tf)
+                    seq3.setdefault(key, []).append(curr)
+                    if key not in seq3_labels:
+                        seq3_labels[key] = (
+                            prev2_lbl, curr_lbl,
+                            _csuf(prev2), _csuf(curr),
+                            prev2.get("wick_suffix", ""), prev2.get("penetration_suffix", ""),
+                            curr.get("wick_suffix", ""), curr.get("penetration_suffix", ""),
+                        )
+                    break
+                break
+
+    result = []
+
+    def _make_stats(grp):
+        def _avg(k):
+            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals), 4) if vals else None
+        def _med(k):
+            vals = sorted(v for r in grp for v in [_safe_float(r.get(k))] if v is not None)
+            if not vals: return None
+            m = len(vals) // 2
+            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
+        def _rate(k):
+            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals) * 100, 2) if vals else None
+        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
+        return _avg, _med, _rate, avg_mfe, avg_mae
+
+    for (cpat, bpat, lag, uni, tf), grp in seq2.items():
+        lbl_data = seq2_labels.get((cpat, bpat, lag, uni, tf), ("","","","","","","",""))
+        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
+        result.append({
+            "sequence_type": "2bar",
+            "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
+            "bars_between": lag, "bars_between_1": lag, "bars_between_2": "",
+            "universe": uni, "timeframe": tf, "count": len(grp),
+            "source_full_label": lbl_data[0], "confirmation_full_label": lbl_data[1],
+            "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
+            "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
+            "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
+            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+        })
+
+    for (cpat, bpat, lag1, lag2, uni, tf), grp in seq3.items():
+        lbl_data = seq3_labels.get((cpat, bpat, lag1, lag2, uni, tf), ("","","","","","","",""))
+        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
+        result.append({
+            "sequence_type": "3bar",
+            "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
+            "bars_between": lag1, "bars_between_1": lag1, "bars_between_2": lag2,
+            "universe": uni, "timeframe": tf, "count": len(grp),
+            "source_full_label": lbl_data[0], "confirmation_full_label": lbl_data[1],
+            "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
+            "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
+            "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
+            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+        })
+
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _wick_sequence_perf(rows: List[dict]) -> List[dict]:
+    """
+    Sequences of wick extension/penetration patterns between bars.
+    E.g. D->P within 1-3 bars, B->T4 within 1-3 bars.
+    """
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+
+    def _parse_date(d):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    def _wick_key(r):
+        wk = r.get("wick_suffix", "")
+        pen = r.get("penetration_suffix", "")
+        return wk + pen  # e.g. "DP", "UP", "BH", "R", "D"
+
+    groups: Dict[tuple, list] = {}
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_wk = _wick_key(curr)
+            if not curr_wk:
+                continue
+            uni = curr.get("universe", "")
+            tf  = curr.get("timeframe", "")
+            base_sig = _primary_signal(curr)
+            for lag in range(1, 4):
+                if i - lag < 0:
+                    break
+                prev = t_rows[i - lag]
+                prev_wk = _wick_key(prev)
+                if not prev_wk:
+                    continue
+                pat = f"{prev_wk}->{curr_wk}"
+                key = (pat, base_sig, lag, uni, tf)
+                groups.setdefault(key, []).append(curr)
+                break
+
+    result = []
+    for (pat, base_sig, lag, uni, tf), grp in groups.items():
+        def _avg(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals), 4) if vals else None
+        def _med(k, g=grp):
+            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
+            if not vals: return None
+            m = len(vals) // 2
+            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
+        def _rate(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals) * 100, 2) if vals else None
+        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
+        result.append({
+            "wick_sequence_pattern": pat, "base_signal_context": base_sig,
+            "bars_between": lag, "universe": uni, "timeframe": tf, "count": len(grp),
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
+            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -530,6 +865,38 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
     meta["rows_with_penetration_h"] = rows_with_pen_h
     meta["rows_with_any_penetration_suffix"] = rows_with_any_pen
 
+    # Composite counts
+    meta["rows_with_composite_t_label"]    = sum(1 for r in rows if r.get("composite_t_label") or r.get("t_signal"))
+    meta["rows_with_composite_z_label"]    = sum(1 for r in rows if r.get("composite_z_label") or r.get("z_signal"))
+    meta["rows_with_composite_primary_label"] = sum(1 for r in rows if r.get("composite_primary_label") or r.get("composite_full_label"))
+    meta["unique_composite_full_labels"]   = len(set(r.get("composite_full_label") or r.get("composite_primary_label", "") for r in rows if r.get("composite_full_label") or r.get("composite_primary_label")))
+    meta["unique_composite_cores"]         = len(set(r.get("composite_core", "") for r in rows if r.get("composite_core")))
+
+    # Wick extension counts
+    meta["rows_with_wick_u"]   = sum(1 for r in rows if r.get("wick_suffix") == "U")
+    meta["rows_with_wick_d"]   = sum(1 for r in rows if r.get("wick_suffix") == "D")
+    meta["rows_with_wick_b"]   = sum(1 for r in rows if r.get("wick_suffix") == "B")
+    meta["rows_with_any_wick_extension"] = sum(1 for r in rows if r.get("wick_suffix") in ("U", "D", "B"))
+
+    # Penetration counts (may already exist from earlier version, update/overwrite)
+    meta["rows_with_penetration_p"] = sum(1 for r in rows if r.get("penetration_suffix") == "P")
+    meta["rows_with_penetration_r"] = sum(1 for r in rows if r.get("penetration_suffix") == "R")
+    meta["rows_with_penetration_h"] = sum(1 for r in rows if r.get("penetration_suffix") == "H")
+    meta["rows_with_any_penetration_suffix"] = sum(1 for r in rows if r.get("penetration_suffix") in ("P", "R", "H"))
+
+    # Distributions
+    from collections import Counter
+    wk_dist = Counter(r.get("wick_suffix", "") for r in rows if r.get("wick_suffix"))
+    pen_dist = Counter(r.get("penetration_suffix", "") for r in rows if r.get("penetration_suffix"))
+    full_dist_items = Counter(
+        (r.get("ne_suffix", "") + r.get("wick_suffix", "") + r.get("penetration_suffix", ""))
+        for r in rows
+        if r.get("ne_suffix") or r.get("wick_suffix") or r.get("penetration_suffix")
+    )
+    meta["wick_suffix_distribution"]        = dict(wk_dist.most_common(10))
+    meta["penetration_suffix_distribution"] = dict(pen_dist.most_common(10))
+    meta["full_suffix_distribution"]        = dict(full_dist_items.most_common(20))
+
     if audit:
         meta.update(audit)
     return meta
@@ -572,6 +939,17 @@ def get_config_snapshot() -> dict:
             "empty": "no wick-zone penetration",
         },
         "full_suffix_format": "ne_suffix + wick_suffix + penetration_suffix",
+        "composite_state_enabled": True,
+        "wick_behavior_analytics_enabled": True,
+        "wick_extension_logic": {
+            "U": "current high > previous high (liquidity sweep up)",
+            "D": "current low < previous low (liquidity sweep down)",
+            "B": "both high > previous high and low < previous low",
+            "empty": "no wick extension beyond previous bar range",
+        },
+        "composite_label_format": "composite_core + full_suffix",
+        "composite_core_format": "T_signal + L_signal (e.g. T3L25, Z4L64, L34, T4)",
+        "output_schema_version": OUTPUT_SCHEMA_VERSION,
     }
 
 
@@ -589,6 +967,10 @@ def generate_replay_zip(
     cp = _combo_perf(rows)
     sq = _sequence_perf_expanded(rows)
     suffix_perf = _suffix_perf(rows)
+    cp_composite = _composite_perf(rows)
+    wp = _wick_behavior_perf(rows)
+    csp = _composite_sequence_perf(rows)
+    wsp = _wick_sequence_perf(rows)
 
     top = [r for r in sp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
@@ -596,6 +978,21 @@ def generate_replay_zip(
     bad = [r for r in sp if (_safe_float(r.get("avg_ret_10d")) or 0) < 0
            or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
     bad.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
+    top_composites = [r for r in cp_composite if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
+    top_composites.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_composites = [r for r in cp_composite if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    bad_composites.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
+    top_composite_seqs = [r for r in csp if (r.get("count") or 0) >= 20 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
+    top_composite_seqs.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_composite_seqs = [r for r in csp if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    bad_composite_seqs.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
+    top_wick = [r for r in wp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
+    top_wick.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_wick = [r for r in wp if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    bad_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
     suspicious = _suspicious_patterns(sq)
     validation_examples = _return_validation_examples(rows)
@@ -687,6 +1084,65 @@ def generate_replay_zip(
 
         zf.writestr("tz_wlnbb_config_snapshot.json",
                     json.dumps(config_snap, indent=2))
+
+        composite_fields = [
+            "composite_full_label", "composite_core", "composite_full_suffix",
+            "t_signal", "z_signal", "l_signal", "ne_suffix", "wick_suffix",
+            "penetration_suffix", "full_suffix", "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_composite_perf.csv",
+                    _to_csv_bytes(cp_composite, composite_fields))
+        zf.writestr("replay_tz_wlnbb_top_composites.csv",
+                    _to_csv_bytes(top_composites, composite_fields))
+        zf.writestr("replay_tz_wlnbb_bad_composites.csv",
+                    _to_csv_bytes(bad_composites, composite_fields))
+
+        wick_fields = [
+            "wick_suffix", "penetration_suffix", "full_suffix", "ne_suffix",
+            "t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal",
+            "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_wick_behavior_perf.csv",
+                    _to_csv_bytes(wp, wick_fields))
+        zf.writestr("replay_tz_wlnbb_top_wick_patterns.csv",
+                    _to_csv_bytes(top_wick, wick_fields))
+        zf.writestr("replay_tz_wlnbb_bad_wick_patterns.csv",
+                    _to_csv_bytes(bad_wick, wick_fields))
+
+        cseq_fields = [
+            "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",
+            "bars_between", "bars_between_1", "bars_between_2",
+            "universe", "timeframe", "count",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
+            "source_wick_suffix", "source_penetration_suffix",
+            "confirmation_wick_suffix", "confirmation_penetration_suffix",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_composite_sequence_perf.csv",
+                    _to_csv_bytes(csp, cseq_fields))
+        zf.writestr("replay_tz_wlnbb_top_composite_sequences.csv",
+                    _to_csv_bytes(top_composite_seqs, cseq_fields))
+        zf.writestr("replay_tz_wlnbb_bad_composite_sequences.csv",
+                    _to_csv_bytes(bad_composite_seqs, cseq_fields))
+
+        wseq_fields = [
+            "wick_sequence_pattern", "base_signal_context", "bars_between",
+            "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_wick_sequence_perf.csv",
+                    _to_csv_bytes(wsp, wseq_fields))
 
         if suspicious:
             zf.writestr("replay_tz_wlnbb_suspicious_return_patterns.csv",
