@@ -564,6 +564,14 @@ def get_config_snapshot() -> dict:
         },
         "known_signal_registry": sorted(ALL_KNOWN_SIGNALS),
         "sequence_families_enabled": SEQUENCE_FAMILIES,
+        "penetration_suffix_enabled": True,
+        "penetration_suffix_logic": {
+            "P": "current high inside previous upper wick zone (high >= prevBodyTop and high <= prev_high)",
+            "R": "current low inside previous lower wick zone (low <= prevBodyBot and low >= prev_low)",
+            "H": "both P and R true",
+            "empty": "no wick-zone penetration",
+        },
+        "full_suffix_format": "ne_suffix + wick_suffix + penetration_suffix",
     }
 
 
@@ -580,6 +588,7 @@ def generate_replay_zip(
     sp = _signal_perf(rows)
     cp = _combo_perf(rows)
     sq = _sequence_perf_expanded(rows)
+    suffix_perf = _suffix_perf(rows)
 
     top = [r for r in sp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
@@ -618,7 +627,7 @@ def generate_replay_zip(
 
         cp_fields = [
             "t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal",
-            "ne_suffix", "wick_suffix", "count",
+            "ne_suffix", "wick_suffix", "penetration_suffix", "full_suffix", "count",
             "avg_ret_5d", "avg_ret_10d", "median_ret_5d", "median_ret_10d",
             "big_win_10d_rate", "fail_10d_rate", "avg_mfe_10d", "avg_mae_10d",
             "tz_wlnbb_version",
@@ -632,8 +641,20 @@ def generate_replay_zip(
             "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
             "median_ret_5d", "median_ret_10d",
             "big_win_10d_rate", "fail_10d_rate", "avg_mfe_10d", "avg_mae_10d",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
         ]
         zf.writestr("replay_tz_wlnbb_sequence_perf.csv", _to_csv_bytes(sq, sq_fields))
+
+        suffix_perf_fields = [
+            "signal_type", "signal_name", "ne_suffix", "wick_suffix", "penetration_suffix",
+            "full_suffix", "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d",
+        ]
+        zf.writestr("replay_tz_wlnbb_suffix_perf.csv", _to_csv_bytes(suffix_perf, suffix_perf_fields))
+
         zf.writestr("replay_tz_wlnbb_top_patterns.csv",  _to_csv_bytes(top, sp_fields))
         zf.writestr("replay_tz_wlnbb_bad_patterns.csv",  _to_csv_bytes(bad, sp_fields))
 

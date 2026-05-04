@@ -755,6 +755,125 @@ def test_config_snapshot_v2():
     assert len(snap["sequence_families_enabled"]) >= 8
 
 
+# ── Test 34: Penetration suffix — upper wick (P) ──────────────────────────────
+
+def test_penetration_upper_only():
+    # prev: open=100, close=105 → prevBodyTop=105, prevBodyBot=100; high=110, low=95
+    # curr: high=107 (>= prevBodyTop=105, <= prev_high=110), low=103 (> prevBodyBot=100)
+    r = _bar(
+        o=101.0, h=107.0, l=103.0, c=106.0,
+        prev_o=100.0, prev_h=110.0, prev_l=95.0, prev_c=105.0,
+    )
+    assert r["wick_penetration_upper"] is True
+    assert r["wick_penetration_lower"] is False
+    assert r["wick_penetration_both"] is False
+    assert r["penetration_suffix"] == "P"
+
+
+# ── Test 35: Penetration suffix — lower wick (R) ──────────────────────────────
+
+def test_penetration_lower_only():
+    # prev: open=105, close=100 → prevBodyTop=105, prevBodyBot=100; high=110, low=95
+    # curr: low=98 (<= prevBodyBot=100, >= prev_low=95), high=99 (< prevBodyTop=105)
+    r = _bar(
+        o=99.0, h=99.0, l=98.0, c=98.5,
+        prev_o=105.0, prev_h=110.0, prev_l=95.0, prev_c=100.0,
+    )
+    assert r["wick_penetration_lower"] is True
+    assert r["wick_penetration_upper"] is False
+    assert r["wick_penetration_both"] is False
+    assert r["penetration_suffix"] == "R"
+
+
+# ── Test 36: Penetration suffix — both sides (H) ─────────────────────────────
+
+def test_penetration_both():
+    # prev: open=100, close=105 → prevBodyTop=105, prevBodyBot=100; high=110, low=95
+    # curr: high=107 (P), low=98 (R)
+    r = _bar(
+        o=101.0, h=107.0, l=98.0, c=104.0,
+        prev_o=100.0, prev_h=110.0, prev_l=95.0, prev_c=105.0,
+    )
+    assert r["wick_penetration_upper"] is True
+    assert r["wick_penetration_lower"] is True
+    assert r["wick_penetration_both"] is True
+    assert r["penetration_suffix"] == "H"
+
+
+# ── Test 37: Penetration suffix — no penetration ────────────────────────────
+
+def test_penetration_none():
+    # curr high above prev high (exceeds upper wick) → NOT in zone
+    # curr low below prev low (below lower wick) → NOT in zone
+    r = _bar(
+        o=100.0, h=115.0, l=90.0, c=105.0,
+        prev_o=100.0, prev_h=110.0, prev_l=95.0, prev_c=105.0,
+    )
+    assert r["wick_penetration_upper"] is False
+    assert r["wick_penetration_lower"] is False
+    assert r["penetration_suffix"] == ""
+
+
+# ── Test 38: Label format includes penetration suffix ────────────────────────
+
+def test_label_includes_penetration_suffix():
+    # Construct a T4 scenario (bearish prev engulfed by bullish curr)
+    # with wick penetration P (upper only)
+    # prev: bear, open=110, close=90, high=115, low=85
+    # curr: bull, open=88, close=112 → T4 (engulfs prev body)
+    # curr high=113 → between prevBodyTop=110 and prev_high=115 → P
+    # curr low=92 → above prevBodyBot=90, so no R. curr high=113 → between 110..115 → P
+    r = _bar(
+        o=88.0, h=113.0, l=92.0, c=112.0,
+        prev_o=110.0, prev_h=115.0, prev_l=85.0, prev_c=90.0,
+    )
+    assert r["penetration_suffix"] == "P"
+    # Lane label should end with penetration_suffix
+    if r["lane1_label"]:
+        assert r["lane1_label"].endswith("P"), f"lane1_label={r['lane1_label']} should end with P"
+
+
+# ── Test 39: Label no penetration has no P/R/H suffix ────────────────────────
+
+def test_label_no_penetration_no_suffix():
+    # curr exceeds prev range entirely → no penetration
+    r = _bar(
+        o=85.0, h=120.0, l=83.0, c=115.0,
+        prev_o=110.0, prev_h=112.0, prev_l=88.0, prev_c=90.0,
+    )
+    assert r["penetration_suffix"] == ""
+    if r["lane1_label"]:
+        assert not r["lane1_label"].endswith("P")
+        assert not r["lane1_label"].endswith("R")
+        assert not r["lane1_label"].endswith("H")
+
+
+# ── Test 40: stock_stat CSV columns include penetration fields ────────────────
+
+def test_stock_stat_output_columns_include_penetration():
+    from analyzers.tz_wlnbb.stock_stat import OUTPUT_COLUMNS
+    assert "penetration_suffix" in OUTPUT_COLUMNS
+    assert "wick_penetration_upper" in OUTPUT_COLUMNS
+    assert "wick_penetration_lower" in OUTPUT_COLUMNS
+    assert "wick_penetration_both" in OUTPUT_COLUMNS
+
+
+# ── Test 41: No regression — existing signals unaffected ─────────────────────
+
+def test_penetration_no_regression_t4():
+    # T4 scenario from test 1 — must still produce T4
+    r = _bar(
+        o=85.0, h=120.0, l=83.0, c=115.0,
+        prev_o=110.0, prev_h=112.0, prev_l=88.0, prev_c=90.0,
+    )
+    assert r["t_signal"] == "T4"
+    # New fields must be present
+    assert "penetration_suffix" in r
+    assert "wick_penetration_upper" in r
+    assert "wick_penetration_lower" in r
+    assert "wick_penetration_both" in r
+
+
 if __name__ == "__main__":
     # Run all tests manually
     tests = [
@@ -792,6 +911,15 @@ if __name__ == "__main__":
         test_output_csv_naming,
         test_metadata_fields,
         test_config_snapshot_v2,
+        # New v3 tests (penetration suffix)
+        test_penetration_upper_only,
+        test_penetration_lower_only,
+        test_penetration_both,
+        test_penetration_none,
+        test_label_includes_penetration_suffix,
+        test_label_no_penetration_no_suffix,
+        test_stock_stat_output_columns_include_penetration,
+        test_penetration_no_regression_t4,
     ]
     passed = 0
     failed = 0
