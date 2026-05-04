@@ -551,7 +551,10 @@ def compute_profile_playbook_for_row(
     profile      = PROFILES.get(profile_name)
 
     # Extract current bar's active signals
-    active_signals: Set[str] = extract_profile_signals_from_stat_row(row)
+    # Union stat-row (list/string columns) and turbo-row (boolean columns) to handle both formats
+    active_signals: Set[str] = (
+        extract_profile_signals_from_stat_row(row) | extract_signals_from_turbo_row(row)
+    )
 
     # ── Base profile score (signal_weights + pair_bonuses) ────────────────────
     base_score = 0
