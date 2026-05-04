@@ -1922,9 +1922,14 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
         def _fetch(ticker, interval, n_bars):
             return _fetch_ohlcv(ticker, interval, n_bars)
 
+        def _on_progress(done, total):
+            _tz_wlnbb_state["done"] = done
+            _tz_wlnbb_state["total"] = total
+
         path = generate_stock_stat(
             tickers, _fetch, universe=universe, tf=tf, bars=bars,
             output_path=f"stock_stat_tz_wlnbb_{tf}.csv",
+            progress_callback=_on_progress,
         )
         _tz_wlnbb_state["output"] = path
     except Exception as exc:
