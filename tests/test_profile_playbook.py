@@ -236,9 +236,12 @@ def test_ultra_display_aliases():
     assert normalize_signal_token("BB↓")   == "BB_DN"
 
 def test_vol_aliases():
-    assert normalize_signal_token("5×")  == "5X"
-    assert normalize_signal_token("10×") == "10X"
-    assert normalize_signal_token("20×") == "20X"
+    assert normalize_signal_token("5×")  == "VOL_5X"
+    assert normalize_signal_token("10×") == "VOL_10X"
+    assert normalize_signal_token("20×") == "VOL_20X"
+    assert normalize_signal_token("5X")  == "VOL_5X"
+    assert normalize_signal_token("10X") == "VOL_10X"
+    assert normalize_signal_token("20X") == "VOL_20X"
 
 
 # ── extract_profile_signals_from_stat_row ────────────────────────────────────
@@ -272,8 +275,8 @@ def test_extract_from_bar_dict_lists():
     assert "LOAD"    in sigs
     assert "G4"      in sigs
     assert "G11"     in sigs
-    assert "EB_UP"   in sigs
-    assert "5X"      in sigs
+    assert "EB_UP"    in sigs
+    assert "VOL_5X"  in sigs
     assert "WC_UP"   in sigs
     assert "T5"      in sigs
 
@@ -299,7 +302,7 @@ def test_extract_from_csv_string_columns():
     assert "BX_UP"   in sigs
     assert "BB_UP"   in sigs
     assert "EB_UP"   in sigs
-    assert "5X"      in sigs
+    assert "VOL_5X"  in sigs
     assert "WC_UP"   in sigs
     assert "T10"     in sigs
     assert "BUY"     in sigs
@@ -315,8 +318,8 @@ def test_extract_fly_abcd_bare():
 def test_extract_vol_tokens():
     row = {"VOL": "5× 10×", "close": 100}
     sigs = extract_profile_signals_from_stat_row(row)
-    assert "5X"  in sigs
-    assert "10X" in sigs
+    assert "VOL_5X"  in sigs
+    assert "VOL_10X" in sigs
 
 def test_extract_tz_z_column():
     row = {"Z": "Z3", "close": 100}
@@ -382,6 +385,60 @@ def test_ult_fbo_up_maps():
     row = {"ultra": ["FBO↑"], "close": 100}
     sigs = extract_profile_signals_from_stat_row(row)
     assert "FBO_UP" in sigs
+
+
+# ── Hard non-zero score tests ─────────────────────────────────────────────────
+
+def test_nasdaq_penny_vol5x_scores():
+    """VOL_5X alias feeds into NASDAQ_PENNY signal_weights and produces non-zero score."""
+    row = {"close": 2.0, "vol": ["5×"], "VOL": "5×"}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "VOL_5X" in sigs, f"VOL_5X missing from {sigs}"
+    pname = get_profile(row, "nasdaq")
+    assert pname == "NASDAQ_PENNY"
+    pd = compute_profile_score(sigs, pname)
+    assert pd["profile_score"] == 4, f"Expected 4 (VOL_5X weight), got {pd['profile_score']}"
+
+def test_nasdaq_penny_vol20x_scores():
+    """VOL_20X is highest-weighted vol signal in NASDAQ_PENNY."""
+    sigs = {"VOL_20X", "CONSO"}
+    pd = compute_profile_score(sigs, "NASDAQ_PENNY")
+    assert pd["profile_score"] == 6 + 4, f"Expected 10, got {pd['profile_score']}"
+
+def test_sp500_50_150_buy_svs_abs_nonzero():
+    """SP500_50_150 with BUY+SVS+ABS from vabs/combo lists → non-zero score."""
+    row = {
+        "close": 100.0,
+        "combo": ["BUY", "SVS"],
+        "vabs":  ["ABS", "LOAD", "CLM"],
+        "l":     [], "f": [], "fly": [], "g": [], "b": [], "vol": [], "wick": [], "ultra": [],
+    }
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "BUY"  in sigs, f"BUY missing from {sigs}"
+    assert "SVS"  in sigs, f"SVS missing from {sigs}"
+    assert "ABS"  in sigs, f"ABS missing from {sigs}"
+    assert "LOAD" in sigs, f"LOAD missing from {sigs}"
+    pname = get_profile(row, "sp500")
+    assert pname == "SP500_50_150"
+    pd = compute_profile_score(sigs, pname)
+    # BUY(4)+SVS(4)+ABS(3)+LOAD(3)+CLM(2) = 16
+    assert pd["profile_score"] == 16, f"Expected 16, got {pd['profile_score']} signals={sigs}"
+    assert pd["profile_category"] in {"SWEET_SPOT", "BUILDING", "LATE"}
+
+def test_sp500_fly_bd_scores_correctly():
+    """FLY-BD in fly list resolves to FLY_BD with weight 5 in SP500_50_150."""
+    row = {"close": 100.0, "fly": ["FLY-BD"]}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "FLY_BD" in sigs
+    pd = compute_profile_score(sigs, "SP500_50_150")
+    assert pd["profile_score"] == 5
+
+def test_turbo_map_vol_spike_5x_maps_to_vol_5x():
+    """_TURBO_SIGNAL_MAP vol_spike_5x → VOL_5X (not 5X)."""
+    row = {"vol_spike_5x": 1, "vol_spike_10x": 0, "vol_spike_20x": 0}
+    sigs = extract_signals_from_turbo_row(row)
+    assert "VOL_5X" in sigs, f"VOL_5X missing, got {sigs}"
+    assert "5X" not in sigs
 
 
 if __name__ == "__main__":

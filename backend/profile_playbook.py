@@ -59,9 +59,9 @@ SIGNAL_ALIASES: Dict[str, str] = {
     "ATR↑": "ATR_BRK", "ATR_BRK": "ATR_BRK",
     # Star / vol
     "BEST★": "BEST_STAR", "BEST*": "BEST_STAR", "BEST_STAR": "BEST_STAR",
-    "5×": "5X", "5X": "5X",
-    "10×": "10X", "10X": "10X",
-    "20×": "20X", "20X": "20X",
+    "5×": "VOL_5X",  "5X": "VOL_5X",  "VOL_5X":  "VOL_5X",
+    "10×": "VOL_10X", "10X": "VOL_10X", "VOL_10X": "VOL_10X",
+    "20×": "VOL_20X", "20X": "VOL_20X", "VOL_20X": "VOL_20X",
     # Bias
     "↓BIAS": "BIAS_DN", "BIAS↓": "BIAS_DN", "BIAS_DN": "BIAS_DN",
     "↑BIAS": "BIAS_UP", "BIAS↑": "BIAS_UP", "BIAS_UP": "BIAS_UP",
@@ -196,11 +196,11 @@ PROFILES: Dict[str, dict] = {
         "suggested_sl": 0.05,
         "max_hold": 20,
         "signal_weights": {
-            "20X": 6, "10X": 5, "5X": 4, "CONSO": 4, "SC": 4,
+            "VOL_20X": 6, "VOL_10X": 5, "VOL_5X": 4, "CONSO": 4, "SC": 4,
             "T11": 3, "Z7": 3, "BX_DN": 3, "FRI64": 2, "VBO_UP": 3,
         },
         "pair_bonuses": {
-            ("SC", "T1"): 10, ("5X", "CONSO"): 8, ("BIAS_DN", "VBO_UP"): 8,
+            ("SC", "T1"): 10, ("VOL_5X", "CONSO"): 8, ("BIAS_DN", "VBO_UP"): 8,
         },
         "sweet_spot": (10, 32),
         "late_threshold": 32,
@@ -224,7 +224,7 @@ PROFILES: Dict[str, dict] = {
         "pair_bonuses": {
             ("B10", "BEST_STAR"): 10, ("B2", "RL"): 8, ("BUY", "Z3"): 8,
             ("BB_UP", "FRI34"): 8, ("BX_UP", "F5"): 8, ("BX_DN", "L555"): 8,
-            ("5X", "Z3"): 7, ("CCIB", "UM"): 7, ("STRONG", "T11"): 7,
+            ("VOL_5X", "Z3"): 7, ("CCIB", "UM"): 7, ("STRONG", "T11"): 7,
             ("B11", "T3"): 7, ("T11", "WC_UP"): 7,
             ("LOAD", "T10"): 7, ("SVS", "T10"): 7, ("G4", "BUY"): 7,
         },
@@ -255,7 +255,7 @@ _TURBO_SIGNAL_MAP: Dict[str, str] = {
     "best_sig": "BEST_STAR",
     "strong_sig": "STRONG",
     "vbo_up": "VBO_UP", "vbo_dn": "VBO_DN",
-    "vol_spike_5x": "5X", "vol_spike_10x": "10X", "vol_spike_20x": "20X",
+    "vol_spike_5x": "VOL_5X", "vol_spike_10x": "VOL_10X", "vol_spike_20x": "VOL_20X",
     "fly_bd": "FLY_BD", "fly_abcd": "FLY_ABCD",
     "fly_cd": "FLY_CD", "fly_ad": "FLY_AD",
     "eb_bull": "EB_UP", "eb_bear": "EB_DN",
@@ -421,6 +421,9 @@ def profile_unscored_signals(rows: List[dict]) -> List[dict]:
 
     Returns rows sorted by frequency descending, useful for identifying
     display-name mismatches or signals missing from signal_weights.
+
+    CSV columns: generated_at, raw_signal, normalized_signal, count,
+                 source_columns, example_tickers, example_dates
     """
     import time as _time
 
@@ -431,33 +434,64 @@ def profile_unscored_signals(rows: List[dict]) -> List[dict]:
         for pair in p["pair_bonuses"].keys():
             scored.update(pair)
 
-    from collections import defaultdict
     sig_data: Dict[str, dict] = {}
 
+    def _track(raw_tok: str, norm: str, col_label: str, ticker: str, date: str) -> None:
+        if not norm or norm in scored:
+            return
+        if norm not in sig_data:
+            sig_data[norm] = {
+                "raw_signal": raw_tok,
+                "count": 0,
+                "source_columns": set(),
+                "tickers": [],
+                "dates": [],
+            }
+        d = sig_data[norm]
+        d["count"] += 1
+        d["source_columns"].add(col_label)
+        if len(d["tickers"]) < 3:
+            d["tickers"].append(ticker)
+            d["dates"].append(date)
+
     for r in rows:
-        sigs = extract_profile_signals_from_stat_row(r)
         ticker = str(r.get("ticker", ""))
         date   = str(r.get("date", ""))
-        for sig in sigs:
-            if sig in scored:
+
+        for bar_key, csv_key in _STAT_COL_PAIRS:
+            val = r.get(bar_key)
+            col_label = bar_key
+            if val is None:
+                val = r.get(csv_key)
+                col_label = csv_key
+            if val is None:
                 continue
-            if sig not in sig_data:
-                sig_data[sig] = {"count": 0, "tickers": [], "dates": []}
-            d = sig_data[sig]
-            d["count"] += 1
-            if len(d["tickers"]) < 3:
-                d["tickers"].append(ticker)
-                d["dates"].append(date)
+            if isinstance(val, list):
+                for tok in val:
+                    raw = str(tok).strip()
+                    if raw:
+                        _track(raw, normalize_signal_token(raw), col_label, ticker, date)
+            elif isinstance(val, str) and val.strip():
+                for raw in re.split(r"[\s,|;]+", val.strip()):
+                    if raw:
+                        _track(raw, normalize_signal_token(raw), col_label, ticker, date)
+
+        for tz_key in ("tz", "Z", "T"):
+            tz = str(r.get(tz_key) or "").strip()
+            if tz:
+                _track(tz, normalize_signal_token(tz), tz_key, ticker, date)
 
     now = _time.strftime("%Y-%m-%dT%H:%M:%S")
     out = []
-    for sig, d in sig_data.items():
+    for norm, d in sig_data.items():
         if d["count"] < 5:
             continue
         out.append({
             "generated_at":      now,
-            "normalized_signal": sig,
+            "raw_signal":        d["raw_signal"],
+            "normalized_signal": norm,
             "count":             d["count"],
+            "source_columns":    "|".join(sorted(d["source_columns"])),
             "example_tickers":   "|".join(d["tickers"]),
             "example_dates":     "|".join(d["dates"]),
         })

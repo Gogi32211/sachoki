@@ -1432,6 +1432,9 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
         except ImportError:
             _profile_ok = False
 
+        import sys as _sys
+        _pf_audit_done = [False]
+
         def _profile_row(b: dict, uni: str, ok: bool) -> list:
             if not ok:
                 return ["", 0, "WATCH", 0, 0]
@@ -1439,9 +1442,23 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                 pname = get_profile(b, uni)
                 sigs  = _pex(b)   # reads list columns l/f/fly/g/b/combo/ultra/vol/vabs/wick + tz
                 pd    = compute_profile_score(sigs, pname)
+                if not _pf_audit_done[0]:
+                    _pf_audit_done[0] = True
+                    list_keys = {k: b.get(k) for k in ("l","f","fly","g","b","combo","ultra","vol","vabs","wick","tz")}
+                    print(
+                        f"PROFILE_PLAYBOOK_AUDIT profile={pname} uni={uni} "
+                        f"extracted={sorted(sigs)} score={pd['profile_score']} "
+                        f"cat={pd['profile_category']} bar_signals={list_keys}",
+                        file=_sys.stderr, flush=True,
+                    )
                 return [pname, pd["profile_score"], pd["profile_category"],
                         int(pd["sweet_spot_active"]), int(pd["late_warning"])]
-            except Exception:
+            except Exception as _pf_exc:
+                import traceback as _tb
+                print(
+                    f"PROFILE_PLAYBOOK_ERR: {_pf_exc}\n{_tb.format_exc()}",
+                    file=_sys.stderr, flush=True,
+                )
                 return ["", 0, "WATCH", 0, 0]
 
         with open(out_path, "w", newline="", encoding="utf-8") as fh:
