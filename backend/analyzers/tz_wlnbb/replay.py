@@ -715,8 +715,17 @@ def _date_forward(date_str: str, n: int) -> str:
 
 def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
     """Sample rows with forward returns for manual validation.
-    Includes expected future dates (calendar) so values can be verified in a price chart.
+    date_plus_N uses actual future trading-row dates (not calendar offsets).
     """
+    # Build per-ticker sorted date lists for actual trading-day lookups
+    by_ticker_dates: Dict[str, list] = {}
+    for r in rows:
+        ticker = r.get("ticker", "")
+        date = r.get("date", "")
+        if ticker and date:
+            by_ticker_dates.setdefault(ticker, set()).add(date)  # type: ignore[arg-type]
+    by_ticker_dates = {t: sorted(dates) for t, dates in by_ticker_dates.items()}  # type: ignore[assignment]
+
     with_returns = [r for r in rows if r.get("ret_10d") not in (None, "", "None")]
     # take spread: first 50, last 50, random middle 100
     sample = with_returns[:50]
@@ -732,13 +741,82 @@ def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
     result = []
     for r in sample[:n]:
         row_out = {f: r.get(f, "") for f in fields}
-        d = r.get("date", "")
-        row_out["date_plus_1"]  = _date_forward(d, 1)
-        row_out["date_plus_3"]  = _date_forward(d, 3)
-        row_out["date_plus_5"]  = _date_forward(d, 5)
-        row_out["date_plus_10"] = _date_forward(d, 10)
+        ticker = r.get("ticker", "")
+        date = r.get("date", "")
+        dates = by_ticker_dates.get(ticker, [])
+        try:
+            idx = dates.index(date)
+            row_out["date_plus_1"]  = dates[idx + 1]  if idx + 1  < len(dates) else ""
+            row_out["date_plus_3"]  = dates[idx + 3]  if idx + 3  < len(dates) else ""
+            row_out["date_plus_5"]  = dates[idx + 5]  if idx + 5  < len(dates) else ""
+            row_out["date_plus_10"] = dates[idx + 10] if idx + 10 < len(dates) else ""
+        except ValueError:
+            row_out["date_plus_1"] = row_out["date_plus_3"] = ""
+            row_out["date_plus_5"] = row_out["date_plus_10"] = ""
         result.append(row_out)
     return result
+
+
+def _sequence_event_audit(rows: List[dict]) -> List[dict]:
+    """
+    Per-signal audit: how many times each signal appears and how often it is
+    used as the source bar in a 2-bar sequence (followed by another signal within 5 bars).
+    Columns: family, signal_name, count, rows_with_signal, used_in_sequence_count, used_in_sequence_rate
+    """
+    from .config import signal_family as _sig_family
+
+    signal_cols = [
+        ("T", "t_signal"), ("Z", "z_signal"), ("L", "l_signal"),
+        ("PREUP", "preup_signal"), ("PREDN", "predn_signal"),
+    ]
+
+    signal_counts: Dict[str, int] = {}
+    for r in rows:
+        for _, col in signal_cols:
+            sig = r.get(col, "")
+            if sig:
+                signal_counts[sig] = signal_counts.get(sig, 0) + 1
+
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+
+    def _parse_date(d: str):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    used_in_seq: Dict[str, int] = {}
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_sig = _primary_signal(curr)
+            if not curr_sig:
+                continue
+            for lag in range(1, 6):
+                if i + lag >= n:
+                    break
+                nxt_sig = _primary_signal(t_rows[i + lag])
+                if nxt_sig:
+                    used_in_seq[curr_sig] = used_in_seq.get(curr_sig, 0) + 1
+                    break
+
+    result = []
+    for sig, cnt in signal_counts.items():
+        fam = _sig_family(sig)
+        in_seq = used_in_seq.get(sig, 0)
+        result.append({
+            "family": fam,
+            "signal_name": sig,
+            "count": cnt,
+            "rows_with_signal": cnt,
+            "used_in_sequence_count": in_seq,
+            "used_in_sequence_rate": round(in_seq / cnt, 4) if cnt else 0.0,
+        })
+    return sorted(result, key=lambda x: -x["count"])
 
 
 def _date_order_audit(rows: List[dict]) -> List[dict]:
@@ -981,23 +1059,25 @@ def generate_replay_zip(
 
     top_composites = [r for r in cp_composite if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top_composites.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
-    bad_composites = [r for r in cp_composite if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    MIN_RANK_COUNT = 30
+    bad_composites = [r for r in cp_composite if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_composites.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
-    top_composite_seqs = [r for r in csp if (r.get("count") or 0) >= 20 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
+    top_composite_seqs = [r for r in csp if (r.get("count") or 0) >= MIN_RANK_COUNT and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top_composite_seqs.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
-    bad_composite_seqs = [r for r in csp if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    bad_composite_seqs = [r for r in csp if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_composite_seqs.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
-    top_wick = [r for r in wp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
+    top_wick = [r for r in wp if (r.get("count") or 0) >= MIN_RANK_COUNT and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top_wick.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
-    bad_wick = [r for r in wp if (_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20]
+    bad_wick = [r for r in wp if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
     suspicious = _suspicious_patterns(sq)
     validation_examples = _return_validation_examples(rows)
     unscored = _unscored_audit(rows)
     date_audit = _date_order_audit(rows)
+    seq_event_audit = _sequence_event_audit(rows)
     meta = _build_metadata(rows, universe, tf, ticker_count, audit)
     config_snap = get_config_snapshot()
 
@@ -1005,6 +1085,15 @@ def generate_replay_zip(
     issue_tickers = [r["ticker"] for r in date_audit if r["status"] == "ISSUE"]
     meta["date_order_issues"] = len(issue_tickers)
     meta["date_order_issue_tickers_sample"] = issue_tickers[:10]
+
+    # Ranking file counts and min-count threshold
+    meta["min_count_for_rankings"] = MIN_RANK_COUNT
+    meta["top_composites_count"] = len(top_composites)
+    meta["bad_composites_count"] = len(bad_composites)
+    meta["top_wick_patterns_count"] = len(top_wick)
+    meta["bad_wick_patterns_count"] = len(bad_wick)
+    meta["top_composite_sequences_count"] = len(top_composite_seqs)
+    meta["bad_composite_sequences_count"] = len(bad_composite_seqs)
 
     def _to_csv_bytes(data: list, fields: list) -> bytes:
         buf = io.StringIO()
@@ -1147,5 +1236,12 @@ def generate_replay_zip(
         if suspicious:
             zf.writestr("replay_tz_wlnbb_suspicious_return_patterns.csv",
                         _to_csv_bytes(suspicious, sq_fields))
+
+        seq_audit_fields = [
+            "family", "signal_name", "count", "rows_with_signal",
+            "used_in_sequence_count", "used_in_sequence_rate",
+        ]
+        zf.writestr("replay_tz_wlnbb_sequence_event_audit.csv",
+                    _to_csv_bytes(seq_event_audit, seq_audit_fields))
 
     return output_path
