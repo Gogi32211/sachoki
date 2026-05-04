@@ -1424,7 +1424,10 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
         def _j(lst): return " ".join(lst) if lst else ""
 
         try:
-            from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row as _pex
+            from profile_playbook import (
+                get_profile, compute_profile_score,
+                extract_profile_signals_from_stat_row as _pex,
+            )
             _profile_ok = True
         except ImportError:
             _profile_ok = False
@@ -1433,14 +1436,8 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             if not ok:
                 return ["", 0, "WATCH", 0, 0]
             try:
-                row_proxy = {"close": b.get("close", 0), "tz_sig": b.get("tz", "")}
-                for k, v in b.items():
-                    if isinstance(v, bool):
-                        row_proxy[k] = 1 if v else 0
-                    elif isinstance(v, (int, float)) and k not in row_proxy:
-                        row_proxy[k] = v
-                pname = get_profile(row_proxy, uni)
-                sigs  = _pex(row_proxy)
+                pname = get_profile(b, uni)
+                sigs  = _pex(b)   # reads list columns l/f/fly/g/b/combo/ultra/vol/vabs/wick + tz
                 pd    = compute_profile_score(sigs, pname)
                 return [pname, pd["profile_score"], pd["profile_category"],
                         int(pd["sweet_spot_active"]), int(pd["late_warning"])]
