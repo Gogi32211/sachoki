@@ -9,6 +9,7 @@ from profile_playbook import (
     compute_profile_score,
     enrich_row_with_profile,
     extract_signals_from_turbo_row,
+    extract_profile_signals_from_stat_row,
     PROFILES,
 )
 
@@ -211,6 +212,176 @@ def test_all_profiles_have_required_keys():
     for name, p in PROFILES.items():
         for k in required:
             assert k in p, f"{name} missing key {k}"
+
+
+# ── New alias coverage ────────────────────────────────────────────────────────
+
+def test_fly_dash_aliases():
+    assert normalize_signal_token("FLY-BD") == "FLY_BD"
+    assert normalize_signal_token("FLY-CD") == "FLY_CD"
+    assert normalize_signal_token("FLY-AD") == "FLY_AD"
+    assert normalize_signal_token("FLY")    == "FLY_ABCD"
+
+def test_wick_aliases():
+    assert normalize_signal_token("WC↑") == "WC_UP"
+    assert normalize_signal_token("WC↓") == "WC_DN"
+    assert normalize_signal_token("WP↑") == "WP_UP"
+    assert normalize_signal_token("WP↓") == "WP_DN"
+
+def test_ultra_display_aliases():
+    assert normalize_signal_token("BEST↑") == "BEST_UP"
+    assert normalize_signal_token("3↑")    == "THREE_UP"
+    assert normalize_signal_token("4BF")   == "BF_BUY"
+    assert normalize_signal_token("ATR↑")  == "ATR_BRK"
+    assert normalize_signal_token("BB↓")   == "BB_DN"
+
+def test_vol_aliases():
+    assert normalize_signal_token("5×")  == "5X"
+    assert normalize_signal_token("10×") == "10X"
+    assert normalize_signal_token("20×") == "20X"
+
+
+# ── extract_profile_signals_from_stat_row ────────────────────────────────────
+
+def test_extract_from_bar_dict_lists():
+    """Bar dict (api_bar_signals format) with list columns."""
+    row = {
+        "close": 120,
+        "tz":    "T5",
+        "combo": ["BUY", "SVS", "BB↑"],
+        "fly":   ["FLY-BD"],
+        "l":     ["FRI43", "BX↑"],
+        "f":     ["F9", "F10"],
+        "vabs":  ["ABS", "CLM", "LOAD"],
+        "g":     ["G4", "G11"],
+        "ultra": ["EB↑"],
+        "vol":   ["5×"],
+        "wick":  ["WC↑"],
+    }
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "BUY"     in sigs
+    assert "SVS"     in sigs
+    assert "BB_UP"   in sigs
+    assert "FLY_BD"  in sigs
+    assert "FRI43"   in sigs
+    assert "BX_UP"   in sigs
+    assert "F9"      in sigs
+    assert "F10"     in sigs
+    assert "ABS"     in sigs
+    assert "CLM"     in sigs
+    assert "LOAD"    in sigs
+    assert "G4"      in sigs
+    assert "G11"     in sigs
+    assert "EB_UP"   in sigs
+    assert "5X"      in sigs
+    assert "WC_UP"   in sigs
+    assert "T5"      in sigs
+
+def test_extract_from_csv_string_columns():
+    """stock_stat CSV format with string columns."""
+    row = {
+        "close": 120,
+        "Z": "",
+        "T": "T10",
+        "L": "FRI43 BL BX↑",
+        "F": "F9 F10",
+        "FLY": "FLY-BD",
+        "G": "G4 G11",
+        "B": "",
+        "Combo": "BUY SVS BB↑",
+        "ULT":  "EB↑ 260308",
+        "VOL":  "5×",
+        "VABS": "ABS LOAD CLM",
+        "WICK": "WC↑",
+    }
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "FLY_BD"  in sigs
+    assert "BX_UP"   in sigs
+    assert "BB_UP"   in sigs
+    assert "EB_UP"   in sigs
+    assert "5X"      in sigs
+    assert "WC_UP"   in sigs
+    assert "T10"     in sigs
+    assert "BUY"     in sigs
+    assert "ABS"     in sigs
+    assert "260308"  in sigs
+
+def test_extract_fly_abcd_bare():
+    """Bare 'FLY' token (fly_abcd=True) maps to FLY_ABCD."""
+    row = {"fly": ["FLY"], "close": 100}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "FLY_ABCD" in sigs
+
+def test_extract_vol_tokens():
+    row = {"VOL": "5× 10×", "close": 100}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "5X"  in sigs
+    assert "10X" in sigs
+
+def test_extract_tz_z_column():
+    row = {"Z": "Z3", "close": 100}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "Z3" in sigs
+
+def test_profile_score_nonzero_from_bar_dict():
+    """End-to-end: bar dict with real signals → non-zero profile score."""
+    row = {
+        "close": 120,
+        "combo": ["BUY", "SVS"],
+        "fly":   ["FLY-BD"],
+        "l":     ["FRI43"],
+        "vabs":  ["ABS", "LOAD", "CLM"],
+        "g":     ["G4", "G11"],
+    }
+    sigs  = extract_profile_signals_from_stat_row(row)
+    pname = get_profile(row, "sp500")
+    pd    = compute_profile_score(sigs, pname)
+    assert pd["profile_score"] > 0, f"Expected non-zero score, got {pd}"
+    assert pd["profile_category"] != "WATCH" or pd["profile_score"] == 0
+
+def test_profile_score_nonzero_from_csv_row():
+    """End-to-end: CSV row with real signals → non-zero profile score."""
+    row = {
+        "close": 120,
+        "Combo": "BUY SVS",
+        "FLY":   "FLY-BD",
+        "L":     "FRI43",
+        "VABS":  "ABS LOAD CLM",
+        "G":     "G4 G11",
+    }
+    sigs  = extract_profile_signals_from_stat_row(row)
+    pname = get_profile(row, "sp500")
+    pd    = compute_profile_score(sigs, pname)
+    assert pd["profile_score"] > 0, f"Expected non-zero score from CSV row, got {pd}"
+
+def test_sweet_spot_reachable_from_stat_row():
+    """A row with enough signals should reach SWEET_SPOT or LATE, never stuck at WATCH."""
+    row = {
+        "close": 120,
+        "Combo": "BUY SVS",
+        "FLY":   "FLY-BD",
+        "L":     "FRI43 BX↑",
+        "VABS":  "ABS LOAD CLM",
+        "G":     "G4 G11",
+        "ULT":   "EB↑",
+        "F":     "F9 F10",
+    }
+    sigs  = extract_profile_signals_from_stat_row(row)
+    pname = get_profile(row, "sp500")   # SP500_50_150
+    pd    = compute_profile_score(sigs, pname)
+    assert pd["profile_category"] in {"SWEET_SPOT", "BUILDING", "LATE"}, (
+        f"Expected non-WATCH category, got {pd['profile_category']} (score={pd['profile_score']})"
+    )
+
+def test_ult_eb_up_maps_to_eb_up():
+    row = {"ULT": "EB↑", "close": 100}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "EB_UP" in sigs
+
+def test_ult_fbo_up_maps():
+    row = {"ultra": ["FBO↑"], "close": 100}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "FBO_UP" in sigs
 
 
 if __name__ == "__main__":

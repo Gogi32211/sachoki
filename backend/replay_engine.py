@@ -1633,11 +1633,14 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         # 1d — Enrich rows with profile playbook (profile_name, profile_score, profile_category)
         _state["message"] = "Enriching rows with profile playbook..."
         try:
-            from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row
+            from profile_playbook import (
+                get_profile, compute_profile_score,
+                extract_profile_signals_from_stat_row,
+            )
             for r in rows:
                 try:
                     pname = get_profile(r, universe)
-                    sigs  = extract_signals_from_turbo_row(r)
+                    sigs  = extract_profile_signals_from_stat_row(r)
                     pd    = compute_profile_score(sigs, pname)
                     r["profile_name"]     = pname
                     r["profile_score"]    = pd["profile_score"]
@@ -1713,6 +1716,14 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         _state["message"] = "Profile playbook performance..."
         cached["profile_perf"]       = _save("profile_perf",       profile_perf(rows))
         cached["sweet_spot_perf"]    = _save("sweet_spot_perf",    sweet_spot_perf(rows))
+
+        # 8c — Profile signal coverage audit (which tokens are unscored)
+        _state["message"] = "Profile signal coverage audit..."
+        try:
+            from profile_playbook import profile_unscored_signals as _pus
+            _save("profile_unscored_signals", _pus(rows))
+        except Exception as _pus_err:
+            log.warning("profile_unscored_signals failed: %s", _pus_err)
 
         # 9 — All missed winners (unified) — full + top500
         _state["progress"] = 9; _state["message"] = "Missed big winners (all categories)..."

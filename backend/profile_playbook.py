@@ -21,26 +21,51 @@ from typing import Any, Dict, Optional, Set, Tuple, List
 
 # ── Signal aliases ────────────────────────────────────────────────────────────
 SIGNAL_ALIASES: Dict[str, str] = {
+    # VBO
     "VBO↑": "VBO_UP", "VBOUP": "VBO_UP", "VBO_UP": "VBO_UP",
     "VBO↓": "VBO_DN", "VBODN": "VBO_DN", "VBO_DN": "VBO_DN",
+    # HILO
     "HILO↑": "HILO_UP", "HILO_UP": "HILO_UP",
     "HILO↓": "HILO_DN", "HILO_DN": "HILO_DN",
+    # BB / BX / BO / BE
     "BB↑": "BB_UP", "BB_UP": "BB_UP",
+    "BB↓": "BB_DN", "BB_DN": "BB_DN",
     "BX↑": "BX_UP", "BX_UP": "BX_UP",
     "BX↓": "BX_DN", "BX_DN": "BX_DN",
     "BO↑": "BO_UP", "BO_UP": "BO_UP",
     "BO↓": "BO_DN", "BO_DN": "BO_DN",
     "BE↑": "BE_UP", "BE_UP": "BE_UP",
     "BE↓": "BE_DN", "BE_DN": "BE_DN",
+    # EB / FBO
     "EB↑": "EB_UP", "EB_UP": "EB_UP",
     "EB↓": "EB_DN", "EB_DN": "EB_DN",
     "FBO↑": "FBO_UP", "FBO_UP": "FBO_UP",
     "FBO↓": "FBO_DN", "FBO_DN": "FBO_DN",
+    # Wick
+    "WC↑": "WC_UP", "WC_UP": "WC_UP",
+    "WC↓": "WC_DN", "WC_DN": "WC_DN",
+    "WP↑": "WP_UP", "WP_UP": "WP_UP",
+    "WP↓": "WP_DN", "WP_DN": "WP_DN",
+    # FLY — bar dict uses dash notation; "FLY" alone means fly_abcd=True
+    "FLY-BD": "FLY_BD", "FLY_BD": "FLY_BD",
+    "FLY-CD": "FLY_CD", "FLY_CD": "FLY_CD",
+    "FLY-AD": "FLY_AD", "FLY_AD": "FLY_AD",
+    "FLY": "FLY_ABCD", "FLY_ABCD": "FLY_ABCD",
+    # Ultra / combo display names
+    "BEST↑": "BEST_UP", "BEST_UP": "BEST_UP",
+    "3↑": "THREE_UP", "THREE_UP": "THREE_UP",
+    "4BF": "BF_BUY", "BF_BUY": "BF_BUY",
     "4BF↓": "4BF_DN", "4BF_DN": "4BF_DN",
+    "ATR↑": "ATR_BRK", "ATR_BRK": "ATR_BRK",
+    # Star / vol
     "BEST★": "BEST_STAR", "BEST*": "BEST_STAR", "BEST_STAR": "BEST_STAR",
-    "5×": "5X", "10×": "10X", "20×": "20X",
+    "5×": "5X", "5X": "5X",
+    "10×": "10X", "10X": "10X",
+    "20×": "20X", "20X": "20X",
+    # Bias
     "↓BIAS": "BIAS_DN", "BIAS↓": "BIAS_DN", "BIAS_DN": "BIAS_DN",
     "↑BIAS": "BIAS_UP", "BIAS↑": "BIAS_UP", "BIAS_UP": "BIAS_UP",
+    # Misc
     "CONS": "CONSO", "CONSO": "CONSO",
 }
 
@@ -333,6 +358,111 @@ def get_signals_5bar(rows_for_ticker: List[dict]) -> Set[str]:
             if col in row:
                 signals |= parse_signal_cell(row.get(col))
     return signals
+
+
+# ── Stat-row signal extraction (bar dict or stock_stat CSV row) ───────────────
+# Maps bar-dict list column → stock_stat CSV string column
+_STAT_COL_PAIRS: List[Tuple[str, str]] = [
+    ("l",     "L"),
+    ("f",     "F"),
+    ("fly",   "FLY"),
+    ("g",     "G"),
+    ("b",     "B"),
+    ("combo", "Combo"),
+    ("ultra", "ULT"),
+    ("vol",   "VOL"),
+    ("vabs",  "VABS"),
+    ("wick",  "WICK"),
+]
+
+
+def extract_profile_signals_from_stat_row(row: dict) -> Set[str]:
+    """Extract normalized profile signals from a bar dict OR a stock_stat CSV row.
+
+    Handles both formats:
+    - Bar dict from api_bar_signals (list columns: l, f, fly, g, b, combo, ultra, vol, vabs, wick)
+    - CSV row from stock_stat export (string columns: L, F, FLY, G, B, Combo, ULT, VOL, VABS, WICK)
+
+    Returns canonical signal names ready for compute_profile_score().
+    """
+    signals: Set[str] = set()
+
+    for bar_key, csv_key in _STAT_COL_PAIRS:
+        val = row.get(bar_key)
+        if val is None:
+            val = row.get(csv_key)
+        if val is None:
+            continue
+        if isinstance(val, list):
+            for tok in val:
+                n = normalize_signal_token(str(tok).strip())
+                if n:
+                    signals.add(n)
+        elif isinstance(val, str) and val.strip():
+            signals |= parse_signal_cell(val)
+
+    # T/Z signals: bar dict uses "tz"; CSV uses separate "Z" and "T" columns
+    for tz_key in ("tz", "Z", "T"):
+        tz = str(row.get(tz_key) or "").strip()
+        if not tz:
+            continue
+        n = normalize_signal_token(tz)
+        if n:
+            signals.add(n)
+            base = re.sub(r"G$", "", tz)
+            if base and base != tz:
+                signals.add(base)
+
+    return signals
+
+
+def profile_unscored_signals(rows: List[dict]) -> List[dict]:
+    """Find signal tokens present in rows that are not scored by any profile.
+
+    Returns rows sorted by frequency descending, useful for identifying
+    display-name mismatches or signals missing from signal_weights.
+    """
+    import time as _time
+
+    # All canonical names used across all profiles
+    scored: Set[str] = set()
+    for p in PROFILES.values():
+        scored.update(p["signal_weights"].keys())
+        for pair in p["pair_bonuses"].keys():
+            scored.update(pair)
+
+    from collections import defaultdict
+    sig_data: Dict[str, dict] = {}
+
+    for r in rows:
+        sigs = extract_profile_signals_from_stat_row(r)
+        ticker = str(r.get("ticker", ""))
+        date   = str(r.get("date", ""))
+        for sig in sigs:
+            if sig in scored:
+                continue
+            if sig not in sig_data:
+                sig_data[sig] = {"count": 0, "tickers": [], "dates": []}
+            d = sig_data[sig]
+            d["count"] += 1
+            if len(d["tickers"]) < 3:
+                d["tickers"].append(ticker)
+                d["dates"].append(date)
+
+    now = _time.strftime("%Y-%m-%dT%H:%M:%S")
+    out = []
+    for sig, d in sig_data.items():
+        if d["count"] < 5:
+            continue
+        out.append({
+            "generated_at":      now,
+            "normalized_signal": sig,
+            "count":             d["count"],
+            "example_tickers":   "|".join(d["tickers"]),
+            "example_dates":     "|".join(d["dates"]),
+        })
+    out.sort(key=lambda x: -x["count"])
+    return out
 
 
 # ── Profile selection ─────────────────────────────────────────────────────────
