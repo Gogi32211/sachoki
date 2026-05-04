@@ -874,6 +874,104 @@ def test_penetration_no_regression_t4():
     assert "wick_penetration_both" in r
 
 
+# ── Tests 42-52: parse_composite_label and is_valid_full_suffix ──────────────
+
+def test_parse_label_t2g_l46():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("T2GL46ED")
+    assert r["t_signal"] == "T2G", r
+    assert r["l_signal"] == "L46", r
+    assert r["composite_core"] == "T2GL46", r
+    assert r["full_suffix"] == "ED", r
+    assert r["z_signal"] == ""
+
+
+def test_parse_label_z2g_l12():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("Z2GL12NU")
+    assert r["z_signal"] == "Z2G", r
+    assert r["l_signal"] == "L12", r
+    assert r["composite_core"] == "Z2GL12", r
+    assert r["full_suffix"] == "NU", r
+    assert r["t_signal"] == ""
+
+
+def test_parse_label_t11_l5():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("T11L5EDP")
+    assert r["t_signal"] == "T11", r
+    assert r["l_signal"] == "L5", r
+    assert r["full_suffix"] == "EDP", r
+
+
+def test_parse_label_z5_l34():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("Z5L34NH")
+    assert r["z_signal"] == "Z5", r
+    assert r["l_signal"] == "L34", r
+    assert r["full_suffix"] == "NH", r
+
+
+def test_parse_label_l34_only():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("L34NDP")
+    assert r["t_signal"] == "", r
+    assert r["z_signal"] == "", r
+    assert r["l_signal"] == "L34", r
+    assert r["composite_core"] == "L34", r
+    assert r["full_suffix"] == "NDP", r
+
+
+def test_parse_label_t4_no_l():
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    r = parse_composite_label("T4EBP")
+    assert r["t_signal"] == "T4", r
+    assert r["l_signal"] == "", r
+    assert r["composite_core"] == "T4", r
+    assert r["full_suffix"] == "EBP", r
+
+
+def test_valid_suffix_basic():
+    from analyzers.tz_wlnbb.replay import is_valid_full_suffix
+    for s in ["N", "E", "NU", "ND", "NB", "EU", "ED", "EB",
+              "NUP", "NDP", "EUR", "NH", "EBH", "NUH", ""]:
+        assert is_valid_full_suffix(s), f"should be valid: {s!r}"
+
+
+def test_invalid_suffix_gl46():
+    from analyzers.tz_wlnbb.replay import is_valid_full_suffix
+    for s in ["GL46ED", "GL12EU", "GL3EU", "T2GL46ED", "Z2GL12NU"]:
+        assert not is_valid_full_suffix(s), f"should be invalid: {s!r}"
+
+
+def test_extract_suffix_not_lstrip_naive():
+    from analyzers.tz_wlnbb.replay import _extract_suffix_from_label, is_valid_full_suffix
+    for label, expected in [
+        ("T2GL46ED", "ED"),
+        ("Z2GL12NU", "NU"),
+        ("T11L5EDP", "EDP"),
+        ("Z5L34NH", "NH"),
+        ("L34NDP", "NDP"),
+        ("T4EBP", "EBP"),
+        ("T1GL34EU", "EU"),
+    ]:
+        result = _extract_suffix_from_label(label)
+        assert result == expected, f"label={label!r}: got {result!r}, want {expected!r}"
+        assert is_valid_full_suffix(result), f"suffix {result!r} from {label!r} is not valid"
+
+
+def test_invalid_suffix_audit_catches_bad_labels():
+    from analyzers.tz_wlnbb.replay import _invalid_suffix_audit
+    bad_rows = [
+        {"ticker": "AAPL", "date": "2025-01-06",
+         "composite_full_label": "T2GL46ED", "composite_full_suffix": "ED"},
+        {"ticker": "MSFT", "date": "2025-01-07",
+         "composite_full_label": "Z4L34NU", "composite_full_suffix": "NU"},
+    ]
+    result = _invalid_suffix_audit(bad_rows)
+    assert result == [], f"clean rows should yield empty audit: {result}"
+
+
 if __name__ == "__main__":
     # Run all tests manually
     tests = [
