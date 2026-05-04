@@ -278,6 +278,10 @@ def compute_tz_wlnbb_for_bar(
     else:
         wick_suffix = ""
 
+    wick_ext_up   = wick_up
+    wick_ext_down = wick_down
+    wick_ext_both = wick_up and wick_down
+
     # ── PENETRATION SUFFIX ────────────────────────────────────────────────────
     prev_body_top = max(prev_o, prev_c)
     prev_body_bot = min(prev_o, prev_c)
@@ -316,6 +320,51 @@ def compute_tz_wlnbb_for_bar(
 
     lane1_label = (lane1_core + suffix) if lane1_core else ""
     lane3_label = (lane3_core + suffix) if lane3_core else ""
+
+    # ── COMPOSITE STATE LABELS ────────────────────────────────────────────────
+    # T composite: T + L + full suffix
+    if has_t_signal:
+        composite_t_core  = t_signal + l_signal
+        composite_t_label = composite_t_core + suffix
+    else:
+        composite_t_core  = ""
+        composite_t_label = ""
+
+    # Z composite: Z + L + full suffix
+    if has_z_signal:
+        composite_z_core  = z_signal + l_signal
+        composite_z_label = composite_z_core + suffix
+    else:
+        composite_z_core  = ""
+        composite_z_label = ""
+
+    # L-only composite (no T/Z)
+    if has_l_signal and not has_t_signal and not has_z_signal:
+        composite_l_core  = l_signal
+        composite_l_label = composite_l_core + suffix
+    else:
+        composite_l_core  = ""
+        composite_l_label = ""
+
+    # Primary composite (T > Z > L)
+    if composite_t_label:
+        composite_primary_label = composite_t_label
+        composite_core          = composite_t_core
+    elif composite_z_label:
+        composite_primary_label = composite_z_label
+        composite_core          = composite_z_core
+    elif composite_l_label:
+        composite_primary_label = composite_l_label
+        composite_core          = composite_l_core
+    else:
+        composite_primary_label = ""
+        composite_core          = ""
+
+    # All composite labels on this bar (T and Z can both exist)
+    _all_c = [x for x in [composite_t_label, composite_z_label, composite_l_label] if x]
+    composite_all_labels  = "|".join(_all_c)
+    composite_full_label  = composite_primary_label
+    composite_full_suffix = suffix  # ne + wick_ext + penetration
 
     # ── CONTEXT BOOLEANS ──────────────────────────────────────────────────────
     has_tz_l_combo      = (has_t_signal or has_z_signal) and has_l_signal
@@ -357,6 +406,21 @@ def compute_tz_wlnbb_for_bar(
         "wick_penetration_upper": wick_penetration_upper,
         "wick_penetration_lower": wick_penetration_lower,
         "wick_penetration_both": wick_penetration_both,
+        "wick_ext_up":   wick_ext_up,
+        "wick_ext_down": wick_ext_down,
+        "wick_ext_both": wick_ext_both,
+        "prev_body_top": prev_body_top,
+        "prev_body_bot": prev_body_bot,
+        "prev_high":     prev_h,
+        "prev_low":      prev_l,
+        "composite_t_label":       composite_t_label,
+        "composite_z_label":       composite_z_label,
+        "composite_primary_label": composite_primary_label,
+        "composite_all_labels":    composite_all_labels,
+        "composite_core":          composite_core,
+        "composite_suffix":        suffix,
+        "composite_full_suffix":   composite_full_suffix,
+        "composite_full_label":    composite_full_label,
         "lane1_label": lane1_label,
         "lane3_label": lane3_label,
         "has_t_signal": has_t_signal,
