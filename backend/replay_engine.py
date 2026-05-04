@@ -1054,6 +1054,107 @@ def sweet_spot_perf(rows: List[dict]) -> List[dict]:
     return out
 
 
+# ─── Bear-to-bull sequence analytics ─────────────────────────────────────────
+
+def bear_to_bull_perf(rows: List[dict]) -> List[dict]:
+    """Group rows by bear_signal × bull_signal × bars_ago × profile_name × profile_category.
+
+    Only includes rows where bear_to_bull_confirmed=1 and bear_to_bull_pairs is populated.
+    """
+    groups: Dict[str, list] = {}
+    for r in rows:
+        if not r.get("bear_to_bull_confirmed"):
+            continue
+        pairs_raw = r.get("bear_to_bull_pairs", "")
+        if isinstance(pairs_raw, list):
+            pairs = pairs_raw
+        else:
+            pairs = [p.strip() for p in str(pairs_raw).split() if p.strip()]
+        pname = r.get("profile_name") or "UNKNOWN"
+        pcat  = r.get("profile_category") or "WATCH"
+        for pair_str in pairs:
+            # format: BEAR->BULL@N
+            m = pair_str.split("@")
+            if len(m) != 2:
+                continue
+            signals_part, bars_ago_str = m
+            parts = signals_part.split("->")
+            if len(parts) != 2:
+                continue
+            bear_sig, bull_sig = parts
+            try:
+                bars_ago = int(bars_ago_str)
+            except ValueError:
+                continue
+            key = f"{bear_sig}|{bull_sig}|{bars_ago}|{pname}|{pcat}"
+            groups.setdefault(key, []).append(r)
+
+    out = []
+    for key, grp in groups.items():
+        parts = key.split("|")
+        bear_sig, bull_sig, bars_ago, pname, pcat = parts
+        d = _agg(grp)
+        d["bear_signal"]      = bear_sig
+        d["bull_signal"]      = bull_sig
+        d["bars_ago"]         = int(bars_ago)
+        d["profile_name"]     = pname
+        d["profile_category"] = pcat
+        out.append(d)
+    out.sort(key=lambda x: -x.get("count", 0))
+    return out
+
+
+def bear_to_bull_summary(rows: List[dict]) -> List[dict]:
+    """Group rows by bear->bull pair × bars_ago_bucket × profile_name.
+
+    bars_ago_bucket: 1, 2-3, 4-5
+    """
+    groups: Dict[str, list] = {}
+    for r in rows:
+        if not r.get("bear_to_bull_confirmed"):
+            continue
+        pairs_raw = r.get("bear_to_bull_pairs", "")
+        if isinstance(pairs_raw, list):
+            pairs = pairs_raw
+        else:
+            pairs = [p.strip() for p in str(pairs_raw).split() if p.strip()]
+        pname = r.get("profile_name") or "UNKNOWN"
+        for pair_str in pairs:
+            m = pair_str.split("@")
+            if len(m) != 2:
+                continue
+            signals_part, bars_ago_str = m
+            parts = signals_part.split("->")
+            if len(parts) != 2:
+                continue
+            bear_sig, bull_sig = parts
+            try:
+                bars_ago = int(bars_ago_str)
+            except ValueError:
+                continue
+            if bars_ago == 1:
+                bucket = "1"
+            elif bars_ago <= 3:
+                bucket = "2-3"
+            else:
+                bucket = "4-5"
+            pair_label = f"{bear_sig}->{bull_sig}"
+            key = f"{pair_label}|{bucket}|{pname}"
+            groups.setdefault(key, []).append(r)
+
+    out = []
+    for key, grp in groups.items():
+        parts = key.split("|")
+        pair_label, bucket, pname = parts
+        d = _agg(grp)
+        d["pair"]         = pair_label
+        d["bars_ago_bucket"] = bucket
+        d["profile_name"] = pname
+        out.append(d)
+    out.sort(key=lambda x: (-x.get("count", 0), x.get("pair", "")))
+    return out
+
+
 # ─── Miss reason (internal helper) ────────────────────────────────────────────
 
 def _miss_reason(r: dict) -> str:
@@ -1630,30 +1731,87 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         if sample_err:
             raise RuntimeError(sample_err)
 
-        # 1d — Enrich rows with profile playbook (profile_name, profile_score, profile_category)
-        _state["message"] = "Enriching rows with profile playbook..."
+        # 1d — Enrich rows with profile playbook (per-ticker sequential, rolling history)
+        _state["message"] = "Enriching rows with profile playbook (bear-to-bull sequence)..."
         try:
             from profile_playbook import (
-                get_profile, compute_profile_score,
-                extract_profile_signals_from_stat_row,
+                compute_profile_playbook_for_row,
+                PROFILE_PLAYBOOK_VERSION as _PPV,
             )
+            # Group by ticker, sort by date, process sequentially per ticker
+            from collections import defaultdict
+            _ticker_rows: Dict[str, list] = defaultdict(list)
             for r in rows:
-                try:
-                    pname = get_profile(r, universe)
-                    sigs  = extract_profile_signals_from_stat_row(r)
-                    pd    = compute_profile_score(sigs, pname)
-                    r["profile_name"]     = pname
-                    r["profile_score"]    = pd["profile_score"]
-                    r["profile_category"] = pd["profile_category"]
-                    r["sweet_spot_active"] = int(pd["sweet_spot_active"])
-                    r["late_warning"]     = int(pd["late_warning"])
-                except Exception:
-                    r.setdefault("profile_name",     "UNKNOWN")
-                    r.setdefault("profile_score",    0)
-                    r.setdefault("profile_category", "WATCH")
-                    r.setdefault("sweet_spot_active", 0)
-                    r.setdefault("late_warning",      0)
-            log.info("Profile enrichment complete: %d rows", len(rows))
+                _ticker_rows[str(r.get("ticker", ""))].append(r)
+
+            _pf_audit = {
+                "rows_total": 0, "rows_with_signals": 0, "rows_pf_gt0": 0,
+                "cat_dist": {}, "rows_btb": 0,
+            }
+
+            for ticker, t_rows in _ticker_rows.items():
+                # Sort ascending by date
+                t_rows.sort(key=lambda r: str(r.get("date", "")))
+                _hist: list = []  # [most_recent_first] list of Set[str]
+                for r in t_rows:
+                    try:
+                        pf = compute_profile_playbook_for_row(
+                            r, universe, history_context=_hist[:5]
+                        )
+                        r["profile_playbook_version"] = pf["profile_playbook_version"]
+                        r["profile_name"]             = pf["profile_name"]
+                        r["profile_score"]            = pf["profile_score"]
+                        r["profile_category"]         = pf["profile_category"]
+                        r["sweet_spot_active"]        = int(pf["sweet_spot_active"])
+                        r["late_warning"]             = int(pf["late_warning"])
+                        r["bear_context_last_3"]      = pf["bear_context_last_3"]
+                        r["bear_context_last_5"]      = pf["bear_context_last_5"]
+                        r["bull_confirm_now"]         = pf["bull_confirm_now"]
+                        r["bear_to_bull_confirmed"]   = pf["bear_to_bull_confirmed"]
+                        r["bear_to_bull_bars_ago"]    = pf["bear_to_bull_bars_ago"]
+                        r["bear_to_bull_bonus"]       = pf["bear_to_bull_bonus"]
+                        r["bear_to_bull_pairs"]       = " ".join(pf["bear_to_bull_pairs"])
+                        _hist.insert(0, set(pf["active_signals"]))
+                        if len(_hist) > 5:
+                            _hist.pop()
+                        # Audit
+                        _pf_audit["rows_total"] += 1
+                        if pf["active_signals"]:
+                            _pf_audit["rows_with_signals"] += 1
+                        if pf["profile_score"] > 0:
+                            _pf_audit["rows_pf_gt0"] += 1
+                        cat = pf["profile_category"]
+                        _pf_audit["cat_dist"][cat] = _pf_audit["cat_dist"].get(cat, 0) + 1
+                        if pf["bear_to_bull_confirmed"]:
+                            _pf_audit["rows_btb"] += 1
+                    except Exception as _pf_e:
+                        log.warning("profile_playbook row error ticker=%s: %s", ticker, _pf_e)
+                        r.setdefault("profile_playbook_version", "")
+                        r.setdefault("profile_name",     "UNKNOWN")
+                        r.setdefault("profile_score",    0)
+                        r.setdefault("profile_category", "WATCH")
+                        r.setdefault("sweet_spot_active", 0)
+                        r.setdefault("late_warning",      0)
+                        r.setdefault("bear_context_last_3", 0)
+                        r.setdefault("bear_context_last_5", 0)
+                        r.setdefault("bull_confirm_now",    0)
+                        r.setdefault("bear_to_bull_confirmed", 0)
+                        r.setdefault("bear_to_bull_bars_ago",  0)
+                        r.setdefault("bear_to_bull_bonus",     0)
+                        r.setdefault("bear_to_bull_pairs",     "")
+
+            log.info(
+                "PROFILE_PLAYBOOK_AUDIT replay: rows_total=%d "
+                "rows_with_signals=%d rows_pf_gt0=%d cat_dist=%s rows_btb=%d",
+                _pf_audit["rows_total"], _pf_audit["rows_with_signals"],
+                _pf_audit["rows_pf_gt0"], _pf_audit["cat_dist"], _pf_audit["rows_btb"],
+            )
+            if _pf_audit["rows_with_signals"] > 0 and _pf_audit["rows_pf_gt0"] == 0:
+                log.error(
+                    "PROFILE_PLAYBOOK_FAILURE: %d rows have active signals "
+                    "but profile_score is zero for all rows.",
+                    _pf_audit["rows_with_signals"],
+                )
         except ImportError:
             log.warning("profile_playbook not available — skipping profile enrichment")
 
@@ -1724,6 +1882,25 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             _save("profile_unscored_signals", _pus(rows))
         except Exception as _pus_err:
             log.warning("profile_unscored_signals failed: %s", _pus_err)
+
+        # 8d — Bear-to-bull sequence analytics
+        _state["message"] = "Bear-to-bull sequence analytics..."
+        try:
+            cached["bear_to_bull_perf"]    = _save("bear_to_bull_perf",    bear_to_bull_perf(rows))
+            cached["bear_to_bull_summary"] = _save("bear_to_bull_summary", bear_to_bull_summary(rows))
+        except Exception as _btb_err:
+            log.warning("bear_to_bull analytics failed: %s", _btb_err)
+
+        # 8e — Config snapshot
+        _state["message"] = "Profile playbook config snapshot..."
+        try:
+            from profile_playbook import get_playbook_config_snapshot
+            import json as _json
+            snap_path = os.path.join(REPLAY_OUTPUT_DIR, "profile_playbook_config_snapshot.json")
+            with open(snap_path, "w", encoding="utf-8") as _sf:
+                _json.dump(get_playbook_config_snapshot(), _sf, indent=2)
+        except Exception as _snap_err:
+            log.warning("Config snapshot failed: %s", _snap_err)
 
         # 9 — All missed winners (unified) — full + top500
         _state["progress"] = 9; _state["message"] = "Missed big winners (all categories)..."

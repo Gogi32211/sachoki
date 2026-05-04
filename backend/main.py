@@ -918,7 +918,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     from turbo_engine import _calc_turbo_score
     from combo_engine import compute_tz_state
     try:
-        from profile_playbook import get_profile, compute_profile_score, extract_signals_from_turbo_row as _pex
+        from profile_playbook import compute_profile_playbook_for_row as _pf_compute
         _pf_ok = True
     except Exception:
         _pf_ok = False
@@ -1019,6 +1019,9 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     _rtb_pending_phase = ""
     _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
+
+    # Per-bar rolling history for bear-to-bull sequence scoring (most-recent-first)
+    _pf_bar_history: list = []  # list of Set[str], [1_bar_ago, 2_bars_ago, ...]
 
     result = []
 
@@ -1235,20 +1238,23 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             if "cci_sma" in wlnbb.columns:
                 cci_val = float(wlnbb.iloc[i]["cci_sma"])
 
-        # Profile enrichment per bar
-        pf_score = 0
-        pf_cat   = "WATCH"
+        # Profile enrichment per bar — unified function with rolling history
+        _pf_result: dict = {}
         if _pf_ok:
             try:
-                _row_proxy = {"close": float(row["close"]), "tz_sig": tz_s}
-                _row_proxy.update({k: (1 if v else 0) if isinstance(v, bool) else v
-                                   for k, v in sig_row.items()
-                                   if isinstance(v, (bool, int, float))})
-                _pname = get_profile(_row_proxy, universe)
-                _sigs  = _pex(_row_proxy)
-                _pd    = compute_profile_score(_sigs, _pname)
-                pf_score = _pd["profile_score"]
-                pf_cat   = _pd["profile_category"]
+                _bar_proxy = {
+                    "close": float(row["close"]),
+                    "combo": combo_list, "vabs": vabs_list,
+                    "l": l_list, "f": f_list, "fly": fly_list,
+                    "g": g_list, "b": b_list, "ultra": ultra_list,
+                    "vol": vol_list, "wick": wick_list, "tz": tz_s,
+                }
+                _pf_result = _pf_compute(
+                    _bar_proxy, universe, history_context=_pf_bar_history[:5]
+                )
+                _pf_bar_history.insert(0, set(_pf_result["active_signals"]))
+                if len(_pf_bar_history) > 5:
+                    _pf_bar_history.pop()
             except Exception:
                 pass
 
@@ -1372,9 +1378,21 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             # ── RSI / CCI (numeric values for SuperChart display) ──────────────
             "rsi":              rsi_val,
             "cci":              cci_val,
-            # ── Profile playbook per-bar ───────────────────────────────────────
-            "profile_score":    pf_score,
-            "profile_category": pf_cat,
+            # ── Profile playbook per-bar (all fields from unified function) ────
+            "profile_playbook_version":  _pf_result.get("profile_playbook_version", ""),
+            "profile_name":              _pf_result.get("profile_name", ""),
+            "profile_score":             _pf_result.get("profile_score", 0),
+            "profile_category":          _pf_result.get("profile_category", "WATCH"),
+            "sweet_spot_active":         int(_pf_result.get("sweet_spot_active", False)),
+            "late_warning":              int(_pf_result.get("late_warning", False)),
+            "bear_context_last_3":       _pf_result.get("bear_context_last_3", 0),
+            "bear_context_last_5":       _pf_result.get("bear_context_last_5", 0),
+            "bull_confirm_now":          _pf_result.get("bull_confirm_now", 0),
+            "bear_to_bull_confirmed":    _pf_result.get("bear_to_bull_confirmed", 0),
+            "bear_to_bull_bars_ago":     _pf_result.get("bear_to_bull_bars_ago", 0),
+            "bear_to_bull_bonus":        _pf_result.get("bear_to_bull_bonus", 0),
+            "bear_to_bull_pairs":        _pf_result.get("bear_to_bull_pairs", []),
+            "active_signals":            _pf_result.get("active_signals", []),
         })
 
     return result
@@ -1403,7 +1421,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
         headers = [
             "ticker", "date", "open", "high", "low", "close", "volume",
             "vol_bucket", "turbo_score",
-            # ── Canonical score columns (single source of truth) ──────────────
+            # ── Canonical score columns ───────────────────────────────────────
             "FINAL_BULL_SCORE",
             "ROCKET_SCORE", "CLEAN_ENTRY_SCORE", "SHAKEOUT_ABSORB_SCORE",
             "EXTRA_BULL_SCORE", "EXPERIMENTAL_SCORE", "REBOUND_SQUEEZE_SCORE",
@@ -1416,68 +1434,63 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "dbg_context_ready", "dbg_t4_ctx", "dbg_t6_ctx", "dbg_t4t6_activation_plus",
             "dbg_launch_cluster_count", "dbg_pending_phase", "dbg_pending_phase_count",
             "Z", "T", "L", "F", "FLY", "G", "B", "Combo", "ULT", "VOL", "VABS", "WICK",
-            # ── Profile playbook ──────────────────────────────────────────────
+            # ── Profile playbook (all from compute_profile_playbook_for_row) ──
+            "profile_playbook_version",
             "profile_name", "profile_score", "profile_category",
             "sweet_spot_active", "late_warning",
+            "bear_context_last_3", "bear_context_last_5",
+            "bull_confirm_now", "bear_to_bull_confirmed",
+            "bear_to_bull_bars_ago", "bear_to_bull_bonus", "bear_to_bull_pairs",
         ]
 
-        def _j(lst): return " ".join(lst) if lst else ""
-
-        try:
-            from profile_playbook import (
-                get_profile, compute_profile_score,
-                extract_profile_signals_from_stat_row as _pex,
-            )
-            _profile_ok = True
-        except ImportError:
-            _profile_ok = False
+        def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
 
         import sys as _sys
-        _pf_audit_done = [False]
 
-        def _profile_row(b: dict, uni: str, ok: bool) -> list:
-            if not ok:
-                return ["", 0, "WATCH", 0, 0]
-            try:
-                pname = get_profile(b, uni)
-                sigs  = _pex(b)   # reads list columns l/f/fly/g/b/combo/ultra/vol/vabs/wick + tz
-                pd    = compute_profile_score(sigs, pname)
-                if not _pf_audit_done[0]:
-                    _pf_audit_done[0] = True
-                    list_keys = {k: b.get(k) for k in ("l","f","fly","g","b","combo","ultra","vol","vabs","wick","tz")}
-                    print(
-                        f"PROFILE_PLAYBOOK_AUDIT profile={pname} uni={uni} "
-                        f"extracted={sorted(sigs)} score={pd['profile_score']} "
-                        f"cat={pd['profile_category']} bar_signals={list_keys}",
-                        file=_sys.stderr, flush=True,
-                    )
-                return [pname, pd["profile_score"], pd["profile_category"],
-                        int(pd["sweet_spot_active"]), int(pd["late_warning"])]
-            except Exception as _pf_exc:
-                import traceback as _tb
-                print(
-                    f"PROFILE_PLAYBOOK_ERR: {_pf_exc}\n{_tb.format_exc()}",
-                    file=_sys.stderr, flush=True,
-                )
-                return ["", 0, "WATCH", 0, 0]
+        # Audit counters for fail-loud check
+        _audit = {
+            "rows_total": 0,
+            "rows_with_active_signals": 0,
+            "rows_with_pf_score_gt_0": 0,
+            "cat_dist": {},
+            "rows_bear3": 0, "rows_bear5": 0,
+            "rows_bull_now": 0, "rows_btb": 0,
+            "btb_bonus_sum": 0.0,
+            "sig_counts": {},
+            "btb_pair_counts": {},
+        }
 
         with open(out_path, "w", newline="", encoding="utf-8") as fh:
             wr = csv.writer(fh)
             wr.writerow(headers)
             for idx, ticker in enumerate(tickers):
                 try:
-                    # Fetch at least 150 bars so all rolling indicators (EMA, RSI,
-                    # CCI, WLNBB) are fully warmed up — same as Superchart default.
-                    # Then trim to the last `bars` rows so the CSV size stays
-                    # consistent with the user's requested window.  This ensures
-                    # stock_stat scores match what Superchart displays for the
-                    # same ticker/date.
+                    # Fetch ≥150 bars for warm-up; trim to requested window
                     effective_bars = max(bars, 150)
                     bd = api_bar_signals(ticker, tf, effective_bars)
                     if len(bd) > bars:
                         bd = bd[-bars:]
                     for b in bd:
                         tz = b.get("tz", "")
+                        _audit["rows_total"] += 1
+                        act = b.get("active_signals", [])
+                        if act:
+                            _audit["rows_with_active_signals"] += 1
+                            for s in act:
+                                _audit["sig_counts"][s] = _audit["sig_counts"].get(s, 0) + 1
+                        pf_sc = b.get("profile_score", 0)
+                        if pf_sc > 0:
+                            _audit["rows_with_pf_score_gt_0"] += 1
+                        cat = b.get("profile_category", "WATCH")
+                        _audit["cat_dist"][cat] = _audit["cat_dist"].get(cat, 0) + 1
+                        if b.get("bear_context_last_3"): _audit["rows_bear3"] += 1
+                        if b.get("bear_context_last_5"): _audit["rows_bear5"] += 1
+                        if b.get("bull_confirm_now"):     _audit["rows_bull_now"] += 1
+                        if b.get("bear_to_bull_confirmed"):
+                            _audit["rows_btb"] += 1
+                            _audit["btb_bonus_sum"] += b.get("bear_to_bull_bonus", 0)
+                            for p in b.get("bear_to_bull_pairs", []):
+                                _audit["btb_pair_counts"][p] = _audit["btb_pair_counts"].get(p, 0) + 1
                         wr.writerow([
                             ticker,
                             b.get("date", ""),
@@ -1488,7 +1501,6 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             round(b.get("volume", 0), 0),
                             b.get("vol_bucket", ""),
                             b.get("turbo_score", 0),
-                            # canonical score columns
                             b.get("FINAL_BULL_SCORE", 0),
                             b.get("ROCKET_SCORE", 0),
                             b.get("CLEAN_ENTRY_SCORE", 0),
@@ -1530,11 +1542,67 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             _j(b.get("vol", [])),
                             _j(b.get("vabs", [])),
                             _j(b.get("wick", [])),
-                        ] + _profile_row(b, universe, _profile_ok))
+                            # ── Profile playbook fields ────────────────────────
+                            b.get("profile_playbook_version", ""),
+                            b.get("profile_name", ""),
+                            b.get("profile_score", 0),
+                            b.get("profile_category", "WATCH"),
+                            b.get("sweet_spot_active", 0),
+                            b.get("late_warning", 0),
+                            b.get("bear_context_last_3", 0),
+                            b.get("bear_context_last_5", 0),
+                            b.get("bull_confirm_now", 0),
+                            b.get("bear_to_bull_confirmed", 0),
+                            b.get("bear_to_bull_bars_ago", 0),
+                            b.get("bear_to_bull_bonus", 0),
+                            _j(b.get("bear_to_bull_pairs", [])),
+                        ])
                 except Exception:
                     pass
                 _stock_stat_state["done"] = idx + 1
                 _stock_stat_state["elapsed"] = round(time.time() - t0, 1)
+
+        # ── PROFILE_PLAYBOOK_AUDIT ────────────────────────────────────────────
+        top20_sigs  = sorted(_audit["sig_counts"], key=lambda k: -_audit["sig_counts"][k])[:20]
+        top20_pairs = sorted(_audit["btb_pair_counts"], key=lambda k: -_audit["btb_pair_counts"][k])[:20]
+        avg_btb = (
+            round(_audit["btb_bonus_sum"] / _audit["rows_btb"], 2)
+            if _audit["rows_btb"] else 0
+        )
+        print(
+            f"PROFILE_PLAYBOOK_AUDIT universe={universe} tf={tf}\n"
+            f"  rows_total={_audit['rows_total']}\n"
+            f"  rows_with_active_signals={_audit['rows_with_active_signals']}\n"
+            f"  rows_with_pf_score_gt_0={_audit['rows_with_pf_score_gt_0']}\n"
+            f"  category_distribution={_audit['cat_dist']}\n"
+            f"  rows_bear_context_last_3={_audit['rows_bear3']}\n"
+            f"  rows_bear_context_last_5={_audit['rows_bear5']}\n"
+            f"  rows_bull_confirm_now={_audit['rows_bull_now']}\n"
+            f"  rows_bear_to_bull_confirmed={_audit['rows_btb']}\n"
+            f"  avg_bear_to_bull_bonus={avg_btb}\n"
+            f"  top_20_extracted_signals={top20_sigs}\n"
+            f"  top_20_bear_to_bull_pairs={top20_pairs}",
+            file=_sys.stderr, flush=True,
+        )
+        # Fail-loud check
+        if (_audit["rows_with_active_signals"] > 0
+                and _audit["rows_with_pf_score_gt_0"] == 0):
+            log.error(
+                "PROFILE_PLAYBOOK_FAILURE: active signals found in %d rows "
+                "but profile_score is zero for all rows. "
+                "Check extraction/scoring integration.",
+                _audit["rows_with_active_signals"],
+            )
+
+        # Config snapshot
+        try:
+            import json as _json
+            from profile_playbook import get_playbook_config_snapshot
+            snap_path = "stock_stat_output/profile_playbook_config_snapshot.json"
+            with open(snap_path, "w", encoding="utf-8") as _sf:
+                _json.dump(get_playbook_config_snapshot(), _sf, indent=2)
+        except Exception as _snap_err:
+            log.warning("Config snapshot failed: %s", _snap_err)
 
         fsize = os.path.getsize(out_path)
         _stock_stat_state.update(
