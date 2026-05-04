@@ -162,11 +162,20 @@ def generate_stock_stat(
     t0 = time.time()
     total = len(tickers)
     audit = {
-        "tickers_processed": 0, "rows_processed": 0,
+        "tickers_requested": total,
+        "tickers_with_ohlcv": 0, "tickers_skipped_no_data": 0,
+        "tickers_skipped_error": 0, "tickers_processed": 0,
+        "rows_before_signals": 0, "rows_after_signals": 0, "rows_processed": 0,
         "rows_with_t_signal": 0, "rows_with_z_signal": 0,
         "rows_with_l_signal": 0, "rows_with_preup": 0,
         "rows_with_predn": 0, "rows_with_combos": 0,
+        "skip_reasons": {},
     }
+
+    log.info(
+        "TZ_WLNBB_GENERATION_AUDIT: starting universe=%s tf=%s requested_tickers=%d output=%s",
+        universe, tf, total, output_path,
+    )
 
     with open(output_path, "w", newline="", encoding="utf-8") as f:
         writer = csv.writer(f)
@@ -179,7 +188,11 @@ def generate_stock_stat(
             try:
                 df = fetch_ohlcv_fn(ticker, tf, bars)
                 if df is None or len(df) < 2:
+                    audit["tickers_skipped_no_data"] += 1
+                    audit["skip_reasons"][ticker] = "no_data_or_too_short"
                     continue
+                audit["tickers_with_ohlcv"] += 1
+                audit["rows_before_signals"] += len(df)
 
                 # Extract date from datetime index BEFORE compute_signals_for_ticker
                 # resets it to integer 0,1,2... via reset_index(drop=True).
@@ -202,6 +215,7 @@ def generate_stock_stat(
                 # Add sequence context (single-ticker)
                 df = add_sequence_context(df)
 
+                audit["rows_after_signals"] += len(df)
                 audit["tickers_processed"] += 1
                 if progress_callback:
                     progress_callback(audit["tickers_processed"], total)
@@ -251,7 +265,7 @@ def generate_stock_stat(
                         int(bool(row.get("wick_penetration_upper"))),
                         int(bool(row.get("wick_penetration_lower"))),
                         int(bool(row.get("wick_penetration_both"))),
-                        row.get("ne_suffix", "") + row.get("wick_suffix", "") + row.get("penetration_suffix", ""),  # full_suffix
+                        str(row.get("ne_suffix") or "") + str(row.get("wick_suffix") or "") + str(row.get("penetration_suffix") or ""),  # full_suffix
                         int(bool(row.get("wick_ext_up"))),
                         int(bool(row.get("wick_ext_down"))),
                         int(bool(row.get("wick_ext_both"))),
@@ -300,19 +314,41 @@ def generate_stock_stat(
                     if row.get("has_predn"):       audit["rows_with_predn"] += 1
                     if row.get("has_tz_l_combo"):  audit["rows_with_combos"] += 1
             except Exception as exc:
-                log.warning("tz_wlnbb stock_stat error for %s: %s", ticker, exc)
+                audit["tickers_skipped_error"] += 1
+                audit["skip_reasons"][ticker] = str(exc)
+                log.warning("tz_wlnbb stock_stat error for %s: %s", ticker, exc, exc_info=True)
 
     elapsed = round(time.time() - t0, 1)
+    audit["elapsed_seconds"] = elapsed
+    audit["output_path"] = output_path
+
     log.info(
-        "TZ_WLNBB_ANALYZER_AUDIT: universe=%s tf=%s tickers=%d rows=%d "
-        "t_rows=%d z_rows=%d l_rows=%d preup=%d predn=%d combos=%d elapsed=%.1fs output=%s",
+        "TZ_WLNBB_GENERATION_AUDIT: universe=%s tf=%s "
+        "requested=%d ohlcv_ok=%d skipped_no_data=%d skipped_error=%d processed=%d "
+        "rows_before=%d rows_after=%d rows_written=%d "
+        "t=%d z=%d l=%d preup=%d predn=%d combos=%d elapsed=%.1fs output=%s",
         universe, tf,
-        audit["tickers_processed"], audit["rows_processed"],
+        audit["tickers_requested"], audit["tickers_with_ohlcv"],
+        audit["tickers_skipped_no_data"], audit["tickers_skipped_error"],
+        audit["tickers_processed"],
+        audit["rows_before_signals"], audit["rows_after_signals"], audit["rows_processed"],
         audit["rows_with_t_signal"], audit["rows_with_z_signal"],
         audit["rows_with_l_signal"], audit["rows_with_preup"],
         audit["rows_with_predn"], audit["rows_with_combos"],
         elapsed, output_path,
     )
-    audit["elapsed_seconds"] = elapsed
-    audit["output_path"] = output_path
+
+    if audit["rows_processed"] == 0:
+        msg = (
+            f"TZ_WLNBB_ANALYZER_FAILURE: stock_stat generation produced zero rows. "
+            f"universe={universe} tf={tf} requested={total} "
+            f"ohlcv_ok={audit['tickers_with_ohlcv']} errors={audit['tickers_skipped_error']} "
+            f"no_data={audit['tickers_skipped_no_data']}. "
+            f"Check ticker universe, OHLCV fetch, date range, and filters."
+        )
+        log.error(msg)
+        # Include first few skip reasons in audit for debugging
+        sample_errors = {k: v for k, v in list(audit["skip_reasons"].items())[:5]}
+        audit["sample_skip_reasons"] = sample_errors
+
     return output_path, audit

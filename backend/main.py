@@ -2035,7 +2035,15 @@ def _run_tz_wlnbb_replay(universe: str, tf: str):
             reader = _csv.DictReader(f)
             for row in reader:
                 rows.append(row)
+        if not rows:
+            _tz_replay_state["error"] = (
+                f"TZ_WLNBB_ANALYZER_FAILURE: {stat_path} has zero data rows — "
+                "run generate-stock-stat first and verify it completes successfully"
+            )
+            log.error(_tz_replay_state["error"])
+            return
         ticker_count = len(set(r.get("ticker", "") for r in rows))
+        log.info("tz_wlnbb replay: loaded %d rows from %d tickers from %s", len(rows), ticker_count, stat_path)
         out = f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
         generate_replay_zip(rows, output_path=out, universe=universe, tf=tf,
                             ticker_count=ticker_count)
