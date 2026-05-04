@@ -175,6 +175,12 @@ export default function TZWLNBBPanel() {
     }
   }
 
+  async function handleStop() {
+    try {
+      await apiPost('/api/tz-wlnbb/stop')
+    } catch {}
+  }
+
   async function handleScan() {
     setLoading(true)
     setError(null)
@@ -366,6 +372,14 @@ export default function TZWLNBBPanel() {
         >
           {isRunning ? 'Generating…' : 'Generate Stock Stat'}
         </button>
+        {isRunning && (
+          <button
+            onClick={handleStop}
+            className="px-3 py-1.5 bg-red-700 hover:bg-red-600 text-white text-xs font-semibold rounded transition-colors"
+          >
+            Stop
+          </button>
+        )}
         <div className="text-xs text-gray-400">
           Runs TZ/WLNBB analysis on all tickers in the selected universe and saves to CSV.
           {isRunning && status && (

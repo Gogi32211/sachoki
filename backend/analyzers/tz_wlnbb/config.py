@@ -1,5 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
-TZ_WLNBB_VERSION = "2026-05-05-tz-wlnbb-v1"
+import re as _re
+
+TZ_WLNBB_VERSION = "2026-05-05-tz-wlnbb-v2"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"
@@ -9,6 +11,15 @@ SEQUENCE_FAMILIES = [
     "Z_to_L", "L_to_T", "L_to_Z", "L_to_L",
     "PREUP_after_Z", "PREUP_after_L", "PREDN_after_T", "PREDN_after_L",
 ]
+
+
+# Dynamic L combos: any sequence of digits 1-6 after "L", e.g. L12, L34, L46, L234
+_L_DYNAMIC_RE = _re.compile(r'^L[1-6]+$')
+
+
+def is_known_l_signal(sig: str) -> bool:
+    """True for any valid L signal including dynamic digit combos like L12, L346."""
+    return bool(_L_DYNAMIC_RE.match(sig))
 
 
 def signal_family(sig: str) -> str:

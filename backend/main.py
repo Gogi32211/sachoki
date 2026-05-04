@@ -1902,9 +1902,16 @@ def api_tz_wlnbb_generate(
     return {"status": "started"}
 
 
+@app.post("/api/tz-wlnbb/stop")
+def api_tz_wlnbb_stop():
+    """Signal a running generate-stock-stat to stop after the current ticker."""
+    _tz_wlnbb_state["stop_requested"] = True
+    return {"ok": True, "message": "Stop requested"}
+
+
 def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
     global _tz_wlnbb_state
-    _tz_wlnbb_state = {"running": True, "done": 0, "total": 0, "output": None, "error": None}
+    _tz_wlnbb_state = {"running": True, "done": 0, "total": 0, "output": None, "error": None, "stop_requested": False}
     try:
         from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
         from scanner import get_universe_tickers
@@ -1936,10 +1943,14 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
             _tz_wlnbb_state["done"] = done
             _tz_wlnbb_state["total"] = total
 
+        def _should_stop():
+            return bool(_tz_wlnbb_state.get("stop_requested"))
+
         path, audit = generate_stock_stat(
             tickers, _fetch, universe=universe, tf=tf, bars=bars,
             output_path=f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
             progress_callback=_on_progress,
+            early_stop_fn=_should_stop,
         )
         _tz_wlnbb_state["output"] = path
         _tz_wlnbb_state["audit"] = audit
