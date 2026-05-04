@@ -1392,6 +1392,11 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "bear_to_bull_bars_ago":     _pf_result.get("bear_to_bull_bars_ago", 0),
             "bear_to_bull_bonus":        _pf_result.get("bear_to_bull_bonus", 0),
             "bear_to_bull_pairs":        _pf_result.get("bear_to_bull_pairs", []),
+            "base_profile_score_without_btb": _pf_result.get("base_profile_score_without_btb", 0),
+            "category_without_btb":      _pf_result.get("category_without_btb", "WATCH"),
+            "category_with_btb":         _pf_result.get("category_with_btb", "WATCH"),
+            "btb_category_upgrade":      _pf_result.get("btb_category_upgrade", 0),
+            "btb_created_sweet_spot":    _pf_result.get("btb_created_sweet_spot", 0),
             "active_signals":            _pf_result.get("active_signals", []),
         })
 
@@ -1441,6 +1446,8 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "bear_context_last_3", "bear_context_last_5",
             "bull_confirm_now", "bear_to_bull_confirmed",
             "bear_to_bull_bars_ago", "bear_to_bull_bonus", "bear_to_bull_pairs",
+            "base_profile_score_without_btb", "category_without_btb", "category_with_btb",
+            "btb_category_upgrade", "btb_created_sweet_spot",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1556,6 +1563,11 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             b.get("bear_to_bull_bars_ago", 0),
                             b.get("bear_to_bull_bonus", 0),
                             _j(b.get("bear_to_bull_pairs", [])),
+                            b.get("base_profile_score_without_btb", 0),
+                            b.get("category_without_btb", "WATCH"),
+                            b.get("category_with_btb", "WATCH"),
+                            b.get("btb_category_upgrade", 0),
+                            b.get("btb_created_sweet_spot", 0),
                         ])
                 except Exception:
                     pass

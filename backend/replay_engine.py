@@ -1155,6 +1155,87 @@ def bear_to_bull_summary(rows: List[dict]) -> List[dict]:
     return out
 
 
+def btb_category_upgrade_perf(rows: List[dict]) -> List[dict]:
+    """Performance of rows where BTB caused a category upgrade.
+
+    Groups by: category_without_btb × category_with_btb × profile_name.
+    Useful for measuring whether BTB-created SWEET_SPOT rows actually perform.
+    """
+    groups: Dict[str, list] = {}
+    for r in rows:
+        if not r.get("btb_category_upgrade"):
+            continue
+        cat_before = str(r.get("category_without_btb", "WATCH"))
+        cat_after  = str(r.get("category_with_btb",    "WATCH"))
+        pname      = str(r.get("profile_name", "UNKNOWN"))
+        created_ss = int(r.get("btb_created_sweet_spot", 0))
+        key = f"{cat_before}|{cat_after}|{pname}|{created_ss}"
+        groups.setdefault(key, []).append(r)
+
+    out = []
+    for key, grp in groups.items():
+        cat_before, cat_after, pname, created_ss = key.split("|")
+        d = _agg(grp)
+        d["category_without_btb"]  = cat_before
+        d["category_with_btb"]     = cat_after
+        d["profile_name"]          = pname
+        d["btb_created_sweet_spot"] = int(created_ss)
+        out.append(d)
+    out.sort(key=lambda x: (-x.get("count", 0), x.get("category_with_btb", "")))
+    return out
+
+
+def btb_pair_calibration(rows: List[dict]) -> List[dict]:
+    """Per-pair calibration: performance by bear×bull pair × bars_ago bucket.
+
+    Separates BTB-created-SWEET_SPOT rows from non-upgraded rows for each pair.
+    Enables per-pair quality assessment.
+    """
+    groups: Dict[str, list] = {}
+    for r in rows:
+        if not r.get("bear_to_bull_confirmed"):
+            continue
+        pairs_raw = r.get("bear_to_bull_pairs", "")
+        if isinstance(pairs_raw, list):
+            pairs = pairs_raw
+        else:
+            pairs = [p.strip() for p in str(pairs_raw).split() if p.strip()]
+        created_ss = int(r.get("btb_created_sweet_spot", 0))
+        for pair_str in pairs:
+            m = pair_str.split("@")
+            if len(m) != 2:
+                continue
+            signals_part, bars_ago_str = m
+            parts = signals_part.split("->")
+            if len(parts) != 2:
+                continue
+            bear_sig, bull_sig = parts
+            try:
+                bars_ago = int(bars_ago_str)
+            except ValueError:
+                continue
+            if bars_ago == 1:
+                bucket = "1"
+            elif bars_ago <= 3:
+                bucket = "2-3"
+            else:
+                bucket = "4-5"
+            key = f"{bear_sig}|{bull_sig}|{bucket}|{created_ss}"
+            groups.setdefault(key, []).append(r)
+
+    out = []
+    for key, grp in groups.items():
+        bear_sig, bull_sig, bucket, created_ss = key.split("|")
+        d = _agg(grp)
+        d["bear_signal"]           = bear_sig
+        d["bull_signal"]           = bull_sig
+        d["bars_ago_bucket"]       = bucket
+        d["btb_created_sweet_spot"] = int(created_ss)
+        out.append(d)
+    out.sort(key=lambda x: (-x.get("count", 0), x.get("bear_signal", "")))
+    return out
+
+
 # ─── Miss reason (internal helper) ────────────────────────────────────────────
 
 def _miss_reason(r: dict) -> str:
@@ -1767,10 +1848,15 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                         r["bear_context_last_3"]      = pf["bear_context_last_3"]
                         r["bear_context_last_5"]      = pf["bear_context_last_5"]
                         r["bull_confirm_now"]         = pf["bull_confirm_now"]
-                        r["bear_to_bull_confirmed"]   = pf["bear_to_bull_confirmed"]
-                        r["bear_to_bull_bars_ago"]    = pf["bear_to_bull_bars_ago"]
-                        r["bear_to_bull_bonus"]       = pf["bear_to_bull_bonus"]
-                        r["bear_to_bull_pairs"]       = " ".join(pf["bear_to_bull_pairs"])
+                        r["bear_to_bull_confirmed"]          = pf["bear_to_bull_confirmed"]
+                        r["bear_to_bull_bars_ago"]           = pf["bear_to_bull_bars_ago"]
+                        r["bear_to_bull_bonus"]              = pf["bear_to_bull_bonus"]
+                        r["bear_to_bull_pairs"]              = " ".join(pf["bear_to_bull_pairs"])
+                        r["base_profile_score_without_btb"]  = pf["base_profile_score_without_btb"]
+                        r["category_without_btb"]            = pf["category_without_btb"]
+                        r["category_with_btb"]               = pf["category_with_btb"]
+                        r["btb_category_upgrade"]            = pf["btb_category_upgrade"]
+                        r["btb_created_sweet_spot"]          = pf["btb_created_sweet_spot"]
                         _hist.insert(0, set(pf["active_signals"]))
                         if len(_hist) > 5:
                             _hist.pop()
@@ -1799,6 +1885,11 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                         r.setdefault("bear_to_bull_bars_ago",  0)
                         r.setdefault("bear_to_bull_bonus",     0)
                         r.setdefault("bear_to_bull_pairs",     "")
+                        r.setdefault("base_profile_score_without_btb", 0)
+                        r.setdefault("category_without_btb",   "WATCH")
+                        r.setdefault("category_with_btb",      "WATCH")
+                        r.setdefault("btb_category_upgrade",   0)
+                        r.setdefault("btb_created_sweet_spot", 0)
 
             log.info(
                 "PROFILE_PLAYBOOK_AUDIT replay: rows_total=%d "
@@ -1888,6 +1979,10 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         try:
             cached["bear_to_bull_perf"]    = _save("bear_to_bull_perf",    bear_to_bull_perf(rows))
             cached["bear_to_bull_summary"] = _save("bear_to_bull_summary", bear_to_bull_summary(rows))
+            cached["btb_category_upgrade_perf"] = _save(
+                "btb_category_upgrade_perf", btb_category_upgrade_perf(rows))
+            cached["btb_pair_calibration"]      = _save(
+                "btb_pair_calibration",      btb_pair_calibration(rows))
         except Exception as _btb_err:
             log.warning("bear_to_bull analytics failed: %s", _btb_err)
 

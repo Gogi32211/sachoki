@@ -24,7 +24,7 @@ import time as _time
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 # ── Version ───────────────────────────────────────────────────────────────────
-PROFILE_PLAYBOOK_VERSION = "2026-05-04-bear-to-bull-sequence-v1"
+PROFILE_PLAYBOOK_VERSION = "2026-05-04-btb-calibration-v2"
 
 # ── Signal aliases ─────────────────────────────────────────────────────────────
 SIGNAL_ALIASES: Dict[str, str] = {
@@ -98,29 +98,41 @@ BULL_CONFIRM_SIGNALS: Set[str] = {
     "Z2", "Z4", "T4", "FRI43", "CCIB", "SC", "SQ",
 }
 
-# ── Bear-to-bull sequence bonuses ─────────────────────────────────────────────
-# bear_signal -> {bull_confirm -> base_bonus}
+# ── Bear-to-bull sequence bonuses (recalibrated 2026-05-04) ──────────────────
+# Reduced to prevent BTB alone from flooding SWEET_SPOT.
+# Strong pairs: BUY/SVS/BO_UP confirmations.
+# Weak/noisy pairs: L34/VBO_UP/BO_UP from VBO_DN/BO_DN/WC_DN — significantly reduced.
 SEQUENCE_BONUSES: Dict[str, Dict[str, int]] = {
     "EB_DN": {
-        "BUY": 6, "SVS": 6, "ABS": 5, "L34": 5, "VBO_UP": 5, "BO_UP": 4,
+        "BUY": 5, "SVS": 4, "ABS": 4, "L34": 3, "VBO_UP": 3, "BO_UP": 4,
     },
     "BE_DN": {
-        "BUY": 5, "SVS": 5, "ABS": 4, "L34": 4, "VBO_UP": 4,
+        "BUY": 5, "SVS": 4, "ABS": 3, "L34": 2, "VBO_UP": 4,
     },
     "VBO_DN": {
-        "BUY": 5, "SVS": 5, "ABS": 4, "L34": 4, "VBO_UP": 4,
+        "BUY": 4, "SVS": 2, "ABS": 3, "L34": 1, "VBO_UP": 2,
     },
     "BO_DN": {
-        "BUY": 4, "SVS": 4, "L34": 4, "BO_UP": 4,
+        "BUY": 4, "SVS": 3, "L34": 1, "BO_UP": 2,
     },
     "4BF_DN": {
-        "BUY": 4, "SVS": 4, "L34": 3,
+        "BUY": 4, "SVS": 3, "L34": 1,
     },
     "WC_DN": {
-        "BUY": 3, "SVS": 3, "L34": 3,
+        "BUY": 1, "SVS": 2, "L34": 1,
     },
 }
-SEQUENCE_BONUS_CAP = 8
+SEQUENCE_BONUS_CAP = 5  # reduced from 8 — BTB is a booster, not a primary driver
+
+# Per-profile BTB caps (overrides SEQUENCE_BONUS_CAP for specific profiles)
+# SP500_300_PLUS: high-price stocks need strong organic signals; BTB alone is too noisy
+PROFILE_BTB_CAPS: Dict[str, int] = {
+    "SP500_300_PLUS": 3,
+}
+
+# Profiles where BTB confirmations via L34/VBO_UP/BO_UP are scaled down by 50%
+# (these are noisier on high-price stocks where momentum signals matter more)
+PROFILE_BTB_WEAK_CONFIRM_PROFILES: Set[str] = {"SP500_300_PLUS"}
 
 # ── Profile definitions ───────────────────────────────────────────────────────
 PROFILES: Dict[str, dict] = {
@@ -483,8 +495,8 @@ def get_profile(row: dict, universe: str) -> str:
 def sequence_decay_bonus(base_bonus: int, bars_ago: int) -> int:
     """Apply time decay to a bear-to-bull sequence bonus."""
     if bars_ago <= 1: return base_bonus
-    if bars_ago <= 3: return round(base_bonus * 0.75)
-    if bars_ago <= 5: return round(base_bonus * 0.50)
+    if bars_ago <= 3: return round(base_bonus * 0.60)
+    if bars_ago <= 5: return round(base_bonus * 0.25)
     return 0
 
 
@@ -573,9 +585,15 @@ def compute_profile_playbook_for_row(
     if bull_sigs_now:
         bull_confirm_now = True
 
+    # Per-profile BTB cap (SP500_300_PLUS = 3, others = SEQUENCE_BONUS_CAP)
+    btb_cap = PROFILE_BTB_CAPS.get(profile_name, SEQUENCE_BONUS_CAP)
+    # Weak confirm signals scaled ×0.5 for high-price profiles (L34/VBO_UP/BO_UP too noisy)
+    _weak_btb_confirms: Set[str] = {"L34", "VBO_UP", "BO_UP"}
+
     if history_context:
         raw_bonus = 0
         _min_bars_ago: Optional[int] = None
+        is_weak_profile = profile_name in PROFILE_BTB_WEAK_CONFIRM_PROFILES
         for bars_ago, hist_sigs in enumerate(history_context, start=1):
             if bars_ago > 5:
                 break
@@ -590,6 +608,8 @@ def compute_profile_playbook_for_row(
                         for bull_sig in bull_sigs_now:
                             base = seq_map.get(bull_sig, 0)
                             if base > 0:
+                                if is_weak_profile and bull_sig in _weak_btb_confirms:
+                                    base = round(base * 0.5)
                                 bonus = sequence_decay_bonus(base, bars_ago)
                                 if bonus > 0:
                                     bear_to_bull_confirmed = True
@@ -597,16 +617,32 @@ def compute_profile_playbook_for_row(
                                     if _min_bars_ago is None or bars_ago < _min_bars_ago:
                                         _min_bars_ago = bars_ago
                                     bear_to_bull_pairs.append(f"{bear_sig}->{bull_sig}@{bars_ago}")
-        bear_to_bull_bonus    = min(raw_bonus, SEQUENCE_BONUS_CAP)
+        bear_to_bull_bonus    = min(raw_bonus, btb_cap)
         bear_to_bull_bars_ago = _min_bars_ago or 0
 
-    # ── Total score + category ────────────────────────────────────────────────
-    total_score = base_score + bear_standalone + bear_to_bull_bonus
+    # ── Total score + category (with and without BTB) ─────────────────────────
+    base_profile_score_without_btb = base_score + bear_standalone
 
     if profile:
-        cat, sweet_spot_active, late_warning = _score_to_category(total_score, profile)
+        category_without_btb, _, _ = _score_to_category(base_profile_score_without_btb, profile)
+        total_score = base_profile_score_without_btb + bear_to_bull_bonus
+        category_with_btb_raw, sweet_spot_active, late_warning = _score_to_category(total_score, profile)
+        # Gate: WATCH-base rows cannot be BTB-pushed into SWEET_SPOT or LATE
+        if category_without_btb == "WATCH" and category_with_btb_raw in {"SWEET_SPOT", "LATE"}:
+            cat = "BUILDING"
+            sweet_spot_active = False
+            late_warning      = False
+        else:
+            cat = category_with_btb_raw
+        category_with_btb = cat
     else:
+        category_without_btb  = "WATCH"
+        category_with_btb     = "WATCH"
+        total_score           = base_profile_score_without_btb + bear_to_bull_bonus
         cat, sweet_spot_active, late_warning = "WATCH", False, False
+
+    btb_category_upgrade    = cat != category_without_btb
+    btb_created_sweet_spot  = (cat == "SWEET_SPOT" and category_without_btb != "SWEET_SPOT")
 
     # ── Unscored signals ──────────────────────────────────────────────────────
     _known: Set[str] = set(BEAR_CONTEXT_SIGNALS.keys()) | BULL_CONFIRM_SIGNALS
@@ -619,23 +655,29 @@ def compute_profile_playbook_for_row(
     unscored = sorted(active_signals - _known)
 
     return {
-        "profile_playbook_version":  PROFILE_PLAYBOOK_VERSION,
-        "profile_name":              profile_name,
-        "profile_score":             total_score,
-        "profile_category":          cat,
-        "sweet_spot_active":         sweet_spot_active,
-        "late_warning":              late_warning,
-        "active_signals":            sorted(active_signals),
-        "matched_profile_signals":   matched_signals,
-        "matched_profile_pairs":     matched_pairs,
-        "unscored_signals":          unscored,
-        "bear_context_last_3":       int(bear_context_last_3),
-        "bear_context_last_5":       int(bear_context_last_5),
-        "bull_confirm_now":          int(bull_confirm_now),
-        "bear_to_bull_confirmed":    int(bear_to_bull_confirmed),
-        "bear_to_bull_bars_ago":     bear_to_bull_bars_ago,
-        "bear_to_bull_bonus":        bear_to_bull_bonus,
-        "bear_to_bull_pairs":        bear_to_bull_pairs,
+        "profile_playbook_version":        PROFILE_PLAYBOOK_VERSION,
+        "profile_name":                    profile_name,
+        "profile_score":                   total_score,
+        "profile_category":                cat,
+        "sweet_spot_active":               sweet_spot_active,
+        "late_warning":                    late_warning,
+        "active_signals":                  sorted(active_signals),
+        "matched_profile_signals":         matched_signals,
+        "matched_profile_pairs":           matched_pairs,
+        "unscored_signals":                unscored,
+        "bear_context_last_3":             int(bear_context_last_3),
+        "bear_context_last_5":             int(bear_context_last_5),
+        "bull_confirm_now":                int(bull_confirm_now),
+        "bear_to_bull_confirmed":          int(bear_to_bull_confirmed),
+        "bear_to_bull_bars_ago":           bear_to_bull_bars_ago,
+        "bear_to_bull_bonus":              bear_to_bull_bonus,
+        "bear_to_bull_pairs":              bear_to_bull_pairs,
+        # BTB calibration audit fields
+        "base_profile_score_without_btb":  base_profile_score_without_btb,
+        "category_without_btb":            category_without_btb,
+        "category_with_btb":               category_with_btb,
+        "btb_category_upgrade":            int(btb_category_upgrade),
+        "btb_created_sweet_spot":          int(btb_created_sweet_spot),
         # legacy fields (kept for backward compatibility)
         "profile_role":              profile.get("role")              if profile else None,
         "profile_description":       profile.get("description")       if profile else None,
@@ -832,4 +874,6 @@ def get_playbook_config_snapshot() -> dict:
         "bull_confirm_signals":     sorted(BULL_CONFIRM_SIGNALS),
         "sequence_bonuses":         {k: dict(v) for k, v in SEQUENCE_BONUSES.items()},
         "sequence_bonus_cap":       SEQUENCE_BONUS_CAP,
+        "profile_btb_caps":         dict(PROFILE_BTB_CAPS),
+        "profile_btb_weak_confirm_profiles": sorted(PROFILE_BTB_WEAK_CONFIRM_PROFILES),
     }
