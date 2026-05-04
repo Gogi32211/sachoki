@@ -972,6 +972,111 @@ def test_invalid_suffix_audit_catches_bad_labels():
     assert result == [], f"clean rows should yield empty audit: {result}"
 
 
+# ── Tests 52+: price buckets, robust metrics, suspicious, ticker NA ───
+
+def test_price_bucket_lt1():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(0.5) == "LT1"
+    assert classify_price_bucket(0.99) == "LT1"
+
+def test_price_bucket_1_5():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(1.0) == "1_5"
+    assert classify_price_bucket(4.99) == "1_5"
+
+def test_price_bucket_5_20():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(5.0) == "5_20"
+    assert classify_price_bucket(19.99) == "5_20"
+
+def test_price_bucket_20_50():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(20.0) == "20_50"
+    assert classify_price_bucket(49.99) == "20_50"
+
+def test_price_bucket_50_150():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(50.0) == "50_150"
+    assert classify_price_bucket(149.99) == "50_150"
+
+def test_price_bucket_150_300():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(150.0) == "150_300"
+    assert classify_price_bucket(299.99) == "150_300"
+
+def test_price_bucket_300_plus():
+    from analyzers.tz_wlnbb.stock_stat import classify_price_bucket
+    assert classify_price_bucket(300.0) == "300_PLUS"
+    assert classify_price_bucket(700.0) == "300_PLUS"
+
+def test_robust_metrics_outlier():
+    from analyzers.tz_wlnbb.replay import _robust_metrics
+    grp = [
+        {"ret_1d": 0.0, "ret_3d": 0.0, "ret_5d": 0.0, "ret_10d": 0.1, "big_win_10d": 0, "fail_10d": 0, "mfe_10d": 0.5, "mae_10d": -0.2},
+        {"ret_1d": 0.0, "ret_3d": 0.0, "ret_5d": 0.0, "ret_10d": 0.2, "big_win_10d": 0, "fail_10d": 0, "mfe_10d": 0.5, "mae_10d": -0.2},
+        {"ret_1d": 0.0, "ret_3d": 0.0, "ret_5d": 0.0, "ret_10d": 0.3, "big_win_10d": 0, "fail_10d": 0, "mfe_10d": 0.5, "mae_10d": -0.2},
+        {"ret_1d": 0.0, "ret_3d": 0.0, "ret_5d": 0.0, "ret_10d": 0.4, "big_win_10d": 0, "fail_10d": 0, "mfe_10d": 0.5, "mae_10d": -0.2},
+        {"ret_1d": 0.0, "ret_3d": 0.0, "ret_5d": 0.0, "ret_10d": 500.0, "big_win_10d": 1, "fail_10d": 0, "mfe_10d": 100.0, "mae_10d": -0.2},
+    ]
+    m = _robust_metrics(grp)
+    assert m["avg_ret_10d"] > 50, m
+    assert m["median_ret_10d"] < 1, m
+    assert m["outlier_count_10d"] == 1
+    assert abs(m["outlier_rate_10d"] - 0.2) < 0.001
+    assert m["max_ret_10d"] == 500.0
+    assert m["trimmed_avg_ret_10d"] < m["avg_ret_10d"]
+    assert m["winsorized_avg_ret_10d"] < m["avg_ret_10d"]
+
+def test_ticker_na_preserved():
+    """csv.DictReader returns 'NA' as plain string; downstream functions must not coerce."""
+    from analyzers.tz_wlnbb.replay import _date_order_audit, _row_price_bucket
+    rows = [
+        {"ticker": "NA", "date": "2025-01-06", "close": "10.0"},
+        {"ticker": "NA", "date": "2025-01-07", "close": "10.5"},
+    ]
+    audit = _date_order_audit(rows)
+    tickers_in_audit = [r["ticker"] for r in audit]
+    assert "NA" in tickers_in_audit, tickers_in_audit
+    # price bucket must work with string close
+    assert _row_price_bucket(rows[0]) == "5_20"
+
+def test_suspicious_outlier_flagging():
+    """A group with median near zero but huge avg must surface in suspicious."""
+    from analyzers.tz_wlnbb.replay import _suspicious_patterns
+    rows = []
+    for i in range(35):
+        rows.append({
+            "ticker": "FOO", "date": f"2025-01-{(i%28)+1:02d}", "close": "2.0",
+            "composite_full_label": "T4L34NU", "t_signal": "T4", "z_signal": "", "l_signal": "L34",
+            "preup_signal": "", "predn_signal": "",
+            "ret_1d": "0.1", "ret_3d": "0.1", "ret_5d": "0.1", "ret_10d": "0.1",
+            "big_win_10d": "0", "fail_10d": "0", "mfe_10d": "0.5", "mae_10d": "-0.1",
+            "universe": "nasdaq", "nasdaq_batch": "n_z",
+        })
+    # one extreme outlier
+    rows.append({
+        "ticker": "FOO", "date": "2025-02-01", "close": "1.5",
+        "composite_full_label": "T4L34NU", "t_signal": "T4", "z_signal": "", "l_signal": "L34",
+        "preup_signal": "", "predn_signal": "",
+        "ret_1d": "0.1", "ret_3d": "0.1", "ret_5d": "0.1", "ret_10d": "1500.0",
+        "big_win_10d": "1", "fail_10d": "0", "mfe_10d": "200", "mae_10d": "-0.1",
+        "universe": "nasdaq", "nasdaq_batch": "n_z",
+    })
+    out = _suspicious_patterns(rows)
+    assert any(r["pattern_name"] == "T4L34NU" for r in out), out
+
+def test_price_bucketed_signal_perf_groups():
+    from analyzers.tz_wlnbb.replay import _signal_perf_by_price_bucket
+    rows = [
+        {"ticker": "A", "date": "2025-01-06", "close": "2.0", "t_signal": "T4", "z_signal": "", "l_signal": "", "preup_signal": "", "predn_signal": "", "ret_10d": "1.0", "big_win_10d": "0", "fail_10d": "0", "universe": "nasdaq", "timeframe": "1d"},
+        {"ticker": "B", "date": "2025-01-06", "close": "100.0", "t_signal": "T4", "z_signal": "", "l_signal": "", "preup_signal": "", "predn_signal": "", "ret_10d": "2.0", "big_win_10d": "0", "fail_10d": "0", "universe": "nasdaq", "timeframe": "1d"},
+    ]
+    out = _signal_perf_by_price_bucket(rows)
+    buckets = sorted(set(r["price_bucket"] for r in out))
+    assert buckets == ["1_5", "50_150"], buckets
+    assert all("robust_score" in r for r in out)
+
+
 if __name__ == "__main__":
     # Run all tests manually
     tests = [

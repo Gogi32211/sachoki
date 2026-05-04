@@ -95,6 +95,180 @@ def _safe_float(v):
         return None
 
 
+# ── Price bucket / robust metrics constants ──────────────────────────────────
+OUTLIER_RET_10D_THRESHOLD = 50.0  # ret_10d > 50% → outlier
+ROBUST_MIN_COUNT = 30
+ROBUST_TOP_FAIL_RATE_MAX    = 30.0
+ROBUST_TOP_OUTLIER_RATE_MAX = 0.10
+ROBUST_BAD_FAIL_RATE_MIN    = 30.0
+
+
+def _classify_price_bucket(close) -> str:
+    """Map a close price to a price-bucket label."""
+    try:
+        c = float(close)
+    except (TypeError, ValueError):
+        return ""
+    if c != c:
+        return ""
+    if c < 1:    return "LT1"
+    if c < 5:    return "1_5"
+    if c < 20:   return "5_20"
+    if c < 50:   return "20_50"
+    if c < 150:  return "50_150"
+    if c < 300:  return "150_300"
+    return "300_PLUS"
+
+
+def _row_price_bucket(r: dict) -> str:
+    """Get price_bucket from row, falling back to computing from close."""
+    pb = r.get("price_bucket") or ""
+    if pb:
+        return pb
+    return _classify_price_bucket(r.get("close"))
+
+
+def _percentile(sorted_vals: list, q: float) -> Optional[float]:
+    """Linear-interpolated percentile for 0<=q<=1 on a sorted list."""
+    n = len(sorted_vals)
+    if n == 0:
+        return None
+    if n == 1:
+        return sorted_vals[0]
+    pos = q * (n - 1)
+    lo = int(pos)
+    hi = min(lo + 1, n - 1)
+    frac = pos - lo
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * frac
+
+
+def _trimmed_mean(vals: list, trim_frac: float = 0.05) -> Optional[float]:
+    """Mean after trimming bottom and top trim_frac of values. Falls back to mean for tiny groups."""
+    if not vals:
+        return None
+    s = sorted(vals)
+    n = len(s)
+    k = int(n * trim_frac)
+    if k == 0 and n >= 3:
+        k = 1
+    if n - 2 * k <= 0:
+        return sum(s) / n
+    return sum(s[k:n - k]) / (n - 2 * k)
+
+
+def _winsorized_mean(vals: list, q_lo: float = 0.05, q_hi: float = 0.95) -> Optional[float]:
+    """Mean after clipping values to the q_lo / q_hi percentiles."""
+    if not vals:
+        return None
+    s = sorted(vals)
+    lo = _percentile(s, q_lo)
+    hi = _percentile(s, q_hi)
+    if lo is None or hi is None:
+        return sum(s) / len(s)
+    clipped = [min(max(v, lo), hi) for v in vals]
+    return sum(clipped) / len(clipped)
+
+
+def _robust_metrics(grp: list) -> dict:
+    """Compute the full robust metric dict for a group of rows.
+    Returns numeric fields rounded for CSV use.
+    """
+    def _vals(k):
+        return [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
+
+    out = {}
+    for tf_key in ("1d", "3d", "5d", "10d"):
+        col = f"ret_{tf_key}"
+        v = _vals(col)
+        if v:
+            sv = sorted(v)
+            n = len(sv)
+            avg = sum(v) / n
+            med = _percentile(sv, 0.5)
+            out[f"avg_ret_{tf_key}"]    = round(avg, 4)
+            out[f"median_ret_{tf_key}"] = round(med, 4)
+        else:
+            out[f"avg_ret_{tf_key}"]    = None
+            out[f"median_ret_{tf_key}"] = None
+
+    v10 = _vals("ret_10d")
+    if v10:
+        sv10 = sorted(v10)
+        n = len(v10)
+        avg10  = sum(v10) / n
+        med10  = _percentile(sv10, 0.5)
+        trim10 = _trimmed_mean(v10, 0.05)
+        wins10 = _winsorized_mean(v10, 0.05, 0.95)
+        p25    = _percentile(sv10, 0.25)
+        p75    = _percentile(sv10, 0.75)
+        p90    = _percentile(sv10, 0.90)
+        max10  = max(v10)
+        min10  = min(v10)
+        outlier_count = sum(1 for x in v10 if x > OUTLIER_RET_10D_THRESHOLD)
+        outlier_rate  = outlier_count / n if n else 0.0
+        gap = avg10 - med10 if (avg10 is not None and med10 is not None) else None
+
+        out["trimmed_avg_ret_10d"]    = round(trim10, 4) if trim10 is not None else None
+        out["winsorized_avg_ret_10d"] = round(wins10, 4) if wins10 is not None else None
+        out["p25_ret_10d"]            = round(p25, 4) if p25 is not None else None
+        out["p75_ret_10d"]            = round(p75, 4) if p75 is not None else None
+        out["p90_ret_10d"]            = round(p90, 4) if p90 is not None else None
+        out["max_ret_10d"]            = round(max10, 4)
+        out["min_ret_10d"]            = round(min10, 4)
+        out["outlier_count_10d"]      = outlier_count
+        out["outlier_rate_10d"]       = round(outlier_rate, 4)
+        out["avg_vs_median_gap_10d"]  = round(gap, 4) if gap is not None else None
+    else:
+        for k in ("trimmed_avg_ret_10d", "winsorized_avg_ret_10d",
+                  "p25_ret_10d", "p75_ret_10d", "p90_ret_10d",
+                  "max_ret_10d", "min_ret_10d", "avg_vs_median_gap_10d"):
+            out[k] = None
+        out["outlier_count_10d"] = 0
+        out["outlier_rate_10d"]  = 0.0
+
+    def _rate_pct(k):
+        vs = _vals(k)
+        return round(sum(vs) / len(vs) * 100, 2) if vs else None
+
+    big_win = _rate_pct("big_win_10d")
+    fail    = _rate_pct("fail_10d")
+    out["big_win_10d_rate"] = big_win
+    out["fail_10d_rate"]    = fail
+
+    out["avg_mfe_10d"] = round(sum(_vals("mfe_10d")) / len(_vals("mfe_10d")), 4) if _vals("mfe_10d") else None
+    out["avg_mae_10d"] = round(sum(_vals("mae_10d")) / len(_vals("mae_10d")), 4) if _vals("mae_10d") else None
+    out["reward_risk_ratio"] = _reward_risk(out["avg_mfe_10d"], out["avg_mae_10d"])
+
+    # Robust composite score
+    med10 = out["median_ret_10d"] or 0.0
+    trim  = out["trimmed_avg_ret_10d"] or 0.0
+    bw    = big_win or 0.0
+    fl    = fail or 0.0
+    orate = out["outlier_rate_10d"] or 0.0
+    out["robust_score"] = round(
+        med10 + 0.5 * trim + 0.25 * bw - 0.35 * fl - 0.5 * (orate * 100),
+        4,
+    )
+
+    # median ret 5d already computed above
+    return out
+
+
+# Standard set of perf columns present in every perf CSV (in order).
+PERF_METRIC_COLS = [
+    "count",
+    "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+    "median_ret_1d", "median_ret_3d", "median_ret_5d", "median_ret_10d",
+    "trimmed_avg_ret_10d", "winsorized_avg_ret_10d",
+    "p25_ret_10d", "p75_ret_10d", "p90_ret_10d",
+    "max_ret_10d", "min_ret_10d",
+    "outlier_count_10d", "outlier_rate_10d", "avg_vs_median_gap_10d",
+    "big_win_10d_rate", "fail_10d_rate",
+    "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+    "robust_score",
+]
+
+
 def _reward_risk(avg_mfe, avg_mae):
     """MFE / abs(MAE). None if either is None or MAE=0."""
     if avg_mfe is None or avg_mae is None:
@@ -161,40 +335,13 @@ def _signal_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (sig_type, name, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals:
-                return None
-            m = len(vals) // 2
-            return round((vals[m - 1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        result.append({
+        row = {
             "signal_type": sig_type, "signal_name": name, "universe": uni, "timeframe": tf,
             "count": len(grp),
-            "avg_ret_1d":  _avg("ret_1d"),  "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d":  _avg("ret_5d"),  "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"),
-            "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
             "tz_wlnbb_version": TZ_WLNBB_VERSION,
-        })
+        }
+        result.append(row)
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
@@ -214,40 +361,13 @@ def _combo_perf(rows: List[dict]) -> List[dict]:
     for (ts, zs, ls, ps, ds, ne, wk, pen), grp in groups.items():
         if not any([ts, zs, ls, ps, ds]):
             continue
-
-        def _avg(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals:
-                return None
-            m = len(vals) // 2
-            return round((vals[m - 1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
         result.append({
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "preup_signal": ps, "predn_signal": ds, "ne_suffix": ne, "wick_suffix": wk,
             "penetration_suffix": pen,
             "full_suffix": ne + wk + pen,
             "count": len(grp),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
             "tz_wlnbb_version": TZ_WLNBB_VERSION,
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -278,31 +398,12 @@ def _suffix_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (sig_type, name, ne, wk, pen, full_suf, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
         result.append({
             "signal_type": sig_type, "signal_name": name,
             "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
             "full_suffix": full_suf,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"),
-            "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -329,32 +430,13 @@ def _composite_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (cfl, core, fsuf, ts, zs, ls, ne, wk, pen, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        avg_mfe = _avg("mfe_10d")
-        avg_mae = _avg("mae_10d")
         result.append({
             "composite_full_label": cfl, "composite_core": core, "composite_full_suffix": fsuf,
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
             "full_suffix": ne + wk + pen,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -384,31 +466,12 @@ def _wick_behavior_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        avg_mfe = _avg("mfe_10d")
-        avg_mae = _avg("mae_10d")
         result.append({
             "wick_suffix": wk, "penetration_suffix": pen, "full_suffix": full, "ne_suffix": ne,
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "preup_signal": ps, "predn_signal": ds,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -420,7 +483,7 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
     """
     by_ticker: Dict[str, list] = {}
     for r in rows:
-        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
 
     def _parse_date(d):
         try: return datetime.strptime(d, "%Y-%m-%d")
@@ -504,24 +567,8 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
 
     result = []
 
-    def _make_stats(grp):
-        def _avg(k):
-            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k):
-            vals = sorted(v for r in grp for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k):
-            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
-        return _avg, _med, _rate, avg_mfe, avg_mae
-
     for (cpat, bpat, lag, uni, tf), grp in seq2.items():
         lbl_data = seq2_labels.get((cpat, bpat, lag, uni, tf), ("","","","","","","",""))
-        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
         result.append({
             "sequence_type": "2bar",
             "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
@@ -531,17 +578,11 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
             "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
             "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
             "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
 
     for (cpat, bpat, lag1, lag2, uni, tf), grp in seq3.items():
         lbl_data = seq3_labels.get((cpat, bpat, lag1, lag2, uni, tf), ("","","","","","","",""))
-        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
         result.append({
             "sequence_type": "3bar",
             "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
@@ -551,12 +592,7 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
             "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
             "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
             "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
 
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -569,7 +605,7 @@ def _wick_sequence_perf(rows: List[dict]) -> List[dict]:
     """
     by_ticker: Dict[str, list] = {}
     for r in rows:
-        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
 
     def _parse_date(d):
         try: return datetime.strptime(d, "%Y-%m-%d")
@@ -608,27 +644,10 @@ def _wick_sequence_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (pat, base_sig, lag, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
         result.append({
             "wick_sequence_pattern": pat, "base_signal_context": base_sig,
             "bars_between": lag, "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -643,7 +662,7 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
     # Group by ticker
     by_ticker: Dict[str, list] = {}
     for r in rows:
-        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
 
     # Sort each ticker chronologically (parse dates to avoid lexicographic mis-sort)
     def _parse_date(d: str):
@@ -736,80 +755,476 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
 
     result = []
 
-    def _make_helpers(grp):
-        def _avg(k):
-            vals = []
-            for r in grp:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k):
-            vals = sorted(v for r in grp for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals:
-                return None
-            m = len(vals) // 2
-            return round((vals[m - 1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k):
-            vals = []
-            for r in grp:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        return _avg, _med, _rate
-
     for (fam, pattern, lag, uni, tf2), grp in seq2_groups.items():
-        _avg, _med, _rate = _make_helpers(grp)
         src_lbl, conf_lbl = seq2_labels.get((fam, pattern, lag, uni, tf2), ("", ""))
         result.append({
             "sequence_type": "2bar",
             "sequence_family": fam, "sequence_pattern": pattern,
             "bars_between": lag, "bars_between_1": lag, "bars_between_2": "",
             "universe": uni, "timeframe": tf2, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
             "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
             "source_full_suffix": _extract_suffix_from_label(src_lbl),
             "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
+            **_robust_metrics(grp),
         })
 
     for (fam, pattern, lag1, lag2, uni, tf2), grp in seq3_groups.items():
-        _avg, _med, _rate = _make_helpers(grp)
         src_lbl, conf_lbl = seq3_labels.get((fam, pattern, lag1, lag2, uni, tf2), ("", ""))
         result.append({
             "sequence_type": "3bar",
             "sequence_family": fam, "sequence_pattern": pattern,
             "bars_between": lag1, "bars_between_1": lag1, "bars_between_2": lag2,
             "universe": uni, "timeframe": tf2, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
             "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
             "source_full_suffix": _extract_suffix_from_label(src_lbl),
             "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
+            **_robust_metrics(grp),
         })
 
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
-def _suspicious_patterns(seq_rows: List[dict]) -> List[dict]:
-    """Patterns with avg_ret_10d > 15% and count > 30."""
+def _suspicious_patterns(rows: List[dict], *_legacy_args, **_legacy_kw) -> List[dict]:
+    """Group raw rows by composite_full_label (or primary signal) and flag groups
+    with inflated metrics (huge avg-vs-median gap, outliers, etc.).
+
+    Triggers when ANY of:
+      avg_ret_10d > 15%  AND count >= 30
+      avg_vs_median_gap_10d > 10
+      outlier_rate_10d > 0.10
+      max_ret_10d > 100
+    """
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        pat = (r.get("composite_full_label") or
+               r.get("composite_primary_label") or
+               _primary_signal(r) or "")
+        if not pat:
+            continue
+        uni = r.get("universe", "")
+        nbatch = r.get("nasdaq_batch", "") or ""
+        pb = _row_price_bucket(r)
+        key = (pat, uni, nbatch, pb)
+        groups.setdefault(key, []).append(r)
+
     result = []
-    for r in seq_rows:
-        avg10 = _safe_float(r.get("avg_ret_10d"))
-        cnt = r.get("count", 0)
-        if avg10 is not None and avg10 > 15.0 and int(cnt) > 30:
-            result.append(r)
+    for (pat, uni, nbatch, pb), grp in groups.items():
+        m = _robust_metrics(grp)
+        cnt = len(grp)
+        avg10 = m.get("avg_ret_10d") or 0.0
+        med10 = m.get("median_ret_10d") or 0.0
+        gap   = m.get("avg_vs_median_gap_10d") or 0.0
+        orate = m.get("outlier_rate_10d") or 0.0
+        max10 = m.get("max_ret_10d") or 0.0
+        flagged = (
+            (avg10 > 15.0 and cnt >= 30) or
+            (gap > 10.0) or
+            (orate > 0.10) or
+            (max10 > 100.0)
+        )
+        if not flagged:
+            continue
+        ex_t, ex_d, ex_c, ex_r = [], [], [], []
+        for rr in grp[:5]:
+            ex_t.append(str(rr.get("ticker") or ""))
+            ex_d.append(str(rr.get("date") or ""))
+            ex_c.append(str(rr.get("close") or ""))
+            ex_r.append(str(rr.get("ret_10d") or ""))
+        # Determine pattern_type (composite if matches form, else signal)
+        rr0 = grp[0]
+        ptype = "composite" if (
+            rr0.get("composite_full_label") or rr0.get("composite_primary_label")
+        ) else "signal"
+        result.append({
+            "pattern_type": ptype,
+            "pattern_name": pat,
+            "universe": uni,
+            "nasdaq_batch": nbatch,
+            "price_bucket": pb,
+            "count": cnt,
+            "avg_ret_10d": m.get("avg_ret_10d"),
+            "median_ret_10d": med10,
+            "trimmed_avg_ret_10d": m.get("trimmed_avg_ret_10d"),
+            "winsorized_avg_ret_10d": m.get("winsorized_avg_ret_10d"),
+            "max_ret_10d": m.get("max_ret_10d"),
+            "avg_vs_median_gap_10d": m.get("avg_vs_median_gap_10d"),
+            "outlier_count_10d": m.get("outlier_count_10d"),
+            "outlier_rate_10d": m.get("outlier_rate_10d"),
+            "example_tickers": "|".join(ex_t),
+            "example_dates": "|".join(ex_d),
+            "example_close_prices": "|".join(ex_c),
+            "example_ret_10d_values": "|".join(ex_r),
+        })
     return sorted(result, key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+
+
+# ── Price-bucketed perf functions ────────────────────────────────────────────
+
+def _signal_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    groups: Dict[tuple, list] = {}
+    signal_types = [
+        ("T", "t_signal"), ("Z", "z_signal"), ("L", "l_signal"),
+        ("PREUP", "preup_signal"), ("PREDN", "predn_signal"),
+    ]
+    for r in rows:
+        pb = _row_price_bucket(r)
+        if not pb:
+            continue
+        uni = r.get("universe", "")
+        tf  = r.get("timeframe", "")
+        for sig_type, col in signal_types:
+            name = r.get(col, "")
+            if not name:
+                continue
+            key = (sig_type, name, uni, tf, pb)
+            groups.setdefault(key, []).append(r)
+    result = []
+    for (sig_type, name, uni, tf, pb), grp in groups.items():
+        result.append({
+            "signal_type": sig_type, "signal_name": name,
+            "universe": uni, "timeframe": tf, "price_bucket": pb,
+            "count": len(grp),
+            **_robust_metrics(grp),
+            "tz_wlnbb_version": TZ_WLNBB_VERSION,
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _composite_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        pb = _row_price_bucket(r)
+        if not pb:
+            continue
+        cfl = r.get("composite_full_label", "") or r.get("composite_primary_label", "")
+        if not cfl:
+            continue
+        key = (
+            cfl,
+            r.get("composite_core", ""),
+            r.get("composite_full_suffix", "") or r.get("composite_suffix", ""),
+            r.get("t_signal", ""), r.get("z_signal", ""), r.get("l_signal", ""),
+            r.get("ne_suffix", ""), r.get("wick_suffix", ""), r.get("penetration_suffix", ""),
+            r.get("universe", ""), r.get("timeframe", ""), pb,
+        )
+        groups.setdefault(key, []).append(r)
+    result = []
+    for (cfl, core, fsuf, ts, zs, ls, ne, wk, pen, uni, tf, pb), grp in groups.items():
+        result.append({
+            "composite_full_label": cfl, "composite_core": core, "composite_full_suffix": fsuf,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
+            "full_suffix": ne + wk + pen,
+            "universe": uni, "timeframe": tf, "price_bucket": pb,
+            "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _wick_behavior_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        pb = _row_price_bucket(r)
+        if not pb:
+            continue
+        wk  = r.get("wick_suffix", "")
+        pen = r.get("penetration_suffix", "")
+        ne  = r.get("ne_suffix", "")
+        full = ne + wk + pen
+        ts  = r.get("t_signal", ""); zs = r.get("z_signal", ""); ls = r.get("l_signal", "")
+        ps  = r.get("preup_signal", ""); ds = r.get("predn_signal", "")
+        uni = r.get("universe", ""); tf = r.get("timeframe", "")
+        if not any([wk, pen]):
+            continue
+        key = (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf, pb)
+        groups.setdefault(key, []).append(r)
+    result = []
+    for (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf, pb), grp in groups.items():
+        result.append({
+            "wick_suffix": wk, "penetration_suffix": pen, "full_suffix": full, "ne_suffix": ne,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "preup_signal": ps, "predn_signal": ds,
+            "universe": uni, "timeframe": tf, "price_bucket": pb,
+            "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _sequence_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    """Price-bucketed expanded sequence perf. Bucket from curr row."""
+    from .config import signal_family, sequence_family
+
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
+
+    def _parse_date(d):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    seq2_groups: Dict[tuple, list] = {}
+    seq2_labels: Dict[tuple, tuple] = {}
+    seq3_groups: Dict[tuple, list] = {}
+    seq3_labels: Dict[tuple, tuple] = {}
+
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_events = _bar_events(curr)
+            if not curr_events:
+                continue
+            pb = _row_price_bucket(curr)
+            if not pb:
+                continue
+            uni = curr.get("universe", ""); tf = curr.get("timeframe", "")
+
+            for _, curr_sig in curr_events:
+                for lag in range(1, 6):
+                    if i - lag < 0:
+                        break
+                    prev = t_rows[i - lag]
+                    prev_events = _bar_events(prev)
+                    if not prev_events:
+                        continue
+                    matched = False
+                    for _, prev_sig in prev_events:
+                        fam = sequence_family(prev_sig, curr_sig)
+                        if not fam:
+                            continue
+                        pattern = f"{prev_sig}->{curr_sig}"
+                        key = (fam, pattern, lag, uni, tf, pb)
+                        seq2_groups.setdefault(key, []).append(curr)
+                        if key not in seq2_labels:
+                            seq2_labels[key] = (_full_label(prev), _full_label(curr))
+                        matched = True
+                    if matched:
+                        break
+
+            for _, curr_sig in curr_events:
+                mid_found = False
+                for lag1 in range(1, 4):
+                    if i - lag1 < 0 or mid_found:
+                        break
+                    mid = t_rows[i - lag1]
+                    mid_events = _bar_events(mid)
+                    if not mid_events:
+                        continue
+                    for _, mid_sig in mid_events:
+                        if not sequence_family(mid_sig, curr_sig):
+                            continue
+                        for lag2 in range(lag1 + 1, lag1 + 4):
+                            if i - lag2 < 0:
+                                break
+                            prev2 = t_rows[i - lag2]
+                            prev2_events = _bar_events(prev2)
+                            if not prev2_events:
+                                continue
+                            p2_matched = False
+                            for _, prev2_sig in prev2_events:
+                                if not sequence_family(prev2_sig, mid_sig):
+                                    continue
+                                fam = (f"{signal_family(prev2_sig)}_to_"
+                                       f"{signal_family(mid_sig)}_to_"
+                                       f"{signal_family(curr_sig)}")
+                                pattern = f"{prev2_sig}->{mid_sig}->{curr_sig}"
+                                key = (fam, pattern, lag1, lag2, uni, tf, pb)
+                                seq3_groups.setdefault(key, []).append(curr)
+                                if key not in seq3_labels:
+                                    seq3_labels[key] = (_full_label(prev2), _full_label(curr))
+                                p2_matched = True
+                            if p2_matched:
+                                break
+                        mid_found = True
+
+    result = []
+    for (fam, pattern, lag, uni, tf2, pb), grp in seq2_groups.items():
+        src_lbl, conf_lbl = seq2_labels.get((fam, pattern, lag, uni, tf2, pb), ("", ""))
+        result.append({
+            "sequence_type": "2bar",
+            "sequence_family": fam, "sequence_pattern": pattern,
+            "bars_between": lag, "bars_between_1": lag, "bars_between_2": "",
+            "universe": uni, "timeframe": tf2, "price_bucket": pb, "count": len(grp),
+            "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
+            "source_full_suffix": _extract_suffix_from_label(src_lbl),
+            "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
+            **_robust_metrics(grp),
+        })
+    for (fam, pattern, lag1, lag2, uni, tf2, pb), grp in seq3_groups.items():
+        src_lbl, conf_lbl = seq3_labels.get((fam, pattern, lag1, lag2, uni, tf2, pb), ("", ""))
+        result.append({
+            "sequence_type": "3bar",
+            "sequence_family": fam, "sequence_pattern": pattern,
+            "bars_between": lag1, "bars_between_1": lag1, "bars_between_2": lag2,
+            "universe": uni, "timeframe": tf2, "price_bucket": pb, "count": len(grp),
+            "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
+            "source_full_suffix": _extract_suffix_from_label(src_lbl),
+            "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _composite_sequence_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
+
+    def _parse_date(d):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    seq2: Dict[tuple, list] = {}
+    seq3: Dict[tuple, list] = {}
+    seq2_labels: Dict[tuple, tuple] = {}
+    seq3_labels: Dict[tuple, tuple] = {}
+
+    def _clabel(r):
+        return (r.get("composite_primary_label") or
+                r.get("composite_full_label") or
+                _full_label(r) or "")
+
+    def _csuf(r):
+        return r.get("ne_suffix", "") + r.get("wick_suffix", "") + r.get("penetration_suffix", "")
+
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_lbl = _clabel(curr)
+            curr_base = _primary_signal(curr)
+            if not curr_lbl:
+                continue
+            pb = _row_price_bucket(curr)
+            if not pb:
+                continue
+            uni = curr.get("universe", ""); tf = curr.get("timeframe", "")
+            for lag in range(1, 6):
+                if i - lag < 0: break
+                prev = t_rows[i - lag]
+                prev_lbl = _clabel(prev)
+                prev_base = _primary_signal(prev)
+                if not prev_lbl:
+                    continue
+                composite_pat = f"{prev_lbl}->{curr_lbl}"
+                base_pat = f"{prev_base}->{curr_base}"
+                key = (composite_pat, base_pat, lag, uni, tf, pb)
+                seq2.setdefault(key, []).append(curr)
+                if key not in seq2_labels:
+                    seq2_labels[key] = (
+                        prev_lbl, curr_lbl, _csuf(prev), _csuf(curr),
+                        prev.get("wick_suffix", ""), prev.get("penetration_suffix", ""),
+                        curr.get("wick_suffix", ""), curr.get("penetration_suffix", ""),
+                    )
+                break
+            for lag1 in range(1, 4):
+                if i - lag1 < 0: break
+                mid = t_rows[i - lag1]
+                mid_lbl = _clabel(mid)
+                if not mid_lbl: continue
+                for lag2 in range(lag1 + 1, lag1 + 4):
+                    if i - lag2 < 0: break
+                    prev2 = t_rows[i - lag2]
+                    prev2_lbl = _clabel(prev2)
+                    if not prev2_lbl: break
+                    composite_pat = f"{prev2_lbl}->{mid_lbl}->{curr_lbl}"
+                    base_pat = (f"{_primary_signal(prev2)}->"
+                                f"{_primary_signal(mid)}->{curr_base}")
+                    key = (composite_pat, base_pat, lag1, lag2, uni, tf, pb)
+                    seq3.setdefault(key, []).append(curr)
+                    if key not in seq3_labels:
+                        seq3_labels[key] = (
+                            prev2_lbl, curr_lbl, _csuf(prev2), _csuf(curr),
+                            prev2.get("wick_suffix", ""), prev2.get("penetration_suffix", ""),
+                            curr.get("wick_suffix", ""), curr.get("penetration_suffix", ""),
+                        )
+                    break
+                break
+
+    result = []
+    for (cpat, bpat, lag, uni, tf, pb), grp in seq2.items():
+        ld = seq2_labels.get((cpat, bpat, lag, uni, tf, pb), ("","","","","","","",""))
+        result.append({
+            "sequence_type": "2bar",
+            "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
+            "bars_between": lag, "bars_between_1": lag, "bars_between_2": "",
+            "universe": uni, "timeframe": tf, "price_bucket": pb, "count": len(grp),
+            "source_full_label": ld[0], "confirmation_full_label": ld[1],
+            "source_full_suffix": ld[2], "confirmation_full_suffix": ld[3],
+            "source_wick_suffix": ld[4], "source_penetration_suffix": ld[5],
+            "confirmation_wick_suffix": ld[6], "confirmation_penetration_suffix": ld[7],
+            **_robust_metrics(grp),
+        })
+    for (cpat, bpat, lag1, lag2, uni, tf, pb), grp in seq3.items():
+        ld = seq3_labels.get((cpat, bpat, lag1, lag2, uni, tf, pb), ("","","","","","","",""))
+        result.append({
+            "sequence_type": "3bar",
+            "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
+            "bars_between": lag1, "bars_between_1": lag1, "bars_between_2": lag2,
+            "universe": uni, "timeframe": tf, "price_bucket": pb, "count": len(grp),
+            "source_full_label": ld[0], "confirmation_full_label": ld[1],
+            "source_full_suffix": ld[2], "confirmation_full_suffix": ld[3],
+            "source_wick_suffix": ld[4], "source_penetration_suffix": ld[5],
+            "confirmation_wick_suffix": ld[6], "confirmation_penetration_suffix": ld[7],
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _wick_sequence_perf_by_price_bucket(rows: List[dict]) -> List[dict]:
+    by_ticker: Dict[str, list] = {}
+    for r in rows:
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
+
+    def _parse_date(d):
+        try: return datetime.strptime(d, "%Y-%m-%d")
+        except: return datetime.min
+    for t in by_ticker:
+        by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
+
+    def _wick_key(r):
+        return r.get("wick_suffix", "") + r.get("penetration_suffix", "")
+
+    groups: Dict[tuple, list] = {}
+    for ticker, t_rows in by_ticker.items():
+        n = len(t_rows)
+        for i in range(n):
+            curr = t_rows[i]
+            curr_wk = _wick_key(curr)
+            if not curr_wk:
+                continue
+            pb = _row_price_bucket(curr)
+            if not pb:
+                continue
+            uni = curr.get("universe", ""); tf = curr.get("timeframe", "")
+            base_sig = _primary_signal(curr)
+            for lag in range(1, 4):
+                if i - lag < 0:
+                    break
+                prev = t_rows[i - lag]
+                prev_wk = _wick_key(prev)
+                if not prev_wk:
+                    continue
+                pat = f"{prev_wk}->{curr_wk}"
+                key = (pat, base_sig, lag, uni, tf, pb)
+                groups.setdefault(key, []).append(curr)
+                break
+    result = []
+    for (pat, base_sig, lag, uni, tf, pb), grp in groups.items():
+        result.append({
+            "wick_sequence_pattern": pat, "base_signal_context": base_sig,
+            "bars_between": lag, "universe": uni, "timeframe": tf,
+            "price_bucket": pb, "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
 def _date_forward(date_str: str, n: int) -> str:
@@ -827,7 +1242,7 @@ def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
     # Build per-ticker sorted date lists for actual trading-day lookups
     by_ticker_dates: Dict[str, list] = {}
     for r in rows:
-        ticker = r.get("ticker", "")
+        ticker = str(r.get("ticker") or "")
         date = r.get("date", "")
         if ticker and date:
             by_ticker_dates.setdefault(ticker, set()).add(date)  # type: ignore[arg-type]
@@ -848,7 +1263,7 @@ def _return_validation_examples(rows: List[dict], n: int = 200) -> List[dict]:
     result = []
     for r in sample[:n]:
         row_out = {f: r.get(f, "") for f in fields}
-        ticker = r.get("ticker", "")
+        ticker = str(r.get("ticker") or "")
         date = r.get("date", "")
         dates = by_ticker_dates.get(ticker, [])
         try:
@@ -886,7 +1301,7 @@ def _sequence_event_audit(rows: List[dict]) -> List[dict]:
 
     by_ticker: Dict[str, list] = {}
     for r in rows:
-        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
 
     def _parse_date(d: str):
         try: return datetime.strptime(d, "%Y-%m-%d")
@@ -937,7 +1352,7 @@ def _date_order_audit(rows: List[dict]) -> List[dict]:
     """
     by_ticker: Dict[str, list] = {}
     for r in rows:
-        by_ticker.setdefault(r.get("ticker", ""), []).append(r)
+        by_ticker.setdefault(str(r.get("ticker") or ""), []).append(r)
 
     issues = []
     for ticker, t_rows in by_ticker.items():
@@ -990,7 +1405,7 @@ def _unscored_audit(rows: List[dict]) -> List[dict]:
                                          "tickers": [], "dates": []})
             d["count"] += 1
             if len(d["tickers"]) < 3:
-                d["tickers"].append(r.get("ticker", ""))
+                d["tickers"].append(str(r.get("ticker") or ""))
                 d["dates"].append(r.get("date", ""))
     result = []
     for sig, d in unknown.items():
@@ -1030,7 +1445,7 @@ def _invalid_suffix_audit(rows: List[dict]) -> List[dict]:
             })
             d["count"] += 1
             if len(d["tickers"]) < 5:
-                d["tickers"].append(r.get("ticker", ""))
+                d["tickers"].append(str(r.get("ticker") or ""))
                 d["dates"].append(r.get("date", ""))
                 d["source_labels"].append(r.get("composite_full_label", ""))
 
@@ -1058,7 +1473,7 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
     # Trading days per ticker
     per_ticker: Dict[str, set] = {}
     for r in rows:
-        per_ticker.setdefault(r.get("ticker", ""), set()).add(r.get("date", ""))
+        per_ticker.setdefault(str(r.get("ticker") or ""), set()).add(r.get("date", ""))
     counts = [len(v) for v in per_ticker.values() if v]
 
     rows_with_fwd = sum(1 for r in rows if r.get("ret_10d") not in (None, "", "None"))
@@ -1132,11 +1547,33 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
 
     if nasdaq_batch:
         first_letters = sorted(
-            set(r.get("ticker", "")[:1].upper()
-                for r in rows if r.get("ticker", "")[:1].isalpha())
+            set(str(r.get("ticker") or "")[:1].upper()
+                for r in rows if str(r.get("ticker") or "")[:1].isalpha())
         )
         meta["ticker_first_letter_min"] = first_letters[0] if first_letters else ""
         meta["ticker_first_letter_max"] = first_letters[-1] if first_letters else ""
+
+    # Robust metrics & price bucketing flags
+    meta["robust_metrics_enabled"] = True
+    meta["price_buckets_enabled"]  = True
+    pb_counter = Counter(_row_price_bucket(r) for r in rows)
+    meta["price_bucket_distribution"] = dict(pb_counter)
+
+    def _close(r):
+        try:
+            return float(r.get("close"))
+        except (TypeError, ValueError):
+            return None
+    closes = [(_close(r)) for r in rows]
+    meta["is_penny_stock_count"] = sum(1 for c in closes if c is not None and c < 5)
+    meta["is_sub_dollar_count"]  = sum(1 for c in closes if c is not None and c < 1)
+    meta["is_low_price_count"]   = sum(1 for c in closes if c is not None and c < 20)
+    meta["is_high_price_count"]  = sum(1 for c in closes if c is not None and c >= 150)
+    meta["suspicious_pattern_count"] = 0
+    meta["robust_ranking_files"]   = []
+    meta["price_bucketed_files"]   = []
+    meta["raw_avg_ranking_files"]  = []
+    meta["ticker_na_preserved"]    = any(str(r.get("ticker")) == "NA" for r in rows)
 
     if audit:
         meta.update(audit)
@@ -1216,6 +1653,58 @@ def generate_replay_zip(
     csp = _composite_sequence_perf(rows)
     wsp = _wick_sequence_perf(rows)
 
+    # Price-bucketed analytics
+    sp_pb  = _signal_perf_by_price_bucket(rows)
+    cp_pb  = _composite_perf_by_price_bucket(rows)
+    wp_pb  = _wick_behavior_perf_by_price_bucket(rows)
+    sq_pb  = _sequence_perf_by_price_bucket(rows)
+    csp_pb = _composite_sequence_perf_by_price_bucket(rows)
+    wsp_pb = _wick_sequence_perf_by_price_bucket(rows)
+
+    # Robust top/bad rankings (filter & sort by robust_score)
+    def _robust_top_filter(coll):
+        out = [r for r in coll
+               if (r.get("count") or 0) >= ROBUST_MIN_COUNT
+               and (r.get("median_ret_10d") or 0) > 0
+               and (r.get("trimmed_avg_ret_10d") or 0) > 0
+               and (r.get("fail_10d_rate") or 0) <= ROBUST_TOP_FAIL_RATE_MAX
+               and (r.get("outlier_rate_10d") or 0) <= ROBUST_TOP_OUTLIER_RATE_MAX]
+        out.sort(key=lambda x: -(x.get("robust_score") or 0))
+        return out
+
+    def _robust_bad_filter(coll):
+        out = [r for r in coll
+               if (r.get("count") or 0) >= ROBUST_MIN_COUNT
+               and ((r.get("median_ret_10d") or 0) < 0 or (r.get("trimmed_avg_ret_10d") or 0) < 0)
+               and (r.get("fail_10d_rate") or 0) >= ROBUST_BAD_FAIL_RATE_MIN]
+        out.sort(key=lambda x: (x.get("robust_score") or 0))
+        return out
+
+    top_signals_robust       = _robust_top_filter(sp)
+    top_composites_robust    = _robust_top_filter(cp_composite)
+    top_wick_robust          = _robust_top_filter(wp)
+    top_sequences_robust     = _robust_top_filter(sq)
+    top_comp_seq_robust      = _robust_top_filter(csp)
+    top_wick_seq_robust      = _robust_top_filter(wsp)
+
+    bad_signals_robust       = _robust_bad_filter(sp)
+    bad_composites_robust    = _robust_bad_filter(cp_composite)
+    bad_wick_robust          = _robust_bad_filter(wp)
+    bad_sequences_robust     = _robust_bad_filter(sq)
+    bad_comp_seq_robust      = _robust_bad_filter(csp)
+    bad_wick_seq_robust      = _robust_bad_filter(wsp)
+
+    # Raw avg ranking (research only, count >= 30, sorted by -avg_ret_10d)
+    def _raw_avg_top(coll):
+        out = [r for r in coll
+               if (r.get("count") or 0) >= ROBUST_MIN_COUNT]
+        out.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+        return out
+
+    raw_avg_top_composites = _raw_avg_top(cp_composite)
+    raw_avg_top_sequences  = _raw_avg_top(sq)
+    raw_avg_top_wick       = _raw_avg_top(wp)
+
     top = [r for r in sp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
 
@@ -1239,7 +1728,7 @@ def generate_replay_zip(
     bad_wick = [r for r in wp if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
-    suspicious = _suspicious_patterns(sq)
+    suspicious = _suspicious_patterns(rows)
     validation_examples = _return_validation_examples(rows)
     unscored = _unscored_audit(rows)
     date_audit = _date_order_audit(rows)
@@ -1267,6 +1756,35 @@ def generate_replay_zip(
     meta["bad_wick_patterns_count"] = len(bad_wick)
     meta["top_composite_sequences_count"] = len(top_composite_seqs)
     meta["bad_composite_sequences_count"] = len(bad_composite_seqs)
+
+    meta["suspicious_pattern_count"] = len(suspicious)
+    meta["robust_ranking_files"] = [
+        "replay_tz_wlnbb_top_signals_robust.csv",
+        "replay_tz_wlnbb_top_composites_robust.csv",
+        "replay_tz_wlnbb_top_wick_patterns_robust.csv",
+        "replay_tz_wlnbb_top_sequences_robust.csv",
+        "replay_tz_wlnbb_top_composite_sequences_robust.csv",
+        "replay_tz_wlnbb_top_wick_sequences_robust.csv",
+        "replay_tz_wlnbb_bad_signals_robust.csv",
+        "replay_tz_wlnbb_bad_composites_robust.csv",
+        "replay_tz_wlnbb_bad_wick_patterns_robust.csv",
+        "replay_tz_wlnbb_bad_sequences_robust.csv",
+        "replay_tz_wlnbb_bad_composite_sequences_robust.csv",
+        "replay_tz_wlnbb_bad_wick_sequences_robust.csv",
+    ]
+    meta["price_bucketed_files"] = [
+        "replay_tz_wlnbb_signal_perf_by_price_bucket.csv",
+        "replay_tz_wlnbb_composite_perf_by_price_bucket.csv",
+        "replay_tz_wlnbb_wick_behavior_perf_by_price_bucket.csv",
+        "replay_tz_wlnbb_sequence_perf_by_price_bucket.csv",
+        "replay_tz_wlnbb_composite_sequence_perf_by_price_bucket.csv",
+        "replay_tz_wlnbb_wick_sequence_perf_by_price_bucket.csv",
+    ]
+    meta["raw_avg_ranking_files"] = [
+        "replay_tz_wlnbb_top_composites_raw_avg.csv",
+        "replay_tz_wlnbb_top_sequences_raw_avg.csv",
+        "replay_tz_wlnbb_top_wick_patterns_raw_avg.csv",
+    ]
 
     def _to_csv_bytes(data: list, fields: list) -> bytes:
         buf = io.StringIO()
@@ -1406,9 +1924,144 @@ def generate_replay_zip(
         zf.writestr("replay_tz_wlnbb_wick_sequence_perf.csv",
                     _to_csv_bytes(wsp, wseq_fields))
 
+        suspicious_fields = [
+            "pattern_type", "pattern_name", "universe", "nasdaq_batch", "price_bucket",
+            "count", "avg_ret_10d", "median_ret_10d",
+            "trimmed_avg_ret_10d", "winsorized_avg_ret_10d",
+            "max_ret_10d", "avg_vs_median_gap_10d",
+            "outlier_count_10d", "outlier_rate_10d",
+            "example_tickers", "example_dates",
+            "example_close_prices", "example_ret_10d_values",
+        ]
         if suspicious:
             zf.writestr("replay_tz_wlnbb_suspicious_return_patterns.csv",
-                        _to_csv_bytes(suspicious, sq_fields))
+                        _to_csv_bytes(suspicious, suspicious_fields))
+
+        # ── Price-bucketed perf CSVs ────────────────────────────────────────
+        sp_pb_fields = [
+            "signal_type", "signal_name", "universe", "timeframe", "price_bucket",
+        ] + PERF_METRIC_COLS + ["tz_wlnbb_version"]
+        zf.writestr("replay_tz_wlnbb_signal_perf_by_price_bucket.csv",
+                    _to_csv_bytes(sp_pb, sp_pb_fields))
+
+        cp_pb_fields = [
+            "composite_full_label", "composite_core", "composite_full_suffix",
+            "t_signal", "z_signal", "l_signal",
+            "ne_suffix", "wick_suffix", "penetration_suffix", "full_suffix",
+            "universe", "timeframe", "price_bucket",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_composite_perf_by_price_bucket.csv",
+                    _to_csv_bytes(cp_pb, cp_pb_fields))
+
+        wp_pb_fields = [
+            "wick_suffix", "penetration_suffix", "full_suffix", "ne_suffix",
+            "t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal",
+            "universe", "timeframe", "price_bucket",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_wick_behavior_perf_by_price_bucket.csv",
+                    _to_csv_bytes(wp_pb, wp_pb_fields))
+
+        sq_pb_fields = [
+            "sequence_type", "sequence_family", "sequence_pattern",
+            "bars_between", "bars_between_1", "bars_between_2",
+            "universe", "timeframe", "price_bucket",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_sequence_perf_by_price_bucket.csv",
+                    _to_csv_bytes(sq_pb, sq_pb_fields))
+
+        csp_pb_fields = [
+            "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",
+            "bars_between", "bars_between_1", "bars_between_2",
+            "universe", "timeframe", "price_bucket",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
+            "source_wick_suffix", "source_penetration_suffix",
+            "confirmation_wick_suffix", "confirmation_penetration_suffix",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_composite_sequence_perf_by_price_bucket.csv",
+                    _to_csv_bytes(csp_pb, csp_pb_fields))
+
+        wsp_pb_fields = [
+            "wick_sequence_pattern", "base_signal_context", "bars_between",
+            "universe", "timeframe", "price_bucket",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_wick_sequence_perf_by_price_bucket.csv",
+                    _to_csv_bytes(wsp_pb, wsp_pb_fields))
+
+        # ── Robust top/bad rankings ─────────────────────────────────────────
+        sp_robust_fields = [
+            "signal_type", "signal_name", "universe", "timeframe",
+        ] + PERF_METRIC_COLS + ["tz_wlnbb_version"]
+        zf.writestr("replay_tz_wlnbb_top_signals_robust.csv",
+                    _to_csv_bytes(top_signals_robust, sp_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_signals_robust.csv",
+                    _to_csv_bytes(bad_signals_robust, sp_robust_fields))
+
+        comp_robust_fields = [
+            "composite_full_label", "composite_core", "composite_full_suffix",
+            "t_signal", "z_signal", "l_signal",
+            "ne_suffix", "wick_suffix", "penetration_suffix", "full_suffix",
+            "universe", "timeframe",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_top_composites_robust.csv",
+                    _to_csv_bytes(top_composites_robust, comp_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_composites_robust.csv",
+                    _to_csv_bytes(bad_composites_robust, comp_robust_fields))
+
+        wick_robust_fields = [
+            "wick_suffix", "penetration_suffix", "full_suffix", "ne_suffix",
+            "t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal",
+            "universe", "timeframe",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_top_wick_patterns_robust.csv",
+                    _to_csv_bytes(top_wick_robust, wick_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_wick_patterns_robust.csv",
+                    _to_csv_bytes(bad_wick_robust, wick_robust_fields))
+
+        seq_robust_fields = [
+            "sequence_type", "sequence_family", "sequence_pattern",
+            "bars_between", "bars_between_1", "bars_between_2",
+            "universe", "timeframe",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_top_sequences_robust.csv",
+                    _to_csv_bytes(top_sequences_robust, seq_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_sequences_robust.csv",
+                    _to_csv_bytes(bad_sequences_robust, seq_robust_fields))
+
+        cseq_robust_fields = [
+            "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",
+            "bars_between", "bars_between_1", "bars_between_2",
+            "universe", "timeframe",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
+            "source_wick_suffix", "source_penetration_suffix",
+            "confirmation_wick_suffix", "confirmation_penetration_suffix",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_top_composite_sequences_robust.csv",
+                    _to_csv_bytes(top_comp_seq_robust, cseq_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_composite_sequences_robust.csv",
+                    _to_csv_bytes(bad_comp_seq_robust, cseq_robust_fields))
+
+        wseq_robust_fields = [
+            "wick_sequence_pattern", "base_signal_context", "bars_between",
+            "universe", "timeframe",
+        ] + PERF_METRIC_COLS
+        zf.writestr("replay_tz_wlnbb_top_wick_sequences_robust.csv",
+                    _to_csv_bytes(top_wick_seq_robust, wseq_robust_fields))
+        zf.writestr("replay_tz_wlnbb_bad_wick_sequences_robust.csv",
+                    _to_csv_bytes(bad_wick_seq_robust, wseq_robust_fields))
+
+        # ── Raw avg research files ──────────────────────────────────────────
+        zf.writestr("replay_tz_wlnbb_top_composites_raw_avg.csv",
+                    _to_csv_bytes(raw_avg_top_composites, comp_robust_fields))
+        zf.writestr("replay_tz_wlnbb_top_sequences_raw_avg.csv",
+                    _to_csv_bytes(raw_avg_top_sequences, seq_robust_fields))
+        zf.writestr("replay_tz_wlnbb_top_wick_patterns_raw_avg.csv",
+                    _to_csv_bytes(raw_avg_top_wick, wick_robust_fields))
 
         seq_audit_fields = [
             "family", "signal_name", "count", "rows_with_signal",

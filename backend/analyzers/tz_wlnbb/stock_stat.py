@@ -15,6 +15,7 @@ log = logging.getLogger(__name__)
 OUTPUT_COLUMNS = [
     "ticker", "date", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
     "tz_wlnbb_version",
+    "price_bucket", "is_sub_dollar", "is_penny_stock", "is_low_price", "is_high_price",
     "ema9", "ema20", "ema34", "ema50", "ema89", "ema200",
     "t_signal", "z_signal", "t_raw_signals", "z_raw_signals", "bull_priority_code", "bear_priority_code",
     "volume_bucket", "l_digits", "l_signal", "l34_active", "l43_active", "l64_active", "l22_active", "l_raw_signals",
@@ -37,6 +38,25 @@ OUTPUT_COLUMNS = [
     "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
     "clean_win_5d", "big_win_10d", "fail_5d", "fail_10d",
 ]
+
+
+def classify_price_bucket(close) -> str:
+    """Map a close price to a price-bucket label.
+    LT1, 1_5, 5_20, 20_50, 50_150, 150_300, 300_PLUS — empty for invalid input.
+    """
+    try:
+        c = float(close)
+    except (TypeError, ValueError):
+        return ""
+    if c != c:  # NaN
+        return ""
+    if c < 1:    return "LT1"
+    if c < 5:    return "1_5"
+    if c < 20:   return "5_20"
+    if c < 50:   return "20_50"
+    if c < 150:  return "50_150"
+    if c < 300:  return "150_300"
+    return "300_PLUS"
 
 
 def add_forward_returns(df: pd.DataFrame) -> pd.DataFrame:
@@ -242,12 +262,25 @@ def generate_stock_stat(
                             return ""
                         return v
 
+                    close_val = row.get("close")
+                    try:
+                        cf = float(close_val) if close_val not in (None, "") else None
+                        if cf != cf: cf = None  # NaN
+                    except (TypeError, ValueError):
+                        cf = None
+                    price_bucket = classify_price_bucket(cf) if cf is not None else ""
+                    is_sub_dollar  = int(cf is not None and cf < 1)
+                    is_penny_stock = int(cf is not None and cf < 5)
+                    is_low_price   = int(cf is not None and cf < 20)
+                    is_high_price  = int(cf is not None and cf >= 150)
+
                     writer.writerow([
                         ticker, date_val, int(row.get("bar_index", 0)), universe, tf,
                         _val(row.get("open")), _val(row.get("high")),
                         _val(row.get("low")), _val(row.get("close")),
                         _val(row.get("volume")),
                         TZ_WLNBB_VERSION,
+                        price_bucket, is_sub_dollar, is_penny_stock, is_low_price, is_high_price,
                         _val(row.get("ema9")), _val(row.get("ema20")),
                         _val(row.get("ema34")), _val(row.get("ema50")),
                         _val(row.get("ema89")), _val(row.get("ema200")),
