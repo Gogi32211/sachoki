@@ -374,7 +374,16 @@ export default function TZWLNBBPanel() {
             </span>
           )}
           {status && !status.running && status.output && (
-            <span className="ml-2 text-green-400">Done: {status.output}</span>
+            <span className="ml-2 text-green-400 flex items-center gap-2">
+              Done: {status.output}
+              <a
+                href={`${BASE}/api/tz-wlnbb/download/${status.output}`}
+                download
+                className="px-2 py-0.5 bg-blue-700 hover:bg-blue-600 text-white rounded text-xs transition-colors"
+              >
+                ⬇ CSV
+              </a>
+            </span>
           )}
           {status && !status.running && status.error && (
             <span className="ml-2 text-red-400">Error: {status.error}</span>
