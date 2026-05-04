@@ -1857,6 +1857,8 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                         r["category_with_btb"]               = pf["category_with_btb"]
                         r["btb_category_upgrade"]            = pf["btb_category_upgrade"]
                         r["btb_created_sweet_spot"]          = pf["btb_created_sweet_spot"]
+                        r["btb_late_clamped"]                = pf["btb_late_clamped"]
+                        r["btb_sweet_spot_allowed_profile"]  = pf["btb_sweet_spot_allowed_profile"]
                         _hist.insert(0, set(pf["active_signals"]))
                         if len(_hist) > 5:
                             _hist.pop()
@@ -1890,6 +1892,8 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                         r.setdefault("category_with_btb",      "WATCH")
                         r.setdefault("btb_category_upgrade",   0)
                         r.setdefault("btb_created_sweet_spot", 0)
+                        r.setdefault("btb_late_clamped",       0)
+                        r.setdefault("btb_sweet_spot_allowed_profile", 0)
 
             log.info(
                 "PROFILE_PLAYBOOK_AUDIT replay: rows_total=%d "

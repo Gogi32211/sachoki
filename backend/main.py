@@ -1397,6 +1397,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "category_with_btb":         _pf_result.get("category_with_btb", "WATCH"),
             "btb_category_upgrade":      _pf_result.get("btb_category_upgrade", 0),
             "btb_created_sweet_spot":    _pf_result.get("btb_created_sweet_spot", 0),
+            "btb_late_clamped":          _pf_result.get("btb_late_clamped", 0),
+            "btb_sweet_spot_allowed_profile": _pf_result.get("btb_sweet_spot_allowed_profile", 0),
             "active_signals":            _pf_result.get("active_signals", []),
         })
 
@@ -1448,6 +1450,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "bear_to_bull_bars_ago", "bear_to_bull_bonus", "bear_to_bull_pairs",
             "base_profile_score_without_btb", "category_without_btb", "category_with_btb",
             "btb_category_upgrade", "btb_created_sweet_spot",
+            "btb_late_clamped", "btb_sweet_spot_allowed_profile",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1568,6 +1571,8 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             b.get("category_with_btb", "WATCH"),
                             b.get("btb_category_upgrade", 0),
                             b.get("btb_created_sweet_spot", 0),
+                            b.get("btb_late_clamped", 0),
+                            b.get("btb_sweet_spot_allowed_profile", 0),
                         ])
                 except Exception:
                     pass
