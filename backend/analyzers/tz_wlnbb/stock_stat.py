@@ -31,12 +31,14 @@ def generate_stock_stat(
     tf: str = "1d",
     bars: int = 252,
     output_path: Optional[str] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
 ) -> str:
     """Generate stock_stat CSV. Returns output path."""
     if output_path is None:
         output_path = f"stock_stat_tz_wlnbb_{tf}.csv"
 
     t0 = time.time()
+    total = len(tickers)
     audit = {
         "tickers_processed": 0, "rows_processed": 0,
         "rows_with_t_signal": 0, "rows_with_z_signal": 0,
@@ -55,6 +57,8 @@ def generate_stock_stat(
                     continue
                 df = compute_signals_for_ticker(df, universe)
                 audit["tickers_processed"] += 1
+                if progress_callback:
+                    progress_callback(audit["tickers_processed"], total)
 
                 # Add date column from index if not present
                 if "date" not in df.columns:
