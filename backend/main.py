@@ -1962,6 +1962,70 @@ def api_tz_wlnbb_debug(ticker: str, date: str = "", tf: str = "1d"):
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+# ── TZ/WLNBB Replay ──────────────────────────────────────────────────────────
+
+_tz_replay_state: dict = {"running": False, "output": None, "error": None}
+
+
+@app.post("/api/tz-wlnbb/replay")
+def api_tz_wlnbb_replay(
+    background_tasks: BackgroundTasks,
+    universe: str = "sp500",
+    tf: str = "1d",
+):
+    global _tz_replay_state
+    if _tz_replay_state.get("running"):
+        raise HTTPException(status_code=409, detail="Replay already running")
+    background_tasks.add_task(_run_tz_wlnbb_replay, universe, tf)
+    return {"status": "started"}
+
+
+def _run_tz_wlnbb_replay(universe: str, tf: str):
+    global _tz_replay_state
+    _tz_replay_state = {"running": True, "output": None, "error": None}
+    try:
+        import csv as _csv
+        from analyzers.tz_wlnbb.replay import generate_replay_zip
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        if not os.path.exists(stat_path):
+            _tz_replay_state["error"] = f"{stat_path} not found — run generate-stock-stat first"
+            return
+        rows = []
+        with open(stat_path, newline="", encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                if row.get("universe", "") == universe:
+                    rows.append(row)
+        out = f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
+        generate_replay_zip(rows, output_path=out)
+        _tz_replay_state["output"] = out
+    except Exception as exc:
+        log.exception("tz_wlnbb replay failed")
+        _tz_replay_state["error"] = str(exc)
+    finally:
+        _tz_replay_state["running"] = False
+
+
+@app.get("/api/tz-wlnbb/replay/status")
+def api_tz_wlnbb_replay_status():
+    return _tz_replay_state
+
+
+@app.get("/api/tz-wlnbb/download/{filename}")
+def api_tz_wlnbb_download(filename: str):
+    from fastapi.responses import FileResponse
+    # Safety: only allow tz_wlnbb files
+    if not (filename.startswith("replay_tz_wlnbb_") or filename.startswith("stock_stat_tz_wlnbb_")):
+        raise HTTPException(status_code=403, detail="Not allowed")
+    path = os.path.join(os.path.dirname(__file__), filename)
+    if not os.path.exists(path):
+        # Try current working directory
+        path = filename
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path, filename=filename)
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
