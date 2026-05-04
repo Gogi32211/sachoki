@@ -125,7 +125,13 @@ export default function TZWLNBBPanel() {
 
   const [debugRow, setDebugRow] = useState(null)
 
-  const pollRef = useRef(null)
+  // Replay state
+  const [replayState, setReplayState]     = useState(null)  // {running, output, error}
+  const [replayTopRows, setReplayTopRows] = useState([])
+  const [replayTab, setReplayTab]         = useState('signal') // 'signal'|'combo'|'sequence'
+
+  const pollRef       = useRef(null)
+  const replayPollRef = useRef(null)
 
   // Poll status while running
   useEffect(() => {
@@ -192,7 +198,37 @@ export default function TZWLNBBPanel() {
     }
   }
 
+  // ── Replay polling ────────────────────────────────────────────────────────
+  useEffect(() => {
+    apiGet('/api/tz-wlnbb/replay/status').then(s => setReplayState(s)).catch(() => {})
+  }, [])
+
+  function startReplayPolling() {
+    if (replayPollRef.current) return
+    replayPollRef.current = setInterval(async () => {
+      try {
+        const s = await apiGet('/api/tz-wlnbb/replay/status')
+        setReplayState(s)
+        if (!s.running) {
+          clearInterval(replayPollRef.current)
+          replayPollRef.current = null
+        }
+      } catch {}
+    }, 2000)
+  }
+
+  async function handleReplay() {
+    setReplayTopRows([])
+    try {
+      await apiPost('/api/tz-wlnbb/replay', { universe, tf })
+      startReplayPolling()
+    } catch (e) {
+      setReplayState({ running: false, error: e.message, output: null })
+    }
+  }
+
   const isRunning = status?.running
+  const replayRunning = replayState?.running
 
   return (
     <div className="bg-gray-950 text-gray-100 p-3 flex flex-col gap-3">
@@ -345,6 +381,37 @@ export default function TZWLNBBPanel() {
           )}
           {genError && (
             <span className="ml-2 text-red-400">{genError}</span>
+          )}
+        </div>
+      </div>
+
+      {/* ── Replay Analytics ────────────────────────────────────────────── */}
+      <div className="flex flex-col gap-2 p-2 bg-gray-900 rounded border border-gray-800">
+        <div className="flex items-center gap-3 flex-wrap">
+          <button
+            onClick={handleReplay}
+            disabled={replayRunning}
+            className="px-3 py-1.5 bg-purple-700 hover:bg-purple-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors"
+          >
+            {replayRunning ? 'Generating Replay…' : '🔄 Generate Replay'}
+          </button>
+          <span className="text-xs text-gray-500">
+            Reads stock_stat CSV → computes forward returns → generates analytics ZIP.
+          </span>
+          {replayRunning && (
+            <span className="text-xs text-yellow-400 animate-pulse">Running…</span>
+          )}
+          {replayState && !replayState.running && replayState.output && (
+            <a
+              href={`${BASE}/api/tz-wlnbb/download/${replayState.output}`}
+              download
+              className="text-xs px-2 py-1 bg-blue-700 hover:bg-blue-600 text-white rounded transition-colors"
+            >
+              ⬇ Download ZIP
+            </a>
+          )}
+          {replayState && !replayState.running && replayState.error && (
+            <span className="text-xs text-red-400">Error: {replayState.error}</span>
           )}
         </div>
       </div>
