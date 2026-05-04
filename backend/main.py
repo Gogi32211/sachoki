@@ -1905,12 +1905,10 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
     try:
         from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
         from scanner import get_universe_tickers
-        from data import fetch_ohlcv as _fetch_ohlcv
 
         try:
             tickers = get_universe_tickers(universe)
         except Exception:
-            # Fallback: try to get tickers from scanner
             try:
                 from scanner import get_tickers
                 tickers = get_tickers() or []
@@ -1919,8 +1917,17 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
 
         _tz_wlnbb_state["total"] = len(tickers)
 
-        def _fetch(ticker, interval, n_bars):
-            return _fetch_ohlcv(ticker, interval, n_bars)
+        # Prefer massive.com (fast, no rate-limits), fall back to yfinance
+        from data_polygon import fetch_bars as _fetch_bars, polygon_available
+        if polygon_available():
+            def _fetch(ticker, interval, n_bars):
+                # convert bars → calendar days (1.6× safety margin for weekends/holidays)
+                days = max(int(n_bars * 1.6), 365)
+                return _fetch_bars(ticker, interval=interval, days=days)
+        else:
+            from data import fetch_ohlcv as _fetch_yf
+            def _fetch(ticker, interval, n_bars):
+                return _fetch_yf(ticker, interval, n_bars)
 
         def _on_progress(done, total):
             _tz_wlnbb_state["done"] = done
