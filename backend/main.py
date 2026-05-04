@@ -1832,7 +1832,10 @@ def api_tz_wlnbb_scan(
     """Return latest TZ/WLNBB signals from stock_stat CSV."""
     try:
         import csv as _csv
-        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            # fallback to old naming
+            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
         if not os.path.exists(stat_path):
             return {"results": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
 
@@ -1890,7 +1893,7 @@ def api_tz_wlnbb_generate(
     background_tasks: BackgroundTasks,
     universe: str = "sp500",
     tf: str = "1d",
-    bars: int = 252,
+    bars: int = 500,
 ):
     global _tz_wlnbb_state
     if _tz_wlnbb_state.get("running"):
@@ -1933,12 +1936,13 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
             _tz_wlnbb_state["done"] = done
             _tz_wlnbb_state["total"] = total
 
-        path = generate_stock_stat(
+        path, audit = generate_stock_stat(
             tickers, _fetch, universe=universe, tf=tf, bars=bars,
-            output_path=f"stock_stat_tz_wlnbb_{tf}.csv",
+            output_path=f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
             progress_callback=_on_progress,
         )
         _tz_wlnbb_state["output"] = path
+        _tz_wlnbb_state["audit"] = audit
     except Exception as exc:
         log.exception("tz_wlnbb stock_stat generation failed")
         _tz_wlnbb_state["error"] = str(exc)
@@ -1952,11 +1956,14 @@ def api_tz_wlnbb_status():
 
 
 @app.get("/api/tz-wlnbb/debug")
-def api_tz_wlnbb_debug(ticker: str, date: str = "", tf: str = "1d"):
+def api_tz_wlnbb_debug(ticker: str, date: str = "", tf: str = "1d", universe: str = "sp500"):
     """Return detailed signal breakdown for a specific ticker/date."""
     try:
         import csv as _csv
-        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            # fallback to old naming
+            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
         if not os.path.exists(stat_path):
             return {"error": "No stock_stat_tz_wlnbb CSV found."}
 
@@ -2005,18 +2012,22 @@ def _run_tz_wlnbb_replay(universe: str, tf: str):
     try:
         import csv as _csv
         from analyzers.tz_wlnbb.replay import generate_replay_zip
-        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
         if not os.path.exists(stat_path):
-            _tz_replay_state["error"] = f"{stat_path} not found — run generate-stock-stat first"
+            # fallback to old naming
+            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        if not os.path.exists(stat_path):
+            _tz_replay_state["error"] = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv not found — run generate-stock-stat first"
             return
         rows = []
         with open(stat_path, newline="", encoding="utf-8") as f:
             reader = _csv.DictReader(f)
             for row in reader:
-                if row.get("universe", "") == universe:
-                    rows.append(row)
+                rows.append(row)
+        ticker_count = len(set(r.get("ticker", "") for r in rows))
         out = f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
-        generate_replay_zip(rows, output_path=out)
+        generate_replay_zip(rows, output_path=out, universe=universe, tf=tf,
+                            ticker_count=ticker_count)
         _tz_replay_state["output"] = out
     except Exception as exc:
         log.exception("tz_wlnbb replay failed")
