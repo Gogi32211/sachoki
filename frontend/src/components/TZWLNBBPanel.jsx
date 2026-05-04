@@ -23,6 +23,11 @@ const UNIVERSES = [
   { key: 'all_us',    label: 'All US'    },
 ]
 
+const NASDAQ_BATCHES = [
+  { key: 'a_m', label: 'A–M (½)' },
+  { key: 'n_z', label: 'N–Z (½)' },
+]
+
 const TF_OPTS = ['1d', '4h', '1h', '1wk']
 
 const SIG_TYPES = [
@@ -107,8 +112,9 @@ function DebugModal({ ticker, date, tf, onClose }) {
 }
 
 export default function TZWLNBBPanel() {
-  const [universe, setUniverse] = useState('sp500')
-  const [tf, setTf]             = useState('1d')
+  const [universe, setUniverse]         = useState('sp500')
+  const [nasdaqBatch, setNasdaqBatch]   = useState('a_m')
+  const [tf, setTf]                     = useState('1d')
   const [signalType, setSignalType] = useState('all')
   const [signalName, setSignalName] = useState('')
   const [minPrice, setMinPrice] = useState('')
@@ -166,7 +172,9 @@ export default function TZWLNBBPanel() {
     setGenStatus('starting')
     setGenError(null)
     try {
-      await apiPost('/api/tz-wlnbb/generate-stock-stat', { universe, tf, bars: 252 })
+      const params = { universe, tf, bars: 252 }
+      if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
+      await apiPost('/api/tz-wlnbb/generate-stock-stat', params)
       setGenStatus('started')
       startPolling()
     } catch (e) {
@@ -190,6 +198,7 @@ export default function TZWLNBBPanel() {
         signal_type: signalType,
         recent_window: recentWindow,
       })
+      if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
       if (signalName)  qs.set('signal_name', signalName)
       if (minPrice)    qs.set('min_price', minPrice)
       if (maxPrice)    qs.set('max_price', maxPrice)
@@ -226,7 +235,9 @@ export default function TZWLNBBPanel() {
   async function handleReplay() {
     setReplayTopRows([])
     try {
-      await apiPost('/api/tz-wlnbb/replay', { universe, tf })
+      const params = { universe, tf }
+      if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
+      await apiPost('/api/tz-wlnbb/replay', params)
       startReplayPolling()
     } catch (e) {
       setReplayState({ running: false, error: e.message, output: null })
@@ -258,6 +269,27 @@ export default function TZWLNBBPanel() {
             ))}
           </select>
         </div>
+
+        {/* NASDAQ Batch — only visible when NASDAQ is selected */}
+        {universe === 'nasdaq' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500">Batch</label>
+            <div className="flex gap-1">
+              {NASDAQ_BATCHES.map(b => (
+                <button
+                  key={b.key}
+                  onClick={() => setNasdaqBatch(b.key)}
+                  className={`text-xs px-2 py-1 rounded transition-colors
+                    ${nasdaqBatch === b.key
+                      ? 'bg-amber-600 text-white font-semibold'
+                      : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Timeframe */}
         <div className="flex flex-col gap-1">
