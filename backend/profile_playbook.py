@@ -1,25 +1,32 @@
 """
-Sachoki profile playbook layer.
+Sachoki Profile Playbook — single source of truth for profile scoring.
 
-This module adds universe-specific and price-bucket-specific context on top of
-the canonical scoring engine.
+This module is the ONLY place where the following are defined:
+  - PROFILE_PLAYBOOK_VERSION
+  - SIGNAL_ALIASES / normalize_signal_name()
+  - Profile definitions (universes, price buckets, weights, thresholds)
+  - BEAR_CONTEXT_SIGNALS, BULL_CONFIRM_SIGNALS, SEQUENCE_BONUSES
+  - compute_profile_playbook_for_row()   ← unified public API
+  - signal extraction helpers
+  - unscored-signal audit helper
+  - config-snapshot helper
 
 It must NOT replace FINAL_BULL_SCORE or any canonical score.
 It must NOT mutate canonical score columns.
-It only adds profile/playbook fields:
-    profile_name, profile_score, profile_category, sweet_spot_active,
-    late_warning, matched_profile_signals, matched_profile_pairs,
-    profile_role, profile_description, profile_experimental,
-    profile_preferred_preset, profile_suggested_tp, profile_suggested_sl,
-    profile_max_hold
+All consumers (SuperChart, stock_stat, replay, API) must import from here.
 """
 
 from __future__ import annotations
 
 import re
-from typing import Any, Dict, Optional, Set, Tuple, List
+import json
+import time as _time
+from typing import Any, Dict, List, Optional, Set, Tuple
 
-# ── Signal aliases ────────────────────────────────────────────────────────────
+# ── Version ───────────────────────────────────────────────────────────────────
+PROFILE_PLAYBOOK_VERSION = "2026-05-04-bear-to-bull-sequence-v1"
+
+# ── Signal aliases ─────────────────────────────────────────────────────────────
 SIGNAL_ALIASES: Dict[str, str] = {
     # VBO
     "VBO↑": "VBO_UP", "VBOUP": "VBO_UP", "VBO_UP": "VBO_UP",
@@ -68,6 +75,52 @@ SIGNAL_ALIASES: Dict[str, str] = {
     # Misc
     "CONS": "CONSO", "CONSO": "CONSO",
 }
+
+# ── Bear-context signals (exhaustion / absorption context) ────────────────────
+# Standalone weight: small (cap applied per row). Not large enough to enter
+# SWEET_SPOT alone. Become meaningful only when followed by bull confirmation.
+BEAR_CONTEXT_SIGNALS: Dict[str, int] = {
+    "EB_DN":  1,
+    "BE_DN":  1,
+    "VBO_DN": 1,
+    "BO_DN":  1,
+    "4BF_DN": 1,
+    "WC_DN":  1,
+    "WP_DN":  0,
+    "FBO_DN": 0,
+}
+BEAR_CONTEXT_STANDALONE_CAP = 3
+
+# ── Bullish confirmation signals ──────────────────────────────────────────────
+BULL_CONFIRM_SIGNALS: Set[str] = {
+    "BUY", "SVS", "ABS", "LOAD", "CLM", "L34",
+    "VBO_UP", "BO_UP", "BX_UP", "BB_UP", "EB_UP", "BE_UP",
+    "Z2", "Z4", "T4", "FRI43", "CCIB", "SC", "SQ",
+}
+
+# ── Bear-to-bull sequence bonuses ─────────────────────────────────────────────
+# bear_signal -> {bull_confirm -> base_bonus}
+SEQUENCE_BONUSES: Dict[str, Dict[str, int]] = {
+    "EB_DN": {
+        "BUY": 6, "SVS": 6, "ABS": 5, "L34": 5, "VBO_UP": 5, "BO_UP": 4,
+    },
+    "BE_DN": {
+        "BUY": 5, "SVS": 5, "ABS": 4, "L34": 4, "VBO_UP": 4,
+    },
+    "VBO_DN": {
+        "BUY": 5, "SVS": 5, "ABS": 4, "L34": 4, "VBO_UP": 4,
+    },
+    "BO_DN": {
+        "BUY": 4, "SVS": 4, "L34": 4, "BO_UP": 4,
+    },
+    "4BF_DN": {
+        "BUY": 4, "SVS": 4, "L34": 3,
+    },
+    "WC_DN": {
+        "BUY": 3, "SVS": 3, "L34": 3,
+    },
+}
+SEQUENCE_BONUS_CAP = 8
 
 # ── Profile definitions ───────────────────────────────────────────────────────
 PROFILES: Dict[str, dict] = {
@@ -234,8 +287,6 @@ PROFILES: Dict[str, dict] = {
 }
 
 # ── Turbo scan column → canonical signal name ─────────────────────────────────
-# Maps boolean columns in turbo_scan_results to the signal name strings
-# used in profile signal_weights / pair_bonuses.
 _TURBO_SIGNAL_MAP: Dict[str, str] = {
     "buy_2809": "BUY",
     "svs_2809": "SVS",
@@ -280,87 +331,46 @@ _TURBO_SIGNAL_MAP: Dict[str, str] = {
     "fuchsia_rl": "RL", "fuchsia_rh": "RH",
     "pre_pump": "PRE_PUMP",
     "atr_brk": "ATR_BRK",
-    "bias_up": "BIAS_UP",
 }
 
 
-# ── Signal token parsing (for string-column sources like stock_stat CSV) ──────
+# ── Signal token parsing ──────────────────────────────────────────────────────
 
-def normalize_signal_token(token: str) -> str:
+def normalize_signal_name(token: str) -> str:
+    """Normalize a raw signal token to its canonical name.
+
+    Single source of truth for all signal name normalization.
+    Use this everywhere — SuperChart, stock_stat, replay, export, tests.
+    """
     if token is None:
         return ""
     t = str(token).strip()
     if not t:
         return ""
     t = t.replace(",", " ").replace("|", " ").strip()
-    if t in SIGNAL_ALIASES:
-        return SIGNAL_ALIASES[t]
-    return t
+    return SIGNAL_ALIASES.get(t, t)
+
+
+# Keep old name as alias for backward compatibility
+normalize_signal_token = normalize_signal_name
 
 
 def parse_signal_cell(value: Any) -> Set[str]:
-    """Parse a signal cell (string) into a set of normalized tokens.
-
-    Handles whitespace, comma, pipe and semicolon separators.
-    """
-    if value is None:
-        return set()
-    if not isinstance(value, str):
+    """Parse a signal cell (string) into a set of normalized tokens."""
+    if value is None or not isinstance(value, str):
         return set()
     raw = value.strip()
     if not raw:
         return set()
-    parts = re.split(r"[\s,|;]+", raw)
     out: Set[str] = set()
-    for p in parts:
-        n = normalize_signal_token(p)
+    for p in re.split(r"[\s,|;]+", raw):
+        n = normalize_signal_name(p)
         if n:
             out.add(n)
     return out
 
 
-# ── Signal extraction from turbo scan row ─────────────────────────────────────
-
-def extract_signals_from_turbo_row(row: dict) -> Set[str]:
-    """Convert turbo_scan_results boolean columns to a set of signal name strings."""
-    signals: Set[str] = set()
-
-    for col, name in _TURBO_SIGNAL_MAP.items():
-        v = row.get(col)
-        if v and v != 0:
-            signals.add(name)
-
-    # tz_sig is a string like "T10", "Z3", "T11G" — add it directly
-    tz = (row.get("tz_sig") or "").strip().upper()
-    if tz:
-        signals.add(tz)
-        # Also add the base letter (T10 → T10 already, but "T1G" → add T1)
-        base = re.sub(r"G$", "", tz)
-        if base and base != tz:
-            signals.add(base)
-
-    return signals
-
-
-def get_signals_5bar(rows_for_ticker: List[dict]) -> Set[str]:
-    """Union of normalized signal tokens across the last 6 rows (current + 5 prior).
-
-    Input: list of row dicts for a single ticker, sorted by date ascending.
-    Uses extract_signals_from_turbo_row per row.
-    Also parses string signal columns (T, Z, L, F, B, Combo, etc.) if present.
-    """
-    STRING_SIG_COLS = ["T", "Z", "L", "F", "B", "Combo", "ULT", "VOL", "VABS", "G", "FLY", "WICK"]
-    window = rows_for_ticker[-6:]  # current bar + up to 5 prior
-    signals: Set[str] = set()
-    for row in window:
-        signals |= extract_signals_from_turbo_row(row)
-        for col in STRING_SIG_COLS:
-            if col in row:
-                signals |= parse_signal_cell(row.get(col))
-    return signals
-
-
-# ── Stat-row signal extraction (bar dict or stock_stat CSV row) ───────────────
+# ── Stat-row signal extraction ────────────────────────────────────────────────
 # Maps bar-dict list column → stock_stat CSV string column
 _STAT_COL_PAIRS: List[Tuple[str, str]] = [
     ("l",     "L"),
@@ -379,14 +389,13 @@ _STAT_COL_PAIRS: List[Tuple[str, str]] = [
 def extract_profile_signals_from_stat_row(row: dict) -> Set[str]:
     """Extract normalized profile signals from a bar dict OR a stock_stat CSV row.
 
-    Handles both formats:
+    Handles:
     - Bar dict from api_bar_signals (list columns: l, f, fly, g, b, combo, ultra, vol, vabs, wick)
     - CSV row from stock_stat export (string columns: L, F, FLY, G, B, Combo, ULT, VOL, VABS, WICK)
 
-    Returns canonical signal names ready for compute_profile_score().
+    Returns canonical signal names ready for compute_profile_playbook_for_row().
     """
     signals: Set[str] = set()
-
     for bar_key, csv_key in _STAT_COL_PAIRS:
         val = row.get(bar_key)
         if val is None:
@@ -395,117 +404,58 @@ def extract_profile_signals_from_stat_row(row: dict) -> Set[str]:
             continue
         if isinstance(val, list):
             for tok in val:
-                n = normalize_signal_token(str(tok).strip())
+                n = normalize_signal_name(str(tok).strip())
                 if n:
                     signals.add(n)
         elif isinstance(val, str) and val.strip():
             signals |= parse_signal_cell(val)
 
-    # T/Z signals: bar dict uses "tz"; CSV uses separate "Z" and "T" columns
     for tz_key in ("tz", "Z", "T"):
         tz = str(row.get(tz_key) or "").strip()
         if not tz:
             continue
-        n = normalize_signal_token(tz)
+        n = normalize_signal_name(tz)
         if n:
             signals.add(n)
             base = re.sub(r"G$", "", tz)
             if base and base != tz:
                 signals.add(base)
-
     return signals
 
 
-def profile_unscored_signals(rows: List[dict]) -> List[dict]:
-    """Find signal tokens present in rows that are not scored by any profile.
+def extract_signals_from_turbo_row(row: dict) -> Set[str]:
+    """Convert turbo_scan_results boolean columns to a set of canonical signal names."""
+    signals: Set[str] = set()
+    for col, name in _TURBO_SIGNAL_MAP.items():
+        v = row.get(col)
+        if v and v != 0:
+            signals.add(name)
+    tz = (row.get("tz_sig") or "").strip().upper()
+    if tz:
+        signals.add(tz)
+        base = re.sub(r"G$", "", tz)
+        if base and base != tz:
+            signals.add(base)
+    return signals
 
-    Returns rows sorted by frequency descending, useful for identifying
-    display-name mismatches or signals missing from signal_weights.
 
-    CSV columns: generated_at, raw_signal, normalized_signal, count,
-                 source_columns, example_tickers, example_dates
-    """
-    import time as _time
-
-    # All canonical names used across all profiles
-    scored: Set[str] = set()
-    for p in PROFILES.values():
-        scored.update(p["signal_weights"].keys())
-        for pair in p["pair_bonuses"].keys():
-            scored.update(pair)
-
-    sig_data: Dict[str, dict] = {}
-
-    def _track(raw_tok: str, norm: str, col_label: str, ticker: str, date: str) -> None:
-        if not norm or norm in scored:
-            return
-        if norm not in sig_data:
-            sig_data[norm] = {
-                "raw_signal": raw_tok,
-                "count": 0,
-                "source_columns": set(),
-                "tickers": [],
-                "dates": [],
-            }
-        d = sig_data[norm]
-        d["count"] += 1
-        d["source_columns"].add(col_label)
-        if len(d["tickers"]) < 3:
-            d["tickers"].append(ticker)
-            d["dates"].append(date)
-
-    for r in rows:
-        ticker = str(r.get("ticker", ""))
-        date   = str(r.get("date", ""))
-
-        for bar_key, csv_key in _STAT_COL_PAIRS:
-            val = r.get(bar_key)
-            col_label = bar_key
-            if val is None:
-                val = r.get(csv_key)
-                col_label = csv_key
-            if val is None:
-                continue
-            if isinstance(val, list):
-                for tok in val:
-                    raw = str(tok).strip()
-                    if raw:
-                        _track(raw, normalize_signal_token(raw), col_label, ticker, date)
-            elif isinstance(val, str) and val.strip():
-                for raw in re.split(r"[\s,|;]+", val.strip()):
-                    if raw:
-                        _track(raw, normalize_signal_token(raw), col_label, ticker, date)
-
-        for tz_key in ("tz", "Z", "T"):
-            tz = str(r.get(tz_key) or "").strip()
-            if tz:
-                _track(tz, normalize_signal_token(tz), tz_key, ticker, date)
-
-    now = _time.strftime("%Y-%m-%dT%H:%M:%S")
-    out = []
-    for norm, d in sig_data.items():
-        if d["count"] < 5:
-            continue
-        out.append({
-            "generated_at":      now,
-            "raw_signal":        d["raw_signal"],
-            "normalized_signal": norm,
-            "count":             d["count"],
-            "source_columns":    "|".join(sorted(d["source_columns"])),
-            "example_tickers":   "|".join(d["tickers"]),
-            "example_dates":     "|".join(d["dates"]),
-        })
-    out.sort(key=lambda x: -x["count"])
-    return out
+def get_signals_5bar(rows_for_ticker: List[dict]) -> Set[str]:
+    """Union of normalized signal tokens across last 6 rows."""
+    STRING_SIG_COLS = ["T", "Z", "L", "F", "B", "Combo", "ULT", "VOL", "VABS", "G", "FLY", "WICK"]
+    window = rows_for_ticker[-6:]
+    signals: Set[str] = set()
+    for row in window:
+        signals |= extract_signals_from_turbo_row(row)
+        for col in STRING_SIG_COLS:
+            if col in row:
+                signals |= parse_signal_cell(row.get(col))
+    return signals
 
 
 # ── Profile selection ─────────────────────────────────────────────────────────
 
 def get_profile(row: dict, universe: str) -> str:
-    """Assign profile based on universe and current row close (or last_price).
-
-    Uses current close as primary.  median_price is fallback only.
-    """
+    """Assign profile based on universe and current row close."""
     price = (
         row.get("close") or row.get("Close")
         or row.get("last_price") or row.get("Last_Price")
@@ -517,53 +467,206 @@ def get_profile(row: dict, universe: str) -> str:
         price = 50.0
 
     uni = (universe or "").lower()
-
     if uni == "sp500":
-        if price < 20:
-            return "SP500_LT20"
-        if price < 50:
-            return "SP500_20_50"
-        if price < 150:
-            return "SP500_50_150"
-        if price < 300:
-            return "SP500_150_300"
+        if price < 20:   return "SP500_LT20"
+        if price < 50:   return "SP500_20_50"
+        if price < 150:  return "SP500_50_150"
+        if price < 300:  return "SP500_150_300"
         return "SP500_300_PLUS"
-
-    # nasdaq, russell2k, all_us, split — experimental only
     if price < 5:
         return "NASDAQ_PENNY"
     return "NASDAQ_REAL"
 
 
-# ── Profile score computation ─────────────────────────────────────────────────
+# ── Sequence decay ────────────────────────────────────────────────────────────
+
+def sequence_decay_bonus(base_bonus: int, bars_ago: int) -> int:
+    """Apply time decay to a bear-to-bull sequence bonus."""
+    if bars_ago <= 1: return base_bonus
+    if bars_ago <= 3: return round(base_bonus * 0.75)
+    if bars_ago <= 5: return round(base_bonus * 0.50)
+    return 0
+
+
+# ── Category computation ──────────────────────────────────────────────────────
+
+def _score_to_category(score: int, profile: dict) -> Tuple[str, bool, bool]:
+    """Return (category, sweet_spot_active, late_warning) for a given score and profile."""
+    sweet_low, sweet_high = profile["sweet_spot"]
+    late_threshold = profile["late_threshold"]
+    late_warning      = score > late_threshold
+    sweet_spot_active = sweet_low <= score <= sweet_high
+    if late_warning:
+        cat = "LATE"
+    elif sweet_spot_active:
+        cat = "SWEET_SPOT"
+    elif score >= sweet_low * 0.70:
+        cat = "BUILDING"
+    else:
+        cat = "WATCH"
+    return cat, sweet_spot_active, late_warning
+
+
+# ── Unified public API ────────────────────────────────────────────────────────
+
+def compute_profile_playbook_for_row(
+    row: dict,
+    universe: str,
+    history_context: Optional[List[Set[str]]] = None,
+) -> dict:
+    """Single unified function for all Profile Playbook scoring.
+
+    This is the ONLY function that should be called by:
+      - api_bar_signals (SuperChart)
+      - run_stock_stat
+      - replay_engine step 1d
+      - any other consumer
+
+    Args:
+        row: bar dict (list-column format from api_bar_signals, or CSV row from stock_stat)
+        universe: "sp500", "nasdaq", etc.
+        history_context: list of up to 5 prior bars' active signal sets,
+                         ordered [most_recent_first] i.e. [1_bar_ago, 2_bars_ago, ...]
+
+    Returns:
+        Full profile playbook result dict.
+    """
+    profile_name = get_profile(row, universe)
+    profile      = PROFILES.get(profile_name)
+
+    # Extract current bar's active signals
+    active_signals: Set[str] = extract_profile_signals_from_stat_row(row)
+
+    # ── Base profile score (signal_weights + pair_bonuses) ────────────────────
+    base_score = 0
+    matched_signals: List[str] = []
+    matched_pairs:   List[str] = []
+
+    if profile:
+        for sig, weight in profile["signal_weights"].items():
+            if sig in active_signals:
+                base_score += int(weight)
+                matched_signals.append(sig)
+        for pair, bonus in profile.get("pair_bonuses", {}).items():
+            a, b = pair
+            if a in active_signals and b in active_signals:
+                base_score += int(bonus)
+                matched_pairs.append(f"{a}+{b}")
+
+    # ── Bear-context standalone score (global, capped) ────────────────────────
+    bear_standalone = 0
+    for sig, weight in BEAR_CONTEXT_SIGNALS.items():
+        if sig in active_signals:
+            bear_standalone += weight
+    bear_standalone = min(bear_standalone, BEAR_CONTEXT_STANDALONE_CAP)
+
+    # ── Sequence scoring (requires history context) ───────────────────────────
+    bear_context_last_3   = False
+    bear_context_last_5   = False
+    bull_confirm_now      = False
+    bear_to_bull_confirmed = False
+    bear_to_bull_bars_ago  = 0
+    bear_to_bull_bonus     = 0
+    bear_to_bull_pairs:    List[str] = []
+
+    bull_sigs_now = active_signals & BULL_CONFIRM_SIGNALS
+    if bull_sigs_now:
+        bull_confirm_now = True
+
+    if history_context:
+        raw_bonus = 0
+        _min_bars_ago: Optional[int] = None
+        for bars_ago, hist_sigs in enumerate(history_context, start=1):
+            if bars_ago > 5:
+                break
+            bear_sigs = hist_sigs & set(BEAR_CONTEXT_SIGNALS.keys())
+            if bear_sigs:
+                if bars_ago <= 3:
+                    bear_context_last_3 = True
+                bear_context_last_5 = True
+                if bull_confirm_now:
+                    for bear_sig in bear_sigs:
+                        seq_map = SEQUENCE_BONUSES.get(bear_sig, {})
+                        for bull_sig in bull_sigs_now:
+                            base = seq_map.get(bull_sig, 0)
+                            if base > 0:
+                                bonus = sequence_decay_bonus(base, bars_ago)
+                                if bonus > 0:
+                                    bear_to_bull_confirmed = True
+                                    raw_bonus += bonus
+                                    if _min_bars_ago is None or bars_ago < _min_bars_ago:
+                                        _min_bars_ago = bars_ago
+                                    bear_to_bull_pairs.append(f"{bear_sig}->{bull_sig}@{bars_ago}")
+        bear_to_bull_bonus    = min(raw_bonus, SEQUENCE_BONUS_CAP)
+        bear_to_bull_bars_ago = _min_bars_ago or 0
+
+    # ── Total score + category ────────────────────────────────────────────────
+    total_score = base_score + bear_standalone + bear_to_bull_bonus
+
+    if profile:
+        cat, sweet_spot_active, late_warning = _score_to_category(total_score, profile)
+    else:
+        cat, sweet_spot_active, late_warning = "WATCH", False, False
+
+    # ── Unscored signals ──────────────────────────────────────────────────────
+    _known: Set[str] = set(BEAR_CONTEXT_SIGNALS.keys()) | BULL_CONFIRM_SIGNALS
+    for p in PROFILES.values():
+        _known.update(p["signal_weights"].keys())
+        for pair in p["pair_bonuses"].keys():
+            _known.update(pair)
+    for seq_map in SEQUENCE_BONUSES.values():
+        _known.update(seq_map.keys())
+    unscored = sorted(active_signals - _known)
+
+    return {
+        "profile_playbook_version":  PROFILE_PLAYBOOK_VERSION,
+        "profile_name":              profile_name,
+        "profile_score":             total_score,
+        "profile_category":          cat,
+        "sweet_spot_active":         sweet_spot_active,
+        "late_warning":              late_warning,
+        "active_signals":            sorted(active_signals),
+        "matched_profile_signals":   matched_signals,
+        "matched_profile_pairs":     matched_pairs,
+        "unscored_signals":          unscored,
+        "bear_context_last_3":       int(bear_context_last_3),
+        "bear_context_last_5":       int(bear_context_last_5),
+        "bull_confirm_now":          int(bull_confirm_now),
+        "bear_to_bull_confirmed":    int(bear_to_bull_confirmed),
+        "bear_to_bull_bars_ago":     bear_to_bull_bars_ago,
+        "bear_to_bull_bonus":        bear_to_bull_bonus,
+        "bear_to_bull_pairs":        bear_to_bull_pairs,
+        # legacy fields (kept for backward compatibility)
+        "profile_role":              profile.get("role")              if profile else None,
+        "profile_description":       profile.get("description")       if profile else None,
+        "profile_experimental":      bool(profile.get("experimental", False)) if profile else False,
+        "profile_preferred_preset":  profile.get("preferred_preset")  if profile else None,
+        "profile_suggested_tp":      profile.get("suggested_tp")      if profile else None,
+        "profile_suggested_sl":      profile.get("suggested_sl")      if profile else None,
+        "profile_max_hold":          profile.get("max_hold")          if profile else None,
+    }
+
+
+# ── Legacy wrapper (backward compatibility for older call sites) ──────────────
 
 def compute_profile_score(signals_5bar: Set[str], profile_name: str) -> dict:
-    """Compute profile score from a set of active signal names.
+    """Legacy wrapper — use compute_profile_playbook_for_row() for new code.
 
-    Does NOT modify canonical score columns.
+    Returns a result compatible with old callers that expected just base score.
+    Bear-context standalone cap is applied. Sequence bonus is NOT applied
+    (no history context). For full scoring, use compute_profile_playbook_for_row().
     """
     profile = PROFILES.get(profile_name)
     if not profile:
         return {
-            "profile_name": profile_name,
-            "profile_score": 0,
-            "profile_category": "WATCH",
-            "sweet_spot_active": False,
-            "late_warning": False,
-            "profile_role": None,
-            "profile_description": None,
-            "profile_experimental": False,
-            "profile_preferred_preset": None,
-            "profile_suggested_tp": None,
-            "profile_suggested_sl": None,
-            "profile_max_hold": None,
-            "matched_profile_signals": [],
+            "profile_name": profile_name, "profile_score": 0,
+            "profile_category": "WATCH", "sweet_spot_active": False,
+            "late_warning": False, "matched_profile_signals": [],
             "matched_profile_pairs": [],
         }
 
     score = 0
     matched_signals: List[str] = []
-
     for sig, weight in profile["signal_weights"].items():
         if sig in signals_5bar:
             score += int(weight)
@@ -576,40 +679,25 @@ def compute_profile_score(signals_5bar: Set[str], profile_name: str) -> dict:
             score += int(bonus)
             matched_pairs.append(f"{a}+{b}")
 
-    sweet_low, sweet_high = profile["sweet_spot"]
-    late_threshold = profile["late_threshold"]
+    bear_standalone = 0
+    for sig, weight in BEAR_CONTEXT_SIGNALS.items():
+        if sig in signals_5bar:
+            bear_standalone += weight
+    score += min(bear_standalone, BEAR_CONTEXT_STANDALONE_CAP)
 
-    sweet_spot_active = sweet_low <= score <= sweet_high
-    late_warning = score > late_threshold
-
-    if late_warning:
-        category = "LATE"
-    elif sweet_spot_active:
-        category = "SWEET_SPOT"
-    elif score >= sweet_low * 0.70:
-        category = "BUILDING"
-    else:
-        category = "WATCH"
-
+    cat, sweet_spot_active, late_warning = _score_to_category(score, profile)
     return {
         "profile_name":            profile_name,
-        "profile_score":           int(score),
-        "profile_category":        category,
-        "sweet_spot_active":       bool(sweet_spot_active),
-        "late_warning":            bool(late_warning),
-        "profile_role":            profile.get("role"),
-        "profile_description":     profile.get("description"),
-        "profile_experimental":    bool(profile.get("experimental", False)),
-        "profile_preferred_preset": profile.get("preferred_preset"),
-        "profile_suggested_tp":    profile.get("suggested_tp"),
-        "profile_suggested_sl":    profile.get("suggested_sl"),
-        "profile_max_hold":        profile.get("max_hold"),
+        "profile_score":           score,
+        "profile_category":        cat,
+        "sweet_spot_active":       sweet_spot_active,
+        "late_warning":            late_warning,
         "matched_profile_signals": matched_signals,
         "matched_profile_pairs":   matched_pairs,
     }
 
 
-# ── Row enrichment ────────────────────────────────────────────────────────────
+# ── Row enrichment (legacy helper) ───────────────────────────────────────────
 
 _CANONICAL_FIELDS = frozenset({
     "FINAL_BULL_SCORE", "TURBO_SCORE", "turbo_score",
@@ -623,21 +711,125 @@ def enrich_row_with_profile(
     row: dict,
     universe: str,
     signals: Optional[Set[str]] = None,
+    history_context: Optional[List[Set[str]]] = None,
 ) -> dict:
-    """Add profile playbook fields to a row dict.
-
-    Does NOT overwrite any canonical score columns.
-    If signals is None, extracts from turbo boolean columns automatically.
-    """
-    if signals is None:
-        signals = extract_signals_from_turbo_row(row)
-
-    profile_name = get_profile(row, universe)
-    result = compute_profile_score(signals, profile_name)
+    """Add profile playbook fields to a row dict. Does NOT overwrite canonical score columns."""
+    if signals is not None:
+        # Legacy: signals passed explicitly — use legacy compute_profile_score path
+        profile_name = get_profile(row, universe)
+        result       = compute_profile_score(signals, profile_name)
+    else:
+        result = compute_profile_playbook_for_row(row, universe, history_context)
 
     out = dict(row)
     for k, v in result.items():
         if k not in _CANONICAL_FIELDS:
             out[k] = v
-
     return out
+
+
+# ── Unscored signal audit ──────────────────────────────────────────────────────
+
+def profile_unscored_signals(rows: List[dict]) -> List[dict]:
+    """Find signal tokens in rows not covered by any profile scoring rule.
+
+    CSV columns: generated_at, raw_signal, normalized_signal, count,
+                 source_columns, example_tickers, example_dates
+    """
+    # Build the full "known" set — signals covered by any scoring rule
+    _known: Set[str] = set(BEAR_CONTEXT_SIGNALS.keys()) | BULL_CONFIRM_SIGNALS
+    for p in PROFILES.values():
+        _known.update(p["signal_weights"].keys())
+        for pair in p["pair_bonuses"].keys():
+            _known.update(pair)
+    for seq_map in SEQUENCE_BONUSES.values():
+        _known.update(seq_map.keys())
+
+    sig_data: Dict[str, dict] = {}
+
+    def _track(raw_tok: str, norm: str, col_label: str, ticker: str, date: str) -> None:
+        if not norm or norm in _known:
+            return
+        if norm not in sig_data:
+            sig_data[norm] = {"raw_signal": raw_tok, "count": 0,
+                              "source_columns": set(), "tickers": [], "dates": []}
+        d = sig_data[norm]
+        d["count"] += 1
+        d["source_columns"].add(col_label)
+        if len(d["tickers"]) < 3:
+            d["tickers"].append(ticker)
+            d["dates"].append(date)
+
+    for r in rows:
+        ticker = str(r.get("ticker", ""))
+        date   = str(r.get("date", ""))
+        for bar_key, csv_key in _STAT_COL_PAIRS:
+            val = r.get(bar_key)
+            col_label = bar_key
+            if val is None:
+                val = r.get(csv_key)
+                col_label = csv_key
+            if val is None:
+                continue
+            if isinstance(val, list):
+                for tok in val:
+                    raw = str(tok).strip()
+                    if raw:
+                        _track(raw, normalize_signal_name(raw), col_label, ticker, date)
+            elif isinstance(val, str) and val.strip():
+                for raw in re.split(r"[\s,|;]+", val.strip()):
+                    if raw:
+                        _track(raw, normalize_signal_name(raw), col_label, ticker, date)
+        for tz_key in ("tz", "Z", "T"):
+            tz = str(r.get(tz_key) or "").strip()
+            if tz:
+                _track(tz, normalize_signal_name(tz), tz_key, ticker, date)
+
+    now = _time.strftime("%Y-%m-%dT%H:%M:%S")
+    out = [
+        {
+            "generated_at":      now,
+            "raw_signal":        d["raw_signal"],
+            "normalized_signal": norm,
+            "count":             d["count"],
+            "source_columns":    "|".join(sorted(d["source_columns"])),
+            "example_tickers":   "|".join(d["tickers"]),
+            "example_dates":     "|".join(d["dates"]),
+        }
+        for norm, d in sig_data.items()
+        if d["count"] >= 5
+    ]
+    out.sort(key=lambda x: -x["count"])
+    return out
+
+
+# ── Config snapshot ───────────────────────────────────────────────────────────
+
+def get_playbook_config_snapshot() -> dict:
+    """Return a JSON-serialisable snapshot of the currently active scoring config.
+
+    Write to profile_playbook_config_snapshot.json to record which config was
+    used for a given stock_stat / replay run.
+    """
+    profiles_snap = {}
+    for name, p in PROFILES.items():
+        profiles_snap[name] = {
+            "universe":      p["universe"],
+            "price_range":   list(p["price_range"]) if p["price_range"][1] != float("inf")
+                             else [p["price_range"][0], None],
+            "sweet_spot":    list(p["sweet_spot"]),
+            "late_threshold": p["late_threshold"],
+            "signal_weights": dict(p["signal_weights"]),
+            "pair_bonuses":  {f"{a}+{b}": v for (a, b), v in p["pair_bonuses"].items()},
+        }
+    return {
+        "profile_playbook_version": PROFILE_PLAYBOOK_VERSION,
+        "generated_at":             _time.strftime("%Y-%m-%dT%H:%M:%S"),
+        "aliases_count":            len(SIGNAL_ALIASES),
+        "profiles":                 profiles_snap,
+        "bear_context_signals":     dict(BEAR_CONTEXT_SIGNALS),
+        "bear_context_standalone_cap": BEAR_CONTEXT_STANDALONE_CAP,
+        "bull_confirm_signals":     sorted(BULL_CONFIRM_SIGNALS),
+        "sequence_bonuses":         {k: dict(v) for k, v in SEQUENCE_BONUSES.items()},
+        "sequence_bonus_cap":       SEQUENCE_BONUS_CAP,
+    }

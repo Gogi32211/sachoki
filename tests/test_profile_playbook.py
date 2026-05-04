@@ -4,13 +4,23 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "backend"))
 
 from profile_playbook import (
     get_profile,
-    normalize_signal_token,
+    normalize_signal_name,
+    normalize_signal_token,   # backward-compat alias
     parse_signal_cell,
     compute_profile_score,
+    compute_profile_playbook_for_row,
     enrich_row_with_profile,
     extract_signals_from_turbo_row,
     extract_profile_signals_from_stat_row,
+    sequence_decay_bonus,
+    get_playbook_config_snapshot,
     PROFILES,
+    BEAR_CONTEXT_SIGNALS,
+    BULL_CONFIRM_SIGNALS,
+    SEQUENCE_BONUSES,
+    SEQUENCE_BONUS_CAP,
+    BEAR_CONTEXT_STANDALONE_CAP,
+    PROFILE_PLAYBOOK_VERSION,
 )
 
 
@@ -439,6 +449,252 @@ def test_turbo_map_vol_spike_5x_maps_to_vol_5x():
     sigs = extract_signals_from_turbo_row(row)
     assert "VOL_5X" in sigs, f"VOL_5X missing, got {sigs}"
     assert "5X" not in sigs
+
+
+# ── Test 1 — Shared normalization ─────────────────────────────────────────────
+
+def test_shared_normalization_comprehensive():
+    """All required alias mappings produce correct canonical names."""
+    cases = [
+        ("FLY-BD", "FLY_BD"), ("BB↑", "BB_UP"), ("BX↑", "BX_UP"),
+        ("EB↓", "EB_DN"), ("BE↓", "BE_DN"), ("BO↑", "BO_UP"),
+        ("VBO↓", "VBO_DN"), ("5×", "VOL_5X"),
+        ("FBO↑", "FBO_UP"), ("WP↑", "WP_UP"), ("WP↓", "WP_DN"),
+        ("WC↑", "WC_UP"), ("WC↓", "WC_DN"),
+        ("10×", "VOL_10X"), ("20×", "VOL_20X"),
+    ]
+    for raw, expected in cases:
+        got = normalize_signal_name(raw)
+        assert got == expected, f"normalize_signal_name({raw!r}) = {got!r}, expected {expected!r}"
+    # Direct canonical names should pass through unchanged
+    for direct in ("BUY", "SVS", "ABS", "LOAD", "G4", "G11", "F9", "F10",
+                   "CLM", "SQ", "SC", "BL", "CCI", "FRI43", "260308"):
+        assert normalize_signal_name(direct) == direct, (
+            f"Expected {direct!r} to pass through unchanged, got {normalize_signal_name(direct)!r}"
+        )
+
+
+# ── Test 2 — Direct row extraction + non-zero score ──────────────────────────
+
+def test_direct_row_extraction_nonzero():
+    """CSV-style row: BUY in Combo + FLY-BD in FLY + FRI43 in L → non-zero score."""
+    row = {"close": 100.0, "Combo": "BUY", "FLY": "FLY-BD", "L": "FRI43"}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "BUY"   in sigs, f"BUY missing {sigs}"
+    assert "FLY_BD" in sigs, f"FLY_BD missing {sigs}"
+    assert "FRI43" in sigs, f"FRI43 missing {sigs}"
+    pf = compute_profile_playbook_for_row(row, "sp500")
+    assert pf["profile_score"] > 0, f"Expected non-zero, got {pf}"
+
+
+# ── Test 3 — Bearish context standalone is small + capped ────────────────────
+
+def test_bear_context_standalone_is_small():
+    """EB_DN alone should give standalone score of 1 and NOT reach SWEET_SPOT."""
+    row = {"close": 100.0, "ultra": ["EB↓"]}
+    sigs = extract_profile_signals_from_stat_row(row)
+    assert "EB_DN" in sigs, f"EB_DN missing from {sigs}"
+    pf = compute_profile_playbook_for_row(row, "sp500")
+    assert pf["profile_score"] <= 3, (
+        f"Bear standalone score should be ≤3, got {pf['profile_score']}"
+    )
+    assert pf["profile_category"] != "SWEET_SPOT", (
+        f"EB_DN alone must not reach SWEET_SPOT, got {pf['profile_category']}"
+    )
+
+def test_bear_context_standalone_cap():
+    """Multiple bear signals are capped at BEAR_CONTEXT_STANDALONE_CAP=3."""
+    row = {
+        "close": 100.0,
+        "ultra": ["EB↓", "FBO↓"],
+        "combo": ["BB↓"],
+        "wick":  ["WC↓"],
+        "vabs":  ["VBO↓"],
+    }
+    sigs = extract_profile_signals_from_stat_row(row)
+    bear_sigs = sigs & set(BEAR_CONTEXT_SIGNALS.keys())
+    assert len(bear_sigs) >= 2
+    pf = compute_profile_playbook_for_row(row, "sp500")
+    assert pf["profile_score"] <= BEAR_CONTEXT_STANDALONE_CAP, (
+        f"Bear standalone must be capped at {BEAR_CONTEXT_STANDALONE_CAP}, "
+        f"got {pf['profile_score']}"
+    )
+
+
+# ── Test 4 — Bear-to-bull sequence (1 bar ago) ───────────────────────────────
+
+def test_bear_to_bull_sequence_1_bar():
+    """EB_DN 1 bar ago + BUY now → bear_to_bull_confirmed, bonus=6, pair logged."""
+    hist = [{"EB_DN"}]  # 1 bar ago
+    row  = {"close": 100.0, "combo": ["BUY"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["bear_to_bull_confirmed"] == 1
+    assert pf["bear_to_bull_bars_ago"]  == 1
+    assert pf["bear_to_bull_bonus"]     == 6
+    assert any("EB_DN->BUY@1" in p for p in pf["bear_to_bull_pairs"])
+
+
+# ── Test 5 — Sequence decay ───────────────────────────────────────────────────
+
+def test_sequence_decay_1_bar():
+    assert sequence_decay_bonus(6, 1) == 6
+
+def test_sequence_decay_3_bars():
+    assert sequence_decay_bonus(6, 3) == round(6 * 0.75)   # 5
+
+def test_sequence_decay_5_bars():
+    assert sequence_decay_bonus(6, 5) == round(6 * 0.50)   # 3
+
+def test_sequence_decay_6_bars():
+    assert sequence_decay_bonus(6, 6) == 0
+
+def test_bear_to_bull_sequence_3_bars_ago():
+    """EB_DN 3 bars ago + BUY now → decayed bonus = round(6*0.75) = 5."""
+    hist = [set(), set(), {"EB_DN"}]  # bars_ago: [1, 2, 3]
+    row  = {"close": 100.0, "combo": ["BUY"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["bear_to_bull_confirmed"] == 1
+    assert pf["bear_to_bull_bars_ago"]  == 3
+    assert pf["bear_to_bull_bonus"]     == round(6 * 0.75)
+
+def test_bear_to_bull_sequence_5_bars_ago():
+    """EB_DN 5 bars ago + BUY now → decayed bonus = round(6*0.50) = 3."""
+    hist = [set(), set(), set(), set(), {"EB_DN"}]
+    row  = {"close": 100.0, "combo": ["BUY"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["bear_to_bull_confirmed"] == 1
+    assert pf["bear_to_bull_bonus"]     == round(6 * 0.50)
+
+
+# ── Test 6 — Sequence bonus cap ──────────────────────────────────────────────
+
+def test_sequence_bonus_cap():
+    """Multiple valid sequences are capped at SEQUENCE_BONUS_CAP=8."""
+    # EB_DN 1 bar ago: BUY(6)+SVS(6)+ABS(5)+L34(5)+VBO_UP(5) = 27 raw
+    hist = [{"EB_DN", "VBO_DN"}]
+    row  = {"close": 100.0, "combo": ["BUY", "SVS"], "vabs": ["ABS", "VBO↑"],
+            "l": ["L34"]}
+    pf   = compute_profile_playbook_for_row(row, "sp500", history_context=hist)
+    assert pf["bear_to_bull_bonus"] <= SEQUENCE_BONUS_CAP, (
+        f"Sequence bonus must be capped at {SEQUENCE_BONUS_CAP}, "
+        f"got {pf['bear_to_bull_bonus']}"
+    )
+
+
+# ── Test 7 — Consistency across paths ────────────────────────────────────────
+
+def test_consistency_stat_row_and_compute():
+    """Same bar dict produces identical results from extract then compute vs unified function."""
+    row = {
+        "close": 120.0,
+        "combo": ["BUY", "SVS", "BB↑"],
+        "fly":   ["FLY-BD"],
+        "l":     ["FRI43", "BX↑"],
+        "vabs":  ["ABS", "LOAD", "CLM"],
+        "g":     ["G4", "G11"],
+        "ultra": ["EB↑"],
+    }
+    # Path A: extract + compute (legacy path)
+    sigs_a  = extract_profile_signals_from_stat_row(row)
+    pname_a = get_profile(row, "sp500")
+    res_a   = compute_profile_score(sigs_a, pname_a)
+    # Path B: unified function (new path, no history context)
+    res_b   = compute_profile_playbook_for_row(row, "sp500")
+    # Scores must match (no history → no sequence bonus)
+    assert res_a["profile_score"]    == res_b["profile_score"],    f"A={res_a['profile_score']} B={res_b['profile_score']}"
+    assert res_a["profile_category"] == res_b["profile_category"], f"A={res_a['profile_category']} B={res_b['profile_category']}"
+    assert res_a["profile_name"]     == res_b["profile_name"]
+
+
+# ── Test 8 — SuperChart (turbo row) consistency with stat-row path ────────────
+
+def test_superchart_turbo_consistency():
+    """Turbo-row boolean extraction and stat-row list extraction produce same canonical signals."""
+    turbo_row = {
+        "buy_2809": 1, "bb_brk": 1, "fly_bd": 1, "fri43": 1,
+        "abs_sig": 1, "load_sig": 1, "g4": 1, "g11": 1,
+    }
+    stat_row = {
+        "close": 100.0,
+        "combo": ["BUY", "BB↑"],
+        "fly":   ["FLY-BD"],
+        "l":     ["FRI43"],
+        "vabs":  ["ABS", "LOAD"],
+        "g":     ["G4", "G11"],
+    }
+    sigs_turbo = extract_signals_from_turbo_row(turbo_row)
+    sigs_stat  = extract_profile_signals_from_stat_row(stat_row)
+    common = sigs_turbo & sigs_stat
+    expected = {"BUY", "BB_UP", "FLY_BD", "FRI43", "ABS", "LOAD", "G4", "G11"}
+    for sig in expected:
+        assert sig in common, f"{sig} not found in both paths; turbo={sigs_turbo} stat={sigs_stat}"
+
+
+# ── Test 9 — No duplicated config outside profile_playbook ───────────────────
+
+def test_no_duplicated_signal_aliases_in_playbook():
+    """SIGNAL_ALIASES must map every key to a consistent canonical form."""
+    from profile_playbook import SIGNAL_ALIASES
+    # All values should either be in SIGNAL_ALIASES.values() or be direct canonical names
+    # Key invariant: SIGNAL_ALIASES[canonical] == canonical (identity entries)
+    for raw, norm in SIGNAL_ALIASES.items():
+        if raw == norm:
+            continue  # identity entry — fine
+        # The normalized form should also normalize to itself (no double-hop needed)
+        renorm = normalize_signal_name(norm)
+        assert renorm == norm, (
+            f"SIGNAL_ALIASES[{raw!r}]={norm!r} but normalize({norm!r})={renorm!r}. "
+            f"Double-hop alias detected."
+        )
+
+def test_config_snapshot_has_required_keys():
+    """get_playbook_config_snapshot() returns all required fields."""
+    snap = get_playbook_config_snapshot()
+    required = {
+        "profile_playbook_version", "generated_at", "aliases_count",
+        "profiles", "bear_context_signals", "bear_context_standalone_cap",
+        "bull_confirm_signals", "sequence_bonuses", "sequence_bonus_cap",
+    }
+    for k in required:
+        assert k in snap, f"Config snapshot missing key: {k}"
+    assert snap["profile_playbook_version"] == PROFILE_PLAYBOOK_VERSION
+    assert snap["bear_context_standalone_cap"] == BEAR_CONTEXT_STANDALONE_CAP
+    assert snap["sequence_bonus_cap"] == SEQUENCE_BONUS_CAP
+
+
+# ── Test 10 — Output validation (distribution check) ─────────────────────────
+
+def test_output_distribution_not_all_watch():
+    """A set of rows with real signals should have non-WATCH categories."""
+    rows = []
+    signal_sets = [
+        {"close": 100.0, "combo": ["BUY", "SVS"], "fly": ["FLY-BD"], "vabs": ["ABS", "LOAD"]},
+        {"close": 100.0, "combo": ["BUY"], "l": ["FRI43"], "g": ["G4", "G11"]},
+        {"close": 100.0, "fly": ["FLY-BD"], "vabs": ["ABS", "CLM", "LOAD"]},
+        {"close": 100.0},  # no signals → WATCH
+        {"close": 100.0},  # no signals → WATCH
+    ]
+    results = [compute_profile_playbook_for_row(r, "sp500") for r in signal_sets]
+    scores    = [r["profile_score"] for r in results]
+    cats      = [r["profile_category"] for r in results]
+    assert any(s > 0 for s in scores),   f"All scores are 0: {scores}"
+    assert any(c != "WATCH" for c in cats), f"All categories are WATCH: {cats}"
+
+def test_bear_to_bull_fields_present_in_result():
+    """compute_profile_playbook_for_row always returns all required bear-to-bull keys."""
+    row = {"close": 100.0}
+    pf  = compute_profile_playbook_for_row(row, "sp500")
+    required_keys = {
+        "profile_playbook_version", "profile_name", "profile_score",
+        "profile_category", "sweet_spot_active", "late_warning",
+        "active_signals", "matched_profile_signals", "matched_profile_pairs",
+        "unscored_signals",
+        "bear_context_last_3", "bear_context_last_5",
+        "bull_confirm_now", "bear_to_bull_confirmed",
+        "bear_to_bull_bars_ago", "bear_to_bull_bonus", "bear_to_bull_pairs",
+    }
+    for k in required_keys:
+        assert k in pf, f"Missing key in result: {k}"
 
 
 if __name__ == "__main__":
