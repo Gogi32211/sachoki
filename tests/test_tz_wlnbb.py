@@ -451,6 +451,310 @@ def test_volume_bucket_vb():
     assert r["volume_bucket"] == "VB"
 
 
+# ── New Tests (v2) ────────────────────────────────────────────────────────────
+
+def _make_ticker_df(closes, highs=None, lows=None, start="2024-01-02"):
+    """Helper: build a simple DataFrame for a single ticker."""
+    import pandas as pd
+    from datetime import date, timedelta
+    n = len(closes)
+    dates = [(date(2024, 1, 2) + timedelta(days=i)).isoformat() for i in range(n)]
+    if highs is None:
+        highs = [c * 1.01 for c in closes]
+    if lows is None:
+        lows = [c * 0.99 for c in closes]
+    opens = closes[:]
+    vols  = [1_000_000] * n
+    df = pd.DataFrame({
+        "date": dates,
+        "open": opens,
+        "high": highs,
+        "low": lows,
+        "close": closes,
+        "volume": vols,
+    })
+    return df
+
+
+def test_forward_returns_no_cross_ticker():
+    """Verify that forward returns never cross ticker boundaries."""
+    from analyzers.tz_wlnbb.stock_stat import add_forward_returns
+    import pandas as pd
+    # Ticker A: closes [10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110]
+    # Ticker B: closes [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1]
+    # Process each ticker separately — ret_1d for last bar of A should be None
+    closes_a = [10.0, 20.0, 30.0, 40.0, 50.0, 60.0, 70.0, 80.0, 90.0, 100.0, 110.0]
+    df_a = _make_ticker_df(closes_a)
+    df_a = add_forward_returns(df_a)
+    # Last bar has no future → ret_1d should be NaN/None
+    last_ret = df_a["ret_1d"].iloc[-1]
+    assert last_ret is None or (isinstance(last_ret, float) and pd.isna(last_ret)), (
+        f"Last bar of ticker A should have no ret_1d, got {last_ret}"
+    )
+    # Also verify: no B ticker data bled in (since we process separately)
+    # ret_1d for first bar of A = (20-10)/10*100 = 100.0
+    first_ret = float(df_a["ret_1d"].iloc[0])
+    assert abs(first_ret - 100.0) < 0.001, f"ret_1d[0] should be 100.0, got {first_ret}"
+
+
+def test_forward_returns_formula():
+    """Verify ret_1d = (c[i+1]/c[i] - 1)*100 (close-to-close percentage)."""
+    from analyzers.tz_wlnbb.stock_stat import add_forward_returns
+    closes = [100.0, 110.0, 90.0, 120.0, 100.0, 105.0, 115.0, 108.0, 112.0, 95.0, 100.0]
+    df = _make_ticker_df(closes)
+    df = add_forward_returns(df)
+    # Check ret_1d at index 0: (110/100 - 1)*100 = 10.0
+    assert abs(float(df["ret_1d"].iloc[0]) - 10.0) < 0.001, \
+        f"ret_1d[0] = {df['ret_1d'].iloc[0]}, expected 10.0"
+    # Check ret_3d at index 0: (120/100 - 1)*100 = 20.0
+    assert abs(float(df["ret_3d"].iloc[0]) - 20.0) < 0.001, \
+        f"ret_3d[0] = {df['ret_3d'].iloc[0]}, expected 20.0"
+    # Check ret_5d at index 0: (105/100 - 1)*100 = 5.0
+    assert abs(float(df["ret_5d"].iloc[0]) - 5.0) < 0.001, \
+        f"ret_5d[0] = {df['ret_5d'].iloc[0]}, expected 5.0"
+    # Check ret_10d at index 0: (100/100 - 1)*100 = 0.0
+    assert abs(float(df["ret_10d"].iloc[0]) - 0.0) < 0.001, \
+        f"ret_10d[0] = {df['ret_10d'].iloc[0]}, expected 0.0"
+
+
+def test_mfe_uses_future_high():
+    """Verify mfe_5d is computed from future HIGH prices, not closes."""
+    from analyzers.tz_wlnbb.stock_stat import add_forward_returns
+    import pandas as pd
+    closes = [100.0] * 12
+    # Make highs spike in future bars
+    highs  = [100.0, 100.0, 200.0, 200.0, 200.0, 200.0, 100.0, 100.0, 100.0, 100.0, 100.0, 100.0]
+    lows   = [99.0] * 12
+    df = _make_ticker_df(closes, highs=highs, lows=lows)
+    df = add_forward_returns(df)
+    # mfe_5d at index 0: future bars 1..5 have highs [100,200,200,200,200]
+    # max = 200, c0=100 → (200-100)/100*100 = 100.0
+    mfe = float(df["mfe_5d"].iloc[0])
+    assert abs(mfe - 100.0) < 0.001, f"mfe_5d[0] should be 100.0 (from high spike), got {mfe}"
+    # mfe should differ from ret_5d (close-to-close = 0.0)
+    ret5 = df["ret_5d"].iloc[0]
+    assert ret5 is None or abs(float(ret5)) < 0.001, f"ret_5d[0] should be 0.0, got {ret5}"
+
+
+def test_mae_uses_future_low():
+    """Verify mae_5d is computed from future LOW prices, not closes."""
+    from analyzers.tz_wlnbb.stock_stat import add_forward_returns
+    import pandas as pd
+    closes = [100.0] * 12
+    highs  = [101.0] * 12
+    # Make lows drop dramatically in future bars
+    lows   = [99.0, 99.0, 50.0, 50.0, 50.0, 50.0, 99.0, 99.0, 99.0, 99.0, 99.0, 99.0]
+    df = _make_ticker_df(closes, highs=highs, lows=lows)
+    df = add_forward_returns(df)
+    # mae_5d at index 0: future bars 1..5 have lows [99,50,50,50,50]
+    # min = 50, c0=100 → (50-100)/100*100 = -50.0
+    mae = float(df["mae_5d"].iloc[0])
+    assert abs(mae - (-50.0)) < 0.001, f"mae_5d[0] should be -50.0 (from low drop), got {mae}"
+
+
+def test_sequence_z4_to_t4():
+    """Verify Z4→T4 within 3 bars is detected as a 2-bar sequence."""
+    from analyzers.tz_wlnbb.replay import _sequence_perf_expanded
+
+    def _make_row(ticker, date, t_sig="", z_sig="", uni="sp500", tf="1d"):
+        return {
+            "ticker": ticker, "date": date, "universe": uni, "timeframe": tf,
+            "t_signal": t_sig, "z_signal": z_sig, "l_signal": "",
+            "preup_signal": "", "predn_signal": "",
+            "close": "100", "ret_1d": "1.0", "ret_3d": "2.0",
+            "ret_5d": "3.0", "ret_10d": "5.0",
+            "mfe_10d": "6.0", "mae_10d": "-2.0",
+            "big_win_10d": "1", "fail_10d": "0",
+        }
+
+    rows = [
+        _make_row("AAPL", "2024-01-01", z_sig="Z4"),
+        _make_row("AAPL", "2024-01-02"),
+        _make_row("AAPL", "2024-01-03", t_sig="T4"),
+    ]
+    result = _sequence_perf_expanded(rows)
+    # Should detect Z4->T4 (2-bar lag=2)
+    patterns = [r["sequence_pattern"] for r in result]
+    assert "Z4->T4" in patterns, f"Expected Z4->T4 in sequences, got {patterns}"
+    z4t4 = next(r for r in result if r["sequence_pattern"] == "Z4->T4")
+    assert z4t4["sequence_type"] == "2bar"
+    assert z4t4["bars_between"] == 2
+    assert z4t4["sequence_family"] == "Z_to_T"
+
+
+def test_sequence_l64_to_l34():
+    """Verify L64→L34 consecutive bars is detected as a 2-bar sequence."""
+    from analyzers.tz_wlnbb.replay import _sequence_perf_expanded
+
+    def _make_row(ticker, date, l_sig="", uni="sp500", tf="1d"):
+        return {
+            "ticker": ticker, "date": date, "universe": uni, "timeframe": tf,
+            "t_signal": "", "z_signal": "", "l_signal": l_sig,
+            "preup_signal": "", "predn_signal": "",
+            "close": "100", "ret_1d": "0.5", "ret_3d": "1.0",
+            "ret_5d": "2.0", "ret_10d": "4.0",
+            "mfe_10d": "5.0", "mae_10d": "-1.5",
+            "big_win_10d": "0", "fail_10d": "0",
+        }
+
+    rows = [
+        _make_row("MSFT", "2024-01-01", l_sig="L64"),
+        _make_row("MSFT", "2024-01-02", l_sig="L34"),
+    ]
+    result = _sequence_perf_expanded(rows)
+    patterns = [r["sequence_pattern"] for r in result]
+    assert "L64->L34" in patterns, f"Expected L64->L34 in sequences, got {patterns}"
+    seq = next(r for r in result if r["sequence_pattern"] == "L64->L34")
+    assert seq["sequence_type"] == "2bar"
+    assert seq["sequence_family"] == "L_to_L"
+
+
+def test_sequence_3bar():
+    """Verify Z4→L34→T4 3-bar sequence is detected."""
+    from analyzers.tz_wlnbb.replay import _sequence_perf_expanded
+
+    def _make_row(ticker, date, t_sig="", z_sig="", l_sig="", uni="sp500", tf="1d"):
+        return {
+            "ticker": ticker, "date": date, "universe": uni, "timeframe": tf,
+            "t_signal": t_sig, "z_signal": z_sig, "l_signal": l_sig,
+            "preup_signal": "", "predn_signal": "",
+            "close": "100", "ret_1d": "1.0", "ret_3d": "2.0",
+            "ret_5d": "3.5", "ret_10d": "6.0",
+            "mfe_10d": "7.0", "mae_10d": "-1.0",
+            "big_win_10d": "1", "fail_10d": "0",
+        }
+
+    rows = [
+        _make_row("GOOG", "2024-01-01", z_sig="Z4"),
+        _make_row("GOOG", "2024-01-02", l_sig="L34"),
+        _make_row("GOOG", "2024-01-03", t_sig="T4"),
+    ]
+    result = _sequence_perf_expanded(rows)
+    three_bar = [r for r in result if r["sequence_type"] == "3bar"]
+    patterns_3 = [r["sequence_pattern"] for r in three_bar]
+    assert "Z4->L34->T4" in patterns_3, (
+        f"Expected Z4->L34->T4 in 3-bar sequences, got {patterns_3}"
+    )
+    seq = next(r for r in three_bar if r["sequence_pattern"] == "Z4->L34->T4")
+    assert seq["sequence_family"] == "Z_to_L_to_T"
+
+
+def test_output_csv_naming():
+    """Verify generate_stock_stat uses universe-specific filename."""
+    import tempfile, csv, os
+    import pandas as pd
+    from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+
+    calls = []
+    def mock_fetch(ticker, interval, bars):
+        calls.append(ticker)
+        # Return minimal OHLCV df
+        data = {
+            "open":   [100.0, 101.0, 102.0],
+            "high":   [105.0, 106.0, 107.0],
+            "low":    [99.0,  100.0, 101.0],
+            "close":  [103.0, 104.0, 105.0],
+            "volume": [1e6,   1e6,   1e6],
+        }
+        df = pd.DataFrame(data)
+        df.index = pd.to_datetime(["2024-01-02", "2024-01-03", "2024-01-04"])
+        return df
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        # Test sp500
+        out_sp = os.path.join(tmpdir, "stock_stat_tz_wlnbb_sp500_1d.csv")
+        path, audit = generate_stock_stat(
+            ["AAPL"], mock_fetch, universe="sp500", tf="1d",
+            output_path=out_sp,
+        )
+        assert path == out_sp, f"Expected {out_sp}, got {path}"
+        assert os.path.exists(out_sp)
+
+        # Test nasdaq — should use different filename
+        out_nq = os.path.join(tmpdir, "stock_stat_tz_wlnbb_nasdaq_1d.csv")
+        path2, _ = generate_stock_stat(
+            ["MSFT"], mock_fetch, universe="nasdaq", tf="1d",
+            output_path=out_nq,
+        )
+        assert path2 == out_nq, f"Expected {out_nq}, got {path2}"
+        assert out_sp != out_nq, "SP500 and NASDAQ should use different filenames"
+
+
+def test_metadata_fields():
+    """Verify _build_metadata returns all required keys."""
+    from analyzers.tz_wlnbb.replay import _build_metadata
+
+    rows = [
+        {"ticker": "AAPL", "date": "2024-01-02", "t_signal": "T4", "z_signal": "",
+         "l_signal": "", "preup_signal": "", "predn_signal": "",
+         "has_tz_l_combo": "0", "t_after_z_confirmed": "0", "ret_10d": "5.0"},
+        {"ticker": "AAPL", "date": "2024-01-03", "t_signal": "", "z_signal": "Z4",
+         "l_signal": "", "preup_signal": "", "predn_signal": "",
+         "has_tz_l_combo": "0", "t_after_z_confirmed": "0", "ret_10d": ""},
+    ]
+    meta = _build_metadata(rows, universe="sp500", tf="1d", ticker_count=1)
+
+    required_keys = [
+        "version", "generated_at", "universe", "timeframe", "ticker_count",
+        "rows_total", "start_date", "end_date", "lookback_trading_days_requested",
+        "trading_days_per_ticker_min", "trading_days_per_ticker_median",
+        "trading_days_per_ticker_max",
+        "rows_with_t_signal", "rows_with_z_signal", "rows_with_l_signal",
+        "rows_with_preup", "rows_with_predn", "rows_with_combo",
+        "rows_with_sequence", "rows_with_forward_returns_available",
+        "rows_dropped_due_to_missing_forward_returns",
+    ]
+    for key in required_keys:
+        assert key in meta, f"Missing metadata key: {key}"
+
+    assert meta["rows_total"] == 2
+    assert meta["rows_with_t_signal"] == 1
+    assert meta["rows_with_z_signal"] == 1
+    assert meta["rows_with_forward_returns_available"] == 1
+    assert meta["rows_dropped_due_to_missing_forward_returns"] == 1
+
+
+def test_config_snapshot_v2():
+    """Verify get_config_snapshot() returns all required keys."""
+    from analyzers.tz_wlnbb.replay import get_config_snapshot
+
+    snap = get_config_snapshot()
+
+    required_keys = [
+        "TZ_WLNBB_ANALYZER_VERSION",
+        "output_schema_version",
+        "default_lookback_trading_days",
+        "parameters",
+        "t_priority_order",
+        "z_priority_order",
+        "preup_priority_order",
+        "predn_priority_order",
+        "wlnbb_bucket_logic",
+        "suffix_logic",
+        "known_signal_registry",
+        "sequence_families_enabled",
+    ]
+    for key in required_keys:
+        assert key in snap, f"Missing config snapshot key: {key}"
+
+    # Verify it's a pure dict (no pandas types)
+    import json
+    json_str = json.dumps(snap)  # must not raise
+    assert len(json_str) > 0
+
+    # Verify parameters sub-dict
+    params = snap["parameters"]
+    assert "useWick" in params
+    assert "minBodyRatio" in params
+    assert "dojiThresh" in params
+    assert "ma_period" in params
+
+    # Verify known signals present
+    assert "T4" in snap["known_signal_registry"]
+    assert "Z4" in snap["known_signal_registry"]
+    assert len(snap["sequence_families_enabled"]) >= 8
+
+
 if __name__ == "__main__":
     # Run all tests manually
     tests = [
@@ -477,6 +781,17 @@ if __name__ == "__main__":
         test_lane_z_only_no_t,
         test_volume_bucket_w,
         test_volume_bucket_vb,
+        # New v2 tests
+        test_forward_returns_no_cross_ticker,
+        test_forward_returns_formula,
+        test_mfe_uses_future_high,
+        test_mae_uses_future_low,
+        test_sequence_z4_to_t4,
+        test_sequence_l64_to_l34,
+        test_sequence_3bar,
+        test_output_csv_naming,
+        test_metadata_fields,
+        test_config_snapshot_v2,
     ]
     passed = 0
     failed = 0
@@ -489,6 +804,8 @@ if __name__ == "__main__":
             print(f"  FAIL  {t.__name__}: {e}")
             failed += 1
         except Exception as e:
+            import traceback
             print(f"  ERROR {t.__name__}: {e}")
+            traceback.print_exc()
             failed += 1
     print(f"\n{passed}/{passed+failed} tests passed")

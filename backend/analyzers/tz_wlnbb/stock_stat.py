@@ -1,10 +1,12 @@
-"""Generate stock_stat_tz_wlnbb CSV."""
+"""Generate stock_stat_tz_wlnbb CSV with forward returns and sequence context."""
 import csv
 import logging
 import time
 import os
 from datetime import datetime
-from typing import Optional, Callable, List
+from typing import Optional, Callable, List, Tuple
+import pandas as pd
+
 from .config import TZ_WLNBB_VERSION
 from .signal_extraction import compute_signals_for_ticker
 
@@ -12,6 +14,7 @@ log = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS = [
     "ticker", "date", "universe", "timeframe", "open", "high", "low", "close", "volume",
+    "tz_wlnbb_version",
     "ema9", "ema20", "ema34", "ema50", "ema89", "ema200",
     "t_signal", "z_signal", "t_raw_signals", "z_raw_signals", "bull_priority_code", "bear_priority_code",
     "volume_bucket", "l_digits", "l_signal", "l34_active", "l43_active", "l64_active", "l22_active", "l_raw_signals",
@@ -20,22 +23,134 @@ OUTPUT_COLUMNS = [
     "lane1_label", "lane3_label", "combined_signal_text",
     "has_t_signal", "has_z_signal", "has_l_signal", "has_preup", "has_predn",
     "has_tz_l_combo", "has_bullish_context", "has_bearish_context",
-    "tz_wlnbb_version",
+    "prev_1_signal_summary", "prev_3_signal_summary", "prev_5_signal_summary",
+    "t_after_z_confirmed", "z_after_t_confirmed", "l_after_z_confirmed",
+    "preup_after_z_confirmed", "predn_after_t_confirmed",
+    "ret_1d", "ret_3d", "ret_5d", "ret_10d",
+    "max_high_5d", "max_high_10d", "max_drawdown_5d", "max_drawdown_10d",
+    "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
+    "clean_win_5d", "big_win_10d", "fail_5d", "fail_10d",
 ]
+
+
+def add_forward_returns(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    df must be sorted by date ascending for a single ticker.
+    All returns are close-to-close percentages.
+    NEVER call this across multiple tickers.
+    """
+    c = df["close"]
+    df["ret_1d"]  = (c.shift(-1)  / c - 1) * 100
+    df["ret_3d"]  = (c.shift(-3)  / c - 1) * 100
+    df["ret_5d"]  = (c.shift(-5)  / c - 1) * 100
+    df["ret_10d"] = (c.shift(-10) / c - 1) * 100
+
+    highs = df["high"]
+    lows  = df["low"]
+
+    for w, wk in [(5, "5d"), (10, "10d")]:
+        mfe_vals, mae_vals, maxh_vals, mind_vals = [], [], [], []
+        for i in range(len(df)):
+            fut_h = highs.iloc[i+1:i+w+1]
+            fut_l = lows.iloc[i+1:i+w+1]
+            c0 = c.iloc[i]
+            if len(fut_h) > 0 and c0 > 0:
+                mh = fut_h.max()
+                ml = fut_l.min()
+                maxh_vals.append(round((mh - c0) / c0 * 100, 4))
+                mind_vals.append(round((ml - c0) / c0 * 100, 4))
+                mfe_vals.append(round((mh - c0) / c0 * 100, 4))
+                mae_vals.append(round((ml - c0) / c0 * 100, 4))
+            else:
+                maxh_vals.append(None)
+                mind_vals.append(None)
+                mfe_vals.append(None)
+                mae_vals.append(None)
+        df[f"max_high_{wk}"]     = maxh_vals
+        df[f"max_drawdown_{wk}"] = mind_vals
+        df[f"mfe_{wk}"]          = mfe_vals
+        df[f"mae_{wk}"]          = mae_vals
+
+    # Outcome labels
+    df["clean_win_5d"] = (df["ret_5d"]  >= 3.0).astype(int)
+    df["big_win_10d"]  = (df["ret_10d"] >= 5.0).astype(int)
+    df["fail_5d"]      = (df["ret_5d"]  <= -3.0).astype(int)
+    df["fail_10d"]     = (df["ret_10d"] <= -5.0).astype(int)
+
+    return df
+
+
+def add_sequence_context(df: pd.DataFrame) -> pd.DataFrame:
+    """
+    Add prev signal summaries and sequence confirmation flags.
+    df must be sorted by date ascending for a single ticker.
+    """
+    def primary(row_dict):
+        return (row_dict.get("t_signal") or row_dict.get("z_signal") or
+                row_dict.get("l_signal") or row_dict.get("preup_signal") or
+                row_dict.get("predn_signal") or "")
+
+    summaries_1, summaries_3, summaries_5 = [], [], []
+    t_after_z, z_after_t, l_after_z, preup_after_z, predn_after_t = [], [], [], [], []
+
+    rows_list = [row._asdict() for row in df.itertuples(index=False)]
+
+    for i in range(len(rows_list)):
+        # prev 1 bar summary
+        if i >= 1:
+            summaries_1.append(primary(rows_list[i-1]))
+        else:
+            summaries_1.append("")
+
+        # prev 3 bars summary
+        prev3 = [primary(rows_list[j]) for j in range(max(0, i-3), i) if primary(rows_list[j])]
+        summaries_3.append("|".join(prev3) if prev3 else "")
+
+        # prev 5 bars summary
+        prev5 = [primary(rows_list[j]) for j in range(max(0, i-5), i) if primary(rows_list[j])]
+        summaries_5.append("|".join(prev5) if prev5 else "")
+
+        # sequence confirmations: look back up to 5 bars for triggering signal
+        curr = rows_list[i]
+        curr_t = curr.get("t_signal", "")
+        curr_z = curr.get("z_signal", "")
+        curr_l = curr.get("l_signal", "")
+        curr_preup = curr.get("preup_signal", "")
+        curr_predn = curr.get("predn_signal", "")
+
+        has_z_in_prev5 = any(rows_list[j].get("z_signal", "") for j in range(max(0, i-5), i))
+        has_t_in_prev5 = any(rows_list[j].get("t_signal", "") for j in range(max(0, i-5), i))
+
+        t_after_z.append(1 if (curr_t and has_z_in_prev5) else 0)
+        z_after_t.append(1 if (curr_z and has_t_in_prev5) else 0)
+        l_after_z.append(1 if (curr_l and has_z_in_prev5) else 0)
+        preup_after_z.append(1 if (curr_preup and has_z_in_prev5) else 0)
+        predn_after_t.append(1 if (curr_predn and has_t_in_prev5) else 0)
+
+    df["prev_1_signal_summary"]   = summaries_1
+    df["prev_3_signal_summary"]   = summaries_3
+    df["prev_5_signal_summary"]   = summaries_5
+    df["t_after_z_confirmed"]     = t_after_z
+    df["z_after_t_confirmed"]     = z_after_t
+    df["l_after_z_confirmed"]     = l_after_z
+    df["preup_after_z_confirmed"] = preup_after_z
+    df["predn_after_t_confirmed"] = predn_after_t
+
+    return df
 
 
 def generate_stock_stat(
     tickers: List[str],
-    fetch_ohlcv_fn: Callable,  # callable(ticker, interval, bars) -> pd.DataFrame or raises
+    fetch_ohlcv_fn: Callable,  # callable(ticker, interval, calendar_days) -> pd.DataFrame or raises
     universe: str = "sp500",
     tf: str = "1d",
-    bars: int = 252,
+    bars: int = 500,  # now calendar_days (default 500 ≈ 320+ trading days)
     output_path: Optional[str] = None,
     progress_callback: Optional[Callable[[int, int], None]] = None,
-) -> str:
-    """Generate stock_stat CSV. Returns output path."""
+) -> Tuple[str, dict]:
+    """Generate stock_stat CSV. Returns (output_path, audit_dict)."""
     if output_path is None:
-        output_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        output_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
     t0 = time.time()
     total = len(tickers)
@@ -56,9 +171,6 @@ def generate_stock_stat(
                 if df is None or len(df) < 2:
                     continue
                 df = compute_signals_for_ticker(df, universe)
-                audit["tickers_processed"] += 1
-                if progress_callback:
-                    progress_callback(audit["tickers_processed"], total)
 
                 # Add date column from index if not present
                 if "date" not in df.columns:
@@ -66,6 +178,19 @@ def generate_stock_stat(
                         df["date"] = df.index.strftime("%Y-%m-%d")
                     except Exception:
                         df["date"] = [str(v)[:10] for v in df.index]
+
+                # Sort by date ascending before computing forward returns + context
+                df = df.sort_values("date").reset_index(drop=True)
+
+                # Add forward returns (single-ticker, close-to-close)
+                df = add_forward_returns(df)
+
+                # Add sequence context (single-ticker)
+                df = add_sequence_context(df)
+
+                audit["tickers_processed"] += 1
+                if progress_callback:
+                    progress_callback(audit["tickers_processed"], total)
 
                 for _, row in df.iterrows():
                     date_val = row.get("date", "")
@@ -84,12 +209,20 @@ def generate_stock_stat(
                         if row.get(f"l{n}_raw"):
                             l_raw_parts.append(f"L{n}")
 
+                    def _val(v):
+                        if v is None or (isinstance(v, float) and pd.isna(v)):
+                            return ""
+                        return v
+
                     writer.writerow([
                         ticker, date_val, universe, tf,
-                        row.get("open", ""), row.get("high", ""), row.get("low", ""),
-                        row.get("close", ""), row.get("volume", ""),
-                        row.get("ema9", ""), row.get("ema20", ""), row.get("ema34", ""),
-                        row.get("ema50", ""), row.get("ema89", ""), row.get("ema200", ""),
+                        _val(row.get("open")), _val(row.get("high")),
+                        _val(row.get("low")), _val(row.get("close")),
+                        _val(row.get("volume")),
+                        TZ_WLNBB_VERSION,
+                        _val(row.get("ema9")), _val(row.get("ema20")),
+                        _val(row.get("ema34")), _val(row.get("ema50")),
+                        _val(row.get("ema89")), _val(row.get("ema200")),
                         row.get("t_signal", ""), row.get("z_signal", ""),
                         t_raw_str, z_raw_str,
                         row.get("bull_priority_code", 0), row.get("bear_priority_code", 0),
@@ -106,7 +239,24 @@ def generate_stock_stat(
                         int(bool(row.get("has_l_signal"))), int(bool(row.get("has_preup"))),
                         int(bool(row.get("has_predn"))), int(bool(row.get("has_tz_l_combo"))),
                         int(bool(row.get("has_bullish_context"))), int(bool(row.get("has_bearish_context"))),
-                        TZ_WLNBB_VERSION,
+                        # sequence context
+                        row.get("prev_1_signal_summary", ""),
+                        row.get("prev_3_signal_summary", ""),
+                        row.get("prev_5_signal_summary", ""),
+                        row.get("t_after_z_confirmed", 0),
+                        row.get("z_after_t_confirmed", 0),
+                        row.get("l_after_z_confirmed", 0),
+                        row.get("preup_after_z_confirmed", 0),
+                        row.get("predn_after_t_confirmed", 0),
+                        # forward returns
+                        _val(row.get("ret_1d")), _val(row.get("ret_3d")),
+                        _val(row.get("ret_5d")), _val(row.get("ret_10d")),
+                        _val(row.get("max_high_5d")), _val(row.get("max_high_10d")),
+                        _val(row.get("max_drawdown_5d")), _val(row.get("max_drawdown_10d")),
+                        _val(row.get("mfe_5d")), _val(row.get("mfe_10d")),
+                        _val(row.get("mae_5d")), _val(row.get("mae_10d")),
+                        _val(row.get("clean_win_5d")), _val(row.get("big_win_10d")),
+                        _val(row.get("fail_5d")), _val(row.get("fail_10d")),
                     ])
                     audit["rows_processed"] += 1
                     if row.get("has_t_signal"):    audit["rows_with_t_signal"] += 1
@@ -129,4 +279,6 @@ def generate_stock_stat(
         audit["rows_with_predn"], audit["rows_with_combos"],
         elapsed, output_path,
     )
-    return output_path
+    audit["elapsed_seconds"] = elapsed
+    audit["output_path"] = output_path
+    return output_path, audit
