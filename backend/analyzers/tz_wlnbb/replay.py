@@ -14,6 +14,79 @@ from .config import TZ_WLNBB_VERSION, DEFAULT_LOOKBACK_TRADING_DAYS
 
 log = logging.getLogger(__name__)
 
+# ── Composite label parsing constants ────────────────────────────────────────
+# Longer signal names must come first to avoid partial matches (T2G before T2).
+_T_SIGNALS_LONGEST_FIRST = [
+    "T11", "T10", "T2G", "T1G", "T9", "T6", "T5", "T4", "T3", "T2", "T1"
+]
+_Z_SIGNALS_LONGEST_FIRST = [
+    "Z12", "Z11", "Z10", "Z2G", "Z1G", "Z9", "Z8", "Z7", "Z6",
+    "Z5", "Z4", "Z3", "Z2", "Z1"
+]
+_L_COMPONENT_RE = re.compile(r"^(L[1-6]+)")
+_VALID_SUFFIX_RE = re.compile(r"^[NE][UDB]?[PRH]?$")
+
+
+def parse_composite_label(label: str) -> dict:
+    """Parse a composite label into t_signal, z_signal, l_signal, composite_core, full_suffix.
+
+    Examples:
+      T2GL46ED  -> t_signal=T2G, l_signal=L46, composite_core=T2GL46, full_suffix=ED
+      Z2GL12NU  -> z_signal=Z2G, l_signal=L12, composite_core=Z2GL12, full_suffix=NU
+      T11L5EDP  -> t_signal=T11, l_signal=L5,  composite_core=T11L5,  full_suffix=EDP
+      T4EBP     -> t_signal=T4,  l_signal="",  composite_core=T4,     full_suffix=EBP
+      L34NDP    -> l_signal=L34, composite_core=L34, full_suffix=NDP
+    """
+    t_sig = z_sig = l_sig = ""
+    rest = label or ""
+
+    for sig in _T_SIGNALS_LONGEST_FIRST:
+        if rest.startswith(sig):
+            t_sig = sig
+            rest = rest[len(sig):]
+            break
+
+    if not t_sig:
+        for sig in _Z_SIGNALS_LONGEST_FIRST:
+            if rest.startswith(sig):
+                z_sig = sig
+                rest = rest[len(sig):]
+                break
+
+    m = _L_COMPONENT_RE.match(rest)
+    if m:
+        l_sig = m.group(1)
+        rest = rest[len(l_sig):]
+
+    if t_sig:
+        core = t_sig + l_sig
+    elif z_sig:
+        core = z_sig + l_sig
+    else:
+        core = l_sig
+
+    return {
+        "t_signal": t_sig,
+        "z_signal": z_sig,
+        "l_signal": l_sig,
+        "composite_core": core,
+        "full_suffix": rest,
+    }
+
+
+def is_valid_full_suffix(s: str) -> bool:
+    """Return True for empty string or a valid suffix matching ^[NE][UDB]?[PRH]?$."""
+    if not s:
+        return True
+    return bool(_VALID_SUFFIX_RE.match(s))
+
+
+def _extract_suffix_from_label(label: str) -> str:
+    """Parse label and return only the suffix portion (empty string if none)."""
+    if not label:
+        return ""
+    return parse_composite_label(label)["full_suffix"]
+
 
 def _safe_float(v):
     try:
@@ -703,8 +776,8 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
             "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
             "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
-            "source_full_suffix": src_lbl.lstrip("TZLPDtlzpd0123456789") if src_lbl else "",
-            "confirmation_full_suffix": conf_lbl.lstrip("TZLPDtlzpd0123456789") if conf_lbl else "",
+            "source_full_suffix": _extract_suffix_from_label(src_lbl),
+            "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
         })
 
     for (fam, pattern, lag1, lag2, uni, tf2), grp in seq3_groups.items():
@@ -721,8 +794,8 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
             "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
             "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
-            "source_full_suffix": src_lbl.lstrip("TZLPDtlzpd0123456789") if src_lbl else "",
-            "confirmation_full_suffix": conf_lbl.lstrip("TZLPDtlzpd0123456789") if conf_lbl else "",
+            "source_full_suffix": _extract_suffix_from_label(src_lbl),
+            "confirmation_full_suffix": _extract_suffix_from_label(conf_lbl),
         })
 
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -932,8 +1005,51 @@ def _unscored_audit(rows: List[dict]) -> List[dict]:
     return sorted(result, key=lambda x: -x["count"])
 
 
+def _invalid_suffix_audit(rows: List[dict]) -> List[dict]:
+    """
+    Find rows where composite_full_suffix or the suffix parsed from
+    composite_full_label is not a valid full_suffix string.
+    Valid pattern: ^[NE][UDB]?[PRH]?$ (or empty).
+    """
+    issues: Dict[tuple, dict] = {}
+    for r in rows:
+        checks = [
+            ("composite_full_suffix", r.get("composite_full_suffix") or ""),
+            ("parsed_from_composite_full_label",
+             _extract_suffix_from_label(r.get("composite_full_label") or "")),
+        ]
+        for field, val in checks:
+            if not val:
+                continue
+            if is_valid_full_suffix(val):
+                continue
+            key = (field, val)
+            d = issues.setdefault(key, {
+                "field_name": field, "invalid_suffix": val,
+                "count": 0, "source_labels": [], "tickers": [], "dates": [],
+            })
+            d["count"] += 1
+            if len(d["tickers"]) < 5:
+                d["tickers"].append(r.get("ticker", ""))
+                d["dates"].append(r.get("date", ""))
+                d["source_labels"].append(r.get("composite_full_label", ""))
+
+    result = []
+    for d in sorted(issues.values(), key=lambda x: -x["count"]):
+        result.append({
+            "field_name": d["field_name"],
+            "invalid_suffix": d["invalid_suffix"],
+            "source_label": "|".join(d["source_labels"]),
+            "ticker": "|".join(d["tickers"]),
+            "date": "|".join(d["dates"]),
+            "count": d["count"],
+        })
+    return result
+
+
 def _build_metadata(rows: List[dict], universe: str, tf: str,
-                    ticker_count: int = 0, audit: dict = None) -> dict:
+                    ticker_count: int = 0, audit: dict = None,
+                    nasdaq_batch: str = "") -> dict:
     """Build enhanced metadata dict."""
     dates = sorted(r.get("date", "") for r in rows if r.get("date"))
     start_date = dates[0] if dates else ""
@@ -952,6 +1068,7 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
         "version": TZ_WLNBB_VERSION,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "universe": universe,
+        "nasdaq_batch": nasdaq_batch or None,
         "timeframe": tf,
         "ticker_count": ticker_count or len(per_ticker),
         "rows_total": len(rows),
@@ -1012,6 +1129,14 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
     meta["wick_suffix_distribution"]        = dict(wk_dist.most_common(10))
     meta["penetration_suffix_distribution"] = dict(pen_dist.most_common(10))
     meta["full_suffix_distribution"]        = dict(full_dist_items.most_common(20))
+
+    if nasdaq_batch:
+        first_letters = sorted(
+            set(r.get("ticker", "")[:1].upper()
+                for r in rows if r.get("ticker", "")[:1].isalpha())
+        )
+        meta["ticker_first_letter_min"] = first_letters[0] if first_letters else ""
+        meta["ticker_first_letter_max"] = first_letters[-1] if first_letters else ""
 
     if audit:
         meta.update(audit)
@@ -1078,6 +1203,7 @@ def generate_replay_zip(
     tf: str = "",
     ticker_count: int = 0,
     audit: dict = None,
+    nasdaq_batch: str = "",
 ) -> str:
     """Generate replay ZIP with all analytics CSVs. Returns output_path."""
     # rows already have forward returns baked in from stock_stat CSV
@@ -1118,7 +1244,14 @@ def generate_replay_zip(
     unscored = _unscored_audit(rows)
     date_audit = _date_order_audit(rows)
     seq_event_audit = _sequence_event_audit(rows)
-    meta = _build_metadata(rows, universe, tf, ticker_count, audit)
+    invalid_suffix = _invalid_suffix_audit(rows)
+    if invalid_suffix:
+        log.warning(
+            "TZ_WLNBB_SUFFIX_PARSE_WARNING: %d invalid full_suffix values found "
+            "in composite labels — see replay_tz_wlnbb_invalid_suffix_audit.csv",
+            sum(r["count"] for r in invalid_suffix),
+        )
+    meta = _build_metadata(rows, universe, tf, ticker_count, audit, nasdaq_batch=nasdaq_batch)
     config_snap = get_config_snapshot()
 
     # Attach date audit summary to metadata
@@ -1283,5 +1416,12 @@ def generate_replay_zip(
         ]
         zf.writestr("replay_tz_wlnbb_sequence_event_audit.csv",
                     _to_csv_bytes(seq_event_audit, seq_audit_fields))
+
+        invalid_suffix_fields = [
+            "field_name", "invalid_suffix", "source_label",
+            "ticker", "date", "count",
+        ]
+        zf.writestr("replay_tz_wlnbb_invalid_suffix_audit.csv",
+                    _to_csv_bytes(invalid_suffix, invalid_suffix_fields))
 
     return output_path

@@ -1815,6 +1815,41 @@ def api_replay_export_all():
 
 # ── TZ/WLNBB Analyzer endpoints ──────────────────────────────────────────────
 
+def _filter_nasdaq_batch(tickers: list, batch: str) -> list:
+    """Filter NASDAQ tickers by alphabetical batch.
+    batch='a_m' -> first letter A-M
+    batch='n_z' -> first letter N-Z
+    batch='other' -> first letter non-alpha
+    batch='' or 'all' -> no filter
+    """
+    if not batch or batch == "all":
+        return tickers
+    result = []
+    for t in tickers:
+        first = t[0].upper() if t else ""
+        if batch == "a_m" and first.isalpha() and "A" <= first <= "M":
+            result.append(t)
+        elif batch == "n_z" and first.isalpha() and "N" <= first <= "Z":
+            result.append(t)
+        elif batch == "other" and (not first.isalpha()):
+            result.append(t)
+    return result
+
+
+def _tz_batch_stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
+    """Return the canonical stock_stat CSV path for a given universe/tf/batch."""
+    if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
+        return f"stock_stat_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}.csv"
+    return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+
+
+def _tz_batch_replay_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
+    """Return the canonical replay ZIP path for a given universe/tf/batch."""
+    if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
+        return f"replay_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}_analytics.zip"
+    return f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
+
+
 _tz_wlnbb_state: dict = {"running": False, "done": 0, "total": 0, "output": None, "error": None}
 
 
@@ -1828,13 +1863,17 @@ def api_tz_wlnbb_scan(
     signal_type: str = "all",
     signal_name: str = "",
     recent_window: int = 1,
+    nasdaq_batch: str = "",
 ):
     """Return latest TZ/WLNBB signals from stock_stat CSV."""
     try:
         import csv as _csv
-        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        stat_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
         if not os.path.exists(stat_path):
-            # fallback to old naming
+            # fallback to generic universe path
+            stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            # last-resort fallback to old naming
             stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
         if not os.path.exists(stat_path):
             return {"results": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
@@ -1894,12 +1933,21 @@ def api_tz_wlnbb_generate(
     universe: str = "sp500",
     tf: str = "1d",
     bars: int = 500,
+    nasdaq_batch: str = "",
 ):
     global _tz_wlnbb_state
     if _tz_wlnbb_state.get("running"):
         raise HTTPException(status_code=409, detail="Already running")
-    background_tasks.add_task(_run_tz_wlnbb_stock_stat, universe, tf, bars)
-    return {"status": "started"}
+    if universe == "nasdaq" and not nasdaq_batch:
+        nasdaq_batch = "a_m"  # safe default; full NASDAQ at once is too large
+    if universe == "nasdaq" and nasdaq_batch == "all":
+        raise HTTPException(
+            status_code=400,
+            detail="nasdaq_batch='all' is not allowed — NASDAQ is too large for a single run. "
+                   "Use 'a_m' then 'n_z' separately.",
+        )
+    background_tasks.add_task(_run_tz_wlnbb_stock_stat, universe, tf, bars, nasdaq_batch)
+    return {"status": "started", "nasdaq_batch": nasdaq_batch or None}
 
 
 @app.post("/api/tz-wlnbb/stop")
@@ -1909,9 +1957,12 @@ def api_tz_wlnbb_stop():
     return {"ok": True, "message": "Stop requested"}
 
 
-def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
+def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: str = ""):
     global _tz_wlnbb_state
-    _tz_wlnbb_state = {"running": True, "done": 0, "total": 0, "output": None, "error": None, "stop_requested": False}
+    _tz_wlnbb_state = {
+        "running": True, "done": 0, "total": 0, "output": None, "error": None,
+        "stop_requested": False, "nasdaq_batch": nasdaq_batch or None,
+    }
     try:
         from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
         from scanner import get_universe_tickers
@@ -1924,6 +1975,10 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
                 tickers = get_tickers() or []
             except Exception:
                 tickers = []
+
+        if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
+            tickers = _filter_nasdaq_batch(tickers, nasdaq_batch)
+            log.info("nasdaq batch=%s: %d tickers after filter", nasdaq_batch, len(tickers))
 
         _tz_wlnbb_state["total"] = len(tickers)
 
@@ -1946,9 +2001,10 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
         def _should_stop():
             return bool(_tz_wlnbb_state.get("stop_requested"))
 
+        out_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
         path, audit = generate_stock_stat(
             tickers, _fetch, universe=universe, tf=tf, bars=bars,
-            output_path=f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
+            output_path=out_path,
             progress_callback=_on_progress,
             early_stop_fn=_should_stop,
         )
@@ -2009,26 +2065,33 @@ def api_tz_wlnbb_replay(
     background_tasks: BackgroundTasks,
     universe: str = "sp500",
     tf: str = "1d",
+    nasdaq_batch: str = "",
 ):
     global _tz_replay_state
     if _tz_replay_state.get("running"):
         raise HTTPException(status_code=409, detail="Replay already running")
-    background_tasks.add_task(_run_tz_wlnbb_replay, universe, tf)
-    return {"status": "started"}
+    background_tasks.add_task(_run_tz_wlnbb_replay, universe, tf, nasdaq_batch)
+    return {"status": "started", "nasdaq_batch": nasdaq_batch or None}
 
 
-def _run_tz_wlnbb_replay(universe: str, tf: str):
+def _run_tz_wlnbb_replay(universe: str, tf: str, nasdaq_batch: str = ""):
     global _tz_replay_state
-    _tz_replay_state = {"running": True, "output": None, "error": None}
+    _tz_replay_state = {"running": True, "output": None, "error": None, "nasdaq_batch": nasdaq_batch or None}
     try:
         import csv as _csv
         from analyzers.tz_wlnbb.replay import generate_replay_zip
-        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        stat_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
         if not os.path.exists(stat_path):
-            # fallback to old naming
+            # fallback to old naming convention
+            stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            # last-resort fallback
             stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
         if not os.path.exists(stat_path):
-            _tz_replay_state["error"] = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv not found — run generate-stock-stat first"
+            _tz_replay_state["error"] = (
+                f"{_tz_batch_stat_path(universe, tf, nasdaq_batch)} not found — "
+                "run generate-stock-stat first"
+            )
             return
         rows = []
         with open(stat_path, newline="", encoding="utf-8") as f:
@@ -2043,10 +2106,15 @@ def _run_tz_wlnbb_replay(universe: str, tf: str):
             log.error(_tz_replay_state["error"])
             return
         ticker_count = len(set(r.get("ticker", "") for r in rows))
-        log.info("tz_wlnbb replay: loaded %d rows from %d tickers from %s", len(rows), ticker_count, stat_path)
-        out = f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
-        generate_replay_zip(rows, output_path=out, universe=universe, tf=tf,
-                            ticker_count=ticker_count)
+        log.info(
+            "tz_wlnbb replay: loaded %d rows from %d tickers from %s (batch=%s)",
+            len(rows), ticker_count, stat_path, nasdaq_batch or "none",
+        )
+        out = _tz_batch_replay_path(universe, tf, nasdaq_batch)
+        generate_replay_zip(
+            rows, output_path=out, universe=universe, tf=tf,
+            ticker_count=ticker_count, nasdaq_batch=nasdaq_batch,
+        )
         _tz_replay_state["output"] = out
     except Exception as exc:
         log.exception("tz_wlnbb replay failed")
