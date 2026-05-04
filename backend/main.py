@@ -1806,6 +1806,162 @@ def api_replay_export_all():
     )
 
 
+# ── TZ/WLNBB Analyzer endpoints ──────────────────────────────────────────────
+
+_tz_wlnbb_state: dict = {"running": False, "done": 0, "total": 0, "output": None, "error": None}
+
+
+@app.get("/api/tz-wlnbb/scan")
+def api_tz_wlnbb_scan(
+    universe: str = "sp500",
+    tf: str = "1d",
+    min_price: float = 0,
+    max_price: float = 1e9,
+    min_volume: float = 0,
+    signal_type: str = "all",
+    signal_name: str = "",
+    recent_window: int = 1,
+):
+    """Return latest TZ/WLNBB signals from stock_stat CSV."""
+    try:
+        import csv as _csv
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        if not os.path.exists(stat_path):
+            return {"results": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+        rows_by_ticker: dict = {}
+        with open(stat_path, newline="", encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            for row in reader:
+                if row.get("universe", "") != universe:
+                    continue
+                t = row.get("ticker", "")
+                rows_by_ticker.setdefault(t, []).append(row)
+
+        results = []
+        for ticker, rows in rows_by_ticker.items():
+            rows.sort(key=lambda x: x.get("date", ""))
+            recent = rows[-recent_window:]
+            for row in recent:
+                try:
+                    price = float(row.get("close", 0) or 0)
+                    vol   = float(row.get("volume", 0) or 0)
+                    if price < min_price or price > max_price:
+                        continue
+                    if min_volume > 0 and vol < min_volume:
+                        continue
+                    if signal_type not in ("all", ""):
+                        has_sig = False
+                        if signal_type == "T"     and row.get("t_signal"):          has_sig = True
+                        if signal_type == "Z"     and row.get("z_signal"):          has_sig = True
+                        if signal_type == "L"     and row.get("l_signal"):          has_sig = True
+                        if signal_type == "PREUP" and row.get("preup_signal"):      has_sig = True
+                        if signal_type == "PREDN" and row.get("predn_signal"):      has_sig = True
+                        if signal_type == "Combo" and row.get("has_tz_l_combo") == "1": has_sig = True
+                        if not has_sig:
+                            continue
+                    if signal_name:
+                        if signal_name not in [
+                            row.get("t_signal", ""), row.get("z_signal", ""),
+                            row.get("l_signal", ""), row.get("preup_signal", ""),
+                            row.get("predn_signal", ""),
+                        ]:
+                            continue
+                    results.append(row)
+                except Exception:
+                    pass
+
+        results.sort(key=lambda x: x.get("date", ""), reverse=True)
+        return {"results": results[:2000]}
+    except Exception as exc:
+        log.exception("tz-wlnbb scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.post("/api/tz-wlnbb/generate-stock-stat")
+def api_tz_wlnbb_generate(
+    background_tasks: BackgroundTasks,
+    universe: str = "sp500",
+    tf: str = "1d",
+    bars: int = 252,
+):
+    global _tz_wlnbb_state
+    if _tz_wlnbb_state.get("running"):
+        raise HTTPException(status_code=409, detail="Already running")
+    background_tasks.add_task(_run_tz_wlnbb_stock_stat, universe, tf, bars)
+    return {"status": "started"}
+
+
+def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int):
+    global _tz_wlnbb_state
+    _tz_wlnbb_state = {"running": True, "done": 0, "total": 0, "output": None, "error": None}
+    try:
+        from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+        from scanner import get_universe_tickers
+        from data import fetch_ohlcv as _fetch_ohlcv
+
+        try:
+            tickers = get_universe_tickers(universe)
+        except Exception:
+            # Fallback: try to get tickers from scanner
+            try:
+                from scanner import get_tickers
+                tickers = get_tickers() or []
+            except Exception:
+                tickers = []
+
+        _tz_wlnbb_state["total"] = len(tickers)
+
+        def _fetch(ticker, interval, n_bars):
+            return _fetch_ohlcv(ticker, interval, n_bars)
+
+        path = generate_stock_stat(
+            tickers, _fetch, universe=universe, tf=tf, bars=bars,
+            output_path=f"stock_stat_tz_wlnbb_{tf}.csv",
+        )
+        _tz_wlnbb_state["output"] = path
+    except Exception as exc:
+        log.exception("tz_wlnbb stock_stat generation failed")
+        _tz_wlnbb_state["error"] = str(exc)
+    finally:
+        _tz_wlnbb_state["running"] = False
+
+
+@app.get("/api/tz-wlnbb/status")
+def api_tz_wlnbb_status():
+    return _tz_wlnbb_state
+
+
+@app.get("/api/tz-wlnbb/debug")
+def api_tz_wlnbb_debug(ticker: str, date: str = "", tf: str = "1d"):
+    """Return detailed signal breakdown for a specific ticker/date."""
+    try:
+        import csv as _csv
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        if not os.path.exists(stat_path):
+            return {"error": "No stock_stat_tz_wlnbb CSV found."}
+
+        with open(stat_path, newline="", encoding="utf-8") as f:
+            reader = _csv.DictReader(f)
+            rows = [r for r in reader if r.get("ticker", "").upper() == ticker.upper()]
+
+        if not rows:
+            return {"error": f"No data for {ticker}"}
+
+        if date:
+            rows = [r for r in rows if r.get("date", "") == date]
+        else:
+            rows = sorted(rows, key=lambda x: x.get("date", ""))[-1:]
+
+        if not rows:
+            return {"error": f"No data for {ticker} on {date}"}
+
+        return {"ticker": ticker, "date": date, "rows": rows}
+    except Exception as exc:
+        log.exception("tz-wlnbb debug error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
