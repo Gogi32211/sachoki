@@ -95,6 +95,178 @@ def _safe_float(v):
         return None
 
 
+# ── Price bucket / robust metrics constants ──────────────────────────────────
+OUTLIER_RET_10D_THRESHOLD = 50.0  # ret_10d > 50% → outlier
+ROBUST_MIN_COUNT = 30
+ROBUST_TOP_FAIL_RATE_MAX    = 30.0
+ROBUST_TOP_OUTLIER_RATE_MAX = 0.10
+ROBUST_BAD_FAIL_RATE_MIN    = 30.0
+
+
+def _classify_price_bucket(close) -> str:
+    """Map a close price to a price-bucket label."""
+    try:
+        c = float(close)
+    except (TypeError, ValueError):
+        return ""
+    if c != c:
+        return ""
+    if c < 1:    return "LT1"
+    if c < 5:    return "1_5"
+    if c < 20:   return "5_20"
+    if c < 50:   return "20_50"
+    if c < 150:  return "50_150"
+    if c < 300:  return "150_300"
+    return "300_PLUS"
+
+
+def _row_price_bucket(r: dict) -> str:
+    """Get price_bucket from row, falling back to computing from close."""
+    pb = r.get("price_bucket") or ""
+    if pb:
+        return pb
+    return _classify_price_bucket(r.get("close"))
+
+
+def _percentile(sorted_vals: list, q: float) -> Optional[float]:
+    """Linear-interpolated percentile for 0<=q<=1 on a sorted list."""
+    n = len(sorted_vals)
+    if n == 0:
+        return None
+    if n == 1:
+        return sorted_vals[0]
+    pos = q * (n - 1)
+    lo = int(pos)
+    hi = min(lo + 1, n - 1)
+    frac = pos - lo
+    return sorted_vals[lo] + (sorted_vals[hi] - sorted_vals[lo]) * frac
+
+
+def _trimmed_mean(vals: list, trim_frac: float = 0.05) -> Optional[float]:
+    """Mean after trimming bottom and top trim_frac of values. Falls back to mean for tiny groups."""
+    if not vals:
+        return None
+    s = sorted(vals)
+    n = len(s)
+    k = int(n * trim_frac)
+    if n - 2 * k <= 0:
+        return sum(s) / n
+    return sum(s[k:n - k]) / (n - 2 * k)
+
+
+def _winsorized_mean(vals: list, q_lo: float = 0.05, q_hi: float = 0.95) -> Optional[float]:
+    """Mean after clipping values to the q_lo / q_hi percentiles."""
+    if not vals:
+        return None
+    s = sorted(vals)
+    lo = _percentile(s, q_lo)
+    hi = _percentile(s, q_hi)
+    if lo is None or hi is None:
+        return sum(s) / len(s)
+    clipped = [min(max(v, lo), hi) for v in vals]
+    return sum(clipped) / len(clipped)
+
+
+def _robust_metrics(grp: list) -> dict:
+    """Compute the full robust metric dict for a group of rows.
+    Returns numeric fields rounded for CSV use.
+    """
+    def _vals(k):
+        return [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
+
+    out = {}
+    for tf_key in ("1d", "3d", "5d", "10d"):
+        col = f"ret_{tf_key}"
+        v = _vals(col)
+        if v:
+            sv = sorted(v)
+            n = len(sv)
+            avg = sum(v) / n
+            med = _percentile(sv, 0.5)
+            out[f"avg_ret_{tf_key}"]    = round(avg, 4)
+            out[f"median_ret_{tf_key}"] = round(med, 4)
+        else:
+            out[f"avg_ret_{tf_key}"]    = None
+            out[f"median_ret_{tf_key}"] = None
+
+    v10 = _vals("ret_10d")
+    if v10:
+        sv10 = sorted(v10)
+        n = len(v10)
+        avg10  = sum(v10) / n
+        med10  = _percentile(sv10, 0.5)
+        trim10 = _trimmed_mean(v10, 0.05)
+        wins10 = _winsorized_mean(v10, 0.05, 0.95)
+        p25    = _percentile(sv10, 0.25)
+        p75    = _percentile(sv10, 0.75)
+        p90    = _percentile(sv10, 0.90)
+        max10  = max(v10)
+        min10  = min(v10)
+        outlier_count = sum(1 for x in v10 if x > OUTLIER_RET_10D_THRESHOLD)
+        outlier_rate  = outlier_count / n if n else 0.0
+        gap = avg10 - med10 if (avg10 is not None and med10 is not None) else None
+
+        out["trimmed_avg_ret_10d"]    = round(trim10, 4) if trim10 is not None else None
+        out["winsorized_avg_ret_10d"] = round(wins10, 4) if wins10 is not None else None
+        out["p25_ret_10d"]            = round(p25, 4) if p25 is not None else None
+        out["p75_ret_10d"]            = round(p75, 4) if p75 is not None else None
+        out["p90_ret_10d"]            = round(p90, 4) if p90 is not None else None
+        out["max_ret_10d"]            = round(max10, 4)
+        out["min_ret_10d"]            = round(min10, 4)
+        out["outlier_count_10d"]      = outlier_count
+        out["outlier_rate_10d"]       = round(outlier_rate, 4)
+        out["avg_vs_median_gap_10d"]  = round(gap, 4) if gap is not None else None
+    else:
+        for k in ("trimmed_avg_ret_10d", "winsorized_avg_ret_10d",
+                  "p25_ret_10d", "p75_ret_10d", "p90_ret_10d",
+                  "max_ret_10d", "min_ret_10d", "avg_vs_median_gap_10d"):
+            out[k] = None
+        out["outlier_count_10d"] = 0
+        out["outlier_rate_10d"]  = 0.0
+
+    def _rate_pct(k):
+        vs = _vals(k)
+        return round(sum(vs) / len(vs) * 100, 2) if vs else None
+
+    big_win = _rate_pct("big_win_10d")
+    fail    = _rate_pct("fail_10d")
+    out["big_win_10d_rate"] = big_win
+    out["fail_10d_rate"]    = fail
+
+    out["avg_mfe_10d"] = round(sum(_vals("mfe_10d")) / len(_vals("mfe_10d")), 4) if _vals("mfe_10d") else None
+    out["avg_mae_10d"] = round(sum(_vals("mae_10d")) / len(_vals("mae_10d")), 4) if _vals("mae_10d") else None
+    out["reward_risk_ratio"] = _reward_risk(out["avg_mfe_10d"], out["avg_mae_10d"])
+
+    # Robust composite score
+    med10 = out["median_ret_10d"] or 0.0
+    trim  = out["trimmed_avg_ret_10d"] or 0.0
+    bw    = big_win or 0.0
+    fl    = fail or 0.0
+    orate = out["outlier_rate_10d"] or 0.0
+    out["robust_score"] = round(
+        med10 + 0.5 * trim + 0.25 * bw - 0.35 * fl - 0.5 * (orate * 100),
+        4,
+    )
+
+    # median ret 5d already computed above
+    return out
+
+
+# Standard set of perf columns present in every perf CSV (in order).
+PERF_METRIC_COLS = [
+    "count",
+    "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+    "median_ret_1d", "median_ret_3d", "median_ret_5d", "median_ret_10d",
+    "trimmed_avg_ret_10d", "winsorized_avg_ret_10d",
+    "p25_ret_10d", "p75_ret_10d", "p90_ret_10d",
+    "max_ret_10d", "min_ret_10d",
+    "outlier_count_10d", "outlier_rate_10d", "avg_vs_median_gap_10d",
+    "big_win_10d_rate", "fail_10d_rate",
+    "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+    "robust_score",
+]
+
+
 def _reward_risk(avg_mfe, avg_mae):
     """MFE / abs(MAE). None if either is None or MAE=0."""
     if avg_mfe is None or avg_mae is None:
@@ -161,40 +333,13 @@ def _signal_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (sig_type, name, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals:
-                return None
-            m = len(vals) // 2
-            return round((vals[m - 1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        result.append({
+        row = {
             "signal_type": sig_type, "signal_name": name, "universe": uni, "timeframe": tf,
             "count": len(grp),
-            "avg_ret_1d":  _avg("ret_1d"),  "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d":  _avg("ret_5d"),  "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"),
-            "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
             "tz_wlnbb_version": TZ_WLNBB_VERSION,
-        })
+        }
+        result.append(row)
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
@@ -214,40 +359,13 @@ def _combo_perf(rows: List[dict]) -> List[dict]:
     for (ts, zs, ls, ps, ds, ne, wk, pen), grp in groups.items():
         if not any([ts, zs, ls, ps, ds]):
             continue
-
-        def _avg(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals:
-                return None
-            m = len(vals) // 2
-            return round((vals[m - 1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = []
-            for r in g:
-                v = _safe_float(r.get(k))
-                if v is not None:
-                    vals.append(v)
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
         result.append({
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "preup_signal": ps, "predn_signal": ds, "ne_suffix": ne, "wick_suffix": wk,
             "penetration_suffix": pen,
             "full_suffix": ne + wk + pen,
             "count": len(grp),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
             "tz_wlnbb_version": TZ_WLNBB_VERSION,
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -278,31 +396,12 @@ def _suffix_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (sig_type, name, ne, wk, pen, full_suf, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
         result.append({
             "signal_type": sig_type, "signal_name": name,
             "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
             "full_suffix": full_suf,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"),
-            "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -329,32 +428,13 @@ def _composite_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (cfl, core, fsuf, ts, zs, ls, ne, wk, pen, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        avg_mfe = _avg("mfe_10d")
-        avg_mae = _avg("mae_10d")
         result.append({
             "composite_full_label": cfl, "composite_core": core, "composite_full_suffix": fsuf,
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
             "full_suffix": ne + wk + pen,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -384,31 +464,12 @@ def _wick_behavior_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (wk, pen, full, ne, ts, zs, ls, ps, ds, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-
-        avg_mfe = _avg("mfe_10d")
-        avg_mae = _avg("mae_10d")
         result.append({
             "wick_suffix": wk, "penetration_suffix": pen, "full_suffix": full, "ne_suffix": ne,
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "preup_signal": ps, "predn_signal": ds,
             "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -504,24 +565,8 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
 
     result = []
 
-    def _make_stats(grp):
-        def _avg(k):
-            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k):
-            vals = sorted(v for r in grp for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k):
-            vals = [v for r in grp for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
-        return _avg, _med, _rate, avg_mfe, avg_mae
-
     for (cpat, bpat, lag, uni, tf), grp in seq2.items():
         lbl_data = seq2_labels.get((cpat, bpat, lag, uni, tf), ("","","","","","","",""))
-        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
         result.append({
             "sequence_type": "2bar",
             "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
@@ -531,17 +576,11 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
             "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
             "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
             "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
 
     for (cpat, bpat, lag1, lag2, uni, tf), grp in seq3.items():
         lbl_data = seq3_labels.get((cpat, bpat, lag1, lag2, uni, tf), ("","","","","","","",""))
-        _avg, _med, _rate, avg_mfe, avg_mae = _make_stats(grp)
         result.append({
             "sequence_type": "3bar",
             "composite_sequence_pattern": cpat, "base_sequence_pattern": bpat,
@@ -551,12 +590,7 @@ def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
             "source_full_suffix": lbl_data[2], "confirmation_full_suffix": lbl_data[3],
             "source_wick_suffix": lbl_data[4], "source_penetration_suffix": lbl_data[5],
             "confirmation_wick_suffix": lbl_data[6], "confirmation_penetration_suffix": lbl_data[7],
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
 
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -608,27 +642,10 @@ def _wick_sequence_perf(rows: List[dict]) -> List[dict]:
 
     result = []
     for (pat, base_sig, lag, uni, tf), grp in groups.items():
-        def _avg(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals), 4) if vals else None
-        def _med(k, g=grp):
-            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
-            if not vals: return None
-            m = len(vals) // 2
-            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
-        def _rate(k, g=grp):
-            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
-            return round(sum(vals) / len(vals) * 100, 2) if vals else None
-        avg_mfe = _avg("mfe_10d"); avg_mae = _avg("mae_10d")
         result.append({
             "wick_sequence_pattern": pat, "base_signal_context": base_sig,
             "bars_between": lag, "universe": uni, "timeframe": tf, "count": len(grp),
-            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
-            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
-            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
-            "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
-            "avg_mfe_10d": avg_mfe, "avg_mae_10d": avg_mae,
-            "reward_risk_ratio": _reward_risk(avg_mfe, avg_mae),
+            **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
