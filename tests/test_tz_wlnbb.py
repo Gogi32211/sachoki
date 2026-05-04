@@ -311,9 +311,9 @@ def test_lane1_label_explicit():
     assert r["wick_suffix"] == "U" # h(109) > prev_h(106), l(89) > prev_l(88)
 
     if r["has_l_signal"]:
-        lane1_expected = "T4" + r["l_signal"] + "EU"
+        lane1_expected = "T4" + r["l_signal"] + "EU" + r["penetration_suffix"]
     else:
-        lane1_expected = "T4EU"
+        lane1_expected = "T4EU" + r["penetration_suffix"]
     assert r["lane1_label"] == lane1_expected, (
         f"lane1_label={r['lane1_label']!r} vs expected={lane1_expected!r}"
     )

@@ -1,7 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
 import re as _re
 
-TZ_WLNBB_VERSION = "2026-05-05-tz-wlnbb-v2"
+TZ_WLNBB_VERSION = "2026-05-05-tz-wlnbb-v3"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"
