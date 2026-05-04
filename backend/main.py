@@ -3,7 +3,14 @@ main.py — FastAPI app + APScheduler + all API routes.
 """
 from __future__ import annotations
 import os
+import sys
 import logging
+
+# Ensure backend/ directory is on sys.path so sub-packages (analyzers/) are importable
+# regardless of which directory uvicorn is launched from.
+_backend_dir = os.path.dirname(os.path.abspath(__file__))
+if _backend_dir not in sys.path:
+    sys.path.insert(0, _backend_dir)
 import concurrent.futures
 from contextlib import asynccontextmanager
 
