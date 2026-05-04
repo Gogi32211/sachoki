@@ -2098,6 +2098,14 @@ def _run_tz_wlnbb_replay(universe: str, tf: str, nasdaq_batch: str = ""):
             reader = _csv.DictReader(f)
             for row in reader:
                 rows.append(row)
+        # Defensive ticker normalization: preserve string values like "NA",
+        # coerce NaN-floats / missing to empty string.
+        for row in rows:
+            t = row.get("ticker")
+            if t is None or (isinstance(t, float) and t != t):
+                row["ticker"] = ""
+            else:
+                row["ticker"] = str(t)
         if not rows:
             _tz_replay_state["error"] = (
                 f"TZ_WLNBB_ANALYZER_FAILURE: {stat_path} has zero data rows — "
