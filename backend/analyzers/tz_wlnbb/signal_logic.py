@@ -278,6 +278,23 @@ def compute_tz_wlnbb_for_bar(
     else:
         wick_suffix = ""
 
+    # ── PENETRATION SUFFIX ────────────────────────────────────────────────────
+    prev_body_top = max(prev_o, prev_c)
+    prev_body_bot = min(prev_o, prev_c)
+
+    wick_penetration_upper = (h >= prev_body_top) and (h <= prev_h)
+    wick_penetration_lower = (l <= prev_body_bot) and (l >= prev_l)
+    wick_penetration_both  = wick_penetration_upper and wick_penetration_lower
+
+    if wick_penetration_both:
+        penetration_suffix = "H"
+    elif wick_penetration_upper:
+        penetration_suffix = "P"
+    elif wick_penetration_lower:
+        penetration_suffix = "R"
+    else:
+        penetration_suffix = ""
+
     # ── COMBINED LABELS ────────────────────────────────────────────────────────
     # Pine logic:
     # lane1Core = hasTsig ? tBase + lPart : (not hasZsig ? lPart : "")
@@ -286,7 +303,7 @@ def compute_tz_wlnbb_for_bar(
     z_base = z_signal
     l_part = l_signal  # may be empty
 
-    suffix = ne_suffix + wick_suffix
+    suffix = ne_suffix + wick_suffix + penetration_suffix
 
     if has_t_signal:
         lane1_core = t_base + l_part
@@ -336,6 +353,10 @@ def compute_tz_wlnbb_for_bar(
         "l_signal": l_signal,
         "ne_suffix": ne_suffix,
         "wick_suffix": wick_suffix,
+        "penetration_suffix": penetration_suffix,
+        "wick_penetration_upper": wick_penetration_upper,
+        "wick_penetration_lower": wick_penetration_lower,
+        "wick_penetration_both": wick_penetration_both,
         "lane1_label": lane1_label,
         "lane3_label": lane3_label,
         "has_t_signal": has_t_signal,

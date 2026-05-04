@@ -30,6 +30,22 @@ def _primary_signal(r: dict) -> str:
     )
 
 
+def _full_label(r: dict) -> str:
+    """Get suffix-aware full label for the primary signal in a row."""
+    if r.get("t_signal"):
+        return r.get("lane1_label") or r.get("t_signal", "")
+    if r.get("z_signal"):
+        return r.get("lane3_label") or r.get("z_signal", "")
+    if r.get("l_signal"):
+        return r.get("lane1_label") or r.get("l_signal", "")
+    suf = r.get("ne_suffix", "") + r.get("wick_suffix", "") + r.get("penetration_suffix", "")
+    if r.get("preup_signal"):
+        return r.get("preup_signal", "") + suf
+    if r.get("predn_signal"):
+        return r.get("predn_signal", "") + suf
+    return ""
+
+
 def _signal_perf(rows: List[dict]) -> List[dict]:
     """Aggregate signal performance by signal_type + signal_name. Includes median."""
     groups: Dict[tuple, list] = {}
@@ -90,15 +106,16 @@ def _combo_perf(rows: List[dict]) -> List[dict]:
     """Aggregate by combination of t/z/l/preup/predn/ne/wick. Includes median."""
     groups: Dict[tuple, list] = {}
     for r in rows:
+        pen = r.get("penetration_suffix", "")
         key = (
             r.get("t_signal", ""), r.get("z_signal", ""), r.get("l_signal", ""),
             r.get("preup_signal", ""), r.get("predn_signal", ""),
-            r.get("ne_suffix", ""), r.get("wick_suffix", ""),
+            r.get("ne_suffix", ""), r.get("wick_suffix", ""), pen,
         )
         groups.setdefault(key, []).append(r)
 
     result = []
-    for (ts, zs, ls, ps, ds, ne, wk), grp in groups.items():
+    for (ts, zs, ls, ps, ds, ne, wk, pen), grp in groups.items():
         if not any([ts, zs, ls, ps, ds]):
             continue
 
@@ -128,12 +145,68 @@ def _combo_perf(rows: List[dict]) -> List[dict]:
         result.append({
             "t_signal": ts, "z_signal": zs, "l_signal": ls,
             "preup_signal": ps, "predn_signal": ds, "ne_suffix": ne, "wick_suffix": wk,
+            "penetration_suffix": pen,
+            "full_suffix": ne + wk + pen,
             "count": len(grp),
             "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
             "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
             "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
             "tz_wlnbb_version": TZ_WLNBB_VERSION,
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _suffix_perf(rows: List[dict]) -> List[dict]:
+    """
+    Group by signal_family + signal_name + ne_suffix + wick_suffix + penetration_suffix.
+    Answers: does penetration suffix improve/weaken signal quality?
+    """
+    groups: Dict[tuple, list] = {}
+    signal_cols = [
+        ("T", "t_signal"), ("Z", "z_signal"), ("L", "l_signal"),
+        ("PREUP", "preup_signal"), ("PREDN", "predn_signal"),
+    ]
+    for r in rows:
+        ne  = r.get("ne_suffix", "")
+        wk  = r.get("wick_suffix", "")
+        pen = r.get("penetration_suffix", "")
+        uni = r.get("universe", "")
+        tf  = r.get("timeframe", "")
+        for sig_type, col in signal_cols:
+            name = r.get(col, "")
+            if not name:
+                continue
+            key = (sig_type, name, ne, wk, pen, ne + wk + pen, uni, tf)
+            groups.setdefault(key, []).append(r)
+
+    result = []
+    for (sig_type, name, ne, wk, pen, full_suf, uni, tf), grp in groups.items():
+        def _avg(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals), 4) if vals else None
+
+        def _med(k, g=grp):
+            vals = sorted(v for r in g for v in [_safe_float(r.get(k))] if v is not None)
+            if not vals: return None
+            m = len(vals) // 2
+            return round((vals[m-1] + vals[m]) / 2 if len(vals) % 2 == 0 else vals[m], 4)
+
+        def _rate(k, g=grp):
+            vals = [v for r in g for v in [_safe_float(r.get(k))] if v is not None]
+            return round(sum(vals) / len(vals) * 100, 2) if vals else None
+
+        result.append({
+            "signal_type": sig_type, "signal_name": name,
+            "ne_suffix": ne, "wick_suffix": wk, "penetration_suffix": pen,
+            "full_suffix": full_suf,
+            "universe": uni, "timeframe": tf, "count": len(grp),
+            "avg_ret_1d": _avg("ret_1d"), "avg_ret_3d": _avg("ret_3d"),
+            "avg_ret_5d": _avg("ret_5d"), "avg_ret_10d": _avg("ret_10d"),
+            "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
+            "big_win_10d_rate": _rate("big_win_10d"),
+            "fail_10d_rate": _rate("fail_10d"),
+            "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
@@ -161,7 +234,9 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
         by_ticker[t].sort(key=lambda x: _parse_date(x.get("date", "")))
 
     seq2_groups: Dict[tuple, list] = {}  # (family, pattern, lag, uni, tf) -> [outcome_rows]
+    seq2_labels: Dict[tuple, tuple] = {}  # key -> (source_full_label, confirmation_full_label)
     seq3_groups: Dict[tuple, list] = {}  # (family, pattern, lag1, lag2, uni, tf) -> [outcome_rows]
+    seq3_labels: Dict[tuple, tuple] = {}  # key -> (source_full_label, confirmation_full_label)
 
     for ticker, t_rows in by_ticker.items():
         n = len(t_rows)
@@ -187,6 +262,8 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
                 pattern = f"{prev_sig}->{curr_sig}"
                 key = (fam, pattern, lag, uni, timeframe)
                 seq2_groups.setdefault(key, []).append(curr)
+                if key not in seq2_labels:
+                    seq2_labels[key] = (_full_label(prev), _full_label(curr))
                 break  # only closest prev signal per current bar
 
             # 3-bar sequences: look back combinations
@@ -210,6 +287,8 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
                     pattern = f"{prev2_sig}->{mid_sig}->{curr_sig}"
                     key = (fam, pattern, lag1, lag2, uni, timeframe)
                     seq3_groups.setdefault(key, []).append(curr)
+                    if key not in seq3_labels:
+                        seq3_labels[key] = (_full_label(prev2), _full_label(curr))
                     break
                 break
 
@@ -243,6 +322,7 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
 
     for (fam, pattern, lag, uni, tf2), grp in seq2_groups.items():
         _avg, _med, _rate = _make_helpers(grp)
+        src_lbl, conf_lbl = seq2_labels.get((fam, pattern, lag, uni, tf2), ("", ""))
         result.append({
             "sequence_type": "2bar",
             "sequence_family": fam, "sequence_pattern": pattern,
@@ -253,10 +333,14 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
             "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
             "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
+            "source_full_suffix": src_lbl.lstrip("TZLPDtlzpd0123456789") if src_lbl else "",
+            "confirmation_full_suffix": conf_lbl.lstrip("TZLPDtlzpd0123456789") if conf_lbl else "",
         })
 
     for (fam, pattern, lag1, lag2, uni, tf2), grp in seq3_groups.items():
         _avg, _med, _rate = _make_helpers(grp)
+        src_lbl, conf_lbl = seq3_labels.get((fam, pattern, lag1, lag2, uni, tf2), ("", ""))
         result.append({
             "sequence_type": "3bar",
             "sequence_family": fam, "sequence_pattern": pattern,
@@ -267,6 +351,9 @@ def _sequence_perf_expanded(rows: List[dict]) -> List[dict]:
             "median_ret_5d": _med("ret_5d"), "median_ret_10d": _med("ret_10d"),
             "big_win_10d_rate": _rate("big_win_10d"), "fail_10d_rate": _rate("fail_10d"),
             "avg_mfe_10d": _avg("mfe_10d"), "avg_mae_10d": _avg("mae_10d"),
+            "source_full_label": src_lbl, "confirmation_full_label": conf_lbl,
+            "source_full_suffix": src_lbl.lstrip("TZLPDtlzpd0123456789") if src_lbl else "",
+            "confirmation_full_suffix": conf_lbl.lstrip("TZLPDtlzpd0123456789") if conf_lbl else "",
         })
 
     return sorted(result, key=lambda x: -(x["count"] or 0))
@@ -433,6 +520,16 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
         "rows_with_forward_returns_available": rows_with_fwd,
         "rows_dropped_due_to_missing_forward_returns": rows_dropped,
     }
+    rows_with_pen_p = sum(1 for r in rows if r.get("penetration_suffix") == "P")
+    rows_with_pen_r = sum(1 for r in rows if r.get("penetration_suffix") == "R")
+    rows_with_pen_h = sum(1 for r in rows if r.get("penetration_suffix") == "H")
+    rows_with_any_pen = rows_with_pen_p + rows_with_pen_r + rows_with_pen_h
+
+    meta["rows_with_penetration_p"] = rows_with_pen_p
+    meta["rows_with_penetration_r"] = rows_with_pen_r
+    meta["rows_with_penetration_h"] = rows_with_pen_h
+    meta["rows_with_any_penetration_suffix"] = rows_with_any_pen
+
     if audit:
         meta.update(audit)
     return meta
@@ -467,6 +564,14 @@ def get_config_snapshot() -> dict:
         },
         "known_signal_registry": sorted(ALL_KNOWN_SIGNALS),
         "sequence_families_enabled": SEQUENCE_FAMILIES,
+        "penetration_suffix_enabled": True,
+        "penetration_suffix_logic": {
+            "P": "current high inside previous upper wick zone (high >= prevBodyTop and high <= prev_high)",
+            "R": "current low inside previous lower wick zone (low <= prevBodyBot and low >= prev_low)",
+            "H": "both P and R true",
+            "empty": "no wick-zone penetration",
+        },
+        "full_suffix_format": "ne_suffix + wick_suffix + penetration_suffix",
     }
 
 
@@ -483,6 +588,7 @@ def generate_replay_zip(
     sp = _signal_perf(rows)
     cp = _combo_perf(rows)
     sq = _sequence_perf_expanded(rows)
+    suffix_perf = _suffix_perf(rows)
 
     top = [r for r in sp if (r.get("count") or 0) >= 30 and (_safe_float(r.get("avg_ret_10d")) or 0) > 0]
     top.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
@@ -521,7 +627,7 @@ def generate_replay_zip(
 
         cp_fields = [
             "t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal",
-            "ne_suffix", "wick_suffix", "count",
+            "ne_suffix", "wick_suffix", "penetration_suffix", "full_suffix", "count",
             "avg_ret_5d", "avg_ret_10d", "median_ret_5d", "median_ret_10d",
             "big_win_10d_rate", "fail_10d_rate", "avg_mfe_10d", "avg_mae_10d",
             "tz_wlnbb_version",
@@ -535,8 +641,20 @@ def generate_replay_zip(
             "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
             "median_ret_5d", "median_ret_10d",
             "big_win_10d_rate", "fail_10d_rate", "avg_mfe_10d", "avg_mae_10d",
+            "source_full_label", "confirmation_full_label",
+            "source_full_suffix", "confirmation_full_suffix",
         ]
         zf.writestr("replay_tz_wlnbb_sequence_perf.csv", _to_csv_bytes(sq, sq_fields))
+
+        suffix_perf_fields = [
+            "signal_type", "signal_name", "ne_suffix", "wick_suffix", "penetration_suffix",
+            "full_suffix", "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d", "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d",
+        ]
+        zf.writestr("replay_tz_wlnbb_suffix_perf.csv", _to_csv_bytes(suffix_perf, suffix_perf_fields))
+
         zf.writestr("replay_tz_wlnbb_top_patterns.csv",  _to_csv_bytes(top, sp_fields))
         zf.writestr("replay_tz_wlnbb_bad_patterns.csv",  _to_csv_bytes(bad, sp_fields))
 
