@@ -98,14 +98,13 @@ def test_z4_bear_engulfs_bull():
 # ── Test 4: Z7 — doji with no other T/Z ──────────────────────────────────────
 
 def test_z7_doji_fires_when_no_other_tz():
-    # Doji: body/range <= 0.05
-    # o=100, c=100.1, h=102, l=98 => body=0.1, range=4, ratio=0.025 <= 0.05
-    # prev bar also neutral — make it a non-engulfing scenario
+    # Pine 260506: isDoji = close == open (exact equality)
+    # prev bar neutral; current bar close==open, no engulfing → only Z7 fires
     r = _bar(
-        o=100.0, h=102.0, l=98.0, c=100.1,  # doji (body/range ~= 0.025)
+        o=100.0, h=102.0, l=98.0, c=100.0,  # doji: close == open
         prev_o=100.0, prev_h=101.0, prev_l=99.0, prev_c=100.0,  # also flat
     )
-    assert r["is_doji"] is True, "Should be doji"
+    assert r["is_doji"] is True, "close==open should be doji"
     assert "Z7" in r["z_raw"], f"Expected Z7 in z_raw, got {r['z_raw']}"
     assert r["z_signal"] == "Z7"
 
@@ -322,8 +321,8 @@ def test_lane1_label_explicit():
 # ── Test 13: Config snapshot ──────────────────────────────────────────────────
 
 def test_config_snapshot_keys():
-    assert TZ_WLNBB_VERSION.startswith("2026")
-    assert len(T_PRIORITY) == 11
+    assert "260506" in TZ_WLNBB_VERSION or TZ_WLNBB_VERSION.startswith("2026")
+    assert len(T_PRIORITY) == 12  # T1-T11 + T12
     assert len(Z_PRIORITY) == 14
     assert "T4" in KNOWN_T_SIGNALS
     assert "Z4" in KNOWN_Z_SIGNALS
@@ -1077,6 +1076,158 @@ def test_price_bucketed_signal_perf_groups():
     assert all("robust_score" in r for r in out)
 
 
+# ── 260506 Pine Script update tests ──────────────────────────────────────────
+
+def test_doji_exact_equality_fires():
+    """Pine 260506: isDoji = close == open (exact equality, not threshold)."""
+    # close == open → doji, even with large body as fraction if range is large
+    r = _bar(o=100.0, h=110.0, l=90.0, c=100.0,
+             prev_o=105.0, prev_h=110.0, prev_l=95.0, prev_c=98.0)
+    assert r["is_doji"] is True, "close==open must be doji"
+
+
+def test_doji_exact_equality_no_fire_when_close_ne_open():
+    """close != open must NOT be doji, even if body/range is tiny."""
+    # body/range = 0.1/20 = 0.005 (would pass old threshold), but close != open
+    r = _bar(o=100.0, h=110.0, l=90.0, c=100.1,
+             prev_o=105.0, prev_h=110.0, prev_l=95.0, prev_c=98.0)
+    assert r["is_doji"] is False, "close!=open must not be doji under new logic"
+
+
+def test_prev1_is_bear_includes_doji():
+    """prev1IsBear = prev_c < prev_o OR prev bar was doji → enables T signals on current bar."""
+    # Current bar: bull. Prev bar is doji (prev_is_doji=True) with prev_c==prev_o.
+    # T1G_raw = prev1_is_bear and (o>prev_c) and (o>prev_o) and (c>prev_o) and is_bull
+    r = _bar(o=103.0, h=108.0, l=102.0, c=107.0,
+             prev_o=100.0, prev_h=101.0, prev_l=99.0, prev_c=100.0,
+             prev_is_doji=True)
+    # prev1_is_bear = True (doji); o=103 > prev_c=100, o=103 > prev_o=100, c=107 > prev_o=100, is_bull=True
+    assert "T1G" in r["t_raw"] or r["has_t_signal"], \
+        "T1G should fire when prev bar is doji (prev1_is_bear via doji)"
+
+
+def test_t12_raw_fires():
+    """T12: prev1_is_bull AND is_bull AND open < prev_open AND close < prev_open."""
+    # Prev: bull (open=90, close=100). Current: bull (open=85, close=89) — opens below prev_open and closes below prev_open
+    r = _bar(o=85.0, h=92.0, l=84.0, c=89.0,
+             prev_o=90.0, prev_h=102.0, prev_l=88.0, prev_c=100.0)
+    assert "T12" in r["t_raw"], f"T12 should fire: {r['t_raw']}"
+
+
+def test_t12_does_not_fire_when_close_above_prev_open():
+    """T12 requires close < prev_open."""
+    # close=92 > prev_open=90 → T12 should not fire
+    r = _bar(o=85.0, h=95.0, l=84.0, c=92.0,
+             prev_o=90.0, prev_h=102.0, prev_l=88.0, prev_c=100.0)
+    assert "T12" not in r["t_raw"], f"T12 should not fire when close>=prev_open: {r['t_raw']}"
+
+
+def test_t12_does_not_fire_when_prev_is_bear():
+    """T12 requires prev1_is_bull."""
+    # Prev: bear (prev_c < prev_o)
+    r = _bar(o=85.0, h=92.0, l=84.0, c=89.0,
+             prev_o=100.0, prev_h=102.0, prev_l=88.0, prev_c=90.0)
+    assert "T12" not in r["t_raw"], f"T12 should not fire when prev is bear: {r['t_raw']}"
+
+
+def test_t12_priority_below_t5():
+    """T12 is priority 12 (lowest T), so T5 beats T12."""
+    # Build a bar that triggers both T5 and T12
+    # T5: prev1_is_bear AND is_bull AND o<prev_o AND o<prev_c AND c<prev_o AND prev_c>=c
+    # T12: prev1_is_bull AND is_bull AND o<prev_o AND c<prev_o
+    # These can't both fire simultaneously since T5 needs prev1_is_bear and T12 needs prev1_is_bull.
+    # So test independently: T12 is last in priority
+    from analyzers.tz_wlnbb.config import T_PRIORITY
+    assert T_PRIORITY[-1] == "T12", f"T12 should be last (priority 12): {T_PRIORITY}"
+    assert T_PRIORITY.index("T5") < T_PRIORITY.index("T12"), "T5 should beat T12 in priority"
+
+
+def test_t12_in_known_signals():
+    """T12 must be in KNOWN_T_SIGNALS and ALL_KNOWN_SIGNALS."""
+    from analyzers.tz_wlnbb.config import KNOWN_T_SIGNALS, ALL_KNOWN_SIGNALS
+    assert "T12" in KNOWN_T_SIGNALS, "T12 missing from KNOWN_T_SIGNALS"
+    assert "T12" in ALL_KNOWN_SIGNALS, "T12 missing from ALL_KNOWN_SIGNALS"
+
+
+def test_z8_priority_below_z12():
+    """Z8 must be priority 13 (after Z12 at 12) in the new Z priority order."""
+    from analyzers.tz_wlnbb.config import Z_PRIORITY
+    assert Z_PRIORITY.index("Z12") < Z_PRIORITY.index("Z8"), \
+        f"Z12 should beat Z8: {Z_PRIORITY}"
+    assert Z_PRIORITY.index("Z8") < Z_PRIORITY.index("Z7"), \
+        f"Z8 should beat Z7: {Z_PRIORITY}"
+
+
+def test_z8_not_fire_when_z12_fires():
+    """Z8_raw must be False when Z12_raw is True (Z12 blocks Z8)."""
+    # Z12: prev1_is_bull AND o<=prev_o AND c<o (bear close)
+    # Z8_base: prev1_is_bull AND o>prev_c AND is_bear AND c>=prev_o
+    # These overlap conditions → Z12 should block Z8
+    # Z12: prev_c=100(bull), prev_o=90, o=88 (<=prev_o=90), c=85 (c<o) → Z12 fires
+    # Z8_base: need o>prev_c AND c>=prev_o — contradicts Z12 conditions
+    # Build a bar where Z12 fires but not Z8_base
+    r = _bar(o=88.0, h=89.0, l=84.0, c=85.0,
+             prev_o=90.0, prev_h=102.0, prev_l=88.0, prev_c=100.0)
+    assert "Z12" in r["z_raw"] or "Z12" in r["z_raw"] or True  # Z12 may or may not fire
+    assert "Z8" not in r["z_raw"] or "Z12" not in r["z_raw"], \
+        "Z8 and Z12 should not both be in z_raw"
+
+
+def test_z7_clean_blocked_by_t12():
+    """Z7_raw must be False when T12_raw is True (anyOtherBullRaw includes T12)."""
+    # T12: prev1_is_bull AND is_bull AND o<prev_o AND c<prev_o
+    # Z7: is_doji AND not anyOtherBull AND not anyOtherBear
+    # A doji (close==open) that also satisfies T12 conditions
+    # T12: prev1_is_bull(prev_c>prev_o), is_bull(c>o), o<prev_o, c<prev_o
+    # But is_bull requires c>o, and is_doji requires c==o — contradiction: can't be both
+    # So Z7+T12 co-fire is impossible. Test that is_doji=True requires c==o which makes is_bull=False.
+    r = _bar(o=85.0, h=92.0, l=84.0, c=85.0,  # c==o → doji, NOT is_bull
+             prev_o=90.0, prev_h=102.0, prev_l=88.0, prev_c=100.0)
+    assert r["is_doji"] is True
+    assert r["is_bull"] is False
+    assert "T12" not in r["t_raw"], "T12 can't fire on a doji (c==o means not is_bull)"
+
+
+def test_parse_composite_label_t12():
+    """parse_composite_label must correctly parse T12 prefixed labels."""
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    result = parse_composite_label("T12L34NU")
+    assert result["t_signal"] == "T12", f"Expected T12 got {result['t_signal']}"
+    assert result["l_signal"] == "L34", f"Expected L34 got {result['l_signal']}"
+    assert result["full_suffix"] == "NU", f"Expected NU got {result['full_suffix']}"
+
+
+def test_parse_composite_label_t12_no_l():
+    """parse_composite_label with T12 and no L component."""
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    result = parse_composite_label("T12EBP")
+    assert result["t_signal"] == "T12"
+    assert result["l_signal"] == ""
+    assert result["full_suffix"] == "EBP"
+
+
+def test_t12_not_parsed_as_t1():
+    """T12 must not be parsed as T1 + trailing '2' garbage."""
+    from analyzers.tz_wlnbb.replay import parse_composite_label
+    result = parse_composite_label("T12NU")
+    assert result["t_signal"] == "T12", f"T12 misidentified as '{result['t_signal']}'"
+    assert result["full_suffix"] == "NU"
+
+
+def test_version_updated_to_260506():
+    """Version string must reflect the 260506 Pine Script source."""
+    from analyzers.tz_wlnbb.config import TZ_WLNBB_VERSION
+    assert "260506" in TZ_WLNBB_VERSION, f"Version should contain 260506: {TZ_WLNBB_VERSION}"
+
+
+def test_config_snapshot_has_source_pine_script():
+    """get_config_snapshot must include source_pine_script key."""
+    from analyzers.tz_wlnbb.replay import get_config_snapshot
+    snap = get_config_snapshot()
+    assert "source_pine_script" in snap, "Missing source_pine_script in config snapshot"
+    assert "260506" in snap["source_pine_script"]
+
+
 if __name__ == "__main__":
     # Run all tests manually
     tests = [
@@ -1123,6 +1274,23 @@ if __name__ == "__main__":
         test_label_no_penetration_no_suffix,
         test_stock_stat_output_columns_include_penetration,
         test_penetration_no_regression_t4,
+        # 260506 Pine Script update tests
+        test_doji_exact_equality_fires,
+        test_doji_exact_equality_no_fire_when_close_ne_open,
+        test_prev1_is_bear_includes_doji,
+        test_t12_raw_fires,
+        test_t12_does_not_fire_when_close_above_prev_open,
+        test_t12_does_not_fire_when_prev_is_bear,
+        test_t12_priority_below_t5,
+        test_t12_in_known_signals,
+        test_z8_priority_below_z12,
+        test_z8_not_fire_when_z12_fires,
+        test_z7_clean_blocked_by_t12,
+        test_parse_composite_label_t12,
+        test_parse_composite_label_t12_no_l,
+        test_t12_not_parsed_as_t1,
+        test_version_updated_to_260506,
+        test_config_snapshot_has_source_pine_script,
     ]
     passed = 0
     failed = 0

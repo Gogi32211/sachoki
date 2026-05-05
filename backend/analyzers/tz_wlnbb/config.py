@@ -1,7 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
 import re as _re
 
-TZ_WLNBB_VERSION = "2026-05-05-tz-wlnbb-v3-robust-analytics"
+TZ_WLNBB_VERSION = "260506_TZ_F_WLNBB_CMB_python_v1"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"
@@ -58,11 +58,11 @@ DOJI_THRESH = 0.05
 WLNBB_MA_PERIOD = 20
 
 # T priority order (highest priority first)
-T_PRIORITY = ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5"]
+T_PRIORITY = ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5", "T12"]
 T_PRIORITY_RANK = {s: i+1 for i, s in enumerate(T_PRIORITY)}
 
 # Z priority order
-Z_PRIORITY = ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z8", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z7"]
+Z_PRIORITY = ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z8", "Z7"]
 Z_PRIORITY_RANK = {s: i+1 for i, s in enumerate(Z_PRIORITY)}
 
 # PREUP priority
@@ -71,7 +71,7 @@ PREUP_PRIORITY = ["P66", "P55", "P89", "P3", "P2", "P50"]
 PREDN_PRIORITY = ["D66", "D55", "D89", "D3", "D2", "D50"]
 
 # Known signals registry
-KNOWN_T_SIGNALS = set(T_PRIORITY)
+KNOWN_T_SIGNALS = set(T_PRIORITY)  # includes T12
 KNOWN_Z_SIGNALS = set(Z_PRIORITY)
 KNOWN_L_SIGNALS = {"L1","L2","L3","L4","L5","L6","L34","L43","L64","L22"}
 KNOWN_PREUP_SIGNALS = set(PREUP_PRIORITY)

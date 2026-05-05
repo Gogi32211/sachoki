@@ -23,7 +23,8 @@ def compute_tz_wlnbb_for_bar(
     # ── DOJI ──────────────────────────────────────────────────────────────────
     bar_range = h - l
     body_size = abs(c - o)
-    is_doji = bar_range > 0 and (body_size / bar_range) <= doji_thresh
+    # Pine 260506: isDoji = close == open (exact equality)
+    is_doji = (c == o)
 
     # ── CANDLE DIRECTION ───────────────────────────────────────────────────────
     is_bull = c > o
@@ -62,6 +63,8 @@ def compute_tz_wlnbb_for_bar(
     T9_raw  = prev1_is_bear and is_bull and is_inside
     T10_raw = prev1_is_bull and is_bull and is_inside
     T11_raw = prev1_is_bull and (o < prev_o) and (c < prev_c or c < prev_o) and is_bull
+    # Pine 260506: T12 — inside-gap-up bar (prev bull, current bull opens gap-down into prev body)
+    T12_raw = prev1_is_bull and is_bull and (o < prev_o) and (c < prev_o)
 
     # ── Z RAWS ────────────────────────────────────────────────────────────────
     Z1G_raw  = prev1_is_bull and (o < prev_c) and (o < prev_o) and (c < prev_o) and is_bear
@@ -89,15 +92,15 @@ def compute_tz_wlnbb_for_bar(
     # Z8 only fires if no other Z fires
     Z8_raw = Z8_base and not any_base_z
 
-    # Collect base T raws (without Z7)
+    # Collect base T raws (used to block Z7; includes T12 per Pine 260506)
     base_t_raws = {
         "T1G": T1G_raw, "T1": T1_raw, "T2G": T2G_raw, "T2": T2_raw,
         "T3": T3_raw, "T4": T4_raw, "T5": T5_raw, "T6": T6_raw,
-        "T9": T9_raw, "T10": T10_raw, "T11": T11_raw,
+        "T9": T9_raw, "T10": T10_raw, "T11": T11_raw, "T12": T12_raw,
     }
     any_base_t = any(base_t_raws.values())
 
-    # Z7 only fires if no T and no Z fires (including Z8)
+    # Z7 only fires if no T and no Z fires (including Z8); doji = exact close==open
     Z7_raw = is_doji and not any_base_t and not any_base_z and not Z8_raw
 
     # Build final raw sets
@@ -111,7 +114,7 @@ def compute_tz_wlnbb_for_bar(
     # ── PRIORITY ENGINE ────────────────────────────────────────────────────────
     t_signal = ""
     bull_priority_code = 0
-    for sig in ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5"]:
+    for sig in ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5", "T12"]:
         if sig in t_raw:
             t_signal = sig
             bull_priority_code = T_PRIORITY_RANK[sig]
@@ -119,7 +122,7 @@ def compute_tz_wlnbb_for_bar(
 
     z_signal = ""
     bear_priority_code = 0
-    for sig in ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z8", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z7"]:
+    for sig in ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z8", "Z7"]:
         if sig in z_raw:
             z_signal = sig
             bear_priority_code = Z_PRIORITY_RANK[sig]
