@@ -17,7 +17,7 @@ log = logging.getLogger(__name__)
 # ── Composite label parsing constants ────────────────────────────────────────
 # Longer signal names must come first to avoid partial matches (T2G before T2).
 _T_SIGNALS_LONGEST_FIRST = [
-    "T11", "T10", "T2G", "T1G", "T9", "T6", "T5", "T4", "T3", "T2", "T1"
+    "T11", "T12", "T10", "T2G", "T1G", "T9", "T6", "T5", "T4", "T3", "T2", "T1"
 ]
 _Z_SIGNALS_LONGEST_FIRST = [
     "Z12", "Z11", "Z10", "Z2G", "Z1G", "Z9", "Z8", "Z7", "Z6",
@@ -1630,6 +1630,7 @@ def get_config_snapshot() -> dict:
         "base_sequence_scope": "multi-family (T, Z, L, PREUP, PREDN) — every signal on a bar emits an event",
         "composite_sequence_scope": "T/Z + L composite labels (full_label including suffixes)",
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
+        "source_pine_script": "260506_TZ_F_WLNBB_CMB — Combined Oscillator",
     }
 
 
