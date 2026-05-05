@@ -62,9 +62,9 @@ def compute_tz_wlnbb_for_bar(
     T6_raw  = prev1_is_bull and is_bull and fully_engulfs
     T9_raw  = prev1_is_bear and is_bull and is_inside
     T10_raw = prev1_is_bull and is_bull and is_inside
-    T11_raw = prev1_is_bull and (o < prev_o) and (c < prev_c or c < prev_o) and is_bull
-    # Pine 260506: T12 — inside-gap-up bar (prev bull, current bull opens gap-down into prev body)
+    # Pine 260506: T12 defined before T11 so T11 can exclude it
     T12_raw = prev1_is_bull and is_bull and (o < prev_o) and (c < prev_o)
+    T11_raw = prev1_is_bull and (o < prev_o) and (c < prev_c or c < prev_o) and is_bull and not T12_raw
 
     # ── Z RAWS ────────────────────────────────────────────────────────────────
     Z1G_raw  = prev1_is_bull and (o < prev_c) and (o < prev_o) and (c < prev_o) and is_bear
