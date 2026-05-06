@@ -61,29 +61,37 @@ const NASDAQ_BATCHES = [
 const TF_OPTS = ['1d', '4h', '1h', '1wk']
 
 const ROLES = [
-  { key: 'all',            label: 'All'              },
-  { key: 'BULL_A',         label: '🟢 BULL A'        },
-  { key: 'BULL_B',         label: '🟩 BULL B'        },
-  { key: 'PULLBACK_READY_A', label: '🔵 PB Ready A'  },
-  { key: 'PULLBACK_READY_B', label: '🔵 PB Ready B'  },
-  { key: 'PULLBACK_WATCH', label: '🔷 PB Watch'      },
-  { key: 'BULL_WATCH',     label: '👀 Bull Watch'    },
-  { key: 'SHORT_WATCH',    label: '🔴 Short Watch'   },
-  { key: 'SHORT_GO',       label: '🔴 SHORT GO'      },
-  { key: 'REJECT',         label: '❌ Reject'        },
+  { key: 'all',                label: 'All'               },
+  { key: 'BULL_A',             label: '🟢 BULL A'         },
+  { key: 'BULL_B',             label: '🟩 BULL B'         },
+  { key: 'PULLBACK_GO',        label: '🚀 PB GO'          },
+  { key: 'PULLBACK_READY_A',   label: '🔵 PB Ready A'     },
+  { key: 'PULLBACK_READY_B',   label: '🔵 PB Ready B'     },
+  { key: 'PULLBACK_WATCH',     label: '🔷 PB Watch'       },
+  { key: 'DEEP_PULLBACK_WATCH',label: '⬇ Deep PB'         },
+  { key: 'BULL_WATCH',         label: '👀 Bull Watch'     },
+  { key: 'MIXED_WATCH',        label: '⚖ Mixed Watch'    },
+  { key: 'SHORT_WATCH',        label: '🔴 Short Watch'    },
+  { key: 'SHORT_GO',           label: '🔴 SHORT GO'       },
+  { key: 'REJECT_LONG',        label: '🚫 Reject Long'    },
+  { key: 'REJECT',             label: '❌ Reject'         },
 ]
 
 const ROLE_COLORS = {
-  BULL_A:          'bg-green-800/60 text-green-200 border-green-600/50',
-  BULL_B:          'bg-green-900/50 text-green-300 border-green-700/40',
-  PULLBACK_READY_A:'bg-blue-800/60 text-blue-200 border-blue-600/50',
-  PULLBACK_READY_B:'bg-blue-900/50 text-blue-300 border-blue-700/40',
-  PULLBACK_WATCH:  'bg-cyan-900/50 text-cyan-300 border-cyan-700/40',
-  BULL_WATCH:      'bg-teal-900/50 text-teal-300 border-teal-700/40',
-  SHORT_WATCH:     'bg-red-900/50 text-red-300 border-red-700/40',
-  SHORT_GO:        'bg-red-700/70 text-red-100 border-red-500/60',
-  REJECT:          'bg-gray-800/60 text-gray-400 border-gray-600/40',
-  NO_EDGE:         'bg-gray-900/40 text-gray-600 border-gray-700/30',
+  BULL_A:               'bg-green-800/60 text-green-200 border-green-600/50',
+  BULL_B:               'bg-green-900/50 text-green-300 border-green-700/40',
+  PULLBACK_GO:          'bg-indigo-700/60 text-indigo-100 border-indigo-500/60',
+  PULLBACK_READY_A:     'bg-blue-800/60 text-blue-200 border-blue-600/50',
+  PULLBACK_READY_B:     'bg-blue-900/50 text-blue-300 border-blue-700/40',
+  PULLBACK_WATCH:       'bg-cyan-900/50 text-cyan-300 border-cyan-700/40',
+  DEEP_PULLBACK_WATCH:  'bg-slate-800/60 text-slate-400 border-slate-600/40',
+  BULL_WATCH:           'bg-teal-900/50 text-teal-300 border-teal-700/40',
+  MIXED_WATCH:          'bg-yellow-900/50 text-yellow-300 border-yellow-700/40',
+  SHORT_WATCH:          'bg-red-900/50 text-red-300 border-red-700/40',
+  SHORT_GO:             'bg-red-700/70 text-red-100 border-red-500/60',
+  REJECT_LONG:          'bg-orange-900/50 text-orange-300 border-orange-700/40',
+  REJECT:               'bg-gray-800/60 text-gray-400 border-gray-600/40',
+  NO_EDGE:              'bg-gray-900/40 text-gray-600 border-gray-700/30',
 }
 
 const QUALITY_COLORS = {
@@ -97,11 +105,12 @@ const QUALITY_COLORS = {
 const ACTION_COLORS = {
   BUY_TRIGGER:               'text-green-400 font-semibold',
   WAIT_FOR_T_CONFIRMATION:   'text-teal-400',
-  PULLBACK_ENTRY_READY:      'text-blue-400 font-semibold',
+  PULLBACK_ENTRY_READY:      'text-indigo-300 font-semibold',
   WATCH_PULLBACK:            'text-blue-300',
   WAIT_FOR_CONFIRMATION:     'text-gray-400',
   WAIT_FOR_BREAKDOWN:        'text-orange-400',
   SHORT_TRIGGER:             'text-red-400 font-semibold',
+  DO_NOT_BUY:                'text-orange-500',
   IGNORE:                    'text-gray-600',
 }
 

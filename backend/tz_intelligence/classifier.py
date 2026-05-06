@@ -1,14 +1,15 @@
-"""TZ Signal Intelligence classifier — hardened v2.
+"""TZ Signal Intelligence classifier — hardened v3.
 
-Fixes vs v1:
-  1. Composite pattern deduplication (_make_composite)
-  2. Universe-scoped matrix matching
-  3. Matrix conflict resolver (97 known conflicts)
-  4. BULL_A promotion cap for weak T signals (T1/T2/T9/T10)
-  5. Separate above_ema vs ema_reclaim fields
-  6. Full debug fields in every output row
-  7. Stricter SHORT_WATCH / SHORT_GO conditions
-  8. Backend debug mode (verbatim decision path)
+Fixes vs v2:
+  9.  PULLBACK_READY_A gating (requires price_pos ≥ 0.50 + EMA support)
+  10. Action semantics: PULLBACK_READY = WAIT_FOR_T_CONFIRMATION (not entry)
+  11. New role PULLBACK_GO (T confirmation after recent Z pullback)
+  12. New role MIXED_WATCH (positive comp + reject seq4 in bullish context)
+  13. New role REJECT_LONG (reject comp in bullish price context ≠ SHORT_WATCH)
+  14. New role DEEP_PULLBACK_WATCH (pullback below all EMAs + deep range)
+  15. SHORT_WATCH requires bearish price confirmation
+  16. Score penalties for weak pullback context
+  17. Score cap 75 for Z-based pullback READY without PULLBACK_GO
 """
 from __future__ import annotations
 from typing import Optional
@@ -17,43 +18,55 @@ from .matrix_loader import MatrixIndex
 # ── Role constants ────────────────────────────────────────────────────────────
 
 _ROLE_RANK = {
-    "NO_EDGE":         0,
-    "CONTEXT_BONUS":   0,
-    "REJECT":          1,
-    "BULL_WATCH":      2,
-    "PULLBACK_WATCH":  2,
-    "PULLBACK_READY_B":3,
-    "PULLBACK_READY_A":4,
-    "BULL_B":          5,
-    "BULL_A":          6,
-    "SHORT_WATCH":     7,
-    "SHORT_GO":        8,
+    "NO_EDGE":              0,
+    "CONTEXT_BONUS":        0,
+    "REJECT_LONG":          1,   # reject comp but bullish price ctx — don't buy, not short
+    "REJECT":               2,
+    "DEEP_PULLBACK_WATCH":  3,   # pullback below all EMAs and deep range
+    "BULL_WATCH":           4,
+    "MIXED_WATCH":          4,   # conflicting signals (pos comp + neg seq4 in bullish ctx)
+    "PULLBACK_WATCH":       4,
+    "PULLBACK_READY_B":     5,
+    "PULLBACK_READY_A":     6,
+    "PULLBACK_GO":          7,   # T confirmation after recent Z pullback
+    "BULL_B":               7,
+    "BULL_A":               8,
+    "SHORT_WATCH":          9,
+    "SHORT_GO":             10,
 }
 
 _ROLE_QUALITY = {
-    "BULL_A":           "A",
-    "BULL_B":           "B",
-    "PULLBACK_READY_A": "A",
-    "PULLBACK_READY_B": "B",
-    "PULLBACK_WATCH":   "Watch",
-    "BULL_WATCH":       "Watch",
-    "SHORT_GO":         "A",
-    "SHORT_WATCH":      "Watch",
-    "REJECT":           "Reject",
-    "NO_EDGE":          "—",
+    "BULL_A":               "A",
+    "BULL_B":               "B",
+    "PULLBACK_GO":          "A",
+    "PULLBACK_READY_A":     "A",
+    "PULLBACK_READY_B":     "B",
+    "PULLBACK_WATCH":       "Watch",
+    "DEEP_PULLBACK_WATCH":  "Watch",
+    "BULL_WATCH":           "Watch",
+    "MIXED_WATCH":          "Watch",
+    "SHORT_GO":             "A",
+    "SHORT_WATCH":          "Watch",
+    "REJECT":               "Reject",
+    "REJECT_LONG":          "Reject",
+    "NO_EDGE":              "—",
 }
 
 _ROLE_ACTION = {
-    "BULL_A":           "BUY_TRIGGER",
-    "BULL_B":           "WAIT_FOR_T_CONFIRMATION",
-    "PULLBACK_READY_A": "PULLBACK_ENTRY_READY",
-    "PULLBACK_READY_B": "WATCH_PULLBACK",
-    "PULLBACK_WATCH":   "WATCH_PULLBACK",
-    "BULL_WATCH":       "WAIT_FOR_CONFIRMATION",
-    "SHORT_WATCH":      "WAIT_FOR_BREAKDOWN",
-    "SHORT_GO":         "SHORT_TRIGGER",
-    "REJECT":           "IGNORE",
-    "NO_EDGE":          "IGNORE",
+    "BULL_A":               "BUY_TRIGGER",
+    "BULL_B":               "WAIT_FOR_T_CONFIRMATION",
+    "PULLBACK_GO":          "PULLBACK_ENTRY_READY",  # actionable after T confirms
+    "PULLBACK_READY_A":     "WAIT_FOR_T_CONFIRMATION",  # setup — not entry
+    "PULLBACK_READY_B":     "WAIT_FOR_T_CONFIRMATION",  # setup — not entry
+    "PULLBACK_WATCH":       "WATCH_PULLBACK",
+    "DEEP_PULLBACK_WATCH":  "WATCH_PULLBACK",
+    "BULL_WATCH":           "WAIT_FOR_CONFIRMATION",
+    "MIXED_WATCH":          "WAIT_FOR_CONFIRMATION",
+    "SHORT_WATCH":          "WAIT_FOR_BREAKDOWN",
+    "SHORT_GO":             "SHORT_TRIGGER",
+    "REJECT":               "IGNORE",
+    "REJECT_LONG":          "DO_NOT_BUY",
+    "NO_EDGE":              "IGNORE",
 }
 
 # Signals that may NOT become BULL_A unless ALL confirmations present
@@ -403,6 +416,97 @@ def classify_tz_event(
                     f"conflict={has_conflict})"
                 )
 
+    # ── Fix 9: PULLBACK_READY_A gating ───────────────────────────────────────
+    if best_role == "PULLBACK_READY_A":
+        has_ema_support = above_ema20 or above_ema50 or ema20_reclaim or ema50_reclaim
+        if not has_ema_support and price_position_4bar < 0.25:
+            best_role = "DEEP_PULLBACK_WATCH"
+            reason_codes.append("PULLBACK_READY_A→DEEP_PULLBACK_WATCH:no_ema+deep_range")
+            if debug:
+                debug_trace.append(f"PULLBACK_READY_A → DEEP_PULLBACK_WATCH: "
+                                   f"no EMA support, price_pos={price_position_4bar:.2f}")
+        elif price_position_4bar < 0.50 or not has_ema_support:
+            best_role = "PULLBACK_READY_B"
+            reason_codes.append("PULLBACK_READY_A→PULLBACK_READY_B:insufficient_confirmation")
+            if debug:
+                debug_trace.append(f"PULLBACK_READY_A → PULLBACK_READY_B: "
+                                   f"price_pos={price_position_4bar:.2f}, ema_support={has_ema_support}")
+
+    # ── Score penalties for weak pullback context ─────────────────────────────
+    if best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B",
+                     "PULLBACK_WATCH", "DEEP_PULLBACK_WATCH"):
+        penalty = 0
+        if price_position_4bar < 0.25:
+            penalty += 25
+            reason_codes.append("PENALTY:price_deep_bottom:-25")
+        if not above_ema20 and not above_ema50 and not above_ema89:
+            penalty += 30
+            reason_codes.append("PENALTY:below_all_emas:-30")
+        elif not above_ema20 and not above_ema50:
+            penalty += 20
+            reason_codes.append("PENALTY:below_ema20_ema50:-20")
+        if penalty:
+            total_score -= penalty
+            if debug:
+                debug_trace.append(f"PULLBACK_PENALTY: -{penalty} "
+                                   f"(price_pos={price_position_4bar:.2f})")
+
+    # ── Score cap for Z-based pullback READY (without PULLBACK_GO) ────────────
+    if z_sig and best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B"):
+        if total_score > 75:
+            total_score = 75
+            reason_codes.append("SCORE_CAP:Z_pullback_ready_max_75")
+            if debug:
+                debug_trace.append("SCORE_CAP: Z pullback READY capped at 75")
+
+    # ── Fix 10: PULLBACK_GO — T confirmation after recent Z pullback ──────────
+    if t_sig and not z_sig:   # current bar is a T signal
+        recent_z = any(b.get("z_signal") for b in history_rows[-3:])
+        top_range = price_position_4bar >= 0.75 or breaks_4bar_high
+        if (recent_z and top_range and
+                best_role in ("BULL_A", "BULL_B", "PULLBACK_READY_A", "PULLBACK_READY_B")):
+            go_bonus = 15
+            total_score += go_bonus
+            best_role = "PULLBACK_GO"
+            reason_codes.append(f"PULLBACK_GO:T_after_Z+top_range:+{go_bonus}")
+            if debug:
+                debug_trace.append(f"PULLBACK_GO: T={t_sig} after recent Z, "
+                                   f"price_pos={price_position_4bar:.2f}, "
+                                   f"breaks_high={breaks_4bar_high}")
+
+    # ── Fix 11: SHORT_WATCH requires confirmed bearish context ────────────────
+    if best_role == "SHORT_WATCH":
+        # Definitively bullish price context
+        strong_bullish = price_position_4bar >= 0.75 and above_ema50
+        # At least one bearish confirmation
+        bearish_confirmed = (
+            price_position_4bar < 0.35 or
+            (not above_ema50) or
+            breaks_4bar_low or
+            (bool(eff_neg_seq4) and price_position_4bar < 0.75) or
+            (not above_ema20 and not above_ema50)
+        )
+        # Positive composite + reject seq4 + strong bullish context → MIXED_WATCH
+        if bool(eff_pos_comp) and bool(eff_neg_seq4) and strong_bullish:
+            best_role = "MIXED_WATCH"
+            reason_codes.append("SHORT_WATCH→MIXED_WATCH:pos_comp+neg_seq4+bullish_context")
+            if debug:
+                debug_trace.append("SHORT_WATCH → MIXED_WATCH: positive composite "
+                                   "but reject seq4 in bullish price context")
+        # Reject composite only (no seq4 evidence) + bullish context → REJECT_LONG
+        elif (bool(eff_neg_comp) and not bool(eff_neg_seq4) and strong_bullish):
+            best_role = "REJECT_LONG"
+            reason_codes.append("SHORT_WATCH→REJECT_LONG:reject_comp_only+bullish_context")
+            if debug:
+                debug_trace.append("SHORT_WATCH → REJECT_LONG: only reject composite, "
+                                   "price context is bullish — not a short")
+        # No bearish confirmation at all → MIXED_WATCH
+        elif not bearish_confirmed:
+            best_role = "MIXED_WATCH"
+            reason_codes.append("SHORT_WATCH→MIXED_WATCH:no_bearish_context_confirmation")
+            if debug:
+                debug_trace.append("SHORT_WATCH → MIXED_WATCH: insufficient bearish context")
+
     # ── Volume / wick context ─────────────────────────────────────────────────
     if vol_bkt in ("VB", "B"):
         reason_codes.append(f"VOL:{vol_bkt}")
@@ -420,9 +524,16 @@ def classify_tz_event(
         reason_codes.append(f"EMA_ABOVE:{','.join(ema_parts)}")
 
     # ── Conflict role override ────────────────────────────────────────────────
-    if has_conflict and best_role in ("BULL_A", "BULL_B", "SHORT_WATCH"):
-        best_role = "BULL_WATCH"
-        reason_codes.append("CONFLICT_OVERRIDE:role→BULL_WATCH")
+    if has_conflict:
+        if best_role in ("BULL_A", "BULL_B"):
+            best_role = "BULL_WATCH"
+            reason_codes.append("CONFLICT_OVERRIDE:role→BULL_WATCH")
+        elif best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B", "PULLBACK_GO"):
+            best_role = "MIXED_WATCH"
+            reason_codes.append("CONFLICT_OVERRIDE:role→MIXED_WATCH")
+        elif best_role == "SHORT_WATCH":
+            best_role = "MIXED_WATCH"
+            reason_codes.append("CONFLICT_OVERRIDE:role→MIXED_WATCH")
 
     # ── Explanation ───────────────────────────────────────────────────────────
     expl_parts = []

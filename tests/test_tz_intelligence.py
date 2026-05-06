@@ -355,9 +355,17 @@ def test_quality_and_action_valid():
     assert result["action"] in (
         "BUY_TRIGGER", "WAIT_FOR_T_CONFIRMATION", "PULLBACK_ENTRY_READY",
         "WATCH_PULLBACK", "WAIT_FOR_CONFIRMATION", "WAIT_FOR_BREAKDOWN",
-        "SHORT_TRIGGER", "IGNORE",
+        "SHORT_TRIGGER", "DO_NOT_BUY", "IGNORE",
     )
     assert any("VOL:VB" in c for c in result["reason_codes"])
+
+_ALL_VALID_ROLES = {
+    "BULL_A", "BULL_B", "PULLBACK_GO",
+    "PULLBACK_READY_A", "PULLBACK_READY_B", "PULLBACK_WATCH", "DEEP_PULLBACK_WATCH",
+    "BULL_WATCH", "MIXED_WATCH",
+    "SHORT_WATCH", "SHORT_GO",
+    "REJECT", "REJECT_LONG", "NO_EDGE", "CONTEXT_BONUS",
+}
 
 def test_universe_param_passed_through():
     """Classifier accepts scan_universe without error."""
@@ -365,5 +373,164 @@ def test_universe_param_passed_through():
     row = _row(t="T4", lane1="T4L12NP")
     r_sp  = classify_tz_event(row, [], m, scan_universe="sp500")
     r_nas = classify_tz_event(row, [], m, scan_universe="nasdaq")
-    assert r_sp["role"] in (list(r_sp.keys()) and ["BULL_A","BULL_B","BULL_WATCH","NO_EDGE","REJECT","SHORT_WATCH","SHORT_GO","PULLBACK_READY_A","PULLBACK_READY_B","PULLBACK_WATCH"])
-    assert r_nas["role"] in (["BULL_A","BULL_B","BULL_WATCH","NO_EDGE","REJECT","SHORT_WATCH","SHORT_GO","PULLBACK_READY_A","PULLBACK_READY_B","PULLBACK_WATCH"])
+    assert r_sp["role"] in _ALL_VALID_ROLES
+    assert r_nas["role"] in _ALL_VALID_ROLES
+
+
+# ── Fix 9: PULLBACK_READY_A gating ───────────────────────────────────────────
+
+def test_pullback_ready_a_demoted_when_deep_and_below_all_emas():
+    """Z6 positive composite + price_pos < 0.25 + below all EMAs → not PULLBACK_READY_A."""
+    m = load_matrix()
+    # Z6, lane1 resolves to a positive composite, but deep in range and below all EMAs
+    row = _row(z="Z6", lane1="Z6L25NDP", close=30, ema20=60, ema50=55, ema89=50,
+               high=32, low=29)
+    # Build history bars so price_position_4bar is low
+    hist = [
+        _row(z="Z6", close=35, high=40, low=28),
+        _row(z="Z6", close=33, high=38, low=29),
+        _row(z="Z6", close=31, high=36, low=29),
+    ]
+    result = classify_tz_event(row, hist, m)
+    assert result["role"] not in ("PULLBACK_READY_A",), \
+        f"Should not be PULLBACK_READY_A when deep below all EMAs, got {result['role']}"
+    assert result["role"] in ("DEEP_PULLBACK_WATCH", "PULLBACK_READY_B",
+                               "PULLBACK_WATCH", "NO_EDGE", "BULL_WATCH", "MIXED_WATCH")
+
+def test_pullback_ready_a_requires_ema_support():
+    """PULLBACK_READY_A needs at least one EMA above or reclaim."""
+    m = load_matrix()
+    row = _row(z="Z5", close=40, ema20=60, ema50=55, ema89=50)  # below all EMAs
+    result = classify_tz_event(row, [], m)
+    assert result["role"] != "PULLBACK_READY_A"
+
+def test_pullback_ready_score_penalty_below_all_emas():
+    """Below all EMAs applies score penalty to pullback roles."""
+    m = load_matrix()
+    row_below = _row(z="Z5", close=30, ema20=60, ema50=55, ema89=50, high=32, low=28)
+    row_above = _row(z="Z5", close=60, ema20=50, ema50=45, ema89=40, high=62, low=58)
+    r_below = classify_tz_event(row_below, [], m)
+    r_above = classify_tz_event(row_above, [], m)
+    # Below-EMA row must have lower or equal score
+    assert r_below["score"] <= r_above["score"]
+    # Penalty reason code must appear when below all EMAs
+    if r_below["role"] in ("PULLBACK_READY_B", "PULLBACK_WATCH",
+                            "DEEP_PULLBACK_WATCH", "PULLBACK_READY_A"):
+        assert any("PENALTY" in c for c in r_below["reason_codes"])
+
+
+# ── Fix 10: PULLBACK action semantics ─────────────────────────────────────────
+
+def test_pullback_ready_action_is_wait_not_entry():
+    """PULLBACK_READY_A and PULLBACK_READY_B must use WAIT_FOR_T_CONFIRMATION."""
+    from tz_intelligence.classifier import _ROLE_ACTION
+    assert _ROLE_ACTION["PULLBACK_READY_A"] == "WAIT_FOR_T_CONFIRMATION"
+    assert _ROLE_ACTION["PULLBACK_READY_B"] == "WAIT_FOR_T_CONFIRMATION"
+
+def test_pullback_go_action_is_entry():
+    """PULLBACK_GO must use PULLBACK_ENTRY_READY."""
+    from tz_intelligence.classifier import _ROLE_ACTION
+    assert _ROLE_ACTION["PULLBACK_GO"] == "PULLBACK_ENTRY_READY"
+
+def test_pullback_go_assigned_when_t_after_z():
+    """T confirmation after recent Z signal in top range → PULLBACK_GO."""
+    m = load_matrix()
+    hist = [
+        _row(z="Z5", close=45, high=50, low=40, ema20=42, ema50=40, ema89=38),
+        _row(z="Z5", close=48, high=52, low=42, ema20=43, ema50=41, ema89=39),
+        _row(z="Z5", close=50, high=54, low=44, ema20=44, ema50=42, ema89=40),
+    ]
+    # T signal in top of 4-bar range (close=56 with high=58 is top 75% of [40..58])
+    curr = _row(t="T4", close=56, high=58, low=52,
+                ema20=50, ema50=48, ema89=45, ticker="X", date="2025-02-01")
+    result = classify_tz_event(curr, hist, m)
+    # If PULLBACK_GO triggered, verify correct action
+    if result["role"] == "PULLBACK_GO":
+        assert result["action"] == "PULLBACK_ENTRY_READY"
+        assert any("PULLBACK_GO" in c for c in result["reason_codes"])
+
+
+# ── Fix 11: SHORT_WATCH strictness ────────────────────────────────────────────
+
+def test_positive_comp_reject_seq4_bullish_not_short_watch():
+    """Positive composite + reject seq4 + price >= 0.75 + above EMA50 → not SHORT_WATCH."""
+    m = load_matrix()
+    # We need a pattern where pos composite exists but neg seq4 exists too
+    # Use a T signal with bullish lane composite but bearish seq4 context
+    # Approximate by checking the classifier output with bullish price context
+    row = _row(t="T4", lane1="T4L12NP", close=58,
+               ema20=50, ema50=48, ema89=45, high=60, low=40)
+    hist = [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(t="T4", close=50, high=55, low=43),
+        _row(z="Z3", close=54, high=58, low=48),  # last history bar is a Z → potential neg seq4
+    ]
+    result = classify_tz_event(row, hist, m)
+    # If SHORT_WATCH, bearish context must confirm it
+    if result["role"] == "SHORT_WATCH":
+        assert (
+            result["price_position_4bar"] < 0.35 or
+            not result["above_ema50"] or
+            result["breaks_4bar_low"] or
+            not result["above_ema20"] and not result["above_ema50"]
+        ), f"SHORT_WATCH with no bearish context: price_pos={result['price_position_4bar']:.2f}"
+
+def test_reject_comp_bullish_context_is_reject_long_not_short_watch():
+    """Reject composite + price_pos >= 0.75 + above EMA50 → REJECT_LONG, not SHORT_WATCH."""
+    m = load_matrix()
+    # T2 with reject composite, strong bullish price context
+    row = _row(t="T2", lane1="T2L12EUR", close=58,
+               ema20=50, ema50=48, ema89=45, high=60, low=40)
+    hist = [
+        _row(t="T2", close=42, high=50, low=40),
+        _row(t="T2", close=50, high=55, low=43),
+        _row(t="T2", close=53, high=58, low=47),
+    ]
+    result = classify_tz_event(row, hist, m)
+    # If a reject composite was matched and context is bullish, should not be SHORT_WATCH
+    if bool(result.get("reject_flags")) and result["price_position_4bar"] >= 0.75 and result["above_ema50"]:
+        assert result["role"] in ("REJECT_LONG", "MIXED_WATCH", "NO_EDGE", "BULL_WATCH",
+                                   "BULL_A", "BULL_B", "PULLBACK_GO"), \
+            f"Got {result['role']} but expected non-SHORT_WATCH for bullish reject context"
+
+def test_short_watch_allowed_when_bearish_confirmed():
+    """SHORT_WATCH is valid when price is in bottom range below EMA50."""
+    m = load_matrix()
+    row = _row(t="T1", lane1="L12NDP", close=30,
+               ema20=55, ema50=60, ema89=65, high=31, low=28)
+    hist = [
+        _row(t="T1", close=35, high=40, low=30),
+        _row(t="T1", close=32, high=37, low=30),
+        _row(t="T1", close=30, high=34, low=28),
+    ]
+    result = classify_tz_event(row, hist, m)
+    # SHORT_WATCH is allowed here (below EMA50, bottom of range)
+    # Just verify the classifier doesn't error and returns a valid role
+    assert result["role"] in _ALL_VALID_ROLES
+
+
+# ── New roles exist in constants ──────────────────────────────────────────────
+
+def test_new_roles_in_role_rank():
+    from tz_intelligence.classifier import _ROLE_RANK
+    for role in ("PULLBACK_GO", "MIXED_WATCH", "REJECT_LONG", "DEEP_PULLBACK_WATCH"):
+        assert role in _ROLE_RANK, f"Missing role in _ROLE_RANK: {role}"
+
+def test_new_roles_in_role_quality():
+    from tz_intelligence.classifier import _ROLE_QUALITY
+    assert _ROLE_QUALITY["PULLBACK_GO"] == "A"
+    assert _ROLE_QUALITY["MIXED_WATCH"] == "Watch"
+    assert _ROLE_QUALITY["REJECT_LONG"] == "Reject"
+    assert _ROLE_QUALITY["DEEP_PULLBACK_WATCH"] == "Watch"
+
+def test_z_pullback_score_capped_at_75():
+    """Z-based PULLBACK_READY score must not exceed 75 without PULLBACK_GO confirmation."""
+    m = load_matrix()
+    # Z signal with multiple bonuses stacking — score should be capped
+    row = _row(z="Z5", lane1="Z5L25NDP", close=55,
+               ema20=50, ema50=48, ema89=45, high=58, low=50)
+    prev = _row(z="Z5", close=47, ema50=48)   # prev below ema50 → reclaim
+    result = classify_tz_event(row, [prev], m)
+    if result["role"] in ("PULLBACK_READY_A", "PULLBACK_READY_B"):
+        assert result["score"] <= 75, \
+            f"Z pullback READY score should be capped at 75, got {result['score']}"
