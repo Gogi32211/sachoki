@@ -588,7 +588,7 @@ def api_turbo_scan(
                                       vol_min=vol_min, vol_max=vol_max)
         last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
 
-        # Enrich split-universe rows with split metadata (date, ratio, status)
+        # Enrich split-universe rows with lifecycle metadata
         meta: dict = {}
         if universe == "split":
             try:
@@ -597,10 +597,21 @@ def api_turbo_scan(
                 for r in results:
                     s = smeta.get(r.get("ticker"))
                     if s:
+                        # Core fields (backward-compat)
                         r["split_date"]        = s["split_date"]
                         r["split_ratio"]       = s["ratio_str"]
-                        r["split_status"]      = s["status"]
-                        r["split_days_offset"] = s["days_offset"]
+                        r["split_status"]      = s.get("split_status", "")
+                        r["split_days_offset"] = s.get("days_offset", 0)
+                        # Lifecycle fields
+                        r["split_phase"]           = s.get("phase", "")
+                        r["split_wave"]            = s.get("wave", "")
+                        r["split_watch_until"]     = s.get("watch_until", "")
+                        r["split_next_wave_label"] = s.get("next_wave_label", "")
+                        r["split_next_wave_start"] = s.get("next_wave_start_date", "")
+                        r["split_next_wave_end"]   = s.get("next_wave_end_date", "")
+                        r["split_heat_score"]      = s.get("heat_score", 0)
+                        r["split_notes"]           = s.get("notes", "")
+                        r["split_watch_days"]      = s.get("watch_days", 60)
                 meta["split_count"] = len(smeta)
             except Exception as exc:
                 log.warning("split metadata enrich failed: %s", exc)

@@ -1313,8 +1313,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
         )}
         <span className="ml-auto text-gray-600 text-xs">
           Profile score is additive context only — does not replace canonical score
-          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us' || universe === 'split') &&
+          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') &&
             <span className="ml-1 text-amber-600"> · NASDAQ profile is experimental</span>}
+          {universe === 'split' &&
+            <span className="ml-1 text-sky-700"> · SPLIT lifecycle: D-7→D+90 window</span>}
         </span>
       </div>
 
@@ -1716,24 +1718,45 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   )}
                 </td>
 
-                {/* Split status (only when SPLIT universe) */}
+                {/* Split lifecycle badge (only when SPLIT universe) */}
                 {universe === 'split' && (
                   <td className="px-2 py-1 text-center font-mono text-xs">
-                    {r.split_date ? (
-                      <span className={`px-1.5 py-0.5 rounded font-semibold ${
-                        r.split_status === 'upcoming'
-                          ? 'bg-amber-900/40 text-amber-300 border border-amber-700/60'
-                          : 'bg-emerald-900/40 text-emerald-300 border border-emerald-700/60'
-                      }`}
-                        title={`${r.split_status === 'upcoming' ? 'Upcoming' : 'Executed'} ${r.split_date}`}>
-                        {r.split_ratio}
-                        <span className="ml-1 text-gray-400 font-normal">
-                          {r.split_status === 'upcoming'
-                            ? `in ${Math.abs(r.split_days_offset)}d`
-                            : `${Math.abs(r.split_days_offset)}d ago`}
+                    {r.split_date ? (() => {
+                      const phase = r.split_phase || ''
+                      const wave  = r.split_wave  || ''
+                      const doff  = r.split_days_offset ?? 0
+                      const heat  = r.split_heat_score  ?? 0
+                      const dLabel = doff === 0 ? 'D0' : doff > 0 ? `D+${doff}` : `D${doff}`
+                      const phaseColors = {
+                        PRE_SPLIT:        'bg-blue-900/40 text-blue-300 border-blue-700/50',
+                        SPLIT_DAY:        'bg-purple-900/50 text-purple-200 border-purple-600/60',
+                        WAVE_1:           'bg-green-900/50 text-green-300 border-green-600/60',
+                        WAVE_2_SETUP:     'bg-teal-900/40 text-teal-300 border-teal-700/50',
+                        WAVE_3_SETUP:     'bg-cyan-900/40 text-cyan-300 border-cyan-700/50',
+                        POST_MONITOR:     'bg-gray-800/60 text-gray-400 border-gray-600/40',
+                        EXTENDED_MONITOR: 'bg-gray-900/60 text-gray-500 border-gray-700/30',
+                      }
+                      const colorCls = (phaseColors[phase] || 'bg-gray-800/40 text-gray-400 border-gray-600/40') +
+                        (heat >= 6 ? ' ring-1 ring-yellow-500/40' : '')
+                      const tooltip = [
+                        `Split: ${r.split_date}`,
+                        `Ratio: ${r.split_ratio}`,
+                        `Phase: ${phase} (${wave})`,
+                        `Offset: ${dLabel}`,
+                        r.split_next_wave_label ? `Next: ${r.split_next_wave_label} ${r.split_next_wave_start || ''}→${r.split_next_wave_end || ''}` : null,
+                        `Watch until: ${r.split_watch_until || '—'}`,
+                        `Heat score: ${heat}/10`,
+                        r.split_notes || null,
+                      ].filter(Boolean).join('\n')
+                      return (
+                        <span className={`px-1.5 py-0.5 rounded border font-semibold ${colorCls}`}
+                          title={tooltip}>
+                          {r.split_ratio}
+                          <span className="ml-1 font-normal opacity-80">{wave}</span>
+                          <span className="ml-1 text-gray-400 font-normal">{dLabel}</span>
                         </span>
-                      </span>
-                    ) : '—'}
+                      )
+                    })() : '—'}
                   </td>
                 )}
               </tr>
