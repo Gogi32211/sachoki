@@ -353,9 +353,10 @@ def test_quality_and_action_valid():
     result = classify_tz_event(row, [], m)
     assert result["quality"] in ("A", "B", "Watch", "Reject", "—")
     assert result["action"] in (
-        "BUY_TRIGGER", "WAIT_FOR_T_CONFIRMATION", "PULLBACK_ENTRY_READY",
+        "BUY_TRIGGER", "WATCH_BULL_TRIGGER", "WATCH_BULL_SETUP",
+        "WAIT_FOR_T_CONFIRMATION", "PULLBACK_ENTRY_READY",
         "WATCH_PULLBACK", "WAIT_FOR_CONFIRMATION", "WAIT_FOR_BREAKDOWN",
-        "SHORT_TRIGGER", "DO_NOT_BUY", "IGNORE",
+        "SHORT_TRIGGER", "DO_NOT_BUY", "IGNORE", "NO_ACTION",
     )
     assert any("VOL:VB" in c for c in result["reason_codes"])
 
@@ -746,3 +747,102 @@ def test_pos_comp_neg_seq4_price_50pct_not_short_watch():
     if result["price_position_4bar"] >= 0.50 and bool(result.get("good_flags")):
         assert result["role"] != "SHORT_WATCH", \
             f"price_pos >= 0.50 with positive composite → not SHORT_WATCH, got {result['role']}"
+
+
+# ── v6 normalization invariant tests ─────────────────────────────────────────
+
+def test_normalize_bull_b_score_capped_at_79():
+    """BULL_B must never have score >= 80 (would imply A quality)."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("BULL_B", 115, [])
+    assert role == "BULL_B"
+    assert score == 79, f"Expected 79, got {score}"
+
+def test_normalize_bull_b_low_score_becomes_bull_watch():
+    """BULL_B with score < 60 must downgrade to BULL_WATCH."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("BULL_B", 55, [])
+    assert role == "BULL_WATCH", f"Expected BULL_WATCH, got {role}"
+
+def test_normalize_pullback_ready_b_score_capped():
+    """PULLBACK_READY_B score >= 80 must be capped to 79."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("PULLBACK_READY_B", 90, [])
+    assert role == "PULLBACK_READY_B"
+    assert score == 79
+
+def test_normalize_pullback_ready_b_low_score_becomes_pullback_watch():
+    """PULLBACK_READY_B score < 60 must downgrade to PULLBACK_WATCH."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("PULLBACK_READY_B", 25, [])
+    assert role == "PULLBACK_WATCH", f"Expected PULLBACK_WATCH, got {role}"
+
+def test_normalize_deep_pullback_watch_score_cap():
+    """DEEP_PULLBACK_WATCH score must be capped at 35."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("DEEP_PULLBACK_WATCH", 60, [])
+    assert role == "DEEP_PULLBACK_WATCH"
+    assert score == 35, f"Expected 35, got {score}"
+
+def test_normalize_any_watch_role_score_cap():
+    """All *_WATCH roles must have score <= 59."""
+    from tz_intelligence.classifier import _normalize_role_score
+    for watch_role in ("BULL_WATCH", "PULLBACK_WATCH", "MIXED_WATCH", "SHORT_WATCH"):
+        role, score = _normalize_role_score(watch_role, 100, [])
+        assert role == watch_role
+        assert score <= 59, f"{watch_role} score should be <=59, got {score}"
+
+def test_normalize_bull_a_score_60_to_79_becomes_bull_b():
+    """BULL_A with score 60-79 must downgrade to BULL_B."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("BULL_A", 75, [])
+    assert role == "BULL_B", f"Expected BULL_B, got {role}"
+    assert score == 75
+
+def test_normalize_bull_a_score_below_60_becomes_bull_watch():
+    """BULL_A with score < 60 must downgrade to BULL_WATCH."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("BULL_A", 50, [])
+    assert role == "BULL_WATCH", f"Expected BULL_WATCH, got {role}"
+
+def test_pullback_go_proof_fields_present_and_valid():
+    """PULLBACK_GO result must include prior_pullback_ready_found==True and bars_ago 1-3."""
+    m = load_matrix()
+    hist = [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(t="T4", close=44, high=52, low=42),
+        _row(z="Z5", close=50, high=55, low=48,  # ← pullback Z bar
+             ema20=48, ema50=46, ema89=44),
+    ]
+    curr = _row(t="T5", lane1="T5L46NB", close=58,
+                ema20=50, ema50=48, ema89=45, high=60, low=50,
+                ticker="PROOF_TEST", date="2025-03-01")
+    result = classify_tz_event(curr, hist, m)
+    if result["role"] == "PULLBACK_GO":
+        assert result["prior_pullback_ready_found"] is True, \
+            "PULLBACK_GO must have prior_pullback_ready_found=True"
+        assert result["prior_pullback_ready_bars_ago"] in (1, 2, 3), \
+            f"bars_ago must be 1-3, got {result['prior_pullback_ready_bars_ago']}"
+        assert result["prior_pullback_ready_signal"] in ("Z3","Z4","Z5","Z6","Z9"), \
+            f"signal must be pullback Z, got {result['prior_pullback_ready_signal']}"
+    # Even if not PULLBACK_GO, proof fields must be present
+    assert "prior_pullback_ready_found" in result
+    assert "prior_pullback_ready_bars_ago" in result
+    assert "pullback_high" in result
+    assert "current_close_above_pullback_high" in result
+
+def test_no_bull_b_with_quality_a():
+    """Integration: classify several rows; none should yield BULL_B + quality A."""
+    m = load_matrix()
+    test_rows = [
+        _row(t="T4", lane1="T4L12NP", close=80, ema20=70, ema50=65, ema89=60, high=85, low=70),
+        _row(t="T5", lane1="T5L46NB", close=90, ema20=80, ema50=75, ema89=70, high=95, low=80),
+        _row(t="T4", lane1="T4L12NP", close=50, ema20=60, ema50=55, ema89=50, high=55, low=45),
+    ]
+    for row in test_rows:
+        result = classify_tz_event(row, [], m)
+        if result["role"] == "BULL_B":
+            assert result["quality"] != "A", \
+                f"BULL_B must not have quality A (score={result['score']}, reasons={result['reason_codes']})"
+            assert result["score"] <= 79, \
+                f"BULL_B score must be <=79, got {result['score']}"

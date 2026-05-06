@@ -19,6 +19,10 @@ const CSV_COLS = [
   'matched_med10d_pct','matched_fail10d_pct','matched_avg10d_pct',
   'matched_source_file','matched_rule_notes',
   'matched_composite_rule_id','matched_seq4_rule_id','matched_reject_rule_id',
+  // PULLBACK_GO proof fields
+  'prior_pullback_ready_found','prior_pullback_ready_bars_ago',
+  'prior_pullback_ready_signal','prior_pullback_ready_composite',
+  'prior_pullback_ready_role','pullback_high','current_close_above_pullback_high',
   'explanation',
 ]
 
