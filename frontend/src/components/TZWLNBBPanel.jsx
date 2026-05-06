@@ -21,6 +21,7 @@ const UNIVERSES = [
   { key: 'nasdaq',    label: 'NASDAQ'    },
   { key: 'russell2k', label: 'Russell 2K'},
   { key: 'all_us',    label: 'All US'    },
+  { key: 'split',     label: '✂️ SPLIT'  },
 ]
 
 const NASDAQ_BATCHES = [
