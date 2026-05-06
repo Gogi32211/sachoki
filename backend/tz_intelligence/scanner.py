@@ -144,6 +144,14 @@ def run_intelligence_scan(
             "matched_composite_rule_id": clf["matched_composite_rule_id"],
             "matched_seq4_rule_id":      clf["matched_seq4_rule_id"],
             "matched_reject_rule_id":    clf["matched_reject_rule_id"],
+            # PULLBACK_GO proof fields
+            "prior_pullback_ready_found":        clf["prior_pullback_ready_found"],
+            "prior_pullback_ready_bars_ago":     clf["prior_pullback_ready_bars_ago"],
+            "prior_pullback_ready_signal":       clf["prior_pullback_ready_signal"],
+            "prior_pullback_ready_composite":    clf["prior_pullback_ready_composite"],
+            "prior_pullback_ready_role":         clf["prior_pullback_ready_role"],
+            "pullback_high":                     clf["pullback_high"],
+            "current_close_above_pullback_high": clf["current_close_above_pullback_high"],
             # Debug trace (only when debug=True)
             **({"debug_trace": clf["debug_trace"]} if debug else {}),
         })

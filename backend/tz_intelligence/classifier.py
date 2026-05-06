@@ -1,15 +1,13 @@
-"""TZ Signal Intelligence classifier — hardened v3.
+"""TZ Signal Intelligence classifier — hardened v5.
 
-Fixes vs v2:
-  9.  PULLBACK_READY_A gating (requires price_pos ≥ 0.50 + EMA support)
-  10. Action semantics: PULLBACK_READY = WAIT_FOR_T_CONFIRMATION (not entry)
-  11. New role PULLBACK_GO (T confirmation after recent Z pullback)
-  12. New role MIXED_WATCH (positive comp + reject seq4 in bullish context)
-  13. New role REJECT_LONG (reject comp in bullish price context ≠ SHORT_WATCH)
-  14. New role DEEP_PULLBACK_WATCH (pullback below all EMAs + deep range)
-  15. SHORT_WATCH requires bearish price confirmation
-  16. Score penalties for weak pullback context
-  17. Score cap 75 for Z-based pullback READY without PULLBACK_GO
+Fixes vs v4:
+  18. Role/quality alignment: *_A requires score >= 80, else downgrades to *_B or *_WATCH
+  19. DEEP_PULLBACK_WATCH score cap: always <= 35, quality always Watch
+  20. Hard caps cap score not only quality (below_all_emas+deep → score <= 35)
+  21. PULLBACK_GO proof fields (prior_pullback_ready_found etc.) + strict guard
+  22. BULL_B action changed to WATCH_BULL_TRIGGER (not WAIT_FOR_T_CONFIRMATION)
+  23. SHORT_WATCH strictness: must have at least one of breaks_4bar_low / below_ema50
+       / price_pos<0.25 / (reject_comp AND reject_seq4)
 """
 from __future__ import annotations
 from typing import Optional
@@ -35,29 +33,12 @@ _ROLE_RANK = {
     "SHORT_GO":             10,
 }
 
-_ROLE_QUALITY = {
-    "BULL_A":               "A",
-    "BULL_B":               "B",
-    "PULLBACK_GO":          "A",
-    "PULLBACK_READY_A":     "A",
-    "PULLBACK_READY_B":     "B",
-    "PULLBACK_WATCH":       "Watch",
-    "DEEP_PULLBACK_WATCH":  "Watch",
-    "BULL_WATCH":           "Watch",
-    "MIXED_WATCH":          "Watch",
-    "SHORT_GO":             "A",
-    "SHORT_WATCH":          "Watch",
-    "REJECT":               "Reject",
-    "REJECT_LONG":          "Reject",
-    "NO_EDGE":              "—",
-}
-
 _ROLE_ACTION = {
     "BULL_A":               "BUY_TRIGGER",
-    "BULL_B":               "WAIT_FOR_T_CONFIRMATION",
-    "PULLBACK_GO":          "PULLBACK_ENTRY_READY",  # actionable after T confirms
-    "PULLBACK_READY_A":     "WAIT_FOR_T_CONFIRMATION",  # setup — not entry
-    "PULLBACK_READY_B":     "WAIT_FOR_T_CONFIRMATION",  # setup — not entry
+    "BULL_B":               "WATCH_BULL_TRIGGER",      # already T — watch for breakout
+    "PULLBACK_GO":          "PULLBACK_ENTRY_READY",    # actionable after T confirms
+    "PULLBACK_READY_A":     "WAIT_FOR_T_CONFIRMATION", # Z setup — wait for T
+    "PULLBACK_READY_B":     "WAIT_FOR_T_CONFIRMATION", # Z setup — wait for T
     "PULLBACK_WATCH":       "WATCH_PULLBACK",
     "DEEP_PULLBACK_WATCH":  "WATCH_PULLBACK",
     "BULL_WATCH":           "WAIT_FOR_CONFIRMATION",
@@ -74,6 +55,12 @@ _WEAK_T_SIGNALS = {"T1", "T2", "T9", "T10"}
 
 # Z signals that carry positive pullback edge (not shorts)
 _PULLBACK_Z_SIGNALS = {"Z5", "Z9", "Z3", "Z4", "Z6"}
+
+# Roles that are always Watch quality (score cannot promote them)
+_WATCH_ONLY_ROLES = {
+    "DEEP_PULLBACK_WATCH", "PULLBACK_WATCH", "BULL_WATCH",
+    "MIXED_WATCH", "SHORT_WATCH",
+}
 
 
 def _best_role(a: str, b: str) -> str:
@@ -93,7 +80,7 @@ def _quality_from_score(role: str, score: int,
     """Score + context → quality grade.
 
     score >= 80 → A  |  60–79 → B  |  0–59 → Watch  |  < 0 → Watch
-    Hard caps: below_all_emas+deep → max Watch; conflict → max B.
+    Watch-only roles always return Watch regardless of score.
     Reject/no-edge roles bypass score mapping.
     """
     if role in ("NO_EDGE", "CONTEXT_BONUS"):
@@ -101,8 +88,12 @@ def _quality_from_score(role: str, score: int,
     if role in ("REJECT", "REJECT_LONG"):
         return "Reject"
 
+    # Watch-only roles: score never promotes above Watch
+    if role in _WATCH_ONLY_ROLES:
+        return "Watch"
+
     if score < 0:
-        q = "Watch"      # negative score → never B or A
+        q = "Watch"
     elif score < 60:
         q = "Watch"
     elif score < 80:
@@ -122,18 +113,9 @@ def _quality_from_score(role: str, score: int,
 # ── Fix 1: Composite deduplication ───────────────────────────────────────────
 
 def _make_composite(signal: str, lane: str) -> str:
-    """Build composite pattern without duplicating the signal prefix.
-
-    lane1_label from stock_stat can already include the signal:
-        T5L25ND  (already has T5)
-    or be the lane-only part:
-        L25ND    (needs T5 prepended)
-
-    Never produce T5T5L25ND.
-    """
+    """Build composite pattern without duplicating the signal prefix."""
     if not signal or not lane:
         return ""
-    # If lane already starts with signal → use as-is
     if lane.startswith(signal):
         return lane
     return signal + lane
@@ -150,19 +132,7 @@ def classify_tz_event(
     scan_universe: str = "sp500",
     debug: bool = False,
 ) -> dict:
-    """Classify a single ticker/date row.
-
-    Args:
-        row:               latest bar dict (t_signal, z_signal, l_signal,
-                           lane1_label, lane3_label, close, ema20/50/89,
-                           high, low, volume, …)
-        history_rows:      previous bars oldest-first (up to 3)
-        matrix:            loaded MatrixIndex
-        current_low_4bar:  min(low) over 4 bars (for SHORT_GO check)
-        current_high_4bar: max(high) over 4 bars (for breaks_4bar_high)
-        scan_universe:     e.g. 'sp500' | 'nasdaq' — controls which rules apply
-        debug:             include verbatim decision trace
-    """
+    """Classify a single ticker/date row."""
     ticker = row.get("ticker", "")
     date   = row.get("date", "")
     debug_trace: list[str] = []
@@ -208,14 +178,14 @@ def classify_tz_event(
     if debug:
         debug_trace.append(f"BASELINE: signal={final_signal} base_role={base_role}")
 
-    # ── Fix 1: Composite construction (no duplication) ────────────────────────
+    # ── Composite construction ────────────────────────────────────────────────
     lane_source = lane1 or lane3
     composite_pattern = _make_composite(final_signal, lane_source)
     if debug:
         debug_trace.append(f"COMPOSITE: lane_source={lane_source!r} "
                            f"composite={composite_pattern!r}")
 
-    # ── Fix 2: Universe-scoped rule lookup ────────────────────────────────────
+    # ── Universe-scoped rule lookup ───────────────────────────────────────────
     pos_comp_rules, neg_comp_rules = [], []
     if composite_pattern:
         pos_comp_rules, neg_comp_rules = matrix.get_composite_rules(
@@ -237,7 +207,7 @@ def classify_tz_event(
         debug_trace.append(f"SEQ4: seq4={seq4_str!r} "
                            f"pos={len(pos_seq4_rules)} neg={len(neg_seq4_rules)}")
 
-    # ── Fix 3: Conflict resolution ────────────────────────────────────────────
+    # ── Conflict resolution ───────────────────────────────────────────────────
     comp_conflict  = None
     comp_conflict_resolution = ""
     comp_conflict_ids: list[str] = []
@@ -277,7 +247,6 @@ def classify_tz_event(
             return pos, []
         if conflict_res == "REJECT":
             return [], neg
-        # CONFLICT → don't apply either strongly; treat as watch only
         return [], []
 
     eff_pos_comp, eff_neg_comp = _effective_rules(
@@ -285,7 +254,6 @@ def classify_tz_event(
     eff_pos_seq4, eff_neg_seq4 = _effective_rules(
         pos_seq4_rules, neg_seq4_rules, seq4_conflict_resolution)
 
-    # For conflict rows that we stripped out, still count their IDs
     matched_composite_rule_id = (eff_pos_comp + eff_neg_comp)[0].get("rule_id","") if (eff_pos_comp or eff_neg_comp) else ""
     matched_seq4_rule_id      = (eff_pos_seq4 + eff_neg_seq4)[0].get("rule_id","") if (eff_pos_seq4 or eff_neg_seq4) else ""
     matched_reject_rule_id    = ((eff_neg_comp or eff_neg_seq4) or [{}])[0].get("rule_id","")
@@ -343,9 +311,9 @@ def classify_tz_event(
     if has_conflict:
         reason_codes.append("CONFLICT:score_stripped")
         if debug:
-            debug_trace.append(f"CONFLICT: both pos+neg rules stripped from score")
+            debug_trace.append("CONFLICT: both pos+neg rules stripped from score")
 
-    # ── Fix 6: Separate above_ema vs ema_reclaim ─────────────────────────────
+    # ── EMA positions ─────────────────────────────────────────────────────────
     above_ema20 = close > ema20 if ema20 > 0 else False
     above_ema50 = close > ema50 if ema50 > 0 else False
     above_ema89 = close > ema89 if ema89 > 0 else False
@@ -404,8 +372,7 @@ def classify_tz_event(
     vol_vs_prev2 = round(curr_v / prev2_v, 2) if prev2_v > 0 else None
     vol_vs_prev3 = round(curr_v / prev3_v, 2) if prev3_v > 0 else None
 
-    # ── Fix 8: Stricter SHORT_WATCH ───────────────────────────────────────────
-    # Positive pullback Z signals with no reject evidence → demote SHORT_WATCH
+    # ── Stricter SHORT_WATCH: positive pullback Z with no reject → demote ──────
     if best_role == "SHORT_WATCH" and z_sig in _PULLBACK_Z_SIGNALS:
         has_reject_evidence = bool(reject_flags)
         low_price_pos = price_position_4bar < 0.25 if price_position_4bar else False
@@ -413,83 +380,54 @@ def classify_tz_event(
         if not has_reject_evidence and not low_price_pos and not below_ema50:
             best_role = "PULLBACK_READY_B"
             reason_codes.append(f"SHORT_WATCH_DEMOTE:{z_sig}_is_pullback_Z_no_reject_evidence")
-            if debug:
-                debug_trace.append(f"SHORT_WATCH demoted to PULLBACK_READY_B: "
-                                   f"{z_sig} is pullback Z with no reject evidence")
 
-    # ── Fix 7: SHORT_GO requires breakdown confirmation ───────────────────────
+    # ── SHORT_GO requires breakdown confirmation ───────────────────────────────
     if best_role == "SHORT_WATCH" and current_low_4bar is not None:
         if close < current_low_4bar and not good_flags:
             bonus = matrix.get_short_go_bonus()
             total_score += bonus
             best_role = "SHORT_GO"
             reason_codes.append(f"BREAK_4BAR_LOW:SHORT_GO:+{bonus}")
-            if debug:
-                debug_trace.append(f"SHORT_GO promoted: close={close} < 4bar_low={current_low_4bar}")
 
-    # ── Fix 4: BULL_A cap for weak T signals ─────────────────────────────────
+    # ── BULL_A cap for weak T signals ─────────────────────────────────────────
     if best_role == "BULL_A" and final_signal in _WEAK_T_SIGNALS:
-        # Need ALL confirmations to allow BULL_A
         all_confirmed = (
-            bool(good_flags) and                       # composite or seq4 matched
-            price_position_4bar >= 0.75 and            # close in top 75% of 4-bar
-            (above_ema20 and above_ema50 or ema50_reclaim) and   # EMA above/reclaim
-            not reject_flags and                        # no reject rules
-            not has_conflict                            # no conflict
+            bool(good_flags) and
+            price_position_4bar >= 0.75 and
+            (above_ema20 and above_ema50 or ema50_reclaim) and
+            not reject_flags and
+            not has_conflict
         )
         if not all_confirmed:
             best_role = "BULL_B"
             reason_codes.append(f"BULL_A_CAPPED:{final_signal}_weak_signal_missing_confirm")
-            if debug:
-                debug_trace.append(
-                    f"BULL_A → BULL_B: {final_signal} is weak T, missing confirmations "
-                    f"(good_flags={bool(good_flags)}, price_pos={price_position_4bar:.2f}, "
-                    f"ema={above_ema20 and above_ema50}, reject={bool(reject_flags)}, "
-                    f"conflict={has_conflict})"
-                )
 
-    # ── General BULL_A gate (all T signals, not just weak ones) ──────────────
-    # Even a strong composite cannot produce BULL_A without price/EMA confirmation.
+    # ── General BULL_A gate: price and EMA must confirm ───────────────────────
     if best_role == "BULL_A":
         has_ema_support = above_ema20 or above_ema50 or ema20_reclaim or ema50_reclaim
         if price_position_4bar < 0.25 and not has_ema_support:
             best_role = "BULL_WATCH"
             reason_codes.append("BULL_A→BULL_WATCH:deep_range+no_ema_support")
-            if debug:
-                debug_trace.append(f"BULL_A → BULL_WATCH: price_pos={price_position_4bar:.2f}, "
-                                   f"no EMA support")
         elif price_position_4bar < 0.50 or not has_ema_support:
             best_role = "BULL_B"
             reason_codes.append("BULL_A→BULL_B:insufficient_price_or_ema_confirmation")
-            if debug:
-                debug_trace.append(f"BULL_A → BULL_B: price_pos={price_position_4bar:.2f}, "
-                                   f"ema_support={has_ema_support}")
 
-    # ── Fix 9: PULLBACK_READY_A gating ───────────────────────────────────────
+    # ── PULLBACK_READY_A gating ───────────────────────────────────────────────
     if best_role == "PULLBACK_READY_A":
         has_ema_support = above_ema20 or above_ema50 or ema20_reclaim or ema50_reclaim
         if not has_ema_support and price_position_4bar < 0.25:
             best_role = "DEEP_PULLBACK_WATCH"
             reason_codes.append("PULLBACK_READY_A→DEEP_PULLBACK_WATCH:no_ema+deep_range")
-            if debug:
-                debug_trace.append(f"PULLBACK_READY_A → DEEP_PULLBACK_WATCH: "
-                                   f"no EMA support, price_pos={price_position_4bar:.2f}")
         elif price_position_4bar < 0.50 or not has_ema_support:
             best_role = "PULLBACK_READY_B"
             reason_codes.append("PULLBACK_READY_A→PULLBACK_READY_B:insufficient_confirmation")
-            if debug:
-                debug_trace.append(f"PULLBACK_READY_A → PULLBACK_READY_B: "
-                                   f"price_pos={price_position_4bar:.2f}, ema_support={has_ema_support}")
 
-    # ── PULLBACK_READY_B gate (catches roles seeded directly as B from baseline) ──
+    # ── PULLBACK_READY_B gate (catches roles seeded directly as B) ────────────
     if best_role == "PULLBACK_READY_B":
         has_ema_support = above_ema20 or above_ema50 or ema20_reclaim or ema50_reclaim
         if price_position_4bar < 0.25 and not has_ema_support:
             best_role = "DEEP_PULLBACK_WATCH"
             reason_codes.append("PULLBACK_READY_B→DEEP_PULLBACK_WATCH:deep_range+no_ema")
-            if debug:
-                debug_trace.append(f"PULLBACK_READY_B → DEEP_PULLBACK_WATCH: "
-                                   f"price_pos={price_position_4bar:.2f}, no EMA support")
 
     # ── Score penalties for weak pullback context ─────────────────────────────
     if best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B",
@@ -506,73 +444,98 @@ def classify_tz_event(
             reason_codes.append("PENALTY:below_ema20_ema50:-20")
         if penalty:
             total_score -= penalty
-            if debug:
-                debug_trace.append(f"PULLBACK_PENALTY: -{penalty} "
-                                   f"(price_pos={price_position_4bar:.2f})")
 
     # ── Score cap for Z-based pullback READY (without PULLBACK_GO) ────────────
     if z_sig and best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B"):
         if total_score > 75:
             total_score = 75
             reason_codes.append("SCORE_CAP:Z_pullback_ready_max_75")
-            if debug:
-                debug_trace.append("SCORE_CAP: Z pullback READY capped at 75")
 
-    # ── Fix 10: PULLBACK_GO — T confirmation after recent Z pullback ──────────
-    # Requires: recent bar had a positive pullback Z signal (not any Z), current T
-    # is not weak (T1/T2/T9/T10), no reject evidence, price in top range.
+    # ── PULLBACK_GO proof: scan history for prior pullback Z bar ──────────────
+    prior_pb_found          = False
+    prior_pb_bars_ago: Optional[int] = None
+    prior_pb_signal         = ""
+    prior_pb_composite      = ""
+    prior_pb_role           = ""
+    pullback_bar_high: Optional[float] = None
+
+    for i, b in enumerate(reversed(history_rows[-3:])):
+        if b.get("z_signal") in _PULLBACK_Z_SIGNALS:
+            prior_pb_found    = True
+            prior_pb_bars_ago = i + 1
+            prior_pb_signal   = b.get("z_signal", "")
+            lane_b            = b.get("lane1_label") or b.get("lane3_label") or ""
+            prior_pb_composite = _make_composite(prior_pb_signal, lane_b)
+            pb_close = float(b.get("close") or 0)
+            pb_ema20 = float(b.get("ema20") or 0)
+            pb_ema50 = float(b.get("ema50") or 0)
+            pb_above = (
+                (pb_close > pb_ema20 if pb_ema20 > 0 else False) or
+                (pb_close > pb_ema50 if pb_ema50 > 0 else False)
+            )
+            prior_pb_role     = "PULLBACK_READY_A" if pb_above else "PULLBACK_READY_B"
+            h_val = float(b.get("high") or 0)
+            pullback_bar_high = h_val if h_val > 0 else None
+            break
+
+    current_close_above_pb_high = (close > pullback_bar_high) if pullback_bar_high else False
+
+    # ── PULLBACK_GO — T confirmation after recent Z pullback ──────────────────
+    # Requires: prior pullback Z found in history, current T is not weak,
+    # no reject evidence, price in top range.
     if t_sig and not z_sig and t_sig not in _WEAK_T_SIGNALS:
-        recent_pullback_z = any(
-            b.get("z_signal") in _PULLBACK_Z_SIGNALS
-            for b in history_rows[-3:]
-        )
         top_range  = price_position_4bar >= 0.75 or breaks_4bar_high
         no_reject  = not bool(reject_flags) and not has_conflict
-        if (recent_pullback_z and top_range and no_reject and
+        if (prior_pb_found and top_range and no_reject and
                 best_role in ("BULL_A", "BULL_B", "PULLBACK_READY_A", "PULLBACK_READY_B")):
             go_bonus = 15
             total_score += go_bonus
             best_role = "PULLBACK_GO"
-            reason_codes.append(f"PULLBACK_GO:T_after_pullback_Z+top_range:+{go_bonus}")
+            reason_codes.append(
+                f"PULLBACK_GO:T_after_{prior_pb_signal}_{prior_pb_bars_ago}bars_ago"
+                f"+top_range:+{go_bonus}"
+            )
             if debug:
-                debug_trace.append(f"PULLBACK_GO: T={t_sig} after recent pullback Z, "
-                                   f"price_pos={price_position_4bar:.2f}, "
-                                   f"breaks_high={breaks_4bar_high}")
+                debug_trace.append(
+                    f"PULLBACK_GO: T={t_sig} after {prior_pb_signal} {prior_pb_bars_ago}b ago, "
+                    f"price_pos={price_position_4bar:.2f}, breaks_high={breaks_4bar_high}"
+                )
 
-    # ── Fix 11: SHORT_WATCH requires confirmed bearish context ────────────────
+    # ── SHORT_WATCH requires confirmed bearish context ────────────────────────
+    # Fix v5: strict 4-condition test (user spec item 6)
     if best_role == "SHORT_WATCH":
-        # Moderate bullish context: above_ema50 OR price_pos >= 0.50 (lowered from 0.75)
-        moderate_bullish = above_ema50 or price_position_4bar >= 0.50
-        # Strong bullish context for REJECT_LONG (price AND EMA)
-        strong_bullish   = price_position_4bar >= 0.75 and above_ema50
-        # At least one bearish confirmation
+        # At least one hard bearish confirmation required
         bearish_confirmed = (
-            price_position_4bar < 0.35 or
-            (not above_ema50) or
             breaks_4bar_low or
-            (bool(eff_neg_seq4) and price_position_4bar < 0.75) or
-            (not above_ema20 and not above_ema50)
+            (not above_ema50) or
+            price_position_4bar < 0.25 or
+            (bool(eff_neg_comp) and bool(eff_neg_seq4))
         )
-        # Positive composite + reject seq4 + moderate bullish → MIXED_WATCH
+        moderate_bullish = above_ema50 or price_position_4bar >= 0.50
+        strong_bullish   = price_position_4bar >= 0.75 and above_ema50
+
+        # Positive composite + reject seq4 + moderately bullish → MIXED_WATCH
         if bool(eff_pos_comp) and bool(eff_neg_seq4) and moderate_bullish:
             best_role = "MIXED_WATCH"
             reason_codes.append("SHORT_WATCH→MIXED_WATCH:pos_comp+neg_seq4+bullish_context")
-            if debug:
-                debug_trace.append("SHORT_WATCH → MIXED_WATCH: positive composite "
-                                   "but reject seq4 in bullish price context")
         # Reject composite only (no seq4 evidence) + strong bullish → REJECT_LONG
-        elif (bool(eff_neg_comp) and not bool(eff_neg_seq4) and strong_bullish):
+        elif bool(eff_neg_comp) and not bool(eff_neg_seq4) and strong_bullish:
             best_role = "REJECT_LONG"
             reason_codes.append("SHORT_WATCH→REJECT_LONG:reject_comp_only+bullish_context")
-            if debug:
-                debug_trace.append("SHORT_WATCH → REJECT_LONG: only reject composite, "
-                                   "price context is bullish — not a short")
-        # No bearish confirmation at all → MIXED_WATCH
+        # No bearish confirmation at all → MIXED_WATCH or REJECT_LONG
         elif not bearish_confirmed:
-            best_role = "MIXED_WATCH"
-            reason_codes.append("SHORT_WATCH→MIXED_WATCH:no_bearish_context_confirmation")
+            if strong_bullish and bool(eff_neg_comp):
+                best_role = "REJECT_LONG"
+                reason_codes.append("SHORT_WATCH→REJECT_LONG:no_bearish_confirmation+strong_bullish")
+            else:
+                best_role = "MIXED_WATCH"
+                reason_codes.append("SHORT_WATCH→MIXED_WATCH:no_bearish_confirmation")
             if debug:
-                debug_trace.append("SHORT_WATCH → MIXED_WATCH: insufficient bearish context")
+                debug_trace.append(
+                    f"SHORT_WATCH → {best_role}: no bearish confirmation "
+                    f"(breaks_low={breaks_4bar_low}, above50={above_ema50}, "
+                    f"price_pos={price_position_4bar:.2f})"
+                )
 
     # ── Volume / wick context ─────────────────────────────────────────────────
     if vol_bkt in ("VB", "B"):
@@ -602,6 +565,53 @@ def classify_tz_event(
             best_role = "MIXED_WATCH"
             reason_codes.append("CONFLICT_OVERRIDE:role→MIXED_WATCH")
 
+    # ── Fix 18-20: Final score caps and role/quality alignment ───────────────
+    below_all_emas = not above_ema20 and not above_ema50 and not above_ema89
+
+    # Hard cap: below all EMAs + deep range → DEEP_PULLBACK_WATCH + score cap 35
+    if (below_all_emas and price_position_4bar < 0.25 and
+            best_role not in ("REJECT", "REJECT_LONG", "NO_EDGE",
+                              "SHORT_WATCH", "SHORT_GO", "DEEP_PULLBACK_WATCH")):
+        best_role = "DEEP_PULLBACK_WATCH"
+        reason_codes.append("HARD_CAP:below_all_emas+deep_range→DEEP_PULLBACK_WATCH")
+        if debug:
+            debug_trace.append(
+                f"HARD_CAP → DEEP_PULLBACK_WATCH: below all EMAs, "
+                f"price_pos={price_position_4bar:.2f}"
+            )
+
+    # DEEP_PULLBACK_WATCH: score capped at 35 (forces Watch quality via score)
+    if best_role == "DEEP_PULLBACK_WATCH" and total_score > 35:
+        total_score = 35
+        reason_codes.append("SCORE_CAP:DEEP_PULLBACK_WATCH_max_35")
+
+    # Any remaining case: below all EMAs + deep range → cap score at 35
+    if below_all_emas and price_position_4bar < 0.25 and total_score > 35:
+        total_score = 35
+        reason_codes.append("SCORE_CAP:below_all_emas+deep_range_max_35")
+
+    # Fix 18: Score-based role downgrade — *_A roles require score >= 80
+    if best_role == "BULL_A":
+        if total_score < 60:
+            best_role = "BULL_WATCH"
+            reason_codes.append(f"ROLE_SCORE_DOWNGRADE:BULL_A→BULL_WATCH:score={total_score}")
+        elif total_score < 80:
+            best_role = "BULL_B"
+            reason_codes.append(f"ROLE_SCORE_DOWNGRADE:BULL_A→BULL_B:score={total_score}")
+
+    if best_role == "PULLBACK_READY_A":
+        if total_score < 60:
+            best_role = "PULLBACK_WATCH"
+            reason_codes.append(f"ROLE_SCORE_DOWNGRADE:PULLBACK_READY_A→PULLBACK_WATCH:score={total_score}")
+        elif total_score < 80:
+            best_role = "PULLBACK_READY_B"
+            reason_codes.append(f"ROLE_SCORE_DOWNGRADE:PULLBACK_READY_A→PULLBACK_READY_B:score={total_score}")
+
+    if debug:
+        debug_trace.append(f"FINAL: role={best_role} score={total_score} "
+                           f"conflict={has_conflict} good_flags={good_flags} "
+                           f"reject_flags={reject_flags}")
+
     # ── Explanation ───────────────────────────────────────────────────────────
     expl_parts = []
     if composite_pattern and (pos_comp_rules or neg_comp_rules):
@@ -617,11 +627,6 @@ def classify_tz_event(
     if not expl_parts:
         expl_parts.append(f"Baseline {final_signal}: {baseline.get('action','') if baseline else 'no rule'}")
     explanation = "; ".join(expl_parts)
-
-    if debug:
-        debug_trace.append(f"FINAL: role={best_role} score={total_score} "
-                           f"conflict={has_conflict} good_flags={good_flags} "
-                           f"reject_flags={reject_flags}")
 
     return _build_result(
         ticker=ticker, date=date,
@@ -647,6 +652,14 @@ def classify_tz_event(
         matched_composite_rule_id=matched_composite_rule_id,
         matched_seq4_rule_id=matched_seq4_rule_id,
         matched_reject_rule_id=matched_reject_rule_id,
+        # Fix 21: PULLBACK_GO proof fields
+        prior_pullback_ready_found=prior_pb_found,
+        prior_pullback_ready_bars_ago=prior_pb_bars_ago,
+        prior_pullback_ready_signal=prior_pb_signal,
+        prior_pullback_ready_composite=prior_pb_composite,
+        prior_pullback_ready_role=prior_pb_role,
+        pullback_high=pullback_bar_high,
+        current_close_above_pullback_high=current_close_above_pb_high,
         debug_trace=debug_trace if debug else None,
     )
 
@@ -667,6 +680,10 @@ def _build_result(
     matched_status="", matched_med10d="", matched_fail10d="",
     matched_avg10d="", matched_source="", matched_notes="",
     matched_composite_rule_id="", matched_seq4_rule_id="", matched_reject_rule_id="",
+    prior_pullback_ready_found=False, prior_pullback_ready_bars_ago=None,
+    prior_pullback_ready_signal="", prior_pullback_ready_composite="",
+    prior_pullback_ready_role="", pullback_high=None,
+    current_close_above_pullback_high=False,
     debug_trace=None,
 ) -> dict:
     below_all_emas = not above_ema20 and not above_ema50 and not above_ema89
@@ -689,18 +706,18 @@ def _build_result(
         "wick_suffix":       wk_sfx,
         "explanation":       explanation,
         "reason_codes":      reason_codes or [],
-        # Fix 6: EMA separate fields
+        # EMA fields
         "above_ema20":       above_ema20,
         "above_ema50":       above_ema50,
         "above_ema89":       above_ema89,
         "ema20_reclaim":     ema20_reclaim,
         "ema50_reclaim":     ema50_reclaim,
         "ema89_reclaim":     ema89_reclaim,
-        # Fix 3: conflict fields
+        # Conflict fields
         "conflict_flag":          conflict_flag,
         "conflict_resolution":    conflict_resolution,
         "conflicting_rule_ids":   conflicting_rule_ids or [],
-        # Fix 4: classification flags
+        # Classification flags
         "good_flags":        good_flags  or [],
         "reject_flags":      reject_flags or [],
         # Price position
@@ -711,7 +728,7 @@ def _build_result(
         "final_volume_vs_prev1": vol_vs_prev1,
         "final_volume_vs_prev2": vol_vs_prev2,
         "final_volume_vs_prev3": vol_vs_prev3,
-        # Debug fields
+        # Matched rule debug fields
         "matched_rule_id":           matched_rule_id,
         "matched_rule_type":         matched_rule_type,
         "matched_universe":          matched_universe,
@@ -724,6 +741,14 @@ def _build_result(
         "matched_composite_rule_id": matched_composite_rule_id,
         "matched_seq4_rule_id":      matched_seq4_rule_id,
         "matched_reject_rule_id":    matched_reject_rule_id,
+        # Fix 21: PULLBACK_GO proof fields
+        "prior_pullback_ready_found":        prior_pullback_ready_found,
+        "prior_pullback_ready_bars_ago":     prior_pullback_ready_bars_ago,
+        "prior_pullback_ready_signal":       prior_pullback_ready_signal,
+        "prior_pullback_ready_composite":    prior_pullback_ready_composite,
+        "prior_pullback_ready_role":         prior_pullback_ready_role,
+        "pullback_high":                     pullback_high,
+        "current_close_above_pullback_high": current_close_above_pullback_high,
         # Debug trace
         "debug_trace":      debug_trace,
     }

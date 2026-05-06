@@ -516,12 +516,18 @@ def test_new_roles_in_role_rank():
     for role in ("PULLBACK_GO", "MIXED_WATCH", "REJECT_LONG", "DEEP_PULLBACK_WATCH"):
         assert role in _ROLE_RANK, f"Missing role in _ROLE_RANK: {role}"
 
-def test_new_roles_in_role_quality():
-    from tz_intelligence.classifier import _ROLE_QUALITY
-    assert _ROLE_QUALITY["PULLBACK_GO"] == "A"
-    assert _ROLE_QUALITY["MIXED_WATCH"] == "Watch"
-    assert _ROLE_QUALITY["REJECT_LONG"] == "Reject"
-    assert _ROLE_QUALITY["DEEP_PULLBACK_WATCH"] == "Watch"
+def test_new_roles_quality_via_function():
+    from tz_intelligence.classifier import _quality_from_score, _WATCH_ONLY_ROLES
+    # PULLBACK_GO with high score → A
+    assert _quality_from_score("PULLBACK_GO", 85, False, 0.8, False) == "A"
+    # MIXED_WATCH always Watch (watch-only role)
+    assert "MIXED_WATCH" in _WATCH_ONLY_ROLES
+    assert _quality_from_score("MIXED_WATCH", 90, False, 0.9, False) == "Watch"
+    # REJECT_LONG → Reject
+    assert _quality_from_score("REJECT_LONG", 90, False, 0.9, False) == "Reject"
+    # DEEP_PULLBACK_WATCH always Watch (watch-only role)
+    assert "DEEP_PULLBACK_WATCH" in _WATCH_ONLY_ROLES
+    assert _quality_from_score("DEEP_PULLBACK_WATCH", 90, False, 0.9, False) == "Watch"
 
 def test_z_pullback_score_capped_at_75():
     """Z-based PULLBACK_READY score must not exceed 75 without PULLBACK_GO confirmation."""
