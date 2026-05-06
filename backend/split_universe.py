@@ -9,6 +9,7 @@ same SIG/RTB/sector filters and signal columns as any other universe.
 Source: Nasdaq.com public splits-calendar JSON endpoint.
 Cache: in-memory, 6h TTL — keeps API hits low.
 Filter: ratio >= 2.0 (only reverse splits where 1 new = >= 2 old).
+         + stock-only filter (excludes ETFs, funds, trusts, etc.)
 """
 
 import json
@@ -19,6 +20,59 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 log = logging.getLogger(__name__)
+
+# ── Non-stock keyword blacklist ───────────────────────────────────────────────
+# Matched case-insensitively against the concatenated name/type fields of each
+# split event. Compound and issuer-specific terms are generally safe; shorter
+# words (Bond, Bear, Ultra) are intentionally kept because reverse splits on
+# those instruments are almost always non-operating vehicles.
+NON_STOCK_KEYWORDS: List[str] = [
+    # Structure / wrapper type
+    "ETF", "ETN", "ETP",
+    "Fund", "Trust",
+    "Closed End", "Closed-End",
+    "Income Fund",
+    # Fixed income / debt
+    "Bond", "Treasury", "Notes", "Note",
+    # Leverage / inverse products
+    "Ultra", "2x", "3x", "-2x", "-3x", "Inverse",
+    "Bear", "Bull 2X", "Bull 3X",
+    # Known ETF/ETP issuers
+    "Direxion", "ProShares", "iShares", "SPDR",
+    "Vanguard ETF", "Invesco ETF", "WisdomTree",
+    "Global X", "YieldMax", "Defiance",
+    "GraniteShares", "Roundhill", "T-Rex",
+    "Rex Shares", "ARK ETF", "First Trust",
+    "VanEck ETF", "JPMorgan ETF",
+    # Security types
+    "Preferred", "Warrant", "Rights", "Unit",
+]
+
+# Fields from the Nasdaq API row used to build the name text for filtering.
+# Nasdaq's split calendar typically provides at least "companyName".
+_NAME_FIELDS = (
+    "companyName", "securityName", "name",
+    "assetType", "instrumentType", "securityType", "issueType",
+)
+
+
+def is_stock_like_split_event(row: dict) -> bool:
+    """Return True if the split event looks like an operating company stock.
+
+    Checks the concatenation of all available name/type fields against
+    NON_STOCK_KEYWORDS. Missing fields are treated as empty (not rejected).
+    """
+    text = " ".join(str(row.get(k) or "") for k in _NAME_FIELDS).lower()
+
+    for bad in NON_STOCK_KEYWORDS:
+        if bad.lower() in text:
+            log.debug(
+                "split non-stock excluded: %s (%s) — matched keyword '%s'",
+                row.get("ticker", "?"), text[:80], bad,
+            )
+            return False
+
+    return True
 
 
 class SplitUniverseService:
@@ -35,12 +89,26 @@ class SplitUniverseService:
     def get_split_universe(self) -> List[dict]:
         if self._is_cache_valid():
             return self._cache or []
-        results = self._fetch_nasdaq_splits()
-        results = self._dedupe_by_ticker(results)
-        results = [r for r in results if r["ratio"] and r["ratio"] >= self.MIN_RATIO]
+
+        raw = self._fetch_nasdaq_splits()
+        total_rows = len(raw)
+
+        deduped = self._dedupe_by_ticker(raw)
+        after_ratio = [r for r in deduped if r["ratio"] and r["ratio"] >= self.MIN_RATIO]
+        reverse_rows = len(after_ratio)
+
+        results = [r for r in after_ratio if is_stock_like_split_event(r)]
+        stock_like_rows = len(results)
+        filtered_non_stock = reverse_rows - stock_like_rows
+
+        log.info(
+            "split universe refreshed: total=%d  reverse_splits=%d  "
+            "stock_like=%d  filtered_non_stock=%d",
+            total_rows, reverse_rows, stock_like_rows, filtered_non_stock,
+        )
+
         self._cache = results
         self._cache_time = datetime.now()
-        log.info("split universe refreshed: %d tickers", len(results))
         return results
 
     def get_split_tickers(self) -> List[str]:
@@ -83,13 +151,18 @@ class SplitUniverseService:
                 if not ticker or ratio is None:
                     continue
                 out.append({
-                    "ticker":      ticker,
-                    "split_date":  date,
-                    "ratio":       ratio,
-                    "ratio_str":   ratio_str,
-                    "status":      "executed" if offset <= 0 else "upcoming",
-                    "days_offset": offset,
-                    "source":      "nasdaq",
+                    "ticker":       ticker,
+                    "split_date":   date,
+                    "ratio":        ratio,
+                    "ratio_str":    ratio_str,
+                    "status":       "executed" if offset <= 0 else "upcoming",
+                    "days_offset":  offset,
+                    "source":       "nasdaq",
+                    # Name/type fields passed through for stock-only filtering
+                    "companyName":  row.get("companyName") or row.get("name") or "",
+                    "securityName": row.get("securityName") or "",
+                    "assetType":    row.get("assetType") or "",
+                    "issueType":    row.get("issueType") or "",
                 })
         return out
 
