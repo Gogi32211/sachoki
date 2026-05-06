@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo } from 'react'
+import { useState, useRef, useMemo, useEffect } from 'react'
 import { createPortal } from 'react-dom'
 
 const BASE = import.meta.env.VITE_API_URL || ''
@@ -97,11 +97,12 @@ function defaultSort(rows) {
 // ── Constants ─────────────────────────────────────────────────────────────────
 
 const UNIVERSES = [
-  { key: 'sp500',     label: 'S&P 500'    },
-  { key: 'nasdaq',    label: 'NASDAQ'     },
-  { key: 'russell2k', label: 'Russell 2K' },
-  { key: 'all_us',    label: 'All US'     },
-  { key: 'split',     label: '✂️ SPLIT'   },
+  { key: 'sp500',      label: 'S&P 500'     },
+  { key: 'nasdaq',     label: 'NASDAQ'      },
+  { key: 'nasdaq_gt5', label: 'NASDAQ > $5' },
+  { key: 'russell2k',  label: 'Russell 2K'  },
+  { key: 'all_us',     label: 'All US'      },
+  { key: 'split',      label: '✂️ SPLIT'    },
 ]
 
 const NASDAQ_BATCHES = [
@@ -317,6 +318,15 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
   const [sortKey, setSortKey] = useState(null)
   const [sortDir, setSortDir] = useState(null)
 
+  // NASDAQ > $5 enforces min price = 5
+  useEffect(() => {
+    if (universe === 'nasdaq_gt5') {
+      if (minPrice === '' || parseFloat(minPrice) < 5) {
+        setMinPrice('5')
+      }
+    }
+  }, [universe])
+
   async function handleScan() {
     setLoading(true)
     setError(null)
@@ -325,7 +335,11 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
     try {
       const qs = new URLSearchParams({ universe, tf, role_filter: roleFilter })
       if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
-      if (minPrice)  qs.set('min_price', minPrice)
+      // nasdaq_gt5 always enforces min_price >= 5
+      const effectiveMinPrice = universe === 'nasdaq_gt5'
+        ? String(Math.max(5, parseFloat(minPrice) || 5))
+        : minPrice
+      if (effectiveMinPrice) qs.set('min_price', effectiveMinPrice)
       if (maxPrice)  qs.set('max_price', maxPrice)
       if (minVolume) qs.set('min_volume', minVolume)
       const data = await apiGet(`/api/tz-intelligence/scan?${qs}`)
@@ -418,9 +432,17 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Min $</label>
-          <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)}
-            placeholder="0" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700 w-20" />
+          <label className="text-xs text-gray-500">
+            Min ${universe === 'nasdaq_gt5' && <span className="text-amber-400 ml-1" title="NASDAQ > $5 requires min price 5 — analytics matrix built on price>$5 data">⚠ ≥5</span>}
+          </label>
+          <input type="number" value={minPrice}
+            onChange={e => {
+              const v = parseFloat(e.target.value)
+              if (universe === 'nasdaq_gt5' && !isNaN(v) && v < 5) return
+              setMinPrice(e.target.value)
+            }}
+            placeholder={universe === 'nasdaq_gt5' ? '5' : '0'}
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700 w-20" />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Max $</label>

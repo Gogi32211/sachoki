@@ -1978,8 +1978,12 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
         from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
         from scanner import get_universe_tickers
 
+        # nasdaq_gt5 loads NASDAQ tickers and enforces close >= 5 during generation
+        source_universe = "nasdaq" if universe == "nasdaq_gt5" else universe
+        gen_min_price   = 5.0     if universe == "nasdaq_gt5" else 0.0
+
         try:
-            tickers = get_universe_tickers(universe)
+            tickers = get_universe_tickers(source_universe)
         except Exception:
             try:
                 from scanner import get_tickers
@@ -1990,6 +1994,8 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
         if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
             tickers = _filter_nasdaq_batch(tickers, nasdaq_batch)
             log.info("nasdaq batch=%s: %d tickers after filter", nasdaq_batch, len(tickers))
+        if universe == "nasdaq_gt5":
+            log.info("nasdaq_gt5: %d NASDAQ tickers loaded; price >= 5 filter will apply", len(tickers))
 
         _tz_wlnbb_state["total"] = len(tickers)
 
@@ -2015,6 +2021,7 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
         out_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
         path, audit = generate_stock_stat(
             tickers, _fetch, universe=universe, tf=tf, bars=bars,
+            min_price=gen_min_price,
             output_path=out_path,
             progress_callback=_on_progress,
             early_stop_fn=_should_stop,
@@ -2175,6 +2182,9 @@ def api_tz_intelligence_scan(
     debug: bool = False,
 ):
     """Classify latest TZ/WLNBB bars using the Signal Intelligence matrix."""
+    # nasdaq_gt5 always enforces close >= 5
+    if universe == "nasdaq_gt5":
+        min_price = max(min_price, 5.0)
     try:
         from tz_intelligence.scanner import run_intelligence_scan
         return run_intelligence_scan(
