@@ -19,6 +19,7 @@ def run_intelligence_scan(
     tf: str = "1d",
     nasdaq_batch: str = "",
     min_price: float = 0,
+    # note: nasdaq_gt5 auto-enforces min_price >= 5 regardless of caller value
     max_price: float = 1e9,
     min_volume: float = 0,
     role_filter: str = "all",
@@ -29,6 +30,10 @@ def run_intelligence_scan(
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
     return sorted results.
     """
+    # nasdaq_gt5 enforces price >= 5 — cannot be overridden by caller
+    if universe == "nasdaq_gt5":
+        min_price = max(min_price, 5.0)
+
     stat_path = _stat_path(universe, tf, nasdaq_batch)
     if not os.path.exists(stat_path):
         stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
@@ -37,7 +42,11 @@ def run_intelligence_scan(
     if not os.path.exists(stat_path):
         return {
             "results": [],
-            "error": "No stock_stat_tz_wlnbb CSV found. Run TZ/WLNBB → Generate Stock Stat first.",
+            "error": (
+                f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
+                "Run TZ/WLNBB → Generate Stock Stat first."
+                + (" Use the NASDAQ > $5 universe option." if universe == "nasdaq_gt5" else "")
+            ),
         }
 
     matrix = load_matrix()

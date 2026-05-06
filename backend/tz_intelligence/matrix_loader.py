@@ -20,11 +20,12 @@ _UNIVERSE_ALIASES: Dict[str, str] = {
 
 # Map scan universe key → matrix universe keys that are allowed
 _ALLOWED_MATRIX_UNIVS: Dict[str, set] = {
-    "sp500":     {"SP500",      "GLOBAL"},
-    "nasdaq":    {"NASDAQ_GT5", "GLOBAL"},
-    "russell2k": {"SP500",      "GLOBAL"},   # best-effort; no dedicated RUSSELL rules
-    "all_us":    {"SP500", "NASDAQ_GT5", "GLOBAL"},
-    "split":     {"SP500", "NASDAQ_GT5", "GLOBAL"},
+    "sp500":      {"SP500",      "GLOBAL"},
+    "nasdaq":     {"NASDAQ_GT5", "GLOBAL"},
+    "nasdaq_gt5": {"NASDAQ_GT5", "GLOBAL"},  # explicit NASDAQ > $5 universe
+    "russell2k":  {"SP500",      "GLOBAL"},   # best-effort; no dedicated RUSSELL rules
+    "all_us":     {"SP500", "NASDAQ_GT5", "GLOBAL"},
+    "split":      {"SP500", "NASDAQ_GT5", "GLOBAL"},
 }
 
 

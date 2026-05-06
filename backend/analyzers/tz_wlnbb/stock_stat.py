@@ -174,6 +174,7 @@ def generate_stock_stat(
     output_path: Optional[str] = None,
     progress_callback: Optional[Callable[[int, int], None]] = None,
     early_stop_fn: Optional[Callable[[], bool]] = None,
+    min_price: float = 0,  # skip tickers whose latest close < min_price (e.g. 5 for nasdaq_gt5)
 ) -> Tuple[str, dict]:
     """Generate stock_stat CSV. Returns (output_path, audit_dict)."""
     if output_path is None:
@@ -211,6 +212,18 @@ def generate_stock_stat(
                     audit["tickers_skipped_no_data"] += 1
                     audit["skip_reasons"][ticker] = "no_data_or_too_short"
                     continue
+                # Price filter: skip tickers below min_price (e.g. nasdaq_gt5 requires >= 5)
+                if min_price > 0:
+                    try:
+                        latest_close = float(df["close"].iloc[-1])
+                        if latest_close < min_price:
+                            audit["tickers_skipped_no_data"] += 1
+                            audit["skip_reasons"][ticker] = (
+                                f"close_{latest_close:.2f}<min_price_{min_price}"
+                            )
+                            continue
+                    except (KeyError, IndexError, ValueError):
+                        pass  # close column unavailable — proceed, scanner will filter
                 audit["tickers_with_ohlcv"] += 1
                 audit["rows_before_signals"] += len(df)
 

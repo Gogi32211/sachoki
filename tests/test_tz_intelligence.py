@@ -951,3 +951,110 @@ def test_pullback_confirming_low_score_becomes_pullback_watch():
     from tz_intelligence.classifier import _normalize_role_score
     role, score = _normalize_role_score("PULLBACK_CONFIRMING", 45, [])
     assert role == "PULLBACK_WATCH", f"Expected PULLBACK_WATCH, got {role}"
+
+
+# ── nasdaq_gt5 universe tests ─────────────────────────────────────────────────
+
+def test_nasdaq_gt5_uses_nasdaq_gt5_matrix_rules():
+    """nasdaq_gt5 universe must use NASDAQ_GT5 matrix rules, not SP500."""
+    from tz_intelligence.matrix_loader import load_matrix
+    m = load_matrix()
+    allowed = m.allowed_univs("nasdaq_gt5")
+    assert "NASDAQ_GT5" in allowed, "nasdaq_gt5 must include NASDAQ_GT5 rules"
+    assert "GLOBAL" in allowed,     "nasdaq_gt5 must include GLOBAL rules"
+    assert "SP500" not in allowed,  "nasdaq_gt5 must NOT include SP500 rules"
+
+def test_nasdaq_gt5_does_not_include_sp500_rules():
+    """SP500-only rules must not apply to nasdaq_gt5 scans."""
+    from tz_intelligence.matrix_loader import load_matrix
+    m = load_matrix()
+    sp500_allowed   = m.allowed_univs("sp500")
+    nasdaq_gt5_allowed = m.allowed_univs("nasdaq_gt5")
+    assert "SP500" in sp500_allowed
+    assert "SP500" not in nasdaq_gt5_allowed
+
+def test_sp500_rules_unchanged_by_nasdaq_gt5_addition():
+    """SP500 allowed universe set must be exactly {SP500, GLOBAL} — unchanged."""
+    from tz_intelligence.matrix_loader import load_matrix
+    m = load_matrix()
+    assert m.allowed_univs("sp500") == {"SP500", "GLOBAL"}
+
+def test_nasdaq_gt5_stat_path():
+    """_stat_path for nasdaq_gt5 must produce the correct filename."""
+    from tz_intelligence.scanner import _stat_path
+    path = _stat_path("nasdaq_gt5", "1d")
+    assert path == "stock_stat_tz_wlnbb_nasdaq_gt5_1d.csv", f"Got: {path}"
+
+def test_nasdaq_gt5_stat_path_all_timeframes():
+    from tz_intelligence.scanner import _stat_path
+    for tf in ("1d", "4h", "1h", "1wk"):
+        path = _stat_path("nasdaq_gt5", tf)
+        assert f"nasdaq_gt5" in path
+        assert tf in path
+
+def test_sp500_stat_path_unchanged():
+    """SP500 stat path must not be affected by nasdaq_gt5 changes."""
+    from tz_intelligence.scanner import _stat_path
+    assert _stat_path("sp500", "1d") == "stock_stat_tz_wlnbb_sp500_1d.csv"
+    assert _stat_path("sp500", "4h") == "stock_stat_tz_wlnbb_sp500_4h.csv"
+
+def test_classify_nasdaq_gt5_uses_nasdaq_gt5_rules():
+    """Classifying with scan_universe=nasdaq_gt5 must match NASDAQ_GT5+GLOBAL rules."""
+    m = load_matrix()
+    row = _row(t="T5", lane1="T5L46NB", close=25,
+               ema20=22, ema50=20, ema89=18, high=26, low=23)
+    result = classify_tz_event(row, [], m, scan_universe="nasdaq_gt5")
+    # SP500 rules must not appear in matched_universe
+    mu = result.get("matched_universe", "")
+    assert mu != "SP500", f"nasdaq_gt5 scan must not match SP500 rule, got universe={mu}"
+
+def test_classify_sp500_unchanged_after_nasdaq_gt5():
+    """SP500 classification must be identical before/after adding nasdaq_gt5."""
+    m = load_matrix()
+    row = _row(t="T5", lane1="T5L46NB", close=80,
+               ema20=75, ema50=70, ema89=65, high=82, low=76)
+    sp500_result = classify_tz_event(row, [], m, scan_universe="sp500")
+    # Must use SP500 or GLOBAL rules
+    mu = sp500_result.get("matched_universe", "")
+    assert mu != "NASDAQ_GT5", f"SP500 scan must not match NASDAQ_GT5 rules, got {mu}"
+    # Role must be a valid role
+    assert sp500_result["role"] in _ALL_VALID_ROLES
+
+def test_generate_stock_stat_min_price_param_exists():
+    """generate_stock_stat must accept min_price parameter."""
+    import inspect
+    from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+    sig = inspect.signature(generate_stock_stat)
+    assert "min_price" in sig.parameters, "generate_stock_stat must have min_price parameter"
+    assert sig.parameters["min_price"].default == 0
+
+def test_generate_stock_stat_skips_below_min_price():
+    """generate_stock_stat with min_price=5 must skip tickers with close < 5."""
+    import pandas as pd
+    from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+    import tempfile, os
+
+    calls = []
+    def mock_fetch(ticker, interval, bars):
+        price = 3.0 if ticker == "PENNY" else 25.0
+        calls.append((ticker, price))
+        dates = pd.date_range("2024-01-01", periods=10, freq="B")
+        return pd.DataFrame({
+            "open": price, "high": price + 0.5, "low": price - 0.5,
+            "close": price, "volume": 1_000_000,
+        }, index=dates)
+
+    with tempfile.TemporaryDirectory() as tmpdir:
+        out = os.path.join(tmpdir, "test_stat.csv")
+        path, audit = generate_stock_stat(
+            ["PENNY", "VALID"], mock_fetch,
+            universe="nasdaq_gt5", tf="1d", bars=10,
+            output_path=out, min_price=5.0,
+        )
+        assert "PENNY" in audit.get("skip_reasons", {}), \
+            "PENNY (close=3) must be skipped when min_price=5"
+        import csv
+        with open(path, newline="") as f:
+            rows = list(csv.DictReader(f))
+        tickers_in_csv = {r.get("ticker") for r in rows}
+        assert "PENNY" not in tickers_in_csv, "close<5 ticker must not appear in output CSV"

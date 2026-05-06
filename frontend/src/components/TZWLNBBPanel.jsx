@@ -17,11 +17,12 @@ async function apiPost(path, params = {}) {
 }
 
 const UNIVERSES = [
-  { key: 'sp500',     label: 'S&P 500'   },
-  { key: 'nasdaq',    label: 'NASDAQ'    },
-  { key: 'russell2k', label: 'Russell 2K'},
-  { key: 'all_us',    label: 'All US'    },
-  { key: 'split',     label: '✂️ SPLIT'  },
+  { key: 'sp500',      label: 'S&P 500'    },
+  { key: 'nasdaq',     label: 'NASDAQ'     },
+  { key: 'nasdaq_gt5', label: 'NASDAQ > $5'},
+  { key: 'russell2k',  label: 'Russell 2K' },
+  { key: 'all_us',     label: 'All US'     },
+  { key: 'split',      label: '✂️ SPLIT'   },
 ]
 
 const NASDAQ_BATCHES = [
