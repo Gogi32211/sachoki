@@ -14,6 +14,8 @@ WORKDIR /app
 
 COPY backend/requirements.txt backend/*.py ./
 COPY backend/analyzers/ ./analyzers/
+COPY backend/tz_intelligence/ ./tz_intelligence/
+COPY tz_intelligence_package/ ./tz_intelligence_package/
 RUN pip install --no-cache-dir -r requirements.txt
 
 # Copy built React app into ./static (served by FastAPI StaticFiles)
