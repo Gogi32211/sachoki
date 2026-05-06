@@ -1,6 +1,24 @@
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL || ''
+
+function exportCSV(results) {
+  const cols = ['ticker','date','close','final_signal','composite_pattern','seq4','role','score','quality','action','vol_bucket','wick_suffix','above_ema20','above_ema50','above_ema89','explanation']
+  const lines = [cols.join(',')]
+  for (const r of results) {
+    lines.push(cols.map(c => {
+      const v = r[c] ?? ''
+      return String(v).includes(',') ? `"${v}"` : v
+    }).join(','))
+  }
+  const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `tz_intelligence_${new Date().toISOString().slice(0,10)}.csv`
+  a.click()
+  URL.revokeObjectURL(url)
+}
 
 async function apiGet(path) {
   const res = await fetch(BASE + path)
@@ -257,8 +275,16 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
       {/* Results count */}
       {results.length > 0 && (
-        <div className="text-xs text-gray-500">
-          Showing {results.length} of {total} classified tickers
+        <div className="flex items-center gap-3">
+          <span className="text-xs text-gray-500">
+            Showing {results.length} of {total} classified tickers
+          </span>
+          <button
+            onClick={() => exportCSV(results)}
+            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 transition-colors"
+          >
+            ⬇ CSV
+          </button>
         </div>
       )}
 
