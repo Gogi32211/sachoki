@@ -534,3 +534,209 @@ def test_z_pullback_score_capped_at_75():
     if result["role"] in ("PULLBACK_READY_A", "PULLBACK_READY_B"):
         assert result["score"] <= 75, \
             f"Z pullback READY score should be capped at 75, got {result['score']}"
+
+
+# ── Issue 1: General BULL_A gate ──────────────────────────────────────────────
+
+def test_bull_a_gate_deep_range_below_all_emas():
+    """T5 with strong composite but price_pos < 0.25 + below all EMAs must not be BULL_A."""
+    m = load_matrix()
+    row = _row(t="T5", lane1="T5L46NB", close=30,
+               ema20=60, ema50=55, ema89=50, high=32, low=28)
+    hist = [
+        _row(t="T5", close=35, high=40, low=28),
+        _row(t="T5", close=33, high=38, low=29),
+        _row(t="T5", close=31, high=36, low=29),
+    ]
+    result = classify_tz_event(row, hist, m)
+    assert result["role"] != "BULL_A", \
+        f"Should not be BULL_A when deep below all EMAs (price_pos={result['price_position_4bar']:.2f})"
+    assert result["role"] in ("BULL_WATCH", "BULL_B", "NO_EDGE", "MIXED_WATCH",
+                               "PULLBACK_WATCH", "DEEP_PULLBACK_WATCH")
+
+def test_bull_a_gate_requires_ema_support():
+    """BULL_A requires at least one EMA above or reclaiming."""
+    m = load_matrix()
+    row = _row(t="T4", lane1="T4L12NP", close=50,
+               ema20=60, ema50=55, ema89=50,   # below all EMAs
+               high=52, low=48)
+    result = classify_tz_event(row, [], m)
+    assert result["role"] != "BULL_A"
+
+def test_bull_a_gate_requires_price_position():
+    """BULL_A requires price_pos >= 0.50."""
+    m = load_matrix()
+    # price_pos = (close - low) / (high - low) = (45 - 40) / (60 - 40) = 0.25 → < 0.50
+    row = _row(t="T4", lane1="T4L12NP", close=45,
+               ema20=42, ema50=40, ema89=38,   # all EMAs below close (EMA support exists)
+               high=60, low=40)
+    hist = [
+        _row(t="T4", close=43, high=60, low=40),
+        _row(t="T4", close=44, high=60, low=40),
+        _row(t="T4", close=45, high=60, low=40),
+    ]
+    result = classify_tz_event(row, hist, m)
+    # price_pos ~ 0.25 (close=45 in [40..60]) → should be BULL_B at most
+    assert result["role"] != "BULL_A", \
+        f"BULL_A with price_pos ~0.25 — got role={result['role']}, price_pos={result['price_position_4bar']:.2f}"
+
+def test_bull_a_gate_not_triggered_with_good_price_and_ema():
+    """When price_pos >= 0.50 and EMA support exists, the BULL_A gate must not fire."""
+    m = load_matrix()
+    # price_pos = (58 - 40) / (60 - 40) = 0.90 → well above 0.50; all EMAs below close
+    row = _row(t="T4", lane1="T4L12NP", close=58,
+               ema20=50, ema50=48, ema89=45,
+               high=60, low=40)
+    hist = [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(t="T4", close=50, high=55, low=43),
+        _row(t="T4", close=53, high=58, low=47),
+    ]
+    result = classify_tz_event(row, hist, m)
+    # The BULL_A gate itself must NOT have fired (different from conflict override)
+    gate_fired = any(
+        c in ("BULL_A→BULL_WATCH:deep_range+no_ema_support",
+              "BULL_A→BULL_B:insufficient_price_or_ema_confirmation")
+        for c in result["reason_codes"]
+    )
+    assert not gate_fired, \
+        f"BULL_A gate should not fire with price_pos=0.90 and above all EMAs: {result['reason_codes']}"
+
+
+# ── Issue 2: PULLBACK_GO strictness ──────────────────────────────────────────
+
+def test_pullback_go_not_assigned_without_prior_pullback_z():
+    """T signal without prior pullback Z in history must not become PULLBACK_GO."""
+    m = load_matrix()
+    # All history bars are T signals, no Z → no pullback setup
+    hist = [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(t="T4", close=50, high=55, low=43),
+        _row(t="T4", close=53, high=58, low=47),
+    ]
+    # Current bar: T4, top of range, good EMA — but no prior Z
+    curr = _row(t="T4", lane1="T4L12NP", close=58,
+                ema20=50, ema50=48, ema89=45, high=60, low=40,
+                ticker="X", date="2025-02-01")
+    result = classify_tz_event(curr, hist, m)
+    assert result["role"] != "PULLBACK_GO", \
+        f"PULLBACK_GO without prior pullback Z should not be assigned, got {result['role']}"
+
+def test_weak_t_cannot_be_pullback_go():
+    """T1/T2/T9/T10 cannot become PULLBACK_GO even with recent pullback Z."""
+    m = load_matrix()
+    hist = [
+        _row(z="Z5", close=42, high=50, low=40),
+        _row(z="Z5", close=48, high=52, low=42),
+        _row(z="Z5", close=50, high=54, low=44),
+    ]
+    curr = _row(t="T1", close=56, high=58, low=52,   # T1 = weak signal
+                ema20=50, ema50=48, ema89=45,
+                ticker="X", date="2025-02-01")
+    result = classify_tz_event(curr, hist, m)
+    assert result["role"] != "PULLBACK_GO", \
+        f"Weak T signal (T1) should not be PULLBACK_GO, got {result['role']}"
+
+def test_pullback_go_not_from_non_pullback_z():
+    """Only _PULLBACK_Z_SIGNALS (Z3/Z4/Z5/Z6/Z9) trigger PULLBACK_GO, not all Z."""
+    m = load_matrix()
+    # Z1 is NOT in _PULLBACK_Z_SIGNALS
+    hist = [
+        _row(z="Z1", close=42, high=50, low=40),
+        _row(z="Z1", close=48, high=52, low=42),
+        _row(z="Z1", close=50, high=54, low=44),
+    ]
+    curr = _row(t="T4", close=56, high=58, low=52,
+                ema20=50, ema50=48, ema89=45,
+                ticker="X", date="2025-02-01")
+    result = classify_tz_event(curr, hist, m)
+    assert result["role"] != "PULLBACK_GO", \
+        f"Non-pullback Z (Z1) should not trigger PULLBACK_GO, got {result['role']}"
+
+
+# ── Issue 3: Quality from score ───────────────────────────────────────────────
+
+def test_negative_score_never_quality_b():
+    """Any role with score < 0 must have quality Watch or Reject, never B."""
+    from tz_intelligence.classifier import _quality_from_score
+    for role in ("PULLBACK_READY_B", "PULLBACK_WATCH", "BULL_B", "BULL_WATCH"):
+        q = _quality_from_score(role, -5, False, 0.5, False)
+        assert q in ("Watch", "Reject", "—"), \
+            f"Score -5, role {role} → quality should not be B, got {q}"
+
+def test_quality_a_requires_score_80():
+    """Quality A requires score >= 80."""
+    from tz_intelligence.classifier import _quality_from_score
+    assert _quality_from_score("BULL_A", 79, False, 0.8, False) == "B"
+    assert _quality_from_score("BULL_A", 80, False, 0.8, False) == "A"
+
+def test_quality_b_requires_score_60():
+    """Quality B requires score 60–79."""
+    from tz_intelligence.classifier import _quality_from_score
+    assert _quality_from_score("BULL_B", 59, False, 0.8, False) == "Watch"
+    assert _quality_from_score("BULL_B", 60, False, 0.8, False) == "B"
+
+def test_quality_capped_watch_when_below_all_emas_deep():
+    """below_all_emas=True + price_pos < 0.25 caps quality A to Watch."""
+    from tz_intelligence.classifier import _quality_from_score
+    # Score 90 would normally be A, but deep+below-all-EMAs → Watch
+    q = _quality_from_score("BULL_A", 90, below_all_emas=True, price_pos=0.1, conflict=False)
+    assert q == "Watch"
+
+def test_quality_capped_b_when_conflict():
+    """conflict=True caps quality A to B."""
+    from tz_intelligence.classifier import _quality_from_score
+    q = _quality_from_score("BULL_A", 90, below_all_emas=False, price_pos=0.8, conflict=True)
+    assert q == "B"
+
+def test_deep_pullback_watch_score_capped_and_quality_watch():
+    """DEEP_PULLBACK_WATCH with score -5 → quality Watch, score <= 35."""
+    m = load_matrix()
+    row = _row(z="Z6", close=30, ema20=60, ema50=55, ema89=50, high=32, low=28)
+    hist = [
+        _row(z="Z6", close=35, high=40, low=28),
+        _row(z="Z6", close=33, high=38, low=29),
+        _row(z="Z6", close=31, high=36, low=29),
+    ]
+    result = classify_tz_event(row, hist, m)
+    if result["role"] == "DEEP_PULLBACK_WATCH":
+        assert result["quality"] == "Watch"
+        assert result["score"] <= 35
+
+
+# ── Issue 4: SHORT_WATCH with pos comp + reject seq4 + above EMA50 ────────────
+
+def test_pos_comp_neg_seq4_above_ema50_not_short_watch():
+    """Positive composite + reject seq4 + above_ema50=True must not be SHORT_WATCH."""
+    m = load_matrix()
+    # Simulate U-like case: T5 composite (positive), seq4 has reject, above all EMAs
+    row = _row(t="T5", lane1="T5L46ND", close=58,
+               ema20=50, ema50=48, ema89=45, high=60, low=40)
+    hist = [
+        _row(t="T5", close=42, high=50, low=40),
+        _row(t="T5", close=50, high=55, low=43),
+        _row(z="Z3", close=54, high=58, low=48),
+    ]
+    result = classify_tz_event(row, hist, m)
+    # above_ema50 = True (close=58 > ema50=48), so should not be SHORT_WATCH
+    if result["above_ema50"]:
+        assert result["role"] != "SHORT_WATCH" or (
+            result["price_position_4bar"] < 0.35 or result["breaks_4bar_low"]
+        ), f"SHORT_WATCH with above_ema50 and no bearish confirmation: {result['reason_codes']}"
+
+def test_pos_comp_neg_seq4_price_50pct_not_short_watch():
+    """Positive composite + reject seq4 + price_pos >= 0.50 must not be SHORT_WATCH."""
+    m = load_matrix()
+    # price_pos = (55 - 40) / (60 - 40) = 0.75 → >= 0.50
+    row = _row(t="T4", lane1="T4L12NP", close=55,
+               ema20=60, ema50=65, ema89=70,  # below all EMAs
+               high=60, low=40)
+    hist = [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(z="Z3", close=50, high=55, low=43),
+        _row(z="Z3", close=52, high=58, low=47),
+    ]
+    result = classify_tz_event(row, hist, m)
+    if result["price_position_4bar"] >= 0.50 and bool(result.get("good_flags")):
+        assert result["role"] != "SHORT_WATCH", \
+            f"price_pos >= 0.50 with positive composite → not SHORT_WATCH, got {result['role']}"
