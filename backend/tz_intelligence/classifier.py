@@ -26,6 +26,7 @@ _ROLE_RANK = {
     "PULLBACK_WATCH":       4,
     "PULLBACK_READY_B":     5,
     "PULLBACK_READY_A":     6,
+    "PULLBACK_CONFIRMING":  6,   # T after prior Z but pullback high not yet broken
     "PULLBACK_GO":          7,
     "BULL_B":               7,
     "BULL_A":               8,
@@ -37,6 +38,7 @@ _ROLE_ACTION = {
     "BULL_A":               "BUY_TRIGGER",
     "BULL_B":               "WATCH_BULL_TRIGGER",
     "PULLBACK_GO":          "PULLBACK_ENTRY_READY",
+    "PULLBACK_CONFIRMING":  "WAIT_FOR_PULLBACK_HIGH_BREAK",
     "PULLBACK_READY_A":     "WAIT_FOR_T_CONFIRMATION",
     "PULLBACK_READY_B":     "WAIT_FOR_T_CONFIRMATION",
     "PULLBACK_WATCH":       "WATCH_PULLBACK",
@@ -70,8 +72,9 @@ _A_TO_WATCH = {
     "PULLBACK_READY_A": "PULLBACK_WATCH",
 }
 _B_TO_WATCH = {
-    "BULL_B":          "BULL_WATCH",
-    "PULLBACK_READY_B": "PULLBACK_WATCH",
+    "BULL_B":              "BULL_WATCH",
+    "PULLBACK_READY_B":    "PULLBACK_WATCH",
+    "PULLBACK_CONFIRMING": "PULLBACK_WATCH",  # early confirmation is B-tier only
 }
 
 
@@ -428,6 +431,16 @@ def classify_tz_event(
             best_role = "DEEP_PULLBACK_WATCH"
             reason_codes.append("PULLBACK_READY_B→DEEP_PULLBACK_WATCH:deep_range+no_ema")
 
+    # ── BULL_B gate: below all EMAs + deep range → BULL_WATCH + score cap 35 ──
+    # Explicit gate (belt-and-suspenders alongside the late hard cap).
+    if (best_role == "BULL_B" and
+            not above_ema20 and not above_ema50 and not above_ema89 and
+            price_position_4bar < 0.25):
+        best_role = "BULL_WATCH"
+        if total_score > 35:
+            total_score = 35
+        reason_codes.append("BULL_B→BULL_WATCH:below_all_emas+deep_range+score_cap_35")
+
     # ── Score penalties for weak pullback context ─────────────────────────────
     if best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B",
                      "PULLBACK_WATCH", "DEEP_PULLBACK_WATCH"):
@@ -476,19 +489,30 @@ def classify_tz_event(
 
     current_close_above_pb_high = (close > pullback_bar_high) if pullback_bar_high else False
 
-    # ── PULLBACK_GO — T confirmation after recent Z pullback ──────────────────
+    # ── PULLBACK_GO / PULLBACK_CONFIRMING — T after recent Z pullback ───────────
+    # Strict PULLBACK_GO requires: prior pullback found + good T + no reject +
+    # high actually broken (close > pullback_high OR breaks_4bar_high).
+    # If high not yet broken → PULLBACK_CONFIRMING (B-tier, wait for break).
     if t_sig and not z_sig and t_sig not in _WEAK_T_SIGNALS:
-        top_range  = price_position_4bar >= 0.75 or breaks_4bar_high
         no_reject  = not bool(reject_flags) and not has_conflict
-        if (prior_pb_found and top_range and no_reject and
-                best_role in ("BULL_A", "BULL_B", "PULLBACK_READY_A", "PULLBACK_READY_B")):
-            go_bonus = 15
-            total_score += go_bonus
-            best_role = "PULLBACK_GO"
-            reason_codes.append(
-                f"PULLBACK_GO:T_after_{prior_pb_signal}_{prior_pb_bars_ago}bars_ago"
-                f"+top_range:+{go_bonus}"
-            )
+        high_break = current_close_above_pb_high or breaks_4bar_high
+        eligible   = best_role in ("BULL_A", "BULL_B", "PULLBACK_READY_A", "PULLBACK_READY_B")
+        if prior_pb_found and no_reject and eligible:
+            if high_break:
+                go_bonus = 15
+                total_score += go_bonus
+                best_role = "PULLBACK_GO"
+                reason_codes.append(
+                    f"PULLBACK_GO:T_after_{prior_pb_signal}_{prior_pb_bars_ago}bars_ago"
+                    f"+high_break:+{go_bonus}"
+                )
+            else:
+                # Prior pullback exists and T trigger is good but high not yet reclaimed
+                best_role = "PULLBACK_CONFIRMING"
+                reason_codes.append(
+                    f"PULLBACK_CONFIRMING:T_after_{prior_pb_signal}_{prior_pb_bars_ago}bars_ago"
+                    f"+no_high_break"
+                )
 
     # ── SHORT_WATCH strictness ────────────────────────────────────────────────
     if best_role == "SHORT_WATCH":
@@ -535,7 +559,8 @@ def classify_tz_event(
         if best_role in ("BULL_A", "BULL_B"):
             best_role = "BULL_WATCH"
             reason_codes.append("CONFLICT_OVERRIDE:role→BULL_WATCH")
-        elif best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B", "PULLBACK_GO"):
+        elif best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B",
+                           "PULLBACK_GO", "PULLBACK_CONFIRMING"):
             best_role = "MIXED_WATCH"
             reason_codes.append("CONFLICT_OVERRIDE:role→MIXED_WATCH")
         elif best_role == "SHORT_WATCH":

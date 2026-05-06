@@ -361,7 +361,7 @@ def test_quality_and_action_valid():
     assert any("VOL:VB" in c for c in result["reason_codes"])
 
 _ALL_VALID_ROLES = {
-    "BULL_A", "BULL_B", "PULLBACK_GO",
+    "BULL_A", "BULL_B", "PULLBACK_GO", "PULLBACK_CONFIRMING",
     "PULLBACK_READY_A", "PULLBACK_READY_B", "PULLBACK_WATCH", "DEEP_PULLBACK_WATCH",
     "BULL_WATCH", "MIXED_WATCH",
     "SHORT_WATCH", "SHORT_GO",
@@ -846,3 +846,108 @@ def test_no_bull_b_with_quality_a():
                 f"BULL_B must not have quality A (score={result['score']}, reasons={result['reason_codes']})"
             assert result["score"] <= 79, \
                 f"BULL_B score must be <=79, got {result['score']}"
+
+
+# ── v7: PULLBACK_CONFIRMING and BULL_B below-EMA gate ────────────────────────
+
+def _pb_history_with_z5():
+    """History rows with a pullback Z signal 1 bar ago, above EMA."""
+    return [
+        _row(t="T4", close=42, high=50, low=40),
+        _row(t="T4", close=44, high=52, low=42),
+        _row(z="Z5", close=50, high=55, low=48, ema20=48, ema50=46, ema89=44),
+    ]
+
+
+def test_pullback_confirming_when_no_high_break():
+    """Prior pullback + good T + no high break → PULLBACK_CONFIRMING, not PULLBACK_GO."""
+    m = load_matrix()
+    hist = _pb_history_with_z5()
+    # pullback_high from history Z5 bar = 55; current close = 53 (below 55)
+    curr = _row(t="T5", lane1="T5L46NB", close=53,
+                ema20=50, ema50=48, ema89=45, high=54, low=50,
+                ticker="CONF_TEST", date="2025-04-01")
+    result = classify_tz_event(curr, hist, m)
+    if result["prior_pullback_ready_found"]:
+        assert result["current_close_above_pullback_high"] is False or result["breaks_4bar_high"] is False
+        # Without high break, role must not be PULLBACK_GO
+        if not result["current_close_above_pullback_high"] and not result["breaks_4bar_high"]:
+            assert result["role"] != "PULLBACK_GO", \
+                f"No high break but got PULLBACK_GO (close={result.get('close')}, " \
+                f"pullback_high={result.get('pullback_high')})"
+            if result["role"] == "PULLBACK_CONFIRMING":
+                assert result["action"] == "WAIT_FOR_PULLBACK_HIGH_BREAK"
+                assert result["quality"] in ("B", "Watch"), \
+                    f"PULLBACK_CONFIRMING must be max B quality, got {result['quality']}"
+                assert result["score"] <= 79, \
+                    f"PULLBACK_CONFIRMING score must be <=79, got {result['score']}"
+
+
+def test_pullback_go_requires_high_break():
+    """Prior pullback + good T + close above pullback_high → PULLBACK_GO."""
+    m = load_matrix()
+    hist = _pb_history_with_z5()
+    # pullback_high from Z5 bar = 55; current close = 60 (above 55) → high_break
+    curr = _row(t="T5", lane1="T5L46NB", close=60,
+                ema20=50, ema50=48, ema89=45, high=62, low=55,
+                ticker="PGO_TEST", date="2025-04-01")
+    result = classify_tz_event(curr, hist, m)
+    if result["role"] == "PULLBACK_GO":
+        assert result["prior_pullback_ready_found"] is True
+        assert (result["current_close_above_pullback_high"] is True or
+                result["breaks_4bar_high"] is True), \
+            "PULLBACK_GO must have high_break (close>pullback_high OR breaks_4bar_high)"
+
+
+def test_pullback_go_via_breaks_4bar_high():
+    """Prior pullback + good T + breaks_4bar_high → PULLBACK_GO."""
+    m = load_matrix()
+    hist = _pb_history_with_z5()
+    # hist highs: 50, 52, 55 → range_high = 55
+    # curr_h = 58 > 55 → breaks_4bar_high = True
+    curr = _row(t="T5", lane1="T5L46NB", close=57,
+                ema20=50, ema50=48, ema89=45, high=58, low=50,
+                ticker="PGO_BREAK", date="2025-04-01")
+    result = classify_tz_event(curr, hist, m)
+    if result["role"] == "PULLBACK_GO":
+        assert result["prior_pullback_ready_found"] is True
+        assert result["breaks_4bar_high"] is True or result["current_close_above_pullback_high"] is True
+
+
+def test_bull_b_below_all_emas_deep_range_becomes_bull_watch():
+    """BULL_B with below all EMAs + price_pos < 0.25 must become BULL_WATCH, score <= 35."""
+    m = load_matrix()
+    # close=42 far below all EMAs; 4-bar range 40-60 → price_pos=(42-40)/20=0.10
+    row = _row(t="T5", lane1="T5L46NB", close=42,
+               ema20=80, ema50=75, ema89=70,  # far above close → below all EMAs
+               high=44, low=40,
+               ticker="AEE_LIKE", date="2025-05-01")
+    hist = [
+        _row(t="T4", close=55, high=60, low=50),
+        _row(t="T4", close=53, high=58, low=48),
+        _row(t="T4", close=51, high=56, low=46),
+    ]
+    result = classify_tz_event(row, hist, m)
+    assert result["above_ema20"] is False
+    assert result["above_ema50"] is False
+    assert result["above_ema89"] is False
+    assert result["price_position_4bar"] < 0.25, \
+        f"Expected price_pos < 0.25, got {result['price_position_4bar']}"
+    assert result["role"] not in ("BULL_B", "BULL_A"), \
+        f"BULL_B/BULL_A must not appear below all EMAs in deep range, got {result['role']}"
+    if result["role"] == "BULL_WATCH":
+        assert result["score"] <= 35, \
+            f"BULL_WATCH (from deep below-EMA) score must be <=35, got {result['score']}"
+
+
+def test_pullback_confirming_quality_max_b():
+    """PULLBACK_CONFIRMING must never produce quality A."""
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("PULLBACK_CONFIRMING", 90, [])
+    assert role == "PULLBACK_CONFIRMING"
+    assert score == 79, f"PULLBACK_CONFIRMING score must be capped at 79, got {score}"
+
+def test_pullback_confirming_low_score_becomes_pullback_watch():
+    from tz_intelligence.classifier import _normalize_role_score
+    role, score = _normalize_role_score("PULLBACK_CONFIRMING", 45, [])
+    assert role == "PULLBACK_WATCH", f"Expected PULLBACK_WATCH, got {role}"

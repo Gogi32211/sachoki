@@ -56,11 +56,11 @@ async function apiGet(path) {
 
 const ROLE_SORT_ORDER = {
   BULL_A: 1, BULL_B: 2, PULLBACK_GO: 3,
-  PULLBACK_READY_A: 4, PULLBACK_READY_B: 5,
-  DEEP_PULLBACK_WATCH: 6, PULLBACK_WATCH: 7,
-  MIXED_WATCH: 8, BULL_WATCH: 9,
-  SHORT_WATCH: 10, SHORT_GO: 11,
-  REJECT_LONG: 12, REJECT: 13, NO_EDGE: 14,
+  PULLBACK_READY_A: 4, PULLBACK_CONFIRMING: 5, PULLBACK_READY_B: 6,
+  DEEP_PULLBACK_WATCH: 7, PULLBACK_WATCH: 8,
+  MIXED_WATCH: 9, BULL_WATCH: 10,
+  SHORT_WATCH: 11, SHORT_GO: 12,
+  REJECT_LONG: 13, REJECT: 14, NO_EDGE: 15,
 }
 const QUALITY_SORT_ORDER = { A: 1, B: 2, Watch: 3, Reject: 4, '—': 5 }
 const RULE_TYPE_SHORT = {
@@ -116,6 +116,7 @@ const ROLES = [
   { key: 'BULL_A',             label: '🟢 BULL A'         },
   { key: 'BULL_B',             label: '🟩 BULL B'         },
   { key: 'PULLBACK_GO',        label: '🚀 PB GO'          },
+  { key: 'PULLBACK_CONFIRMING',label: '⏳ PB Confirming'  },
   { key: 'PULLBACK_READY_A',   label: '🔵 PB Ready A'     },
   { key: 'PULLBACK_READY_B',   label: '🔵 PB Ready B'     },
   { key: 'PULLBACK_WATCH',     label: '🔷 PB Watch'       },
@@ -132,6 +133,7 @@ const ROLE_COLORS = {
   BULL_A:               'bg-green-800/60 text-green-200 border-green-600/50',
   BULL_B:               'bg-green-900/50 text-green-300 border-green-700/40',
   PULLBACK_GO:          'bg-indigo-700/60 text-indigo-100 border-indigo-500/60',
+  PULLBACK_CONFIRMING:  'bg-indigo-900/50 text-indigo-300 border-indigo-700/40',
   PULLBACK_READY_A:     'bg-blue-800/60 text-blue-200 border-blue-600/50',
   PULLBACK_READY_B:     'bg-blue-900/50 text-blue-300 border-blue-700/40',
   PULLBACK_WATCH:       'bg-cyan-900/50 text-cyan-300 border-cyan-700/40',
