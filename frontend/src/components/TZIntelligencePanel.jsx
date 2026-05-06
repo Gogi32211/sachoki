@@ -2,13 +2,32 @@ import { useState } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
+const CSV_COLS = [
+  'ticker','date','close','volume',
+  'final_signal','composite_pattern','seq4','lane1','lane3',
+  'role','score','quality','action',
+  'vol_bucket','wick_suffix',
+  'above_ema20','above_ema50','above_ema89',
+  'ema20_reclaim','ema50_reclaim','ema89_reclaim',
+  'conflict_flag','conflict_resolution','conflicting_rule_ids',
+  'good_flags','reject_flags',
+  'price_position_4bar','breaks_4bar_high','breaks_4bar_low',
+  'final_volume_vs_prev1','final_volume_vs_prev2','final_volume_vs_prev3',
+  'matched_rule_id','matched_rule_type','matched_universe','matched_status',
+  'matched_med10d_pct','matched_fail10d_pct','matched_avg10d_pct',
+  'matched_source_file','matched_rule_notes',
+  'matched_composite_rule_id','matched_seq4_rule_id','matched_reject_rule_id',
+  'explanation',
+]
+
 function exportCSV(results) {
-  const cols = ['ticker','date','close','final_signal','composite_pattern','seq4','role','score','quality','action','vol_bucket','wick_suffix','above_ema20','above_ema50','above_ema89','explanation']
-  const lines = [cols.join(',')]
+  const lines = [CSV_COLS.join(',')]
   for (const r of results) {
-    lines.push(cols.map(c => {
-      const v = r[c] ?? ''
-      return String(v).includes(',') ? `"${v}"` : v
+    lines.push(CSV_COLS.map(c => {
+      let v = r[c] ?? ''
+      if (Array.isArray(v)) v = v.join(';')
+      v = String(v)
+      return v.includes(',') || v.includes('"') || v.includes('\n') ? `"${v.replace(/"/g,'""')}"` : v
     }).join(','))
   }
   const blob = new Blob([lines.join('\n')], { type: 'text/csv' })
@@ -326,8 +345,20 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                     </span>
                   </td>
                   <td className="p-1 text-gray-400 font-mono text-xs">{row.composite_pattern || '—'}</td>
-                  <td className="p-1 text-gray-500 font-mono text-xs" title={row.seq4}>
-                    {row.seq4 ? row.seq4.split('|').slice(-2).join('|') : '—'}
+                  <td className="p-1 font-mono text-xs" title={row.seq4 || ''}>
+                    {row.seq4
+                      ? row.seq4.split('|').map((s, idx, arr) => (
+                          <span key={idx}>
+                            <span className={
+                              idx === arr.length - 1
+                                ? (s.startsWith('T') ? 'text-blue-300' : s.startsWith('Z') ? 'text-red-300' : 'text-yellow-300')
+                                : 'text-gray-600'
+                            }>{s}</span>
+                            {idx < arr.length - 1 && <span className="text-gray-700">|</span>}
+                          </span>
+                        ))
+                      : <span className="text-gray-700">—</span>
+                    }
                   </td>
                   <td className="p-1"><RoleBadge role={row.role} /></td>
                   <td className="p-1"><ScoreBar score={row.score || 0} /></td>

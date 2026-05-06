@@ -2172,6 +2172,7 @@ def api_tz_intelligence_scan(
     min_volume: float = 0,
     role_filter: str = "all",
     limit: int = 500,
+    debug: bool = False,
 ):
     """Classify latest TZ/WLNBB bars using the Signal Intelligence matrix."""
     try:
@@ -2185,6 +2186,7 @@ def api_tz_intelligence_scan(
             min_volume=min_volume,
             role_filter=role_filter,
             limit=limit,
+            debug=debug,
         )
     except Exception as exc:
         log.exception("tz-intelligence scan error")
