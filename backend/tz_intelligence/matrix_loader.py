@@ -5,11 +5,22 @@ import os
 from functools import lru_cache
 from typing import Dict, List
 
-_CSV_PATH = os.path.join(
-    os.path.dirname(__file__), "..", "..",
-    "tz_intelligence_package",
-    "TZ_SIGNAL_INTELLIGENCE_master_matrix_seed.csv",
-)
+def _find_csv() -> str:
+    """Locate the matrix CSV in Docker (/app/...) or local dev (repo root)."""
+    base = os.path.dirname(__file__)
+    candidates = [
+        os.path.join(base, "..", "tz_intelligence_package",
+                     "TZ_SIGNAL_INTELLIGENCE_master_matrix_seed.csv"),
+        os.path.join(base, "..", "..", "tz_intelligence_package",
+                     "TZ_SIGNAL_INTELLIGENCE_master_matrix_seed.csv"),
+    ]
+    for p in candidates:
+        p = os.path.normpath(p)
+        if os.path.exists(p):
+            return p
+    return os.path.normpath(candidates[0])
+
+_CSV_PATH = _find_csv()
 
 
 @lru_cache(maxsize=1)
