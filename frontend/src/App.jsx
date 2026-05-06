@@ -16,6 +16,7 @@ import SuperchartPanel from './components/SuperchartPanel'
 import SectorAnalysisPanel from './components/SectorAnalysisPanel'
 import ReplayPanel from './components/ReplayPanel'
 import TZWLNBBPanel from './components/TZWLNBBPanel'
+import TZIntelligencePanel from './components/TZIntelligencePanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -40,8 +41,9 @@ const TABS = [
   { id: 'sectors',    label: '🌐 Sectors' },
   { id: 'analyze',    label: '🔍 Analyze' },
   { id: 'replay',     label: '🔬 Replay' },
-  { id: 'tzwlnbb',    label: '📡 TZ/WLNBB' },
-  { id: 'howitworks', label: 'How It Works' },
+  { id: 'tzwlnbb',       label: '📡 TZ/WLNBB' },
+  { id: 'tzintelligence', label: '🧠 TZ Intel' },
+  { id: 'howitworks',    label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
 ]
 
@@ -106,7 +108,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.4.254</span>
+          <span className="text-xs font-normal text-gray-500">v4.4.262</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -221,6 +223,10 @@ export default function App() {
 
         {activeTab === 'tzwlnbb' && (
           <TZWLNBBPanel />
+        )}
+
+        {activeTab === 'tzintelligence' && (
+          <TZIntelligencePanel onSelectTicker={handleSelect} />
         )}
 
         {activeTab === 'howitworks' && (

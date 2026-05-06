@@ -2162,6 +2162,35 @@ def api_tz_wlnbb_download(filename: str):
     return FileResponse(path, filename=filename)
 
 
+@app.get("/api/tz-intelligence/scan")
+def api_tz_intelligence_scan(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    min_price: float = 0,
+    max_price: float = 1e9,
+    min_volume: float = 0,
+    role_filter: str = "all",
+    limit: int = 500,
+):
+    """Classify latest TZ/WLNBB bars using the Signal Intelligence matrix."""
+    try:
+        from tz_intelligence.scanner import run_intelligence_scan
+        return run_intelligence_scan(
+            universe=universe,
+            tf=tf,
+            nasdaq_batch=nasdaq_batch,
+            min_price=min_price,
+            max_price=max_price,
+            min_volume=min_volume,
+            role_filter=role_filter,
+            limit=limit,
+        )
+    except Exception as exc:
+        log.exception("tz-intelligence scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
