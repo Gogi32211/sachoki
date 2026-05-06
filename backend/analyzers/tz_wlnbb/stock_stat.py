@@ -202,10 +202,13 @@ def generate_stock_stat(
         writer = csv.writer(f)
         writer.writerow(OUTPUT_COLUMNS)
 
-        for ticker in tickers:
+        for ticker_idx, ticker in enumerate(tickers, start=1):
             if early_stop_fn and early_stop_fn():
                 log.info("tz_wlnbb stock_stat: early stop requested after %d tickers", audit["tickers_processed"])
                 break
+            # Progress fires on every attempt so UI counter advances even when tickers are skipped
+            if progress_callback:
+                progress_callback(ticker_idx, total)
             try:
                 df = fetch_ohlcv_fn(ticker, tf, bars)
                 if df is None or len(df) < 2:
@@ -250,8 +253,6 @@ def generate_stock_stat(
 
                 audit["rows_after_signals"] += len(df)
                 audit["tickers_processed"] += 1
-                if progress_callback:
-                    progress_callback(audit["tickers_processed"], total)
 
                 for _, row in df.iterrows():
                     date_val = row.get("date", "")
