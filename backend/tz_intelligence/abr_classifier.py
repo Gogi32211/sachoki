@@ -233,6 +233,69 @@ def _action_hint(category: str) -> str:
     }.get(category, "NO_ABR_EDGE")
 
 
+# ── ABR context flags (role × ABR category cross-signal) ─────────────────────
+
+_PULLBACK_CONFIRM_ROLES = frozenset({"PULLBACK_READY_B", "PULLBACK_WATCH"})
+_SHORT_ROLE             = "SHORT_WATCH"
+_CONTINUATION_ROLES     = frozenset({"PULLBACK_WATCH", "BULL_WATCH"})
+_BULLISH_ABR_CATS       = frozenset({"A", "B", "B+"})
+_STRONG_ABR_CATS        = frozenset({"B", "B+"})
+
+
+def compute_abr_context_flags(
+    role: str,
+    abr_category: str,
+    abr_med10d_pct: Optional[float],
+    above_ema20: bool,
+    above_ema50: bool,
+    liquidity_tier: str,
+) -> dict:
+    """Compute cross-signal ABR context flags without altering TZ role/score.
+
+    Returns three new fields:
+      abr_conflict_flag      — non-empty when ABR contradicts TZ role
+      abr_confirmation_flag  — non-empty when ABR corroborates TZ role
+      abr_context_type       — descriptive label for the conflict/confirmation
+    Also returns an updated abr_role_suggestion when rule 4 applies.
+    """
+    conflict_flag      = ""
+    confirmation_flag  = ""
+    context_type       = ""
+    role_suggestion    = ""
+
+    # Rule 1: Pullback confirmation
+    if role in _PULLBACK_CONFIRM_ROLES and abr_category in _STRONG_ABR_CATS:
+        confirmation_flag = "ABR_PULLBACK_CONFIRMED"
+        context_type      = "PULLBACK_ABR_ALIGNED"
+
+    # Rule 2: Short conflict (bearish price structure + bullish ABR sequence)
+    if role == _SHORT_ROLE and abr_category in _BULLISH_ABR_CATS:
+        conflict_flag  = "ABR_BULLISH_CONTEXT_CONFLICT"
+        context_type   = "MIXED_BEARISH_PRICE_BULLISH_ABR"
+
+    # Rule 3: Short confirmation (bearish ABR reinforces SHORT_WATCH)
+    if (role == _SHORT_ROLE and abr_category == "R"
+            and abr_med10d_pct is not None and abr_med10d_pct < 0):
+        confirmation_flag = "ABR_SHORT_CONFIRMED"
+        if not context_type:
+            context_type = "SHORT_ABR_ALIGNED"
+
+    # Rule 4: Continuation suggestion upgrade
+    if (role in _CONTINUATION_ROLES
+            and abr_category in _STRONG_ABR_CATS
+            and above_ema20
+            and above_ema50
+            and liquidity_tier in ("OK", "STRONG")):
+        role_suggestion = "BULL_CONTINUATION_CANDIDATE"
+
+    return {
+        "abr_conflict_flag":     conflict_flag,
+        "abr_confirmation_flag": confirmation_flag,
+        "abr_context_type":      context_type,
+        "abr_role_suggestion":   role_suggestion,   # overrides base suggestion if set
+    }
+
+
 # ── Main classifier ───────────────────────────────────────────────────────────
 
 _EMPTY: dict = {

@@ -12,7 +12,7 @@ Fixes vs v5:
 from __future__ import annotations
 from typing import Optional
 from .matrix_loader import MatrixIndex
-from .abr_classifier import classify_abr
+from .abr_classifier import classify_abr, compute_abr_context_flags
 
 # ── Role constants ────────────────────────────────────────────────────────────
 
@@ -834,6 +834,19 @@ def classify_tz_event(
         current_role=best_role,
     )
 
+    # Merge context flags into abr dict (role × ABR cross-signal, read-only)
+    ctx = compute_abr_context_flags(
+        role=best_role,
+        abr_category=abr.get("abr_category", "UNKNOWN"),
+        abr_med10d_pct=abr.get("abr_med10d_pct"),
+        above_ema20=above_ema20,
+        above_ema50=above_ema50,
+        liquidity_tier=liquidity_tier,
+    )
+    abr = {**abr, **ctx,
+           # keep base suggestion when context rule 4 didn't fire
+           "abr_role_suggestion": ctx["abr_role_suggestion"] or abr.get("abr_role_suggestion", "")}
+
     return _build_result(
         ticker=ticker, date=date,
         final_signal=final_signal, composite_pattern=composite_pattern,
@@ -967,5 +980,6 @@ def _build_result(
             "abr_avg10d_pct": None, "abr_fail10d_pct": None,
             "abr_win10d_pct": None,
             "abr_action_hint": "NO_ABR_EDGE", "abr_role_suggestion": "",
+            "abr_conflict_flag": "", "abr_confirmation_flag": "", "abr_context_type": "",
         }),
     }

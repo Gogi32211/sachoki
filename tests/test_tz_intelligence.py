@@ -1777,3 +1777,86 @@ def test_csv_formula_injection_abr_fields():
         # None of these should be prefixed (they don't start with formula chars)
         assert not encoded.startswith("'"), \
             f"Safe value '{v}' was incorrectly prefixed: {encoded}"
+
+
+# ── ABR context flags ─────────────────────────────────────────────────────────
+
+from tz_intelligence.abr_classifier import compute_abr_context_flags
+
+
+def test_abr_conflict_short_watch_bullish_abr():
+    """SHORT_WATCH + ABR A/B/B+ must set abr_conflict_flag."""
+    for cat in ("A", "B", "B+"):
+        r = compute_abr_context_flags("SHORT_WATCH", cat, None, True, True, "OK")
+        assert r["abr_conflict_flag"] == "ABR_BULLISH_CONTEXT_CONFLICT", \
+            f"Expected conflict for SHORT_WATCH+{cat}"
+        assert r["abr_context_type"] == "MIXED_BEARISH_PRICE_BULLISH_ABR"
+        assert r["abr_confirmation_flag"] == ""
+
+
+def test_abr_short_confirmed():
+    """SHORT_WATCH + ABR R + negative med must set abr_confirmation_flag=ABR_SHORT_CONFIRMED."""
+    r = compute_abr_context_flags("SHORT_WATCH", "R", -0.3, False, False, "LOW")
+    assert r["abr_confirmation_flag"] == "ABR_SHORT_CONFIRMED"
+    assert r["abr_conflict_flag"] == ""
+    # Positive med should NOT confirm
+    r2 = compute_abr_context_flags("SHORT_WATCH", "R", 0.5, False, False, "LOW")
+    assert r2["abr_confirmation_flag"] == ""
+    # med=None should NOT confirm
+    r3 = compute_abr_context_flags("SHORT_WATCH", "R", None, False, False, "LOW")
+    assert r3["abr_confirmation_flag"] == ""
+
+
+def test_abr_pullback_confirmed():
+    """PULLBACK_READY_B/PULLBACK_WATCH + ABR B/B+ must set abr_confirmation_flag."""
+    for role in ("PULLBACK_READY_B", "PULLBACK_WATCH"):
+        for cat in ("B", "B+"):
+            r = compute_abr_context_flags(role, cat, 0.5, True, True, "OK")
+            assert r["abr_confirmation_flag"] == "ABR_PULLBACK_CONFIRMED", \
+                f"Expected pullback confirm for {role}+{cat}"
+            assert r["abr_conflict_flag"] == ""
+    # ABR A should NOT confirm pullback
+    r = compute_abr_context_flags("PULLBACK_READY_B", "A", 0.5, True, True, "OK")
+    assert r["abr_confirmation_flag"] == ""
+
+
+def test_abr_continuation_suggestion():
+    """PULLBACK_WATCH/BULL_WATCH + B/B+ + above EMA20+50 + OK/STRONG liquidity."""
+    for role in ("PULLBACK_WATCH", "BULL_WATCH"):
+        for cat in ("B", "B+"):
+            r = compute_abr_context_flags(role, cat, 0.4, True, True, "OK")
+            assert r["abr_role_suggestion"] == "BULL_CONTINUATION_CANDIDATE", \
+                f"Expected continuation for {role}+{cat}"
+    # Missing EMA condition → no suggestion
+    r = compute_abr_context_flags("BULL_WATCH", "B+", 0.4, False, True, "OK")
+    assert r["abr_role_suggestion"] != "BULL_CONTINUATION_CANDIDATE"
+    # LOW liquidity → no suggestion
+    r = compute_abr_context_flags("BULL_WATCH", "B+", 0.4, True, True, "LOW")
+    assert r["abr_role_suggestion"] != "BULL_CONTINUATION_CANDIDATE"
+    # ABR A → no suggestion
+    r = compute_abr_context_flags("BULL_WATCH", "A", 0.4, True, True, "OK")
+    assert r["abr_role_suggestion"] != "BULL_CONTINUATION_CANDIDATE"
+
+
+def test_abr_no_flags_neutral_role():
+    """Roles that are not SHORT_WATCH or pullback variants should get no flags."""
+    r = compute_abr_context_flags("BULL_A", "B+", 0.8, True, True, "STRONG")
+    assert r["abr_conflict_flag"]     == ""
+    assert r["abr_confirmation_flag"] == ""
+
+
+def test_abr_context_flags_in_full_classify():
+    """classify_tz_event output must contain all three new ABR context fields."""
+    m = load_matrix()
+    row = _row(t="T3", z="", lane1="T3L46NB", lane3="T3L46NB",
+               close=55, ema20=50, ema50=45, ema89=40)
+    history = [_row(t="T1", lane3="T1L46NB"), _row(t="T2", lane3="T2L46NB"),
+               _row(t="T3", lane3="T3L46NB")]
+    result = classify_tz_event(row, history, m, scan_universe="sp500")
+    assert "abr_conflict_flag"     in result
+    assert "abr_confirmation_flag" in result
+    assert "abr_context_type"      in result
+    # Values must be strings (empty or a known flag value)
+    assert isinstance(result["abr_conflict_flag"],     str)
+    assert isinstance(result["abr_confirmation_flag"], str)
+    assert isinstance(result["abr_context_type"],      str)
