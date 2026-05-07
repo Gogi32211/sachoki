@@ -30,6 +30,13 @@ const NASDAQ_BATCHES = [
   { key: 'n_z', label: 'N–Z (½)' },
 ]
 
+const NASDAQ_GT5_BATCHES = [
+  { key: 'a_f', label: 'A–F' },
+  { key: 'g_m', label: 'G–M' },
+  { key: 'n_s', label: 'N–S' },
+  { key: 't_z', label: 'T–Z' },
+]
+
 const TF_OPTS = ['1d', '4h', '1h', '1wk']
 
 const SIG_TYPES = [
@@ -116,6 +123,7 @@ function DebugModal({ ticker, date, tf, onClose }) {
 export default function TZWLNBBPanel() {
   const [universe, setUniverse]         = useState('sp500')
   const [nasdaqBatch, setNasdaqBatch]   = useState('a_m')
+  const [gt5Batch, setGt5Batch]         = useState('')   // '' = full scan (no batch)
   const [tf, setTf]                     = useState('1d')
   const [signalType, setSignalType] = useState('all')
   const [signalName, setSignalName] = useState('')
@@ -140,6 +148,11 @@ export default function TZWLNBBPanel() {
 
   const pollRef       = useRef(null)
   const replayPollRef = useRef(null)
+
+  // Reset gt5Batch when leaving nasdaq_gt5 4H mode
+  useEffect(() => {
+    if (universe !== 'nasdaq_gt5' || tf !== '4h') setGt5Batch('')
+  }, [universe, tf])
 
   // Poll status while running
   useEffect(() => {
@@ -176,6 +189,7 @@ export default function TZWLNBBPanel() {
     try {
       const params = { universe, tf, bars: 252 }
       if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
+      if (universe === 'nasdaq_gt5' && gt5Batch) params.nasdaq_batch = gt5Batch
       await apiPost('/api/tz-wlnbb/generate-stock-stat', params)
       setGenStatus('started')
       startPolling()
@@ -201,6 +215,7 @@ export default function TZWLNBBPanel() {
         recent_window: recentWindow,
       })
       if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
+      if (universe === 'nasdaq_gt5' && gt5Batch) qs.set('nasdaq_batch', gt5Batch)
       if (signalName)  qs.set('signal_name', signalName)
       if (minPrice)    qs.set('min_price', minPrice)
       if (maxPrice)    qs.set('max_price', maxPrice)
@@ -239,6 +254,7 @@ export default function TZWLNBBPanel() {
     try {
       const params = { universe, tf }
       if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
+      if (universe === 'nasdaq_gt5' && gt5Batch) params.nasdaq_batch = gt5Batch
       await apiPost('/api/tz-wlnbb/replay', params)
       startReplayPolling()
     } catch (e) {
@@ -286,6 +302,27 @@ export default function TZWLNBBPanel() {
                       ? 'bg-amber-600 text-white font-semibold'
                       : 'bg-gray-800 text-gray-400 hover:text-white'}`}
                 >
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* NASDAQ > $5 Batch — only visible when nasdaq_gt5 + 4H */}
+        {universe === 'nasdaq_gt5' && tf === '4h' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500">Batch (4H)</label>
+            <div className="flex gap-1">
+              <button onClick={() => setGt5Batch('')}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${gt5Batch === '' ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                Full
+              </button>
+              {NASDAQ_GT5_BATCHES.map(b => (
+                <button key={b.key} onClick={() => setGt5Batch(b.key)}
+                  className={`text-xs px-2 py-1 rounded transition-colors
+                    ${gt5Batch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
                   {b.label}
                 </button>
               ))}
@@ -477,6 +514,12 @@ export default function TZWLNBBPanel() {
       {error && (
         <div className="p-2 bg-red-900/30 border border-red-700 rounded text-red-300 text-xs">
           {error}
+        </div>
+      )}
+
+      {universe === 'nasdaq_gt5' && tf === '4h' && gt5Batch === '' && (
+        <div className="p-2 bg-amber-900/30 border border-amber-700 rounded text-amber-300 text-xs">
+          ⚠ Full NASDAQ &gt; $5 4H may be too large for Railway. Batch mode is recommended.
         </div>
       )}
 
