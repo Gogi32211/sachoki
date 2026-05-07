@@ -57,12 +57,13 @@ async function apiGet(path) {
 // ── Sort helpers ──────────────────────────────────────────────────────────────
 
 const ROLE_SORT_ORDER = {
-  BULL_A: 1, BULL_B: 2, PULLBACK_GO: 3,
-  PULLBACK_READY_A: 4, PULLBACK_CONFIRMING: 5, PULLBACK_READY_B: 6,
-  DEEP_PULLBACK_WATCH: 7, PULLBACK_WATCH: 8,
-  MIXED_WATCH: 9, BULL_WATCH: 10,
-  SHORT_WATCH: 11, SHORT_GO: 12,
-  REJECT_LONG: 13, REJECT: 14, NO_EDGE: 15,
+  BULL_A: 1, BULL_CONTINUATION_A: 2, BULL_B: 3, BULL_CONTINUATION_B: 4,
+  PULLBACK_GO: 5, PULLBACK_CONFIRMING: 6,
+  PULLBACK_READY_A: 7, PULLBACK_READY_B: 8,
+  PULLBACK_WATCH: 9, EXTENDED_WATCH: 10,
+  DEEP_PULLBACK_WATCH: 11, MIXED_WATCH: 12, BULL_WATCH: 13,
+  SHORT_WATCH: 14, SHORT_GO: 15,
+  REJECT_LONG: 16, REJECT: 17, NO_EDGE: 18,
 }
 const QUALITY_SORT_ORDER = { A: 1, B: 2, Watch: 3, Reject: 4, '—': 5 }
 const RULE_TYPE_SHORT = {
@@ -115,26 +116,32 @@ const NASDAQ_BATCHES = [
 const TF_OPTS = ['1d', '4h', '1h', '1wk']
 
 const ROLES = [
-  { key: 'all',                label: 'All'               },
-  { key: 'BULL_A',             label: '🟢 BULL A'         },
-  { key: 'BULL_B',             label: '🟩 BULL B'         },
-  { key: 'PULLBACK_GO',        label: '🚀 PB GO'          },
-  { key: 'PULLBACK_CONFIRMING',label: '⏳ PB Confirming'  },
-  { key: 'PULLBACK_READY_A',   label: '🔵 PB Ready A'     },
-  { key: 'PULLBACK_READY_B',   label: '🔵 PB Ready B'     },
-  { key: 'PULLBACK_WATCH',     label: '🔷 PB Watch'       },
-  { key: 'DEEP_PULLBACK_WATCH',label: '⬇ Deep PB'         },
-  { key: 'BULL_WATCH',         label: '👀 Bull Watch'     },
-  { key: 'MIXED_WATCH',        label: '⚖ Mixed Watch'    },
-  { key: 'SHORT_WATCH',        label: '🔴 Short Watch'    },
-  { key: 'SHORT_GO',           label: '🔴 SHORT GO'       },
-  { key: 'REJECT_LONG',        label: '🚫 Reject Long'    },
-  { key: 'REJECT',             label: '❌ Reject'         },
+  { key: 'all',                    label: 'All'                  },
+  { key: 'BULL_A',                 label: '🟢 BULL A'            },
+  { key: 'BULL_CONTINUATION_A',    label: '🟢 Continuation A'    },
+  { key: 'BULL_B',                 label: '🟩 BULL B'            },
+  { key: 'BULL_CONTINUATION_B',    label: '🟩 Continuation B'    },
+  { key: 'PULLBACK_GO',            label: '🚀 PB GO'             },
+  { key: 'PULLBACK_CONFIRMING',    label: '⏳ PB Confirming'     },
+  { key: 'PULLBACK_READY_A',       label: '🔵 PB Ready A'        },
+  { key: 'PULLBACK_READY_B',       label: '🔵 PB Ready B'        },
+  { key: 'PULLBACK_WATCH',         label: '🔷 PB Watch'          },
+  { key: 'EXTENDED_WATCH',         label: '⚡ Extended Watch'    },
+  { key: 'DEEP_PULLBACK_WATCH',    label: '⬇ Deep PB'            },
+  { key: 'BULL_WATCH',             label: '👀 Bull Watch'        },
+  { key: 'MIXED_WATCH',            label: '⚖ Mixed Watch'       },
+  { key: 'SHORT_WATCH',            label: '🔴 Short Watch'       },
+  { key: 'SHORT_GO',               label: '🔴 SHORT GO'          },
+  { key: 'REJECT_LONG',            label: '🚫 Reject Long'       },
+  { key: 'REJECT',                 label: '❌ Reject'            },
 ]
 
 const ROLE_COLORS = {
   BULL_A:               'bg-green-800/60 text-green-200 border-green-600/50',
+  BULL_CONTINUATION_A:  'bg-teal-700/60 text-teal-100 border-teal-500/60',
   BULL_B:               'bg-green-900/50 text-green-300 border-green-700/40',
+  BULL_CONTINUATION_B:  'bg-teal-900/50 text-teal-300 border-teal-700/40',
+  EXTENDED_WATCH:       'bg-amber-900/50 text-amber-300 border-amber-700/40',
   PULLBACK_GO:          'bg-indigo-700/60 text-indigo-100 border-indigo-500/60',
   PULLBACK_CONFIRMING:  'bg-indigo-900/50 text-indigo-300 border-indigo-700/40',
   PULLBACK_READY_A:     'bg-blue-800/60 text-blue-200 border-blue-600/50',

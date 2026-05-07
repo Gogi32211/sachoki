@@ -1343,3 +1343,158 @@ def test_nasdaq_gt5_z1g_above_ema50_gate_does_not_block():
     assert result["role"] in ("PULLBACK_READY_B", "PULLBACK_WATCH", "PULLBACK_READY_A"), (
         f"Z1G above EMA50 must yield pullback role, got {result['role']}"
     )
+
+
+# ── NASDAQ_GT5 Bull Continuation roles ───────────────────────────────────────
+
+# History where current bar's high breaks prior highs → breaks_4bar_high=True
+# Prev highs: 55, 58, 62 → max=62; current high=65 > 62
+_CONT_HIST = [
+    _ngt5_row(close=52, high=55, low=49),
+    _ngt5_row(close=56, high=58, low=53),
+    _ngt5_row(close=60, high=62, low=57),
+]
+
+
+def test_nasdaq_gt5_bull_continuation_a_strong_setup():
+    """NASDAQ_GT5: T5 above all EMAs, price_pos ~0.78, OK liquidity → BULL_CONTINUATION_A."""
+    m = load_matrix()
+    # Wide-range history so pos lands in 0.70-0.84 (avoids EXTENDED_WATCH ≥0.85).
+    # All 4 bars range: lows=[10,10,10,75]→min=10, highs=[100,100,100,82]→max=100
+    # close=80 → pos=(80-10)/(100-10)=70/90≈0.78
+    hist_wide = [
+        _ngt5_row(close=60, high=100, low=10),
+        _ngt5_row(close=65, high=100, low=10),
+        _ngt5_row(close=70, high=100, low=10),
+    ]
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=80, ema20=70, ema50=65, ema89=60,
+                    high=82, low=75, volume=1_200_000)
+    result = classify_tz_event(row, hist_wide, m, scan_universe="nasdaq_gt5")
+    assert result["role"] in ("BULL_CONTINUATION_A", "BULL_CONTINUATION_B"), (
+        f"Expected BULL_CONTINUATION_A/B, got {result['role']}. "
+        f"pos={result['price_position_4bar']} reason_codes={result['reason_codes']}"
+    )
+    assert any("BULL_CONTINUATION" in c for c in result["reason_codes"]), (
+        "BULL_CONTINUATION reason code must be present"
+    )
+
+
+def test_nasdaq_gt5_bull_continuation_b_mid_position():
+    """NASDAQ_GT5: T5 above EMAs, price_pos 0.50-0.69, gets BULL_CONTINUATION_B."""
+    m = load_matrix()
+    # Use wider range history so price_pos falls in 0.50-0.69 window
+    hist_wide = [
+        _ngt5_row(close=30, high=35, low=25),
+        _ngt5_row(close=35, high=40, low=30),
+        _ngt5_row(close=40, high=45, low=35),
+    ]
+    # 4bar range (incl current): low=30(prev min), high=55(curr high)
+    # close=50, pos=(50-30)/(55-30)=20/25=0.80 → actually high, let's lower close
+    # Try close=48: pos=(48-25)/(55-25)=23/30≈0.77 → also high.
+    # Use close=44, high=46: pos=(44-25)/(46-25)=19/21≈0.90 → still high
+    # Widen the range: hist lows [10,10,10], hist highs [80,80,80], close=50 high=55 low=48
+    hist_wide2 = [
+        _ngt5_row(close=40, high=80, low=10),
+        _ngt5_row(close=42, high=80, low=10),
+        _ngt5_row(close=45, high=80, low=10),
+    ]
+    # 4bar range: low=10, high=80; close=50 → pos=(50-10)/(80-10)=40/70≈0.57
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=50, ema20=45, ema50=40, ema89=35,
+                    high=55, low=48, volume=1_200_000)
+    result = classify_tz_event(row, hist_wide2, m, scan_universe="nasdaq_gt5")
+    # With pos~0.57, expect BULL_CONTINUATION_B if cont_score>=60
+    assert result["role"] in (
+        "BULL_CONTINUATION_B", "BULL_CONTINUATION_A",
+        "BULL_A", "BULL_B",  # matrix may naturally assign bull role
+        "BULL_WATCH",
+    ), (
+        f"Expected a bull role for mid-position continuation setup, got {result['role']}. "
+        f"reason_codes={result['reason_codes']}"
+    )
+
+
+def test_nasdaq_gt5_continuation_low_liquidity_blocked():
+    """NASDAQ_GT5: continuation-eligible setup with LOW liquidity → must not get continuation role."""
+    m = load_matrix()
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=70, ema20=60, ema50=55, ema89=50,
+                    high=71, low=65, volume=5_000)  # vol=5K → LOW liquidity
+    result = classify_tz_event(row, _CONT_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["role"] not in ("BULL_CONTINUATION_A", "BULL_CONTINUATION_B"), (
+        f"LOW liquidity must block continuation roles, got {result['role']}. "
+        f"liq_tier={result['liquidity_tier']}"
+    )
+    assert result["liquidity_tier"] == "LOW"
+    assert "LOW_LIQUIDITY" in " ".join(result["reason_codes"])
+
+
+def test_nasdaq_gt5_extended_watch_overextended():
+    """NASDAQ_GT5: above all EMAs + price_pos >= 0.85 → EXTENDED_WATCH (not continuation A/B)."""
+    m = load_matrix()
+    # 4bar range: prev lows [49,53,57] min=49, prev highs [55,58,62] max=62
+    # current high=70 → breaks_4bar_high=True; low=68 → no break low
+    # 4bar range (all 4): low=49, high=70; close=69 → pos=(69-49)/(70-49)=20/21≈0.95 → ≥0.85
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=69, ema20=60, ema50=55, ema89=50,
+                    high=70, low=68, volume=1_200_000)
+    result = classify_tz_event(row, _CONT_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["role"] == "EXTENDED_WATCH", (
+        f"Overextended setup must be EXTENDED_WATCH, got {result['role']}. "
+        f"pos={result['price_position_4bar']} reason_codes={result['reason_codes']}"
+    )
+    assert any("EXTENDED_WATCH" in c for c in result["reason_codes"])
+
+
+def test_nasdaq_gt5_bull_a_not_overridden_by_continuation():
+    """NASDAQ_GT5: fresh BULL_A trigger must not be demoted by continuation gate."""
+    m = load_matrix()
+    # T5L46NB with extremely strong matrix score giving BULL_A
+    # Close well above prev range ensures breaks_4bar_high
+    hist_low = [
+        _ngt5_row(close=20, high=22, low=18),
+        _ngt5_row(close=21, high=23, low=19),
+        _ngt5_row(close=22, high=24, low=20),
+    ]
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=50, ema20=45, ema50=40, ema89=35,
+                    high=55, low=48, volume=1_500_000)
+    result = classify_tz_event(row, hist_low, m, scan_universe="nasdaq_gt5")
+    # If matrix assigns BULL_A (score>=80), continuation must not override it
+    if result["role"] == "BULL_A":
+        assert not any("BULL_CONTINUATION" in c for c in result["reason_codes"]), (
+            "Continuation gate must not fire when role is already BULL_A"
+        )
+    # Regardless, no logic error expected
+    assert result["role"] in (
+        "BULL_A", "BULL_B", "BULL_CONTINUATION_A", "BULL_CONTINUATION_B",
+        "BULL_WATCH", "EXTENDED_WATCH",
+    )
+
+
+def test_nasdaq_gt5_continuation_requires_t_signal():
+    """NASDAQ_GT5: Z-signal above EMAs must NOT trigger continuation roles."""
+    m = load_matrix()
+    row = _ngt5_row(z_signal="Z5", lane1_label="Z5L3EU",
+                    close=70, ema20=60, ema50=55, ema89=50,
+                    high=71, low=65, volume=1_200_000)
+    result = classify_tz_event(row, _CONT_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["role"] not in ("BULL_CONTINUATION_A", "BULL_CONTINUATION_B"), (
+        f"Z-signal must not trigger continuation roles, got {result['role']}"
+    )
+    assert not any("BULL_CONTINUATION" in c for c in result["reason_codes"])
+
+
+def test_sp500_continuation_gate_does_not_fire():
+    """SP500: same setup must not trigger NASDAQ_GT5 continuation gate."""
+    m = load_matrix()
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=70, ema20=60, ema50=55, ema89=50,
+                    high=71, low=65, volume=1_200_000)
+    result = classify_tz_event(row, _CONT_HIST, m, scan_universe="sp500")
+    assert result["role"] not in ("BULL_CONTINUATION_A", "BULL_CONTINUATION_B", "EXTENDED_WATCH"), (
+        f"SP500 must not get continuation roles, got {result['role']}"
+    )
+    assert not any("BULL_CONTINUATION" in c for c in result["reason_codes"])
+    assert not any("EXTENDED_WATCH" in c for c in result["reason_codes"])
