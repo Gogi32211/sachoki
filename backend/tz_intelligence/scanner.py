@@ -7,6 +7,14 @@ from typing import List, Optional
 from .classifier import classify_tz_event
 from .matrix_loader import load_matrix
 
+# ── Input allowlists (validated before any path construction) ─────────────────
+
+_VALID_UNIVERSES = frozenset({
+    "sp500", "nasdaq", "nasdaq_gt5", "russell2k", "all_us", "split",
+})
+_VALID_TFS = frozenset({"1d", "4h", "1h", "1wk"})
+_VALID_NASDAQ_BATCHES = frozenset({"", "a_m", "n_z"})
+
 
 def _stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     if universe == "nasdaq" and nasdaq_batch:
@@ -30,6 +38,17 @@ def run_intelligence_scan(
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
     return sorted results.
     """
+    # ── Input validation (must happen before any path construction) ───────────
+    if universe not in _VALID_UNIVERSES:
+        return {"results": [], "error": f"Invalid universe '{universe}'. "
+                f"Allowed: {sorted(_VALID_UNIVERSES)}"}
+    if tf not in _VALID_TFS:
+        return {"results": [], "error": f"Invalid timeframe '{tf}'. "
+                f"Allowed: {sorted(_VALID_TFS)}"}
+    if nasdaq_batch not in _VALID_NASDAQ_BATCHES:
+        return {"results": [], "error": f"Invalid nasdaq_batch '{nasdaq_batch}'. "
+                f"Allowed: {sorted(_VALID_NASDAQ_BATCHES)}"}
+
     # nasdaq_gt5 enforces price >= 5 — cannot be overridden by caller
     if universe == "nasdaq_gt5":
         min_price = max(min_price, 5.0)

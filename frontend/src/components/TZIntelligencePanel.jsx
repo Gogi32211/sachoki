@@ -41,6 +41,8 @@ function exportCSV(rows) {
       let v = r[c] ?? ''
       if (Array.isArray(v)) v = v.join(';')
       v = String(v)
+      // Neutralise CSV formula injection (Excel/Sheets execute =, +, -, @ as formulas)
+      if (/^[=+\-@]/.test(v)) v = "'" + v
       return v.includes(',') || v.includes('"') || v.includes('\n')
         ? `"${v.replace(/"/g, '""')}"` : v
     }).join(','))
