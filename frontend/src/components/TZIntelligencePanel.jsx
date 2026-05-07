@@ -398,6 +398,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
   const [results, setResults]           = useState([])
   const [total, setTotal]               = useState(0)
+  const [scanDebug, setScanDebug]       = useState(null)  // debug counters from last scan
   const [loading, setLoading]           = useState(false)
   const [error, setError]               = useState(null)
   const [splitAudit, setSplitAudit]     = useState(null)
@@ -441,7 +442,11 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
       if (minVolume) qs.set('min_volume', minVolume)
       const data = await apiGet(`/api/tz-intelligence/scan?${qs}`)
       if (data.error) { setError(data.error); setResults([]) }
-      else { setResults(data.results || []); setTotal(data.total || 0) }
+      else {
+        setResults(data.results || [])
+        setTotal(data.total || 0)
+        setScanDebug(data.debug || null)
+      }
     } catch (e) {
       setError(e.message)
     } finally {
@@ -724,6 +729,41 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
           ⏳ Historical events — not a live watchlist. Shows all classified bars across history.
         </div>
       )}
+
+      {/* ── Split universe consistency badge ─────────────────────────────── */}
+      {universe === 'split' && scanDebug && scanMode === 'latest' && (() => {
+        const stockStat = scanDebug.stock_stat_unique_tickers ?? 0
+        const classified = scanDebug.classified_tickers ?? 0
+        const dropped = scanDebug.dropped_tickers_count ?? 0
+        const errors = scanDebug.classification_errors?.length ?? 0
+        const mismatch = dropped > 0 || errors > 0
+        return (
+          <div className={`p-2 rounded border text-xs flex flex-col gap-1
+            ${mismatch ? 'bg-red-900/30 border-red-700' : 'bg-gray-900 border-gray-700'}`}>
+            <div className="flex items-center gap-3 flex-wrap">
+              <span className="text-gray-400">✂️ Split consistency:</span>
+              <span className="text-gray-300">stock_stat: <span className="text-white font-semibold">{stockStat}</span></span>
+              <span className="text-gray-500">·</span>
+              <span className="text-gray-300">classified: <span className={classified === stockStat ? 'text-green-400 font-semibold' : 'text-amber-400 font-semibold'}>{classified}</span></span>
+              {dropped > 0 && <span className="text-amber-400">dropped: {dropped}</span>}
+              {errors > 0  && <span className="text-red-400">errors: {errors}</span>}
+              {!mismatch && <span className="text-green-400 text-xs">✓ consistent</span>}
+            </div>
+            {mismatch && (
+              <div className="text-red-300 text-xs font-semibold">
+                ⚠ Split universe mismatch detected — classified {classified} / {stockStat} stock_stat tickers.
+                {dropped > 0 && ` ${dropped} ticker(s) dropped.`}
+                {errors > 0  && ` ${errors} classification error(s).`}
+              </div>
+            )}
+            {scanDebug.dropped_tickers?.length > 0 && (
+              <div className="text-amber-400/70 text-xs font-mono">
+                dropped: {scanDebug.dropped_tickers.slice(0, 20).join(', ')}{scanDebug.dropped_tickers.length > 20 ? '…' : ''}
+              </div>
+            )}
+          </div>
+        )
+      })()}
 
       {displayRows.length > 0 && (
         <div className="flex items-center gap-3">

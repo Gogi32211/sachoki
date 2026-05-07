@@ -2069,3 +2069,204 @@ def test_abr_sp500_role_unchanged():
     assert result["role"] not in ("A", "B", "B+")
     # Score is numeric
     assert isinstance(result["score"], (int, float))
+
+
+# ── Split universe invariant tests ────────────────────────────────────────────
+# Tests required by the split universe consistency spec (sections 9 & 10).
+# Use real temp files so the matrix loader's CSV reads are not intercepted.
+
+import csv as _csv
+import io
+import tempfile
+import os as _os
+from unittest.mock import patch
+
+
+# ── Helpers ───────────────────────────────────────────────────────────────────
+
+_STAT_COLS = [
+    "ticker","date","bar_datetime","bar_index","universe","timeframe",
+    "open","high","low","close","volume","tz_wlnbb_version",
+    "t_signal","z_signal","l_signal","preup_signal","predn_signal",
+    "volume_bucket","lane1_label","lane3_label","ne_suffix","wick_suffix",
+    "composite_t_label","composite_z_label","composite_primary_label",
+    "composite_all_labels","composite_core","composite_suffix",
+    "composite_full_suffix","composite_full_label",
+    "prev_1_signal_summary","prev_3_signal_summary","prev_5_signal_summary",
+    "ema9","ema20","ema34","ema50","ema89","ema200",
+    "price_bucket","is_sub_dollar","is_penny_stock","is_low_price","is_high_price",
+    "has_t_signal","has_z_signal","has_l_signal","has_preup","has_predn",
+    "has_tz_l_combo","has_bullish_context","has_bearish_context",
+    "t_after_z_confirmed","z_after_t_confirmed","l_after_z_confirmed",
+    "preup_after_z_confirmed","predn_after_t_confirmed",
+    "bull_priority_code","bear_priority_code","l_digits",
+    "l34_active","l43_active","l64_active","l22_active","l_raw_signals",
+    "t_raw_signals","z_raw_signals","preup_raw_signals","predn_raw_signals",
+    "penetration_suffix","wick_penetration_upper","wick_penetration_lower",
+    "wick_penetration_both","full_suffix","wick_ext_up","wick_ext_down","wick_ext_both",
+    "prev_body_top","prev_body_bot","prev_high","prev_low",
+    "combined_signal_text",
+    "ret_1d","ret_3d","ret_5d","ret_10d",
+    "max_high_5d","max_high_10d","max_drawdown_5d","max_drawdown_10d",
+    "mfe_5d","mfe_10d","mae_5d","mae_10d",
+    "clean_win_5d","big_win_10d","fail_5d","fail_10d",
+]
+
+
+def _write_stat_csv(path: str, tickers: list, universe: str = "split", tf: str = "1d") -> None:
+    """Write a minimal stock_stat CSV to the given path."""
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = _csv.DictWriter(f, fieldnames=_STAT_COLS, extrasaction="ignore")
+        w.writeheader()
+        for t in tickers:
+            row = {c: "" for c in _STAT_COLS}
+            row.update({
+                "ticker": t, "date": "2026-05-07", "bar_datetime": "2026-05-07",
+                "close": "20.00", "volume": "1000000",
+                "ema20": "18.0", "ema50": "16.0", "ema89": "14.0",
+                "high": "21.0", "low": "19.0", "open": "19.5",
+                "universe": universe, "timeframe": tf,
+            })
+            w.writerow(row)
+
+
+def _run_split_scan_from_file(stat_path: str, universe: str = "split",
+                               tf: str = "1d", classify_override=None) -> dict:
+    """Run run_intelligence_scan pointing at a real temp stat CSV."""
+    from tz_intelligence.scanner import run_intelligence_scan
+    ctx = []
+    # Patch _stat_path to return the temp file; os.path.exists passes through
+    with patch("tz_intelligence.scanner._stat_path", return_value=stat_path):
+        if classify_override is not None:
+            with patch("tz_intelligence.scanner._classify_bar", side_effect=classify_override):
+                return run_intelligence_scan(universe=universe, tf=tf,
+                                             scan_mode="latest", limit=500)
+        return run_intelligence_scan(universe=universe, tf=tf, scan_mode="latest", limit=500)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 1: scanner reads all tickers from stock_stat without cross-filtering
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_split_universe_tickers_used_in_scanner():
+    """Scanner reads all tickers from stock_stat without live cross-filtering."""
+    tickers = ["AAA", "BBB", "CCC"]
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        path = tmp.name
+    try:
+        _write_stat_csv(path, tickers)
+        result = _run_split_scan_from_file(path)
+        assert result["debug"]["stock_stat_unique_tickers"] == 3
+    finally:
+        _os.unlink(path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 2: N tickers in stock_stat → N rows in latest output (no silent drops)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_split_latest_all_tickers_returned():
+    """For split universe latest mode, all tickers must appear in output."""
+    tickers = ["AAPL", "GOOG", "MSFT"]
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        path = tmp.name
+    try:
+        _write_stat_csv(path, tickers)
+        result = _run_split_scan_from_file(path)
+        assert result["debug"]["classified_tickers"] == 3, \
+            f"classified={result['debug']['classified_tickers']} dropped={result['debug']['dropped_tickers']}"
+        returned_tickers = {r["ticker"] for r in result["results"]}
+        assert returned_tickers == set(tickers)
+    finally:
+        _os.unlink(path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 3: NO_EDGE tickers are NOT dropped for split universe
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_split_no_edge_not_dropped():
+    """Split universe: a bare row with no signals yields NO_EDGE, must appear in output."""
+    from tz_intelligence.matrix_loader import load_matrix
+    from tz_intelligence.classifier import classify_tz_event
+    m = load_matrix()
+    bare_row = {
+        "ticker": "ZZZ", "date": "2026-05-07", "bar_datetime": "2026-05-07",
+        "t_signal": "", "z_signal": "", "l_signal": "",
+        "close": "20", "high": "21", "low": "19", "open": "19.5", "volume": "100",
+        "ema20": "18", "ema50": "16", "ema89": "14",
+        "lane1_label": "", "lane3_label": "", "volume_bucket": "",
+        "ne_suffix": "", "wick_suffix": "", "composite_primary_label": "",
+    }
+    assert classify_tz_event(bare_row, [], m, scan_universe="split")["role"] == "NO_EDGE"
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        path = tmp.name
+    try:
+        _write_stat_csv(path, ["ZZZ"])
+        result = _run_split_scan_from_file(path)
+        assert result["debug"]["classified_tickers"] == 1
+        roles = {r["role"] for r in result["results"]}
+        assert "NO_EDGE" in roles
+    finally:
+        _os.unlink(path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 4: Classification exception → CLASSIFICATION_ERROR row (not dropped)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_split_classification_error_not_dropped():
+    """If _classify_bar raises for a split ticker, return CLASSIFICATION_ERROR."""
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        path = tmp.name
+    try:
+        _write_stat_csv(path, ["CRASH"])
+        result = _run_split_scan_from_file(path, classify_override=RuntimeError("boom"))
+        assert len(result["results"]) == 1
+        assert result["results"][0]["role"] == "CLASSIFICATION_ERROR"
+        assert result["debug"]["classification_errors"]
+    finally:
+        _os.unlink(path)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 5: _make_error_clf has all required fields and _build_result accepts it
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_make_error_clf_has_required_keys():
+    """_make_error_clf must supply all keys that _build_result expects."""
+    from tz_intelligence.scanner import _make_error_clf, _build_result
+    clf = _make_error_clf("TEST", "2026-05-07", "CLASSIFICATION_ERROR", "test error")
+    assert clf["role"] == "CLASSIFICATION_ERROR"
+    assert clf["score"] == 0
+    assert clf["ticker"] == "TEST"
+    assert "abr_category" in clf
+    assert "abr_conflict_flag" in clf
+    built = _build_result(clf, {"bar_datetime": "2026-05-07", "close": "20"}, debug=False)
+    assert built["role"] == "CLASSIFICATION_ERROR"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Test 6: non-split universe still drops NO_EDGE (existing behaviour preserved)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def test_non_split_no_edge_still_filtered():
+    """For sp500 universe, NO_EDGE tickers continue to be dropped."""
+    from tz_intelligence.scanner import _make_error_clf
+    no_edge_clf = _make_error_clf("NOEDGE", "2026-05-07", "NO_EDGE", "no match")
+
+    with tempfile.NamedTemporaryFile(mode="w", suffix=".csv", delete=False) as tmp:
+        path = tmp.name
+    try:
+        _write_stat_csv(path, ["NOEDGE"], universe="sp500")
+        with patch("tz_intelligence.scanner._stat_path", return_value=path), \
+             patch("tz_intelligence.scanner._classify_bar", return_value=no_edge_clf):
+            from tz_intelligence.scanner import run_intelligence_scan
+            result = run_intelligence_scan(universe="sp500", tf="1d",
+                                           scan_mode="latest", limit=500)
+        # sp500 NO_EDGE must be dropped
+        assert result["debug"]["dropped_tickers_count"] >= 1
+        assert all(r["role"] != "NO_EDGE" for r in result["results"])
+    finally:
+        _os.unlink(path)

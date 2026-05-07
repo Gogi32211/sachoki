@@ -131,6 +131,48 @@ def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
     return r
 
 
+def _make_error_clf(ticker: str, date: str, error_type: str, error_msg: str = "") -> dict:
+    """Return a classifier-compatible placeholder for error / missing-data rows."""
+    _blank_abr = {
+        "abr_category": "UNKNOWN", "abr_sequence": "",
+        "abr_prev1_composite": "", "abr_prev2_composite": "",
+        "abr_prev1_comp_med10d": None, "abr_prev2_comp_med10d": None,
+        "abr_prev1_quality": "UNKNOWN", "abr_prev2_quality": "UNKNOWN",
+        "abr_gate_pass": False, "abr_rule_found": False,
+        "abr_n": 0, "abr_med10d_pct": None, "abr_avg10d_pct": None,
+        "abr_fail10d_pct": None, "abr_win10d_pct": None,
+        "abr_action_hint": "NO_ABR_EDGE", "abr_role_suggestion": "",
+        "abr_conflict_flag": "", "abr_confirmation_flag": "", "abr_context_type": "",
+    }
+    return {
+        "ticker": ticker, "date": date,
+        "final_signal": "", "composite_pattern": "", "seq4": "",
+        "lane1": "", "lane3": "",
+        "role": error_type,   # e.g. "CLASSIFICATION_ERROR" or "DATA_MISSING"
+        "score": 0, "quality": "—", "action": "IGNORE",
+        "vol_bucket": "", "wick_suffix": "",
+        "explanation": error_msg,
+        "reason_codes": [error_msg] if error_msg else [],
+        "above_ema20": False, "above_ema50": False, "above_ema89": False,
+        "ema20_reclaim": False, "ema50_reclaim": False, "ema89_reclaim": False,
+        "conflict_flag": "", "conflict_resolution": "", "conflicting_rule_ids": [],
+        "good_flags": [], "reject_flags": [],
+        "price_position_4bar": None, "breaks_4bar_high": False, "breaks_4bar_low": False,
+        "final_volume_vs_prev1": None, "final_volume_vs_prev2": None, "final_volume_vs_prev3": None,
+        "matched_rule_id": "", "matched_rule_type": "", "matched_universe": "",
+        "matched_status": "", "matched_med10d_pct": None, "matched_fail10d_pct": None,
+        "matched_avg10d_pct": None, "matched_source_file": "", "matched_rule_notes": "",
+        "matched_composite_rule_id": "", "matched_seq4_rule_id": "", "matched_reject_rule_id": "",
+        "prior_pullback_ready_found": False, "prior_pullback_ready_bars_ago": None,
+        "prior_pullback_ready_signal": "", "prior_pullback_ready_composite": "",
+        "prior_pullback_ready_role": "", "pullback_high": None,
+        "current_close_above_pullback_high": False,
+        "dollar_volume": 0.0, "liquidity_tier": "UNKNOWN",
+        "debug_trace": [],
+        **_blank_abr,
+    }
+
+
 def _classify_bar(bar_row: dict, history: list, all4: list,
                   matrix, universe: str, debug: bool) -> dict | None:
     """Classify one bar. Returns result dict or None if it should be skipped."""
@@ -210,34 +252,29 @@ def run_intelligence_scan(
 
     matrix = load_matrix()
 
-    # For split universe: cross-filter against the live split universe at query time.
-    # This ensures TZ Intelligence always shows the same tickers as Turbo Screener,
-    # regardless of when the stock_stat CSV was generated.
-    live_split_tickers: frozenset | None = None
-    if universe == "split":
-        try:
-            from split_universe import split_service, normalize_split_symbol
-            live_split_tickers = frozenset(
-                normalize_split_symbol(t) for t in split_service.get_split_tickers()
-            )
-        except Exception:
-            live_split_tickers = None  # graceful degradation: show all CSV rows
-
+    # No live cross-filter at query time.
+    # The stock_stat CSV IS the authoritative ticker source for the split universe —
+    # it was generated from split_service at generation time (split_universe_latest.csv).
+    # Filtering here against the current live split window would silently drop tickers
+    # whose split event has shifted phases since generation.
     rows_by_ticker: dict[str, list] = {}
     with open(stat_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
-            if universe not in ("", "all") and row.get("universe", "") != universe:
-                if row.get("universe", "") != "":
-                    pass  # accept rows with any universe if universe col is empty
             ticker = row.get("ticker", "")
-            # Split universe: only include tickers in the live split universe
-            if live_split_tickers is not None:
-                from split_universe import normalize_split_symbol as _norm
-                if _norm(ticker) not in live_split_tickers:
-                    continue
+            if not ticker:
+                continue
             rows_by_ticker.setdefault(ticker, []).append(row)
 
-    results = []
+    results: list = []
+    dropped_tickers:      list = []
+    classification_errors: list = []
+    classified_count = 0
+    stock_stat_unique = len(rows_by_ticker)
+
+    # For split universe latest mode: all tickers from stock_stat must appear in output.
+    # NO_EDGE is a valid result — do not silently drop.  Classification exceptions must
+    # produce a CLASSIFICATION_ERROR row rather than silently skipping the ticker.
+    require_all_tickers = (universe == "split" and scan_mode == "latest")
 
     for ticker, rows in rows_by_ticker.items():
         rows.sort(key=_sort_key)
@@ -250,21 +287,37 @@ def run_intelligence_scan(
                 vol = float(latest.get("volume") or 0)
             except (TypeError, ValueError):
                 cl = vol = 0.0
-            if cl < min_price or cl > max_price:
-                continue
-            if min_volume > 0 and vol < min_volume:
-                continue
+            if not require_all_tickers:
+                if cl < min_price or cl > max_price:
+                    dropped_tickers.append(ticker)
+                    continue
+                if min_volume > 0 and vol < min_volume:
+                    dropped_tickers.append(ticker)
+                    continue
 
             history = rows[-4:-1]
             all4    = rows[-4:]
-            clf = _classify_bar(latest, history, all4, matrix, universe, debug)
+            try:
+                clf = _classify_bar(latest, history, all4, matrix, universe, debug)
+            except Exception as exc:
+                if require_all_tickers:
+                    date_str = latest.get("bar_datetime") or latest.get("date", "")
+                    clf = _make_error_clf(ticker, date_str, "CLASSIFICATION_ERROR", str(exc))
+                    classification_errors.append({"ticker": ticker, "error": str(exc)})
+                else:
+                    dropped_tickers.append(ticker)
+                    continue
 
-            if clf["role"] == "NO_EDGE" and clf["score"] == 0:
+            is_no_edge = (clf["role"] == "NO_EDGE" and clf["score"] == 0)
+            # Split: always include (NO_EDGE is meaningful — no rule matched)
+            if is_no_edge and not require_all_tickers:
+                dropped_tickers.append(ticker)
                 continue
             if role_filter and role_filter.upper() not in ("ALL", clf["role"]):
                 continue
 
             results.append(_build_result(clf, latest, debug))
+            classified_count += 1
 
         else:
             # ── History mode: classify every bar ─────────────────────────────
@@ -281,7 +334,10 @@ def run_intelligence_scan(
 
                 history = rows[max(0, i - 3):i]
                 all4    = rows[max(0, i - 3):i + 1]
-                clf = _classify_bar(bar, history, all4, matrix, universe, debug)
+                try:
+                    clf = _classify_bar(bar, history, all4, matrix, universe, debug)
+                except Exception as exc:
+                    continue  # history mode: skip erroring bars
 
                 if clf["role"] == "NO_EDGE" and clf["score"] == 0:
                     continue
@@ -295,6 +351,17 @@ def run_intelligence_scan(
         "SHORT_WATCH": 3, "BULL_B": 4, "PULLBACK_READY_B": 5,
         "PULLBACK_WATCH": 6, "BULL_WATCH": 7,
         "REJECT": 8, "NO_EDGE": 9,
+        "CLASSIFICATION_ERROR": 98, "DATA_MISSING": 99,
     }
-    results.sort(key=lambda r: (_role_sort.get(r["role"], 9), -(r["score"] or 0)))
-    return {"results": results[:limit], "total": len(results)}
+    results.sort(key=lambda r: (_role_sort.get(r["role"], 50), -(r["score"] or 0)))
+    return {
+        "results": results[:limit],
+        "total":   len(results),
+        "debug": {
+            "stock_stat_unique_tickers": stock_stat_unique,
+            "classified_tickers":        classified_count,
+            "dropped_tickers_count":     len(dropped_tickers),
+            "dropped_tickers":           dropped_tickers,
+            "classification_errors":     classification_errors,
+        },
+    }

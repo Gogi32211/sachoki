@@ -643,77 +643,126 @@ def api_split_universe_audit(
     force_refresh: bool = False,
     tf: str = "1d",
 ):
-    """Audit split universe consistency across Turbo and WLNBB/TZ scanners.
+    """Three-way audit: shared split universe vs stock_stat vs TZ Intelligence.
 
-    After the unified-source fix both only_in_turbo and only_in_wlnbb
-    should be empty — every displayed ticker comes from the same live
-    split_service call.
+    Sources compared:
+      A. shared  — split_universe_latest.csv (written at generation time);
+                   falls back to live split_service if the file is missing.
+      B. stock_stat — unique tickers in the WLNBB/TZ stock_stat CSV.
+      C. intelligence — after the scanner fix, equal to stock_stat (no live
+                   cross-filter; NO_EDGE tickers are returned, not dropped).
 
-    Expected response after fix:
-      only_in_turbo = []
-      only_in_wlnbb = []
+    Expected after fix:
+      shared_count == stock_stat_count == intelligence_count
+      all difference lists == []
+      is_consistent == true
     """
     try:
-        from split_universe import split_service, normalize_split_symbol
+        from split_universe import (
+            split_service, normalize_split_symbol, SPLIT_UNIVERSE_CSV_PATH,
+        )
         from tz_intelligence.scanner import _stat_path
         import csv as _csv_mod
 
+        # ── A: shared split universe ──────────────────────────────────────────
+        canonical_csv = SPLIT_UNIVERSE_CSV_PATH
+        canonical_tickers: set = set()
+        canonical_exists = os.path.exists(canonical_csv)
+        canonical_generated_at = ""
+
+        if canonical_exists:
+            with open(canonical_csv, newline="", encoding="utf-8") as f:
+                for row in _csv_mod.DictReader(f):
+                    t = normalize_split_symbol(row.get("ticker", ""))
+                    if t:
+                        canonical_tickers.add(t)
+                    if not canonical_generated_at:
+                        canonical_generated_at = row.get("generated_at", "")
+
+        # Always also fetch live result (for debug metadata + fallback)
         sresult = split_service.get_split_universe_result(force_refresh=force_refresh)
         live_set = frozenset(sresult.tickers)
 
-        # Turbo tickers: what turbo would display = live split universe (after fix)
-        turbo_tickers = sorted(live_set)
+        # Use canonical CSV if present, else fall back to live service
+        shared_set = frozenset(canonical_tickers) if canonical_tickers else live_set
 
-        # WLNBB/TZ tickers: intersection of stock_stat CSV and live split universe
-        wlnbb_csv_tickers: set = set()
-        csv_total = 0
+        # ── B: stock_stat unique tickers ──────────────────────────────────────
         stat_path = _stat_path("split", tf)
+        stock_stat_tickers: set = set()
+        csv_total_rows = 0
         if os.path.exists(stat_path):
             with open(stat_path, newline="", encoding="utf-8") as f:
                 for row in _csv_mod.DictReader(f):
-                    csv_total += 1
+                    csv_total_rows += 1
                     t = normalize_split_symbol(row.get("ticker", ""))
                     if t:
-                        wlnbb_csv_tickers.add(t)
-        wlnbb_tickers = sorted(wlnbb_csv_tickers & live_set)
+                        stock_stat_tickers.add(t)
 
-        shared       = sorted(live_set & wlnbb_csv_tickers)
-        only_turbo   = sorted(live_set - wlnbb_csv_tickers)   # in live but not in CSV yet
-        only_wlnbb   = sorted(wlnbb_csv_tickers - live_set)   # in CSV but expired from live
+        # ── C: intelligence tickers ───────────────────────────────────────────
+        # After the scanner fix: no live cross-filter and NO_EDGE tickers are
+        # preserved, so the intelligence ticker set equals the stock_stat set.
+        intelligence_tickers = set(stock_stat_tickers)
+
+        # ── Differences ───────────────────────────────────────────────────────
+        shared_not_in_stock_stat      = sorted(shared_set - stock_stat_tickers)
+        stock_stat_not_in_shared      = sorted(stock_stat_tickers - shared_set)
+        stock_stat_not_in_intelligence = sorted(stock_stat_tickers - intelligence_tickers)
+        intelligence_not_in_stock_stat = sorted(intelligence_tickers - stock_stat_tickers)
+        shared_not_in_intelligence    = sorted(shared_set - intelligence_tickers)
+        intelligence_not_in_shared    = sorted(intelligence_tickers - shared_set)
+
+        is_consistent = not any([
+            shared_not_in_stock_stat,
+            stock_stat_not_in_shared,
+            stock_stat_not_in_intelligence,
+            intelligence_not_in_stock_stat,
+        ])
 
         return {
-            "turbo_tickers":  turbo_tickers,
-            "wlnbb_tickers":  wlnbb_tickers,
-            "shared_tickers": shared,
-            "only_in_turbo":  only_turbo,
-            "only_in_wlnbb":  only_wlnbb,
+            # counts
+            "shared_count":        len(shared_set),
+            "stock_stat_count":    len(stock_stat_tickers),
+            "intelligence_count":  len(intelligence_tickers),
+            # difference lists
+            "shared_not_in_stock_stat":       shared_not_in_stock_stat,
+            "stock_stat_not_in_shared":       stock_stat_not_in_shared,
+            "stock_stat_not_in_intelligence": stock_stat_not_in_intelligence,
+            "intelligence_not_in_stock_stat": intelligence_not_in_stock_stat,
+            "shared_not_in_intelligence":     shared_not_in_intelligence,
+            "intelligence_not_in_shared":     intelligence_not_in_shared,
+            # verdict
+            "is_consistent":  is_consistent,
+            # legacy fields (for UI backward-compat)
             "counts": {
-                "live_split_universe":      len(live_set),
-                "turbo":                    len(turbo_tickers),
-                "wlnbb":                    len(wlnbb_tickers),
-                "shared":                   len(shared),
-                "only_in_turbo":            len(only_turbo),
-                "only_in_wlnbb":            len(only_wlnbb),
-                "wlnbb_csv_total_rows":     csv_total,
-                "wlnbb_csv_unique_tickers": len(wlnbb_csv_tickers),
+                "live_split_universe":         len(live_set),
+                "shared":                      len(shared_set),
+                "stock_stat":                  len(stock_stat_tickers),
+                "intelligence":                len(intelligence_tickers),
+                "only_in_turbo":               len(shared_not_in_stock_stat),
+                "only_in_wlnbb":               len(stock_stat_not_in_shared),
+                "wlnbb_csv_total_rows":        csv_total_rows,
+                "wlnbb_csv_unique_tickers":    len(stock_stat_tickers),
             },
             "debug": {
-                "total_events":             sresult.total_events,
-                "reverse_split_events":     sresult.reverse_split_events,
-                "stock_like_events":        sresult.stock_like_events,
-                "filtered_non_stock":       sresult.filtered_non_stock,
-                "missing_symbol":           sresult.missing_symbol,
-                "duplicate_symbols_removed": sresult.duplicate_symbols_removed,
-                "ratio_parse_failed_count": sresult.ratio_parse_failed_count,
-                "date_mode":                sresult.date_mode,
-                "start_date":               sresult.start_date,
-                "end_date":                 sresult.end_date,
-                "source":                   sresult.source,
-                "cache_key":                sresult.cache_key,
-                "generated_at":             sresult.generated_at,
-                "wlnbb_csv_path":           stat_path,
-                "wlnbb_csv_exists":         os.path.exists(stat_path),
-                "excluded_examples":        sresult.excluded_examples[:10],
+                "total_events":                sresult.total_events,
+                "reverse_split_events":        sresult.reverse_split_events,
+                "stock_like_events":           sresult.stock_like_events,
+                "filtered_non_stock":          sresult.filtered_non_stock,
+                "missing_symbol":              sresult.missing_symbol,
+                "duplicate_symbols_removed":   sresult.duplicate_symbols_removed,
+                "ratio_parse_failed_count":    sresult.ratio_parse_failed_count,
+                "date_mode":                   sresult.date_mode,
+                "start_date":                  sresult.start_date,
+                "end_date":                    sresult.end_date,
+                "source":                      sresult.source,
+                "cache_key":                   sresult.cache_key,
+                "generated_at":                sresult.generated_at,
+                "canonical_csv_path":          canonical_csv,
+                "canonical_csv_exists":        canonical_exists,
+                "canonical_csv_generated_at":  canonical_generated_at,
+                "stock_stat_csv_path":         stat_path,
+                "stock_stat_csv_exists":       os.path.exists(stat_path),
+                "excluded_examples":           sresult.excluded_examples[:10],
             },
         }
     except Exception as exc:
@@ -2084,14 +2133,29 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
         source_universe = "nasdaq" if universe == "nasdaq_gt5" else universe
         gen_min_price   = 5.0     if universe == "nasdaq_gt5" else 0.0
 
-        try:
-            tickers = get_universe_tickers(source_universe)
-        except Exception:
+        if universe == "split":
+            # Force-refresh the split service so we get the latest window,
+            # write split_universe_latest.csv as the canonical reference, and
+            # use exactly those tickers — no stale cache.
+            from split_universe import split_service as _svc
+            fresh = _svc.get_split_universe_result(force_refresh=True)
+            tickers = list(fresh.tickers)
+            log.info(
+                "split universe: force-refreshed %d tickers "
+                "(total_events=%d reverse=%d stock_like=%d filtered_non_stock=%d) "
+                "for stock_stat generation",
+                len(tickers), fresh.total_events, fresh.reverse_split_events,
+                fresh.stock_like_events, fresh.filtered_non_stock,
+            )
+        else:
             try:
-                from scanner import get_tickers
-                tickers = get_tickers() or []
+                tickers = get_universe_tickers(source_universe)
             except Exception:
-                tickers = []
+                try:
+                    from scanner import get_tickers
+                    tickers = get_tickers() or []
+                except Exception:
+                    tickers = []
 
         if universe in ("nasdaq", "nasdaq_gt5") and nasdaq_batch and nasdaq_batch != "all":
             tickers = _filter_nasdaq_batch(tickers, nasdaq_batch)
