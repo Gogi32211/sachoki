@@ -14,6 +14,7 @@ _VALID_UNIVERSES = frozenset({
 })
 _VALID_TFS = frozenset({"1d", "4h", "1h", "1wk"})
 _VALID_NASDAQ_BATCHES = frozenset({"", "a_m", "n_z", "a_f", "g_m", "n_s", "t_z"})
+_VALID_SCAN_MODES = frozenset({"latest", "history"})
 
 # Batches valid only for nasdaq_gt5 (4-way split for large 4H scans)
 _NASDAQ_GT5_BATCHES = frozenset({"a_f", "g_m", "n_s", "t_z"})
@@ -28,6 +29,132 @@ def _stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
 
+def _sort_key(row: dict) -> str:
+    """Sort key that uses bar_datetime when available (preserves intraday order)."""
+    return row.get("bar_datetime") or row.get("date", "")
+
+
+def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
+    """Build the result dict from a classifier output and raw CSV row."""
+    r: dict = {
+        # core
+        "ticker":            clf["ticker"],
+        "date":              clf["date"],
+        "bar_datetime":      bar_row.get("bar_datetime") or clf["date"],
+        "close":             bar_row.get("close"),
+        "volume":            bar_row.get("volume"),
+        "price_bucket":      bar_row.get("price_bucket", ""),
+        "final_signal":      clf["final_signal"],
+        "composite_pattern": clf["composite_pattern"],
+        "seq4":              clf["seq4"],
+        "lane1":             clf["lane1"],
+        "lane3":             clf["lane3"],
+        "role":              clf["role"],
+        "score":             clf["score"],
+        "quality":           clf["quality"],
+        "action":            clf["action"],
+        "vol_bucket":        clf["vol_bucket"],
+        "wick_suffix":       clf["wick_suffix"],
+        "reason_codes":      clf["reason_codes"],
+        "explanation":       clf["explanation"],
+        # EMA
+        "above_ema20":       clf["above_ema20"],
+        "above_ema50":       clf["above_ema50"],
+        "above_ema89":       clf["above_ema89"],
+        "ema20_reclaim":     clf["ema20_reclaim"],
+        "ema50_reclaim":     clf["ema50_reclaim"],
+        "ema89_reclaim":     clf["ema89_reclaim"],
+        # Conflict
+        "conflict_flag":          clf["conflict_flag"],
+        "conflict_resolution":    clf["conflict_resolution"],
+        "conflicting_rule_ids":   clf["conflicting_rule_ids"],
+        # Flags
+        "good_flags":        clf["good_flags"],
+        "reject_flags":      clf["reject_flags"],
+        # Price position
+        "price_position_4bar": clf["price_position_4bar"],
+        "breaks_4bar_high":  clf["breaks_4bar_high"],
+        "breaks_4bar_low":   clf["breaks_4bar_low"],
+        # Volume vs history
+        "final_volume_vs_prev1": clf["final_volume_vs_prev1"],
+        "final_volume_vs_prev2": clf["final_volume_vs_prev2"],
+        "final_volume_vs_prev3": clf["final_volume_vs_prev3"],
+        # Matched rule debug fields
+        "matched_rule_id":           clf["matched_rule_id"],
+        "matched_rule_type":         clf["matched_rule_type"],
+        "matched_universe":          clf["matched_universe"],
+        "matched_status":            clf["matched_status"],
+        "matched_med10d_pct":        clf["matched_med10d_pct"],
+        "matched_fail10d_pct":       clf["matched_fail10d_pct"],
+        "matched_avg10d_pct":        clf["matched_avg10d_pct"],
+        "matched_source_file":       clf["matched_source_file"],
+        "matched_rule_notes":        clf["matched_rule_notes"],
+        "matched_composite_rule_id": clf["matched_composite_rule_id"],
+        "matched_seq4_rule_id":      clf["matched_seq4_rule_id"],
+        "matched_reject_rule_id":    clf["matched_reject_rule_id"],
+        # PULLBACK_GO proof fields
+        "prior_pullback_ready_found":        clf["prior_pullback_ready_found"],
+        "prior_pullback_ready_bars_ago":     clf["prior_pullback_ready_bars_ago"],
+        "prior_pullback_ready_signal":       clf["prior_pullback_ready_signal"],
+        "prior_pullback_ready_composite":    clf["prior_pullback_ready_composite"],
+        "prior_pullback_ready_role":         clf["prior_pullback_ready_role"],
+        "pullback_high":                     clf["pullback_high"],
+        "current_close_above_pullback_high": clf["current_close_above_pullback_high"],
+        # Liquidity fields
+        "dollar_volume":    clf["dollar_volume"],
+        "liquidity_tier":   clf["liquidity_tier"],
+        # ABR overlay fields
+        "abr_category":          clf["abr_category"],
+        "abr_sequence":          clf["abr_sequence"],
+        "abr_prev1_composite":   clf["abr_prev1_composite"],
+        "abr_prev2_composite":   clf["abr_prev2_composite"],
+        "abr_prev1_comp_med10d": clf["abr_prev1_comp_med10d"],
+        "abr_prev2_comp_med10d": clf["abr_prev2_comp_med10d"],
+        "abr_prev1_quality":     clf["abr_prev1_quality"],
+        "abr_prev2_quality":     clf["abr_prev2_quality"],
+        "abr_gate_pass":       clf["abr_gate_pass"],
+        "abr_rule_found":      clf["abr_rule_found"],
+        "abr_n":               clf["abr_n"],
+        "abr_med10d_pct":      clf["abr_med10d_pct"],
+        "abr_avg10d_pct":      clf["abr_avg10d_pct"],
+        "abr_fail10d_pct":     clf["abr_fail10d_pct"],
+        "abr_win10d_pct":      clf["abr_win10d_pct"],
+        "abr_action_hint":       clf["abr_action_hint"],
+        "abr_role_suggestion":   clf["abr_role_suggestion"],
+        # ABR context flags
+        "abr_conflict_flag":     clf["abr_conflict_flag"],
+        "abr_confirmation_flag": clf["abr_confirmation_flag"],
+        "abr_context_type":      clf["abr_context_type"],
+    }
+    if debug:
+        r["debug_trace"] = clf["debug_trace"]
+    return r
+
+
+def _classify_bar(bar_row: dict, history: list, all4: list,
+                  matrix, universe: str, debug: bool) -> dict | None:
+    """Classify one bar. Returns result dict or None if it should be skipped."""
+    # For intraday, expose bar_datetime as the date so it appears in clf["date"]
+    bar = bar_row
+    if bar_row.get("bar_datetime") and bar_row["bar_datetime"] != bar_row.get("date", ""):
+        bar = {**bar_row, "date": bar_row["bar_datetime"]}
+
+    try:
+        low4  = min(float(b.get("low")  or float("inf")) for b in all4)
+        high4 = max(float(b.get("high") or 0)            for b in all4)
+    except (TypeError, ValueError):
+        low4 = high4 = None
+
+    clf = classify_tz_event(
+        bar, history, matrix,
+        current_low_4bar=low4,
+        current_high_4bar=high4,
+        scan_universe=universe,
+        debug=debug,
+    )
+    return clf
+
+
 def run_intelligence_scan(
     universe: str = "sp500",
     tf: str = "1d",
@@ -37,12 +164,16 @@ def run_intelligence_scan(
     max_price: float = 1e9,
     min_volume: float = 0,
     role_filter: str = "all",
+    scan_mode: str = "latest",
     limit: int = 500,
     debug: bool = False,
 ) -> dict:
     """
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
     return sorted results.
+
+    scan_mode='latest'  — one result per ticker (most recent bar only).
+    scan_mode='history' — one result per bar across all history.
     """
     # ── Input validation (must happen before any path construction) ───────────
     if universe not in _VALID_UNIVERSES:
@@ -54,6 +185,9 @@ def run_intelligence_scan(
     if nasdaq_batch not in _VALID_NASDAQ_BATCHES:
         return {"results": [], "error": f"Invalid nasdaq_batch '{nasdaq_batch}'. "
                 f"Allowed: {sorted(_VALID_NASDAQ_BATCHES)}"}
+    if scan_mode not in _VALID_SCAN_MODES:
+        return {"results": [], "error": f"Invalid scan_mode '{scan_mode}'. "
+                f"Allowed: {sorted(_VALID_SCAN_MODES)}"}
 
     # nasdaq_gt5 enforces price >= 5 — cannot be overridden by caller
     if universe == "nasdaq_gt5":
@@ -85,135 +219,57 @@ def run_intelligence_scan(
             rows_by_ticker.setdefault(row.get("ticker", ""), []).append(row)
 
     results = []
+
     for ticker, rows in rows_by_ticker.items():
-        rows.sort(key=lambda x: x.get("date", ""))
-        latest = rows[-1]
+        rows.sort(key=_sort_key)
 
-        # Price / volume filter
-        try:
-            cl  = float(latest.get("close")  or 0)
-            vol = float(latest.get("volume") or 0)
-        except (TypeError, ValueError):
-            cl = vol = 0.0
-        if cl < min_price or cl > max_price:
-            continue
-        if min_volume > 0 and vol < min_volume:
-            continue
+        if scan_mode == "latest":
+            # ── Latest mode: classify only the most recent bar ────────────────
+            latest = rows[-1]
+            try:
+                cl  = float(latest.get("close")  or 0)
+                vol = float(latest.get("volume") or 0)
+            except (TypeError, ValueError):
+                cl = vol = 0.0
+            if cl < min_price or cl > max_price:
+                continue
+            if min_volume > 0 and vol < min_volume:
+                continue
 
-        history = rows[-4:-1]  # up to 3 previous bars, oldest first
-        all4    = rows[-4:]
-        try:
-            low4  = min(float(b.get("low")  or float("inf")) for b in all4)
-            high4 = max(float(b.get("high") or 0)            for b in all4)
-        except (TypeError, ValueError):
-            low4 = high4 = None
+            history = rows[-4:-1]
+            all4    = rows[-4:]
+            clf = _classify_bar(latest, history, all4, matrix, universe, debug)
 
-        clf = classify_tz_event(
-            latest, history, matrix,
-            current_low_4bar=low4,
-            current_high_4bar=high4,
-            scan_universe=universe,
-            debug=debug,
-        )
+            if clf["role"] == "NO_EDGE" and clf["score"] == 0:
+                continue
+            if role_filter and role_filter.upper() not in ("ALL", clf["role"]):
+                continue
 
-        # Skip pure noise
-        if clf["role"] == "NO_EDGE" and clf["score"] == 0:
-            continue
+            results.append(_build_result(clf, latest, debug))
 
-        if role_filter and role_filter.upper() not in ("ALL", clf["role"]):
-            continue
+        else:
+            # ── History mode: classify every bar ─────────────────────────────
+            for i, bar in enumerate(rows):
+                try:
+                    cl  = float(bar.get("close")  or 0)
+                    vol = float(bar.get("volume") or 0)
+                except (TypeError, ValueError):
+                    cl = vol = 0.0
+                if cl < min_price or cl > max_price:
+                    continue
+                if min_volume > 0 and vol < min_volume:
+                    continue
 
-        results.append({
-            # core
-            "ticker":            clf["ticker"],
-            "date":              clf["date"],
-            "close":             latest.get("close"),
-            "volume":            latest.get("volume"),
-            "price_bucket":      latest.get("price_bucket", ""),
-            "final_signal":      clf["final_signal"],
-            "composite_pattern": clf["composite_pattern"],
-            "seq4":              clf["seq4"],
-            "lane1":             clf["lane1"],
-            "lane3":             clf["lane3"],
-            "role":              clf["role"],
-            "score":             clf["score"],
-            "quality":           clf["quality"],
-            "action":            clf["action"],
-            "vol_bucket":        clf["vol_bucket"],
-            "wick_suffix":       clf["wick_suffix"],
-            "reason_codes":      clf["reason_codes"],
-            "explanation":       clf["explanation"],
-            # EMA (fix 6 – separate above vs reclaim)
-            "above_ema20":       clf["above_ema20"],
-            "above_ema50":       clf["above_ema50"],
-            "above_ema89":       clf["above_ema89"],
-            "ema20_reclaim":     clf["ema20_reclaim"],
-            "ema50_reclaim":     clf["ema50_reclaim"],
-            "ema89_reclaim":     clf["ema89_reclaim"],
-            # Conflict (fix 3)
-            "conflict_flag":          clf["conflict_flag"],
-            "conflict_resolution":    clf["conflict_resolution"],
-            "conflicting_rule_ids":   clf["conflicting_rule_ids"],
-            # Flags (fix 4)
-            "good_flags":        clf["good_flags"],
-            "reject_flags":      clf["reject_flags"],
-            # Price position
-            "price_position_4bar": clf["price_position_4bar"],
-            "breaks_4bar_high":  clf["breaks_4bar_high"],
-            "breaks_4bar_low":   clf["breaks_4bar_low"],
-            # Volume vs history
-            "final_volume_vs_prev1": clf["final_volume_vs_prev1"],
-            "final_volume_vs_prev2": clf["final_volume_vs_prev2"],
-            "final_volume_vs_prev3": clf["final_volume_vs_prev3"],
-            # Matched rule debug fields
-            "matched_rule_id":           clf["matched_rule_id"],
-            "matched_rule_type":         clf["matched_rule_type"],
-            "matched_universe":          clf["matched_universe"],
-            "matched_status":            clf["matched_status"],
-            "matched_med10d_pct":        clf["matched_med10d_pct"],
-            "matched_fail10d_pct":       clf["matched_fail10d_pct"],
-            "matched_avg10d_pct":        clf["matched_avg10d_pct"],
-            "matched_source_file":       clf["matched_source_file"],
-            "matched_rule_notes":        clf["matched_rule_notes"],
-            "matched_composite_rule_id": clf["matched_composite_rule_id"],
-            "matched_seq4_rule_id":      clf["matched_seq4_rule_id"],
-            "matched_reject_rule_id":    clf["matched_reject_rule_id"],
-            # PULLBACK_GO proof fields
-            "prior_pullback_ready_found":        clf["prior_pullback_ready_found"],
-            "prior_pullback_ready_bars_ago":     clf["prior_pullback_ready_bars_ago"],
-            "prior_pullback_ready_signal":       clf["prior_pullback_ready_signal"],
-            "prior_pullback_ready_composite":    clf["prior_pullback_ready_composite"],
-            "prior_pullback_ready_role":         clf["prior_pullback_ready_role"],
-            "pullback_high":                     clf["pullback_high"],
-            "current_close_above_pullback_high": clf["current_close_above_pullback_high"],
-            # Liquidity fields
-            "dollar_volume":    clf["dollar_volume"],
-            "liquidity_tier":   clf["liquidity_tier"],
-            # ABR overlay fields
-            "abr_category":          clf["abr_category"],
-            "abr_sequence":          clf["abr_sequence"],
-            "abr_prev1_composite":   clf["abr_prev1_composite"],
-            "abr_prev2_composite":   clf["abr_prev2_composite"],
-            "abr_prev1_comp_med10d": clf["abr_prev1_comp_med10d"],
-            "abr_prev2_comp_med10d": clf["abr_prev2_comp_med10d"],
-            "abr_prev1_quality":     clf["abr_prev1_quality"],
-            "abr_prev2_quality":     clf["abr_prev2_quality"],
-            "abr_gate_pass":       clf["abr_gate_pass"],
-            "abr_rule_found":      clf["abr_rule_found"],
-            "abr_n":               clf["abr_n"],
-            "abr_med10d_pct":      clf["abr_med10d_pct"],
-            "abr_avg10d_pct":      clf["abr_avg10d_pct"],
-            "abr_fail10d_pct":     clf["abr_fail10d_pct"],
-            "abr_win10d_pct":      clf["abr_win10d_pct"],
-            "abr_action_hint":       clf["abr_action_hint"],
-            "abr_role_suggestion":   clf["abr_role_suggestion"],
-            # ABR context flags (role × category cross-signal)
-            "abr_conflict_flag":     clf["abr_conflict_flag"],
-            "abr_confirmation_flag": clf["abr_confirmation_flag"],
-            "abr_context_type":      clf["abr_context_type"],
-            # Debug trace (only when debug=True)
-            **({"debug_trace": clf["debug_trace"]} if debug else {}),
-        })
+                history = rows[max(0, i - 3):i]
+                all4    = rows[max(0, i - 3):i + 1]
+                clf = _classify_bar(bar, history, all4, matrix, universe, debug)
+
+                if clf["role"] == "NO_EDGE" and clf["score"] == 0:
+                    continue
+                if role_filter and role_filter.upper() not in ("ALL", clf["role"]):
+                    continue
+
+                results.append(_build_result(clf, bar, debug))
 
     _role_sort = {
         "SHORT_GO": 0, "BULL_A": 1, "PULLBACK_READY_A": 2,

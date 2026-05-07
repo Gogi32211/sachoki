@@ -5,7 +5,7 @@ const BASE = import.meta.env.VITE_API_URL || ''
 const TOOLTIP_W = 520
 
 const CSV_COLS = [
-  'ticker','date','close','volume',
+  'ticker','date','bar_datetime','close','volume',
   'final_signal','composite_pattern','seq4','lane1','lane3',
   'role','score','quality','action',
   'vol_bucket','wick_suffix',
@@ -35,7 +35,7 @@ const CSV_COLS = [
   'abr_conflict_flag','abr_confirmation_flag','abr_context_type',
 ]
 
-function exportCSV(rows, universe, tf, batch = '') {
+function exportCSV(rows, universe, tf, batch = '', scanMode = 'latest') {
   const lines = [CSV_COLS.join(',')]
   for (const r of rows) {
     lines.push(CSV_COLS.map(c => {
@@ -53,7 +53,7 @@ function exportCSV(rows, universe, tf, batch = '') {
   const a = document.createElement('a')
   a.href = url
   const batchPart = batch ? `_${batch}` : ''
-  a.download = `tz_intelligence_${universe}${batchPart}_${tf}_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `tz_intelligence_${universe}${batchPart}_${tf}_${scanMode}_${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -386,6 +386,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
   const [nasdaqBatch, setNasdaqBatch] = useState('a_m')
   const [gt5Batch, setGt5Batch]       = useState('')   // '' = full scan (no batch)
   const [tf, setTf]                   = useState('1d')
+  const [scanMode, setScanMode]       = useState('latest')
   const [roleFilter, setRoleFilter]   = useState('all')
   const [abrFilter, setAbrFilter]     = useState('all')
   const [abrCtxFilter, setAbrCtxFilter] = useState('all')
@@ -426,7 +427,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
     setPbConfirmedOnly(false)
     setShortConflictOnly(false)
     try {
-      const qs = new URLSearchParams({ universe, tf, role_filter: roleFilter })
+      const qs = new URLSearchParams({ universe, tf, role_filter: roleFilter, scan_mode: scanMode })
       if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
       if (universe === 'nasdaq_gt5' && gt5Batch) qs.set('nasdaq_batch', gt5Batch)
       // nasdaq_gt5 always enforces min_price >= 5
@@ -567,6 +568,19 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         </div>
 
         <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">Mode</label>
+          <div className="flex gap-1">
+            {[{k:'latest',l:'Latest'},{k:'history',l:'History'}].map(({k,l}) => (
+              <button key={k} onClick={() => setScanMode(k)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${scanMode === k ? 'bg-indigo-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {l}
+              </button>
+            ))}
+          </div>
+        </div>
+
+        <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Role</label>
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
             className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
@@ -658,17 +672,23 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         </div>
       )}
 
+      {scanMode === 'history' && (
+        <div className="p-2 bg-indigo-900/30 border border-indigo-700 rounded text-indigo-300 text-xs">
+          ⏳ Historical events — not a live watchlist. Shows all classified bars across history.
+        </div>
+      )}
+
       {displayRows.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">
-            Showing {displayRows.length} of {total} classified tickers
+            Showing {displayRows.length} of {total} classified {scanMode === 'history' ? 'bars' : 'tickers'}
             {sortKey && <span className="ml-1 text-blue-400/70">· sorted by {sortKey} {sortDir === 'asc' ? '▲' : '▼'}</span>}
           </span>
           <button
             onClick={() => {
               const activeBatch = universe === 'nasdaq' ? nasdaqBatch
                 : (universe === 'nasdaq_gt5' ? gt5Batch : '')
-              exportCSV(displayRows, universe, tf, activeBatch)
+              exportCSV(displayRows, universe, tf, activeBatch, scanMode)
             }}
             className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 transition-colors"
           >

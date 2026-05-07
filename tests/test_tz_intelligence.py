@@ -1781,6 +1781,63 @@ def test_csv_filename_batch_logic():
     assert _filename("nasdaq", "1d", "a_m") == "tz_intelligence_nasdaq_a_m_1d_2026-05-07.csv"
 
 
+# ── scan_mode: latest vs history ──────────────────────────────────────────────
+
+from tz_intelligence.scanner import _VALID_SCAN_MODES, _sort_key, _build_result
+
+
+def test_valid_scan_modes_set():
+    assert "latest" in _VALID_SCAN_MODES
+    assert "history" in _VALID_SCAN_MODES
+
+
+def test_scanner_rejects_invalid_scan_mode():
+    result = run_intelligence_scan(universe="sp500", tf="1d", scan_mode="realtime")
+    assert "error" in result
+    assert "Invalid scan_mode" in result["error"]
+    assert result["results"] == []
+
+
+def test_scanner_valid_scan_modes_pass_allowlist():
+    for mode in ("latest", "history"):
+        result = run_intelligence_scan(universe="sp500", tf="1d", scan_mode=mode)
+        assert "Invalid scan_mode" not in result.get("error", ""), \
+            f"Valid scan_mode '{mode}' incorrectly rejected"
+
+
+def test_sort_key_prefers_bar_datetime():
+    """_sort_key must use bar_datetime when present, fall back to date."""
+    row_with_dt = {"date": "2026-05-07", "bar_datetime": "2026-05-07 10:00"}
+    row_date_only = {"date": "2026-05-07"}
+    assert _sort_key(row_with_dt) == "2026-05-07 10:00"
+    assert _sort_key(row_date_only) == "2026-05-07"
+
+
+def test_sort_key_intraday_ordering():
+    """Intraday bars must sort chronologically within the same date."""
+    bars = [
+        {"date": "2026-05-07", "bar_datetime": "2026-05-07 14:00"},
+        {"date": "2026-05-07", "bar_datetime": "2026-05-07 06:30"},
+        {"date": "2026-05-07", "bar_datetime": "2026-05-07 10:00"},
+    ]
+    bars.sort(key=_sort_key)
+    assert [b["bar_datetime"] for b in bars] == [
+        "2026-05-07 06:30", "2026-05-07 10:00", "2026-05-07 14:00"
+    ]
+
+
+def test_csv_filename_includes_scan_mode():
+    """CSV export filename must include scan_mode."""
+    def _filename(universe, tf, batch='', scan_mode='latest'):
+        batch_part = f"_{batch}" if batch else ''
+        return f"tz_intelligence_{universe}{batch_part}_{tf}_{scan_mode}_2026-05-07.csv"
+
+    assert _filename("sp500", "1d") == "tz_intelligence_sp500_1d_latest_2026-05-07.csv"
+    assert _filename("sp500", "1d", scan_mode="history") == "tz_intelligence_sp500_1d_history_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "a_f", "latest") == "tz_intelligence_nasdaq_gt5_a_f_4h_latest_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "a_f", "history") == "tz_intelligence_nasdaq_gt5_a_f_4h_history_2026-05-07.csv"
+
+
 # ── Security: CSV formula injection neutralisation ────────────────────────────
 
 def _csv_cell(value: str) -> str:

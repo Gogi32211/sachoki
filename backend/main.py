@@ -2189,10 +2189,15 @@ def api_tz_intelligence_scan(
     max_price: float = 1e9,
     min_volume: float = 0,
     role_filter: str = "all",
+    scan_mode: str = "latest",
     limit: int = 500,
     debug: bool = False,
 ):
-    """Classify latest TZ/WLNBB bars using the Signal Intelligence matrix."""
+    """Classify TZ/WLNBB bars using the Signal Intelligence matrix.
+
+    scan_mode='latest'  — one result per ticker (most recent bar).
+    scan_mode='history' — all historical classified events.
+    """
     # nasdaq_gt5 always enforces close >= 5
     if universe == "nasdaq_gt5":
         min_price = max(min_price, 5.0)
@@ -2206,6 +2211,7 @@ def api_tz_intelligence_scan(
             max_price=max_price,
             min_volume=min_volume,
             role_filter=role_filter,
+            scan_mode=scan_mode,
             limit=limit,
             debug=debug,
         )
