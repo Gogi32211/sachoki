@@ -1688,3 +1688,92 @@ def test_abr_full_classify_nasdaq():
     else:
         assert result["abr_prev1_quality"] in ("AVERAGE", "REJECT")
         assert result["abr_category"] == "R"
+
+
+# ── Security: input validation ────────────────────────────────────────────────
+
+from tz_intelligence.scanner import run_intelligence_scan, _VALID_UNIVERSES, _VALID_TFS
+
+
+def test_scanner_rejects_invalid_universe():
+    """run_intelligence_scan must reject unknown universe values without touching filesystem."""
+    result = run_intelligence_scan(universe="../../etc/passwd", tf="1d")
+    assert "error" in result
+    assert "Invalid universe" in result["error"]
+    assert result["results"] == []
+
+
+def test_scanner_rejects_invalid_tf():
+    """run_intelligence_scan must reject unknown timeframe values."""
+    result = run_intelligence_scan(universe="sp500", tf="5m")
+    assert "error" in result
+    assert "Invalid timeframe" in result["error"]
+    assert result["results"] == []
+
+
+def test_scanner_rejects_invalid_nasdaq_batch():
+    """run_intelligence_scan must reject unknown nasdaq_batch values."""
+    result = run_intelligence_scan(universe="nasdaq", tf="1d", nasdaq_batch="../evil")
+    assert "error" in result
+    assert "Invalid nasdaq_batch" in result["error"]
+    assert result["results"] == []
+
+
+def test_scanner_valid_inputs_pass_allowlist():
+    """All documented valid universe/tf combos must not be rejected by the allowlist."""
+    for univ in _VALID_UNIVERSES:
+        for tf in _VALID_TFS:
+            result = run_intelligence_scan(universe=univ, tf=tf)
+            # May return error about missing CSV file, but must NOT be an allowlist error
+            assert "Invalid universe" not in result.get("error", ""), \
+                f"Valid universe '{univ}' incorrectly rejected"
+            assert "Invalid timeframe" not in result.get("error", ""), \
+                f"Valid tf '{tf}' incorrectly rejected"
+
+
+# ── Security: CSV formula injection neutralisation ────────────────────────────
+
+def _csv_cell(value: str) -> str:
+    """Replicate the JS exportCSV cell-encoding logic in Python for testing."""
+    v = str(value)
+    import re
+    if re.match(r'^[=+\-@]', v):
+        v = "'" + v
+    if ',' in v or '"' in v or '\n' in v:
+        v = '"' + v.replace('"', '""') + '"'
+    return v
+
+
+def test_csv_formula_injection_neutralised():
+    """Cells starting with =, +, -, @ must be prefixed with a single quote."""
+    assert _csv_cell("=SUM(A1)").startswith("'")
+    assert _csv_cell("+cmd").startswith("'")
+    assert _csv_cell("-1+1").startswith("'")
+    assert _csv_cell("@SUM").startswith("'")
+    # Normal values must not be modified
+    assert _csv_cell("BULL_A") == "BULL_A"
+    assert _csv_cell("T4") == "T4"
+    assert _csv_cell("0.57") == "0.57"
+    assert _csv_cell("") == ""
+    # Values containing commas should still be quoted
+    assert _csv_cell("hello,world") == '"hello,world"'
+    # Formula starting with = that also has a comma: gets prefixed then csv-quoted
+    # Result is "'=1+1,foo" (quoted cell whose value starts with ', not =)
+    result = _csv_cell("=1+1,foo")
+    assert result.startswith('"\'')   # CSV-quoted cell beginning with neutralised prefix
+
+
+def test_csv_formula_injection_abr_fields():
+    """Realistic ABR field values must not trigger formula injection."""
+    safe_values = [
+        "A", "B", "B+", "R", "UNKNOWN",
+        "STRONG", "GOOD", "AVERAGE", "REJECT",
+        "PRIMARY_LONG_CONTEXT", "NO_ABR_EDGE",
+        "T4", "Z1G", "T3|T2|Z1G",
+        "0.567", "23.4%", "true", "false", "",
+    ]
+    for v in safe_values:
+        encoded = _csv_cell(v)
+        # None of these should be prefixed (they don't start with formula chars)
+        assert not encoded.startswith("'"), \
+            f"Safe value '{v}' was incorrectly prefixed: {encoded}"
