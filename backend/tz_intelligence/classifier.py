@@ -516,28 +516,78 @@ def classify_tz_event(
 
     # ── SHORT_WATCH strictness ────────────────────────────────────────────────
     if best_role == "SHORT_WATCH":
-        bearish_confirmed = (
-            breaks_4bar_low or
-            (not above_ema50) or
-            price_position_4bar < 0.25 or
-            (bool(eff_neg_comp) and bool(eff_neg_seq4))
-        )
-        moderate_bullish = above_ema50 or price_position_4bar >= 0.50
-        strong_bullish   = price_position_4bar >= 0.75 and above_ema50
+        # NASDAQ_GT5: require at least 2 strong bearish confirmations
+        if scan_universe == "nasdaq_gt5":
+            try:
+                _med   = float(matched_med10d)  if matched_med10d  != "" else None
+                _fail  = float(matched_fail10d) if matched_fail10d != "" else None
+            except (TypeError, ValueError):
+                _med = _fail = None
 
-        if bool(eff_pos_comp) and bool(eff_neg_seq4) and moderate_bullish:
-            best_role = "MIXED_WATCH"
-            reason_codes.append("SHORT_WATCH→MIXED_WATCH:pos_comp+neg_seq4+bullish_context")
-        elif bool(eff_neg_comp) and not bool(eff_neg_seq4) and strong_bullish:
-            best_role = "REJECT_LONG"
-            reason_codes.append("SHORT_WATCH→REJECT_LONG:reject_comp_only+bullish_context")
-        elif not bearish_confirmed:
-            if strong_bullish and bool(eff_neg_comp):
-                best_role = "REJECT_LONG"
-                reason_codes.append("SHORT_WATCH→REJECT_LONG:no_bearish_confirmation+strong_bullish")
-            else:
+            _bear_confirm = 0
+            if _med  is not None and _med  < 0:           _bear_confirm += 1
+            if _fail is not None and _fail >= 30:          _bear_confirm += 1
+            if bool(eff_neg_comp):                         _bear_confirm += 1
+            if bool(eff_neg_seq4):                         _bear_confirm += 1
+            if breaks_4bar_low:                            _bear_confirm += 1
+            if price_position_4bar < 0.25:                 _bear_confirm += 1
+            if not above_ema20 and not above_ema50:        _bear_confirm += 1
+
+            # Positive composite override: clearly not a short setup
+            _pos_override = (
+                _med is not None and _med >= 0.5 and
+                _fail is not None and _fail < 25 and
+                not breaks_4bar_low
+            )
+            # Weak reject: matched_status=REJECT but no real bearish data
+            _weak_reject = (
+                (_med is None or _med >= 0) and
+                (_fail is None or _fail < 30) and
+                not breaks_4bar_low
+            )
+
+            if _pos_override or _bear_confirm < 2:
+                has_reject_rule = bool(eff_neg_comp) or bool(eff_neg_seq4)
+                has_pos_comp    = bool(eff_pos_comp)
+                if has_pos_comp and has_reject_rule:
+                    best_role = "MIXED_WATCH"
+                    reason_codes.append(
+                        f"NASDAQ_GT5:SHORT_WATCH→MIXED_WATCH:pos_comp+reject_rule:bear_confirms={_bear_confirm}"
+                    )
+                elif has_reject_rule and not breaks_4bar_low:
+                    best_role = "REJECT_LONG"
+                    reason_codes.append(
+                        f"NASDAQ_GT5:SHORT_WATCH→REJECT_LONG:reject_rule_no_breakdown:bear_confirms={_bear_confirm}"
+                    )
+                else:
+                    best_role = "NO_EDGE"
+                    reason_codes.append(
+                        f"NASDAQ_GT5:SHORT_WATCH→NO_EDGE:insufficient_bearish:bear_confirms={_bear_confirm}"
+                    )
+        else:
+            # Generic (SP500 / other) SHORT_WATCH strictness — unchanged
+            bearish_confirmed = (
+                breaks_4bar_low or
+                (not above_ema50) or
+                price_position_4bar < 0.25 or
+                (bool(eff_neg_comp) and bool(eff_neg_seq4))
+            )
+            moderate_bullish = above_ema50 or price_position_4bar >= 0.50
+            strong_bullish   = price_position_4bar >= 0.75 and above_ema50
+
+            if bool(eff_pos_comp) and bool(eff_neg_seq4) and moderate_bullish:
                 best_role = "MIXED_WATCH"
-                reason_codes.append("SHORT_WATCH→MIXED_WATCH:no_bearish_confirmation")
+                reason_codes.append("SHORT_WATCH→MIXED_WATCH:pos_comp+neg_seq4+bullish_context")
+            elif bool(eff_neg_comp) and not bool(eff_neg_seq4) and strong_bullish:
+                best_role = "REJECT_LONG"
+                reason_codes.append("SHORT_WATCH→REJECT_LONG:reject_comp_only+bullish_context")
+            elif not bearish_confirmed:
+                if strong_bullish and bool(eff_neg_comp):
+                    best_role = "REJECT_LONG"
+                    reason_codes.append("SHORT_WATCH→REJECT_LONG:no_bearish_confirmation+strong_bullish")
+                else:
+                    best_role = "MIXED_WATCH"
+                    reason_codes.append("SHORT_WATCH→MIXED_WATCH:no_bearish_confirmation")
 
     # ── Volume / wick / EMA summary ───────────────────────────────────────────
     if vol_bkt in ("VB", "B"):
