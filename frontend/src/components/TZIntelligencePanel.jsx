@@ -35,7 +35,7 @@ const CSV_COLS = [
   'abr_conflict_flag','abr_confirmation_flag','abr_context_type',
 ]
 
-function exportCSV(rows) {
+function exportCSV(rows, universe, tf) {
   const lines = [CSV_COLS.join(',')]
   for (const r of rows) {
     lines.push(CSV_COLS.map(c => {
@@ -52,7 +52,7 @@ function exportCSV(rows) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `tz_intelligence_${new Date().toISOString().slice(0, 10)}.csv`
+  a.download = `tz_intelligence_${universe}_${tf}_${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -624,7 +624,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
             {sortKey && <span className="ml-1 text-blue-400/70">· sorted by {sortKey} {sortDir === 'asc' ? '▲' : '▼'}</span>}
           </span>
           <button
-            onClick={() => exportCSV(displayRows)}
+            onClick={() => exportCSV(displayRows, universe, tf)}
             className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 transition-colors"
           >
             ⬇ CSV (current sort)
