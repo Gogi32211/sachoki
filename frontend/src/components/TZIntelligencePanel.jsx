@@ -26,6 +26,11 @@ const CSV_COLS = [
   // Liquidity fields
   'dollar_volume','liquidity_tier',
   'explanation',
+  // ABR overlay fields
+  'abr_category','abr_sequence','abr_prev1_composite','abr_prev2_composite',
+  'abr_prev1_quality','abr_prev2_quality','abr_gate_pass','abr_rule_found',
+  'abr_n','abr_med10d_pct','abr_avg10d_pct','abr_fail10d_pct','abr_win10d_pct',
+  'abr_action_hint','abr_role_suggestion',
 ]
 
 function exportCSV(rows) {
@@ -78,6 +83,12 @@ function getSortValue(row, key) {
     case 'price_position_4bar': return parseFloat(row.price_position_4bar) || 0
     case 'matched_med10d_pct':  return parseFloat(row.matched_med10d_pct) || -999
     case 'matched_fail10d_pct': return parseFloat(row.matched_fail10d_pct) || 9999
+    case 'abr_med10d_pct':      return parseFloat(row.abr_med10d_pct) || -999
+    case 'abr_fail10d_pct':     return parseFloat(row.abr_fail10d_pct) || 9999
+    case 'abr_category': {
+      const o = { 'B+': 0, 'B': 1, 'A': 2, 'R': 3, 'UNKNOWN': 4 }
+      return o[row.abr_category] ?? 99
+    }
     case 'role':                return ROLE_SORT_ORDER[row.role] ?? 99
     case 'quality':             return QUALITY_SORT_ORDER[row.quality] ?? 99
     case 'ema':
@@ -164,6 +175,38 @@ const QUALITY_COLORS = {
   Reject: 'text-gray-500',
   '—':    'text-gray-600',
 }
+
+const ABR_COLORS = {
+  'A':       'bg-green-800/60 text-green-200 border-green-600/50',
+  'B':       'bg-green-900/40 text-green-400 border-green-700/40',
+  'B+':      'bg-teal-700/60 text-teal-100 border-teal-500/50',
+  'R':       'bg-red-900/40 text-red-400 border-red-700/40',
+  'UNKNOWN': 'bg-gray-900/30 text-gray-600 border-gray-700/20',
+}
+
+const ABR_QUALITY_COLORS = {
+  STRONG:  'text-green-400',
+  GOOD:    'text-teal-400',
+  AVERAGE: 'text-yellow-500',
+  REJECT:  'text-red-400',
+  UNKNOWN: 'text-gray-600',
+}
+
+const ABR_HINT_SHORT = {
+  PRIMARY_LONG_CONTEXT:            'PRIMARY',
+  SECONDARY_LONG_CONTEXT:          'SECONDARY',
+  MOMENTUM_CONTINUATION_CONTEXT:   'MOMENTUM',
+  DO_NOT_BUY_OR_SHORT_WATCH_IF_NEGATIVE: 'NO-BUY',
+  NO_ABR_EDGE:                     '—',
+}
+
+const ABR_FILTER_OPTS = [
+  { key: 'all', label: 'All ABR' },
+  { key: 'B+',  label: '🟩 B+'   },
+  { key: 'B',   label: '🟢 B'    },
+  { key: 'A',   label: '🌿 A'    },
+  { key: 'R',   label: '🔴 R'    },
+]
 
 const ACTION_COLORS = {
   BUY_TRIGGER:               'text-green-400 font-semibold',
@@ -307,6 +350,15 @@ function ReasonTooltip({ codes, explanation }) {
   )
 }
 
+function AbrBadge({ category }) {
+  const color = ABR_COLORS[category] || ABR_COLORS['UNKNOWN']
+  return (
+    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold border ${color}`}>
+      {category || '—'}
+    </span>
+  )
+}
+
 // ── Main panel ────────────────────────────────────────────────────────────────
 
 export default function TZIntelligencePanel({ onSelectTicker }) {
@@ -314,6 +366,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
   const [nasdaqBatch, setNasdaqBatch] = useState('a_m')
   const [tf, setTf]                   = useState('1d')
   const [roleFilter, setRoleFilter]   = useState('all')
+  const [abrFilter, setAbrFilter]     = useState('all')
   const [minPrice, setMinPrice]       = useState('')
   const [maxPrice, setMaxPrice]       = useState('')
   const [minVolume, setMinVolume]     = useState('')
@@ -373,8 +426,11 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
   // Sorted rows — used for both table display and CSV export
   const displayRows = useMemo(() => {
-    if (!sortKey) return defaultSort(results)
-    return [...results].sort((a, b) => {
+    const filtered = abrFilter === 'all'
+      ? results
+      : results.filter(r => r.abr_category === abrFilter)
+    if (!sortKey) return defaultSort(filtered)
+    return [...filtered].sort((a, b) => {
       const va = getSortValue(a, sortKey)
       const vb = getSortValue(b, sortKey)
       const cmp = (typeof va === 'number' && typeof vb === 'number')
@@ -382,7 +438,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         : String(va).localeCompare(String(vb))
       return sortDir === 'desc' ? -cmp : cmp
     })
-  }, [results, sortKey, sortDir])
+  }, [results, sortKey, sortDir, abrFilter])
 
   const thProps = { sortKey, sortDir, onSort: handleSort }
 
@@ -437,6 +493,14 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
             className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
             {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">ABR</label>
+          <select value={abrFilter} onChange={e => setAbrFilter(e.target.value)}
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            {ABR_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </div>
 
@@ -514,6 +578,12 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <SortTh label="Med10d"    colKey="matched_med10d_pct"  {...thProps} align="right" />
                 <SortTh label="Fail10d"   colKey="matched_fail10d_pct" {...thProps} align="right" />
                 <SortTh label="Rule"      colKey="matched_rule_type"   {...thProps} />
+                <SortTh label="ABR"       colKey="abr_category"        {...thProps} />
+                <SortTh label="ABR Med"   colKey="abr_med10d_pct"      {...thProps} align="right" />
+                <SortTh label="ABR Fail"  colKey="abr_fail10d_pct"     {...thProps} align="right" />
+                <SortTh label="Prev1Q"    colKey="abr_prev1_quality"   {...thProps} />
+                <SortTh label="Prev2Q"    colKey="abr_prev2_quality"   {...thProps} />
+                <SortTh label="Hint"      colKey="abr_action_hint"     {...thProps} />
                 <th className="p-1 text-gray-600 font-normal w-6"></th>
               </tr>
             </thead>
@@ -594,6 +664,34 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   </td>
                   <td className="p-1 text-gray-500 text-xs font-mono">
                     {RULE_TYPE_SHORT[row.matched_rule_type] || row.matched_rule_type || '—'}
+                  </td>
+                  <td className="p-1">
+                    <AbrBadge category={row.abr_category} />
+                  </td>
+                  <td className="p-1 text-right tabular-nums">
+                    {row.abr_med10d_pct != null && row.abr_med10d_pct !== ''
+                      ? <span className={parseFloat(row.abr_med10d_pct) >= 0.4 ? 'text-green-400' : parseFloat(row.abr_med10d_pct) >= 0 ? 'text-gray-300' : 'text-red-400'}>
+                          {parseFloat(row.abr_med10d_pct).toFixed(2)}
+                        </span>
+                      : <span className="text-gray-700">—</span>
+                    }
+                  </td>
+                  <td className="p-1 text-right tabular-nums">
+                    {row.abr_fail10d_pct != null && row.abr_fail10d_pct !== ''
+                      ? <span className={parseFloat(row.abr_fail10d_pct) < 25 ? 'text-green-400' : parseFloat(row.abr_fail10d_pct) < 35 ? 'text-yellow-400' : 'text-red-400'}>
+                          {parseFloat(row.abr_fail10d_pct).toFixed(1)}%
+                        </span>
+                      : <span className="text-gray-700">—</span>
+                    }
+                  </td>
+                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev1_quality] || 'text-gray-600'}`}>
+                    {row.abr_prev1_quality || '—'}
+                  </td>
+                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev2_quality] || 'text-gray-600'}`}>
+                    {row.abr_prev2_quality || '—'}
+                  </td>
+                  <td className="p-1 text-xs text-gray-500 font-mono whitespace-nowrap">
+                    {ABR_HINT_SHORT[row.abr_action_hint] ?? row.abr_action_hint ?? '—'}
                   </td>
                   <td className="p-1 text-right" onClick={e => e.stopPropagation()}>
                     <ReasonTooltip codes={row.reason_codes} explanation={row.explanation} />
