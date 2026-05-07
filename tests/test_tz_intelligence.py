@@ -1504,7 +1504,9 @@ def test_sp500_continuation_gate_does_not_fire():
 
 from tz_intelligence.abr_classifier import (
     classify_abr, _classify_quality, _abr_category,
-    _load_abr_db, ABR_UNIVERSE_MAP, ABR_SUPPORTED,
+    _load_abr_db, _sig_prefix, _composite_matches,
+    _composite_med_for_signal,
+    ABR_UNIVERSE_MAP, ABR_SUPPORTED,
 )
 
 
@@ -1578,12 +1580,111 @@ def test_abr_role_isolation():
                _row(t="T3", lane3="T3L46NB")]
     result_sp = classify_tz_event(row, history, m, scan_universe="sp500")
     result_nq = classify_tz_event(row, history, m, scan_universe="nasdaq_gt5")
-    # ABR field must exist in output
+    # ABR fields must exist in output (including new debug fields)
     assert "abr_category" in result_sp
     assert "abr_category" in result_nq
-    # ABR category must not equal the TZ role (they are different classification dimensions)
+    assert "abr_prev1_comp_med10d" in result_sp
+    assert "abr_prev2_comp_med10d" in result_nq
+    # ABR category must be a valid value
     assert result_sp["abr_category"] in ("A", "B", "B+", "R", "UNKNOWN")
     assert result_nq["abr_category"] in ("A", "B", "B+", "R", "UNKNOWN")
     # Roles are still valid TZ roles (ABR did not corrupt them)
     assert result_sp["role"] not in ("A", "B", "B+")
     assert result_nq["role"] not in ("A", "B", "B+")
+
+
+def test_abr_sig_prefix():
+    """_sig_prefix extracts signal prefix from raw signals and full composite names."""
+    assert _sig_prefix("T4")        == "T4"
+    assert _sig_prefix("Z1G")       == "Z1G"
+    assert _sig_prefix("T4L13NU")   == "T4"
+    assert _sig_prefix("Z1GL5ED")   == "Z1G"
+    assert _sig_prefix("T10L12NB")  == "T10"
+    assert _sig_prefix("Z10L5NU")   == "Z10"
+    assert _sig_prefix("—")         == ""
+    assert _sig_prefix("")          == ""
+
+
+def test_abr_composite_matches():
+    """_composite_matches must not let 'Z1' match 'Z1GL5ED' (only 'Z1L*' patterns)."""
+    assert _composite_matches("Z1L12NU",  "Z1")  is True
+    assert _composite_matches("Z1GL5ED",  "Z1")  is False   # Z1 ≠ Z1G
+    assert _composite_matches("Z1GL5ED",  "Z1G") is True
+    assert _composite_matches("Z1GL46ED", "Z1G") is True
+    assert _composite_matches("T4L13NU",  "T4")  is True
+    assert _composite_matches("T4L5NU",   "T4")  is True
+    assert _composite_matches("T4L13NU",  "T40") is False
+    assert _composite_matches("",         "T4")  is False
+
+
+def test_abr_composite_quality_lookup():
+    """_composite_med_for_signal returns a float for known signals against matrix."""
+    m = load_matrix()
+    # T4 has composite patterns in SP500 but not NASDAQ_GT5 (SP500-only signal)
+    med_sp = _composite_med_for_signal("T4", m, "sp500")
+    assert med_sp is not None, "T4 composite med must resolve for sp500"
+    # T3 has composite patterns in both universes
+    med_t3_sp = _composite_med_for_signal("T3", m, "sp500")
+    med_t3_nq = _composite_med_for_signal("T3", m, "nasdaq_gt5")
+    assert med_t3_sp is not None, "T3 composite med must resolve for sp500"
+    assert med_t3_nq is not None, "T3 composite med must resolve for nasdaq_gt5"
+    # Z1G has composite patterns in NASDAQ_GT5
+    med_z1g = _composite_med_for_signal("Z1G", m, "nasdaq_gt5")
+    assert med_z1g is not None, "Z1G composite med must resolve for nasdaq_gt5"
+    # Passing full composite name should yield the same prefix result as short signal
+    med_full = _composite_med_for_signal("T3L12NU", m, "sp500")
+    assert med_full is not None, "Full composite name should resolve via prefix extraction"
+    assert abs(med_full - med_t3_sp) < 0.001, "Full and short names must aggregate identically"
+    # Unknown signal → None
+    assert _composite_med_for_signal("X99", m, "sp500") is None
+
+
+def test_abr_category_computed_without_db_rule():
+    """classify_abr must compute category even when no exact ABR DB rule matches."""
+    m = load_matrix()
+    # Use a real signal with a synthetic sequence unlikely to be in the DB
+    result = classify_abr(
+        final_signal="T4",
+        seq4_str="T4|T4|T4|T4",   # very unlikely to be in ABR DB
+        history_rows=[],
+        matrix=m,
+        scan_universe="sp500",
+    )
+    # abr_rule_found may be False, but category should not be UNKNOWN
+    # (because T4 has known composite quality in sp500)
+    assert result["abr_prev1_quality"] != "UNKNOWN", (
+        f"prev1_quality must be resolved; got {result}")
+    assert result["abr_prev2_quality"] != "UNKNOWN", (
+        f"prev2_quality must be resolved; got {result}")
+    assert result["abr_category"] in ("A", "B", "B+", "R"), (
+        f"Category must be computed; got {result['abr_category']}")
+    # Rule may or may not be found — both are acceptable
+    assert isinstance(result["abr_rule_found"], bool)
+
+
+def test_abr_full_classify_nasdaq():
+    """classify_abr produces real categories (not all UNKNOWN) for nasdaq_gt5.
+
+    Uses signals that exist in NASDAQ_GT5 composite rules:
+    prev3=T3(GOOD), prev2=T2(GOOD), prev1=Z1G(STRONG), current=T2
+    NASDAQ gate requires GOOD or STRONG → Z1G passes → category = B (prev2=GOOD).
+    """
+    m = load_matrix()
+    result = classify_abr(
+        final_signal="T2",
+        seq4_str="T3|T2|Z1G|T2",   # prev3|prev2|prev1|current; T2 and Z1G in NASDAQ_GT5
+        history_rows=[],
+        matrix=m,
+        scan_universe="nasdaq_gt5",
+    )
+    assert result["abr_prev1_composite"] == "Z1G"
+    assert result["abr_prev2_composite"] == "T2"
+    assert result["abr_prev1_quality"] != "UNKNOWN", f"Z1G must resolve: {result}"
+    assert result["abr_prev2_quality"] != "UNKNOWN", f"T2 must resolve: {result}"
+    assert result["abr_category"] in ("A", "B", "B+", "R")
+    # NASDAQ gate: prev1 must be GOOD or STRONG to pass
+    if result["abr_gate_pass"]:
+        assert result["abr_prev1_quality"] in ("GOOD", "STRONG")
+    else:
+        assert result["abr_prev1_quality"] in ("AVERAGE", "REJECT")
+        assert result["abr_category"] == "R"

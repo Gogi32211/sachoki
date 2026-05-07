@@ -28,6 +28,7 @@ const CSV_COLS = [
   'explanation',
   // ABR overlay fields
   'abr_category','abr_sequence','abr_prev1_composite','abr_prev2_composite',
+  'abr_prev1_comp_med10d','abr_prev2_comp_med10d',
   'abr_prev1_quality','abr_prev2_quality','abr_gate_pass','abr_rule_found',
   'abr_n','abr_med10d_pct','abr_avg10d_pct','abr_fail10d_pct','abr_win10d_pct',
   'abr_action_hint','abr_role_suggestion',

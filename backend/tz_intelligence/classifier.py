@@ -960,6 +960,7 @@ def _build_result(
         **(abr or {
             "abr_category": "UNKNOWN", "abr_sequence": "",
             "abr_prev1_composite": "", "abr_prev2_composite": "",
+            "abr_prev1_comp_med10d": None, "abr_prev2_comp_med10d": None,
             "abr_prev1_quality": "UNKNOWN", "abr_prev2_quality": "UNKNOWN",
             "abr_gate_pass": False, "abr_rule_found": False,
             "abr_n": None, "abr_med10d_pct": None,
