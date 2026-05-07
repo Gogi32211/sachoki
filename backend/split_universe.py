@@ -10,8 +10,13 @@ Cache: 6h in-memory, version-keyed — SPLIT_CACHE_VERSION change forces rebuild
 
 SINGLE SOURCE OF TRUTH: both Turbo Screener and WLNBB/TZ Screener must use
 split_service (module-level singleton) to guarantee identical ticker lists.
+
+Canonical CSV: split_universe_latest.csv is written on every cache refresh so
+stock_stat generation and post-generation audits always see the exact universe
+that was used, even after the live service window has shifted.
 """
 
+import csv as _csv_mod
 import re
 import json
 import logging
@@ -23,7 +28,8 @@ from typing import Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
-SPLIT_CACHE_VERSION = "split_lifecycle_stock_filter_v2"
+SPLIT_CACHE_VERSION   = "split_lifecycle_stock_filter_v2"
+SPLIT_UNIVERSE_CSV_PATH = "split_universe_latest.csv"
 
 
 # ── Symbol normalisation ──────────────────────────────────────────────────────
@@ -413,11 +419,45 @@ class SplitUniverseService:
         self._cache_time    = datetime.now()
         self._cache_version = SPLIT_CACHE_VERSION
         self._last_result   = result
+        self.write_canonical_csv()
         return result
 
     def get_split_tickers(self, force_refresh: bool = False) -> List[str]:
         """Sorted, normalised, unique ticker list — single source of truth."""
         return self.get_split_universe_result(force_refresh=force_refresh).tickers
+
+    def write_canonical_csv(self, path: str = SPLIT_UNIVERSE_CSV_PATH) -> None:
+        """Persist the current split universe to a canonical CSV file.
+
+        Written as a side-effect of every cache refresh so downstream consumers
+        (stock_stat generation, audit endpoint) can compare against the exact
+        universe that was active at generation time.
+        """
+        if self._last_result is None:
+            return
+        rows    = self._last_result.rows
+        gen_at  = self._last_result.generated_at
+        fields  = ["ticker", "split_date", "company_name", "ratio_raw",
+                   "ratio_parsed", "split_type", "stock_like", "source", "generated_at"]
+        try:
+            with open(path, "w", newline="", encoding="utf-8") as f:
+                writer = _csv_mod.DictWriter(f, fieldnames=fields)
+                writer.writeheader()
+                for r in rows:
+                    writer.writerow({
+                        "ticker":       r.get("ticker", ""),
+                        "split_date":   r.get("split_date", ""),
+                        "company_name": r.get("companyName", ""),
+                        "ratio_raw":    r.get("ratio_str", ""),
+                        "ratio_parsed": r.get("ratio", ""),
+                        "split_type":   "reverse",
+                        "stock_like":   "1",
+                        "source":       r.get("source", "nasdaq"),
+                        "generated_at": gen_at,
+                    })
+            log.info("split_universe_latest.csv written: %d tickers → %s", len(rows), path)
+        except Exception as exc:
+            log.warning("write_canonical_csv failed: %s", exc)
 
     def get_split_meta(self) -> Dict[str, dict]:
         """Returns {TICKER: meta-dict} for fast row enrichment."""

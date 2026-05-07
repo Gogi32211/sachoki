@@ -8,3 +8,4 @@ frontend/package-lock.json
 *.db
 *.sqlite
 tz_intelligence_package/.DS_Store
+split_universe_latest.csv

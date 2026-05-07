@@ -139,6 +139,7 @@ export default function TZWLNBBPanel() {
   const [genError, setGenError]                 = useState(null)
   const [splitAudit, setSplitAudit]             = useState(null)
   const [splitAuditLoading, setSplitAuditLoading] = useState(false)
+  const [splitGenCount, setSplitGenCount]       = useState(null)  // ticker count used at generation
   const [status, setStatus]     = useState(null)
 
   const [debugRow, setDebugRow] = useState(null)
@@ -180,6 +181,17 @@ export default function TZWLNBBPanel() {
         if (!s.running) {
           clearInterval(pollRef.current)
           pollRef.current = null
+          // After split generation completes, fetch ticker count from audit
+          if (universe === 'split' && s.output && !s.error) {
+            try {
+              const audit = await apiGet(`/api/split-universe/audit?tf=${tf}`)
+              setSplitGenCount({
+                shared: audit.shared_count,
+                stock_stat: audit.stock_stat_count,
+                is_consistent: audit.is_consistent,
+              })
+            } catch {}
+          }
         }
       } catch {}
     }, 2000)
@@ -188,6 +200,7 @@ export default function TZWLNBBPanel() {
   async function handleGenerate() {
     setGenStatus('starting')
     setGenError(null)
+    setSplitGenCount(null)
     try {
       const params = { universe, tf, bars: 252 }
       if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
@@ -507,7 +520,7 @@ export default function TZWLNBBPanel() {
             </span>
           )}
           {status && !status.running && status.output && (
-            <span className="ml-2 text-green-400 flex items-center gap-2">
+            <span className="ml-2 text-green-400 flex items-center gap-2 flex-wrap">
               Done: {status.output}
               <a
                 href={`${BASE}/api/tz-wlnbb/download/${status.output}`}
@@ -516,6 +529,12 @@ export default function TZWLNBBPanel() {
               >
                 ⬇ CSV
               </a>
+              {splitGenCount && universe === 'split' && (
+                <span className={`px-2 py-0.5 rounded text-xs font-mono
+                  ${splitGenCount.is_consistent ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+                  {splitGenCount.is_consistent ? '✓' : '⚠'} shared {splitGenCount.shared} · stock_stat {splitGenCount.stock_stat}
+                </span>
+              )}
             </span>
           )}
           {status && !status.running && status.error && (
