@@ -359,13 +359,19 @@ def classify_tz_event(
         rng = range_high - range_low
         if rng > 0:
             price_position_4bar = (close - range_low) / rng
-            breaks_4bar_high = curr_h > range_high
-            breaks_4bar_low  = curr_l < range_low
             if price_position_4bar >= 0.75:
                 bonus = matrix.get_price_position_bonus()
                 total_score += bonus
                 reason_codes.append(f"CLOSE_TOP75PCT_4BAR:+{bonus}")
                 good_flags.append("PRICE_POS_TOP75")
+    # breaks_4bar high/low: current bar vs PREVIOUS bars' range only
+    # (comparing against all-4-bars including self is always False)
+    prev_highs = [float(b.get("high") or 0) for b in history_rows[-3:] if b.get("high")]
+    prev_lows  = [float(b.get("low")  or 0) for b in history_rows[-3:] if b.get("low")]
+    if prev_highs:
+        breaks_4bar_high = curr_h > max(prev_highs)
+    if prev_lows:
+        breaks_4bar_low = curr_l < min(prev_lows)
 
     # ── Volume vs prev bars ───────────────────────────────────────────────────
     def _prev_vol(idx: int) -> float:
@@ -516,54 +522,54 @@ def classify_tz_event(
 
     # ── SHORT_WATCH strictness ────────────────────────────────────────────────
     if best_role == "SHORT_WATCH":
-        # NASDAQ_GT5: require at least 2 strong bearish confirmations
+        # NASDAQ_GT5: require statistical + price/structure bearish evidence
         if scan_universe == "nasdaq_gt5":
             try:
-                _med   = float(matched_med10d)  if matched_med10d  != "" else None
-                _fail  = float(matched_fail10d) if matched_fail10d != "" else None
+                _med  = float(matched_med10d)  if matched_med10d  != "" else None
+                _fail = float(matched_fail10d) if matched_fail10d != "" else None
             except (TypeError, ValueError):
                 _med = _fail = None
 
-            _bear_confirm = 0
-            if _med  is not None and _med  < 0:           _bear_confirm += 1
-            if _fail is not None and _fail >= 30:          _bear_confirm += 1
-            if bool(eff_neg_comp):                         _bear_confirm += 1
-            if bool(eff_neg_seq4):                         _bear_confirm += 1
-            if breaks_4bar_low:                            _bear_confirm += 1
-            if price_position_4bar < 0.25:                 _bear_confirm += 1
-            if not above_ema20 and not above_ema50:        _bear_confirm += 1
-
-            # Positive composite override: clearly not a short setup
-            _pos_override = (
-                _med is not None and _med >= 0.5 and
-                _fail is not None and _fail < 25 and
-                not breaks_4bar_low
+            # Case A: actual 4-bar low breakdown → SHORT_WATCH always permitted
+            # Case B: need BOTH statistical AND price/structure bearish evidence
+            _stat_bear = (
+                (_med  is not None and _med  < 0) or
+                (_fail is not None and _fail >= 30)
             )
-            # Weak reject: matched_status=REJECT but no real bearish data
-            _weak_reject = (
-                (_med is None or _med >= 0) and
-                (_fail is None or _fail < 30) and
-                not breaks_4bar_low
+            _price_bear = (
+                price_position_4bar < 0.25 or
+                not above_ema50
             )
 
-            if _pos_override or _bear_confirm < 2:
+            if not breaks_4bar_low and not _stat_bear:
+                # No statistical short edge → do not assign SHORT_WATCH
                 has_reject_rule = bool(eff_neg_comp) or bool(eff_neg_seq4)
-                has_pos_comp    = bool(eff_pos_comp)
-                if has_pos_comp and has_reject_rule:
-                    best_role = "MIXED_WATCH"
-                    reason_codes.append(
-                        f"NASDAQ_GT5:SHORT_WATCH→MIXED_WATCH:pos_comp+reject_rule:bear_confirms={_bear_confirm}"
-                    )
-                elif has_reject_rule and not breaks_4bar_low:
+                if has_reject_rule:
                     best_role = "REJECT_LONG"
                     reason_codes.append(
-                        f"NASDAQ_GT5:SHORT_WATCH→REJECT_LONG:reject_rule_no_breakdown:bear_confirms={_bear_confirm}"
+                        f"NASDAQ_GT5:SHORT_WATCH→REJECT_LONG:no_stat_edge:med={_med} fail={_fail}"
+                    )
+                elif price_position_4bar < 0.25 and not above_ema20 and not above_ema50:
+                    best_role = "NO_EDGE"
+                    reason_codes.append(
+                        f"NASDAQ_GT5:SHORT_WATCH→NO_EDGE:no_stat_edge_deep_pullback:med={_med} fail={_fail}"
+                    )
+                elif bool(eff_pos_comp):
+                    best_role = "MIXED_WATCH"
+                    reason_codes.append(
+                        f"NASDAQ_GT5:SHORT_WATCH→MIXED_WATCH:no_stat_edge_pos_comp:med={_med} fail={_fail}"
                     )
                 else:
                     best_role = "NO_EDGE"
                     reason_codes.append(
-                        f"NASDAQ_GT5:SHORT_WATCH→NO_EDGE:insufficient_bearish:bear_confirms={_bear_confirm}"
+                        f"NASDAQ_GT5:SHORT_WATCH→NO_EDGE:no_stat_edge:med={_med} fail={_fail}"
                     )
+            elif not breaks_4bar_low and _stat_bear and not _price_bear:
+                # Stat evidence but price not yet confirming → watch, not short
+                best_role = "MIXED_WATCH"
+                reason_codes.append(
+                    f"NASDAQ_GT5:SHORT_WATCH→MIXED_WATCH:stat_bear_no_price_structure:med={_med} fail={_fail}"
+                )
         else:
             # Generic (SP500 / other) SHORT_WATCH strictness — unchanged
             bearish_confirmed = (
