@@ -2,10 +2,16 @@
 
 Read-only: does NOT alter role, score, or any existing TZ field.
 SP500 rules apply to sp500; NASDAQ rules apply to nasdaq_gt5 only.
+
+Root design: seq4_str carries short signal codes (T4, Z1G, …) while
+matrix.composite is keyed by full composite names (T4L13NU, Z1GL5ED, …).
+Quality for prev1/prev2 is therefore computed by aggregating ALL composite
+rules whose pattern STARTS WITH the signal prefix (e.g. all T4L* patterns).
 """
 from __future__ import annotations
 import csv
 import os
+import re
 from functools import lru_cache
 from typing import Dict, List, Optional, Tuple
 
@@ -17,7 +23,7 @@ ABR_UNIVERSE_MAP: Dict[str, str] = {
 }
 ABR_SUPPORTED = frozenset(ABR_UNIVERSE_MAP)
 
-# ── Quality thresholds (med10d_pct) ───────────────────────────────────────────
+# ── Quality thresholds (weighted med10d_pct across signal composites) ─────────
 
 _THRESHOLDS: Dict[str, Dict[str, float]] = {
     "SP500":   {"STRONG": 0.8,  "GOOD": 0.3,  "AVERAGE": 0.0,  "REJECT": -1e9},
@@ -30,6 +36,44 @@ _GATE: Dict[str, str] = {
     "NASDAQ": "GOOD",   # GOOD or STRONG
 }
 
+# ── Signal prefix helpers ─────────────────────────────────────────────────────
+
+_SIG_RE = re.compile(r'^([TZL]\d+[GR]?)')
+
+
+def _sig_prefix(label: str) -> str:
+    """Extract signal prefix from a raw signal or full composite name.
+
+    'T4'        → 'T4'
+    'Z1G'       → 'Z1G'
+    'T4L13NU'   → 'T4'
+    'Z1GL5ED'   → 'Z1G'
+    '—' / ''    → ''
+    """
+    if not label or label == "—":
+        return ""
+    m = _SIG_RE.match(label)
+    return m.group(1) if m else ""
+
+
+def _composite_matches(pat: str, prefix: str) -> bool:
+    """True iff composite pattern *pat* belongs to signal *prefix*.
+
+    Uses the lane-separator 'L' so 'Z1' never matches 'Z1GL5ED':
+      prefix='Z1'  pat='Z1L12NU'   → pat[2]='L' → True
+      prefix='Z1'  pat='Z1GL5ED'   → pat[2]='G' → False
+      prefix='Z1G' pat='Z1GL5ED'   → pat[3]='L' → True
+    """
+    if not prefix:
+        return False
+    if not pat.startswith(prefix):
+        return False
+    rest_idx = len(prefix)
+    if rest_idx == len(pat):   # exact match
+        return True
+    return pat[rest_idx] == "L"
+
+
 # ── ABR DB path discovery ─────────────────────────────────────────────────────
 
 def _find_abr_csv() -> str:
@@ -41,7 +85,10 @@ def _find_abr_csv() -> str:
 
 @lru_cache(maxsize=1)
 def _load_abr_db() -> Dict[Tuple[str, str, str, str], dict]:
-    """Return dict keyed by (universe, signal, sequence, category)."""
+    """Return dict keyed by (universe, signal, sequence, category).
+
+    BASELINE and SEQ_BASELINE rows are skipped.
+    """
     path = _find_abr_csv()
     index: Dict[Tuple[str, str, str, str], dict] = {}
     if not os.path.exists(path):
@@ -61,6 +108,14 @@ def _load_abr_db() -> Dict[Tuple[str, str, str, str], dict]:
     return index
 
 
+def abr_db_stats() -> dict:
+    """Diagnostic: return DB file status and loaded rule count."""
+    path = _find_abr_csv()
+    loaded = os.path.exists(path)
+    db = _load_abr_db()
+    return {"loaded": loaded, "path": path, "row_count": len(db)}
+
+
 # ── Quality classification ────────────────────────────────────────────────────
 
 def _classify_quality(med: Optional[float], abr_universe: str) -> str:
@@ -76,29 +131,31 @@ def _classify_quality(med: Optional[float], abr_universe: str) -> str:
     return "REJECT"
 
 
-def _composite_med(lane3_label: str, matrix, scan_universe: str) -> Optional[float]:
-    """Weighted average med10d_pct from positive composite rules for this pattern."""
-    if not lane3_label:
+def _composite_med_for_signal(signal: str, matrix, scan_universe: str) -> Optional[float]:
+    """Weighted-average med10d_pct for all composite rules whose pattern
+    starts with the given signal prefix.
+
+    e.g. signal='T4' aggregates T4L5NU, T4L13NU, T4L34NU, …
+         signal='Z1G' aggregates Z1GL5ED, Z1GL46ED, … (NOT Z1L* rules)
+
+    Falls back to reject_composite if no positive rules found.
+    """
+    if not signal or signal == "—":
         return None
+    prefix = _sig_prefix(signal)
+    if not prefix:
+        return None
+
     allowed = matrix.allowed_univs(scan_universe)
     total_n = 0.0
     weighted = 0.0
     found = False
+
     for univ in allowed:
-        for rule in matrix.composite.get(univ, {}).get(lane3_label, []):
-            try:
-                n   = float(rule.get("n") or 0)
-                med = float(rule.get("med10d_pct") or 0)
-            except (TypeError, ValueError):
+        for pat, rules in matrix.composite.get(univ, {}).items():
+            if not _composite_matches(pat, prefix):
                 continue
-            if n > 0:
-                weighted += med * n
-                total_n  += n
-                found = True
-    if not found:
-        # fall back to reject composite
-        for univ in allowed:
-            for rule in matrix.reject_composite.get(univ, {}).get(lane3_label, []):
+            for rule in rules:
                 try:
                     n   = float(rule.get("n") or 0)
                     med = float(rule.get("med10d_pct") or 0)
@@ -108,6 +165,23 @@ def _composite_med(lane3_label: str, matrix, scan_universe: str) -> Optional[flo
                     weighted += med * n
                     total_n  += n
                     found = True
+
+    if not found:
+        for univ in allowed:
+            for pat, rules in matrix.reject_composite.get(univ, {}).items():
+                if not _composite_matches(pat, prefix):
+                    continue
+                for rule in rules:
+                    try:
+                        n   = float(rule.get("n") or 0)
+                        med = float(rule.get("med10d_pct") or 0)
+                    except (TypeError, ValueError):
+                        continue
+                    if n > 0:
+                        weighted += med * n
+                        total_n  += n
+                        found = True
+
     if not found or total_n == 0:
         return None
     return weighted / total_n
@@ -119,8 +193,7 @@ def _gate_passes(prev1_quality: str, abr_universe: str) -> bool:
     gate = _GATE.get(abr_universe, "STRONG")
     if gate == "STRONG":
         return prev1_quality == "STRONG"
-    # NASDAQ gate: GOOD or STRONG
-    return prev1_quality in ("GOOD", "STRONG")
+    return prev1_quality in ("GOOD", "STRONG")   # NASDAQ gate
 
 
 def _abr_category(prev1_quality: str, prev2_quality: str, abr_universe: str) -> str:
@@ -132,19 +205,17 @@ def _abr_category(prev1_quality: str, prev2_quality: str, abr_universe: str) -> 
         return "B+"
     if prev2_quality == "GOOD":
         return "B"
-    if prev2_quality in ("AVERAGE",):
+    if prev2_quality == "AVERAGE":
         return "A"
     return "R"   # prev2 = REJECT
 
 
-# ── ABR role suggestion (non-binding) ─────────────────────────────────────────
+# ── ABR role suggestion / action hint (non-binding) ───────────────────────────
 
 def _role_suggestion(category: str, current_role: str) -> str:
     if category == "A":
         return "BULL_CONTINUATION_CANDIDATE"
-    if category == "B":
-        return "MOMENTUM_CONTINUATION_CONTEXT"
-    if category == "B+":
+    if category in ("B", "B+"):
         return "MOMENTUM_CONTINUATION_CONTEXT"
     if category == "R":
         if "SHORT" in current_role:
@@ -165,21 +236,23 @@ def _action_hint(category: str) -> str:
 # ── Main classifier ───────────────────────────────────────────────────────────
 
 _EMPTY: dict = {
-    "abr_category":       "UNKNOWN",
-    "abr_sequence":       "",
-    "abr_prev1_composite": "",
-    "abr_prev2_composite": "",
-    "abr_prev1_quality":  "UNKNOWN",
-    "abr_prev2_quality":  "UNKNOWN",
-    "abr_gate_pass":      False,
-    "abr_rule_found":     False,
-    "abr_n":              None,
-    "abr_med10d_pct":     None,
-    "abr_avg10d_pct":     None,
-    "abr_fail10d_pct":    None,
-    "abr_win10d_pct":     None,
-    "abr_action_hint":    "NO_ABR_EDGE",
-    "abr_role_suggestion": "",
+    "abr_category":          "UNKNOWN",
+    "abr_sequence":          "",
+    "abr_prev1_composite":   "",
+    "abr_prev2_composite":   "",
+    "abr_prev1_comp_med10d": None,
+    "abr_prev2_comp_med10d": None,
+    "abr_prev1_quality":     "UNKNOWN",
+    "abr_prev2_quality":     "UNKNOWN",
+    "abr_gate_pass":         False,
+    "abr_rule_found":        False,
+    "abr_n":                 None,
+    "abr_med10d_pct":        None,
+    "abr_avg10d_pct":        None,
+    "abr_fail10d_pct":       None,
+    "abr_win10d_pct":        None,
+    "abr_action_hint":       "NO_ABR_EDGE",
+    "abr_role_suggestion":   "",
 }
 
 
@@ -194,35 +267,35 @@ def classify_abr(
     """Classify a bar's ABR category.
 
     Args:
-        final_signal: signal on the current bar (e.g. "T3", "Z2G")
-        seq4_str: "|"-joined 4-bar sequence string (prev3|prev2|prev1|current)
-        history_rows: list of previous bar dicts (oldest first), each with lane3_label
-        matrix: MatrixIndex instance
-        scan_universe: scan universe key (e.g. "sp500", "nasdaq_gt5")
-        current_role: TZ role already assigned (for role_suggestion only)
+        final_signal:  signal on the current bar (e.g. "T3", "Z2G")
+        seq4_str:      "|"-joined 4-bar sequence (prev3|prev2|prev1|current)
+        history_rows:  previous bar dicts (oldest first), each from stock_stat CSV
+        matrix:        MatrixIndex instance
+        scan_universe: "sp500" or "nasdaq_gt5"
+        current_role:  TZ role already assigned (used only for role_suggestion)
     """
     if scan_universe not in ABR_SUPPORTED or not final_signal:
         return dict(_EMPTY)
 
     abr_universe = ABR_UNIVERSE_MAP[scan_universe]
 
-    # ABR sequence = first 3 parts of seq4_str (prev3|prev2|prev1)
+    # ── Extract prev signal codes from seq4_str (prev3|prev2|prev1|current) ──
     parts = seq4_str.split("|") if seq4_str else []
-    abr_seq = "|".join(parts[:3]) if len(parts) >= 3 else ""
+    abr_seq   = "|".join(parts[:3]) if len(parts) >= 3 else ""
+    prev1_sig = parts[2] if len(parts) > 2 else ""
+    prev2_sig = parts[1] if len(parts) > 1 else ""
 
-    # prev1 = parts[2], prev2 = parts[1] (positions in seq4_str)
-    prev1_label = parts[2] if len(parts) > 2 else ""
-    prev2_label = parts[1] if len(parts) > 1 else ""
+    # Fallback to history_rows signal columns if seq4 is incomplete
+    if not prev1_sig and history_rows:
+        b = history_rows[-1]
+        prev1_sig = b.get("t_signal") or b.get("z_signal") or b.get("l_signal") or ""
+    if not prev2_sig and len(history_rows) >= 2:
+        b = history_rows[-2]
+        prev2_sig = b.get("t_signal") or b.get("z_signal") or b.get("l_signal") or ""
 
-    # Also get lane3_label from history rows as fallback/cross-check
-    # history_rows is oldest-first; prev1 = history_rows[-1], prev2 = history_rows[-2]
-    if not prev1_label and history_rows:
-        prev1_label = history_rows[-1].get("lane3_label", "") or ""
-    if not prev2_label and len(history_rows) >= 2:
-        prev2_label = history_rows[-2].get("lane3_label", "") or ""
-
-    prev1_med = _composite_med(prev1_label, matrix, scan_universe)
-    prev2_med = _composite_med(prev2_label, matrix, scan_universe)
+    # ── Composite quality: prefix-based aggregation across matrix ─────────────
+    prev1_med = _composite_med_for_signal(prev1_sig, matrix, scan_universe)
+    prev2_med = _composite_med_for_signal(prev2_sig, matrix, scan_universe)
 
     prev1_quality = _classify_quality(prev1_med, abr_universe)
     prev2_quality = _classify_quality(prev2_med, abr_universe)
@@ -230,9 +303,9 @@ def classify_abr(
     gate_pass = _gate_passes(prev1_quality, abr_universe)
     category  = _abr_category(prev1_quality, prev2_quality, abr_universe)
 
-    # Look up rule in ABR DB
-    db = _load_abr_db()
-    rule = db.get((abr_universe, final_signal, abr_seq, category))
+    # ── ABR DB lookup (exact match; category is computed regardless) ──────────
+    db         = _load_abr_db()
+    rule       = db.get((abr_universe, final_signal, abr_seq, category))
     rule_found = rule is not None
 
     def _f(key: str) -> Optional[float]:
@@ -245,19 +318,21 @@ def classify_abr(
             return None
 
     return {
-        "abr_category":        category,
-        "abr_sequence":        abr_seq,
-        "abr_prev1_composite": prev1_label,
-        "abr_prev2_composite": prev2_label,
-        "abr_prev1_quality":   prev1_quality,
-        "abr_prev2_quality":   prev2_quality,
-        "abr_gate_pass":       gate_pass,
-        "abr_rule_found":      rule_found,
-        "abr_n":               _f("n"),
-        "abr_med10d_pct":      _f("med"),
-        "abr_avg10d_pct":      _f("avg"),
-        "abr_fail10d_pct":     _f("fail"),
-        "abr_win10d_pct":      _f("win"),
-        "abr_action_hint":     _action_hint(category),
-        "abr_role_suggestion": _role_suggestion(category, current_role),
+        "abr_category":          category,
+        "abr_sequence":          abr_seq,
+        "abr_prev1_composite":   prev1_sig,
+        "abr_prev2_composite":   prev2_sig,
+        "abr_prev1_comp_med10d": round(prev1_med, 4) if prev1_med is not None else None,
+        "abr_prev2_comp_med10d": round(prev2_med, 4) if prev2_med is not None else None,
+        "abr_prev1_quality":     prev1_quality,
+        "abr_prev2_quality":     prev2_quality,
+        "abr_gate_pass":         gate_pass,
+        "abr_rule_found":        rule_found,
+        "abr_n":                 _f("n"),
+        "abr_med10d_pct":        _f("med"),
+        "abr_avg10d_pct":        _f("avg"),
+        "abr_fail10d_pct":       _f("fail"),
+        "abr_win10d_pct":        _f("win"),
+        "abr_action_hint":       _action_hint(category),
+        "abr_role_suggestion":   _role_suggestion(category, current_role),
     }
