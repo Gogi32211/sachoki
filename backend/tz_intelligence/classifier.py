@@ -23,20 +23,25 @@ _ROLE_RANK = {
     "DEEP_PULLBACK_WATCH":  3,
     "BULL_WATCH":           4,
     "MIXED_WATCH":          4,
-    "PULLBACK_WATCH":       4,
-    "PULLBACK_READY_B":     5,
-    "PULLBACK_READY_A":     6,
-    "PULLBACK_CONFIRMING":  6,   # T after prior Z but pullback high not yet broken
-    "PULLBACK_GO":          7,
-    "BULL_B":               7,
-    "BULL_A":               8,
-    "SHORT_WATCH":          9,
-    "SHORT_GO":             10,
+    "EXTENDED_WATCH":       4,   # overextended continuation — watch for pullback
+    "PULLBACK_WATCH":       5,
+    "PULLBACK_READY_B":     6,
+    "PULLBACK_READY_A":     7,
+    "PULLBACK_CONFIRMING":  7,   # T after prior Z but pullback high not yet broken
+    "BULL_CONTINUATION_B":  8,
+    "PULLBACK_GO":          8,
+    "BULL_B":               8,
+    "BULL_CONTINUATION_A":  9,
+    "BULL_A":               10,
+    "SHORT_WATCH":          11,
+    "SHORT_GO":             12,
 }
 
 _ROLE_ACTION = {
     "BULL_A":               "BUY_TRIGGER",
+    "BULL_CONTINUATION_A":  "CONTINUATION_BUY_WATCH",
     "BULL_B":               "WATCH_BULL_TRIGGER",
+    "BULL_CONTINUATION_B":  "WATCH_CONTINUATION",
     "PULLBACK_GO":          "PULLBACK_ENTRY_READY",
     "PULLBACK_CONFIRMING":  "WAIT_FOR_PULLBACK_HIGH_BREAK",
     "PULLBACK_READY_A":     "WAIT_FOR_T_CONFIRMATION",
@@ -44,6 +49,7 @@ _ROLE_ACTION = {
     "PULLBACK_WATCH":       "WATCH_PULLBACK",
     "DEEP_PULLBACK_WATCH":  "WATCH_PULLBACK",
     "BULL_WATCH":           "WATCH_BULL_SETUP",
+    "EXTENDED_WATCH":       "WAIT_FOR_PULLBACK",
     "MIXED_WATCH":          "WAIT_FOR_CONFIRMATION",
     "SHORT_WATCH":          "WAIT_FOR_BREAKDOWN",
     "SHORT_GO":             "SHORT_TRIGGER",
@@ -52,29 +58,33 @@ _ROLE_ACTION = {
     "NO_EDGE":              "NO_ACTION",
 }
 
-_WEAK_T_SIGNALS    = {"T1", "T2", "T9", "T10"}
-_PULLBACK_Z_SIGNALS = {"Z5", "Z9", "Z3", "Z4", "Z6"}
+_WEAK_T_SIGNALS         = {"T1", "T2", "T9", "T10"}
+_PULLBACK_Z_SIGNALS     = {"Z5", "Z9", "Z3", "Z4", "Z6"}
+_CONTINUATION_T_SIGNALS = {"T3", "T4", "T5", "T6", "T9", "T11", "T12", "T2G"}
 
 # Watch-only roles: score cannot promote them above Watch quality
 _WATCH_ONLY_ROLES = {
     "DEEP_PULLBACK_WATCH", "PULLBACK_WATCH", "BULL_WATCH",
-    "MIXED_WATCH", "SHORT_WATCH",
+    "MIXED_WATCH", "SHORT_WATCH", "EXTENDED_WATCH",
 }
 
 # ── Normalization mappings ────────────────────────────────────────────────────
 
 _A_TO_B = {
-    "BULL_A":          "BULL_B",
-    "PULLBACK_READY_A": "PULLBACK_READY_B",
+    "BULL_A":               "BULL_B",
+    "PULLBACK_READY_A":     "PULLBACK_READY_B",
+    "BULL_CONTINUATION_A":  "BULL_CONTINUATION_B",
 }
 _A_TO_WATCH = {
-    "BULL_A":          "BULL_WATCH",
-    "PULLBACK_READY_A": "PULLBACK_WATCH",
+    "BULL_A":               "BULL_WATCH",
+    "PULLBACK_READY_A":     "PULLBACK_WATCH",
+    "BULL_CONTINUATION_A":  "EXTENDED_WATCH",
 }
 _B_TO_WATCH = {
-    "BULL_B":              "BULL_WATCH",
-    "PULLBACK_READY_B":    "PULLBACK_WATCH",
-    "PULLBACK_CONFIRMING": "PULLBACK_WATCH",  # early confirmation is B-tier only
+    "BULL_B":               "BULL_WATCH",
+    "PULLBACK_READY_B":     "PULLBACK_WATCH",
+    "PULLBACK_CONFIRMING":  "PULLBACK_WATCH",  # early confirmation is B-tier only
+    "BULL_CONTINUATION_B":  "EXTENDED_WATCH",
 }
 
 
@@ -215,7 +225,8 @@ def classify_tz_event(
     curr_h = _fv("high")
     curr_l = _fv("low")
     curr_v = _fv("volume")
-    dollar_volume = close * curr_v
+    dollar_volume  = close * curr_v
+    liquidity_tier = _liquidity_tier(curr_v, dollar_volume)
 
     final_signal = t_sig or z_sig or l_sig or ""
 
@@ -686,7 +697,6 @@ def classify_tz_event(
 
     # ── NASDAQ_GT5: liquidity gate (applied after normalization) ──────────────
     liq_action_override: Optional[str] = None
-    liquidity_tier = _liquidity_tier(curr_v, dollar_volume)
     if scan_universe == "nasdaq_gt5":
         if curr_v < 100_000 or dollar_volume < 1_000_000:
             # Very low liquidity — demote active roles to NO_EDGE
@@ -713,6 +723,85 @@ def classify_tz_event(
             if total_score > 79:
                 total_score = 79
                 reason_codes.append(f"NASDAQ_GT5:LOW_VOLUME_CAP:score_cap_79:vol={curr_v:.0f}")
+
+    # ── NASDAQ_GT5: bull continuation check ───────────────────────────────────
+    if (scan_universe == "nasdaq_gt5" and
+            liquidity_tier != "LOW" and
+            liq_action_override is None and
+            t_sig in _CONTINUATION_T_SIGNALS and
+            above_ema20 and above_ema50 and
+            not bool(reject_flags) and
+            not has_conflict and
+            not breaks_4bar_low):
+
+        # Statistical gate: matched data must not show bearish edge
+        try:
+            _c_med  = float(matched_med10d)  if matched_med10d  != "" else None
+            _c_fail = float(matched_fail10d) if matched_fail10d != "" else None
+        except (TypeError, ValueError):
+            _c_med = _c_fail = None
+        _cont_stat_ok = (
+            (_c_med  is None or _c_med  >= 0) and
+            (_c_fail is None or _c_fail < 30)
+        )
+
+        if _cont_stat_ok:
+            # Compute continuation score independently from matrix scoring
+            cont_score = 45  # base
+            if above_ema20 and above_ema50:     cont_score += 15
+            if above_ema89:                     cont_score += 10
+            if price_position_4bar >= 0.75:     cont_score += 10
+            if breaks_4bar_high:                cont_score += 10
+            if bool(eff_pos_comp):              cont_score += 15
+            if bool(eff_pos_seq4):              cont_score += 15
+            if liquidity_tier in ("OK", "STRONG"): cont_score += 10
+
+            # Mid-liquidity cap: score ≤ 79 (no A for low-volume)
+            if liquidity_tier == "MID" and cont_score > 79:
+                cont_score = 79
+
+            # Check for overextension: strong uptrend but already extended
+            _is_extended = (
+                above_ema20 and above_ema50 and above_ema89 and
+                price_position_4bar >= 0.85
+            )
+
+            if _is_extended and best_role not in ("BULL_A",):
+                # Overextended — mark as EXTENDED_WATCH unless already a better watch
+                if _ROLE_RANK.get(best_role, 0) < _ROLE_RANK.get("BULL_CONTINUATION_B", 0):
+                    best_role = "EXTENDED_WATCH"
+                    if total_score > 59: total_score = 59
+                    reason_codes.append(
+                        f"NASDAQ_GT5:EXTENDED_WATCH:above_all_emas+pos={price_position_4bar:.2f}≥0.85"
+                    )
+            elif price_position_4bar >= 0.70:
+                # Full continuation candidate
+                cont_role = (
+                    "BULL_CONTINUATION_A" if cont_score >= 80 else
+                    "BULL_CONTINUATION_B" if cont_score >= 60 else
+                    None
+                )
+                if (cont_role and
+                        best_role != "BULL_A" and
+                        _ROLE_RANK.get(cont_role, 0) > _ROLE_RANK.get(best_role, 0)):
+                    reason_codes.append(
+                        f"NASDAQ_GT5:{cont_role}:pos={price_position_4bar:.2f}"
+                        f" ema89={above_ema89} cont_score={cont_score}"
+                    )
+                    best_role  = cont_role
+                    total_score = cont_score
+            elif price_position_4bar >= 0.50:
+                # B-tier continuation only
+                if cont_score >= 60:
+                    cont_score = min(cont_score, 79)
+                    if (best_role != "BULL_A" and
+                            _ROLE_RANK.get("BULL_CONTINUATION_B", 0) > _ROLE_RANK.get(best_role, 0)):
+                        reason_codes.append(
+                            f"NASDAQ_GT5:BULL_CONTINUATION_B:pos={price_position_4bar:.2f}"
+                            f" cont_score={cont_score}"
+                        )
+                        best_role  = "BULL_CONTINUATION_B"
+                        total_score = cont_score
 
     if debug:
         debug_trace.append(f"FINAL: role={best_role} score={total_score} "
