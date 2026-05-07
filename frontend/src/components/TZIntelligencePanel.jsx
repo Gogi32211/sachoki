@@ -35,7 +35,7 @@ const CSV_COLS = [
   'abr_conflict_flag','abr_confirmation_flag','abr_context_type',
 ]
 
-function exportCSV(rows, universe, tf) {
+function exportCSV(rows, universe, tf, batch = '') {
   const lines = [CSV_COLS.join(',')]
   for (const r of rows) {
     lines.push(CSV_COLS.map(c => {
@@ -52,7 +52,8 @@ function exportCSV(rows, universe, tf) {
   const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
   a.href = url
-  a.download = `tz_intelligence_${universe}_${tf}_${new Date().toISOString().slice(0, 10)}.csv`
+  const batchPart = batch ? `_${batch}` : ''
+  a.download = `tz_intelligence_${universe}${batchPart}_${tf}_${new Date().toISOString().slice(0, 10)}.csv`
   a.click()
   URL.revokeObjectURL(url)
 }
@@ -126,6 +127,13 @@ const UNIVERSES = [
 const NASDAQ_BATCHES = [
   { key: 'a_m', label: 'A–M (½)' },
   { key: 'n_z', label: 'N–Z (½)' },
+]
+
+const NASDAQ_GT5_BATCHES = [
+  { key: 'a_f', label: 'A–F' },
+  { key: 'g_m', label: 'G–M' },
+  { key: 'n_s', label: 'N–S' },
+  { key: 't_z', label: 'T–Z' },
 ]
 
 const TF_OPTS = ['1d', '4h', '1h', '1wk']
@@ -376,6 +384,7 @@ function AbrBadge({ category }) {
 export default function TZIntelligencePanel({ onSelectTicker }) {
   const [universe, setUniverse]       = useState('sp500')
   const [nasdaqBatch, setNasdaqBatch] = useState('a_m')
+  const [gt5Batch, setGt5Batch]       = useState('')   // '' = full scan (no batch)
   const [tf, setTf]                   = useState('1d')
   const [roleFilter, setRoleFilter]   = useState('all')
   const [abrFilter, setAbrFilter]     = useState('all')
@@ -404,6 +413,11 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
     }
   }, [universe])
 
+  // Reset gt5Batch when leaving nasdaq_gt5 4H mode
+  useEffect(() => {
+    if (universe !== 'nasdaq_gt5' || tf !== '4h') setGt5Batch('')
+  }, [universe, tf])
+
   async function handleScan() {
     setLoading(true)
     setError(null)
@@ -414,6 +428,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
     try {
       const qs = new URLSearchParams({ universe, tf, role_filter: roleFilter })
       if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
+      if (universe === 'nasdaq_gt5' && gt5Batch) qs.set('nasdaq_batch', gt5Batch)
       // nasdaq_gt5 always enforces min_price >= 5
       const effectiveMinPrice = universe === 'nasdaq_gt5'
         ? String(Math.max(5, parseFloat(minPrice) || 5))
@@ -511,6 +526,26 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <button key={b.key} onClick={() => setNasdaqBatch(b.key)}
                   className={`text-xs px-2 py-1 rounded transition-colors
                     ${nasdaqBatch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  {b.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {universe === 'nasdaq_gt5' && tf === '4h' && (
+          <div className="flex flex-col gap-1">
+            <label className="text-xs text-gray-500">Batch (4H)</label>
+            <div className="flex gap-1">
+              <button onClick={() => setGt5Batch('')}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${gt5Batch === '' ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                Full
+              </button>
+              {NASDAQ_GT5_BATCHES.map(b => (
+                <button key={b.key} onClick={() => setGt5Batch(b.key)}
+                  className={`text-xs px-2 py-1 rounded transition-colors
+                    ${gt5Batch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
                   {b.label}
                 </button>
               ))}
@@ -617,6 +652,12 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="p-2 bg-red-900/30 border border-red-700 rounded text-red-300 text-xs">{error}</div>
       )}
 
+      {universe === 'nasdaq_gt5' && tf === '4h' && gt5Batch === '' && (
+        <div className="p-2 bg-amber-900/30 border border-amber-700 rounded text-amber-300 text-xs">
+          ⚠ Full NASDAQ &gt; $5 4H may be too large for Railway. Batch mode is recommended.
+        </div>
+      )}
+
       {displayRows.length > 0 && (
         <div className="flex items-center gap-3">
           <span className="text-xs text-gray-500">
@@ -624,7 +665,11 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
             {sortKey && <span className="ml-1 text-blue-400/70">· sorted by {sortKey} {sortDir === 'asc' ? '▲' : '▼'}</span>}
           </span>
           <button
-            onClick={() => exportCSV(displayRows, universe, tf)}
+            onClick={() => {
+              const activeBatch = universe === 'nasdaq' ? nasdaqBatch
+                : (universe === 'nasdaq_gt5' ? gt5Batch : '')
+              exportCSV(displayRows, universe, tf, activeBatch)
+            }}
             className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 transition-colors"
           >
             ⬇ CSV (current sort)
