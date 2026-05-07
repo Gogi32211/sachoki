@@ -1074,78 +1074,118 @@ def _ngt5_row(**kwargs):
     defaults.update({k: str(v) for k, v in kwargs.items()})
     return defaults
 
+# History bars for SHORT_WATCH gate tests (prev lows 20/19/18 → min=18)
+_GT5_HIST = [
+    _ngt5_row(close=22, high=25, low=20),
+    _ngt5_row(close=21, high=24, low=19),
+    _ngt5_row(close=20, high=23, low=18),
+]
 
-def test_nasdaq_gt5_short_watch_blocked_med_positive_fail_low_no_breakdown():
-    """NASDAQ_GT5: Z signal above EMAs, med >= 0, fail < 30, no 4bar low break → NOT SHORT_WATCH."""
+
+def test_nasdaq_gt5_short_watch_blocked_no_stat_no_breakdown():
+    """NASDAQ_GT5: med >= 0, fail < 30, no 4bar low break, below EMAs → NOT SHORT_WATCH.
+
+    BTM/Z2L46ED-like: med=+0.274, fail=26 — no statistical short edge.
+    Price structure alone (below EMAs, price_pos<0.25) is insufficient.
+    """
     m = load_matrix()
-    # Z2L46ED: matched_med10d=+0.274, matched_fail10d=26 (mirrors BTM example)
+    # low=19 >= prev_min=18 → breaks_4bar_low=False
     row = _ngt5_row(z_signal="Z2", lane1_label="Z2L46ED",
-                    close=50, ema20=45, ema50=40, ema89=35, high=51, low=49)
-    hist = [_ngt5_row(close=48, high=50, low=46),
-            _ngt5_row(close=49, high=51, low=47),
-            _ngt5_row(close=50, high=52, low=48)]
-    result = classify_tz_event(row, hist, m, scan_universe="nasdaq_gt5",
-                               current_low_4bar=46, current_high_4bar=52)
+                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=19)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
     assert result["role"] != "SHORT_WATCH", (
-        f"NASDAQ_GT5: med+0.274 fail<30 above EMAs must not be SHORT_WATCH, got {result['role']}"
+        f"NASDAQ_GT5: med>=0 fail<30 no breakdown must not be SHORT_WATCH, got {result['role']}. "
+        f"reason_codes={result['reason_codes']}"
+    )
+    assert any("NASDAQ_GT5" in c for c in result["reason_codes"]), (
+        "NASDAQ_GT5 gate reason code must be present"
     )
 
 
 def test_nasdaq_gt5_short_watch_blocked_positive_composite():
     """NASDAQ_GT5: positive composite med >= 0.5, fail < 25, no breakdown → NOT SHORT_WATCH."""
     m = load_matrix()
-    # Z5L3EU: matched_med10d=+0.747, matched_fail10d=24 (mirrors CCEP example)
+    # Z5L3EU: med=+0.747, fail=24 — mirrors CCEP example
     row = _ngt5_row(z_signal="Z5", lane1_label="Z5L3EU",
                     close=60, ema20=55, ema50=50, ema89=45, high=61, low=58)
     hist = [_ngt5_row(close=55, high=58, low=52),
             _ngt5_row(close=57, high=60, low=54),
             _ngt5_row(close=59, high=62, low=56)]
-    result = classify_tz_event(row, hist, m, scan_universe="nasdaq_gt5",
-                               current_low_4bar=52, current_high_4bar=62)
+    result = classify_tz_event(row, hist, m, scan_universe="nasdaq_gt5")
     assert result["role"] != "SHORT_WATCH", (
         f"NASDAQ_GT5: positive composite med+0.747 fail<25 must not be SHORT_WATCH, got {result['role']}"
     )
 
 
-def test_nasdaq_gt5_short_watch_allowed_with_two_bearish_confirmations():
-    """NASDAQ_GT5: price_pos < 0.25 + below both EMAs = 2 confirmations → SHORT_WATCH allowed."""
+def test_nasdaq_gt5_short_watch_allowed_when_med_negative():
+    """NASDAQ_GT5: med < 0 (statistical short edge) + below EMA50 → SHORT_WATCH allowed.
+
+    T1L3EUR has matched_med10d=-0.073 in NASDAQ_GT5 rules.
+    """
     m = load_matrix()
-    # price_pos < 0.25 (+1) AND not above_ema20 AND not above_ema50 (+1) = 2 confirmations
-    row = _ngt5_row(z_signal="Z2", lane1_label="Z2L46ED",
-                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=13)
-    hist = [_ngt5_row(close=20, high=22, low=18),
-            _ngt5_row(close=18, high=20, low=16),
-            _ngt5_row(close=16, high=18, low=14)]
-    result = classify_tz_event(row, hist, m, scan_universe="nasdaq_gt5",
-                               current_low_4bar=13, current_high_4bar=22)
-    # price_pos = (15-13)/(22-13) = 0.22 < 0.25 → +1; both EMAs above close → +1 → 2 confirms
-    assert result["role"] in ("SHORT_WATCH", "SHORT_GO", "DEEP_PULLBACK_WATCH",
-                               "REJECT", "REJECT_LONG", "NO_EDGE"), (
-        f"NASDAQ_GT5 genuine bearish (2 confirmations) returned unexpected role: {result['role']}"
+    # low=19 >= prev_min=18 → no breakdown; stat edge from neg med
+    row = _ngt5_row(t_signal="T1", lane1_label="T1L3EUR",
+                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=19)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result.get("matched_med10d_pct") not in ("", None), "T1L3EUR must match a rule with med stat"
+    try:
+        assert float(result["matched_med10d_pct"]) < 0, "matched_med10d_pct must be < 0"
+    except (TypeError, ValueError):
+        pass
+    assert result["role"] in ("SHORT_WATCH", "SHORT_GO", "REJECT_LONG", "MIXED_WATCH"), (
+        f"NASDAQ_GT5 with neg med must not be demoted to NO_EDGE/BULL roles, got {result['role']}"
     )
-    # Must NOT be a bullish role
     assert result["role"] not in ("BULL_A", "BULL_B", "BULL_WATCH", "PULLBACK_GO",
-                                   "PULLBACK_CONFIRMING", "PULLBACK_READY_A", "PULLBACK_READY_B"), (
-        f"NASDAQ_GT5 genuine bearish must not produce bullish role: {result['role']}"
+                                   "PULLBACK_CONFIRMING", "PULLBACK_READY_A", "PULLBACK_READY_B",
+                                   "NO_EDGE"), (
+        f"Statistical short edge (med<0) must not yield NO_EDGE or bullish role: {result['role']}"
     )
 
 
-def test_nasdaq_gt5_short_watch_strict_does_not_affect_sp500():
-    """SP500 SHORT_WATCH logic must be unaffected by the NASDAQ_GT5 strict gate."""
+def test_nasdaq_gt5_short_watch_allowed_when_fail_ge_30():
+    """NASDAQ_GT5: fail >= 30 (statistical short edge) + below EMA50 → SHORT_WATCH allowed.
+
+    T5L25NR has matched_fail10d=30.097 in NASDAQ_GT5 rules.
+    """
     m = load_matrix()
-    # Same row as the BTM-like test but sp500 — must use generic strictness path
-    row = _ngt5_row(z_signal="Z2", lane1_label="Z2L46ED",
-                    close=50, ema20=45, ema50=40, ema89=35, high=51, low=49)
-    hist = [_ngt5_row(close=48, high=50, low=46),
-            _ngt5_row(close=49, high=51, low=47),
-            _ngt5_row(close=50, high=52, low=48)]
-    sp500_result = classify_tz_event(row, hist, m, scan_universe="sp500",
-                                     current_low_4bar=46, current_high_4bar=52)
-    ngt5_result  = classify_tz_event(row, hist, m, scan_universe="nasdaq_gt5",
-                                     current_low_4bar=46, current_high_4bar=52)
-    # SP500 and NASDAQ_GT5 may differ — the point is SP500 does not hit the NASDAQ_GT5 gate
-    assert "NASDAQ_GT5" not in " ".join(sp500_result.get("reason_codes", [])), (
-        "SP500 result must not contain NASDAQ_GT5 reason codes"
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L25NR",
+                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=19)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result.get("matched_fail10d_pct") not in ("", None), "T5L25NR must match a rule with fail stat"
+    try:
+        assert float(result["matched_fail10d_pct"]) >= 30, "matched_fail10d_pct must be >= 30"
+    except (TypeError, ValueError):
+        pass
+    assert result["role"] in ("SHORT_WATCH", "SHORT_GO", "REJECT_LONG", "MIXED_WATCH"), (
+        f"NASDAQ_GT5 with fail>=30 must not be demoted to NO_EDGE/BULL roles, got {result['role']}"
     )
-    # They should produce different outcomes (the gate has real effect)
-    assert sp500_result["role"] != ngt5_result["role"] or True, "roles may differ"
+
+
+def test_nasdaq_gt5_short_watch_allowed_when_breaks_4bar_low():
+    """NASDAQ_GT5: actual 4-bar low breakdown → SHORT_WATCH allowed even if med >= 0.
+
+    breaks_4bar_low = curr_l < min(previous 3 bars' lows).
+    """
+    m = load_matrix()
+    # prev lows: 20/19/18 → min=18. current low=17 < 18 → breaks_4bar_low=True
+    row = _ngt5_row(z_signal="Z2", lane1_label="Z2L46ED",
+                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=17)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["breaks_4bar_low"] is True, (
+        "low=17 < prev_min=18 must produce breaks_4bar_low=True"
+    )
+    assert result["role"] in ("SHORT_WATCH", "SHORT_GO"), (
+        f"NASDAQ_GT5: actual breakdown must allow SHORT_WATCH/SHORT_GO, got {result['role']}. "
+        f"reason_codes={result['reason_codes']}"
+    )
+
+
+def test_nasdaq_gt5_short_watch_gate_does_not_affect_sp500():
+    """SP500 SHORT_WATCH logic must be entirely unaffected by the NASDAQ_GT5 gate."""
+    m = load_matrix()
+    row = _ngt5_row(z_signal="Z2", lane1_label="Z2L46ED",
+                    close=15, ema20=35, ema50=40, ema89=45, high=16, low=19)
+    sp500_result = classify_tz_event(row, _GT5_HIST, m, scan_universe="sp500")
+    assert "NASDAQ_GT5" not in " ".join(sp500_result.get("reason_codes", [])), (
+        "SP500 scan must not contain NASDAQ_GT5 gate reason codes"
+    )
