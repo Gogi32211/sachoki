@@ -213,14 +213,13 @@ def _abr_category(prev1_quality: str, prev2_quality: str, abr_universe: str) -> 
 # ── ABR role suggestion / action hint (non-binding) ───────────────────────────
 
 def _role_suggestion(category: str, current_role: str) -> str:
+    is_short = "SHORT" in current_role
     if category == "A":
-        return "BULL_CONTINUATION_CANDIDATE"
+        return "CHECK_SHORT_CONFLICT" if is_short else "BULL_CONTINUATION_CANDIDATE"
     if category in ("B", "B+"):
-        return "MOMENTUM_CONTINUATION_CONTEXT"
+        return "CHECK_SHORT_CONFLICT" if is_short else "MOMENTUM_CONTINUATION_CONTEXT"
     if category == "R":
-        if "SHORT" in current_role:
-            return "CHECK_SHORT_CONFLICT"
-        return "REJECT_LONG_OR_SHORT_WATCH_IF_NEGATIVE"
+        return "ABR_R_NO_BUY"   # R is not bullish; specific short confirmation handled by context flags
     return ""
 
 
@@ -277,6 +276,7 @@ def compute_abr_context_flags(
     if (role == _SHORT_ROLE and abr_category == "R"
             and abr_med10d_pct is not None and abr_med10d_pct < 0):
         confirmation_flag = "ABR_SHORT_CONFIRMED"
+        role_suggestion   = "ABR_SHORT_CONFIRMATION_CANDIDATE"
         if not context_type:
             context_type = "SHORT_ABR_ALIGNED"
 

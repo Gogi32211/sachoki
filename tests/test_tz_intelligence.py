@@ -1795,16 +1795,19 @@ def test_abr_conflict_short_watch_bullish_abr():
 
 
 def test_abr_short_confirmed():
-    """SHORT_WATCH + ABR R + negative med must set abr_confirmation_flag=ABR_SHORT_CONFIRMED."""
+    """SHORT_WATCH + ABR R + negative med must set confirmation flag and candidate suggestion."""
     r = compute_abr_context_flags("SHORT_WATCH", "R", -0.3, False, False, "LOW")
     assert r["abr_confirmation_flag"] == "ABR_SHORT_CONFIRMED"
+    assert r["abr_role_suggestion"]   == "ABR_SHORT_CONFIRMATION_CANDIDATE"
     assert r["abr_conflict_flag"] == ""
     # Positive med should NOT confirm
     r2 = compute_abr_context_flags("SHORT_WATCH", "R", 0.5, False, False, "LOW")
     assert r2["abr_confirmation_flag"] == ""
+    assert r2["abr_role_suggestion"]   == ""
     # med=None should NOT confirm
     r3 = compute_abr_context_flags("SHORT_WATCH", "R", None, False, False, "LOW")
     assert r3["abr_confirmation_flag"] == ""
+    assert r3["abr_role_suggestion"]   == ""
 
 
 def test_abr_pullback_confirmed():
@@ -1860,6 +1863,42 @@ def test_abr_context_flags_in_full_classify():
     assert isinstance(result["abr_conflict_flag"],     str)
     assert isinstance(result["abr_confirmation_flag"], str)
     assert isinstance(result["abr_context_type"],      str)
+
+
+# ── ABR role suggestion semantic cleanup tests ────────────────────────────────
+
+from tz_intelligence.abr_classifier import _role_suggestion
+
+
+def test_abr_short_watch_bullish_suggestion():
+    """SHORT_WATCH + ABR A/B/B+ must produce CHECK_SHORT_CONFLICT role suggestion."""
+    for cat in ("A", "B", "B+"):
+        assert _role_suggestion(cat, "SHORT_WATCH") == "CHECK_SHORT_CONFLICT", \
+            f"Expected CHECK_SHORT_CONFLICT for {cat}+SHORT_WATCH"
+    # Non-short roles must NOT get CHECK_SHORT_CONFLICT
+    assert _role_suggestion("B+", "BULL_A")          != "CHECK_SHORT_CONFLICT"
+    assert _role_suggestion("B+", "PULLBACK_WATCH")  != "CHECK_SHORT_CONFLICT"
+
+
+def test_abr_short_watch_r_no_negative_med():
+    """SHORT_WATCH + ABR R + no negative med → ABR_R_NO_BUY, no confirmation flag."""
+    # Base suggestion from _role_suggestion
+    assert _role_suggestion("R", "SHORT_WATCH") == "ABR_R_NO_BUY"
+    assert _role_suggestion("R", "BULL_A")      == "ABR_R_NO_BUY"   # all R → ABR_R_NO_BUY
+    # context flags: no confirmation when med is positive or None
+    r_pos  = compute_abr_context_flags("SHORT_WATCH", "R",  0.5,  False, False, "LOW")
+    r_none = compute_abr_context_flags("SHORT_WATCH", "R",  None, False, False, "LOW")
+    for r in (r_pos, r_none):
+        assert r["abr_confirmation_flag"] == ""
+        assert r["abr_role_suggestion"]   == ""   # ctx doesn't override; base gives ABR_R_NO_BUY
+
+
+def test_abr_short_watch_r_negative_med():
+    """SHORT_WATCH + ABR R + abr_med10d_pct < 0 → ABR_SHORT_CONFIRMED + CANDIDATE suggestion."""
+    r = compute_abr_context_flags("SHORT_WATCH", "R", -0.5, False, False, "LOW")
+    assert r["abr_confirmation_flag"] == "ABR_SHORT_CONFIRMED"
+    assert r["abr_role_suggestion"]   == "ABR_SHORT_CONFIRMATION_CANDIDATE"
+    assert r["abr_conflict_flag"]     == ""
 
 
 # ── SP500 ABR overlay ─────────────────────────────────────────────────────────
