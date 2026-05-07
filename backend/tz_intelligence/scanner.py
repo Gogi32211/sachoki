@@ -13,12 +13,18 @@ _VALID_UNIVERSES = frozenset({
     "sp500", "nasdaq", "nasdaq_gt5", "russell2k", "all_us", "split",
 })
 _VALID_TFS = frozenset({"1d", "4h", "1h", "1wk"})
-_VALID_NASDAQ_BATCHES = frozenset({"", "a_m", "n_z"})
+_VALID_NASDAQ_BATCHES = frozenset({"", "a_m", "n_z", "a_f", "g_m", "n_s", "t_z"})
+
+# Batches valid only for nasdaq_gt5 (4-way split for large 4H scans)
+_NASDAQ_GT5_BATCHES = frozenset({"a_f", "g_m", "n_s", "t_z"})
 
 
 def _stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
-    if universe == "nasdaq" and nasdaq_batch:
-        return f"stock_stat_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}.csv"
+    if nasdaq_batch:
+        if universe == "nasdaq":
+            return f"stock_stat_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}.csv"
+        if universe == "nasdaq_gt5":
+            return f"stock_stat_tz_wlnbb_nasdaq_gt5_{nasdaq_batch}_{tf}.csv"
     return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
 

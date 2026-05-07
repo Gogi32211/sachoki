@@ -1731,6 +1731,56 @@ def test_scanner_valid_inputs_pass_allowlist():
                 f"Valid tf '{tf}' incorrectly rejected"
 
 
+# ── nasdaq_gt5 batch mode ─────────────────────────────────────────────────────
+
+def test_nasdaq_gt5_batch_stat_path():
+    """_stat_path with nasdaq_gt5 + batch must produce correctly named files."""
+    from tz_intelligence.scanner import _stat_path
+    assert _stat_path("nasdaq_gt5", "4h", "a_f") == "stock_stat_tz_wlnbb_nasdaq_gt5_a_f_4h.csv"
+    assert _stat_path("nasdaq_gt5", "4h", "g_m") == "stock_stat_tz_wlnbb_nasdaq_gt5_g_m_4h.csv"
+    assert _stat_path("nasdaq_gt5", "4h", "n_s") == "stock_stat_tz_wlnbb_nasdaq_gt5_n_s_4h.csv"
+    assert _stat_path("nasdaq_gt5", "4h", "t_z") == "stock_stat_tz_wlnbb_nasdaq_gt5_t_z_4h.csv"
+
+
+def test_nasdaq_gt5_full_1d_stat_path_unchanged():
+    """Full nasdaq_gt5 1D (no batch) must still produce the original filename."""
+    from tz_intelligence.scanner import _stat_path
+    assert _stat_path("nasdaq_gt5", "1d") == "stock_stat_tz_wlnbb_nasdaq_gt5_1d.csv"
+    assert _stat_path("nasdaq_gt5", "1d", "") == "stock_stat_tz_wlnbb_nasdaq_gt5_1d.csv"
+
+
+def test_nasdaq_gt5_batches_pass_allowlist():
+    """All four nasdaq_gt5 batch values must pass the scanner allowlist (no allowlist error)."""
+    for batch in ("a_f", "g_m", "n_s", "t_z"):
+        result = run_intelligence_scan(universe="nasdaq_gt5", tf="4h", nasdaq_batch=batch)
+        assert "Invalid nasdaq_batch" not in result.get("error", ""), \
+            f"Batch '{batch}' was incorrectly rejected by allowlist"
+        assert "Invalid universe" not in result.get("error", ""), \
+            f"nasdaq_gt5 universe rejected when batch='{batch}'"
+
+
+def test_nasdaq_gt5_invalid_batch_rejected():
+    """A batch key not in the allowlist must be rejected even for nasdaq_gt5."""
+    result = run_intelligence_scan(universe="nasdaq_gt5", tf="4h", nasdaq_batch="a_z")
+    assert "error" in result
+    assert "Invalid nasdaq_batch" in result["error"]
+
+
+def test_csv_filename_batch_logic():
+    """Verify filename batch-part logic: batch included only when non-empty."""
+    def _filename(universe, tf, batch=''):
+        batch_part = f"_{batch}" if batch else ''
+        return f"tz_intelligence_{universe}{batch_part}_{tf}_2026-05-07.csv"
+
+    assert _filename("sp500", "1d") == "tz_intelligence_sp500_1d_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "1d") == "tz_intelligence_nasdaq_gt5_1d_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "a_f") == "tz_intelligence_nasdaq_gt5_a_f_4h_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "g_m") == "tz_intelligence_nasdaq_gt5_g_m_4h_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "n_s") == "tz_intelligence_nasdaq_gt5_n_s_4h_2026-05-07.csv"
+    assert _filename("nasdaq_gt5", "4h", "t_z") == "tz_intelligence_nasdaq_gt5_t_z_4h_2026-05-07.csv"
+    assert _filename("nasdaq", "1d", "a_m") == "tz_intelligence_nasdaq_a_m_1d_2026-05-07.csv"
+
+
 # ── Security: CSV formula injection neutralisation ────────────────────────────
 
 def _csv_cell(value: str) -> str:
