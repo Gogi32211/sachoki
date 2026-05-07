@@ -205,11 +205,19 @@ const ABR_HINT_SHORT = {
 }
 
 const ABR_FILTER_OPTS = [
-  { key: 'all', label: 'All ABR' },
-  { key: 'B+',  label: '🟩 B+'   },
-  { key: 'B',   label: '🟢 B'    },
-  { key: 'A',   label: '🌿 A'    },
-  { key: 'R',   label: '🔴 R'    },
+  { key: 'all',                          label: 'All ABR'              },
+  { key: 'B+',                           label: '🟩 B+'                },
+  { key: 'B',                            label: '🟢 B'                 },
+  { key: 'A',                            label: '🌿 A'                 },
+  { key: 'R',                            label: '🔴 R'                 },
+]
+
+const ABR_CTX_FILTER_OPTS = [
+  { key: 'all',                            label: 'All Context'                   },
+  { key: 'ABR_PULLBACK_CONFIRMED',         label: '✓ PB Confirmed'               },
+  { key: 'ABR_BULLISH_CONTEXT_CONFLICT',   label: '⚠ Short Conflict'             },
+  { key: 'ABR_SHORT_CONFIRMED',            label: '✓ Short Confirmed'            },
+  { key: 'BULL_CONTINUATION_CANDIDATE',    label: '🚀 Continuation Candidate'    },
 ]
 
 const ACTION_COLORS = {
@@ -371,6 +379,9 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
   const [tf, setTf]                   = useState('1d')
   const [roleFilter, setRoleFilter]   = useState('all')
   const [abrFilter, setAbrFilter]     = useState('all')
+  const [abrCtxFilter, setAbrCtxFilter] = useState('all')
+  const [pbConfirmedOnly, setPbConfirmedOnly]   = useState(false)
+  const [shortConflictOnly, setShortConflictOnly] = useState(false)
   const [minPrice, setMinPrice]       = useState('')
   const [maxPrice, setMaxPrice]       = useState('')
   const [minVolume, setMinVolume]     = useState('')
@@ -398,6 +409,8 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
     setError(null)
     setSortKey(null)
     setSortDir(null)
+    setPbConfirmedOnly(false)
+    setShortConflictOnly(false)
     try {
       const qs = new URLSearchParams({ universe, tf, role_filter: roleFilter })
       if (universe === 'nasdaq') qs.set('nasdaq_batch', nasdaqBatch)
@@ -430,9 +443,35 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
   // Sorted rows — used for both table display and CSV export
   const displayRows = useMemo(() => {
-    const filtered = abrFilter === 'all'
-      ? results
-      : results.filter(r => r.abr_category === abrFilter)
+    let filtered = results
+
+    // ABR category filter
+    if (abrFilter !== 'all')
+      filtered = filtered.filter(r => r.abr_category === abrFilter)
+
+    // ABR context filter (confirmation/conflict/suggestion)
+    if (abrCtxFilter !== 'all') {
+      filtered = filtered.filter(r =>
+        r.abr_confirmation_flag === abrCtxFilter ||
+        r.abr_conflict_flag     === abrCtxFilter ||
+        r.abr_role_suggestion   === abrCtxFilter
+      )
+    }
+
+    // Quick toggle: only ABR-confirmed pullbacks
+    if (pbConfirmedOnly)
+      filtered = filtered.filter(r =>
+        ['PULLBACK_READY_B', 'PULLBACK_WATCH'].includes(r.role) &&
+        r.abr_confirmation_flag === 'ABR_PULLBACK_CONFIRMED'
+      )
+
+    // Quick toggle: shorts with ABR bullish conflict
+    if (shortConflictOnly)
+      filtered = filtered.filter(r =>
+        r.role === 'SHORT_WATCH' &&
+        r.abr_conflict_flag === 'ABR_BULLISH_CONTEXT_CONFLICT'
+      )
+
     if (!sortKey) return defaultSort(filtered)
     return [...filtered].sort((a, b) => {
       const va = getSortValue(a, sortKey)
@@ -442,7 +481,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         : String(va).localeCompare(String(vb))
       return sortDir === 'desc' ? -cmp : cmp
     })
-  }, [results, sortKey, sortDir, abrFilter])
+  }, [results, sortKey, sortDir, abrFilter, abrCtxFilter, pbConfirmedOnly, shortConflictOnly])
 
   const thProps = { sortKey, sortDir, onSort: handleSort }
 
@@ -506,6 +545,38 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
             className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
             {ABR_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">ABR Context</label>
+          <select value={abrCtxFilter} onChange={e => setAbrCtxFilter(e.target.value)}
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            {ABR_CTX_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-gray-500">Quick</label>
+          <div className="flex gap-1 flex-wrap">
+            <button
+              onClick={() => { setPbConfirmedOnly(v => !v); setShortConflictOnly(false) }}
+              title="PULLBACK_READY_B or PULLBACK_WATCH with ABR_PULLBACK_CONFIRMED"
+              className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
+                ${pbConfirmedOnly
+                  ? 'bg-blue-700 text-white font-semibold border border-blue-500'
+                  : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+              ✓ PB only
+            </button>
+            <button
+              onClick={() => { setShortConflictOnly(v => !v); setPbConfirmedOnly(false) }}
+              title="SHORT_WATCH with ABR_BULLISH_CONTEXT_CONFLICT"
+              className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
+                ${shortConflictOnly
+                  ? 'bg-orange-700 text-white font-semibold border border-orange-500'
+                  : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+              ⚠ Short Conflict
+            </button>
+          </div>
         </div>
 
         <div className="flex flex-col gap-1">
