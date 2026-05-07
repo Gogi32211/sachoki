@@ -135,8 +135,10 @@ export default function TZWLNBBPanel() {
   const [results, setResults]   = useState([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
-  const [genStatus, setGenStatus] = useState(null)
-  const [genError, setGenError] = useState(null)
+  const [genStatus, setGenStatus]               = useState(null)
+  const [genError, setGenError]                 = useState(null)
+  const [splitAudit, setSplitAudit]             = useState(null)
+  const [splitAuditLoading, setSplitAuditLoading] = useState(false)
   const [status, setStatus]     = useState(null)
 
   const [debugRow, setDebugRow] = useState(null)
@@ -432,7 +434,53 @@ export default function TZWLNBBPanel() {
         >
           {loading ? 'Scanning…' : 'Scan'}
         </button>
+
+        {universe === 'split' && (
+          <button
+            onClick={async () => {
+              setSplitAuditLoading(true)
+              setSplitAudit(null)
+              try {
+                const res = await apiGet(`/api/split-universe/audit?tf=${tf}`)
+                setSplitAudit(res)
+              } catch (e) { setSplitAudit({ error: e.message }) }
+              finally { setSplitAuditLoading(false) }
+            }}
+            disabled={splitAuditLoading}
+            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-gray-300 text-xs rounded transition-colors self-end"
+            title="Audit split universe consistency between Turbo and WLNBB/TZ"
+          >
+            {splitAuditLoading ? '…' : '🔍 Audit Split'}
+          </button>
+        )}
       </div>
+
+      {universe === 'split' && splitAudit && !splitAudit.error && (
+        <div className="p-2 bg-gray-900 border border-gray-700 rounded text-xs flex flex-col gap-1">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-gray-400">✂️ Split universe:</span>
+            <span className="text-white font-semibold">{splitAudit.counts?.live_split_universe ?? '—'} tickers</span>
+            <span className="text-gray-500">·</span>
+            <span className="text-gray-400">shared: <span className="text-green-400">{splitAudit.counts?.shared}</span></span>
+            <span className="text-gray-500">·</span>
+            <span className={splitAudit.counts?.only_in_turbo > 0 ? 'text-amber-400' : 'text-gray-500'}>
+              only in live: {splitAudit.counts?.only_in_turbo}
+            </span>
+            <span className={splitAudit.counts?.only_in_wlnbb > 0 ? 'text-amber-400' : 'text-gray-500'}>
+              stale in CSV: {splitAudit.counts?.only_in_wlnbb}
+            </span>
+          </div>
+          <div className="text-gray-600 text-xs">
+            source: {splitAudit.debug?.source} · window: {splitAudit.debug?.start_date} → {splitAudit.debug?.end_date} · generated: {splitAudit.debug?.generated_at?.slice(0, 16)}
+          </div>
+          {splitAudit.counts?.only_in_wlnbb > 0 && (
+            <div className="text-amber-400/80 text-xs">⚠ {splitAudit.counts.only_in_wlnbb} CSV ticker(s) no longer in live split universe — re-generate stock stat to sync.</div>
+          )}
+        </div>
+      )}
+      {universe === 'split' && splitAudit?.error && (
+        <div className="p-2 bg-red-900/30 border border-red-700 rounded text-red-300 text-xs">Audit error: {splitAudit.error}</div>
+      )}
 
       {/* ── Generate Stock Stat ──────────────────────────────────────────── */}
       <div className="flex items-center gap-3 p-2 bg-gray-900 rounded border border-gray-800">

@@ -588,21 +588,26 @@ def api_turbo_scan(
                                       vol_min=vol_min, vol_max=vol_max)
         last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
 
-        # Enrich split-universe rows with lifecycle metadata
+        # Enrich split-universe rows with lifecycle metadata + cross-filter to live universe
         meta: dict = {}
         if universe == "split":
             try:
-                from split_universe import split_service
-                smeta = split_service.get_split_meta()
+                from split_universe import split_service, normalize_split_symbol
+                sresult = split_service.get_split_universe_result()
+                smeta   = {r["ticker"]: r for r in sresult.rows}
+                live_tickers = frozenset(sresult.tickers)
+
+                # Cross-filter: only show tickers in the current live split universe
+                results = [r for r in results
+                           if normalize_split_symbol(r.get("ticker", "")) in live_tickers]
+
                 for r in results:
-                    s = smeta.get(r.get("ticker"))
+                    s = smeta.get(normalize_split_symbol(r.get("ticker", "")))
                     if s:
-                        # Core fields (backward-compat)
-                        r["split_date"]        = s["split_date"]
-                        r["split_ratio"]       = s["ratio_str"]
-                        r["split_status"]      = s.get("split_status", "")
-                        r["split_days_offset"] = s.get("days_offset", 0)
-                        # Lifecycle fields
+                        r["split_date"]            = s["split_date"]
+                        r["split_ratio"]           = s["ratio_str"]
+                        r["split_status"]          = s.get("split_status", "")
+                        r["split_days_offset"]     = s.get("days_offset", 0)
                         r["split_phase"]           = s.get("phase", "")
                         r["split_wave"]            = s.get("wave", "")
                         r["split_watch_until"]     = s.get("watch_until", "")
@@ -612,7 +617,10 @@ def api_turbo_scan(
                         r["split_heat_score"]      = s.get("heat_score", 0)
                         r["split_notes"]           = s.get("notes", "")
                         r["split_watch_days"]      = s.get("watch_days", 60)
-                meta["split_count"] = len(smeta)
+                meta["split_count"]      = len(live_tickers)
+                meta["split_source"]     = sresult.source
+                meta["split_cache_key"]  = sresult.cache_key
+                meta["split_generated_at"] = sresult.generated_at
             except Exception as exc:
                 log.warning("split metadata enrich failed: %s", exc)
 
@@ -627,6 +635,89 @@ def api_turbo_scan(
         return {"results": results, "last_scan": last_time, "meta": meta}
     except Exception as exc:
         log.exception("turbo-scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/split-universe/audit")
+def api_split_universe_audit(
+    force_refresh: bool = False,
+    tf: str = "1d",
+):
+    """Audit split universe consistency across Turbo and WLNBB/TZ scanners.
+
+    After the unified-source fix both only_in_turbo and only_in_wlnbb
+    should be empty — every displayed ticker comes from the same live
+    split_service call.
+
+    Expected response after fix:
+      only_in_turbo = []
+      only_in_wlnbb = []
+    """
+    try:
+        from split_universe import split_service, normalize_split_symbol
+        from tz_intelligence.scanner import _stat_path
+        import csv as _csv_mod
+
+        sresult = split_service.get_split_universe_result(force_refresh=force_refresh)
+        live_set = frozenset(sresult.tickers)
+
+        # Turbo tickers: what turbo would display = live split universe (after fix)
+        turbo_tickers = sorted(live_set)
+
+        # WLNBB/TZ tickers: intersection of stock_stat CSV and live split universe
+        wlnbb_csv_tickers: set = set()
+        csv_total = 0
+        stat_path = _stat_path("split", tf)
+        if os.path.exists(stat_path):
+            with open(stat_path, newline="", encoding="utf-8") as f:
+                for row in _csv_mod.DictReader(f):
+                    csv_total += 1
+                    t = normalize_split_symbol(row.get("ticker", ""))
+                    if t:
+                        wlnbb_csv_tickers.add(t)
+        wlnbb_tickers = sorted(wlnbb_csv_tickers & live_set)
+
+        shared       = sorted(live_set & wlnbb_csv_tickers)
+        only_turbo   = sorted(live_set - wlnbb_csv_tickers)   # in live but not in CSV yet
+        only_wlnbb   = sorted(wlnbb_csv_tickers - live_set)   # in CSV but expired from live
+
+        return {
+            "turbo_tickers":  turbo_tickers,
+            "wlnbb_tickers":  wlnbb_tickers,
+            "shared_tickers": shared,
+            "only_in_turbo":  only_turbo,
+            "only_in_wlnbb":  only_wlnbb,
+            "counts": {
+                "live_split_universe":      len(live_set),
+                "turbo":                    len(turbo_tickers),
+                "wlnbb":                    len(wlnbb_tickers),
+                "shared":                   len(shared),
+                "only_in_turbo":            len(only_turbo),
+                "only_in_wlnbb":            len(only_wlnbb),
+                "wlnbb_csv_total_rows":     csv_total,
+                "wlnbb_csv_unique_tickers": len(wlnbb_csv_tickers),
+            },
+            "debug": {
+                "total_events":             sresult.total_events,
+                "reverse_split_events":     sresult.reverse_split_events,
+                "stock_like_events":        sresult.stock_like_events,
+                "filtered_non_stock":       sresult.filtered_non_stock,
+                "missing_symbol":           sresult.missing_symbol,
+                "duplicate_symbols_removed": sresult.duplicate_symbols_removed,
+                "ratio_parse_failed_count": sresult.ratio_parse_failed_count,
+                "date_mode":                sresult.date_mode,
+                "start_date":               sresult.start_date,
+                "end_date":                 sresult.end_date,
+                "source":                   sresult.source,
+                "cache_key":                sresult.cache_key,
+                "generated_at":             sresult.generated_at,
+                "wlnbb_csv_path":           stat_path,
+                "wlnbb_csv_exists":         os.path.exists(stat_path),
+                "excluded_examples":        sresult.excluded_examples[:10],
+            },
+        }
+    except Exception as exc:
+        log.exception("split-universe audit error")
         raise HTTPException(status_code=500, detail=str(exc))
 
 
@@ -2189,10 +2280,15 @@ def api_tz_intelligence_scan(
     max_price: float = 1e9,
     min_volume: float = 0,
     role_filter: str = "all",
+    scan_mode: str = "latest",
     limit: int = 500,
     debug: bool = False,
 ):
-    """Classify latest TZ/WLNBB bars using the Signal Intelligence matrix."""
+    """Classify TZ/WLNBB bars using the Signal Intelligence matrix.
+
+    scan_mode='latest'  — one result per ticker (most recent bar).
+    scan_mode='history' — all historical classified events.
+    """
     # nasdaq_gt5 always enforces close >= 5
     if universe == "nasdaq_gt5":
         min_price = max(min_price, 5.0)
@@ -2206,6 +2302,7 @@ def api_tz_intelligence_scan(
             max_price=max_price,
             min_volume=min_volume,
             role_filter=role_filter,
+            scan_mode=scan_mode,
             limit=limit,
             debug=debug,
         )

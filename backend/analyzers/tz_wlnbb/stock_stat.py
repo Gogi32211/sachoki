@@ -13,7 +13,7 @@ from .signal_extraction import compute_signals_for_ticker
 log = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS = [
-    "ticker", "date", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
+    "ticker", "date", "bar_datetime", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
     "tz_wlnbb_version",
     "price_bucket", "is_sub_dollar", "is_penny_stock", "is_low_price", "is_high_price",
     "ema9", "ema20", "ema34", "ema50", "ema89", "ema200",
@@ -230,10 +230,16 @@ def generate_stock_stat(
                 audit["tickers_with_ohlcv"] += 1
                 audit["rows_before_signals"] += len(df)
 
-                # Extract date from datetime index BEFORE compute_signals_for_ticker
+                # Extract date/datetime from index BEFORE compute_signals_for_ticker
                 # resets it to integer 0,1,2... via reset_index(drop=True).
                 if "date" not in df.columns:
                     df["date"] = pd.to_datetime(df.index).strftime("%Y-%m-%d")
+                # bar_datetime: full ISO datetime for intraday, date-only for daily
+                if "bar_datetime" not in df.columns:
+                    if tf in ("4h", "1h"):
+                        df["bar_datetime"] = pd.to_datetime(df.index).strftime("%Y-%m-%d %H:%M")
+                    else:
+                        df["bar_datetime"] = df["date"]
 
                 df = compute_signals_for_ticker(df, universe)
                 # date column is now preserved as a regular column (not the index).
@@ -258,6 +264,7 @@ def generate_stock_stat(
                     date_val = row.get("date", "")
                     if not date_val:
                         continue
+                    bar_datetime_val = row.get("bar_datetime") or date_val
                     t_raw_set = row.get("t_raw") or set()
                     z_raw_set = row.get("z_raw") or set()
                     preup_raw_set = row.get("preup_raw") or set()
@@ -289,7 +296,7 @@ def generate_stock_stat(
                     is_high_price  = int(cf is not None and cf >= 150)
 
                     writer.writerow([
-                        ticker, date_val, int(row.get("bar_index", 0)), universe, tf,
+                        ticker, date_val, bar_datetime_val, int(row.get("bar_index", 0)), universe, tf,
                         _val(row.get("open")), _val(row.get("high")),
                         _val(row.get("low")), _val(row.get("close")),
                         _val(row.get("volume")),

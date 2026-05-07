@@ -7,6 +7,9 @@ ETFs, funds, trusts, leveraged products, warrants, preferred shares, etc. are
 excluded via a tiered filter.
 
 Cache: 6h in-memory, version-keyed — SPLIT_CACHE_VERSION change forces rebuild.
+
+SINGLE SOURCE OF TRUTH: both Turbo Screener and WLNBB/TZ Screener must use
+split_service (module-level singleton) to guarantee identical ticker lists.
 """
 
 import re
@@ -14,12 +17,67 @@ import json
 import logging
 import urllib.request
 import urllib.error
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta, date as date_t
 from typing import Dict, List, Optional, Tuple
 
 log = logging.getLogger(__name__)
 
 SPLIT_CACHE_VERSION = "split_lifecycle_stock_filter_v2"
+
+
+# ── Symbol normalisation ──────────────────────────────────────────────────────
+
+def normalize_split_symbol(symbol) -> str:
+    """Normalise a raw symbol from the NASDAQ splits API.
+
+    Rules (applied in order):
+      1. None / empty → ""
+      2. Strip outer whitespace
+      3. Collapse internal whitespace to single spaces
+      4. Uppercase
+      5. Return empty string for symbols that are still blank after normalisation
+
+    BRK.B and similar dotted tickers are preserved as-is (uppercase only).
+    """
+    if not symbol:
+        return ""
+    s = str(symbol).strip()
+    s = re.sub(r'\s+', ' ', s)
+    s = s.upper()
+    return s
+
+
+# ── Result container ──────────────────────────────────────────────────────────
+
+@dataclass
+class SplitUniverseResult:
+    """Full result from one split universe resolution cycle."""
+    # Core output
+    tickers: List[str] = field(default_factory=list)   # sorted, normalised, unique
+    rows: List[dict]   = field(default_factory=list)   # full split event dicts
+
+    # Debug counters
+    total_events: int               = 0
+    reverse_split_events: int       = 0
+    stock_like_events: int          = 0
+    filtered_non_stock: int         = 0
+    missing_symbol: int             = 0
+    duplicate_symbols_removed: int  = 0
+    ratio_parse_failed_count: int   = 0
+
+    # Date / window metadata
+    date_mode: str  = "latest_available"
+    start_date: str = ""
+    end_date: str   = ""
+
+    # Source metadata
+    source: str      = "nasdaq_api"   # "nasdaq_api" | "cache"
+    cache_key: str   = ""
+    generated_at: str = ""
+
+    # Excluded examples (up to 20)
+    excluded_examples: List[dict] = field(default_factory=list)
 
 # ── Lifecycle constants ───────────────────────────────────────────────────────
 SPLIT_HISTORY_DAYS  = 90   # look back this many calendar days
@@ -246,77 +304,120 @@ class SplitUniverseService:
     MIN_RATIO            = 2.0
 
     def __init__(self) -> None:
-        self._cache:         Optional[List[dict]] = None
-        self._cache_time:    Optional[datetime]   = None
-        self._cache_version: Optional[str]        = None
+        self._cache:         Optional[List[dict]]         = None
+        self._cache_time:    Optional[datetime]           = None
+        self._cache_version: Optional[str]                = None
+        self._last_result:   Optional[SplitUniverseResult] = None
 
     # ── Public API ────────────────────────────────────────────────────────────
 
-    def get_split_universe(self) -> List[dict]:
-        if self._is_cache_valid():
-            return self._cache or []
+    def get_split_universe(self, force_refresh: bool = False) -> List[dict]:
+        """Return list of active split event dicts (cached 6h).
+
+        Both Turbo Screener and WLNBB/TZ Screener call this — single source of truth.
+        """
+        return self.get_split_universe_result(force_refresh=force_refresh).rows
+
+    def get_split_universe_result(self, force_refresh: bool = False) -> "SplitUniverseResult":
+        """Return full SplitUniverseResult including debug counters and metadata."""
+        if not force_refresh and self._is_cache_valid() and self._last_result is not None:
+            return self._last_result
+
+        today_dt  = datetime.now().date()
+        start_dt  = today_dt - timedelta(days=SPLIT_HISTORY_DAYS)
+        end_dt    = today_dt + timedelta(days=SPLIT_FUTURE_DAYS)
 
         raw = self._fetch_nasdaq_splits()
         total_calendar_rows = len(raw)
 
+        # Count missing symbols (already filtered out in _fetch_nasdaq_splits, but track)
+        missing_sym = sum(1 for r in raw if not normalize_split_symbol(r.get("ticker", "")))
+
         # Stock-only filter
-        stock_rows: List[dict]    = []
-        excluded:   List[tuple]   = []
+        stock_rows: List[dict]         = []
+        excluded:   List[tuple]        = []
+        excluded_examples: List[dict]  = []
         for r in raw:
             ok, reason = is_stock_like_split_event(r)
             if ok:
                 stock_rows.append(r)
             else:
                 excluded.append((r.get("ticker", "?"), r.get("companyName", ""), reason or ""))
+                if len(excluded_examples) < 20:
+                    excluded_examples.append({
+                        "ticker":  r.get("ticker", ""),
+                        "name":    r.get("companyName", ""),
+                        "reason":  reason or "",
+                    })
 
-        # Ratio filter (keep reverse splits only)
+        # Ratio filter (reverse splits only, ratio >= MIN_RATIO)
         after_ratio = [r for r in stock_rows if r.get("ratio") and r["ratio"] >= self.MIN_RATIO]
         filtered_forward_invalid = len(stock_rows) - len(after_ratio)
         reverse_split_rows = len(after_ratio)
 
         # Lifecycle computation
-        today_dt = datetime.now().date()
         for r in after_ratio:
             lc = classify_split_lifecycle(r["split_date"], r["ratio"], today_dt)
             r.update(lc)
             r["split_status"] = "upcoming" if lc["days_offset"] < 0 else "executed"
 
         # Lifecycle filter: keep active phases only
-        active = [
-            r for r in after_ratio
-            if r["phase"] not in ("EXPIRED", "UPCOMING_FAR")
-        ]
+        active = [r for r in after_ratio if r["phase"] not in ("EXPIRED", "UPCOMING_FAR")]
         lifecycle_active_rows = len(active)
         expired_rows = reverse_split_rows - lifecycle_active_rows
 
         # Dedupe by ticker: prefer active/closest lifecycle event
+        pre_dedup = len(active)
         results = self._dedupe_by_ticker(active)
+        deduped = pre_dedup - len(results)
+
+        # Build sorted unique normalised ticker list
+        tickers = sorted({normalize_split_symbol(r["ticker"]) for r in results if r.get("ticker")})
 
         # Logging
         log.info(
             "split universe refreshed: total_calendar=%d  reverse_splits=%d  "
             "filtered_non_stock=%d  filtered_forward_invalid=%d  "
-            "lifecycle_active=%d  expired=%d  final=%d",
+            "lifecycle_active=%d  expired=%d  deduped=%d  final=%d",
             total_calendar_rows, reverse_split_rows,
             len(excluded), filtered_forward_invalid,
-            lifecycle_active_rows, expired_rows, len(results),
+            lifecycle_active_rows, expired_rows, deduped, len(results),
         )
         for ticker, name, reason in excluded[:20]:
             rule_type = reason.split(":")[0] if ":" in reason else reason
-            log.debug(
-                "split excluded: ticker=%s name=%.60s reason=%s rule_type=%s",
-                ticker, name, reason, rule_type,
-            )
+            log.debug("split excluded: ticker=%s name=%.60s reason=%s rule_type=%s",
+                      ticker, name, reason, rule_type)
         if len(excluded) > 20:
             log.debug("split excluded: ... and %d more (not shown)", len(excluded) - 20)
+
+        result = SplitUniverseResult(
+            tickers                 = tickers,
+            rows                    = results,
+            total_events            = total_calendar_rows,
+            reverse_split_events    = reverse_split_rows,
+            stock_like_events       = len(stock_rows),
+            filtered_non_stock      = len(excluded),
+            missing_symbol          = missing_sym,
+            duplicate_symbols_removed = deduped,
+            ratio_parse_failed_count  = filtered_forward_invalid,
+            date_mode               = "latest_available",
+            start_date              = start_dt.isoformat(),
+            end_date                = end_dt.isoformat(),
+            source                  = "nasdaq_api",
+            cache_key               = f"{SPLIT_CACHE_VERSION}|{start_dt}|{end_dt}|reverse_only|stock_only",
+            generated_at            = datetime.now().isoformat(timespec="seconds"),
+            excluded_examples       = excluded_examples,
+        )
 
         self._cache         = results
         self._cache_time    = datetime.now()
         self._cache_version = SPLIT_CACHE_VERSION
-        return results
+        self._last_result   = result
+        return result
 
-    def get_split_tickers(self) -> List[str]:
-        return [r["ticker"] for r in self.get_split_universe() if r.get("ticker")]
+    def get_split_tickers(self, force_refresh: bool = False) -> List[str]:
+        """Sorted, normalised, unique ticker list — single source of truth."""
+        return self.get_split_universe_result(force_refresh=force_refresh).tickers
 
     def get_split_meta(self) -> Dict[str, dict]:
         """Returns {TICKER: meta-dict} for fast row enrichment."""
@@ -350,8 +451,10 @@ class SplitUniverseService:
             for row in rows:
                 ratio_str = row.get("ratio") or ""
                 ratio     = self._parse_ratio(ratio_str)
-                ticker    = (row.get("symbol") or "").strip().upper()
-                if not ticker or ratio is None:
+                ticker    = normalize_split_symbol(row.get("symbol") or "")
+                if not ticker:
+                    continue
+                if ratio is None:
                     continue
                 out.append({
                     "ticker":       ticker,
