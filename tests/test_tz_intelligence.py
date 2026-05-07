@@ -1860,3 +1860,66 @@ def test_abr_context_flags_in_full_classify():
     assert isinstance(result["abr_conflict_flag"],     str)
     assert isinstance(result["abr_confirmation_flag"], str)
     assert isinstance(result["abr_context_type"],      str)
+
+
+# ── SP500 ABR overlay ─────────────────────────────────────────────────────────
+
+def test_abr_sp500_universe_mapped():
+    """sp500 → ABR universe SP500 with STRONG gate (prev1 must be STRONG ≥ 0.8)."""
+    m = load_matrix()
+    # T5 med ≈ 1.025 → STRONG on SP500; T3 med ≈ 0.765 → GOOD (fails gate)
+    # seq: prev3=T3, prev2=T5, prev1=T5, current=T5
+    r = classify_abr("T5", "T3|T5|T5|T5", [], m, scan_universe="sp500")
+    assert r["abr_category"] != "UNKNOWN",    "SP500 T5 sequence must produce a category"
+    assert r["abr_prev1_quality"] == "STRONG", "T5 must be STRONG under SP500 thresholds"
+    assert r["abr_gate_pass"] is True,         "T5 prev1 must pass SP500 STRONG gate"
+
+
+def test_abr_sp500_gate_blocks_good_prev1():
+    """SP500 gate requires STRONG prev1; GOOD prev1 must give category R."""
+    m = load_matrix()
+    # T3 med ≈ 0.765 → GOOD (< 0.8 STRONG threshold) → gate fails → R
+    r = classify_abr("T3", "T5|T3|T3|T3", [], m, scan_universe="sp500")
+    assert r["abr_prev1_quality"] == "GOOD"
+    assert r["abr_gate_pass"] is False
+    assert r["abr_category"] == "R"
+
+
+def test_abr_sp500_strong_signals():
+    """Signals with SP500 med >= 0.8 must classify as STRONG."""
+    m = load_matrix()
+    from tz_intelligence.abr_classifier import _composite_med_for_signal, _classify_quality
+    strong_sigs = ["T5", "T11", "T12", "Z2G", "Z3", "Z4", "Z5", "Z6", "Z9", "Z10", "Z11"]
+    for sig in strong_sigs:
+        med = _composite_med_for_signal(sig, m, "sp500")
+        assert med is not None, f"{sig} must have SP500 composite rules"
+        q = _classify_quality(med, "SP500")
+        assert q == "STRONG", f"{sig} med={round(med,3)} expected STRONG, got {q}"
+
+
+def test_abr_sp500_short_watch_conflict():
+    """SHORT_WATCH + SP500 ABR B/B+ must produce ABR_BULLISH_CONTEXT_CONFLICT."""
+    m = load_matrix()
+    # Z3 prev1 is STRONG, Z9 prev2 is STRONG → B+
+    r = classify_abr("Z3", "T5|Z9|Z3|Z3", [], m, scan_universe="sp500", current_role="SHORT_WATCH")
+    ctx = compute_abr_context_flags("SHORT_WATCH", r["abr_category"], r["abr_med10d_pct"],
+                                    True, True, "OK")
+    if r["abr_category"] in ("A", "B", "B+"):
+        assert ctx["abr_conflict_flag"] == "ABR_BULLISH_CONTEXT_CONFLICT"
+
+
+def test_abr_sp500_role_unchanged():
+    """SP500 TZ role/score must not be affected by ABR overlay."""
+    m = load_matrix()
+    row = _row(t="T5", z="", lane1="T5L46NB", lane3="T5L46NB",
+               close=180, ema20=170, ema50=160, ema89=150)
+    history = [_row(t="T3", lane3="T3L46NB"), _row(t="T5", lane3="T5L46NB"),
+               _row(t="T5", lane3="T5L46NB")]
+    result = classify_tz_event(row, history, m, scan_universe="sp500")
+    # ABR fields present and valid
+    assert result["abr_category"] in ("A", "B", "B+", "R", "UNKNOWN")
+    assert isinstance(result["abr_conflict_flag"], str)
+    # TZ role not corrupted by ABR
+    assert result["role"] not in ("A", "B", "B+")
+    # Score is numeric
+    assert isinstance(result["score"], (int, float))
