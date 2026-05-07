@@ -1828,36 +1828,47 @@ def api_replay_export_all():
 
 def _filter_nasdaq_batch(tickers: list, batch: str) -> list:
     """Filter NASDAQ tickers by alphabetical batch.
-    batch='a_m' -> first letter A-M
-    batch='n_z' -> first letter N-Z
+    batch='a_m' -> first letter A-M  (nasdaq)
+    batch='n_z' -> first letter N-Z  (nasdaq)
+    batch='a_f' -> first letter A-F  (nasdaq_gt5)
+    batch='g_m' -> first letter G-M  (nasdaq_gt5)
+    batch='n_s' -> first letter N-S  (nasdaq_gt5)
+    batch='t_z' -> first letter T-Z  (nasdaq_gt5)
     batch='other' -> first letter non-alpha
     batch='' or 'all' -> no filter
     """
     if not batch or batch == "all":
         return tickers
-    result = []
-    for t in tickers:
-        first = t[0].upper() if t else ""
-        if batch == "a_m" and first.isalpha() and "A" <= first <= "M":
-            result.append(t)
-        elif batch == "n_z" and first.isalpha() and "N" <= first <= "Z":
-            result.append(t)
-        elif batch == "other" and (not first.isalpha()):
-            result.append(t)
-    return result
+    _RANGES = {
+        "a_m": ("A", "M"), "n_z": ("N", "Z"),
+        "a_f": ("A", "F"), "g_m": ("G", "M"),
+        "n_s": ("N", "S"), "t_z": ("T", "Z"),
+    }
+    if batch in _RANGES:
+        lo, hi = _RANGES[batch]
+        return [t for t in tickers if t and t[0].upper().isalpha() and lo <= t[0].upper() <= hi]
+    if batch == "other":
+        return [t for t in tickers if not (t and t[0].upper().isalpha())]
+    return tickers
 
 
 def _tz_batch_stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     """Return the canonical stock_stat CSV path for a given universe/tf/batch."""
-    if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
-        return f"stock_stat_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}.csv"
+    if nasdaq_batch and nasdaq_batch != "all":
+        if universe == "nasdaq":
+            return f"stock_stat_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}.csv"
+        if universe == "nasdaq_gt5":
+            return f"stock_stat_tz_wlnbb_nasdaq_gt5_{nasdaq_batch}_{tf}.csv"
     return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
 
 def _tz_batch_replay_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     """Return the canonical replay ZIP path for a given universe/tf/batch."""
-    if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
-        return f"replay_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}_analytics.zip"
+    if nasdaq_batch and nasdaq_batch != "all":
+        if universe == "nasdaq":
+            return f"replay_tz_wlnbb_nasdaq_{nasdaq_batch}_{tf}_analytics.zip"
+        if universe == "nasdaq_gt5":
+            return f"replay_tz_wlnbb_nasdaq_gt5_{nasdaq_batch}_{tf}_analytics.zip"
     return f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
 
 
@@ -1991,11 +2002,11 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
             except Exception:
                 tickers = []
 
-        if universe == "nasdaq" and nasdaq_batch and nasdaq_batch != "all":
+        if universe in ("nasdaq", "nasdaq_gt5") and nasdaq_batch and nasdaq_batch != "all":
             tickers = _filter_nasdaq_batch(tickers, nasdaq_batch)
-            log.info("nasdaq batch=%s: %d tickers after filter", nasdaq_batch, len(tickers))
+            log.info("%s batch=%s: %d tickers after filter", universe, nasdaq_batch, len(tickers))
         if universe == "nasdaq_gt5":
-            log.info("nasdaq_gt5: %d NASDAQ tickers loaded; price >= 5 filter will apply", len(tickers))
+            log.info("nasdaq_gt5: %d tickers loaded; price >= 5 filter will apply", len(tickers))
 
         _tz_wlnbb_state["total"] = len(tickers)
 
