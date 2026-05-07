@@ -23,6 +23,8 @@ const CSV_COLS = [
   'prior_pullback_ready_found','prior_pullback_ready_bars_ago',
   'prior_pullback_ready_signal','prior_pullback_ready_composite',
   'prior_pullback_ready_role','pullback_high','current_close_above_pullback_high',
+  // Liquidity fields
+  'dollar_volume','liquidity_tier',
   'explanation',
 ]
 

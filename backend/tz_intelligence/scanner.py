@@ -161,6 +161,9 @@ def run_intelligence_scan(
             "prior_pullback_ready_role":         clf["prior_pullback_ready_role"],
             "pullback_high":                     clf["pullback_high"],
             "current_close_above_pullback_high": clf["current_close_above_pullback_high"],
+            # Liquidity fields
+            "dollar_volume":    clf["dollar_volume"],
+            "liquidity_tier":   clf["liquidity_tier"],
             # Debug trace (only when debug=True)
             **({"debug_trace": clf["debug_trace"]} if debug else {}),
         })

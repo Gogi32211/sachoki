@@ -170,6 +170,16 @@ def _make_composite(signal: str, lane: str) -> str:
     return signal + lane
 
 
+def _liquidity_tier(volume: float, dollar_volume: float) -> str:
+    if volume < 100_000 or dollar_volume < 1_000_000:
+        return "LOW"
+    if volume < 500_000 or dollar_volume < 2_000_000:
+        return "MID"
+    if volume >= 1_000_000 and dollar_volume >= 10_000_000:
+        return "STRONG"
+    return "OK"
+
+
 # ── Main classifier ───────────────────────────────────────────────────────────
 
 def classify_tz_event(
@@ -205,6 +215,7 @@ def classify_tz_event(
     curr_h = _fv("high")
     curr_l = _fv("low")
     curr_v = _fv("volume")
+    dollar_volume = close * curr_v
 
     final_signal = t_sig or z_sig or l_sig or ""
 
@@ -397,6 +408,40 @@ def classify_tz_event(
             total_score += bonus
             best_role = "SHORT_GO"
             reason_codes.append(f"BREAK_4BAR_LOW:SHORT_GO:+{bonus}")
+
+    # ── NASDAQ_GT5: Z pullback breakdown risk ──────────────────────────────────
+    if scan_universe == "nasdaq_gt5" and z_sig in _PULLBACK_Z_SIGNALS:
+        if best_role in ("PULLBACK_READY_A", "PULLBACK_READY_B", "PULLBACK_CONFIRMING"):
+            if breaks_4bar_low and price_position_4bar < 0.25:
+                if not above_ema20:
+                    best_role = "PULLBACK_WATCH"
+                    if total_score > 35: total_score = 35
+                    reason_codes.append(
+                        "NASDAQ_GT5:Z_PULLBACK_BREAKDOWN_RISK+below_ema20:"
+                        "PULLBACK_WATCH:score_cap_35"
+                    )
+                else:
+                    best_role = "PULLBACK_WATCH"
+                    if total_score > 59: total_score = 59
+                    reason_codes.append(
+                        "NASDAQ_GT5:Z_PULLBACK_BREAKDOWN_RISK:PULLBACK_WATCH:score_cap_59"
+                    )
+
+    # ── NASDAQ_GT5: Z1G PULLBACK_READY_B strictness ───────────────────────────
+    if scan_universe == "nasdaq_gt5" and z_sig == "Z1G" and best_role == "PULLBACK_READY_B":
+        _z1g_ready = (
+            (above_ema50 or ema50_reclaim) and
+            price_position_4bar >= 0.35 and
+            not breaks_4bar_low
+        )
+        if not _z1g_ready:
+            best_role = "PULLBACK_WATCH" if above_ema50 else "MIXED_WATCH"
+            if total_score > 59: total_score = 59
+            reason_codes.append(
+                f"NASDAQ_GT5:Z1G_STRICT:PULLBACK_READY_B→{best_role}:"
+                f"ema50={above_ema50} reclaim={ema50_reclaim} "
+                f"pos={price_position_4bar:.2f} breakdown={breaks_4bar_low}"
+            )
 
     # ── BULL_A cap for weak T signals ─────────────────────────────────────────
     if best_role == "BULL_A" and final_signal in _WEAK_T_SIGNALS:
@@ -639,6 +684,36 @@ def classify_tz_event(
     # ── Final normalization: enforce role/score/quality consistency ───────────
     best_role, total_score = _normalize_role_score(best_role, total_score, reason_codes)
 
+    # ── NASDAQ_GT5: liquidity gate (applied after normalization) ──────────────
+    liq_action_override: Optional[str] = None
+    liquidity_tier = _liquidity_tier(curr_v, dollar_volume)
+    if scan_universe == "nasdaq_gt5":
+        if curr_v < 100_000 or dollar_volume < 1_000_000:
+            # Very low liquidity — demote active roles to NO_EDGE
+            if best_role not in ("REJECT", "REJECT_LONG", "NO_EDGE",
+                                 "SHORT_GO", "SHORT_WATCH"):
+                prev_role = best_role
+                best_role = "NO_EDGE"
+                reject_flags.append("LOW_LIQUIDITY")
+                reason_codes.append(
+                    f"NASDAQ_GT5:LOW_LIQUIDITY:{prev_role}→NO_EDGE:"
+                    f"vol={curr_v:.0f} dvol={dollar_volume:.0f}"
+                )
+            if total_score > 25:
+                total_score = 25
+            liq_action_override = "LOW_LIQUIDITY_SKIP"
+        elif curr_v < 500_000:
+            # Mid liquidity — cap at B-tier, score ≤ 79
+            if best_role in ("BULL_A", "PULLBACK_READY_A"):
+                prev = best_role
+                best_role = _A_TO_B.get(best_role, best_role)
+                reason_codes.append(
+                    f"NASDAQ_GT5:LOW_VOLUME_CAP:{prev}→{best_role}:vol={curr_v:.0f}"
+                )
+            if total_score > 79:
+                total_score = 79
+                reason_codes.append(f"NASDAQ_GT5:LOW_VOLUME_CAP:score_cap_79:vol={curr_v:.0f}")
+
     if debug:
         debug_trace.append(f"FINAL: role={best_role} score={total_score} "
                            f"conflict={has_conflict} below_all_emas={below_all_emas} "
@@ -691,6 +766,8 @@ def classify_tz_event(
         prior_pullback_ready_role=prior_pb_role,
         pullback_high=pullback_bar_high,
         current_close_above_pullback_high=current_close_above_pb_high,
+        dollar_volume=dollar_volume, liquidity_tier=liquidity_tier,
+        action_override=liq_action_override,
         debug_trace=debug_trace if debug else None,
     )
 
@@ -715,11 +792,13 @@ def _build_result(
     prior_pullback_ready_signal="", prior_pullback_ready_composite="",
     prior_pullback_ready_role="", pullback_high=None,
     current_close_above_pullback_high=False,
+    dollar_volume: float = 0.0, liquidity_tier: str = "OK",
+    action_override: Optional[str] = None,
     debug_trace=None,
 ) -> dict:
     below_all_emas = not above_ema20 and not above_ema50 and not above_ema89
     quality = _quality_from_score(role, score, below_all_emas, price_position_4bar, conflict_flag)
-    action  = _ROLE_ACTION.get(role, "NO_ACTION")
+    action  = action_override if action_override else _ROLE_ACTION.get(role, "NO_ACTION")
     return {
         "ticker":            ticker,
         "date":              date,
@@ -773,5 +852,7 @@ def _build_result(
         "prior_pullback_ready_role":         prior_pullback_ready_role,
         "pullback_high":                     pullback_high,
         "current_close_above_pullback_high": current_close_above_pullback_high,
+        "dollar_volume":    round(dollar_volume, 2),
+        "liquidity_tier":   liquidity_tier,
         "debug_trace":      debug_trace,
     }
