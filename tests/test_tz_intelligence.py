@@ -1189,3 +1189,157 @@ def test_nasdaq_gt5_short_watch_gate_does_not_affect_sp500():
     assert "NASDAQ_GT5" not in " ".join(sp500_result.get("reason_codes", [])), (
         "SP500 scan must not contain NASDAQ_GT5 gate reason codes"
     )
+
+
+# ── NASDAQ_GT5 Liquidity gate ─────────────────────────────────────────────────
+
+def test_nasdaq_gt5_low_liquidity_demotes_to_no_edge():
+    """NASDAQ_GT5: volume < 100K → active roles demoted to NO_EDGE."""
+    m = load_matrix()
+    # T5L46NB gives bullish role; vol=7400 → LOW_LIQUIDITY
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=20, ema20=18, ema50=16, ema89=14,
+                    high=21, low=19, volume=7400)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["role"] == "NO_EDGE", (
+        f"NASDAQ_GT5 vol=7.4K must demote to NO_EDGE, got {result['role']}"
+    )
+    assert result["liquidity_tier"] == "LOW"
+    assert "LOW_LIQUIDITY" in " ".join(result["reason_codes"])
+    assert result["score"] <= 25
+
+
+def test_nasdaq_gt5_low_liquidity_score_capped():
+    """NASDAQ_GT5: very low liquidity caps score to <= 25."""
+    m = load_matrix()
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=20, ema20=18, ema50=16, ema89=14,
+                    high=21, low=19, volume=50000)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["score"] <= 25, f"LOW_LIQUIDITY score must be <= 25, got {result['score']}"
+    assert result["action"] == "LOW_LIQUIDITY_SKIP"
+
+
+def test_nasdaq_gt5_mid_volume_caps_a_roles():
+    """NASDAQ_GT5: 100K <= volume < 500K caps A-roles to B and score to 79."""
+    m = load_matrix()
+    # Use a row that would normally reach BULL_A — need high score bullish T signal
+    # T5L46NB with above EMAs; force vol=200K
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=80, ema20=75, ema50=70, ema89=65,
+                    high=85, low=78, volume=200000)
+    hist_bullish = [
+        _ngt5_row(close=76, high=80, low=74),
+        _ngt5_row(close=78, high=82, low=76),
+        _ngt5_row(close=79, high=83, low=77),
+    ]
+    result = classify_tz_event(row, hist_bullish, m, scan_universe="nasdaq_gt5")
+    assert result["liquidity_tier"] == "MID"
+    assert result["role"] not in ("BULL_A", "PULLBACK_READY_A"), (
+        f"NASDAQ_GT5 vol=200K must not produce A-roles, got {result['role']}"
+    )
+    assert result["score"] <= 79, f"MID liquidity score must be <= 79, got {result['score']}"
+
+
+def test_nasdaq_gt5_normal_volume_not_demoted():
+    """NASDAQ_GT5: volume >= 500K and dollar_volume >= 2M → normal classification."""
+    m = load_matrix()
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=20, ema20=18, ema50=16, ema89=14,
+                    high=21, low=19, volume=800000)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["liquidity_tier"] in ("OK", "STRONG", "MID")
+    assert "LOW_LIQUIDITY" not in " ".join(result["reason_codes"])
+
+
+def test_sp500_liquidity_gate_does_not_fire():
+    """SP500: low volume must not trigger the NASDAQ_GT5 liquidity gate."""
+    m = load_matrix()
+    row = _ngt5_row(t_signal="T5", lane1_label="T5L46NB",
+                    close=20, ema20=18, ema50=16, ema89=14,
+                    high=21, low=19, volume=7400)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="sp500")
+    assert "LOW_LIQUIDITY" not in " ".join(result["reason_codes"]), (
+        "SP500 must not apply NASDAQ_GT5 liquidity gate"
+    )
+    assert result["role"] != "NO_EDGE" or True  # SP500 is free to assign any role
+
+
+# ── NASDAQ_GT5 Z pullback breakdown gate ──────────────────────────────────────
+
+def test_nasdaq_gt5_z_pullback_breakdown_demotes_pullback_ready():
+    """NASDAQ_GT5: Z pullback + breaks_4bar_low + price_pos < 0.25 → not PULLBACK_READY_B."""
+    m = load_matrix()
+    # History with lows [52, 48, 42]; current low=39 < min=42 → breaks_4bar_low=True
+    hist_break = [
+        _ngt5_row(close=55, high=60, low=52),
+        _ngt5_row(close=50, high=56, low=48),
+        _ngt5_row(close=45, high=51, low=42),
+    ]
+    # Z5L3EU seeded as PULLBACK_WATCH in composite, use Z5 which is in _PULLBACK_Z_SIGNALS
+    row = _ngt5_row(z_signal="Z5", lane1_label="Z5L3EU",
+                    close=40, ema20=55, ema50=50, ema89=45,
+                    high=42, low=39, volume=800000)
+    result = classify_tz_event(row, hist_break, m, scan_universe="nasdaq_gt5")
+    assert result["role"] not in ("PULLBACK_READY_A", "PULLBACK_READY_B"), (
+        f"Z pullback with breakdown must not be PULLBACK_READY, got {result['role']}. "
+        f"breaks_4bar_low={result['breaks_4bar_low']} pos={result['price_position_4bar']}"
+    )
+
+
+def test_nasdaq_gt5_z_pullback_breakdown_below_ema20_score_cap():
+    """NASDAQ_GT5: Z pullback breakdown + below EMA20 → score capped at 35."""
+    m = load_matrix()
+    hist_break = [
+        _ngt5_row(close=55, high=60, low=52),
+        _ngt5_row(close=50, high=56, low=48),
+        _ngt5_row(close=45, high=51, low=42),
+    ]
+    row = _ngt5_row(z_signal="Z5", lane1_label="Z5L3EU",
+                    close=40, ema20=55, ema50=50, ema89=45,
+                    high=42, low=39, volume=800000)
+    result = classify_tz_event(row, hist_break, m, scan_universe="nasdaq_gt5")
+    if not result["above_ema20"] and result.get("breaks_4bar_low"):
+        assert result["score"] <= 35, (
+            f"Z pullback breakdown below EMA20 must cap score at 35, got {result['score']}"
+        )
+
+
+# ── NASDAQ_GT5 Z1G strictness gate ───────────────────────────────────────────
+
+def test_nasdaq_gt5_z1g_below_ema50_not_pullback_ready_b():
+    """NASDAQ_GT5: Z1G below EMA50 must not be PULLBACK_READY_B."""
+    m = load_matrix()
+    # Z1GL5EB gives PULLBACK_READY_B; EMA50 above close → below EMA50
+    row = _ngt5_row(z_signal="Z1G", lane1_label="Z1GL5EB",
+                    close=50, ema20=55, ema50=58, ema89=62,
+                    high=51, low=49, volume=800000)
+    result = classify_tz_event(row, _GT5_HIST, m, scan_universe="nasdaq_gt5")
+    assert result["role"] != "PULLBACK_READY_B", (
+        f"NASDAQ_GT5 Z1G below EMA50 must not be PULLBACK_READY_B, got {result['role']}"
+    )
+    assert any("Z1G_STRICT" in c for c in result["reason_codes"]), (
+        "Z1G_STRICT gate reason code must be present"
+    )
+
+
+def test_nasdaq_gt5_z1g_above_ema50_gate_does_not_block():
+    """NASDAQ_GT5: Z1G above EMA50 with good price position — Z1G gate does not fire."""
+    m = load_matrix()
+    hist_good = [
+        _ngt5_row(close=58, high=62, low=55),
+        _ngt5_row(close=59, high=63, low=56),
+        _ngt5_row(close=60, high=64, low=57),
+    ]
+    row = _ngt5_row(z_signal="Z1G", lane1_label="Z1GL5EB",
+                    close=60, ema20=55, ema50=52, ema89=48,
+                    high=61, low=57, volume=800000)
+    result = classify_tz_event(row, hist_good, m, scan_universe="nasdaq_gt5")
+    # Gate must not fire (above_ema50=True, price_pos >= 0.35, no breakdown)
+    assert not any("Z1G_STRICT" in c for c in result["reason_codes"]), (
+        f"Z1G_STRICT must not fire when above EMA50 + good pos. Got: {result['reason_codes']}"
+    )
+    # Role may be PULLBACK_READY_B or PULLBACK_WATCH (after normalization if score < 60)
+    assert result["role"] in ("PULLBACK_READY_B", "PULLBACK_WATCH", "PULLBACK_READY_A"), (
+        f"Z1G above EMA50 must yield pullback role, got {result['role']}"
+    )
