@@ -199,8 +199,12 @@ def run_intelligence_scan(
             "abr_avg10d_pct":      clf["abr_avg10d_pct"],
             "abr_fail10d_pct":     clf["abr_fail10d_pct"],
             "abr_win10d_pct":      clf["abr_win10d_pct"],
-            "abr_action_hint":     clf["abr_action_hint"],
-            "abr_role_suggestion": clf["abr_role_suggestion"],
+            "abr_action_hint":       clf["abr_action_hint"],
+            "abr_role_suggestion":   clf["abr_role_suggestion"],
+            # ABR context flags (role × category cross-signal)
+            "abr_conflict_flag":     clf["abr_conflict_flag"],
+            "abr_confirmation_flag": clf["abr_confirmation_flag"],
+            "abr_context_type":      clf["abr_context_type"],
             # Debug trace (only when debug=True)
             **({"debug_trace": clf["debug_trace"]} if debug else {}),
         })

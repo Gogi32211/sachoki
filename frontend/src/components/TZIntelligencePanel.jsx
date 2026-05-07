@@ -32,6 +32,7 @@ const CSV_COLS = [
   'abr_prev1_quality','abr_prev2_quality','abr_gate_pass','abr_rule_found',
   'abr_n','abr_med10d_pct','abr_avg10d_pct','abr_fail10d_pct','abr_win10d_pct',
   'abr_action_hint','abr_role_suggestion',
+  'abr_conflict_flag','abr_confirmation_flag','abr_context_type',
 ]
 
 function exportCSV(rows) {
@@ -587,6 +588,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <SortTh label="Prev1Q"    colKey="abr_prev1_quality"   {...thProps} />
                 <SortTh label="Prev2Q"    colKey="abr_prev2_quality"   {...thProps} />
                 <SortTh label="Hint"      colKey="abr_action_hint"     {...thProps} />
+                <SortTh label="ABR Ctx"   colKey="abr_conflict_flag"   {...thProps} />
                 <th className="p-1 text-gray-600 font-normal w-6"></th>
               </tr>
             </thead>
@@ -695,6 +697,16 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   </td>
                   <td className="p-1 text-xs text-gray-500 font-mono whitespace-nowrap">
                     {ABR_HINT_SHORT[row.abr_action_hint] ?? row.abr_action_hint ?? '—'}
+                  </td>
+                  <td className="p-1 whitespace-nowrap" title={row.abr_context_type || ''}>
+                    {row.abr_conflict_flag
+                      ? <span className="text-xs px-1 py-0.5 rounded bg-orange-900/50 text-orange-300 border border-orange-700/40 font-mono">⚠ CONFLICT</span>
+                      : row.abr_confirmation_flag === 'ABR_SHORT_CONFIRMED'
+                        ? <span className="text-xs px-1 py-0.5 rounded bg-red-900/40 text-red-400 border border-red-700/30 font-mono">✓ SHORT</span>
+                        : row.abr_confirmation_flag === 'ABR_PULLBACK_CONFIRMED'
+                          ? <span className="text-xs px-1 py-0.5 rounded bg-blue-900/40 text-blue-300 border border-blue-700/30 font-mono">✓ PB</span>
+                          : <span className="text-gray-700">—</span>
+                    }
                   </td>
                   <td className="p-1 text-right" onClick={e => e.stopPropagation()}>
                     <ReasonTooltip codes={row.reason_codes} explanation={row.explanation} />
