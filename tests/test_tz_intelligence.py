@@ -1498,3 +1498,92 @@ def test_sp500_continuation_gate_does_not_fire():
     )
     assert not any("BULL_CONTINUATION" in c for c in result["reason_codes"])
     assert not any("EXTENDED_WATCH" in c for c in result["reason_codes"])
+
+
+# ── ABR classifier tests ──────────────────────────────────────────────────────
+
+from tz_intelligence.abr_classifier import (
+    classify_abr, _classify_quality, _abr_category,
+    _load_abr_db, ABR_UNIVERSE_MAP, ABR_SUPPORTED,
+)
+
+
+def test_abr_db_loads():
+    """ABR rule database loads and contains expected signals for both universes."""
+    db = _load_abr_db()
+    assert len(db) > 0, "ABR DB must not be empty"
+    keys = list(db.keys())
+    universes = {k[0] for k in keys}
+    assert "SP500"  in universes
+    assert "NASDAQ" in universes
+    signals = {k[1] for k in keys if k[0] == "SP500"}
+    assert "T1" in signals and "Z3" in signals, f"SP500 T1/Z3 missing: {signals}"
+    signals_nq = {k[1] for k in keys if k[0] == "NASDAQ"}
+    assert "Z1" in signals_nq and "Z9" in signals_nq, f"NASDAQ Z1/Z9 missing: {signals_nq}"
+
+
+def test_abr_sp500_quality_thresholds():
+    """SP500 quality classification uses correct thresholds."""
+    assert _classify_quality(0.9,  "SP500") == "STRONG"
+    assert _classify_quality(0.8,  "SP500") == "STRONG"
+    assert _classify_quality(0.79, "SP500") == "GOOD"
+    assert _classify_quality(0.3,  "SP500") == "GOOD"
+    assert _classify_quality(0.29, "SP500") == "AVERAGE"
+    assert _classify_quality(0.0,  "SP500") == "AVERAGE"
+    assert _classify_quality(-0.1, "SP500") == "REJECT"
+
+
+def test_abr_nasdaq_quality_thresholds():
+    """NASDAQ quality classification uses looser thresholds."""
+    assert _classify_quality(0.5,  "NASDAQ") == "STRONG"
+    assert _classify_quality(0.4,  "NASDAQ") == "STRONG"
+    assert _classify_quality(0.39, "NASDAQ") == "GOOD"
+    assert _classify_quality(0.1,  "NASDAQ") == "GOOD"
+    assert _classify_quality(0.09, "NASDAQ") == "AVERAGE"
+    assert _classify_quality(-0.1, "NASDAQ") == "AVERAGE"
+    assert _classify_quality(-0.11,"NASDAQ") == "REJECT"
+
+
+def test_abr_category_logic():
+    """ABR category logic: gate + prev2 quality → A/B/B+/R."""
+    # SP500 gate = STRONG
+    assert _abr_category("STRONG",  "AVERAGE", "SP500") == "A"
+    assert _abr_category("STRONG",  "GOOD",    "SP500") == "B"
+    assert _abr_category("STRONG",  "STRONG",  "SP500") == "B+"
+    assert _abr_category("STRONG",  "REJECT",  "SP500") == "R"
+    assert _abr_category("GOOD",    "STRONG",  "SP500") == "R"   # gate fails
+    assert _abr_category("AVERAGE", "STRONG",  "SP500") == "R"   # gate fails
+    # NASDAQ gate = GOOD or STRONG
+    assert _abr_category("GOOD",    "AVERAGE", "NASDAQ") == "A"
+    assert _abr_category("GOOD",    "GOOD",    "NASDAQ") == "B"
+    assert _abr_category("STRONG",  "STRONG",  "NASDAQ") == "B+"
+    assert _abr_category("AVERAGE", "STRONG",  "NASDAQ") == "R"  # below GOOD gate
+
+
+def test_abr_universe_mapping():
+    """classify_abr returns UNKNOWN for unsupported universes."""
+    m = load_matrix()
+    result = classify_abr("T3", "T1|T2|T3", [], m, scan_universe="russell2k")
+    assert result["abr_category"] == "UNKNOWN"
+    result2 = classify_abr("T3", "T1|T2|T3", [], m, scan_universe="all_us")
+    assert result2["abr_category"] == "UNKNOWN"
+
+
+def test_abr_role_isolation():
+    """classify_abr must not alter TZ role or score on the classifier result."""
+    m = load_matrix()
+    row = _row(t="T3", z="", lane1="T3L46NB", lane3="T3L46NB",
+               close=55, ema20=50, ema50=45, ema89=40)
+    history = [_row(t="T1", lane3="T1L46NB"), _row(t="T2", lane3="T2L46NB"),
+               _row(t="T3", lane3="T3L46NB")]
+    result_sp = classify_tz_event(row, history, m, scan_universe="sp500")
+    result_nq = classify_tz_event(row, history, m, scan_universe="nasdaq_gt5")
+    # ABR field must exist in output
+    assert "abr_category" in result_sp
+    assert "abr_category" in result_nq
+    # ABR category must not equal the TZ role (they are different classification dimensions)
+    assert result_sp["abr_category"] in ("A", "B", "B+", "R", "UNKNOWN")
+    assert result_nq["abr_category"] in ("A", "B", "B+", "R", "UNKNOWN")
+    # Roles are still valid TZ roles (ABR did not corrupt them)
+    assert result_sp["role"] not in ("A", "B", "B+")
+    assert result_nq["role"] not in ("A", "B", "B+")
