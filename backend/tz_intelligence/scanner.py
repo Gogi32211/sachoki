@@ -210,13 +210,32 @@ def run_intelligence_scan(
 
     matrix = load_matrix()
 
+    # For split universe: cross-filter against the live split universe at query time.
+    # This ensures TZ Intelligence always shows the same tickers as Turbo Screener,
+    # regardless of when the stock_stat CSV was generated.
+    live_split_tickers: frozenset | None = None
+    if universe == "split":
+        try:
+            from split_universe import split_service, normalize_split_symbol
+            live_split_tickers = frozenset(
+                normalize_split_symbol(t) for t in split_service.get_split_tickers()
+            )
+        except Exception:
+            live_split_tickers = None  # graceful degradation: show all CSV rows
+
     rows_by_ticker: dict[str, list] = {}
     with open(stat_path, newline="", encoding="utf-8") as f:
         for row in csv.DictReader(f):
             if universe not in ("", "all") and row.get("universe", "") != universe:
                 if row.get("universe", "") != "":
                     pass  # accept rows with any universe if universe col is empty
-            rows_by_ticker.setdefault(row.get("ticker", ""), []).append(row)
+            ticker = row.get("ticker", "")
+            # Split universe: only include tickers in the live split universe
+            if live_split_tickers is not None:
+                from split_universe import normalize_split_symbol as _norm
+                if _norm(ticker) not in live_split_tickers:
+                    continue
+            rows_by_ticker.setdefault(ticker, []).append(row)
 
     results = []
 
