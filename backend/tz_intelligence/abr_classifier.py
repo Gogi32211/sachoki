@@ -1,7 +1,7 @@
 """ABR (A/B/B+/R) classification overlay for TZ Signal Intelligence.
 
 Read-only: does NOT alter role, score, or any existing TZ field.
-SP500 rules apply to sp500; NASDAQ rules apply to nasdaq_gt5 only.
+Supported universes: sp500 (SP500 thresholds/gate) and nasdaq_gt5 (NASDAQ thresholds/gate).
 
 Root design: seq4_str carries short signal codes (T4, Z1G, …) while
 matrix.composite is keyed by full composite names (T4L13NU, Z1GL5ED, …).
