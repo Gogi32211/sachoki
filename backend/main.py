@@ -2375,6 +2375,35 @@ def api_tz_intelligence_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/rare-reversal/scan")
+def api_rare_reversal_scan(
+    universe:  str   = Query("sp500"),
+    tf:        str   = Query("1d"),
+    min_price: float = Query(0.0),
+    max_price: float = Query(1e9),
+    limit:     int   = Query(200),
+):
+    """
+    Mine rare bottom-reversal patterns from the stock_stat CSV.
+
+    Extends each known 4-bar SEQ4 pattern left by 1–2 bars (ext5, ext6),
+    measures bottom quality (sequence low vs 10/20-bar context), and returns
+    evidence-tiered results (CONFIRMED_RARE, ANECDOTAL_RARE, FORMING_PATTERN).
+    """
+    try:
+        from analyzers.rare_reversal.miner import run_rare_reversal_scan
+        return run_rare_reversal_scan(
+            universe=universe,
+            tf=tf,
+            min_price=min_price,
+            max_price=max_price,
+            limit=limit,
+        )
+    except Exception as exc:
+        log.exception("rare-reversal scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
