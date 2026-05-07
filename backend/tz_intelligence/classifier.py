@@ -12,6 +12,7 @@ Fixes vs v5:
 from __future__ import annotations
 from typing import Optional
 from .matrix_loader import MatrixIndex
+from .abr_classifier import classify_abr
 
 # ── Role constants ────────────────────────────────────────────────────────────
 
@@ -824,6 +825,15 @@ def classify_tz_event(
         expl_parts.append(f"Baseline {final_signal}: {baseline.get('action','') if baseline else 'no rule'}")
     explanation = "; ".join(expl_parts)
 
+    abr = classify_abr(
+        final_signal=final_signal,
+        seq4_str=seq4_str,
+        history_rows=history_rows,
+        matrix=matrix,
+        scan_universe=scan_universe,
+        current_role=best_role,
+    )
+
     return _build_result(
         ticker=ticker, date=date,
         final_signal=final_signal, composite_pattern=composite_pattern,
@@ -858,6 +868,7 @@ def classify_tz_event(
         dollar_volume=dollar_volume, liquidity_tier=liquidity_tier,
         action_override=liq_action_override,
         debug_trace=debug_trace if debug else None,
+        abr=abr,
     )
 
 
@@ -884,6 +895,7 @@ def _build_result(
     dollar_volume: float = 0.0, liquidity_tier: str = "OK",
     action_override: Optional[str] = None,
     debug_trace=None,
+    abr: Optional[dict] = None,
 ) -> dict:
     below_all_emas = not above_ema20 and not above_ema50 and not above_ema89
     quality = _quality_from_score(role, score, below_all_emas, price_position_4bar, conflict_flag)
@@ -944,4 +956,15 @@ def _build_result(
         "dollar_volume":    round(dollar_volume, 2),
         "liquidity_tier":   liquidity_tier,
         "debug_trace":      debug_trace,
+        # ABR overlay (read-only — does not affect role/score)
+        **(abr or {
+            "abr_category": "UNKNOWN", "abr_sequence": "",
+            "abr_prev1_composite": "", "abr_prev2_composite": "",
+            "abr_prev1_quality": "UNKNOWN", "abr_prev2_quality": "UNKNOWN",
+            "abr_gate_pass": False, "abr_rule_found": False,
+            "abr_n": None, "abr_med10d_pct": None,
+            "abr_avg10d_pct": None, "abr_fail10d_pct": None,
+            "abr_win10d_pct": None,
+            "abr_action_hint": "NO_ABR_EDGE", "abr_role_suggestion": "",
+        }),
     }

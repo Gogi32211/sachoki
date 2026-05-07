@@ -164,6 +164,22 @@ def run_intelligence_scan(
             # Liquidity fields
             "dollar_volume":    clf["dollar_volume"],
             "liquidity_tier":   clf["liquidity_tier"],
+            # ABR overlay fields
+            "abr_category":        clf["abr_category"],
+            "abr_sequence":        clf["abr_sequence"],
+            "abr_prev1_composite": clf["abr_prev1_composite"],
+            "abr_prev2_composite": clf["abr_prev2_composite"],
+            "abr_prev1_quality":   clf["abr_prev1_quality"],
+            "abr_prev2_quality":   clf["abr_prev2_quality"],
+            "abr_gate_pass":       clf["abr_gate_pass"],
+            "abr_rule_found":      clf["abr_rule_found"],
+            "abr_n":               clf["abr_n"],
+            "abr_med10d_pct":      clf["abr_med10d_pct"],
+            "abr_avg10d_pct":      clf["abr_avg10d_pct"],
+            "abr_fail10d_pct":     clf["abr_fail10d_pct"],
+            "abr_win10d_pct":      clf["abr_win10d_pct"],
+            "abr_action_hint":     clf["abr_action_hint"],
+            "abr_role_suggestion": clf["abr_role_suggestion"],
             # Debug trace (only when debug=True)
             **({"debug_trace": clf["debug_trace"]} if debug else {}),
         })
