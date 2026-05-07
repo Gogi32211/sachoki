@@ -2375,6 +2375,53 @@ def api_tz_intelligence_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/pullback-miner/scan")
+def api_pullback_miner_scan(
+    universe:  str   = Query("sp500"),
+    tf:        str   = Query("1d"),
+    min_price: float = Query(0.0),
+    max_price: float = Query(1e9),
+    limit:     int   = Query(500),
+):
+    """
+    Pullback Pattern Miner — Phase 1.
+
+    Discovers 4-bar and 5-bar TZ/WLNBB pullback continuation patterns from
+    the stock_stat CSV. Returns CONFIRMED_PULLBACK and ANECDOTAL_PULLBACK
+    evidence tiers; top-3 per ticker sorted by tier then score.
+    """
+    try:
+        from analyzers.pullback_miner.miner import run_pullback_scan
+        return run_pullback_scan(
+            universe=universe,
+            tf=tf,
+            min_price=min_price,
+            max_price=max_price,
+            limit=limit,
+        )
+    except Exception as exc:
+        log.exception("pullback-miner scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/pullback-miner/report")
+def api_pullback_miner_report():
+    """
+    Run pullback scan for SP500/1d and NASDAQ_GT5/1d and write output CSVs.
+    Returns summary with output file paths, counts, and top-20 global patterns.
+    """
+    try:
+        from analyzers.pullback_miner.miner import run_and_report
+        result = run_and_report(
+            universe_tf_pairs=[("sp500", "1d"), ("nasdaq_gt5", "1d")],
+            out_dir=".",
+        )
+        return result
+    except Exception as exc:
+        log.exception("pullback-miner report error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/rare-reversal/scan")
 def api_rare_reversal_scan(
     universe:  str   = Query("sp500"),
