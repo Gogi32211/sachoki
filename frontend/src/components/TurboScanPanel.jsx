@@ -763,6 +763,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
     else { pwlAdd(r) }
   }
   const [sweetSpotFilter, setSweetSpotFilter] = useState(false)
+  const [buildingFilter,  setBuildingFilter]  = useState(false)
+  const [watchFilter,     setWatchFilter]     = useState(false)
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
@@ -887,6 +889,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
+      if (buildingFilter && r.profile_category !== 'BUILDING') return false
+      if (watchFilter    && r.profile_category !== 'WATCH')    return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -903,9 +907,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
       }
       return true
     })
-    // sort: when Sweet Spot filter active, sort by profile_score then turbo_score
+    // sort: when any profile filter active, sort by profile_score then turbo_score
     const mul = sortDir === 'asc' ? 1 : -1
-    if (sweetSpotFilter) {
+    if (sweetSpotFilter || buildingFilter || watchFilter) {
       filtered.sort((a, b) =>
         (b.profile_score ?? 0) - (a.profile_score ?? 0) ||
         (b[effectiveScoreCol] ?? b.turbo_score ?? 0) - (a[effectiveScoreCol] ?? a.turbo_score ?? 0)
@@ -920,7 +924,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -979,6 +983,8 @@ export default function TurboScanPanel({ onSelectTicker }) {
     if (secFilter) parts.push(secFilter.toUpperCase())
     if (rtbPhase) parts.push(`RTB${rtbPhase}`)
     if (sweetSpotFilter) parts.push('SWEET')
+    if (buildingFilter)  parts.push('BUILDING')
+    if (watchFilter)     parts.push('WATCH')
     if (pickedTickers.size > 0) parts.push(`picked${pickedTickers.size}`)
     parts.push(date)
     a.download = `sachoki_${parts.join('_')}.txt`
@@ -1346,13 +1352,33 @@ export default function TurboScanPanel({ onSelectTicker }) {
           }`}>
           ⭐ Sweet Spot
         </button>
-        {sweetSpotFilter && (
+        <button
+          onClick={() => setBuildingFilter(f => !f)}
+          title="Show only tickers with profile_category = BUILDING. Sorted by profile_score DESC."
+          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            buildingFilter
+              ? 'bg-yellow-900/60 text-yellow-300 border-yellow-600 ring-1 ring-yellow-500'
+              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+          }`}>
+          ↑ Building
+        </button>
+        <button
+          onClick={() => setWatchFilter(f => !f)}
+          title="Show only tickers with profile_category = WATCH. Sorted by profile_score DESC."
+          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            watchFilter
+              ? 'bg-gray-700 text-gray-300 border-gray-500 ring-1 ring-gray-400'
+              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+          }`}>
+          👁 Watch
+        </button>
+        {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-gray-500">
             {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score
           </span>
         )}
-        {sweetSpotFilter && (
-          <button onClick={() => setSweetSpotFilter(false)}
+        {(sweetSpotFilter || buildingFilter || watchFilter) && (
+          <button onClick={() => { setSweetSpotFilter(false); setBuildingFilter(false); setWatchFilter(false) }}
             className="ml-1 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
             ✕ clear
           </button>
