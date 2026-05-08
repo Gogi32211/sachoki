@@ -1,31 +1,30 @@
 """
-ultra_orchestrator.py — ULTRA scan orchestrator.
+ultra_orchestrator.py — ULTRA v2 two-stage orchestrator.
 
-ULTRA is a *display-only* layer. It does NOT:
-  • compute a new score
-  • introduce a new category
-  • modify Turbo scoring or category logic
-  • modify any other module's behavior
+ULTRA is a *display-only* layer over Turbo. It does NOT introduce any new
+score, category, or context flag, and never modifies the canonical Turbo /
+TZ-WLNBB / TZ Intelligence / Pullback / Rare Reversal modules.
 
-It DOES, in one user click:
-  1. trigger the canonical Turbo scan (`turbo_engine.run_turbo_scan`)
-  2. generate the TZ/WLNBB `stock_stat` CSV the secondary modules depend on
-     (`analyzers.tz_wlnbb.stock_stat.generate_stock_stat`)
-  3. read enrichments from existing read-only scans:
-        • TZ Intelligence  (`tz_intelligence.scanner.run_intelligence_scan`)
-        • Pullback Miner   (`analyzers.pullback_miner.miner.run_pullback_scan`)
-        • Rare Reversal    (`analyzers.rare_reversal.miner.run_rare_reversal_scan`)
-        • TZ/WLNBB latest bar per ticker (read direct from the stock_stat CSV)
-  4. merge them by ticker on top of the canonical Turbo rows
-  5. cache the merged result so `GET /api/ultra-scan/results` is instant
+Stage 1 — `run_ultra_scan_job` (Turbo only)
+    • runs the canonical `run_turbo_scan`
+    • caches Turbo rows by ticker, with all enrichment slots null
+    • cheap on memory: no stock_stat generation, no readers
 
-Per-source failure NEVER kills the response — it gets recorded as a warning
-and the affected ticker shows `—` in the relevant column.
+Stage 2 — `run_ultra_enrich_job(tickers, …)` (lazy, per-subset)
+    • generates an ULTRA-private subset stock_stat CSV for the picked subset
+      (extracted from canonical when present, otherwise fresh-fetched)
+    • runs TZ/WLNBB read · TZ Intelligence · Pullback · Rare Reversal
+      against that private CSV via their backward-compat `stat_path=…`
+      parameter
+    • merges the projected enrichments into the cached Turbo rows
+      *incrementally* — earlier enrichments are preserved
+    • per-source failure → warning, never aborts the response
 """
 from __future__ import annotations
 
 import csv as _csv
 import gc as _gc
+import hashlib
 import logging
 import os as _os
 import threading
@@ -36,58 +35,56 @@ from typing import Any
 log = logging.getLogger(__name__)
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Public state — mutated only by `run_ultra_scan_job` and `_set_phase`.
-# Read-only access via `get_ultra_status()` / `get_ultra_results()`.
+# State surface
 # ─────────────────────────────────────────────────────────────────────────────
+
+# Canonical phase ordering for the status pills.
+_PHASE_ORDER = (
+    "turbo",            # Stage 1
+    "stock_stat",       # Stage 2 setup
+    "tz_wlnbb",         # Stage 2 readers
+    "tz_intelligence",
+    "pullback",
+    "rare_reversal",
+    "merge",            # Stage 2 finalise
+)
+
+# Default Phase 2 fan-out for enrich.
+# Each Phase 2 reader still loads its subset CSV in full — but the subset is
+# tiny (visible-tickers only) so 4 parallel readers is safe again.
+_DEFAULT_MAX_WORKERS = 4
+
+# Cap how many merged ULTRA responses live in memory across (universe, tf).
+_MAX_RESULTS_CACHE_ENTRIES = 4
+
 
 _ultra_state: dict = {
     "running":      False,
+    "stage":        None,    # "turbo" | "enrich" | None
     "started_at":   0.0,
     "completed_at": None,
     "universe":     None,
     "tf":           None,
     "nasdaq_batch": None,
-    "phase":        None,    # "turbo" | "stock_stat" | "tz_wlnbb" | "tz_intelligence" | "pullback" | "rare_reversal" | "done"
-    "phases":       {},      # {phase: {state: pending|running|ok|error|skipped, message: str}}
+    "phase":        None,
+    "phases":       {},
     "error":        None,
     "warnings":     [],
-    "sources":      {},      # final source-status snapshot
+    "sources":      {},
     "turbo_done":   0,
     "turbo_total":  0,
     "stock_stat_done":  0,
     "stock_stat_total": 0,
+    "enrich_total":     0,   # tickers requested for enrichment
+    "enrich_done":      0,
 }
 
-# Cache: {(universe, tf, nasdaq_batch): {"results": [...], "meta": {...},
-#                                         "warnings": [...], "last_scan": "..."}}
+# Cache: {(universe, tf, nasdaq_batch): {"rows": [...], "rows_by_ticker": {...},
+#                                         "last_scan": "...", "warnings": [...],
+#                                         "sources": {...}}}
 # LRU-ordered so we can evict the oldest entry when the cap is reached.
 _ultra_results_cache: "OrderedDict[tuple, dict]" = OrderedDict()
 _ultra_lock = threading.Lock()
-
-
-_PHASE_ORDER = (
-    "turbo", "stock_stat", "tz_wlnbb",
-    "tz_intelligence", "pullback", "rare_reversal",
-    "merge",
-)
-
-# Default Phase 2 fan-out.
-#
-# Memory note: each Phase 2 module independently loads the entire
-# stock_stat_tz_wlnbb_*.csv into a `rows_by_ticker` dict (this is internal to
-# the existing modules and we don't modify them). For SP500/NASDAQ that's
-# easily 200–400 MB per copy, and Turbo is also memory-heavy, so running 4
-# parallel readers + Turbo on a small Railway slot OOMs.
-#
-# Default 2 keeps Phase 2 parallel (faster than sequential) while keeping
-# peak memory roughly halved vs. 4. Tighter deployments can pass
-# max_workers=1 to fully serialise Phase 2 readers; bigger boxes can pass
-# max_workers=4 for maximum throughput.
-_DEFAULT_MAX_WORKERS = 2
-
-# Cap how many merged ULTRA responses we hold in memory at once. Prevents the
-# results cache from growing unbounded across (universe, tf, batch) combos.
-_MAX_RESULTS_CACHE_ENTRIES = 4
 
 
 def _new_phase_dict() -> dict:
@@ -136,7 +133,7 @@ def _ultra_tz_batch_stat_path(universe: str, tf: str, nasdaq_batch: str = "") ->
     return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
 
-def _resolve_tz_wlnbb_csv(universe: str, tf: str, nasdaq_batch: str = "") -> str | None:
+def _resolve_canonical_stock_stat(universe: str, tf: str, nasdaq_batch: str = "") -> str | None:
     candidates = [
         _ultra_tz_batch_stat_path(universe, tf, nasdaq_batch),
         f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
@@ -148,13 +145,20 @@ def _resolve_tz_wlnbb_csv(universe: str, tf: str, nasdaq_batch: str = "") -> str
     return None
 
 
-def _read_tz_wlnbb_latest(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
-    """Latest TZ/WLNBB row per ticker from the stock_stat CSV. Empty dict on miss."""
-    path = _resolve_tz_wlnbb_csv(universe, tf, nasdaq_batch)
-    if not path:
+def _ultra_subset_path(universe: str, tf: str, tickers: list[str]) -> str:
+    """ULTRA-private subset CSV path. Hash is over sorted tickers so the same
+    subset re-uses the same file (cheap idempotency)."""
+    norm = ",".join(sorted(t.upper() for t in tickers if t))
+    h = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:8]
+    return f"stock_stat_tz_wlnbb_ultra_{universe}_{tf}_{h}.csv"
+
+
+def _read_tz_wlnbb_latest_from(stat_path: str, universe: str) -> dict:
+    """Latest TZ/WLNBB row per ticker from a specific stock_stat CSV."""
+    if not stat_path or not _os.path.exists(stat_path):
         return {}
     rows_by_ticker: dict[str, list] = {}
-    with open(path, newline="", encoding="utf-8") as f:
+    with open(stat_path, newline="", encoding="utf-8") as f:
         for row in _csv.DictReader(f):
             t = row.get("ticker", "")
             if not t:
@@ -168,6 +172,72 @@ def _read_tz_wlnbb_latest(universe: str, tf: str, nasdaq_batch: str = "") -> dic
         latest[t] = rows[-1]
     return latest
 
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Subset stock_stat: extract from canonical or fresh-generate
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _extract_subset_csv(canonical_path: str, subset_path: str,
+                        tickers: list[str]) -> int:
+    """Filter `canonical_path` rows to the picked tickers and write the result
+    to `subset_path`. Returns row count written."""
+    wanted = {t.upper() for t in tickers if t}
+    written = 0
+    with open(canonical_path, newline="", encoding="utf-8") as fin:
+        reader = _csv.DictReader(fin)
+        fieldnames = reader.fieldnames or []
+        with open(subset_path, "w", newline="", encoding="utf-8") as fout:
+            writer = _csv.DictWriter(fout, fieldnames=fieldnames, extrasaction="ignore")
+            writer.writeheader()
+            for row in reader:
+                t = (row.get("ticker") or "").upper()
+                if t in wanted:
+                    writer.writerow(row)
+                    written += 1
+    return written
+
+
+def _generate_subset_csv_fresh(universe: str, tf: str, tickers: list[str],
+                                bars: int, subset_path: str) -> int:
+    """Run the existing TZ/WLNBB stock_stat generator for ONLY the picked
+    tickers and write the output to the ULTRA-private subset path. Does NOT
+    touch the canonical path."""
+    from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+    from data_polygon import fetch_bars as _fetch_bars, polygon_available
+
+    if polygon_available():
+        def _fetch(ticker, interval, n_bars):
+            days = max(int(n_bars * 1.6), 365)
+            return _fetch_bars(ticker, interval=interval, days=days)
+    else:
+        from data import fetch_ohlcv as _fetch_yf
+        def _fetch(ticker, interval, n_bars):
+            return _fetch_yf(ticker, interval, n_bars)
+
+    def _on_progress(done, total):
+        with _ultra_lock:
+            _ultra_state["stock_stat_done"]  = done
+            _ultra_state["stock_stat_total"] = total
+
+    gen_min_price = 5.0 if universe == "nasdaq_gt5" else 0.0
+    path, _audit = generate_stock_stat(
+        list(tickers), _fetch, universe=universe, tf=tf, bars=bars,
+        min_price=gen_min_price, output_path=subset_path,
+        progress_callback=_on_progress,
+    )
+    # Count rows written
+    if not _os.path.exists(path):
+        return 0
+    n = 0
+    with open(path, newline="", encoding="utf-8") as f:
+        for _ in _csv.DictReader(f):
+            n += 1
+    return n
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Projections — same shape as before, no new score/category fields
+# ─────────────────────────────────────────────────────────────────────────────
 
 def _project_tz_wlnbb(row: dict) -> dict:
     return {
@@ -185,25 +255,25 @@ def _project_tz_wlnbb(row: dict) -> dict:
 
 def _project_tz_intel(row: dict) -> dict:
     return {
-        "role":                 row.get("role", "") or "",
-        "quality":              row.get("quality", "") or "",
-        "action":               row.get("action", "") or "",
-        "score":                row.get("score"),
-        "matched_status":       row.get("matched_status", "") or "",
-        "matched_med10d_pct":   row.get("matched_med10d_pct"),
-        "matched_fail10d_pct":  row.get("matched_fail10d_pct"),
+        "role":                row.get("role", "") or "",
+        "quality":             row.get("quality", "") or "",
+        "action":              row.get("action", "") or "",
+        "score":               row.get("score"),
+        "matched_status":      row.get("matched_status", "") or "",
+        "matched_med10d_pct":  row.get("matched_med10d_pct"),
+        "matched_fail10d_pct": row.get("matched_fail10d_pct"),
     }
 
 
 def _project_abr(row: dict) -> dict:
     return {
-        "category":        row.get("abr_category", "") or "",
-        "med10d_pct":      row.get("abr_med10d_pct"),
-        "fail10d_pct":     row.get("abr_fail10d_pct"),
-        "context_type":    row.get("abr_context_type", "") or "",
-        "action_hint":     row.get("abr_action_hint", "") or "",
-        "conflict_flag":   bool(row.get("abr_conflict_flag")),
-        "confirmation_flag": bool(row.get("abr_confirmation_flag")),
+        "category":           row.get("abr_category", "") or "",
+        "med10d_pct":         row.get("abr_med10d_pct"),
+        "fail10d_pct":        row.get("abr_fail10d_pct"),
+        "context_type":       row.get("abr_context_type", "") or "",
+        "action_hint":        row.get("abr_action_hint", "") or "",
+        "conflict_flag":      bool(row.get("abr_conflict_flag")),
+        "confirmation_flag":  bool(row.get("abr_confirmation_flag")),
     }
 
 
@@ -238,7 +308,6 @@ def _project_rare(row: dict) -> dict:
 
 
 def _best_pattern_per_ticker(rows: list) -> dict:
-    """Pick the highest-score pattern record per ticker. Read-only."""
     by_ticker: dict = {}
     for r in rows or []:
         t = r.get("ticker")
@@ -254,245 +323,102 @@ def _best_pattern_per_ticker(rows: list) -> dict:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# Phase implementations
+# Cache helpers
 # ─────────────────────────────────────────────────────────────────────────────
 
-def _phase_turbo(universe: str, tf: str, lookback_n: int, partial_day: bool,
-                 min_volume: float, min_store_score: float) -> tuple[dict, list, str | None]:
-    """Run the canonical Turbo scan synchronously. Returns the same per-ticker
-    rows that /api/turbo-scan would. Does NOT mutate Turbo internals."""
-    _set_phase("turbo", "running", "Running Turbo scan")
-    from turbo_engine import (
-        run_turbo_scan, get_turbo_results, get_last_turbo_scan_time,
-        get_turbo_progress,
-    )
-
-    # Run the canonical scan. It manages its own DB writes / state.
-    try:
-        run_turbo_scan(
-            interval=tf, universe=universe, workers=8,
-            lookback_n=lookback_n, partial_day=partial_day,
-            min_volume=min_volume, min_store_score=min_store_score,
-        )
-    except Exception as exc:
-        _set_phase("turbo", "error", str(exc))
-        raise
-
-    # Pull progress counters into ULTRA state so the UI can show them
-    prog = get_turbo_progress()
-    with _ultra_lock:
-        _ultra_state["turbo_done"]  = prog.get("done", 0)
-        _ultra_state["turbo_total"] = prog.get("total", 0)
-
-    rows = get_turbo_results(
-        limit=10000, min_score=0, direction="all",
-        tf=tf, universe=universe,
-    )
-    last_time = get_last_turbo_scan_time(tf=tf, universe=universe)
-    by_ticker: dict = {}
-    order: list = []
-    for r in rows:
-        t = r.get("ticker")
-        if t and t not in by_ticker:
-            by_ticker[t] = r
-            order.append(t)
-    _set_phase("turbo", "ok", f"{len(by_ticker)} tickers")
-    return by_ticker, order, last_time
+def _cache_key(universe: str, tf: str, nasdaq_batch: str = "") -> tuple:
+    return (universe, tf, nasdaq_batch or "")
 
 
-def _phase_stock_stat(universe: str, tf: str, nasdaq_batch: str, bars: int) -> bool:
-    """Generate the TZ/WLNBB stock_stat CSV the secondary modules depend on.
-
-    Returns True if a usable CSV is in place when the phase exits, False
-    otherwise. Failure is non-fatal — secondary modules will simply report
-    no data.
-    """
-    _set_phase("stock_stat", "running", "Generating TZ/WLNBB stock_stat CSV")
-    out_path = _ultra_tz_batch_stat_path(universe, tf, nasdaq_batch)
-
-    # Skip generation if a fresh CSV already exists (avoids redundant work)
-    if _resolve_tz_wlnbb_csv(universe, tf, nasdaq_batch):
-        _set_phase("stock_stat", "ok", f"existing CSV: {out_path}")
-        return True
-
-    try:
-        from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
-        from scanner import get_universe_tickers
-
-        # nasdaq_gt5 reuses the NASDAQ ticker list with min_price gate inside the generator
-        source_universe = "nasdaq" if universe == "nasdaq_gt5" else universe
-        gen_min_price   = 5.0     if universe == "nasdaq_gt5" else 0.0
-
-        if universe == "split":
-            from split_universe import split_service as _svc
-            fresh = _svc.get_split_universe_result(force_refresh=True)
-            tickers = list(fresh.tickers)
-        else:
-            try:
-                tickers = get_universe_tickers(source_universe)
-            except Exception:
-                tickers = []
-
-        if universe in ("nasdaq", "nasdaq_gt5") and nasdaq_batch and nasdaq_batch != "all":
-            from main import _filter_nasdaq_batch
-            tickers = _filter_nasdaq_batch(tickers, nasdaq_batch)
-
-        with _ultra_lock:
-            _ultra_state["stock_stat_total"] = len(tickers)
-            _ultra_state["stock_stat_done"]  = 0
-
-        from data_polygon import fetch_bars as _fetch_bars, polygon_available
-        if polygon_available():
-            def _fetch(ticker, interval, n_bars):
-                days = max(int(n_bars * 1.6), 365)
-                return _fetch_bars(ticker, interval=interval, days=days)
-        else:
-            from data import fetch_ohlcv as _fetch_yf
-            def _fetch(ticker, interval, n_bars):
-                return _fetch_yf(ticker, interval, n_bars)
-
-        def _on_progress(done, total):
-            with _ultra_lock:
-                _ultra_state["stock_stat_done"]  = done
-                _ultra_state["stock_stat_total"] = total
-
-        path, audit = generate_stock_stat(
-            tickers, _fetch, universe=universe, tf=tf, bars=bars,
-            min_price=gen_min_price, output_path=out_path,
-            progress_callback=_on_progress,
-        )
-        _set_phase("stock_stat", "ok", f"wrote {path}")
-        return True
-    except Exception as exc:
-        _set_phase("stock_stat", "error", str(exc))
-        _add_warning(f"TZ/WLNBB stock_stat unavailable: {exc}")
-        return False
-
-
-def _phase_tz_wlnbb(universe: str, tf: str, nasdaq_batch: str) -> dict:
-    _set_phase("tz_wlnbb", "running", "")
-    try:
-        d = _read_tz_wlnbb_latest(universe, tf, nasdaq_batch)
-        _set_phase("tz_wlnbb", "ok" if d else "skipped",
-                   f"{len(d)} tickers" if d else "no CSV")
-        return d
-    except Exception as exc:
-        _set_phase("tz_wlnbb", "error", str(exc))
-        _add_warning(f"TZ/WLNBB unavailable: {exc}")
-        return {}
-
-
-def _phase_tz_intelligence(universe: str, tf: str, nasdaq_batch: str,
-                           min_price: float, max_price: float,
-                           min_volume: float) -> dict:
-    _set_phase("tz_intelligence", "running", "")
-    try:
-        from tz_intelligence.scanner import run_intelligence_scan
-        resp = run_intelligence_scan(
-            universe=universe, tf=tf, nasdaq_batch=nasdaq_batch,
-            min_price=min_price, max_price=max_price, min_volume=min_volume,
-            role_filter="all", scan_mode="latest", limit=10000,
-        )
-        if isinstance(resp, dict) and resp.get("error"):
-            _set_phase("tz_intelligence", "skipped", resp["error"])
-            _add_warning(f"TZ Intelligence unavailable: {resp['error']}")
-            return {}
-        out: dict = {}
-        for r in (resp or {}).get("results", []) or []:
-            t = r.get("ticker")
-            if t and t not in out:
-                out[t] = r
-        _set_phase("tz_intelligence", "ok", f"{len(out)} tickers")
-        return out
-    except Exception as exc:
-        _set_phase("tz_intelligence", "error", str(exc))
-        _add_warning(f"TZ Intelligence unavailable: {exc}")
-        return {}
-
-
-def _phase_pullback(universe: str, tf: str,
-                    min_price: float, max_price: float) -> dict:
-    _set_phase("pullback", "running", "")
-    try:
-        from analyzers.pullback_miner.miner import run_pullback_scan
-        resp = run_pullback_scan(
-            universe=universe, tf=tf,
-            min_price=min_price, max_price=max_price,
-            limit=10000,
-        )
-        if isinstance(resp, dict) and resp.get("error"):
-            _set_phase("pullback", "skipped", resp["error"])
-            _add_warning(f"Pullback Miner unavailable: {resp['error']}")
-            return {}
-        out = _best_pattern_per_ticker((resp or {}).get("results", []) or [])
-        _set_phase("pullback", "ok", f"{len(out)} tickers")
-        return out
-    except Exception as exc:
-        _set_phase("pullback", "error", str(exc))
-        _add_warning(f"Pullback Miner unavailable: {exc}")
-        return {}
-
-
-def _phase_rare_reversal(universe: str, tf: str,
-                         min_price: float, max_price: float) -> dict:
-    _set_phase("rare_reversal", "running", "")
-    try:
-        from analyzers.rare_reversal.miner import run_rare_reversal_scan
-        resp = run_rare_reversal_scan(
-            universe=universe, tf=tf,
-            min_price=min_price, max_price=max_price,
-            limit=10000,
-        )
-        if isinstance(resp, dict) and resp.get("error"):
-            _set_phase("rare_reversal", "skipped", resp["error"])
-            _add_warning(f"Rare Reversal unavailable: {resp['error']}")
-            return {}
-        out = _best_pattern_per_ticker((resp or {}).get("results", []) or [])
-        _set_phase("rare_reversal", "ok", f"{len(out)} tickers")
-        return out
-    except Exception as exc:
-        _set_phase("rare_reversal", "error", str(exc))
-        _add_warning(f"Rare Reversal unavailable: {exc}")
-        return {}
-
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Merge — Turbo rows are the base; everything else is additive enrichment
-# ─────────────────────────────────────────────────────────────────────────────
-
-def _merge(turbo_by_ticker: dict, ordered: list, last_scan: str | None,
-           tz_wlnbb_by_ticker: dict, tz_intel_by_ticker: dict,
-           pullback_by_ticker: dict, rare_by_ticker: dict) -> list:
-    out: list = []
-    for ticker in ordered:
-        base = turbo_by_ticker.get(ticker)
-        if base is None:
-            continue
-        # Start with the canonical Turbo row — DO NOT mutate scoring or category
-        row = dict(base)
-        tzw   = tz_wlnbb_by_ticker.get(ticker)
-        intel = tz_intel_by_ticker.get(ticker)
-        pb    = pullback_by_ticker.get(ticker)
-        rr    = rare_by_ticker.get(ticker)
-
-        row["ultra_sources"] = {
-            "has_turbo":         True,
-            "has_tz_wlnbb":      tzw   is not None,
-            "has_tz_intel":      intel is not None,
-            "has_pullback":      pb    is not None,
-            "has_rare_reversal": rr    is not None,
-        }
-        row["tz_wlnbb"]      = _project_tz_wlnbb(tzw)   if tzw   else None
-        row["tz_intel"]      = _project_tz_intel(intel) if intel else None
-        row["abr"]           = _project_abr(intel)      if intel else None
-        row["pullback"]      = _project_pullback(pb)    if pb    else None
-        row["rare_reversal"] = _project_rare(rr)        if rr    else None
-        out.append(row)
+def _empty_unenriched_row(turbo_row: dict) -> dict:
+    """Wrap a Turbo row as an ULTRA row with all enrichment slots null."""
+    out = dict(turbo_row)
+    out["ultra_enriched"] = False
+    out["ultra_sources"]  = {
+        "has_turbo":         True,
+        "has_tz_wlnbb":      False,
+        "has_tz_intel":      False,
+        "has_pullback":      False,
+        "has_rare_reversal": False,
+    }
+    out["tz_wlnbb"]      = None
+    out["tz_intel"]      = None
+    out["abr"]           = None
+    out["pullback"]      = None
+    out["rare_reversal"] = None
     return out
 
 
+def _store_results(universe: str, tf: str, nasdaq_batch: str,
+                   rows: list, last_scan: str | None,
+                   warnings: list, sources: dict, phase: str) -> None:
+    """Replace the cache entry for (universe, tf, nasdaq_batch). Used by
+    Stage 1 (Turbo). Stage 2 enrichment uses _patch_cached_rows instead."""
+    key = _cache_key(universe, tf, nasdaq_batch)
+    rows_by_ticker = {r["ticker"]: r for r in rows if r.get("ticker")}
+    with _ultra_lock:
+        if key in _ultra_results_cache:
+            _ultra_results_cache.move_to_end(key)
+        _ultra_results_cache[key] = {
+            "rows":           rows,
+            "rows_by_ticker": rows_by_ticker,
+            "last_scan":      last_scan,
+            "warnings":       list(warnings or []),
+            "sources":        dict(sources or {}),
+            "phase":          phase,
+        }
+        while len(_ultra_results_cache) > _MAX_RESULTS_CACHE_ENTRIES:
+            _ultra_results_cache.popitem(last=False)
+
+
+def _patch_cached_rows(universe: str, tf: str, nasdaq_batch: str,
+                        ticker_patches: dict[str, dict],
+                        warnings_to_add: list,
+                        sources_to_merge: dict,
+                        phase: str | None = None) -> None:
+    """Incremental enrichment merge: update only the rows we have new data
+    for. Other rows (already enriched or never enriched) are left alone."""
+    key = _cache_key(universe, tf, nasdaq_batch)
+    with _ultra_lock:
+        cached = _ultra_results_cache.get(key)
+        if cached is None:
+            return
+        for ticker, patch in ticker_patches.items():
+            row = cached["rows_by_ticker"].get(ticker)
+            if row is None:
+                continue
+            # Merge enrichment slots without losing previous ones
+            for k, v in patch.items():
+                if v is not None:
+                    row[k] = v
+            # Recompute source flags from the resulting row
+            row["ultra_sources"] = {
+                "has_turbo":         True,
+                "has_tz_wlnbb":      row.get("tz_wlnbb")      is not None,
+                "has_tz_intel":      row.get("tz_intel")      is not None,
+                "has_pullback":      row.get("pullback")      is not None,
+                "has_rare_reversal": row.get("rare_reversal") is not None,
+            }
+            row["ultra_enriched"] = any([
+                row["ultra_sources"]["has_tz_wlnbb"],
+                row["ultra_sources"]["has_tz_intel"],
+                row["ultra_sources"]["has_pullback"],
+                row["ultra_sources"]["has_rare_reversal"],
+            ])
+        # Merge sources (prefer fresh ok counts)
+        sources = cached.get("sources") or {}
+        for k, v in (sources_to_merge or {}).items():
+            sources[k] = v
+        cached["sources"] = sources
+        cached["warnings"].extend(warnings_to_add or [])
+        if phase:
+            cached["phase"] = phase
+        # Move-to-end for LRU
+        _ultra_results_cache.move_to_end(key)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
-# Job entry point — invoked from a BackgroundTasks worker
+# Stage 1 — Turbo only
 # ─────────────────────────────────────────────────────────────────────────────
 
 def run_ultra_scan_job(
@@ -503,246 +429,383 @@ def run_ultra_scan_job(
     min_volume: float = 0.0,
     min_store_score: float = 5.0,
     nasdaq_batch: str = "",
+    # Accepted for API compatibility (Stage 2 uses these); Stage 1 ignores them.
     stock_stat_bars: int = 500,
     min_price: float = 0.0,
     max_price: float = 1e9,
     max_workers: int = _DEFAULT_MAX_WORKERS,
 ) -> dict:
-    """Dependency-aware orchestrator.
-
-    Pipeline:
-      Phase 1 (parallel, 2 workers): Turbo scan ‖ TZ/WLNBB stock_stat generation
-      Phase 2 (parallel, max_workers): TZ/WLNBB read · TZ Intelligence ·
-                                        Pullback Miner · Rare Reversal Miner
-      Phase 3:  merge enrichments onto Turbo rows by ticker
-
-    Phase 2 modules all read the same on-disk stock_stat CSV produced in
-    Phase 1, so they're safe to run concurrently.
-
-    Per-source failure NEVER aborts the response — the affected source is
-    marked unavailable and a warning is appended.
-    """
-    from concurrent.futures import ThreadPoolExecutor, as_completed
-
+    """Stage 1: run the canonical Turbo scan and cache its rows. Enrichment
+    columns are initialised null/false; nothing else runs."""
     with _ultra_lock:
-        phases = _new_phase_dict()
-        # Phase 2 modules are blocked on stock_stat — show as 'pending' upfront
-        for ph in ("tz_wlnbb", "tz_intelligence", "pullback", "rare_reversal"):
-            phases[ph] = {"state": "pending", "message": "waiting on stock_stat"}
-        phases["merge"] = {"state": "pending", "message": ""}
         _ultra_state.update({
-            "running":      True,
-            "started_at":   _time.time(),
-            "completed_at": None,
-            "universe":     universe,
-            "tf":           tf,
-            "nasdaq_batch": nasdaq_batch or None,
-            "phase":        None,
-            "phases":       phases,
-            "error":        None,
-            "warnings":     [],
-            "sources":      {},
-            "turbo_done":   0,
-            "turbo_total":  0,
+            "running":          True,
+            "stage":            "turbo",
+            "started_at":       _time.time(),
+            "completed_at":     None,
+            "universe":         universe,
+            "tf":               tf,
+            "nasdaq_batch":     nasdaq_batch or None,
+            "phase":            None,
+            "phases":           _new_phase_dict(),
+            "error":            None,
+            "warnings":         [],
+            "sources":          {},
+            "turbo_done":       0,
+            "turbo_total":      0,
             "stock_stat_done":  0,
             "stock_stat_total": 0,
-            "max_workers":  max_workers,
+            "enrich_total":     0,
+            "enrich_done":      0,
         })
 
     sources: dict = {
         "turbo":           {"ok": False, "count": 0},
+        "stock_stat":      {"ok": False, "count": 0, "path": None},
         "tz_wlnbb":        {"ok": False, "count": 0},
         "tz_intelligence": {"ok": False, "count": 0},
         "pullback":        {"ok": False, "count": 0},
         "rare_reversal":   {"ok": False, "count": 0},
     }
 
-    turbo_by_ticker: dict = {}
-    ordered: list = []
+    rows: list = []
     last_scan: str | None = None
-    results: list = []
-    tz_wlnbb_by_ticker: dict = {}
-    tz_intel_by_ticker: dict = {}
-    pullback_by_ticker: dict = {}
-    rare_by_ticker: dict = {}
-
-    def _run_turbo() -> tuple:
-        """Phase 1A — Turbo scan."""
-        return _phase_turbo(
-            universe=universe, tf=tf, lookback_n=lookback_n,
-            partial_day=partial_day, min_volume=min_volume,
-            min_store_score=min_store_score,
-        )
-
-    def _run_stock_stat() -> bool:
-        """Phase 1B — TZ/WLNBB stock_stat generation."""
-        return _phase_stock_stat(universe, tf, nasdaq_batch, stock_stat_bars)
 
     try:
-        # ── Phase 1: Turbo and stock_stat in parallel ────────────────────────
-        # Two raw executors so we can drive Phase 2 off stock_stat completion
-        # without blocking on Turbo (Phase 2 only depends on stock_stat).
-        ex1 = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ultra-p1")
-        ph2_workers = max(1, min(4, max_workers))
-        ex2 = ThreadPoolExecutor(
-            max_workers=ph2_workers, thread_name_prefix="ultra-p2",
+        _set_phase("turbo", "running", "Running Turbo scan")
+        from turbo_engine import (
+            run_turbo_scan, get_turbo_results, get_last_turbo_scan_time,
+            get_turbo_progress,
         )
         try:
-            fut_turbo      = ex1.submit(_run_turbo)
-            fut_stock_stat = ex1.submit(_run_stock_stat)
+            run_turbo_scan(
+                interval=tf, universe=universe, workers=8,
+                lookback_n=lookback_n, partial_day=partial_day,
+                min_volume=min_volume, min_store_score=min_store_score,
+            )
+            prog = get_turbo_progress()
+            with _ultra_lock:
+                _ultra_state["turbo_done"]  = prog.get("done", 0)
+                _ultra_state["turbo_total"] = prog.get("total", 0)
+            turbo_rows = get_turbo_results(
+                limit=10000, min_score=0, direction="all",
+                tf=tf, universe=universe,
+            )
+            last_scan = get_last_turbo_scan_time(tf=tf, universe=universe)
+            rows = [_empty_unenriched_row(r) for r in turbo_rows
+                    if r.get("ticker")]
+            sources["turbo"] = {"ok": True, "count": len(rows)}
+            _set_phase("turbo", "ok", f"{len(rows)} tickers")
+        except Exception as exc:
+            _set_phase("turbo", "error", str(exc))
+            _add_warning(f"Turbo scan failed: {exc}")
 
-            # Wait on stock_stat ONLY — Turbo continues running in parallel.
-            try:
-                fut_stock_stat.result()
-            except Exception as exc:
-                _add_warning(f"TZ/WLNBB stock_stat unavailable: {exc}")
-
-            # ── Phase 2: secondary readers start NOW ─────────────────────────
-            # Triggered as soon as stock_stat is done; Turbo may still be
-            # running. All four read the same on-disk stock_stat CSV with no
-            # shared mutable state, so parallelism is safe.
-            fut2 = {
-                "tz_wlnbb":        ex2.submit(_phase_tz_wlnbb,
-                                              universe, tf, nasdaq_batch),
-                "tz_intelligence": ex2.submit(_phase_tz_intelligence,
-                                              universe, tf, nasdaq_batch,
-                                              min_price, max_price, min_volume),
-                "pullback":        ex2.submit(_phase_pullback,
-                                              universe, tf, min_price, max_price),
-                "rare_reversal":   ex2.submit(_phase_rare_reversal,
-                                              universe, tf, min_price, max_price),
-            }
-
-            # Drain everything (Turbo + the four Phase 2 readers) as it
-            # completes. We don't act on the as_completed values directly —
-            # each phase fn records its own state/warnings — but draining
-            # surfaces any unhandled exception promptly via .result() below.
-            for _ in as_completed(list(fut2.values()) + [fut_turbo]):
-                pass
-
-            # Collect Turbo result (may have finished anywhere along the way)
-            try:
-                turbo_by_ticker, ordered, last_scan = fut_turbo.result()
-                sources["turbo"] = {"ok": True, "count": len(turbo_by_ticker)}
-            except Exception as exc:
-                _add_warning(f"Turbo scan failed: {exc}")
-
-            # Collect Phase 2 results
-            try:
-                tz_wlnbb_by_ticker = fut2["tz_wlnbb"].result() or {}
-            except Exception as exc:
-                _add_warning(f"TZ/WLNBB unavailable: {exc}")
-            try:
-                tz_intel_by_ticker = fut2["tz_intelligence"].result() or {}
-            except Exception as exc:
-                _add_warning(f"TZ Intelligence unavailable: {exc}")
-            try:
-                pullback_by_ticker = fut2["pullback"].result() or {}
-            except Exception as exc:
-                _add_warning(f"Pullback Miner unavailable: {exc}")
-            try:
-                rare_by_ticker = fut2["rare_reversal"].result() or {}
-            except Exception as exc:
-                _add_warning(f"Rare Reversal unavailable: {exc}")
-        finally:
-            # Both executors must shut down before we return cleanly.
-            ex1.shutdown(wait=True)
-            ex2.shutdown(wait=True)
-
-        sources["tz_wlnbb"]        = {"ok": bool(tz_wlnbb_by_ticker),
-                                       "count": len(tz_wlnbb_by_ticker)}
-        sources["tz_intelligence"] = {"ok": bool(tz_intel_by_ticker),
-                                       "count": len(tz_intel_by_ticker)}
-        sources["pullback"]        = {"ok": bool(pullback_by_ticker),
-                                       "count": len(pullback_by_ticker)}
-        sources["rare_reversal"]   = {"ok": bool(rare_by_ticker),
-                                       "count": len(rare_by_ticker)}
-
-        # ── Phase 3: merge ───────────────────────────────────────────────────
-        _set_phase("merge", "running", "")
-        results = _merge(
-            turbo_by_ticker, ordered, last_scan,
-            tz_wlnbb_by_ticker, tz_intel_by_ticker,
-            pullback_by_ticker, rare_by_ticker,
-        )
-        _set_phase("merge", "ok", f"{len(results)} merged rows")
-
-        # Memory hygiene: the secondary modules' rows_by_ticker dicts can
-        # each be hundreds of MB. Once merge has consumed them we don't need
-        # them anymore — drop them and force a GC pass before serialising
-        # the response.
-        try:
-            tz_wlnbb_by_ticker.clear()
-            tz_intel_by_ticker.clear()
-            pullback_by_ticker.clear()
-            rare_by_ticker.clear()
-            turbo_by_ticker.clear()
-            del ordered[:]
-        except Exception:
-            pass
-        _gc.collect()
+        # All Stage 2 phases stay 'pending' until enrich is invoked
+        for ph in ("stock_stat", "tz_wlnbb", "tz_intelligence",
+                   "pullback", "rare_reversal", "merge"):
+            _set_phase(ph, "pending", "waiting on enrich")
 
     except Exception as exc:
         with _ultra_lock:
             _ultra_state["error"] = str(exc)
-        log.exception("ULTRA orchestrator crashed")
+        log.exception("ULTRA Stage 1 crashed")
 
+    _store_results(
+        universe, tf, nasdaq_batch,
+        rows=rows, last_scan=last_scan,
+        warnings=list(_ultra_state.get("warnings", [])),
+        sources=sources,
+        phase="turbo_done",
+    )
     elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
-    response = {
-        "results":   results,
-        "total":     len(results),
-        "last_scan": last_scan,
-        "warnings":  list(_ultra_state.get("warnings", [])),
-        "meta": {
-            "universe":     universe,
-            "tf":           tf,
-            "nasdaq_batch": nasdaq_batch or None,
-            "elapsed_ms":   elapsed_ms,
-            "sources":      sources,
-        },
-    }
-
-    cache_key = (universe, tf, nasdaq_batch or "")
+    response = _build_response(universe, tf, nasdaq_batch, elapsed_ms)
     with _ultra_lock:
-        # LRU eviction: if the key already exists, move it to the end so the
-        # cap below evicts the oldest. New keys are appended at the end too.
-        if cache_key in _ultra_results_cache:
-            _ultra_results_cache.move_to_end(cache_key)
-        _ultra_results_cache[cache_key] = response
-        # Cap so old (universe, tf, batch) responses don't accumulate forever
-        while len(_ultra_results_cache) > _MAX_RESULTS_CACHE_ENTRIES:
-            _ultra_results_cache.popitem(last=False)
         _ultra_state["sources"]      = sources
         _ultra_state["completed_at"] = _time.time()
         _ultra_state["running"]      = False
+    _gc.collect()
     return response
 
 
-def get_ultra_status() -> dict:
-    with _ultra_lock:
-        s = dict(_ultra_state)
-    return s
+# ─────────────────────────────────────────────────────────────────────────────
+# Stage 2 — Enrich a subset
+# ─────────────────────────────────────────────────────────────────────────────
 
-
-def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
-    """Return the most recent cached ULTRA response for this (universe, tf, batch).
-
-    If nothing is cached, returns an empty result with a warning so the UI
-    can prompt the user to trigger a scan.
+def run_ultra_enrich_job(
+    tickers: list[str],
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    min_price: float = 0.0,
+    max_price: float = 1e9,
+    min_volume: float = 0.0,
+    stock_stat_bars: int = 500,
+    max_workers: int = _DEFAULT_MAX_WORKERS,
+) -> dict:
+    """Stage 2: run TZ/WLNBB stock_stat (subset only) + the four secondary
+    readers against the subset, and incrementally merge the projections back
+    into the cached ULTRA rows for the requested tickers.
     """
-    cache_key = (universe, tf, nasdaq_batch or "")
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
+    norm_tickers = sorted({(t or "").upper() for t in (tickers or []) if t})
+    if not norm_tickers:
+        return {"results": [], "warnings": ["enrich called with empty ticker list"]}
+
     with _ultra_lock:
-        cached = _ultra_results_cache.get(cache_key)
+        _ultra_state.update({
+            "running":          True,
+            "stage":            "enrich",
+            "started_at":       _time.time(),
+            "completed_at":     None,
+            "universe":         universe,
+            "tf":               tf,
+            "nasdaq_batch":     nasdaq_batch or None,
+            "error":            None,
+            "warnings":         [],
+            "stock_stat_done":  0,
+            "stock_stat_total": len(norm_tickers),
+            "enrich_total":     len(norm_tickers),
+            "enrich_done":      0,
+        })
+        # Reset Stage 2 phase pills for this enrich run; keep Stage 1 'turbo' as 'ok'
+        for ph in ("stock_stat", "tz_wlnbb", "tz_intelligence",
+                   "pullback", "rare_reversal", "merge"):
+            _ultra_state["phases"][ph] = {"state": "pending", "message": ""}
+
+    src_sources: dict = {
+        "stock_stat":      {"ok": False, "count": 0, "path": None},
+        "tz_wlnbb":        {"ok": False, "count": 0},
+        "tz_intelligence": {"ok": False, "count": 0},
+        "pullback":        {"ok": False, "count": 0},
+        "rare_reversal":   {"ok": False, "count": 0},
+    }
+    fresh_warnings: list = []
+
+    # ── Step A: subset stock_stat — extract from canonical or fresh-fetch ───
+    subset_path = _ultra_subset_path(universe, tf, norm_tickers)
+    _set_phase("stock_stat", "running",
+               "extracting subset from canonical" if False else "preparing subset CSV")
+    try:
+        if _os.path.exists(subset_path):
+            # Already prepared for this exact ticker set
+            stock_stat_count = _count_csv_rows(subset_path)
+            _set_phase("stock_stat", "ok",
+                       f"reused subset {subset_path} ({stock_stat_count} rows)")
+        else:
+            canonical = _resolve_canonical_stock_stat(universe, tf, nasdaq_batch)
+            if canonical:
+                stock_stat_count = _extract_subset_csv(canonical, subset_path,
+                                                       norm_tickers)
+                _set_phase("stock_stat", "ok",
+                           f"extracted {stock_stat_count} rows from canonical")
+            else:
+                stock_stat_count = _generate_subset_csv_fresh(
+                    universe, tf, norm_tickers, stock_stat_bars, subset_path,
+                )
+                _set_phase("stock_stat", "ok",
+                           f"fresh-generated {stock_stat_count} rows")
+        src_sources["stock_stat"] = {
+            "ok": stock_stat_count > 0, "count": stock_stat_count, "path": subset_path,
+        }
+    except Exception as exc:
+        _set_phase("stock_stat", "error", str(exc))
+        fresh_warnings.append(f"stock_stat unavailable: {exc}")
+        _patch_cached_rows(universe, tf, nasdaq_batch, {},
+                            fresh_warnings, src_sources, phase="enrich_done")
+        elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
+        with _ultra_lock:
+            _ultra_state["completed_at"] = _time.time()
+            _ultra_state["running"]      = False
+        _gc.collect()
+        return _build_response(universe, tf, nasdaq_batch, elapsed_ms)
+
+    # ── Step B-E: run the four readers in parallel against the subset CSV ───
+    ph2_workers = max(1, min(4, max_workers))
+    tz_wlnbb_by_ticker: dict = {}
+    tz_intel_by_ticker: dict = {}
+    pullback_by_ticker: dict = {}
+    rare_by_ticker:     dict = {}
+
+    def _do_tz_wlnbb():
+        _set_phase("tz_wlnbb", "running", "")
+        try:
+            d = _read_tz_wlnbb_latest_from(subset_path, universe)
+            _set_phase("tz_wlnbb", "ok" if d else "skipped",
+                       f"{len(d)} tickers")
+            return d
+        except Exception as exc:
+            _set_phase("tz_wlnbb", "error", str(exc))
+            fresh_warnings.append(f"TZ/WLNBB unavailable: {exc}")
+            return {}
+
+    def _do_tz_intel():
+        _set_phase("tz_intelligence", "running", "")
+        try:
+            from tz_intelligence.scanner import run_intelligence_scan
+            resp = run_intelligence_scan(
+                universe=universe, tf=tf, nasdaq_batch=nasdaq_batch,
+                min_price=min_price, max_price=max_price, min_volume=min_volume,
+                role_filter="all", scan_mode="latest", limit=10000,
+                stat_path=subset_path,
+            )
+            if isinstance(resp, dict) and resp.get("error"):
+                _set_phase("tz_intelligence", "skipped", resp["error"])
+                fresh_warnings.append(f"TZ Intelligence unavailable: {resp['error']}")
+                return {}
+            out: dict = {}
+            for r in (resp or {}).get("results", []) or []:
+                t = r.get("ticker")
+                if t and t not in out:
+                    out[t] = r
+            _set_phase("tz_intelligence", "ok", f"{len(out)} tickers")
+            return out
+        except Exception as exc:
+            _set_phase("tz_intelligence", "error", str(exc))
+            fresh_warnings.append(f"TZ Intelligence unavailable: {exc}")
+            return {}
+
+    def _do_pullback():
+        _set_phase("pullback", "running", "")
+        try:
+            from analyzers.pullback_miner.miner import run_pullback_scan
+            resp = run_pullback_scan(
+                universe=universe, tf=tf,
+                min_price=min_price, max_price=max_price,
+                limit=10000, stat_path=subset_path,
+            )
+            if isinstance(resp, dict) and resp.get("error"):
+                _set_phase("pullback", "skipped", resp["error"])
+                fresh_warnings.append(f"Pullback Miner unavailable: {resp['error']}")
+                return {}
+            d = _best_pattern_per_ticker((resp or {}).get("results", []) or [])
+            _set_phase("pullback", "ok", f"{len(d)} tickers")
+            return d
+        except Exception as exc:
+            _set_phase("pullback", "error", str(exc))
+            fresh_warnings.append(f"Pullback Miner unavailable: {exc}")
+            return {}
+
+    def _do_rare():
+        _set_phase("rare_reversal", "running", "")
+        try:
+            from analyzers.rare_reversal.miner import run_rare_reversal_scan
+            resp = run_rare_reversal_scan(
+                universe=universe, tf=tf,
+                min_price=min_price, max_price=max_price,
+                limit=10000, stat_path=subset_path,
+            )
+            if isinstance(resp, dict) and resp.get("error"):
+                _set_phase("rare_reversal", "skipped", resp["error"])
+                fresh_warnings.append(f"Rare Reversal unavailable: {resp['error']}")
+                return {}
+            d = _best_pattern_per_ticker((resp or {}).get("results", []) or [])
+            _set_phase("rare_reversal", "ok", f"{len(d)} tickers")
+            return d
+        except Exception as exc:
+            _set_phase("rare_reversal", "error", str(exc))
+            fresh_warnings.append(f"Rare Reversal unavailable: {exc}")
+            return {}
+
+    ex = ThreadPoolExecutor(max_workers=ph2_workers, thread_name_prefix="ultra-enrich")
+    try:
+        fut_w = ex.submit(_do_tz_wlnbb)
+        fut_i = ex.submit(_do_tz_intel)
+        fut_p = ex.submit(_do_pullback)
+        fut_r = ex.submit(_do_rare)
+        for _ in as_completed([fut_w, fut_i, fut_p, fut_r]):
+            pass
+        try: tz_wlnbb_by_ticker = fut_w.result() or {}
+        except Exception: pass
+        try: tz_intel_by_ticker = fut_i.result() or {}
+        except Exception: pass
+        try: pullback_by_ticker = fut_p.result() or {}
+        except Exception: pass
+        try: rare_by_ticker     = fut_r.result() or {}
+        except Exception: pass
+    finally:
+        ex.shutdown(wait=True)
+
+    src_sources["tz_wlnbb"]        = {"ok": bool(tz_wlnbb_by_ticker),
+                                       "count": len(tz_wlnbb_by_ticker)}
+    src_sources["tz_intelligence"] = {"ok": bool(tz_intel_by_ticker),
+                                       "count": len(tz_intel_by_ticker)}
+    src_sources["pullback"]        = {"ok": bool(pullback_by_ticker),
+                                       "count": len(pullback_by_ticker)}
+    src_sources["rare_reversal"]   = {"ok": bool(rare_by_ticker),
+                                       "count": len(rare_by_ticker)}
+
+    # ── Step F: merge per-ticker patches into the cache ─────────────────────
+    _set_phase("merge", "running", "")
+    patches: dict[str, dict] = {}
+    for ticker in norm_tickers:
+        patch: dict = {}
+        if ticker in tz_wlnbb_by_ticker:
+            patch["tz_wlnbb"] = _project_tz_wlnbb(tz_wlnbb_by_ticker[ticker])
+        if ticker in tz_intel_by_ticker:
+            patch["tz_intel"] = _project_tz_intel(tz_intel_by_ticker[ticker])
+            patch["abr"]      = _project_abr(tz_intel_by_ticker[ticker])
+        if ticker in pullback_by_ticker:
+            patch["pullback"] = _project_pullback(pullback_by_ticker[ticker])
+        if ticker in rare_by_ticker:
+            patch["rare_reversal"] = _project_rare(rare_by_ticker[ticker])
+        if patch:
+            patches[ticker] = patch
+        with _ultra_lock:
+            _ultra_state["enrich_done"] += 1
+
+    _patch_cached_rows(universe, tf, nasdaq_batch, patches,
+                       fresh_warnings, src_sources, phase="enrich_done")
+    _set_phase("merge", "ok", f"{len(patches)} rows merged")
+
+    # Free large dicts before serialising response
+    try:
+        tz_wlnbb_by_ticker.clear()
+        tz_intel_by_ticker.clear()
+        pullback_by_ticker.clear()
+        rare_by_ticker.clear()
+    except Exception:
+        pass
+    _gc.collect()
+
+    elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
+    with _ultra_lock:
+        _ultra_state["completed_at"] = _time.time()
+        _ultra_state["running"]      = False
+    return _build_response(universe, tf, nasdaq_batch, elapsed_ms)
+
+
+def _count_csv_rows(path: str) -> int:
+    if not _os.path.exists(path):
+        return 0
+    n = 0
+    with open(path, newline="", encoding="utf-8") as f:
+        for _ in _csv.DictReader(f):
+            n += 1
+    return n
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Status / results readers
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _build_response(universe: str, tf: str, nasdaq_batch: str,
+                     elapsed_ms: int | None = None) -> dict:
+    cached = _ultra_results_cache.get(_cache_key(universe, tf, nasdaq_batch))
     if cached is None:
         return {
-            "results": [], "total": 0, "last_scan": None,
-            "warnings": ["No ULTRA scan has run yet for this universe/tf — press ULTRA Scan."],
+            "results":   [],
+            "total":     0,
+            "last_scan": None,
+            "warnings":  ["No ULTRA scan has run yet for this universe/tf — press ULTRA Scan."],
             "meta": {
                 "universe":     universe,
                 "tf":           tf,
                 "nasdaq_batch": nasdaq_batch or None,
+                "phase":        None,
                 "sources": {
                     "turbo":           {"ok": False, "count": 0},
+                    "stock_stat":      {"ok": False, "count": 0, "path": None},
                     "tz_wlnbb":        {"ok": False, "count": 0},
                     "tz_intelligence": {"ok": False, "count": 0},
                     "pullback":        {"ok": False, "count": 0},
@@ -750,4 +813,26 @@ def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
                 },
             },
         }
-    return cached
+    return {
+        "results":   list(cached["rows"]),
+        "total":     len(cached["rows"]),
+        "last_scan": cached.get("last_scan"),
+        "warnings":  list(cached.get("warnings") or []),
+        "meta": {
+            "universe":     universe,
+            "tf":           tf,
+            "nasdaq_batch": nasdaq_batch or None,
+            "phase":        cached.get("phase"),
+            "elapsed_ms":   elapsed_ms,
+            "sources":      dict(cached.get("sources") or {}),
+        },
+    }
+
+
+def get_ultra_status() -> dict:
+    with _ultra_lock:
+        return dict(_ultra_state)
+
+
+def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
+    return _build_response(universe, tf, nasdaq_batch)

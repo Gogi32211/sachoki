@@ -182,6 +182,19 @@ export const api = {
     if (nasdaq_batch) p.set('nasdaq_batch', nasdaq_batch)
     return get(`/api/ultra-scan/results?${p}`)
   },
+  // Stage 2 — enrich a chosen subset of tickers. POSTs JSON body.
+  ultraScanEnrich: ({ universe = 'sp500', tf = '1d', nasdaq_batch = '',
+                       tickers = [], direction = 'all',
+                       minPrice, maxPrice, minVolume,
+                       stockStatBars, maxWorkers } = {}) => {
+    const body = { universe, tf, nasdaq_batch, tickers, direction }
+    if (minPrice      != null) body.min_price        = minPrice
+    if (maxPrice      != null) body.max_price        = maxPrice
+    if (minVolume     != null) body.min_volume       = minVolume
+    if (stockStatBars != null) body.stock_stat_bars  = stockStatBars
+    if (maxWorkers    != null) body.max_workers      = maxWorkers
+    return post('/api/ultra-scan/enrich', body)
+  },
   // Backwards-compat: same payload as /results
   ultraScan: (params) => get(`/api/ultra-scan?${new URLSearchParams(params)}`),
 
