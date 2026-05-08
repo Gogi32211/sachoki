@@ -319,6 +319,7 @@ def run_rare_reversal_scan(
     min_price: float = 0.0,
     max_price: float = 1e9,
     limit:     int   = 200,
+    stat_path: str | None = None,
 ) -> dict:
     """
     Mine rare reversal patterns from the stock_stat CSV.
@@ -340,7 +341,8 @@ def run_rare_reversal_scan(
     matrix_universe = _UNIVERSE_MAP[universe]
     matrix = _load_seq4_matrix()
 
-    stat_file = _stat_path(universe, tf)
+    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
+    stat_file = stat_path if stat_path is not None else _stat_path(universe, tf)
     if not os.path.exists(stat_file):
         return {
             "results": [], "total": 0,

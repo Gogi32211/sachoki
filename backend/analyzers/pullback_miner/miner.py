@@ -445,6 +445,7 @@ def run_pullback_scan(
     min_price: float = 0.0,
     max_price: float = 1e9,
     limit: int = 500,
+    stat_path: str | None = None,
 ) -> dict:
     """
     Scan one universe/tf stock_stat CSV for pullback continuation patterns.
@@ -461,7 +462,9 @@ def run_pullback_scan(
     if tf not in _VALID_TFS:
         return {"results": [], "events": [], "error": f"Invalid timeframe '{tf}'."}
 
-    stat_path = _stat_file(universe, tf)
+    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
+    if stat_path is None:
+        stat_path = _stat_file(universe, tf)
     if not os.path.exists(stat_path):
         return {
             "results": [], "events": [], "total_tickers": 0,

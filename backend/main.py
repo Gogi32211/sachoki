@@ -18,6 +18,7 @@ from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from pydantic import BaseModel
 
 from data import fetch_ohlcv
 from signal_engine import compute_signals
@@ -2493,18 +2494,13 @@ def api_ultra_scan_trigger(
     min_volume:      float = Query(0.0),
     min_store_score: float = Query(5.0),
     nasdaq_batch:    str   = Query(""),
-    stock_stat_bars: int   = Query(500),
-    min_price:       float = Query(0.0),
-    max_price:       float = Query(1e9),
-    max_workers:     int   = Query(2),
 ):
-    """Trigger an ULTRA orchestrated scan.
+    """ULTRA Stage 1: trigger a Turbo-only scan.
 
-    Pipeline:
-      Phase 1 (parallel): Turbo scan + TZ/WLNBB stock_stat generation
-      Phase 2 (parallel, max_workers): TZ/WLNBB read · TZ Intelligence ·
-                                        Pullback Miner · Rare Reversal Miner
-      Phase 3:  merge enrichments onto Turbo rows by ticker
+    Stage 2 enrichment (TZ/WLNBB stock_stat + TZ/WLNBB / TZ Intelligence /
+    Pullback / Rare Reversal) is run separately via
+    /api/ultra-scan/enrich for a chosen subset of tickers, so the heavy
+    secondary modules never run for the full universe.
 
     Runs as a background task; poll /api/ultra-scan/status.
     """
@@ -2516,16 +2512,66 @@ def api_ultra_scan_trigger(
         universe=universe, tf=tf, lookback_n=lookback_n,
         partial_day=partial_day, min_volume=min_volume,
         min_store_score=min_store_score, nasdaq_batch=nasdaq_batch,
-        stock_stat_bars=stock_stat_bars,
-        min_price=min_price, max_price=max_price,
-        max_workers=max_workers,
     )
     return {
-        "status":       "ULTRA scan started",
+        "status":       "ULTRA Stage 1 (Turbo) started",
+        "stage":        "turbo",
         "universe":     universe,
         "tf":           tf,
         "nasdaq_batch": nasdaq_batch or None,
     }
+
+
+class _UltraEnrichBody(BaseModel):
+    universe:     str   = "sp500"
+    tf:           str   = "1d"
+    nasdaq_batch: str   = ""
+    tickers:      list[str] = []
+    direction:    str   = "all"   # accepted for future filtering; not enforced server-side
+    min_price:    float = 0.0
+    max_price:    float = 1e9
+    min_volume:   float = 0.0
+    stock_stat_bars: int = 500
+    max_workers:  int   = 4
+
+
+@app.post("/api/ultra-scan/enrich")
+def api_ultra_scan_enrich(
+    body: _UltraEnrichBody,
+    background_tasks: BackgroundTasks,
+):
+    """ULTRA Stage 2: enrich a subset of tickers with TZ/WLNBB / TZ
+    Intelligence / Pullback / Rare Reversal. Subset stock_stat is generated
+    (or extracted from canonical) at an ULTRA-private path; the canonical
+    stock_stat file is never overwritten."""
+    from ultra_orchestrator import get_ultra_status, run_ultra_enrich_job
+    if get_ultra_status().get("running"):
+        raise HTTPException(status_code=409, detail="ULTRA scan/enrich already running")
+    if not body.tickers:
+        raise HTTPException(status_code=400, detail="tickers list is empty")
+    background_tasks.add_task(
+        run_ultra_enrich_job,
+        tickers=body.tickers,
+        universe=body.universe, tf=body.tf, nasdaq_batch=body.nasdaq_batch,
+        min_price=body.min_price, max_price=body.max_price,
+        min_volume=body.min_volume, stock_stat_bars=body.stock_stat_bars,
+        max_workers=body.max_workers,
+    )
+    return {
+        "status":   "ULTRA Stage 2 (enrich) started",
+        "stage":    "enrich",
+        "universe": body.universe,
+        "tf":       body.tf,
+        "tickers":  len(body.tickers),
+    }
+
+
+@app.get("/api/ultra-scan/enrich-status")
+def api_ultra_scan_enrich_status():
+    """Alias for /api/ultra-scan/status; convenient for the frontend's
+    enrich-only progress polling."""
+    from ultra_orchestrator import get_ultra_status
+    return get_ultra_status()
 
 
 @app.get("/api/ultra-scan/status")

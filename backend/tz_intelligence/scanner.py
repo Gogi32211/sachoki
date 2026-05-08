@@ -209,6 +209,7 @@ def run_intelligence_scan(
     scan_mode: str = "latest",
     limit: int = 500,
     debug: bool = False,
+    stat_path: str | None = None,
 ) -> dict:
     """
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
@@ -216,6 +217,10 @@ def run_intelligence_scan(
 
     scan_mode='latest'  — one result per ticker (most recent bar only).
     scan_mode='history' — one result per bar across all history.
+
+    stat_path — optional override (used by ULTRA's lazy enrichment to point
+    at a private subset CSV instead of the canonical file). When None, the
+    canonical resolution is used unchanged.
     """
     # ── Input validation (must happen before any path construction) ───────────
     if universe not in _VALID_UNIVERSES:
@@ -235,11 +240,21 @@ def run_intelligence_scan(
     if universe == "nasdaq_gt5":
         min_price = max(min_price, 5.0)
 
-    stat_path = _stat_path(universe, tf, nasdaq_batch)
-    if not os.path.exists(stat_path):
-        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
-    if not os.path.exists(stat_path):
-        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
+    if stat_path is not None:
+        if not os.path.exists(stat_path):
+            return {
+                "results": [],
+                "error": (
+                    f"ULTRA stat_path override not found: {stat_path}"
+                ),
+            }
+    else:
+        stat_path = _stat_path(universe, tf, nasdaq_batch)
+        if not os.path.exists(stat_path):
+            stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
     if not os.path.exists(stat_path):
         return {
             "results": [],

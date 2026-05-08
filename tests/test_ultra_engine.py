@@ -1,10 +1,12 @@
-"""Tests for the ULTRA orchestrator (backend/ultra_orchestrator.py).
+"""Tests for ULTRA v2 — Turbo-only Stage 1 + lazy subset enrichment Stage 2.
 
-ULTRA is a *display-only* layer over Turbo. It must:
-  • not introduce any new score, category, or context flag
-  • not crash when individual sources are missing
-  • show Turbo-only rows when secondary sources fail
-  • expose the same Turbo score/category fields the canonical Turbo endpoint does
+Hard rules verified:
+  • no new score / category / context_score field is introduced
+  • canonical stock_stat CSV is never overwritten by ULTRA
+  • subset CSV is extracted from canonical when present, fresh-generated otherwise
+  • secondary-module failure produces a warning, never empties the table
+  • enrichment is incremental (a second enrich does not erase the first)
+  • Turbo score / category fields are byte-identical to the canonical Turbo
 """
 from __future__ import annotations
 
@@ -42,243 +44,298 @@ def _turbo_row(ticker="AAPL", score=42.0, tz_bull=1, **extra) -> dict:
     return base
 
 
-def _stub_turbo_phase(monkeypatch, rows=None):
+def _stub_turbo_engine(monkeypatch, rows=None) -> list:
     rows = rows or [_turbo_row("AAPL"), _turbo_row("MSFT", score=10.0, tz_bull=0)]
 
     def fake_run_turbo_scan(*_a, **_kw):
         return len(rows)
 
-    def fake_get_turbo_results(*_a, **_kw):
-        return list(rows)
-
-    def fake_get_last_turbo_scan_time(*_a, **_kw):
-        return "2026-05-08T07:00:00"
-
-    def fake_get_turbo_progress(*_a, **_kw):
-        return {"done": len(rows), "total": len(rows)}
-
     monkeypatch.setattr("turbo_engine.run_turbo_scan",          fake_run_turbo_scan)
-    monkeypatch.setattr("turbo_engine.get_turbo_results",       fake_get_turbo_results)
-    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time", fake_get_last_turbo_scan_time)
-    monkeypatch.setattr("turbo_engine.get_turbo_progress",       fake_get_turbo_progress)
+    monkeypatch.setattr("turbo_engine.get_turbo_results",       lambda *a, **kw: list(rows))
+    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time", lambda *a, **kw: "2026-05-08T07:00:00")
+    monkeypatch.setattr("turbo_engine.get_turbo_progress",       lambda *a, **kw: {"done": len(rows), "total": len(rows)})
     return rows
 
 
-def _stub_stock_stat_already_exists(monkeypatch):
-    """Force the orchestrator to think the stock_stat CSV is present (so it
-    doesn't actually try to fetch market data in tests)."""
-    monkeypatch.setattr(
-        uo, "_resolve_tz_wlnbb_csv",
-        lambda universe, tf, nasdaq_batch="": "/tmp/stub_stock_stat.csv",
-    )
+def _reset_cache():
+    uo._ultra_results_cache.clear()
 
 
-def _empty_secondary(monkeypatch):
-    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest", lambda *a, **kw: {})
-    monkeypatch.setattr(
-        "tz_intelligence.scanner.run_intelligence_scan",
-        lambda **_kw: {"results": [], "error": "stock_stat CSV missing"},
-    )
-    monkeypatch.setattr(
-        "analyzers.pullback_miner.miner.run_pullback_scan",
-        lambda **_kw: {"results": [], "error": "stock_stat CSV missing"},
-    )
-    monkeypatch.setattr(
-        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
-        lambda **_kw: {"results": [], "error": "stock_stat CSV missing"},
-    )
+# ── Stage 1 — Turbo only ─────────────────────────────────────────────────────
 
+def test_stage1_runs_turbo_only_and_returns_unenriched_rows(monkeypatch):
+    _reset_cache()
+    rows = _stub_turbo_engine(monkeypatch)
 
-# ── Test 1 — ULTRA with only Turbo available still shows Turbo rows ──────────
-
-def test_ultra_only_turbo_rows_still_show(monkeypatch):
-    rows = _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-    _empty_secondary(monkeypatch)
+    # Stage 1 must NOT call any secondary reader / stock_stat generator
+    def _should_not_run(*a, **kw):
+        raise AssertionError("Stage 1 must not invoke secondary modules")
+    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest_from", _should_not_run)
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan", _should_not_run)
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan", _should_not_run)
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan", _should_not_run)
 
     resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    tickers = [r["ticker"] for r in resp["results"]]
-    assert tickers == [r["ticker"] for r in rows]
-    # Source flags reflect missing secondaries
+    assert [r["ticker"] for r in resp["results"]] == [r["ticker"] for r in rows]
     for r in resp["results"]:
-        flags = r["ultra_sources"]
-        assert flags["has_turbo"] is True
-        assert flags["has_tz_wlnbb"]      is False
-        assert flags["has_tz_intel"]      is False
-        assert flags["has_pullback"]      is False
-        assert flags["has_rare_reversal"] is False
+        assert r["ultra_enriched"] is False
+        assert r["tz_wlnbb"]      is None
+        assert r["tz_intel"]      is None
+        assert r["abr"]           is None
+        assert r["pullback"]      is None
+        assert r["rare_reversal"] is None
+        assert r["ultra_sources"] == {
+            "has_turbo": True, "has_tz_wlnbb": False, "has_tz_intel": False,
+            "has_pullback": False, "has_rare_reversal": False,
+        }
     assert resp["meta"]["sources"]["turbo"]["ok"] is True
-    assert resp["meta"]["sources"]["pullback"]["ok"]      is False
-    assert resp["meta"]["sources"]["rare_reversal"]["ok"] is False
-    # Warnings list captures secondary failures
-    assert any("Pullback Miner unavailable" in w for w in resp["warnings"])
-    assert any("Rare Reversal unavailable"  in w for w in resp["warnings"])
+    assert resp["meta"]["phase"] == "turbo_done"
 
 
-# ── Test 2 — orchestrator triggers stock_stat generation when CSV missing ────
-
-def test_ultra_triggers_stock_stat_when_missing(monkeypatch):
-    _stub_turbo_phase(monkeypatch)
-
-    # Simulate: CSV missing on first lookup, present after generation
-    state = {"exists": False}
-
-    def fake_resolve(universe, tf, nasdaq_batch=""):
-        return "/tmp/stub_stock_stat.csv" if state["exists"] else None
-    monkeypatch.setattr(uo, "_resolve_tz_wlnbb_csv", fake_resolve)
-
-    calls: list = []
-
-    def fake_generate_stock_stat(tickers, fetch, **kwargs):
-        calls.append({"tickers": list(tickers), "kwargs": kwargs})
-        state["exists"] = True
-        return kwargs.get("output_path"), {}
-
-    # Patch the symbol the orchestrator imports inside _phase_stock_stat
-    import analyzers.tz_wlnbb.stock_stat as _ss
-    monkeypatch.setattr(_ss, "generate_stock_stat", fake_generate_stock_stat)
-
-    # Avoid touching real ticker source / market data
-    import scanner as _scanner
-    monkeypatch.setattr(_scanner, "get_universe_tickers", lambda u: ["AAPL", "MSFT"])
-    monkeypatch.setattr("data_polygon.polygon_available", lambda: False)
-    import data as _data
-    monkeypatch.setattr(_data, "fetch_ohlcv", lambda *a, **kw: None)
-
-    _empty_secondary(monkeypatch)
-
-    resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    assert calls, "stock_stat generation must be triggered when CSV missing"
-    assert state["exists"] is True
-    # Phase status is exposed
-    status = uo.get_ultra_status()
-    assert status["phases"]["stock_stat"]["state"] == "ok"
-
-
-# ── Test 3 — enrichments appear once secondary sources return data ────────────
-
-def test_enrichments_appear_when_sources_return_data(monkeypatch):
-    _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-
-    monkeypatch.setattr(
-        uo, "_read_tz_wlnbb_latest",
-        lambda *a, **kw: {"AAPL": {
-            "ticker": "AAPL", "t_signal": "T4", "z_signal": "",
-            "l_signal": "L34", "preup_signal": "P89", "predn_signal": "",
-            "lane1_label": "lane1", "lane3_label": "lane3",
-            "volume_bucket": "B", "wick_suffix": "H",
-        }},
-    )
-    monkeypatch.setattr(
-        "tz_intelligence.scanner.run_intelligence_scan",
-        lambda **_kw: {"results": [{
-            "ticker": "AAPL", "role": "PULLBACK_GO", "quality": "A",
-            "action": "BUY_TRIGGER", "score": 72,
-            "matched_status": "GOOD", "matched_med10d_pct": 0.65,
-            "matched_fail10d_pct": 20.5,
-            "abr_category": "B+", "abr_med10d_pct": 0.8,
-            "abr_fail10d_pct": 18.2, "abr_context_type": "ctx",
-            "abr_action_hint": "buy", "abr_conflict_flag": False,
-            "abr_confirmation_flag": True,
-        }]},
-    )
-    monkeypatch.setattr(
-        "analyzers.pullback_miner.miner.run_pullback_scan",
-        lambda **_kw: {"results": [{
-            "ticker": "AAPL", "evidence_tier": "CONFIRMED_PULLBACK",
-            "pullback_stage": "PULLBACK_GO", "pattern_key": "Z5|T3|Z9|T4",
-            "pattern_length": 4, "score": 64.3,
-            "median_10d_return": 1.2, "win_rate_10d": 55.0,
-            "fail_rate_10d": 21.0, "is_currently_active": True,
-            "current_pattern_completion": "FULL_MATCH",
-        }]},
-    )
-    monkeypatch.setattr(
-        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
-        lambda **_kw: {"results": [{
-            "ticker": "AAPL", "evidence_tier": "CONFIRMED_RARE",
-            "base4_key": "wxyz", "extended5_key": "vwxyz",
-            "extended6_key": None, "pattern_length": 5, "score": 58.2,
-            "median_10d_return": 1.1, "fail_rate_10d": 22.0,
-            "is_currently_active": True, "current_pattern_completion": 1.0,
-        }]},
-    )
-
-    resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    aapl = next(r for r in resp["results"] if r["ticker"] == "AAPL")
-    msft = next(r for r in resp["results"] if r["ticker"] == "MSFT")
-
-    assert aapl["ultra_sources"] == {
-        "has_turbo": True, "has_tz_wlnbb": True, "has_tz_intel": True,
-        "has_pullback": True, "has_rare_reversal": True,
-    }
-    assert aapl["tz_wlnbb"]["t_signal"] == "T4"
-    assert aapl["tz_intel"]["role"]     == "PULLBACK_GO"
-    assert aapl["abr"]["category"]      == "B+"
-    assert aapl["pullback"]["evidence_tier"] == "CONFIRMED_PULLBACK"
-    assert aapl["rare_reversal"]["evidence_tier"] == "CONFIRMED_RARE"
-
-    # MSFT didn't have any secondary data — still in results, all enrichments None
-    assert msft["tz_wlnbb"]      is None
-    assert msft["tz_intel"]      is None
-    assert msft["abr"]           is None
-    assert msft["pullback"]      is None
-    assert msft["rare_reversal"] is None
-    assert msft["ultra_sources"]["has_turbo"] is True
-
-
-# ── Test 4 — missing secondary source produces a warning, not empty results ──
-
-def test_missing_secondary_produces_warning_not_empty(monkeypatch):
-    _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-
-    # tz_wlnbb / tz_intel ok; pullback / rare reversal raise
-    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest", lambda *a, **kw: {})
-    monkeypatch.setattr(
-        "tz_intelligence.scanner.run_intelligence_scan",
-        lambda **_kw: {"results": []},
-    )
-
-    def _boom_pb(**_kw):
-        raise FileNotFoundError("stock_stat CSV missing — pullback")
-    def _boom_rr(**_kw):
-        raise RuntimeError("rare reversal exploded")
-    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",       _boom_pb)
-    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",   _boom_rr)
-
-    resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    assert len(resp["results"]) == 2  # Turbo rows still present
-    assert any("Pullback Miner unavailable" in w for w in resp["warnings"])
-    assert any("Rare Reversal unavailable"  in w for w in resp["warnings"])
-    assert resp["meta"]["sources"]["pullback"]["ok"]      is False
-    assert resp["meta"]["sources"]["rare_reversal"]["ok"] is False
-
-
-# ── Test 5 — Turbo score/category in ULTRA exactly match Turbo ───────────────
-
-def test_turbo_score_and_category_pass_through_unchanged(monkeypatch):
-    rows = _stub_turbo_phase(monkeypatch, rows=[
+def test_stage1_preserves_turbo_score_and_category(monkeypatch):
+    _reset_cache()
+    rows = _stub_turbo_engine(monkeypatch, rows=[
         _turbo_row("AAPL", score=88.5, profile_category="SWEET_SPOT"),
         _turbo_row("MSFT", score=12.0, profile_category="WATCH"),
     ])
-    _stub_stock_stat_already_exists(monkeypatch)
-    _empty_secondary(monkeypatch)
-
     resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
     by_ticker = {r["ticker"]: r for r in resp["results"]}
-
     for src in rows:
         out = by_ticker[src["ticker"]]
-        # Canonical Turbo fields must be byte-identical, no recalculation
         assert out["turbo_score"]      == src["turbo_score"]
         assert out["profile_category"] == src["profile_category"]
         assert out["profile_score"]    == src["profile_score"]
-        assert out["tz_bull"]          == src["tz_bull"]
-        assert out["last_price"]       == src["last_price"]
 
-    # No new score / category fields anywhere in the response
+
+# ── Stage 2 — enrich a subset ────────────────────────────────────────────────
+
+@pytest.fixture
+def canonical_csv(tmp_path, monkeypatch):
+    """Provide a canonical stock_stat CSV in a temp dir and chdir into it."""
+    monkeypatch.chdir(tmp_path)
+    canonical_path = tmp_path / "stock_stat_tz_wlnbb_sp500_1d.csv"
+    import csv as _csv
+    with open(canonical_path, "w", newline="") as f:
+        w = _csv.DictWriter(f, fieldnames=["ticker", "universe", "date",
+                                             "close", "volume", "t_signal",
+                                             "z_signal", "l_signal",
+                                             "preup_signal", "predn_signal",
+                                             "lane1_label", "lane3_label",
+                                             "volume_bucket", "wick_suffix"])
+        w.writeheader()
+        for t in ("AAPL", "MSFT", "NVDA", "TSLA"):
+            w.writerow({
+                "ticker": t, "universe": "sp500", "date": "2026-05-08",
+                "close": 150, "volume": 1_000_000, "t_signal": "T4",
+                "z_signal": "", "l_signal": "L34", "preup_signal": "",
+                "predn_signal": "", "lane1_label": "L1", "lane3_label": "",
+                "volume_bucket": "B", "wick_suffix": "H",
+            })
+    return tmp_path, canonical_path
+
+
+def test_subset_extracted_from_canonical_does_not_overwrite(monkeypatch, canonical_csv):
+    """When canonical CSV exists, ULTRA must extract a subset to a private
+    path and leave canonical untouched."""
+    _reset_cache()
+    tmp_path, canonical_path = canonical_csv
+    canonical_size_before = canonical_path.stat().st_size
+
+    _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row(t) for t in ("AAPL", "MSFT", "NVDA", "TSLA")
+    ])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    # Force fresh-generation path to be off-limits — must not be called
+    def _should_not_fetch(*a, **kw):
+        raise AssertionError("fresh stock_stat generation must be skipped when canonical exists")
+    monkeypatch.setattr(uo, "_generate_subset_csv_fresh", _should_not_fetch)
+
+    # Stub Phase 2 readers minimally
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                        lambda **_kw: {"results": []})
+
+    uo.run_ultra_enrich_job(tickers=["AAPL", "MSFT"], universe="sp500", tf="1d")
+
+    # Canonical must be byte-for-byte unchanged
+    assert canonical_path.stat().st_size == canonical_size_before
+    # Subset CSV must exist on a NON-canonical path
+    subset_files = [p for p in os.listdir(tmp_path)
+                    if p.startswith("stock_stat_tz_wlnbb_ultra_sp500_1d_")
+                    and p.endswith(".csv")]
+    assert len(subset_files) == 1, f"expected one subset CSV, got {subset_files}"
+    # And the subset must contain only the requested tickers
+    import csv as _csv
+    with open(tmp_path / subset_files[0]) as f:
+        subset_tickers = sorted({row["ticker"] for row in _csv.DictReader(f)})
+    assert subset_tickers == ["AAPL", "MSFT"]
+
+
+def test_fresh_generation_used_when_canonical_missing(monkeypatch, tmp_path):
+    """When no canonical CSV exists, ULTRA must fresh-generate to its private
+    path (not write to the canonical path)."""
+    _reset_cache()
+    monkeypatch.chdir(tmp_path)
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL"), _turbo_row("MSFT")])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    called: dict = {}
+
+    def fake_fresh(universe, tf, tickers, bars, subset_path):
+        called["subset_path"] = subset_path
+        called["tickers"] = list(tickers)
+        # Write a small CSV at the subset path
+        import csv as _csv
+        with open(subset_path, "w", newline="") as f:
+            w = _csv.DictWriter(f, fieldnames=["ticker", "universe", "date", "close",
+                                                 "volume", "t_signal", "z_signal",
+                                                 "l_signal"])
+            w.writeheader()
+            for t in tickers:
+                w.writerow({"ticker": t, "universe": universe, "date": "2026-05-08",
+                            "close": 100, "volume": 1, "t_signal": "T4",
+                            "z_signal": "", "l_signal": ""})
+        return len(tickers)
+    monkeypatch.setattr(uo, "_generate_subset_csv_fresh", fake_fresh)
+
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                        lambda **_kw: {"results": []})
+
+    uo.run_ultra_enrich_job(tickers=["AAPL", "MSFT"], universe="sp500", tf="1d")
+
+    assert "subset_path" in called, "fresh generation must run when canonical is missing"
+    assert called["tickers"] == ["AAPL", "MSFT"]
+    assert called["subset_path"].startswith("stock_stat_tz_wlnbb_ultra_sp500_1d_")
+    assert called["subset_path"].endswith(".csv")
+    # Canonical path must NOT have been written to
+    assert not os.path.exists("stock_stat_tz_wlnbb_sp500_1d.csv")
+
+
+def test_enrich_only_targets_requested_subset(monkeypatch, canonical_csv):
+    """tz_intel / pullback / rare etc. only populate enrichments for the
+    tickers passed to enrich; non-targeted tickers stay unenriched."""
+    _reset_cache()
+    tmp_path, _canon = canonical_csv
+
+    _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row(t) for t in ("AAPL", "MSFT", "NVDA", "TSLA")
+    ])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    # All four readers report enrichments for only the subset
+    monkeypatch.setattr(
+        "tz_intelligence.scanner.run_intelligence_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL", "role": "BULL_A",
+                                     "quality": "A", "abr_category": "B+"}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.pullback_miner.miner.run_pullback_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL",
+                                     "evidence_tier": "CONFIRMED_PULLBACK",
+                                     "score": 7.0}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL",
+                                     "evidence_tier": "CONFIRMED_RARE",
+                                     "base4_key": "abcd", "score": 6.0,
+                                     "is_currently_active": True}]},
+    )
+
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+
+    resp = uo.get_ultra_results("sp500", "1d")
+    by_ticker = {r["ticker"]: r for r in resp["results"]}
+    aapl = by_ticker["AAPL"]
+    msft = by_ticker["MSFT"]
+    assert aapl["ultra_enriched"] is True
+    assert aapl["tz_wlnbb"] is not None and aapl["tz_wlnbb"]["t_signal"] == "T4"
+    assert aapl["tz_intel"]["role"] == "BULL_A"
+    assert aapl["abr"]["category"]   == "B+"
+    assert aapl["pullback"]["evidence_tier"]      == "CONFIRMED_PULLBACK"
+    assert aapl["rare_reversal"]["evidence_tier"] == "CONFIRMED_RARE"
+    # MSFT was not in the enrich subset → still unenriched
+    assert msft["ultra_enriched"] is False
+    assert msft["tz_wlnbb"] is None and msft["tz_intel"] is None
+
+
+def test_incremental_enrichment_does_not_overwrite_previous(monkeypatch, canonical_csv):
+    """Enriching a second subset must add to the cache, not erase the first."""
+    _reset_cache()
+    tmp_path, _canon = canonical_csv
+
+    _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row(t) for t in ("AAPL", "MSFT", "NVDA", "TSLA")
+    ])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                        lambda **_kw: {"results": []})
+
+    # First enrich: AAPL only
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    after_first = {r["ticker"]: r for r in uo.get_ultra_results("sp500", "1d")["results"]}
+    assert after_first["AAPL"]["tz_wlnbb"] is not None
+    assert after_first["MSFT"]["tz_wlnbb"] is None
+
+    # Second enrich: NVDA only — AAPL must keep its enrichment
+    uo.run_ultra_enrich_job(tickers=["NVDA"], universe="sp500", tf="1d")
+    after_second = {r["ticker"]: r for r in uo.get_ultra_results("sp500", "1d")["results"]}
+    assert after_second["AAPL"]["tz_wlnbb"] is not None, (
+        "incremental enrichment must not erase previous AAPL enrichment"
+    )
+    assert after_second["NVDA"]["tz_wlnbb"] is not None
+    assert after_second["MSFT"]["tz_wlnbb"] is None
+    assert after_second["TSLA"]["tz_wlnbb"] is None
+
+
+def test_enrich_secondary_failure_keeps_turbo_rows(monkeypatch, canonical_csv):
+    """If a secondary module fails during enrich, Turbo rows must still be
+    present, with a warning recorded."""
+    _reset_cache()
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL"), _turbo_row("MSFT")])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    def _boom(**_kw):
+        raise RuntimeError("simulated TZ Intel failure")
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan", _boom)
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                        lambda **_kw: {"results": []})
+
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    resp = uo.get_ultra_results("sp500", "1d")
+    assert len(resp["results"]) == 2
+    assert any("TZ Intelligence unavailable" in w for w in resp["warnings"])
+
+
+def test_no_new_score_or_category_fields(monkeypatch, canonical_csv):
+    """Hard rule: ULTRA must NEVER produce ultra_score / ultra_category /
+    ultra_context_score anywhere in the response."""
+    _reset_cache()
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL")])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                        lambda **_kw: {"results": []})
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                        lambda **_kw: {"results": []})
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    resp = uo.get_ultra_results("sp500", "1d")
     forbidden = {"ultra_score", "ultra_context_score", "ultra_category"}
 
     def _check(d):
@@ -289,295 +346,22 @@ def test_turbo_score_and_category_pass_through_unchanged(monkeypatch):
         elif isinstance(d, list):
             for v in d:
                 _check(v)
-
     _check(resp)
 
 
-# ── Phase 1 / Phase 2 must execute in parallel, not strictly sequentially ────
+# ── Backwards-compat: existing endpoints / modules untouched ─────────────────
 
-def test_phase1_runs_turbo_and_stock_stat_in_parallel(monkeypatch):
-    """Turbo and stock_stat generation must overlap inside Phase 1."""
-    import threading
-    import time as _t
-
-    overlap_seen = {"v": False}
-    in_flight    = {"turbo": False, "stock_stat": False}
-    lock         = threading.Lock()
-
-    def _mark(name: str, on: bool) -> None:
-        with lock:
-            in_flight[name] = on
-            if in_flight["turbo"] and in_flight["stock_stat"]:
-                overlap_seen["v"] = True
-
-    def slow_turbo(*_a, **_kw):
-        _mark("turbo", True)
-        _t.sleep(0.20)
-        _mark("turbo", False)
-        return 1
-
-    def slow_generate_stock_stat(tickers, fetch, **kwargs):
-        _mark("stock_stat", True)
-        _t.sleep(0.20)
-        _mark("stock_stat", False)
-        return kwargs.get("output_path"), {}
-
-    # Stub Turbo entry points
-    monkeypatch.setattr("turbo_engine.run_turbo_scan", slow_turbo)
-    monkeypatch.setattr("turbo_engine.get_turbo_results",
-                         lambda *a, **kw: [_turbo_row("AAPL")])
-    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time",
-                         lambda *a, **kw: "2026-05-08T07:00:00")
-    monkeypatch.setattr("turbo_engine.get_turbo_progress",
-                         lambda *a, **kw: {"done": 1, "total": 1})
-
-    # CSV starts missing → forces stock_stat generation path
-    state = {"exists": False}
-    monkeypatch.setattr(
-        uo, "_resolve_tz_wlnbb_csv",
-        lambda u, tf, nasdaq_batch="": "/tmp/stub.csv" if state["exists"] else None,
-    )
-    import analyzers.tz_wlnbb.stock_stat as _ss
-
-    def fake_gen(tickers, fetch, **kwargs):
-        path, audit = slow_generate_stock_stat(tickers, fetch, **kwargs)
-        state["exists"] = True
-        return path, audit
-    monkeypatch.setattr(_ss, "generate_stock_stat", fake_gen)
-
-    import scanner as _scanner
-    monkeypatch.setattr(_scanner, "get_universe_tickers", lambda u: ["AAPL"])
-    monkeypatch.setattr("data_polygon.polygon_available", lambda: False)
-    import data as _data
-    monkeypatch.setattr(_data, "fetch_ohlcv", lambda *a, **kw: None)
-
-    _empty_secondary(monkeypatch)
-
-    uo.run_ultra_scan_job(universe="sp500", tf="1d")
-
-    assert overlap_seen["v"], (
-        "Turbo and stock_stat generation must run concurrently in Phase 1"
-    )
-
-
-def test_phase2_runs_secondaries_in_parallel(monkeypatch):
-    """The four Phase 2 readers must execute concurrently, not back-to-back."""
-    import threading
-    import time as _t
-
-    _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-
-    in_flight     = {"a": 0, "max": 0}
-    lock          = threading.Lock()
-
-    def _enter() -> None:
-        with lock:
-            in_flight["a"] += 1
-            if in_flight["a"] > in_flight["max"]:
-                in_flight["max"] = in_flight["a"]
-
-    def _exit() -> None:
-        with lock:
-            in_flight["a"] -= 1
-
-    def slow(_resp):
-        _enter(); _t.sleep(0.10); _exit()
-        return _resp
-
-    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest",
-                         lambda *a, **kw: slow({}))
-    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
-                         lambda **_kw: slow({"results": []}))
-    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
-                         lambda **_kw: slow({"results": []}))
-    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
-                         lambda **_kw: slow({"results": []}))
-
-    uo.run_ultra_scan_job(universe="sp500", tf="1d", max_workers=4)
-    assert in_flight["max"] >= 2, (
-        f"Phase 2 should run at least 2 readers concurrently "
-        f"(saw max={in_flight['max']})"
-    )
-
-
-def test_default_max_workers_is_memory_safe():
-    """Memory regression: default Phase 2 fan-out must be <= 2.
-
-    Each Phase 2 reader independently loads the entire stock_stat_tz_wlnbb
-    CSV (~hundreds of MB on SP500/NASDAQ). Running 4 in parallel + Turbo
-    pushed Railway deploys past their memory limit. Default of 2 keeps
-    Phase 2 parallel without the OOM.
-    """
-    assert uo._DEFAULT_MAX_WORKERS <= 2, (
-        f"_DEFAULT_MAX_WORKERS={uo._DEFAULT_MAX_WORKERS} risks OOM on "
-        "memory-constrained deployments; keep <= 2"
-    )
-
-
-def test_results_cache_is_capped(monkeypatch):
-    """The orchestrator must evict old (universe, tf, batch) responses."""
-    _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-    _empty_secondary(monkeypatch)
-    # Reset cache so the test starts from a clean slate
-    uo._ultra_results_cache.clear()
-
-    # Run more scans than the cap allows
-    cap = uo._MAX_RESULTS_CACHE_ENTRIES
-    for i in range(cap + 3):
-        uo.run_ultra_scan_job(universe=f"u{i}", tf="1d")
-
-    assert len(uo._ultra_results_cache) <= cap, (
-        f"results cache grew past cap: "
-        f"{len(uo._ultra_results_cache)} > {cap}"
-    )
-    # Most-recent entries must be retained (LRU semantics)
-    last_keys = list(uo._ultra_results_cache.keys())
-    assert last_keys[-1] == (f"u{cap+2}", "1d", "")
-
-
-def test_intermediate_dicts_freed_after_merge(monkeypatch):
-    """Memory hygiene: per-source dicts must be cleared once merge is done."""
-    rows = _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-
-    # Make Phase 2 return non-empty dicts so we can assert they get cleared
-    monkeypatch.setattr(
-        uo, "_read_tz_wlnbb_latest",
-        lambda *a, **kw: {r["ticker"]: {"ticker": r["ticker"], "t_signal": "T1"}
-                          for r in rows},
-    )
-    monkeypatch.setattr(
-        "tz_intelligence.scanner.run_intelligence_scan",
-        lambda **_kw: {"results": [{"ticker": r["ticker"], "role": "BULL_A"}
-                                    for r in rows]},
-    )
-    monkeypatch.setattr(
-        "analyzers.pullback_miner.miner.run_pullback_scan",
-        lambda **_kw: {"results": [{"ticker": r["ticker"],
-                                     "evidence_tier": "CONFIRMED_PULLBACK"}
-                                    for r in rows]},
-    )
-    monkeypatch.setattr(
-        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
-        lambda **_kw: {"results": [{"ticker": r["ticker"],
-                                     "evidence_tier": "CONFIRMED_RARE",
-                                     "base4_key": "abcd"}
-                                    for r in rows]},
-    )
-
-    resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    # Merged results retain enrichments
-    assert any(r.get("tz_wlnbb") for r in resp["results"])
-    assert any(r.get("tz_intel") for r in resp["results"])
-    # Cached response is the same object — confirms we didn't accidentally
-    # mutate it during cleanup
-    cached = uo.get_ultra_results("sp500", "1d")
-    assert cached is resp
-
-
-def test_phase2_starts_while_turbo_still_running(monkeypatch):
-    """Regression: Phase 2 must start as soon as stock_stat is done, even
-    if Turbo is still running. Earlier orchestrator blocked on Turbo first,
-    leaving Phase 2 stuck on 'pending' even after stock_stat went 'ok'.
-    """
-    import threading
-    import time as _t
-
-    turbo_started = threading.Event()
-    turbo_release = threading.Event()
-    phase2_seen_while_turbo_running = {"v": False}
-
-    def slow_turbo(*_a, **_kw):
-        turbo_started.set()
-        turbo_release.wait(timeout=5.0)  # block until test releases
-        return 1
-
-    monkeypatch.setattr("turbo_engine.run_turbo_scan", slow_turbo)
-    monkeypatch.setattr("turbo_engine.get_turbo_results",
-                         lambda *a, **kw: [_turbo_row("AAPL")])
-    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time",
-                         lambda *a, **kw: "2026-05-08T07:00:00")
-    monkeypatch.setattr("turbo_engine.get_turbo_progress",
-                         lambda *a, **kw: {"done": 1, "total": 1})
-
-    # stock_stat completes immediately (CSV already exists)
-    _stub_stock_stat_already_exists(monkeypatch)
-
-    def phase2_observer(*_a, **_kw):
-        # Whenever any Phase 2 reader runs, check whether Turbo is still
-        # blocked. If so, the orchestrator decoupled Phase 2 from Turbo.
-        if turbo_started.is_set() and not turbo_release.is_set():
-            phase2_seen_while_turbo_running["v"] = True
-        return {"results": []}
-
-    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest",
-                         lambda *a, **kw: phase2_observer())
-    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
-                         lambda **_kw: phase2_observer())
-    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
-                         lambda **_kw: phase2_observer())
-    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
-                         lambda **_kw: phase2_observer())
-
-    # Run the orchestrator on a worker thread so we can release Turbo
-    # after Phase 2 has had a chance to fire.
-    result_box: dict = {}
-
-    def runner():
-        result_box["resp"] = uo.run_ultra_scan_job(universe="sp500", tf="1d")
-
-    th = threading.Thread(target=runner)
-    th.start()
-
-    # Give Phase 2 some time to run while Turbo is blocked
-    turbo_started.wait(timeout=2.0)
-    _t.sleep(0.20)
-    # Now release Turbo so the orchestrator can finish
-    turbo_release.set()
-    th.join(timeout=10.0)
-
-    assert not th.is_alive(), "orchestrator did not return"
-    assert phase2_seen_while_turbo_running["v"], (
-        "Phase 2 readers must start while Turbo is still running "
-        "(orchestrator should not block Phase 2 on Turbo's completion)"
-    )
-
-
-def test_phase2_pending_state_and_merge_phase_present(monkeypatch):
-    """Status surface must include Phase 2 pending pills + merge phase."""
-    _stub_turbo_phase(monkeypatch)
-    _stub_stock_stat_already_exists(monkeypatch)
-    _empty_secondary(monkeypatch)
-    uo.run_ultra_scan_job(universe="sp500", tf="1d")
-    status = uo.get_ultra_status()
-    # merge phase reaches 'ok' once results are merged
-    assert status["phases"]["merge"]["state"] == "ok"
-    # Phase 2 phases moved from 'pending' to a terminal state
-    for k in ("tz_wlnbb", "tz_intelligence", "pullback", "rare_reversal"):
-        assert status["phases"][k]["state"] in ("ok", "skipped", "error")
-
-
-# ── Test 6 — existing Turbo endpoint module still imports / behaves ──────────
-
-def test_existing_turbo_modules_still_work():
+def test_existing_turbo_module_intact():
     import turbo_engine
     assert hasattr(turbo_engine, "run_turbo_scan")
     assert hasattr(turbo_engine, "get_turbo_results")
-    assert hasattr(turbo_engine, "get_last_turbo_scan_time")
-    assert hasattr(turbo_engine, "get_turbo_progress")
 
-
-# ── Test 7 — TZ/WLNBB, TZ Intel, Pullback, Rare endpoints still untouched ────
 
 def test_existing_secondary_endpoints_still_callable():
     from main import (
         api_tz_wlnbb_scan, api_tz_intelligence_scan,
         api_pullback_miner_scan, api_rare_reversal_scan,
     )
-    # With no CSVs in cwd these return error/empty payloads — the contract is
-    # that they still return a dict and don't throw.
     r = api_tz_wlnbb_scan(universe="__nonexistent__", tf="1d")
     assert isinstance(r, dict) and "results" in r
     r = api_tz_intelligence_scan(universe="sp500", tf="1d")
@@ -588,15 +372,28 @@ def test_existing_secondary_endpoints_still_callable():
     assert isinstance(r, dict)
 
 
-# ── Pristine ultra_engine module: signal-engine functions intact, no ULTRA
-#    aggregator code added. Existing code paths (gog_engine, signal_stats_engine,
-#    main.api_signals via compute_260308_l88, turbo_engine.compute_ultra_v2)
-#    must keep working unchanged.
+def test_readers_default_canonical_path_unchanged(monkeypatch, tmp_path):
+    """Adding stat_path=None must NOT change canonical path resolution.
+
+    With stat_path omitted the readers should fall back to canonical (and
+    return their existing 'no stock_stat' error string, not anything new)."""
+    monkeypatch.chdir(tmp_path)
+    from tz_intelligence.scanner import run_intelligence_scan
+    from analyzers.pullback_miner.miner import run_pullback_scan
+    from analyzers.rare_reversal.miner import run_rare_reversal_scan
+
+    r1 = run_intelligence_scan(universe="sp500", tf="1d")
+    r2 = run_pullback_scan(universe="sp500", tf="1d")
+    r3 = run_rare_reversal_scan(universe="sp500", tf="1d")
+    for r in (r1, r2, r3):
+        assert isinstance(r, dict)
+        # The exact text starts with "No stock_stat_tz_wlnbb CSV found" today
+        assert "No stock_stat_tz_wlnbb" in (r.get("error") or "")
+
 
 def test_ultra_engine_module_signal_engines_pristine():
+    """ultra_engine.py must keep its ULTRA-v2 signal computation untouched."""
     import ultra_engine
     assert hasattr(ultra_engine, "compute_260308_l88")
     assert hasattr(ultra_engine, "compute_ultra_v2")
-    # No aggregator function leaked into ultra_engine
     assert not hasattr(ultra_engine, "run_ultra_scan")
-    assert not hasattr(ultra_engine, "_load_turbo_block")

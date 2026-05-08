@@ -1085,11 +1085,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
     if (pollIvRef.current) { clearInterval(pollIvRef.current); pollIvRef.current = null }
   }
 
-  // ULTRA scan progress: phase + per-source state
+  // ULTRA scan progress: phase + per-source state + enrich stage
   const [phase, setPhase]       = useState(null)
   const [phases, setPhases]     = useState({})
   const [sources, setSources]   = useState({})
   const [warnings, setWarnings] = useState([])
+  const [stage,  setStage]      = useState(null)   // 'turbo' | 'enrich' | null
+  const [enriching, setEnriching] = useState(false)
 
   const _poll = () => {
     _stopPoll()  // kill any previous poll before starting a new one
@@ -1102,15 +1104,56 @@ export default function UltraScanPanel({ onSelectTicker }) {
           setPhases(s.phases || {})
           setWarnings(s.warnings || [])
           setSources(s.sources || {})
+          setStage(s.stage || null)
           if (!s.running) {
-            _stopPoll(); setScanning(false)
+            _stopPoll(); setScanning(false); setEnriching(false)
             if (s.error) setError(s.error)
             else fetchFreshResults(activeTf, uni)
           }
         })
-        .catch(() => { _stopPoll(); setScanning(false) })
+        .catch(() => { _stopPoll(); setScanning(false); setEnriching(false) })
     }, 2000)
-    setTimeout(() => { _stopPoll(); setScanning(false); fetchFreshResults(activeTf, uni) }, 600_000)
+    setTimeout(() => { _stopPoll(); setScanning(false); setEnriching(false); fetchFreshResults(activeTf, uni) }, 600_000)
+  }
+
+  // Stage 2: enrich a subset of tickers. If user has rows checked (via the
+  // checkbox column) we enrich those; otherwise we enrich whatever is
+  // currently visible after filters. Never enriches the full universe.
+  const enrich = () => {
+    if (scanning || enriching) return
+    const targetTickers = pickedTickers.size > 0
+      ? results.filter(r => pickedTickers.has(r.ticker)).map(r => r.ticker)
+      : results.map(r => r.ticker)
+    if (!targetTickers.length) {
+      setError('No tickers to enrich — run ULTRA Scan first or adjust filters.')
+      return
+    }
+    setEnriching(true); setError(null)
+    setWarnings([]); setPhase(null)
+    // Reset Phase 2 pills to 'pending' so the UI immediately reflects intent
+    setPhases(prev => ({
+      ...prev,
+      stock_stat:      { state: 'pending', message: '' },
+      tz_wlnbb:        { state: 'pending', message: '' },
+      tz_intelligence: { state: 'pending', message: '' },
+      pullback:        { state: 'pending', message: '' },
+      rare_reversal:   { state: 'pending', message: '' },
+      merge:           { state: 'pending', message: '' },
+    }))
+    api.ultraScanEnrich({
+      universe, tf: localTf, tickers: targetTickers,
+      direction, minPrice: 0, maxPrice: 1e9, minVolume: volMin,
+    })
+      .then(() => _poll())
+      .catch(e => {
+        setEnriching(false)
+        const msg = e?.detail || e?.message || String(e)
+        if (msg.includes('409') || msg.toLowerCase().includes('already running')) {
+          setError('__stuck__')
+        } else {
+          setError(msg)
+        }
+      })
   }
 
   const scan = () => {
@@ -1188,8 +1231,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
           ))}
         </div>
 
-        {/* Scan button */}
-        <button onClick={scan} disabled={scanning}
+        {/* Stage 1: Turbo-only scan button */}
+        <button onClick={scan} disabled={scanning || enriching}
+          title="Stage 1 — runs Turbo only. Use Enrich after to fill TZ/WLNBB/Intel/Pullback/Rare for the visible/selected subset."
           className={`px-3 py-1 rounded text-xs font-semibold transition-colors
             ${scanning ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
                        : 'bg-fuchsia-600 hover:bg-fuchsia-500 text-white'}`}>
@@ -1197,6 +1241,29 @@ export default function UltraScanPanel({ onSelectTicker }) {
             ? <span className="animate-pulse">🧬 Scanning…</span>
             : '🧬 ULTRA Scan'}
         </button>
+
+        {/* Stage 2: enrich the visible / selected subset */}
+        {(() => {
+          const enrichCount = pickedTickers.size > 0 ? pickedTickers.size : results.length
+          const enrichLabel = pickedTickers.size > 0
+            ? `✨ Enrich ${enrichCount} selected`
+            : `✨ Enrich ${enrichCount} visible`
+          return (
+            <button onClick={enrich} disabled={scanning || enriching || enrichCount === 0}
+              title="Stage 2 — generates an ULTRA-private subset stock_stat for these tickers (extracted from canonical when present), then runs TZ/WLNBB + TZ Intel + Pullback + Rare Reversal."
+              className={`px-3 py-1 rounded text-xs font-semibold transition-colors
+                ${enriching ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                  : enrichCount === 0
+                    ? 'bg-gray-800 text-gray-600 cursor-not-allowed border border-gray-700'
+                    : pickedTickers.size > 0
+                      ? 'bg-amber-600 hover:bg-amber-500 text-black'
+                      : 'bg-emerald-700 hover:bg-emerald-600 text-white'}`}>
+              {enriching
+                ? <span className="animate-pulse">✨ Enriching…</span>
+                : enrichLabel}
+            </button>
+          )
+        })()}
 
         {/* Partial-day preview toggle — include today's open bar */}
         <button onClick={() => setPartialDay(p => !p)}
@@ -1493,10 +1560,11 @@ export default function UltraScanPanel({ onSelectTicker }) {
       )}
 
       {/* Progress / error */}
-      {scanning && (
+      {(scanning || enriching) && (
         <div className="px-4 py-1.5 border-b border-gray-800 bg-fuchsia-950/30 text-fuchsia-300">
           <div className="animate-pulse">
             🧬 ULTRA — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()})
+            {' · '}{enriching ? 'Stage 2: enriching subset' : 'Stage 1: Turbo'}
             {phase ? ` · phase: ${phase}` : ''}
           </div>
           {Object.keys(phases).length > 0 && (() => {
@@ -2080,14 +2148,14 @@ export default function UltraScanPanel({ onSelectTicker }) {
               )
             })}
 
-            {results.length === 0 && !scanning && (
+            {results.length === 0 && !scanning && !enriching && (
               <tr>
                 <td colSpan={universe === 'split' ? 23 : 22} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
                       ? 'Scan completed — 0 results found (try a different universe or timeframe)'
-                      : 'Press 🧬 ULTRA Scan to run Turbo + TZ/WLNBB + TZ Intel + Pullback + Rare'}
+                      : 'Press 🧬 ULTRA Scan to run Turbo, then ✨ Enrich for the subset you care about'}
                 </td>
               </tr>
             )}
