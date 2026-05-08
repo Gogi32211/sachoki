@@ -8,6 +8,7 @@ import CombinedScanPanel from './components/CombinedScanPanel'
 import TZLStatsPanel from './components/TZLStatsPanel'
 import HowItWorksPanel from './components/HowItWorksPanel'
 import TurboScanPanel from './components/TurboScanPanel'
+import UltraScanPanel from './components/UltraScanPanel'
 import AdminPanel from './components/AdminPanel'
 import SignalCorrelPanel from './components/SignalCorrelPanel'
 import TickerAnalysisPanel from './components/TickerAnalysisPanel'
@@ -32,6 +33,7 @@ const LS = {
 
 const TABS = [
   { id: 'turbo',      label: '⚡ TURBO' },
+  { id: 'ultra',      label: '🧬 ULTRA' },
   { id: 'watchlist',  label: '⭐ Watchlist' },
   { id: 'combined',   label: 'Combined Scan' },
   { id: 'predictor',  label: 'Predictor' },
@@ -110,7 +112,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.4.458</span>
+          <span className="text-xs font-normal text-gray-500">v4.4.462</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -169,6 +171,11 @@ export default function App() {
         {/* TURBO: always mounted so scan results survive tab switches */}
         <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
           <TurboScanPanel onSelectTicker={handleSelect} />
+        </div>
+
+        {/* ULTRA: always mounted so scan results survive tab switches */}
+        <div style={{ display: activeTab === 'ultra' ? 'block' : 'none' }}>
+          <UltraScanPanel onSelectTicker={handleSelect} />
         </div>
 
         {activeTab === 'watchlist' && (
