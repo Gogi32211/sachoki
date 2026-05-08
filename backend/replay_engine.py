@@ -1772,6 +1772,262 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
     return "\n".join(lines)
 
 
+# ─── ULTRA Score analytics ─────────────────────────────────────────────────────
+#
+# Reads the ultra_score / ultra_score_band / ultra_score_reasons /
+# ultra_score_flags / ultra_score_raw_before_penalty / ultra_score_penalty_total
+# columns that Stock Stat (Bulk Signal CSV) wrote using the shared
+# backend.ultra_score helper. Adds aggregate views for Replay Analytics.
+#
+# All forward-return reads (ret_*, mfe_*, mae_*, max_high_*) happen ONLY in
+# this section, never in compute_ultra_score itself — that keeps the score
+# free of lookahead while letting analytics evaluate after-the-fact outcomes.
+# ────────────────────────────────────────────────────────────────────────────
+
+_ULTRA_BAND_ORDER = ("A", "B", "C", "D")
+_ULTRA_BUCKETS = (
+    ("0–20",   0,  20),
+    ("21–40", 21,  40),
+    ("41–50", 41,  50),
+    ("51–64", 51,  64),
+    ("65–79", 65,  79),
+    ("80–89", 80,  89),
+    ("90–100",90, 100),
+)
+
+
+def _ultra_metrics(rows: List[dict]) -> dict:
+    """Compute the metrics block used by both band-summary and bucket-summary."""
+    if not rows:
+        return {"count": 0}
+
+    def col(key: str) -> List[float]:
+        out = []
+        for r in rows:
+            v = r.get(key)
+            try:
+                if v is None or v == "":
+                    continue
+                f = float(v)
+                if f != f:
+                    continue
+                out.append(f)
+            except (TypeError, ValueError):
+                pass
+        return out
+
+    def avg(xs):    return _mean(xs)
+    def med(xs):    return _median(xs)
+    def winrate(xs):
+        return _rate([x > 0 for x in xs]) if xs else None
+    def hit(xs, threshold):
+        return _rate([x >= threshold for x in xs]) if xs else None
+    def fail(xs, threshold):
+        return _rate([x <= -threshold for x in xs]) if xs else None
+
+    r1   = col("ret_1d");   r3  = col("ret_3d")
+    r5   = col("ret_5d");   r10 = col("ret_10d")
+    mfe5 = col("mfe_5d");   mae5 = col("mae_5d")
+    mfe10= col("mfe_10d");  mae10 = col("mae_10d")
+
+    return {
+        "count":            len(rows),
+        "avg_ultra_score":  avg(col("ultra_score")),
+        "avg_turbo_score":  avg(col("turbo_score")),
+        "avg_profile_score":avg(col("profile_score")),
+        "avg_ret_1d":     avg(r1),  "median_ret_1d":  med(r1),  "win_rate_1d":  winrate(r1),
+        "avg_ret_3d":     avg(r3),  "median_ret_3d":  med(r3),  "win_rate_3d":  winrate(r3),
+        "avg_ret_5d":     avg(r5),  "median_ret_5d":  med(r5),  "win_rate_5d":  winrate(r5),
+        "avg_ret_10d":    avg(r10), "median_ret_10d": med(r10), "win_rate_10d": winrate(r10),
+        "hit_5pct_5d":    hit(r5, 5.0),
+        "hit_10pct_10d":  hit(r10, 10.0),
+        "fail_rate_5d":   fail(r5, 3.0),
+        "fail_rate_10d":  fail(r10, 5.0),
+        "avg_mfe_5d":  avg(mfe5),  "avg_mae_5d":  avg(mae5),
+        "avg_mfe_10d": avg(mfe10), "avg_mae_10d": avg(mae10),
+    }
+
+
+def ultra_score_band_summary(rows: List[dict]) -> List[dict]:
+    """One row per band (A/B/C/D) with aggregate metrics."""
+    by_band: Dict[str, list] = {b: [] for b in _ULTRA_BAND_ORDER}
+    for r in rows:
+        b = (r.get("ultra_score_band") or "").upper()
+        if b in by_band:
+            by_band[b].append(r)
+    out: list = []
+    for band in _ULTRA_BAND_ORDER:
+        m = _ultra_metrics(by_band[band])
+        out.append({"band": band, **m})
+    return out
+
+
+def ultra_score_bucket_summary(rows: List[dict]) -> List[dict]:
+    """One row per ULTRA Score bucket."""
+    out: list = []
+    for label, lo, hi in _ULTRA_BUCKETS:
+        sub = []
+        for r in rows:
+            try:
+                s = float(r.get("ultra_score") or 0)
+                if lo <= s <= hi:
+                    sub.append(r)
+            except (TypeError, ValueError):
+                pass
+        m = _ultra_metrics(sub)
+        out.append({"bucket": label, "lo": lo, "hi": hi, **m})
+    return out
+
+
+# Combo group definitions — match the spec exactly. We read flags written by
+# the shared scorer (so we don't recompute the boolean conditions here).
+def _flags(r: dict) -> set:
+    raw = r.get("ultra_score_flags") or ""
+    if isinstance(raw, list):
+        return set(raw)
+    if isinstance(raw, str):
+        return set(t for t in raw.split() if t)
+    return set()
+
+
+_COMBO_GROUPS = (
+    ("MOMENTUM_A",         "MOMENTUM_A"),
+    ("REVERSAL_GROWTH_A",  "REVERSAL_GROWTH_A"),
+    ("TRANSITION_A",       "TRANSITION_A"),
+    ("PULLBACK_ENTRY_A",   "PULLBACK_ENTRY_A"),
+    ("L34_TRIGGER_A",      "L34_TRIGGER_A"),
+    ("SETUP_ONLY",         "SETUP_ONLY"),
+    ("BREAKOUT_ONLY",      "BREAKOUT_ONLY"),
+)
+
+
+def ultra_combo_perf(rows: List[dict]) -> List[dict]:
+    """One row per ULTRA combo group with aggregate metrics."""
+    out: list = []
+    for combo_name, flag in _COMBO_GROUPS:
+        sub = [r for r in rows if flag in _flags(r)]
+        m = _ultra_metrics(sub)
+        # Pick a couple of best/worst examples by ret_10d for tooltip use
+        def _safe10(r):
+            try: return float(r.get("ret_10d") or 0)
+            except (TypeError, ValueError): return 0
+        best = sorted(sub, key=_safe10, reverse=True)[:5]
+        worst = sorted(sub, key=_safe10)[:5]
+        out.append({
+            "combo": combo_name, **m,
+            "best_examples":  ";".join(f"{r.get('ticker','')}:{r.get('date','')}" for r in best),
+            "worst_examples": ";".join(f"{r.get('ticker','')}:{r.get('date','')}" for r in worst),
+        })
+    return out
+
+
+def ultra_score_events(rows: List[dict], top_n: int | None = 400) -> List[dict]:
+    """Historical example rows: ticker / date / score + reasons + outcomes.
+    Sorted by ULTRA Score desc; capped at ``top_n`` for the cached payload.
+    """
+    out: list = []
+    for r in rows:
+        try:
+            s = float(r.get("ultra_score") or 0)
+        except (TypeError, ValueError):
+            s = 0
+        out.append({
+            "ticker":              r.get("ticker", ""),
+            "date":                r.get("date", ""),
+            "close":               r.get("close"),
+            "ultra_score":         s,
+            "ultra_score_band":    r.get("ultra_score_band", ""),
+            "turbo_score":         r.get("turbo_score"),
+            "profile_score":       r.get("profile_score"),
+            "profile_category":    r.get("profile_category", ""),
+            "ultra_score_reasons": r.get("ultra_score_reasons", ""),
+            "ultra_score_flags":   r.get("ultra_score_flags", ""),
+            "ret_1d":              r.get("ret_1d"),
+            "ret_3d":              r.get("ret_3d"),
+            "ret_5d":              r.get("ret_5d"),
+            "ret_10d":             r.get("ret_10d"),
+            "mfe_10d":             r.get("mfe_10d"),
+            "mae_10d":             r.get("mae_10d"),
+        })
+    out.sort(key=lambda x: -(x.get("ultra_score") or 0))
+    if top_n:
+        out = out[:top_n]
+    return out
+
+
+def ultra_false_positives(rows: List[dict]) -> List[dict]:
+    """ultra_score >= 80 but ret_5d < 0 OR mae_5d <= -5."""
+    out = []
+    for r in rows:
+        try:
+            s = float(r.get("ultra_score") or 0)
+        except (TypeError, ValueError):
+            continue
+        if s < 80:
+            continue
+        ret5 = _safe_float_local(r.get("ret_5d"))
+        mae5 = _safe_float_local(r.get("mae_5d"))
+        if ret5 is None and mae5 is None:
+            continue
+        if (ret5 is not None and ret5 < 0) or (mae5 is not None and mae5 <= -5):
+            out.append({
+                "ticker":           r.get("ticker", ""),
+                "date":             r.get("date", ""),
+                "close":            r.get("close"),
+                "ultra_score":      s,
+                "ultra_score_band": r.get("ultra_score_band", ""),
+                "ret_5d":           ret5,
+                "ret_10d":          _safe_float_local(r.get("ret_10d")),
+                "mae_5d":           mae5,
+                "mae_10d":          _safe_float_local(r.get("mae_10d")),
+                "ultra_score_reasons": r.get("ultra_score_reasons", ""),
+                "ultra_score_flags":   r.get("ultra_score_flags", ""),
+            })
+    out.sort(key=lambda x: x.get("ret_5d") if x.get("ret_5d") is not None else 0)
+    return out
+
+
+def ultra_missed_winners(rows: List[dict]) -> List[dict]:
+    """ultra_score < 65 but mfe_10d >= +10 OR ret_10d >= +10."""
+    out = []
+    for r in rows:
+        try:
+            s = float(r.get("ultra_score") or 0)
+        except (TypeError, ValueError):
+            continue
+        if s >= 65:
+            continue
+        ret10 = _safe_float_local(r.get("ret_10d"))
+        mfe10 = _safe_float_local(r.get("mfe_10d"))
+        if ret10 is None and mfe10 is None:
+            continue
+        if (ret10 is not None and ret10 >= 10) or (mfe10 is not None and mfe10 >= 10):
+            out.append({
+                "ticker":           r.get("ticker", ""),
+                "date":             r.get("date", ""),
+                "close":            r.get("close"),
+                "ultra_score":      s,
+                "ultra_score_band": r.get("ultra_score_band", ""),
+                "ret_5d":           _safe_float_local(r.get("ret_5d")),
+                "ret_10d":          ret10,
+                "mfe_10d":          mfe10,
+                "ultra_score_reasons": r.get("ultra_score_reasons", ""),
+                "ultra_score_flags":   r.get("ultra_score_flags", ""),
+            })
+    out.sort(key=lambda x: -(x.get("mfe_10d") or 0))
+    return out
+
+
+def _safe_float_local(v):
+    try:
+        if v is None or v == "":
+            return None
+        f = float(v)
+        return None if f != f else f
+    except (TypeError, ValueError):
+        return None
+
+
 # ─── Main run function ─────────────────────────────────────────────────────────
 
 def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
@@ -2048,6 +2304,36 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         # 13 — False positives
         _state["progress"] = 13; _state["message"] = "False positives..."
         cached["false_positives"] = _save("false_positives", false_positives(rows))
+
+        # 13b — ULTRA Score analytics (only if stock_stat CSV has the columns).
+        # The score itself was written by Stock Stat / Bulk Signal CSV using the
+        # shared backend.ultra_score helper, so this stage is pure aggregation.
+        _state["progress_ultra_score"] = "running"
+        _ultra_available = any(("ultra_score" in r) for r in rows[:200])
+        if not _ultra_available:
+            log.warning(
+                "ULTRA Score columns not found in stock_stat CSV — "
+                "re-run Stock Stat after ULTRA Score support was added."
+            )
+            _state["ultra_score_status"] = "missing"
+        else:
+            try:
+                cached["ultra_score_band_summary"]    = _save(
+                    "ultra_score_band_summary",   ultra_score_band_summary(rows))
+                cached["ultra_score_bucket_summary"]  = _save(
+                    "ultra_score_bucket_summary", ultra_score_bucket_summary(rows))
+                cached["ultra_combo_perf"]            = _save(
+                    "ultra_combo_perf",           ultra_combo_perf(rows))
+                cached["ultra_score_events"]          = _save(
+                    "ultra_score_events",         ultra_score_events(rows, top_n=400))
+                cached["ultra_false_positives"]       = _save(
+                    "ultra_false_positives",      ultra_false_positives(rows))
+                cached["ultra_missed_winners"]        = _save(
+                    "ultra_missed_winners",       ultra_missed_winners(rows))
+                _state["ultra_score_status"] = "available"
+            except Exception as exc:  # never fail the whole replay run
+                log.exception("ULTRA Score analytics failed")
+                _state["ultra_score_status"] = f"error: {exc}"
 
         # 14 — Unscored
         _state["progress"] = 14; _state["message"] = "Active unscored signals..."

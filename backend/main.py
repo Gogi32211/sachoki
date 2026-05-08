@@ -27,6 +27,7 @@ from predictor import predict_next
 from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
 from canonical_scoring_engine import compute_canonical_score, get_scoring_metadata, SCORING_ENGINE_NAME, SCORING_ENGINE_VERSION
+from ultra_score import compute_ultra_score as _compute_ultra_score
 from scanner import (
     run_scan, get_results, get_last_scan_time,
     get_scan_progress,
@@ -1642,6 +1643,10 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "base_profile_score_without_btb", "category_without_btb", "category_with_btb",
             "btb_category_upgrade", "btb_created_sweet_spot",
             "btb_late_clamped", "btb_sweet_spot_allowed_profile",
+            # ── ULTRA Score (independent additive ranking, no lookahead) ──────
+            "ultra_score", "ultra_score_band", "ultra_score_reasons",
+            "ultra_score_flags", "ultra_score_raw_before_penalty",
+            "ultra_score_penalty_total",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1764,6 +1769,16 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             b.get("btb_created_sweet_spot", 0),
                             b.get("btb_late_clamped", 0),
                             b.get("btb_sweet_spot_allowed_profile", 0),
+                            # ── ULTRA Score (computed from current/past
+                            # bar fields only — never reads forward returns).
+                            # Adds 6 columns; missing input fields contribute 0.
+                            *(lambda _r: (
+                                _r["ultra_score"], _r["ultra_score_band"],
+                                " ".join(_r["ultra_score_reasons"]),
+                                " ".join(_r["ultra_score_flags"]),
+                                _r["ultra_score_raw_before_penalty"],
+                                _r["ultra_score_penalty_total"],
+                            ))(_compute_ultra_score(b)),
                         ])
                 except Exception:
                     pass

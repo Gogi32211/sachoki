@@ -344,208 +344,24 @@ def _cache_key(universe: str, tf: str, nasdaq_batch: str = "") -> tuple:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# ULTRA Score — independent additive ranking layer for ULTRA only.
-#
-# Rules:
-#   • Computed from data already merged into the row (Turbo flags +
-#     enrichment slots). Does NOT touch Turbo score, Turbo category,
-#     or any canonical module output.
-#   • Pure function. Missing fields contribute 0; never raises.
-#   • Range: 0..100 integer + band {A, B, C, D}.
-#
-# Components (capped per group, then summed and clamped):
-#   A. Breakout / Trigger          (cap 35)
-#   B. Setup / Accumulation        (cap 25)
-#   C. Confirmation / Quality      (cap 25)
-#   D. TZ / Pullback / Rare / ABR  (-20..+20)
-#   E. Penalties
-#   F. Combination bonuses
+# ─────────────────────────────────────────────────────────────────────────────
+# ULTRA Score — thin wrapper around the shared backend.ultra_score helper.
+# Live ULTRA and Stock Stat / Replay must stay in lockstep, so neither side
+# defines its own formula.
 # ─────────────────────────────────────────────────────────────────────────────
 
-# TZ Intel role groups for context scoring
-_INTEL_GO_READY    = {"BULL_A", "BULL_B", "BULL_CONTINUATION_A", "BULL_CONTINUATION_B",
-                       "PULLBACK_GO", "PULLBACK_CONFIRMING",
-                       "PULLBACK_READY_A", "PULLBACK_READY_B"}
-_INTEL_REJECT_LONG = {"REJECT_LONG", "REJECT"}
-_INTEL_SHORT       = {"SHORT_WATCH", "SHORT_GO"}
-
-
-def _compute_ultra_score(row: dict) -> tuple[int, str, str]:
-    """Return (score 0..100 int, band 'A'..'D', reasons string).
-
-    Reasons string is a compact ' + '-joined list of the strongest
-    contributing tokens, useful as a tooltip and for CSV.
-    """
-    if not isinstance(row, dict):
-        return 0, "D", ""
-
-    reasons: list[str] = []
-
-    def num(v, default=0.0) -> float:
-        try:
-            if v is None or v == "":
-                return default
-            f = float(v)
-            return default if (f != f) else f
-        except (TypeError, ValueError):
-            return default
-
-    # ── A. Breakout / Trigger (cap 35) ──────────────────────────────────────
-    a = 0
-    has_breakout = False
-    if row.get("buy_2809"):  a += 20; reasons.append("BUY_2809"); has_breakout = True
-    if row.get("rocket"):    a += 20; reasons.append("ROCKET");   has_breakout = True
-    if row.get("bb_brk"):    a += 15; reasons.append("BB↑");      has_breakout = True
-    if row.get("bx_up"):     a += 12; reasons.append("BX↑");      has_breakout = True
-    if row.get("eb_bull"):   a += 10; reasons.append("EB↑");      has_breakout = True
-    if row.get("be_up"):     a += 10; reasons.append("BE↑");      has_breakout = True
-    if row.get("bo_up"):     a += 10; reasons.append("BO↑");      has_breakout = True
-    a = min(a, 35)
-
-    # ── B. Setup / Accumulation (cap 25) ────────────────────────────────────
-    b = 0
-    has_setup = False
-    if row.get("abs_sig"):     b += 10; reasons.append("ABS");   has_setup = True
-    if row.get("va"):          b += 8;  reasons.append("VA");    has_setup = True
-    if row.get("svs_2809"):    b += 8;  reasons.append("SVS");   has_setup = True
-    if row.get("climb_sig"):   b += 7;  reasons.append("CLB");   has_setup = True
-    if row.get("load_sig"):    b += 6;  reasons.append("LD");    has_setup = True
-    if row.get("strong_sig"):  b += 8;  reasons.append("STR");   has_setup = True
-    if row.get("l34"):         b += 6;  reasons.append("L34");   has_setup = True
-    if row.get("fri34"):       b += 6;  reasons.append("FRI34"); has_setup = True
-    if row.get("tz_bull_flip"):b += 10; reasons.append("TZ→3");  has_setup = True
-    b = min(b, 25)
-
-    # ── C. Confirmation / Quality (cap 25) ──────────────────────────────────
-    c = 0
-    if row.get("rs_strong"):
-        c += 8; reasons.append("RS+")
-    pf = num(row.get("profile_score"), default=-1)
-    if pf >= 0:
-        if   pf >= 18: c += 12
-        elif pf >= 12: c += 9
-        elif pf >= 7:  c += 6
-        elif pf >= 1:  c += 3
-        if pf >= 1:
-            reasons.append(f"PF={int(pf)}")
-    cat = (row.get("profile_category") or "").upper()
-    if   cat == "SWEET_SPOT": c += 10; reasons.append("SWEET_SPOT")
-    elif cat == "BUILDING":   c += 6;  reasons.append("BUILDING")
-    elif cat == "WATCH":      c += 2
-    c = min(c, 25)
-
-    # ── D. TZ / Pullback / Rare / ABR context (-20..+20) ────────────────────
-    d = 0
-    intel = row.get("tz_intel") if isinstance(row.get("tz_intel"), dict) else {}
-    intel_role = (intel.get("role") or "").upper() if intel else ""
-    if intel_role in _INTEL_GO_READY:
-        d += 8; reasons.append(intel_role)
-    elif intel_role == "BULL_WATCH":
-        d += 6; reasons.append("BULL_WATCH")
-    elif intel_role in ("PULLBACK_WATCH", "EXTENDED_WATCH",
-                          "DEEP_PULLBACK_WATCH", "MIXED_WATCH", "BULL_WATCH"):
-        d += 4
-
-    pull = row.get("pullback") if isinstance(row.get("pullback"), dict) else {}
-    pull_tier  = (pull.get("evidence_tier") or "").upper() if pull else ""
-    pull_stage = (pull.get("pullback_stage") or "").upper() if pull else ""
-    pull_active = bool(pull.get("is_currently_active")) if pull else False
-    if pull_tier == "CONFIRMED_PULLBACK":
-        d += 10; reasons.append("CPB")
-    elif "READY" in pull_stage or "GO" in pull_stage or pull_active:
-        d += 8
-        reasons.append("RPB" if "READY" in pull_stage else
-                        "GPB" if "GO" in pull_stage else "APB-active")
-    elif pull_tier == "ANECDOTAL_PULLBACK":
-        d += 4; reasons.append("APB")
-    elif pull_tier:
-        d += 2
-
-    rare = row.get("rare_reversal") if isinstance(row.get("rare_reversal"), dict) else {}
-    rare_tier = (rare.get("evidence_tier") or "").upper() if rare else ""
-    rare_active = bool(rare.get("is_currently_active")) if rare else False
-    if rare_tier in ("CONFIRMED_RARE", "CONFIRMED_PATTERN"):
-        d += 8; reasons.append("CP")
-    elif rare_active:
-        d += 8; reasons.append("AP")
-    elif "READY" in rare_tier:
-        d += 6; reasons.append("RP")
-    elif rare_tier in ("FORMING_PATTERN", "ANECDOTAL_RARE"):
-        d += 2
-    elif rare_tier == "WATCH_PATTERN":
-        d += 1
-
-    abr = row.get("abr") if isinstance(row.get("abr"), dict) else {}
-    abr_cat = (abr.get("category") or "").upper() if abr else ""
-    if   abr_cat == "B+": d += 6; reasons.append("ABR=B+")
-    elif abr_cat == "B":  d += 4
-    elif abr_cat == "A":  d += 3
-    elif abr_cat == "R":  d -= 4
-
-    d = max(min(d, 20), -20)
-
-    # ── E. Penalties ────────────────────────────────────────────────────────
-    e = 0
-    if intel_role in _INTEL_REJECT_LONG:
-        e -= 10; reasons.append("REJECT(-)")
-    elif intel_role in _INTEL_SHORT:
-        e -= 8;  reasons.append("SHORT_WATCH(-)")
-    if abr_cat == "R":
-        # Already counted -4 in D, no extra
-        pass
-    if cat == "WATCH" and pf >= 0 and pf < 5:
-        e -= 4
-    if not has_breakout and not has_setup:
-        e -= 5  # isolated / no confluence
-
-    # ── F. Combination bonuses ──────────────────────────────────────────────
-    f = 0
-    has_breakout_any = bool(row.get("buy_2809") or row.get("rocket")
-                              or row.get("bb_brk") or row.get("bx_up")
-                              or row.get("eb_bull") or row.get("be_up")
-                              or row.get("bo_up"))
-    has_setup_any   = bool(row.get("abs_sig") or row.get("va")
-                            or row.get("svs_2809") or row.get("climb_sig")
-                            or row.get("load_sig"))
-    rs_plus = bool(row.get("rs_strong"))
-
-    if (row.get("buy_2809") or row.get("rocket")) and cat in ("SWEET_SPOT", "BUILDING"):
-        f += 12; reasons.append("MOMO+CAT")
-    if has_setup_any and has_breakout_any and rs_plus:
-        f += 15; reasons.append("REV-GROW")
-    if row.get("tz_bull_flip") and has_breakout_any and rs_plus:
-        f += 12; reasons.append("TRANSITION")
-    if pull_tier == "CONFIRMED_PULLBACK" and has_breakout_any and cat in ("SWEET_SPOT", "BUILDING"):
-        f += 12; reasons.append("PB-ENTRY")
-    if (row.get("l34") or row.get("fri34")) and has_breakout_any:
-        f += 8; reasons.append("L34→TRIG")
-
-    # ── Total + band ────────────────────────────────────────────────────────
-    total = a + b + c + d + e + f
-    score = max(0, min(100, int(round(total))))
-    if   score >= 80: band = "A"
-    elif score >= 65: band = "B"
-    elif score >= 50: band = "C"
-    else:             band = "D"
-
-    # Cap reasons string length so it doesn't bloat CSVs / tooltips
-    seen: set = set()
-    deduped = []
-    for r in reasons:
-        if r not in seen:
-            deduped.append(r); seen.add(r)
-        if len(deduped) >= 10:
-            break
-    return score, band, " + ".join(deduped)
+from ultra_score import compute_ultra_score as _shared_compute_ultra_score
 
 
 def _attach_ultra_score(row: dict) -> None:
-    """Compute and attach ultra_score / ultra_score_band / ultra_score_reasons
-    in place."""
-    score, band, reasons = _compute_ultra_score(row)
-    row["ultra_score"]         = score
-    row["ultra_score_band"]    = band
-    row["ultra_score_reasons"] = reasons
+    """Compute and attach ULTRA Score fields to ``row`` in place."""
+    sc = _shared_compute_ultra_score(row)
+    row["ultra_score"]                    = sc["ultra_score"]
+    row["ultra_score_band"]               = sc["ultra_score_band"]
+    row["ultra_score_reasons"]            = sc["ultra_score_reasons"]
+    row["ultra_score_flags"]              = sc["ultra_score_flags"]
+    row["ultra_score_raw_before_penalty"] = sc["ultra_score_raw_before_penalty"]
+    row["ultra_score_penalty_total"]      = sc["ultra_score_penalty_total"]
 
 
 def _empty_unenriched_row(turbo_row: dict) -> dict:

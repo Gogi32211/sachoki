@@ -568,18 +568,22 @@ def test_ultra_engine_module_signal_engines_pristine():
 # ── ULTRA Score (v3) — independent additive ranking ──────────────────────────
 
 def test_compute_ultra_score_pure_function():
-    """The score function never raises and returns (int 0..100, band, str)."""
-    s, band, reasons = uo._compute_ultra_score({})
-    assert s == 0
-    assert band in ("A", "B", "C", "D")
-    assert isinstance(reasons, str)
+    """The score function never raises and returns the 6-field dict."""
+    from ultra_score import compute_ultra_score
+    out = compute_ultra_score({})
+    assert out["ultra_score"] == 0
+    assert out["ultra_score_band"] in ("A", "B", "C", "D")
+    assert isinstance(out["ultra_score_reasons"], list)
+    assert isinstance(out["ultra_score_flags"], list)
+    assert isinstance(out["ultra_score_raw_before_penalty"], int)
+    assert isinstance(out["ultra_score_penalty_total"], int)
 
 
 def test_ultra_score_clamped_to_0_100_and_banded():
     """Even for a row with every possible flag, the score must clamp to 100,
     and the band must be 'A'."""
+    from ultra_score import compute_ultra_score
     row = _turbo_row("AAPL")
-    # Every flag the score function reads, set to true / a high value
     for k in ("buy_2809", "rocket", "bb_brk", "bx_up", "eb_bull", "be_up", "bo_up",
               "abs_sig", "va", "svs_2809", "climb_sig", "load_sig",
               "strong_sig", "l34", "fri34", "tz_bull_flip", "rs_strong"):
@@ -590,18 +594,19 @@ def test_ultra_score_clamped_to_0_100_and_banded():
     row["pullback"] = {"evidence_tier": "CONFIRMED_PULLBACK", "is_currently_active": True}
     row["rare_reversal"] = {"evidence_tier": "CONFIRMED_RARE", "is_currently_active": True}
     row["abr"] = {"category": "B+"}
-    s, band, _r = uo._compute_ultra_score(row)
-    assert s == 100, s
-    assert band == "A"
+    out = compute_ultra_score(row)
+    assert out["ultra_score"] == 100, out["ultra_score"]
+    assert out["ultra_score_band"] == "A"
 
 
 def test_ultra_score_negative_context_penalises():
     """REJECT_LONG must drop the score sharply."""
+    from ultra_score import compute_ultra_score
     row = _turbo_row("AAPL")
     row["bb_brk"] = 1
     row["tz_intel"] = {"role": "REJECT_LONG"}
-    s, _band, _r = uo._compute_ultra_score(row)
-    assert s < 30, f"expected reject penalty, got {s}"
+    out = compute_ultra_score(row)
+    assert out["ultra_score"] < 30, f"expected reject penalty, got {out['ultra_score']}"
 
 
 def test_stage1_rows_have_ultra_score(monkeypatch):
