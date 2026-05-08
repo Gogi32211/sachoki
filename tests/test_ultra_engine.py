@@ -401,6 +401,82 @@ def test_phase2_runs_secondaries_in_parallel(monkeypatch):
     )
 
 
+def test_default_max_workers_is_memory_safe():
+    """Memory regression: default Phase 2 fan-out must be <= 2.
+
+    Each Phase 2 reader independently loads the entire stock_stat_tz_wlnbb
+    CSV (~hundreds of MB on SP500/NASDAQ). Running 4 in parallel + Turbo
+    pushed Railway deploys past their memory limit. Default of 2 keeps
+    Phase 2 parallel without the OOM.
+    """
+    assert uo._DEFAULT_MAX_WORKERS <= 2, (
+        f"_DEFAULT_MAX_WORKERS={uo._DEFAULT_MAX_WORKERS} risks OOM on "
+        "memory-constrained deployments; keep <= 2"
+    )
+
+
+def test_results_cache_is_capped(monkeypatch):
+    """The orchestrator must evict old (universe, tf, batch) responses."""
+    _stub_turbo_phase(monkeypatch)
+    _stub_stock_stat_already_exists(monkeypatch)
+    _empty_secondary(monkeypatch)
+    # Reset cache so the test starts from a clean slate
+    uo._ultra_results_cache.clear()
+
+    # Run more scans than the cap allows
+    cap = uo._MAX_RESULTS_CACHE_ENTRIES
+    for i in range(cap + 3):
+        uo.run_ultra_scan_job(universe=f"u{i}", tf="1d")
+
+    assert len(uo._ultra_results_cache) <= cap, (
+        f"results cache grew past cap: "
+        f"{len(uo._ultra_results_cache)} > {cap}"
+    )
+    # Most-recent entries must be retained (LRU semantics)
+    last_keys = list(uo._ultra_results_cache.keys())
+    assert last_keys[-1] == (f"u{cap+2}", "1d", "")
+
+
+def test_intermediate_dicts_freed_after_merge(monkeypatch):
+    """Memory hygiene: per-source dicts must be cleared once merge is done."""
+    rows = _stub_turbo_phase(monkeypatch)
+    _stub_stock_stat_already_exists(monkeypatch)
+
+    # Make Phase 2 return non-empty dicts so we can assert they get cleared
+    monkeypatch.setattr(
+        uo, "_read_tz_wlnbb_latest",
+        lambda *a, **kw: {r["ticker"]: {"ticker": r["ticker"], "t_signal": "T1"}
+                          for r in rows},
+    )
+    monkeypatch.setattr(
+        "tz_intelligence.scanner.run_intelligence_scan",
+        lambda **_kw: {"results": [{"ticker": r["ticker"], "role": "BULL_A"}
+                                    for r in rows]},
+    )
+    monkeypatch.setattr(
+        "analyzers.pullback_miner.miner.run_pullback_scan",
+        lambda **_kw: {"results": [{"ticker": r["ticker"],
+                                     "evidence_tier": "CONFIRMED_PULLBACK"}
+                                    for r in rows]},
+    )
+    monkeypatch.setattr(
+        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
+        lambda **_kw: {"results": [{"ticker": r["ticker"],
+                                     "evidence_tier": "CONFIRMED_RARE",
+                                     "base4_key": "abcd"}
+                                    for r in rows]},
+    )
+
+    resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    # Merged results retain enrichments
+    assert any(r.get("tz_wlnbb") for r in resp["results"])
+    assert any(r.get("tz_intel") for r in resp["results"])
+    # Cached response is the same object — confirms we didn't accidentally
+    # mutate it during cleanup
+    cached = uo.get_ultra_results("sp500", "1d")
+    assert cached is resp
+
+
 def test_phase2_starts_while_turbo_still_running(monkeypatch):
     """Regression: Phase 2 must start as soon as stock_stat is done, even
     if Turbo is still running. Earlier orchestrator blocked on Turbo first,
