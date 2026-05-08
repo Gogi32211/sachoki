@@ -293,6 +293,128 @@ def test_turbo_score_and_category_pass_through_unchanged(monkeypatch):
     _check(resp)
 
 
+# ── Phase 1 / Phase 2 must execute in parallel, not strictly sequentially ────
+
+def test_phase1_runs_turbo_and_stock_stat_in_parallel(monkeypatch):
+    """Turbo and stock_stat generation must overlap inside Phase 1."""
+    import threading
+    import time as _t
+
+    overlap_seen = {"v": False}
+    in_flight    = {"turbo": False, "stock_stat": False}
+    lock         = threading.Lock()
+
+    def _mark(name: str, on: bool) -> None:
+        with lock:
+            in_flight[name] = on
+            if in_flight["turbo"] and in_flight["stock_stat"]:
+                overlap_seen["v"] = True
+
+    def slow_turbo(*_a, **_kw):
+        _mark("turbo", True)
+        _t.sleep(0.20)
+        _mark("turbo", False)
+        return 1
+
+    def slow_generate_stock_stat(tickers, fetch, **kwargs):
+        _mark("stock_stat", True)
+        _t.sleep(0.20)
+        _mark("stock_stat", False)
+        return kwargs.get("output_path"), {}
+
+    # Stub Turbo entry points
+    monkeypatch.setattr("turbo_engine.run_turbo_scan", slow_turbo)
+    monkeypatch.setattr("turbo_engine.get_turbo_results",
+                         lambda *a, **kw: [_turbo_row("AAPL")])
+    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time",
+                         lambda *a, **kw: "2026-05-08T07:00:00")
+    monkeypatch.setattr("turbo_engine.get_turbo_progress",
+                         lambda *a, **kw: {"done": 1, "total": 1})
+
+    # CSV starts missing → forces stock_stat generation path
+    state = {"exists": False}
+    monkeypatch.setattr(
+        uo, "_resolve_tz_wlnbb_csv",
+        lambda u, tf, nasdaq_batch="": "/tmp/stub.csv" if state["exists"] else None,
+    )
+    import analyzers.tz_wlnbb.stock_stat as _ss
+
+    def fake_gen(tickers, fetch, **kwargs):
+        path, audit = slow_generate_stock_stat(tickers, fetch, **kwargs)
+        state["exists"] = True
+        return path, audit
+    monkeypatch.setattr(_ss, "generate_stock_stat", fake_gen)
+
+    import scanner as _scanner
+    monkeypatch.setattr(_scanner, "get_universe_tickers", lambda u: ["AAPL"])
+    monkeypatch.setattr("data_polygon.polygon_available", lambda: False)
+    import data as _data
+    monkeypatch.setattr(_data, "fetch_ohlcv", lambda *a, **kw: None)
+
+    _empty_secondary(monkeypatch)
+
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    assert overlap_seen["v"], (
+        "Turbo and stock_stat generation must run concurrently in Phase 1"
+    )
+
+
+def test_phase2_runs_secondaries_in_parallel(monkeypatch):
+    """The four Phase 2 readers must execute concurrently, not back-to-back."""
+    import threading
+    import time as _t
+
+    _stub_turbo_phase(monkeypatch)
+    _stub_stock_stat_already_exists(monkeypatch)
+
+    in_flight     = {"a": 0, "max": 0}
+    lock          = threading.Lock()
+
+    def _enter() -> None:
+        with lock:
+            in_flight["a"] += 1
+            if in_flight["a"] > in_flight["max"]:
+                in_flight["max"] = in_flight["a"]
+
+    def _exit() -> None:
+        with lock:
+            in_flight["a"] -= 1
+
+    def slow(_resp):
+        _enter(); _t.sleep(0.10); _exit()
+        return _resp
+
+    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest",
+                         lambda *a, **kw: slow({}))
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                         lambda **_kw: slow({"results": []}))
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                         lambda **_kw: slow({"results": []}))
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                         lambda **_kw: slow({"results": []}))
+
+    uo.run_ultra_scan_job(universe="sp500", tf="1d", max_workers=4)
+    assert in_flight["max"] >= 2, (
+        f"Phase 2 should run at least 2 readers concurrently "
+        f"(saw max={in_flight['max']})"
+    )
+
+
+def test_phase2_pending_state_and_merge_phase_present(monkeypatch):
+    """Status surface must include Phase 2 pending pills + merge phase."""
+    _stub_turbo_phase(monkeypatch)
+    _stub_stock_stat_already_exists(monkeypatch)
+    _empty_secondary(monkeypatch)
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    status = uo.get_ultra_status()
+    # merge phase reaches 'ok' once results are merged
+    assert status["phases"]["merge"]["state"] == "ok"
+    # Phase 2 phases moved from 'pending' to a terminal state
+    for k in ("tz_wlnbb", "tz_intelligence", "pullback", "rare_reversal"):
+        assert status["phases"][k]["state"] in ("ok", "skipped", "error")
+
+
 # ── Test 6 — existing Turbo endpoint module still imports / behaves ──────────
 
 def test_existing_turbo_modules_still_work():

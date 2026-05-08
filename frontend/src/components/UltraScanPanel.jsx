@@ -1499,25 +1499,40 @@ export default function UltraScanPanel({ onSelectTicker }) {
             🧬 ULTRA — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()})
             {phase ? ` · phase: ${phase}` : ''}
           </div>
-          {Object.keys(phases).length > 0 && (
-            <div className="flex flex-wrap gap-1 mt-1 text-[10px]">
-              {['turbo', 'stock_stat', 'tz_wlnbb', 'tz_intelligence', 'pullback', 'rare_reversal'].map(p => {
-                const ph = phases[p]
-                if (!ph) return null
-                const dot = ph.state === 'ok'      ? 'text-emerald-400'
-                          : ph.state === 'running' ? 'text-fuchsia-300'
-                          : ph.state === 'error'   ? 'text-red-400'
-                          : ph.state === 'skipped' ? 'text-amber-300'
-                          : 'text-gray-500'
-                return (
-                  <span key={p} className={`px-1.5 py-0.5 border border-gray-800 rounded ${dot}`}
-                        title={ph.message || ph.state}>
-                    {p}: {ph.state}
-                  </span>
-                )
-              })}
-            </div>
-          )}
+          {Object.keys(phases).length > 0 && (() => {
+            // Group pills by pipeline phase so the user can see the
+            // dependency-aware execution at a glance.
+            const PHASE_GROUPS = [
+              { label: 'Phase 1 (parallel)', keys: ['turbo', 'stock_stat'] },
+              { label: 'Phase 2 (parallel)', keys: ['tz_wlnbb', 'tz_intelligence', 'pullback', 'rare_reversal'] },
+              { label: 'Phase 3',            keys: ['merge'] },
+            ]
+            const stateCls = (s) =>
+                s === 'ok'      ? 'text-emerald-400'
+              : s === 'running' ? 'text-fuchsia-300'
+              : s === 'error'   ? 'text-red-400'
+              : s === 'skipped' ? 'text-amber-300'
+              : 'text-gray-500'
+            return (
+              <div className="flex flex-col gap-1 mt-1 text-[10px]">
+                {PHASE_GROUPS.map(g => (
+                  <div key={g.label} className="flex flex-wrap items-center gap-1">
+                    <span className="text-gray-600 mr-1">{g.label}:</span>
+                    {g.keys.map(p => {
+                      const ph = phases[p]
+                      if (!ph) return null
+                      return (
+                        <span key={p} className={`px-1.5 py-0.5 border border-gray-800 rounded ${stateCls(ph.state)}`}
+                              title={ph.message || ph.state}>
+                          {p}: {ph.state}
+                        </span>
+                      )
+                    })}
+                  </div>
+                ))}
+              </div>
+            )
+          })()}
         </div>
       )}
       {error && (

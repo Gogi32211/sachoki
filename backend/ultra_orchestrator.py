@@ -65,7 +65,13 @@ _ultra_lock = threading.Lock()
 _PHASE_ORDER = (
     "turbo", "stock_stat", "tz_wlnbb",
     "tz_intelligence", "pullback", "rare_reversal",
+    "merge",
 )
+
+# Default Phase 2 fan-out. Phase 2 modules are read-only and largely I/O / CPU
+# bound on top of the same on-disk stock_stat CSV, so 4 workers is a safe
+# default. Caller can lower this for resource-constrained deployments.
+_DEFAULT_MAX_WORKERS = 4
 
 
 def _new_phase_dict() -> dict:
@@ -484,11 +490,30 @@ def run_ultra_scan_job(
     stock_stat_bars: int = 500,
     min_price: float = 0.0,
     max_price: float = 1e9,
+    max_workers: int = _DEFAULT_MAX_WORKERS,
 ) -> dict:
-    """Synchronous orchestrator. Runs Turbo, generates stock_stat, reads
-    enrichments, merges, caches the merged rows, returns the merged response.
+    """Dependency-aware orchestrator.
+
+    Pipeline:
+      Phase 1 (parallel, 2 workers): Turbo scan ‖ TZ/WLNBB stock_stat generation
+      Phase 2 (parallel, max_workers): TZ/WLNBB read · TZ Intelligence ·
+                                        Pullback Miner · Rare Reversal Miner
+      Phase 3:  merge enrichments onto Turbo rows by ticker
+
+    Phase 2 modules all read the same on-disk stock_stat CSV produced in
+    Phase 1, so they're safe to run concurrently.
+
+    Per-source failure NEVER aborts the response — the affected source is
+    marked unavailable and a warning is appended.
     """
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+
     with _ultra_lock:
+        phases = _new_phase_dict()
+        # Phase 2 modules are blocked on stock_stat — show as 'pending' upfront
+        for ph in ("tz_wlnbb", "tz_intelligence", "pullback", "rare_reversal"):
+            phases[ph] = {"state": "pending", "message": "waiting on stock_stat"}
+        phases["merge"] = {"state": "pending", "message": ""}
         _ultra_state.update({
             "running":      True,
             "started_at":   _time.time(),
@@ -497,7 +522,7 @@ def run_ultra_scan_job(
             "tf":           tf,
             "nasdaq_batch": nasdaq_batch or None,
             "phase":        None,
-            "phases":       _new_phase_dict(),
+            "phases":       phases,
             "error":        None,
             "warnings":     [],
             "sources":      {},
@@ -505,6 +530,7 @@ def run_ultra_scan_job(
             "turbo_total":  0,
             "stock_stat_done":  0,
             "stock_stat_total": 0,
+            "max_workers":  max_workers,
         })
 
     sources: dict = {
@@ -519,48 +545,102 @@ def run_ultra_scan_job(
     ordered: list = []
     last_scan: str | None = None
     results: list = []
+    tz_wlnbb_by_ticker: dict = {}
+    tz_intel_by_ticker: dict = {}
+    pullback_by_ticker: dict = {}
+    rare_by_ticker: dict = {}
+
+    def _run_turbo() -> tuple:
+        """Phase 1A — Turbo scan."""
+        return _phase_turbo(
+            universe=universe, tf=tf, lookback_n=lookback_n,
+            partial_day=partial_day, min_volume=min_volume,
+            min_store_score=min_store_score,
+        )
+
+    def _run_stock_stat() -> bool:
+        """Phase 1B — TZ/WLNBB stock_stat generation."""
+        return _phase_stock_stat(universe, tf, nasdaq_batch, stock_stat_bars)
 
     try:
-        # Phase A — Turbo (base rows)
-        try:
-            turbo_by_ticker, ordered, last_scan = _phase_turbo(
-                universe=universe, tf=tf, lookback_n=lookback_n,
-                partial_day=partial_day, min_volume=min_volume,
-                min_store_score=min_store_score,
-            )
-            sources["turbo"] = {"ok": True, "count": len(turbo_by_ticker)}
-        except Exception as exc:
-            _add_warning(f"Turbo scan failed: {exc}")
+        # ── Phase 1: Turbo and stock_stat run in parallel ────────────────────
+        with ThreadPoolExecutor(
+            max_workers=2, thread_name_prefix="ultra-p1"
+        ) as ex:
+            fut_turbo      = ex.submit(_run_turbo)
+            fut_stock_stat = ex.submit(_run_stock_stat)
 
-        # Phase B — TZ/WLNBB stock_stat generation (dependency for groups C/D/E)
-        _phase_stock_stat(universe, tf, nasdaq_batch, stock_stat_bars)
+            try:
+                turbo_by_ticker, ordered, last_scan = fut_turbo.result()
+                sources["turbo"] = {"ok": True, "count": len(turbo_by_ticker)}
+            except Exception as exc:
+                _add_warning(f"Turbo scan failed: {exc}")
 
-        # Phase C-E — read enrichments (independent of Turbo's outcome)
-        tz_wlnbb_by_ticker = _phase_tz_wlnbb(universe, tf, nasdaq_batch)
-        sources["tz_wlnbb"] = {"ok": bool(tz_wlnbb_by_ticker),
-                                "count": len(tz_wlnbb_by_ticker)}
+            # We don't need the stock_stat boolean return value here — the
+            # Phase 2 readers each detect CSV presence themselves and degrade
+            # to 'skipped' if missing. We just block until generation is done.
+            try:
+                fut_stock_stat.result()
+            except Exception as exc:
+                _add_warning(f"TZ/WLNBB stock_stat unavailable: {exc}")
 
-        tz_intel_by_ticker = _phase_tz_intelligence(
-            universe, tf, nasdaq_batch, min_price, max_price, min_volume,
-        )
+        # ── Phase 2: secondary readers run in parallel ───────────────────────
+        # All four read the same on-disk stock_stat CSV (no shared mutable state).
+        ph2_workers = max(1, min(4, max_workers))
+        with ThreadPoolExecutor(
+            max_workers=ph2_workers, thread_name_prefix="ultra-p2"
+        ) as ex:
+            fut2 = {
+                "tz_wlnbb":        ex.submit(_phase_tz_wlnbb,
+                                              universe, tf, nasdaq_batch),
+                "tz_intelligence": ex.submit(_phase_tz_intelligence,
+                                              universe, tf, nasdaq_batch,
+                                              min_price, max_price, min_volume),
+                "pullback":        ex.submit(_phase_pullback,
+                                              universe, tf, min_price, max_price),
+                "rare_reversal":   ex.submit(_phase_rare_reversal,
+                                              universe, tf, min_price, max_price),
+            }
+            for fut in as_completed(fut2.values()):
+                # Each phase fn already records its own state/warnings on
+                # exception — we just collect results as they finish so a
+                # slow source doesn't block fast ones from being recorded.
+                pass
+
+            try:
+                tz_wlnbb_by_ticker = fut2["tz_wlnbb"].result()       or {}
+            except Exception as exc:
+                _add_warning(f"TZ/WLNBB unavailable: {exc}")
+            try:
+                tz_intel_by_ticker = fut2["tz_intelligence"].result() or {}
+            except Exception as exc:
+                _add_warning(f"TZ Intelligence unavailable: {exc}")
+            try:
+                pullback_by_ticker = fut2["pullback"].result()       or {}
+            except Exception as exc:
+                _add_warning(f"Pullback Miner unavailable: {exc}")
+            try:
+                rare_by_ticker     = fut2["rare_reversal"].result() or {}
+            except Exception as exc:
+                _add_warning(f"Rare Reversal unavailable: {exc}")
+
+        sources["tz_wlnbb"]        = {"ok": bool(tz_wlnbb_by_ticker),
+                                       "count": len(tz_wlnbb_by_ticker)}
         sources["tz_intelligence"] = {"ok": bool(tz_intel_by_ticker),
                                        "count": len(tz_intel_by_ticker)}
+        sources["pullback"]        = {"ok": bool(pullback_by_ticker),
+                                       "count": len(pullback_by_ticker)}
+        sources["rare_reversal"]   = {"ok": bool(rare_by_ticker),
+                                       "count": len(rare_by_ticker)}
 
-        pullback_by_ticker = _phase_pullback(universe, tf, min_price, max_price)
-        sources["pullback"] = {"ok": bool(pullback_by_ticker),
-                                "count": len(pullback_by_ticker)}
-
-        rare_by_ticker = _phase_rare_reversal(universe, tf, min_price, max_price)
-        sources["rare_reversal"] = {"ok": bool(rare_by_ticker),
-                                     "count": len(rare_by_ticker)}
-
-        # Merge
+        # ── Phase 3: merge ───────────────────────────────────────────────────
+        _set_phase("merge", "running", "")
         results = _merge(
             turbo_by_ticker, ordered, last_scan,
             tz_wlnbb_by_ticker, tz_intel_by_ticker,
             pullback_by_ticker, rare_by_ticker,
         )
-        _set_phase("done", "ok", f"{len(results)} merged rows")
+        _set_phase("merge", "ok", f"{len(results)} merged rows")
 
     except Exception as exc:
         with _ultra_lock:
