@@ -941,13 +941,184 @@ export default function UltraScanPanel({ onSelectTicker }) {
     })
   }
 
-  // CSV cell sanitiser — neutralises Excel/Sheets formula injection (=,+,-,@)
+  // CSV cell sanitiser.
+  // Numeric values pass through unchanged (negative numbers must NOT be
+  // prefixed with apostrophe — that's a regression that breaks Excel/Sheets
+  // numeric columns). Only strings starting with =,+,-,@ get the prefix,
+  // and only when the string is not a parseable number.
   const _csvCell = (v) => {
     if (v == null) return ''
-    let s = Array.isArray(v) ? v.join(';') : String(v)
-    if (/^[=+\-@]/.test(s)) s = "'" + s
+    if (Array.isArray(v))     return _csvCell(v.join(';'))
+    if (typeof v === 'number') return Number.isFinite(v) ? String(v) : ''
+    if (typeof v === 'boolean') return v ? 'true' : 'false'
+    let s = String(v)
+    // If the string is actually a number (including negatives like "-139.4"),
+    // leave it as-is — it's a numeric value, not a formula.
+    const isNumeric = s !== '' && !isNaN(Number(s)) && /^-?\d/.test(s)
+    if (!isNumeric && /^[=+\-@]/.test(s)) s = "'" + s
     return s.includes(',') || s.includes('"') || s.includes('\n')
       ? `"${s.replace(/"/g, '""')}"` : s
+  }
+
+  // Display-column generators — mirror exactly what each table cell renders
+  // so the CSV reflects what's visible on screen, badge-for-badge.
+  const _displayRtb = (r) => {
+    if (!r.rtb_phase || r.rtb_phase === '0') return ''
+    return `${r.rtb_phase} ${(r.rtb_total ?? 0).toFixed(0)}`
+  }
+  const _displayTz = (r) => r.tz_sig || ''
+  const _displayGog = (r) => {
+    const parts = []
+    if (r.gog_tier) parts.push(r.gog_tier)
+    parts.push(...ctxTokens(r))
+    if ((r.signal_score ?? 0) > 0) parts.push(`SCORE=${r.signal_score}`)
+    if (r.already_extended) parts.push('EXT')
+    return parts.join(' | ')
+  }
+  const _displayVabs = (r) => {
+    const out = []
+    if (r.vol_spike_20x) out.push('V×20')
+    else if (r.vol_spike_10x) out.push('V×10')
+    else if (r.vol_spike_5x)  out.push('V×5')
+    if (r.best_sig)   out.push('BEST★')
+    if (r.strong_sig && !r.best_sig) out.push('STR')
+    if (r.vbo_up)     out.push('VBO↑')
+    if (r.vbo_dn)     out.push('VBO↓')
+    if (r.abs_sig)    out.push('ABS')
+    if (r.climb_sig)  out.push('CLB')
+    if (r.load_sig)   out.push('LD')
+    if (r.d_blast_bull)  out.push('ΔΔ↑')
+    if (r.d_surge_bull && !r.d_blast_bull) out.push('Δ↑')
+    if (r.d_strong_bull) out.push('B/S↑')
+    if (r.d_absorb_bull) out.push('Ab↑')
+    if (r.d_div_bull)    out.push('T↓')
+    if (r.d_cd_bull && !r.d_div_bull) out.push('cd↑')
+    if (r.d_spring)      out.push('dSPR')
+    if (r.d_vd_div_bull && !r.d_spring) out.push('NS')
+    if (r.rs_strong)     out.push('RS+')
+    else if (r.rs)       out.push('RS')
+    const PREUP = [['preup66','P66'],['preup55','P55'],['preup89','P89'],
+                    ['preup3','P3'],['preup2','P2'],['preup50','P50']]
+    for (const [k, lbl] of PREUP) if (r[k]) { out.push(lbl); break }
+    const PREDN = [['predn66','D66'],['predn55','D55'],['predn89','D89'],
+                    ['predn3','D3'],['predn2','D2'],['predn50','D50']]
+    for (const [k, lbl] of PREDN) if (r[k]) { out.push(lbl); break }
+    return out.join(' | ')
+  }
+  const _displayWyck = (r) => {
+    const out = []
+    if (r.ns) out.push('NS')
+    if (r.sq) out.push('SQ')
+    if (r.sc) out.push('SC')
+    if (r.bc) out.push('BC')
+    if (r.nd) out.push('ND')
+    return out.join(' | ')
+  }
+  const _displayCombo = (r) => {
+    const out = []
+    if (r.rocket)    out.push('🚀')
+    if (r.buy_2809)  out.push('BUY')
+    if (r.sig3g)     out.push('3G')
+    if (r.rtv)       out.push('RTV')
+    if (r.hilo_buy)  out.push('HILO↑')
+    if (r.atr_brk)   out.push('ATR↑')
+    if (r.bb_brk)    out.push('BB↑')
+    if (r.va)        out.push('VA')
+    if (r.bias_up)   out.push('↑BIAS')
+    if (r.hilo_sell) out.push('HILO↓')
+    if (r.bias_down) out.push('↓BIAS')
+    if (r.um_2809)    out.push('UM')
+    if (r.svs_2809)   out.push('SVS')
+    if (r.conso_2809) out.push('CON')
+    if (r.cd) out.push('CD')
+    else if (r.ca) out.push('CA')
+    else if (r.cw) out.push('CW')
+    if (r.any_f) out.push('ANY F')
+    for (const k of ['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11'])
+      if (r[k]) out.push(k.toUpperCase())
+    for (const k of ['g1','g2','g4','g6','g11'])
+      if (r[k]) out.push(k.toUpperCase())
+    if (r.seq_bcont) out.push('SBC')
+    for (const k of ['b1','b2','b3','b4','b5','b6','b7','b8','b9','b10','b11'])
+      if (r[k]) out.push(k.toUpperCase())
+    if (r.tz_bull_flip) out.push('TZ→3')
+    else if (r.tz_attempt) out.push('TZ→2')
+    if (r.smx)            out.push('SMX')
+    if (r.rgti_ll)        out.push('LL')
+    if (r.rgti_up)        out.push('UP')
+    if (r.rgti_upup)      out.push('↑↑')
+    if (r.rgti_upupup)    out.push('↑↑↑')
+    if (r.rgti_orange)    out.push('ORG')
+    if (r.rgti_green)     out.push('GRN')
+    if (r.rgti_greencirc) out.push('GC')
+    if (r.para_plus) out.push('PARA+')
+    else if (r.para_start) out.push('PARA')
+    if (r.para_prep)   out.push('PREP')
+    if (r.para_retest) out.push('RTEST')
+    if (r.akan_sig) out.push('A')
+    if (r.smx_sig)  out.push('SM')
+    if (r.nnn_sig)  out.push('N')
+    if (r.mx_sig)   out.push('MX')
+    if (r.gog_sig)  out.push('GOG')
+    if (r.fly_abcd) out.push('ABCD')
+    else {
+      if (r.fly_cd) out.push('CD')
+      if (r.fly_bd) out.push('BD')
+      if (r.fly_ad) out.push('AD')
+    }
+    return out.join(' | ')
+  }
+  const _displayLsigUltra = (r) => {
+    const out = []
+    if (r.fri34) out.push('FRI34')
+    if (r.fri43) out.push('FRI43')
+    if (r.fri64) out.push('FRI64')
+    if (r.l34  && !r.fri34) out.push('L34')
+    if (r.l43  && !r.fri43) out.push('L43')
+    if (r.l64  && !r.fri64) out.push('L64')
+    if (r.l22)       out.push('L22')
+    if (r.l555)      out.push('L555')
+    if (r.only_l2l4) out.push('L2L4')
+    if (r.blue)         out.push('BL')
+    if (r.cci_ready)    out.push('CCI')
+    if (r.cci_0_retest) out.push('CCI0R')
+    if (r.cci_blue_turn)out.push('CCIB')
+    if (r.bo_up) out.push('BO↑')
+    if (r.bo_dn) out.push('BO↓')
+    if (r.bx_up) out.push('BX↑')
+    if (r.bx_dn) out.push('BX↓')
+    if (r.be_up) out.push('BE↑')
+    if (r.be_dn) out.push('BE↓')
+    if (r.fuchsia_rh) out.push('RH')
+    if (r.fuchsia_rl) out.push('RL')
+    if (r.pre_pump)   out.push('PP')
+    if (r.x2g_wick) out.push('X2G')
+    if (r.x2_wick)  out.push('X2')
+    if (r.x1g_wick) out.push('X1G')
+    if (r.x1_wick)  out.push('X1')
+    if (r.x3_wick)  out.push('X3')
+    if (r.wick_bull) out.push('WK↑')
+    if (r.best_long) out.push('BEST↑')
+    else if (r.fbo_bull) out.push('FBO↑')
+    if (r.fbo_bear) out.push('FBO↓')
+    if (r.eb_bull)  out.push('EB↑')
+    if (r.eb_bear)  out.push('EB↓')
+    if (r.bf_buy)   out.push('4BF')
+    if (r.bf_sell)  out.push('4BF↓')
+    if (r.ultra_3up) out.push('3↑')
+    if (r.sig_l88)   out.push('L88')
+    else if (r.sig_260308) out.push('260308')
+    return out.join(' | ')
+  }
+  const _displayCategory = (r) => r.profile_category || ''
+  const _displayProfile = (r) => {
+    const parts = []
+    if (r.profile_score != null) parts.push(`PF=${r.profile_score}`)
+    if (r.profile_category)      parts.push(r.profile_category)
+    if (r.profile_name)          parts.push(r.profile_name)
+    if (r.sweet_spot_active)     parts.push('SWEET')
+    if (r.late_warning)          parts.push('LATE')
+    return parts.join(' | ')
   }
 
   // ULTRA export: CSV including Turbo fields + enrichment columns (read-only)
@@ -956,15 +1127,87 @@ export default function UltraScanPanel({ onSelectTicker }) {
       ? results.filter(r => pickedTickers.has(r.ticker))
       : results
 
-    const TURBO_FIELDS = [
-      'ticker', 'turbo_score', 'turbo_score_n3', 'turbo_score_n5', 'turbo_score_n10',
-      'tz_bull', 'tz_sig', 'rtb_total', 'rtb_phase',
-      'signal_score', 'profile_score', 'profile_category', 'profile_name',
-      'rsi', 'cci', 'last_price', 'change_pct', 'avg_vol', 'vol_bucket',
-      'sector', 'data_source', 'sweet_spot_active', 'late_warning',
+    // Display columns — one per visible badge group, joined by " | "
+    const DISPLAY_FIELDS = [
+      'turbo_rtb_display', 'turbo_tz_display', 'turbo_gog_display',
+      'turbo_vabs_display', 'turbo_wyck_display', 'turbo_combo_display',
+      'turbo_lsig_ultra_display',
+      'turbo_category_display', 'turbo_profile_display',
     ]
+
+    // Core / category fields visible in the table
+    const CORE_FIELDS = [
+      'ticker', 'turbo_score', 'turbo_score_n3', 'turbo_score_n5', 'turbo_score_n10',
+      'rtb_total', 'rtb_phase', 'tz_sig', 'tz_bull',
+      'signal_score', 'profile_score', 'profile_category', 'profile_name',
+      'sweet_spot_active', 'late_warning', 'gog_tier',
+      'rsi', 'cci', 'last_price', 'change_pct', 'avg_vol', 'vol_bucket',
+      'sector', 'data_source',
+    ]
+
+    // Raw signal fields behind every visible Turbo badge (boolean / numeric).
+    // Order grouped by family for readability — does not affect correctness.
+    const RAW_TURBO_FIELDS = [
+      // GOG / setup
+      'gog_sig','gog_score','gog_g1p','gog_g2p','gog_g3p',
+      'gog_g1l','gog_g2l','gog_g3l','gog_g1c','gog_g2c','gog_g3c',
+      'gog_gog1','gog_gog2','gog_gog3',
+      'smx_sig','akan_sig','nnn_sig','mx_sig','already_extended',
+      // VABS / Wyckoff
+      'best_sig','strong_sig','vbo_up','vbo_dn','abs_sig','climb_sig','load_sig',
+      'ns','nd','sc','bc','sq','va',
+      'vol_spike_5x','vol_spike_10x','vol_spike_20x',
+      // Combo / 2809 / trend
+      'buy_2809','rocket','sig3g','rtv','hilo_buy','hilo_sell',
+      'atr_brk','bb_brk','bias_up','bias_down','cons_atr',
+      'um_2809','svs_2809','conso_2809',
+      'ca','cd','cw','seq_bcont','any_f',
+      'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11',
+      // B
+      'b1','b2','b3','b4','b5','b6','b7','b8','b9','b10','b11',
+      // G
+      'g1','g2','g4','g6','g11',
+      // T/Z
+      'tz_state','tz_bull_flip','tz_attempt','tz_weak_bull','tz_weak_bear',
+      // WLNBB / L-Sig
+      'fri34','fri43','fri64','l34','l43','l64','l22','l555','only_l2l4',
+      'blue','cci_ready','cci_0_retest','cci_blue_turn',
+      'fuchsia_rh','fuchsia_rl','pre_pump',
+      // Breakout / Ultra-v2
+      'eb_bull','eb_bear','fbo_bull','fbo_bear','bf_buy','bf_sell',
+      'ultra_3up','ultra_3dn','best_long','best_short',
+      'bo_up','bo_dn','bx_up','bx_dn','be_up','be_dn',
+      'sig_260308','sig_l88',
+      // Delta / order-flow
+      'd_strong_bull','d_strong_bear','d_absorb_bull','d_absorb_bear',
+      'd_div_bull','d_div_bear','d_cd_bull','d_cd_bear',
+      'd_surge_bull','d_surge_bear','d_blast_bull','d_blast_bear',
+      'd_vd_div_bull','d_vd_div_bear','d_spring','d_upthrust',
+      'd_flip_bull','d_flip_bear','d_orange_bull',
+      'd_blast_bull_red','d_blast_bear_grn',
+      'd_surge_bull_red','d_surge_bear_grn',
+      // Wick
+      'wick_bull','wick_bear','x2g_wick','x2_wick','x1g_wick','x1_wick','x3_wick',
+      // RTB
+      'rtb_build','rtb_turn','rtb_ready','rtb_bonus3','rtb_late',
+      'rtb_transition','rtb_phase_age',
+      // RGTI / SMX / PARA / FLY
+      'rgti_ll','rgti_up','rgti_upup','rgti_upupup','rgti_orange','rgti_green','rgti_greencirc',
+      'smx',
+      'para_prep','para_start','para_plus','para_retest',
+      'fly_abcd','fly_cd','fly_bd','fly_ad',
+      // PREUP / PREDN
+      'preup66','preup55','preup89','preup3','preup2','preup50',
+      'predn66','predn55','predn89','predn3','predn2','predn50',
+      // RS
+      'rs','rs_strong',
+    ]
+
+    // ULTRA enrichment fields — unchanged
     const ULTRA_FIELDS = [
-      'ultra_has_tz_wlnbb', 'ultra_has_tz_intel', 'ultra_has_pullback', 'ultra_has_rare_reversal',
+      'ultra_enriched',
+      'ultra_has_turbo', 'ultra_has_tz_wlnbb', 'ultra_has_tz_intel',
+      'ultra_has_pullback', 'ultra_has_rare_reversal',
       'tz_wlnbb_t_signal', 'tz_wlnbb_z_signal', 'tz_wlnbb_l_signal',
       'tz_wlnbb_preup_signal', 'tz_wlnbb_predn_signal',
       'tz_wlnbb_lane1_label', 'tz_wlnbb_lane3_label',
@@ -982,7 +1225,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'rare_median_10d_return', 'rare_fail_rate_10d',
       'rare_is_currently_active', 'rare_current_pattern_completion',
     ]
-    const COLS = [...TURBO_FIELDS, ...ULTRA_FIELDS]
+
+    const COLS = [...DISPLAY_FIELDS, ...CORE_FIELDS, ...RAW_TURBO_FIELDS, ...ULTRA_FIELDS]
+
     const flatten = (r) => {
       const u = r.ultra_sources || {}
       const w = r.tz_wlnbb || {}
@@ -991,11 +1236,30 @@ export default function UltraScanPanel({ onSelectTicker }) {
       const p = r.pullback || {}
       const x = r.rare_reversal || {}
       const flat = {}
-      for (const k of TURBO_FIELDS) flat[k] = r[k]
-      flat.ultra_has_tz_wlnbb       = u.has_tz_wlnbb      ? 'true' : 'false'
-      flat.ultra_has_tz_intel       = u.has_tz_intel      ? 'true' : 'false'
-      flat.ultra_has_pullback       = u.has_pullback      ? 'true' : 'false'
-      flat.ultra_has_rare_reversal  = u.has_rare_reversal ? 'true' : 'false'
+
+      // Display columns
+      flat.turbo_rtb_display        = _displayRtb(r)
+      flat.turbo_tz_display         = _displayTz(r)
+      flat.turbo_gog_display        = _displayGog(r)
+      flat.turbo_vabs_display       = _displayVabs(r)
+      flat.turbo_wyck_display       = _displayWyck(r)
+      flat.turbo_combo_display      = _displayCombo(r)
+      flat.turbo_lsig_ultra_display = _displayLsigUltra(r)
+      flat.turbo_category_display   = _displayCategory(r)
+      flat.turbo_profile_display    = _displayProfile(r)
+
+      // Pass-through core + raw fields. Numerics stay numeric so _csvCell
+      // doesn't mangle them.
+      for (const k of CORE_FIELDS)      flat[k] = r[k]
+      for (const k of RAW_TURBO_FIELDS) flat[k] = r[k]
+
+      // ULTRA flags / enrichment slots
+      flat.ultra_enriched           = !!r.ultra_enriched
+      flat.ultra_has_turbo          = !!u.has_turbo
+      flat.ultra_has_tz_wlnbb       = !!u.has_tz_wlnbb
+      flat.ultra_has_tz_intel       = !!u.has_tz_intel
+      flat.ultra_has_pullback       = !!u.has_pullback
+      flat.ultra_has_rare_reversal  = !!u.has_rare_reversal
       for (const [k, v] of Object.entries(w)) flat[`tz_wlnbb_${k}`] = v
       flat.tz_intel_role                = i.role
       flat.tz_intel_quality             = i.quality
@@ -1009,8 +1273,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.abr_fail10d_pct      = a.fail10d_pct
       flat.abr_context_type     = a.context_type
       flat.abr_action_hint      = a.action_hint
-      flat.abr_conflict_flag    = a.conflict_flag     ? 'true' : 'false'
-      flat.abr_confirmation_flag= a.confirmation_flag ? 'true' : 'false'
+      flat.abr_conflict_flag    = !!a.conflict_flag
+      flat.abr_confirmation_flag= !!a.confirmation_flag
       flat.pullback_evidence_tier              = p.evidence_tier
       flat.pullback_pullback_stage             = p.pullback_stage
       flat.pullback_pattern_key                = p.pattern_key
@@ -1019,7 +1283,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.pullback_median_10d_return          = p.median_10d_return
       flat.pullback_win_rate_10d               = p.win_rate_10d
       flat.pullback_fail_rate_10d              = p.fail_rate_10d
-      flat.pullback_is_currently_active        = p.is_currently_active ? 'true' : 'false'
+      flat.pullback_is_currently_active        = !!p.is_currently_active
       flat.pullback_current_pattern_completion = p.current_pattern_completion
       flat.rare_evidence_tier              = x.evidence_tier
       flat.rare_base4_key                  = x.base4_key
@@ -1029,7 +1293,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.rare_score                      = x.score
       flat.rare_median_10d_return          = x.median_10d_return
       flat.rare_fail_rate_10d              = x.fail_rate_10d
-      flat.rare_is_currently_active        = x.is_currently_active ? 'true' : 'false'
+      flat.rare_is_currently_active        = !!x.is_currently_active
       flat.rare_current_pattern_completion = x.current_pattern_completion
       return flat
     }
