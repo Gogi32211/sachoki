@@ -2496,7 +2496,7 @@ def api_ultra_scan_trigger(
     stock_stat_bars: int   = Query(500),
     min_price:       float = Query(0.0),
     max_price:       float = Query(1e9),
-    max_workers:     int   = Query(4),
+    max_workers:     int   = Query(2),
 ):
     """Trigger an ULTRA orchestrated scan.
 

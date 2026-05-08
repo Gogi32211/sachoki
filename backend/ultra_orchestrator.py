@@ -25,10 +25,12 @@ and the affected ticker shows `—` in the relevant column.
 from __future__ import annotations
 
 import csv as _csv
+import gc as _gc
 import logging
 import os as _os
 import threading
 import time as _time
+from collections import OrderedDict
 from typing import Any
 
 log = logging.getLogger(__name__)
@@ -58,7 +60,8 @@ _ultra_state: dict = {
 
 # Cache: {(universe, tf, nasdaq_batch): {"results": [...], "meta": {...},
 #                                         "warnings": [...], "last_scan": "..."}}
-_ultra_results_cache: dict = {}
+# LRU-ordered so we can evict the oldest entry when the cap is reached.
+_ultra_results_cache: "OrderedDict[tuple, dict]" = OrderedDict()
 _ultra_lock = threading.Lock()
 
 
@@ -68,10 +71,23 @@ _PHASE_ORDER = (
     "merge",
 )
 
-# Default Phase 2 fan-out. Phase 2 modules are read-only and largely I/O / CPU
-# bound on top of the same on-disk stock_stat CSV, so 4 workers is a safe
-# default. Caller can lower this for resource-constrained deployments.
-_DEFAULT_MAX_WORKERS = 4
+# Default Phase 2 fan-out.
+#
+# Memory note: each Phase 2 module independently loads the entire
+# stock_stat_tz_wlnbb_*.csv into a `rows_by_ticker` dict (this is internal to
+# the existing modules and we don't modify them). For SP500/NASDAQ that's
+# easily 200–400 MB per copy, and Turbo is also memory-heavy, so running 4
+# parallel readers + Turbo on a small Railway slot OOMs.
+#
+# Default 2 keeps Phase 2 parallel (faster than sequential) while keeping
+# peak memory roughly halved vs. 4. Tighter deployments can pass
+# max_workers=1 to fully serialise Phase 2 readers; bigger boxes can pass
+# max_workers=4 for maximum throughput.
+_DEFAULT_MAX_WORKERS = 2
+
+# Cap how many merged ULTRA responses we hold in memory at once. Prevents the
+# results cache from growing unbounded across (universe, tf, batch) combos.
+_MAX_RESULTS_CACHE_ENTRIES = 4
 
 
 def _new_phase_dict() -> dict:
@@ -651,6 +667,21 @@ def run_ultra_scan_job(
         )
         _set_phase("merge", "ok", f"{len(results)} merged rows")
 
+        # Memory hygiene: the secondary modules' rows_by_ticker dicts can
+        # each be hundreds of MB. Once merge has consumed them we don't need
+        # them anymore — drop them and force a GC pass before serialising
+        # the response.
+        try:
+            tz_wlnbb_by_ticker.clear()
+            tz_intel_by_ticker.clear()
+            pullback_by_ticker.clear()
+            rare_by_ticker.clear()
+            turbo_by_ticker.clear()
+            del ordered[:]
+        except Exception:
+            pass
+        _gc.collect()
+
     except Exception as exc:
         with _ultra_lock:
             _ultra_state["error"] = str(exc)
@@ -673,7 +704,14 @@ def run_ultra_scan_job(
 
     cache_key = (universe, tf, nasdaq_batch or "")
     with _ultra_lock:
+        # LRU eviction: if the key already exists, move it to the end so the
+        # cap below evicts the oldest. New keys are appended at the end too.
+        if cache_key in _ultra_results_cache:
+            _ultra_results_cache.move_to_end(cache_key)
         _ultra_results_cache[cache_key] = response
+        # Cap so old (universe, tf, batch) responses don't accumulate forever
+        while len(_ultra_results_cache) > _MAX_RESULTS_CACHE_ENTRIES:
+            _ultra_results_cache.popitem(last=False)
         _ultra_state["sources"]      = sources
         _ultra_state["completed_at"] = _time.time()
         _ultra_state["running"]      = False
