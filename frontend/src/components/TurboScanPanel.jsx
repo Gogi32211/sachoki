@@ -960,7 +960,28 @@ export default function TurboScanPanel({ onSelectTicker }) {
     const a    = document.createElement('a')
     const date = new Date().toISOString().slice(0, 10)
     a.href     = url
-    a.download = `sachoki-${date}.txt`
+
+    // Build descriptive filename from active filters
+    const _sigLabelMap = Object.fromEntries(
+      SIG_GROUPS.filter(s => s.key).map(s => [s.key, s.label.replace(/[^a-zA-Z0-9]/g, '')])
+    )
+    const parts = [universe, localTf.toUpperCase()]
+    if (direction !== 'all') parts.push(direction.toUpperCase())
+    if (!scoreBands.has('all') && scoreBands.size > 0) {
+      parts.push([...scoreBands].join('+'))
+    }
+    if (selSigs.size > 0) {
+      const sigKeys = [...selSigs]
+      const sigLabels = sigKeys.slice(0, 3).map(k => _sigLabelMap[k] || k.toUpperCase())
+      const sigPart = sigLabels.join('+') + (sigKeys.length > 3 ? `+${sigKeys.length - 3}more` : '')
+      parts.push(sigPart)
+    }
+    if (secFilter) parts.push(secFilter.toUpperCase())
+    if (rtbPhase) parts.push(`RTB${rtbPhase}`)
+    if (sweetSpotFilter) parts.push('SWEET')
+    if (pickedTickers.size > 0) parts.push(`picked${pickedTickers.size}`)
+    parts.push(date)
+    a.download = `sachoki_${parts.join('_')}.txt`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
