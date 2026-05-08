@@ -401,6 +401,74 @@ def test_phase2_runs_secondaries_in_parallel(monkeypatch):
     )
 
 
+def test_phase2_starts_while_turbo_still_running(monkeypatch):
+    """Regression: Phase 2 must start as soon as stock_stat is done, even
+    if Turbo is still running. Earlier orchestrator blocked on Turbo first,
+    leaving Phase 2 stuck on 'pending' even after stock_stat went 'ok'.
+    """
+    import threading
+    import time as _t
+
+    turbo_started = threading.Event()
+    turbo_release = threading.Event()
+    phase2_seen_while_turbo_running = {"v": False}
+
+    def slow_turbo(*_a, **_kw):
+        turbo_started.set()
+        turbo_release.wait(timeout=5.0)  # block until test releases
+        return 1
+
+    monkeypatch.setattr("turbo_engine.run_turbo_scan", slow_turbo)
+    monkeypatch.setattr("turbo_engine.get_turbo_results",
+                         lambda *a, **kw: [_turbo_row("AAPL")])
+    monkeypatch.setattr("turbo_engine.get_last_turbo_scan_time",
+                         lambda *a, **kw: "2026-05-08T07:00:00")
+    monkeypatch.setattr("turbo_engine.get_turbo_progress",
+                         lambda *a, **kw: {"done": 1, "total": 1})
+
+    # stock_stat completes immediately (CSV already exists)
+    _stub_stock_stat_already_exists(monkeypatch)
+
+    def phase2_observer(*_a, **_kw):
+        # Whenever any Phase 2 reader runs, check whether Turbo is still
+        # blocked. If so, the orchestrator decoupled Phase 2 from Turbo.
+        if turbo_started.is_set() and not turbo_release.is_set():
+            phase2_seen_while_turbo_running["v"] = True
+        return {"results": []}
+
+    monkeypatch.setattr(uo, "_read_tz_wlnbb_latest",
+                         lambda *a, **kw: phase2_observer())
+    monkeypatch.setattr("tz_intelligence.scanner.run_intelligence_scan",
+                         lambda **_kw: phase2_observer())
+    monkeypatch.setattr("analyzers.pullback_miner.miner.run_pullback_scan",
+                         lambda **_kw: phase2_observer())
+    monkeypatch.setattr("analyzers.rare_reversal.miner.run_rare_reversal_scan",
+                         lambda **_kw: phase2_observer())
+
+    # Run the orchestrator on a worker thread so we can release Turbo
+    # after Phase 2 has had a chance to fire.
+    result_box: dict = {}
+
+    def runner():
+        result_box["resp"] = uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    th = threading.Thread(target=runner)
+    th.start()
+
+    # Give Phase 2 some time to run while Turbo is blocked
+    turbo_started.wait(timeout=2.0)
+    _t.sleep(0.20)
+    # Now release Turbo so the orchestrator can finish
+    turbo_release.set()
+    th.join(timeout=10.0)
+
+    assert not th.is_alive(), "orchestrator did not return"
+    assert phase2_seen_while_turbo_running["v"], (
+        "Phase 2 readers must start while Turbo is still running "
+        "(orchestrator should not block Phase 2 on Turbo's completion)"
+    )
+
+
 def test_phase2_pending_state_and_merge_phase_present(monkeypatch):
     """Status surface must include Phase 2 pending pills + merge phase."""
     _stub_turbo_phase(monkeypatch)

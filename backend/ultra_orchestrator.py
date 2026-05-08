@@ -563,52 +563,57 @@ def run_ultra_scan_job(
         return _phase_stock_stat(universe, tf, nasdaq_batch, stock_stat_bars)
 
     try:
-        # ── Phase 1: Turbo and stock_stat run in parallel ────────────────────
-        with ThreadPoolExecutor(
-            max_workers=2, thread_name_prefix="ultra-p1"
-        ) as ex:
-            fut_turbo      = ex.submit(_run_turbo)
-            fut_stock_stat = ex.submit(_run_stock_stat)
+        # ── Phase 1: Turbo and stock_stat in parallel ────────────────────────
+        # Two raw executors so we can drive Phase 2 off stock_stat completion
+        # without blocking on Turbo (Phase 2 only depends on stock_stat).
+        ex1 = ThreadPoolExecutor(max_workers=2, thread_name_prefix="ultra-p1")
+        ph2_workers = max(1, min(4, max_workers))
+        ex2 = ThreadPoolExecutor(
+            max_workers=ph2_workers, thread_name_prefix="ultra-p2",
+        )
+        try:
+            fut_turbo      = ex1.submit(_run_turbo)
+            fut_stock_stat = ex1.submit(_run_stock_stat)
 
+            # Wait on stock_stat ONLY — Turbo continues running in parallel.
+            try:
+                fut_stock_stat.result()
+            except Exception as exc:
+                _add_warning(f"TZ/WLNBB stock_stat unavailable: {exc}")
+
+            # ── Phase 2: secondary readers start NOW ─────────────────────────
+            # Triggered as soon as stock_stat is done; Turbo may still be
+            # running. All four read the same on-disk stock_stat CSV with no
+            # shared mutable state, so parallelism is safe.
+            fut2 = {
+                "tz_wlnbb":        ex2.submit(_phase_tz_wlnbb,
+                                              universe, tf, nasdaq_batch),
+                "tz_intelligence": ex2.submit(_phase_tz_intelligence,
+                                              universe, tf, nasdaq_batch,
+                                              min_price, max_price, min_volume),
+                "pullback":        ex2.submit(_phase_pullback,
+                                              universe, tf, min_price, max_price),
+                "rare_reversal":   ex2.submit(_phase_rare_reversal,
+                                              universe, tf, min_price, max_price),
+            }
+
+            # Drain everything (Turbo + the four Phase 2 readers) as it
+            # completes. We don't act on the as_completed values directly —
+            # each phase fn records its own state/warnings — but draining
+            # surfaces any unhandled exception promptly via .result() below.
+            for _ in as_completed(list(fut2.values()) + [fut_turbo]):
+                pass
+
+            # Collect Turbo result (may have finished anywhere along the way)
             try:
                 turbo_by_ticker, ordered, last_scan = fut_turbo.result()
                 sources["turbo"] = {"ok": True, "count": len(turbo_by_ticker)}
             except Exception as exc:
                 _add_warning(f"Turbo scan failed: {exc}")
 
-            # We don't need the stock_stat boolean return value here — the
-            # Phase 2 readers each detect CSV presence themselves and degrade
-            # to 'skipped' if missing. We just block until generation is done.
+            # Collect Phase 2 results
             try:
-                fut_stock_stat.result()
-            except Exception as exc:
-                _add_warning(f"TZ/WLNBB stock_stat unavailable: {exc}")
-
-        # ── Phase 2: secondary readers run in parallel ───────────────────────
-        # All four read the same on-disk stock_stat CSV (no shared mutable state).
-        ph2_workers = max(1, min(4, max_workers))
-        with ThreadPoolExecutor(
-            max_workers=ph2_workers, thread_name_prefix="ultra-p2"
-        ) as ex:
-            fut2 = {
-                "tz_wlnbb":        ex.submit(_phase_tz_wlnbb,
-                                              universe, tf, nasdaq_batch),
-                "tz_intelligence": ex.submit(_phase_tz_intelligence,
-                                              universe, tf, nasdaq_batch,
-                                              min_price, max_price, min_volume),
-                "pullback":        ex.submit(_phase_pullback,
-                                              universe, tf, min_price, max_price),
-                "rare_reversal":   ex.submit(_phase_rare_reversal,
-                                              universe, tf, min_price, max_price),
-            }
-            for fut in as_completed(fut2.values()):
-                # Each phase fn already records its own state/warnings on
-                # exception — we just collect results as they finish so a
-                # slow source doesn't block fast ones from being recorded.
-                pass
-
-            try:
-                tz_wlnbb_by_ticker = fut2["tz_wlnbb"].result()       or {}
+                tz_wlnbb_by_ticker = fut2["tz_wlnbb"].result() or {}
             except Exception as exc:
                 _add_warning(f"TZ/WLNBB unavailable: {exc}")
             try:
@@ -616,13 +621,17 @@ def run_ultra_scan_job(
             except Exception as exc:
                 _add_warning(f"TZ Intelligence unavailable: {exc}")
             try:
-                pullback_by_ticker = fut2["pullback"].result()       or {}
+                pullback_by_ticker = fut2["pullback"].result() or {}
             except Exception as exc:
                 _add_warning(f"Pullback Miner unavailable: {exc}")
             try:
-                rare_by_ticker     = fut2["rare_reversal"].result() or {}
+                rare_by_ticker = fut2["rare_reversal"].result() or {}
             except Exception as exc:
                 _add_warning(f"Rare Reversal unavailable: {exc}")
+        finally:
+            # Both executors must shut down before we return cleanly.
+            ex1.shutdown(wait=True)
+            ex2.shutdown(wait=True)
 
         sources["tz_wlnbb"]        = {"ok": bool(tz_wlnbb_by_ticker),
                                        "count": len(tz_wlnbb_by_ticker)}
