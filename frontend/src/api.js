@@ -161,7 +161,27 @@ export const api = {
     get('/api/stock-stat/status'),
   stockStatDownloadUrl: () => BASE + '/api/stock-stat/download',
 
-  // ULTRA — read-only signal aggregation (no new score)
+  // ULTRA — read-only signal aggregation orchestrator (no new score)
+  // Trigger an orchestrated ULTRA scan (Turbo + TZ/WLNBB stock_stat + enrichments)
+  ultraScanTrigger: (tf = '1d', universe = 'sp500', opts = {}) => {
+    const p = new URLSearchParams({ tf, universe })
+    if (opts.lookbackN     != null) p.set('lookback_n',      opts.lookbackN)
+    if (opts.partialDay    != null) p.set('partial_day',     opts.partialDay)
+    if (opts.minVolume     != null) p.set('min_volume',      opts.minVolume)
+    if (opts.minStoreScore != null) p.set('min_store_score', opts.minStoreScore)
+    if (opts.nasdaqBatch)           p.set('nasdaq_batch',    opts.nasdaqBatch)
+    if (opts.stockStatBars != null) p.set('stock_stat_bars', opts.stockStatBars)
+    if (opts.minPrice      != null) p.set('min_price',       opts.minPrice)
+    if (opts.maxPrice      != null) p.set('max_price',       opts.maxPrice)
+    return post(`/api/ultra-scan/trigger?${p}`)
+  },
+  ultraScanStatus: () => get('/api/ultra-scan/status'),
+  ultraScanResults: (universe = 'sp500', tf = '1d', nasdaq_batch = '') => {
+    const p = new URLSearchParams({ universe, tf })
+    if (nasdaq_batch) p.set('nasdaq_batch', nasdaq_batch)
+    return get(`/api/ultra-scan/results?${p}`)
+  },
+  // Backwards-compat: same payload as /results
   ultraScan: (params) => get(`/api/ultra-scan?${new URLSearchParams(params)}`),
 
   // Sector Analysis
