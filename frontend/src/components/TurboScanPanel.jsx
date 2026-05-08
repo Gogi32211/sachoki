@@ -17,13 +17,14 @@ const UNIVERSES = [
 // ── Timeframes ────────────────────────────────────────────────────────────────
 const TF_OPTS = ['1wk', '1d', '4h', '1h']
 
-// ── Score thresholds ──────────────────────────────────────────────────────────
-const SCORE_THRESHOLDS = [
-  { label: 'All',      value: 0  },
-  { label: '≥ 20',     value: 20 },
-  { label: '≥ 35',     value: 35 },
-  { label: '≥ 50',     value: 50 },
-  { label: 'Fire ≥65', value: 65 },
+// ── Score bands (multi-select) ────────────────────────────────────────────────
+const SCORE_BANDS = [
+  { key: 'all',   label: 'All'    },
+  { key: '0-20',  label: '0–20',  min: 0,  max: 20  },
+  { key: '21-40', label: '21–40', min: 21, max: 40  },
+  { key: '41-60', label: '41–60', min: 41, max: 60  },
+  { key: '61-80', label: '61–80', min: 61, max: 80  },
+  { key: '81+',   label: '81–100',min: 81, max: 1e9 },
 ]
 
 // ── Direction filter ──────────────────────────────────────────────────────────
@@ -744,7 +745,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const pollIvRef   = useRef(null)   // interval handle — prevents duplicate polls
   const fetchSeqRef = useRef(0)      // monotonic counter — discard stale fetches
   const [massiveReady, setMassiveReady] = useState(null)
-  const [minScore,   setMinScore]   = useState(0)
+  const [scoreBands, setScoreBands] = useState(new Set(['all']))
   const [direction,  setDirection]  = useState('bull')
   const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
   const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
@@ -871,9 +872,14 @@ export default function TurboScanPanel({ onSelectTicker }) {
   // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
     const filtered = allResults.filter(r => {
-      // score threshold against N-appropriate score
+      // score band filter (multi-select)
       const score = r[effectiveScoreCol] ?? r.turbo_score ?? 0
-      if (score < minScore) return false
+      if (!scoreBands.has('all') && scoreBands.size > 0) {
+        const inBand = SCORE_BANDS.some(b =>
+          b.key !== 'all' && scoreBands.has(b.key) && score >= b.min && score <= b.max
+        )
+        if (!inBand) return false
+      }
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
       if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
@@ -914,7 +920,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, minScore, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1135,15 +1141,34 @@ export default function TurboScanPanel({ onSelectTicker }) {
           ))}
         </div>
 
-        {/* Score threshold */}
+        {/* Score bands — multi-select */}
         <div className="flex gap-0.5 ml-1">
-          {SCORE_THRESHOLDS.map(t => (
-            <button key={t.value} onClick={() => setMinScore(t.value)}
-              className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${minScore === t.value ? 'bg-amber-600 text-black font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
-              {t.label}
-            </button>
-          ))}
+          {SCORE_BANDS.map(b => {
+            const active = scoreBands.has(b.key)
+            return (
+              <button key={b.key}
+                onClick={() => {
+                  setScoreBands(prev => {
+                    const next = new Set(prev)
+                    if (b.key === 'all') {
+                      return new Set(['all'])
+                    }
+                    next.delete('all')
+                    if (next.has(b.key)) {
+                      next.delete(b.key)
+                      if (next.size === 0) next.add('all')
+                    } else {
+                      next.add(b.key)
+                    }
+                    return next
+                  })
+                }}
+                className={`px-2 py-0.5 rounded text-xs transition-colors
+                  ${active ? 'bg-amber-600 text-black font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                {b.label}
+              </button>
+            )
+          })}
         </div>
 
         {/* N= lookback selector — client-side, no rescan needed */}
