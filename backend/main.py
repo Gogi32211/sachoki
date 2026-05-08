@@ -2483,32 +2483,76 @@ def api_rare_reversal_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.post("/api/ultra-scan/trigger")
+def api_ultra_scan_trigger(
+    background_tasks: BackgroundTasks,
+    universe:        str   = Query("sp500"),
+    tf:              str   = Query("1d"),
+    lookback_n:      int   = Query(5),
+    partial_day:     bool  = Query(False),
+    min_volume:      float = Query(0.0),
+    min_store_score: float = Query(5.0),
+    nasdaq_batch:    str   = Query(""),
+    stock_stat_bars: int   = Query(500),
+    min_price:       float = Query(0.0),
+    max_price:       float = Query(1e9),
+):
+    """Trigger an ULTRA orchestrated scan: Turbo + TZ/WLNBB stock_stat
+    generation + read enrichments from TZ Intel / Pullback / Rare Reversal.
+    Runs as a background task; poll /api/ultra-scan/status."""
+    from ultra_orchestrator import get_ultra_status, run_ultra_scan_job
+    if get_ultra_status().get("running"):
+        raise HTTPException(status_code=409, detail="ULTRA scan already running")
+    background_tasks.add_task(
+        run_ultra_scan_job,
+        universe=universe, tf=tf, lookback_n=lookback_n,
+        partial_day=partial_day, min_volume=min_volume,
+        min_store_score=min_store_score, nasdaq_batch=nasdaq_batch,
+        stock_stat_bars=stock_stat_bars,
+        min_price=min_price, max_price=max_price,
+    )
+    return {
+        "status":       "ULTRA scan started",
+        "universe":     universe,
+        "tf":           tf,
+        "nasdaq_batch": nasdaq_batch or None,
+    }
+
+
+@app.get("/api/ultra-scan/status")
+def api_ultra_scan_status():
+    from ultra_orchestrator import get_ultra_status
+    return get_ultra_status()
+
+
+@app.get("/api/ultra-scan/results")
+def api_ultra_scan_results(
+    universe:     str = Query("sp500"),
+    tf:           str = Query("1d"),
+    nasdaq_batch: str = Query(""),
+):
+    """Return the most recently merged ULTRA results for this (universe, tf,
+    batch). If no scan has run yet, returns empty results with a warning."""
+    try:
+        from ultra_orchestrator import get_ultra_results
+        return get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+    except Exception as exc:
+        log.exception("ultra-scan/results error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 @app.get("/api/ultra-scan")
 def api_ultra_scan(
-    universe:     str   = Query("sp500"),
-    tf:           str   = Query("1d"),
-    direction:    str   = Query("bull"),
-    limit:        int   = Query(500),
-    min_score:    float = Query(0.0),
-    min_price:    float = Query(0.0),
-    max_price:    float = Query(1e9),
-    min_volume:   float = Query(0.0),
-    scan_mode:    str   = Query("latest"),
-    role_filter:  str   = Query("all"),
-    nasdaq_batch: str   = Query(""),
+    universe:     str = Query("sp500"),
+    tf:           str = Query("1d"),
+    nasdaq_batch: str = Query(""),
 ):
-    """ULTRA — read-only signal aggregation across Turbo, TZ/WLNBB, TZ Intel,
-    Pullback Miner, and Rare Reversal Miner. Does NOT compute any new score
-    or category. Per-source failures degrade gracefully and surface as warnings.
-    """
+    """Convenience alias for /api/ultra-scan/results — returns the cached
+    ULTRA response for this (universe, tf, batch). The main UX is
+    trigger → status → results, like Turbo."""
     try:
-        from ultra_engine import run_ultra_scan
-        return run_ultra_scan(
-            universe=universe, tf=tf, direction=direction, limit=limit,
-            min_score=min_score, min_price=min_price, max_price=max_price,
-            min_volume=min_volume, scan_mode=scan_mode,
-            role_filter=role_filter, nasdaq_batch=nasdaq_batch,
-        )
+        from ultra_orchestrator import get_ultra_results
+        return get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
     except Exception as exc:
         log.exception("ultra-scan error")
         raise HTTPException(status_code=500, detail=str(exc))
