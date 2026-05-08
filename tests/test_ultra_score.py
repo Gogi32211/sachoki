@@ -164,6 +164,34 @@ def _bar(score=70, band="B", flags="", reasons="", **fwd):
     return base
 
 
+def test_ultra_metrics_reads_underscore_forward_returns():
+    """Regression: replay rows carry forward returns under underscore-prefixed
+    keys (_ret1/_ret3/_ret5/_ret10/_max5/_max10) attached by _label_rows.
+    The first ULTRA aggregation pass shipped with lowercase ret_*d keys, so
+    the live UI showed '—' across every Ret/Win/Hit cell. Verify the metrics
+    helper now picks up the underscore keys correctly."""
+    rows = [
+        {"ultra_score": 88, "ultra_score_band": "A",
+         "_ret1":  1.0, "_ret3": 2.0, "_ret5": 5.0, "_ret10": 9.0,
+         "_max5":  6.0, "_max10": 11.0},
+        {"ultra_score": 82, "ultra_score_band": "A",
+         "_ret1": -0.5, "_ret3": 1.0, "_ret5": 2.5, "_ret10": -1.0,
+         "_max5":  3.0, "_max10":  3.5},
+    ]
+    m = replay_engine._ultra_metrics(rows)
+    # Returns must be averaged from the _ret* shortcuts, not None
+    assert m["avg_ret_5d"] is not None
+    assert m["avg_ret_10d"] is not None
+    assert abs(m["avg_ret_5d"]  - 3.75) < 0.01
+    assert abs(m["avg_ret_10d"] - 4.0)  < 0.01
+    # MFE proxied by _max* shortcut
+    assert m["avg_mfe_5d"] is not None
+    assert m["avg_mfe_10d"] is not None
+    # MAE not produced by this engine — must be None, not 0 / fabricated
+    assert m["avg_mae_5d"]  is None
+    assert m["avg_mae_10d"] is None
+
+
 def test_ultra_band_summary_buckets_rows_by_band():
     rows = [
         _bar(score=88, band="A", ret_5d=8.0, ret_10d=12.0),
