@@ -1797,7 +1797,14 @@ _ULTRA_BUCKETS = (
 
 
 def _ultra_metrics(rows: List[dict]) -> dict:
-    """Compute the metrics block used by both band-summary and bucket-summary."""
+    """Compute the metrics block used by both band-summary and bucket-summary.
+
+    Reads forward-return shortcuts that ``_label_rows`` already attached to
+    each row (``_ret1``/``_ret3``/``_ret5``/``_ret10`` for close-to-close,
+    ``_max5``/``_max10`` for max forward high vs entry close — which doubles
+    as MFE in this engine). MAE is not computed in this pipeline so we skip
+    it instead of fabricating a value.
+    """
     if not rows:
         return {"count": 0}
 
@@ -1825,10 +1832,22 @@ def _ultra_metrics(rows: List[dict]) -> dict:
     def fail(xs, threshold):
         return _rate([x <= -threshold for x in xs]) if xs else None
 
-    r1   = col("ret_1d");   r3  = col("ret_3d")
-    r5   = col("ret_5d");   r10 = col("ret_10d")
-    mfe5 = col("mfe_5d");   mae5 = col("mae_5d")
-    mfe10= col("mfe_10d");  mae10 = col("mae_10d")
+    def col_any(*keys):
+        # Pick the first key that has any non-empty value across rows. Lets
+        # the function work both on live replay rows (_ret*) and on tests
+        # / external CSV inputs (ret_*d / mfe_*d) without double-counting.
+        for k in keys:
+            xs = col(k)
+            if xs:
+                return xs
+        return []
+
+    r1   = col_any("_ret1",  "ret_1d")
+    r3   = col_any("_ret3",  "ret_3d")
+    r5   = col_any("_ret5",  "ret_5d")
+    r10  = col_any("_ret10", "ret_10d")
+    mfe5  = col_any("_max5",  "mfe_5d")
+    mfe10 = col_any("_max10", "mfe_10d")
 
     return {
         "count":            len(rows),
@@ -1843,8 +1862,10 @@ def _ultra_metrics(rows: List[dict]) -> dict:
         "hit_10pct_10d":  hit(r10, 10.0),
         "fail_rate_5d":   fail(r5, 3.0),
         "fail_rate_10d":  fail(r10, 5.0),
-        "avg_mfe_5d":  avg(mfe5),  "avg_mae_5d":  avg(mae5),
-        "avg_mfe_10d": avg(mfe10), "avg_mae_10d": avg(mae10),
+        # _max5/_max10 are max forward highs — used as MFE proxy. No MAE in
+        # this engine; emit None so the UI shows "—" rather than fabricating.
+        "avg_mfe_5d":  avg(mfe5),  "avg_mae_5d":  None,
+        "avg_mfe_10d": avg(mfe10), "avg_mae_10d": None,
     }
 
 
@@ -1901,16 +1922,45 @@ _COMBO_GROUPS = (
 )
 
 
+# Forward-return shortcut keys attached by _label_rows (replay_engine).
+# Tests stub these directly; live runs see them post-_label_rows.
+_FWD_RET_1D, _FWD_RET_3D, _FWD_RET_5D, _FWD_RET_10D = "_ret1", "_ret3", "_ret5", "_ret10"
+_FWD_MFE_5D, _FWD_MFE_10D                            = "_max5", "_max10"
+# This engine does not compute MAE; the analytics that need it accept None.
+
+
+def _ultra_row_outcomes(r: dict) -> dict:
+    """Read forward-return shortcuts attached by ``_label_rows``. Falls back
+    to lowercase ret_*/mfe_*/mae_* keys for tests / direct CSV inputs that
+    use the spec's naming."""
+    def pick(*keys):
+        for k in keys:
+            v = r.get(k)
+            if v is not None and v != "":
+                return _safe_float_local(v)
+        return None
+    return {
+        "ret_1d":  pick(_FWD_RET_1D,  "ret_1d"),
+        "ret_3d":  pick(_FWD_RET_3D,  "ret_3d"),
+        "ret_5d":  pick(_FWD_RET_5D,  "ret_5d"),
+        "ret_10d": pick(_FWD_RET_10D, "ret_10d"),
+        "mfe_5d":  pick(_FWD_MFE_5D,  "mfe_5d"),
+        "mfe_10d": pick(_FWD_MFE_10D, "mfe_10d"),
+        "mae_5d":  pick("mae_5d"),
+        "mae_10d": pick("mae_10d"),
+    }
+
+
 def ultra_combo_perf(rows: List[dict]) -> List[dict]:
     """One row per ULTRA combo group with aggregate metrics."""
     out: list = []
     for combo_name, flag in _COMBO_GROUPS:
         sub = [r for r in rows if flag in _flags(r)]
         m = _ultra_metrics(sub)
-        # Pick a couple of best/worst examples by ret_10d for tooltip use
+        # Pick a couple of best/worst examples by 10D return for tooltip use
         def _safe10(r):
-            try: return float(r.get("ret_10d") or 0)
-            except (TypeError, ValueError): return 0
+            v = _safe_float_local(r.get(_FWD_RET_10D, r.get("ret_10d")))
+            return v if v is not None else 0
         best = sorted(sub, key=_safe10, reverse=True)[:5]
         worst = sorted(sub, key=_safe10)[:5]
         out.append({
@@ -1931,6 +1981,7 @@ def ultra_score_events(rows: List[dict], top_n: int | None = 400) -> List[dict]:
             s = float(r.get("ultra_score") or 0)
         except (TypeError, ValueError):
             s = 0
+        outcomes = _ultra_row_outcomes(r)
         out.append({
             "ticker":              r.get("ticker", ""),
             "date":                r.get("date", ""),
@@ -1942,12 +1993,7 @@ def ultra_score_events(rows: List[dict], top_n: int | None = 400) -> List[dict]:
             "profile_category":    r.get("profile_category", ""),
             "ultra_score_reasons": r.get("ultra_score_reasons", ""),
             "ultra_score_flags":   r.get("ultra_score_flags", ""),
-            "ret_1d":              r.get("ret_1d"),
-            "ret_3d":              r.get("ret_3d"),
-            "ret_5d":              r.get("ret_5d"),
-            "ret_10d":             r.get("ret_10d"),
-            "mfe_10d":             r.get("mfe_10d"),
-            "mae_10d":             r.get("mae_10d"),
+            **outcomes,
         })
     out.sort(key=lambda x: -(x.get("ultra_score") or 0))
     if top_n:
@@ -1956,7 +2002,11 @@ def ultra_score_events(rows: List[dict], top_n: int | None = 400) -> List[dict]:
 
 
 def ultra_false_positives(rows: List[dict]) -> List[dict]:
-    """ultra_score >= 80 but ret_5d < 0 OR mae_5d <= -5."""
+    """ultra_score >= 80 but ret_5d < 0 OR mae_5d <= -5.
+
+    MAE is not produced by this engine, so the criterion effectively
+    becomes ret_5d < 0 unless an external tool has populated mae_5d.
+    """
     out = []
     for r in rows:
         try:
@@ -1965,8 +2015,9 @@ def ultra_false_positives(rows: List[dict]) -> List[dict]:
             continue
         if s < 80:
             continue
-        ret5 = _safe_float_local(r.get("ret_5d"))
-        mae5 = _safe_float_local(r.get("mae_5d"))
+        oc = _ultra_row_outcomes(r)
+        ret5 = oc["ret_5d"]
+        mae5 = oc["mae_5d"]
         if ret5 is None and mae5 is None:
             continue
         if (ret5 is not None and ret5 < 0) or (mae5 is not None and mae5 <= -5):
@@ -1977,9 +2028,9 @@ def ultra_false_positives(rows: List[dict]) -> List[dict]:
                 "ultra_score":      s,
                 "ultra_score_band": r.get("ultra_score_band", ""),
                 "ret_5d":           ret5,
-                "ret_10d":          _safe_float_local(r.get("ret_10d")),
+                "ret_10d":          oc["ret_10d"],
                 "mae_5d":           mae5,
-                "mae_10d":          _safe_float_local(r.get("mae_10d")),
+                "mae_10d":          oc["mae_10d"],
                 "ultra_score_reasons": r.get("ultra_score_reasons", ""),
                 "ultra_score_flags":   r.get("ultra_score_flags", ""),
             })
@@ -1997,8 +2048,9 @@ def ultra_missed_winners(rows: List[dict]) -> List[dict]:
             continue
         if s >= 65:
             continue
-        ret10 = _safe_float_local(r.get("ret_10d"))
-        mfe10 = _safe_float_local(r.get("mfe_10d"))
+        oc = _ultra_row_outcomes(r)
+        ret10 = oc["ret_10d"]
+        mfe10 = oc["mfe_10d"]
         if ret10 is None and mfe10 is None:
             continue
         if (ret10 is not None and ret10 >= 10) or (mfe10 is not None and mfe10 >= 10):
@@ -2008,7 +2060,7 @@ def ultra_missed_winners(rows: List[dict]) -> List[dict]:
                 "close":            r.get("close"),
                 "ultra_score":      s,
                 "ultra_score_band": r.get("ultra_score_band", ""),
-                "ret_5d":           _safe_float_local(r.get("ret_5d")),
+                "ret_5d":           oc["ret_5d"],
                 "ret_10d":          ret10,
                 "mfe_10d":          mfe10,
                 "ultra_score_reasons": r.get("ultra_score_reasons", ""),
