@@ -504,6 +504,16 @@ def run_ultra_scan_job(
                 limit=10000, min_score=0, direction="all",
                 tf=tf, universe=universe,
             )
+            # Mirror /api/turbo-scan exactly: apply the same read-only profile
+            # playbook enrichment so PF Score / Category / sweet_spot / etc.
+            # match Turbo tab. Skipping this leaves profile_score and
+            # profile_category empty in ULTRA — even though the underlying
+            # Turbo scoring is identical, the playbook context is missing.
+            try:
+                from profile_playbook import enrich_row_with_profile
+                turbo_rows = [enrich_row_with_profile(r, universe) for r in turbo_rows]
+            except Exception as exc:
+                log.warning("ULTRA: profile_playbook enrichment failed: %s", exc)
             last_scan = get_last_turbo_scan_time(tf=tf, universe=universe)
             rows = [_empty_unenriched_row(r) for r in turbo_rows
                     if r.get("ticker")]
