@@ -2483,6 +2483,37 @@ def api_rare_reversal_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/ultra-scan")
+def api_ultra_scan(
+    universe:     str   = Query("sp500"),
+    tf:           str   = Query("1d"),
+    direction:    str   = Query("bull"),
+    limit:        int   = Query(500),
+    min_score:    float = Query(0.0),
+    min_price:    float = Query(0.0),
+    max_price:    float = Query(1e9),
+    min_volume:   float = Query(0.0),
+    scan_mode:    str   = Query("latest"),
+    role_filter:  str   = Query("all"),
+    nasdaq_batch: str   = Query(""),
+):
+    """ULTRA — read-only signal aggregation across Turbo, TZ/WLNBB, TZ Intel,
+    Pullback Miner, and Rare Reversal Miner. Does NOT compute any new score
+    or category. Per-source failures degrade gracefully and surface as warnings.
+    """
+    try:
+        from ultra_engine import run_ultra_scan
+        return run_ultra_scan(
+            universe=universe, tf=tf, direction=direction, limit=limit,
+            min_score=min_score, min_price=min_price, max_price=max_price,
+            min_volume=min_volume, scan_mode=scan_mode,
+            role_filter=role_filter, nasdaq_batch=nasdaq_batch,
+        )
+    except Exception as exc:
+        log.exception("ultra-scan error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")

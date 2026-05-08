@@ -161,6 +161,9 @@ export const api = {
     get('/api/stock-stat/status'),
   stockStatDownloadUrl: () => BASE + '/api/stock-stat/download',
 
+  // ULTRA — read-only signal aggregation (no new score)
+  ultraScan: (params) => get(`/api/ultra-scan?${new URLSearchParams(params)}`),
+
   // Sector Analysis
   sectorOverview: ()               => get('/api/sectors/overview'),
   sectorDetail:   (etf)            => get(`/api/sectors/${etf}`),
