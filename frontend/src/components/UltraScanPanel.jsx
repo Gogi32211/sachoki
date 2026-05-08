@@ -318,6 +318,49 @@ function scoreBg(s) {
   return ''
 }
 
+// ── ULTRA Score colour helper ────────────────────────────────────────────────
+// Independent from Turbo score colours. Bands: A 80+, B 65+, C 50+, else dim.
+function ultraScoreCls(s) {
+  if (s == null) return 'text-gray-700'
+  if (s >= 80) return 'text-emerald-300 font-bold'
+  if (s >= 65) return 'text-teal-300 font-semibold'
+  if (s >= 50) return 'text-yellow-200/90'
+  return 'text-gray-500'
+}
+
+// ── Compact-label maps for Pullback / Rare Reversal cells (and CSV) ──────────
+const PULLBACK_COMPACT = {
+  ANECDOTAL_PULLBACK: 'APB',
+  CONFIRMED_PULLBACK: 'CPB',
+  READY_PULLBACK:     'RPB',
+  FORMING_PULLBACK:   'FPB',
+  GO_PULLBACK:        'GPB',
+  WATCH_PULLBACK:     'WPB',
+}
+function pullbackCompact(p) {
+  if (!p) return ''
+  const tier = (p.evidence_tier || '').toUpperCase()
+  if (PULLBACK_COMPACT[tier]) return PULLBACK_COMPACT[tier]
+  // Fallback: first letter of each underscore-separated token
+  return tier.split('_').map(t => t.slice(0, 1)).join('')
+}
+
+const RARE_COMPACT = {
+  FORMING_PATTERN:   'FP',
+  CONFIRMED_PATTERN: 'CP',
+  CONFIRMED_RARE:    'CP',
+  READY_PATTERN:     'RP',
+  ACTIVE_PATTERN:    'AP',
+  WATCH_PATTERN:     'WP',
+  ANECDOTAL_RARE:    'AR',
+}
+function rareCompact(r) {
+  if (!r) return ''
+  const tier = (r.evidence_tier || '').toUpperCase()
+  if (RARE_COMPACT[tier]) return RARE_COMPACT[tier]
+  return tier.split('_').map(t => t.slice(0, 1)).join('')
+}
+
 // ── Badge component ───────────────────────────────────────────────────────────
 function Badge({ label, cls }) {
   return <span className={`px-1 rounded text-[10px] leading-tight ${cls}`}>{label}</span>
@@ -1133,6 +1176,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'turbo_vabs_display', 'turbo_wyck_display', 'turbo_combo_display',
       'turbo_lsig_ultra_display',
       'turbo_category_display', 'turbo_profile_display',
+      // ULTRA Score + compact pullback / rare labels
+      'ultra_score', 'ultra_score_band', 'ultra_score_reasons',
+      'pullback_display_compact', 'rare_reversal_display_compact',
     ]
 
     // Core / category fields visible in the table
@@ -1247,6 +1293,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.turbo_lsig_ultra_display = _displayLsigUltra(r)
       flat.turbo_category_display   = _displayCategory(r)
       flat.turbo_profile_display    = _displayProfile(r)
+
+      // ULTRA Score fields (computed on the backend) + compact tier displays
+      flat.ultra_score          = r.ultra_score ?? ''
+      flat.ultra_score_band     = r.ultra_score_band ?? ''
+      flat.ultra_score_reasons  = r.ultra_score_reasons ?? ''
+      flat.pullback_display_compact      = pullbackCompact(r.pullback)
+      flat.rare_reversal_display_compact = rareCompact(r.rare_reversal)
 
       // Pass-through core + raw fields. Numerics stay numeric so _csvCell
       // doesn't mangle them.
@@ -1894,12 +1947,18 @@ export default function UltraScanPanel({ onSelectTicker }) {
               <SortTh col="turbo_score" cls="text-center">
                 Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
               </SortTh>
+              {/* ULTRA Score — independent additive ranking (read-only) */}
+              <SortTh col="ultra_score" cls="text-center"
+                title="ULTRA Score — independent confluence ranking (0–100). Bands: A 80+, B 65+, C 50+, else dim. Does not modify Turbo score.">
+                ULTRA<br/><span className="text-[9px] font-normal text-gray-500">Score</span>
+              </SortTh>
               <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <SortTh col="signal_score" cls="text-center">GOG</SortTh>
               <th className="px-2 py-1.5 font-medium">VABS</th>
               <th className="px-2 py-1.5 font-medium">Wyck</th>
-              <th className="px-2 py-1.5 font-medium">Combo</th>
+              {/* Combo column wider — was too cramped */}
+              <th className="px-2 py-1.5 font-medium" style={{ minWidth: '230px' }}>Combo</th>
               <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
               <SortTh col="profile_score" cls="text-center" title="Profile playbook score — additive context, not canonical score">Pf Score</SortTh>
               <th className="px-2 py-1.5 font-medium text-center" title="Profile category: SWEET_SPOT / BUILDING / WATCH / LATE">Category</th>
@@ -1907,8 +1966,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
               <th className="px-2 py-1.5 font-medium text-left"   title="TZ/WLNBB latest signals">TZ/WLNBB</th>
               <th className="px-2 py-1.5 font-medium text-left"   title="TZ Intelligence role / quality / action">TZ Intel</th>
               <th className="px-2 py-1.5 font-medium text-center" title="ABR overlay (A / B / B+ / R) + 10d stats">ABR</th>
-              <th className="px-2 py-1.5 font-medium text-left"   title="Pullback Pattern Miner — evidence_tier / pattern_key / active">Pullback</th>
-              <th className="px-2 py-1.5 font-medium text-left"   title="Rare Reversal Miner — evidence_tier / sequence keys / active">Rare Reversal</th>
+              {/* Pullback / Rare Reversal columns narrower with compact labels */}
+              <th className="px-1 py-1.5 font-medium text-center w-12" title="Pullback Pattern Miner — compact tier">PB</th>
+              <th className="px-1 py-1.5 font-medium text-center w-12" title="Rare Reversal Miner — compact tier">RR</th>
               <SortTh col="rsi" cls="text-center">RSI</SortTh>
               <SortTh col="cci" cls="text-center">CCI</SortTh>
               <SortTh col="last_price" cls="text-right">Price</SortTh>
@@ -1977,6 +2037,23 @@ export default function UltraScanPanel({ onSelectTicker }) {
                   <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
                     {scoreReason(r)}
                   </div>
+                </td>
+
+                {/* ULTRA Score — independent additive ranking */}
+                <td className="px-2 py-1 text-center"
+                    title={r.ultra_score_reasons
+                      ? `ULTRA ${r.ultra_score} (${r.ultra_score_band}) · ${r.ultra_score_reasons}`
+                      : (r.ultra_score != null ? `ULTRA ${r.ultra_score} (${r.ultra_score_band || '—'})` : '')}>
+                  {r.ultra_score != null ? (
+                    <div className="leading-none">
+                      <div className={`font-mono font-bold text-sm ${ultraScoreCls(r.ultra_score)}`}>
+                        {r.ultra_score}
+                      </div>
+                      {r.ultra_score_band && (
+                        <div className="text-[9px] text-gray-500 mt-0.5">{r.ultra_score_band}</div>
+                      )}
+                    </div>
+                  ) : <span className="text-gray-700">—</span>}
                 </td>
 
                 {/* RTB v4 phase + score */}
@@ -2285,54 +2362,54 @@ export default function UltraScanPanel({ onSelectTicker }) {
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* Pullback */}
-                <td className="px-2 py-1 whitespace-nowrap">
+                {/* Pullback — compact tier (full text in tooltip) */}
+                <td className="px-1 py-1 text-center whitespace-nowrap w-12">
                   {r.pullback ? (
-                    <div className="flex items-center gap-1"
-                         title={[
-                           r.pullback.pattern_key   ? `key: ${r.pullback.pattern_key}` : null,
-                           r.pullback.pullback_stage? `stage: ${r.pullback.pullback_stage}` : null,
-                           r.pullback.median_10d_return != null ? `med10d: ${r.pullback.median_10d_return}` : null,
-                           r.pullback.win_rate_10d  != null ? `win10d: ${r.pullback.win_rate_10d}` : null,
-                           r.pullback.fail_rate_10d != null ? `fail10d: ${r.pullback.fail_rate_10d}` : null,
-                           r.pullback.score != null ? `score: ${r.pullback.score}` : null,
-                           r.pullback.current_pattern_completion ? `completion: ${r.pullback.current_pattern_completion}` : null,
-                         ].filter(Boolean).join('\n')}>
-                      <Badge label={r.pullback.evidence_tier || '—'}
+                    <span title={[
+                            r.pullback.evidence_tier ? `tier: ${r.pullback.evidence_tier}` : null,
+                            r.pullback.pattern_key   ? `key: ${r.pullback.pattern_key}` : null,
+                            r.pullback.pullback_stage? `stage: ${r.pullback.pullback_stage}` : null,
+                            r.pullback.median_10d_return != null ? `med10d: ${r.pullback.median_10d_return}` : null,
+                            r.pullback.win_rate_10d  != null ? `win10d: ${r.pullback.win_rate_10d}` : null,
+                            r.pullback.fail_rate_10d != null ? `fail10d: ${r.pullback.fail_rate_10d}` : null,
+                            r.pullback.score != null ? `score: ${r.pullback.score}` : null,
+                            r.pullback.current_pattern_completion ? `completion: ${r.pullback.current_pattern_completion}` : null,
+                          ].filter(Boolean).join('\n')}>
+                      <Badge label={pullbackCompact(r.pullback) || '—'}
                         cls={
                           r.pullback.evidence_tier === 'CONFIRMED_PULLBACK' ? 'bg-emerald-900/60 text-emerald-200'
                         : r.pullback.evidence_tier === 'ANECDOTAL_PULLBACK' ? 'bg-cyan-900/40 text-cyan-200'
                         : 'bg-gray-800 text-gray-400'
                         } />
-                      {r.pullback.is_currently_active && <span className="text-[10px] text-emerald-300">●</span>}
-                    </div>
+                      {r.pullback.is_currently_active && <span className="text-[10px] text-emerald-300 ml-0.5">●</span>}
+                    </span>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* Rare Reversal */}
-                <td className="px-2 py-1 whitespace-nowrap">
+                {/* Rare Reversal — compact tier (full text in tooltip) */}
+                <td className="px-1 py-1 text-center whitespace-nowrap w-12">
                   {r.rare_reversal ? (
-                    <div className="flex items-center gap-1"
-                         title={[
-                           r.rare_reversal.base4_key      ? `base4: ${r.rare_reversal.base4_key}` : null,
-                           r.rare_reversal.extended5_key  ? `ext5: ${r.rare_reversal.extended5_key}` : null,
-                           r.rare_reversal.extended6_key  ? `ext6: ${r.rare_reversal.extended6_key}` : null,
-                           r.rare_reversal.pattern_length != null ? `len: ${r.rare_reversal.pattern_length}` : null,
-                           r.rare_reversal.median_10d_return != null ? `med10d: ${r.rare_reversal.median_10d_return}` : null,
-                           r.rare_reversal.fail_rate_10d != null ? `fail10d: ${r.rare_reversal.fail_rate_10d}` : null,
-                           r.rare_reversal.score != null ? `score: ${r.rare_reversal.score}` : null,
-                           r.rare_reversal.current_pattern_completion != null
-                             ? `completion: ${r.rare_reversal.current_pattern_completion}` : null,
-                         ].filter(Boolean).join('\n')}>
-                      <Badge label={r.rare_reversal.evidence_tier || '—'}
+                    <span title={[
+                            r.rare_reversal.evidence_tier ? `tier: ${r.rare_reversal.evidence_tier}` : null,
+                            r.rare_reversal.base4_key      ? `base4: ${r.rare_reversal.base4_key}` : null,
+                            r.rare_reversal.extended5_key  ? `ext5: ${r.rare_reversal.extended5_key}` : null,
+                            r.rare_reversal.extended6_key  ? `ext6: ${r.rare_reversal.extended6_key}` : null,
+                            r.rare_reversal.pattern_length != null ? `len: ${r.rare_reversal.pattern_length}` : null,
+                            r.rare_reversal.median_10d_return != null ? `med10d: ${r.rare_reversal.median_10d_return}` : null,
+                            r.rare_reversal.fail_rate_10d != null ? `fail10d: ${r.rare_reversal.fail_rate_10d}` : null,
+                            r.rare_reversal.score != null ? `score: ${r.rare_reversal.score}` : null,
+                            r.rare_reversal.current_pattern_completion != null
+                              ? `completion: ${r.rare_reversal.current_pattern_completion}` : null,
+                          ].filter(Boolean).join('\n')}>
+                      <Badge label={rareCompact(r.rare_reversal) || '—'}
                         cls={
                           r.rare_reversal.evidence_tier === 'CONFIRMED_RARE'  ? 'bg-purple-900/60 text-purple-200'
                         : r.rare_reversal.evidence_tier === 'ANECDOTAL_RARE'  ? 'bg-fuchsia-900/40 text-fuchsia-200'
                         : r.rare_reversal.evidence_tier === 'FORMING_PATTERN' ? 'bg-amber-900/40 text-amber-200'
                         : 'bg-gray-800 text-gray-400'
                         } />
-                      {r.rare_reversal.is_currently_active && <span className="text-[10px] text-emerald-300">●</span>}
-                    </div>
+                      {r.rare_reversal.is_currently_active && <span className="text-[10px] text-emerald-300 ml-0.5">●</span>}
+                    </span>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
@@ -2414,7 +2491,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && !enriching && (
               <tr>
-                <td colSpan={universe === 'split' ? 23 : 22} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={universe === 'split' ? 24 : 23} className="px-4 py-10 text-center text-gray-600">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
