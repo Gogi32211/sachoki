@@ -1138,6 +1138,22 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         tz_state_ser = pd.Series(0, index=df.index, dtype=np.int8)
     tz_state_prev = tz_state_ser.shift(1, fill_value=0).astype(int)
 
+    # GOG engine — provides SETUP, GOG_TIER, CONTEXT, GOG_SCORE per bar
+    try:
+        from gog_engine import compute_gog_signals as _compute_gog
+        gog_result = _compute_gog(df, wlnbb, sig_df, f_sigs, vabs, ultra260, ultraV2, combo_df)
+        gog_setup_ser   = gog_result.get("SETUP",    pd.Series("",  index=df.index))
+        gog_tier_ser    = gog_result.get("GOG_TIER", pd.Series("",  index=df.index))
+        gog_context_ser = gog_result.get("CONTEXT",  pd.Series("",  index=df.index))
+        gog_score_ser   = gog_result.get("GOG_SCORE",pd.Series(0.0, index=df.index))
+        _gog_ok = True
+    except Exception:
+        gog_setup_ser   = pd.Series("",  index=df.index)
+        gog_tier_ser    = pd.Series("",  index=df.index)
+        gog_context_ser = pd.Series("",  index=df.index)
+        gog_score_ser   = pd.Series(0.0, index=df.index)
+        _gog_ok = False
+
     # seq_bcont vectorized from bc column
     try:
         _bc = sig_df["bc"].fillna(0).astype(int) if not sig_df.empty else pd.Series(0, index=df.index)
@@ -1467,6 +1483,14 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             except Exception:
                 pass
 
+        # GOG / SETUP / CONTEXT per bar
+        _gog_tier_val  = str(gog_tier_ser.iloc[i]    or "")
+        _gog_score_val = float(gog_score_ser.iloc[i]) if not pd.isna(gog_score_ser.iloc[i]) else 0.0
+        _setup_str     = str(gog_setup_ser.iloc[i]   or "")
+        _ctx_str       = str(gog_context_ser.iloc[i] or "")
+        setup_list   = [t for t in _setup_str.split()  if t]
+        context_list = [t for t in _ctx_str.split()    if t]
+
         result.append({
             "date":       date_val,
             "open":       float(row["open"]),
@@ -1486,6 +1510,14 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "vabs":      vabs_list,
             "wick":      wick_list,
             "ultra":          ultra_list,
+            "setup":          setup_list,
+            "gog_tier":       _gog_tier_val,
+            "context":        context_list,
+            "gog_score":      _gog_score_val,
+            "gog1": 1 if _gog_tier_val.startswith("G1") else 0,
+            "gog2": 1 if _gog_tier_val.startswith("G2") else 0,
+            "gog3": 1 if _gog_tier_val.startswith("G3") else 0,
+            "signal_score": _gog_score_val,
             "turbo_score":           turbo_score_val,
             # ── Canonical score columns — uppercase (stock_stat CSV / replay engine) ──
             "FINAL_BULL_SCORE":      canonical["FINAL_BULL_SCORE"],
