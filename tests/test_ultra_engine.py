@@ -487,9 +487,10 @@ def test_enrich_stock_stat_failure_updates_live_sources(monkeypatch, tmp_path):
     assert "error" in sources["stock_stat"]
 
 
-def test_no_new_score_or_category_fields(monkeypatch, canonical_csv):
-    """Hard rule: ULTRA must NEVER produce ultra_score / ultra_category /
-    ultra_context_score anywhere in the response."""
+def test_no_new_category_or_context_score_fields(monkeypatch, canonical_csv):
+    """Hard rule: ULTRA must NEVER produce ultra_category / ultra_context_score
+    anywhere in the response. (ultra_score IS allowed and intentional — it's
+    the additive ULTRA-only ranking column added per the v3 spec.)"""
     _reset_cache()
     _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL")])
     uo.run_ultra_scan_job(universe="sp500", tf="1d")
@@ -501,7 +502,7 @@ def test_no_new_score_or_category_fields(monkeypatch, canonical_csv):
                         lambda **_kw: {"results": []})
     uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
     resp = uo.get_ultra_results("sp500", "1d")
-    forbidden = {"ultra_score", "ultra_context_score", "ultra_category"}
+    forbidden = {"ultra_context_score", "ultra_category"}
 
     def _check(d):
         if isinstance(d, dict):
@@ -562,3 +563,116 @@ def test_ultra_engine_module_signal_engines_pristine():
     assert hasattr(ultra_engine, "compute_260308_l88")
     assert hasattr(ultra_engine, "compute_ultra_v2")
     assert not hasattr(ultra_engine, "run_ultra_scan")
+
+
+# ── ULTRA Score (v3) — independent additive ranking ──────────────────────────
+
+def test_compute_ultra_score_pure_function():
+    """The score function never raises and returns (int 0..100, band, str)."""
+    s, band, reasons = uo._compute_ultra_score({})
+    assert s == 0
+    assert band in ("A", "B", "C", "D")
+    assert isinstance(reasons, str)
+
+
+def test_ultra_score_clamped_to_0_100_and_banded():
+    """Even for a row with every possible flag, the score must clamp to 100,
+    and the band must be 'A'."""
+    row = _turbo_row("AAPL")
+    # Every flag the score function reads, set to true / a high value
+    for k in ("buy_2809", "rocket", "bb_brk", "bx_up", "eb_bull", "be_up", "bo_up",
+              "abs_sig", "va", "svs_2809", "climb_sig", "load_sig",
+              "strong_sig", "l34", "fri34", "tz_bull_flip", "rs_strong"):
+        row[k] = 1
+    row["profile_score"]    = 25
+    row["profile_category"] = "SWEET_SPOT"
+    row["tz_intel"] = {"role": "BULL_A"}
+    row["pullback"] = {"evidence_tier": "CONFIRMED_PULLBACK", "is_currently_active": True}
+    row["rare_reversal"] = {"evidence_tier": "CONFIRMED_RARE", "is_currently_active": True}
+    row["abr"] = {"category": "B+"}
+    s, band, _r = uo._compute_ultra_score(row)
+    assert s == 100, s
+    assert band == "A"
+
+
+def test_ultra_score_negative_context_penalises():
+    """REJECT_LONG must drop the score sharply."""
+    row = _turbo_row("AAPL")
+    row["bb_brk"] = 1
+    row["tz_intel"] = {"role": "REJECT_LONG"}
+    s, _band, _r = uo._compute_ultra_score(row)
+    assert s < 30, f"expected reject penalty, got {s}"
+
+
+def test_stage1_rows_have_ultra_score(monkeypatch):
+    """Every Stage 1 row must already carry ultra_score / ultra_score_band /
+    ultra_score_reasons (computed from Turbo flags only)."""
+    _reset_cache()
+    rows = _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row("AAPL", buy_2809=1, abs_sig=1, rs_strong=1,
+                    profile_category="SWEET_SPOT", profile_score=20),
+        _turbo_row("MSFT"),
+    ])
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile",
+                         lambda r, u: dict(r))
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    out = uo.get_ultra_results("sp500", "1d")["results"]
+    by_ticker = {r["ticker"]: r for r in out}
+    for r in by_ticker.values():
+        assert "ultra_score" in r
+        assert "ultra_score_band" in r
+        assert "ultra_score_reasons" in r
+        assert isinstance(r["ultra_score"], int)
+        assert 0 <= r["ultra_score"] <= 100
+    assert by_ticker["AAPL"]["ultra_score"] > by_ticker["MSFT"]["ultra_score"]
+
+
+def test_enrich_recomputes_ultra_score(monkeypatch, canonical_csv):
+    """Enriching with strong context must boost ultra_score above the Stage 1
+    value for the same ticker."""
+    _reset_cache()
+    _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row("AAPL", abs_sig=1, bb_brk=1, rs_strong=1,
+                    profile_category="SWEET_SPOT", profile_score=20),
+    ])
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile",
+                         lambda r, u: dict(r))
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    pre = uo.get_ultra_results("sp500", "1d")["results"][0]["ultra_score"]
+
+    monkeypatch.setattr(
+        "tz_intelligence.scanner.run_intelligence_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL", "role": "BULL_A",
+                                     "abr_category": "B+"}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.pullback_miner.miner.run_pullback_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL",
+                                     "evidence_tier": "CONFIRMED_PULLBACK",
+                                     "score": 7}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
+        lambda **_kw: {"results": []},
+    )
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    post = uo.get_ultra_results("sp500", "1d")["results"][0]["ultra_score"]
+    assert post >= pre, f"enrichment should not lower score: pre={pre} post={post}"
+    assert post > pre, f"enrichment with confluence should raise score: pre={pre} post={post}"
+
+
+def test_ultra_score_does_not_modify_turbo_score(monkeypatch):
+    """Hard rule: computing ultra_score must leave turbo_score / category /
+    profile_score / signal_score untouched."""
+    _reset_cache()
+    rows = _stub_turbo_engine(monkeypatch, rows=[
+        _turbo_row("AAPL", score=88.5, profile_category="SWEET_SPOT",
+                    profile_score=20),
+    ])
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile",
+                         lambda r, u: dict(r))
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    aapl = uo.get_ultra_results("sp500", "1d")["results"][0]
+    assert aapl["turbo_score"]      == rows[0]["turbo_score"]
+    assert aapl["profile_category"] == rows[0]["profile_category"]
+    assert aapl["profile_score"]    == rows[0]["profile_score"]
