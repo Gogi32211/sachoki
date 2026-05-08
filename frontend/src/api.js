@@ -173,6 +173,7 @@ export const api = {
     if (opts.stockStatBars != null) p.set('stock_stat_bars', opts.stockStatBars)
     if (opts.minPrice      != null) p.set('min_price',       opts.minPrice)
     if (opts.maxPrice      != null) p.set('max_price',       opts.maxPrice)
+    if (opts.maxWorkers    != null) p.set('max_workers',     opts.maxWorkers)
     return post(`/api/ultra-scan/trigger?${p}`)
   },
   ultraScanStatus: () => get('/api/ultra-scan/status'),

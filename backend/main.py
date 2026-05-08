@@ -2496,10 +2496,18 @@ def api_ultra_scan_trigger(
     stock_stat_bars: int   = Query(500),
     min_price:       float = Query(0.0),
     max_price:       float = Query(1e9),
+    max_workers:     int   = Query(4),
 ):
-    """Trigger an ULTRA orchestrated scan: Turbo + TZ/WLNBB stock_stat
-    generation + read enrichments from TZ Intel / Pullback / Rare Reversal.
-    Runs as a background task; poll /api/ultra-scan/status."""
+    """Trigger an ULTRA orchestrated scan.
+
+    Pipeline:
+      Phase 1 (parallel): Turbo scan + TZ/WLNBB stock_stat generation
+      Phase 2 (parallel, max_workers): TZ/WLNBB read · TZ Intelligence ·
+                                        Pullback Miner · Rare Reversal Miner
+      Phase 3:  merge enrichments onto Turbo rows by ticker
+
+    Runs as a background task; poll /api/ultra-scan/status.
+    """
     from ultra_orchestrator import get_ultra_status, run_ultra_scan_job
     if get_ultra_status().get("running"):
         raise HTTPException(status_code=409, detail="ULTRA scan already running")
@@ -2510,6 +2518,7 @@ def api_ultra_scan_trigger(
         min_store_score=min_store_score, nasdaq_batch=nasdaq_batch,
         stock_stat_bars=stock_stat_bars,
         min_price=min_price, max_price=max_price,
+        max_workers=max_workers,
     )
     return {
         "status":       "ULTRA scan started",
