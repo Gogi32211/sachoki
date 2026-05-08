@@ -100,6 +100,19 @@ def _set_phase(phase: str, state: str, message: str = "") -> None:
         ph[phase]["message"] = message
 
 
+def _set_source(name: str, payload: dict) -> None:
+    """Update the live `_ultra_state['sources'][name]` snapshot.
+
+    Phase 1 only ever writes the 'turbo' source; Phase 2 (enrich) needs to
+    push its own per-reader updates so the source-status badges in the UI
+    don't keep showing the stale 'unavailable' state from the Stage 1
+    initialisation after enrich completes.
+    """
+    with _ultra_lock:
+        sources = _ultra_state.setdefault("sources", {})
+        sources[name] = dict(payload)
+
+
 def _add_warning(msg: str) -> None:
     with _ultra_lock:
         warnings = _ultra_state.setdefault("warnings", [])
@@ -608,9 +621,13 @@ def run_ultra_enrich_job(
         src_sources["stock_stat"] = {
             "ok": stock_stat_count > 0, "count": stock_stat_count, "path": subset_path,
         }
+        _set_source("stock_stat", src_sources["stock_stat"])
     except Exception as exc:
         _set_phase("stock_stat", "error", str(exc))
         fresh_warnings.append(f"stock_stat unavailable: {exc}")
+        src_sources["stock_stat"] = {"ok": False, "count": 0, "path": subset_path,
+                                       "error": str(exc)}
+        _set_source("stock_stat", src_sources["stock_stat"])
         _patch_cached_rows(universe, tf, nasdaq_batch, {},
                             fresh_warnings, src_sources, phase="enrich_done")
         elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
@@ -734,6 +751,10 @@ def run_ultra_enrich_job(
                                        "count": len(pullback_by_ticker)}
     src_sources["rare_reversal"]   = {"ok": bool(rare_by_ticker),
                                        "count": len(rare_by_ticker)}
+    # Push to live status so the UI's source-status badges reflect the
+    # enrich outcome instead of the stale Stage 1 'unavailable' state.
+    for _k in ("tz_wlnbb", "tz_intelligence", "pullback", "rare_reversal"):
+        _set_source(_k, src_sources[_k])
 
     # ── Step F: merge per-ticker patches into the cache ─────────────────────
     _set_phase("merge", "running", "")

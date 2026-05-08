@@ -322,6 +322,77 @@ def test_enrich_secondary_failure_keeps_turbo_rows(monkeypatch, canonical_csv):
     assert any("TZ Intelligence unavailable" in w for w in resp["warnings"])
 
 
+def test_enrich_updates_live_sources_for_status_badges(monkeypatch, canonical_csv):
+    """Regression: after enrich completes, /api/ultra-scan/status must show
+    the secondary sources as ok / count > 0 (or a clear error), NOT the
+    stale 'unavailable' Stage 1 initialisation. Otherwise the UI badges keep
+    saying 'unavailable' even though the rows in the cache are enriched,
+    which makes users hammer the Enrich button thinking it failed."""
+    _reset_cache()
+    tmp_path, _canon = canonical_csv
+
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL"), _turbo_row("MSFT")])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    # Before enrich, secondaries are 'unavailable' (Stage 1 initialisation)
+    pre = uo.get_ultra_status()
+    pre_sources = pre.get("sources") or {}
+    assert pre_sources.get("tz_wlnbb", {}).get("ok") is False
+
+    monkeypatch.setattr(
+        "tz_intelligence.scanner.run_intelligence_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL", "role": "BULL_A"}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.pullback_miner.miner.run_pullback_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL",
+                                     "evidence_tier": "CONFIRMED_PULLBACK",
+                                     "score": 5}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL",
+                                     "evidence_tier": "CONFIRMED_RARE",
+                                     "base4_key": "abcd", "score": 6}]},
+    )
+
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    post = uo.get_ultra_status()
+    sources = post.get("sources") or {}
+    # tz_wlnbb finds AAPL in the canonical-derived subset
+    assert sources["tz_wlnbb"]["ok"]      is True
+    assert sources["tz_wlnbb"]["count"]   >= 1
+    assert sources["tz_intelligence"]["ok"] is True
+    assert sources["pullback"]["ok"]        is True
+    assert sources["rare_reversal"]["ok"]   is True
+    # stock_stat path is also reported
+    assert sources["stock_stat"]["ok"]   is True
+    assert sources["stock_stat"]["path"].startswith(
+        "stock_stat_tz_wlnbb_ultra_sp500_1d_"
+    )
+
+
+def test_enrich_stock_stat_failure_updates_live_sources(monkeypatch, tmp_path):
+    """If subset stock_stat generation fails (no canonical, fresh-fetch
+    blows up), /status must reflect stock_stat error rather than staying
+    on the Stage 1 'unavailable' default."""
+    _reset_cache()
+    monkeypatch.chdir(tmp_path)
+
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL")])
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    def _boom(*a, **kw):
+        raise RuntimeError("simulated stock_stat fetch failure")
+    monkeypatch.setattr(uo, "_generate_subset_csv_fresh", _boom)
+
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+    post = uo.get_ultra_status()
+    sources = post.get("sources") or {}
+    assert sources["stock_stat"]["ok"] is False
+    assert "error" in sources["stock_stat"]
+
+
 def test_no_new_score_or_category_fields(monkeypatch, canonical_csv):
     """Hard rule: ULTRA must NEVER produce ultra_score / ultra_category /
     ultra_context_score anywhere in the response."""
