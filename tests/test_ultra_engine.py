@@ -92,12 +92,106 @@ def test_stage1_runs_turbo_only_and_returns_unenriched_rows(monkeypatch):
     assert resp["meta"]["phase"] == "turbo_done"
 
 
+def test_stage1_applies_profile_playbook_enrichment(monkeypatch):
+    """ULTRA Stage 1 must apply the same enrich_row_with_profile that
+    /api/turbo-scan applies. Without this, PF Score / Category /
+    sweet_spot_active / late_warning come through empty and the UI shows
+    blank PF Score and Category columns."""
+    _reset_cache()
+    rows = _stub_turbo_engine(monkeypatch, rows=[
+        # turbo_engine returns the raw row without profile fields
+        _turbo_row("AAPL", profile_score=None, profile_category=None,
+                   profile_name=None, sweet_spot_active=None, late_warning=None,
+                   signal_score=None),
+    ])
+
+    captured: dict = {}
+
+    def fake_enrich(row, universe):
+        captured["universe"] = universe
+        out = dict(row)
+        out["profile_score"]      = 42
+        out["profile_category"]   = "SWEET_SPOT"
+        out["profile_name"]       = "playbook_v1"
+        out["sweet_spot_active"]  = True
+        out["late_warning"]       = False
+        out["signal_score"]       = 71
+        out["already_extended"]   = False
+        return out
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile", fake_enrich)
+
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+    out = uo.get_ultra_results("sp500", "1d")["results"]
+    assert captured.get("universe") == "sp500"
+    aapl = next(r for r in out if r["ticker"] == "AAPL")
+    assert aapl["profile_score"]      == 42
+    assert aapl["profile_category"]   == "SWEET_SPOT"
+    assert aapl["profile_name"]       == "playbook_v1"
+    assert aapl["sweet_spot_active"]  is True
+    assert aapl["late_warning"]       is False
+    assert aapl["signal_score"]       == 71
+    assert aapl["already_extended"]   is False
+
+
+def test_enrich_does_not_erase_profile_fields(monkeypatch, canonical_csv):
+    """Stage 2 enrich must only attach tz_wlnbb / tz_intel / abr / pullback /
+    rare_reversal — never overwrite Stage 1 profile_score / profile_category
+    / profile_name / sweet_spot_active / late_warning."""
+    _reset_cache()
+    _stub_turbo_engine(monkeypatch, rows=[_turbo_row("AAPL")])
+
+    def fake_enrich(row, universe):
+        out = dict(row)
+        out["profile_score"]      = 88
+        out["profile_category"]   = "SWEET_SPOT"
+        out["profile_name"]       = "alpha"
+        out["sweet_spot_active"]  = True
+        out["late_warning"]       = False
+        out["signal_score"]       = 99
+        return out
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile", fake_enrich)
+
+    uo.run_ultra_scan_job(universe="sp500", tf="1d")
+
+    monkeypatch.setattr(
+        "tz_intelligence.scanner.run_intelligence_scan",
+        lambda **_kw: {"results": [{"ticker": "AAPL", "role": "BULL_A"}]},
+    )
+    monkeypatch.setattr(
+        "analyzers.pullback_miner.miner.run_pullback_scan",
+        lambda **_kw: {"results": []},
+    )
+    monkeypatch.setattr(
+        "analyzers.rare_reversal.miner.run_rare_reversal_scan",
+        lambda **_kw: {"results": []},
+    )
+    uo.run_ultra_enrich_job(tickers=["AAPL"], universe="sp500", tf="1d")
+
+    aapl = next(r for r in uo.get_ultra_results("sp500", "1d")["results"]
+                if r["ticker"] == "AAPL")
+    # Profile fields preserved through merge
+    assert aapl["profile_score"]      == 88
+    assert aapl["profile_category"]   == "SWEET_SPOT"
+    assert aapl["profile_name"]       == "alpha"
+    assert aapl["sweet_spot_active"]  is True
+    assert aapl["late_warning"]       is False
+    assert aapl["signal_score"]       == 99
+    # Plus the new enrichment is attached
+    assert aapl["tz_intel"] is not None
+    assert aapl["tz_intel"]["role"] == "BULL_A"
+
+
 def test_stage1_preserves_turbo_score_and_category(monkeypatch):
     _reset_cache()
     rows = _stub_turbo_engine(monkeypatch, rows=[
         _turbo_row("AAPL", score=88.5, profile_category="SWEET_SPOT"),
         _turbo_row("MSFT", score=12.0, profile_category="WATCH"),
     ])
+    # This test verifies the orchestrator doesn't mutate fields it gets
+    # from get_turbo_results / enrich_row_with_profile. Stub the playbook
+    # to a passthrough so the input categories survive end-to-end.
+    monkeypatch.setattr("profile_playbook.enrich_row_with_profile",
+                         lambda r, u: dict(r))
     resp = uo.run_ultra_scan_job(universe="sp500", tf="1d")
     by_ticker = {r["ticker"]: r for r in resp["results"]}
     for src in rows:
