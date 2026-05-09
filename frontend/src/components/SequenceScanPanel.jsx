@@ -116,15 +116,26 @@ export default function SequenceScanPanel() {
   const trigger = async () => {
     setError('')
     try {
-      await api.sequenceScanTrigger(params)
-      const s = await fetchStatus()
-      setStatus(s || { status: 'running', progress: 0, total: 0, pct: 0 })
+      const r = await api.sequenceScanTrigger(params)
+      // Optimistically flip to 'running' so the polling effect kicks in
+      // immediately. FastAPI BackgroundTasks runs the worker AFTER the
+      // response is sent, and the worker only writes status='running' to
+      // SQLite once it starts; if we fetched /status right now we'd see
+      // 'not_run' and the polling effect (gated on status==='running')
+      // would never start. Optimistic flag avoids that race entirely.
+      setStatus({
+        status:    'running',
+        cache_key: r?.cache_key,
+        progress:  0, total: 0, pct: 0,
+        params:    { ...params },
+      })
     } catch (e) {
       const msg = e?.detail || e?.message || String(e)
       if (msg.includes('409') || msg.toLowerCase().includes('already running')) {
         setError('Another sequence scan is already running — wait for it to finish.')
-      } else if (msg.toLowerCase().includes('no stock_stat')) {
-        setError('No TZ/WLNBB stock_stat CSV for this universe/tf — generate it first via the TZ/WLNBB tab.')
+      } else if (msg.toLowerCase().includes('no stock_stat')
+                 || msg.toLowerCase().includes('no_data')) {
+        setError('No Stock Stat CSV found — run Admin → Stock Stat or TZ/WLNBB → Generate Stock Stat first.')
       } else {
         setError(msg)
       }
