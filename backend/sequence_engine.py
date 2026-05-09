@@ -167,6 +167,11 @@ def _extract_tz_for_row(row: dict) -> tuple[str, str]:
 # Main scan
 # ─────────────────────────────────────────────────────────────────────────────
 
+# Forward-return horizons aggregated per sequence. 1d remains the
+# canonical measure used for the score; 3d/5d/9d are additive context.
+_HORIZONS = (1, 3, 5, 9)
+
+
 def run_sequence_scan(
     universe:    str = "sp500",
     tf:          str = "1d",
@@ -234,26 +239,37 @@ def run_sequence_scan(
         progress_cb(0, total)
 
     seq_map: dict[str, dict] = defaultdict(
-        lambda: {"wins": 0, "count": 0, "rets": [], "tickers": set()}
+        lambda: {
+            "wins": 0,
+            "count": 0,
+            # Per-horizon return lists. 1d is canonical; 3/5/9d are extras.
+            "rets_by_h": {n: [] for n in _HORIZONS},
+            "tickers": set(),
+        }
     )
 
     for idx, ticker in enumerate(tickers):
         rows = rows_by_ticker[ticker]
         rows.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
 
-        # Pre-compute close-derived ret_1d for rows that lack it (bulk Stock
-        # Stat layout). For TZ/WLNBB layout this is a no-op since ret_1d is
-        # already populated.
+        # Pre-compute close-derived returns for every horizon a row lacks.
+        # TZ/WLNBB CSV already populates ret_1d/ret_3d/ret_5d/ret_10d; we
+        # still need to derive ret_9d for it and all four horizons for the
+        # bulk Stock Stat CSV.
         for i, r in enumerate(rows):
-            if _safe_float(r.get("ret_1d")) is not None:
-                continue
             c0 = _safe_float(r.get("close"))
-            if c0 is None or c0 <= 0 or i + 1 >= len(rows):
+            if c0 is None or c0 <= 0:
                 continue
-            c1 = _safe_float(rows[i + 1].get("close"))
-            if c1 is None or c1 <= 0:
-                continue
-            r["ret_1d"] = (c1 / c0 - 1) * 100  # match TZ/WLNBB units (%)
+            for n in _HORIZONS:
+                key = f"ret_{n}d"
+                if _safe_float(r.get(key)) is not None:
+                    continue
+                if i + n >= len(rows):
+                    continue
+                cn = _safe_float(rows[i + n].get("close"))
+                if cn is None or cn <= 0:
+                    continue
+                r[key] = (cn / c0 - 1) * 100   # match TZ/WLNBB units (%)
 
         # Reduce to bars whose signal is in the allowed pool.
         events = []
@@ -265,62 +281,93 @@ def run_sequence_scan(
             ret1 = _safe_float(r.get("ret_1d"))
             if ret1 is None:
                 continue        # last few bars with no forward bar — skip
-            events.append((cls[0], cls[1], ret1, r.get("date", "")))
+            # Other horizons may legitimately be None for events near the
+            # end of the dataset (e.g. ret_9d on the last 9 bars).
+            rets_by_h = {n: _safe_float(r.get(f"ret_{n}d")) for n in _HORIZONS}
+            events.append((cls[0], cls[1], rets_by_h, r.get("date", "")))
 
-        # Slide window. Forward return is the LAST bar's ret_1d.
+        # Slide window. Forward returns are taken from the LAST bar of the
+        # window (entry-at-close, exit-N-bars-later).
         for i in range(len(events) - seq_len + 1):
             window = events[i : i + seq_len]
-            last_ret = window[-1][2]
+            last_rets = window[-1][2]
             if mode == "type":
                 key = "".join(w[0] for w in window)
             else:
                 key = "|".join(w[1] for w in window)
             entry = seq_map[key]
             entry["count"] += 1
-            entry["wins"] += int(last_ret > 0)
-            entry["rets"].append(last_ret)
+            for n in _HORIZONS:
+                v = last_rets.get(n)
+                if v is None:
+                    continue
+                entry["rets_by_h"][n].append(v)
             entry["tickers"].add(ticker)
+            # 1d-derived counters retained for backward compat with the
+            # canonical 'wins' column and ranking.
+            r1 = last_rets.get(1)
+            if r1 is not None and r1 > 0:
+                entry["wins"] += 1
 
         if progress_cb:
             progress_cb(idx + 1, total)
+
+    def _stats(xs: list) -> tuple[float | None, float | None, float | None, float | None]:
+        """Return (avg, median, std, win_rate) for a list of returns; (None,…)
+        if empty."""
+        n = len(xs)
+        if n == 0:
+            return (None, None, None, None)
+        avg = sum(xs) / n
+        srt = sorted(xs)
+        med = (srt[n // 2] if n % 2 else (srt[n // 2 - 1] + srt[n // 2]) / 2)
+        if n > 1:
+            std = math.sqrt(sum((x - avg) ** 2 for x in xs) / (n - 1))
+        else:
+            std = 0.0
+        wins = sum(1 for x in xs if x > 0)
+        return (avg, med, std, wins / n)
 
     # Build result list.
     results = []
     for key, d in seq_map.items():
         if d["count"] < min_count:
             continue
-        wr = d["wins"] / d["count"]
-        rets = d["rets"]
-        avg_r = sum(rets) / len(rets)
-        sorted_rets = sorted(rets)
-        if len(sorted_rets) % 2 == 1:
-            med_r = sorted_rets[len(sorted_rets) // 2]
-        else:
-            mid = len(sorted_rets) // 2
-            med_r = (sorted_rets[mid - 1] + sorted_rets[mid]) / 2
-        if len(rets) > 1:
-            mean = avg_r
-            var = sum((x - mean) ** 2 for x in rets) / (len(rets) - 1)
-            std_r = math.sqrt(var)
-        else:
-            std_r = 0.0
+
+        # 1d remains the canonical horizon for the headline win_rate / wins
+        # / score (so existing sort_by=score stays comparable across runs).
+        rets1 = d["rets_by_h"][1]
+        avg1, med1, std1, wr1 = _stats(rets1)
+        wr1 = wr1 if wr1 is not None else (d["wins"] / d["count"])
+
         if mode == "full":
             type_seq = "".join("T" if p[:1] == "T" else "Z" for p in key.split("|"))
         else:
             type_seq = key
-        score = round(wr * math.log1p(d["count"]), 4)
-        results.append({
+        score = round(wr1 * math.log1p(d["count"]), 4)
+
+        out = {
             "sequence":     key,
             "type_seq":     type_seq,
             "count":        d["count"],
             "wins":         d["wins"],
-            "win_rate":     round(wr, 4),
-            "avg_ret_1d":   round(avg_r, 6),
-            "med_ret_1d":   round(med_r, 6),
-            "std_ret":      round(std_r, 6),
+            "win_rate":     round(wr1, 4),
+            "avg_ret_1d":   round(avg1, 6) if avg1 is not None else None,
+            "med_ret_1d":   round(med1, 6) if med1 is not None else None,
+            "std_ret":      round(std1, 6) if std1 is not None else None,
             "ticker_count": len(d["tickers"]),
             "score":        score,
-        })
+        }
+        # 3d / 5d / 9d additive context. None when no events had that
+        # horizon populated (typical near the end of the dataset).
+        for n in (3, 5, 9):
+            xs = d["rets_by_h"][n]
+            avg, med, _std, wr = _stats(xs)
+            out[f"win_rate_{n}d"] = round(wr,  4) if wr  is not None else None
+            out[f"avg_ret_{n}d"]  = round(avg, 6) if avg is not None else None
+            out[f"med_ret_{n}d"]  = round(med, 6) if med is not None else None
+            out[f"count_{n}d"]    = len(xs)
+        results.append(out)
 
     results.sort(key=lambda x: (-x["score"], -x["count"]))
     return {

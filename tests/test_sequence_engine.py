@@ -389,6 +389,59 @@ def test_bg_run_completes_visible_in_status_and_results(tmp_path, monkeypatch):
     assert results["tickers_total"] == 1
 
 
+def test_run_sequence_scan_emits_multi_horizon_stats(tmp_path, monkeypatch):
+    """Engine must emit win_rate_{3,5,9}d / avg_ret_{3,5,9}d /
+    med_ret_{3,5,9}d / count_{3,5,9}d per result row, derived from the
+    last bar of the window. Horizons that fall past the dataset end
+    contribute None."""
+    monkeypatch.chdir(tmp_path)
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    cols = ["ticker", "date", "close", "T", "Z"]
+    # 12-bar series so every event has at least 1d/3d/5d available; only
+    # the very last few events lack 9d.
+    series = [
+        ("2026-01-01", 100, "T4",  ""),
+        ("2026-01-02", 101, "",    "Z3"),
+        ("2026-01-03", 103, "T1G", ""),
+        ("2026-01-04", 106, "",    "Z2"),
+        ("2026-01-05", 108, "T2",  ""),
+        ("2026-01-06", 110, "",    "Z3"),
+        ("2026-01-07", 112, "T6",  ""),
+        ("2026-01-08", 115, "",    "Z2"),
+        ("2026-01-09", 117, "T2G", ""),
+        ("2026-01-10", 120, "",    "Z3"),
+        ("2026-01-11", 122, "T4",  ""),
+        ("2026-01-12", 125, "",    "Z2"),
+    ]
+    with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        for d, c, t, z in series:
+            w.writerow({"ticker": "AAPL", "date": d, "close": c, "T": t, "Z": z})
+
+    out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=4,
+                                min_count=1, mode="type")
+    assert out["status"] == "ok"
+    rows = out["results"]
+    assert any(r["sequence"] == "TZTZ" for r in rows)
+    tztz = next(r for r in rows if r["sequence"] == "TZTZ")
+    # All multi-horizon keys present
+    for n in (3, 5, 9):
+        assert f"win_rate_{n}d" in tztz, f"missing win_rate_{n}d"
+        assert f"avg_ret_{n}d"  in tztz, f"missing avg_ret_{n}d"
+        assert f"med_ret_{n}d"  in tztz, f"missing med_ret_{n}d"
+        assert f"count_{n}d"    in tztz, f"missing count_{n}d"
+    # 1d/3d/5d should be populated; 9d may legitimately be None on a 12-bar
+    # series (need ≥ 9 bars after the window's last bar).
+    assert tztz["win_rate"]    is not None
+    assert tztz["avg_ret_3d"]  is not None and tztz["avg_ret_3d"] > 0
+    assert tztz["avg_ret_5d"]  is not None and tztz["avg_ret_5d"] > 0
+    # All test bars rise → returns positive at every horizon that had data.
+    assert tztz["win_rate_3d"] == 1.0
+    assert tztz["win_rate_5d"] == 1.0
+
+
 def test_results_cap_evicts_oldest(monkeypatch, tmp_path):
     """The in-memory completed-runs cache must be bounded so successive
     scans across many param combos don't leak memory."""
