@@ -635,6 +635,39 @@ def api_turbo_scan(
         except Exception as exc:
             log.warning("profile playbook enrichment failed: %s", exc)
 
+        # Enrich with BETA Score — needs canonical fields, so we compute them
+        # on the fly from the existing signal flags in each turbo row.
+        try:
+            from beta_engine import calc_beta_score as _calc_beta
+            for r in results:
+                try:
+                    canon = compute_canonical_score(r, universe)
+                    # Synthesise VOL string from vol_spike flags
+                    if r.get("vol_spike_20x"):   _vol = "20x"
+                    elif r.get("vol_spike_10x"): _vol = "10x"
+                    elif r.get("vol_spike_5x"):  _vol = "5x"
+                    else:                         _vol = ""
+                    _beta_row = dict(r,
+                        ROCKET_SCORE=canon["ROCKET_SCORE"],
+                        CLEAN_ENTRY_SCORE=canon["CLEAN_ENTRY_SCORE"],
+                        FINAL_REGIME=canon["FINAL_REGIME"],
+                        VOL=_vol,
+                    )
+                    _b = _calc_beta(_beta_row, [], universe)
+                    r["beta_score"]    = _b["beta_score"]
+                    r["beta_raw"]      = _b["beta_raw"]
+                    r["beta_setup"]    = _b["beta_setup"]
+                    r["beta_momentum"] = _b["beta_momentum"]
+                    r["beta_excess"]   = _b["beta_excess"]
+                    r["beta_zone"]     = _b["beta_zone"]
+                    r["beta_auto_buy"] = _b["beta_auto_buy"]
+                except Exception:
+                    r["beta_score"] = 0
+                    r["beta_zone"] = ""
+                    r["beta_auto_buy"] = False
+        except Exception as exc:
+            log.warning("beta score enrichment failed: %s", exc)
+
         return {"results": results, "last_scan": last_time, "meta": meta}
     except Exception as exc:
         log.exception("turbo-scan error")
