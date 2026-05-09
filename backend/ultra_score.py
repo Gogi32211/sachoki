@@ -263,6 +263,41 @@ def _profile_category(row: dict) -> str:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Regime calibration (replay v2 — derived from SP500 1D historical replay).
+# Strong regimes get the largest bonus; bearish regimes contribute a warning
+# flag but no hard reject. Bonuses are additive on top of the existing A..F
+# components.
+# ─────────────────────────────────────────────────────────────────────────────
+
+_STRONG_REGIMES = frozenset({"ACTIONABLE_SETUP", "SHAKEOUT_ABSORB", "CLEAN_ENTRY"})
+
+_REGIME_BONUS = {
+    "ACTIONABLE_SETUP":  (12, "REGIME:ACTIONABLE"),
+    "SHAKEOUT_ABSORB":   (10, "REGIME:SHAKEOUT"),
+    "CLEAN_ENTRY":       ( 8, "REGIME:CLEAN"),
+    "REBOUND_SQUEEZE":   ( 5, "REGIME:REBOUND_SQUEEZE"),
+    "RISK_REBOUND":      ( 3, "REGIME:RISK_REBOUND"),
+    "ROCKET_WATCH":      ( 0, ""),
+}
+
+_BEARISH_REGIMES = frozenset({"BEARISH_PHASE", "BEARISH_CONTEXT"})
+
+
+def _final_regime(row: dict) -> str:
+    return (row.get("FINAL_REGIME") or row.get("final_regime") or "").upper()
+
+
+def _safe_change_pct(row: dict) -> float | None:
+    v = row.get("change_pct")
+    if v is None or v == "":
+        return None
+    try:
+        return float(v)
+    except (TypeError, ValueError):
+        return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # Main scoring function
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -393,12 +428,50 @@ def compute_ultra_score(row: dict) -> dict:
     if pb_tier == "CONFIRMED_PULLBACK" and has_breakout_any \
             and cat in ("SWEET_SPOT", "BUILDING"):
         f += 12; reasons.append("PB-ENTRY"); flags.append("PULLBACK_ENTRY_A")
-    if has("L34", "FRI34") and has_breakout_any:
-        f += 8; reasons.append("L34→TRIG"); flags.append("L34_TRIGGER_A")
+    # ── L34 / FRI34 calibrated tiering (replay v2) ──────────────────────────
+    # Standalone L34/FRI34 is weak (win 10D ≈48%). Only confluence matters:
+    #   alone:                        +2
+    #   + breakout:                   +5
+    #   + breakout + PF good (>=12):  +7
+    #   + breakout + PF good + strong regime: +10
+    has_l34 = has("L34", "FRI34")
+    if has_l34:
+        pf_good_l34 = (pf >= 12)
+        regime_now  = _final_regime(row)
+        strong_reg  = (regime_now in _STRONG_REGIMES)
+        if has_breakout_any and pf_good_l34 and strong_reg:
+            f += 10; reasons.append("L34→TRIG+REG"); flags.append("L34_TRIGGER_A")
+        elif has_breakout_any and pf_good_l34:
+            f += 7;  reasons.append("L34→TRIG+PF");  flags.append("L34_TRIGGER_A")
+        elif has_breakout_any:
+            f += 5;  reasons.append("L34→TRIG");     flags.append("L34_TRIGGER_A")
+        else:
+            f += 2;  reasons.append("L34")
     if has_setup_any and not has_breakout_any:
         flags.append("SETUP_ONLY")
     if has_breakout_any and not has_setup_any:
         flags.append("BREAKOUT_ONLY")
+
+    # ── REVERSAL_GROWTH_A_NO_RS calibrated tiering (replay v2) ──────────────
+    # When setup + breakout combine without RS+, the existing REV-GROW bonus
+    # already fires (cap-ish at +15). Replay shows this group is moderate
+    # (avg 10D +1.17%, win 10D 51.5%), so we pre-bake additive bonus tiers
+    # that only matter when this branch fires WITHOUT the strict RS+ branch.
+    rev_growth_no_rs = (has_setup_any and has_breakout_any and not rs_plus)
+    if rev_growth_no_rs:
+        flags.append("REVERSAL_GROWTH_A_NO_RS")
+        regime_now = _final_regime(row)
+        pf_good    = (pf >= 12)
+        strong_reg = (regime_now in _STRONG_REGIMES)
+        # alone +8, +PF good +10, +strong regime +14, both +18
+        if pf_good and strong_reg:
+            f += 18; reasons.append("REV-GROW(NO_RS)+PF+REG")
+        elif strong_reg:
+            f += 14; reasons.append("REV-GROW(NO_RS)+REG")
+        elif pf_good:
+            f += 10; reasons.append("REV-GROW(NO_RS)+PF")
+        else:
+            f += 8;  reasons.append("REV-GROW(NO_RS)")
 
     # ── E. Penalties ────────────────────────────────────────────────────────
     e = 0
@@ -412,13 +485,76 @@ def compute_ultra_score(row: dict) -> dict:
         e -= 5; flags.append("ISOLATED")
     if "EXTENDED" in sigs:
         flags.append("EXTENDED_MOVE")
+    if _truthy(row.get("rsi_extended")):
+        flags.append("RSI_EXTENDED")
+    if _truthy(row.get("cci_extended")):
+        flags.append("CCI_EXTENDED")
 
-    raw = a + b + c + d + f
+    # ── G. Regime bonus (replay v2) ─────────────────────────────────────────
+    # FINAL_REGIME contributes a measured additive bonus. ROCKET_WATCH gets
+    # zero (already-running). BEARISH gets a warning flag but no hard reject.
+    regime = _final_regime(row)
+    g = 0
+    regime_bonus_label = ""
+    if regime in _REGIME_BONUS:
+        g, label = _REGIME_BONUS[regime]
+        if label:
+            reasons.append(label); regime_bonus_label = label
+    elif regime in _BEARISH_REGIMES:
+        flags.append("BEARISH_CONTEXT_WARN")
+    strong_regime = (regime in _STRONG_REGIMES)
+
+    # ── Light extension penalty (warning, not rejection) ────────────────────
+    chg_pct = _safe_change_pct(row)
+    if chg_pct is not None and chg_pct >= 25 and not strong_regime:
+        e -= 4; flags.append("EXTENDED_PENALTY_LIGHT")
+
+    raw = a + b + c + d + f + g
     raw_clamped = max(0, min(100, int(round(raw))))
     total = raw + e
     score = max(0, min(100, int(round(total))))
 
+    # ── Confluence-aware caps (replay v2) ───────────────────────────────────
+    momentum_a    = ("MOMENTUM_A" in flags)
+    setup_only    = ("SETUP_ONLY" in flags)
+    breakout_only = ("BREAKOUT_ONLY" in flags)
+    pf_good       = (pf >= 12)
+    sweet_spot    = (cat == "SWEET_SPOT")
+
+    confluence_count = 0
+    if has_setup_any:                         confluence_count += 1
+    if has_breakout_any:                      confluence_count += 1
+    if pf_good:                               confluence_count += 1
+    if sweet_spot:                            confluence_count += 1
+
+    caps_applied: list[str] = []
+    cap_reasons: list[str]  = []
+
+    # Rule 1: MOMENTUM_A without strong regime can't exceed 89 unless ≥2
+    # additional strong confluences exist (setup + breakout + PF + SWEET_SPOT).
+    if momentum_a and not strong_regime and score > 89 and confluence_count < 4:
+        # MOMENTUM_A already counts breakout; require ≥2 of the others (setup,
+        # PF good, sweet_spot). Confluence sources beyond breakout: count them.
+        extra_conf = (1 if has_setup_any else 0) + (1 if pf_good else 0) + (1 if sweet_spot else 0)
+        if extra_conf < 2:
+            score = min(score, 89)
+            caps_applied.append("CAP_MOMENTUM_A_NO_REGIME")
+            cap_reasons.append("momentum_a:no_strong_regime:no_double_confluence")
+
+    # Rule 2: SETUP_ONLY caps at 49 unless PF good + strong regime present.
+    if setup_only and not (pf_good and strong_regime) and score > 49:
+        score = 49
+        caps_applied.append("CAP_SETUP_ONLY")
+        cap_reasons.append("setup_only:no_pf_or_regime")
+
+    # Rule 3: BREAKOUT_ONLY caps at 59 unless PF good + strong regime present.
+    if breakout_only and not (pf_good and strong_regime) and score > 59:
+        score = 59
+        caps_applied.append("CAP_BREAKOUT_ONLY")
+        cap_reasons.append("breakout_only:no_pf_or_regime")
+
     band = compute_ultra_score_band(score)
+    band_v2, priority = compute_ultra_score_priority(score)
 
     # Dedupe + cap reasons
     seen = set()
@@ -437,10 +573,15 @@ def compute_ultra_score(row: dict) -> dict:
     return {
         "ultra_score":                    score,
         "ultra_score_band":               band,
+        "ultra_score_band_v2":            band_v2,
+        "ultra_score_priority":           priority,
         "ultra_score_reasons":            out_reasons,
         "ultra_score_flags":              out_flags,
         "ultra_score_raw_before_penalty": raw_clamped,
         "ultra_score_penalty_total":      abs(int(round(e))),
+        "ultra_score_regime_bonus":       int(g),
+        "ultra_score_caps_applied":       list(caps_applied),
+        "ultra_score_cap_reason":         "|".join(cap_reasons),
     }
 
 
@@ -450,6 +591,24 @@ def compute_ultra_score_band(score) -> str:
     elif s >= 65: return "B"
     elif s >= 50: return "C"
     else:         return "D"
+
+
+def compute_ultra_score_priority(score) -> tuple[str, str]:
+    """Return (band_v2, priority) using the replay v2 calibration.
+
+    Bands:
+      90+ → A+ / HIGH_PRIORITY
+      80–89 → A / WATCH_A
+      65–79 → B / STRONG_WATCH
+      50–64 → C / CONTEXT_WATCH
+      <50  → D / LOW
+    """
+    s = _safe_float(score, default=0)
+    if   s >= 90: return ("A+", "HIGH_PRIORITY")
+    elif s >= 80: return ("A",  "WATCH_A")
+    elif s >= 65: return ("B",  "STRONG_WATCH")
+    elif s >= 50: return ("C",  "CONTEXT_WATCH")
+    else:         return ("D",  "LOW")
 
 
 def compute_ultra_score_reasons(row: dict) -> list:
@@ -464,8 +623,13 @@ def _empty_result() -> dict:
     return {
         "ultra_score":                    0,
         "ultra_score_band":               "D",
+        "ultra_score_band_v2":            "D",
+        "ultra_score_priority":           "LOW",
         "ultra_score_reasons":            [],
         "ultra_score_flags":              [],
         "ultra_score_raw_before_penalty": 0,
         "ultra_score_penalty_total":      0,
+        "ultra_score_regime_bonus":       0,
+        "ultra_score_caps_applied":       [],
+        "ultra_score_cap_reason":         "",
     }

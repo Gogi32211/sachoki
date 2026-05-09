@@ -362,6 +362,12 @@ def _attach_ultra_score(row: dict) -> None:
     row["ultra_score_flags"]              = sc["ultra_score_flags"]
     row["ultra_score_raw_before_penalty"] = sc["ultra_score_raw_before_penalty"]
     row["ultra_score_penalty_total"]      = sc["ultra_score_penalty_total"]
+    # v2 calibration fields (replay-derived). Live UI / CSV reads these.
+    row["ultra_score_band_v2"]            = sc.get("ultra_score_band_v2", "D")
+    row["ultra_score_priority"]           = sc.get("ultra_score_priority", "LOW")
+    row["ultra_score_regime_bonus"]       = sc.get("ultra_score_regime_bonus", 0)
+    row["ultra_score_caps_applied"]       = sc.get("ultra_score_caps_applied", [])
+    row["ultra_score_cap_reason"]         = sc.get("ultra_score_cap_reason", "")
 
 
 def _empty_unenriched_row(turbo_row: dict) -> dict:
