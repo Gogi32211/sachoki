@@ -544,6 +544,29 @@ def run_ultra_scan_job(
                 turbo_rows = [enrich_row_with_profile(r, universe) for r in turbo_rows]
             except Exception as exc:
                 log.warning("ULTRA: profile_playbook enrichment failed: %s", exc)
+
+            # BETA Score enrichment (same logic as turbo-scan endpoint)
+            try:
+                from beta_engine import calc_beta_score as _calc_beta
+                from canonical_scoring_engine import compute_canonical_score as _canon
+                for r in turbo_rows:
+                    try:
+                        canon = _canon(r, universe)
+                        _vol = ("20x" if r.get("vol_spike_20x") else
+                                "10x" if r.get("vol_spike_10x") else
+                                "5x"  if r.get("vol_spike_5x")  else "")
+                        _br = dict(r,
+                            ROCKET_SCORE=canon["ROCKET_SCORE"],
+                            CLEAN_ENTRY_SCORE=canon["CLEAN_ENTRY_SCORE"],
+                            FINAL_REGIME=canon["FINAL_REGIME"],
+                            VOL=_vol)
+                        _b = _calc_beta(_br, [], universe)
+                        r.update(_b)
+                    except Exception:
+                        pass
+            except Exception as exc:
+                log.warning("ULTRA: beta score enrichment failed: %s", exc)
+
             last_scan = get_last_turbo_scan_time(tf=tf, universe=universe)
             rows = [_empty_unenriched_row(r) for r in turbo_rows
                     if r.get("ticker")]
