@@ -17,7 +17,14 @@ const MODES = [
 ]
 const SORTS = [
   { key: 'score',        label: 'Score (WR × log count)' },
-  { key: 'win_rate',     label: 'Win rate' },
+  { key: 'win_rate',     label: 'Win rate (1D)' },
+  { key: 'win_rate_3d',  label: 'Win rate (3D)' },
+  { key: 'win_rate_5d',  label: 'Win rate (5D)' },
+  { key: 'win_rate_9d',  label: 'Win rate (9D)' },
+  { key: 'avg_ret_1d',   label: 'Avg Ret 1D' },
+  { key: 'avg_ret_3d',   label: 'Avg Ret 3D' },
+  { key: 'avg_ret_5d',   label: 'Avg Ret 5D' },
+  { key: 'avg_ret_9d',   label: 'Avg Ret 9D' },
   { key: 'count',        label: 'Occurrences' },
   { key: 'ticker_count', label: 'Breadth (ticker count)' },
 ]
@@ -155,8 +162,15 @@ export default function SequenceScanPanel() {
 
   const exportCsv = () => {
     if (!filteredRows.length) return
-    const cols = ['sequence', 'type_seq', 'count', 'wins', 'win_rate',
-                  'ticker_count', 'avg_ret_1d', 'med_ret_1d', 'std_ret', 'score']
+    const cols = [
+      'sequence', 'type_seq', 'count', 'wins', 'win_rate',
+      'ticker_count', 'score',
+      'avg_ret_1d', 'med_ret_1d', 'std_ret',
+      // Multi-horizon stats
+      'win_rate_3d', 'avg_ret_3d', 'med_ret_3d', 'count_3d',
+      'win_rate_5d', 'avg_ret_5d', 'med_ret_5d', 'count_5d',
+      'win_rate_9d', 'avg_ret_9d', 'med_ret_9d', 'count_9d',
+    ]
     const lines = [cols.join(',')]
     for (const r of filteredRows) {
       lines.push(cols.map(c => _csvCell(r[c])).join(','))
@@ -294,17 +308,23 @@ export default function SequenceScanPanel() {
             <tr>
               <th className="px-2 py-1.5 text-left">Sequence</th>
               <th className="px-2 py-1.5 text-left">Type</th>
-              <th className="px-2 py-1.5 text-right">Win rate</th>
+              <th className="px-2 py-1.5 text-right">Win 1D</th>
+              <th className="px-2 py-1.5 text-right">Win 3D</th>
+              <th className="px-2 py-1.5 text-right">Win 5D</th>
+              <th className="px-2 py-1.5 text-right">Win 9D</th>
               <th className="px-2 py-1.5 text-right">Count</th>
               <th className="px-2 py-1.5 text-right">Breadth</th>
-              <th className="px-2 py-1.5 text-right">Avg Ret 1D</th>
-              <th className="px-2 py-1.5 text-right">Med Ret 1D</th>
+              <th className="px-2 py-1.5 text-right">Avg 1D</th>
+              <th className="px-2 py-1.5 text-right">Avg 3D</th>
+              <th className="px-2 py-1.5 text-right">Avg 5D</th>
+              <th className="px-2 py-1.5 text-right">Avg 9D</th>
+              <th className="px-2 py-1.5 text-right">Med 1D</th>
               <th className="px-2 py-1.5 text-right">Score</th>
             </tr>
           </thead>
           <tbody>
             {filteredRows.length === 0 && (
-              <tr><td colSpan={8} className="text-center text-gray-600 py-6">
+              <tr><td colSpan={14} className="text-center text-gray-600 py-6">
                 {status.status === 'not_run'
                   ? 'No scan run yet — press ▶ Run Sequence Scan'
                   : status.status === 'no_data'
@@ -317,33 +337,59 @@ export default function SequenceScanPanel() {
                         : `No sequences match current filter / min_count (${meta?.tickers_total} tickers seen).`}
               </td></tr>
             )}
-            {filteredRows.map((r, i) => (
-              <tr key={`${r.sequence}-${i}`}
-                  className="border-t border-gray-800 hover:bg-gray-900">
-                <td className="px-2 py-1 font-mono text-blue-300">{r.sequence}</td>
-                <td className="px-2 py-1 font-mono text-gray-400">{r.type_seq}</td>
-                <td className={`px-2 py-1 text-right font-mono ${
-                    (r.win_rate ?? 0) >= 0.6 ? 'text-emerald-300 font-semibold' :
-                    (r.win_rate ?? 0) >= 0.5 ? 'text-teal-200' :
-                    (r.win_rate ?? 0) >= 0.4 ? 'text-yellow-300' :
-                    'text-red-300'}`}>
-                  {fmtPct(r.win_rate)}
-                </td>
-                <td className="px-2 py-1 text-right font-mono text-gray-200">{r.count}</td>
-                <td className="px-2 py-1 text-right font-mono text-gray-200">{r.ticker_count}</td>
-                <td className={`px-2 py-1 text-right font-mono ${
-                    (r.avg_ret_1d ?? 0) > 0 ? 'text-emerald-300' :
-                    (r.avg_ret_1d ?? 0) < 0 ? 'text-red-300' : 'text-gray-400'}`}>
-                  {fmtNum(r.avg_ret_1d, 4)}
-                </td>
-                <td className={`px-2 py-1 text-right font-mono ${
-                    (r.med_ret_1d ?? 0) > 0 ? 'text-emerald-300' :
-                    (r.med_ret_1d ?? 0) < 0 ? 'text-red-300' : 'text-gray-400'}`}>
-                  {fmtNum(r.med_ret_1d, 4)}
-                </td>
-                <td className="px-2 py-1 text-right font-mono text-amber-200">{fmtNum(r.score, 4)}</td>
-              </tr>
-            ))}
+            {filteredRows.map((r, i) => {
+              const wrCls = (v) =>
+                v == null            ? 'text-gray-700' :
+                v >= 0.6             ? 'text-emerald-300 font-semibold' :
+                v >= 0.5             ? 'text-teal-200' :
+                v >= 0.4             ? 'text-yellow-300' :
+                                       'text-red-300'
+              const retCls = (v) =>
+                v == null ? 'text-gray-700' :
+                v > 0     ? 'text-emerald-300' :
+                v < 0     ? 'text-red-300'     : 'text-gray-400'
+              return (
+                <tr key={`${r.sequence}-${i}`}
+                    className="border-t border-gray-800 hover:bg-gray-900">
+                  <td className="px-2 py-1 font-mono text-blue-300">{r.sequence}</td>
+                  <td className="px-2 py-1 font-mono text-gray-400">{r.type_seq}</td>
+                  <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate)}`}
+                      title={`1D win rate from ${r.count} occurrences`}>
+                    {fmtPct(r.win_rate)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate_3d)}`}
+                      title={r.count_3d != null ? `3D from ${r.count_3d} events` : ''}>
+                    {fmtPct(r.win_rate_3d)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate_5d)}`}
+                      title={r.count_5d != null ? `5D from ${r.count_5d} events` : ''}>
+                    {fmtPct(r.win_rate_5d)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate_9d)}`}
+                      title={r.count_9d != null ? `9D from ${r.count_9d} events` : ''}>
+                    {fmtPct(r.win_rate_9d)}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono text-gray-200">{r.count}</td>
+                  <td className="px-2 py-1 text-right font-mono text-gray-200">{r.ticker_count}</td>
+                  <td className={`px-2 py-1 text-right font-mono ${retCls(r.avg_ret_1d)}`}>
+                    {fmtNum(r.avg_ret_1d, 4)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${retCls(r.avg_ret_3d)}`}>
+                    {fmtNum(r.avg_ret_3d, 4)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${retCls(r.avg_ret_5d)}`}>
+                    {fmtNum(r.avg_ret_5d, 4)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${retCls(r.avg_ret_9d)}`}>
+                    {fmtNum(r.avg_ret_9d, 4)}
+                  </td>
+                  <td className={`px-2 py-1 text-right font-mono ${retCls(r.med_ret_1d)}`}>
+                    {fmtNum(r.med_ret_1d, 4)}
+                  </td>
+                  <td className="px-2 py-1 text-right font-mono text-amber-200">{fmtNum(r.score, 4)}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
       </div>

@@ -2882,6 +2882,14 @@ def api_sequence_scan_results(
         "count":        lambda x: (-(x.get("count")        or 0), -(x.get("win_rate") or 0)),
         "ticker_count": lambda x: (-(x.get("ticker_count") or 0), -(x.get("win_rate") or 0)),
         "score":        lambda x: (-(x.get("score")        or 0), -(x.get("count") or 0)),
+        # Multi-horizon win-rate / avg-return sort options
+        "win_rate_3d":  lambda x: (-(x.get("win_rate_3d")  or 0), -(x.get("count") or 0)),
+        "win_rate_5d":  lambda x: (-(x.get("win_rate_5d")  or 0), -(x.get("count") or 0)),
+        "win_rate_9d":  lambda x: (-(x.get("win_rate_9d")  or 0), -(x.get("count") or 0)),
+        "avg_ret_1d":   lambda x: (-(x.get("avg_ret_1d")   or 0), -(x.get("count") or 0)),
+        "avg_ret_3d":   lambda x: (-(x.get("avg_ret_3d")   or 0), -(x.get("count") or 0)),
+        "avg_ret_5d":   lambda x: (-(x.get("avg_ret_5d")   or 0), -(x.get("count") or 0)),
+        "avg_ret_9d":   lambda x: (-(x.get("avg_ret_9d")   or 0), -(x.get("count") or 0)),
     }
     results.sort(key=sort_keys.get(sort_by, sort_keys["score"]))
 
