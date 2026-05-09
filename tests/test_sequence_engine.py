@@ -197,6 +197,66 @@ def test_run_sequence_scan_progress_callback(tmp_path, monkeypatch):
     assert progress_calls[-1]  == (3, 3)
 
 
+def test_run_sequence_scan_reads_bulk_stock_stat_csv(tmp_path, monkeypatch):
+    """Regression: the bulk Stock Stat (Admin tab → /api/stock-stat/trigger)
+    writes ``stock_stat_output/stock_stat_<universe>_<tf>.csv`` with compact
+    UPPERCASE T/Z columns and NO forward returns — only `close`. The engine
+    must accept that layout, parse T/Z from the compact tokens, and derive
+    ret_1d from close.
+    """
+    monkeypatch.chdir(tmp_path)
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    bulk_path = bulk_dir / "stock_stat_sp500_1d.csv"
+    cols = ["ticker", "date", "close", "T", "Z"]
+    with open(bulk_path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=cols)
+        w.writeheader()
+        # AAPL: T4 → Z3 → T1G → Z2; closes rise 100 → 101 → 103 → 106 → 108.
+        for d, c, t, z in (
+            ("2026-01-01", 100, "T4",  ""),
+            ("2026-01-02", 101, "",    "Z3"),
+            ("2026-01-03", 103, "T1G", ""),
+            ("2026-01-04", 106, "",    "Z2"),
+            ("2026-01-05", 108, "",    ""),
+        ):
+            w.writerow({"ticker": "AAPL", "date": d,
+                        "close": c, "T": t, "Z": z})
+
+    out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=4,
+                                min_count=1, mode="type")
+    assert out["status"] == "ok"
+    assert out["stat_path"].endswith("stock_stat_sp500_1d.csv")
+    by_seq = {r["sequence"]: r for r in out["results"]}
+    assert "TZTZ" in by_seq
+    tztz = by_seq["TZTZ"]
+    assert tztz["count"] == 1
+    # Last bar of window is Z2 on 01-04 (close=106), next close 108 →
+    # forward 1d return ≈ 1.887%. Must be positive → wins=1.
+    assert tztz["wins"] == 1
+    assert tztz["avg_ret_1d"] > 1.0
+
+
+def test_run_sequence_scan_prefers_tz_wlnbb_when_both_present(tmp_path, monkeypatch):
+    """If both CSVs exist, prefer TZ/WLNBB (it carries pre-computed
+    forward returns)."""
+    monkeypatch.chdir(tmp_path)
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    # Bulk CSV present
+    with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["ticker", "date", "close", "T", "Z"])
+        w.writeheader()
+    # TZ/WLNBB CSV present too
+    _write_stock_stat(tmp_path / "stock_stat_tz_wlnbb_sp500_1d.csv", [
+        {"ticker": "AAPL", "date": "2026-01-01",
+         "t_signal": "T4", "z_signal": "", "ret_1d": 0.5},
+    ])
+    out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=2,
+                                min_count=1, mode="type")
+    assert out["stat_path"].endswith("stock_stat_tz_wlnbb_sp500_1d.csv")
+
+
 # ── API smoke tests ──────────────────────────────────────────────────────────
 
 def test_sequence_scan_routes_registered():
