@@ -1957,9 +1957,28 @@ _BETA_BUCKETS = [
 
 
 def _beta_metrics(rows: List[dict]) -> dict:
-    """Same metrics block as _ultra_metrics but keyed to beta_score."""
+    """Same metrics block as _ultra_metrics but keyed to beta_score.
+
+    NOTE: keep the returned dict shape identical for empty and non-empty inputs.
+    `_write_csv` uses the FIRST row's keys as the CSV header, so an empty group
+    appearing first (e.g. OPTIMAL=0) would otherwise drop every metric column
+    from later rows via DictWriter's extrasaction='ignore'.
+    """
+    _SKELETON = {
+        "count":          0,
+        "avg_beta_score": None,
+        "avg_ret_1d":     None, "median_ret_1d":  None, "win_rate_1d":  None,
+        "avg_ret_3d":     None, "median_ret_3d":  None,
+        "avg_ret_5d":     None, "median_ret_5d":  None, "win_rate_5d":  None,
+        "avg_ret_10d":    None, "median_ret_10d": None, "win_rate_10d": None,
+        "hit_5pct_5d":    None,
+        "hit_10pct_10d":  None,
+        "fail_rate_5d":   None,
+        "fail_rate_10d":  None,
+        "avg_mfe_5d":     None, "avg_mfe_10d":    None,
+    }
     if not rows:
-        return {"count": 0}
+        return dict(_SKELETON)
 
     def col(key: str) -> List[float]:
         out = []
