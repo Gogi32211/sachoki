@@ -19,6 +19,7 @@ import ReplayPanel from './components/ReplayPanel'
 import TZWLNBBPanel from './components/TZWLNBBPanel'
 import TZIntelligencePanel from './components/TZIntelligencePanel'
 import RareReversalPanel from './components/RareReversalPanel'
+import SequenceScanPanel from './components/SequenceScanPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -47,6 +48,7 @@ const TABS = [
   { id: 'tzwlnbb',       label: '📡 TZ/WLNBB' },
   { id: 'tzintelligence', label: '🧠 TZ Intel' },
   { id: 'rarereversal',   label: '🔄 Rare Reversal' },
+  { id: 'sequences',      label: '🔢 Sequences' },
   { id: 'howitworks',    label: 'How It Works' },
   { id: 'admin',      label: '⚙ Admin' },
 ]
@@ -112,7 +114,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.4.548</span>
+          <span className="text-xs font-normal text-gray-500">v4.4.552</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -240,6 +242,10 @@ export default function App() {
 
         {activeTab === 'rarereversal' && (
           <RareReversalPanel />
+        )}
+
+        {activeTab === 'sequences' && (
+          <SequenceScanPanel />
         )}
 
         {activeTab === 'howitworks' && (
