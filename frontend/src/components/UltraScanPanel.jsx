@@ -318,14 +318,34 @@ function scoreBg(s) {
   return ''
 }
 
-// ── ULTRA Score colour helper ────────────────────────────────────────────────
-// Independent from Turbo score colours. Bands: A 80+, B 65+, C 50+, else dim.
+// ── ULTRA Score colour helper (replay v2 calibration) ───────────────────────
+// 90+ A+ HIGH_PRIORITY → strongest visual treatment (replay edge concentrated
+// here). 80–89 A WATCH_A. 65–79 B STRONG_WATCH. 50–64 C CONTEXT_WATCH. <50 D LOW.
 function ultraScoreCls(s) {
   if (s == null) return 'text-gray-700'
+  if (s >= 90) return 'text-emerald-200 font-extrabold drop-shadow-[0_0_3px_rgba(110,231,183,0.45)]'
   if (s >= 80) return 'text-emerald-300 font-bold'
   if (s >= 65) return 'text-teal-300 font-semibold'
   if (s >= 50) return 'text-yellow-200/90'
   return 'text-gray-500'
+}
+
+// v2 band/priority labels — UI prefers v2 over old A/B/C/D when present.
+function ultraBandV2Label(s, fallback) {
+  if (s == null) return fallback || ''
+  if (s >= 90) return 'A+'
+  if (s >= 80) return 'A'
+  if (s >= 65) return 'B'
+  if (s >= 50) return 'C'
+  return 'D'
+}
+function ultraPriorityLabel(s) {
+  if (s == null) return ''
+  if (s >= 90) return 'HIGH_PRIORITY'
+  if (s >= 80) return 'WATCH_A'
+  if (s >= 65) return 'STRONG_WATCH'
+  if (s >= 50) return 'CONTEXT_WATCH'
+  return 'LOW'
 }
 
 // ── Compact-label maps for Pullback / Rare Reversal cells (and CSV) ──────────
@@ -1176,8 +1196,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'turbo_vabs_display', 'turbo_wyck_display', 'turbo_combo_display',
       'turbo_lsig_ultra_display',
       'turbo_category_display', 'turbo_profile_display',
-      // ULTRA Score + compact pullback / rare labels
-      'ultra_score', 'ultra_score_band', 'ultra_score_reasons',
+      // ULTRA Score + compact pullback / rare labels (v2 calibration adds
+      // band_v2/priority/regime_bonus/caps so CSV consumers see the same
+      // fields the live UI reads).
+      'ultra_score', 'ultra_score_band', 'ultra_score_band_v2',
+      'ultra_score_priority', 'ultra_score_regime_bonus',
+      'ultra_score_caps_applied', 'ultra_score_cap_reason',
+      'ultra_score_reasons',
       'pullback_display_compact', 'rare_reversal_display_compact',
     ]
 
@@ -1295,9 +1320,18 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.turbo_profile_display    = _displayProfile(r)
 
       // ULTRA Score fields (computed on the backend) + compact tier displays
-      flat.ultra_score          = r.ultra_score ?? ''
-      flat.ultra_score_band     = r.ultra_score_band ?? ''
-      flat.ultra_score_reasons  = r.ultra_score_reasons ?? ''
+      flat.ultra_score              = r.ultra_score ?? ''
+      flat.ultra_score_band         = r.ultra_score_band ?? ''
+      flat.ultra_score_band_v2      = r.ultra_score_band_v2
+        ?? ultraBandV2Label(r.ultra_score, r.ultra_score_band) ?? ''
+      flat.ultra_score_priority     = r.ultra_score_priority
+        ?? ultraPriorityLabel(r.ultra_score) ?? ''
+      flat.ultra_score_regime_bonus = r.ultra_score_regime_bonus ?? ''
+      flat.ultra_score_caps_applied = Array.isArray(r.ultra_score_caps_applied)
+        ? r.ultra_score_caps_applied.join(' ')
+        : (r.ultra_score_caps_applied ?? '')
+      flat.ultra_score_cap_reason   = r.ultra_score_cap_reason ?? ''
+      flat.ultra_score_reasons      = r.ultra_score_reasons ?? ''
       flat.pullback_display_compact      = pullbackCompact(r.pullback)
       flat.rare_reversal_display_compact = rareCompact(r.rare_reversal)
 
@@ -2039,19 +2073,22 @@ export default function UltraScanPanel({ onSelectTicker }) {
                   </div>
                 </td>
 
-                {/* ULTRA Score — independent additive ranking */}
+                {/* ULTRA Score — independent additive ranking (v2 calibration) */}
                 <td className="px-2 py-1 text-center"
-                    title={r.ultra_score_reasons
-                      ? `ULTRA ${r.ultra_score} (${r.ultra_score_band}) · ${r.ultra_score_reasons}`
-                      : (r.ultra_score != null ? `ULTRA ${r.ultra_score} (${r.ultra_score_band || '—'})` : '')}>
+                    title={(() => {
+                      const band2 = r.ultra_score_band_v2 || ultraBandV2Label(r.ultra_score, r.ultra_score_band)
+                      const pri   = r.ultra_score_priority || ultraPriorityLabel(r.ultra_score)
+                      const head  = r.ultra_score != null ? `ULTRA ${r.ultra_score} (${band2}/${pri || '—'})` : ''
+                      return r.ultra_score_reasons ? `${head} · ${r.ultra_score_reasons}` : head
+                    })()}>
                   {r.ultra_score != null ? (
                     <div className="leading-none">
                       <div className={`font-mono font-bold text-sm ${ultraScoreCls(r.ultra_score)}`}>
                         {r.ultra_score}
                       </div>
-                      {r.ultra_score_band && (
-                        <div className="text-[9px] text-gray-500 mt-0.5">{r.ultra_score_band}</div>
-                      )}
+                      <div className="text-[9px] text-gray-500 mt-0.5">
+                        {r.ultra_score_band_v2 || ultraBandV2Label(r.ultra_score, r.ultra_score_band) || '—'}
+                      </div>
                     </div>
                   ) : <span className="text-gray-700">—</span>}
                 </td>

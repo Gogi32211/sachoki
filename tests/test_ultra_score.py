@@ -301,6 +301,186 @@ def test_existing_stock_stat_endpoints_still_callable():
     assert callable(api_stock_stat_download)
 
 
+# ── ULTRA Score v2 calibration (replay-derived) ─────────────────────────────
+
+
+def test_v2_band_priority_mapping():
+    """A+ ≥90, A 80–89, B 65–79, C 50–64, D <50."""
+    assert ultra_score.compute_ultra_score_priority(95) == ("A+", "HIGH_PRIORITY")
+    assert ultra_score.compute_ultra_score_priority(90) == ("A+", "HIGH_PRIORITY")
+    assert ultra_score.compute_ultra_score_priority(89) == ("A",  "WATCH_A")
+    assert ultra_score.compute_ultra_score_priority(80) == ("A",  "WATCH_A")
+    assert ultra_score.compute_ultra_score_priority(70) == ("B",  "STRONG_WATCH")
+    assert ultra_score.compute_ultra_score_priority(55) == ("C",  "CONTEXT_WATCH")
+    assert ultra_score.compute_ultra_score_priority(20) == ("D",  "LOW")
+
+
+def test_v2_fields_present_in_compute_output():
+    out = ultra_score.compute_ultra_score({})
+    for k in ("ultra_score_band_v2", "ultra_score_priority",
+              "ultra_score_regime_bonus", "ultra_score_caps_applied",
+              "ultra_score_cap_reason"):
+        assert k in out, f"compute_ultra_score must export {k}"
+
+
+def test_v2_strong_regime_bonus_added():
+    """ACTIONABLE_SETUP adds +12 and the label appears in reasons."""
+    base = {
+        "buy_2809": 1, "abs_sig": 1,
+        "profile_score": 8, "profile_category": "BUILDING",
+    }
+    sc_no  = ultra_score.compute_ultra_score(dict(base))
+    sc_act = ultra_score.compute_ultra_score({**base, "FINAL_REGIME": "ACTIONABLE_SETUP"})
+    assert sc_act["ultra_score"] >= sc_no["ultra_score"] + 10
+    assert sc_act["ultra_score_regime_bonus"] == 12
+    assert "REGIME:ACTIONABLE" in " ".join(sc_act["ultra_score_reasons"])
+
+
+def test_v2_momentum_a_capped_without_strong_regime():
+    """MOMENTUM_A without strong regime cannot exceed 89 unless ≥2 of:
+    setup present, breakout present, PF>=12, profile=SWEET_SPOT (beyond
+    breakout itself)."""
+    # MOMENTUM_A only — BUY + SWEET_SPOT, weak PF, no setup → should cap at 89.
+    row = {
+        "buy_2809": 1, "rocket": 1,
+        "profile_score": 6, "profile_category": "SWEET_SPOT",
+        # no FINAL_REGIME → not strong
+    }
+    out = ultra_score.compute_ultra_score(row)
+    assert "MOMENTUM_A" in out["ultra_score_flags"]
+    assert out["ultra_score"] <= 89
+    if out["ultra_score"] == 89:
+        assert "CAP_MOMENTUM_A_NO_REGIME" in out["ultra_score_caps_applied"]
+
+
+def test_v2_momentum_a_uncapped_with_strong_regime():
+    """Same MOMENTUM_A with strong regime is allowed past 89."""
+    row = {
+        "buy_2809": 1, "rocket": 1, "abs_sig": 1, "va": 1, "rs_strong": 1,
+        "profile_score": 18, "profile_category": "SWEET_SPOT",
+        "FINAL_REGIME": "ACTIONABLE_SETUP",
+    }
+    out = ultra_score.compute_ultra_score(row)
+    assert "MOMENTUM_A" in out["ultra_score_flags"]
+    assert out["ultra_score"] >= 90
+    assert "CAP_MOMENTUM_A_NO_REGIME" not in out["ultra_score_caps_applied"]
+
+
+def test_v2_l34_alone_does_not_score_high():
+    """L34 / FRI34 alone (no breakout / no PF / no regime) → low score."""
+    row = {"l34": 1, "fri34": 1, "profile_category": "WATCH"}
+    out = ultra_score.compute_ultra_score(row)
+    assert out["ultra_score"] < 65, f"L34 alone scored {out['ultra_score']}"
+
+
+def test_v2_setup_only_caps_at_49():
+    """SETUP_ONLY without (PF good + strong regime) caps at 49."""
+    row = {"abs_sig": 1, "va": 1, "svs_2809": 1, "climb_sig": 1, "load_sig": 1,
+           "profile_score": 8, "profile_category": "BUILDING"}
+    out = ultra_score.compute_ultra_score(row)
+    assert "SETUP_ONLY" in out["ultra_score_flags"]
+    assert out["ultra_score"] <= 49
+    if out["ultra_score"] == 49:
+        assert "CAP_SETUP_ONLY" in out["ultra_score_caps_applied"]
+
+
+def test_v2_breakout_only_caps_at_59():
+    """BREAKOUT_ONLY without (PF good + strong regime) caps at 59."""
+    row = {"buy_2809": 1, "rocket": 1, "bb_brk": 1,
+           "profile_score": 4, "profile_category": "BUILDING"}
+    out = ultra_score.compute_ultra_score(row)
+    assert "BREAKOUT_ONLY" in out["ultra_score_flags"]
+    assert out["ultra_score"] <= 59
+    if out["ultra_score"] == 59:
+        assert "CAP_BREAKOUT_ONLY" in out["ultra_score_caps_applied"]
+
+
+def test_v2_setup_only_uncapped_with_pf_and_regime():
+    """SETUP_ONLY with PF>=12 + strong regime is NOT capped at 49."""
+    row = {"abs_sig": 1, "va": 1, "svs_2809": 1, "climb_sig": 1,
+           "profile_score": 18, "profile_category": "SWEET_SPOT",
+           "FINAL_REGIME": "ACTIONABLE_SETUP"}
+    out = ultra_score.compute_ultra_score(row)
+    assert "SETUP_ONLY" in out["ultra_score_flags"]
+    assert out["ultra_score"] > 49
+    assert "CAP_SETUP_ONLY" not in out["ultra_score_caps_applied"]
+
+
+def test_v2_breakout_only_uncapped_with_pf_and_regime():
+    """BREAKOUT_ONLY with PF>=12 + strong regime is NOT capped at 59."""
+    row = {"buy_2809": 1, "rocket": 1, "bb_brk": 1,
+           "profile_score": 18, "profile_category": "SWEET_SPOT",
+           "FINAL_REGIME": "ACTIONABLE_SETUP"}
+    out = ultra_score.compute_ultra_score(row)
+    assert "BREAKOUT_ONLY" in out["ultra_score_flags"]
+    assert out["ultra_score"] > 59
+    assert "CAP_BREAKOUT_ONLY" not in out["ultra_score_caps_applied"]
+
+
+def test_v2_extension_warning_only_no_hard_reject():
+    """Extended names with no strong regime get a small penalty + warning
+    flag, but are not rejected to 0."""
+    row = {"buy_2809": 1, "abs_sig": 1, "rs_strong": 1,
+           "profile_score": 18, "profile_category": "SWEET_SPOT",
+           "change_pct": 30}  # >=25 and no strong regime
+    out = ultra_score.compute_ultra_score(row)
+    assert "EXTENDED_PENALTY_LIGHT" in out["ultra_score_flags"]
+    assert out["ultra_score"] >= 50  # still very tradeable, only warning
+
+
+def test_v2_existing_csv_columns_still_present():
+    """Verify Stock Stat CSV header still contains both legacy and v2 fields."""
+    main_py = os.path.join(_backend, "main.py")
+    with open(main_py, encoding="utf-8") as f:
+        src = f.read()
+    for col in (
+        "ultra_score", "ultra_score_band", "ultra_score_band_v2",
+        "ultra_score_priority", "ultra_score_regime_bonus",
+        "ultra_score_caps_applied", "ultra_score_cap_reason",
+    ):
+        assert f'"{col}"' in src, f"Stock Stat header missing {col}"
+
+
+def test_v2_replay_band_v2_summary_shape():
+    """Replay v2 summaries return one row per band (A+/A/B/C/D)."""
+    rows = [
+        _bar(score=92, band="A"), _bar(score=88, band="A"),
+        _bar(score=70, band="B"), _bar(score=55, band="C"),
+        _bar(score=20, band="D"),
+    ]
+    summary = replay_engine.ultra_score_band_v2_summary(rows)
+    by_band = {r["band_v2"]: r for r in summary}
+    assert by_band["A+"]["count"] == 1
+    assert by_band["A"]["count"]  == 1
+    assert by_band["B"]["count"]  == 1
+    assert by_band["C"]["count"]  == 1
+    assert by_band["D"]["count"]  == 1
+
+
+def test_v2_replay_priority_summary_shape():
+    rows = [
+        _bar(score=95), _bar(score=85), _bar(score=70),
+        _bar(score=55), _bar(score=20),
+    ]
+    summary = replay_engine.ultra_score_priority_summary(rows)
+    by_pri = {r["priority"]: r["count"] for r in summary}
+    assert by_pri["HIGH_PRIORITY"]  == 1
+    assert by_pri["WATCH_A"]        == 1
+    assert by_pri["STRONG_WATCH"]   == 1
+    assert by_pri["CONTEXT_WATCH"]  == 1
+    assert by_pri["LOW"]            == 1
+
+
+def test_v2_turbo_score_unchanged():
+    """Hard rule: ULTRA Score recalibration must not modify any Turbo logic."""
+    import turbo_engine
+    src = inspect.getsource(turbo_engine)
+    # Turbo must not import or reference ULTRA Score v2 fields anywhere.
+    for tok in ("ultra_score_band_v2", "ultra_score_priority",
+                "ultra_score_regime_bonus", "ultra_score_caps_applied"):
+        assert tok not in src, f"Turbo engine must not reference {tok}"
+
+
 def test_replay_run_handles_missing_ultra_columns(monkeypatch, tmp_path):
     """If stock_stat CSV has no ultra_score, replay must still complete and
     flag ULTRA Score analytics as 'missing' rather than crashing."""

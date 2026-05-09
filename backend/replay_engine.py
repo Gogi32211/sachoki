@@ -1784,7 +1784,12 @@ def _md_summary(reports: dict, gen_at: str, tf: str, universe: str, n: int) -> s
 # free of lookahead while letting analytics evaluate after-the-fact outcomes.
 # ────────────────────────────────────────────────────────────────────────────
 
-_ULTRA_BAND_ORDER = ("A", "B", "C", "D")
+_ULTRA_BAND_ORDER    = ("A", "B", "C", "D")
+_ULTRA_BAND_V2_ORDER = ("A+", "A", "B", "C", "D")
+_ULTRA_PRIORITY_ORDER = (
+    "HIGH_PRIORITY", "WATCH_A", "STRONG_WATCH",
+    "CONTEXT_WATCH", "LOW",
+)
 _ULTRA_BUCKETS = (
     ("0–20",   0,  20),
     ("21–40", 21,  40),
@@ -1880,6 +1885,67 @@ def ultra_score_band_summary(rows: List[dict]) -> List[dict]:
     for band in _ULTRA_BAND_ORDER:
         m = _ultra_metrics(by_band[band])
         out.append({"band": band, **m})
+    return out
+
+
+def _band_v2_from_row(r: dict) -> str:
+    """Return the v2 band for a row. Prefers ultra_score_band_v2 if the CSV
+    carries it (post-recalibration runs); otherwise derives from ultra_score
+    so old stock_stat outputs still render meaningful summaries."""
+    raw = (r.get("ultra_score_band_v2") or "").strip()
+    if raw:
+        return raw.upper().replace(" ", "")
+    try:
+        s = float(r.get("ultra_score") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if   s >= 90: return "A+"
+    elif s >= 80: return "A"
+    elif s >= 65: return "B"
+    elif s >= 50: return "C"
+    else:         return "D"
+
+
+def _priority_from_row(r: dict) -> str:
+    raw = (r.get("ultra_score_priority") or "").strip().upper()
+    if raw:
+        return raw
+    try:
+        s = float(r.get("ultra_score") or 0)
+    except (TypeError, ValueError):
+        return ""
+    if   s >= 90: return "HIGH_PRIORITY"
+    elif s >= 80: return "WATCH_A"
+    elif s >= 65: return "STRONG_WATCH"
+    elif s >= 50: return "CONTEXT_WATCH"
+    else:         return "LOW"
+
+
+def ultra_score_band_v2_summary(rows: List[dict]) -> List[dict]:
+    """Replay v2 band summary (A+/A/B/C/D)."""
+    by_band: Dict[str, list] = {b: [] for b in _ULTRA_BAND_V2_ORDER}
+    for r in rows:
+        b = _band_v2_from_row(r)
+        if b in by_band:
+            by_band[b].append(r)
+    out: list = []
+    for band in _ULTRA_BAND_V2_ORDER:
+        m = _ultra_metrics(by_band[band])
+        out.append({"band_v2": band, **m})
+    return out
+
+
+def ultra_score_priority_summary(rows: List[dict]) -> List[dict]:
+    """Replay v2 priority summary (HIGH_PRIORITY..LOW)."""
+    by_pri: Dict[str, list] = {p: [] for p in _ULTRA_PRIORITY_ORDER}
+    for r in rows:
+        p = _priority_from_row(r)
+        if p in by_pri:
+            by_pri[p].append(r)
+    out: list = []
+    for pri in _ULTRA_PRIORITY_ORDER:
+        m = _ultra_metrics(by_pri[pri])
+        out.append({"priority": pri, **m})
     return out
 
 
@@ -2592,6 +2658,13 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                 _state["message"] = "ULTRA Score: band summary..."
                 cached["ultra_score_band_summary"]    = _save(
                     "ultra_score_band_summary",   ultra_score_band_summary(rows))
+                # Replay v2 — A+ tier + priority labels (replay-derived calibration)
+                _state["message"] = "ULTRA Score: band v2 summary..."
+                cached["ultra_score_band_v2_summary"] = _save(
+                    "ultra_score_band_v2_summary", ultra_score_band_v2_summary(rows))
+                _state["message"] = "ULTRA Score: priority summary..."
+                cached["ultra_score_priority_summary"] = _save(
+                    "ultra_score_priority_summary", ultra_score_priority_summary(rows))
                 _state["message"] = "ULTRA Score: bucket summary..."
                 cached["ultra_score_bucket_summary"]  = _save(
                     "ultra_score_bucket_summary", ultra_score_bucket_summary(rows))

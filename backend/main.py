@@ -1648,6 +1648,10 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "ultra_score", "ultra_score_band", "ultra_score_reasons",
             "ultra_score_flags", "ultra_score_raw_before_penalty",
             "ultra_score_penalty_total",
+            # ── ULTRA Score v2 calibration (replay-derived) ──────────────────
+            "ultra_score_band_v2", "ultra_score_priority",
+            "ultra_score_regime_bonus", "ultra_score_caps_applied",
+            "ultra_score_cap_reason",
             # ── Additional fields used by ULTRA Replay combo analytics. Filled
             # opportunistically — empty when bar_signals doesn't expose them
             # (e.g. pullback_evidence_tier / abr_category / tz_intel_role
@@ -1789,6 +1793,11 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                                 " ".join(_r["ultra_score_flags"]),
                                 _r["ultra_score_raw_before_penalty"],
                                 _r["ultra_score_penalty_total"],
+                                _r.get("ultra_score_band_v2", ""),
+                                _r.get("ultra_score_priority", ""),
+                                _r.get("ultra_score_regime_bonus", 0),
+                                " ".join(_r.get("ultra_score_caps_applied", []) or []),
+                                _r.get("ultra_score_cap_reason", ""),
                             ))(_compute_ultra_score(b)),
                             # ── Additional ULTRA Replay analytics fields ──
                             # rs_strong / tz_bull_flip derived from the same
