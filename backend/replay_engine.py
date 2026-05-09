@@ -18,7 +18,7 @@ _state: Dict[str, Any] = {
     "started_at":   None,
     "completed_at": None,
     "progress":     0,
-    "total_steps":  18,
+    "total_steps":  19,   # 1..18 + 19 (summary)
     "error":        None,
     "reports":      {},       # name → {rows, path, generated_at}
     "tf":           "1d",
@@ -2087,7 +2087,8 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
     global _state
     gen_at = _now()
     _state.update(status="running", started_at=gen_at, completed_at=None,
-                  progress=0, error=None, reports={}, tf=tf, universe=universe, row_count=0)
+                  progress=0, total_steps=19,
+                  error=None, reports={}, tf=tf, universe=universe, row_count=0)
     os.makedirs(REPLAY_OUTPUT_DIR, exist_ok=True)
 
     def _save(name: str, data: list) -> list:
@@ -2360,6 +2361,10 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
         # 13b — ULTRA Score analytics (only if stock_stat CSV has the columns).
         # The score itself was written by Stock Stat / Bulk Signal CSV using the
         # shared backend.ultra_score helper, so this stage is pure aggregation.
+        # We don't bump _state['progress'] here because the existing Replay
+        # progress contract is one number per major step and we run inside the
+        # 13→14 gap. We DO set message so the user sees what's happening.
+        _state["message"] = "ULTRA Score analytics..."
         _state["progress_ultra_score"] = "running"
         _ultra_available = any(("ultra_score" in r) for r in rows[:200])
         if not _ultra_available:
@@ -2370,16 +2375,22 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             _state["ultra_score_status"] = "missing"
         else:
             try:
+                _state["message"] = "ULTRA Score: band summary..."
                 cached["ultra_score_band_summary"]    = _save(
                     "ultra_score_band_summary",   ultra_score_band_summary(rows))
+                _state["message"] = "ULTRA Score: bucket summary..."
                 cached["ultra_score_bucket_summary"]  = _save(
                     "ultra_score_bucket_summary", ultra_score_bucket_summary(rows))
+                _state["message"] = "ULTRA Score: combo performance..."
                 cached["ultra_combo_perf"]            = _save(
                     "ultra_combo_perf",           ultra_combo_perf(rows))
+                _state["message"] = "ULTRA Score: events..."
                 cached["ultra_score_events"]          = _save(
                     "ultra_score_events",         ultra_score_events(rows, top_n=400))
+                _state["message"] = "ULTRA Score: false positives..."
                 cached["ultra_false_positives"]       = _save(
                     "ultra_false_positives",      ultra_false_positives(rows))
+                _state["message"] = "ULTRA Score: missed winners..."
                 cached["ultra_missed_winners"]        = _save(
                     "ultra_missed_winners",       ultra_missed_winners(rows))
                 _state["ultra_score_status"] = "available"
