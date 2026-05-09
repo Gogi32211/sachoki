@@ -28,6 +28,7 @@ from l_sequence_predictor import predict_l_next
 from stats_engine import compute_tz_l_matrix
 from canonical_scoring_engine import compute_canonical_score, get_scoring_metadata, SCORING_ENGINE_NAME, SCORING_ENGINE_VERSION
 from ultra_score import compute_ultra_score as _compute_ultra_score
+from ultra_signal_parser import parse_stock_stat_signals as _parse_ultra_signals
 from scanner import (
     run_scan, get_results, get_last_scan_time,
     get_scan_progress,
@@ -1647,6 +1648,16 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "ultra_score", "ultra_score_band", "ultra_score_reasons",
             "ultra_score_flags", "ultra_score_raw_before_penalty",
             "ultra_score_penalty_total",
+            # ── Additional fields used by ULTRA Replay combo analytics. Filled
+            # opportunistically — empty when bar_signals doesn't expose them
+            # (e.g. pullback_evidence_tier / abr_category / tz_intel_role
+            # require running TZ Intelligence + Pullback / Rare miners which
+            # would make Stock Stat much slower). Replay surfaces these as
+            # 'missing dependency' rather than silent zero. ──
+            "rs_strong", "rs",
+            "tz_bull_flip", "tz_transition_present",
+            "pullback_evidence_tier", "rare_evidence_tier",
+            "tz_intel_role", "abr_category",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1779,6 +1790,25 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                                 _r["ultra_score_raw_before_penalty"],
                                 _r["ultra_score_penalty_total"],
                             ))(_compute_ultra_score(b)),
+                            # ── Additional ULTRA Replay analytics fields ──
+                            # rs_strong / tz_bull_flip derived from the same
+                            # parser the score uses. pullback / rare / tz_intel
+                            # / abr are passed through if upstream populated
+                            # them, otherwise empty.
+                            *(lambda _p: (
+                                int(bool(_p["rs_strong"])),
+                                int(bool(_p["rs"])),
+                                int(bool(_p["tz_bull_flip"])),
+                                int(bool(_p["tz_transition_present"])),
+                                b.get("pullback_evidence_tier", "")
+                                  or (b.get("pullback") or {}).get("evidence_tier", ""),
+                                b.get("rare_evidence_tier", "")
+                                  or (b.get("rare_reversal") or {}).get("evidence_tier", ""),
+                                b.get("tz_intel_role", "")
+                                  or (b.get("tz_intel") or {}).get("role", ""),
+                                b.get("abr_category", "")
+                                  or (b.get("abr") or {}).get("category", ""),
+                            ))(_parse_ultra_signals(b)),
                         ])
                 except Exception:
                     pass
