@@ -318,6 +318,18 @@ function scoreBg(s) {
   return ''
 }
 
+function betaZoneCls(zone) {
+  switch (zone) {
+    case 'OPTIMAL':     return 'text-emerald-300 font-bold'
+    case 'BUY':         return 'text-blue-300 font-semibold'
+    case 'WATCH':       return 'text-violet-300'
+    case 'BUILDING':    return 'text-yellow-400'
+    case 'EXTENDED':    return 'text-amber-400'
+    case 'SHORT_WATCH': return 'text-red-400'
+    default:            return 'text-gray-600'
+  }
+}
+
 // ── Badge component ───────────────────────────────────────────────────────────
 function Badge({ label, cls }) {
   return <span className={`px-1 rounded text-[10px] leading-tight ${cls}`}>{label}</span>
@@ -663,6 +675,9 @@ const KEEP_ALWAYS = new Set([
   // RTB v4
   'rtb_build','rtb_turn','rtb_ready','rtb_bonus3',
   'rtb_late','rtb_total','rtb_phase','rtb_transition','rtb_phase_age',
+  // BETA Score
+  'beta_score','beta_raw','beta_setup','beta_momentum','beta_excess',
+  'beta_zone','beta_auto_buy',
 ])
 function _slimRow(r) {
   const out = {}
@@ -1432,6 +1447,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <SortTh col="turbo_score" cls="text-center">
                 Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
               </SortTh>
+              <SortTh col="beta_score" cls="text-center" title="BETA Score — non-linear quality rank. OPTIMAL=85-96, BUY=75-84, WATCH=60-74, BUILDING=40-59, EXTENDED=overheated">BETA</SortTh>
               <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <SortTh col="signal_score" cls="text-center">GOG</SortTh>
@@ -1509,6 +1525,19 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
                     {scoreReason(r)}
                   </div>
+                </td>
+
+                {/* BETA Score */}
+                <td className="px-2 py-1 text-center"
+                  title={r.beta_zone ? `BETA ${r.beta_score} | Zone: ${r.beta_zone} | Setup: ${r.beta_setup} Mom: ${r.beta_momentum} Excess: ${r.beta_excess}${r.beta_auto_buy ? ' | ★ AUTO-BUY' : ''}` : 'No BETA data'}>
+                  {r.beta_score > 0 ? (
+                    <div className="leading-none">
+                      <div className={`font-mono font-bold text-sm ${betaZoneCls(r.beta_zone)}`}>
+                        {r.beta_auto_buy ? '★ ' : ''}{r.beta_score}
+                      </div>
+                      <div className={`text-[9px] mt-0.5 ${betaZoneCls(r.beta_zone)}`}>{r.beta_zone}</div>
+                    </div>
+                  ) : <span className="text-gray-700">—</span>}
                 </td>
 
                 {/* RTB v4 phase + score */}
