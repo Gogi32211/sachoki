@@ -289,8 +289,10 @@ export default function SequenceScanPanel() {
                 {status.status === 'not_run'
                   ? 'No scan run yet — press ▶ Run Sequence Scan'
                   : status.status === 'no_data'
-                    ? 'No TZ/WLNBB stock_stat CSV for this universe/tf — generate it first.'
-                    : 'No sequences match current filter / min_count.'}
+                    ? 'No Stock Stat CSV found for this universe/tf — run Admin → Stock Stat (Bulk Signal CSV) or TZ/WLNBB → Generate Stock Stat first.'
+                    : status.status === 'error'
+                      ? `Scan error: ${status.error || 'unknown'}`
+                      : 'No sequences match current filter / min_count.'}
               </td></tr>
             )}
             {filteredRows.map((r, i) => (
@@ -326,7 +328,8 @@ export default function SequenceScanPanel() {
 
       <div className="mt-2 text-[10px] text-gray-500">
         Score = win_rate × log1p(count) — balances rare high-WR vs common low-WR sequences.
-        Excludes T7, T8, Z8 by spec. Requires TZ/WLNBB stock_stat CSV; generate it first.
+        Excludes T7, T8, Z8 by spec. Reads either Admin → Stock Stat (Bulk Signal CSV)
+        or TZ/WLNBB → Generate Stock Stat output. Generate one of those first.
       </div>
     </div>
   )

@@ -30,7 +30,11 @@ from typing import Callable, Iterable
 
 log = logging.getLogger(__name__)
 
-# Canonical TZ/WLNBB CSV path (mirrors main._tz_batch_stat_path's default).
+# Canonical CSV path candidates.
+#   • TZ/WLNBB stock_stat   — has t_signal / z_signal / ret_1d already
+#   • Bulk Stock Stat (Admin/api_stock_stat_trigger) — has compact T / Z
+#     columns with full labels (e.g. T="T4", Z="Z3") and `close` for
+#     forward-return derivation.
 def _stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     if nasdaq_batch and nasdaq_batch != "all":
         if universe == "nasdaq":
@@ -40,12 +44,20 @@ def _stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str:
     return f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
 
 
+def _bulk_stat_path(universe: str, tf: str) -> str:
+    """Bulk Stock Stat CSV path (Admin tab → /api/stock-stat/trigger)."""
+    return os.path.join("stock_stat_output", f"stock_stat_{universe}_{tf}.csv")
+
+
 def _resolve_stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str | None:
-    """Return the first existing canonical CSV path (or None)."""
+    """Return the first existing CSV path. Prefers TZ/WLNBB (has pre-computed
+    forward returns) and falls back to the bulk Stock Stat (we'll derive
+    returns from close)."""
     for p in (
         _stat_path(universe, tf, nasdaq_batch),
         f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
         f"stock_stat_tz_wlnbb_{tf}.csv",
+        _bulk_stat_path(universe, tf),
     ):
         if os.path.exists(p):
             return p
@@ -87,6 +99,42 @@ def _safe_float(v) -> float | None:
         return None if f != f else f  # NaN
     except (TypeError, ValueError):
         return None
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Row → (t_signal, z_signal) extraction — supports BOTH CSV layouts.
+#
+#   • TZ/WLNBB stock_stat: row['t_signal'] / row['z_signal'] (lowercase)
+#   • Bulk Stock Stat:     row['T'] / row['Z'] (uppercase compact strings,
+#                           one full label per cell or empty)
+# Bulk Stock Stat may also store the label as the only token in the cell, or
+# multiple space-separated tokens — we take the first allowed token.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _first_allowed(text: str, pool: frozenset) -> str:
+    if not text:
+        return ""
+    for tok in str(text).replace(",", " ").split():
+        u = tok.strip().upper()
+        if u in pool:
+            return u
+    return ""
+
+
+def _extract_tz_for_row(row: dict) -> tuple[str, str]:
+    """Return (t_signal, z_signal) for a row from either CSV layout.
+
+    Returns ("", "") if the bar has no allowed T/Z signal.
+    """
+    # TZ/WLNBB layout
+    t = (row.get("t_signal") or "").strip()
+    z = (row.get("z_signal") or "").strip()
+    # Bulk Stock Stat layout (uppercase columns)
+    if not t:
+        t = _first_allowed(row.get("T", ""), _BULL_SET)
+    if not z:
+        z = _first_allowed(row.get("Z", ""), _BEAR_SET)
+    return t, z
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -148,10 +196,25 @@ def run_sequence_scan(
         rows = rows_by_ticker[ticker]
         rows.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
 
+        # Pre-compute close-derived ret_1d for rows that lack it (bulk Stock
+        # Stat layout). For TZ/WLNBB layout this is a no-op since ret_1d is
+        # already populated.
+        for i, r in enumerate(rows):
+            if _safe_float(r.get("ret_1d")) is not None:
+                continue
+            c0 = _safe_float(r.get("close"))
+            if c0 is None or c0 <= 0 or i + 1 >= len(rows):
+                continue
+            c1 = _safe_float(rows[i + 1].get("close"))
+            if c1 is None or c1 <= 0:
+                continue
+            r["ret_1d"] = (c1 / c0 - 1) * 100  # match TZ/WLNBB units (%)
+
         # Reduce to bars whose signal is in the allowed pool.
         events = []
         for r in rows:
-            cls = _classify(r.get("t_signal", ""), r.get("z_signal", ""))
+            t_sig, z_sig = _extract_tz_for_row(r)
+            cls = _classify(t_sig, z_sig)
             if cls is None:
                 continue
             ret1 = _safe_float(r.get("ret_1d"))
