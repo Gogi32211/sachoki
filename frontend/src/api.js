@@ -198,6 +198,29 @@ export const api = {
   // Backwards-compat: same payload as /results
   ultraScan: (params) => get(`/api/ultra-scan?${new URLSearchParams(params)}`),
 
+  // Sequence Scan — universe-wide N-bar T/Z sequence analyzer
+  sequenceScanTrigger: (params = {}) => {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null && v !== '') p.set(k, v)
+    }
+    return post(`/api/sequence-scan/trigger?${p}`)
+  },
+  sequenceScanStatus:  (params = {}) => {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null && v !== '') p.set(k, v)
+    }
+    return get(`/api/sequence-scan/status?${p}`)
+  },
+  sequenceScanResults: (params = {}) => {
+    const p = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (v != null && v !== '') p.set(k, v)
+    }
+    return get(`/api/sequence-scan/results?${p}`)
+  },
+
   // Sector Analysis
   sectorOverview: ()               => get('/api/sectors/overview'),
   sectorDetail:   (etf)            => get(`/api/sectors/${etf}`),
