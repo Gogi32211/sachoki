@@ -348,6 +348,18 @@ function ultraPriorityLabel(s) {
   return 'LOW'
 }
 
+function betaZoneCls(zone) {
+  switch (zone) {
+    case 'OPTIMAL':     return 'text-emerald-300 font-bold'
+    case 'BUY':         return 'text-blue-300 font-semibold'
+    case 'WATCH':       return 'text-violet-300'
+    case 'BUILDING':    return 'text-yellow-400'
+    case 'EXTENDED':    return 'text-amber-400'
+    case 'SHORT_WATCH': return 'text-red-400'
+    default:            return 'text-gray-600'
+  }
+}
+
 // ── Compact-label maps for Pullback / Rare Reversal cells (and CSV) ──────────
 const PULLBACK_COMPACT = {
   ANECDOTAL_PULLBACK: 'APB',
@@ -1214,6 +1226,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'sweet_spot_active', 'late_warning', 'gog_tier',
       'rsi', 'cci', 'last_price', 'change_pct', 'avg_vol', 'vol_bucket',
       'sector', 'data_source',
+      // BETA Score
+      'beta_score', 'beta_raw', 'beta_setup', 'beta_momentum',
+      'beta_excess', 'beta_zone', 'beta_auto_buy',
     ]
 
     // Raw signal fields behind every visible Turbo badge (boolean / numeric).
@@ -1986,6 +2001,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 title="ULTRA Score — independent confluence ranking (0–100). Bands: A 80+, B 65+, C 50+, else dim. Does not modify Turbo score.">
                 ULTRA<br/><span className="text-[9px] font-normal text-gray-500">Score</span>
               </SortTh>
+              <SortTh col="beta_score" cls="text-center"
+                title="BETA Score — non-linear quality rank. OPTIMAL=85-96, BUY=75-84, WATCH=60-74, BUILDING=40-59, EXTENDED=overheated, SHORT_WATCH=all signals fired">
+                BETA
+              </SortTh>
               <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
               <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
               <SortTh col="signal_score" cls="text-center">GOG</SortTh>
@@ -2089,6 +2108,19 @@ export default function UltraScanPanel({ onSelectTicker }) {
                       <div className="text-[9px] text-gray-500 mt-0.5">
                         {r.ultra_score_band_v2 || ultraBandV2Label(r.ultra_score, r.ultra_score_band) || '—'}
                       </div>
+                    </div>
+                  ) : <span className="text-gray-700">—</span>}
+                </td>
+
+                {/* BETA Score */}
+                <td className="px-2 py-1 text-center"
+                  title={r.beta_zone ? `BETA ${r.beta_score} | Zone: ${r.beta_zone} | Setup: ${r.beta_setup} Mom: ${r.beta_momentum} Excess: ${r.beta_excess}${r.beta_auto_buy ? ' | ★ AUTO-BUY' : ''}` : 'No BETA data'}>
+                  {r.beta_score > 0 ? (
+                    <div className="leading-none">
+                      <div className={`font-mono font-bold text-sm ${betaZoneCls(r.beta_zone)}`}>
+                        {r.beta_auto_buy ? '★ ' : ''}{r.beta_score}
+                      </div>
+                      <div className={`text-[9px] mt-0.5 ${betaZoneCls(r.beta_zone)}`}>{r.beta_zone}</div>
                     </div>
                   ) : <span className="text-gray-700">—</span>}
                 </td>

@@ -1949,6 +1949,86 @@ def ultra_score_priority_summary(rows: List[dict]) -> List[dict]:
     return out
 
 
+_BETA_ZONES = ("OPTIMAL", "BUY", "WATCH", "BUILDING", "EXTENDED", "SHORT_WATCH", "NEUTRAL")
+_BETA_BUCKETS = [
+    ("90-100", 90, 100), ("80-89", 80, 89), ("70-79", 70, 79),
+    ("60-69", 60, 69), ("50-59", 50, 59), ("40-49", 40, 49), ("<40", 0, 39),
+]
+
+
+def _beta_metrics(rows: List[dict]) -> dict:
+    """Same metrics block as _ultra_metrics but keyed to beta_score."""
+    if not rows:
+        return {"count": 0}
+
+    def col(key: str) -> List[float]:
+        out = []
+        for r in rows:
+            v = r.get(key)
+            try:
+                if v is None or v == "": continue
+                f = float(v)
+                if f != f: continue
+                out.append(f)
+            except (TypeError, ValueError):
+                pass
+        return out
+
+    def col_any(*keys):
+        for k in keys:
+            xs = col(k)
+            if xs: return xs
+        return []
+
+    r1  = col_any("_ret1",  "ret_1d")
+    r3  = col_any("_ret3",  "ret_3d")
+    r5  = col_any("_ret5",  "ret_5d")
+    r10 = col_any("_ret10", "ret_10d")
+    mfe5  = col_any("_max5",  "mfe_5d")
+    mfe10 = col_any("_max10", "mfe_10d")
+
+    def avg(xs):  return _mean(xs)
+    def med(xs):  return _median(xs)
+    def winrate(xs): return _rate([x > 0 for x in xs]) if xs else None
+    def hit(xs, t):  return _rate([x >= t for x in xs]) if xs else None
+    def fail(xs, t): return _rate([x <= -t for x in xs]) if xs else None
+
+    return {
+        "count":          len(rows),
+        "avg_beta_score": avg(col("beta_score")),
+        "avg_ret_1d":     avg(r1),  "median_ret_1d":  _median(r1),  "win_rate_1d":  winrate(r1),
+        "avg_ret_3d":     avg(r3),  "median_ret_3d":  _median(r3),
+        "avg_ret_5d":     avg(r5),  "median_ret_5d":  _median(r5),  "win_rate_5d":  winrate(r5),
+        "avg_ret_10d":    avg(r10), "median_ret_10d": _median(r10), "win_rate_10d": winrate(r10),
+        "hit_5pct_5d":    hit(r5, 5.0),
+        "hit_10pct_10d":  hit(r10, 10.0),
+        "fail_rate_5d":   fail(r5, 3.0),
+        "fail_rate_10d":  fail(r10, 5.0),
+        "avg_mfe_5d":  avg(mfe5),  "avg_mfe_10d": avg(mfe10),
+    }
+
+
+def beta_zone_summary(rows: List[dict]) -> List[dict]:
+    """One row per BETA zone (OPTIMAL/BUY/WATCH/BUILDING/EXTENDED/SHORT_WATCH/NEUTRAL)."""
+    by_zone: Dict[str, list] = {z: [] for z in _BETA_ZONES}
+    for r in rows:
+        z = str(r.get("beta_zone") or "NEUTRAL")
+        if z not in by_zone:
+            z = "NEUTRAL"
+        by_zone[z].append(r)
+    return [{"beta_zone": z, **_beta_metrics(by_zone[z])} for z in _BETA_ZONES]
+
+
+def beta_score_bucket_summary(rows: List[dict]) -> List[dict]:
+    """One row per BETA Score bucket (10-point bands)."""
+    out: list = []
+    for label, lo, hi in _BETA_BUCKETS:
+        sub = [r for r in rows
+               if lo <= float(r.get("beta_score") or 0) <= hi]
+        out.append({"bucket": label, "lo": lo, "hi": hi, **_beta_metrics(sub)})
+    return out
+
+
 def ultra_score_bucket_summary(rows: List[dict]) -> List[dict]:
     """One row per ULTRA Score bucket."""
     out: list = []
@@ -2687,6 +2767,25 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
             except Exception as exc:  # never fail the whole replay run
                 log.exception("ULTRA Score analytics failed")
                 _state["ultra_score_status"] = f"error: {exc}"
+
+        # 13b — BETA Score analytics
+        _beta_available = any(
+            r.get("beta_score") not in (None, "", 0) for r in rows[:200]
+        )
+        if not _beta_available:
+            _state["beta_score_status"] = "missing"
+        else:
+            try:
+                _state["message"] = "BETA Score: zone summary..."
+                cached["beta_zone_summary"]          = _save(
+                    "beta_zone_summary",          beta_zone_summary(rows))
+                _state["message"] = "BETA Score: bucket summary..."
+                cached["beta_score_bucket_summary"]  = _save(
+                    "beta_score_bucket_summary",  beta_score_bucket_summary(rows))
+                _state["beta_score_status"] = "available"
+            except Exception as exc:
+                log.exception("BETA Score analytics failed")
+                _state["beta_score_status"] = f"error: {exc}"
 
         # 14 — Unscored
         _state["progress"] = 14; _state["message"] = "Active unscored signals..."
