@@ -75,6 +75,180 @@ def _write_csv(path: str, rows: List[dict], generated_at: str = "") -> int:
     return len(rows)
 
 
+def _enrich_sig_cols(row: dict) -> None:
+    """Populate SIG_* boolean columns from text signal columns in the stock_stat CSV.
+
+    The CSV stores signals as space-separated tokens in T/Z/L/F/FLY/G/B/Combo/ULT/VOL/VABS/WICK
+    columns.  This converts them into the flat SIG_* integer flags that signal_perf,
+    pair_combo_perf, triple_combo_perf, unscored_signals, and scored_weak expect.
+    Only sets columns that are not already present (allows pre-populated CSVs to win).
+    """
+    def _tok(col: str) -> set:
+        v = row.get(col, "") or ""
+        return set(v.split())
+
+    def _has(col: str) -> bool:
+        v = row.get(col)
+        if v is None or v == "" or v == "0":
+            return False
+        try:
+            return float(v) != 0
+        except (TypeError, ValueError):
+            return bool(v)
+
+    def _set(key: str, val: bool) -> None:
+        if key not in row:
+            row[key] = 1 if val else 0
+
+    tok_T   = _tok("T");   tok_Z   = _tok("Z");  tok_L   = _tok("L")
+    tok_F   = _tok("F");   tok_FLY = _tok("FLY"); tok_G   = _tok("G")
+    tok_B   = _tok("B");   tok_C   = _tok("Combo"); tok_U = _tok("ULT")
+    tok_VOL = _tok("VOL"); tok_VA  = _tok("VABS"); tok_WK = _tok("WICK")
+
+    # ── T / Z signals ────────────────────────────────────────────────────────
+    _set("SIG_T",  bool(tok_T))
+    _set("SIG_Z",  bool(tok_Z))
+    _set("SIG_TZ", bool(tok_T or tok_Z))
+    _set("SIG_TZ2", bool(tok_T & {"T4","T6","T9","T11"} or tok_Z & {"Z1G","Z2","Z2G"}))
+    _set("SIG_TZ3", bool("TZ→3" in tok_C or "TZ→2" in tok_C or "TZ>3" in tok_C))
+    _set("SIG_TZ_FLIP", bool(_has("tz_bull_flip") or "TZ→3" in tok_C or "TZ>3" in tok_C))
+
+    # ── VABS ─────────────────────────────────────────────────────────────────
+    _set("SIG_BEST",    bool("BEST★" in tok_VA or "BEST" in tok_VA))
+    _set("SIG_STRONG",  bool("STRONG" in tok_VA or "STR" in tok_VA))
+    _set("SIG_VBO_DN",  bool("VBO↓" in tok_VA))
+    _set("SIG_NS_VABS", bool("NS" in tok_VA))
+    _set("SIG_ND_VABS", bool("ND" in tok_VA))
+    _set("SIG_SC",      bool("SC" in tok_VA))
+    _set("SIG_BC",      bool("BC" in tok_VA))
+    _set("SIG_ABS",     bool("ABS" in tok_VA))
+    _set("SIG_CLM",     bool("CLM" in tok_VA or "CLB" in tok_VA or "CLIMB" in tok_VA))
+    ns_delta = bool("NS" in tok_C or "NS" in tok_VA) and not bool("NS" in tok_VA)
+    _set("SIG_NS_DELTA", ns_delta)
+    _set("SIG_ND_DELTA", bool("ND" in tok_C and "ND" not in tok_VA))
+
+    # ── ULT / breakout ───────────────────────────────────────────────────────
+    _set("SIG_BEST_UP", bool("BEST↑" in tok_U))
+    _set("SIG_FBO_UP",  bool("FBO↑" in tok_U or "FBO↑" in tok_C))
+    _set("SIG_EB_UP",   bool("EB↑"  in tok_U or "EB↑"  in tok_C))
+    _set("SIG_3UP",     bool("3↑"   in tok_U or "3UP"  in tok_U))
+    _set("SIG_FBO_DN",  bool("FBO↓" in tok_U or "FBO↓" in tok_C))
+    _set("SIG_EB_DN",   bool("EB↓"  in tok_U or "EB↓"  in tok_C))
+    _set("SIG_4BF_DN",  bool("4BF↓" in tok_U or "4BF↓" in tok_C or "4BF" in tok_U))
+
+    # ── L / WLNBB ────────────────────────────────────────────────────────────
+    _set("SIG_FRI34",  bool("FRI34" in tok_L))
+    _set("SIG_FRI43",  bool("FRI43" in tok_L))
+    _set("SIG_FRI64",  bool("FRI64" in tok_L))
+    _set("SIG_L555",   bool("L555"  in tok_L))
+    _set("SIG_L2L4",   bool("L2L4"  in tok_L))
+    _set("SIG_BLUE",   bool("BL" in tok_L or "BLUE" in tok_L))
+    _set("SIG_CCI",    bool("CCI"   in tok_L))
+    _set("SIG_CCI0R",  bool("CCI0R" in tok_L))
+    _set("SIG_CCIB",   bool("CCIB"  in tok_L))
+    _set("SIG_BO_DN",  bool("BO↓"  in tok_L or "BO↓" in tok_U or "BO↓" in tok_C))
+    _set("SIG_BX_DN",  bool("BX↓"  in tok_L or "BX↓" in tok_U or "BX↓" in tok_C))
+    _set("SIG_BE_DN",  bool("BE↓"  in tok_L or "BE↓" in tok_U or "BE↓" in tok_C))
+    _set("SIG_RL",     bool("RL" in tok_L))
+    _set("SIG_RH",     bool("RH" in tok_L))
+    _set("SIG_PP",     bool("PP" in tok_L))
+    _set("SIG_L_ANY",  bool(tok_L))
+
+    # ── G signals ────────────────────────────────────────────────────────────
+    for gn in ("G1","G2","G4","G6","G11"):
+        _set(f"SIG_{gn}", bool(gn in tok_G))
+    for gn in ("G1P","G2P","G3P","G1L","G2L","G3L","G1C","G2C","G3C"):
+        _set(gn, bool(gn in tok_G))
+    for gn in ("GOG1","GOG2","GOG3"):
+        _set(gn, bool(gn in tok_G or gn.replace("GOG","G") in tok_G))
+    _set("SIG_GOG_PLUS", bool(tok_G & {"GOG1","GOG2","GOG3","G1","G2","G3","G1P","G2P","G3P"}))
+
+    # ── B signals ────────────────────────────────────────────────────────────
+    for n in range(1, 12):
+        _set(f"SIG_B{n}", bool(f"B{n}" in tok_B))
+    _set("SIG_ANY_B", bool(tok_B))
+
+    # ── F signals ────────────────────────────────────────────────────────────
+    for n in range(1, 12):
+        _set(f"SIG_F{n}", bool(f"F{n}" in tok_F or f"F{n}" in tok_C))
+    _set("SIG_ANY_F", bool(tok_F or "ANY F" in tok_C or "ANY_F" in tok_C))
+
+    # ── FLY signals ──────────────────────────────────────────────────────────
+    _set("SIG_FLY_ABCD", bool("ABCD" in tok_FLY))
+    _set("SIG_FLY_CD",   bool("CD"   in tok_FLY))
+    _set("SIG_FLY_BD",   bool("BD"   in tok_FLY))
+    _set("SIG_FLY_AD",   bool("AD"   in tok_FLY))
+
+    # ── WICK signals ─────────────────────────────────────────────────────────
+    _set("SIG_WK_UP", bool(any("↑" in w for w in tok_WK)))
+    _set("SIG_WK_DN", bool(any("↓" in w for w in tok_WK)))
+    _set("SIG_X1",    bool("X1↑" in tok_WK or "X1" in tok_WK))
+    _set("SIG_X2",    bool("X2↑" in tok_WK or "X2" in tok_WK))
+    _set("SIG_X1G",   bool("X1G↑" in tok_WK or "X1G" in tok_WK))
+    _set("SIG_X3",    bool("X3↑" in tok_WK or "X3" in tok_WK))
+
+    # ── Combo / momentum ─────────────────────────────────────────────────────
+    _set("SIG_BIAS_UP",  bool("↑BIAS" in tok_C or "BIAS↑" in tok_C))
+    _set("SIG_BIAS_DN",  bool("↓BIAS" in tok_C or "BIAS↓" in tok_C))
+    _set("SIG_SVS",      bool("SVS" in tok_C or "SVS" in tok_VA))
+    _set("SIG_CONSO",    bool("CONS" in tok_C or "CONSO" in tok_C))
+    _set("SIG_BUY",      bool("BUY" in tok_C))
+    _set("SIG_3G",       bool("3G" in tok_C))
+    _set("SIG_VA",       bool("VA" in tok_C or "VA" in tok_VA))
+    _set("SIG_CA",       bool("CA" in tok_C))
+    _set("SIG_CD",       bool("CD" in tok_C))
+    _set("SIG_CW",       bool("CW" in tok_C))
+    _set("SIG_SEQ_BCONT",bool("BCONT" in tok_C or "SEQ_BCONT" in tok_C))
+    _set("SIG_ANY_P",    bool(tok_C & {"P2","P3","P50","P89"}))
+    _set("SIG_ANY_D",    bool(any(t.startswith("D") for t in tok_C)))
+
+    # ── Preup (P-signals in Combo) ────────────────────────────────────────────
+    for ps in ("P2","P3","P50","P89","P55","P66"):
+        _set(f"SIG_{ps}", bool(ps in tok_C))
+
+    # ── D-family (Combo / bearish predictors) ────────────────────────────────
+    for ds in ("D66","D55","D89","D50","D3","D2"):
+        _set(f"SIG_{ds}", bool(ds in tok_C))
+    _set("SIG_FLP_UP",      bool("FLP↑"  in tok_C))
+    _set("SIG_ORG_UP",      bool("ORG↑"  in tok_C))
+    _set("SIG_DD_UP_RED",   bool("DD↑R"  in tok_C))
+    _set("SIG_D_UP_RED",    bool("D↑R"   in tok_C))
+    _set("SIG_D_DN_GREEN",  bool("D↓G"   in tok_C))
+    _set("SIG_DD_DN_GREEN", bool("DD↓G"  in tok_C))
+
+    # ── VOL signals ───────────────────────────────────────────────────────────
+    _set("SIG_VOL_5X",  bool("5X"  in tok_VOL or "5x"  in tok_VOL))
+    _set("SIG_VOL_10X", bool("10X" in tok_VOL or "10x" in tok_VOL))
+    _set("SIG_VOL_20X", bool("20X" in tok_VOL or "20x" in tok_VOL))
+
+    # ── Context / WLNBB tokens written as separate columns ────────────────────
+    for ctx in ("LD","LDS","LDC","LDP","LRC","LRP","WRC","F8C","SQB","BCT","SVS"):
+        # These columns might already be in the CSV from context field or standalone
+        _set(ctx, bool(_has(ctx) or ctx in tok_L or ctx in tok_VA or ctx in tok_C))
+
+    # ── CISD / PARA ───────────────────────────────────────────────────────────
+    _set("SIG_CISD_CPLUS",       bool("CISD+" in tok_C or "CISD_CPLUS" in tok_C))
+    _set("SIG_CISD_CPLUS_MINUS", bool("CISD+−" in tok_C or "CISD_CPLUS_MINUS" in tok_C))
+    _set("SIG_CISD_CPLUS_MM",    bool("CISD+MM" in tok_C or "CISD_CPLUS_MM" in tok_C))
+    _set("SIG_PARA_PREP",    bool("PARA_PREP"    in tok_C or "PREP" in tok_C))
+    _set("SIG_PARA_START",   bool("PARA_START"   in tok_C or "START" in tok_C))
+    _set("SIG_PARA_PLUS",    bool("PARA+"        in tok_C or "PARA_PLUS" in tok_C))
+    _set("SIG_PARA_RETEST",  bool("PARA_RETEST"  in tok_C or "RETEST" in tok_C))
+
+    # ── Price vs EMA & RSI (already flat columns in stock_stat if written) ────
+    # These come from wlnbb and are written as PRICE_GT_20 etc. via canonical.
+    # If already present as "1"/"0", _has() picks them up. Otherwise stay 0.
+    for col in ("PRICE_GT_20","PRICE_GT_50","PRICE_GT_89","PRICE_GT_200",
+                "PRICE_LT_20","PRICE_LT_50","PRICE_LT_89","PRICE_LT_200",
+                "RSI_LE_35","RSI_GE_70"):
+        _set(col, _has(col))
+
+    # ── Meta flags ────────────────────────────────────────────────────────────
+    _set("SIG_BE_ANY", bool("BE↑" in tok_L or "BE↑" in tok_U or
+                             "BE↑" in tok_C or "BE↓" in tok_L))
+    _set("SIG_NOT_EXT", not _has("ALREADY_EXTENDED_FLAG"))
+
+
 def _load_stock_stat(tf="1d", universe="sp500") -> Tuple[Optional[List[dict]], Optional[str]]:
     # nasdaq_1 / nasdaq_2 are virtual halves of the full nasdaq file
     batch: Optional[int] = None
@@ -91,7 +265,9 @@ def _load_stock_stat(tf="1d", universe="sp500") -> Tuple[Optional[List[dict]], O
     try:
         with open(path, newline="", encoding="utf-8") as f:
             for row in csv.DictReader(f):
-                rows.append(dict(row))
+                r = dict(row)
+                _enrich_sig_cols(r)
+                rows.append(r)
     except Exception as e:
         return None, str(e)
 
