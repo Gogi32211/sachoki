@@ -1197,6 +1197,14 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     _rtb_pending_count = 0
     _rtb_history: list = []   # chronological sig_rows (oldest first)
 
+    # BETA Score engine
+    try:
+        from beta_engine import calc_beta_score as _calc_beta_score
+        _beta_ok = True
+    except Exception:
+        _beta_ok = False
+    _beta_history: list = []   # chronological T/Z dicts (oldest first)
+
     # Per-bar rolling history for bear-to-bull sequence scoring (most-recent-first)
     _pf_bar_history: list = []  # list of Set[str], [1_bar_ago, 2_bars_ago, ...]
 
@@ -1382,11 +1390,17 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             # Vol spike context
             "vol_spike_10x": float(vol_ratio.iloc[i]) >= 10,
             # ── Additional flags for canonical sub-score computation ────────
-            # F-signal entries (CLEAN_ENTRY_SCORE)
+            # F-signal entries (CLEAN_ENTRY_SCORE + BETA Score)
+            "f1":  _b(f_sigs, "f1"),
+            "f2":  _b(f_sigs, "f2"),
             "f3":  _b(f_sigs, "f3"),
             "f4":  _b(f_sigs, "f4"),
+            "f5":  _b(f_sigs, "f5"),
             "f6":  _b(f_sigs, "f6"),
+            "f7":  _b(f_sigs, "f7"),
             "f8":  _b(f_sigs, "f8"),
+            "f9":  _b(f_sigs, "f9"),
+            "f10": _b(f_sigs, "f10"),
             "f11": _b(f_sigs, "f11"),
             # B-signal breakout confirms (CLEAN_ENTRY_SCORE)
             "b6":  _b(b_sigs, "b6"),
@@ -1483,6 +1497,34 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                 _rtb_pending_phase = _res["_pending_phase"]
                 _rtb_pending_count = _res["_pending_phase_count"]
                 _rtb_history.append(_sr)
+            except Exception:
+                pass
+
+        # BETA Score — called after RTB + profile playbook are resolved
+        _beta_result = {"beta_score": 0, "beta_raw": 0, "beta_setup": 0,
+                        "beta_momentum": 0, "beta_excess": 0,
+                        "beta_zone": "NEUTRAL", "beta_auto_buy": False}
+        if _beta_ok:
+            try:
+                _beta_row = dict(sig_row,
+                                 rtb_total=rtb_total_val,
+                                 rtb_phase=rtb_phase_val,
+                                 sweet_spot_active=int(_pf_result.get("sweet_spot_active", False)),
+                                 bear_to_bull_confirmed=int(_pf_result.get("bear_to_bull_confirmed", 0)),
+                                 profile_category=_pf_result.get("profile_category", "WATCH"),
+                                 profile_score=_pf_result.get("profile_score", 0),
+                                 CLEAN_ENTRY_SCORE=canonical["CLEAN_ENTRY_SCORE"],
+                                 ROCKET_SCORE=canonical["ROCKET_SCORE"],
+                                 FINAL_REGIME=canonical["FINAL_REGIME"],
+                                 rsi=rsi_val or 50.0,
+                                 VOL=" ".join(vol_list),
+                                 T=tz_s if tz_s.startswith("T") else "",
+                                 Z=tz_s if tz_s.startswith("Z") else "")
+                _beta_hist = list(reversed(_beta_history[-5:]))
+                _beta_result = _calc_beta_score(_beta_row, _beta_hist, universe)
+                _beta_history.append({"T": _beta_row["T"], "Z": _beta_row["Z"]})
+                if len(_beta_history) > 10:
+                    _beta_history.pop(0)
             except Exception:
                 pass
 
@@ -1593,6 +1635,14 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "btb_late_clamped":          _pf_result.get("btb_late_clamped", 0),
             "btb_sweet_spot_allowed_profile": _pf_result.get("btb_sweet_spot_allowed_profile", 0),
             "active_signals":            _pf_result.get("active_signals", []),
+            # ── BETA Score ────────────────────────────────────────────────────
+            "beta_score":    _beta_result["beta_score"],
+            "beta_raw":      _beta_result["beta_raw"],
+            "beta_setup":    _beta_result["beta_setup"],
+            "beta_momentum": _beta_result["beta_momentum"],
+            "beta_excess":   _beta_result["beta_excess"],
+            "beta_zone":     _beta_result["beta_zone"],
+            "beta_auto_buy": _beta_result["beta_auto_buy"],
         })
 
     return result
@@ -1662,6 +1712,9 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             "tz_bull_flip", "tz_transition_present",
             "pullback_evidence_tier", "rare_evidence_tier",
             "tz_intel_role", "abr_category",
+            # ── BETA Score ───────────────────────────────────────────────────
+            "beta_score", "beta_raw", "beta_setup", "beta_momentum",
+            "beta_excess", "beta_zone", "beta_auto_buy",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1818,6 +1871,14 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                                 b.get("abr_category", "")
                                   or (b.get("abr") or {}).get("category", ""),
                             ))(_parse_ultra_signals(b)),
+                            # ── BETA Score ─────────────────────────────────
+                            b.get("beta_score", 0),
+                            b.get("beta_raw", 0),
+                            b.get("beta_setup", 0),
+                            b.get("beta_momentum", 0),
+                            b.get("beta_excess", 0),
+                            b.get("beta_zone", ""),
+                            1 if b.get("beta_auto_buy") else 0,
                         ])
                 except Exception:
                     pass
