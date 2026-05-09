@@ -228,19 +228,26 @@ def test_ultra_bucket_summary_uses_score_ranges():
     assert by_bucket["80–89"] == 0
 
 
-def test_ultra_combo_perf_groups_by_flag():
+def test_ultra_combo_perf_groups_by_signals():
+    """Updated combo perf evaluates actual parser flags / signal columns
+    rather than a self-reported `ultra_score_flags` string. Each test row
+    feeds the underlying signals so the combo predicates match."""
     rows = [
-        _bar(flags="MOMENTUM_A REVERSAL_GROWTH_A", ret_10d=15.0),
-        _bar(flags="MOMENTUM_A",                  ret_10d=8.0),
-        _bar(flags="SETUP_ONLY",                  ret_10d=-2.0),
+        # MOMENTUM_A + REVERSAL_GROWTH_A
+        _bar(Combo="BUY BB↑", VABS="ABS RS+", profile_category="SWEET_SPOT",
+             _ret10=15.0),
+        # MOMENTUM_A only
+        _bar(Combo="BUY", profile_category="BUILDING", _ret10=8.0),
+        # SETUP_ONLY (setup but no breakout / momentum)
+        _bar(VABS="ABS", profile_category="WATCH", _ret10=-2.0),
     ]
     perf = replay_engine.ultra_combo_perf(rows)
     by_combo = {r["combo"]: r for r in perf}
-    assert by_combo["MOMENTUM_A"]["count"] == 2
+    assert by_combo["MOMENTUM_A"]["count"]        == 2
     assert by_combo["REVERSAL_GROWTH_A"]["count"] == 1
-    assert by_combo["SETUP_ONLY"]["count"] == 1
+    assert by_combo["SETUP_ONLY"]["count"]        == 1
     # Combos with no rows still appear with count=0 so the table is stable
-    assert by_combo["L34_TRIGGER_A"]["count"] == 0
+    assert by_combo["L34_TRIGGER_A"]["count"]     == 0
 
 
 def test_ultra_false_positives_filter():

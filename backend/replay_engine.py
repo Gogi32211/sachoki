@@ -1951,22 +1951,236 @@ def _ultra_row_outcomes(r: dict) -> dict:
     }
 
 
+# ── Parser-backed combo detection ──────────────────────────────────────────
+#
+# Each combo's `predicate` returns a 3-tuple:
+#   (matches: bool|None, missing: list[str], reason_if_zero: str)
+# matches=None means the combo cannot be evaluated for this row because a
+# required field is absent in stock_stat. The aggregator surfaces those rows
+# as "missing_required_field" rather than counting them as zero.
+
+_PROFILE_OK = ("SWEET_SPOT", "BUILDING")
+
+
+def _profile_cat(r: dict) -> str:
+    return (r.get("profile_category") or "").upper()
+
+
+def _has_pullback_field(r: dict) -> bool:
+    """True iff the row carries pullback_evidence_tier in any form."""
+    return any(k in r for k in (
+        "pullback_evidence_tier", "pullback_pullback_stage", "pullback",
+    ))
+
+
+def _has_tz_flip_field(r: dict, p: dict) -> bool:
+    """tz_bull_flip is reliably present if either the explicit column exists
+    OR the parser found a TZ→3 / TZ→2 token in Combo / ULT."""
+    return ("tz_bull_flip" in r) or p.get("tz_transition_present", False)
+
+
+def _ultra_combo_predicates(r: dict) -> dict:
+    """Evaluate every ULTRA combo against ``r`` using the shared parser.
+
+    Returns a dict ``{combo_name: (matches, missing_deps, zero_reason)}``.
+    """
+    from ultra_signal_parser import parse_stock_stat_signals
+    p = parse_stock_stat_signals(r)
+    cat = _profile_cat(r)
+    cat_ok = cat in _PROFILE_OK
+
+    setup_any   = bool(p["abs_sig"] or p["va"] or p["svs_2809"]
+                       or p["climb_sig"] or p["load_sig"])
+    breakout_any = bool(p["bb_brk"] or p["bx_up"] or p["eb_bull"]
+                        or p["be_up"] or p["bo_up"])
+    momentum_any = bool(p["buy_2809"] or p["rocket"])
+    rs_plus      = bool(p["rs_strong"])
+    l34_or_fri34 = bool(p["l34"] or p["fri34"])
+
+    # MOMENTUM_A
+    momentum_a = bool(momentum_any and cat_ok)
+
+    # REVERSAL_GROWTH_A — strict (requires RS+)
+    rg_a = bool(setup_any and breakout_any and rs_plus)
+
+    # REVERSAL_GROWTH_A_NO_RS — fallback when historical Stock Stat has no
+    # rs_strong column. Defined as setup + breakout + (SWEET_SPOT/BUILDING).
+    rg_no_rs = bool(setup_any and breakout_any and cat_ok)
+
+    # TRANSITION_A — needs tz_bull_flip (explicit field OR TZ→ token)
+    tz_flip_known = _has_tz_flip_field(r, p)
+    if tz_flip_known:
+        trans_a = bool(p["tz_bull_flip"] and breakout_any
+                       and (rs_plus or cat_ok))
+        trans_a_missing: list = []
+    else:
+        trans_a = None
+        trans_a_missing = ["tz_bull_flip"]
+
+    # PULLBACK_ENTRY_A — needs pullback_evidence_tier
+    if _has_pullback_field(r):
+        pb_tier = (r.get("pullback_evidence_tier") or "").upper()
+        if not pb_tier and isinstance(r.get("pullback"), dict):
+            pb_tier = (r["pullback"].get("evidence_tier") or "").upper()
+        pe_a = bool(pb_tier == "CONFIRMED_PULLBACK"
+                    and breakout_any and cat_ok)
+        pe_a_missing: list = []
+    else:
+        pe_a = None
+        pe_a_missing = ["pullback_evidence_tier"]
+
+    # L34_TRIGGER_A
+    l34_trigger = bool(l34_or_fri34 and (breakout_any or momentum_any))
+
+    # SETUP_ONLY / BREAKOUT_ONLY
+    setup_or_l = bool(l34_or_fri34 or setup_any)
+    setup_only    = bool(setup_or_l and not (breakout_any or momentum_any))
+    breakout_only = bool(breakout_any and not setup_or_l)
+
+    return {
+        "MOMENTUM_A":              (momentum_a, [], "true_zero"),
+        "REVERSAL_GROWTH_A":       (rg_a,       [], "true_zero"),
+        "REVERSAL_GROWTH_A_NO_RS": (rg_no_rs,   [], "true_zero"),
+        "TRANSITION_A":            (trans_a,    trans_a_missing, "missing_required_field"),
+        "PULLBACK_ENTRY_A":        (pe_a,       pe_a_missing,    "missing_required_field"),
+        "L34_TRIGGER_A":           (l34_trigger,[], "true_zero"),
+        "SETUP_ONLY":              (setup_only, [], "true_zero"),
+        "BREAKOUT_ONLY":           (breakout_only,[], "true_zero"),
+    }
+
+
+_COMBO_ORDER = (
+    "MOMENTUM_A", "REVERSAL_GROWTH_A", "REVERSAL_GROWTH_A_NO_RS",
+    "TRANSITION_A", "PULLBACK_ENTRY_A", "L34_TRIGGER_A",
+    "SETUP_ONLY", "BREAKOUT_ONLY",
+)
+
+
 def ultra_combo_perf(rows: List[dict]) -> List[dict]:
-    """One row per ULTRA combo group with aggregate metrics."""
+    """One row per ULTRA combo group with aggregate metrics + transparency.
+
+    Parser-backed: works on Stock Stat compact text columns AND live ULTRA
+    flat boolean rows. Each output row carries a ``computed`` boolean,
+    ``missing_dependencies`` list, ``dependency_warning`` string, and a
+    ``zero_reason`` distinguishing 'true_zero' from 'missing_required_field'
+    so empty cells aren't ambiguous.
+    """
+    # Bucket rows by combo ahead of time so we evaluate each row's parser
+    # output once.
+    by_combo: dict[str, list] = {c: [] for c in _COMBO_ORDER}
+    deps_by_combo: dict[str, list] = {c: [] for c in _COMBO_ORDER}
+    unavailable_count: dict[str, int] = {c: 0 for c in _COMBO_ORDER}
+    for r in rows:
+        preds = _ultra_combo_predicates(r)
+        for combo_name, (matches, missing, _zr) in preds.items():
+            if matches is None:
+                unavailable_count[combo_name] += 1
+                if missing and not deps_by_combo[combo_name]:
+                    deps_by_combo[combo_name] = list(missing)
+            elif matches:
+                by_combo[combo_name].append(r)
+
+    def _safe10(r):
+        v = _safe_float_local(r.get(_FWD_RET_10D, r.get("ret_10d")))
+        return v if v is not None else 0
+
     out: list = []
-    for combo_name, flag in _COMBO_GROUPS:
-        sub = [r for r in rows if flag in _flags(r)]
+    for combo_name in _COMBO_ORDER:
+        sub = by_combo[combo_name]
         m = _ultra_metrics(sub)
-        # Pick a couple of best/worst examples by 10D return for tooltip use
-        def _safe10(r):
-            v = _safe_float_local(r.get(_FWD_RET_10D, r.get("ret_10d")))
-            return v if v is not None else 0
+        missing = deps_by_combo[combo_name]
+        unavail = unavailable_count[combo_name]
+        # All rows hit "missing" → cannot compute
+        computed = not (unavail > 0 and len(sub) == 0 and missing)
+        if computed and len(sub) == 0 and unavail == 0:
+            zero_reason = "true_zero"
+        elif not computed:
+            zero_reason = "missing_required_field"
+        else:
+            zero_reason = ""
+        warning = ""
+        if missing:
+            warning = (f"{combo_name} not computed because "
+                       f"{', '.join(missing)} {'is' if len(missing)==1 else 'are'} "
+                       "missing from stock_stat.")
         best = sorted(sub, key=_safe10, reverse=True)[:5]
         worst = sorted(sub, key=_safe10)[:5]
         out.append({
-            "combo": combo_name, **m,
+            "combo":                 combo_name,
+            **m,
+            "computed":              computed,
+            "missing_dependencies":  ";".join(missing),
+            "dependency_warning":    warning,
+            "rows_unavailable":      unavail,
+            "zero_reason":           zero_reason,
             "best_examples":  ";".join(f"{r.get('ticker','')}:{r.get('date','')}" for r in best),
             "worst_examples": ";".join(f"{r.get('ticker','')}:{r.get('date','')}" for r in worst),
+        })
+    return out
+
+
+# ── Parser audit (Part 5 of the spec) ────────────────────────────────────────
+
+_AUDIT_FLAGS = (
+    "abs_sig", "va", "svs_2809", "climb_sig", "load_sig", "strong_sig",
+    "rs_strong",
+    "bb_brk", "bx_up", "eb_bull", "be_up", "bo_up",
+    "buy_2809", "rocket",
+    "l34", "fri34",
+    "tz_bull_flip",
+    # Pseudo-flags handled separately so the audit can also report missing
+    # dependencies from non-parser fields:
+    "pullback_evidence_tier", "abr_category",
+)
+
+
+def ultra_signal_parser_audit(rows: List[dict]) -> List[dict]:
+    """Per-flag audit of how often each parser flag fires across ``rows``,
+    plus the columns it was sourced from (for traceability)."""
+    from ultra_signal_parser import parse_stock_stat_signals, SOURCE_COLUMNS
+    n = len(rows) or 1
+    counts: dict[str, int] = {f: 0 for f in _AUDIT_FLAGS}
+    examples: dict[str, list] = {f: [] for f in _AUDIT_FLAGS}
+    missing: dict[str, int] = {f: 0 for f in _AUDIT_FLAGS}
+
+    for r in rows:
+        # Parser-derived flags
+        p = parse_stock_stat_signals(r)
+        for f in _AUDIT_FLAGS[:-2]:  # exclude pullback / abr (handled below)
+            if p.get(f):
+                counts[f] += 1
+                if len(examples[f]) < 5:
+                    examples[f].append(f"{r.get('ticker','')}:{r.get('date','')}")
+        # Pullback / ABR are not parser flags — they live in flat fields
+        pb = (r.get("pullback_evidence_tier") or "")
+        if pb:
+            counts["pullback_evidence_tier"] += 1
+            if len(examples["pullback_evidence_tier"]) < 5:
+                examples["pullback_evidence_tier"].append(
+                    f"{r.get('ticker','')}:{r.get('date','')}={pb}"
+                )
+        else:
+            missing["pullback_evidence_tier"] += 1
+        abr = (r.get("abr_category") or "")
+        if abr:
+            counts["abr_category"] += 1
+            if len(examples["abr_category"]) < 5:
+                examples["abr_category"].append(
+                    f"{r.get('ticker','')}:{r.get('date','')}={abr}"
+                )
+        else:
+            missing["abr_category"] += 1
+
+    out: list = []
+    for f in _AUDIT_FLAGS:
+        src = ", ".join(SOURCE_COLUMNS.get(f, ("?",)))
+        out.append({
+            "flag_name":           f,
+            "true_count":          counts[f],
+            "true_rate":           round(counts[f] / n * 100, 2),
+            "source_columns_used": src,
+            "example_values":      ";".join(examples[f]),
+            "missing_rate":        round(missing[f] / n * 100, 2) if f in missing else 0.0,
         })
     return out
 
@@ -2393,6 +2607,9 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
                 _state["message"] = "ULTRA Score: missed winners..."
                 cached["ultra_missed_winners"]        = _save(
                     "ultra_missed_winners",       ultra_missed_winners(rows))
+                _state["message"] = "ULTRA Score: signal parser audit..."
+                cached["signal_parser_audit"]         = _save(
+                    "signal_parser_audit",        ultra_signal_parser_audit(rows))
                 _state["ultra_score_status"] = "available"
             except Exception as exc:  # never fail the whole replay run
                 log.exception("ULTRA Score analytics failed")

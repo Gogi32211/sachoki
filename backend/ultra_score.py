@@ -136,29 +136,55 @@ def _truthy(v) -> bool:
 def _signal_set(row: dict) -> set:
     """Return the canonical uppercase set of active signals on this row.
 
-    Recognises both live flat booleans and stock_stat list-of-labels columns.
+    Recognises both live flat booleans (live ULTRA shape) and Stock Stat
+    compact label columns (T/Z/L/Combo/VABS/ULT/...). Delegates to the
+    shared `ultra_signal_parser` so live + historical scoring stay in
+    lockstep.
     """
     if not isinstance(row, dict):
         return set()
+    from ultra_signal_parser import parse_stock_stat_signals
+    p = parse_stock_stat_signals(row)
     s: set = set()
 
-    # Live flat boolean keys
+    # Map parser-flag key → canonical token name expected by compute_ultra_score.
+    # The parser uses the same tokens compute_ultra_score reads, with a few
+    # aliases (e.g. parser 'four_bf' / 'l88' → score doesn't care).
+    _PARSER_TO_CANON = {
+        # Breakouts
+        "buy_2809":  "BUY_2809",
+        "rocket":    "ROCKET",
+        "bb_brk":    "BB_BRK",
+        "bx_up":     "BX_UP",
+        "eb_bull":   "EB_BULL",
+        "be_up":     "BE_UP",
+        "bo_up":     "BO_UP",
+        # Setups
+        "abs_sig":     "ABS",
+        "va":          "VA",
+        "svs_2809":    "SVS",
+        "climb_sig":   "CLB",
+        "load_sig":    "LD",
+        "strong_sig":  "STR",
+        "l34":         "L34",
+        "fri34":       "FRI34",
+        "tz_bull_flip":"TZ_BULL_FLIP",
+        # Quality
+        "rs_strong":   "RS_STRONG",
+    }
+    for parser_key, canon in _PARSER_TO_CANON.items():
+        if p.get(parser_key):
+            s.add(canon)
+
+    # Pass-through fallback for live rows that still use the legacy flat
+    # boolean keys not covered by the parser (e.g. best_sig, already_extended).
     for k, canon in _LIVE_KEY_TO_CANON.items():
         if _truthy(row.get(k)):
             s.add(canon)
 
-    # Stock Stat list-of-labels columns
-    for col in _LABEL_COLUMNS:
-        for tok in _to_iter(row.get(col)):
-            up = tok.upper()
-            if up in _LABEL_TO_CANON:
-                s.add(_LABEL_TO_CANON[up])
-            else:
-                # Pass-through: we already store many tokens uppercase
-                s.add(up)
-
-    # tz_sig like "T4" (live flat) or "tz" string in stock_stat bar
-    tz = row.get("tz_sig") or row.get("tz")
+    # tz_sig like "T4" — keep as a token so `compute_ultra_score` can
+    # surface it in reasons even though it's not used in any combo gate.
+    tz = row.get("tz_sig") or row.get("tz") or p.get("t_signal")
     if isinstance(tz, str) and tz.strip():
         s.add(tz.strip().upper())
 
