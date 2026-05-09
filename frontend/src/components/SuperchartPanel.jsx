@@ -179,6 +179,20 @@ const ROWS = [
   },
 ]
 
+const BETA_ZONE_CLS = {
+  OPTIMAL:     'text-emerald-300 font-bold',
+  BUY:         'text-blue-300 font-bold',
+  WATCH:       'text-violet-300',
+  BUILDING:    'text-yellow-400',
+  EXTENDED:    'text-amber-400',
+  SHORT_WATCH: 'text-red-400',
+  NEUTRAL:     'text-gray-600',
+}
+const BETA_ZONE_SHORT = {
+  OPTIMAL: 'OPT', BUY: 'BUY', WATCH: 'WCH',
+  BUILDING: 'BLD', EXTENDED: 'EXT', SHORT_WATCH: 'SHT', NEUTRAL: '',
+}
+
 function barsForTf(tf) {
   return tf === '15m' ? 400 : ['30m', '1h'].includes(tf) ? 300 : tf === '4h' ? 200 : 150
 }
@@ -317,6 +331,8 @@ export default function SuperchartPanel({
       'PCT_CHANGE_3D','PCT_CHANGE_5D','PCT_CHANGE_10D',
       'PCT_FROM_20D_HIGH','PCT_FROM_20D_LOW','DIST_20D_HIGH','VOL_RATIO_20D',
       'DOLLAR_VOLUME','GAP_PCT',
+      // ── BETA Score
+      'BETA_SCORE','BETA_RAW','BETA_SETUP','BETA_MOMENTUM','BETA_EXCESS','BETA_ZONE','BETA_AUTO_BUY',
       // ── Forward returns
       'FWD_1D','FWD_3D','FWD_5D','FWD_10D','MAX_HIGH_5D','MAX_HIGH_10D',
       'HIT_5PCT_5D','HIT_10PCT_5D','HIT_5PCT_10D','HIT_10PCT_10D',
@@ -475,6 +491,9 @@ export default function SuperchartPanel({
       b.pct_from_20d_high ?? '', b.pct_from_20d_low ?? '',
       b.distance_to_20d_high_pct ?? '', b.volume_ratio_20d ?? '',
       b.dollar_volume ?? '', b.gap_pct ?? '',
+      // ── BETA Score
+      b.beta_score ?? '', b.beta_raw ?? '', b.beta_setup ?? '', b.beta_momentum ?? '',
+      b.beta_excess ?? '', b.beta_zone ?? '', b.beta_auto_buy ? 1 : 0,
       // ── Forward returns
       b.fwd_close_1d ?? '', b.fwd_close_3d ?? '', b.fwd_close_5d ?? '', b.fwd_close_10d ?? '',
       b.max_high_5d_pct ?? '', b.max_high_10d_pct ?? '',
@@ -734,6 +753,35 @@ export default function SuperchartPanel({
                           </span>
                           <span className="font-mono text-gray-500 leading-none" style={{ fontSize: 9 }}>
                             {b.rtb_total > 0 ? b.rtb_total.toFixed(0) : ''}
+                          </span>
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* BETA Score row */}
+                <tr className="border-t border-gray-700/60">
+                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
+                                 text-right border-r border-gray-800 font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    β
+                  </td>
+                  {bars.map((b, i) => {
+                    const sc   = b.beta_score
+                    const zone = b.beta_zone ?? 'NEUTRAL'
+                    const auto = b.beta_auto_buy
+                    if (!sc) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
+                    const cls = BETA_ZONE_CLS[zone] ?? 'text-gray-500'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-px text-center border-r border-gray-900/20 font-mono ${cls}`}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}
+                        title={`BETA ${sc} · ${zone}${auto ? ' · AUTO-BUY ★' : ''}`}>
+                        <div className="flex flex-col items-center leading-none gap-px">
+                          <span>{sc}{auto ? '★' : ''}</span>
+                          <span style={{ fontSize: 9 }} className="text-gray-500 font-mono">
+                            {BETA_ZONE_SHORT[zone] ?? ''}
                           </span>
                         </div>
                       </td>
