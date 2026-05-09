@@ -2688,7 +2688,11 @@ def _seq_cache_key(universe: str, tf: str, seq_len: int, mode: str,
 
 
 def _seq_init_db() -> None:
-    """Idempotent create of the sequence_scan_runs table."""
+    """Idempotent create of the sequence_scan_runs table.
+
+    Also adds the `stat_path` column on existing tables (so older deployments
+    upgrade automatically without dropping data).
+    """
     from db import get_db
     con = get_db()
     try:
@@ -2712,6 +2716,13 @@ def _seq_init_db() -> None:
             CREATE INDEX IF NOT EXISTS sequence_scan_runs_status_idx
                 ON sequence_scan_runs(status);
         """)
+        # Add stat_path column on pre-existing tables (idempotent migration).
+        try:
+            cols = con.table_columns("sequence_scan_runs")
+            if "stat_path" not in cols:
+                con.execute("ALTER TABLE sequence_scan_runs ADD COLUMN stat_path TEXT")
+        except Exception as _exc:
+            log.warning("sequence_scan_runs migration check failed: %s", _exc)
         con.commit()
     finally:
         con.close()
@@ -2721,29 +2732,58 @@ def _seq_persist(cache_key: str, *, universe: str, tf: str, seq_len: int,
                  mode: str, min_count: int, nasdaq_batch: str,
                  status: str, started_at: str | None, completed_at: str | None,
                  tickers_done: int, tickers_total: int,
-                 error: str | None, results: list | None) -> None:
+                 error: str | None, results: list | None,
+                 stat_path: str | None = None) -> None:
     from db import get_db
     con = get_db()
     try:
-        con.execute(
-            "INSERT INTO sequence_scan_runs "
-            "(cache_key, universe, tf, seq_len, mode, min_count, nasdaq_batch, "
-            " status, started_at, completed_at, tickers_done, tickers_total, "
-            " error, results_json) "
-            "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-            "ON CONFLICT(cache_key) DO UPDATE SET "
-            "  status=excluded.status, "
-            "  started_at=excluded.started_at, "
-            "  completed_at=excluded.completed_at, "
-            "  tickers_done=excluded.tickers_done, "
-            "  tickers_total=excluded.tickers_total, "
-            "  error=excluded.error, "
-            "  results_json=excluded.results_json",
-            (cache_key, universe, tf, seq_len, mode, min_count,
-             nasdaq_batch or "", status, started_at, completed_at,
-             tickers_done, tickers_total, error,
-             _seq_json.dumps(results) if results is not None else None),
-        )
+        try:
+            con.execute(
+                "INSERT INTO sequence_scan_runs "
+                "(cache_key, universe, tf, seq_len, mode, min_count, nasdaq_batch, "
+                " status, started_at, completed_at, tickers_done, tickers_total, "
+                " error, results_json, stat_path) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(cache_key) DO UPDATE SET "
+                "  status=excluded.status, "
+                "  started_at=excluded.started_at, "
+                "  completed_at=excluded.completed_at, "
+                "  tickers_done=excluded.tickers_done, "
+                "  tickers_total=excluded.tickers_total, "
+                "  error=excluded.error, "
+                "  results_json=excluded.results_json, "
+                "  stat_path=excluded.stat_path",
+                (cache_key, universe, tf, seq_len, mode, min_count,
+                 nasdaq_batch or "", status, started_at, completed_at,
+                 tickers_done, tickers_total, error,
+                 _seq_json.dumps(results) if results is not None else None,
+                 stat_path),
+            )
+        except Exception as _exc:
+            # If the schema lacks `stat_path` for some reason (very old DB,
+            # migration race), fall back to the legacy 14-column INSERT so we
+            # never lose the run.
+            log.warning("sequence_scan_runs INSERT(stat_path) failed: %s — "
+                        "falling back to legacy schema", _exc)
+            con.execute(
+                "INSERT INTO sequence_scan_runs "
+                "(cache_key, universe, tf, seq_len, mode, min_count, nasdaq_batch, "
+                " status, started_at, completed_at, tickers_done, tickers_total, "
+                " error, results_json) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(cache_key) DO UPDATE SET "
+                "  status=excluded.status, "
+                "  started_at=excluded.started_at, "
+                "  completed_at=excluded.completed_at, "
+                "  tickers_done=excluded.tickers_done, "
+                "  tickers_total=excluded.tickers_total, "
+                "  error=excluded.error, "
+                "  results_json=excluded.results_json",
+                (cache_key, universe, tf, seq_len, mode, min_count,
+                 nasdaq_batch or "", status, started_at, completed_at,
+                 tickers_done, tickers_total, error,
+                 _seq_json.dumps(results) if results is not None else None),
+            )
         con.commit()
     finally:
         con.close()
@@ -2820,6 +2860,9 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
         total = _seq_state["total"]
         done  = _seq_state["progress"] or total
 
+    stat_path_used = out.get("stat_path") or (
+        ", ".join(out.get("tried_paths") or []) or None
+    )
     if out.get("status") == "ok":
         _seq_persist(
             cache_key, universe=universe, tf=tf, seq_len=seq_len, mode=mode,
@@ -2827,6 +2870,7 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
             status="done", started_at=started, completed_at=completed,
             tickers_done=done, tickers_total=total,
             error=None, results=out.get("results", []),
+            stat_path=stat_path_used,
         )
     else:
         _seq_persist(
@@ -2837,6 +2881,7 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
             tickers_done=done, tickers_total=total,
             error=out.get("error", "scan failed"),
             results=out.get("results") or [],
+            stat_path=stat_path_used,
         )
 
     with _seq_state_lock:
@@ -2911,6 +2956,7 @@ def api_sequence_scan_status(
         "started_at":   persisted.get("started_at"),
         "completed_at": persisted.get("completed_at"),
         "error":        persisted.get("error"),
+        "stat_path":    persisted.get("stat_path"),
         "params": {
             "universe":  persisted.get("universe"),
             "tf":        persisted.get("tf"),
@@ -2955,6 +3001,9 @@ def api_sequence_scan_results(
         "completed_at":    persisted.get("completed_at"),
         "results":         results[:limit],
         "total_sequences": len(results),
+        "tickers_total":   int(persisted.get("tickers_total") or 0),
+        "stat_path":       persisted.get("stat_path"),
+        "error":           persisted.get("error"),
         "params": {
             "universe":  persisted.get("universe"),
             "tf":        persisted.get("tf"),
