@@ -2661,10 +2661,16 @@ def api_ultra_scan(
 # ─── Sequence scan ───────────────────────────────────────────────────────────
 #
 # Universe-wide N-bar T/Z sequence analyzer. Consumes the canonical
-# stock_stat_tz_wlnbb CSV (no OHLCV re-fetch). Background task with progress
-# polling; results persisted to SQLite so they survive process restarts.
+# stock_stat_tz_wlnbb / bulk Stock Stat CSV (no OHLCV re-fetch).
+#
+# State model intentionally mirrors Turbo / Stock Stat / Replay: a module-
+# level dict for the live run + a per-cache-key dict for completed runs.
+# We deliberately do NOT use SQLite here — the earlier SQLite path silently
+# failed on Postgres (Railway), causing /status to fall through to "not_run"
+# right after the worker finished. Plain in-memory keeps the screener in
+# lockstep with the rest of the app and survives across status polls.
 
-import json as _seq_json
+from datetime import datetime, timezone
 from threading import Lock as _SeqLock
 _seq_state: dict = {
     "running":      False,
@@ -2675,7 +2681,12 @@ _seq_state: dict = {
     "completed_at": None,
     "error":        None,
     "params":       {},
+    "stat_path":    None,
 }
+# Completed runs, keyed by cache_key. Holds the same shape /status expects
+# plus 'results'. Capped to keep memory bounded.
+_seq_results: dict[str, dict] = {}
+_SEQ_RESULTS_CAP = 8
 _seq_state_lock = _SeqLock()
 
 
@@ -2687,137 +2698,28 @@ def _seq_cache_key(universe: str, tf: str, seq_len: int, mode: str,
     return "|".join(parts)
 
 
-def _seq_init_db() -> None:
-    """Idempotent create of the sequence_scan_runs table.
-
-    Also adds the `stat_path` column on existing tables (so older deployments
-    upgrade automatically without dropping data).
-    """
-    from db import get_db
-    con = get_db()
-    try:
-        con.executescript("""
-            CREATE TABLE IF NOT EXISTS sequence_scan_runs (
-                cache_key      TEXT PRIMARY KEY,
-                universe       TEXT,
-                tf             TEXT,
-                seq_len        INTEGER,
-                mode           TEXT,
-                min_count      INTEGER,
-                nasdaq_batch   TEXT,
-                status         TEXT,
-                started_at     TEXT,
-                completed_at   TEXT,
-                tickers_done   INTEGER,
-                tickers_total  INTEGER,
-                error          TEXT,
-                results_json   TEXT
-            );
-            CREATE INDEX IF NOT EXISTS sequence_scan_runs_status_idx
-                ON sequence_scan_runs(status);
-        """)
-        # Add stat_path column on pre-existing tables (idempotent migration).
-        try:
-            cols = con.table_columns("sequence_scan_runs")
-            if "stat_path" not in cols:
-                con.execute("ALTER TABLE sequence_scan_runs ADD COLUMN stat_path TEXT")
-        except Exception as _exc:
-            log.warning("sequence_scan_runs migration check failed: %s", _exc)
-        con.commit()
-    finally:
-        con.close()
-
-
-def _seq_persist(cache_key: str, *, universe: str, tf: str, seq_len: int,
-                 mode: str, min_count: int, nasdaq_batch: str,
-                 status: str, started_at: str | None, completed_at: str | None,
-                 tickers_done: int, tickers_total: int,
-                 error: str | None, results: list | None,
-                 stat_path: str | None = None) -> None:
-    from db import get_db
-    con = get_db()
-    try:
-        try:
-            con.execute(
-                "INSERT INTO sequence_scan_runs "
-                "(cache_key, universe, tf, seq_len, mode, min_count, nasdaq_batch, "
-                " status, started_at, completed_at, tickers_done, tickers_total, "
-                " error, results_json, stat_path) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-                "ON CONFLICT(cache_key) DO UPDATE SET "
-                "  status=excluded.status, "
-                "  started_at=excluded.started_at, "
-                "  completed_at=excluded.completed_at, "
-                "  tickers_done=excluded.tickers_done, "
-                "  tickers_total=excluded.tickers_total, "
-                "  error=excluded.error, "
-                "  results_json=excluded.results_json, "
-                "  stat_path=excluded.stat_path",
-                (cache_key, universe, tf, seq_len, mode, min_count,
-                 nasdaq_batch or "", status, started_at, completed_at,
-                 tickers_done, tickers_total, error,
-                 _seq_json.dumps(results) if results is not None else None,
-                 stat_path),
-            )
-        except Exception as _exc:
-            # If the schema lacks `stat_path` for some reason (very old DB,
-            # migration race), fall back to the legacy 14-column INSERT so we
-            # never lose the run.
-            log.warning("sequence_scan_runs INSERT(stat_path) failed: %s — "
-                        "falling back to legacy schema", _exc)
-            con.execute(
-                "INSERT INTO sequence_scan_runs "
-                "(cache_key, universe, tf, seq_len, mode, min_count, nasdaq_batch, "
-                " status, started_at, completed_at, tickers_done, tickers_total, "
-                " error, results_json) "
-                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?) "
-                "ON CONFLICT(cache_key) DO UPDATE SET "
-                "  status=excluded.status, "
-                "  started_at=excluded.started_at, "
-                "  completed_at=excluded.completed_at, "
-                "  tickers_done=excluded.tickers_done, "
-                "  tickers_total=excluded.tickers_total, "
-                "  error=excluded.error, "
-                "  results_json=excluded.results_json",
-                (cache_key, universe, tf, seq_len, mode, min_count,
-                 nasdaq_batch or "", status, started_at, completed_at,
-                 tickers_done, tickers_total, error,
-                 _seq_json.dumps(results) if results is not None else None),
-            )
-        con.commit()
-    finally:
-        con.close()
-
-
-def _seq_load(cache_key: str) -> dict | None:
-    from db import get_db
-    con = get_db()
-    try:
-        row = con.execute(
-            "SELECT * FROM sequence_scan_runs WHERE cache_key=?",
-            (cache_key,),
-        ).fetchone()
-        if not row:
-            return None
-        d = dict(row)
-        if d.get("results_json"):
+def _seq_store_completed(cache_key: str, payload: dict) -> None:
+    """Save a completed run, evicting the oldest entry beyond the cap."""
+    with _seq_state_lock:
+        _seq_results[cache_key] = payload
+        if len(_seq_results) > _SEQ_RESULTS_CAP:
+            # Evict oldest by completed_at (or insertion order)
             try:
-                d["results"] = _seq_json.loads(d["results_json"])
+                victim = min(_seq_results.items(),
+                             key=lambda kv: kv[1].get("completed_at") or "")[0]
+                _seq_results.pop(victim, None)
             except Exception:
-                d["results"] = []
-        else:
-            d["results"] = []
-        d.pop("results_json", None)
-        return d
-    finally:
-        con.close()
+                # Fall back to popping the first key
+                first_key = next(iter(_seq_results))
+                _seq_results.pop(first_key, None)
 
 
 def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
                           seq_len: int, mode: str, min_count: int,
                           nasdaq_batch: str) -> None:
-    """Background worker: runs sequence_engine.run_sequence_scan and
-    persists the result. Updates _seq_state for live progress polls."""
+    """Background worker. Updates the live ``_seq_state`` for progress polls,
+    and on completion stores the result in ``_seq_results[cache_key]`` so
+    /status and /results can return it after the worker exits."""
     from sequence_engine import run_sequence_scan
     started = datetime.now(timezone.utc).isoformat()
 
@@ -2826,19 +2728,13 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
             "running": True, "cache_key": cache_key,
             "progress": 0, "total": 0,
             "started_at": started, "completed_at": None, "error": None,
+            "stat_path": None,
             "params": {
                 "universe": universe, "tf": tf, "seq_len": seq_len,
                 "mode": mode, "min_count": min_count,
                 "nasdaq_batch": nasdaq_batch or None,
             },
         })
-
-    _seq_persist(
-        cache_key, universe=universe, tf=tf, seq_len=seq_len, mode=mode,
-        min_count=min_count, nasdaq_batch=nasdaq_batch,
-        status="running", started_at=started, completed_at=None,
-        tickers_done=0, tickers_total=0, error=None, results=None,
-    )
 
     def _on_progress(done: int, total: int) -> None:
         with _seq_state_lock:
@@ -2863,31 +2759,32 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
     stat_path_used = out.get("stat_path") or (
         ", ".join(out.get("tried_paths") or []) or None
     )
-    if out.get("status") == "ok":
-        _seq_persist(
-            cache_key, universe=universe, tf=tf, seq_len=seq_len, mode=mode,
-            min_count=min_count, nasdaq_batch=nasdaq_batch,
-            status="done", started_at=started, completed_at=completed,
-            tickers_done=done, tickers_total=total,
-            error=None, results=out.get("results", []),
-            stat_path=stat_path_used,
-        )
-    else:
-        _seq_persist(
-            cache_key, universe=universe, tf=tf, seq_len=seq_len, mode=mode,
-            min_count=min_count, nasdaq_batch=nasdaq_batch,
-            status=out.get("status") or "error",
-            started_at=started, completed_at=completed,
-            tickers_done=done, tickers_total=total,
-            error=out.get("error", "scan failed"),
-            results=out.get("results") or [],
-            stat_path=stat_path_used,
-        )
+    final_status = out.get("status") or "error"
+    if final_status == "ok":
+        final_status = "done"
+
+    _seq_store_completed(cache_key, {
+        "status":        final_status,
+        "started_at":    started,
+        "completed_at":  completed,
+        "tickers_done":  done,
+        "tickers_total": total,
+        "error":         None if final_status == "done" else out.get("error"),
+        "stat_path":     stat_path_used,
+        "tried_paths":   out.get("tried_paths") or [],
+        "results":       out.get("results") or [],
+        "params": {
+            "universe": universe, "tf": tf, "seq_len": seq_len,
+            "mode": mode, "min_count": min_count,
+            "nasdaq_batch": nasdaq_batch or None,
+        },
+    })
 
     with _seq_state_lock:
         _seq_state["running"]      = False
         _seq_state["completed_at"] = completed
         _seq_state["error"]        = out.get("error")
+        _seq_state["stat_path"]    = stat_path_used
 
 
 @app.post("/api/sequence-scan/trigger")
@@ -2901,12 +2798,12 @@ def api_sequence_scan_trigger(
     nasdaq_batch: str = Query(""),
 ):
     """Start a universe-wide sequence scan over the existing TZ/WLNBB
-    stock_stat CSV. Returns immediately; poll /api/sequence-scan/status."""
+    stock_stat / bulk Stock Stat CSV. Returns immediately; poll
+    /api/sequence-scan/status for progress."""
     if mode not in ("type", "full"):
         raise HTTPException(400, "mode must be 'type' or 'full'")
     if _seq_state.get("running"):
         raise HTTPException(409, "Another sequence scan is already running")
-    _seq_init_db()
     cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
     background_tasks.add_task(
         _run_sequence_scan_bg, cache_key, universe, tf, seq_len, mode,
@@ -2924,12 +2821,12 @@ def api_sequence_scan_status(
     mode:         str = Query("type"),
     nasdaq_batch: str = Query(""),
 ):
-    """Lightweight status. If a scan for these params is currently running,
-    return the live in-memory progress; otherwise return the persisted
-    SQLite row (status=done|error|no_data|not_run)."""
+    """Live in-memory progress while a scan with this cache_key is running;
+    cached completed-run state otherwise."""
     cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
     with _seq_state_lock:
-        live = dict(_seq_state) if _seq_state.get("cache_key") == cache_key else None
+        live      = dict(_seq_state) if _seq_state.get("cache_key") == cache_key else None
+        completed = dict(_seq_results.get(cache_key) or {}) or None
     if live and live.get("running"):
         total = max(int(live.get("total") or 1), 1)
         return {
@@ -2941,31 +2838,23 @@ def api_sequence_scan_status(
             "started_at": live.get("started_at"),
             "params":     live.get("params") or {},
         }
-    _seq_init_db()
-    persisted = _seq_load(cache_key)
-    if not persisted:
-        return {"status": "not_run", "cache_key": cache_key,
-                "progress": 0, "total": 0, "pct": 0}
-    total = max(int(persisted.get("tickers_total") or 1), 1)
-    return {
-        "status":       persisted.get("status") or "unknown",
-        "cache_key":    cache_key,
-        "progress":     int(persisted.get("tickers_done") or 0),
-        "total":        int(persisted.get("tickers_total") or 0),
-        "pct":          int((persisted.get("tickers_done") or 0) / total * 100),
-        "started_at":   persisted.get("started_at"),
-        "completed_at": persisted.get("completed_at"),
-        "error":        persisted.get("error"),
-        "stat_path":    persisted.get("stat_path"),
-        "params": {
-            "universe":  persisted.get("universe"),
-            "tf":        persisted.get("tf"),
-            "seq_len":   persisted.get("seq_len"),
-            "mode":      persisted.get("mode"),
-            "min_count": persisted.get("min_count"),
-            "nasdaq_batch": persisted.get("nasdaq_batch") or None,
-        },
-    }
+    if completed:
+        total = max(int(completed.get("tickers_total") or 1), 1)
+        return {
+            "status":       completed.get("status") or "unknown",
+            "cache_key":    cache_key,
+            "progress":     int(completed.get("tickers_done") or 0),
+            "total":        int(completed.get("tickers_total") or 0),
+            "pct":          int((completed.get("tickers_done") or 0) / total * 100),
+            "started_at":   completed.get("started_at"),
+            "completed_at": completed.get("completed_at"),
+            "error":        completed.get("error"),
+            "stat_path":    completed.get("stat_path"),
+            "tried_paths":  completed.get("tried_paths") or [],
+            "params":       completed.get("params") or {},
+        }
+    return {"status": "not_run", "cache_key": cache_key,
+            "progress": 0, "total": 0, "pct": 0}
 
 
 @app.get("/api/sequence-scan/results")
@@ -2979,13 +2868,14 @@ def api_sequence_scan_results(
     limit:        int = Query(50, ge=1, le=10000),
     sort_by:      str = Query("score"),    # score|win_rate|count|ticker_count
 ):
-    """Return persisted top sequences for the given params."""
-    _seq_init_db()
+    """Return cached top sequences for the given params."""
     cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
-    persisted = _seq_load(cache_key)
-    if not persisted:
-        return {"status": "not_run", "results": [], "total_sequences": 0}
-    results = list(persisted.get("results") or [])
+    with _seq_state_lock:
+        completed = dict(_seq_results.get(cache_key) or {})
+    if not completed:
+        return {"status": "not_run", "results": [], "total_sequences": 0,
+                "cache_key": cache_key}
+    results = list(completed.get("results") or [])
 
     sort_keys = {
         "win_rate":     lambda x: (-(x.get("win_rate")     or 0), -(x.get("count") or 0)),
@@ -2996,22 +2886,16 @@ def api_sequence_scan_results(
     results.sort(key=sort_keys.get(sort_by, sort_keys["score"]))
 
     return {
-        "status":          persisted.get("status") or "unknown",
+        "status":          completed.get("status") or "unknown",
         "cache_key":       cache_key,
-        "completed_at":    persisted.get("completed_at"),
+        "completed_at":    completed.get("completed_at"),
         "results":         results[:limit],
         "total_sequences": len(results),
-        "tickers_total":   int(persisted.get("tickers_total") or 0),
-        "stat_path":       persisted.get("stat_path"),
-        "error":           persisted.get("error"),
-        "params": {
-            "universe":  persisted.get("universe"),
-            "tf":        persisted.get("tf"),
-            "seq_len":   persisted.get("seq_len"),
-            "mode":      persisted.get("mode"),
-            "min_count": persisted.get("min_count"),
-            "nasdaq_batch": persisted.get("nasdaq_batch") or None,
-        },
+        "tickers_total":   int(completed.get("tickers_total") or 0),
+        "stat_path":       completed.get("stat_path"),
+        "tried_paths":     completed.get("tried_paths") or [],
+        "error":           completed.get("error"),
+        "params":          completed.get("params") or {},
     }
 
 

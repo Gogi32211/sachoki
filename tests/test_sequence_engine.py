@@ -339,3 +339,71 @@ def test_sequence_scan_status_handles_no_run(monkeypatch, tmp_path):
     assert resp["status"] == "not_run"
     assert resp["progress"] == 0
     assert resp["pct"]      == 0
+
+
+def test_bg_run_completes_visible_in_status_and_results(tmp_path, monkeypatch):
+    """Regression: simulate the user-reported flow — start the bg worker,
+    let it finish, then call /status + /results. The earlier SQLite-backed
+    implementation lost the run after the worker completed (Postgres syntax
+    issue) → /status returned 'not_run' even though the scan ran fine.
+    The pure in-memory store keeps the state visible end-to-end.
+    """
+    monkeypatch.chdir(tmp_path)
+    # Populated bulk Stock Stat with 4-bar TZTZ pattern
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["ticker", "date", "close", "T", "Z"])
+        w.writeheader()
+        for d, c, t, z in (("2026-01-01", 100, "T4", ""),
+                            ("2026-01-02", 101, "", "Z3"),
+                            ("2026-01-03", 103, "T1G", ""),
+                            ("2026-01-04", 106, "", "Z2"),
+                            ("2026-01-05", 108, "", "")):
+            w.writerow({"ticker": "AAPL", "date": d,
+                        "close": c, "T": t, "Z": z})
+
+    import importlib, main as _m
+    importlib.reload(_m)
+    cache_key = _m._seq_cache_key("sp500", "1d", 4, "type", 1, "")
+    # Run the worker synchronously (BackgroundTasks would defer it; this
+    # mirrors the same code path).
+    _m._run_sequence_scan_bg(cache_key, "sp500", "1d", 4, "type", 1, "")
+
+    # /status must now show the completed run, not 'not_run'
+    status = _m.api_sequence_scan_status(
+        universe="sp500", tf="1d", seq_len=4, min_count=1, mode="type",
+        nasdaq_batch="",
+    )
+    assert status["status"] == "done", f"expected done, got {status}"
+    assert status["error"] is None
+    assert status["stat_path"].endswith("stock_stat_sp500_1d.csv")
+
+    # /results must return the merged sequences
+    results = _m.api_sequence_scan_results(
+        universe="sp500", tf="1d", seq_len=4, min_count=1, mode="type",
+        nasdaq_batch="", limit=50, sort_by="score",
+    )
+    assert results["status"] == "done"
+    assert any(r["sequence"] == "TZTZ" for r in results["results"])
+    assert results["tickers_total"] == 1
+
+
+def test_results_cap_evicts_oldest(monkeypatch, tmp_path):
+    """The in-memory completed-runs cache must be bounded so successive
+    scans across many param combos don't leak memory."""
+    monkeypatch.chdir(tmp_path)
+    import importlib, main as _m
+    importlib.reload(_m)
+
+    # Fill the cache past its cap with synthetic completed runs
+    cap = _m._SEQ_RESULTS_CAP
+    for i in range(cap + 3):
+        _m._seq_store_completed(f"key{i}", {
+            "status": "done",
+            "completed_at": f"2026-01-01T00:00:{i:02d}",
+            "results": [],
+        })
+    assert len(_m._seq_results) <= cap
+    # Most recent keys retained
+    assert f"key{cap+2}" in _m._seq_results
