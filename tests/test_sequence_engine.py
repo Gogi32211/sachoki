@@ -61,8 +61,9 @@ def test_run_sequence_scan_no_csv_returns_no_data(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     out = se.run_sequence_scan(universe="__none__", tf="1d")
     assert out["status"] == "no_data"
-    assert "No stock_stat_tz_wlnbb CSV" in out["error"]
+    assert "No Stock Stat CSV" in out["error"]
     assert out["results"] == []
+    assert out["tried_paths"] == []
 
 
 def test_run_sequence_scan_basic_aggregation(tmp_path, monkeypatch):
@@ -243,10 +244,12 @@ def test_run_sequence_scan_prefers_tz_wlnbb_when_both_present(tmp_path, monkeypa
     monkeypatch.chdir(tmp_path)
     bulk_dir = tmp_path / "stock_stat_output"
     bulk_dir.mkdir()
-    # Bulk CSV present
+    # Bulk CSV present, but populated so it isn't skipped for being empty
     with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
         w = csv.DictWriter(f, fieldnames=["ticker", "date", "close", "T", "Z"])
         w.writeheader()
+        w.writerow({"ticker": "MSFT", "date": "2026-01-01",
+                    "close": 100, "T": "T4", "Z": ""})
     # TZ/WLNBB CSV present too
     _write_stock_stat(tmp_path / "stock_stat_tz_wlnbb_sp500_1d.csv", [
         {"ticker": "AAPL", "date": "2026-01-01",
@@ -255,6 +258,54 @@ def test_run_sequence_scan_prefers_tz_wlnbb_when_both_present(tmp_path, monkeypa
     out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=2,
                                 min_count=1, mode="type")
     assert out["stat_path"].endswith("stock_stat_tz_wlnbb_sp500_1d.csv")
+
+
+def test_run_sequence_scan_falls_through_empty_tz_wlnbb_to_bulk(tmp_path, monkeypatch):
+    """Regression for the user-reported 'briefly Scanning… then back to
+    not_run' bug: an EMPTY (header-only) leftover TZ/WLNBB CSV in cwd was
+    being preferred over the freshly-generated bulk Stock Stat. Engine must
+    detect 'no ticker rows' and fall through to the next candidate path."""
+    monkeypatch.chdir(tmp_path)
+    # Empty TZ/WLNBB CSV (header only)
+    _write_stock_stat(tmp_path / "stock_stat_tz_wlnbb_sp500_1d.csv", [])
+    # Populated bulk Stock Stat
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["ticker", "date", "close", "T", "Z"])
+        w.writeheader()
+        for d, c, t, z in (("2026-01-01", 100, "T4",  ""),
+                            ("2026-01-02", 101, "",    "Z3"),
+                            ("2026-01-03", 103, "T1G", ""),
+                            ("2026-01-04", 106, "",    "Z2"),
+                            ("2026-01-05", 108, "",    "")):
+            w.writerow({"ticker": "AAPL", "date": d,
+                        "close": c, "T": t, "Z": z})
+    out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=4,
+                                min_count=1, mode="type")
+    assert out["status"] == "ok"
+    assert out["stat_path"].endswith("stock_stat_output/stock_stat_sp500_1d.csv"), \
+        f"engine should fall through to bulk CSV when TZ/WLNBB is empty; got {out['stat_path']}"
+    assert out["tickers_seen"] == 1
+    assert any(r["sequence"] == "TZTZ" for r in out["results"])
+
+
+def test_run_sequence_scan_no_data_when_all_csvs_empty(tmp_path, monkeypatch):
+    """If every candidate CSV exists but is empty, engine returns no_data
+    with a list of paths it tried — not a silent ok."""
+    monkeypatch.chdir(tmp_path)
+    _write_stock_stat(tmp_path / "stock_stat_tz_wlnbb_sp500_1d.csv", [])
+    bulk_dir = tmp_path / "stock_stat_output"
+    bulk_dir.mkdir()
+    with open(bulk_dir / "stock_stat_sp500_1d.csv", "w", newline="") as f:
+        w = csv.DictWriter(f, fieldnames=["ticker", "date", "close", "T", "Z"])
+        w.writeheader()
+    out = se.run_sequence_scan(universe="sp500", tf="1d", seq_len=2,
+                                min_count=1, mode="type")
+    assert out["status"] == "no_data"
+    assert "0 ticker rows" in out["error"]
+    assert isinstance(out["tried_paths"], list)
+    assert len(out["tried_paths"]) >= 1
 
 
 # ── API smoke tests ──────────────────────────────────────────────────────────

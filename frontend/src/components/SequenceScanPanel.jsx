@@ -78,6 +78,8 @@ export default function SequenceScanPanel() {
       setResults(r?.results || [])
       setMeta({
         total_sequences: r?.total_sequences ?? 0,
+        tickers_total:   r?.tickers_total ?? null,
+        stat_path:       r?.stat_path ?? null,
         completed_at:    r?.completed_at,
         cache_key:       r?.cache_key,
       })
@@ -268,6 +270,12 @@ export default function SequenceScanPanel() {
             {meta.completed_at && <> · {meta.completed_at.slice(0, 19).replace('T', ' ')}</>}
           </span>
         )}
+        {status.stat_path && (
+          <span className="text-gray-500 text-[10px] font-mono"
+                title="CSV used by the scan">
+            CSV: {status.stat_path}
+          </span>
+        )}
         {status.error && (
           <span className="text-red-400">⚠ {status.error}</span>
         )}
@@ -300,10 +308,13 @@ export default function SequenceScanPanel() {
                 {status.status === 'not_run'
                   ? 'No scan run yet — press ▶ Run Sequence Scan'
                   : status.status === 'no_data'
-                    ? 'No Stock Stat CSV found for this universe/tf — run Admin → Stock Stat (Bulk Signal CSV) or TZ/WLNBB → Generate Stock Stat first.'
+                    ? (status.error
+                        || 'No Stock Stat CSV found for this universe/tf — run Admin → Stock Stat (Bulk Signal CSV) or TZ/WLNBB → Generate Stock Stat first.')
                     : status.status === 'error'
                       ? `Scan error: ${status.error || 'unknown'}`
-                      : 'No sequences match current filter / min_count.'}
+                      : (meta?.tickers_total ?? 0) === 0
+                        ? 'Scan ran but the chosen CSV had 0 ticker rows. Re-run Stock Stat and try again.'
+                        : `No sequences match current filter / min_count (${meta?.tickers_total} tickers seen).`}
               </td></tr>
             )}
             {filteredRows.map((r, i) => (

@@ -49,19 +49,45 @@ def _bulk_stat_path(universe: str, tf: str) -> str:
     return os.path.join("stock_stat_output", f"stock_stat_{universe}_{tf}.csv")
 
 
-def _resolve_stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str | None:
-    """Return the first existing CSV path. Prefers TZ/WLNBB (has pre-computed
-    forward returns) and falls back to the bulk Stock Stat (we'll derive
-    returns from close)."""
-    for p in (
+def _candidate_paths(universe: str, tf: str, nasdaq_batch: str = "") -> list[str]:
+    """Ordered list of CSV paths the engine may use. Preferred first.
+
+    The engine will try each in order; if the first existing path yields
+    zero ticker rows (stale / empty file from a prior session), it falls
+    through to the next. This keeps things working even when a leftover
+    empty TZ/WLNBB CSV would otherwise shadow the freshly-generated bulk
+    Stock Stat CSV.
+    """
+    return [
         _stat_path(universe, tf, nasdaq_batch),
         f"stock_stat_tz_wlnbb_{universe}_{tf}.csv",
         f"stock_stat_tz_wlnbb_{tf}.csv",
         _bulk_stat_path(universe, tf),
-    ):
+    ]
+
+
+def _resolve_stat_path(universe: str, tf: str, nasdaq_batch: str = "") -> str | None:
+    """First existing candidate path, or None."""
+    for p in _candidate_paths(universe, tf, nasdaq_batch):
         if os.path.exists(p):
             return p
     return None
+
+
+def _read_rows_grouped(path: str) -> dict[str, list]:
+    """Read a stock_stat CSV grouped by ticker. Returns {} on read errors
+    or when the file has no usable rows."""
+    grouped: dict[str, list] = defaultdict(list)
+    try:
+        with open(path, newline="", encoding="utf-8") as f:
+            for r in csv.DictReader(f):
+                t = r.get("ticker", "")
+                if t:
+                    grouped[t].append(r)
+    except (OSError, csv.Error) as exc:
+        log.warning("sequence_engine: cannot read %s: %s", path, exc)
+        return {}
+    return dict(grouped)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -164,24 +190,43 @@ def run_sequence_scan(
     if mode not in ("type", "full"):
         return {"status": "error", "error": f"mode must be 'type' or 'full' (got {mode!r})"}
 
-    stat_path = _resolve_stat_path(universe, tf, nasdaq_batch)
+    # Walk the candidate paths, keeping the first one that contains at least
+    # one ticker row. A leftover empty TZ/WLNBB CSV from a prior session must
+    # NOT shadow a freshly-generated bulk Stock Stat file.
+    candidates = _candidate_paths(universe, tf, nasdaq_batch)
+    rows_by_ticker: dict[str, list] = {}
+    stat_path: str | None = None
+    tried: list = []
+    for p in candidates:
+        if not os.path.exists(p):
+            continue
+        tried.append(p)
+        rows_by_ticker = _read_rows_grouped(p)
+        if rows_by_ticker:
+            stat_path = p
+            break
+        log.info("sequence_engine: %s exists but contains 0 ticker rows; "
+                 "trying next candidate", p)
     if not stat_path:
+        if tried:
+            return {
+                "status": "no_data",
+                "error": (
+                    "Stock Stat CSV(s) found but contain 0 ticker rows: "
+                    + ", ".join(tried) + ". Re-run Stock Stat."
+                ),
+                "tried_paths": tried,
+                "results": [],
+            }
         return {
             "status": "no_data",
             "error": (
-                f"No stock_stat_tz_wlnbb CSV for universe={universe} tf={tf}. "
-                "Run TZ/WLNBB → Generate Stock Stat first."
+                f"No Stock Stat CSV for universe={universe} tf={tf}. "
+                "Run Admin → Stock Stat or TZ/WLNBB → Generate Stock Stat first."
             ),
+            "tried_paths": [],
             "results": [],
         }
-
-    # Group by ticker first so the chronological window-slide is per-ticker.
-    rows_by_ticker: dict[str, list] = defaultdict(list)
-    with open(stat_path, newline="", encoding="utf-8") as f:
-        for r in csv.DictReader(f):
-            t = r.get("ticker", "")
-            if t:
-                rows_by_ticker[t].append(r)
 
     tickers = list(rows_by_ticker.keys())
     total = len(tickers)
