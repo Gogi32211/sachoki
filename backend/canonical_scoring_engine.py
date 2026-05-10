@@ -49,15 +49,16 @@ def _rocket_score(r: dict) -> float:
     return min(s, 40.0)
 
 
-def _clean_entry_score(r: dict) -> float:
+def _clean_entry_score(r: dict, profile: str = "sp500") -> float:
     """Quality entry-signal cluster — F-class and B-class precise entries."""
     s = 0.0
+    is_nq = profile == "nasdaq"
     # F-signal (clean entry patterns) — ranked by strength
     if r.get("f8"):    s += 12
     if r.get("f6"):    s += 10
     if r.get("f3"):    s += 5
     if r.get("f4"):    s += 5
-    if r.get("f11"):   s += 5
+    if r.get("f11"):   s += 2 if is_nq else 5   # NQ→2 (SIG_F11 avg10=−0.41% on NQ)
     # B-signal (breakout confirm entries)
     if r.get("b8"):    s += 5
     if r.get("b6"):    s += 5
@@ -68,6 +69,17 @@ def _clean_entry_score(r: dict) -> float:
     if r.get("fly_abcd"): s += 8
     if r.get("fly_cd"):   s += 5
     if r.get("fly_bd"):   s += 4
+    # SP500-only boosts (Section 1C: signals positive on SP500, negative/neutral on NQ)
+    if not is_nq:
+        if r.get("f9"):        s += 6   # SIG_F9:  SP avg10=+0.89%, NQ=−0.44%
+        if r.get("f5"):        s += 5   # SIG_F5:  SP avg10=+0.92%, NQ=−0.19%
+        if r.get("svs_2809"):  s += 8   # SIG_SVS: SP avg10=+1.03%, NQ=−0.26%
+        if r.get("buy_2809"):  s += 8   # SIG_BUY: SP avg10=+1.23%
+        if r.get("g4"):        s += 5   # SIG_G4:  SP avg10=+0.94%
+        if r.get("g1"):        s += 5   # SIG_G1:  SP avg10=+0.85%
+        if r.get("strong_sig"):s += 5   # SIG_STRONG: SP avg10=+0.83%
+        if r.get("eb_bull"):   s += 5   # SIG_EB_UP: SP avg10=+0.78%
+        if r.get("be_up"):     s += 5   # SIG_BE_ANY: SP avg10=+0.80%
     return min(s, 40.0)
 
 
@@ -80,15 +92,24 @@ def _shakeout_absorb_score(r: dict) -> float:
     return min(s, 30.0)
 
 
-def _extra_bull_score(r: dict) -> float:
+def _extra_bull_score(r: dict, profile: str = "sp500") -> float:
     """Extra bullish structure confirms — L-family and trend signals."""
     s = 0.0
-    if r.get("l34"):        s += 6
-    if r.get("fri43"):      s += 5
-    if r.get("fuchsia_rl"): s += 5
-    if r.get("cci_ready"):  s += 4
-    if r.get("bx_up"):      s += 3
-    if r.get("l43"):        s += 3
+    is_nq = profile == "nasdaq"
+    if r.get("l34"):         s += 6
+    if r.get("fri43"):       s += 0 if is_nq else 5  # NQ→0 (avg10=−0.79% on NQ)
+    if r.get("fuchsia_rl"):  s += 1                   # BOTH→1 (avg10=−0.46% both)
+    if r.get("cci_ready"):   s += 4
+    if r.get("bx_up"):       s += 3
+    if r.get("l43"):         s += 3
+    # Exchange-specific signals
+    if is_nq:
+        if r.get("b9"):      s += 5   # SIG_B9: NQ only (NQ1 alone +2.53%, n=32)
+        if r.get("fri64"):   s += 2   # SIG_FRI64: NQ→2 (reduce from 5)
+    else:
+        if r.get("l555"):      s += 6  # SIG_L555: SP avg10=+0.20%, NQ=−1.53%
+        if r.get("fri64"):     s += 5  # SIG_FRI64: SP avg10=+0.31%
+        if r.get("best_long"): s += 8  # SIG_BEST_UP: SP avg10=+0.22%, NQ=−2.96%
     return min(s, 20.0)
 
 
@@ -102,24 +123,30 @@ def _experimental_score(r: dict) -> float:
     return min(s, 15.0)
 
 
-def _rebound_squeeze_score(r: dict) -> float:
+def _rebound_squeeze_score(r: dict, profile: str = "sp500") -> float:
     """Rebound / squeeze-exit signals — TZ_FLIP, cycle approach."""
     s = 0.0
-    if r.get("tz_bull_flip"):  s += 8   # TZ state flip to full bull
-    if r.get("ca"):            s += 5   # cycle approach with B signal
-    if r.get("tz_attempt"):    s += 4   # partial TZ approach
-    if r.get("tz_weak_bull"):  s += 3   # weak bull entry on TZ
+    is_nq = profile == "nasdaq"
+    if r.get("tz_bull_flip"):  s += 8
+    if r.get("ca"):            s += 5
+    if r.get("tz_attempt"):    s += 4
+    if r.get("tz_weak_bull"):  s += 2 if is_nq else 3  # NQ→2 (SIG_WK_UP reduce)
     return min(s, 20.0)
 
 
-def _hard_bear_score(r: dict) -> float:
+def _hard_bear_score(r: dict, profile: str = "sp500") -> float:
     """Hard bear / risk signals — penalizes missed wins from bear context."""
     s = 0.0
-    if r.get("fbo_bear"):   s += 20   # false-breakout-up → bear rejection
-    if r.get("fuchsia_rh"): s += 10   # FUCHSIA_RH overhead resistance
-    if r.get("bo_dn"):      s += 12   # breakdown below key level
-    if r.get("bx_dn"):      s += 8    # bearish expansion bar
-    if r.get("eb_bear"):    s += 8    # expansion bear bar
+    is_nq = profile == "nasdaq"
+    if r.get("fbo_bear"):   s += 0 if is_nq else 20  # NQ: remove (avg10=−0.03%), SP keep
+    if r.get("fuchsia_rh"): s += 3 if is_nq else 10  # NQ→3 (reduce from 10)
+    if r.get("bo_dn"):      s += 12
+    if r.get("bx_dn"):      s += 8
+    if r.get("eb_bear"):    s += 8
+    # SP500-only bear context signals (negative predictive on SP500, irrelevant on NQ)
+    if not is_nq:
+        if r.get("bias_down"):    s += 6  # SIG_BIAS_DN: SP avg10=+1.20% (bear-in-bull ctx)
+        if r.get("cci_0_retest"): s += 5  # SIG_CCI0R: SP avg10=+0.39% bear-watch signal
     return min(s, 40.0)
 
 
@@ -235,14 +262,14 @@ def compute_canonical_score(sig_row: dict, profile: str = "sp500") -> dict:
     fbs = turbo
 
     # ── Sub-scores (breakdown of contributing signal families) ─────────────────
-    rocket   = round(_rocket_score(sig_row),         1)
-    clean    = round(_clean_entry_score(sig_row),    1)
-    shakeout = round(_shakeout_absorb_score(sig_row),1)
-    extra    = round(_extra_bull_score(sig_row),     1)
-    exp      = round(_experimental_score(sig_row),   1)
-    rebound  = round(_rebound_squeeze_score(sig_row),1)
-    hb       = round(_hard_bear_score(sig_row),      1)
-    vr       = round(_volatility_risk_score(sig_row),1)
+    rocket   = round(_rocket_score(sig_row),                  1)
+    clean    = round(_clean_entry_score(sig_row, profile),    1)
+    shakeout = round(_shakeout_absorb_score(sig_row),         1)
+    extra    = round(_extra_bull_score(sig_row, profile),     1)
+    exp      = round(_experimental_score(sig_row),            1)
+    rebound  = round(_rebound_squeeze_score(sig_row, profile),1)
+    hb       = round(_hard_bear_score(sig_row, profile),      1)
+    vr       = round(_volatility_risk_score(sig_row),         1)
 
     # ── Named model booleans ───────────────────────────────────────────────────
     elite_m    = _has_elite_model(fbs, rocket, sig_row)
