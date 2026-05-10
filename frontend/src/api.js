@@ -227,4 +227,14 @@ export const api = {
   sectorRRG:      (trail = 12)     => get(`/api/sectors/rrg?trail=${trail}`),
   sectorHeatmap:  (metric = 'return_1d') => get(`/api/sectors/heatmap?metric=${metric}`),
   sectorMacro:    ()               => get('/api/sectors/macro'),
+
+  // Paper Portfolio
+  portfolioOpen:       ()           => get('/portfolio/open'),
+  portfolioStats:      (days = 90)  => get(`/portfolio/stats?days=${days}`),
+  portfolioList:       (params = {}) => {
+    const p = new URLSearchParams()
+    Object.entries(params).forEach(([k, v]) => v != null && p.set(k, v))
+    return get(`/portfolio/?${p}`)
+  },
+  portfolioDailyCheck: ()           => post('/portfolio/daily-check'),
 }

@@ -18,6 +18,21 @@ from typing import Any
 
 DATABASE_URL: str | None = os.environ.get("DATABASE_URL")
 
+# Validate PG connection at import — fall back to SQLite if DATABASE_URL is
+# a placeholder or the host is unreachable.
+_pg_ok = False
+if DATABASE_URL:
+    try:
+        import psycopg2 as _psycopg2_test
+        _c = _psycopg2_test.connect(DATABASE_URL)
+        _c.close()
+        _pg_ok = True
+    except Exception as _e:
+        import logging as _lg
+        _lg.getLogger(__name__).warning(
+            "DATABASE_URL set but PG connection failed (%s) — using SQLite fallback.", _e
+        )
+
 def _resolve_db_path() -> str:
     """Return SQLite path: explicit DB_PATH env → /data volume → /tmp fallback."""
     explicit = os.environ.get("DB_PATH")
@@ -29,7 +44,7 @@ def _resolve_db_path() -> str:
     return "/tmp/scanner.db"
 
 DB_PATH: str = _resolve_db_path()
-USE_PG: bool = bool(DATABASE_URL)
+USE_PG: bool = _pg_ok
 
 
 # ── SQL helpers ───────────────────────────────────────────────────────────────
