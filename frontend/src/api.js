@@ -237,4 +237,6 @@ export const api = {
     return get(`/portfolio/?${p}`)
   },
   portfolioDailyCheck: ()           => post('/portfolio/daily-check'),
+  portfolioScanAndAdd: (universe = 'sp500', tf = '1d') =>
+    post(`/portfolio/scan-and-add?universe=${universe}&tf=${tf}`),
 }

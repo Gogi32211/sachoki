@@ -63,19 +63,29 @@ class DailyPrice(BaseModel):
 @router.post("/entry")
 def add_entries(entries: list[SignalEntry]):
     """Add new daily signal picks to portfolio."""
+    return _insert_entries([e.model_dump() for e in entries])
+
+
+# ── Helpers ─────────────────────────────────────────────────────────────────
+
+def _insert_entries(rows: list[dict]) -> dict:
+    """Insert raw signal-entry dicts into paper_portfolio. Skips duplicates."""
     inserted = 0
     skipped  = 0
     with get_db() as db:
-        for e in entries:
+        for e in rows:
+            sig_date = e["signal_date"]
             db.execute(
                 "SELECT id FROM paper_portfolio WHERE signal_date=? AND ticker=?",
-                (str(e.signal_date), e.ticker)
+                (str(sig_date), e["ticker"])
             )
             if db.fetchone():
                 skipped += 1
                 continue
 
-            max_ex = e.signal_date + timedelta(days=e.hold_days + 2)
+            hold = int(e.get("hold_days") or 10)
+            sd   = sig_date if isinstance(sig_date, date) else date.fromisoformat(str(sig_date))
+            max_ex = sd + timedelta(days=hold + 2)
             db.execute("""
                 INSERT INTO paper_portfolio
                 (signal_date, ticker, exchange, ultra_score, ultra_band, ultra_priority,
@@ -84,17 +94,119 @@ def add_entries(entries: list[SignalEntry]):
                  hold_days, max_exit_date, status)
                 VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,'PENDING')
             """, (
-                str(e.signal_date), e.ticker, e.exchange,
-                e.ultra_score, e.ultra_band, e.ultra_priority,
-                e.beta_score, e.beta_zone, e.tz_sig,
-                e.turbo_score, e.rtb_total, e.rtb_phase,
-                e.sweet_spot, e.tier, e.signal_reasons,
-                e.signal_price, e.signal_change_pct,
-                e.hold_days, str(max_ex)
+                str(sd), e["ticker"], e.get("exchange", "NQ"),
+                e.get("ultra_score"), e.get("ultra_band"), e.get("ultra_priority"),
+                e.get("beta_score"), e.get("beta_zone"), e.get("tz_sig"),
+                e.get("turbo_score"), e.get("rtb_total"), e.get("rtb_phase"),
+                bool(e.get("sweet_spot", False)), e.get("tier", "TIER1"),
+                e.get("signal_reasons"),
+                e.get("signal_price"), e.get("signal_change_pct"),
+                hold, str(max_ex)
             ))
             inserted += 1
         db.commit()
     return {"inserted": inserted, "skipped": skipped}
+
+
+def _profile_to_exchange(profile_name: str | None) -> str:
+    pn = (profile_name or "").lower()
+    return "NQ" if "nasdaq" in pn else "SP500"
+
+
+@router.post("/scan-and-add")
+def scan_and_add(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    tier1_score_min: int = 88,
+    tier1_change_max: float = 5.0,
+    tier1_top: int = 5,
+    tier2_score_min: int = 64,
+    tier2_change_max: float = 10.0,
+    tier2_top: int = 10,
+):
+    """
+    Pull cached ULTRA results and add today's TIER1/TIER2 picks to portfolio.
+
+    TIER1: ultra_score >= 88, |change_pct| <= 5%, no cap reason, top 5 by score.
+    TIER2: 64 <= ultra_score < 88, |change_pct| <= 10%,
+           beta_zone in (WATCH, BUILDING, SHORT_WATCH), top 10 by beta_score.
+    """
+    try:
+        from ultra_orchestrator import get_ultra_results
+    except Exception as exc:
+        raise HTTPException(500, f"ultra_orchestrator import failed: {exc}")
+
+    payload = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+    rows = payload.get("results") or []
+    if not rows:
+        return {"inserted": 0, "skipped": 0, "tier1": 0, "tier2": 0,
+                "warning": "No ULTRA results cached. Run ULTRA scan first."}
+
+    sig_date = str(date.today())
+    valid_zones = {"WATCH", "BUILDING", "SHORT_WATCH"}
+
+    def _row_to_entry(r: dict, tier: str) -> dict:
+        beta_zone = str(r.get("beta_zone") or "")
+        hold = 20 if beta_zone == "OPTIMAL" else 10
+        return {
+            "signal_date":       sig_date,
+            "ticker":            str(r.get("ticker") or "").upper(),
+            "exchange":          _profile_to_exchange(r.get("profile_name")),
+            "ultra_score":       r.get("ultra_score"),
+            "ultra_band":        r.get("ultra_score_band_v2") or r.get("ultra_score_band"),
+            "ultra_priority":    r.get("ultra_score_priority"),
+            "beta_score":        r.get("beta_score"),
+            "beta_zone":         beta_zone or None,
+            "tz_sig":            r.get("tz_sig"),
+            "turbo_score":       r.get("turbo_score"),
+            "rtb_total":         r.get("rtb_total"),
+            "rtb_phase":         r.get("rtb_phase"),
+            "sweet_spot":        bool(r.get("sweet_spot_active", False)),
+            "tier":              tier,
+            "signal_reasons":    r.get("ultra_score_reasons"),
+            "signal_price":      r.get("last_price"),
+            "signal_change_pct": r.get("change_pct"),
+            "hold_days":         hold,
+        }
+
+    # TIER 1: high score, low daily move, no cap penalty
+    t1 = [
+        r for r in rows
+        if (r.get("ultra_score") or 0) >= tier1_score_min
+        and abs(float(r.get("change_pct") or 0)) <= tier1_change_max
+        and not (r.get("ultra_score_cap_reason") or "").strip()
+        and r.get("tz_sig") and str(r.get("tz_sig")).startswith("T")
+    ]
+    t1.sort(key=lambda r: (r.get("ultra_score") or 0), reverse=True)
+    t1_picks = t1[:tier1_top]
+
+    # TIER 2: mid score, valid beta zone
+    t1_set = {p["ticker"] for p in t1_picks}
+    t2 = [
+        r for r in rows
+        if tier2_score_min <= (r.get("ultra_score") or 0) < tier1_score_min
+        and abs(float(r.get("change_pct") or 0)) <= tier2_change_max
+        and str(r.get("beta_zone") or "") in valid_zones
+        and r.get("tz_sig") and str(r.get("tz_sig")).startswith("T")
+        and r.get("ticker") not in t1_set
+    ]
+    t2.sort(key=lambda r: (r.get("beta_score") or 0, r.get("ultra_score") or 0),
+            reverse=True)
+    t2_picks = t2[:tier2_top]
+
+    entries = [_row_to_entry(r, "TIER1") for r in t1_picks] \
+            + [_row_to_entry(r, "TIER2") for r in t2_picks]
+
+    if not entries:
+        return {"inserted": 0, "skipped": 0, "tier1": 0, "tier2": 0,
+                "warning": "No tickers matched TIER1/TIER2 criteria."}
+
+    res = _insert_entries(entries)
+    res["tier1"] = len(t1_picks)
+    res["tier2"] = len(t2_picks)
+    res["signal_date"] = sig_date
+    return res
 
 
 @router.post("/entry-price")
