@@ -39,6 +39,8 @@ from scanner import (
 )
 from combo_engine import compute_combo, last_n_active, COMBO_LABELS
 from pump_finder import find_pump_combos, save_pump_combos, get_pump_combos
+from paper_portfolio_migration import ensure_paper_portfolio_tables
+from paper_portfolio_api import router as portfolio_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -51,6 +53,7 @@ from apscheduler.triggers.cron import CronTrigger
 async def lifespan(app: FastAPI):
     scheduler = None
     try:
+        ensure_paper_portfolio_tables()
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
@@ -84,6 +87,8 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+app.include_router(portfolio_router)
 
 
 def _normalise_date(idx) -> list[str]:
