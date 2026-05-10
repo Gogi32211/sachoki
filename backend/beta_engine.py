@@ -1,18 +1,29 @@
 """
-beta_engine.py — BETA Score v1  (2026-05-09)
+beta_engine.py — BETA Score v2  (2026-05-10)
 
-An alternative ranking score trained on NASDAQ+SP500 (478,909 bars).
-Non-linear transform penalises over-extension so the optimal zone is 82-96,
-not just "as high as possible".
+Calibrated from NQ 1D (239,269 rows) + SP500 1D (88,934 rows) replay analytics.
+
+Key changes from v1:
+  - beta_excess weight reduced 35% (component had NEGATIVE corr with ret_10d)
+  - beta_momentum weight increased 30% (highest positive correlation)
+  - Zone map shifted: WATCH 60-69, BUY 70-74, OPTIMAL 75-79, ELITE 80+
+    (data showed 70-79 NQ and 60-69 SP500 were the actual sweet spots; v1
+     OPTIMAL 85+ was effectively unreachable)
+  - Excess penalty gate: cap display at 72 when raw>80 and excess>8
+    (max-score region was capturing extended/overbought conditions)
+  - NQ-specific SHAKEOUT_ABSORB regime exclusion (NQ avg10d = -1.27%
+    continuation-down vs SP500 +1.64% spring pattern)
+  - ROCKET_BOOST: ROCKET_SCORE>=20 + display 40-59 → upgrade BUILDING→WATCH
+    (salvages otherwise dead 40-59 bucket; NQ ROCKET 20-39 = +1.17% avg10d)
 
 Output fields
 ─────────────
   beta_score    int   0-100  (display after non-linear transform)
   beta_raw      int   pre-transform raw value
   beta_setup    int   0-60   structural quality component
-  beta_momentum int   −5-50  momentum/regime component
-  beta_excess   int   ≥0     extension penalty (momentum >> setup)
-  beta_zone     str   OPTIMAL|BUY|WATCH|BUILDING|EXTENDED|SHORT_WATCH|NEUTRAL
+  beta_momentum int   −5-50  momentum/regime component (v2: +30% weight)
+  beta_excess   int   ≥0     extension penalty (v2: −35% weight)
+  beta_zone     str   ELITE|OPTIMAL|BUY|WATCH|BUILDING|SHORT_WATCH|NEUTRAL
   beta_auto_buy bool  True only inside strict multi-condition gate
 
 Rule: NEVER reads ret_*, mfe_*, mae_* fields — no lookahead.
@@ -20,7 +31,7 @@ Rule: NEVER reads ret_*, mfe_*, mae_* fields — no lookahead.
 
 from __future__ import annotations
 
-BETA_SCORE_VERSION = "2026-05-09-v1"
+BETA_SCORE_VERSION = "2026-05-10-v2"
 
 # ─── T/Z weight tables ────────────────────────────────────────────────────────
 
@@ -231,6 +242,10 @@ def _calc_beta_momentum(row: dict, universe: str) -> float:
         "REBOUND_SQUEEZE":  3,
         "RISK_REBOUND":     2,
     }.get(regime, 0)
+    # v2: NQ SHAKEOUT_ABSORB = -1.27% avg10d (continuation down).
+    # SP500 SHAKEOUT_ABSORB = +1.64% (spring). Exclude NQ from boost.
+    if universe == "nasdaq" and regime == "SHAKEOUT_ABSORB":
+        regime_pts = 0
     mom += min(12.0, regime_pts)
 
     # Volume spike (from VOL string e.g. "20×" "10×" "5×")
@@ -260,14 +275,21 @@ def _beta_transform(raw: float) -> int:
 
 # ─── Zone label ───────────────────────────────────────────────────────────────
 
-def _beta_zone(display: int, row: dict) -> str:
+def _beta_zone(display: int, row: dict, rocket_boost: bool = False) -> str:
+    """v2 zone map (was: OPTIMAL 85-96 / BUY 75-84 / WATCH 60-74 / etc).
+    Shifted down because data showed actual sweet spots:
+      NQ best bucket  = 70-79 (+3.31% avg10d)
+      SP500 best bucket = 60-69 (+1.74% avg10d)
+    """
     rtb_phase = str(row.get("rtb_phase", "0") or "0")
-    if 85 <= display <= 96:  return "OPTIMAL"
-    if 75 <= display < 85:   return "BUY"
-    if 60 <= display < 75:   return "WATCH"
-    if 40 <= display < 60:   return "BUILDING"
-    if display > 96:         return "EXTENDED"
-    if display < 40 and rtb_phase == "D": return "SHORT_WATCH"
+    if display >= 80:                       return "ELITE"
+    if 75 <= display < 80:                  return "OPTIMAL"
+    if 70 <= display < 75:                  return "BUY"
+    if 60 <= display < 70:                  return "WATCH"
+    if 40 <= display < 60:
+        # ROCKET_BOOST: salvage 40-59 dead zone when ROCKET_SCORE>=20
+        return "WATCH" if rocket_boost else "BUILDING"
+    if display < 40 and rtb_phase == "D":   return "SHORT_WATCH"
     return "NEUTRAL"
 
 
@@ -275,7 +297,9 @@ def _beta_zone(display: int, row: dict) -> str:
 
 def _beta_auto_buy(display: int, setup: float, momentum: float,
                    row: dict, universe: str) -> bool:
-    if not (82 <= display <= 96):                              return False
+    # v2: auto-buy fires in OPTIMAL + low-ELITE zones (75-84). Old gate
+    # required 82-96 which never fired in practice given the new transform.
+    if not (75 <= display <= 84):                              return False
     if setup < 32:                                             return False
     if not (8 <= momentum <= 28):                              return False
     if max(0, momentum - setup * 0.8) >= 8:                   return False
@@ -321,9 +345,22 @@ def calc_beta_score(row: dict, history: list[dict], universe: str) -> dict:
         setup    = _calc_beta_setup(row, history, universe)
         momentum = _calc_beta_momentum(row, universe)
         excess   = max(0.0, momentum - setup * 0.8)
-        raw      = setup * 1.40 + momentum * 0.85 - excess * 2.5
+
+        # v2 reweighted formula (component correlations with ret_10d on SP500):
+        #   beta_momentum +0.0093  → weight 0.85 → 1.105 (+30%)
+        #   beta_excess   −0.0051  → weight 2.50 → 1.625 (−35%)
+        #   beta_setup    +0.0021  → unchanged
+        raw      = setup * 1.40 + momentum * 1.105 - excess * 1.625
         display  = _beta_transform(raw)
-        zone     = _beta_zone(display, row)
+
+        # v2 over-extended gate: prevent OPTIMAL/ELITE classification when
+        # excess is significant. Caps display at 72 (top of WATCH zone) so
+        # the auto-buy and OPTIMAL paths never fire on extended bars.
+        if excess > 8 and raw > 80 and display > 72:
+            display = 72
+
+        rocket_boost = _sf(row, "ROCKET_SCORE") >= 20
+        zone     = _beta_zone(display, row, rocket_boost=rocket_boost)
         auto_buy = _beta_auto_buy(display, setup, momentum, row, universe)
 
         return {
