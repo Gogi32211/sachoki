@@ -2125,7 +2125,7 @@ def ultra_score_priority_summary(rows: List[dict]) -> List[dict]:
     return out
 
 
-_BETA_ZONES = ("OPTIMAL", "BUY", "WATCH", "BUILDING", "EXTENDED", "SHORT_WATCH", "NEUTRAL")
+_BETA_ZONES = ("ELITE", "OPTIMAL", "BUY", "WATCH", "BUILDING", "EXTENDED", "SHORT_WATCH", "NEUTRAL")
 _BETA_BUCKETS = [
     ("90-100", 90, 100), ("80-89", 80, 89), ("70-79", 70, 79),
     ("60-69", 60, 69), ("50-59", 50, 59), ("40-49", 40, 49), ("<40", 0, 39),
