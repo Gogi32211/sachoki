@@ -216,7 +216,9 @@ export default function PortfolioPanel() {
   const [stats, setStats]     = useState(null)
   const [entries, setEntries] = useState([])
   const [days, setDays]       = useState(90)
+  const [universe, setUniverse] = useState('sp500')
   const [loading, setLoading] = useState(false)
+  const [adding, setAdding]   = useState(false)
   const [error, setError]     = useState(null)
 
   const load = useCallback(async () => {
@@ -250,12 +252,45 @@ export default function PortfolioPanel() {
     }
   }
 
+  const generatePicks = async () => {
+    setAdding(true)
+    try {
+      const r = await api.portfolioScanAndAdd(universe, '1d')
+      const msg = r.warning
+        ? r.warning
+        : `Added ${r.inserted} (TIER1: ${r.tier1}, TIER2: ${r.tier2}), skipped ${r.skipped} duplicates.`
+      alert(msg)
+      load()
+    } catch (err) {
+      alert('Generate failed: ' + err.message)
+    } finally {
+      setAdding(false)
+    }
+  }
+
   return (
     <div className="p-4 text-sm text-gray-100 max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-bold text-white">📋 Paper Portfolio</h2>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <select
+            value={universe}
+            onChange={e => setUniverse(e.target.value)}
+            className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+          >
+            <option value="sp500">S&P 500</option>
+            <option value="nasdaq">NASDAQ</option>
+            <option value="all_us">All US</option>
+          </select>
+          <button
+            onClick={generatePicks}
+            disabled={adding}
+            className="px-3 py-1 text-xs rounded bg-purple-700 hover:bg-purple-600 disabled:opacity-50 text-white"
+            title="Pull cached ULTRA results and add today's TIER1/TIER2 picks"
+          >
+            {adding ? 'Adding…' : '✨ Generate Today\'s Picks'}
+          </button>
           <select
             value={days}
             onChange={e => setDays(Number(e.target.value))}
