@@ -239,4 +239,6 @@ export const api = {
   portfolioDailyCheck: ()           => post('/portfolio/daily-check'),
   portfolioScanAndAdd: (universe = 'sp500', tf = '1d') =>
     post(`/portfolio/scan-and-add?universe=${universe}&tf=${tf}`),
+  portfolioSetEntryPrice: (prices) =>
+    post('/portfolio/entry-price', prices),
 }
