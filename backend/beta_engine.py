@@ -1,20 +1,16 @@
 """
-beta_engine.py — BETA Score v2  (2026-05-10)
+beta_engine.py — BETA Score v2.1  (2026-05-10)
 
-Calibrated from NQ 1D (239,269 rows) + SP500 1D (88,934 rows) replay analytics.
+Calibrated from NQ1+NQ2 (478,909 rows) + SP500 (88,934 rows) replay analytics.
 
-Key changes from v1:
-  - beta_excess weight reduced 35% (component had NEGATIVE corr with ret_10d)
-  - beta_momentum weight increased 30% (highest positive correlation)
-  - Zone map shifted: WATCH 60-69, BUY 70-74, OPTIMAL 75-79, ELITE 80+
-    (data showed 70-79 NQ and 60-69 SP500 were the actual sweet spots; v1
-     OPTIMAL 85+ was effectively unreachable)
-  - Excess penalty gate: cap display at 72 when raw>80 and excess>8
-    (max-score region was capturing extended/overbought conditions)
-  - NQ-specific SHAKEOUT_ABSORB regime exclusion (NQ avg10d = -1.27%
-    continuation-down vs SP500 +1.64% spring pattern)
-  - ROCKET_BOOST: ROCKET_SCORE>=20 + display 40-59 → upgrade BUILDING→WATCH
-    (salvages otherwise dead 40-59 bucket; NQ ROCKET 20-39 = +1.17% avg10d)
+Changes from v2:
+  - Exchange-specific formula weights (Section 2A):
+      NASDAQ: setup×1.40  momentum×0.30  excess×0.85
+      SP500:  setup×1.00  momentum×1.50  excess×0.55
+  - Exchange-specific regime multipliers (Section 2C):
+      ROCKET_WATCH  NQ=1.2/SP=0.7; ACTIONABLE_SETUP SP=1.2; REBOUND_SQUEEZE NQ=1.1
+  - P89 filter gate (Section 4): ×1.1 boost when EMA89 cross-up aligns with WATCH/BUY/OPTIMAL
+  - D89 downgrade gate: BUILDING → NEUTRAL when EMA89 drops active
 
 Output fields
 ─────────────
@@ -31,7 +27,34 @@ Rule: NEVER reads ret_*, mfe_*, mae_* fields — no lookahead.
 
 from __future__ import annotations
 
-BETA_SCORE_VERSION = "2026-05-10-v2"
+BETA_SCORE_VERSION = "2026-05-10-v2.1"
+
+# ─── Exchange-specific regime points ─────────────────────────────────────────
+
+_REGIME_PTS: dict[str, dict[str, float]] = {
+    "nasdaq": {
+        "ROCKET_WATCH":      12.0,  # 10 × 1.2  (NQ consistent across NQ1+NQ2)
+        "CONFIRMED_BULL":    12.0,
+        "A_PLUS_CLEAN_BULL": 12.0,
+        "ELITE_CLEAN_BULL":  12.0,
+        "ACTIONABLE_SETUP":   8.0,  # NQ: 1.0× (no boost)
+        "CLEAN_ENTRY":        6.0,
+        "SHAKEOUT_ABSORB":    0.0,  # NQ avg10=−1.27% (continuation-down)
+        "REBOUND_SQUEEZE":    3.0,  # 3 × 1.1 ≈ 3
+        "RISK_REBOUND":       2.0,
+    },
+    "sp500": {
+        "ROCKET_WATCH":       7.0,  # 10 × 0.7 (SP500 only +0.39%)
+        "CONFIRMED_BULL":    12.0,
+        "A_PLUS_CLEAN_BULL": 12.0,
+        "ELITE_CLEAN_BULL":  12.0,
+        "ACTIONABLE_SETUP":  10.0,  # 8 × 1.2 (SP500 best regime avg10=+1.71%)
+        "CLEAN_ENTRY":        6.0,
+        "SHAKEOUT_ABSORB":    6.0,  # SP500 avg10=+1.64% (spring pattern)
+        "REBOUND_SQUEEZE":    2.0,  # 3 × 0.8
+        "RISK_REBOUND":       2.0,
+    },
+}
 
 # ─── T/Z weight tables ────────────────────────────────────────────────────────
 
@@ -231,21 +254,9 @@ def _calc_beta_momentum(row: dict, universe: str) -> float:
         elif has_abs:             mom += 5
         else:                     mom += 2
 
-    # FINAL_REGIME bonus (cap 12)
+    # FINAL_REGIME bonus (cap 12) — exchange-specific multipliers (Section 2C)
     regime = str(row.get("FINAL_REGIME", "") or "")
-    regime_pts = {
-        "ROCKET_WATCH":    10,
-        "CONFIRMED_BULL":  12,
-        "ACTIONABLE_SETUP": 8,
-        "CLEAN_ENTRY":      6,
-        "SHAKEOUT_ABSORB":  6,
-        "REBOUND_SQUEEZE":  3,
-        "RISK_REBOUND":     2,
-    }.get(regime, 0)
-    # v2: NQ SHAKEOUT_ABSORB = -1.27% avg10d (continuation down).
-    # SP500 SHAKEOUT_ABSORB = +1.64% (spring). Exclude NQ from boost.
-    if universe == "nasdaq" and regime == "SHAKEOUT_ABSORB":
-        regime_pts = 0
+    regime_pts = _REGIME_PTS.get(universe, _REGIME_PTS["sp500"]).get(regime, 0)
     mom += min(12.0, regime_pts)
 
     # Volume spike (from VOL string e.g. "20×" "10×" "5×")
@@ -346,21 +357,31 @@ def calc_beta_score(row: dict, history: list[dict], universe: str) -> dict:
         momentum = _calc_beta_momentum(row, universe)
         excess   = max(0.0, momentum - setup * 0.8)
 
-        # v2 reweighted formula (component correlations with ret_10d on SP500):
-        #   beta_momentum +0.0093  → weight 0.85 → 1.105 (+30%)
-        #   beta_excess   −0.0051  → weight 2.50 → 1.625 (−35%)
-        #   beta_setup    +0.0021  → unchanged
-        raw      = setup * 1.40 + momentum * 1.105 - excess * 1.625
+        # v2.1 exchange-specific formula (Section 2A, NQ1+NQ2 + SP500 analytics):
+        #   NASDAQ: setup corr=+0.00395 (setup=dominant), momentum corr=+0.00018 (near-zero)
+        #   SP500:  momentum corr=+0.01148 (dominant), excess corr=−0.00475 (destructive)
+        if universe == "sp500":
+            raw = setup * 1.00 + momentum * 1.50 - excess * 0.55
+        else:
+            raw = setup * 1.40 + momentum * 0.30 - excess * 0.85
         display  = _beta_transform(raw)
 
-        # v2 over-extended gate: prevent OPTIMAL/ELITE classification when
-        # excess is significant. Caps display at 72 (top of WATCH zone) so
-        # the auto-buy and OPTIMAL paths never fire on extended bars.
+        # Over-extended gate: cap display at 72 when raw>80 and excess>8
         if excess > 8 and raw > 80 and display > 72:
             display = 72
 
         rocket_boost = _sf(row, "ROCKET_SCORE") >= 20
         zone     = _beta_zone(display, row, rocket_boost=rocket_boost)
+
+        # Section 4 — P89 filter gate: EMA89 cross-up aligns with bullish zone → ×1.1
+        if _sb(row, "preup89") and zone in ("WATCH", "BUY", "OPTIMAL"):
+            display = min(100, round(display * 1.1))
+            zone    = _beta_zone(display, row, rocket_boost=rocket_boost)
+
+        # Section 4 — D89 downgrade gate: EMA89 drop + BUILDING zone → NEUTRAL
+        if _sb(row, "predn89") and zone == "BUILDING":
+            zone = "NEUTRAL"
+
         auto_buy = _beta_auto_buy(display, setup, momentum, row, universe)
 
         return {

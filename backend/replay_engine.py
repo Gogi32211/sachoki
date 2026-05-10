@@ -351,25 +351,27 @@ _ALL_SIG_COLS = [
     "G1P","G2P","G3P","G1L","G2L","G3L","G1C","G2C","G3C","GOG1","GOG2","GOG3",
 ]
 
-# Signals actively scored (used for "unscored" detection)
+# Signals actively scored (union of all exchange-specific scored signals)
 _SCORED = {
-    "SIG_3UP","SIG_BLUE","SIG_B6","SIG_B8","SIG_F3","SIG_F4","SIG_F11",
+    "SIG_3UP","SIG_BLUE","SIG_B8","SIG_B9","SIG_F3","SIG_F4","SIG_F5","SIG_F9","SIG_F11",
     "SIG_F8","SIG_F6","SIG_L555","SIG_FRI64","SIG_FRI43","SIG_FRI34",
     "SIG_CCI0R","SIG_CCIB","SIG_P50",
     "SIG_PARA_PLUS","SIG_PARA_START","SIG_PARA_PREP","SIG_PARA_RETEST",
     "SIG_CISD_CPLUS","SIG_CISD_CPLUS_MINUS",
     "SIG_FLY_ABCD","SIG_FLY_CD","SIG_FLY_BD","SIG_FLY_AD",
     "SIG_D50","SIG_D2","SIG_D55","SIG_D66","SIG_D89","SIG_D3",
-    "SIG_BIAS_UP","SIG_BIAS_DN","SIG_BC",
+    "SIG_BIAS_UP","SIG_BIAS_DN",
     "SIG_BE_DN","SIG_EB_DN","SIG_4BF_DN","SIG_WK_DN",
     "SIG_FBO_DN","SIG_RH","SIG_ND_VABS",
     "SIG_D_DN_GREEN","SIG_DD_DN_GREEN","SIG_ND_DELTA",
     "SIG_BEST_UP","SIG_FLP_UP","SIG_ORG_UP","SIG_DD_UP_RED","SIG_D_UP_RED",
     "SIG_SEQ_BCONT","SIG_VOL_5X","SIG_VOL_10X","SIG_VOL_20X",
     "SIG_P66","SIG_P55",
+    "SIG_SVS","SIG_BUY","SIG_G1","SIG_G4","SIG_STRONG","SIG_EB_UP","SIG_BE_ANY",
     "BCT","SQB","LRP","LDP","LRC","WRC","F8C","SVS",
     "G1P","G1C","G1L","GOG1","G2C","G2L","GOG2","G3C","G3L","GOG3",
     "PRICE_GT_200","PRICE_GT_89","PRICE_GT_50","RSI_LE_35","RSI_GE_70",
+    # SIG_BC, SIG_3G, SIG_FBO_UP, SIG_B6, SIG_B5 removed (Section 1B: both datasets)
 }
 
 _MODEL_COLS = [
@@ -391,52 +393,115 @@ _MODEL_COLS = [
     "HAS_REBOUND_MODEL","HAS_STRONG_BULL_MODEL","HAS_HARD_BEAR_MODEL",
 ]
 
-# Current score weights per signal (approximate, for "scored weak" analysis)
-_SIG_WEIGHTS = {
-    "SIG_PARA_PLUS": ("ROCKET_SCORE", 25),
-    "SIG_PARA_START": ("ROCKET_SCORE", 15),
-    "SIG_VOL_20X": ("ROCKET_SCORE", 10),
-    "SIG_VOL_10X": ("ROCKET_SCORE", 6),
-    "SIG_SEQ_BCONT": ("ROCKET_SCORE", 8),
-    "SIG_F8": ("CLEAN_ENTRY_SCORE", 12),
-    "SIG_F6": ("CLEAN_ENTRY_SCORE", 10),
-    "SIG_3UP": ("CLEAN_ENTRY_SCORE", 8),
-    "SIG_BLUE": ("CLEAN_ENTRY_SCORE", 6),
-    "SIG_B6": ("CLEAN_ENTRY_SCORE", 5),
-    "SIG_B8": ("CLEAN_ENTRY_SCORE", 5),
-    "SIG_F3": ("CLEAN_ENTRY_SCORE", 5),
-    "SIG_F4": ("CLEAN_ENTRY_SCORE", 5),
-    "SIG_F11": ("CLEAN_ENTRY_SCORE", 5),
-    "SIG_D50": ("EXTRA_BULL_SCORE", 6),
-    "SIG_D2": ("EXTRA_BULL_SCORE", 6),
-    "SIG_D55": ("EXTRA_BULL_SCORE", 5),
-    "SIG_BIAS_UP": ("EXTRA_BULL_SCORE", 5),
-    "SIG_L555": ("EXTRA_BULL_SCORE", 6),
-    "SIG_FRI64": ("EXTRA_BULL_SCORE", 5),
-    "SIG_P50": ("EXTRA_BULL_SCORE", 5),
-    "SIG_BEST_UP": ("EXTRA_BULL_SCORE", 8),
-    "SIG_CISD_CPLUS": ("EXPERIMENTAL_SCORE", 8),
-    "SIG_FLY_ABCD": ("EXPERIMENTAL_SCORE", 8),
-    "SIG_FLY_CD": ("EXPERIMENTAL_SCORE", 5),
-    "SIG_PARA_PREP": ("EXPERIMENTAL_SCORE", 5),
-    "SIG_BE_DN": ("SHAKEOUT_ABSORB_SCORE", 18),
-    "SIG_EB_DN": ("SHAKEOUT_ABSORB_SCORE", 15),
-    "SIG_4BF_DN": ("SHAKEOUT_ABSORB_SCORE", 12),
-    "SIG_WK_DN": ("SHAKEOUT_ABSORB_SCORE", 10),
-    "SIG_FBO_DN": ("HARD_BEAR_SCORE", 20),
-    "SIG_BIAS_DN": ("HARD_BEAR_SCORE", 6),
-    "SIG_BC": ("HARD_BEAR_SCORE", 6),
-    "SIG_RH": ("HARD_BEAR_SCORE", 10),
-    "SIG_ND_VABS": ("HARD_BEAR_SCORE", 8),
-    "SIG_D_DN_GREEN": ("HARD_BEAR_SCORE", 12),
-    "SIG_DD_DN_GREEN": ("HARD_BEAR_SCORE", 15),
-    "SIG_ND_DELTA": ("HARD_BEAR_SCORE", 10),
-    # v4.4 rebound signals
-    "SIG_TZ_FLIP": ("REBOUND_SQUEEZE_SCORE", 8),
-    "SIG_WK_UP": ("REBOUND_SQUEEZE_SCORE", 6),
-    "SIG_RL": ("REBOUND_SQUEEZE_SCORE", 5),
-    "SIG_CA": ("REBOUND_SQUEEZE_SCORE", 5),
+# Signal score weights for "scored weak" analysis — exchange-specific (Section 1)
+# Keys removed from NQ: SIG_BEST_UP, SIG_L555, SIG_BIAS_DN, SIG_CCI0R, SIG_FRI43
+#   (strongly negative avg10d on NQ per NQ1+NQ2 analytics)
+# Keys removed from both: SIG_BC, SIG_3G, SIG_FBO_UP, SIG_B6, SIG_B5 (Section 1B)
+
+_SIG_WEIGHTS_NQ = {
+    "SIG_PARA_PLUS":   ("ROCKET_SCORE",          25),
+    "SIG_PARA_START":  ("ROCKET_SCORE",          15),
+    "SIG_VOL_20X":     ("ROCKET_SCORE",          10),
+    "SIG_VOL_10X":     ("ROCKET_SCORE",           6),
+    "SIG_SEQ_BCONT":   ("ROCKET_SCORE",           8),
+    "SIG_F8":          ("CLEAN_ENTRY_SCORE",      12),
+    "SIG_F6":          ("CLEAN_ENTRY_SCORE",      10),
+    "SIG_3UP":         ("CLEAN_ENTRY_SCORE",       8),
+    "SIG_BLUE":        ("CLEAN_ENTRY_SCORE",       6),
+    # SIG_B6, SIG_B5 removed (1B: both datasets)
+    "SIG_B8":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F3":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F4":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F11":         ("CLEAN_ENTRY_SCORE",       2),  # NQ→2 (was 5)
+    # SIG_SVS, SIG_F9, SIG_F5, SIG_BUY, SIG_G4, SIG_G1, SIG_STRONG: NQ remove (1C)
+    "SIG_D50":         ("EXTRA_BULL_SCORE",        6),
+    "SIG_D2":          ("EXTRA_BULL_SCORE",        6),
+    "SIG_D55":         ("EXTRA_BULL_SCORE",        5),
+    "SIG_BIAS_UP":     ("EXTRA_BULL_SCORE",        5),
+    # SIG_L555, SIG_BEST_UP, SIG_FRI43: NQ weight=0 (1A)
+    "SIG_FRI64":       ("EXTRA_BULL_SCORE",        2),  # NQ→2 (was 5)
+    "SIG_P50":         ("EXTRA_BULL_SCORE",        5),
+    "SIG_B9":          ("EXTRA_BULL_SCORE",        5),  # NEW: NQ only (1E)
+    "SIG_CISD_CPLUS":  ("EXPERIMENTAL_SCORE",      8),
+    "SIG_FLY_ABCD":    ("EXPERIMENTAL_SCORE",      8),
+    "SIG_FLY_CD":      ("EXPERIMENTAL_SCORE",      5),
+    "SIG_PARA_PREP":   ("EXPERIMENTAL_SCORE",      5),
+    "SIG_BE_DN":       ("SHAKEOUT_ABSORB_SCORE",  18),
+    "SIG_EB_DN":       ("SHAKEOUT_ABSORB_SCORE",   8),  # NQ→8 (was 15)
+    "SIG_4BF_DN":      ("SHAKEOUT_ABSORB_SCORE",  12),
+    "SIG_WK_DN":       ("SHAKEOUT_ABSORB_SCORE",   3),  # NQ→3 (was 10)
+    # SIG_FBO_DN: NQ remove (1C avg10=−0.03%)
+    # SIG_BIAS_DN, SIG_CCI0R: NQ weight=0 (1A)
+    # SIG_BC: removed (1B)
+    "SIG_RH":          ("HARD_BEAR_SCORE",         3),  # NQ→3 (was 10)
+    "SIG_ND_VABS":     ("HARD_BEAR_SCORE",         8),
+    "SIG_D_DN_GREEN":  ("HARD_BEAR_SCORE",        12),
+    "SIG_DD_DN_GREEN": ("HARD_BEAR_SCORE",        15),
+    "SIG_ND_DELTA":    ("HARD_BEAR_SCORE",        10),
+    "SIG_TZ_FLIP":     ("REBOUND_SQUEEZE_SCORE",   8),
+    "SIG_WK_UP":       ("REBOUND_SQUEEZE_SCORE",   2),  # NQ→2 (was 6)
+    "SIG_RL":          ("REBOUND_SQUEEZE_SCORE",   1),  # BOTH→1 (was 5)
+    "SIG_CA":          ("REBOUND_SQUEEZE_SCORE",   5),
 }
+
+_SIG_WEIGHTS_SP500 = {
+    "SIG_PARA_PLUS":   ("ROCKET_SCORE",          25),
+    "SIG_PARA_START":  ("ROCKET_SCORE",          15),
+    "SIG_VOL_20X":     ("ROCKET_SCORE",          10),
+    "SIG_VOL_10X":     ("ROCKET_SCORE",           6),
+    "SIG_SEQ_BCONT":   ("ROCKET_SCORE",           8),
+    "SIG_F8":          ("CLEAN_ENTRY_SCORE",      12),
+    "SIG_F6":          ("CLEAN_ENTRY_SCORE",      10),
+    "SIG_3UP":         ("CLEAN_ENTRY_SCORE",       8),
+    "SIG_BLUE":        ("CLEAN_ENTRY_SCORE",       6),
+    # SIG_B6, SIG_B5 removed (1B: both datasets)
+    "SIG_B8":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F3":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F4":          ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_F11":         ("CLEAN_ENTRY_SCORE",       5),
+    "SIG_SVS":         ("CLEAN_ENTRY_SCORE",       8),  # NEW SP500 (1C)
+    "SIG_F9":          ("CLEAN_ENTRY_SCORE",       6),  # NEW SP500 (1C)
+    "SIG_F5":          ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_BUY":         ("CLEAN_ENTRY_SCORE",       8),  # NEW SP500 (1C)
+    "SIG_G4":          ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_G1":          ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_STRONG":      ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_EB_UP":       ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_BE_ANY":      ("CLEAN_ENTRY_SCORE",       5),  # NEW SP500 (1C)
+    "SIG_D50":         ("EXTRA_BULL_SCORE",        6),
+    "SIG_D2":          ("EXTRA_BULL_SCORE",        6),
+    "SIG_D55":         ("EXTRA_BULL_SCORE",        5),
+    "SIG_BIAS_UP":     ("EXTRA_BULL_SCORE",        5),
+    "SIG_L555":        ("EXTRA_BULL_SCORE",        6),  # SP500 keep (1A)
+    "SIG_FRI64":       ("EXTRA_BULL_SCORE",        5),  # SP500 keep (1A)
+    "SIG_P50":         ("EXTRA_BULL_SCORE",        5),
+    "SIG_BEST_UP":     ("EXTRA_BULL_SCORE",        8),  # SP500 keep (1A)
+    "SIG_FRI43":       ("EXTRA_BULL_SCORE",        5),  # SP500 keep (1A NQ-only remove)
+    "SIG_CISD_CPLUS":  ("EXPERIMENTAL_SCORE",      8),
+    "SIG_FLY_ABCD":    ("EXPERIMENTAL_SCORE",      8),
+    "SIG_FLY_CD":      ("EXPERIMENTAL_SCORE",      5),
+    "SIG_PARA_PREP":   ("EXPERIMENTAL_SCORE",      5),
+    "SIG_BE_DN":       ("SHAKEOUT_ABSORB_SCORE",  18),
+    "SIG_EB_DN":       ("SHAKEOUT_ABSORB_SCORE",  20),  # SP500→20 (boost from 15, 1C)
+    "SIG_4BF_DN":      ("SHAKEOUT_ABSORB_SCORE",  12),
+    "SIG_WK_DN":       ("SHAKEOUT_ABSORB_SCORE",  10),  # SP500 keep (1C)
+    "SIG_FBO_DN":      ("HARD_BEAR_SCORE",         20),  # SP500 keep (1C)
+    "SIG_BIAS_DN":     ("HARD_BEAR_SCORE",          6),  # SP500 add/keep (1A)
+    "SIG_CCI0R":       ("HARD_BEAR_SCORE",          5),  # SP500 add (1A)
+    # SIG_BC: removed (1B: both datasets)
+    "SIG_RH":          ("HARD_BEAR_SCORE",         10),  # SP500 keep (1A)
+    "SIG_ND_VABS":     ("HARD_BEAR_SCORE",          8),
+    "SIG_D_DN_GREEN":  ("HARD_BEAR_SCORE",         12),
+    "SIG_DD_DN_GREEN": ("HARD_BEAR_SCORE",         15),
+    "SIG_ND_DELTA":    ("HARD_BEAR_SCORE",         10),
+    "SIG_TZ_FLIP":     ("REBOUND_SQUEEZE_SCORE",    8),
+    "SIG_WK_UP":       ("REBOUND_SQUEEZE_SCORE",    6),  # SP500 keep (1C NQ-only change)
+    "SIG_RL":          ("REBOUND_SQUEEZE_SCORE",    1),  # BOTH→1 (was 5)
+    "SIG_CA":          ("REBOUND_SQUEEZE_SCORE",    5),
+}
+
+# Backward-compat alias (SP500 is the default)
+_SIG_WEIGHTS = _SIG_WEIGHTS_SP500
 
 
 def _active_sigs(row: dict, cols=None) -> List[str]:
@@ -1629,9 +1694,10 @@ def unscored_signals(rows: List[dict], min_count: int = 20) -> List[dict]:
 
 # ─── Section 13: Scored but weak ──────────────────────────────────────────────
 
-def scored_weak(rows: List[dict], min_count: int = 20) -> List[dict]:
+def scored_weak(rows: List[dict], min_count: int = 20, universe: str = "sp500") -> List[dict]:
+    weights = _SIG_WEIGHTS_NQ if "nasdaq" in universe else _SIG_WEIGHTS_SP500
     out = []
-    for sig, (component, weight) in _SIG_WEIGHTS.items():
+    for sig, (component, weight) in weights.items():
         sr = [r for r in rows if _f(r.get(sig, 0)) > 0]
         n  = len(sr)
         if n < min_count:
@@ -2988,7 +3054,7 @@ def run_replay(tf: str = "1d", universe: str = "sp500") -> None:
 
         # 15 — Scored weak
         _state["progress"] = 15; _state["message"] = "Scored but weak signals..."
-        _save("scored_weak", scored_weak(rows, min_count=20))
+        _save("scored_weak", scored_weak(rows, min_count=20, universe=universe))
 
         # 16 — Filter audit
         _state["progress"] = 16; _state["message"] = "Filter miss audit..."
