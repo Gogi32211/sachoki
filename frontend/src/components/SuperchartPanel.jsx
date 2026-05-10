@@ -180,6 +180,7 @@ const ROWS = [
 ]
 
 const BETA_ZONE_CLS = {
+  ELITE:       'text-amber-200 font-bold',
   OPTIMAL:     'text-emerald-300 font-bold',
   BUY:         'text-blue-300 font-bold',
   WATCH:       'text-violet-300',
@@ -189,7 +190,7 @@ const BETA_ZONE_CLS = {
   NEUTRAL:     'text-gray-600',
 }
 const BETA_ZONE_SHORT = {
-  OPTIMAL: 'OPT', BUY: 'BUY', WATCH: 'WCH',
+  ELITE: 'ELT', OPTIMAL: 'OPT', BUY: 'BUY', WATCH: 'WCH',
   BUILDING: 'BLD', EXTENDED: 'EXT', SHORT_WATCH: 'SHT', NEUTRAL: '',
 }
 
