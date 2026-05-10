@@ -320,6 +320,7 @@ function scoreBg(s) {
 
 function betaZoneCls(zone) {
   switch (zone) {
+    case 'ELITE':       return 'text-amber-200 font-bold'
     case 'OPTIMAL':     return 'text-emerald-300 font-bold'
     case 'BUY':         return 'text-blue-300 font-semibold'
     case 'WATCH':       return 'text-violet-300'
