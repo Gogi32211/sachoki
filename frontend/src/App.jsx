@@ -21,6 +21,7 @@ import TZIntelligencePanel from './components/TZIntelligencePanel'
 import RareReversalPanel from './components/RareReversalPanel'
 import SequenceScanPanel from './components/SequenceScanPanel'
 import PortfolioPanel from './components/PortfolioPanel'
+import ChartObsPanel from './components/ChartObsPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -52,6 +53,7 @@ const TABS = [
   { id: 'sequences',      label: '🔢 Sequences' },
   { id: 'howitworks',    label: 'How It Works' },
   { id: 'portfolio',     label: '📋 Portfolio' },
+  { id: 'chartobs',      label: '📊 Obs' },
   { id: 'admin',      label: '⚙ Admin' },
 ]
 
@@ -116,7 +118,7 @@ export default function App() {
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-bold tracking-wide text-white">
           Sachoki Screener{' '}
-          <span className="text-xs font-normal text-gray-500">v4.4.666</span>
+          <span className="text-xs font-normal text-gray-500">v4.4.673</span>
         </h1>
         <div className="flex items-center gap-3">
           <div className="flex gap-1">
@@ -255,6 +257,9 @@ export default function App() {
         )}
         {activeTab === 'portfolio' && (
           <PortfolioPanel />
+        )}
+        {activeTab === 'chartobs' && (
+          <ChartObsPanel />
         )}
         {activeTab === 'admin' && (
           <AdminPanel />
