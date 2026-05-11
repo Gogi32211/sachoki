@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
@@ -8,6 +8,8 @@ const K_OPTIONS = [
 const QUALITY_OPTIONS = ['PERFECT','GOOD','OK','BAD']
 
 export default function ChartObsPanel({ onSelectTicker }) {
+  const [view, setView] = useState('new')  // 'new' | 'stats' | 'recent'
+
   const [ticker, setTicker]   = useState('')
   const [obsDate, setObsDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [prefilled, setPrefilled] = useState(null)
@@ -20,6 +22,12 @@ export default function ChartObsPanel({ onSelectTicker }) {
   const [eb, setEb]             = useState(false)
   const [kFired, setKFired]     = useState(false)
   const [notes, setNotes]       = useState('')
+
+  // Stats / Recent state
+  const [statsRows,  setStatsRows]  = useState([])
+  const [statsDays,  setStatsDays]  = useState(180)
+  const [recentRows, setRecentRows] = useState([])
+  const [statsErr,   setStatsErr]   = useState('')
 
   const flash = (msg, ms = 2500) => {
     setStatus(msg)
@@ -89,11 +97,79 @@ export default function ChartObsPanel({ onSelectTicker }) {
     ? (Number(prefilled.score_at || 0) - Number(prefilled.score_before || 0))
     : 0
 
+  const loadStats = useCallback(async () => {
+    setStatsErr('')
+    try {
+      const r = await fetch(`${BASE}/obs/stats?days=${statsDays}`)
+      if (!r.ok) throw new Error(`${r.status} ${await r.text()}`)
+      const j = await r.json()
+      setStatsRows(Array.isArray(j.stats) ? j.stats : [])
+    } catch (e) {
+      setStatsErr(String(e.message || e))
+      setStatsRows([])
+    }
+  }, [statsDays])
+
+  const loadRecent = useCallback(async () => {
+    setStatsErr('')
+    try {
+      const r = await fetch(`${BASE}/obs/recent?limit=100`)
+      if (!r.ok) throw new Error(`${r.status} ${await r.text()}`)
+      const j = await r.json()
+      setRecentRows(Array.isArray(j.observations) ? j.observations : [])
+    } catch (e) {
+      setStatsErr(String(e.message || e))
+      setRecentRows([])
+    }
+  }, [])
+
+  const syncResults = async () => {
+    try {
+      const r = await fetch(`${BASE}/obs/sync-results`, { method: 'POST' })
+      if (!r.ok) throw new Error(`${r.status} ${await r.text()}`)
+      flash('✓ results synced from portfolio')
+      loadStats()
+      loadRecent()
+    } catch (e) {
+      flash('❌ ' + e.message, 4000)
+    }
+  }
+
+  useEffect(() => {
+    if (view === 'stats')  loadStats()
+    if (view === 'recent') loadRecent()
+  }, [view, loadStats, loadRecent])
+
   return (
-    <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-100 max-w-md">
-      <div className="text-sm font-bold text-green-400 mb-3">
-        📊 Chart Observation
+    <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-100 max-w-4xl">
+      <div className="flex items-center justify-between mb-3">
+        <div className="text-sm font-bold text-green-400">
+          📊 Chart Observation
+        </div>
+        <div className="flex gap-1">
+          {[
+            ['new',    '✎ New'],
+            ['stats',  '📈 Stats'],
+            ['recent', '📋 Recent'],
+          ].map(([id, lbl]) => (
+            <button
+              key={id}
+              onClick={() => setView(id)}
+              className={`text-[11px] px-2 py-1 rounded transition-colors
+                ${view === id
+                  ? 'bg-blue-700 text-white font-semibold'
+                  : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+            >
+              {lbl}
+            </button>
+          ))}
+        </div>
       </div>
+
+      {view === 'stats'  && renderStats({ statsRows, statsDays, setStatsDays, loadStats, syncResults, statsErr })}
+      {view === 'recent' && renderRecent({ recentRows, statsErr, syncResults })}
+      {view === 'new' && (<>
+      <div className="max-w-md">
 
       {/* STEP 1: ticker + date */}
       <div className="grid grid-cols-[1fr_1fr_auto] gap-2 mb-3">
@@ -205,6 +281,152 @@ export default function ChartObsPanel({ onSelectTicker }) {
 
       {!prefilled && status && (
         <div className="text-xs text-gray-400 mt-1">{status}</div>
+      )}
+      </div>
+      </>)}
+    </div>
+  )
+}
+
+// ── Stats view ──────────────────────────────────────────────────────────────
+function renderStats({ statsRows, statsDays, setStatsDays, loadStats, syncResults, statsErr }) {
+  const fmt = (v, d = 1) => v == null ? '—' : Number(v).toFixed(d)
+  const winColor = (w) => w == null ? 'text-gray-400'
+    : w >= 60 ? 'text-green-400'
+    : w >= 45 ? 'text-yellow-300'
+    : 'text-red-400'
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-3 text-[11px]">
+        <span className="text-gray-400">Days:</span>
+        {[30, 90, 180, 365].map(d => (
+          <button
+            key={d}
+            onClick={() => setStatsDays(d)}
+            className={`px-2 py-1 rounded ${statsDays === d
+              ? 'bg-blue-700 text-white'
+              : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+          >{d}d</button>
+        ))}
+        <button onClick={loadStats}
+          className="px-2 py-1 rounded bg-gray-700 hover:bg-gray-600 text-gray-100 ml-2">
+          ↻ refresh
+        </button>
+        <button onClick={syncResults}
+          className="px-2 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white ml-auto"
+          title="Pull result_5d/10d from Paper Portfolio closed trades">
+          🔁 Sync results
+        </button>
+      </div>
+
+      {statsErr && <div className="text-red-400 text-[11px] mb-2">❌ {statsErr}</div>}
+
+      {statsRows.length === 0 ? (
+        <div className="text-gray-500 text-[11px]">No observations yet. Save some from the New tab.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead className="text-gray-400 border-b border-gray-700">
+              <tr>
+                <th className="text-left  px-2 py-1">T</th>
+                <th className="text-left  px-2 py-1">Sequence</th>
+                <th className="text-left  px-2 py-1">K-match</th>
+                <th className="text-right px-2 py-1">N</th>
+                <th className="text-right px-2 py-1">Win%</th>
+                <th className="text-right px-2 py-1">Avg 10d</th>
+                <th className="text-right px-2 py-1">Δ score</th>
+              </tr>
+            </thead>
+            <tbody>
+              {statsRows.map((r, i) => (
+                <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
+                  <td className="px-2 py-1 text-green-400 font-bold">{r.t_signal || '—'}</td>
+                  <td className="px-2 py-1 text-gray-300">{r.sequence_label || '—'}</td>
+                  <td className="px-2 py-1 text-yellow-300">{r.k_signal_match || '—'}</td>
+                  <td className="px-2 py-1 text-right text-gray-200">{r.n}</td>
+                  <td className={`px-2 py-1 text-right font-bold ${winColor(r.win_rate)}`}>
+                    {r.win_rate == null ? '—' : `${fmt(r.win_rate, 0)}%`}
+                  </td>
+                  <td className={`px-2 py-1 text-right ${Number(r.avg10d) > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                    {r.avg10d == null ? '—' : `${Number(r.avg10d) > 0 ? '+' : ''}${fmt(r.avg10d, 2)}%`}
+                  </td>
+                  <td className="px-2 py-1 text-right text-gray-300">
+                    {r.avg_score_jump == null ? '—' : `${Number(r.avg_score_jump) > 0 ? '+' : ''}${fmt(r.avg_score_jump, 1)}`}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ── Recent view ─────────────────────────────────────────────────────────────
+function renderRecent({ recentRows, statsErr, syncResults }) {
+  const fmt = (v, d = 1) => v == null ? '—' : Number(v).toFixed(d)
+  const outcomeColor = (o) =>
+    o === 'WIN'  ? 'text-green-400'
+    : o === 'LOSS' ? 'text-red-400'
+    : o === 'NEUTRAL' ? 'text-gray-400'
+    : 'text-gray-600'
+
+  return (
+    <div>
+      <div className="flex justify-end mb-2">
+        <button onClick={syncResults}
+          className="px-2 py-1 rounded bg-purple-700 hover:bg-purple-600 text-white text-[11px]">
+          🔁 Sync results
+        </button>
+      </div>
+
+      {statsErr && <div className="text-red-400 text-[11px] mb-2">❌ {statsErr}</div>}
+
+      {recentRows.length === 0 ? (
+        <div className="text-gray-500 text-[11px]">No observations saved yet.</div>
+      ) : (
+        <div className="overflow-x-auto">
+          <table className="w-full text-[11px]">
+            <thead className="text-gray-400 border-b border-gray-700">
+              <tr>
+                <th className="text-left  px-2 py-1">Date</th>
+                <th className="text-left  px-2 py-1">Ticker</th>
+                <th className="text-left  px-2 py-1">T</th>
+                <th className="text-left  px-2 py-1">Sequence</th>
+                <th className="text-left  px-2 py-1">K</th>
+                <th className="text-left  px-2 py-1">Quality</th>
+                <th className="text-right px-2 py-1">Δ</th>
+                <th className="text-right px-2 py-1">10d</th>
+                <th className="text-left  px-2 py-1">Result</th>
+                <th className="text-left  px-2 py-1">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recentRows.map((r) => (
+                <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40">
+                  <td className="px-2 py-1 text-gray-400">{String(r.obs_date || '').slice(0, 10)}</td>
+                  <td className="px-2 py-1 text-blue-300 font-bold">{r.ticker}</td>
+                  <td className="px-2 py-1 text-green-400">{r.t_signal || '—'}</td>
+                  <td className="px-2 py-1 text-gray-300">{r.sequence_label || '—'}</td>
+                  <td className="px-2 py-1 text-yellow-300">{r.k_signal_match || '—'}</td>
+                  <td className="px-2 py-1 text-gray-200">{r.entry_quality || '—'}</td>
+                  <td className="px-2 py-1 text-right text-gray-300">
+                    {r.score_delta == null ? '—' : (Number(r.score_delta) > 0 ? `+${r.score_delta}` : r.score_delta)}
+                  </td>
+                  <td className={`px-2 py-1 text-right ${Number(r.result_10d) > 0 ? 'text-green-300' : 'text-red-300'}`}>
+                    {r.result_10d == null ? '—' : `${Number(r.result_10d) > 0 ? '+' : ''}${fmt(r.result_10d, 2)}%`}
+                  </td>
+                  <td className={`px-2 py-1 ${outcomeColor(r.result_outcome)}`}>{r.result_outcome || '—'}</td>
+                  <td className="px-2 py-1 text-gray-500 truncate max-w-[180px]" title={r.notes || ''}>
+                    {r.notes || ''}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
     </div>
   )
