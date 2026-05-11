@@ -1977,6 +1977,12 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             scoring_version=SCORING_ENGINE_VERSION,
             bars_used=bars,
         )
+        try:
+            from chart_obs_api_v2 import import_stock_stat_csv
+            result = import_stock_stat_csv(out_path)
+            log.info("Auto-imported stock_stat into DB: %s", result)
+        except Exception as _imp_err:
+            log.warning("stock_stat DB auto-import failed: %s", _imp_err)
     except Exception as e:
         _stock_stat_state.update(
             running=False, error=str(e),

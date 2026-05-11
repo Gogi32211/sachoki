@@ -50,7 +50,34 @@ CREATE TABLE IF NOT EXISTS chart_observations (
 CREATE INDEX IF NOT EXISTS idx_co_obs_date ON chart_observations(obs_date);
 CREATE INDEX IF NOT EXISTS idx_co_ticker   ON chart_observations(ticker);
 CREATE INDEX IF NOT EXISTS idx_co_t_signal ON chart_observations(t_signal);
-CREATE INDEX IF NOT EXISTS idx_co_k_match  ON chart_observations(k_signal_match)
+CREATE INDEX IF NOT EXISTS idx_co_k_match  ON chart_observations(k_signal_match);
+
+CREATE TABLE IF NOT EXISTS stock_stat (
+    ticker                 VARCHAR(20) NOT NULL,
+    date                   DATE        NOT NULL,
+    t                      VARCHAR(10),
+    z                      VARCHAR(10),
+    l                      VARCHAR(10),
+    f                      VARCHAR(10),
+    g                      VARCHAR(10),
+    b                      VARCHAR(10),
+    turbo_score            INTEGER,
+    rtb_total              INTEGER,
+    rtb_phase              VARCHAR(10),
+    beta_score             INTEGER,
+    beta_zone              VARCHAR(30),
+    sweet_spot_active      BOOLEAN,
+    signal_score           INTEGER,
+    last_price             NUMERIC(14,4),
+    ultra_score            INTEGER,
+    ultra_score_band_v2    VARCHAR(4),
+    ultra_score_priority   VARCHAR(20),
+    ultra_score_reasons    TEXT,
+    PRIMARY KEY (ticker, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ss_ticker ON stock_stat(ticker);
+CREATE INDEX IF NOT EXISTS idx_ss_date   ON stock_stat(date)
 """
 
 _DDL_SQLITE = """
@@ -94,7 +121,34 @@ CREATE TABLE IF NOT EXISTS chart_observations (
 CREATE INDEX IF NOT EXISTS idx_co_obs_date ON chart_observations(obs_date);
 CREATE INDEX IF NOT EXISTS idx_co_ticker   ON chart_observations(ticker);
 CREATE INDEX IF NOT EXISTS idx_co_t_signal ON chart_observations(t_signal);
-CREATE INDEX IF NOT EXISTS idx_co_k_match  ON chart_observations(k_signal_match)
+CREATE INDEX IF NOT EXISTS idx_co_k_match  ON chart_observations(k_signal_match);
+
+CREATE TABLE IF NOT EXISTS stock_stat (
+    ticker                 TEXT NOT NULL,
+    date                   TEXT NOT NULL,
+    t                      TEXT,
+    z                      TEXT,
+    l                      TEXT,
+    f                      TEXT,
+    g                      TEXT,
+    b                      TEXT,
+    turbo_score            INTEGER,
+    rtb_total              INTEGER,
+    rtb_phase              TEXT,
+    beta_score             INTEGER,
+    beta_zone              TEXT,
+    sweet_spot_active      INTEGER,
+    signal_score           INTEGER,
+    last_price             REAL,
+    ultra_score            INTEGER,
+    ultra_score_band_v2    TEXT,
+    ultra_score_priority   TEXT,
+    ultra_score_reasons    TEXT,
+    PRIMARY KEY (ticker, date)
+);
+
+CREATE INDEX IF NOT EXISTS idx_ss_ticker ON stock_stat(ticker);
+CREATE INDEX IF NOT EXISTS idx_ss_date   ON stock_stat(date)
 """
 
 

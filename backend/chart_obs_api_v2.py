@@ -6,12 +6,18 @@ Uses db.get_db() abstraction so it works on both PostgreSQL (Railway) and
 SQLite (local dev). The `stock_stat` table must be loaded separately into the
 backing database (CSV import on Railway Postgres).
 """
+import csv
+import glob
+import logging
+import os
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
 from datetime import date, timedelta
 
-from db import get_db
+from db import get_db, USE_PG
+
+log = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/obs", tags=["chart_observations"])
 
@@ -235,6 +241,150 @@ def get_stats(days: int = 180):
         """, (cutoff,))
         data = db.fetchall()
     return {"stats": data}
+
+
+# ── stock_stat CSV → DB import ───────────────────────────────────────────────
+
+_STOCK_STAT_DIR = "stock_stat_output"
+
+_SS_COLUMNS = [
+    "ticker", "date", "t", "z", "l", "f", "g", "b",
+    "turbo_score", "rtb_total", "rtb_phase",
+    "beta_score", "beta_zone", "sweet_spot_active",
+    "signal_score", "last_price",
+    "ultra_score", "ultra_score_band_v2", "ultra_score_priority",
+    "ultra_score_reasons",
+]
+
+# CSV-header → DB-column (CSV writes Z/T/L/F/G/B uppercase, close is the price)
+_CSV_TO_DB = {
+    "Z": "z", "T": "t", "L": "l", "F": "f", "G": "g", "B": "b",
+    "close": "last_price",
+}
+
+
+def _coerce_int(v):
+    if v in (None, "", "NaN", "nan"): return None
+    try: return int(float(v))
+    except (TypeError, ValueError): return None
+
+
+def _coerce_float(v):
+    if v in (None, "", "NaN", "nan"): return None
+    try: return float(v)
+    except (TypeError, ValueError): return None
+
+
+def _coerce_bool(v):
+    if v in (None, ""): return None
+    s = str(v).strip().lower()
+    if s in ("1", "true", "t", "yes", "y"):  return True
+    if s in ("0", "false", "f", "no", "n"):  return False
+    return None
+
+
+_INT_COLS  = {"turbo_score", "rtb_total", "beta_score", "signal_score", "ultra_score"}
+_REAL_COLS = {"last_price"}
+_BOOL_COLS = {"sweet_spot_active"}
+
+
+def _row_for_db(csv_row: dict) -> dict | None:
+    """Project a CSV row to the stock_stat schema. Returns None if ticker/date missing."""
+    out: dict = {}
+    for db_col in _SS_COLUMNS:
+        # find source value: direct match, uppercase alias, or csv→db map
+        val = csv_row.get(db_col)
+        if val is None:
+            # check reverse map: e.g. db 'z' ← csv 'Z'
+            for csv_k, mapped in _CSV_TO_DB.items():
+                if mapped == db_col:
+                    val = csv_row.get(csv_k)
+                    if val is not None:
+                        break
+        if db_col in _INT_COLS:
+            out[db_col] = _coerce_int(val)
+        elif db_col in _REAL_COLS:
+            out[db_col] = _coerce_float(val)
+        elif db_col in _BOOL_COLS:
+            out[db_col] = _coerce_bool(val)
+        else:
+            out[db_col] = val if val not in ("", "NaN", "nan") else None
+    if not out.get("ticker") or not out.get("date"):
+        return None
+    return out
+
+
+def _latest_stock_stat_csv() -> str | None:
+    if not os.path.isdir(_STOCK_STAT_DIR):
+        return None
+    files = sorted(
+        glob.glob(os.path.join(_STOCK_STAT_DIR, "stock_stat_*.csv")),
+        key=os.path.getmtime,
+        reverse=True,
+    )
+    return files[0] if files else None
+
+
+def import_stock_stat_csv(csv_path: str | None = None) -> dict:
+    """Bulk-upsert rows from the latest stock_stat CSV into the stock_stat table.
+
+    Safe to call from background tasks (e.g. after /api/stock-stat/trigger completes).
+    """
+    path = csv_path or _latest_stock_stat_csv()
+    if not path or not os.path.isfile(path):
+        return {"status": "no_csv", "path": path, "rows": 0}
+
+    cols = _SS_COLUMNS
+    placeholders = ",".join(["?"] * len(cols))
+    col_list = ",".join(cols)
+    update_set = ",".join(f"{c}=EXCLUDED.{c}" for c in cols if c not in ("ticker", "date"))
+
+    if USE_PG:
+        sql = (
+            f"INSERT INTO stock_stat ({col_list}) VALUES ({placeholders}) "
+            f"ON CONFLICT (ticker, date) DO UPDATE SET {update_set}"
+        )
+    else:
+        sql = (
+            f"INSERT INTO stock_stat ({col_list}) VALUES ({placeholders}) "
+            f"ON CONFLICT (ticker, date) DO UPDATE SET {update_set}"
+        )
+
+    inserted = 0
+    skipped  = 0
+    batch: list[tuple] = []
+    BATCH = 500
+
+    with open(path, "r", encoding="utf-8", newline="") as fh:
+        reader = csv.DictReader(fh)
+        with get_db() as db:
+            for csv_row in reader:
+                row = _row_for_db(csv_row)
+                if row is None:
+                    skipped += 1
+                    continue
+                batch.append(tuple(row[c] for c in cols))
+                if len(batch) >= BATCH:
+                    db.executemany(sql, batch)
+                    inserted += len(batch)
+                    batch.clear()
+            if batch:
+                db.executemany(sql, batch)
+                inserted += len(batch)
+            db.commit()
+
+    log.info("stock_stat import: %d rows upserted, %d skipped, src=%s", inserted, skipped, path)
+    return {"status": "ok", "path": path, "rows": inserted, "skipped": skipped}
+
+
+@router.post("/import-stock-stat")
+def api_import_stock_stat(path: Optional[str] = None):
+    """Import the latest stock_stat CSV (or a specified path) into the stock_stat table."""
+    try:
+        return import_stock_stat_csv(path)
+    except Exception as exc:
+        log.error("stock_stat import failed: %s", exc, exc_info=True)
+        raise HTTPException(500, f"stock_stat import failed: {exc}")
 
 
 @router.get("/recent")
