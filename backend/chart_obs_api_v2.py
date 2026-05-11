@@ -1,15 +1,16 @@
 """
-Chart Observations API v2 — auto-fill from stock_stat
+Chart Observations API v2 — auto-fill from stock_stat (or live fallback)
 User enters only: ticker + date → system prefills everything → user confirms.
 
-Uses db.get_db() abstraction so it works on both PostgreSQL (Railway) and
-SQLite (local dev). The `stock_stat` table must be loaded separately into the
-backing database (CSV import on Railway Postgres).
+Primary source: stock_stat table (populated after Run Stock Stat).
+Fallback: live bar_signals computation for the single ticker — works for any
+universe/ticker without needing a full scan first.
 """
 import csv
 import glob
 import logging
 import os
+import requests as _requests
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 from typing import Optional
@@ -68,7 +69,7 @@ def prefill(ticker: str, obs_date: str):
             raise HTTPException(500, f"stock_stat query failed: {exc}")
 
         if not row:
-            raise HTTPException(404, f"No data for {ticker} on {obs_date}")
+            return _prefill_from_live(t, obs_date)
 
         db.execute(
             "SELECT date, T, Z, turbo_score, beta_score, ultra_score "
@@ -78,9 +79,13 @@ def prefill(ticker: str, obs_date: str):
         )
         prev_bars = db.fetchall()
 
+    return _build_response(t, row, prev_bars)
+
+
+def _build_response(ticker: str, row: dict, prev_bars: list) -> dict:
     return {
-        "ticker":          row['ticker'],
-        "obs_date":        str(row['date']),
+        "ticker":          ticker,
+        "obs_date":        str(row.get('date') or row.get('obs_date', '')),
         "t_signal":        row.get('T') or row.get('t'),
         "z_prev_1":        (prev_bars[0].get('Z') or prev_bars[0].get('z')) if len(prev_bars) > 0 else None,
         "z_prev_2":        (prev_bars[1].get('Z') or prev_bars[1].get('z')) if len(prev_bars) > 1 else None,
@@ -95,12 +100,93 @@ def prefill(ticker: str, obs_date: str):
         "beta_zone":       row.get('beta_zone'),
         "sweet_spot":      bool(row.get('sweet_spot_active')) if row.get('sweet_spot_active') is not None else False,
         "score_at":        row.get('ultra_score'),
-        "entry_price":     row.get('last_price'),
+        "entry_price":     row.get('last_price') or row.get('close'),
         "ultra_band":      row.get('ultra_score_band_v2'),
         "signal_reasons":  row.get('ultra_score_reasons'),
         "sequence_label":  _build_sequence(prev_bars, row),
         "score_before":    prev_bars[0].get('ultra_score') if prev_bars else None,
+        "source":          row.get("_source", "stock_stat"),
     }
+
+
+def _prefill_from_live(ticker: str, obs_date: str) -> dict:
+    """Live fallback: compute signals for a single ticker via bar_signals endpoint.
+
+    Called when the ticker/date is not in the stock_stat table. Slower (~2–4s)
+    but works for any universe without needing a full scan first.
+    """
+    port = int(os.environ.get("PORT", 8080))
+    bars = 200
+    try:
+        resp = _requests.get(
+            f"http://localhost:{port}/api/bar_signals/{ticker}",
+            params={"tf": "1d", "bars": bars, "universe": "nasdaq"},
+            timeout=30,
+        )
+        resp.raise_for_status()
+        bar_list: list[dict] = resp.json()
+    except Exception as exc:
+        log.warning("live fallback failed for %s/%s: %s", ticker, obs_date, exc)
+        raise HTTPException(404, f"No data for {ticker} on {obs_date}")
+
+    if not bar_list:
+        raise HTTPException(404, f"No data for {ticker} on {obs_date}")
+
+    # Find requested date (exact or nearest before)
+    target = obs_date
+    hit = None
+    for b in reversed(bar_list):
+        d = str(b.get("date", ""))[:10]
+        if d <= target:
+            hit = b
+            break
+
+    if hit is None:
+        raise HTTPException(404, f"No data for {ticker} on {obs_date}")
+
+    # Build a row dict matching stock_stat schema
+    tz_raw = hit.get("tz") or ""
+    row = {
+        "date":             str(hit.get("date", ""))[:10],
+        "T":                tz_raw if tz_raw.startswith("T") else None,
+        "Z":                tz_raw if tz_raw.startswith("Z") else None,
+        "L":                " ".join(hit.get("l") or []) or None,
+        "F":                " ".join(hit.get("f") or []) or None,
+        "G":                " ".join(hit.get("g") or []) or None,
+        "B":                " ".join(hit.get("b") or []) or None,
+        "turbo_score":      hit.get("turbo_score"),
+        "rtb_total":        hit.get("rtb_total"),
+        "rtb_phase":        hit.get("rtb_phase"),
+        "beta_score":       hit.get("beta_score"),
+        "beta_zone":        hit.get("beta_zone"),
+        "sweet_spot_active": hit.get("sweet_spot_active"),
+        "signal_score":     hit.get("signal_score"),
+        "close":            hit.get("close"),
+        "ultra_score":      None,
+        "ultra_score_band_v2": None,
+        "ultra_score_priority": None,
+        "ultra_score_reasons": None,
+        "_source":          "live",
+    }
+
+    # Build 3 previous bars for sequence
+    hit_idx = next(
+        (i for i, b in enumerate(bar_list) if str(b.get("date", ""))[:10] == row["date"]),
+        len(bar_list) - 1,
+    )
+    prev_bars = []
+    for pb in reversed(bar_list[max(0, hit_idx - 3): hit_idx]):
+        ptz = pb.get("tz") or ""
+        prev_bars.append({
+            "T":           ptz if ptz.startswith("T") else None,
+            "Z":           ptz if ptz.startswith("Z") else None,
+            "turbo_score": pb.get("turbo_score"),
+            "beta_score":  pb.get("beta_score"),
+            "ultra_score": None,
+        })
+
+    log.info("live prefill: %s/%s turbo=%s tz=%s", ticker, obs_date, row["turbo_score"], tz_raw)
+    return _build_response(ticker, row, prev_bars)
 
 
 def _build_sequence(prev_bars, current):
