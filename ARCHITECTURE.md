@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.4.582 · API v2.1
+> Version 4.4.674 · API v2.1
 
 ---
 
@@ -13,11 +13,14 @@
 5. [Scoring & Turbo Engine](#scoring--turbo-engine)
 6. [ULTRA Score v2](#ultra-score-v2)
 7. [Sequences Engine](#sequences-engine)
-8. [API Endpoints](#api-endpoints)
-9. [Frontend Tabs](#frontend-tabs)
-10. [Analyzer Modules](#analyzer-modules)
-11. [Deployment](#deployment)
-12. [Test Suite](#test-suite)
+8. [BETA Score Engine](#beta-score-engine)
+9. [Paper Portfolio](#paper-portfolio)
+10. [Chart Observations](#chart-observations)
+11. [API Endpoints](#api-endpoints)
+12. [Frontend Tabs](#frontend-tabs)
+13. [Analyzer Modules](#analyzer-modules)
+14. [Deployment](#deployment)
+15. [Test Suite](#test-suite)
 
 ---
 
@@ -50,6 +53,12 @@ sachoki/
 │   ├── ultra_score.py           # Shared ULTRA Score formula (no lookahead)
 │   ├── ultra_signal_parser.py   # Compact label parser for live + Stock Stat rows
 │   ├── sequence_engine.py       # Universe-wide N-bar T/Z sequence analyzer
+│   ├── beta_engine.py           # BETA Score v2.1 (exchange-calibrated)
+│   ├── paper_portfolio_api.py   # Paper portfolio router (/portfolio/*)
+│   ├── paper_portfolio_migration.py  # Startup migration for portfolio tables
+│   ├── daily_scanner_runner.py  # Daily 5pm ET scanner → portfolio entry workflow
+│   ├── chart_obs_api_v2.py      # Chart Observations router (/obs/*) for K-signal tagging
+│   ├── chart_obs_migration.py   # Startup migration for chart_observations table
 │   ├── scanner.py               # Scan orchestrator + universe management
 │   ├── profile_playbook.py      # Multi-timeframe profile analysis
 │   ├── replay_engine.py         # Backtest / replay engine + ULTRA analytics
@@ -89,7 +98,7 @@ sachoki/
 │       ├── App.jsx              # Main shell, tab routing, global state
 │       ├── api.js               # API client utilities
 │       ├── turboCache.js        # Client-side turbo result cache
-│       └── components/          # 22 React panel components
+│       └── components/          # 24 React panel components
 ├── tests/                       # Pytest test suite (663 tests)
 ├── tz_intelligence_package/     # TZ signal intelligence data & guides
 ├── TURBO_SCORE_REFERENCE.md     # Turbo score family details
@@ -409,6 +418,82 @@ Horizons: **1D, 3D, 5D, 9D**. A horizon is `None` when fewer than `n` bars remai
 
 ---
 
+## BETA Score Engine
+
+`backend/beta_engine.py` — BETA Score v2.1 (calibrated 2026-05-10 from NQ1+NQ2 = 478,909 rows and SP500 = 88,934 rows of replay data).
+
+### Components
+
+| Field | Range | Meaning |
+|-------|-------|---------|
+| `beta_score` | 0–100 | Display value (non-linear transform of `beta_raw`) |
+| `beta_raw` | int | Pre-transform raw value |
+| `beta_setup` | 0–60 | Structural quality component |
+| `beta_momentum` | −5–50 | Momentum / regime component |
+| `beta_zone` | string | Categorical zone label |
+
+### Exchange-Specific Calibration
+
+| Exchange | setup × | momentum × | excess × |
+|----------|--------|-----------|---------|
+| NASDAQ   | 1.40   | 0.30      | 0.85    |
+| SP500    | 1.00   | 1.50      | 0.55    |
+
+Regime multipliers also differ per exchange — `ROCKET_WATCH` NQ=1.2/SP=0.7, `ACTIONABLE_SETUP` SP=1.2, `REBOUND_SQUEEZE` NQ=1.1.
+
+### Gates
+
+- **P89 boost** — ×1.1 when an EMA89 cross-up aligns with WATCH/BUY/OPTIMAL.
+- **D89 downgrade** — BUILDING → NEUTRAL when an EMA89 drop is active.
+
+BETA is wired into TURBO/ULTRA scan rows, the SuperChart matrix (BETA Score row), and Replay Analytics.
+
+---
+
+## Paper Portfolio
+
+A paper-trading layer that consumes top-tier ULTRA picks, simulates entries at next-day open, tracks open positions, and reports realised returns.
+
+### Tables (auto-created via `paper_portfolio_migration.py`)
+
+- `paper_portfolio` — one row per entry: `ticker`, `signal_date`, `entry_price`, `current_price`, `realized_return_p`, `status` (PENDING / OPEN / CLOSED), `tier`, `score`, plus daily OHLC tracking.
+
+### Workflow (driven by `daily_scanner_runner.py`)
+
+1. **5pm ET** — read the day's ULTRA CSV, filter TIER 1 + TIER 2 → `POST /api/portfolio/scan-and-add` (or `/entry`).
+2. **Next morning** — actual opens posted via `POST /api/portfolio/entry-price` (PENDING → OPEN).
+3. **Each evening** — daily OHLC posted via `POST /api/portfolio/daily-prices` then `POST /api/portfolio/daily-check` evaluates take-profit / stop-loss / holding-period rules and closes qualifying rows.
+
+The frontend `PortfolioPanel` exposes Pending / Open / Closed tabs and a server-side **Scan & Add** action that requires no CSV upload.
+
+---
+
+## Chart Observations
+
+A manual K-signal tagging layer (`backend/chart_obs_api_v2.py`) for retrospective annotation and calibration of T/Z + L + sequence setups.
+
+### Flow
+
+1. User enters **ticker + observation date** in the UI.
+2. `GET /api/obs/prefill` looks up the row in the `stock_stat` table, auto-fills T/Z signals, sequence label, turbo/beta/ultra scores, sweet-spot flag, RTB phase, prior 3 bars, and an entry-price suggestion.
+3. User confirms / annotates and adds the discretionary fields:
+   - `k_signal_match` (K1..K11 or NONE), `k_fired` (bool)
+   - `entry_quality` (PERFECT / GOOD / OK / BAD)
+   - free-text `notes`
+4. `POST /api/obs/save` upserts on `(obs_date, ticker, t_signal)` into the `chart_observations` table.
+
+### Result Tracking
+
+`POST /api/obs/sync-results` joins `chart_observations` to `paper_portfolio` on `(ticker, signal_date)` for closed trades, back-filling `result_5d`, `result_10d`, and `result_outcome` (WIN / LOSS / NEUTRAL).
+
+### Stats & Recent Endpoints
+
+`GET /api/obs/stats?days=N` returns win-rate and avg-10d aggregated by `(t_signal, sequence_label, k_signal_match)`. `GET /api/obs/recent?limit=N` returns the most recent observations for review.
+
+> **Requires** the `stock_stat` table to be populated in the backing DB (CSV import on Railway Postgres). If missing, `/obs/prefill` returns `503` with a clear "data not loaded" message instead of a raw Postgres error.
+
+---
+
 ## API Endpoints
 
 All endpoints prefixed `/api/`. Backend serves on port **8080**.
@@ -515,11 +600,35 @@ All endpoints prefixed `/api/`. Backend serves on port **8080**.
 | GET | `/api/pullback-miner/report` | Pullback pattern report |
 | GET | `/api/tz-intelligence/scan` | ABR classification scan |
 
+### Paper Portfolio
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/portfolio/scan-and-add` | Server-side scan → push TIER 1/2 picks |
+| POST | `/api/portfolio/entry` | Add a single ticker (PENDING) |
+| POST | `/api/portfolio/entry-price` | Set actual entry price (PENDING → OPEN) |
+| POST | `/api/portfolio/daily-prices` | Bulk daily OHLC update |
+| POST | `/api/portfolio/daily-check` | Evaluate exit rules; close qualifying rows |
+| GET | `/api/portfolio/open` | Currently open positions |
+| GET | `/api/portfolio/stats` | Aggregate performance metrics |
+| GET | `/api/portfolio/export` | CSV export |
+| GET | `/api/portfolio/` | Full portfolio listing |
+
+### Chart Observations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/obs/prefill?ticker=&obs_date=` | Auto-fill observation form from `stock_stat` |
+| POST | `/api/obs/save` | Upsert observation with K-signal + notes |
+| POST | `/api/obs/sync-results` | Backfill result_5d/10d from `paper_portfolio` |
+| GET | `/api/obs/stats?days=N` | Win-rate / avg-10d grouped by signal + K-match |
+| GET | `/api/obs/recent?limit=N` | Recent observations |
+
 ---
 
 ## Frontend Tabs
 
-All tabs defined in `App.jsx`. **18 tabs total.**
+All tabs defined in `App.jsx`. **20 tabs total.**
 
 ### ⚡ TURBO (`TurboScanPanel.jsx`)
 
@@ -609,6 +718,14 @@ Universe-wide N-bar T/Z sequence analyzer.
 - Sort by any horizon win rate or return.
 - Breadth column shows how many tickers exhibited the sequence.
 - CSV export with all 20 horizon columns.
+
+### 💼 Portfolio (`PortfolioPanel.jsx`)
+
+Paper-trading dashboard. Pending / Open / Closed tabs with Set-Entry-Prices UI and a server-side **Scan & Add** button (consumes the day's ULTRA results — no CSV upload required). Shows realized return per row and aggregate stats.
+
+### 📈 Chart Obs (`ChartObsPanel.jsx`)
+
+Chart Observation form for K-signal tagging. Enter ticker + date → system prefills T/Z signals, sequence, scores, prior bars from `stock_stat`; user confirms K-signal match (K1..K11), entry quality, and notes. Backed by `/api/obs/*`.
 
 ### How It Works (`HowItWorksPanel.jsx`)
 
@@ -702,12 +819,12 @@ Located in `tests/`. Run with `pytest tests/ -q`. **663 tests, all passing.**
 
 | Metric | Value |
 |--------|-------|
-| Version | 4.4.582 |
-| Backend modules | 25+ |
-| Frontend components | 22 |
-| API endpoints | 70+ |
+| Version | 4.4.674 |
+| Backend modules | 30+ |
+| Frontend components | 24 |
+| API endpoints | 85+ |
 | T/Z signal IDs | 26 |
 | L-signal variants | 12 base + 8 combos + 10 WLNBB overlays |
 | Test count | 663 |
-| Tabs | 18 |
+| Tabs | 20 |
 | Scheduled scans/day | 3 (09:30, 12:30, 15:30 ET) |
