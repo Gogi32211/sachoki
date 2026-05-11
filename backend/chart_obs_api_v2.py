@@ -53,6 +53,12 @@ def prefill(ticker: str, obs_date: str):
                 )
                 row = db.fetchone()
         except Exception as exc:
+            msg = str(exc).lower()
+            if "stock_stat" in msg and ("does not exist" in msg or "no such table" in msg):
+                raise HTTPException(
+                    503,
+                    "stock_stat data not loaded yet — import the scanner CSV into the DB before using Chart Observations.",
+                )
             raise HTTPException(500, f"stock_stat query failed: {exc}")
 
         if not row:
