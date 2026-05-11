@@ -7,7 +7,7 @@ const K_OPTIONS = [
 ]
 const QUALITY_OPTIONS = ['PERFECT','GOOD','OK','BAD']
 
-export default function ChartObsPanel() {
+export default function ChartObsPanel({ onSelectTicker }) {
   const [ticker, setTicker]   = useState('')
   const [obsDate, setObsDate] = useState(() => new Date().toISOString().slice(0, 10))
   const [prefilled, setPrefilled] = useState(null)
@@ -29,6 +29,7 @@ export default function ChartObsPanel() {
   const loadSignals = async () => {
     const t = ticker.trim().toUpperCase()
     if (!t || !obsDate) return
+    onSelectTicker?.(t)
     setLoading(true)
     setStatus('⏳ loading...')
     try {
