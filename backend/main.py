@@ -1246,6 +1246,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     except Exception:
         _beta_ok = False
     _beta_history: list = []   # chronological T/Z dicts (oldest first)
+    _ultra_score_history: list = []   # chronological ultra_score floats (oldest first)
 
     # Per-bar rolling history for bear-to-bull sequence scoring (most-recent-first)
     _pf_bar_history: list = []  # list of Set[str], [1_bar_ago, 2_bars_ago, ...]
@@ -1563,7 +1564,11 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                                  T=tz_s if tz_s.startswith("T") else "",
                                  Z=tz_s if tz_s.startswith("Z") else "")
                 _beta_hist = list(reversed(_beta_history[-5:]))
-                _beta_result = _calc_beta_score(_beta_row, _beta_hist, universe)
+                # rolling_score_max_5d: max ultra_score over past 5 bars (excludes current)
+                _rolling_score_max = max(_ultra_score_history[-5:]) if _ultra_score_history else 0.0
+                _beta_row["turbo_score"] = turbo_score_val
+                _beta_result = _calc_beta_score(_beta_row, _beta_hist, universe,
+                                                rolling_score_max=_rolling_score_max)
                 _beta_history.append({"T": _beta_row["T"], "Z": _beta_row["Z"]})
                 if len(_beta_history) > 10:
                     _beta_history.pop(0)
@@ -1685,7 +1690,22 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "beta_excess":   _beta_result["beta_excess"],
             "beta_zone":     _beta_result["beta_zone"],
             "beta_auto_buy": _beta_result["beta_auto_buy"],
+            # rolling_score_max_5d — populated below after ultra_score is computed
+            "rolling_score_max_5d": (
+                max(_ultra_score_history[-5:]) if _ultra_score_history else 0.0
+            ),
         })
+
+        # Track ultra_score for next bar's DECAY MEMORY BONUS (rolling_score_max_5d).
+        try:
+            _us = _compute_ultra_score(result[-1])
+            _ultra_score_history.append(float(_us.get("ultra_score", 0) or 0))
+            if len(_ultra_score_history) > 10:
+                _ultra_score_history.pop(0)
+        except Exception:
+            _ultra_score_history.append(0.0)
+            if len(_ultra_score_history) > 10:
+                _ultra_score_history.pop(0)
 
     return result
 
@@ -1757,6 +1777,8 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
             # ── BETA Score ───────────────────────────────────────────────────
             "beta_score", "beta_raw", "beta_setup", "beta_momentum",
             "beta_excess", "beta_zone", "beta_auto_buy",
+            # Decay-memory input — max ultra_score over past 5 bars (excludes current)
+            "rolling_score_max_5d",
         ]
 
         def _j(lst): return " ".join(str(x) for x in lst) if lst else ""
@@ -1921,6 +1943,7 @@ def run_stock_stat(tf: str = "1d", universe: str = "sp500", bars: int = 60):
                             b.get("beta_excess", 0),
                             b.get("beta_zone", ""),
                             1 if b.get("beta_auto_buy") else 0,
+                            round(float(b.get("rolling_score_max_5d", 0) or 0), 1),
                         ])
                 except Exception:
                     pass

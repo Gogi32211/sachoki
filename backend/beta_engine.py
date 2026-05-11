@@ -1,7 +1,15 @@
 """
-beta_engine.py — BETA Score v2.1  (2026-05-10)
+beta_engine.py — BETA Score v2.2  (2026-05-11)
 
-Calibrated from NQ1+NQ2 (478,909 rows) + SP500 (88,934 rows) replay analytics.
+Calibrated from NQ1+NQ2 (478,909 rows) + SP500 (88,934 rows) replay analytics +
+6-dataset breakout audit (99 tickers).
+
+Changes from v2.1:
+  - DECAY MEMORY BONUS: when rolling_score_max_5d is strong but current is weak,
+    preserve part of the signal (recovers ~40 tickers/audit where ultra_score
+    collapsed before breakout).
+  - TURBO×BETA floor: turbo_score>=40 AND beta_raw>=30 → floor display at 15
+    (recovers ~12 tickers with strong momentum but ultra=0).
 
 Changes from v2:
   - Exchange-specific formula weights (Section 2A):
@@ -27,7 +35,7 @@ Rule: NEVER reads ret_*, mfe_*, mae_* fields — no lookahead.
 
 from __future__ import annotations
 
-BETA_SCORE_VERSION = "2026-05-10-v2.1"
+BETA_SCORE_VERSION = "2026-05-11-v2.2"
 
 # ─── Exchange-specific regime points ─────────────────────────────────────────
 
@@ -337,11 +345,15 @@ def _empty_result() -> dict:
 
 # ─── Public entry point ───────────────────────────────────────────────────────
 
-def calc_beta_score(row: dict, history: list[dict], universe: str) -> dict:
+def calc_beta_score(row: dict, history: list[dict], universe: str,
+                    rolling_score_max: float = 0.0) -> dict:
     """
-    row      — current bar dict (must include all signal/score fields).
-    history  — list of previous bar dicts, most-recent-first (up to 5 entries).
-    universe — "sp500" or "nasdaq".
+    row               — current bar dict (must include all signal/score fields).
+    history           — list of previous bar dicts, most-recent-first (up to 5 entries).
+    universe          — "sp500" or "nasdaq".
+    rolling_score_max — max ultra_score over past 5 bars (excludes current).
+                        Drives DECAY MEMORY BONUS so recent strong setups survive
+                        a momentary score collapse.
 
     Never reads ret_*, mfe_*, mae_* — no lookahead guarantee.
     """
@@ -369,6 +381,19 @@ def calc_beta_score(row: dict, history: list[dict], universe: str) -> dict:
         # Over-extended gate: cap display at 72 when raw>80 and excess>8
         if excess > 8 and raw > 80 and display > 72:
             display = 72
+
+        # DECAY MEMORY BONUS — preserve signal when recent past was strong
+        # but current bar has collapsed (Problem 1 from breakout audit).
+        if rolling_score_max >= 50 and display < 20:
+            display = min(100, round(display + min(15.0, rolling_score_max * 0.2)))
+        elif rolling_score_max >= 30 and display < 10:
+            display = min(100, round(display + min(8.0, rolling_score_max * 0.15)))
+
+        # TURBO×BETA floor — strong turbo + strong raw beta but display collapsed
+        # (Problem 2 from breakout audit). Floor at 15 to keep BUILDING signal.
+        turbo_score_val = _sf(row, "turbo_score")
+        if turbo_score_val >= 40 and raw >= 30 and display < 15:
+            display = 15
 
         rocket_boost = _sf(row, "ROCKET_SCORE") >= 20
         zone     = _beta_zone(display, row, rocket_boost=rocket_boost)

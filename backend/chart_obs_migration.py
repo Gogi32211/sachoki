@@ -73,11 +73,14 @@ CREATE TABLE IF NOT EXISTS stock_stat (
     ultra_score_band_v2    VARCHAR(4),
     ultra_score_priority   VARCHAR(20),
     ultra_score_reasons    TEXT,
+    rolling_score_max_5d   NUMERIC(8,2),
     PRIMARY KEY (ticker, date)
 );
 
 CREATE INDEX IF NOT EXISTS idx_ss_ticker ON stock_stat(ticker);
-CREATE INDEX IF NOT EXISTS idx_ss_date   ON stock_stat(date)
+CREATE INDEX IF NOT EXISTS idx_ss_date   ON stock_stat(date);
+
+ALTER TABLE stock_stat ADD COLUMN IF NOT EXISTS rolling_score_max_5d NUMERIC(8,2)
 """
 
 _DDL_SQLITE = """
@@ -144,6 +147,7 @@ CREATE TABLE IF NOT EXISTS stock_stat (
     ultra_score_band_v2    TEXT,
     ultra_score_priority   TEXT,
     ultra_score_reasons    TEXT,
+    rolling_score_max_5d   REAL,
     PRIMARY KEY (ticker, date)
 );
 
