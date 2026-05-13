@@ -347,13 +347,13 @@ function ReasonTooltip({ codes, explanation }) {
             width: TOOLTIP_W,
             maxHeight: 340,
           }}
-          className="bg-gray-900 border border-gray-700 rounded shadow-2xl overflow-y-auto"
+          className="bg-gray-900 border border-md-outline-var rounded shadow-2xl overflow-y-auto"
           onMouseEnter={() => clearTimeout(timerRef.current)}
           onMouseLeave={hideTooltip}
         >
           <div className="p-3">
             {explanation && (
-              <div className="mb-2 text-xs text-gray-300 font-medium leading-relaxed border-b border-gray-800 pb-2">
+              <div className="mb-2 text-xs text-gray-300 font-medium leading-relaxed border-b border-md-outline-var pb-2">
                 {explanation}
               </div>
             )}
@@ -509,7 +509,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
   const thProps = { sortKey, sortDir, onSort: handleSort }
 
   return (
-    <div className="bg-gray-950 text-gray-100 p-3 flex flex-col gap-3">
+    <div className="bg-md-surface text-md-on-surface p-3 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-white">🧠 TZ Signal Intelligence</span>
@@ -521,7 +521,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Universe</label>
           <select value={universe} onChange={e => setUniverse(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
             {UNIVERSES.map(u => <option key={u.key} value={u.key}>{u.label}</option>)}
           </select>
         </div>
@@ -590,7 +590,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Role</label>
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
             {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
         </div>
@@ -598,7 +598,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">ABR</label>
           <select value={abrFilter} onChange={e => setAbrFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
             {ABR_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </div>
@@ -606,7 +606,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">ABR Context</label>
           <select value={abrCtxFilter} onChange={e => setAbrCtxFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700">
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
             {ABR_CTX_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </div>
@@ -620,7 +620,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
                 ${pbConfirmedOnly
                   ? 'bg-blue-700 text-white font-semibold border border-blue-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+                  : 'bg-gray-800 text-gray-400 hover:text-white border border-md-outline-var'}`}>
               ✓ PB only
             </button>
             <button
@@ -629,7 +629,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
                 ${shortConflictOnly
                   ? 'bg-orange-700 text-white font-semibold border border-orange-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-white border border-gray-700'}`}>
+                  : 'bg-gray-800 text-gray-400 hover:text-white border border-md-outline-var'}`}>
               ⚠ Short Conflict
             </button>
           </div>
@@ -646,17 +646,17 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               setMinPrice(e.target.value)
             }}
             placeholder={universe === 'nasdaq_gt5' ? '5' : '0'}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700 w-20" />
+            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Max $</label>
           <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
-            placeholder="∞" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700 w-20" />
+            placeholder="∞" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
         </div>
         <div className="flex flex-col gap-1">
           <label className="text-xs text-gray-500">Min Vol</label>
           <input type="number" value={minVolume} onChange={e => setMinVolume(e.target.value)}
-            placeholder="0" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-gray-700 w-24" />
+            placeholder="0" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-24" />
         </div>
 
         <button onClick={handleScan} disabled={loading}
@@ -688,7 +688,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
       </div>
 
       {universe === 'split' && splitAudit && !splitAudit.error && (
-        <div className="p-2 bg-gray-900 border border-gray-700 rounded text-xs flex flex-col gap-1">
+        <div className="p-2 bg-gray-900 border border-md-outline-var rounded text-xs flex flex-col gap-1">
           <div className="flex items-center gap-3 flex-wrap">
             <span className="text-gray-400">✂️ Split universe:</span>
             <span className="text-white font-semibold">{splitAudit.counts?.live_split_universe ?? '—'} tickers</span>
@@ -702,7 +702,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               stale in CSV: {splitAudit.counts?.only_in_wlnbb}
             </span>
           </div>
-          <div className="text-gray-600 text-xs">
+          <div className="text-md-on-surface-var/70 text-xs">
             source: {splitAudit.debug?.source} · window: {splitAudit.debug?.start_date} → {splitAudit.debug?.end_date} · generated: {splitAudit.debug?.generated_at?.slice(0, 16)}
           </div>
           {splitAudit.counts?.only_in_wlnbb > 0 && (
@@ -777,7 +777,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 : (universe === 'nasdaq_gt5' ? gt5Batch : '')
               exportCSV(displayRows, universe, tf, activeBatch, scanMode)
             }}
-            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-gray-700 transition-colors"
+            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-md-outline-var transition-colors"
           >
             ⬇ CSV (current sort)
           </button>
@@ -788,7 +788,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead className="sticky top-0 z-10 bg-gray-950">
-              <tr className="border-b border-gray-800">
+              <tr className="border-b border-md-outline-var">
                 <SortTh label="Ticker"    colKey="ticker"             {...thProps} />
                 <SortTh label="Date"      colKey="date"               {...thProps} />
                 <SortTh label="Close"     colKey="close"              {...thProps} align="right" />
@@ -818,7 +818,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
             <tbody>
               {displayRows.map((row, i) => (
                 <tr key={`${row.ticker}-${row.date}-${i}`}
-                  className="border-b border-gray-800/50 hover:bg-gray-900/40 transition-colors cursor-pointer"
+                  className="border-b border-md-outline-var/50 hover:bg-gray-900/40 transition-colors cursor-pointer"
                   onClick={() => onSelectTicker?.(row.ticker)}
                 >
                   <td className="p-1 font-semibold text-white">{row.ticker}</td>
@@ -890,7 +890,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                       : <span className="text-gray-700">—</span>
                     }
                   </td>
-                  <td className="p-1 text-gray-500 text-xs font-mono">
+                  <td className="p-1 text-md-on-surface-var text-xs font-mono">
                     {RULE_TYPE_SHORT[row.matched_rule_type] || row.matched_rule_type || '—'}
                   </td>
                   <td className="p-1">
@@ -942,7 +942,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
       )}
 
       {!loading && !error && displayRows.length === 0 && (
-        <div className="text-gray-600 text-xs py-6 text-center">
+        <div className="text-md-on-surface-var/70 text-xs py-6 text-center">
           No results. Run "🧠 Classify" to start — needs TZ/WLNBB stock_stat CSV.
         </div>
       )}

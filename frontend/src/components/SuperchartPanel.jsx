@@ -587,7 +587,7 @@ export default function SuperchartPanel({
       <div className="flex items-center gap-2 flex-wrap">
         <form onSubmit={handleSubmit} className="flex gap-1">
           <input
-            className="bg-gray-800 text-white text-sm px-2 py-1 rounded border border-gray-700 w-20 uppercase"
+            className="bg-gray-800 text-white text-sm px-2 py-1 rounded border border-md-outline-var w-20 uppercase"
             value={inputVal}
             onChange={e => setInputVal(e.target.value.toUpperCase())}
             placeholder="TICKER"
@@ -621,7 +621,7 @@ export default function SuperchartPanel({
           <button
             onClick={exportCsv}
             title={`Download ${ticker} ${tf.toUpperCase()} signal data as CSV`}
-            className="text-xs px-2 py-1 rounded border border-gray-700 bg-gray-800 text-gray-400 hover:text-white transition-colors">
+            className="text-xs px-2 py-1 rounded border border-md-outline-var bg-gray-800 text-gray-400 hover:text-white transition-colors">
             ⬇ CSV
           </button>
         )}
@@ -631,7 +631,7 @@ export default function SuperchartPanel({
 
       {/* Matrix */}
       {bars.length > 0 && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
+        <div className="bg-md-surface-con rounded-md-md border border-md-outline-var overflow-hidden">
           <div
             ref={matrixRef}
             className="overflow-x-auto overflow-y-hidden"
@@ -670,7 +670,7 @@ export default function SuperchartPanel({
 
               <tbody>
                 {ROWS.map(row => (
-                  <tr key={row.key} className="border-t border-gray-800/50 hover:bg-gray-800/20">
+                  <tr key={row.key} className="border-t border-md-outline-var/50 hover:bg-gray-800/20">
                     <td
                       className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
                                  text-right border-r border-gray-800 font-mono whitespace-nowrap"
@@ -913,8 +913,8 @@ export default function SuperchartPanel({
 
       {/* ── Signal Statistics Panel ── */}
       {showStats && (
-        <div className="bg-gray-900 rounded-xl border border-gray-800 overflow-hidden">
-          <div className="flex items-center gap-3 px-3 py-2 border-b border-gray-800 bg-gray-950">
+        <div className="bg-md-surface-con rounded-md-md border border-md-outline-var overflow-hidden">
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-md-outline-var bg-gray-950">
             <span className="text-xs font-semibold text-violet-300">Signal Performance — {ticker} {tf.toUpperCase()}</span>
             <span className="text-xs text-gray-500">avg max-high over next N bars · sorted by</span>
             {statsLoading && <span className="text-xs text-gray-500 animate-pulse ml-auto">loading…</span>}
@@ -956,8 +956,8 @@ export default function SuperchartPanel({
                     const label = statsData.labels?.[key] ?? key
                     return (
                       <tr key={key}
-                        className={`border-b border-gray-800/40 hover:bg-gray-800/30 ${idx === 0 && statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}`}>
-                        <td className="px-3 py-1 sticky left-0 bg-gray-900 text-gray-300 whitespace-nowrap font-mono" style={{ fontSize: 11 }}>
+                        className={`border-b border-md-outline-var/40 hover:bg-md-surface-high/30 ${idx === 0 && statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}`}>
+                        <td className="px-3 py-1 sticky left-0 bg-md-surface-con text-md-on-surface whitespace-nowrap font-mono" style={{ fontSize: 11 }}>
                           {label}
                         </td>
                         <td className="px-2 py-1 text-right font-mono text-gray-400">{st.n}</td>

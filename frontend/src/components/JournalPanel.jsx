@@ -44,9 +44,9 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
   }
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
+    <div className="bg-md-surface-con rounded-md-md border border-md-outline-var flex flex-col h-full">
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
         <div className="flex items-center gap-3">
           <span className="font-semibold text-sm text-white">Journal</span>
           <span className="text-xs text-gray-500">{journal.length} tickers</span>
@@ -74,13 +74,13 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
       {/* Table */}
       <div className="overflow-auto flex-1">
         {journal.length === 0 ? (
-          <div className="px-4 py-8 text-center text-gray-500 text-xs">
+          <div className="px-4 py-8 text-center text-md-on-surface-var text-xs">
             Journal is empty — click <span className="text-white">+</span> on any scan row to add tickers.
           </div>
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-800 sticky top-0 bg-gray-900">
+              <tr className="text-gray-400 border-b border-md-outline-var sticky top-0 bg-gray-900">
                 <th className="text-left px-3 py-2">Ticker</th>
                 <th className="text-left px-2 py-2">Source</th>
                 <th className="text-left px-2 py-2 hidden sm:table-cell">Signals</th>
@@ -92,7 +92,7 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
             </thead>
             <tbody>
               {[...journal].reverse().map(entry => (
-                <tr key={entry.id} className="border-b border-gray-800/40 hover:bg-gray-800/30">
+                <tr key={entry.id} className="border-b border-md-outline-var/40 hover:bg-md-surface-high/30">
                   <td className="px-3 py-2">
                     <button
                       onClick={() => onSelectTicker?.(entry.ticker)}
