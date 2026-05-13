@@ -23,9 +23,9 @@ const VERDICT_COLORS = {
   STRONG_EDGE:         'bg-emerald-700 text-emerald-100',
   GOOD_WITH_CONTEXT:   'bg-emerald-900 text-emerald-200',
   WATCH_ONLY:          'bg-yellow-900 text-yellow-200',
-  NO_EDGE:             'bg-gray-800 text-gray-400',
+  NO_EDGE:             'bg-md-surface-high text-md-on-surface-var',
   NEGATIVE_EDGE:       'bg-red-900 text-red-200',
-  TOO_FEW_SAMPLES:     'bg-gray-700 text-gray-300',
+  TOO_FEW_SAMPLES:     'bg-gray-700 text-md-on-surface',
 }
 
 function fmtPct(v, digits = 2) {
@@ -41,7 +41,7 @@ function fmtNum(v) {
 }
 
 function VerdictBadge({ verdict }) {
-  const cls = VERDICT_COLORS[verdict] || 'bg-gray-800 text-gray-300'
+  const cls = VERDICT_COLORS[verdict] || 'bg-md-surface-high text-md-on-surface'
   return <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}>{verdict || '—'}</span>
 }
 
@@ -49,9 +49,9 @@ function ConfidenceBadge({ label }) {
   const cls = {
     HIGH:   'bg-blue-900 text-blue-200',
     MEDIUM: 'bg-blue-950 text-blue-300',
-    LOW:    'bg-gray-800 text-gray-400',
-    TOO_FEW_SAMPLES: 'bg-gray-800 text-gray-500',
-  }[label] || 'bg-gray-800 text-gray-400'
+    LOW:    'bg-md-surface-high text-md-on-surface-var',
+    TOO_FEW_SAMPLES: 'bg-md-surface-high text-md-on-surface-var',
+  }[label] || 'bg-md-surface-high text-md-on-surface-var'
   return <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}>{label || '—'}</span>
 }
 
@@ -62,7 +62,7 @@ const CQ_META = {
 }
 
 function ContextQualityBadge({ quality }) {
-  const m = CQ_META[quality] || { cls: 'bg-gray-800 text-gray-400', label: quality || '—' }
+  const m = CQ_META[quality] || { cls: 'bg-md-surface-high text-md-on-surface-var', label: quality || '—' }
   return <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${m.cls}`}>{m.label}</span>
 }
 
@@ -111,30 +111,30 @@ function SettingsPanel({ disabled, onStart }) {
   }
 
   return (
-    <div className="bg-gray-900 rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
+    <div className="bg-md-surface-con rounded p-3 grid grid-cols-1 md:grid-cols-3 gap-3">
       <div>
-        <label className="text-xs text-gray-400">Universe</label>
+        <label className="text-xs text-md-on-surface-var">Universe</label>
         <select value={universe} onChange={e => setUniverse(e.target.value)}
-                className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
+                className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm">
           {UNIVERSE_OPTIONS.map(o => <option key={o.value} value={o.value}>{o.label}</option>)}
         </select>
       </div>
       <div>
-        <label className="text-xs text-gray-400">Mode</label>
+        <label className="text-xs text-md-on-surface-var">Mode</label>
         <div className="flex flex-wrap gap-1">
           {MODE_OPTIONS.map(m => (
             <button key={m.value} onClick={() => setMode(m.value)}
                     className={`text-xs px-2 py-1 rounded ${mode === m.value
-                      ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
+                      ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var'}`}>
               {m.label}
             </button>
           ))}
         </div>
       </div>
       <div>
-        <label className="text-xs text-gray-400">Benchmark</label>
+        <label className="text-xs text-md-on-surface-var">Benchmark</label>
         <select value={benchmark} onChange={e => setBenchmark(e.target.value)}
-                className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
+                className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm">
           <option value="QQQ">QQQ</option>
           <option value="SPY">SPY</option>
         </select>
@@ -142,44 +142,44 @@ function SettingsPanel({ disabled, onStart }) {
 
       {mode === 'single_day' && (
         <div className="md:col-span-3">
-          <label className="text-xs text-gray-400">As-of Date</label>
+          <label className="text-xs text-md-on-surface-var">As-of Date</label>
           <input type="date" value={asOfDate} onChange={e => setAsOfDate(e.target.value)}
-                 className="bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
+                 className="bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm" />
         </div>
       )}
       {mode === 'date_range' && (
         <>
           <div>
-            <label className="text-xs text-gray-400">Start Date</label>
+            <label className="text-xs text-md-on-surface-var">Start Date</label>
             <input type="date" value={startDate} onChange={e => setStartDate(e.target.value)}
-                   className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
+                   className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm" />
           </div>
           <div>
-            <label className="text-xs text-gray-400">End Date</label>
+            <label className="text-xs text-md-on-surface-var">End Date</label>
             <input type="date" value={endDate} onChange={e => setEndDate(e.target.value)}
-                   className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
+                   className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm" />
           </div>
           <div />
         </>
       )}
       {mode === 'last_n_days' && (
         <div className="md:col-span-3">
-          <label className="text-xs text-gray-400">Trading Days to Look Back</label>
+          <label className="text-xs text-md-on-surface-var">Trading Days to Look Back</label>
           <input type="number" min={1} max={500} value={lookbackDays}
                  onChange={e => setLookbackDays(Number(e.target.value) || 20)}
-                 className="w-24 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
+                 className="w-24 bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm" />
         </div>
       )}
       {mode === 'ytd' && (
-        <div className="md:col-span-3 text-xs text-gray-400 italic">
+        <div className="md:col-span-3 text-xs text-md-on-surface-var italic">
           Will scan Jan 1 {new Date().getFullYear()} → today using available trading days.
         </div>
       )}
 
       <div>
-        <label className="text-xs text-gray-400">Event Scope</label>
+        <label className="text-xs text-md-on-surface-var">Event Scope</label>
         <select value={scope} onChange={e => setScope(e.target.value)}
-                className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
+                className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm">
           <option value="all_signals">All Signals</option>
           <option value="tz_only">T/Z only</option>
           <option value="scanner_visible_only">Scanner-visible only</option>
@@ -187,12 +187,12 @@ function SettingsPanel({ disabled, onStart }) {
         </select>
       </div>
       <div>
-        <label className="text-xs text-gray-400 flex items-center gap-1.5">
+        <label className="text-xs text-md-on-surface-var flex items-center gap-1.5">
           Bar Lookback
           <ContextQualityBadge quality={contextQualityFromBars(lookbackBars)} />
         </label>
         <select value={lookbackBars} onChange={e => setLookbackBars(Number(e.target.value))}
-                className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
+                className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm">
           <option value={30}>30 bars — Fast Scan / Debug</option>
           <option value={100}>100 bars — Light</option>
           <option value={250}>250 bars — Standard Fast Research</option>
@@ -213,12 +213,12 @@ function SettingsPanel({ disabled, onStart }) {
       <div className="md:col-span-1 flex items-end justify-end">
         <button onClick={submit} disabled={disabled}
                 className={`px-4 py-2 rounded text-sm font-semibold ${disabled
-                  ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  ? 'bg-gray-700 text-md-on-surface-var cursor-not-allowed'
                   : 'bg-blue-600 text-white hover:bg-blue-500'}`}>
           ▶ Run Signal Replay
         </button>
       </div>
-      <div className="md:col-span-3 text-[11px] text-gray-500 italic">
+      <div className="md:col-span-3 text-[11px] text-md-on-surface-var italic">
         Signal Replay uses Daily / 1D candles only.
       </div>
     </div>
@@ -242,18 +242,18 @@ function ProgressPanel({ state, onStop, onPause, onResume }) {
   }
 
   return (
-    <div className="bg-gray-900 rounded p-3 space-y-2">
+    <div className="bg-md-surface-con rounded p-3 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="text-sm flex flex-wrap items-center gap-2">
-          <span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_CLS[state.status] || 'bg-gray-700 text-gray-300'}`}>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_CLS[state.status] || 'bg-gray-700 text-md-on-surface'}`}>
             {paused ? 'PAUSED' : state.status}
           </span>
           <span>run_id={state.run_id} · {state.universe} · {state.mode}</span>
           {state.context_quality && <ContextQualityBadge quality={state.context_quality} />}
-          {state.lookback_bars && <span className="text-[10px] text-gray-500">{state.lookback_bars}b</span>}
+          {state.lookback_bars && <span className="text-[10px] text-md-on-surface-var">{state.lookback_bars}b</span>}
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">elapsed: {state.elapsed_secs}s</span>
+          <span className="text-xs text-md-on-surface-var">elapsed: {state.elapsed_secs}s</span>
           {running && !paused && (
             <button onClick={onPause}
                     className="text-xs px-2 py-1 rounded bg-yellow-700 text-white hover:bg-yellow-600">
@@ -295,7 +295,7 @@ function ProgressPanel({ state, onStop, onPause, onResume }) {
         * Events ≠ Tickers — one bar with T9 + 3 L items + 2 combos emits 6 separate event rows (one per active signal).
         T/Z Events = main directional signals only.
       </div>
-      <div className="w-full bg-gray-800 rounded h-1.5 overflow-hidden">
+      <div className="w-full bg-md-surface-high rounded h-1.5 overflow-hidden">
         <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
       </div>
       {state.error && (
@@ -309,8 +309,8 @@ function ProgressPanel({ state, onStop, onPause, onResume }) {
 
 function Stat({ label, val }) {
   return (
-    <div className="bg-gray-800 rounded px-2 py-1">
-      <div className="text-[10px] text-gray-500">{label}</div>
+    <div className="bg-md-surface-high rounded px-2 py-1">
+      <div className="text-[10px] text-md-on-surface-var">{label}</div>
       <div className="text-sm">{val}</div>
     </div>
   )
@@ -354,7 +354,7 @@ function SignalRankingTable({ runId }) {
 
   const H = ({ col, children }) => (
     <th onClick={() => headerClick(col)}
-        className="px-2 py-1 text-left cursor-pointer hover:bg-gray-800 select-none">
+        className="px-2 py-1 text-left cursor-pointer hover:bg-md-surface-high select-none">
       {children}{sortBy === col ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''}
     </th>
   )
@@ -366,11 +366,11 @@ function SignalRankingTable({ runId }) {
         {['3d', '5d', '10d', '20d'].map(h => (
           <button key={h} onClick={() => setHorizon(h)}
                   className={`px-2 py-0.5 rounded ${horizon === h
-                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+                    ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var'}`}>{h}</button>
         ))}
         <span className="ml-3">Group by:</span>
         <select value={statType} onChange={e => setStatType(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="SIGNAL">SIGNAL</option>
           <option value="SIGNAL_FAMILY">SIGNAL_FAMILY</option>
           <option value="SIGNAL_TYPE">SIGNAL_TYPE</option>
@@ -388,25 +388,25 @@ function SignalRankingTable({ runId }) {
         </select>
         <span className="ml-3">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
-               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-16 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <span className="ml-2">Quality:</span>
         <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="">All</option>
           <option value="FULL">FULL</option>
           <option value="PARTIAL">PARTIAL</option>
           <option value="LIMITED">LIMITED</option>
         </select>
         <button onClick={load}
-                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+                className="ml-auto px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface hover:bg-gray-700">
           ↻ Reload
         </button>
       </div>
       {err && <div className="text-xs text-red-400">Error: {err}</div>}
-      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <H col="stat_key">Signal</H>
               <H col="sample_size">N</H>
@@ -425,7 +425,7 @@ function SignalRankingTable({ runId }) {
           </thead>
           <tbody>
             {displayRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
+              <tr key={r.id} className="border-b border-md-outline-var hover:bg-md-surface-con">
                 <td className="px-2 py-1 font-mono">{r.stat_key}</td>
                 <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
                 <td className={`px-2 py-1 ${Number(r.median_return) > 0
@@ -445,7 +445,7 @@ function SignalRankingTable({ runId }) {
               </tr>
             ))}
             {!loading && displayRows.length === 0 && (
-              <tr><td colSpan={13} className="px-2 py-6 text-center text-gray-500">
+              <tr><td colSpan={13} className="px-2 py-6 text-center text-md-on-surface-var">
                 No stats yet. Run a replay or relax filters.
               </td></tr>
             )}
@@ -486,24 +486,24 @@ function EventExplorer({ runId }) {
     <div className="space-y-2">
       <div className="flex flex-wrap gap-2 text-xs">
         <input value={symbol} onChange={e => setSymbol(e.target.value)} placeholder="Symbol"
-               className="w-24 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-24 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <input value={sig} onChange={e => setSig(e.target.value)} placeholder="event_signal"
-               className="w-28 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-28 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <select value={fam} onChange={e => setFam(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="">All families</option>
           {['T', 'Z', 'L', 'F', 'G', 'B', 'EMA', 'COMBO', 'ROLE'].map(f =>
             <option key={f} value={f}>{f}</option>
           )}
         </select>
-        <button onClick={load} className="px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+        <button onClick={load} className="px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface hover:bg-gray-700">
           ↻ Reload
         </button>
       </div>
-      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <th className="px-2 py-1 text-left">Symbol</th>
               <th className="px-2 py-1 text-left">Date</th>
@@ -520,13 +520,13 @@ function EventExplorer({ runId }) {
           <tbody>
             {rows.map(r => (
               <Fragment key={r.id}>
-                <tr className="border-b border-gray-800 hover:bg-gray-900 cursor-pointer"
+                <tr className="border-b border-md-outline-var hover:bg-md-surface-con cursor-pointer"
                     onClick={() => setExpanded(e => e === r.id ? null : r.id)}>
                   <td className="px-2 py-1 font-mono">{r.symbol}</td>
                   <td className="px-2 py-1">{r.scan_date}</td>
                   <td className="px-2 py-1 font-mono">{r.event_signal}</td>
                   <td className="px-2 py-1">{r.event_signal_family}</td>
-                  <td className="px-2 py-1 text-gray-400">{r.sequence_4bar}</td>
+                  <td className="px-2 py-1 text-md-on-surface-var">{r.sequence_4bar}</td>
                   <td className="px-2 py-1">{r.abr_category || '—'}</td>
                   <td className="px-2 py-1">{r.ema50_state}</td>
                   <td className="px-2 py-1">{r.price_pos_4bar_bucket}</td>
@@ -534,8 +534,8 @@ function EventExplorer({ runId }) {
                   <td className="px-2 py-1">{fmtNum(r.score)}</td>
                 </tr>
                 {expanded === r.id && (
-                  <tr><td colSpan={10} className="px-2 py-2 bg-gray-950">
-                    <pre className="text-[10px] text-gray-400 whitespace-pre-wrap">
+                  <tr><td colSpan={10} className="px-2 py-2 bg-md-surface">
+                    <pre className="text-[10px] text-md-on-surface-var whitespace-pre-wrap">
                       {r.event_snapshot_json}
                     </pre>
                   </td></tr>
@@ -543,7 +543,7 @@ function EventExplorer({ runId }) {
               </Fragment>
             ))}
             {!loading && rows.length === 0 && (
-              <tr><td colSpan={10} className="px-2 py-6 text-center text-gray-500">
+              <tr><td colSpan={10} className="px-2 py-6 text-center text-md-on-surface-var">
                 No events.
               </td></tr>
             )}
@@ -586,8 +586,8 @@ function SummaryPanel({ runId, runMeta }) {
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
         <Stat label="Mode"          val={runMeta?.mode || '—'} />
         <Stat label="Bar Lookback"  val={`${lb} bars`} />
-        <div className="bg-gray-800 rounded px-2 py-1">
-          <div className="text-[10px] text-gray-500">Context Quality</div>
+        <div className="bg-md-surface-high rounded px-2 py-1">
+          <div className="text-[10px] text-md-on-surface-var">Context Quality</div>
           <div className="mt-0.5"><ContextQualityBadge quality={cq} /></div>
         </div>
         <Stat label="Storage"       val={runMeta?.storage_mode || '—'} />
@@ -607,12 +607,12 @@ function SummaryPanel({ runId, runMeta }) {
 
 function MiniList({ title, rows, pos = false }) {
   return (
-    <div className="bg-gray-900 rounded p-3">
-      <div className="text-xs text-gray-400 mb-2">{title}</div>
+    <div className="bg-md-surface-con rounded p-3">
+      <div className="text-xs text-md-on-surface-var mb-2">{title}</div>
       <table className="w-full text-xs">
         <tbody>
           {rows.map((r, i) => (
-            <tr key={r.id} className="border-b border-gray-800">
+            <tr key={r.id} className="border-b border-md-outline-var">
               <td className="py-1 font-mono">{r.stat_key}</td>
               <td className="py-1 text-right">{fmtNum(r.sample_size)}</td>
               <td className={`py-1 text-right ${pos ? 'text-emerald-400' : 'text-red-400'}`}>
@@ -622,7 +622,7 @@ function MiniList({ title, rows, pos = false }) {
             </tr>
           ))}
           {rows.length === 0 && (
-            <tr><td className="py-3 text-center text-gray-500">No data</td></tr>
+            <tr><td className="py-3 text-center text-md-on-surface-var">No data</td></tr>
           )}
         </tbody>
       </table>
@@ -670,7 +670,7 @@ function PatternRankingTable({ runId }) {
   }
   const H = ({ col, children }) => (
     <th onClick={() => headerClick(col)}
-        className="px-2 py-1 text-left cursor-pointer hover:bg-gray-800 select-none whitespace-nowrap">
+        className="px-2 py-1 text-left cursor-pointer hover:bg-md-surface-high select-none whitespace-nowrap">
       {children}{sortBy === col ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''}
     </th>
   )
@@ -682,39 +682,39 @@ function PatternRankingTable({ runId }) {
         {['3d', '5d', '10d', '20d'].map(h => (
           <button key={h} onClick={() => setHorizon(h)}
                   className={`px-2 py-0.5 rounded ${horizon === h
-                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+                    ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var'}`}>{h}</button>
         ))}
         <span className="ml-3">Pattern:</span>
         <select value={patternType} onChange={e => setPatternType(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           {['', 'SEQUENCE_2', 'SEQUENCE_3', 'SEQUENCE_4', 'SEQUENCE_5', 'SEQUENCE_7', 'SEQUENCE_10'].map(p => (
             <option key={p} value={p}>{p || 'All'}</option>
           ))}
         </select>
         <span className="ml-2">Terminal:</span>
         <input value={terminal} onChange={e => setTerminal(e.target.value)} placeholder="e.g. T3"
-               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-16 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <span className="ml-2">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
-               className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-14 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <span className="ml-2">Quality:</span>
         <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="">All</option>
           <option value="FULL">FULL</option>
           <option value="PARTIAL">PARTIAL</option>
           <option value="LIMITED">LIMITED</option>
         </select>
         <button onClick={load}
-                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+                className="ml-auto px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface hover:bg-gray-700">
           ↻ Reload
         </button>
       </div>
       {err && <div className="text-xs text-red-400">Error: {err}</div>}
-      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <H col="pattern_value">Pattern</H>
               <th className="px-2 py-1 text-left">Type</th>
@@ -732,9 +732,9 @@ function PatternRankingTable({ runId }) {
           </thead>
           <tbody>
             {displayRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
-                <td className="px-2 py-1 font-mono text-gray-300 max-w-[260px] truncate">{r.pattern_value}</td>
-                <td className="px-2 py-1 text-gray-500 text-[10px]">{r.pattern_type?.replace('SEQUENCE_', '') + '-bar'}</td>
+              <tr key={r.id} className="border-b border-md-outline-var hover:bg-md-surface-con">
+                <td className="px-2 py-1 font-mono text-md-on-surface max-w-[260px] truncate">{r.pattern_value}</td>
+                <td className="px-2 py-1 text-md-on-surface-var text-[10px]">{r.pattern_type?.replace('SEQUENCE_', '') + '-bar'}</td>
                 <td className="px-2 py-1 font-mono">{r.terminal_signal || '—'}</td>
                 <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
                 <td className={`px-2 py-1 ${Number(r.median_return) > 0 ? 'text-emerald-400' : Number(r.median_return) < 0 ? 'text-red-400' : ''}`}>
@@ -750,7 +750,7 @@ function PatternRankingTable({ runId }) {
               </tr>
             ))}
             {!loading && displayRows.length === 0 && (
-              <tr><td colSpan={12} className="px-2 py-6 text-center text-gray-500">
+              <tr><td colSpan={12} className="px-2 py-6 text-center text-md-on-surface-var">
                 No patterns yet. Run a replay to populate.
               </td></tr>
             )}
@@ -808,7 +808,7 @@ function ContextFilterTable({ runId }) {
   }
   const H = ({ col, children }) => (
     <th onClick={() => headerClick(col)}
-        className="px-2 py-1 text-left cursor-pointer hover:bg-gray-800 select-none whitespace-nowrap">
+        className="px-2 py-1 text-left cursor-pointer hover:bg-md-surface-high select-none whitespace-nowrap">
       {children}{sortBy === col ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''}
     </th>
   )
@@ -825,38 +825,38 @@ function ContextFilterTable({ runId }) {
         {['3d', '5d', '10d', '20d'].map(h => (
           <button key={h} onClick={() => setHorizon(h)}
                   className={`px-2 py-0.5 rounded ${horizon === h
-                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+                    ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var'}`}>{h}</button>
         ))}
         <span className="ml-3">Signal:</span>
         <input value={signal} onChange={e => setSignal(e.target.value)} placeholder="e.g. T3"
-               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-16 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <span className="ml-2">Filter:</span>
         <select value={filterName} onChange={e => setFilterName(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="">All filters</option>
           {FILTER_NAMES.map(f => <option key={f} value={f}>{f}</option>)}
         </select>
         <span className="ml-2">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
-               className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-14 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <span className="ml-2">Quality:</span>
         <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
-                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+                className="bg-md-surface-high text-md-on-surface rounded px-2 py-0.5">
           <option value="">All</option>
           <option value="FULL">FULL</option>
           <option value="PARTIAL">PARTIAL</option>
           <option value="LIMITED">LIMITED</option>
         </select>
         <button onClick={load}
-                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+                className="ml-auto px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface hover:bg-gray-700">
           ↻ Reload
         </button>
       </div>
       {err && <div className="text-xs text-red-400">Error: {err}</div>}
-      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <H col="base_signal">Signal</H>
               <H col="filter_name">Filter</H>
@@ -874,9 +874,9 @@ function ContextFilterTable({ runId }) {
           </thead>
           <tbody>
             {displayRows.map(r => (
-              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
+              <tr key={r.id} className="border-b border-md-outline-var hover:bg-md-surface-con">
                 <td className="px-2 py-1 font-mono">{r.base_signal}</td>
-                <td className="px-2 py-1 text-gray-400">{r.filter_name}</td>
+                <td className="px-2 py-1 text-md-on-surface-var">{r.filter_name}</td>
                 <td className="px-2 py-1">{r.filter_value}</td>
                 <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
                 <td className={`px-2 py-1 ${Number(r.median_return) > 0 ? 'text-emerald-400' : Number(r.median_return) < 0 ? 'text-red-400' : ''}`}>
@@ -896,7 +896,7 @@ function ContextFilterTable({ runId }) {
               </tr>
             ))}
             {!loading && displayRows.length === 0 && (
-              <tr><td colSpan={12} className="px-2 py-6 text-center text-gray-500">
+              <tr><td colSpan={12} className="px-2 py-6 text-center text-md-on-surface-var">
                 No filter data yet. Run a replay to populate.
               </td></tr>
             )}
@@ -926,11 +926,11 @@ function ExportMenu({ runId, onExport }) {
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
-              className="text-xs px-3 py-1 rounded bg-gray-800 text-blue-300 hover:bg-gray-700">
+              className="text-xs px-3 py-1 rounded bg-md-surface-high text-blue-300 hover:bg-gray-700">
         ⬇ Export JSON ▾
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 z-20 bg-gray-900 border border-gray-700 rounded shadow-xl py-1 min-w-[260px]">
+        <div className="absolute right-0 mt-1 z-20 bg-md-surface-con border border-md-outline-var rounded shadow-xl py-1 min-w-[260px]">
           {EXPORT_PARTS.map(p => (
             <button key={p.value}
                     onClick={() => {
@@ -939,16 +939,16 @@ function ExportMenu({ runId, onExport }) {
                       onExport(runId, p.value, extra)
                       setOpen(false)
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-800 flex justify-between gap-3">
-              <span className="text-gray-200">{p.label}</span>
-              <span className="text-gray-500 text-[10px]">{p.hint}</span>
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-md-surface-high flex justify-between gap-3">
+              <span className="text-md-on-surface">{p.label}</span>
+              <span className="text-md-on-surface-var text-[10px]">{p.hint}</span>
             </button>
           ))}
-          <div className="border-t border-gray-800 mt-1 px-3 py-2 text-[10px] text-gray-500">
+          <div className="border-t border-md-outline-var mt-1 px-3 py-2 text-[10px] text-md-on-surface-var">
             Events/Outcomes page offset:
             <input type="number" value={pageOffset} min={0} step={50000}
                    onChange={e => setPageOffset(Number(e.target.value) || 0)}
-                   className="ml-2 w-20 bg-gray-800 text-gray-200 rounded px-1 py-0.5" />
+                   className="ml-2 w-20 bg-md-surface-high text-md-on-surface rounded px-1 py-0.5" />
           </div>
         </div>
       )}
@@ -995,8 +995,8 @@ const RECOMMENDATION_CATEGORIES = [
     id:      'needs_data',
     label:   'Needs More Data',
     verdicts: ['TOO_FEW_SAMPLES'],
-    color:   'border-gray-700 bg-gray-900',
-    badge:   'bg-gray-700 text-gray-300',
+    color:   'border-md-outline-var bg-md-surface-con',
+    badge:   'bg-gray-700 text-md-on-surface',
     desc:    'Fewer than 30 samples — run replay on wider universe or longer date range.',
   },
 ]
@@ -1045,19 +1045,19 @@ function ScoringRecommendationsPanel({ runId }) {
         {['3d', '5d', '10d', '20d'].map(h => (
           <button key={h} onClick={() => setHorizon(h)}
                   className={`px-2 py-0.5 rounded ${horizon === h
-                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+                    ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var'}`}>{h}</button>
         ))}
         <span className="ml-3">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
-               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+               className="w-16 bg-md-surface-high text-md-on-surface rounded px-2 py-0.5" />
         <button onClick={load}
-                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+                className="ml-auto px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface hover:bg-gray-700">
           ↻ Reload
         </button>
       </div>
       {err && <div className="text-xs text-red-400">Error: {err}</div>}
-      {loading && <div className="text-xs text-gray-500">Loading…</div>}
-      <div className="text-[10px] text-gray-500 italic">
+      {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
+      <div className="text-[10px] text-md-on-surface-var italic">
         SIGNAL stat_type only. Combo and sequence stats available in Signal Ranking tab (filter by stat_type).
       </div>
       <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
@@ -1067,24 +1067,24 @@ function ScoringRecommendationsPanel({ runId }) {
             <div key={cat.id}
                  className={`border rounded p-3 space-y-2 ${cat.color}`}>
               <div className="flex items-center justify-between">
-                <span className="text-xs font-semibold text-gray-200">{cat.label}</span>
+                <span className="text-xs font-semibold text-md-on-surface">{cat.label}</span>
                 <span className={`text-[10px] px-2 py-0.5 rounded ${cat.badge}`}>{items.length} signals</span>
               </div>
-              <div className="text-[10px] text-gray-400 italic">{cat.desc}</div>
+              <div className="text-[10px] text-md-on-surface-var italic">{cat.desc}</div>
               <div className="space-y-1 max-h-48 overflow-y-auto">
                 {items.map(r => (
                   <div key={r.id} className="flex justify-between gap-2 text-[11px] bg-black/20 rounded px-2 py-1">
-                    <span className="font-mono text-gray-200 truncate">{r.stat_key}</span>
+                    <span className="font-mono text-md-on-surface truncate">{r.stat_key}</span>
                     <div className="flex gap-3 shrink-0 text-right">
                       <span className={Number(r.median_return) >= 0 ? 'text-emerald-400' : 'text-red-400'}>
                         {fmtPct(r.median_return)}
                       </span>
-                      <span className="text-gray-500">N={fmtNum(r.sample_size)}</span>
+                      <span className="text-md-on-surface-var">N={fmtNum(r.sample_size)}</span>
                     </div>
                   </div>
                 ))}
                 {items.length === 0 && (
-                  <div className="text-[10px] text-gray-600 italic">None in this category</div>
+                  <div className="text-[10px] text-md-on-surface-var/70 italic">None in this category</div>
                 )}
               </div>
             </div>
@@ -1218,9 +1218,9 @@ export default function SignalReplayPanel() {
       />
 
       {history?.length > 0 && (
-        <div className="bg-gray-900 rounded p-2 text-xs">
+        <div className="bg-md-surface-con rounded p-2 text-xs">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-gray-400">Recent Runs:</span>
+            <span className="text-md-on-surface-var">Recent Runs:</span>
             <button onClick={handlePurgeAll}
                     className="text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-300 hover:bg-red-900 border border-red-800"
                     title="TRUNCATE all replay tables — use to recover from disk-full">
@@ -1231,16 +1231,16 @@ export default function SignalReplayPanel() {
             {history.map(h => (
               <div key={h.id}
                    className={`px-2 py-1 rounded flex items-center gap-2 ${
-                     runId === h.id ? 'bg-blue-900 text-blue-200' : 'bg-gray-800 text-gray-300'}`}>
+                     runId === h.id ? 'bg-blue-900 text-blue-200' : 'bg-md-surface-high text-md-on-surface'}`}>
                 <span className="cursor-pointer" onClick={() => setRunId(h.id)}>
                   #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} ev
-                  {h.lookback_bars && <span className="text-gray-500 ml-1">{h.lookback_bars}b</span>}
+                  {h.lookback_bars && <span className="text-md-on-surface-var ml-1">{h.lookback_bars}b</span>}
                   {h.context_quality && h.context_quality !== 'FULL' &&
                     <span className="ml-1"><ContextQualityBadge quality={h.context_quality} /></span>}
                 </span>
                 <button onClick={() => handleExport(h.id, 'signal_stats')}
                         title="Export signal stats JSON (small)"
-                        className="text-gray-400 hover:text-blue-300">⬇</button>
+                        className="text-md-on-surface-var hover:text-blue-300">⬇</button>
                 <button onClick={() => handleDelete(h.id)} title="Delete from DB"
                         className="text-red-400 hover:text-red-200">✕</button>
               </div>
@@ -1251,13 +1251,13 @@ export default function SignalReplayPanel() {
 
       {runId && (
         <>
-          <div className="flex items-center justify-between border-b border-gray-800 pb-0">
+          <div className="flex items-center justify-between border-b border-md-outline-var pb-0">
             <div className="flex gap-1">
               {TABS.map(t => (
                 <button key={t.id} onClick={() => setTab(t.id)}
                         className={`text-xs px-3 py-1.5 rounded-t border-b-2 ${
-                          tab === t.id ? 'border-blue-500 text-blue-300 bg-gray-900'
-                                       : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
+                          tab === t.id ? 'border-blue-500 text-blue-300 bg-md-surface-con'
+                                       : 'border-transparent text-md-on-surface-var hover:text-md-on-surface'}`}>
                   {t.label}
                 </button>
               ))}
@@ -1265,12 +1265,12 @@ export default function SignalReplayPanel() {
             <div className="flex gap-2 pb-1">
               <ExportMenu runId={runId} onExport={handleExport} />
               <button onClick={() => handleDelete(runId)}
-                      className="text-xs px-3 py-1 rounded bg-gray-800 text-red-400 hover:bg-red-900">
+                      className="text-xs px-3 py-1 rounded bg-md-surface-high text-red-400 hover:bg-red-900">
                 ✕ Delete Run
               </button>
             </div>
           </div>
-          <div className="bg-gray-950 rounded p-3 min-h-[300px]">
+          <div className="bg-md-surface rounded p-3 min-h-[300px]">
             {tab === 'summary'  && <SummaryPanel runId={runId} runMeta={runMeta} />}
             {tab === 'ranking'  && <SignalRankingTable runId={runId} />}
             {tab === 'patterns' && <PatternRankingTable runId={runId} />}

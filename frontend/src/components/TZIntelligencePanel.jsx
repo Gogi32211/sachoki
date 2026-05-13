@@ -176,16 +176,16 @@ const ROLE_COLORS = {
   SHORT_WATCH:          'bg-red-900/50 text-red-300 border-red-700/40',
   SHORT_GO:             'bg-red-700/70 text-red-100 border-red-500/60',
   REJECT_LONG:          'bg-orange-900/50 text-orange-300 border-orange-700/40',
-  REJECT:               'bg-gray-800/60 text-gray-400 border-gray-600/40',
-  NO_EDGE:              'bg-gray-900/40 text-gray-600 border-gray-700/30',
+  REJECT:               'bg-md-surface-high/60 text-md-on-surface-var border-gray-600/40',
+  NO_EDGE:              'bg-md-surface-con/40 text-md-on-surface-var/70 border-md-outline-var/30',
 }
 
 const QUALITY_COLORS = {
   A:      'text-green-300',
   B:      'text-teal-300',
   Watch:  'text-yellow-400',
-  Reject: 'text-gray-500',
-  '—':    'text-gray-600',
+  Reject: 'text-md-on-surface-var',
+  '—':    'text-md-on-surface-var/70',
 }
 
 const ABR_COLORS = {
@@ -193,7 +193,7 @@ const ABR_COLORS = {
   'B':       'bg-green-900/40 text-green-400 border-green-700/40',
   'B+':      'bg-teal-700/60 text-teal-100 border-teal-500/50',
   'R':       'bg-red-900/40 text-red-400 border-red-700/40',
-  'UNKNOWN': 'bg-gray-900/30 text-gray-600 border-gray-700/20',
+  'UNKNOWN': 'bg-md-surface-con/30 text-md-on-surface-var/70 border-md-outline-var/20',
 }
 
 const ABR_QUALITY_COLORS = {
@@ -201,7 +201,7 @@ const ABR_QUALITY_COLORS = {
   GOOD:    'text-teal-400',
   AVERAGE: 'text-yellow-500',
   REJECT:  'text-red-400',
-  UNKNOWN: 'text-gray-600',
+  UNKNOWN: 'text-md-on-surface-var/70',
 }
 
 const ABR_HINT_SHORT = {
@@ -233,17 +233,17 @@ const ACTION_COLORS = {
   WAIT_FOR_T_CONFIRMATION:   'text-teal-400',
   PULLBACK_ENTRY_READY:      'text-indigo-300 font-semibold',
   WATCH_PULLBACK:            'text-blue-300',
-  WAIT_FOR_CONFIRMATION:     'text-gray-400',
+  WAIT_FOR_CONFIRMATION:     'text-md-on-surface-var',
   WAIT_FOR_BREAKDOWN:        'text-orange-400',
   SHORT_TRIGGER:             'text-red-400 font-semibold',
   DO_NOT_BUY:                'text-orange-500',
-  IGNORE:                    'text-gray-600',
+  IGNORE:                    'text-md-on-surface-var/70',
 }
 
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }) {
-  const color = ROLE_COLORS[role] || 'bg-gray-800 text-gray-400'
+  const color = ROLE_COLORS[role] || 'bg-md-surface-high text-md-on-surface-var'
   return (
     <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-bold border ${color}`}>
       {role?.replace(/_/g, ' ') || '—'}
@@ -256,10 +256,10 @@ function ScoreBar({ score }) {
   const color = score >= 80 ? 'bg-green-500' : score >= 60 ? 'bg-teal-500' : score >= 35 ? 'bg-yellow-500' : score >= 0 ? 'bg-gray-500' : 'bg-red-500'
   return (
     <div className="flex items-center gap-1.5">
-      <div className="w-14 h-1.5 bg-gray-800 rounded-full overflow-hidden">
+      <div className="w-14 h-1.5 bg-md-surface-high rounded-full overflow-hidden">
         <div className={`h-full rounded-full ${color}`} style={{ width: `${pct}%` }} />
       </div>
-      <span className={`text-xs font-mono ${score > 0 ? 'text-gray-300' : 'text-red-400'}`}>
+      <span className={`text-xs font-mono ${score > 0 ? 'text-md-on-surface' : 'text-red-400'}`}>
         {score > 0 ? `+${score}` : score}
       </span>
     </div>
@@ -283,8 +283,8 @@ function SortTh({ label, colKey, sortKey, sortDir, onSort, align = 'left', class
   return (
     <th
       className={`p-1 font-medium cursor-pointer select-none whitespace-nowrap
-        text-${align} hover:text-gray-200 transition-colors
-        ${active ? 'text-blue-400' : 'text-gray-400'} ${className}`}
+        text-${align} hover:text-md-on-surface transition-colors
+        ${active ? 'text-blue-400' : 'text-md-on-surface-var'} ${className}`}
       onClick={() => onSort(colKey)}
     >
       {label}
@@ -332,7 +332,7 @@ function ReasonTooltip({ codes, explanation }) {
         ref={btnRef}
         onMouseEnter={showTooltip}
         onMouseLeave={hideTooltip}
-        className="text-gray-500 hover:text-blue-400 text-xs px-1 transition-colors"
+        className="text-md-on-surface-var hover:text-blue-400 text-xs px-1 transition-colors"
         aria-label="Show reason codes"
       >
         ℹ
@@ -347,19 +347,19 @@ function ReasonTooltip({ codes, explanation }) {
             width: TOOLTIP_W,
             maxHeight: 340,
           }}
-          className="bg-gray-900 border border-md-outline-var rounded shadow-2xl overflow-y-auto"
+          className="bg-md-surface-con border border-md-outline-var rounded shadow-2xl overflow-y-auto"
           onMouseEnter={() => clearTimeout(timerRef.current)}
           onMouseLeave={hideTooltip}
         >
           <div className="p-3">
             {explanation && (
-              <div className="mb-2 text-xs text-gray-300 font-medium leading-relaxed border-b border-md-outline-var pb-2">
+              <div className="mb-2 text-xs text-md-on-surface font-medium leading-relaxed border-b border-md-outline-var pb-2">
                 {explanation}
               </div>
             )}
             <div className="space-y-0.5">
               {codes?.map((c, i) => (
-                <div key={i} className="text-xs text-gray-500 font-mono break-all leading-4">{c}</div>
+                <div key={i} className="text-xs text-md-on-surface-var font-mono break-all leading-4">{c}</div>
               ))}
             </div>
           </div>
@@ -513,27 +513,27 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
       {/* Header */}
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-white">🧠 TZ Signal Intelligence</span>
-        <span className="text-xs text-gray-500">Matrix-based role classifier — BULL_A / SHORT_GO / REJECT / …</span>
+        <span className="text-xs text-md-on-surface-var">Matrix-based role classifier — BULL_A / SHORT_GO / REJECT / …</span>
       </div>
 
       {/* Controls */}
       <div className="flex flex-wrap gap-2 items-end">
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Universe</label>
+          <label className="text-xs text-md-on-surface-var">Universe</label>
           <select value={universe} onChange={e => setUniverse(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var">
             {UNIVERSES.map(u => <option key={u.key} value={u.key}>{u.label}</option>)}
           </select>
         </div>
 
         {universe === 'nasdaq' && (
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Batch</label>
+            <label className="text-xs text-md-on-surface-var">Batch</label>
             <div className="flex gap-1">
               {NASDAQ_BATCHES.map(b => (
                 <button key={b.key} onClick={() => setNasdaqBatch(b.key)}
                   className={`text-xs px-2 py-1 rounded transition-colors
-                    ${nasdaqBatch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                    ${nasdaqBatch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                   {b.label}
                 </button>
               ))}
@@ -543,17 +543,17 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
         {universe === 'nasdaq_gt5' && tf === '4h' && (
           <div className="flex flex-col gap-1">
-            <label className="text-xs text-gray-500">Batch (4H)</label>
+            <label className="text-xs text-md-on-surface-var">Batch (4H)</label>
             <div className="flex gap-1">
               <button onClick={() => setGt5Batch('')}
                 className={`text-xs px-2 py-1 rounded transition-colors
-                  ${gt5Batch === '' ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${gt5Batch === '' ? 'bg-amber-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 Full
               </button>
               {NASDAQ_GT5_BATCHES.map(b => (
                 <button key={b.key} onClick={() => setGt5Batch(b.key)}
                   className={`text-xs px-2 py-1 rounded transition-colors
-                    ${gt5Batch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                    ${gt5Batch === b.key ? 'bg-amber-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                   {b.label}
                 </button>
               ))}
@@ -562,12 +562,12 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         )}
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Timeframe</label>
+          <label className="text-xs text-md-on-surface-var">Timeframe</label>
           <div className="flex gap-1">
             {TF_OPTS.map(t => (
               <button key={t} onClick={() => setTf(t)}
                 className={`text-xs px-2 py-1 rounded transition-colors
-                  ${tf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${tf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {t}
               </button>
             ))}
@@ -575,12 +575,12 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Mode</label>
+          <label className="text-xs text-md-on-surface-var">Mode</label>
           <div className="flex gap-1">
             {[{k:'latest',l:'Latest'},{k:'history',l:'History'}].map(({k,l}) => (
               <button key={k} onClick={() => setScanMode(k)}
                 className={`text-xs px-2 py-1 rounded transition-colors
-                  ${scanMode === k ? 'bg-indigo-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${scanMode === k ? 'bg-indigo-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {l}
               </button>
             ))}
@@ -588,31 +588,31 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Role</label>
+          <label className="text-xs text-md-on-surface-var">Role</label>
           <select value={roleFilter} onChange={e => setRoleFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var">
             {ROLES.map(r => <option key={r.key} value={r.key}>{r.label}</option>)}
           </select>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">ABR</label>
+          <label className="text-xs text-md-on-surface-var">ABR</label>
           <select value={abrFilter} onChange={e => setAbrFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var">
             {ABR_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">ABR Context</label>
+          <label className="text-xs text-md-on-surface-var">ABR Context</label>
           <select value={abrCtxFilter} onChange={e => setAbrCtxFilter(e.target.value)}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var">
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var">
             {ABR_CTX_FILTER_OPTS.map(o => <option key={o.key} value={o.key}>{o.label}</option>)}
           </select>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Quick</label>
+          <label className="text-xs text-md-on-surface-var">Quick</label>
           <div className="flex gap-1 flex-wrap">
             <button
               onClick={() => { setPbConfirmedOnly(v => !v); setShortConflictOnly(false) }}
@@ -620,7 +620,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
                 ${pbConfirmedOnly
                   ? 'bg-blue-700 text-white font-semibold border border-blue-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-white border border-md-outline-var'}`}>
+                  : 'bg-md-surface-high text-md-on-surface-var hover:text-white border border-md-outline-var'}`}>
               ✓ PB only
             </button>
             <button
@@ -629,14 +629,14 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               className={`text-xs px-2 py-1 rounded transition-colors whitespace-nowrap
                 ${shortConflictOnly
                   ? 'bg-orange-700 text-white font-semibold border border-orange-500'
-                  : 'bg-gray-800 text-gray-400 hover:text-white border border-md-outline-var'}`}>
+                  : 'bg-md-surface-high text-md-on-surface-var hover:text-white border border-md-outline-var'}`}>
               ⚠ Short Conflict
             </button>
           </div>
         </div>
 
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">
+          <label className="text-xs text-md-on-surface-var">
             Min ${universe === 'nasdaq_gt5' && <span className="text-amber-400 ml-1" title="NASDAQ > $5 requires min price 5 — analytics matrix built on price>$5 data">⚠ ≥5</span>}
           </label>
           <input type="number" value={minPrice}
@@ -646,17 +646,17 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               setMinPrice(e.target.value)
             }}
             placeholder={universe === 'nasdaq_gt5' ? '5' : '0'}
-            className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Max $</label>
+          <label className="text-xs text-md-on-surface-var">Max $</label>
           <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
-            placeholder="∞" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
+            placeholder="∞" className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
         </div>
         <div className="flex flex-col gap-1">
-          <label className="text-xs text-gray-500">Min Vol</label>
+          <label className="text-xs text-md-on-surface-var">Min Vol</label>
           <input type="number" value={minVolume} onChange={e => setMinVolume(e.target.value)}
-            placeholder="0" className="bg-gray-800 text-gray-100 text-xs px-2 py-1 rounded border border-md-outline-var w-24" />
+            placeholder="0" className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-24" />
         </div>
 
         <button onClick={handleScan} disabled={loading}
@@ -676,29 +676,29 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
               finally { setSplitAuditLoading(false) }
             }}
             disabled={splitAuditLoading}
-            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-gray-800 text-gray-300 text-xs rounded transition-colors self-end"
+            className="px-2 py-1 bg-gray-700 hover:bg-gray-600 disabled:bg-md-surface-high text-md-on-surface text-xs rounded transition-colors self-end"
             title="Audit split universe consistency between Turbo and WLNBB/TZ">
             {splitAuditLoading ? '…' : '🔍 Audit Split'}
           </button>
         )}
       </div>
 
-      <div className="text-xs text-gray-600 px-1">
-        Requires TZ/WLNBB stock_stat CSV — run <span className="text-gray-400">📡 TZ/WLNBB → Generate Stock Stat</span> first.
+      <div className="text-xs text-md-on-surface-var/70 px-1">
+        Requires TZ/WLNBB stock_stat CSV — run <span className="text-md-on-surface-var">📡 TZ/WLNBB → Generate Stock Stat</span> first.
       </div>
 
       {universe === 'split' && splitAudit && !splitAudit.error && (
-        <div className="p-2 bg-gray-900 border border-md-outline-var rounded text-xs flex flex-col gap-1">
+        <div className="p-2 bg-md-surface-con border border-md-outline-var rounded text-xs flex flex-col gap-1">
           <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-gray-400">✂️ Split universe:</span>
+            <span className="text-md-on-surface-var">✂️ Split universe:</span>
             <span className="text-white font-semibold">{splitAudit.counts?.live_split_universe ?? '—'} tickers</span>
-            <span className="text-gray-500">·</span>
-            <span className="text-gray-400">shared: <span className="text-green-400">{splitAudit.counts?.shared}</span></span>
-            <span className="text-gray-500">·</span>
-            <span className={splitAudit.counts?.only_in_turbo > 0 ? 'text-amber-400' : 'text-gray-500'}>
+            <span className="text-md-on-surface-var">·</span>
+            <span className="text-md-on-surface-var">shared: <span className="text-green-400">{splitAudit.counts?.shared}</span></span>
+            <span className="text-md-on-surface-var">·</span>
+            <span className={splitAudit.counts?.only_in_turbo > 0 ? 'text-amber-400' : 'text-md-on-surface-var'}>
               only in live: {splitAudit.counts?.only_in_turbo}
             </span>
-            <span className={splitAudit.counts?.only_in_wlnbb > 0 ? 'text-amber-400' : 'text-gray-500'}>
+            <span className={splitAudit.counts?.only_in_wlnbb > 0 ? 'text-amber-400' : 'text-md-on-surface-var'}>
               stale in CSV: {splitAudit.counts?.only_in_wlnbb}
             </span>
           </div>
@@ -739,12 +739,12 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
         const mismatch = dropped > 0 || errors > 0
         return (
           <div className={`p-2 rounded border text-xs flex flex-col gap-1
-            ${mismatch ? 'bg-red-900/30 border-red-700' : 'bg-gray-900 border-gray-700'}`}>
+            ${mismatch ? 'bg-red-900/30 border-red-700' : 'bg-md-surface-con border-md-outline-var'}`}>
             <div className="flex items-center gap-3 flex-wrap">
-              <span className="text-gray-400">✂️ Split consistency:</span>
-              <span className="text-gray-300">stock_stat: <span className="text-white font-semibold">{stockStat}</span></span>
-              <span className="text-gray-500">·</span>
-              <span className="text-gray-300">classified: <span className={classified === stockStat ? 'text-green-400 font-semibold' : 'text-amber-400 font-semibold'}>{classified}</span></span>
+              <span className="text-md-on-surface-var">✂️ Split consistency:</span>
+              <span className="text-md-on-surface">stock_stat: <span className="text-white font-semibold">{stockStat}</span></span>
+              <span className="text-md-on-surface-var">·</span>
+              <span className="text-md-on-surface">classified: <span className={classified === stockStat ? 'text-green-400 font-semibold' : 'text-amber-400 font-semibold'}>{classified}</span></span>
               {dropped > 0 && <span className="text-amber-400">dropped: {dropped}</span>}
               {errors > 0  && <span className="text-red-400">errors: {errors}</span>}
               {!mismatch && <span className="text-green-400 text-xs">✓ consistent</span>}
@@ -767,7 +767,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
 
       {displayRows.length > 0 && (
         <div className="flex items-center gap-3">
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-md-on-surface-var">
             Showing {displayRows.length} of {total} classified {scanMode === 'history' ? 'bars' : 'tickers'}
             {sortKey && <span className="ml-1 text-blue-400/70">· sorted by {sortKey} {sortDir === 'asc' ? '▲' : '▼'}</span>}
           </span>
@@ -777,7 +777,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 : (universe === 'nasdaq_gt5' ? gt5Batch : '')
               exportCSV(displayRows, universe, tf, activeBatch, scanMode)
             }}
-            className="px-2 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 text-xs rounded border border-md-outline-var transition-colors"
+            className="px-2 py-1 bg-md-surface-high hover:bg-gray-700 text-md-on-surface text-xs rounded border border-md-outline-var transition-colors"
           >
             ⬇ CSV (current sort)
           </button>
@@ -787,7 +787,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
       {displayRows.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
-            <thead className="sticky top-0 z-10 bg-gray-950">
+            <thead className="sticky top-0 z-10 bg-md-surface">
               <tr className="border-b border-md-outline-var">
                 <SortTh label="Ticker"    colKey="ticker"             {...thProps} />
                 <SortTh label="Date"      colKey="date"               {...thProps} />
@@ -812,18 +812,18 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <SortTh label="Prev2Q"    colKey="abr_prev2_quality"   {...thProps} />
                 <SortTh label="Hint"      colKey="abr_action_hint"     {...thProps} />
                 <SortTh label="ABR Ctx"   colKey="abr_conflict_flag"   {...thProps} />
-                <th className="p-1 text-gray-600 font-normal w-6"></th>
+                <th className="p-1 text-md-on-surface-var/70 font-normal w-6"></th>
               </tr>
             </thead>
             <tbody>
               {displayRows.map((row, i) => (
                 <tr key={`${row.ticker}-${row.date}-${i}`}
-                  className="border-b border-md-outline-var/50 hover:bg-gray-900/40 transition-colors cursor-pointer"
+                  className="border-b border-md-outline-var/50 hover:bg-md-surface-con/40 transition-colors cursor-pointer"
                   onClick={() => onSelectTicker?.(row.ticker)}
                 >
                   <td className="p-1 font-semibold text-white">{row.ticker}</td>
-                  <td className="p-1 text-gray-400">{row.date}</td>
-                  <td className="p-1 text-right text-gray-200">
+                  <td className="p-1 text-md-on-surface-var">{row.date}</td>
+                  <td className="p-1 text-right text-md-on-surface">
                     {row.close ? Number(row.close).toFixed(2) : '—'}
                   </td>
                   <td className="p-1">
@@ -834,7 +834,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                       {row.final_signal || '—'}
                     </span>
                   </td>
-                  <td className="p-1 text-gray-400 font-mono text-xs">{row.composite_pattern || '—'}</td>
+                  <td className="p-1 text-md-on-surface-var font-mono text-xs">{row.composite_pattern || '—'}</td>
                   <td className="p-1 font-mono text-xs" title={row.seq4 || ''}>
                     {row.seq4
                       ? row.seq4.split('|').map((s, idx, arr) => (
@@ -842,7 +842,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                             <span className={
                               idx === arr.length - 1
                                 ? (s.startsWith('T') ? 'text-blue-300' : s.startsWith('Z') ? 'text-red-300' : 'text-yellow-300')
-                                : 'text-gray-600'
+                                : 'text-md-on-surface-var/70'
                             }>{s}</span>
                             {idx < arr.length - 1 && <span className="text-gray-700">|</span>}
                           </span>
@@ -852,31 +852,31 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   </td>
                   <td className="p-1"><RoleBadge role={row.role} /></td>
                   <td className="p-1"><ScoreBar score={row.score || 0} /></td>
-                  <td className={`p-1 font-semibold ${QUALITY_COLORS[row.quality] || 'text-gray-400'}`}>
+                  <td className={`p-1 font-semibold ${QUALITY_COLORS[row.quality] || 'text-md-on-surface-var'}`}>
                     {row.quality}
                   </td>
-                  <td className={`p-1 text-xs ${ACTION_COLORS[row.action] || 'text-gray-400'}`}>
+                  <td className={`p-1 text-xs ${ACTION_COLORS[row.action] || 'text-md-on-surface-var'}`}>
                     {row.action?.replace(/_/g, ' ')}
                   </td>
                   <td className="p-1">
                     <span className={`text-xs
                       ${row.vol_bucket === 'VB' ? 'text-red-300'
                         : row.vol_bucket === 'B' ? 'text-orange-300'
-                        : 'text-gray-500'}`}>
+                        : 'text-md-on-surface-var'}`}>
                       {row.vol_bucket || ''}
                     </span>
                   </td>
                   <td className="p-1">
                     <EMADots above20={row.above_ema20} above50={row.above_ema50} above89={row.above_ema89} />
                   </td>
-                  <td className="p-1 text-right text-gray-400 tabular-nums">
+                  <td className="p-1 text-right text-md-on-surface-var tabular-nums">
                     {row.price_position_4bar != null
                       ? `${(row.price_position_4bar * 100).toFixed(0)}%`
                       : '—'}
                   </td>
                   <td className="p-1 text-right tabular-nums">
                     {row.matched_med10d_pct != null && row.matched_med10d_pct !== ''
-                      ? <span className={parseFloat(row.matched_med10d_pct) >= 0.8 ? 'text-green-400' : parseFloat(row.matched_med10d_pct) >= 0 ? 'text-gray-300' : 'text-red-400'}>
+                      ? <span className={parseFloat(row.matched_med10d_pct) >= 0.8 ? 'text-green-400' : parseFloat(row.matched_med10d_pct) >= 0 ? 'text-md-on-surface' : 'text-red-400'}>
                           {parseFloat(row.matched_med10d_pct).toFixed(2)}
                         </span>
                       : <span className="text-gray-700">—</span>
@@ -898,7 +898,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   </td>
                   <td className="p-1 text-right tabular-nums">
                     {row.abr_med10d_pct != null && row.abr_med10d_pct !== ''
-                      ? <span className={parseFloat(row.abr_med10d_pct) >= 0.4 ? 'text-green-400' : parseFloat(row.abr_med10d_pct) >= 0 ? 'text-gray-300' : 'text-red-400'}>
+                      ? <span className={parseFloat(row.abr_med10d_pct) >= 0.4 ? 'text-green-400' : parseFloat(row.abr_med10d_pct) >= 0 ? 'text-md-on-surface' : 'text-red-400'}>
                           {parseFloat(row.abr_med10d_pct).toFixed(2)}
                         </span>
                       : <span className="text-gray-700">—</span>
@@ -912,13 +912,13 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                       : <span className="text-gray-700">—</span>
                     }
                   </td>
-                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev1_quality] || 'text-gray-600'}`}>
+                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev1_quality] || 'text-md-on-surface-var/70'}`}>
                     {row.abr_prev1_quality || '—'}
                   </td>
-                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev2_quality] || 'text-gray-600'}`}>
+                  <td className={`p-1 text-xs font-mono ${ABR_QUALITY_COLORS[row.abr_prev2_quality] || 'text-md-on-surface-var/70'}`}>
                     {row.abr_prev2_quality || '—'}
                   </td>
-                  <td className="p-1 text-xs text-gray-500 font-mono whitespace-nowrap">
+                  <td className="p-1 text-xs text-md-on-surface-var font-mono whitespace-nowrap">
                     {ABR_HINT_SHORT[row.abr_action_hint] ?? row.abr_action_hint ?? '—'}
                   </td>
                   <td className="p-1 whitespace-nowrap" title={row.abr_context_type || ''}>

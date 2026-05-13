@@ -85,21 +85,21 @@ const fmtPrice = (v) => v == null ? '—' : `$${Number(v).toFixed(2)}`
 
 // ── Color helpers ──────────────────────────────────────────────────────────────
 function pctCls(v) {
-  if (v == null) return 'text-gray-500'
+  if (v == null) return 'text-md-on-surface-var'
   if (v >=  1)  return 'text-green-400'
   if (v >   0)  return 'text-green-600'
-  if (v === 0)  return 'text-gray-400'
+  if (v === 0)  return 'text-md-on-surface-var'
   if (v >  -1)  return 'text-red-500'
   return 'text-red-400'
 }
 
 function heatCls(v) {
-  if (v == null)  return 'bg-gray-800/60 text-gray-500'
+  if (v == null)  return 'bg-md-surface-high/60 text-md-on-surface-var'
   if (v >=  3)    return 'bg-green-700 text-green-100'
   if (v >=  1.5)  return 'bg-green-800 text-green-200'
   if (v >=  0.5)  return 'bg-green-900/80 text-green-300'
   if (v >   0)    return 'bg-green-950 text-green-400'
-  if (v === 0)    return 'bg-gray-800 text-gray-400'
+  if (v === 0)    return 'bg-md-surface-high text-md-on-surface-var'
   if (v >  -0.5)  return 'bg-red-950 text-red-400'
   if (v >  -1.5)  return 'bg-red-900/80 text-red-300'
   if (v >  -3)    return 'bg-red-800 text-red-200'
@@ -109,38 +109,38 @@ function heatCls(v) {
 function trendCls(t) {
   return { LEADING: 'bg-green-800/70 text-green-300', IMPROVING: 'bg-blue-800/70 text-blue-300',
            WEAKENING: 'bg-amber-800/70 text-amber-300', LAGGING: 'bg-red-800/70 text-red-300',
-           NEUTRAL: 'bg-gray-700 text-gray-400' }[t] || 'bg-gray-700 text-gray-500'
+           NEUTRAL: 'bg-gray-700 text-md-on-surface-var' }[t] || 'bg-gray-700 text-md-on-surface-var'
 }
 
 function emaCls(s) {
   return { BULL: 'bg-green-800/70 text-green-300', PARTIAL_BULL: 'bg-emerald-900 text-emerald-400',
-           NEUTRAL: 'bg-gray-700 text-gray-400', PARTIAL_BEAR: 'bg-amber-900/70 text-amber-400',
-           BEAR: 'bg-red-800/70 text-red-300' }[s] || 'bg-gray-700 text-gray-500'
+           NEUTRAL: 'bg-gray-700 text-md-on-surface-var', PARTIAL_BEAR: 'bg-amber-900/70 text-amber-400',
+           BEAR: 'bg-red-800/70 text-red-300' }[s] || 'bg-gray-700 text-md-on-surface-var'
 }
 
 function regimeCls(m) {
   return { RISK_ON: 'bg-green-900/60 border-green-700 text-green-200',
            RISK_OFF: 'bg-red-900/60 border-red-700 text-red-200',
-           NEUTRAL: 'bg-gray-800/60 border-gray-600 text-gray-300' }[m]
-       || 'bg-gray-800/60 border-gray-600 text-gray-300'
+           NEUTRAL: 'bg-md-surface-high/60 border-gray-600 text-md-on-surface' }[m]
+       || 'bg-md-surface-high/60 border-gray-600 text-md-on-surface'
 }
 
 function benchTrendCls(t) {
   return { Bullish: 'bg-green-800/50 text-green-400',
            Weak: 'bg-amber-800/50 text-amber-400',
            'Below key average': 'bg-red-800/50 text-red-400',
-           Neutral: 'bg-gray-700 text-gray-400' }[t] || 'bg-gray-700 text-gray-400'
+           Neutral: 'bg-gray-700 text-md-on-surface-var' }[t] || 'bg-gray-700 text-md-on-surface-var'
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────────
 
 function MiniChart({ dates, values, label, uid }) {
   if (!values?.length) return (
-    <div className="h-12 flex items-center justify-center text-xs text-gray-600">No data</div>
+    <div className="h-12 flex items-center justify-center text-xs text-md-on-surface-var/70">No data</div>
   )
   const valid = values.filter(v => v != null)
   if (!valid.length) return (
-    <div className="h-12 flex items-center justify-center text-xs text-gray-600">No data</div>
+    <div className="h-12 flex items-center justify-center text-xs text-md-on-surface-var/70">No data</div>
   )
   const min = Math.min(...valid)
   const max = Math.max(...valid)
@@ -161,7 +161,7 @@ function MiniChart({ dates, values, label, uid }) {
   return (
     <div className="flex flex-col gap-0.5">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500">{label}</span>
+        <span className="text-xs text-md-on-surface-var">{label}</span>
         <span className={`text-xs font-mono font-bold ${isUp ? 'text-green-400' : 'text-red-400'}`}>
           {isUp ? '+' : ''}{pct.toFixed(2)}%
         </span>
@@ -182,29 +182,29 @@ function MiniChart({ dates, values, label, uid }) {
 
 function HoldingsTable({ holdings }) {
   if (!holdings?.length) return (
-    <div className="text-xs text-gray-600 text-center py-2">Holdings data unavailable.</div>
+    <div className="text-xs text-md-on-surface-var/70 text-center py-2">Holdings data unavailable.</div>
   )
   return (
     <div className="flex flex-col gap-1">
       <div className="flex items-center justify-between">
-        <span className="text-xs text-gray-500 uppercase tracking-wide font-medium">Top Holdings</span>
+        <span className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Top Holdings</span>
         <span className="text-xs text-amber-600/70">Static / fallback data</span>
       </div>
-      <div className="bg-gray-800/40 rounded-lg overflow-hidden">
+      <div className="bg-md-surface-high/40 rounded-lg overflow-hidden">
         <table className="w-full text-xs">
           <thead>
-            <tr className="border-b border-gray-700/60">
-              <th className="px-2 py-1 text-left text-gray-500 font-medium">Symbol</th>
-              <th className="px-2 py-1 text-left text-gray-500 font-medium">Name</th>
-              <th className="px-2 py-1 text-right text-gray-500 font-medium">Weight</th>
+            <tr className="border-b border-md-outline-var/60">
+              <th className="px-2 py-1 text-left text-md-on-surface-var font-medium">Symbol</th>
+              <th className="px-2 py-1 text-left text-md-on-surface-var font-medium">Name</th>
+              <th className="px-2 py-1 text-right text-md-on-surface-var font-medium">Weight</th>
             </tr>
           </thead>
           <tbody>
             {holdings.map((h, i) => (
-              <tr key={h.symbol || i} className="border-b border-gray-700/30 last:border-0">
+              <tr key={h.symbol || i} className="border-b border-md-outline-var/30 last:border-0">
                 <td className="px-2 py-1 font-mono font-bold text-white">{h.symbol}</td>
-                <td className="px-2 py-1 text-gray-400 truncate max-w-[120px]">{h.name}</td>
-                <td className="px-2 py-1 text-right font-mono text-gray-300">
+                <td className="px-2 py-1 text-md-on-surface-var truncate max-w-[120px]">{h.name}</td>
+                <td className="px-2 py-1 text-right font-mono text-md-on-surface">
                   {h.weight != null ? `${Number(h.weight).toFixed(1)}%` : '—'}
                 </td>
               </tr>
@@ -235,13 +235,13 @@ function WatchlistExport({ sectors }) {
   }
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-gray-500">Export:</span>
+      <span className="text-xs text-md-on-surface-var">Export:</span>
       <button onClick={() => download('txt')}
-        className="text-xs px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors">
+        className="text-xs px-2 py-0.5 bg-md-surface-high hover:bg-gray-700 text-md-on-surface rounded transition-colors">
         TXT
       </button>
       <button onClick={() => download('csv')}
-        className="text-xs px-2 py-0.5 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded transition-colors">
+        className="text-xs px-2 py-0.5 bg-md-surface-high hover:bg-gray-700 text-md-on-surface rounded transition-colors">
         CSV
       </button>
     </div>
@@ -250,7 +250,7 @@ function WatchlistExport({ sectors }) {
 
 function BenchCard({ b }) {
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-lg p-3 flex flex-col gap-1 min-w-0">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-lg p-3 flex flex-col gap-1 min-w-0">
       <div className="flex items-center justify-between gap-1">
         <span className="text-sm font-bold text-white font-mono">{b.ticker}</span>
         {b.trend && (
@@ -259,7 +259,7 @@ function BenchCard({ b }) {
           </span>
         )}
       </div>
-      <div className="text-xs text-gray-500 truncate">{b.name}</div>
+      <div className="text-xs text-md-on-surface-var truncate">{b.name}</div>
       <div className="text-base font-mono font-semibold text-white mt-0.5">{fmtPrice(b.close)}</div>
       <div className={`text-sm font-mono font-bold ${pctCls(b.return_1d)}`}>{fmtPct(b.return_1d)}</div>
     </div>
@@ -293,7 +293,7 @@ function RegimeBanner({ regime }) {
 
 function SectorHeatmap({ sectors, metric, selected, onSelect }) {
   if (!sectors.length) return (
-    <div className="text-xs text-gray-500 py-4 text-center">No sector data</div>
+    <div className="text-xs text-md-on-surface-var py-4 text-center">No sector data</div>
   )
   return (
     <div className="grid gap-2.5" style={{ gridTemplateColumns: 'repeat(auto-fill, minmax(160px, 1fr))' }}>
@@ -355,23 +355,23 @@ function MoneyFlowSection({ sectors, selected, onSelect }) {
   ]
 
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
-      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Money Flow / Sector Rotation</div>
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Money Flow / Sector Rotation</div>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {COLS.map(({ key, label, border, head }) => (
           <div key={key} className={`border ${border} rounded-lg p-2 flex flex-col gap-1.5`}>
             <div className={`text-xs font-bold uppercase tracking-wide ${head}`}>{label}</div>
             {buckets[key].length === 0
-              ? <span className="text-xs text-gray-600 italic">None</span>
+              ? <span className="text-xs text-md-on-surface-var/70 italic">None</span>
               : buckets[key].map(s => (
                   <button key={s.ticker} onClick={() => onSelect(s.ticker)}
                     className={`text-left rounded-lg px-3 py-2 transition-colors
-                      ${selected === s.ticker ? 'bg-blue-900/40 border border-blue-700/50' : 'bg-gray-800/50 hover:bg-gray-700/60'}`}>
+                      ${selected === s.ticker ? 'bg-blue-900/40 border border-blue-700/50' : 'bg-md-surface-high/50 hover:bg-gray-700/60'}`}>
                     <div className="flex items-center justify-between gap-2">
                       <span className="text-sm font-mono font-bold text-white">{s.ticker}</span>
                       <span className={`text-sm font-mono font-semibold ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</span>
                     </div>
-                    <div className="text-xs text-gray-400 truncate mt-0.5">{shorten(s.name)}</div>
+                    <div className="text-xs text-md-on-surface-var truncate mt-0.5">{shorten(s.name)}</div>
                     <div className={`text-xs font-mono mt-0.5 ${pctCls(s.vs_spy_20d)}`}>
                       vSPY 20D: {fmtPct(s.vs_spy_20d)}
                     </div>
@@ -381,7 +381,7 @@ function MoneyFlowSection({ sectors, selected, onSelect }) {
           </div>
         ))}
       </div>
-      <div className="text-xs text-gray-400 bg-gray-800/40 rounded-lg px-3 py-2 leading-relaxed">{summary}</div>
+      <div className="text-xs text-md-on-surface-var bg-md-surface-high/40 rounded-lg px-3 py-2 leading-relaxed">{summary}</div>
     </div>
   )
 }
@@ -391,7 +391,7 @@ function RRGChart({ data, selected, onSelect }) {
   const valid = (data || []).filter(d => d.rs_ratio != null && d.rs_mom != null)
 
   if (!valid.length) return (
-    <div className="text-xs text-gray-600 text-center py-8">RRG data unavailable.</div>
+    <div className="text-xs text-md-on-surface-var/70 text-center py-8">RRG data unavailable.</div>
   )
 
   const W = 600, H = 420, PAD = 52
@@ -410,7 +410,7 @@ function RRGChart({ data, selected, onSelect }) {
   })
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full rounded-xl bg-gray-950 border border-md-outline-var"
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full rounded-xl bg-md-surface border border-md-outline-var"
       style={{ minHeight: 300 }}>
       {/* Quadrant fills */}
       <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.15" />
@@ -483,7 +483,7 @@ function RRGChart({ data, selected, onSelect }) {
 }
 
 function Badge({ cls, label }) {
-  if (!label) return <span className="text-gray-600">—</span>
+  if (!label) return <span className="text-md-on-surface-var/70">—</span>
   return <span className={`px-1.5 py-0.5 rounded text-xs font-medium font-mono ${cls}`}>{label}</span>
 }
 
@@ -508,14 +508,14 @@ function SectorTable({ sectors, selected, onSelect }) {
     <div className="overflow-x-auto rounded-xl border border-md-outline-var">
       <table className="w-full text-xs border-collapse" style={{ minWidth: 820 }}>
         <thead>
-          <tr className="bg-gray-900/90 border-b border-gray-700">
+          <tr className="bg-md-surface-con/90 border-b border-md-outline-var">
             {SORT_COLS.map(c => (
               <th
                 key={c.key}
                 onClick={() => c.sortable && handleSort(c.key)}
                 className={`px-2 py-2 text-left font-medium whitespace-nowrap select-none
                   ${c.sortable ? 'cursor-pointer hover:text-white' : ''}
-                  ${col === c.key ? 'text-blue-400' : 'text-gray-500'}`}
+                  ${col === c.key ? 'text-blue-400' : 'text-md-on-surface-var'}`}
               >
                 {c.label}{c.sortable && col === c.key ? (dir === -1 ? ' ↓' : ' ↑') : ''}
               </th>
@@ -532,9 +532,9 @@ function SectorTable({ sectors, selected, onSelect }) {
                   ? 'bg-blue-900/25 border-l-2 border-l-blue-500'
                   : 'hover:bg-md-surface-high/30'}`}
             >
-              <td className="px-2 py-1.5 text-gray-300 max-w-[110px] truncate">{s.name}</td>
+              <td className="px-2 py-1.5 text-md-on-surface max-w-[110px] truncate">{s.name}</td>
               <td className="px-2 py-1.5 font-mono font-bold text-white">{s.ticker}</td>
-              <td className="px-2 py-1.5 font-mono text-gray-200">{fmt2(s.close)}</td>
+              <td className="px-2 py-1.5 font-mono text-md-on-surface">{fmt2(s.close)}</td>
               <td className={`px-2 py-1.5 font-mono ${pctCls(s.return_1d)}`}>{fmtPct(s.return_1d)}</td>
               <td className={`px-2 py-1.5 font-mono ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</td>
               <td className={`px-2 py-1.5 font-mono ${pctCls(s.return_20d)}`}>{fmtPct(s.return_20d)}</td>
@@ -560,17 +560,17 @@ function SectorTable({ sectors, selected, onSelect }) {
 function DetailMetricRow({ label, value, isCurrency, isPct, isDiff }) {
   let display, cls
   if (value == null) {
-    display = '—'; cls = 'text-gray-600'
+    display = '—'; cls = 'text-md-on-surface-var/70'
   } else if (isPct || isDiff) {
     display = fmtPct(value); cls = pctCls(value)
   } else if (isCurrency) {
-    display = fmtPrice(value); cls = 'text-gray-200'
+    display = fmtPrice(value); cls = 'text-md-on-surface'
   } else {
-    display = fmt2(value); cls = 'text-gray-300'
+    display = fmt2(value); cls = 'text-md-on-surface'
   }
   return (
     <div className="flex justify-between items-center py-0.5">
-      <span className="text-xs text-gray-500">{label}</span>
+      <span className="text-xs text-md-on-surface-var">{label}</span>
       <span className={`text-xs font-mono font-medium ${cls}`}>{display}</span>
     </div>
   )
@@ -578,22 +578,22 @@ function DetailMetricRow({ label, value, isCurrency, isPct, isDiff }) {
 
 function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   if (!etf) return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var/70 text-xs">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var/70 text-xs">
       Select a sector to view details
     </div>
   )
   if (loading) return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var text-xs animate-pulse">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var text-xs animate-pulse">
       Loading {etf}…
     </div>
   )
   if (error) return (
-    <div className="bg-gray-900 border border-red-900/40 rounded-xl p-4">
+    <div className="bg-md-surface-con border border-red-900/40 rounded-xl p-4">
       <div className="text-red-400 text-xs">{error}</div>
     </div>
   )
   if (!detail?.data) return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 text-xs text-gray-600 text-center">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 text-xs text-md-on-surface-var/70 text-center">
       No detail data
     </div>
   )
@@ -604,7 +604,7 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   const { arr: rs }     = sliceByTf(hist.dates, hist.rs,     chartTf)
 
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5">
@@ -616,7 +616,7 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
               </span>
             )}
           </div>
-          <span className="text-xs text-gray-500">{d.name}</span>
+          <span className="text-xs text-md-on-surface-var">{d.name}</span>
         </div>
         <div className="text-right shrink-0">
           <div className="text-lg font-mono font-bold text-white">{fmtPrice(d.close)}</div>
@@ -629,14 +629,14 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
         {TF_OPTIONS.map(t => (
           <button key={t} onClick={() => onTfChange?.(t)}
             className={`text-xs px-2 py-0.5 rounded transition-colors
-              ${chartTf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              ${chartTf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
             {t}
           </button>
         ))}
       </div>
 
       {/* Mini charts */}
-      <div className="bg-gray-800/40 rounded-lg p-3 flex flex-col gap-3">
+      <div className="bg-md-surface-high/40 rounded-lg p-3 flex flex-col gap-3">
         <MiniChart values={prices} label="Price" uid={`${etf}_price`} />
         <MiniChart values={rs}     label="RS vs SPY" uid={`${etf}_rs`} />
       </div>
@@ -644,7 +644,7 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
       {/* EMA Stack badge */}
       {d.ema_stack && (
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">EMA Stack</span>
+          <span className="text-xs text-md-on-surface-var">EMA Stack</span>
           <span className={`text-xs px-2 py-0.5 rounded font-mono font-medium ${emaCls(d.ema_stack)}`}>
             {d.ema_stack}
           </span>
@@ -652,8 +652,8 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
       )}
 
       {/* Performance */}
-      <div className="bg-gray-800/40 rounded-lg p-3">
-        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Performance</div>
+      <div className="bg-md-surface-high/40 rounded-lg p-3">
+        <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-2">Performance</div>
         <DetailMetricRow label="5D Return"   value={d.return_5d}   isPct />
         <DetailMetricRow label="20D Return"  value={d.return_20d}  isPct />
         <DetailMetricRow label="50D Return"  value={d.return_50d}  isPct />
@@ -661,8 +661,8 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
       </div>
 
       {/* vs SPY */}
-      <div className="bg-gray-800/40 rounded-lg p-3">
-        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">vs SPY</div>
+      <div className="bg-md-surface-high/40 rounded-lg p-3">
+        <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-2">vs SPY</div>
         <DetailMetricRow label="1D"   value={d.vs_spy_1d}   isDiff />
         <DetailMetricRow label="5D"   value={d.vs_spy_5d}   isDiff />
         <DetailMetricRow label="20D"  value={d.vs_spy_20d}  isDiff />
@@ -671,25 +671,25 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
       </div>
 
       {/* Technical */}
-      <div className="bg-gray-800/40 rounded-lg p-3">
-        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-2">Technical Context</div>
+      <div className="bg-md-surface-high/40 rounded-lg p-3">
+        <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-2">Technical Context</div>
         <DetailMetricRow label="EMA 20"  value={d.ema20}  isCurrency />
         <DetailMetricRow label="EMA 50"  value={d.ema50}  isCurrency />
         <DetailMetricRow label="EMA 200" value={d.ema200} isCurrency />
-        <div className="border-t border-gray-700/50 my-1" />
+        <div className="border-t border-md-outline-var/50 my-1" />
         <DetailMetricRow label="vs EMA 20"  value={d.price_vs_ema20}  isDiff />
         <DetailMetricRow label="vs EMA 50"  value={d.price_vs_ema50}  isDiff />
         <DetailMetricRow label="vs EMA 200" value={d.price_vs_ema200} isDiff />
-        <div className="border-t border-gray-700/50 my-1" />
+        <div className="border-t border-md-outline-var/50 my-1" />
         <div className="flex justify-between items-center py-0.5">
-          <span className="text-xs text-gray-500">RS Ratio</span>
-          <span className={`text-xs font-mono font-medium ${d.rs_ratio != null ? (d.rs_ratio >= 100 ? 'text-green-400' : 'text-red-400') : 'text-gray-600'}`}>
+          <span className="text-xs text-md-on-surface-var">RS Ratio</span>
+          <span className={`text-xs font-mono font-medium ${d.rs_ratio != null ? (d.rs_ratio >= 100 ? 'text-green-400' : 'text-red-400') : 'text-md-on-surface-var/70'}`}>
             {d.rs_ratio != null ? Number(d.rs_ratio).toFixed(2) : '—'}
           </span>
         </div>
         <div className="flex justify-between items-center py-0.5">
-          <span className="text-xs text-gray-500">RS Momentum</span>
-          <span className={`text-xs font-mono font-medium ${d.rs_mom != null ? (d.rs_mom >= 100 ? 'text-green-400' : 'text-red-400') : 'text-gray-600'}`}>
+          <span className="text-xs text-md-on-surface-var">RS Momentum</span>
+          <span className={`text-xs font-mono font-medium ${d.rs_mom != null ? (d.rs_mom >= 100 ? 'text-green-400' : 'text-red-400') : 'text-md-on-surface-var/70'}`}>
             {d.rs_mom != null ? Number(d.rs_mom).toFixed(2) : '—'}
           </span>
         </div>
@@ -699,9 +699,9 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
       <HoldingsTable holdings={d.holdings} />
 
       {/* Top Movers */}
-      <div className="bg-gray-800/40 rounded-lg p-3">
-        <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1">Top Movers</div>
-        <div className="text-xs text-gray-600">Top movers data unavailable in this version.</div>
+      <div className="bg-md-surface-high/40 rounded-lg p-3">
+        <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-1">Top Movers</div>
+        <div className="text-xs text-md-on-surface-var/70">Top movers data unavailable in this version.</div>
       </div>
 
       {detail.errors?.length > 0 && (
@@ -722,44 +722,44 @@ function TopStocksSection({ etf, detail, loading }) {
   const holdings = detail?.data?.holdings || []
 
   if (!etf) return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 text-xs text-gray-600 text-center">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 text-xs text-md-on-surface-var/70 text-center">
       Select a sector to view top stocks.
     </div>
   )
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
-      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">
         Top Stocks in {etf}
       </div>
       <div className="flex gap-1 flex-wrap">
         {TABS.map(t => (
           <button key={t.id} onClick={() => setTab(t.id)}
             className={`text-xs px-2.5 py-1 rounded transition-colors
-              ${tab === t.id ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              ${tab === t.id ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
             {t.label}
           </button>
         ))}
       </div>
-      {loading && <div className="text-xs text-gray-500 animate-pulse">Loading…</div>}
+      {loading && <div className="text-xs text-md-on-surface-var animate-pulse">Loading…</div>}
       {!loading && tab === 'holdings' && (
         holdings.length === 0
-          ? <div className="text-xs text-gray-600">Holdings data unavailable.</div>
+          ? <div className="text-xs text-md-on-surface-var/70">Holdings data unavailable.</div>
           : (
             <div className="overflow-hidden rounded-lg border border-md-outline-var">
               <table className="w-full text-xs">
                 <thead>
-                  <tr className="bg-gray-800/60 border-b border-gray-700">
-                    <th className="px-2 py-1.5 text-left text-gray-500 font-medium">Symbol</th>
-                    <th className="px-2 py-1.5 text-left text-gray-500 font-medium">Company</th>
-                    <th className="px-2 py-1.5 text-right text-gray-500 font-medium">Weight %</th>
+                  <tr className="bg-md-surface-high/60 border-b border-md-outline-var">
+                    <th className="px-2 py-1.5 text-left text-md-on-surface-var font-medium">Symbol</th>
+                    <th className="px-2 py-1.5 text-left text-md-on-surface-var font-medium">Company</th>
+                    <th className="px-2 py-1.5 text-right text-md-on-surface-var font-medium">Weight %</th>
                   </tr>
                 </thead>
                 <tbody>
                   {holdings.map((h, i) => (
-                    <tr key={h.symbol || i} className="border-b border-gray-700/30 last:border-0 hover:bg-gray-800/20">
+                    <tr key={h.symbol || i} className="border-b border-md-outline-var/30 last:border-0 hover:bg-md-surface-high/20">
                       <td className="px-2 py-1.5 font-mono font-bold text-white">{h.symbol}</td>
-                      <td className="px-2 py-1.5 text-gray-400 truncate max-w-[140px]">{h.name}</td>
-                      <td className="px-2 py-1.5 text-right font-mono text-gray-300">
+                      <td className="px-2 py-1.5 text-md-on-surface-var truncate max-w-[140px]">{h.name}</td>
+                      <td className="px-2 py-1.5 text-right font-mono text-md-on-surface">
                         {h.weight != null ? `${Number(h.weight).toFixed(1)}%` : '—'}
                       </td>
                     </tr>
@@ -771,7 +771,7 @@ function TopStocksSection({ etf, detail, loading }) {
           )
       )}
       {!loading && tab !== 'holdings' && (
-        <div className="text-xs text-gray-600 bg-gray-800/30 rounded-lg px-3 py-4 text-center">
+        <div className="text-xs text-md-on-surface-var/70 bg-md-surface-high/30 rounded-lg px-3 py-4 text-center">
           Mover data unavailable in this version.
         </div>
       )}
@@ -781,19 +781,19 @@ function TopStocksSection({ etf, detail, loading }) {
 
 function TopSectorDrivers({ sectors }) {
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
-      <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Top Sector Drivers Today</div>
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+      <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Top Sector Drivers Today</div>
       <div className="text-xs text-amber-600/60">Static / fallback — live prices unavailable</div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
         {sectors.map(s => (
-          <div key={s.ticker} className="bg-gray-800/40 rounded-lg p-2 flex flex-col gap-1">
+          <div key={s.ticker} className="bg-md-surface-high/40 rounded-lg p-2 flex flex-col gap-1">
             <div className="flex items-center justify-between">
               <span className="text-xs font-mono font-bold text-white">{s.ticker}</span>
               <span className={`text-xs font-mono ${pctCls(s.return_1d)}`}>{fmtPct(s.return_1d)}</span>
             </div>
             <div className="flex flex-col gap-0.5">
               {(SECTOR_HOLDINGS[s.ticker] || []).map(t => (
-                <span key={t} className="text-xs text-gray-400 font-mono">{t}</span>
+                <span key={t} className="text-xs text-md-on-surface-var font-mono">{t}</span>
               ))}
             </div>
           </div>
@@ -809,14 +809,14 @@ function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, 
     .sort((a, b) => b[rankMetric] - a[rankMetric])
 
   return (
-    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3 flex-wrap">
-        <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Strength Ranking</div>
+        <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Sector Strength Ranking</div>
         <div className="flex gap-1 flex-wrap">
           {RANK_COLS.map(c => (
             <button key={c.key} onClick={() => onMetricChange(c.key)}
               className={`text-xs px-2 py-0.5 rounded transition-colors
-                ${rankMetric === c.key ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                ${rankMetric === c.key ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               {c.label}
             </button>
           ))}
@@ -825,26 +825,26 @@ function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, 
       <div className="overflow-x-auto rounded-lg border border-md-outline-var">
         <table className="w-full text-xs border-collapse" style={{ minWidth: 580 }}>
           <thead>
-            <tr className="bg-gray-800/60 border-b border-gray-700">
-              <th className="px-2 py-2 text-left text-gray-500 font-medium w-7">#</th>
-              <th className="px-2 py-2 text-left text-gray-500 font-medium">ETF</th>
-              <th className="px-2 py-2 text-left text-gray-500 font-medium">Sector</th>
-              <th className="px-2 py-2 text-right text-gray-500 font-medium">1D %</th>
-              <th className="px-2 py-2 text-right text-gray-500 font-medium">5D %</th>
-              <th className="px-2 py-2 text-right text-gray-500 font-medium">20D %</th>
-              <th className="px-2 py-2 text-right text-gray-500 font-medium">vSPY 20D</th>
-              <th className="px-2 py-2 text-left text-gray-500 font-medium">Quadrant</th>
-              <th className="px-2 py-2 text-left text-gray-500 font-medium">EMA</th>
+            <tr className="bg-md-surface-high/60 border-b border-md-outline-var">
+              <th className="px-2 py-2 text-left text-md-on-surface-var font-medium w-7">#</th>
+              <th className="px-2 py-2 text-left text-md-on-surface-var font-medium">ETF</th>
+              <th className="px-2 py-2 text-left text-md-on-surface-var font-medium">Sector</th>
+              <th className="px-2 py-2 text-right text-md-on-surface-var font-medium">1D %</th>
+              <th className="px-2 py-2 text-right text-md-on-surface-var font-medium">5D %</th>
+              <th className="px-2 py-2 text-right text-md-on-surface-var font-medium">20D %</th>
+              <th className="px-2 py-2 text-right text-md-on-surface-var font-medium">vSPY 20D</th>
+              <th className="px-2 py-2 text-left text-md-on-surface-var font-medium">Quadrant</th>
+              <th className="px-2 py-2 text-left text-md-on-surface-var font-medium">EMA</th>
             </tr>
           </thead>
           <tbody>
             {sorted.map((s, i) => (
               <tr key={s.ticker} onClick={() => onSelect(s.ticker)}
                 className={`border-b border-md-outline-var/40 cursor-pointer transition-colors
-                  ${selected === s.ticker ? 'bg-blue-900/20' : 'hover:bg-gray-800/20'}`}>
-                <td className="px-2 py-1.5 text-gray-500 font-mono">{i + 1}</td>
+                  ${selected === s.ticker ? 'bg-blue-900/20' : 'hover:bg-md-surface-high/20'}`}>
+                <td className="px-2 py-1.5 text-md-on-surface-var font-mono">{i + 1}</td>
                 <td className="px-2 py-1.5 font-mono font-bold text-white">{s.ticker}</td>
-                <td className="px-2 py-1.5 text-gray-300 truncate max-w-[100px]">{shorten(s.name)}</td>
+                <td className="px-2 py-1.5 text-md-on-surface truncate max-w-[100px]">{shorten(s.name)}</td>
                 <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_1d)}`}>{fmtPct(s.return_1d)}</td>
                 <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_5d)}`}>{fmtPct(s.return_5d)}</td>
                 <td className={`px-2 py-1.5 font-mono text-right ${pctCls(s.return_20d)}`}>{fmtPct(s.return_20d)}</td>
@@ -915,18 +915,18 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
 
   // ── States ─────────────────────────────────────────────────────────────────
   if (ovLoading) return (
-    <div className="p-8 text-center text-gray-500 text-sm animate-pulse">
+    <div className="p-8 text-center text-md-on-surface-var text-sm animate-pulse">
       Loading sector data…
     </div>
   )
 
   if (ovError) return (
-    <div className="p-4 bg-gray-900 border border-red-900/50 rounded-xl">
+    <div className="p-4 bg-md-surface-con border border-red-900/50 rounded-xl">
       <div className="text-red-400 text-sm font-medium mb-1">Failed to load sector overview</div>
       <div className="text-red-500/70 text-xs font-mono">{ovError}</div>
       <button
         onClick={() => { setOvLoading(true); setOvError(null); api.sectorOverview().then(setOverview).catch(e => setOvError(e.message)).finally(() => setOvLoading(false)) }}
-        className="mt-3 text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 text-gray-300 rounded"
+        className="mt-3 text-xs px-3 py-1 bg-md-surface-high hover:bg-gray-700 text-md-on-surface rounded"
       >
         Retry
       </button>
@@ -934,7 +934,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
   )
 
   if (!overview?.data) return (
-    <div className="p-6 text-center text-gray-500 text-sm">No sector data available</div>
+    <div className="p-6 text-center text-md-on-surface-var text-sm">No sector data available</div>
   )
 
   const { sectors = [], benchmarks = [], regime } = overview.data
@@ -948,7 +948,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
           {benchmarks.length > 0
             ? benchmarks.map(b => <BenchCard key={b.ticker} b={b} />)
             : ['SPY','QQQ','IWM','DIA'].map(t => (
-                <div key={t} className="bg-gray-900 border border-md-outline-var rounded-lg p-3 text-xs text-gray-600">{t} —</div>
+                <div key={t} className="bg-md-surface-con border border-md-outline-var rounded-lg p-3 text-xs text-md-on-surface-var/70">{t} —</div>
               ))
           }
         </div>
@@ -959,14 +959,14 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
       <RegimeBanner regime={regime} />
 
       {/* 3 ── Sector Heatmap */}
-      <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
+      <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Heatmap</span>
+          <span className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Sector Heatmap</span>
           <div className="flex gap-1 flex-wrap">
             {METRICS.map(m => (
               <button key={m.key} onClick={() => setHeatMetric(m.key)}
                 className={`text-xs px-2 py-0.5 rounded transition-colors
-                  ${heatMetric === m.key ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${heatMetric === m.key ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {m.label}
               </button>
             ))}
@@ -986,19 +986,19 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
         {/* Left column: table on top, RRG below */}
         <div className="flex-1 min-w-0 flex flex-col gap-3">
           <div>
-            <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">
+            <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-1.5 px-1">
               Sector Overview — {sectors.length} ETFs
             </div>
             {sectors.length === 0
-              ? <div className="text-xs text-gray-600 py-4 text-center">No sector data returned</div>
+              ? <div className="text-xs text-md-on-surface-var/70 py-4 text-center">No sector data returned</div>
               : <SectorTable sectors={sectors} selected={selectedEtf} onSelect={handleSelect} />
             }
           </div>
 
           {/* RRG directly after table, fills remaining space */}
-          <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-2 flex-1">
-            <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
-            <div className="text-xs text-gray-500">RS Ratio vs SPY (X) · RS Momentum (Y) · Dashed = trails</div>
+          <div className="bg-md-surface-con border border-md-outline-var rounded-xl p-4 flex flex-col gap-2 flex-1">
+            <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium">Sector Rotation Map</div>
+            <div className="text-xs text-md-on-surface-var">RS Ratio vs SPY (X) · RS Momentum (Y) · Dashed = trails</div>
             <div className="flex-1 min-h-[300px]">
               {rrgLoading
                 ? <div className="h-full flex items-center justify-center text-md-on-surface-var text-xs animate-pulse">Loading RRG…</div>
@@ -1010,7 +1010,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
 
         {/* Right column: Detail panel */}
         <div className="xl:w-80 flex-shrink-0 flex flex-col">
-          <div className="text-xs text-gray-500 uppercase tracking-wide font-medium mb-1.5 px-1">Detail</div>
+          <div className="text-xs text-md-on-surface-var uppercase tracking-wide font-medium mb-1.5 px-1">Detail</div>
           <div className="flex-1">
             <DetailPanel etf={selectedEtf} detail={detail} loading={detLoading} error={detError}
               chartTf={chartTf} onTfChange={setChartTf} />
