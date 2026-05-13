@@ -86,7 +86,7 @@ function SignalChips({ entry, n }) {
   return (
     <div className="flex flex-wrap gap-0.5">
       {active.map(k => (
-        <span key={k} className="px-1 py-0.5 rounded bg-gray-700 text-gray-200 text-[10px] font-mono">
+        <span key={k} className="px-1 py-0.5 rounded bg-gray-700 text-md-on-surface text-[10px] font-mono">
           {SIG_LABEL[k] ?? k}
         </span>
       ))}
@@ -174,7 +174,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-md-outline-var">
         <span className="font-semibold text-sm text-white">⭐ Personal Watchlist</span>
-        <span className="text-gray-500">{items.length} saved tickers</span>
+        <span className="text-md-on-surface-var">{items.length} saved tickers</span>
 
         {/* N-bar filter */}
         <div className="flex items-center gap-1 ml-auto text-md-on-surface-var">
@@ -234,10 +234,10 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                     <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry?.tz_sig || '—'}</td>
                     <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry ? entry.score.toFixed(1) : '—'}</td>
                     <td className="px-2 py-1.5 flex-1">{entry ? <SignalChips entry={entry} n={n} /> : <span className="text-md-on-surface-var/50 text-[10px]">no scan data</span>}</td>
-                    <td className="px-2 py-1.5 text-gray-400 w-20">
+                    <td className="px-2 py-1.5 text-md-on-surface-var w-20">
                       {entry?.price != null ? `$${Number(entry.price).toFixed(2)}` : ''}
                     </td>
-                    <td className={`px-2 py-1.5 w-16 ${entry?.change_pct > 0 ? 'text-green-400' : entry?.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                    <td className={`px-2 py-1.5 w-16 ${entry?.change_pct > 0 ? 'text-green-400' : entry?.change_pct < 0 ? 'text-red-400' : 'text-md-on-surface-var'}`}>
                       {entry?.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(1)}%` : ''}
                     </td>
                     {onRemoveTicker && (
@@ -254,12 +254,12 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
       )}
 
       {sorted.length === 0 && watchingRows.length === 0 && (
-        <div className="px-4 py-10 text-center text-gray-600">
+        <div className="px-4 py-10 text-center text-md-on-surface-var/70">
           No saved tickers — press ★ on any Turbo scan row to save
         </div>
       )}
       {sorted.length === 0 && watchingRows.length > 0 && (
-        <div className="px-4 py-4 text-center text-gray-600 text-[11px]">
+        <div className="px-4 py-4 text-center text-md-on-surface-var/70 text-[11px]">
           No saved tickers yet — press ★ on any Turbo scan row to save
         </div>
       )}
@@ -272,17 +272,17 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           <table className="w-full">
             <thead className="sticky top-7 bg-md-surface-con border-b border-md-outline-var">
               <tr>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium w-6"></th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Ticker</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">TF</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Score</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">T/Z</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium w-6"></th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Ticker</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">TF</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Score</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">T/Z</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">
                   Signals (≤{n} bars)
                 </th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Price</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Chg%</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Added</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Price</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Chg%</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Added</th>
               </tr>
             </thead>
             <tbody>
@@ -291,19 +291,19 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                   onClick={() => onSelectTicker?.(entry.ticker)}
                   className="border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer">
                   <td className="px-2 py-1.5" onClick={e => { e.stopPropagation(); remove(entry.ticker, entry.tf) }}>
-                    <button className="text-yellow-400 hover:text-gray-500 transition-colors" title="Remove">★</button>
+                    <button className="text-yellow-400 hover:text-md-on-surface-var transition-colors" title="Remove">★</button>
                   </td>
                   <td className="px-3 py-1.5 font-semibold text-white">{entry.ticker}</td>
-                  <td className="px-3 py-1.5 text-gray-500 text-[10px]">{entry.tf}</td>
+                  <td className="px-3 py-1.5 text-md-on-surface-var text-[10px]">{entry.tf}</td>
                   <td className="px-3 py-1.5 font-bold text-yellow-300">{entry.score.toFixed(1)}</td>
                   <td className="px-3 py-1.5 text-purple-300 font-mono text-[10px]">{entry.tz_sig || '—'}</td>
                   <td className="px-3 py-1.5 max-w-xs">
                     <SignalChips entry={entry} n={n} />
                   </td>
-                  <td className="px-3 py-1.5 text-gray-300">
+                  <td className="px-3 py-1.5 text-md-on-surface">
                     {entry.price != null ? `$${Number(entry.price).toFixed(2)}` : '—'}
                   </td>
-                  <td className={`px-3 py-1.5 ${entry.change_pct > 0 ? 'text-green-400' : entry.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
+                  <td className={`px-3 py-1.5 ${entry.change_pct > 0 ? 'text-green-400' : entry.change_pct < 0 ? 'text-red-400' : 'text-md-on-surface-var'}`}>
                     {entry.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(2)}%` : '—'}
                   </td>
                   <td className="px-3 py-1.5 text-md-on-surface-var/60 text-[10px]">{fmtDate(entry.addedAt)}</td>

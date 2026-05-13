@@ -12,11 +12,11 @@ async function apiFetch(path) {
 // ─── Status badge ──────────────────────────────────────────────────────────────
 function StatusBadge({ status }) {
   const cls = {
-    idle:      'bg-gray-700 text-gray-300',
+    idle:      'bg-gray-700 text-md-on-surface',
     running:   'bg-yellow-700 text-yellow-200 animate-pulse',
     completed: 'bg-green-800 text-green-200',
     failed:    'bg-red-800 text-red-200',
-  }[status] || 'bg-gray-700 text-gray-300'
+  }[status] || 'bg-gray-700 text-md-on-surface'
   return <span className={`text-xs px-2 py-0.5 rounded font-mono ${cls}`}>{status}</span>
 }
 
@@ -45,33 +45,33 @@ function ReplayTable({ rows, columns, emptyMsg = 'No data', pageSize = 100 }) {
   }
 
   if (!rows.length) return (
-    <p className="text-gray-500 text-sm py-6 text-center">{emptyMsg}</p>
+    <p className="text-md-on-surface-var text-sm py-6 text-center">{emptyMsg}</p>
   )
 
   return (
     <div className="flex flex-col gap-2">
-      <div className="flex items-center justify-between text-xs text-gray-500">
+      <div className="flex items-center justify-between text-xs text-md-on-surface-var">
         <span>{rows.length.toLocaleString()} rows</span>
         {pages > 1 && (
           <div className="flex gap-1 items-center">
             <button onClick={() => setPage(p => Math.max(1, p-1))}
               disabled={page === 1}
-              className="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-40">◀</button>
+              className="px-2 py-0.5 rounded bg-md-surface-high hover:bg-gray-700 disabled:opacity-40">◀</button>
             <span>{page} / {pages}</span>
             <button onClick={() => setPage(p => Math.min(pages, p+1))}
               disabled={page === pages}
-              className="px-2 py-0.5 rounded bg-gray-800 hover:bg-gray-700 disabled:opacity-40">▶</button>
+              className="px-2 py-0.5 rounded bg-md-surface-high hover:bg-gray-700 disabled:opacity-40">▶</button>
           </div>
         )}
       </div>
       <div className="overflow-x-auto">
         <table className="w-full text-xs border-collapse">
           <thead>
-            <tr className="border-b border-gray-700">
+            <tr className="border-b border-md-outline-var">
               {columns.map(col => (
                 <th key={col.key}
                   onClick={() => handleSort(col.key)}
-                  className="text-left px-2 py-1 text-gray-400 cursor-pointer hover:text-white whitespace-nowrap select-none">
+                  className="text-left px-2 py-1 text-md-on-surface-var cursor-pointer hover:text-white whitespace-nowrap select-none">
                   {col.label || col.key}
                   {sortCol === col.key && (sortDir === 'desc' ? ' ▼' : ' ▲')}
                 </th>
@@ -80,11 +80,11 @@ function ReplayTable({ rows, columns, emptyMsg = 'No data', pageSize = 100 }) {
           </thead>
           <tbody>
             {visible.map((row, i) => (
-              <tr key={i} className={`border-b border-md-outline-var hover:bg-gray-900 ${i % 2 === 0 ? '' : 'bg-gray-950'}`}>
+              <tr key={i} className={`border-b border-md-outline-var hover:bg-md-surface-con ${i % 2 === 0 ? '' : 'bg-md-surface'}`}>
                 {columns.map(col => {
                   const v = row[col.key]
                   const n = parseFloat(v)
-                  let cls = 'text-gray-300'
+                  let cls = 'text-md-on-surface'
                   if (col.color && !Number.isNaN(n)) {
                     if (n > 0) cls = 'text-green-400'
                     else if (n < 0) cls = 'text-red-400'
@@ -488,13 +488,13 @@ function SectionView({ sectionId, reportList }) {
   const hasReport = reportList.some(r => r.name === sectionId) || sectionId === 'summary_md'
 
   if (!hasReport && !loading) return (
-    <div className="text-gray-500 text-sm py-8 text-center">
+    <div className="text-md-on-surface-var text-sm py-8 text-center">
       <p>Run Replay Analytics to generate this report.</p>
     </div>
   )
 
   if (loading) return (
-    <div className="flex items-center gap-2 text-gray-400 py-8">
+    <div className="flex items-center gap-2 text-md-on-surface-var py-8">
       <div className="w-4 h-4 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
       Loading…
     </div>
@@ -511,11 +511,11 @@ function SectionView({ sectionId, reportList }) {
     <div className="flex flex-col gap-2">
       <div className="flex justify-end">
         <button onClick={exportCsv}
-          className="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300">
+          className="text-xs px-3 py-1 bg-md-surface-high hover:bg-gray-700 rounded text-md-on-surface">
           ⬇ Export MD
         </button>
       </div>
-      <pre className="text-xs text-gray-300 whitespace-pre-wrap bg-gray-900 rounded p-4 overflow-auto max-h-[70vh]">
+      <pre className="text-xs text-md-on-surface whitespace-pre-wrap bg-md-surface-con rounded p-4 overflow-auto max-h-[70vh]">
         {data.content}
       </pre>
     </div>
@@ -531,7 +531,7 @@ function SectionView({ sectionId, reportList }) {
   }
 
   if (!cols) return (
-    <div className="text-gray-500 text-sm">No column config for {sectionId}.</div>
+    <div className="text-md-on-surface-var text-sm">No column config for {sectionId}.</div>
   )
 
   return (
@@ -542,12 +542,12 @@ function SectionView({ sectionId, reportList }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search…"
-          className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200 w-48"
+          className="text-xs bg-md-surface-high border border-md-outline-var rounded px-2 py-1 text-md-on-surface w-48"
         />
-        <span className="text-xs text-gray-500">{rows.length.toLocaleString()} rows shown</span>
+        <span className="text-xs text-md-on-surface-var">{rows.length.toLocaleString()} rows shown</span>
         <div className="ml-auto flex gap-2">
           <button onClick={load}
-            className="text-xs px-3 py-1 bg-gray-800 hover:bg-gray-700 rounded text-gray-300">
+            className="text-xs px-3 py-1 bg-md-surface-high hover:bg-gray-700 rounded text-md-on-surface">
             ↻ Refresh
           </button>
           <button onClick={exportCsv}
@@ -621,17 +621,17 @@ export default function ReplayPanel() {
   return (
     <div className="flex flex-col gap-3">
       {/* ── Header / controls ──────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-center gap-3 bg-gray-900 rounded p-3">
+      <div className="flex flex-wrap items-center gap-3 bg-md-surface-con rounded p-3">
         <div>
           <h2 className="text-sm font-semibold text-white">Replay Analytics</h2>
-          <p className="text-xs text-gray-500 mt-0.5">
+          <p className="text-xs text-md-on-surface-var mt-0.5">
             Offline diagnostics — does not touch live scoring
           </p>
         </div>
         <div className="flex gap-2 items-center ml-auto flex-wrap">
           {/* Universe / TF selectors */}
           <select value={universe} onChange={e => setUniverse(e.target.value)}
-            className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200">
+            className="text-xs bg-md-surface-high border border-md-outline-var rounded px-2 py-1 text-md-on-surface">
             {[
               { v: 'sp500',     l: 'sp500' },
               { v: 'nasdaq',    l: 'nasdaq (full)' },
@@ -642,7 +642,7 @@ export default function ReplayPanel() {
             ].map(({ v, l }) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select value={tf} onChange={e => setTf(e.target.value)}
-            className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200">
+            className="text-xs bg-md-surface-high border border-md-outline-var rounded px-2 py-1 text-md-on-surface">
             {['1d','4h','1h','30m'].map(t =>
               <option key={t} value={t}>{t}</option>)}
           </select>
@@ -655,7 +655,7 @@ export default function ReplayPanel() {
           </button>
           <button onClick={exportAll}
             disabled={!reportList.length}
-            className="text-xs px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-gray-200">
+            className="text-xs px-3 py-1.5 bg-gray-700 hover:bg-gray-600 disabled:opacity-40 rounded text-md-on-surface">
             ⬇ Export All ZIP
           </button>
         </div>
@@ -664,11 +664,11 @@ export default function ReplayPanel() {
       {/* ── Progress bar ───────────────────────────────────────────────── */}
       {status.status === 'running' && (
         <div className="flex flex-col gap-1">
-          <div className="w-full bg-gray-800 rounded-full h-1.5">
+          <div className="w-full bg-md-surface-high rounded-full h-1.5">
             <div className="bg-blue-500 h-1.5 rounded-full transition-all duration-500"
               style={{ width: `${progress}%` }} />
           </div>
-          <p className="text-xs text-gray-400">
+          <p className="text-xs text-md-on-surface-var">
             Step {status.progress}/{status.total_steps} — {status.message}
           </p>
         </div>
@@ -688,7 +688,7 @@ export default function ReplayPanel() {
       {reportList.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {reportList.map(r => (
-            <span key={r.name} className="text-xs bg-gray-800 text-gray-400 px-2 py-0.5 rounded font-mono">
+            <span key={r.name} className="text-xs bg-md-surface-high text-md-on-surface-var px-2 py-0.5 rounded font-mono">
               {r.name} ({r.rows.toLocaleString()})
             </span>
           ))}
@@ -706,7 +706,7 @@ export default function ReplayPanel() {
               className={`text-xs text-left px-3 py-2 rounded transition-colors
                 ${activeSection === sec.id
                   ? 'bg-blue-900 text-blue-200 font-semibold'
-                  : 'text-gray-400 hover:text-gray-200 hover:bg-gray-800'}`}>
+                  : 'text-md-on-surface-var hover:text-md-on-surface hover:bg-md-surface-high'}`}>
               {sec.icon} {sec.label}
               {reportList.some(r => r.name === sec.id) && (
                 <span className="ml-1 text-green-500">●</span>
@@ -716,14 +716,14 @@ export default function ReplayPanel() {
         </div>
 
         {/* Section content */}
-        <div className="flex-1 min-w-0 bg-gray-900 rounded p-3">
+        <div className="flex-1 min-w-0 bg-md-surface-con rounded p-3">
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-sm font-semibold text-white">
               {SECTIONS.find(s => s.id === activeSection)?.icon}{' '}
               {SECTIONS.find(s => s.id === activeSection)?.label}
             </h3>
             {reportList.find(r => r.name === activeSection) && (
-              <span className="text-xs text-gray-500">
+              <span className="text-xs text-md-on-surface-var">
                 {reportList.find(r => r.name === activeSection)?.generated_at}
               </span>
             )}

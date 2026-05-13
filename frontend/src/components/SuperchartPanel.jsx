@@ -129,7 +129,7 @@ const ROWS = [
       if (s === 'SM')  return 'bg-lime-800/80 text-lime-100 ring-1 ring-lime-400 font-bold'
       if (s === 'N')   return 'bg-cyan-800/80 text-cyan-100 ring-1 ring-cyan-400 font-bold'
       if (s === 'MX')  return 'bg-pink-800/80 text-pink-100 ring-1 ring-pink-400 font-bold'
-      return 'bg-gray-800 text-gray-300'
+      return 'bg-md-surface-high text-md-on-surface'
     },
   },
   {
@@ -156,7 +156,7 @@ const ROWS = [
       if (s === 'LDS' || s === 'LD')  return 'bg-cyan-900 text-cyan-300'
       if (s === 'SQB' || s === 'BCT') return 'bg-blue-900 text-blue-200'
       if (s === 'WRC' || s === 'F8C') return 'bg-slate-700 text-slate-200'
-      return 'bg-gray-800 text-gray-300'
+      return 'bg-md-surface-high text-md-on-surface'
     },
   },
   {
@@ -174,7 +174,7 @@ const ROWS = [
       if (n >= 115) return 'bg-lime-800 text-lime-100 font-bold ring-1 ring-lime-400'
       if (n >= 90)  return 'bg-green-900 text-green-200 font-semibold'
       if (n >= 65)  return 'bg-teal-900 text-teal-300'
-      return 'bg-gray-800 text-gray-400'
+      return 'bg-md-surface-high text-md-on-surface-var'
     },
   },
 ]
@@ -187,7 +187,7 @@ const BETA_ZONE_CLS = {
   BUILDING:    'text-yellow-400',
   EXTENDED:    'text-amber-400',
   SHORT_WATCH: 'text-red-400',
-  NEUTRAL:     'text-gray-600',
+  NEUTRAL:     'text-md-on-surface-var/70',
 }
 const BETA_ZONE_SHORT = {
   ELITE: 'ELT', OPTIMAL: 'OPT', BUY: 'BUY', WATCH: 'WCH',
@@ -587,7 +587,7 @@ export default function SuperchartPanel({
       <div className="flex items-center gap-2 flex-wrap">
         <form onSubmit={handleSubmit} className="flex gap-1">
           <input
-            className="bg-gray-800 text-white text-sm px-2 py-1 rounded border border-md-outline-var w-20 uppercase"
+            className="bg-md-surface-high text-white text-sm px-2 py-1 rounded border border-md-outline-var w-20 uppercase"
             value={inputVal}
             onChange={e => setInputVal(e.target.value.toUpperCase())}
             placeholder="TICKER"
@@ -600,7 +600,7 @@ export default function SuperchartPanel({
           {TF_OPTIONS.map(t => (
             <button key={t} onClick={() => setTf(t)}
               className={`text-xs px-2 py-1 rounded transition-colors
-                ${tf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                ${tf === t ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               {t}
             </button>
           ))}
@@ -614,18 +614,18 @@ export default function SuperchartPanel({
           className={`text-xs px-2 py-1 rounded transition-colors border
             ${showStats
               ? 'bg-violet-700 border-violet-500 text-white'
-              : 'bg-gray-800 border-gray-700 text-gray-400 hover:text-white'}`}>
+              : 'bg-md-surface-high border-md-outline-var text-md-on-surface-var hover:text-white'}`}>
           📊 Stats
         </button>
         {bars.length > 0 && (
           <button
             onClick={exportCsv}
             title={`Download ${ticker} ${tf.toUpperCase()} signal data as CSV`}
-            className="text-xs px-2 py-1 rounded border border-md-outline-var bg-gray-800 text-gray-400 hover:text-white transition-colors">
+            className="text-xs px-2 py-1 rounded border border-md-outline-var bg-md-surface-high text-md-on-surface-var hover:text-white transition-colors">
             ⬇ CSV
           </button>
         )}
-        {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
+        {loading && <span className="text-xs text-md-on-surface-var animate-pulse">loading…</span>}
         {error   && <span className="text-xs text-red-400">{error}</span>}
       </div>
 
@@ -639,9 +639,9 @@ export default function SuperchartPanel({
             <table className="text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
                 {/* Mini-candle row */}
-                <tr className="bg-gray-950">
+                <tr className="bg-md-surface">
                   <th style={{ width: HDR_W, minWidth: HDR_W }}
-                      className="sticky left-0 z-10 bg-gray-950 border-r border-gray-800" />
+                      className="sticky left-0 z-10 bg-md-surface border-r border-md-outline-var" />
                   {bars.map((b, i) => (
                     <th key={i} style={{ width: CELL_W, minWidth: CELL_W, padding: 0 }}
                         className="border-r border-gray-900/30">
@@ -650,14 +650,14 @@ export default function SuperchartPanel({
                   ))}
                 </tr>
                 {/* Date + vol bucket row */}
-                <tr className="bg-gray-950">
+                <tr className="bg-md-surface">
                   <th style={{ width: HDR_W, minWidth: HDR_W }}
-                      className="sticky left-0 z-10 bg-gray-950 border-r border-gray-800" />
+                      className="sticky left-0 z-10 bg-md-surface border-r border-md-outline-var" />
                   {bars.map((b, i) => (
                     <th key={i} style={{ width: CELL_W, minWidth: CELL_W }}
                         className="font-normal px-0 py-0 text-center border-r border-gray-900/40">
                       <div className="flex flex-col items-center gap-px pb-0.5">
-                        <span className="text-gray-600 font-mono" style={{ fontSize: 11 }}>
+                        <span className="text-md-on-surface-var/70 font-mono" style={{ fontSize: 11 }}>
                           {fmtDate(b.date, isIntraday)}
                         </span>
                         <div className="rounded-sm"
@@ -670,10 +670,10 @@ export default function SuperchartPanel({
 
               <tbody>
                 {ROWS.map(row => (
-                  <tr key={row.key} className="border-t border-md-outline-var/50 hover:bg-gray-800/20">
+                  <tr key={row.key} className="border-t border-md-outline-var/50 hover:bg-md-surface-high/20">
                     <td
-                      className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
-                                 text-right border-r border-gray-800 font-mono whitespace-nowrap"
+                      className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono whitespace-nowrap"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11, lineHeight: 1 }}>
                       {row.label}
                     </td>
@@ -699,9 +699,9 @@ export default function SuperchartPanel({
                 ))}
 
                 {/* Turbo score row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     turbo
                   </td>
@@ -710,8 +710,8 @@ export default function SuperchartPanel({
                     const cls = s >= 65 ? 'text-lime-300 font-bold'
                               : s >= 50 ? 'text-green-400 font-bold'
                               : s >= 35 ? 'text-yellow-400'
-                              : s >= 20 ? 'text-gray-300'
-                              : s > 0   ? 'text-gray-500'
+                              : s >= 20 ? 'text-md-on-surface'
+                              : s > 0   ? 'text-md-on-surface-var'
                               : 'text-gray-700'
                     return (
                       <td key={i}
@@ -724,9 +724,9 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* RTB v4 phase row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     rtb
                   </td>
@@ -739,7 +739,7 @@ export default function SuperchartPanel({
                     const bgCls =
                       ph === 'C' ? 'bg-lime-700/80 text-lime-100 ring-1 ring-lime-500' :
                       ph === 'B' ? 'bg-sky-800/80  text-sky-200  ring-1 ring-sky-600' :
-                      ph === 'A' ? 'bg-gray-700    text-gray-300' :
+                      ph === 'A' ? 'bg-gray-700    text-md-on-surface' :
                       /* D */      'bg-orange-800/70 text-orange-200'
                     const isTransition = b.rtb_transition && b.rtb_transition.includes('TO')
                     return (
@@ -752,7 +752,7 @@ export default function SuperchartPanel({
                             style={{ fontSize: 11 }}>
                             {ph}
                           </span>
-                          <span className="font-mono text-gray-500 leading-none" style={{ fontSize: 9 }}>
+                          <span className="font-mono text-md-on-surface-var leading-none" style={{ fontSize: 9 }}>
                             {b.rtb_total > 0 ? b.rtb_total.toFixed(0) : ''}
                           </span>
                         </div>
@@ -762,9 +762,9 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* BETA Score row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     β
                   </td>
@@ -773,7 +773,7 @@ export default function SuperchartPanel({
                     const zone = b.beta_zone ?? 'NEUTRAL'
                     const auto = b.beta_auto_buy
                     if (!sc) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
-                    const cls = BETA_ZONE_CLS[zone] ?? 'text-gray-500'
+                    const cls = BETA_ZONE_CLS[zone] ?? 'text-md-on-surface-var'
                     return (
                       <td key={i}
                         className={`px-0 py-px text-center border-r border-gray-900/20 font-mono ${cls}`}
@@ -781,7 +781,7 @@ export default function SuperchartPanel({
                         title={`BETA ${sc} · ${zone}${auto ? ' · AUTO-BUY ★' : ''}`}>
                         <div className="flex flex-col items-center leading-none gap-px">
                           <span>{sc}{auto ? '★' : ''}</span>
-                          <span style={{ fontSize: 9 }} className="text-gray-500 font-mono">
+                          <span style={{ fontSize: 9 }} className="text-md-on-surface-var font-mono">
                             {BETA_ZONE_SHORT[zone] ?? ''}
                           </span>
                         </div>
@@ -791,9 +791,9 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* Close price row */}
-                <tr className="border-t border-gray-700">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-500 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     close
                   </td>
@@ -814,16 +814,16 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* RSI row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     RSI
                   </td>
                   {bars.map((b, i) => {
                     const v = b.rsi ?? b.RSI
                     if (v == null || v === 0) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
-                    const cls = v <= 35 ? 'text-lime-300 font-bold' : v >= 70 ? 'text-red-400 font-bold' : 'text-gray-400'
+                    const cls = v <= 35 ? 'text-lime-300 font-bold' : v >= 70 ? 'text-red-400 font-bold' : 'text-md-on-surface-var'
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
@@ -835,16 +835,16 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* CCI row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     CCI
                   </td>
                   {bars.map((b, i) => {
                     const v = b.cci ?? b.CCI
                     if (v == null) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
-                    const cls = v >= 100 ? 'text-lime-300 font-bold' : v <= -100 ? 'text-red-400 font-bold' : 'text-gray-400'
+                    const cls = v >= 100 ? 'text-lime-300 font-bold' : v <= -100 ? 'text-red-400 font-bold' : 'text-md-on-surface-var'
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
@@ -856,16 +856,16 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* Pf Score row */}
-                <tr className="border-t border-gray-700/60">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var/60">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     Pf
                   </td>
                   {bars.map((b, i) => {
                     const v = b.profile_score
                     if (!v) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-gray-900/20" />
-                    const cls = v >= 20 ? 'text-lime-300 font-bold' : v >= 12 ? 'text-yellow-400' : 'text-gray-500'
+                    const cls = v >= 20 ? 'text-lime-300 font-bold' : v >= 12 ? 'text-yellow-400' : 'text-md-on-surface-var'
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-gray-900/20 font-mono ${cls}`}
@@ -877,9 +877,9 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* Category row */}
-                <tr className="border-t border-gray-700">
-                  <td className="sticky left-0 z-10 bg-gray-900 text-gray-400 px-1
-                                 text-right border-r border-gray-800 font-mono"
+                <tr className="border-t border-md-outline-var">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-md-outline-var font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
                     Cat
                   </td>
@@ -889,7 +889,7 @@ export default function SuperchartPanel({
                     const cls =
                       cat === 'SWEET_SPOT' ? 'text-green-300 font-bold' :
                       cat === 'BUILDING'   ? 'text-yellow-400' :
-                      cat === 'LATE'       ? 'text-amber-500' : 'text-gray-600'
+                      cat === 'LATE'       ? 'text-amber-500' : 'text-md-on-surface-var/70'
                     const label =
                       cat === 'SWEET_SPOT' ? '⭐' :
                       cat === 'BUILDING'   ? '↑' :
@@ -914,24 +914,24 @@ export default function SuperchartPanel({
       {/* ── Signal Statistics Panel ── */}
       {showStats && (
         <div className="bg-md-surface-con rounded-md-md border border-md-outline-var overflow-hidden">
-          <div className="flex items-center gap-3 px-3 py-2 border-b border-md-outline-var bg-gray-950">
+          <div className="flex items-center gap-3 px-3 py-2 border-b border-md-outline-var bg-md-surface">
             <span className="text-xs font-semibold text-violet-300">Signal Performance — {ticker} {tf.toUpperCase()}</span>
-            <span className="text-xs text-gray-500">avg max-high over next N bars · sorted by</span>
-            {statsLoading && <span className="text-xs text-gray-500 animate-pulse ml-auto">loading…</span>}
+            <span className="text-xs text-md-on-surface-var">avg max-high over next N bars · sorted by</span>
+            {statsLoading && <span className="text-xs text-md-on-surface-var animate-pulse ml-auto">loading…</span>}
           </div>
 
           {statsLoading ? (
-            <div className="p-6 text-xs text-gray-600 text-center animate-pulse">Computing stats for all signals…</div>
+            <div className="p-6 text-xs text-md-on-surface-var/70 text-center animate-pulse">Computing stats for all signals…</div>
           ) : !statsData || statsData.error ? (
             <div className="p-4 text-xs text-red-400">Could not load stats — {statsData?.error ?? 'unknown error'}</div>
           ) : sortedStats.length === 0 ? (
-            <div className="p-4 text-xs text-gray-500">Not enough data (need ≥3 occurrences per signal)</div>
+            <div className="p-4 text-xs text-md-on-surface-var">Not enough data (need ≥3 occurrences per signal)</div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full text-xs border-collapse">
                 <thead>
-                  <tr className="border-b border-gray-700 bg-gray-950 text-gray-500 select-none">
-                    <th className="text-left px-3 py-1.5 sticky left-0 bg-gray-950 font-normal">Signal</th>
+                  <tr className="border-b border-md-outline-var bg-md-surface text-md-on-surface-var select-none">
+                    <th className="text-left px-3 py-1.5 sticky left-0 bg-md-surface font-normal">Signal</th>
                     {[
                       ['n',         'N',     'occurrences'],
                       ['bull_rate', 'Bull%', 'next bar closed higher'],
@@ -960,7 +960,7 @@ export default function SuperchartPanel({
                         <td className="px-3 py-1 sticky left-0 bg-md-surface-con text-md-on-surface whitespace-nowrap font-mono" style={{ fontSize: 11 }}>
                           {label}
                         </td>
-                        <td className="px-2 py-1 text-right font-mono text-gray-400">{st.n}</td>
+                        <td className="px-2 py-1 text-right font-mono text-md-on-surface-var">{st.n}</td>
                         <td className={`px-2 py-1 text-right font-mono
                           ${st.bull_rate >= 0.65 ? 'text-lime-300' : st.bull_rate >= 0.55 ? 'text-green-400' : st.bull_rate >= 0.45 ? 'text-yellow-400' : 'text-red-400'}`}>
                           {Math.round(st.bull_rate * 100)}%
@@ -968,12 +968,12 @@ export default function SuperchartPanel({
                         <td className={`px-2 py-1 text-right font-mono ${st.avg_1bar > 0 ? 'text-green-400' : 'text-red-400'}`}>
                           {st.avg_1bar > 0 ? '+' : ''}{st.avg_1bar?.toFixed(1)}%
                         </td>
-                        <td className={`px-2 py-1 text-right font-mono ${st.avg_3bar > 1.5 ? 'text-green-400' : st.avg_3bar > 0 ? 'text-gray-300' : 'text-gray-600'}`}>
+                        <td className={`px-2 py-1 text-right font-mono ${st.avg_3bar > 1.5 ? 'text-green-400' : st.avg_3bar > 0 ? 'text-md-on-surface' : 'text-md-on-surface-var/70'}`}>
                           {st.avg_3bar > 0 ? '+' : ''}{st.avg_3bar?.toFixed(1)}%
                         </td>
                         <td className={`px-2 py-1 text-right font-mono font-semibold
                           ${statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}
-                          ${st.avg_5bar > 4 ? 'text-lime-300' : st.avg_5bar > 2 ? 'text-green-400' : st.avg_5bar > 0 ? 'text-gray-300' : 'text-gray-600'}`}>
+                          ${st.avg_5bar > 4 ? 'text-lime-300' : st.avg_5bar > 2 ? 'text-green-400' : st.avg_5bar > 0 ? 'text-md-on-surface' : 'text-md-on-surface-var/70'}`}>
                           {st.avg_5bar > 0 ? '+' : ''}{st.avg_5bar?.toFixed(1)}%
                         </td>
                         <td className="px-2 py-1 text-right font-mono text-red-400/80">
@@ -988,7 +988,7 @@ export default function SuperchartPanel({
                   })}
                 </tbody>
               </table>
-              <div className="px-3 py-2 text-xs text-gray-600">
+              <div className="px-3 py-2 text-xs text-md-on-surface-var/70">
                 {statsData.bars} bars analysed · signals with &lt;3 occurrences hidden · click column header to re-sort
               </div>
             </div>

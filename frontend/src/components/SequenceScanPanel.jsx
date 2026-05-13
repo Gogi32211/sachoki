@@ -269,7 +269,7 @@ export default function SequenceScanPanel() {
         </span>
         {isRunning && (
           <>
-            <span className="text-gray-300">
+            <span className="text-md-on-surface">
               {status.progress ?? 0} / {status.total ?? 0} tickers ({pct}%)
             </span>
             <div className="flex-1 max-w-md h-1.5 bg-md-surface-high rounded-md-full overflow-hidden">
@@ -279,13 +279,13 @@ export default function SequenceScanPanel() {
           </>
         )}
         {meta?.total_sequences != null && status.status === 'done' && (
-          <span className="text-gray-400">
+          <span className="text-md-on-surface-var">
             {meta.total_sequences.toLocaleString()} sequences ≥ min_count
             {meta.completed_at && <> · {meta.completed_at.slice(0, 19).replace('T', ' ')}</>}
           </span>
         )}
         {status.stat_path && (
-          <span className="text-gray-500 text-[10px] font-mono"
+          <span className="text-md-on-surface-var text-[10px] font-mono"
                 title="CSV used by the scan">
             CSV: {status.stat_path}
           </span>
@@ -347,12 +347,12 @@ export default function SequenceScanPanel() {
               const retCls = (v) =>
                 v == null ? 'text-gray-700' :
                 v > 0     ? 'text-emerald-300' :
-                v < 0     ? 'text-red-300'     : 'text-gray-400'
+                v < 0     ? 'text-red-300'     : 'text-md-on-surface-var'
               return (
                 <tr key={`${r.sequence}-${i}`}
                     className="border-t border-md-outline-var hover:bg-md-surface-high/40">
                   <td className="px-2 py-1 font-mono text-blue-300">{r.sequence}</td>
-                  <td className="px-2 py-1 font-mono text-gray-400">{r.type_seq}</td>
+                  <td className="px-2 py-1 font-mono text-md-on-surface-var">{r.type_seq}</td>
                   <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate)}`}
                       title={`1D win rate from ${r.count} occurrences`}>
                     {fmtPct(r.win_rate)}
@@ -369,8 +369,8 @@ export default function SequenceScanPanel() {
                       title={r.count_9d != null ? `9D from ${r.count_9d} events` : ''}>
                     {fmtPct(r.win_rate_9d)}
                   </td>
-                  <td className="px-2 py-1 text-right font-mono text-gray-200">{r.count}</td>
-                  <td className="px-2 py-1 text-right font-mono text-gray-200">{r.ticker_count}</td>
+                  <td className="px-2 py-1 text-right font-mono text-md-on-surface">{r.count}</td>
+                  <td className="px-2 py-1 text-right font-mono text-md-on-surface">{r.ticker_count}</td>
                   <td className={`px-2 py-1 text-right font-mono ${retCls(r.avg_ret_1d)}`}>
                     {fmtNum(r.avg_ret_1d, 4)}
                   </td>
@@ -394,7 +394,7 @@ export default function SequenceScanPanel() {
         </table>
       </div>
 
-      <div className="mt-2 text-[10px] text-gray-500">
+      <div className="mt-2 text-[10px] text-md-on-surface-var">
         Score = win_rate × log1p(count) — balances rare high-WR vs common low-WR sequences.
         Excludes T7, T8, Z8 by spec. Reads either Admin → Stock Stat (Bulk Signal CSV)
         or TZ/WLNBB → Generate Stock Stat output. Generate one of those first.

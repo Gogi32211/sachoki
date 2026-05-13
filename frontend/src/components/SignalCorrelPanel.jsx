@@ -61,7 +61,7 @@ function pctColor(p) {
   if (p >= 70) return 'text-lime-400 font-bold'
   if (p >= 50) return 'text-yellow-300 font-semibold'
   if (p >= 30) return 'text-sky-300'
-  return 'text-gray-500'
+  return 'text-md-on-surface-var'
 }
 
 function pctBg(p) {
@@ -96,23 +96,23 @@ export default function SignalCorrelPanel() {
     <th
       onClick={() => setSortBy(col)}
       className={`px-3 py-2 text-left text-xs font-medium cursor-pointer select-none transition-colors
-        ${sortBy === col ? 'text-blue-300' : 'text-gray-500 hover:text-gray-300'}`}>
+        ${sortBy === col ? 'text-blue-300' : 'text-md-on-surface-var hover:text-md-on-surface'}`}>
       {children}{sortBy === col ? ' ↓' : ''}
     </th>
   )
 
   return (
-    <div className="bg-md-surface-con rounded-md-md border border-md-outline-var text-xs text-gray-300">
+    <div className="bg-md-surface-con rounded-md-md border border-md-outline-var text-xs text-md-on-surface">
 
       {/* Header */}
       <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-md-outline-var">
         <span className="font-semibold text-sm text-white">Signal Co-occurrence</span>
-        <span className="text-gray-500">When signal A fires, how often does B also fire?</span>
+        <span className="text-md-on-surface-var">When signal A fires, how often does B also fire?</span>
 
         <div className="flex gap-0.5 ml-auto">
           {['1wk','1d','4h','1h'].map(t => (
             <button key={t} onClick={() => setTf(t)}
-              className={`px-2 py-0.5 rounded text-xs ${tf === t ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2 py-0.5 rounded text-xs ${tf === t ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               {t.toUpperCase()}
             </button>
           ))}
@@ -121,24 +121,24 @@ export default function SignalCorrelPanel() {
         <div className="flex gap-0.5">
           {['sp500','nasdaq','russell2k'].map(u => (
             <button key={u} onClick={() => setUniverse(u)}
-              className={`px-2 py-0.5 rounded text-xs ${universe === u ? 'bg-indigo-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2 py-0.5 rounded text-xs ${universe === u ? 'bg-indigo-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               {u === 'sp500' ? 'SP500' : u === 'nasdaq' ? 'NDX' : 'R2K'}
             </button>
           ))}
         </div>
 
-        <div className="flex items-center gap-1 text-gray-500">
+        <div className="flex items-center gap-1 text-md-on-surface-var">
           <span>min%</span>
           {[10, 15, 25, 40].map(v => (
             <button key={v} onClick={() => setMinPct(v)}
-              className={`px-1.5 py-0.5 rounded ${minPct === v ? 'bg-gray-700 text-white' : 'text-gray-600 hover:text-white'}`}>
+              className={`px-1.5 py-0.5 rounded ${minPct === v ? 'bg-gray-700 text-white' : 'text-md-on-surface-var/70 hover:text-white'}`}>
               {v}
             </button>
           ))}
         </div>
 
         <button onClick={load}
-          className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">↺</button>
+          className="px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface-var hover:text-white text-xs">↺</button>
 
         {sorted.length > 0 && (
           <button
@@ -155,7 +155,7 @@ export default function SignalCorrelPanel() {
               a.click()
               URL.revokeObjectURL(url)
             }}
-            className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">
+            className="px-2 py-0.5 rounded bg-md-surface-high text-md-on-surface-var hover:text-white text-xs">
             ⬇ CSV
           </button>
         )}
@@ -163,10 +163,10 @@ export default function SignalCorrelPanel() {
 
       {/* Stats bar */}
       {data && (
-        <div className="px-4 py-2 border-b border-md-outline-var text-xs text-gray-500 flex gap-4">
+        <div className="px-4 py-2 border-b border-md-outline-var text-xs text-md-on-surface-var flex gap-4">
           <span>{data.n_tickers} tickers scanned</span>
           <span>{sorted.length} pairs ≥ {minPct}%</span>
-          <span className="text-gray-600">
+          <span className="text-md-on-surface-var/70">
             {Object.entries(data.signal_counts ?? {})
               .filter(([, v]) => v > 0)
               .sort((a, b) => b[1] - a[1])
@@ -177,10 +177,10 @@ export default function SignalCorrelPanel() {
         </div>
       )}
 
-      {loading && <div className="px-4 py-8 text-center text-gray-500 animate-pulse">Loading…</div>}
+      {loading && <div className="px-4 py-8 text-center text-md-on-surface-var animate-pulse">Loading…</div>}
       {error   && <div className="px-4 py-4 text-red-400">{error}</div>}
       {!loading && !error && sorted.length === 0 && (
-        <div className="px-4 py-8 text-center text-gray-600">
+        <div className="px-4 py-8 text-center text-md-on-surface-var/70">
           No pairs found — run a Turbo scan first, or lower min%
         </div>
       )}
@@ -190,9 +190,9 @@ export default function SignalCorrelPanel() {
           <table className="w-full">
             <thead className="sticky top-0 bg-md-surface-con border-b border-md-outline-var">
               <tr>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Signal A</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Signal B</th>
-                <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Signal C</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Signal A</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Signal B</th>
+                <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Signal C</th>
                 <SortTh col="both">Together</SortTh>
                 <SortTh col="a_count">A fires</SortTh>
                 <SortTh col="b_count">B fires</SortTh>
@@ -212,9 +212,9 @@ export default function SignalCorrelPanel() {
                       <span title={p.top_c}>{lbl(p.top_c)}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>
-                  <td className="px-3 py-1.5 text-center text-gray-300">{p.both}</td>
-                  <td className="px-3 py-1.5 text-center text-gray-500">{p.a_count}</td>
-                  <td className="px-3 py-1.5 text-center text-gray-500">{p.b_count}</td>
+                  <td className="px-3 py-1.5 text-center text-md-on-surface">{p.both}</td>
+                  <td className="px-3 py-1.5 text-center text-md-on-surface-var">{p.a_count}</td>
+                  <td className="px-3 py-1.5 text-center text-md-on-surface-var">{p.b_count}</td>
                   <td className={`px-3 py-1.5 text-center ${pctColor(p.pct_a)}`}>{p.pct_a}%</td>
                   <td className={`px-3 py-1.5 text-center ${pctColor(p.pct_b)}`}>{p.pct_b}%</td>
                   <td className={`px-3 py-1.5 text-center font-bold ${pctColor(p.max_pct)}`}>{p.max_pct}%</td>
@@ -228,7 +228,7 @@ export default function SignalCorrelPanel() {
         </div>
       )}
 
-      <div className="px-4 py-2 text-gray-600 text-[10px] border-t border-md-outline-var">
+      <div className="px-4 py-2 text-md-on-surface-var/70 text-[10px] border-t border-md-outline-var">
         % of A = when A fired, B also fired X% · Signal C = most common third signal when A+B both fire
       </div>
     </div>

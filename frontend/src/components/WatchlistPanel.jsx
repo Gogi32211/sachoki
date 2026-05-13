@@ -29,7 +29,7 @@ function CandleDirBadge({ dir }) {
   const cfg = {
     U: { label: '▲', cls: 'text-green-400' },
     D: { label: '▼', cls: 'text-red-400' },
-    O: { label: '●', cls: 'text-gray-500' },
+    O: { label: '●', cls: 'text-md-on-surface-var' },
   }
   const c = cfg[dir]
   if (!c) return null
@@ -51,7 +51,7 @@ function SigBadge({ sig_id, sig_name, is_bull, is_bear }) {
     ? 'bg-green-900/60 text-green-300'
     : is_bear
     ? 'bg-red-900/60 text-red-300'
-    : 'bg-gray-700 text-gray-300'
+    : 'bg-gray-700 text-md-on-surface'
   return (
     <span className={`text-xs font-bold px-1.5 py-0.5 rounded font-mono ${cls}`}>
       {sig_name}
@@ -66,7 +66,7 @@ function ScoreBar({ bull, bear }) {
   const pct = Math.min(score / 10, 1) * 100
   return (
     <div className="flex items-center gap-1 mt-0.5">
-      <div className="flex-1 bg-gray-800 rounded-full h-1 overflow-hidden">
+      <div className="flex-1 bg-md-surface-high rounded-full h-1 overflow-hidden">
         <div
           className={`h-full rounded-full ${isBull ? 'bg-green-500' : 'bg-red-500'}`}
           style={{ width: `${pct}%` }}
@@ -103,21 +103,21 @@ export default function WatchlistPanel({ tickers, tf, selected, onSelect, onRemo
   }, [refresh])
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 h-full overflow-auto">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+    <div className="bg-md-surface-con rounded-xl border border-md-outline-var h-full overflow-auto">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
         <span className="font-semibold text-sm text-white">Watchlist</span>
-        {loading && <span className="text-xs text-gray-500 animate-pulse">refreshing…</span>}
+        {loading && <span className="text-xs text-md-on-surface-var animate-pulse">refreshing…</span>}
       </div>
 
       <div className="divide-y divide-gray-800">
         {data.length === 0 && !loading && (
-          <div className="px-4 py-6 text-center text-gray-600 text-sm">No tickers</div>
+          <div className="px-4 py-6 text-center text-md-on-surface-var/70 text-sm">No tickers</div>
         )}
         {data.map((row) => (
           <div
             key={row.ticker}
-            className={`relative flex items-stretch hover:bg-gray-800 transition-colors group
-              ${selected === row.ticker ? 'bg-gray-800 border-l-2 border-blue-500' : ''}`}
+            className={`relative flex items-stretch hover:bg-md-surface-high transition-colors group
+              ${selected === row.ticker ? 'bg-md-surface-high border-l-2 border-blue-500' : ''}`}
           >
             <button
               onClick={() => onSelect(row.ticker)}
@@ -139,7 +139,7 @@ export default function WatchlistPanel({ tickers, tf, selected, onSelect, onRemo
               <>
                 {/* Row 2: price + change + l_combo */}
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
-                  <span className="text-sm text-gray-200">${row.price?.toFixed(2)}</span>
+                  <span className="text-sm text-md-on-surface">${row.price?.toFixed(2)}</span>
                   <span className={`text-xs font-medium
                     ${(row.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
                     {(row.change_pct ?? 0) >= 0 ? '+' : ''}
@@ -158,7 +158,7 @@ export default function WatchlistPanel({ tickers, tf, selected, onSelect, onRemo
             {onRemove && (
               <button
                 onClick={e => { e.stopPropagation(); onRemove(row.ticker) }}
-                className="opacity-0 group-hover:opacity-100 px-2 text-gray-600 hover:text-red-400 transition-all text-lg leading-none"
+                className="opacity-0 group-hover:opacity-100 px-2 text-md-on-surface-var/70 hover:text-red-400 transition-all text-lg leading-none"
                 title="Remove from watchlist"
               >×</button>
             )}

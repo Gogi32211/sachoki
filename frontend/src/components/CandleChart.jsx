@@ -152,19 +152,19 @@ export default function CandleChart({ ticker, tf, onChartReady }) {
   }, [ticker, tf])
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+    <div className="bg-md-surface-con rounded-xl border border-md-outline-var">
+      <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
         <div className="flex items-center gap-3">
           <span className="font-semibold text-sm">
-            {ticker} <span className="text-gray-500 font-normal">{tf}</span>
+            {ticker} <span className="text-md-on-surface-var font-normal">{tf}</span>
             {tickerInfo?.sector && (
-              <span className="ml-2 text-xs font-normal text-gray-500 bg-gray-800 px-1.5 py-0.5 rounded">
+              <span className="ml-2 text-xs font-normal text-md-on-surface-var bg-md-surface-high px-1.5 py-0.5 rounded">
                 {tickerInfo.sector}
               </span>
             )}
           </span>
           {/* Bucket legend */}
-          <div className="hidden md:flex items-center gap-1.5 text-xs text-gray-500">
+          <div className="hidden md:flex items-center gap-1.5 text-xs text-md-on-surface-var">
             {Object.entries(BUCKET_HEX).map(([k, v]) => (
               <span key={k} className="flex items-center gap-0.5">
                 <span
@@ -176,7 +176,7 @@ export default function CandleChart({ ticker, tf, onChartReady }) {
             ))}
           </div>
         </div>
-        {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
+        {loading && <span className="text-xs text-md-on-surface-var animate-pulse">loading…</span>}
         {error && <span className="text-xs text-red-400">{error}</span>}
       </div>
       <div ref={containerRef} className="w-full" />

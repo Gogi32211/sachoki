@@ -8,17 +8,17 @@ function fmt(v, digits = 2) {
 }
 
 function RetBadge({ v }) {
-  if (v == null) return <span className="text-gray-500">—</span>
+  if (v == null) return <span className="text-md-on-surface-var">—</span>
   const n = Number(v)
   const cls = n >= 0 ? 'text-green-400' : 'text-red-400'
   return <span className={cls}>{n >= 0 ? '+' : ''}{fmt(v)}%</span>
 }
 
 function ReasonBadge({ r }) {
-  if (!r) return <span className="text-gray-500">—</span>
+  if (!r) return <span className="text-md-on-surface-var">—</span>
   const cls = r === 'TP' ? 'bg-green-800 text-green-200'
             : r === 'SL' ? 'bg-red-800 text-red-200'
-            : 'bg-gray-700 text-gray-300'
+            : 'bg-gray-700 text-md-on-surface'
   return <span className={`px-1.5 py-0.5 rounded text-xs font-mono ${cls}`}>{r}</span>
 }
 
@@ -28,7 +28,7 @@ function ZoneBadge({ z }) {
             : z === 'WATCH'       ? 'bg-blue-700 text-blue-100'
             : z === 'BUILDING'    ? 'bg-yellow-700 text-yellow-100'
             : z === 'SHORT_WATCH' ? 'bg-red-700 text-red-100'
-            : 'bg-gray-700 text-gray-300'
+            : 'bg-gray-700 text-md-on-surface'
   return <span className={`px-1.5 py-0.5 rounded text-xs ${cls}`}>{z}</span>
 }
 
@@ -36,13 +36,13 @@ function ZoneBadge({ z }) {
 
 function OpenPositions({ positions }) {
   if (!positions.length) return (
-    <div className="text-gray-500 text-sm py-6 text-center">No open positions</div>
+    <div className="text-md-on-surface-var text-sm py-6 text-center">No open positions</div>
   )
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs text-gray-200 border-collapse">
+      <table className="w-full text-xs text-md-on-surface border-collapse">
         <thead>
-          <tr className="text-gray-400 border-b border-gray-700">
+          <tr className="text-md-on-surface-var border-b border-md-outline-var">
             <th className="text-left py-1.5 pr-3">Ticker</th>
             <th className="text-left pr-3">Zone</th>
             <th className="text-left pr-3">T/Z</th>
@@ -80,7 +80,7 @@ function OpenPositions({ positions }) {
 
 function StatCard({ label, value, sub }) {
   return (
-    <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-0.5">
+    <div className="bg-md-surface-high rounded-lg p-3 flex flex-col gap-0.5">
       <div className="text-xs text-md-on-surface-var">{label}</div>
       <div className="text-lg font-bold text-white">{value}</div>
       {sub && <div className="text-xs text-md-on-surface-var">{sub}</div>}
@@ -111,10 +111,10 @@ function StatsPanel({ stats, days }) {
       {/* By Zone */}
       {stats.by_zone?.length > 0 && (
         <div>
-          <div className="text-xs text-gray-400 mb-1.5">By Beta Zone</div>
-          <table className="w-full text-xs text-gray-200 border-collapse">
+          <div className="text-xs text-md-on-surface-var mb-1.5">By Beta Zone</div>
+          <table className="w-full text-xs text-md-on-surface border-collapse">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-700">
+              <tr className="text-md-on-surface-var border-b border-md-outline-var">
                 <th className="text-left py-1 pr-4">Zone</th>
                 <th className="text-right pr-4">N</th>
                 <th className="text-right pr-4">PARA avg</th>
@@ -129,7 +129,7 @@ function StatsPanel({ stats, days }) {
                   <td className="text-right pr-4 text-md-on-surface-var">{r.n}</td>
                   <td className="text-right pr-4"><RetBadge v={r.avg_p} /></td>
                   <td className="text-right pr-4"><RetBadge v={r.avg_w} /></td>
-                  <td className="text-right text-gray-300">{r.tp_rate_p != null ? `${r.tp_rate_p}%` : '—'}</td>
+                  <td className="text-right text-md-on-surface">{r.tp_rate_p != null ? `${r.tp_rate_p}%` : '—'}</td>
                 </tr>
               ))}
             </tbody>
@@ -140,10 +140,10 @@ function StatsPanel({ stats, days }) {
       {/* By Signal */}
       {stats.by_signal?.length > 0 && (
         <div>
-          <div className="text-xs text-gray-400 mb-1.5">By T/Z Signal</div>
-          <table className="w-full text-xs text-gray-200 border-collapse">
+          <div className="text-xs text-md-on-surface-var mb-1.5">By T/Z Signal</div>
+          <table className="w-full text-xs text-md-on-surface border-collapse">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-700">
+              <tr className="text-md-on-surface-var border-b border-md-outline-var">
                 <th className="text-left py-1 pr-4">Signal</th>
                 <th className="text-right pr-4">N</th>
                 <th className="text-right pr-4">PARA avg</th>
@@ -172,13 +172,13 @@ function StatsPanel({ stats, days }) {
 function RecentTrades({ entries }) {
   const closed = entries.filter(e => e.status === 'CLOSED').slice(0, 30)
   if (!closed.length) return (
-    <div className="text-gray-500 text-sm py-6 text-center">No closed trades yet</div>
+    <div className="text-md-on-surface-var text-sm py-6 text-center">No closed trades yet</div>
   )
   return (
     <div className="overflow-x-auto">
-      <table className="w-full text-xs text-gray-200 border-collapse">
+      <table className="w-full text-xs text-md-on-surface border-collapse">
         <thead>
-          <tr className="text-gray-400 border-b border-gray-700">
+          <tr className="text-md-on-surface-var border-b border-md-outline-var">
             <th className="text-left py-1.5 pr-3">Date</th>
             <th className="text-left pr-3">Ticker</th>
             <th className="text-left pr-3">Zone</th>
@@ -216,7 +216,7 @@ function PendingPositions({ pending, onRefresh }) {
   const today = new Date().toISOString().slice(0, 10)
 
   if (!pending.length) return (
-    <div className="text-gray-500 text-sm py-6 text-center">No pending positions</div>
+    <div className="text-md-on-surface-var text-sm py-6 text-center">No pending positions</div>
   )
 
   const setPrice = async (ticker, signalDate) => {
@@ -247,12 +247,12 @@ function PendingPositions({ pending, onRefresh }) {
 
   return (
     <div className="overflow-x-auto">
-      <div className="text-xs text-gray-500 mb-2">
+      <div className="text-xs text-md-on-surface-var mb-2">
         Enter tomorrow's open price for each pending signal to move it to Open.
       </div>
-      <table className="w-full text-xs text-gray-200 border-collapse">
+      <table className="w-full text-xs text-md-on-surface border-collapse">
         <thead>
-          <tr className="text-gray-400 border-b border-gray-700">
+          <tr className="text-md-on-surface-var border-b border-md-outline-var">
             <th className="text-left py-1.5 pr-3">Ticker</th>
             <th className="text-left pr-3">Zone</th>
             <th className="text-left pr-3">T/Z</th>
@@ -282,7 +282,7 @@ function PendingPositions({ pending, onRefresh }) {
                     placeholder="0.00"
                     value={prices[p.ticker] || ''}
                     onChange={e => setPrices(prev => ({ ...prev, [p.ticker]: e.target.value }))}
-                    className="w-20 bg-gray-900 border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white text-right focus:border-blue-500 outline-none"
+                    className="w-20 bg-md-surface-con border border-gray-600 rounded px-1.5 py-0.5 text-xs text-white text-right focus:border-blue-500 outline-none"
                   />
                   <button
                     onClick={() => setPrice(p.ticker, p.signal_date)}
@@ -365,7 +365,7 @@ export default function PortfolioPanel() {
   }
 
   return (
-    <div className="p-4 text-sm text-gray-100 max-w-6xl mx-auto">
+    <div className="p-4 text-sm text-md-on-surface max-w-6xl mx-auto">
       {/* Header */}
       <div className="flex items-center justify-between mb-4 flex-wrap gap-2">
         <h2 className="text-lg font-bold text-white">📋 Paper Portfolio</h2>
@@ -373,7 +373,7 @@ export default function PortfolioPanel() {
           <select
             value={universe}
             onChange={e => setUniverse(e.target.value)}
-            className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+            className="bg-md-surface-high border border-gray-600 rounded px-2 py-1 text-xs text-md-on-surface"
           >
             <option value="sp500">S&P 500</option>
             <option value="nasdaq">NASDAQ</option>
@@ -390,7 +390,7 @@ export default function PortfolioPanel() {
           <select
             value={days}
             onChange={e => setDays(Number(e.target.value))}
-            className="bg-gray-800 border border-gray-600 rounded px-2 py-1 text-xs text-gray-200"
+            className="bg-md-surface-high border border-gray-600 rounded px-2 py-1 text-xs text-md-on-surface"
           >
             {[30, 60, 90, 180].map(d => (
               <option key={d} value={d}>{d}d</option>
@@ -417,7 +417,7 @@ export default function PortfolioPanel() {
       )}
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-4 border-b border-gray-700">
+      <div className="flex gap-1 mb-4 border-b border-md-outline-var">
         {[
           { id: 'pending', label: `Pending (${pending.length})` },
           { id: 'open',    label: `Open (${open.length})` },
@@ -430,7 +430,7 @@ export default function PortfolioPanel() {
             className={`px-3 py-1.5 text-xs rounded-t transition-colors
               ${tab === t.id
                 ? 'bg-gray-700 text-white border-b-2 border-blue-500'
-                : 'text-gray-400 hover:text-gray-200'}`}
+                : 'text-md-on-surface-var hover:text-md-on-surface'}`}
           >
             {t.label}
           </button>

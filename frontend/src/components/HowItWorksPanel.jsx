@@ -12,11 +12,11 @@ function Tag({ children, cls = 'text-white' }) {
   return <span className={`font-mono ${cls}`}>{children}</span>
 }
 
-function Row({ label, cls = 'text-gray-200', children }) {
+function Row({ label, cls = 'text-md-on-surface', children }) {
   return (
     <li>
       <Tag cls={cls}>{label}</Tag>
-      {children && <span className="text-gray-400"> — {children}</span>}
+      {children && <span className="text-md-on-surface-var"> — {children}</span>}
     </li>
   )
 }
@@ -24,8 +24,8 @@ function Row({ label, cls = 'text-gray-200', children }) {
 function ScoreRow({ engine, signal, pts }) {
   return (
     <tr className="border-b border-md-outline-var/50">
-      <td className="py-0.5 pr-4 text-gray-500">{engine}</td>
-      <td className="py-0.5 pr-4 text-gray-300">{signal}</td>
+      <td className="py-0.5 pr-4 text-md-on-surface-var">{engine}</td>
+      <td className="py-0.5 pr-4 text-md-on-surface">{signal}</td>
       <td className="py-0.5 text-lime-400">{pts}</td>
     </tr>
   )
@@ -38,10 +38,10 @@ export default function HowItWorksPanel() {
 
       <div className="flex items-baseline gap-3 mb-6">
         <h2 className="text-lg font-bold text-white">How It Works</h2>
-        <span className="text-xs text-gray-500">Sachoki Screener — all signal engines explained</span>
+        <span className="text-xs text-md-on-surface-var">Sachoki Screener — all signal engines explained</span>
       </div>
 
-      <div className="space-y-8 text-sm text-gray-300">
+      <div className="space-y-8 text-sm text-md-on-surface">
 
         {/* ── Overview ── */}
         <Section title="Overview">
@@ -67,27 +67,27 @@ export default function HowItWorksPanel() {
             simultaneously and assigns each ticker a composite <Tag cls="text-lime-300">turbo_score 0–100</Tag>.
           </p>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Universes</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Universes</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="S&P 500" cls="text-blue-300">~500 large-caps</Row>
             <Row label="NASDAQ" cls="text-cyan-300">~1100 NASDAQ stocks across all price ranges</Row>
             <Row label="Russell 2K" cls="text-orange-300">~2000 small-caps via iShares IWM CSV</Row>
-            <Row label="All US" cls="text-gray-300">combined universe, capped at 2000 random sample</Row>
+            <Row label="All US" cls="text-md-on-surface">combined universe, capped at 2000 random sample</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Tiers</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Score Tiers</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="Fire ≥ 65" cls="text-lime-300">multiple strong signals aligning across engines</Row>
             <Row label="Strong ≥ 50" cls="text-yellow-300">solid multi-engine confirmation</Row>
             <Row label="Bull ≥ 35" cls="text-blue-300">base bullish setup</Row>
-            <Row label="Base ≥ 20" cls="text-gray-300">sparse signals, worth watching</Row>
+            <Row label="Base ≥ 20" cls="text-md-on-surface">sparse signals, worth watching</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Score Families (max ~100) — weights v3 (SP500 pooled stats, 500 tickers 2yr)</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Score Families (max ~100) — weights v3 (SP500 pooled stats, 500 tickers 2yr)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Family (cap)</th>
                   <th className="text-left py-1 pr-4">Signal</th>
                   <th className="text-left py-1">Points</th>
@@ -188,11 +188,11 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Backtest Confluence Bonuses (cap 18) — Run 25, n=2254, Jan–Apr 2026</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Backtest Confluence Bonuses (cap 18) — Run 25, n=2254, Jan–Apr 2026</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Pattern</th>
                   <th className="text-left py-1 pr-4">Condition</th>
                   <th className="text-left py-1">Points</th>
@@ -213,11 +213,11 @@ export default function HowItWorksPanel() {
             D4 = d_absorb_bull | d_spring · D6 = d_surge_bull | d_blast_bull · L34 = l34 | fri34
           </p>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">SP500 Profile Combo Bonuses (cap 20)</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">SP500 Profile Combo Bonuses (cap 20)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Combo</th>
                   <th className="text-left py-1 pr-4">Signals required</th>
                   <th className="text-left py-1">Points</th>
@@ -235,11 +235,11 @@ export default function HowItWorksPanel() {
           </div>
           <p className="text-md-on-surface-var text-xs mt-1">Ztrap₅ / L64₅ / L43₅ / L22₅ = signal fired within last 5 bars</p>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">NASDAQ Profile Combo Bonuses (cap 25)</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">NASDAQ Profile Combo Bonuses (cap 25)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Combo</th>
                   <th className="text-left py-1 pr-4">Signals required</th>
                   <th className="text-left py-1">Points</th>
@@ -260,11 +260,11 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Kill / Penalty Conditions</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Kill / Penalty Conditions</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Condition</th>
                   <th className="text-left py-1 pr-4">Reason</th>
                   <th className="text-left py-1 text-red-400">Penalty</th>
@@ -272,57 +272,57 @@ export default function HowItWorksPanel() {
               </thead>
               <tbody>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">RSI &gt; 80, no D4/D6</td>
-                  <td className="py-0.5 pr-4 text-gray-500">overheated, no absorption</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">RSI &gt; 80, no D4/D6</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">overheated, no absorption</td>
                   <td className="py-0.5 text-red-400">−6</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">D6 + L34, no BE↑</td>
-                  <td className="py-0.5 pr-4 text-gray-500">avg 5d −2.52% (opposite of D6+BE↑)</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">D6 + L34, no BE↑</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">avg 5d −2.52% (opposite of D6+BE↑)</td>
                   <td className="py-0.5 text-red-400">−5</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">Isolated G4/G6 (no L34/BE↑/D4)</td>
-                  <td className="py-0.5 pr-4 text-gray-500">34.7% of all false positives</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Isolated G4/G6 (no L34/BE↑/D4)</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">34.7% of all false positives</td>
                   <td className="py-0.5 text-red-400">−4</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">RSI &gt; 75, no D4/D6/BE↑</td>
-                  <td className="py-0.5 pr-4 text-gray-500">extended without structure</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">RSI &gt; 75, no D4/D6/BE↑</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">extended without structure</td>
                   <td className="py-0.5 text-red-400">−3</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">BC without BE↑</td>
-                  <td className="py-0.5 pr-4 text-gray-500">buying climax — distribution risk</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">BC without BE↑</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">buying climax — distribution risk</td>
                   <td className="py-0.5 text-red-400">−3</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">d_strong_bull alone (no structure)</td>
-                  <td className="py-0.5 pr-4 text-gray-500">IMPULSE_ONLY path avg −1.66%</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">d_strong_bull alone (no structure)</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">IMPULSE_ONLY path avg −1.66%</td>
                   <td className="py-0.5 text-red-400">−3</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300 italic">NASDAQ: RL without UM/BE↑/VBO↑/BX↑</td>
-                  <td className="py-0.5 pr-4 text-gray-500">weak on NASDAQ without activation</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface italic">NASDAQ: RL without UM/BE↑/VBO↑/BX↑</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">weak on NASDAQ without activation</td>
                   <td className="py-0.5 text-red-400">−2</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300 italic">NASDAQ: T4/T6 without context</td>
-                  <td className="py-0.5 pr-4 text-gray-500">combos provide the uplift, not T alone</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface italic">NASDAQ: T4/T6 without context</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">combos provide the uplift, not T alone</td>
                   <td className="py-0.5 text-red-400">−2</td>
                 </tr>
               </tbody>
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Signal families — scores TBD</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Signal families — scores TBD</p>
           <p className="text-md-on-surface-var text-xs mb-2">
             Computed and shown as badges but not yet added to the turbo_score formula.
           </p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Family</th>
                   <th className="text-left py-1 pr-4">Signal</th>
                   <th className="text-left py-1 text-sky-400">Suggested range</th>
@@ -330,18 +330,18 @@ export default function HowItWorksPanel() {
               </thead>
               <tbody>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">LL / UP / ↑↑ / ↑↑↑</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">LL / UP / ↑↑ / ↑↑↑</td>
                   <td className="py-0.5 text-sky-400">+3 to +7 depending on tier</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-500">RGTI 260404</td>
-                  <td className="py-0.5 pr-4 text-gray-300">ORG / GRN / GC</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">RGTI 260404</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">ORG / GRN / GC</td>
                   <td className="py-0.5 text-sky-400">+2 to +6 depending on tier</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-500">SMX 260402</td>
-                  <td className="py-0.5 pr-4 text-gray-300">SMX (near recent low in uptrend)</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var">SMX 260402</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">SMX (near recent low in uptrend)</td>
                   <td className="py-0.5 text-sky-400">+4 to +6 — rare, high-conviction entry</td>
                 </tr>
               </tbody>
@@ -363,11 +363,11 @@ export default function HowItWorksPanel() {
             Visible in the Superchart SCORE row, the Turbo GOG column, and all CSV exports.
           </p>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">7.1 — GOG Base Score (highest active tier wins)</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">7.1 — GOG Base Score (highest active tier wins)</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Tier</th>
                   <th className="text-left py-1 pr-4">Meaning</th>
                   <th className="text-left py-1">Base pts</th>
@@ -390,7 +390,7 @@ export default function HowItWorksPanel() {
                 ].map(([tier, desc, pts, cls]) => (
                   <tr key={tier} className="border-b border-md-outline-var/50">
                     <td className={`py-0.5 pr-4 font-mono font-semibold ${cls}`}>{tier}</td>
-                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface-var">{desc}</td>
                     <td className="py-0.5 text-lime-400">+{pts}</td>
                   </tr>
                 ))}
@@ -398,11 +398,11 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.2–7.6 — Context Bonus Score</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.2–7.6 — Context Bonus Score</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">§</th>
                   <th className="text-left py-1 pr-4">Component</th>
                   <th className="text-left py-1 pr-4">Token(s)</th>
@@ -411,74 +411,74 @@ export default function HowItWorksPanel() {
               </thead>
               <tbody>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Premium Context</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.2</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Premium Context</td>
                   <td className="py-0.5 pr-4 font-mono text-green-300">LDP</td>
                   <td className="py-0.5 text-lime-400">+22</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Premium Context</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.2</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Premium Context</td>
                   <td className="py-0.5 pr-4 font-mono text-green-300">LRP</td>
                   <td className="py-0.5 text-lime-400">+26</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.2</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.2</td>
                   <td className="py-0.5 pr-4 text-md-on-surface-var text-xs italic">both LDP + LRP</td>
-                  <td className="py-0.5 pr-4 font-mono text-gray-500">LDP+LRP</td>
+                  <td className="py-0.5 pr-4 font-mono text-md-on-surface-var">LDP+LRP</td>
                   <td className="py-0.5 text-orange-400">capped at 35</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Load Context <span className="text-gray-500">(max of)</span></td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.3</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Load Context <span className="text-md-on-surface-var">(max of)</span></td>
                   <td className="py-0.5 pr-4 font-mono text-cyan-300">LD</td>
                   <td className="py-0.5 text-lime-400">+8</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Load Context</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.3</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Load Context</td>
                   <td className="py-0.5 pr-4 font-mono text-cyan-300">LDS</td>
                   <td className="py-0.5 text-lime-400">+11</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.3</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Load Context</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.3</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Load Context</td>
                   <td className="py-0.5 pr-4 font-mono text-teal-300">LDC</td>
                   <td className="py-0.5 text-lime-400">+16</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.4</td>
-                  <td className="py-0.5 pr-4 text-gray-300">L-Reclaim <span className="text-gray-500">(skipped if LRP)</span></td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.4</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">L-Reclaim <span className="text-md-on-surface-var">(skipped if LRP)</span></td>
                   <td className="py-0.5 pr-4 font-mono text-cyan-300">LRC</td>
                   <td className="py-0.5 text-lime-400">+12</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Compression</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.5</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Compression</td>
                   <td className="py-0.5 pr-4 font-mono text-slate-300">WRC</td>
                   <td className="py-0.5 text-lime-400">+10</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
-                  <td className="py-0.5 pr-4 text-gray-300">Compression</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.5</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">Compression</td>
                   <td className="py-0.5 pr-4 font-mono text-slate-300">F8C</td>
                   <td className="py-0.5 text-lime-400">+12</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.5</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.5</td>
                   <td className="py-0.5 pr-4 text-md-on-surface-var text-xs italic">both WRC + F8C</td>
-                  <td className="py-0.5 pr-4 font-mono text-gray-500">WRC+F8C</td>
+                  <td className="py-0.5 pr-4 font-mono text-md-on-surface-var">WRC+F8C</td>
                   <td className="py-0.5 text-orange-400">capped at 18</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.6</td>
-                  <td className="py-0.5 pr-4 text-gray-300">SQ/BCT (BCT supersedes SQB)</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.6</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">SQ/BCT (BCT supersedes SQB)</td>
                   <td className="py-0.5 pr-4 font-mono text-blue-300">BCT</td>
                   <td className="py-0.5 text-lime-400">+18 (+6 if SVS)</td>
                 </tr>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-600">7.6</td>
-                  <td className="py-0.5 pr-4 text-gray-300">SQ/BCT</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface-var/70">7.6</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">SQ/BCT</td>
                   <td className="py-0.5 pr-4 font-mono text-blue-300">SQB</td>
                   <td className="py-0.5 text-lime-400">+14 (+6 if SVS)</td>
                 </tr>
@@ -486,11 +486,11 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.7 — Base Setup Family Score</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.7 — Base Setup Family Score</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Token</th>
                   <th className="text-left py-1 pr-4">Meaning</th>
                   <th className="text-left py-1">Points</th>
@@ -507,7 +507,7 @@ export default function HowItWorksPanel() {
                 ].map(([tok, desc, pts]) => (
                   <tr key={tok} className="border-b border-md-outline-var/50">
                     <td className="py-0.5 pr-4 font-mono text-violet-300">{tok}</td>
-                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface-var">{desc}</td>
                     <td className="py-0.5 text-lime-400">{pts}</td>
                   </tr>
                 ))}
@@ -518,12 +518,12 @@ export default function HowItWorksPanel() {
             When a GOG tier is active, base setup total is capped at 8 (bonus points are not wasted — they still count within cap).
           </p>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.8 — Raw Support Score (hard cap: 25 pts)</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.8 — Raw Support Score (hard cap: 25 pts)</p>
           <p className="text-md-on-surface-var text-xs mb-1">Individual signal booleans from the current bar. Highest-value signals shown:</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Signal</th>
                   <th className="text-left py-1 pr-4">Key</th>
                   <th className="text-left py-1">Pts</th>
@@ -562,8 +562,8 @@ export default function HowItWorksPanel() {
                   ['T10/T11/T12','raw_t1x',    2],
                 ].map(([sig, key, pts]) => (
                   <tr key={sig} className="border-b border-md-outline-var/50">
-                    <td className="py-0.5 pr-4 font-mono text-gray-300">{sig}</td>
-                    <td className="py-0.5 pr-4 text-gray-600 font-mono text-[10px]">{key}</td>
+                    <td className="py-0.5 pr-4 font-mono text-md-on-surface">{sig}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface-var/70 font-mono text-[10px]">{key}</td>
                     <td className="py-0.5 text-lime-400">+{pts}</td>
                   </tr>
                 ))}
@@ -571,14 +571,14 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.9 — Research Forward Score (future data — CSV only)</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.9 — Research Forward Score (future data — CSV only)</p>
           <p className="text-md-on-surface-var text-xs mb-1">
             Added only in CSV exports, not in live scoring. Uses look-ahead data unavailable in real-time.
           </p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Condition</th>
                   <th className="text-left py-1">Pts</th>
                 </tr>
@@ -591,7 +591,7 @@ export default function HowItWorksPanel() {
                   ['GOG fires within next 6–10 bars', '+8'],
                 ].map(([cond, pts]) => (
                   <tr key={cond} className="border-b border-md-outline-var/50">
-                    <td className="py-0.5 pr-4 text-gray-300">{cond}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface">{cond}</td>
                     <td className="py-0.5 text-sky-400">{pts}</td>
                   </tr>
                 ))}
@@ -599,12 +599,12 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.10 — Risk Penalty</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.10 — Risk Penalty</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse mt-1">
               <tbody>
                 <tr className="border-b border-md-outline-var/50">
-                  <td className="py-0.5 pr-4 text-gray-300">ALREADY_EXTENDED flag</td>
+                  <td className="py-0.5 pr-4 text-md-on-surface">ALREADY_EXTENDED flag</td>
                   <td className="py-0.5 text-red-400">−15</td>
                 </tr>
               </tbody>
@@ -615,16 +615,16 @@ export default function HowItWorksPanel() {
             already_extended=1 and score ≥ 80 (e.g. <span className="font-mono text-orange-400">A_EXTENDED</span>).
           </p>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Score Buckets</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Score Buckets</p>
           <div className="flex flex-wrap gap-2 text-xs mt-1">
             {[
               ['ELITE',       '≥ 120', 'bg-yellow-700 text-yellow-100 ring-1 ring-yellow-400'],
               ['A_PLUS',      '≥ 100', 'bg-lime-800 text-lime-100 ring-1 ring-lime-400'],
               ['A',           '≥ 80',  'bg-green-900 text-green-200'],
               ['B',           '≥ 60',  'bg-teal-900 text-teal-300'],
-              ['WATCH',       '≥ 40',  'bg-gray-800 text-gray-300'],
-              ['LOW_WATCH',   '≥ 20',  'bg-gray-800 text-gray-500'],
-              ['NO_SIGNAL',   '< 20',  'bg-gray-900 text-gray-600'],
+              ['WATCH',       '≥ 40',  'bg-md-surface-high text-md-on-surface'],
+              ['LOW_WATCH',   '≥ 20',  'bg-md-surface-high text-md-on-surface-var'],
+              ['NO_SIGNAL',   '< 20',  'bg-md-surface-con text-md-on-surface-var/70'],
             ].map(([bucket, range, cls]) => (
               <div key={bucket} className={`rounded px-2 py-1 font-mono font-semibold ${cls}`}>
                 {bucket} <span className="font-normal opacity-70">{range}</span>
@@ -632,8 +632,8 @@ export default function HowItWorksPanel() {
             ))}
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">7.11 — Final Formula</p>
-          <div className="bg-gray-800/60 rounded p-2 text-xs font-mono text-gray-300">
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">7.11 — Final Formula</p>
+          <div className="bg-md-surface-high/60 rounded p-2 text-xs font-mono text-md-on-surface">
             SIGNAL_SCORE = GOG_BASE + PREMIUM_CTX + LOAD_CTX + L_RECLAIM<br/>
             {'             '}+ COMPRESSION + SQ_BCT + BASE_SETUP + RAW_SUPPORT(cap 25)<br/>
             {'             '}− RISK_PENALTY &nbsp; &nbsp; → clamped 0–160<br/>
@@ -650,11 +650,11 @@ export default function HowItWorksPanel() {
             Each phase contributes a sub-score; the phase is determined bar-by-bar with hysteresis.
           </p>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Phases</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Phases</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Phase</th>
                   <th className="text-left py-1 pr-4">Name</th>
                   <th className="text-left py-1 pr-4">What it captures</th>
@@ -671,8 +671,8 @@ export default function HowItWorksPanel() {
                 ].map(([ph, name, desc, field]) => (
                   <tr key={ph} className="border-b border-md-outline-var/50">
                     <td className="py-0.5 pr-4 font-mono font-bold text-blue-300">{ph}</td>
-                    <td className="py-0.5 pr-4 font-semibold text-gray-200">{name}</td>
-                    <td className="py-0.5 pr-4 text-gray-400 text-[11px]">{desc}</td>
+                    <td className="py-0.5 pr-4 font-semibold text-md-on-surface">{name}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface-var text-[11px]">{desc}</td>
                     <td className="py-0.5 font-mono text-lime-400 text-[11px]">{field}</td>
                   </tr>
                 ))}
@@ -680,11 +680,11 @@ export default function HowItWorksPanel() {
             </table>
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Score Components</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Score Components</p>
           <div className="overflow-x-auto">
             <table className="text-xs border-collapse w-full mt-1">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Field</th>
                   <th className="text-left py-1 pr-4">Description</th>
                   <th className="text-left py-1">Cap</th>
@@ -700,23 +700,23 @@ export default function HowItWorksPanel() {
                 ].map(([field, desc, cap]) => (
                   <tr key={field} className="border-b border-md-outline-var/50">
                     <td className={`py-0.5 pr-4 font-mono ${cap < 0 ? 'text-red-400' : 'text-lime-300'}`}>{field}</td>
-                    <td className="py-0.5 pr-4 text-gray-400">{desc}</td>
-                    <td className={`py-0.5 font-semibold ${cap < 0 ? 'text-red-400' : 'text-gray-300'}`}>{cap > 0 ? `+${cap}` : cap}</td>
+                    <td className="py-0.5 pr-4 text-md-on-surface-var">{desc}</td>
+                    <td className={`py-0.5 font-semibold ${cap < 0 ? 'text-red-400' : 'text-md-on-surface'}`}>{cap > 0 ? `+${cap}` : cap}</td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
-          <div className="bg-gray-800/60 rounded p-2 text-xs font-mono text-gray-300 mt-2">
+          <div className="bg-md-surface-high/60 rounded p-2 text-xs font-mono text-md-on-surface mt-2">
             rtb_total = max(0, rtb_build + rtb_turn + rtb_ready + rtb_bonus3 − rtb_late)
           </div>
 
-          <p className="text-gray-400 mt-4 mb-1 font-medium">Phase Transitions</p>
+          <p className="text-md-on-surface-var mt-4 mb-1 font-medium">Phase Transitions</p>
           <div className="flex flex-wrap gap-2 text-xs mt-1">
             {[
               'A_START', 'A_HOLD', 'A_TO_B', 'B_HOLD', 'B_TO_C', 'C_HOLD', 'C_TO_D', 'RESET_HARD', 'RESET_SOFT'
             ].map(t => (
-              <span key={t} className="bg-gray-800 text-gray-300 font-mono px-2 py-0.5 rounded">{t}</span>
+              <span key={t} className="bg-md-surface-high text-md-on-surface font-mono px-2 py-0.5 rounded">{t}</span>
             ))}
           </div>
           <p className="text-md-on-surface-var text-xs mt-2">
@@ -735,7 +735,7 @@ export default function HowItWorksPanel() {
             confluences and reviewing historical setups.
           </p>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Signal Rows</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Signal Rows</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="Z"    cls="text-red-300">Z-signals (T/Z bearish) + PREUP labels (P2, P3…)</Row>
             <Row label="T"    cls="text-green-300">T-signals (T/Z bullish — T4, T6, T1G, T2G…)</Row>
@@ -751,10 +751,10 @@ export default function HowItWorksPanel() {
             <Row label="WICK" cls="text-sky-300">Wick X confirmation signals: WP↑, WC↑, X2G, X2, X1G</Row>
             <Row label="turbo" cls="text-lime-300">Composite turbo score (0–100) for that bar</Row>
             <Row label="SCORE" cls="text-yellow-300">SIGNAL_SCORE (0–160) — shown only when ≥ 20; color-coded by bucket (yellow=ELITE, lime=A_PLUS…)</Row>
-            <Row label="close" cls="text-gray-300">Closing price (green = up, red = down vs previous bar)</Row>
+            <Row label="close" cls="text-md-on-surface">Closing price (green = up, red = down vs previous bar)</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">📊 Stats Button — Signal Performance</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">📊 Stats Button — Signal Performance</p>
           <p className="mb-1">
             Clicking <Tag cls="text-violet-300">📊 Stats</Tag> fetches 2 years of history, runs
             all engines, and computes forward performance for every signal. Results are shown as
@@ -764,7 +764,7 @@ export default function HowItWorksPanel() {
           <div className="overflow-x-auto mt-1">
             <table className="text-xs border-collapse">
               <thead>
-                <tr className="text-gray-500 border-b border-gray-700">
+                <tr className="text-md-on-surface-var border-b border-md-outline-var">
                   <th className="text-left py-1 pr-4">Column</th>
                   <th className="text-left py-1">Meaning</th>
                 </tr>
@@ -781,7 +781,7 @@ export default function HowItWorksPanel() {
                 ].map(([col, desc]) => (
                   <tr key={col} className="border-b border-md-outline-var/40">
                     <td className="py-0.5 pr-4 font-mono text-violet-300">{col}</td>
-                    <td className="py-0.5 text-gray-400">{desc}</td>
+                    <td className="py-0.5 text-md-on-surface-var">{desc}</td>
                   </tr>
                 ))}
               </tbody>
@@ -792,14 +792,14 @@ export default function HowItWorksPanel() {
             are hidden. The stats use only the selected ticker's own price history — not pooled SP500 data.
           </p>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">⬇ CSV Export</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">⬇ CSV Export</p>
           <p>
-            Clicking <Tag cls="text-gray-300">⬇ CSV</Tag> downloads the entire visible matrix as
+            Clicking <Tag cls="text-md-on-surface">⬇ CSV</Tag> downloads the entire visible matrix as
             a spreadsheet-ready file named <Tag>{`{TICKER}_{tf}_signals.csv`}</Tag>. Each row is one bar.
             Signal groups are space-joined within their cell so the file opens cleanly in Excel or
             Google Sheets for custom filtering and back-testing.
           </p>
-          <ul className="list-disc list-inside mt-1 space-y-1 text-gray-400">
+          <ul className="list-disc list-inside mt-1 space-y-1 text-md-on-surface-var">
             <li>~100 columns: date, OHLCV, scores, GOG_TIER, CONTEXT, SETUP, signal groups (Z/T/L/F/FLY/G/B/Combo/ULT/VOL/VABS/WICK), RTB fields, SIGNAL_SCORE sub-components, and ~90 individual SIG_* boolean columns</li>
             <li>Multiple signals per cell are space-separated (e.g. <Tag cls="text-orange-300">"F3 F4 F7"</Tag>)</li>
             <li>SIG_* boolean columns enable combo analysis — filter rows where <Tag cls="text-lime-300">SIG_BEST=1</Tag> AND <Tag cls="text-cyan-300">SIG_L34=1</Tag> etc.</li>
@@ -821,7 +821,7 @@ export default function HowItWorksPanel() {
             <Row label="T3 / T11 / T5">moderate or early-stage bullish reads</Row>
             <Row label="Z4 / Z6" cls="text-red-400">bearish engulfing — strongest reversal</Row>
             <Row label="Z1G / Z2G" cls="text-red-400">bearish golden variants</Row>
-            <Row label="Z7" cls="text-gray-400">doji — indecision, only when no T or Z fires</Row>
+            <Row label="Z7" cls="text-md-on-surface-var">doji — indecision, only when no T or Z fires</Row>
           </ul>
         </Section>
 
@@ -834,19 +834,19 @@ export default function HowItWorksPanel() {
           </p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="B1" cls="text-orange-400">T3→T4 sequences and Z2G/Z6 absorption into T4</Row>
-            <Row label="B2" cls="text-gray-300">Z2-led pullback into T2/T2G continuation</Row>
+            <Row label="B2" cls="text-md-on-surface">Z2-led pullback into T2/T2G continuation</Row>
             <Row label="B3" cls="text-sky-300">T6/T3 momentum with Z3/Z4 absorption sequences</Row>
-            <Row label="B4" cls="text-gray-300">Z4 trap into T1G / T2G recovery</Row>
+            <Row label="B4" cls="text-md-on-surface">Z4 trap into T1G / T2G recovery</Row>
             <Row label="B5" cls="text-cyan-400">T5 pivot into T2G/T6 — classic spring</Row>
-            <Row label="B6" cls="text-gray-300">Z1G/Z3 multi-bar base into T1G/T9</Row>
+            <Row label="B6" cls="text-md-on-surface">Z1G/Z3 multi-bar base into T1G/T9</Row>
             <Row label="B7" cls="text-green-400">T9/T2 momentum stacking into T2G/T4</Row>
             <Row label="B8" cls="text-blue-400">repeated T1G or Z2G→T1G recovery</Row>
-            <Row label="B9" cls="text-gray-300">Z9 trap / Z10 sequence into T4</Row>
+            <Row label="B9" cls="text-md-on-surface">Z9 trap / Z10 sequence into T4</Row>
             <Row label="B10" cls="text-lime-400">Z10 multi-bar base with Z2G→T1/T6 breakout</Row>
             <Row label="B11" cls="text-fuchsia-400">Z11/Z9/Z6 into Z10 base then reversal</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">TZ State Machine — regime filter</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">TZ State Machine — regime filter</p>
           <p className="mb-2 text-md-on-surface-var text-xs">
             Before surfacing B signals, the engine computes the current market regime using rolling
             dominance scores (T/Z pattern weights over 3 and 7 bars).
@@ -860,7 +860,7 @@ export default function HowItWorksPanel() {
             <Row label="State 0: Bear Dom" cls="text-red-400">bear patterns dominate both windows, price below EMA20+50</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Confluence signals (B × State)</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Confluence signals (B × State)</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="CD" cls="text-lime-300">any B signal in Bull Dominance state — highest conviction</Row>
             <Row label="CA" cls="text-cyan-300">any B signal in Bull Attempt state</Row>
@@ -874,14 +874,14 @@ export default function HowItWorksPanel() {
             Stateful setup signals that require a bearish trigger bar first, then fire on the
             first matching bullish confirmation. <span className="text-yellow-300">No RSI filter.</span>
           </p>
-          <p className="text-gray-400 mb-1 font-medium">G1 / G2 / G4 / G6 — armed by Z10, Z11 or Z12</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">G1 / G2 / G4 / G6 — armed by Z10, Z11 or Z12</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="G1" cls="text-lime-300">first T1 after Z10 / Z11 / Z12 — inside-bar base then reversal</Row>
             <Row label="G2" cls="text-cyan-300">first T1G after Z10 / Z11 / Z12 — gap-up reversal after bearish inside bar</Row>
             <Row label="G4" cls="text-fuchsia-300">first T4 after Z10 / Z11 / Z12 — engulfing reversal after base</Row>
             <Row label="G6" cls="text-orange-300">first T6 after Z10 / Z11 / Z12 — bull-on-bull engulfing after base</Row>
           </ul>
-          <p className="text-gray-400 mt-3 mb-1 font-medium">G11 — armed by T10 or T11</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">G11 — armed by T10 or T11</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="G11" cls="text-yellow-300">first T1 after T10 or T11 — reversal after bullish inside bars</Row>
           </ul>
@@ -896,7 +896,7 @@ export default function HowItWorksPanel() {
             Two additional engines contribute new signals that are not part of the core T/Z or B/G families.
           </p>
 
-          <p className="text-gray-400 mb-1 font-medium">VA — ATR Volume Confirm (260402_COMBO_OSC)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">VA — ATR Volume Confirm (260402_COMBO_OSC)</p>
           <p className="mb-2 text-md-on-surface-var text-xs">
             Fires when the current bar's volume ratio (volume ÷ 20-bar avg) crosses above 2.0 — i.e.,
             the bar's volume is the first to exceed twice the recent average. Uses a Pine-style
@@ -906,7 +906,7 @@ export default function HowItWorksPanel() {
             <Row label="VA" cls="text-lime-300">vol/avg_vol just crossed above 2× — sudden volume surge</Row>
           </ul>
 
-          <p className="text-gray-400 mb-1 font-medium">SBC — seqBContLite (260412_TZ_SHIFT)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">SBC — seqBContLite (260412_TZ_SHIFT)</p>
           <p className="mb-2 text-md-on-surface-var text-xs">
             Continuation-lite sequences using T/Z priority codes. Three pattern families:
           </p>
@@ -914,7 +914,7 @@ export default function HowItWorksPanel() {
             <Row label="SBC" cls="text-violet-300">T1/T1G/T2/T2G/T9 two bars ago → T4 now; or T3/T11/T5 one bar ago → T4/T6; or T4/T2G/T3 one bar ago → T6</Row>
           </ul>
 
-          <p className="text-gray-400 mb-1 font-medium">TZ Transition Signals (260412_TZ_SHIFT)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">TZ Transition Signals (260412_TZ_SHIFT)</p>
           <p className="mb-2 text-md-on-surface-var text-xs">
             Detects the bar where the TZ state machine transitions into a new regime. Fires only on
             the first bar of that state — unlike tz_state which persists.
@@ -931,7 +931,7 @@ export default function HowItWorksPanel() {
             Order-flow proxy using Open-Adjusted CLV (Close Location Value). Separates each bar
             into wick and body components relative to the open price to estimate buy vs sell volume.
           </p>
-          <div className="bg-gray-800/50 rounded p-2 text-xs font-mono mb-3 text-gray-300">
+          <div className="bg-md-surface-high/50 rounded p-2 text-xs font-mono mb-3 text-md-on-surface">
             <div>body_top  = max(open, close)</div>
             <div>body_bot  = min(open, close)</div>
             <div>bull_body = body_size  if close ≥ open  else 0</div>
@@ -960,14 +960,14 @@ export default function HowItWorksPanel() {
             Fires on the bar where price crosses an EMA: bar opens on one side and closes on the
             other. Priority chain ensures only the strongest EMA crossed is labelled.
           </p>
-          <p className="text-gray-400 mb-1 font-medium">PREUP (EMA cross ↑)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">PREUP (EMA cross ↑)</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="P66" cls="text-lime-300">crossed EMA200 + at least one smaller EMA — very strong</Row>
             <Row label="P55" cls="text-emerald-300">crossed EMA89 + another EMA</Row>
             <Row label="P89" cls="text-teal-300">crossed EMA89 alone</Row>
             <Row label="P3 / P2 / P50">crossed EMA9+20+50 / EMA9+20 / EMA50</Row>
           </ul>
-          <p className="text-gray-400 mt-2 mb-1 font-medium">PREDN (EMA drop ↓)</p>
+          <p className="text-md-on-surface-var mt-2 mb-1 font-medium">PREDN (EMA drop ↓)</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="D66" cls="text-red-300">dropped below EMA200 + another EMA</Row>
             <Row label="D55" cls="text-red-400">dropped below EMA89 + another</Row>
@@ -1007,7 +1007,7 @@ export default function HowItWorksPanel() {
             <Tag>cycleMaxBars=160</Tag> bars without completing.
           </p>
 
-          <p className="text-gray-400 mt-2 mb-1 font-medium">Accumulation state machine (bullish)</p>
+          <p className="text-md-on-surface-var mt-2 mb-1 font-medium">Accumulation state machine (bullish)</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="wSC" cls="text-orange-300">
               Selling Climax — wide-spread down bar, high volume ({'>'}1.8× avg), close near low,
@@ -1035,7 +1035,7 @@ export default function HowItWorksPanel() {
             <Row label="MKP" cls="text-lime-300">Markup phase (states 5–6, post-SOS). Context +3.</Row>
           </ul>
 
-          <p className="text-gray-400 mt-3 mb-1 font-medium">Distribution state machine (bearish)</p>
+          <p className="text-md-on-surface-var mt-3 mb-1 font-medium">Distribution state machine (bearish)</p>
           <ul className="list-disc list-inside space-y-1">
             <Row label="wBC" cls="text-red-300">
               Buying Climax — wide-spread up bar, high volume, close near high, EMA14 above EMA50. Potential top.
@@ -1165,7 +1165,7 @@ export default function HowItWorksPanel() {
 
         {/* ── Signal Tier Guide ── */}
         <Section title="Signal Tier Guide — How to Read Setups">
-          <p className="mb-3 text-gray-400">
+          <p className="mb-3 text-md-on-surface-var">
             Not all signals are equal. The key principle: <span className="text-white font-semibold">cross-engine confluence &gt; same-engine cluster</span>.
             Multiple independent engines agreeing on direction is stronger than many signals from the same family.
             The TURBO score reason line shows <Tag cls="text-lime-300">⚡×N</Tag> where N = number of distinct engine families active.
@@ -1186,9 +1186,9 @@ export default function HowItWorksPanel() {
                 ['P66',   'text-lime-300',   'EMA66 cross ↑ — trend regime confirmed'],
                 ['🚀/BUY','text-red-300',    'Rocket / Buy 2809 — multi-condition combo trigger'],
               ].map(([lbl, cls, desc]) => (
-                <div key={lbl} className="bg-gray-800 rounded px-2 py-1">
+                <div key={lbl} className="bg-md-surface-high rounded px-2 py-1">
                   <span className={`font-mono font-semibold ${cls}`}>{lbl}</span>
-                  <span className="text-gray-500 ml-1">{desc}</span>
+                  <span className="text-md-on-surface-var ml-1">{desc}</span>
                 </div>
               ))}
             </div>
@@ -1210,9 +1210,9 @@ export default function HowItWorksPanel() {
                 ['BR%',  'text-lime-400',   'Break-readiness context score ≥ 71'],
                 ['CA/CD','text-lime-300',   'T/Z confluence context signals'],
               ].map(([lbl, cls, desc]) => (
-                <div key={lbl} className="bg-gray-800 rounded px-2 py-1">
+                <div key={lbl} className="bg-md-surface-high rounded px-2 py-1">
                   <span className={`font-mono font-semibold ${cls}`}>{lbl}</span>
-                  <span className="text-gray-500 ml-1">{desc}</span>
+                  <span className="text-md-on-surface-var ml-1">{desc}</span>
                 </div>
               ))}
             </div>
@@ -1228,7 +1228,7 @@ export default function HowItWorksPanel() {
             </p>
             <table className="text-xs w-full max-w-2xl">
               <thead>
-                <tr className="text-gray-500 text-left border-b border-md-outline-var">
+                <tr className="text-md-on-surface-var text-left border-b border-md-outline-var">
                   <th className="pb-1 pr-4">Combo</th>
                   <th className="pb-1 pr-4">Engines</th>
                   <th className="pb-1 pr-4">Phase</th>
@@ -1246,9 +1246,9 @@ export default function HowItWorksPanel() {
                 ].map(([combo, engines, phase, why]) => (
                   <tr key={combo} className="border-b border-md-outline-var/40">
                     <td className="py-1 pr-4 font-mono text-white">{combo}</td>
-                    <td className="py-1 pr-4 text-gray-500">{engines}</td>
-                    <td className={`py-1 pr-4 ${phase.includes('[L]') ? 'text-orange-400' : phase === 'Early' ? 'text-sky-300' : 'text-gray-400'}`}>{phase}</td>
-                    <td className="py-1 text-gray-500">{why}</td>
+                    <td className="py-1 pr-4 text-md-on-surface-var">{engines}</td>
+                    <td className={`py-1 pr-4 ${phase.includes('[L]') ? 'text-orange-400' : phase === 'Early' ? 'text-sky-300' : 'text-md-on-surface-var'}`}>{phase}</td>
+                    <td className="py-1 text-md-on-surface-var">{why}</td>
                   </tr>
                 ))}
               </tbody>
@@ -1256,7 +1256,7 @@ export default function HowItWorksPanel() {
           </div>
 
           {/* Caution box */}
-          <div className="bg-gray-800/50 border border-md-outline-var rounded p-3 text-xs text-gray-400 mt-2">
+          <div className="bg-md-surface-high/50 border border-md-outline-var rounded p-3 text-xs text-md-on-surface-var mt-2">
             <span className="text-yellow-300 font-semibold">Caution:</span> The Corr panel shows co-occurrence frequency, not forward expectancy.
             High co-occurrence ≠ high win rate. Use Corr to <span className="text-white">discover</span> candidate combos,
             then validate with Predictor bull% and actual risk/reward.
@@ -1270,14 +1270,14 @@ export default function HowItWorksPanel() {
             Sequence detector using T/Z role codes to find ABCD patterns, confirmed by an EMA
             drop-then-recovery context at the anchor bar. D must fire on the current bar.
           </p>
-          <p className="text-gray-400 mb-1 font-medium">Role assignments (by T/Z code)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">Role assignments (by T/Z code)</p>
           <ul className="list-disc list-inside space-y-1 mb-3">
             <Row label="A (anchor)" cls="text-red-400">ZC {'{3,4}'} — Z1G, Z2G: strong bearish reversal bar</Row>
             <Row label="B (base)"   cls="text-orange-300">ZC {'{9,1,2,5,10,8,12,7}'} — various bearish codes: continuation or trap bar</Row>
             <Row label="C (coil)"   cls="text-cyan-300">BC {'{9,10,12,7,5}'} — T3,T11,T12,T9,T1: moderate bullish recovery bar</Row>
             <Row label="D (drive)"  cls="text-lime-300">BC {'{1,2,4,6}'} — T4,T6,T2G,T2: strong bullish breakout bar (fires on current bar)</Row>
           </ul>
-          <p className="text-gray-400 mb-1 font-medium">EMA context filter (checked at each anchor bar)</p>
+          <p className="text-md-on-surface-var mb-1 font-medium">EMA context filter (checked at each anchor bar)</p>
           <p className="text-md-on-surface-var text-xs mb-2">
             Requires: an EMA drop (E1) followed by an EMA cross-up (E2), both within 30 bars of the
             anchor. E1 must be older than E2. This ensures the setup had a dip-and-recovery structure.

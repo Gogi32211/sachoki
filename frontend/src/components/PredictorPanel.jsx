@@ -38,15 +38,15 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
           <div className="overflow-x-auto">
             <table className="text-[10px] border-collapse w-full">
               <thead>
-                <tr className="bg-gray-900/80">
-                  <th className="sticky top-0 bg-md-surface-con px-2 py-1.5 text-left text-gray-500 font-normal whitespace-nowrap border-r border-gray-800" style={{minWidth:'46px'}}>
+                <tr className="bg-md-surface-con/80">
+                  <th className="sticky top-0 bg-md-surface-con px-2 py-1.5 text-left text-md-on-surface-var font-normal whitespace-nowrap border-r border-md-outline-var" style={{minWidth:'46px'}}>
                     ↓ / →
                   </th>
                   {_COL_IDS.map(c => (
                     <th key={c}
                       className={`px-1 py-1.5 text-center font-mono font-bold
-                        ${c === 0 ? 'text-gray-500' : c <= 12 ? 'text-green-400' : 'text-red-400'}
-                        ${c === 13 ? 'border-l border-gray-700' : ''}`}
+                        ${c === 0 ? 'text-md-on-surface-var' : c <= 12 ? 'text-green-400' : 'text-red-400'}
+                        ${c === 13 ? 'border-l border-md-outline-var' : ''}`}
                       style={{minWidth:'34px'}}>
                       {_SIG_NAMES[c]}
                     </th>
@@ -64,7 +64,7 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
                         ${idx === 11 ? 'border-t-2 border-gray-600' : ''}
                       `}>
                       {/* Row header */}
-                      <td className={`sticky left-0 z-10 bg-gray-950 px-2 py-0.5 font-mono font-bold border-r border-gray-800
+                      <td className={`sticky left-0 z-10 bg-md-surface px-2 py-0.5 font-mono font-bold border-r border-md-outline-var
                         ${isZ ? 'text-red-400' : 'text-green-400'}`}>
                         {_SIG_NAMES[rowId]}
                       </td>
@@ -74,7 +74,7 @@ function TZMatrix({ matrixData, label, sublabel, offset }) {
                         return (
                           <td key={colId}
                             className={`text-center px-0.5 py-0.5 font-mono
-                              ${colId === 13 ? 'border-l border-gray-700' : ''}
+                              ${colId === 13 ? 'border-l border-md-outline-var' : ''}
                               ${pct >= 2 ? 'text-white' : 'text-transparent'}`}
                             style={{backgroundColor: _cellBg(pct, colId)}}>
                             {pct >= 2 ? Math.round(pct) + '%' : '·'}
@@ -102,31 +102,31 @@ function TZOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500
         {pooled && <span className="text-[10px] font-normal opacity-70">{poolLabel}</span>}
       </div>
       <div className="border border-md-outline-var rounded-b-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-900 border-b border-md-outline-var text-xs text-gray-400">
+        <div className="px-3 py-2 bg-md-surface-con border-b border-md-outline-var text-xs text-md-on-surface-var">
           <span className="font-mono">{data.pattern || '—'}</span>
           {data.signals && (
             <span className="ml-2 text-md-on-surface-var text-xs">{data.signals}</span>
           )}
         </div>
-        <div className={`px-3 py-1.5 bg-gray-900 border-b border-md-outline-var text-xs flex items-center gap-2
-          ${data.total_matches >= 50 ? 'text-lime-500' : data.total_matches >= 15 ? 'text-yellow-500' : 'text-gray-500'}`}>
+        <div className={`px-3 py-1.5 bg-md-surface-con border-b border-md-outline-var text-xs flex items-center gap-2
+          ${data.total_matches >= 50 ? 'text-lime-500' : data.total_matches >= 15 ? 'text-yellow-500' : 'text-md-on-surface-var'}`}>
           <span>{data.total_matches} matches</span>
           {data.total_matches >= 50 && <span className="text-[9px] bg-lime-900/40 px-1 rounded">high confidence</span>}
           {data.total_matches >= 15 && data.total_matches < 50 && <span className="text-[9px] bg-yellow-900/40 px-1 rounded">moderate</span>}
-          {data.total_matches > 0 && data.total_matches < 15 && <span className="text-[9px] bg-gray-800 px-1 rounded">low</span>}
+          {data.total_matches > 0 && data.total_matches < 15 && <span className="text-[9px] bg-md-surface-high px-1 rounded">low</span>}
           {/* Regime split */}
           {data.bull_matches > 0 && (
-            <span className="ml-auto text-[9px] text-gray-500">
+            <span className="ml-auto text-[9px] text-md-on-surface-var">
               <span className="text-lime-400">🟢{data.bull_bull_pct}%</span>
-              <span className="text-gray-600"> ({data.bull_matches}n) </span>
+              <span className="text-md-on-surface-var/70"> ({data.bull_matches}n) </span>
               <span className="text-red-400">🔴{data.bear_bull_pct}%</span>
-              <span className="text-gray-600"> ({data.bear_matches}n)</span>
+              <span className="text-md-on-surface-var/70"> ({data.bear_matches}n)</span>
             </span>
           )}
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-gray-500 bg-gray-900">
+            <tr className="text-xs text-md-on-surface-var bg-md-surface-con">
               <th className="px-3 py-1 text-left">#</th>
               <th className="px-3 py-1 text-left">Signal</th>
               <th className="px-3 py-1 text-right">Count</th>
@@ -146,9 +146,9 @@ function TZOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500
                 className={`border-t border-md-outline-var ${
                   row.is_bull ? 'bg-green-950/30 text-green-300'
                   : row.is_bear ? 'bg-red-950/30 text-red-300'
-                  : 'text-gray-400'
+                  : 'text-md-on-surface-var'
                 }`}>
-                <td className="px-3 py-1.5 text-gray-500">{i + 1}</td>
+                <td className="px-3 py-1.5 text-md-on-surface-var">{i + 1}</td>
                 <td className="px-3 py-1.5 font-mono font-semibold">{row.sig_name}</td>
                 <td className="px-3 py-1.5 text-right">{row.count}</td>
                 <td className="px-3 py-1.5 text-right font-bold">{row.pct}%</td>
@@ -194,21 +194,21 @@ function TZStatsSection({ tickerStats, benchStats, ticker, showTicker, showPoole
         </div>
         <div className="border border-md-outline-var rounded-b-lg overflow-hidden">
           {/* Bar type counts */}
-          <div className="px-3 py-2 bg-gray-900 border-b border-md-outline-var flex flex-wrap gap-3 text-xs text-gray-400">
-            <span className="text-gray-500">{s.total_bars} bars</span>
+          <div className="px-3 py-2 bg-md-surface-con border-b border-md-outline-var flex flex-wrap gap-3 text-xs text-md-on-surface-var">
+            <span className="text-md-on-surface-var">{s.total_bars} bars</span>
             <span><span className="text-green-400">{s.bull_bars}</span> bull</span>
             <span><span className="text-red-400">{s.bear_bars}</span> bear</span>
-            <span><span className="text-gray-400">{s.doji_bars}</span> doji</span>
+            <span><span className="text-md-on-surface-var">{s.doji_bars}</span> doji</span>
             <span className="ml-auto">
               <span className="text-green-500 font-mono">{s.t_total}T</span>
-              <span className="text-gray-600 mx-1">/</span>
+              <span className="text-md-on-surface-var/70 mx-1">/</span>
               <span className="text-red-400 font-mono">{s.z_total}Z</span>
             </span>
           </div>
           {/* T + Z tables side by side */}
           <div className="flex">
             {/* T signals */}
-            <div className="flex-1 border-r border-gray-800">
+            <div className="flex-1 border-r border-md-outline-var">
               <div className="px-2 py-1 bg-green-950/30 border-b border-md-outline-var text-[10px] font-bold text-green-400 flex gap-2">
                 <span className="flex-1">T Signal</span>
                 <span className="w-8 text-right">n</span>
@@ -218,7 +218,7 @@ function TZStatsSection({ tickerStats, benchStats, ticker, showTicker, showPoole
               {tSigs.map(row => (
                 <div key={row.sig_id}
                   className={`px-2 py-0.5 flex items-center gap-2 border-t border-md-outline-var/60 text-xs
-                    ${row.count > 0 ? 'text-green-300' : 'text-gray-600'}`}>
+                    ${row.count > 0 ? 'text-green-300' : 'text-md-on-surface-var/70'}`}>
                   <span className="flex-1 font-mono font-semibold">{row.name}</span>
                   <span className="w-8 text-right">{row.count || ''}</span>
                   <span className="w-10 text-right">{row.count ? row.group_pct + '%' : ''}</span>
@@ -237,7 +237,7 @@ function TZStatsSection({ tickerStats, benchStats, ticker, showTicker, showPoole
               {zSigs.map(row => (
                 <div key={row.sig_id}
                   className={`px-2 py-0.5 flex items-center gap-2 border-t border-md-outline-var/60 text-xs
-                    ${row.count > 0 ? (row.sig_id === 20 ? 'text-gray-400' : 'text-red-300') : 'text-gray-600'}`}>
+                    ${row.count > 0 ? (row.sig_id === 20 ? 'text-md-on-surface-var' : 'text-red-300') : 'text-md-on-surface-var/70'}`}>
                   <span className="flex-1 font-mono font-semibold">{row.name}</span>
                   <span className="w-8 text-right">{row.count || ''}</span>
                   <span className="w-10 text-right">{row.count ? row.group_pct + '%' : ''}</span>
@@ -282,19 +282,19 @@ function LOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500 
         {pooled && <span className="text-[10px] font-normal opacity-70">{poolLabel}</span>}
       </div>
       <div className="border border-md-outline-var rounded-b-lg overflow-hidden">
-        <div className="px-3 py-2 bg-gray-900 border-b border-md-outline-var text-xs text-gray-400">
+        <div className="px-3 py-2 bg-md-surface-con border-b border-md-outline-var text-xs text-md-on-surface-var">
           <span className="font-mono text-cyan-400">{data.pattern || '—'}</span>
         </div>
-        <div className={`px-3 py-1.5 bg-gray-900 border-b border-md-outline-var text-xs flex items-center gap-2
-          ${data.total_matches >= 100 ? 'text-lime-500' : data.total_matches >= 30 ? 'text-yellow-500' : 'text-gray-500'}`}>
+        <div className={`px-3 py-1.5 bg-md-surface-con border-b border-md-outline-var text-xs flex items-center gap-2
+          ${data.total_matches >= 100 ? 'text-lime-500' : data.total_matches >= 30 ? 'text-yellow-500' : 'text-md-on-surface-var'}`}>
           <span>{data.total_matches} matches</span>
           {data.total_matches >= 100 && <span className="text-[9px] bg-lime-900/40 px-1 rounded">high confidence</span>}
           {data.total_matches >= 30 && data.total_matches < 100 && <span className="text-[9px] bg-yellow-900/40 px-1 rounded">moderate</span>}
-          {data.total_matches > 0 && data.total_matches < 30 && <span className="text-[9px] bg-gray-800 px-1 rounded">low</span>}
+          {data.total_matches > 0 && data.total_matches < 30 && <span className="text-[9px] bg-md-surface-high px-1 rounded">low</span>}
         </div>
         <table className="w-full text-sm">
           <thead>
-            <tr className="text-xs text-gray-500 bg-gray-900">
+            <tr className="text-xs text-md-on-surface-var bg-md-surface-con">
               <th className="px-3 py-1 text-left">#</th>
               <th className="px-3 py-1 text-left">L-Combo</th>
               <th className="px-3 py-1 text-right">Count</th>
@@ -314,9 +314,9 @@ function LOutcomeTable({ data, title, color, pooled = false, poolLabel = 'SP500 
                 className={`border-t border-md-outline-var ${
                   row.is_bullish === true  ? 'bg-green-950/30 text-green-300'
                   : row.is_bullish === false ? 'bg-red-950/30 text-red-300'
-                  : 'text-gray-400'
+                  : 'text-md-on-surface-var'
                 }`}>
-                <td className="px-3 py-1.5 text-gray-500">{i + 1}</td>
+                <td className="px-3 py-1.5 text-md-on-surface-var">{i + 1}</td>
                 <td className="px-3 py-1.5 font-mono font-semibold">
                   {row.l_combo}
                   {row.is_bullish === true  && <span className="ml-1 text-green-500">▲</span>}
@@ -371,23 +371,23 @@ function PooledStatusBar({ universe, interval, onBuildDone }) {
   const isRunning = job?.running || building
 
   return (
-    <div className="flex items-center gap-2 px-3 py-1.5 bg-gray-900/60 border-b border-md-outline-var text-xs">
-      <span className="text-gray-600">Pooled:</span>
+    <div className="flex items-center gap-2 px-3 py-1.5 bg-md-surface-con/60 border-b border-md-outline-var text-xs">
+      <span className="text-md-on-surface-var/70">Pooled:</span>
       {isRunning ? (
         <span className="text-violet-400 animate-pulse">
           ⚡ {job?.done ?? '…'}/{job?.total ?? '…'} tickers…
         </span>
       ) : data?.available ? (
-        <span className="text-gray-600">
+        <span className="text-md-on-surface-var/70">
           ✓ {data.ticker_count} tickers · {(data.tz_patterns + data.l_patterns).toLocaleString()} patterns
           {data.built_at && <span className="ml-1 text-gray-700">{new Date(data.built_at).toLocaleString()}</span>}
         </span>
       ) : (
-        <span className="text-gray-600">—</span>
+        <span className="text-md-on-surface-var/70">—</span>
       )}
       {!isRunning && (
         <button onClick={build}
-          className="ml-auto px-2 py-0.5 rounded bg-gray-800 hover:bg-violet-700 text-gray-500 hover:text-white text-xs transition-colors">
+          className="ml-auto px-2 py-0.5 rounded bg-md-surface-high hover:bg-violet-700 text-md-on-surface-var hover:text-white text-xs transition-colors">
           {data?.available ? '↺' : '⚡ Build'}
         </button>
       )}
@@ -495,18 +495,18 @@ export default function PredictorPanel({ ticker, tf }) {
             {TF_OPTS_PRED.map(t => (
               <button key={t} onClick={() => setLocalTf(t)}
                 className={`px-2 py-0.5 rounded text-xs font-medium transition-colors
-                  ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  ${localTf === t ? 'bg-blue-600 text-white' : 'text-md-on-surface-var hover:text-white'}`}>
                 {t.toUpperCase()}
               </button>
             ))}
           </div>
         </div>
         <div className="flex items-center gap-2">
-          {loading && <span className="text-xs text-gray-500 animate-pulse">loading…</span>}
+          {loading && <span className="text-xs text-md-on-surface-var animate-pulse">loading…</span>}
           {!loading && (
             <button onClick={() => { fetchTicker(); fetchPooled() }}
               title="Refresh predictions"
-              className="px-2 py-0.5 rounded text-xs bg-gray-800 text-gray-400 hover:text-white transition-colors">
+              className="px-2 py-0.5 rounded text-xs bg-md-surface-high text-md-on-surface-var hover:text-white transition-colors">
               ↺
             </button>
           )}
@@ -517,7 +517,7 @@ export default function PredictorPanel({ ticker, tf }) {
             {UNIVERSES_POOL.map(u => (
               <button key={u} onClick={() => setPoolUni(u)}
                 className={`px-2 py-0.5 rounded text-xs transition-colors
-                  ${poolUni === u ? 'bg-indigo-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${poolUni === u ? 'bg-indigo-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {u === 'sp500' ? 'SP500' : u === 'nasdaq' ? 'NASDAQ' : 'R2K'}
               </button>
             ))}
@@ -528,7 +528,7 @@ export default function PredictorPanel({ ticker, tf }) {
             {SOURCES.map(s => (
               <button key={s.key} onClick={() => setSource(s.key)}
                 className={`px-2 py-0.5 rounded text-xs transition-colors
-                  ${source === s.key ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                  ${source === s.key ? 'bg-blue-600 text-white' : 'text-md-on-surface-var hover:text-white'}`}>
                 {s.label}
               </button>
             ))}
@@ -538,12 +538,12 @@ export default function PredictorPanel({ ticker, tf }) {
           <div className="flex gap-0.5 border border-md-outline-var rounded p-0.5">
             <button onClick={() => setView('stats')}
               className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${view === 'stats' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white'}`}>
+                ${view === 'stats' ? 'bg-violet-700 text-white' : 'text-md-on-surface-var hover:text-white'}`}>
               Stats
             </button>
             <button onClick={() => setView('matrix')}
               className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${view === 'matrix' ? 'bg-violet-700 text-white' : 'text-gray-400 hover:text-white'}`}>
+                ${view === 'matrix' ? 'bg-violet-700 text-white' : 'text-md-on-surface-var hover:text-white'}`}>
               Matrix
             </button>
           </div>
@@ -563,11 +563,11 @@ export default function PredictorPanel({ ticker, tf }) {
             {[1, 2].map(o => (
               <button key={o} onClick={() => setMatrixOffset(o)}
                 className={`px-3 py-1 rounded text-xs font-medium transition-colors
-                  ${matrixOffset === o ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${matrixOffset === o ? 'bg-indigo-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 Bar +{o}
               </button>
             ))}
-            <span className="ml-2 text-[10px] text-gray-600 self-center">
+            <span className="ml-2 text-[10px] text-md-on-surface-var/70 self-center">
               % = how often each signal appears after the row signal
             </span>
           </div>
@@ -691,7 +691,7 @@ export default function PredictorPanel({ ticker, tf }) {
       )}  {/* end stats view */}
 
       {!ticker && (
-        <div className="pb-6 text-center text-gray-600 text-sm">Select a ticker</div>
+        <div className="pb-6 text-center text-md-on-surface-var/70 text-sm">Select a ticker</div>
       )}
     </div>
   )

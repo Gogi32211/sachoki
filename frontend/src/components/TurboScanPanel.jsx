@@ -75,14 +75,14 @@ const SIG_GROUPS = [
   { key: 'cw',  label: 'CW',  cls: 'text-yellow-300'  },
   { key: 'any_f', label: 'ANY F', cls: 'text-amber-300'   },
   { key: 'f1',   label: 'F1',   cls: 'text-orange-400'  },
-  { key: 'f2',   label: 'F2',   cls: 'text-gray-300'    },
+  { key: 'f2',   label: 'F2',   cls: 'text-md-on-surface'    },
   { key: 'f3',   label: 'F3',   cls: 'text-sky-300'     },
-  { key: 'f4',   label: 'F4',   cls: 'text-gray-300'    },
+  { key: 'f4',   label: 'F4',   cls: 'text-md-on-surface'    },
   { key: 'f5',   label: 'F5',   cls: 'text-cyan-400'    },
-  { key: 'f6',   label: 'F6',   cls: 'text-gray-300'    },
+  { key: 'f6',   label: 'F6',   cls: 'text-md-on-surface'    },
   { key: 'f7',   label: 'F7',   cls: 'text-green-400'   },
   { key: 'f8',   label: 'F8',   cls: 'text-blue-400'    },
-  { key: 'f9',   label: 'F9',   cls: 'text-gray-300'    },
+  { key: 'f9',   label: 'F9',   cls: 'text-md-on-surface'    },
   { key: 'f10',  label: 'F10',  cls: 'text-lime-400'    },
   { key: 'f11',  label: 'F11',  cls: 'text-fuchsia-400' },
   { key: 'g1',  label: 'G1',  cls: 'text-lime-300'    },
@@ -307,8 +307,8 @@ function scoreColor(s) {
   if (s >= 65) return 'text-lime-300 font-bold'
   if (s >= 50) return 'text-yellow-300 font-semibold'
   if (s >= 35) return 'text-blue-300'
-  if (s >= 20) return 'text-gray-300'
-  return 'text-gray-600'
+  if (s >= 20) return 'text-md-on-surface'
+  return 'text-md-on-surface-var/70'
 }
 
 function scoreBg(s) {
@@ -327,7 +327,7 @@ function betaZoneCls(zone) {
     case 'BUILDING':    return 'text-yellow-400'
     case 'EXTENDED':    return 'text-amber-400'
     case 'SHORT_WATCH': return 'text-red-400'
-    default:            return 'text-gray-600'
+    default:            return 'text-md-on-surface-var/70'
   }
 }
 
@@ -359,7 +359,7 @@ function ctxTokCls(tok) {
   if (tok === 'BCT')                  return 'bg-blue-900 text-blue-200 font-semibold'
   if (tok === 'SQB')                  return 'bg-blue-900 text-blue-300'
   if (tok === 'WRC' || tok === 'F8C') return 'bg-slate-700 text-slate-200'
-  return 'bg-gray-800 text-gray-400'
+  return 'bg-md-surface-high text-md-on-surface-var'
 }
 
 // ── Active context tokens from a turbo row (priority order) ───────────────────
@@ -380,7 +380,7 @@ function scoreCls(n) {
   if (n >= 100) return 'text-lime-300 font-bold'
   if (n >= 80)  return 'text-green-300 font-semibold'
   if (n >= 60)  return 'text-teal-300'
-  return 'text-gray-400'
+  return 'text-md-on-surface-var'
 }
 
 // ── Engine family membership (for cross-engine diversity scoring) ─────────────
@@ -591,28 +591,28 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
   return (
     <div
-      className="fixed z-50 bg-gray-900 border border-gray-700 rounded-lg shadow-2xl text-xs text-gray-100 pointer-events-none"
+      className="fixed z-50 bg-md-surface-con border border-md-outline-var rounded-lg shadow-2xl text-xs text-md-on-surface pointer-events-none"
       style={{ left, top, width: POPUP_W }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-gray-700">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-md-outline-var">
         <div className="flex items-center gap-3 min-w-0">
           <span className="font-mono font-bold text-blue-300 text-base shrink-0">{row.ticker}</span>
-          {row.vol_bucket && <span className="text-gray-500 text-sm shrink-0">{row.vol_bucket}</span>}
+          {row.vol_bucket && <span className="text-md-on-surface-var text-sm shrink-0">{row.vol_bucket}</span>}
           {row.tz_sig && (
             <span className={`font-mono font-semibold text-sm shrink-0 ${TZ_STRONG.has(row.tz_sig) ? 'text-lime-300' : TZ_BEAR.has(row.tz_sig) ? 'text-red-400' : 'text-blue-300'}`}>
               {row.tz_sig}
             </span>
           )}
           {info?.name && info.name !== row.ticker && (
-            <span className="text-gray-300 text-sm truncate">{info.name}</span>
+            <span className="text-md-on-surface text-sm truncate">{info.name}</span>
           )}
           {info?.sector && (
-            <span className="text-gray-500 text-xs shrink-0 bg-gray-800 px-1.5 py-0.5 rounded">{info.sector}</span>
+            <span className="text-md-on-surface-var text-xs shrink-0 bg-md-surface-high px-1.5 py-0.5 rounded">{info.sector}</span>
           )}
         </div>
         <div className="text-right shrink-0 ml-3">
-          <span className="font-mono text-gray-100 text-base">${fmt(row.last_price)}</span>
+          <span className="font-mono text-md-on-surface text-base">${fmt(row.last_price)}</span>
           <span className={`ml-2 font-mono text-sm ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
             {chg >= 0 ? '+' : ''}{fmt(chg)}%
           </span>
@@ -620,9 +620,9 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-gray-800 text-gray-400">
-        <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.rsi, 0)}</span></span>
-        <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.cci, 0)}</span></span>
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-md-outline-var text-md-on-surface-var">
+        <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.rsi, 0)}</span></span>
+        <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
         {row.avg_vol > 0 && (
           <span className="ml-auto">
@@ -635,14 +635,14 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       <div className="relative">
         <div ref={containerRef} style={{ width: CHART_W, height: CHART_H }} />
         {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-gray-900/70 text-gray-500">
+          <div className="absolute inset-0 flex items-center justify-center bg-md-surface-con/70 text-md-on-surface-var">
             Loading…
           </div>
         )}
       </div>
 
       {/* Signal summary */}
-      <div className="px-4 py-2 text-gray-400 text-xs truncate border-t border-gray-800">
+      <div className="px-4 py-2 text-md-on-surface-var text-xs truncate border-t border-md-outline-var">
         {scoreReason(row)}
       </div>
     </div>
@@ -1091,19 +1091,19 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* ── Row 0: Universe selector ── */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/50">
-        <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
+        <span className="text-md-on-surface-var text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
             onClick={() => { setUniverse(u.key); setAllResults([]); setLastScan(null); try { localStorage.setItem('sachoki_turbo_uni', u.key) } catch {} }}
             title={u.desc}
             className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
               ${universe === u.key
-                ? `${u.cls} border-current bg-gray-800`
-                : 'text-gray-500 border-gray-700 hover:text-gray-300 hover:border-gray-500'}`}>
+                ? `${u.cls} border-current bg-md-surface-high`
+                : 'text-md-on-surface-var border-md-outline-var hover:text-md-on-surface hover:border-gray-500'}`}>
             {u.label}
           </button>
         ))}
-        <span className="text-gray-600 text-xs ml-1">
+        <span className="text-md-on-surface-var/70 text-xs ml-1">
           {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') && massiveReady === false && <span className="text-red-400">· MASSIVE_API_KEY not set (will use fallback list)</span>}
           {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') && massiveReady === true  && <span className="text-green-500">· Massive API ready</span>}
         </span>
@@ -1113,12 +1113,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
       <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-md-outline-var">
 
         {/* TF selector — cached TFs show a green dot */}
-        <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
+        <div className="flex gap-0.5 border border-md-outline-var rounded p-0.5">
           {TF_OPTS.map(t => (
             <button key={t} onClick={() => { setLocalTf(t); setLastScan(null); try { localStorage.setItem('sachoki_turbo_tf', t) } catch {} }}
               title={tfCached[t] ? `${t.toUpperCase()} — cached (instant)` : `${t.toUpperCase()} — no cache, scan first`}
               className={`relative px-2 py-0.5 rounded text-xs font-medium transition-colors
-                ${localTf === t ? 'bg-blue-600 text-white' : 'text-gray-400 hover:text-white'}`}>
+                ${localTf === t ? 'bg-blue-600 text-white' : 'text-md-on-surface-var hover:text-white'}`}>
               {t.toUpperCase()}
               {tfCached[t] && (
                 <span className="absolute -top-0.5 -right-0.5 w-1.5 h-1.5 rounded-full bg-green-400" />
@@ -1130,7 +1130,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {/* Scan button */}
         <button onClick={scan} disabled={scanning}
           className={`px-3 py-1 rounded text-xs font-semibold transition-colors
-            ${scanning ? 'bg-gray-700 text-gray-400 cursor-not-allowed'
+            ${scanning ? 'bg-gray-700 text-md-on-surface-var cursor-not-allowed'
                        : 'bg-violet-600 hover:bg-violet-500 text-white'}`}>
           {scanning
             ? <span className="animate-pulse">⚡ Scanning…</span>
@@ -1143,7 +1143,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
             ${partialDay
               ? 'border-amber-400 text-amber-300 bg-amber-900/30'
-              : 'border-gray-700 text-gray-500 hover:text-gray-300 hover:border-gray-500'}`}>
+              : 'border-md-outline-var text-md-on-surface-var hover:text-md-on-surface hover:border-gray-500'}`}>
           ~Preview
         </button>
 
@@ -1154,10 +1154,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
             ${exported
               ? 'border-lime-500 text-lime-300 bg-lime-900/30'
               : results.length === 0
-                ? 'border-gray-700 text-gray-600 cursor-not-allowed'
+                ? 'border-md-outline-var text-md-on-surface-var/70 cursor-not-allowed'
                 : pickedTickers.size > 0
                   ? 'border-yellow-500 text-yellow-300 bg-yellow-900/20 hover:border-yellow-400'
-                  : 'border-gray-600 text-gray-300 hover:border-gray-400 hover:text-white'}`}>
+                  : 'border-gray-600 text-md-on-surface hover:border-gray-400 hover:text-white'}`}>
           {exported
             ? '✓ Copied'
             : pickedTickers.size > 0
@@ -1167,7 +1167,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
         {/* Clear selection */}
         {pickedTickers.size > 0 && (
           <button onClick={() => setPickedTickers(new Set())}
-            className="px-2 py-0.5 rounded text-xs text-gray-500 hover:text-red-400 transition-colors"
+            className="px-2 py-0.5 rounded text-xs text-md-on-surface-var hover:text-red-400 transition-colors"
             title="Clear row selection">
             ✕ deselect
           </button>
@@ -1178,7 +1178,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           {DIR_OPTS.map(d => (
             <button key={d.key} onClick={() => setDirection(d.key)}
               className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${direction === d.key ? 'bg-indigo-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                ${direction === d.key ? 'bg-indigo-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               {d.label}
             </button>
           ))}
@@ -1207,7 +1207,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   })
                 }}
                 className={`px-2 py-0.5 rounded text-xs transition-colors
-                  ${active ? 'bg-amber-600 text-black font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+                  ${active ? 'bg-amber-600 text-black font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {b.label}
               </button>
             )
@@ -1216,11 +1216,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
         {/* N= lookback selector — client-side, no rescan needed */}
         <div className="flex items-center gap-0.5 ml-1" title="Signal lookback window — no rescan needed">
-          <span className="text-gray-500 text-xs mr-0.5">N=</span>
+          <span className="text-md-on-surface-var text-xs mr-0.5">N=</span>
           {[1, 3, 5, 10].map(n => (
             <button key={n} onClick={() => setLookbackN(n)}
               className={`px-2 py-0.5 rounded text-xs transition-colors
-                ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                ${lookbackN === n ? 'bg-indigo-700 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}
               title={n === 1 ? 'Current bar only' : `Signal fired in last ${n} bars`}>
               {n}d
             </button>
@@ -1229,7 +1229,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
         {/* Volume filter */}
         <div className="flex items-center gap-0.5 ml-1" title="Avg daily volume filter">
-          <span className="text-gray-500 text-xs mr-0.5">Vol</span>
+          <span className="text-md-on-surface-var text-xs mr-0.5">Vol</span>
           {[
             { label: 'All',   min: 0,         max: 0         },
             { label: '<100K', min: 0,         max: 100_000   },
@@ -1243,7 +1243,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               <button key={label}
                 onClick={() => { setVolMin(min); setVolMax(max) }}
                 className={`px-2 py-0.5 rounded text-xs transition-colors
-                  ${active ? 'bg-cyan-700 text-white font-semibold' : 'bg-gray-800 text-gray-400 hover:text-white'}`}
+                  ${active ? 'bg-cyan-700 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}
                 title={label === 'All' ? 'No volume filter' : label === '<100K' ? 'Avg volume < 100K' : `Avg volume ≥ ${min.toLocaleString()}`}>
                 {label}
               </button>
@@ -1252,13 +1252,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
         </div>
 
         {/* Stats + stale warning */}
-        <span className="ml-auto text-gray-600 shrink-0 flex items-center gap-1.5">
+        <span className="ml-auto text-md-on-surface-var/70 shrink-0 flex items-center gap-1.5">
           {partialDay && <span className="text-amber-400 font-medium">~preview</span>}
           {results.length} / {allResults.length}
           {lastScan && (() => {
             const ageH = (Date.now() - new Date(lastScan).getTime()) / 3_600_000
             return (
-              <span className={ageH > 2 ? 'text-yellow-500' : 'text-gray-600'}>
+              <span className={ageH > 2 ? 'text-yellow-500' : 'text-md-on-surface-var/70'}>
                 {ageH > 2 ? '⚠ ' : ''}{lastScan.slice(0,16).replace('T',' ')}
                 {ageH > 2 && ` (${Math.floor(ageH)}h ago)`}
               </span>
@@ -1269,9 +1269,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/30">
-        <span className="text-gray-500 text-xs shrink-0 mr-0.5">SIG</span>
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
         <button onClick={() => setSelSigs(new Set())}
-          className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+          className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
           All
         </button>
         {SIG_GROUPS.map((s, i) =>
@@ -1280,7 +1280,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
             : (
               <button key={s.key} onClick={() => toggleSig(s.key)}
                 className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-                  ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+                  ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {s.label}
               </button>
             )
@@ -1295,9 +1295,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* ── Row 3: Sector filter ── */}
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Sector</span>
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
         {[
-          { label: 'All',  val: '',            cls: 'text-gray-400' },
+          { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
           { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
           { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
           { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
@@ -1314,12 +1314,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
             className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
               ${secFilter === s.val
                 ? `${s.cls} bg-gray-700 font-semibold`
-                : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
             {s.label}
           </button>
         ))}
         {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
-          <span className="ml-1 text-gray-600 text-xs animate-pulse">
+          <span className="ml-1 text-md-on-surface-var/70 text-xs animate-pulse">
             — loading sectors…
           </span>
         )}
@@ -1327,10 +1327,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* ── Row 4: RTB Phase filter ── */}
       <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
         {[
-          { label: 'All',    val: '', cls: 'text-gray-400' },
-          { label: 'A — Build',    val: 'A', cls: 'text-gray-300',
+          { label: 'All',    val: '', cls: 'text-md-on-surface-var' },
+          { label: 'A — Build',    val: 'A', cls: 'text-md-on-surface',
             title: 'Build phase: base forming, drying volume, accumulation — no turn yet' },
           { label: 'B — Turn',     val: 'B', cls: 'text-sky-300',
             title: 'Turn phase: first real reversal bar, momentum changed — not yet breakout-ready' },
@@ -1344,27 +1344,27 @@ export default function TurboScanPanel({ onSelectTicker }) {
             className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
               ${rtbPhase === s.val
                 ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
-                : 'bg-gray-800 text-gray-500 hover:text-white'}`}>
+                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
             {s.label}
           </button>
         ))}
         {rtbPhase && (
-          <span className="ml-2 text-gray-600 text-xs">
+          <span className="ml-2 text-md-on-surface-var/70 text-xs">
             {results.length} ticker{results.length !== 1 ? 's' : ''}
           </span>
         )}
       </div>
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
-        <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Profile</span>
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Profile</span>
         <button
           onClick={() => setSweetSpotFilter(f => !f)}
           title="Show only tickers in sweet_spot_active=true AND late_warning=false. Sorted by profile_score DESC, then turbo_score DESC."
           className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             sweetSpotFilter
               ? 'bg-green-900/60 text-green-300 border-green-600 ring-1 ring-green-500'
-              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           ⭐ Sweet Spot
         </button>
@@ -1374,7 +1374,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
           className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             buildingFilter
               ? 'bg-yellow-900/60 text-yellow-300 border-yellow-600 ring-1 ring-yellow-500'
-              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           ↑ Building
         </button>
@@ -1383,13 +1383,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
           title="Show only tickers with profile_category = WATCH. Sorted by profile_score DESC."
           className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             watchFilter
-              ? 'bg-gray-700 text-gray-300 border-gray-500 ring-1 ring-gray-400'
-              : 'bg-gray-800 text-gray-500 border-gray-700 hover:text-white'
+              ? 'bg-gray-700 text-md-on-surface border-gray-500 ring-1 ring-gray-400'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           👁 Watch
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
-          <span className="text-xs text-gray-500">
+          <span className="text-xs text-md-on-surface-var">
             {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score
           </span>
         )}
@@ -1399,7 +1399,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
             ✕ clear
           </button>
         )}
-        <span className="ml-auto text-gray-600 text-xs">
+        <span className="ml-auto text-md-on-surface-var/70 text-xs">
           Profile score is additive context only — does not replace canonical score
           {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') &&
             <span className="ml-1 text-amber-600"> · NASDAQ profile is experimental</span>}
@@ -1443,7 +1443,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     else setPickedTickers(new Set())
                   }} />
               </th>
-              <th className="px-1 py-1.5 w-5 font-medium text-gray-500" title="Watchlist">★</th>
+              <th className="px-1 py-1.5 w-5 font-medium text-md-on-surface-var" title="Watchlist">★</th>
               <SortTh col="ticker">Ticker</SortTh>
               <SortTh col="turbo_score" cls="text-center">
                 Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
@@ -1494,7 +1494,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                   <div className="flex items-center gap-1">
                     <span>{r.ticker}</span>
                     {r.vol_bucket && (
-                      <span className="text-gray-600 font-normal">{r.vol_bucket}</span>
+                      <span className="text-md-on-surface-var/70 font-normal">{r.vol_bucket}</span>
                     )}
                     {r.data_source === 'yfinance' && (
                       <span
@@ -1507,7 +1507,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                       rel="noopener noreferrer"
                       title={`Open ${r.ticker} on TradingView`}
                       onClick={e => e.stopPropagation()}
-                      className="text-gray-600 hover:text-blue-400 transition-colors text-[10px] leading-none">
+                      className="text-md-on-surface-var/70 hover:text-blue-400 transition-colors text-[10px] leading-none">
                       ↗
                     </a>
                   </div>
@@ -1523,7 +1523,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                       </div>
                     )
                   })()}
-                  <div className="text-[9px] text-gray-600 leading-tight mt-0.5 max-w-[72px] truncate">
+                  <div className="text-[9px] text-md-on-surface-var/70 leading-tight mt-0.5 max-w-[72px] truncate">
                     {scoreReason(r)}
                   </div>
                 </td>
@@ -1549,10 +1549,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
                       <span className={`inline-block font-bold text-[10px] px-1 rounded ${
                         r.rtb_phase === 'C' ? 'bg-lime-700/80 text-lime-100 ring-1 ring-lime-400' :
                         r.rtb_phase === 'B' ? 'bg-sky-800/80  text-sky-200  ring-1 ring-sky-500' :
-                        r.rtb_phase === 'A' ? 'bg-gray-700    text-gray-300' :
+                        r.rtb_phase === 'A' ? 'bg-gray-700    text-md-on-surface' :
                         /* D */ 'bg-orange-800/70 text-orange-200'
                       }`}>{r.rtb_phase}</span>
-                      <div className="font-mono text-[10px] text-gray-400 mt-0.5">{(r.rtb_total ?? 0).toFixed(0)}</div>
+                      <div className="font-mono text-[10px] text-md-on-surface-var mt-0.5">{(r.rtb_total ?? 0).toFixed(0)}</div>
                     </div>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
@@ -1660,14 +1660,14 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {/* F1-F11 signals */}
                     {r.any_f ? <Badge label="ANY F" cls="bg-amber-700/70 text-amber-200 ring-1 ring-amber-400" /> : null}
                     {r.f1   ? <Badge label="F1"  cls="bg-orange-800/60 text-orange-200" /> : null}
-                    {r.f2   ? <Badge label="F2"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.f2   ? <Badge label="F2"  cls="bg-gray-700 text-md-on-surface" /> : null}
                     {r.f3   ? <Badge label="F3"  cls="bg-sky-800/60 text-sky-200" /> : null}
-                    {r.f4   ? <Badge label="F4"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.f4   ? <Badge label="F4"  cls="bg-gray-700 text-md-on-surface" /> : null}
                     {r.f5   ? <Badge label="F5"  cls="bg-cyan-800/60 text-cyan-200" /> : null}
-                    {r.f6   ? <Badge label="F6"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.f6   ? <Badge label="F6"  cls="bg-gray-700 text-md-on-surface" /> : null}
                     {r.f7   ? <Badge label="F7"  cls="bg-green-800/60 text-green-200" /> : null}
                     {r.f8   ? <Badge label="F8"  cls="bg-blue-800/60 text-blue-200" /> : null}
-                    {r.f9   ? <Badge label="F9"  cls="bg-gray-700 text-gray-200" /> : null}
+                    {r.f9   ? <Badge label="F9"  cls="bg-gray-700 text-md-on-surface" /> : null}
                     {r.f10  ? <Badge label="F10" cls="bg-lime-800/60 text-lime-200" /> : null}
                     {r.f11  ? <Badge label="F11" cls="bg-fuchsia-800/60 text-fuchsia-200" /> : null}
                     {/* G signals */}
@@ -1766,7 +1766,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 </td>
 
                 {/* Profile Score */}
-                <td className="px-2 py-1 text-center font-mono text-xs text-gray-400"
+                <td className="px-2 py-1 text-center font-mono text-xs text-md-on-surface-var"
                   title={r.matched_profile_pairs?.length ? `Pairs: ${r.matched_profile_pairs.join(', ')}` : r.profile_name}>
                   {r.profile_score != null ? r.profile_score : '—'}
                 </td>
@@ -1777,9 +1777,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     const cfg = {
                       SWEET_SPOT: { bg: 'bg-green-900/60', text: 'text-green-300', border: 'border-green-700/60', icon: '⭐' },
                       BUILDING:   { bg: 'bg-yellow-900/40', text: 'text-yellow-300', border: 'border-yellow-700/40', icon: '↑' },
-                      WATCH:      { bg: 'bg-gray-800/60',   text: 'text-gray-500',  border: 'border-gray-700/40',  icon: '' },
+                      WATCH:      { bg: 'bg-md-surface-high/60',   text: 'text-md-on-surface-var',  border: 'border-md-outline-var/40',  icon: '' },
                       LATE:       { bg: 'bg-amber-900/50',  text: 'text-amber-300', border: 'border-amber-700/60', icon: '⚠' },
-                    }[r.profile_category] || { bg: 'bg-gray-800', text: 'text-gray-500', border: 'border-gray-700', icon: '' }
+                    }[r.profile_category] || { bg: 'bg-md-surface-high', text: 'text-md-on-surface-var', border: 'border-md-outline-var', icon: '' }
                     return (
                       <span className={`text-xs px-1.5 py-0.5 rounded border font-medium ${cfg.bg} ${cfg.text} ${cfg.border}`}
                         title={`Profile: ${r.profile_name}${r.profile_experimental ? ' (experimental)' : ''}${r.matched_profile_signals?.length ? `\nSignals: ${r.matched_profile_signals.join(', ')}` : ''}`}>
@@ -1791,18 +1791,18 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
                 {/* RSI */}
                 <td className={`px-2 py-1 text-center font-mono text-xs
-                  ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 30 ? 'text-lime-400' : 'text-gray-400'}`}>
+                  ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 30 ? 'text-lime-400' : 'text-md-on-surface-var'}`}>
                   {r.rsi != null ? fmt(r.rsi, 0) : '—'}
                 </td>
 
                 {/* CCI */}
                 <td className={`px-2 py-1 text-center font-mono text-xs
-                  ${r.cci >= 100 ? 'text-lime-400' : r.cci <= -100 ? 'text-red-400' : 'text-gray-400'}`}>
+                  ${r.cci >= 100 ? 'text-lime-400' : r.cci <= -100 ? 'text-red-400' : 'text-md-on-surface-var'}`}>
                   {r.cci != null ? fmt(r.cci, 0) : '—'}
                 </td>
 
                 {/* Price */}
-                <td className="px-2 py-1 text-right font-mono text-gray-200">
+                <td className="px-2 py-1 text-right font-mono text-md-on-surface">
                   ${fmt(r.last_price)}
                 </td>
 
@@ -1810,7 +1810,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 <td className={`px-2 py-1 text-right font-mono ${r.change_pct >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
                   {r.change_pct >= 0 ? '+' : ''}{fmt(r.change_pct)}%
                   {r.avg_vol > 0 && (
-                    <span className="ml-1 text-gray-600 font-normal text-xs">
+                    <span className="ml-1 text-md-on-surface-var/70 font-normal text-xs">
                       {r.avg_vol >= 1_000_000
                         ? `${(r.avg_vol/1_000_000).toFixed(1)}M`
                         : r.avg_vol >= 1_000
@@ -1835,10 +1835,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
                         WAVE_1:           'bg-green-900/50 text-green-300 border-green-600/60',
                         WAVE_2_SETUP:     'bg-teal-900/40 text-teal-300 border-teal-700/50',
                         WAVE_3_SETUP:     'bg-cyan-900/40 text-cyan-300 border-cyan-700/50',
-                        POST_MONITOR:     'bg-gray-800/60 text-gray-400 border-gray-600/40',
-                        EXTENDED_MONITOR: 'bg-gray-900/60 text-gray-500 border-gray-700/30',
+                        POST_MONITOR:     'bg-md-surface-high/60 text-md-on-surface-var border-gray-600/40',
+                        EXTENDED_MONITOR: 'bg-md-surface-con/60 text-md-on-surface-var border-md-outline-var/30',
                       }
-                      const colorCls = (phaseColors[phase] || 'bg-gray-800/40 text-gray-400 border-gray-600/40') +
+                      const colorCls = (phaseColors[phase] || 'bg-md-surface-high/40 text-md-on-surface-var border-gray-600/40') +
                         (heat >= 6 ? ' ring-1 ring-yellow-500/40' : '')
                       const tooltip = [
                         `Split: ${r.split_date}`,
@@ -1855,7 +1855,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                           title={tooltip}>
                           {r.split_ratio}
                           <span className="ml-1 font-normal opacity-80">{wave}</span>
-                          <span className="ml-1 text-gray-400 font-normal">{dLabel}</span>
+                          <span className="ml-1 text-md-on-surface-var font-normal">{dLabel}</span>
                         </span>
                       )
                     })() : '—'}

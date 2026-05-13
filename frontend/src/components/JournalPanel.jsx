@@ -49,7 +49,7 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
       <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
         <div className="flex items-center gap-3">
           <span className="font-semibold text-sm text-white">Journal</span>
-          <span className="text-xs text-gray-500">{journal.length} tickers</span>
+          <span className="text-xs text-md-on-surface-var">{journal.length} tickers</span>
         </div>
         {journal.length > 0 && (
           <div className="flex items-center gap-2">
@@ -62,7 +62,7 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
             </button>
             <button
               onClick={handleExportCSV}
-              className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-200"
+              className="text-xs px-3 py-1 bg-gray-700 hover:bg-gray-600 rounded text-md-on-surface"
               title="Export full journal as CSV"
             >
               CSV
@@ -80,7 +80,7 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-md-outline-var sticky top-0 bg-gray-900">
+              <tr className="text-md-on-surface-var border-b border-md-outline-var sticky top-0 bg-md-surface-con">
                 <th className="text-left px-3 py-2">Ticker</th>
                 <th className="text-left px-2 py-2">Source</th>
                 <th className="text-left px-2 py-2 hidden sm:table-cell">Signals</th>
@@ -102,17 +102,17 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
                     </button>
                   </td>
                   <td className="px-2 py-2">
-                    <span className={`font-mono ${SOURCE_COLORS[entry.source] || 'text-gray-400'}`}>
+                    <span className={`font-mono ${SOURCE_COLORS[entry.source] || 'text-md-on-surface-var'}`}>
                       {entry.source}
                     </span>
                   </td>
-                  <td className="px-2 py-2 text-gray-400 hidden sm:table-cell max-w-[160px] truncate">
+                  <td className="px-2 py-2 text-md-on-surface-var hidden sm:table-cell max-w-[160px] truncate">
                     {entry.signals || entry.score || '—'}
                   </td>
-                  <td className="text-right px-2 py-2 text-gray-300 font-mono hidden md:table-cell">
+                  <td className="text-right px-2 py-2 text-md-on-surface font-mono hidden md:table-cell">
                     {entry.price ? `$${Number(entry.price).toFixed(2)}` : '—'}
                   </td>
-                  <td className="px-2 py-2 text-gray-500 hidden md:table-cell whitespace-nowrap">
+                  <td className="px-2 py-2 text-md-on-surface-var hidden md:table-cell whitespace-nowrap">
                     {fmtDate(entry.addedAt)}
                   </td>
                   <td className="px-2 py-1.5">
@@ -123,7 +123,7 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
                           value={editNote}
                           onChange={e => setEditNote(e.target.value)}
                           onKeyDown={e => { if (e.key === 'Enter') saveEdit(); if (e.key === 'Escape') setEditingId(null) }}
-                          className="w-full bg-gray-800 text-gray-200 border border-gray-600 rounded px-1.5 py-0.5 text-xs outline-none"
+                          className="w-full bg-md-surface-high text-md-on-surface border border-gray-600 rounded px-1.5 py-0.5 text-xs outline-none"
                           placeholder="Add note…"
                         />
                         <button onClick={saveEdit} className="text-green-400 hover:text-green-300 px-1">✓</button>
@@ -131,17 +131,17 @@ export default function JournalPanel({ journal, onRemove, onUpdateNote, onSelect
                     ) : (
                       <button
                         onClick={() => startEdit(entry)}
-                        className="text-gray-500 hover:text-gray-300 text-left w-full truncate max-w-[120px]"
+                        className="text-md-on-surface-var hover:text-md-on-surface text-left w-full truncate max-w-[120px]"
                         title="Click to edit note"
                       >
-                        {entry.note || <span className="italic text-gray-600">add note…</span>}
+                        {entry.note || <span className="italic text-md-on-surface-var/70">add note…</span>}
                       </button>
                     )}
                   </td>
                   <td className="px-2 py-2 text-right">
                     <button
                       onClick={() => onRemove(entry.id)}
-                      className="text-gray-600 hover:text-red-400 transition-colors px-1"
+                      className="text-md-on-surface-var/70 hover:text-red-400 transition-colors px-1"
                       title="Remove from journal"
                     >
                       ✕
