@@ -26,6 +26,7 @@ import json
 import logging
 import time
 import traceback
+from concurrent.futures import ThreadPoolExecutor, as_completed
 from datetime import date, datetime, timedelta
 from typing import Any
 
@@ -222,6 +223,109 @@ def _resolve_scan_dates(payload: dict, sample_bars: list[dict]) -> list[str]:
     return [d for d in all_bar_dates if start <= d <= end]
 
 
+# ─── Per-ticker worker (pure compute, no DB) ──────────────────────────────────
+
+_WORKERS = 8  # parallel ticker fetch + extract; DB writes stay serialized
+
+
+def _process_ticker_for_replay(
+    ticker: str,
+    *,
+    scan_dates: list[str],
+    is_gt5: bool,
+    min_price: float | None,
+    min_volume: int | None,
+    min_dollar_volume: float | None,
+    lookback_bars: int,
+    run_id: int,
+    universe: str,
+    spy_bars: list[dict],
+    qqq_bars: list[dict],
+) -> tuple[list[dict], list[tuple[int, list[dict]]], dict]:
+    """Fetch bars, extract events, compute outcomes for one ticker. No DB.
+
+    Returns (event_rows, [(event_offset_within_returned_list, outcomes), ...], counters).
+    """
+    from main import api_bar_signals
+    from signal_event_extractor import extract_events
+    from signal_outcome_engine import compute_outcomes
+
+    counters = {
+        "unique_symbol_dates": set(),
+        "tz_events":          0,
+        "combo_events":       0,
+    }
+
+    try:
+        bars = api_bar_signals(ticker, "1d", lookback_bars)
+    except Exception as fetch_err:
+        log.debug("signal_replay: bar fetch failed for %s: %s", ticker, fetch_err)
+        return ([], [], counters)
+
+    if not bars or len(bars) < 60:
+        return ([], [], counters)
+
+    date_to_idx: dict[str, int] = {}
+    for i, b in enumerate(bars):
+        d = _normalize_date(b.get("date"))
+        if d:
+            date_to_idx[d] = i
+
+    event_rows: list[dict] = []
+    outcome_offsets: list[tuple[int, list[dict]]] = []
+
+    for scan_date in scan_dates:
+        idx = date_to_idx.get(scan_date)
+        if idx is None or idx < 30:
+            continue
+
+        if is_gt5:
+            close = bars[idx].get("close")
+            if close is None or close < 5:
+                continue
+
+        bar_close  = float(bars[idx].get("close")  or 0)
+        bar_volume = float(bars[idx].get("volume") or 0)
+        if min_price is not None and bar_close < min_price:
+            continue
+        if min_volume is not None and bar_volume < min_volume:
+            continue
+        if min_dollar_volume is not None and (bar_close * bar_volume) < min_dollar_volume:
+            continue
+
+        events = extract_events(
+            bars, idx,
+            ticker=ticker, universe=universe, replay_run_id=run_id,
+        )
+        if not events:
+            continue
+
+        future_bars = bars[idx + 1 : idx + 22]
+        spy_future  = _future_window(spy_bars, scan_date, 22)
+        qqq_future  = _future_window(qqq_bars, scan_date, 22)
+
+        base_offset = len(event_rows)
+        for ev in events:
+            event_rows.append(ev)
+            counters["unique_symbol_dates"].add((ticker, scan_date))
+            ev_sig  = ev.get("event_signal") or ""
+            sig_fam = ev.get("event_signal_family") or ""
+            if ev_sig.startswith(("T", "Z")):
+                counters["tz_events"] += 1
+            elif sig_fam in ("COMBO", "L", "F", "G", "B", "EMA"):
+                counters["combo_events"] += 1
+
+        for i, ev in enumerate(events):
+            ocs = compute_outcomes(
+                ev, future_bars,
+                spy_future=spy_future, qqq_future=qqq_future,
+                replay_run_id=run_id,
+            )
+            outcome_offsets.append((base_offset + i, ocs))
+
+    return (event_rows, outcome_offsets, counters)
+
+
 # ─── Main run loop ────────────────────────────────────────────────────────────
 
 def run_signal_replay(run_id: int, payload: dict) -> None:
@@ -289,118 +393,77 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         unique_tz_events_count:   int               = 0
         unique_combo_events_count: int              = 0
 
-        for sym_idx, ticker in enumerate(tickers):
-            # ── Pause: spin until resumed ──────────────────────────────────
-            while _state.get("pause_requested"):
-                _set(elapsed_secs=round(time.time() - t0, 1))
-                time.sleep(0.5)
+        # Parallel ticker processing: 8 workers fetch + extract concurrently.
+        # DB writes stay in this (main) thread to avoid lock contention.
+        worker_kwargs = dict(
+            scan_dates=scan_dates, is_gt5=is_gt5,
+            min_price=min_price, min_volume=min_volume,
+            min_dollar_volume=min_dollar_volume,
+            lookback_bars=lookback_bars, run_id=run_id,
+            universe=universe, spy_bars=spy_bars, qqq_bars=qqq_bars,
+        )
+        completed_symbols = 0
+        log.info("signal_replay: starting parallel processing with %d workers", _WORKERS)
 
-            # ── Stop: break out of loop ────────────────────────────────────
-            if _state.get("stop_requested"):
-                log.info("signal_replay: stop requested at symbol %d/%d", sym_idx, len(tickers))
-                break
+        with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
+            futures = {
+                pool.submit(_process_ticker_for_replay, t, **worker_kwargs): t
+                for t in tickers
+            }
 
-            try:
-                bars = api_bar_signals(ticker, "1d", lookback_bars)
-            except Exception as fetch_err:
-                log.debug("signal_replay: bar fetch failed for %s: %s", ticker, fetch_err)
-                _set(symbols_completed=sym_idx + 1,
-                     elapsed_secs=round(time.time() - t0, 1))
-                continue
+            for fut in as_completed(futures):
+                # ── Pause: hold this result until resumed ─────────────────
+                while _state.get("pause_requested"):
+                    _set(elapsed_secs=round(time.time() - t0, 1))
+                    time.sleep(0.5)
 
-            if not bars or len(bars) < 60:
-                _set(symbols_completed=sym_idx + 1,
-                     elapsed_secs=round(time.time() - t0, 1))
-                continue
+                # ── Stop: cancel pending and exit ─────────────────────────
+                if _state.get("stop_requested"):
+                    log.info("signal_replay: stop requested; cancelling pending futures")
+                    for f in futures:
+                        if not f.done():
+                            f.cancel()
+                    break
 
-            # Map date → index for fast lookup
-            date_to_idx: dict[str, int] = {}
-            for i, b in enumerate(bars):
-                d = _normalize_date(b.get("date"))
-                if d:
-                    date_to_idx[d] = i
+                ticker = futures[fut]
+                try:
+                    event_rows, outcome_offsets, counters = fut.result()
+                except Exception as exc:
+                    log.debug("signal_replay: %s worker raised: %s", ticker, exc)
+                    event_rows, outcome_offsets, counters = [], [], {
+                        "unique_symbol_dates": set(),
+                        "tz_events": 0, "combo_events": 0,
+                    }
 
-            event_rows_for_ticker: list[dict] = []
-            outcome_rows_for_ticker: list[tuple[int, dict]] = []  # (event_idx_within_batch, oc)
-
-            for scan_date in scan_dates:
-                idx = date_to_idx.get(scan_date)
-                if idx is None or idx < 30:
-                    continue
-
-                # nasdaq_gt5 historical price filter (leak-free: uses scan_date close)
-                if is_gt5:
-                    close = bars[idx].get("close")
-                    if close is None or close < 5:
-                        continue
-
-                # Enforce RunRequest filters (min_price, min_volume, min_dollar_volume)
-                bar_close  = float(bars[idx].get("close")  or 0)
-                bar_volume = float(bars[idx].get("volume") or 0)
-                bar_dv     = bar_close * bar_volume
-                if min_price is not None and bar_close < min_price:
-                    continue
-                if min_volume is not None and bar_volume < min_volume:
-                    continue
-                if min_dollar_volume is not None and bar_dv < min_dollar_volume:
-                    continue
-
-                events = extract_events(
-                    bars, idx,
-                    ticker=ticker, universe=universe, replay_run_id=run_id,
-                )
-                if not events:
-                    continue
-
-                future_bars = bars[idx + 1 : idx + 22]
-                spy_future = _future_window(spy_bars, scan_date, 22)
-                qqq_future = _future_window(qqq_bars, scan_date, 22)
-
-                for ev in events:
-                    event_rows_for_ticker.append(ev)
-                    # Update unique-entity counters
+                # Insert events + link outcomes (main-thread serialized)
+                if event_rows:
+                    ev_ids = _bulk_insert("replay_signal_events", event_rows)
+                    for offset, ocs in outcome_offsets:
+                        if offset >= len(ev_ids):
+                            continue
+                        ev_id = ev_ids[offset]
+                        for oc in ocs:
+                            oc["signal_event_id"] = ev_id
+                            all_outcomes.append(oc)
+                    all_events.extend([
+                        {**ev, "id": ev_ids[i]}
+                        for i, ev in enumerate(event_rows)
+                    ])
+                    events_total += len(event_rows)
                     unique_symbols_set.add(ticker)
-                    unique_symbol_dates_set.add((ticker, scan_date))
-                    sig_fam = ev.get("event_signal_family") or ""
-                    ev_sig  = ev.get("event_signal") or ""
-                    if ev_sig.startswith(("T", "Z")):
-                        unique_tz_events_count += 1
-                    elif sig_fam in ("COMBO", "L", "F", "G", "B", "EMA"):
-                        unique_combo_events_count += 1
 
-                # Outcomes — we can't yet attach event ids; defer until events are inserted
-                # Store (placeholder_offset, computed_outcomes_for_this_event)
-                for ev in events:
-                    ocs = compute_outcomes(
-                        ev, future_bars,
-                        spy_future=spy_future, qqq_future=qqq_future,
-                        replay_run_id=run_id,
-                    )
-                    outcome_rows_for_ticker.append((len(event_rows_for_ticker) - 1, ocs))
+                unique_symbol_dates_set.update(counters.get("unique_symbol_dates") or set())
+                unique_tz_events_count    += counters.get("tz_events", 0)
+                unique_combo_events_count += counters.get("combo_events", 0)
 
-            # Insert events for this ticker, then attach outcomes
-            if event_rows_for_ticker:
-                ev_ids = _bulk_insert("replay_signal_events", event_rows_for_ticker)
-                for offset, ocs in outcome_rows_for_ticker:
-                    if offset >= len(ev_ids):
-                        continue
-                    ev_id = ev_ids[offset]
-                    for oc in ocs:
-                        oc["signal_event_id"] = ev_id
-                        all_outcomes.append(oc)
-                all_events.extend([
-                    {**ev, "id": ev_ids[i]}
-                    for i, ev in enumerate(event_rows_for_ticker)
-                ])
-                events_total += len(event_rows_for_ticker)
-
-            _set(symbols_completed=sym_idx + 1,
-                 events_found=events_total,
-                 unique_symbols=len(unique_symbols_set),
-                 unique_symbol_dates=len(unique_symbol_dates_set),
-                 unique_tz_events=unique_tz_events_count,
-                 unique_combo_events=unique_combo_events_count,
-                 elapsed_secs=round(time.time() - t0, 1))
+                completed_symbols += 1
+                _set(symbols_completed=completed_symbols,
+                     events_found=events_total,
+                     unique_symbols=len(unique_symbols_set),
+                     unique_symbol_dates=len(unique_symbol_dates_set),
+                     unique_tz_events=unique_tz_events_count,
+                     unique_combo_events=unique_combo_events_count,
+                     elapsed_secs=round(time.time() - t0, 1))
 
         # Flush outcomes
         if all_outcomes:

@@ -470,21 +470,101 @@ def export_run(
     )
 
 
+_HEAVY_TABLES   = ("replay_signal_outcomes", "replay_signal_events")
+_LIGHT_TABLES   = ("replay_filter_impact_statistics", "replay_pattern_statistics",
+                   "replay_signal_statistics")
+_DELETE_CHUNK   = 5000  # rows per chunked delete (heavy tables)
+
+
+def _delete_run_chunked(run_id: int) -> dict:
+    """Delete one run's data using small per-chunk transactions.
+
+    Heavy tables are deleted in 5k-row batches to keep PG WAL growth bounded
+    and survive low-disk conditions. Light tables and the run row are deleted
+    in single statements.
+    """
+    ph = _ph()
+    deleted_counts: dict[str, int] = {}
+
+    for tbl in _HEAVY_TABLES:
+        total = 0
+        while True:
+            with get_db() as db:
+                if USE_PG:
+                    sql = (f"DELETE FROM {tbl} WHERE ctid IN ("
+                           f"SELECT ctid FROM {tbl} WHERE replay_run_id={ph} "
+                           f"LIMIT {_DELETE_CHUNK})")
+                    db.execute(sql, [run_id])
+                    rc = getattr(db, "rowcount", 0) or 0
+                else:
+                    db.execute(
+                        f"DELETE FROM {tbl} WHERE id IN ("
+                        f"SELECT id FROM {tbl} WHERE replay_run_id={ph} "
+                        f"LIMIT {_DELETE_CHUNK})",
+                        [run_id],
+                    )
+                    rc = getattr(db, "rowcount", 0) or 0
+                db.commit()
+            total += rc
+            if rc < _DELETE_CHUNK:
+                break
+        deleted_counts[tbl] = total
+
+    for tbl in _LIGHT_TABLES:
+        with get_db() as db:
+            db.execute(f"DELETE FROM {tbl} WHERE replay_run_id={ph}", [run_id])
+            rc = getattr(db, "rowcount", 0) or 0
+            db.commit()
+        deleted_counts[tbl] = rc
+
+    with get_db() as db:
+        db.execute(f"DELETE FROM signal_replay_runs WHERE id={ph}", [run_id])
+        db.commit()
+    deleted_counts["signal_replay_runs"] = 1
+    return deleted_counts
+
+
 @router.delete("/{run_id}")
 def delete_run(run_id: int) -> dict:
     state = _get_state()
     if state.get("running") and state.get("run_id") == run_id:
         raise HTTPException(status_code=409, detail="Cannot delete the active run")
-    ph = _ph()
+    try:
+        counts = _delete_run_chunked(run_id)
+        return {"deleted": True, "run_id": run_id, "rows_deleted": counts}
+    except Exception as exc:
+        log.exception("delete_run failed for run %s", run_id)
+        raise HTTPException(status_code=500, detail=f"delete failed: {exc}")
+
+
+@router.post("/purge-all")
+def purge_all_runs(confirm: str | None = None) -> dict:
+    """Nuke ALL replay data via TRUNCATE. Requires confirm=YES to execute.
+
+    Use this when DELETE fails due to disk pressure or accumulated runs.
+    Live scanner tables are untouched. Stop any active run before calling.
+    """
+    state = _get_state()
+    if state.get("running"):
+        raise HTTPException(status_code=409,
+                            detail="Active run in progress — stop it before purging")
+    if confirm != "YES":
+        raise HTTPException(status_code=400,
+                            detail="Pass ?confirm=YES to confirm full purge of all replay data")
+
+    tables = list(_HEAVY_TABLES) + list(_LIGHT_TABLES) + ["signal_replay_runs"]
     try:
         with get_db() as db:
-            for tbl in ("replay_filter_impact_statistics", "replay_pattern_statistics",
-                        "replay_signal_statistics", "replay_signal_outcomes",
-                        "replay_signal_events", "signal_replay_runs"):
-                db.execute(f"DELETE FROM {tbl} WHERE "
-                           f"{'id' if tbl == 'signal_replay_runs' else 'replay_run_id'}={ph}",
-                           [run_id])
+            if USE_PG:
+                # CASCADE not needed (no FKs) — RESTART IDENTITY resets serial seqs
+                db.execute(
+                    f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY"
+                )
+            else:
+                for t in tables:
+                    db.execute(f"DELETE FROM {t}")
             db.commit()
-        return {"deleted": True, "run_id": run_id}
+        return {"purged": True, "tables": tables}
     except Exception as exc:
-        raise HTTPException(status_code=500, detail=f"delete failed: {exc}")
+        log.exception("purge_all_runs failed")
+        raise HTTPException(status_code=500, detail=f"purge failed: {exc}")

@@ -1080,6 +1080,19 @@ export default function SignalReplayPanel() {
     }
   }
 
+  const handlePurgeAll = async () => {
+    if (!window.confirm('NUKE ALL Signal Replay data?\n\nThis TRUNCATEs every replay table — every run, event, outcome, statistic. Live scanner is untouched.\n\nUse this only when disk is full or you want a clean slate.')) return
+    if (!window.confirm('Last chance. Type confirm in your head — this is irreversible.')) return
+    try {
+      const r = await apiFetch('/api/signal-replay/purge-all?confirm=YES', { method: 'POST' })
+      alert(`Purged tables:\n${(r.tables || []).join('\n')}`)
+      setRunId(null); setRunMeta(null)
+      apiFetch('/api/signal-replay/history?limit=20').then(setHistory).catch(() => setHistory([]))
+    } catch (e) {
+      alert(`Purge failed: ${e.message}`)
+    }
+  }
+
   const handleExport = (id, part = 'all', extra = '') => {
     const qs = `?part=${part}${extra}`
     const url = `${API}/api/signal-replay/${id}/export${qs}`
@@ -1107,7 +1120,14 @@ export default function SignalReplayPanel() {
 
       {history?.length > 0 && (
         <div className="bg-gray-900 rounded p-2 text-xs">
-          <div className="text-gray-400 mb-1">Recent Runs:</div>
+          <div className="flex items-center justify-between mb-1">
+            <span className="text-gray-400">Recent Runs:</span>
+            <button onClick={handlePurgeAll}
+                    className="text-[10px] px-2 py-0.5 rounded bg-red-950 text-red-300 hover:bg-red-900 border border-red-800"
+                    title="TRUNCATE all replay tables — use to recover from disk-full">
+              ☢ Purge All
+            </button>
+          </div>
           <div className="flex flex-wrap gap-2">
             {history.map(h => (
               <div key={h.id}
