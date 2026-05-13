@@ -1,23 +1,30 @@
 """
 signal_replay_routes.py — FastAPI endpoints for the Signal Replay engine.
 
-Phase 1 endpoints:
+Endpoints:
   POST   /api/signal-replay/run
+  POST   /api/signal-replay/stop
+  POST   /api/signal-replay/pause
+  POST   /api/signal-replay/resume
   GET    /api/signal-replay/status
   GET    /api/signal-replay/history
   GET    /api/signal-replay/{run_id}
   GET    /api/signal-replay/{run_id}/events
   GET    /api/signal-replay/{run_id}/outcomes
   GET    /api/signal-replay/{run_id}/signal-statistics
+  GET    /api/signal-replay/{run_id}/pattern-statistics
+  GET    /api/signal-replay/{run_id}/filter-impact
+  GET    /api/signal-replay/{run_id}/export
   DELETE /api/signal-replay/{run_id}
-
-Phase 2 will add pattern-statistics / filter-impact / research-bundle / export.
 """
 from __future__ import annotations
+import datetime
+import json
 import logging
 from typing import Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, HTTPException
+from fastapi.responses import Response
 from pydantic import BaseModel, Field
 
 from db import get_db, USE_PG
@@ -25,6 +32,9 @@ from signal_replay_engine import (
     get_state as _get_state,
     run_signal_replay as _run_signal_replay,
     _insert_run as _insert_run_row,
+    request_stop as _request_stop,
+    request_pause as _request_pause,
+    request_resume as _request_resume,
 )
 
 log = logging.getLogger(__name__)
@@ -36,10 +46,11 @@ router = APIRouter(prefix="/api/signal-replay", tags=["signal_replay"])
 
 class RunRequest(BaseModel):
     universe: str = Field(..., pattern="^(sp500|nasdaq|nasdaq_gt5|split|all_us)$")
-    mode:     str = Field(..., pattern="^(single_day|date_range)$")
-    as_of_date: str | None = None
-    start_date: str | None = None
-    end_date:   str | None = None
+    mode:     str = Field(..., pattern="^(single_day|date_range|last_n_days|ytd)$")
+    as_of_date:    str | None = None
+    start_date:    str | None = None
+    end_date:      str | None = None
+    lookback_days: int | None = None   # for last_n_days mode
     benchmark_symbol: str = "QQQ"
     event_scope: str = "all_signals"
     min_price:         float | None = None
@@ -82,10 +93,13 @@ def start_run(req: RunRequest, background_tasks: BackgroundTasks) -> dict:
     # MVP enforcement: always 1d
     payload["timeframe"] = "1d"
 
-    if payload["mode"] == "single_day" and not payload.get("as_of_date"):
+    mode = payload["mode"]
+    if mode == "single_day" and not payload.get("as_of_date"):
         raise HTTPException(status_code=400, detail="as_of_date required for single_day")
-    if payload["mode"] == "date_range" and not (payload.get("start_date") and payload.get("end_date")):
+    if mode == "date_range" and not (payload.get("start_date") and payload.get("end_date")):
         raise HTTPException(status_code=400, detail="start_date and end_date required for date_range")
+    if mode == "last_n_days" and not payload.get("lookback_days"):
+        raise HTTPException(status_code=400, detail="lookback_days required for last_n_days")
 
     run_id = _insert_run_row(payload)
     background_tasks.add_task(_run_signal_replay, run_id, payload)
@@ -95,6 +109,35 @@ def start_run(req: RunRequest, background_tasks: BackgroundTasks) -> dict:
 @router.get("/status")
 def status() -> dict:
     return _get_state()
+
+
+@router.post("/stop")
+def stop_run() -> dict:
+    state = _get_state()
+    if not state.get("running"):
+        raise HTTPException(status_code=409, detail="No active run to stop")
+    _request_stop()
+    return {"message": "Stop requested", "run_id": state.get("run_id")}
+
+
+@router.post("/pause")
+def pause_run() -> dict:
+    state = _get_state()
+    if not state.get("running"):
+        raise HTTPException(status_code=409, detail="No active run to pause")
+    if state.get("pause_requested"):
+        raise HTTPException(status_code=409, detail="Already paused")
+    _request_pause()
+    return {"message": "Paused", "run_id": state.get("run_id")}
+
+
+@router.post("/resume")
+def resume_run() -> dict:
+    state = _get_state()
+    if not state.get("running"):
+        raise HTTPException(status_code=409, detail="No active run to resume")
+    _request_resume()
+    return {"message": "Resumed", "run_id": state.get("run_id")}
 
 
 @router.get("/history")
@@ -323,6 +366,69 @@ def list_filter_impact(
            f"SELECT * FROM replay_filter_impact_statistics WHERE {' AND '.join(where)} "
            f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
     return _query(sql, params)
+
+
+@router.get("/{run_id}/export")
+def export_run(
+    run_id: int,
+    max_events: int = 50000,
+    max_outcomes: int = 200000,
+) -> Response:
+    """Export all run data as a downloadable JSON file for offline analytics."""
+    ph = _ph()
+
+    run = _query_one(f"SELECT * FROM signal_replay_runs WHERE id={ph}", [run_id])
+    if not run:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+
+    max_events   = max(1, min(max_events,   500_000))
+    max_outcomes = max(1, min(max_outcomes, 2_000_000))
+
+    def _limit_sql(table: str, extra: str = "") -> str:
+        base = f"SELECT * FROM {table} WHERE replay_run_id={ph}{extra}"
+        return (f"{base} LIMIT {max_events}" if "events" in table
+                else f"{base} LIMIT {max_outcomes}" if "outcomes" in table
+                else base)
+
+    signal_stats  = _query(f"SELECT * FROM replay_signal_statistics WHERE replay_run_id={ph}", [run_id])
+    pattern_stats = _query(f"SELECT * FROM replay_pattern_statistics WHERE replay_run_id={ph}", [run_id])
+    filter_impact = _query(f"SELECT * FROM replay_filter_impact_statistics WHERE replay_run_id={ph}", [run_id])
+
+    events_sql = (f"SELECT * FROM replay_signal_events WHERE replay_run_id={ph} "
+                  f"LIMIT {max_events}")
+    events = _query(events_sql, [run_id])
+
+    outcomes_sql = (f"SELECT * FROM replay_signal_outcomes WHERE replay_run_id={ph} "
+                    f"LIMIT {max_outcomes}")
+    outcomes = _query(outcomes_sql, [run_id])
+
+    payload = {
+        "meta": {
+            "run_id":        run_id,
+            "exported_at":   datetime.datetime.utcnow().isoformat() + "Z",
+            "version":       "phase2",
+            "events_count":  len(events),
+            "outcomes_count": len(outcomes),
+            "signal_stats_count":  len(signal_stats),
+            "pattern_stats_count": len(pattern_stats),
+            "filter_impact_count": len(filter_impact),
+        },
+        "run":                      run,
+        "signal_statistics":        signal_stats,
+        "pattern_statistics":       pattern_stats,
+        "filter_impact_statistics": filter_impact,
+        "events":                   events,
+        "outcomes":                 outcomes,
+    }
+
+    content = json.dumps(payload, default=str, indent=2)
+    return Response(
+        content=content,
+        media_type="application/json",
+        headers={
+            "Content-Disposition": f'attachment; filename="replay_{run_id}_export.json"',
+        },
+    )
 
 
 @router.delete("/{run_id}")

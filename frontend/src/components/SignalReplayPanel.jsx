@@ -57,22 +57,29 @@ function ConfidenceBadge({ label }) {
 
 // ─── Run Settings Panel ──────────────────────────────────────────────────────
 
+const MODE_OPTIONS = [
+  { value: 'single_day',   label: 'Single Day' },
+  { value: 'date_range',   label: 'Date Range' },
+  { value: 'last_n_days',  label: 'Last N Days' },
+  { value: 'ytd',          label: 'Year-to-Date' },
+]
+
 function SettingsPanel({ disabled, onStart }) {
   const today = new Date().toISOString().slice(0, 10)
-  const [universe, setUniverse] = useState('nasdaq_gt5')
-  const [mode, setMode]         = useState('single_day')
-  const [asOfDate, setAsOfDate] = useState(today)
-  const [startDate, setStartDate] = useState(today)
-  const [endDate, setEndDate]   = useState(today)
-  const [benchmark, setBenchmark] = useState('QQQ')
-  const [scope, setScope]       = useState('all_signals')
+  const [universe, setUniverse]       = useState('nasdaq_gt5')
+  const [mode, setMode]               = useState('single_day')
+  const [asOfDate, setAsOfDate]       = useState(today)
+  const [startDate, setStartDate]     = useState(today)
+  const [endDate, setEndDate]         = useState(today)
+  const [lookbackDays, setLookbackDays] = useState(20)
+  const [benchmark, setBenchmark]     = useState('QQQ')
+  const [scope, setScope]             = useState('all_signals')
 
   const submit = () => {
-    const payload = {
-      universe, mode, benchmark_symbol: benchmark, event_scope: scope,
-    }
-    if (mode === 'single_day') payload.as_of_date = asOfDate
-    else { payload.start_date = startDate; payload.end_date = endDate }
+    const payload = { universe, mode, benchmark_symbol: benchmark, event_scope: scope }
+    if (mode === 'single_day')  payload.as_of_date = asOfDate
+    if (mode === 'date_range')  { payload.start_date = startDate; payload.end_date = endDate }
+    if (mode === 'last_n_days') payload.lookback_days = lookbackDays
     onStart(payload)
   }
 
@@ -87,12 +94,12 @@ function SettingsPanel({ disabled, onStart }) {
       </div>
       <div>
         <label className="text-xs text-gray-400">Mode</label>
-        <div className="flex gap-1">
-          {['single_day', 'date_range'].map(m => (
-            <button key={m} onClick={() => setMode(m)}
-                    className={`text-xs px-2 py-1 rounded ${mode === m
+        <div className="flex flex-wrap gap-1">
+          {MODE_OPTIONS.map(m => (
+            <button key={m.value} onClick={() => setMode(m.value)}
+                    className={`text-xs px-2 py-1 rounded ${mode === m.value
                       ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>
-              {m === 'single_day' ? 'Single Day' : 'Date Range'}
+              {m.label}
             </button>
           ))}
         </div>
@@ -105,13 +112,15 @@ function SettingsPanel({ disabled, onStart }) {
           <option value="SPY">SPY</option>
         </select>
       </div>
-      {mode === 'single_day' ? (
+
+      {mode === 'single_day' && (
         <div className="md:col-span-3">
           <label className="text-xs text-gray-400">As-of Date</label>
           <input type="date" value={asOfDate} onChange={e => setAsOfDate(e.target.value)}
                  className="bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
         </div>
-      ) : (
+      )}
+      {mode === 'date_range' && (
         <>
           <div>
             <label className="text-xs text-gray-400">Start Date</label>
@@ -126,6 +135,20 @@ function SettingsPanel({ disabled, onStart }) {
           <div />
         </>
       )}
+      {mode === 'last_n_days' && (
+        <div className="md:col-span-3">
+          <label className="text-xs text-gray-400">Trading Days to Look Back</label>
+          <input type="number" min={1} max={500} value={lookbackDays}
+                 onChange={e => setLookbackDays(Number(e.target.value) || 20)}
+                 className="w-24 bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm" />
+        </div>
+      )}
+      {mode === 'ytd' && (
+        <div className="md:col-span-3 text-xs text-gray-400 italic">
+          Will scan Jan 1 {new Date().getFullYear()} → today using available trading days.
+        </div>
+      )}
+
       <div>
         <label className="text-xs text-gray-400">Event Scope</label>
         <select value={scope} onChange={e => setScope(e.target.value)}
@@ -145,7 +168,7 @@ function SettingsPanel({ disabled, onStart }) {
         </button>
       </div>
       <div className="md:col-span-3 text-[11px] text-gray-500 italic">
-        Signal Replay MVP uses Daily / 1D candles only. Timeframe selector is intentionally hidden.
+        Signal Replay uses Daily / 1D candles only.
       </div>
     </div>
   )
@@ -153,23 +176,50 @@ function SettingsPanel({ disabled, onStart }) {
 
 // ─── Progress Panel ──────────────────────────────────────────────────────────
 
-function ProgressPanel({ state }) {
+function ProgressPanel({ state, onStop, onPause, onResume }) {
   if (!state || state.status === 'idle') return null
   const pct = state.symbols_total
     ? Math.round((state.symbols_completed / state.symbols_total) * 100) : 0
+  const running = state.running
+  const paused  = state.pause_requested
+
+  const STATUS_CLS = {
+    running:   'bg-blue-600 text-white',
+    completed: 'bg-emerald-700 text-white',
+    stopped:   'bg-yellow-700 text-white',
+    failed:    'bg-red-700 text-white',
+  }
+
   return (
     <div className="bg-gray-900 rounded p-3 space-y-2">
-      <div className="flex items-center justify-between">
+      <div className="flex items-center justify-between gap-2 flex-wrap">
         <div className="text-sm">
-          <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${
-            state.status === 'running'   ? 'bg-blue-600 text-white' :
-            state.status === 'completed' ? 'bg-emerald-700 text-white' :
-            state.status === 'failed'    ? 'bg-red-700 text-white' :
-            'bg-gray-700 text-gray-300'
-          }`}>{state.status}</span>
+          <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${STATUS_CLS[state.status] || 'bg-gray-700 text-gray-300'}`}>
+            {paused ? 'PAUSED' : state.status}
+          </span>
           run_id={state.run_id} · {state.universe} · {state.mode}
         </div>
-        <div className="text-xs text-gray-500">elapsed: {state.elapsed_secs}s</div>
+        <div className="flex items-center gap-2">
+          <span className="text-xs text-gray-500">elapsed: {state.elapsed_secs}s</span>
+          {running && !paused && (
+            <button onClick={onPause}
+                    className="text-xs px-2 py-1 rounded bg-yellow-700 text-white hover:bg-yellow-600">
+              ⏸ Pause
+            </button>
+          )}
+          {running && paused && (
+            <button onClick={onResume}
+                    className="text-xs px-2 py-1 rounded bg-blue-600 text-white hover:bg-blue-500">
+              ▶ Resume
+            </button>
+          )}
+          {running && (
+            <button onClick={onStop}
+                    className="text-xs px-2 py-1 rounded bg-red-700 text-white hover:bg-red-600">
+              ■ Stop
+            </button>
+          )}
+        </div>
       </div>
       <div className="grid grid-cols-2 md:grid-cols-7 gap-2 text-xs">
         <Stat label="Days"     val={`${state.days_completed}/${state.days_total}`} />
@@ -741,7 +791,7 @@ export default function SignalReplayPanel() {
   const [tab, setTab] = useState('summary')
   const [history, setHistory] = useState([])
 
-  // Poll status
+  // Poll status every 2s
   useEffect(() => {
     let alive = true
     const poll = async () => {
@@ -757,12 +807,12 @@ export default function SignalReplayPanel() {
     return () => { alive = false; clearInterval(t) }
   }, [runId])
 
-  // Load history once
+  // Refresh history when status changes
   useEffect(() => {
     apiFetch('/api/signal-replay/history?limit=20').then(setHistory).catch(() => {})
   }, [state?.status])
 
-  // Load runMeta when runId changes
+  // Load runMeta when runId or status changes
   useEffect(() => {
     if (!runId) { setRunMeta(null); return }
     apiFetch(`/api/signal-replay/${runId}`).then(setRunMeta).catch(() => setRunMeta(null))
@@ -781,15 +831,40 @@ export default function SignalReplayPanel() {
     }
   }
 
+  const handleStop = async () => {
+    try { await apiFetch('/api/signal-replay/stop', { method: 'POST' }) }
+    catch (e) { alert(e.message) }
+  }
+
+  const handlePause = async () => {
+    try { await apiFetch('/api/signal-replay/pause', { method: 'POST' }) }
+    catch (e) { alert(e.message) }
+  }
+
+  const handleResume = async () => {
+    try { await apiFetch('/api/signal-replay/resume', { method: 'POST' }) }
+    catch (e) { alert(e.message) }
+  }
+
   const handleDelete = async (id) => {
-    if (!window.confirm(`Delete run ${id}?`)) return
+    if (!window.confirm(`Delete run #${id} and all its data from the database?`)) return
     try {
       await apiFetch(`/api/signal-replay/${id}`, { method: 'DELETE' })
       if (runId === id) { setRunId(null); setRunMeta(null) }
       apiFetch('/api/signal-replay/history?limit=20').then(setHistory).catch(() => {})
     } catch (e) {
-      alert(e.message)
+      alert(`Delete failed: ${e.message}`)
     }
+  }
+
+  const handleExport = (id) => {
+    const url = `${API}/api/signal-replay/${id}/export`
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `replay_${id}_export.json`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
   }
 
   const running = state?.running
@@ -797,7 +872,12 @@ export default function SignalReplayPanel() {
   return (
     <div className="space-y-3">
       <SettingsPanel disabled={running} onStart={handleStart} />
-      <ProgressPanel state={state} />
+      <ProgressPanel
+        state={state}
+        onStop={handleStop}
+        onPause={handlePause}
+        onResume={handleResume}
+      />
 
       {history?.length > 0 && (
         <div className="bg-gray-900 rounded p-2 text-xs">
@@ -805,13 +885,15 @@ export default function SignalReplayPanel() {
           <div className="flex flex-wrap gap-2">
             {history.map(h => (
               <div key={h.id}
-                   className={`px-2 py-1 rounded flex items-center gap-2 cursor-pointer ${
+                   className={`px-2 py-1 rounded flex items-center gap-2 ${
                      runId === h.id ? 'bg-blue-900 text-blue-200' : 'bg-gray-800 text-gray-300'}`}>
-                <span onClick={() => setRunId(h.id)}>
-                  #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} events
+                <span className="cursor-pointer" onClick={() => setRunId(h.id)}>
+                  #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} ev
                 </span>
-                <button onClick={() => handleDelete(h.id)}
-                        className="text-red-400 hover:text-red-200">×</button>
+                <button onClick={() => handleExport(h.id)} title="Export JSON"
+                        className="text-gray-400 hover:text-blue-300">⬇</button>
+                <button onClick={() => handleDelete(h.id)} title="Delete from DB"
+                        className="text-red-400 hover:text-red-200">✕</button>
               </div>
             ))}
           </div>
@@ -820,15 +902,27 @@ export default function SignalReplayPanel() {
 
       {runId && (
         <>
-          <div className="flex gap-1 border-b border-gray-800">
-            {TABS.map(t => (
-              <button key={t.id} onClick={() => setTab(t.id)}
-                      className={`text-xs px-3 py-1.5 rounded-t border-b-2 ${
-                        tab === t.id ? 'border-blue-500 text-blue-300 bg-gray-900'
-                                     : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
-                {t.label}
+          <div className="flex items-center justify-between border-b border-gray-800 pb-0">
+            <div className="flex gap-1">
+              {TABS.map(t => (
+                <button key={t.id} onClick={() => setTab(t.id)}
+                        className={`text-xs px-3 py-1.5 rounded-t border-b-2 ${
+                          tab === t.id ? 'border-blue-500 text-blue-300 bg-gray-900'
+                                       : 'border-transparent text-gray-500 hover:text-gray-300'}`}>
+                  {t.label}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-2 pb-1">
+              <button onClick={() => handleExport(runId)}
+                      className="text-xs px-3 py-1 rounded bg-gray-800 text-blue-300 hover:bg-gray-700">
+                ⬇ Export JSON
               </button>
-            ))}
+              <button onClick={() => handleDelete(runId)}
+                      className="text-xs px-3 py-1 rounded bg-gray-800 text-red-400 hover:bg-red-900">
+                ✕ Delete Run
+              </button>
+            </div>
           </div>
           <div className="bg-gray-950 rounded p-3 min-h-[300px]">
             {tab === 'summary'  && <SummaryPanel runId={runId} runMeta={runMeta} />}

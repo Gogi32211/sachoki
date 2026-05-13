@@ -53,6 +53,8 @@ _state: dict[str, Any] = {
     "started_at":         None,
     "elapsed_secs":       0,
     "error":              None,
+    "stop_requested":     False,
+    "pause_requested":    False,
 }
 
 
@@ -62,6 +64,18 @@ def get_state() -> dict:
 
 def _set(**kv) -> None:
     _state.update(kv)
+
+
+def request_stop() -> None:
+    _state["stop_requested"] = True
+
+
+def request_pause() -> None:
+    _state["pause_requested"] = True
+
+
+def request_resume() -> None:
+    _state["pause_requested"] = False
 
 
 def _ph() -> str:
@@ -169,22 +183,38 @@ def _normalize_date(d: Any) -> str | None:
 def _resolve_scan_dates(payload: dict, sample_bars: list[dict]) -> list[str]:
     """Returns sorted list of YYYY-MM-DD strings.
 
-    For single_day: [as_of_date].
-    For date_range: market dates from sample_bars that fall in [start_date, end_date].
+    Modes:
+      single_day  → [as_of_date]
+      date_range  → market dates in [start_date, end_date]
+      last_n_days → last N trading days available in sample_bars
+      ytd         → Jan 1 of current year through today
     """
     mode = payload["mode"]
+    today_str = date.today().strftime("%Y-%m-%d")
+
     if mode == "single_day":
         return [_normalize_date(payload["as_of_date"])]
+
+    all_bar_dates = sorted(set(
+        d for b in sample_bars
+        if (d := _normalize_date(b.get("date")))
+    ))
+
+    if mode == "last_n_days":
+        n = max(1, int(payload.get("lookback_days") or 20))
+        return all_bar_dates[-n:] if len(all_bar_dates) >= n else all_bar_dates
+
+    if mode == "ytd":
+        start = f"{date.today().year}-01-01"
+        end   = today_str
+        return [d for d in all_bar_dates if start <= d <= end]
+
+    # date_range
     start = _normalize_date(payload.get("start_date"))
     end   = _normalize_date(payload.get("end_date"))
     if not start or not end:
         return []
-    dates = []
-    for b in sample_bars:
-        d = _normalize_date(b.get("date"))
-        if d and start <= d <= end:
-            dates.append(d)
-    return sorted(set(dates))
+    return [d for d in all_bar_dates if start <= d <= end]
 
 
 # ─── Main run loop ────────────────────────────────────────────────────────────
@@ -240,6 +270,16 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         all_outcomes: list[dict] = []
 
         for sym_idx, ticker in enumerate(tickers):
+            # ── Pause: spin until resumed ──────────────────────────────────
+            while _state.get("pause_requested"):
+                _set(elapsed_secs=round(time.time() - t0, 1))
+                time.sleep(0.5)
+
+            # ── Stop: break out of loop ────────────────────────────────────
+            if _state.get("stop_requested"):
+                log.info("signal_replay: stop requested at symbol %d/%d", sym_idx, len(tickers))
+                break
+
             try:
                 bars = api_bar_signals(ticker, "1d", 500)
             except Exception as fetch_err:
@@ -393,22 +433,27 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         _set(filter_impact_rows=len(filter_rows),
              elapsed_secs=round(time.time() - t0, 1))
 
+        final_status = "stopped" if _state.get("stop_requested") else "completed"
         _update_run(
             run_id,
-            status="completed",
-            total_days=len(scan_dates), days_completed=len(scan_dates),
-            total_symbols=len(tickers), symbols_completed=len(tickers),
+            status=final_status,
+            total_days=len(scan_dates),
+            days_completed=_state.get("days_completed", 0),
+            total_symbols=len(tickers),
+            symbols_completed=_state.get("symbols_completed", 0),
             total_events=events_total, total_outcomes=outcomes_total,
             total_statistics_rows=len(stats_rows),
         )
         _finalize_finished_at(run_id)
-        _set(status="completed", running=False,
+        _set(status=final_status, running=False,
+             stop_requested=False, pause_requested=False,
              elapsed_secs=round(time.time() - t0, 1))
 
     except Exception as exc:
         tb = traceback.format_exc()
         log.error("signal_replay failed: %s\n%s", exc, tb)
         _set(status="failed", running=False, error=str(exc),
+             stop_requested=False, pause_requested=False,
              elapsed_secs=round(time.time() - t0, 1))
         _update_run(run_id, status="failed", error_message=str(exc))
         _finalize_finished_at(run_id)
