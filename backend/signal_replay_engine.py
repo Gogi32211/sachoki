@@ -63,6 +63,9 @@ _state: dict[str, Any] = {
     "error":                None,
     "stop_requested":       False,
     "pause_requested":      False,
+    "lookback_bars":        500,
+    "context_quality":      None,
+    "run_warnings":         [],
 }
 
 
@@ -88,6 +91,29 @@ def request_resume() -> None:
 
 def _ph() -> str:
     return "%s" if USE_PG else "?"
+
+
+# ─── Context quality ─────────────────────────────────────────────────────────
+
+_ALLOWED_LOOKBACK = {30, 100, 250, 500, 1000}
+
+
+def _context_quality(lookback_bars: int) -> str:
+    """Classify statistical reliability based on how many bars were fetched."""
+    if lookback_bars >= 250:
+        return "FULL"
+    if lookback_bars >= 100:
+        return "PARTIAL"
+    return "LIMITED"
+
+
+def _apply_context_quality(rows: list[dict], cq: str) -> list[dict]:
+    """Tag each row with context_quality; cap confidence to MEDIUM for LIMITED runs."""
+    for row in rows:
+        row["context_quality"] = cq
+        if cq == "LIMITED" and row.get("confidence_label") == "HIGH":
+            row["confidence_label"] = "MEDIUM"
+    return rows
 
 
 # ─── DB helpers ───────────────────────────────────────────────────────────────
@@ -328,6 +354,9 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
          pattern_rows=0, filter_impact_rows=0, combo_rows=0,
          unique_symbols=0, unique_symbol_dates=0,
          unique_tz_events=0, unique_combo_events=0,
+         lookback_bars=int(payload.get("lookback_bars") or 500),
+         context_quality=None,
+         run_warnings=[],
          started_at=time.time(), elapsed_secs=0, error=None)
     t0 = time.time()
 
@@ -339,7 +368,22 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         log.info("signal_replay: %s universe → %d tickers", universe, len(tickers))
         _set(symbols_total=len(tickers))
 
-        lookback_bars = max(200, min(2000, int(payload.get("lookback_bars") or 500)))
+        _lb = int(payload.get("lookback_bars") or 500)
+        lookback_bars = _lb if _lb in _ALLOWED_LOOKBACK else 500
+        cq = _context_quality(lookback_bars)
+        _set(context_quality=cq, lookback_bars=lookback_bars)
+
+        run_warnings: list[str] = []
+        if lookback_bars < 100:
+            run_warnings.append(
+                "Limited context: EMA50/EMA89/EMA200 and long-sequence analytics "
+                "may be unreliable or unavailable."
+            )
+        if lookback_bars == 30:
+            run_warnings.append(
+                "This replay uses only 30 bars. It is optimized for speed and debugging, "
+                "not full statistical validation."
+            )
         min_price         = payload.get("min_price")
         min_volume        = payload.get("min_volume")
         min_dollar_volume = payload.get("min_dollar_volume")
@@ -409,7 +453,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                     base_id = events_total + 1
                     ev_ids  = list(range(base_id, base_id + len(event_rows)))
                     for i, ev in enumerate(event_rows):
-                        all_events.append({**ev, "id": ev_ids[i]})
+                        all_events.append({**ev, "id": ev_ids[i], "context_quality": cq})
                     for offset, ocs in outcome_offsets:
                         if offset >= len(ev_ids):
                             continue
@@ -527,8 +571,12 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         )
         _set(combo_rows=len(combo_rows), elapsed_secs=round(time.time() - t0, 1))
 
+        # ── Tag all stat rows with context_quality; cap confidence for LIMITED ─
+        all_sig_stats = _apply_context_quality(stats_rows + combo_rows, cq)
+        pattern_rows  = _apply_context_quality(pattern_rows, cq)
+        filter_rows   = _apply_context_quality(filter_rows, cq)
+
         # ── Write stats to parquet ────────────────────────────────────────────
-        all_sig_stats = stats_rows + combo_rows
         signal_stats_path = rdir / "signal_stats.parquet"
         n_sig_stats = write_parquet(signal_stats_path, all_sig_stats)
 
@@ -540,11 +588,14 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
         # ── Research bundle (combined JSON for quick analytics loading) ───────
         research_bundle = {
-            "run_id":            run_id,
-            "generated_at":      datetime.utcnow().isoformat() + "Z",
-            "signal_statistics": all_sig_stats,
-            "pattern_statistics": pattern_rows,
-            "filter_impact_statistics": filter_rows,
+            "run_id":                    run_id,
+            "generated_at":              datetime.utcnow().isoformat() + "Z",
+            "lookback_bars":             lookback_bars,
+            "context_quality":           cq,
+            "run_warnings":              run_warnings,
+            "signal_statistics":         all_sig_stats,
+            "pattern_statistics":        pattern_rows,
+            "filter_impact_statistics":  filter_rows,
         }
         rb_path = rdir / "research_bundle.json"
         write_json(rb_path, research_bundle)

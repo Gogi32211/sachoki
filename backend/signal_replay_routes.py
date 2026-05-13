@@ -32,7 +32,7 @@ from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
 from fastapi.responses import Response
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, field_validator
 
 from db import get_db, USE_PG
 from signal_replay_engine import (
@@ -55,6 +55,9 @@ router = APIRouter(prefix="/api/signal-replay", tags=["signal_replay"])
 
 # ─── Request models ──────────────────────────────────────────────────────────
 
+_ALLOWED_LOOKBACK = {30, 100, 250, 500, 1000}
+
+
 class RunRequest(BaseModel):
     universe: str = Field(..., pattern="^(sp500|nasdaq|nasdaq_gt5|split|all_us)$")
     mode:     str = Field(..., pattern="^(single_day|date_range|last_n_days|ytd)$")
@@ -68,6 +71,18 @@ class RunRequest(BaseModel):
     min_volume:        int   | None = None
     min_dollar_volume: float | None = None
     lookback_bars:     int   | None = None
+
+    @field_validator("lookback_bars", mode="before")
+    @classmethod
+    def validate_lookback_bars(cls, v):
+        if v is None:
+            return None
+        v = int(v)
+        if v not in _ALLOWED_LOOKBACK:
+            raise ValueError(
+                f"lookback_bars must be one of {sorted(_ALLOWED_LOOKBACK)}"
+            )
+        return v
 
 
 # ─── DB helpers ──────────────────────────────────────────────────────────────
@@ -178,12 +193,23 @@ def history(limit: int = 50) -> list[dict]:
     ph = _ph()
     sql = (f"SELECT id, status, mode, universe, as_of_date, start_date, end_date, "
            f"total_events, total_outcomes, total_statistics_rows, storage_mode, "
-           f"started_at, finished_at, error_message "
+           f"settings_json, started_at, finished_at, error_message "
            f"FROM signal_replay_runs ORDER BY id DESC LIMIT {limit}")
     runs = _query(sql)
-    # Enrich with artifact sizes from disk
+    # Enrich with artifact sizes from disk and parse lookback_bars from settings_json
     for run in runs:
         rid = run.get("id")
+        # Parse lookback_bars and context_quality from settings_json
+        sj = run.get("settings_json")
+        if sj:
+            try:
+                s = json.loads(sj)
+                lb = int(s.get("lookback_bars") or 500)
+                run["lookback_bars"] = lb
+                run["context_quality"] = _context_quality_label(lb)
+            except Exception:
+                run["lookback_bars"] = 500
+                run["context_quality"] = "FULL"
         if rid and run.get("storage_mode") == "parquet":
             rdir = run_dir(rid)
             run["artifacts_on_disk"] = rdir.exists()
@@ -192,6 +218,14 @@ def history(limit: int = 50) -> list[dict]:
                     f.stat().st_size for f in rdir.rglob("*") if f.is_file()
                 )
     return runs
+
+
+def _context_quality_label(lookback_bars: int) -> str:
+    if lookback_bars >= 250:
+        return "FULL"
+    if lookback_bars >= 100:
+        return "PARTIAL"
+    return "LIMITED"
 
 
 @router.get("/{run_id}")

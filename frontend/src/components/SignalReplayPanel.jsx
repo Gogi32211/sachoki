@@ -55,6 +55,29 @@ function ConfidenceBadge({ label }) {
   return <span className={`text-[10px] px-1.5 py-0.5 rounded ${cls}`}>{label || '—'}</span>
 }
 
+const CQ_META = {
+  FULL:    { cls: 'bg-emerald-900 text-emerald-200', label: 'FULL' },
+  PARTIAL: { cls: 'bg-yellow-900 text-yellow-200',   label: 'PARTIAL' },
+  LIMITED: { cls: 'bg-red-900 text-red-200',         label: 'LIMITED' },
+}
+
+function ContextQualityBadge({ quality }) {
+  const m = CQ_META[quality] || { cls: 'bg-gray-800 text-gray-400', label: quality || '—' }
+  return <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${m.cls}`}>{m.label}</span>
+}
+
+function parseSettings(settingsJson) {
+  if (!settingsJson) return {}
+  try { return JSON.parse(settingsJson) } catch { return {} }
+}
+
+function contextQualityFromBars(lookbackBars) {
+  const n = Number(lookbackBars) || 500
+  if (n >= 250) return 'FULL'
+  if (n >= 100) return 'PARTIAL'
+  return 'LIMITED'
+}
+
 // ─── Run Settings Panel ──────────────────────────────────────────────────────
 
 const MODE_OPTIONS = [
@@ -164,14 +187,28 @@ function SettingsPanel({ disabled, onStart }) {
         </select>
       </div>
       <div>
-        <label className="text-xs text-gray-400">Bar Lookback</label>
+        <label className="text-xs text-gray-400 flex items-center gap-1.5">
+          Bar Lookback
+          <ContextQualityBadge quality={contextQualityFromBars(lookbackBars)} />
+        </label>
         <select value={lookbackBars} onChange={e => setLookbackBars(Number(e.target.value))}
                 className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
-          <option value={500}>500 bars (~2yr)</option>
-          <option value={1000}>1000 bars (~4yr)</option>
-          <option value={1500}>1500 bars (~6yr)</option>
-          <option value={2000}>2000 bars (~8yr)</option>
+          <option value={30}>30 bars — Fast Scan / Debug</option>
+          <option value={100}>100 bars — Light</option>
+          <option value={250}>250 bars — Standard Fast Research</option>
+          <option value={500}>500 bars — Full Context / Default (~2yr)</option>
+          <option value={1000}>1000 bars — Deep Research (~4yr)</option>
         </select>
+        {lookbackBars === 30 && (
+          <div className="mt-1 text-[11px] text-yellow-400 bg-yellow-950 border border-yellow-800 rounded px-2 py-1">
+            ⚠ LIMITED context: EMA50/EMA89/EMA200 and long-sequence analytics may be unreliable. Use for fast scans or debugging only — not for full statistical validation.
+          </div>
+        )}
+        {lookbackBars === 100 && (
+          <div className="mt-1 text-[10px] text-blue-400">
+            PARTIAL context — some long-EMA and long-horizon analytics may not be fully reliable.
+          </div>
+        )}
       </div>
       <div className="md:col-span-1 flex items-end justify-end">
         <button onClick={submit} disabled={disabled}
@@ -207,11 +244,13 @@ function ProgressPanel({ state, onStop, onPause, onResume }) {
   return (
     <div className="bg-gray-900 rounded p-3 space-y-2">
       <div className="flex items-center justify-between gap-2 flex-wrap">
-        <div className="text-sm">
-          <span className={`inline-block px-2 py-0.5 rounded text-xs mr-2 ${STATUS_CLS[state.status] || 'bg-gray-700 text-gray-300'}`}>
+        <div className="text-sm flex flex-wrap items-center gap-2">
+          <span className={`inline-block px-2 py-0.5 rounded text-xs ${STATUS_CLS[state.status] || 'bg-gray-700 text-gray-300'}`}>
             {paused ? 'PAUSED' : state.status}
           </span>
-          run_id={state.run_id} · {state.universe} · {state.mode}
+          <span>run_id={state.run_id} · {state.universe} · {state.mode}</span>
+          {state.context_quality && <ContextQualityBadge quality={state.context_quality} />}
+          {state.lookback_bars && <span className="text-[10px] text-gray-500">{state.lookback_bars}b</span>}
         </div>
         <div className="flex items-center gap-2">
           <span className="text-xs text-gray-500">elapsed: {state.elapsed_secs}s</span>
@@ -284,6 +323,7 @@ function SignalRankingTable({ runId }) {
   const [horizon, setHorizon] = useState('10d')
   const [statType, setStatType] = useState('SIGNAL')
   const [minN, setMinN] = useState(30)
+  const [cqFilter, setCqFilter] = useState('')
   const [sortBy, setSortBy] = useState('median_return')
   const [sortDir, setSortDir] = useState('desc')
   const [loading, setLoading] = useState(false)
@@ -302,6 +342,8 @@ function SignalRankingTable({ runId }) {
     } catch (e) { setErr(e.message); setRows([]) }
     finally { setLoading(false) }
   }, [runId, horizon, statType, minN, sortBy, sortDir])
+
+  const displayRows = cqFilter ? rows.filter(r => r.context_quality === cqFilter) : rows
 
   useEffect(() => { load() }, [load])
 
@@ -347,6 +389,14 @@ function SignalRankingTable({ runId }) {
         <span className="ml-3">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
                className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <span className="ml-2">Quality:</span>
+        <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
+                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+          <option value="">All</option>
+          <option value="FULL">FULL</option>
+          <option value="PARTIAL">PARTIAL</option>
+          <option value="LIMITED">LIMITED</option>
+        </select>
         <button onClick={load}
                 className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
           ↻ Reload
@@ -369,11 +419,12 @@ function SignalRankingTable({ runId }) {
               <th className="px-2 py-1 text-left">Avg Max Gain</th>
               <th className="px-2 py-1 text-left">Avg DD</th>
               <H col="confidence_score">Confidence</H>
+              <th className="px-2 py-1 text-left">Quality</th>
               <th className="px-2 py-1 text-left">Verdict</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
+            {displayRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
                 <td className="px-2 py-1 font-mono">{r.stat_key}</td>
                 <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
@@ -389,11 +440,12 @@ function SignalRankingTable({ runId }) {
                 <td className="px-2 py-1">{fmtPct(r.avg_max_gain)}</td>
                 <td className="px-2 py-1 text-red-300">{fmtPct(r.avg_max_drawdown)}</td>
                 <td className="px-2 py-1"><ConfidenceBadge label={r.confidence_label} /></td>
+                <td className="px-2 py-1"><ContextQualityBadge quality={r.context_quality} /></td>
                 <td className="px-2 py-1"><VerdictBadge verdict={r.verdict} /></td>
               </tr>
             ))}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={12} className="px-2 py-6 text-center text-gray-500">
+            {!loading && displayRows.length === 0 && (
+              <tr><td colSpan={13} className="px-2 py-6 text-center text-gray-500">
                 No stats yet. Run a replay or relax filters.
               </td></tr>
             )}
@@ -516,6 +568,13 @@ function SummaryPanel({ runId, runMeta }) {
       .then(setWorstRows).catch(() => setWorstRows([]))
   }, [runId])
 
+  const settings  = parseSettings(runMeta?.settings_json)
+  const lb        = settings.lookback_bars || 500
+  const cq        = contextQualityFromBars(lb)
+  const warnings  = []
+  if (lb < 100)  warnings.push('Limited context: EMA50/EMA89/EMA200 and long-sequence analytics may be unreliable or unavailable.')
+  if (lb === 30) warnings.push('This replay uses only 30 bars. Optimized for speed/debugging — not full statistical validation.')
+
   return (
     <div className="space-y-3">
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
@@ -524,6 +583,20 @@ function SummaryPanel({ runId, runMeta }) {
         <Stat label="Total Events"  val={fmtNum(runMeta?.total_events)} />
         <Stat label="Total Outcomes" val={fmtNum(runMeta?.total_outcomes)} />
       </div>
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
+        <Stat label="Mode"          val={runMeta?.mode || '—'} />
+        <Stat label="Bar Lookback"  val={`${lb} bars`} />
+        <div className="bg-gray-800 rounded px-2 py-1">
+          <div className="text-[10px] text-gray-500">Context Quality</div>
+          <div className="mt-0.5"><ContextQualityBadge quality={cq} /></div>
+        </div>
+        <Stat label="Storage"       val={runMeta?.storage_mode || '—'} />
+      </div>
+      {warnings.map((w, i) => (
+        <div key={i} className="text-[11px] text-yellow-400 bg-yellow-950 border border-yellow-800 rounded px-2 py-1">
+          ⚠ {w}
+        </div>
+      ))}
       <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
         <MiniList title="🏆 Top Signals (10D median)" rows={bestRows} pos />
         <MiniList title="⚠️ Worst Signals (10D median)" rows={worstRows} />
@@ -565,6 +638,7 @@ function PatternRankingTable({ runId }) {
   const [patternType, setPatternType] = useState('SEQUENCE_4')
   const [terminal, setTerminal] = useState('')
   const [minN, setMinN] = useState(3)
+  const [cqFilter, setCqFilter] = useState('')
   const [sortBy, setSortBy] = useState('median_return')
   const [sortDir, setSortDir] = useState('desc')
   const [loading, setLoading] = useState(false)
@@ -587,6 +661,8 @@ function PatternRankingTable({ runId }) {
   }, [runId, horizon, patternType, terminal, minN, sortBy, sortDir])
 
   useEffect(() => { load() }, [load])
+
+  const displayRows = cqFilter ? rows.filter(r => r.context_quality === cqFilter) : rows
 
   const headerClick = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -621,6 +697,14 @@ function PatternRankingTable({ runId }) {
         <span className="ml-2">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
                className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <span className="ml-2">Quality:</span>
+        <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
+                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+          <option value="">All</option>
+          <option value="FULL">FULL</option>
+          <option value="PARTIAL">PARTIAL</option>
+          <option value="LIMITED">LIMITED</option>
+        </select>
         <button onClick={load}
                 className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
           ↻ Reload
@@ -642,11 +726,12 @@ function PatternRankingTable({ runId }) {
               <H col="hit_10pct_rate">Hit +10%</H>
               <H col="fail_10pct_rate">Fail -10%</H>
               <H col="confidence_score">Conf.</H>
+              <th className="px-2 py-1 text-left">Quality</th>
               <th className="px-2 py-1 text-left">Verdict</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
+            {displayRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
                 <td className="px-2 py-1 font-mono text-gray-300 max-w-[260px] truncate">{r.pattern_value}</td>
                 <td className="px-2 py-1 text-gray-500 text-[10px]">{r.pattern_type?.replace('SEQUENCE_', '') + '-bar'}</td>
@@ -660,11 +745,12 @@ function PatternRankingTable({ runId }) {
                 <td className="px-2 py-1 text-emerald-300">{fmtPct(r.hit_10pct_rate, 1)}</td>
                 <td className="px-2 py-1 text-red-400">{fmtPct(r.fail_10pct_rate, 1)}</td>
                 <td className="px-2 py-1"><ConfidenceBadge label={r.confidence_label} /></td>
+                <td className="px-2 py-1"><ContextQualityBadge quality={r.context_quality} /></td>
                 <td className="px-2 py-1"><VerdictBadge verdict={r.verdict} /></td>
               </tr>
             ))}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={11} className="px-2 py-6 text-center text-gray-500">
+            {!loading && displayRows.length === 0 && (
+              <tr><td colSpan={12} className="px-2 py-6 text-center text-gray-500">
                 No patterns yet. Run a replay to populate.
               </td></tr>
             )}
@@ -690,6 +776,7 @@ function ContextFilterTable({ runId }) {
   const [signal, setSignal] = useState('')
   const [filterName, setFilterName] = useState('')
   const [minN, setMinN] = useState(5)
+  const [cqFilter, setCqFilter] = useState('')
   const [sortBy, setSortBy] = useState('lift_median_return')
   const [sortDir, setSortDir] = useState('desc')
   const [loading, setLoading] = useState(false)
@@ -710,6 +797,8 @@ function ContextFilterTable({ runId }) {
     } catch (e) { setErr(e.message); setRows([]) }
     finally { setLoading(false) }
   }, [runId, horizon, signal, filterName, minN, sortBy, sortDir])
+
+  const displayRows = cqFilter ? rows.filter(r => r.context_quality === cqFilter) : rows
 
   useEffect(() => { load() }, [load])
 
@@ -750,6 +839,14 @@ function ContextFilterTable({ runId }) {
         <span className="ml-2">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
                className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <span className="ml-2">Quality:</span>
+        <select value={cqFilter} onChange={e => setCqFilter(e.target.value)}
+                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+          <option value="">All</option>
+          <option value="FULL">FULL</option>
+          <option value="PARTIAL">PARTIAL</option>
+          <option value="LIMITED">LIMITED</option>
+        </select>
         <button onClick={load}
                 className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
           ↻ Reload
@@ -771,11 +868,12 @@ function ContextFilterTable({ runId }) {
               <H col="lift_hit_10pct">Lift Hit</H>
               <H col="fail_10pct_rate">Fail -10%</H>
               <H col="confidence_score">Conf.</H>
+              <th className="px-2 py-1 text-left">Quality</th>
               <th className="px-2 py-1 text-left">Verdict</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map(r => (
+            {displayRows.map(r => (
               <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
                 <td className="px-2 py-1 font-mono">{r.base_signal}</td>
                 <td className="px-2 py-1 text-gray-400">{r.filter_name}</td>
@@ -793,11 +891,12 @@ function ContextFilterTable({ runId }) {
                 </td>
                 <td className="px-2 py-1 text-red-400">{fmtPct(r.fail_10pct_rate, 1)}</td>
                 <td className="px-2 py-1"><ConfidenceBadge label={r.confidence_label} /></td>
+                <td className="px-2 py-1"><ContextQualityBadge quality={r.context_quality} /></td>
                 <td className="px-2 py-1"><VerdictBadge verdict={r.verdict} /></td>
               </tr>
             ))}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={11} className="px-2 py-6 text-center text-gray-500">
+            {!loading && displayRows.length === 0 && (
+              <tr><td colSpan={12} className="px-2 py-6 text-center text-gray-500">
                 No filter data yet. Run a replay to populate.
               </td></tr>
             )}
@@ -1135,6 +1234,9 @@ export default function SignalReplayPanel() {
                      runId === h.id ? 'bg-blue-900 text-blue-200' : 'bg-gray-800 text-gray-300'}`}>
                 <span className="cursor-pointer" onClick={() => setRunId(h.id)}>
                   #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} ev
+                  {h.lookback_bars && <span className="text-gray-500 ml-1">{h.lookback_bars}b</span>}
+                  {h.context_quality && h.context_quality !== 'FULL' &&
+                    <span className="ml-1"><ContextQualityBadge quality={h.context_quality} /></span>}
                 </span>
                 <button onClick={() => handleExport(h.id, 'signal_stats')}
                         title="Export signal stats JSON (small)"
