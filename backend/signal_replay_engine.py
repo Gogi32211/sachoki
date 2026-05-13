@@ -35,26 +35,31 @@ log = logging.getLogger(__name__)
 
 # Module-level state (single concurrent run)
 _state: dict[str, Any] = {
-    "running":           False,
-    "run_id":            None,
-    "status":            "idle",
-    "mode":              None,
-    "universe":          None,
-    "current_date":      None,
-    "days_total":        0,
-    "days_completed":    0,
-    "symbols_total":     0,
-    "symbols_completed": 0,
-    "events_found":       0,
-    "outcomes_computed":  0,
-    "statistics_rows":    0,
-    "pattern_rows":       0,
-    "filter_impact_rows": 0,
-    "started_at":         None,
-    "elapsed_secs":       0,
-    "error":              None,
-    "stop_requested":     False,
-    "pause_requested":    False,
+    "running":              False,
+    "run_id":               None,
+    "status":               "idle",
+    "mode":                 None,
+    "universe":             None,
+    "current_date":         None,
+    "days_total":           0,
+    "days_completed":       0,
+    "symbols_total":        0,
+    "symbols_completed":    0,
+    "events_found":         0,
+    "outcomes_computed":    0,
+    "statistics_rows":      0,
+    "pattern_rows":         0,
+    "filter_impact_rows":   0,
+    "combo_rows":           0,
+    "unique_symbols":       0,
+    "unique_symbol_dates":  0,
+    "unique_tz_events":     0,
+    "unique_combo_events":  0,
+    "started_at":           None,
+    "elapsed_secs":         0,
+    "error":                None,
+    "stop_requested":       False,
+    "pause_requested":      False,
 }
 
 
@@ -228,6 +233,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
     from signal_statistics_engine import build_signal_statistics
     from signal_pattern_engine import build_pattern_statistics
     from signal_filter_impact_engine import build_filter_impact_statistics
+    from signal_combo_engine import build_combo_statistics
 
     _set(running=True, run_id=run_id, status="running",
          mode=payload.get("mode"), universe=payload.get("universe"),
@@ -235,7 +241,9 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
          days_total=0, days_completed=0,
          symbols_total=0, symbols_completed=0,
          events_found=0, outcomes_computed=0, statistics_rows=0,
-         pattern_rows=0, filter_impact_rows=0,
+         pattern_rows=0, filter_impact_rows=0, combo_rows=0,
+         unique_symbols=0, unique_symbol_dates=0,
+         unique_tz_events=0, unique_combo_events=0,
          started_at=time.time(), elapsed_secs=0, error=None)
     t0 = time.time()
 
@@ -248,13 +256,21 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         log.info("signal_replay: %s universe → %d tickers", universe, len(tickers))
         _set(symbols_total=len(tickers))
 
+        # Configurable bar lookback: 500/1000/1500/2000; clamped to [200, 2000]
+        lookback_bars = max(200, min(2000, int(payload.get("lookback_bars") or 500)))
+
+        # Per-bar filters from RunRequest
+        min_price         = payload.get("min_price")
+        min_volume        = payload.get("min_volume")
+        min_dollar_volume = payload.get("min_dollar_volume")
+
         # Pre-fetch benchmark series (SPY + QQQ) once for the whole run
         try:
-            spy_bars = api_bar_signals("SPY", "1d", 500)
+            spy_bars = api_bar_signals("SPY", "1d", lookback_bars)
         except Exception:
             spy_bars = []
         try:
-            qqq_bars = api_bar_signals("QQQ", "1d", 500)
+            qqq_bars = api_bar_signals("QQQ", "1d", lookback_bars)
         except Exception:
             qqq_bars = []
 
@@ -268,6 +284,10 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         outcomes_total = 0
         all_events: list[dict] = []
         all_outcomes: list[dict] = []
+        unique_symbols_set:       set[str]          = set()
+        unique_symbol_dates_set:  set[tuple]        = set()
+        unique_tz_events_count:   int               = 0
+        unique_combo_events_count: int              = 0
 
         for sym_idx, ticker in enumerate(tickers):
             # ── Pause: spin until resumed ──────────────────────────────────
@@ -281,7 +301,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                 break
 
             try:
-                bars = api_bar_signals(ticker, "1d", 500)
+                bars = api_bar_signals(ticker, "1d", lookback_bars)
             except Exception as fetch_err:
                 log.debug("signal_replay: bar fetch failed for %s: %s", ticker, fetch_err)
                 _set(symbols_completed=sym_idx + 1,
@@ -314,6 +334,17 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                     if close is None or close < 5:
                         continue
 
+                # Enforce RunRequest filters (min_price, min_volume, min_dollar_volume)
+                bar_close  = float(bars[idx].get("close")  or 0)
+                bar_volume = float(bars[idx].get("volume") or 0)
+                bar_dv     = bar_close * bar_volume
+                if min_price is not None and bar_close < min_price:
+                    continue
+                if min_volume is not None and bar_volume < min_volume:
+                    continue
+                if min_dollar_volume is not None and bar_dv < min_dollar_volume:
+                    continue
+
                 events = extract_events(
                     bars, idx,
                     ticker=ticker, universe=universe, replay_run_id=run_id,
@@ -327,6 +358,15 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
                 for ev in events:
                     event_rows_for_ticker.append(ev)
+                    # Update unique-entity counters
+                    unique_symbols_set.add(ticker)
+                    unique_symbol_dates_set.add((ticker, scan_date))
+                    sig_fam = ev.get("event_signal_family") or ""
+                    ev_sig  = ev.get("event_signal") or ""
+                    if ev_sig.startswith(("T", "Z")):
+                        unique_tz_events_count += 1
+                    elif sig_fam in ("COMBO", "L", "F", "G", "B", "EMA"):
+                        unique_combo_events_count += 1
 
                 # Outcomes — we can't yet attach event ids; defer until events are inserted
                 # Store (placeholder_offset, computed_outcomes_for_this_event)
@@ -356,6 +396,10 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
             _set(symbols_completed=sym_idx + 1,
                  events_found=events_total,
+                 unique_symbols=len(unique_symbols_set),
+                 unique_symbol_dates=len(unique_symbol_dates_set),
+                 unique_tz_events=unique_tz_events_count,
+                 unique_combo_events=unique_combo_events_count,
                  elapsed_secs=round(time.time() - t0, 1))
 
         # Flush outcomes
@@ -390,13 +434,14 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
         # Phase 2: pattern statistics (sequences)
         events_for_patterns = [{
-            "id":            ev["id"],
-            "event_signal":  ev.get("event_signal"),
-            "sequence_2bar": ev.get("sequence_2bar"),
-            "sequence_3bar": ev.get("sequence_3bar"),
-            "sequence_4bar": ev.get("sequence_4bar"),
-            "sequence_5bar": ev.get("sequence_5bar"),
-            "sequence_7bar": ev.get("sequence_7bar"),
+            "id":             ev["id"],
+            "event_signal":   ev.get("event_signal"),
+            "sequence_2bar":  ev.get("sequence_2bar"),
+            "sequence_3bar":  ev.get("sequence_3bar"),
+            "sequence_4bar":  ev.get("sequence_4bar"),
+            "sequence_5bar":  ev.get("sequence_5bar"),
+            "sequence_7bar":  ev.get("sequence_7bar"),
+            "sequence_10bar": ev.get("sequence_10bar"),
         } for ev in all_events]
 
         pattern_rows = build_pattern_statistics(
@@ -433,6 +478,31 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         _set(filter_impact_rows=len(filter_rows),
              elapsed_secs=round(time.time() - t0, 1))
 
+        # Multi-context combination statistics (stored in replay_signal_statistics)
+        events_for_combos = [{
+            "id":                     ev["id"],
+            "event_signal":           ev.get("event_signal"),
+            "event_signal_family":    ev.get("event_signal_family"),
+            "sequence_4bar":          ev.get("sequence_4bar"),
+            "abr_category":           ev.get("abr_category"),
+            "ema50_state":            ev.get("ema50_state"),
+            "had_wlnbb_l_last_5d":    ev.get("had_wlnbb_l_last_5d"),
+            "price_pos_20bar_bucket": ev.get("price_pos_20bar_bucket"),
+            "score_bucket":           ev.get("score_bucket"),
+            "volume_bucket":          ev.get("volume_bucket"),
+            "candle_color":           ev.get("candle_color"),
+            "symbol":                 ev.get("symbol"),
+            "scan_date":              ev.get("scan_date"),
+        } for ev in all_events]
+
+        combo_rows = build_combo_statistics(
+            events_for_combos, all_outcomes, replay_run_id=run_id,
+        )
+        if combo_rows:
+            _bulk_insert("replay_signal_statistics", combo_rows)
+        _set(combo_rows=len(combo_rows),
+             elapsed_secs=round(time.time() - t0, 1))
+
         final_status = "stopped" if _state.get("stop_requested") else "completed"
         _update_run(
             run_id,
@@ -442,7 +512,13 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             total_symbols=len(tickers),
             symbols_completed=_state.get("symbols_completed", 0),
             total_events=events_total, total_outcomes=outcomes_total,
-            total_statistics_rows=len(stats_rows),
+            total_statistics_rows=len(stats_rows) + len(combo_rows),
+        )
+        _set(
+            unique_symbols=len(unique_symbols_set),
+            unique_symbol_dates=len(unique_symbol_dates_set),
+            unique_tz_events=unique_tz_events_count,
+            unique_combo_events=unique_combo_events_count,
         )
         _finalize_finished_at(run_id)
         _set(status=final_status, running=False,

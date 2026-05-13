@@ -19,11 +19,12 @@ from signal_statistics_engine import (
 log = logging.getLogger(__name__)
 
 _SEQUENCE_COLS = [
-    ("SEQUENCE_2", "sequence_2bar"),
-    ("SEQUENCE_3", "sequence_3bar"),
-    ("SEQUENCE_4", "sequence_4bar"),
-    ("SEQUENCE_5", "sequence_5bar"),
-    ("SEQUENCE_7", "sequence_7bar"),
+    ("SEQUENCE_2",  "sequence_2bar"),
+    ("SEQUENCE_3",  "sequence_3bar"),
+    ("SEQUENCE_4",  "sequence_4bar"),
+    ("SEQUENCE_5",  "sequence_5bar"),
+    ("SEQUENCE_7",  "sequence_7bar"),
+    ("SEQUENCE_10", "sequence_10bar"),
 ]
 
 _MIN_SAMPLE = 3  # skip patterns with fewer than this many occurrences

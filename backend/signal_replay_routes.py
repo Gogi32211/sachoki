@@ -56,6 +56,7 @@ class RunRequest(BaseModel):
     min_price:         float | None = None
     min_volume:        int   | None = None
     min_dollar_volume: float | None = None
+    lookback_bars:     int   | None = None   # bars to fetch per ticker: 500/1000/1500/2000
 
 
 # ─── Helpers ─────────────────────────────────────────────────────────────────

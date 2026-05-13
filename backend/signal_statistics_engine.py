@@ -64,36 +64,70 @@ def _confidence_score(n: int) -> float:
     return max(0.0, min(0.99, 1 - math.exp(-n / 400)))
 
 
+def _robustness_warnings(stats: dict) -> list[str]:
+    """Returns a list of data quality / robustness warning codes."""
+    warnings: list[str] = []
+    n    = stats.get("sample_size") or 0
+    avg  = stats.get("avg_return")
+    med  = stats.get("median_return")
+    fail = stats.get("fail_10pct_rate")
+    avg_dd = stats.get("avg_max_drawdown")
+
+    if n < 30:
+        warnings.append("TOO_FEW_SAMPLES")
+
+    if avg is not None and med is not None:
+        diff = abs(avg - med)
+        base = max(abs(med), 0.5)
+        if diff > 4 and diff / base > 1.5:
+            # avg diverges >1.5× from median — heavy-tail / outlier influence
+            if avg > med * 2.5 and avg > 5:
+                warnings.append("OUTLIER_DRIVEN")
+            else:
+                warnings.append("AVG_MEDIAN_DIVERGENCE")
+
+    if avg_dd is not None and avg_dd < -15 and med is not None and med > 2:
+        warnings.append("HIGH_DRAWDOWN_DESPITE_GOOD_RETURN")
+
+    if fail is not None and fail > 30:
+        warnings.append("HIGH_FAIL_RATE")
+
+    return warnings
+
+
 def _verdict(stats: dict) -> tuple[str, str]:
-    """Returns (verdict, recommendation)."""
+    """Returns (verdict, recommendation). Recommendation may be prefixed with WARN tags."""
     n   = stats.get("sample_size") or 0
     med = stats.get("median_return")
     hit = stats.get("hit_10pct_rate")
     fail = stats.get("fail_10pct_rate")
 
+    warns = _robustness_warnings(stats)
+    warn_prefix = f"[WARN: {', '.join(warns)}] " if warns else ""
+
     if n < 30:
         return ("TOO_FEW_SAMPLES",
-                f"Sample size {n} is too small to draw conclusions.")
+                f"{warn_prefix}Sample size {n} is too small to draw conclusions.")
     if med is None:
-        return ("NO_EDGE", "Insufficient outcome data.")
+        return ("NO_EDGE", f"{warn_prefix}Insufficient outcome data.")
     if med < 0 and fail is not None and hit is not None and fail > hit:
         return ("NEGATIVE_EDGE",
-                f"Median 10D return {med:+.2f}%, fail -10% rate ({fail:.1f}%) exceeds "
+                f"{warn_prefix}Median 10D return {med:+.2f}%, fail -10% rate ({fail:.1f}%) exceeds "
                 f"hit +10% rate ({hit:.1f}%). Consider downgrading or filtering.")
     if med > 2 and hit is not None and fail is not None and hit >= 20 and fail <= 20 and n >= 50:
         return ("STRONG_EDGE",
-                f"Median 10D return {med:+.2f}%, hit +10% rate {hit:.1f}%, "
+                f"{warn_prefix}Median 10D return {med:+.2f}%, hit +10% rate {hit:.1f}%, "
                 f"fail -10% rate {fail:.1f}% on {n} samples. Promote in scoring.")
     if med > 1 and hit is not None and fail is not None and hit > fail and n >= 50:
         return ("GOOD_WITH_CONTEXT",
-                f"Median 10D return {med:+.2f}% with hit/fail edge ({hit:.1f}% vs "
+                f"{warn_prefix}Median 10D return {med:+.2f}% with hit/fail edge ({hit:.1f}% vs "
                 f"{fail:.1f}%). Useful with context filters.")
     if med > 0:
         return ("WATCH_ONLY",
-                f"Median 10D return {med:+.2f}% is positive but hit/fail profile "
+                f"{warn_prefix}Median 10D return {med:+.2f}% is positive but hit/fail profile "
                 f"is not strong. Monitor before promoting.")
     return ("NO_EDGE",
-            f"Median 10D return {med:+.2f}%. No actionable edge detected.")
+            f"{warn_prefix}Median 10D return {med:+.2f}%. No actionable edge detected.")
 
 
 def _aggregate_for_key(rows: list[dict], horizon: str) -> dict:

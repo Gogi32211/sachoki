@@ -66,17 +66,21 @@ const MODE_OPTIONS = [
 
 function SettingsPanel({ disabled, onStart }) {
   const today = new Date().toISOString().slice(0, 10)
-  const [universe, setUniverse]       = useState('nasdaq_gt5')
-  const [mode, setMode]               = useState('single_day')
-  const [asOfDate, setAsOfDate]       = useState(today)
-  const [startDate, setStartDate]     = useState(today)
-  const [endDate, setEndDate]         = useState(today)
+  const [universe, setUniverse]         = useState('nasdaq_gt5')
+  const [mode, setMode]                 = useState('single_day')
+  const [asOfDate, setAsOfDate]         = useState(today)
+  const [startDate, setStartDate]       = useState(today)
+  const [endDate, setEndDate]           = useState(today)
   const [lookbackDays, setLookbackDays] = useState(20)
-  const [benchmark, setBenchmark]     = useState('QQQ')
-  const [scope, setScope]             = useState('all_signals')
+  const [lookbackBars, setLookbackBars] = useState(500)
+  const [benchmark, setBenchmark]       = useState('QQQ')
+  const [scope, setScope]               = useState('all_signals')
 
   const submit = () => {
-    const payload = { universe, mode, benchmark_symbol: benchmark, event_scope: scope }
+    const payload = {
+      universe, mode, benchmark_symbol: benchmark, event_scope: scope,
+      lookback_bars: lookbackBars,
+    }
     if (mode === 'single_day')  payload.as_of_date = asOfDate
     if (mode === 'date_range')  { payload.start_date = startDate; payload.end_date = endDate }
     if (mode === 'last_n_days') payload.lookback_days = lookbackDays
@@ -159,7 +163,17 @@ function SettingsPanel({ disabled, onStart }) {
           <option value="watch_and_above">Watch and above</option>
         </select>
       </div>
-      <div className="md:col-span-2 flex items-end justify-end">
+      <div>
+        <label className="text-xs text-gray-400">Bar Lookback</label>
+        <select value={lookbackBars} onChange={e => setLookbackBars(Number(e.target.value))}
+                className="w-full bg-gray-800 text-gray-100 rounded px-2 py-1 text-sm">
+          <option value={500}>500 bars (~2yr)</option>
+          <option value={1000}>1000 bars (~4yr)</option>
+          <option value={1500}>1500 bars (~6yr)</option>
+          <option value={2000}>2000 bars (~8yr)</option>
+        </select>
+      </div>
+      <div className="md:col-span-1 flex items-end justify-end">
         <button onClick={submit} disabled={disabled}
                 className={`px-4 py-2 rounded text-sm font-semibold ${disabled
                   ? 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -221,14 +235,26 @@ function ProgressPanel({ state, onStop, onPause, onResume }) {
           )}
         </div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-7 gap-2 text-xs">
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
         <Stat label="Days"     val={`${state.days_completed}/${state.days_total}`} />
-        <Stat label="Symbols"  val={`${state.symbols_completed}/${state.symbols_total}`} />
-        <Stat label="Events"   val={fmtNum(state.events_found)} />
-        <Stat label="Outcomes" val={fmtNum(state.outcomes_computed)} />
-        <Stat label="Sig Stats"    val={fmtNum(state.statistics_rows)} />
-        <Stat label="Patterns"     val={fmtNum(state.pattern_rows)} />
-        <Stat label="Ctx Filters"  val={fmtNum(state.filter_impact_rows)} />
+        <Stat label="Tickers Scanned" val={`${state.symbols_completed}/${state.symbols_total}`} />
+        <Stat label="Unique Symbols (w/ events)" val={fmtNum(state.unique_symbols)} />
+        <Stat label="Unique Symbol-Dates" val={fmtNum(state.unique_symbol_dates)} />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+        <Stat label="Total Events*"   val={fmtNum(state.events_found)} />
+        <Stat label="T/Z Events"      val={fmtNum(state.unique_tz_events)} />
+        <Stat label="Combo Events"    val={fmtNum(state.unique_combo_events)} />
+        <Stat label="Outcomes"        val={fmtNum(state.outcomes_computed)} />
+        <Stat label="Sig/Combo Stats" val={fmtNum((state.statistics_rows || 0) + (state.combo_rows || 0))} />
+      </div>
+      <div className="grid grid-cols-2 md:grid-cols-2 gap-2 text-xs">
+        <Stat label="Pattern Stats"  val={fmtNum(state.pattern_rows)} />
+        <Stat label="Ctx Filters"    val={fmtNum(state.filter_impact_rows)} />
+      </div>
+      <div className="text-[10px] text-yellow-600 italic">
+        * Events ≠ Tickers — one bar with T9 + 3 L items + 2 combos emits 6 separate event rows (one per active signal).
+        T/Z Events = main directional signals only.
       </div>
       <div className="w-full bg-gray-800 rounded h-1.5 overflow-hidden">
         <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
@@ -309,6 +335,14 @@ function SignalRankingTable({ runId }) {
           <option value="SIGNAL_DIRECTION">SIGNAL_DIRECTION</option>
           <option value="ROLE">ROLE</option>
           <option value="SCORE_BUCKET">SCORE_BUCKET</option>
+          <optgroup label="Combo (multi-context)">
+            <option value="COMBO_SIG_ABR_EMA50">Signal+ABR+EMA50</option>
+            <option value="COMBO_SIG_ABR_WLNBB">Signal+ABR+WLNBB</option>
+            <option value="COMBO_SEQ4_ABR_EMA50">Seq4+ABR+EMA50</option>
+            <option value="COMBO_SEQ4_ABR_WLNBB_POS">Seq4+ABR+WLNBB+Pos</option>
+            <option value="COMBO_SIG_SCORE_ABR">Signal+Score+ABR</option>
+            <option value="COMBO_SIG_VOL_CANDLE">Signal+Vol+Candle</option>
+          </optgroup>
         </select>
         <span className="ml-3">Min N:</span>
         <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
@@ -577,7 +611,7 @@ function PatternRankingTable({ runId }) {
         <span className="ml-3">Pattern:</span>
         <select value={patternType} onChange={e => setPatternType(e.target.value)}
                 className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
-          {['', 'SEQUENCE_2', 'SEQUENCE_3', 'SEQUENCE_4', 'SEQUENCE_5', 'SEQUENCE_7'].map(p => (
+          {['', 'SEQUENCE_2', 'SEQUENCE_3', 'SEQUENCE_4', 'SEQUENCE_5', 'SEQUENCE_7', 'SEQUENCE_10'].map(p => (
             <option key={p} value={p}>{p || 'All'}</option>
           ))}
         </select>
@@ -823,6 +857,145 @@ function ExportMenu({ runId, onExport }) {
   )
 }
 
+// ─── Scoring Recommendations ─────────────────────────────────────────────────
+
+const RECOMMENDATION_CATEGORIES = [
+  {
+    id:      'promote',
+    label:   'Promote in Scoring',
+    verdicts: ['STRONG_EDGE'],
+    color:   'border-emerald-500 bg-emerald-950',
+    badge:   'bg-emerald-700 text-emerald-100',
+    desc:    'STRONG_EDGE — Median >2%, Hit +10% ≥20%, Fail -10% ≤20%, N ≥50',
+  },
+  {
+    id:      'filter_context',
+    label:   'Good With Context',
+    verdicts: ['GOOD_WITH_CONTEXT'],
+    color:   'border-blue-600 bg-blue-950',
+    badge:   'bg-blue-700 text-blue-100',
+    desc:    'Useful when combined with ABR/EMA50/WLNBB filters. Check Context Filters tab.',
+  },
+  {
+    id:      'watch',
+    label:   'Watch Only',
+    verdicts: ['WATCH_ONLY'],
+    color:   'border-yellow-700 bg-yellow-950',
+    badge:   'bg-yellow-800 text-yellow-200',
+    desc:    'Positive median return but hit/fail profile not strong enough to act on alone.',
+  },
+  {
+    id:      'downgrade',
+    label:   'Downgrade / Avoid',
+    verdicts: ['NEGATIVE_EDGE', 'NO_EDGE'],
+    color:   'border-red-700 bg-red-950',
+    badge:   'bg-red-800 text-red-200',
+    desc:    'NEGATIVE_EDGE or NO_EDGE — fail rate exceeds hit rate or no detectable alpha.',
+  },
+  {
+    id:      'needs_data',
+    label:   'Needs More Data',
+    verdicts: ['TOO_FEW_SAMPLES'],
+    color:   'border-gray-700 bg-gray-900',
+    badge:   'bg-gray-700 text-gray-300',
+    desc:    'Fewer than 30 samples — run replay on wider universe or longer date range.',
+  },
+]
+
+function ScoringRecommendationsPanel({ runId }) {
+  const [rows, setRows] = useState([])
+  const [horizon, setHorizon] = useState('10d')
+  const [minN, setMinN] = useState(10)
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const load = useCallback(async () => {
+    if (!runId) return
+    setLoading(true); setErr(null)
+    try {
+      const qs = new URLSearchParams({
+        horizon, stat_type: 'SIGNAL', min_sample_size: String(minN),
+        sort_by: 'median_return', sort_dir: 'desc', limit: '2000',
+      }).toString()
+      const data = await apiFetch(`/api/signal-replay/${runId}/signal-statistics?${qs}`)
+      setRows(Array.isArray(data) ? data : [])
+    } catch (e) { setErr(e.message); setRows([]) }
+    finally { setLoading(false) }
+  }, [runId, horizon, minN])
+
+  useEffect(() => { load() }, [load])
+
+  const byVerdict = useMemo(() => {
+    const map = {}
+    for (const cat of RECOMMENDATION_CATEGORIES) map[cat.id] = []
+    for (const row of rows) {
+      for (const cat of RECOMMENDATION_CATEGORIES) {
+        if (cat.verdicts.includes(row.verdict)) {
+          map[cat.id].push(row)
+          break
+        }
+      }
+    }
+    return map
+  }, [rows])
+
+  return (
+    <div className="space-y-3">
+      <div className="flex flex-wrap gap-2 items-center text-xs">
+        <span>Horizon:</span>
+        {['3d', '5d', '10d', '20d'].map(h => (
+          <button key={h} onClick={() => setHorizon(h)}
+                  className={`px-2 py-0.5 rounded ${horizon === h
+                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+        ))}
+        <span className="ml-3">Min N:</span>
+        <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
+               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <button onClick={load}
+                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+          ↻ Reload
+        </button>
+      </div>
+      {err && <div className="text-xs text-red-400">Error: {err}</div>}
+      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      <div className="text-[10px] text-gray-500 italic">
+        SIGNAL stat_type only. Combo and sequence stats available in Signal Ranking tab (filter by stat_type).
+      </div>
+      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+        {RECOMMENDATION_CATEGORIES.map(cat => {
+          const items = byVerdict[cat.id] || []
+          return (
+            <div key={cat.id}
+                 className={`border rounded p-3 space-y-2 ${cat.color}`}>
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-gray-200">{cat.label}</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded ${cat.badge}`}>{items.length} signals</span>
+              </div>
+              <div className="text-[10px] text-gray-400 italic">{cat.desc}</div>
+              <div className="space-y-1 max-h-48 overflow-y-auto">
+                {items.map(r => (
+                  <div key={r.id} className="flex justify-between gap-2 text-[11px] bg-black/20 rounded px-2 py-1">
+                    <span className="font-mono text-gray-200 truncate">{r.stat_key}</span>
+                    <div className="flex gap-3 shrink-0 text-right">
+                      <span className={Number(r.median_return) >= 0 ? 'text-emerald-400' : 'text-red-400'}>
+                        {fmtPct(r.median_return)}
+                      </span>
+                      <span className="text-gray-500">N={fmtNum(r.sample_size)}</span>
+                    </div>
+                  </div>
+                ))}
+                {items.length === 0 && (
+                  <div className="text-[10px] text-gray-600 italic">None in this category</div>
+                )}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+    </div>
+  )
+}
+
 // ─── Top-level panel ─────────────────────────────────────────────────────────
 
 const TABS = [
@@ -830,6 +1003,7 @@ const TABS = [
   { id: 'ranking',  label: '🏆 Signal Ranking' },
   { id: 'patterns', label: '🔢 Patterns' },
   { id: 'context',  label: '🎛 Context Filters' },
+  { id: 'recs',     label: '🎯 Recommendations' },
   { id: 'events',   label: '🔬 Event Explorer' },
 ]
 
@@ -979,6 +1153,7 @@ export default function SignalReplayPanel() {
             {tab === 'ranking'  && <SignalRankingTable runId={runId} />}
             {tab === 'patterns' && <PatternRankingTable runId={runId} />}
             {tab === 'context'  && <ContextFilterTable runId={runId} />}
+            {tab === 'recs'     && <ScoringRecommendationsPanel runId={runId} />}
             {tab === 'events'   && <EventExplorer runId={runId} />}
           </div>
         </>
