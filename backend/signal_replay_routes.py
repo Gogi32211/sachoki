@@ -1,6 +1,9 @@
 """
 signal_replay_routes.py — FastAPI endpoints for the Signal Replay engine.
 
+All heavy data (events, outcomes, statistics) is read from Parquet files via DuckDB.
+Only run metadata and artifact registry are in Postgres.
+
 Endpoints:
   POST   /api/signal-replay/run
   POST   /api/signal-replay/stop
@@ -16,11 +19,15 @@ Endpoints:
   GET    /api/signal-replay/{run_id}/filter-impact
   GET    /api/signal-replay/{run_id}/export
   DELETE /api/signal-replay/{run_id}
+  POST   /api/signal-replay/purge-all
 """
 from __future__ import annotations
+import csv
 import datetime
+import io
 import json
 import logging
+from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, BackgroundTasks, HTTPException
@@ -36,6 +43,10 @@ from signal_replay_engine import (
     request_pause as _request_pause,
     request_resume as _request_resume,
 )
+from replay_storage import (
+    run_dir, artifact_path, query_parquet, count_parquet,
+    delete_run_directory, delete_all_run_directories,
+)
 
 log = logging.getLogger(__name__)
 
@@ -50,16 +61,16 @@ class RunRequest(BaseModel):
     as_of_date:    str | None = None
     start_date:    str | None = None
     end_date:      str | None = None
-    lookback_days: int | None = None   # for last_n_days mode
+    lookback_days: int | None = None
     benchmark_symbol: str = "QQQ"
     event_scope: str = "all_signals"
     min_price:         float | None = None
     min_volume:        int   | None = None
     min_dollar_volume: float | None = None
-    lookback_bars:     int   | None = None   # bars to fetch per ticker: 500/1000/1500/2000
+    lookback_bars:     int   | None = None
 
 
-# ─── Helpers ─────────────────────────────────────────────────────────────────
+# ─── DB helpers ──────────────────────────────────────────────────────────────
 
 def _ph() -> str:
     return "%s" if USE_PG else "?"
@@ -79,6 +90,27 @@ def _query_one(sql: str, params: list | tuple = ()) -> dict | None:
     return row
 
 
+# ─── Parquet helpers ──────────────────────────────────────────────────────────
+
+def _parquet_path(run_id: int, artifact_type: str) -> Path:
+    return artifact_path(run_id, artifact_type, "parquet")
+
+
+def _require_artifact(run_id: int, artifact_type: str) -> Path:
+    """Return artifact path or raise 404 with a clear message."""
+    p = _parquet_path(run_id, artifact_type)
+    if not p.exists() or p.stat().st_size == 0:
+        raise HTTPException(
+            status_code=404,
+            detail=(
+                f"Artifact '{artifact_type}' not found for run {run_id}. "
+                "The run may still be in progress, have failed before writing artifacts, "
+                "or been created before the parquet storage migration."
+            ),
+        )
+    return p
+
+
 # ─── Endpoints ───────────────────────────────────────────────────────────────
 
 @router.post("/run")
@@ -87,11 +119,10 @@ def start_run(req: RunRequest, background_tasks: BackgroundTasks) -> dict:
     if state.get("running"):
         raise HTTPException(
             status_code=409,
-            detail=f"Signal Replay already running (run_id={state.get('run_id')}). "
-                   f"Wait or DELETE the active run.",
+            detail=(f"Signal Replay already running (run_id={state.get('run_id')}). "
+                    "Wait or DELETE the active run."),
         )
     payload = req.model_dump()
-    # MVP enforcement: always 1d
     payload["timeframe"] = "1d"
 
     mode = payload["mode"]
@@ -146,10 +177,21 @@ def history(limit: int = 50) -> list[dict]:
     limit = max(1, min(limit, 500))
     ph = _ph()
     sql = (f"SELECT id, status, mode, universe, as_of_date, start_date, end_date, "
-           f"total_events, total_outcomes, total_statistics_rows, "
+           f"total_events, total_outcomes, total_statistics_rows, storage_mode, "
            f"started_at, finished_at, error_message "
            f"FROM signal_replay_runs ORDER BY id DESC LIMIT {limit}")
-    return _query(sql)
+    runs = _query(sql)
+    # Enrich with artifact sizes from disk
+    for run in runs:
+        rid = run.get("id")
+        if rid and run.get("storage_mode") == "parquet":
+            rdir = run_dir(rid)
+            run["artifacts_on_disk"] = rdir.exists()
+            if rdir.exists():
+                run["disk_bytes"] = sum(
+                    f.stat().st_size for f in rdir.rglob("*") if f.is_file()
+                )
+    return runs
 
 
 @router.get("/{run_id}")
@@ -158,6 +200,14 @@ def get_run(run_id: int) -> dict:
     row = _query_one(f"SELECT * FROM signal_replay_runs WHERE id={ph}", [run_id])
     if not row:
         raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    # Attach artifact info
+    artifacts = _query(
+        f"SELECT artifact_type, file_path, format, row_count, size_bytes, created_at "
+        f"FROM replay_artifacts WHERE run_id={ph} ORDER BY artifact_type",
+        [run_id],
+    )
+    row = dict(row)
+    row["artifacts"] = artifacts
     return row
 
 
@@ -178,11 +228,12 @@ def list_events(
     sort_by: str = "id",
     sort_dir: str = "desc",
 ) -> dict:
-    limit = max(1, min(limit, 2000))
+    limit  = max(1, min(limit, 2000))
     offset = max(0, offset)
-    ph = _ph()
-    where = [f"replay_run_id={ph}"]
-    params: list[Any] = [run_id]
+
+    p = _require_artifact(run_id, "events")
+
+    conditions: list[tuple[str, str, Any]] = []
     for col, val in (
         ("symbol", symbol), ("event_signal", event_signal),
         ("event_signal_family", event_signal_family),
@@ -192,21 +243,15 @@ def list_events(
         ("ema50_state", ema50_state), ("role", role),
     ):
         if val is not None:
-            where.append(f"{col}={ph}")
-            params.append(val)
+            conditions.append((col, "=", val))
 
-    sort_col = sort_by if sort_by in {
-        "id", "scan_date", "symbol", "event_signal", "score", "close", "volume",
-    } else "id"
-    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
-    sql = (f"SELECT * FROM replay_signal_events WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} {sort_dir_sql} LIMIT {limit} OFFSET {offset}")
-    rows = _query(sql, params)
-    cnt = _query_one(
-        f"SELECT COUNT(*) AS n FROM replay_signal_events WHERE {' AND '.join(where)}",
-        params,
-    )
-    total = (cnt or {}).get("n", 0)
+    _ALLOWED_SORT = {"id", "scan_date", "symbol", "event_signal", "score", "close", "volume"}
+    sort_col = sort_by if sort_by in _ALLOWED_SORT else "id"
+    sort_d   = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+
+    rows  = query_parquet(p, conditions, sort_col=sort_col, sort_dir=sort_d,
+                          limit=limit, offset=offset)
+    total = count_parquet(p, conditions)
     return {"total": total, "limit": limit, "offset": offset, "rows": rows}
 
 
@@ -221,28 +266,23 @@ def list_outcomes(
     limit: int = 200,
     offset: int = 0,
 ) -> dict:
-    limit = max(1, min(limit, 2000))
-    ph = _ph()
-    where = [f"replay_run_id={ph}"]
-    params: list[Any] = [run_id]
+    limit  = max(1, min(limit, 2000))
+    offset = max(0, offset)
+
+    p = _require_artifact(run_id, "outcomes")
+
+    conditions: list[tuple[str, str, Any]] = []
     for col, val in (("symbol", symbol), ("horizon", horizon), ("outcome_label", outcome_label)):
         if val is not None:
-            where.append(f"{col}={ph}")
-            params.append(val)
+            conditions.append((col, "=", val))
     if min_return is not None:
-        where.append(f"return_pct >= {ph}")
-        params.append(min_return)
+        conditions.append(("return_pct", ">=", min_return))
     if min_max_gain is not None:
-        where.append(f"max_gain_pct >= {ph}")
-        params.append(min_max_gain)
-    sql = (f"SELECT * FROM replay_signal_outcomes WHERE {' AND '.join(where)} "
-           f"ORDER BY id DESC LIMIT {limit} OFFSET {offset}")
-    rows = _query(sql, params)
-    cnt = _query_one(
-        f"SELECT COUNT(*) AS n FROM replay_signal_outcomes WHERE {' AND '.join(where)}",
-        params,
-    )
-    total = (cnt or {}).get("n", 0)
+        conditions.append(("max_gain_pct", ">=", min_max_gain))
+
+    rows  = query_parquet(p, conditions, sort_col="id", sort_dir="DESC",
+                          limit=limit, offset=offset)
+    total = count_parquet(p, conditions)
     return {"total": total, "limit": limit, "offset": offset, "rows": rows}
 
 
@@ -259,33 +299,31 @@ def list_signal_statistics(
     limit: int = 500,
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
-    ph = _ph()
-    where = [f"replay_run_id={ph}"]
-    params: list[Any] = [run_id]
-    if horizon:
-        where.append(f"horizon={ph}"); params.append(horizon)
-    if event_signal_family:
-        where.append(f"event_signal_family={ph}"); params.append(event_signal_family)
-    if verdict:
-        where.append(f"verdict={ph}"); params.append(verdict)
-    if stat_type:
-        where.append(f"stat_type={ph}"); params.append(stat_type)
-    if min_sample_size:
-        where.append(f"sample_size >= {ph}"); params.append(min_sample_size)
 
-    sort_col_allowed = {
+    p = _require_artifact(run_id, "signal_stats")
+
+    conditions: list[tuple[str, str, Any]] = []
+    if horizon:
+        conditions.append(("horizon", "=", horizon))
+    if event_signal_family:
+        conditions.append(("event_signal_family", "=", event_signal_family))
+    if verdict:
+        conditions.append(("verdict", "=", verdict))
+    if stat_type:
+        conditions.append(("stat_type", "=", stat_type))
+    if min_sample_size:
+        conditions.append(("sample_size", ">=", min_sample_size))
+
+    _ALLOWED_SORT = {
         "sample_size", "avg_return", "median_return", "win_rate",
         "hit_10pct_rate", "fail_10pct_rate", "expectancy",
         "confidence_score", "stat_key",
     }
-    sort_col = sort_by if sort_by in sort_col_allowed else "median_return"
-    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
-    sql = (f"SELECT * FROM replay_signal_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} {sort_dir_sql} NULLS LAST LIMIT {limit}"
-           if USE_PG else
-           f"SELECT * FROM replay_signal_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
-    return _query(sql, params)
+    sort_col = sort_by if sort_by in _ALLOWED_SORT else "median_return"
+    sort_d   = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+
+    return query_parquet(p, conditions, sort_col=sort_col, sort_dir=sort_d,
+                         limit=limit, offset=0)
 
 
 @router.get("/{run_id}/pattern-statistics")
@@ -300,31 +338,29 @@ def list_pattern_statistics(
     limit: int = 500,
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
-    ph = _ph()
-    where = [f"replay_run_id={ph}"]
-    params: list[Any] = [run_id]
-    if horizon:
-        where.append(f"horizon={ph}"); params.append(horizon)
-    if pattern_type:
-        where.append(f"pattern_type={ph}"); params.append(pattern_type)
-    if terminal_signal:
-        where.append(f"terminal_signal={ph}"); params.append(terminal_signal)
-    if min_sample_size:
-        where.append(f"sample_size >= {ph}"); params.append(min_sample_size)
 
-    sort_col_allowed = {
+    p = _require_artifact(run_id, "pattern_stats")
+
+    conditions: list[tuple[str, str, Any]] = []
+    if horizon:
+        conditions.append(("horizon", "=", horizon))
+    if pattern_type:
+        conditions.append(("pattern_type", "=", pattern_type))
+    if terminal_signal:
+        conditions.append(("terminal_signal", "=", terminal_signal))
+    if min_sample_size:
+        conditions.append(("sample_size", ">=", min_sample_size))
+
+    _ALLOWED_SORT = {
         "sample_size", "median_return", "avg_return", "win_rate",
         "hit_10pct_rate", "fail_10pct_rate", "expectancy",
         "confidence_score", "stat_key", "pattern_value",
     }
-    sort_col = sort_by if sort_by in sort_col_allowed else "median_return"
-    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
-    sql = (f"SELECT * FROM replay_pattern_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} {sort_dir_sql} NULLS LAST LIMIT {limit}"
-           if USE_PG else
-           f"SELECT * FROM replay_pattern_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
-    return _query(sql, params)
+    sort_col = sort_by if sort_by in _ALLOWED_SORT else "median_return"
+    sort_d   = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+
+    return query_parquet(p, conditions, sort_col=sort_col, sort_dir=sort_d,
+                         limit=limit, offset=0)
 
 
 @router.get("/{run_id}/filter-impact")
@@ -340,33 +376,31 @@ def list_filter_impact(
     limit: int = 500,
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
-    ph = _ph()
-    where = [f"replay_run_id={ph}"]
-    params: list[Any] = [run_id]
-    if horizon:
-        where.append(f"horizon={ph}"); params.append(horizon)
-    if base_signal:
-        where.append(f"base_signal={ph}"); params.append(base_signal)
-    if filter_name:
-        where.append(f"filter_name={ph}"); params.append(filter_name)
-    if filter_value:
-        where.append(f"filter_value={ph}"); params.append(filter_value)
-    if min_sample_size:
-        where.append(f"sample_size >= {ph}"); params.append(min_sample_size)
 
-    sort_col_allowed = {
+    p = _require_artifact(run_id, "filter_impact")
+
+    conditions: list[tuple[str, str, Any]] = []
+    if horizon:
+        conditions.append(("horizon", "=", horizon))
+    if base_signal:
+        conditions.append(("base_signal", "=", base_signal))
+    if filter_name:
+        conditions.append(("filter_name", "=", filter_name))
+    if filter_value:
+        conditions.append(("filter_value", "=", filter_value))
+    if min_sample_size:
+        conditions.append(("sample_size", ">=", min_sample_size))
+
+    _ALLOWED_SORT = {
         "sample_size", "median_return", "avg_return", "win_rate",
         "hit_10pct_rate", "fail_10pct_rate",
         "lift_median_return", "lift_hit_10pct", "confidence_score",
     }
-    sort_col = sort_by if sort_by in sort_col_allowed else "lift_median_return"
-    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
-    sql = (f"SELECT * FROM replay_filter_impact_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} {sort_dir_sql} NULLS LAST LIMIT {limit}"
-           if USE_PG else
-           f"SELECT * FROM replay_filter_impact_statistics WHERE {' AND '.join(where)} "
-           f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
-    return _query(sql, params)
+    sort_col = sort_by if sort_by in _ALLOWED_SORT else "lift_median_return"
+    sort_d   = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+
+    return query_parquet(p, conditions, sort_col=sort_col, sort_dir=sort_d,
+                         limit=limit, offset=0)
 
 
 @router.get("/{run_id}/export")
@@ -375,18 +409,20 @@ def export_run(
     part: str = "all",
     offset: int = 0,
     limit: int = 50000,
+    fmt: str = "json",
 ) -> Response:
-    """Export run data as a downloadable JSON file.
-
-    `part` selects which slice to export — useful when the full export is too
-    large for analytics tooling. Valid values:
+    """
+    Export run data. `part` selects the slice to export:
       run           — run metadata only
-      signal_stats  — replay_signal_statistics rows
-      pattern_stats — replay_pattern_statistics rows
-      filter_impact — replay_filter_impact_statistics rows
-      events        — replay_signal_events (paginated via offset/limit)
-      outcomes      — replay_signal_outcomes (paginated via offset/limit)
-      all           — everything in one file (legacy behaviour)
+      signal_stats  — signal_stats.parquet → JSON/CSV
+      pattern_stats — pattern_stats.parquet → JSON/CSV
+      filter_impact — filter_impact.parquet → JSON/CSV
+      events        — events.parquet (paginated) → JSON/CSV
+      outcomes      — outcomes.parquet (paginated) → JSON/CSV
+      research      — research_bundle.json (full analytics bundle)
+      all           — all stats + run metadata in one JSON
+
+    `fmt` param: 'json' (default) or 'csv' (events/outcomes/stats parts only).
     """
     ph = _ph()
     run = _query_one(f"SELECT * FROM signal_replay_runs WHERE id={ph}", [run_id])
@@ -394,68 +430,100 @@ def export_run(
         raise HTTPException(status_code=404, detail=f"run {run_id} not found")
 
     valid_parts = {"run", "signal_stats", "pattern_stats", "filter_impact",
-                   "events", "outcomes", "all"}
+                   "events", "outcomes", "research", "all"}
     if part not in valid_parts:
         raise HTTPException(status_code=400,
                             detail=f"part must be one of {sorted(valid_parts)}")
 
     offset = max(0, int(offset))
     limit  = max(1, min(int(limit), 500_000))
+    use_csv = str(fmt).lower() == "csv"
 
     meta = {
         "run_id":      run_id,
         "exported_at": datetime.datetime.utcnow().isoformat() + "Z",
-        "version":     "phase3",
+        "version":     "parquet-v1",
         "part":        part,
     }
 
-    body: dict[str, Any] = {"meta": meta, "run": run}
+    # ── research bundle shortcut ──
+    if part == "research":
+        rb_path = artifact_path(run_id, "research_bundle", "json")
+        if not rb_path.exists():
+            raise HTTPException(status_code=404, detail="research_bundle.json not found")
+        content = rb_path.read_text(encoding="utf-8")
+        return Response(
+            content=content,
+            media_type="application/json",
+            headers={"Content-Disposition": f'attachment; filename="replay_{run_id}_research.json"'},
+        )
 
-    if part in ("run", "all"):
-        # run already included
-        pass
+    body: dict[str, Any] = {"meta": meta, "run": dict(run)}
+
+    def _load_stats(artifact_type: str) -> list[dict]:
+        p = artifact_path(run_id, artifact_type, "parquet")
+        if not p.exists() or p.stat().st_size == 0:
+            return []
+        return query_parquet(p, limit=100_000, offset=0)
+
+    def _load_paged(artifact_type: str) -> list[dict]:
+        p = artifact_path(run_id, artifact_type, "parquet")
+        if not p.exists() or p.stat().st_size == 0:
+            return []
+        return query_parquet(p, limit=limit, offset=offset)
 
     if part in ("signal_stats", "all"):
-        rows = _query(
-            f"SELECT * FROM replay_signal_statistics WHERE replay_run_id={ph}",
-            [run_id],
-        )
+        rows = _load_stats("signal_stats")
         body["signal_statistics"] = rows
         meta["signal_stats_count"] = len(rows)
 
     if part in ("pattern_stats", "all"):
-        rows = _query(
-            f"SELECT * FROM replay_pattern_statistics WHERE replay_run_id={ph}",
-            [run_id],
-        )
+        rows = _load_stats("pattern_stats")
         body["pattern_statistics"] = rows
         meta["pattern_stats_count"] = len(rows)
 
     if part in ("filter_impact", "all"):
-        rows = _query(
-            f"SELECT * FROM replay_filter_impact_statistics WHERE replay_run_id={ph}",
-            [run_id],
-        )
+        rows = _load_stats("filter_impact")
         body["filter_impact_statistics"] = rows
         meta["filter_impact_count"] = len(rows)
 
     if part in ("events", "all"):
-        sql = (f"SELECT * FROM replay_signal_events WHERE replay_run_id={ph} "
-               f"ORDER BY id LIMIT {limit} OFFSET {offset}")
-        rows = _query(sql, [run_id])
+        rows = _load_paged("events")
         body["events"] = rows
         meta["events_count"]  = len(rows)
         meta["events_offset"] = offset
         meta["events_limit"]  = limit
 
     if part in ("outcomes", "all"):
-        sql = (f"SELECT * FROM replay_signal_outcomes WHERE replay_run_id={ph} "
-               f"ORDER BY id LIMIT {limit} OFFSET {offset}")
-        rows = _query(sql, [run_id])
+        rows = _load_paged("outcomes")
         body["outcomes"] = rows
         meta["outcomes_count"]  = len(rows)
         meta["outcomes_offset"] = offset
         meta["outcomes_limit"]  = limit
+
+    # ── CSV export for single-part tabular exports ──
+    if use_csv and part in ("signal_stats", "pattern_stats", "filter_impact", "events", "outcomes"):
+        key_map = {
+            "signal_stats": "signal_statistics",
+            "pattern_stats": "pattern_statistics",
+            "filter_impact": "filter_impact_statistics",
+            "events": "events",
+            "outcomes": "outcomes",
+        }
+        data_key = key_map.get(part, part)
+        rows = body.get(data_key, [])
+        if not rows:
+            raise HTTPException(status_code=404, detail=f"No data for {part}")
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+        writer.writeheader()
+        writer.writerows(rows)
+        filename = f"replay_{run_id}_{part}.csv"
+        return Response(
+            content=buf.getvalue(),
+            media_type="text/csv",
+            headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+        )
 
     filename = (f"replay_{run_id}_export.json" if part == "all"
                 else f"replay_{run_id}_{part}_{offset}-{offset + limit}.json"
@@ -470,68 +538,28 @@ def export_run(
     )
 
 
-_HEAVY_TABLES   = ("replay_signal_outcomes", "replay_signal_events")
-_LIGHT_TABLES   = ("replay_filter_impact_statistics", "replay_pattern_statistics",
-                   "replay_signal_statistics")
-_DELETE_CHUNK   = 5000  # rows per chunked delete (heavy tables)
-
-
-def _delete_run_chunked(run_id: int) -> dict:
-    """Delete one run's data using small per-chunk transactions.
-
-    Heavy tables are deleted in 5k-row batches to keep PG WAL growth bounded
-    and survive low-disk conditions. Light tables and the run row are deleted
-    in single statements.
-    """
-    ph = _ph()
-    deleted_counts: dict[str, int] = {}
-
-    for tbl in _HEAVY_TABLES:
-        total = 0
-        while True:
-            with get_db() as db:
-                if USE_PG:
-                    sql = (f"DELETE FROM {tbl} WHERE ctid IN ("
-                           f"SELECT ctid FROM {tbl} WHERE replay_run_id={ph} "
-                           f"LIMIT {_DELETE_CHUNK})")
-                    db.execute(sql, [run_id])
-                    rc = getattr(db, "rowcount", 0) or 0
-                else:
-                    db.execute(
-                        f"DELETE FROM {tbl} WHERE id IN ("
-                        f"SELECT id FROM {tbl} WHERE replay_run_id={ph} "
-                        f"LIMIT {_DELETE_CHUNK})",
-                        [run_id],
-                    )
-                    rc = getattr(db, "rowcount", 0) or 0
-                db.commit()
-            total += rc
-            if rc < _DELETE_CHUNK:
-                break
-        deleted_counts[tbl] = total
-
-    for tbl in _LIGHT_TABLES:
-        with get_db() as db:
-            db.execute(f"DELETE FROM {tbl} WHERE replay_run_id={ph}", [run_id])
-            rc = getattr(db, "rowcount", 0) or 0
-            db.commit()
-        deleted_counts[tbl] = rc
-
-    with get_db() as db:
-        db.execute(f"DELETE FROM signal_replay_runs WHERE id={ph}", [run_id])
-        db.commit()
-    deleted_counts["signal_replay_runs"] = 1
-    return deleted_counts
-
-
 @router.delete("/{run_id}")
 def delete_run(run_id: int) -> dict:
     state = _get_state()
     if state.get("running") and state.get("run_id") == run_id:
         raise HTTPException(status_code=409, detail="Cannot delete the active run")
+
+    ph = _ph()
+    run = _query_one(f"SELECT id FROM signal_replay_runs WHERE id={ph}", [run_id])
+    if not run:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+
     try:
-        counts = _delete_run_chunked(run_id)
-        return {"deleted": True, "run_id": run_id, "rows_deleted": counts}
+        # 1. Delete disk artifacts
+        disk_deleted = delete_run_directory(run_id)
+
+        # 2. Delete DB rows (artifacts + run)
+        with get_db() as db:
+            db.execute(f"DELETE FROM replay_artifacts WHERE run_id={ph}", [run_id])
+            db.execute(f"DELETE FROM signal_replay_runs WHERE id={ph}", [run_id])
+            db.commit()
+
+        return {"deleted": True, "run_id": run_id, "disk_directory_removed": disk_deleted}
     except Exception as exc:
         log.exception("delete_run failed for run %s", run_id)
         raise HTTPException(status_code=500, detail=f"delete failed: {exc}")
@@ -539,11 +567,7 @@ def delete_run(run_id: int) -> dict:
 
 @router.post("/purge-all")
 def purge_all_runs(confirm: str | None = None) -> dict:
-    """Nuke ALL replay data via TRUNCATE. Requires confirm=YES to execute.
-
-    Use this when DELETE fails due to disk pressure or accumulated runs.
-    Live scanner tables are untouched. Stop any active run before calling.
-    """
+    """Nuke ALL replay data: disk directories + Postgres rows. Requires confirm=YES."""
     state = _get_state()
     if state.get("running"):
         raise HTTPException(status_code=409,
@@ -551,20 +575,21 @@ def purge_all_runs(confirm: str | None = None) -> dict:
     if confirm != "YES":
         raise HTTPException(status_code=400,
                             detail="Pass ?confirm=YES to confirm full purge of all replay data")
-
-    tables = list(_HEAVY_TABLES) + list(_LIGHT_TABLES) + ["signal_replay_runs"]
     try:
+        dirs_deleted = delete_all_run_directories()
         with get_db() as db:
             if USE_PG:
-                # CASCADE not needed (no FKs) — RESTART IDENTITY resets serial seqs
-                db.execute(
-                    f"TRUNCATE TABLE {', '.join(tables)} RESTART IDENTITY"
-                )
+                db.execute("TRUNCATE TABLE replay_artifacts RESTART IDENTITY")
+                db.execute("TRUNCATE TABLE signal_replay_runs RESTART IDENTITY")
             else:
-                for t in tables:
-                    db.execute(f"DELETE FROM {t}")
+                db.execute("DELETE FROM replay_artifacts")
+                db.execute("DELETE FROM signal_replay_runs")
             db.commit()
-        return {"purged": True, "tables": tables}
+        return {
+            "purged": True,
+            "run_directories_deleted": dirs_deleted,
+            "tables_cleared": ["signal_replay_runs", "replay_artifacts"],
+        }
     except Exception as exc:
         log.exception("purge_all_runs failed")
         raise HTTPException(status_code=500, detail=f"purge failed: {exc}")

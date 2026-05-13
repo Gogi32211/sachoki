@@ -1,25 +1,27 @@
 """
 signal_replay_engine.py — orchestrator for the Signal Replay / Research engine.
 
-Pipeline (Phase 1, daily / 1d only):
-  1. Create signal_replay_runs row, status='running'.
-  2. Resolve universe tickers (with optional historical close>=5 filter).
-  3. For each ticker, fetch enriched bar series via api_bar_signals(ticker, "1d", N).
-  4. For each scan_date (single_day or date_range), find the bar with that date
-     and extract events using bars[: idx+1] (leak-free).
-  5. Compute outcomes for each event using bars[idx+1 : idx+21] (forward only),
-     with SPY/QQQ benchmark slices.
-  6. Insert events + outcomes (batched).
-  7. Aggregate replay_signal_statistics rows.
-  8. Mark run completed.
+Hybrid storage pipeline:
+  1. Create signal_replay_runs row (status='running').
+  2. Resolve universe tickers.
+  3. Parallel ticker fetch+extract (ThreadPoolExecutor, 8 workers).
+  4. Accumulate events + outcomes in memory with Python-assigned IDs.
+  5. Write events.parquet + outcomes.parquet (zstd) to run directory on disk.
+  6. Aggregate statistics from Python lists (signal, pattern, filter-impact, combo).
+  7. Write signal_stats.parquet, pattern_stats.parquet, filter_impact.parquet.
+  8. Write research_bundle.json (combined stats for quick analytics loading).
+  9. Register all artifacts in replay_artifacts DB table.
+ 10. Mark run completed.
 
 Concurrency:
-  - One run at a time. _state.running is the lock.
-  - FastAPI BackgroundTasks invokes `run_signal_replay(run_id)`.
-  - HTTP polls `get_state()` for progress.
+  - One run at a time (_state["running"] is the lock).
+  - FastAPI BackgroundTasks invokes run_signal_replay(run_id, payload).
+  - HTTP polls get_state() for live progress.
 
-NEVER reads forward bars during event extraction.
-NEVER writes replay data into live scanner tables.
+Memory note:
+  All events + outcomes stay in RAM until step 5. For large date-range runs this
+  can be several hundred MB. If that becomes an issue, flush events incrementally
+  using pyarrow.parquet.ParquetWriter in append mode.
 """
 from __future__ import annotations
 import json
@@ -85,7 +87,6 @@ def request_resume() -> None:
 
 
 def _ph() -> str:
-    """Return param placeholder for current DB driver."""
     return "%s" if USE_PG else "?"
 
 
@@ -96,7 +97,7 @@ def _insert_run(payload: dict) -> int:
         "status", "mode", "universe", "timeframe", "as_of_date",
         "start_date", "end_date", "event_scope", "min_price",
         "min_volume", "min_dollar_volume", "benchmark_symbol",
-        "settings_json",
+        "settings_json", "storage_mode",
     ]
     vals = [
         "running", payload["mode"], payload["universe"], "1d",
@@ -104,7 +105,7 @@ def _insert_run(payload: dict) -> int:
         payload.get("end_date"), payload.get("event_scope", "all_signals"),
         payload.get("min_price"), payload.get("min_volume"),
         payload.get("min_dollar_volume"), payload.get("benchmark_symbol", "QQQ"),
-        json.dumps(payload, default=str),
+        json.dumps(payload, default=str), "parquet",
     ]
     ph = _ph()
     sql = (f"INSERT INTO signal_replay_runs ({', '.join(cols)}) "
@@ -139,40 +140,27 @@ def _update_run(run_id: int, **fields) -> None:
         log.warning("signal_replay_runs update failed: %s", exc)
 
 
-_PG_CHUNK = 500  # rows per INSERT for PG (avoids param-limit issues with wide tables)
-
-
-def _bulk_insert(table: str, rows: list[dict]) -> list[int]:
-    """Insert rows and return their generated IDs (in same order)."""
-    if not rows:
-        return []
-    cols = list(rows[0].keys())
+def _finalize_finished_at(run_id: int) -> None:
     ph = _ph()
-    placeholders = "(" + ", ".join([ph] * len(cols)) + ")"
+    expr = "NOW()" if USE_PG else "datetime('now')"
+    sql = f"UPDATE signal_replay_runs SET finished_at={expr} WHERE id={ph}"
+    try:
+        with get_db() as db:
+            db.execute(sql, [run_id])
+            db.commit()
+    except Exception:
+        pass
 
-    ids: list[int] = []
-    with get_db() as db:
-        if USE_PG:
-            for start in range(0, len(rows), _PG_CHUNK):
-                chunk = rows[start : start + _PG_CHUNK]
-                sql = (f"INSERT INTO {table} ({', '.join(cols)}) VALUES "
-                       + ", ".join([placeholders] * len(chunk))
-                       + " RETURNING id")
-                flat: list[Any] = []
-                for r in chunk:
-                    flat.extend(r[c] for c in cols)
-                db.execute(sql, flat)
-                res = db.fetchall()
-                for rec in res:
-                    ids.append(rec["id"] if isinstance(rec, dict) else rec[0])
-        else:
-            sql = (f"INSERT INTO {table} ({', '.join(cols)}) "
-                   f"VALUES {placeholders}")
-            for r in rows:
-                cur = db.execute(sql, [r[c] for c in cols])
-                ids.append(cur.lastrowid)
-        db.commit()
-    return ids
+
+def _get_run_row(run_id: int) -> dict | None:
+    ph = _ph()
+    try:
+        with get_db() as db:
+            db.execute(f"SELECT * FROM signal_replay_runs WHERE id={ph}", [run_id])
+            row = db.fetchone()
+        return row
+    except Exception:
+        return None
 
 
 # ─── Date list resolution ─────────────────────────────────────────────────────
@@ -187,14 +175,6 @@ def _normalize_date(d: Any) -> str | None:
 
 
 def _resolve_scan_dates(payload: dict, sample_bars: list[dict]) -> list[str]:
-    """Returns sorted list of YYYY-MM-DD strings.
-
-    Modes:
-      single_day  → [as_of_date]
-      date_range  → market dates in [start_date, end_date]
-      last_n_days → last N trading days available in sample_bars
-      ytd         → Jan 1 of current year through today
-    """
     mode = payload["mode"]
     today_str = date.today().strftime("%Y-%m-%d")
 
@@ -212,8 +192,7 @@ def _resolve_scan_dates(payload: dict, sample_bars: list[dict]) -> list[str]:
 
     if mode == "ytd":
         start = f"{date.today().year}-01-01"
-        end   = today_str
-        return [d for d in all_bar_dates if start <= d <= end]
+        return [d for d in all_bar_dates if start <= d <= today_str]
 
     # date_range
     start = _normalize_date(payload.get("start_date"))
@@ -225,7 +204,7 @@ def _resolve_scan_dates(payload: dict, sample_bars: list[dict]) -> list[str]:
 
 # ─── Per-ticker worker (pure compute, no DB) ──────────────────────────────────
 
-_WORKERS = 8  # parallel ticker fetch + extract; DB writes stay serialized
+_WORKERS = 8
 
 
 def _process_ticker_for_replay(
@@ -242,7 +221,7 @@ def _process_ticker_for_replay(
     spy_bars: list[dict],
     qqq_bars: list[dict],
 ) -> tuple[list[dict], list[tuple[int, list[dict]]], dict]:
-    """Fetch bars, extract events, compute outcomes for one ticker. No DB.
+    """Fetch bars, extract events, compute outcomes for one ticker. No DB access.
 
     Returns (event_rows, [(event_offset_within_returned_list, outcomes), ...], counters).
     """
@@ -252,8 +231,8 @@ def _process_ticker_for_replay(
 
     counters = {
         "unique_symbol_dates": set(),
-        "tz_events":          0,
-        "combo_events":       0,
+        "tz_events":           0,
+        "combo_events":        0,
     }
 
     try:
@@ -332,12 +311,13 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
     """Background entrypoint. Updates _state + DB as it goes."""
     from scanner import get_universe_tickers
     from main import api_bar_signals
-    from signal_event_extractor import extract_events
-    from signal_outcome_engine import compute_outcomes
     from signal_statistics_engine import build_signal_statistics
     from signal_pattern_engine import build_pattern_statistics
     from signal_filter_impact_engine import build_filter_impact_statistics
     from signal_combo_engine import build_combo_statistics
+    from replay_storage import (
+        run_dir, write_parquet, write_json, register_artifact,
+    )
 
     _set(running=True, run_id=run_id, status="running",
          mode=payload.get("mode"), universe=payload.get("universe"),
@@ -353,22 +333,17 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
     try:
         universe = payload["universe"]
-        # Universe loading. nasdaq_gt5 is "nasdaq" filtered to close>=5 on scan_date
         is_gt5 = universe == "nasdaq_gt5"
         scanner_universe = "nasdaq" if is_gt5 else universe
         tickers = list(get_universe_tickers(scanner_universe))
         log.info("signal_replay: %s universe → %d tickers", universe, len(tickers))
         _set(symbols_total=len(tickers))
 
-        # Configurable bar lookback: 500/1000/1500/2000; clamped to [200, 2000]
         lookback_bars = max(200, min(2000, int(payload.get("lookback_bars") or 500)))
-
-        # Per-bar filters from RunRequest
         min_price         = payload.get("min_price")
         min_volume        = payload.get("min_volume")
         min_dollar_volume = payload.get("min_dollar_volume")
 
-        # Pre-fetch benchmark series (SPY + QQQ) once for the whole run
         try:
             spy_bars = api_bar_signals("SPY", "1d", lookback_bars)
         except Exception:
@@ -378,23 +353,19 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         except Exception:
             qqq_bars = []
 
-        # Resolve scan dates. For date_range we need a sample bar series to know
-        # which calendar dates were trading days.
         sample_bars = spy_bars or qqq_bars or []
-        scan_dates = _resolve_scan_dates(payload, sample_bars)
+        scan_dates  = _resolve_scan_dates(payload, sample_bars)
         _set(days_total=len(scan_dates))
 
-        events_total = 0
-        outcomes_total = 0
-        all_events: list[dict] = []
-        all_outcomes: list[dict] = []
-        unique_symbols_set:       set[str]          = set()
-        unique_symbol_dates_set:  set[tuple]        = set()
-        unique_tz_events_count:   int               = 0
-        unique_combo_events_count: int              = 0
+        # ── Parallel phase: fetch + extract + compute outcomes ────────────────
+        events_total: int               = 0
+        all_events: list[dict]          = []
+        all_outcomes: list[dict]        = []
+        unique_symbols_set:      set[str]   = set()
+        unique_symbol_dates_set: set[tuple] = set()
+        unique_tz_events_count:  int        = 0
+        unique_combo_events_count: int      = 0
 
-        # Parallel ticker processing: 8 workers fetch + extract concurrently.
-        # DB writes stay in this (main) thread to avoid lock contention.
         worker_kwargs = dict(
             scan_dates=scan_dates, is_gt5=is_gt5,
             min_price=min_price, min_volume=min_volume,
@@ -403,7 +374,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             universe=universe, spy_bars=spy_bars, qqq_bars=qqq_bars,
         )
         completed_symbols = 0
-        log.info("signal_replay: starting parallel processing with %d workers", _WORKERS)
+        log.info("signal_replay: starting parallel processing (%d workers)", _WORKERS)
 
         with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
             futures = {
@@ -412,12 +383,10 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             }
 
             for fut in as_completed(futures):
-                # ── Pause: hold this result until resumed ─────────────────
                 while _state.get("pause_requested"):
                     _set(elapsed_secs=round(time.time() - t0, 1))
                     time.sleep(0.5)
 
-                # ── Stop: cancel pending and exit ─────────────────────────
                 if _state.get("stop_requested"):
                     log.info("signal_replay: stop requested; cancelling pending futures")
                     for f in futures:
@@ -435,9 +404,12 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                         "tz_events": 0, "combo_events": 0,
                     }
 
-                # Insert events + link outcomes (main-thread serialized)
                 if event_rows:
-                    ev_ids = _bulk_insert("replay_signal_events", event_rows)
+                    # Assign sequential Python IDs (1-indexed, unique within this run)
+                    base_id = events_total + 1
+                    ev_ids  = list(range(base_id, base_id + len(event_rows)))
+                    for i, ev in enumerate(event_rows):
+                        all_events.append({**ev, "id": ev_ids[i]})
                     for offset, ocs in outcome_offsets:
                         if offset >= len(ev_ids):
                             continue
@@ -445,10 +417,6 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                         for oc in ocs:
                             oc["signal_event_id"] = ev_id
                             all_outcomes.append(oc)
-                    all_events.extend([
-                        {**ev, "id": ev_ids[i]}
-                        for i, ev in enumerate(event_rows)
-                    ])
                     events_total += len(event_rows)
                     unique_symbols_set.add(ticker)
 
@@ -465,15 +433,23 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
                      unique_combo_events=unique_combo_events_count,
                      elapsed_secs=round(time.time() - t0, 1))
 
-        # Flush outcomes
-        if all_outcomes:
-            _bulk_insert("replay_signal_outcomes", all_outcomes)
-            outcomes_total = len(all_outcomes)
-
+        outcomes_total = len(all_outcomes)
         _set(outcomes_computed=outcomes_total, days_completed=len(scan_dates),
              elapsed_secs=round(time.time() - t0, 1))
 
-        # Aggregate statistics (Phase 1)
+        # ── Write heavy artifacts to disk ─────────────────────────────────────
+        rdir = run_dir(run_id)
+        rdir.mkdir(parents=True, exist_ok=True)
+
+        events_path = rdir / "events.parquet"
+        n_events = write_parquet(events_path, all_events)
+        log.info("signal_replay[%d]: wrote %d events → %s", run_id, n_events, events_path)
+
+        outcomes_path = rdir / "outcomes.parquet"
+        n_outcomes = write_parquet(outcomes_path, all_outcomes)
+        log.info("signal_replay[%d]: wrote %d outcomes → %s", run_id, n_outcomes, outcomes_path)
+
+        # ── Build stats from in-memory lists (existing engines unchanged) ─────
         events_for_stats = [{
             "id": ev["id"],
             "event_signal":        ev.get("event_signal"),
@@ -490,12 +466,8 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         stats_rows = build_signal_statistics(
             events_for_stats, all_outcomes, replay_run_id=run_id,
         )
-        if stats_rows:
-            _bulk_insert("replay_signal_statistics", stats_rows)
-        _set(statistics_rows=len(stats_rows),
-             elapsed_secs=round(time.time() - t0, 1))
+        _set(statistics_rows=len(stats_rows), elapsed_secs=round(time.time() - t0, 1))
 
-        # Phase 2: pattern statistics (sequences)
         events_for_patterns = [{
             "id":             ev["id"],
             "event_signal":   ev.get("event_signal"),
@@ -510,83 +482,114 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         pattern_rows = build_pattern_statistics(
             events_for_patterns, all_outcomes, replay_run_id=run_id,
         )
-        if pattern_rows:
-            _bulk_insert("replay_pattern_statistics", pattern_rows)
-        _set(pattern_rows=len(pattern_rows),
-             elapsed_secs=round(time.time() - t0, 1))
+        _set(pattern_rows=len(pattern_rows), elapsed_secs=round(time.time() - t0, 1))
 
-        # Phase 2: filter impact statistics (signal × context)
         events_for_filters = [{
-            "id":                       ev["id"],
-            "event_signal":             ev.get("event_signal"),
-            "event_signal_family":      ev.get("event_signal_family"),
-            "ema50_state":              ev.get("ema50_state"),
-            "volume_bucket":            ev.get("volume_bucket"),
-            "abr_category":             ev.get("abr_category"),
-            "candle_color":             ev.get("candle_color"),
-            "price_pos_20bar_bucket":   ev.get("price_pos_20bar_bucket"),
-            "score_bucket":             ev.get("score_bucket"),
-            "had_t_last_3d":            ev.get("had_t_last_3d"),
-            "had_z_last_3d":            ev.get("had_z_last_3d"),
-            "had_wlnbb_l_last_5d":      ev.get("had_wlnbb_l_last_5d"),
+            "id":                        ev["id"],
+            "event_signal":              ev.get("event_signal"),
+            "event_signal_family":       ev.get("event_signal_family"),
+            "ema50_state":               ev.get("ema50_state"),
+            "volume_bucket":             ev.get("volume_bucket"),
+            "abr_category":              ev.get("abr_category"),
+            "candle_color":              ev.get("candle_color"),
+            "price_pos_20bar_bucket":    ev.get("price_pos_20bar_bucket"),
+            "score_bucket":              ev.get("score_bucket"),
+            "had_t_last_3d":             ev.get("had_t_last_3d"),
+            "had_z_last_3d":             ev.get("had_z_last_3d"),
+            "had_wlnbb_l_last_5d":       ev.get("had_wlnbb_l_last_5d"),
             "had_ema50_reclaim_last_5d": ev.get("had_ema50_reclaim_last_5d"),
-            "had_volume_burst_last_5d": ev.get("had_volume_burst_last_5d"),
+            "had_volume_burst_last_5d":  ev.get("had_volume_burst_last_5d"),
         } for ev in all_events]
 
         filter_rows = build_filter_impact_statistics(
             events_for_filters, all_outcomes, replay_run_id=run_id,
         )
-        if filter_rows:
-            _bulk_insert("replay_filter_impact_statistics", filter_rows)
-        _set(filter_impact_rows=len(filter_rows),
-             elapsed_secs=round(time.time() - t0, 1))
+        _set(filter_impact_rows=len(filter_rows), elapsed_secs=round(time.time() - t0, 1))
 
-        # Multi-context combination statistics (stored in replay_signal_statistics)
         events_for_combos = [{
-            "id":                     ev["id"],
-            "event_signal":           ev.get("event_signal"),
-            "event_signal_family":    ev.get("event_signal_family"),
-            "sequence_4bar":          ev.get("sequence_4bar"),
-            "abr_category":           ev.get("abr_category"),
-            "ema50_state":            ev.get("ema50_state"),
-            "had_wlnbb_l_last_5d":    ev.get("had_wlnbb_l_last_5d"),
-            "price_pos_20bar_bucket": ev.get("price_pos_20bar_bucket"),
-            "score_bucket":           ev.get("score_bucket"),
-            "volume_bucket":          ev.get("volume_bucket"),
-            "candle_color":           ev.get("candle_color"),
-            "symbol":                 ev.get("symbol"),
-            "scan_date":              ev.get("scan_date"),
+            "id":                      ev["id"],
+            "event_signal":            ev.get("event_signal"),
+            "event_signal_family":     ev.get("event_signal_family"),
+            "sequence_4bar":           ev.get("sequence_4bar"),
+            "abr_category":            ev.get("abr_category"),
+            "ema50_state":             ev.get("ema50_state"),
+            "had_wlnbb_l_last_5d":     ev.get("had_wlnbb_l_last_5d"),
+            "price_pos_20bar_bucket":  ev.get("price_pos_20bar_bucket"),
+            "score_bucket":            ev.get("score_bucket"),
+            "volume_bucket":           ev.get("volume_bucket"),
+            "candle_color":            ev.get("candle_color"),
+            "symbol":                  ev.get("symbol"),
+            "scan_date":               ev.get("scan_date"),
         } for ev in all_events]
 
         combo_rows = build_combo_statistics(
             events_for_combos, all_outcomes, replay_run_id=run_id,
         )
-        if combo_rows:
-            _bulk_insert("replay_signal_statistics", combo_rows)
-        _set(combo_rows=len(combo_rows),
-             elapsed_secs=round(time.time() - t0, 1))
+        _set(combo_rows=len(combo_rows), elapsed_secs=round(time.time() - t0, 1))
 
+        # ── Write stats to parquet ────────────────────────────────────────────
+        all_sig_stats = stats_rows + combo_rows
+        signal_stats_path = rdir / "signal_stats.parquet"
+        n_sig_stats = write_parquet(signal_stats_path, all_sig_stats)
+
+        pattern_stats_path = rdir / "pattern_stats.parquet"
+        n_pattern = write_parquet(pattern_stats_path, pattern_rows)
+
+        filter_impact_path = rdir / "filter_impact.parquet"
+        n_filter = write_parquet(filter_impact_path, filter_rows)
+
+        # ── Research bundle (combined JSON for quick analytics loading) ───────
+        research_bundle = {
+            "run_id":            run_id,
+            "generated_at":      datetime.utcnow().isoformat() + "Z",
+            "signal_statistics": all_sig_stats,
+            "pattern_statistics": pattern_rows,
+            "filter_impact_statistics": filter_rows,
+        }
+        rb_path = rdir / "research_bundle.json"
+        write_json(rb_path, research_bundle)
+
+        # ── run.json metadata snapshot ────────────────────────────────────────
         final_status = "stopped" if _state.get("stop_requested") else "completed"
         _update_run(
             run_id,
             status=final_status,
             total_days=len(scan_dates),
-            days_completed=_state.get("days_completed", 0),
+            days_completed=len(scan_dates),
             total_symbols=len(tickers),
-            symbols_completed=_state.get("symbols_completed", 0),
-            total_events=events_total, total_outcomes=outcomes_total,
-            total_statistics_rows=len(stats_rows) + len(combo_rows),
+            symbols_completed=completed_symbols,
+            total_events=events_total,
+            total_outcomes=outcomes_total,
+            total_statistics_rows=n_sig_stats,
         )
+        _finalize_finished_at(run_id)
+
+        run_snapshot = _get_run_row(run_id)
+        write_json(rdir / "run.json", run_snapshot)
+
+        # ── Register artifacts in DB ──────────────────────────────────────────
+        with get_db() as db:
+            register_artifact(db, run_id, "events",         events_path,        n_events)
+            register_artifact(db, run_id, "outcomes",       outcomes_path,      n_outcomes)
+            register_artifact(db, run_id, "signal_stats",   signal_stats_path,  n_sig_stats)
+            register_artifact(db, run_id, "pattern_stats",  pattern_stats_path, n_pattern)
+            register_artifact(db, run_id, "filter_impact",  filter_impact_path, n_filter)
+            register_artifact(db, run_id, "research_bundle", rb_path,           1, fmt="json")
+            db.commit()
+
         _set(
+            status=final_status, running=False,
+            stop_requested=False, pause_requested=False,
             unique_symbols=len(unique_symbols_set),
             unique_symbol_dates=len(unique_symbol_dates_set),
             unique_tz_events=unique_tz_events_count,
             unique_combo_events=unique_combo_events_count,
+            elapsed_secs=round(time.time() - t0, 1),
         )
-        _finalize_finished_at(run_id)
-        _set(status=final_status, running=False,
-             stop_requested=False, pause_requested=False,
-             elapsed_secs=round(time.time() - t0, 1))
+        log.info(
+            "signal_replay[%d] %s — %d events, %d outcomes, %d sig stats, %d patterns",
+            run_id, final_status, n_events, n_outcomes, n_sig_stats, n_pattern,
+        )
 
     except Exception as exc:
         tb = traceback.format_exc()
@@ -599,7 +602,6 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
 
 def _future_window(bars: list[dict], scan_date: str, n: int) -> list[dict]:
-    """Return the n bars immediately AFTER scan_date in the given series."""
     if not bars:
         return []
     for i, b in enumerate(bars):
@@ -607,16 +609,3 @@ def _future_window(bars: list[dict], scan_date: str, n: int) -> list[dict]:
         if d and d > scan_date:
             return bars[i : i + n]
     return []
-
-
-def _finalize_finished_at(run_id: int) -> None:
-    """Helper because _update_run doesn't accept the NOW() expression directly."""
-    ph = _ph()
-    expr = "NOW()" if USE_PG else "datetime('now')"
-    sql = f"UPDATE signal_replay_runs SET finished_at={expr} WHERE id={ph}"
-    try:
-        with get_db() as db:
-            db.execute(sql, [run_id])
-            db.commit()
-    except Exception:
-        pass
