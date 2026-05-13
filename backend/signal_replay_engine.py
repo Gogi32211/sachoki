@@ -90,7 +90,8 @@ def _insert_run(payload: dict) -> int:
            f"{'RETURNING id' if USE_PG else ''}")
     with get_db() as db:
         if USE_PG:
-            row = db.fetchone(sql, vals)
+            db.execute(sql, vals)
+            row = db.fetchone()
             run_id = row["id"] if isinstance(row, dict) else row[0]
         else:
             cur = db.execute(sql, vals)
@@ -135,7 +136,8 @@ def _bulk_insert(table: str, rows: list[dict]) -> list[int]:
             flat: list[Any] = []
             for r in rows:
                 flat.extend(r[c] for c in cols)
-            res = db.fetchall(sql, flat)
+            db.execute(sql, flat)
+            res = db.fetchall()
             for rec in res:
                 ids.append(rec["id"] if isinstance(rec, dict) else rec[0])
         else:

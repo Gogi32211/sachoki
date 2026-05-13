@@ -55,14 +55,16 @@ def _ph() -> str:
 
 def _query(sql: str, params: list | tuple = ()) -> list[dict]:
     with get_db() as db:
-        rows = db.fetchall(sql, params)
-    return [dict(r) for r in rows] if rows else []
+        db.execute(sql, params)
+        rows = db.fetchall()
+    return rows if rows else []
 
 
 def _query_one(sql: str, params: list | tuple = ()) -> dict | None:
     with get_db() as db:
-        row = db.fetchone(sql, params)
-    return dict(row) if row else None
+        db.execute(sql, params)
+        row = db.fetchone()
+    return row
 
 
 # ─── Endpoints ───────────────────────────────────────────────────────────────
