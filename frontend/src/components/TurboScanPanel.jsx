@@ -1084,13 +1084,13 @@ export default function TurboScanPanel({ onSelectTicker }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs" onMouseLeave={handleRowLeave}>
+    <div className="flex flex-col h-full bg-md-surface text-md-on-surface text-xs" onMouseLeave={handleRowLeave}>
       {hoverPopup && (
         <MiniChartPopup row={hoverPopup.row} tf={localTf} pos={hoverPopup.pos} onClose={() => setHoverPopup(null)} />
       )}
 
       {/* ── Row 0: Universe selector ── */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/50">
         <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
@@ -1110,7 +1110,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 1: TF + Scan + Direction + Score ── */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-gray-800">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-md-outline-var">
 
         {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-gray-700 rounded p-0.5">
@@ -1268,7 +1268,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-gray-800 bg-gray-900/30">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/30">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5">SIG</span>
         <button onClick={() => setSelSigs(new Set())}
           className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
@@ -1294,7 +1294,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 3: Sector filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Sector</span>
         {[
           { label: 'All',  val: '',            cls: 'text-gray-400' },
@@ -1326,7 +1326,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 4: RTB Phase filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
         {[
           { label: 'All',    val: '', cls: 'text-gray-400' },
@@ -1410,12 +1410,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* Progress / error */}
       {scanning && (
-        <div className="px-4 py-1.5 border-b border-gray-800 bg-violet-950/30 text-violet-300 animate-pulse">
+        <div className="px-4 py-1.5 border-b border-md-outline-var bg-violet-950/30 text-violet-300 animate-pulse">
           ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()}) — 1-2 minutes…
         </div>
       )}
       {error && (
-        <div className="px-4 py-1.5 text-red-400 border-b border-gray-800 flex items-center gap-3">
+        <div className="px-4 py-1.5 text-md-error border-b border-md-outline-var flex items-center gap-3">
           {error === '__stuck__'
             ? <>
                 <span>Another scan is in progress — wait for it to finish, then try again</span>
@@ -1432,7 +1432,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       {/* ── Table ── */}
       <div className="overflow-auto flex-1">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-gray-900 z-10 text-gray-500 text-left">
+          <thead className="sticky top-0 bg-md-surface-con z-10 text-md-on-surface-var text-left">
             <tr>
               <th className="px-2 py-1.5 w-5">
                 <input type="checkbox" className="accent-indigo-500 cursor-pointer"
@@ -1472,7 +1472,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
               const r = withAges(_raw)
               return (
               <tr key={r.ticker}
-                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
+                className={`border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}
                 onMouseEnter={e => handleRowEnter(e, _raw)}
                 onMouseLeave={handleRowLeave}>
@@ -1867,7 +1867,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && (
               <tr>
-                <td colSpan={universe === 'split' ? 18 : 17} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={universe === 'split' ? 18 : 17} className="px-4 py-10 text-center text-md-on-surface-var">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan

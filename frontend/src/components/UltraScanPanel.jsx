@@ -683,7 +683,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-gray-800 text-gray-400">
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-md-outline-var text-md-on-surface-var">
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-gray-200'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
@@ -1555,13 +1555,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
   }
 
   return (
-    <div className="flex flex-col h-full bg-gray-950 text-gray-100 text-xs" onMouseLeave={handleRowLeave}>
+    <div className="flex flex-col h-full bg-md-surface text-md-on-surface text-xs" onMouseLeave={handleRowLeave}>
       {hoverPopup && (
         <MiniChartPopup row={hoverPopup.row} tf={localTf} pos={hoverPopup.pos} onClose={() => setHoverPopup(null)} />
       )}
 
       {/* ── Row 0: Universe selector ── */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-gray-800 bg-gray-900/50">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/50">
         <span className="text-gray-500 text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
@@ -1763,7 +1763,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-gray-800 bg-gray-900/30">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/30">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5">SIG</span>
         <button onClick={() => setSelSigs(new Set())}
           className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
@@ -1789,7 +1789,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 3: Sector filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Sector</span>
         {[
           { label: 'All',  val: '',            cls: 'text-gray-400' },
@@ -1821,7 +1821,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 4: RTB Phase filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
         {[
           { label: 'All',    val: '', cls: 'text-gray-400' },
@@ -1851,7 +1851,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-gray-800 bg-gray-900/20">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
         <span className="text-gray-500 text-xs shrink-0 mr-0.5 w-16">Profile</span>
         <button
           onClick={() => setSweetSpotFilter(f => !f)}
@@ -1905,7 +1905,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* Source-status badges (informational; do not control row visibility) */}
       {(Object.keys(sources).length > 0 || warnings.length > 0) && (
-        <div className="px-4 py-1.5 border-b border-gray-800 bg-gray-900/40 flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="px-4 py-1.5 border-b border-md-outline-var bg-md-surface-con/40 flex flex-wrap items-center gap-2 text-[11px]">
           {['turbo', 'tz_wlnbb', 'tz_intelligence', 'pullback', 'rare_reversal'].map(k => {
             const s = sources[k]
             if (!s) return null
@@ -1928,7 +1928,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* Progress / error */}
       {(scanning || enriching) && (
-        <div className="px-4 py-1.5 border-b border-gray-800 bg-fuchsia-950/30 text-fuchsia-300">
+        <div className="px-4 py-1.5 border-b border-md-outline-var bg-fuchsia-950/30 text-fuchsia-300">
           <div className="animate-pulse">
             🧬 ULTRA — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()})
             {' · '}{enriching ? 'Stage 2: enriching subset' : 'Stage 1: Turbo'}
@@ -1971,7 +1971,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         </div>
       )}
       {error && (
-        <div className="px-4 py-1.5 text-red-400 border-b border-gray-800 flex items-center gap-3">
+        <div className="px-4 py-1.5 text-md-error border-b border-md-outline-var flex items-center gap-3">
           {error === '__stuck__'
             ? <span>Another ULTRA scan is in progress — wait for it to finish, then try again</span>
             : error}
@@ -1981,7 +1981,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       {/* ── Table ── */}
       <div className="overflow-auto flex-1">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-gray-900 z-10 text-gray-500 text-left">
+          <thead className="sticky top-0 bg-md-surface-con z-10 text-md-on-surface-var text-left">
             <tr>
               <th className="px-2 py-1.5 w-5">
                 <input type="checkbox" className="accent-indigo-500 cursor-pointer"
@@ -2037,7 +2037,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
               const r = withAges(_raw)
               return (
               <tr key={r.ticker}
-                className={`border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
+                className={`border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}
                 onMouseEnter={e => handleRowEnter(e, _raw)}
                 onMouseLeave={handleRowLeave}>
@@ -2561,7 +2561,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
             {results.length === 0 && !scanning && !enriching && (
               <tr>
-                <td colSpan={universe === 'split' ? 24 : 23} className="px-4 py-10 text-center text-gray-600">
+                <td colSpan={universe === 'split' ? 24 : 23} className="px-4 py-10 text-center text-md-on-surface-var">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
