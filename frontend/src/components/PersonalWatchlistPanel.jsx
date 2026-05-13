@@ -82,7 +82,7 @@ function SignalChips({ entry, n }) {
     })
   }, [entry._signals, ages, n])
 
-  if (!active.length) return <span className="text-gray-600 text-[10px]">—</span>
+  if (!active.length) return <span className="text-md-on-surface-var/60 text-[10px]">—</span>
   return (
     <div className="flex flex-wrap gap-0.5">
       {active.map(k => (
@@ -170,46 +170,46 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
   }), [items, sortBy])
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 text-xs text-gray-300">
+    <div className="bg-md-surface-con rounded-md-md border border-md-outline-var text-xs text-md-on-surface">
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-800">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-md-outline-var">
         <span className="font-semibold text-sm text-white">⭐ Personal Watchlist</span>
         <span className="text-gray-500">{items.length} saved tickers</span>
 
         {/* N-bar filter */}
-        <div className="flex items-center gap-1 ml-auto text-gray-500">
+        <div className="flex items-center gap-1 ml-auto text-md-on-surface-var">
           <span>N bars:</span>
           {[1, 3, 5, 10].map(v => (
             <button key={v} onClick={() => setN(v)}
-              className={`px-2 py-0.5 rounded text-xs ${n === v ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2 py-0.5 rounded text-xs ${n === v ? 'bg-md-primary-container text-md-on-primary-container' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface}`}>
               {v}
             </button>
           ))}
         </div>
 
         {/* Sort */}
-        <div className="flex items-center gap-1 text-gray-500">
+        <div className="flex items-center gap-1 text-md-on-surface-var">
           <span>Sort:</span>
           {[['addedAt','Date'],['score','Score'],['ticker','A-Z']].map(([k,l]) => (
             <button key={k} onClick={() => setSortBy(k)}
-              className={`px-2 py-0.5 rounded text-xs ${sortBy === k ? 'bg-gray-700 text-white' : 'bg-gray-800 text-gray-400 hover:text-white'}`}>
+              className={`px-2 py-0.5 rounded text-xs ${sortBy === k ? 'bg-md-surface-high text-md-on-surface' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface}`}>
               {l}
             </button>
           ))}
         </div>
 
         <button onClick={refresh}
-          className="px-2 py-0.5 rounded bg-gray-800 text-gray-400 hover:text-white text-xs">↺</button>
+          className="px-2 py-0.5 rounded-md-sm bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface text-xs">↺</button>
       </div>
 
       {/* Add ticker input */}
       {onAddTicker && (
-        <form onSubmit={handleAddTicker} className="flex items-center gap-2 px-4 py-2 border-b border-gray-800 bg-gray-800/20">
+        <form onSubmit={handleAddTicker} className="flex items-center gap-2 px-4 py-2 border-b border-md-outline-var bg-md-surface-high/20">
           <input
             value={addInput}
             onChange={e => setAddInput(e.target.value.toUpperCase())}
             placeholder="Add ticker… (e.g. AAPL)"
-            className="flex-1 bg-gray-800 border border-gray-700 rounded px-2 py-1 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500"
+            className="flex-1 bg-md-surface-high border border-md-outline-var rounded-md-sm px-2 py-1 text-xs text-md-on-surface placeholder:text-md-on-surface-var/50 focus:outline-none focus:border-md-primary"
           />
           <button type="submit"
             className="px-3 py-1 rounded bg-blue-700 text-white text-xs hover:bg-blue-600">+ Add</button>
@@ -218,8 +218,8 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
 
       {/* Watching section — tickers from regular watchlist */}
       {(watchlistTickers?.length > 0) && (
-        <div className="border-b border-gray-800">
-          <div className="px-4 py-1.5 text-[10px] text-gray-600 uppercase tracking-wider bg-gray-800/30">
+        <div className="border-b border-md-outline-var">
+          <div className="px-4 py-1.5 text-[10px] text-md-on-surface-var/60 uppercase tracking-wider bg-md-surface-high/30">
             Watching ({watchlistTickers.length}){watchingRows.length < watchlistTickers.length ? ` · ${watchlistTickers.length - watchingRows.length} not in cache — run Turbo scan first` : ''}
           </div>
           <table className="w-full">
@@ -229,11 +229,11 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                 return (
                   <tr key={i}
                     onClick={() => onSelectTicker?.(ticker)}
-                    className="border-b border-gray-800/30 hover:bg-gray-800/40 cursor-pointer">
+                    className="border-b border-md-outline-var/30 hover:bg-md-surface-high/40 cursor-pointer">
                     <td className="px-3 py-1.5 font-semibold text-white w-20">{ticker}</td>
                     <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry?.tz_sig || '—'}</td>
                     <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry ? entry.score.toFixed(1) : '—'}</td>
-                    <td className="px-2 py-1.5 flex-1">{entry ? <SignalChips entry={entry} n={n} /> : <span className="text-gray-700 text-[10px]">no scan data</span>}</td>
+                    <td className="px-2 py-1.5 flex-1">{entry ? <SignalChips entry={entry} n={n} /> : <span className="text-md-on-surface-var/50 text-[10px]">no scan data</span>}</td>
                     <td className="px-2 py-1.5 text-gray-400 w-20">
                       {entry?.price != null ? `$${Number(entry.price).toFixed(2)}` : ''}
                     </td>
@@ -266,11 +266,11 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
 
       {sorted.length > 0 && (
         <div className="overflow-auto max-h-[420px]">
-          <div className="px-4 py-1.5 text-[10px] text-gray-600 uppercase tracking-wider bg-gray-800/30 sticky top-0">
+          <div className="px-4 py-1.5 text-[10px] text-md-on-surface-var/60 uppercase tracking-wider bg-md-surface-high/30 sticky top-0">
             Saved from scan ({sorted.length})
           </div>
           <table className="w-full">
-            <thead className="sticky top-7 bg-gray-900 border-b border-gray-800">
+            <thead className="sticky top-7 bg-md-surface-con border-b border-md-outline-var">
               <tr>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium w-6"></th>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Ticker</th>
@@ -289,7 +289,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
               {sorted.map((entry, i) => (
                 <tr key={i}
                   onClick={() => onSelectTicker?.(entry.ticker)}
-                  className="border-b border-gray-800/50 hover:bg-gray-800/40 cursor-pointer">
+                  className="border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer">
                   <td className="px-2 py-1.5" onClick={e => { e.stopPropagation(); remove(entry.ticker, entry.tf) }}>
                     <button className="text-yellow-400 hover:text-gray-500 transition-colors" title="Remove">★</button>
                   </td>
@@ -306,7 +306,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                   <td className={`px-3 py-1.5 ${entry.change_pct > 0 ? 'text-green-400' : entry.change_pct < 0 ? 'text-red-400' : 'text-gray-500'}`}>
                     {entry.change_pct != null ? `${entry.change_pct > 0 ? '+' : ''}${Number(entry.change_pct).toFixed(2)}%` : '—'}
                   </td>
-                  <td className="px-3 py-1.5 text-gray-600 text-[10px]">{fmtDate(entry.addedAt)}</td>
+                  <td className="px-3 py-1.5 text-md-on-surface-var/60 text-[10px]">{fmtDate(entry.addedAt)}</td>
                 </tr>
               ))}
             </tbody>
@@ -314,7 +314,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
         </div>
       )}
 
-      <div className="px-4 py-2 text-gray-700 text-[10px] border-t border-gray-800">
+      <div className="px-4 py-2 text-md-on-surface-var/50 text-[10px] border-t border-md-outline-var">
         N bars = show only signals that fired within last N bars · Click row to select ticker · ★ to remove
       </div>
     </div>

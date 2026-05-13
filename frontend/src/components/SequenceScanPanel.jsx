@@ -190,54 +190,54 @@ export default function SequenceScanPanel() {
   return (
     <div className="text-sm">
       {/* ── Controls ─────────────────────────────────────────────────── */}
-      <div className="flex flex-wrap items-end gap-3 p-2 border border-gray-800 rounded bg-gray-900">
+      <div className="flex flex-wrap items-end gap-3 p-2 border border-md-outline-var rounded-md-md bg-md-surface-con">
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Universe</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Universe</label>
           <select value={universe} onChange={e => setUniverse(e.target.value)}
-                  className="bg-gray-800 text-white text-xs rounded px-2 py-1">
+                  className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1">
             {UNIVERSES.map(u => <option key={u.key} value={u.key}>{u.label}</option>)}
           </select>
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">TF</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">TF</label>
           <select value={tf} onChange={e => setTf(e.target.value)}
-                  className="bg-gray-800 text-white text-xs rounded px-2 py-1">
+                  className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1">
             {TF_OPTS.map(t => <option key={t} value={t}>{t}</option>)}
           </select>
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Seq length</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Seq length</label>
           <select value={seqLen} onChange={e => setSeqLen(Number(e.target.value))}
-                  className="bg-gray-800 text-white text-xs rounded px-2 py-1">
+                  className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1">
             {SEQ_LENGTHS.map(n => <option key={n} value={n}>{n} bars</option>)}
           </select>
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Mode</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Mode</label>
           <select value={mode} onChange={e => setMode(e.target.value)}
                   title={MODES.find(m => m.key === mode)?.help}
-                  className="bg-gray-800 text-white text-xs rounded px-2 py-1">
+                  className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1">
             {MODES.map(m => <option key={m.key} value={m.key}>{m.label}</option>)}
           </select>
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Min count</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Min count</label>
           <input type="number" min={1} value={minCount}
                  onChange={e => setMinCount(Number(e.target.value) || 1)}
-                 className="bg-gray-800 text-white text-xs rounded px-2 py-1 w-20" />
+                 className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1 w-20" />
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Sort by</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Sort by</label>
           <select value={sortBy} onChange={e => setSortBy(e.target.value)}
-                  className="bg-gray-800 text-white text-xs rounded px-2 py-1">
+                  className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1">
             {SORTS.map(s => <option key={s.key} value={s.key}>{s.label}</option>)}
           </select>
         </div>
         <div className="flex flex-col">
-          <label className="text-[10px] uppercase text-gray-500">Limit</label>
+          <label className="text-[10px] uppercase text-md-on-surface-var">Limit</label>
           <input type="number" min={1} max={10000} value={limit}
                  onChange={e => setLimit(Number(e.target.value) || 100)}
-                 className="bg-gray-800 text-white text-xs rounded px-2 py-1 w-20" />
+                 className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1 w-20" />
         </div>
         <button onClick={trigger} disabled={isRunning}
                 className="bg-violet-600 hover:bg-violet-500 disabled:opacity-50 text-white text-xs px-3 py-1 rounded font-semibold">
@@ -254,7 +254,7 @@ export default function SequenceScanPanel() {
         </button>
         <input type="text" value={filter} placeholder="Filter sequences…"
                onChange={e => setFilter(e.target.value)}
-               className="bg-gray-800 text-white text-xs rounded px-2 py-1 w-48" />
+               className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1 w-48" />
       </div>
 
       {/* ── Status / progress ─────────────────────────────────────────── */}
@@ -264,7 +264,7 @@ export default function SequenceScanPanel() {
             status.status === 'done'    ? 'bg-emerald-900/50 text-emerald-200' :
             status.status === 'no_data' ? 'bg-red-900/40 text-red-200' :
             status.status === 'error'   ? 'bg-red-900/40 text-red-200' :
-            'bg-gray-800 text-gray-400'}`}>
+            'bg-md-surface-high text-md-on-surface-var'}`}>
           status: {status.status || 'idle'}
         </span>
         {isRunning && (
@@ -272,7 +272,7 @@ export default function SequenceScanPanel() {
             <span className="text-gray-300">
               {status.progress ?? 0} / {status.total ?? 0} tickers ({pct}%)
             </span>
-            <div className="flex-1 max-w-md h-1.5 bg-gray-800 rounded overflow-hidden">
+            <div className="flex-1 max-w-md h-1.5 bg-md-surface-high rounded-md-full overflow-hidden">
               <div className="bg-violet-500 h-full transition-all"
                    style={{ width: `${pct}%` }} />
             </div>
@@ -296,15 +296,15 @@ export default function SequenceScanPanel() {
       </div>
 
       {error && (
-        <div className="mt-2 text-xs text-red-300 bg-red-950 border border-red-800 rounded p-2">
+        <div className="mt-2 text-xs text-md-error bg-md-error-container border border-md-error/30 rounded-md-md p-2">
           {error}
         </div>
       )}
 
       {/* ── Table ─────────────────────────────────────────────────────── */}
-      <div className="mt-2 overflow-auto border border-gray-800 rounded">
+      <div className="mt-2 overflow-auto border border-md-outline-var rounded-md-md">
         <table className="min-w-full text-xs">
-          <thead className="bg-gray-900 text-gray-400">
+          <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <th className="px-2 py-1.5 text-left">Sequence</th>
               <th className="px-2 py-1.5 text-left">Type</th>
@@ -324,7 +324,7 @@ export default function SequenceScanPanel() {
           </thead>
           <tbody>
             {filteredRows.length === 0 && (
-              <tr><td colSpan={14} className="text-center text-gray-600 py-6">
+              <tr><td colSpan={14} className="text-center text-md-on-surface-var py-6">
                 {status.status === 'not_run'
                   ? 'No scan run yet — press ▶ Run Sequence Scan'
                   : status.status === 'no_data'
@@ -350,7 +350,7 @@ export default function SequenceScanPanel() {
                 v < 0     ? 'text-red-300'     : 'text-gray-400'
               return (
                 <tr key={`${r.sequence}-${i}`}
-                    className="border-t border-gray-800 hover:bg-gray-900">
+                    className="border-t border-md-outline-var hover:bg-md-surface-high/40">
                   <td className="px-2 py-1 font-mono text-blue-300">{r.sequence}</td>
                   <td className="px-2 py-1 font-mono text-gray-400">{r.type_seq}</td>
                   <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate)}`}
