@@ -32,6 +32,10 @@ export { Alert }                              from './Alert'
 export { FilterChip, AssistChip, ChipGroup }  from './Chip'
 export { Display, Headline, Title, Body, Label, Caption } from './Typography'
 export { Divider }                            from './Divider'
+export { EmptyState }                         from './EmptyState'
+export { Skeleton }                           from './Skeleton'
+export { PageHeader }                         from './PageHeader'
+export { StatusChip }                         from './StatusChip'
 
 // ── Utility formatters (shared across panels) ─────────────────────────────────
 export function fmtPct(v, digits = 2) {

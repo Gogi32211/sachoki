@@ -1,26 +1,35 @@
 import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api'
 import { exportToTV } from '../utils/exportTickers'
+import {
+  Card,
+  Button,
+  Badge,
+  LinearProgress,
+  Alert,
+  Spinner,
+  EmptyState,
+  AssistChip,
+} from '../design-system'
 
 function SigBadge({ sig_id, sig_name }) {
-  const bull = sig_id >= 1 && sig_id <= 12
+  const bull = sig_id >= 1  && sig_id <= 12
   const bear = sig_id >= 13 && sig_id <= 25
   if (!bull && !bear) return null
   return (
-    <span className={`inline-block px-1.5 py-0.5 rounded text-xs font-mono font-semibold
-      ${bull ? 'bg-green-900/50 text-green-300' : 'bg-red-900/50 text-red-300'}`}>
+    <Badge variant={bull ? 'positive' : 'negative'} size="sm">
       {sig_name}
-    </span>
+    </Badge>
   )
 }
 
 export default function ScannerPanel({ tf, onSelectTicker }) {
-  const [results, setResults] = useState([])
+  const [results,  setResults]  = useState([])
   const [lastScan, setLastScan] = useState(null)
-  const [loading, setLoading]  = useState(false)
+  const [loading,  setLoading]  = useState(false)
   const [scanning, setScanning] = useState(false)
-  const [progress, setProgress] = useState(null)   // { done, total, found }
-  const [error, setError]      = useState(null)
+  const [progress, setProgress] = useState(null)
+  const [error,    setError]    = useState(null)
   const pollRef = useRef(null)
 
   const load = useCallback(() => {
@@ -37,7 +46,6 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
 
   useEffect(() => { load() }, [load])
 
-  // Poll /api/scan/status while scanning
   const startPolling = () => {
     if (pollRef.current) return
     pollRef.current = setInterval(() => {
@@ -80,78 +88,85 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
 
   const pct = progress && progress.total > 0
     ? Math.round((progress.done / progress.total) * 100)
-    : null
+    : 0
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 flex flex-col h-full">
-      <div className="flex items-center justify-between px-4 py-3 border-b border-gray-800">
+    <Card variant="outlined" padding="none" className="flex flex-col h-full">
+      {/* Header */}
+      <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
         <div className="flex items-center gap-3">
-          <span className="font-semibold text-sm text-white">T/Z Scanner</span>
+          <span className="font-semibold text-sm text-md-on-surface">T/Z Scanner</span>
           {lastScan && !scanning && (
-            <span className="text-xs text-gray-500">Last: {fmtTime(lastScan)}</span>
+            <span className="text-xs text-md-on-surface-var">Last: {fmtTime(lastScan)}</span>
           )}
         </div>
         <div className="flex items-center gap-2">
           {results.length > 0 && (
-            <button
+            <AssistChip
+              label="Export TV"
+              icon="⬇"
               onClick={() => exportToTV(results.map(r => r.ticker), 'tz_scanner.txt')}
-              className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-300"
-              title="Export tickers for TradingView watchlist"
-            >
-              Export TV
-            </button>
+            />
           )}
-          <button
+          <Button
+            variant="tonal"
+            size="sm"
             onClick={scan}
             disabled={scanning}
-            className="text-xs px-3 py-1 bg-indigo-600 hover:bg-indigo-500 disabled:opacity-50 rounded text-white"
+            loading={scanning}
           >
             {scanning ? 'Scanning…' : 'Scan Now'}
-          </button>
+          </Button>
         </div>
       </div>
 
-      {/* Progress bar */}
+      {/* Progress */}
       {scanning && progress && (
-        <div className="px-4 py-2 border-b border-gray-800">
-          <div className="flex items-center justify-between text-xs text-gray-400 mb-1">
+        <div className="px-4 py-2 border-b border-md-outline-var space-y-1.5">
+          <div className="flex items-center justify-between text-xs text-md-on-surface-var">
             <span>
               {progress.total > 0
                 ? `${progress.done} / ${progress.total} tickers`
                 : 'Starting…'}
             </span>
-            <span>{progress.found} signals found</span>
+            <span className="text-md-positive">{progress.found} signals found</span>
           </div>
-          <div className="w-full bg-gray-700 rounded-full h-1.5">
-            <div
-              className="bg-indigo-500 h-1.5 rounded-full transition-all duration-300"
-              style={{ width: pct != null ? `${pct}%` : '0%' }}
-            />
-          </div>
-          {pct != null && (
-            <div className="text-right text-xs text-gray-500 mt-0.5">{pct}%</div>
+          <LinearProgress value={pct} color="primary" />
+          {pct > 0 && (
+            <div className="text-right text-xs text-md-on-surface-var">{pct}%</div>
           )}
         </div>
       )}
 
-      {error && <div className="px-4 py-2 text-xs text-red-400">{error}</div>}
+      {error && (
+        <div className="px-4 py-2">
+          <Alert variant="error">{error}</Alert>
+        </div>
+      )}
 
+      {/* Table */}
       <div className="overflow-auto flex-1">
         {loading ? (
-          <div className="px-4 py-8 text-center text-gray-500 text-xs">Loading…</div>
-        ) : results.length === 0 ? (
-          <div className="px-4 py-8 text-center text-gray-500 text-xs">
-            No results — trigger a scan first.
+          <div className="flex items-center justify-center py-12 gap-2 text-md-on-surface-var text-xs">
+            <Spinner size={14} />
+            <span>Loading…</span>
           </div>
+        ) : results.length === 0 ? (
+          <EmptyState
+            icon="📡"
+            message="No results"
+            sub="Trigger a scan first to see T/Z signals."
+            compact
+          />
         ) : (
           <table className="w-full text-xs">
             <thead>
-              <tr className="text-gray-400 border-b border-gray-800 sticky top-0 bg-gray-900">
-                <th className="text-left px-3 py-2">Ticker</th>
-                <th className="text-center px-2 py-2">Signal</th>
-                <th className="text-left px-2 py-2 hidden md:table-cell">3-Bar Pattern</th>
-                <th className="text-right px-2 py-2">Price</th>
-                <th className="text-right px-2 py-2">Chg%</th>
+              <tr className="border-b border-md-outline-var sticky top-0 bg-md-surface-con">
+                <th className="text-left px-3 py-2 text-md-on-surface-var font-medium">Ticker</th>
+                <th className="text-center px-2 py-2 text-md-on-surface-var font-medium">Signal</th>
+                <th className="text-left px-2 py-2 text-md-on-surface-var font-medium hidden md:table-cell">3-Bar Pattern</th>
+                <th className="text-right px-2 py-2 text-md-on-surface-var font-medium">Price</th>
+                <th className="text-right px-2 py-2 text-md-on-surface-var font-medium">Chg%</th>
               </tr>
             </thead>
             <tbody>
@@ -159,20 +174,21 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
                 <tr
                   key={i}
                   onClick={() => onSelectTicker?.(row.ticker)}
-                  className="border-b border-gray-800/40 cursor-pointer hover:bg-gray-800/50"
+                  className="border-b border-md-outline-var/50 cursor-pointer hover:bg-md-surface-high/50 transition-colors"
                 >
-                  <td className="px-3 py-2 font-semibold text-white">{row.ticker}</td>
+                  <td className="px-3 py-2 font-semibold text-md-on-surface">{row.ticker}</td>
                   <td className="text-center px-2 py-2">
                     <SigBadge sig_id={row.sig_id} sig_name={row.sig_name} />
                   </td>
-                  <td className="px-2 py-2 text-gray-400 font-mono hidden md:table-cell max-w-[160px] truncate">
+                  <td className="px-2 py-2 text-md-on-surface-var font-mono hidden md:table-cell max-w-[160px] truncate">
                     {row.pattern_3bar}
                   </td>
-                  <td className="text-right px-2 py-2 text-gray-200">
+                  <td className="text-right px-2 py-2 text-md-on-surface">
                     {row.last_price ? `$${Number(row.last_price).toFixed(2)}` : '—'}
                   </td>
-                  <td className={`text-right px-2 py-2 font-medium
-                    ${(row.change_pct ?? 0) >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                  <td className={`text-right px-2 py-2 font-medium ${
+                    (row.change_pct ?? 0) >= 0 ? 'text-md-positive' : 'text-md-negative'
+                  }`}>
                     {row.change_pct != null
                       ? `${row.change_pct >= 0 ? '+' : ''}${Number(row.change_pct).toFixed(2)}%`
                       : '—'}
@@ -183,6 +199,6 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
           </table>
         )}
       </div>
-    </div>
+    </Card>
   )
 }
