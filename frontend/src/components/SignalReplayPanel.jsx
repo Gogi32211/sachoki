@@ -465,10 +465,11 @@ function EventExplorer({ runId }) {
   const [fam, setFam]       = useState('')
   const [expanded, setExpanded] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [err, setErr]         = useState(null)
 
   const load = useCallback(async () => {
     if (!runId) return
-    setLoading(true)
+    setLoading(true); setErr(null)
     try {
       const qs = new URLSearchParams({ limit: '200' })
       if (symbol) qs.set('symbol', symbol.toUpperCase())
@@ -476,7 +477,7 @@ function EventExplorer({ runId }) {
       if (fam)    qs.set('event_signal_family', fam)
       const data = await apiFetch(`/api/signal-replay/${runId}/events?${qs}`)
       setRows(data.rows || [])
-    } catch {}
+    } catch (e) { setErr(e.message); setRows([]) }
     finally { setLoading(false) }
   }, [runId, symbol, sig, fam])
 
@@ -500,6 +501,7 @@ function EventExplorer({ runId }) {
           ↻ Reload
         </button>
       </div>
+      {err && <div className="text-xs text-red-400">Error: {err}</div>}
       {loading && <div className="text-xs text-md-on-surface-var">Loading…</div>}
       <div className="overflow-x-auto">
         <table className="min-w-full text-xs">
@@ -542,9 +544,9 @@ function EventExplorer({ runId }) {
                 )}
               </Fragment>
             ))}
-            {!loading && rows.length === 0 && (
+            {!loading && rows.length === 0 && !err && (
               <tr><td colSpan={10} className="px-2 py-6 text-center text-md-on-surface-var">
-                No events.
+                No events found. Try relaxing filters or run a replay first.
               </td></tr>
             )}
           </tbody>
@@ -1251,6 +1253,27 @@ export default function SignalReplayPanel() {
 
       {runId && (
         <>
+          {/* LIMITED context banner — always visible across all tabs */}
+          {runMeta && (() => {
+            const s = parseSettings(runMeta.settings_json)
+            const lb = s.lookback_bars || 500
+            const cq = contextQualityFromBars(lb)
+            if (cq !== 'LIMITED') return null
+            const fetchBars = runMeta.fetch_bars || (lb + 262)
+            return (
+              <div className="bg-yellow-950 border border-yellow-700 rounded px-3 py-2 text-xs text-yellow-300 space-y-0.5">
+                <div className="font-semibold">⚠ LIMITED Context Run ({lb}-bar window)</div>
+                <div className="text-yellow-400/80">
+                  This run used a {lb}-bar context window for signal detection.
+                  Outcomes and indicators were computed from a wider fetch ({fetchBars} bars total,
+                  including EMA warmup + {runMeta.outcome_forward_bars ?? 22} bars forward).
+                  Statistics are labeled LIMITED quality.
+                  Not suitable for full statistical validation — use 250+ bars for that.
+                </div>
+              </div>
+            )
+          })()}
+
           <div className="flex items-center justify-between border-b border-md-outline-var pb-0">
             <div className="flex gap-1">
               {TABS.map(t => (

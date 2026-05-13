@@ -97,14 +97,29 @@ def _ph() -> str:
 
 _ALLOWED_LOOKBACK = {30, 100, 250, 500, 1000}
 
+# Bars needed beyond context window to compute outcomes + EMA warmup
+_OUTCOME_FORWARD_BARS = 22   # max forward horizon used by compute_outcomes
+_WARMUP_BARS          = 200  # EMA200 needs ~200 bars of warmup
+_BUFFER_BARS          = 20   # small safety buffer
+
 
 def _context_quality(lookback_bars: int) -> str:
-    """Classify statistical reliability based on how many bars were fetched."""
+    """Classify statistical reliability based on the user's context window choice."""
     if lookback_bars >= 250:
         return "FULL"
     if lookback_bars >= 100:
         return "PARTIAL"
     return "LIMITED"
+
+
+def _compute_fetch_bars(context_lookback_bars: int) -> int:
+    """Total bars to fetch from the API for a given context window.
+
+    Separates the user's context window (for signal detection + quality label)
+    from the raw bar count needed to compute outcomes and indicator warmup.
+    For 30-bar mode: fetch 272 bars so EMA200 and 22-bar outcomes both work.
+    """
+    return context_lookback_bars + _OUTCOME_FORWARD_BARS + _WARMUP_BARS + _BUFFER_BARS
 
 
 def _apply_context_quality(rows: list[dict], cq: str) -> list[dict]:
@@ -241,13 +256,16 @@ def _process_ticker_for_replay(
     min_price: float | None,
     min_volume: int | None,
     min_dollar_volume: float | None,
-    lookback_bars: int,
+    fetch_bars: int,
     run_id: int,
     universe: str,
     spy_bars: list[dict],
     qqq_bars: list[dict],
 ) -> tuple[list[dict], list[tuple[int, list[dict]]], dict]:
     """Fetch bars, extract events, compute outcomes for one ticker. No DB access.
+
+    fetch_bars is the total bar count requested from the API — always large enough
+    to include outcome forward bars + EMA warmup, regardless of context_lookback_bars.
 
     Returns (event_rows, [(event_offset_within_returned_list, outcomes), ...], counters).
     """
@@ -262,7 +280,7 @@ def _process_ticker_for_replay(
     }
 
     try:
-        bars = api_bar_signals(ticker, "1d", lookback_bars)
+        bars = api_bar_signals(ticker, "1d", fetch_bars)
     except Exception as fetch_err:
         log.debug("signal_replay: bar fetch failed for %s: %s", ticker, fetch_err)
         return ([], [], counters)
@@ -370,6 +388,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
 
         _lb = int(payload.get("lookback_bars") or 500)
         lookback_bars = _lb if _lb in _ALLOWED_LOOKBACK else 500
+        fetch_bars    = _compute_fetch_bars(lookback_bars)
         cq = _context_quality(lookback_bars)
         _set(context_quality=cq, lookback_bars=lookback_bars)
 
@@ -381,19 +400,20 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             )
         if lookback_bars == 30:
             run_warnings.append(
-                "This replay uses only 30 bars. It is optimized for speed and debugging, "
-                "not full statistical validation."
+                "This replay uses only 30 bars of context (fast scan / debug mode). "
+                "Outcomes and indicators are computed from a wider fetch window "
+                f"({fetch_bars} bars total). Not for full statistical validation."
             )
         min_price         = payload.get("min_price")
         min_volume        = payload.get("min_volume")
         min_dollar_volume = payload.get("min_dollar_volume")
 
         try:
-            spy_bars = api_bar_signals("SPY", "1d", lookback_bars)
+            spy_bars = api_bar_signals("SPY", "1d", fetch_bars)
         except Exception:
             spy_bars = []
         try:
-            qqq_bars = api_bar_signals("QQQ", "1d", lookback_bars)
+            qqq_bars = api_bar_signals("QQQ", "1d", fetch_bars)
         except Exception:
             qqq_bars = []
 
@@ -414,7 +434,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             scan_dates=scan_dates, is_gt5=is_gt5,
             min_price=min_price, min_volume=min_volume,
             min_dollar_volume=min_dollar_volume,
-            lookback_bars=lookback_bars, run_id=run_id,
+            fetch_bars=fetch_bars, run_id=run_id,
             universe=universe, spy_bars=spy_bars, qqq_bars=qqq_bars,
         )
         completed_symbols = 0
@@ -586,12 +606,25 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         filter_impact_path = rdir / "filter_impact.parquet"
         n_filter = write_parquet(filter_impact_path, filter_rows)
 
+        # ── Context limitations metadata ──────────────────────────────────────
+        context_limitations = {
+            "context_lookback_bars":  lookback_bars,
+            "fetch_bars":             fetch_bars,
+            "outcome_forward_bars":   _OUTCOME_FORWARD_BARS,
+            "warmup_bars":            _WARMUP_BARS,
+            "context_quality":        cq,
+            "warnings":               run_warnings,
+        }
+        context_limitations_json = json.dumps(context_limitations)
+
         # ── Research bundle (combined JSON for quick analytics loading) ───────
         research_bundle = {
             "run_id":                    run_id,
-            "generated_at":              datetime.utcnow().isoformat() + "Z",
+            "generated_at":             datetime.utcnow().isoformat() + "Z",
             "lookback_bars":             lookback_bars,
+            "fetch_bars":                fetch_bars,
             "context_quality":           cq,
+            "context_limitations":       context_limitations,
             "run_warnings":              run_warnings,
             "signal_statistics":         all_sig_stats,
             "pattern_statistics":        pattern_rows,
@@ -599,6 +632,17 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         }
         rb_path = rdir / "research_bundle.json"
         write_json(rb_path, research_bundle)
+
+        # ── Artifact status summary ───────────────────────────────────────────
+        artifact_status = {
+            "events":          {"rows": n_events,    "status": "ok" if n_events > 0    else "empty"},
+            "outcomes":        {"rows": n_outcomes,  "status": "ok" if n_outcomes > 0  else "empty"},
+            "signal_stats":    {"rows": n_sig_stats, "status": "ok" if n_sig_stats > 0 else "empty"},
+            "pattern_stats":   {"rows": n_pattern,   "status": "ok" if n_pattern > 0   else "empty"},
+            "filter_impact":   {"rows": n_filter,    "status": "ok" if n_filter > 0    else "empty"},
+            "research_bundle": {"rows": 1,           "status": "ok"},
+        }
+        artifact_status_json = json.dumps(artifact_status)
 
         # ── run.json metadata snapshot ────────────────────────────────────────
         final_status = "stopped" if _state.get("stop_requested") else "completed"
@@ -612,6 +656,11 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
             total_events=events_total,
             total_outcomes=outcomes_total,
             total_statistics_rows=n_sig_stats,
+            fetch_bars=fetch_bars,
+            outcome_forward_bars=_OUTCOME_FORWARD_BARS,
+            warmup_bars=_WARMUP_BARS,
+            artifact_status_json=artifact_status_json,
+            context_limitations_json=context_limitations_json,
         )
         _finalize_finished_at(run_id)
 

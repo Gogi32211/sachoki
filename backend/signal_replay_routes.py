@@ -111,18 +111,16 @@ def _parquet_path(run_id: int, artifact_type: str) -> Path:
     return artifact_path(run_id, artifact_type, "parquet")
 
 
-def _require_artifact(run_id: int, artifact_type: str) -> Path:
-    """Return artifact path or raise 404 with a clear message."""
+def _artifact_path_if_ready(run_id: int, artifact_type: str) -> Path | None:
+    """Return artifact path if it exists and is non-empty, else None.
+
+    Never raises — callers return empty results gracefully. This allows
+    completed runs with zero events (e.g. 30-bar mode on a quiet day) to
+    return empty data instead of a 404 error.
+    """
     p = _parquet_path(run_id, artifact_type)
     if not p.exists() or p.stat().st_size == 0:
-        raise HTTPException(
-            status_code=404,
-            detail=(
-                f"Artifact '{artifact_type}' not found for run {run_id}. "
-                "The run may still be in progress, have failed before writing artifacts, "
-                "or been created before the parquet storage migration."
-            ),
-        )
+        return None
     return p
 
 
@@ -193,6 +191,8 @@ def history(limit: int = 50) -> list[dict]:
     ph = _ph()
     sql = (f"SELECT id, status, mode, universe, as_of_date, start_date, end_date, "
            f"total_events, total_outcomes, total_statistics_rows, storage_mode, "
+           f"fetch_bars, outcome_forward_bars, warmup_bars, "
+           f"artifact_status_json, context_limitations_json, "
            f"settings_json, started_at, finished_at, error_message "
            f"FROM signal_replay_runs ORDER BY id DESC LIMIT {limit}")
     runs = _query(sql)
@@ -265,7 +265,9 @@ def list_events(
     limit  = max(1, min(limit, 2000))
     offset = max(0, offset)
 
-    p = _require_artifact(run_id, "events")
+    p = _artifact_path_if_ready(run_id, "events")
+    if p is None:
+        return {"total": 0, "limit": limit, "offset": offset, "rows": []}
 
     conditions: list[tuple[str, str, Any]] = []
     for col, val in (
@@ -303,7 +305,9 @@ def list_outcomes(
     limit  = max(1, min(limit, 2000))
     offset = max(0, offset)
 
-    p = _require_artifact(run_id, "outcomes")
+    p = _artifact_path_if_ready(run_id, "outcomes")
+    if p is None:
+        return {"total": 0, "limit": limit, "offset": offset, "rows": []}
 
     conditions: list[tuple[str, str, Any]] = []
     for col, val in (("symbol", symbol), ("horizon", horizon), ("outcome_label", outcome_label)):
@@ -334,7 +338,9 @@ def list_signal_statistics(
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
 
-    p = _require_artifact(run_id, "signal_stats")
+    p = _artifact_path_if_ready(run_id, "signal_stats")
+    if p is None:
+        return []
 
     conditions: list[tuple[str, str, Any]] = []
     if horizon:
@@ -373,7 +379,9 @@ def list_pattern_statistics(
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
 
-    p = _require_artifact(run_id, "pattern_stats")
+    p = _artifact_path_if_ready(run_id, "pattern_stats")
+    if p is None:
+        return []
 
     conditions: list[tuple[str, str, Any]] = []
     if horizon:
@@ -411,7 +419,9 @@ def list_filter_impact(
 ) -> list[dict]:
     limit = max(1, min(limit, 5000))
 
-    p = _require_artifact(run_id, "filter_impact")
+    p = _artifact_path_if_ready(run_id, "filter_impact")
+    if p is None:
+        return []
 
     conditions: list[tuple[str, str, Any]] = []
     if horizon:
@@ -484,8 +494,10 @@ def export_run(
     if part == "research":
         rb_path = artifact_path(run_id, "research_bundle", "json")
         if not rb_path.exists():
-            raise HTTPException(status_code=404, detail="research_bundle.json not found")
-        content = rb_path.read_text(encoding="utf-8")
+            content = json.dumps({"run_id": run_id, "status": "no_data",
+                                  "message": "research_bundle not yet written"}, indent=2)
+        else:
+            content = rb_path.read_text(encoding="utf-8")
         return Response(
             content=content,
             media_type="application/json",
@@ -546,13 +558,14 @@ def export_run(
         }
         data_key = key_map.get(part, part)
         rows = body.get(data_key, [])
-        if not rows:
-            raise HTTPException(status_code=404, detail=f"No data for {part}")
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
-        writer.writeheader()
-        writer.writerows(rows)
         filename = f"replay_{run_id}_{part}.csv"
+        buf = io.StringIO()
+        if rows:
+            writer = csv.DictWriter(buf, fieldnames=list(rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(rows)
+        else:
+            buf.write(f"# No data for {part} in run {run_id}\n")
         return Response(
             content=buf.getvalue(),
             media_type="text/csv",

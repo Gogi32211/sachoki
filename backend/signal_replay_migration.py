@@ -38,11 +38,16 @@ CREATE TABLE IF NOT EXISTS signal_replay_runs (
     total_statistics_rows INTEGER DEFAULT 0,
     settings_json         TEXT,
     error_message         TEXT,
-    storage_mode          VARCHAR(20) DEFAULT 'parquet',
-    started_at            TIMESTAMPTZ DEFAULT NOW(),
-    finished_at           TIMESTAMPTZ,
-    created_at            TIMESTAMPTZ DEFAULT NOW(),
-    updated_at            TIMESTAMPTZ DEFAULT NOW()
+    storage_mode             VARCHAR(20) DEFAULT 'parquet',
+    fetch_bars               INTEGER,
+    outcome_forward_bars     INTEGER,
+    warmup_bars              INTEGER,
+    artifact_status_json     TEXT,
+    context_limitations_json TEXT,
+    started_at               TIMESTAMPTZ DEFAULT NOW(),
+    finished_at              TIMESTAMPTZ,
+    created_at               TIMESTAMPTZ DEFAULT NOW(),
+    updated_at               TIMESTAMPTZ DEFAULT NOW()
 );
 
 CREATE INDEX IF NOT EXISTS idx_srr_status     ON signal_replay_runs(status);
@@ -92,11 +97,16 @@ CREATE TABLE IF NOT EXISTS signal_replay_runs (
     total_statistics_rows INTEGER DEFAULT 0,
     settings_json         TEXT,
     error_message         TEXT,
-    storage_mode          TEXT DEFAULT 'parquet',
-    started_at            TEXT DEFAULT (datetime('now')),
-    finished_at           TEXT,
-    created_at            TEXT DEFAULT (datetime('now')),
-    updated_at            TEXT DEFAULT (datetime('now'))
+    storage_mode             TEXT DEFAULT 'parquet',
+    fetch_bars               INTEGER,
+    outcome_forward_bars     INTEGER,
+    warmup_bars              INTEGER,
+    artifact_status_json     TEXT,
+    context_limitations_json TEXT,
+    started_at               TEXT DEFAULT (datetime('now')),
+    finished_at              TEXT,
+    created_at               TEXT DEFAULT (datetime('now')),
+    updated_at               TEXT DEFAULT (datetime('now'))
 );
 
 CREATE INDEX IF NOT EXISTS idx_srr_status     ON signal_replay_runs(status);
@@ -121,6 +131,30 @@ CREATE TABLE IF NOT EXISTS replay_artifacts (
 CREATE INDEX IF NOT EXISTS idx_ra_run          ON replay_artifacts(run_id);
 CREATE UNIQUE INDEX IF NOT EXISTS idx_ra_run_type ON replay_artifacts(run_id, artifact_type);
 """
+
+
+def _add_extended_columns_if_missing(db) -> None:
+    """Add columns introduced for the fetch_bars / context_limitations feature."""
+    new_cols = [
+        ("fetch_bars",               "INTEGER"  if USE_PG else "INTEGER"),
+        ("outcome_forward_bars",     "INTEGER"  if USE_PG else "INTEGER"),
+        ("warmup_bars",              "INTEGER"  if USE_PG else "INTEGER"),
+        ("artifact_status_json",     "TEXT"),
+        ("context_limitations_json", "TEXT"),
+    ]
+    for col, dtype in new_cols:
+        try:
+            if USE_PG:
+                db.execute(
+                    f"ALTER TABLE signal_replay_runs "
+                    f"ADD COLUMN IF NOT EXISTS {col} {dtype}"
+                )
+            else:
+                db.execute(
+                    f"ALTER TABLE signal_replay_runs ADD COLUMN {col} {dtype}"
+                )
+        except Exception:
+            pass  # Column already exists (SQLite raises an error; PG uses IF NOT EXISTS)
 
 
 def _add_storage_mode_column_if_missing(db) -> None:
@@ -160,6 +194,7 @@ def ensure_signal_replay_tables() -> None:
             db.executescript(ddl_runs)
             db.executescript(ddl_artifacts)
             _add_storage_mode_column_if_missing(db)
+            _add_extended_columns_if_missing(db)
             db.commit()
         log.info("signal_replay tables ready (parquet storage mode)")
     except Exception as exc:
