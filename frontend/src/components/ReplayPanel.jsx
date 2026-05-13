@@ -80,7 +80,7 @@ function ReplayTable({ rows, columns, emptyMsg = 'No data', pageSize = 100 }) {
           </thead>
           <tbody>
             {visible.map((row, i) => (
-              <tr key={i} className={`border-b border-gray-800 hover:bg-gray-900 ${i % 2 === 0 ? '' : 'bg-gray-950'}`}>
+              <tr key={i} className={`border-b border-md-outline-var hover:bg-gray-900 ${i % 2 === 0 ? '' : 'bg-gray-950'}`}>
                 {columns.map(col => {
                   const v = row[col.key]
                   const n = parseFloat(v)
@@ -542,7 +542,7 @@ function SectionView({ sectionId, reportList }) {
           value={search}
           onChange={e => setSearch(e.target.value)}
           placeholder="Search…"
-          className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200 w-48"
+          className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200 w-48"
         />
         <span className="text-xs text-gray-500">{rows.length.toLocaleString()} rows shown</span>
         <div className="ml-auto flex gap-2">
@@ -631,7 +631,7 @@ export default function ReplayPanel() {
         <div className="flex gap-2 items-center ml-auto flex-wrap">
           {/* Universe / TF selectors */}
           <select value={universe} onChange={e => setUniverse(e.target.value)}
-            className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200">
+            className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200">
             {[
               { v: 'sp500',     l: 'sp500' },
               { v: 'nasdaq',    l: 'nasdaq (full)' },
@@ -642,7 +642,7 @@ export default function ReplayPanel() {
             ].map(({ v, l }) => <option key={v} value={v}>{l}</option>)}
           </select>
           <select value={tf} onChange={e => setTf(e.target.value)}
-            className="text-xs bg-gray-800 border border-gray-700 rounded px-2 py-1 text-gray-200">
+            className="text-xs bg-gray-800 border border-md-outline-var rounded px-2 py-1 text-gray-200">
             {['1d','4h','1h','30m'].map(t =>
               <option key={t} value={t}>{t}</option>)}
           </select>

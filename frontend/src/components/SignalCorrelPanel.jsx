@@ -102,10 +102,10 @@ export default function SignalCorrelPanel() {
   )
 
   return (
-    <div className="bg-gray-900 rounded-xl border border-gray-800 text-xs text-gray-300">
+    <div className="bg-md-surface-con rounded-md-md border border-md-outline-var text-xs text-gray-300">
 
       {/* Header */}
-      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-gray-800">
+      <div className="flex flex-wrap items-center gap-3 px-4 py-3 border-b border-md-outline-var">
         <span className="font-semibold text-sm text-white">Signal Co-occurrence</span>
         <span className="text-gray-500">When signal A fires, how often does B also fire?</span>
 
@@ -163,7 +163,7 @@ export default function SignalCorrelPanel() {
 
       {/* Stats bar */}
       {data && (
-        <div className="px-4 py-2 border-b border-gray-800 text-xs text-gray-500 flex gap-4">
+        <div className="px-4 py-2 border-b border-md-outline-var text-xs text-gray-500 flex gap-4">
           <span>{data.n_tickers} tickers scanned</span>
           <span>{sorted.length} pairs ≥ {minPct}%</span>
           <span className="text-gray-600">
@@ -188,7 +188,7 @@ export default function SignalCorrelPanel() {
       {!loading && sorted.length > 0 && (
         <div className="overflow-auto max-h-[520px]">
           <table className="w-full">
-            <thead className="sticky top-0 bg-gray-900 border-b border-gray-800">
+            <thead className="sticky top-0 bg-md-surface-con border-b border-md-outline-var">
               <tr>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Signal A</th>
                 <th className="px-3 py-2 text-left text-xs text-gray-500 font-medium">Signal B</th>
@@ -204,7 +204,7 @@ export default function SignalCorrelPanel() {
             </thead>
             <tbody>
               {sorted.map((p, i) => (
-                <tr key={i} className={`border-b border-gray-800/50 ${pctBg(p.max_pct)}`}>
+                <tr key={i} className={`border-b border-md-outline-var/50 ${pctBg(p.max_pct)}`}>
                   <td className="px-3 py-1.5 font-mono font-semibold text-blue-300">{lbl(p.sig_a)}</td>
                   <td className="px-3 py-1.5 font-mono font-semibold text-cyan-300">{lbl(p.sig_b)}</td>
                   <td className="px-3 py-1.5 font-mono text-violet-300">
@@ -228,7 +228,7 @@ export default function SignalCorrelPanel() {
         </div>
       )}
 
-      <div className="px-4 py-2 text-gray-600 text-[10px] border-t border-gray-800">
+      <div className="px-4 py-2 text-gray-600 text-[10px] border-t border-md-outline-var">
         % of A = when A fired, B also fired X% · Signal C = most common third signal when A+B both fire
       </div>
     </div>

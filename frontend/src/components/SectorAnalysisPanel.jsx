@@ -250,7 +250,7 @@ function WatchlistExport({ sectors }) {
 
 function BenchCard({ b }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-lg p-3 flex flex-col gap-1 min-w-0">
+    <div className="bg-gray-900 border border-md-outline-var rounded-lg p-3 flex flex-col gap-1 min-w-0">
       <div className="flex items-center justify-between gap-1">
         <span className="text-sm font-bold text-white font-mono">{b.ticker}</span>
         {b.trend && (
@@ -355,7 +355,7 @@ function MoneyFlowSection({ sectors, selected, onSelect }) {
   ]
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Money Flow / Sector Rotation</div>
       <div className="grid grid-cols-2 xl:grid-cols-4 gap-3">
         {COLS.map(({ key, label, border, head }) => (
@@ -410,7 +410,7 @@ function RRGChart({ data, selected, onSelect }) {
   })
 
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full rounded-xl bg-gray-950 border border-gray-800"
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full h-full rounded-xl bg-gray-950 border border-md-outline-var"
       style={{ minHeight: 300 }}>
       {/* Quadrant fills */}
       <rect x={CX} y={PAD}  width={W-CX-PAD} height={CY-PAD}   fill="#166534" fillOpacity="0.15" />
@@ -505,7 +505,7 @@ function SectorTable({ sectors, selected, onSelect }) {
   })
 
   return (
-    <div className="overflow-x-auto rounded-xl border border-gray-800">
+    <div className="overflow-x-auto rounded-xl border border-md-outline-var">
       <table className="w-full text-xs border-collapse" style={{ minWidth: 820 }}>
         <thead>
           <tr className="bg-gray-900/90 border-b border-gray-700">
@@ -527,10 +527,10 @@ function SectorTable({ sectors, selected, onSelect }) {
             <tr
               key={s.ticker}
               onClick={() => onSelect(s.ticker)}
-              className={`border-b border-gray-800/40 cursor-pointer transition-colors
+              className={`border-b border-md-outline-var/40 cursor-pointer transition-colors
                 ${selected === s.ticker
                   ? 'bg-blue-900/25 border-l-2 border-l-blue-500'
-                  : 'hover:bg-gray-800/30'}`}
+                  : 'hover:bg-md-surface-high/30'}`}
             >
               <td className="px-2 py-1.5 text-gray-300 max-w-[110px] truncate">{s.name}</td>
               <td className="px-2 py-1.5 font-mono font-bold text-white">{s.ticker}</td>
@@ -578,12 +578,12 @@ function DetailMetricRow({ label, value, isCurrency, isPct, isDiff }) {
 
 function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   if (!etf) return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-600 text-xs">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var/70 text-xs">
       Select a sector to view details
     </div>
   )
   if (loading) return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-6 text-center text-gray-500 text-xs animate-pulse">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-6 text-center text-md-on-surface-var text-xs animate-pulse">
       Loading {etf}…
     </div>
   )
@@ -593,7 +593,7 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
     </div>
   )
   if (!detail?.data) return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-xs text-gray-600 text-center">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 text-xs text-gray-600 text-center">
       No detail data
     </div>
   )
@@ -604,7 +604,7 @@ function DetailPanel({ etf, detail, loading, error, chartTf, onTfChange }) {
   const { arr: rs }     = sliceByTf(hist.dates, hist.rs,     chartTf)
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       {/* Header */}
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col gap-0.5">
@@ -722,12 +722,12 @@ function TopStocksSection({ etf, detail, loading }) {
   const holdings = detail?.data?.holdings || []
 
   if (!etf) return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 text-xs text-gray-600 text-center">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 text-xs text-gray-600 text-center">
       Select a sector to view top stocks.
     </div>
   )
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">
         Top Stocks in {etf}
       </div>
@@ -745,7 +745,7 @@ function TopStocksSection({ etf, detail, loading }) {
         holdings.length === 0
           ? <div className="text-xs text-gray-600">Holdings data unavailable.</div>
           : (
-            <div className="overflow-hidden rounded-lg border border-gray-800">
+            <div className="overflow-hidden rounded-lg border border-md-outline-var">
               <table className="w-full text-xs">
                 <thead>
                   <tr className="bg-gray-800/60 border-b border-gray-700">
@@ -781,7 +781,7 @@ function TopStocksSection({ etf, detail, loading }) {
 
 function TopSectorDrivers({ sectors }) {
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Top Sector Drivers Today</div>
       <div className="text-xs text-amber-600/60">Static / fallback — live prices unavailable</div>
       <div className="grid grid-cols-2 sm:grid-cols-3 gap-2">
@@ -809,7 +809,7 @@ function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, 
     .sort((a, b) => b[rankMetric] - a[rankMetric])
 
   return (
-    <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+    <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
       <div className="flex items-center gap-3 flex-wrap">
         <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Strength Ranking</div>
         <div className="flex gap-1 flex-wrap">
@@ -822,7 +822,7 @@ function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, 
           ))}
         </div>
       </div>
-      <div className="overflow-x-auto rounded-lg border border-gray-800">
+      <div className="overflow-x-auto rounded-lg border border-md-outline-var">
         <table className="w-full text-xs border-collapse" style={{ minWidth: 580 }}>
           <thead>
             <tr className="bg-gray-800/60 border-b border-gray-700">
@@ -840,7 +840,7 @@ function SectorStrengthRanking({ sectors, rankMetric, onMetricChange, selected, 
           <tbody>
             {sorted.map((s, i) => (
               <tr key={s.ticker} onClick={() => onSelect(s.ticker)}
-                className={`border-b border-gray-800/40 cursor-pointer transition-colors
+                className={`border-b border-md-outline-var/40 cursor-pointer transition-colors
                   ${selected === s.ticker ? 'bg-blue-900/20' : 'hover:bg-gray-800/20'}`}>
                 <td className="px-2 py-1.5 text-gray-500 font-mono">{i + 1}</td>
                 <td className="px-2 py-1.5 font-mono font-bold text-white">{s.ticker}</td>
@@ -948,7 +948,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
           {benchmarks.length > 0
             ? benchmarks.map(b => <BenchCard key={b.ticker} b={b} />)
             : ['SPY','QQQ','IWM','DIA'].map(t => (
-                <div key={t} className="bg-gray-900 border border-gray-800 rounded-lg p-3 text-xs text-gray-600">{t} —</div>
+                <div key={t} className="bg-gray-900 border border-md-outline-var rounded-lg p-3 text-xs text-gray-600">{t} —</div>
               ))
           }
         </div>
@@ -959,7 +959,7 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
       <RegimeBanner regime={regime} />
 
       {/* 3 ── Sector Heatmap */}
-      <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-3">
+      <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-3">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Heatmap</span>
           <div className="flex gap-1 flex-wrap">
@@ -996,12 +996,12 @@ export default function SectorAnalysisPanel({ onSelectTicker }) {
           </div>
 
           {/* RRG directly after table, fills remaining space */}
-          <div className="bg-gray-900 border border-gray-800 rounded-xl p-4 flex flex-col gap-2 flex-1">
+          <div className="bg-gray-900 border border-md-outline-var rounded-xl p-4 flex flex-col gap-2 flex-1">
             <div className="text-xs text-gray-400 uppercase tracking-wide font-medium">Sector Rotation Map</div>
             <div className="text-xs text-gray-500">RS Ratio vs SPY (X) · RS Momentum (Y) · Dashed = trails</div>
             <div className="flex-1 min-h-[300px]">
               {rrgLoading
-                ? <div className="h-full flex items-center justify-center text-gray-500 text-xs animate-pulse">Loading RRG…</div>
+                ? <div className="h-full flex items-center justify-center text-md-on-surface-var text-xs animate-pulse">Loading RRG…</div>
                 : <RRGChart data={rrgData} selected={selectedEtf} onSelect={handleSelect} />
               }
             </div>
