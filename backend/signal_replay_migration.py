@@ -4,12 +4,12 @@ signal_replay_migration.py — Creates Signal Replay / Research engine tables.
 Called from main.py lifespan. Safe to call multiple times (IF NOT EXISTS).
 
 Tables:
-  signal_replay_runs        — one row per replay/statistics run
-  replay_signal_events      — one row per signal event (symbol × date × signal)
-  replay_signal_outcomes    — one row per event × horizon
-  replay_signal_statistics  — aggregated per-signal stats
-
-Phase 2 will add: replay_pattern_statistics, replay_filter_impact_statistics.
+  signal_replay_runs              — one row per replay/statistics run
+  replay_signal_events            — one row per signal event (symbol × date × signal)
+  replay_signal_outcomes          — one row per event × horizon
+  replay_signal_statistics        — aggregated per-signal stats (Phase 1)
+  replay_pattern_statistics       — aggregated per-sequence-pattern stats (Phase 2)
+  replay_filter_impact_statistics — signal × context-filter lift stats (Phase 2)
 """
 from __future__ import annotations
 import logging
@@ -254,7 +254,80 @@ CREATE TABLE IF NOT EXISTS replay_signal_statistics (
 
 CREATE INDEX IF NOT EXISTS idx_rss_run        ON replay_signal_statistics(replay_run_id);
 CREATE INDEX IF NOT EXISTS idx_rss_run_horiz  ON replay_signal_statistics(replay_run_id, horizon);
-CREATE INDEX IF NOT EXISTS idx_rss_run_type   ON replay_signal_statistics(replay_run_id, stat_type)
+CREATE INDEX IF NOT EXISTS idx_rss_run_type   ON replay_signal_statistics(replay_run_id, stat_type);
+
+CREATE TABLE IF NOT EXISTS replay_pattern_statistics (
+    id                  BIGSERIAL PRIMARY KEY,
+    replay_run_id       INTEGER NOT NULL,
+    stat_key            VARCHAR(400) NOT NULL,
+    pattern_type        VARCHAR(20),
+    pattern_value       VARCHAR(400),
+    terminal_signal     VARCHAR(40),
+    lead_in             VARCHAR(360),
+    horizon             VARCHAR(8) NOT NULL,
+    sample_size         INTEGER DEFAULT 0,
+    avg_return          NUMERIC(10,4),
+    median_return       NUMERIC(10,4),
+    p25_return          NUMERIC(10,4),
+    p75_return          NUMERIC(10,4),
+    win_rate            NUMERIC(8,4),
+    loss_rate           NUMERIC(8,4),
+    hit_5pct_rate       NUMERIC(8,4),
+    hit_10pct_rate      NUMERIC(8,4),
+    hit_20pct_rate      NUMERIC(8,4),
+    hit_50pct_rate      NUMERIC(8,4),
+    fail_5pct_rate      NUMERIC(8,4),
+    fail_10pct_rate     NUMERIC(8,4),
+    avg_max_gain        NUMERIC(10,4),
+    median_max_gain     NUMERIC(10,4),
+    avg_max_drawdown    NUMERIC(10,4),
+    median_max_drawdown NUMERIC(10,4),
+    expectancy          NUMERIC(10,4),
+    risk_reward_ratio   NUMERIC(10,4),
+    alpha_vs_spy_avg    NUMERIC(10,4),
+    alpha_vs_qqq_avg    NUMERIC(10,4),
+    confidence_score    NUMERIC(6,4),
+    confidence_label    VARCHAR(20),
+    verdict             VARCHAR(30),
+    recommendation      TEXT,
+    examples_json       TEXT,
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rps_run        ON replay_pattern_statistics(replay_run_id);
+CREATE INDEX IF NOT EXISTS idx_rps_run_horiz  ON replay_pattern_statistics(replay_run_id, horizon);
+CREATE INDEX IF NOT EXISTS idx_rps_run_type   ON replay_pattern_statistics(replay_run_id, pattern_type);
+CREATE INDEX IF NOT EXISTS idx_rps_terminal   ON replay_pattern_statistics(replay_run_id, terminal_signal);
+
+CREATE TABLE IF NOT EXISTS replay_filter_impact_statistics (
+    id                  BIGSERIAL PRIMARY KEY,
+    replay_run_id       INTEGER NOT NULL,
+    stat_key            VARCHAR(200) NOT NULL,
+    base_signal         VARCHAR(40),
+    filter_name         VARCHAR(40),
+    filter_value        VARCHAR(60),
+    horizon             VARCHAR(8) NOT NULL,
+    sample_size         INTEGER DEFAULT 0,
+    median_return       NUMERIC(10,4),
+    avg_return          NUMERIC(10,4),
+    win_rate            NUMERIC(8,4),
+    hit_10pct_rate      NUMERIC(8,4),
+    hit_20pct_rate      NUMERIC(8,4),
+    fail_10pct_rate     NUMERIC(8,4),
+    avg_max_gain        NUMERIC(10,4),
+    avg_max_drawdown    NUMERIC(10,4),
+    confidence_score    NUMERIC(6,4),
+    confidence_label    VARCHAR(20),
+    lift_median_return  NUMERIC(10,4),
+    lift_hit_10pct      NUMERIC(10,4),
+    verdict             VARCHAR(30),
+    created_at          TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_rfi_run         ON replay_filter_impact_statistics(replay_run_id);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_signal  ON replay_filter_impact_statistics(replay_run_id, base_signal);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_filter  ON replay_filter_impact_statistics(replay_run_id, filter_name);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_horiz   ON replay_filter_impact_statistics(replay_run_id, horizon)
 """
 
 _DDL_SQLITE = """
@@ -412,7 +485,66 @@ CREATE TABLE IF NOT EXISTS replay_signal_statistics (
 
 CREATE INDEX IF NOT EXISTS idx_rss_run        ON replay_signal_statistics(replay_run_id);
 CREATE INDEX IF NOT EXISTS idx_rss_run_horiz  ON replay_signal_statistics(replay_run_id, horizon);
-CREATE INDEX IF NOT EXISTS idx_rss_run_type   ON replay_signal_statistics(replay_run_id, stat_type)
+CREATE INDEX IF NOT EXISTS idx_rss_run_type   ON replay_signal_statistics(replay_run_id, stat_type);
+
+CREATE TABLE IF NOT EXISTS replay_pattern_statistics (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    replay_run_id       INTEGER NOT NULL,
+    stat_key            TEXT NOT NULL,
+    pattern_type        TEXT,
+    pattern_value       TEXT,
+    terminal_signal     TEXT,
+    lead_in             TEXT,
+    horizon             TEXT NOT NULL,
+    sample_size         INTEGER DEFAULT 0,
+    avg_return REAL, median_return REAL, p25_return REAL, p75_return REAL,
+    win_rate REAL, loss_rate REAL,
+    hit_5pct_rate REAL, hit_10pct_rate REAL, hit_20pct_rate REAL, hit_50pct_rate REAL,
+    fail_5pct_rate REAL, fail_10pct_rate REAL,
+    avg_max_gain REAL, median_max_gain REAL,
+    avg_max_drawdown REAL, median_max_drawdown REAL,
+    expectancy REAL, risk_reward_ratio REAL,
+    alpha_vs_spy_avg REAL, alpha_vs_qqq_avg REAL,
+    confidence_score REAL, confidence_label TEXT,
+    verdict TEXT, recommendation TEXT,
+    examples_json TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rps_run        ON replay_pattern_statistics(replay_run_id);
+CREATE INDEX IF NOT EXISTS idx_rps_run_horiz  ON replay_pattern_statistics(replay_run_id, horizon);
+CREATE INDEX IF NOT EXISTS idx_rps_run_type   ON replay_pattern_statistics(replay_run_id, pattern_type);
+CREATE INDEX IF NOT EXISTS idx_rps_terminal   ON replay_pattern_statistics(replay_run_id, terminal_signal);
+
+CREATE TABLE IF NOT EXISTS replay_filter_impact_statistics (
+    id                  INTEGER PRIMARY KEY AUTOINCREMENT,
+    replay_run_id       INTEGER NOT NULL,
+    stat_key            TEXT NOT NULL,
+    base_signal         TEXT,
+    filter_name         TEXT,
+    filter_value        TEXT,
+    horizon             TEXT NOT NULL,
+    sample_size         INTEGER DEFAULT 0,
+    median_return       REAL,
+    avg_return          REAL,
+    win_rate            REAL,
+    hit_10pct_rate      REAL,
+    hit_20pct_rate      REAL,
+    fail_10pct_rate     REAL,
+    avg_max_gain        REAL,
+    avg_max_drawdown    REAL,
+    confidence_score    REAL,
+    confidence_label    TEXT,
+    lift_median_return  REAL,
+    lift_hit_10pct      REAL,
+    verdict             TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+);
+
+CREATE INDEX IF NOT EXISTS idx_rfi_run         ON replay_filter_impact_statistics(replay_run_id);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_signal  ON replay_filter_impact_statistics(replay_run_id, base_signal);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_filter  ON replay_filter_impact_statistics(replay_run_id, filter_name);
+CREATE INDEX IF NOT EXISTS idx_rfi_run_horiz   ON replay_filter_impact_statistics(replay_run_id, horizon)
 """
 
 

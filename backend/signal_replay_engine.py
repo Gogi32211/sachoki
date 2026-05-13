@@ -45,12 +45,14 @@ _state: dict[str, Any] = {
     "days_completed":    0,
     "symbols_total":     0,
     "symbols_completed": 0,
-    "events_found":      0,
-    "outcomes_computed": 0,
-    "statistics_rows":   0,
-    "started_at":        None,
-    "elapsed_secs":      0,
-    "error":             None,
+    "events_found":       0,
+    "outcomes_computed":  0,
+    "statistics_rows":    0,
+    "pattern_rows":       0,
+    "filter_impact_rows": 0,
+    "started_at":         None,
+    "elapsed_secs":       0,
+    "error":              None,
 }
 
 
@@ -117,29 +119,32 @@ def _update_run(run_id: int, **fields) -> None:
         log.warning("signal_replay_runs update failed: %s", exc)
 
 
+_PG_CHUNK = 500  # rows per INSERT for PG (avoids param-limit issues with wide tables)
+
+
 def _bulk_insert(table: str, rows: list[dict]) -> list[int]:
     """Insert rows and return their generated IDs (in same order)."""
     if not rows:
         return []
-    cols = [c for c in rows[0].keys()]
+    cols = list(rows[0].keys())
     ph = _ph()
     placeholders = "(" + ", ".join([ph] * len(cols)) + ")"
 
-    # PG: insert with RETURNING id (single multi-row insert)
-    # SQLite: insert one row at a time (lastrowid)
     ids: list[int] = []
     with get_db() as db:
         if USE_PG:
-            sql = (f"INSERT INTO {table} ({', '.join(cols)}) VALUES "
-                   + ", ".join([placeholders] * len(rows))
-                   + " RETURNING id")
-            flat: list[Any] = []
-            for r in rows:
-                flat.extend(r[c] for c in cols)
-            db.execute(sql, flat)
-            res = db.fetchall()
-            for rec in res:
-                ids.append(rec["id"] if isinstance(rec, dict) else rec[0])
+            for start in range(0, len(rows), _PG_CHUNK):
+                chunk = rows[start : start + _PG_CHUNK]
+                sql = (f"INSERT INTO {table} ({', '.join(cols)}) VALUES "
+                       + ", ".join([placeholders] * len(chunk))
+                       + " RETURNING id")
+                flat: list[Any] = []
+                for r in chunk:
+                    flat.extend(r[c] for c in cols)
+                db.execute(sql, flat)
+                res = db.fetchall()
+                for rec in res:
+                    ids.append(rec["id"] if isinstance(rec, dict) else rec[0])
         else:
             sql = (f"INSERT INTO {table} ({', '.join(cols)}) "
                    f"VALUES {placeholders}")
@@ -191,6 +196,8 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
     from signal_event_extractor import extract_events
     from signal_outcome_engine import compute_outcomes
     from signal_statistics_engine import build_signal_statistics
+    from signal_pattern_engine import build_pattern_statistics
+    from signal_filter_impact_engine import build_filter_impact_statistics
 
     _set(running=True, run_id=run_id, status="running",
          mode=payload.get("mode"), universe=payload.get("universe"),
@@ -198,6 +205,7 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
          days_total=0, days_completed=0,
          symbols_total=0, symbols_completed=0,
          events_found=0, outcomes_computed=0, statistics_rows=0,
+         pattern_rows=0, filter_impact_rows=0,
          started_at=time.time(), elapsed_secs=0, error=None)
     t0 = time.time()
 
@@ -318,18 +326,18 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         _set(outcomes_computed=outcomes_total, days_completed=len(scan_dates),
              elapsed_secs=round(time.time() - t0, 1))
 
-        # Aggregate statistics
+        # Aggregate statistics (Phase 1)
         events_for_stats = [{
             "id": ev["id"],
-            "event_signal": ev.get("event_signal"),
+            "event_signal":        ev.get("event_signal"),
             "event_signal_family": ev.get("event_signal_family"),
             "event_signal_type":   ev.get("event_signal_type"),
             "event_direction":     ev.get("event_direction"),
-            "role":   ev.get("role"),
-            "matched_status": ev.get("matched_status"),
-            "score_bucket":   ev.get("score_bucket"),
-            "symbol":    ev.get("symbol"),
-            "scan_date": ev.get("scan_date"),
+            "role":                ev.get("role"),
+            "matched_status":      ev.get("matched_status"),
+            "score_bucket":        ev.get("score_bucket"),
+            "symbol":              ev.get("symbol"),
+            "scan_date":           ev.get("scan_date"),
         } for ev in all_events]
 
         stats_rows = build_signal_statistics(
@@ -337,7 +345,53 @@ def run_signal_replay(run_id: int, payload: dict) -> None:
         )
         if stats_rows:
             _bulk_insert("replay_signal_statistics", stats_rows)
-        _set(statistics_rows=len(stats_rows))
+        _set(statistics_rows=len(stats_rows),
+             elapsed_secs=round(time.time() - t0, 1))
+
+        # Phase 2: pattern statistics (sequences)
+        events_for_patterns = [{
+            "id":            ev["id"],
+            "event_signal":  ev.get("event_signal"),
+            "sequence_2bar": ev.get("sequence_2bar"),
+            "sequence_3bar": ev.get("sequence_3bar"),
+            "sequence_4bar": ev.get("sequence_4bar"),
+            "sequence_5bar": ev.get("sequence_5bar"),
+            "sequence_7bar": ev.get("sequence_7bar"),
+        } for ev in all_events]
+
+        pattern_rows = build_pattern_statistics(
+            events_for_patterns, all_outcomes, replay_run_id=run_id,
+        )
+        if pattern_rows:
+            _bulk_insert("replay_pattern_statistics", pattern_rows)
+        _set(pattern_rows=len(pattern_rows),
+             elapsed_secs=round(time.time() - t0, 1))
+
+        # Phase 2: filter impact statistics (signal × context)
+        events_for_filters = [{
+            "id":                       ev["id"],
+            "event_signal":             ev.get("event_signal"),
+            "event_signal_family":      ev.get("event_signal_family"),
+            "ema50_state":              ev.get("ema50_state"),
+            "volume_bucket":            ev.get("volume_bucket"),
+            "abr_category":             ev.get("abr_category"),
+            "candle_color":             ev.get("candle_color"),
+            "price_pos_20bar_bucket":   ev.get("price_pos_20bar_bucket"),
+            "score_bucket":             ev.get("score_bucket"),
+            "had_t_last_3d":            ev.get("had_t_last_3d"),
+            "had_z_last_3d":            ev.get("had_z_last_3d"),
+            "had_wlnbb_l_last_5d":      ev.get("had_wlnbb_l_last_5d"),
+            "had_ema50_reclaim_last_5d": ev.get("had_ema50_reclaim_last_5d"),
+            "had_volume_burst_last_5d": ev.get("had_volume_burst_last_5d"),
+        } for ev in all_events]
+
+        filter_rows = build_filter_impact_statistics(
+            events_for_filters, all_outcomes, replay_run_id=run_id,
+        )
+        if filter_rows:
+            _bulk_insert("replay_filter_impact_statistics", filter_rows)
+        _set(filter_impact_rows=len(filter_rows),
+             elapsed_secs=round(time.time() - t0, 1))
 
         _update_run(
             run_id,

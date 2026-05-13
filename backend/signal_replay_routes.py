@@ -244,6 +244,87 @@ def list_signal_statistics(
     return _query(sql, params)
 
 
+@router.get("/{run_id}/pattern-statistics")
+def list_pattern_statistics(
+    run_id: int,
+    horizon: str | None = "10d",
+    pattern_type: str | None = None,
+    terminal_signal: str | None = None,
+    min_sample_size: int = 3,
+    sort_by: str = "median_return",
+    sort_dir: str = "desc",
+    limit: int = 500,
+) -> list[dict]:
+    limit = max(1, min(limit, 5000))
+    ph = _ph()
+    where = [f"replay_run_id={ph}"]
+    params: list[Any] = [run_id]
+    if horizon:
+        where.append(f"horizon={ph}"); params.append(horizon)
+    if pattern_type:
+        where.append(f"pattern_type={ph}"); params.append(pattern_type)
+    if terminal_signal:
+        where.append(f"terminal_signal={ph}"); params.append(terminal_signal)
+    if min_sample_size:
+        where.append(f"sample_size >= {ph}"); params.append(min_sample_size)
+
+    sort_col_allowed = {
+        "sample_size", "median_return", "avg_return", "win_rate",
+        "hit_10pct_rate", "fail_10pct_rate", "expectancy",
+        "confidence_score", "stat_key", "pattern_value",
+    }
+    sort_col = sort_by if sort_by in sort_col_allowed else "median_return"
+    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+    sql = (f"SELECT * FROM replay_pattern_statistics WHERE {' AND '.join(where)} "
+           f"ORDER BY {sort_col} {sort_dir_sql} NULLS LAST LIMIT {limit}"
+           if USE_PG else
+           f"SELECT * FROM replay_pattern_statistics WHERE {' AND '.join(where)} "
+           f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
+    return _query(sql, params)
+
+
+@router.get("/{run_id}/filter-impact")
+def list_filter_impact(
+    run_id: int,
+    horizon: str | None = "10d",
+    base_signal: str | None = None,
+    filter_name: str | None = None,
+    filter_value: str | None = None,
+    min_sample_size: int = 5,
+    sort_by: str = "lift_median_return",
+    sort_dir: str = "desc",
+    limit: int = 500,
+) -> list[dict]:
+    limit = max(1, min(limit, 5000))
+    ph = _ph()
+    where = [f"replay_run_id={ph}"]
+    params: list[Any] = [run_id]
+    if horizon:
+        where.append(f"horizon={ph}"); params.append(horizon)
+    if base_signal:
+        where.append(f"base_signal={ph}"); params.append(base_signal)
+    if filter_name:
+        where.append(f"filter_name={ph}"); params.append(filter_name)
+    if filter_value:
+        where.append(f"filter_value={ph}"); params.append(filter_value)
+    if min_sample_size:
+        where.append(f"sample_size >= {ph}"); params.append(min_sample_size)
+
+    sort_col_allowed = {
+        "sample_size", "median_return", "avg_return", "win_rate",
+        "hit_10pct_rate", "fail_10pct_rate",
+        "lift_median_return", "lift_hit_10pct", "confidence_score",
+    }
+    sort_col = sort_by if sort_by in sort_col_allowed else "lift_median_return"
+    sort_dir_sql = "DESC" if str(sort_dir).lower() == "desc" else "ASC"
+    sql = (f"SELECT * FROM replay_filter_impact_statistics WHERE {' AND '.join(where)} "
+           f"ORDER BY {sort_col} {sort_dir_sql} NULLS LAST LIMIT {limit}"
+           if USE_PG else
+           f"SELECT * FROM replay_filter_impact_statistics WHERE {' AND '.join(where)} "
+           f"ORDER BY {sort_col} IS NULL, {sort_col} {sort_dir_sql} LIMIT {limit}")
+    return _query(sql, params)
+
+
 @router.delete("/{run_id}")
 def delete_run(run_id: int) -> dict:
     state = _get_state()
@@ -252,7 +333,8 @@ def delete_run(run_id: int) -> dict:
     ph = _ph()
     try:
         with get_db() as db:
-            for tbl in ("replay_signal_statistics", "replay_signal_outcomes",
+            for tbl in ("replay_filter_impact_statistics", "replay_pattern_statistics",
+                        "replay_signal_statistics", "replay_signal_outcomes",
                         "replay_signal_events", "signal_replay_runs"):
                 db.execute(f"DELETE FROM {tbl} WHERE "
                            f"{'id' if tbl == 'signal_replay_runs' else 'replay_run_id'}={ph}",

@@ -171,12 +171,14 @@ function ProgressPanel({ state }) {
         </div>
         <div className="text-xs text-gray-500">elapsed: {state.elapsed_secs}s</div>
       </div>
-      <div className="grid grid-cols-2 md:grid-cols-5 gap-2 text-xs">
+      <div className="grid grid-cols-2 md:grid-cols-7 gap-2 text-xs">
         <Stat label="Days"     val={`${state.days_completed}/${state.days_total}`} />
         <Stat label="Symbols"  val={`${state.symbols_completed}/${state.symbols_total}`} />
         <Stat label="Events"   val={fmtNum(state.events_found)} />
         <Stat label="Outcomes" val={fmtNum(state.outcomes_computed)} />
-        <Stat label="Stats"    val={fmtNum(state.statistics_rows)} />
+        <Stat label="Sig Stats"    val={fmtNum(state.statistics_rows)} />
+        <Stat label="Patterns"     val={fmtNum(state.pattern_rows)} />
+        <Stat label="Ctx Filters"  val={fmtNum(state.filter_impact_rows)} />
       </div>
       <div className="w-full bg-gray-800 rounded h-1.5 overflow-hidden">
         <div className="h-full bg-blue-500" style={{ width: `${pct}%` }} />
@@ -471,11 +473,264 @@ function MiniList({ title, rows, pos = false }) {
   )
 }
 
+// ─── Pattern Ranking ─────────────────────────────────────────────────────────
+
+function PatternRankingTable({ runId }) {
+  const [rows, setRows] = useState([])
+  const [horizon, setHorizon] = useState('10d')
+  const [patternType, setPatternType] = useState('SEQUENCE_4')
+  const [terminal, setTerminal] = useState('')
+  const [minN, setMinN] = useState(3)
+  const [sortBy, setSortBy] = useState('median_return')
+  const [sortDir, setSortDir] = useState('desc')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const load = useCallback(async () => {
+    if (!runId) return
+    setLoading(true); setErr(null)
+    try {
+      const qs = new URLSearchParams({
+        horizon, min_sample_size: String(minN),
+        sort_by: sortBy, sort_dir: sortDir, limit: '500',
+      })
+      if (patternType) qs.set('pattern_type', patternType)
+      if (terminal) qs.set('terminal_signal', terminal.toUpperCase())
+      const data = await apiFetch(`/api/signal-replay/${runId}/pattern-statistics?${qs}`)
+      setRows(Array.isArray(data) ? data : [])
+    } catch (e) { setErr(e.message); setRows([]) }
+    finally { setLoading(false) }
+  }, [runId, horizon, patternType, terminal, minN, sortBy, sortDir])
+
+  useEffect(() => { load() }, [load])
+
+  const headerClick = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortBy(col); setSortDir('desc') }
+  }
+  const H = ({ col, children }) => (
+    <th onClick={() => headerClick(col)}
+        className="px-2 py-1 text-left cursor-pointer hover:bg-gray-800 select-none whitespace-nowrap">
+      {children}{sortBy === col ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 items-center text-xs">
+        <span>Horizon:</span>
+        {['3d', '5d', '10d', '20d'].map(h => (
+          <button key={h} onClick={() => setHorizon(h)}
+                  className={`px-2 py-0.5 rounded ${horizon === h
+                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+        ))}
+        <span className="ml-3">Pattern:</span>
+        <select value={patternType} onChange={e => setPatternType(e.target.value)}
+                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+          {['', 'SEQUENCE_2', 'SEQUENCE_3', 'SEQUENCE_4', 'SEQUENCE_5', 'SEQUENCE_7'].map(p => (
+            <option key={p} value={p}>{p || 'All'}</option>
+          ))}
+        </select>
+        <span className="ml-2">Terminal:</span>
+        <input value={terminal} onChange={e => setTerminal(e.target.value)} placeholder="e.g. T3"
+               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <span className="ml-2">Min N:</span>
+        <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
+               className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <button onClick={load}
+                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+          ↻ Reload
+        </button>
+      </div>
+      {err && <div className="text-xs text-red-400">Error: {err}</div>}
+      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs">
+          <thead className="bg-gray-900 text-gray-400">
+            <tr>
+              <H col="pattern_value">Pattern</H>
+              <th className="px-2 py-1 text-left">Type</th>
+              <th className="px-2 py-1 text-left">Terminal</th>
+              <H col="sample_size">N</H>
+              <H col="median_return">Median {horizon}</H>
+              <H col="avg_return">Avg</H>
+              <H col="win_rate">Win%</H>
+              <H col="hit_10pct_rate">Hit +10%</H>
+              <H col="fail_10pct_rate">Fail -10%</H>
+              <H col="confidence_score">Conf.</H>
+              <th className="px-2 py-1 text-left">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
+                <td className="px-2 py-1 font-mono text-gray-300 max-w-[260px] truncate">{r.pattern_value}</td>
+                <td className="px-2 py-1 text-gray-500 text-[10px]">{r.pattern_type?.replace('SEQUENCE_', '') + '-bar'}</td>
+                <td className="px-2 py-1 font-mono">{r.terminal_signal || '—'}</td>
+                <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
+                <td className={`px-2 py-1 ${Number(r.median_return) > 0 ? 'text-emerald-400' : Number(r.median_return) < 0 ? 'text-red-400' : ''}`}>
+                  {fmtPct(r.median_return)}
+                </td>
+                <td className="px-2 py-1">{fmtPct(r.avg_return)}</td>
+                <td className="px-2 py-1">{fmtPct(r.win_rate, 1)}</td>
+                <td className="px-2 py-1 text-emerald-300">{fmtPct(r.hit_10pct_rate, 1)}</td>
+                <td className="px-2 py-1 text-red-400">{fmtPct(r.fail_10pct_rate, 1)}</td>
+                <td className="px-2 py-1"><ConfidenceBadge label={r.confidence_label} /></td>
+                <td className="px-2 py-1"><VerdictBadge verdict={r.verdict} /></td>
+              </tr>
+            ))}
+            {!loading && rows.length === 0 && (
+              <tr><td colSpan={11} className="px-2 py-6 text-center text-gray-500">
+                No patterns yet. Run a replay to populate.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
+// ─── Context Filter Impact ────────────────────────────────────────────────────
+
+const FILTER_NAMES = [
+  'ema50_state', 'volume_bucket', 'abr_category', 'candle_color',
+  'price_pos_20bar_bucket', 'score_bucket',
+  'had_t_last_3d', 'had_z_last_3d', 'had_wlnbb_l_last_5d',
+  'had_ema50_reclaim_last_5d', 'had_volume_burst_last_5d',
+]
+
+function ContextFilterTable({ runId }) {
+  const [rows, setRows] = useState([])
+  const [horizon, setHorizon] = useState('10d')
+  const [signal, setSignal] = useState('')
+  const [filterName, setFilterName] = useState('')
+  const [minN, setMinN] = useState(5)
+  const [sortBy, setSortBy] = useState('lift_median_return')
+  const [sortDir, setSortDir] = useState('desc')
+  const [loading, setLoading] = useState(false)
+  const [err, setErr] = useState(null)
+
+  const load = useCallback(async () => {
+    if (!runId) return
+    setLoading(true); setErr(null)
+    try {
+      const qs = new URLSearchParams({
+        horizon, min_sample_size: String(minN),
+        sort_by: sortBy, sort_dir: sortDir, limit: '500',
+      })
+      if (signal) qs.set('base_signal', signal.toUpperCase())
+      if (filterName) qs.set('filter_name', filterName)
+      const data = await apiFetch(`/api/signal-replay/${runId}/filter-impact?${qs}`)
+      setRows(Array.isArray(data) ? data : [])
+    } catch (e) { setErr(e.message); setRows([]) }
+    finally { setLoading(false) }
+  }, [runId, horizon, signal, filterName, minN, sortBy, sortDir])
+
+  useEffect(() => { load() }, [load])
+
+  const headerClick = (col) => {
+    if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
+    else { setSortBy(col); setSortDir('desc') }
+  }
+  const H = ({ col, children }) => (
+    <th onClick={() => headerClick(col)}
+        className="px-2 py-1 text-left cursor-pointer hover:bg-gray-800 select-none whitespace-nowrap">
+      {children}{sortBy === col ? (sortDir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  const liftColor = (v) => {
+    if (v === null || v === undefined) return ''
+    return Number(v) > 0 ? 'text-emerald-400' : Number(v) < 0 ? 'text-red-400' : ''
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap gap-2 items-center text-xs">
+        <span>Horizon:</span>
+        {['3d', '5d', '10d', '20d'].map(h => (
+          <button key={h} onClick={() => setHorizon(h)}
+                  className={`px-2 py-0.5 rounded ${horizon === h
+                    ? 'bg-blue-600 text-white' : 'bg-gray-800 text-gray-400'}`}>{h}</button>
+        ))}
+        <span className="ml-3">Signal:</span>
+        <input value={signal} onChange={e => setSignal(e.target.value)} placeholder="e.g. T3"
+               className="w-16 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <span className="ml-2">Filter:</span>
+        <select value={filterName} onChange={e => setFilterName(e.target.value)}
+                className="bg-gray-800 text-gray-200 rounded px-2 py-0.5">
+          <option value="">All filters</option>
+          {FILTER_NAMES.map(f => <option key={f} value={f}>{f}</option>)}
+        </select>
+        <span className="ml-2">Min N:</span>
+        <input type="number" value={minN} onChange={e => setMinN(Number(e.target.value) || 0)}
+               className="w-14 bg-gray-800 text-gray-200 rounded px-2 py-0.5" />
+        <button onClick={load}
+                className="ml-auto px-2 py-0.5 rounded bg-gray-800 text-gray-300 hover:bg-gray-700">
+          ↻ Reload
+        </button>
+      </div>
+      {err && <div className="text-xs text-red-400">Error: {err}</div>}
+      {loading && <div className="text-xs text-gray-500">Loading…</div>}
+      <div className="overflow-x-auto">
+        <table className="min-w-full text-xs">
+          <thead className="bg-gray-900 text-gray-400">
+            <tr>
+              <H col="base_signal">Signal</H>
+              <H col="filter_name">Filter</H>
+              <th className="px-2 py-1 text-left">Value</th>
+              <H col="sample_size">N</H>
+              <H col="median_return">Median {horizon}</H>
+              <H col="lift_median_return">Lift Median</H>
+              <H col="hit_10pct_rate">Hit +10%</H>
+              <H col="lift_hit_10pct">Lift Hit</H>
+              <H col="fail_10pct_rate">Fail -10%</H>
+              <H col="confidence_score">Conf.</H>
+              <th className="px-2 py-1 text-left">Verdict</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map(r => (
+              <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-900">
+                <td className="px-2 py-1 font-mono">{r.base_signal}</td>
+                <td className="px-2 py-1 text-gray-400">{r.filter_name}</td>
+                <td className="px-2 py-1">{r.filter_value}</td>
+                <td className="px-2 py-1">{fmtNum(r.sample_size)}</td>
+                <td className={`px-2 py-1 ${Number(r.median_return) > 0 ? 'text-emerald-400' : Number(r.median_return) < 0 ? 'text-red-400' : ''}`}>
+                  {fmtPct(r.median_return)}
+                </td>
+                <td className={`px-2 py-1 font-semibold ${liftColor(r.lift_median_return)}`}>
+                  {fmtPct(r.lift_median_return)}
+                </td>
+                <td className="px-2 py-1 text-emerald-300">{fmtPct(r.hit_10pct_rate, 1)}</td>
+                <td className={`px-2 py-1 font-semibold ${liftColor(r.lift_hit_10pct)}`}>
+                  {fmtPct(r.lift_hit_10pct, 1)}
+                </td>
+                <td className="px-2 py-1 text-red-400">{fmtPct(r.fail_10pct_rate, 1)}</td>
+                <td className="px-2 py-1"><ConfidenceBadge label={r.confidence_label} /></td>
+                <td className="px-2 py-1"><VerdictBadge verdict={r.verdict} /></td>
+              </tr>
+            ))}
+            {!loading && rows.length === 0 && (
+              <tr><td colSpan={11} className="px-2 py-6 text-center text-gray-500">
+                No filter data yet. Run a replay to populate.
+              </td></tr>
+            )}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  )
+}
+
 // ─── Top-level panel ─────────────────────────────────────────────────────────
 
 const TABS = [
   { id: 'summary',  label: '📊 Summary' },
   { id: 'ranking',  label: '🏆 Signal Ranking' },
+  { id: 'patterns', label: '🔢 Patterns' },
+  { id: 'context',  label: '🎛 Context Filters' },
   { id: 'events',   label: '🔬 Event Explorer' },
 ]
 
@@ -576,9 +831,11 @@ export default function SignalReplayPanel() {
             ))}
           </div>
           <div className="bg-gray-950 rounded p-3 min-h-[300px]">
-            {tab === 'summary' && <SummaryPanel runId={runId} runMeta={runMeta} />}
-            {tab === 'ranking' && <SignalRankingTable runId={runId} />}
-            {tab === 'events'  && <EventExplorer runId={runId} />}
+            {tab === 'summary'  && <SummaryPanel runId={runId} runMeta={runMeta} />}
+            {tab === 'ranking'  && <SignalRankingTable runId={runId} />}
+            {tab === 'patterns' && <PatternRankingTable runId={runId} />}
+            {tab === 'context'  && <ContextFilterTable runId={runId} />}
+            {tab === 'events'   && <EventExplorer runId={runId} />}
           </div>
         </>
       )}
