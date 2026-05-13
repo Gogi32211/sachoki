@@ -1210,14 +1210,22 @@ export default function SignalReplayPanel() {
     }
   }
 
+  const EXPORT_FILENAMES = {
+    all:           'all_in_one',
+    meta:          'run_metadata',
+    signal_stats:  'signal_statistics',
+    pattern_stats: 'pattern_statistics',
+    filter_impact: 'filter_impact',
+    events:        'events',
+    outcomes:      'outcomes',
+  }
+
   const handleExport = (id, part = 'all', extra = '') => {
     const qs = `?part=${part}${extra}`
     const url = `${API}/api/signal-replay/${id}/export${qs}`
     const a = document.createElement('a')
     a.href = url
-    a.download = part === 'all'
-      ? `replay_${id}_export.json`
-      : `replay_${id}_${part}.json`
+    a.download = `replay_${id}_${EXPORT_FILENAMES[part] ?? part}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
