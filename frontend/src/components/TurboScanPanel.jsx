@@ -3,6 +3,7 @@ import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 import { pwlAdd, pwlHas, pwlRemove } from './PersonalWatchlistPanel'
 import { idbGet, idbSet, getCacheBackend } from '../turboCache'
+import ScannerDataGrid from './ScannerDataGrid'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
@@ -786,6 +787,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
   const [hoverPopup,  setHoverPopup]  = useState(null)   // { row, pos }
   const hoverTimer = useRef(null)
+  const [showAdvanced, setShowAdvanced] = useState(false)
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -1267,146 +1269,131 @@ export default function TurboScanPanel({ onSelectTicker }) {
         </span>
       </div>
 
-      {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/30">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
-        <button onClick={() => setSelSigs(new Set())}
-          className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-          All
-        </button>
-        {SIG_GROUPS.map((s, i) =>
-          s.divider
-            ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
-            : (
-              <button key={s.key} onClick={() => toggleSig(s.key)}
-                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-                  ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-                {s.label}
-              </button>
-            )
-        )}
-        {selSigs.size > 0 && (
-          <button onClick={() => setSelSigs(new Set())}
-            className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
-            ✕ clear
-          </button>
-        )}
-      </div>
-
-      {/* ── Row 3: Sector filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
-        {[
-          { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
-          { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
-          { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
-          { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
-          { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
-          { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
-          { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
-          { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
-          { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
-          { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
-          { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
-          { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
-        ].map(s => (
-          <button key={s.val} onClick={() => setSecFilter(s.val)}
-            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-              ${secFilter === s.val
-                ? `${s.cls} bg-gray-700 font-semibold`
-                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-            {s.label}
-          </button>
-        ))}
-        {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
-          <span className="ml-1 text-md-on-surface-var/70 text-xs animate-pulse">
-            — loading sectors…
-          </span>
-        )}
-      </div>
-
-      {/* ── Row 4: RTB Phase filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
-        {[
-          { label: 'All',    val: '', cls: 'text-md-on-surface-var' },
-          { label: 'A — Build',    val: 'A', cls: 'text-md-on-surface',
-            title: 'Build phase: base forming, drying volume, accumulation — no turn yet' },
-          { label: 'B — Turn',     val: 'B', cls: 'text-sky-300',
-            title: 'Turn phase: first real reversal bar, momentum changed — not yet breakout-ready' },
-          { label: 'C — Ready',    val: 'C', cls: 'text-lime-300',
-            title: 'Ready phase: prime pre-breakout stalking zone (1-3 bars before breakout)' },
-          { label: 'D — Late',     val: 'D', cls: 'text-orange-300',
-            title: 'Late/breakout-live: move already launching — chase risk high' },
-        ].map(s => (
-          <button key={s.val} onClick={() => setRtbPhase(s.val)}
-            title={s.title}
-            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-              ${rtbPhase === s.val
-                ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
-                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-            {s.label}
-          </button>
-        ))}
-        {rtbPhase && (
-          <span className="ml-2 text-md-on-surface-var/70 text-xs">
-            {results.length} ticker{results.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
-
-      {/* ── Row 5: Profile Sweet Spot filter ── */}
+      {/* ── Row 2: Primary quick-filters + Advanced toggle ── */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Profile</span>
+        {/* Profile quick-filters */}
         <button
           onClick={() => setSweetSpotFilter(f => !f)}
-          title="Show only tickers in sweet_spot_active=true AND late_warning=false. Sorted by profile_score DESC, then turbo_score DESC."
           className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             sweetSpotFilter
-              ? 'bg-green-900/60 text-green-300 border-green-600 ring-1 ring-green-500'
+              ? 'bg-emerald-900/60 text-emerald-300 border-emerald-600'
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
-          ⭐ Sweet Spot
-        </button>
-        <button
-          onClick={() => setBuildingFilter(f => !f)}
-          title="Show only tickers with profile_category = BUILDING. Sorted by profile_score DESC."
-          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            buildingFilter
-              ? 'bg-yellow-900/60 text-yellow-300 border-yellow-600 ring-1 ring-yellow-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          ↑ Building
+          SWEET_SPOT
         </button>
         <button
           onClick={() => setWatchFilter(f => !f)}
-          title="Show only tickers with profile_category = WATCH. Sorted by profile_score DESC."
           className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             watchFilter
-              ? 'bg-gray-700 text-md-on-surface border-gray-500 ring-1 ring-gray-400'
+              ? 'bg-yellow-900/60 text-yellow-300 border-yellow-600'
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
-          👁 Watch
+          WATCH
+        </button>
+        <button
+          onClick={() => setBuildingFilter(f => !f)}
+          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            buildingFilter
+              ? 'bg-blue-900/60 text-blue-300 border-blue-600'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          BUILDING
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
-          <span className="text-xs text-md-on-surface-var">
-            {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score
-          </span>
-        )}
-        {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <button onClick={() => { setSweetSpotFilter(false); setBuildingFilter(false); setWatchFilter(false) }}
-            className="ml-1 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+            className="px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
             ✕ clear
           </button>
         )}
-        <span className="ml-auto text-md-on-surface-var/70 text-xs">
-          Profile score is additive context only — does not replace canonical score
-          {(universe === 'nasdaq' || universe === 'russell2k' || universe === 'all_us') &&
-            <span className="ml-1 text-amber-600"> · NASDAQ profile is experimental</span>}
-          {universe === 'split' &&
-            <span className="ml-1 text-sky-700"> · SPLIT lifecycle: D-7→D+90 window</span>}
-        </span>
+        <span className="text-md-outline-var/50 select-none">|</span>
+        {/* Advanced toggle */}
+        <button
+          onClick={() => setShowAdvanced(a => !a)}
+          className={`px-2.5 py-0.5 rounded text-xs font-medium shrink-0 transition-colors border ${
+            showAdvanced || selSigs.size > 0
+              ? 'bg-indigo-900/50 text-indigo-300 border-indigo-600'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          Advanced {showAdvanced ? '▴' : '▾'}{selSigs.size > 0 ? ` (${selSigs.size})` : ''}
+        </button>
+        {selSigs.size > 0 && (
+          <button onClick={() => setSelSigs(new Set())}
+            className="px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+            ✕ sigs
+          </button>
+        )}
       </div>
+
+      {/* ── Advanced filters (collapsible) ── */}
+      {showAdvanced && (
+        <div className="border-b border-md-outline-var bg-md-surface-con/30">
+          {/* Signal chips */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 overflow-x-auto">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
+            <button onClick={() => setSelSigs(new Set())}
+              className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+              All
+            </button>
+            {SIG_GROUPS.map((s, i) =>
+              s.divider
+                ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
+                : (
+                  <button key={s.key} onClick={() => toggleSig(s.key)}
+                    className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                      ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                    {s.label}
+                  </button>
+                )
+            )}
+          </div>
+          {/* Sector filter */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-t border-md-outline-var/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
+            {[
+              { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
+              { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
+              { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
+              { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
+              { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
+              { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
+              { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
+              { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
+              { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
+              { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
+              { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
+              { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
+            ].map(s => (
+              <button key={s.val} onClick={() => setSecFilter(s.val)}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                  ${secFilter === s.val
+                    ? `${s.cls} bg-gray-700 font-semibold`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+          {/* RTB Phase */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-t border-md-outline-var/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
+            {[
+              { label: 'All',        val: '', cls: 'text-md-on-surface-var' },
+              { label: 'A — Build',  val: 'A', cls: 'text-md-on-surface' },
+              { label: 'B — Turn',   val: 'B', cls: 'text-sky-300' },
+              { label: 'C — Ready',  val: 'C', cls: 'text-lime-300' },
+              { label: 'D — Late',   val: 'D', cls: 'text-orange-300' },
+            ].map(s => (
+              <button key={s.val} onClick={() => setRtbPhase(s.val)}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                  ${rtbPhase === s.val
+                    ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {s.label}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+
 
       {/* Progress / error */}
       {scanning && (
@@ -1429,50 +1416,37 @@ export default function TurboScanPanel({ onSelectTicker }) {
         </div>
       )}
 
-      {/* ── Table ── */}
-      <div className="overflow-auto flex-1">
+      {/* ── Table (ScannerDataGrid) ── */}
+      <ScannerDataGrid
+        results={results.map(withAges)}
+        onSelectTicker={onSelectTicker}
+        onWatchlistToggle={_pwlToggle}
+        localTf={localTf}
+        pickedTickers={pickedTickers}
+        onTogglePicked={togglePicked}
+        sortBy={sortBy}
+        sortDir={sortDir}
+        onSort={toggleSort}
+        isLoading={scanning && results.length === 0}
+        effectiveScoreCol={effectiveScoreCol}
+        universe={universe}
+        variant="turbo"
+        allPicked={results.length > 0 && results.every(r => pickedTickers.has(r.ticker))}
+        onPickAll={checked => {
+          if (checked) setPickedTickers(new Set(results.map(r => r.ticker)))
+          else setPickedTickers(new Set())
+        }}
+        handleRowEnter={handleRowEnter}
+        handleRowLeave={handleRowLeave}
+      />
+      {/* keep the old table structure below but commented as dead code — replaced by ScannerDataGrid */}
+      {false && <div className="overflow-auto flex-1">
         <table className="w-full border-collapse">
-          <thead className="sticky top-0 bg-md-surface-con z-10 text-md-on-surface-var text-left">
-            <tr>
-              <th className="px-2 py-1.5 w-5">
-                <input type="checkbox" className="accent-indigo-500 cursor-pointer"
-                  title="Select/deselect all visible"
-                  checked={results.length > 0 && results.every(r => pickedTickers.has(r.ticker))}
-                  onChange={e => {
-                    if (e.target.checked) setPickedTickers(new Set(results.map(r => r.ticker)))
-                    else setPickedTickers(new Set())
-                  }} />
-              </th>
-              <th className="px-1 py-1.5 w-5 font-medium text-md-on-surface-var" title="Watchlist">★</th>
-              <SortTh col="ticker">Ticker</SortTh>
-              <SortTh col="turbo_score" cls="text-center">
-                Score{lookbackN > 1 ? <span className="text-indigo-400 font-normal ml-0.5 text-[9px]">{lookbackN}d</span> : ''}
-              </SortTh>
-              <SortTh col="beta_score" cls="text-center" title="BETA Score — non-linear quality rank. OPTIMAL=85-96, BUY=75-84, WATCH=60-74, BUILDING=40-59, EXTENDED=overheated">BETA</SortTh>
-              <SortTh col="rtb_total" cls="text-center">RTB</SortTh>
-              <SortTh col="tz_sig" cls="text-center">T/Z</SortTh>
-              <SortTh col="signal_score" cls="text-center">GOG</SortTh>
-              <th className="px-2 py-1.5 font-medium">VABS</th>
-              <th className="px-2 py-1.5 font-medium">Wyck</th>
-              <th className="px-2 py-1.5 font-medium">Combo</th>
-              <th className="px-2 py-1.5 font-medium">L-Sig / Ultra</th>
-              <SortTh col="profile_score" cls="text-center" title="Profile playbook score — additive context, not canonical score">Pf Score</SortTh>
-              <th className="px-2 py-1.5 font-medium text-center" title="Profile category: SWEET_SPOT / BUILDING / WATCH / LATE">Category</th>
-              <SortTh col="rsi" cls="text-center">RSI</SortTh>
-              <SortTh col="cci" cls="text-center">CCI</SortTh>
-              <SortTh col="last_price" cls="text-right">Price</SortTh>
-              <SortTh col="change_pct" cls="text-right">%</SortTh>
-              {universe === 'split' && (
-                <th className="px-2 py-1.5 font-medium text-amber-300" title="Split ratio + days from execution">Split</th>
-              )}
-            </tr>
-          </thead>
           <tbody>
             {results.map(_raw => {
               const r = withAges(_raw)
               return (
               <tr key={r.ticker}
-                className={`border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
                 onClick={() => onSelectTicker?.(r.ticker)}
                 onMouseEnter={e => handleRowEnter(e, _raw)}
                 onMouseLeave={handleRowLeave}>
@@ -1865,20 +1839,9 @@ export default function TurboScanPanel({ onSelectTicker }) {
               )
             })}
 
-            {results.length === 0 && !scanning && (
-              <tr>
-                <td colSpan={universe === 'split' ? 18 : 17} className="px-4 py-10 text-center text-md-on-surface-var">
-                  {allResults.length > 0
-                    ? 'No tickers match current filters'
-                    : lastScan
-                      ? 'Scan completed — 0 results found (try a different universe or timeframe)'
-                      : 'Press ⚡ TURBO to scan all engines'}
-                </td>
-              </tr>
-            )}
           </tbody>
         </table>
-      </div>
+      </div>}
     </div>
   )
 }

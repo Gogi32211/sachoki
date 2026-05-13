@@ -845,6 +845,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
   const [hoverPopup,  setHoverPopup]  = useState(null)   // { row, pos }
+  const [expandedRows, setExpandedRows] = useState(new Set())  // tickers with open sub-row
+  const [showAdvanced, setShowAdvanced] = useState(false)      // collapsible adv filters
   const hoverTimer = useRef(null)
 
   // which TFs have a cache entry for current universe
@@ -1762,93 +1764,116 @@ export default function UltraScanPanel({ onSelectTicker }) {
         </span>
       </div>
 
-      {/* ── Row 2: Signal AND filter (all signals, wraps to ~3 rows) ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/30">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
-        <button onClick={() => setSelSigs(new Set())}
-          className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-          All
+      {/* ── Advanced Filters toggle (SIG / Sector / RTB Phase) ── */}
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
+        <button
+          onClick={() => setShowAdvanced(a => !a)}
+          className={`px-2.5 py-0.5 rounded text-xs font-medium shrink-0 transition-colors border ${
+            showAdvanced || selSigs.size > 0 || secFilter || rtbPhase
+              ? 'bg-indigo-900/50 text-indigo-300 border-indigo-600'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          Advanced Filters {showAdvanced ? '▴' : '▾'}{selSigs.size > 0 ? ` · ${selSigs.size} sig` : ''}{secFilter ? ' · sector' : ''}{rtbPhase ? ` · RTB:${rtbPhase}` : ''}
         </button>
-        {SIG_GROUPS.map((s, i) =>
-          s.divider
-            ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
-            : (
-              <button key={s.key} onClick={() => toggleSig(s.key)}
+        {(selSigs.size > 0 || secFilter || rtbPhase) && (
+          <button onClick={() => { setSelSigs(new Set()); setSecFilter(''); setRtbPhase('') }}
+            className="px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+            ✕ clear adv
+          </button>
+        )}
+      </div>
+
+      {/* ── Advanced Filters (collapsible) ── */}
+      {showAdvanced && (
+        <div className="border-b border-md-outline-var bg-md-surface-con/30">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
+            <button onClick={() => setSelSigs(new Set())}
+              className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+              All
+            </button>
+            {SIG_GROUPS.map((s, i) =>
+              s.divider
+                ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
+                : (
+                  <button key={s.key} onClick={() => toggleSig(s.key)}
+                    className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                      ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                    {s.label}
+                  </button>
+                )
+            )}
+            {selSigs.size > 0 && (
+              <button onClick={() => setSelSigs(new Set())}
+                className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+                ✕ clear
+              </button>
+            )}
+          </div>
+
+          {/* Sector filter */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
+        {[
+              { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
+              { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
+              { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
+              { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
+              { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
+              { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
+              { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
+              { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
+              { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
+              { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
+              { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
+              { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
+            ].map(s => (
+              <button key={s.val} onClick={() => setSecFilter(s.val)}
                 className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-                  ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                  ${secFilter === s.val
+                    ? `${s.cls} bg-gray-700 font-semibold`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                 {s.label}
               </button>
-            )
-        )}
-        {selSigs.size > 0 && (
-          <button onClick={() => setSelSigs(new Set())}
-            className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
-            ✕ clear
-          </button>
-        )}
-      </div>
+            ))}
+            {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
+              <span className="ml-1 text-md-on-surface-var/70 text-xs animate-pulse">
+                — loading sectors…
+              </span>
+            )}
+          </div>
 
-      {/* ── Row 3: Sector filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
+          {/* RTB Phase filter */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
         {[
-          { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
-          { label: 'XLC',  val: 'communicat',  cls: 'text-blue-300' },
-          { label: 'XLY',  val: 'cyclical',    cls: 'text-orange-300' },
-          { label: 'XLP',  val: 'defensive',   cls: 'text-green-300' },
-          { label: 'XLE',  val: 'energy',      cls: 'text-yellow-300' },
-          { label: 'XLF',  val: 'financ',      cls: 'text-cyan-300' },
-          { label: 'XLV',  val: 'health',      cls: 'text-red-300' },
-          { label: 'XLI',  val: 'industrial',  cls: 'text-sky-300' },
-          { label: 'XLB',  val: 'material',    cls: 'text-lime-300' },
-          { label: 'XLRE', val: 'real estate', cls: 'text-amber-300' },
-          { label: 'XLK',  val: 'tech',        cls: 'text-violet-300' },
-          { label: 'XLU',  val: 'utilities',   cls: 'text-teal-300' },
-        ].map(s => (
-          <button key={s.val} onClick={() => setSecFilter(s.val)}
-            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-              ${secFilter === s.val
-                ? `${s.cls} bg-gray-700 font-semibold`
-                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-            {s.label}
-          </button>
-        ))}
-        {secFilter && Object.keys(sectorMap).length === 0 && allResults.some(r => !r.sector) && (
-          <span className="ml-1 text-md-on-surface-var/70 text-xs animate-pulse">
-            — loading sectors…
-          </span>
-        )}
-      </div>
-
-      {/* ── Row 4: RTB Phase filter ── */}
-      <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
-        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">RTB Phase</span>
-        {[
-          { label: 'All',    val: '', cls: 'text-md-on-surface-var' },
-          { label: 'A — Build',    val: 'A', cls: 'text-md-on-surface',
-            title: 'Build phase: base forming, drying volume, accumulation — no turn yet' },
-          { label: 'B — Turn',     val: 'B', cls: 'text-sky-300',
-            title: 'Turn phase: first real reversal bar, momentum changed — not yet breakout-ready' },
-          { label: 'C — Ready',    val: 'C', cls: 'text-lime-300',
-            title: 'Ready phase: prime pre-breakout stalking zone (1-3 bars before breakout)' },
-          { label: 'D — Late',     val: 'D', cls: 'text-orange-300',
-            title: 'Late/breakout-live: move already launching — chase risk high' },
-        ].map(s => (
-          <button key={s.val} onClick={() => setRtbPhase(s.val)}
-            title={s.title}
-            className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-              ${rtbPhase === s.val
-                ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
-                : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
-            {s.label}
-          </button>
-        ))}
-        {rtbPhase && (
-          <span className="ml-2 text-md-on-surface-var/70 text-xs">
-            {results.length} ticker{results.length !== 1 ? 's' : ''}
-          </span>
-        )}
-      </div>
+              { label: 'All',    val: '', cls: 'text-md-on-surface-var' },
+              { label: 'A — Build',    val: 'A', cls: 'text-md-on-surface',
+                title: 'Build phase: base forming, drying volume, accumulation — no turn yet' },
+              { label: 'B — Turn',     val: 'B', cls: 'text-sky-300',
+                title: 'Turn phase: first real reversal bar, momentum changed — not yet breakout-ready' },
+              { label: 'C — Ready',    val: 'C', cls: 'text-lime-300',
+                title: 'Ready phase: prime pre-breakout stalking zone (1-3 bars before breakout)' },
+              { label: 'D — Late',     val: 'D', cls: 'text-orange-300',
+                title: 'Late/breakout-live: move already launching — chase risk high' },
+            ].map(s => (
+              <button key={s.val} onClick={() => setRtbPhase(s.val)}
+                title={s.title}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
+                  ${rtbPhase === s.val
+                    ? `${s.cls} bg-gray-700 font-semibold ring-1 ring-gray-500`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {s.label}
+              </button>
+            ))}
+            {rtbPhase && (
+              <span className="ml-2 text-md-on-surface-var/70 text-xs">
+                {results.length} ticker{results.length !== 1 ? 's' : ''}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
@@ -2035,18 +2060,32 @@ export default function UltraScanPanel({ onSelectTicker }) {
           <tbody>
             {results.map(_raw => {
               const r = withAges(_raw)
-              return (
+              const _cat = r.profile_category || ''
+              const _border =
+                _cat === 'SWEET_SPOT' || _cat === 'ultra_strong_bull' || _cat.includes('BULL') ? 'border-l-2 border-l-emerald-500' :
+                _cat === 'WATCH' || _cat === 'neutral' ? 'border-l-2 border-l-yellow-500' :
+                _cat === 'SHORT_WATCH' || _cat === 'bear' ? 'border-l-2 border-l-red-500' :
+                _cat === 'BUILDING' || _cat === 'setup' ? 'border-l-2 border-l-blue-500' :
+                'border-l-2 border-l-transparent'
+              return (<>
               <tr key={r.ticker}
-                className={`border-b border-md-outline-var/50 hover:bg-md-surface-high/40 cursor-pointer ${scoreBg(_raw[effectiveScoreCol] ?? _raw.turbo_score ?? 0)}`}
+                className={`border-b border-md-outline-var/50 hover:bg-white/5 cursor-pointer ${_border}`}
                 onClick={() => onSelectTicker?.(r.ticker)}
                 onMouseEnter={e => handleRowEnter(e, _raw)}
                 onMouseLeave={handleRowLeave}>
 
-                {/* Checkbox */}
-                <td className="px-2 py-1 w-5" onClick={e => e.stopPropagation()}>
-                  <input type="checkbox" className="accent-indigo-500 cursor-pointer"
-                    checked={pickedTickers.has(r.ticker)}
-                    onChange={e => togglePicked(r.ticker, e)} />
+                {/* Checkbox + expand toggle */}
+                <td className="px-1 py-1 w-5" onClick={e => e.stopPropagation()}>
+                  <div className="flex items-center gap-0.5">
+                    <button
+                      onClick={e => { e.stopPropagation(); setExpandedRows(s => { const n = new Set(s); n.has(r.ticker) ? n.delete(r.ticker) : n.add(r.ticker); return n }) }}
+                      className="text-[10px] text-md-on-surface-var/60 hover:text-md-on-surface-var leading-none w-3 shrink-0">
+                      {expandedRows.has(r.ticker) ? '▼' : '▶'}
+                    </button>
+                    <input type="checkbox" className="accent-indigo-500 cursor-pointer"
+                      checked={pickedTickers.has(r.ticker)}
+                      onChange={e => togglePicked(r.ticker, e)} />
+                  </div>
                 </td>
 
                 {/* Star / save to personal watchlist */}
@@ -2055,7 +2094,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 </td>
 
                 {/* Ticker */}
-                <td className="px-2 py-1 font-mono font-semibold text-blue-300">
+                <td className="px-2 py-1 font-mono font-semibold text-md-on-surface">
                   <div className="flex items-center gap-1">
                     <span>{r.ticker}</span>
                     {r.vol_bucket && (
@@ -2412,7 +2451,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
                 {/* ABR */}
                 <td className="px-2 py-1 text-center whitespace-nowrap">
-                  {r.abr && r.abr.category ? (
+                  {r.abr && r.abr.category && r.abr.category !== 'UNKNOWN' ? (
                     <span title={[
                       r.abr.action_hint   ? `hint: ${r.abr.action_hint}` : null,
                       r.abr.context_type  ? `ctx: ${r.abr.context_type}` : null,
@@ -2429,7 +2468,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                             : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var/40'}`}>
                       {r.abr.category}
                     </span>
-                  ) : <span className="text-gray-700">—</span>}
+                  ) : <span className="text-[10px] text-md-on-surface-var/50 italic">n/a</span>}
                 </td>
 
                 {/* Pullback — compact tier (full text in tooltip) */}
@@ -2485,7 +2524,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
                 {/* RSI */}
                 <td className={`px-2 py-1 text-center font-mono text-xs
-                  ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 30 ? 'text-lime-400' : 'text-md-on-surface-var'}`}>
+                  ${r.rsi >= 70 ? 'text-red-400' : r.rsi <= 35 ? 'text-lime-400' : 'text-md-on-surface-var'}`}>
                   {r.rsi != null ? fmt(r.rsi, 0) : '—'}
                 </td>
 
@@ -2556,12 +2595,29 @@ export default function UltraScanPanel({ onSelectTicker }) {
                   </td>
                 )}
               </tr>
-              )
+              {expandedRows.has(r.ticker) && (
+                <tr key={r.ticker + '-exp'} className="bg-white/[0.02] border-b border-md-outline-var/20">
+                  <td colSpan={universe === 'split' ? 25 : 24} className="px-4 py-2 text-xs text-md-on-surface-var">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1">
+                      {_cat && <span><span className="text-md-on-surface-var/60 mr-1">Category:</span>{_cat}</span>}
+                      {r.profile_name && <span><span className="text-md-on-surface-var/60 mr-1">Profile:</span>{r.profile_name}</span>}
+                      {r.ultra_score != null && <span><span className="text-md-on-surface-var/60 mr-1">Ultra:</span>{r.ultra_score} {r.ultra_score_band_v2 || ''}</span>}
+                      {r.beta_score > 0 && <span><span className="text-md-on-surface-var/60 mr-1">Beta:</span>{r.beta_score} {r.beta_zone || ''}</span>}
+                      {r.rsi != null && <span><span className="text-md-on-surface-var/60 mr-1">RSI:</span><span className={r.rsi <= 35 ? 'text-lime-400' : r.rsi >= 70 ? 'text-red-400' : ''}>{Math.round(r.rsi)}</span></span>}
+                      {r.cci != null && <span><span className="text-md-on-surface-var/60 mr-1">CCI:</span><span className={r.cci >= 100 ? 'text-lime-400' : r.cci <= -100 ? 'text-red-400' : ''}>{Math.round(r.cci)}</span></span>}
+                      {r.last_price != null && <span><span className="text-md-on-surface-var/60 mr-1">Price:</span>{Number(r.last_price).toFixed(2)}</span>}
+                      {r.matched_profile_signals?.length > 0 && <span><span className="text-md-on-surface-var/60 mr-1">Matched:</span>{r.matched_profile_signals.join(', ')}</span>}
+                      {r.ultra_score_reasons && <span><span className="text-md-on-surface-var/60 mr-1">Reasons:</span>{r.ultra_score_reasons}</span>}
+                    </div>
+                  </td>
+                </tr>
+              )}
+              </>)
             })}
 
             {results.length === 0 && !scanning && !enriching && (
               <tr>
-                <td colSpan={universe === 'split' ? 24 : 23} className="px-4 py-10 text-center text-md-on-surface-var">
+                <td colSpan={universe === 'split' ? 25 : 24} className="px-4 py-10 text-center text-md-on-surface-var">
                   {allResults.length > 0
                     ? 'No tickers match current filters'
                     : lastScan
