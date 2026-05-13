@@ -774,6 +774,55 @@ function ContextFilterTable({ runId }) {
   )
 }
 
+// ─── Export menu ─────────────────────────────────────────────────────────────
+
+const EXPORT_PARTS = [
+  { value: 'all',           label: 'All-in-one (legacy)',  hint: 'May be very large' },
+  { value: 'run',           label: 'Run metadata',         hint: 'Tiny' },
+  { value: 'signal_stats',  label: 'Signal Statistics',    hint: '~few hundred rows' },
+  { value: 'pattern_stats', label: 'Pattern Statistics',   hint: '~few thousand rows' },
+  { value: 'filter_impact', label: 'Filter Impact',        hint: '~few thousand rows' },
+  { value: 'events',        label: 'Events (50k page)',    hint: 'Paginated' },
+  { value: 'outcomes',      label: 'Outcomes (50k page)',  hint: 'Paginated' },
+]
+
+function ExportMenu({ runId, onExport }) {
+  const [open, setOpen] = useState(false)
+  const [pageOffset, setPageOffset] = useState(0)
+
+  return (
+    <div className="relative">
+      <button onClick={() => setOpen(o => !o)}
+              className="text-xs px-3 py-1 rounded bg-gray-800 text-blue-300 hover:bg-gray-700">
+        ⬇ Export JSON ▾
+      </button>
+      {open && (
+        <div className="absolute right-0 mt-1 z-20 bg-gray-900 border border-gray-700 rounded shadow-xl py-1 min-w-[260px]">
+          {EXPORT_PARTS.map(p => (
+            <button key={p.value}
+                    onClick={() => {
+                      const extra = (p.value === 'events' || p.value === 'outcomes')
+                        ? `&offset=${pageOffset}&limit=50000` : ''
+                      onExport(runId, p.value, extra)
+                      setOpen(false)
+                    }}
+                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-gray-800 flex justify-between gap-3">
+              <span className="text-gray-200">{p.label}</span>
+              <span className="text-gray-500 text-[10px]">{p.hint}</span>
+            </button>
+          ))}
+          <div className="border-t border-gray-800 mt-1 px-3 py-2 text-[10px] text-gray-500">
+            Events/Outcomes page offset:
+            <input type="number" value={pageOffset} min={0} step={50000}
+                   onChange={e => setPageOffset(Number(e.target.value) || 0)}
+                   className="ml-2 w-20 bg-gray-800 text-gray-200 rounded px-1 py-0.5" />
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
 // ─── Top-level panel ─────────────────────────────────────────────────────────
 
 const TABS = [
@@ -857,11 +906,14 @@ export default function SignalReplayPanel() {
     }
   }
 
-  const handleExport = (id) => {
-    const url = `${API}/api/signal-replay/${id}/export`
+  const handleExport = (id, part = 'all', extra = '') => {
+    const qs = `?part=${part}${extra}`
+    const url = `${API}/api/signal-replay/${id}/export${qs}`
     const a = document.createElement('a')
     a.href = url
-    a.download = `replay_${id}_export.json`
+    a.download = part === 'all'
+      ? `replay_${id}_export.json`
+      : `replay_${id}_${part}.json`
     document.body.appendChild(a)
     a.click()
     document.body.removeChild(a)
@@ -890,7 +942,8 @@ export default function SignalReplayPanel() {
                 <span className="cursor-pointer" onClick={() => setRunId(h.id)}>
                   #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} ev
                 </span>
-                <button onClick={() => handleExport(h.id)} title="Export JSON"
+                <button onClick={() => handleExport(h.id, 'signal_stats')}
+                        title="Export signal stats JSON (small)"
                         className="text-gray-400 hover:text-blue-300">⬇</button>
                 <button onClick={() => handleDelete(h.id)} title="Delete from DB"
                         className="text-red-400 hover:text-red-200">✕</button>
@@ -914,10 +967,7 @@ export default function SignalReplayPanel() {
               ))}
             </div>
             <div className="flex gap-2 pb-1">
-              <button onClick={() => handleExport(runId)}
-                      className="text-xs px-3 py-1 rounded bg-gray-800 text-blue-300 hover:bg-gray-700">
-                ⬇ Export JSON
-              </button>
+              <ExportMenu runId={runId} onExport={handleExport} />
               <button onClick={() => handleDelete(runId)}
                       className="text-xs px-3 py-1 rounded bg-gray-800 text-red-400 hover:bg-red-900">
                 ✕ Delete Run

@@ -371,63 +371,101 @@ def list_filter_impact(
 @router.get("/{run_id}/export")
 def export_run(
     run_id: int,
-    max_events: int = 50000,
-    max_outcomes: int = 200000,
+    part: str = "all",
+    offset: int = 0,
+    limit: int = 50000,
 ) -> Response:
-    """Export all run data as a downloadable JSON file for offline analytics."""
-    ph = _ph()
+    """Export run data as a downloadable JSON file.
 
+    `part` selects which slice to export — useful when the full export is too
+    large for analytics tooling. Valid values:
+      run           — run metadata only
+      signal_stats  — replay_signal_statistics rows
+      pattern_stats — replay_pattern_statistics rows
+      filter_impact — replay_filter_impact_statistics rows
+      events        — replay_signal_events (paginated via offset/limit)
+      outcomes      — replay_signal_outcomes (paginated via offset/limit)
+      all           — everything in one file (legacy behaviour)
+    """
+    ph = _ph()
     run = _query_one(f"SELECT * FROM signal_replay_runs WHERE id={ph}", [run_id])
     if not run:
         raise HTTPException(status_code=404, detail=f"run {run_id} not found")
 
-    max_events   = max(1, min(max_events,   500_000))
-    max_outcomes = max(1, min(max_outcomes, 2_000_000))
+    valid_parts = {"run", "signal_stats", "pattern_stats", "filter_impact",
+                   "events", "outcomes", "all"}
+    if part not in valid_parts:
+        raise HTTPException(status_code=400,
+                            detail=f"part must be one of {sorted(valid_parts)}")
 
-    def _limit_sql(table: str, extra: str = "") -> str:
-        base = f"SELECT * FROM {table} WHERE replay_run_id={ph}{extra}"
-        return (f"{base} LIMIT {max_events}" if "events" in table
-                else f"{base} LIMIT {max_outcomes}" if "outcomes" in table
-                else base)
+    offset = max(0, int(offset))
+    limit  = max(1, min(int(limit), 500_000))
 
-    signal_stats  = _query(f"SELECT * FROM replay_signal_statistics WHERE replay_run_id={ph}", [run_id])
-    pattern_stats = _query(f"SELECT * FROM replay_pattern_statistics WHERE replay_run_id={ph}", [run_id])
-    filter_impact = _query(f"SELECT * FROM replay_filter_impact_statistics WHERE replay_run_id={ph}", [run_id])
-
-    events_sql = (f"SELECT * FROM replay_signal_events WHERE replay_run_id={ph} "
-                  f"LIMIT {max_events}")
-    events = _query(events_sql, [run_id])
-
-    outcomes_sql = (f"SELECT * FROM replay_signal_outcomes WHERE replay_run_id={ph} "
-                    f"LIMIT {max_outcomes}")
-    outcomes = _query(outcomes_sql, [run_id])
-
-    payload = {
-        "meta": {
-            "run_id":        run_id,
-            "exported_at":   datetime.datetime.utcnow().isoformat() + "Z",
-            "version":       "phase2",
-            "events_count":  len(events),
-            "outcomes_count": len(outcomes),
-            "signal_stats_count":  len(signal_stats),
-            "pattern_stats_count": len(pattern_stats),
-            "filter_impact_count": len(filter_impact),
-        },
-        "run":                      run,
-        "signal_statistics":        signal_stats,
-        "pattern_statistics":       pattern_stats,
-        "filter_impact_statistics": filter_impact,
-        "events":                   events,
-        "outcomes":                 outcomes,
+    meta = {
+        "run_id":      run_id,
+        "exported_at": datetime.datetime.utcnow().isoformat() + "Z",
+        "version":     "phase3",
+        "part":        part,
     }
 
-    content = json.dumps(payload, default=str, indent=2)
+    body: dict[str, Any] = {"meta": meta, "run": run}
+
+    if part in ("run", "all"):
+        # run already included
+        pass
+
+    if part in ("signal_stats", "all"):
+        rows = _query(
+            f"SELECT * FROM replay_signal_statistics WHERE replay_run_id={ph}",
+            [run_id],
+        )
+        body["signal_statistics"] = rows
+        meta["signal_stats_count"] = len(rows)
+
+    if part in ("pattern_stats", "all"):
+        rows = _query(
+            f"SELECT * FROM replay_pattern_statistics WHERE replay_run_id={ph}",
+            [run_id],
+        )
+        body["pattern_statistics"] = rows
+        meta["pattern_stats_count"] = len(rows)
+
+    if part in ("filter_impact", "all"):
+        rows = _query(
+            f"SELECT * FROM replay_filter_impact_statistics WHERE replay_run_id={ph}",
+            [run_id],
+        )
+        body["filter_impact_statistics"] = rows
+        meta["filter_impact_count"] = len(rows)
+
+    if part in ("events", "all"):
+        sql = (f"SELECT * FROM replay_signal_events WHERE replay_run_id={ph} "
+               f"ORDER BY id LIMIT {limit} OFFSET {offset}")
+        rows = _query(sql, [run_id])
+        body["events"] = rows
+        meta["events_count"]  = len(rows)
+        meta["events_offset"] = offset
+        meta["events_limit"]  = limit
+
+    if part in ("outcomes", "all"):
+        sql = (f"SELECT * FROM replay_signal_outcomes WHERE replay_run_id={ph} "
+               f"ORDER BY id LIMIT {limit} OFFSET {offset}")
+        rows = _query(sql, [run_id])
+        body["outcomes"] = rows
+        meta["outcomes_count"]  = len(rows)
+        meta["outcomes_offset"] = offset
+        meta["outcomes_limit"]  = limit
+
+    filename = (f"replay_{run_id}_export.json" if part == "all"
+                else f"replay_{run_id}_{part}_{offset}-{offset + limit}.json"
+                     if part in ("events", "outcomes")
+                else f"replay_{run_id}_{part}.json")
+
+    content = json.dumps(body, default=str, indent=2)
     return Response(
         content=content,
         media_type="application/json",
-        headers={
-            "Content-Disposition": f'attachment; filename="replay_{run_id}_export.json"',
-        },
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
     )
 
 
