@@ -141,7 +141,7 @@ export default function App() {
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xl font-semibold tracking-tight text-md-primary">Sachoki</span>
-          <span className="text-xs text-md-on-surface-var">v4.6.51</span>
+          <span className="text-xs text-md-on-surface-var">v4.6.56</span>
         </div>
 
         {/* Timeframe segmented control */}
