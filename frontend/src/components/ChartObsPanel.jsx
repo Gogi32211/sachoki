@@ -141,7 +141,7 @@ export default function ChartObsPanel({ onSelectTicker }) {
   }, [view, loadStats, loadRecent])
 
   return (
-    <div className="bg-gray-900 rounded-lg p-4 font-mono text-xs text-gray-100 max-w-4xl">
+    <div className="bg-md-surface-con rounded-md-md p-4 font-mono text-xs text-gray-100 max-w-4xl">
       <div className="flex items-center justify-between mb-3">
         <div className="text-sm font-bold text-green-400">
           📊 Chart Observation
@@ -178,14 +178,14 @@ export default function ChartObsPanel({ onSelectTicker }) {
           onChange={e => setTicker(e.target.value.toUpperCase())}
           onKeyDown={onKey}
           placeholder="TICKER"
-          className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-100 focus:border-blue-500 outline-none"
+          className="bg-gray-800 border border-md-outline-var rounded px-2 py-1.5 text-sm text-gray-100 focus:border-blue-500 outline-none"
         />
         <input
           type="date"
           value={obsDate}
           onChange={e => setObsDate(e.target.value)}
           onKeyDown={onKey}
-          className="bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-sm text-gray-100 focus:border-blue-500 outline-none"
+          className="bg-gray-800 border border-md-outline-var rounded px-2 py-1.5 text-sm text-gray-100 focus:border-blue-500 outline-none"
         />
         <button
           onClick={loadSignals}
@@ -216,7 +216,7 @@ export default function ChartObsPanel({ onSelectTicker }) {
             </div>
             <div className="mt-1">Seq: <b className="text-gray-200">{prefilled.sequence_label || '—'}</b></div>
             {prefilled.signal_reasons && (
-              <div className="mt-0.5 text-[10px] text-gray-500">{prefilled.signal_reasons}</div>
+              <div className="mt-0.5 text-[10px] text-md-on-surface-var">{prefilled.signal_reasons}</div>
             )}
           </div>
 
@@ -258,7 +258,7 @@ export default function ChartObsPanel({ onSelectTicker }) {
             value={notes}
             onChange={e => setNotes(e.target.value)}
             placeholder="notes (optional)..."
-            className="w-full bg-gray-800 border border-gray-700 rounded px-2 py-1.5 text-xs text-gray-100 mb-2 focus:border-blue-500 outline-none"
+            className="w-full bg-gray-800 border border-md-outline-var rounded px-2 py-1.5 text-xs text-gray-100 mb-2 focus:border-blue-500 outline-none"
           />
 
           <div className="flex gap-2 items-center">
@@ -340,7 +340,7 @@ function renderStats({ statsRows, statsDays, setStatsDays, loadStats, syncResult
             </thead>
             <tbody>
               {statsRows.map((r, i) => (
-                <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
+                <tr key={i} className="border-b border-md-outline-var hover:bg-md-surface-high/40">
                   <td className="px-2 py-1 text-green-400 font-bold">{r.t_signal || '—'}</td>
                   <td className="px-2 py-1 text-gray-300">{r.sequence_label || '—'}</td>
                   <td className="px-2 py-1 text-yellow-300">{r.k_signal_match || '—'}</td>
@@ -405,8 +405,8 @@ function renderRecent({ recentRows, statsErr, syncResults }) {
             </thead>
             <tbody>
               {recentRows.map((r) => (
-                <tr key={r.id} className="border-b border-gray-800 hover:bg-gray-800/40">
-                  <td className="px-2 py-1 text-gray-400">{String(r.obs_date || '').slice(0, 10)}</td>
+                <tr key={r.id} className="border-b border-md-outline-var hover:bg-md-surface-high/40">
+                  <td className="px-2 py-1 text-md-on-surface-var">{String(r.obs_date || '').slice(0, 10)}</td>
                   <td className="px-2 py-1 text-blue-300 font-bold">{r.ticker}</td>
                   <td className="px-2 py-1 text-green-400">{r.t_signal || '—'}</td>
                   <td className="px-2 py-1 text-gray-300">{r.sequence_label || '—'}</td>

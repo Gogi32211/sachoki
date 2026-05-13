@@ -57,17 +57,17 @@ function OpenPositions({ positions }) {
         </thead>
         <tbody>
           {positions.map((p, i) => (
-            <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
+            <tr key={i} className="border-b border-md-outline-var hover:bg-md-surface-high/40">
               <td className="py-1.5 pr-3 font-bold text-yellow-300">{p.ticker}</td>
               <td className="pr-3"><ZoneBadge z={p.beta_zone} /></td>
               <td className="pr-3 font-mono text-cyan-400">{p.tz_sig || '—'}</td>
-              <td className="pr-3 text-gray-400">{p.tier}</td>
+              <td className="pr-3 text-md-on-surface-var">{p.tier}</td>
               <td className="text-right pr-3 font-mono">${fmt(p.entry_price)}</td>
               <td className="text-right pr-3 font-mono text-green-400">${fmt(p.tp_parabolic)}</td>
               <td className="text-right pr-3 font-mono text-green-300">${fmt(p.tp_wide)}</td>
               <td className="text-right pr-3 font-mono text-red-400">${fmt(p.sl_price)}</td>
               <td className="text-right pr-3 text-purple-300">{p.ultra_score ?? '—'}</td>
-              <td className="text-right text-gray-400">{p.entry_date}</td>
+              <td className="text-right text-md-on-surface-var">{p.entry_date}</td>
             </tr>
           ))}
         </tbody>
@@ -81,9 +81,9 @@ function OpenPositions({ positions }) {
 function StatCard({ label, value, sub }) {
   return (
     <div className="bg-gray-800 rounded-lg p-3 flex flex-col gap-0.5">
-      <div className="text-xs text-gray-400">{label}</div>
+      <div className="text-xs text-md-on-surface-var">{label}</div>
       <div className="text-lg font-bold text-white">{value}</div>
-      {sub && <div className="text-xs text-gray-500">{sub}</div>}
+      {sub && <div className="text-xs text-md-on-surface-var">{sub}</div>}
     </div>
   )
 }
@@ -124,9 +124,9 @@ function StatsPanel({ stats, days }) {
             </thead>
             <tbody>
               {stats.by_zone.map((r, i) => (
-                <tr key={i} className="border-b border-gray-800">
+                <tr key={i} className="border-b border-md-outline-var">
                   <td className="py-1 pr-4"><ZoneBadge z={r.beta_zone} /></td>
-                  <td className="text-right pr-4 text-gray-400">{r.n}</td>
+                  <td className="text-right pr-4 text-md-on-surface-var">{r.n}</td>
                   <td className="text-right pr-4"><RetBadge v={r.avg_p} /></td>
                   <td className="text-right pr-4"><RetBadge v={r.avg_w} /></td>
                   <td className="text-right text-gray-300">{r.tp_rate_p != null ? `${r.tp_rate_p}%` : '—'}</td>
@@ -152,9 +152,9 @@ function StatsPanel({ stats, days }) {
             </thead>
             <tbody>
               {stats.by_signal.map((r, i) => (
-                <tr key={i} className="border-b border-gray-800">
+                <tr key={i} className="border-b border-md-outline-var">
                   <td className="py-1 pr-4 font-mono text-cyan-400">{r.tz_sig || '—'}</td>
-                  <td className="text-right pr-4 text-gray-400">{r.n}</td>
+                  <td className="text-right pr-4 text-md-on-surface-var">{r.n}</td>
                   <td className="text-right pr-4"><RetBadge v={r.avg_p} /></td>
                   <td className="text-right"><RetBadge v={r.avg_w} /></td>
                 </tr>
@@ -191,8 +191,8 @@ function RecentTrades({ entries }) {
         </thead>
         <tbody>
           {closed.map((e, i) => (
-            <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
-              <td className="py-1.5 pr-3 text-gray-400">{e.signal_date}</td>
+            <tr key={i} className="border-b border-md-outline-var hover:bg-md-surface-high/40">
+              <td className="py-1.5 pr-3 text-md-on-surface-var">{e.signal_date}</td>
               <td className="pr-3 font-bold text-yellow-300">{e.ticker}</td>
               <td className="pr-3"><ZoneBadge z={e.beta_zone} /></td>
               <td className="text-right pr-3 font-mono">${fmt(e.entry_price)}</td>
@@ -265,13 +265,13 @@ function PendingPositions({ pending, onRefresh }) {
         </thead>
         <tbody>
           {pending.map((p, i) => (
-            <tr key={i} className="border-b border-gray-800 hover:bg-gray-800/40">
+            <tr key={i} className="border-b border-md-outline-var hover:bg-md-surface-high/40">
               <td className="py-1.5 pr-3 font-bold text-yellow-300">{p.ticker}</td>
               <td className="pr-3"><ZoneBadge z={p.beta_zone} /></td>
               <td className="pr-3 font-mono text-cyan-400">{p.tz_sig || '—'}</td>
-              <td className="pr-3 text-gray-400">{p.tier}</td>
+              <td className="pr-3 text-md-on-surface-var">{p.tier}</td>
               <td className="text-right pr-3 text-purple-300">{p.ultra_score ?? '—'}</td>
-              <td className="text-right pr-3 text-gray-400">{p.signal_date}</td>
+              <td className="text-right pr-3 text-md-on-surface-var">{p.signal_date}</td>
               <td className="text-right pr-3 font-mono">{p.signal_price ? `$${fmt(p.signal_price)}` : '—'}</td>
               <td className="text-right">
                 <div className="flex items-center gap-1 justify-end">
