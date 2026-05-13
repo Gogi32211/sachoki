@@ -596,7 +596,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       style={{ left, top, width: POPUP_W }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-md-outline-var">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.07]">
         <div className="flex items-center gap-3 min-w-0">
           <span className="font-mono font-bold text-blue-300 text-base shrink-0">{row.ticker}</span>
           {row.vol_bucket && <span className="text-md-on-surface-var text-sm shrink-0">{row.vol_bucket}</span>}
@@ -621,7 +621,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-md-outline-var text-md-on-surface-var">
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.07] text-md-on-surface-var">
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
@@ -1092,7 +1092,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       )}
 
       {/* ── Row 0: Universe selector ── */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/50">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-white/[0.07] bg-md-surface-con/50">
         <span className="text-md-on-surface-var text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
@@ -1112,7 +1112,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 1: TF + Scan + Direction + Score ── */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-md-outline-var">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/[0.07]">
 
         {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-md-outline-var rounded p-0.5">
@@ -1270,7 +1270,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 2: Primary quick-filters + Advanced toggle ── */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
         {/* Profile quick-filters */}
         <button
           onClick={() => setSweetSpotFilter(f => !f)}
@@ -1326,7 +1326,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* ── Advanced filters (collapsible) ── */}
       {showAdvanced && (
-        <div className="border-b border-md-outline-var bg-md-surface-con/30">
+        <div className="border-b border-white/[0.07] bg-md-surface-con/30">
           {/* Signal chips */}
           <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 overflow-x-auto">
             <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
@@ -1397,12 +1397,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
 
       {/* Progress / error */}
       {scanning && (
-        <div className="px-4 py-1.5 border-b border-md-outline-var bg-violet-950/30 text-violet-300 animate-pulse">
+        <div className="px-4 py-1.5 border-b border-white/[0.07] bg-violet-950/30 text-violet-300 animate-pulse">
           ⚡ TURBO — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()}) — 1-2 minutes…
         </div>
       )}
       {error && (
-        <div className="px-4 py-1.5 text-md-error border-b border-md-outline-var flex items-center gap-3">
+        <div className="px-4 py-1.5 text-md-error border-b border-white/[0.07] flex items-center gap-3">
           {error === '__stuck__'
             ? <>
                 <span>Another scan is in progress — wait for it to finish, then try again</span>

@@ -243,7 +243,7 @@ function ExpandedRow({ r, colSpan }) {
   const ctx = ctxTokens(r)
 
   return (
-    <tr className="bg-md-surface-con/80 border-b border-md-outline-var">
+    <tr className="bg-md-surface-con/80 border-b border-white/[0.06]">
       <td colSpan={colSpan} className="px-4 py-3">
         <div className="grid grid-cols-2 gap-4 text-[11px] md:grid-cols-3 lg:grid-cols-4">
 
@@ -380,7 +380,7 @@ function ExpandedRow({ r, colSpan }) {
 // ── Skeleton loading row ───────────────────────────────────────────────────────
 function SkeletonRow({ colSpan }) {
   return (
-    <tr className="border-b border-md-outline-var/30 animate-pulse">
+    <tr className="border-b border-white/[0.06] animate-pulse">
       {Array.from({ length: colSpan }).map((_, i) => (
         <td key={i} className="px-2 py-2">
           <div className="h-3 bg-md-surface-high/60 rounded" style={{ width: i === 2 ? '70%' : i === 3 ? '40%' : '60%' }} />
@@ -456,7 +456,7 @@ export default function ScannerDataGrid({
   return (
     <div className="overflow-auto flex-1">
       <table className="w-full border-collapse text-xs">
-        <thead className="sticky top-0 z-10 bg-md-surface-con text-md-on-surface-var text-left">
+        <thead className="sticky top-0 z-10 bg-md-surface-con text-md-on-surface-var text-left [&>tr>th]:shadow-[0_1px_0_0_rgba(255,255,255,0.07)]">
           <tr>
             {/* Checkbox col */}
             <th className="px-2 py-1.5 w-5 sticky left-0 z-20 bg-md-surface-con">
@@ -544,7 +544,7 @@ export default function ScannerDataGrid({
 
             return [
               <tr key={r.ticker}
-                className={`border-b border-md-outline-var/30 cursor-pointer transition-colors
+                className={`border-b border-white/[0.06] cursor-pointer transition-colors
                   hover:bg-white/5
                   ${rowBg}
                   ${profileBorderCls(r.profile_category)}`}

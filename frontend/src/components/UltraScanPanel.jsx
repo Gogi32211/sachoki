@@ -659,7 +659,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       style={{ left, top, width: POPUP_W }}
     >
       {/* Header */}
-      <div className="flex items-center justify-between px-4 py-2.5 border-b border-md-outline-var">
+      <div className="flex items-center justify-between px-4 py-2.5 border-b border-white/[0.07]">
         <div className="flex items-center gap-3 min-w-0">
           <span className="font-mono font-bold text-blue-300 text-base shrink-0">{row.ticker}</span>
           {row.vol_bucket && <span className="text-md-on-surface-var text-sm shrink-0">{row.vol_bucket}</span>}
@@ -684,7 +684,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Stats row */}
-      <div className="flex items-center gap-4 px-4 py-2 border-b border-md-outline-var text-md-on-surface-var">
+      <div className="flex items-center gap-4 px-4 py-2 border-b border-white/[0.07] text-md-on-surface-var">
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
@@ -1564,7 +1564,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       )}
 
       {/* ── Row 0: Universe selector ── */}
-      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-md-outline-var bg-md-surface-con/50">
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-white/[0.07] bg-md-surface-con/50">
         <span className="text-md-on-surface-var text-xs w-16 shrink-0">Universe</span>
         {UNIVERSES.map(u => (
           <button key={u.key}
@@ -1584,7 +1584,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Row 1: TF + Scan + Direction + Score ── */}
-      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-md-outline-var">
+      <div className="flex flex-wrap items-center gap-2 px-3 py-2 border-b border-white/[0.07]">
 
         {/* TF selector — cached TFs show a green dot */}
         <div className="flex gap-0.5 border border-md-outline-var rounded p-0.5">
@@ -1766,7 +1766,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       </div>
 
       {/* ── Advanced Filters toggle (SIG / Sector / RTB Phase) ── */}
-      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
+      <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
         <button
           onClick={() => setShowAdvanced(a => !a)}
           className={`px-2.5 py-0.5 rounded text-xs font-medium shrink-0 transition-colors border ${
@@ -1786,8 +1786,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* ── Advanced Filters (collapsible) ── */}
       {showAdvanced && (
-        <div className="border-b border-md-outline-var bg-md-surface-con/30">
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-md-outline-var/30">
+        <div className="border-b border-white/[0.07] bg-md-surface-con/30">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-2 border-b border-white/[0.07]/30">
             <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5">SIG</span>
             <button onClick={() => setSelSigs(new Set())}
               className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
@@ -1813,7 +1813,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
           </div>
 
           {/* Sector filter */}
-          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-md-outline-var/30">
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-white/[0.07]/30">
             <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Sector</span>
         {[
               { label: 'All',  val: '',            cls: 'text-md-on-surface-var' },
@@ -1877,7 +1877,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       )}
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}
-      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-md-outline-var bg-md-surface-con/20">
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
         <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Profile</span>
         <button
           onClick={() => setSweetSpotFilter(f => !f)}
@@ -1931,7 +1931,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* Source-status badges (informational; do not control row visibility) */}
       {(Object.keys(sources).length > 0 || warnings.length > 0) && (
-        <div className="px-4 py-1.5 border-b border-md-outline-var bg-md-surface-con/40 flex flex-wrap items-center gap-2 text-[11px]">
+        <div className="px-4 py-1.5 border-b border-white/[0.07] bg-md-surface-con/40 flex flex-wrap items-center gap-2 text-[11px]">
           {['turbo', 'tz_wlnbb', 'tz_intelligence', 'pullback', 'rare_reversal'].map(k => {
             const s = sources[k]
             if (!s) return null
@@ -1954,7 +1954,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* Progress / error */}
       {(scanning || enriching) && (
-        <div className="px-4 py-1.5 border-b border-md-outline-var bg-fuchsia-950/30 text-fuchsia-300">
+        <div className="px-4 py-1.5 border-b border-white/[0.07] bg-fuchsia-950/30 text-fuchsia-300">
           <div className="animate-pulse">
             🧬 ULTRA — {UNIVERSES.find(u => u.key === universe)?.label ?? universe} ({localTf.toUpperCase()})
             {' · '}{enriching ? 'Stage 2: enriching subset' : 'Stage 1: Turbo'}
@@ -1997,7 +1997,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         </div>
       )}
       {error && (
-        <div className="px-4 py-1.5 text-md-error border-b border-md-outline-var flex items-center gap-3">
+        <div className="px-4 py-1.5 text-md-error border-b border-white/[0.07] flex items-center gap-3">
           {error === '__stuck__'
             ? <span>Another ULTRA scan is in progress — wait for it to finish, then try again</span>
             : error}
