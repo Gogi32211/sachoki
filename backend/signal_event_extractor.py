@@ -169,7 +169,7 @@ def _bucketize(value: float | None, edges: list[tuple[float, str]], default: str
 
 def _price_position(bars: list[dict], i: int, lookback: int) -> tuple[float | None, str]:
     if i < lookback - 1:
-        return (None, "unknown")
+        return (None, "INSUFFICIENT_HISTORY")
     hi = max((_f(b.get("high")) or -1e18) for b in bars[i - lookback + 1 : i + 1])
     lo = min((_f(b.get("low"))  or  1e18) for b in bars[i - lookback + 1 : i + 1])
     c = _f(bars[i].get("close"))
@@ -405,7 +405,9 @@ def extract_events(
     prev_cur = closes[-2] if len(closes) >= 2 else None
 
     def _state_and_reclaim(ema_arr: list[float]) -> tuple[str, bool, bool]:
-        if not ema_arr or math.isnan(ema_arr[-1]) or cur is None:
+        if not ema_arr or math.isnan(ema_arr[-1]):
+            return ("INSUFFICIENT_HISTORY", False, False)
+        if cur is None:
             return ("unknown", False, False)
         now = ema_arr[-1]
         prev = ema_arr[-2] if len(ema_arr) >= 2 else float("nan")
@@ -420,10 +422,19 @@ def extract_events(
     ema89_state,  reclaim_89,  above_89  = _state_and_reclaim(ema89)
     ema200_state, reclaim_200, above_200 = _state_and_reclaim(ema200)
 
+    # Track which indicator fields lacked sufficient bars
+    _ih = "INSUFFICIENT_HISTORY"
+    insufficient_history_fields: list[str] = []
+    if ema20_state  == _ih: insufficient_history_fields.append("ema20")
+    if ema50_state  == _ih: insufficient_history_fields.append("ema50")
+    if ema89_state  == _ih: insufficient_history_fields.append("ema89")
+    if ema200_state == _ih: insufficient_history_fields.append("ema200")
+
     pos_4,  buck_4  = _price_position(bars, scan_idx, 4)
     pos_10, buck_10 = _price_position(bars, scan_idx, 10)
     pos_20, buck_20 = _price_position(bars, scan_idx, 20)
     pos_50, buck_50 = _price_position(bars, scan_idx, 50)
+    if buck_50 == _ih: insufficient_history_fields.append("price_pos_50bar")
 
     rv = _relative_volume(bars, scan_idx, 20)
     vol_bucket = _volume_bucket(rv)
@@ -597,6 +608,9 @@ def extract_events(
         "market_regime":  str(bar.get("FINAL_REGIME") or bar.get("market_regime") or "") or None,
         "sector":         str(bar.get("sector") or "") or None,
         "industry":       str(bar.get("industry") or "") or None,
+        "insufficient_history_fields": (
+            json.dumps(insufficient_history_fields) if insufficient_history_fields else None
+        ),
         "event_snapshot_json": snapshot_json,
     }
 

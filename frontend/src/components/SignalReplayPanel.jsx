@@ -66,6 +66,14 @@ function ContextQualityBadge({ quality }) {
   return <span className={`text-[10px] px-1.5 py-0.5 rounded font-mono ${m.cls}`}>{m.label}</span>
 }
 
+function EmaStatCell({ value }) {
+  if (!value || value === 'unknown') return <span className="text-md-on-surface-var">—</span>
+  if (value === 'INSUFFICIENT_HISTORY')
+    return <span className="text-[9px] px-1 py-0.5 rounded bg-orange-950 text-orange-300 border border-orange-800 whitespace-nowrap">INSUF</span>
+  const cls = value === 'above' ? 'text-emerald-400' : value === 'below' ? 'text-red-400' : 'text-md-on-surface-var'
+  return <span className={cls}>{value}</span>
+}
+
 function parseSettings(settingsJson) {
   if (!settingsJson) return {}
   try { return JSON.parse(settingsJson) } catch { return {} }
@@ -514,9 +522,11 @@ function EventExplorer({ runId }) {
               <th className="px-2 py-1 text-left">Seq 4-bar</th>
               <th className="px-2 py-1 text-left">ABR</th>
               <th className="px-2 py-1 text-left">EMA50</th>
-              <th className="px-2 py-1 text-left">Pos 4b</th>
+              <th className="px-2 py-1 text-left">EMA200</th>
+              <th className="px-2 py-1 text-left">Pos 20b</th>
               <th className="px-2 py-1 text-left">Vol bkt</th>
               <th className="px-2 py-1 text-left">Score</th>
+              <th className="px-2 py-1 text-left">Quality</th>
             </tr>
           </thead>
           <tbody>
@@ -530,13 +540,20 @@ function EventExplorer({ runId }) {
                   <td className="px-2 py-1">{r.event_signal_family}</td>
                   <td className="px-2 py-1 text-md-on-surface-var">{r.sequence_4bar}</td>
                   <td className="px-2 py-1">{r.abr_category || '—'}</td>
-                  <td className="px-2 py-1">{r.ema50_state}</td>
-                  <td className="px-2 py-1">{r.price_pos_4bar_bucket}</td>
+                  <td className="px-2 py-1"><EmaStatCell value={r.ema50_state} /></td>
+                  <td className="px-2 py-1"><EmaStatCell value={r.ema200_state} /></td>
+                  <td className="px-2 py-1">{r.price_pos_20bar_bucket}</td>
                   <td className="px-2 py-1">{r.volume_bucket}</td>
                   <td className="px-2 py-1">{fmtNum(r.score)}</td>
+                  <td className="px-2 py-1"><ContextQualityBadge quality={r.context_quality} /></td>
                 </tr>
                 {expanded === r.id && (
-                  <tr><td colSpan={10} className="px-2 py-2 bg-md-surface">
+                  <tr><td colSpan={12} className="px-2 py-2 bg-md-surface">
+                    {r.insufficient_history_fields && r.insufficient_history_fields !== 'null' && (
+                      <div className="mb-2 text-[10px] text-orange-300 bg-orange-950 border border-orange-800 rounded px-2 py-1">
+                        ⚠ INSUFFICIENT_HISTORY: {r.insufficient_history_fields}
+                      </div>
+                    )}
                     <pre className="text-[10px] text-md-on-surface-var whitespace-pre-wrap">
                       {r.event_snapshot_json}
                     </pre>
@@ -545,7 +562,7 @@ function EventExplorer({ runId }) {
               </Fragment>
             ))}
             {!loading && rows.length === 0 && !err && (
-              <tr><td colSpan={10} className="px-2 py-6 text-center text-md-on-surface-var">
+              <tr><td colSpan={12} className="px-2 py-6 text-center text-md-on-surface-var">
                 No events found. Try relaxing filters or run a replay first.
               </td></tr>
             )}
@@ -586,13 +603,13 @@ function SummaryPanel({ runId, runMeta }) {
         <Stat label="Total Outcomes" val={fmtNum(runMeta?.total_outcomes)} />
       </div>
       <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs">
-        <Stat label="Mode"          val={runMeta?.mode || '—'} />
-        <Stat label="Bar Lookback"  val={`${lb} bars`} />
+        <Stat label="Mode"           val={runMeta?.mode || '—'} />
+        <Stat label="Context Window" val={`${lb} bars`} />
+        <Stat label="Fetch Depth"    val={runMeta?.fetch_bars ? `${runMeta.fetch_bars} bars` : '—'} />
         <div className="bg-md-surface-high rounded px-2 py-1">
           <div className="text-[10px] text-md-on-surface-var">Context Quality</div>
           <div className="mt-0.5"><ContextQualityBadge quality={cq} /></div>
         </div>
-        <Stat label="Storage"       val={runMeta?.storage_mode || '—'} />
       </div>
       {warnings.map((w, i) => (
         <div key={i} className="text-[11px] text-yellow-400 bg-yellow-950 border border-yellow-800 rounded px-2 py-1">
@@ -1236,7 +1253,9 @@ export default function SignalReplayPanel() {
                      runId === h.id ? 'bg-blue-900 text-blue-200' : 'bg-md-surface-high text-md-on-surface'}`}>
                 <span className="cursor-pointer" onClick={() => setRunId(h.id)}>
                   #{h.id} · {h.universe} · {h.status} · {h.total_events ?? 0} ev
-                  {h.lookback_bars && <span className="text-md-on-surface-var ml-1">{h.lookback_bars}b</span>}
+                  {h.lookback_bars && <span className="text-md-on-surface-var ml-1">{h.lookback_bars}b ctx</span>}
+                  {h.fetch_bars && h.fetch_bars !== h.lookback_bars &&
+                    <span className="text-md-on-surface-var/60 ml-0.5">/{h.fetch_bars}b fetch</span>}
                   {h.context_quality && h.context_quality !== 'FULL' &&
                     <span className="ml-1"><ContextQualityBadge quality={h.context_quality} /></span>}
                 </span>
