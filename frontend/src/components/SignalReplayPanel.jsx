@@ -937,31 +937,44 @@ const EXPORT_PARTS = [
   { value: 'outcomes',      label: 'Outcomes (50k page)',  hint: 'Paginated' },
 ]
 
-function ExportMenu({ runId, onExport }) {
+function ExportMenu({ runId, onExport, isRunning }) {
   const [open, setOpen] = useState(false)
   const [pageOffset, setPageOffset] = useState(0)
 
   return (
     <div className="relative">
       <button onClick={() => setOpen(o => !o)}
-              className="text-xs px-3 py-1 rounded bg-md-surface-high text-blue-300 hover:bg-gray-700">
+              title={isRunning ? 'Run still in progress — artifacts written after completion' : undefined}
+              className={`text-xs px-3 py-1 rounded ${isRunning
+                ? 'bg-md-surface-high text-md-on-surface-var/50 cursor-not-allowed'
+                : 'bg-md-surface-high text-blue-300 hover:bg-gray-700'}`}>
         ⬇ Export JSON ▾
       </button>
       {open && (
-        <div className="absolute right-0 mt-1 z-20 bg-md-surface-con border border-md-outline-var rounded shadow-xl py-1 min-w-[260px]">
-          {EXPORT_PARTS.map(p => (
+        <div className="absolute right-0 mt-1 z-20 bg-md-surface-con border border-md-outline-var rounded shadow-xl py-1 min-w-[280px]">
+          {isRunning && (
+            <div className="px-3 py-2 text-[11px] text-yellow-400 bg-yellow-950/60 border-b border-yellow-900/40">
+              ⚠ Run in progress — data is written after completion. Only "Run metadata" is available now.
+            </div>
+          )}
+          {EXPORT_PARTS.map(p => {
+            const unavailable = isRunning && p.value !== 'run'
+            return (
             <button key={p.value}
+                    disabled={unavailable}
                     onClick={() => {
+                      if (unavailable) return
                       const extra = (p.value === 'events' || p.value === 'outcomes')
                         ? `&offset=${pageOffset}&limit=50000` : ''
                       onExport(runId, p.value, extra)
                       setOpen(false)
                     }}
-                    className="w-full text-left px-3 py-1.5 text-xs hover:bg-md-surface-high flex justify-between gap-3">
+                    className={`w-full text-left px-3 py-1.5 text-xs flex justify-between gap-3 ${unavailable ? 'opacity-35 cursor-not-allowed' : 'hover:bg-md-surface-high'}`}>
               <span className="text-md-on-surface">{p.label}</span>
               <span className="text-md-on-surface-var text-[10px]">{p.hint}</span>
             </button>
-          ))}
+          )})}
+
           <div className="border-t border-md-outline-var mt-1 px-3 py-2 text-[10px] text-md-on-surface-var">
             Events/Outcomes page offset:
             <input type="number" value={pageOffset} min={0} step={50000}
@@ -1312,7 +1325,7 @@ export default function SignalReplayPanel() {
               ))}
             </div>
             <div className="flex gap-2 pb-1">
-              <ExportMenu runId={runId} onExport={handleExport} />
+              <ExportMenu runId={runId} onExport={handleExport} isRunning={!!running} />
               <button onClick={() => handleDelete(runId)}
                       className="text-xs px-3 py-1 rounded bg-md-surface-high text-red-400 hover:bg-red-900">
                 ✕ Delete Run

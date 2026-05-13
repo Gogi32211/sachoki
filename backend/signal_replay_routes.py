@@ -479,6 +479,13 @@ def export_run(
         raise HTTPException(status_code=400,
                             detail=f"part must be one of {sorted(valid_parts)}")
 
+    run_status = run["status"] if isinstance(run, dict) else getattr(run, "status", None)
+    if run_status in ("running", "paused") and part != "run":
+        raise HTTPException(
+            status_code=409,
+            detail=f"Run {run_id} is still {run_status}. Artifacts are written after the run completes — only 'run' metadata is available now.",
+        )
+
     offset = max(0, int(offset))
     limit  = max(1, min(int(limit), 500_000))
     use_csv = str(fmt).lower() == "csv"
@@ -572,10 +579,19 @@ def export_run(
             headers={"Content-Disposition": f'attachment; filename="{filename}"'},
         )
 
-    filename = (f"replay_{run_id}_export.json" if part == "all"
-                else f"replay_{run_id}_{part}_{offset}-{offset + limit}.json"
-                     if part in ("events", "outcomes")
-                else f"replay_{run_id}_{part}.json")
+    _part_names = {
+        "all":           "all_in_one",
+        "run":           "run_metadata",
+        "signal_stats":  "signal_statistics",
+        "pattern_stats": "pattern_statistics",
+        "filter_impact": "filter_impact",
+        "events":        "events",
+        "outcomes":      "outcomes",
+    }
+    _name = _part_names.get(part, part)
+    filename = (f"replay_{run_id}_{_name}_{offset}-{offset + limit}.json"
+                if part in ("events", "outcomes")
+                else f"replay_{run_id}_{_name}.json")
 
     content = json.dumps(body, default=str, indent=2)
     return Response(
