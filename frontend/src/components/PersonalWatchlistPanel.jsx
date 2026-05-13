@@ -181,7 +181,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           <span>N bars:</span>
           {[1, 3, 5, 10].map(v => (
             <button key={v} onClick={() => setN(v)}
-              className={`px-2 py-0.5 rounded text-xs ${n === v ? 'bg-md-primary-container text-md-on-primary-container' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface}`}>
+              className={`px-2 py-0.5 rounded text-xs ${n === v ? 'bg-md-primary-container text-md-on-primary-container' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>
               {v}
             </button>
           ))}
@@ -192,7 +192,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           <span>Sort:</span>
           {[['addedAt','Date'],['score','Score'],['ticker','A-Z']].map(([k,l]) => (
             <button key={k} onClick={() => setSortBy(k)}
-              className={`px-2 py-0.5 rounded text-xs ${sortBy === k ? 'bg-md-surface-high text-md-on-surface' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface}`}>
+              className={`px-2 py-0.5 rounded text-xs ${sortBy === k ? 'bg-md-surface-high text-md-on-surface' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>
               {l}
             </button>
           ))}
