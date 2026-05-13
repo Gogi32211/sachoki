@@ -104,10 +104,15 @@ _BUFFER_BARS          = 20   # small safety buffer
 
 
 def _context_quality(lookback_bars: int) -> str:
-    """Classify statistical reliability based on the user's context window choice."""
+    """Classify statistical reliability based on the user's context window choice.
+
+    30-bar mode is PARTIAL (not LIMITED): the engine fetches a wider window
+    so EMA50/89/200 and outcomes have full coverage; only the statistical
+    sample size is smaller.
+    """
     if lookback_bars >= 250:
         return "FULL"
-    if lookback_bars >= 100:
+    if lookback_bars >= 30:
         return "PARTIAL"
     return "LIMITED"
 

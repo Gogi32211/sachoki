@@ -223,7 +223,7 @@ def history(limit: int = 50) -> list[dict]:
 def _context_quality_label(lookback_bars: int) -> str:
     if lookback_bars >= 250:
         return "FULL"
-    if lookback_bars >= 100:
+    if lookback_bars >= 30:
         return "PARTIAL"
     return "LIMITED"
 

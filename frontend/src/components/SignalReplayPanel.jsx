@@ -82,7 +82,7 @@ function parseSettings(settingsJson) {
 function contextQualityFromBars(lookbackBars) {
   const n = Number(lookbackBars) || 500
   if (n >= 250) return 'FULL'
-  if (n >= 100) return 'PARTIAL'
+  if (n >= 30)  return 'PARTIAL'
   return 'LIMITED'
 }
 
@@ -201,20 +201,20 @@ function SettingsPanel({ disabled, onStart }) {
         </label>
         <select value={lookbackBars} onChange={e => setLookbackBars(Number(e.target.value))}
                 className="w-full bg-md-surface-high text-md-on-surface rounded px-2 py-1 text-sm">
-          <option value={30}>30 bars — Fast Scan / Debug</option>
+          <option value={30}>30 bars — Fast Scan (full indicators, small sample)</option>
           <option value={100}>100 bars — Light</option>
           <option value={250}>250 bars — Standard Fast Research</option>
           <option value={500}>500 bars — Full Context / Default (~2yr)</option>
           <option value={1000}>1000 bars — Deep Research (~4yr)</option>
         </select>
         {lookbackBars === 30 && (
-          <div className="mt-1 text-[11px] text-yellow-400 bg-yellow-950 border border-yellow-800 rounded px-2 py-1">
-            ⚠ LIMITED context: EMA50/EMA89/EMA200 and long-sequence analytics may be unreliable. Use for fast scans or debugging only — not for full statistical validation.
+          <div className="mt-1 text-[11px] text-blue-300/90 bg-blue-950/40 border border-blue-900/60 rounded px-2 py-1">
+            Fast scan: 30-bar analysis window with full indicator coverage (EMAs computed from extended fetch). Smaller statistical sample — best for debugging or quick checks.
           </div>
         )}
         {lookbackBars === 100 && (
           <div className="mt-1 text-[10px] text-blue-400">
-            PARTIAL context — some long-EMA and long-horizon analytics may not be fully reliable.
+            PARTIAL context — some long-horizon analytics may not be fully reliable.
           </div>
         )}
       </div>
@@ -591,8 +591,7 @@ function SummaryPanel({ runId, runMeta }) {
   const lb        = settings.lookback_bars || 500
   const cq        = contextQualityFromBars(lb)
   const warnings  = []
-  if (lb < 100)  warnings.push('Limited context: EMA50/EMA89/EMA200 and long-sequence analytics may be unreliable or unavailable.')
-  if (lb === 30) warnings.push('This replay uses only 30 bars. Optimized for speed/debugging — not full statistical validation.')
+  if (lb === 30) warnings.push('30-bar window: indicators computed from extended fetch (full coverage); statistical sample is small — best for debugging or quick checks.')
 
   return (
     <div className="space-y-3">
