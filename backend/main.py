@@ -43,6 +43,8 @@ from paper_portfolio_migration import ensure_paper_portfolio_tables
 from paper_portfolio_api import router as portfolio_router
 from chart_obs_migration import ensure_chart_obs_tables
 from chart_obs_api_v2 import router as chart_obs_router
+from signal_replay_migration import ensure_signal_replay_tables
+from signal_replay_routes import router as signal_replay_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -57,6 +59,7 @@ async def lifespan(app: FastAPI):
     try:
         ensure_paper_portfolio_tables()
         ensure_chart_obs_tables()
+        ensure_signal_replay_tables()
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
@@ -93,6 +96,7 @@ app.add_middleware(
 
 app.include_router(portfolio_router)
 app.include_router(chart_obs_router)
+app.include_router(signal_replay_router)
 
 
 def _normalise_date(idx) -> list[str]:
