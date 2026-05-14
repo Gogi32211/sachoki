@@ -586,10 +586,11 @@ def run_ultra_scan_job(
             _ultra_state["error"] = str(exc)
         log.exception("ULTRA Stage 1 crashed")
 
+    _warnings_snapshot = list(_ultra_state.get("warnings", []))
     _store_results(
         universe, tf, nasdaq_batch,
         rows=rows, last_scan=last_scan,
-        warnings=list(_ultra_state.get("warnings", [])),
+        warnings=_warnings_snapshot,
         sources=sources,
         phase="turbo_done",
     )
@@ -600,6 +601,18 @@ def run_ultra_scan_job(
         _ultra_state["completed_at"] = _time.time()
         _ultra_state["running"]      = False
     _gc.collect()
+
+    # Persist to DB so results survive deploy/restart (non-fatal if it fails)
+    if rows:
+        try:
+            persist_ultra_scan_results(
+                universe, tf, nasdaq_batch,
+                rows=rows, last_scan=last_scan,
+                warnings=_warnings_snapshot, sources=sources,
+            )
+        except Exception as _exc:
+            log.warning("ULTRA: DB persist skipped: %s", _exc)
+
     return response
 
 
@@ -920,3 +933,130 @@ def get_ultra_status() -> dict:
 
 def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
     return _build_response(universe, tf, nasdaq_batch)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB persistence — survives deploy/restart
+# ─────────────────────────────────────────────────────────────────────────────
+
+def persist_ultra_scan_results(
+    universe: str, tf: str, nasdaq_batch: str,
+    rows: list, last_scan: str | None,
+    warnings: list, sources: dict,
+) -> int | None:
+    """Atomically persist scan results to DB. Old is_latest stays until new run
+    succeeds, then a single transaction flips is_latest.
+    Returns new run_id, or None on failure (non-fatal to caller)."""
+    import json as _json
+    try:
+        from db import get_db, USE_PG
+        nb = nasdaq_batch or ""
+        now_str = _time.strftime("%Y-%m-%dT%H:%M:%SZ", _time.gmtime())
+
+        with get_db() as db:
+            if USE_PG:
+                db.execute(
+                    """INSERT INTO ultra_scan_runs
+                       (universe, tf, nasdaq_batch, status, is_latest, total_candidates,
+                        last_turbo_scan, sources_json, warnings_json, started_at, finished_at)
+                       VALUES (%s, %s, %s, 'completed', false, %s, %s, %s, %s, %s, %s)
+                       RETURNING id""",
+                    (universe, tf, nb, len(rows), last_scan,
+                     _json.dumps(sources), _json.dumps(warnings), now_str, now_str),
+                )
+            else:
+                db.execute(
+                    """INSERT INTO ultra_scan_runs
+                       (universe, tf, nasdaq_batch, status, is_latest, total_candidates,
+                        last_turbo_scan, sources_json, warnings_json, started_at, finished_at)
+                       VALUES (?, ?, ?, 'completed', 0, ?, ?, ?, ?, ?, ?)""",
+                    (universe, tf, nb, len(rows), last_scan,
+                     _json.dumps(sources), _json.dumps(warnings), now_str, now_str),
+                )
+            run_id = db.lastrowid
+
+            # Batch insert all candidates
+            candidate_rows = [
+                (run_id, r.get("ticker", ""), float(r.get("ultra_score", 0) or 0), _json.dumps(r))
+                for r in rows
+            ]
+            db.executemany(
+                "INSERT INTO ultra_scan_candidates (scan_run_id, ticker, ultra_score, row_json)"
+                " VALUES (?, ?, ?, ?)",
+                candidate_rows,
+            )
+
+            # Atomic swap: old latest → False, new run → True
+            db.execute(
+                "UPDATE ultra_scan_runs SET is_latest=? WHERE universe=? AND tf=? AND nasdaq_batch=? AND id!=?",
+                (False, universe, tf, nb, run_id),
+            )
+            db.execute(
+                "UPDATE ultra_scan_runs SET is_latest=? WHERE id=?",
+                (True, run_id),
+            )
+            db.commit()
+
+        log.info("ULTRA scan persisted: run_id=%s, %d candidates (%s/%s)", run_id, len(rows), universe, tf)
+        return run_id
+    except Exception as exc:
+        log.error("ULTRA scan persist failed (non-fatal): %s", exc)
+        return None
+
+
+def load_latest_ultra_scan_from_db(
+    universe: str = "sp500", tf: str = "1d", nasdaq_batch: str = "",
+) -> bool:
+    """Load the latest completed scan from DB into the in-memory cache.
+    Returns True if data was loaded, False if nothing found or on error."""
+    import json as _json
+    try:
+        from db import get_db
+        nb = nasdaq_batch or ""
+        with get_db() as db:
+            db.execute(
+                """SELECT id, total_candidates, last_turbo_scan, sources_json, warnings_json
+                   FROM ultra_scan_runs
+                   WHERE universe=? AND tf=? AND nasdaq_batch=? AND is_latest=1 AND status='completed'
+                   ORDER BY id DESC LIMIT 1""",
+                (universe, tf, nb),
+            )
+            run_row = db.fetchone()
+            if not run_row:
+                return False
+
+            run_id   = run_row["id"]
+            last_scan = run_row.get("last_turbo_scan")
+            sources   = _json.loads(run_row["sources_json"] or "{}")
+            warnings  = _json.loads(run_row["warnings_json"] or "[]")
+
+            db.execute(
+                "SELECT row_json FROM ultra_scan_candidates WHERE scan_run_id=? ORDER BY ultra_score DESC",
+                (run_id,),
+            )
+            raw_rows = db.fetchall()
+
+        rows = []
+        for r in raw_rows:
+            try:
+                rows.append(_json.loads(r["row_json"]))
+            except Exception:
+                pass
+
+        if not rows:
+            return False
+
+        _store_results(
+            universe, tf, nb,
+            rows=rows, last_scan=last_scan,
+            warnings=warnings, sources=sources,
+            phase="db_loaded",
+        )
+        log.info(
+            "ULTRA: loaded %d candidates from DB (run_id=%s, %s/%s)",
+            len(rows), run_id, universe, tf,
+        )
+        return True
+    except Exception as exc:
+        log.warning("ULTRA: DB load failed: %s", exc)
+        return False

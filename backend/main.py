@@ -48,6 +48,8 @@ from signal_replay_routes import router as signal_replay_router
 from ultra_pump_migration import ensure_ultra_pump_tables
 from ultra_pump_routes import router as ultra_pump_router
 from dashboard_routes import router as dashboard_router
+from ultra_scan_migration import ensure_ultra_scan_tables
+from ultra_scan_routes import router as ultra_scan_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -64,6 +66,18 @@ async def lifespan(app: FastAPI):
         ensure_chart_obs_tables()
         ensure_signal_replay_tables()
         ensure_ultra_pump_tables()
+        ensure_ultra_scan_tables()
+        # Pre-warm memory cache from DB so dashboard/ultra tab show data immediately
+        try:
+            from ultra_orchestrator import load_latest_ultra_scan_from_db
+            for _tf in ("1d", "4h"):
+                for _uni in ("sp500", "nasdaq"):
+                    try:
+                        load_latest_ultra_scan_from_db(_uni, _tf)
+                    except Exception:
+                        pass
+        except Exception as _exc:
+            log.warning("DB pre-warm failed (non-fatal): %s", _exc)
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
@@ -103,6 +117,7 @@ app.include_router(chart_obs_router)
 app.include_router(signal_replay_router)
 app.include_router(ultra_pump_router)
 app.include_router(dashboard_router)
+app.include_router(ultra_scan_router)
 
 
 def _normalise_date(idx) -> list[str]:
@@ -2783,10 +2798,18 @@ def api_ultra_scan_results(
     nasdaq_batch: str = Query(""),
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
-    batch). If no scan has run yet, returns empty results with a warning."""
+    batch). Falls back to DB when memory cache is empty (survives restart)."""
     try:
-        from ultra_orchestrator import get_ultra_results
-        return get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+        from ultra_orchestrator import get_ultra_results, load_latest_ultra_scan_from_db
+        resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+        # Memory cache miss — try loading persisted scan from DB
+        if not resp.get("results"):
+            try:
+                if load_latest_ultra_scan_from_db(universe, tf, nasdaq_batch):
+                    resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+            except Exception as _db_exc:
+                log.warning("ultra-scan/results DB fallback error: %s", _db_exc)
+        return resp
     except Exception as exc:
         log.exception("ultra-scan/results error")
         raise HTTPException(status_code=500, detail=str(exc))
