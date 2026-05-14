@@ -55,7 +55,6 @@ def ask_json(prompt: str, system: str = "", max_tokens: int = 1024) -> dict | li
     raw = ask(prompt, system=system, max_tokens=max_tokens)
     if raw is None:
         return None
-    # strip markdown fences if present
     text = raw.strip()
     if text.startswith("```"):
         lines = text.splitlines()
@@ -63,7 +62,6 @@ def ask_json(prompt: str, system: str = "", max_tokens: int = 1024) -> dict | li
     try:
         return json.loads(text)
     except Exception:
-        # Try to extract first JSON object/array
         import re
         m = re.search(r"(\{[\s\S]*\}|\[[\s\S]*\])", text)
         if m:

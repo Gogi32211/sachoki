@@ -97,6 +97,9 @@ const TABS = TAB_GROUPS.flatMap(g => g.tabs)
 const VALID_TAB_IDS = new Set(TABS.map(t => t.id))
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
+// Tabs that manage their own chart or don't need the global chart
+const NO_CHART_TABS = new Set(['turbo', 'dashboard'])
+
 export default function App() {
   const [watchlist, setWatchlist] = useState(
     () => LS.get('watchlist', ['AAPL', 'TSLA', 'NVDA'])
@@ -127,16 +130,16 @@ export default function App() {
   useEffect(() => { LS.set('tf', tf) }, [tf])
   useEffect(() => { LS.set('active_tab', activeTab) }, [activeTab])
 
-  const handleSelect      = (ticker) => setSelected(ticker)
-  const handleAddTicker   = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
-  const handleRemoveTicker= (t) => setWatchlist(prev => prev.filter(x => x !== t))
+  const handleSelect       = (ticker) => setSelected(ticker)
+  const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
+  const handleRemoveTicker = (t) => setWatchlist(prev => prev.filter(x => x !== t))
 
   const chartTicker =
-    activeTab === 'superchart' && scTicker          ? scTicker :
+    activeTab === 'superchart' && scTicker           ? scTicker :
     activeTab === 'analyze'    && analyzeChart.ticker ? analyzeChart.ticker :
     selected
   const chartTf =
-    activeTab === 'superchart' && scTicker          ? scTf :
+    activeTab === 'superchart' && scTicker           ? scTf :
     activeTab === 'analyze'    && analyzeChart.ticker ? analyzeChart.tf :
     tf
 
@@ -227,8 +230,8 @@ export default function App() {
 
       {/* ── Content area ─────────────────────────────────────────────────── */}
       <main className="flex flex-col gap-3 p-3 flex-1">
-        {/* Chart — hidden on turbo tab (uses its own popup) */}
-        {activeTab !== 'turbo' && (
+        {/* Global chart — hidden on dashboard and turbo tabs */}
+        {!NO_CHART_TABS.has(activeTab) && (
           <div style={{ minHeight: '340px' }}>
             <CandleChart
               ticker={chartTicker}
@@ -240,7 +243,14 @@ export default function App() {
 
         {/* Tab content */}
         <div className="min-h-[400px]">
-          {activeTab === 'dashboard'      && <TradingDashboardPanel />}
+          {activeTab === 'dashboard' && (
+            <TradingDashboardPanel
+              onSelectTicker={handleSelect}
+              onAddToWatchlist={handleAddTicker}
+              watchlistTickers={watchlist}
+            />
+          )}
+
           {/* Always-mounted: preserve scan results on tab switch */}
           <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
             <TurboScanPanel onSelectTicker={handleSelect} />
