@@ -47,8 +47,8 @@ from signal_replay_migration import ensure_signal_replay_tables
 from signal_replay_routes import router as signal_replay_router
 from ultra_pump_migration import ensure_ultra_pump_tables
 from ultra_pump_routes import router as ultra_pump_router
-from ultra_scan_migration import ensure_ultra_scan_tables
 from dashboard_routes import router as dashboard_router
+from ultra_scan_migration import ensure_ultra_scan_tables
 from ultra_scan_routes import router as ultra_scan_router
 
 logging.basicConfig(level=logging.INFO)
