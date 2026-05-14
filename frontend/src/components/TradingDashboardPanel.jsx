@@ -4,6 +4,7 @@
  * No new palette or global style changes.
  */
 import { useState, useEffect, useCallback, useRef } from 'react'
+import SignalChip from './SignalChip'
 
 const API = '/api/dashboard'
 
@@ -837,7 +838,7 @@ function PrimarySetupCard({ setup, ctx, onOpenChart, onAddWL, onOpenNews }) {
               </span>
             </div>
           )}
-          {setup.signal    && <MiniChip label={setup.signal} color="info" />}
+          {setup.signal    && <SignalChip signal={setup.signal} size="sm" />}
           {setup.abr       && <MiniChip label={`ABR ${setup.abr}`} color={setup.abr === 'B+' || setup.abr === 'A' ? 'bull' : 'default'} />}
           {setup.ema_state && <MiniChip label={setup.ema_state} color={setup.ema_state?.includes('Reclaim') ? 'bull' : 'default'} />}
         </div>
@@ -988,7 +989,7 @@ function SecondarySetupCard({ setup, ctx, onOpenChart, onAddWL, onOpenNews }) {
             {Math.round(setup.ultra_score)}
           </span>
         )}
-        {setup.signal && <MiniChip label={setup.signal} color="info" />}
+        {setup.signal && <SignalChip signal={setup.signal} size="sm" />}
         {setup.abr    && <MiniChip label={`ABR ${setup.abr}`} color={setup.abr === 'B+' || setup.abr === 'A' ? 'bull' : 'default'} />}
       </div>
 
@@ -1614,7 +1615,7 @@ function WatchlistSnapshot({ watchlistData, loading }) {
                   <span className="text-xs font-bold text-md-on-surface w-14 shrink-0">{item.ticker}</span>
                   <span className={cx('text-[11px] shrink-0 w-20', s.cls)}>{s.label}</span>
                   <div className="flex items-center gap-1.5 flex-1 min-w-0">
-                    {item.sig_name && <MiniChip label={item.sig_name} color="info" />}
+                    {item.sig_name && <SignalChip signal={item.sig_name} size="sm" />}
                   </div>
                   <ActionChip bucket={item.action_bucket} />
                   <span className={cx(
