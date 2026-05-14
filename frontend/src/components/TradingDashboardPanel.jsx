@@ -649,14 +649,9 @@ function CommandStrip({ status, pulse, summary, onRefresh, loading, lastRefresh 
           <button
             onClick={onRefresh}
             disabled={loading}
-            className={cx(
-              'text-xs px-3 py-1.5 rounded-md-full border transition-all whitespace-nowrap',
-              loading
-                ? 'border-md-outline-var text-md-on-surface-var opacity-40 cursor-not-allowed'
-                : 'border-md-outline text-md-primary hover:bg-md-primary/10 active:bg-md-primary/12',
-            )}
+            className="text-xs px-3 py-1.5 rounded-md-full border border-md-outline text-md-primary hover:bg-md-primary/10 active:bg-md-primary/12 transition-all disabled:opacity-40 whitespace-nowrap"
           >
-            {loading ? '↻ Refreshing…' : '↻ Refresh'}
+            {loading ? '…' : '↻ Refresh'}
           </button>
         </div>
       </div>
@@ -1310,17 +1305,7 @@ function NewsItem({ item }) {
 }
 
 function MarketNewsPanel({ news, loading }) {
-  const items      = news?.items ?? []
-  const configured = news?.provider_configured ?? true  // assume configured if unknown
-  const msg        = news?.message ?? ''
-
-  const emptyTitle = !configured
-    ? 'Massive API not configured.'
-    : 'No recent news.'
-  const emptySub = !configured
-    ? 'Set MASSIVE_API_KEY environment variable to enable news.'
-    : (msg || 'No Massive news found for current candidates.')
-
+  const items = news?.items ?? []
   return (
     <Panel className="p-4">
       <SectionHead title="Market News" />
@@ -1329,7 +1314,7 @@ function MarketNewsPanel({ news, loading }) {
           {[1, 2, 3].map(i => <Skeleton key={i} h="h-10" />)}
         </div>
       ) : items.length === 0 ? (
-        <EmptySlate icon="📰" title={emptyTitle} sub={emptySub} />
+        <EmptySlate icon="📰" title="No market news found." sub={news?.message ?? 'Connect a news API to enable.'} />
       ) : (
         <div>
           {items.slice(0, 7).map((item, i) => <NewsItem key={i} item={item} />)}
@@ -1404,15 +1389,8 @@ function DataHealthCard({ scanner, ultra, loading }) {
   }
   function fmt(iso) {
     if (!iso) return 'Never'
-    try {
-      const d = new Date(iso)
-      // If today, show time; otherwise show date
-      const today = new Date().toDateString()
-      if (d.toDateString() === today)
-        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-      return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
-        ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
-    } catch { return iso }
+    try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
+    catch { return iso }
   }
   const sh = health(scanner)
   const uh = health(ultra)
@@ -1437,11 +1415,6 @@ function DataHealthCard({ scanner, ultra, loading }) {
             <span className="text-md-on-surface-var uppercase tracking-wider">ULTRA</span>
             <span className={cx('text-sm font-bold font-mono', uh.cls)}>{uh.label}</span>
             <span className="text-md-on-surface-var">Last: {fmt(ultra?.last_scan)}</span>
-            {ultra?.total > 0 && (
-              <span className="text-md-on-surface-var opacity-60">
-                {ultra.total} candidates
-              </span>
-            )}
             {ultra?.running && (
               <div className="h-0.5 rounded-full bg-md-outline-var overflow-hidden mt-1">
                 <div className="h-full bg-violet-500 animate-pulse"
@@ -1635,201 +1608,7 @@ function WatchlistSnapshot({ watchlistData, loading }) {
   )
 }
 
-// ─── TOP MOVERS ───────────────────────────────────────────────────────────────
-
-function MoverRow({ rank, mover, isPremarket, onOpenChart, onOpenNews }) {
-  const sym    = mover.symbol
-  const chg    = isPremarket ? mover.premarket_change_pct : mover.change_pct
-  const isUp   = (chg ?? 0) >= 0
-  const bucket = mover.action_bucket
-  const risks  = mover.risk_flags ?? []
-  const score  = mover.ultra_score
-
-  const chgCls = isUp
-    ? 'text-emerald-400 font-bold font-mono tabular-nums'
-    : 'text-rose-400 font-bold font-mono tabular-nums'
-
-  return (
-    <div className="flex items-center gap-2 py-1.5 border-b border-md-outline-var last:border-0 group">
-      {/* rank */}
-      <span className="text-[10px] text-md-on-surface-var font-mono w-4 text-right shrink-0">
-        #{rank}
-      </span>
-
-      {/* ticker + context */}
-      <div className="flex flex-col min-w-0 flex-1">
-        <div className="flex items-center gap-1.5 flex-wrap">
-          <span className="text-xs font-bold text-md-on-surface">{sym}</span>
-          {isPremarket && mover.premarket_volume != null && (
-            <span className="text-[10px] text-md-on-surface-var font-mono">
-              PM Vol {(mover.premarket_volume / 1_000).toFixed(0)}K
-            </span>
-          )}
-          {!isPremarket && score != null && (
-            <span className={cx('text-[10px] font-mono', scoreColor(score))}>
-              U{Math.round(score)}
-            </span>
-          )}
-        </div>
-        <div className="flex items-center gap-1 flex-wrap mt-0.5">
-          {bucket && <ActionChip bucket={bucket} size="sm" />}
-          {risks.slice(0, 2).map(r => (
-            <MiniChip key={r} label={r} color={r === 'PARABOLIC' || r === 'SHARP_DROP' ? 'risk' : 'warn'} />
-          ))}
-        </div>
-      </div>
-
-      {/* change % */}
-      <span className={cx('text-sm shrink-0', chgCls)}>
-        {isUp ? '+' : ''}{chg?.toFixed(2)}%
-      </span>
-
-      {/* quick actions */}
-      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          onClick={() => onOpenChart?.(sym)}
-          className="text-[10px] px-1.5 py-px rounded-md-sm bg-md-surface-con border border-md-outline-var text-md-on-surface-var hover:text-md-primary hover:border-md-primary transition-colors"
-        >
-          Chart
-        </button>
-        <button
-          onClick={() => onOpenNews?.(sym)}
-          className="text-[10px] px-1.5 py-px rounded-md-sm bg-md-surface-con border border-md-outline-var text-md-on-surface-var hover:text-md-primary hover:border-md-primary transition-colors"
-        >
-          News
-        </button>
-      </div>
-    </div>
-  )
-}
-
-function MoverColumn({ title, movers, isPremarket, isGainers, loading, onOpenChart, onOpenNews }) {
-  const accentCls = isGainers ? 'text-emerald-400' : 'text-rose-400'
-  const emptyMsg  = isGainers
-    ? (isPremarket ? 'No premarket gainers.' : 'No gainers in tracked list.')
-    : (isPremarket ? 'No premarket losers.'  : 'No losers in tracked list.')
-
-  return (
-    <div className="flex flex-col gap-1 min-w-0 flex-1">
-      <p className={cx('text-[10px] font-semibold uppercase tracking-wider mb-1', accentCls)}>
-        {title}
-      </p>
-      {loading ? (
-        <div className="flex flex-col gap-1.5">
-          {[1, 2, 3].map(i => <Skeleton key={i} h="h-8" />)}
-        </div>
-      ) : !movers?.length ? (
-        <p className="text-[10px] text-md-on-surface-var py-2">{emptyMsg}</p>
-      ) : (
-        <div>
-          {movers.map((m, i) => (
-            <MoverRow
-              key={m.symbol}
-              rank={i + 1}
-              mover={m}
-              isPremarket={isPremarket}
-              onOpenChart={onOpenChart}
-              onOpenNews={onOpenNews}
-            />
-          ))}
-        </div>
-      )}
-    </div>
-  )
-}
-
-function TopMoversPanel({ topMovers, loading, onOpenChart, onOpenNews }) {
-  const [tab, setTab] = useState('regular')
-
-  const regular  = topMovers?.regular  ?? {}
-  const premarket = topMovers?.premarket ?? {}
-  const pmAvail  = premarket.available === true
-  const genAt    = topMovers?.generated_at
-  const noSyms   = topMovers?.has_symbols === false
-  const notConf  = !topMovers?.has_symbols && topMovers?.message?.includes('not configured')
-
-  const emptyMsg = noSyms
-    ? 'Run Ultra Scan or add tickers to Watchlist to populate Top Movers.'
-    : notConf
-    ? 'Set MASSIVE_API_KEY to enable Top Movers.'
-    : null
-
-  return (
-    <Panel className="p-4">
-      <SectionHead
-        title="Top Movers"
-        right={
-          <div className="flex items-center gap-2">
-            {/* Regular / Premarket tab toggle */}
-            <div className="flex rounded-md-sm overflow-hidden border border-md-outline-var text-[10px]">
-              <button
-                onClick={() => setTab('regular')}
-                className={cx(
-                  'px-2 py-0.5 font-medium transition-colors',
-                  tab === 'regular'
-                    ? 'bg-md-primary-container text-md-on-primary-container'
-                    : 'text-md-on-surface-var hover:bg-white/5',
-                )}
-              >
-                Regular
-              </button>
-              <button
-                onClick={() => setTab('premarket')}
-                className={cx(
-                  'px-2 py-0.5 font-medium border-l border-md-outline-var transition-colors',
-                  tab === 'premarket'
-                    ? 'bg-md-primary-container text-md-on-primary-container'
-                    : 'text-md-on-surface-var hover:bg-white/5',
-                )}
-              >
-                Premarket
-              </button>
-            </div>
-            {genAt && (
-              <span className="text-[10px] text-md-on-surface-var opacity-40 tabular-nums">
-                {relTime(genAt)}
-              </span>
-            )}
-          </div>
-        }
-      />
-
-      {emptyMsg ? (
-        <EmptySlate icon="📊" title={emptyMsg} />
-      ) : tab === 'premarket' && !pmAvail ? (
-        <EmptySlate icon="🌅" title="Premarket data unavailable." sub="Premarket prices not available from current Massive API plan." />
-      ) : (
-        <div className="flex gap-4">
-          <MoverColumn
-            title={tab === 'regular' ? 'Top Gainers' : 'PM Gainers'}
-            movers={tab === 'regular' ? regular.gainers : premarket.gainers}
-            isPremarket={tab === 'premarket'}
-            isGainers={true}
-            loading={loading && !topMovers}
-            onOpenChart={onOpenChart}
-            onOpenNews={onOpenNews}
-          />
-          <div className="w-px bg-md-outline-var opacity-40 self-stretch shrink-0" />
-          <MoverColumn
-            title={tab === 'regular' ? 'Top Losers' : 'PM Losers'}
-            movers={tab === 'regular' ? regular.losers : premarket.losers}
-            isPremarket={tab === 'premarket'}
-            isGainers={false}
-            loading={loading && !topMovers}
-            onOpenChart={onOpenChart}
-            onOpenNews={onOpenNews}
-          />
-        </div>
-      )}
-    </Panel>
-  )
-}
-
 // ─── MAIN PANEL ───────────────────────────────────────────────────────────────
-
-// dashboardState: NO_SCAN | LOADING | SCAN_READY | SCAN_RUNNING | SCAN_STALE | ERROR
-const DS = { NO_SCAN: 'NO_SCAN', LOADING: 'LOADING', READY: 'SCAN_READY',
-             RUNNING: 'SCAN_RUNNING', STALE: 'SCAN_STALE', ERROR: 'ERROR' }
 
 export default function TradingDashboardPanel({
   onSelectTicker,
@@ -1837,54 +1616,51 @@ export default function TradingDashboardPanel({
   watchlistTickers = [],
   onOpenChart: propOpenChart,
 }) {
-  const [status,         setStatus]         = useState(null)
-  const [pulse,          setPulse]          = useState(null)
-  const [summary,        setSummary]        = useState(null)
-  const [candidates,     setCandidates]     = useState(null)
-  const [sectors,        setSectors]        = useState(null)
-  const [fresh,          setFresh]          = useState(null)
-  const [risk,           setRisk]           = useState(null)
-  const [setups,         setSetups]         = useState(null)
-  const [brief,          setBrief]          = useState(null)
-  const [news,           setNews]           = useState(null)
-  const [watchlist,      setWatchlist]      = useState(null)
-  const [topMovers,      setTopMovers]      = useState(null)
-  const [dashboardState, setDashboardState] = useState(DS.LOADING)
+  const [status,     setStatus]     = useState(null)
+  const [pulse,      setPulse]      = useState(null)
+  const [summary,    setSummary]    = useState(null)
+  const [candidates, setCandidates] = useState(null)
+  const [sectors,    setSectors]    = useState(null)
+  const [fresh,      setFresh]      = useState(null)
+  const [risk,       setRisk]       = useState(null)
+  const [setups,     setSetups]     = useState(null)
+  const [brief,      setBrief]      = useState(null)
+  const [news,       setNews]       = useState(null)
+  const [watchlist,  setWatchlist]  = useState(null)
 
   const [ctxMap,      setCtxMap]      = useState({})
   const [newsDrawer,  setNewsDrawer]  = useState(null)
   const [loading,     setLoading]     = useState(true)
-  const [refreshing,  setRefreshing]  = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
   const abortRef = useRef(null)
 
-  const loadAll = useCallback(async (silent = false, force = false) => {
+  const loadAll = useCallback(async (silent = false) => {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
-
-    if (!silent) {
-      setLoading(true)
-      setDashboardState(DS.LOADING)
-    } else {
-      setRefreshing(true)
-    }
+    if (!silent) setLoading(true)
 
     try {
-      // Single bootstrap call loads all dashboard data from DB in one round-trip.
-      // force=true clears server-side caches so Refresh always shows latest scan data.
-      const bootstrapUrl = `/bootstrap?tf=1d${force ? '&force=true' : ''}`
-      const data = await apiFetch(bootstrapUrl)
+      const [statusData, pulseData, summaryData] = await Promise.all([
+        apiFetch('/status'),
+        apiFetch('/pulse'),
+        apiFetch('/summary'),
+      ])
+      setStatus(statusData)
+      setPulse(pulseData)
+      setSummary(summaryData)
 
-      if (data.status)  setStatus(data.status)
-      if (data.pulse)   setPulse(data.pulse)
-      if (data.summary) setSummary(data.summary)
-      if (data.top50)   setCandidates(data.top50)
-      if (data.sectors) setSectors(data.sectors)
-      if (data.fresh)   setFresh(data.fresh)
-      if (data.risk)    setRisk(data.risk)
-      if (data.setups)  setSetups(data.setups)
-      if (data.brief)   setBrief(data.brief)
-      if (data.news)    setNews(data.news)
+      const w2 = await Promise.allSettled([
+        apiFetch('/top50?limit=50'),
+        apiFetch('/sector-heat'),
+        apiFetch('/fresh-signals?limit=30'),
+        apiFetch('/risk-alerts'),
+        apiFetch('/news'),
+      ])
+      if (w2[0].status === 'fulfilled') setCandidates(w2[0].value)
+      if (w2[1].status === 'fulfilled') setSectors(w2[1].value)
+      if (w2[2].status === 'fulfilled') setFresh(w2[2].value)
+      if (w2[3].status === 'fulfilled') setRisk(w2[3].value)
+      if (w2[4].status === 'fulfilled') setNews(w2[4].value)
 
       if (watchlistTickers.length > 0) {
         try {
@@ -1901,22 +1677,24 @@ export default function TradingDashboardPanel({
         } catch (_) {}
       }
 
+      const w3 = await Promise.allSettled([
+        apiFetch('/best-setups'),
+        apiFetch('/ai-brief'),
+      ])
+      if (w3[0].status === 'fulfilled') setSetups(w3[0].value)
+      if (w3[1].status === 'fulfilled') setBrief(w3[1].value)
+
       setLastRefresh(new Date())
     } catch (err) {
-      if (err.name !== 'AbortError') {
-        console.error('Dashboard load error:', err)
-        // On error: keep existing data visible, only update state if nothing loaded yet
-        setDashboardState(prev => prev === DS.LOADING ? DS.ERROR : prev)
-      }
+      if (err.name !== 'AbortError') console.error('Dashboard load error:', err)
     } finally {
       if (!silent) setLoading(false)
-      setRefreshing(false)
     }
-  }, [watchlistTickers, _applyBootstrap])
+  }, [watchlistTickers])
 
   useEffect(() => {
-    loadAll(false, false)
-    const t = setInterval(() => loadAll(true, false), 60_000)
+    loadAll()
+    const t = setInterval(() => loadAll(true), 60_000)
     return () => { clearInterval(t); abortRef.current?.abort() }
   }, [loadAll])
 
@@ -1955,9 +1733,6 @@ export default function TradingDashboardPanel({
   const addToWL  = useCallback(t => { if (onAddToWatchlist) onAddToWatchlist(t) }, [onAddToWatchlist])
   const openNews = useCallback(t => setNewsDrawer(t), [])
 
-  // Ultra last_scan comes from bootstrap data (DB-sourced)
-  const ultraHealth = status?.ultra ?? null
-
   return (
     <div className="flex flex-col gap-5 pb-8">
 
@@ -1969,40 +1744,16 @@ export default function TradingDashboardPanel({
         status={status}
         pulse={pulse}
         summary={summary}
-        onRefresh={() => loadAll(false, true)}
+        onRefresh={() => loadAll(false)}
         loading={loading}
         lastRefresh={lastRefresh}
       />
 
-      {/* ── NO_SCAN CTA — shown only when truly no data and not loading ───── */}
-      {dashboardState === DS.NO_SCAN && !loading && (
-        <Panel className="p-8 text-center">
-          <div className="flex flex-col items-center gap-3">
-            <span className="text-3xl">🔍</span>
-            <h2 className="text-base font-semibold text-md-on-surface">No Ultra Scan data found</h2>
-            <p className="text-sm text-md-on-surface-var max-w-sm">
-              Run an Ultra Scan to populate the Dashboard. Once a scan completes, data
-              persists across refreshes and deploys.
-            </p>
-            <p className="text-xs text-md-on-surface-var opacity-60 mt-1">
-              Go to <strong>⚡ TURBO</strong> or <strong>🧬 ULTRA</strong> tab to start a scan.
-            </p>
-          </div>
-        </Panel>
-      )}
-
-      {/* ── MAIN 2-COLUMN GRID — show when data exists or while loading ──── */}
-      {(dashboardState !== DS.NO_SCAN || loading) && (
+      {/* ── MAIN 2-COLUMN GRID ───────────────────────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 
         {/* Left: Best Setups + Top Candidates */}
         <div className="lg:col-span-2 xl:col-span-3 flex flex-col gap-6">
-          <TopMoversPanel
-            topMovers={topMovers}
-            loading={loading}
-            onOpenChart={openChart}
-            onOpenNews={openNews}
-          />
           <BestSetupsToday
             setups={setups}
             loading={loading}
@@ -2026,10 +1777,9 @@ export default function TradingDashboardPanel({
           <AIMarketBrief brief={brief} loading={loading} />
           <MarketNewsPanel news={news} loading={loading} />
           <RiskAlertsPanel alerts={risk} loading={loading} />
-          <DataHealthCard scanner={status?.scanner} ultra={ultraHealth} loading={loading} />
+          <DataHealthCard scanner={status?.scanner} ultra={status?.ultra} loading={loading} />
         </div>
       </div>
-      )}
 
       {/* ── SECTOR STRENGTH ─────────────────────────────────────────────── */}
       <SectorStrengthPanel sectors={sectors} loading={loading} />
