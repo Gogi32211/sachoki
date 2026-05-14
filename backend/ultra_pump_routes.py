@@ -421,36 +421,200 @@ def get_export_manifest(run_id: int) -> dict:
 
 # ── Control endpoints (Phase 5 fills behavior; Phase 1 = stubs) ─────────────
 
+def _rebuild_in_background(run_id: int, overrides: dict | None = None) -> None:
+    """Re-derive downstream artifacts (patterns / lift / split / recs) from
+    existing episodes + pre_pump_* parquets — does NOT re-fetch bars.
+
+    `overrides` (optional) merges into the original run's settings_json — used
+    by recalculate to apply a new split_impact_window_days etc.
+    """
+    import json as _json
+    from datetime import datetime as _dt
+    from pathlib import Path as _P
+    from replay_storage import (
+        run_dir as _rd, write_parquet as _wp, write_json as _wj,
+        query_parquet as _qp,
+    )
+    from db import get_db as _gdb, USE_PG as _PG
+    from ultra_pump_research_engine import (
+        _MISSED_RECOMMENDED_FIXES, _ARTIFACT_DESCRIPTIONS,
+        _derived_settings_hash, _write_empty_artifact, artifact_schema,
+        DEFAULT_SPLIT_IMPACT_WINDOW,
+    )
+    from ultra_pump_patterns import mine_patterns, sample_baseline_windows
+    from ultra_pump_split import (
+        classify_episodes_split_status, build_split_partitions,
+        split_aware_pattern_stats,
+    )
+    from ultra_pump_recommendations import build_recommendations
+
+    rdir = _rd(run_id)
+    if not rdir.exists():
+        return
+
+    ph = "%s" if _PG else "?"
+    with _gdb() as db:
+        db.execute(f"SELECT * FROM ultra_pump_runs WHERE id={ph}", [run_id])
+        row = db.fetchone()
+    if not row:
+        return
+    settings_json = row.get("settings_json") if isinstance(row, dict) else None
+    payload = {}
+    if settings_json:
+        try:
+            payload = _json.loads(settings_json)
+        except Exception:
+            payload = {}
+    if overrides:
+        payload.update(overrides)
+
+    # Load existing artifacts
+    def _load(slot: str) -> list[dict]:
+        p = rdir / f"{slot}.parquet"
+        if not p.exists() or p.stat().st_size == 0:
+            return []
+        try:
+            return _qp(p, [], sort_col="episode_id" if "episode" in slot else "pattern_key",
+                       sort_dir="ASC", limit=1_000_000, offset=0)
+        except Exception:
+            return []
+
+    episodes        = _load("pump_episodes")
+    pre_pump_bars   = _load("pre_pump_ultra_bars")
+    pre_pump_signals= _load("pre_pump_ultra_signals")
+    pre_pump_combos = _load("pre_pump_ultra_combinations")
+    if not episodes:
+        return
+
+    pump_horizon    = int(payload.get("pump_horizon") or 60)
+    pre_pump_window = int(payload.get("pre_pump_window_bars") or 14)
+    split_window    = int(payload.get("split_impact_window_days") or DEFAULT_SPLIT_IMPACT_WINDOW)
+
+    # Re-mine patterns
+    baseline_windows_rows = sample_baseline_windows(
+        episodes, pre_pump_window_bars=pre_pump_window, pump_horizon=pump_horizon,
+    )
+    baseline_total = len(baseline_windows_rows)
+    pattern_rows, lift_rows, timing_rows = mine_patterns(
+        episodes, pre_pump_bars, pre_pump_signals, pre_pump_combos,
+        baseline_total=baseline_total,
+    )
+
+    # Re-classify splits
+    episodes_with_split = classify_episodes_split_status(
+        episodes, split_impact_window_days=split_window,
+    )
+    partitions = build_split_partitions(episodes_with_split)
+    split_impact_rows, lift_rows_updated = split_aware_pattern_stats(
+        pattern_rows, lift_rows, episodes_with_split,
+        pre_pump_signals, pre_pump_combos,
+    )
+
+    # Rewrite artifacts
+    def _rw(slot: str, rows: list[dict], reason: str) -> None:
+        p = rdir / f"{slot}.parquet"
+        if rows:
+            _wp(p, rows)
+        else:
+            _write_empty_artifact(p, artifact_schema(slot), reason)
+
+    _rw("ultra_pattern_stats", pattern_rows, "No patterns (rebuild).")
+    _rw("ultra_pattern_lift_stats", lift_rows_updated, "No lift rows (rebuild).")
+    _rw("ultra_timing_stats", timing_rows, "No timing rows (rebuild).")
+    _rw("baseline_windows", baseline_windows_rows, "No baseline windows (rebuild).")
+    _rw("split_impact_stats", split_impact_rows, "No split-impact stats (rebuild).")
+    _rw("split_related_pumps", partitions["split_related_pumps"], "No split-related (rebuild).")
+    _rw("clean_non_split_pumps", partitions["clean_non_split_pumps"], "No clean (rebuild).")
+    _rw("post_reverse_split_pumps", partitions["post_reverse_split_pumps"], "No post-reverse (rebuild).")
+
+    # Recommendations
+    summary = {
+        "total_episodes": len(episodes),
+        "rebuild": True,
+        "baseline_total": baseline_total,
+        "pattern_count": len(pattern_rows),
+    }
+    recs_bundle = build_recommendations(pattern_rows, lift_rows_updated, summary=summary)
+    created_at_iso = _dt.utcnow().isoformat() + "Z"
+    derived_hash = _derived_settings_hash(payload)
+    _wj(rdir / "ultra_recommendations.json", {
+        "run_id": run_id,
+        "generated_at": created_at_iso,
+        "derived_settings_hash": derived_hash,
+        "rebuild": True,
+        **recs_bundle,
+    })
+
+
 @router.post("/{run_id}/rebuild")
 def rebuild_run(run_id: int, background_tasks: BackgroundTasks) -> dict:
     """Re-derive downstream artifacts (patterns/lift/splits/recs) from existing
-    episodes + pre_pump_ultra_bars. Phase 5 implements the full rebuild path."""
-    return {
-        "run_id": run_id,
-        "queued": False,
-        "phase": "phase_1_foundation",
-        "message": "Rebuild logic is implemented in Phase 5. Phase 1 only stores the foundation.",
-    }
+    episodes + pre_pump parquets. Does NOT re-fetch market bars.
+    """
+    ph = _ph()
+    run = _query_one(f"SELECT id, status FROM ultra_pump_runs WHERE id={ph}", [run_id])
+    if not run:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    state = _get_state()
+    if state.get("running") and state.get("run_id") == run_id:
+        raise HTTPException(status_code=409, detail="Run is still active; cannot rebuild")
+    background_tasks.add_task(_rebuild_in_background, run_id, None)
+    return {"run_id": run_id, "queued": True, "action": "rebuild",
+            "message": "Rebuild queued — patterns, lift, splits, recommendations will be re-derived."}
 
 
 @router.post("/{run_id}/recalculate")
-def recalculate_run(run_id: int, background_tasks: BackgroundTasks) -> dict:
-    return {
-        "run_id": run_id,
-        "queued": False,
-        "phase": "phase_1_foundation",
-        "message": "Recalculate logic is implemented in Phase 5.",
-    }
+def recalculate_run(
+    run_id: int,
+    background_tasks: BackgroundTasks,
+    split_impact_window_days: int | None = None,
+) -> dict:
+    """Like rebuild, but allows tweaking a derived-only setting
+    (e.g. split_impact_window_days) without invalidating episode detection."""
+    ph = _ph()
+    run = _query_one(f"SELECT id FROM ultra_pump_runs WHERE id={ph}", [run_id])
+    if not run:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    state = _get_state()
+    if state.get("running") and state.get("run_id") == run_id:
+        raise HTTPException(status_code=409, detail="Run is still active; cannot recalculate")
+    overrides: dict[str, Any] = {}
+    if split_impact_window_days is not None:
+        if split_impact_window_days not in ALLOWED_SPLIT_IMPACT_WINDOW:
+            raise HTTPException(status_code=400,
+                                detail=f"split_impact_window_days must be one of {sorted(ALLOWED_SPLIT_IMPACT_WINDOW)}")
+        overrides["split_impact_window_days"] = split_impact_window_days
+    background_tasks.add_task(_rebuild_in_background, run_id, overrides)
+    return {"run_id": run_id, "queued": True, "action": "recalculate",
+            "overrides": overrides,
+            "message": "Recalculate queued — derived artifacts will be regenerated with the overrides."}
 
 
 @router.post("/{run_id}/full-rescan")
 def full_rescan_run(run_id: int, background_tasks: BackgroundTasks) -> dict:
-    return {
-        "run_id": run_id,
-        "queued": False,
-        "phase": "phase_1_foundation",
-        "message": "Full rescan logic is implemented in Phase 5. Start a new run for a clean re-detection.",
-    }
+    """Re-run the entire detection pipeline from scratch using the original
+    settings. This re-fetches market bars and rebuilds every artifact."""
+    state = _get_state()
+    if state.get("running"):
+        raise HTTPException(status_code=409,
+                            detail=f"Another run is in progress (run_id={state.get('run_id')})")
+    ph = _ph()
+    run = _query_one(f"SELECT id, settings_json FROM ultra_pump_runs WHERE id={ph}", [run_id])
+    if not run:
+        raise HTTPException(status_code=404, detail=f"run {run_id} not found")
+    settings_json = run.get("settings_json") if isinstance(run, dict) else None
+    if not settings_json:
+        raise HTTPException(status_code=400, detail="run has no settings_json to replay")
+    try:
+        payload = json.loads(settings_json)
+    except Exception:
+        raise HTTPException(status_code=400, detail="run settings_json is malformed")
+
+    new_run_id = _insert_run_row(payload)
+    background_tasks.add_task(_run_engine, new_run_id, payload)
+    return {"run_id": new_run_id, "queued": True, "action": "full_rescan",
+            "source_run_id": run_id,
+            "message": "Full rescan queued — a NEW run was created with the original settings."}
 
 
 # ── Export ───────────────────────────────────────────────────────────────────

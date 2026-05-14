@@ -972,33 +972,52 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
         progress_path = rdir / "progress.json"
         write_json(progress_path, get_state())
 
-        # Research bundle stub (Phase 5 fills full content)
+        # ── Phase 5: recommendations ─────────────────────────────────────────
+        from ultra_pump_recommendations import build_recommendations
+        summary = {
+            "total_episodes": len(all_episodes),
+            "x2_to_x4_count": len(x2_to_x4),
+            "x4_plus_count":  len(x4_plus),
+            "caught_count":   len(caught_list),
+            "missed_count":   len(missed_list),
+            "symbols_scanned": completed,
+            "baseline_total": baseline_total,
+            "pattern_count":  len(pattern_rows),
+        }
+        recs_bundle = build_recommendations(
+            pattern_rows, lift_rows_updated, summary=summary,
+        )
+        recs_path = rdir / "ultra_recommendations.json"
+        write_json(recs_path, {
+            "run_id": run_id,
+            "generated_at": created_at_iso,
+            "derived_settings_hash": derived_hash,
+            **recs_bundle,
+        })
+
         research_bundle = {
             "run_id": run_id,
             "generated_at": created_at_iso,
             "derived_settings_hash": derived_hash,
-            "summary": {
-                "total_episodes": len(all_episodes),
-                "x2_to_x4_count": len(x2_to_x4),
-                "x4_plus_count":  len(x4_plus),
-                "caught_count":   len(caught_list),
-                "missed_count":   len(missed_list),
-                "symbols_scanned": completed,
-            },
+            "summary": summary,
+            "verdict_counts": recs_bundle.get("verdict_counts", {}),
+            "top_recommendations": recs_bundle.get("recommendations", [])[:25],
             "warnings": run_warnings,
-            "phase": "phase_1_foundation",
+            "phase": "phase_5_complete",
+            "settings": {
+                "universe": universe,
+                "pump_target": pump_target,
+                "pump_horizon": pump_horizon,
+                "pre_pump_window_bars": pre_pump_window,
+                "scanner_detection_window_bars": detection_window,
+                "lookback_bars": lookback_bars,
+                "split_impact_window_days": int(payload.get("split_impact_window_days") or DEFAULT_SPLIT_IMPACT_WINDOW),
+                "start_date": start_date,
+                "end_date": end_date,
+            },
         }
         rb_path = rdir / "research_bundle.json"
         write_json(rb_path, research_bundle)
-
-        # Recommendations stub
-        recs_path = rdir / "ultra_recommendations.json"
-        write_json(recs_path, {
-            "run_id": run_id,
-            "phase": "phase_1_foundation",
-            "recommendations": [],
-            "reason": "Recommendations are produced in Phase 5.",
-        })
 
         # Export manifest
         export_manifest = {
