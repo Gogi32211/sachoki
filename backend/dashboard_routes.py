@@ -40,6 +40,77 @@ def _store(key: str, value: Any):
     return value
 
 
+def _load_ultra_rows(tf: str) -> dict:
+    """
+    Load Ultra Scan rows for the given tf without hardcoding a universe.
+
+    Strategy:
+      1. Check in-memory cache for common universes (sp500, nasdaq, sp500+nasdaq).
+      2. Fall back to DB: find the latest is_latest=1 completed run for the tf
+         regardless of universe; hydrate memory cache from DB; return rows.
+
+    Always returns a dict (never raises):
+        {
+          "rows":            list[dict],
+          "source":          "memory" | "db" | "none",
+          "universe":        str,
+          "tf":              str,
+          "scan_run_id":     int | None,
+          "candidate_count": int,
+          "error":           str | None,
+        }
+    """
+    meta = {
+        "rows": [], "source": "none", "universe": "", "tf": tf,
+        "scan_run_id": None, "candidate_count": 0, "error": None,
+    }
+
+    try:
+        from ultra_orchestrator import get_ultra_results
+        for universe in ("sp500", "nasdaq", "sp500+nasdaq"):
+            try:
+                resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch="")
+            except Exception:
+                continue
+            rows = resp.get("results", []) if isinstance(resp, dict) else []
+            if rows:
+                meta.update({
+                    "rows":             rows,
+                    "source":           "memory",
+                    "universe":         universe,
+                    "candidate_count":  len(rows),
+                })
+                return meta
+    except Exception as exc:
+        meta["error"] = f"memory check: {exc}"
+
+    # DB fallback — find latest completed run for tf, any universe
+    try:
+        from ultra_orchestrator import get_ultra_latest_from_db, load_latest_ultra_scan_from_db, get_ultra_results
+        info = get_ultra_latest_from_db(tf=tf)
+        if not info.get("has_data"):
+            if info.get("error"):
+                meta["error"] = (meta["error"] or "") + f" db lookup: {info['error']}"
+            return meta
+
+        universe     = info.get("universe") or ""
+        nasdaq_batch = info.get("nasdaq_batch") or ""
+        if load_latest_ultra_scan_from_db(universe, tf, nasdaq_batch):
+            resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+            rows = resp.get("results", []) if isinstance(resp, dict) else []
+            meta.update({
+                "rows":            rows,
+                "source":          "db",
+                "universe":        universe,
+                "scan_run_id":     info.get("scan_run_id"),
+                "candidate_count": len(rows),
+            })
+    except Exception as exc:
+        meta["error"] = (meta["error"] or "") + f" db fallback: {exc}"
+
+    return meta
+
+
 # ── Market-open helpers ───────────────────────────────────────────────────────
 
 def _market_status() -> dict:
@@ -193,18 +264,9 @@ def dashboard_top50(
         return val
 
     cards = []
+    src_meta = _load_ultra_rows(tf)
     try:
-        from ultra_orchestrator import get_ultra_results, load_latest_ultra_scan_from_db
-        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-        rows = resp.get("results", []) if isinstance(resp, dict) else []
-        # Memory cache miss → try DB (survives deploy/restart)
-        if not rows:
-            try:
-                if load_latest_ultra_scan_from_db("sp500", tf):
-                    resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-                    rows = resp.get("results", []) if isinstance(resp, dict) else []
-            except Exception as _db_exc:
-                log.warning("top50 DB fallback error: %s", _db_exc)
+        rows = list(src_meta.get("rows") or [])
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:limit]:
             score = float(r.get("ultra_score", 0) or 0)
@@ -234,8 +296,27 @@ def dashboard_top50(
     except Exception as exc:
         log.warning("top50 error: %s", exc)
 
-    payload = {"cards": cards, "count": len(cards), "tf": tf}
-    return _store(cache_key, payload)
+    payload = {
+        "cards":   cards,
+        "count":   len(cards),
+        "tf":      tf,
+        "source":  src_meta.get("source"),
+        "universe": src_meta.get("universe"),
+        "scan_run_id":     src_meta.get("scan_run_id"),
+        "candidate_count": src_meta.get("candidate_count"),
+        "diagnostics": {
+            "latest_scan_found": src_meta.get("source") != "none",
+            "error":             src_meta.get("error"),
+            "reason_empty": None if cards else (
+                "no_ultra_scan_in_db_or_memory" if src_meta.get("source") == "none"
+                else "scan_returned_zero_candidates"
+            ),
+        },
+    }
+    # Don't cache empty results — allow next call to re-check DB/memory
+    if cards:
+        _store(cache_key, payload)
+    return payload
 
 
 @router.get("/sector-heat")
@@ -369,9 +450,7 @@ def dashboard_summary():
         summary.update({"scan_total": 0, "bull_count": 0, "strong_count": 0, "last_scan": None})
 
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp     = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows     = resp.get("results", []) if isinstance(resp, dict) else []
+        rows     = list(_load_ultra_rows("1d").get("rows") or [])
         top_band = [r for r in rows if r.get("ultra_score_band") in ("A", "A+", "S")]
         summary["ultra_total"]    = len(rows)
         summary["ultra_top_band"] = len(top_band)
@@ -487,12 +566,11 @@ def dashboard_best_setups(tf: str = Query("1d")):
     if entry and time.time() - entry[0] < _AI_CACHE_TTL:
         return {"setups": entry[1], "cached": True}
 
-    # Fetch top candidates
+    # Fetch top candidates from memory or DB — any universe
     candidates = []
+    src_meta = _load_ultra_rows(tf)
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-        rows = resp.get("results", []) if isinstance(resp, dict) else []
+        rows = list(src_meta.get("rows") or [])
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:20]:
             candidates.append({
@@ -508,7 +586,18 @@ def dashboard_best_setups(tf: str = Query("1d")):
         log.warning("best_setups candidates error: %s", exc)
 
     if not candidates:
-        return {"setups": [], "cached": False}
+        # Surface the reason; do not cache.
+        return {
+            "setups":  [],
+            "cached":  False,
+            "source":  src_meta.get("source"),
+            "universe": src_meta.get("universe"),
+            "diagnostics": {
+                "latest_scan_found": src_meta.get("source") != "none",
+                "error":             src_meta.get("error"),
+                "reason_empty":      "no_ultra_scan_in_db_or_memory",
+            },
+        }
 
     # Try Claude
     setups = None
@@ -541,8 +630,15 @@ def dashboard_best_setups(tf: str = Query("1d")):
     if not setups:
         setups = _deterministic_setups(candidates)
 
-    _setup_cache[cache_key] = (time.time(), setups)
-    return {"setups": setups, "cached": False}
+    # Don't cache empty setups — let next call regenerate from latest DB data
+    if setups:
+        _setup_cache[cache_key] = (time.time(), setups)
+    return {
+        "setups":   setups,
+        "cached":   False,
+        "source":   src_meta.get("source"),
+        "universe": src_meta.get("universe"),
+    }
 
 
 # ── AI Market Brief ────────────────────────────────────────────────────────────
@@ -633,11 +729,9 @@ def dashboard_ai_brief():
     except Exception:
         ctx.update({"bull_count": 0, "strong_count": 0})
 
-    # Ultra data
+    # Ultra data — any universe
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp     = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows     = resp.get("results", []) if isinstance(resp, dict) else []
+        rows     = list(_load_ultra_rows("1d").get("rows") or [])
         top_band = [r for r in rows if r.get("ultra_score_band") in ("A", "A+", "S")]
         ctx["ultra_top_band"] = len(top_band)
         top5 = sorted(rows, key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)[:5]
@@ -722,12 +816,11 @@ def dashboard_news(limit: int = Query(8, ge=1, le=30)):
         }
         return payload  # do NOT cache unconfigured response
 
-    # Get top candidate tickers from latest scan (memory or DB)
+    # Get top candidate tickers from latest scan (memory or DB, any universe)
     tickers: list[str] = []
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows = resp.get("results", []) or []
+        src_meta = _load_ultra_rows("1d")
+        rows = list(src_meta.get("rows") or [])
         rows_sorted = sorted(rows, key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         tickers = [r["ticker"] for r in rows_sorted[:6] if r.get("ticker")]
     except Exception as exc:
@@ -1286,19 +1379,33 @@ def dashboard_watchlist(tickers: str = Query("")):
 # ── Bootstrap — single endpoint that hydrates the entire Dashboard ────────────
 
 @router.get("/bootstrap")
-def dashboard_bootstrap(tf: str = Query("1d")):
+def dashboard_bootstrap(
+    tf:    str  = Query("1d"),
+    force: bool = Query(False),
+):
     """
     Single endpoint that returns everything the Dashboard needs on load/refresh.
     Reads from DB for persistence across restarts; falls back gracefully.
 
+    Pass force=true to clear ultra-related dashboard caches before fetching
+    (used by the Refresh button).
+
     dashboard_state values:
-      NO_SCAN     — no Ultra scan data found anywhere
-      SCAN_READY  — latest completed scan data available
+      NO_SCAN      — no Ultra scan data found anywhere
+      SCAN_READY   — latest completed scan data available
       SCAN_RUNNING — scan is currently running
-      SCAN_STALE  — data older than 48h
-      ERROR       — internal failure
+      SCAN_STALE   — data older than 48h
+      ERROR        — internal failure
     """
     from datetime import datetime, timezone
+
+    # Force-refresh: drop ultra-related cache entries so we re-read DB/memory
+    if force:
+        for key in list(_cache.keys()):
+            if any(k in key for k in ("top50", "summary", "fresh_signals", "market_news", "top_movers")):
+                _cache.pop(key, None)
+        _setup_cache.clear()
+        _brief_cache.clear()
 
     result: dict[str, Any] = {
         "dashboard_state": "NO_SCAN",
@@ -1316,12 +1423,15 @@ def dashboard_bootstrap(tf: str = Query("1d")):
             "tz":      {"status": "idle", "last_run_at": None},
             "massive": {"configured": False, "status": "not_configured"},
         },
+        "diagnostics":     {"errors": [], "force": force},
     }
 
-    # ── Latest scan info (DB-first) ──────────────────────────────────────────
+    # ── Latest scan info (DB-first, any universe) ────────────────────────────
+    db_info: dict = {"has_data": False}
+    is_running = False
     try:
-        from ultra_orchestrator import get_ultra_latest_from_db, get_ultra_status, get_ultra_results
-        db_info = get_ultra_latest_from_db(universe="sp500", tf=tf)
+        from ultra_orchestrator import get_ultra_latest_from_db, get_ultra_status
+        db_info = get_ultra_latest_from_db(tf=tf)
         mem_status = get_ultra_status()
 
         result["latest_scan"] = db_info
@@ -1335,24 +1445,24 @@ def dashboard_bootstrap(tf: str = Query("1d")):
         else:
             result["dashboard_state"] = "NO_SCAN"
 
-        # Data health — ultra
         last_at = db_info.get("finished_at") if db_info.get("has_data") else None
         result["data_health"]["ultra"] = {
             "status":      "running"   if is_running else
                            "completed" if db_info.get("has_data") else "idle",
-            "last_run_at": last_at,
+            "last_run_at":      last_at,
             "total_candidates": db_info.get("total_candidates", 0),
-            "source":      "db" if db_info.get("has_data") else "memory",
+            "source":           "db" if db_info.get("has_data") else "memory",
         }
     except Exception as exc:
         log.warning("bootstrap: ultra info error: %s", exc)
+        result["diagnostics"]["errors"].append(f"latest_scan: {exc}")
 
-    # ── Top candidates ───────────────────────────────────────────────────────
+    # ── Top candidates (any universe via _load_ultra_rows) ───────────────────
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-        rows = resp.get("results", []) or []
+        src_meta = _load_ultra_rows(tf)
+        rows = list(src_meta.get("rows") or [])
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
+        result["data_health"]["ultra"]["source"] = src_meta.get("source") or result["data_health"]["ultra"].get("source")
         cards = []
         for r in rows[:50]:
             score = float(r.get("ultra_score", 0) or 0)
@@ -1383,9 +1493,28 @@ def dashboard_bootstrap(tf: str = Query("1d")):
 
         # Best setups (deterministic from DB candidates if present)
         if cards:
-            result["best_setups"] = _deterministic_setups(cards)
+            result["best_setups"] = _deterministic_setups([
+                {
+                    "ticker":      c["ticker"],
+                    "ultra_score": c["ultra_score"],
+                    "band":        c["band"],
+                    "abr":         c.get("abr", ""),
+                    "ema_ok":      c.get("ema_ok", False),
+                    "vol_bucket":  c.get("vol_bucket", ""),
+                }
+                for c in cards
+            ])
+
+            # If memory had rows but DB lookup returned nothing, still surface
+            # SCAN_READY (memory hit). Don't downgrade SCAN_RUNNING.
+            if not is_running and not db_info.get("has_data"):
+                result["dashboard_state"] = "SCAN_READY"
+                result["data_health"]["ultra"]["status"] = "completed"
+                result["data_health"]["ultra"]["source"] = src_meta.get("source") or "memory"
+                result["data_health"]["ultra"]["total_candidates"] = len(cards)
     except Exception as exc:
         log.warning("bootstrap: candidates error: %s", exc)
+        result["diagnostics"]["errors"].append(f"top_candidates: {exc}")
 
     # ── Summary ──────────────────────────────────────────────────────────────
     try:
@@ -1569,10 +1698,8 @@ def _build_mover_list(watchlist_csv: str) -> list[str]:
     symbols: set[str] = set()
 
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
         rows = sorted(
-            resp.get("results", []) or [],
+            _load_ultra_rows("1d").get("rows") or [],
             key=lambda r: float(r.get("ultra_score", 0) or 0),
             reverse=True,
         )
@@ -1645,12 +1772,10 @@ def dashboard_top_movers(
 
     snap_map = _fetch_snapshot_batch(symbols)
 
-    # Build ultra metadata map
+    # Build ultra metadata map — any universe
     ultra_map: dict[str, dict] = {}
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        for r in (resp.get("results") or []):
+        for r in (_load_ultra_rows("1d").get("rows") or []):
             t = (r.get("ticker") or "").upper()
             if not t:
                 continue
@@ -1763,48 +1888,76 @@ def dashboard_top_movers(
 
 
 @router.get("/debug-state")
-def dashboard_debug_state():
-    """Admin helper: verify why dashboard may be empty."""
-    info: dict[str, Any] = {}
+def dashboard_debug_state(tf: str = Query("1d")):
+    """
+    Diagnostic endpoint: expose true Dashboard data state.
+    Does NOT swallow ImportError or DB lookup errors — they are surfaced
+    in `errors` so a missing function or schema mismatch is visible.
+    """
+    errors: list[str] = []
+    now = time.time()
 
-    # DB scan info
+    # ── Latest scan in DB ────────────────────────────────────────────────────
+    db_info: dict = {"has_data": False}
     try:
         from ultra_orchestrator import get_ultra_latest_from_db
-        db_info = get_ultra_latest_from_db()
-        info["latest_ultra_scan_in_db"] = db_info.get("has_data", False)
-        info["latest_ultra_scan_id"]    = db_info.get("scan_run_id")
-        info["db_total_candidates"]     = db_info.get("total_candidates", 0)
-        info["db_finished_at"]          = db_info.get("finished_at")
-        info["db_data_age_seconds"]     = db_info.get("data_age_seconds")
+        db_info = get_ultra_latest_from_db(tf=tf)
+        if db_info.get("error"):
+            errors.append(f"get_ultra_latest_from_db: {db_info['error']}")
     except Exception as exc:
-        info["db_error"] = str(exc)
+        errors.append(f"import get_ultra_latest_from_db: {exc}")
 
-    # Memory cache info
+    # ── Helper-resolved rows (memory or DB) ──────────────────────────────────
+    try:
+        src_meta = _load_ultra_rows(tf)
+        if src_meta.get("error"):
+            errors.append(f"_load_ultra_rows: {src_meta['error']}")
+    except Exception as exc:
+        src_meta = {"rows": [], "source": "none", "universe": "", "error": str(exc)}
+        errors.append(f"_load_ultra_rows: {exc}")
+
+    rows = src_meta.get("rows") or []
+
+    # ── Per-universe memory counts ───────────────────────────────────────────
+    memory_counts: dict[str, int] = {}
     try:
         from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows = resp.get("results", []) or []
-        info["memory_candidates"] = len(rows)
-        info["memory_last_scan"]  = resp.get("last_scan")
+        for universe in ("sp500", "nasdaq", "sp500+nasdaq"):
+            try:
+                resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch="")
+                memory_counts[universe] = len(resp.get("results", []) or [])
+            except Exception as exc:
+                errors.append(f"memory[{universe}]: {exc}")
     except Exception as exc:
-        info["memory_error"] = str(exc)
+        errors.append(f"import get_ultra_results: {exc}")
 
-    # Dashboard top candidates count
-    try:
-        hit, val = _cached("top50_1d_50", ttl=60)
-        info["cached_top_candidates"] = len(val.get("cards", [])) if (hit and val) else 0
-    except Exception:
-        info["cached_top_candidates"] = 0
+    # ── Cache state ──────────────────────────────────────────────────────────
+    cache_state = {
+        k: {"age_s": int(now - ts), "has_data": bool(v)}
+        for k, (ts, v) in _cache.items()
+    }
+    setup_cache_keys = list(_setup_cache.keys())
+    brief_cache_keys = list(_brief_cache.keys())
 
-    # Massive news
-    info["massive_configured"] = _massive_news_configured()
-    try:
-        hit, val = _cached("market_news", ttl=_MARKET_NEWS_TTL)
-        info["cached_news_items"] = len(val.get("items", [])) if (hit and val) else 0
-    except Exception:
-        info["cached_news_items"] = 0
-
-    # AI analysis cache count
-    info["ai_analysis_cache_count"] = len(_news_analysis_cache)
-    info["source"] = "db+memory"
-    return info
+    return {
+        "latest_ultra_scan_found":         bool(db_info.get("has_data")),
+        "latest_ultra_scan_id":            db_info.get("scan_run_id"),
+        "latest_ultra_scan_status":        db_info.get("status"),
+        "latest_ultra_scan_finished_at":   db_info.get("finished_at"),
+        "latest_ultra_candidate_count":    db_info.get("total_candidates"),
+        "latest_ultra_scan_universe":      db_info.get("universe"),
+        "latest_ultra_scan_tf":            db_info.get("tf"),
+        "latest_ultra_data_age_seconds":   db_info.get("data_age_seconds"),
+        "dashboard_top_candidates_count":  len(rows),
+        "selected_universe":               src_meta.get("universe"),
+        "selected_tf":                     tf,
+        "source_used_by_dashboard":        src_meta.get("source"),
+        "memory_counts":                   memory_counts,
+        "cache_keys":                      cache_state,
+        "setup_cache_keys":                setup_cache_keys,
+        "brief_cache_keys":                brief_cache_keys,
+        "massive_configured":              _massive_news_configured(),
+        "ai_analysis_cache_count":         len(_news_analysis_cache),
+        "errors":                          errors,
+        "server_time":                     datetime.now(timezone.utc).isoformat(),
+    }

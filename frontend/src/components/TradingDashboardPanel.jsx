@@ -1899,11 +1899,13 @@ export default function TradingDashboardPanel({
     })
   }, [])
 
-  const loadAll = useCallback(async (silent = false) => {
+  const loadAll = useCallback(async ({ initial = false, force = false } = {}) => {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
 
-    if (!silent) {
+    // initial: clear UI and show LOADING (first mount only).
+    // non-initial: keep current data visible, show refreshing indicator.
+    if (initial) {
       setLoading(true)
       setDashboardState(DS.LOADING)
     } else {
@@ -1911,8 +1913,9 @@ export default function TradingDashboardPanel({
     }
 
     try {
-      // Wave 1: bootstrap (single call, DB-backed, survives restarts)
-      const bootstrap = await apiFetch('/bootstrap')
+      // Wave 1: bootstrap (single call, DB-backed, survives restarts).
+      // Pass force=true on user-triggered Refresh to clear server caches.
+      const bootstrap = await apiFetch(`/bootstrap?tf=1d${force ? '&force=true' : ''}`)
       _applyBootstrap(bootstrap)
 
       // Wave 2: supplemental live data that bootstrap doesn't include
@@ -1952,14 +1955,14 @@ export default function TradingDashboardPanel({
         setDashboardState(prev => prev === DS.LOADING ? DS.ERROR : prev)
       }
     } finally {
-      if (!silent) setLoading(false)
+      if (initial) setLoading(false)
       setRefreshing(false)
     }
   }, [watchlistTickers, _applyBootstrap])
 
   useEffect(() => {
-    loadAll()
-    const t = setInterval(() => loadAll(true), 60_000)
+    loadAll({ initial: true })
+    const t = setInterval(() => loadAll({ initial: false, force: false }), 60_000)
     return () => { clearInterval(t); abortRef.current?.abort() }
   }, [loadAll])
 
@@ -2012,7 +2015,7 @@ export default function TradingDashboardPanel({
         status={status}
         pulse={pulse}
         summary={summary}
-        onRefresh={() => loadAll(false)}
+        onRefresh={() => loadAll({ initial: false, force: true })}
         loading={loading || refreshing}
         lastRefresh={lastRefresh}
       />
