@@ -1526,6 +1526,242 @@ def dashboard_bootstrap(tf: str = Query("1d")):
     return result
 
 
+# ── Top Movers ────────────────────────────────────────────────────────────────
+
+_TOP_MOVERS_TTL = 120  # 2 min
+
+def _fetch_snapshot_batch(symbols: list[str]) -> dict[str, dict]:
+    """
+    Fetch Massive /v2/snapshot for up to 300 symbols.
+    Returns dict keyed by uppercase ticker symbol.
+    Never raises — returns {} on failure.
+    """
+    import os
+    import requests as _requests
+    from data_polygon import _BASE
+
+    key = (os.environ.get("MASSIVE_API_KEY") or os.environ.get("POLYGON_API_KEY") or "")
+    if not key or not symbols:
+        return {}
+
+    result: dict[str, dict] = {}
+    for i in range(0, len(symbols), 100):
+        batch = symbols[i : i + 100]
+        try:
+            r = _requests.get(
+                f"{_BASE}/v2/snapshot/locale/us/markets/stocks/tickers",
+                params={"tickers": ",".join(batch), "apiKey": key},
+                timeout=(5, 15),
+            )
+            if r.status_code == 200:
+                for item in r.json().get("tickers", []):
+                    sym = (item.get("ticker") or "").upper()
+                    if sym:
+                        result[sym] = item
+        except Exception as _exc:
+            log.warning("top_movers: snapshot batch error: %s", _exc)
+
+    return result
+
+
+def _build_mover_list(watchlist_csv: str) -> list[str]:
+    """Return deduplicated tracked symbol list: top Ultra candidates + watchlist."""
+    symbols: set[str] = set()
+
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
+        rows = sorted(
+            resp.get("results", []) or [],
+            key=lambda r: float(r.get("ultra_score", 0) or 0),
+            reverse=True,
+        )
+        for r in rows[:200]:
+            t = (r.get("ticker") or "").upper().strip()
+            if t:
+                symbols.add(t)
+    except Exception as exc:
+        log.warning("top_movers: ultra list error: %s", exc)
+
+    if watchlist_csv:
+        for t in watchlist_csv.split(","):
+            t = t.strip().upper()
+            if t:
+                symbols.add(t)
+
+    return sorted(symbols)
+
+
+def _score_bucket(score: float) -> str:
+    if score >= 80: return "BUY_READY"
+    if score >= 65: return "WATCH_CLOSELY"
+    if score >= 50: return "WAIT_CONFIRMATION"
+    if score >= 35: return "TOO_LATE"
+    return "AVOID"
+
+
+@router.get("/top-movers")
+def dashboard_top_movers(
+    limit:     int = Query(5, ge=1, le=20),
+    watchlist: str = Query(""),
+    session:   str = Query("both"),
+):
+    """
+    Top movers from our tracked tickers: Ultra scan candidates + watchlist.
+    Uses Massive snapshot API for current price / premarket data.
+    Cached 2 min. Pass watchlist= as comma-separated tickers from the frontend.
+    """
+    wl_hash   = abs(hash(watchlist)) % 1_000_000
+    cache_key = f"top_movers_{limit}_{wl_hash}"
+    hit, val  = _cached(cache_key, ttl=_TOP_MOVERS_TTL)
+    if hit:
+        return val
+
+    _EMPTY = {
+        "source":     "massive",
+        "generated_at": datetime.now(timezone.utc).isoformat(),
+        "regular":    {"gainers": [], "losers": []},
+        "premarket":  {"gainers": [], "losers": [], "available": False},
+    }
+
+    symbols = _build_mover_list(watchlist)
+    if not symbols:
+        return {
+            **_EMPTY,
+            "has_symbols": False,
+            "symbol_count": 0,
+            "universe_source": "latest_ultra_scan_plus_watchlist",
+            "message": "No tracked symbols. Run Ultra Scan or add tickers to Watchlist.",
+        }
+
+    if not _massive_news_configured():
+        return {
+            **_EMPTY,
+            "has_symbols": True,
+            "symbol_count": len(symbols),
+            "universe_source": "latest_ultra_scan_plus_watchlist",
+            "message": "Massive API not configured. Set MASSIVE_API_KEY.",
+        }
+
+    snap_map = _fetch_snapshot_batch(symbols)
+
+    # Build ultra metadata map
+    ultra_map: dict[str, dict] = {}
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
+        for r in (resp.get("results") or []):
+            t = (r.get("ticker") or "").upper()
+            if not t:
+                continue
+            sc = float(r.get("ultra_score", 0) or 0)
+            ultra_map[t] = {
+                "ultra_score":   round(sc, 1),
+                "action_bucket": _score_bucket(sc),
+                "abr_category":  r.get("abr", "") or r.get("abr_label", "") or "",
+                "ema_ok":        bool(r.get("ema_ok", False)),
+            }
+    except Exception as exc:
+        log.warning("top_movers: ultra map error: %s", exc)
+
+    regular_rows:   list[dict] = []
+    premarket_rows: list[dict] = []
+    pm_available = False
+
+    for sym, snap in snap_map.items():
+        day      = snap.get("day")      or {}
+        prev_day = snap.get("prevDay")  or {}
+        pre_mkt  = snap.get("preMarket") or {}
+
+        price      = day.get("c") or (snap.get("lastTrade") or {}).get("p")
+        prev_close = prev_day.get("c")
+        chg_pct    = snap.get("todaysChangePerc")
+
+        if price is None and chg_pct is None:
+            continue
+
+        if chg_pct is None and price and prev_close and float(prev_close) != 0:
+            chg_pct = (float(price) - float(prev_close)) / float(prev_close) * 100
+
+        if chg_pct is None:
+            continue
+
+        chg_pct = round(float(chg_pct), 2)
+        ui = ultra_map.get(sym, {})
+
+        risk_flags: list[str] = []
+        if chg_pct >= 20:
+            risk_flags.append("PARABOLIC")
+        elif chg_pct >= 12:
+            risk_flags.append("EXTENDED")
+        if ui.get("action_bucket") == "TOO_LATE":
+            risk_flags.append("TOO_LATE")
+        if chg_pct <= -15:
+            risk_flags.append("SHARP_DROP")
+
+        mover: dict = {
+            "symbol":               sym,
+            "price":                round(float(price), 2) if price is not None else None,
+            "previous_close":       round(float(prev_close), 2) if prev_close else None,
+            "change_pct":           chg_pct,
+            "volume":               day.get("v"),
+            "ultra_score":          ui.get("ultra_score"),
+            "action_bucket":        ui.get("action_bucket") or None,
+            "abr_category":         ui.get("abr_category") or None,
+            "risk_flags":           risk_flags,
+            "premarket_price":      None,
+            "premarket_change_pct": None,
+            "premarket_volume":     None,
+        }
+        regular_rows.append(mover)
+
+        # Premarket
+        pm_price = pre_mkt.get("c")
+        pm_vol   = pre_mkt.get("v")
+        if pm_price and prev_close and float(prev_close) != 0:
+            pm_chg = (float(pm_price) - float(prev_close)) / float(prev_close) * 100
+            pm_available = True
+            pm_mover = {
+                **mover,
+                "premarket_price":      round(float(pm_price), 2),
+                "premarket_change_pct": round(pm_chg, 2),
+                "premarket_volume":     pm_vol,
+            }
+            premarket_rows.append(pm_mover)
+
+    gainers = sorted(
+        [m for m in regular_rows  if m["change_pct"] > 0],
+        key=lambda m: m["change_pct"], reverse=True,
+    )[:limit]
+    losers = sorted(
+        [m for m in regular_rows  if m["change_pct"] < 0],
+        key=lambda m: m["change_pct"],
+    )[:limit]
+    pm_gainers = sorted(
+        [m for m in premarket_rows if (m["premarket_change_pct"] or 0) > 0],
+        key=lambda m: m["premarket_change_pct"] or 0, reverse=True,
+    )[:limit]
+    pm_losers = sorted(
+        [m for m in premarket_rows if (m["premarket_change_pct"] or 0) < 0],
+        key=lambda m: m["premarket_change_pct"] or 0,
+    )[:limit]
+
+    payload = {
+        "has_symbols":      True,
+        "symbol_count":     len(symbols),
+        "source":           "massive",
+        "universe_source":  "latest_ultra_scan_plus_watchlist",
+        "generated_at":     datetime.now(timezone.utc).isoformat(),
+        "regular":  {"gainers": gainers, "losers": losers},
+        "premarket": {
+            "gainers":   pm_gainers,
+            "losers":    pm_losers,
+            "available": pm_available,
+        },
+    }
+    return _store(cache_key, payload)
+
+
 @router.get("/debug-state")
 def dashboard_debug_state():
     """Admin helper: verify why dashboard may be empty."""
