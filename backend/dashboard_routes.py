@@ -100,14 +100,27 @@ def _scanner_status() -> dict:
 
 
 def _ultra_status() -> dict:
+    """Return live ultra status, falling back to DB for last_scan when memory is empty."""
     try:
         from ultra_orchestrator import get_ultra_status
         s = get_ultra_status()
+        last_scan = s.get("completed_at")
+
+        # If memory shows no completed scan, check DB
+        if not last_scan:
+            try:
+                from ultra_orchestrator import get_ultra_latest_from_db
+                db_info = get_ultra_latest_from_db()
+                if db_info.get("has_data"):
+                    last_scan = db_info.get("finished_at")
+            except Exception:
+                pass
+
         return {
             "running":   s.get("running", False),
             "done":      s.get("done", 0),
             "total":     s.get("total", 0),
-            "last_scan": s.get("completed_at"),
+            "last_scan": last_scan,
         }
     except Exception as exc:
         log.warning("ultra_status error: %s", exc)
@@ -679,17 +692,91 @@ def dashboard_ai_brief():
     return {**brief, "cached": False}
 
 
+_MARKET_NEWS_TTL = 300  # 5 min
+
 @router.get("/news")
-def dashboard_news():
+def dashboard_news(limit: int = Query(8, ge=1, le=30)):
     """
-    Market news placeholder. Returns empty items until a news API is integrated.
-    UI shows a clean empty state rather than an error.
+    Market news from Massive API for top Ultra Scan candidates.
+    Deduplicates headlines across tickers and returns the freshest items.
     """
-    return {
-        "items":   [],
-        "source":  "none",
-        "message": "No relevant candidate news found. Connect a news API to enable this section.",
+    hit, val = _cached("market_news", ttl=_MARKET_NEWS_TTL)
+    if hit:
+        return val
+
+    # Check Massive configured first — fast path
+    if not _massive_news_configured():
+        payload = {
+            "items":              [],
+            "source":             "massive",
+            "provider_configured": False,
+            "message":            "Massive API is not configured. Set MASSIVE_API_KEY to enable news.",
+        }
+        return payload  # do NOT cache unconfigured response
+
+    # Get top candidate tickers from latest scan (memory or DB)
+    tickers: list[str] = []
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
+        rows = resp.get("results", []) or []
+        rows_sorted = sorted(rows, key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
+        tickers = [r["ticker"] for r in rows_sorted[:6] if r.get("ticker")]
+    except Exception as exc:
+        log.warning("dashboard_news: could not get candidates: %s", exc)
+
+    if not tickers:
+        payload = {
+            "items":               [],
+            "source":              "massive",
+            "provider_configured": True,
+            "message":             "No Ultra Scan candidates available. Run Ultra Scan first.",
+        }
+        return payload  # do NOT cache empty-candidates response
+
+    # Fetch news for each ticker, deduplicate by URL
+    seen_urls: set[str] = set()
+    all_items: list[dict] = []
+
+    for ticker in tickers[:5]:
+        try:
+            configured, items, _ = _fetch_massive_news(ticker, limit=4)
+            for item in items:
+                url = item.get("url", "")
+                if url and url in seen_urls:
+                    continue
+                if url:
+                    seen_urls.add(url)
+                item["for_ticker"] = ticker
+                all_items.append(item)
+        except Exception as exc:
+            log.warning("dashboard_news: fetch failed for %s: %s", ticker, exc)
+
+    # Sort by published_at descending
+    def _pub_sort_key(item: dict) -> str:
+        return item.get("published_at") or ""
+
+    all_items.sort(key=_pub_sort_key, reverse=True)
+    top_items = all_items[:limit]
+
+    if not top_items:
+        payload = {
+            "items":               [],
+            "source":              "massive",
+            "provider_configured": True,
+            "message":             f"No recent Massive news found for current candidates ({', '.join(tickers[:3])}).",
+        }
+        return _store("market_news", payload)
+
+    payload = {
+        "items":               top_items,
+        "source":              "massive",
+        "provider_configured": True,
+        "count":               len(top_items),
+        "tickers_sampled":     tickers[:5],
+        "message":             "",
     }
+    return _store("market_news", payload)
 
 
 @router.get("/ticker-context/{symbol}")
@@ -1186,3 +1273,294 @@ def dashboard_watchlist(tickers: str = Query("")):
         ]
 
     return {"items": items}
+
+
+# ── Bootstrap — single endpoint that hydrates the entire Dashboard ────────────
+
+@router.get("/bootstrap")
+def dashboard_bootstrap(tf: str = Query("1d")):
+    """
+    Single endpoint that returns everything the Dashboard needs on load/refresh.
+    Reads from DB for persistence across restarts; falls back gracefully.
+
+    dashboard_state values:
+      NO_SCAN     — no Ultra scan data found anywhere
+      SCAN_READY  — latest completed scan data available
+      SCAN_RUNNING — scan is currently running
+      SCAN_STALE  — data older than 48h
+      ERROR       — internal failure
+    """
+    from datetime import datetime, timezone
+
+    result: dict[str, Any] = {
+        "dashboard_state": "NO_SCAN",
+        "latest_scan":     {"has_data": False},
+        "summary":         {},
+        "top_candidates":  [],
+        "best_setups":     [],
+        "sectors":         [],
+        "risk_alerts":     [],
+        "fresh_signals":   [],
+        "market_pulse":    {},
+        "news":            {"provider": "massive", "provider_configured": False, "items": [], "message": ""},
+        "data_health":     {
+            "ultra":   {"status": "idle", "last_run_at": None, "source": "memory"},
+            "tz":      {"status": "idle", "last_run_at": None},
+            "massive": {"configured": False, "status": "not_configured"},
+        },
+    }
+
+    # ── Latest scan info (DB-first) ──────────────────────────────────────────
+    try:
+        from ultra_orchestrator import get_ultra_latest_from_db, get_ultra_status, get_ultra_results
+        db_info = get_ultra_latest_from_db(universe="sp500", tf=tf)
+        mem_status = get_ultra_status()
+
+        result["latest_scan"] = db_info
+        is_running = mem_status.get("running", False)
+
+        if is_running:
+            result["dashboard_state"] = "SCAN_RUNNING"
+        elif db_info.get("has_data"):
+            age_s = db_info.get("data_age_seconds") or 0
+            result["dashboard_state"] = "SCAN_STALE" if age_s > 172800 else "SCAN_READY"
+        else:
+            result["dashboard_state"] = "NO_SCAN"
+
+        # Data health — ultra
+        last_at = db_info.get("finished_at") if db_info.get("has_data") else None
+        result["data_health"]["ultra"] = {
+            "status":      "running"   if is_running else
+                           "completed" if db_info.get("has_data") else "idle",
+            "last_run_at": last_at,
+            "total_candidates": db_info.get("total_candidates", 0),
+            "source":      "db" if db_info.get("has_data") else "memory",
+        }
+    except Exception as exc:
+        log.warning("bootstrap: ultra info error: %s", exc)
+
+    # ── Top candidates ───────────────────────────────────────────────────────
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
+        rows = resp.get("results", []) or []
+        rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
+        cards = []
+        for r in rows[:50]:
+            score = float(r.get("ultra_score", 0) or 0)
+            bucket = (
+                "BUY_READY"         if score >= 80 else
+                "WATCH_CLOSELY"     if score >= 65 else
+                "WAIT_CONFIRMATION" if score >= 50 else
+                "TOO_LATE"          if score >= 35 else
+                "AVOID"
+            )
+            cards.append({
+                "ticker":        r.get("ticker", ""),
+                "ultra_score":   round(score, 1),
+                "band":          r.get("ultra_score_band", ""),
+                "action_bucket": bucket,
+                "profile":       r.get("profile", "") or r.get("ultra_score_priority", ""),
+                "last_price":    r.get("last_price"),
+                "change_pct":    r.get("change_pct"),
+                "volume":        r.get("volume"),
+                "vol_bucket":    r.get("vol_bucket", ""),
+                "abr":           r.get("abr", "") or r.get("abr_label", ""),
+                "signals":       r.get("active_signals", []) or [],
+                "ema_ok":        r.get("ema_ok", False),
+                "bull_score":    r.get("bull_score", 0),
+                "scanned_at":    r.get("scanned_at", ""),
+            })
+        result["top_candidates"] = cards
+
+        # Best setups (deterministic from DB candidates if present)
+        if cards:
+            result["best_setups"] = _deterministic_setups(cards)
+    except Exception as exc:
+        log.warning("bootstrap: candidates error: %s", exc)
+
+    # ── Summary ──────────────────────────────────────────────────────────────
+    try:
+        from scanner import get_results, get_last_scan_time
+        all_rows = get_results(interval="1d", limit=500)
+        bull_rows   = [r for r in all_rows if r.get("bull_score", 0) >= 4]
+        strong_rows = [r for r in all_rows if r.get("bull_score", 0) >= 6]
+        top_band    = [c for c in result["top_candidates"] if c.get("band") in ("A", "A+", "S")]
+        result["summary"] = {
+            "scan_total":     len(all_rows),
+            "bull_count":     len(bull_rows),
+            "strong_count":   len(strong_rows),
+            "last_scan":      get_last_scan_time("1d"),
+            "ultra_total":    len(result["top_candidates"]),
+            "ultra_top_band": len(top_band),
+        }
+    except Exception as exc:
+        log.warning("bootstrap: summary error: %s", exc)
+
+    # ── Sectors ──────────────────────────────────────────────────────────────
+    try:
+        from sector_engine import get_sector_overview, SECTORS
+        overview = get_sector_overview()
+        items = overview.get("sectors", []) if isinstance(overview, dict) else []
+        sectors = []
+        for item in items:
+            etf   = item.get("ticker", "")
+            ret1d = float(item.get("return_1d", 0) or 0)
+            ret5d = float(item.get("return_5d", 0) or 0)
+            rs    = float(item.get("rs_score", 0) or 0)
+            hotness = ret1d * 0.5 + ret5d * 0.3 + rs * 0.2
+            sectors.append({
+                "etf":       etf,
+                "name":      SECTORS.get(etf, etf),
+                "return_1d": round(ret1d, 2),
+                "return_5d": round(ret5d, 2),
+                "rs_score":  round(rs, 2),
+                "hotness":   round(hotness, 2),
+                "trend":     "hot" if hotness > 1 else "cold" if hotness < -1 else "neutral",
+            })
+        sectors.sort(key=lambda s: s["hotness"], reverse=True)
+        result["sectors"] = sectors
+    except Exception as exc:
+        log.warning("bootstrap: sectors error: %s", exc)
+
+    # ── Risk alerts ──────────────────────────────────────────────────────────
+    try:
+        hit, risk_val = _cached("risk_alerts", ttl=120)
+        if hit and risk_val:
+            result["risk_alerts"] = risk_val.get("alerts", [])
+    except Exception:
+        pass
+
+    # ── Fresh signals ────────────────────────────────────────────────────────
+    try:
+        from scanner import get_results
+        fresh_rows = get_results(interval="1d", limit=20, tab="bull")
+        result["fresh_signals"] = [
+            {
+                "ticker":     r.get("ticker", ""),
+                "bull_score": r.get("bull_score", 0),
+                "sig_name":   r.get("sig_name", ""),
+                "last_price": r.get("last_price"),
+                "change_pct": r.get("change_pct"),
+                "vol_bucket": r.get("vol_bucket", ""),
+                "scanned_at": r.get("scanned_at", ""),
+            }
+            for r in fresh_rows
+        ]
+    except Exception as exc:
+        log.warning("bootstrap: fresh signals error: %s", exc)
+
+    # ── Market pulse (cached) ────────────────────────────────────────────────
+    try:
+        hit, pulse_val = _cached("pulse", ttl=90)
+        if hit and pulse_val:
+            result["market_pulse"] = pulse_val
+    except Exception:
+        pass
+
+    # ── News (Massive) ───────────────────────────────────────────────────────
+    massive_ok = _massive_news_configured()
+    result["data_health"]["massive"] = {
+        "configured": massive_ok,
+        "status":     "ready" if massive_ok else "not_configured",
+    }
+    if massive_ok and result["top_candidates"]:
+        try:
+            hit, news_val = _cached("market_news", ttl=_MARKET_NEWS_TTL)
+            if hit and news_val:
+                result["news"] = {
+                    "provider":            "massive",
+                    "provider_configured": True,
+                    "items":               news_val.get("items", []),
+                    "message":             news_val.get("message", ""),
+                }
+            else:
+                # Fetch news for top 3 tickers inline (fast)
+                top_tickers = [c["ticker"] for c in result["top_candidates"][:3]]
+                seen: set[str] = set()
+                news_items: list[dict] = []
+                for t in top_tickers:
+                    _, items, _ = _fetch_massive_news(t, limit=3)
+                    for item in items:
+                        url = item.get("url", "")
+                        if url and url in seen:
+                            continue
+                        if url:
+                            seen.add(url)
+                        item["for_ticker"] = t
+                        news_items.append(item)
+                news_items.sort(key=lambda x: x.get("published_at") or "", reverse=True)
+                result["news"] = {
+                    "provider":            "massive",
+                    "provider_configured": True,
+                    "items":               news_items[:8],
+                    "message":             "" if news_items else
+                                           f"No recent Massive news for {', '.join(top_tickers)}.",
+                }
+        except Exception as exc:
+            log.warning("bootstrap: news error: %s", exc)
+            result["news"] = {"provider": "massive", "provider_configured": True,
+                              "items": [], "message": f"News fetch error: {exc}"}
+    elif not massive_ok:
+        result["news"]["message"] = "Massive API is not configured. Set MASSIVE_API_KEY."
+
+    # ── T/Z data health ──────────────────────────────────────────────────────
+    try:
+        scan_last = result.get("summary", {}).get("last_scan")
+        result["data_health"]["tz"] = {
+            "status":      "ok" if scan_last else "idle",
+            "last_run_at": scan_last,
+        }
+    except Exception:
+        pass
+
+    result["fetched_at"] = datetime.now(timezone.utc).isoformat()
+    return result
+
+
+@router.get("/debug-state")
+def dashboard_debug_state():
+    """Admin helper: verify why dashboard may be empty."""
+    info: dict[str, Any] = {}
+
+    # DB scan info
+    try:
+        from ultra_orchestrator import get_ultra_latest_from_db
+        db_info = get_ultra_latest_from_db()
+        info["latest_ultra_scan_in_db"] = db_info.get("has_data", False)
+        info["latest_ultra_scan_id"]    = db_info.get("scan_run_id")
+        info["db_total_candidates"]     = db_info.get("total_candidates", 0)
+        info["db_finished_at"]          = db_info.get("finished_at")
+        info["db_data_age_seconds"]     = db_info.get("data_age_seconds")
+    except Exception as exc:
+        info["db_error"] = str(exc)
+
+    # Memory cache info
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
+        rows = resp.get("results", []) or []
+        info["memory_candidates"] = len(rows)
+        info["memory_last_scan"]  = resp.get("last_scan")
+    except Exception as exc:
+        info["memory_error"] = str(exc)
+
+    # Dashboard top candidates count
+    try:
+        hit, val = _cached("top50_1d_50", ttl=60)
+        info["cached_top_candidates"] = len(val.get("cards", [])) if (hit and val) else 0
+    except Exception:
+        info["cached_top_candidates"] = 0
+
+    # Massive news
+    info["massive_configured"] = _massive_news_configured()
+    try:
+        hit, val = _cached("market_news", ttl=_MARKET_NEWS_TTL)
+        info["cached_news_items"] = len(val.get("items", [])) if (hit and val) else 0
+    except Exception:
+        info["cached_news_items"] = 0
+
+    # AI analysis cache count
+    info["ai_analysis_cache_count"] = len(_news_analysis_cache)
+    info["source"] = "db+memory"
+    return info
