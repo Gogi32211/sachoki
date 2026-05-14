@@ -852,14 +852,73 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
             "No missed pumps to diagnose."
         ))
 
-        # Phase-3+ slots: write empty placeholders with full schema
+        # ── Phase 3: pattern mining + baseline + lift ────────────────────────
+        from ultra_pump_patterns import (
+            mine_patterns, sample_baseline_windows,
+        )
+        _set(phase="mining_patterns",
+             phase_message="Mining ULTRA patterns and computing baseline lift")
+        baseline_windows_rows = sample_baseline_windows(
+            all_episodes,
+            pre_pump_window_bars=pre_pump_window,
+            pump_horizon=pump_horizon,
+            max_baseline_per_pump=10,
+        )
+        baseline_total = len(baseline_windows_rows)
+        pattern_rows, lift_rows, timing_rows = mine_patterns(
+            all_episodes, all_pre_pump_bars, all_pre_pump_signals, all_pre_pump_combos,
+            baseline_total=baseline_total,
+        )
+
+        # Baseline pattern stats: one row per pattern_key from pattern_rows
+        baseline_pattern_rows = [
+            {
+                "pattern_key": p["pattern_key"],
+                "pattern_type": p["pattern_type"],
+                "pump_count": 0,
+                "pump_episode_coverage_pct": 0.0,
+                "baseline_count": p["baseline_count"],
+                "baseline_frequency_pct": p["baseline_frequency_pct"],
+                "lift_vs_baseline": None,
+                "odds_ratio": None,
+                "precision": None,
+                "recall": None,
+                "false_positive_rate": None,
+                "median_future_gain": None,
+                "median_days_to_peak": None,
+                "median_drawdown_before_peak": None,
+            }
+            for p in pattern_rows
+        ]
+
+        manifest_entries.append(_write_slot(
+            "ultra_pattern_stats", pattern_rows,
+            "No patterns mined (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "ultra_pattern_lift_stats", lift_rows,
+            "No pattern lift rows (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "ultra_timing_stats", timing_rows,
+            "No timing rows (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "baseline_windows", baseline_windows_rows,
+            "No baseline windows sampled."
+        ))
+        manifest_entries.append(_write_slot(
+            "baseline_ultra_patterns", [],
+            "Baseline ULTRA snapshots not yet available — Phase 5 full-rescan replays "
+            "the live scanner on non-pump dates to populate this slot."
+        ))
+        manifest_entries.append(_write_slot(
+            "baseline_pattern_stats", baseline_pattern_rows,
+            "No baseline patterns (no episodes detected)."
+        ))
+
+        # Phase-4+ slots: write empty placeholders
         phase_2_slots = [
-            ("ultra_pattern_stats",         "Phase 3 will populate ULTRA pattern statistics."),
-            ("ultra_pattern_lift_stats",    "Phase 3 will populate pattern lift vs baseline."),
-            ("ultra_timing_stats",          "Phase 3 will populate signal-to-pump timing buckets."),
-            ("baseline_windows",            "Phase 3 will populate baseline (non-pump) control windows."),
-            ("baseline_ultra_patterns",     "Phase 3 will populate baseline ULTRA patterns."),
-            ("baseline_pattern_stats",      "Phase 3 will populate baseline pattern stats."),
             ("split_impact_stats",          "Phase 4 will populate split-aware pattern stats."),
             ("split_related_pumps",         "Phase 4 will populate split-related episodes."),
             ("clean_non_split_pumps",       "Phase 4 will populate clean non-split episodes."),
