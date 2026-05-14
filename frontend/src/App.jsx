@@ -23,6 +23,7 @@ import SequenceScanPanel from './components/SequenceScanPanel'
 import PortfolioPanel from './components/PortfolioPanel'
 import ChartObsPanel from './components/ChartObsPanel'
 import SignalReplayPanel from './components/SignalReplayPanel'
+import UltraPumpResearchPanel from './components/UltraPumpResearchPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -51,7 +52,7 @@ const TAB_GROUPS = [
     label: 'Research',
     tabs: [
       { id: 'analyze',        label: '🔍 Analyze' },
-      { id: 'sigreplay',      label: '🧪 Sig Replay' },
+      { id: 'sigreplay',      label: '🧪 ULTRA Pump Research' },
       { id: 'replay',         label: '🔬 Replay' },
       { id: 'tzlstats',       label: 'T/Z × L Stats' },
       { id: 'corr',           label: '📊 Corr' },
@@ -141,7 +142,7 @@ export default function App() {
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xl font-semibold tracking-tight text-md-primary">Sachoki</span>
-          <span className="text-xs text-md-on-surface-var">v4.6.74</span>
+          <span className="text-xs text-md-on-surface-var">v4.6.94</span>
         </div>
 
         {/* Timeframe segmented control */}
@@ -257,7 +258,7 @@ export default function App() {
           {activeTab === 'howitworks'     && <HowItWorksPanel />}
           {activeTab === 'portfolio'      && <PortfolioPanel />}
           {activeTab === 'chartobs'       && <ChartObsPanel onSelectTicker={handleSelect} />}
-          {activeTab === 'sigreplay'      && <SignalReplayPanel />}
+          {activeTab === 'sigreplay'      && <UltraPumpResearchPanel />}
           {activeTab === 'admin'          && <AdminPanel />}
         </div>
       </main>
