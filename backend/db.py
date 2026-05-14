@@ -24,7 +24,7 @@ _pg_ok = False
 if DATABASE_URL:
     try:
         import psycopg2 as _psycopg2_test
-        _c = _psycopg2_test.connect(DATABASE_URL)
+        _c = _psycopg2_test.connect(DATABASE_URL, connect_timeout=5)
         _c.close()
         _pg_ok = True
     except Exception as _e:
@@ -85,7 +85,7 @@ class Conn:
         if USE_PG:
             import psycopg2
             import psycopg2.extras
-            self._pg  = psycopg2.connect(DATABASE_URL)
+            self._pg  = psycopg2.connect(DATABASE_URL, connect_timeout=10)
             self._pg.autocommit = False
             self._cur = self._pg.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             self._sqlite = None
