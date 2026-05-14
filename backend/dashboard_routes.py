@@ -194,9 +194,17 @@ def dashboard_top50(
 
     cards = []
     try:
-        from ultra_orchestrator import get_ultra_results
+        from ultra_orchestrator import get_ultra_results, load_latest_ultra_scan_from_db
         resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
         rows = resp.get("results", []) if isinstance(resp, dict) else []
+        # Memory cache miss → try DB (survives deploy/restart)
+        if not rows:
+            try:
+                if load_latest_ultra_scan_from_db("sp500", tf):
+                    resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
+                    rows = resp.get("results", []) if isinstance(resp, dict) else []
+            except Exception as _db_exc:
+                log.warning("top50 DB fallback error: %s", _db_exc)
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:limit]:
             score = float(r.get("ultra_score", 0) or 0)
