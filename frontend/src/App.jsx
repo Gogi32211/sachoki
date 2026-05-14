@@ -25,6 +25,7 @@ import ChartObsPanel from './components/ChartObsPanel'
 import SignalReplayPanel from './components/SignalReplayPanel'
 import UltraPumpResearchPanel from './components/UltraPumpResearchPanel'
 import TradingDashboardPanel from './components/TradingDashboardPanel'
+import AppSidebar from './components/AppSidebar'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -40,54 +41,54 @@ const LS = {
 // ── Navigation structure (grouped) ───────────────────────────────────────────
 const TAB_GROUPS = [
   {
-    label: 'Dashboard',
+    label: 'Main',
     tabs: [
-      { id: 'dashboard', label: '🏠 Dashboard' },
+      { id: 'dashboard',  label: '🏠 Dashboard' },
+      { id: 'turbo',      label: '⚡ Turbo' },
+      { id: 'ultra',      label: '🧬 Ultra' },
+      { id: 'superchart', label: '📋 Superchart' },
     ],
   },
   {
-    label: 'Scan',
+    label: 'Signals',
     tabs: [
-      { id: 'turbo',    label: '⚡ TURBO' },
-      { id: 'ultra',    label: '🧬 ULTRA' },
-      { id: 'combined', label: 'Combined' },
-      { id: 'scanner',  label: 'T/Z Scanner' },
-      { id: 'sequences',label: '🔢 Sequences' },
+      { id: 'scanner',      label: '🎯 T/Z Scanner' },
+      { id: 'sequences',    label: '🔢 Sequences' },
+      { id: 'tzwlnbb',      label: '📡 TZ/WLNBB' },
+      { id: 'rarereversal', label: '🔄 Rare Rev.' },
+      { id: 'chartobs',     label: '👁 Obs' },
+      { id: 'predictor',    label: '🔮 Predictor' },
+      { id: 'combined',     label: '◐ Combined' },
     ],
   },
   {
     label: 'Research',
     tabs: [
       { id: 'analyze',        label: '🔍 Analyze' },
-      { id: 'sigreplay',      label: '🧪 ULTRA Pump Research' },
+      { id: 'sigreplay',      label: '🧪 Pump Research' },
       { id: 'replay',         label: '🔬 Replay' },
-      { id: 'tzlstats',       label: 'T/Z × L Stats' },
+      { id: 'tzlstats',       label: '📈 T/Z × L Stats' },
       { id: 'corr',           label: '📊 Corr' },
-      { id: 'tzwlnbb',        label: '📡 TZ/WLNBB' },
       { id: 'tzintelligence', label: '🧠 TZ Intel' },
-      { id: 'rarereversal',   label: '🔄 Rare Rev.' },
     ],
   },
   {
     label: 'Market',
     tabs: [
-      { id: 'sectors',    label: '🌐 Sectors' },
-      { id: 'superchart', label: '📋 Superchart' },
-      { id: 'chartobs',   label: '📊 Obs' },
-      { id: 'predictor',  label: 'Predictor' },
+      { id: 'sectors', label: '🌐 Sectors' },
     ],
   },
   {
     label: 'Portfolio',
     tabs: [
       { id: 'watchlist', label: '⭐ Watchlist' },
-      { id: 'portfolio', label: '📋 Portfolio' },
+      { id: 'portfolio', label: '💼 Portfolio' },
     ],
   },
   {
-    label: 'More',
+    label: 'System',
     tabs: [
-      { id: 'howitworks', label: 'How It Works' },
+      { id: 'howitworks', label: '❔ How It Works' },
       { id: 'admin',      label: '⚙ Admin' },
     ],
   },
@@ -119,6 +120,10 @@ export default function App() {
   const [scTf, setScTf]         = useState('1d')
   const chartInstanceRef        = useRef(null)
   const [chartReady, setChartReady] = useState(false)
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    () => LS.get('sidebar_collapsed', false)
+  )
+  const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
 
   const handleChartReady = useCallback((chart) => {
     chartInstanceRef.current = chart
@@ -129,6 +134,19 @@ export default function App() {
   useEffect(() => { LS.set('selected_ticker', selected) }, [selected])
   useEffect(() => { LS.set('tf', tf) }, [tf])
   useEffect(() => { LS.set('active_tab', activeTab) }, [activeTab])
+  useEffect(() => { LS.set('sidebar_collapsed', sidebarCollapsed) }, [sidebarCollapsed])
+
+  // Cmd/Ctrl + B toggles sidebar collapsed state
+  useEffect(() => {
+    const onKey = (e) => {
+      if ((e.metaKey || e.ctrlKey) && (e.key === 'b' || e.key === 'B')) {
+        e.preventDefault()
+        setSidebarCollapsed(v => !v)
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [])
 
   const handleSelect       = (ticker) => setSelected(ticker)
   const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
@@ -147,93 +165,89 @@ export default function App() {
     activeTab === 'analyze'    && analyzeChart.ticker ? analyzeChart.tf :
     tf
 
-  const activeGroupLabel = TAB_GROUPS.find(g => g.tabs.some(t => t.id === activeTab))?.label
+  const activeTabLabel = TABS.find(t => t.id === activeTab)?.label || ''
 
   return (
-    <div className="min-h-screen flex flex-col bg-md-surface text-md-on-surface">
-      {/* ── MD3 Top App Bar ──────────────────────────────────────────────── */}
-      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 px-4 h-14 shadow-md-2 bg-md-surface-high shrink-0">
-        {/* Brand */}
-        <div className="flex items-center gap-2.5 shrink-0">
-          <span className="text-xl font-semibold tracking-tight text-md-primary">Sachoki</span>
-          <span className="text-xs text-md-on-surface-var">v4.7.18</span>
-        </div>
+    <div className="min-h-screen flex bg-md-surface text-md-on-surface">
+      {/* ── Left sidebar navigation ──────────────────────────────────────── */}
+      <AppSidebar
+        groups={TAB_GROUPS}
+        activeTab={activeTab}
+        onSelectTab={setActiveTab}
+        collapsed={sidebarCollapsed}
+        onToggleCollapsed={() => setSidebarCollapsed(v => !v)}
+        mobileOpen={mobileSidebarOpen}
+        onCloseMobile={() => setMobileSidebarOpen(false)}
+      />
 
-        {/* Timeframe segmented control */}
-        <div className="flex rounded-md-sm overflow-hidden border border-md-outline-var shrink-0">
-          {TF_OPTIONS.map((t, i) => (
-            <button
-              key={t}
-              onClick={() => setTf(t)}
-              className={[
-                'px-3 py-1.5 text-xs font-medium transition-colors duration-100',
-                i > 0 ? 'border-l border-md-outline-var' : '',
-                tf === t
-                  ? 'bg-md-primary-container text-md-on-primary-container'
-                  : 'text-md-on-surface-var hover:bg-white/5',
-              ].join(' ')}
-            >
-              {t}
-            </button>
-          ))}
-        </div>
+      {/* ── Right column: trading control top bar + content ──────────────── */}
+      <div className="flex-1 flex flex-col min-w-0">
+        <header className="sticky top-0 z-30 flex items-center gap-3 px-3 md:px-4 h-14 shadow-md-2 bg-md-surface-high shrink-0">
+          {/* Mobile hamburger */}
+          <button
+            onClick={() => setMobileSidebarOpen(true)}
+            aria-label="Open menu"
+            className="md:hidden p-1.5 rounded-md-sm text-md-on-surface-var hover:bg-white/5"
+          >
+            <svg width="20" height="20" viewBox="0 0 20 20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M3 6h14M3 10h14M3 14h14" />
+            </svg>
+          </button>
 
-        {/* Ticker input */}
-        <div className="flex-1 max-w-sm">
-          <TickerInput
-            watchlist={watchlist}
-            onAdd={handleAddTicker}
-            onRemove={handleRemoveTicker}
-            tf={tf}
-            onTfChange={setTf}
-          />
-        </div>
-      </header>
+          {/* Brand (visible only on mobile — sidebar header shows it on desktop) */}
+          <div className="flex md:hidden items-center gap-2 shrink-0">
+            <span className="text-base font-semibold tracking-tight text-md-primary">Sachoki</span>
+          </div>
 
-      {/* ── MD3 Navigation Rail / Tab bar ────────────────────────────────── */}
-      <nav className="sticky top-14 z-30 bg-md-surface-con border-b border-md-outline-var shrink-0">
-        <div className="flex flex-wrap items-end px-2">
-          {TAB_GROUPS.map((group, gi) => (
-            <div key={group.label} className="flex items-end">
-              {/* Group divider (not before first group) */}
-              {gi > 0 && (
-                <div className="self-stretch w-px my-2 mx-1 bg-md-outline-var" />
-              )}
-              {/* Group label on wide screens */}
-              <span className="hidden xl:flex items-center px-2 text-xs text-md-on-surface-var font-medium self-center opacity-60 select-none">
-                {group.label}
-              </span>
-              {/* Tabs */}
-              {group.tabs.map(tab => {
-                const active = activeTab === tab.id
-                return (
-                  <button
-                    key={tab.id}
-                    onClick={() => setActiveTab(tab.id)}
-                    className={[
-                      'relative px-3 py-2.5 text-xs font-medium transition-colors duration-100',
-                      'whitespace-nowrap select-none',
-                      active
-                        ? 'text-md-primary'
-                        : 'text-md-on-surface-var hover:text-md-on-surface',
-                    ].join(' ')}
-                  >
-                    {tab.label}
-                    {/* MD3 active indicator line */}
-                    <span
-                      className="absolute bottom-0 left-2 right-2 h-[3px] rounded-t-md-sm bg-md-primary transition-all duration-150"
-                      style={{ opacity: active ? 1 : 0 }}
-                    />
-                  </button>
-                )
-              })}
+          {/* Current page label */}
+          <div className="hidden md:flex items-center gap-2 shrink-0">
+            <span className="text-sm font-medium text-md-on-surface truncate max-w-[200px]">
+              {activeTabLabel}
+            </span>
+            <span className="text-[10px] text-md-on-surface-var/70">v4.7.24</span>
+          </div>
+
+          {/* Timeframe segmented control */}
+          <div className="flex rounded-md-sm overflow-hidden border border-md-outline-var shrink-0">
+            {TF_OPTIONS.map((t, i) => (
+              <button
+                key={t}
+                onClick={() => setTf(t)}
+                className={[
+                  'px-2.5 sm:px-3 py-1.5 text-xs font-medium transition-colors duration-100',
+                  i > 0 ? 'border-l border-md-outline-var' : '',
+                  tf === t
+                    ? 'bg-md-primary-container text-md-on-primary-container'
+                    : 'text-md-on-surface-var hover:bg-white/5',
+                ].join(' ')}
+              >
+                {t}
+              </button>
+            ))}
+          </div>
+
+          {/* Ticker input */}
+          <div className="flex-1 min-w-0 max-w-sm">
+            <TickerInput
+              watchlist={watchlist}
+              onAdd={handleAddTicker}
+              onRemove={handleRemoveTicker}
+              tf={tf}
+              onTfChange={setTf}
+            />
+          </div>
+
+          {/* Selected ticker pill (desktop) */}
+          {selected && (
+            <div className="hidden lg:flex items-center gap-1.5 px-2 py-1 rounded-md-sm bg-md-surface-con border border-md-outline-var">
+              <span className="text-[10px] text-md-on-surface-var">Sel</span>
+              <span className="text-xs font-mono font-semibold text-md-on-surface">{selected}</span>
             </div>
-          ))}
-        </div>
-      </nav>
+          )}
+        </header>
 
-      {/* ── Content area ─────────────────────────────────────────────────── */}
-      <main className="flex flex-col gap-3 p-3 flex-1">
+        {/* ── Content area ───────────────────────────────────────────────── */}
+        <main className="flex flex-col gap-3 p-3 flex-1 min-w-0">
         {/* Global chart — hidden on dashboard and turbo tabs */}
         {!NO_CHART_TABS.has(activeTab) && (
           <div style={{ minHeight: '340px' }}>
@@ -284,7 +298,8 @@ export default function App() {
           {activeTab === 'sigreplay'      && <UltraPumpResearchPanel />}
           {activeTab === 'admin'          && <AdminPanel />}
         </div>
-      </main>
+        </main>
+      </div>
     </div>
   )
 }
