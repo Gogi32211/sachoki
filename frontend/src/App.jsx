@@ -204,7 +204,7 @@ export default function App() {
             <span className="text-sm font-medium text-md-on-surface truncate max-w-[200px]">
               {activeTabLabel}
             </span>
-            <span className="text-[10px] text-md-on-surface-var/70">v4.7.36</span>
+            <span className="text-[10px] text-md-on-surface-var/70">v4.7.24</span>
           </div>
 
           {/* Timeframe segmented control */}
