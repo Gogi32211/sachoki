@@ -47,6 +47,7 @@ from signal_replay_migration import ensure_signal_replay_tables
 from signal_replay_routes import router as signal_replay_router
 from ultra_pump_migration import ensure_ultra_pump_tables
 from ultra_pump_routes import router as ultra_pump_router
+from ultra_scan_migration import ensure_ultra_scan_tables
 from dashboard_routes import router as dashboard_router
 
 logging.basicConfig(level=logging.INFO)
@@ -64,6 +65,7 @@ async def lifespan(app: FastAPI):
         ensure_chart_obs_tables()
         ensure_signal_replay_tables()
         ensure_ultra_pump_tables()
+        ensure_ultra_scan_tables()
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
