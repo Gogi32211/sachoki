@@ -140,6 +140,7 @@ def _scanner_status() -> dict:
 
 
 def _ultra_status() -> dict:
+    """Return live ultra status, falling back to DB for last_scan when memory is empty."""
     try:
         from ultra_orchestrator import get_ultra_status
         s = get_ultra_status()
@@ -731,17 +732,91 @@ def dashboard_ai_brief():
     return {**brief, "cached": False}
 
 
+_MARKET_NEWS_TTL = 300  # 5 min
+
 @router.get("/news")
-def dashboard_news():
+def dashboard_news(limit: int = Query(8, ge=1, le=30)):
     """
-    Market news placeholder. Returns empty items until a news API is integrated.
-    UI shows a clean empty state rather than an error.
+    Market news from Massive API for top Ultra Scan candidates.
+    Deduplicates headlines across tickers and returns the freshest items.
     """
-    return {
-        "items":   [],
-        "source":  "none",
-        "message": "No relevant candidate news found. Connect a news API to enable this section.",
+    hit, val = _cached("market_news", ttl=_MARKET_NEWS_TTL)
+    if hit:
+        return val
+
+    # Check Massive configured first — fast path
+    if not _massive_news_configured():
+        payload = {
+            "items":              [],
+            "source":             "massive",
+            "provider_configured": False,
+            "message":            "Massive API is not configured. Set MASSIVE_API_KEY to enable news.",
+        }
+        return payload  # do NOT cache unconfigured response
+
+    # Get top candidate tickers from latest scan (memory or DB)
+    tickers: list[str] = []
+    try:
+        from ultra_orchestrator import get_ultra_results
+        resp = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
+        rows = resp.get("results", []) or []
+        rows_sorted = sorted(rows, key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
+        tickers = [r["ticker"] for r in rows_sorted[:6] if r.get("ticker")]
+    except Exception as exc:
+        log.warning("dashboard_news: could not get candidates: %s", exc)
+
+    if not tickers:
+        payload = {
+            "items":               [],
+            "source":              "massive",
+            "provider_configured": True,
+            "message":             "No Ultra Scan candidates available. Run Ultra Scan first.",
+        }
+        return payload  # do NOT cache empty-candidates response
+
+    # Fetch news for each ticker, deduplicate by URL
+    seen_urls: set[str] = set()
+    all_items: list[dict] = []
+
+    for ticker in tickers[:5]:
+        try:
+            configured, items, _ = _fetch_massive_news(ticker, limit=4)
+            for item in items:
+                url = item.get("url", "")
+                if url and url in seen_urls:
+                    continue
+                if url:
+                    seen_urls.add(url)
+                item["for_ticker"] = ticker
+                all_items.append(item)
+        except Exception as exc:
+            log.warning("dashboard_news: fetch failed for %s: %s", ticker, exc)
+
+    # Sort by published_at descending
+    def _pub_sort_key(item: dict) -> str:
+        return item.get("published_at") or ""
+
+    all_items.sort(key=_pub_sort_key, reverse=True)
+    top_items = all_items[:limit]
+
+    if not top_items:
+        payload = {
+            "items":               [],
+            "source":              "massive",
+            "provider_configured": True,
+            "message":             f"No recent Massive news found for current candidates ({', '.join(tickers[:3])}).",
+        }
+        return _store("market_news", payload)
+
+    payload = {
+        "items":               top_items,
+        "source":              "massive",
+        "provider_configured": True,
+        "count":               len(top_items),
+        "tickers_sampled":     tickers[:5],
+        "message":             "",
     }
+    return _store("market_news", payload)
 
 
 @router.get("/ticker-context/{symbol}")
