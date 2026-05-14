@@ -1060,3 +1060,95 @@ def load_latest_ultra_scan_from_db(
     except Exception as exc:
         log.warning("ULTRA: DB load failed: %s", exc)
         return False
+
+
+def get_ultra_latest_from_db(
+    universe: str | None = None, tf: str | None = None,
+) -> dict:
+    """
+    Return metadata for the latest completed Ultra Scan stored in DB.
+
+    If universe/tf are given, filter by them. Otherwise find the most recent
+    finished is_latest=1 completed run across any universe/tf for the given tf
+    (or unrestricted when tf is None).
+
+    Always returns a dict — never raises. Shape on success:
+        {
+          "has_data": True,
+          "scan_run_id":      <int>,
+          "status":           "completed",
+          "universe":         <str>,
+          "tf":               <str>,
+          "nasdaq_batch":     <str>,
+          "finished_at":      <iso str>,
+          "total_candidates": <int>,
+          "data_age_seconds": <int>,
+        }
+    On no data:
+        {"has_data": False, "message": "No completed Ultra Scan found"}
+    On error:
+        {"has_data": False, "error": <str>}
+    """
+    try:
+        from db import get_db
+        with get_db() as db:
+            if universe and tf:
+                db.execute(
+                    "SELECT id, universe, tf, nasdaq_batch, status,"
+                    " finished_at, total_candidates"
+                    " FROM ultra_scan_runs"
+                    " WHERE universe=? AND tf=? AND is_latest=1 AND status='completed'"
+                    " ORDER BY finished_at DESC LIMIT 1",
+                    (universe, tf),
+                )
+            elif tf:
+                db.execute(
+                    "SELECT id, universe, tf, nasdaq_batch, status,"
+                    " finished_at, total_candidates"
+                    " FROM ultra_scan_runs"
+                    " WHERE tf=? AND is_latest=1 AND status='completed'"
+                    " ORDER BY finished_at DESC LIMIT 1",
+                    (tf,),
+                )
+            else:
+                db.execute(
+                    "SELECT id, universe, tf, nasdaq_batch, status,"
+                    " finished_at, total_candidates"
+                    " FROM ultra_scan_runs"
+                    " WHERE is_latest=1 AND status='completed'"
+                    " ORDER BY finished_at DESC LIMIT 1",
+                )
+            row = db.fetchone()
+
+        if not row:
+            return {"has_data": False, "message": "No completed Ultra Scan found"}
+
+        finished_at = row.get("finished_at") or ""
+        age_s = 0
+        try:
+            import datetime as _dt
+            if finished_at:
+                ts = finished_at.replace("Z", "+00:00")
+                dt = _dt.datetime.fromisoformat(ts)
+                if dt.tzinfo is None:
+                    dt = dt.replace(tzinfo=_dt.timezone.utc)
+                now = _dt.datetime.now(_dt.timezone.utc)
+                age_s = max(0, int((now - dt).total_seconds()))
+        except Exception:
+            age_s = 0
+
+        return {
+            "has_data":         True,
+            "scan_run_id":      row.get("id"),
+            "status":           row.get("status") or "completed",
+            "universe":         row.get("universe") or "",
+            "tf":               row.get("tf") or "",
+            "nasdaq_batch":     row.get("nasdaq_batch") or "",
+            "finished_at":      finished_at,
+            "total_candidates": int(row.get("total_candidates") or 0),
+            "data_age_seconds": age_s,
+        }
+    except Exception as exc:
+        log.warning("get_ultra_latest_from_db error: %s", exc)
+        return {"has_data": False, "error": str(exc)}
+
