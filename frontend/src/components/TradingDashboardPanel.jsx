@@ -649,9 +649,14 @@ function CommandStrip({ status, pulse, summary, onRefresh, loading, lastRefresh 
           <button
             onClick={onRefresh}
             disabled={loading}
-            className="text-xs px-3 py-1.5 rounded-md-full border border-md-outline text-md-primary hover:bg-md-primary/10 active:bg-md-primary/12 transition-all disabled:opacity-40 whitespace-nowrap"
+            className={cx(
+              'text-xs px-3 py-1.5 rounded-md-full border transition-all whitespace-nowrap',
+              loading
+                ? 'border-md-outline-var text-md-on-surface-var opacity-40 cursor-not-allowed'
+                : 'border-md-outline text-md-primary hover:bg-md-primary/10 active:bg-md-primary/12',
+            )}
           >
-            {loading ? '…' : '↻ Refresh'}
+            {loading ? '↻ Refreshing…' : '↻ Refresh'}
           </button>
         </div>
       </div>
@@ -1305,7 +1310,17 @@ function NewsItem({ item }) {
 }
 
 function MarketNewsPanel({ news, loading }) {
-  const items = news?.items ?? []
+  const items      = news?.items ?? []
+  const configured = news?.provider_configured ?? true  // assume configured if unknown
+  const msg        = news?.message ?? ''
+
+  const emptyTitle = !configured
+    ? 'Massive API not configured.'
+    : 'No recent news.'
+  const emptySub = !configured
+    ? 'Set MASSIVE_API_KEY environment variable to enable news.'
+    : (msg || 'No Massive news found for current candidates.')
+
   return (
     <Panel className="p-4">
       <SectionHead title="Market News" />
@@ -1314,7 +1329,7 @@ function MarketNewsPanel({ news, loading }) {
           {[1, 2, 3].map(i => <Skeleton key={i} h="h-10" />)}
         </div>
       ) : items.length === 0 ? (
-        <EmptySlate icon="📰" title="No market news found." sub={news?.message ?? 'Connect a news API to enable.'} />
+        <EmptySlate icon="📰" title={emptyTitle} sub={emptySub} />
       ) : (
         <div>
           {items.slice(0, 7).map((item, i) => <NewsItem key={i} item={item} />)}
@@ -1389,8 +1404,15 @@ function DataHealthCard({ scanner, ultra, loading }) {
   }
   function fmt(iso) {
     if (!iso) return 'Never'
-    try { return new Date(iso).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) }
-    catch { return iso }
+    try {
+      const d = new Date(iso)
+      // If today, show time; otherwise show date
+      const today = new Date().toDateString()
+      if (d.toDateString() === today)
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+      return d.toLocaleDateString([], { month: 'short', day: 'numeric' }) +
+        ' ' + d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+    } catch { return iso }
   }
   const sh = health(scanner)
   const uh = health(ultra)
@@ -1415,6 +1437,11 @@ function DataHealthCard({ scanner, ultra, loading }) {
             <span className="text-md-on-surface-var uppercase tracking-wider">ULTRA</span>
             <span className={cx('text-sm font-bold font-mono', uh.cls)}>{uh.label}</span>
             <span className="text-md-on-surface-var">Last: {fmt(ultra?.last_scan)}</span>
+            {ultra?.total > 0 && (
+              <span className="text-md-on-surface-var opacity-60">
+                {ultra.total} candidates
+              </span>
+            )}
             {ultra?.running && (
               <div className="h-0.5 rounded-full bg-md-outline-var overflow-hidden mt-1">
                 <div className="h-full bg-violet-500 animate-pulse"
@@ -1610,87 +1637,131 @@ function WatchlistSnapshot({ watchlistData, loading }) {
 
 // ─── MAIN PANEL ───────────────────────────────────────────────────────────────
 
+// dashboardState: NO_SCAN | LOADING | SCAN_READY | SCAN_RUNNING | SCAN_STALE | ERROR
+const DS = { NO_SCAN: 'NO_SCAN', LOADING: 'LOADING', READY: 'SCAN_READY',
+             RUNNING: 'SCAN_RUNNING', STALE: 'SCAN_STALE', ERROR: 'ERROR' }
+
 export default function TradingDashboardPanel({
   onSelectTicker,
   onAddToWatchlist,
   watchlistTickers = [],
   onOpenChart: propOpenChart,
 }) {
-  const [status,     setStatus]     = useState(null)
-  const [pulse,      setPulse]      = useState(null)
-  const [summary,    setSummary]    = useState(null)
-  const [candidates, setCandidates] = useState(null)
-  const [sectors,    setSectors]    = useState(null)
-  const [fresh,      setFresh]      = useState(null)
-  const [risk,       setRisk]       = useState(null)
-  const [setups,     setSetups]     = useState(null)
-  const [brief,      setBrief]      = useState(null)
-  const [news,       setNews]       = useState(null)
-  const [watchlist,  setWatchlist]  = useState(null)
+  const [status,         setStatus]         = useState(null)
+  const [pulse,          setPulse]          = useState(null)
+  const [summary,        setSummary]        = useState(null)
+  const [candidates,     setCandidates]     = useState(null)
+  const [sectors,        setSectors]        = useState(null)
+  const [fresh,          setFresh]          = useState(null)
+  const [risk,           setRisk]           = useState(null)
+  const [setups,         setSetups]         = useState(null)
+  const [brief,          setBrief]          = useState(null)
+  const [news,           setNews]           = useState(null)
+  const [watchlist,      setWatchlist]      = useState(null)
+  const [dashboardState, setDashboardState] = useState(DS.LOADING)
 
   const [ctxMap,      setCtxMap]      = useState({})
   const [newsDrawer,  setNewsDrawer]  = useState(null)
   const [loading,     setLoading]     = useState(true)
+  const [refreshing,  setRefreshing]  = useState(false)
   const [lastRefresh, setLastRefresh] = useState(null)
   const abortRef = useRef(null)
+
+  // Apply bootstrap response to all state slices
+  const _applyBootstrap = useCallback((data) => {
+    const ds = data.dashboard_state || DS.NO_SCAN
+    setDashboardState(ds)
+
+    const scanInfo   = data.latest_scan  || {}
+    const topCards   = data.top_candidates || []
+    const setupsList = data.best_setups   || []
+
+    // Status (synthesise from bootstrap data)
+    setStatus(prev => ({
+      ...(prev || {}),
+      ultra: {
+        running:   ds === DS.RUNNING,
+        last_scan: scanInfo.finished_at || null,
+        done:      scanInfo.total_candidates || 0,
+        total:     scanInfo.total_candidates || 0,
+      },
+      scanner: prev?.scanner || { running: false, last_scan: null },
+      market:  prev?.market  || {},
+    }))
+
+    if (data.market_pulse?.pulse) setPulse(data.market_pulse)
+    if (data.summary && Object.keys(data.summary).length)
+      setSummary({ ...data.summary, ultra_total: topCards.length })
+
+    if (topCards.length) setCandidates({ cards: topCards, count: topCards.length, tf: '1d' })
+    if (setupsList.length) setSetups({ setups: setupsList })
+    if (data.sectors?.length) setSectors({ sectors: data.sectors })
+    if (data.risk_alerts?.length) setRisk({ alerts: data.risk_alerts, count: data.risk_alerts.length })
+    if (data.fresh_signals?.length) setFresh({ signals: data.fresh_signals, count: data.fresh_signals.length })
+
+    // News — use bootstrap news which already uses Massive
+    if (data.news) setNews({
+      items:               data.news.items || [],
+      source:              'massive',
+      provider_configured: data.news.provider_configured ?? true,
+      message:             data.news.message || '',
+    })
+  }, [])
 
   const loadAll = useCallback(async (silent = false) => {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
-    if (!silent) setLoading(true)
+
+    if (!silent) {
+      setLoading(true)
+      setDashboardState(DS.LOADING)
+    } else {
+      setRefreshing(true)
+    }
 
     try {
-      const [statusData, pulseData, summaryData] = await Promise.all([
+      // Wave 1: bootstrap (single call, DB-backed, survives restarts)
+      const bootstrap = await apiFetch('/bootstrap')
+      _applyBootstrap(bootstrap)
+
+      // Wave 2: supplemental live data that bootstrap doesn't include
+      const [statusData, pulseData] = await Promise.allSettled([
         apiFetch('/status'),
         apiFetch('/pulse'),
-        apiFetch('/summary'),
       ])
-      setStatus(statusData)
-      setPulse(pulseData)
-      setSummary(summaryData)
+      if (statusData.status === 'fulfilled') setStatus(statusData.value)
+      if (pulseData.status  === 'fulfilled') setPulse(pulseData.value)
 
-      const w2 = await Promise.allSettled([
-        apiFetch('/top50?limit=50'),
-        apiFetch('/sector-heat'),
-        apiFetch('/fresh-signals?limit=30'),
-        apiFetch('/risk-alerts'),
-        apiFetch('/news'),
-      ])
-      if (w2[0].status === 'fulfilled') setCandidates(w2[0].value)
-      if (w2[1].status === 'fulfilled') setSectors(w2[1].value)
-      if (w2[2].status === 'fulfilled') setFresh(w2[2].value)
-      if (w2[3].status === 'fulfilled') setRisk(w2[3].value)
-      if (w2[4].status === 'fulfilled') setNews(w2[4].value)
-
-      if (watchlistTickers.length > 0) {
-        try {
-          const wlRaw = await watchlistApiFetch(watchlistTickers)
-          const items = wlRaw.map(item => {
-            const score = item.bull_score ?? 0
-            return {
-              ...item,
-              status:        score >= 6 ? 'improving' : score >= 4 ? 'valid' : score >= 2 ? 'weakening' : 'review',
-              action_bucket: score >= 7 ? 'BUY_READY' : score >= 5 ? 'WATCH_CLOSELY' : score >= 3 ? 'WAIT_CONFIRMATION' : 'AVOID',
-            }
-          })
-          setWatchlist(items)
-        } catch (_) {}
-      }
-
-      const w3 = await Promise.allSettled([
-        apiFetch('/best-setups'),
+      // Wave 3: AI brief + watchlist (lowest priority)
+      const [briefRes, wlRaw] = await Promise.allSettled([
         apiFetch('/ai-brief'),
+        watchlistTickers.length > 0 ? watchlistApiFetch(watchlistTickers) : Promise.resolve([]),
       ])
-      if (w3[0].status === 'fulfilled') setSetups(w3[0].value)
-      if (w3[1].status === 'fulfilled') setBrief(w3[1].value)
+      if (briefRes.status === 'fulfilled') setBrief(briefRes.value)
+      if (wlRaw.status === 'fulfilled' && wlRaw.value?.length) {
+        const items = wlRaw.value.map(item => {
+          const score = item.bull_score ?? 0
+          return {
+            ...item,
+            status:        score >= 6 ? 'improving' : score >= 4 ? 'valid' : score >= 2 ? 'weakening' : 'review',
+            action_bucket: score >= 7 ? 'BUY_READY' : score >= 5 ? 'WATCH_CLOSELY' : score >= 3 ? 'WAIT_CONFIRMATION' : 'AVOID',
+          }
+        })
+        setWatchlist(items)
+      }
 
       setLastRefresh(new Date())
     } catch (err) {
-      if (err.name !== 'AbortError') console.error('Dashboard load error:', err)
+      if (err.name !== 'AbortError') {
+        console.error('Dashboard load error:', err)
+        // On error: keep existing data visible, only update state if nothing loaded yet
+        setDashboardState(prev => prev === DS.LOADING ? DS.ERROR : prev)
+      }
     } finally {
       if (!silent) setLoading(false)
+      setRefreshing(false)
     }
-  }, [watchlistTickers])
+  }, [watchlistTickers, _applyBootstrap])
 
   useEffect(() => {
     loadAll()
@@ -1733,6 +1804,9 @@ export default function TradingDashboardPanel({
   const addToWL  = useCallback(t => { if (onAddToWatchlist) onAddToWatchlist(t) }, [onAddToWatchlist])
   const openNews = useCallback(t => setNewsDrawer(t), [])
 
+  // Ultra last_scan comes from bootstrap data (DB-sourced)
+  const ultraHealth = status?.ultra ?? null
+
   return (
     <div className="flex flex-col gap-5 pb-8">
 
@@ -1745,11 +1819,29 @@ export default function TradingDashboardPanel({
         pulse={pulse}
         summary={summary}
         onRefresh={() => loadAll(false)}
-        loading={loading}
+        loading={loading || refreshing}
         lastRefresh={lastRefresh}
       />
 
-      {/* ── MAIN 2-COLUMN GRID ───────────────────────────────────────────── */}
+      {/* ── NO_SCAN CTA — shown only when truly no data and not loading ───── */}
+      {dashboardState === DS.NO_SCAN && !loading && (
+        <Panel className="p-8 text-center">
+          <div className="flex flex-col items-center gap-3">
+            <span className="text-3xl">🔍</span>
+            <h2 className="text-base font-semibold text-md-on-surface">No Ultra Scan data found</h2>
+            <p className="text-sm text-md-on-surface-var max-w-sm">
+              Run an Ultra Scan to populate the Dashboard. Once a scan completes, data
+              persists across refreshes and deploys.
+            </p>
+            <p className="text-xs text-md-on-surface-var opacity-60 mt-1">
+              Go to <strong>⚡ TURBO</strong> or <strong>🧬 ULTRA</strong> tab to start a scan.
+            </p>
+          </div>
+        </Panel>
+      )}
+
+      {/* ── MAIN 2-COLUMN GRID — show when data exists or while loading ──── */}
+      {(dashboardState !== DS.NO_SCAN || loading) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 
         {/* Left: Best Setups + Top Candidates */}
@@ -1777,9 +1869,10 @@ export default function TradingDashboardPanel({
           <AIMarketBrief brief={brief} loading={loading} />
           <MarketNewsPanel news={news} loading={loading} />
           <RiskAlertsPanel alerts={risk} loading={loading} />
-          <DataHealthCard scanner={status?.scanner} ultra={status?.ultra} loading={loading} />
+          <DataHealthCard scanner={status?.scanner} ultra={ultraHealth} loading={loading} />
         </div>
       </div>
+      )}
 
       {/* ── SECTOR STRENGTH ─────────────────────────────────────────────── */}
       <SectorStrengthPanel sectors={sectors} loading={loading} />
