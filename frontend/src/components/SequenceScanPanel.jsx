@@ -1,6 +1,5 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { api } from '../api'
-import SignalSequence from './SignalSequence'
 
 const UNIVERSES = [
   { key: 'sp500',      label: 'S&P 500' },
@@ -304,7 +303,7 @@ export default function SequenceScanPanel() {
 
       {/* ── Table ─────────────────────────────────────────────────────── */}
       <div className="mt-2 overflow-auto border border-md-outline-var rounded-md-md">
-        <table className="min-w-max w-full text-xs">
+        <table className="min-w-full text-xs">
           <thead className="bg-md-surface-con text-md-on-surface-var">
             <tr>
               <th className="px-2 py-1.5 text-left">Sequence</th>
@@ -352,7 +351,7 @@ export default function SequenceScanPanel() {
               return (
                 <tr key={`${r.sequence}-${i}`}
                     className="border-t border-md-outline-var hover:bg-md-surface-high/40">
-                  <td className="px-2 py-1"><SignalSequence value={r.sequence} max={5} /></td>
+                  <td className="px-2 py-1 font-mono text-blue-300">{r.sequence}</td>
                   <td className="px-2 py-1 font-mono text-md-on-surface-var">{r.type_seq}</td>
                   <td className={`px-2 py-1 text-right font-mono ${wrCls(r.win_rate)}`}
                       title={`1D win rate from ${r.count} occurrences`}>

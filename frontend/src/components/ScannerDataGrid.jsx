@@ -1,8 +1,5 @@
 import { useState } from 'react'
 import { pwlHas } from './PersonalWatchlistPanel'
-import SharedSignalChip from './SignalChip'
-import TableScrollContainer from './TableScrollContainer'
-import TickerCell from './TickerCell'
 
 // ── Colour helpers (shared) ───────────────────────────────────────────────────
 const TZ_STRONG = new Set(['T4','T6','T1G','T2G'])
@@ -458,7 +455,7 @@ export default function ScannerDataGrid({
 
   return (
     <div className="overflow-auto flex-1">
-      <table className="w-full border-collapse text-xs min-w-max">
+      <table className="w-full border-collapse text-xs">
         <thead className="sticky top-0 z-10 bg-md-surface-con text-md-on-surface-var text-left [&>tr>th]:shadow-[0_1px_0_0_rgba(255,255,255,0.07)]">
           <tr>
             {/* Checkbox col */}
@@ -538,8 +535,10 @@ export default function ScannerDataGrid({
             const isEven = rowIdx % 2 === 0
             const rowBg = isEven ? 'bg-md-surface-con' : ''
 
-            // Collect all priority signals for the Signals column
+            // Collect priority signals for the Signals column (top 3 + overflow)
             const allSigs = collectSignals(r)
+            const topSigs = allSigs.slice(0, 3)
+            const overflow = allSigs.length - 3
 
             const chg = r.change_pct ?? 0
 
@@ -571,10 +570,10 @@ export default function ScannerDataGrid({
                 </td>
 
                 {/* Ticker + sector */}
-                <td className={`px-2 py-1 sticky left-[52px] z-10 w-[90px] max-w-[110px] ${isEven ? 'bg-md-surface-con' : 'bg-md-surface'}`}>
-                  <TickerCell symbol={r.ticker} company={r.company} sector={r.sector} className="leading-tight" />
+                <td className={`px-2 py-1 sticky left-[52px] z-10 ${isEven ? 'bg-md-surface-con' : 'bg-md-surface'}`}>
+                  <div className="font-mono font-semibold text-md-on-surface leading-tight">{r.ticker}</div>
                   {(r.sector || r.vol_bucket) && (
-                    <div className="text-[10px] text-md-on-surface-var truncate max-w-[90px]">
+                    <div className="text-[10px] text-md-on-surface-var truncate max-w-[76px]">
                       {r.sector || r.vol_bucket}
                     </div>
                   )}
@@ -640,14 +639,14 @@ export default function ScannerDataGrid({
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* Signals — show all in table mode */}
+                {/* Signals — top 3 + overflow */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5 items-center">
-                    {allSigs.map((s, i) => (
-                      <SharedSignalChip key={i} signal={s.label} size="sm" />
+                    {topSigs.map((s, i) => (
+                      <SignalBadge key={i} label={s.label} type={s.type} />
                     ))}
-                    {allSigs.length === 0 && (
-                      <span className="text-md-on-surface-var/50">—</span>
+                    {overflow > 0 && (
+                      <span className="text-[10px] text-md-on-surface-var italic">+{overflow} more</span>
                     )}
                   </div>
                 </td>

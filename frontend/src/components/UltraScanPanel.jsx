@@ -819,7 +819,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [lastScan,   setLastScan]   = useState(() => { const tf = _initTf(); const uni = _initUni(); return _tsGet(tf, uni)?.lastScan || null })
   const [scanning,   setScanning]   = useState(false)
   const [error,      setError]      = useState(null)
-  const [dbLoaded,   setDbLoaded]   = useState(false)   // true when data came from DB snapshot
   const pollIvRef   = useRef(null)   // interval handle — prevents duplicate polls
   const fetchSeqRef = useRef(0)      // monotonic counter — discard stale fetches
   const [massiveReady, setMassiveReady] = useState(null)
@@ -871,8 +870,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
           ultraCacheSet(tf, uni, results, ls)
           setAllResults(results)
           setLastScan(ls || null)
-          // Mark whether this came from a DB snapshot (survived restart)
-          setDbLoaded(d.meta?.phase === 'db_loaded')
         }
       })
       .catch(e => { if (seq === fetchSeqRef.current) setError(e.message) })
@@ -1755,11 +1752,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
         {/* Stats + stale warning */}
         <span className="ml-auto text-md-on-surface-var/70 shrink-0 flex items-center gap-1.5">
           {partialDay && <span className="text-amber-400 font-medium">~preview</span>}
-          {dbLoaded && !scanning && (
-            <span className="text-sky-400/80 text-[10px] border border-sky-600/40 rounded px-1 py-px">
-              saved scan
-            </span>
-          )}
           {results.length} / {allResults.length}
           {lastScan && (() => {
             const ageH = (Date.now() - new Date(lastScan).getTime()) / 3_600_000
@@ -1772,14 +1764,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
           })()}
         </span>
       </div>
-
-      {/* Refreshing banner — shown while a new scan is running but old results are visible */}
-      {scanning && allResults.length > 0 && (
-        <div className="flex items-center gap-2 px-3 py-1.5 bg-sky-900/20 border-b border-sky-700/30 text-sky-300 text-xs">
-          <span className="animate-spin inline-block">⟳</span>
-          Refreshing scan data… previous results shown below
-        </div>
-      )}
 
       {/* ── Advanced Filters toggle (SIG / Sector / RTB Phase) ── */}
       <div className="flex items-center gap-2 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
