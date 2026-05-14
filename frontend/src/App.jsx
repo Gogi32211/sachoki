@@ -133,6 +133,10 @@ export default function App() {
   const handleSelect       = (ticker) => setSelected(ticker)
   const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
   const handleRemoveTicker = (t) => setWatchlist(prev => prev.filter(x => x !== t))
+  const handleOpenChart    = useCallback((ticker) => {
+    setSelected(ticker)
+    setActiveTab('superchart')
+  }, [])
 
   const chartTicker =
     activeTab === 'superchart' && scTicker           ? scTicker :
@@ -152,7 +156,7 @@ export default function App() {
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xl font-semibold tracking-tight text-md-primary">Sachoki</span>
-          <span className="text-xs text-md-on-surface-var">v4.7.1</span>
+          <span className="text-xs text-md-on-surface-var">v4.7.6</span>
         </div>
 
         {/* Timeframe segmented control */}
@@ -248,6 +252,7 @@ export default function App() {
               onSelectTicker={handleSelect}
               onAddToWatchlist={handleAddTicker}
               watchlistTickers={watchlist}
+              onOpenChart={handleOpenChart}
             />
           )}
 
