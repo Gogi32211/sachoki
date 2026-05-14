@@ -187,7 +187,7 @@ export default function SignalCorrelPanel() {
 
       {!loading && sorted.length > 0 && (
         <div className="overflow-auto max-h-[520px]">
-          <table className="w-full">
+          <table className="w-full min-w-max">
             <thead className="sticky top-0 bg-md-surface-con border-b border-md-outline-var">
               <tr>
                 <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium">Signal A</th>

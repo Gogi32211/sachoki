@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Card, Spinner, EmptyState } from '../design-system'
+import TableScrollContainer from './TableScrollContainer'
 
 const L_COLS = ["L1", "L2", "L3", "L4", "L5", "L6", "L34", "L22", "L64", "L43", "L1L2", "L2L5"]
 
@@ -69,7 +70,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
           <span className="text-md-negative">−diff</span> vs benchmark (pp = percentage points)
         </div>
       )}
-      <table className="text-xs w-full border-separate border-spacing-0">
+      <TableScrollContainer><table className="text-xs w-full border-separate border-spacing-0 min-w-max">
         <thead>
           <tr>
             <th className="text-left px-3 py-2 text-md-on-surface-var sticky left-0 bg-md-surface-con z-10 border-b border-md-outline-var min-w-[60px]">
@@ -115,7 +116,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
             )
           })}
         </tbody>
-      </table>
+      </table></TableScrollContainer>
     </div>
   )
 }

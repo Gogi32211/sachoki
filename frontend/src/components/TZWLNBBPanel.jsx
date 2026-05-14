@@ -1,4 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
+import SharedSignalChip from './SignalChip'
+import TickerCell from './TickerCell'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
@@ -633,7 +635,7 @@ export default function TZWLNBBPanel() {
                     className={`border-b border-md-outline-var/50 hover:bg-md-surface-con/50 transition-colors
                       ${hasAny ? '' : 'opacity-60'}`}
                   >
-                    <td className="p-1 font-semibold text-white">{row.ticker}</td>
+                    <td className="p-1 w-[90px] max-w-[110px]"><TickerCell symbol={row.ticker} /></td>
                     <td className="p-1 text-md-on-surface-var">{row.date}</td>
                     <td className="p-1 text-right text-md-on-surface">
                       {row.close ? Number(row.close).toFixed(2) : '—'}
@@ -648,16 +650,16 @@ export default function TZWLNBBPanel() {
                         : '—'}
                     </td>
                     <td className="p-1">
-                      {tSig ? <Badge text={tSig} color={tBadgeColor(tSig)} /> : null}
+                      {tSig ? <SharedSignalChip signal={tSig} size="sm" /> : null}
                     </td>
                     <td className="p-1">
-                      {zSig ? <Badge text={zSig} color={zBadgeColor(zSig)} /> : null}
+                      {zSig ? <SharedSignalChip signal={zSig} size="sm" /> : null}
                     </td>
                     <td className="p-1">
-                      {lSig ? <Badge text={lSig} color={lBadgeColor()} /> : null}
+                      {lSig ? <SharedSignalChip signal={lSig} size="sm" /> : null}
                     </td>
                     <td className="p-1">
-                      {preSig ? <Badge text={preSig} color={preBadgeColor(preSig)} /> : null}
+                      {preSig ? <SharedSignalChip signal={preSig} size="sm" /> : null}
                     </td>
                     <td className="p-1 text-blue-300 font-mono">{row.lane1_label || ''}</td>
                     <td className="p-1 text-red-300 font-mono">{row.lane3_label || ''}</td>

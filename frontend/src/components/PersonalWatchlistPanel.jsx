@@ -1,4 +1,7 @@
 import { useState, useMemo } from 'react'
+import SharedSignalChip from './SignalChip'
+import TableScrollContainer from './TableScrollContainer'
+import TickerCell from './TickerCell'
 
 const LS_KEY = 'sachoki_personal_watchlist'
 
@@ -86,9 +89,7 @@ function SignalChips({ entry, n }) {
   return (
     <div className="flex flex-wrap gap-0.5">
       {active.map(k => (
-        <span key={k} className="px-1 py-0.5 rounded bg-gray-700 text-md-on-surface text-[10px] font-mono">
-          {SIG_LABEL[k] ?? k}
-        </span>
+        <SharedSignalChip key={k} signal={SIG_LABEL[k] ?? k} size="sm" />
       ))}
     </div>
   )
@@ -222,7 +223,8 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           <div className="px-4 py-1.5 text-[10px] text-md-on-surface-var/60 uppercase tracking-wider bg-md-surface-high/30">
             Watching ({watchlistTickers.length}){watchingRows.length < watchlistTickers.length ? ` · ${watchlistTickers.length - watchingRows.length} not in cache — run Turbo scan first` : ''}
           </div>
-          <table className="w-full">
+          <TableScrollContainer>
+          <table className="w-full min-w-max">
             <tbody>
               {watchlistTickers.map((ticker, i) => {
                 const entry = watchingRows.find(r => r.ticker === ticker)
@@ -230,7 +232,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                   <tr key={i}
                     onClick={() => onSelectTicker?.(ticker)}
                     className="border-b border-md-outline-var/30 hover:bg-md-surface-high/40 cursor-pointer">
-                    <td className="px-3 py-1.5 font-semibold text-white w-20">{ticker}</td>
+                    <td className="px-3 py-1.5 w-[90px] max-w-[110px]"><TickerCell symbol={ticker} /></td>
                     <td className="px-2 py-1.5 text-purple-300 font-mono text-[10px] w-12">{entry?.tz_sig || '—'}</td>
                     <td className="px-2 py-1.5 font-bold text-yellow-300 w-12">{entry ? entry.score.toFixed(1) : '—'}</td>
                     <td className="px-2 py-1.5 flex-1">{entry ? <SignalChips entry={entry} n={n} /> : <span className="text-md-on-surface-var/50 text-[10px]">no scan data</span>}</td>
@@ -250,6 +252,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
               })}
             </tbody>
           </table>
+          </TableScrollContainer>
         </div>
       )}
 
@@ -269,7 +272,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
           <div className="px-4 py-1.5 text-[10px] text-md-on-surface-var/60 uppercase tracking-wider bg-md-surface-high/30 sticky top-0">
             Saved from scan ({sorted.length})
           </div>
-          <table className="w-full">
+          <table className="w-full min-w-max">
             <thead className="sticky top-7 bg-md-surface-con border-b border-md-outline-var">
               <tr>
                 <th className="px-3 py-2 text-left text-xs text-md-on-surface-var font-medium w-6"></th>
@@ -293,7 +296,7 @@ export default function PersonalWatchlistPanel({ onSelectTicker, watchlistTicker
                   <td className="px-2 py-1.5" onClick={e => { e.stopPropagation(); remove(entry.ticker, entry.tf) }}>
                     <button className="text-yellow-400 hover:text-md-on-surface-var transition-colors" title="Remove">★</button>
                   </td>
-                  <td className="px-3 py-1.5 font-semibold text-white">{entry.ticker}</td>
+                  <td className="px-3 py-1.5 w-[90px] max-w-[110px]"><TickerCell symbol={entry.ticker} /></td>
                   <td className="px-3 py-1.5 text-md-on-surface-var text-[10px]">{entry.tf}</td>
                   <td className="px-3 py-1.5 font-bold text-yellow-300">{entry.score.toFixed(1)}</td>
                   <td className="px-3 py-1.5 text-purple-300 font-mono text-[10px]">{entry.tz_sig || '—'}</td>
