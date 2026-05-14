@@ -1858,48 +1858,7 @@ export default function TradingDashboardPanel({
   const [lastRefresh, setLastRefresh] = useState(null)
   const abortRef = useRef(null)
 
-  // Apply bootstrap response to all state slices
-  const _applyBootstrap = useCallback((data) => {
-    const ds = data.dashboard_state || DS.NO_SCAN
-    setDashboardState(ds)
-
-    const scanInfo   = data.latest_scan  || {}
-    const topCards   = data.top_candidates || []
-    const setupsList = data.best_setups   || []
-
-    // Status (synthesise from bootstrap data)
-    setStatus(prev => ({
-      ...(prev || {}),
-      ultra: {
-        running:   ds === DS.RUNNING,
-        last_scan: scanInfo.finished_at || null,
-        done:      scanInfo.total_candidates || 0,
-        total:     scanInfo.total_candidates || 0,
-      },
-      scanner: prev?.scanner || { running: false, last_scan: null },
-      market:  prev?.market  || {},
-    }))
-
-    if (data.market_pulse?.pulse) setPulse(data.market_pulse)
-    if (data.summary && Object.keys(data.summary).length)
-      setSummary({ ...data.summary, ultra_total: topCards.length })
-
-    if (topCards.length) setCandidates({ cards: topCards, count: topCards.length, tf: '1d' })
-    if (setupsList.length) setSetups({ setups: setupsList })
-    if (data.sectors?.length) setSectors({ sectors: data.sectors })
-    if (data.risk_alerts?.length) setRisk({ alerts: data.risk_alerts, count: data.risk_alerts.length })
-    if (data.fresh_signals?.length) setFresh({ signals: data.fresh_signals, count: data.fresh_signals.length })
-
-    // News — use bootstrap news which already uses Massive
-    if (data.news) setNews({
-      items:               data.news.items || [],
-      source:              'massive',
-      provider_configured: data.news.provider_configured ?? true,
-      message:             data.news.message || '',
-    })
-  }, [])
-
-  const loadAll = useCallback(async (silent = false) => {
+  const loadAll = useCallback(async (silent = false, force = false) => {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
 
@@ -1911,37 +1870,35 @@ export default function TradingDashboardPanel({
     }
 
     try {
-      // Wave 1: bootstrap (single call, DB-backed, survives restarts)
-      const bootstrap = await apiFetch('/bootstrap')
-      _applyBootstrap(bootstrap)
+      // Single bootstrap call loads all dashboard data from DB in one round-trip.
+      // force=true clears server-side caches so Refresh always shows latest scan data.
+      const bootstrapUrl = `/bootstrap?tf=1d${force ? '&force=true' : ''}`
+      const data = await apiFetch(bootstrapUrl)
 
-      // Wave 2: supplemental live data that bootstrap doesn't include
-      const wlParam = watchlistTickers.length ? `&watchlist=${watchlistTickers.join(',')}` : ''
-      const [statusData, pulseData, moversData] = await Promise.allSettled([
-        apiFetch('/status'),
-        apiFetch('/pulse'),
-        apiFetch(`/top-movers?limit=5${wlParam}`),
-      ])
-      if (statusData.status === 'fulfilled') setStatus(statusData.value)
-      if (pulseData.status  === 'fulfilled') setPulse(pulseData.value)
-      if (moversData.status === 'fulfilled') setTopMovers(moversData.value)
+      if (data.status)  setStatus(data.status)
+      if (data.pulse)   setPulse(data.pulse)
+      if (data.summary) setSummary(data.summary)
+      if (data.top50)   setCandidates(data.top50)
+      if (data.sectors) setSectors(data.sectors)
+      if (data.fresh)   setFresh(data.fresh)
+      if (data.risk)    setRisk(data.risk)
+      if (data.setups)  setSetups(data.setups)
+      if (data.brief)   setBrief(data.brief)
+      if (data.news)    setNews(data.news)
 
-      // Wave 3: AI brief + watchlist (lowest priority)
-      const [briefRes, wlRaw] = await Promise.allSettled([
-        apiFetch('/ai-brief'),
-        watchlistTickers.length > 0 ? watchlistApiFetch(watchlistTickers) : Promise.resolve([]),
-      ])
-      if (briefRes.status === 'fulfilled') setBrief(briefRes.value)
-      if (wlRaw.status === 'fulfilled' && wlRaw.value?.length) {
-        const items = wlRaw.value.map(item => {
-          const score = item.bull_score ?? 0
-          return {
-            ...item,
-            status:        score >= 6 ? 'improving' : score >= 4 ? 'valid' : score >= 2 ? 'weakening' : 'review',
-            action_bucket: score >= 7 ? 'BUY_READY' : score >= 5 ? 'WATCH_CLOSELY' : score >= 3 ? 'WAIT_CONFIRMATION' : 'AVOID',
-          }
-        })
-        setWatchlist(items)
+      if (watchlistTickers.length > 0) {
+        try {
+          const wlRaw = await watchlistApiFetch(watchlistTickers)
+          const items = wlRaw.map(item => {
+            const score = item.bull_score ?? 0
+            return {
+              ...item,
+              status:        score >= 6 ? 'improving' : score >= 4 ? 'valid' : score >= 2 ? 'weakening' : 'review',
+              action_bucket: score >= 7 ? 'BUY_READY' : score >= 5 ? 'WATCH_CLOSELY' : score >= 3 ? 'WAIT_CONFIRMATION' : 'AVOID',
+            }
+          })
+          setWatchlist(items)
+        } catch (_) {}
       }
 
       setLastRefresh(new Date())
@@ -1958,8 +1915,8 @@ export default function TradingDashboardPanel({
   }, [watchlistTickers, _applyBootstrap])
 
   useEffect(() => {
-    loadAll()
-    const t = setInterval(() => loadAll(true), 60_000)
+    loadAll(false, false)
+    const t = setInterval(() => loadAll(true, false), 60_000)
     return () => { clearInterval(t); abortRef.current?.abort() }
   }, [loadAll])
 
@@ -2012,8 +1969,8 @@ export default function TradingDashboardPanel({
         status={status}
         pulse={pulse}
         summary={summary}
-        onRefresh={() => loadAll(false)}
-        loading={loading || refreshing}
+        onRefresh={() => loadAll(false, true)}
+        loading={loading}
         lastRefresh={lastRefresh}
       />
 
