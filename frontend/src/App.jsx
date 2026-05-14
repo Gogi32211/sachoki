@@ -24,6 +24,7 @@ import PortfolioPanel from './components/PortfolioPanel'
 import ChartObsPanel from './components/ChartObsPanel'
 import SignalReplayPanel from './components/SignalReplayPanel'
 import UltraPumpResearchPanel from './components/UltraPumpResearchPanel'
+import TradingDashboardPanel from './components/TradingDashboardPanel'
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -38,6 +39,12 @@ const LS = {
 
 // ── Navigation structure (grouped) ───────────────────────────────────────────
 const TAB_GROUPS = [
+  {
+    label: 'Dashboard',
+    tabs: [
+      { id: 'dashboard', label: '🏠 Dashboard' },
+    ],
+  },
   {
     label: 'Scan',
     tabs: [
@@ -101,8 +108,8 @@ export default function App() {
     () => LS.get('tf', '1d')
   )
   const [activeTab, setActiveTab] = useState(() => {
-    const saved = LS.get('active_tab', 'combined')
-    return VALID_TAB_IDS.has(saved) ? saved : 'combined'
+    const saved = LS.get('active_tab', 'dashboard')
+    return VALID_TAB_IDS.has(saved) ? saved : 'dashboard'
   })
   const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
   const [scTicker, setScTicker] = useState(null)
@@ -142,7 +149,7 @@ export default function App() {
         {/* Brand */}
         <div className="flex items-center gap-2.5 shrink-0">
           <span className="text-xl font-semibold tracking-tight text-md-primary">Sachoki</span>
-          <span className="text-xs text-md-on-surface-var">v4.6.94</span>
+          <span className="text-xs text-md-on-surface-var">v4.7.0</span>
         </div>
 
         {/* Timeframe segmented control */}
@@ -233,6 +240,7 @@ export default function App() {
 
         {/* Tab content */}
         <div className="min-h-[400px]">
+          {activeTab === 'dashboard'      && <TradingDashboardPanel />}
           {/* Always-mounted: preserve scan results on tab switch */}
           <div style={{ display: activeTab === 'turbo' ? 'block' : 'none' }}>
             <TurboScanPanel onSelectTicker={handleSelect} />
