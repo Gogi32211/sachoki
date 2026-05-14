@@ -1063,6 +1063,18 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
         )
         _finalize_finished_at(run_id)
 
+        # ── Persist results to DB (persistent archive) ───────────────────────
+        _set(phase="persisting", phase_message="Persisting results to database")
+        persist_research_results(
+            run_id,
+            all_episodes=all_episodes,
+            episodes_with_split=episodes_with_split,
+            pattern_rows=pattern_rows,
+            lift_rows=lift_rows_updated,
+            research_bundle=research_bundle,
+        )
+        refresh_ultra_research_run_summary(run_id)
+
         run_snapshot = _get_run_row(run_id)
         write_json(rdir / "run.json", run_snapshot)
 
@@ -1093,6 +1105,232 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
              elapsed_secs=round(time.time() - t0, 1))
         _update_run(run_id, status="failed", error_message=str(exc))
         _finalize_finished_at(run_id)
+
+
+# ── Persistent archive helpers ────────────────────────────────────────────────
+
+def persist_research_results(
+    run_id: int,
+    all_episodes: list[dict],
+    episodes_with_split: list[dict],
+    pattern_rows: list[dict],
+    lift_rows: list[dict],
+    research_bundle: dict,
+) -> None:
+    """
+    Write completed run results to the persistent DB tables:
+      - ultra_research_episodes  (one row per episode)
+      - ultra_research_patterns  (one row per pattern, merged with lift)
+      - ultra_research_bundles   (full bundle JSON)
+
+    Safe to call multiple times — uses INSERT OR REPLACE / UPSERT logic.
+    """
+    ph = _ph()
+    now_expr = "NOW()" if USE_PG else "datetime('now')"
+
+    # Build a dict of split_status keyed by episode_id for merging
+    split_map: dict[str, str] = {}
+    for ep in (episodes_with_split or []):
+        eid = ep.get("episode_id") or ""
+        if eid:
+            split_map[eid] = ep.get("split_status", "")
+
+    # Build lift map keyed by pattern_key
+    lift_map: dict[str, dict] = {}
+    for lr in (lift_rows or []):
+        pk = lr.get("pattern_key") or ""
+        if pk:
+            lift_map[pk] = lr
+
+    try:
+        with get_db() as db:
+            # --- episodes ---
+            # Delete old rows for this run first (idempotent re-run support)
+            db.execute(f"DELETE FROM ultra_research_episodes WHERE run_id={ph}", [run_id])
+
+            ep_cols = [
+                "run_id", "episode_id", "symbol", "universe", "category",
+                "anchor_date", "anchor_close", "peak_date", "peak_high",
+                "max_gain_pct", "first_x2_date", "days_to_peak", "days_to_first_x2",
+                "max_drawdown_before_peak_pct", "pre_pump_window_start_date",
+                "pre_pump_window_end_date", "pre_pump_window_bars",
+                "scanner_detection_window_bars", "pump_horizon",
+                "caught_status", "caught_bar_offset_from_anchor",
+                "strongest_pre_pump_score", "split_status",
+            ]
+            ep_placeholders = ", ".join([ph] * len(ep_cols))
+            ep_sql = (f"INSERT INTO ultra_research_episodes ({', '.join(ep_cols)}) "
+                      f"VALUES ({ep_placeholders})")
+
+            ep_batch = []
+            for ep in (all_episodes or []):
+                eid = ep.get("episode_id") or ""
+                ep_batch.append([
+                    run_id,
+                    eid,
+                    ep.get("symbol"),
+                    ep.get("universe"),
+                    ep.get("category"),
+                    ep.get("anchor_date"),
+                    ep.get("anchor_close"),
+                    ep.get("peak_date"),
+                    ep.get("peak_high"),
+                    ep.get("max_gain_pct"),
+                    ep.get("first_x2_date"),
+                    ep.get("days_to_peak"),
+                    ep.get("days_to_first_x2"),
+                    ep.get("max_drawdown_before_peak_pct"),
+                    ep.get("pre_pump_window_start_date"),
+                    ep.get("pre_pump_window_end_date"),
+                    ep.get("pre_pump_window_bars"),
+                    ep.get("scanner_detection_window_bars"),
+                    ep.get("pump_horizon"),
+                    ep.get("caught_status"),
+                    ep.get("caught_bar_offset_from_anchor"),
+                    ep.get("strongest_pre_pump_score"),
+                    split_map.get(eid, ""),
+                ])
+            if ep_batch:
+                db.executemany(ep_sql, ep_batch)
+
+            # --- patterns ---
+            db.execute(f"DELETE FROM ultra_research_patterns WHERE run_id={ph}", [run_id])
+
+            pt_cols = [
+                "run_id", "pattern_key", "pattern_type",
+                "pump_count", "pump_episode_coverage_pct",
+                "baseline_count", "baseline_frequency_pct",
+                "lift_vs_baseline", "odds_ratio", "precision", "recall",
+                "false_positive_rate", "median_future_gain",
+                "median_days_to_peak", "median_drawdown_before_peak",
+                "lift_all", "lift_clean_non_split",
+                "lift_split_related", "lift_post_reverse_split",
+            ]
+            pt_placeholders = ", ".join([ph] * len(pt_cols))
+            pt_sql = (f"INSERT INTO ultra_research_patterns ({', '.join(pt_cols)}) "
+                      f"VALUES ({pt_placeholders})")
+
+            pt_batch = []
+            for pr in (pattern_rows or []):
+                pk = pr.get("pattern_key") or ""
+                lr = lift_map.get(pk, {})
+                pt_batch.append([
+                    run_id,
+                    pk,
+                    pr.get("pattern_type"),
+                    pr.get("pump_count"),
+                    pr.get("pump_episode_coverage_pct"),
+                    pr.get("baseline_count"),
+                    pr.get("baseline_frequency_pct"),
+                    pr.get("lift_vs_baseline"),
+                    pr.get("odds_ratio"),
+                    pr.get("precision"),
+                    pr.get("recall"),
+                    pr.get("false_positive_rate"),
+                    pr.get("median_future_gain"),
+                    pr.get("median_days_to_peak"),
+                    pr.get("median_drawdown_before_peak"),
+                    lr.get("lift_all"),
+                    lr.get("lift_clean_non_split"),
+                    lr.get("lift_split_related"),
+                    lr.get("lift_post_reverse_split"),
+                ])
+            if pt_batch:
+                db.executemany(pt_sql, pt_batch)
+
+            # --- bundle ---
+            bundle_json = json.dumps(research_bundle, default=str)
+            if USE_PG:
+                db.execute(
+                    f"INSERT INTO ultra_research_bundles (run_id, bundle_json, updated_at) "
+                    f"VALUES ({ph}, {ph}, NOW()) "
+                    f"ON CONFLICT (run_id) DO UPDATE SET bundle_json=EXCLUDED.bundle_json, updated_at=NOW()",
+                    [run_id, bundle_json],
+                )
+            else:
+                db.execute(
+                    f"INSERT OR REPLACE INTO ultra_research_bundles (run_id, bundle_json, updated_at) "
+                    f"VALUES ({ph}, {ph}, datetime('now'))",
+                    [run_id, bundle_json],
+                )
+
+            db.commit()
+        log.info("ultra_pump[%d]: persisted %d episodes, %d patterns to DB",
+                 run_id, len(ep_batch), len(pt_batch))
+    except Exception as exc:
+        log.error("ultra_pump[%d]: persist_research_results failed: %s", run_id, exc)
+
+
+def refresh_ultra_research_run_summary(run_id: int) -> None:
+    """
+    Re-query actual DB row counts and update ultra_pump_runs totals + summary_json.
+    Call after persist_research_results() to ensure accurate counts.
+    """
+    ph = _ph()
+    try:
+        with get_db() as db:
+            db.execute(
+                f"SELECT COUNT(*) AS n FROM ultra_research_episodes WHERE run_id={ph}",
+                [run_id],
+            )
+            row = db.fetchone()
+            ep_count = (row or {}).get("n", 0) or 0
+
+            db.execute(
+                f"SELECT COUNT(*) AS n FROM ultra_research_episodes "
+                f"WHERE run_id={ph} AND category='X2_TO_X4'",
+                [run_id],
+            )
+            row = db.fetchone()
+            x2_count = (row or {}).get("n", 0) or 0
+
+            db.execute(
+                f"SELECT COUNT(*) AS n FROM ultra_research_episodes "
+                f"WHERE run_id={ph} AND category='X4_PLUS'",
+                [run_id],
+            )
+            row = db.fetchone()
+            x4_count = (row or {}).get("n", 0) or 0
+
+            db.execute(
+                f"SELECT COUNT(*) AS n FROM ultra_research_episodes "
+                f"WHERE run_id={ph} AND caught_status='CAUGHT'",
+                [run_id],
+            )
+            row = db.fetchone()
+            caught_count = (row or {}).get("n", 0) or 0
+
+            db.execute(
+                f"SELECT COUNT(*) AS n FROM ultra_research_patterns WHERE run_id={ph}",
+                [run_id],
+            )
+            row = db.fetchone()
+            pattern_count = (row or {}).get("n", 0) or 0
+
+        missed_count = ep_count - caught_count
+        summary = {
+            "total_episodes": ep_count,
+            "x2_to_x4_count": x2_count,
+            "x4_plus_count": x4_count,
+            "caught_count": caught_count,
+            "missed_count": missed_count,
+            "pattern_count": pattern_count,
+            "db_row_counts": {
+                "episodes": ep_count,
+                "patterns": pattern_count,
+            },
+        }
+        _update_run(
+            run_id,
+            total_episodes=ep_count,
+            total_caught=caught_count,
+            total_missed=missed_count,
+            summary_json=json.dumps(summary, default=str),
+        )
+        log.info("ultra_pump[%d]: refreshed run summary from DB — %d episodes, %d patterns",
+                 run_id, ep_count, pattern_count)
+    except Exception as exc:
+        log.error("ultra_pump[%d]: refresh_ultra_research_run_summary failed: %s", run_id, exc)
 
 
 _MISSED_RECOMMENDED_FIXES = {
