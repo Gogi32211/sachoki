@@ -25,6 +25,7 @@ from __future__ import annotations
 import csv as _csv
 import gc as _gc
 import hashlib
+import json as _json
 import logging
 import os as _os
 import threading
@@ -500,6 +501,7 @@ def run_ultra_scan_job(
             "stock_stat_total": 0,
             "enrich_total":     0,
             "enrich_done":      0,
+            "db_run_id":        None,
         })
 
     sources: dict = {
@@ -595,10 +597,17 @@ def run_ultra_scan_job(
     )
     elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
     response = _build_response(universe, tf, nasdaq_batch, elapsed_ms)
+    finished = _time.time()
     with _ultra_lock:
         _ultra_state["sources"]      = sources
-        _ultra_state["completed_at"] = _time.time()
+        _ultra_state["completed_at"] = finished
         _ultra_state["running"]      = False
+
+    # Persist Stage 1 results to DB so they survive restarts
+    run_id = _db_persist_scan(universe, tf, nasdaq_batch, rows, "stage1_done", finished)
+    with _ultra_lock:
+        _ultra_state["db_run_id"] = run_id
+
     _gc.collect()
     return response
 
@@ -853,9 +862,22 @@ def run_ultra_enrich_job(
     _gc.collect()
 
     elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
+    finished = _time.time()
     with _ultra_lock:
-        _ultra_state["completed_at"] = _time.time()
+        _ultra_state["completed_at"] = finished
         _ultra_state["running"]      = False
+
+    # Persist enriched Stage 2 results to DB (updates the Stage 1 run if available)
+    cached = _ultra_results_cache.get(_cache_key(universe, tf, nasdaq_batch))
+    enriched_rows = list(cached["rows"]) if cached else []
+    existing_run_id = _ultra_state.get("db_run_id")
+    if existing_run_id:
+        _db_update_scan(existing_run_id, enriched_rows, "completed", finished)
+    else:
+        run_id = _db_persist_scan(universe, tf, nasdaq_batch, enriched_rows, "completed", finished)
+        with _ultra_lock:
+            _ultra_state["db_run_id"] = run_id
+
     return _build_response(universe, tf, nasdaq_batch, elapsed_ms)
 
 
@@ -919,4 +941,241 @@ def get_ultra_status() -> dict:
 
 
 def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
-    return _build_response(universe, tf, nasdaq_batch)
+    resp = _build_response(universe, tf, nasdaq_batch)
+    # Fall back to persisted DB data if in-memory cache is empty (e.g. after restart)
+    if not resp.get("results"):
+        db_resp = _db_load_latest(universe, tf, nasdaq_batch)
+        if db_resp.get("results"):
+            return db_resp
+    return resp
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# DB persistence helpers — survive restarts / deploys
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _db_persist_scan(universe: str, tf: str, nasdaq_batch: str,
+                     rows: list, phase: str, finished_at: float) -> int | None:
+    """
+    Insert a new ultra_scan_runs record + all candidate rows.
+    Returns the new run_id, or None on failure.
+    """
+    try:
+        from db import get_db, USE_PG
+        fin = _time.strftime("%Y-%m-%dT%H:%M:%S", _time.gmtime(finished_at))
+        now = _time.strftime("%Y-%m-%dT%H:%M:%S", _time.gmtime())
+
+        with get_db() as conn:
+            if USE_PG:
+                conn.execute(
+                    "INSERT INTO ultra_scan_runs "
+                    "(universe, tf, nasdaq_batch, status, phase, total_candidates, finished_at, created_at) "
+                    "VALUES (?, ?, ?, 'completed', ?, ?, ?, ?) RETURNING id",
+                    (universe, tf, nasdaq_batch, phase, len(rows), fin, now),
+                )
+                run_id = conn.lastrowid
+            else:
+                cur = conn.execute(
+                    "INSERT INTO ultra_scan_runs "
+                    "(universe, tf, nasdaq_batch, status, phase, total_candidates, finished_at, created_at) "
+                    "VALUES (?, ?, ?, 'completed', ?, ?, ?, ?)",
+                    (universe, tf, nasdaq_batch, phase, len(rows), fin, now),
+                )
+                run_id = cur.lastrowid
+
+            if run_id and rows:
+                conn.executemany(
+                    "INSERT INTO ultra_scan_candidates "
+                    "(run_id, ticker, ultra_score, ultra_score_band, profile, last_price, "
+                    "change_pct, volume, vol_bucket, abr, ema_ok, bull_score, scanned_at, row_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            run_id,
+                            r.get("ticker", ""),
+                            r.get("ultra_score"),
+                            r.get("ultra_score_band"),
+                            r.get("profile") or r.get("ultra_score_priority"),
+                            r.get("last_price"),
+                            r.get("change_pct"),
+                            r.get("volume"),
+                            r.get("vol_bucket"),
+                            r.get("abr") or r.get("abr_label"),
+                            1 if r.get("ema_ok") else 0,
+                            r.get("bull_score"),
+                            r.get("scanned_at"),
+                            _json.dumps(r),
+                        )
+                        for r in rows if r.get("ticker")
+                    ],
+                )
+            conn.commit()
+            log.info("ultra: persisted %d candidates to DB run_id=%s phase=%s", len(rows), run_id, phase)
+            return run_id
+    except Exception as exc:
+        log.warning("ultra: DB persist failed: %s", exc)
+        return None
+
+
+def _db_update_scan(run_id: int, rows: list, phase: str, finished_at: float) -> None:
+    """
+    Update an existing run (e.g. Stage 1 → Stage 2 enrichment).
+    Replaces all candidates for that run_id.
+    """
+    try:
+        from db import get_db
+        fin = _time.strftime("%Y-%m-%dT%H:%M:%S", _time.gmtime(finished_at))
+
+        with get_db() as conn:
+            conn.execute(
+                "UPDATE ultra_scan_runs SET phase=?, total_candidates=?, finished_at=? WHERE id=?",
+                (phase, len(rows), fin, run_id),
+            )
+            conn.execute("DELETE FROM ultra_scan_candidates WHERE run_id=?", (run_id,))
+            if rows:
+                conn.executemany(
+                    "INSERT INTO ultra_scan_candidates "
+                    "(run_id, ticker, ultra_score, ultra_score_band, profile, last_price, "
+                    "change_pct, volume, vol_bucket, abr, ema_ok, bull_score, scanned_at, row_json) "
+                    "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    [
+                        (
+                            run_id,
+                            r.get("ticker", ""),
+                            r.get("ultra_score"),
+                            r.get("ultra_score_band"),
+                            r.get("profile") or r.get("ultra_score_priority"),
+                            r.get("last_price"),
+                            r.get("change_pct"),
+                            r.get("volume"),
+                            r.get("vol_bucket"),
+                            r.get("abr") or r.get("abr_label"),
+                            1 if r.get("ema_ok") else 0,
+                            r.get("bull_score"),
+                            r.get("scanned_at"),
+                            _json.dumps(r),
+                        )
+                        for r in rows if r.get("ticker")
+                    ],
+                )
+            conn.commit()
+            log.info("ultra: updated DB run_id=%d with %d enriched candidates", run_id, len(rows))
+    except Exception as exc:
+        log.warning("ultra: DB update failed run_id=%s: %s", run_id, exc)
+
+
+def _db_load_latest(universe: str, tf: str, nasdaq_batch: str = "") -> dict:
+    """
+    Load the most recent completed scan from DB and return a _build_response-shaped dict.
+    Also repopulates the in-memory cache so subsequent calls are cheap.
+    Returns empty result dict on failure or when no data exists.
+    """
+    try:
+        from db import get_db
+        with get_db() as conn:
+            conn.execute(
+                "SELECT id, universe, tf, nasdaq_batch, status, phase, total_candidates, finished_at "
+                "FROM ultra_scan_runs "
+                "WHERE universe=? AND tf=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (universe, tf),
+            )
+            run = conn.fetchone()
+            if not run:
+                return {"results": [], "total": 0, "last_scan": None,
+                        "warnings": ["No completed Ultra Scan found in DB."],
+                        "meta": {"universe": universe, "tf": tf, "phase": None,
+                                 "nasdaq_batch": nasdaq_batch or None, "sources": {}}}
+
+            run_id = run["id"]
+            conn.execute(
+                "SELECT row_json FROM ultra_scan_candidates WHERE run_id=? ORDER BY ultra_score DESC",
+                (run_id,),
+            )
+            candidate_rows = conn.fetchall()
+
+        rows: list[dict] = []
+        for c in candidate_rows:
+            try:
+                rows.append(_json.loads(c["row_json"]))
+            except Exception:
+                pass
+
+        finished_iso = run.get("finished_at") or ""
+        log.info("ultra: loaded %d candidates from DB run_id=%d finished=%s", len(rows), run_id, finished_iso)
+
+        # Repopulate in-memory cache so the next call is instant
+        _store_results(
+            universe, tf, nasdaq_batch or "",
+            rows=rows, last_scan=finished_iso,
+            warnings=[], sources={"db": {"ok": True, "count": len(rows)}},
+            phase=run.get("phase") or "db_restored",
+        )
+
+        return {
+            "results":   rows,
+            "total":     len(rows),
+            "last_scan": finished_iso,
+            "warnings":  [],
+            "meta": {
+                "universe":     universe,
+                "tf":           tf,
+                "nasdaq_batch": nasdaq_batch or None,
+                "phase":        run.get("phase") or "db_restored",
+                "db_run_id":    run_id,
+                "sources":      {"db": {"ok": True, "count": len(rows)}},
+            },
+        }
+    except Exception as exc:
+        log.warning("ultra: DB load latest failed: %s", exc)
+        return {"results": [], "total": 0, "last_scan": None,
+                "warnings": [f"DB load error: {exc}"],
+                "meta": {"universe": universe, "tf": tf, "phase": None,
+                         "nasdaq_batch": nasdaq_batch or None, "sources": {}}}
+
+
+def get_ultra_latest_from_db(universe: str = "sp500", tf: str = "1d") -> dict:
+    """
+    Public API: return metadata + row count for the latest DB scan.
+    Used by the dashboard bootstrap endpoint.
+    Returns a dict with has_data, run_id, status, finished_at, total_candidates, data_age_seconds.
+    """
+    try:
+        from db import get_db
+        with get_db() as conn:
+            conn.execute(
+                "SELECT id, universe, tf, status, phase, total_candidates, finished_at, created_at "
+                "FROM ultra_scan_runs "
+                "WHERE universe=? AND tf=? "
+                "ORDER BY created_at DESC LIMIT 1",
+                (universe, tf),
+            )
+            run = conn.fetchone()
+        if not run:
+            return {"has_data": False}
+
+        finished = run.get("finished_at") or run.get("created_at") or ""
+        age_s: int | None = None
+        try:
+            from datetime import datetime, timezone
+            dt = datetime.fromisoformat(finished.replace("Z", "+00:00"))
+            if dt.tzinfo is None:
+                dt = dt.replace(tzinfo=timezone.utc)
+            age_s = int((datetime.now(timezone.utc) - dt).total_seconds())
+        except Exception:
+            pass
+
+        return {
+            "has_data":         True,
+            "scan_run_id":      run["id"],
+            "status":           run.get("status", "completed"),
+            "phase":            run.get("phase"),
+            "universe":         run.get("universe", universe),
+            "timeframe":        run.get("tf", tf),
+            "finished_at":      finished,
+            "total_candidates": run.get("total_candidates", 0),
+            "data_age_seconds": age_s,
+        }
+    except Exception as exc:
+        log.warning("ultra: get_ultra_latest_from_db failed: %s", exc)
+        return {"has_data": False, "error": str(exc)}
