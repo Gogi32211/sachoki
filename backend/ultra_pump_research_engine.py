@@ -589,15 +589,18 @@ def _process_symbol(
     start_date: str | None,
     end_date: str | None,
     fetch_bars: int,
-) -> tuple[list[dict], list[dict]]:
-    """Returns (episodes_with_caught_flag, raw_episodes_for_phase2)."""
+) -> tuple[list[dict], list[dict], list[dict], list[dict]]:
+    """Returns (enriched_episodes, pre_pump_bars_rows, signals_rows, combos_rows)."""
     from main import api_bar_signals
+    from ultra_pump_extraction import (
+        build_pre_pump_artifacts, classify_caught_from_pre_pump,
+    )
     try:
         bars = api_bar_signals(symbol, "1d", fetch_bars)
     except Exception:
-        return [], []
+        return [], [], [], []
     if not bars or len(bars) < 20:
-        return [], []
+        return [], [], [], []
 
     episodes = _detect_episodes_for_symbol(
         symbol, bars,
@@ -609,9 +612,21 @@ def _process_symbol(
         start_date=start_date,
         end_date=end_date,
     )
-    enriched = [_classify_caught_or_missed(ep, bars, detection_window=detection_window)
-                for ep in episodes]
-    return enriched, episodes
+
+    pre_bars_rows: list[dict] = []
+    signals_rows: list[dict] = []
+    combos_rows:  list[dict] = []
+    enriched: list[dict] = []
+    for ep in episodes:
+        bb, ss, cc = build_pre_pump_artifacts(ep, bars)
+        pre_bars_rows.extend(bb)
+        signals_rows.extend(ss)
+        combos_rows.extend(cc)
+        ep_classified = classify_caught_from_pre_pump(
+            ep, bb, detection_window=detection_window,
+        )
+        enriched.append(ep_classified)
+    return enriched, pre_bars_rows, signals_rows, combos_rows
 
 
 def run_ultra_pump_research(run_id: int, payload: dict) -> None:
@@ -683,6 +698,10 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
             fetch_bars=fetch_bars,
         )
 
+        all_pre_pump_bars: list[dict] = []
+        all_pre_pump_signals: list[dict] = []
+        all_pre_pump_combos: list[dict] = []
+        missed_diagnostics: list[dict] = []
         completed = 0
         with ThreadPoolExecutor(max_workers=_WORKERS) as pool:
             futs = {pool.submit(_process_symbol, t, **kwargs): t for t in tickers}
@@ -697,10 +716,13 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
                     break
                 sym = futs[fut]
                 try:
-                    enriched, _raw = fut.result()
+                    enriched, pb_bars, pb_sigs, pb_combos = fut.result()
                 except Exception as exc:
                     log.debug("ultra_pump worker for %s raised: %s", sym, exc)
-                    enriched = []
+                    enriched, pb_bars, pb_sigs, pb_combos = [], [], [], []
+                all_pre_pump_bars.extend(pb_bars)
+                all_pre_pump_signals.extend(pb_sigs)
+                all_pre_pump_combos.extend(pb_combos)
                 for ep in enriched:
                     all_episodes.append(ep)
                     if ep["category"] == "X2_TO_X4":
@@ -720,8 +742,28 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
                             "episode_id": ep["episode_id"],
                             "symbol": ep["symbol"],
                             "anchor_date": ep["anchor_date"],
-                            "missed_reason_primary": "NO_HISTORICAL_ULTRA_SNAPSHOT",
-                            "missed_reason_secondary": "PHASE_2_PENDING",
+                            "missed_reason_primary": ep.get("missed_reason_primary") or "UNKNOWN",
+                            "missed_reason_secondary": ep.get("missed_reason_secondary"),
+                        })
+                        missed_diagnostics.append({
+                            "episode_id": ep["episode_id"],
+                            "symbol": ep["symbol"],
+                            "missed_reason_primary": ep.get("missed_reason_primary") or "UNKNOWN",
+                            "missed_reason_secondary": ep.get("missed_reason_secondary"),
+                            "missed_diagnostics_json": json.dumps({
+                                "anchor_date": ep["anchor_date"],
+                                "category": ep["category"],
+                                "max_gain_pct": ep.get("max_gain_pct"),
+                                "days_to_peak": ep.get("days_to_peak"),
+                            }),
+                            "would_have_score": ep.get("strongest_pre_pump_score"),
+                            "would_have_category": ep.get("best_pre_pump_ultra_pattern"),
+                            "best_pre_pump_ultra_pattern": ep.get("best_pre_pump_ultra_pattern"),
+                            "strongest_pre_pump_signal": ep.get("strongest_pre_pump_signal"),
+                            "filter_that_blocked_it": ep.get("missed_reason_primary"),
+                            "recommended_fix": _recommend_fix_for_reason(
+                                ep.get("missed_reason_primary")
+                            ),
                         })
                 completed += 1
                 _set(symbols_completed=completed,
@@ -792,12 +834,26 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
             "No missed pumps because no episodes were found."
         ))
 
-        # Phase-2+ slots: write empty placeholders with full schema
+        # Phase 2 artifacts (real data)
+        manifest_entries.append(_write_slot(
+            "pre_pump_ultra_bars", all_pre_pump_bars,
+            "No pre-pump bars collected (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "pre_pump_ultra_signals", all_pre_pump_signals,
+            "No pre-pump signals collected (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "pre_pump_ultra_combinations", all_pre_pump_combos,
+            "No pre-pump combinations collected (no episodes detected)."
+        ))
+        manifest_entries.append(_write_slot(
+            "missed_diagnostics", missed_diagnostics,
+            "No missed pumps to diagnose."
+        ))
+
+        # Phase-3+ slots: write empty placeholders with full schema
         phase_2_slots = [
-            ("pre_pump_ultra_bars",         "Phase 2 will populate pre-pump ULTRA context bars."),
-            ("pre_pump_ultra_signals",      "Phase 2 will populate flattened ULTRA signals."),
-            ("pre_pump_ultra_combinations", "Phase 2 will populate ULTRA combinations seen per bar."),
-            ("missed_diagnostics",          "Phase 2 will populate missed-pump diagnostics."),
             ("ultra_pattern_stats",         "Phase 3 will populate ULTRA pattern statistics."),
             ("ultra_pattern_lift_stats",    "Phase 3 will populate pattern lift vs baseline."),
             ("ultra_timing_stats",          "Phase 3 will populate signal-to-pump timing buckets."),
@@ -921,6 +977,23 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
              elapsed_secs=round(time.time() - t0, 1))
         _update_run(run_id, status="failed", error_message=str(exc))
         _finalize_finished_at(run_id)
+
+
+_MISSED_RECOMMENDED_FIXES = {
+    "NO_PRE_PUMP_DATA":                "Increase fetch lookback bars so pre-pump window is fully covered.",
+    "INSUFFICIENT_HISTORY":            "Use a longer lookback_bars setting (>= 250) or a later start date.",
+    "NO_ULTRA_SCORE_AVAILABLE":        "Backfill historical ULTRA scanner snapshots for the affected date range.",
+    "MISSING_HISTORICAL_SNAPSHOT":     "Replay the ULTRA scanner historically (Phase 5 full-rescan).",
+    "ULTRA_SCORE_BELOW_THRESHOLD":     "Lower the score threshold or add a complementary detector for this pattern.",
+    "PROFILE_CATEGORY_NOT_QUALIFIED":  "Allow WATCH category for X4+ candidates or add a category override.",
+    "UNKNOWN":                         "Investigate manually — diagnostics row has more context.",
+}
+
+
+def _recommend_fix_for_reason(reason: str | None) -> str:
+    if not reason:
+        return _MISSED_RECOMMENDED_FIXES["UNKNOWN"]
+    return _MISSED_RECOMMENDED_FIXES.get(reason.upper(), _MISSED_RECOMMENDED_FIXES["UNKNOWN"])
 
 
 _ARTIFACT_DESCRIPTIONS = {
