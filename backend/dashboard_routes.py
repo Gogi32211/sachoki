@@ -791,60 +791,110 @@ def dashboard_ticker_context(symbol: str):
     return data
 
 
-# ── Ticker News + AI Analysis ─────────────────────────────────────────────────
+# ── Ticker News via Massive + AI Analysis ────────────────────────────────────
+# Primary news provider: Massive (Polygon-compatible REST API).
+# yfinance is NOT used here.
+
+_NEWS_TTL     = 1800   # 30 min for raw Massive news
+_ANALYSIS_TTL = 86400  # 24 h for Haiku analysis (keyed by content hash)
+
+_VALID_SENTIMENTS = {"BULLISH","MILDLY_BULLISH","NEUTRAL","MILDLY_BEARISH","BEARISH","RISKY","UNKNOWN"}
+_VALID_IMPACTS    = {"SUPPORTS_SETUP","WEAKENS_SETUP","RISK_ONLY","NO_CLEAR_IMPACT","UNKNOWN"}
 
 _NEWS_SYSTEM = (
-    "You are a financial news analyst. Analyze the provided headlines for a stock ticker. "
-    "Use ONLY the provided data. Do not invent information. "
+    "You are a financial news analyst. Analyze the provided Massive news items for a stock ticker. "
+    "Use ONLY the data supplied — headline, description, publisher, sentiment fields. "
+    "Do not invent, assume, or hallucinate any information. "
     "Respond with valid JSON only, no prose outside JSON."
 )
 
 _NEWS_PROMPT = """\
-Analyze these recent news headlines for {symbol}:
+Analyze these recent Massive news items for {symbol}:
 
-{headlines}
+{news_items_json}
 
 Return this exact JSON:
 {{
   "sentiment": "BULLISH|MILDLY_BULLISH|NEUTRAL|MILDLY_BEARISH|BEARISH|RISKY|UNKNOWN",
   "catalyst_type": "EARNINGS|FDA|ANALYST_UPGRADE|ANALYST_DOWNGRADE|MERGER|OFFERING|INSIDER_BUY|INSIDER_SELL|CONTRACT|SECTOR_NEWS|GENERAL|UNKNOWN",
   "relevance": "HIGH|MEDIUM|LOW",
-  "summary": "1-2 sentence summary",
-  "why_it_matters": ["up to 2 short points"],
+  "summary": "1-2 sentence summary of what matters for this stock's setup",
+  "why_it_matters": ["up to 2 short trading-relevant points"],
   "risks": ["up to 2 short risk points"],
   "setup_impact": "SUPPORTS_SETUP|WEAKENS_SETUP|RISK_ONLY|NO_CLEAR_IMPACT|UNKNOWN"
 }}
-If insufficient data, use UNKNOWN values.
+If insufficient data, use UNKNOWN values. Never invent information not in the provided items.
 """
 
-_VALID_SENTIMENTS = {"BULLISH","MILDLY_BULLISH","NEUTRAL","MILDLY_BEARISH","BEARISH","RISKY","UNKNOWN"}
-_VALID_IMPACTS    = {"SUPPORTS_SETUP","WEAKENS_SETUP","RISK_ONLY","NO_CLEAR_IMPACT","UNKNOWN"}
+
+def _massive_news_configured() -> bool:
+    """True if Massive API key is available."""
+    from data_polygon import polygon_available
+    return polygon_available()
 
 
-def _fetch_yf_news(symbol: str) -> list[dict]:
+def _fetch_massive_news(symbol: str, limit: int = 10) -> tuple[bool, list[dict], str | None]:
+    """
+    Fetch news from Massive /v2/reference/news endpoint.
+    Returns: (configured, items, error_message_or_None)
+    Never raises — callers handle the (False, [], msg) case.
+    """
+    import os, requests as _requests
+    from data_polygon import _BASE
+
+    key = (os.environ.get("MASSIVE_API_KEY") or
+           os.environ.get("POLYGON_API_KEY") or "")
+    if not key:
+        return False, [], "Massive API is not configured."
+
+    url = f"{_BASE}/v2/reference/news"
+    params = {"ticker": symbol, "limit": limit, "order": "desc", "apiKey": key}
+
     try:
-        import yfinance as yf
-        raw = yf.Ticker(symbol).news or []
-        items = []
-        for n in raw[:10]:
-            pub = n.get("providerPublishTime") or n.get("publishedAt")
-            pub_iso = None
-            if pub:
-                try:
-                    pub_iso = datetime.fromtimestamp(int(pub), tz=timezone.utc).isoformat()
-                except Exception:
-                    pub_iso = str(pub)
-            items.append({
-                "headline":     n.get("title") or n.get("headline", ""),
-                "source":       n.get("publisher") or n.get("source", ""),
-                "published_at": pub_iso,
-                "url":          n.get("link")  or n.get("url", ""),
-                "category":     n.get("type")  or "",
-            })
-        return items
+        r = _requests.get(url, params=params, timeout=(5, 10))
+        if r.status_code == 403:
+            log.warning("massive_news 403 for %s", symbol)
+            return True, [], "Massive API access denied (check API key plan)."
+        if r.status_code == 429:
+            log.warning("massive_news 429 for %s", symbol)
+            return True, [], "Massive API rate limit hit; try again shortly."
+        r.raise_for_status()
+        data = r.json()
     except Exception as exc:
-        log.warning("yf_news error %s: %s", symbol, exc)
-        return []
+        log.warning("massive_news fetch error %s: %s", symbol, exc)
+        return True, [], f"Massive API error: {exc}"
+
+    results = data.get("results") or []
+    items: list[dict] = []
+    for n in results:
+        publisher = n.get("publisher") or {}
+        if isinstance(publisher, str):
+            publisher = {"name": publisher}
+
+        # Extract ticker-specific insights (sentiment + reasoning)
+        sentiment         = ""
+        sentiment_reasoning = ""
+        for ins in (n.get("insights") or []):
+            if (ins.get("ticker") or "").upper() == symbol:
+                sentiment           = ins.get("sentiment", "")
+                sentiment_reasoning = ins.get("sentiment_reasoning", "")
+                break
+
+        items.append({
+            "headline":            n.get("title", ""),
+            "summary":             n.get("description", ""),
+            "source":              publisher.get("name", ""),
+            "publisher":           publisher.get("name", ""),
+            "url":                 n.get("article_url", ""),
+            "published_at":        n.get("published_utc", ""),
+            "symbols":             n.get("tickers", []),
+            "sentiment":           sentiment,
+            "sentiment_reasoning": sentiment_reasoning,
+            "category":            "",
+            "image_url":           n.get("image_url", ""),
+        })
+
+    return True, items, None
 
 
 def _news_hash(items: list[dict]) -> str:
@@ -853,96 +903,235 @@ def _news_hash(items: list[dict]) -> str:
     return hashlib.md5(hl.encode()).hexdigest()[:12] if hl else ""
 
 
+# ── Event classification from Massive news headlines ─────────────────────────
+
+_EVENT_PATTERNS: list[tuple[str, list[str], str]] = [
+    # (event_type, keywords, risk_level)
+    ("REVERSE_SPLIT",     ["reverse split", "reverse stock split", "1-for-", "reverse-split"],           "HIGH"),
+    ("OFFERING",          ["offering", "dilut", "secondary offering", "at-the-market", " atm offering"], "HIGH"),
+    ("HALT",              ["trading halt", "halted", "nasdaq halt", "nyse halt"],                         "HIGH"),
+    ("FDA",               ["fda", "food and drug", "pdufa", "nda ", "bla ", "clinical trial",
+                           "fda approval", "drug approval"],                                              "MEDIUM"),
+    ("EARNINGS",          ["earnings", "quarterly results", " q1 ", " q2 ", " q3 ", " q4 ",
+                           "eps beat", "eps miss", "revenue beat", "revenue miss",
+                           "profit report", "results beat"],                                              "MEDIUM"),
+    ("MERGER",            ["merger", " acquisition", "acquire", "takeover", "buyout", "deal agreed"],    "MEDIUM"),
+    ("ANALYST_UPGRADE",   ["upgrade", "upgraded to", "raises price target", "raised target",
+                           "outperform", "buy rating", "initiates with buy"],                             "LOW"),
+    ("ANALYST_DOWNGRADE", ["downgrade", "downgraded", "cuts target", "underperform",
+                           "sell rating", "reduces target"],                                              "MEDIUM"),
+    ("IPO",               ["ipo", "initial public offering", "went public", "began trading"],             "LOW"),
+    ("INSIDER",           ["insider buy", "insider sell", "director buys", "ceo buys",
+                           "ceo sells", "insider purchases", "insider selling"],                          "LOW"),
+    ("SPLIT",             ["stock split", "share split", "2-for-1", "3-for-1", "forward split"],         "LOW"),
+    ("DIVIDEND",          ["dividend", "special dividend", "quarterly dividend", "distribution"],         "LOW"),
+    ("SEC_FILING",        ["sec filing", "8-k", "10-q", "10-k", "form s-1", "proxy statement"],          "LOW"),
+]
+
+_EVENT_LABELS = {
+    "REVERSE_SPLIT":     "Reverse split risk",
+    "OFFERING":          "Offering risk",
+    "HALT":              "Trading halt",
+    "FDA":               "FDA catalyst",
+    "EARNINGS":          "Earnings news",
+    "MERGER":            "M&A news",
+    "ANALYST_UPGRADE":   "Analyst upgrade",
+    "ANALYST_DOWNGRADE": "Analyst downgrade",
+    "IPO":               "IPO news",
+    "INSIDER":           "Insider activity",
+    "SPLIT":             "Stock split",
+    "DIVIDEND":          "Dividend news",
+    "SEC_FILING":        "SEC filing",
+    "NEWS_SPIKE":        "News spike",
+}
+
+
+def _classify_news_events(items: list[dict]) -> list[dict]:
+    """
+    Rule-based event classification from Massive news headlines + summaries.
+    Returns a list of event dicts (same shape as ctx events).
+    Only classifies events actually present in the provided data.
+    """
+    events: list[dict] = []
+    seen: set[str] = set()
+
+    for item in items:
+        text = (
+            (item.get("headline") or "") + " " + (item.get("summary") or "")
+        ).lower()
+
+        pub = item.get("published_at", "")
+        try:
+            pub_dt   = datetime.fromisoformat(pub.replace("Z", "+00:00"))
+            delta_h  = (datetime.now(timezone.utc) - pub_dt).total_seconds() / 3600
+            urgency  = "RECENT_24H" if delta_h <= 24 else "RECENT_7D"
+        except Exception:
+            urgency = "UNKNOWN"
+
+        for event_type, keywords, risk_level in _EVENT_PATTERNS:
+            if event_type in seen:
+                continue
+            if any(kw in text for kw in keywords):
+                events.append({
+                    "event_type": event_type,
+                    "urgency":    urgency,
+                    "risk_level": risk_level,
+                    "label":      _EVENT_LABELS.get(event_type, event_type),
+                    "source":     "massive_news",
+                })
+                seen.add(event_type)
+
+    # NEWS_SPIKE when many items clustered
+    if len(items) >= 4 and "NEWS_SPIKE" not in seen:
+        events.append({
+            "event_type": "NEWS_SPIKE",
+            "urgency":    "RECENT_24H",
+            "risk_level": "LOW",
+            "label":      f"News spike ({len(items)} items)",
+            "source":     "massive_news",
+        })
+
+    return events[:6]
+
+
 @router.get("/ticker-news/{symbol}")
 def dashboard_ticker_news(symbol: str):
-    """Recent yfinance news for a ticker + cached AI analysis if available."""
+    """
+    Recent news for a ticker sourced from Massive API.
+    Returns raw items + cached AI analysis (if available).
+    Handles: configured+news, configured+no-news, not-configured.
+    """
     symbol = symbol.upper().strip()
-    _NEWS_TTL     = 1800
-    _ANALYSIS_TTL = 86400
 
     entry = _news_cache.get(symbol)
     if entry and time.time() - entry[0] < _NEWS_TTL:
         return entry[1]
 
-    items      = _fetch_yf_news(symbol)
+    configured, items, err_msg = _fetch_massive_news(symbol)
+
+    if not configured:
+        # Do NOT cache — key may be set later
+        return {
+            "symbol":              symbol,
+            "provider":            "massive",
+            "provider_configured": False,
+            "news_count":          0,
+            "items":               [],
+            "news_events":         [],
+            "message":             "Massive API is not configured.",
+            "fetched_at":          datetime.now(timezone.utc).isoformat(),
+        }
+
     nh         = _news_hash(items)
     ai_summary = None
 
     if nh:
-        ana = _news_analysis_cache.get(nh)
+        ana = _news_analysis_cache.get(f"massive:{nh}")
         if ana and time.time() - ana[0] < _ANALYSIS_TTL:
             ai_summary = ana[1]
 
-    result = {
-        "symbol":         symbol,
-        "news_count":     len(items),
-        "latest_news_at": items[0]["published_at"] if items else None,
-        "ai_summary":     ai_summary,
-        "news_hash":      nh,
-        "items":          items,
+    news_events = _classify_news_events(items)
+
+    result: dict = {
+        "symbol":              symbol,
+        "provider":            "massive",
+        "provider_configured": True,
+        "news_count":          len(items),
+        "latest_news_at":      items[0]["published_at"] if items else None,
+        "ai_summary":          ai_summary,
+        "news_hash":           nh,
+        "news_events":         news_events,
+        "items":               items,
+        "fetched_at":          datetime.now(timezone.utc).isoformat(),
     }
+    if not items:
+        result["message"] = err_msg or "No recent Massive news found for this ticker."
+
     _news_cache[symbol] = (time.time(), result)
     return result
 
 
 @router.post("/ticker-news/{symbol}/analyze")
 def dashboard_ticker_news_analyze(symbol: str):
-    """Run Haiku AI analysis on ticker news. Cached 24h per news hash."""
-    symbol        = symbol.upper().strip()
-    _ANALYSIS_TTL = 86400
+    """
+    Run Claude Haiku analysis on Massive news for a ticker.
+    Haiku only receives Massive-provided data — never invents news.
+    Cached 24h per news content hash.
+    """
+    symbol = symbol.upper().strip()
 
     news_result = dashboard_ticker_news(symbol)
-    items       = news_result.get("items", [])
-    nh          = news_result.get("news_hash", "")
 
+    # If Massive not configured, return without calling Haiku
+    if not news_result.get("provider_configured"):
+        return news_result
+
+    items = news_result.get("items", [])
+    nh    = news_result.get("news_hash", "")
+
+    # No news → skip Haiku, clean fallback
     if not items:
-        fallback = {
-            "sentiment": "UNKNOWN", "catalyst_type": "UNKNOWN",
-            "relevance": "LOW", "summary": "No recent news found.",
-            "why_it_matters": [], "risks": [], "setup_impact": "UNKNOWN",
+        return {
+            **news_result,
+            "ai_summary": None,
+            "ai_unavailable_reason": "NO_NEWS_DATA",
         }
-        return {**news_result, "ai_summary": fallback}
 
+    # Return cached analysis if fresh
     if nh:
-        ana = _news_analysis_cache.get(nh)
+        ana = _news_analysis_cache.get(f"massive:{nh}")
         if ana and time.time() - ana[0] < _ANALYSIS_TTL:
             return {**news_result, "ai_summary": ana[1]}
 
-    headlines = "\n".join(f"- {i['headline']}" for i in items if i.get("headline"))
+    # Build Haiku input: only Massive fields, no invented data
+    haiku_items = []
+    for it in items[:8]:
+        entry: dict = {"headline": it["headline"]}
+        if it.get("summary"):
+            entry["description"] = it["summary"]
+        if it.get("publisher"):
+            entry["publisher"] = it["publisher"]
+        if it.get("published_at"):
+            entry["published_at"] = it["published_at"]
+        if it.get("sentiment"):
+            entry["massive_sentiment"] = it["sentiment"]
+        if it.get("sentiment_reasoning"):
+            entry["massive_sentiment_reasoning"] = it["sentiment_reasoning"]
+        if it.get("symbols"):
+            entry["related_tickers"] = it["symbols"]
+        haiku_items.append(entry)
 
     ai_summary = None
     try:
         from claude_client import ask_json
         raw = ask_json(
-            _NEWS_PROMPT.format(symbol=symbol, headlines=headlines),
+            _NEWS_PROMPT.format(
+                symbol=symbol,
+                news_items_json=json.dumps(haiku_items, indent=2),
+            ),
             system=_NEWS_SYSTEM,
             max_tokens=600,
         )
         if isinstance(raw, dict) and "sentiment" in raw:
             ai_summary = {
-                "sentiment":      raw.get("sentiment")    if raw.get("sentiment")    in _VALID_SENTIMENTS else "UNKNOWN",
+                "sentiment":      raw["sentiment"]     if raw["sentiment"]     in _VALID_SENTIMENTS else "UNKNOWN",
                 "catalyst_type":  raw.get("catalyst_type", "UNKNOWN"),
                 "relevance":      raw.get("relevance",     "MEDIUM"),
                 "summary":        str(raw.get("summary", ""))[:300],
                 "why_it_matters": [str(w)[:120] for w in (raw.get("why_it_matters") or [])[:2]],
                 "risks":          [str(r)[:120] for r in (raw.get("risks")           or [])[:2]],
-                "setup_impact":   raw.get("setup_impact") if raw.get("setup_impact") in _VALID_IMPACTS else "UNKNOWN",
+                "setup_impact":   raw["setup_impact"] if raw.get("setup_impact") in _VALID_IMPACTS else "UNKNOWN",
             }
     except Exception as exc:
         log.warning("news analyze error %s: %s", symbol, exc)
 
-    if not ai_summary:
-        ai_summary = {
-            "sentiment": "UNKNOWN", "catalyst_type": "UNKNOWN",
-            "relevance": "LOW", "summary": "AI analysis unavailable.",
-            "why_it_matters": [], "risks": [], "setup_impact": "UNKNOWN",
-        }
-
-    if nh:
-        _news_analysis_cache[nh] = (time.time(), ai_summary)
+    # Cache successful analysis; leave ai_summary=None on failure (UI shows raw news)
+    if ai_summary and nh:
+        _news_analysis_cache[f"massive:{nh}"] = (time.time(), ai_summary)
 
     result = {**news_result, "ai_summary": ai_summary}
-    _news_cache[symbol] = (time.time(), result)
+    if ai_summary:
+        _news_cache[symbol] = (time.time(), result)
     return result
 
 
