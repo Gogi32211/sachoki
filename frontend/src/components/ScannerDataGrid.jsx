@@ -538,10 +538,8 @@ export default function ScannerDataGrid({
             const isEven = rowIdx % 2 === 0
             const rowBg = isEven ? 'bg-md-surface-con' : ''
 
-            // Collect priority signals for the Signals column (top 3 + overflow)
+            // Collect all priority signals for the Signals column
             const allSigs = collectSignals(r)
-            const topSigs = allSigs.slice(0, 3)
-            const overflow = allSigs.length - 3
 
             const chg = r.change_pct ?? 0
 
@@ -642,14 +640,14 @@ export default function ScannerDataGrid({
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* Signals — top 3 + overflow */}
+                {/* Signals — show all in table mode */}
                 <td className="px-2 py-1">
                   <div className="flex flex-wrap gap-0.5 items-center">
-                    {topSigs.map((s, i) => (
+                    {allSigs.map((s, i) => (
                       <SharedSignalChip key={i} signal={s.label} size="sm" />
                     ))}
-                    {overflow > 0 && (
-                      <span className="text-[10px] text-md-on-surface-var italic">+{overflow} more</span>
+                    {allSigs.length === 0 && (
+                      <span className="text-md-on-surface-var/50">—</span>
                     )}
                   </div>
                 </td>
