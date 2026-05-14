@@ -234,21 +234,33 @@ function SentimentChip({ sentiment }) {
 }
 
 // ─── NEWS DRAWER ─────────────────────────────────────────────────────────────
+// Handles 4 states from Massive API:
+//   1. news exists + AI summary → full view
+//   2. news exists, AI unavailable → raw headlines + notice
+//   3. no news → compact "no news" message
+//   4. provider not configured → config notice
 
 function NewsDrawer({ ticker, onClose }) {
-  const [newsData,  setNewsData]  = useState(null)
+  const [newsData,  setNewsData]  = useState(null)  // null = loading
   const [analyzing, setAnalyzing] = useState(false)
+  const [analyzeAttempted, setAnalyzeAttempted] = useState(false)
 
   useEffect(() => {
     if (!ticker) return
     setNewsData(null)
     setAnalyzing(false)
+    setAnalyzeAttempted(false)
+
     fetch(`/api/dashboard/ticker-news/${ticker}`)
       .then(r => r.ok ? r.json() : null)
       .then(d => {
+        if (!d) { setNewsData({ error: true }); return }
         setNewsData(d)
-        if (d && d.news_count > 0 && !d.ai_summary) {
+
+        // Only trigger Haiku if: configured + has news + no analysis yet
+        if (d.provider_configured && d.news_count > 0 && !d.ai_summary) {
           setAnalyzing(true)
+          setAnalyzeAttempted(true)
           fetch(`/api/dashboard/ticker-news/${ticker}/analyze`, { method: 'POST' })
             .then(r => r.ok ? r.json() : null)
             .then(analyzed => {
@@ -258,11 +270,12 @@ function NewsDrawer({ ticker, onClose }) {
             .catch(() => setAnalyzing(false))
         }
       })
-      .catch(() => {})
+      .catch(() => setNewsData({ error: true }))
   }, [ticker])
 
   if (!ticker) return null
 
+  // ── Drawer shell ────────────────────────────────────────────────────────────
   return (
     <div className="fixed inset-0 z-50 flex items-stretch justify-end" onClick={onClose}>
       <div className="absolute inset-0 bg-black/50" />
@@ -274,7 +287,10 @@ function NewsDrawer({ ticker, onClose }) {
         <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var shrink-0 bg-md-surface-high">
           <div className="flex items-center gap-2">
             <span className="text-base font-bold text-md-on-surface">{ticker}</span>
-            <span className="text-xs text-md-on-surface-var">News & AI Analysis</span>
+            <span className="text-xs text-md-on-surface-var">Massive News & AI</span>
+            {newsData?.provider_configured && (
+              <MiniChip label="Massive" color="info" />
+            )}
           </div>
           <button
             onClick={onClose}
@@ -284,28 +300,73 @@ function NewsDrawer({ ticker, onClose }) {
           </button>
         </div>
 
+        {/* Content */}
         <div className="flex flex-col gap-4 p-4 flex-1">
-          {!newsData ? (
+
+          {/* STATE: loading */}
+          {!newsData && (
             <div className="flex flex-col gap-2">
               {[1, 2, 3].map(i => <Skeleton key={i} h="h-8" />)}
             </div>
-          ) : newsData.news_count === 0 ? (
-            <EmptySlate icon="📰" title="No recent news found." sub={`No recent headlines for ${ticker}`} />
-          ) : (
+          )}
+
+          {/* STATE: fetch error */}
+          {newsData?.error && (
+            <EmptySlate icon="⚠" title="Could not load news." sub="Network or server error." />
+          )}
+
+          {/* STATE: Massive API not configured */}
+          {newsData && !newsData.error && !newsData.provider_configured && (
+            <div className="rounded-md-sm bg-md-surface-con border border-md-outline-var p-4 flex flex-col gap-2">
+              <p className="text-xs font-semibold text-md-on-surface">Massive API not configured</p>
+              <p className="text-[11px] text-md-on-surface-var leading-relaxed">
+                Set the <span className="font-mono text-md-primary">MASSIVE_API_KEY</span> environment
+                variable on the backend to enable ticker news.
+              </p>
+            </div>
+          )}
+
+          {/* STATE: configured, but no news found */}
+          {newsData && !newsData.error && newsData.provider_configured && newsData.news_count === 0 && (
+            <EmptySlate
+              icon="📰"
+              title={`No recent Massive news found for ${ticker}.`}
+              sub={newsData.message ?? ''}
+            />
+          )}
+
+          {/* STATE: news exists */}
+          {newsData && !newsData.error && newsData.provider_configured && newsData.news_count > 0 && (
             <>
-              {/* AI Summary */}
+              {/* News-derived event badges */}
+              {(newsData.news_events?.length > 0) && (
+                <div className="flex items-center gap-1.5 flex-wrap">
+                  {newsData.news_events.map((e, i) => (
+                    <EventBadge key={i} event={e} />
+                  ))}
+                </div>
+              )}
+
+              {/* AI Summary block */}
               <div className="rounded-md-sm bg-md-surface-con border border-md-outline-var p-3">
                 <div className="flex items-center gap-2 mb-2.5">
                   <MiniChip label="AI Analysis" color="ai" />
                   {analyzing && (
-                    <span className="text-[10px] text-md-on-surface-var animate-pulse">Analyzing…</span>
+                    <span className="text-[10px] text-md-on-surface-var animate-pulse">
+                      Analyzing with Haiku…
+                    </span>
                   )}
                 </div>
-                {analyzing && !newsData.ai_summary ? (
+
+                {/* Analyzing — show skeleton */}
+                {analyzing && !newsData.ai_summary && (
                   <div className="flex flex-col gap-2">
-                    {[1, 2].map(i => <Skeleton key={i} h="h-4" />)}
+                    {[1, 2, 3].map(i => <Skeleton key={i} h="h-4" />)}
                   </div>
-                ) : newsData.ai_summary ? (
+                )}
+
+                {/* AI summary available */}
+                {newsData.ai_summary && (
                   <div className="flex flex-col gap-2.5">
                     <div className="flex items-center gap-1.5 flex-wrap">
                       <SentimentChip sentiment={newsData.ai_summary.sentiment} />
@@ -357,22 +418,62 @@ function NewsDrawer({ ticker, onClose }) {
                       </div>
                     )}
                   </div>
-                ) : (
-                  <p className="text-xs text-md-on-surface-var">Analysis not available.</p>
+                )}
+
+                {/* Analyze attempted but AI unavailable */}
+                {!analyzing && analyzeAttempted && !newsData.ai_summary && (
+                  <p className="text-[11px] text-md-on-surface-var">
+                    AI summary unavailable; showing Massive news.
+                  </p>
+                )}
+
+                {/* Not yet attempted (ai_summary null, not analyzing) */}
+                {!analyzing && !analyzeAttempted && !newsData.ai_summary && (
+                  <p className="text-[11px] text-md-on-surface-var">
+                    AI analysis not yet run.
+                  </p>
                 )}
               </div>
 
-              {/* Headlines */}
+              {/* Headlines from Massive */}
               <div>
                 <p className="text-[10px] font-semibold text-md-on-surface-var uppercase tracking-wider mb-2">
-                  {newsData.news_count} Headlines
+                  {newsData.news_count} Massive Headlines
                 </p>
                 <div className="flex flex-col divide-y divide-md-outline-var">
                   {newsData.items.map((item, i) => (
                     <div key={i} className="py-2.5">
-                      <p className="text-xs text-md-on-surface leading-snug">{item.headline}</p>
-                      <div className="flex items-center justify-between gap-2 mt-1">
-                        <span className="text-[10px] text-md-on-surface-var truncate">{item.source}</span>
+                      {item.url ? (
+                        <a
+                          href={item.url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-xs text-md-on-surface leading-snug hover:text-md-primary transition-colors"
+                        >
+                          {item.headline}
+                        </a>
+                      ) : (
+                        <p className="text-xs text-md-on-surface leading-snug">{item.headline}</p>
+                      )}
+                      {item.summary && (
+                        <p className="text-[10px] text-md-on-surface-var leading-snug mt-0.5 line-clamp-2">
+                          {item.summary}
+                        </p>
+                      )}
+                      <div className="flex items-center justify-between gap-2 mt-1 flex-wrap">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-[10px] text-md-on-surface-var">{item.source}</span>
+                          {item.sentiment && item.sentiment !== '' && (
+                            <span className={cx(
+                              'text-[9px] font-semibold uppercase px-1 py-px rounded leading-none border',
+                              item.sentiment === 'positive' ? 'text-emerald-300 border-emerald-700/40 bg-emerald-900/30' :
+                              item.sentiment === 'negative' ? 'text-rose-300 border-rose-700/40 bg-rose-900/30' :
+                              'text-md-on-surface-var border-md-outline-var bg-md-surface-con'
+                            )}>
+                              {item.sentiment}
+                            </span>
+                          )}
+                        </div>
                         <span className="text-[10px] text-md-on-surface-var shrink-0">
                           {relTime(item.published_at)}
                         </span>
@@ -383,6 +484,7 @@ function NewsDrawer({ ticker, onClose }) {
               </div>
             </>
           )}
+
         </div>
       </div>
     </div>
