@@ -45,6 +45,8 @@ from chart_obs_migration import ensure_chart_obs_tables
 from chart_obs_api_v2 import router as chart_obs_router
 from signal_replay_migration import ensure_signal_replay_tables
 from signal_replay_routes import router as signal_replay_router
+from ultra_pump_migration import ensure_ultra_pump_tables
+from ultra_pump_routes import router as ultra_pump_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -60,6 +62,7 @@ async def lifespan(app: FastAPI):
         ensure_paper_portfolio_tables()
         ensure_chart_obs_tables()
         ensure_signal_replay_tables()
+        ensure_ultra_pump_tables()
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
@@ -97,6 +100,7 @@ app.add_middleware(
 app.include_router(portfolio_router)
 app.include_router(chart_obs_router)
 app.include_router(signal_replay_router)
+app.include_router(ultra_pump_router)
 
 
 def _normalise_date(idx) -> list[str]:
