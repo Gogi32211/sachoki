@@ -22,6 +22,11 @@ router = APIRouter(prefix="/api/dashboard", tags=["dashboard"])
 _cache: dict[str, tuple[float, Any]] = {}
 _CACHE_TTL = 120  # seconds
 
+# Per-ticker caches (sector/industry + news)
+_ctx_cache:           dict[str, tuple[float, dict]] = {}
+_news_cache:          dict[str, tuple[float, dict]] = {}
+_news_analysis_cache: dict[str, tuple[float, dict]] = {}
+
 
 def _cached(key: str, ttl: int = _CACHE_TTL):
     entry = _cache.get(key)
@@ -182,20 +187,28 @@ def dashboard_top50(
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:limit]:
             score = float(r.get("ultra_score", 0) or 0)
+            bucket = (
+                "BUY_READY"         if score >= 80 else
+                "WATCH_CLOSELY"     if score >= 65 else
+                "WAIT_CONFIRMATION" if score >= 50 else
+                "TOO_LATE"          if score >= 35 else
+                "AVOID"
+            )
             cards.append({
-                "ticker":      r.get("ticker", ""),
-                "ultra_score": round(score, 1),
-                "band":        r.get("ultra_score_band", ""),
-                "profile":     r.get("profile", "") or r.get("ultra_score_priority", ""),
-                "last_price":  r.get("last_price"),
-                "change_pct":  r.get("change_pct"),
-                "volume":      r.get("volume"),
-                "vol_bucket":  r.get("vol_bucket", ""),
-                "abr":         r.get("abr", "") or r.get("abr_label", ""),
-                "signals":     r.get("active_signals", []) or [],
-                "ema_ok":      r.get("ema_ok", False),
-                "bull_score":  r.get("bull_score", 0),
-                "scanned_at":  r.get("scanned_at", ""),
+                "ticker":        r.get("ticker", ""),
+                "ultra_score":   round(score, 1),
+                "band":          r.get("ultra_score_band", ""),
+                "action_bucket": bucket,
+                "profile":       r.get("profile", "") or r.get("ultra_score_priority", ""),
+                "last_price":    r.get("last_price"),
+                "change_pct":    r.get("change_pct"),
+                "volume":        r.get("volume"),
+                "vol_bucket":    r.get("vol_bucket", ""),
+                "abr":           r.get("abr", "") or r.get("abr_label", ""),
+                "signals":       r.get("active_signals", []) or [],
+                "ema_ok":        r.get("ema_ok", False),
+                "bull_score":    r.get("bull_score", 0),
+                "scanned_at":    r.get("scanned_at", ""),
             })
     except Exception as exc:
         log.warning("top50 error: %s", exc)
@@ -397,7 +410,12 @@ def _deterministic_setups(cards: list[dict]) -> list[dict]:
     ranked = sorted(cards, key=lambda c: float(c.get("ultra_score", 0) or 0), reverse=True)
     out = []
     for c in ranked[:5]:
-        score = float(c.get("ultra_score", 0) or 0)
+        score   = float(c.get("ultra_score", 0) or 0)
+        band    = c.get("band", "")
+        abr     = c.get("abr", "")
+        ema_ok  = c.get("ema_ok", False)
+        low_vol = c.get("vol_bucket", "") == "LOW"
+
         bucket = (
             "BUY_READY"         if score >= 80 else
             "WATCH_CLOSELY"     if score >= 65 else
@@ -405,23 +423,37 @@ def _deterministic_setups(cards: list[dict]) -> list[dict]:
             "TOO_LATE"          if score >= 35 else
             "AVOID"
         )
-        cat = "BEST_ABR_B_PLUS" if c.get("abr") in ("B+", "A") else \
-              "BEST_EMA_RECLAIM" if c.get("ema_ok") else "BEST_PULLBACK"
-        low_vol = c.get("vol_bucket", "") == "LOW"
+        cat = (
+            "BEST_ABR_B_PLUS"  if abr in ("B+", "A") else
+            "BEST_EMA_RECLAIM" if ema_ok              else
+            "BEST_PULLBACK"
+        )
+
+        reasons = []
+        if band in ("S", "A+", "A"):
+            reasons.append(f"Ultra {band}-band · score {score:.0f}")
+        if abr in ("B+", "A"):
+            reasons.append(f"ABR {abr} — strong accumulation profile")
+        if ema_ok:
+            reasons.append("EMA structure confirmed")
+        if score >= 80 and not reasons:
+            reasons.append(f"High-conviction score {score:.0f}")
+        elif not reasons:
+            reasons.append(f"Top ultra score {score:.0f}")
+
+        risks = ["Low volume — wait for confirmation" if low_vol else "Standard execution risk"]
+
         out.append({
-            "ticker":            c["ticker"],
-            "category":          cat,
-            "action_bucket":     bucket,
-            "confidence":        min(10, max(1, int(score / 10))),
-            "ultra_score":       round(score, 1),
-            "band":              c.get("band", ""),
-            "why_selected":      [
-                f"Ultra score {score:.0f} — band {c.get('band', 'n/a')}",
-                f"ABR: {c.get('abr', 'n/a')}" if c.get("abr") else "Signal confluence detected",
-            ],
-            "risk_flags":        ["Low volume — needs confirmation" if low_vol else "Standard execution risk"],
-            "what_to_watch_next": ["Monitor for volume expansion", "Hold above key EMA"],
-            "source":            "deterministic",
+            "ticker":             c["ticker"],
+            "category":           cat,
+            "action_bucket":      bucket,
+            "confidence":         min(10, max(1, int(score / 10))),
+            "ultra_score":        round(score, 1),
+            "band":               band,
+            "why_selected":       reasons,
+            "risk_flags":         risks,
+            "what_to_watch_next": ["Monitor for volume expansion", "Watch EMA50 for support"],
+            "source":             "deterministic",
         })
     return out
 
@@ -658,6 +690,260 @@ def dashboard_news():
         "source":  "none",
         "message": "No relevant candidate news found. Connect a news API to enable this section.",
     }
+
+
+@router.get("/ticker-context/{symbol}")
+def dashboard_ticker_context(symbol: str):
+    """Ticker metadata: sector, industry, company, theme, upcoming events. Cached 6h."""
+    symbol = symbol.upper().strip()
+    _CTX_TTL = 21600
+    entry = _ctx_cache.get(symbol)
+    if entry and time.time() - entry[0] < _CTX_TTL:
+        return entry[1]
+
+    data: dict = {
+        "symbol":   symbol,
+        "company":  None,
+        "sector":   None,
+        "industry": None,
+        "theme":    None,
+        "events":   [],
+    }
+
+    try:
+        import yfinance as yf
+        tkr  = yf.Ticker(symbol)
+        info: dict = {}
+        try:
+            info = tkr.info or {}
+        except Exception:
+            pass
+
+        data["company"]  = info.get("shortName") or info.get("longName")
+        data["sector"]   = info.get("sector")
+        data["industry"] = info.get("industry")
+
+        ind = (data["industry"] or "").lower()
+        co  = (data["company"]  or "").lower()
+        if any(x in ind for x in ["biotech", "drug", "pharmaceutical", "biologic"]):
+            data["theme"] = "Biotech"
+        elif "semiconductor" in ind:
+            data["theme"] = "Semis"
+        elif any(x in ind for x in ["software", "artificial intelligence", "cloud"]):
+            data["theme"] = "AI/SW"
+        elif any(x in co for x in ["bitcoin", "crypto", "blockchain"]):
+            data["theme"] = "Crypto"
+        elif any(x in ind for x in ["gold", "silver", "mining"]):
+            data["theme"] = "Metals"
+
+        # Upcoming earnings
+        try:
+            cal = tkr.calendar
+            if hasattr(cal, "to_dict"):
+                cal = cal.to_dict()
+            if isinstance(cal, dict):
+                ed_raw = cal.get("Earnings Date")
+                eds = []
+                if ed_raw is not None:
+                    if hasattr(ed_raw, "__iter__") and not isinstance(ed_raw, str):
+                        eds = list(ed_raw)[:1]
+                    else:
+                        eds = [ed_raw]
+                for ed in eds:
+                    try:
+                        from datetime import date as _date, datetime as _dt
+                        if hasattr(ed, "date") and callable(ed.date):
+                            ed = ed.date()
+                        now_utc = datetime.now(timezone.utc).date()
+                        if hasattr(ed, "year"):
+                            delta = (ed - now_utc).days if hasattr(ed, "month") else 0
+                        else:
+                            continue
+                        urgency = (
+                            "TODAY"     if delta == 0 else
+                            "TOMORROW"  if delta == 1 else
+                            "THIS_WEEK" if delta <= 7 else
+                            "NEXT_7D"   if delta <= 14 else
+                            "UPCOMING"
+                        )
+                        if -14 <= delta <= 30:
+                            data["events"].append({
+                                "event_type": "EARNINGS",
+                                "event_date": str(ed),
+                                "urgency":    urgency,
+                                "risk_level": "MEDIUM",
+                                "label": (
+                                    "Earnings Today"       if delta == 0 else
+                                    "Earnings Tomorrow"    if delta == 1 else
+                                    f"Earnings in {delta}D" if delta > 0 else
+                                    f"Earnings {abs(delta)}D ago"
+                                ),
+                            })
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+
+    except Exception as exc:
+        log.warning("ticker_context error %s: %s", symbol, exc)
+
+    _ctx_cache[symbol] = (time.time(), data)
+    return data
+
+
+# ── Ticker News + AI Analysis ─────────────────────────────────────────────────
+
+_NEWS_SYSTEM = (
+    "You are a financial news analyst. Analyze the provided headlines for a stock ticker. "
+    "Use ONLY the provided data. Do not invent information. "
+    "Respond with valid JSON only, no prose outside JSON."
+)
+
+_NEWS_PROMPT = """\
+Analyze these recent news headlines for {symbol}:
+
+{headlines}
+
+Return this exact JSON:
+{{
+  "sentiment": "BULLISH|MILDLY_BULLISH|NEUTRAL|MILDLY_BEARISH|BEARISH|RISKY|UNKNOWN",
+  "catalyst_type": "EARNINGS|FDA|ANALYST_UPGRADE|ANALYST_DOWNGRADE|MERGER|OFFERING|INSIDER_BUY|INSIDER_SELL|CONTRACT|SECTOR_NEWS|GENERAL|UNKNOWN",
+  "relevance": "HIGH|MEDIUM|LOW",
+  "summary": "1-2 sentence summary",
+  "why_it_matters": ["up to 2 short points"],
+  "risks": ["up to 2 short risk points"],
+  "setup_impact": "SUPPORTS_SETUP|WEAKENS_SETUP|RISK_ONLY|NO_CLEAR_IMPACT|UNKNOWN"
+}}
+If insufficient data, use UNKNOWN values.
+"""
+
+_VALID_SENTIMENTS = {"BULLISH","MILDLY_BULLISH","NEUTRAL","MILDLY_BEARISH","BEARISH","RISKY","UNKNOWN"}
+_VALID_IMPACTS    = {"SUPPORTS_SETUP","WEAKENS_SETUP","RISK_ONLY","NO_CLEAR_IMPACT","UNKNOWN"}
+
+
+def _fetch_yf_news(symbol: str) -> list[dict]:
+    try:
+        import yfinance as yf
+        raw = yf.Ticker(symbol).news or []
+        items = []
+        for n in raw[:10]:
+            pub = n.get("providerPublishTime") or n.get("publishedAt")
+            pub_iso = None
+            if pub:
+                try:
+                    pub_iso = datetime.fromtimestamp(int(pub), tz=timezone.utc).isoformat()
+                except Exception:
+                    pub_iso = str(pub)
+            items.append({
+                "headline":     n.get("title") or n.get("headline", ""),
+                "source":       n.get("publisher") or n.get("source", ""),
+                "published_at": pub_iso,
+                "url":          n.get("link")  or n.get("url", ""),
+                "category":     n.get("type")  or "",
+            })
+        return items
+    except Exception as exc:
+        log.warning("yf_news error %s: %s", symbol, exc)
+        return []
+
+
+def _news_hash(items: list[dict]) -> str:
+    import hashlib
+    hl = "|".join(i.get("headline", "") for i in items if i.get("headline"))
+    return hashlib.md5(hl.encode()).hexdigest()[:12] if hl else ""
+
+
+@router.get("/ticker-news/{symbol}")
+def dashboard_ticker_news(symbol: str):
+    """Recent yfinance news for a ticker + cached AI analysis if available."""
+    symbol = symbol.upper().strip()
+    _NEWS_TTL     = 1800
+    _ANALYSIS_TTL = 86400
+
+    entry = _news_cache.get(symbol)
+    if entry and time.time() - entry[0] < _NEWS_TTL:
+        return entry[1]
+
+    items      = _fetch_yf_news(symbol)
+    nh         = _news_hash(items)
+    ai_summary = None
+
+    if nh:
+        ana = _news_analysis_cache.get(nh)
+        if ana and time.time() - ana[0] < _ANALYSIS_TTL:
+            ai_summary = ana[1]
+
+    result = {
+        "symbol":         symbol,
+        "news_count":     len(items),
+        "latest_news_at": items[0]["published_at"] if items else None,
+        "ai_summary":     ai_summary,
+        "news_hash":      nh,
+        "items":          items,
+    }
+    _news_cache[symbol] = (time.time(), result)
+    return result
+
+
+@router.post("/ticker-news/{symbol}/analyze")
+def dashboard_ticker_news_analyze(symbol: str):
+    """Run Haiku AI analysis on ticker news. Cached 24h per news hash."""
+    symbol        = symbol.upper().strip()
+    _ANALYSIS_TTL = 86400
+
+    news_result = dashboard_ticker_news(symbol)
+    items       = news_result.get("items", [])
+    nh          = news_result.get("news_hash", "")
+
+    if not items:
+        fallback = {
+            "sentiment": "UNKNOWN", "catalyst_type": "UNKNOWN",
+            "relevance": "LOW", "summary": "No recent news found.",
+            "why_it_matters": [], "risks": [], "setup_impact": "UNKNOWN",
+        }
+        return {**news_result, "ai_summary": fallback}
+
+    if nh:
+        ana = _news_analysis_cache.get(nh)
+        if ana and time.time() - ana[0] < _ANALYSIS_TTL:
+            return {**news_result, "ai_summary": ana[1]}
+
+    headlines = "\n".join(f"- {i['headline']}" for i in items if i.get("headline"))
+
+    ai_summary = None
+    try:
+        from claude_client import ask_json
+        raw = ask_json(
+            _NEWS_PROMPT.format(symbol=symbol, headlines=headlines),
+            system=_NEWS_SYSTEM,
+            max_tokens=600,
+        )
+        if isinstance(raw, dict) and "sentiment" in raw:
+            ai_summary = {
+                "sentiment":      raw.get("sentiment")    if raw.get("sentiment")    in _VALID_SENTIMENTS else "UNKNOWN",
+                "catalyst_type":  raw.get("catalyst_type", "UNKNOWN"),
+                "relevance":      raw.get("relevance",     "MEDIUM"),
+                "summary":        str(raw.get("summary", ""))[:300],
+                "why_it_matters": [str(w)[:120] for w in (raw.get("why_it_matters") or [])[:2]],
+                "risks":          [str(r)[:120] for r in (raw.get("risks")           or [])[:2]],
+                "setup_impact":   raw.get("setup_impact") if raw.get("setup_impact") in _VALID_IMPACTS else "UNKNOWN",
+            }
+    except Exception as exc:
+        log.warning("news analyze error %s: %s", symbol, exc)
+
+    if not ai_summary:
+        ai_summary = {
+            "sentiment": "UNKNOWN", "catalyst_type": "UNKNOWN",
+            "relevance": "LOW", "summary": "AI analysis unavailable.",
+            "why_it_matters": [], "risks": [], "setup_impact": "UNKNOWN",
+        }
+
+    if nh:
+        _news_analysis_cache[nh] = (time.time(), ai_summary)
+
+    result = {**news_result, "ai_summary": ai_summary}
+    _news_cache[symbol] = (time.time(), result)
+    return result
 
 
 @router.get("/watchlist")
