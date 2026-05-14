@@ -40,6 +40,46 @@ def _store(key: str, value: Any):
     return value
 
 
+def _load_ultra_rows(tf: str) -> list[dict]:
+    """
+    Return ultra scan result rows for tf.
+    Checks in-memory cache for known universes, then falls back to DB.
+    Never raises — returns [] on any failure.
+    """
+    try:
+        from ultra_orchestrator import get_ultra_results
+        for universe in ("sp500", "nasdaq", "sp500+nasdaq"):
+            resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch="")
+            rows = resp.get("results", []) if isinstance(resp, dict) else []
+            if rows:
+                return rows
+    except Exception as exc:
+        log.warning("_load_ultra_rows memory check error: %s", exc)
+
+    # DB fallback: find latest completed run for this tf regardless of universe
+    try:
+        from db import get_db
+        from ultra_orchestrator import load_latest_ultra_scan_from_db, get_ultra_results
+        with get_db() as db:
+            db.execute(
+                "SELECT universe, nasdaq_batch FROM ultra_scan_runs"
+                " WHERE tf=? AND is_latest=1 AND status='completed'"
+                " ORDER BY finished_at DESC LIMIT 1",
+                (tf,),
+            )
+            row = db.fetchone()
+        if not row:
+            return []
+        universe     = row["universe"]
+        nasdaq_batch = row.get("nasdaq_batch") or ""
+        if load_latest_ultra_scan_from_db(universe, tf, nasdaq_batch):
+            resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
+            return resp.get("results", []) if isinstance(resp, dict) else []
+    except Exception as exc:
+        log.warning("_load_ultra_rows DB fallback error: %s", exc)
+    return []
+
+
 # ── Market-open helpers ───────────────────────────────────────────────────────
 
 def _market_status() -> dict:
@@ -103,11 +143,26 @@ def _ultra_status() -> dict:
     try:
         from ultra_orchestrator import get_ultra_status
         s = get_ultra_status()
+        last_scan = s.get("completed_at")
+        # If no in-memory completed scan, check DB for the last finished run
+        if not last_scan and not s.get("running"):
+            try:
+                from db import get_db
+                with get_db() as db:
+                    db.execute(
+                        "SELECT finished_at FROM ultra_scan_runs"
+                        " WHERE status='completed' ORDER BY finished_at DESC LIMIT 1"
+                    )
+                    row = db.fetchone()
+                if row:
+                    last_scan = row.get("finished_at")
+            except Exception:
+                pass
         return {
             "running":   s.get("running", False),
             "done":      s.get("done", 0),
             "total":     s.get("total", 0),
-            "last_scan": s.get("completed_at"),
+            "last_scan": last_scan,
         }
     except Exception as exc:
         log.warning("ultra_status error: %s", exc)
@@ -181,17 +236,7 @@ def dashboard_top50(
 
     cards = []
     try:
-        from ultra_orchestrator import get_ultra_results, load_latest_ultra_scan_from_db
-        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-        rows = resp.get("results", []) if isinstance(resp, dict) else []
-        # Memory cache miss → try DB (survives deploy/restart)
-        if not rows:
-            try:
-                if load_latest_ultra_scan_from_db("sp500", tf):
-                    resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-                    rows = resp.get("results", []) if isinstance(resp, dict) else []
-            except Exception as _db_exc:
-                log.warning("top50 DB fallback error: %s", _db_exc)
+        rows = _load_ultra_rows(tf)
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:limit]:
             score = float(r.get("ultra_score", 0) or 0)
@@ -222,7 +267,10 @@ def dashboard_top50(
         log.warning("top50 error: %s", exc)
 
     payload = {"cards": cards, "count": len(cards), "tf": tf}
-    return _store(cache_key, payload)
+    # Don't cache empty results — allow next call to re-check DB after a scan
+    if cards:
+        _store(cache_key, payload)
+    return payload
 
 
 @router.get("/sector-heat")
@@ -356,9 +404,7 @@ def dashboard_summary():
         summary.update({"scan_total": 0, "bull_count": 0, "strong_count": 0, "last_scan": None})
 
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp     = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows     = resp.get("results", []) if isinstance(resp, dict) else []
+        rows     = _load_ultra_rows("1d")
         top_band = [r for r in rows if r.get("ultra_score_band") in ("A", "A+", "S")]
         summary["ultra_total"]    = len(rows)
         summary["ultra_top_band"] = len(top_band)
@@ -474,12 +520,10 @@ def dashboard_best_setups(tf: str = Query("1d")):
     if entry and time.time() - entry[0] < _AI_CACHE_TTL:
         return {"setups": entry[1], "cached": True}
 
-    # Fetch top candidates
+    # Fetch top candidates — any universe, with DB fallback
     candidates = []
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp = get_ultra_results(universe="sp500", tf=tf, nasdaq_batch="")
-        rows = resp.get("results", []) if isinstance(resp, dict) else []
+        rows = _load_ultra_rows(tf)
         rows.sort(key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)
         for r in rows[:20]:
             candidates.append({
@@ -495,7 +539,7 @@ def dashboard_best_setups(tf: str = Query("1d")):
         log.warning("best_setups candidates error: %s", exc)
 
     if not candidates:
-        return {"setups": [], "cached": False}
+        return {"setups": [], "cached": False, "source": "no_data"}
 
     # Try Claude
     setups = None
@@ -528,7 +572,9 @@ def dashboard_best_setups(tf: str = Query("1d")):
     if not setups:
         setups = _deterministic_setups(candidates)
 
-    _setup_cache[cache_key] = (time.time(), setups)
+    # Don't cache empty setups — allow next call to retry after a scan completes
+    if setups:
+        _setup_cache[cache_key] = (time.time(), setups)
     return {"setups": setups, "cached": False}
 
 
@@ -622,9 +668,7 @@ def dashboard_ai_brief():
 
     # Ultra data
     try:
-        from ultra_orchestrator import get_ultra_results
-        resp     = get_ultra_results(universe="sp500", tf="1d", nasdaq_batch="")
-        rows     = resp.get("results", []) if isinstance(resp, dict) else []
+        rows     = _load_ultra_rows("1d")
         top_band = [r for r in rows if r.get("ultra_score_band") in ("A", "A+", "S")]
         ctx["ultra_top_band"] = len(top_band)
         top5 = sorted(rows, key=lambda r: float(r.get("ultra_score", 0) or 0), reverse=True)[:5]
@@ -1194,3 +1238,113 @@ def dashboard_watchlist(tickers: str = Query("")):
         ]
 
     return {"items": items}
+
+
+# ── Debug state ───────────────────────────────────────────────────────────────
+
+@router.get("/debug-state")
+def dashboard_debug_state():
+    """Diagnostic dump: memory cache keys, DB scan runs, TTL status."""
+    now = time.time()
+
+    # In-memory dashboard cache state
+    cache_info = {}
+    for key, (ts, val) in _cache.items():
+        age_s = int(now - ts)
+        cache_info[key] = {
+            "age_s":       age_s,
+            "expired_60s": age_s > 60,
+            "expired_120s": age_s > 120,
+            "has_data":    bool(val),
+        }
+
+    setup_info = {}
+    for key, (ts, val) in _setup_cache.items():
+        setup_info[key] = {"age_s": int(now - ts), "count": len(val) if val else 0}
+
+    brief_info = {}
+    for key, (ts, val) in _brief_cache.items():
+        brief_info[key] = {"age_s": int(now - ts), "has_data": bool(val)}
+
+    # DB scan runs
+    db_runs = []
+    try:
+        from db import get_db
+        with get_db() as db:
+            db.execute(
+                "SELECT id, universe, tf, nasdaq_batch, status, is_latest,"
+                " total_candidates, finished_at"
+                " FROM ultra_scan_runs ORDER BY finished_at DESC LIMIT 20"
+            )
+            db_runs = db.fetchall()
+    except Exception as exc:
+        db_runs = [{"error": str(exc)}]
+
+    # Memory cache state from ultra_orchestrator
+    ultra_mem = {}
+    try:
+        from ultra_orchestrator import get_ultra_status, get_ultra_results
+        ultra_mem["status"] = get_ultra_status()
+        for universe in ("sp500", "nasdaq"):
+            for tf in ("1d", "4h"):
+                resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch="")
+                count = len(resp.get("results", [])) if isinstance(resp, dict) else 0
+                if count > 0:
+                    ultra_mem[f"{universe}/{tf}"] = count
+    except Exception as exc:
+        ultra_mem["error"] = str(exc)
+
+    return {
+        "dashboard_cache":     cache_info,
+        "setup_cache":         setup_info,
+        "brief_cache":         brief_info,
+        "ultra_memory_counts": ultra_mem,
+        "db_scan_runs":        db_runs,
+        "server_time":         datetime.now(timezone.utc).isoformat(),
+    }
+
+
+# ── Bootstrap ─────────────────────────────────────────────────────────────────
+
+@router.get("/bootstrap")
+def dashboard_bootstrap(
+    tf:    str  = Query("1d"),
+    force: bool = Query(False),
+):
+    """
+    One-shot hydration endpoint for the Dashboard.
+    Returns all dashboard sections in a single response.
+    force=true clears ultra-related caches before fetching (use on explicit Refresh).
+    """
+    if force:
+        for key in list(_cache.keys()):
+            if any(k in key for k in ("top50", "summary", "fresh_signals", "risk_alerts", "pulse")):
+                _cache.pop(key, None)
+        _setup_cache.clear()
+        _brief_cache.clear()
+
+    status_d  = dashboard_status()
+    pulse_d   = dashboard_pulse()
+    summary_d = dashboard_summary()
+    top50_d   = dashboard_top50(tf=tf, limit=50)
+    sectors_d = dashboard_sector_heat()
+    fresh_d   = dashboard_fresh_signals(limit=30)
+    risk_d    = dashboard_risk_alerts()
+    setups_d  = dashboard_best_setups(tf=tf)
+    brief_d   = dashboard_ai_brief()
+    news_d    = dashboard_news()
+
+    return {
+        "status":     status_d,
+        "pulse":      pulse_d,
+        "summary":    summary_d,
+        "top50":      top50_d,
+        "sectors":    sectors_d,
+        "fresh":      fresh_d,
+        "risk":       risk_d,
+        "setups":     setups_d,
+        "brief":      brief_d,
+        "news":       news_d,
+        "fetched_at": datetime.now(timezone.utc).isoformat(),
+        "tf":         tf,
+    }

@@ -1634,33 +1634,27 @@ export default function TradingDashboardPanel({
   const [lastRefresh, setLastRefresh] = useState(null)
   const abortRef = useRef(null)
 
-  const loadAll = useCallback(async (silent = false) => {
+  const loadAll = useCallback(async (silent = false, force = false) => {
     if (abortRef.current) abortRef.current.abort()
     abortRef.current = new AbortController()
     if (!silent) setLoading(true)
 
     try {
-      const [statusData, pulseData, summaryData] = await Promise.all([
-        apiFetch('/status'),
-        apiFetch('/pulse'),
-        apiFetch('/summary'),
-      ])
-      setStatus(statusData)
-      setPulse(pulseData)
-      setSummary(summaryData)
+      // Single bootstrap call loads all dashboard data from DB in one round-trip.
+      // force=true clears server-side caches so Refresh always shows latest scan data.
+      const bootstrapUrl = `/bootstrap?tf=1d${force ? '&force=true' : ''}`
+      const data = await apiFetch(bootstrapUrl)
 
-      const w2 = await Promise.allSettled([
-        apiFetch('/top50?limit=50'),
-        apiFetch('/sector-heat'),
-        apiFetch('/fresh-signals?limit=30'),
-        apiFetch('/risk-alerts'),
-        apiFetch('/news'),
-      ])
-      if (w2[0].status === 'fulfilled') setCandidates(w2[0].value)
-      if (w2[1].status === 'fulfilled') setSectors(w2[1].value)
-      if (w2[2].status === 'fulfilled') setFresh(w2[2].value)
-      if (w2[3].status === 'fulfilled') setRisk(w2[3].value)
-      if (w2[4].status === 'fulfilled') setNews(w2[4].value)
+      if (data.status)  setStatus(data.status)
+      if (data.pulse)   setPulse(data.pulse)
+      if (data.summary) setSummary(data.summary)
+      if (data.top50)   setCandidates(data.top50)
+      if (data.sectors) setSectors(data.sectors)
+      if (data.fresh)   setFresh(data.fresh)
+      if (data.risk)    setRisk(data.risk)
+      if (data.setups)  setSetups(data.setups)
+      if (data.brief)   setBrief(data.brief)
+      if (data.news)    setNews(data.news)
 
       if (watchlistTickers.length > 0) {
         try {
@@ -1677,13 +1671,6 @@ export default function TradingDashboardPanel({
         } catch (_) {}
       }
 
-      const w3 = await Promise.allSettled([
-        apiFetch('/best-setups'),
-        apiFetch('/ai-brief'),
-      ])
-      if (w3[0].status === 'fulfilled') setSetups(w3[0].value)
-      if (w3[1].status === 'fulfilled') setBrief(w3[1].value)
-
       setLastRefresh(new Date())
     } catch (err) {
       if (err.name !== 'AbortError') console.error('Dashboard load error:', err)
@@ -1693,8 +1680,8 @@ export default function TradingDashboardPanel({
   }, [watchlistTickers])
 
   useEffect(() => {
-    loadAll()
-    const t = setInterval(() => loadAll(true), 60_000)
+    loadAll(false, false)
+    const t = setInterval(() => loadAll(true, false), 60_000)
     return () => { clearInterval(t); abortRef.current?.abort() }
   }, [loadAll])
 
@@ -1744,7 +1731,7 @@ export default function TradingDashboardPanel({
         status={status}
         pulse={pulse}
         summary={summary}
-        onRefresh={() => loadAll(false)}
+        onRefresh={() => loadAll(false, true)}
         loading={loading}
         lastRefresh={lastRefresh}
       />
