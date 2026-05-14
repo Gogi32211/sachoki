@@ -9,3 +9,4 @@ frontend/package-lock.json
 *.sqlite
 tz_intelligence_package/.DS_Store
 split_universe_latest.csv
+.claude/

@@ -13,6 +13,35 @@ async function api(path, opts = {}) {
   return r.json()
 }
 
+// Persist active run_id across page refreshes
+function loadStoredRunId() {
+  try {
+    const h = window.location.hash
+    if (h && h.startsWith('#run=')) {
+      const id = parseInt(h.slice(5), 10)
+      if (id > 0) return id
+    }
+    const s = localStorage.getItem('ultra_pump_run_id')
+    if (s) {
+      const id = parseInt(s, 10)
+      if (id > 0) return id
+    }
+  } catch {}
+  return null
+}
+
+function storeRunId(id) {
+  try {
+    if (id) {
+      localStorage.setItem('ultra_pump_run_id', String(id))
+      window.history.replaceState(null, '', `#run=${id}`)
+    } else {
+      localStorage.removeItem('ultra_pump_run_id')
+      window.history.replaceState(null, '', window.location.pathname + window.location.search)
+    }
+  } catch {}
+}
+
 const UNIVERSE_OPTIONS = [
   { value: 'all_us',     label: 'All US Stocks' },
   { value: 'sp500',      label: 'S&P 500' },
@@ -343,9 +372,18 @@ export default function UltraPumpResearchPanel() {
 
   const [state, setState] = useState(null)
   const [history, setHistory] = useState([])
-  const [runId, setRunId] = useState(null)
+  const [runId, setRunId] = useState(() => loadStoredRunId())
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
+
+  // Delete confirmation modal state
+  const [deleteConfirm, setDeleteConfirm] = useState(null) // { run_id, run_info }
+  const [deleteResult, setDeleteResult] = useState(null)   // { ok, message }
+  const [deleting, setDeleting] = useState(false)
+
+  // Research archive audit state
+  const [auditResult, setAuditResult] = useState(null)
+  const [auditLoading, setAuditLoading] = useState(false)
 
   // Artifacts
   const [episodes, setEpisodes] = useState([])
@@ -359,13 +397,18 @@ export default function UltraPumpResearchPanel() {
   const [manifest, setManifest] = useState(null)
   const [emptyConfirm, setEmptyConfirm] = useState(null)
 
+  const setRunIdPersist = useCallback((id) => {
+    setRunId(id)
+    storeRunId(id)
+  }, [])
+
   const refreshState = useCallback(async () => {
     try {
       const s = await api('/api/ultra-pump/status')
       setState(s)
-      if (s.run_id && !runId) setRunId(s.run_id)
+      if (s.run_id && !runId) setRunIdPersist(s.run_id)
     } catch (e) { /* ignore */ }
-  }, [runId])
+  }, [runId, setRunIdPersist])
 
   const refreshHistory = useCallback(async () => {
     try {
@@ -431,24 +474,89 @@ export default function UltraPumpResearchPanel() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(settings),
       })
-      setRunId(r.run_id)
+      setRunIdPersist(r.run_id)
       await refreshState()
       await refreshHistory()
     } catch (e) { setErr(e.message) }
     finally { setBusy(false) }
-  }, [settings, refreshState, refreshHistory])
+  }, [settings, refreshState, refreshHistory, setRunIdPersist])
 
   const doAction = useCallback(async (kind) => {
     if (!runId) return
     setErr(null); setBusy(true)
     try {
       const r = await api(`/api/ultra-pump/${runId}/${kind}`, { method: 'POST' })
-      if (r.run_id && kind === 'full-rescan') setRunId(r.run_id)
+      if (r.run_id && kind === 'full-rescan') setRunIdPersist(r.run_id)
       await refreshState()
       await refreshHistory()
     } catch (e) { setErr(e.message) }
     finally { setBusy(false) }
-  }, [runId, refreshState, refreshHistory])
+  }, [runId, refreshState, refreshHistory, setRunIdPersist])
+
+  // Open a historical run — load from DB archive first, fallback to parquet
+  const openHistoricalRun = useCallback(async (rid) => {
+    setErr(null)
+    setRunIdPersist(rid)
+    setActiveTab('overview')
+    // refreshArtifacts will be triggered by the useEffect on runId
+  }, [setRunIdPersist])
+
+  // Delete a run with confirmation
+  const requestDelete = useCallback((runRow) => {
+    setDeleteResult(null)
+    setDeleteConfirm({ run_id: runRow.id, run_info: runRow })
+  }, [])
+
+  const confirmDelete = useCallback(async () => {
+    if (!deleteConfirm) return
+    setDeleting(true)
+    setDeleteResult(null)
+    const rid = deleteConfirm.run_id
+    try {
+      // Try the archive endpoint first (handles DB rows), then fallback to legacy
+      let result
+      try {
+        result = await api(`/api/ultra-research/runs/${rid}`, { method: 'DELETE' })
+      } catch (archiveErr) {
+        // Fallback to legacy delete which handles parquet files
+        result = await api(`/api/ultra-pump/${rid}`, { method: 'DELETE' })
+      }
+      setDeleteResult({ ok: true, message: `Run #${rid} deleted successfully.`, detail: result })
+      setDeleteConfirm(null)
+      if (runId === rid) {
+        setRunIdPersist(null)
+        setBundle(null)
+        setEpisodes([])
+        setPatterns([])
+        setCaught([])
+        setMissed([])
+        setLift([])
+        setSplitImpact([])
+        setRecs(null)
+        setManifest(null)
+      }
+      await refreshHistory()
+    } catch (e) {
+      setDeleteResult({ ok: false, message: e.message })
+    } finally {
+      setDeleting(false)
+    }
+  }, [deleteConfirm, runId, setRunIdPersist, refreshHistory])
+
+  // Fetch export audit for current run
+  const loadAudit = useCallback(async () => {
+    if (!runId) return
+    setAuditLoading(true)
+    setAuditResult(null)
+    try {
+      const r = await api(`/api/ultra-research/runs/${runId}/export-audit`)
+      setAuditResult(r)
+    } catch (e) {
+      setAuditResult({ error: e.message })
+    } finally {
+      setAuditLoading(false)
+    }
+  }, [runId])
 
   const exportArtifact = useCallback(async (part, fmt = 'json') => {
     if (!runId) return
@@ -626,6 +734,63 @@ export default function UltraPumpResearchPanel() {
 
         {activeTab === 'exports' && (
           <div className="space-y-3">
+            {/* DB Archive exports — always available */}
+            {runId && (
+              <div className="bg-md-surface-con border border-emerald-900/40 rounded p-3">
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-[12px] font-semibold text-emerald-200">
+                    Persistent Archive Exports (Run #{runId})
+                  </div>
+                  <button onClick={loadAudit} disabled={auditLoading}
+                          className="px-2 py-1 text-[10px] bg-md-surface-high border border-white/[0.07] rounded hover:border-white/20 disabled:opacity-50">
+                    {auditLoading ? 'Checking…' : 'Audit DB'}
+                  </button>
+                </div>
+                {auditResult && (
+                  <div className={`mb-2 p-2 rounded text-[11px] ${
+                    auditResult.error ? 'bg-red-900/40 text-red-200' :
+                    auditResult.all_sections_populated ? 'bg-emerald-900/30 text-emerald-200' :
+                    'bg-yellow-900/30 text-yellow-200'
+                  }`}>
+                    {auditResult.error ? `Audit error: ${auditResult.error}` : (
+                      <span>
+                        DB: {auditResult.sections?.episodes?.db_count ?? '—'} episodes,{' '}
+                        {auditResult.sections?.patterns?.db_count ?? '—'} patterns,{' '}
+                        bundle: {auditResult.sections?.research_bundle?.db_count ? 'yes' : 'no'}.{' '}
+                        {auditResult.all_sections_populated ? 'All sections populated.' : 'Some sections missing.'}
+                      </span>
+                    )}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-2">
+                  {[
+                    { type: 'summary', label: 'Summary', fmt: 'json', csvOk: false },
+                    { type: 'episodes', label: 'Episodes', fmt: 'json', csvOk: true },
+                    { type: 'patterns', label: 'Patterns', fmt: 'json', csvOk: true },
+                    { type: 'research_bundle', label: 'Research Bundle', fmt: 'json', csvOk: false },
+                    { type: 'all_zip', label: 'All (ZIP)', fmt: 'json', csvOk: false },
+                  ].map(it => (
+                    <div key={it.type} className="flex items-center gap-1">
+                      <button
+                        onClick={() => window.location.href = `${API}/api/ultra-research/runs/${runId}/export?type=${it.type}&format=json`}
+                        className="px-2 py-1 text-[11px] rounded border border-white/[0.07] bg-emerald-900/30 hover:bg-emerald-900/50 text-md-on-surface">
+                        {it.label}
+                      </button>
+                      {it.csvOk && (
+                        <button
+                          onClick={() => window.location.href = `${API}/api/ultra-research/runs/${runId}/export?type=${it.type}&format=csv`}
+                          className="px-1.5 py-1 text-[10px] rounded bg-md-surface-high hover:bg-md-surface-high/80 border border-white/[0.07]">
+                          CSV
+                        </button>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Legacy parquet-backed exports */}
+            <div className="text-[11px] text-md-on-surface-var px-1">Legacy parquet exports (disk-based, may be unavailable after restart):</div>
             {[
               { group: 'Summary', items: [
                 { part: 'run', label: 'Run Metadata' },
@@ -694,23 +859,81 @@ export default function UltraPumpResearchPanel() {
         )}
 
         {activeTab === 'history' && (
-          <DataTable columns={[
-            { key: 'id', label: 'Run' },
-            { key: 'status', label: 'Status' },
-            { key: 'universe', label: 'Universe' },
-            { key: 'pump_target', label: 'Target' },
-            { key: 'start_date', label: 'Start' },
-            { key: 'end_date', label: 'End' },
-            { key: 'total_episodes', label: 'Episodes' },
-            { key: 'total_caught', label: 'Caught' },
-            { key: 'total_missed', label: 'Missed' },
-            { key: 'started_at', label: 'Started' },
-            { key: 'finished_at', label: 'Finished' },
-            { key: 'actions', label: 'Actions', render: r => (
-              <button onClick={() => setRunId(r.id)}
-                      className="text-emerald-300 hover:text-emerald-200">Load</button>
-            ) },
-          ]} rows={history} emptyMsg="No runs yet." />
+          <div className="space-y-3">
+            {deleteResult && (
+              <div className={`p-2 rounded text-[12px] ${deleteResult.ok ? 'bg-emerald-900/40 border border-emerald-700 text-emerald-200' : 'bg-red-900/40 border border-red-700 text-red-200'}`}>
+                {deleteResult.message}
+              </div>
+            )}
+            <div className="overflow-x-auto">
+              <table className="w-full text-[11px] border-collapse">
+                <thead>
+                  <tr className="text-md-on-surface-var">
+                    {['Run #', 'Status', 'Universe', 'Target', 'Date Range', 'Episodes', 'Caught', 'Missed', 'Started', 'Duration', 'Actions'].map(h => (
+                      <th key={h} className="text-left px-2 py-1 border-b border-white/[0.07] font-medium whitespace-nowrap">{h}</th>
+                    ))}
+                  </tr>
+                </thead>
+                <tbody>
+                  {history.length === 0 && (
+                    <tr><td colSpan={11} className="px-2 py-4 text-md-on-surface-var">No runs yet.</td></tr>
+                  )}
+                  {history.map(r => {
+                    const isActive = r.id === runId
+                    const duration = r.started_at && r.finished_at ? (() => {
+                      try {
+                        const s = new Date(r.started_at), f = new Date(r.finished_at)
+                        const sec = Math.round((f - s) / 1000)
+                        return `${Math.floor(sec / 60)}m ${sec % 60}s`
+                      } catch { return '—' }
+                    })() : r.status === 'running' ? 'running…' : '—'
+                    const statusColor = {
+                      completed: 'text-emerald-400',
+                      running: 'text-yellow-400',
+                      failed: 'text-red-400',
+                      stopped: 'text-orange-400',
+                    }[r.status] || 'text-md-on-surface'
+                    return (
+                      <tr key={r.id} className={`hover:bg-white/[0.02] ${isActive ? 'bg-emerald-950/30' : ''}`}>
+                        <td className="px-2 py-1 border-b border-white/[0.04] font-mono">
+                          {r.id}{isActive && <span className="ml-1 text-[9px] text-emerald-400">●</span>}
+                        </td>
+                        <td className={`px-2 py-1 border-b border-white/[0.04] ${statusColor}`}>{r.status}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">{r.universe}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">{r.pump_target}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04] whitespace-nowrap">
+                          {r.start_date || '—'} → {r.end_date || '—'}
+                        </td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">{r.total_episodes ?? '—'}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">{r.total_caught ?? '—'}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">{r.total_missed ?? '—'}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04] whitespace-nowrap text-md-on-surface-var">
+                          {r.started_at ? String(r.started_at).slice(0, 16).replace('T', ' ') : '—'}
+                        </td>
+                        <td className="px-2 py-1 border-b border-white/[0.04] whitespace-nowrap text-md-on-surface-var">{duration}</td>
+                        <td className="px-2 py-1 border-b border-white/[0.04]">
+                          <div className="flex gap-1">
+                            <button
+                              onClick={() => openHistoricalRun(r.id)}
+                              disabled={isActive}
+                              className="px-1.5 py-0.5 text-[10px] rounded bg-emerald-900/40 hover:bg-emerald-900/60 text-emerald-300 disabled:opacity-40">
+                              {isActive ? 'Open' : 'Open'}
+                            </button>
+                            <button
+                              onClick={() => requestDelete(r)}
+                              disabled={r.status === 'running'}
+                              className="px-1.5 py-0.5 text-[10px] rounded bg-red-900/30 hover:bg-red-900/60 text-red-300 disabled:opacity-40">
+                              Delete
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
       </div>
 
@@ -728,6 +951,48 @@ export default function UltraPumpResearchPanel() {
                       className="px-3 py-1 text-xs bg-md-surface-high rounded">Cancel</button>
               <button onClick={confirmEmptyDownload}
                       className="px-3 py-1 text-xs bg-emerald-700 hover:bg-emerald-600 rounded">Download anyway</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete confirmation modal */}
+      {deleteConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60">
+          <div className="bg-md-surface-con border border-red-900/60 rounded p-5 max-w-md w-full mx-4 shadow-2xl">
+            <div className="text-sm font-semibold text-red-300 mb-2">Delete Run #{deleteConfirm.run_id}?</div>
+            <div className="text-[12px] text-md-on-surface-var mb-3 space-y-1">
+              <p>This action is <strong className="text-md-on-surface">permanent and cannot be undone.</strong></p>
+              <p>The following will be permanently deleted:</p>
+              <ul className="list-disc list-inside ml-2 space-y-0.5">
+                <li>All DB rows (episodes, patterns, bundle)</li>
+                <li>Parquet artifacts on disk (if present)</li>
+                <li>Run metadata record</li>
+              </ul>
+              {deleteConfirm.run_info && (
+                <div className="mt-2 p-2 bg-md-surface-high rounded text-[11px]">
+                  Universe: <strong>{deleteConfirm.run_info.universe}</strong> ·
+                  Target: <strong>{deleteConfirm.run_info.pump_target}</strong> ·
+                  Episodes: <strong>{deleteConfirm.run_info.total_episodes ?? '?'}</strong>
+                </div>
+              )}
+            </div>
+            {deleteResult && !deleteResult.ok && (
+              <div className="mb-2 p-2 bg-red-900/40 border border-red-700 rounded text-[11px] text-red-200">
+                Error: {deleteResult.message}
+              </div>
+            )}
+            <div className="flex justify-end gap-2">
+              <button onClick={() => { setDeleteConfirm(null); setDeleteResult(null) }}
+                      disabled={deleting}
+                      className="px-3 py-1.5 text-xs bg-md-surface-high rounded disabled:opacity-50">
+                Cancel
+              </button>
+              <button onClick={confirmDelete}
+                      disabled={deleting}
+                      className="px-3 py-1.5 text-xs bg-red-700 hover:bg-red-600 disabled:bg-md-surface-high rounded">
+                {deleting ? 'Deleting…' : 'Yes, delete permanently'}
+              </button>
             </div>
           </div>
         </div>
