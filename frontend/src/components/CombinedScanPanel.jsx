@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback, useMemo } from 'react'
 import { api } from '../api'
 import { exportToTV } from '../utils/exportTickers'
 import { Button, Alert, Spinner, EmptyState, AssistChip } from '../design-system'
+import SignalChip from './SignalChip'
 
 // ── Score sub-tabs ────────────────────────────────────────────────────────────
 const SCORE_TABS = [
@@ -318,25 +319,23 @@ export default function CombinedScanPanel({ tf, onSelectTicker }) {
                     <td className="px-2 py-1">
                       <div className="flex flex-wrap gap-0.5">
                         {VABS_BULL.filter(d => row[d.key]).map(d => (
-                          <span key={d.key} className={`px-1 rounded-md-sm text-xs ${d.cls}`}>{d.label}</span>
+                          <SignalChip key={d.key} signal={d.label} size="sm" />
                         ))}
                       </div>
                     </td>
                     <td className="px-2 py-1">
                       <div className="flex flex-wrap gap-0.5">
                         {[...WYK_BULL, ...WYK_BEAR].filter(d => row[d.key]).map(d => (
-                          <span key={d.key} className={`px-1 rounded-md-sm text-xs ${d.cls}`}>{d.label}</span>
+                          <SignalChip key={d.key} signal={d.label} size="sm" />
                         ))}
                       </div>
                     </td>
                     <td className="px-2 py-1">
                       <div className="flex flex-wrap gap-0.5">
                         {COMBO_BULL.filter(d => row[d.key]).map(d => (
-                          <span key={d.key} className={`px-1 rounded-md-sm text-xs ${d.cls}`}>{d.label}</span>
+                          <SignalChip key={d.key} signal={d.label} size="sm" />
                         ))}
-                        {row.wick_bull ? (
-                          <span className="px-1 rounded-md-sm text-xs bg-emerald-900 text-emerald-200">W↑</span>
-                        ) : null}
+                        {row.wick_bull ? <SignalChip signal="WP↑" size="sm" /> : null}
                       </div>
                     </td>
                     <td className="px-2 py-1 hidden md:table-cell">

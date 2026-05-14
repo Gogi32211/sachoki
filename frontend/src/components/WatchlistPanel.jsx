@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from 'react'
 import { api } from '../api'
+import SignalChip from './SignalChip'
 
 // Volume bucket colors per spec
 const BUCKET_COLORS = {
@@ -45,18 +46,9 @@ function LComboBadge({ combo }) {
   )
 }
 
-function SigBadge({ sig_id, sig_name, is_bull, is_bear }) {
+function SigBadge({ sig_name }) {
   if (!sig_name || sig_name === 'NONE') return null
-  const cls = is_bull
-    ? 'bg-green-900/60 text-green-300'
-    : is_bear
-    ? 'bg-red-900/60 text-red-300'
-    : 'bg-gray-700 text-md-on-surface'
-  return (
-    <span className={`text-xs font-bold px-1.5 py-0.5 rounded font-mono ${cls}`}>
-      {sig_name}
-    </span>
-  )
+  return <SignalChip signal={sig_name} size="sm" />
 }
 
 function ScoreBar({ bull, bear }) {

@@ -1,5 +1,9 @@
 import { useState } from 'react'
 import { pwlHas } from './PersonalWatchlistPanel'
+import SharedSignalChip from './SignalChip'
+import SignalChipList from './SignalChipList'
+import TickerCell from './TickerCell'
+import TableScrollContainer from './TableScrollContainer'
 
 // ── Colour helpers (shared) ───────────────────────────────────────────────────
 const TZ_STRONG = new Set(['T4','T6','T1G','T2G'])
@@ -93,15 +97,9 @@ function profileBorderCls(cat) {
   }
 }
 
-// ── Compact signal chip ───────────────────────────────────────────────────────
-function SignalChip({ label, tz }) {
-  let cls = 'text-[11px] px-1 py-0.5 rounded font-mono font-semibold bg-md-surface-high text-md-on-surface'
-  if (tz) {
-    if (TZ_STRONG.has(label)) cls = 'text-[11px] px-1 py-0.5 rounded font-mono font-semibold bg-emerald-900/60 text-emerald-300'
-    else if (TZ_BEAR.has(label)) cls = 'text-[11px] px-1 py-0.5 rounded font-mono font-semibold bg-red-900/40 text-red-400'
-    else cls = 'text-[11px] px-1 py-0.5 rounded font-mono font-semibold bg-blue-900/50 text-blue-300'
-  }
-  return <span className={cls}>{label}</span>
+// ── T/Z cell chip — delegates to the shared SignalChip so colors match Superchart
+function TZChip({ label }) {
+  return <SharedSignalChip signal={label} size="sm" />
 }
 
 // ── StatusChip for profile category ──────────────────────────────────────────
@@ -198,19 +196,6 @@ function collectSignals(r) {
   return sigs
 }
 
-// ── Signal chip — semantic color by type ─────────────────────────────────────
-function SignalBadge({ label, type = 'info' }) {
-  const cls =
-    type === 'bull' ? 'bg-emerald-950 text-emerald-300 border-emerald-800' :
-    type === 'bear' ? 'bg-red-950 text-red-300 border-red-800' :
-    'bg-slate-800 text-slate-300 border-slate-600'
-  return (
-    <span className={`px-1.5 py-0.5 text-[10px] rounded border font-medium ${cls}`}>
-      {label}
-    </span>
-  )
-}
-
 // ── Small neutral badge (used outside Signals column) ─────────────────────────
 function SmallBadge({ label, cls = '' }) {
   return (
@@ -250,12 +235,7 @@ function ExpandedRow({ r, colSpan }) {
           {/* All signals */}
           <div>
             <div className="text-md-on-surface-var/70 mb-1 font-semibold uppercase tracking-wide text-[9px]">All Signals</div>
-            <div className="flex flex-wrap gap-0.5">
-              {allSigs.map((s, i) => (
-                <SmallBadge key={i} label={s.label} />
-              ))}
-              {allSigs.length === 0 && <span className="text-md-on-surface-var/50">—</span>}
-            </div>
+            <SignalChipList signals={allSigs.map(s => s.label)} mode="table" />
           </div>
 
           {/* GOG / Context */}
@@ -468,7 +448,7 @@ export default function ScannerDataGrid({
             {/* Star col */}
             <th className="px-1 py-1.5 w-5 sticky left-[28px] z-20 bg-md-surface-con font-medium text-md-on-surface-var" title="Watchlist">★</th>
             {/* Ticker */}
-            <SortTh col="ticker" cls="sticky left-[52px] z-20 bg-md-surface-con min-w-[80px]">Ticker</SortTh>
+            <SortTh col="ticker" cls="sticky left-[52px] z-20 bg-md-surface-con min-w-[72px] max-w-[100px]">Ticker</SortTh>
             {/* Score */}
             <SortTh col="turbo_score" cls="text-right min-w-[50px]">Score</SortTh>
             {/* ULTRA Score — only in ultra variant */}
@@ -483,8 +463,8 @@ export default function ScannerDataGrid({
             <SortTh col="tz_sig" cls="text-center min-w-[44px]">T/Z</SortTh>
             {/* Category */}
             <th className="px-2 py-1.5 font-medium text-center min-w-[60px]">Cat</th>
-            {/* Signals */}
-            <th className="px-2 py-1.5 font-medium min-w-[120px]">Signals</th>
+            {/* Signals — all chips shown, may wrap or grow row height */}
+            <th className="px-2 py-1.5 font-medium min-w-[180px]">Signals</th>
             {/* ABR */}
             <th className="px-2 py-1.5 font-medium text-center min-w-[36px]">ABR</th>
             {/* RSI */}
@@ -535,10 +515,8 @@ export default function ScannerDataGrid({
             const isEven = rowIdx % 2 === 0
             const rowBg = isEven ? 'bg-md-surface-con' : ''
 
-            // Collect priority signals for the Signals column (top 3 + overflow)
+            // Collect all signals — every chip is shown in the Signals column.
             const allSigs = collectSignals(r)
-            const topSigs = allSigs.slice(0, 3)
-            const overflow = allSigs.length - 3
 
             const chg = r.change_pct ?? 0
 
@@ -569,16 +547,17 @@ export default function ScannerDataGrid({
                   <StarBtn ticker={r.ticker} tf={localTf} onToggle={() => onWatchlistToggle?.(r)} />
                 </td>
 
-                {/* Ticker + sector */}
-                <td className={`px-2 py-1 sticky left-[52px] z-10 ${isEven ? 'bg-md-surface-con' : 'bg-md-surface'}`}>
-                  <div className="font-mono font-semibold text-md-on-surface leading-tight">{r.ticker}</div>
-                  {(r.sector || r.vol_bucket) && (
-                    <div className="text-[10px] text-md-on-surface-var truncate max-w-[76px]">
-                      {r.sector || r.vol_bucket}
-                    </div>
-                  )}
+                {/* Ticker — compact symbol-only cell. Sector lives in tooltip + expanded row. */}
+                <td className={`px-2 py-1 sticky left-[52px] z-10 ${isEven ? 'bg-md-surface-con' : 'bg-md-surface'}`}
+                    title={[r.ticker, r.sector || r.vol_bucket].filter(Boolean).join(' · ')}>
+                  <TickerCell
+                    symbol={r.ticker}
+                    company={r.company || r.name}
+                    sector={r.sector || r.vol_bucket}
+                    compact
+                  />
                   {r.data_source === 'yfinance' && (
-                    <span className="text-[8px] text-orange-400/60">yf</span>
+                    <span className="text-[8px] text-orange-400/60 ml-0.5">yf</span>
                   )}
                 </td>
 
@@ -628,7 +607,7 @@ export default function ScannerDataGrid({
                 {/* T/Z */}
                 <td className="px-2 py-1 text-center">
                   {r.tz_sig ? (
-                    <SignalChip label={r.tz_sig} tz />
+                    <TZChip label={r.tz_sig} />
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
@@ -639,16 +618,9 @@ export default function ScannerDataGrid({
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* Signals — top 3 + overflow */}
-                <td className="px-2 py-1">
-                  <div className="flex flex-wrap gap-0.5 items-center">
-                    {topSigs.map((s, i) => (
-                      <SignalBadge key={i} label={s.label} type={s.type} />
-                    ))}
-                    {overflow > 0 && (
-                      <span className="text-[10px] text-md-on-surface-var italic">+{overflow} more</span>
-                    )}
-                  </div>
+                {/* Signals — every chip rendered, wraps inside cell. No static "+N more". */}
+                <td className="px-2 py-1 align-middle">
+                  <SignalChipList signals={allSigs.map(s => s.label)} mode="table" />
                 </td>
 
                 {/* ABR */}

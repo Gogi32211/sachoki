@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react'
 import { api } from '../api'
 import { Card, Spinner, EmptyState } from '../design-system'
+import SignalChip from './SignalChip'
+import TableScrollContainer from './TableScrollContainer'
 
 const L_COLS = ["L1", "L2", "L3", "L4", "L5", "L6", "L34", "L22", "L64", "L43", "L1L2", "L2L5"]
 
@@ -61,7 +63,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
     return <EmptyState compact message="Benchmark data loading…" />
 
   return (
-    <div className="overflow-auto flex-1">
+    <TableScrollContainer className="flex-1">
       {isDiff && (
         <div className="px-3 py-1.5 bg-md-surface-con border-b border-md-outline-var text-[10px] text-md-on-surface-var">
           Cell: <span className="text-md-on-surface font-medium">ticker %</span>{' '}
@@ -97,9 +99,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
                 )}
                 <tr key={row.sig_id} className="border-b border-md-outline-var/40 hover:bg-md-surface-high/30 transition-colors">
                   <td className="sticky left-0 bg-md-surface-con z-10 px-3 py-1.5 border-b border-md-outline-var/40">
-                    <span className={`font-mono font-bold text-xs ${row.is_bull ? 'text-md-positive' : 'text-md-negative'}`}>
-                      {row.sig_name}
-                    </span>
+                    <SignalChip signal={row.sig_name} size="sm" />
                   </td>
                   <td className="text-center px-1 py-1.5 text-md-on-surface-var">{row.total}</td>
                   {L_COLS.map(col => (
@@ -116,7 +116,7 @@ function MatrixTable({ matrix, benchMatrix, view, ticker }) {
           })}
         </tbody>
       </table>
-    </div>
+    </TableScrollContainer>
   )
 }
 
