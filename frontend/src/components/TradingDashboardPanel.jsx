@@ -1746,7 +1746,7 @@ function TopMoversPanel({ topMovers, loading, onOpenChart, onOpenNews }) {
   const pmAvail  = premarket.available === true
   const genAt    = topMovers?.generated_at
   const noSyms   = topMovers?.has_symbols === false
-  const notConf  = !topMovers?.has_symbols && topMovers?.message?.includes('not configured')
+  const notConf  = !!topMovers?.message?.includes('not configured')
 
   const emptyMsg = noSyms
     ? 'Run Ultra Scan or add tickers to Watchlist to populate Top Movers.'
@@ -2034,18 +2034,20 @@ export default function TradingDashboardPanel({
         </Panel>
       )}
 
+      {/* ── TOP MOVERS — always visible, has its own empty states ──────────── */}
+      <TopMoversPanel
+        topMovers={topMovers}
+        loading={loading}
+        onOpenChart={openChart}
+        onOpenNews={openNews}
+      />
+
       {/* ── MAIN 2-COLUMN GRID — show when data exists or while loading ──── */}
       {(dashboardState !== DS.NO_SCAN || loading) && (
       <div className="grid grid-cols-1 lg:grid-cols-3 xl:grid-cols-4 gap-5">
 
         {/* Left: Best Setups + Top Candidates */}
         <div className="lg:col-span-2 xl:col-span-3 flex flex-col gap-6">
-          <TopMoversPanel
-            topMovers={topMovers}
-            loading={loading}
-            onOpenChart={openChart}
-            onOpenNews={openNews}
-          />
           <BestSetupsToday
             setups={setups}
             loading={loading}
