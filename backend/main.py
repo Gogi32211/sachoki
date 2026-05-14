@@ -3081,6 +3081,159 @@ def api_sequence_scan_results(
     }
 
 
+@app.get("/api/debug/compare-ultra-superchart")
+def api_debug_compare_ultra_superchart(symbol: str, tf: str = "1d"):
+    """
+    Debug endpoint: compare the two pipelines side-by-side for a single symbol.
+
+    Returns per-pipeline: bar count, last bar date, data source, key signal values,
+    and turbo_score. Also returns a diff dict highlighting any mismatches.
+
+    This endpoint is READ-ONLY and never modifies any scan state.
+    """
+    import traceback
+    from data import fetch_ohlcv
+    from signal_engine import compute_signals
+    from wlnbb_engine import compute_wlnbb
+    from canonical_scoring_engine import compute_canonical_score
+
+    ticker = symbol.upper().strip()
+    report: dict = {"symbol": ticker, "tf": tf, "pipelines": {}, "diff": {}}
+
+    # ── Helper: compute last-bar signals from a DataFrame ─────────────────
+    def _analyze_df(df, label: str, source: str) -> dict:
+        try:
+            sig_df = compute_signals(df)
+        except Exception:
+            sig_df = None
+        try:
+            wlnbb_df = compute_wlnbb(df)
+        except Exception:
+            wlnbb_df = None
+
+        last_sig = sig_df.iloc[-1] if sig_df is not None and not sig_df.empty else {}
+        last_w   = wlnbb_df.iloc[-1] if wlnbb_df is not None and not wlnbb_df.empty else {}
+
+        tz_name = str(last_sig.get("sig_name", "")) if last_sig.get("is_bull") else ""
+        l_sigs = []
+        for col, lbl in [("L34","L34"),("L43","L43"),("L64","L64"),("L22","L22"),
+                          ("FRI34","FRI34"),("FRI43","FRI43"),
+                          ("BO_UP","BO↑"),("BX_UP","BX↑"),("BE_UP","BE↑"),
+                          ("BLUE","BL"),("CCI_READY","CCI")]:
+            if bool(last_w.get(col)):
+                l_sigs.append(lbl)
+
+        sig_row = {
+            "tz_bull": bool(last_sig.get("is_bull")),
+            "tz_sig":  tz_name,
+            "conso_2809": bool(last_w.get("conso_2809") if hasattr(last_w,"get") else False),
+            "bf_buy":  False,
+            "rocket":  False,
+            "bo_up":   bool(last_w.get("BO_UP")),
+            "bx_up":   bool(last_w.get("BX_UP")),
+            "be_up":   bool(last_w.get("BE_UP")),
+            "l34":     bool(last_w.get("L34")),
+            "fri34":   bool(last_w.get("FRI34")),
+        }
+        try:
+            from combo_engine import compute_combo as _cc
+            combo_df = _cc(df)
+            if not combo_df.empty:
+                lc = combo_df.iloc[-1]
+                sig_row["conso_2809"] = bool(lc.get("conso_2809"))
+                sig_row["rocket"]     = bool(lc.get("rocket"))
+                sig_row["bf_buy"]     = bool(lc.get("buy_2809"))
+        except Exception:
+            pass
+
+        try:
+            canon = compute_canonical_score(sig_row)
+            turbo_score = canon.get("turbo_score", 0)
+        except Exception:
+            turbo_score = None
+
+        last_idx = df.index[-1]
+        last_date = str(last_idx)[:10] if hasattr(last_idx, "__str__") else ""
+
+        return {
+            "label":       label,
+            "source":      source,
+            "bar_count":   len(df),
+            "last_bar":    last_date,
+            "first_bar":   str(df.index[0])[:10],
+            "tz_signal":   tz_name or None,
+            "l_signals":   l_sigs,
+            "vol_bucket":  str(last_w.get("vol_bucket", "")) if hasattr(last_w,"get") else "",
+            "turbo_score": turbo_score,
+        }
+
+    # ── Pipeline A: Superchart (yfinance, 150-bar default) ────────────────
+    try:
+        df_sc = fetch_ohlcv(ticker, interval=tf, bars=150)
+        report["pipelines"]["superchart"] = _analyze_df(df_sc, "superchart", "yfinance")
+    except Exception as exc:
+        report["pipelines"]["superchart"] = {"error": str(exc)}
+
+    # ── Pipeline B: Turbo-equivalent (Polygon → yfinance, 180-day window) ─
+    try:
+        df_turbo = None
+        turbo_source = "yfinance"
+        try:
+            from data_polygon import fetch_bars, polygon_available
+            if polygon_available():
+                days = 400 if tf in ("1wk","1w") else 180 if tf == "1d" else 90
+                df_turbo = fetch_bars(ticker, interval=tf, days=days)
+                turbo_source = "polygon"
+        except Exception:
+            pass
+        if df_turbo is None or df_turbo.empty:
+            import yfinance as yf
+            period = "5y" if tf in ("1wk","1w") else "180d" if tf == "1d" else "60d"
+            raw = yf.Ticker(ticker).history(period=period, interval=tf, auto_adjust=True)
+            raw.columns = [str(c).lower() for c in raw.columns]
+            df_turbo = raw[["open","high","low","close","volume"]].dropna()
+            turbo_source = "yfinance"
+        report["pipelines"]["turbo"] = _analyze_df(df_turbo, "turbo", turbo_source)
+    except Exception as exc:
+        report["pipelines"]["turbo"] = {"error": str(exc), "traceback": traceback.format_exc()}
+
+    # ── Diff ──────────────────────────────────────────────────────────────
+    sc = report["pipelines"].get("superchart", {})
+    tu = report["pipelines"].get("turbo", {})
+    diff = {}
+    if "error" not in sc and "error" not in tu:
+        if sc.get("last_bar") != tu.get("last_bar"):
+            diff["last_bar"] = {"superchart": sc["last_bar"], "turbo": tu["last_bar"],
+                                "note": "Different latest bar — partial-day trim mismatch or source lag"}
+        if sc.get("source") != tu.get("source"):
+            diff["data_source"] = {"superchart": sc["source"], "turbo": tu["source"],
+                                   "note": "Different OHLCV source — adjusted prices may differ"}
+        sc_bars, tu_bars = sc.get("bar_count",0), tu.get("bar_count",0)
+        if abs(sc_bars - tu_bars) > 5:
+            diff["bar_count"] = {"superchart": sc_bars, "turbo": tu_bars,
+                                 "note": "Different lookback windows — rolling indicators will diverge"}
+        if sc.get("tz_signal") != tu.get("tz_signal"):
+            diff["tz_signal"] = {"superchart": sc.get("tz_signal"), "turbo": tu.get("tz_signal"),
+                                 "note": "T/Z signal differs on last bar"}
+        sc_l = set(sc.get("l_signals", []))
+        tu_l = set(tu.get("l_signals", []))
+        if sc_l != tu_l:
+            diff["l_signals"] = {
+                "superchart_only": sorted(sc_l - tu_l),
+                "turbo_only":      sorted(tu_l - sc_l),
+                "note": "L/structure signals differ — likely due to bar-count or source mismatch",
+            }
+        sc_s = sc.get("turbo_score")
+        tu_s = tu.get("turbo_score")
+        if sc_s is not None and tu_s is not None and abs((sc_s or 0) - (tu_s or 0)) > 2:
+            diff["turbo_score"] = {"superchart": sc_s, "turbo": tu_s,
+                                   "delta": round((sc_s or 0) - (tu_s or 0), 1)}
+    report["diff"] = diff
+    report["mismatch_count"] = len(diff)
+    report["root_causes"] = [v["note"] for v in diff.values() if isinstance(v, dict) and "note" in v]
+    return report
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
