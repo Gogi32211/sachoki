@@ -917,15 +917,53 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
             "No baseline patterns (no episodes detected)."
         ))
 
-        # Phase-4+ slots: write empty placeholders
-        phase_2_slots = [
-            ("split_impact_stats",          "Phase 4 will populate split-aware pattern stats."),
-            ("split_related_pumps",         "Phase 4 will populate split-related episodes."),
-            ("clean_non_split_pumps",       "Phase 4 will populate clean non-split episodes."),
-            ("post_reverse_split_pumps",    "Phase 4 will populate post-reverse-split episodes."),
-        ]
-        for slot, reason in phase_2_slots:
-            manifest_entries.append(_write_slot(slot, [], reason))
+        # ── Phase 4: split impact ────────────────────────────────────────────
+        from ultra_pump_split import (
+            classify_episodes_split_status, build_split_partitions,
+            split_aware_pattern_stats,
+        )
+        _set(phase="split_impact", phase_message="Classifying split-impact status")
+        split_window = int(payload.get("split_impact_window_days") or DEFAULT_SPLIT_IMPACT_WINDOW)
+        episodes_with_split = classify_episodes_split_status(
+            all_episodes, split_impact_window_days=split_window,
+        )
+        partitions = build_split_partitions(episodes_with_split)
+        split_impact_rows, lift_rows_updated = split_aware_pattern_stats(
+            pattern_rows, lift_rows, episodes_with_split,
+            all_pre_pump_signals, all_pre_pump_combos,
+        )
+
+        # Overwrite the previously-written lift slot with the split-aware version
+        # (the manifest entry was already appended — re-write the parquet)
+        lift_path = rdir / "ultra_pattern_lift_stats.parquet"
+        if lift_rows_updated:
+            write_parquet(lift_path, lift_rows_updated)
+        # Update manifest entry row_count + size in-place
+        for entry in manifest_entries:
+            if entry["artifact_name"] == "ultra_pattern_lift_stats":
+                entry["row_count"] = len(lift_rows_updated)
+                entry["size_bytes"] = lift_path.stat().st_size if lift_path.exists() else 0
+                if lift_rows_updated:
+                    entry["status"] = "ok"
+                    entry["reason_if_empty"] = None
+                break
+
+        manifest_entries.append(_write_slot(
+            "split_impact_stats", split_impact_rows,
+            "No split-impact stats computed (no patterns or no episodes)."
+        ))
+        manifest_entries.append(_write_slot(
+            "split_related_pumps", partitions["split_related_pumps"],
+            "No split-related pumps detected in this run."
+        ))
+        manifest_entries.append(_write_slot(
+            "clean_non_split_pumps", partitions["clean_non_split_pumps"],
+            "No clean (non-split) pumps detected."
+        ))
+        manifest_entries.append(_write_slot(
+            "post_reverse_split_pumps", partitions["post_reverse_split_pumps"],
+            "No post-reverse-split pumps detected."
+        ))
 
         # ── JSON artifacts ───────────────────────────────────────────────────
         warnings_path = rdir / "warnings.json"
