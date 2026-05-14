@@ -1635,6 +1635,196 @@ function WatchlistSnapshot({ watchlistData, loading }) {
   )
 }
 
+// ─── TOP MOVERS ───────────────────────────────────────────────────────────────
+
+function MoverRow({ rank, mover, isPremarket, onOpenChart, onOpenNews }) {
+  const sym    = mover.symbol
+  const chg    = isPremarket ? mover.premarket_change_pct : mover.change_pct
+  const isUp   = (chg ?? 0) >= 0
+  const bucket = mover.action_bucket
+  const risks  = mover.risk_flags ?? []
+  const score  = mover.ultra_score
+
+  const chgCls = isUp
+    ? 'text-emerald-400 font-bold font-mono tabular-nums'
+    : 'text-rose-400 font-bold font-mono tabular-nums'
+
+  return (
+    <div className="flex items-center gap-2 py-1.5 border-b border-md-outline-var last:border-0 group">
+      {/* rank */}
+      <span className="text-[10px] text-md-on-surface-var font-mono w-4 text-right shrink-0">
+        #{rank}
+      </span>
+
+      {/* ticker + context */}
+      <div className="flex flex-col min-w-0 flex-1">
+        <div className="flex items-center gap-1.5 flex-wrap">
+          <span className="text-xs font-bold text-md-on-surface">{sym}</span>
+          {isPremarket && mover.premarket_volume != null && (
+            <span className="text-[10px] text-md-on-surface-var font-mono">
+              PM Vol {(mover.premarket_volume / 1_000).toFixed(0)}K
+            </span>
+          )}
+          {!isPremarket && score != null && (
+            <span className={cx('text-[10px] font-mono', scoreColor(score))}>
+              U{Math.round(score)}
+            </span>
+          )}
+        </div>
+        <div className="flex items-center gap-1 flex-wrap mt-0.5">
+          {bucket && <ActionChip bucket={bucket} size="sm" />}
+          {risks.slice(0, 2).map(r => (
+            <MiniChip key={r} label={r} color={r === 'PARABOLIC' || r === 'SHARP_DROP' ? 'risk' : 'warn'} />
+          ))}
+        </div>
+      </div>
+
+      {/* change % */}
+      <span className={cx('text-sm shrink-0', chgCls)}>
+        {isUp ? '+' : ''}{chg?.toFixed(2)}%
+      </span>
+
+      {/* quick actions */}
+      <div className="flex items-center gap-1 shrink-0 opacity-0 group-hover:opacity-100 transition-opacity">
+        <button
+          onClick={() => onOpenChart?.(sym)}
+          className="text-[10px] px-1.5 py-px rounded-md-sm bg-md-surface-con border border-md-outline-var text-md-on-surface-var hover:text-md-primary hover:border-md-primary transition-colors"
+        >
+          Chart
+        </button>
+        <button
+          onClick={() => onOpenNews?.(sym)}
+          className="text-[10px] px-1.5 py-px rounded-md-sm bg-md-surface-con border border-md-outline-var text-md-on-surface-var hover:text-md-primary hover:border-md-primary transition-colors"
+        >
+          News
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function MoverColumn({ title, movers, isPremarket, isGainers, loading, onOpenChart, onOpenNews }) {
+  const accentCls = isGainers ? 'text-emerald-400' : 'text-rose-400'
+  const emptyMsg  = isGainers
+    ? (isPremarket ? 'No premarket gainers.' : 'No gainers in tracked list.')
+    : (isPremarket ? 'No premarket losers.'  : 'No losers in tracked list.')
+
+  return (
+    <div className="flex flex-col gap-1 min-w-0 flex-1">
+      <p className={cx('text-[10px] font-semibold uppercase tracking-wider mb-1', accentCls)}>
+        {title}
+      </p>
+      {loading ? (
+        <div className="flex flex-col gap-1.5">
+          {[1, 2, 3].map(i => <Skeleton key={i} h="h-8" />)}
+        </div>
+      ) : !movers?.length ? (
+        <p className="text-[10px] text-md-on-surface-var py-2">{emptyMsg}</p>
+      ) : (
+        <div>
+          {movers.map((m, i) => (
+            <MoverRow
+              key={m.symbol}
+              rank={i + 1}
+              mover={m}
+              isPremarket={isPremarket}
+              onOpenChart={onOpenChart}
+              onOpenNews={onOpenNews}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function TopMoversPanel({ topMovers, loading, onOpenChart, onOpenNews }) {
+  const [tab, setTab] = useState('regular')
+
+  const regular  = topMovers?.regular  ?? {}
+  const premarket = topMovers?.premarket ?? {}
+  const pmAvail  = premarket.available === true
+  const genAt    = topMovers?.generated_at
+  const noSyms   = topMovers?.has_symbols === false
+  const notConf  = !topMovers?.has_symbols && topMovers?.message?.includes('not configured')
+
+  const emptyMsg = noSyms
+    ? 'Run Ultra Scan or add tickers to Watchlist to populate Top Movers.'
+    : notConf
+    ? 'Set MASSIVE_API_KEY to enable Top Movers.'
+    : null
+
+  return (
+    <Panel className="p-4">
+      <SectionHead
+        title="Top Movers"
+        right={
+          <div className="flex items-center gap-2">
+            {/* Regular / Premarket tab toggle */}
+            <div className="flex rounded-md-sm overflow-hidden border border-md-outline-var text-[10px]">
+              <button
+                onClick={() => setTab('regular')}
+                className={cx(
+                  'px-2 py-0.5 font-medium transition-colors',
+                  tab === 'regular'
+                    ? 'bg-md-primary-container text-md-on-primary-container'
+                    : 'text-md-on-surface-var hover:bg-white/5',
+                )}
+              >
+                Regular
+              </button>
+              <button
+                onClick={() => setTab('premarket')}
+                className={cx(
+                  'px-2 py-0.5 font-medium border-l border-md-outline-var transition-colors',
+                  tab === 'premarket'
+                    ? 'bg-md-primary-container text-md-on-primary-container'
+                    : 'text-md-on-surface-var hover:bg-white/5',
+                )}
+              >
+                Premarket
+              </button>
+            </div>
+            {genAt && (
+              <span className="text-[10px] text-md-on-surface-var opacity-40 tabular-nums">
+                {relTime(genAt)}
+              </span>
+            )}
+          </div>
+        }
+      />
+
+      {emptyMsg ? (
+        <EmptySlate icon="📊" title={emptyMsg} />
+      ) : tab === 'premarket' && !pmAvail ? (
+        <EmptySlate icon="🌅" title="Premarket data unavailable." sub="Premarket prices not available from current Massive API plan." />
+      ) : (
+        <div className="flex gap-4">
+          <MoverColumn
+            title={tab === 'regular' ? 'Top Gainers' : 'PM Gainers'}
+            movers={tab === 'regular' ? regular.gainers : premarket.gainers}
+            isPremarket={tab === 'premarket'}
+            isGainers={true}
+            loading={loading && !topMovers}
+            onOpenChart={onOpenChart}
+            onOpenNews={onOpenNews}
+          />
+          <div className="w-px bg-md-outline-var opacity-40 self-stretch shrink-0" />
+          <MoverColumn
+            title={tab === 'regular' ? 'Top Losers' : 'PM Losers'}
+            movers={tab === 'regular' ? regular.losers : premarket.losers}
+            isPremarket={tab === 'premarket'}
+            isGainers={false}
+            loading={loading && !topMovers}
+            onOpenChart={onOpenChart}
+            onOpenNews={onOpenNews}
+          />
+        </div>
+      )}
+    </Panel>
+  )
+}
+
 // ─── MAIN PANEL ───────────────────────────────────────────────────────────────
 
 // dashboardState: NO_SCAN | LOADING | SCAN_READY | SCAN_RUNNING | SCAN_STALE | ERROR
@@ -1658,6 +1848,7 @@ export default function TradingDashboardPanel({
   const [brief,          setBrief]          = useState(null)
   const [news,           setNews]           = useState(null)
   const [watchlist,      setWatchlist]      = useState(null)
+  const [topMovers,      setTopMovers]      = useState(null)
   const [dashboardState, setDashboardState] = useState(DS.LOADING)
 
   const [ctxMap,      setCtxMap]      = useState({})
@@ -1725,12 +1916,15 @@ export default function TradingDashboardPanel({
       _applyBootstrap(bootstrap)
 
       // Wave 2: supplemental live data that bootstrap doesn't include
-      const [statusData, pulseData] = await Promise.allSettled([
+      const wlParam = watchlistTickers.length ? `&watchlist=${watchlistTickers.join(',')}` : ''
+      const [statusData, pulseData, moversData] = await Promise.allSettled([
         apiFetch('/status'),
         apiFetch('/pulse'),
+        apiFetch(`/top-movers?limit=5${wlParam}`),
       ])
       if (statusData.status === 'fulfilled') setStatus(statusData.value)
       if (pulseData.status  === 'fulfilled') setPulse(pulseData.value)
+      if (moversData.status === 'fulfilled') setTopMovers(moversData.value)
 
       // Wave 3: AI brief + watchlist (lowest priority)
       const [briefRes, wlRaw] = await Promise.allSettled([
@@ -1846,6 +2040,12 @@ export default function TradingDashboardPanel({
 
         {/* Left: Best Setups + Top Candidates */}
         <div className="lg:col-span-2 xl:col-span-3 flex flex-col gap-6">
+          <TopMoversPanel
+            topMovers={topMovers}
+            loading={loading}
+            onOpenChart={openChart}
+            onOpenNews={openNews}
+          />
           <BestSetupsToday
             setups={setups}
             loading={loading}
