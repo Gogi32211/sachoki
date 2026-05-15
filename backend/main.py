@@ -1722,12 +1722,20 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         })
 
         # Track ultra_score for next bar's DECAY MEMORY BONUS (rolling_score_max_5d).
+        # Also expose ultra_score / ultra_score_band on the per-bar dict so
+        # downstream consumers (ULTRA Pump Research, stock_stat, replays) can
+        # read the historical ULTRA scoring directly without recomputing.
         try:
             _us = _compute_ultra_score(result[-1])
-            _ultra_score_history.append(float(_us.get("ultra_score", 0) or 0))
+            _us_val = float(_us.get("ultra_score", 0) or 0)
+            result[-1]["ultra_score"]      = _us_val
+            result[-1]["ultra_score_band"] = _us.get("ultra_score_band", "")
+            _ultra_score_history.append(_us_val)
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
         except Exception:
+            result[-1].setdefault("ultra_score", 0.0)
+            result[-1].setdefault("ultra_score_band", "")
             _ultra_score_history.append(0.0)
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
