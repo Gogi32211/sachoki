@@ -120,6 +120,155 @@ function DebugModal({ ticker, date, tf, onClose }) {
   )
 }
 
+function SuffixStatsView({
+  horizon, setHorizon, minCount, setMinCount, base, setBase,
+  rows, baseRows, loading, error, onLoad, sort, toggleSort,
+}) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children, num = true }) => (
+    <th
+      onClick={() => toggleSort(col)}
+      className={`px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white
+        ${num ? 'text-right' : 'text-left'}`}
+    >
+      {children}
+      {sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  const fmt = (v, suf = '') => v === null || v === undefined ? '—' : `${v}${suf}`
+  const cls = v => v > 0 ? 'text-green-400' : v < 0 ? 'text-red-400' : 'text-md-on-surface-var'
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Base signal (optional)</label>
+          <input type="text" value={base} onChange={e => setBase(e.target.value.trim().toUpperCase())}
+            placeholder="e.g. T4, Z6, L34, P55"
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-36" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Min count</label>
+          <input type="number" value={minCount} min={1}
+            onChange={e => setMinCount(Math.max(1, Number(e.target.value) || 1))}
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors">
+          {loading ? 'Loading…' : 'Load suffix stats'}
+        </button>
+        <div className="text-xs text-md-on-surface-var">
+          Aggregates each <span className="font-mono">(base, E/N, U/D/B, H/P/R)</span> slice and shows
+          win-rate / avg-return vs the base signal baseline.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {baseRows.length > 0 && (
+        <div className="overflow-x-auto">
+          <div className="text-xs font-semibold text-md-on-surface mb-1">Base-signal totals ({horizon})</div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th className="px-2 py-1 text-md-on-surface-var text-left">Base</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Win%</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Avg</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Median</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">P25</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">P75</th>
+              </tr>
+            </thead>
+            <tbody>
+              {baseRows.map(r => (
+                <tr key={r.base_signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.base_signal}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret)}`}>{r.avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.median_ret)}`}>{r.median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var">{r.p25_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var">{r.p75_ret}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <div className="text-xs font-semibold text-md-on-surface mb-1">
+            Suffix slices ({sorted.length}) — sorted by {sort.col} {sort.dir}
+          </div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <H col="base_signal" num={false}>Base</H>
+                <H col="suffix_label" num={false}>Suffix</H>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">E/N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">U/D/B</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">H/P/R</th>
+                <H col="count">N</H>
+                <H col="win_rate">Win%</H>
+                <H col="win_rate_lift">±vs base</H>
+                <H col="avg_ret">Avg</H>
+                <H col="avg_ret_lift">±vs base</H>
+                <H col="median_ret">Median</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr key={i} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.base_signal}</td>
+                  <td className="px-2 py-0.5 font-mono text-md-on-surface-var">{r.suffix_label}</td>
+                  <td className="px-2 py-0.5">{r.ne_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.wick_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.penetration_suffix || '—'}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.win_rate_lift)}`}>
+                    {r.win_rate_lift > 0 ? '+' : ''}{r.win_rate_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret)}`}>{fmt(r.avg_ret, '%')}</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret_lift)}`}>
+                    {r.avg_ret_lift > 0 ? '+' : ''}{r.avg_ret_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.median_ret)}`}>{fmt(r.median_ret, '%')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          No stats loaded. Make sure stock_stat CSV exists (run "Generate Stock Stat") and click "Load suffix stats".
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TZWLNBBPanel() {
   const [universe, setUniverse]         = useState('sp500')
   const [nasdaqBatch, setNasdaqBatch]   = useState('a_m')
@@ -135,6 +284,18 @@ export default function TZWLNBBPanel() {
   const [results, setResults]   = useState([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
+
+  // Sub-tab: 'scan' (existing) | 'stats' (new)
+  const [activeTab, setActiveTab] = useState('scan')
+  // Suffix-stats state
+  const [statsHorizon,  setStatsHorizon]  = useState('5d')
+  const [statsMinCount, setStatsMinCount] = useState(5)
+  const [statsBase,     setStatsBase]     = useState('')
+  const [statsRows,     setStatsRows]     = useState([])
+  const [statsBaseRows, setStatsBaseRows] = useState([])
+  const [statsLoading,  setStatsLoading]  = useState(false)
+  const [statsError,    setStatsError]    = useState(null)
+  const [statsSort,     setStatsSort]     = useState({ col: 'count', dir: 'desc' })
   const [genStatus, setGenStatus]               = useState(null)
   const [genError, setGenError]                 = useState(null)
   const [splitAudit, setSplitAudit]             = useState(null)
@@ -245,6 +406,38 @@ export default function TZWLNBBPanel() {
     }
   }
 
+  async function handleLoadStats() {
+    setStatsLoading(true)
+    setStatsError(null)
+    try {
+      const qs = new URLSearchParams({
+        universe, tf,
+        signal_type:    signalType,
+        return_horizon: statsHorizon,
+        min_count:      statsMinCount,
+      })
+      if (universe === 'nasdaq')                       qs.set('nasdaq_batch', nasdaqBatch)
+      if (universe === 'nasdaq_gt5' && gt5Batch)       qs.set('nasdaq_batch', gt5Batch)
+      if (statsBase) qs.set('base_signal', statsBase)
+      const data = await apiGet(`/api/tz-wlnbb/stats/suffix?${qs}`)
+      if (data.error) setStatsError(data.error)
+      setStatsRows(data.slices || [])
+      setStatsBaseRows(data.base_totals || [])
+    } catch (e) {
+      setStatsError(e.message)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  function toggleStatsSort(col) {
+    setStatsSort(prev =>
+      prev.col === col
+        ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+        : { col, dir: 'desc' }
+    )
+  }
+
   // ── Replay polling ────────────────────────────────────────────────────────
   useEffect(() => {
     apiGet('/api/tz-wlnbb/replay/status').then(s => setReplayState(s)).catch(() => {})
@@ -285,6 +478,25 @@ export default function TZWLNBBPanel() {
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-white">📡 TZ/WLNBB Analyzer</span>
         <span className="text-xs text-md-on-surface-var">Pine Script conversion — candlestick + volume analysis</span>
+      </div>
+
+      {/* ── Tab switcher ──────────────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-md-outline-var">
+        {[
+          { key: 'scan',  label: 'Scan'  },
+          { key: 'stats', label: 'Statistics' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`text-xs px-3 py-1.5 rounded-t transition-colors border-b-2
+              ${activeTab === t.key
+                ? 'border-blue-500 text-white font-semibold bg-md-surface-high'
+                : 'border-transparent text-md-on-surface-var hover:text-white'}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── Controls ──────────────────────────────────────────────────────── */}
@@ -591,14 +803,14 @@ export default function TZWLNBBPanel() {
       )}
 
       {/* ── Results count ────────────────────────────────────────────────── */}
-      {results.length > 0 && (
+      {activeTab === 'scan' && results.length > 0 && (
         <div className="text-xs text-md-on-surface-var">
           {results.length} result{results.length !== 1 ? 's' : ''}
         </div>
       )}
 
       {/* ── Results table ────────────────────────────────────────────────── */}
-      {results.length > 0 && (
+      {activeTab === 'scan' && results.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -691,10 +903,29 @@ export default function TZWLNBBPanel() {
         </div>
       )}
 
-      {!loading && !error && results.length === 0 && (
+      {activeTab === 'scan' && !loading && !error && results.length === 0 && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
           No results. Run "Generate Stock Stat" first, then click "Scan".
         </div>
+      )}
+
+      {/* ── Statistics tab — Suffix breakdown ─────────────────────────────── */}
+      {activeTab === 'stats' && (
+        <SuffixStatsView
+          horizon={statsHorizon}
+          setHorizon={setStatsHorizon}
+          minCount={statsMinCount}
+          setMinCount={setStatsMinCount}
+          base={statsBase}
+          setBase={setStatsBase}
+          rows={statsRows}
+          baseRows={statsBaseRows}
+          loading={statsLoading}
+          error={statsError}
+          onLoad={handleLoadStats}
+          sort={statsSort}
+          toggleSort={toggleStatsSort}
+        />
       )}
 
       {/* ── Debug Modal ──────────────────────────────────────────────────── */}

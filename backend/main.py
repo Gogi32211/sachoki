@@ -2341,6 +2341,141 @@ def api_tz_wlnbb_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
+@app.get("/api/tz-wlnbb/stats/suffix")
+def api_tz_wlnbb_stats_suffix(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    signal_type: str = "all",     # all | T | Z | L | PREUP | PREDN
+    base_signal: str = "",         # optional exact base (e.g. "T4", "Z6", "L34", "P55")
+    min_count: int = 5,            # drop slices with fewer than N rows
+    return_horizon: str = "5d",    # 1d | 3d | 5d | 10d  (drives win/avg/median)
+):
+    """Suffix-breakdown statistics for TZ/WLNBB signals.
+
+    Aggregates each (base_signal, ne_suffix, wick_suffix, penetration_suffix)
+    combination across the saved stock_stat CSV and returns count, win rate,
+    avg / median forward return, and the marginal vs the base. The exact
+    suffix vocabulary mirrors the Pine script:
+        ne_suffix:          E (new-extreme close) | N (none)
+        wick_suffix:        U (wick up) | D (wick down) | B (both) | "" (none)
+        penetration_suffix: H (both) | P (upper) | R (lower) | "" (none)
+    """
+    import csv as _csv
+    import statistics as _stat
+
+    horizon_col = {
+        "1d":  "ret_1d",
+        "3d":  "ret_3d",
+        "5d":  "ret_5d",
+        "10d": "ret_10d",
+    }.get(return_horizon, "ret_5d")
+
+    stat_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+    if not os.path.exists(stat_path):
+        return {"slices": [], "base_totals": [], "error":
+                "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    # Map signal_type → list of base-signal column names to pull from
+    type_cols = {
+        "T":     ["t_signal"],
+        "Z":     ["z_signal"],
+        "L":     ["l_signal"],
+        "PREUP": ["preup_signal"],
+        "PREDN": ["predn_signal"],
+    }
+    if signal_type in type_cols:
+        cols_to_scan = type_cols[signal_type]
+    else:
+        cols_to_scan = ["t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal"]
+
+    # slices[(base, ne, wick, pen)] = list[float] of returns
+    slices: dict[tuple, list[float]] = {}
+    base_totals: dict[str, list[float]] = {}
+
+    with open(stat_path, newline="", encoding="utf-8") as f:
+        reader = _csv.DictReader(f)
+        for row in reader:
+            if row.get("universe", "") != universe:
+                continue
+            ret_raw = row.get(horizon_col, "")
+            if ret_raw in ("", None):
+                continue
+            try:
+                ret = float(ret_raw)
+            except (TypeError, ValueError):
+                continue
+            ne   = (row.get("ne_suffix")          or "").strip()
+            wick = (row.get("wick_suffix")        or "").strip()
+            pen  = (row.get("penetration_suffix") or "").strip()
+            for col in cols_to_scan:
+                base = (row.get(col) or "").strip()
+                if not base:
+                    continue
+                if base_signal and base != base_signal:
+                    continue
+                slices.setdefault((base, ne, wick, pen), []).append(ret)
+                base_totals.setdefault(base, []).append(ret)
+
+    def _summarize(returns: list[float]) -> dict:
+        n = len(returns)
+        if not n:
+            return {"count": 0, "win_rate": 0.0, "avg_ret": 0.0,
+                    "median_ret": 0.0, "p25_ret": 0.0, "p75_ret": 0.0}
+        wins = sum(1 for r in returns if r > 0)
+        s = sorted(returns)
+        return {
+            "count":      n,
+            "win_rate":   round(wins / n * 100, 2),
+            "avg_ret":    round(sum(returns) / n, 3),
+            "median_ret": round(_stat.median(returns), 3),
+            "p25_ret":    round(s[max(0, n // 4 - 1)],          3),
+            "p75_ret":    round(s[min(n - 1, (3 * n) // 4)],    3),
+        }
+
+    base_summary = {b: _summarize(rets) for b, rets in base_totals.items()}
+
+    slices_out: list[dict] = []
+    for (base, ne, wick, pen), rets in slices.items():
+        if len(rets) < min_count:
+            continue
+        s = _summarize(rets)
+        bs = base_summary.get(base) or {}
+        s["base_signal"]         = base
+        s["ne_suffix"]           = ne
+        s["wick_suffix"]         = wick
+        s["penetration_suffix"]  = pen
+        s["suffix_label"]        = (ne + wick + pen) or "—"
+        s["base_count"]          = bs.get("count", 0)
+        s["base_win_rate"]       = bs.get("win_rate", 0.0)
+        s["base_avg_ret"]        = bs.get("avg_ret", 0.0)
+        s["win_rate_lift"]       = round(s["win_rate"] - bs.get("win_rate", 0.0), 2)
+        s["avg_ret_lift"]        = round(s["avg_ret"]  - bs.get("avg_ret",  0.0), 3)
+        slices_out.append(s)
+
+    slices_out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    base_totals_out = [
+        {"base_signal": b, **_summarize(rets)}
+        for b, rets in base_totals.items()
+        if len(rets) >= min_count
+    ]
+    base_totals_out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    return {
+        "universe": universe, "tf": tf, "horizon": return_horizon,
+        "stat_path": stat_path,
+        "signal_type": signal_type, "base_signal": base_signal or None,
+        "min_count": min_count,
+        "slices":      slices_out,
+        "base_totals": base_totals_out,
+    }
+
+
 @app.post("/api/tz-wlnbb/generate-stock-stat")
 def api_tz_wlnbb_generate(
     background_tasks: BackgroundTasks,
