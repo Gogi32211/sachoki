@@ -269,6 +269,322 @@ function SuffixStatsView({
   )
 }
 
+function famColor(fam) {
+  return fam === 'T'     ? 'bg-blue-900/40 text-blue-200'
+       : fam === 'Z'     ? 'bg-red-900/40 text-red-200'
+       : fam === 'L'     ? 'bg-yellow-900/40 text-yellow-200'
+       : fam === 'PREUP' ? 'bg-emerald-900/40 text-emerald-200'
+       : fam === 'PREDN' ? 'bg-orange-900/40 text-orange-200'
+       :                   'bg-md-surface-high text-md-on-surface-var'
+}
+
+function cellTint(v) {
+  if (v === null || v === undefined) return ''
+  if (v >  2) return 'bg-green-900/60 text-green-200'
+  if (v >  0.5) return 'bg-green-900/30 text-green-300'
+  if (v < -2) return 'bg-red-900/60 text-red-200'
+  if (v < -0.5) return 'bg-red-900/30 text-red-300'
+  return 'text-md-on-surface-var'
+}
+
+function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children }) => (
+    <th onClick={() => toggleSort(col)}
+      className="px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white text-right whitespace-nowrap">
+      {children}{sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load leaderboard'}
+        </button>
+        <div className="text-xs text-md-on-surface-var">
+          Per-signal totals across all 4 horizons (1d/3d/5d/10d) plus clean-win / big-win / fail outcome rates.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th onClick={() => toggleSort('signal')}
+                  className="px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white text-left">
+                  Signal{sort.col === 'signal' ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                </th>
+                <H col="count">N</H>
+                <H col="ret_1d_win_rate">1d W%</H>
+                <H col="ret_1d_avg_ret">1d Avg</H>
+                <H col="ret_3d_win_rate">3d W%</H>
+                <H col="ret_3d_avg_ret">3d Avg</H>
+                <H col="ret_5d_win_rate">5d W%</H>
+                <H col="ret_5d_avg_ret">5d Avg</H>
+                <H col="ret_5d_median_ret">5d Med</H>
+                <H col="ret_10d_win_rate">10d W%</H>
+                <H col="ret_10d_avg_ret">10d Avg</H>
+                <H col="clean_win_5d_pct">Clean5d</H>
+                <H col="big_win_10d_pct">Big10d</H>
+                <H col="fail_5d_pct">Fail5d</H>
+                <H col="fail_10d_pct">Fail10d</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(r => (
+                <tr key={r.signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5">
+                    <span className={`font-mono px-1.5 py-0.5 rounded ${famColor(r.family)}`}>{r.signal}</span>
+                  </td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_1d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_1d_avg_ret)}`}>{r.ret_1d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_3d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_3d_avg_ret)}`}>{r.ret_3d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_5d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_5d_avg_ret)}`}>{r.ret_5d_avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_5d_median_ret)}`}>{r.ret_5d_median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_10d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_10d_avg_ret)}`}>{r.ret_10d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-green-300">{r.clean_win_5d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-green-300">{r.big_win_10d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-red-300">{r.fail_5d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-red-300">{r.fail_10d_pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          Nothing loaded yet. Click "Load leaderboard".
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad }) {
+  const buckets  = data?.buckets       || ['W', 'L', 'N', 'B', 'VB']
+  const cells    = data?.cells         || []
+  const sigTot   = data?.signal_totals || []
+  const bktTot   = data?.bucket_totals || []
+  // Index cells by signal → bucket
+  const idx = {}
+  for (const c of cells) {
+    if (!idx[c.signal]) idx[c.signal] = {}
+    idx[c.signal][c.volume_bucket] = c
+  }
+  const sigList = sigTot.map(s => s.signal)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load matrix'}
+        </button>
+        <div className="text-xs text-md-on-surface-var">
+          Crosstab: each cell shows N · win% · avg return at the chosen horizon. Empty cells mean below min count.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sigList.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th className="px-2 py-1 text-md-on-surface-var text-left">Signal</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">All N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">All Avg</th>
+                {buckets.map(b => (
+                  <th key={b} className="px-2 py-1 text-md-on-surface-var text-center" colSpan={2}>{b}</th>
+                ))}
+              </tr>
+              <tr className="bg-md-surface-con border-b border-md-outline-var text-md-on-surface-var/60">
+                <th /><th /><th />
+                {buckets.flatMap(b => [
+                  <th key={`${b}-n`}   className="px-1 py-0.5 text-right text-[10px]">N</th>,
+                  <th key={`${b}-avg`} className="px-1 py-0.5 text-right text-[10px]">Avg</th>,
+                ])}
+              </tr>
+            </thead>
+            <tbody>
+              {sigTot.map(s => (
+                <tr key={s.signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{s.signal}</td>
+                  <td className="px-2 py-0.5 text-right">{s.count}</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(s.avg_ret)}`}>{s.avg_ret}%</td>
+                  {buckets.flatMap(b => {
+                    const c = idx[s.signal]?.[b]
+                    return [
+                      <td key={`${b}-n`} className="px-1 py-0.5 text-right text-md-on-surface-var/70">
+                        {c ? c.count : '—'}
+                      </td>,
+                      <td key={`${b}-avg`} className={`px-1 py-0.5 text-right ${c ? cellTint(c.avg_ret) : ''}`}>
+                        {c ? `${c.avg_ret}%` : '—'}
+                      </td>,
+                    ]
+                  })}
+                </tr>
+              ))}
+              {bktTot.length > 0 && (
+                <tr className="border-t-2 border-md-outline-var bg-md-surface-con">
+                  <td className="px-2 py-1 font-semibold">All signals</td>
+                  <td /><td />
+                  {buckets.map(b => {
+                    const c = bktTot.find(x => x.volume_bucket === b)
+                    return (
+                      <td key={b} colSpan={2} className={`px-2 py-1 text-right font-semibold ${c ? cellTint(c.avg_ret) : ''}`}>
+                        {c ? `${c.count} · ${c.avg_ret}%` : '—'}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          Nothing loaded yet. Click "Load matrix".
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SequenceStatsView({
+  horizon, setHorizon, prevWindow, setPrevWindow,
+  rows, baseRows, loading, error, onLoad, sort, toggleSort,
+}) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children, num = true }) => (
+    <th onClick={() => toggleSort(col)}
+      className={`px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white
+        ${num ? 'text-right' : 'text-left'} whitespace-nowrap`}>
+      {children}{sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Prev window (bars)</label>
+          <div className="flex gap-1">
+            {[1, 3, 5].map(w => (
+              <button key={w} onClick={() => setPrevWindow(w)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${prevWindow === w ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {w}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load sequence stats'}
+        </button>
+        <div className="text-xs text-md-on-surface-var">
+          For each <span className="font-mono">prev → current</span> pair, shows count, win-rate and avg
+          forward return, plus lift vs the current signal's own baseline.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <H col="prev_signal"    num={false}>Prev</H>
+                <H col="current_signal" num={false}>→ Curr</H>
+                <H col="count">N</H>
+                <H col="win_rate">Win%</H>
+                <H col="win_rate_lift">±vs base</H>
+                <H col="avg_ret">Avg</H>
+                <H col="avg_ret_lift">±vs base</H>
+                <H col="median_ret">Median</H>
+                <H col="base_count">Base N</H>
+                <H col="base_avg_ret">Base Avg</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr key={i} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.prev_signal}</td>
+                  <td className="px-2 py-0.5 font-mono">{r.current_signal}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.win_rate_lift)}`}>
+                    {r.win_rate_lift > 0 ? '+' : ''}{r.win_rate_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.avg_ret)}`}>{r.avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.avg_ret_lift)}`}>
+                    {r.avg_ret_lift > 0 ? '+' : ''}{r.avg_ret_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.median_ret)}`}>{r.median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var/70">{r.base_count}</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var/70">{r.base_avg_ret}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          Nothing loaded yet. Click "Load sequence stats".
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TZWLNBBPanel() {
   const [universe, setUniverse]         = useState('sp500')
   const [nasdaqBatch, setNasdaqBatch]   = useState('a_m')
@@ -287,6 +603,8 @@ export default function TZWLNBBPanel() {
 
   // Sub-tab: 'scan' (existing) | 'stats' (new)
   const [activeTab, setActiveTab] = useState('scan')
+  // Statistics inner-tab
+  const [statsView, setStatsView] = useState('suffix')   // 'suffix'|'leaderboard'|'matrix'|'sequence'
   // Suffix-stats state
   const [statsHorizon,  setStatsHorizon]  = useState('5d')
   const [statsMinCount, setStatsMinCount] = useState(5)
@@ -296,6 +614,22 @@ export default function TZWLNBBPanel() {
   const [statsLoading,  setStatsLoading]  = useState(false)
   const [statsError,    setStatsError]    = useState(null)
   const [statsSort,     setStatsSort]     = useState({ col: 'count', dir: 'desc' })
+  // Leaderboard state
+  const [lbRows,    setLbRows]    = useState([])
+  const [lbLoading, setLbLoading] = useState(false)
+  const [lbError,   setLbError]   = useState(null)
+  const [lbSort,    setLbSort]    = useState({ col: 'count', dir: 'desc' })
+  // Bucket-matrix state
+  const [mxData,    setMxData]    = useState(null)
+  const [mxLoading, setMxLoading] = useState(false)
+  const [mxError,   setMxError]   = useState(null)
+  // Sequence state
+  const [seqWindow,  setSeqWindow]  = useState(1)        // 1 | 3 | 5
+  const [seqRows,    setSeqRows]    = useState([])
+  const [seqBase,    setSeqBase]    = useState([])
+  const [seqLoading, setSeqLoading] = useState(false)
+  const [seqError,   setSeqError]   = useState(null)
+  const [seqSort,    setSeqSort]    = useState({ col: 'count', dir: 'desc' })
   const [genStatus, setGenStatus]               = useState(null)
   const [genError, setGenError]                 = useState(null)
   const [splitAudit, setSplitAudit]             = useState(null)
@@ -436,6 +770,57 @@ export default function TZWLNBBPanel() {
         ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
         : { col, dir: 'desc' }
     )
+  }
+
+  function _qsCommon() {
+    const qs = new URLSearchParams({ universe, tf, signal_type: signalType, min_count: statsMinCount })
+    if (universe === 'nasdaq')                 qs.set('nasdaq_batch', nasdaqBatch)
+    if (universe === 'nasdaq_gt5' && gt5Batch) qs.set('nasdaq_batch', gt5Batch)
+    return qs
+  }
+
+  async function handleLoadLeaderboard() {
+    setLbLoading(true); setLbError(null)
+    try {
+      const qs = _qsCommon()
+      const data = await apiGet(`/api/tz-wlnbb/stats/leaderboard?${qs}`)
+      if (data.error) setLbError(data.error)
+      setLbRows(data.rows || [])
+    } catch (e) { setLbError(e.message) } finally { setLbLoading(false) }
+  }
+  function toggleLbSort(col) {
+    setLbSort(prev => prev.col === col
+      ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+      : { col, dir: 'desc' })
+  }
+
+  async function handleLoadMatrix() {
+    setMxLoading(true); setMxError(null)
+    try {
+      const qs = _qsCommon()
+      qs.set('return_horizon', statsHorizon)
+      const data = await apiGet(`/api/tz-wlnbb/stats/bucket-matrix?${qs}`)
+      if (data.error) setMxError(data.error)
+      setMxData(data)
+    } catch (e) { setMxError(e.message) } finally { setMxLoading(false) }
+  }
+
+  async function handleLoadSequence() {
+    setSeqLoading(true); setSeqError(null)
+    try {
+      const qs = _qsCommon()
+      qs.set('return_horizon', statsHorizon)
+      qs.set('prev_window', seqWindow)
+      const data = await apiGet(`/api/tz-wlnbb/stats/sequence?${qs}`)
+      if (data.error) setSeqError(data.error)
+      setSeqRows(data.pairs || [])
+      setSeqBase(data.current_baseline || [])
+    } catch (e) { setSeqError(e.message) } finally { setSeqLoading(false) }
+  }
+  function toggleSeqSort(col) {
+    setSeqSort(prev => prev.col === col
+      ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+      : { col, dir: 'desc' })
   }
 
   // ── Replay polling ────────────────────────────────────────────────────────
@@ -909,23 +1294,62 @@ export default function TZWLNBBPanel() {
         </div>
       )}
 
-      {/* ── Statistics tab — Suffix breakdown ─────────────────────────────── */}
+      {/* ── Statistics tab ────────────────────────────────────────────────── */}
       {activeTab === 'stats' && (
-        <SuffixStatsView
-          horizon={statsHorizon}
-          setHorizon={setStatsHorizon}
-          minCount={statsMinCount}
-          setMinCount={setStatsMinCount}
-          base={statsBase}
-          setBase={setStatsBase}
-          rows={statsRows}
-          baseRows={statsBaseRows}
-          loading={statsLoading}
-          error={statsError}
-          onLoad={handleLoadStats}
-          sort={statsSort}
-          toggleSort={toggleStatsSort}
-        />
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-1 flex-wrap">
+            {[
+              { key: 'suffix',      label: 'Suffix' },
+              { key: 'leaderboard', label: 'Leaderboard' },
+              { key: 'matrix',      label: 'Bucket × Signal' },
+              { key: 'sequence',    label: 'Sequence' },
+            ].map(t => (
+              <button key={t.key} onClick={() => setStatsView(t.key)}
+                className={`text-xs px-2.5 py-1 rounded transition-colors
+                  ${statsView === t.key
+                    ? 'bg-emerald-700 text-white font-semibold'
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {statsView === 'suffix' && (
+            <SuffixStatsView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              minCount={statsMinCount} setMinCount={setStatsMinCount}
+              base={statsBase} setBase={setStatsBase}
+              rows={statsRows} baseRows={statsBaseRows}
+              loading={statsLoading} error={statsError}
+              onLoad={handleLoadStats}
+              sort={statsSort} toggleSort={toggleStatsSort}
+            />
+          )}
+          {statsView === 'leaderboard' && (
+            <LeaderboardView
+              rows={lbRows} loading={lbLoading} error={lbError}
+              onLoad={handleLoadLeaderboard}
+              sort={lbSort} toggleSort={toggleLbSort}
+            />
+          )}
+          {statsView === 'matrix' && (
+            <BucketMatrixView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              data={mxData} loading={mxLoading} error={mxError}
+              onLoad={handleLoadMatrix}
+            />
+          )}
+          {statsView === 'sequence' && (
+            <SequenceStatsView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              prevWindow={seqWindow} setPrevWindow={setSeqWindow}
+              rows={seqRows} baseRows={seqBase}
+              loading={seqLoading} error={seqError}
+              onLoad={handleLoadSequence}
+              sort={seqSort} toggleSort={toggleSeqSort}
+            />
+          )}
+        </div>
       )}
 
       {/* ── Debug Modal ──────────────────────────────────────────────────── */}
