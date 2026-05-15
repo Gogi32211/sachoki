@@ -199,6 +199,21 @@ def split_aware_pattern_stats(
     split_impact_rows: list[dict] = []
     lift_by_key = {row["pattern_key"]: dict(row) for row in pattern_lift_rows}
 
+    # Always emit a partition-summary row per non-empty partition so the slot
+    # is informative even when no per-pattern stats can be computed (e.g.,
+    # pattern_rows is empty because pre-pump signal extraction yielded nothing).
+    for part in partitions:
+        part_eids = _partition_eids(part)
+        if not part_eids:
+            continue
+        split_impact_rows.append({
+            "pattern_key": "__ALL__",
+            "split_status": part,
+            "count": len(part_eids),
+            "lift": None,
+            "precision": None,
+        })
+
     for prow in pattern_rows:
         key = prow["pattern_key"]
         ptype = prow["pattern_type"]
