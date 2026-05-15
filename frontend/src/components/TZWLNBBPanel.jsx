@@ -120,6 +120,48 @@ function DebugModal({ ticker, date, tf, onClose }) {
   )
 }
 
+function _csvEscape(v) {
+  if (v === null || v === undefined) return ''
+  const s = String(v)
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function rowsToCSV(rows, columns) {
+  if (!rows || rows.length === 0) return ''
+  const cols = columns || Object.keys(rows[0])
+  const header = cols.map(_csvEscape).join(',')
+  const body   = rows.map(r => cols.map(c => _csvEscape(r[c])).join(',')).join('\n')
+  return header + '\n' + body
+}
+
+function downloadCSV(filename, rows, columns) {
+  const csv  = rowsToCSV(rows, columns)
+  if (!csv) return
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function DownloadCSVButton({ rows, columns, filename, label = '⬇ CSV' }) {
+  const disabled = !rows || rows.length === 0
+  return (
+    <button
+      onClick={() => downloadCSV(filename, rows, columns)}
+      disabled={disabled}
+      className={`px-2 py-1 text-xs font-medium rounded transition-colors
+        ${disabled
+          ? 'bg-md-surface-high text-md-on-surface-var/40 cursor-not-allowed'
+          : 'bg-blue-700 hover:bg-blue-600 text-white'}`}
+      title={disabled ? 'Load data first' : `Download ${rows.length} rows as CSV`}
+    >
+      {label}{rows && rows.length > 0 ? ` (${rows.length})` : ''}
+    </button>
+  )
+}
+
 function SuffixStatsView({
   horizon, setHorizon, minCount, setMinCount, base, setBase,
   rows, baseRows, loading, error, onLoad, sort, toggleSort,
@@ -176,6 +218,21 @@ function SuffixStatsView({
           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors">
           {loading ? 'Loading…' : 'Load suffix stats'}
         </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['base_signal', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix',
+                    'count', 'win_rate', 'win_rate_lift',
+                    'avg_ret', 'avg_ret_lift', 'median_ret', 'p25_ret', 'p75_ret',
+                    'base_count', 'base_win_rate', 'base_avg_ret']}
+          filename={`tz_wlnbb_suffix_${horizon}.csv`}
+          label="⬇ Suffix CSV"
+        />
+        <DownloadCSVButton
+          rows={baseRows}
+          columns={['base_signal', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_base_totals_${horizon}.csv`}
+          label="⬇ Base totals CSV"
+        />
         <div className="text-xs text-md-on-surface-var">
           Aggregates each <span className="font-mono">(base, E/N, U/D/B, H/P/R)</span> slice and shows
           win-rate / avg-return vs the base signal baseline.
@@ -287,7 +344,7 @@ function cellTint(v) {
   return 'text-md-on-surface-var'
 }
 
-function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
+function LeaderboardView({ rows, loaded, loading, error, onLoad, sort, toggleSort }) {
   const sorted = [...rows].sort((a, b) => {
     const dir = sort.dir === 'asc' ? 1 : -1
     const av = a[sort.col], bv = b[sort.col]
@@ -309,6 +366,17 @@ function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
           {loading ? 'Loading…' : 'Load leaderboard'}
         </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['signal', 'family', 'count',
+                    'ret_1d_win_rate', 'ret_1d_avg_ret', 'ret_1d_median_ret',
+                    'ret_3d_win_rate', 'ret_3d_avg_ret', 'ret_3d_median_ret',
+                    'ret_5d_win_rate', 'ret_5d_avg_ret', 'ret_5d_median_ret',
+                    'ret_10d_win_rate', 'ret_10d_avg_ret', 'ret_10d_median_ret',
+                    'clean_win_5d_pct', 'big_win_10d_pct', 'fail_5d_pct', 'fail_10d_pct']}
+          filename="tz_wlnbb_leaderboard.csv"
+          label="⬇ Leaderboard CSV"
+        />
         <div className="text-xs text-md-on-surface-var">
           Per-signal totals across all 4 horizons (1d/3d/5d/10d) plus clean-win / big-win / fail outcome rates.
         </div>
@@ -368,14 +436,16 @@ function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load leaderboard".
+          {loaded
+            ? 'No signals met the min_count threshold for this universe / timeframe.'
+            : 'Nothing loaded yet. Click "Load leaderboard".'}
         </div>
       )}
     </div>
   )
 }
 
-function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad }) {
+function BucketMatrixView({ horizon, setHorizon, data, loaded, loading, error, onLoad }) {
   const buckets  = data?.buckets       || ['W', 'L', 'N', 'B', 'VB']
   const cells    = data?.cells         || []
   const sigTot   = data?.signal_totals || []
@@ -407,6 +477,38 @@ function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad })
           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
           {loading ? 'Loading…' : 'Load matrix'}
         </button>
+        <DownloadCSVButton
+          rows={cells}
+          columns={['signal', 'volume_bucket', 'count',
+                    'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_bucket_matrix_${horizon}_long.csv`}
+          label="⬇ Long CSV"
+        />
+        <DownloadCSVButton
+          rows={(() => {
+            // Wide format: one row per signal with columns for each bucket
+            if (!sigList.length) return []
+            return sigTot.map(s => {
+              const out = { signal: s.signal, total_count: s.count, total_avg_ret: s.avg_ret }
+              for (const b of buckets) {
+                const c = idx[s.signal]?.[b]
+                out[`${b}_count`]   = c ? c.count   : ''
+                out[`${b}_win`]     = c ? c.win_rate: ''
+                out[`${b}_avg`]     = c ? c.avg_ret : ''
+                out[`${b}_median`]  = c ? c.median_ret : ''
+              }
+              return out
+            })
+          })()}
+          filename={`tz_wlnbb_bucket_matrix_${horizon}_wide.csv`}
+          label="⬇ Wide CSV"
+        />
+        <DownloadCSVButton
+          rows={bktTot}
+          columns={['volume_bucket', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_bucket_totals_${horizon}.csv`}
+          label="⬇ Bucket totals CSV"
+        />
         <div className="text-xs text-md-on-surface-var">
           Crosstab: each cell shows N · win% · avg return at the chosen horizon. Empty cells mean below min count.
         </div>
@@ -472,7 +574,9 @@ function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad })
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load matrix".
+          {loaded
+            ? 'No (signal × bucket) cell met the min_count threshold for this horizon.'
+            : 'Nothing loaded yet. Click "Load matrix".'}
         </div>
       )}
     </div>
@@ -481,7 +585,7 @@ function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad })
 
 function SequenceStatsView({
   horizon, setHorizon, prevWindow, setPrevWindow,
-  rows, baseRows, loading, error, onLoad, sort, toggleSort,
+  rows, baseRows, loaded, loading, error, onLoad, sort, toggleSort,
 }) {
   const sorted = [...rows].sort((a, b) => {
     const dir = sort.dir === 'asc' ? 1 : -1
@@ -529,6 +633,21 @@ function SequenceStatsView({
           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
           {loading ? 'Loading…' : 'Load sequence stats'}
         </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['prev_signal', 'current_signal', 'count',
+                    'win_rate', 'win_rate_lift', 'avg_ret', 'avg_ret_lift',
+                    'median_ret', 'p25_ret', 'p75_ret',
+                    'base_count', 'base_win_rate', 'base_avg_ret']}
+          filename={`tz_wlnbb_sequence_${horizon}_prev${prevWindow}.csv`}
+          label="⬇ Pairs CSV"
+        />
+        <DownloadCSVButton
+          rows={baseRows}
+          columns={['current_signal', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_sequence_baseline_${horizon}.csv`}
+          label="⬇ Baseline CSV"
+        />
         <div className="text-xs text-md-on-surface-var">
           For each <span className="font-mono">prev → current</span> pair, shows count, win-rate and avg
           forward return, plus lift vs the current signal's own baseline.
@@ -578,7 +697,9 @@ function SequenceStatsView({
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load sequence stats".
+          {loaded
+            ? 'No prev→current pair met the min_count threshold. Try lowering min_count or widening prev window.'
+            : 'Nothing loaded yet. Click "Load sequence stats".'}
         </div>
       )}
     </div>
@@ -616,17 +737,20 @@ export default function TZWLNBBPanel() {
   const [statsSort,     setStatsSort]     = useState({ col: 'count', dir: 'desc' })
   // Leaderboard state
   const [lbRows,    setLbRows]    = useState([])
+  const [lbLoaded,  setLbLoaded]  = useState(false)
   const [lbLoading, setLbLoading] = useState(false)
   const [lbError,   setLbError]   = useState(null)
   const [lbSort,    setLbSort]    = useState({ col: 'count', dir: 'desc' })
   // Bucket-matrix state
   const [mxData,    setMxData]    = useState(null)
+  const [mxLoaded,  setMxLoaded]  = useState(false)
   const [mxLoading, setMxLoading] = useState(false)
   const [mxError,   setMxError]   = useState(null)
   // Sequence state
   const [seqWindow,  setSeqWindow]  = useState(1)        // 1 | 3 | 5
   const [seqRows,    setSeqRows]    = useState([])
   const [seqBase,    setSeqBase]    = useState([])
+  const [seqLoaded,  setSeqLoaded]  = useState(false)
   const [seqLoading, setSeqLoading] = useState(false)
   const [seqError,   setSeqError]   = useState(null)
   const [seqSort,    setSeqSort]    = useState({ col: 'count', dir: 'desc' })
@@ -786,6 +910,7 @@ export default function TZWLNBBPanel() {
       const data = await apiGet(`/api/tz-wlnbb/stats/leaderboard?${qs}`)
       if (data.error) setLbError(data.error)
       setLbRows(data.rows || [])
+      setLbLoaded(true)
     } catch (e) { setLbError(e.message) } finally { setLbLoading(false) }
   }
   function toggleLbSort(col) {
@@ -802,6 +927,7 @@ export default function TZWLNBBPanel() {
       const data = await apiGet(`/api/tz-wlnbb/stats/bucket-matrix?${qs}`)
       if (data.error) setMxError(data.error)
       setMxData(data)
+      setMxLoaded(true)
     } catch (e) { setMxError(e.message) } finally { setMxLoading(false) }
   }
 
@@ -815,6 +941,7 @@ export default function TZWLNBBPanel() {
       if (data.error) setSeqError(data.error)
       setSeqRows(data.pairs || [])
       setSeqBase(data.current_baseline || [])
+      setSeqLoaded(true)
     } catch (e) { setSeqError(e.message) } finally { setSeqLoading(false) }
   }
   function toggleSeqSort(col) {
@@ -1327,7 +1454,8 @@ export default function TZWLNBBPanel() {
           )}
           {statsView === 'leaderboard' && (
             <LeaderboardView
-              rows={lbRows} loading={lbLoading} error={lbError}
+              rows={lbRows} loaded={lbLoaded}
+              loading={lbLoading} error={lbError}
               onLoad={handleLoadLeaderboard}
               sort={lbSort} toggleSort={toggleLbSort}
             />
@@ -1335,7 +1463,8 @@ export default function TZWLNBBPanel() {
           {statsView === 'matrix' && (
             <BucketMatrixView
               horizon={statsHorizon} setHorizon={setStatsHorizon}
-              data={mxData} loading={mxLoading} error={mxError}
+              data={mxData} loaded={mxLoaded}
+              loading={mxLoading} error={mxError}
               onLoad={handleLoadMatrix}
             />
           )}
@@ -1343,7 +1472,7 @@ export default function TZWLNBBPanel() {
             <SequenceStatsView
               horizon={statsHorizon} setHorizon={setStatsHorizon}
               prevWindow={seqWindow} setPrevWindow={setSeqWindow}
-              rows={seqRows} baseRows={seqBase}
+              rows={seqRows} baseRows={seqBase} loaded={seqLoaded}
               loading={seqLoading} error={seqError}
               onLoad={handleLoadSequence}
               sort={seqSort} toggleSort={toggleSeqSort}
