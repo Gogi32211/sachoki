@@ -287,7 +287,7 @@ function cellTint(v) {
   return 'text-md-on-surface-var'
 }
 
-function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
+function LeaderboardView({ rows, loaded, loading, error, onLoad, sort, toggleSort }) {
   const sorted = [...rows].sort((a, b) => {
     const dir = sort.dir === 'asc' ? 1 : -1
     const av = a[sort.col], bv = b[sort.col]
@@ -368,14 +368,16 @@ function LeaderboardView({ rows, loading, error, onLoad, sort, toggleSort }) {
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load leaderboard".
+          {loaded
+            ? 'No signals met the min_count threshold for this universe / timeframe.'
+            : 'Nothing loaded yet. Click "Load leaderboard".'}
         </div>
       )}
     </div>
   )
 }
 
-function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad }) {
+function BucketMatrixView({ horizon, setHorizon, data, loaded, loading, error, onLoad }) {
   const buckets  = data?.buckets       || ['W', 'L', 'N', 'B', 'VB']
   const cells    = data?.cells         || []
   const sigTot   = data?.signal_totals || []
@@ -472,7 +474,9 @@ function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad })
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load matrix".
+          {loaded
+            ? 'No (signal × bucket) cell met the min_count threshold for this horizon.'
+            : 'Nothing loaded yet. Click "Load matrix".'}
         </div>
       )}
     </div>
@@ -481,7 +485,7 @@ function BucketMatrixView({ horizon, setHorizon, data, loading, error, onLoad })
 
 function SequenceStatsView({
   horizon, setHorizon, prevWindow, setPrevWindow,
-  rows, baseRows, loading, error, onLoad, sort, toggleSort,
+  rows, baseRows, loaded, loading, error, onLoad, sort, toggleSort,
 }) {
   const sorted = [...rows].sort((a, b) => {
     const dir = sort.dir === 'asc' ? 1 : -1
@@ -578,7 +582,9 @@ function SequenceStatsView({
         </div>
       ) : !loading && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
-          Nothing loaded yet. Click "Load sequence stats".
+          {loaded
+            ? 'No prev→current pair met the min_count threshold. Try lowering min_count or widening prev window.'
+            : 'Nothing loaded yet. Click "Load sequence stats".'}
         </div>
       )}
     </div>
@@ -616,17 +622,20 @@ export default function TZWLNBBPanel() {
   const [statsSort,     setStatsSort]     = useState({ col: 'count', dir: 'desc' })
   // Leaderboard state
   const [lbRows,    setLbRows]    = useState([])
+  const [lbLoaded,  setLbLoaded]  = useState(false)
   const [lbLoading, setLbLoading] = useState(false)
   const [lbError,   setLbError]   = useState(null)
   const [lbSort,    setLbSort]    = useState({ col: 'count', dir: 'desc' })
   // Bucket-matrix state
   const [mxData,    setMxData]    = useState(null)
+  const [mxLoaded,  setMxLoaded]  = useState(false)
   const [mxLoading, setMxLoading] = useState(false)
   const [mxError,   setMxError]   = useState(null)
   // Sequence state
   const [seqWindow,  setSeqWindow]  = useState(1)        // 1 | 3 | 5
   const [seqRows,    setSeqRows]    = useState([])
   const [seqBase,    setSeqBase]    = useState([])
+  const [seqLoaded,  setSeqLoaded]  = useState(false)
   const [seqLoading, setSeqLoading] = useState(false)
   const [seqError,   setSeqError]   = useState(null)
   const [seqSort,    setSeqSort]    = useState({ col: 'count', dir: 'desc' })
@@ -786,6 +795,7 @@ export default function TZWLNBBPanel() {
       const data = await apiGet(`/api/tz-wlnbb/stats/leaderboard?${qs}`)
       if (data.error) setLbError(data.error)
       setLbRows(data.rows || [])
+      setLbLoaded(true)
     } catch (e) { setLbError(e.message) } finally { setLbLoading(false) }
   }
   function toggleLbSort(col) {
@@ -802,6 +812,7 @@ export default function TZWLNBBPanel() {
       const data = await apiGet(`/api/tz-wlnbb/stats/bucket-matrix?${qs}`)
       if (data.error) setMxError(data.error)
       setMxData(data)
+      setMxLoaded(true)
     } catch (e) { setMxError(e.message) } finally { setMxLoading(false) }
   }
 
@@ -815,6 +826,7 @@ export default function TZWLNBBPanel() {
       if (data.error) setSeqError(data.error)
       setSeqRows(data.pairs || [])
       setSeqBase(data.current_baseline || [])
+      setSeqLoaded(true)
     } catch (e) { setSeqError(e.message) } finally { setSeqLoading(false) }
   }
   function toggleSeqSort(col) {
@@ -1327,7 +1339,8 @@ export default function TZWLNBBPanel() {
           )}
           {statsView === 'leaderboard' && (
             <LeaderboardView
-              rows={lbRows} loading={lbLoading} error={lbError}
+              rows={lbRows} loaded={lbLoaded}
+              loading={lbLoading} error={lbError}
               onLoad={handleLoadLeaderboard}
               sort={lbSort} toggleSort={toggleLbSort}
             />
@@ -1335,7 +1348,8 @@ export default function TZWLNBBPanel() {
           {statsView === 'matrix' && (
             <BucketMatrixView
               horizon={statsHorizon} setHorizon={setStatsHorizon}
-              data={mxData} loading={mxLoading} error={mxError}
+              data={mxData} loaded={mxLoaded}
+              loading={mxLoading} error={mxError}
               onLoad={handleLoadMatrix}
             />
           )}
@@ -1343,7 +1357,7 @@ export default function TZWLNBBPanel() {
             <SequenceStatsView
               horizon={statsHorizon} setHorizon={setStatsHorizon}
               prevWindow={seqWindow} setPrevWindow={setSeqWindow}
-              rows={seqRows} baseRows={seqBase}
+              rows={seqRows} baseRows={seqBase} loaded={seqLoaded}
               loading={seqLoading} error={seqError}
               onLoad={handleLoadSequence}
               sort={seqSort} toggleSort={toggleSeqSort}
