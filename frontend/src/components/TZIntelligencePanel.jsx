@@ -10,7 +10,7 @@ const CSV_COLS = [
   'role','score','quality','action',
   // Final normalizer output (GO/WATCH/REJECT/SHORT_WATCH gates)
   'final_action','final_quality','final_reason','downgrade_reason',
-  'volume_gate_status','abr_gate_status',
+  'volume_gate_status','abr_gate_status','weak_suffix_flag',
   'statistical_status_signal','statistical_status_composite',
   'statistical_status_seq4','statistical_status_composite_seq4',
   'sample_confidence',
@@ -251,6 +251,7 @@ const ACTION_COLORS = {
 
 const FINAL_ACTION_COLORS = {
   GO:           'text-green-400 font-semibold',
+  WATCH_HIGH:   'text-emerald-300 font-semibold',
   WATCH:        'text-yellow-300',
   SHORT_WATCH:  'text-orange-400',
   REJECT:       'text-red-400',
