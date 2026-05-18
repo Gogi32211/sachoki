@@ -249,6 +249,23 @@ const ACTION_COLORS = {
   IGNORE:                    'text-md-on-surface-var/70',
 }
 
+const FINAL_ACTION_COLORS = {
+  GO:           'text-green-400 font-semibold',
+  WATCH:        'text-yellow-300',
+  SHORT_WATCH:  'text-orange-400',
+  REJECT:       'text-red-400',
+}
+
+const STAT_STATUS_COLORS = {
+  STRONG:           'text-green-400 font-semibold',
+  GOOD:             'text-green-300',
+  AVERAGE:          'text-yellow-300',
+  WEAK:             'text-orange-400',
+  REJECT:           'text-red-400',
+  LOW_SAMPLE:       'text-md-on-surface-var/60',
+  UNKNOWN:          'text-md-on-surface-var/40',
+}
+
 // ── Sub-components ────────────────────────────────────────────────────────────
 
 function RoleBadge({ role }) {
@@ -807,8 +824,13 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <SortTh label="Role"      colKey="role"               {...thProps} />
                 <SortTh label="Score"     colKey="score"              {...thProps} />
                 <SortTh label="Qual"      colKey="quality"            {...thProps} />
-                <SortTh label="Action"    colKey="action"             {...thProps} />
-                <SortTh label="Vol"       colKey="vol_bucket"         {...thProps} />
+                <SortTh label="Action"      colKey="action"                       {...thProps} />
+                <SortTh label="Final"       colKey="final_action"                 {...thProps} />
+                <SortTh label="StatComp"    colKey="statistical_status_composite" {...thProps} />
+                <SortTh label="CompSeq4"    colKey="statistical_status_composite_seq4" {...thProps} />
+                <SortTh label="Sample"      colKey="sample_confidence"            {...thProps} />
+                <SortTh label="Reason"      colKey="downgrade_reason"             {...thProps} />
+                <SortTh label="Vol"         colKey="vol_bucket"                   {...thProps} />
                 <SortTh label="EMA"       colKey="ema"                {...thProps} />
                 <SortTh label="Pos%"      colKey="price_position_4bar" {...thProps} align="right" />
                 <SortTh label="Med10d"    colKey="matched_med10d_pct"  {...thProps} align="right" />
@@ -866,6 +888,21 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   </td>
                   <td className={`p-1 text-xs ${ACTION_COLORS[row.action] || 'text-md-on-surface-var'}`}>
                     {row.action?.replace(/_/g, ' ')}
+                  </td>
+                  <td className={`p-1 text-xs ${FINAL_ACTION_COLORS[row.final_action] || 'text-md-on-surface-var'}`}>
+                    {row.final_action?.replace(/_/g, ' ') || '—'}
+                  </td>
+                  <td className={`p-1 text-xs ${STAT_STATUS_COLORS[row.statistical_status_composite] || 'text-md-on-surface-var/60'}`}>
+                    {row.statistical_status_composite || '—'}
+                  </td>
+                  <td className={`p-1 text-xs ${STAT_STATUS_COLORS[row.statistical_status_composite_seq4] || 'text-md-on-surface-var/60'}`}>
+                    {row.statistical_status_composite_seq4 || '—'}
+                  </td>
+                  <td className="p-1 text-xs text-md-on-surface-var/70">
+                    {row.sample_confidence || '—'}
+                  </td>
+                  <td className="p-1 text-xs text-md-on-surface-var/70 max-w-[260px] truncate" title={row.downgrade_reason || ''}>
+                    {row.downgrade_reason || '—'}
                   </td>
                   <td className="p-1">
                     <span className={`text-xs
