@@ -13,6 +13,20 @@ from typing import Optional
 
 from .stat_engine import compute_stat_status, compute_sample_confidence, _safe_float, _safe_int
 
+
+def _safe_bool(v) -> bool:
+    """Coerce string, int, or bool to Python bool.
+
+    Handles CSV-serialized values where "false" / "0" must be False, not True.
+    """
+    if isinstance(v, bool):
+        return v
+    if isinstance(v, int):
+        return bool(v)
+    if isinstance(v, str):
+        return v.strip().lower() in ("true", "1", "yes")
+    return False
+
 # Roles eligible for GO (require all hard gates)
 _GO_ELIGIBLE_ROLES = frozenset({
     "BULL_A", "PULLBACK_GO", "PULLBACK_READY_A",
@@ -43,9 +57,9 @@ def normalize_final_action(clf: dict) -> dict:
     score_orig = int(clf.get("score") or 0)
     vol_bkt    = (clf.get("vol_bucket") or "").strip()
     abr_cat    = (clf.get("abr_category") or "UNKNOWN").strip()
-    abr_gate   = bool(clf.get("abr_gate_pass", False))
+    abr_gate   = _safe_bool(clf.get("abr_gate_pass", False))
     abr_cfl    = (clf.get("abr_conflict_flag") or "").strip()
-    orig_cfl   = bool(clf.get("conflict_flag", False))
+    orig_cfl   = _safe_bool(clf.get("conflict_flag", False))
     action_ovr = (clf.get("action") or "").strip()
     reject_flgs = clf.get("reject_flags") or []
     good_flgs   = clf.get("good_flags")   or []
