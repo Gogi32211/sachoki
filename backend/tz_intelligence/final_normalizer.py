@@ -1,6 +1,6 @@
 """Final GO/WATCH_HIGH/WATCH/REJECT/SHORT_WATCH normalizer for TZ+WLNBB scanner.
 
-Sits on top of classify_tz_event() output and applies a hierarchy of hard gates:
+Hard gate hierarchy:
 
   1. Hard reject roles                   → REJECT
   2. Short roles                         → SHORT_WATCH
@@ -11,18 +11,20 @@ GO requires (all):
   - volume bucket B or VB
   - ABR category B or B+ AND abr_gate_pass=True
   - matched_status STRONG or GOOD              (AVERAGE → WATCH_HIGH cap)
-  - statistical_status_composite STRONG/GOOD/AVERAGE (no WEAK/REJECT)
+  - statistical_status_composite STRONG/GOOD/AVERAGE (not WEAK/REJECT)
   - sample_confidence ≥ DIRECTIONAL_ONLY
   - no conflict flag
-  - no composite/seq4 blacklist match
-  - composite_seq4 not REJECT/WEAK (LOW_SAMPLE allowed — too sparse to gate)
-  - full_suffix not in _WEAK_SUFFIXES (EUR cap → WATCH_HIGH max)
+  - no composite/seq4 REJECT in any lookup
+  - no blacklist_rule_matched of any kind
+  - no static-fallback REJECT composite match
+  - full_suffix not weak (currently: EUR)
 
-WATCH_HIGH = "would-be-GO except for one soft factor":
-  - matched_status AVERAGE but composite GOOD/STRONG + all other gates pass
-  - OR EUR suffix with otherwise clean GO conditions
+WATCH_HIGH requires (all):
+  - everything required for GO except one of:
+    * matched_status AVERAGE (with composite stat GOOD/STRONG)
+    * (no other allowed soft caps — blacklist and weak-suffix block here)
 
-WATCH = anything that fails harder gates (volume/ABR/blacklist/conflict).
+WATCH = anything that fails the GO/WATCH_HIGH paths.
 
 Adds diagnostic columns without modifying role, score, or raw T/Z logic.
 """
@@ -37,7 +39,6 @@ from .stat_engine import (
 
 
 def _safe_bool(v) -> bool:
-    """Coerce string, int, or bool to Python bool."""
     if isinstance(v, bool):
         return v
     if isinstance(v, int):
@@ -47,7 +48,7 @@ def _safe_bool(v) -> bool:
     return False
 
 
-# Roles eligible for GO (require all hard gates)
+# ── Role classification ──────────────────────────────────────────────────────
 _GO_ELIGIBLE_ROLES = frozenset({
     "BULL_A", "PULLBACK_GO", "PULLBACK_READY_A",
 })
@@ -60,19 +61,31 @@ _WATCH_ELIGIBLE_ROLES = frozenset({
 _REJECT_ROLES = frozenset({"REJECT", "REJECT_LONG"})
 _SHORT_ROLES  = frozenset({"SHORT_WATCH", "SHORT_GO"})
 
-# Gate constants
+# ── Hard-coded gate constants ─────────────────────────────────────────────────
 _GO_VOL_BUCKETS    = frozenset({"B", "VB"})
 _ABR_GO_CATEGORIES = frozenset({"B", "B+"})
 _ABR_REJECT_CATS   = frozenset({"R"})
-
-# Suffixes that are statistically weaker. Capped at WATCH_HIGH max; only
-# allowed to GO if composite_seq4 is STRONG with sufficient sample.
-_WEAK_SUFFIXES = frozenset({"EUR"})
-
-# Matrix matched_status values eligible for GO
 _GO_MATCHED_STATUSES = frozenset({"STRONG", "GOOD"})
 
-# ── whitelist / blacklist lookups (lazy-loaded) ───────────────────────────────
+# Suffixes that are statistically weaker.
+# Per latest rule: weak suffix is a HARD block (WATCH max) unless composite_seq4
+# is STRONG.
+_WEAK_SUFFIXES = frozenset({"EUR"})
+
+# Static fallback REJECT-composite blacklist (29 composites with n≥50 and status=REJECT
+# from the May 2026 SP500/1d statistical research pass). Used when no
+# composite_blacklist.csv is loaded at runtime — keeps known-bad patterns
+# blocked even if the operator forgets to regenerate the whitelist files.
+_STATIC_REJECT_COMPOSITES = frozenset({
+    "Z3L25NDPI",   "Z2L25NDPO",   "Z1L5EBO",     "Z1GL25NDO",   "Z1L25NRO",
+    "T10L25NDPI",  "T1L34NHA",    "T3L34NHI",    "Z2GL25NURO",  "T10L46NDI",
+    "Z4L46NHO",    "Z11L34NUI",   "Z2GL46NRO",   "T2GL34NBA",   "T1GL12NHA",
+    "Z10L34NBI",   "Z1GL25NHO",   "Z5L12NDPA",   "Z5L12EUR",    "Z11L34NDPI",
+    "T1GL12NPA",   "T2GL34NDPA",  "Z5L34NDPA",   "T5L25NBO",    "Z11L12NHA",
+    "Z1GL46NBO",   "Z2GL46NHO",   "Z2GL25NBO",   "Z11L34NDPA",
+})
+
+# ── whitelist / blacklist CSV lookups (lazy-loaded) ───────────────────────────
 _COMP_SEQ4_STATUS: dict[tuple[str, str], str] | None = None
 _COMP_STATUS:      dict[str, str]                   | None = None
 _SEQ4_STATUS:      dict[str, str]                   | None = None
@@ -167,11 +180,12 @@ def reload_lookups() -> dict[str, int]:
         "composite_seq4": len(_ensure_comp_seq4_lookup()),
         "composite":      len(_ensure_comp_lookup()),
         "seq4":           len(_ensure_seq4_lookup()),
+        "static_reject":  len(_STATIC_REJECT_COMPOSITES),
     }
 
 
 def reload_comp_seq4_lookup() -> int:
-    """Back-compat alias used by main.py."""
+    """Back-compat alias."""
     return reload_lookups()["composite_seq4"]
 
 
@@ -206,20 +220,22 @@ def normalize_final_action(clf: dict) -> dict:
     composite_pat  = (clf.get("composite_pattern") or "").strip()
     seq4_pat       = (clf.get("seq4") or "").strip()
 
-    # ── Lookup-driven blacklist/whitelist matches ─────────────────────────────
-    # REJECT = hard block, WEAK = soft cap (WATCH_HIGH eligible)
+    # ── Lookups: classify each (REJECT, WEAK, GOOD, STRONG, LOW_SAMPLE, UNKNOWN)
     comp_lookup_status     = _comp_status(composite_pat)
     seq4_lookup_status     = _seq4_status(seq4_pat)
     comp_seq4_status_value = _comp_seq4_status(composite_pat, seq4_pat)
 
-    comp_reject_hard  = comp_lookup_status == "REJECT"
+    # Static fallback: hard REJECT regardless of CSV-loaded state
+    static_reject_hit = composite_pat in _STATIC_REJECT_COMPOSITES
+
+    comp_reject_hard  = comp_lookup_status == "REJECT" or static_reject_hit
     comp_weak_soft    = comp_lookup_status == "WEAK"
     seq4_reject_hard  = seq4_lookup_status == "REJECT"
     seq4_weak_soft    = seq4_lookup_status == "WEAK"
     comp_seq4_reject  = comp_seq4_status_value == "REJECT"
     comp_seq4_weak    = comp_seq4_status_value == "WEAK"
+    comp_seq4_strong  = comp_seq4_status_value == "STRONG"
 
-    # Legacy good_flags / reject_flags from classifier (in-row whitelist hints)
     legacy_whitelist = any(
         f.startswith("COMP:") or f.startswith("SEQ4:") for f in good_flgs
     )
@@ -231,12 +247,21 @@ def normalize_final_action(clf: dict) -> dict:
         or comp_lookup_status in ("STRONG", "GOOD")
         or seq4_lookup_status in ("STRONG", "GOOD")
     )
+    # Any blacklist hit (REJECT or WEAK or legacy or static) — used to deny WATCH_HIGH
     blacklist_matched = (
-        legacy_blacklist or comp_reject_hard or seq4_reject_hard
-        or comp_weak_soft or seq4_weak_soft
+        legacy_blacklist
+        or comp_reject_hard or seq4_reject_hard
+        or comp_weak_soft   or seq4_weak_soft
+        or comp_seq4_reject or comp_seq4_weak
+    )
+    # STRONG whitelist exception: lets a weak suffix still reach WATCH_HIGH
+    strong_whitelist_match = (
+        comp_lookup_status == "STRONG"
+        or seq4_lookup_status == "STRONG"
+        or comp_seq4_strong
     )
 
-    # ── Statistical quality ───────────────────────────────────────────────────
+    # Stat status of the matched matrix rule (per-row stats)
     m_n    = _safe_int(clf.get("matched_n"))
     m_med  = _safe_float(clf.get("matched_med10d_pct"))
     m_fail = _safe_float(clf.get("matched_fail10d_pct"))
@@ -248,7 +273,6 @@ def normalize_final_action(clf: dict) -> dict:
     abr_fail = _safe_float(clf.get("abr_fail10d_pct"))
     stat_status_seq4 = compute_stat_status(abr_n or 0, abr_med, abr_fail)
 
-    # ── Conflict / gate evaluation ────────────────────────────────────────────
     abr_conflict_bool   = bool(abr_cfl and abr_cfl not in ("", "NONE", "NO_CONFLICT"))
     conflict_flag_final = orig_cfl or abr_conflict_bool
 
@@ -261,6 +285,18 @@ def normalize_final_action(clf: dict) -> dict:
                        else "FAIL")
 
     weak_suffix_flag = full_suffix in _WEAK_SUFFIXES
+
+    # ── Diagnostic status_used columns ────────────────────────────────────────
+    if static_reject_hit:
+        composite_lookup_status_used = "REJECT:STATIC_FALLBACK"
+    else:
+        composite_lookup_status_used = comp_lookup_status or "UNKNOWN"
+    seq4_lookup_status_used = seq4_lookup_status or "UNKNOWN"
+    if weak_suffix_flag:
+        suffix_lookup_status_used = f"WEAK_SUFFIX:{full_suffix}"
+    else:
+        suffix_lookup_status_used = f"SUFFIX:{full_suffix or 'none'}"
+    volume_lookup_status_used = f"{volume_gate}:{vol_bkt or 'missing'}"
 
     downgrade_reasons: list[str] = []
     positive_reasons:  list[str] = []
@@ -287,7 +323,7 @@ def normalize_final_action(clf: dict) -> dict:
     # ── GO-eligible roles: hard gates → GO / WATCH_HIGH / WATCH ───────────────
     elif role in _GO_ELIGIBLE_ROLES:
 
-        # Hard blocks: anything that fails these falls all the way to WATCH
+        # ── Hard blocks (any of these forces WATCH, never WATCH_HIGH) ────────
         hard_block: list[str] = []
         if volume_gate != "PASS":
             hard_block.append(f"VOL_GATE:vol={vol_bkt or 'missing'}")
@@ -301,60 +337,56 @@ def normalize_final_action(clf: dict) -> dict:
             hard_block.append(f"STAT_COMP:{stat_status_comp}")
         if sample_conf == "LOW_SAMPLE":
             hard_block.append("LOW_SAMPLE")
-        # composite_seq4 REJECT hard-blocks (LOW_SAMPLE/WEAK soft-cap below)
         if comp_seq4_reject:
             hard_block.append("COMP_SEQ4:REJECT")
-        # Hard composite/seq4 REJECT blacklist always blocks
-        if comp_reject_hard:
+        if comp_seq4_weak:
+            hard_block.append("COMP_SEQ4:WEAK")
+
+        # Blacklist of any kind → hard block (no WATCH_HIGH for blacklisted rows)
+        if static_reject_hit:
+            hard_block.append(f"STATIC_REJECT_COMPOSITE:{composite_pat}")
+        if comp_lookup_status == "REJECT":
             hard_block.append("BLACKLIST_COMPOSITE:REJECT")
-        if seq4_reject_hard:
+        if comp_lookup_status == "WEAK":
+            hard_block.append("BLACKLIST_COMPOSITE:WEAK")
+        if seq4_lookup_status == "REJECT":
             hard_block.append("BLACKLIST_SEQ4:REJECT")
+        if seq4_lookup_status == "WEAK":
+            hard_block.append("BLACKLIST_SEQ4:WEAK")
+        if legacy_blacklist:
+            hard_block.append("BLACKLIST_LEGACY")
+
+        # Weak suffix (EUR) → hard block UNLESS STRONG whitelist override
+        if weak_suffix_flag and not strong_whitelist_match:
+            hard_block.append(f"WEAK_SUFFIX:{full_suffix}")
 
         if hard_block:
             final_action = "WATCH"
             downgrade_reasons.extend(hard_block)
         else:
-            # All hard gates pass. Distinguish GO vs WATCH_HIGH on soft factors.
+            # All hard gates pass. The only remaining soft cap is
+            # matched_status=AVERAGE (which keeps WATCH_HIGH-eligible).
             soft_caps: list[str] = []
 
-            # matched_status: STRONG/GOOD → GO; AVERAGE → WATCH_HIGH; else WATCH
             if matched_status in _GO_MATCHED_STATUSES:
                 positive_reasons.append(f"MATCHED_STATUS:{matched_status}")
             elif matched_status == "AVERAGE":
                 soft_caps.append("MATCHED_STATUS_AVERAGE_CAP")
             elif matched_status:
-                # WEAK / REJECT / LOW_SAMPLE / unknown matrix status
                 soft_caps.append(f"MATCHED_STATUS:{matched_status}")
 
-            # EUR (weak suffix) cap unless comp_seq4 is STRONG
-            if weak_suffix_flag and comp_seq4_status_value != "STRONG":
-                soft_caps.append(f"WEAK_SUFFIX:{full_suffix}")
-
-            # WEAK seq4/composite blacklist → soft cap (WATCH_HIGH eligible)
-            if comp_weak_soft:
-                soft_caps.append("BLACKLIST_COMPOSITE:WEAK")
-            if seq4_weak_soft:
-                soft_caps.append("BLACKLIST_SEQ4:WEAK")
-            # WEAK composite_seq4 → soft cap
-            if comp_seq4_weak:
-                soft_caps.append("COMP_SEQ4:WEAK")
-
-            # Build positive context for final_reason
             positive_reasons.append(f"VOL_OK:{vol_bkt}")
             positive_reasons.append(f"ABR_OK:{abr_cat}")
             if stat_status_comp in ("GOOD", "STRONG"):
                 positive_reasons.append(f"STAT_OK:{stat_status_comp}")
-            if comp_seq4_status_value in ("STRONG", "GOOD"):
+            if comp_seq4_strong or comp_seq4_status_value == "GOOD":
                 positive_reasons.append(f"COMP_SEQ4:{comp_seq4_status_value}")
+            if weak_suffix_flag and strong_whitelist_match:
+                positive_reasons.append(f"WEAK_SUFFIX_OK:{full_suffix}_via_whitelist")
 
             if not soft_caps:
                 final_action = "GO"
             else:
-                # Any soft cap → at best WATCH_HIGH. Two conditions:
-                # - matched_status AVERAGE cap is acceptable only if the
-                #   per-row composite stat is GOOD/STRONG (otherwise the row
-                #   is too weak even for WATCH_HIGH and falls to WATCH).
-                # - All other soft caps individually are WATCH_HIGH-eligible.
                 avg_cap = "MATCHED_STATUS_AVERAGE_CAP" in soft_caps
                 avg_cap_ok = (not avg_cap) or stat_status_comp in ("GOOD", "STRONG")
                 if avg_cap_ok:
@@ -371,7 +403,7 @@ def normalize_final_action(clf: dict) -> dict:
         if volume_gate == "FAIL":
             downgrade_reasons.append(f"VOL_GATE:vol={vol_bkt or 'missing'}")
         if comp_reject_hard or comp_weak_soft:
-            downgrade_reasons.append(f"BLACKLIST_COMPOSITE:{comp_lookup_status}")
+            downgrade_reasons.append(f"BLACKLIST_COMPOSITE:{comp_lookup_status or 'STATIC_REJECT'}")
         if seq4_reject_hard or seq4_weak_soft:
             downgrade_reasons.append(f"BLACKLIST_SEQ4:{seq4_lookup_status}")
 
@@ -380,7 +412,7 @@ def normalize_final_action(clf: dict) -> dict:
         final_action = "WATCH"
         downgrade_reasons.append(f"UNCLASSIFIED_ROLE:{role}")
 
-    # ── Quality + score after normalization ───────────────────────────────────
+    # ── Quality + score ───────────────────────────────────────────────────────
     if final_action == "GO":
         final_quality = "HIGH"
     elif final_action == "WATCH_HIGH":
@@ -400,7 +432,6 @@ def normalize_final_action(clf: dict) -> dict:
     elif final_action == "REJECT":
         score_after = 0
 
-    # Build human-readable final_reason
     if final_action == "GO":
         final_reason = "GO:" + "|".join(positive_reasons) if positive_reasons else "GO:GATES_PASS"
     elif final_action == "WATCH_HIGH":
@@ -433,4 +464,10 @@ def normalize_final_action(clf: dict) -> dict:
         "conflict_flag_final":               conflict_flag_final,
         "score_before_normalization":        score_orig,
         "score_after_normalization":         score_after,
+        # ── New diagnostic *_lookup_status_used columns ──────────────────────
+        "composite_lookup_status_used":      composite_lookup_status_used,
+        "seq4_lookup_status_used":           seq4_lookup_status_used,
+        "suffix_lookup_status_used":         suffix_lookup_status_used,
+        "volume_lookup_status_used":         volume_lookup_status_used,
+        "static_reject_match":               static_reject_hit,
     }
