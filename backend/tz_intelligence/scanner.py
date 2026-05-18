@@ -6,6 +6,7 @@ from typing import List, Optional
 
 from .classifier import classify_tz_event
 from .matrix_loader import load_matrix
+from .final_normalizer import normalize_final_action
 
 # ── Input allowlists (validated before any path construction) ─────────────────
 
@@ -89,6 +90,7 @@ def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
         "matched_rule_type":         clf["matched_rule_type"],
         "matched_universe":          clf["matched_universe"],
         "matched_status":            clf["matched_status"],
+        "matched_n":                 clf.get("matched_n", ""),
         "matched_med10d_pct":        clf["matched_med10d_pct"],
         "matched_fail10d_pct":       clf["matched_fail10d_pct"],
         "matched_avg10d_pct":        clf["matched_avg10d_pct"],
@@ -133,6 +135,7 @@ def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
     }
     if debug:
         r["debug_trace"] = clf["debug_trace"]
+    r = normalize_final_action(r)
     return r
 
 
@@ -167,7 +170,8 @@ def _make_error_clf(ticker: str, date: str, error_type: str, error_msg: str = ""
         "price_position_4bar": None, "breaks_4bar_high": False, "breaks_4bar_low": False,
         "final_volume_vs_prev1": None, "final_volume_vs_prev2": None, "final_volume_vs_prev3": None,
         "matched_rule_id": "", "matched_rule_type": "", "matched_universe": "",
-        "matched_status": "", "matched_med10d_pct": None, "matched_fail10d_pct": None,
+        "matched_status": "", "matched_n": "",
+        "matched_med10d_pct": None, "matched_fail10d_pct": None,
         "matched_avg10d_pct": None, "matched_source_file": "", "matched_rule_notes": "",
         "matched_composite_rule_id": "", "matched_seq4_rule_id": "", "matched_reject_rule_id": "",
         "prior_pullback_ready_found": False, "prior_pullback_ready_bars_ago": None,
@@ -177,6 +181,25 @@ def _make_error_clf(ticker: str, date: str, error_type: str, error_msg: str = ""
         "dollar_volume": 0.0, "liquidity_tier": "UNKNOWN",
         "debug_trace": [],
         **_blank_abr,
+        "final_action":                      "REJECT",
+        "final_quality":                     "LOW",
+        "final_reason":                      error_type,
+        "downgrade_reason":                  error_type,
+        "volume_gate_status":                "UNKNOWN",
+        "abr_gate_status":                   "UNKNOWN",
+        "statistical_status_signal":         "UNKNOWN",
+        "statistical_status_composite":      "UNKNOWN",
+        "statistical_status_seq4":           "UNKNOWN",
+        "statistical_status_composite_seq4": "UNKNOWN",
+        "sample_confidence":                 "UNKNOWN",
+        "whitelist_rule_matched":            False,
+        "blacklist_rule_matched":            False,
+        "reject_rule_matched":               False,
+        "conflict_flag_original":            False,
+        "abr_conflict_flag_bool":            False,
+        "conflict_flag_final":               False,
+        "score_before_normalization":        0,
+        "score_after_normalization":         0,
     }
 
 

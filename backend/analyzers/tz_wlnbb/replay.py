@@ -24,7 +24,7 @@ _Z_SIGNALS_LONGEST_FIRST = [
     "Z5", "Z4", "Z3", "Z2", "Z1"
 ]
 _L_COMPONENT_RE = re.compile(r"^(L[1-6]+)")
-_VALID_SUFFIX_RE = re.compile(r"^[NE][UDB]?[PRH]?$")
+_VALID_SUFFIX_RE = re.compile(r"^[NE][UDB]?[PRH]?[AIO]?$")
 
 
 def parse_composite_label(label: str) -> dict:
@@ -75,7 +75,7 @@ def parse_composite_label(label: str) -> dict:
 
 
 def is_valid_full_suffix(s: str) -> bool:
-    """Return True for empty string or a valid suffix matching ^[NE][UDB]?[PRH]?$."""
+    """Return True for empty string or a valid suffix matching ^[NE][UDB]?[PRH]?[AIO]?$."""
     if not s:
         return True
     return bool(_VALID_SUFFIX_RE.match(s))
