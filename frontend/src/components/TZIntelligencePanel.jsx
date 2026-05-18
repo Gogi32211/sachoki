@@ -8,7 +8,7 @@ const CSV_COLS = [
   'ticker','date','bar_datetime','close','volume',
   'final_signal','composite_pattern','seq4','lane1','lane3',
   'role','score','quality','action',
-  'vol_bucket','wick_suffix',
+  'vol_bucket','wick_suffix','ne_suffix','penetration_suffix','close_suffix','close_appended','full_suffix',
   'above_ema20','above_ema50','above_ema89',
   'ema20_reclaim','ema50_reclaim','ema89_reclaim',
   'conflict_flag','conflict_resolution','conflicting_rule_ids',

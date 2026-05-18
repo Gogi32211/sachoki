@@ -302,6 +302,24 @@ def compute_tz_wlnbb_for_bar(
     else:
         penetration_suffix = ""
 
+    # ── CLOSE SUFFIX (Pine 260519) ────────────────────────────────────────────
+    # A = close above prev body top; O = close below prev body bot; I = inside.
+    close_above_prev_body = c > prev_body_top
+    close_below_prev_body = c < prev_body_bot
+    if close_above_prev_body:
+        close_suffix = "A"
+    elif close_below_prev_body:
+        close_suffix = "O"
+    else:
+        close_suffix = "I"
+
+    # append_close rule: only append closeSuffix when the wick/penetration profile
+    # actually disambiguates the bar — keeps the label compact for trivial bars.
+    append_close = (
+        (ne_suffix == "E" and wick_suffix == "B") or
+        (ne_suffix == "N" and (wick_suffix != "" or penetration_suffix != ""))
+    )
+
     # ── COMBINED LABELS ────────────────────────────────────────────────────────
     # Pine logic:
     # lane1Core = hasTsig ? tBase + lPart : (not hasZsig ? lPart : "")
@@ -310,7 +328,7 @@ def compute_tz_wlnbb_for_bar(
     z_base = z_signal
     l_part = l_signal  # may be empty
 
-    suffix = ne_suffix + wick_suffix + penetration_suffix
+    suffix = ne_suffix + wick_suffix + penetration_suffix + (close_suffix if append_close else "")
 
     if has_t_signal:
         lane1_core = t_base + l_part
@@ -406,6 +424,10 @@ def compute_tz_wlnbb_for_bar(
         "ne_suffix": ne_suffix,
         "wick_suffix": wick_suffix,
         "penetration_suffix": penetration_suffix,
+        "close_suffix": close_suffix,
+        "close_appended": append_close,
+        "close_above_prev_body": close_above_prev_body,
+        "close_below_prev_body": close_below_prev_body,
         "wick_penetration_upper": wick_penetration_upper,
         "wick_penetration_lower": wick_penetration_lower,
         "wick_penetration_both": wick_penetration_both,

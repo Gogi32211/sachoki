@@ -22,6 +22,7 @@ OUTPUT_COLUMNS = [
     "preup_signal", "predn_signal", "preup_raw_signals", "predn_raw_signals",
     "ne_suffix", "wick_suffix",
     "penetration_suffix", "wick_penetration_upper", "wick_penetration_lower", "wick_penetration_both",
+    "close_suffix", "close_appended",
     "full_suffix",
     "wick_ext_up", "wick_ext_down", "wick_ext_both",
     "prev_body_top", "prev_body_bot", "prev_high", "prev_low",
@@ -319,7 +320,14 @@ def generate_stock_stat(
                         int(bool(row.get("wick_penetration_upper"))),
                         int(bool(row.get("wick_penetration_lower"))),
                         int(bool(row.get("wick_penetration_both"))),
-                        str(row.get("ne_suffix") or "") + str(row.get("wick_suffix") or "") + str(row.get("penetration_suffix") or ""),  # full_suffix
+                        row.get("close_suffix", ""),
+                        int(bool(row.get("close_appended"))),
+                        (
+                            str(row.get("ne_suffix") or "")
+                            + str(row.get("wick_suffix") or "")
+                            + str(row.get("penetration_suffix") or "")
+                            + (str(row.get("close_suffix") or "") if row.get("close_appended") else "")
+                        ),  # full_suffix (includes close_suffix only when append_close fires)
                         int(bool(row.get("wick_ext_up"))),
                         int(bool(row.get("wick_ext_down"))),
                         int(bool(row.get("wick_ext_both"))),

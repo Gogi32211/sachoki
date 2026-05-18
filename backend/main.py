@@ -2410,13 +2410,21 @@ def api_tz_wlnbb_stats_suffix(
             ne   = (row.get("ne_suffix")          or "").strip()
             wick = (row.get("wick_suffix")        or "").strip()
             pen  = (row.get("penetration_suffix") or "").strip()
+            cls_ = (row.get("close_suffix")       or "").strip()
+            try:
+                cls_appended = int(row.get("close_appended") or 0) == 1
+            except (TypeError, ValueError):
+                cls_appended = False
+            # Use the close suffix only when the bar actually appends it; otherwise
+            # collapse to empty so the slice keys mirror the visible label.
+            cls_eff = cls_ if cls_appended else ""
             for col in cols_to_scan:
                 base = (row.get(col) or "").strip()
                 if not base:
                     continue
                 if base_signal and base != base_signal:
                     continue
-                slices.setdefault((base, ne, wick, pen), []).append(ret)
+                slices.setdefault((base, ne, wick, pen, cls_eff), []).append(ret)
                 base_totals.setdefault(base, []).append(ret)
 
     def _summarize(returns: list[float]) -> dict:
@@ -2438,7 +2446,7 @@ def api_tz_wlnbb_stats_suffix(
     base_summary = {b: _summarize(rets) for b, rets in base_totals.items()}
 
     slices_out: list[dict] = []
-    for (base, ne, wick, pen), rets in slices.items():
+    for (base, ne, wick, pen, cls_), rets in slices.items():
         if len(rets) < min_count:
             continue
         s = _summarize(rets)
@@ -2447,7 +2455,8 @@ def api_tz_wlnbb_stats_suffix(
         s["ne_suffix"]           = ne
         s["wick_suffix"]         = wick
         s["penetration_suffix"]  = pen
-        s["suffix_label"]        = (ne + wick + pen) or "—"
+        s["close_suffix"]        = cls_
+        s["suffix_label"]        = (ne + wick + pen + cls_) or "—"
         s["base_count"]          = bs.get("count", 0)
         s["base_win_rate"]       = bs.get("win_rate", 0.0)
         s["base_avg_ret"]        = bs.get("avg_ret", 0.0)

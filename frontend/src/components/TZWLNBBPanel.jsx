@@ -220,7 +220,7 @@ function SuffixStatsView({
         </button>
         <DownloadCSVButton
           rows={sorted}
-          columns={['base_signal', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix',
+          columns={['base_signal', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix', 'close_suffix',
                     'count', 'win_rate', 'win_rate_lift',
                     'avg_ret', 'avg_ret_lift', 'median_ret', 'p25_ret', 'p75_ret',
                     'base_count', 'base_win_rate', 'base_avg_ret']}
@@ -286,6 +286,7 @@ function SuffixStatsView({
                 <th className="px-2 py-1 text-md-on-surface-var text-left">E/N</th>
                 <th className="px-2 py-1 text-md-on-surface-var text-left">U/D/B</th>
                 <th className="px-2 py-1 text-md-on-surface-var text-left">H/P/R</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">A/O/I</th>
                 <H col="count">N</H>
                 <H col="win_rate">Win%</H>
                 <H col="win_rate_lift">±vs base</H>
@@ -302,6 +303,7 @@ function SuffixStatsView({
                   <td className="px-2 py-0.5">{r.ne_suffix || '—'}</td>
                   <td className="px-2 py-0.5">{r.wick_suffix || '—'}</td>
                   <td className="px-2 py-0.5">{r.penetration_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.close_suffix || '—'}</td>
                   <td className="px-2 py-0.5 text-right">{r.count}</td>
                   <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
                   <td className={`px-2 py-0.5 text-right ${cls(r.win_rate_lift)}`}>
@@ -1339,6 +1341,8 @@ export default function TZWLNBBPanel() {
                 <th className="text-left p-1 font-medium">Lane 3</th>
                 <th className="text-left p-1 font-medium">NE</th>
                 <th className="text-left p-1 font-medium">Wk</th>
+                <th className="text-left p-1 font-medium">Pen</th>
+                <th className="text-left p-1 font-medium">Cls</th>
                 <th className="text-left p-1 font-medium">Vol</th>
                 <th className="text-center p-1 font-medium">Debug</th>
               </tr>
@@ -1387,6 +1391,8 @@ export default function TZWLNBBPanel() {
                     <td className="p-1 text-red-300 font-mono">{row.lane3_label || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.ne_suffix || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.wick_suffix || ''}</td>
+                    <td className="p-1 text-md-on-surface-var">{row.penetration_suffix || ''}</td>
+                    <td className="p-1 text-md-on-surface-var">{row.close_appended ? (row.close_suffix || '') : ''}</td>
                     <td className="p-1 text-md-on-surface-var">
                       <span className={`px-1 rounded text-xs
                         ${row.volume_bucket === 'VB' ? 'text-red-300' :
