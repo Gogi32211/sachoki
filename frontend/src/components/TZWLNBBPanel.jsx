@@ -220,7 +220,7 @@ function SuffixStatsView({
         </button>
         <DownloadCSVButton
           rows={sorted}
-          columns={['base_signal', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix', 'close_suffix',
+          columns={['base_signal', 'volume_bucket', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix', 'close_suffix',
                     'count', 'win_rate', 'win_rate_lift',
                     'avg_ret', 'avg_ret_lift', 'median_ret', 'p25_ret', 'p75_ret',
                     'base_count', 'base_win_rate', 'base_avg_ret']}
@@ -282,6 +282,7 @@ function SuffixStatsView({
             <thead>
               <tr className="bg-md-surface-con border-b border-md-outline-var">
                 <H col="base_signal" num={false}>Base</H>
+                <H col="volume_bucket" num={false}>Vol Bkt</H>
                 <H col="suffix_label" num={false}>Suffix</H>
                 <th className="px-2 py-1 text-md-on-surface-var text-left">E/N</th>
                 <th className="px-2 py-1 text-md-on-surface-var text-left">U/D/B</th>
@@ -299,6 +300,14 @@ function SuffixStatsView({
               {sorted.map((r, i) => (
                 <tr key={i} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
                   <td className="px-2 py-0.5 font-mono">{r.base_signal}</td>
+                  <td className={`px-2 py-0.5 font-mono font-semibold
+                    ${r.volume_bucket === 'VB' ? 'text-red-300' :
+                      r.volume_bucket === 'B'  ? 'text-orange-300' :
+                      r.volume_bucket === 'N'  ? 'text-yellow-300' :
+                      r.volume_bucket === 'L'  ? 'text-blue-300' :
+                      r.volume_bucket === 'W'  ? 'text-md-on-surface-var' : 'text-md-on-surface-var'}`}>
+                    {r.volume_bucket || '—'}
+                  </td>
                   <td className="px-2 py-0.5 font-mono text-md-on-surface-var">{r.suffix_label}</td>
                   <td className="px-2 py-0.5">{r.ne_suffix || '—'}</td>
                   <td className="px-2 py-0.5">{r.wick_suffix || '—'}</td>

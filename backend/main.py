@@ -49,6 +49,7 @@ from ultra_pump_migration import ensure_ultra_pump_tables
 from ultra_pump_routes import router as ultra_pump_router
 from dashboard_routes import router as dashboard_router
 from ultra_scan_migration import ensure_ultra_scan_tables
+from ultra_scan_routes import router as ultra_scan_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -116,6 +117,7 @@ app.include_router(chart_obs_router)
 app.include_router(signal_replay_router)
 app.include_router(ultra_pump_router)
 app.include_router(dashboard_router)
+app.include_router(ultra_scan_router)
 
 
 def _normalise_date(idx) -> list[str]:
@@ -2391,7 +2393,7 @@ def api_tz_wlnbb_stats_suffix(
     else:
         cols_to_scan = ["t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal"]
 
-    # slices[(base, ne, wick, pen)] = list[float] of returns
+    # slices[(base, vol_bkt, ne, wick, pen, cls_eff)] = list[float] of returns
     slices: dict[tuple, list[float]] = {}
     base_totals: dict[str, list[float]] = {}
 
@@ -2407,6 +2409,7 @@ def api_tz_wlnbb_stats_suffix(
                 ret = float(ret_raw)
             except (TypeError, ValueError):
                 continue
+            vol_bkt = (row.get("volume_bucket") or "").strip()
             ne   = (row.get("ne_suffix")          or "").strip()
             wick = (row.get("wick_suffix")        or "").strip()
             pen  = (row.get("penetration_suffix") or "").strip()
@@ -2424,7 +2427,7 @@ def api_tz_wlnbb_stats_suffix(
                     continue
                 if base_signal and base != base_signal:
                     continue
-                slices.setdefault((base, ne, wick, pen, cls_eff), []).append(ret)
+                slices.setdefault((base, vol_bkt, ne, wick, pen, cls_eff), []).append(ret)
                 base_totals.setdefault(base, []).append(ret)
 
     def _summarize(returns: list[float]) -> dict:
@@ -2446,12 +2449,13 @@ def api_tz_wlnbb_stats_suffix(
     base_summary = {b: _summarize(rets) for b, rets in base_totals.items()}
 
     slices_out: list[dict] = []
-    for (base, ne, wick, pen, cls_), rets in slices.items():
+    for (base, vol_bkt, ne, wick, pen, cls_), rets in slices.items():
         if len(rets) < min_count:
             continue
         s = _summarize(rets)
         bs = base_summary.get(base) or {}
         s["base_signal"]         = base
+        s["volume_bucket"]       = vol_bkt
         s["ne_suffix"]           = ne
         s["wick_suffix"]         = wick
         s["penetration_suffix"]  = pen
