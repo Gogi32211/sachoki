@@ -317,6 +317,7 @@ def classify_tz_event(
     matched_rule_type = all_matched_rules[0].get("rule_type","") if all_matched_rules else ""
     matched_universe  = all_matched_rules[0].get("universe","") if all_matched_rules else ""
     matched_status    = all_matched_rules[0].get("status","") if all_matched_rules else ""
+    matched_n         = all_matched_rules[0].get("n","")         if all_matched_rules else ""
     matched_med10d    = all_matched_rules[0].get("med10d_pct","") if all_matched_rules else ""
     matched_fail10d   = all_matched_rules[0].get("fail10d_pct","") if all_matched_rules else ""
     matched_avg10d    = all_matched_rules[0].get("avg10d_pct","") if all_matched_rules else ""
@@ -884,6 +885,7 @@ def classify_tz_event(
         vol_vs_prev1=vol_vs_prev1, vol_vs_prev2=vol_vs_prev2, vol_vs_prev3=vol_vs_prev3,
         matched_rule_id=matched_rule_id, matched_rule_type=matched_rule_type,
         matched_universe=matched_universe, matched_status=matched_status,
+        matched_n=matched_n,
         matched_med10d=matched_med10d, matched_fail10d=matched_fail10d,
         matched_avg10d=matched_avg10d, matched_source=matched_source,
         matched_notes=matched_notes,
@@ -919,7 +921,8 @@ def _build_result(
     breaks_4bar_high=False, breaks_4bar_low=False,
     vol_vs_prev1=None, vol_vs_prev2=None, vol_vs_prev3=None,
     matched_rule_id="", matched_rule_type="", matched_universe="",
-    matched_status="", matched_med10d="", matched_fail10d="",
+    matched_status="", matched_n="",
+    matched_med10d="", matched_fail10d="",
     matched_avg10d="", matched_source="", matched_notes="",
     matched_composite_rule_id="", matched_seq4_rule_id="", matched_reject_rule_id="",
     prior_pullback_ready_found=False, prior_pullback_ready_bars_ago=None,
@@ -976,6 +979,7 @@ def _build_result(
         "matched_rule_type":         matched_rule_type,
         "matched_universe":          matched_universe,
         "matched_status":            matched_status,
+        "matched_n":                 matched_n,
         "matched_med10d_pct":        matched_med10d,
         "matched_fail10d_pct":       matched_fail10d,
         "matched_avg10d_pct":        matched_avg10d,

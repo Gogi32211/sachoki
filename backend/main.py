@@ -2761,6 +2761,34 @@ def api_tz_wlnbb_stats_sequence(
     }
 
 
+@app.post("/api/tz-wlnbb/build-whitelists")
+def api_tz_wlnbb_build_whitelists(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    output_dir: str = ".",
+):
+    """Generate composite/seq4/composite_seq4 whitelist+blacklist CSVs from stock_stat.
+
+    Reads the existing stock_stat_tz_wlnbb CSV and writes 7 CSV files to output_dir.
+    Returns summary counts. Run generate-stock-stat first to create the source data.
+    """
+    from tz_intelligence.whitelist_builder import build_whitelists
+
+    stat_path = _tz_resolve_stat_path(universe, tf, nasdaq_batch)
+    if not stat_path:
+        return {"error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    # Prevent path traversal
+    abs_out = os.path.realpath(output_dir)
+    if not abs_out.startswith(os.path.realpath(".")):
+        return {"error": "output_dir must be within the working directory"}
+
+    os.makedirs(abs_out, exist_ok=True)
+    result = build_whitelists(stat_path, abs_out)
+    return {"stat_path": stat_path, "output_dir": abs_out, **result}
+
+
 @app.post("/api/tz-wlnbb/generate-stock-stat")
 def api_tz_wlnbb_generate(
     background_tasks: BackgroundTasks,
