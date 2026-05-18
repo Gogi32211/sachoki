@@ -324,6 +324,8 @@ def normalize_final_action(clf: dict) -> dict:
     elif role in _GO_ELIGIBLE_ROLES:
 
         # ── Hard blocks (any of these forces WATCH, never WATCH_HIGH) ────────
+        # Only REJECT-level blacklist and structural failures hard-block here.
+        # WEAK-level blacklist becomes a soft cap below (WATCH_HIGH eligible).
         hard_block: list[str] = []
         if volume_gate != "PASS":
             hard_block.append(f"VOL_GATE:vol={vol_bkt or 'missing'}")
@@ -339,24 +341,16 @@ def normalize_final_action(clf: dict) -> dict:
             hard_block.append("LOW_SAMPLE")
         if comp_seq4_reject:
             hard_block.append("COMP_SEQ4:REJECT")
-        if comp_seq4_weak:
-            hard_block.append("COMP_SEQ4:WEAK")
-
-        # Blacklist of any kind → hard block (no WATCH_HIGH for blacklisted rows)
+        # REJECT-level blacklist hits → hard block
         if static_reject_hit:
             hard_block.append(f"STATIC_REJECT_COMPOSITE:{composite_pat}")
         if comp_lookup_status == "REJECT":
             hard_block.append("BLACKLIST_COMPOSITE:REJECT")
-        if comp_lookup_status == "WEAK":
-            hard_block.append("BLACKLIST_COMPOSITE:WEAK")
         if seq4_lookup_status == "REJECT":
             hard_block.append("BLACKLIST_SEQ4:REJECT")
-        if seq4_lookup_status == "WEAK":
-            hard_block.append("BLACKLIST_SEQ4:WEAK")
         if legacy_blacklist:
             hard_block.append("BLACKLIST_LEGACY")
-
-        # Weak suffix (EUR) → hard block UNLESS STRONG whitelist override
+        # Weak suffix (EUR) hard-blocks UNLESS STRONG whitelist override
         if weak_suffix_flag and not strong_whitelist_match:
             hard_block.append(f"WEAK_SUFFIX:{full_suffix}")
 
@@ -364,10 +358,11 @@ def normalize_final_action(clf: dict) -> dict:
             final_action = "WATCH"
             downgrade_reasons.extend(hard_block)
         else:
-            # All hard gates pass. The only remaining soft cap is
-            # matched_status=AVERAGE (which keeps WATCH_HIGH-eligible).
+            # All hard gates pass. Apply soft caps (any → WATCH_HIGH max).
             soft_caps: list[str] = []
 
+            # Primary cap: matched_status=AVERAGE → WATCH_HIGH (strict GO needs
+            # matched_status in GOOD/STRONG)
             if matched_status in _GO_MATCHED_STATUSES:
                 positive_reasons.append(f"MATCHED_STATUS:{matched_status}")
             elif matched_status == "AVERAGE":
@@ -375,14 +370,23 @@ def normalize_final_action(clf: dict) -> dict:
             elif matched_status:
                 soft_caps.append(f"MATCHED_STATUS:{matched_status}")
 
+            # WEAK-level blacklist hits → soft caps (WATCH_HIGH eligible).
+            # These mean "below-average pattern" not "actively bad". They
+            # demote a would-be GO to WATCH_HIGH but don't kill the
+            # candidacy entirely.
+            if comp_lookup_status == "WEAK":
+                soft_caps.append("BLACKLIST_COMPOSITE:WEAK")
+            if seq4_lookup_status == "WEAK":
+                soft_caps.append("BLACKLIST_SEQ4:WEAK")
+            if comp_seq4_weak:
+                soft_caps.append("COMP_SEQ4:WEAK")
+
             positive_reasons.append(f"VOL_OK:{vol_bkt}")
             positive_reasons.append(f"ABR_OK:{abr_cat}")
             if stat_status_comp in ("GOOD", "STRONG"):
                 positive_reasons.append(f"STAT_OK:{stat_status_comp}")
             if comp_seq4_strong or comp_seq4_status_value == "GOOD":
                 positive_reasons.append(f"COMP_SEQ4:{comp_seq4_status_value}")
-            if weak_suffix_flag and strong_whitelist_match:
-                positive_reasons.append(f"WEAK_SUFFIX_OK:{full_suffix}_via_whitelist")
 
             if not soft_caps:
                 final_action = "GO"
