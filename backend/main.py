@@ -49,7 +49,6 @@ from ultra_pump_migration import ensure_ultra_pump_tables
 from ultra_pump_routes import router as ultra_pump_router
 from dashboard_routes import router as dashboard_router
 from ultra_scan_migration import ensure_ultra_scan_tables
-from ultra_scan_routes import router as ultra_scan_router
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -117,7 +116,6 @@ app.include_router(chart_obs_router)
 app.include_router(signal_replay_router)
 app.include_router(ultra_pump_router)
 app.include_router(dashboard_router)
-app.include_router(ultra_scan_router)
 
 
 def _normalise_date(idx) -> list[str]:

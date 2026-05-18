@@ -11,15 +11,16 @@ import {
   EmptyState,
   AssistChip,
 } from '../design-system'
-import SignalChip from './SignalChip'
-import TableScrollContainer from './TableScrollContainer'
-import TickerCell from './TickerCell'
 
 function SigBadge({ sig_id, sig_name }) {
   const bull = sig_id >= 1  && sig_id <= 12
   const bear = sig_id >= 13 && sig_id <= 25
   if (!bull && !bear) return null
-  return <SignalChip signal={sig_name} size="sm" />
+  return (
+    <Badge variant={bull ? 'positive' : 'negative'} size="sm">
+      {sig_name}
+    </Badge>
+  )
 }
 
 export default function ScannerPanel({ tf, onSelectTicker }) {
@@ -158,8 +159,7 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
             compact
           />
         ) : (
-          <TableScrollContainer>
-          <table className="w-full text-xs min-w-max">
+          <table className="w-full text-xs">
             <thead>
               <tr className="border-b border-md-outline-var sticky top-0 bg-md-surface-con">
                 <th className="text-left px-3 py-2 text-md-on-surface-var font-medium">Ticker</th>
@@ -176,7 +176,7 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
                   onClick={() => onSelectTicker?.(row.ticker)}
                   className="border-b border-md-outline-var/50 cursor-pointer hover:bg-md-surface-high/50 transition-colors"
                 >
-                  <td className="px-3 py-2 w-[90px] max-w-[110px]"><TickerCell symbol={row.ticker} company={row.company} sector={row.sector} /></td>
+                  <td className="px-3 py-2 font-semibold text-md-on-surface">{row.ticker}</td>
                   <td className="text-center px-2 py-2">
                     <SigBadge sig_id={row.sig_id} sig_name={row.sig_name} />
                   </td>
@@ -197,7 +197,6 @@ export default function ScannerPanel({ tf, onSelectTicker }) {
               ))}
             </tbody>
           </table>
-          </TableScrollContainer>
         )}
       </div>
     </Card>

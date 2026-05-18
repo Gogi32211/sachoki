@@ -17,7 +17,13 @@ from typing import Any, Iterable
 
 # Signal lists exposed on each per-bar row from api_bar_signals (see main.py).
 # These are *string lists* of short labels — not score values.
+# api_bar_signals emits short keys ("l","f","fly",…); legacy "_list"-suffixed
+# names are accepted as fallbacks for any caller that pre-projects them.
 _LIST_FIELDS = (
+    "l", "f", "fly", "g", "b",
+    "combo", "vol", "vabs", "wick", "ultra",
+    "setup", "context",
+    # legacy/compat names
     "l_list", "f_list", "fly_list", "g_list", "b_list",
     "combo_list", "vol_list", "vabs_list", "wick_list", "ultra_list",
 )

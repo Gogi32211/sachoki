@@ -1002,6 +1002,12 @@ def run_ultra_pump_research(run_id: int, payload: dict) -> None:
             "summary": summary,
             "verdict_counts": recs_bundle.get("verdict_counts", {}),
             "top_recommendations": recs_bundle.get("recommendations", [])[:25],
+            "split_impact_stats":  split_impact_rows,
+            "split_partition_counts": {
+                "clean_non_split":    len(partitions["clean_non_split_pumps"]),
+                "split_related":      len(partitions["split_related_pumps"]),
+                "post_reverse_split": len(partitions["post_reverse_split_pumps"]),
+            },
             "warnings": run_warnings,
             "phase": "phase_5_complete",
             "settings": {

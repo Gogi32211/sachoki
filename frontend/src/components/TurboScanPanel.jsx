@@ -1554,7 +1554,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
                             {r.gog_tier}
                           </span>
                         )}
-                        {ctx.slice(0, 2).map(tok => (
+                        {ctx.map(tok => (
                           <span key={tok} className={`text-[9px] px-1 py-0 rounded leading-tight ${ctxTokCls(tok)}`}>
                             {tok}
                           </span>

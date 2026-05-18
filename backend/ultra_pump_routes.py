@@ -545,6 +545,48 @@ def _rebuild_in_background(run_id: int, overrides: dict | None = None) -> None:
         **recs_bundle,
     })
 
+    # Keep research_bundle.json in sync with the rebuilt recommendations so
+    # /research-bundle and /recommendations never disagree after a rebuild.
+    existing_bundle: dict = {}
+    rb_path = rdir / "research_bundle.json"
+    if rb_path.exists():
+        try:
+            existing_bundle = _json.loads(rb_path.read_text(encoding="utf-8"))
+        except Exception:
+            existing_bundle = {}
+    warnings = list(existing_bundle.get("warnings") or [])
+    settings = dict(existing_bundle.get("settings") or {})
+    settings.update({
+        "universe":                       payload.get("universe"),
+        "pump_target":                    payload.get("pump_target"),
+        "pump_horizon":                   pump_horizon,
+        "pre_pump_window_bars":           pre_pump_window,
+        "scanner_detection_window_bars": int(payload.get("scanner_detection_window_bars") or 14),
+        "split_impact_window_days":      split_window,
+        "lookback_bars":                  int(payload.get("lookback_bars") or 500),
+        "start_date":                     payload.get("start_date"),
+        "end_date":                       payload.get("end_date"),
+    })
+    research_bundle = {
+        "run_id":               run_id,
+        "generated_at":         created_at_iso,
+        "derived_settings_hash": derived_hash,
+        "summary":              summary,
+        "verdict_counts":       recs_bundle.get("verdict_counts", {}),
+        "top_recommendations":  recs_bundle.get("recommendations", [])[:25],
+        "split_impact_stats":   split_impact_rows,
+        "split_partition_counts": {
+            "clean_non_split":      len(partitions["clean_non_split_pumps"]),
+            "split_related":        len(partitions["split_related_pumps"]),
+            "post_reverse_split":   len(partitions["post_reverse_split_pumps"]),
+        },
+        "warnings":             warnings,
+        "phase":                "rebuild_complete",
+        "rebuild":              True,
+        "settings":             settings,
+    }
+    _wj(rb_path, research_bundle)
+
 
 @router.post("/{run_id}/rebuild")
 def rebuild_run(run_id: int, background_tasks: BackgroundTasks) -> dict:
