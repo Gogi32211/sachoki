@@ -158,7 +158,7 @@ def _df_to_records(df) -> list[dict]:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.7"}
+    return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.8"}
 
 
 _ticker_info_cache: dict = {}
