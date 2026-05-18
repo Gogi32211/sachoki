@@ -200,6 +200,17 @@ def build_whitelists(stat_path: str, output_dir: str = ".") -> dict:
         ["composite","seq4","count","median_10d","avg_10d","win_rate","fail_rate","status","confidence"],
     )
 
+    # ── Comprehensive (composite, seq4) stats: every observed pair ─────────────
+    # Lookup the normalizer reads to populate statistical_status_composite_seq4
+    # for arbitrary rows. Includes LOW_SAMPLE rows (count < 20) so the
+    # downstream normalizer can distinguish "small sample" from "never seen".
+    cs_all = [r for r in cs_rows if r["count"] >= 1]
+    _write_csv(
+        os.path.join(output_dir, "composite_seq4_stats.csv"),
+        cs_all,
+        ["composite","seq4","count","median_10d","avg_10d","win_rate","fail_rate","status","confidence"],
+    )
+
     # ── Write AIO suffix performance ───────────────────────────────────────────
     base_comps: set[str] = {k[0] for k in aio_rets}
     aio_out = []
@@ -251,6 +262,7 @@ def build_whitelists(stat_path: str, output_dir: str = ".") -> dict:
         "seq4_blacklist":       len([r for r in seq4_rows if r["status"] in ("WEAK", "REJECT")]),
         "composite_seq4_whitelist": len([r for r in cs_rows if r["status"] in ("STRONG", "GOOD")]),
         "composite_seq4_blacklist": len([r for r in cs_rows if r["status"] in ("WEAK", "REJECT")]),
+        "composite_seq4_stats":     len(cs_all),
         "aio_suffix_performance":   len(aio_out),
         "total_composites": len(comp_rows),
         "total_seq4": len(seq4_rows),

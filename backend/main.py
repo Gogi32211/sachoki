@@ -158,7 +158,7 @@ def _df_to_records(df) -> list[dict]:
 
 @app.get("/api/health")
 def health():
-    return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.3"}
+    return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.4"}
 
 
 _ticker_info_cache: dict = {}
@@ -3007,6 +3007,49 @@ def _run_tz_wlnbb_replay(universe: str, tf: str, nasdaq_batch: str = ""):
             rows, output_path=out, universe=universe, tf=tf,
             ticker_count=ticker_count, nasdaq_batch=nasdaq_batch,
         )
+
+        # ── Append whitelist CSVs to the replay ZIP ──────────────────────────
+        # Generate composite/seq4/composite_seq4 whitelists+blacklists from
+        # the same stock_stat CSV, then embed them in the analytics ZIP.
+        # Also writes them to disk so the scanner's composite_seq4 lookup
+        # can find them on next run.
+        try:
+            import tempfile
+            import zipfile
+            from tz_intelligence.whitelist_builder import build_whitelists
+            from tz_intelligence.final_normalizer import reload_comp_seq4_lookup
+
+            with tempfile.TemporaryDirectory() as tmp:
+                wl_result = build_whitelists(stat_path, tmp)
+                wl_files = [
+                    "composite_whitelist.csv", "composite_blacklist.csv",
+                    "seq4_whitelist.csv",      "seq4_blacklist.csv",
+                    "composite_seq4_whitelist.csv",
+                    "composite_seq4_blacklist.csv",
+                    "composite_seq4_stats.csv",
+                    "aio_suffix_performance.csv",
+                ]
+                with zipfile.ZipFile(out, "a", zipfile.ZIP_DEFLATED) as zf:
+                    for name in wl_files:
+                        p = os.path.join(tmp, name)
+                        if os.path.exists(p):
+                            zf.write(p, arcname=name)
+                            # Also persist to disk so scanner can use it
+                            try:
+                                import shutil
+                                shutil.copy(p, name)
+                            except Exception:
+                                pass
+            # Reload the composite_seq4 lookup so subsequent scans see fresh data
+            try:
+                n_loaded = reload_comp_seq4_lookup()
+                log.info("composite_seq4 lookup reloaded: %d entries", n_loaded)
+            except Exception:
+                pass
+            log.info("whitelists embedded in replay ZIP: %s", wl_result)
+        except Exception as wl_exc:
+            log.warning("whitelist embedding skipped (non-fatal): %s", wl_exc)
+
         _tz_replay_state["output"] = out
     except Exception as exc:
         log.exception("tz_wlnbb replay failed")
