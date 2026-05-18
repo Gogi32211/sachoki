@@ -214,6 +214,12 @@ def classify_tz_event(
     vol_bkt = row.get("volume_bucket") or ""
     ne_sfx  = row.get("ne_suffix")     or ""
     wk_sfx  = row.get("wick_suffix")   or ""
+    pen_sfx = row.get("penetration_suffix") or ""
+    cls_sfx = row.get("close_suffix")  or ""
+    try:
+        cls_appended = int(row.get("close_appended") or 0) == 1
+    except (TypeError, ValueError):
+        cls_appended = False
 
     def _fv(key: str) -> float:
         try: return float(row.get(key) or 0)
@@ -659,6 +665,17 @@ def classify_tz_event(
         reason_codes.append(f"WICK:{wk_sfx}")
     if ne_sfx:
         reason_codes.append(f"NE:{ne_sfx}")
+    if pen_sfx:
+        reason_codes.append(f"PEN:{pen_sfx}")
+    if cls_appended and cls_sfx:
+        reason_codes.append(f"CLOSE:{cls_sfx}")
+        # CLOSE:A on a T bar with no reject = bullish body-break confirmation.
+        # CLOSE:O on a Z bar with no good flags = bearish body-break confirmation.
+        # We only emit the flag; scoring matrix can pick it up later if desired.
+        if cls_sfx == "A" and t_sig and not reject_flags:
+            good_flags.append("CLOSE_ABOVE_PREV_BODY")
+        elif cls_sfx == "O" and z_sig and not good_flags:
+            reject_flags.append("CLOSE_BELOW_PREV_BODY")
 
     ema_parts = []
     if above_ema20: ema_parts.append("20✓")
@@ -854,6 +871,8 @@ def classify_tz_event(
         reason_codes=reason_codes, explanation=explanation,
         seq4_str=seq4_str, lane1=lane1, lane3=lane3,
         vol_bkt=vol_bkt, wk_sfx=wk_sfx,
+        ne_sfx=ne_sfx, pen_sfx=pen_sfx,
+        close_sfx=cls_sfx, close_appended=cls_appended,
         above_ema20=above_ema20, above_ema50=above_ema50, above_ema89=above_ema89,
         ema20_reclaim=ema20_reclaim, ema50_reclaim=ema50_reclaim, ema89_reclaim=ema89_reclaim,
         good_flags=good_flags, reject_flags=reject_flags,
@@ -890,6 +909,8 @@ def _build_result(
     role, score, reason_codes, explanation,
     seq4_str="", lane1="", lane3="",
     vol_bkt="", wk_sfx="",
+    ne_sfx="", pen_sfx="",
+    close_sfx="", close_appended=False,
     above_ema20=False, above_ema50=False, above_ema89=False,
     ema20_reclaim=False, ema50_reclaim=False, ema89_reclaim=False,
     good_flags=None, reject_flags=None,
@@ -927,6 +948,11 @@ def _build_result(
         "action":            action,
         "vol_bucket":        vol_bkt,
         "wick_suffix":       wk_sfx,
+        "ne_suffix":         ne_sfx,
+        "penetration_suffix": pen_sfx,
+        "close_suffix":      close_sfx,
+        "close_appended":    bool(close_appended),
+        "full_suffix":       (ne_sfx + wk_sfx + pen_sfx + (close_sfx if close_appended else "")),
         "explanation":       explanation,
         "reason_codes":      reason_codes or [],
         "above_ema20":       above_ema20,

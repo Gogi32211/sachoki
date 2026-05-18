@@ -94,6 +94,8 @@ def _empty_result() -> dict:
         "l_digits": "", "l_signal": "",
         "ne_suffix": "", "wick_suffix": "",
         "penetration_suffix": "",
+        "close_suffix": "", "close_appended": False,
+        "close_above_prev_body": False, "close_below_prev_body": False,
         "wick_penetration_upper": False, "wick_penetration_lower": False, "wick_penetration_both": False,
         "wick_ext_up": False, "wick_ext_down": False, "wick_ext_both": False,
         "prev_body_top": 0.0, "prev_body_bot": 0.0, "prev_high": 0.0, "prev_low": 0.0,

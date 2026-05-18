@@ -55,6 +55,11 @@ def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
         "action":            clf["action"],
         "vol_bucket":        clf["vol_bucket"],
         "wick_suffix":       clf["wick_suffix"],
+        "ne_suffix":         clf.get("ne_suffix", ""),
+        "penetration_suffix": clf.get("penetration_suffix", ""),
+        "close_suffix":      clf.get("close_suffix", ""),
+        "close_appended":    bool(clf.get("close_appended", False)),
+        "full_suffix":       clf.get("full_suffix", ""),
         "reason_codes":      clf["reason_codes"],
         "explanation":       clf["explanation"],
         # EMA
@@ -151,6 +156,8 @@ def _make_error_clf(ticker: str, date: str, error_type: str, error_msg: str = ""
         "role": error_type,   # e.g. "CLASSIFICATION_ERROR" or "DATA_MISSING"
         "score": 0, "quality": "—", "action": "IGNORE",
         "vol_bucket": "", "wick_suffix": "",
+        "ne_suffix": "", "penetration_suffix": "",
+        "close_suffix": "", "close_appended": False, "full_suffix": "",
         "explanation": error_msg,
         "reason_codes": [error_msg] if error_msg else [],
         "above_ema20": False, "above_ema50": False, "above_ema89": False,

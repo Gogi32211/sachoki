@@ -1,6 +1,4 @@
 import { useState, useEffect, useRef } from 'react'
-import SharedSignalChip from './SignalChip'
-import TickerCell from './TickerCell'
 
 const BASE = import.meta.env.VITE_API_URL || ''
 
@@ -122,6 +120,594 @@ function DebugModal({ ticker, date, tf, onClose }) {
   )
 }
 
+function _csvEscape(v) {
+  if (v === null || v === undefined) return ''
+  const s = String(v)
+  return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s
+}
+
+function rowsToCSV(rows, columns) {
+  if (!rows || rows.length === 0) return ''
+  const cols = columns || Object.keys(rows[0])
+  const header = cols.map(_csvEscape).join(',')
+  const body   = rows.map(r => cols.map(c => _csvEscape(r[c])).join(',')).join('\n')
+  return header + '\n' + body
+}
+
+function downloadCSV(filename, rows, columns) {
+  const csv  = rowsToCSV(rows, columns)
+  if (!csv) return
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' })
+  const url  = URL.createObjectURL(blob)
+  const a    = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  URL.revokeObjectURL(url)
+}
+
+function DownloadCSVButton({ rows, columns, filename, label = '⬇ CSV' }) {
+  const disabled = !rows || rows.length === 0
+  return (
+    <button
+      onClick={() => downloadCSV(filename, rows, columns)}
+      disabled={disabled}
+      className={`px-2 py-1 text-xs font-medium rounded transition-colors
+        ${disabled
+          ? 'bg-md-surface-high text-md-on-surface-var/40 cursor-not-allowed'
+          : 'bg-blue-700 hover:bg-blue-600 text-white'}`}
+      title={disabled ? 'Load data first' : `Download ${rows.length} rows as CSV`}
+    >
+      {label}{rows && rows.length > 0 ? ` (${rows.length})` : ''}
+    </button>
+  )
+}
+
+function SuffixStatsView({
+  horizon, setHorizon, minCount, setMinCount, base, setBase,
+  rows, baseRows, loading, error, onLoad, sort, toggleSort,
+}) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children, num = true }) => (
+    <th
+      onClick={() => toggleSort(col)}
+      className={`px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white
+        ${num ? 'text-right' : 'text-left'}`}
+    >
+      {children}
+      {sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  const fmt = (v, suf = '') => v === null || v === undefined ? '—' : `${v}${suf}`
+  const cls = v => v > 0 ? 'text-green-400' : v < 0 ? 'text-red-400' : 'text-md-on-surface-var'
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Base signal (optional)</label>
+          <input type="text" value={base} onChange={e => setBase(e.target.value.trim().toUpperCase())}
+            placeholder="e.g. T4, Z6, L34, P55"
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-36" />
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Min count</label>
+          <input type="number" value={minCount} min={1}
+            onChange={e => setMinCount(Math.max(1, Number(e.target.value) || 1))}
+            className="bg-md-surface-high text-md-on-surface text-xs px-2 py-1 rounded border border-md-outline-var w-20" />
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors">
+          {loading ? 'Loading…' : 'Load suffix stats'}
+        </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['base_signal', 'suffix_label', 'ne_suffix', 'wick_suffix', 'penetration_suffix', 'close_suffix',
+                    'count', 'win_rate', 'win_rate_lift',
+                    'avg_ret', 'avg_ret_lift', 'median_ret', 'p25_ret', 'p75_ret',
+                    'base_count', 'base_win_rate', 'base_avg_ret']}
+          filename={`tz_wlnbb_suffix_${horizon}.csv`}
+          label="⬇ Suffix CSV"
+        />
+        <DownloadCSVButton
+          rows={baseRows}
+          columns={['base_signal', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_base_totals_${horizon}.csv`}
+          label="⬇ Base totals CSV"
+        />
+        <div className="text-xs text-md-on-surface-var">
+          Aggregates each <span className="font-mono">(base, E/N, U/D/B, H/P/R)</span> slice and shows
+          win-rate / avg-return vs the base signal baseline.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {baseRows.length > 0 && (
+        <div className="overflow-x-auto">
+          <div className="text-xs font-semibold text-md-on-surface mb-1">Base-signal totals ({horizon})</div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th className="px-2 py-1 text-md-on-surface-var text-left">Base</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Win%</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Avg</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">Median</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">P25</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">P75</th>
+              </tr>
+            </thead>
+            <tbody>
+              {baseRows.map(r => (
+                <tr key={r.base_signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.base_signal}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret)}`}>{r.avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.median_ret)}`}>{r.median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var">{r.p25_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var">{r.p75_ret}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <div className="text-xs font-semibold text-md-on-surface mb-1">
+            Suffix slices ({sorted.length}) — sorted by {sort.col} {sort.dir}
+          </div>
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <H col="base_signal" num={false}>Base</H>
+                <H col="suffix_label" num={false}>Suffix</H>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">E/N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">U/D/B</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">H/P/R</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-left">A/O/I</th>
+                <H col="count">N</H>
+                <H col="win_rate">Win%</H>
+                <H col="win_rate_lift">±vs base</H>
+                <H col="avg_ret">Avg</H>
+                <H col="avg_ret_lift">±vs base</H>
+                <H col="median_ret">Median</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr key={i} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.base_signal}</td>
+                  <td className="px-2 py-0.5 font-mono text-md-on-surface-var">{r.suffix_label}</td>
+                  <td className="px-2 py-0.5">{r.ne_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.wick_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.penetration_suffix || '—'}</td>
+                  <td className="px-2 py-0.5">{r.close_suffix || '—'}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.win_rate_lift)}`}>
+                    {r.win_rate_lift > 0 ? '+' : ''}{r.win_rate_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret)}`}>{fmt(r.avg_ret, '%')}</td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.avg_ret_lift)}`}>
+                    {r.avg_ret_lift > 0 ? '+' : ''}{r.avg_ret_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cls(r.median_ret)}`}>{fmt(r.median_ret, '%')}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          No stats loaded. Make sure stock_stat CSV exists (run "Generate Stock Stat") and click "Load suffix stats".
+        </div>
+      )}
+    </div>
+  )
+}
+
+function famColor(fam) {
+  return fam === 'T'     ? 'bg-blue-900/40 text-blue-200'
+       : fam === 'Z'     ? 'bg-red-900/40 text-red-200'
+       : fam === 'L'     ? 'bg-yellow-900/40 text-yellow-200'
+       : fam === 'PREUP' ? 'bg-emerald-900/40 text-emerald-200'
+       : fam === 'PREDN' ? 'bg-orange-900/40 text-orange-200'
+       :                   'bg-md-surface-high text-md-on-surface-var'
+}
+
+function cellTint(v) {
+  if (v === null || v === undefined) return ''
+  if (v >  2) return 'bg-green-900/60 text-green-200'
+  if (v >  0.5) return 'bg-green-900/30 text-green-300'
+  if (v < -2) return 'bg-red-900/60 text-red-200'
+  if (v < -0.5) return 'bg-red-900/30 text-red-300'
+  return 'text-md-on-surface-var'
+}
+
+function LeaderboardView({ rows, loaded, loading, error, onLoad, sort, toggleSort }) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children }) => (
+    <th onClick={() => toggleSort(col)}
+      className="px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white text-right whitespace-nowrap">
+      {children}{sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load leaderboard'}
+        </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['signal', 'family', 'count',
+                    'ret_1d_win_rate', 'ret_1d_avg_ret', 'ret_1d_median_ret',
+                    'ret_3d_win_rate', 'ret_3d_avg_ret', 'ret_3d_median_ret',
+                    'ret_5d_win_rate', 'ret_5d_avg_ret', 'ret_5d_median_ret',
+                    'ret_10d_win_rate', 'ret_10d_avg_ret', 'ret_10d_median_ret',
+                    'clean_win_5d_pct', 'big_win_10d_pct', 'fail_5d_pct', 'fail_10d_pct']}
+          filename="tz_wlnbb_leaderboard.csv"
+          label="⬇ Leaderboard CSV"
+        />
+        <div className="text-xs text-md-on-surface-var">
+          Per-signal totals across all 4 horizons (1d/3d/5d/10d) plus clean-win / big-win / fail outcome rates.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th onClick={() => toggleSort('signal')}
+                  className="px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white text-left">
+                  Signal{sort.col === 'signal' ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+                </th>
+                <H col="count">N</H>
+                <H col="ret_1d_win_rate">1d W%</H>
+                <H col="ret_1d_avg_ret">1d Avg</H>
+                <H col="ret_3d_win_rate">3d W%</H>
+                <H col="ret_3d_avg_ret">3d Avg</H>
+                <H col="ret_5d_win_rate">5d W%</H>
+                <H col="ret_5d_avg_ret">5d Avg</H>
+                <H col="ret_5d_median_ret">5d Med</H>
+                <H col="ret_10d_win_rate">10d W%</H>
+                <H col="ret_10d_avg_ret">10d Avg</H>
+                <H col="clean_win_5d_pct">Clean5d</H>
+                <H col="big_win_10d_pct">Big10d</H>
+                <H col="fail_5d_pct">Fail5d</H>
+                <H col="fail_10d_pct">Fail10d</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map(r => (
+                <tr key={r.signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5">
+                    <span className={`font-mono px-1.5 py-0.5 rounded ${famColor(r.family)}`}>{r.signal}</span>
+                  </td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_1d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_1d_avg_ret)}`}>{r.ret_1d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_3d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_3d_avg_ret)}`}>{r.ret_3d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_5d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_5d_avg_ret)}`}>{r.ret_5d_avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_5d_median_ret)}`}>{r.ret_5d_median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right">{r.ret_10d_win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.ret_10d_avg_ret)}`}>{r.ret_10d_avg_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-green-300">{r.clean_win_5d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-green-300">{r.big_win_10d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-red-300">{r.fail_5d_pct}%</td>
+                  <td className="px-2 py-0.5 text-right text-red-300">{r.fail_10d_pct}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          {loaded
+            ? 'No signals met the min_count threshold for this universe / timeframe.'
+            : 'Nothing loaded yet. Click "Load leaderboard".'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function BucketMatrixView({ horizon, setHorizon, data, loaded, loading, error, onLoad }) {
+  const buckets  = data?.buckets       || ['W', 'L', 'N', 'B', 'VB']
+  const cells    = data?.cells         || []
+  const sigTot   = data?.signal_totals || []
+  const bktTot   = data?.bucket_totals || []
+  // Index cells by signal → bucket
+  const idx = {}
+  for (const c of cells) {
+    if (!idx[c.signal]) idx[c.signal] = {}
+    idx[c.signal][c.volume_bucket] = c
+  }
+  const sigList = sigTot.map(s => s.signal)
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load matrix'}
+        </button>
+        <DownloadCSVButton
+          rows={cells}
+          columns={['signal', 'volume_bucket', 'count',
+                    'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_bucket_matrix_${horizon}_long.csv`}
+          label="⬇ Long CSV"
+        />
+        <DownloadCSVButton
+          rows={(() => {
+            // Wide format: one row per signal with columns for each bucket
+            if (!sigList.length) return []
+            return sigTot.map(s => {
+              const out = { signal: s.signal, total_count: s.count, total_avg_ret: s.avg_ret }
+              for (const b of buckets) {
+                const c = idx[s.signal]?.[b]
+                out[`${b}_count`]   = c ? c.count   : ''
+                out[`${b}_win`]     = c ? c.win_rate: ''
+                out[`${b}_avg`]     = c ? c.avg_ret : ''
+                out[`${b}_median`]  = c ? c.median_ret : ''
+              }
+              return out
+            })
+          })()}
+          filename={`tz_wlnbb_bucket_matrix_${horizon}_wide.csv`}
+          label="⬇ Wide CSV"
+        />
+        <DownloadCSVButton
+          rows={bktTot}
+          columns={['volume_bucket', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_bucket_totals_${horizon}.csv`}
+          label="⬇ Bucket totals CSV"
+        />
+        <div className="text-xs text-md-on-surface-var">
+          Crosstab: each cell shows N · win% · avg return at the chosen horizon. Empty cells mean below min count.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sigList.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <th className="px-2 py-1 text-md-on-surface-var text-left">Signal</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">All N</th>
+                <th className="px-2 py-1 text-md-on-surface-var text-right">All Avg</th>
+                {buckets.map(b => (
+                  <th key={b} className="px-2 py-1 text-md-on-surface-var text-center" colSpan={2}>{b}</th>
+                ))}
+              </tr>
+              <tr className="bg-md-surface-con border-b border-md-outline-var text-md-on-surface-var/60">
+                <th /><th /><th />
+                {buckets.flatMap(b => [
+                  <th key={`${b}-n`}   className="px-1 py-0.5 text-right text-[10px]">N</th>,
+                  <th key={`${b}-avg`} className="px-1 py-0.5 text-right text-[10px]">Avg</th>,
+                ])}
+              </tr>
+            </thead>
+            <tbody>
+              {sigTot.map(s => (
+                <tr key={s.signal} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{s.signal}</td>
+                  <td className="px-2 py-0.5 text-right">{s.count}</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(s.avg_ret)}`}>{s.avg_ret}%</td>
+                  {buckets.flatMap(b => {
+                    const c = idx[s.signal]?.[b]
+                    return [
+                      <td key={`${b}-n`} className="px-1 py-0.5 text-right text-md-on-surface-var/70">
+                        {c ? c.count : '—'}
+                      </td>,
+                      <td key={`${b}-avg`} className={`px-1 py-0.5 text-right ${c ? cellTint(c.avg_ret) : ''}`}>
+                        {c ? `${c.avg_ret}%` : '—'}
+                      </td>,
+                    ]
+                  })}
+                </tr>
+              ))}
+              {bktTot.length > 0 && (
+                <tr className="border-t-2 border-md-outline-var bg-md-surface-con">
+                  <td className="px-2 py-1 font-semibold">All signals</td>
+                  <td /><td />
+                  {buckets.map(b => {
+                    const c = bktTot.find(x => x.volume_bucket === b)
+                    return (
+                      <td key={b} colSpan={2} className={`px-2 py-1 text-right font-semibold ${c ? cellTint(c.avg_ret) : ''}`}>
+                        {c ? `${c.count} · ${c.avg_ret}%` : '—'}
+                      </td>
+                    )
+                  })}
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          {loaded
+            ? 'No (signal × bucket) cell met the min_count threshold for this horizon.'
+            : 'Nothing loaded yet. Click "Load matrix".'}
+        </div>
+      )}
+    </div>
+  )
+}
+
+function SequenceStatsView({
+  horizon, setHorizon, prevWindow, setPrevWindow,
+  rows, baseRows, loaded, loading, error, onLoad, sort, toggleSort,
+}) {
+  const sorted = [...rows].sort((a, b) => {
+    const dir = sort.dir === 'asc' ? 1 : -1
+    const av = a[sort.col], bv = b[sort.col]
+    if (typeof av === 'number' && typeof bv === 'number') return (av - bv) * dir
+    return String(av || '').localeCompare(String(bv || '')) * dir
+  })
+
+  const H = ({ col, children, num = true }) => (
+    <th onClick={() => toggleSort(col)}
+      className={`px-2 py-1 text-md-on-surface-var font-semibold cursor-pointer hover:text-white
+        ${num ? 'text-right' : 'text-left'} whitespace-nowrap`}>
+      {children}{sort.col === col ? (sort.dir === 'desc' ? ' ▼' : ' ▲') : ''}
+    </th>
+  )
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="flex flex-wrap gap-2 items-end p-2 bg-md-surface-con border border-md-outline-var rounded">
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Horizon</label>
+          <div className="flex gap-1">
+            {['1d', '3d', '5d', '10d'].map(h => (
+              <button key={h} onClick={() => setHorizon(h)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${horizon === h ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {h}
+              </button>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-1">
+          <label className="text-xs text-md-on-surface-var">Prev window (bars)</label>
+          <div className="flex gap-1">
+            {[1, 3, 5].map(w => (
+              <button key={w} onClick={() => setPrevWindow(w)}
+                className={`text-xs px-2 py-1 rounded transition-colors
+                  ${prevWindow === w ? 'bg-blue-600 text-white font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {w}
+              </button>
+            ))}
+          </div>
+        </div>
+        <button onClick={onLoad} disabled={loading}
+          className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded">
+          {loading ? 'Loading…' : 'Load sequence stats'}
+        </button>
+        <DownloadCSVButton
+          rows={sorted}
+          columns={['prev_signal', 'current_signal', 'count',
+                    'win_rate', 'win_rate_lift', 'avg_ret', 'avg_ret_lift',
+                    'median_ret', 'p25_ret', 'p75_ret',
+                    'base_count', 'base_win_rate', 'base_avg_ret']}
+          filename={`tz_wlnbb_sequence_${horizon}_prev${prevWindow}.csv`}
+          label="⬇ Pairs CSV"
+        />
+        <DownloadCSVButton
+          rows={baseRows}
+          columns={['current_signal', 'count', 'win_rate', 'avg_ret', 'median_ret', 'p25_ret', 'p75_ret']}
+          filename={`tz_wlnbb_sequence_baseline_${horizon}.csv`}
+          label="⬇ Baseline CSV"
+        />
+        <div className="text-xs text-md-on-surface-var">
+          For each <span className="font-mono">prev → current</span> pair, shows count, win-rate and avg
+          forward return, plus lift vs the current signal's own baseline.
+        </div>
+      </div>
+
+      {error && <div className="text-xs text-red-400">{error}</div>}
+
+      {sorted.length > 0 ? (
+        <div className="overflow-x-auto">
+          <table className="w-full text-xs border-collapse">
+            <thead>
+              <tr className="bg-md-surface-con border-b border-md-outline-var">
+                <H col="prev_signal"    num={false}>Prev</H>
+                <H col="current_signal" num={false}>→ Curr</H>
+                <H col="count">N</H>
+                <H col="win_rate">Win%</H>
+                <H col="win_rate_lift">±vs base</H>
+                <H col="avg_ret">Avg</H>
+                <H col="avg_ret_lift">±vs base</H>
+                <H col="median_ret">Median</H>
+                <H col="base_count">Base N</H>
+                <H col="base_avg_ret">Base Avg</H>
+              </tr>
+            </thead>
+            <tbody>
+              {sorted.map((r, i) => (
+                <tr key={i} className="border-b border-md-outline-var/30 hover:bg-md-surface-high">
+                  <td className="px-2 py-0.5 font-mono">{r.prev_signal}</td>
+                  <td className="px-2 py-0.5 font-mono">{r.current_signal}</td>
+                  <td className="px-2 py-0.5 text-right">{r.count}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win_rate}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.win_rate_lift)}`}>
+                    {r.win_rate_lift > 0 ? '+' : ''}{r.win_rate_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.avg_ret)}`}>{r.avg_ret}%</td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.avg_ret_lift)}`}>
+                    {r.avg_ret_lift > 0 ? '+' : ''}{r.avg_ret_lift}pp
+                  </td>
+                  <td className={`px-2 py-0.5 text-right ${cellTint(r.median_ret)}`}>{r.median_ret}%</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var/70">{r.base_count}</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var/70">{r.base_avg_ret}%</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      ) : !loading && (
+        <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
+          {loaded
+            ? 'No prev→current pair met the min_count threshold. Try lowering min_count or widening prev window.'
+            : 'Nothing loaded yet. Click "Load sequence stats".'}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function TZWLNBBPanel() {
   const [universe, setUniverse]         = useState('sp500')
   const [nasdaqBatch, setNasdaqBatch]   = useState('a_m')
@@ -137,6 +723,39 @@ export default function TZWLNBBPanel() {
   const [results, setResults]   = useState([])
   const [loading, setLoading]   = useState(false)
   const [error, setError]       = useState(null)
+
+  // Sub-tab: 'scan' (existing) | 'stats' (new)
+  const [activeTab, setActiveTab] = useState('scan')
+  // Statistics inner-tab
+  const [statsView, setStatsView] = useState('suffix')   // 'suffix'|'leaderboard'|'matrix'|'sequence'
+  // Suffix-stats state
+  const [statsHorizon,  setStatsHorizon]  = useState('5d')
+  const [statsMinCount, setStatsMinCount] = useState(5)
+  const [statsBase,     setStatsBase]     = useState('')
+  const [statsRows,     setStatsRows]     = useState([])
+  const [statsBaseRows, setStatsBaseRows] = useState([])
+  const [statsLoading,  setStatsLoading]  = useState(false)
+  const [statsError,    setStatsError]    = useState(null)
+  const [statsSort,     setStatsSort]     = useState({ col: 'count', dir: 'desc' })
+  // Leaderboard state
+  const [lbRows,    setLbRows]    = useState([])
+  const [lbLoaded,  setLbLoaded]  = useState(false)
+  const [lbLoading, setLbLoading] = useState(false)
+  const [lbError,   setLbError]   = useState(null)
+  const [lbSort,    setLbSort]    = useState({ col: 'count', dir: 'desc' })
+  // Bucket-matrix state
+  const [mxData,    setMxData]    = useState(null)
+  const [mxLoaded,  setMxLoaded]  = useState(false)
+  const [mxLoading, setMxLoading] = useState(false)
+  const [mxError,   setMxError]   = useState(null)
+  // Sequence state
+  const [seqWindow,  setSeqWindow]  = useState(1)        // 1 | 3 | 5
+  const [seqRows,    setSeqRows]    = useState([])
+  const [seqBase,    setSeqBase]    = useState([])
+  const [seqLoaded,  setSeqLoaded]  = useState(false)
+  const [seqLoading, setSeqLoading] = useState(false)
+  const [seqError,   setSeqError]   = useState(null)
+  const [seqSort,    setSeqSort]    = useState({ col: 'count', dir: 'desc' })
   const [genStatus, setGenStatus]               = useState(null)
   const [genError, setGenError]                 = useState(null)
   const [splitAudit, setSplitAudit]             = useState(null)
@@ -247,6 +866,92 @@ export default function TZWLNBBPanel() {
     }
   }
 
+  async function handleLoadStats() {
+    setStatsLoading(true)
+    setStatsError(null)
+    try {
+      const qs = new URLSearchParams({
+        universe, tf,
+        signal_type:    signalType,
+        return_horizon: statsHorizon,
+        min_count:      statsMinCount,
+      })
+      if (universe === 'nasdaq')                       qs.set('nasdaq_batch', nasdaqBatch)
+      if (universe === 'nasdaq_gt5' && gt5Batch)       qs.set('nasdaq_batch', gt5Batch)
+      if (statsBase) qs.set('base_signal', statsBase)
+      const data = await apiGet(`/api/tz-wlnbb/stats/suffix?${qs}`)
+      if (data.error) setStatsError(data.error)
+      setStatsRows(data.slices || [])
+      setStatsBaseRows(data.base_totals || [])
+    } catch (e) {
+      setStatsError(e.message)
+    } finally {
+      setStatsLoading(false)
+    }
+  }
+
+  function toggleStatsSort(col) {
+    setStatsSort(prev =>
+      prev.col === col
+        ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+        : { col, dir: 'desc' }
+    )
+  }
+
+  function _qsCommon() {
+    const qs = new URLSearchParams({ universe, tf, signal_type: signalType, min_count: statsMinCount })
+    if (universe === 'nasdaq')                 qs.set('nasdaq_batch', nasdaqBatch)
+    if (universe === 'nasdaq_gt5' && gt5Batch) qs.set('nasdaq_batch', gt5Batch)
+    return qs
+  }
+
+  async function handleLoadLeaderboard() {
+    setLbLoading(true); setLbError(null)
+    try {
+      const qs = _qsCommon()
+      const data = await apiGet(`/api/tz-wlnbb/stats/leaderboard?${qs}`)
+      if (data.error) setLbError(data.error)
+      setLbRows(data.rows || [])
+      setLbLoaded(true)
+    } catch (e) { setLbError(e.message) } finally { setLbLoading(false) }
+  }
+  function toggleLbSort(col) {
+    setLbSort(prev => prev.col === col
+      ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+      : { col, dir: 'desc' })
+  }
+
+  async function handleLoadMatrix() {
+    setMxLoading(true); setMxError(null)
+    try {
+      const qs = _qsCommon()
+      qs.set('return_horizon', statsHorizon)
+      const data = await apiGet(`/api/tz-wlnbb/stats/bucket-matrix?${qs}`)
+      if (data.error) setMxError(data.error)
+      setMxData(data)
+      setMxLoaded(true)
+    } catch (e) { setMxError(e.message) } finally { setMxLoading(false) }
+  }
+
+  async function handleLoadSequence() {
+    setSeqLoading(true); setSeqError(null)
+    try {
+      const qs = _qsCommon()
+      qs.set('return_horizon', statsHorizon)
+      qs.set('prev_window', seqWindow)
+      const data = await apiGet(`/api/tz-wlnbb/stats/sequence?${qs}`)
+      if (data.error) setSeqError(data.error)
+      setSeqRows(data.pairs || [])
+      setSeqBase(data.current_baseline || [])
+      setSeqLoaded(true)
+    } catch (e) { setSeqError(e.message) } finally { setSeqLoading(false) }
+  }
+  function toggleSeqSort(col) {
+    setSeqSort(prev => prev.col === col
+      ? { col, dir: prev.dir === 'desc' ? 'asc' : 'desc' }
+      : { col, dir: 'desc' })
+  }
+
   // ── Replay polling ────────────────────────────────────────────────────────
   useEffect(() => {
     apiGet('/api/tz-wlnbb/replay/status').then(s => setReplayState(s)).catch(() => {})
@@ -287,6 +992,25 @@ export default function TZWLNBBPanel() {
       <div className="flex items-center gap-2">
         <span className="text-lg font-bold text-white">📡 TZ/WLNBB Analyzer</span>
         <span className="text-xs text-md-on-surface-var">Pine Script conversion — candlestick + volume analysis</span>
+      </div>
+
+      {/* ── Tab switcher ──────────────────────────────────────────────────── */}
+      <div className="flex gap-1 border-b border-md-outline-var">
+        {[
+          { key: 'scan',  label: 'Scan'  },
+          { key: 'stats', label: 'Statistics' },
+        ].map(t => (
+          <button
+            key={t.key}
+            onClick={() => setActiveTab(t.key)}
+            className={`text-xs px-3 py-1.5 rounded-t transition-colors border-b-2
+              ${activeTab === t.key
+                ? 'border-blue-500 text-white font-semibold bg-md-surface-high'
+                : 'border-transparent text-md-on-surface-var hover:text-white'}`}
+          >
+            {t.label}
+          </button>
+        ))}
       </div>
 
       {/* ── Controls ──────────────────────────────────────────────────────── */}
@@ -593,14 +1317,14 @@ export default function TZWLNBBPanel() {
       )}
 
       {/* ── Results count ────────────────────────────────────────────────── */}
-      {results.length > 0 && (
+      {activeTab === 'scan' && results.length > 0 && (
         <div className="text-xs text-md-on-surface-var">
           {results.length} result{results.length !== 1 ? 's' : ''}
         </div>
       )}
 
       {/* ── Results table ────────────────────────────────────────────────── */}
-      {results.length > 0 && (
+      {activeTab === 'scan' && results.length > 0 && (
         <div className="overflow-x-auto">
           <table className="w-full text-xs border-collapse">
             <thead>
@@ -617,6 +1341,8 @@ export default function TZWLNBBPanel() {
                 <th className="text-left p-1 font-medium">Lane 3</th>
                 <th className="text-left p-1 font-medium">NE</th>
                 <th className="text-left p-1 font-medium">Wk</th>
+                <th className="text-left p-1 font-medium">Pen</th>
+                <th className="text-left p-1 font-medium">Cls</th>
                 <th className="text-left p-1 font-medium">Vol</th>
                 <th className="text-center p-1 font-medium">Debug</th>
               </tr>
@@ -635,7 +1361,7 @@ export default function TZWLNBBPanel() {
                     className={`border-b border-md-outline-var/50 hover:bg-md-surface-con/50 transition-colors
                       ${hasAny ? '' : 'opacity-60'}`}
                   >
-                    <td className="p-1 w-[90px] max-w-[110px]"><TickerCell symbol={row.ticker} /></td>
+                    <td className="p-1 font-semibold text-white">{row.ticker}</td>
                     <td className="p-1 text-md-on-surface-var">{row.date}</td>
                     <td className="p-1 text-right text-md-on-surface">
                       {row.close ? Number(row.close).toFixed(2) : '—'}
@@ -650,21 +1376,23 @@ export default function TZWLNBBPanel() {
                         : '—'}
                     </td>
                     <td className="p-1">
-                      {tSig ? <SharedSignalChip signal={tSig} size="sm" /> : null}
+                      {tSig ? <Badge text={tSig} color={tBadgeColor(tSig)} /> : null}
                     </td>
                     <td className="p-1">
-                      {zSig ? <SharedSignalChip signal={zSig} size="sm" /> : null}
+                      {zSig ? <Badge text={zSig} color={zBadgeColor(zSig)} /> : null}
                     </td>
                     <td className="p-1">
-                      {lSig ? <SharedSignalChip signal={lSig} size="sm" /> : null}
+                      {lSig ? <Badge text={lSig} color={lBadgeColor()} /> : null}
                     </td>
                     <td className="p-1">
-                      {preSig ? <SharedSignalChip signal={preSig} size="sm" /> : null}
+                      {preSig ? <Badge text={preSig} color={preBadgeColor(preSig)} /> : null}
                     </td>
                     <td className="p-1 text-blue-300 font-mono">{row.lane1_label || ''}</td>
                     <td className="p-1 text-red-300 font-mono">{row.lane3_label || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.ne_suffix || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.wick_suffix || ''}</td>
+                    <td className="p-1 text-md-on-surface-var">{row.penetration_suffix || ''}</td>
+                    <td className="p-1 text-md-on-surface-var">{row.close_appended ? (row.close_suffix || '') : ''}</td>
                     <td className="p-1 text-md-on-surface-var">
                       <span className={`px-1 rounded text-xs
                         ${row.volume_bucket === 'VB' ? 'text-red-300' :
@@ -693,9 +1421,69 @@ export default function TZWLNBBPanel() {
         </div>
       )}
 
-      {!loading && !error && results.length === 0 && (
+      {activeTab === 'scan' && !loading && !error && results.length === 0 && (
         <div className="text-md-on-surface-var/70 text-xs py-4 text-center">
           No results. Run "Generate Stock Stat" first, then click "Scan".
+        </div>
+      )}
+
+      {/* ── Statistics tab ────────────────────────────────────────────────── */}
+      {activeTab === 'stats' && (
+        <div className="flex flex-col gap-3">
+          <div className="flex gap-1 flex-wrap">
+            {[
+              { key: 'suffix',      label: 'Suffix' },
+              { key: 'leaderboard', label: 'Leaderboard' },
+              { key: 'matrix',      label: 'Bucket × Signal' },
+              { key: 'sequence',    label: 'Sequence' },
+            ].map(t => (
+              <button key={t.key} onClick={() => setStatsView(t.key)}
+                className={`text-xs px-2.5 py-1 rounded transition-colors
+                  ${statsView === t.key
+                    ? 'bg-emerald-700 text-white font-semibold'
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                {t.label}
+              </button>
+            ))}
+          </div>
+
+          {statsView === 'suffix' && (
+            <SuffixStatsView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              minCount={statsMinCount} setMinCount={setStatsMinCount}
+              base={statsBase} setBase={setStatsBase}
+              rows={statsRows} baseRows={statsBaseRows}
+              loading={statsLoading} error={statsError}
+              onLoad={handleLoadStats}
+              sort={statsSort} toggleSort={toggleStatsSort}
+            />
+          )}
+          {statsView === 'leaderboard' && (
+            <LeaderboardView
+              rows={lbRows} loaded={lbLoaded}
+              loading={lbLoading} error={lbError}
+              onLoad={handleLoadLeaderboard}
+              sort={lbSort} toggleSort={toggleLbSort}
+            />
+          )}
+          {statsView === 'matrix' && (
+            <BucketMatrixView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              data={mxData} loaded={mxLoaded}
+              loading={mxLoading} error={mxError}
+              onLoad={handleLoadMatrix}
+            />
+          )}
+          {statsView === 'sequence' && (
+            <SequenceStatsView
+              horizon={statsHorizon} setHorizon={setStatsHorizon}
+              prevWindow={seqWindow} setPrevWindow={setSeqWindow}
+              rows={seqRows} baseRows={seqBase} loaded={seqLoaded}
+              loading={seqLoading} error={seqError}
+              onLoad={handleLoadSequence}
+              sort={seqSort} toggleSort={toggleSeqSort}
+            />
+          )}
         </div>
       )}
 

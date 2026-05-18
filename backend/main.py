@@ -1722,12 +1722,20 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         })
 
         # Track ultra_score for next bar's DECAY MEMORY BONUS (rolling_score_max_5d).
+        # Also expose ultra_score / ultra_score_band on the per-bar dict so
+        # downstream consumers (ULTRA Pump Research, stock_stat, replays) can
+        # read the historical ULTRA scoring directly without recomputing.
         try:
             _us = _compute_ultra_score(result[-1])
-            _ultra_score_history.append(float(_us.get("ultra_score", 0) or 0))
+            _us_val = float(_us.get("ultra_score", 0) or 0)
+            result[-1]["ultra_score"]      = _us_val
+            result[-1]["ultra_score_band"] = _us.get("ultra_score_band", "")
+            _ultra_score_history.append(_us_val)
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
         except Exception:
+            result[-1].setdefault("ultra_score", 0.0)
+            result[-1].setdefault("ultra_score_band", "")
             _ultra_score_history.append(0.0)
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
@@ -2331,6 +2339,424 @@ def api_tz_wlnbb_scan(
     except Exception as exc:
         log.exception("tz-wlnbb scan error")
         raise HTTPException(status_code=500, detail=str(exc))
+
+
+@app.get("/api/tz-wlnbb/stats/suffix")
+def api_tz_wlnbb_stats_suffix(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    signal_type: str = "all",     # all | T | Z | L | PREUP | PREDN
+    base_signal: str = "",         # optional exact base (e.g. "T4", "Z6", "L34", "P55")
+    min_count: int = 5,            # drop slices with fewer than N rows
+    return_horizon: str = "5d",    # 1d | 3d | 5d | 10d  (drives win/avg/median)
+):
+    """Suffix-breakdown statistics for TZ/WLNBB signals.
+
+    Aggregates each (base_signal, ne_suffix, wick_suffix, penetration_suffix)
+    combination across the saved stock_stat CSV and returns count, win rate,
+    avg / median forward return, and the marginal vs the base. The exact
+    suffix vocabulary mirrors the Pine script:
+        ne_suffix:          E (new-extreme close) | N (none)
+        wick_suffix:        U (wick up) | D (wick down) | B (both) | "" (none)
+        penetration_suffix: H (both) | P (upper) | R (lower) | "" (none)
+    """
+    import csv as _csv
+    import statistics as _stat
+
+    horizon_col = {
+        "1d":  "ret_1d",
+        "3d":  "ret_3d",
+        "5d":  "ret_5d",
+        "10d": "ret_10d",
+    }.get(return_horizon, "ret_5d")
+
+    stat_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+    if not os.path.exists(stat_path):
+        return {"slices": [], "base_totals": [], "error":
+                "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    # Map signal_type → list of base-signal column names to pull from
+    type_cols = {
+        "T":     ["t_signal"],
+        "Z":     ["z_signal"],
+        "L":     ["l_signal"],
+        "PREUP": ["preup_signal"],
+        "PREDN": ["predn_signal"],
+    }
+    if signal_type in type_cols:
+        cols_to_scan = type_cols[signal_type]
+    else:
+        cols_to_scan = ["t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal"]
+
+    # slices[(base, ne, wick, pen)] = list[float] of returns
+    slices: dict[tuple, list[float]] = {}
+    base_totals: dict[str, list[float]] = {}
+
+    with open(stat_path, newline="", encoding="utf-8") as f:
+        reader = _csv.DictReader(f)
+        for row in reader:
+            if row.get("universe", "") != universe:
+                continue
+            ret_raw = row.get(horizon_col, "")
+            if ret_raw in ("", None):
+                continue
+            try:
+                ret = float(ret_raw)
+            except (TypeError, ValueError):
+                continue
+            ne   = (row.get("ne_suffix")          or "").strip()
+            wick = (row.get("wick_suffix")        or "").strip()
+            pen  = (row.get("penetration_suffix") or "").strip()
+            cls_ = (row.get("close_suffix")       or "").strip()
+            try:
+                cls_appended = int(row.get("close_appended") or 0) == 1
+            except (TypeError, ValueError):
+                cls_appended = False
+            # Use the close suffix only when the bar actually appends it; otherwise
+            # collapse to empty so the slice keys mirror the visible label.
+            cls_eff = cls_ if cls_appended else ""
+            for col in cols_to_scan:
+                base = (row.get(col) or "").strip()
+                if not base:
+                    continue
+                if base_signal and base != base_signal:
+                    continue
+                slices.setdefault((base, ne, wick, pen, cls_eff), []).append(ret)
+                base_totals.setdefault(base, []).append(ret)
+
+    def _summarize(returns: list[float]) -> dict:
+        n = len(returns)
+        if not n:
+            return {"count": 0, "win_rate": 0.0, "avg_ret": 0.0,
+                    "median_ret": 0.0, "p25_ret": 0.0, "p75_ret": 0.0}
+        wins = sum(1 for r in returns if r > 0)
+        s = sorted(returns)
+        return {
+            "count":      n,
+            "win_rate":   round(wins / n * 100, 2),
+            "avg_ret":    round(sum(returns) / n, 3),
+            "median_ret": round(_stat.median(returns), 3),
+            "p25_ret":    round(s[max(0, n // 4 - 1)],          3),
+            "p75_ret":    round(s[min(n - 1, (3 * n) // 4)],    3),
+        }
+
+    base_summary = {b: _summarize(rets) for b, rets in base_totals.items()}
+
+    slices_out: list[dict] = []
+    for (base, ne, wick, pen, cls_), rets in slices.items():
+        if len(rets) < min_count:
+            continue
+        s = _summarize(rets)
+        bs = base_summary.get(base) or {}
+        s["base_signal"]         = base
+        s["ne_suffix"]           = ne
+        s["wick_suffix"]         = wick
+        s["penetration_suffix"]  = pen
+        s["close_suffix"]        = cls_
+        s["suffix_label"]        = (ne + wick + pen + cls_) or "—"
+        s["base_count"]          = bs.get("count", 0)
+        s["base_win_rate"]       = bs.get("win_rate", 0.0)
+        s["base_avg_ret"]        = bs.get("avg_ret", 0.0)
+        s["win_rate_lift"]       = round(s["win_rate"] - bs.get("win_rate", 0.0), 2)
+        s["avg_ret_lift"]        = round(s["avg_ret"]  - bs.get("avg_ret",  0.0), 3)
+        slices_out.append(s)
+
+    slices_out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    base_totals_out = [
+        {"base_signal": b, **_summarize(rets)}
+        for b, rets in base_totals.items()
+        if len(rets) >= min_count
+    ]
+    base_totals_out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    return {
+        "universe": universe, "tf": tf, "horizon": return_horizon,
+        "stat_path": stat_path,
+        "signal_type": signal_type, "base_signal": base_signal or None,
+        "min_count": min_count,
+        "slices":      slices_out,
+        "base_totals": base_totals_out,
+    }
+
+
+def _tz_resolve_stat_path(universe: str, tf: str, nasdaq_batch: str) -> str | None:
+    """Return the first existing stock_stat_tz_wlnbb CSV path, or None."""
+    p = _tz_batch_stat_path(universe, tf, nasdaq_batch)
+    if os.path.exists(p): return p
+    p = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+    if os.path.exists(p): return p
+    p = f"stock_stat_tz_wlnbb_{tf}.csv"
+    if os.path.exists(p): return p
+    return None
+
+
+def _tz_iter_rows(stat_path: str, universe: str):
+    """Yield CSV rows filtered to the requested universe."""
+    import csv as _csv
+    with open(stat_path, newline="", encoding="utf-8") as f:
+        for row in _csv.DictReader(f):
+            if row.get("universe", "") == universe:
+                yield row
+
+
+def _tz_summary(returns: list[float]) -> dict:
+    import statistics as _stat
+    n = len(returns)
+    if not n:
+        return {"count": 0, "win_rate": 0.0, "avg_ret": 0.0,
+                "median_ret": 0.0, "p25_ret": 0.0, "p75_ret": 0.0}
+    wins = sum(1 for r in returns if r > 0)
+    s = sorted(returns)
+    return {
+        "count":      n,
+        "win_rate":   round(wins / n * 100, 2),
+        "avg_ret":    round(sum(returns) / n, 3),
+        "median_ret": round(_stat.median(returns), 3),
+        "p25_ret":    round(s[max(0, n // 4 - 1)],          3),
+        "p75_ret":    round(s[min(n - 1, (3 * n) // 4)],    3),
+    }
+
+
+_TZ_SIG_COLS = {
+    "T":     ["t_signal"],
+    "Z":     ["z_signal"],
+    "L":     ["l_signal"],
+    "PREUP": ["preup_signal"],
+    "PREDN": ["predn_signal"],
+}
+_TZ_ALL_COLS = ["t_signal", "z_signal", "l_signal", "preup_signal", "predn_signal"]
+
+
+@app.get("/api/tz-wlnbb/stats/leaderboard")
+def api_tz_wlnbb_stats_leaderboard(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    signal_type: str = "all",
+    min_count: int = 5,
+):
+    """Per-signal performance leaderboard across 1d/3d/5d/10d horizons.
+
+    Returns count plus win-rate / avg / median return at each horizon, plus the
+    clean_win_5d / big_win_10d / fail_5d / fail_10d outcome rates that
+    stock_stat already labels.
+    """
+    stat_path = _tz_resolve_stat_path(universe, tf, nasdaq_batch)
+    if not stat_path:
+        return {"rows": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    cols_to_scan = _TZ_SIG_COLS.get(signal_type, _TZ_ALL_COLS)
+
+    # bucket[signal] = {h: list[float], outcomes: {key: list[int]}}
+    horizons = ("ret_1d", "ret_3d", "ret_5d", "ret_10d")
+    outcomes = ("clean_win_5d", "big_win_10d", "fail_5d", "fail_10d")
+
+    by_sig: dict[str, dict] = {}
+
+    for row in _tz_iter_rows(stat_path, universe):
+        signals_in_row: list[str] = []
+        for col in cols_to_scan:
+            v = (row.get(col) or "").strip()
+            if v:
+                signals_in_row.append(v)
+        if not signals_in_row:
+            continue
+        # Deduplicate so a row that fires both T-and-L doesn't double-count one signal
+        for sig in set(signals_in_row):
+            slot = by_sig.setdefault(sig, {
+                "ret_1d": [], "ret_3d": [], "ret_5d": [], "ret_10d": [],
+                "clean_win_5d": 0, "big_win_10d": 0, "fail_5d": 0, "fail_10d": 0,
+                "count": 0,
+            })
+            slot["count"] += 1
+            for h in horizons:
+                raw = row.get(h, "")
+                if raw in ("", None): continue
+                try:
+                    slot[h].append(float(raw))
+                except (TypeError, ValueError):
+                    pass
+            for ok in outcomes:
+                if (row.get(ok) or "").strip() == "1":
+                    slot[ok] += 1
+
+    out_rows: list[dict] = []
+    for sig, slot in by_sig.items():
+        if slot["count"] < min_count:
+            continue
+        rec = {"signal": sig, "count": slot["count"]}
+        for h in horizons:
+            s = _tz_summary(slot[h])
+            rec[f"{h}_win_rate"]   = s["win_rate"]
+            rec[f"{h}_avg_ret"]    = s["avg_ret"]
+            rec[f"{h}_median_ret"] = s["median_ret"]
+        n = slot["count"]
+        rec["clean_win_5d_pct"] = round(slot["clean_win_5d"] / n * 100, 2)
+        rec["big_win_10d_pct"]  = round(slot["big_win_10d"]  / n * 100, 2)
+        rec["fail_5d_pct"]      = round(slot["fail_5d"]      / n * 100, 2)
+        rec["fail_10d_pct"]     = round(slot["fail_10d"]     / n * 100, 2)
+        # Family tag for color coding on the UI
+        if sig.startswith("T"):   fam = "T"
+        elif sig.startswith("Z"): fam = "Z"
+        elif sig.startswith("L"): fam = "L"
+        elif sig.startswith("P"): fam = "PREUP"
+        elif sig.startswith("D"): fam = "PREDN"
+        else:                     fam = "OTHER"
+        rec["family"] = fam
+        out_rows.append(rec)
+    out_rows.sort(key=lambda r: (-(r["count"]), -(r["ret_5d_avg_ret"] or 0)))
+
+    return {"rows": out_rows, "stat_path": stat_path,
+            "universe": universe, "tf": tf, "signal_type": signal_type,
+            "min_count": min_count}
+
+
+@app.get("/api/tz-wlnbb/stats/bucket-matrix")
+def api_tz_wlnbb_stats_bucket_matrix(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    signal_type: str = "all",
+    return_horizon: str = "5d",
+    min_count: int = 3,
+):
+    """Crosstab of volume_bucket (W/L/N/B/VB) × signal_name.
+
+    Each cell shows count + win-rate + avg forward return at the chosen
+    horizon, so you can see e.g. whether T4 fires better on VB or W bars.
+    """
+    horizon_col = {"1d": "ret_1d", "3d": "ret_3d", "5d": "ret_5d", "10d": "ret_10d"}.get(return_horizon, "ret_5d")
+
+    stat_path = _tz_resolve_stat_path(universe, tf, nasdaq_batch)
+    if not stat_path:
+        return {"cells": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    cols_to_scan = _TZ_SIG_COLS.get(signal_type, _TZ_ALL_COLS)
+    buckets_order = ["W", "L", "N", "B", "VB"]
+
+    # cell[(sig, bucket)] = list[float]
+    cells: dict[tuple, list[float]] = {}
+    sig_totals: dict[str, list[float]] = {}
+    bucket_totals: dict[str, list[float]] = {}
+
+    for row in _tz_iter_rows(stat_path, universe):
+        bkt = (row.get("volume_bucket") or "").strip()
+        if bkt not in buckets_order:
+            continue
+        raw = row.get(horizon_col, "")
+        if raw in ("", None): continue
+        try:
+            ret = float(raw)
+        except (TypeError, ValueError):
+            continue
+        signals_in_row = {(row.get(c) or "").strip() for c in cols_to_scan if (row.get(c) or "").strip()}
+        for sig in signals_in_row:
+            cells.setdefault((sig, bkt), []).append(ret)
+            sig_totals.setdefault(sig, []).append(ret)
+            bucket_totals.setdefault(bkt, []).append(ret)
+
+    cells_out: list[dict] = []
+    for (sig, bkt), rets in cells.items():
+        if len(rets) < min_count:
+            continue
+        s = _tz_summary(rets)
+        s["signal"] = sig
+        s["volume_bucket"] = bkt
+        cells_out.append(s)
+
+    sig_totals_out = [{"signal": s, **_tz_summary(r)} for s, r in sig_totals.items() if len(r) >= min_count]
+    bucket_totals_out = [{"volume_bucket": b, **_tz_summary(r)} for b, r in bucket_totals.items() if len(r) >= min_count]
+
+    sig_totals_out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+    bucket_totals_out.sort(key=lambda r: buckets_order.index(r["volume_bucket"]) if r["volume_bucket"] in buckets_order else 99)
+    cells_out.sort(key=lambda r: (r["signal"], buckets_order.index(r["volume_bucket"]) if r["volume_bucket"] in buckets_order else 99))
+
+    return {
+        "horizon": return_horizon, "stat_path": stat_path,
+        "universe": universe, "tf": tf, "signal_type": signal_type,
+        "min_count": min_count, "buckets": buckets_order,
+        "cells": cells_out, "signal_totals": sig_totals_out,
+        "bucket_totals": bucket_totals_out,
+    }
+
+
+@app.get("/api/tz-wlnbb/stats/sequence")
+def api_tz_wlnbb_stats_sequence(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+    signal_type: str = "all",
+    return_horizon: str = "5d",
+    prev_window: int = 1,          # 1 | 3 | 5  (uses prev_N_signal_summary)
+    min_count: int = 5,
+):
+    """Co-occurrence statistics: for each (prev_signal → current_signal) pair
+    in the saved stock_stat, return count, win rate, avg forward return at
+    the chosen horizon. Uses prev_{1|3|5}_signal_summary already produced
+    by the stock_stat generator.
+    """
+    horizon_col = {"1d": "ret_1d", "3d": "ret_3d", "5d": "ret_5d", "10d": "ret_10d"}.get(return_horizon, "ret_5d")
+    prev_col = {1: "prev_1_signal_summary", 3: "prev_3_signal_summary", 5: "prev_5_signal_summary"}.get(prev_window, "prev_1_signal_summary")
+
+    stat_path = _tz_resolve_stat_path(universe, tf, nasdaq_batch)
+    if not stat_path:
+        return {"pairs": [], "error": "No stock_stat_tz_wlnbb CSV found. Run generate-stock-stat first."}
+
+    cols_to_scan = _TZ_SIG_COLS.get(signal_type, _TZ_ALL_COLS)
+
+    # pair[(prev, curr)] = list[float]
+    pair_rets: dict[tuple, list[float]] = {}
+    curr_totals: dict[str, list[float]] = {}
+
+    for row in _tz_iter_rows(stat_path, universe):
+        raw = row.get(horizon_col, "")
+        if raw in ("", None): continue
+        try: ret = float(raw)
+        except (TypeError, ValueError): continue
+        curr_signals = [(row.get(c) or "").strip() for c in cols_to_scan]
+        curr_signals = [c for c in curr_signals if c]
+        if not curr_signals: continue
+        prev_raw = (row.get(prev_col) or "").strip()
+        if not prev_raw: continue
+        prev_tokens = [p for p in prev_raw.split("|") if p]
+        if not prev_tokens: continue
+        for cur in set(curr_signals):
+            curr_totals.setdefault(cur, []).append(ret)
+            for pr in set(prev_tokens):
+                pair_rets.setdefault((pr, cur), []).append(ret)
+
+    curr_baseline = {c: _tz_summary(r) for c, r in curr_totals.items()}
+
+    out: list[dict] = []
+    for (prev, cur), rets in pair_rets.items():
+        if len(rets) < min_count: continue
+        s = _tz_summary(rets)
+        s["prev_signal"] = prev
+        s["current_signal"] = cur
+        base = curr_baseline.get(cur) or {}
+        s["base_count"]    = base.get("count", 0)
+        s["base_win_rate"] = base.get("win_rate", 0.0)
+        s["base_avg_ret"]  = base.get("avg_ret", 0.0)
+        s["win_rate_lift"] = round(s["win_rate"] - base.get("win_rate", 0.0), 2)
+        s["avg_ret_lift"]  = round(s["avg_ret"]  - base.get("avg_ret",  0.0), 3)
+        out.append(s)
+    out.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    base_rows = [{"current_signal": c, **v} for c, v in curr_baseline.items() if v.get("count", 0) >= min_count]
+    base_rows.sort(key=lambda r: (-r["count"], -r["avg_ret"]))
+
+    return {
+        "horizon": return_horizon, "prev_window": prev_window,
+        "stat_path": stat_path, "universe": universe, "tf": tf,
+        "signal_type": signal_type, "min_count": min_count,
+        "pairs": out, "current_baseline": base_rows,
+    }
 
 
 @app.post("/api/tz-wlnbb/generate-stock-stat")
@@ -3079,6 +3505,159 @@ def api_sequence_scan_results(
         "error":           completed.get("error"),
         "params":          completed.get("params") or {},
     }
+
+
+@app.get("/api/debug/compare-ultra-superchart")
+def api_debug_compare_ultra_superchart(symbol: str, tf: str = "1d"):
+    """
+    Debug endpoint: compare the two pipelines side-by-side for a single symbol.
+
+    Returns per-pipeline: bar count, last bar date, data source, key signal values,
+    and turbo_score. Also returns a diff dict highlighting any mismatches.
+
+    This endpoint is READ-ONLY and never modifies any scan state.
+    """
+    import traceback
+    from data import fetch_ohlcv
+    from signal_engine import compute_signals
+    from wlnbb_engine import compute_wlnbb
+    from canonical_scoring_engine import compute_canonical_score
+
+    ticker = symbol.upper().strip()
+    report: dict = {"symbol": ticker, "tf": tf, "pipelines": {}, "diff": {}}
+
+    # ── Helper: compute last-bar signals from a DataFrame ─────────────────
+    def _analyze_df(df, label: str, source: str) -> dict:
+        try:
+            sig_df = compute_signals(df)
+        except Exception:
+            sig_df = None
+        try:
+            wlnbb_df = compute_wlnbb(df)
+        except Exception:
+            wlnbb_df = None
+
+        last_sig = sig_df.iloc[-1] if sig_df is not None and not sig_df.empty else {}
+        last_w   = wlnbb_df.iloc[-1] if wlnbb_df is not None and not wlnbb_df.empty else {}
+
+        tz_name = str(last_sig.get("sig_name", "")) if last_sig.get("is_bull") else ""
+        l_sigs = []
+        for col, lbl in [("L34","L34"),("L43","L43"),("L64","L64"),("L22","L22"),
+                          ("FRI34","FRI34"),("FRI43","FRI43"),
+                          ("BO_UP","BO↑"),("BX_UP","BX↑"),("BE_UP","BE↑"),
+                          ("BLUE","BL"),("CCI_READY","CCI")]:
+            if bool(last_w.get(col)):
+                l_sigs.append(lbl)
+
+        sig_row = {
+            "tz_bull": bool(last_sig.get("is_bull")),
+            "tz_sig":  tz_name,
+            "conso_2809": bool(last_w.get("conso_2809") if hasattr(last_w,"get") else False),
+            "bf_buy":  False,
+            "rocket":  False,
+            "bo_up":   bool(last_w.get("BO_UP")),
+            "bx_up":   bool(last_w.get("BX_UP")),
+            "be_up":   bool(last_w.get("BE_UP")),
+            "l34":     bool(last_w.get("L34")),
+            "fri34":   bool(last_w.get("FRI34")),
+        }
+        try:
+            from combo_engine import compute_combo as _cc
+            combo_df = _cc(df)
+            if not combo_df.empty:
+                lc = combo_df.iloc[-1]
+                sig_row["conso_2809"] = bool(lc.get("conso_2809"))
+                sig_row["rocket"]     = bool(lc.get("rocket"))
+                sig_row["bf_buy"]     = bool(lc.get("buy_2809"))
+        except Exception:
+            pass
+
+        try:
+            canon = compute_canonical_score(sig_row)
+            turbo_score = canon.get("turbo_score", 0)
+        except Exception:
+            turbo_score = None
+
+        last_idx = df.index[-1]
+        last_date = str(last_idx)[:10] if hasattr(last_idx, "__str__") else ""
+
+        return {
+            "label":       label,
+            "source":      source,
+            "bar_count":   len(df),
+            "last_bar":    last_date,
+            "first_bar":   str(df.index[0])[:10],
+            "tz_signal":   tz_name or None,
+            "l_signals":   l_sigs,
+            "vol_bucket":  str(last_w.get("vol_bucket", "")) if hasattr(last_w,"get") else "",
+            "turbo_score": turbo_score,
+        }
+
+    # ── Pipeline A: Superchart (yfinance, 150-bar default) ────────────────
+    try:
+        df_sc = fetch_ohlcv(ticker, interval=tf, bars=150)
+        report["pipelines"]["superchart"] = _analyze_df(df_sc, "superchart", "yfinance")
+    except Exception as exc:
+        report["pipelines"]["superchart"] = {"error": str(exc)}
+
+    # ── Pipeline B: Turbo-equivalent (Polygon → yfinance, 180-day window) ─
+    try:
+        df_turbo = None
+        turbo_source = "yfinance"
+        try:
+            from data_polygon import fetch_bars, polygon_available
+            if polygon_available():
+                days = 400 if tf in ("1wk","1w") else 180 if tf == "1d" else 90
+                df_turbo = fetch_bars(ticker, interval=tf, days=days)
+                turbo_source = "polygon"
+        except Exception:
+            pass
+        if df_turbo is None or df_turbo.empty:
+            import yfinance as yf
+            period = "5y" if tf in ("1wk","1w") else "180d" if tf == "1d" else "60d"
+            raw = yf.Ticker(ticker).history(period=period, interval=tf, auto_adjust=True)
+            raw.columns = [str(c).lower() for c in raw.columns]
+            df_turbo = raw[["open","high","low","close","volume"]].dropna()
+            turbo_source = "yfinance"
+        report["pipelines"]["turbo"] = _analyze_df(df_turbo, "turbo", turbo_source)
+    except Exception as exc:
+        report["pipelines"]["turbo"] = {"error": str(exc), "traceback": traceback.format_exc()}
+
+    # ── Diff ──────────────────────────────────────────────────────────────
+    sc = report["pipelines"].get("superchart", {})
+    tu = report["pipelines"].get("turbo", {})
+    diff = {}
+    if "error" not in sc and "error" not in tu:
+        if sc.get("last_bar") != tu.get("last_bar"):
+            diff["last_bar"] = {"superchart": sc["last_bar"], "turbo": tu["last_bar"],
+                                "note": "Different latest bar — partial-day trim mismatch or source lag"}
+        if sc.get("source") != tu.get("source"):
+            diff["data_source"] = {"superchart": sc["source"], "turbo": tu["source"],
+                                   "note": "Different OHLCV source — adjusted prices may differ"}
+        sc_bars, tu_bars = sc.get("bar_count",0), tu.get("bar_count",0)
+        if abs(sc_bars - tu_bars) > 5:
+            diff["bar_count"] = {"superchart": sc_bars, "turbo": tu_bars,
+                                 "note": "Different lookback windows — rolling indicators will diverge"}
+        if sc.get("tz_signal") != tu.get("tz_signal"):
+            diff["tz_signal"] = {"superchart": sc.get("tz_signal"), "turbo": tu.get("tz_signal"),
+                                 "note": "T/Z signal differs on last bar"}
+        sc_l = set(sc.get("l_signals", []))
+        tu_l = set(tu.get("l_signals", []))
+        if sc_l != tu_l:
+            diff["l_signals"] = {
+                "superchart_only": sorted(sc_l - tu_l),
+                "turbo_only":      sorted(tu_l - sc_l),
+                "note": "L/structure signals differ — likely due to bar-count or source mismatch",
+            }
+        sc_s = sc.get("turbo_score")
+        tu_s = tu.get("turbo_score")
+        if sc_s is not None and tu_s is not None and abs((sc_s or 0) - (tu_s or 0)) > 2:
+            diff["turbo_score"] = {"superchart": sc_s, "turbo": tu_s,
+                                   "delta": round((sc_s or 0) - (tu_s or 0), 1)}
+    report["diff"] = diff
+    report["mismatch_count"] = len(diff)
+    report["root_causes"] = [v["note"] for v in diff.values() if isinstance(v, dict) and "note" in v]
+    return report
 
 
 _static = os.path.join(os.path.dirname(__file__), "static")
