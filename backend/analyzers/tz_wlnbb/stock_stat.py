@@ -24,7 +24,7 @@ OUTPUT_COLUMNS = [
     "penetration_suffix", "wick_penetration_upper", "wick_penetration_lower", "wick_penetration_both",
     "close_suffix", "close_appended",
     "full_suffix",
-    "bar_body_wick", "bar_gap_range",
+    "bar_body_wick", "bar_gap_range", "bar_line5",
     "wick_ext_up", "wick_ext_down", "wick_ext_both",
     "prev_body_top", "prev_body_bot", "prev_high", "prev_low",
     "composite_t_label", "composite_z_label", "composite_primary_label", "composite_all_labels",
@@ -329,7 +329,7 @@ def generate_stock_stat(
                             + str(row.get("penetration_suffix") or "")
                             + (str(row.get("close_suffix") or "") if row.get("close_appended") else "")
                         ),  # full_suffix (includes close_suffix only when append_close fires)
-                        row.get("bar_body_wick", ""), row.get("bar_gap_range", ""),
+                        row.get("bar_body_wick", ""), row.get("bar_gap_range", ""), row.get("bar_line5", ""),
                         int(bool(row.get("wick_ext_up"))),
                         int(bool(row.get("wick_ext_down"))),
                         int(bool(row.get("wick_ext_both"))),

@@ -779,7 +779,7 @@ export default function TZWLNBBPanel() {
   const [replayTopRows, setReplayTopRows] = useState([])
   const [replayTab, setReplayTab]         = useState('signal') // 'signal'|'combo'|'sequence'
 
-  // Pine 260520 line-3 / line-4 replay perf viewers
+  // Pine 260520/260521 line-3 / line-4 / line-5 replay perf viewers
   const [bwOpen, setBwOpen]         = useState(false)
   const [bwRows, setBwRows]         = useState([])
   const [bwLoading, setBwLoading]   = useState(false)
@@ -790,6 +790,11 @@ export default function TZWLNBBPanel() {
   const [grLoading, setGrLoading]   = useState(false)
   const [grSort, setGrSort]         = useState('top')
   const [grMinCount, setGrMinCount] = useState(30)
+  const [l5Open, setL5Open]         = useState(false)
+  const [l5Rows, setL5Rows]         = useState([])
+  const [l5Loading, setL5Loading]   = useState(false)
+  const [l5Sort, setL5Sort]         = useState('top')
+  const [l5MinCount, setL5MinCount] = useState(30)
 
   async function loadReplayPerf(kind, { sort, minCount }) {
     const qs = new URLSearchParams({ kind, universe, tf, sort, min_count: String(minCount), limit: '200' })
@@ -817,6 +822,14 @@ export default function TZWLNBBPanel() {
       .then(d => setGrRows(d.rows || []))
       .finally(() => setGrLoading(false))
   }, [grOpen, grSort, grMinCount, universe, tf])
+
+  useEffect(() => {
+    if (!l5Open) return
+    setL5Loading(true)
+    loadReplayPerf('line5', { sort: l5Sort, minCount: l5MinCount })
+      .then(d => setL5Rows(d.rows || []))
+      .finally(() => setL5Loading(false))
+  }, [l5Open, l5Sort, l5MinCount, universe, tf])
 
   const pollRef       = useRef(null)
   const replayPollRef = useRef(null)
@@ -1494,6 +1507,77 @@ export default function TZWLNBBPanel() {
         </div>
       </details>
 
+      <details
+        open={l5Open}
+        onToggle={(e) => setL5Open(e.currentTarget.open)}
+        className="mb-3 bg-md-surface-con/30 border border-md-outline-var/40 rounded"
+      >
+        <summary className="px-3 py-2 cursor-pointer text-xs font-semibold text-md-on-surface hover:bg-md-surface-con/50">
+          🔮 Line 5 Performance (Pine line 5) — VIX-Fix / PSAR / RSI2 × signal
+        </summary>
+        <div className="p-2 space-y-2">
+          <div className="flex items-center gap-2 text-xs">
+            <span className="text-md-on-surface-var">Sort:</span>
+            {['top', 'bad', 'raw'].map(s => (
+              <button key={s} onClick={() => setL5Sort(s)}
+                className={`px-2 py-0.5 rounded ${l5Sort === s ? 'bg-purple-700 text-white' : 'bg-md-surface-con text-md-on-surface-var'}`}>
+                {s === 'top' ? 'Top (avg10d ↓, fail<20)' : s === 'bad' ? 'Bad (avg10d<0)' : 'Raw (count)'}
+              </button>
+            ))}
+            <span className="ml-3 text-md-on-surface-var">Min count:</span>
+            <input type="number" min="1" value={l5MinCount}
+              onChange={(e) => setL5MinCount(Math.max(1, parseInt(e.target.value || '1', 10)))}
+              className="w-16 px-1 py-0.5 bg-md-surface border border-md-outline-var rounded text-md-on-surface" />
+            {l5Loading && <span className="text-yellow-400 animate-pulse">Loading…</span>}
+            <span className="ml-auto text-md-on-surface-var/70">{l5Rows.length} rows</span>
+          </div>
+          {l5Rows.length > 0 ? (
+            <div className="overflow-x-auto max-h-96 overflow-y-auto">
+              <table className="w-full text-xs">
+                <thead className="sticky top-0 bg-md-surface">
+                  <tr className="border-b border-md-outline-var">
+                    <th className="text-left p-1">Pattern</th>
+                    <th className="text-left p-1">T</th>
+                    <th className="text-left p-1">Z</th>
+                    <th className="text-left p-1">L</th>
+                    <th className="text-right p-1">Count</th>
+                    <th className="text-right p-1">Avg10d</th>
+                    <th className="text-right p-1">Med10d</th>
+                    <th className="text-right p-1">BigWin</th>
+                    <th className="text-right p-1">Fail</th>
+                    <th className="text-right p-1">RR</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {l5Rows.map((r, i) => {
+                    const v = parseFloat(r.avg_ret_10d ?? 0)
+                    const cls = v >= 1.0 ? 'text-green-400' : v >= 0 ? 'text-yellow-300' : 'text-red-400'
+                    return (
+                      <tr key={`l5-${i}`} className="border-b border-md-outline-var/30 hover:bg-md-surface-con/30">
+                        <td className="p-1 font-mono text-md-on-surface">{r.bar_line5}</td>
+                        <td className="p-1 font-mono text-blue-300">{r.t_signal || ''}</td>
+                        <td className="p-1 font-mono text-red-300">{r.z_signal || ''}</td>
+                        <td className="p-1 font-mono text-yellow-300">{r.l_signal || ''}</td>
+                        <td className="p-1 text-right tabular-nums">{r.count}</td>
+                        <td className={`p-1 text-right tabular-nums font-semibold ${cls}`}>{v.toFixed(2)}%</td>
+                        <td className="p-1 text-right tabular-nums">{parseFloat(r.median_ret_10d ?? 0).toFixed(2)}%</td>
+                        <td className="p-1 text-right tabular-nums">{parseFloat(r.big_win_10d_rate ?? 0).toFixed(1)}%</td>
+                        <td className="p-1 text-right tabular-nums">{parseFloat(r.fail_10d_rate ?? 0).toFixed(1)}%</td>
+                        <td className="p-1 text-right tabular-nums">{r.reward_risk_ratio != null ? parseFloat(r.reward_risk_ratio).toFixed(2) : '—'}</td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          ) : (
+            !l5Loading && <div className="text-xs text-md-on-surface-var/60 p-2">
+              No data. Generate Stock Stat first, then expand this section.
+            </div>
+          )}
+        </div>
+      </details>
+
       {/* ── Error ────────────────────────────────────────────────────────── */}
       {error && (
         <div className="p-2 bg-red-900/30 border border-red-700 rounded text-red-300 text-xs">
@@ -1536,6 +1620,7 @@ export default function TZWLNBBPanel() {
                 <th className="text-left p-1 font-medium">Cls</th>
                 <th className="text-left p-1 font-medium" title="Body/Wick (Pine line 3)">BW</th>
                 <th className="text-left p-1 font-medium" title="Gap/Range vs ATR (Pine line 4)">GR</th>
+                <th className="text-left p-1 font-medium" title="VIX-Fix/PSAR/RSI2 (Pine line 5)">L5</th>
                 <th className="text-left p-1 font-medium">Vol</th>
                 <th className="text-center p-1 font-medium">Debug</th>
               </tr>
@@ -1588,6 +1673,7 @@ export default function TZWLNBBPanel() {
                     <td className="p-1 text-md-on-surface-var">{row.close_appended ? (row.close_suffix || '') : ''}</td>
                     <td className="p-1 font-mono text-md-on-surface-var">{row.bar_body_wick || ''}</td>
                     <td className="p-1 font-mono text-md-on-surface-var">{row.bar_gap_range || ''}</td>
+                    <td className="p-1 font-mono text-md-on-surface-var">{row.bar_line5 || ''}</td>
                     <td className="p-1 text-md-on-surface-var">
                       <span className={`px-1 rounded text-xs
                         ${row.volume_bucket === 'VB' ? 'text-red-300' :

@@ -534,6 +534,35 @@ def _gap_range_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
+def _line5_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
+    """Group by (bar_line5, t_signal, z_signal, l_signal). Pine 260521 line-5 stats."""
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        l5 = (r.get("bar_line5") or "").strip()
+        if not l5:
+            continue
+        ts  = r.get("t_signal", "") or ""
+        zs  = r.get("z_signal", "") or ""
+        ls  = r.get("l_signal", "") or ""
+        uni = r.get("universe", "") or ""
+        tf  = r.get("timeframe", "") or ""
+        key = (l5, ts, zs, ls, uni, tf)
+        groups.setdefault(key, []).append(r)
+
+    result = []
+    for (l5, ts, zs, ls, uni, tf), grp in groups.items():
+        if len(grp) < min_count:
+            continue
+        result.append({
+            "bar_line5": l5,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "universe": uni, "timeframe": tf,
+            "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
 def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
     """
     2-bar and 3-bar sequences using composite full labels.
@@ -1603,13 +1632,16 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
     meta["penetration_suffix_distribution"] = dict(pen_dist.most_common(10))
     meta["full_suffix_distribution"]        = dict(full_dist_items.most_common(20))
 
-    # Pine 260520 line-3 / line-4 distributions
+    # Pine 260520/260521 line-3 / line-4 / line-5 distributions
     bw_dist = Counter((r.get("bar_body_wick") or "") for r in rows if r.get("bar_body_wick"))
     gr_dist = Counter((r.get("bar_gap_range") or "") for r in rows if r.get("bar_gap_range"))
+    l5_dist = Counter((r.get("bar_line5") or "") for r in rows if r.get("bar_line5"))
     meta["body_wick_distribution"] = dict(bw_dist.most_common(30))
     meta["gap_range_distribution"] = dict(gr_dist.most_common(30))
+    meta["line5_distribution"] = dict(l5_dist.most_common(30))
     meta["rows_with_bar_body_wick"] = sum(1 for r in rows if (r.get("bar_body_wick") or ""))
     meta["rows_with_bar_gap_range"] = sum(1 for r in rows if (r.get("bar_gap_range") or ""))
+    meta["rows_with_bar_line5"] = sum(1 for r in rows if (r.get("bar_line5") or ""))
 
     if nasdaq_batch:
         first_letters = sorted(
@@ -1795,9 +1827,10 @@ def generate_replay_zip(
     bad_wick = [r for r in wp if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
-    # Pine 260520 line-3 / line-4 perf + top/bad rankings
+    # Pine 260520/260521 line-3 / line-4 / line-5 perf + top/bad rankings
     bw_perf = _body_wick_perf(rows, min_count=MIN_RANK_COUNT)
     gr_perf = _gap_range_perf(rows, min_count=MIN_RANK_COUNT)
+    l5_perf = _line5_perf(rows, min_count=MIN_RANK_COUNT)
 
     top_body_wick = [r for r in bw_perf if (_safe_float(r.get("fail_10d_rate")) or 0) < 20]
     top_body_wick.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
@@ -1808,6 +1841,11 @@ def generate_replay_zip(
     top_gap_range.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
     bad_gap_range = [r for r in gr_perf if (_safe_float(r.get("avg_ret_10d")) or 0) < 0]
     bad_gap_range.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
+    top_line5 = [r for r in l5_perf if (_safe_float(r.get("fail_10d_rate")) or 0) < 20]
+    top_line5.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_line5 = [r for r in l5_perf if (_safe_float(r.get("avg_ret_10d")) or 0) < 0]
+    bad_line5.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
     suspicious = _suspicious_patterns(rows)
     validation_examples = _return_validation_examples(rows)
@@ -2006,6 +2044,22 @@ def generate_replay_zip(
                     _to_csv_bytes(top_gap_range, gap_range_fields))
         zf.writestr("replay_tz_wlnbb_bad_gap_range_patterns.csv",
                     _to_csv_bytes(bad_gap_range, gap_range_fields))
+
+        # Pine 260521 line-5 (VIX-Fix / PSAR / RSI2) performance
+        line5_fields = [
+            "bar_line5", "t_signal", "z_signal", "l_signal",
+            "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d",
+            "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_line5_perf.csv",
+                    _to_csv_bytes(l5_perf, line5_fields))
+        zf.writestr("replay_tz_wlnbb_top_line5_patterns.csv",
+                    _to_csv_bytes(top_line5, line5_fields))
+        zf.writestr("replay_tz_wlnbb_bad_line5_patterns.csv",
+                    _to_csv_bytes(bad_line5, line5_fields))
 
         cseq_fields = [
             "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",

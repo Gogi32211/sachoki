@@ -20,7 +20,7 @@ const CSV_COLS = [
   'conflict_flag_original','abr_conflict_flag_bool','conflict_flag_final',
   'score_before_normalization','score_after_normalization',
   'vol_bucket','wick_suffix','ne_suffix','penetration_suffix','close_suffix','close_appended','full_suffix',
-  'bar_body_wick','bar_gap_range',
+  'bar_body_wick','bar_gap_range','bar_line5',
   'above_ema20','above_ema50','above_ema89',
   'ema20_reclaim','ema50_reclaim','ema89_reclaim',
   'conflict_flag','conflict_resolution','conflicting_rule_ids',
@@ -826,6 +826,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                 <SortTh label="Composite" colKey="composite_pattern"  {...thProps} />
                 <SortTh label="BW"        colKey="bar_body_wick"      {...thProps} />
                 <SortTh label="GR"        colKey="bar_gap_range"      {...thProps} />
+                <SortTh label="L5"        colKey="bar_line5"          {...thProps} />
                 <SortTh label="Seq4"      colKey="seq4"               {...thProps} />
                 <SortTh label="Role"      colKey="role"               {...thProps} />
                 <SortTh label="Score"     colKey="score"              {...thProps} />
@@ -874,6 +875,7 @@ export default function TZIntelligencePanel({ onSelectTicker }) {
                   <td className="p-1 text-md-on-surface-var font-mono text-xs">{row.composite_pattern || '—'}</td>
                   <td className="p-1 font-mono text-xs text-md-on-surface-var">{row.bar_body_wick || '—'}</td>
                   <td className="p-1 font-mono text-xs text-md-on-surface-var">{row.bar_gap_range || '—'}</td>
+                  <td className="p-1 font-mono text-xs text-md-on-surface-var">{row.bar_line5 || '—'}</td>
                   <td className="p-1 font-mono text-xs" title={row.seq4 || ''}>
                     {row.seq4
                       ? row.seq4.split('|').map((s, idx, arr) => (

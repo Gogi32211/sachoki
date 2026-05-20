@@ -5,6 +5,125 @@ from .signal_logic import compute_tz_wlnbb_for_bar
 from .config import WLNBB_MA_PERIOD, USE_WICK, MIN_BODY_RATIO, DOJI_THRESH
 
 
+def _compute_psar(high_arr, low_arr, start=0.02, inc=0.02, max_af=0.2):
+    """Iterative Parabolic SAR matching Pine ta.sar(start, inc, max)."""
+    n = len(high_arr)
+    sar = [0.0] * n
+    if n == 0:
+        return sar
+    bull = True
+    af = start
+    ep = low_arr[0]
+    sar[0] = high_arr[0]
+    for i in range(1, n):
+        prev_sar = sar[i - 1]
+        if bull:
+            new_sar = prev_sar + af * (ep - prev_sar)
+            if i >= 2:
+                new_sar = min(new_sar, low_arr[i - 1], low_arr[i - 2])
+            else:
+                new_sar = min(new_sar, low_arr[i - 1])
+            if low_arr[i] < new_sar:
+                bull = False
+                new_sar = ep
+                ep = low_arr[i]
+                af = start
+            else:
+                if high_arr[i] > ep:
+                    ep = high_arr[i]
+                    af = min(af + inc, max_af)
+        else:
+            new_sar = prev_sar + af * (ep - prev_sar)
+            if i >= 2:
+                new_sar = max(new_sar, high_arr[i - 1], high_arr[i - 2])
+            else:
+                new_sar = max(new_sar, high_arr[i - 1])
+            if high_arr[i] > new_sar:
+                bull = True
+                new_sar = ep
+                ep = high_arr[i]
+                af = start
+            else:
+                if low_arr[i] < ep:
+                    ep = low_arr[i]
+                    af = min(af + inc, max_af)
+        sar[i] = new_sar
+    return sar
+
+
+def compute_line5(
+    df: pd.DataFrame,
+    wvf_lookback: int = 22,
+    wvf_sdev_len: int = 20,
+    wvf_sdev_mult: float = 2.0,
+    wvf_range_len: int = 50,
+    wvf_range_pct: float = 0.85,
+    psar_start: float = 0.02,
+    psar_inc: float = 0.02,
+    psar_max: float = 0.2,
+    rsi2_low: float = 20.0,
+    rsi2_high: float = 80.0,
+) -> pd.DataFrame:
+    """Add `bar_line5` column — Pine 260521 line-5: VIX-Fix / PSAR / RSI2."""
+    c = df["close"]
+    h = df["high"]
+    l = df["low"]
+
+    # WVF
+    hc = c.rolling(wvf_lookback, min_periods=1).max()
+    wvf = (hc - l) / hc.replace(0, np.nan) * 100.0
+    wvf_upper = (wvf.rolling(wvf_sdev_len, min_periods=1).mean()
+                 + wvf_sdev_mult * wvf.rolling(wvf_sdev_len, min_periods=1).std(ddof=0))
+    wvf_range = wvf.rolling(wvf_range_len, min_periods=1).max() * wvf_range_pct
+
+    # PSAR
+    psar_arr = _compute_psar(h.tolist(), l.tolist(), psar_start, psar_inc, psar_max)
+
+    # RSI(2) — Wilder smoothing (alpha=0.5 for period=2)
+    delta = c.diff()
+    up = delta.clip(lower=0)
+    dn = (-delta).clip(lower=0)
+    rs_up = up.ewm(alpha=0.5, adjust=False).mean()
+    rs_dn = dn.ewm(alpha=0.5, adjust=False).mean()
+    rsi2 = 100.0 - 100.0 / (1.0 + rs_up / rs_dn.replace(0, np.nan))
+    rsi2 = rsi2.fillna(50.0)
+
+    tokens = []
+    n = len(df)
+    for i in range(n):
+        wvf_v = wvf.iloc[i] if not pd.isna(wvf.iloc[i]) else 0.0
+        wvf_u = wvf_upper.iloc[i] if not pd.isna(wvf_upper.iloc[i]) else float("inf")
+        wvf_r = wvf_range.iloc[i] if not pd.isna(wvf_range.iloc[i]) else float("inf")
+
+        if wvf_v >= wvf_u:
+            vix_tok = "VX"
+        elif wvf_v >= wvf_r:
+            vix_tok = "VR"
+        else:
+            vix_tok = ""
+
+        psar_tok = "PB" if float(c.iloc[i]) > psar_arr[i] else "PS"
+
+        r2 = float(rsi2.iloc[i])
+        r2_prev = float(rsi2.iloc[i - 1]) if i > 0 else 50.0
+        if r2_prev < rsi2_low and r2 >= rsi2_low:
+            rsi2_tok = "R2X"
+        elif r2_prev > rsi2_high and r2 <= rsi2_high:
+            rsi2_tok = "R2D"
+        elif r2 < rsi2_low:
+            rsi2_tok = "R2L"
+        elif r2 > rsi2_high:
+            rsi2_tok = "R2H"
+        else:
+            rsi2_tok = ""
+
+        parts = [t for t in [vix_tok, psar_tok, rsi2_tok] if t]
+        tokens.append("-".join(parts))
+
+    df["bar_line5"] = tokens
+    return df
+
+
 def compute_emas(df: pd.DataFrame) -> pd.DataFrame:
     """Add EMA columns to df. df must have 'close' column."""
     for p in [9, 20, 34, 50, 89, 200]:
@@ -45,6 +164,7 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
     compute_emas(df)
     compute_wlnbb(df)
     compute_atr_wilder(df, period=14)
+    compute_line5(df)
 
     results = []
     prev_is_doji = False
@@ -82,6 +202,7 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
             prev_is_doji=prev_is_doji,
             use_wick=USE_WICK, min_body_ratio=MIN_BODY_RATIO, doji_thresh=DOJI_THRESH,
             atr=float(row["atr"]) if not pd.isna(row.get("atr")) else 0.0,
+            bar_line5=str(row.get("bar_line5") or ""),
         )
         prev_is_doji = r["is_doji"]
         results.append(r)
@@ -121,5 +242,5 @@ def _empty_result() -> dict:
         "has_t_signal": False, "has_z_signal": False, "has_l_signal": False,
         "has_preup": False, "has_predn": False,
         "has_tz_l_combo": False, "has_bullish_context": False, "has_bearish_context": False,
-        "bar_body_wick": "", "bar_gap_range": "",
+        "bar_body_wick": "", "bar_gap_range": "", "bar_line5": "",
     }

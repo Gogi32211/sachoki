@@ -1276,9 +1276,10 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     # Per-bar rolling history for bear-to-bull sequence scoring (most-recent-first)
     _pf_bar_history: list = []  # list of Set[str], [1_bar_ago, 2_bars_ago, ...]
 
-    # ── Pine 260520 line-3 / line-4: precompute ATR(14, Wilder) for bar_gap_range
+    # ── Pine 260520/260521: precompute ATR + bar_line5 for shape fields
     try:
         from analyzers.tz_wlnbb.signal_logic import compute_bar_shape_fields as _bar_shape_fn
+        from analyzers.tz_wlnbb.signal_extraction import compute_line5 as _compute_line5
         _prev_c_arr = df["close"].shift(1)
         _tr_arr = pd.concat([
             df["high"] - df["low"],
@@ -1286,9 +1287,13 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             (df["low"]  - _prev_c_arr).abs(),
         ], axis=1).max(axis=1)
         _atr_arr = _tr_arr.ewm(alpha=1.0 / 14.0, adjust=False).mean()
+        _line5_df = df.copy()
+        _compute_line5(_line5_df)
+        _line5_arr = _line5_df["bar_line5"].tolist()
     except Exception:
         _bar_shape_fn = None
         _atr_arr = None
+        _line5_arr = None
 
     result = []
 
@@ -1622,9 +1627,10 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         setup_list   = [t for t in _setup_str.split()  if t]
         context_list = [t for t in _ctx_str.split()    if t]
 
-        # Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range vs ATR)
+        # Pine 260520/260521: body/wick, gap/range, line5
         _bar_body_wick = ""
         _bar_gap_range = ""
+        _bar_line5 = _line5_arr[i] if _line5_arr is not None else ""
         if _bar_shape_fn is not None and i > 0:
             _prev_row = df.iloc[i - 1]
             try:
@@ -1653,6 +1659,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "vol_bucket": vol_bkt,
             "bar_body_wick": _bar_body_wick,
             "bar_gap_range": _bar_gap_range,
+            "bar_line5":     _bar_line5,
             "tz":        tz,
             "l":         l_list,
             "f":         f_list,
@@ -2968,9 +2975,11 @@ def api_tz_wlnbb_replay_perf(
         with open(stat_path, newline="", encoding="utf-8") as f:
             rows = list(_csv.DictReader(f))
 
-        from analyzers.tz_wlnbb.replay import _body_wick_perf, _gap_range_perf, _safe_float
+        from analyzers.tz_wlnbb.replay import _body_wick_perf, _gap_range_perf, _line5_perf, _safe_float
         if kind == "gap_range":
             perf = _gap_range_perf(rows, min_count=min_count)
+        elif kind == "line5":
+            perf = _line5_perf(rows, min_count=min_count)
         else:
             perf = _body_wick_perf(rows, min_count=min_count)
 

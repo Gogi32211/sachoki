@@ -8,8 +8,8 @@ _BODY_MINIMAL        = 0.5   # M if body <= N × prev body
 _WICK_HEAVY          = 0.5   # TB / BB if wick >= N × bar range
 _WICK_FLAT_MAX       = 0.3   # F if both wicks < N × bar range
 _DOJI_BODY_RATIO     = 0.2   # J if body <= N × bar range
-_GAP_SMALL_PCT       = 0.3   # G1 if |gap| < N % of prev close
-_GAP_MEDIUM_PCT      = 1.0   # G2 if |gap| < N % (else G3)
+_GAP_SMALL_ATR       = 0.2   # G1 if |gap| < N × ATR (Pine 260521)
+_GAP_MEDIUM_ATR      = 0.5   # G2 if |gap| < N × ATR (else G3)
 _RANGE_VOL_MULT      = 1.5   # V if range > N × ATR
 _RANGE_CONTRACT_MULT = 0.5   # C if range < N × ATR
 
@@ -56,14 +56,14 @@ def compute_bar_shape_fields(
 
     bar_body_wick = body_class + wick_class
 
-    # ── Gap class: G1 / G2 / G3 (only TRUE chart gaps) ────────────────────
+    # ── Gap class: G1 / G2 / G3 (only TRUE chart gaps, Pine 260521 ATR-relative) ─
     has_gap = (o > prev_h) or (o < prev_l)
-    prev_close_safe = max(abs(prev_c), 1e-10)
-    gap_abs_pct = (abs(o - prev_c) / prev_close_safe * 100.0) if has_gap else 0.0
+    atr_safe = max(atr, 1e-10)
+    gap_atr_ratio = (abs(o - prev_c) / atr_safe) if has_gap else 0.0
     if has_gap:
-        if gap_abs_pct < _GAP_SMALL_PCT:
+        if gap_atr_ratio < _GAP_SMALL_ATR:
             gap_class = "G1"
-        elif gap_abs_pct < _GAP_MEDIUM_PCT:
+        elif gap_atr_ratio < _GAP_MEDIUM_ATR:
             gap_class = "G2"
         else:
             gap_class = "G3"
@@ -103,6 +103,7 @@ def compute_tz_wlnbb_for_bar(
     min_body_ratio: float = 1.0,
     doji_thresh: float = 0.05,
     atr: float = 0.0,
+    bar_line5: str = "",
 ) -> dict:
     """
     Compute all TZ/WLNBB signals for a single bar.
@@ -552,4 +553,6 @@ def compute_tz_wlnbb_for_bar(
         # Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range vs ATR)
         "bar_body_wick": _shape["bar_body_wick"],
         "bar_gap_range": _shape["bar_gap_range"],
+        # Pine 260521 line-5 (VIX-Fix / PSAR / RSI2)
+        "bar_line5": bar_line5,
     }
