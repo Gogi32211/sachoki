@@ -903,6 +903,8 @@ def classify_tz_event(
         action_override=liq_action_override,
         debug_trace=debug_trace if debug else None,
         abr=abr,
+        bar_body_wick=str(row.get("bar_body_wick") or ""),
+        bar_gap_range=str(row.get("bar_gap_range") or ""),
     )
 
 
@@ -933,6 +935,8 @@ def _build_result(
     action_override: Optional[str] = None,
     debug_trace=None,
     abr: Optional[dict] = None,
+    bar_body_wick: str = "",
+    bar_gap_range: str = "",
 ) -> dict:
     below_all_emas = not above_ema20 and not above_ema50 and not above_ema89
     quality = _quality_from_score(role, score, below_all_emas, price_position_4bar, conflict_flag)
@@ -956,8 +960,8 @@ def _build_result(
         "close_suffix":      close_sfx,
         "close_appended":    bool(close_appended),
         "full_suffix":       (ne_sfx + wk_sfx + pen_sfx + (close_sfx if close_appended else "")),
-        "bar_body_wick":     str(row.get("bar_body_wick") or ""),
-        "bar_gap_range":     str(row.get("bar_gap_range") or ""),
+        "bar_body_wick":     bar_body_wick,
+        "bar_gap_range":     bar_gap_range,
         "explanation":       explanation,
         "reason_codes":      reason_codes or [],
         "above_ema20":       above_ema20,
