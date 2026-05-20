@@ -3833,6 +3833,155 @@ def api_debug_compare_ultra_superchart(symbol: str, tf: str = "1d"):
 
 
 # ---------------------------------------------------------------------------
+# Artifact audit endpoint — reports post-regeneration sanity metrics
+# ---------------------------------------------------------------------------
+
+@app.get("/api/artifact-audit")
+def api_artifact_audit(
+    universe: str = "sp500",
+    tf: str = "1d",
+    nasdaq_batch: str = "",
+):
+    """
+    Read the on-disk stock_stat CSV and most recent replay ZIP and report:
+      - stock_stat version distribution
+      - latest row count / scan_as_of_date / stale_dropped count
+      - WATCH_HIGH:GATES_PASS count (should be 0 after fix)
+      - bad GATES_PASS count (non-GO rows that just say GATES_PASS)
+      - pivot output file count in replay ZIP
+    """
+    import csv as _csv
+    import zipfile as _zf
+    import glob as _glob
+
+    stat_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+    if not os.path.exists(stat_path):
+        stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+
+    audit: dict = {
+        "universe": universe, "tf": tf, "nasdaq_batch": nasdaq_batch or None,
+        "stock_stat_path": stat_path,
+        "stock_stat_exists": os.path.exists(stat_path),
+    }
+
+    # ── Stock-stat version + stale audit ──────────────────────────────────────
+    if os.path.exists(stat_path):
+        from tz_intelligence.scanner import run_intelligence_scan, _count_trading_days_between
+        version_counts: dict = {}
+        all_rows: list = []
+        latest_dates: list = []
+        with open(stat_path, newline="", encoding="utf-8") as f:
+            for row in _csv.DictReader(f):
+                all_rows.append(row)
+                v = row.get("tz_wlnbb_version") or "(empty)"
+                version_counts[v] = version_counts.get(v, 0) + 1
+        audit["stock_stat_total_rows"] = len(all_rows)
+        audit["stock_stat_versions"] = version_counts
+
+        # Find scan_as_of_date and stale rows
+        by_ticker: dict = {}
+        for row in all_rows:
+            tk = row.get("ticker", "")
+            if not tk:
+                continue
+            dt = row.get("bar_datetime") or row.get("date", "")
+            if tk not in by_ticker or dt > by_ticker[tk]:
+                by_ticker[tk] = dt
+        latest_date_vals = [d for d in by_ticker.values() if d]
+        scan_as_of = max(latest_date_vals) if latest_date_vals else ""
+        stale_count = sum(
+            1 for dt in by_ticker.values()
+            if dt and scan_as_of and _count_trading_days_between(dt, scan_as_of) > 2
+        )
+        audit["scan_as_of_date"] = scan_as_of
+        audit["latest_ticker_count"] = len(by_ticker)
+        audit["stale_dropped_count"] = stale_count
+    else:
+        audit["stock_stat_total_rows"] = 0
+        audit["stock_stat_versions"] = {}
+        audit["scan_as_of_date"] = None
+        audit["stale_dropped_count"] = 0
+
+    # ── Latest scan WATCH_HIGH:GATES_PASS + bad GATES_PASS ────────────────────
+    try:
+        scan_result = run_intelligence_scan(
+            universe=universe, tf=tf, nasdaq_batch=nasdaq_batch,
+            scan_mode="latest", limit=10000,
+        )
+        results = scan_result.get("results", [])
+        wh_gates_pass = sum(
+            1 for r in results
+            if str(r.get("final_reason", "")).startswith("WATCH_HIGH:GATES_PASS")
+        )
+        bad_gates_pass = sum(
+            1 for r in results
+            if str(r.get("final_reason", "")) == "GATES_PASS"
+            and str(r.get("final_action", "")) not in ("GO",)
+        )
+        audit["latest_scan_row_count"] = len(results)
+        audit["watch_high_gates_pass_count"] = wh_gates_pass
+        audit["bad_gates_pass_count"] = bad_gates_pass
+        audit["stale_dropped_count"] = scan_result.get("debug", {}).get("stale_dropped_count", audit.get("stale_dropped_count", 0))
+        audit["scan_as_of_date"] = scan_result.get("scan_as_of_date") or audit.get("scan_as_of_date")
+    except Exception as e:
+        audit["latest_scan_error"] = str(e)
+        audit["watch_high_gates_pass_count"] = "ERROR"
+        audit["bad_gates_pass_count"] = "ERROR"
+
+    # ── Replay ZIP pivot_swing file count ─────────────────────────────────────
+    replay_path = _tz_batch_replay_path(universe, tf, nasdaq_batch)
+    if not os.path.exists(replay_path):
+        replay_path = f"replay_tz_wlnbb_{universe}_{tf}_analytics.zip"
+    audit["replay_zip_path"] = replay_path
+    audit["replay_zip_exists"] = os.path.exists(replay_path)
+    pivot_files_in_zip: list = []
+    replay_metadata_version = None
+    if os.path.exists(replay_path):
+        try:
+            import json as _json
+            with _zf.ZipFile(replay_path, "r") as zf:
+                names = zf.namelist()
+                pivot_files_in_zip = [n for n in names if n.startswith("pivot_swing/")]
+                # version lives in tz_wlnbb_config_snapshot.json
+                for snap_name in ("tz_wlnbb_config_snapshot.json", "replay_tz_wlnbb_metadata.json"):
+                    if snap_name in names:
+                        obj = _json.loads(zf.read(snap_name).decode("utf-8"))
+                        replay_metadata_version = (
+                            obj.get("TZ_WLNBB_ANALYZER_VERSION")
+                            or obj.get("source_pine_script")
+                            or obj.get("tz_wlnbb_version")
+                        )
+                        if replay_metadata_version:
+                            break
+        except Exception as e:
+            audit["replay_zip_read_error"] = str(e)
+    audit["pivot_output_file_count"] = len(pivot_files_in_zip)
+    audit["pivot_files_in_zip"] = pivot_files_in_zip
+    audit["replay_metadata_version"] = replay_metadata_version
+
+    # ── Pass/fail summary ─────────────────────────────────────────────────────
+    checks = {
+        "stock_stat_version_correct": all(
+            "260521" in str(v) for v in audit.get("stock_stat_versions", {}) if v
+        ) if audit.get("stock_stat_versions") else None,
+        "replay_version_correct": (
+            "260521" in str(replay_metadata_version)
+            if replay_metadata_version else None
+        ),
+        "stale_rows_zero": audit.get("stale_dropped_count") == 0,
+        "watch_high_gates_pass_zero": audit.get("watch_high_gates_pass_count") == 0,
+        "bad_gates_pass_zero": audit.get("bad_gates_pass_count") == 0,
+        "pivot_files_present": audit.get("pivot_output_file_count", 0) == 17,
+    }
+    audit["checks"] = checks
+    audit["all_checks_pass"] = all(v for v in checks.values() if v is not None)
+
+    return audit
+
+
+# ---------------------------------------------------------------------------
 # Pivot Swing Character Analytics Engine endpoints
 # ---------------------------------------------------------------------------
 

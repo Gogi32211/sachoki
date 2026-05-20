@@ -1728,7 +1728,7 @@ def get_config_snapshot() -> dict:
         "base_sequence_scope": "multi-family (T, Z, L, PREUP, PREDN) — every signal on a bar emits an event",
         "composite_sequence_scope": "T/Z + L composite labels (full_label including suffixes)",
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
-        "source_pine_script": "260506_TZ_F_WLNBB_CMB — Combined Oscillator",
+        "source_pine_script": f"{TZ_WLNBB_VERSION} — Combined Oscillator with Z8/line3/line4/line5",
     }
 
 
@@ -2243,4 +2243,78 @@ def generate_replay_zip(
         zf.writestr("replay_tz_wlnbb_invalid_suffix_audit.csv",
                     _to_csv_bytes(invalid_suffix, invalid_suffix_fields))
 
+        # ── Pivot Swing Character Analytics Engine (17 files in pivot_swing/) ─
+        _embed_pivot_swing_in_zip(zf, rows)
+
     return output_path
+
+
+def _embed_pivot_swing_in_zip(zf: "zipfile.ZipFile", rows: List[dict]) -> None:
+    """Build a DataFrame from stock_stat rows, run pivot analytics, and embed
+    the 17 output files inside the ZIP under the `pivot_swing/` directory."""
+    import os as _os
+    import tempfile
+    import sys as _sys
+
+    try:
+        import pandas as _pd
+        from analyzers.pivot_swing.pivot_analytics import run_pivot_analytics
+    except ImportError:
+        try:
+            import pandas as _pd
+            _be = _os.path.join(_os.path.dirname(__file__), "..", "..")
+            if _be not in _sys.path:
+                _sys.path.insert(0, _be)
+            from analyzers.pivot_swing.pivot_analytics import run_pivot_analytics
+        except Exception as e:
+            log.warning("pivot_swing import failed, skipping pivot section: %s", e)
+            return
+
+    try:
+        df = _pd.DataFrame(rows)
+        for col in ("open", "high", "low", "close", "volume"):
+            if col in df.columns:
+                df[col] = _pd.to_numeric(df[col], errors="coerce")
+        for col in ("ret_1d", "ret_5d", "ret_10d", "mfe_5d", "mae_5d"):
+            if col in df.columns:
+                df[col] = _pd.to_numeric(df[col], errors="coerce")
+        if "date" not in df.columns and "bar_datetime" in df.columns:
+            df["date"] = df["bar_datetime"]
+        df = df.dropna(subset=["high", "low", "close"]).reset_index(drop=True)
+
+        if len(df) < 20:
+            log.warning("pivot_swing: insufficient data rows (%d), skipping", len(df))
+            return
+
+        with tempfile.TemporaryDirectory() as tmp:
+            csv_paths = []
+            if "ticker" in df.columns:
+                for tk in df["ticker"].unique():
+                    if not str(tk).strip():
+                        continue
+                    sub = df[df["ticker"] == tk].copy()
+                    if len(sub) < 10:
+                        continue
+                    p = _os.path.join(tmp, f"stock_stat_{tk}.csv")
+                    sub.to_csv(p, index=False)
+                    csv_paths.append(p)
+            else:
+                p = _os.path.join(tmp, "stock_stat_ALL.csv")
+                df.to_csv(p, index=False)
+                csv_paths.append(p)
+
+            if not csv_paths:
+                log.warning("pivot_swing: no per-ticker CSVs generated, skipping")
+                return
+
+            out_dir = _os.path.join(tmp, "pivot_out")
+            pivot_files = run_pivot_analytics(csv_paths=csv_paths, output_dir=out_dir)
+
+            for name, path in pivot_files.items():
+                if _os.path.exists(path):
+                    zf.write(path, arcname=f"pivot_swing/{name}")
+
+        log.info("pivot_swing: embedded %d files in replay ZIP under pivot_swing/",
+                 len(pivot_files))
+    except Exception as e:
+        log.warning("pivot_swing embedding failed (non-fatal): %s", e, exc_info=True)
