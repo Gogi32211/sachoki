@@ -514,6 +514,25 @@ def normalize_final_action(clf: dict) -> dict:
             parts.append(f"ABR_GATE:{abr_gate_status}")
         final_reason = " | ".join(parts) if parts else "UNKNOWN"
 
+    # ── Hard guardrail: make the WATCH_HIGH:GATES_PASS bug impossible to ship ─
+    # If gates didn't actually pass, final_reason must NOT be a bare "GATES_PASS"
+    # variant. Repair it in-place rather than raising, so a single misclassified
+    # row never silently leaks the pre-fix string into production CSVs.
+    if (volume_gate != "PASS" or abr_gate_status != "PASS"):
+        if final_reason in ("GATES_PASS", "WATCH_HIGH:GATES_PASS", "GO:GATES_PASS"):
+            _repair_parts = list(downgrade_reasons)
+            if volume_gate != "PASS":
+                _repair_parts.append(f"VOL_GATE:{volume_gate}")
+            if abr_gate_status != "PASS":
+                _repair_parts.append(f"ABR_GATE:{abr_gate_status}")
+            _prefix = (
+                "GO:" if final_action == "GO"
+                else "WATCH_HIGH:" if final_action == "WATCH_HIGH"
+                else ""
+            )
+            final_reason = _prefix + (" | ".join(_repair_parts) if _repair_parts
+                                       else "GATES_FAILED")
+
     return {
         **clf,
         "final_action":                      final_action,

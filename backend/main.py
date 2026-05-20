@@ -3833,6 +3833,75 @@ def api_debug_compare_ultra_superchart(symbol: str, tf: str = "1d"):
 
 
 # ---------------------------------------------------------------------------
+# Combined regenerate-and-audit endpoint — one-click full pipeline
+# ---------------------------------------------------------------------------
+
+@app.post("/api/regenerate-and-audit")
+def api_regenerate_and_audit(
+    background_tasks: BackgroundTasks,
+    universe: str = "sp500",
+    tf: str = "1d",
+    bars: int = 500,
+    nasdaq_batch: str = "",
+):
+    """
+    Trigger stock_stat regeneration → replay ZIP regeneration → audit, in sequence.
+    Returns immediately with a job_id; poll GET /api/regenerate-and-audit/status
+    until done=true, then GET /api/artifact-audit for the result.
+    Reuses the existing _run_tz_wlnbb_stock_stat and _run_tz_wlnbb_replay.
+    """
+    global _tz_wlnbb_state
+    if _tz_wlnbb_state.get("running"):
+        raise HTTPException(status_code=409, detail="Stock-stat job already running")
+    background_tasks.add_task(
+        _run_regen_audit_chain, universe, tf, bars, nasdaq_batch,
+    )
+    return {
+        "status": "started",
+        "steps": ["generate_stock_stat", "generate_replay_zip", "artifact_audit"],
+        "poll_url": "/api/regenerate-and-audit/status",
+        "audit_url": f"/api/artifact-audit?universe={universe}&tf={tf}&nasdaq_batch={nasdaq_batch}",
+    }
+
+
+_regen_audit_state: dict = {"running": False, "done": False, "step": None,
+                            "error": None, "audit": None}
+
+
+@app.get("/api/regenerate-and-audit/status")
+def api_regenerate_and_audit_status():
+    return _regen_audit_state
+
+
+def _run_regen_audit_chain(universe: str, tf: str, bars: int, nasdaq_batch: str):
+    global _regen_audit_state
+    _regen_audit_state = {
+        "running": True, "done": False, "step": "generate_stock_stat",
+        "error": None, "audit": None,
+    }
+    try:
+        _run_tz_wlnbb_stock_stat(universe, tf, bars, nasdaq_batch)
+        if _tz_wlnbb_state.get("error"):
+            _regen_audit_state["error"] = f"stock_stat: {_tz_wlnbb_state['error']}"
+            return
+        _regen_audit_state["step"] = "generate_replay_zip"
+        _run_tz_wlnbb_replay(universe, tf, nasdaq_batch)
+        if _tz_replay_state.get("error"):
+            _regen_audit_state["error"] = f"replay: {_tz_replay_state['error']}"
+            return
+        _regen_audit_state["step"] = "artifact_audit"
+        _regen_audit_state["audit"] = api_artifact_audit(
+            universe=universe, tf=tf, nasdaq_batch=nasdaq_batch,
+        )
+    except Exception as e:
+        _regen_audit_state["error"] = str(e)
+        log.exception("regenerate-and-audit chain failed")
+    finally:
+        _regen_audit_state["running"] = False
+        _regen_audit_state["done"] = True
+
+
+# ---------------------------------------------------------------------------
 # Artifact audit endpoint — reports post-regeneration sanity metrics
 # ---------------------------------------------------------------------------
 
