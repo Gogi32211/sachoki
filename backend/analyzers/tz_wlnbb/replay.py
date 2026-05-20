@@ -476,7 +476,62 @@ def _wick_behavior_perf(rows: List[dict]) -> List[dict]:
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
-def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
+def _body_wick_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
+    """Group by (bar_body_wick, t_signal, z_signal, l_signal). Pine 260520 line-3 stats."""
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        bw = (r.get("bar_body_wick") or "").strip()
+        if not bw:
+            continue
+        ts  = r.get("t_signal", "") or ""
+        zs  = r.get("z_signal", "") or ""
+        ls  = r.get("l_signal", "") or ""
+        uni = r.get("universe", "") or ""
+        tf  = r.get("timeframe", "") or ""
+        key = (bw, ts, zs, ls, uni, tf)
+        groups.setdefault(key, []).append(r)
+
+    result = []
+    for (bw, ts, zs, ls, uni, tf), grp in groups.items():
+        if len(grp) < min_count:
+            continue
+        result.append({
+            "bar_body_wick": bw,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "universe": uni, "timeframe": tf,
+            "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _gap_range_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
+    """Group by (bar_gap_range, t_signal, z_signal, l_signal). Pine 260520 line-4 stats."""
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        gr = (r.get("bar_gap_range") or "").strip()
+        if not gr:
+            continue
+        ts  = r.get("t_signal", "") or ""
+        zs  = r.get("z_signal", "") or ""
+        ls  = r.get("l_signal", "") or ""
+        uni = r.get("universe", "") or ""
+        tf  = r.get("timeframe", "") or ""
+        key = (gr, ts, zs, ls, uni, tf)
+        groups.setdefault(key, []).append(r)
+
+    result = []
+    for (gr, ts, zs, ls, uni, tf), grp in groups.items():
+        if len(grp) < min_count:
+            continue
+        result.append({
+            "bar_gap_range": gr,
+            "t_signal": ts, "z_signal": zs, "l_signal": ls,
+            "universe": uni, "timeframe": tf,
+            "count": len(grp),
+            **_robust_metrics(grp),
+        })
+    return sorted(result, key=lambda x: -(x["count"] or 0))
     """
     2-bar and 3-bar sequences using composite full labels.
     E.g. Z4L64ER -> T4L34NDP (base: Z4->T4)
@@ -1545,6 +1600,14 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
     meta["penetration_suffix_distribution"] = dict(pen_dist.most_common(10))
     meta["full_suffix_distribution"]        = dict(full_dist_items.most_common(20))
 
+    # Pine 260520 line-3 / line-4 distributions
+    bw_dist = Counter((r.get("bar_body_wick") or "") for r in rows if r.get("bar_body_wick"))
+    gr_dist = Counter((r.get("bar_gap_range") or "") for r in rows if r.get("bar_gap_range"))
+    meta["body_wick_distribution"] = dict(bw_dist.most_common(30))
+    meta["gap_range_distribution"] = dict(gr_dist.most_common(30))
+    meta["rows_with_bar_body_wick"] = sum(1 for r in rows if (r.get("bar_body_wick") or ""))
+    meta["rows_with_bar_gap_range"] = sum(1 for r in rows if (r.get("bar_gap_range") or ""))
+
     if nasdaq_batch:
         first_letters = sorted(
             set(str(r.get("ticker") or "")[:1].upper()
@@ -1729,6 +1792,20 @@ def generate_replay_zip(
     bad_wick = [r for r in wp if (r.get("count") or 0) >= MIN_RANK_COUNT and ((_safe_float(r.get("avg_ret_10d")) or 0) < 0 or (_safe_float(r.get("fail_10d_rate")) or 0) > 20)]
     bad_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
 
+    # Pine 260520 line-3 / line-4 perf + top/bad rankings
+    bw_perf = _body_wick_perf(rows, min_count=MIN_RANK_COUNT)
+    gr_perf = _gap_range_perf(rows, min_count=MIN_RANK_COUNT)
+
+    top_body_wick = [r for r in bw_perf if (_safe_float(r.get("fail_10d_rate")) or 0) < 20]
+    top_body_wick.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_body_wick = [r for r in bw_perf if (_safe_float(r.get("avg_ret_10d")) or 0) < 0]
+    bad_body_wick.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
+    top_gap_range = [r for r in gr_perf if (_safe_float(r.get("fail_10d_rate")) or 0) < 20]
+    top_gap_range.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+    bad_gap_range = [r for r in gr_perf if (_safe_float(r.get("avg_ret_10d")) or 0) < 0]
+    bad_gap_range.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+
     suspicious = _suspicious_patterns(rows)
     validation_examples = _return_validation_examples(rows)
     unscored = _unscored_audit(rows)
@@ -1895,6 +1972,37 @@ def generate_replay_zip(
                     _to_csv_bytes(top_wick, wick_fields))
         zf.writestr("replay_tz_wlnbb_bad_wick_patterns.csv",
                     _to_csv_bytes(bad_wick, wick_fields))
+
+        # Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range) performance
+        body_wick_fields = [
+            "bar_body_wick", "t_signal", "z_signal", "l_signal",
+            "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d",
+            "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_body_wick_perf.csv",
+                    _to_csv_bytes(bw_perf, body_wick_fields))
+        zf.writestr("replay_tz_wlnbb_top_body_wick_patterns.csv",
+                    _to_csv_bytes(top_body_wick, body_wick_fields))
+        zf.writestr("replay_tz_wlnbb_bad_body_wick_patterns.csv",
+                    _to_csv_bytes(bad_body_wick, body_wick_fields))
+
+        gap_range_fields = [
+            "bar_gap_range", "t_signal", "z_signal", "l_signal",
+            "universe", "timeframe", "count",
+            "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",
+            "median_ret_5d", "median_ret_10d",
+            "big_win_10d_rate", "fail_10d_rate",
+            "avg_mfe_10d", "avg_mae_10d", "reward_risk_ratio",
+        ]
+        zf.writestr("replay_tz_wlnbb_gap_range_perf.csv",
+                    _to_csv_bytes(gr_perf, gap_range_fields))
+        zf.writestr("replay_tz_wlnbb_top_gap_range_patterns.csv",
+                    _to_csv_bytes(top_gap_range, gap_range_fields))
+        zf.writestr("replay_tz_wlnbb_bad_gap_range_patterns.csv",
+                    _to_csv_bytes(bad_gap_range, gap_range_fields))
 
         cseq_fields = [
             "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",

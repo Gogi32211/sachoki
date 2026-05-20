@@ -416,6 +416,37 @@ def normalize_final_action(clf: dict) -> dict:
         final_action = "WATCH"
         downgrade_reasons.append(f"UNCLASSIFIED_ROLE:{role}")
 
+    # ── Pine 260520 line-3 / line-4 modifier heuristics ───────────────────────
+    # Conservative ±1 tier max. Replace with data-driven thresholds once
+    # replay_tz_wlnbb_body_wick_perf.csv / gap_range_perf.csv accumulate data.
+    bar_bw = str(clf.get("bar_body_wick") or "")
+    bar_gr = str(clf.get("bar_gap_range") or "")
+    modifier_flags: list[str] = []
+
+    # Body/Wick modifiers
+    if bar_bw.startswith("X") and final_action == "WATCH":
+        final_action = "WATCH_HIGH"
+        modifier_flags.append("BODY_EXPAND")
+    if "J" in bar_bw and final_action == "GO":
+        final_action = "WATCH_HIGH"
+        modifier_flags.append("DOJI_BODY")
+        downgrade_reasons.append("DOJI_BODY")
+    if bar_bw.endswith("TB") and final_action == "GO":
+        final_action = "WATCH_HIGH"
+        modifier_flags.append("HEAVY_UPPER_WICK")
+        downgrade_reasons.append("HEAVY_UPPER_WICK")
+
+    # Gap/Range modifiers
+    if "V" in bar_gr and final_action == "WATCH":
+        final_action = "WATCH_HIGH"
+        modifier_flags.append("RANGE_EXPAND")
+    if bar_gr.startswith("G3"):
+        modifier_flags.append("LARGE_GAP")  # flag only, no tier change
+    if bar_gr == "C" and final_action == "GO":
+        final_action = "WATCH_HIGH"
+        modifier_flags.append("RANGE_CONTRACT")
+        downgrade_reasons.append("RANGE_CONTRACT")
+
     # ── Quality + score ───────────────────────────────────────────────────────
     if final_action == "GO":
         final_quality = "HIGH"
@@ -474,4 +505,8 @@ def normalize_final_action(clf: dict) -> dict:
         "suffix_lookup_status_used":         suffix_lookup_status_used,
         "volume_lookup_status_used":         volume_lookup_status_used,
         "static_reject_match":               static_reject_hit,
+        # Pine 260520 line-3 / line-4 modifier diagnostics
+        "bar_body_wick":                     bar_bw,
+        "bar_gap_range":                     bar_gr,
+        "bar_modifier_flags":                "|".join(modifier_flags),
     }
