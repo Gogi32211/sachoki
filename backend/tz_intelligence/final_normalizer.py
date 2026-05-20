@@ -467,15 +467,52 @@ def normalize_final_action(clf: dict) -> dict:
     elif final_action == "REJECT":
         score_after = 0
 
+    # ── final_reason: GATES_PASS reserved ONLY for true pass rows ─────────────
+    # A "true pass" means: volume_gate=PASS AND abr_gate=PASS AND no downgrade
+    # reasons accumulated. Anything else must reflect why the row was capped
+    # or downgraded.
+    gates_actually_passed = (volume_gate == "PASS") and (abr_gate_status == "PASS")
+
     if final_action == "GO":
-        final_reason = "GO:" + "|".join(positive_reasons) if positive_reasons else "GO:GATES_PASS"
+        # GO requires gates to have passed by construction; positive_reasons
+        # should always be populated. Fall back to GATES_PASS only if both
+        # gates passed and nothing was added (defensive).
+        if positive_reasons:
+            final_reason = "GO:" + "|".join(positive_reasons)
+        elif gates_actually_passed and not downgrade_reasons:
+            final_reason = "GO:GATES_PASS"
+        else:
+            final_reason = "GO:" + " | ".join(downgrade_reasons or ["UNKNOWN"])
     elif final_action == "WATCH_HIGH":
-        pos = "|".join(positive_reasons) if positive_reasons else "GATES_PASS"
-        final_reason = f"WATCH_HIGH:{pos}"
+        # Reserve WATCH_HIGH:GATES_PASS strictly for rows where gates truly
+        # passed and the only reason this is WATCH_HIGH is a soft cap that
+        # was already recorded in downgrade_reasons (or modifier).
+        if downgrade_reasons or not gates_actually_passed:
+            # Always include the downgrade context — never write a bare
+            # WATCH_HIGH:GATES_PASS when gates failed or any downgrade exists.
+            parts = list(downgrade_reasons)
+            if not gates_actually_passed:
+                if volume_gate != "PASS":
+                    parts.append(f"VOL_GATE:{volume_gate}")
+                if abr_gate_status != "PASS":
+                    parts.append(f"ABR_GATE:{abr_gate_status}")
+            final_reason = "WATCH_HIGH:" + " | ".join(parts) if parts else "WATCH_HIGH:DOWNGRADED"
+        elif positive_reasons:
+            final_reason = "WATCH_HIGH:" + "|".join(positive_reasons)
+        else:
+            final_reason = "WATCH_HIGH:GATES_PASS"
     elif downgrade_reasons:
         final_reason = " | ".join(downgrade_reasons)
-    else:
+    elif gates_actually_passed:
         final_reason = "GATES_PASS"
+    else:
+        # Catch-all: gates failed but no downgrade_reasons recorded — surface that.
+        parts = []
+        if volume_gate != "PASS":
+            parts.append(f"VOL_GATE:{volume_gate}")
+        if abr_gate_status != "PASS":
+            parts.append(f"ABR_GATE:{abr_gate_status}")
+        final_reason = " | ".join(parts) if parts else "UNKNOWN"
 
     return {
         **clf,

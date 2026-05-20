@@ -1,7 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
 import re as _re
 
-TZ_WLNBB_VERSION = "260506_TZ_F_WLNBB_CMB_python_v1"
+TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_Z8_line345"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"

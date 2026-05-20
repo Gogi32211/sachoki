@@ -35,6 +35,30 @@ def _sort_key(row: dict) -> str:
     return row.get("bar_datetime") or row.get("date", "")
 
 
+def _count_trading_days_between(d1: str, d2: str) -> int:
+    """Approximate trading-day distance between two YYYY-MM-DD-prefixed strings.
+    Falls back to calendar-day diff if parsing fails (returns large value to err safe)."""
+    from datetime import datetime
+    try:
+        s1 = d1[:10]
+        s2 = d2[:10]
+        a = datetime.strptime(s1, "%Y-%m-%d").date()
+        b = datetime.strptime(s2, "%Y-%m-%d").date()
+        if b < a:
+            a, b = b, a
+        # Count weekdays between a (exclusive) and b (inclusive)
+        days = 0
+        cur = a
+        while cur < b:
+            from datetime import timedelta
+            cur = cur + timedelta(days=1)
+            if cur.weekday() < 5:
+                days += 1
+        return days
+    except Exception:
+        return 9999
+
+
 def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
     """Build the result dict from a classifier output and raw CSV row."""
     r: dict = {
@@ -243,6 +267,7 @@ def run_intelligence_scan(
     limit: int = 500,
     debug: bool = False,
     stat_path: str | None = None,
+    max_stale_trading_days: int = 2,
 ) -> dict:
     """
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
@@ -319,6 +344,23 @@ def run_intelligence_scan(
     classified_count = 0
     stock_stat_unique = len(rows_by_ticker)
 
+    # ── Determine scan_as_of_date as the most recent bar across all tickers ────
+    # Latest-mode stale filter: drop tickers whose newest bar is older than
+    # max_stale_trading_days behind scan_as_of_date.
+    scan_as_of_date: str = ""
+    stale_dropped: list = []
+    if scan_mode == "latest":
+        all_latest_dates: list[str] = []
+        for _t, _rows in rows_by_ticker.items():
+            if not _rows:
+                continue
+            _rows.sort(key=_sort_key)
+            _ld = str(_rows[-1].get("bar_datetime") or _rows[-1].get("date") or "")
+            if _ld:
+                all_latest_dates.append(_ld)
+        if all_latest_dates:
+            scan_as_of_date = max(all_latest_dates)
+
     # For split universe latest mode: all tickers from stock_stat must appear in output.
     # NO_EDGE is a valid result — do not silently drop.  Classification exceptions must
     # produce a CLASSIFICATION_ERROR row rather than silently skipping the ticker.
@@ -330,6 +372,31 @@ def run_intelligence_scan(
         if scan_mode == "latest":
             # ── Latest mode: classify only the most recent bar ────────────────
             latest = rows[-1]
+
+            # Stale-row filter: skip tickers whose newest bar is older than
+            # max_stale_trading_days from scan_as_of_date. For split universe
+            # latest mode (require_all_tickers), emit a DATA_MISSING row instead
+            # so the ticker isn't silently dropped.
+            latest_date = str(latest.get("bar_datetime") or latest.get("date") or "")
+            if scan_as_of_date and latest_date and latest_date < scan_as_of_date:
+                trading_days_behind = _count_trading_days_between(latest_date, scan_as_of_date)
+                if trading_days_behind > max_stale_trading_days:
+                    if require_all_tickers:
+                        clf_stale = _make_error_clf(
+                            ticker, latest_date, "STALE_DATA",
+                            f"latest_bar={latest_date} is {trading_days_behind} trading days "
+                            f"behind scan_as_of_date={scan_as_of_date} "
+                            f"(max_stale_trading_days={max_stale_trading_days})",
+                        )
+                        results.append(_build_result(clf_stale, latest, debug))
+                    stale_dropped.append({
+                        "ticker": ticker,
+                        "latest_date": latest_date,
+                        "scan_as_of_date": scan_as_of_date,
+                        "trading_days_behind": trading_days_behind,
+                    })
+                    continue
+
             try:
                 cl  = float(latest.get("close")  or 0)
                 vol = float(latest.get("volume") or 0)
@@ -405,11 +472,17 @@ def run_intelligence_scan(
     return {
         "results": results[:limit],
         "total":   len(results),
+        "scan_as_of_date":       scan_as_of_date,
+        "max_stale_trading_days": max_stale_trading_days,
         "debug": {
             "stock_stat_unique_tickers": stock_stat_unique,
             "classified_tickers":        classified_count,
             "dropped_tickers_count":     len(dropped_tickers),
             "dropped_tickers":           dropped_tickers,
             "classification_errors":     classification_errors,
+            "stale_dropped_count":       len(stale_dropped),
+            "stale_dropped":             stale_dropped,
+            "scan_as_of_date":           scan_as_of_date,
+            "max_stale_trading_days":    max_stale_trading_days,
         },
     }

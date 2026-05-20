@@ -3935,19 +3935,17 @@ def _run_pivot_swing_bg(
         else:
             csv_files = sorted(_glob.glob(os.path.join(csv_dir, "stock_stat_tz_wlnbb_*.csv")))
         _pivot_swing_state["total"] = len(csv_files)
-        all_files = []
-        for path in csv_files:
-            out = run_pivot_analytics(
-                csv_path=path,
-                output_dir=output_dir,
-                pivot_left=pivot_left,
-                pivot_right=pivot_right,
-                min_swing_return_pct=min_swing_pct,
-                min_swing_bars=min_swing_bars,
-            )
-            all_files.extend(out.keys())
-            _pivot_swing_state["done"] += 1
-        _pivot_swing_state["files"] = sorted(set(all_files))
+        # Aggregated run: all CSVs combine into a single output set.
+        out = run_pivot_analytics(
+            csv_paths=csv_files,
+            output_dir=output_dir,
+            pivot_left=pivot_left,
+            pivot_right=pivot_right,
+            min_swing_return_pct=min_swing_pct,
+            min_swing_bars=min_swing_bars,
+        )
+        _pivot_swing_state["done"] = len(csv_files)
+        _pivot_swing_state["files"] = sorted(out.keys())
     except Exception as e:
         _pivot_swing_state["error"] = str(e)
     finally:
