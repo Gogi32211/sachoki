@@ -3831,6 +3831,129 @@ def api_debug_compare_ultra_superchart(symbol: str, tf: str = "1d"):
     return report
 
 
+
+# ---------------------------------------------------------------------------
+# Pivot Swing Character Analytics Engine endpoints
+# ---------------------------------------------------------------------------
+
+_pivot_swing_state = {
+    "running": False, "done": 0, "total": 0, "output_dir": None, "error": None,
+    "files": [],
+}
+
+
+@app.post("/api/pivot-swing/run")
+def api_pivot_swing_run(
+    background_tasks: BackgroundTasks,
+    csv_dir: str = "",
+    csv_file: str = "",
+    output_dir: str = "",
+    pivot_left: int = 3,
+    pivot_right: int = 3,
+    min_swing_pct: float = 3.0,
+    min_swing_bars: int = 2,
+):
+    """
+    Run the Pivot Swing Character Analytics Engine.
+
+    Supply either csv_dir (process all stock_stat_tz_wlnbb_*.csv files in that dir)
+    or csv_file (single file path). output_dir defaults to <csv_dir>/pivot_analytics
+    or /tmp/pivot_analytics.
+    """
+    global _pivot_swing_state
+    if _pivot_swing_state.get("running"):
+        raise HTTPException(status_code=409, detail="Already running")
+    if not csv_dir and not csv_file:
+        # Default: look for stock-stat CSVs in backend dir
+        csv_dir = os.path.dirname(__file__)
+    if not output_dir:
+        base = csv_dir or os.path.dirname(csv_file)
+        output_dir = os.path.join(base, "pivot_analytics")
+    background_tasks.add_task(
+        _run_pivot_swing_bg, csv_dir, csv_file, output_dir,
+        pivot_left, pivot_right, min_swing_pct, min_swing_bars,
+    )
+    return {"status": "started", "output_dir": output_dir}
+
+
+@app.get("/api/pivot-swing/status")
+def api_pivot_swing_status():
+    return _pivot_swing_state
+
+
+@app.get("/api/pivot-swing/results")
+def api_pivot_swing_results():
+    return {"files": _pivot_swing_state.get("files", []), "output_dir": _pivot_swing_state.get("output_dir")}
+
+
+@app.get("/api/pivot-swing/download/{filename}")
+def api_pivot_swing_download(filename: str):
+    from fastapi.responses import FileResponse
+    out_dir = _pivot_swing_state.get("output_dir") or ""
+    path = os.path.join(out_dir, filename) if out_dir else filename
+    if not os.path.exists(path):
+        raise HTTPException(status_code=404, detail="File not found")
+    return FileResponse(path, filename=filename)
+
+
+@app.post("/api/pivot-swing/analyze-csv")
+async def api_pivot_swing_analyze_csv(
+    ticker: str = "",
+    pivot_left: int = 3,
+    pivot_right: int = 3,
+    min_swing_pct: float = 3.0,
+    min_swing_bars: int = 2,
+):
+    """
+    Accept an uploaded stock_stat_tz_wlnbb CSV and return pivot analytics inline.
+    Returns a JSON summary (pivot count, swing count, top signals at pivot zones).
+    """
+    import tempfile
+    from analyzers.pivot_swing.pivot_analytics import run_pivot_analytics
+
+
+def _run_pivot_swing_bg(
+    csv_dir: str,
+    csv_file: str,
+    output_dir: str,
+    pivot_left: int,
+    pivot_right: int,
+    min_swing_pct: float,
+    min_swing_bars: int,
+):
+    global _pivot_swing_state
+    import glob as _glob
+    from analyzers.pivot_swing.pivot_analytics import run_pivot_analytics
+
+    _pivot_swing_state = {
+        "running": True, "done": 0, "total": 0, "output_dir": output_dir,
+        "error": None, "files": [],
+    }
+    try:
+        if csv_file:
+            csv_files = [csv_file]
+        else:
+            csv_files = sorted(_glob.glob(os.path.join(csv_dir, "stock_stat_tz_wlnbb_*.csv")))
+        _pivot_swing_state["total"] = len(csv_files)
+        all_files = []
+        for path in csv_files:
+            out = run_pivot_analytics(
+                csv_path=path,
+                output_dir=output_dir,
+                pivot_left=pivot_left,
+                pivot_right=pivot_right,
+                min_swing_return_pct=min_swing_pct,
+                min_swing_bars=min_swing_bars,
+            )
+            all_files.extend(out.keys())
+            _pivot_swing_state["done"] += 1
+        _pivot_swing_state["files"] = sorted(set(all_files))
+    except Exception as e:
+        _pivot_swing_state["error"] = str(e)
+    finally:
+        _pivot_swing_state["running"] = False
+
+
 _static = os.path.join(os.path.dirname(__file__), "static")
 if os.path.isdir(_static):
     app.mount("/", StaticFiles(directory=_static, html=True), name="static")
