@@ -532,6 +532,9 @@ def _gap_range_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
             **_robust_metrics(grp),
         })
     return sorted(result, key=lambda x: -(x["count"] or 0))
+
+
+def _composite_sequence_perf(rows: List[dict]) -> List[dict]:
     """
     2-bar and 3-bar sequences using composite full labels.
     E.g. Z4L64ER -> T4L34NDP (base: Z4->T4)
