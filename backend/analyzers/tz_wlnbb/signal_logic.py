@@ -2,6 +2,95 @@
 from __future__ import annotations
 from .config import T_PRIORITY_RANK, Z_PRIORITY_RANK
 
+# ── Pine 260520 line-3 / line-4 thresholds (defaults match Pine inputs) ─────
+_BODY_EXPAND         = 1.5   # X if body >= N × prev body
+_BODY_MINIMAL        = 0.5   # M if body <= N × prev body
+_WICK_HEAVY          = 0.5   # TB / BB if wick >= N × bar range
+_WICK_FLAT_MAX       = 0.3   # F if both wicks < N × bar range
+_DOJI_BODY_RATIO     = 0.2   # J if body <= N × bar range
+_GAP_SMALL_PCT       = 0.3   # G1 if |gap| < N % of prev close
+_GAP_MEDIUM_PCT      = 1.0   # G2 if |gap| < N % (else G3)
+_RANGE_VOL_MULT      = 1.5   # V if range > N × ATR
+_RANGE_CONTRACT_MULT = 0.5   # C if range < N × ATR
+
+
+def compute_bar_shape_fields(
+    o: float, h: float, l: float, c: float,
+    prev_o: float, prev_h: float, prev_l: float, prev_c: float,
+    atr: float = 0.0,
+) -> dict:
+    """Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range vs ATR).
+
+    Returns {"bar_body_wick": str, "bar_gap_range": str}. Both purely
+    additive — no existing signal logic depends on them.
+    """
+    # ── Body class: X / S / M (vs prev body) ──────────────────────────────
+    body_now  = abs(c - o)
+    body_prev_safe = max(abs(prev_c - prev_o), 1e-10)
+    body_ratio = body_now / body_prev_safe
+    if body_ratio >= _BODY_EXPAND:
+        body_class = "X"
+    elif body_ratio <= _BODY_MINIMAL:
+        body_class = "M"
+    else:
+        body_class = "S"
+
+    # ── Wick class: J / TB / BB / F / "" (vs current bar range) ───────────
+    bar_range_safe = max(h - l, 1e-10)
+    upper_wick = h - max(o, c)
+    lower_wick = min(o, c) - l
+    upper_frac = upper_wick / bar_range_safe
+    lower_frac = lower_wick / bar_range_safe
+    body_frac  = body_now  / bar_range_safe
+
+    if body_frac <= _DOJI_BODY_RATIO:
+        wick_class = "J"
+    elif upper_frac >= _WICK_HEAVY:
+        wick_class = "TB"
+    elif lower_frac >= _WICK_HEAVY:
+        wick_class = "BB"
+    elif upper_frac < _WICK_FLAT_MAX and lower_frac < _WICK_FLAT_MAX:
+        wick_class = "F"
+    else:
+        wick_class = ""
+
+    bar_body_wick = body_class + wick_class
+
+    # ── Gap class: G1 / G2 / G3 (only TRUE chart gaps) ────────────────────
+    has_gap = (o > prev_h) or (o < prev_l)
+    prev_close_safe = max(abs(prev_c), 1e-10)
+    gap_abs_pct = (abs(o - prev_c) / prev_close_safe * 100.0) if has_gap else 0.0
+    if has_gap:
+        if gap_abs_pct < _GAP_SMALL_PCT:
+            gap_class = "G1"
+        elif gap_abs_pct < _GAP_MEDIUM_PCT:
+            gap_class = "G2"
+        else:
+            gap_class = "G3"
+    else:
+        gap_class = ""
+
+    # ── Range class vs ATR: V / N / C ─────────────────────────────────────
+    if atr and atr > 0:
+        range_ratio = (h - l) / atr
+        if range_ratio > _RANGE_VOL_MULT:
+            range_class = "V"
+        elif range_ratio < _RANGE_CONTRACT_MULT:
+            range_class = "C"
+        else:
+            range_class = "N"
+    else:
+        range_class = ""
+
+    if gap_class and range_class:
+        bar_gap_range = f"{gap_class}-{range_class}"
+    elif gap_class:
+        bar_gap_range = gap_class
+    else:
+        bar_gap_range = range_class
+
+    return {"bar_body_wick": bar_body_wick, "bar_gap_range": bar_gap_range}
+
 
 def compute_tz_wlnbb_for_bar(
     o: float, h: float, l: float, c: float, v: float,
@@ -13,6 +102,7 @@ def compute_tz_wlnbb_for_bar(
     use_wick: bool = False,
     min_body_ratio: float = 1.0,
     doji_thresh: float = 0.05,
+    atr: float = 0.0,
 ) -> dict:
     """
     Compute all TZ/WLNBB signals for a single bar.
@@ -392,6 +482,9 @@ def compute_tz_wlnbb_for_bar(
     has_bullish_context = has_t_signal or has_preup
     has_bearish_context = has_z_signal or has_predn
 
+    # ── Pine 260520 line-3 / line-4 (purely additive display fields) ───────
+    _shape = compute_bar_shape_fields(o, h, l, c, prev_o, prev_h, prev_l, prev_c, atr=atr)
+
     return {
         "is_bull": is_bull,
         "is_bear": is_bear,
@@ -456,4 +549,7 @@ def compute_tz_wlnbb_for_bar(
         "has_tz_l_combo": has_tz_l_combo,
         "has_bullish_context": has_bullish_context,
         "has_bearish_context": has_bearish_context,
+        # Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range vs ATR)
+        "bar_body_wick": _shape["bar_body_wick"],
+        "bar_gap_range": _shape["bar_gap_range"],
     }

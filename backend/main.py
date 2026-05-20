@@ -1276,6 +1276,20 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     # Per-bar rolling history for bear-to-bull sequence scoring (most-recent-first)
     _pf_bar_history: list = []  # list of Set[str], [1_bar_ago, 2_bars_ago, ...]
 
+    # ── Pine 260520 line-3 / line-4: precompute ATR(14, Wilder) for bar_gap_range
+    try:
+        from analyzers.tz_wlnbb.signal_logic import compute_bar_shape_fields as _bar_shape_fn
+        _prev_c_arr = df["close"].shift(1)
+        _tr_arr = pd.concat([
+            df["high"] - df["low"],
+            (df["high"] - _prev_c_arr).abs(),
+            (df["low"]  - _prev_c_arr).abs(),
+        ], axis=1).max(axis=1)
+        _atr_arr = _tr_arr.ewm(alpha=1.0 / 14.0, adjust=False).mean()
+    except Exception:
+        _bar_shape_fn = None
+        _atr_arr = None
+
     result = []
 
     for i in range(len(df)):
@@ -1608,6 +1622,27 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         setup_list   = [t for t in _setup_str.split()  if t]
         context_list = [t for t in _ctx_str.split()    if t]
 
+        # Pine 260520 line-3 (Body+Wick) and line-4 (Gap+Range vs ATR)
+        _bar_body_wick = ""
+        _bar_gap_range = ""
+        if _bar_shape_fn is not None and i > 0:
+            _prev_row = df.iloc[i - 1]
+            try:
+                _atr_val = float(_atr_arr.iloc[i]) if _atr_arr is not None else 0.0
+                if pd.isna(_atr_val):
+                    _atr_val = 0.0
+                _shape = _bar_shape_fn(
+                    o=float(row["open"]), h=float(row["high"]),
+                    l=float(row["low"]),  c=float(row["close"]),
+                    prev_o=float(_prev_row["open"]), prev_h=float(_prev_row["high"]),
+                    prev_l=float(_prev_row["low"]),  prev_c=float(_prev_row["close"]),
+                    atr=_atr_val,
+                )
+                _bar_body_wick = _shape["bar_body_wick"]
+                _bar_gap_range = _shape["bar_gap_range"]
+            except Exception:
+                pass
+
         result.append({
             "date":       date_val,
             "open":       float(row["open"]),
@@ -1616,6 +1651,8 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "close":      float(row["close"]),
             "volume":     float(row["volume"]),
             "vol_bucket": vol_bkt,
+            "bar_body_wick": _bar_body_wick,
+            "bar_gap_range": _bar_gap_range,
             "tz":        tz,
             "l":         l_list,
             "f":         f_list,
