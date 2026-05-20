@@ -23,6 +23,18 @@ def compute_wlnbb(df: pd.DataFrame, period: int = WLNBB_MA_PERIOD) -> pd.DataFra
     return df
 
 
+def compute_atr_wilder(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
+    """Add `atr` column using Wilder smoothing (matches Pine `ta.atr`)."""
+    prev_c = df["close"].shift(1)
+    tr = pd.concat([
+        df["high"] - df["low"],
+        (df["high"] - prev_c).abs(),
+        (df["low"]  - prev_c).abs(),
+    ], axis=1).max(axis=1)
+    df["atr"] = tr.ewm(alpha=1.0 / period, adjust=False).mean()
+    return df
+
+
 def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.DataFrame:
     """
     Given a OHLCV DataFrame (sorted oldest-first) for a single ticker,
@@ -32,6 +44,7 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
     df = df.copy().reset_index(drop=True)
     compute_emas(df)
     compute_wlnbb(df)
+    compute_atr_wilder(df, period=14)
 
     results = []
     prev_is_doji = False
@@ -68,6 +81,7 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
             prev_vol_low=float(prev["wlnbb_low"]) if not pd.isna(prev["wlnbb_low"]) else 0.0,
             prev_is_doji=prev_is_doji,
             use_wick=USE_WICK, min_body_ratio=MIN_BODY_RATIO, doji_thresh=DOJI_THRESH,
+            atr=float(row["atr"]) if not pd.isna(row.get("atr")) else 0.0,
         )
         prev_is_doji = r["is_doji"]
         results.append(r)
@@ -107,4 +121,5 @@ def _empty_result() -> dict:
         "has_t_signal": False, "has_z_signal": False, "has_l_signal": False,
         "has_preup": False, "has_predn": False,
         "has_tz_l_combo": False, "has_bullish_context": False, "has_bearish_context": False,
+        "bar_body_wick": "", "bar_gap_range": "",
     }

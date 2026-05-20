@@ -61,6 +61,8 @@ def _build_result(clf: dict, bar_row: dict, debug: bool) -> dict:
         "close_suffix":      clf.get("close_suffix", ""),
         "close_appended":    bool(clf.get("close_appended", False)),
         "full_suffix":       clf.get("full_suffix", ""),
+        "bar_body_wick":     clf.get("bar_body_wick", ""),
+        "bar_gap_range":     clf.get("bar_gap_range", ""),
         "reason_codes":      clf["reason_codes"],
         "explanation":       clf["explanation"],
         # EMA

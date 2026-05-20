@@ -956,6 +956,8 @@ def _build_result(
         "close_suffix":      close_sfx,
         "close_appended":    bool(close_appended),
         "full_suffix":       (ne_sfx + wk_sfx + pen_sfx + (close_sfx if close_appended else "")),
+        "bar_body_wick":     str(row.get("bar_body_wick") or ""),
+        "bar_gap_range":     str(row.get("bar_gap_range") or ""),
         "explanation":       explanation,
         "reason_codes":      reason_codes or [],
         "above_ema20":       above_ema20,

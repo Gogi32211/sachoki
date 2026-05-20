@@ -1352,6 +1352,8 @@ export default function TZWLNBBPanel() {
                 <th className="text-left p-1 font-medium">Wk</th>
                 <th className="text-left p-1 font-medium">Pen</th>
                 <th className="text-left p-1 font-medium">Cls</th>
+                <th className="text-left p-1 font-medium" title="Body/Wick (Pine line 3)">BW</th>
+                <th className="text-left p-1 font-medium" title="Gap/Range vs ATR (Pine line 4)">GR</th>
                 <th className="text-left p-1 font-medium">Vol</th>
                 <th className="text-center p-1 font-medium">Debug</th>
               </tr>
@@ -1402,6 +1404,8 @@ export default function TZWLNBBPanel() {
                     <td className="p-1 text-md-on-surface-var">{row.wick_suffix || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.penetration_suffix || ''}</td>
                     <td className="p-1 text-md-on-surface-var">{row.close_appended ? (row.close_suffix || '') : ''}</td>
+                    <td className="p-1 font-mono text-md-on-surface-var">{row.bar_body_wick || ''}</td>
+                    <td className="p-1 font-mono text-md-on-surface-var">{row.bar_gap_range || ''}</td>
                     <td className="p-1 text-md-on-surface-var">
                       <span className={`px-1 rounded text-xs
                         ${row.volume_bucket === 'VB' ? 'text-red-300' :
