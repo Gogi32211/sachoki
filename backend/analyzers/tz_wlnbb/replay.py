@@ -11,6 +11,7 @@ from datetime import datetime, timedelta
 from typing import List, Dict, Optional
 
 from .config import TZ_WLNBB_VERSION, DEFAULT_LOOKBACK_TRADING_DAYS
+from .build_marker import BUILD_MARKER, BUILD_INFO, filename_marker
 
 log = logging.getLogger(__name__)
 
@@ -1568,6 +1569,10 @@ def _build_metadata(rows: List[dict], universe: str, tf: str,
 
     meta = {
         "version": TZ_WLNBB_VERSION,
+        "tz_wlnbb_version": TZ_WLNBB_VERSION,
+        "TZ_WLNBB_ANALYZER_VERSION": TZ_WLNBB_VERSION,
+        "build_marker": BUILD_MARKER,
+        "build_info": BUILD_INFO,
         "generated_at": datetime.utcnow().isoformat() + "Z",
         "universe": universe,
         "nasdaq_batch": nasdaq_batch or None,
@@ -1913,6 +1918,14 @@ def generate_replay_zip(
         return buf.getvalue().encode("utf-8")
 
     with zipfile.ZipFile(output_path, "w", zipfile.ZIP_DEFLATED) as zf:
+        # ── BUILD_MARKER.txt — top-level, immediately visible ────────────────
+        # If this file is missing or its content does not match the deployed
+        # code's BUILD_MARKER, the ZIP came from an older code path.
+        zf.writestr(
+            "BUILD_MARKER.txt",
+            BUILD_MARKER + "\n" + json.dumps(BUILD_INFO, indent=2) + "\n",
+        )
+
         sp_fields = [
             "signal_type", "signal_name", "universe", "timeframe", "count",
             "avg_ret_1d", "avg_ret_3d", "avg_ret_5d", "avg_ret_10d",

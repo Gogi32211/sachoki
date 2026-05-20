@@ -3181,7 +3181,10 @@ def api_code_version():
     """Returns the active code's signal-engine version + fingerprint of the
     final_reason fix and stale-filter so deployments can be verified."""
     from analyzers.tz_wlnbb.config import TZ_WLNBB_VERSION, Z_PRIORITY
+    from analyzers.tz_wlnbb.build_marker import BUILD_MARKER, BUILD_INFO
     fingerprint = {
+        "build_marker": BUILD_MARKER,
+        "build_info": BUILD_INFO,
         "tz_wlnbb_version": TZ_WLNBB_VERSION,
         "z_priority": Z_PRIORITY,
         "z8_present": "Z8" in Z_PRIORITY,  # must be False
@@ -3261,6 +3264,13 @@ def api_tz_intelligence_scan(
             debug=debug,
             max_stale_trading_days=max_stale_trading_days,
         )
+        # ── Tag every row + the response with the active build marker ─────────
+        from analyzers.tz_wlnbb.build_marker import BUILD_MARKER, BUILD_INFO
+        result["build_marker"] = BUILD_MARKER
+        result["build_info"] = BUILD_INFO
+        for _r in result.get("results", []) or []:
+            _r["build_marker"] = BUILD_MARKER
+
         # ── Defensive post-scan repair pass ───────────────────────────────────
         # Any row whose final_reason still contains the legacy "GATES_PASS"
         # token while gates actually failed gets repaired here. This protects
@@ -4081,12 +4091,16 @@ def api_artifact_audit(
     audit["replay_zip_exists"] = os.path.exists(replay_path)
     pivot_files_in_zip: list = []
     replay_metadata_version = None
+    zip_build_marker = None
     if os.path.exists(replay_path):
         try:
             import json as _json
             with _zf.ZipFile(replay_path, "r") as zf:
                 names = zf.namelist()
                 pivot_files_in_zip = [n for n in names if n.startswith("pivot_swing/")]
+                # Read top-level BUILD_MARKER.txt if present
+                if "BUILD_MARKER.txt" in names:
+                    zip_build_marker = zf.read("BUILD_MARKER.txt").decode("utf-8").splitlines()[0].strip()
                 # version lives in tz_wlnbb_config_snapshot.json
                 for snap_name in ("tz_wlnbb_config_snapshot.json", "replay_tz_wlnbb_metadata.json"):
                     if snap_name in names:
@@ -4096,10 +4110,16 @@ def api_artifact_audit(
                             or obj.get("source_pine_script")
                             or obj.get("tz_wlnbb_version")
                         )
+                        if zip_build_marker is None:
+                            zip_build_marker = obj.get("build_marker")
                         if replay_metadata_version:
                             break
         except Exception as e:
             audit["replay_zip_read_error"] = str(e)
+    audit["zip_build_marker"] = zip_build_marker
+    from analyzers.tz_wlnbb.build_marker import BUILD_MARKER as _ACTIVE_MARKER
+    audit["active_code_build_marker"] = _ACTIVE_MARKER
+    audit["zip_built_with_active_code"] = (zip_build_marker == _ACTIVE_MARKER)
     audit["pivot_output_file_count"] = len(pivot_files_in_zip)
     audit["pivot_files_in_zip"] = pivot_files_in_zip
     audit["replay_metadata_version"] = replay_metadata_version
@@ -4117,6 +4137,7 @@ def api_artifact_audit(
         "watch_high_gates_pass_zero": audit.get("watch_high_gates_pass_count") == 0,
         "bad_gates_pass_zero": audit.get("bad_gates_pass_count") == 0,
         "pivot_files_present": audit.get("pivot_output_file_count", 0) == 17,
+        "zip_built_with_active_code": audit.get("zip_built_with_active_code", False),
     }
     audit["checks"] = checks
     audit["all_checks_pass"] = all(v for v in checks.values() if v is not None)

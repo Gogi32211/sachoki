@@ -8,13 +8,14 @@ from typing import Optional, Callable, List, Tuple
 import pandas as pd
 
 from .config import TZ_WLNBB_VERSION
+from .build_marker import BUILD_MARKER
 from .signal_extraction import compute_signals_for_ticker
 
 log = logging.getLogger(__name__)
 
 OUTPUT_COLUMNS = [
     "ticker", "date", "bar_datetime", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
-    "tz_wlnbb_version",
+    "tz_wlnbb_version", "build_marker",
     "price_bucket", "is_sub_dollar", "is_penny_stock", "is_low_price", "is_high_price",
     "ema9", "ema20", "ema34", "ema50", "ema89", "ema200",
     "t_signal", "z_signal", "t_raw_signals", "z_raw_signals", "bull_priority_code", "bear_priority_code",
@@ -303,6 +304,7 @@ def generate_stock_stat(
                         _val(row.get("low")), _val(row.get("close")),
                         _val(row.get("volume")),
                         TZ_WLNBB_VERSION,
+                        BUILD_MARKER,
                         price_bucket, is_sub_dollar, is_penny_stock, is_low_price, is_high_price,
                         _val(row.get("ema9")), _val(row.get("ema20")),
                         _val(row.get("ema34")), _val(row.get("ema50")),
