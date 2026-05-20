@@ -2943,6 +2943,58 @@ def api_tz_wlnbb_status():
     return _tz_wlnbb_state
 
 
+@app.get("/api/tz-wlnbb/replay-perf")
+def api_tz_wlnbb_replay_perf(
+    kind: str = "body_wick",
+    universe: str = "sp500",
+    tf: str = "1d",
+    min_count: int = 30,
+    sort: str = "top",
+    limit: int = 200,
+):
+    """Compute body_wick or gap_range performance from the latest stock_stat CSV.
+
+    kind   : "body_wick" or "gap_range"
+    sort   : "top" (avg_ret_10d desc, fail<20), "bad" (avg_ret_10d asc <0), "raw" (count desc)
+    """
+    try:
+        import csv as _csv
+        stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(stat_path):
+            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
+        if not os.path.exists(stat_path):
+            return {"rows": [], "error": "No stock_stat_tz_wlnbb CSV found."}
+
+        with open(stat_path, newline="", encoding="utf-8") as f:
+            rows = list(_csv.DictReader(f))
+
+        from analyzers.tz_wlnbb.replay import _body_wick_perf, _gap_range_perf, _safe_float
+        if kind == "gap_range":
+            perf = _gap_range_perf(rows, min_count=min_count)
+        else:
+            perf = _body_wick_perf(rows, min_count=min_count)
+
+        if sort == "top":
+            out = [r for r in perf if (_safe_float(r.get("fail_10d_rate")) or 0) < 20]
+            out.sort(key=lambda x: -(_safe_float(x.get("avg_ret_10d")) or 0))
+        elif sort == "bad":
+            out = [r for r in perf if (_safe_float(r.get("avg_ret_10d")) or 0) < 0]
+            out.sort(key=lambda x: (_safe_float(x.get("avg_ret_10d")) or 0))
+        else:
+            out = sorted(perf, key=lambda x: -(x.get("count") or 0))
+
+        return {
+            "rows": out[:limit],
+            "total": len(perf),
+            "kind": kind,
+            "min_count": min_count,
+            "stat_path": stat_path,
+        }
+    except Exception as exc:
+        log.exception("tz-wlnbb replay-perf error")
+        return {"rows": [], "error": str(exc)}
+
+
 @app.get("/api/tz-wlnbb/debug")
 def api_tz_wlnbb_debug(ticker: str, date: str = "", tf: str = "1d", universe: str = "sp500"):
     """Return detailed signal breakdown for a specific ticker/date."""
