@@ -1728,7 +1728,7 @@ def get_config_snapshot() -> dict:
         "base_sequence_scope": "multi-family (T, Z, L, PREUP, PREDN) — every signal on a bar emits an event",
         "composite_sequence_scope": "T/Z + L composite labels (full_label including suffixes)",
         "output_schema_version": OUTPUT_SCHEMA_VERSION,
-        "source_pine_script": f"{TZ_WLNBB_VERSION} — Combined Oscillator with Z8/line3/line4/line5",
+        "source_pine_script": f"{TZ_WLNBB_VERSION} — Combined Oscillator with line3/line4/line5",
     }
 
 

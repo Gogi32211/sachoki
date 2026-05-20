@@ -3176,6 +3176,54 @@ def api_tz_wlnbb_download(filename: str):
     return FileResponse(path, filename=filename)
 
 
+@app.get("/api/code-version")
+def api_code_version():
+    """Returns the active code's signal-engine version + fingerprint of the
+    final_reason fix and stale-filter so deployments can be verified."""
+    from analyzers.tz_wlnbb.config import TZ_WLNBB_VERSION, Z_PRIORITY
+    fingerprint = {
+        "tz_wlnbb_version": TZ_WLNBB_VERSION,
+        "z_priority": Z_PRIORITY,
+        "z8_present": "Z8" in Z_PRIORITY,  # must be False
+        "final_normalizer_has_guardrail": _check_final_normalizer_fix(),
+        "scanner_has_stale_filter": _check_scanner_stale_filter(),
+        "pivot_swing_module_present": _check_pivot_module(),
+    }
+    return fingerprint
+
+
+def _check_final_normalizer_fix() -> bool:
+    try:
+        import inspect
+        from tz_intelligence import final_normalizer as fn
+        src = inspect.getsource(fn.normalize_final_action)
+        return ("gates_actually_passed" in src
+                and "GATES_PASS reserved ONLY for true pass rows" in src
+                and "make the WATCH_HIGH:GATES_PASS bug impossible to ship" in src)
+    except Exception:
+        return False
+
+
+def _check_scanner_stale_filter() -> bool:
+    try:
+        import inspect
+        from tz_intelligence import scanner as sc
+        src = inspect.getsource(sc)
+        return ("max_stale_trading_days" in src
+                and "_count_trading_days_between" in src
+                and "scan_as_of_date" in src)
+    except Exception:
+        return False
+
+
+def _check_pivot_module() -> bool:
+    try:
+        from analyzers.pivot_swing.pivot_analytics import run_pivot_analytics  # noqa
+        return True
+    except Exception:
+        return False
+
+
 @app.get("/api/tz-intelligence/scan")
 def api_tz_intelligence_scan(
     universe: str = "sp500",
@@ -3188,6 +3236,7 @@ def api_tz_intelligence_scan(
     scan_mode: str = "latest",
     limit: int = 500,
     debug: bool = False,
+    max_stale_trading_days: int = 2,
 ):
     """Classify TZ/WLNBB bars using the Signal Intelligence matrix.
 
@@ -3199,7 +3248,7 @@ def api_tz_intelligence_scan(
         min_price = max(min_price, 5.0)
     try:
         from tz_intelligence.scanner import run_intelligence_scan
-        return run_intelligence_scan(
+        result = run_intelligence_scan(
             universe=universe,
             tf=tf,
             nasdaq_batch=nasdaq_batch,
@@ -3210,7 +3259,32 @@ def api_tz_intelligence_scan(
             scan_mode=scan_mode,
             limit=limit,
             debug=debug,
+            max_stale_trading_days=max_stale_trading_days,
         )
+        # ── Defensive post-scan repair pass ───────────────────────────────────
+        # Any row whose final_reason still contains the legacy "GATES_PASS"
+        # token while gates actually failed gets repaired here. This protects
+        # against stale process state or any racing code path.
+        repaired = 0
+        for r in result.get("results", []) or []:
+            fr = str(r.get("final_reason", "") or "")
+            vg = str(r.get("volume_gate_status", "") or "")
+            ag = str(r.get("abr_gate_status", "") or "")
+            if fr in ("GATES_PASS", "WATCH_HIGH:GATES_PASS", "GO:GATES_PASS") and (vg != "PASS" or ag != "PASS"):
+                downgrade_reason = str(r.get("downgrade_reason", "") or "")
+                parts = [p for p in downgrade_reason.split(" | ") if p]
+                if vg != "PASS":
+                    parts.append(f"VOL_GATE:{vg}")
+                if ag != "PASS":
+                    parts.append(f"ABR_GATE:{ag}")
+                fa = str(r.get("final_action", "") or "")
+                prefix = "GO:" if fa == "GO" else "WATCH_HIGH:" if fa == "WATCH_HIGH" else ""
+                r["final_reason"] = prefix + (" | ".join(parts) if parts else "GATES_FAILED")
+                repaired += 1
+        if repaired:
+            result.setdefault("debug", {})["post_scan_repair_count"] = repaired
+            log.warning("post-scan repair: rewrote %d rows with bad GATES_PASS", repaired)
+        return result
     except Exception as exc:
         log.exception("tz-intelligence scan error")
         raise HTTPException(status_code=500, detail=str(exc))

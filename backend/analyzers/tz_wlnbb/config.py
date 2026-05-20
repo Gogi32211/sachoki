@@ -1,7 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
 import re as _re
 
-TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_Z8_line345"
+TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_line345"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"
@@ -61,8 +61,8 @@ WLNBB_MA_PERIOD = 20
 T_PRIORITY = ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5", "T12"]
 T_PRIORITY_RANK = {s: i+1 for i, s in enumerate(T_PRIORITY)}
 
-# Z priority order
-Z_PRIORITY = ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z8", "Z7"]
+# Z priority order  (Z8 intentionally excluded — not a real signal in this system)
+Z_PRIORITY = ["Z4", "Z6", "Z1G", "Z2G", "Z1", "Z2", "Z9", "Z10", "Z3", "Z11", "Z5", "Z12", "Z7"]
 Z_PRIORITY_RANK = {s: i+1 for i, s in enumerate(Z_PRIORITY)}
 
 # PREUP priority
