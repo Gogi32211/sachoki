@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.4.674 · API v2.1
+> Version 4.4.674 · API v2.8
 
 ---
 
@@ -14,13 +14,14 @@
 6. [ULTRA Score v2](#ultra-score-v2)
 7. [Sequences Engine](#sequences-engine)
 8. [BETA Score Engine](#beta-score-engine)
-9. [Paper Portfolio](#paper-portfolio)
-10. [Chart Observations](#chart-observations)
-11. [API Endpoints](#api-endpoints)
-12. [Frontend Tabs](#frontend-tabs)
-13. [Analyzer Modules](#analyzer-modules)
-14. [Deployment](#deployment)
-15. [Test Suite](#test-suite)
+9. [TZ Intelligence Statistical Layer v2.8](#tz-intelligence-statistical-layer-v28)
+10. [Paper Portfolio](#paper-portfolio)
+11. [Chart Observations](#chart-observations)
+12. [API Endpoints](#api-endpoints)
+13. [Frontend Tabs](#frontend-tabs)
+14. [Analyzer Modules](#analyzer-modules)
+15. [Deployment](#deployment)
+16. [Test Suite](#test-suite)
 
 ---
 
@@ -87,11 +88,15 @@ sachoki/
 │   │       ├── replay.py
 │   │       ├── config.py
 │   │       └── schemas.py
+│   ├── ultra_scan_routes.py         # Stub router (avoids ImportError on startup)
 │   └── tz_intelligence/
-│       ├── classifier.py
-│       ├── abr_classifier.py
-│       ├── scanner.py
-│       ├── matrix_loader.py
+│       ├── classifier.py            # ABR + matrix classification
+│       ├── abr_classifier.py        # ABR rule matching
+│       ├── scanner.py               # TZ Intel scan orchestrator
+│       ├── matrix_loader.py         # Master matrix CSV loader
+│       ├── stat_engine.py           # Statistical quality labels (STRONG/GOOD/AVERAGE/WEAK/REJECT)
+│       ├── final_normalizer.py      # Final action normalizer v2.8 (GO/WATCH_HIGH/WATCH/…)
+│       ├── whitelist_builder.py     # Whitelist/blacklist CSV generator from stock_stat
 │       └── ABR_rule_database.csv
 ├── frontend/
 │   └── src/
@@ -450,6 +455,148 @@ BETA is wired into TURBO/ULTRA scan rows, the SuperChart matrix (BETA Score row)
 
 ---
 
+## TZ Intelligence Statistical Layer v2.8
+
+Added in v2.8. A statistical quality gate and final-action normalizer layered on top of the existing ABR classifier. Consumes per-signal SP500 1D replay data to upgrade raw ABR classifications into actionable tiers.
+
+### Modules
+
+| Module | Description |
+|--------|-------------|
+| `tz_intelligence/stat_engine.py` | Statistical threshold functions; maps (count, median_10d, fail_rate) → quality status |
+| `tz_intelligence/final_normalizer.py` | v2.8 normalizer; combines composite lookup, seq4 lookup, ABR role, volume, suffix, and static lists into a single `final_action` |
+| `tz_intelligence/whitelist_builder.py` | Reads a `stock_stat_tz_wlnbb_*.csv` and writes 8 output CSV files |
+| `tz_intelligence/classifier.py` | Extended to propagate `matched_n` (sample count from master matrix rule) |
+| `tz_intelligence/scanner.py` | Calls `normalize_final_action(r)` on every result row |
+
+### Statistical Quality Labels (`stat_engine.py`)
+
+| Status | Criteria |
+|--------|----------|
+| `STRONG` | median_10d ≥ 1.0%, fail_rate ≤ 20%, n ≥ 50 |
+| `GOOD` | median_10d ≥ 0.5%, fail_rate ≤ 25%, n ≥ 50 |
+| `AVERAGE` | median_10d ≥ 0.0%, fail_rate ≤ 30%, n ≥ 30 |
+| `WEAK` | median_10d < −0.25% or fail_rate ≥ 35% (below AVERAGE thresholds) |
+| `REJECT` | Extreme: median_10d deeply negative or fail_rate ≥ 35% |
+| `LOW_SAMPLE` | n < 20 (insufficient data) |
+
+Sample confidence labels: `HIGH` (n ≥ 100), `USABLE` (n ≥ 50), `DIRECTIONAL` (n ≥ 20), `LOW` (n < 20).
+
+### Final Action Tiers (`final_normalizer.py`)
+
+| Tier | Meaning | Color |
+|------|---------|-------|
+| `GO` | All gates pass; STRONG/GOOD composite + correct ABR role | Green |
+| `WATCH_HIGH` | One soft cap triggered (AVERAGE stat or WEAK blacklist) | Emerald |
+| `WATCH` | One or more hard blocks triggered (see below) | Yellow |
+| `SHORT_WATCH` | Bearish/short context | Orange |
+| `REJECT` | Hard statistical reject; static blacklist match | Red |
+
+**GO-eligible ABR roles:** `BULL_A`, `PULLBACK_GO`, `PULLBACK_READY_A`
+
+**Hard blocks → WATCH:**
+- Volume bucket in `VB_FAIL` set
+- ABR conflict flag (`abr_conflict_flag=True`)
+- Composite stat = WEAK or REJECT (lookup)
+- Composite stat = LOW_SAMPLE
+- Composite × seq4 stat = REJECT
+- REJECT-level blacklist hit (composite or seq4)
+- Static hardcoded REJECT composite match (`_STATIC_REJECT_COMPOSITES`, 29 entries)
+- EUR suffix without STRONG whitelist
+- Legacy blacklist match
+
+**Soft caps → WATCH_HIGH (not WATCH):**
+- `matched_status = AVERAGE` (requires composite GOOD/STRONG)
+- WEAK-level blacklist hit (composite or seq4)
+- Composite × seq4 stat = WEAK
+
+### CSV Lookup Files
+
+`whitelist_builder.py` generates 8 files from a `stock_stat_tz_wlnbb_*.csv`:
+
+| File | Rows (SP500/1D example) | Description |
+|------|------------------------|-------------|
+| `composite_whitelist.csv` | 129 | STRONG/GOOD composites |
+| `composite_blacklist.csv` | 88 | WEAK/REJECT composites |
+| `seq4_whitelist.csv` | 59 | STRONG/GOOD 4-bar signal sequences |
+| `seq4_blacklist.csv` | 1105 | WEAK/REJECT 4-bar sequences |
+| `composite_seq4_whitelist.csv` | 1 | STRONG/GOOD (composite, seq4) pairs |
+| `composite_seq4_blacklist.csv` | 197 | WEAK/REJECT (composite, seq4) pairs |
+| `composite_seq4_stats.csv` | 86395 | ALL observed (composite, seq4) pairs (n ≥ 1) |
+| `aio_suffix_performance.csv` | 435 | A/I/O close-suffix comparison per base composite |
+
+Files are searched in order: `./`, `/tmp/whitelists`, `/tmp`. The normalizer lazy-loads them on first call and exposes a `reload_lookups()` function.
+
+### seq4 Definition
+
+The 4-bar signal sequence is derived from 3 prior bars + current bar:
+```
+seq4 = "prev3_signal|prev2_signal|prev1_signal|current_signal"
+```
+Signals are resolved in priority order: `t_signal` → `z_signal` → `l_signal` → `—`.
+
+### Suffix System (A/I/O)
+
+The composite label has a 4-part suffix:
+```
+[ne_suffix][wick_suffix][penetration_suffix][close_suffix]
+```
+where `close_suffix ∈ {A, I, O}` represents the close position within the bar (Above midpoint / In midpoint zone / On/below low).
+
+The `_VALID_SUFFIX_RE` regex was fixed in v2.8 to accept all A/I/O close suffix variants:
+```
+^[NE][UDB]?[PRH]?[AIO]?$
+```
+
+### Volume Bucket (WLNBB)
+
+Volume is classified into 5 buckets per bar relative to 20-bar rolling stats:
+
+| Bucket | Description |
+|--------|-------------|
+| `VB` | Very Bullish volume |
+| `B` | Bullish volume |
+| `N` | Neutral volume |
+| `L` | Low volume |
+| `W` | Weak / depressed volume |
+
+`volume_bucket` is included in the composite label suffix and in the suffix-stats slice key.
+
+### Diagnostic Columns
+
+Every `tz-intelligence/scan` result row now includes:
+
+| Column | Description |
+|--------|-------------|
+| `final_action` | GO / WATCH_HIGH / WATCH / SHORT_WATCH / REJECT |
+| `final_action_reason` | Pipe-separated list of gate decisions |
+| `stat_composite_status` | STRONG/GOOD/AVERAGE/WEAK/REJECT/LOW_SAMPLE/UNKNOWN |
+| `stat_seq4_status` | Same for the seq4 lookup |
+| `stat_comp_seq4_status` | Same for the (composite, seq4) pair |
+| `stat_volume_status` | Volume quality from suffix stats |
+| `composite_lookup_status_used` | Which of the 3 composite lookup tables was used |
+| `seq4_lookup_status_used` | Which seq4 lookup table was used |
+| `suffix_lookup_status_used` | Which suffix/AIO lookup was used |
+| `volume_lookup_status_used` | Which volume lookup was used |
+| `static_reject_match` | bool — matched `_STATIC_REJECT_COMPOSITES` |
+| `matched_n` | Sample count from the master matrix rule |
+| `matched_status` | ABR role quality from master matrix |
+| `abr_conflict_flag` | bool — ABR role conflicted with T/Z direction |
+
+### Replay ZIP Integration
+
+When `POST /api/tz-wlnbb/replay` completes, `generate_replay_zip()` automatically:
+1. Calls `build_whitelists(stat_path)` to produce the 8 lookup CSVs.
+2. Embeds all 8 CSVs into the download ZIP.
+3. Persists `composite_seq4_stats.csv` to disk so the running normalizer can reload it.
+4. Calls `reload_lookups()` to hot-swap the lookup tables without a service restart.
+
+### Static Fallback Blacklist
+
+`_STATIC_REJECT_COMPOSITES` (29 hardcoded composites) provides a runtime safety net when no CSV files are present. Derived from SP500 1D replay data with n ≥ 50 and status = REJECT.
+
+---
+
 ## Paper Portfolio
 
 A paper-trading layer that consumes top-tier ULTRA picks, simulates entries at next-day open, tracks open positions, and reports realised returns.
@@ -589,7 +736,8 @@ All endpoints prefixed `/api/`. Backend serves on port **8080**.
 | GET | `/api/tz-wlnbb/scan` | TZ × WLNBB scan results |
 | POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV |
 | GET | `/api/tz-wlnbb/status` | Generation progress |
-| POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay |
+| POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay (auto-builds whitelists + embeds into ZIP) |
+| POST | `/api/tz-wlnbb/build-whitelists` | Build whitelist/blacklist CSVs from a stock_stat CSV path |
 
 ### Specialized Miners & Intelligence
 
@@ -703,7 +851,17 @@ TZ × WLNBB scanner. Controls Stock Stat file generation and TZ/WLNBB replay.
 
 ### 🧠 TZ Intel (`TZIntelligencePanel.jsx`)
 
-ABR (Activation / Breaking / Retest) pattern scanner using `tz_intelligence/`.
+ABR (Activation / Breaking / Retest) pattern scanner using `tz_intelligence/`. In v2.8, the table includes a `Final` column showing GO/WATCH_HIGH/WATCH/SHORT_WATCH/REJECT with color coding, plus StatComp, CompSeq4, Sample, and Reason columns. CSV export includes all 18+ diagnostic fields.
+
+**Color coding:**
+
+| Tier | Color |
+|------|-------|
+| GO | green-400 |
+| WATCH_HIGH | emerald-300 |
+| WATCH | yellow-300 |
+| SHORT_WATCH | orange-400 |
+| REJECT | red-400 |
 
 ### 🔄 Rare Reversal (`RareReversalPanel.jsx`)
 
@@ -769,6 +927,8 @@ Evidence tiers:
 
 ABR classifier using `ABR_rule_database.csv`. Classifies bars as Activation / Breaking / Retest using the master matrix. Also provides the `tz_intel_role` field read by ULTRA Score's D-component.
 
+In v2.8, the TZ Intelligence layer gained a full statistical normalization pipeline: `stat_engine.py` labels statistical quality, `final_normalizer.py` merges all signals into a 5-tier final action, and `whitelist_builder.py` builds the lookup tables from replay data. See [TZ Intelligence Statistical Layer v2.8](#tz-intelligence-statistical-layer-v28) for details.
+
 ---
 
 ## Deployment
@@ -793,6 +953,11 @@ startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
 | `DATABASE_URL` | PostgreSQL connection string |
 | `POLYGON_API_KEY` | Polygon.io market data key |
 | `MASSIVE_API_KEY` | Massive API key (all_us universe) |
+| `ANTHROPIC_API_KEY` | Claude/Anthropic API key (backend only — never exposed to frontend) |
+| `CLAUDE_MODEL` | Claude model ID override (e.g. `claude-sonnet-4-6`) |
+| `USE_PG` | Set to `1` to use PostgreSQL instead of SQLite |
+
+> **Security note:** `ANTHROPIC_API_KEY` must never appear in React code, Vite env vars (public prefix), localStorage, or any network payload visible in browser devtools. Backend uses it only via Python `os.environ`. The dashboard must remain functional via deterministic fallback if the key is absent or the Claude API is unavailable.
 
 ---
 
@@ -819,12 +984,17 @@ Located in `tests/`. Run with `pytest tests/ -q`. **663 tests, all passing.**
 
 | Metric | Value |
 |--------|-------|
-| Version | 4.4.674 |
-| Backend modules | 30+ |
+| Version | 4.4.674 · API v2.8 |
+| Backend modules | 33+ |
 | Frontend components | 24 |
-| API endpoints | 85+ |
+| API endpoints | 87+ |
 | T/Z signal IDs | 26 |
 | L-signal variants | 12 base + 8 combos + 10 WLNBB overlays |
+| WLNBB volume buckets | 5 (VB/B/N/L/W) |
+| TZ Intel final action tiers | 5 (GO/WATCH_HIGH/WATCH/SHORT_WATCH/REJECT) |
+| TZ Intel diagnostic columns | 18+ |
+| Static reject composites | 29 (hardcoded fallback) |
+| Whitelist CSVs generated | 8 per replay run |
 | Test count | 663 |
 | Tabs | 20 |
 | Scheduled scans/day | 3 (09:30, 12:30, 15:30 ET) |
