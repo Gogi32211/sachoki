@@ -776,6 +776,16 @@ def api_turbo_scan(
     wyc_acc_tr: Optional[bool] = None,
     # ── 260523 v3.1 swing filter ──────────────────────────────────────────
     swing_type: Optional[str] = None,   # "HH" | "LH" | "HL" | "LL" | "pivot"
+    # ── 260523 v3.5 PREBREAK + WYC additional filters ─────────────────────
+    prebreak_prime: Optional[bool] = None,
+    prebreak_ready: Optional[bool] = None,
+    prebreak_watch: Optional[bool] = None,
+    pb_lvbo: Optional[bool] = None,
+    pb_stop_cause: Optional[bool] = None,
+    pb_wvf_confirm: Optional[bool] = None,
+    pb_macro_penalty: Optional[bool] = None,
+    wyc_in_tr: Optional[bool] = None,
+    wyc_sow: Optional[bool] = None,
 ):
     try:
         from turbo_engine import get_turbo_results, get_last_turbo_scan_time
@@ -864,7 +874,7 @@ def api_turbo_scan(
         except Exception as exc:
             log.warning("beta score enrichment failed: %s", exc)
 
-        # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC / SWING) ──
+        # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC / SWING / PREBREAK) ──
         results = _enrich_with_260523(results, universe, tf)
         results = _apply_260523_filters(
             results,
@@ -872,6 +882,11 @@ def api_turbo_scan(
             wyc_phase=wyc_phase, wyc_spring=wyc_spring,
             wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
             swing_type=swing_type,
+            prebreak_prime=prebreak_prime, prebreak_ready=prebreak_ready,
+            prebreak_watch=prebreak_watch,
+            pb_lvbo=pb_lvbo, pb_stop_cause=pb_stop_cause,
+            pb_wvf_confirm=pb_wvf_confirm, pb_macro_penalty=pb_macro_penalty,
+            wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
         )
 
         return {"results": results, "last_scan": last_time, "meta": meta}
@@ -3657,6 +3672,16 @@ def api_ultra_scan_results(
     wyc_sos:    Optional[bool] = None,
     wyc_acc_tr: Optional[bool] = None,
     swing_type: Optional[str]  = None,
+    # 260523 v3.5 PREBREAK + WYC additional
+    prebreak_prime:  Optional[bool] = None,
+    prebreak_ready:  Optional[bool] = None,
+    prebreak_watch:  Optional[bool] = None,
+    pb_lvbo:         Optional[bool] = None,
+    pb_stop_cause:   Optional[bool] = None,
+    pb_wvf_confirm:  Optional[bool] = None,
+    pb_macro_penalty:Optional[bool] = None,
+    wyc_in_tr:       Optional[bool] = None,
+    wyc_sow:         Optional[bool] = None,
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
     batch). Falls back to DB when memory cache is empty (survives restart)."""
@@ -3681,6 +3706,11 @@ def api_ultra_scan_results(
                 wyc_phase=wyc_phase, wyc_spring=wyc_spring,
                 wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
                 swing_type=swing_type,
+                prebreak_prime=prebreak_prime, prebreak_ready=prebreak_ready,
+                prebreak_watch=prebreak_watch,
+                pb_lvbo=pb_lvbo, pb_stop_cause=pb_stop_cause,
+                pb_wvf_confirm=pb_wvf_confirm, pb_macro_penalty=pb_macro_penalty,
+                wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
             resp["results"] = results
         return resp

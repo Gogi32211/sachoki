@@ -176,6 +176,13 @@ def _signal_set(row: dict) -> set:
         "wyc_sos":     "WYC_SOS",
         "wyc_acc_tr":  "WYC_ACC_TR",
         "wyc_markup":  "WYC_MARKUP",
+        # 260523 v3.5 — PREBREAK + WYC additional
+        "pb_lvbo":          "PB_LVBO",
+        "pb_stop_cause":    "PB_STOP_CAUSE",
+        "pb_wvf_confirm":   "PB_WVF_CONFIRM",
+        "pb_macro_penalty": "PB_MACRO_PENALTY",
+        "wyc_in_tr":        "WYC_IN_TR",
+        "wyc_sow":          "WYC_SOW",
         # Quality
         "rs_strong":   "RS_STRONG",
     }
@@ -437,6 +444,18 @@ def compute_ultra_score(row: dict) -> dict:
         d -= 8; reasons.append("SWING:LH")
     elif swing_type == "HH":
         d -= 5; reasons.append("SWING:HH")
+
+    # 260523 v3.5: PREBREAK + WYC additional context
+    if "PB_LVBO" in sigs:
+        d += 6; reasons.append("LVBO")
+    if "PB_WVF_CONFIRM" in sigs:
+        d += 5; reasons.append("WVF+")
+    if "WYC_IN_TR" in sigs:
+        d += 3; reasons.append("IN_TR")
+    if "PB_MACRO_PENALTY" in sigs:
+        d -= 8; reasons.append("MACRO-")
+    if "WYC_SOW" in sigs:
+        d -= 6; reasons.append("SOW")
 
     d = max(min(d, 20), -20)
 

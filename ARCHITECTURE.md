@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.8.4 · API v2.9 · TZ_WLNBB Pine 260523 v3.4 (pivot sequence + suffix analytics)
+> Version 4.8.5 · API v2.9 · TZ_WLNBB Pine 260523 v3.5 (PREBREAK + WYC additional filters & scoring)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -1311,6 +1311,26 @@ server-side via the same query params:
 | `wyc_sos`      | bool   | true / false                                        | Direct SOS boolean                       |
 | `wyc_acc_tr`   | bool   | true / false                                        | Direct ACC_TR boolean                    |
 | `swing_type`   | string | HH / LH / HL / LL / pivot                           | Swing context (260523 v3.1)              |
+| `prebreak_prime`   | bool | true / false                                      | 260523_PREBREAK score ≥ 45 (PRIME★)    |
+| `prebreak_ready`   | bool | true / false                                      | 260523_PREBREAK score ≥ 28 (READY)      |
+| `prebreak_watch`   | bool | true / false                                      | 260523_PREBREAK score ≥ 18 (WATCH)      |
+| `pb_lvbo`          | bool | true / false                                      | LRC → LVBO compression+bull breakout    |
+| `pb_stop_cause`    | bool | true / false                                      | W-PHASE / Wyckoff accumulation context  |
+| `pb_wvf_confirm`   | bool | true / false                                      | WVF capitulation spike (line5 VX)       |
+| `pb_macro_penalty` | bool | true / false                                      | Macro bear context (EMA20 falling + close<EMA50×0.97) |
+| `wyc_in_tr`        | bool | true / false                                      | In Trading Range (ACC_TR or DIST_TR)    |
+| `wyc_sow`          | bool | true / false                                      | Sign of Weakness (Z-confirmed bear turn) |
+
+**Scoring integration (260523 v3.5):**
+
+| Signal | Turbo (additive / multiplier) | Ultra Section D |
+|--------|------------------------------|-----------------|
+| `pb_lvbo`         | +8 | +6 (`LVBO`) |
+| `pb_stop_cause`   | +6 | — |
+| `pb_wvf_confirm`  | +6 | +5 (`WVF+`) |
+| `wyc_in_tr`       | +4 | +3 (`IN_TR`) |
+| `pb_macro_penalty`| × 0.85 | −8 (`MACRO-`) |
+| `wyc_sow`         | × 0.80 | −6 (`SOW`) |
 
 Backend implementation: `backend/analyzers/tz_wlnbb/filters_260523.py` —
 pure helpers (importable without FastAPI) `enrich_with_260523()`,

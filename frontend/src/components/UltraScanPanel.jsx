@@ -855,6 +855,14 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [wycPhaseFilter,  setWycPhaseFilter]  = useState('')     // '' = all
   // 260523 v3.1 — swing context filter (HH/LH/HL/LL/pivot)
   const [swingTypeFilter, setSwingTypeFilter] = useState('')     // '' = all
+  // 260523 v3.5 — PREBREAK + WYC additional filters
+  const [prebreakTier, setPrebreakTier]   = useState('')         // ''|'prime'|'ready'|'watch'
+  const [pbLvbo,       setPbLvbo]         = useState(null)       // null|true
+  const [pbStopCause,  setPbStopCause]    = useState(null)
+  const [pbWvfConfirm, setPbWvfConfirm]   = useState(null)
+  const [pbMacroPen,   setPbMacroPen]     = useState(null)       // null|true|false
+  const [wycInTr,      setWycInTr]        = useState(null)
+  const [wycSow,       setWycSow]         = useState(null)
   const hoverTimer = useRef(null)
 
   // which TFs have a cache entry for current universe
@@ -968,6 +976,17 @@ export default function UltraScanPanel({ onSelectTicker }) {
         if (swingTypeFilter === 'pivot') { if (!st) return false }
         else if (st !== swingTypeFilter) return false
       }
+      // 260523 v3.5 PREBREAK + WYC additional
+      if (prebreakTier === 'prime' && !r.prebreak_prime) return false
+      if (prebreakTier === 'ready' && !r.prebreak_ready) return false
+      if (prebreakTier === 'watch' && !r.prebreak_watch) return false
+      if (pbLvbo === true       && !r.pb_lvbo)        return false
+      if (pbStopCause === true  && !r.pb_stop_cause)  return false
+      if (pbWvfConfirm === true && !r.pb_wvf_confirm) return false
+      if (pbMacroPen === false  && r.pb_macro_penalty) return false
+      if (pbMacroPen === true   && !r.pb_macro_penalty) return false
+      if (wycInTr === true      && !r.wyc_in_tr)      return false
+      if (wycSow === true       && !r.wyc_sow)        return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -1006,7 +1025,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr, wycSow])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1890,6 +1909,80 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 {opt.label}
               </button>
             ))}
+          </div>
+
+          {/* ── 260523 PREBREAK + WYC additional ── */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-white/[0.07]/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">PREBREAK</span>
+            {[
+              { label: 'Any',    value: '',      cls: '' },
+              { label: 'PRIME★', value: 'prime', cls: 'bg-lime-900/60 text-lime-200' },
+              { label: 'READY',  value: 'ready', cls: 'bg-orange-900/60 text-orange-200' },
+              { label: 'WATCH',  value: 'watch', cls: 'bg-yellow-900/60 text-yellow-200' },
+            ].map(opt => (
+              <button key={opt.value || 'all'} onClick={() => setPrebreakTier(opt.value)}
+                title="PREBREAK score tier (≥45 / ≥28 / ≥18)"
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors ${
+                  prebreakTier === opt.value
+                    ? `${opt.cls} font-semibold`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
+            <button onClick={() => setPbLvbo(pbLvbo ? null : true)}
+              title="LRC → LVBO: volume compression then bull breakout"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbLvbo ? 'bg-teal-900/60 text-teal-200 border-teal-500 font-semibold'
+                       : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>LVBO</button>
+            <button onClick={() => setPbStopCause(pbStopCause ? null : true)}
+              title="W-PHASE: STOP+CAUSE (Wyckoff accumulation context)"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbStopCause ? 'bg-teal-900/60 text-teal-200 border-teal-500 font-semibold'
+                            : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>W-PHASE</button>
+            <button onClick={() => setPbWvfConfirm(pbWvfConfirm ? null : true)}
+              title="WVF spike (capitulation volume from line5 VX token)"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbWvfConfirm ? 'bg-blue-900/60 text-blue-200 border-blue-500 font-semibold'
+                             : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>WVF</button>
+            <span className="text-md-on-surface-var text-xs shrink-0 ml-2 mr-1">Macro:</span>
+            {[
+              { label: 'Any',        value: null,  cls: '' },
+              { label: 'No penalty', value: false, cls: 'bg-green-900/60 text-green-200' },
+              { label: 'Penalty',    value: true,  cls: 'bg-red-900/60 text-red-200' },
+            ].map(opt => (
+              <button key={String(opt.value)} onClick={() => setPbMacroPen(opt.value)}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 ${
+                  pbMacroPen === opt.value ? `${opt.cls} font-semibold`
+                                          : 'bg-md-surface-high text-md-on-surface-var hover:text-white'
+                }`}>{opt.label}</button>
+            ))}
+            <span className="text-md-on-surface-var text-xs shrink-0 ml-2 mr-1">WYC+:</span>
+            <button onClick={() => setWycInTr(wycInTr ? null : true)}
+              title="In Trading Range (ACC_TR or DIST_TR)"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                wycInTr ? 'bg-gray-700/80 text-gray-200 border-gray-500 font-semibold'
+                        : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>In TR</button>
+            <button onClick={() => setWycSow(wycSow ? null : true)}
+              title="Sign of Weakness (Z-confirmed bearish turn)"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                wycSow ? 'bg-red-900/60 text-red-200 border-red-500 font-semibold'
+                       : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>SOW</button>
+            {(prebreakTier || pbLvbo || pbStopCause || pbWvfConfirm ||
+              pbMacroPen !== null || wycInTr || wycSow) && (
+              <button onClick={() => {
+                setPrebreakTier(''); setPbLvbo(null); setPbStopCause(null);
+                setPbWvfConfirm(null); setPbMacroPen(null);
+                setWycInTr(null); setWycSow(null);
+              }} className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+                ✕ clear PREBREAK
+              </button>
+            )}
           </div>
 
           {/* Sector filter */}

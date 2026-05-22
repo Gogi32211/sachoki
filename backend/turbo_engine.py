@@ -764,6 +764,15 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     elif swing_type in ("HH", "LH"):
         s = s * 0.85
 
+    # ── 260523 v3.5: PREBREAK + WYC additional contributions ───────────────
+    if r.get("pb_lvbo"):         s += 8   # LRC→LVBO breakout (compression→expansion)
+    if r.get("pb_stop_cause"):   s += 6   # W-PHASE / Wyckoff accumulation
+    if r.get("pb_wvf_confirm"):  s += 6   # Capitulation volume
+    if r.get("wyc_in_tr"):       s += 4   # In TR = structure forming
+    # Modifiers (multiplicative, applied after additive contributions)
+    if r.get("pb_macro_penalty"): s = s * 0.85   # macro bear → -15%
+    if r.get("wyc_sow"):          s = s * 0.80   # SOW → -20%
+
     return round(min(100.0, s), 1)
 
 

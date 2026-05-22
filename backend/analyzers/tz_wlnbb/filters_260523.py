@@ -103,7 +103,21 @@ def enrich_with_260523(
                     r[k] = float(v) if v not in ("", None) else None
                 except (TypeError, ValueError):
                     r[k] = None
+        # 260523 v3.5 PREBREAK + WYC additional booleans
+        for k in ("prebreak_prime", "prebreak_ready", "prebreak_watch",
+                  "pb_lvbo", "pb_stop_cause", "pb_pp_rtv", "pb_fly_cd_c",
+                  "pb_wvf_confirm", "pb_follow_confirm", "pb_macro_penalty",
+                  "wyc_in_tr", "wyc_sow"):
+            if k not in r or r.get(k) in (None, ""):
+                r[k] = _to_bool(ss.get(k, ""))
     return results
+
+
+_PREBREAK_BOOL_FILTER_KEYS = (
+    "prebreak_prime", "prebreak_ready", "prebreak_watch",
+    "pb_lvbo", "pb_stop_cause", "pb_wvf_confirm", "pb_macro_penalty",
+    "wyc_in_tr", "wyc_sow",
+)
 
 
 def apply_260523_filters(
@@ -115,6 +129,16 @@ def apply_260523_filters(
     wyc_sos: Optional[bool] = None,
     wyc_acc_tr: Optional[bool] = None,
     swing_type: Optional[str] = None,
+    # 260523 v3.5 — PREBREAK + WYC additional bool filters
+    prebreak_prime: Optional[bool] = None,
+    prebreak_ready: Optional[bool] = None,
+    prebreak_watch: Optional[bool] = None,
+    pb_lvbo: Optional[bool] = None,
+    pb_stop_cause: Optional[bool] = None,
+    pb_wvf_confirm: Optional[bool] = None,
+    pb_macro_penalty: Optional[bool] = None,
+    wyc_in_tr: Optional[bool] = None,
+    wyc_sow: Optional[bool] = None,
 ) -> List[Dict[str, Any]]:
     """Apply optional filters. None = no constraint.
     swing_type accepts: "HH" | "LH" | "HL" | "LL" | "pivot" (any non-empty)."""
@@ -135,6 +159,22 @@ def apply_260523_filters(
             results = [r for r in results if (r.get("swing_type") or "") != ""]
         else:
             results = [r for r in results if (r.get("swing_type") or "") == swing_type]
+
+    # 260523 v3.5 — PREBREAK + WYC additional bool filters
+    _bool_params = {
+        "prebreak_prime":   prebreak_prime,
+        "prebreak_ready":   prebreak_ready,
+        "prebreak_watch":   prebreak_watch,
+        "pb_lvbo":          pb_lvbo,
+        "pb_stop_cause":    pb_stop_cause,
+        "pb_wvf_confirm":   pb_wvf_confirm,
+        "pb_macro_penalty": pb_macro_penalty,
+        "wyc_in_tr":        wyc_in_tr,
+        "wyc_sow":          wyc_sow,
+    }
+    for col, want in _bool_params.items():
+        if want is not None:
+            results = [r for r in results if bool(r.get(col, False)) == want]
     return results
 
 

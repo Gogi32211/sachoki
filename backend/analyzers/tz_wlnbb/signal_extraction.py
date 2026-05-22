@@ -334,6 +334,123 @@ def compute_wyc_phase(df: pd.DataFrame, cfg: dict = None) -> pd.Series:
     return pd.Series(phase, index=df.index, dtype=str)
 
 
+def compute_prebreak_signals(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame:
+    """260523_PREBREAK + WYC-derived boolean columns. Pure vectorised compute.
+
+    Adds 12 columns (all bool):
+      prebreak_prime / prebreak_ready / prebreak_watch — score-tier flags
+      pb_lvbo         — LRC→LVBO compression+breakout
+      pb_stop_cause   — W-PHASE (Wyckoff accumulation context)
+      pb_pp_rtv       — PP+RTV (pivot near EMA20)
+      pb_fly_cd_c     — FLY-CD confirmed
+      pb_wvf_confirm  — WVF spike from bar_line5 "VX" token
+      pb_follow_confirm — Follow Confirm (stateful — default False)
+      pb_macro_penalty  — macro bear: EMA20 falling + close < EMA50*0.97
+      wyc_in_tr       — wyc_phase in {ACC_TR, DIST_TR}
+      wyc_sow         — Sign of Weakness (derived from wyc_sow_col if present)
+
+    If `prebreak_score` is missing, all PREBREAK score-tier flags default False
+    but the structural / WYC-derived columns are still computed.
+    """
+    cfg = cfg or {}
+    watch_thr = float(cfg.get("PREBREAK_WATCH_THR", 18))
+    ready_thr = float(cfg.get("PREBREAK_READY_THR", 28))
+    prime_thr = float(cfg.get("PREBREAK_PRIME_THR", 45))
+    vol_len   = int(cfg.get("PREBREAK_VOL_LEN", 20))
+    lvbo_look = int(cfg.get("PREBREAK_LVBO_LOOKBACK", 8))
+
+    n = len(df)
+    if n == 0:
+        for c in ("prebreak_prime","prebreak_ready","prebreak_watch",
+                  "pb_lvbo","pb_stop_cause","pb_pp_rtv","pb_fly_cd_c",
+                  "pb_wvf_confirm","pb_follow_confirm","pb_macro_penalty",
+                  "wyc_in_tr","wyc_sow"):
+            df[c] = False
+        return df
+
+    # ── Score-tier flags ────────────────────────────────────────────────────
+    if "prebreak_score" in df.columns:
+        s = pd.to_numeric(df["prebreak_score"], errors="coerce").fillna(0.0)
+        df["prebreak_prime"] = (s >= prime_thr).values
+        df["prebreak_ready"] = ((s >= ready_thr) & (s < prime_thr)).values
+        df["prebreak_watch"] = ((s >= watch_thr) & (s < ready_thr)).values
+    else:
+        df["prebreak_prime"] = False
+        df["prebreak_ready"] = False
+        df["prebreak_watch"] = False
+
+    is_bull  = (df["close"] > df["open"]).values
+    breakout = (df["close"] > df["high"].shift(1)).fillna(False).values
+
+    # ── pb_lvbo: bull breakout AFTER a recent L34/L43/L22 compression bar ───
+    # If pb_lrc column exists, use rolling "any" over lvbo_look bars; otherwise
+    # use the dynamic L combos as a proxy (L64/L43/L22 → compression).
+    if "pb_lrc" in df.columns:
+        lrc_any = df["pb_lrc"].astype(bool).rolling(lvbo_look, min_periods=1).max().fillna(0).astype(bool).values
+    elif "l_signal" in df.columns:
+        ls = df["l_signal"].astype(str).fillna("")
+        lrc_proxy = ls.isin(["L64", "L43", "L22"])
+        lrc_any = lrc_proxy.rolling(lvbo_look, min_periods=1).max().fillna(0).astype(bool).values
+    else:
+        lrc_any = np.zeros(n, dtype=bool)
+    df["pb_lvbo"] = (is_bull & breakout & lrc_any)
+
+    # ── pb_stop_cause: W-PHASE = Wyckoff accumulation context ───────────────
+    wyc_spring = df["wyc_spring"].astype(bool).values if "wyc_spring" in df.columns else np.zeros(n, dtype=bool)
+    wyc_acc_tr = df["wyc_acc_tr"].astype(bool).values if "wyc_acc_tr" in df.columns else np.zeros(n, dtype=bool)
+    df["pb_stop_cause"] = (wyc_spring | wyc_acc_tr)
+
+    # ── pb_wvf_confirm: line5 contains "VX" (VIX spike token) ───────────────
+    if "bar_line5" in df.columns:
+        df["pb_wvf_confirm"] = df["bar_line5"].astype(str).fillna("").str.contains("VX", regex=False).values
+    else:
+        df["pb_wvf_confirm"] = False
+
+    # ── pb_pp_rtv: pivot bar AND price near EMA20 (within 1.5%) ─────────────
+    ema20 = df["close"].ewm(span=20, adjust=False).mean()
+    near_ema20 = ((df["close"] - ema20).abs() / df["close"].replace(0, np.nan) < 0.015).fillna(False).values
+    is_pivot = np.zeros(n, dtype=bool)
+    if "is_pivot_high" in df.columns:
+        is_pivot |= df["is_pivot_high"].astype(bool).values
+    if "is_pivot_low" in df.columns:
+        is_pivot |= df["is_pivot_low"].astype(bool).values
+    df["pb_pp_rtv"] = (is_pivot & near_ema20)
+
+    # ── pb_fly_cd_c: lowest of 8 bars 3 bars ago + close > EMA9 + bull bar
+    #                + previous bar was also bull ────────────────────────────
+    ema9 = df["close"].ewm(span=9, adjust=False).mean()
+    low8_min = df["low"].rolling(8, min_periods=1).min().shift(3)
+    low_shifted = df["low"].shift(3)
+    fly_cd = (
+        (low_shifted == low8_min).fillna(False).values
+        & (df["close"] > ema9).fillna(False).values
+        & is_bull
+    )
+    prev_bull = (df["close"].shift(1) > df["open"].shift(1)).fillna(False).values
+    df["pb_fly_cd_c"] = (fly_cd & prev_bull)
+
+    # ── wyc_in_tr / wyc_sow ─────────────────────────────────────────────────
+    if "wyc_phase" in df.columns:
+        wp = df["wyc_phase"].astype(str).fillna("")
+        df["wyc_in_tr"] = wp.isin(["ACC_TR", "DIST_TR"]).values
+    else:
+        df["wyc_in_tr"] = False
+    # SOW: if upstream populated wyc_sow_col use it; otherwise default False
+    df["wyc_sow"] = (df["wyc_sow_col"].astype(bool).values
+                    if "wyc_sow_col" in df.columns else False)
+
+    # ── pb_follow_confirm: stateful; not vectorisable here → default False ──
+    df["pb_follow_confirm"] = False
+
+    # ── pb_macro_penalty: EMA20 falling vs 10 bars ago + close < EMA50 × 0.97
+    ema50 = df["close"].ewm(span=50, adjust=False).mean()
+    ema20_fall = (ema20 < ema20.shift(10)).fillna(False).values
+    deep_below = (df["close"] < ema50 * 0.97).fillna(False).values
+    df["pb_macro_penalty"] = (ema20_fall & deep_below)
+
+    return df
+
+
 def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.DataFrame:
     """
     Given a OHLCV DataFrame (sorted oldest-first) for a single ticker,
@@ -433,6 +550,17 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
         df["fwd_swing_bars"]      = np.nan
         df["is_pivot_high"]       = False
         df["is_pivot_low"]        = False
+
+    # ── 260523 v3.5: PREBREAK + WYC additional signals ──────────────────────
+    try:
+        compute_prebreak_signals(df)
+    except Exception:
+        for c in ("prebreak_prime","prebreak_ready","prebreak_watch",
+                  "pb_lvbo","pb_stop_cause","pb_pp_rtv","pb_fly_cd_c",
+                  "pb_wvf_confirm","pb_follow_confirm","pb_macro_penalty",
+                  "wyc_in_tr","wyc_sow"):
+            if c not in df.columns:
+                df[c] = False
 
     return df
 
