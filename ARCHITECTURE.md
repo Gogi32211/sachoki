@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.8.2 · API v2.9 · TZ_WLNBB Pine 260523 v3.2 (forward pivot-to-pivot swing return)
+> Version 4.8.3 · API v2.9 · TZ_WLNBB Pine 260523 v3.3 (signal-to-pivot analytics)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -1165,6 +1165,62 @@ The two metrics serve different roles:
 |-----------------|-------------------------|-----------|
 | Live scoring    | `swing_type` (backward) | NO        |
 | Replay / research | `fwd_swing_ret` (forward) | YES — replay only |
+
+### Signal-to-Pivot Performance (RESEARCH_ONLY — 260523 v3.3)
+
+`backend/analyzers/tz_wlnbb/signal_to_pivot_analytics.py` measures the return
+from **every signal bar** to the next confirmed opposite pivot — independent
+of any fixed time window (`ret_5d`, `ret_10d`) and of whether the signal bar
+itself is a pivot.
+
+- **T signal → next pivot HIGH**: `ret_to_pivot > 0` = win (price rose to the pivot)
+- **Z signal → next pivot LOW**:  `ret_to_pivot < 0` = win (price fell to the pivot)
+
+Key difference vs `fwd_swing_ret`:
+
+| Metric              | Anchor              | Window                | Lookahead |
+|---------------------|---------------------|-----------------------|-----------|
+| `ret_5d`            | Any bar close       | Fixed 5 bars          | NO (live-safe) |
+| `fwd_swing_ret`     | Confirmed pivot bar | Variable (next pivot) | YES (research) |
+| `ret_to_pivot` (NEW)| **Any signal bar**  | Variable (next pivot) | YES (research) |
+
+Output: `replay_tz_wlnbb_signal_to_pivot_perf.csv` (min count 15, aggregated
+by `signal_field × signal_value × next_pivot_type`). File starts with a
+`# RESEARCH_ONLY — uses future pivot prices` comment row.
+
+| Column             | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `signal_field`     | `t_signal` or `z_signal`                                 |
+| `signal_value`     | T2G, Z1G, etc.                                           |
+| `next_pivot_type`  | HH / LH / HL / LL                                        |
+| `count`            | observations (min 15)                                    |
+| `avg_ret_to_pivot` | avg % from signal close to pivot price                   |
+| `med_ret_to_pivot` | median %                                                 |
+| `win_rate`         | % correct direction (T→HH/LH: ret>0; Z→HL/LL: ret<0)   |
+| `avg_bars_to_pivot`| avg bars between signal bar and pivot                    |
+| `pct25` / `pct75`  | distribution quartiles                                   |
+
+**Key findings (SP500 1D, 80 tickers):**
+
+| Signal | Next pivot | avg_ret  | win_rate | avg_bars |
+|--------|-----------|----------|----------|----------|
+| T12    | HH        | +11.73%  | 100%     | 9.0      |
+| T5     | HH        | +10.98%  | 100%     | 8.2      |
+| T9     | HH        | +9.40%   | 100%     | 7.9      |
+| T2G    | HH        | +7.17%   | 100%     | 6.0      |
+| Z5     | LL        | −8.61%   | 100%*    | 7.4      |
+| Z3     | LL        | −7.55%   | 100%*    | 7.2      |
+| Z4     | LL        | −6.48%   | 100%*    | 5.7      |
+| Z2G    | LL        | −5.72%   | 100%*    | 5.0      |
+
+\*Z + LL `win_rate` counts rows where `ret_to_pivot < 0` as wins (price fell
+to the lower pivot, as the bearish signal predicted).
+
+**Lookahead policy:** `ret_to_pivot` and `bars_to_pivot` use future pivot
+prices. `test_no_lookahead_in_live_score` asserts neither symbol appears in
+`turbo_engine.py` or `ultra_score.py`. The raw per-observation DataFrame is
+intentionally NOT written to the ZIP (can be millions of rows) — only the
+aggregated summary is embedded.
 
 ### Bug-fixes applied in v3.1
 

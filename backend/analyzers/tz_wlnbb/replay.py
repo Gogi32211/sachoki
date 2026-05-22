@@ -2267,6 +2267,38 @@ def generate_replay_zip(
                         ]))
             log.info("swing analytics embedded: swing_perf=%d, sig_swing=%d, ad_swing=%d",
                      len(sw_perf), len(sig_sw_perf), len(adf_sw_perf))
+
+            # ── 260523 v3.3: Signal-to-Pivot analytics ──────────────────────
+            # For every T/Z signal bar (not just pivots), measure return to the
+            # NEXT confirmed pivot of the relevant direction. RESEARCH_ONLY.
+            try:
+                import pandas as _pd
+                from .signal_to_pivot_analytics import run_signal_to_pivot_analytics
+                df_for_pivot = _pd.DataFrame(rows)
+                if {"ticker", "date", "high", "low", "close"}.issubset(df_for_pivot.columns):
+                    for c in ("high", "low", "close"):
+                        df_for_pivot[c] = _pd.to_numeric(df_for_pivot[c], errors="coerce")
+                    _raw, summary = run_signal_to_pivot_analytics(
+                        df_for_pivot, pivot_left=3, pivot_right=3, min_count=15,
+                    )
+                    sp_fields = [
+                        "signal_field", "signal_value", "next_pivot_type", "count",
+                        "avg_ret_to_pivot", "med_ret_to_pivot", "win_rate",
+                        "avg_bars_to_pivot", "pct25", "pct75",
+                    ]
+                    sp_rows = summary.to_dict(orient="records") if len(summary) else []
+                    # RESEARCH_ONLY banner via leading comment row
+                    banner = ("# RESEARCH_ONLY — uses future pivot prices. "
+                              "Do not use in live scoring.\n").encode("utf-8")
+                    zf.writestr(
+                        "replay_tz_wlnbb_signal_to_pivot_perf.csv",
+                        banner + _to_csv_bytes(sp_rows, sp_fields),
+                    )
+                    log.info("signal_to_pivot analytics embedded: %d rows", len(sp_rows))
+                else:
+                    log.warning("signal_to_pivot skipped: required columns missing")
+            except Exception as e:
+                log.warning("signal_to_pivot embedding failed: %s", e)
         except Exception as e:
             log.warning("swing analytics embedding failed: %s", e)
 
