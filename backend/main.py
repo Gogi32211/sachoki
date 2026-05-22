@@ -5,6 +5,7 @@ from __future__ import annotations
 import os
 import sys
 import logging
+from typing import Optional
 
 # Ensure backend/ directory is on sys.path so sub-packages (analyzers/) are importable
 # regardless of which directory uvicorn is launched from.
@@ -599,6 +600,152 @@ def api_power_scan_status():
     return get_power_scan_progress()
 
 
+# ── 260523 SuperChart endpoint ──────────────────────────────────────────────
+# Returns last N bars from the same stock_stat CSV that Turbo/Ultra use, so
+# any signal visible in those scans appears on the same bar here. Includes:
+# T/Z signals, L-signals, line3/4/5, AD-FRESH/AD-CLUSTER, WYC Phase, PREUP/
+# PREDN, plus parsed wvf_spike/psar_bull/rsi2_token convenience flags.
+
+from analyzers.tz_wlnbb.filters_260523 import (
+    parse_line5_tokens as _parse_line5_tokens,
+    _to_bool,
+)
+
+
+@app.get("/api/superchart/{ticker}")
+def api_superchart(
+    ticker: str,
+    universe: str = "sp500",
+    tf: str = "1d",
+    bars: int = 60,
+    nasdaq_batch: str = "",
+):
+    """SuperChart full-signal sync from the same stock_stat_tz_wlnbb CSV used
+    by Turbo / Ultra. Returns last N bars with all signal families joined."""
+    import csv as _csv
+    from datetime import datetime
+    try:
+        path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
+        if not os.path.exists(path):
+            path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+        if not os.path.exists(path):
+            raise HTTPException(
+                status_code=404,
+                detail=f"No stock_stat CSV for {universe}/{tf}. Run "
+                       f"/api/tz-wlnbb/generate-stock-stat first.",
+            )
+
+        rows: list[dict] = []
+        ticker_norm = ticker.upper()
+        with open(path, newline="", encoding="utf-8") as fh:
+            for row in _csv.DictReader(fh):
+                if row.get("ticker", "").upper() != ticker_norm:
+                    continue
+                rows.append(row)
+        if not rows:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Ticker {ticker} not found in {path}",
+            )
+
+        # Last N bars
+        rows = rows[-max(1, bars):]
+
+        out_bars = []
+        for r in rows:
+            l5 = r.get("bar_line5") or ""
+            l5_tokens = _parse_line5_tokens(l5)
+            out_bars.append({
+                "date":            r.get("date") or r.get("bar_datetime") or "",
+                "open":            r.get("open"),
+                "high":            r.get("high"),
+                "low":             r.get("low"),
+                "close":           r.get("close"),
+                "volume":          r.get("volume"),
+                # T/Z
+                "t_signal":        r.get("t_signal", ""),
+                "z_signal":        r.get("z_signal", ""),
+                "bull_priority_code": r.get("bull_priority_code", 0),
+                "bear_priority_code": r.get("bear_priority_code", 0),
+                # L
+                "l_signal":        r.get("l_signal", ""),
+                "l_digits":        r.get("l_digits", ""),
+                "volume_bucket":   r.get("volume_bucket", ""),
+                # line3/4/5
+                "bar_body_wick":   r.get("bar_body_wick", ""),
+                "bar_gap_range":   r.get("bar_gap_range", ""),
+                "bar_line5":       l5,
+                **l5_tokens,
+                # 260523 — AD-FRESH / WYC
+                "ad_fresh":        _to_bool(r.get("ad_fresh", "")),
+                "ad_cluster":      _to_bool(r.get("ad_cluster", "")),
+                "wyc_phase":       r.get("wyc_phase", "") or "NEUTRAL",
+                "wyc_spring":      _to_bool(r.get("wyc_spring", "")),
+                "wyc_sos":         _to_bool(r.get("wyc_sos", "")),
+                "wyc_acc_tr":      _to_bool(r.get("wyc_acc_tr", "")),
+                "wyc_markup":      _to_bool(r.get("wyc_markup", "")),
+                # PREUP / PREDN
+                "preup_text":      r.get("preup_signal", ""),
+                "predn_text":      r.get("predn_signal", ""),
+                # Composite labels
+                "composite_full_label":    r.get("composite_full_label", ""),
+                "composite_primary_label": r.get("composite_primary_label", ""),
+                "full_suffix":             r.get("full_suffix", ""),
+                # Version
+                "tz_wlnbb_version": r.get("tz_wlnbb_version", ""),
+                "build_marker":     r.get("build_marker", ""),
+            })
+
+        # Sync-warning: compare stock_stat mtime against today
+        try:
+            stat_mtime = datetime.utcfromtimestamp(os.path.getmtime(path))
+            stat_age_h = (datetime.utcnow() - stat_mtime).total_seconds() / 3600.0
+        except Exception:
+            stat_age_h = 0.0
+
+        response = {
+            "ticker": ticker_norm,
+            "tf": tf,
+            "universe": universe,
+            "bars": out_bars,
+            "stock_stat_path": path,
+            "stock_stat_age_hours": round(stat_age_h, 2),
+            "tz_wlnbb_version": out_bars[-1].get("tz_wlnbb_version", "") if out_bars else "",
+            "build_marker": out_bars[-1].get("build_marker", "") if out_bars else "",
+        }
+
+        # Sync warning if stock_stat is older than 24h (configurable)
+        if stat_age_h > 24:
+            response["data_sync_warning"] = (
+                f"SuperChart stock_stat is {stat_age_h:.1f}h old "
+                f"(> 24h). Trigger /api/tz-wlnbb/generate-stock-stat to resync."
+            )
+        return response
+    except HTTPException:
+        raise
+    except Exception as exc:
+        log.exception("superchart error")
+        raise HTTPException(status_code=500, detail=str(exc))
+
+
+# ── 260523 enrichment + filter helpers ──────────────────────────────────────
+# Loads latest stock_stat row per ticker for ad_fresh / ad_cluster / wyc_phase
+# and applies optional filter params. Pure logic lives in
+# analyzers/tz_wlnbb/filters_260523.py so it is importable without FastAPI.
+from analyzers.tz_wlnbb.filters_260523 import (
+    enrich_with_260523 as _enrich_with_260523_pure,
+    apply_260523_filters as _apply_260523_filters,
+)
+
+
+def _enrich_with_260523(results: list, universe: str, tf: str, nasdaq_batch: str = "") -> list:
+    """Wrap the pure helper, injecting our canonical _tz_batch_stat_path resolver."""
+    return _enrich_with_260523_pure(
+        results, universe, tf, nasdaq_batch,
+        path_resolver=_tz_batch_stat_path,
+    )
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -614,6 +761,13 @@ def api_turbo_scan(
     cci_max: float = 9999,
     vol_min: float = 0,
     vol_max: float = 0,
+    # ── 260523 filter params (all optional) ─────────────────────────────────
+    ad_fresh: Optional[bool] = None,
+    ad_cluster: Optional[bool] = None,
+    wyc_phase: Optional[str] = None,
+    wyc_spring: Optional[bool] = None,
+    wyc_sos: Optional[bool] = None,
+    wyc_acc_tr: Optional[bool] = None,
 ):
     try:
         from turbo_engine import get_turbo_results, get_last_turbo_scan_time
@@ -701,6 +855,15 @@ def api_turbo_scan(
                     r["beta_auto_buy"] = False
         except Exception as exc:
             log.warning("beta score enrichment failed: %s", exc)
+
+        # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC) ──────────
+        results = _enrich_with_260523(results, universe, tf)
+        results = _apply_260523_filters(
+            results,
+            ad_fresh=ad_fresh, ad_cluster=ad_cluster,
+            wyc_phase=wyc_phase, wyc_spring=wyc_spring,
+            wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
+        )
 
         return {"results": results, "last_scan": last_time, "meta": meta}
     except Exception as exc:
@@ -3477,6 +3640,13 @@ def api_ultra_scan_results(
     universe:     str = Query("sp500"),
     tf:           str = Query("1d"),
     nasdaq_batch: str = Query(""),
+    # ── 260523 filter params ────────────────────────────────────────────────
+    ad_fresh:   Optional[bool] = None,
+    ad_cluster: Optional[bool] = None,
+    wyc_phase:  Optional[str]  = None,
+    wyc_spring: Optional[bool] = None,
+    wyc_sos:    Optional[bool] = None,
+    wyc_acc_tr: Optional[bool] = None,
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
     batch). Falls back to DB when memory cache is empty (survives restart)."""
@@ -3490,6 +3660,18 @@ def api_ultra_scan_results(
                     resp = get_ultra_results(universe=universe, tf=tf, nasdaq_batch=nasdaq_batch)
             except Exception as _db_exc:
                 log.warning("ultra-scan/results DB fallback error: %s", _db_exc)
+
+        # ── 260523 enrichment + filter ─────────────────────────────────────
+        results = resp.get("results") or []
+        if results:
+            results = _enrich_with_260523(results, universe, tf, nasdaq_batch)
+            results = _apply_260523_filters(
+                results,
+                ad_fresh=ad_fresh, ad_cluster=ad_cluster,
+                wyc_phase=wyc_phase, wyc_spring=wyc_spring,
+                wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
+            )
+            resp["results"] = results
         return resp
     except Exception as exc:
         log.exception("ultra-scan/results error")

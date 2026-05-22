@@ -1109,6 +1109,105 @@ The deployed code carries two complementary fixes for the **`WATCH_HIGH:GATES_PA
 
 ---
 
+## Advanced Filter Parameters (260523+)
+
+Both TurboScanPanel and UltraScanPanel expose the following new filters, applied
+server-side via the same query params:
+
+| Filter         | Type   | Values                                              | Description                              |
+|----------------|--------|-----------------------------------------------------|------------------------------------------|
+| `ad_fresh`     | bool   | Active ★ / Any                                      | AD-FRESH sequence on this bar            |
+| `ad_cluster`   | bool   | Active ★★ / Any                                     | AD-CLUSTER (2+ AD-FRESH in 8-bar window) |
+| `wyc_phase`    | string | SPRING / UTAD / SOS / ACC_TR / DIST_TR / MARKUP / MKDN | Wyckoff macro phase exact match     |
+| `wyc_spring`   | bool   | true / false                                        | Direct SPRING boolean                    |
+| `wyc_sos`      | bool   | true / false                                        | Direct SOS boolean                       |
+| `wyc_acc_tr`   | bool   | true / false                                        | Direct ACC_TR boolean                    |
+
+Backend implementation: `backend/analyzers/tz_wlnbb/filters_260523.py` —
+pure helpers (importable without FastAPI) `enrich_with_260523()`,
+`apply_260523_filters()`, `parse_line5_tokens()`. `main.py` wires both
+into `/api/turbo-scan` and `/api/ultra-scan/results`.
+
+Frontend implementation: `TurboScanPanel.jsx` + `UltraScanPanel.jsx` share
+an identical control block inside the Advanced Filters drawer:
+2 toggle buttons (AD-FRESH ★, AD-CLUSTER ★★) + a 7-option WYC phase row.
+Selections persist in component state and combine with existing SIG /
+Sector / RTB filters via AND.
+
+---
+
+## SuperChart Data Synchronisation
+
+### Endpoint
+
+`GET /api/superchart/{ticker}?universe=sp500&tf=1d&bars=60` returns the last
+`bars` rows from the **same `stock_stat_tz_wlnbb_*.csv` cache** that Turbo
+and Ultra read. Single source of truth — no separate yfinance fetch.
+
+### Response shape (per bar)
+
+```json
+{
+  "date": "2026-05-22", "open": 150.0, "high": 152.0, "low": 148.0, "close": 151.0,
+  "t_signal": "T4", "z_signal": "", "bull_priority_code": 1, "bear_priority_code": 0,
+  "l_signal": "L34", "l_digits": "34", "volume_bucket": "B",
+  "bar_body_wick": "XF", "bar_gap_range": "G2-V", "bar_line5": "VX-PB-R2X",
+  "wvf_spike": true, "vix_range": false, "psar_bull": true, "rsi2_token": "R2X",
+  "ad_fresh": true, "ad_cluster": false, "wyc_phase": "SPRING",
+  "wyc_spring": true, "wyc_sos": false, "wyc_acc_tr": false, "wyc_markup": false,
+  "preup_text": "P66", "predn_text": "", "composite_full_label": "...",
+  "tz_wlnbb_version": "260523_TZ_F_WLNBB_CMB_python_v3_adfresh_wyc",
+  "build_marker": "260523_..._sha-<git>__built-<utc>"
+}
+```
+
+Top-level fields: `ticker`, `tf`, `universe`, `bars[]`, `stock_stat_path`,
+`stock_stat_age_hours`, `tz_wlnbb_version`, `build_marker`. If
+`stock_stat_age_hours > 24`, `data_sync_warning` is set — the panel must
+display it as a yellow banner and offer "Regenerate" CTA.
+
+### Synchronisation rule
+
+If Turbo shows `ad_fresh=True` for RGTI on 2026-05-22, SuperChart MUST show
+AD★ on that bar. Any divergence is a data freshness issue — run
+`/api/tz-wlnbb/generate-stock-stat` (or `/api/regenerate-and-audit`) and the
+shared CSV cache is rebuilt for all three consumers atomically.
+
+### All signal rows in SuperChart (260523)
+
+T/Z signal · L1–L6/L34/L64/L43/L22 · VABS · GOG · F-signals · B-signals/Combo ·
+**AD-FRESH/AD-CLUSTER** · **WYC Phase** · **Line3** (body+wick) · **Line4** (gap+range) ·
+**Line5** (VIX/PSAR/RSI2) · PREUP/PREDN · RTB · TPSL · Turbo Score · Ultra Score.
+
+---
+
+## Stock Metadata Data Sources
+
+| Source       | Priority | Used for                                          | Fallback |
+|--------------|----------|---------------------------------------------------|----------|
+| Massive.com  | Primary  | Name, sector, industry, market cap, float, avg vol | yfinance |
+| yfinance     | Fallback | All metadata when Massive unavailable              | —        |
+| Polygon.io   | OHLCV    | Real-time and historical price data               | yfinance |
+
+All panels (Turbo, Ultra, SuperChart, Analyze, Watchlist) use Massive as primary.
+A `source` field (`massive` / `yfinance` / `error` / `cache`) is returned with
+every ticker-info response so the SuperChart header can show a provenance badge.
+
+**Configuration:**
+- `MASSIVE_API_KEY` env var holds the bearer token. If unset, code skips
+  Massive and goes straight to yfinance — no breakage.
+- `MASSIVE_BASE_URL` env var overrides the API base (default
+  `https://api.massive.com/v1`).
+- Metadata cached in-memory for **24h** (`MASSIVE_CACHE_TTL_SECONDS = 86_400`).
+- OHLCV cache TTL constant defined but OHLCV path not wired (5 min,
+  `MASSIVE_OHLCV_TTL_SECONDS = 300`).
+
+**Implementation:** `backend/data_massive.py`. Entry points:
+- `get_ticker_info_massive(ticker) -> dict` (sync, with cache + fallback)
+- `get_ticker_info_batch(tickers) -> dict[str, dict]`
+
+---
+
 ## Deployment
 
 ### Railway

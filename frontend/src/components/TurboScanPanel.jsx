@@ -789,6 +789,11 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const hoverTimer = useRef(null)
   const [showAdvanced, setShowAdvanced] = useState(false)
 
+  // ── 260523 signal filters (Pine 260523: AD-FRESH / AD-CLUSTER / WYC Phase) ──
+  const [adFreshFilter,   setAdFreshFilter]   = useState(null)
+  const [adClusterFilter, setAdClusterFilter] = useState(null)
+  const [wycPhaseFilter,  setWycPhaseFilter]  = useState('')
+
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
     () => Object.fromEntries(TF_OPTS.map(t => [t, !!_tsGet(t, universe)?.results?.length])),
@@ -904,6 +909,10 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
       if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
       if (rtbPhase && (r.rtb_phase || '0') !== rtbPhase) return false
+      // 260523 filters
+      if (adFreshFilter === true && !r.ad_fresh) return false
+      if (adClusterFilter === true && !r.ad_cluster) return false
+      if (wycPhaseFilter && (r.wyc_phase || 'NEUTRAL') !== wycPhaseFilter) return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -942,7 +951,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1344,6 +1353,46 @@ export default function TurboScanPanel({ onSelectTicker }) {
                     {s.label}
                   </button>
                 )
+            )}
+          </div>
+          {/* ── 260523 filters: AD-FRESH / AD-CLUSTER / WYC Phase ── */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-t border-md-outline-var/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">260523</span>
+            <button onClick={() => setAdFreshFilter(adFreshFilter ? null : true)}
+              title="AD-FRESH: Z1G/Z2G → T4/T6/T2G/T2 in lower 50% of 20-bar range"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors border ${
+                adFreshFilter
+                  ? 'bg-fuchsia-900/50 text-fuchsia-200 border-fuchsia-600 font-semibold'
+                  : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>
+              AD-FRESH ★
+            </button>
+            <button onClick={() => setAdClusterFilter(adClusterFilter ? null : true)}
+              title="AD-CLUSTER: 2+ AD-FRESH within 8-bar window — highest conviction"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors border ${
+                adClusterFilter
+                  ? 'bg-cyan-900/60 text-cyan-200 border-cyan-500 font-semibold'
+                  : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>
+              AD-CLUSTER ★★
+            </button>
+            <span className="text-md-on-surface-var text-xs shrink-0 ml-2 mr-1">WYC:</span>
+            {['', 'SPRING', 'UTAD', 'SOS', 'ACC_TR', 'DIST_TR', 'MARKUP', 'MKDN'].map(p => (
+              <button key={p || 'all'} onClick={() => setWycPhaseFilter(p)}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors ${
+                  wycPhaseFilter === p
+                    ? 'bg-teal-900/60 text-teal-200 font-semibold'
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'
+                }`}>
+                {p || 'All'}
+              </button>
+            ))}
+            {(adFreshFilter || adClusterFilter || wycPhaseFilter) && (
+              <button
+                onClick={() => { setAdFreshFilter(null); setAdClusterFilter(null); setWycPhaseFilter('') }}
+                className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
+                ✕ clear 260523
+              </button>
             )}
           </div>
           {/* Sector filter */}
