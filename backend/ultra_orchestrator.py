@@ -513,94 +513,117 @@ def run_ultra_scan_job(
 
     rows: list = []
     last_scan: str | None = None
+    response: dict = {}
 
     try:
-        _set_phase("turbo", "running", "Running Turbo scan")
-        from turbo_engine import (
-            run_turbo_scan, get_turbo_results, get_last_turbo_scan_time,
-            get_turbo_progress,
-        )
         try:
-            run_turbo_scan(
-                interval=tf, universe=universe, workers=8,
-                lookback_n=lookback_n, partial_day=partial_day,
-                min_volume=min_volume, min_store_score=min_store_score,
+            _set_phase("turbo", "running", "Running Turbo scan")
+            from turbo_engine import (
+                run_turbo_scan, get_turbo_results, get_last_turbo_scan_time,
+                get_turbo_progress,
             )
-            prog = get_turbo_progress()
-            with _ultra_lock:
-                _ultra_state["turbo_done"]  = prog.get("done", 0)
-                _ultra_state["turbo_total"] = prog.get("total", 0)
-            turbo_rows = get_turbo_results(
-                limit=10000, min_score=0, direction="all",
-                tf=tf, universe=universe,
-            )
-            # Mirror /api/turbo-scan exactly: apply the same read-only profile
-            # playbook enrichment so PF Score / Category / sweet_spot / etc.
-            # match Turbo tab. Skipping this leaves profile_score and
-            # profile_category empty in ULTRA — even though the underlying
-            # Turbo scoring is identical, the playbook context is missing.
             try:
-                from profile_playbook import enrich_row_with_profile
-                turbo_rows = [enrich_row_with_profile(r, universe) for r in turbo_rows]
-            except Exception as exc:
-                log.warning("ULTRA: profile_playbook enrichment failed: %s", exc)
+                run_turbo_scan(
+                    interval=tf, universe=universe, workers=8,
+                    lookback_n=lookback_n, partial_day=partial_day,
+                    min_volume=min_volume, min_store_score=min_store_score,
+                )
+                prog = get_turbo_progress()
+                with _ultra_lock:
+                    _ultra_state["turbo_done"]  = prog.get("done", 0)
+                    _ultra_state["turbo_total"] = prog.get("total", 0)
+                turbo_rows = get_turbo_results(
+                    limit=10000, min_score=0, direction="all",
+                    tf=tf, universe=universe,
+                )
+                # Mirror /api/turbo-scan exactly: apply the same read-only profile
+                # playbook enrichment so PF Score / Category / sweet_spot / etc.
+                # match Turbo tab. Skipping this leaves profile_score and
+                # profile_category empty in ULTRA — even though the underlying
+                # Turbo scoring is identical, the playbook context is missing.
+                try:
+                    from profile_playbook import enrich_row_with_profile
+                    turbo_rows = [enrich_row_with_profile(r, universe) for r in turbo_rows]
+                except Exception as exc:
+                    log.warning("ULTRA: profile_playbook enrichment failed: %s", exc)
 
-            # BETA Score enrichment (same logic as turbo-scan endpoint)
-            try:
-                from beta_engine import calc_beta_score as _calc_beta
-                from canonical_scoring_engine import compute_canonical_score as _canon
-                for r in turbo_rows:
-                    try:
-                        canon = _canon(r, universe)
-                        _vol = ("20x" if r.get("vol_spike_20x") else
-                                "10x" if r.get("vol_spike_10x") else
-                                "5x"  if r.get("vol_spike_5x")  else "")
-                        _br = dict(r,
-                            ROCKET_SCORE=canon["ROCKET_SCORE"],
-                            CLEAN_ENTRY_SCORE=canon["CLEAN_ENTRY_SCORE"],
-                            FINAL_REGIME=canon["FINAL_REGIME"],
-                            VOL=_vol)
-                        _b = _calc_beta(_br, [], universe)
-                        r.update(_b)
-                    except Exception:
-                        pass
-            except Exception as exc:
-                log.warning("ULTRA: beta score enrichment failed: %s", exc)
+                # BETA Score enrichment (same logic as turbo-scan endpoint)
+                try:
+                    from beta_engine import calc_beta_score as _calc_beta
+                    from canonical_scoring_engine import compute_canonical_score as _canon
+                    for r in turbo_rows:
+                        try:
+                            canon = _canon(r, universe)
+                            _vol = ("20x" if r.get("vol_spike_20x") else
+                                    "10x" if r.get("vol_spike_10x") else
+                                    "5x"  if r.get("vol_spike_5x")  else "")
+                            _br = dict(r,
+                                ROCKET_SCORE=canon["ROCKET_SCORE"],
+                                CLEAN_ENTRY_SCORE=canon["CLEAN_ENTRY_SCORE"],
+                                FINAL_REGIME=canon["FINAL_REGIME"],
+                                VOL=_vol)
+                            _b = _calc_beta(_br, [], universe)
+                            r.update(_b)
+                        except Exception:
+                            pass
+                except Exception as exc:
+                    log.warning("ULTRA: beta score enrichment failed: %s", exc)
 
-            last_scan = get_last_turbo_scan_time(tf=tf, universe=universe)
-            rows = [_empty_unenriched_row(r) for r in turbo_rows
-                    if r.get("ticker")]
-            sources["turbo"] = {"ok": True, "count": len(rows)}
-            _set_phase("turbo", "ok", f"{len(rows)} tickers")
+                last_scan = get_last_turbo_scan_time(tf=tf, universe=universe)
+                rows = [_empty_unenriched_row(r) for r in turbo_rows
+                        if r.get("ticker")]
+                sources["turbo"] = {"ok": True, "count": len(rows)}
+                _set_phase("turbo", "ok", f"{len(rows)} tickers")
+            except Exception as exc:
+                _set_phase("turbo", "error", str(exc))
+                _add_warning(f"Turbo scan failed: {exc}")
+
+            # All Stage 2 phases stay 'pending' until enrich is invoked
+            for ph in ("stock_stat", "tz_wlnbb", "tz_intelligence",
+                       "pullback", "rare_reversal", "merge"):
+                _set_phase(ph, "pending", "waiting on enrich")
+
         except Exception as exc:
-            _set_phase("turbo", "error", str(exc))
-            _add_warning(f"Turbo scan failed: {exc}")
+            with _ultra_lock:
+                _ultra_state["error"] = str(exc)
+            log.exception("ULTRA Stage 1 crashed")
 
-        # All Stage 2 phases stay 'pending' until enrich is invoked
-        for ph in ("stock_stat", "tz_wlnbb", "tz_intelligence",
-                   "pullback", "rare_reversal", "merge"):
-            _set_phase(ph, "pending", "waiting on enrich")
-
-    except Exception as exc:
+        _warnings_snapshot = list(_ultra_state.get("warnings", []))
+        try:
+            _store_results(
+                universe, tf, nasdaq_batch,
+                rows=rows, last_scan=last_scan,
+                warnings=_warnings_snapshot,
+                sources=sources,
+                phase="turbo_done",
+            )
+        except Exception as _store_exc:
+            log.exception("ULTRA Stage 1: _store_results failed (non-fatal)")
+            with _ultra_lock:
+                _ultra_state["error"] = (_ultra_state.get("error") or
+                                          f"store_results: {_store_exc}")
+        try:
+            elapsed_ms = int((_time.time() - _ultra_state.get("started_at",
+                                                              _time.time())) * 1000)
+            response = _build_response(universe, tf, nasdaq_batch, elapsed_ms)
+        except Exception as _resp_exc:
+            log.exception("ULTRA Stage 1: _build_response failed (non-fatal)")
+            response = {"error": str(_resp_exc),
+                        "universe": universe, "tf": tf,
+                        "nasdaq_batch": nasdaq_batch or None}
+    finally:
+        # ── Guaranteed cleanup: never leak `running=True` even on crash ────
+        # Without this finally, any unexpected exception in the body above
+        # leaves _ultra_state["running"]=True forever and the next scan trigger
+        # returns "ULTRA scan already running". Issue spotted in production.
         with _ultra_lock:
-            _ultra_state["error"] = str(exc)
-        log.exception("ULTRA Stage 1 crashed")
-
-    _warnings_snapshot = list(_ultra_state.get("warnings", []))
-    _store_results(
-        universe, tf, nasdaq_batch,
-        rows=rows, last_scan=last_scan,
-        warnings=_warnings_snapshot,
-        sources=sources,
-        phase="turbo_done",
-    )
-    elapsed_ms = int((_time.time() - _ultra_state.get("started_at", _time.time())) * 1000)
-    response = _build_response(universe, tf, nasdaq_batch, elapsed_ms)
-    with _ultra_lock:
-        _ultra_state["sources"]      = sources
-        _ultra_state["completed_at"] = _time.time()
-        _ultra_state["running"]      = False
-    _gc.collect()
+            _ultra_state["sources"]      = sources
+            _ultra_state["completed_at"] = _time.time()
+            _ultra_state["running"]      = False
+        try:
+            _gc.collect()
+        except Exception:
+            pass
 
     # Persist to DB so results survive deploy/restart (non-fatal if it fails)
     if rows:
@@ -608,7 +631,7 @@ def run_ultra_scan_job(
             persist_ultra_scan_results(
                 universe, tf, nasdaq_batch,
                 rows=rows, last_scan=last_scan,
-                warnings=_warnings_snapshot, sources=sources,
+                warnings=list(_ultra_state.get("warnings", [])), sources=sources,
             )
         except Exception as _exc:
             log.warning("ULTRA: DB persist skipped: %s", _exc)
@@ -927,8 +950,61 @@ def _build_response(universe: str, tf: str, nasdaq_batch: str,
 
 
 def get_ultra_status() -> dict:
+    """Returns a snapshot of the ULTRA state.
+
+    Defensive auto-clear: if `running=True` but the job hasn't updated any
+    progress counter for STALE_TIMEOUT_S, the state is considered crashed
+    and `running` is force-reset to False. This prevents the dreaded
+    "Another ULTRA scan is in progress" error from getting stuck when a
+    background task dies silently (OOM kill, worker restart, etc.).
+    """
+    STALE_TIMEOUT_S = 600  # 10 minutes with no progress → assume dead
     with _ultra_lock:
-        return dict(_ultra_state)
+        snap = dict(_ultra_state)
+        if snap.get("running"):
+            started = snap.get("started_at") or 0.0
+            if started > 0 and (_time.time() - started) > STALE_TIMEOUT_S:
+                # No progress for too long — clear stuck state
+                log.warning("ULTRA: auto-clearing stale running state "
+                            "(started %.0fs ago, no completion signal)",
+                            _time.time() - started)
+                _ultra_state["running"]      = False
+                _ultra_state["completed_at"] = _time.time()
+                _ultra_state["error"] = (
+                    snap.get("error") or
+                    "auto-cleared stale running state (>10min no progress)"
+                )
+                snap = dict(_ultra_state)
+        return snap
+
+
+def reset_ultra_state(force: bool = False) -> dict:
+    """Manually clear the ULTRA running flag. Use to unstick a hung scan.
+
+    Without `force=True`, only clears if the state has been running for
+    more than 60s (safety to avoid killing a fresh scan).
+    Returns the new state snapshot.
+    """
+    with _ultra_lock:
+        snap_before = dict(_ultra_state)
+        was_running = bool(snap_before.get("running"))
+        if not was_running:
+            return {"cleared": False, "reason": "not running", "state": snap_before}
+        if not force:
+            started = snap_before.get("started_at") or 0.0
+            age = _time.time() - started if started > 0 else 99999
+            if age < 60:
+                return {
+                    "cleared": False,
+                    "reason": f"running for only {age:.0f}s; pass force=true to override",
+                    "state": snap_before,
+                }
+        _ultra_state["running"]      = False
+        _ultra_state["completed_at"] = _time.time()
+        _ultra_state["error"] = (snap_before.get("error") or
+                                  "manually reset via /api/ultra-scan/reset")
+        return {"cleared": True, "reason": "manual reset",
+                "state": dict(_ultra_state)}
 
 
 def get_ultra_results(universe: str, tf: str, nasdaq_batch: str = "") -> dict:

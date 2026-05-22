@@ -3564,6 +3564,18 @@ def api_rare_reversal_scan(
 
 
 @app.post("/api/ultra-scan/trigger")
+@app.post("/api/ultra-scan/reset")
+def api_ultra_scan_reset(force: bool = Query(False)):
+    """Manually clear the ULTRA `running` flag if a scan got stuck.
+
+    Without `force=true`, refuses to clear a state younger than 60s
+    (avoids killing a healthy fresh scan). `force=true` clears
+    unconditionally — use when you're certain the background job is dead.
+    """
+    from ultra_orchestrator import reset_ultra_state
+    return reset_ultra_state(force=force)
+
+
 def api_ultra_scan_trigger(
     background_tasks: BackgroundTasks,
     universe:        str   = Query("sp500"),
@@ -3585,7 +3597,9 @@ def api_ultra_scan_trigger(
     """
     from ultra_orchestrator import get_ultra_status, run_ultra_scan_job
     if get_ultra_status().get("running"):
-        raise HTTPException(status_code=409, detail="ULTRA scan already running")
+        raise HTTPException(status_code=409,
+            detail="ULTRA scan already running — if it's stuck, POST "
+                   "/api/ultra-scan/reset?force=true to clear it")
     background_tasks.add_task(
         run_ultra_scan_job,
         universe=universe, tf=tf, lookback_n=lookback_n,
@@ -3625,7 +3639,9 @@ def api_ultra_scan_enrich(
     stock_stat file is never overwritten."""
     from ultra_orchestrator import get_ultra_status, run_ultra_enrich_job
     if get_ultra_status().get("running"):
-        raise HTTPException(status_code=409, detail="ULTRA scan/enrich already running")
+        raise HTTPException(status_code=409,
+            detail="ULTRA scan/enrich already running — POST "
+                   "/api/ultra-scan/reset?force=true to clear if stuck")
     if not body.tickers:
         raise HTTPException(status_code=400, detail="tickers list is empty")
     background_tasks.add_task(
