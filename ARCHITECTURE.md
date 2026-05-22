@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.8.3 · API v2.9 · TZ_WLNBB Pine 260523 v3.3 (signal-to-pivot analytics)
+> Version 4.8.4 · API v2.9 · TZ_WLNBB Pine 260523 v3.4 (pivot sequence + suffix analytics)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -1221,6 +1221,42 @@ prices. `test_no_lookahead_in_live_score` asserts neither symbol appears in
 `turbo_engine.py` or `ultra_score.py`. The raw per-observation DataFrame is
 intentionally NOT written to the ZIP (can be millions of rows) — only the
 aggregated summary is embedded.
+
+### Pivot Sequence + Suffix Analytics (RESEARCH_ONLY — 260523 v3.4)
+
+`backend/analyzers/tz_wlnbb/pivot_sequence_analytics.py` analyses **what
+appears at confirmed pivot bars** across six dimensions, all using
+`fwd_swing_ret` (pivot → next pivot) as the forward metric. RESEARCH_ONLY.
+
+Direction-aware win-rate: pivot LOWs use `fwd > 0 = win`; pivot HIGHs use
+`fwd < 0 = win`. Outputs split by `pivot_side ∈ {low, high}`.
+
+| Output CSV | Dimension | Source column |
+|------------|-----------|---------------|
+| `replay_tz_wlnbb_pivot_suffix_perf.csv` | Suffix at pivot | `full_suffix` |
+| `replay_tz_wlnbb_pivot_body_wick_perf.csv` | Body / wick class (line3) | `bar_body_wick` |
+| `replay_tz_wlnbb_pivot_line5_perf.csv` | VIX-Fix / PSAR / RSI2 (line5) | `bar_line5` |
+| `replay_tz_wlnbb_pivot_preup_predn_perf.csv` | EMA cross signal at pivot | `preup_signal` / `predn_signal` |
+| `replay_tz_wlnbb_pivot_seq2_perf.csv` | 2-bar sequence ending at pivot | `prev composite_core` \| `cur composite_core` |
+| `replay_tz_wlnbb_pivot_composite_suffix_perf.csv` | `composite_core + full_suffix` combo | `T12L46+ED` etc. |
+
+Min-count thresholds: suffix/seq/composite_suffix `n≥30`, body/wick & line5
+`n≥50`, PREUP/PREDN `n≥20`. Schema per row:
+`<group_col>, count, avg_fwd, med_fwd, pct25, pct75, win_rate, pivot_side`.
+
+**Empirical highlights (SP500 1D, 165K rows):**
+
+| View | Top at pivot LOW | Top at pivot HIGH |
+|------|------------------|-------------------|
+| Suffix | EBA +8.32%/95.8%, ED +7.79%/98.3%, NDI +7.27%/98.6% | — |
+| Body/Wick | XF +7.89%, MBB +7.81% (pin), M +7.66% | — |
+| Line5 | VX-PS-R2X +7.87%/97.7% (VIX spike + oversold reclaim) | VX-PS-R2L −11.03%/100%, PS-R2L −8.41%/100% |
+| 2-bar seq | Z3L46\|Z2GL46 +10.19%/100%, T5L25\|Z1GL46 +10.17%/100% | T1L3\|Z3L46 −9.27%/100%, T2GL3\|Z5L34 −8.98%/97% |
+| Composite+suffix | T12L46+ED +10.68%/98.8% (n=172), T5L46+ED +9.17%/98%, Z1GL46+ED +8.78%/98.2% | — |
+
+These views are the most actionable single-bar discriminators for live
+research — combine "composite + suffix at pivot LOW" with the live-safe
+`swing_type` classifier in scoring to gate entry decisions.
 
 ### Bug-fixes applied in v3.1
 

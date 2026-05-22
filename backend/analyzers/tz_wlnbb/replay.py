@@ -2299,6 +2299,31 @@ def generate_replay_zip(
                     log.warning("signal_to_pivot skipped: required columns missing")
             except Exception as e:
                 log.warning("signal_to_pivot embedding failed: %s", e)
+
+            # ── 260523 v3.4: Pivot Sequence + Suffix Analytics (6 CSVs) ──────
+            try:
+                import pandas as _pd
+                from .pivot_sequence_analytics import run_pivot_sequence_analytics
+                df_pseq = _pd.DataFrame(rows)
+                if {"ticker", "swing_type", "fwd_swing_ret"}.issubset(df_pseq.columns):
+                    for c in ("fwd_swing_ret",):
+                        df_pseq[c] = _pd.to_numeric(df_pseq[c], errors="coerce")
+                    pseq_out = run_pivot_sequence_analytics(df_pseq)
+                    for csv_name, out_df in pseq_out.items():
+                        if out_df is None or len(out_df) == 0:
+                            log.info("pivot_seq: %s — no rows after min_n filter", csv_name)
+                            # Still emit an empty CSV with the header
+                        out_rows = (out_df.to_dict(orient="records")
+                                    if (out_df is not None and len(out_df))
+                                    else [])
+                        fields = (list(out_df.columns) if (out_df is not None and len(out_df))
+                                  else ["count", "pivot_side"])
+                        zf.writestr(csv_name, _to_csv_bytes(out_rows, fields))
+                    log.info("pivot_sequence analytics: 6 CSVs embedded")
+                else:
+                    log.warning("pivot_sequence skipped: missing swing_type/fwd_swing_ret columns")
+            except Exception as e:
+                log.warning("pivot_sequence embedding failed: %s", e)
         except Exception as e:
             log.warning("swing analytics embedding failed: %s", e)
 
