@@ -6,6 +6,7 @@ from .config import (
     WLNBB_MA_PERIOD, USE_WICK, MIN_BODY_RATIO, DOJI_THRESH,
     AD_FRESH_LOOKBACK, AD_FRESH_POS_THR, AD_CLUSTER_WINDOW, AD_CLUSTER_MIN,
     WYC_ATR_COMP_MULT, WYC_ATR_AVG_PERIOD, WYC_VOL_MULT, WYC_TR_LOOKBACK,
+    WYC_SPRING_VOL_MULT, WYC_SPRING_CLOSE_POS,
 )
 
 
@@ -205,9 +206,12 @@ def compute_ad_fresh(df: pd.DataFrame, cfg: dict = None):
     ad_fresh = d_sig & a_recent & is_fresh
     ad_fresh_ser = pd.Series(ad_fresh, index=df.index)
 
-    ad_cluster_ser = (
-        ad_fresh_ser.rolling(win, min_periods=1).sum() >= min_cnt
-    )
+    # Bug-fix v3.1: AD-CLUSTER must AND with ad_fresh on the same bar.
+    # Without the AND gate, the rolling-window count stays True for several
+    # bars after the second AD-FRESH fires (cluster "persists"), inflating
+    # the count from ~3.5% to ~12.8% of rows on SP500 1D.
+    rolling_cnt = ad_fresh_ser.rolling(win, min_periods=1).sum()
+    ad_cluster_ser = (rolling_cnt >= min_cnt) & ad_fresh_ser
 
     return ad_fresh_ser.fillna(False), ad_cluster_ser.fillna(False)
 
@@ -251,6 +255,14 @@ def compute_wyc_phase(df: pd.DataFrame, cfg: dict = None) -> pd.Series:
     vol_avg = df["volume"].rolling(20, min_periods=1).mean()
     vol_hi  = (df["volume"] > vol_avg * vol_mult).to_numpy()
 
+    # Bug-fix v3.1: Spring needs STRONGER constraints — over-fires on SP500 1D
+    # with the loose 1.5× vol + 0.70 ATR mult, producing inverted edge
+    # (avg_5d -2.07%, win 39%). Tightening: 2× vol, close in upper 60% of bar,
+    # range > ATR (expansion, not compression).
+    spring_vol_mult  = float((cfg or {}).get("WYC_SPRING_VOL_MULT",  WYC_SPRING_VOL_MULT))
+    spring_close_pos = float((cfg or {}).get("WYC_SPRING_CLOSE_POS", WYC_SPRING_CLOSE_POS))
+    vol_spike_strong = (df["volume"] > vol_avg * spring_vol_mult).to_numpy()
+
     prev_sup = df["low"].rolling(tr_look, min_periods=1).min().shift(1)
     prev_res = df["high"].rolling(tr_look, min_periods=1).max().shift(1)
     prev_sup_arr = prev_sup.to_numpy()
@@ -262,6 +274,11 @@ def compute_wyc_phase(df: pd.DataFrame, cfg: dict = None) -> pd.Series:
     low_arr   = df["low"].to_numpy()
     is_bull   = close_arr > open_arr
     is_bear   = close_arr < open_arr
+
+    bar_range = (df["high"] - df["low"]).clip(lower=1e-8)
+    close_pos_bar = ((df["close"] - df["low"]) / bar_range).to_numpy()
+    spring_close_ok = close_pos_bar > spring_close_pos
+    range_expanded  = (bar_range.to_numpy() > atr14.to_numpy())
 
     t_col = df["t_signal"] if "t_signal" in df.columns else pd.Series([""] * n, index=df.index)
     z_col = df["z_signal"] if "z_signal" in df.columns else pd.Series([""] * n, index=df.index)
@@ -276,11 +293,16 @@ def compute_wyc_phase(df: pd.DataFrame, cfg: dict = None) -> pd.Series:
     else:
         wvf_arr = np.zeros(n, dtype=bool)
 
-    # Per-bar event masks
+    # Per-bar event masks — Spring now uses tightened constraints
     spring_mask = (
         (low_arr < prev_sup_arr)
         & (close_arr > prev_sup_arr)
-        & is_bull & macro_down & vol_hi & t_bull_conf
+        & is_bull
+        & macro_down
+        & vol_spike_strong        # 2× avg volume (was 1.5×)
+        & spring_close_ok         # close in upper 60% of bar
+        & range_expanded          # bar range > ATR(14)
+        & t_bull_conf             # T1G / T4 / T9 confirmation
     )
     utad_mask = (
         (high_arr > prev_res_arr)
@@ -391,6 +413,22 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
         df["wyc_sos"]    = False
         df["wyc_acc_tr"] = False
         df["wyc_markup"] = False
+
+    # ── 260523 v3.1: HH/LH/HL/LL swing classification ───────────────────────
+    try:
+        from .swing_classifier import classify_swings
+        sw = classify_swings(df)
+        df["swing_type"]    = sw["swing_type"].values
+        df["swing_ret"]     = sw["swing_ret"].values
+        df["swing_bars"]    = sw["swing_bars"].values
+        df["is_pivot_high"] = sw["is_pivot_high"].values
+        df["is_pivot_low"]  = sw["is_pivot_low"].values
+    except Exception:
+        df["swing_type"]    = ""
+        df["swing_ret"]     = np.nan
+        df["swing_bars"]    = np.nan
+        df["is_pivot_high"] = False
+        df["is_pivot_low"]  = False
 
     return df
 

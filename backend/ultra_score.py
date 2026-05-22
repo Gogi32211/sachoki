@@ -426,6 +426,18 @@ def compute_ultra_score(row: dict) -> dict:
     elif abr_cat == "A":  d += 3
     elif abr_cat == "R":  d -= 4
 
+    # 260523 v3.1: swing context (HH/LH/HL/LL). Empirical SP500 1D shows
+    # HL is the strongest entry context (win 77%, +3% avg 5d).
+    swing_type = (row.get("swing_type") or "").strip()
+    if swing_type == "HL":
+        d += 8; reasons.append("SWING:HL")
+    elif swing_type == "LL":
+        d += 5; reasons.append("SWING:LL")
+    elif swing_type == "LH":
+        d -= 8; reasons.append("SWING:LH")
+    elif swing_type == "HH":
+        d -= 5; reasons.append("SWING:HH")
+
     d = max(min(d, 20), -20)
 
     # ── F. Combination bonuses ──────────────────────────────────────────────

@@ -28,6 +28,7 @@ OUTPUT_COLUMNS = [
     "bar_body_wick", "bar_gap_range", "bar_line5",
     "ad_fresh", "ad_cluster",
     "wyc_phase", "wyc_spring", "wyc_sos", "wyc_acc_tr", "wyc_markup",
+    "swing_type", "swing_ret", "swing_bars", "is_pivot_high", "is_pivot_low",
     "wick_ext_up", "wick_ext_down", "wick_ext_both",
     "prev_body_top", "prev_body_bot", "prev_high", "prev_low",
     "composite_t_label", "composite_z_label", "composite_primary_label", "composite_all_labels",
@@ -341,6 +342,17 @@ def generate_stock_stat(
                         int(bool(row.get("wyc_sos"))),
                         int(bool(row.get("wyc_acc_tr"))),
                         int(bool(row.get("wyc_markup"))),
+                        row.get("swing_type", "") or "",
+                        ("" if (row.get("swing_ret") is None or
+                                (isinstance(row.get("swing_ret"), float) and
+                                 row.get("swing_ret") != row.get("swing_ret")))
+                            else _val(row.get("swing_ret"))),
+                        ("" if (row.get("swing_bars") is None or
+                                (isinstance(row.get("swing_bars"), float) and
+                                 row.get("swing_bars") != row.get("swing_bars")))
+                            else int(row.get("swing_bars"))),
+                        int(bool(row.get("is_pivot_high"))),
+                        int(bool(row.get("is_pivot_low"))),
                         int(bool(row.get("wick_ext_up"))),
                         int(bool(row.get("wick_ext_down"))),
                         int(bool(row.get("wick_ext_both"))),

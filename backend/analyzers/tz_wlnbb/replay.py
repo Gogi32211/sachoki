@@ -535,6 +535,123 @@ def _gap_range_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
     return sorted(result, key=lambda x: -(x["count"] or 0))
 
 
+def _swing_perf(rows: List[dict]) -> List[dict]:
+    """Aggregate performance by swing_type (HH/LH/HL/LL). Pivot bars only.
+    260523 v3.1: empirical evidence shows swing_type is a stronger predictor
+    than the fixed forward-return windows alone."""
+    out: List[dict] = []
+    for stype in ("HH", "LH", "HL", "LL"):
+        sub = [r for r in rows if (r.get("swing_type") or "") == stype]
+        if not sub:
+            continue
+        n = len(sub)
+        ret_5d  = [v for r in sub for v in [_safe_float(r.get("ret_5d"))]  if v is not None]
+        ret_10d = [v for r in sub for v in [_safe_float(r.get("ret_10d"))] if v is not None]
+        mfe_5d  = [v for r in sub for v in [_safe_float(r.get("mfe_5d"))]  if v is not None]
+        mae_5d  = [v for r in sub for v in [_safe_float(r.get("mae_5d"))]  if v is not None]
+        sr      = [v for r in sub for v in [_safe_float(r.get("swing_ret"))] if v is not None]
+        sb      = [v for r in sub for v in [_safe_float(r.get("swing_bars"))] if v is not None]
+        wins5   = sum(1 for v in ret_5d  if v > 0)
+        wins10  = sum(1 for v in ret_10d if v > 0)
+        fails5  = sum(1 for v in ret_5d  if v < -5)
+        out.append({
+            "swing_type":       stype,
+            "count":            n,
+            "avg_swing_ret":    round(sum(sr) / len(sr), 4) if sr else None,
+            "avg_swing_bars":   round(sum(sb) / len(sb), 2) if sb else None,
+            "avg_ret_5d":       round(sum(ret_5d)  / len(ret_5d), 4)  if ret_5d  else None,
+            "avg_ret_10d":      round(sum(ret_10d) / len(ret_10d), 4) if ret_10d else None,
+            "median_ret_5d":    round(_median(ret_5d), 4)             if ret_5d  else None,
+            "median_ret_10d":   round(_median(ret_10d), 4)            if ret_10d else None,
+            "win_rate_5d":      round(wins5  * 100.0 / len(ret_5d), 2)  if ret_5d  else None,
+            "win_rate_10d":     round(wins10 * 100.0 / len(ret_10d), 2) if ret_10d else None,
+            "fail_rate_5d":     round(fails5 * 100.0 / len(ret_5d), 2)  if ret_5d  else None,
+            "avg_mfe_5d":       round(sum(mfe_5d) / len(mfe_5d), 4)  if mfe_5d else None,
+            "avg_mae_5d":       round(sum(mae_5d) / len(mae_5d), 4)  if mae_5d else None,
+        })
+    return out
+
+
+def _signal_swing_perf(rows: List[dict], min_count: int = 10) -> List[dict]:
+    """Signal × swing_type cross-table. Pivot bars only. Min count 10."""
+    groups: Dict[tuple, list] = {}
+    for r in rows:
+        stype = (r.get("swing_type") or "").strip()
+        if not stype:
+            continue
+        for field in ("t_signal", "z_signal"):
+            val = (r.get(field) or "").strip()
+            if not val:
+                continue
+            key = (field, val, stype)
+            groups.setdefault(key, []).append(r)
+
+    out: List[dict] = []
+    for (field, val, stype), grp in groups.items():
+        if len(grp) < min_count:
+            continue
+        ret_5d  = [v for r in grp for v in [_safe_float(r.get("ret_5d"))]  if v is not None]
+        ret_10d = [v for r in grp for v in [_safe_float(r.get("ret_10d"))] if v is not None]
+        wins5   = sum(1 for v in ret_5d  if v > 0)
+        wins10  = sum(1 for v in ret_10d if v > 0)
+        fails5  = sum(1 for v in ret_5d  if v < -5)
+        out.append({
+            "signal_field":   field,
+            "signal_value":   val,
+            "swing_type":     stype,
+            "count":          len(grp),
+            "avg_ret_5d":     round(sum(ret_5d)  / len(ret_5d), 4)  if ret_5d  else None,
+            "avg_ret_10d":    round(sum(ret_10d) / len(ret_10d), 4) if ret_10d else None,
+            "median_ret_5d":  round(_median(ret_5d), 4)             if ret_5d  else None,
+            "win_rate_5d":    round(wins5  * 100.0 / len(ret_5d), 2)  if ret_5d  else None,
+            "win_rate_10d":   round(wins10 * 100.0 / len(ret_10d), 2) if ret_10d else None,
+            "fail_rate_5d":   round(fails5 * 100.0 / len(ret_5d), 2)  if ret_5d  else None,
+        })
+    out.sort(key=lambda r: -(r.get("avg_ret_5d") or -1e9))
+    return out
+
+
+def _ad_fresh_swing_perf(rows: List[dict], min_count: int = 5) -> List[dict]:
+    """AD-FRESH performance by swing context. Empirically:
+        AD-FRESH + HL  → strong buy
+        AD-FRESH + LH  → AVOID (worst combo, win 20.2%)."""
+    out: List[dict] = []
+    ad_rows = [r for r in rows
+               if str(r.get("ad_fresh")) in ("1", "True", "true")
+               and (r.get("swing_type") or "").strip()]
+    for stype in ("HH", "LH", "HL", "LL"):
+        sub = [r for r in ad_rows if (r.get("swing_type") or "") == stype]
+        if len(sub) < min_count:
+            continue
+        ret_5d  = [v for r in sub for v in [_safe_float(r.get("ret_5d"))]  if v is not None]
+        ret_10d = [v for r in sub for v in [_safe_float(r.get("ret_10d"))] if v is not None]
+        wins5   = sum(1 for v in ret_5d  if v > 0)
+        interp  = ("STRONG BUY" if stype in ("HL", "LL")
+                   else "AVOID"  if stype == "LH"
+                   else "CAUTION")
+        out.append({
+            "signal":         "AD-FRESH",
+            "swing_type":     stype,
+            "count":          len(sub),
+            "avg_ret_5d":     round(sum(ret_5d)  / len(ret_5d), 4)  if ret_5d  else None,
+            "avg_ret_10d":    round(sum(ret_10d) / len(ret_10d), 4) if ret_10d else None,
+            "win_rate_5d":    round(wins5 * 100.0 / len(ret_5d), 2) if ret_5d  else None,
+            "median_ret_5d":  round(_median(ret_5d), 4)             if ret_5d  else None,
+            "interpretation": interp,
+        })
+    return out
+
+
+def _median(values):
+    if not values:
+        return 0.0
+    s = sorted(values)
+    n = len(s)
+    if n % 2 == 1:
+        return s[n // 2]
+    return (s[n // 2 - 1] + s[n // 2]) / 2.0
+
+
 def _line5_perf(rows: List[dict], min_count: int = 30) -> List[dict]:
     """Group by (bar_line5, t_signal, z_signal, l_signal). Pine 260521 line-5 stats."""
     groups: Dict[tuple, list] = {}
@@ -2073,6 +2190,59 @@ def generate_replay_zip(
                     _to_csv_bytes(top_line5, line5_fields))
         zf.writestr("replay_tz_wlnbb_bad_line5_patterns.csv",
                     _to_csv_bytes(bad_line5, line5_fields))
+
+        # ── 260523 v3.1: HH/LH/HL/LL swing analytics ────────────────────────
+        try:
+            # If stock_stat rows lack swing_type (older CSV), recompute on-the-fly
+            need_swing_recompute = not any(
+                (r.get("swing_type") or "") in ("HH", "LH", "HL", "LL") for r in rows
+            )
+            if need_swing_recompute:
+                try:
+                    import pandas as _pd
+                    from .swing_classifier import classify_swings
+                    df_all = _pd.DataFrame(rows)
+                    if {"ticker", "date", "high", "low"}.issubset(df_all.columns):
+                        # Coerce numeric for the classifier
+                        for c in ("high", "low"):
+                            df_all[c] = _pd.to_numeric(df_all[c], errors="coerce")
+                        enriched_groups = []
+                        for _, grp in df_all.groupby("ticker"):
+                            grp_s = grp.sort_values("date").reset_index(drop=True)
+                            enriched_groups.append(classify_swings(grp_s))
+                        df_enriched = _pd.concat(enriched_groups, ignore_index=True)
+                        rows = df_enriched.to_dict(orient="records")
+                except Exception as e:
+                    log.warning("swing recompute skipped: %s", e)
+
+            sw_perf       = _swing_perf(rows)
+            sig_sw_perf   = _signal_swing_perf(rows, min_count=10)
+            adf_sw_perf   = _ad_fresh_swing_perf(rows, min_count=5)
+
+            zf.writestr("replay_tz_wlnbb_swing_perf.csv",
+                        _to_csv_bytes(sw_perf, [
+                            "swing_type", "count", "avg_swing_ret", "avg_swing_bars",
+                            "avg_ret_5d", "avg_ret_10d",
+                            "median_ret_5d", "median_ret_10d",
+                            "win_rate_5d", "win_rate_10d", "fail_rate_5d",
+                            "avg_mfe_5d", "avg_mae_5d",
+                        ]))
+            zf.writestr("replay_tz_wlnbb_signal_swing_perf.csv",
+                        _to_csv_bytes(sig_sw_perf, [
+                            "signal_field", "signal_value", "swing_type", "count",
+                            "avg_ret_5d", "avg_ret_10d", "median_ret_5d",
+                            "win_rate_5d", "win_rate_10d", "fail_rate_5d",
+                        ]))
+            zf.writestr("replay_tz_wlnbb_ad_fresh_swing_perf.csv",
+                        _to_csv_bytes(adf_sw_perf, [
+                            "signal", "swing_type", "count",
+                            "avg_ret_5d", "avg_ret_10d", "win_rate_5d",
+                            "median_ret_5d", "interpretation",
+                        ]))
+            log.info("swing analytics embedded: swing_perf=%d, sig_swing=%d, ad_swing=%d",
+                     len(sw_perf), len(sig_sw_perf), len(adf_sw_perf))
+        except Exception as e:
+            log.warning("swing analytics embedding failed: %s", e)
 
         cseq_fields = [
             "sequence_type", "composite_sequence_pattern", "base_sequence_pattern",

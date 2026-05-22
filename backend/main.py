@@ -684,6 +684,12 @@ def api_superchart(
                 "wyc_sos":         _to_bool(r.get("wyc_sos", "")),
                 "wyc_acc_tr":      _to_bool(r.get("wyc_acc_tr", "")),
                 "wyc_markup":      _to_bool(r.get("wyc_markup", "")),
+                # 260523 v3.1 — swing classification
+                "swing_type":      r.get("swing_type", "") or "",
+                "swing_ret":       r.get("swing_ret", ""),
+                "swing_bars":      r.get("swing_bars", ""),
+                "is_pivot_high":   _to_bool(r.get("is_pivot_high", "")),
+                "is_pivot_low":    _to_bool(r.get("is_pivot_low", "")),
                 # PREUP / PREDN
                 "preup_text":      r.get("preup_signal", ""),
                 "predn_text":      r.get("predn_signal", ""),
@@ -768,6 +774,8 @@ def api_turbo_scan(
     wyc_spring: Optional[bool] = None,
     wyc_sos: Optional[bool] = None,
     wyc_acc_tr: Optional[bool] = None,
+    # ── 260523 v3.1 swing filter ──────────────────────────────────────────
+    swing_type: Optional[str] = None,   # "HH" | "LH" | "HL" | "LL" | "pivot"
 ):
     try:
         from turbo_engine import get_turbo_results, get_last_turbo_scan_time
@@ -856,13 +864,14 @@ def api_turbo_scan(
         except Exception as exc:
             log.warning("beta score enrichment failed: %s", exc)
 
-        # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC) ──────────
+        # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC / SWING) ──
         results = _enrich_with_260523(results, universe, tf)
         results = _apply_260523_filters(
             results,
             ad_fresh=ad_fresh, ad_cluster=ad_cluster,
             wyc_phase=wyc_phase, wyc_spring=wyc_spring,
             wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
+            swing_type=swing_type,
         )
 
         return {"results": results, "last_scan": last_time, "meta": meta}
@@ -3647,6 +3656,7 @@ def api_ultra_scan_results(
     wyc_spring: Optional[bool] = None,
     wyc_sos:    Optional[bool] = None,
     wyc_acc_tr: Optional[bool] = None,
+    swing_type: Optional[str]  = None,
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
     batch). Falls back to DB when memory cache is empty (survives restart)."""
@@ -3670,6 +3680,7 @@ def api_ultra_scan_results(
                 ad_fresh=ad_fresh, ad_cluster=ad_cluster,
                 wyc_phase=wyc_phase, wyc_spring=wyc_spring,
                 wyc_sos=wyc_sos, wyc_acc_tr=wyc_acc_tr,
+                swing_type=swing_type,
             )
             resp["results"] = results
         return resp

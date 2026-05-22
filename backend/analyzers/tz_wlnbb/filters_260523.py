@@ -88,6 +88,19 @@ def enrich_with_260523(
         for k in ("wyc_spring", "wyc_sos", "wyc_acc_tr", "wyc_markup"):
             if k not in r or r.get(k) in (None, ""):
                 r[k] = _to_bool(ss.get(k, ""))
+        # 260523 v3.1: swing classification
+        if "swing_type" not in r or r.get("swing_type") in (None,):
+            r["swing_type"] = ss.get("swing_type", "") or ""
+        for k in ("is_pivot_high", "is_pivot_low"):
+            if k not in r or r.get(k) in (None, ""):
+                r[k] = _to_bool(ss.get(k, ""))
+        for k in ("swing_ret", "swing_bars"):
+            if k not in r or r.get(k) in (None, ""):
+                v = ss.get(k, "")
+                try:
+                    r[k] = float(v) if v not in ("", None) else None
+                except (TypeError, ValueError):
+                    r[k] = None
     return results
 
 
@@ -99,8 +112,10 @@ def apply_260523_filters(
     wyc_spring: Optional[bool] = None,
     wyc_sos: Optional[bool] = None,
     wyc_acc_tr: Optional[bool] = None,
+    swing_type: Optional[str] = None,
 ) -> List[Dict[str, Any]]:
-    """Apply optional filters. None = no constraint."""
+    """Apply optional filters. None = no constraint.
+    swing_type accepts: "HH" | "LH" | "HL" | "LL" | "pivot" (any non-empty)."""
     if ad_fresh is not None:
         results = [r for r in results if bool(r.get("ad_fresh")) == ad_fresh]
     if ad_cluster is not None:
@@ -113,6 +128,11 @@ def apply_260523_filters(
         results = [r for r in results if bool(r.get("wyc_sos")) == wyc_sos]
     if wyc_acc_tr is not None:
         results = [r for r in results if bool(r.get("wyc_acc_tr")) == wyc_acc_tr]
+    if swing_type is not None and swing_type != "":
+        if swing_type == "pivot":
+            results = [r for r in results if (r.get("swing_type") or "") != ""]
+        else:
+            results = [r for r in results if (r.get("swing_type") or "") == swing_type]
     return results
 
 

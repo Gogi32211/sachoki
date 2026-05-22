@@ -70,8 +70,14 @@ AD_CLUSTER_MIN    = 2       # min events to qualify as cluster
 # Macro Wyckoff context using EMA50/200 + dual TR detection.
 WYC_ATR_COMP_MULT  = 0.70   # ATR < avg * this → compressed (in TR)
 WYC_ATR_AVG_PERIOD = 50     # EMA period for ATR average
-WYC_VOL_MULT       = 1.5    # volume spike threshold for Spring/UTAD
+WYC_VOL_MULT       = 1.5    # general volume spike threshold
 WYC_TR_LOOKBACK    = 20     # lookback for prev support/resistance
+
+# Spring-specific tighter thresholds (bug-fix v3.1):
+# - SP500 1D with vol_mult=1.5 + ATR mult 0.70 over-fires Spring → avg_5d -2.07%, win 39%
+# - Tightening: STRONG vol spike + close in upper 60% of bar + expanded range
+WYC_SPRING_VOL_MULT  = 2.0  # Spring requires 2x avg volume
+WYC_SPRING_CLOSE_POS = 0.60 # close must be in upper 60% of bar range
 
 # T priority order (highest priority first)
 T_PRIORITY = ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5", "T12"]

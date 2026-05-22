@@ -853,6 +853,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [adFreshFilter,   setAdFreshFilter]   = useState(null)   // null | true
   const [adClusterFilter, setAdClusterFilter] = useState(null)   // null | true
   const [wycPhaseFilter,  setWycPhaseFilter]  = useState('')     // '' = all
+  // 260523 v3.1 — swing context filter (HH/LH/HL/LL/pivot)
+  const [swingTypeFilter, setSwingTypeFilter] = useState('')     // '' = all
   const hoverTimer = useRef(null)
 
   // which TFs have a cache entry for current universe
@@ -961,6 +963,11 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (adFreshFilter === true && !r.ad_fresh) return false
       if (adClusterFilter === true && !r.ad_cluster) return false
       if (wycPhaseFilter && (r.wyc_phase || 'NEUTRAL') !== wycPhaseFilter) return false
+      if (swingTypeFilter) {
+        const st = r.swing_type || ''
+        if (swingTypeFilter === 'pivot') { if (!st) return false }
+        else if (st !== swingTypeFilter) return false
+      }
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -999,7 +1006,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1860,6 +1867,29 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 ✕ clear 260523
               </button>
             )}
+          </div>
+
+          {/* ── 260523 v3.1: HH/LH/HL/LL swing filter ── */}
+          <div className="flex flex-wrap items-center gap-x-1 gap-y-1 px-3 py-1.5 border-b border-white/[0.07]/30">
+            <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">Swing</span>
+            {[
+              { label: 'Any',           value: '',      cls: '' },
+              { label: 'HL (bullish)',  value: 'HL',    cls: 'bg-green-900/60 text-green-200' },
+              { label: 'LL (bounce)',   value: 'LL',    cls: 'bg-emerald-900/60 text-emerald-200' },
+              { label: 'HH (top)',      value: 'HH',    cls: 'bg-orange-900/60 text-orange-200' },
+              { label: 'LH (bearish)',  value: 'LH',    cls: 'bg-red-900/60 text-red-200' },
+              { label: 'Any pivot',     value: 'pivot', cls: 'bg-blue-900/60 text-blue-200' },
+            ].map(opt => (
+              <button key={opt.value || 'all'} onClick={() => setSwingTypeFilter(opt.value)}
+                title={`Empirical SP500 1D: HL win 77%, LL win 76%, HH win 25%, LH win 27%`}
+                className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors ${
+                  swingTypeFilter === opt.value
+                    ? `${opt.cls} font-semibold`
+                    : 'bg-md-surface-high text-md-on-surface-var hover:text-white'
+                }`}>
+                {opt.label}
+              </button>
+            ))}
           </div>
 
           {/* Sector filter */}

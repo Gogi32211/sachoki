@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.8.0 · API v2.9 · TZ_WLNBB Pine 260523 (AD-FRESH + WYC Phase + line3/line4/line5)
+> Version 4.8.1 · API v2.9 · TZ_WLNBB Pine 260523 v3.1 (AD-FRESH bug-fix + Spring tightened + HH/LH/HL/LL swing classifier)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -1109,6 +1109,69 @@ The deployed code carries two complementary fixes for the **`WATCH_HIGH:GATES_PA
 
 ---
 
+## Swing Classification (260523 v3.1)
+
+`backend/analyzers/tz_wlnbb/swing_classifier.py` labels every confirmed pivot bar
+with its swing context. Runs per-ticker after `compute_wyc_phase()` inside
+`compute_signals_for_ticker()`, so the columns flow into `stock_stat_tz_wlnbb_*.csv`
+automatically.
+
+| Column          | Type   | Values             | Description                                  |
+|-----------------|--------|--------------------|----------------------------------------------|
+| `swing_type`    | str    | HH / LH / HL / LL / "" | Swing type at pivot bars; "" for non-pivot bars |
+| `swing_ret`     | float  | %                  | % change from previous same-direction pivot  |
+| `swing_bars`    | int    | bars               | Bars since previous same-direction pivot     |
+| `is_pivot_high` | bool   | True / False       | Confirmed pivot high (`pivot_left=3, pivot_right=3`) |
+| `is_pivot_low`  | bool   | True / False       | Confirmed pivot low                          |
+
+**Empirical edge (SP500 1D, n=165,010):**
+
+| Context | avg_ret_5d | win_5d | Interpretation                          |
+|---------|-----------|--------|-----------------------------------------|
+| HL      | +3.00%    | 77.3%  | Best entry context                      |
+| LL      | +2.87%    | 75.8%  | Bounce expected even at lower lows      |
+| HH      | −2.28%    | 25.4%  | Avoid longs at pivot highs              |
+| LH      | −2.29%    | 26.5%  | Avoid longs at lower highs              |
+
+**Cross-signal finding:** Z-signal + HL = +3.41% / 80.7% win — strongest pair.
+AD-FRESH + LH = −3.10% / 20.2% win — worst pair (active suppression filter).
+
+### Bug-fixes applied in v3.1
+
+1. **AD-CLUSTER AND gate**: rolling cluster count was firing on bars where
+   `ad_fresh=False`, inflating row share from ~3.5% → ~12.8% on SP500 1D.
+   Fix: `ad_cluster = (rolling_sum >= min) & ad_fresh_on_this_bar`.
+
+2. **Spring tightening**: `wyc_phase == "SPRING"` had avg_5d −2.07% / win 39%
+   (inverted edge) because the 1.5× vol + 0.70 ATR mult was too loose. Fix:
+   - `WYC_SPRING_VOL_MULT = 2.0` (volume must be 2× 20-bar avg)
+   - `WYC_SPRING_CLOSE_POS = 0.60` (close in upper 60% of bar range)
+   - bar range > ATR(14) — must be an expansion bar, not a compressed one
+
+### New analytics files (3) in the replay ZIP
+
+- `replay_tz_wlnbb_swing_perf.csv` — aggregate per swing_type (HH/LH/HL/LL)
+- `replay_tz_wlnbb_signal_swing_perf.csv` — T/Z signal × swing_type cross-table (min 10)
+- `replay_tz_wlnbb_ad_fresh_swing_perf.csv` — AD-FRESH by swing_type + interpretation
+  (`STRONG BUY` for HL/LL, `AVOID` for LH, `CAUTION` for HH)
+
+### Scoring integration
+
+`turbo_engine.py::_calc_turbo_score()` applies a **±15% multiplier** at the end:
+`s × 1.15` when `swing_type ∈ (HL, LL)`, `s × 0.85` when `swing_type ∈ (HH, LH)`.
+
+`ultra_score.py` Section D (Context, range −20..+20) adds the swing context:
+- HL +8 (best), LL +5 (bounce), LH −8 (worst), HH −5 (mean reversion risk).
+
+### Filter integration
+
+`swing_type` query param on `/api/turbo-scan` and `/api/ultra-scan/results`.
+Accepts `HH | LH | HL | LL | pivot` (`pivot` matches any non-empty swing_type).
+Frontend Turbo + Ultra panels expose a 6-button row under Advanced Filters:
+`Any · HL (bullish) · LL (bounce) · HH (top) · LH (bearish) · Any pivot`.
+
+---
+
 ## Advanced Filter Parameters (260523+)
 
 Both TurboScanPanel and UltraScanPanel expose the following new filters, applied
@@ -1122,6 +1185,7 @@ server-side via the same query params:
 | `wyc_spring`   | bool   | true / false                                        | Direct SPRING boolean                    |
 | `wyc_sos`      | bool   | true / false                                        | Direct SOS boolean                       |
 | `wyc_acc_tr`   | bool   | true / false                                        | Direct ACC_TR boolean                    |
+| `swing_type`   | string | HH / LH / HL / LL / pivot                           | Swing context (260523 v3.1)              |
 
 Backend implementation: `backend/analyzers/tz_wlnbb/filters_260523.py` —
 pure helpers (importable without FastAPI) `enrich_with_260523()`,

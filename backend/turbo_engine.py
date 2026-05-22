@@ -753,6 +753,17 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     # Vol spike — Avg3=5.51% Win%=61.8% — massively undervalued, RAISE 3→10
     if r.get("vol_spike_10x"): s += 10  # Avg3=5.51% Win%=61.8% (RAISE 3→10)
 
+    # ── 260523 v3.1: swing context multiplier ──────────────────────────────
+    # Empirical SP500 1D edge: HL/LL pivot lows → +3% avg 5d (win 75-77%);
+    # HH/LH pivot highs → -2.3% avg 5d (win 25-26%). Apply ±15% modifier on
+    # the bull score so a Z-signal at a pivot HL ranks higher than the same
+    # signal at a pivot HH.
+    swing_type = r.get("swing_type", "") or ""
+    if swing_type in ("HL", "LL"):
+        s = s * 1.15
+    elif swing_type in ("HH", "LH"):
+        s = s * 0.85
+
     return round(min(100.0, s), 1)
 
 
