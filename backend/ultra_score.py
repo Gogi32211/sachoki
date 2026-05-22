@@ -169,6 +169,13 @@ def _signal_set(row: dict) -> set:
         "l34":         "L34",
         "fri34":       "FRI34",
         "tz_bull_flip":"TZ_BULL_FLIP",
+        # 260523 — AD-FRESH / WYC Phase
+        "ad_fresh":    "AD_FRESH",
+        "ad_cluster":  "AD_CLUSTER",
+        "wyc_spring":  "WYC_SPRING",
+        "wyc_sos":     "WYC_SOS",
+        "wyc_acc_tr":  "WYC_ACC_TR",
+        "wyc_markup":  "WYC_MARKUP",
         # Quality
         "rs_strong":   "RS_STRONG",
     }
@@ -278,6 +285,10 @@ _REGIME_BONUS = {
     "REBOUND_SQUEEZE":   ( 5, "REGIME:REBOUND_SQUEEZE"),
     "RISK_REBOUND":      ( 3, "REGIME:RISK_REBOUND"),
     "ROCKET_WATCH":      ( 0, ""),
+    # 260523 — Wyckoff phase regime bonuses
+    "SPRING_CONFIRMED":  (12, "REGIME:SPRING"),
+    "SOS_CONFIRMED":     ( 8, "REGIME:SOS"),
+    "ACC_TR_CONTEXT":    ( 4, "REGIME:ACC_TR"),
 }
 
 _BEARISH_REGIMES = frozenset({"BEARISH_PHASE", "BEARISH_CONTEXT"})
@@ -354,6 +365,11 @@ def compute_ultra_score(row: dict) -> dict:
     if "L34"          in sigs: b += 6;  reasons.append("L34")
     if "FRI34"        in sigs: b += 6;  reasons.append("FRI34")
     if "TZ_BULL_FLIP" in sigs: b += 10; reasons.append("TZ→3")
+    # ── 260523: AD-FRESH / AD-CLUSTER / WYC Phase (Setup / Accumulation) ────
+    if "AD_CLUSTER" in sigs: b += 15; reasons.append("AD-CLUSTER★★")
+    elif "AD_FRESH" in sigs: b += 8;  reasons.append("AD-FRESH★")
+    if "WYC_SPRING" in sigs: b += 10; reasons.append("WYC:SPRING")
+    elif "WYC_SOS"  in sigs: b += 6;  reasons.append("WYC:SOS")
     b = min(b, 25)
     has_setup = b > 0
 

@@ -1,7 +1,7 @@
 """TZ/WLNBB Analyzer — version and parameters."""
 import re as _re
 
-TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_line345"
+TZ_WLNBB_VERSION = "260523_TZ_F_WLNBB_CMB_python_v3_adfresh_wyc"
 
 DEFAULT_LOOKBACK_TRADING_DAYS = 320    # ~320 trading days ≈ 1.28 calendar years
 OUTPUT_SCHEMA_VERSION = "2"
@@ -56,6 +56,22 @@ DOJI_THRESH = 0.05
 
 # WLNBB Bollinger Band period
 WLNBB_MA_PERIOD = 20
+
+# ── AD-FRESH (260523) ─────────────────────────────────────────────────────────
+# Z1G/Z2G (bearish exhaustion) → T4/T6/T2G/T2 (bullish flip) within N bars,
+# with price in lower half of 20-bar range (fresh zone). Empirically strongest
+# reversal marker from 260523 chart analysis.
+AD_FRESH_LOOKBACK = 12      # max bars between A-signal and D-signal
+AD_FRESH_POS_THR  = 0.50    # fresh = pos_in_range < this
+AD_CLUSTER_WINDOW = 8       # window for counting AD-FRESH events
+AD_CLUSTER_MIN    = 2       # min events to qualify as cluster
+
+# ── WYC Phase (260523) ────────────────────────────────────────────────────────
+# Macro Wyckoff context using EMA50/200 + dual TR detection.
+WYC_ATR_COMP_MULT  = 0.70   # ATR < avg * this → compressed (in TR)
+WYC_ATR_AVG_PERIOD = 50     # EMA period for ATR average
+WYC_VOL_MULT       = 1.5    # volume spike threshold for Spring/UTAD
+WYC_TR_LOOKBACK    = 20     # lookback for prev support/resistance
 
 # T priority order (highest priority first)
 T_PRIORITY = ["T4", "T6", "T1G", "T2G", "T1", "T2", "T9", "T10", "T3", "T11", "T5", "T12"]

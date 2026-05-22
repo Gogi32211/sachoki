@@ -26,6 +26,8 @@ OUTPUT_COLUMNS = [
     "close_suffix", "close_appended",
     "full_suffix",
     "bar_body_wick", "bar_gap_range", "bar_line5",
+    "ad_fresh", "ad_cluster",
+    "wyc_phase", "wyc_spring", "wyc_sos", "wyc_acc_tr", "wyc_markup",
     "wick_ext_up", "wick_ext_down", "wick_ext_both",
     "prev_body_top", "prev_body_bot", "prev_high", "prev_low",
     "composite_t_label", "composite_z_label", "composite_primary_label", "composite_all_labels",
@@ -332,6 +334,13 @@ def generate_stock_stat(
                             + (str(row.get("close_suffix") or "") if row.get("close_appended") else "")
                         ),  # full_suffix (includes close_suffix only when append_close fires)
                         row.get("bar_body_wick", ""), row.get("bar_gap_range", ""), row.get("bar_line5", ""),
+                        int(bool(row.get("ad_fresh"))),
+                        int(bool(row.get("ad_cluster"))),
+                        row.get("wyc_phase", "NEUTRAL") or "NEUTRAL",
+                        int(bool(row.get("wyc_spring"))),
+                        int(bool(row.get("wyc_sos"))),
+                        int(bool(row.get("wyc_acc_tr"))),
+                        int(bool(row.get("wyc_markup"))),
                         int(bool(row.get("wick_ext_up"))),
                         int(bool(row.get("wick_ext_down"))),
                         int(bool(row.get("wick_ext_both"))),

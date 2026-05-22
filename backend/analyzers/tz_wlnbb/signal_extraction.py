@@ -2,7 +2,11 @@
 import pandas as pd
 import numpy as np
 from .signal_logic import compute_tz_wlnbb_for_bar
-from .config import WLNBB_MA_PERIOD, USE_WICK, MIN_BODY_RATIO, DOJI_THRESH
+from .config import (
+    WLNBB_MA_PERIOD, USE_WICK, MIN_BODY_RATIO, DOJI_THRESH,
+    AD_FRESH_LOOKBACK, AD_FRESH_POS_THR, AD_CLUSTER_WINDOW, AD_CLUSTER_MIN,
+    WYC_ATR_COMP_MULT, WYC_ATR_AVG_PERIOD, WYC_VOL_MULT, WYC_TR_LOOKBACK,
+)
 
 
 def _compute_psar(high_arr, low_arr, start=0.02, inc=0.02, max_af=0.2):
@@ -154,6 +158,160 @@ def compute_atr_wilder(df: pd.DataFrame, period: int = 14) -> pd.DataFrame:
     return df
 
 
+def compute_ad_fresh(df: pd.DataFrame, cfg: dict = None):
+    """
+    Compute AD-FRESH + AD-CLUSTER columns (Pine 260523).
+
+    AD-FRESH = D_signal (T4|T6|T2G|T2) AND barssince(A_signal Z1G|Z2G) <= lookback
+               AND (close - low20) / (high20 - low20) < pos_thr  (fresh = lower half)
+    AD-CLUSTER = rolling count of AD-FRESH in last AD_CLUSTER_WINDOW >= AD_CLUSTER_MIN
+
+    Requires `t_signal` and `z_signal` columns already populated.
+    Returns (ad_fresh: bool Series, ad_cluster: bool Series).
+    """
+    cfg = cfg or {}
+    lookback = int(cfg.get("AD_FRESH_LOOKBACK", AD_FRESH_LOOKBACK))
+    pos_thr  = float(cfg.get("AD_FRESH_POS_THR", AD_FRESH_POS_THR))
+    win      = int(cfg.get("AD_CLUSTER_WINDOW", AD_CLUSTER_WINDOW))
+    min_cnt  = int(cfg.get("AD_CLUSTER_MIN", AD_CLUSTER_MIN))
+
+    n = len(df)
+    if n == 0:
+        empty = pd.Series([], dtype=bool)
+        return empty, empty
+
+    t_col = df["t_signal"] if "t_signal" in df.columns else pd.Series([""] * n, index=df.index)
+    z_col = df["z_signal"] if "z_signal" in df.columns else pd.Series([""] * n, index=df.index)
+
+    a_sig = z_col.isin(["Z1G", "Z2G"]).to_numpy()
+    d_sig = t_col.isin(["T4", "T6", "T2G", "T2"]).to_numpy()
+
+    # barssince(A_signal): for each i, distance to most recent True at <= i
+    bars_since = np.full(n, np.iinfo(np.int32).max, dtype=np.int32)
+    last_idx = -1
+    for i in range(n):
+        if a_sig[i]:
+            last_idx = i
+        if last_idx >= 0:
+            bars_since[i] = i - last_idx
+    a_recent = bars_since <= lookback
+
+    h20 = df["high"].rolling(20, min_periods=1).max()
+    l20 = df["low"].rolling(20, min_periods=1).min()
+    rng = (h20 - l20).clip(lower=1e-10)
+    pos = (df["close"] - l20) / rng
+    is_fresh = (pos < pos_thr).to_numpy()
+
+    ad_fresh = d_sig & a_recent & is_fresh
+    ad_fresh_ser = pd.Series(ad_fresh, index=df.index)
+
+    ad_cluster_ser = (
+        ad_fresh_ser.rolling(win, min_periods=1).sum() >= min_cnt
+    )
+
+    return ad_fresh_ser.fillna(False), ad_cluster_ser.fillna(False)
+
+
+def compute_wyc_phase(df: pd.DataFrame, cfg: dict = None) -> pd.Series:
+    """
+    Compute Wyckoff macro phase column (Pine 260523).
+
+    Values: SPRING | UTAD | SOS | ACC_TR | DIST_TR | MARKUP | MKDN | NEUTRAL
+
+    Dual TR detection: ATR-based compression (atr14 < atr14_ema50 * mult)
+    OR Fourier ratio (computed elsewhere — falls back to ATR-only here).
+
+    Spring/UTAD require T/Z confirmation (consumes t_signal/z_signal cols).
+    SOS requires ad_fresh + wvf_spike (consumes ad_fresh + bar_line5 cols).
+
+    State machine: phase persists across bars (does not reset to NEUTRAL).
+    """
+    cfg = cfg or {}
+    atr_mult   = float(cfg.get("WYC_ATR_COMP_MULT",  WYC_ATR_COMP_MULT))
+    atr_period = int(cfg.get("WYC_ATR_AVG_PERIOD", WYC_ATR_AVG_PERIOD))
+    vol_mult   = float(cfg.get("WYC_VOL_MULT",     WYC_VOL_MULT))
+    tr_look    = int(cfg.get("WYC_TR_LOOKBACK",    WYC_TR_LOOKBACK))
+
+    n = len(df)
+    if n == 0:
+        return pd.Series([], dtype=str)
+
+    ema50  = df["close"].ewm(span=50,  adjust=False).mean()
+    ema200 = df["close"].ewm(span=200, adjust=False).mean()
+
+    if "atr" not in df.columns:
+        compute_atr_wilder(df, period=14)
+    atr14 = df["atr"]
+    atr14_avg = atr14.ewm(span=atr_period, adjust=False).mean()
+    in_tr = (atr14 < atr14_avg * atr_mult).to_numpy()
+
+    macro_up   = (ema50 > ema200).to_numpy()
+    macro_down = (ema50 < ema200).to_numpy()
+
+    vol_avg = df["volume"].rolling(20, min_periods=1).mean()
+    vol_hi  = (df["volume"] > vol_avg * vol_mult).to_numpy()
+
+    prev_sup = df["low"].rolling(tr_look, min_periods=1).min().shift(1)
+    prev_res = df["high"].rolling(tr_look, min_periods=1).max().shift(1)
+    prev_sup_arr = prev_sup.to_numpy()
+    prev_res_arr = prev_res.to_numpy()
+
+    close_arr = df["close"].to_numpy()
+    open_arr  = df["open"].to_numpy()
+    high_arr  = df["high"].to_numpy()
+    low_arr   = df["low"].to_numpy()
+    is_bull   = close_arr > open_arr
+    is_bear   = close_arr < open_arr
+
+    t_col = df["t_signal"] if "t_signal" in df.columns else pd.Series([""] * n, index=df.index)
+    z_col = df["z_signal"] if "z_signal" in df.columns else pd.Series([""] * n, index=df.index)
+    t_bull_conf = t_col.isin(["T1G", "T4", "T9"]).to_numpy()
+    z_bear_conf = z_col.isin(["Z1G", "Z4"]).to_numpy()
+
+    ad_fresh_arr = (df["ad_fresh"].to_numpy() if "ad_fresh" in df.columns
+                    else np.zeros(n, dtype=bool))
+    # wvf_spike from bar_line5 token starting with "VX"
+    if "bar_line5" in df.columns:
+        wvf_arr = df["bar_line5"].astype(str).str.startswith("VX").to_numpy()
+    else:
+        wvf_arr = np.zeros(n, dtype=bool)
+
+    # Per-bar event masks
+    spring_mask = (
+        (low_arr < prev_sup_arr)
+        & (close_arr > prev_sup_arr)
+        & is_bull & macro_down & vol_hi & t_bull_conf
+    )
+    utad_mask = (
+        (high_arr > prev_res_arr)
+        & (close_arr < prev_res_arr)
+        & is_bear & macro_up & vol_hi & z_bear_conf
+    )
+    sos_mask = ad_fresh_arr & macro_down & wvf_arr
+
+    # State machine: phase persists across bars
+    phase = ["NEUTRAL"] * n
+    current = "NEUTRAL"
+    for i in range(n):
+        if spring_mask[i]:
+            current = "SPRING"
+        elif utad_mask[i]:
+            current = "UTAD"
+        elif sos_mask[i]:
+            current = "SOS"
+        elif macro_down[i] and in_tr[i]:
+            current = "ACC_TR"
+        elif macro_up[i] and in_tr[i]:
+            current = "DIST_TR"
+        elif macro_up[i]:
+            current = "MARKUP"
+        elif macro_down[i]:
+            current = "MKDN"
+        phase[i] = current
+
+    return pd.Series(phase, index=df.index, dtype=str)
+
+
 def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.DataFrame:
     """
     Given a OHLCV DataFrame (sorted oldest-first) for a single ticker,
@@ -210,6 +368,30 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
     result_df = pd.DataFrame(results)
     for col in result_df.columns:
         df[col] = result_df[col].values
+
+    # ── 260523: AD-FRESH / AD-CLUSTER / WYC Phase (requires t_signal/z_signal) ─
+    try:
+        ad_fresh, ad_cluster = compute_ad_fresh(df)
+        df["ad_fresh"]   = ad_fresh.astype(bool).values
+        df["ad_cluster"] = ad_cluster.astype(bool).values
+    except Exception:
+        df["ad_fresh"]   = False
+        df["ad_cluster"] = False
+
+    try:
+        wyc = compute_wyc_phase(df)
+        df["wyc_phase"]  = wyc.values
+        df["wyc_spring"] = (wyc == "SPRING").values
+        df["wyc_sos"]    = (wyc == "SOS").values
+        df["wyc_acc_tr"] = (wyc == "ACC_TR").values
+        df["wyc_markup"] = (wyc == "MARKUP").values
+    except Exception:
+        df["wyc_phase"]  = "NEUTRAL"
+        df["wyc_spring"] = False
+        df["wyc_sos"]    = False
+        df["wyc_acc_tr"] = False
+        df["wyc_markup"] = False
+
     return df
 
 

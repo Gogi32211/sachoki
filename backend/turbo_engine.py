@@ -351,6 +351,19 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     if r.get("sig_l88"):        vol += 5
     elif r.get("sig_260308"):   vol += 3
     if r.get("va"):             vol += 3
+
+    # ── 260523: AD-FRESH / AD-CLUSTER (empirically strongest reversal marker)
+    # AD-FRESH = Z1G/Z2G within 12 bars → T4/T6/T2G/T2 + fresh position (<50%)
+    # AD-CLUSTER = 2+ AD-FRESH in 8-bar window
+    if r.get("ad_cluster"):     vol += 18  # highest-conviction reversal entry
+    elif r.get("ad_fresh"):     vol += 10  # single AD-FRESH
+
+    # ── 260523: WYC Phase (macro Wyckoff context)
+    if r.get("wyc_spring"):     vol += 12  # Spring + T-confirmation
+    elif r.get("wyc_sos"):      vol += 8   # Sign of Strength (AD-FRESH @ VIX spike)
+    elif r.get("wyc_acc_tr"):   vol += 5   # Accumulation Trading Range
+    elif r.get("wyc_markup"):   vol += 6   # Markup phase (continuation)
+
     s += min(vol, 22)
 
     # ── Breakout / expansion family (cap 18) ──────────────────────────────

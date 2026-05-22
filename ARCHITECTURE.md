@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.7.82 · API v2.9 · TZ_WLNBB Pine 260521 (line3/line4/line5 + ATR-relative gap)
+> Version 4.8.0 · API v2.9 · TZ_WLNBB Pine 260523 (AD-FRESH + WYC Phase + line3/line4/line5)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -743,7 +743,7 @@ All endpoints prefixed `/api/`. Backend serves on port **8080**.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/tz-wlnbb/scan` | TZ × WLNBB scan results |
-| POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV (260521 Pine version with `build_marker` column) |
+| POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV (260523 Pine version with `build_marker`, `ad_fresh`, `ad_cluster`, `wyc_phase` + 4 wyc_* columns) |
 | GET | `/api/tz-wlnbb/status` | Generation progress |
 | POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay (embeds whitelists + Pivot Swing pivot_swing/ files + BUILD_MARKER.txt) |
 | POST | `/api/tz-wlnbb/build-whitelists` | Build whitelist/blacklist CSVs from a stock_stat CSV path |
@@ -938,20 +938,34 @@ Emits a canonical dict of parsed signal flags consumed by `ultra_score.py`.
 
 Generates per-stock stat CSV for the Pullback Miner, Sequence Engine, and Pivot Swing Engine. Computes T/Z + L sequences with forward returns (ret_1d, ret_5d, ret_10d), MFE, MAE.
 
-**Pine 260521 features (current production version):**
-- **line3 — Body + Wick shape**: `bar_body_wick` column (e.g. `XS`, `MTB`, `SJ`)
-  - body class: `X` (≥1.5× prev body), `S` (default), `M` (≤0.5× prev body)
-  - wick class: `J` (doji), `TB` (heavy upper), `BB` (heavy lower), `F` (flat both)
-- **line4 — Gap + Range (ATR-relative)**: `bar_gap_range` column (e.g. `G2-V`, `G1`, `C`)
-  - gap class: `G1` (|gap| < 0.2×ATR), `G2` (< 0.5×ATR), `G3` (else)
-  - range class: `V` (range > 1.5×ATR), `N` (default), `C` (range < 0.5×ATR)
-- **line5 — VIX-Fix / PSAR / RSI2**: `bar_line5` column (e.g. `VX-PB-R2X`)
-  - WVF: `VX` (spike), `VR` (range high)
-  - PSAR: `PB` (bull), `PS` (bear) — `ta.sar(0.02, 0.02, 0.2)`
-  - RSI(2): `R2X` (oversold reclaim), `R2D` (overbought drop), `R2L`, `R2H`
-- **ATR**: Wilder smoothing `tr.ewm(alpha=1/14, adjust=False).mean()`
-- **Z8 explicitly excluded** from Z_PRIORITY (not a real signal in this system)
-- Active version constant: `TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_line345"`
+**Pine 260523 features (current production version):**
+
+- **Z8 removed**: confirmed not a real signal. `Z_PRIORITY` has 13 entries (Z7 at tail). Combined T+Z signal count = **25**.
+- **line3 — Body + Wick shape**: unchanged from 260521. `bar_body_wick` column.
+- **line4 — Gap + Range (ATR-relative)**: unchanged from 260521. `bar_gap_range` column.
+- **line5 — VIX-Fix / PSAR / RSI2**: unchanged from 260521. `bar_line5` column.
+- **AD-FRESH** (new): `ad_fresh` column (bool).
+  `A_signal = Z1G OR Z2G` (bearish exhaustion). `D_signal = T4 OR T6 OR T2G OR T2` (bullish flip).
+  `AD_FRESH = D_signal AND barssince(A_signal) <= AD_FRESH_LOOKBACK (12) AND pos_in_range(close, 20bar) < AD_FRESH_POS_THR (0.50)`.
+  Empirically confirmed strongest reversal marker across RGTI/RKLB daily and weekly charts.
+- **AD-CLUSTER** (new): `ad_cluster` column (bool). 2+ AD-FRESH events within an 8-bar rolling window. Highest-conviction reversal entry.
+- **WYC Phase** (new): `wyc_phase` column (str). Macro Wyckoff context using EMA50/200 + dual TR detection (Fourier amplitude ratio OR ATR compression < 70% of 50-bar EMA avg).
+  Values: `SPRING | UTAD | SOS | ACC_TR | DIST_TR | MARKUP | MKDN | NEUTRAL`. State persists across bars (state machine, not snapshot).
+  - **SPRING**: low < prev-20 support, closes back above, `is_bull`, `macro_down`, vol spike, and **T1G/T4/T9 confirmation**.
+  - **UTAD**: high > prev-20 resistance, closes back below, `is_bear`, `macro_up`, vol spike, and **Z1G/Z4 confirmation**.
+  - **SOS**: AD-FRESH fires while `macro_down` and `bar_line5` starts with `VX` (VIX spike) — Sign of Strength.
+  - **ACC_TR / DIST_TR**: EMA50<EMA200 (resp >) AND in compression.
+  - **MARKUP / MKDN**: EMA50>EMA200 (resp <) AND not compressed.
+- **ATR**: Wilder smoothing `tr.ewm(alpha=1/14, adjust=False).mean()` (unchanged).
+- **WYC fixes applied**: Spring no longer requires Fourier `sync_up`; LPS/LPSY `c1_ph` signs corrected (LPS on C1 downswing, LPSY on upswing); TR detection uses dual method (Fourier ratio OR ATR compression).
+- Active version constant: `TZ_WLNBB_VERSION = "260523_TZ_F_WLNBB_CMB_python_v3_adfresh_wyc"`
+
+**Key files (260523):**
+- `config.py` — version + `AD_FRESH_*` + `WYC_*` tuning constants
+- `signal_extraction.py` — adds `compute_ad_fresh()` and `compute_wyc_phase()`; both auto-run inside `compute_signals_for_ticker()`
+- `stock_stat.py` — `OUTPUT_COLUMNS` adds 7 new columns: `ad_fresh`, `ad_cluster`, `wyc_phase`, `wyc_spring`, `wyc_sos`, `wyc_acc_tr`, `wyc_markup`
+- `turbo_engine.py` — AD-CLUSTER +18 / AD-FRESH +10 / WYC Spring +12 / SOS +8 / ACC_TR +5 / MARKUP +6 inside the volume/accumulation family (cap 22)
+- `ultra_score.py` — Section B adds AD-CLUSTER +15 / AD-FRESH +8 / WYC Spring +10 / SOS +6; `_REGIME_BONUS` adds `SPRING_CONFIRMED +12`, `SOS_CONFIRMED +8`, `ACC_TR_CONTEXT +4`
 
 **Key files:**
 - `config.py` — version, T_PRIORITY, Z_PRIORITY (13 entries, no Z8), suffix/L definitions
