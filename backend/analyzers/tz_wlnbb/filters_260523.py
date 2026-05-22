@@ -88,13 +88,15 @@ def enrich_with_260523(
         for k in ("wyc_spring", "wyc_sos", "wyc_acc_tr", "wyc_markup"):
             if k not in r or r.get(k) in (None, ""):
                 r[k] = _to_bool(ss.get(k, ""))
-        # 260523 v3.1: swing classification
+        # 260523 v3.2: swing classification (backward LIVE-SAFE + forward RESEARCH_ONLY)
         if "swing_type" not in r or r.get("swing_type") in (None,):
             r["swing_type"] = ss.get("swing_type", "") or ""
         for k in ("is_pivot_high", "is_pivot_low"):
             if k not in r or r.get(k) in (None, ""):
                 r[k] = _to_bool(ss.get(k, ""))
-        for k in ("swing_ret", "swing_bars"):
+        # swing_ret_from_prev = backward (live-safe)
+        # fwd_swing_ret / fwd_swing_bars = forward (RESEARCH_ONLY, lookahead)
+        for k in ("swing_ret_from_prev", "fwd_swing_ret", "fwd_swing_bars"):
             if k not in r or r.get(k) in (None, ""):
                 v = ss.get(k, "")
                 try:

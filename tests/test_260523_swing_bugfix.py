@@ -83,7 +83,8 @@ def test_swing_classifier_lh_detection():
 def test_swing_classifier_adds_required_columns():
     df = _ohlcv_from_close([100, 99, 98, 97, 96, 95, 96, 97, 98, 99])
     out = classify_swings(df)
-    for col in ("swing_type", "swing_ret", "swing_bars",
+    for col in ("swing_type", "swing_ret_from_prev",
+                "fwd_swing_ret", "fwd_swing_bars",
                 "is_pivot_high", "is_pivot_low"):
         assert col in out.columns, f"missing column: {col}"
 
@@ -93,7 +94,8 @@ def test_swing_classifier_empty_df():
     df = pd.DataFrame({"high": [], "low": [], "close": [], "open": [], "volume": []})
     out = classify_swings(df)
     assert len(out) == 0
-    for col in ("swing_type", "swing_ret", "swing_bars",
+    for col in ("swing_type", "swing_ret_from_prev",
+                "fwd_swing_ret", "fwd_swing_bars",
                 "is_pivot_high", "is_pivot_low"):
         assert col in out.columns
 

@@ -13,6 +13,19 @@ from .signal_extraction import compute_signals_for_ticker
 
 log = logging.getLogger(__name__)
 
+
+# Columns that REQUIRE future bars to compute → must never be used in
+# live scoring rules. Documented here as the canonical list.
+LOOKAHEAD_COLUMNS = [
+    "ret_1d", "ret_3d", "ret_5d", "ret_10d",
+    "max_high_5d", "max_high_10d",
+    "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
+    "max_drawdown_5d", "max_drawdown_10d",
+    "clean_win_5d", "big_win_10d", "fail_5d", "fail_10d",
+    "fwd_swing_ret",    # 260523 v3.2 — pivot-to-pivot forward return
+    "fwd_swing_bars",   # 260523 v3.2 — bars to next opposite pivot
+]
+
 OUTPUT_COLUMNS = [
     "ticker", "date", "bar_datetime", "bar_index", "universe", "timeframe", "open", "high", "low", "close", "volume",
     "tz_wlnbb_version", "build_marker",
@@ -28,7 +41,9 @@ OUTPUT_COLUMNS = [
     "bar_body_wick", "bar_gap_range", "bar_line5",
     "ad_fresh", "ad_cluster",
     "wyc_phase", "wyc_spring", "wyc_sos", "wyc_acc_tr", "wyc_markup",
-    "swing_type", "swing_ret", "swing_bars", "is_pivot_high", "is_pivot_low",
+    "swing_type", "swing_ret_from_prev",
+    "fwd_swing_ret", "fwd_swing_bars",          # RESEARCH_ONLY (lookahead)
+    "is_pivot_high", "is_pivot_low",
     "wick_ext_up", "wick_ext_down", "wick_ext_both",
     "prev_body_top", "prev_body_bot", "prev_high", "prev_low",
     "composite_t_label", "composite_z_label", "composite_primary_label", "composite_all_labels",
@@ -343,14 +358,18 @@ def generate_stock_stat(
                         int(bool(row.get("wyc_acc_tr"))),
                         int(bool(row.get("wyc_markup"))),
                         row.get("swing_type", "") or "",
-                        ("" if (row.get("swing_ret") is None or
-                                (isinstance(row.get("swing_ret"), float) and
-                                 row.get("swing_ret") != row.get("swing_ret")))
-                            else _val(row.get("swing_ret"))),
-                        ("" if (row.get("swing_bars") is None or
-                                (isinstance(row.get("swing_bars"), float) and
-                                 row.get("swing_bars") != row.get("swing_bars")))
-                            else int(row.get("swing_bars"))),
+                        ("" if (row.get("swing_ret_from_prev") is None or
+                                (isinstance(row.get("swing_ret_from_prev"), float) and
+                                 row.get("swing_ret_from_prev") != row.get("swing_ret_from_prev")))
+                            else _val(row.get("swing_ret_from_prev"))),
+                        ("" if (row.get("fwd_swing_ret") is None or
+                                (isinstance(row.get("fwd_swing_ret"), float) and
+                                 row.get("fwd_swing_ret") != row.get("fwd_swing_ret")))
+                            else _val(row.get("fwd_swing_ret"))),
+                        ("" if (row.get("fwd_swing_bars") is None or
+                                (isinstance(row.get("fwd_swing_bars"), float) and
+                                 row.get("fwd_swing_bars") != row.get("fwd_swing_bars")))
+                            else int(row.get("fwd_swing_bars"))),
                         int(bool(row.get("is_pivot_high"))),
                         int(bool(row.get("is_pivot_low"))),
                         int(bool(row.get("wick_ext_up"))),

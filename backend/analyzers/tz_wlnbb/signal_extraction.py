@@ -414,21 +414,25 @@ def compute_signals_for_ticker(df: pd.DataFrame, universe: str = "sp500") -> pd.
         df["wyc_acc_tr"] = False
         df["wyc_markup"] = False
 
-    # ── 260523 v3.1: HH/LH/HL/LL swing classification ───────────────────────
+    # ── 260523 v3.2: HH/LH/HL/LL swing classification + forward swing ret ───
+    # swing_ret_from_prev — backward, LIVE-SAFE context
+    # fwd_swing_ret / fwd_swing_bars — forward, RESEARCH_ONLY (lookahead)
     try:
         from .swing_classifier import classify_swings
         sw = classify_swings(df)
-        df["swing_type"]    = sw["swing_type"].values
-        df["swing_ret"]     = sw["swing_ret"].values
-        df["swing_bars"]    = sw["swing_bars"].values
-        df["is_pivot_high"] = sw["is_pivot_high"].values
-        df["is_pivot_low"]  = sw["is_pivot_low"].values
+        df["swing_type"]          = sw["swing_type"].values
+        df["swing_ret_from_prev"] = sw["swing_ret_from_prev"].values
+        df["fwd_swing_ret"]       = sw["fwd_swing_ret"].values
+        df["fwd_swing_bars"]      = sw["fwd_swing_bars"].values
+        df["is_pivot_high"]       = sw["is_pivot_high"].values
+        df["is_pivot_low"]        = sw["is_pivot_low"].values
     except Exception:
-        df["swing_type"]    = ""
-        df["swing_ret"]     = np.nan
-        df["swing_bars"]    = np.nan
-        df["is_pivot_high"] = False
-        df["is_pivot_low"]  = False
+        df["swing_type"]          = ""
+        df["swing_ret_from_prev"] = np.nan
+        df["fwd_swing_ret"]       = np.nan
+        df["fwd_swing_bars"]      = np.nan
+        df["is_pivot_high"]       = False
+        df["is_pivot_low"]        = False
 
     return df
 

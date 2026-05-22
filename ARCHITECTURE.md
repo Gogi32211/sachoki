@@ -1,6 +1,6 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.8.1 · API v2.9 · TZ_WLNBB Pine 260523 v3.1 (AD-FRESH bug-fix + Spring tightened + HH/LH/HL/LL swing classifier)
+> Version 4.8.2 · API v2.9 · TZ_WLNBB Pine 260523 v3.2 (forward pivot-to-pivot swing return)
 > Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
@@ -1109,32 +1109,62 @@ The deployed code carries two complementary fixes for the **`WATCH_HIGH:GATES_PA
 
 ---
 
-## Swing Classification (260523 v3.1)
+## Swing Classification (260523 v3.2 — Forward Pivot-to-Pivot)
 
 `backend/analyzers/tz_wlnbb/swing_classifier.py` labels every confirmed pivot bar
-with its swing context. Runs per-ticker after `compute_wyc_phase()` inside
-`compute_signals_for_ticker()`, so the columns flow into `stock_stat_tz_wlnbb_*.csv`
-automatically.
+with **two distinct swing metrics** — backward (live-safe context) and
+forward (research-only, true pivot-to-pivot move).
 
-| Column          | Type   | Values             | Description                                  |
-|-----------------|--------|--------------------|----------------------------------------------|
-| `swing_type`    | str    | HH / LH / HL / LL / "" | Swing type at pivot bars; "" for non-pivot bars |
-| `swing_ret`     | float  | %                  | % change from previous same-direction pivot  |
-| `swing_bars`    | int    | bars               | Bars since previous same-direction pivot     |
-| `is_pivot_high` | bool   | True / False       | Confirmed pivot high (`pivot_left=3, pivot_right=3`) |
-| `is_pivot_low`  | bool   | True / False       | Confirmed pivot low                          |
+### Backward — LIVE-SAFE context
 
-**Empirical edge (SP500 1D, n=165,010):**
+| Column                | Values              | Description                                       |
+|-----------------------|---------------------|---------------------------------------------------|
+| `swing_type`          | HH / LH / HL / LL / "" | vs previous same-direction pivot               |
+| `swing_ret_from_prev` | float %             | % from previous pivot to this one (context only)  |
 
-| Context | avg_ret_5d | win_5d | Interpretation                          |
-|---------|-----------|--------|-----------------------------------------|
-| HL      | +3.00%    | 77.3%  | Best entry context                      |
-| LL      | +2.87%    | 75.8%  | Bounce expected even at lower lows      |
-| HH      | −2.28%    | 25.4%  | Avoid longs at pivot highs              |
-| LH      | −2.29%    | 26.5%  | Avoid longs at lower highs              |
+Backward metric is safe for live scoring (no future bars needed).
 
-**Cross-signal finding:** Z-signal + HL = +3.41% / 80.7% win — strongest pair.
-AD-FRESH + LH = −3.10% / 20.2% win — worst pair (active suppression filter).
+### Forward — RESEARCH_ONLY (lookahead)
+
+| Column           | Type   | Description                                       |
+|------------------|--------|---------------------------------------------------|
+| `fwd_swing_ret`  | float % | % from this pivot to the NEXT opposite pivot     |
+| `fwd_swing_bars` | float  | Bars from this pivot to the next opposite pivot   |
+
+**Direction convention:**
+- pivot **LOW** → next pivot **HIGH**: `fwd_swing_ret > 0` = price rose (bullish)
+- pivot **HIGH** → next pivot **LOW**: `fwd_swing_ret < 0` = price fell (bearish)
+
+**Lookahead policy:** `fwd_swing_ret` / `fwd_swing_bars` are listed in
+`stock_stat.LOOKAHEAD_COLUMNS` alongside `ret_5d`, `mfe_*`, etc. They MUST NOT
+appear in `turbo_engine.py`, `ultra_score.py`, or `scanner.py` (an automated
+test asserts this). Used only in replay analytics and backtesting.
+
+### Empirical edge (SP500 1D)
+
+Forward pivot-to-pivot return is **~3.3× larger** than the fixed-5d return and
+has dramatically higher win rates because it captures the *full* swing move.
+
+| Swing | fwd_avg  | fwd_median | win_rate | avg_bars | fixed_ret_5d |
+|-------|----------|------------|----------|----------|--------------|
+| HL    | +9.98%   | +7.48%     | 97.2%    | 6.3      | +3.00%       |
+| LL    | +9.69%   | +7.50%     | 97.2%    | 6.5      | +2.87%       |
+| HH    | −8.11%   | −6.84%     | 98.4%    | 5.6      | −2.28%       |
+| LH    | −8.30%   | −6.79%     | 98.5%    | 5.3      | −2.29%       |
+
+Average swing duration: 5–7 bars.
+
+**Top signal × swing combinations** (`fwd_swing_ret`, n ≥ 10):
+- Z4 + LL: +14.55%, win 97%
+- Z2 + LL: +10.94%, win 100%
+- Z2G + HL: +9.21%, win 96%
+- Z1G + HL: +9.83%, win 98%
+
+The two metrics serve different roles:
+| Use case        | Metric                  | Lookahead |
+|-----------------|-------------------------|-----------|
+| Live scoring    | `swing_type` (backward) | NO        |
+| Replay / research | `fwd_swing_ret` (forward) | YES — replay only |
 
 ### Bug-fixes applied in v3.1
 
@@ -1148,12 +1178,15 @@ AD-FRESH + LH = −3.10% / 20.2% win — worst pair (active suppression filter).
    - `WYC_SPRING_CLOSE_POS = 0.60` (close in upper 60% of bar range)
    - bar range > ATR(14) — must be an expansion bar, not a compressed one
 
-### New analytics files (3) in the replay ZIP
+### Analytics files (3) in the replay ZIP — v3.2 uses `fwd_swing_ret`
 
-- `replay_tz_wlnbb_swing_perf.csv` — aggregate per swing_type (HH/LH/HL/LL)
-- `replay_tz_wlnbb_signal_swing_perf.csv` — T/Z signal × swing_type cross-table (min 10)
-- `replay_tz_wlnbb_ad_fresh_swing_perf.csv` — AD-FRESH by swing_type + interpretation
-  (`STRONG BUY` for HL/LL, `AVOID` for LH, `CAUTION` for HH)
+- `replay_tz_wlnbb_swing_perf.csv` — aggregate per swing_type; primary metric
+  is `avg_fwd_swing_ret` with direction-aware `win_rate` (HL/LL → fwd > 0;
+  HH/LH → fwd < 0). Keeps `avg_ret_5d`/`avg_ret_10d` columns for comparison.
+- `replay_tz_wlnbb_signal_swing_perf.csv` — T/Z signal × swing_type cross-table
+  using forward pivot returns (min count 10).
+- `replay_tz_wlnbb_ad_fresh_swing_perf.csv` — AD-FRESH by swing_type +
+  interpretation (`STRONG BUY` for HL/LL, `AVOID` for LH, `CAUTION` for HH).
 
 ### Scoring integration
 
