@@ -1,6 +1,7 @@
 # Sachoki Screener — Architecture & Signal Reference
 
-> Version 4.4.674 · API v2.8
+> Version 4.7.82 · API v2.9 · TZ_WLNBB Pine 260521 (line3/line4/line5 + ATR-relative gap)
+> Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
 
 ---
 
@@ -20,8 +21,10 @@
 12. [API Endpoints](#api-endpoints)
 13. [Frontend Tabs](#frontend-tabs)
 14. [Analyzer Modules](#analyzer-modules)
-15. [Deployment](#deployment)
-16. [Test Suite](#test-suite)
+15. [Pivot Swing Character Analytics Engine](#pivot-swing-character-analytics-engine)
+16. [Build Marker & Artifact Audit](#build-marker--artifact-audit)
+17. [Deployment](#deployment)
+18. [Test Suite](#test-suite)
 
 ---
 
@@ -81,12 +84,18 @@ sachoki/
 │   ├── analyzers/
 │   │   ├── rare_reversal/miner.py       # Rare reversal pattern miner
 │   │   ├── pullback_miner/miner.py      # Pullback pattern miner
+│   │   ├── pivot_swing/                 # Pivot Swing Character Analytics Engine
+│   │   │   ├── pivot_detector.py        # Confirmed pivot HIGH/LOW detection
+│   │   │   ├── swing_builder.py         # Alternating LOW→HIGH / HIGH→LOW swings
+│   │   │   ├── pivot_analytics.py       # 17-file aggregated output pipeline
+│   │   │   └── runner.py                # CLI entry point
 │   │   └── tz_wlnbb/
-│   │       ├── signal_extraction.py
-│   │       ├── signal_logic.py
-│   │       ├── stock_stat.py
-│   │       ├── replay.py
-│   │       ├── config.py
+│   │       ├── signal_extraction.py     # Vectorised T/Z + line3/4/5 + ATR + PSAR
+│   │       ├── signal_logic.py          # Per-bar Pine-equivalent priority engine
+│   │       ├── stock_stat.py            # Emits stock_stat_tz_wlnbb_*.csv
+│   │       ├── replay.py                # Replay ZIP builder (embeds pivot_swing/)
+│   │       ├── build_marker.py          # Version + git_sha + UTC build marker
+│   │       ├── config.py                # TZ_WLNBB_VERSION, Z_PRIORITY (no Z8)
 │   │       └── schemas.py
 │   ├── ultra_scan_routes.py         # Stub router (avoids ImportError on startup)
 │   └── tz_intelligence/
@@ -734,10 +743,30 @@ All endpoints prefixed `/api/`. Backend serves on port **8080**.
 | Method | Path | Description |
 |--------|------|-------------|
 | GET | `/api/tz-wlnbb/scan` | TZ × WLNBB scan results |
-| POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV |
+| POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV (260521 Pine version with `build_marker` column) |
 | GET | `/api/tz-wlnbb/status` | Generation progress |
-| POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay (auto-builds whitelists + embeds into ZIP) |
+| POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay (embeds whitelists + Pivot Swing pivot_swing/ files + BUILD_MARKER.txt) |
 | POST | `/api/tz-wlnbb/build-whitelists` | Build whitelist/blacklist CSVs from a stock_stat CSV path |
+| GET | `/api/tz-wlnbb/replay-perf` | Replay perf rankings (kind = body_wick / gap_range / line5) |
+| GET | `/api/tz-wlnbb/download/{filename}` | Download a stock_stat or replay CSV |
+
+### Pivot Swing Character Analytics
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pivot-swing/run` | Run pivot swing engine (aggregated multi-ticker) |
+| GET | `/api/pivot-swing/status` | Current run progress |
+| GET | `/api/pivot-swing/results` | List of generated output files |
+| GET | `/api/pivot-swing/download/{filename}` | Download a pivot swing artifact |
+
+### Build Verification & Artifact Audit
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/code-version` | Active code's `build_marker`, `tz_wlnbb_version`, Z_PRIORITY, and fingerprint of the deployed final_normalizer / scanner / pivot_swing modules |
+| GET | `/api/artifact-audit` | On-disk audit: stock_stat versions, `scan_as_of_date`, `stale_dropped_count`, `WATCH_HIGH:GATES_PASS` count, `bad_gates_pass_count`, `pivot_output_file_count`, `zip_build_marker` vs `active_code_build_marker` + a `checks{}` block + `all_checks_pass` bool |
+| POST | `/api/regenerate-and-audit` | One-click chain: generate-stock-stat → replay ZIP (with pivot_swing) → artifact-audit |
+| GET | `/api/regenerate-and-audit/status` | Poll for chain progress + final audit result |
 
 ### Specialized Miners & Intelligence
 
@@ -907,7 +936,30 @@ Emits a canonical dict of parsed signal flags consumed by `ultra_score.py`.
 
 ### TZ/WLNBB Analyzer (`backend/analyzers/tz_wlnbb/`)
 
-Generates per-stock stat CSV for the Pullback Miner and Sequence Engine. Computes T/Z + L sequences with forward returns (ret_1d, ret_5d, ret_10d), MFE, MAE.
+Generates per-stock stat CSV for the Pullback Miner, Sequence Engine, and Pivot Swing Engine. Computes T/Z + L sequences with forward returns (ret_1d, ret_5d, ret_10d), MFE, MAE.
+
+**Pine 260521 features (current production version):**
+- **line3 — Body + Wick shape**: `bar_body_wick` column (e.g. `XS`, `MTB`, `SJ`)
+  - body class: `X` (≥1.5× prev body), `S` (default), `M` (≤0.5× prev body)
+  - wick class: `J` (doji), `TB` (heavy upper), `BB` (heavy lower), `F` (flat both)
+- **line4 — Gap + Range (ATR-relative)**: `bar_gap_range` column (e.g. `G2-V`, `G1`, `C`)
+  - gap class: `G1` (|gap| < 0.2×ATR), `G2` (< 0.5×ATR), `G3` (else)
+  - range class: `V` (range > 1.5×ATR), `N` (default), `C` (range < 0.5×ATR)
+- **line5 — VIX-Fix / PSAR / RSI2**: `bar_line5` column (e.g. `VX-PB-R2X`)
+  - WVF: `VX` (spike), `VR` (range high)
+  - PSAR: `PB` (bull), `PS` (bear) — `ta.sar(0.02, 0.02, 0.2)`
+  - RSI(2): `R2X` (oversold reclaim), `R2D` (overbought drop), `R2L`, `R2H`
+- **ATR**: Wilder smoothing `tr.ewm(alpha=1/14, adjust=False).mean()`
+- **Z8 explicitly excluded** from Z_PRIORITY (not a real signal in this system)
+- Active version constant: `TZ_WLNBB_VERSION = "260521_TZ_F_WLNBB_CMB_python_v2_line345"`
+
+**Key files:**
+- `config.py` — version, T_PRIORITY, Z_PRIORITY (13 entries, no Z8), suffix/L definitions
+- `signal_logic.py` — per-bar T/Z compute (Pine-equivalent priority engine)
+- `signal_extraction.py` — vectorised compute over a DataFrame; includes `_compute_psar`, `compute_line5`, `compute_atr_wilder`
+- `stock_stat.py` — emits `stock_stat_tz_wlnbb_*.csv` with `tz_wlnbb_version` + `build_marker` columns
+- `replay.py` — generates `replay_tz_wlnbb_*.zip` with 70+ analytics CSVs, the 17 pivot_swing/ files, BUILD_MARKER.txt at ZIP root, and config_snapshot.json
+- `build_marker.py` — produces `<version>__sha-<git>__built-<UTC>` marker at import time
 
 ### Rare Reversal Miner (`backend/analyzers/rare_reversal/miner.py`)
 
@@ -928,6 +980,118 @@ Evidence tiers:
 ABR classifier using `ABR_rule_database.csv`. Classifies bars as Activation / Breaking / Retest using the master matrix. Also provides the `tz_intel_role` field read by ULTRA Score's D-component.
 
 In v2.8, the TZ Intelligence layer gained a full statistical normalization pipeline: `stat_engine.py` labels statistical quality, `final_normalizer.py` merges all signals into a 5-tier final action, and `whitelist_builder.py` builds the lookup tables from replay data. See [TZ Intelligence Statistical Layer v2.8](#tz-intelligence-statistical-layer-v28) for details.
+
+---
+
+## Pivot Swing Character Analytics Engine
+
+**Package:** `backend/analyzers/pivot_swing/`
+
+A self-contained analytics engine that discovers signal behavior at confirmed swing pivots. **Does not modify** signal_logic.py, signal_extraction.py, WLNBB L1–L6 logic, or candle-pattern logic — purely read-only consumer of the stock_stat CSV pipeline.
+
+### Modules
+
+| File | Purpose |
+|------|---------|
+| `pivot_detector.py` | Confirmed pivot HIGH/LOW detection. `pivot_left=3`, `pivot_right=3` by default. `confirmed_at_index = pivot_idx + pivot_right` — pivot is not known until that many bars close. Zero lookahead leakage. |
+| `swing_builder.py` | Alternating LOW→HIGH / HIGH→LOW swing segments. `min_swing_return_pct=3.0`, `min_swing_bars=2`. Same-direction duplicates collapse to the more extreme pivot. |
+| `pivot_analytics.py` | Aggregated analytics pipeline. Accepts a list of stock_stat CSV paths and emits a single output set covering all tickers. |
+| `runner.py` | CLI entry point (`python -m analyzers.pivot_swing.runner --csv-dir <dir> --out <out>`) |
+
+### Pivot zone window
+
+For every confirmed pivot, the engine extracts every signal at offsets `−5..+5` from the pivot price bar. Each record is tagged:
+- `LIVE_SAFE` if `offset ≤ 0` (bar happened before/at the pivot extreme)
+- `RESEARCH_ONLY` if `offset > 0` (uses bars after the pivot — must NOT be used in live trading rules)
+
+Statistical role discovery is **agnostic**: T is not assumed bullish, Z is not assumed bearish. Roles are derived from observed pivot side at offset=0: `BULLISH_REVERSAL` (≥65% at LOW), `BEARISH_REVERSAL` (≥65% at HIGH), `NEUTRAL`.
+
+### Confidence tiers
+
+| Tier | Min count |
+|------|-----------|
+| HIGH | ≥ 100 |
+| MEDIUM | ≥ 40 |
+| LOW | ≥ 15 |
+| RESEARCH_ONLY | < 15 |
+
+### Output files (17 total, all aggregated across input tickers)
+
+| File | Description |
+|------|-------------|
+| `pivot_swing_summary.csv` | One row per ticker: bars, pivot_lows, pivot_highs, swings, up/down split, avg swing return %, avg swing bars |
+| `pivot_low_single_signal_stats.csv` | Per (offset, signal_field, signal_value) at LOW pivots: count + avg forward returns + confidence_tier + lookahead_safe |
+| `pivot_high_single_signal_stats.csv` | Same shape, at HIGH pivots |
+| `pivot_low_sequence_2bar_stats.csv` … `pivot_low_sequence_6bar_stats.csv` | Sequence patterns of length 2..6 at LOW pivots |
+| `pivot_high_sequence_2bar_stats.csv` … `pivot_high_sequence_6bar_stats.csv` | Same at HIGH pivots |
+| `pivot_zone_offset_stats.csv` | Aggregate counts + returns per (pivot_type, offset) bucket |
+| `pivot_role_map.csv` | Per signal value: counts at LOW vs HIGH, discovered_role (BULLISH_REVERSAL / BEARISH_REVERSAL / NEUTRAL / RESEARCH_ONLY) |
+| `pivot_scanner_rules_proposal.md` | Live-safe candidate rules (offset ≤ 0) for incorporation into the live scanner — recommended modules listed |
+| `pivot_engine_audit_report.md` | Run parameters, per-ticker audit, version distribution, lookahead-safety policy, scope guarantees |
+
+### Embedding in the replay ZIP
+
+`replay.py::_embed_pivot_swing_in_zip()` builds a DataFrame from the `rows` arg, writes per-ticker temp CSVs, calls `run_pivot_analytics(csv_paths=…)`, and copies the 17 outputs into the replay ZIP under `pivot_swing/`. Embedding is non-fatal — a failure logs a warning and the ZIP is still produced.
+
+---
+
+## Build Marker & Artifact Audit
+
+Every artifact emitted by the backend carries a **build marker** that uniquely identifies the code version that produced it:
+
+```
+260521_TZ_F_WLNBB_CMB_python_v2_line345__sha-<git_short_sha>__built-<UTC_TIMESTAMP>
+```
+
+Generated at import time by `backend/analyzers/tz_wlnbb/build_marker.py` from:
+- `TZ_WLNBB_VERSION` constant in `config.py`
+- short git SHA (via `git rev-parse --short HEAD` or `.git/HEAD` fallback)
+- UTC timestamp at process boot
+
+### Where the marker lands
+
+| Artifact | Location of marker |
+|----------|--------------------|
+| Replay ZIP | `BUILD_MARKER.txt` at ZIP root (first line is the marker, body is `BUILD_INFO` JSON) |
+| `replay_tz_wlnbb_metadata.json` | `build_marker` + `build_info` keys |
+| `tz_wlnbb_config_snapshot.json` | `TZ_WLNBB_ANALYZER_VERSION` (matches the version portion) |
+| `stock_stat_tz_wlnbb_*.csv` | new `build_marker` column on every row |
+| `/api/tz-intelligence/scan` response | top-level `build_marker` + per-row `build_marker` |
+| `/api/code-version` response | `build_marker` + `build_info` dict |
+
+### Verifying deployed code matches uploaded artifacts
+
+```
+1. GET /api/code-version
+   → note the build_marker value
+2. Open the uploaded replay ZIP, read BUILD_MARKER.txt
+3. If they match → artifact came from the deployed code
+   If they differ → artifact is stale, rebuild required
+```
+
+`/api/artifact-audit` does this comparison automatically and returns:
+- `active_code_build_marker`
+- `zip_build_marker`
+- `zip_built_with_active_code` (bool, must be `true` for a clean run)
+
+### Bug-class guardrails
+
+The deployed code carries two complementary fixes for the **`WATCH_HIGH:GATES_PASS` data bug**:
+
+1. **Normalizer-level fix** (`final_normalizer.py:470–516`): `final_reason = GATES_PASS` is reserved strictly for rows where both `volume_gate_status == PASS` and `abr_gate_status == PASS`. Any modifier-promoted `WATCH_HIGH` row keeps its downgrade reasons.
+
+2. **Post-condition repair** (`final_normalizer.py:516–535`): if any path emits `GATES_PASS` / `WATCH_HIGH:GATES_PASS` / `GO:GATES_PASS` while gates failed, the row is rewritten in-place to include the actual gate-failure reasons. Makes the bug impossible to ship.
+
+3. **Defensive post-scan repair** (`main.py:/api/tz-intelligence/scan`): even if the on-disk CSV contains pre-fix rows, the scan endpoint re-checks every result before returning and rewrites stale `GATES_PASS` strings. `debug.post_scan_repair_count` reports how many rows were repaired.
+
+### Latest-mode stale-row filter
+
+`run_intelligence_scan()` accepts `max_stale_trading_days=2` (default). In `latest` mode it:
+1. Computes `scan_as_of_date` as the most recent bar date across all tickers in the stock_stat CSV
+2. For each ticker, computes `_count_trading_days_between(latest_date, scan_as_of_date)` (weekend-skip aware)
+3. If > `max_stale_trading_days`, drops the ticker (or for `split` universe `require_all_tickers` mode, emits a `STALE_DATA` row)
+
+`scan_as_of_date` and `stale_dropped` are surfaced in the response `debug` block.
 
 ---
 
