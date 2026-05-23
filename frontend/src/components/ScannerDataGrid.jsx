@@ -192,6 +192,39 @@ function collectSignals(r) {
     if (r[k]) { bull(k.toUpperCase(), 4); break }
   }
 
+  // 260523 — AD / WYC / PREBREAK / Pullback events
+  // High-conviction reversal markers first.
+  if (r.ad_cluster) bull('AD-CLU', 9)
+  else if (r.ad_fresh) bull('AD-FR', 8)
+  if (r.wyc_spring) bull('SPRING', 9)
+  if (r.wyc_sos)    bull('SOS', 8)
+  // Wyckoff macro phase context (only emit non-NEUTRAL)
+  const wyp = r.wyc_phase
+  if (wyp && wyp !== 'NEUTRAL') {
+    if (wyp === 'MARKUP')      bull('MARKUP', 6)
+    else if (wyp === 'MKDN')   bear('MKDN', 6)
+    else if (wyp === 'ACC_TR') info('ACC_TR', 5)
+    else if (wyp === 'DIST_TR')info('DIST_TR', 5)
+    else if (wyp === 'UTAD')   bear('UTAD', 7)
+  }
+  if (r.wyc_in_tr) info('InTR', 4)
+  if (r.wyc_sow)   bear('SOW', 6)
+  // PREBREAK score tier
+  if (r.prebreak_prime)      bull('PRIME★', 9)
+  else if (r.prebreak_ready) bull('READY', 7)
+  else if (r.prebreak_watch) bull('WATCH', 5)
+  // Pullback-miner per-bar events
+  if (r.pb_lvbo)         bull('LVBO', 7)
+  if (r.pb_wvf_confirm)  bull('WVF', 6)
+  if (r.pb_stop_cause)   bull('W-PH', 6)
+  if (r.pb_macro_penalty) bear('PEN', 4)
+  // Swing classification (HL/LL/HH/LH)
+  const st = r.swing_type
+  if (st === 'HL') bull('HL', 5)
+  else if (st === 'LL') bull('LL', 4)
+  else if (st === 'HH') info('HH', 4)
+  else if (st === 'LH') bear('LH', 5)
+
   sigs.sort((a, b) => b.priority - a.priority)
   return sigs
 }

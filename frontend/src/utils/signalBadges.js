@@ -75,6 +75,11 @@ export function getSignalFamily(raw) {
   // CTX tokens
   if (['LD','LDS','LDP','LRP','LDC','LRC','SQB','BCT','WRC','F8C'].includes(u)) return 'CTX'
 
+  // 260523 family (AD / WYC / PREBREAK / Pullback events / Swing)
+  if (['AD-FR','AD-CLU','SPRING','SOS','UTAD','SOW','MARKUP','MKDN',
+       'ACC_TR','DIST_TR','INTR','PRIME★','READY','WATCH',
+       'LVBO','WVF','W-PH','PEN','HL','LL','HH','LH'].includes(u)) return 'WY523'
+
   return 'UNKNOWN'
 }
 
@@ -197,6 +202,37 @@ export function getSignalBadgeClass(raw) {
 
     case 'EMA':
       return 'bg-emerald-900/50 text-emerald-200'
+
+    case 'WY523': {
+      // AD / WYC bullish events
+      if (u === 'AD-CLU')   return 'bg-orange-800/80 text-orange-100 ring-1 ring-orange-400 font-bold'
+      if (u === 'AD-FR')    return 'bg-orange-900 text-orange-300 font-semibold'
+      if (u === 'SPRING')   return 'bg-emerald-800/80 text-emerald-100 ring-1 ring-emerald-400 font-bold'
+      if (u === 'SOS')      return 'bg-emerald-900 text-emerald-300 font-semibold'
+      // WYC bearish
+      if (u === 'UTAD')     return 'bg-red-800/80 text-red-100 ring-1 ring-red-400 font-bold'
+      if (u === 'SOW')      return 'bg-red-900 text-red-300 font-semibold'
+      if (u === 'MKDN')     return 'bg-red-900/70 text-red-300'
+      // WYC neutral / phase context
+      if (u === 'MARKUP')   return 'bg-lime-900 text-lime-300 font-semibold'
+      if (u === 'ACC_TR' || u === 'DIST_TR' || u === 'INTR')
+                            return 'bg-slate-700 text-slate-200'
+      // PREBREAK tiers
+      if (u === 'PRIME★')   return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
+      if (u === 'READY')    return 'bg-lime-800 text-lime-100 font-semibold ring-1 ring-lime-400'
+      if (u === 'WATCH')    return 'bg-cyan-900 text-cyan-300'
+      // Pullback events
+      if (u === 'LVBO')     return 'bg-sky-800 text-sky-100 font-semibold ring-1 ring-sky-400'
+      if (u === 'WVF')      return 'bg-violet-900 text-violet-300 font-semibold'
+      if (u === 'W-PH')     return 'bg-teal-900 text-teal-200'
+      if (u === 'PEN')      return 'bg-rose-900/50 text-rose-300'
+      // Swing classification (HL bullish base / LL bullish bounce / HH info / LH bearish)
+      if (u === 'HL')       return 'bg-emerald-900/60 text-emerald-300 font-semibold'
+      if (u === 'LL')       return 'bg-sky-900/60 text-sky-300'
+      if (u === 'HH')       return 'bg-lime-900/40 text-lime-200'
+      if (u === 'LH')       return 'bg-red-900/60 text-red-300 font-semibold'
+      return NEUTRAL_CLS
+    }
 
     case 'UNKNOWN':
     default:

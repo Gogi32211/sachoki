@@ -160,6 +160,44 @@ const ROWS = [
     },
   },
   {
+    // 260523 family: AD-FRESH / AD-CLUSTER / WYC / PREBREAK / Pullback / Swing.
+    // Matches the chips emitted by collectSignals() in ScannerDataGrid so the
+    // ULTRA tab's Signals column and Superchart show the same event surface.
+    key: '523',
+    label: '523',
+    getSigs: (b) => b.wy523 ?? [],
+    chipCls: (s) => {
+      // AD / WYC bullish
+      if (s === 'AD-CLU')   return 'bg-orange-800/80 text-orange-100 ring-1 ring-orange-400 font-bold'
+      if (s === 'AD-FR')    return 'bg-orange-900 text-orange-300 font-semibold'
+      if (s === 'SPRING')   return 'bg-emerald-800/80 text-emerald-100 ring-1 ring-emerald-400 font-bold'
+      if (s === 'SOS')      return 'bg-emerald-900 text-emerald-300 font-semibold'
+      // WYC bearish
+      if (s === 'UTAD')     return 'bg-red-800/80 text-red-100 ring-1 ring-red-400 font-bold'
+      if (s === 'SOW')      return 'bg-red-900 text-red-300 font-semibold'
+      if (s === 'MKDN')     return 'bg-red-900/70 text-red-300'
+      // WYC phase context
+      if (s === 'MARKUP')   return 'bg-lime-900 text-lime-300 font-semibold'
+      if (s === 'ACC_TR' || s === 'DIST_TR' || s === 'InTR')
+                            return 'bg-slate-700 text-slate-200'
+      // PREBREAK tiers
+      if (s === 'PRIME★')   return 'bg-yellow-700 text-yellow-100 font-bold ring-1 ring-yellow-400'
+      if (s === 'READY')    return 'bg-lime-800 text-lime-100 font-semibold ring-1 ring-lime-400'
+      if (s === 'WATCH')    return 'bg-cyan-900 text-cyan-300'
+      // Pullback / pivots
+      if (s === 'LVBO')     return 'bg-sky-800 text-sky-100 font-semibold ring-1 ring-sky-400'
+      if (s === 'WVF')      return 'bg-violet-900 text-violet-300 font-semibold'
+      if (s === 'W-PH')     return 'bg-teal-900 text-teal-200'
+      if (s === 'PEN')      return 'bg-rose-900/50 text-rose-300'
+      // Swing classification
+      if (s === 'HL')       return 'bg-emerald-900/60 text-emerald-300 font-semibold'
+      if (s === 'LL')       return 'bg-sky-900/60 text-sky-300'
+      if (s === 'HH')       return 'bg-lime-900/40 text-lime-200'
+      if (s === 'LH')       return 'bg-red-900/60 text-red-300 font-semibold'
+      return 'bg-md-surface-high text-md-on-surface'
+    },
+  },
+  {
     key: 'score',
     label: 'SCORE',
     getSigs: (b) => {

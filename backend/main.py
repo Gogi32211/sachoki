@@ -1500,6 +1500,37 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         tz_state_ser = pd.Series(0, index=df.index, dtype=np.int8)
     tz_state_prev = tz_state_ser.shift(1, fill_value=0).astype(int)
 
+    # ── 260523 per-bar signals (AD / WYC / PREBREAK / Pullback / Swing) ──────
+    # Compute via the canonical pipeline (same as stock_stat) so chips in
+    # Superchart match what ULTRA's Signals column shows.
+    try:
+        from analyzers.tz_wlnbb.signal_extraction import compute_signals_for_ticker
+        _wy523_df = compute_signals_for_ticker(df.copy(), universe=universe)
+    except Exception as _wy_exc:
+        log.warning("260523 compute failed for %s: %s", ticker, _wy_exc)
+        _wy523_df = None
+
+    def _wy523_arr(col: str, default=False):
+        if _wy523_df is None or col not in _wy523_df.columns:
+            return [default] * len(df)
+        return _wy523_df[col].tolist()
+
+    _ad_fresh_arr        = _wy523_arr("ad_fresh", False)
+    _ad_cluster_arr      = _wy523_arr("ad_cluster", False)
+    _wyc_phase_arr       = _wy523_arr("wyc_phase", "")
+    _wyc_spring_arr      = _wy523_arr("wyc_spring", False)
+    _wyc_sos_arr         = _wy523_arr("wyc_sos", False)
+    _wyc_in_tr_arr       = _wy523_arr("wyc_in_tr", False)
+    _wyc_sow_arr         = _wy523_arr("wyc_sow", False)
+    _prebreak_prime_arr  = _wy523_arr("prebreak_prime", False)
+    _prebreak_ready_arr  = _wy523_arr("prebreak_ready", False)
+    _prebreak_watch_arr  = _wy523_arr("prebreak_watch", False)
+    _pb_lvbo_arr         = _wy523_arr("pb_lvbo", False)
+    _pb_wvf_confirm_arr  = _wy523_arr("pb_wvf_confirm", False)
+    _pb_stop_cause_arr   = _wy523_arr("pb_stop_cause", False)
+    _pb_macro_pen_arr    = _wy523_arr("pb_macro_penalty", False)
+    _swing_type_arr      = _wy523_arr("swing_type", "")
+
     # GOG engine — provides SETUP, GOG_TIER, CONTEXT, GOG_SCORE per bar
     try:
         from gog_engine import compute_gog_signals as _compute_gog
@@ -1941,6 +1972,27 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             except Exception:
                 pass
 
+        # ── 260523 per-bar chip list ───────────────────────────────────────
+        wy523_list: list = []
+        if _ad_cluster_arr[i]:    wy523_list.append("AD-CLU")
+        elif _ad_fresh_arr[i]:    wy523_list.append("AD-FR")
+        if _wyc_spring_arr[i]:    wy523_list.append("SPRING")
+        if _wyc_sos_arr[i]:       wy523_list.append("SOS")
+        _wp = _wyc_phase_arr[i]
+        if _wp and _wp not in ("", "NEUTRAL"):
+            wy523_list.append(_wp)        # MARKUP / MKDN / ACC_TR / DIST_TR / UTAD
+        if _wyc_in_tr_arr[i]:     wy523_list.append("InTR")
+        if _wyc_sow_arr[i]:       wy523_list.append("SOW")
+        if _prebreak_prime_arr[i]:      wy523_list.append("PRIME★")
+        elif _prebreak_ready_arr[i]:    wy523_list.append("READY")
+        elif _prebreak_watch_arr[i]:    wy523_list.append("WATCH")
+        if _pb_lvbo_arr[i]:        wy523_list.append("LVBO")
+        if _pb_wvf_confirm_arr[i]: wy523_list.append("WVF")
+        if _pb_stop_cause_arr[i]:  wy523_list.append("W-PH")
+        if _pb_macro_pen_arr[i]:   wy523_list.append("PEN")
+        _st = _swing_type_arr[i] or ""
+        if _st: wy523_list.append(_st)    # HL / LL / HH / LH
+
         result.append({
             "date":       date_val,
             "open":       float(row["open"]),
@@ -1966,6 +2018,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "setup":          setup_list,
             "gog_tier":       _gog_tier_val,
             "context":        context_list,
+            "wy523":          wy523_list,
             "gog_score":      _gog_score_val,
             "gog1": 1 if _gog_tier_val.startswith("G1") else 0,
             "gog2": 1 if _gog_tier_val.startswith("G2") else 0,
