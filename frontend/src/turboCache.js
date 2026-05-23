@@ -7,6 +7,10 @@
 const DB_NAME    = 'sachoki_turbo_v1'
 const STORE_NAME = 'scan_cache'
 
+// Cache version — bump when row schema changes (new enrichment columns)
+// so stale entries from before the bump are auto-invalidated on read.
+const CACHE_VERSION = '260523_v3.6'
+
 let _dbPromise = null
 
 function openDB() {
@@ -25,14 +29,22 @@ function openDB() {
   return _dbPromise
 }
 
-/** Read a cached payload { results, lastScan } for (tf, uni). Returns null on miss/error. */
+/** Read a cached payload { results, lastScan } for (tf, uni). Returns null on miss/error.
+ *  Auto-rejects entries whose stored _cv != CACHE_VERSION (stale schema). */
 export async function idbGet(tf, uni) {
   try {
     const db = await openDB()
     return await new Promise(resolve => {
       const tx  = db.transaction(STORE_NAME, 'readonly')
       const req = tx.objectStore(STORE_NAME).get(`${tf}_${uni}`)
-      req.onsuccess = () => resolve(req.result?.data ?? null)
+      req.onsuccess = () => {
+        const rec = req.result
+        if (!rec || rec._cv !== CACHE_VERSION) {
+          resolve(null)  // miss OR stale schema → force a fresh fetch
+          return
+        }
+        resolve(rec.data ?? null)
+      }
       req.onerror   = () => resolve(null)
     })
   } catch {
@@ -40,7 +52,7 @@ export async function idbGet(tf, uni) {
   }
 }
 
-/** Write { results, lastScan } for (tf, uni). Fire-and-forget. */
+/** Write { results, lastScan } for (tf, uni). Fire-and-forget. Stamps _cv. */
 export async function idbSet(tf, uni, results, lastScan) {
   try {
     const db = await openDB()
@@ -48,6 +60,7 @@ export async function idbSet(tf, uni, results, lastScan) {
       const tx = db.transaction(STORE_NAME, 'readwrite')
       tx.objectStore(STORE_NAME).put({
         key: `${tf}_${uni}`,
+        _cv: CACHE_VERSION,
         data: { results, lastScan },
         savedAt: Date.now(),
       })

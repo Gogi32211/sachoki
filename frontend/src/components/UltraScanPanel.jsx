@@ -714,8 +714,24 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 }
 
 // ── ULTRA scan localStorage cache (separate keyspace from Turbo) ─────────────
+// Cache version bump invalidates ALL cached entries that pre-date the bump.
+// Increment this when row schema changes (new enrichment columns added) so
+// stale caches without the new fields don't survive a redeploy.
+const _CACHE_VERSION = '260523_v3.6'  // bumped: tail-aware enrichment + auto-compute prebreak_score
+
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
-const _tsGet  = (tf, uni) => { try { return JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null') } catch { return null } }
+const _tsGet  = (tf, uni) => {
+  try {
+    const raw = JSON.parse(localStorage.getItem(_tsKey(tf, uni)) || 'null')
+    if (!raw) return null
+    // Reject entries written before the current cache version
+    if (raw._cv !== _CACHE_VERSION) {
+      localStorage.removeItem(_tsKey(tf, uni))
+      return null
+    }
+    return raw
+  } catch { return null }
+}
 
 const _ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
 const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us', 'split']
@@ -740,6 +756,14 @@ const KEEP_ALWAYS = new Set([
   // RTB v4
   'rtb_build','rtb_turn','rtb_ready','rtb_bonus3',
   'rtb_late','rtb_total','rtb_phase','rtb_transition','rtb_phase_age',
+  // 260523 — Advanced filter fields (MUST be kept so client-side filter works after cache reload)
+  'ad_fresh','ad_cluster',
+  'wyc_phase','wyc_spring','wyc_sos','wyc_acc_tr','wyc_markup','wyc_in_tr','wyc_sow',
+  'swing_type','swing_ret_from_prev','fwd_swing_ret','fwd_swing_bars',
+  'is_pivot_high','is_pivot_low',
+  'prebreak_prime','prebreak_ready','prebreak_watch','prebreak_score',
+  'pb_lvbo','pb_stop_cause','pb_pp_rtv','pb_fly_cd_c',
+  'pb_wvf_confirm','pb_follow_confirm','pb_macro_penalty',
 ])
 function _slimRow(r) {
   const out = {}
@@ -772,7 +796,7 @@ function ultraCacheSet(tf, uni, results, lastScan) {
   }
   // localStorage path (D+A): slim rows + truncation fallback
   const key = _tsKey(tf, uni)
-  const payload = { results: results.map(_slimRow), lastScan }
+  const payload = { _cv: _CACHE_VERSION, results: results.map(_slimRow), lastScan }
   const write = (p) => localStorage.setItem(key, JSON.stringify(p))
   try {
     write(payload)
