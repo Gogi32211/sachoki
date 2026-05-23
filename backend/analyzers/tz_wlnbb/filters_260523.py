@@ -14,16 +14,33 @@ log = logging.getLogger(__name__)
 # In-memory cache: (universe, tf, nasdaq_batch) → (mtime, {ticker: row})
 _STOCK_STAT_260523_CACHE: Dict[tuple, tuple] = {}
 
+# Event-style columns: "recent" semantics — True if ANY of last EVENT_LOOKBACK
+# bars had the column set. (Pivots, AD-FRESH, LVBO are events that fire on a
+# single bar; checking only the latest bar misses ~all matches.)
+EVENT_LOOKBACK = 5
+EVENT_BOOL_COLS = (
+    "ad_fresh", "ad_cluster",
+    "pb_lvbo", "pb_wvf_confirm", "pb_pp_rtv", "pb_fly_cd_c",
+    "pb_stop_cause", "is_pivot_high", "is_pivot_low",
+    "wyc_spring", "wyc_sos",
+)
+EVENT_STR_COLS = ("swing_type",)
+
 
 def load_260523_stock_stat_index(
     universe: str, tf: str, nasdaq_batch: str = "",
     path_resolver=None,
 ) -> Dict[str, Dict[str, Any]]:
-    """Load latest stock_stat CSV and return {ticker → last_row}.
+    """Load latest stock_stat CSV and return {ticker → enriched_row}.
 
-    `path_resolver(universe, tf, nasdaq_batch) -> str` lets callers (main.py)
-    inject their canonical path helper. If None or returns missing path,
-    falls back to a couple of common naming conventions.
+    enriched_row is the LATEST raw row, with event-style columns
+    (ad_fresh, pb_lvbo, swing_type, etc.) replaced by their "recent"
+    value: True if ANY of the last EVENT_LOOKBACK bars had the column set,
+    or the most recent non-empty swing_type. This matches how a trader views
+    "is this ticker showing AD-FRESH recently?" rather than "did it fire
+    exactly on today's bar?".
+
+    State-style columns (wyc_phase, prebreak_*) keep latest-row semantics.
     """
     candidates = []
     if path_resolver is not None:
@@ -48,13 +65,46 @@ def load_260523_stock_stat_index(
         cached = _STOCK_STAT_260523_CACHE.get(cache_key)
         if cached and cached[0] == mtime:
             return cached[1]
-        per_ticker: Dict[str, Dict[str, Any]] = {}
+
+        # Collect per-ticker tail buffer of the last EVENT_LOOKBACK rows so we
+        # can compute "recent event" semantics for swing_type / pb_lvbo / etc.
+        tail: Dict[str, list] = {}
+        latest: Dict[str, Dict[str, Any]] = {}
         with open(path, newline="", encoding="utf-8") as fh:
             for row in _csv.DictReader(fh):
                 tk = row.get("ticker", "")
                 if not tk:
                     continue
-                per_ticker[tk] = row  # last row wins (oldest-first ordering)
+                # CSV is oldest-first → keep a rolling tail
+                buf = tail.setdefault(tk, [])
+                buf.append(row)
+                if len(buf) > EVENT_LOOKBACK:
+                    buf.pop(0)
+                latest[tk] = row
+
+        # Build enriched per-ticker view
+        per_ticker: Dict[str, Dict[str, Any]] = {}
+        for tk, last_row in latest.items():
+            enriched = dict(last_row)
+            buf = tail.get(tk, [last_row])
+            # Bool event cols: True if ANY tail row is True
+            for col in EVENT_BOOL_COLS:
+                hit = any(_to_bool(b.get(col, "")) for b in buf)
+                if hit:
+                    enriched[col] = True
+                # else keep the latest-row value (which is also False)
+            # String event cols (swing_type): most recent non-empty in tail
+            for col in EVENT_STR_COLS:
+                latest_nonempty = ""
+                for b in reversed(buf):
+                    v = (b.get(col) or "").strip()
+                    if v:
+                        latest_nonempty = v
+                        break
+                if latest_nonempty:
+                    enriched[col] = latest_nonempty
+            per_ticker[tk] = enriched
+
         _STOCK_STAT_260523_CACHE[cache_key] = (mtime, per_ticker)
         return per_ticker
     except Exception as e:
