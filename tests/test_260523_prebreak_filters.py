@@ -189,14 +189,45 @@ def test_compute_prebreak_no_score_safe():
 
 
 def test_prebreak_tier_assignment_score_thresholds():
-    """Score 50 → prime; 30 → ready; 20 → watch; 10 → none."""
+    """compute_prebreak_signals now COMPUTES prebreak_score from existing flags
+    (Pine PREBREAK-approximation). Verify thresholds (PRIME ≥45, READY ≥28,
+    WATCH ≥18) map correctly to tier flags REGARDLESS of which flag combo
+    produced the score."""
     df = pd.DataFrame({
         "open":   [100] * 4, "high": [101] * 4,
-        "low":    [99]  * 4, "close": [100] * 4,
+        "low":    [99]  * 4, "close": [102] * 4,
         "volume": [1000] * 4,
-        "prebreak_score": [50, 30, 20, 10],
+        "ad_cluster":  [True, False, False, False],
+        "ad_fresh":    [False, True, True, False],
+        "wyc_spring":  [True, True, False, False],
+        "wyc_acc_tr":  [False] * 4,
+        "wyc_phase":   ["SPRING", "SPRING", "", ""],
+        "l_signal":    ["L43", "L43", "L43", ""],
+        "bar_line5":   ["VX-PS-R2X", "", "", ""],
+        "t_signal":    ["T4", "T4", "T4", ""],
+        "is_pivot_high": [False] * 4,
+        "is_pivot_low":  [False] * 4,
     })
     out = compute_prebreak_signals(df)
-    assert out["prebreak_prime"].tolist() == [True, False, False, False]
-    assert out["prebreak_ready"].tolist() == [False, True,  False, False]
-    assert out["prebreak_watch"].tolist() == [False, False, True,  False]
+    scores = out["prebreak_score"].tolist()
+    # For EVERY row, the tier flags must be consistent with the score
+    for i, s in enumerate(scores):
+        if s >= 45:
+            assert out["prebreak_prime"].iloc[i] is True or bool(out["prebreak_prime"].iloc[i])
+            assert not bool(out["prebreak_ready"].iloc[i])
+            assert not bool(out["prebreak_watch"].iloc[i])
+        elif s >= 28:
+            assert bool(out["prebreak_ready"].iloc[i])
+            assert not bool(out["prebreak_prime"].iloc[i])
+            assert not bool(out["prebreak_watch"].iloc[i])
+        elif s >= 18:
+            assert bool(out["prebreak_watch"].iloc[i])
+            assert not bool(out["prebreak_ready"].iloc[i])
+            assert not bool(out["prebreak_prime"].iloc[i])
+        else:
+            assert not bool(out["prebreak_prime"].iloc[i])
+            assert not bool(out["prebreak_ready"].iloc[i])
+            assert not bool(out["prebreak_watch"].iloc[i])
+    # And at least one PRIME and one non-tier exist in this set
+    assert any(out["prebreak_prime"]), f"no PRIME row from scores {scores}"
+    assert not all(out["prebreak_watch"]), f"all rows WATCH from scores {scores}"

@@ -361,30 +361,37 @@ def compute_prebreak_signals(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame
 
     n = len(df)
     if n == 0:
-        for c in ("prebreak_prime","prebreak_ready","prebreak_watch",
+        for c in ("prebreak_score","prebreak_prime","prebreak_ready","prebreak_watch",
                   "pb_lvbo","pb_stop_cause","pb_pp_rtv","pb_fly_cd_c",
                   "pb_wvf_confirm","pb_follow_confirm","pb_macro_penalty",
                   "wyc_in_tr","wyc_sow"):
-            df[c] = False
+            df[c] = 0 if c == "prebreak_score" else False
         return df
 
-    # ── Score-tier flags ────────────────────────────────────────────────────
-    if "prebreak_score" in df.columns:
-        s = pd.to_numeric(df["prebreak_score"], errors="coerce").fillna(0.0)
-        df["prebreak_prime"] = (s >= prime_thr).values
-        df["prebreak_ready"] = ((s >= ready_thr) & (s < prime_thr)).values
-        df["prebreak_watch"] = ((s >= watch_thr) & (s < ready_thr)).values
+    # ── pb_wvf_confirm: line5 contains "VX" (VIX spike token) ───────────────
+    if "bar_line5" in df.columns:
+        df["pb_wvf_confirm"] = df["bar_line5"].astype(str).fillna("").str.contains("VX", regex=False).values
     else:
-        df["prebreak_prime"] = False
-        df["prebreak_ready"] = False
-        df["prebreak_watch"] = False
+        df["pb_wvf_confirm"] = False
+
+    # ── wyc_in_tr / wyc_sow (need to compute BEFORE prebreak_score) ─────────
+    if "wyc_phase" in df.columns:
+        wp = df["wyc_phase"].astype(str).fillna("")
+        df["wyc_in_tr"] = wp.isin(["ACC_TR", "DIST_TR"]).values
+    else:
+        df["wyc_in_tr"] = False
+    df["wyc_sow"] = (df["wyc_sow_col"].astype(bool).values
+                    if "wyc_sow_col" in df.columns else False)
+
+    # ── pb_stop_cause: W-PHASE = Wyckoff accumulation context ───────────────
+    wyc_spring = df["wyc_spring"].astype(bool).values if "wyc_spring" in df.columns else np.zeros(n, dtype=bool)
+    wyc_acc_tr = df["wyc_acc_tr"].astype(bool).values if "wyc_acc_tr" in df.columns else np.zeros(n, dtype=bool)
+    df["pb_stop_cause"] = (wyc_spring | wyc_acc_tr)
 
     is_bull  = (df["close"] > df["open"]).values
     breakout = (df["close"] > df["high"].shift(1)).fillna(False).values
 
     # ── pb_lvbo: bull breakout AFTER a recent L34/L43/L22 compression bar ───
-    # If pb_lrc column exists, use rolling "any" over lvbo_look bars; otherwise
-    # use the dynamic L combos as a proxy (L64/L43/L22 → compression).
     if "pb_lrc" in df.columns:
         lrc_any = df["pb_lrc"].astype(bool).rolling(lvbo_look, min_periods=1).max().fillna(0).astype(bool).values
     elif "l_signal" in df.columns:
@@ -394,17 +401,6 @@ def compute_prebreak_signals(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame
     else:
         lrc_any = np.zeros(n, dtype=bool)
     df["pb_lvbo"] = (is_bull & breakout & lrc_any)
-
-    # ── pb_stop_cause: W-PHASE = Wyckoff accumulation context ───────────────
-    wyc_spring = df["wyc_spring"].astype(bool).values if "wyc_spring" in df.columns else np.zeros(n, dtype=bool)
-    wyc_acc_tr = df["wyc_acc_tr"].astype(bool).values if "wyc_acc_tr" in df.columns else np.zeros(n, dtype=bool)
-    df["pb_stop_cause"] = (wyc_spring | wyc_acc_tr)
-
-    # ── pb_wvf_confirm: line5 contains "VX" (VIX spike token) ───────────────
-    if "bar_line5" in df.columns:
-        df["pb_wvf_confirm"] = df["bar_line5"].astype(str).fillna("").str.contains("VX", regex=False).values
-    else:
-        df["pb_wvf_confirm"] = False
 
     # ── pb_pp_rtv: pivot bar AND price near EMA20 (within 1.5%) ─────────────
     ema20 = df["close"].ewm(span=20, adjust=False).mean()
@@ -416,8 +412,7 @@ def compute_prebreak_signals(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame
         is_pivot |= df["is_pivot_low"].astype(bool).values
     df["pb_pp_rtv"] = (is_pivot & near_ema20)
 
-    # ── pb_fly_cd_c: lowest of 8 bars 3 bars ago + close > EMA9 + bull bar
-    #                + previous bar was also bull ────────────────────────────
+    # ── pb_fly_cd_c: lowest of 8 bars 3 bars ago + close > EMA9 + bull bar ──
     ema9 = df["close"].ewm(span=9, adjust=False).mean()
     low8_min = df["low"].rolling(8, min_periods=1).min().shift(3)
     low_shifted = df["low"].shift(3)
@@ -429,24 +424,51 @@ def compute_prebreak_signals(df: pd.DataFrame, cfg: dict = None) -> pd.DataFrame
     prev_bull = (df["close"].shift(1) > df["open"].shift(1)).fillna(False).values
     df["pb_fly_cd_c"] = (fly_cd & prev_bull)
 
-    # ── wyc_in_tr / wyc_sow ─────────────────────────────────────────────────
-    if "wyc_phase" in df.columns:
-        wp = df["wyc_phase"].astype(str).fillna("")
-        df["wyc_in_tr"] = wp.isin(["ACC_TR", "DIST_TR"]).values
-    else:
-        df["wyc_in_tr"] = False
-    # SOW: if upstream populated wyc_sow_col use it; otherwise default False
-    df["wyc_sow"] = (df["wyc_sow_col"].astype(bool).values
-                    if "wyc_sow_col" in df.columns else False)
-
-    # ── pb_follow_confirm: stateful; not vectorisable here → default False ──
+    # ── pb_follow_confirm: stateful; default False ──────────────────────────
     df["pb_follow_confirm"] = False
 
-    # ── pb_macro_penalty: EMA20 falling vs 10 bars ago + close < EMA50 × 0.97
+    # ── pb_macro_penalty: EMA20 falling vs 10 bars ago + close < EMA50×0.97 ─
     ema50 = df["close"].ewm(span=50, adjust=False).mean()
     ema20_fall = (ema20 < ema20.shift(10)).fillna(False).values
     deep_below = (df["close"] < ema50 * 0.97).fillna(False).values
     df["pb_macro_penalty"] = (ema20_fall & deep_below)
+
+    # ── prebreak_score: approximate from Pine 260523_PREBREAK additive table
+    # Pine PREBREAK accumulates ~15 weighted contributions. We approximate
+    # using the flags we already compute. This is INTENTIONALLY approximate
+    # — for the exact Pine score the user must run the Pine screener.
+    score = np.zeros(n, dtype=float)
+    # AD-FRESH / AD-CLUSTER (strongest reversal markers per Pine)
+    if "ad_cluster" in df.columns:
+        score += df["ad_cluster"].astype(bool).values.astype(float) * 15
+    if "ad_fresh" in df.columns:
+        score += df["ad_fresh"].astype(bool).values.astype(float) * 8
+    # LVBO / W-PHASE / WVF
+    score += df["pb_lvbo"].values.astype(float) * 10
+    score += df["pb_stop_cause"].values.astype(float) * 12
+    score += df["pb_wvf_confirm"].values.astype(float) * 8
+    # Pivot proximity (PP+RTV)
+    score += df["pb_pp_rtv"].values.astype(float) * 10
+    # FLY-CD confirmed
+    score += df["pb_fly_cd_c"].values.astype(float) * 6
+    # Macro penalty subtracts
+    score -= df["pb_macro_penalty"].values.astype(float) * 15
+    # WYC context
+    if "wyc_spring" in df.columns:
+        score += df["wyc_spring"].astype(bool).values.astype(float) * 12
+    score += df["wyc_in_tr"].values.astype(float) * 4
+    score -= df["wyc_sow"].values.astype(float) * 6
+    # T-signal context (any bullish T = small bonus)
+    if "t_signal" in df.columns:
+        score += df["t_signal"].astype(str).ne("").values.astype(float) * 3
+    df["prebreak_score"] = score.clip(min=0)
+
+    # ── Score-tier flags ────────────────────────────────────────────────────
+    df["prebreak_prime"] = (df["prebreak_score"] >= prime_thr).values
+    df["prebreak_ready"] = ((df["prebreak_score"] >= ready_thr) &
+                             (df["prebreak_score"] < prime_thr)).values
+    df["prebreak_watch"] = ((df["prebreak_score"] >= watch_thr) &
+                             (df["prebreak_score"] < ready_thr)).values
 
     return df
 
