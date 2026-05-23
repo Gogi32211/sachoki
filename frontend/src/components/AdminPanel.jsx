@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { api } from '../api'
 import { turboCacheSet } from './TurboScanPanel'
 import { getCacheBackend, setCacheBackend } from '../turboCache'
@@ -456,6 +456,189 @@ export default function AdminPanel() {
         </div>
       </Card>
 
+      {/* ── Database Maintenance ── (260523 Phase 1) */}
+      <DbMaintenanceCard />
+
     </div>
+  )
+}
+
+
+// ──────────────────────────────────────────────────────────────────────────
+// Database Maintenance — per-table prune by age
+// ──────────────────────────────────────────────────────────────────────────
+
+function DbMaintenanceCard() {
+  const [stats, setStats]     = useState([])
+  const [loading, setLoading] = useState(false)
+  const [days, setDays]       = useState(30)
+  const [error, setError]     = useState('')
+  const [lastAction, setLastAction] = useState(null)
+
+  const loadStats = useCallback(async () => {
+    setLoading(true); setError('')
+    try {
+      const r = await fetch('/api/admin/db-stats')
+      if (!r.ok) throw new Error(`HTTP ${r.status}`)
+      const j = await r.json()
+      setStats(j.tables || [])
+    } catch (e) {
+      setError(String(e.message || e))
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
+  useEffect(() => { loadStats() }, [loadStats])
+
+  const callPrune = async (table, dryRun) => {
+    setError(''); setLastAction(null)
+    if (!dryRun) {
+      const ok = window.confirm(
+        `Delete rows from ${table} older than ${days} days? This cannot be undone.`,
+      )
+      if (!ok) return
+    }
+    try {
+      const u = new URLSearchParams({
+        table, older_than_days: String(days),
+        dry_run: String(dryRun),
+        allow_protected: 'false',
+      })
+      const r = await fetch('/api/admin/db-prune?' + u.toString(), {method: 'POST'})
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.detail || JSON.stringify(j))
+      setLastAction(j)
+      if (!dryRun) loadStats()
+    } catch (e) {
+      setError(String(e.message || e))
+    }
+  }
+
+  const callPruneAll = async (dryRun) => {
+    setError(''); setLastAction(null)
+    if (!dryRun) {
+      const ok = window.confirm(
+        `Delete rows from ALL non-protected tables older than ${days} days? ` +
+        `This cannot be undone.`,
+      )
+      if (!ok) return
+    }
+    try {
+      const u = new URLSearchParams({
+        older_than_days: String(days),
+        dry_run: String(dryRun),
+        include_protected: 'false',
+      })
+      const r = await fetch('/api/admin/db-prune-all?' + u.toString(), {method: 'POST'})
+      const j = await r.json()
+      if (!r.ok) throw new Error(j.detail || JSON.stringify(j))
+      setLastAction(j)
+      if (!dryRun) loadStats()
+    } catch (e) {
+      setError(String(e.message || e))
+    }
+  }
+
+  const fmtRows = (n) => n == null ? '—' : n.toLocaleString()
+
+  return (
+    <Card variant="outlined">
+      <CardHeader
+        title="Database Maintenance"
+        subtitle="Prune old rows from time-series tables"
+      />
+
+      <div className="flex items-center gap-3 mb-3">
+        <label className="text-xs text-md-on-surface-var">Retention (days)</label>
+        <input
+          type="number"
+          min={1}
+          max={3650}
+          value={days}
+          onChange={e => setDays(Math.max(1, Number(e.target.value) || 30))}
+          className="w-20 px-2 py-1 bg-md-surface-high border border-md-outline-var rounded-md-sm text-sm"
+        />
+        <button
+          onClick={loadStats}
+          disabled={loading}
+          className="px-3 py-1 text-xs rounded-md-sm bg-md-surface-high border border-md-outline-var text-md-on-surface-var hover:text-white disabled:opacity-50">
+          {loading ? '...' : 'Refresh stats'}
+        </button>
+      </div>
+
+      <div className="overflow-x-auto">
+        <table className="w-full text-xs">
+          <thead className="text-md-on-surface-var">
+            <tr className="border-b border-md-outline-var/30">
+              <th className="px-2 py-1.5 text-left">Table</th>
+              <th className="px-2 py-1.5 text-right">Rows</th>
+              <th className="px-2 py-1.5 text-left">Oldest</th>
+              <th className="px-2 py-1.5 text-left">Newest</th>
+              <th className="px-2 py-1.5 text-center">Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {stats.map(s => (
+              <tr key={s.table} className="border-b border-md-outline-var/20">
+                <td className="px-2 py-1.5">
+                  <span className="font-mono">{s.table}</span>
+                  {s.protected && <span className="ml-2 px-1 py-0.5 rounded-sm bg-amber-900/40 text-amber-300 text-[10px] font-semibold">PROTECTED</span>}
+                  {!s.exists && <span className="ml-2 text-gray-500 text-[10px]">(not created)</span>}
+                  <div className="text-[10px] text-md-on-surface-var/70">{s.desc}</div>
+                </td>
+                <td className="px-2 py-1.5 text-right font-mono">{fmtRows(s.rows)}</td>
+                <td className="px-2 py-1.5 font-mono text-[10px]">{s.oldest || '—'}</td>
+                <td className="px-2 py-1.5 font-mono text-[10px]">{s.newest || '—'}</td>
+                <td className="px-2 py-1.5 text-center">
+                  {s.exists && !s.protected && s.rows > 0 ? (
+                    <div className="flex gap-1 justify-center">
+                      <button
+                        onClick={() => callPrune(s.table, true)}
+                        title="Show how many rows WOULD be deleted (no changes)"
+                        className="px-2 py-0.5 text-[10px] rounded-sm bg-blue-900/50 text-blue-200 hover:bg-blue-900/70">
+                        Dry run
+                      </button>
+                      <button
+                        onClick={() => callPrune(s.table, false)}
+                        title={`Delete rows older than ${days} days`}
+                        className="px-2 py-0.5 text-[10px] rounded-sm bg-red-900/50 text-red-200 hover:bg-red-900/70 font-semibold">
+                        Prune &gt;{days}d
+                      </button>
+                    </div>
+                  ) : <span className="text-gray-600">—</span>}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      <div className="mt-4 p-3 bg-red-950/30 border border-red-900/40 rounded-md-sm">
+        <div className="text-xs text-red-300 mb-2">Bulk prune all non-protected tables:</div>
+        <div className="flex gap-2">
+          <button
+            onClick={() => callPruneAll(true)}
+            className="px-3 py-1 text-xs rounded-sm bg-blue-900/50 text-blue-200 hover:bg-blue-900/70">
+            Dry run ALL
+          </button>
+          <button
+            onClick={() => callPruneAll(false)}
+            className="px-3 py-1 text-xs rounded-sm bg-red-700/60 text-red-100 hover:bg-red-700/80 font-semibold">
+            ⚠ Prune ALL non-protected &gt;{days}d
+          </button>
+        </div>
+      </div>
+
+      {lastAction && (
+        <div className="mt-3 p-2 bg-md-surface-high border border-md-outline-var rounded-md-sm text-xs font-mono">
+          {lastAction.dry_run ? '🔍 Dry run' : '✓ Executed'} —
+          {' '}{JSON.stringify(lastAction.would_delete ?? lastAction.deleted ?? lastAction.total_affected ?? lastAction, null, 0)}
+          {lastAction.table && ` on ${lastAction.table}`}
+          {lastAction.cutoff && ` (cutoff ${lastAction.cutoff})`}
+        </div>
+      )}
+      {error && <Alert variant="error" className="mt-2">{error}</Alert>}
+    </Card>
   )
 }

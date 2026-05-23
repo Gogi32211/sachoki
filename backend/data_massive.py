@@ -41,8 +41,21 @@ def _cache_set(ticker: str, data: Dict[str, Any]) -> None:
     _info_cache[ticker] = (data, time.time())
 
 
+_ALLOW_YF_FALLBACK = os.environ.get("ALLOW_YFINANCE_FALLBACK", "0").strip() in ("1", "true", "True")
+
+
 def _yfinance_info(ticker: str) -> Dict[str, Any]:
-    """Fallback path. Returns the same schema as Massive."""
+    """Fallback path. Used only when ALLOW_YFINANCE_FALLBACK=1.
+    Returns the same schema as Massive."""
+    if not _ALLOW_YF_FALLBACK:
+        log.warning("data_massive: Massive unavailable for %s and "
+                    "ALLOW_YFINANCE_FALLBACK is off — returning stub", ticker)
+        return {
+            "ticker": ticker, "name": ticker, "sector": "", "industry": "",
+            "market_cap": None, "float_shares": None, "avg_volume_30d": None,
+            "exchange": "", "description": "", "logo_url": "",
+            "source": "error",
+        }
     try:
         import yfinance as yf
         info = yf.Ticker(ticker).info or {}

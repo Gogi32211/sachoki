@@ -1362,6 +1362,50 @@ def api_admin_scan_history():
         con.close()
 
 
+# ── DB pruning endpoints (260523 Phase 1) ────────────────────────────────────
+
+@app.get("/api/admin/db-stats")
+def api_admin_db_stats():
+    """Per-table row count, oldest/newest dates, exists flag."""
+    from db_pruner import list_db_stats
+    return {"tables": list_db_stats()}
+
+
+@app.post("/api/admin/db-prune")
+def api_admin_db_prune(
+    table: str,
+    older_than_days: int = 30,
+    dry_run: bool = True,
+    allow_protected: bool = False,
+):
+    """Delete rows from a single prunable table older than N days.
+    Defaults to dry_run=true. Set dry_run=false to actually delete."""
+    from db_pruner import prune_table
+    result = prune_table(
+        table=table, older_than_days=older_than_days,
+        dry_run=dry_run, allow_protected=allow_protected,
+    )
+    if not result.get("ok"):
+        raise HTTPException(status_code=400, detail=result.get("error", "prune failed"))
+    return result
+
+
+@app.post("/api/admin/db-prune-all")
+def api_admin_db_prune_all(
+    older_than_days: int = 30,
+    dry_run: bool = True,
+    include_protected: bool = False,
+):
+    """Bulk-prune every non-protected table older than N days.
+    include_protected=true also clears chart_observations + paper_portfolio."""
+    from db_pruner import prune_all
+    return prune_all(
+        older_than_days=older_than_days,
+        dry_run=dry_run,
+        include_protected=include_protected,
+    )
+
+
 @app.post("/api/admin/scan-start")
 def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", universe: str = "sp500", min_store_score: float = 5):
     from turbo_engine import run_turbo_scan, get_turbo_progress
