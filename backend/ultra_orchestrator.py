@@ -602,8 +602,15 @@ def run_ultra_scan_job(
                 sources["turbo"] = {"ok": True, "count": len(rows)}
                 _set_phase("turbo", "ok", f"{len(rows)} tickers")
             except Exception as exc:
+                import traceback as _tb
+                tb_str = _tb.format_exc()
                 _set_phase("turbo", "error", str(exc))
                 _add_warning(f"Turbo scan failed: {exc}")
+                with _ultra_lock:
+                    _ultra_state["error"] = str(exc)
+                    _ultra_state["error_trace"] = tb_str[-2000:]
+                    _ultra_state["error_at"] = "stage1_turbo"
+                log.exception("ULTRA Stage 1 turbo scan crashed")
 
             # All Stage 2 phases stay 'pending' until enrich is invoked
             for ph in ("stock_stat", "tz_wlnbb", "tz_intelligence",
@@ -611,8 +618,12 @@ def run_ultra_scan_job(
                 _set_phase(ph, "pending", "waiting on enrich")
 
         except Exception as exc:
+            import traceback as _tb
+            tb_str = _tb.format_exc()
             with _ultra_lock:
                 _ultra_state["error"] = str(exc)
+                _ultra_state["error_trace"] = tb_str[-2000:]  # last 2k chars
+                _ultra_state["error_at"] = "stage1_outer"
             log.exception("ULTRA Stage 1 crashed")
 
         _warnings_snapshot = list(_ultra_state.get("warnings", []))
