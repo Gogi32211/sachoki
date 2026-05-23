@@ -354,20 +354,47 @@ from ultra_score import compute_ultra_score as _shared_compute_ultra_score
 
 
 def _attach_ultra_score(row: dict) -> None:
-    """Compute and attach ULTRA Score fields to ``row`` in place."""
-    sc = _shared_compute_ultra_score(row)
-    row["ultra_score"]                    = sc["ultra_score"]
-    row["ultra_score_band"]               = sc["ultra_score_band"]
-    row["ultra_score_reasons"]            = sc["ultra_score_reasons"]
-    row["ultra_score_flags"]              = sc["ultra_score_flags"]
-    row["ultra_score_raw_before_penalty"] = sc["ultra_score_raw_before_penalty"]
-    row["ultra_score_penalty_total"]      = sc["ultra_score_penalty_total"]
-    # v2 calibration fields (replay-derived). Live UI / CSV reads these.
-    row["ultra_score_band_v2"]            = sc.get("ultra_score_band_v2", "D")
-    row["ultra_score_priority"]           = sc.get("ultra_score_priority", "LOW")
-    row["ultra_score_regime_bonus"]       = sc.get("ultra_score_regime_bonus", 0)
-    row["ultra_score_caps_applied"]       = sc.get("ultra_score_caps_applied", [])
-    row["ultra_score_cap_reason"]         = sc.get("ultra_score_cap_reason", "")
+    """Compute and attach ULTRA Score fields to ``row`` in place.
+
+    Defensive: any exception in compute_ultra_score is caught and logged,
+    and the row gets zeroed-out fields rather than missing keys. This
+    prevents a single bad row from crashing the whole scan and from
+    leaving `ultra_score` as null (→ frontend "—") for every row.
+    """
+    try:
+        sc = _shared_compute_ultra_score(row)
+        row["ultra_score"]                    = sc["ultra_score"]
+        row["ultra_score_band"]               = sc["ultra_score_band"]
+        row["ultra_score_reasons"]            = sc["ultra_score_reasons"]
+        row["ultra_score_flags"]              = sc["ultra_score_flags"]
+        row["ultra_score_raw_before_penalty"] = sc["ultra_score_raw_before_penalty"]
+        row["ultra_score_penalty_total"]      = sc["ultra_score_penalty_total"]
+        # v2 calibration fields (replay-derived). Live UI / CSV reads these.
+        row["ultra_score_band_v2"]            = sc.get("ultra_score_band_v2", "D")
+        row["ultra_score_priority"]           = sc.get("ultra_score_priority", "LOW")
+        row["ultra_score_regime_bonus"]       = sc.get("ultra_score_regime_bonus", 0)
+        row["ultra_score_caps_applied"]       = sc.get("ultra_score_caps_applied", [])
+        row["ultra_score_cap_reason"]         = sc.get("ultra_score_cap_reason", "")
+    except Exception as exc:
+        try:
+            _tk = row.get("ticker", "?")
+        except Exception:
+            _tk = "?"
+        log.exception("_attach_ultra_score crashed for ticker=%s — using fallback", _tk)
+        try:
+            row["ultra_score"]                    = 0
+            row["ultra_score_band"]               = "D"
+            row["ultra_score_reasons"]            = f"ERROR: {exc}"
+            row["ultra_score_flags"]              = ["ERROR"]
+            row["ultra_score_raw_before_penalty"] = 0
+            row["ultra_score_penalty_total"]      = 0
+            row["ultra_score_band_v2"]            = "D"
+            row["ultra_score_priority"]           = "LOW"
+            row["ultra_score_regime_bonus"]       = 0
+            row["ultra_score_caps_applied"]       = []
+            row["ultra_score_cap_reason"]         = ""
+        except Exception:
+            pass  # row mutation failed; nothing more we can do safely
 
 
 def _empty_unenriched_row(turbo_row: dict) -> dict:
@@ -933,9 +960,22 @@ def _build_response(universe: str, tf: str, nasdaq_batch: str,
                 },
             },
         }
+    # Defensive: if any cached row is missing `ultra_score` (e.g. loaded
+    # from DB after a crash before _attach_ultra_score ran, or stored with
+    # an older schema), compute it on the fly so the UI never shows "—"
+    # for every row. Skips rows that already have a numeric score.
+    cached_rows = cached.get("rows") or []
+    missing_score = sum(1 for r in cached_rows if r.get("ultra_score") is None)
+    if missing_score > 0:
+        log.info("ULTRA: backfilling ultra_score for %d/%d rows missing it",
+                 missing_score, len(cached_rows))
+        for r in cached_rows:
+            if r.get("ultra_score") is None:
+                _attach_ultra_score(r)
+
     return {
-        "results":   list(cached["rows"]),
-        "total":     len(cached["rows"]),
+        "results":   list(cached_rows),
+        "total":     len(cached_rows),
         "last_scan": cached.get("last_scan"),
         "warnings":  list(cached.get("warnings") or []),
         "meta": {

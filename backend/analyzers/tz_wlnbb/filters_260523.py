@@ -120,6 +120,19 @@ _PREBREAK_BOOL_FILTER_KEYS = (
 )
 
 
+def _column_unpopulated(results: List[Dict[str, Any]], col: str) -> bool:
+    """Return True if a column is missing/falsy across ALL result rows.
+    Used to detect when a stock_stat CSV lacks a new 260523 column so we
+    can warn the caller rather than silently returning 0 rows."""
+    if not results:
+        return False
+    for r in results:
+        v = r.get(col)
+        if v not in (None, "", False, 0):
+            return False
+    return True
+
+
 def apply_260523_filters(
     results: List[Dict[str, Any]],
     ad_fresh: Optional[bool] = None,

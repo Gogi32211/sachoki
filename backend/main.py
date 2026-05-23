@@ -752,6 +752,39 @@ def _enrich_with_260523(results: list, universe: str, tf: str, nasdaq_batch: str
     )
 
 
+def _diagnose_260523_columns(results: list, requested: dict) -> list:
+    """Return warning strings when the user asked to filter on a 260523
+    column but the stock_stat CSV doesn't have any True/non-empty values
+    for it across the result set. Common cause: stock_stat was generated
+    before this code version → column is missing/all-default.
+
+    Returns at most 5 warnings (one per requested-but-empty filter).
+    """
+    if not results:
+        return []
+    warnings: list = []
+    for col, want in requested.items():
+        if want is None or want == "":
+            continue
+        # Scan up to 200 rows for any populated value
+        sample = results[:200]
+        any_populated = False
+        for r in sample:
+            v = r.get(col)
+            if v not in (None, "", False, 0, "NEUTRAL", "0"):
+                any_populated = True
+                break
+        if not any_populated:
+            warnings.append(
+                f"Filter '{col}' = {want!r} requested but no row has this "
+                f"column populated. Run /api/regenerate-and-audit to rebuild "
+                f"stock_stat with the latest 260523 columns."
+            )
+            if len(warnings) >= 5:
+                break
+    return warnings
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -876,6 +909,22 @@ def api_turbo_scan(
 
         # ── 260523 enrichment + filter (AD-FRESH / AD-CLUSTER / WYC / SWING / PREBREAK) ──
         results = _enrich_with_260523(results, universe, tf)
+        # Detect stale stock_stat (missing v3.5 columns) BEFORE filtering, so
+        # we can warn the UI rather than silently returning 0 rows.
+        warnings_260523 = _diagnose_260523_columns(
+            results,
+            requested={
+                "ad_fresh": ad_fresh, "ad_cluster": ad_cluster,
+                "wyc_phase": wyc_phase, "wyc_spring": wyc_spring,
+                "wyc_sos": wyc_sos, "wyc_acc_tr": wyc_acc_tr,
+                "swing_type": swing_type,
+                "prebreak_prime": prebreak_prime, "prebreak_ready": prebreak_ready,
+                "prebreak_watch": prebreak_watch,
+                "pb_lvbo": pb_lvbo, "pb_stop_cause": pb_stop_cause,
+                "pb_wvf_confirm": pb_wvf_confirm, "pb_macro_penalty": pb_macro_penalty,
+                "wyc_in_tr": wyc_in_tr, "wyc_sow": wyc_sow,
+            },
+        )
         results = _apply_260523_filters(
             results,
             ad_fresh=ad_fresh, ad_cluster=ad_cluster,
@@ -889,7 +938,10 @@ def api_turbo_scan(
             wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
         )
 
-        return {"results": results, "last_scan": last_time, "meta": meta}
+        resp = {"results": results, "last_scan": last_time, "meta": meta}
+        if warnings_260523:
+            resp["warnings_260523"] = warnings_260523
+        return resp
     except Exception as exc:
         log.exception("turbo-scan error")
         raise HTTPException(status_code=500, detail=str(exc))
@@ -3716,6 +3768,20 @@ def api_ultra_scan_results(
         results = resp.get("results") or []
         if results:
             results = _enrich_with_260523(results, universe, tf, nasdaq_batch)
+            warnings_260523 = _diagnose_260523_columns(
+                results,
+                requested={
+                    "ad_fresh": ad_fresh, "ad_cluster": ad_cluster,
+                    "wyc_phase": wyc_phase, "wyc_spring": wyc_spring,
+                    "wyc_sos": wyc_sos, "wyc_acc_tr": wyc_acc_tr,
+                    "swing_type": swing_type,
+                    "prebreak_prime": prebreak_prime, "prebreak_ready": prebreak_ready,
+                    "prebreak_watch": prebreak_watch,
+                    "pb_lvbo": pb_lvbo, "pb_stop_cause": pb_stop_cause,
+                    "pb_wvf_confirm": pb_wvf_confirm, "pb_macro_penalty": pb_macro_penalty,
+                    "wyc_in_tr": wyc_in_tr, "wyc_sow": wyc_sow,
+                },
+            )
             results = _apply_260523_filters(
                 results,
                 ad_fresh=ad_fresh, ad_cluster=ad_cluster,
@@ -3729,6 +3795,10 @@ def api_ultra_scan_results(
                 wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
             resp["results"] = results
+            if warnings_260523:
+                existing = list(resp.get("warnings") or [])
+                resp["warnings"] = existing + warnings_260523
+                resp["warnings_260523"] = warnings_260523
         return resp
     except Exception as exc:
         log.exception("ultra-scan/results error")
