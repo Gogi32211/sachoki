@@ -3713,7 +3713,6 @@ def api_rare_reversal_scan(
         raise HTTPException(status_code=500, detail=str(exc))
 
 
-@app.post("/api/ultra-scan/trigger")
 @app.post("/api/ultra-scan/reset")
 def api_ultra_scan_reset(force: bool = Query(False)):
     """Manually clear the ULTRA `running` flag if a scan got stuck.
@@ -3726,6 +3725,7 @@ def api_ultra_scan_reset(force: bool = Query(False)):
     return reset_ultra_state(force=force)
 
 
+@app.post("/api/ultra-scan/trigger")
 def api_ultra_scan_trigger(
     background_tasks: BackgroundTasks,
     universe:        str   = Query("sp500"),
