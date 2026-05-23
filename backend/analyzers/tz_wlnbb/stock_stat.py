@@ -45,7 +45,7 @@ OUTPUT_COLUMNS = [
     "fwd_swing_ret", "fwd_swing_bars",          # RESEARCH_ONLY (lookahead)
     "is_pivot_high", "is_pivot_low",
     # ── 260523 v3.5: PREBREAK + WYC additional ──────────────────────────────
-    "prebreak_prime", "prebreak_ready", "prebreak_watch",
+    "prebreak_score", "prebreak_prime", "prebreak_ready", "prebreak_watch",
     "pb_lvbo", "pb_stop_cause", "pb_pp_rtv", "pb_fly_cd_c",
     "pb_wvf_confirm", "pb_follow_confirm", "pb_macro_penalty",
     "wyc_in_tr", "wyc_sow",

@@ -437,6 +437,12 @@ export default function SuperchartPanel({
       'SIG_CISD_CPLUS','SIG_CISD_CPLUS_MINUS','SIG_CISD_CPLUS_MM',
       // ── PARA context
       'SIG_PARA_PREP','SIG_PARA_START','SIG_PARA_PLUS','SIG_PARA_RETEST',
+      // ── 260523 / ULTRA signals (sync with ULTRA screener)
+      'ad_fresh','ad_cluster',
+      'wyc_phase','wyc_spring','wyc_sos','wyc_in_tr','wyc_sow',
+      'prebreak_score','prebreak_prime','prebreak_ready','prebreak_watch',
+      'pb_lvbo','pb_wvf_confirm','pb_stop_cause','pb_macro_penalty',
+      'swing_type',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -595,6 +601,23 @@ export default function SuperchartPanel({
       // ── PARA context
       s(b,'sig_para_prep'), s(b,'sig_para_start'),
       s(b,'sig_para_plus'), s(b,'sig_para_retest'),
+      // ── 260523 / ULTRA signals
+      b.ad_fresh ? 1 : 0,
+      b.ad_cluster ? 1 : 0,
+      b.wyc_phase ?? '',
+      b.wyc_spring ? 1 : 0,
+      b.wyc_sos ? 1 : 0,
+      b.wyc_in_tr ? 1 : 0,
+      b.wyc_sow ? 1 : 0,
+      b.prebreak_score ?? 0,
+      b.prebreak_prime ? 1 : 0,
+      b.prebreak_ready ? 1 : 0,
+      b.prebreak_watch ? 1 : 0,
+      b.pb_lvbo ? 1 : 0,
+      b.pb_wvf_confirm ? 1 : 0,
+      b.pb_stop_cause ? 1 : 0,
+      b.pb_macro_penalty ? 1 : 0,
+      b.swing_type ?? '',
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
