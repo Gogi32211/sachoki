@@ -320,6 +320,7 @@ def run_rare_reversal_scan(
     max_price: float = 1e9,
     limit:     int   = 200,
     stat_path: str | None = None,
+    rows_by_ticker: dict | None = None,
 ) -> dict:
     """
     Mine rare reversal patterns from the stock_stat CSV.
@@ -341,28 +342,27 @@ def run_rare_reversal_scan(
     matrix_universe = _UNIVERSE_MAP[universe]
     matrix = _load_seq4_matrix()
 
-    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
-    stat_file = stat_path if stat_path is not None else _stat_path(universe, tf)
-    if not os.path.exists(stat_file):
-        return {
-            "results": [], "total": 0,
-            "error": (
-                f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
-                "Run TZ/WLNBB → Generate Stock Stat first."
-            ),
-        }
-
-    # Read all rows grouped by ticker
-    rows_by_ticker: Dict[str, List[dict]] = {}
-    with open(stat_file, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            tkr = row.get("ticker", "").strip()
-            if tkr:
-                rows_by_ticker.setdefault(tkr, []).append(row)
-
-    # Sort each ticker's rows by date ascending
-    for rows in rows_by_ticker.values():
-        rows.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
+    # ULTRA Stage 2 may pass a pre-materialised grouping (shared with siblings)
+    # or an explicit subset file path. Fall back to canonical CSV resolution.
+    if rows_by_ticker is None:
+        stat_file = stat_path if stat_path is not None else _stat_path(universe, tf)
+        if not os.path.exists(stat_file):
+            return {
+                "results": [], "total": 0,
+                "error": (
+                    f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
+                    "Run TZ/WLNBB → Generate Stock Stat first."
+                ),
+            }
+        from stat_io import read_stat_as_df, df_to_string_rows, group_rows_by_ticker
+        _df = read_stat_as_df(stat_file)
+        rows_by_ticker = group_rows_by_ticker(
+            df_to_string_rows(_df), sort_by_bar=True,
+        )
+    else:
+        # Pre-materialised dict: ensure ascending bar order.
+        for _lst in rows_by_ticker.values():
+            _lst.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
 
     all_patterns: list = []
 

@@ -22,7 +22,6 @@ Stage 2 — `run_ultra_enrich_job(tickers, …)` (lazy, per-subset)
 """
 from __future__ import annotations
 
-import csv as _csv
 import gc as _gc
 import hashlib
 import logging
@@ -159,30 +158,32 @@ def _resolve_canonical_stock_stat(universe: str, tf: str, nasdaq_batch: str = ""
 
 
 def _ultra_subset_path(universe: str, tf: str, tickers: list[str]) -> str:
-    """ULTRA-private subset CSV path. Hash is over sorted tickers so the same
-    subset re-uses the same file (cheap idempotency)."""
+    """ULTRA-private subset parquet path. Hash is over sorted tickers so the
+    same subset re-uses the same file (cheap idempotency).
+
+    Switched from .csv to .parquet (5-10× smaller on disk, ~10× faster reads
+    via pyarrow). Readers detect format by extension via stat_io.
+    """
     norm = ",".join(sorted(t.upper() for t in tickers if t))
     h = hashlib.sha256(norm.encode("utf-8")).hexdigest()[:8]
-    return f"stock_stat_tz_wlnbb_ultra_{universe}_{tf}_{h}.csv"
+    return f"stock_stat_tz_wlnbb_ultra_{universe}_{tf}_{h}.parquet"
 
 
-def _read_tz_wlnbb_latest_from(stat_path: str, universe: str) -> dict:
-    """Latest TZ/WLNBB row per ticker from a specific stock_stat CSV."""
-    if not stat_path or not _os.path.exists(stat_path):
+def _read_tz_wlnbb_latest_from_rows(rows_by_ticker: dict, universe: str) -> dict:
+    """Latest TZ/WLNBB row per ticker from a pre-grouped rows_by_ticker dict.
+    Filters rows whose `universe` column disagrees with the requested universe.
+    Caller is expected to have grouped via stat_io.group_rows_by_ticker."""
+    if not rows_by_ticker:
         return {}
-    rows_by_ticker: dict[str, list] = {}
-    with open(stat_path, newline="", encoding="utf-8") as f:
-        for row in _csv.DictReader(f):
-            t = row.get("ticker", "")
-            if not t:
-                continue
-            if row.get("universe", "") and row.get("universe", "") != universe:
-                continue
-            rows_by_ticker.setdefault(t, []).append(row)
     latest: dict = {}
     for t, rows in rows_by_ticker.items():
-        rows.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
-        latest[t] = rows[-1]
+        # Filter by universe column when present.
+        filtered = [r for r in rows
+                    if (not r.get("universe")) or r.get("universe") == universe]
+        if not filtered:
+            continue
+        filtered.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
+        latest[t] = filtered[-1]
     return latest
 
 
@@ -193,30 +194,32 @@ def _read_tz_wlnbb_latest_from(stat_path: str, universe: str) -> dict:
 def _extract_subset_csv(canonical_path: str, subset_path: str,
                         tickers: list[str]) -> int:
     """Filter `canonical_path` rows to the picked tickers and write the result
-    to `subset_path`. Returns row count written."""
+    to `subset_path` (parquet). Returns row count written.
+
+    The canonical file is CSV (regular pipeline still writes CSV), but the
+    ULTRA-private subset is parquet for compactness and read speed.
+    """
+    import pandas as _pd
     wanted = {t.upper() for t in tickers if t}
-    written = 0
-    with open(canonical_path, newline="", encoding="utf-8") as fin:
-        reader = _csv.DictReader(fin)
-        fieldnames = reader.fieldnames or []
-        with open(subset_path, "w", newline="", encoding="utf-8") as fout:
-            writer = _csv.DictWriter(fout, fieldnames=fieldnames, extrasaction="ignore")
-            writer.writeheader()
-            for row in reader:
-                t = (row.get("ticker") or "").upper()
-                if t in wanted:
-                    writer.writerow(row)
-                    written += 1
-    return written
+    # Read canonical CSV in object dtype to preserve historical CSV semantics
+    # (downstream readers do their own type coercion).
+    df = _pd.read_csv(canonical_path, dtype=object,
+                      keep_default_na=False, na_values=[])
+    if "ticker" in df.columns:
+        mask = df["ticker"].str.upper().isin(wanted)
+        df = df[mask]
+    df.to_parquet(subset_path, index=False, compression="snappy")
+    return len(df)
 
 
 def _generate_subset_csv_fresh(universe: str, tf: str, tickers: list[str],
                                 bars: int, subset_path: str) -> int:
     """Run the existing TZ/WLNBB stock_stat generator for ONLY the picked
-    tickers and write the output to the ULTRA-private subset path. Does NOT
-    touch the canonical path."""
+    tickers, then convert its CSV output to parquet at `subset_path`. The
+    intermediate CSV is removed once parquet is written."""
     from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
     from data_polygon import fetch_bars as _fetch_bars, polygon_available
+    from stat_io import convert_csv_to_parquet
 
     if polygon_available():
         def _fetch(ticker, interval, n_bars):
@@ -233,18 +236,21 @@ def _generate_subset_csv_fresh(universe: str, tf: str, tickers: list[str],
             _ultra_state["stock_stat_total"] = total
 
     gen_min_price = 5.0 if universe == "nasdaq_gt5" else 0.0
+    # generate_stock_stat writes CSV — route it through a sibling .csv path
+    # then convert. This keeps the producer module unchanged.
+    csv_intermediate = subset_path.removesuffix(".parquet") + ".csv"
     path, _audit = generate_stock_stat(
         list(tickers), _fetch, universe=universe, tf=tf, bars=bars,
-        min_price=gen_min_price, output_path=subset_path,
+        min_price=gen_min_price, output_path=csv_intermediate,
         progress_callback=_on_progress,
     )
-    # Count rows written
     if not _os.path.exists(path):
         return 0
-    n = 0
-    with open(path, newline="", encoding="utf-8") as f:
-        for _ in _csv.DictReader(f):
-            n += 1
+    n = convert_csv_to_parquet(path, subset_path)
+    try:
+        _os.remove(path)
+    except OSError:
+        pass
     return n
 
 
@@ -734,12 +740,12 @@ def run_ultra_enrich_job(
 
     # ── Step A: subset stock_stat — extract from canonical or fresh-fetch ───
     subset_path = _ultra_subset_path(universe, tf, norm_tickers)
-    _set_phase("stock_stat", "running",
-               "extracting subset from canonical" if False else "preparing subset CSV")
+    _set_phase("stock_stat", "running", "preparing subset parquet")
     try:
         if _os.path.exists(subset_path):
             # Already prepared for this exact ticker set
-            stock_stat_count = _count_csv_rows(subset_path)
+            from stat_io import count_rows as _count_rows
+            stock_stat_count = _count_rows(subset_path)
             _set_phase("stock_stat", "ok",
                        f"reused subset {subset_path} ({stock_stat_count} rows)")
         else:
@@ -774,7 +780,31 @@ def run_ultra_enrich_job(
         _gc.collect()
         return _build_response(universe, tf, nasdaq_batch, elapsed_ms)
 
-    # ── Step B-E: run the four readers in parallel against the subset CSV ───
+    # ── Step B: read subset ONCE and share across the four readers ──────────
+    # Historically each of the 4 readers re-opened the subset CSV via
+    # csv.DictReader. With the 141MB subsets seen in production this meant
+    # 4× disk reads + 4× full DataFrame in RAM. Now: read parquet once →
+    # convert to string-form rows → group by ticker → pass the same dict to
+    # every reader via the new `rows_by_ticker=` parameter.
+    from stat_io import read_stat_as_df, df_to_string_rows, group_rows_by_ticker
+    try:
+        _subset_df = read_stat_as_df(subset_path)
+        _subset_rows = df_to_string_rows(_subset_df)
+        # Each reader mutates (sorts) its own group list, so give each thread a
+        # fresh grouping. Cheaper than 4× full reads: the underlying row dicts
+        # are shared by reference.
+        def _fresh_grouping(sort: bool = False) -> dict:
+            return group_rows_by_ticker(_subset_rows, sort_by_bar=sort)
+        _wlnbb_rows = _fresh_grouping(sort=False)  # tz_wlnbb does its own sort
+        _intel_rows = _fresh_grouping(sort=False)  # tz_intelligence sorts via _sort_key
+        _pull_rows  = _fresh_grouping(sort=False)  # pullback miner sorts ascending
+        _rare_rows  = _fresh_grouping(sort=False)  # rare reversal sorts ascending
+        del _subset_df  # release pandas DataFrame; row dicts live on
+    except Exception as exc:
+        _set_phase("merge", "error", f"subset read failed: {exc}")
+        fresh_warnings.append(f"subset read failed: {exc}")
+        _wlnbb_rows = _intel_rows = _pull_rows = _rare_rows = {}
+
     ph2_workers = max(1, min(4, max_workers))
     tz_wlnbb_by_ticker: dict = {}
     tz_intel_by_ticker: dict = {}
@@ -784,7 +814,7 @@ def run_ultra_enrich_job(
     def _do_tz_wlnbb():
         _set_phase("tz_wlnbb", "running", "")
         try:
-            d = _read_tz_wlnbb_latest_from(subset_path, universe)
+            d = _read_tz_wlnbb_latest_from_rows(_wlnbb_rows, universe)
             _set_phase("tz_wlnbb", "ok" if d else "skipped",
                        f"{len(d)} tickers")
             return d
@@ -801,7 +831,7 @@ def run_ultra_enrich_job(
                 universe=universe, tf=tf, nasdaq_batch=nasdaq_batch,
                 min_price=min_price, max_price=max_price, min_volume=min_volume,
                 role_filter="all", scan_mode="latest", limit=10000,
-                stat_path=subset_path,
+                rows_by_ticker=_intel_rows,
             )
             if isinstance(resp, dict) and resp.get("error"):
                 _set_phase("tz_intelligence", "skipped", resp["error"])
@@ -826,7 +856,7 @@ def run_ultra_enrich_job(
             resp = run_pullback_scan(
                 universe=universe, tf=tf,
                 min_price=min_price, max_price=max_price,
-                limit=10000, stat_path=subset_path,
+                limit=10000, rows_by_ticker=_pull_rows,
             )
             if isinstance(resp, dict) and resp.get("error"):
                 _set_phase("pullback", "skipped", resp["error"])
@@ -847,7 +877,7 @@ def run_ultra_enrich_job(
             resp = run_rare_reversal_scan(
                 universe=universe, tf=tf,
                 min_price=min_price, max_price=max_price,
-                limit=10000, stat_path=subset_path,
+                limit=10000, rows_by_ticker=_rare_rows,
             )
             if isinstance(resp, dict) and resp.get("error"):
                 _set_phase("rare_reversal", "skipped", resp["error"])
@@ -933,16 +963,6 @@ def run_ultra_enrich_job(
     return _build_response(universe, tf, nasdaq_batch, elapsed_ms)
 
 
-def _count_csv_rows(path: str) -> int:
-    if not _os.path.exists(path):
-        return 0
-    n = 0
-    with open(path, newline="", encoding="utf-8") as f:
-        for _ in _csv.DictReader(f):
-            n += 1
-    return n
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # Status / results readers
 # ─────────────────────────────────────────────────────────────────────────────
@@ -1000,6 +1020,74 @@ def _build_response(universe: str, tf: str, nasdaq_batch: str,
     }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Progress accounting for the status UI
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Phase weight allocation: empirically stock_stat dominates on fresh fetches
+# (Massive fan-out per ticker), while the 4 secondary readers run in parallel
+# against the prepared subset and are cheap.
+_ENRICH_PHASE_WEIGHTS = {
+    "stock_stat":      0.80,
+    "tz_wlnbb":        0.04,
+    "tz_intelligence": 0.04,
+    "pullback":        0.04,
+    "rare_reversal":   0.04,
+    "merge":           0.04,
+}
+_STAGE1_PHASE_WEIGHTS = {"turbo": 1.0}
+
+
+def _compute_progress(snap: dict) -> tuple[float, float | None, str]:
+    """Return (progress_pct 0-100, eta_seconds | None, current_label).
+
+    Combines per-phase completion (0/1) with the granular stock_stat_done
+    counter so the bar smoothly advances during the long fetch step.
+    """
+    stage   = snap.get("stage")
+    phases  = snap.get("phases") or {}
+    if stage == "enrich":
+        weights = _ENRICH_PHASE_WEIGHTS
+    else:
+        weights = _STAGE1_PHASE_WEIGHTS
+
+    pct = 0.0
+    current_label = ""
+    for ph, w in weights.items():
+        st = (phases.get(ph) or {}).get("state", "pending")
+        if st == "ok" or st == "skipped":
+            pct += w
+        elif st == "running":
+            current_label = ph
+            # stock_stat exposes granular done/total; other phases are coarse
+            if ph == "stock_stat":
+                done  = float(snap.get("stock_stat_done")  or 0)
+                total = float(snap.get("stock_stat_total") or 0)
+                frac = (done / total) if total > 0 else 0.0
+                pct += w * max(0.0, min(1.0, frac))
+            elif ph == "turbo":
+                done  = float(snap.get("turbo_done")  or 0)
+                total = float(snap.get("turbo_total") or 0)
+                frac = (done / total) if total > 0 else 0.0
+                pct += w * max(0.0, min(1.0, frac))
+            else:
+                pct += w * 0.5   # rough placeholder for in-flight reader
+        # else 'pending' or 'error' → no contribution
+    pct_clamped = max(0.0, min(1.0, pct)) * 100.0
+
+    # ETA: only meaningful once we've made some progress.
+    started = snap.get("started_at") or 0.0
+    completed = snap.get("completed_at") or 0.0
+    eta: float | None = None
+    if started > 0 and not completed and pct > 0.05:
+        elapsed = _time.time() - started
+        # ETA = elapsed * (1 - pct) / pct
+        remaining = elapsed * (1.0 - pct) / pct if pct > 0 else None
+        eta = max(0.0, remaining) if remaining is not None else None
+
+    return pct_clamped, eta, current_label
+
+
 def get_ultra_status() -> dict:
     """Returns a snapshot of the ULTRA state.
 
@@ -1026,7 +1114,18 @@ def get_ultra_status() -> dict:
                     "auto-cleared stale running state (>10min no progress)"
                 )
                 snap = dict(_ultra_state)
-        return snap
+
+    # Computed outside the lock — pure function of the snapshot
+    pct, eta, current = _compute_progress(snap)
+    started = snap.get("started_at") or 0.0
+    completed = snap.get("completed_at") or 0.0
+    snap["progress_pct"] = round(pct, 1)
+    snap["eta_seconds"]  = round(eta, 1) if eta is not None else None
+    snap["elapsed_seconds"] = round(
+        (completed if completed else _time.time()) - started, 1
+    ) if started else 0.0
+    snap["current_phase"] = current or snap.get("phase") or ""
+    return snap
 
 
 def reset_ultra_state(force: bool = False) -> dict:

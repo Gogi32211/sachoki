@@ -268,6 +268,7 @@ def run_intelligence_scan(
     debug: bool = False,
     stat_path: str | None = None,
     max_stale_trading_days: int = 2,
+    rows_by_ticker: dict | None = None,
 ) -> dict:
     """
     Read the existing TZ/WLNBB stock_stat CSV, classify every ticker,
@@ -277,8 +278,12 @@ def run_intelligence_scan(
     scan_mode='history' — one result per bar across all history.
 
     stat_path — optional override (used by ULTRA's lazy enrichment to point
-    at a private subset CSV instead of the canonical file). When None, the
-    canonical resolution is used unchanged.
+    at a private subset CSV/parquet file instead of the canonical file).
+    When None, the canonical resolution is used unchanged.
+
+    rows_by_ticker — optional pre-materialised grouping (ULTRA passes this
+    so the same DataFrame is shared across 4 readers without 4 file reads).
+    Takes precedence over stat_path when set.
     """
     # ── Input validation (must happen before any path construction) ───────────
     if universe not in _VALID_UNIVERSES:
@@ -298,45 +303,41 @@ def run_intelligence_scan(
     if universe == "nasdaq_gt5":
         min_price = max(min_price, 5.0)
 
-    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
-    if stat_path is not None:
+    # ULTRA Stage 2 may pass a pre-materialised grouping or an explicit subset
+    # file path (parquet or csv). Fall back to canonical CSV resolution.
+    if rows_by_ticker is None:
+        if stat_path is not None:
+            if not os.path.exists(stat_path):
+                return {
+                    "results": [],
+                    "error": (
+                        f"ULTRA stat_path override not found: {stat_path}"
+                    ),
+                }
+        else:
+            stat_path = _stat_path(universe, tf, nasdaq_batch)
+            if not os.path.exists(stat_path):
+                stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+            if not os.path.exists(stat_path):
+                stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
         if not os.path.exists(stat_path):
             return {
                 "results": [],
                 "error": (
-                    f"ULTRA stat_path override not found: {stat_path}"
+                    f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
+                    "Run TZ/WLNBB → Generate Stock Stat first."
+                    + (" Use the NASDAQ > $5 universe option." if universe == "nasdaq_gt5" else "")
                 ),
             }
-    else:
-        stat_path = _stat_path(universe, tf, nasdaq_batch)
-        if not os.path.exists(stat_path):
-            stat_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
-        if not os.path.exists(stat_path):
-            stat_path = f"stock_stat_tz_wlnbb_{tf}.csv"
-    if not os.path.exists(stat_path):
-        return {
-            "results": [],
-            "error": (
-                f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
-                "Run TZ/WLNBB → Generate Stock Stat first."
-                + (" Use the NASDAQ > $5 universe option." if universe == "nasdaq_gt5" else "")
-            ),
-        }
+
+        # Load via shared helper — supports parquet and CSV transparently.
+        from stat_io import read_stat_as_df, df_to_string_rows, group_rows_by_ticker
+        _df = read_stat_as_df(stat_path)
+        rows_by_ticker = group_rows_by_ticker(
+            df_to_string_rows(_df), sort_by_bar=False,
+        )
 
     matrix = load_matrix()
-
-    # No live cross-filter at query time.
-    # The stock_stat CSV IS the authoritative ticker source for the split universe —
-    # it was generated from split_service at generation time (split_universe_latest.csv).
-    # Filtering here against the current live split window would silently drop tickers
-    # whose split event has shifted phases since generation.
-    rows_by_ticker: dict[str, list] = {}
-    with open(stat_path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            ticker = row.get("ticker", "")
-            if not ticker:
-                continue
-            rows_by_ticker.setdefault(ticker, []).append(row)
 
     results: list = []
     dropped_tickers:      list = []

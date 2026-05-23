@@ -446,6 +446,7 @@ def run_pullback_scan(
     max_price: float = 1e9,
     limit: int = 500,
     stat_path: str | None = None,
+    rows_by_ticker: dict | None = None,
 ) -> dict:
     """
     Scan one universe/tf stock_stat CSV for pullback continuation patterns.
@@ -462,28 +463,30 @@ def run_pullback_scan(
     if tf not in _VALID_TFS:
         return {"results": [], "events": [], "error": f"Invalid timeframe '{tf}'."}
 
-    # ULTRA may pass an explicit subset CSV path. Otherwise resolve canonical.
-    if stat_path is None:
-        stat_path = _stat_file(universe, tf)
-    if not os.path.exists(stat_path):
-        return {
-            "results": [], "events": [], "total_tickers": 0,
-            "error": (
-                f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
-                "Run TZ/WLNBB → Generate Stock Stat first."
-            ),
-        }
+    # ULTRA Stage 2 may pass a pre-materialised grouping (shared with siblings)
+    # or an explicit subset file path. Fall back to canonical CSV resolution.
+    if rows_by_ticker is None:
+        if stat_path is None:
+            stat_path = _stat_file(universe, tf)
+        if not os.path.exists(stat_path):
+            return {
+                "results": [], "events": [], "total_tickers": 0,
+                "error": (
+                    f"No stock_stat_tz_wlnbb CSV found for universe={universe} tf={tf}. "
+                    "Run TZ/WLNBB → Generate Stock Stat first."
+                ),
+            }
 
-    # Read all rows grouped by ticker
-    rows_by_ticker: Dict[str, List[dict]] = {}
-    with open(stat_path, newline="", encoding="utf-8") as f:
-        for row in csv.DictReader(f):
-            tkr = row.get("ticker", "").strip()
-            if tkr:
-                rows_by_ticker.setdefault(tkr, []).append(row)
-
-    for rows in rows_by_ticker.values():
-        rows.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
+        from stat_io import read_stat_as_df, df_to_string_rows, group_rows_by_ticker
+        _df = read_stat_as_df(stat_path)
+        rows_by_ticker = group_rows_by_ticker(
+            df_to_string_rows(_df), sort_by_bar=True,
+        )
+    else:
+        # Pre-materialised dict: ensure each group is sorted in ascending
+        # bar order (orchestrator may pass unsorted).
+        for _lst in rows_by_ticker.values():
+            _lst.sort(key=lambda r: r.get("bar_datetime") or r.get("date", ""))
 
     all_top3:   list = []
     all_events: list = []

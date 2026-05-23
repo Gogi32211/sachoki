@@ -10,3 +10,9 @@ frontend/package-lock.json
 tz_intelligence_package/.DS_Store
 split_universe_latest.csv
 .claude/
+.env
+backend/.env
+backend/static/
+backend/.venv/
+backend/stock_stat_*.csv
+backend/stock_stat_*.parquet
