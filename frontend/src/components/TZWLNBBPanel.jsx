@@ -879,12 +879,12 @@ export default function TZWLNBBPanel() {
     }, 2000)
   }
 
-  async function handleGenerate() {
+  async function handleGenerate(mode = 'full') {
     setGenStatus('starting')
     setGenError(null)
     setSplitGenCount(null)
     try {
-      const params = { universe, tf, bars: 252 }
+      const params = { universe, tf, bars: 252, mode }
       if (universe === 'nasdaq') params.nasdaq_batch = nasdaqBatch
       if (universe === 'nasdaq_gt5' && gt5Batch) params.nasdaq_batch = gt5Batch
       await apiPost('/api/tz-wlnbb/generate-stock-stat', params)
@@ -1285,11 +1285,20 @@ export default function TZWLNBBPanel() {
       {/* ── Generate Stock Stat ──────────────────────────────────────────── */}
       <div className="flex items-center gap-3 p-2 bg-md-surface-con rounded border border-md-outline-var">
         <button
-          onClick={handleGenerate}
+          onClick={() => handleGenerate('full')}
           disabled={isRunning}
+          title="Full rebuild — fetches all history for every ticker. Slow."
           className="px-3 py-1.5 bg-emerald-700 hover:bg-emerald-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors"
         >
-          {isRunning ? 'Generating…' : 'Generate Stock Stat'}
+          {isRunning ? 'Generating…' : 'Full Scan'}
+        </button>
+        <button
+          onClick={() => handleGenerate('today')}
+          disabled={isRunning}
+          title="Incremental — fetches only NEW bars since the last scan date and appends. ~100× faster on daily refresh."
+          className="px-3 py-1.5 bg-teal-700 hover:bg-teal-600 disabled:bg-gray-700 text-white text-xs font-semibold rounded transition-colors"
+        >
+          ⚡ Today only
         </button>
         {isRunning && (
           <button

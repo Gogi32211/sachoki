@@ -476,3 +476,339 @@ def generate_stock_stat(
         audit["sample_skip_reasons"] = sample_errors
 
     return output_path, audit
+
+
+# ──────────────────────────────────────────────────────────────────────────
+# 260523 v4.9 Phase 2 — Incremental ("scan today only")
+# ──────────────────────────────────────────────────────────────────────────
+
+def _read_existing_last_dates(csv_path: str) -> dict:
+    """Scan an existing stock_stat CSV and return {ticker: max_date}."""
+    if not os.path.exists(csv_path):
+        return {}
+    try:
+        import pandas as _pd
+        df = _pd.read_csv(csv_path, usecols=["ticker", "date"], low_memory=False)
+    except Exception as e:
+        log.warning("incremental: cannot read existing CSV %s: %s", csv_path, e)
+        return {}
+    if len(df) == 0:
+        return {}
+    grp = df.groupby("ticker")["date"].max()
+    return {str(t): str(d) for t, d in grp.items()}
+
+
+def _read_ticker_tail(csv_path: str, ticker: str, n_bars: int = 60):
+    """Read the last `n_bars` rows for `ticker` from the existing CSV.
+    Used as warm-up context (so indicators have prior bars to compute on)."""
+    if not os.path.exists(csv_path):
+        return None
+    try:
+        import pandas as _pd
+        df = _pd.read_csv(csv_path, low_memory=False)
+        sub = df[df["ticker"] == ticker]
+        if len(sub) == 0:
+            return None
+        # OHLCV only — the rest will be recomputed by compute_signals_for_ticker
+        sub = sub[["date", "open", "high", "low", "close", "volume"]].copy()
+        sub = sub.sort_values("date").tail(n_bars).reset_index(drop=True)
+        return sub
+    except Exception as e:
+        log.warning("incremental: tail read failed for %s: %s", ticker, e)
+        return None
+
+
+def _append_rows(csv_path: str, rows: list) -> int:
+    """Append rows (list of OUTPUT_COLUMNS-aligned lists) to existing CSV.
+    Returns count appended."""
+    if not rows:
+        return 0
+    with open(csv_path, "a", newline="", encoding="utf-8") as fh:
+        w = csv.writer(fh)
+        for r in rows:
+            w.writerow(r)
+    return len(rows)
+
+
+def generate_stock_stat_incremental(
+    tickers: List[str],
+    fetch_ohlcv_fn: Callable,
+    universe: str = "sp500",
+    tf: str = "1d",
+    output_path: Optional[str] = None,
+    progress_callback: Optional[Callable[[int, int], None]] = None,
+    early_stop_fn: Optional[Callable[[], bool]] = None,
+    warmup_bars: int = 60,
+    max_gap_days: int = 10,
+) -> Tuple[str, dict]:
+    """Append only NEW bars (since last existing date) per ticker.
+
+    For each ticker:
+      1. Read existing CSV → last_date.
+      2. If file doesn't exist OR last_date older than max_gap_days → fall
+         back to full generate_stock_stat for that ticker (cold start).
+      3. Otherwise: fetch only bars since (last_date + 1 day).
+      4. Concat with warmup tail (60 bars) → compute_signals_for_ticker on
+         the combined frame → take only the new rows.
+      5. Append new rows to CSV.
+
+    Returns (output_path, audit). Audit includes per-ticker stats:
+      tickers_appended, tickers_skipped_no_new_bars, total_rows_added.
+    """
+    if output_path is None:
+        output_path = f"stock_stat_tz_wlnbb_{universe}_{tf}.csv"
+
+    t0 = time.time()
+    total = len(tickers)
+
+    audit = {
+        "mode": "incremental",
+        "tickers_requested": total,
+        "tickers_appended": 0,
+        "tickers_skipped_no_new_bars": 0,
+        "tickers_cold_started": 0,
+        "tickers_error": 0,
+        "rows_added": 0,
+        "skip_reasons": {},
+    }
+
+    # If file doesn't exist at all, do a full run for all tickers (cold start)
+    if not os.path.exists(output_path):
+        log.info("incremental: %s does not exist — falling back to full scan", output_path)
+        return generate_stock_stat(
+            tickers=tickers, fetch_ohlcv_fn=fetch_ohlcv_fn,
+            universe=universe, tf=tf, bars=500,
+            output_path=output_path,
+            progress_callback=progress_callback,
+            early_stop_fn=early_stop_fn,
+        )
+
+    last_dates = _read_existing_last_dates(output_path)
+    log.info("incremental: existing CSV covers %d tickers", len(last_dates))
+
+    from .signal_extraction import compute_signals_for_ticker
+    import pandas as _pd
+
+    # Compute "today" cutoff to know what is fresh
+    from datetime import date as _date, datetime as _dt, timedelta as _td
+
+    cold_start_tickers: list = []
+
+    for idx, ticker in enumerate(tickers, start=1):
+        if early_stop_fn and early_stop_fn():
+            log.info("incremental: early stop after %d tickers", idx - 1)
+            break
+        if progress_callback:
+            progress_callback(idx, total)
+
+        last_date_str = last_dates.get(ticker)
+        if not last_date_str:
+            cold_start_tickers.append(ticker)
+            continue
+
+        # Parse last date
+        try:
+            last_dt = _dt.strptime(last_date_str[:10], "%Y-%m-%d").date()
+        except Exception:
+            cold_start_tickers.append(ticker)
+            continue
+
+        gap = (_date.today() - last_dt).days
+        if gap > max_gap_days:
+            log.info("incremental: %s last bar %s is %d days old (>max_gap_days=%d) → cold start",
+                     ticker, last_date_str, gap, max_gap_days)
+            cold_start_tickers.append(ticker)
+            continue
+
+        # Fetch only new bars since last+1
+        since_str = (last_dt + _td(days=1)).strftime("%Y-%m-%d")
+        try:
+            new_df = fetch_ohlcv_fn(ticker, tf, since=since_str)
+        except TypeError:
+            # Caller passed a fetch fn that doesn't accept `since` — fall back
+            try:
+                new_df = fetch_ohlcv_fn(ticker, tf, 30)  # last 30 days
+                if "date" in getattr(new_df, "columns", []):
+                    new_df = new_df[new_df["date"] > last_date_str]
+                else:
+                    new_df = new_df[new_df.index.astype(str) > last_date_str]
+            except Exception as e:
+                audit["tickers_error"] += 1
+                audit["skip_reasons"][ticker] = f"fetch failed: {e}"
+                continue
+        except Exception as e:
+            audit["tickers_error"] += 1
+            audit["skip_reasons"][ticker] = f"fetch failed: {e}"
+            continue
+
+        if new_df is None or len(new_df) == 0:
+            audit["tickers_skipped_no_new_bars"] += 1
+            continue
+
+        # Build combined warmup + new for indicator context
+        warmup = _read_ticker_tail(output_path, ticker, n_bars=warmup_bars)
+        if warmup is None or len(warmup) == 0:
+            cold_start_tickers.append(ticker)
+            continue
+
+        # Normalise new_df to columns the signal engine expects
+        new_df = new_df.copy()
+        if "date" not in new_df.columns:
+            new_df["date"] = new_df.index.astype(str).str[:10]
+        new_df = new_df.reset_index(drop=True)
+        # Keep just the columns we need
+        need_cols = ["date", "open", "high", "low", "close", "volume"]
+        new_df = new_df[[c for c in need_cols if c in new_df.columns]].copy()
+
+        combined = _pd.concat([warmup, new_df], ignore_index=True)
+        combined = combined.drop_duplicates(subset=["date"], keep="last").sort_values("date").reset_index(drop=True)
+
+        try:
+            enriched = compute_signals_for_ticker(combined, universe=universe)
+        except Exception as e:
+            audit["tickers_error"] += 1
+            audit["skip_reasons"][ticker] = f"signal compute failed: {e}"
+            continue
+
+        # Take only rows whose date is AFTER the existing last_date
+        new_rows = enriched[enriched["date"].astype(str) > last_date_str]
+        if len(new_rows) == 0:
+            audit["tickers_skipped_no_new_bars"] += 1
+            continue
+
+        # Write rows in OUTPUT_COLUMNS order to the CSV (append mode)
+        rows_to_write = []
+        for _, row in new_rows.iterrows():
+            rows_to_write.append([row.get(col, "") for col in OUTPUT_COLUMNS])
+        n = _append_rows(output_path, rows_to_write)
+        audit["tickers_appended"] += 1
+        audit["rows_added"] += n
+
+    # Cold-start tickers via full path (writes to a temp file then we merge)
+    if cold_start_tickers:
+        log.info("incremental: cold-starting %d tickers", len(cold_start_tickers))
+        # Run full scan for cold-start tickers into a temp file, then append
+        import tempfile
+        with tempfile.NamedTemporaryFile(mode="w", delete=False,
+                                          suffix=".csv") as tmp:
+            tmp_path = tmp.name
+        try:
+            _, cold_audit = generate_stock_stat(
+                tickers=cold_start_tickers, fetch_ohlcv_fn=fetch_ohlcv_fn,
+                universe=universe, tf=tf, bars=500,
+                output_path=tmp_path,
+                progress_callback=None,
+                early_stop_fn=early_stop_fn,
+            )
+            # Append all rows (skip header) of tmp into output_path
+            try:
+                with open(tmp_path, "r", encoding="utf-8") as src, \
+                     open(output_path, "a", encoding="utf-8") as dst:
+                    next(src, None)  # skip header
+                    n_added = 0
+                    for line in src:
+                        dst.write(line)
+                        n_added += 1
+                audit["tickers_cold_started"] = cold_audit.get("tickers_processed", len(cold_start_tickers))
+                audit["rows_added"] += n_added
+            finally:
+                try:
+                    os.unlink(tmp_path)
+                except Exception:
+                    pass
+        except Exception as e:
+            log.exception("cold-start branch failed")
+            audit["skip_reasons"]["__cold_start__"] = str(e)
+
+    audit["elapsed_sec"] = round(time.time() - t0, 2)
+    log.info("TZ_WLNBB_INCREMENTAL: appended=%d skipped=%d cold=%d rows=%d in %.1fs",
+             audit["tickers_appended"], audit["tickers_skipped_no_new_bars"],
+             audit["tickers_cold_started"], audit["rows_added"],
+             audit["elapsed_sec"])
+    return output_path, audit
+
+
+def backfill_forward_columns(
+    csv_path: str,
+    days_back: int = 14,
+) -> dict:
+    """Recompute forward-return columns (ret_5d, ret_10d, mfe_5d, mae_5d, ...)
+    on rows in the last `days_back` days that didn't have enough future bars
+    at the time they were written.
+
+    Strategy: rerun compute_signals_for_ticker on each ticker's recent tail
+    (warmup + days_back rows), then UPDATE the forward columns in those rows.
+
+    Note: this is the simplest correct implementation — it rewrites the
+    affected rows. For very large CSVs this is O(N) per backfill. Future
+    optimisation: write rows in DB and UPDATE in-place.
+    """
+    if not os.path.exists(csv_path):
+        return {"ok": False, "error": f"{csv_path} not found"}
+
+    import pandas as _pd
+    from .signal_extraction import compute_signals_for_ticker
+
+    try:
+        df = _pd.read_csv(csv_path, low_memory=False)
+    except Exception as e:
+        return {"ok": False, "error": f"read failed: {e}"}
+    if len(df) == 0:
+        return {"ok": True, "rows_updated": 0, "tickers_processed": 0}
+
+    df["date"] = df["date"].astype(str)
+    from datetime import date as _date, timedelta as _td
+    cutoff = (_date.today() - _td(days=days_back)).strftime("%Y-%m-%d")
+
+    fwd_cols = [
+        "ret_1d", "ret_3d", "ret_5d", "ret_10d",
+        "max_high_5d", "max_high_10d",
+        "max_drawdown_5d", "max_drawdown_10d",
+        "mfe_5d", "mfe_10d", "mae_5d", "mae_10d",
+        "clean_win_5d", "big_win_10d", "fail_5d", "fail_10d",
+        "fwd_swing_ret", "fwd_swing_bars",
+    ]
+    fwd_cols_present = [c for c in fwd_cols if c in df.columns]
+
+    tickers_processed = 0
+    rows_updated = 0
+    for ticker, grp in df.groupby("ticker"):
+        if grp["date"].max() < cutoff:
+            continue  # nothing recent for this ticker
+        ohlcv = grp[["date", "open", "high", "low", "close", "volume"]].copy()
+        ohlcv = ohlcv.sort_values("date").reset_index(drop=True)
+        try:
+            enriched = compute_signals_for_ticker(ohlcv, universe="sp500")
+        except Exception:
+            continue
+        enriched["date"] = enriched["date"].astype(str)
+        recent_dates = set(grp.loc[grp["date"] >= cutoff, "date"])
+        for d in recent_dates:
+            mask_old = (df["ticker"] == ticker) & (df["date"] == d)
+            mask_new = enriched["date"] == d
+            if not mask_old.any() or not mask_new.any():
+                continue
+            new_row = enriched[mask_new].iloc[0]
+            for col in fwd_cols_present:
+                df.loc[mask_old, col] = new_row.get(col)
+            rows_updated += 1
+        tickers_processed += 1
+
+    # Atomic rewrite
+    tmp = csv_path + ".bktmp"
+    try:
+        df.to_csv(tmp, index=False)
+        os.replace(tmp, csv_path)
+    except Exception as e:
+        try:
+            os.unlink(tmp)
+        except Exception:
+            pass
+        return {"ok": False, "error": f"write failed: {e}"}
+
+    return {
+        "ok": True,
+        "tickers_processed": tickers_processed,
+        "rows_updated": rows_updated,
+        "cutoff": cutoff,
+    }

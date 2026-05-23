@@ -1371,6 +1371,15 @@ def api_admin_db_stats():
     return {"tables": list_db_stats()}
 
 
+@app.get("/api/admin/scan-state")
+def api_admin_scan_state():
+    """Last incremental scan timestamp per (universe, tf, nasdaq_batch).
+    Used by the UI to show 'last scan: 2026-05-23' hints + decide whether
+    'today only' mode is safe (gap >max_gap_days falls back to full)."""
+    from scan_state import list_all
+    return {"scans": list_all()}
+
+
 @app.post("/api/admin/db-prune")
 def api_admin_db_prune(
     table: str,
@@ -3123,7 +3132,15 @@ def api_tz_wlnbb_generate(
     tf: str = "1d",
     bars: int = 500,
     nasdaq_batch: str = "",
+    mode: str = "full",       # 260523 v4.9 Phase 2: "full" | "today"
 ):
+    """Trigger stock_stat regeneration.
+
+    mode='full'   → rewrite the entire CSV from scratch (old behaviour, default).
+    mode='today'  → incremental: read existing CSV, fetch only NEW bars per
+                    ticker since last date, append them. ~100× faster on daily
+                    refresh once the universe is already populated.
+    """
     global _tz_wlnbb_state
     if _tz_wlnbb_state.get("running"):
         raise HTTPException(status_code=409, detail="Already running")
@@ -3135,8 +3152,10 @@ def api_tz_wlnbb_generate(
             detail="nasdaq_batch='all' is not allowed — NASDAQ is too large for a single run. "
                    "Use 'a_m' then 'n_z' separately.",
         )
-    background_tasks.add_task(_run_tz_wlnbb_stock_stat, universe, tf, bars, nasdaq_batch)
-    return {"status": "started", "nasdaq_batch": nasdaq_batch or None}
+    if mode not in ("full", "today"):
+        raise HTTPException(status_code=400, detail=f"mode must be 'full' or 'today', got '{mode}'")
+    background_tasks.add_task(_run_tz_wlnbb_stock_stat, universe, tf, bars, nasdaq_batch, mode)
+    return {"status": "started", "mode": mode, "nasdaq_batch": nasdaq_batch or None}
 
 
 @app.post("/api/tz-wlnbb/stop")
@@ -3146,14 +3165,15 @@ def api_tz_wlnbb_stop():
     return {"ok": True, "message": "Stop requested"}
 
 
-def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: str = ""):
+def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: str = "", mode: str = "full"):
     global _tz_wlnbb_state
     _tz_wlnbb_state = {
         "running": True, "done": 0, "total": 0, "output": None, "error": None,
         "stop_requested": False, "nasdaq_batch": nasdaq_batch or None,
+        "mode": mode,
     }
     try:
-        from analyzers.tz_wlnbb.stock_stat import generate_stock_stat
+        from analyzers.tz_wlnbb.stock_stat import generate_stock_stat, generate_stock_stat_incremental
         from scanner import get_universe_tickers
 
         # nasdaq_gt5 loads NASDAQ tickers and enforces close >= 5 during generation
@@ -3192,16 +3212,31 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
 
         _tz_wlnbb_state["total"] = len(tickers)
 
-        # Prefer massive.com (fast, no rate-limits), fall back to yfinance
+        # Phase 0: Massive primary, yfinance only if ALLOW_YFINANCE_FALLBACK=1
         from data_polygon import fetch_bars as _fetch_bars, polygon_available
         if polygon_available():
-            def _fetch(ticker, interval, n_bars):
-                # convert bars → calendar days (1.6× safety margin for weekends/holidays)
+            def _fetch(ticker, interval, n_bars_or_kw=None, since=None):
+                # Two call conventions supported:
+                #  (ticker, interval, n_bars)         — full scan path
+                #  (ticker, interval, since="YYYY-MM-DD") — incremental path
+                if since is not None:
+                    from datetime import date as _date, datetime as _dt
+                    try:
+                        s = _dt.strptime(since[:10], "%Y-%m-%d").date()
+                    except Exception:
+                        s = _date.today()
+                    days = max((_date.today() - s).days + 5, 5)
+                    return _fetch_bars(ticker, interval=interval, days=days)
+                # Default full-history path: bars → days w/ safety margin
+                n_bars = n_bars_or_kw if isinstance(n_bars_or_kw, int) else 500
                 days = max(int(n_bars * 1.6), 365)
                 return _fetch_bars(ticker, interval=interval, days=days)
         else:
             from data import fetch_ohlcv as _fetch_yf
-            def _fetch(ticker, interval, n_bars):
+            def _fetch(ticker, interval, n_bars_or_kw=None, since=None):
+                if since is not None:
+                    return _fetch_yf(ticker, interval, bars=500, since=since)
+                n_bars = n_bars_or_kw if isinstance(n_bars_or_kw, int) else 500
                 return _fetch_yf(ticker, interval, n_bars)
 
         def _on_progress(done, total):
@@ -3212,15 +3247,34 @@ def _run_tz_wlnbb_stock_stat(universe: str, tf: str, bars: int, nasdaq_batch: st
             return bool(_tz_wlnbb_state.get("stop_requested"))
 
         out_path = _tz_batch_stat_path(universe, tf, nasdaq_batch)
-        path, audit = generate_stock_stat(
-            tickers, _fetch, universe=universe, tf=tf, bars=bars,
-            min_price=gen_min_price,
-            output_path=out_path,
-            progress_callback=_on_progress,
-            early_stop_fn=_should_stop,
-        )
+        if mode == "today":
+            path, audit = generate_stock_stat_incremental(
+                tickers, _fetch, universe=universe, tf=tf,
+                output_path=out_path,
+                progress_callback=_on_progress,
+                early_stop_fn=_should_stop,
+            )
+        else:
+            path, audit = generate_stock_stat(
+                tickers, _fetch, universe=universe, tf=tf, bars=bars,
+                min_price=gen_min_price,
+                output_path=out_path,
+                progress_callback=_on_progress,
+                early_stop_fn=_should_stop,
+            )
         _tz_wlnbb_state["output"] = path
         _tz_wlnbb_state["audit"] = audit
+
+        # Record scan_state for the admin / future incremental decisions
+        try:
+            from scan_state import set_last_scan
+            from datetime import date as _date
+            today_str = _date.today().strftime("%Y-%m-%d")
+            set_last_scan(universe, tf, today_str,
+                          mode=mode, nasdaq_batch=nasdaq_batch,
+                          notes=f"rows_added={audit.get('rows_added', audit.get('rows_processed', 0))}")
+        except Exception as _exc:
+            log.warning("scan_state.set_last_scan skipped: %s", _exc)
     except Exception as exc:
         log.exception("tz_wlnbb stock_stat generation failed")
         _tz_wlnbb_state["error"] = str(exc)
