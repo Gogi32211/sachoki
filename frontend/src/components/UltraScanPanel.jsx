@@ -717,7 +717,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // Cache version bump invalidates ALL cached entries that pre-date the bump.
 // Increment this when row schema changes (new enrichment columns added) so
 // stale caches without the new fields don't survive a redeploy.
-const _CACHE_VERSION = '260523_v3.6'  // bumped: tail-aware enrichment + auto-compute prebreak_score
+const _CACHE_VERSION = '260523_v3.8'  // bumped: N now applies to prebreak/wyc/macro too
 
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
 const _tsGet  = (tf, uni) => {
@@ -991,26 +991,32 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
       if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
       if (rtbPhase && (r.rtb_phase || '0') !== rtbPhase) return false
-      // 260523 filters
-      if (adFreshFilter === true && !r.ad_fresh) return false
-      if (adClusterFilter === true && !r.ad_cluster) return false
+      // 260523 filters — every bool that can flip bar-to-bar honors
+      // lookbackN via <col>_age. (`wyc_phase` is the only state field —
+      // it reflects current bar only and ignores N.)
+      const evHit = (col) => !!r[col] && ((r[`${col}_age`] ?? 99) < lookbackN)
+      const notSeenInN = (col) => (r[`${col}_age`] ?? 99) >= lookbackN
+      if (adFreshFilter   === true && !evHit('ad_fresh'))   return false
+      if (adClusterFilter === true && !evHit('ad_cluster')) return false
       if (wycPhaseFilter && (r.wyc_phase || 'NEUTRAL') !== wycPhaseFilter) return false
       if (swingTypeFilter) {
         const st = r.swing_type || ''
-        if (swingTypeFilter === 'pivot') { if (!st) return false }
-        else if (st !== swingTypeFilter) return false
+        const stAge = r.swing_type_age ?? 99
+        const recent = !!st && stAge < lookbackN
+        if (swingTypeFilter === 'pivot') { if (!recent) return false }
+        else if (!recent || st !== swingTypeFilter) return false
       }
       // 260523 v3.5 PREBREAK + WYC additional
-      if (prebreakTier === 'prime' && !r.prebreak_prime) return false
-      if (prebreakTier === 'ready' && !r.prebreak_ready) return false
-      if (prebreakTier === 'watch' && !r.prebreak_watch) return false
-      if (pbLvbo === true       && !r.pb_lvbo)        return false
-      if (pbStopCause === true  && !r.pb_stop_cause)  return false
-      if (pbWvfConfirm === true && !r.pb_wvf_confirm) return false
-      if (pbMacroPen === false  && r.pb_macro_penalty) return false
-      if (pbMacroPen === true   && !r.pb_macro_penalty) return false
-      if (wycInTr === true      && !r.wyc_in_tr)      return false
-      if (wycSow === true       && !r.wyc_sow)        return false
+      if (prebreakTier === 'prime' && !evHit('prebreak_prime')) return false
+      if (prebreakTier === 'ready' && !evHit('prebreak_ready')) return false
+      if (prebreakTier === 'watch' && !evHit('prebreak_watch')) return false
+      if (pbLvbo === true       && !evHit('pb_lvbo'))         return false
+      if (pbStopCause === true  && !evHit('pb_stop_cause'))   return false
+      if (pbWvfConfirm === true && !evHit('pb_wvf_confirm'))  return false
+      if (pbMacroPen === false  && !notSeenInN('pb_macro_penalty')) return false
+      if (pbMacroPen === true   && !evHit('pb_macro_penalty'))      return false
+      if (wycInTr === true      && !evHit('wyc_in_tr'))             return false
+      if (wycSow === true       && !evHit('wyc_sow'))               return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -1521,6 +1527,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [warnings, setWarnings] = useState([])
   const [stage,  setStage]      = useState(null)   // 'turbo' | 'enrich' | null
   const [enriching, setEnriching] = useState(false)
+  const [progressPct,    setProgressPct]    = useState(0)
+  const [etaSeconds,     setEtaSeconds]     = useState(null)
+  const [elapsedSeconds, setElapsedSeconds] = useState(0)
 
   const _poll = () => {
     _stopPoll()  // kill any previous poll before starting a new one
@@ -1534,6 +1543,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
           setWarnings(s.warnings || [])
           setSources(s.sources || {})
           setStage(s.stage || null)
+          setProgressPct(Number.isFinite(s.progress_pct) ? s.progress_pct : 0)
+          setEtaSeconds(Number.isFinite(s.eta_seconds) ? s.eta_seconds : null)
+          setElapsedSeconds(Number.isFinite(s.elapsed_seconds) ? s.elapsed_seconds : 0)
           if (!s.running) {
             _stopPoll(); setScanning(false); setEnriching(false)
             if (s.error) setError(s.error)
@@ -1559,6 +1571,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     }
     setEnriching(true); setError(null)
     setWarnings([]); setPhase(null)
+    setProgressPct(0); setEtaSeconds(null); setElapsedSeconds(0)
     // Reset Phase 2 pills to 'pending' so the UI immediately reflects intent
     setPhases(prev => ({
       ...prev,
@@ -1588,6 +1601,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const scan = () => {
     if (scanning) return  // guard against double-trigger
     setScanning(true); setError(null); setWarnings([]); setSources({}); setPhases({}); setPhase(null)
+    setProgressPct(0); setEtaSeconds(null); setElapsedSeconds(0)
     api.ultraScanTrigger(localTf, universe, {
       lookbackN, partialDay, minVolume: volMin,
       minStoreScore: getCacheBackend() === 'idb' ? 0 : 5,
@@ -2157,6 +2171,30 @@ export default function UltraScanPanel({ onSelectTicker }) {
             {' · '}{enriching ? 'Stage 2: enriching subset' : 'Stage 1: Turbo'}
             {phase ? ` · phase: ${phase}` : ''}
           </div>
+          {/* ── Progress bar ─────────────────────────────────────────────── */}
+          {(() => {
+            const fmtTime = (s) => {
+              if (s == null || !Number.isFinite(s)) return '—'
+              if (s < 60) return `${Math.round(s)}s`
+              const m = Math.floor(s / 60); const ss = Math.round(s - m * 60)
+              return ss === 0 ? `${m}m` : `${m}m${ss.toString().padStart(2, '0')}s`
+            }
+            const pct = Math.max(0, Math.min(100, progressPct || 0))
+            return (
+              <div className="mt-1.5">
+                <div className="h-1.5 rounded bg-white/10 overflow-hidden">
+                  <div
+                    className="h-full bg-fuchsia-400 transition-all duration-500 ease-out"
+                    style={{ width: `${pct}%` }}
+                  />
+                </div>
+                <div className="flex justify-between mt-0.5 text-[10px] text-md-on-surface-var">
+                  <span>{pct.toFixed(0)}%</span>
+                  <span>elapsed {fmtTime(elapsedSeconds)} · ETA {fmtTime(etaSeconds)}</span>
+                </div>
+              </div>
+            )
+          })()}
           {Object.keys(phases).length > 0 && (() => {
             // Group pills by pipeline phase so the user can see the
             // dependency-aware execution at a glance.
