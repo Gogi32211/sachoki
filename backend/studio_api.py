@@ -362,15 +362,29 @@ def seq_lab_endpoint(
     sort:      str  = Query("win"),
     limit:     int  = Query(25, ge=1, le=100),
     by_phase:  bool = Query(False),
+    evaluate:  bool = Query(False),
+    cost:      float = Query(0.5, ge=0.0, le=10.0),
 ):
-    """TZ Sequence Lab — rank N-bar T/Z sequences by forward outcome vs baseline."""
+    """TZ Sequence Lab — rank N-bar T/Z sequences by forward outcome vs baseline.
+
+    When evaluate=true, each row also gets a `verdict` (backtest-expert skill):
+    Deploy / Refine / Abandon after the significance, Bonferroni (vs n_candidates)
+    and net-edge-after-`cost` gates — so a mirage (significant only because n is
+    huge, but below cost) is flagged in the UI."""
     from studio.seq_lab import seq_lab
     try:
-        return seq_lab(
+        res = seq_lab(
             universe=universe, n_bars=n_bars, mode=mode, horizon=horizon,
             min_occ=min_occ, wyc_phase=wyc_phase, prefix=prefix, sort=sort,
             limit=limit, by_phase=by_phase,
         )
+        if evaluate:
+            try:
+                from studio.eval_sequence import annotate_seq_lab
+                res = annotate_seq_lab(res, cost_per_trade_pct=cost)
+            except Exception:
+                log.exception("seq-lab verdict annotation failed (rows returned unannotated)")
+        return res
     except Exception as e:
         log.exception("seq-lab failed")
         raise HTTPException(500, detail=str(e))

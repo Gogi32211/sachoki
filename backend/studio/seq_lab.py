@@ -148,6 +148,8 @@ def seq_lab(
                    ROUND(AVG(ret), 3) avg_ret,
                    ROUND(AVG(CASE WHEN ret > 0 THEN ret END), 3) avg_win,
                    ROUND(AVG(CASE WHEN ret < 0 THEN ret END), 3) avg_loss,
+                   ROUND(quantile_cont(ret, 0.05), 3) dd_p5,
+                   ROUND(MIN(ret), 2) worst,
                    ROUND(AVG(mfe_20d), 2) mfe20
             FROM seqd
             WHERE {outer_where}
@@ -166,6 +168,8 @@ def seq_lab(
                 "avg_ret":  _f(r["avg_ret"]),
                 "avg_win":  _f(r["avg_win"]),
                 "avg_loss": _f(r["avg_loss"]),
+                "dd_p5":    _f(r["dd_p5"]),
+                "worst":    _f(r["worst"]),
                 "mfe20":    _f(r["mfe20"]),
             }
             if by_phase:

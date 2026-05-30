@@ -3097,10 +3097,33 @@ const SEQLAB_HORIZONS = [
 ]
 const SEQLAB_PHASES = ['', 'MARKUP', 'MKDN', 'ACC_TR', 'DIST_TR', 'SPRING', 'UTAD', 'SOS', 'SOW']
 
+// backtest-expert verdict chip (Deploy / Refine / Abandon) shown per sequence row
+const VERDICT_STYLE = {
+  Deploy:  'bg-green-500/20 text-green-300 border-green-500/40',
+  Refine:  'bg-amber-500/20 text-amber-300 border-amber-500/40',
+  Abandon: 'bg-red-500/20 text-red-300 border-red-500/40',
+}
+function VerdictChip({ v }) {
+  if (!v || !v.verdict || v.verdict === 'n/a')
+    return <span className="text-md-on-surface-var">—</span>
+  const cls = VERDICT_STYLE[v.verdict] || 'bg-white/10 text-md-on-surface-var border-md-outline-var'
+  const tip = `score ${v.score}/100`
+    + (v.forced ? ' · FORCED by a gate' : '')
+    + (v.net_edge != null ? ` · net ${v.net_edge.toFixed(2)}%/trade` : '')
+    + ` — ${v.reason}`
+  return (
+    <span title={tip}
+      className={`inline-block px-1.5 py-0.5 rounded border text-[10px] font-semibold ${cls}`}>
+      {v.verdict}{v.forced ? ' ⚠' : ''}
+    </span>
+  )
+}
+
 function SeqLabTab() {
   const [p, setP] = useState({
     universe: 'sp500', n_bars: 4, mode: 'color', horizon: 'fwd_1d',
     min_occ: 500, wyc_phase: '', prefix: '', sort: 'win', limit: 25, by_phase: false,
+    evaluate: true, cost: 0.5,
   })
   const [data, setData]   = useState(null)
   const [loading, setLd]  = useState(false)
@@ -3193,6 +3216,16 @@ function SeqLabTab() {
           <input type="checkbox" checked={p.by_phase} onChange={e => upd('by_phase', e.target.checked)} />
           <span>×phase</span>
         </label>
+        <label className="flex items-center gap-1 cursor-pointer" title="Score each sequence with the backtest-expert gates (significance / Bonferroni / net-edge)">
+          <input type="checkbox" checked={p.evaluate} onChange={e => upd('evaluate', e.target.checked)} />
+          <span>verdict</span>
+        </label>
+        <Field label="Cost %">
+          <input type="number" step="0.1" value={p.cost} disabled={!p.evaluate}
+            onChange={e => upd('cost', Number(e.target.value))}
+            title="Round-trip cost per trade — a sequence whose edge is below this is flagged Abandon"
+            className={SEQLAB_SEL + ' w-16 disabled:opacity-40'} />
+        </Field>
         <button onClick={run} disabled={loading}
           className="px-3 py-1.5 rounded-lg bg-md-primary text-md-on-primary font-medium disabled:opacity-50">
           {loading ? 'running…' : '▶ Run'}
@@ -3225,6 +3258,7 @@ function SeqLabTab() {
                 <th className="text-right px-2">avg{swing ? ' swing' : ''}%</th>
                 <th className="text-right px-2">mfe20%</th>
                 <th className="text-right px-2">Δwin vs base</th>
+                {data.evaluated && <th className="text-center px-2">verdict</th>}
               </tr>
             </thead>
             <tbody className="font-mono">
@@ -3239,10 +3273,11 @@ function SeqLabTab() {
                   <td className="text-right px-2 text-md-on-surface-var">
                     {base && r.win != null ? (r.win - base.win >= 0 ? '+' : '') + (r.win - base.win).toFixed(1) : '—'}
                   </td>
+                  {data.evaluated && <td className="text-center px-2"><VerdictChip v={r.verdict} /></td>}
                 </tr>
               ))}
               {data.rows.length === 0 && (
-                <tr><td colSpan={p.by_phase ? 7 : 6} className="py-4 text-center text-md-on-surface-var">
+                <tr><td colSpan={(p.by_phase ? 7 : 6) + (data.evaluated ? 1 : 0)} className="py-4 text-center text-md-on-surface-var">
                   no sequences ≥ {p.min_occ} occurrences — lower Min occ. or bars
                 </td></tr>
               )}

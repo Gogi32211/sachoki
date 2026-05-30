@@ -169,6 +169,67 @@ def evaluate_sequence(
     }
 
 
+def _compact_verdict(result: dict, cost: float) -> dict:
+    """Squash the skill's full result into a chip-sized verdict for the UI."""
+    sig = result.get("significance", {})
+    net = sig.get("net_expectancy_after_costs")
+    forced = bool(result.get("verdict_overridden_by_significance"))
+    if forced:
+        if net is not None and net <= 0:
+            reason = f"edge below {cost}% round-trip cost"
+        elif sig.get("significant_after_multiple_testing") is False:
+            reason = "not significant after Bonferroni"
+        else:
+            hf = next((f for f in result.get("red_flags", []) if f["severity"] == "high"), None)
+            reason = hf["message"] if hf else "failed a gate"
+    else:
+        hf = next((f for f in result.get("red_flags", []) if f["severity"] in ("high", "medium")), None)
+        reason = hf["message"] if hf else "passes all gates"
+    return {
+        "score":    result["total_score"],
+        "verdict":  result["verdict"],          # Deploy | Refine | Abandon
+        "forced":   forced,
+        "net_edge": net,
+        "reason":   reason,
+    }
+
+
+def annotate_seq_lab(res: dict, cost_per_trade_pct: float = 0.5,
+                     num_parameters: int = 3, years_tested: int = 5,
+                     slippage_tested: bool = False) -> dict:
+    """Attach a compact backtest-expert verdict to each row of a seq_lab result.
+
+    Rows must carry n / win / avg_win / avg_loss / dd_p5 (seq_lab provides these).
+    baseline win% and n_candidates (the Bonferroni count) come from the result.
+    Mutates and returns `res` (adds row['verdict'] + res['evaluated']).
+    """
+    evaluate = _load_evaluator()
+    baseline_win = float((res.get("baseline") or {}).get("win") or 0.0)
+    n_candidates = int(res.get("n_candidates", 1) or 1)
+    for row in res.get("rows", []):
+        try:
+            avg_win = float(row.get("avg_win") or 0.0)
+            avg_loss = abs(float(row.get("avg_loss") or 0.0)) or 0.01
+            dd = abs(float(row.get("dd_p5") or row.get("worst") or 0.0))
+            r = evaluate(
+                total_trades=int(row["n"]), win_rate=float(row["win"]),
+                avg_win_pct=avg_win, avg_loss_pct=avg_loss, max_drawdown_pct=dd,
+                years_tested=years_tested, num_parameters=num_parameters,
+                slippage_tested=slippage_tested, baseline_win=baseline_win,
+                num_strategies_tested=n_candidates, cost_per_trade_pct=cost_per_trade_pct,
+            )
+            row["verdict"] = _compact_verdict(r, cost_per_trade_pct)
+        except Exception as e:  # never let one bad row break the whole table
+            row["verdict"] = {"verdict": "n/a", "score": None, "forced": False,
+                              "net_edge": None, "reason": str(e)[:80]}
+    res["evaluated"] = True
+    res["eval_params"] = {"cost_per_trade_pct": cost_per_trade_pct,
+                          "num_parameters": num_parameters,
+                          "years_tested": years_tested,
+                          "slippage_tested": slippage_tested}
+    return res
+
+
 def _print(out: dict) -> None:
     r = out["result"]; sig = r.get("significance", {})
     forced = "  (FORCED by significance/cost gate)" if r.get("verdict_overridden_by_significance") else ""
