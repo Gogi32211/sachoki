@@ -120,7 +120,8 @@ def seq_lab(
         grp = "seq, wyc_phase" if by_phase else "seq"
         sel_phase = ", wyc_phase" if by_phase else ""
 
-        rows = conn.execute(f"""
+        # Shared CTE so the candidate-count and the ranked rows use IDENTICAL logic.
+        cte = f"""
             WITH s AS (
                 SELECT ticker, date, wyc_phase,
                        {tok} AS tk, {hcol} AS ret, mfe_20d
@@ -129,10 +130,24 @@ def seq_lab(
             seqd AS (
                 SELECT *, {seq_concat} AS seq
                 FROM s WINDOW w AS (PARTITION BY ticker ORDER BY date)
+            )"""
+
+        # How many distinct sequences cleared min_occ — the honest "candidates
+        # scanned" count for a Bonferroni multiple-testing correction downstream
+        # (eval_sequence). Without it, picking the best of N looks like one test.
+        n_candidates = int(conn.execute(f"""{cte}
+            SELECT COUNT(*) FROM (
+                SELECT {grp} FROM seqd WHERE {outer_where}
+                GROUP BY {grp} HAVING COUNT(*) >= {min_occ}
             )
+        """).fetchone()[0] or 0)
+
+        rows = conn.execute(f"""{cte}
             SELECT seq{sel_phase}, COUNT(*) n,
                    ROUND(AVG(CASE WHEN ret > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
                    ROUND(AVG(ret), 3) avg_ret,
+                   ROUND(AVG(CASE WHEN ret > 0 THEN ret END), 3) avg_win,
+                   ROUND(AVG(CASE WHEN ret < 0 THEN ret END), 3) avg_loss,
                    ROUND(AVG(mfe_20d), 2) mfe20
             FROM seqd
             WHERE {outer_where}
@@ -145,11 +160,13 @@ def seq_lab(
         recs = []
         for _, r in rows.iterrows():
             rec = {
-                "seq":     str(r["seq"]),
-                "n":       int(r["n"]),
-                "win":     _f(r["win"]),
-                "avg_ret": _f(r["avg_ret"]),
-                "mfe20":   _f(r["mfe20"]),
+                "seq":      str(r["seq"]),
+                "n":        int(r["n"]),
+                "win":      _f(r["win"]),
+                "avg_ret":  _f(r["avg_ret"]),
+                "avg_win":  _f(r["avg_win"]),
+                "avg_loss": _f(r["avg_loss"]),
+                "mfe20":    _f(r["mfe20"]),
             }
             if by_phase:
                 rec["wyc_phase"] = str(r["wyc_phase"])
@@ -158,6 +175,7 @@ def seq_lab(
         return {
             "baseline": baseline,
             "rows": recs,
+            "n_candidates": n_candidates,
             "params": {
                 "universe": uni or "all", "n_bars": n_bars, "mode": mode,
                 "horizon": hcol, "min_occ": min_occ, "wyc_phase": phase or "all",
