@@ -217,37 +217,29 @@ def dashboard_pulse():
     if hit:
         return val
 
-    tickers = ["SPY", "QQQ", "IWM", "VIX", "DIA", "IWO"]
+    etf_tickers = ["SPY", "QQQ", "IWM", "DIA", "IWO"]
     results = []
     try:
-        import yfinance as yf
-        data = yf.download(
-            tickers, period="5d", interval="1d",
-            auto_adjust=True, progress=False, threads=True,
-        )
-        close = data["Close"] if "Close" in data else data.get("close", None)
-        if close is None:
-            raise ValueError("No close data")
-        for t in tickers:
-            if t not in close.columns:
+        from data_massive import get_snapshot_batch
+        snaps = get_snapshot_batch(etf_tickers)
+        for t, s in snaps.items():
+            price  = s.get("price")
+            chg    = s.get("change_pct")
+            if price is None:
                 continue
-            series = close[t].dropna()
-            if len(series) < 2:
-                continue
-            prev  = float(series.iloc[-2])
-            last  = float(series.iloc[-1])
-            chg   = (last - prev) / prev * 100 if prev else 0.0
-            chg5d = (last - float(series.iloc[0])) / float(series.iloc[0]) * 100 if len(series) >= 5 else chg
             results.append({
                 "ticker":    t,
-                "price":     round(last, 2),
-                "change_1d": round(chg, 2),
-                "change_5d": round(chg5d, 2),
-                "trend":     "up" if chg > 0 else "down" if chg < 0 else "flat",
+                "price":     round(float(price), 2),
+                "change_1d": round(float(chg), 2) if chg is not None else 0.0,
+                "change_5d": 0.0,   # snapshot API doesn't provide 5d; fill below if needed
+                "trend":     "up" if (chg or 0) > 0 else "down" if (chg or 0) < 0 else "flat",
             })
     except Exception as exc:
-        log.warning("pulse fetch error: %s", exc)
+        log.warning("pulse Massive fetch error: %s", exc)
 
+    # VIX disabled 2026-05-30: Massive lacks it and the yfinance ^VIX fetch was
+    # unreliable and looped/hung the dashboard. It's context-only. Pulse now =
+    # SPY/QQQ/IWM/DIA/IWO from Massive.
     payload = {"pulse": results, "fetched_at": datetime.now(timezone.utc).isoformat()}
     return _store("pulse", payload)
 
@@ -391,34 +383,23 @@ def dashboard_risk_alerts():
         return val
 
     alerts = []
+
+    # SPY via Massive snapshot
     try:
-        import yfinance as yf
-        data = yf.download("SPY VIX", period="5d", interval="1d",
-                           auto_adjust=True, progress=False, threads=True)
-        close = data.get("Close", data)
-        if "VIX" in close.columns:
-            vix_series = close["VIX"].dropna()
-            if len(vix_series) >= 2:
-                vix_now  = float(vix_series.iloc[-1])
-                vix_prev = float(vix_series.iloc[-2])
-                if vix_now > 30:
-                    alerts.append({"type": "vix_high", "severity": "high",
-                                   "message": f"VIX elevated at {vix_now:.1f} — high fear regime"})
-                elif vix_now > 20 and vix_now > vix_prev * 1.05:
-                    alerts.append({"type": "vix_rising", "severity": "medium",
-                                   "message": f"VIX rising to {vix_now:.1f} — watch volatility"})
-        if "SPY" in close.columns:
-            spy_series = close["SPY"].dropna()
-            if len(spy_series) >= 5:
-                spy5d = (float(spy_series.iloc[-1]) - float(spy_series.iloc[-5])) / float(spy_series.iloc[-5]) * 100
-                if spy5d < -5:
-                    alerts.append({"type": "spy_selloff", "severity": "high",
-                                   "message": f"SPY down {abs(spy5d):.1f}% over 5 days — broad selloff"})
-                elif spy5d > 5:
-                    alerts.append({"type": "spy_extended", "severity": "medium",
-                                   "message": f"SPY up {spy5d:.1f}% over 5 days — extended, caution on new longs"})
+        from data_massive import get_snapshot
+        spy = get_snapshot("SPY")
+        if spy and spy.get("change_pct") is not None:
+            spy_chg = float(spy["change_pct"])
+            if spy_chg < -3:
+                alerts.append({"type": "spy_selloff", "severity": "high",
+                               "message": f"SPY down {abs(spy_chg):.1f}% today — broad selloff"})
+            elif spy_chg > 3:
+                alerts.append({"type": "spy_extended", "severity": "medium",
+                               "message": f"SPY up {spy_chg:.1f}% today — extended, caution on new longs"})
     except Exception as exc:
-        log.warning("risk_alerts error: %s", exc)
+        log.warning("risk_alerts SPY error: %s", exc)
+
+    # VIX risk alert disabled 2026-05-30 (context-only; the ^VIX fetch looped/hung).
 
     if not alerts:
         alerts.append({"type": "ok", "severity": "low", "message": "No major risk signals detected"})
@@ -899,17 +880,12 @@ def dashboard_ticker_context(symbol: str):
     }
 
     try:
-        import yfinance as yf
-        tkr  = yf.Ticker(symbol)
-        info: dict = {}
-        try:
-            info = tkr.info or {}
-        except Exception:
-            pass
+        from data_massive import get_ticker_info
+        info = get_ticker_info(symbol)
 
-        data["company"]  = info.get("shortName") or info.get("longName")
-        data["sector"]   = info.get("sector")
-        data["industry"] = info.get("industry")
+        data["company"]  = info.get("name") or symbol
+        data["sector"]   = info.get("sector") or None
+        data["industry"] = info.get("industry") or None
 
         ind = (data["industry"] or "").lower()
         co  = (data["company"]  or "").lower()

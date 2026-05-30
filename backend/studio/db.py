@@ -16,6 +16,19 @@ import duckdb
 
 log = logging.getLogger(__name__)
 
+# When a ticker lives in >1 universe (e.g. RGTI / CYCU in nasdaq AND russell2k),
+# the same date can carry DIFFERENT bars because each universe is fetched on its
+# own schedule (sp500+nasdaq daily via the scheduler; russell2k via one-off
+# recovery), so the latest bar can diverge between them. To keep the app
+# internally consistent, every cross-universe single-ticker read must pick ONE
+# canonical universe by this priority: sp500 > nasdaq > russell2k > other. Embed
+# as `ORDER BY {UNIVERSE_PRIORITY_SQL}` in a ROW_NUMBER()/QUALIFY dedup. (It's a
+# constant — no user input — so interpolation is safe.)
+UNIVERSE_PRIORITY_SQL = (
+    "CASE universe WHEN 'sp500' THEN 1 WHEN 'nasdaq' THEN 2 "
+    "WHEN 'russell2k' THEN 3 ELSE 9 END"
+)
+
 
 def _is_busy_error(exc: Exception) -> bool:
     """True if a DuckDB error is just a concurrent read/write access conflict

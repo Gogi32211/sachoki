@@ -129,6 +129,16 @@ def fetch_ohlcv(
         (the default — set ALLOW_YFINANCE_FALLBACK=1 to opt back in).
     """
     ticker = ticker.upper().strip()
+
+    # ^-prefixed index symbols (^VIX, ^GSPC, …) are NOT on the Massive plan and
+    # yfinance's .history() returns empty for them. The old behaviour raised, and
+    # callers retried endlessly (Massive-fail → yfinance-fail → repeat), pegging a
+    # core at 100% CPU and wedging the server (this caused the dashboard hang +
+    # the zombie process on 2026-05-30). We don't fetch index symbols here:
+    # return an empty frame so callers skip them cleanly instead of spinning.
+    if ticker.startswith("^"):
+        return pd.DataFrame(columns=["open", "high", "low", "close", "volume"])
+
     cache_key = f"{ticker}:{interval}:{bars}:{since or '-'}"
 
     cached = _get(cache_key)

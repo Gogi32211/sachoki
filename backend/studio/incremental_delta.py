@@ -144,6 +144,8 @@ def incremental_delta_refresh(
     universes: Optional[list[str]] = None,
     warmup_bars: int = _WARMUP_BARS,
     enrich_after: bool = True,
+    only_tickers: Optional[set] = None,
+    refetch_from: Optional[str] = None,
 ) -> dict:
     """Incremental delta append. Returns summary dict.
 
@@ -151,7 +153,12 @@ def incremental_delta_refresh(
       1. SELECT ticker, MAX(date) FROM bars WHERE universe=?
       2. For each ticker:
           a. api_bar_signals(ticker, '1d', warmup_bars, universe)
-          b. keep bars where date > last_date (or all bars if ticker unseen)
+          b. keep bars where date > last_date (or all bars if ticker unseen).
+             If `refetch_from` (ISO date) is given, instead keep bars where
+             date >= refetch_from — this OVERWRITES already-stored trailing
+             bars (the daily filter `date > last_date` would otherwise skip
+             them, since their last_date already equals their own date). Used
+             for the one-time re-fetch that corrects stale/divergent last bars.
           c. _bar_to_db_row() — 320-column dict
       3. Bulk INSERT with sequential auto-IDs.
       4. DELETE-then-INSERT on (universe, ticker, date) for idempotency.
@@ -168,10 +175,22 @@ def incremental_delta_refresh(
         log.warning("incremental_delta: ignoring unknown universes %s", _bad)
     universes = [str(u).strip().lower() for u in universes
                  if str(u).strip().lower() in _ALLOWED_UNIVERSES]
+    # Normalize the optional re-fetch floor to a YYYY-MM-DD string (compared
+    # lexicographically against each bar's ISO date, same as today_str).
+    refetch_from = str(refetch_from)[:10] if refetch_from else None
     started = time.time()
     overall = {"universes": {}, "started_at": datetime.now(timezone.utc).isoformat()}
 
     _write_progress("starting", 0, 0, started)
+
+    # Fetch each ticker only ONCE per run and reuse the SAME bars for every universe
+    # it belongs to. A dual-universe ticker (e.g. CYCU in nasdaq + russell2k) must
+    # get IDENTICAL bars in both — otherwise the per-universe fetch happens at
+    # different times (one before market settle, one after) and the same date ends
+    # up with different OHLC/signals (T2G vs Z4). Keyed by ticker, lives across the
+    # universe loop. (api_bar_signals' OHLCV + TZ/L signals are price-derived, so
+    # they don't depend on which universe is passed.)
+    _bar_cache: dict[str, list] = {}
 
     for universe in universes:
         log.info("incremental_delta: universe=%s", universe)
@@ -184,7 +203,13 @@ def incremental_delta_refresh(
         finally:
             conn_r.close()
 
-        tickers = _get_universe_tickers(universe)
+        if only_tickers is not None:
+            # Explicit subset (one-time divergent-ticker re-fetch). Restrict to
+            # tickers that actually have bars in THIS universe — the canonical
+            # scanner list may not include them (e.g. micro-caps like CYCU).
+            tickers = sorted(set(only_tickers) & set(ticker_last.keys()))
+        else:
+            tickers = _get_universe_tickers(universe)
         if not tickers:
             log.warning("No tickers found for universe=%s", universe)
             continue
@@ -202,16 +227,27 @@ def incremental_delta_refresh(
 
         for i, ticker in enumerate(tickers):
             last_date = ticker_last.get(ticker, "1900-01-01")[:10]
-            try:
-                bars = api_bar_signals(ticker, tf="1d", bars=warmup_bars,
-                                       universe=universe)
-            except Exception as e:
-                errors.append({"ticker": ticker, "stage": "fetch", "error": str(e)})
-                bars = []
+            if ticker in _bar_cache:
+                bars = _bar_cache[ticker]          # reuse — guarantees identical bars across universes
+            else:
+                try:
+                    bars = api_bar_signals(ticker, tf="1d", bars=warmup_bars,
+                                           universe=universe)
+                except Exception as e:
+                    errors.append({"ticker": ticker, "stage": "fetch", "error": str(e)})
+                    bars = []
+                _bar_cache[ticker] = bars
 
             for b in bars:
                 bdate = str(b.get("date", ""))[:10]
-                if not bdate or bdate <= last_date or bdate > today_str:
+                if not bdate or bdate > today_str:
+                    continue
+                if refetch_from is not None:
+                    # one-time overwrite mode: keep already-stored trailing bars
+                    if bdate < refetch_from:
+                        continue
+                elif bdate <= last_date:
+                    # daily append mode: only bars strictly newer than the DB tail
                     continue
                 try:
                     row = _bar_to_db_row(ticker, b, universe, db_cols)

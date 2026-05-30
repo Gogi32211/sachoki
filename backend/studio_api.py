@@ -20,7 +20,7 @@ import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from studio.db import ensure_schema, get_stats, STUDIO_DB_PATH
+from studio.db import ensure_schema, get_stats, STUDIO_DB_PATH, UNIVERSE_PRIORITY_SQL
 from studio.importer import import_all, UNIVERSE_CSV_MAP, PROGRESS_FILE
 from studio.event_detector import (
     detect_events, get_events_summary, list_events,
@@ -944,7 +944,7 @@ def get_ticker_bars(
     conn = get_conn(read_only=True)
     try:
         rows = conn.execute(
-            """SELECT ticker, date, open, high, low, close, volume,
+            f"""SELECT ticker, date, open, high, low, close, volume,
                       turbo_score, vol_bucket, gog_tier, swing_type,
                       fwd_1d, fwd_5d, fwd_10d, fwd_20d, fwd_60d,
                       mfe_20d, mfe_60d, mae_20d,
@@ -954,9 +954,11 @@ def get_ticker_bars(
                       bar_body_wick, bar_gap_range, bar_line5,
                       swing_type_3, is_pivot_low_3, is_pivot_high_3
                FROM bars WHERE ticker = ?
-               -- a ticker can live in >1 universe (e.g. RGTI in nasdaq AND russell2k);
-               -- keep ONE row per date so the chart gets unique timestamps
-               QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY universe) = 1
+               -- a ticker can live in >1 universe (e.g. RGTI/CYCU in nasdaq AND
+               -- russell2k) with DIVERGENT bars on the same date. Keep ONE row
+               -- per date, choosing the canonical universe by priority
+               -- (sp500 > nasdaq > russell2k) so the chart matches the scan.
+               QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
                ORDER BY date DESC LIMIT ? OFFSET ?""",
             [ticker.upper(), limit, offset],
         ).fetchdf()
