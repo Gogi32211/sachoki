@@ -743,7 +743,6 @@ export default function HowItWorksPanel() {
             <Row label="F"    cls="text-orange-300">F-Builder signals (F1–F11, 260418)</Row>
             <Row label="FLY"  cls="text-purple-300">FLY ABCD pattern signals (260424)</Row>
             <Row label="G"    cls="text-violet-300">G-Builder signals (G1, G2, G4, G6, G11, 260410)</Row>
-            <Row label="B"    cls="text-amber-300">B-Builder signals (B1–B11, 260321)</Row>
             <Row label="I"    cls="text-teal-300">2809 Phase labels (CONSO, UM, SVS, HILO↑, ROCKET, 3G…)</Row>
             <Row label="ULT"  cls="text-yellow-300">Ultra v2: 4BF, EB↑, FBO↑, 3↑, L88, 260308</Row>
             <Row label="VOL"  cls="text-pink-300">VABS volume signals: VBO↑, NS, ND, STRONG, ABS, LOAD, CLM</Row>
@@ -825,27 +824,8 @@ export default function HowItWorksPanel() {
           </ul>
         </Section>
 
-        {/* ── B Signals ── */}
-        <Section title="B1–B11 Signals (260321_B_BUILDER)">
-          <p className="mb-2">
-            Multi-bar pattern sequences built on top of T/Z codes. Each B signal describes a
-            specific 2–3 bar sequence (e.g. "Z10 two bars ago, Z2G one bar ago, T1 now") that
-            historically precedes reversals. <span className="text-yellow-300">No RSI filter applied</span> — raw pattern logic only.
-          </p>
-          <ul className="list-disc list-inside space-y-1">
-            <Row label="B1" cls="text-orange-400">T3→T4 sequences and Z2G/Z6 absorption into T4</Row>
-            <Row label="B2" cls="text-md-on-surface">Z2-led pullback into T2/T2G continuation</Row>
-            <Row label="B3" cls="text-sky-300">T6/T3 momentum with Z3/Z4 absorption sequences</Row>
-            <Row label="B4" cls="text-md-on-surface">Z4 trap into T1G / T2G recovery</Row>
-            <Row label="B5" cls="text-cyan-400">T5 pivot into T2G/T6 — classic spring</Row>
-            <Row label="B6" cls="text-md-on-surface">Z1G/Z3 multi-bar base into T1G/T9</Row>
-            <Row label="B7" cls="text-green-400">T9/T2 momentum stacking into T2G/T4</Row>
-            <Row label="B8" cls="text-blue-400">repeated T1G or Z2G→T1G recovery</Row>
-            <Row label="B9" cls="text-md-on-surface">Z9 trap / Z10 sequence into T4</Row>
-            <Row label="B10" cls="text-lime-400">Z10 multi-bar base with Z2G→T1/T6 breakout</Row>
-            <Row label="B11" cls="text-fuchsia-400">Z11/Z9/Z6 into Z10 base then reversal</Row>
-          </ul>
-
+        {/* ── TZ State Machine & Confluence ── */}
+        <Section title="TZ State Machine & Confluence (260321)">
           <p className="text-md-on-surface-var mt-3 mb-1 font-medium">TZ State Machine — regime filter</p>
           <p className="mb-2 text-md-on-surface-var text-xs">
             Before surfacing B signals, the engine computes the current market regime using rolling
@@ -1242,7 +1222,7 @@ export default function HowItWorksPanel() {
                   ['FRI34 + VBO↑ + RS+',  'L + VABS + Brk',     'Mid',     'Weekly structure + volume + sector leadership'],
                   ['wLPS + T4 + BR%',     'Wyk + T/Z + Context','Mid',     'Re-test confirmed by state + readiness context'],
                   ['wSPR + dSPR + Ab↑',  'Wyk + Δ + Δ',        'Early',   'Same theme cluster — high conviction, less diversity'],
-                  ['B1/B10 + CD + VBO↑',  'B/G + Cmb + VABS',   'Late [L]','Confirmed breakout — conviction high, entry may be extended'],
+                  ['CD + VBO↑ + RS+',     'Cmb + VABS + Brk',   'Late [L]','Confirmed breakout — conviction high, entry may be extended'],
                 ].map(([combo, engines, phase, why]) => (
                   <tr key={combo} className="border-b border-md-outline-var/40">
                     <td className="py-1 pr-4 font-mono text-white">{combo}</td>

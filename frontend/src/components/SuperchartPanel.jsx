@@ -67,12 +67,7 @@ const ROWS = [
     getSigs: (b) => b.g ?? [],
     chipCls: () => 'bg-violet-900 text-violet-200',
   },
-  {
-    key: 'b',
-    label: 'B',
-    getSigs: (b) => b.b ?? [],
-    chipCls: () => 'bg-amber-900 text-amber-300',
-  },
+  // B-row (B1–B11) retired from display — still computed backend-side.
   {
     key: 'combo',
     label: 'I',

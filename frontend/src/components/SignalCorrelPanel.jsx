@@ -17,9 +17,7 @@ const SIG_LABEL = {
   // TZ state
   tz_bull: 'T/Z↑', tz_bull_flip: 'FLP↑', tz_attempt: 'W',
   tz_weak_bull: 'W↑', tz_weak_bear: 'W↓',
-  // B signals
-  b1:'B1', b2:'B2', b3:'B3', b4:'B4', b5:'B5',
-  b6:'B6', b7:'B7', b8:'B8', b9:'B9', b10:'B10', b11:'B11',
+  // B signals (B1–B11) retired from display
   // G signals
   g1:'G1', g2:'G2', g4:'G4', g6:'G6', g11:'G11',
   // WLNBB
@@ -89,7 +87,9 @@ export default function SignalCorrelPanel() {
 
   useEffect(() => { load() }, [tf, universe, minPct])
 
-  const pairs = data?.pairs ?? []
+  // B1–B11 retired from display — drop any pair whose A or B leg is a B signal.
+  const isBSig = (k) => /^b\d+$/.test(String(k ?? ''))
+  const pairs = (data?.pairs ?? []).filter(p => !isBSig(p.sig_a) && !isBSig(p.sig_b))
   const sorted = [...pairs].sort((a, b) => b[sortBy] - a[sortBy])
 
   const SortTh = ({ col, children }) => (
@@ -168,7 +168,7 @@ export default function SignalCorrelPanel() {
           <span>{sorted.length} pairs ≥ {minPct}%</span>
           <span className="text-md-on-surface-var/70">
             {Object.entries(data.signal_counts ?? {})
-              .filter(([, v]) => v > 0)
+              .filter(([k, v]) => v > 0 && !isBSig(k))
               .sort((a, b) => b[1] - a[1])
               .slice(0, 8)
               .map(([k, v]) => `${lbl(k)}:${v}`)
@@ -208,7 +208,7 @@ export default function SignalCorrelPanel() {
                   <td className="px-3 py-1.5 font-mono font-semibold text-blue-300">{lbl(p.sig_a)}</td>
                   <td className="px-3 py-1.5 font-mono font-semibold text-cyan-300">{lbl(p.sig_b)}</td>
                   <td className="px-3 py-1.5 font-mono text-violet-300">
-                    {p.top_c ? (
+                    {p.top_c && !isBSig(p.top_c) ? (
                       <span title={p.top_c}>{lbl(p.top_c)}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>

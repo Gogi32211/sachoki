@@ -37,10 +37,7 @@ const COL_TO_LABEL = {
   sig_g1:'G1', sig_g2:'G2', sig_g4:'G4', sig_g6:'G6', sig_g11:'G11',
   sig_gog_plus:'GOG+', g1p:'G1P', g2p:'G2P', g3p:'G3P',
   g1l:'G1L', g2l:'G2L', g1c:'G1C', g2c:'G2C', g3c:'G3C',
-  // B signals
-  sig_b1:'B1', sig_b2:'B2', sig_b3:'B3', sig_b4:'B4', sig_b5:'B5',
-  sig_b6:'B6', sig_b7:'B7', sig_b8:'B8', sig_b9:'B9', sig_b10:'B10',
-  sig_b11:'B11', sig_any_b:'B★',
+  // B signals (B1–B11) retired from display
   // F signals
   sig_f1:'F1', sig_f2:'F2', sig_f3:'F3', sig_f4:'F4', sig_f5:'F5',
   sig_f6:'F6', sig_f7:'F7', sig_f8:'F8', sig_f9:'F9', sig_f10:'F10',
@@ -1953,7 +1950,13 @@ function PatternsTab() {
                   </tr>
                 </thead>
                 <tbody>
-                  {patternData.slice(0, 100).map((p, i) => {
+                  {patternData
+                    // B1–B11 retired from display — drop any pattern that references a B signal
+                    .filter(p => {
+                      const rs = p.sequence ?? (Array.isArray(p.signals) ? p.signals : p.signal ? [p.signal] : [])
+                      return !rs.some(c => /^(sig_)?b\d+$/i.test(String(c)))
+                    })
+                    .slice(0, 100).map((p, i) => {
                     // Normalise: singles have .signal (str), combos have .signals ([]), seqs have .sequence ([])
                     const rawSigs = p.sequence ?? (Array.isArray(p.signals) ? p.signals : p.signal ? [p.signal] : [])
                     const isSeq   = !!p.sequence

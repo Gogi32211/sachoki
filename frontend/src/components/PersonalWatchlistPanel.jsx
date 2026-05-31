@@ -49,7 +49,7 @@ const SIG_LABEL = {
   load_sig:'LD', vbo_up:'VBO↑', ns:'NS', sq:'SQ', sc:'SC',
   sig_l88:'L88', sig_260308:'260308',
   tz_bull_flip:'FLP↑', tz_attempt:'W',
-  b1:'B1',b2:'B2',b3:'B3',b4:'B4',b5:'B5',b6:'B6',b7:'B7',b8:'B8',b9:'B9',b10:'B10',b11:'B11',
+  // B1–B11 retired from display (still computed backend-side)
   g1:'G1',g2:'G2',g4:'G4',g6:'G6',g11:'G11',
   fri34:'FRI34', fri43:'FRI43', l34:'L34', l43:'L43', l64:'L64', l22:'L22',
   blue:'BL', cci_ready:'CCI', cci_0_retest:'CCIOR',
@@ -77,6 +77,7 @@ function SignalChips({ entry, n }) {
   const active = useMemo(() => {
     const sigs = entry._signals || {}
     return Object.keys(sigs).filter(k => {
+      if (/^b\d+$/.test(k)) return false   // B1–B11 retired from display
       if (n <= 1) return sigs[k] === 1 && (ages[k] ?? 999) < 1  // current bar only
       return sigs[k] === 1 && (ages[k] ?? 0) < n
     })

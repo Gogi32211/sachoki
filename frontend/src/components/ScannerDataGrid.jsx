@@ -182,10 +182,8 @@ function collectSignals(r) {
   else if (r.preup89) bull('P89', 5)
   else if (r.preup3)  bull('P3', 4)
 
-  // B signals (first ones only)
-  for (let i = 1; i <= 11; i++) {
-    if (r[`b${i}`]) { bull(`B${i}`, 4); break }
-  }
+  // B signals (B1–B11) intentionally NOT shown — retired from display per user.
+  // Still computed in the backend (feeds CA/CD/CW combos), just never rendered.
 
   // G signals
   for (const k of ['g1','g2','g4','g6','g11']) {
