@@ -523,6 +523,8 @@ def ensure_schema() -> None:
         # Wyckoff Accumulation Exit (260525 v2 — Breakout Hunter)
         "acc_exit_class",         # BO_NOW / BO_1 / BO_2_3 / BO_4_5 / BO_LATE / NOT_ACC / DIST_EXIT
         "aes_stage",              # human-readable stage label
+        # PreBreakout v2 (data-derived OOS-validated score) — WATCH/BUY/HOT
+        "prebreak_v2_band",
         # Enrichment metadata
         "enrich_version",
     ]
@@ -541,6 +543,8 @@ def ensure_schema() -> None:
         "tz_bull",                 # 1 if t_sig present (bullish TZ active)
         "sweet_spot_active",       # composite (turbo>=60 + bull regime + L+W)
         "late_warning",            # turbo dropping recently
+        # PreBreakout v2 (data-derived OOS-validated breakout-probability ×100)
+        "prebreak_v2",
     ]
     _ENRICHMENT_DOUBLE_COLS = [
         # ATR (used by gap/range + downstream)

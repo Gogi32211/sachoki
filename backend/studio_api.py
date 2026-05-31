@@ -686,6 +686,7 @@ def acc_exit_hunter(
             SELECT ticker, universe, date, close, volume, avg_vol_20d,
                    wyc_phase, aes_stage, aes_score, aes_leading, aes_trend_5d,
                    acc_exit_class, acc_exit_in_n,
+                   prebreak_v2, prebreak_v2_band,
                    pb_lvbo, wyc_spring, ad_fresh, ad_cluster,
                    prebreak_prime, prebreak_ready, prebreak_watch,
                    pb_wvf_confirm, pb_stop_cause, wyc_sos,

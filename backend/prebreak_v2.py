@@ -138,3 +138,49 @@ def compute_prebreak_v2(row: dict) -> dict:
         "prebreak_v2_band": band,
         "prebreak_v2_prob": round(prob, 4),
     }
+
+
+# ── Vectorised SQL (single source of truth — generated from the baked weights) ─
+def prebreak_v2_score_sql() -> str:
+    """Return a DuckDB expression that computes prebreak_v2 from bars columns,
+    identical to compute_prebreak_v2()."""
+    terms = [repr(_BIAS)]
+    for feat, w in _TERMS:
+        if feat in _CONT:
+            s = _CONT[feat]
+            terms.append(
+                f"({w!r})*((LEAST(GREATEST(COALESCE({feat},{s['default']!r}),"
+                f"{s['lo']!r}),{s['hi']!r})-({s['mu']!r}))/({s['sd']!r}))"
+            )
+        else:
+            terms.append(f"({w!r})*(CASE WHEN COALESCE({feat},0)<>0 THEN 1 ELSE 0 END)")
+    z = "LEAST(GREATEST(" + " + ".join(terms) + ", -30), 30)"
+    prob = f"(1.0/(1.0+exp(-({z}))))"
+    return f"CAST(ROUND({prob}*100) AS SMALLINT)"
+
+
+def prebreak_v2_band_sql(score_col: str = "prebreak_v2") -> str:
+    return (f"CASE WHEN {score_col}>27 THEN 'HOT' "
+            f"WHEN {score_col}>=15 THEN 'BUY' ELSE 'WATCH' END")
+
+
+def apply_prebreak_v2(universe: str | None = None) -> int:
+    """Compute + persist prebreak_v2 / prebreak_v2_band for bars (one SQL pass).
+    Returns rows updated. Requires an exclusive writer (stop the uvicorn first
+    for a full backfill; safe to call per-universe inside the daily pipeline)."""
+    from studio.db import get_conn
+    where = ""
+    if universe:
+        u = str(universe).strip().lower()
+        if u not in ("sp500", "nasdaq", "russell2k"):
+            raise ValueError(f"bad universe {universe!r}")
+        where = f"WHERE universe = '{u}'"
+    conn = get_conn(read_only=False)
+    try:
+        conn.execute(f"UPDATE bars SET prebreak_v2 = {prebreak_v2_score_sql()} {where}")
+        conn.execute(f"UPDATE bars SET prebreak_v2_band = {prebreak_v2_band_sql()} {where}")
+        n = conn.execute(f"SELECT COUNT(*) FROM bars {where}").fetchone()[0]
+        conn.commit()
+        return int(n)
+    finally:
+        conn.close()

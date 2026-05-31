@@ -336,6 +336,14 @@ def incremental_delta_refresh(
             try:
                 from studio.enricher import enrich_universe
                 enrich_summary = enrich_universe(universe=universe, max_workers=1)
+                # PreBreakout v2 score depends on the enriched signal flags, so
+                # recompute it for this universe right after enrichment (cheap,
+                # one vectorised SQL pass).
+                try:
+                    from prebreak_v2 import apply_prebreak_v2
+                    apply_prebreak_v2(universe)
+                except Exception:
+                    log.exception("prebreak_v2 apply failed for %s", universe)
             except Exception as e:
                 log.exception("enrich failed for %s", universe)
                 enrich_summary = {"error": str(e)}
