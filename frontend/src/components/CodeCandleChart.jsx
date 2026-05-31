@@ -4,7 +4,6 @@ import { api } from '../api'
 
 // Volume-bucket colours (shared palette)
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
-const SIG_COLOR  = { bull: '#22c55e', bear: '#ef4444' }
 const BAR_OPTIONS = [120, 200, 300, 500, 1000]
 
 const fmtDate = (d) => String(d ?? '').slice(0, 10)
@@ -172,19 +171,25 @@ export default function CodeCandleChart({
       const volumes = dedupeByTime(rows.filter(r => r.volume != null && toTime(r))
         .map(r => ({ time: toTime(r), value: +r.volume, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' }))
         .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0)))
-      const markers = rows.filter(r => r.sig_id > 0 && toTime(r)).map((r) => {
-        const combo = r.l_combo && r.l_combo !== 'NONE' ? ` [${r.l_combo}]` : ''
-        return {
-          time: toTime(r),
-          position: r.is_bull ? 'belowBar' : 'aboveBar',
-          color: r.is_bull ? SIG_COLOR.bull : SIG_COLOR.bear,
-          shape: r.is_bull ? 'arrowUp' : 'arrowDown',
-          text: `${r.sig_name}${combo}`,
-        }
-      }).sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
-      signalsRef.current = []                       // no code overlay for live data
+      // Build the SAME white code overlay from the live feed (no arrows). The
+      // full 6-line suffix/body-wick/gap/line5 are DB-enrichment only, so live
+      // bars show the lines we have: TZ (sig_name) · L (l_combo) · vol bucket.
+      const sigOverlay = []
+      for (const r of rows) {
+        const t = toTime(r)
+        if (t == null || r.close == null) continue
+        const tz = r.sig_id > 0 ? (r.sig_name || '') : ''
+        const lc = r.l_combo && r.l_combo !== 'NONE' ? r.l_combo : ''
+        if (!tz && !lc) continue
+        sigOverlay.push({
+          time: t, low: +r.low, high: +r.high,
+          isBull: !!r.is_bull, neutral: !tz,
+          lines: [tz, lc].filter(Boolean), vol: r.vol_bucket || '',
+        })
+      }
+      signalsRef.current = sigOverlay
       seriesRef.current.setData(candles)
-      seriesRef.current.setMarkers(markers)
+      seriesRef.current.setMarkers([])
       volRef.current?.setData(volumes)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
       chartRef.current.timeScale().fitContent()
@@ -257,6 +262,10 @@ export default function CodeCandleChart({
   // ── bare: chart body only (host supplies its own header) ──
   if (bare) return chartBody
 
+  // Reflect the ACTUAL data source (a 1d ticker missing from the DB falls back
+  // to the live feed, which still renders white codes — just the lines it has).
+  const srcIsDb = meta ? meta.src === 'db' : useDb
+
   const legend = (
     <div className="hidden md:flex items-center gap-1.5 text-xs text-md-on-surface-var">
       {Object.entries(BUCKET_HEX).map(([k, v]) => (
@@ -273,7 +282,7 @@ export default function CodeCandleChart({
       {showToolbar && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-md-outline-var gap-3 flex-wrap">
           <span className="font-semibold text-sm">
-            {ticker} <span className="text-md-on-surface-var font-normal">{useDb ? '· DB (Studio) · 1d' : `· ${tf}`}</span>
+            {ticker} <span className="text-md-on-surface-var font-normal">{srcIsDb ? '· DB (Studio) · 1d' : `· ${tf} · live`}</span>
             {sector && (
               <span className="ml-2 text-xs font-normal text-md-on-surface-var bg-md-surface-high px-1.5 py-0.5 rounded">{sector}</span>
             )}
@@ -284,9 +293,9 @@ export default function CodeCandleChart({
             )}
           </span>
           <div className="flex items-center gap-3">
-            {useDb && (
+            {(
               <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
-                     title="Show the full 6-line DB code on every signal bar">
+                     title="Show the chart code on every signal bar">
                 <input type="checkbox" checked={showCodes} onChange={e => setShowCodes(e.target.checked)} />
                 <span>codes</span>
               </label>
@@ -306,9 +315,9 @@ export default function CodeCandleChart({
       {chartBody}
       {showFooter && (
         <div className="px-4 py-1.5 text-[11px] text-md-on-surface-var border-t border-md-outline-var">
-          {useDb
+          {srcIsDb
             ? 'Data straight from Studio DB — full 6-line code shown on every signal bar (toggle “codes”). These are the exact codes the Sequence Builder matches. May differ from your TradingView chart’s feed.'
-            : 'Live signal feed — intraday codes are not stored; signal arrows shown instead. Switch to 1d for the full DB code overlay.'}
+            : 'Live feed (ticker not in the Studio DB or intraday) — codes show TZ · L · vol bucket only; the full 6-line suffix/body/gap/line5 exist for daily DB tickers.'}
         </div>
       )}
     </div>
