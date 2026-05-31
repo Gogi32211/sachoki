@@ -109,13 +109,24 @@ def seq_lab(
 
     conn = get_conn(read_only=True)
     try:
+        # A ticker+date can appear in several universe rows (e.g. AAPL is in
+        # sp500 AND nasdaq AND russell2k). With universe='all' there is no
+        # universe filter, so PARTITION BY ticker ORDER BY date would place those
+        # identical copies side-by-side and LAG would emit bogus repeats like
+        # "T5L5·L|T5L5·L|T5L5·L". Collapse to one row per (ticker,date) everywhere.
+        DEDUP = "QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker, date ORDER BY universe) = 1"
+
         # ── baseline (same filters, no sequence) ──────────────────────────────
         b = conn.execute(f"""
             SELECT COUNT(*) n,
-                   ROUND(AVG(CASE WHEN {hcol} > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
-                   ROUND(AVG({hcol}), 3) avg_ret,
-                   ROUND(AVG(mfe_20d), 2) mfe20
-            FROM bars WHERE {base_where}
+                   ROUND(AVG(CASE WHEN h > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
+                   ROUND(AVG(h), 3) avg_ret,
+                   ROUND(AVG(m), 2) mfe20
+            FROM (
+                SELECT {hcol} AS h, mfe_20d AS m
+                FROM bars WHERE {base_where}
+                {DEDUP}
+            )
         """).fetchone()
         baseline = {"n": int(b[0] or 0), "win": _f(b[1]), "avg_ret": _f(b[2]), "mfe20": _f(b[3])}
 
@@ -141,6 +152,7 @@ def seq_lab(
                 SELECT ticker, date, wyc_phase,
                        {tok} AS tk, {hcol} AS ret, mfe_20d
                 FROM bars WHERE {base_where}
+                {DEDUP}
             ),
             seqd AS (
                 SELECT *, {seq_concat} AS seq
