@@ -3194,6 +3194,8 @@ function SeqLabTab() {
           <select value={p.mode} onChange={e => upd('mode', e.target.value)} className={SEQLAB_SEL}>
             <option value="color">color (T/Z)</option>
             <option value="signal">signal label</option>
+            <option value="lsig">volume L (L1–L6)</option>
+            <option value="vol">vol bucket (W/L/N/B/VB)</option>
           </select>
         </Field>
         <Field label="Horizon">

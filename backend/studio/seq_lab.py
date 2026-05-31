@@ -51,9 +51,18 @@ _SORTS = {"win": "win DESC", "avg": "avg_ret DESC", "mfe": "mfe20 DESC",
 _PREFIX_RE = re.compile(r"^[TZ\-|A-Z0-9·]{0,40}$")
 
 
+_MODES = {"color", "signal", "lsig", "vol"}
+
+
 def _token_expr(mode: str) -> str:
     if mode == "signal":
         return "COALESCE(NULLIF(t_sig,''), NULLIF(z_sig,''), '.')"
+    if mode == "lsig":
+        # volume direction × price (L1–L6 classification, e.g. L34)
+        return "COALESCE(NULLIF(l_sig,''), '.')"
+    if mode == "vol":
+        # WLNBB volume-magnitude bucket: W / L / N / B / VB
+        return "COALESCE(NULLIF(vol_bucket,''), '.')"
     # color (default)
     return "CASE WHEN close > open THEN 'T' WHEN close < open THEN 'Z' ELSE '-' END"
 
@@ -73,7 +82,7 @@ def seq_lab(
     """Rank N-bar T/Z sequences by forward outcome. Returns {baseline, rows, params}."""
     # ── validate / clamp ──────────────────────────────────────────────────────
     n_bars  = max(2, min(6, int(n_bars)))
-    mode    = "signal" if mode == "signal" else "color"
+    mode    = mode if mode in _MODES else "color"
     hcol    = _HORIZONS.get(horizon, "fwd_1d")
     min_occ = max(20, min(200_000, int(min_occ)))
     limit   = max(1, min(100, int(limit)))
@@ -82,7 +91,7 @@ def seq_lab(
     phase   = wyc_phase if wyc_phase in _PHASES else None
     pref    = prefix.strip().upper() if prefix and _PREFIX_RE.match(prefix.strip().upper()) else None
 
-    sep = "|" if mode == "signal" else ""
+    sep = "" if mode == "color" else "|"
     tok = _token_expr(mode)
 
     base_clauses = [f"{hcol} IS NOT NULL"]
