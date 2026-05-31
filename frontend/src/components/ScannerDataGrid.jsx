@@ -117,7 +117,7 @@ function StatusChip({ cat }) {
 
 // ── Collect all active signals for a row in priority order ───────────────────
 // type: 'bull' | 'bear' | 'info'
-function collectSignals(r) {
+export function collectSignals(r) {
   const sigs = []
   const bull = (label, priority) => sigs.push({ label, priority, type: 'bull' })
   const bear = (label, priority) => sigs.push({ label, priority, type: 'bear' })
@@ -563,7 +563,7 @@ export default function ScannerDataGrid({
                   hover:bg-white/5
                   ${rowBg}
                   ${profileBorderCls(r.profile_category)}`}
-                onClick={() => onSelectTicker?.(r.ticker)}
+                onClick={() => onSelectTicker?.(r.ticker, r)}
                 onMouseEnter={handleRowEnter ? (e => handleRowEnter(e, r)) : undefined}
                 onMouseLeave={handleRowLeave || undefined}
               >

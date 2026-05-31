@@ -3,6 +3,7 @@ import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import TickerInput from './components/TickerInput'
 import WatchlistPanel from './components/WatchlistPanel'
 import CodeCandleChart from './components/CodeCandleChart'
+import SelectedTickerBar from './components/SelectedTickerBar'
 import AppSidebar from './components/AppSidebar'
 import TradingDashboardPanel from './components/TradingDashboardPanel'   // landing tab
 import TurboScanPanel from './components/TurboScanPanel'                 // kept mounted
@@ -118,6 +119,8 @@ export default function App() {
   const [selected, setSelected] = useState(
     () => LS.get('selected_ticker', 'AAPL')
   )
+  // Full screener row for `selected` (signals + stats shown above the chart); null when selected from a non-grid source
+  const [selectedRow, setSelectedRow] = useState(null)
   const [tf, setTf] = useState(
     () => LS.get('tf', '1d')
   )
@@ -158,7 +161,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const handleSelect       = (ticker) => setSelected(ticker)
+  const handleSelect       = (ticker, row = null) => { setSelected(ticker); setSelectedRow(row) }
   const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
   const handleRemoveTicker = (t) => setWatchlist(prev => prev.filter(x => x !== t))
   const handleOpenChart    = useCallback((ticker) => {
@@ -261,6 +264,9 @@ export default function App() {
         {/* Global chart — hidden on dashboard and turbo tabs */}
         {!NO_CHART_TABS.has(activeTab) && (
           <div style={{ minHeight: '340px' }}>
+            {selectedRow && selectedRow.ticker === chartTicker && (
+              <SelectedTickerBar row={selectedRow} />
+            )}
             <CodeCandleChart
               ticker={chartTicker}
               tf={chartTf}
