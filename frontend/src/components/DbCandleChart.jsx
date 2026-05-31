@@ -50,7 +50,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       // 5 code lines (white) + a 6th volume-bucket line coloured like the volume bar
       el.innerHTML = s.lines.map((l, i) =>
         `<div style="${i === 0 ? 'font-weight:700;' : 'opacity:.9;'}">${l}</div>`).join('')
-        + (s.vol ? `<div style="color:${BUCKET_HEX[s.vol] || '#fff'};font-weight:700;">${s.vol}</div>` : '')
+        + (s.vol ? `<div style="font-weight:700;">${s.vol}</div>` : '')
       ov.appendChild(el)
     }
   }, [])
