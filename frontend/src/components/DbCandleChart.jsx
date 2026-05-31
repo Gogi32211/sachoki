@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useRef, useState, useCallback } from 'react'
 import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 
@@ -25,21 +25,54 @@ function sixLines(r) {
 
 export default function DbCandleChart({ ticker, limit = 300 }) {
   const containerRef = useRef(null)
+  const overlayRef   = useRef(null)        // absolute layer holding the per-bar code labels
   const chartRef     = useRef(null)
   const seriesRef    = useRef(null)
   const volRef       = useRef(null)
   const byTimeRef    = useRef({})           // time -> row (for tooltip)
+  const signalsRef   = useRef([])           // [{time, low, high, isBull, lines:[...]}]
+  const showCodesRef = useRef(true)
   const [error, setError]   = useState(null)
   const [loading, setLoading] = useState(false)
   const [hover, setHover]   = useState(null) // hovered bar's 6 lines
   const [meta, setMeta]     = useState(null) // {n, dmin, dmax}
+  const [showCodes, setShowCodes] = useState(true)
+
+  // ── Multi-line code overlay (TradingView-style: full 5 lines ON every signal
+  //    bar, always visible). Positioned imperatively from the chart's coordinate
+  //    API so it tracks pan / zoom / resize. ──────────────────────────────────
+  const renderOverlay = useCallback(() => {
+    const ov = overlayRef.current, chart = chartRef.current, series = seriesRef.current
+    if (!ov || !chart || !series) return
+    ov.innerHTML = ''
+    if (!showCodesRef.current) return
+    const ts = chart.timeScale()
+    for (const s of signalsRef.current) {
+      const x = ts.timeToCoordinate(s.time)
+      if (x == null) continue                                   // off-screen
+      const y = series.priceToCoordinate(s.isBull ? s.low : s.high)
+      if (y == null) continue
+      const el = document.createElement('div')
+      el.style.cssText =
+        'position:absolute;text-align:center;line-height:1.05;font-family:ui-monospace,monospace;'
+        + 'font-size:9px;white-space:nowrap;pointer-events:none;padding:1px 2px;border-radius:2px;'
+        + 'background:rgba(3,7,18,0.6);'
+      el.style.left = x + 'px'
+      el.style.top  = y + 'px'
+      // bull → below the low; bear → above the high
+      el.style.transform = s.isBull
+        ? 'translate(-50%, 10px)'
+        : 'translate(-50%, calc(-100% - 10px))'
+      el.style.color = s.isBull ? '#86efac' : '#fca5a5'
+      el.innerHTML = s.lines.map((l, i) =>
+        `<div style="${i === 0 ? 'font-weight:600;' : 'opacity:.82;'}">${l}</div>`).join('')
+      ov.appendChild(el)
+    }
+  }, [])
 
   // init chart once
   useEffect(() => {
     if (!containerRef.current) return
-    // autoSize lets lightweight-charts size itself to the container via its own
-    // ResizeObserver — fixes the "chart renders empty" race when this (lazy-loaded)
-    // tab mounts before the container has a measured width (width:0 → no candles).
     const chart = createChart(containerRef.current, {
       autoSize: true,
       layout: { background: { color: '#030712' }, textColor: '#9ca3af' },
@@ -47,7 +80,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: '#374151' },
       timeScale: { borderColor: '#374151', timeVisible: false },
-      width: containerRef.current.clientWidth || 600,   // fallback if not yet measured
+      width: containerRef.current.clientWidth || 600,
       height: 460,
     })
     const series = chart.addCandlestickSeries({
@@ -64,12 +97,19 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       if (!param.time || !byTimeRef.current[param.time]) { setHover(null); return }
       setHover(sixLines(byTimeRef.current[param.time]))
     })
+    // re-position the code overlay on every pan / zoom
+    chart.timeScale().subscribeVisibleLogicalRangeChange(() => renderOverlay())
 
     chartRef.current = chart
     seriesRef.current = series
     volRef.current = vol
-    return () => { chart.remove() }
-  }, [])
+
+    // resize → coordinates change → re-position labels
+    const ro = new ResizeObserver(() => requestAnimationFrame(renderOverlay))
+    if (containerRef.current) ro.observe(containerRef.current)
+
+    return () => { ro.disconnect(); chart.remove() }
+  }, [renderOverlay])
 
   // load DB bars when ticker/limit changes
   useEffect(() => {
@@ -77,11 +117,6 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
     setError(null); setLoading(true); setHover(null)
     api.studioBars(ticker, limit)
       .then((rows) => {
-        // endpoint returns DESC → sort ascending for charting.
-        // DEDUPE BY DATE: a ticker can exist in >1 universe (e.g. RGTI in nasdaq
-        // AND russell2k), so the same date arrives twice. lightweight-charts needs
-        // strictly-unique ascending timestamps — duplicates make it render NOTHING.
-        // Collapse to one row per date (OHLC is identical across universes).
         const byTime = {}
         for (const r of rows) {
           if (r.close == null) continue
@@ -89,37 +124,48 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
           if (!byTime[time]) byTime[time] = r       // first universe wins (OHLC same)
         }
         const asc = Object.keys(byTime).sort().map(t => byTime[t])
-        const candles = [], volumes = [], markers = []
+        const candles = [], volumes = [], markers = [], signals = []
         for (const r of asc) {
           const time = fmtDate(r.date)
           candles.push({ time, open: +r.open, high: +r.high, low: +r.low, close: +r.close })
           volumes.push({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
           const tz = r.t_sig || r.z_sig
           if (tz) {
-            const lbl = `${tz}${r.l_sig || ''}`
+            const isBull = !!r.t_sig
             markers.push({
               time,
-              position: r.t_sig ? 'belowBar' : 'aboveBar',
-              color:    r.t_sig ? '#22c55e' : '#ef4444',
-              shape:    r.t_sig ? 'arrowUp' : 'arrowDown',
-              text:     lbl,
+              position: isBull ? 'belowBar' : 'aboveBar',
+              color:    isBull ? '#22c55e' : '#ef4444',
+              shape:    isBull ? 'arrowUp' : 'arrowDown',
+              text:     '',
             })
+            // full 5-line code stack, exactly the lines stored in the DB
+            const lines = [
+              `${tz}${r.l_sig || ''}`,                                 // TZ + L
+              r.composite_full_suffix || r.full_suffix || '',          // suffix
+              r.bar_body_wick || '',                                   // body/wick
+              r.bar_gap_range || '',                                   // gap/range
+              r.bar_line5 || '',                                       // line5
+            ].filter(Boolean)
+            signals.push({ time, low: +r.low, high: +r.high, isBull, lines })
           }
         }
         byTimeRef.current = byTime
+        signalsRef.current = signals
         seriesRef.current.setData(candles)
         seriesRef.current.setMarkers(markers)
         volRef.current?.setData(volumes)
         chartRef.current.priceScale('right').applyOptions({ autoScale: true })
         chartRef.current.timeScale().fitContent()
-        // re-fit on the next frame in case the container width was still settling
-        // when the data arrived (otherwise candles can render off-screen / invisible)
-        requestAnimationFrame(() => { try { chartRef.current?.timeScale().fitContent() } catch {} })
+        requestAnimationFrame(() => { try { chartRef.current?.timeScale().fitContent(); renderOverlay() } catch {} })
         setMeta(asc.length ? { n: asc.length, dmin: fmtDate(asc[0].date), dmax: fmtDate(asc[asc.length - 1].date) } : null)
       })
       .catch((e) => setError(e.message))
       .finally(() => setLoading(false))
-  }, [ticker, limit])
+  }, [ticker, limit, renderOverlay])
+
+  // toggle codes on/off
+  useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
   const Row = ({ k, v, hl }) => (
     <div className="flex justify-between gap-3">
@@ -136,6 +182,11 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
           {meta && <span className="ml-2 text-xs text-md-on-surface-var">{meta.n} bars · {meta.dmin} → {meta.dmax}</span>}
         </span>
         <div className="flex items-center gap-3">
+          <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                 title="Show the full 5-line DB code on every signal bar">
+            <input type="checkbox" checked={showCodes} onChange={e => setShowCodes(e.target.checked)} />
+            <span>codes</span>
+          </label>
           <div className="hidden md:flex items-center gap-1.5 text-xs text-md-on-surface-var">
             {Object.entries(BUCKET_HEX).map(([k, v]) => (
               <span key={k} className="flex items-center gap-0.5">
@@ -150,6 +201,8 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       </div>
       <div className="relative">
         <div ref={containerRef} className="w-full" style={{ height: 460 }} />
+        {/* per-bar full 5-line code overlay (TradingView-style) */}
+        <div ref={overlayRef} className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 4 }} />
         {/* hover tooltip — exact 6 DB lines for the bar */}
         {hover && (
           <div className="absolute top-2 left-2 z-10 bg-md-surface-high/95 border border-md-outline-var rounded-lg px-3 py-2 text-xs space-y-0.5 pointer-events-none min-w-[160px]">
@@ -167,8 +220,8 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
         )}
       </div>
       <div className="px-4 py-1.5 text-[11px] text-md-on-surface-var border-t border-md-outline-var">
-        Data straight from Studio DB — these are the exact codes the Sequence Builder matches
-        (hover any bar to read all 6 lines). May differ from your TradingView chart's feed.
+        Data straight from Studio DB — full 5-line code shown on every signal bar (toggle “codes”).
+        These are the exact codes the Sequence Builder matches. May differ from your TradingView chart’s feed.
       </div>
     </div>
   )
