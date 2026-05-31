@@ -51,12 +51,16 @@ _SORTS = {"win": "win DESC", "avg": "avg_ret DESC", "mfe": "mfe20 DESC",
 _PREFIX_RE = re.compile(r"^[TZ\-|A-Z0-9·]{0,40}$")
 
 
-_MODES = {"color", "signal", "lsig", "vol", "combo"}
+_MODES = {"color", "signal", "lsig", "vol", "combo", "swing"}
 
 
 def _token_expr(mode: str) -> str:
     if mode == "signal":
         return "COALESCE(NULLIF(t_sig,''), NULLIF(z_sig,''), '.')"
+    if mode == "swing":
+        # swing-pivot classification HL / LL / HH / LH — sequenced over PIVOT bars
+        # only (see base filter), so "LL|HH|LH" = three consecutive swing pivots.
+        return "COALESCE(NULLIF(swing_type,''), '.')"
     if mode == "lsig":
         # volume direction × price (L1–L6 classification, e.g. L34)
         return "COALESCE(NULLIF(l_sig,''), '.')"
@@ -105,6 +109,10 @@ def seq_lab(
         base_clauses.append(f"universe = '{uni}'")
     if phase:
         base_clauses.append(f"wyc_phase = '{phase}'")
+    if mode == "swing":
+        # only swing-pivot bars; so the LAG window sequences consecutive PIVOTS,
+        # and the baseline is the unconditional forward outcome of any pivot.
+        base_clauses.append("swing_type IS NOT NULL AND swing_type <> ''")
     base_where = " AND ".join(base_clauses)
 
     conn = get_conn(read_only=True)
