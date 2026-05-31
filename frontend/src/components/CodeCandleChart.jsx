@@ -48,6 +48,7 @@ export default function CodeCandleChart({
   showSector = false,
   interactive = true,
   bare = false,
+  codes = true,          // initial state of the code overlay (off for clean previews)
   onChartReady,
 }) {
   const containerRef = useRef(null)
@@ -56,9 +57,9 @@ export default function CodeCandleChart({
   const seriesRef    = useRef(null)
   const volRef       = useRef(null)
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
-  const showCodesRef = useRef(true)
+  const showCodesRef = useRef(codes)
   const [limit, setLimit]     = useState(initialLimit)
-  const [showCodes, setShowCodes] = useState(true)
+  const [showCodes, setShowCodes] = useState(codes)
   const [error, setError]     = useState(null)
   const [loading, setLoading] = useState(false)
   const [meta, setMeta]       = useState(null) // {n, dmin, dmax, src}

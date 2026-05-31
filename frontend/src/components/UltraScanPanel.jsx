@@ -741,7 +741,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
       {/* Chart */}
       <div style={{ width: CHART_W }}>
-        <CodeCandleChart bare ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
+        <CodeCandleChart bare codes={false} ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
       </div>
 
       {/* Signal summary */}
