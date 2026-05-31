@@ -7,22 +7,6 @@ const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB:
 
 const fmtDate = (d) => String(d ?? '').slice(0, 10)
 
-// build the 6 label lines exactly as stored in the DB row
-function sixLines(r) {
-  const tz = r.t_sig || r.z_sig || ''
-  return {
-    tz,
-    L:      r.l_sig || '',
-    suffix: r.composite_full_suffix || r.full_suffix || '',
-    bw:     r.bar_body_wick || '',
-    gr:     r.bar_gap_range || '',
-    l5:     r.bar_line5 || '',
-    isBull: !!r.t_sig,
-    isBear: !!r.z_sig,
-    pivot:  r.swing_type_3 || '',
-  }
-}
-
 export default function DbCandleChart({ ticker, limit = 300 }) {
   const containerRef = useRef(null)
   const overlayRef   = useRef(null)        // absolute layer holding the per-bar code labels
@@ -34,7 +18,6 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
   const showCodesRef = useRef(true)
   const [error, setError]   = useState(null)
   const [loading, setLoading] = useState(false)
-  const [hover, setHover]   = useState(null) // hovered bar's 6 lines
   const [meta, setMeta]     = useState(null) // {n, dmin, dmax}
   const [showCodes, setShowCodes] = useState(true)
 
@@ -93,10 +76,6 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
     })
     chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
 
-    chart.subscribeCrosshairMove((param) => {
-      if (!param.time || !byTimeRef.current[param.time]) { setHover(null); return }
-      setHover(sixLines(byTimeRef.current[param.time]))
-    })
     // re-position the code overlay on every pan / zoom
     chart.timeScale().subscribeVisibleLogicalRangeChange(() => renderOverlay())
 
@@ -114,7 +93,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
   // load DB bars when ticker/limit changes
   useEffect(() => {
     if (!seriesRef.current || !ticker) return
-    setError(null); setLoading(true); setHover(null)
+    setError(null); setLoading(true)
     api.studioBars(ticker, limit)
       .then((rows) => {
         const byTime = {}
@@ -163,13 +142,6 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
-  const Row = ({ k, v, hl }) => (
-    <div className="flex justify-between gap-3">
-      <span className="text-md-on-surface-var/60">{k}</span>
-      <span className={`font-mono ${hl ? 'text-amber-300' : 'text-md-on-surface'}`}>{v || '—'}</span>
-    </div>
-  )
-
   return (
     <div className="bg-md-surface-con rounded-xl border border-md-outline-var">
       <div className="flex items-center justify-between px-4 py-2 border-b border-md-outline-var">
@@ -199,21 +171,6 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
         <div ref={containerRef} className="w-full" style={{ height: 460 }} />
         {/* per-bar full 5-line code overlay (TradingView-style) */}
         <div ref={overlayRef} className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 4 }} />
-        {/* hover tooltip — exact 6 DB lines for the bar */}
-        {hover && (
-          <div className="absolute top-2 left-2 z-10 bg-md-surface-high/95 border border-md-outline-var rounded-lg px-3 py-2 text-xs space-y-0.5 pointer-events-none min-w-[160px]">
-            <div className={`font-bold ${hover.isBull ? 'text-green-400' : hover.isBear ? 'text-red-400' : 'text-md-on-surface'}`}>
-              {hover.isBull ? 'T (bull)' : hover.isBear ? 'Z (bear)' : 'no T/Z'}
-              {hover.pivot && <span className="ml-2 text-md-on-surface-var">pivot {hover.pivot}</span>}
-            </div>
-            <Row k="TZ"      v={hover.tz}     hl />
-            <Row k="L"       v={hover.L} />
-            <Row k="suffix"  v={hover.suffix} hl />
-            <Row k="body/wk" v={hover.bw} />
-            <Row k="gap/rng" v={hover.gr} />
-            <Row k="l5"      v={hover.l5}     hl />
-          </div>
-        )}
       </div>
       <div className="px-4 py-1.5 text-[11px] text-md-on-surface-var border-t border-md-outline-var">
         Data straight from Studio DB — full 5-line code shown on every signal bar (toggle “codes”).
