@@ -269,6 +269,12 @@ def _project_tz_wlnbb(row: dict) -> dict:
         "lane3_label":   row.get("lane3_label", "") or "",
         "volume_bucket": row.get("volume_bucket", "") or "",
         "wick_suffix":   row.get("wick_suffix", "") or "",
+        # Pine line-3/4/5 shape fields
+        "bar_body_wick": row.get("bar_body_wick", "") or "",
+        "bar_gap_range": row.get("bar_gap_range", "") or "",
+        "bar_line5":     row.get("bar_line5", "") or "",
+        "ne_suffix":     row.get("ne_suffix", "") or "",
+        "full_suffix":   row.get("composite_full_suffix") or row.get("full_suffix", "") or "",
     }
 
 
@@ -556,11 +562,34 @@ def run_ultra_scan_job(
                 get_turbo_progress,
             )
             try:
-                run_turbo_scan(
-                    interval=tf, universe=universe, workers=8,
-                    lookback_n=lookback_n, partial_day=partial_day,
-                    min_volume=min_volume, min_store_score=min_store_score,
-                )
+                # Live-poll turbo progress in a daemon thread so the UI bar
+                # advances smoothly while run_turbo_scan blocks.
+                import threading as _threading
+                _stop_poll = _threading.Event()
+
+                def _poll_turbo_progress():
+                    while not _stop_poll.is_set():
+                        try:
+                            p = get_turbo_progress()
+                            with _ultra_lock:
+                                _ultra_state["turbo_done"]  = p.get("done",  0)
+                                _ultra_state["turbo_total"] = p.get("total", 0)
+                        except Exception:
+                            pass
+                        _stop_poll.wait(timeout=1.0)
+
+                _pt = _threading.Thread(target=_poll_turbo_progress, daemon=True)
+                _pt.start()
+                try:
+                    run_turbo_scan(
+                        interval=tf, universe=universe, workers=8,
+                        lookback_n=lookback_n, partial_day=partial_day,
+                        min_volume=min_volume, min_store_score=min_store_score,
+                    )
+                finally:
+                    _stop_poll.set()
+                    _pt.join(timeout=2)
+
                 prog = get_turbo_progress()
                 with _ultra_lock:
                     _ultra_state["turbo_done"]  = prog.get("done", 0)

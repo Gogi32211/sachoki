@@ -147,20 +147,8 @@ const SIG_GROUPS = [
     custom: r => r.tz_wlnbb_l_signal === 'L555' },
   { key: '_wl_l1l2',  label: 'L1L2',  cls: 'text-blue-400',
     custom: r => r.tz_wlnbb_l_signal === 'L1L2' },
-  { divider: true },
-  // ── Vol bucket (TZ/WLNBB) — Live uses tz_wlnbb_volume_bucket, DB-instant uses vol_bucket ──
-  { key: '_vb_vb', label: 'VB',  cls: 'text-red-300 font-bold',
-    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'VB' },
-  { key: '_vb_b',  label: 'B',   cls: 'text-orange-300',
-    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'B' },
-  { key: '_vb_n',  label: 'N',   cls: 'text-yellow-300',
-    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'N' },
-  { key: '_vb_l',  label: 'L',   cls: 'text-blue-400',
-    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'L' },
-  { key: '_vb_w',  label: 'W',   cls: 'text-gray-400',
-    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'W' },
-  { divider: true },
-  // ── Suffix (NE + Wick) ────────────────────────────────────────────────
+  { divider: true, label: 'L2 suffix' },
+  // ── Line 2 — suffix: NE + wick(U/D/B) + penetration(P/R/H) + close(A/O/I) ──
   { key: '_ne_e', label: 'NE',  cls: 'text-lime-300',
     custom: r => (r.tz_wlnbb_ne_suffix || '') === 'E' },
   { key: '_wk_u', label: 'WK↑', cls: 'text-teal-300',
@@ -169,8 +157,21 @@ const SIG_GROUPS = [
     custom: r => (r.tz_wlnbb_wick_suffix || '').includes('D') },
   { key: '_wk_b', label: 'WK↕', cls: 'text-yellow-300',
     custom: r => (r.tz_wlnbb_wick_suffix || '').includes('B') },
-  { divider: true },
-  // ── BW — bar body/wick classification (Pine line-3) ──────────────────
+  // penetration P/R/H + close A/O/I — read the full suffix string (disjoint letters)
+  { key: '_pen_p', label: 'P',  cls: 'text-emerald-300',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('P') },
+  { key: '_pen_r', label: 'R',  cls: 'text-amber-300',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('R') },
+  { key: '_pen_h', label: 'H',  cls: 'text-orange-300',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('H') },
+  { key: '_cl_a', label: 'A',  cls: 'text-lime-400',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('A') },
+  { key: '_cl_o', label: 'O',  cls: 'text-gray-300',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('O') },
+  { key: '_cl_i', label: 'I',  cls: 'text-red-400',
+    custom: r => (r.tz_wlnbb_full_suffix || '').includes('I') },
+  { divider: true, label: 'L3 body·wick' },
+  // ── Line 3 — bar body/wick classification ────────────────────────────
   { key: '_bw_x',  label: 'X',   cls: 'text-lime-300 font-bold',
     custom: r => (r.tz_wlnbb_bar_body_wick || '').startsWith('X') },
   { key: '_bw_m',  label: 'M',   cls: 'text-yellow-300',
@@ -189,8 +190,8 @@ const SIG_GROUPS = [
     custom: r => r.tz_wlnbb_bar_body_wick === 'XF' },
   { key: '_bw_mf', label: 'MF',  cls: 'text-yellow-400',
     custom: r => r.tz_wlnbb_bar_body_wick === 'MF' },
-  { divider: true },
-  // ── GR — gap/range vs ATR (Pine line-4) ──────────────────────────────
+  { divider: true, label: 'L4 gap·range' },
+  // ── Line 4 — gap/range vs ATR ────────────────────────────────────────
   { key: '_gr_g1', label: 'G1',  cls: 'text-sky-300',
     custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('G1') },
   { key: '_gr_g2', label: 'G2',  cls: 'text-blue-300',
@@ -203,22 +204,38 @@ const SIG_GROUPS = [
     custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('C') },
   { key: '_gr_n',  label: 'N',   cls: 'text-gray-400',
     custom: r => r.tz_wlnbb_bar_gap_range === 'N' },
-  { divider: true },
-  // ── L5 — VIX-Fix / PSAR / RSI2 (Pine line-5) ────────────────────────
+  { divider: true, label: 'L5 vix·psar·rsi2' },
+  // ── Line 5 — VIX-Fix / PSAR / RSI2 ───────────────────────────────────
   { key: '_l5_any', label: 'L5∗',  cls: 'text-amber-200 font-semibold',
     custom: r => !!r.tz_wlnbb_bar_line5 },
   { key: '_l5_vx',  label: 'VX',   cls: 'text-red-300 font-bold',
     custom: r => (r.tz_wlnbb_bar_line5 || '').includes('VX') },
-  { key: '_l5_pb',  label: 'PB',   cls: 'text-lime-300',
-    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('PB') },
   { key: '_l5_vr',  label: 'VR',   cls: 'text-orange-300',
     custom: r => (r.tz_wlnbb_bar_line5 || '').includes('VR') },
-  { key: '_l5_r2l', label: 'R2L',  cls: 'text-cyan-300',
-    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2L') },
+  { key: '_l5_pb',  label: 'PB',   cls: 'text-lime-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('PB') },
+  { key: '_l5_ps',  label: 'PS',   cls: 'text-red-400',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('PS') },
   { key: '_l5_r2h', label: 'R2H',  cls: 'text-blue-300',
     custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2H') },
+  { key: '_l5_r2l', label: 'R2L',  cls: 'text-cyan-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2L') },
   { key: '_l5_r2x', label: 'R2X',  cls: 'text-indigo-300',
     custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2X') },
+  { key: '_l5_r2d', label: 'R2D',  cls: 'text-fuchsia-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2D') },
+  { divider: true, label: 'L6 vol' },
+  // ── Line 6 — volume bucket (Live uses tz_wlnbb_volume_bucket, DB-instant uses vol_bucket) ──
+  { key: '_vb_vb', label: 'VB',  cls: 'text-red-300 font-bold',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'VB' },
+  { key: '_vb_b',  label: 'B',   cls: 'text-orange-300',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'B' },
+  { key: '_vb_n',  label: 'N',   cls: 'text-yellow-300',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'N' },
+  { key: '_vb_l',  label: 'L',   cls: 'text-blue-400',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'L' },
+  { key: '_vb_w',  label: 'W',   cls: 'text-gray-400',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'W' },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: '_l_any',  label: 'L∗',  cls: 'text-blue-200',
@@ -756,7 +773,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // Cache version bump invalidates ALL cached entries that pre-date the bump.
 // Increment this when row schema changes (new enrichment columns added) so
 // stale caches without the new fields don't survive a redeploy.
-const _CACHE_VERSION = '260523_v3.8'  // bumped: N now applies to prebreak/wyc/macro too
+const _CACHE_VERSION = '260523_v3.9'  // bumped: tz_wlnbb_full_suffix (line-2 pen/close filters)
 
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
 const _tsGet  = (tf, uni) => {
@@ -2092,7 +2109,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
             </button>
             {SIG_GROUPS.map((s, i) =>
               s.divider
-                ? <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>
+                ? (s.label
+                    ? <span key={`div-${i}`} className="text-[10px] text-md-on-surface-var/70 select-none px-1 self-center font-semibold uppercase tracking-wide">{s.label}</span>
+                    : <span key={`div-${i}`} className="text-gray-700 select-none px-0.5 self-center">·</span>)
                 : (
                   <button key={s.key} onClick={() => toggleSig(s.key)}
                     className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors

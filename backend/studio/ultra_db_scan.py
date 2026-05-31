@@ -368,6 +368,14 @@ def _row_to_dict(row: pd.Series) -> dict:
             v = row[db_col]
             if v is not None and not pd.isna(v):
                 out[ui_key] = str(v)
+    # Full line-2 suffix (NE + wick + penetration P/R/H + close A/O/I) so the UI
+    # can filter the penetration / close sub-codes that ne/wick alone don't carry.
+    for _sfx in ("composite_full_suffix", "full_suffix"):
+        if _sfx in row.index:
+            _v = row[_sfx]
+            if _v is not None and not pd.isna(_v) and str(_v):
+                out["tz_wlnbb_full_suffix"] = str(_v)
+                break
 
     # Swing type — DB's `swing_type` is rarely populated; the enricher fills
     # swing_type_3 (Williams 3-3 pivot label: HH/HL/LH/LL). Mirror the 3-3
