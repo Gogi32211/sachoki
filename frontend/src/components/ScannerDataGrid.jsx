@@ -443,6 +443,7 @@ export default function ScannerDataGrid({
   effectiveScoreCol = 'turbo_score',
   universe = 'sp500',
   variant = 'turbo',
+  pmData = {},
   onPickAll,
   allPicked = false,
   handleRowEnter,
@@ -455,7 +456,8 @@ export default function ScannerDataGrid({
   }
 
   // Number of columns for colSpan calculation
-  const baseColCount = variant === 'ultra' ? 18 : 16
+  // ultra adds: ULTRA + PM columns (+2 vs turbo); split adds Split column (+1)
+  const baseColCount = variant === 'ultra' ? 19 : 16
   const colCount = universe === 'split' ? baseColCount + 1 : baseColCount
 
   const SortTh = ({ col, children, cls = '' }) => (
@@ -490,6 +492,8 @@ export default function ScannerDataGrid({
             )}
             {/* BETA */}
             <SortTh col="beta_score" cls="text-center min-w-[60px]" title="BETA Score — non-linear quality rank">BETA</SortTh>
+            {/* V2 — PreBreakout v2 (data-derived, OOS-validated) */}
+            <SortTh col="prebreak_v2" cls="text-center min-w-[52px]" title="PreBreakout v2 — data-derived, OOS-validated breakout-probability. BUY=sweet spot, HOT=overbought/lottery, WATCH=avoid">V2</SortTh>
             {/* RTB */}
             <SortTh col="rtb_total" cls="text-center min-w-[40px]">RTB</SortTh>
             {/* T/Z */}
@@ -508,6 +512,13 @@ export default function ScannerDataGrid({
             <SortTh col="last_price" cls="text-right min-w-[64px]">Price</SortTh>
             {/* % */}
             <SortTh col="change_pct" cls="text-right min-w-[52px]">%</SortTh>
+            {/* Pre-market (ultra only) */}
+            {variant === 'ultra' && (
+              <SortTh col="pm_chg_pct" cls="text-right min-w-[72px] text-violet-300"
+                title="Pre-market % change vs prev close · refreshes every 15 min · null = no PM trades yet">
+                PM%
+              </SortTh>
+            )}
             {/* Split (only for split universe) */}
             {universe === 'split' && (
               <th className="px-2 py-1.5 font-medium text-amber-300 min-w-[64px]" title="Split ratio + phase">Split</th>
@@ -622,6 +633,19 @@ export default function ScannerDataGrid({
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
+                {/* V2 — PreBreakout v2 */}
+                <td className="px-2 py-1 text-center"
+                  title={r.prebreak_v2 != null ? `PreBreakout v2 = ${r.prebreak_v2} (≈breakout probability) · ${r.prebreak_v2_band}` : 'No v2 data'}>
+                  {r.prebreak_v2 != null ? (
+                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold leading-none ${
+                      r.prebreak_v2_band === 'BUY' ? 'bg-green-500/20 text-green-300'
+                      : r.prebreak_v2_band === 'HOT' ? 'bg-amber-500/20 text-amber-300'
+                      : 'text-gray-500'}`}>
+                      {r.prebreak_v2}{r.prebreak_v2_band === 'BUY' ? ' B' : r.prebreak_v2_band === 'HOT' ? ' H' : ''}
+                    </span>
+                  ) : <span className="text-gray-700">—</span>}
+                </td>
+
                 {/* RTB */}
                 <td className="px-2 py-1 text-center"
                   title={r.rtb_phase ? `RTB Phase ${r.rtb_phase} · ${(r.rtb_total ?? 0).toFixed(0)}` : ''}>
@@ -692,6 +716,24 @@ export default function ScannerDataGrid({
                 <td className={`px-2 py-1 text-right font-mono text-xs ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
                   {chg >= 0 ? '+' : ''}{fmt(chg)}%
                 </td>
+
+                {/* Pre-market % (ultra only) */}
+                {variant === 'ultra' && (() => {
+                  const pm = pmData[r.ticker]
+                  if (!pm || pm.pm_price == null) {
+                    return <td className="px-2 py-1 text-right font-mono text-xs text-gray-600">—</td>
+                  }
+                  const pct = pm.pm_chg_pct
+                  const clr = pct == null ? 'text-gray-500'
+                            : pct >= 0   ? 'text-violet-300'
+                            :              'text-rose-400'
+                  return (
+                    <td className={`px-2 py-1 text-right font-mono text-xs ${clr}`}
+                        title={`PM: $${pm.pm_price}${pct != null ? ` (${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%)` : ''}`}>
+                      {pct != null ? `${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%` : `$${pm.pm_price}`}
+                    </td>
+                  )
+                })()}
 
                 {/* Split */}
                 {universe === 'split' && (

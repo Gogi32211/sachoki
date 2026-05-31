@@ -23,7 +23,7 @@ export default function AppSidebar({
     if (mobileOpen) onCloseMobile()
   }
 
-  const widthCls = collapsed ? 'w-[64px]' : 'w-[232px]'
+  const widthCls = collapsed ? 'w-[64px]' : 'w-[190px]'
 
   return (
     <>

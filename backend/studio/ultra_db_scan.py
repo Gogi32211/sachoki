@@ -48,6 +48,9 @@ _DB_TO_UI_COL_MAP = {
     "gog_tier":          "gog_tier",
     "beta_score":        "beta_score",
     "beta_zone":         "beta_zone",
+    # PreBreakout v2 (data-derived OOS-validated score)
+    "prebreak_v2":       "prebreak_v2",
+    "prebreak_v2_band":  "prebreak_v2_band",
     # Profile
     "profile_score":     "profile_score",
     "profile_category":  "profile_category",
