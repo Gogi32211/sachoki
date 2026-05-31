@@ -50,7 +50,8 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
     for (const s of signalsRef.current) {
       const x = ts.timeToCoordinate(s.time)
       if (x == null) continue                                   // off-screen
-      const y = series.priceToCoordinate(s.isBull ? s.low : s.high)
+      const below = s.isBull || s.neutral
+      const y = series.priceToCoordinate(below ? s.low : s.high)
       if (y == null) continue
       const el = document.createElement('div')
       el.style.cssText =
@@ -59,8 +60,8 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
         + 'background:rgba(3,7,18,0.55);color:#ffffff;'
       el.style.left = x + 'px'
       el.style.top  = y + 'px'
-      // bull → below the low; bear → above the high
-      el.style.transform = s.isBull
+      // bull / neutral → below the low; bear → above the high
+      el.style.transform = below
         ? 'translate(-50%, 10px)'
         : 'translate(-50%, calc(-100% - 10px))'
       el.innerHTML = s.lines.map((l, i) =>
@@ -129,18 +130,20 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
           candles.push({ time, open: +r.open, high: +r.high, low: +r.low, close: +r.close })
           volumes.push({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
           const tz = r.t_sig || r.z_sig
-          if (tz) {
+          const suffix = r.composite_full_suffix || r.full_suffix || ''
+          // Some bars match no T/Z candle pattern (≈4%) so tz is empty — but they
+          // still carry L / suffix / body-wick / gap / line5. Label those too, with
+          // the code starting at the L line (neutral, positioned below the bar).
+          if (tz || r.l_sig || suffix) {
             const isBull = !!r.t_sig
-            // (no arrow markers — the stacked code overlay below carries direction)
-            // full 5-line code stack, exactly the lines stored in the DB
             const lines = [
-              `${tz}${r.l_sig || ''}`,                                 // TZ + L
-              r.composite_full_suffix || r.full_suffix || '',          // suffix
+              tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),          // TZ+L, or just L
+              suffix,                                                  // suffix
               r.bar_body_wick || '',                                   // body/wick
               r.bar_gap_range || '',                                   // gap/range
               r.bar_line5 || '',                                       // line5
             ].filter(Boolean)
-            signals.push({ time, low: +r.low, high: +r.high, isBull, lines })
+            signals.push({ time, low: +r.low, high: +r.high, isBull, neutral: !tz, lines })
           }
         }
         byTimeRef.current = byTime
