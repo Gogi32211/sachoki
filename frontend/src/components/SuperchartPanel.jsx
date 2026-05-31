@@ -2,8 +2,8 @@ import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'rea
 import { api } from '../api'
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
-const CELL_W  = 56   // px per bar column
-const HDR_W   = 38   // px for the sticky label column
+const CELL_W  = 64   // px per bar column
+const HDR_W   = 46   // px for the sticky label column
 const MINI_H  = 24   // px height of mini-candle row
 
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
@@ -734,7 +734,7 @@ export default function SuperchartPanel({
                     <th key={i} style={{ width: CELL_W, minWidth: CELL_W }}
                         className="font-normal px-0 py-0 text-center border-r border-white/[0.05]">
                       <div className="flex flex-col items-center gap-px pb-0.5">
-                        <span className="text-md-on-surface-var/70 font-mono" style={{ fontSize: 11 }}>
+                        <span className="text-md-on-surface-var/70 font-mono" style={{ fontSize: 13 }}>
                           {fmtDate(b.date, isIntraday)}
                         </span>
                         <div className="rounded-sm"
@@ -751,7 +751,7 @@ export default function SuperchartPanel({
                     <td
                       className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono whitespace-nowrap"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11, lineHeight: 1 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13, lineHeight: 1 }}>
                       {row.label}
                     </td>
                     {bars.map((b, i) => {
@@ -764,7 +764,7 @@ export default function SuperchartPanel({
                             {sigs.map(s => (
                               <span key={s}
                                 className={`px-1 py-px rounded border border-white/10 font-mono leading-none ${row.chipCls(s)}`}
-                                style={{ fontSize: 10 }}>
+                                style={{ fontSize: 12 }}>
                                 {s}
                               </span>
                             ))}
@@ -779,7 +779,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     turbo
                   </td>
                   {bars.map((b, i) => {
@@ -793,7 +793,7 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {s > 0 ? s : ''}
                       </td>
                     )
@@ -804,7 +804,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     v2
                   </td>
                   {bars.map((b, i) => {
@@ -819,12 +819,12 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-px text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}
                         title={`PreBreakout v2 = ${e.v2} · ${e.band}`}>
                         <div className="flex flex-col items-center leading-none gap-px">
                           <span>{e.v2}</span>
                           {e.band !== 'WATCH' && (
-                            <span className="leading-none" style={{ fontSize: 8 }}>
+                            <span className="leading-none" style={{ fontSize: 10 }}>
                               {e.band === 'BUY' ? 'B' : 'H'}
                             </span>
                           )}
@@ -838,7 +838,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     rtb
                   </td>
                   {bars.map((b, i) => {
@@ -860,10 +860,10 @@ export default function SuperchartPanel({
                         title={b.rtb_transition ? `${ph} — ${b.rtb_transition} (${b.rtb_total})` : `Phase ${ph} (${b.rtb_total})`}>
                         <div className="flex flex-col items-center gap-px">
                           <span className={`inline-block font-bold px-0.5 rounded font-mono leading-none ${bgCls} ${isTransition ? 'ring-2' : ''}`}
-                            style={{ fontSize: 11 }}>
+                            style={{ fontSize: 13 }}>
                             {ph}
                           </span>
-                          <span className="font-mono text-md-on-surface-var leading-none" style={{ fontSize: 9 }}>
+                          <span className="font-mono text-md-on-surface-var leading-none" style={{ fontSize: 11 }}>
                             {b.rtb_total > 0 ? b.rtb_total.toFixed(0) : ''}
                           </span>
                         </div>
@@ -876,7 +876,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     β
                   </td>
                   {bars.map((b, i) => {
@@ -888,11 +888,11 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-px text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}
                         title={`BETA ${sc} · ${zone}${auto ? ' · AUTO-BUY ★' : ''}`}>
                         <div className="flex flex-col items-center leading-none gap-px">
                           <span>{sc}{auto ? '★' : ''}</span>
-                          <span style={{ fontSize: 9 }} className="text-md-on-surface-var font-mono">
+                          <span style={{ fontSize: 11 }} className="text-md-on-surface-var font-mono">
                             {BETA_ZONE_SHORT[zone] ?? ''}
                           </span>
                         </div>
@@ -905,7 +905,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.08]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     close
                   </td>
                   {bars.map((b, i) => {
@@ -915,7 +915,7 @@ export default function SuperchartPanel({
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono
                                     ${up ? 'text-green-400' : 'text-red-400'}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {b.close >= 1000 ? b.close.toFixed(0)
                           : b.close >= 100 ? b.close.toFixed(1)
                           : b.close.toFixed(2)}
@@ -928,7 +928,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     RSI
                   </td>
                   {bars.map((b, i) => {
@@ -938,7 +938,7 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {Math.round(v)}
                       </td>
                     )
@@ -949,7 +949,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     CCI
                   </td>
                   {bars.map((b, i) => {
@@ -959,7 +959,7 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {Math.round(v)}
                       </td>
                     )
@@ -970,7 +970,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     Pf
                   </td>
                   {bars.map((b, i) => {
@@ -980,7 +980,7 @@ export default function SuperchartPanel({
                     return (
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {v}
                       </td>
                     )
@@ -991,7 +991,7 @@ export default function SuperchartPanel({
                 <tr className="border-t border-white/[0.08]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
                     Cat
                   </td>
                   {bars.map((b, i) => {
@@ -1009,7 +1009,7 @@ export default function SuperchartPanel({
                       <td key={i}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] ${cls}`}
                         title={cat}
-                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {label}
                       </td>
                     )
@@ -1068,7 +1068,7 @@ export default function SuperchartPanel({
                     return (
                       <tr key={key}
                         className={`border-b border-white/[0.06] hover:bg-md-surface-high/30 ${idx === 0 && statsSort === 'avg_5bar' ? 'bg-violet-950/20' : ''}`}>
-                        <td className="px-3 py-1 sticky left-0 bg-md-surface-con text-md-on-surface whitespace-nowrap font-mono" style={{ fontSize: 11 }}>
+                        <td className="px-3 py-1 sticky left-0 bg-md-surface-con text-md-on-surface whitespace-nowrap font-mono" style={{ fontSize: 13 }}>
                           {label}
                         </td>
                         <td className="px-2 py-1 text-right font-mono text-md-on-surface-var">{st.n}</td>
