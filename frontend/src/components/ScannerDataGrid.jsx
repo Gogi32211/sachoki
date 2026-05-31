@@ -447,11 +447,7 @@ export default function ScannerDataGrid({
   handleRowEnter,
   handleRowLeave,
 }) {
-  const [expandedTicker, setExpandedTicker] = useState(null)
-
-  const toggleExpand = (ticker) => {
-    setExpandedTicker(prev => prev === ticker ? null : ticker)
-  }
+  // Row click selects the ticker (switches the top chart) — no inline expansion.
 
   // Number of columns for colSpan calculation
   // ultra adds: ULTRA + PM columns (+2 vs turbo); split adds Split column (+1)
@@ -553,7 +549,6 @@ export default function ScannerDataGrid({
           {/* Data rows */}
           {results.map((r, rowIdx) => {
             const sc = r[effectiveScoreCol] ?? r.turbo_score ?? 0
-            const isExpanded = expandedTicker === r.ticker
             const isEven = rowIdx % 2 === 0
             const rowBg = isEven ? 'bg-md-surface-con' : ''
 
@@ -568,10 +563,7 @@ export default function ScannerDataGrid({
                   hover:bg-white/5
                   ${rowBg}
                   ${profileBorderCls(r.profile_category)}`}
-                onClick={() => {
-                  toggleExpand(r.ticker)
-                  onSelectTicker?.(r.ticker)
-                }}
+                onClick={() => onSelectTicker?.(r.ticker)}
                 onMouseEnter={handleRowEnter ? (e => handleRowEnter(e, r)) : undefined}
                 onMouseLeave={handleRowLeave || undefined}
               >
@@ -754,12 +746,7 @@ export default function ScannerDataGrid({
                     })() : '—'}
                   </td>
                 )}
-              </tr>,
-
-              // Expanded detail row
-              isExpanded && (
-                <ExpandedRow key={`${r.ticker}-expand`} r={r} colSpan={colCount} />
-              )
+              </tr>
             ]
           })}
         </tbody>
