@@ -660,18 +660,28 @@ def acc_exit_hunter(
     """Rank tickers by AES (accumulation-exit score). Returns latest bar per ticker
     in (typically) ACC_TR phase, sorted by AES descending.
     """
-    from studio.db import get_conn
+    from studio.db import get_conn, UNIVERSE_PRIORITY_SQL
     conn = get_conn(read_only=True)
     try:
-        where_clauses = []
-        params: list = []
+        # A ticker living in >1 universe (e.g. ZS in nasdaq+sp500, RPGL in
+        # nasdaq+russell2k) would otherwise appear once PER universe — and since
+        # the bars are now identical across universes, those are pure duplicates.
+        # Dedup to ONE row per ticker by universe priority (sp500>nasdaq>russell2k),
+        # same canonical rule as /studio/bars. When a universe filter is given we
+        # pre-filter the source so the dedup happens within it.
+        src_params: list = []
+        src_where = ""
         if universe:
-            where_clauses.append("universe = ?"); params.append(universe)
-        # Latest bar per (ticker, universe) — using ROW_NUMBER window
-        sql = """
-            WITH ranked AS (
-              SELECT *, ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
-              FROM bars
+            src_where = "WHERE universe = ?"
+            src_params.append(universe)
+        sql = f"""
+            WITH src AS (SELECT * FROM bars {src_where}),
+            ranked AS (
+              SELECT *, ROW_NUMBER() OVER (
+                PARTITION BY ticker
+                ORDER BY date DESC, {UNIVERSE_PRIORITY_SQL}
+              ) AS rn
+              FROM src
             )
             SELECT ticker, universe, date, close, volume, avg_vol_20d,
                    wyc_phase, aes_stage, aes_score, aes_leading, aes_trend_5d,
@@ -688,8 +698,7 @@ def acc_exit_hunter(
               AND avg_vol_20d >= ?
               AND aes_score >= ?
         """
-        params2 = [min_price, min_volume, min_aes] + params
-        sql += (" AND universe = ?") if universe else ""
+        params2 = src_params + [min_price, min_volume, min_aes]
         if pre_bo_only:
             # Wide pre-BO candidates: ACC, springs, neutrals, plus RECENT MARKUP
             # (just broke out in last 3 bars — retest opportunity)
