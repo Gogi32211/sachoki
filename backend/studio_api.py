@@ -969,7 +969,8 @@ def get_ticker_bars(
     try:
         rows = conn.execute(
             f"""SELECT ticker, date, open, high, low, close, volume,
-                      turbo_score, vol_bucket, gog_tier, swing_type,
+                      turbo_score, prebreak_v2, prebreak_v2_band,
+                      vol_bucket, gog_tier, swing_type,
                       fwd_1d, fwd_5d, fwd_10d, fwd_20d, fwd_60d,
                       mfe_20d, mfe_60d, mae_20d,
                       hit_2x_60d, hit_50pct_20d, drop_20pct_10d,

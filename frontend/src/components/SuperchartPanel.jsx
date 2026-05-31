@@ -271,6 +271,7 @@ export default function SuperchartPanel({
   const [inputVal, setInputVal]   = useState(initialTicker)
   const [tf, setTf]               = useState(initialTf)
   const [bars, setBars]           = useState([])
+  const [v2Map, setV2Map]         = useState({})   // date(YYYY-MM-DD) → {v2, band} from DB (daily only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [showStats, setShowStats] = useState(false)
@@ -312,6 +313,21 @@ export default function SuperchartPanel({
       })
       .catch(e => setError(e.message))
       .finally(() => setLoading(false))
+    // PreBreakout v2 is a DB enrichment (daily only) — fetch + merge by date.
+    if (f === '1d') {
+      api.studioBars(t, 400)
+        .then(rows => {
+          const m = {}
+          for (const r of (rows || [])) {
+            if (r?.date != null && r.prebreak_v2 != null)
+              m[String(r.date).slice(0, 10)] = { v2: r.prebreak_v2, band: r.prebreak_v2_band }
+          }
+          setV2Map(m)
+        })
+        .catch(() => setV2Map({}))
+    } else {
+      setV2Map({})
+    }
   }, [])
 
   const loadStats = useCallback((t, f) => {
@@ -779,6 +795,40 @@ export default function SuperchartPanel({
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
                         style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}>
                         {s > 0 ? s : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                {/* PreBreakout v2 row (DB enrichment, daily only) */}
+                <tr className="border-t border-white/[0.06]">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-white/[0.08] font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11 }}>
+                    v2
+                  </td>
+                  {bars.map((b, i) => {
+                    const e = v2Map[String(b.date).slice(0, 10)]
+                    if (!e || e.v2 == null) return (
+                      <td key={i} style={{ width: CELL_W, minWidth: CELL_W }}
+                          className="border-r border-white/[0.05]" />
+                    )
+                    const cls = e.band === 'BUY' ? 'text-green-300 font-bold'
+                              : e.band === 'HOT' ? 'text-amber-300 font-bold'
+                              : 'text-md-on-surface-var'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-px text-center border-r border-white/[0.05] font-mono ${cls}`}
+                        style={{ fontSize: 11, width: CELL_W, minWidth: CELL_W }}
+                        title={`PreBreakout v2 = ${e.v2} · ${e.band}`}>
+                        <div className="flex flex-col items-center leading-none gap-px">
+                          <span>{e.v2}</span>
+                          {e.band !== 'WATCH' && (
+                            <span className="leading-none" style={{ fontSize: 8 }}>
+                              {e.band === 'BUY' ? 'B' : 'H'}
+                            </span>
+                          )}
+                        </div>
                       </td>
                     )
                   })}
