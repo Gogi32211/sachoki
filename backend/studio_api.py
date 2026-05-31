@@ -362,6 +362,7 @@ def seq_lab_endpoint(
     sort:      str  = Query("win"),
     limit:     int  = Query(25, ge=1, le=100),
     by_phase:  bool = Query(False),
+    confirm_lag: int = Query(0, ge=0, le=10),
     evaluate:  bool = Query(False),
     cost:      float = Query(0.5, ge=0.0, le=10.0),
 ):
@@ -376,7 +377,7 @@ def seq_lab_endpoint(
         res = seq_lab(
             universe=universe, n_bars=n_bars, mode=mode, horizon=horizon,
             min_occ=min_occ, wyc_phase=wyc_phase, prefix=prefix, sort=sort,
-            limit=limit, by_phase=by_phase,
+            limit=limit, by_phase=by_phase, confirm_lag=confirm_lag,
         )
         if evaluate:
             try:

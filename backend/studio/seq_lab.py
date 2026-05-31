@@ -88,12 +88,22 @@ def seq_lab(
     sort:      str = "win",
     limit:     int = 25,
     by_phase:  bool = False,
+    confirm_lag: int = 0,
 ) -> dict:
-    """Rank N-bar T/Z sequences by forward outcome. Returns {baseline, rows, params}."""
+    """Rank N-bar T/Z sequences by forward outcome. Returns {baseline, rows, params}.
+
+    confirm_lag (swing mode only): enter `lag` bars AFTER the last pivot prints,
+    so the entry is leak-free — a Williams 3-3 pivot is only *known* 3 bars later.
+    The forward return is then measured from that confirmation bar on a FIXED-day
+    horizon (a swing→pivot horizon would re-introduce look-ahead, so it is forced
+    to fwd_10d when lag>0)."""
     # ── validate / clamp ──────────────────────────────────────────────────────
     n_bars  = max(2, min(6, int(n_bars)))
     mode    = mode if mode in _MODES else "color"
     hcol    = _HORIZONS.get(horizon, "fwd_1d")
+    lag     = max(0, min(10, int(confirm_lag))) if mode == "swing" else 0
+    if lag > 0 and hcol.startswith("fwd_swing"):
+        hcol = "fwd_10d"     # next-pivot return at a lagged bar is still look-ahead
     min_occ = max(20, min(200_000, int(min_occ)))
     limit   = max(1, min(100, int(limit)))
     order   = _SORTS.get(sort, "win DESC")
@@ -109,11 +119,12 @@ def seq_lab(
         base_clauses.append(f"universe = '{uni}'")
     if phase:
         base_clauses.append(f"wyc_phase = '{phase}'")
-    if mode == "swing":
-        # only swing-pivot bars; so the LAG window sequences consecutive PIVOTS,
-        # and the baseline is the unconditional forward outcome of any pivot.
-        base_clauses.append("swing_type IS NOT NULL AND swing_type <> ''")
     base_where = " AND ".join(base_clauses)
+    # universe/phase only (no hcol-not-null, no pivot filter) — used by the swing
+    # path, whose LEAD(lag) must count EVERY bar to offset the confirmation bar.
+    uniphase = [c for c in (f"universe = '{uni}'" if uni else None,
+                            f"wyc_phase = '{phase}'" if phase else None) if c]
+    uniphase_where = " AND ".join(uniphase) if uniphase else "TRUE"
 
     conn = get_conn(read_only=True)
     try:
@@ -124,21 +135,7 @@ def seq_lab(
         # "T5L5·L|T5L5·L|T5L5·L". Collapse to one row per (ticker,date) everywhere.
         DEDUP = "QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker, date ORDER BY universe) = 1"
 
-        # ── baseline (same filters, no sequence) ──────────────────────────────
-        b = conn.execute(f"""
-            SELECT COUNT(*) n,
-                   ROUND(AVG(CASE WHEN h > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
-                   ROUND(AVG(h), 3) avg_ret,
-                   ROUND(AVG(m), 2) mfe20
-            FROM (
-                SELECT {hcol} AS h, mfe_20d AS m
-                FROM bars WHERE {base_where}
-                {DEDUP}
-            )
-        """).fetchone()
-        baseline = {"n": int(b[0] or 0), "win": _f(b[1]), "avg_ret": _f(b[2]), "mfe20": _f(b[3])}
-
-        # ── windowed sequence build ───────────────────────────────────────────
+        # ── windowed sequence build (shared) ──────────────────────────────────
         lag_parts = [f"LAG(tk, {k}) OVER w" for k in range(n_bars - 1, 0, -1)] + ["tk"]
         seq_concat = f" || '{sep}' || ".join(lag_parts) if sep else " || ".join(lag_parts)
 
@@ -149,23 +146,68 @@ def seq_lab(
             outer.append("seq NOT LIKE '%.%'")          # require a signal on every bar
         if pref:
             outer.append(f"seq LIKE '{_q(pref)}%'")
-        outer_where = " AND ".join(outer)
 
         grp = "seq, wyc_phase" if by_phase else "seq"
         sel_phase = ", wyc_phase" if by_phase else ""
 
-        # Shared CTE so the candidate-count and the ranked rows use IDENTICAL logic.
-        cte = f"""
-            WITH s AS (
-                SELECT ticker, date, wyc_phase,
-                       {tok} AS tk, {hcol} AS ret, mfe_20d
-                FROM bars WHERE {base_where}
-                {DEDUP}
-            ),
-            seqd AS (
-                SELECT *, {seq_concat} AS seq
-                FROM s WINDOW w AS (PARTITION BY ticker ORDER BY date)
-            )"""
+        if mode == "swing":
+            # Sequence consecutive PIVOTS, but measure ret/mfe from the bar `lag`
+            # rows AFTER the pivot (LEAD over EVERY deduped bar) — leak-free entry.
+            # NB: keep ALL pivots in `s` so LAG adjacency is intact; the ret-not-null
+            # filter is applied only to b0 (in outer_where), exactly like a real entry.
+            is_pivot = "swing_type IN ('LL','HH','LH','HL')"
+            outer.append("ret IS NOT NULL")
+            ab = f"""
+                SELECT ticker, date, wyc_phase, swing_type,
+                       LEAD(hh, {lag}) OVER (PARTITION BY ticker ORDER BY date) AS ret,
+                       LEAD(mm, {lag}) OVER (PARTITION BY ticker ORDER BY date) AS mfe
+                FROM (
+                    SELECT ticker, date, wyc_phase, swing_type, {hcol} AS hh, mfe_20d AS mm
+                    FROM bars WHERE {uniphase_where}
+                    {DEDUP}
+                )"""
+            b = conn.execute(f"""
+                SELECT COUNT(*) n,
+                       ROUND(AVG(CASE WHEN ret > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
+                       ROUND(AVG(ret), 3) avg_ret, ROUND(AVG(mfe), 2) mfe20
+                FROM ({ab}) WHERE {is_pivot} AND ret IS NOT NULL
+            """).fetchone()
+            cte = f"""
+                WITH s AS (
+                    SELECT ticker, date, wyc_phase,
+                           COALESCE(NULLIF(swing_type,''), '.') AS tk, ret, mfe AS mfe_20d
+                    FROM ({ab}) WHERE {is_pivot}
+                ),
+                seqd AS (
+                    SELECT *, {seq_concat} AS seq
+                    FROM s WINDOW w AS (PARTITION BY ticker ORDER BY date)
+                )"""
+        else:
+            b = conn.execute(f"""
+                SELECT COUNT(*) n,
+                       ROUND(AVG(CASE WHEN h > 0 THEN 1.0 ELSE 0 END)*100, 1) win,
+                       ROUND(AVG(h), 3) avg_ret,
+                       ROUND(AVG(m), 2) mfe20
+                FROM (
+                    SELECT {hcol} AS h, mfe_20d AS m
+                    FROM bars WHERE {base_where}
+                    {DEDUP}
+                )
+            """).fetchone()
+            cte = f"""
+                WITH s AS (
+                    SELECT ticker, date, wyc_phase,
+                           {tok} AS tk, {hcol} AS ret, mfe_20d
+                    FROM bars WHERE {base_where}
+                    {DEDUP}
+                ),
+                seqd AS (
+                    SELECT *, {seq_concat} AS seq
+                    FROM s WINDOW w AS (PARTITION BY ticker ORDER BY date)
+                )"""
+
+        baseline = {"n": int(b[0] or 0), "win": _f(b[1]), "avg_ret": _f(b[2]), "mfe20": _f(b[3])}
+        outer_where = " AND ".join(outer)
 
         # How many distinct sequences cleared min_occ — the honest "candidates
         # scanned" count for a Bonferroni multiple-testing correction downstream
@@ -219,6 +261,7 @@ def seq_lab(
                 "universe": uni or "all", "n_bars": n_bars, "mode": mode,
                 "horizon": hcol, "min_occ": min_occ, "wyc_phase": phase or "all",
                 "prefix": pref or "", "sort": sort, "by_phase": by_phase,
+                "confirm_lag": lag,
             },
         }
     finally:

@@ -3134,7 +3134,7 @@ function SeqLabTab() {
   const [p, setP] = useState({
     universe: 'sp500', n_bars: 4, mode: 'color', horizon: 'fwd_1d',
     min_occ: 500, wyc_phase: '', prefix: '', sort: 'win', limit: 25, by_phase: false,
-    evaluate: true, cost: 0.5,
+    evaluate: true, cost: 0.5, confirm_lag: 3,
   })
   const [data, setData]   = useState(null)
   const [loading, setLd]  = useState(false)
@@ -3172,9 +3172,10 @@ function SeqLabTab() {
           edge. <span className="font-mono">color</span> = bar direction (T=up/Z=down) e.g. ZZZT;
           {' '}<span className="font-mono">signal</span> = exact T/Z label per bar (sparse).
           Watch <b>avg%</b> + <b>mfe20</b> next to <b>win%</b>: a high win% with tiny avg/mfe is a
-          weak edge, not a signal. For reversal/pivot work prefer the <b>swing→pivot</b> horizon
-          (fixed-day returns understate swings). The <b>×phase</b> toggle splits each sequence by
-          Wyckoff phase — usually the most revealing view.
+          weak edge, not a signal. <b>swing</b> mode sequences the HL/LL/HH/LH pivots — use the
+          <b> Confirm</b> dropdown (+3 bars) for a leak-free entry, since a 3-3 pivot is only known
+          3 bars later (raw = look-ahead, inflated win%). The <b>×phase</b> toggle splits each
+          sequence by Wyckoff phase — usually the most revealing view.
         </p>
       </Card>
 
@@ -3205,6 +3206,16 @@ function SeqLabTab() {
             {SEQLAB_HORIZONS.map(h => <option key={h.v} value={h.v}>{h.l}</option>)}
           </select>
         </Field>
+        {p.mode === 'swing' && (
+          <Field label="Confirm">
+            <select value={p.confirm_lag} onChange={e => upd('confirm_lag', Number(e.target.value))} className={SEQLAB_SEL}
+              title="Enter N bars AFTER the pivot prints (leak-free — a 3-3 pivot is only known 3 bars later). >0 forces a fixed-day horizon.">
+              <option value={0}>raw (look-ahead ⚠)</option>
+              <option value={3}>+3 bars (confirmed)</option>
+              <option value={5}>+5 bars</option>
+            </select>
+          </Field>
+        )}
         <Field label="Min occ.">
           <input type="number" value={p.min_occ} onChange={e => upd('min_occ', Number(e.target.value))}
             className={SEQLAB_SEL + ' w-20'} />
