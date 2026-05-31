@@ -710,7 +710,7 @@ def acc_exit_hunter(
         if stage:
             sql += " AND aes_stage = ?"
             params2.append(stage)
-        sql += f" ORDER BY aes_score DESC, aes_leading DESC, turbo_score DESC LIMIT {limit}"
+        sql += f" ORDER BY aes_score DESC, prebreak_v2 DESC, turbo_score DESC LIMIT {limit}"
         df = conn.execute(sql, params2).fetchdf()
 
         # Sanitize NaN/Inf

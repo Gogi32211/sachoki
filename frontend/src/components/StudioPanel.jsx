@@ -311,7 +311,7 @@ function ExitHunterTab() {
     const cols = [
       'ticker','universe','close','wyc_phase','aes_stage','aes_score',
       'prebreak_v2','prebreak_v2_band',
-      'aes_leading','aes_trend_5d','acc_exit_class','acc_exit_in_n',
+      'aes_trend_5d','acc_exit_class','acc_exit_in_n',
       'turbo_score','rsi_14','cci_20','change_pct','rtb_phase','sector',
       'pb_lvbo','wyc_spring','ad_fresh','ad_cluster',
       'prebreak_prime','prebreak_ready','prebreak_watch',
@@ -514,7 +514,6 @@ function ExitHunterTab() {
                   <th className="text-left  px-2 py-1.5">Stage</th>
                   <th className="text-right px-2 py-1.5 font-bold">AES</th>
                   <th className="text-center px-2 py-1.5 font-bold" title="PreBreakout v2 — data-derived, OOS-validated breakout-probability score. BUY=sweet spot, HOT=overbought/lottery, WATCH=avoid">v2</th>
-                  <th className="text-right px-2 py-1.5">Lead</th>
                   <th className="text-right px-2 py-1.5">5d Δ</th>
                   <th className="text-left  px-2 py-1.5">Phase</th>
                   <th className="text-left  px-2 py-1.5">Class</th>
@@ -571,12 +570,6 @@ function ExitHunterTab() {
                             {r.prebreak_v2} {r.prebreak_v2_band === 'BUY' ? 'BUY' : r.prebreak_v2_band === 'HOT' ? 'HOT' : ''}
                           </span>
                         ) : <span className="text-md-on-surface-var">—</span>}
-                      </td>
-                      <td className={cls('px-2 py-1.5 text-right font-mono',
-                            r.aes_leading >= 60 ? 'text-sky-300'
-                            : r.aes_leading >= 30 ? 'text-sky-400'
-                            : 'text-md-on-surface-var/60')}>
-                        {r.aes_leading?.toFixed(0) ?? '—'}
                       </td>
                       <td className={cls('px-2 py-1.5 text-right font-mono',
                             r.aes_trend_5d > 5 ? 'text-lime-400'
