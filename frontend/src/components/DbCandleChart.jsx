@@ -47,8 +47,10 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       el.style.transform = below
         ? 'translate(-50%, 10px)'
         : 'translate(-50%, calc(-100% - 10px))'
+      // 5 code lines (white) + a 6th volume-bucket line coloured like the volume bar
       el.innerHTML = s.lines.map((l, i) =>
         `<div style="${i === 0 ? 'font-weight:700;' : 'opacity:.9;'}">${l}</div>`).join('')
+        + (s.vol ? `<div style="color:${BUCKET_HEX[s.vol] || '#fff'};font-weight:700;">${s.vol}</div>` : '')
       ov.appendChild(el)
     }
   }, [])
@@ -122,7 +124,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
               r.bar_gap_range || '',                                   // gap/range
               r.bar_line5 || '',                                       // line5
             ].filter(Boolean)
-            signals.push({ time, low: +r.low, high: +r.high, isBull, neutral: !tz, lines })
+            signals.push({ time, low: +r.low, high: +r.high, isBull, neutral: !tz, lines, vol: r.vol_bucket || '' })
           }
         }
         byTimeRef.current = byTime

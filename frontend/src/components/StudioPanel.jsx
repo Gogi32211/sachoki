@@ -964,9 +964,10 @@ const EXACT_LINE_LABELS = {
   line4: 'L4 — body/wick',
   line5: 'L5 — gap/range',
   line6: 'L6 — VIX/PSAR/RSI2',
+  line7: 'L7 — volume (W/L/N/B/VB)',
 }
 
-const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '', line5: '' }
+const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '', line5: '', vol: '' }
 
 function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
   const upd = (k, v) => onChange({ ...bar, [k]: v })
@@ -985,6 +986,7 @@ function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
         ['body_wick', 'body/wk', 'e.g. STB or *'],
         ['gap_range', 'gap/rng', 'e.g. G1-C or *'],
         ['line5',     'l5',      'e.g. PS-R2X or *'],
+        ['vol',       'volume',  'W/L/N/B/VB or *'],
       ].map(([k, lab, ph]) => (
         <div key={k} className="flex items-center gap-1 mb-1">
           <span className="text-[9px] text-md-on-surface-var/60 font-mono w-12">{lab}</span>
@@ -1012,7 +1014,7 @@ function ExactSequenceTab() {
   const [uni,      setUni]      = useState('sp500')
   const [pivotLr,  setPivotLr]  = useState(3)
   const [strict,   setStrict]   = useState({
-    line1: true, line2: true, line3: false, line4: false, line5: false, line6: false,
+    line1: true, line2: true, line3: false, line4: false, line5: false, line6: false, line7: false,
   })
   const [result,   setResult]   = useState(null)
   const [loading,  setLoading]  = useState(false)

@@ -765,7 +765,7 @@ def query_exact_sequence(
         return {"matches": 0, "sequence_label": "", "outcomes": {}}
 
     strict = {**{"line1": True, "line2": True, "line3": False,
-                 "line4": False, "line5": False, "line6": False},
+                 "line4": False, "line5": False, "line6": False, "line7": False},
               **(strictness or {})}
     pivot_lr = 3 if pivot_lr not in (3, 5) else pivot_lr
     P = str(pivot_lr)
@@ -805,6 +805,7 @@ def query_exact_sequence(
             "body_wick": _wild((b.get("body_wick") or "").strip().upper()),
             "gap_range": _wild((b.get("gap_range") or "").strip().upper()),
             "line5":     _wild((b.get("line5") or "").strip().upper()),
+            "vol":       _wild((b.get("vol") or "").strip().upper()),   # line7 = volume bucket (W/L/N/B/VB)
         })
 
     _own_conn = conn is None
@@ -832,10 +833,10 @@ def query_exact_sequence(
         # we use composite to match chart exactly (e.g. "NURA" not "NUR", "NDPO" not "NDP").
         for lag in range(n):
             base_cols = ["t_sig", "z_sig", "l_sig", "composite_full_suffix",
-                         "bar_body_wick", "bar_gap_range", "bar_line5"]
+                         "bar_body_wick", "bar_gap_range", "bar_line5", "vol_bucket"]
             short_map = {"t_sig":"t","z_sig":"z","l_sig":"lsig",
                          "composite_full_suffix":"s","bar_body_wick":"bw",
-                         "bar_gap_range":"gr","bar_line5":"l5"}
+                         "bar_gap_range":"gr","bar_line5":"l5","vol_bucket":"vb"}
             for col in base_cols:
                 short = short_map[col]
                 if lag == 0:
@@ -884,6 +885,9 @@ def query_exact_sequence(
             # line6 = bar_line5 (VIX/PSAR/RSI2)
             if strict["line6"] and p["line5"]:
                 conds.append(_sql_cond(f"l5_{lag}", p["line5"]))
+            # line7 = volume bucket (W/L/N/B/VB)
+            if strict["line7"] and p["vol"]:
+                conds.append(_sql_cond(f"vb_{lag}", p["vol"]))
 
         outer_where = ("WHERE " + " AND ".join(conds)) if conds else ""
 
