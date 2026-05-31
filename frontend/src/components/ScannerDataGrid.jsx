@@ -446,6 +446,7 @@ export default function ScannerDataGrid({
   allPicked = false,
   handleRowEnter,
   handleRowLeave,
+  pinned = false,          // single-row strip (header hidden) shown above the chart
 }) {
   // Row click selects the ticker (switches the top chart) — no inline expansion.
 
@@ -463,8 +464,9 @@ export default function ScannerDataGrid({
   )
 
   return (
-    <div className="overflow-auto flex-1">
+    <div className={pinned ? 'overflow-x-auto' : 'overflow-auto flex-1'}>
       <table className="w-full border-collapse text-xs">
+        {!pinned && (
         <thead className="sticky top-0 z-10 bg-md-surface-con text-md-on-surface-var text-left [&>tr>th]:shadow-[0_1px_0_0_rgba(255,255,255,0.07)]">
           <tr>
             {/* Checkbox col */}
@@ -519,6 +521,7 @@ export default function ScannerDataGrid({
             )}
           </tr>
         </thead>
+        )}
 
         <tbody>
           {/* Loading skeleton */}
@@ -563,7 +566,7 @@ export default function ScannerDataGrid({
                   hover:bg-white/5
                   ${rowBg}
                   ${profileBorderCls(r.profile_category)}`}
-                onClick={() => onSelectTicker?.(r.ticker, r)}
+                onClick={() => onSelectTicker?.(r.ticker, r, { variant, effectiveScoreCol, universe, localTf, pmData })}
                 onMouseEnter={handleRowEnter ? (e => handleRowEnter(e, r)) : undefined}
                 onMouseLeave={handleRowLeave || undefined}
               >

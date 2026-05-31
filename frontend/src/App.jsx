@@ -3,7 +3,7 @@ import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
 import TickerInput from './components/TickerInput'
 import WatchlistPanel from './components/WatchlistPanel'
 import CodeCandleChart from './components/CodeCandleChart'
-import SelectedTickerBar from './components/SelectedTickerBar'
+import ScannerDataGrid from './components/ScannerDataGrid'
 import AppSidebar from './components/AppSidebar'
 import TradingDashboardPanel from './components/TradingDashboardPanel'   // landing tab
 import TurboScanPanel from './components/TurboScanPanel'                 // kept mounted
@@ -121,6 +121,7 @@ export default function App() {
   )
   // Full screener row for `selected` (signals + stats shown above the chart); null when selected from a non-grid source
   const [selectedRow, setSelectedRow] = useState(null)
+  const [selectedMeta, setSelectedMeta] = useState(null)  // grid config to replay the row identically
   const [tf, setTf] = useState(
     () => LS.get('tf', '1d')
   )
@@ -161,7 +162,7 @@ export default function App() {
     return () => window.removeEventListener('keydown', onKey)
   }, [])
 
-  const handleSelect       = (ticker, row = null) => { setSelected(ticker); setSelectedRow(row) }
+  const handleSelect       = (ticker, row = null, meta = null) => { setSelected(ticker); setSelectedRow(row); setSelectedMeta(meta) }
   const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
   const handleRemoveTicker = (t) => setWatchlist(prev => prev.filter(x => x !== t))
   const handleOpenChart    = useCallback((ticker) => {
@@ -264,8 +265,19 @@ export default function App() {
         {/* Global chart — hidden on dashboard and turbo tabs */}
         {!NO_CHART_TABS.has(activeTab) && (
           <div style={{ minHeight: '340px' }}>
-            {selectedRow && selectedRow.ticker === chartTicker && (
-              <SelectedTickerBar row={selectedRow} />
+            {selectedRow && selectedRow.ticker === chartTicker && selectedMeta && (
+              <div className="mb-2 rounded-xl border border-md-outline-var bg-md-surface-con overflow-hidden">
+                <ScannerDataGrid
+                  pinned
+                  results={[selectedRow]}
+                  variant={selectedMeta.variant}
+                  effectiveScoreCol={selectedMeta.effectiveScoreCol}
+                  universe={selectedMeta.universe}
+                  localTf={selectedMeta.localTf}
+                  pmData={selectedMeta.pmData}
+                  onSelectTicker={handleSelect}
+                />
+              </div>
             )}
             <CodeCandleChart
               ticker={chartTicker}
