@@ -975,7 +975,7 @@ def get_ticker_bars(
                       mfe_20d, mfe_60d, mae_20d,
                       hit_2x_60d, hit_50pct_20d, drop_20pct_10d,
                       all_signals_text, t_sig, z_sig, l_sig,
-                      composite_full_suffix, full_suffix,
+                      composite_full_suffix, full_suffix, composite_vol,
                       bar_body_wick, bar_gap_range, bar_line5,
                       swing_type_3, is_pivot_low_3, is_pivot_high_3
                FROM bars WHERE ticker = ?

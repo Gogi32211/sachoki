@@ -344,6 +344,11 @@ def incremental_delta_refresh(
                     apply_prebreak_v2(universe)
                 except Exception:
                     log.exception("prebreak_v2 apply failed for %s", universe)
+                try:
+                    from studio.composite_vol import apply_composite_vol
+                    apply_composite_vol(universe)
+                except Exception:
+                    log.exception("composite_vol apply failed for %s", universe)
             except Exception as e:
                 log.exception("enrich failed for %s", universe)
                 enrich_summary = {"error": str(e)}

@@ -525,6 +525,8 @@ def ensure_schema() -> None:
         "aes_stage",              # human-readable stage label
         # PreBreakout v2 (data-derived OOS-validated score) — WATCH/BUY/HOT
         "prebreak_v2_band",
+        # composite + volume bucket combined string (e.g. Z2L46NBO·VB)
+        "composite_vol",
         # Enrichment metadata
         "enrich_version",
     ]
