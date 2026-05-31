@@ -74,18 +74,6 @@ const SIG_GROUPS = [
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
   { key: 'ca',  label: 'CA',  cls: 'text-cyan-300'    },
   { key: 'cw',  label: 'CW',  cls: 'text-yellow-300'  },
-  { key: 'any_f', label: 'ANY F', cls: 'text-amber-300'   },
-  { key: 'f1',   label: 'F1',   cls: 'text-orange-400'  },
-  { key: 'f2',   label: 'F2',   cls: 'text-md-on-surface'    },
-  { key: 'f3',   label: 'F3',   cls: 'text-sky-300'     },
-  { key: 'f4',   label: 'F4',   cls: 'text-md-on-surface'    },
-  { key: 'f5',   label: 'F5',   cls: 'text-cyan-400'    },
-  { key: 'f6',   label: 'F6',   cls: 'text-md-on-surface'    },
-  { key: 'f7',   label: 'F7',   cls: 'text-green-400'   },
-  { key: 'f8',   label: 'F8',   cls: 'text-blue-400'    },
-  { key: 'f9',   label: 'F9',   cls: 'text-md-on-surface'    },
-  { key: 'f10',  label: 'F10',  cls: 'text-lime-400'    },
-  { key: 'f11',  label: 'F11',  cls: 'text-fuchsia-400' },
   { key: 'g1',  label: 'G1',  cls: 'text-lime-300'    },
   { key: 'g2',  label: 'G2',  cls: 'text-cyan-300'    },
   { key: 'g4',  label: 'G4',  cls: 'text-fuchsia-300' },
@@ -93,30 +81,144 @@ const SIG_GROUPS = [
   { key: 'g11',       label: 'G11',  cls: 'text-yellow-300'  },
   { key: 'seq_bcont', label: 'SBC',  cls: 'text-violet-300'  },
   { divider: true },
-  // ── B signals (260321_B_BUILDER) — T/Z multi-bar sequences ───────────
-  { key: '_any_b', label: 'ANY B', cls: 'text-amber-200 font-semibold',
-    custom: r => !!(r.b1||r.b2||r.b3||r.b4||r.b5||r.b6||r.b7||r.b8||r.b9||r.b10||r.b11) },
-  { key: 'b1',  label: 'B1',  cls: 'text-lime-300'    },
-  { key: 'b2',  label: 'B2',  cls: 'text-cyan-300'    },
-  { key: 'b3',  label: 'B3',  cls: 'text-teal-300'    },
-  { key: 'b4',  label: 'B4',  cls: 'text-blue-300'    },
-  { key: 'b5',  label: 'B5',  cls: 'text-green-300'   },
-  { key: 'b6',  label: 'B6',  cls: 'text-emerald-300' },
-  { key: 'b7',  label: 'B7',  cls: 'text-sky-300'     },
-  { key: 'b8',  label: 'B8',  cls: 'text-indigo-300'  },
-  { key: 'b9',  label: 'B9',  cls: 'text-violet-300'  },
-  { key: 'b10', label: 'B10', cls: 'text-purple-300'  },
-  { key: 'b11', label: 'B11', cls: 'text-fuchsia-300' },
+  // ── T signals (Bullish — priority engine) ────────────────────────────
+  // Keys map to sig_ages entries → N= lookback works automatically
+  { key: 'tz_any_t', label: 'ANY T', cls: 'text-blue-200 font-semibold' },
+  { key: 'tz_t1g',   label: 'T1G',   cls: 'text-amber-300 font-bold'   },
+  { key: 'tz_t2g',   label: 'T2G',   cls: 'text-amber-400 font-bold'   },
+  { key: 'tz_t1',    label: 'T1',    cls: 'text-lime-300'               },
+  { key: 'tz_t2',    label: 'T2',    cls: 'text-lime-400'               },
+  { key: 'tz_t3',    label: 'T3',    cls: 'text-green-300'              },
+  { key: 'tz_t4',    label: 'T4',    cls: 'text-emerald-300 font-bold'  },
+  { key: 'tz_t5',    label: 'T5',    cls: 'text-teal-300'               },
+  { key: 'tz_t6',    label: 'T6',    cls: 'text-cyan-300 font-bold'     },
+  { key: 'tz_t9',    label: 'T9',    cls: 'text-sky-300'                },
+  { key: 'tz_t10',   label: 'T10',   cls: 'text-blue-300'               },
+  { key: 'tz_t11',   label: 'T11',   cls: 'text-indigo-300'             },
+  { key: 'tz_t12',   label: 'T12',   cls: 'text-violet-300'             },
+  { key: 'tz_bull_flip', label: 'TZ→3', cls: 'text-lime-300'            },
+  { key: 'tz_attempt',   label: 'TZ→2', cls: 'text-cyan-300'            },
+  { key: 'tz_weak_bull', label: 'W',    cls: 'text-yellow-300'          },
   { divider: true },
-  // ── T/Z ───────────────────────────────────────────────────────────────
-  { key: '_tz_bull',   label: 'T/Z↑',   cls: 'text-violet-300',
-    custom: r => !!r.tz_sig },
-  { key: '_tz_strong', label: 'T4/T6',  cls: 'text-violet-200',
-    custom: r => ['T4','T6','T1G','T2G'].includes(r.tz_sig) },
-  { key: 'tz_bull_flip', label: 'TZ→3', cls: 'text-lime-300'    },
-  { key: 'tz_attempt',   label: 'TZ→2', cls: 'text-cyan-300'    },
-  { key: '_tz_weak', label: 'W', cls: 'text-yellow-300',
-    custom: r => r.tz_weak_bull || r.tz_weak_bear },
+  // ── Z signals (Bearish — priority engine) ────────────────────────────
+  { key: 'tz_any_z', label: 'ANY Z', cls: 'text-red-300 font-semibold'  },
+  { key: 'tz_z1g',   label: 'Z1G',   cls: 'text-red-200 font-bold'     },
+  { key: 'tz_z2g',   label: 'Z2G',   cls: 'text-red-300 font-bold'     },
+  { key: 'tz_z1',    label: 'Z1',    cls: 'text-orange-300'             },
+  { key: 'tz_z2',    label: 'Z2',    cls: 'text-orange-400'             },
+  { key: 'tz_z3',    label: 'Z3',    cls: 'text-rose-300'               },
+  { key: 'tz_z4',    label: 'Z4',    cls: 'text-red-400 font-bold'      },
+  { key: 'tz_z5',    label: 'Z5',    cls: 'text-pink-300'               },
+  { key: 'tz_z6',    label: 'Z6',    cls: 'text-fuchsia-400 font-bold'  },
+  { key: 'tz_z7',    label: 'Z7',    cls: 'text-rose-400'               },
+  { key: 'tz_z9',    label: 'Z9',    cls: 'text-orange-300'             },
+  { key: 'tz_z10',   label: 'Z10',   cls: 'text-red-300'                },
+  { key: 'tz_z11',   label: 'Z11',   cls: 'text-rose-300'               },
+  { key: 'tz_z12',   label: 'Z12',   cls: 'text-pink-400'               },
+  { divider: true },
+  // ── TZ/WLNBB L-signal (Pine lane) ────────────────────────────────────
+  { key: '_wl_any', label: 'ANY L', cls: 'text-sky-200 font-semibold',
+    custom: r => !!r.tz_wlnbb_l_signal },
+  { key: '_wl_l1',  label: 'L1',   cls: 'text-sky-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L1' },
+  { key: '_wl_l2',  label: 'L2',   cls: 'text-cyan-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L2' },
+  { key: '_wl_l3',  label: 'L3',   cls: 'text-teal-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L3' },
+  { key: '_wl_l4',  label: 'L4',   cls: 'text-blue-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L4' },
+  { key: '_wl_l5',  label: 'L5',   cls: 'text-indigo-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L5' },
+  { key: '_wl_l6',  label: 'L6',   cls: 'text-violet-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L6' },
+  { key: '_wl_l22', label: 'L22',  cls: 'text-red-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L22' },
+  { key: '_wl_l34', label: 'L34',  cls: 'text-lime-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L34' },
+  { key: '_wl_l43', label: 'L43',  cls: 'text-emerald-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L43' },
+  { key: '_wl_l64', label: 'L64',  cls: 'text-orange-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L64' },
+  { key: '_wl_fri34', label: 'FRI34', cls: 'text-cyan-400',
+    custom: r => r.tz_wlnbb_l_signal === 'FRI34' },
+  { key: '_wl_fri43', label: 'FRI43', cls: 'text-sky-400',
+    custom: r => r.tz_wlnbb_l_signal === 'FRI43' },
+  { key: '_wl_l555',  label: 'L555',  cls: 'text-rose-300',
+    custom: r => r.tz_wlnbb_l_signal === 'L555' },
+  { key: '_wl_l1l2',  label: 'L1L2',  cls: 'text-blue-400',
+    custom: r => r.tz_wlnbb_l_signal === 'L1L2' },
+  { divider: true },
+  // ── Vol bucket (TZ/WLNBB) — Live uses tz_wlnbb_volume_bucket, DB-instant uses vol_bucket ──
+  { key: '_vb_vb', label: 'VB',  cls: 'text-red-300 font-bold',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'VB' },
+  { key: '_vb_b',  label: 'B',   cls: 'text-orange-300',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'B' },
+  { key: '_vb_n',  label: 'N',   cls: 'text-yellow-300',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'N' },
+  { key: '_vb_l',  label: 'L',   cls: 'text-blue-400',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'L' },
+  { key: '_vb_w',  label: 'W',   cls: 'text-gray-400',
+    custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'W' },
+  { divider: true },
+  // ── Suffix (NE + Wick) ────────────────────────────────────────────────
+  { key: '_ne_e', label: 'NE',  cls: 'text-lime-300',
+    custom: r => (r.tz_wlnbb_ne_suffix || '') === 'E' },
+  { key: '_wk_u', label: 'WK↑', cls: 'text-teal-300',
+    custom: r => (r.tz_wlnbb_wick_suffix || '').includes('U') },
+  { key: '_wk_d', label: 'WK↓', cls: 'text-red-300',
+    custom: r => (r.tz_wlnbb_wick_suffix || '').includes('D') },
+  { key: '_wk_b', label: 'WK↕', cls: 'text-yellow-300',
+    custom: r => (r.tz_wlnbb_wick_suffix || '').includes('B') },
+  { divider: true },
+  // ── BW — bar body/wick classification (Pine line-3) ──────────────────
+  { key: '_bw_x',  label: 'X',   cls: 'text-lime-300 font-bold',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').startsWith('X') },
+  { key: '_bw_m',  label: 'M',   cls: 'text-yellow-300',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').startsWith('M') },
+  { key: '_bw_s',  label: 'S',   cls: 'text-blue-300',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').startsWith('S') },
+  { key: '_bw_j',  label: 'J',   cls: 'text-gray-400',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').includes('J') },
+  { key: '_bw_tb', label: 'TB',  cls: 'text-red-300',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').includes('TB') },
+  { key: '_bw_bb', label: 'BB',  cls: 'text-green-300',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').includes('BB') },
+  { key: '_bw_f',  label: 'F',   cls: 'text-cyan-300',
+    custom: r => (r.tz_wlnbb_bar_body_wick || '').includes('F') },
+  { key: '_bw_xf', label: 'XF',  cls: 'text-lime-400 font-semibold',
+    custom: r => r.tz_wlnbb_bar_body_wick === 'XF' },
+  { key: '_bw_mf', label: 'MF',  cls: 'text-yellow-400',
+    custom: r => r.tz_wlnbb_bar_body_wick === 'MF' },
+  { divider: true },
+  // ── GR — gap/range vs ATR (Pine line-4) ──────────────────────────────
+  { key: '_gr_g1', label: 'G1',  cls: 'text-sky-300',
+    custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('G1') },
+  { key: '_gr_g2', label: 'G2',  cls: 'text-blue-300',
+    custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('G2') },
+  { key: '_gr_g3', label: 'G3',  cls: 'text-violet-300',
+    custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('G3') },
+  { key: '_gr_v',  label: 'V',   cls: 'text-red-300 font-bold',
+    custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('V') },
+  { key: '_gr_c',  label: 'C',   cls: 'text-teal-300',
+    custom: r => (r.tz_wlnbb_bar_gap_range || '').includes('C') },
+  { key: '_gr_n',  label: 'N',   cls: 'text-gray-400',
+    custom: r => r.tz_wlnbb_bar_gap_range === 'N' },
+  { divider: true },
+  // ── L5 — VIX-Fix / PSAR / RSI2 (Pine line-5) ────────────────────────
+  { key: '_l5_any', label: 'L5∗',  cls: 'text-amber-200 font-semibold',
+    custom: r => !!r.tz_wlnbb_bar_line5 },
+  { key: '_l5_vx',  label: 'VX',   cls: 'text-red-300 font-bold',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('VX') },
+  { key: '_l5_pb',  label: 'PB',   cls: 'text-lime-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('PB') },
+  { key: '_l5_vr',  label: 'VR',   cls: 'text-orange-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('VR') },
+  { key: '_l5_r2l', label: 'R2L',  cls: 'text-cyan-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2L') },
+  { key: '_l5_r2h', label: 'R2H',  cls: 'text-blue-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2H') },
+  { key: '_l5_r2x', label: 'R2X',  cls: 'text-indigo-300',
+    custom: r => (r.tz_wlnbb_bar_line5 || '').includes('R2X') },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: '_l_any',  label: 'L∗',  cls: 'text-blue-200',
@@ -207,22 +309,25 @@ const SIG_GROUPS = [
   { key: 'predn50', label: 'D50', cls: 'text-orange-300'  },
   { divider: true },
   // ── Price vs EMA ─────────────────────────────────────────────────────
+  // Live scan returns raw EMA values (r.ema20/50/89/200); DB-instant mode does
+  // not (the precomputed boolean flags price_gt_/lt_ are stored instead). Use
+  // either source so the filter works in both modes.
   { key: '_gt_ema200', label: 'P>200', cls: 'text-lime-300',
-    custom: r => r.ema200 > 0 && r.last_price > r.ema200 },
+    custom: r => !!r.price_gt_200 || (r.ema200 > 0 && r.last_price > r.ema200) },
   { key: '_gt_ema89',  label: 'P>89',  cls: 'text-emerald-300',
-    custom: r => r.ema89  > 0 && r.last_price > r.ema89  },
+    custom: r => !!r.price_gt_89  || (r.ema89  > 0 && r.last_price > r.ema89)  },
   { key: '_gt_ema50',  label: 'P>50',  cls: 'text-teal-300',
-    custom: r => r.ema50  > 0 && r.last_price > r.ema50  },
+    custom: r => !!r.price_gt_50  || (r.ema50  > 0 && r.last_price > r.ema50)  },
   { key: '_gt_ema20',  label: 'P>20',  cls: 'text-cyan-300',
-    custom: r => r.ema20  > 0 && r.last_price > r.ema20  },
+    custom: r => !!r.price_gt_20  || (r.ema20  > 0 && r.last_price > r.ema20)  },
   { key: '_lt_ema20',  label: 'P<20',  cls: 'text-red-400',
-    custom: r => r.ema20  > 0 && r.last_price < r.ema20  },
+    custom: r => !!r.price_lt_20  || (r.ema20  > 0 && r.last_price < r.ema20)  },
   { key: '_lt_ema50',  label: 'P<50',  cls: 'text-orange-400',
-    custom: r => r.ema50  > 0 && r.last_price < r.ema50  },
+    custom: r => !!r.price_lt_50  || (r.ema50  > 0 && r.last_price < r.ema50)  },
   { key: '_lt_ema89',  label: 'P<89',  cls: 'text-orange-300',
-    custom: r => r.ema89  > 0 && r.last_price < r.ema89  },
+    custom: r => !!r.price_lt_89  || (r.ema89  > 0 && r.last_price < r.ema89)  },
   { key: '_lt_ema200', label: 'P<200', cls: 'text-red-300',
-    custom: r => r.ema200 > 0 && r.last_price < r.ema200 },
+    custom: r => !!r.price_lt_200 || (r.ema200 > 0 && r.last_price < r.ema200) },
   { divider: true },
   // ── RS / Relative Strength ────────────────────────────────────────────
   { key: 'rs_strong',  label: 'RS+',    cls: 'text-lime-300'    },
@@ -753,6 +858,17 @@ const KEEP_ALWAYS = new Set([
   'vol_bucket','data_source',
   'ema20','ema50','ema89','ema200',
   'sector',
+  // ULTRA / Beta / Bull scores — non-1 numeric values that the slimmer would
+  // otherwise drop, leaving the table cells showing "—".
+  'ultra_score','ultra_score_band','ultra_score_band_v2','ultra_score_priority',
+  'ultra_score_reasons','ultra_score_flags','ultra_score_raw_before_penalty',
+  'ultra_score_penalty_total','ultra_score_regime_bonus',
+  'ultra_score_caps_applied','ultra_score_cap_reason',
+  'beta_score','beta_zone','beta_auto_buy',
+  'final_bull_score','final_regime',
+  'gog_score','gog_tier',
+  'profile_score','profile_category','sweet_spot_active','late_warning',
+  'scan_date','tz_state','tz_sig_t','tz_sig_z',
   // RTB v4
   'rtb_build','rtb_turn','rtb_ready','rtb_bonus3',
   'rtb_late','rtb_total','rtb_phase','rtb_transition','rtb_phase_age',
@@ -855,8 +971,20 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [exported,   setExported]   = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
+
+  // ── Pre-market cache: { TICKER: { pm_price, pm_chg_pct, pm_vol } } ────────
+  const [pmData,    setPmData]    = useState({})
+  const pmTimerRef = useRef(null)
   const [lookbackN,  setLookbackN]  = useState(1)
   const [pickedTickers, setPickedTickers] = useState(new Set())  // individually selected rows
+  // Source mode: 'live' = traditional 30-60min scan; 'db' = instant Studio DB lookup
+  const [sourceMode, setSourceMode] = useState(() => {
+    try { return localStorage.getItem('ultra_source_mode') || 'db' } catch { return 'db' }
+  })
+  const switchSource = (mode) => {
+    setSourceMode(mode)
+    try { localStorage.setItem('ultra_source_mode', mode) } catch {}
+  }
 
   const _pwlToggle = (row) => {
     const r = { ...row, _tf: localTf }
@@ -889,11 +1017,82 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [wycSow,       setWycSow]         = useState(null)
   const hoverTimer = useRef(null)
 
+  // ── DB info + manual refresh ─────────────────────────────────────────────
+  const [dbInfo,       setDbInfo]       = useState(null)   // {date_to, rows, tickers}
+  const [dbRefreshing, setDbRefreshing] = useState(false)  // incremental running
+  const [dbRefreshPct, setDbRefreshPct] = useState(0)
+  const dbPollRef = useRef(null)
+
+  const fetchDbInfo = useCallback(async () => {
+    try {
+      const s = await api.studioStats()
+      // backend returns {error:..., db_path:...} on failure — guard against that
+      if (s && typeof s.rows === 'number') setDbInfo(s)
+    } catch {}
+  }, [])
+
+  // load DB info on mount
+  useEffect(() => { fetchDbInfo() }, [fetchDbInfo])
+
+  const triggerDbRefresh = useCallback(async () => {
+    if (dbRefreshing) return
+    setDbRefreshing(true)
+    setDbRefreshPct(0)
+    try {
+      await api.studioIncremental(['sp500', 'nasdaq'])
+    } catch (e) {
+      setDbRefreshing(false)
+      return
+    }
+    // poll until done
+    dbPollRef.current = setInterval(async () => {
+      try {
+        const s = await api.studioIncrementalStatus()
+        const p = s?.progress || {}
+        setDbRefreshPct(p.pct ?? 0)
+        if (!s?.running) {
+          clearInterval(dbPollRef.current)
+          setDbRefreshing(false)
+          setDbRefreshPct(0)
+          fetchDbInfo()          // refresh date label
+          // reload Ultra scan results from DB
+          fetchFromDB && fetchFromDB()
+        }
+      } catch { clearInterval(dbPollRef.current); setDbRefreshing(false) }
+    }, 3000)
+  }, [dbRefreshing, fetchDbInfo])
+
+  useEffect(() => () => clearInterval(dbPollRef.current), [])
+
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
     () => Object.fromEntries(TF_OPTS.map(t => [t, !!_tsGet(t, universe)?.results?.length])),
     [universe, allResults]  // re-check when results change (after scan saves cache)
   )
+
+  // ── DB-backed fetch — instant (~1-2 sec) from enriched Studio DB ──────────
+  const fetchFromDB = useCallback(async () => {
+    const seq = ++fetchSeqRef.current
+    setScanning(true); setError(null)
+    try {
+      const unis = universe === 'all'     ? ['sp500', 'nasdaq']
+                 : universe === 'sp500'   ? ['sp500']
+                 : universe === 'nasdaq'  ? ['nasdaq']
+                 : universe === 'split'   ? ['split']   // backend cross-filters to live split window
+                 : ['sp500', 'nasdaq']
+      const d = await api.ultraScanFromDB(unis)
+      if (seq !== fetchSeqRef.current) return
+      const results = d.results || []
+      const scanned = d.scanned_at
+      setAllResults(results)
+      setLastScan(scanned || null)
+      ultraCacheSet(localTf, universe, results, scanned)
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setScanning(false)
+    }
+  }, [universe, localTf])
 
   // Fetch fresh results from server after a scan completes, then cache.
   // Uses fetchSeqRef to discard responses from stale (superseded) requests.
@@ -938,9 +1137,14 @@ export default function UltraScanPanel({ onSelectTicker }) {
   }, [fetchFreshResults])
 
   useEffect(() => {
-    loadFromCache(localTf, universe)       // instant from cache (may be stale)
-    fetchFreshResults(localTf, universe)   // always refresh from server in background
-  }, [localTf, universe]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (sourceMode === 'db') {
+      // DB mode — instant fetch, no cache fallback needed
+      fetchFromDB()
+    } else {
+      loadFromCache(localTf, universe)       // instant from cache (may be stale)
+      fetchFreshResults(localTf, universe)   // always refresh from server in background
+    }
+  }, [localTf, universe, sourceMode]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Lazy-batch sector fetch: after results load, fetch sectors for tickers missing them
   useEffect(() => {
@@ -967,6 +1171,30 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // ULTRA does not subscribe to the admin "sachoki:scan-cached" Turbo event —
   // that event delivers raw Turbo rows, which would overwrite ULTRA's enriched
   // rows. ULTRA refreshes via its own /api/ultra-scan/results endpoint.
+
+  // ── Pre-market fetch: runs when allResults changes + every 15 min ─────────
+  const fetchPM = useCallback(() => {
+    if (!allResults.length) return
+    const tickers = [...new Set(allResults.map(r => r.ticker).filter(Boolean))]
+    if (!tickers.length) return
+    // Fetch in chunks of 200 to stay within URL limits
+    const chunks = []
+    for (let i = 0; i < tickers.length; i += 200) chunks.push(tickers.slice(i, i + 200))
+    Promise.all(chunks.map(c => api.premarket(c)))
+      .then(results => {
+        const merged = {}
+        results.forEach(r => Object.assign(merged, r.data || {}))
+        setPmData(merged)
+      })
+      .catch(() => {})
+  }, [allResults])
+
+  useEffect(() => {
+    fetchPM()
+    if (pmTimerRef.current) clearInterval(pmTimerRef.current)
+    pmTimerRef.current = setInterval(fetchPM, 15 * 60 * 1000)
+    return () => { if (pmTimerRef.current) clearInterval(pmTimerRef.current) }
+  }, [fetchPM]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
@@ -1031,7 +1259,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
         const ok = [...selSigs].every(k => {
           const sig = SIG_GROUPS.find(s => !s.divider && s.key === k)
           if (sig?.custom) return sig.custom(r)
-          if (lookbackN > 1 && k in ages) return ages[k] < lookbackN
+          // age-based check takes priority: works for all N (N=1 means age<1 = current bar only)
+          if (k in ages) return ages[k] < lookbackN
+          // fallback for signals not tracked in sig_ages (direct row field)
           return !!r[k]
         })
         if (!ok) return false
@@ -1048,14 +1278,18 @@ export default function UltraScanPanel({ onSelectTicker }) {
     } else {
       filtered.sort((a, b) => {
         const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
-        const av = a[col] ?? 0
-        const bv = b[col] ?? 0
+        // pm_chg_pct lives in pmData (external cache), not in allResults rows
+        const getVal = (r) => col === 'pm_chg_pct'
+          ? (pmData[r.ticker]?.pm_chg_pct ?? -Infinity)
+          : (r[col] ?? 0)
+        const av = getVal(a)
+        const bv = getVal(b)
         if (typeof av === 'string') return mul * av.localeCompare(bv)
         return mul * (av - bv)
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr, wycSow])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr, wycSow])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1177,14 +1411,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
     if (r.cd) out.push('CD')
     else if (r.ca) out.push('CA')
     else if (r.cw) out.push('CW')
-    if (r.any_f) out.push('ANY F')
-    for (const k of ['f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11'])
-      if (r[k]) out.push(k.toUpperCase())
     for (const k of ['g1','g2','g4','g6','g11'])
       if (r[k]) out.push(k.toUpperCase())
     if (r.seq_bcont) out.push('SBC')
-    for (const k of ['b1','b2','b3','b4','b5','b6','b7','b8','b9','b10','b11'])
-      if (r[k]) out.push(k.toUpperCase())
+    if (r.tz_sig) out.push(r.tz_sig)
     if (r.tz_bull_flip) out.push('TZ→3')
     else if (r.tz_attempt) out.push('TZ→2')
     if (r.smx)            out.push('SMX')
@@ -1367,6 +1597,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'tz_wlnbb_preup_signal', 'tz_wlnbb_predn_signal',
       'tz_wlnbb_lane1_label', 'tz_wlnbb_lane3_label',
       'tz_wlnbb_volume_bucket', 'tz_wlnbb_wick_suffix',
+      'tz_wlnbb_bar_body_wick', 'tz_wlnbb_bar_gap_range',
+      'tz_wlnbb_bar_line5', 'tz_wlnbb_ne_suffix',
       'tz_intel_role', 'tz_intel_quality', 'tz_intel_action', 'tz_intel_score',
       'tz_intel_matched_status', 'tz_intel_matched_med10d_pct', 'tz_intel_matched_fail10d_pct',
       'abr_category', 'abr_med10d_pct', 'abr_fail10d_pct',
@@ -1562,6 +1794,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // currently visible after filters. Never enriches the full universe.
   const enrich = () => {
     if (scanning || enriching) return
+    // DB mode: data is already fully enriched in Studio DB — no live enrich needed.
+    // Just re-fetch the latest snapshot from DB.
+    if (sourceMode === 'db') {
+      fetchFromDB()
+      return
+    }
     const targetTickers = pickedTickers.size > 0
       ? results.filter(r => pickedTickers.has(r.ticker)).map(r => r.ticker)
       : results.map(r => r.ticker)
@@ -1600,6 +1838,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
   const scan = () => {
     if (scanning) return  // guard against double-trigger
+    // DB mode: instant re-fetch from Studio DB (no long-running scan)
+    if (sourceMode === 'db') {
+      fetchFromDB()
+      return
+    }
+    // Live mode: traditional 30-60 min scan
     setScanning(true); setError(null); setWarnings([]); setSources({}); setPhases({}); setPhase(null)
     setProgressPct(0); setEtaSeconds(null); setElapsedSeconds(0)
     api.ultraScanTrigger(localTf, universe, {
@@ -1635,6 +1879,51 @@ export default function UltraScanPanel({ onSelectTicker }) {
       {hoverPopup && (
         <MiniChartPopup row={hoverPopup.row} tf={localTf} pos={hoverPopup.pos} onClose={() => setHoverPopup(null)} />
       )}
+
+      {/* ── Row -1: Source mode toggle (Live vs DB) ── */}
+      <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-white/[0.07] bg-md-surface-con/30">
+        <span className="text-md-on-surface-var text-xs w-16 shrink-0">Source</span>
+        <button onClick={() => switchSource('db')}
+          title="Instant (~1-2s) read from enriched Studio DB. Updated daily at 17:00 ET."
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+            ${sourceMode === 'db'
+              ? 'bg-emerald-700/30 text-emerald-300 border-emerald-700/60'
+              : 'text-md-on-surface-var border-md-outline-var hover:text-md-on-surface'}`}>
+          💾 DB (instant)
+        </button>
+        <button onClick={() => switchSource('live')}
+          title="Full live scan from data source (~30-60 min). Use for intraday refresh."
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+            ${sourceMode === 'live'
+              ? 'bg-orange-700/30 text-orange-300 border-orange-700/60'
+              : 'text-md-on-surface-var border-md-outline-var hover:text-md-on-surface'}`}>
+          ⚡ Live (slow)
+        </button>
+        <span className="text-[10px] text-md-on-surface-var/70 ml-2">
+          {sourceMode === 'db'
+            ? `📊 1-2 sec query from Studio DB (${(dbInfo && typeof dbInfo.rows === 'number') ? `${(dbInfo.rows/1e6).toFixed(2)}M bars` : '…'}, last updated ${dbInfo?.date_to ?? '…'})`
+            : '⏱ 30-60 min live scan — fresh today\'s bar'}
+        </span>
+
+        {/* DB manual refresh button — uses studio.incremental_delta which is
+            validated 100% identical to the original CSV import for Pine score
+            columns. Safe to click after market close (16:00 ET). */}
+        {sourceMode === 'db' && (
+          <button
+            onClick={triggerDbRefresh}
+            disabled={dbRefreshing}
+            title="Append yesterday's bar(s) to the DB (SP500 ~20min, +NASDAQ ~25min more)"
+            className={`ml-auto flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-mono border transition-colors
+              ${dbRefreshing
+                ? 'bg-amber-900/30 text-amber-300 border-amber-700/50 cursor-wait'
+                : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-emerald-300 hover:border-emerald-700/50'}`}>
+            <span className={dbRefreshing ? 'animate-spin inline-block' : ''}>🔄</span>
+            {dbRefreshing
+              ? `Updating… ${dbRefreshPct > 0 ? dbRefreshPct.toFixed(0)+'%' : ''}`
+              : 'Update DB'}
+          </button>
+        )}
+      </div>
 
       {/* ── Row 0: Universe selector ── */}
       <div className="flex flex-wrap items-center gap-1.5 px-3 py-2 border-b border-white/[0.07] bg-md-surface-con/50">
@@ -1685,8 +1974,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
             : '🧬 ULTRA Scan'}
         </button>
 
-        {/* Stage 2: enrich the visible / selected subset */}
-        {(() => {
+        {/* Stage 2: enrich the visible / selected subset
+            (in DB mode this stage is unnecessary — DB already has full enrichment) */}
+        {sourceMode !== 'db' && (() => {
           const enrichCount = pickedTickers.size > 0 ? pickedTickers.size : results.length
           const enrichLabel = pickedTickers.size > 0
             ? `✨ Enrich ${enrichCount} selected`
@@ -2241,7 +2531,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
 
       {/* ── Table (ScannerDataGrid) ── */}
       <ScannerDataGrid
-        results={results.map(withAges)}
+        results={results.map(r => {
+          const pm = pmData[r.ticker]
+          return { ...withAges(r), pm_chg_pct: pm?.pm_chg_pct ?? null, pm_price: pm?.pm_price ?? null }
+        })}
         onSelectTicker={onSelectTicker}
         onWatchlistToggle={_pwlToggle}
         localTf={localTf}
@@ -2254,6 +2547,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         effectiveScoreCol={effectiveScoreCol}
         universe={universe}
         variant="ultra"
+        pmData={pmData}
         allPicked={results.length > 0 && results.every(r => pickedTickers.has(r.ticker))}
         onPickAll={checked => {
           if (checked) setPickedTickers(new Set(results.map(r => r.ticker)))
