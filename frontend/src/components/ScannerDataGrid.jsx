@@ -633,16 +633,21 @@ export default function ScannerDataGrid({
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
-                {/* V2 — PreBreakout v2 */}
+                {/* V2 — PreBreakout v2 (same size as Score/ULTRA) */}
                 <td className="px-2 py-1 text-center"
                   title={r.prebreak_v2 != null ? `PreBreakout v2 = ${r.prebreak_v2} (≈breakout probability) · ${r.prebreak_v2_band}` : 'No v2 data'}>
                   {r.prebreak_v2 != null ? (
-                    <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-mono font-semibold leading-none ${
-                      r.prebreak_v2_band === 'BUY' ? 'bg-green-500/20 text-green-300'
-                      : r.prebreak_v2_band === 'HOT' ? 'bg-amber-500/20 text-amber-300'
-                      : 'text-gray-500'}`}>
-                      {r.prebreak_v2}{r.prebreak_v2_band === 'BUY' ? ' B' : r.prebreak_v2_band === 'HOT' ? ' H' : ''}
-                    </span>
+                    <div className="leading-none">
+                      <span className={`font-mono text-xs font-semibold ${
+                        r.prebreak_v2_band === 'BUY' ? 'text-green-300'
+                        : r.prebreak_v2_band === 'HOT' ? 'text-amber-300'
+                        : 'text-md-on-surface-var'}`}>{r.prebreak_v2}</span>
+                      {r.prebreak_v2_band !== 'WATCH' && (
+                        <div className={`text-[9px] opacity-80 ${r.prebreak_v2_band === 'BUY' ? 'text-green-300' : 'text-amber-300'}`}>
+                          {r.prebreak_v2_band}
+                        </div>
+                      )}
+                    </div>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
