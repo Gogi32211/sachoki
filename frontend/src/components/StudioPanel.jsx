@@ -3196,6 +3196,7 @@ function SeqLabTab() {
             <option value="signal">signal label</option>
             <option value="lsig">volume L (L1–L6)</option>
             <option value="vol">vol bucket (W/L/N/B/VB)</option>
+            <option value="combo">combined (T/Z + L + vol)</option>
           </select>
         </Field>
         <Field label="Horizon">

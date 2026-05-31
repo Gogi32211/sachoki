@@ -51,7 +51,7 @@ _SORTS = {"win": "win DESC", "avg": "avg_ret DESC", "mfe": "mfe20 DESC",
 _PREFIX_RE = re.compile(r"^[TZ\-|A-Z0-9·]{0,40}$")
 
 
-_MODES = {"color", "signal", "lsig", "vol"}
+_MODES = {"color", "signal", "lsig", "vol", "combo"}
 
 
 def _token_expr(mode: str) -> str:
@@ -63,6 +63,12 @@ def _token_expr(mode: str) -> str:
     if mode == "vol":
         # WLNBB volume-magnitude bucket: W / L / N / B / VB
         return "COALESCE(NULLIF(vol_bucket,''), '.')"
+    if mode == "combo":
+        # all three united per bar: T/Z signal + L code + ·vol bucket, e.g. T9L34·B
+        # (requires a T/Z signal on the bar; '.' otherwise → dropped by outer filter)
+        return ("CASE WHEN COALESCE(NULLIF(t_sig,''), NULLIF(z_sig,'')) IS NULL THEN '.' "
+                "ELSE COALESCE(NULLIF(t_sig,''), NULLIF(z_sig,'')) || COALESCE(l_sig,'') "
+                "|| '·' || COALESCE(NULLIF(vol_bucket,''), '?') END")
     # color (default)
     return "CASE WHEN close > open THEN 'T' WHEN close < open THEN 'Z' ELSE '-' END"
 
