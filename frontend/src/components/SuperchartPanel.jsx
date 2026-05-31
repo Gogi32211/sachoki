@@ -1,5 +1,6 @@
 import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'react'
 import { api } from '../api'
+import CodeCandleChart from './CodeCandleChart'
 
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 const CELL_W  = 64   // px per bar column
@@ -705,6 +706,9 @@ export default function SuperchartPanel({
         {loading && <span className="text-xs text-md-on-surface-var/60 animate-pulse">loading…</span>}
         {error   && <span className="text-xs text-red-400">{error}</span>}
       </div>
+
+      {/* Candlestick chart — DB codes on 1d, live feed on intraday */}
+      <CodeCandleChart ticker={ticker} tf={tf} height={420} showSector />
 
       {/* Matrix */}
       {bars.length > 0 && (

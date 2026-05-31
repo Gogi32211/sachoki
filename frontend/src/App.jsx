@@ -1,31 +1,34 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, lazy, Suspense } from 'react'
+// ── Eager: always-present layout + always-mounted scan panels ─────────────────
 import TickerInput from './components/TickerInput'
 import WatchlistPanel from './components/WatchlistPanel'
-import CandleChart from './components/CandleChart'
-import PredictorPanel from './components/PredictorPanel'
-import ScannerPanel from './components/ScannerPanel'
-import CombinedScanPanel from './components/CombinedScanPanel'
-import TZLStatsPanel from './components/TZLStatsPanel'
-import HowItWorksPanel from './components/HowItWorksPanel'
-import TurboScanPanel from './components/TurboScanPanel'
-import UltraScanPanel from './components/UltraScanPanel'
-import AdminPanel from './components/AdminPanel'
-import SignalCorrelPanel from './components/SignalCorrelPanel'
-import TickerAnalysisPanel from './components/TickerAnalysisPanel'
-import PersonalWatchlistPanel from './components/PersonalWatchlistPanel'
-import SuperchartPanel from './components/SuperchartPanel'
-import SectorAnalysisPanel from './components/SectorAnalysisPanel'
-import ReplayPanel from './components/ReplayPanel'
-import TZWLNBBPanel from './components/TZWLNBBPanel'
-import TZIntelligencePanel from './components/TZIntelligencePanel'
-import RareReversalPanel from './components/RareReversalPanel'
-import SequenceScanPanel from './components/SequenceScanPanel'
-import PortfolioPanel from './components/PortfolioPanel'
-import ChartObsPanel from './components/ChartObsPanel'
-import SignalReplayPanel from './components/SignalReplayPanel'
-import UltraPumpResearchPanel from './components/UltraPumpResearchPanel'
-import TradingDashboardPanel from './components/TradingDashboardPanel'
+import CodeCandleChart from './components/CodeCandleChart'
 import AppSidebar from './components/AppSidebar'
+import TradingDashboardPanel from './components/TradingDashboardPanel'   // landing tab
+import TurboScanPanel from './components/TurboScanPanel'                 // kept mounted
+import UltraScanPanel from './components/UltraScanPanel'                 // kept mounted
+
+// ── Lazy: conditionally-rendered tab panels (code-split out of main bundle) ───
+const PredictorPanel        = lazy(() => import('./components/PredictorPanel'))
+const ScannerPanel          = lazy(() => import('./components/ScannerPanel'))
+const CombinedScanPanel     = lazy(() => import('./components/CombinedScanPanel'))
+const TZLStatsPanel         = lazy(() => import('./components/TZLStatsPanel'))
+const HowItWorksPanel       = lazy(() => import('./components/HowItWorksPanel'))
+const AdminPanel            = lazy(() => import('./components/AdminPanel'))
+const SignalCorrelPanel     = lazy(() => import('./components/SignalCorrelPanel'))
+const TickerAnalysisPanel   = lazy(() => import('./components/TickerAnalysisPanel'))
+const PersonalWatchlistPanel= lazy(() => import('./components/PersonalWatchlistPanel'))
+const SuperchartPanel       = lazy(() => import('./components/SuperchartPanel'))
+const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
+const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
+const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
+const TZIntelligencePanel   = lazy(() => import('./components/TZIntelligencePanel'))
+const RareReversalPanel     = lazy(() => import('./components/RareReversalPanel'))
+const SequenceScanPanel     = lazy(() => import('./components/SequenceScanPanel'))
+const PortfolioPanel        = lazy(() => import('./components/PortfolioPanel'))
+const ChartObsPanel         = lazy(() => import('./components/ChartObsPanel'))
+const UltraPumpResearchPanel= lazy(() => import('./components/UltraPumpResearchPanel'))
+const StudioPanel           = lazy(() => import('./components/StudioPanel'))
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -86,6 +89,12 @@ const TAB_GROUPS = [
     ],
   },
   {
+    label: 'Analytics',
+    tabs: [
+      { id: 'studio', label: '📊 Studio' },
+    ],
+  },
+  {
     label: 'System',
     tabs: [
       { id: 'howitworks', label: '❔ How It Works' },
@@ -99,7 +108,8 @@ const VALID_TAB_IDS = new Set(TABS.map(t => t.id))
 const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
-const NO_CHART_TABS = new Set(['turbo', 'dashboard'])
+// superchart now embeds its own unified CodeCandleChart, so hide the global one there
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -251,9 +261,12 @@ export default function App() {
         {/* Global chart — hidden on dashboard and turbo tabs */}
         {!NO_CHART_TABS.has(activeTab) && (
           <div style={{ minHeight: '340px' }}>
-            <CandleChart
+            <CodeCandleChart
               ticker={chartTicker}
               tf={chartTf}
+              height={380}
+              showSector
+              showFooter={false}
               onChartReady={handleChartReady}
             />
           </div>
@@ -261,6 +274,7 @@ export default function App() {
 
         {/* Tab content */}
         <div className="min-h-[400px]">
+         <Suspense fallback={<div className="flex items-center justify-center py-20 text-md-on-surface-var text-sm animate-pulse">loading…</div>}>
           {activeTab === 'dashboard' && (
             <TradingDashboardPanel
               onSelectTicker={handleSelect}
@@ -296,7 +310,9 @@ export default function App() {
           {activeTab === 'portfolio'      && <PortfolioPanel />}
           {activeTab === 'chartobs'       && <ChartObsPanel onSelectTicker={handleSelect} />}
           {activeTab === 'sigreplay'      && <UltraPumpResearchPanel />}
+          {activeTab === 'studio'         && <StudioPanel />}
           {activeTab === 'admin'          && <AdminPanel />}
+         </Suspense>
         </div>
         </main>
       </div>

@@ -14,7 +14,7 @@ import { useState, useEffect, useCallback, useRef } from 'react'
 import { api } from '../api'
 import StudioDatePicker from './StudioDatePicker'
 import SignalChip from './SignalChip'
-import DbCandleChart from './DbCandleChart'
+import CodeCandleChart from './CodeCandleChart'
 
 // ── DB column → display label (used by SignalChip) ───────────────────────────
 const COL_TO_LABEL = {
@@ -3382,7 +3382,6 @@ function SeqBacktestPanel() {
 function DbChartTab() {
   const [ticker, setTicker]   = useState(() => { try { return localStorage.getItem('studio_dbchart_ticker') || 'AAPL' } catch { return 'AAPL' } })
   const [inputVal, setInputVal] = useState(ticker)
-  const [limit, setLimit]     = useState(300)
   const go = () => {
     const t = inputVal.trim().toUpperCase()
     if (!t) return
@@ -3409,12 +3408,8 @@ function DbChartTab() {
           className="bg-md-surface border border-md-outline-var rounded-lg px-3 py-1.5 text-sm font-mono text-md-on-surface focus:outline-none focus:border-md-primary w-40"
         />
         <button onClick={go} className="px-3 py-1.5 text-sm rounded-lg bg-md-primary text-md-on-primary font-medium">Load</button>
-        <select value={limit} onChange={e => setLimit(Number(e.target.value))}
-          className="bg-md-surface border border-md-outline-var rounded-lg px-2 py-1.5 text-sm text-md-on-surface">
-          {[120, 200, 300, 500, 1000].map(n => <option key={n} value={n}>{n} bars</option>)}
-        </select>
       </div>
-      <DbCandleChart ticker={ticker} limit={limit} />
+      <CodeCandleChart ticker={ticker} tf="1d" initialLimit={300} showFooter />
     </div>
   )
 }

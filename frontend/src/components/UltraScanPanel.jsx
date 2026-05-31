@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo, useRef, useCallback } from 'react'
-import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 import { pwlAdd, pwlHas, pwlRemove } from './PersonalWatchlistPanel'
 import { idbGet, idbSet, getCacheBackend } from '../turboCache'
 import ScannerDataGrid from './ScannerDataGrid'
+import CodeCandleChart from './CodeCandleChart'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
@@ -675,9 +675,6 @@ function scoreReason(r) {
 
 // ── Mini chart popup ──────────────────────────────────────────────────────────
 function MiniChartPopup({ row, tf, pos, onClose }) {
-  const containerRef = useRef(null)
-  const chartRef     = useRef(null)
-  const [loading, setLoading] = useState(true)
   const [info, setInfo] = useState(null)
 
   useEffect(() => {
@@ -686,64 +683,6 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 
   const CHART_W = 780
   const CHART_H = 380
-
-  useEffect(() => {
-    if (!containerRef.current) return
-    const isIntraday = ['30m', '15m', '1h', '4h'].includes(tf)
-    const chart = createChart(containerRef.current, {
-      layout: { background: { color: '#030712' }, textColor: '#9ca3af' },
-      grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
-      crosshair: { mode: 1 },
-      rightPriceScale: { borderColor: '#374151' },
-      timeScale: { borderColor: '#374151', timeVisible: isIntraday },
-      width: CHART_W,
-      height: CHART_H,
-      handleScroll: false,
-      handleScale: false,
-    })
-    const series = chart.addCandlestickSeries({
-      upColor: '#22c55e', downColor: '#ef4444',
-      borderUpColor: '#22c55e', borderDownColor: '#ef4444',
-      wickUpColor: '#22c55e', wickDownColor: '#ef4444',
-    })
-    const volSeries = chart.addHistogramSeries({
-      priceFormat: { type: 'volume' },
-      priceScaleId: 'vol',
-      color: '#374151',
-    })
-    chart.priceScale('vol').applyOptions({ scaleMargins: { top: 0.85, bottom: 0 } })
-    chartRef.current = chart
-
-    api.signals(row.ticker, tf, 80)
-      .then(rows => {
-        const toTime = r => {
-          const d = r.date ?? r.Datetime ?? r.Date
-          if (!d) return null
-          if (isIntraday) {
-            const ms = new Date(String(d).replace(' ', 'T')).getTime()
-            return isNaN(ms) ? null : Math.floor(ms / 1000)
-          }
-          return String(d).slice(0, 10)
-        }
-        const bars = rows
-          .filter(r => r.close != null && toTime(r))
-          .map(r => ({ time: toTime(r), open: Number(r.open), high: Number(r.high), low: Number(r.low), close: Number(r.close) }))
-          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
-        const volumes = rows
-          .filter(r => r.volume != null && toTime(r))
-          .map(r => ({ time: toTime(r), value: Number(r.volume), color: '#374151' }))
-          .sort((a, b) => (a.time < b.time ? -1 : a.time > b.time ? 1 : 0))
-        if (bars.length) {
-          series.setData(bars)
-          volSeries.setData(volumes)
-          chart.timeScale().fitContent()
-        }
-        setLoading(false)
-      })
-      .catch(() => setLoading(false))
-
-    return () => { try { chart.remove() } catch {} }
-  }, [row.ticker, tf])
 
   // position: below the row, right side; flip left if too close to edge
   const POPUP_W = 820
@@ -801,13 +740,8 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
       </div>
 
       {/* Chart */}
-      <div className="relative">
-        <div ref={containerRef} style={{ width: CHART_W, height: CHART_H }} />
-        {loading && (
-          <div className="absolute inset-0 flex items-center justify-center bg-md-surface-con/70 text-md-on-surface-var">
-            Loading…
-          </div>
-        )}
+      <div style={{ width: CHART_W }}>
+        <CodeCandleChart bare ticker={row.ticker} tf={tf} interactive={false} height={CHART_H} />
       </div>
 
       {/* Signal summary */}
