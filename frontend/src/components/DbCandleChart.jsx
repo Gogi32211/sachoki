@@ -54,18 +54,17 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
       if (y == null) continue
       const el = document.createElement('div')
       el.style.cssText =
-        'position:absolute;text-align:center;line-height:1.05;font-family:ui-monospace,monospace;'
-        + 'font-size:9px;white-space:nowrap;pointer-events:none;padding:1px 2px;border-radius:2px;'
-        + 'background:rgba(3,7,18,0.6);'
+        'position:absolute;text-align:center;line-height:1.1;font-family:ui-monospace,monospace;'
+        + 'font-size:12px;white-space:nowrap;pointer-events:none;padding:1px 3px;border-radius:3px;'
+        + 'background:rgba(3,7,18,0.55);color:#ffffff;'
       el.style.left = x + 'px'
       el.style.top  = y + 'px'
       // bull → below the low; bear → above the high
       el.style.transform = s.isBull
         ? 'translate(-50%, 10px)'
         : 'translate(-50%, calc(-100% - 10px))'
-      el.style.color = s.isBull ? '#86efac' : '#fca5a5'
       el.innerHTML = s.lines.map((l, i) =>
-        `<div style="${i === 0 ? 'font-weight:600;' : 'opacity:.82;'}">${l}</div>`).join('')
+        `<div style="${i === 0 ? 'font-weight:700;' : 'opacity:.9;'}">${l}</div>`).join('')
       ov.appendChild(el)
     }
   }, [])
@@ -132,13 +131,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
           const tz = r.t_sig || r.z_sig
           if (tz) {
             const isBull = !!r.t_sig
-            markers.push({
-              time,
-              position: isBull ? 'belowBar' : 'aboveBar',
-              color:    isBull ? '#22c55e' : '#ef4444',
-              shape:    isBull ? 'arrowUp' : 'arrowDown',
-              text:     '',
-            })
+            // (no arrow markers — the stacked code overlay below carries direction)
             // full 5-line code stack, exactly the lines stored in the DB
             const lines = [
               `${tz}${r.l_sig || ''}`,                                 // TZ + L
@@ -153,7 +146,7 @@ export default function DbCandleChart({ ticker, limit = 300 }) {
         byTimeRef.current = byTime
         signalsRef.current = signals
         seriesRef.current.setData(candles)
-        seriesRef.current.setMarkers(markers)
+        seriesRef.current.setMarkers([])
         volRef.current?.setData(volumes)
         chartRef.current.priceScale('right').applyOptions({ autoScale: true })
         chartRef.current.timeScale().fitContent()
