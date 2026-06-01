@@ -430,6 +430,31 @@ const SIG_GROUPS = [
     custom: r => setupPhase(r) === 'Early' },
 ]
 
+// ── Live-only signal keys (no Studio-DB column) ──────────────────────────────
+// These are computed only in the live scan path (turbo_engine / gog_engine) and
+// have no enriched column in the DuckDB. In DB-instant mode they match ZERO rows,
+// so the chips are HIDDEN there (see visibleSigGroups) to avoid clutter; they
+// reappear in Live mode. Verified against ultra_db_scan.py passthrough/alias maps.
+const LIVE_ONLY_SIGS = new Set([
+  // 2809 combo
+  'rtv', 'atr_brk', 'bb_brk', 'um_2809',
+  // TZ transitional states
+  'tz_attempt', 'tz_weak_bull',
+  // CISD wick (only X2G lacks a DB column; X1/X2/X3/X1G are mapped)
+  'x2g_wick',
+  // Relative strength
+  'rs_strong', 'rs',
+  // RGTI multi-TF EMA
+  'rgti_ll', 'rgti_up', 'rgti_upup', 'rgti_upupup',
+  'rgti_orange', 'rgti_green', 'rgti_greencirc',
+  // SMX / GOG priority engine
+  'smx', 'akan_sig', 'smx_sig', 'nnn_sig', 'mx_sig', 'gog_sig', 'gog_g3l',
+  // GOG context signals
+  'ctx_lds', 'ctx_ldc', 'ctx_ldp', 'ctx_lrc', 'ctx_lrp', 'ctx_wrc', 'ctx_sqb', 'ctx_bct',
+  // yfinance source flag — every DB row is enriched, so this matches nothing in DB mode
+  '_yf_only',
+])
+
 // ── T/Z weight map (for display colour) ──────────────────────────────────────
 const TZ_STRONG = new Set(['T4','T6','T1G','T2G'])
 const TZ_BEAR   = new Set(['Z4','Z6','Z1G','Z2G','Z1','Z2','Z3','Z5','Z7','Z9','Z10','Z11','Z12'])
@@ -944,6 +969,14 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const switchSource = (mode) => {
     setSourceMode(mode)
     try { localStorage.setItem('ultra_source_mode', mode) } catch {}
+    // Drop any selected live-only chips when entering DB mode — they have no DB
+    // column and would otherwise silently filter every row away.
+    if (mode === 'db') {
+      setSelSigs(prev => {
+        const next = new Set([...prev].filter(k => !LIVE_ONLY_SIGS.has(k)))
+        return next.size === prev.size ? prev : next
+      })
+    }
   }
 
   const _pwlToggle = (row) => {
@@ -974,7 +1007,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [pbWvfConfirm, setPbWvfConfirm]   = useState(null)
   const [pbMacroPen,   setPbMacroPen]     = useState(null)       // null|true|false
   const [wycInTr,      setWycInTr]        = useState(null)
-  const [wycSow,       setWycSow]         = useState(null)
   const hoverTimer = useRef(null)
 
   // ── DB info + manual refresh ─────────────────────────────────────────────
@@ -1204,7 +1236,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (pbMacroPen === false  && !notSeenInN('pb_macro_penalty')) return false
       if (pbMacroPen === true   && !evHit('pb_macro_penalty'))      return false
       if (wycInTr === true      && !evHit('wyc_in_tr'))             return false
-      if (wycSow === true       && !evHit('wyc_sow'))               return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -1249,7 +1280,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr, wycSow])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1269,6 +1300,28 @@ export default function UltraScanPanel({ onSelectTicker }) {
     n.has(key) ? n.delete(key) : n.add(key)
     return n
   })
+
+  // In DB-instant mode, hide the live-only chips entirely (they have no DB
+  // column → 0 matches). Also drop any divider whose whole section becomes
+  // empty, plus orphaned leading/trailing/double separators. Live mode shows
+  // the full list (those signals are real there).
+  const visibleSigGroups = useMemo(() => {
+    if (sourceMode !== 'db') return SIG_GROUPS
+    const kept = SIG_GROUPS.filter(s => s.divider || !LIVE_ONLY_SIGS.has(s.key))
+    const out = []
+    for (let i = 0; i < kept.length; i++) {
+      const s = kept[i]
+      if (s.divider) {
+        const nextIsChip = kept[i + 1] && !kept[i + 1].divider
+        if (!nextIsChip) continue                              // empty section
+        const prev = out[out.length - 1]
+        if (prev && prev.divider && !prev.label && !s.label) continue  // double dot
+      }
+      out.push(s)
+    }
+    while (out.length && out[out.length - 1].divider) out.pop()  // trailing
+    return out
+  }, [sourceMode])
 
   const togglePicked = (ticker, e) => {
     e.stopPropagation()
@@ -2116,7 +2169,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
               className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               All
             </button>
-            {SIG_GROUPS.map((s, i) =>
+            {visibleSigGroups.map((s, i) =>
               s.divider
                 ? (s.label
                     ? <span key={`div-${i}`} className="text-[10px] text-md-on-surface-var/70 select-none px-1 self-center font-semibold uppercase tracking-wide">{s.label}</span>
@@ -2257,18 +2310,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 wycInTr ? 'bg-gray-700/80 text-gray-200 border-gray-500 font-semibold'
                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
               }`}>In TR</button>
-            <button onClick={() => setWycSow(wycSow ? null : true)}
-              title="Sign of Weakness (Z-confirmed bearish turn)"
-              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
-                wycSow ? 'bg-red-900/60 text-red-200 border-red-500 font-semibold'
-                       : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-              }`}>SOW</button>
             {(prebreakTier || pbLvbo || pbStopCause || pbWvfConfirm ||
-              pbMacroPen !== null || wycInTr || wycSow) && (
+              pbMacroPen !== null || wycInTr) && (
               <button onClick={() => {
                 setPrebreakTier(''); setPbLvbo(null); setPbStopCause(null);
                 setPbWvfConfirm(null); setPbMacroPen(null);
-                setWycInTr(null); setWycSow(null);
+                setWycInTr(null);
               }} className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
                 ✕ clear PREBREAK
               </button>

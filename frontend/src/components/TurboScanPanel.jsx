@@ -721,7 +721,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
   const [pbWvfConfirm, setPbWvfConfirm]   = useState(null)
   const [pbMacroPen,   setPbMacroPen]     = useState(null)
   const [wycInTr,      setWycInTr]        = useState(null)
-  const [wycSow,       setWycSow]         = useState(null)
 
   // which TFs have a cache entry for current universe
   const tfCached = useMemo(
@@ -857,7 +856,6 @@ export default function TurboScanPanel({ onSelectTicker }) {
       if (pbMacroPen === false  && r.pb_macro_penalty) return false
       if (pbMacroPen === true   && !r.pb_macro_penalty) return false
       if (wycInTr === true      && !r.wyc_in_tr)      return false
-      if (wycSow === true       && !r.wyc_sow)        return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
@@ -896,7 +894,7 @@ export default function TurboScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr, wycSow])
+  }, [allResults, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1418,18 +1416,12 @@ export default function TurboScanPanel({ onSelectTicker }) {
                 wycInTr ? 'bg-gray-700/80 text-gray-200 border-gray-500 font-semibold'
                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
               }`}>In TR</button>
-            <button onClick={() => setWycSow(wycSow ? null : true)}
-              title="Sign of Weakness (Z-confirmed bearish turn)"
-              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
-                wycSow ? 'bg-red-900/60 text-red-200 border-red-500 font-semibold'
-                       : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-              }`}>SOW</button>
             {(prebreakTier || pbLvbo || pbStopCause || pbWvfConfirm ||
-              pbMacroPen !== null || wycInTr || wycSow) && (
+              pbMacroPen !== null || wycInTr) && (
               <button onClick={() => {
                 setPrebreakTier(''); setPbLvbo(null); setPbStopCause(null);
                 setPbWvfConfirm(null); setPbMacroPen(null);
-                setWycInTr(null); setWycSow(null);
+                setWycInTr(null);
               }} className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
                 ✕ clear PREBREAK
               </button>
