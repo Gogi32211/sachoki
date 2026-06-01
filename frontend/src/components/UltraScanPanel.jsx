@@ -132,11 +132,7 @@ const SIG_GROUPS = [
     custom: r => { const s = r.tz_wlnbb_l_signal || ''; return /^L[1-6]+$/.test(s) && s.includes('5') } },
   { key: '_wl_l6',  label: 'L6',   cls: 'text-violet-300',
     custom: r => { const s = r.tz_wlnbb_l_signal || ''; return /^L[1-6]+$/.test(s) && s.includes('6') } },
-  // exact combos — the real codes in the DB (L12/L25/L34/L46 dominate)
-  { key: '_wl_l12', label: 'L12',  cls: 'text-blue-400',
-    custom: r => r.tz_wlnbb_l_signal === 'L12' },
-  { key: '_wl_l25', label: 'L25',  cls: 'text-cyan-400',
-    custom: r => r.tz_wlnbb_l_signal === 'L25' },
+  // exact combos of interest: L34 = L3+L4, L46 = L4+L6 (L12/L25 compose via L1-L6)
   { key: '_wl_l34', label: 'L34',  cls: 'text-lime-300',
     custom: r => r.tz_wlnbb_l_signal === 'L34' },
   { key: '_wl_l46', label: 'L46',  cls: 'text-orange-300',
