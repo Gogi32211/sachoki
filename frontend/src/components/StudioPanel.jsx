@@ -3199,6 +3199,7 @@ function SeqLabTab() {
             <option value="vol">vol bucket (W/L/N/B/VB)</option>
             <option value="combo">combined (T/Z + L + vol)</option>
             <option value="swing">swing pivot (HL/LL/HH/LH)</option>
+            <option value="wyckoff">wyckoff stage (SC/AR/ST/SPR/SOS/JAC/LPS)</option>
           </select>
         </Field>
         <Field label="Horizon">

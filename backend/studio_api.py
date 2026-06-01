@@ -978,7 +978,16 @@ def get_ticker_bars(
                       all_signals_text, t_sig, z_sig, l_sig,
                       composite_full_suffix, full_suffix, composite_vol,
                       bar_body_wick, bar_gap_range, bar_line5,
-                      swing_type_3, is_pivot_low_3, is_pivot_high_3
+                      swing_type_3, is_pivot_low_3, is_pivot_high_3,
+                      w2_accum, w2_break, w2_tr_quality, wt_valid_tr,
+                      CASE WHEN w2_sc=1 THEN 'SC' WHEN w2_ar=1 THEN 'AR'
+                           WHEN w2_st=1 THEN 'ST' WHEN w2_spring=1 THEN 'SPR'
+                           WHEN w2_jac=1 THEN 'JAC' WHEN w2_sos=1 THEN 'SOS'
+                           WHEN w2_lps=1 THEN 'LPS' WHEN w2_evr=1 THEN 'EVR'
+                           ELSE '' END AS wyc_stage,
+                      CASE WHEN wt_spring=1 THEN 'tSPR' WHEN wt_sos=1 THEN 'tSOS'
+                           WHEN wt_lps=1 THEN 'tLPS' WHEN wt_evr=1 THEN 'tEVR'
+                           ELSE '' END AS wt_stage
                FROM bars WHERE ticker = ?
                -- a ticker can live in >1 universe (e.g. RGTI/CYCU in nasdaq AND
                -- russell2k) with DIVERGENT bars on the same date. Keep ONE row

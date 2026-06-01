@@ -228,6 +228,25 @@ const SIG_GROUPS = [
     custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'L' },
   { key: '_vb_w',  label: 'W',   cls: 'text-gray-400',
     custom: r => (r.tz_wlnbb_volume_bucket || r.vol_bucket) === 'W' },
+  { divider: true, label: 'Wyckoff cycle (260529)' },
+  // ── Wyckoff V2 Soft state machine: SC→AR→ST→Spring→SOS/JAC→LPS ──────────
+  { key: 'w2_accum',  label: 'ACC',  cls: 'text-green-300 font-semibold' },
+  { key: 'w2_break',  label: 'BRK',  cls: 'text-lime-300 font-semibold' },
+  { key: 'w2_sc',     label: 'SC',   cls: 'text-red-300' },
+  { key: 'w2_ar',     label: 'AR',   cls: 'text-orange-300' },
+  { key: 'w2_st',     label: 'ST',   cls: 'text-purple-300' },
+  { key: 'w2_spring', label: 'SPR',  cls: 'text-teal-300 font-semibold' },
+  { key: 'w2_sos',    label: 'SOS',  cls: 'text-green-400 font-semibold' },
+  { key: 'w2_jac',    label: 'JAC',  cls: 'text-lime-400 font-semibold' },
+  { key: 'w2_lps',    label: 'LPS',  cls: 'text-blue-300 font-semibold' },
+  { key: 'w2_evr',    label: 'EVR',  cls: 'text-fuchsia-300' },
+  { divider: true, label: 'Wyckoff trig (agent)' },
+  // ── Structure triggers (valid-TR gated) ────────────────────────────────
+  { key: 'wt_valid_tr', label: 'TR',    cls: 'text-cyan-300' },
+  { key: 'wt_spring',   label: 'tSPR',  cls: 'text-teal-300' },
+  { key: 'wt_sos',      label: 'tSOS',  cls: 'text-green-400' },
+  { key: 'wt_lps',      label: 'tLPS',  cls: 'text-blue-300' },
+  { key: 'wt_evr',      label: 'tEVR',  cls: 'text-fuchsia-300' },
   { divider: true },
   // ── WLNBB / L-signals ─────────────────────────────────────────────────
   { key: '_l_any',  label: 'L∗',  cls: 'text-blue-200',
@@ -763,7 +782,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // Cache version bump invalidates ALL cached entries that pre-date the bump.
 // Increment this when row schema changes (new enrichment columns added) so
 // stale caches without the new fields don't survive a redeploy.
-const _CACHE_VERSION = '260523_v3.9'  // bumped: tz_wlnbb_full_suffix (line-2 pen/close filters)
+const _CACHE_VERSION = '260523_v4.0'  // bumped: Wyckoff V2 (w2_*/wt_*) scan fields
 
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
 const _tsGet  = (tf, uni) => {

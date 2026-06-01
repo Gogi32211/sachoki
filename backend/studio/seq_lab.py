@@ -51,12 +51,22 @@ _SORTS = {"win": "win DESC", "avg": "avg_ret DESC", "mfe": "mfe20 DESC",
 _PREFIX_RE = re.compile(r"^[TZ\-|A-Z0-9·]{0,40}$")
 
 
-_MODES = {"color", "signal", "lsig", "vol", "combo", "swing"}
+_MODES = {"color", "signal", "lsig", "vol", "combo", "swing", "wyckoff"}
+
+# Wyckoff cycle event filter (only bars where a stage fired) — used as a base gate
+_WYC_EVENT_WHERE = ("(w2_sc=1 OR w2_ar=1 OR w2_st=1 OR w2_spring=1 OR "
+                    "w2_sos=1 OR w2_jac=1 OR w2_lps=1)")
 
 
 def _token_expr(mode: str) -> str:
     if mode == "signal":
         return "COALESCE(NULLIF(t_sig,''), NULLIF(z_sig,''), '.')"
+    if mode == "wyckoff":
+        # one Wyckoff stage per event bar, in cycle order (priority on overlap)
+        return ("CASE WHEN w2_sc=1 THEN 'SC' WHEN w2_ar=1 THEN 'AR' "
+                "WHEN w2_st=1 THEN 'ST' WHEN w2_spring=1 THEN 'SPR' "
+                "WHEN w2_jac=1 THEN 'JAC' WHEN w2_sos=1 THEN 'SOS' "
+                "WHEN w2_lps=1 THEN 'LPS' ELSE '.' END")
     if mode == "swing":
         # swing-pivot classification HL / LL / HH / LH — sequenced over PIVOT bars
         # only (see base filter), so "LL|HH|LH" = three consecutive swing pivots.
@@ -119,6 +129,9 @@ def seq_lab(
         base_clauses.append(f"universe = '{uni}'")
     if phase:
         base_clauses.append(f"wyc_phase = '{phase}'")
+    if mode == "wyckoff":
+        # sequence only over Wyckoff-stage event bars (SC/AR/ST/Spring/SOS/JAC/LPS)
+        base_clauses.append(_WYC_EVENT_WHERE)
     base_where = " AND ".join(base_clauses)
     # universe/phase only (no hcol-not-null, no pivot filter) — used by the swing
     # path, whose LEAD(lag) must count EVERY bar to offset the confirmation bar.

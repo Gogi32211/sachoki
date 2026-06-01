@@ -302,6 +302,11 @@ _PASSTHROUGH_SIGNAL_COLS = [
     "d_flip_bull",   "d_flip_bear",   "d_orange_bull",
     "d_blast_bull_red", "d_blast_bear_grn",
     "d_surge_bull_red", "d_surge_bear_grn",
+    # Wyckoff V2 Soft state machine (260529)
+    "w2_sc", "w2_ar", "w2_st", "w2_spring", "w2_sos", "w2_jac", "w2_lps",
+    "w2_evr", "w2_accum", "w2_break", "w2_state",
+    # Wyckoff structure triggers (260529_WYCK_TRIG)
+    "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
 ]
 
 
@@ -376,6 +381,13 @@ def _row_to_dict(row: pd.Series) -> dict:
             if _v is not None and not pd.isna(_v) and str(_v):
                 out["tz_wlnbb_full_suffix"] = str(_v)
                 break
+
+    # Wyckoff V2 float context (quality scores + TR levels)
+    for _fc in ("w2_tr_quality", "wt_quality", "wt_support", "wt_resistance"):
+        if _fc in row.index:
+            _v = row[_fc]
+            if _v is not None and not pd.isna(_v):
+                out[_fc] = float(_v)
 
     # Swing type — DB's `swing_type` is rarely populated; the enricher fills
     # swing_type_3 (Williams 3-3 pivot label: HH/HL/LH/LL). Mirror the 3-3

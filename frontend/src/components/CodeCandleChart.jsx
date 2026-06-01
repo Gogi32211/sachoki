@@ -217,13 +217,15 @@ export default function CodeCandleChart({
         volumes.push({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
         const tz = r.t_sig || r.z_sig
         const suffix = r.composite_full_suffix || r.full_suffix || ''
-        if (tz || r.l_sig || suffix) {
+        const wyc = r.wyc_stage ? `❖${r.wyc_stage}` : (r.wt_stage || '')   // Wyckoff stage marker
+        if (tz || r.l_sig || suffix || wyc) {
           const lines = [
             tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),
             suffix,
             r.bar_body_wick || '',
             r.bar_gap_range || '',
             r.bar_line5 || '',
+            wyc,
           ].filter(Boolean)
           signals.push({ time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines, vol: r.vol_bucket || '' })
         }
