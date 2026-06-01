@@ -547,6 +547,11 @@ def ensure_schema() -> None:
         "late_warning",            # turbo dropping recently
         # PreBreakout v2 (data-derived OOS-validated breakout-probability ×100)
         "prebreak_v2",
+        # Wyckoff V2 Soft state machine (260529): SC→AR→ST→Spring→SOS/JAC→LPS
+        "w2_sc", "w2_ar", "w2_st", "w2_spring", "w2_sos", "w2_jac", "w2_lps",
+        "w2_evr", "w2_accum", "w2_break", "w2_state",
+        # Wyckoff structure triggers (260529_WYCK_TRIG / WyckoffTradingAgent)
+        "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
     ]
     _ENRICHMENT_DOUBLE_COLS = [
         # ATR (used by gap/range + downstream)
@@ -557,6 +562,8 @@ def ensure_schema() -> None:
         "rsi_14",                 # Wilder RSI(14)
         "cci_20",                 # CCI(20) SMA
         "change_pct",             # day's % change (close vs prev_close)
+        # Wyckoff V2 quality / structure levels
+        "w2_tr_quality", "wt_quality", "wt_support", "wt_resistance",
         # Wyckoff ACC Exit (Breakout Hunter)
         "acc_exit_in_n",          # bars until ACC_TR → MARKUP transition (NULL if N/A)
         "aes_score",              # 0-100 composite lift-weighted score

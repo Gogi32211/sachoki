@@ -538,6 +538,12 @@ ENRICH_COLUMNS = [
     "d_flip_bull",   "d_flip_bear",   "d_orange_bull",
     "d_blast_bull_red", "d_blast_bear_grn",
     "d_surge_bull_red", "d_surge_bear_grn",
+    # Wyckoff V2 Soft state machine (260529)
+    "w2_sc", "w2_ar", "w2_st", "w2_spring", "w2_sos", "w2_jac", "w2_lps",
+    "w2_evr", "w2_accum", "w2_break", "w2_state", "w2_tr_quality",
+    # Wyckoff structure triggers (260529_WYCK_TRIG / WyckoffTradingAgent)
+    "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
+    "wt_quality", "wt_support", "wt_resistance",
     # Version
     "enrich_version",
 ]
@@ -562,8 +568,42 @@ def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
     df = _acc_exit_labels(df)         # acc_exit_in_n, acc_exit_class
     df = _aes_score_compute(df)       # aes_score (uses lift cache if available)
     df = _compute_pine_engines(df)    # 260308/L88 + ULTRA v2 + PARA + FLY + Delta
+    df = _compute_wyckoff_structure(df)  # 260529 Wyckoff V2 (state machine + triggers)
     df["enrich_version"] = ENRICH_VERSION
     return df
+
+
+def _compute_wyckoff_structure(df: pd.DataFrame) -> pd.DataFrame:
+    """260529 Wyckoff — two complementary views, both leak-free (confirmed pivots):
+      • V2 Soft state machine (w2_*): SC→AR→ST→Spring→SOS/JAC→LPS + EVR + TR quality
+      • Structure triggers (wt_*): valid-TR-gated Spring/LPS/SOS/EVR (agent port)
+    Each is self-contained; failure defaults every column to 0/NaN."""
+    out = df.copy()
+    _W2_INT = ["w2_sc","w2_ar","w2_st","w2_spring","w2_sos","w2_jac","w2_lps",
+               "w2_evr","w2_accum","w2_break","w2_state"]
+    _WT_INT = ["wt_valid_tr","wt_sos","wt_spring","wt_lps","wt_evr"]
+    try:
+        from wyckoff_v2_engine import compute_wyckoff_v2
+        w2 = compute_wyckoff_v2(df)
+        for col in _W2_INT:
+            out[col] = w2[col].astype("int16") if col in w2.columns else 0
+        out["w2_tr_quality"] = w2["w2_tr_quality"] if "w2_tr_quality" in w2.columns else 0.0
+    except Exception:
+        for col in _W2_INT:
+            out[col] = 0
+        out["w2_tr_quality"] = 0.0
+    try:
+        from wyckoff_trig_engine import compute_wyckoff_trig
+        wt = compute_wyckoff_trig(df)
+        for col in _WT_INT:
+            out[col] = wt[col].astype("int16") if col in wt.columns else 0
+        for col in ("wt_quality", "wt_support", "wt_resistance"):
+            out[col] = wt[col] if col in wt.columns else (0.0 if col == "wt_quality" else None)
+    except Exception:
+        for col in _WT_INT:
+            out[col] = 0
+        out["wt_quality"] = 0.0; out["wt_support"] = None; out["wt_resistance"] = None
+    return out
 
 
 def _compute_pine_engines(df: pd.DataFrame) -> pd.DataFrame:
