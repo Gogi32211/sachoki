@@ -28,7 +28,9 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     v = df["volume"]
 
     vol_mid   = v.rolling(_BB_PERIOD, min_periods=1).mean()
-    vol_std   = v.rolling(_BB_PERIOD, min_periods=1).std().fillna(0)
+    # Pine ta.stdev is the POPULATION stdev (ddof=0) — match it so the W/L/N/B/VB
+    # bucket boundaries line up with the original script.
+    vol_std   = v.rolling(_BB_PERIOD, min_periods=1).std(ddof=0).fillna(0)
     vol_upper = vol_mid + _BB_STD * vol_std
     vol_lower = (vol_mid - _BB_STD * vol_std).clip(lower=0)
 
@@ -39,9 +41,17 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
     bkt = np.where(v.values >= (vol_upper + vol_mid).values, 4, bkt)
     bucket = pd.Series(bkt.astype(np.int8), index=df.index)
 
-    pv = v.shift(1)
-    vol_up_adapted   = (v > pv).fillna(False)
-    vol_down_adapted = (v < pv).fillna(False)
+    # ── Adapted volume (matches Pine 260523 + analyzers/tz_wlnbb): the bucket
+    #    LEVEL rising/falling, OR the bucket holding while raw volume rises/falls.
+    #    (Previously this was a naive v>v[1] / v<v[1], which broke every L-signal.)
+    prev_bucket = bucket.shift(1)
+    same_bucket = (bucket == prev_bucket)
+    bucket_up   = (bucket >  prev_bucket)
+    bucket_down = (bucket <  prev_bucket)
+    raw_up      = v > v.shift(1)
+    raw_down    = v < v.shift(1)
+    vol_up_adapted   = (bucket_up   | (same_bucket & raw_up)).fillna(False)
+    vol_down_adapted = (bucket_down | (same_bucket & raw_down)).fillna(False)
 
     up_close   = c > c.shift(1)
     down_close = c < c.shift(1)
@@ -57,7 +67,7 @@ def compute_wlnbb(df: pd.DataFrame) -> pd.DataFrame:
 
     L34  = L3 & L4 & (c >= o)
     L22  = L3 & L4 & (c <  o)
-    L64  = L6 & L4
+    L64  = L6 & L4 & (c <  o)
     L43  = L6 & L4 & (c >  o)
     L1L2 = L1 & L2
     L2L5 = L2 & L5
