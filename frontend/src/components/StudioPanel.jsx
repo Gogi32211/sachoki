@@ -3398,6 +3398,215 @@ function SeqBacktestPanel() {
 // ── DB CHART TAB ──────────────────────────────────────────────────────────────
 // DB-sourced candlestick chart so on-chart signals == Sequence Builder matches.
 // ═══════════════════════════════════════════════════════════════════════════════
+// ── Codes V2 — auto sequence predictor straight off the loaded chart ─────────
+// Takes the loaded ticker's last N bars (the SAME 6-line codes the chart shows),
+// auto-runs the exact-sequence DB match, and shows the next up/down probability.
+// No manual typing — pick how many lines (LINE1-7) + bars + universe and it
+// recomputes live. Same engine as the Sequence Builder, just wired to the chart.
+const _V2_LINES = [
+  ['line1', 'TZ'], ['line2', 'L'], ['line3', 'suffix'], ['line4', 'body/wk'],
+  ['line5', 'gap/rng'], ['line6', 'l5'], ['line7', 'vol'],
+]
+const _V2_FIELD = {  // strictness key → bar field it constrains (for the dimming display)
+  line1: 'tz', line2: 'l', line3: 'suffix', line4: 'body_wick',
+  line5: 'gap_range', line6: 'line5', line7: 'vol',
+}
+const _V2_UNI = [['all', 'All US'], ['nasdaq', 'Nasdaq'], ['sp500', 'S&P 500'], ['russell2k', 'Russell 2K']]
+
+function CodesV2Panel({ ticker }) {
+  const [nBars,   setNBars]   = useState(3)
+  const [pivotLr, setPivotLr] = useState(3)
+  const [uni,     setUni]     = useState('all')   // 'all' = whole DB (omit universe)
+  const [strict,  setStrict]  = useState({
+    line1: true, line2: true, line3: false, line4: false, line5: false, line6: false, line7: false,
+  })
+  const [seq,     setSeq]     = useState([])      // extracted bars, oldest → newest
+  const [result,  setResult]  = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [error,   setError]   = useState(null)
+  const runRef = useRef(0)
+
+  // 1) Pull the last N bars' codes from the DB (newest-first → reverse to oldest→newest)
+  useEffect(() => {
+    let cancelled = false
+    setError(null)
+    api.studioBars(ticker, nBars).then(rows => {
+      if (cancelled) return
+      const top = (rows || []).slice(0, nBars).reverse()
+      setSeq(top.map(r => ({
+        date:      String(r.date).slice(0, 10),
+        tz:        r.t_sig || r.z_sig || '',
+        l:         r.l_sig || '',
+        suffix:    r.composite_full_suffix || r.full_suffix || '',
+        body_wick: r.bar_body_wick || '',
+        gap_range: r.bar_gap_range || '',
+        line5:     r.bar_line5 || '',
+        vol:       r.vol_bucket || '',
+      })))
+    }).catch(e => { if (!cancelled) setError(e.message) })
+    return () => { cancelled = true }
+  }, [ticker, nBars])
+
+  // 2) Auto-run the exact-sequence match on any change (debounced; stale-guarded)
+  useEffect(() => {
+    if (!seq.length) { setResult(null); return }
+    const my = ++runRef.current
+    setLoading(true); setError(null)
+    const body = {
+      bars: seq.map(b => ({
+        tz: b.tz, l: b.l, suffix: b.suffix, body_wick: b.body_wick,
+        gap_range: b.gap_range, line5: b.line5, vol: b.vol,
+      })),
+      strictness: strict, pivot_lr: pivotLr,
+    }
+    if (uni !== 'all') body.universe = uni
+    const t = setTimeout(() => {
+      api.studioExactSequence(body)
+        .then(r => { if (my === runRef.current) { r.error ? setError(r.error) : setResult(r) } })
+        .catch(e => { if (my === runRef.current) setError(e.message) })
+        .finally(() => { if (my === runRef.current) setLoading(false) })
+    }, 180)
+    return () => clearTimeout(t)
+  }, [seq, strict, pivotLr, uni])
+
+  const toggle = k => setStrict(s => ({ ...s, [k]: !s[k] }))
+  const o = result?.outcomes
+  const up10 = o?.win_10d_pct
+
+  return (
+    <Card>
+      <div className="flex items-center gap-2 mb-2">
+        <h3 className="text-sm font-semibold text-md-on-surface">🧬 Codes V2 — auto sequence predictor</h3>
+        <span className="text-[10px] text-md-on-surface-var/70">last {nBars} bars of {ticker} → DB match</span>
+        {loading && <span className="text-[10px] text-sky-300 animate-pulse ml-auto">computing…</span>}
+      </div>
+
+      {/* Controls */}
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2 mb-3">
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-md-on-surface-var/70 mr-1">bars</span>
+          {[2, 3, 4, 5].map(n => (
+            <button key={n} onClick={() => setNBars(n)}
+              className={cls('px-2 py-0.5 rounded text-xs font-mono',
+                nBars === n ? 'bg-emerald-700/60 text-emerald-100 font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white')}>
+              {n}b
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-md-on-surface-var/70 mr-1">match lines</span>
+          {_V2_LINES.map(([k, lbl]) => (
+            <button key={k} onClick={() => toggle(k)} title={lbl}
+              className={cls('px-2 py-0.5 rounded text-xs',
+                strict[k] ? 'bg-emerald-700/60 text-emerald-100 font-semibold border border-emerald-500' : 'bg-md-surface-high text-md-on-surface-var border border-md-outline-var hover:text-white')}>
+              {lbl}
+            </button>
+          ))}
+        </div>
+        <div className="flex items-center gap-1">
+          <span className="text-[10px] text-md-on-surface-var/70 mr-1">pivot</span>
+          {[3, 5].map(p => (
+            <button key={p} onClick={() => setPivotLr(p)}
+              className={cls('px-2 py-0.5 rounded text-xs font-mono',
+                pivotLr === p ? 'bg-emerald-700/60 text-emerald-100 font-semibold' : 'bg-md-surface-high text-md-on-surface-var hover:text-white')}>
+              {p}-{p}
+            </button>
+          ))}
+        </div>
+        <select value={uni} onChange={e => setUni(e.target.value)}
+          className="bg-md-surface border border-md-outline-var rounded px-2 py-0.5 text-xs text-md-on-surface focus:outline-none focus:border-md-primary">
+          {_V2_UNI.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+        </select>
+      </div>
+
+      {/* Extracted sequence — what is actually being matched (active lines highlighted) */}
+      {seq.length > 0 && (
+        <div className="flex gap-2 mb-3 overflow-x-auto">
+          {seq.map((b, i) => (
+            <div key={i} className="rounded border border-md-outline-var bg-md-surface/30 p-2 min-w-[84px]">
+              <div className="text-[9px] text-md-on-surface-var/60 mb-1">
+                {i === seq.length - 1 ? 'bar 0 (now)' : `bar -${seq.length - 1 - i}`} · {b.date.slice(5)}
+              </div>
+              {_V2_LINES.map(([k, lbl]) => {
+                const val = b[_V2_FIELD[k]]
+                return (
+                  <div key={k} className={cls('text-[10px] font-mono leading-tight',
+                    strict[k] ? 'text-md-on-surface' : 'text-md-on-surface-var/30')}>
+                    {val || '·'}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {error && <div className="text-red-400 text-xs mb-2">{error}</div>}
+
+      {/* Result */}
+      {result && (result.matches === 0 ? (
+        <div className="px-3 py-4 text-center text-amber-400/80 text-xs rounded border border-amber-700/30 bg-amber-900/10">
+          0 historical matches for this sequence. Loosen by toggling off some lines or reducing bars.
+        </div>
+      ) : (
+        <div className="space-y-3">
+          <div className="flex items-center gap-3 text-[11px]">
+            <span className="text-md-on-surface-var/70">sequence:</span>
+            <span className="font-mono text-md-on-surface">{result.sequence_label}</span>
+            <span className="ml-auto text-md-on-surface-var/70">
+              {fmtNum(result.matches)} matches · {fmtNum(result.baseline)} universe bars · pivot {result.pivot_lr}-{result.pivot_lr}
+            </span>
+          </div>
+
+          {/* Headline up/down probability (10d forward) */}
+          {up10 != null && (
+            <div className="flex items-stretch gap-2">
+              <div className="flex-1 rounded border border-lime-700/30 bg-lime-900/15 p-3 text-center">
+                <div className="text-[10px] text-lime-300/80">↑ UP next 10d</div>
+                <div className="text-3xl font-mono font-bold text-lime-300">{up10}%</div>
+                <div className="text-[10px] text-md-on-surface-var/70">avg {o.avg_fwd_10d > 0 ? '+' : ''}{o.avg_fwd_10d}% · n={o.fwd_10d_n}</div>
+              </div>
+              <div className="flex-1 rounded border border-red-700/30 bg-red-900/15 p-3 text-center">
+                <div className="text-[10px] text-red-300/80">↓ DOWN next 10d</div>
+                <div className="text-3xl font-mono font-bold text-red-300">{(100 - up10).toFixed(1)}%</div>
+                <div className="text-[10px] text-md-on-surface-var/70">share of matches that fell</div>
+              </div>
+            </div>
+          )}
+
+          {/* Williams pivot split */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded border border-lime-700/30 bg-lime-900/10 p-2">
+              <div className="text-[10px] text-lime-300 font-semibold">↗ next pivot HH — {o.hh_pct ?? '—'}%</div>
+              <div className="text-[10px] text-md-on-surface-var font-mono">avg +{o.avg_pct_to_hh ?? '—'}% in {o.avg_bars_to_hh ?? '—'} bars · {o.hh_count}/{o.next_pivot_known}</div>
+            </div>
+            <div className="rounded border border-amber-700/30 bg-amber-900/10 p-2">
+              <div className="text-[10px] text-amber-300 font-semibold">↘ next pivot HL — {o.hl_pct ?? '—'}%</div>
+              <div className="text-[10px] text-md-on-surface-var font-mono">avg {o.avg_pct_to_hl ?? '—'}% in {o.avg_bars_to_hl ?? '—'} bars · {o.hl_count}/{o.next_pivot_known}</div>
+            </div>
+          </div>
+
+          {/* Forward returns grid */}
+          <div className="grid grid-cols-3 gap-2 text-center">
+            {[['5d', o.avg_fwd_5d, o.win_5d_pct, o.fwd_5d_n],
+              ['10d', o.avg_fwd_10d, o.win_10d_pct, o.fwd_10d_n],
+              ['20d', o.avg_fwd_20d, o.win_20d_pct, o.fwd_20d_n]].map(([tf, avg, win, n]) => (
+              <div key={tf} className="rounded bg-md-surface-high/40 p-2">
+                <div className="text-[9px] text-md-on-surface-var/70">{tf}</div>
+                <div className={cls('text-base font-mono font-bold',
+                  avg > 0 ? 'text-lime-400' : avg < 0 ? 'text-red-400' : 'text-md-on-surface-var')}>
+                  {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}
+                </div>
+                <div className="text-[9px] text-md-on-surface-var/60">win {win ?? '—'}% · n={n}</div>
+              </div>
+            ))}
+          </div>
+        </div>
+      ))}
+    </Card>
+  )
+}
+
 function DbChartTab() {
   const [ticker, setTicker]   = useState(() => { try { return localStorage.getItem('studio_dbchart_ticker') || 'AAPL' } catch { return 'AAPL' } })
   const [inputVal, setInputVal] = useState(ticker)
@@ -3429,6 +3638,7 @@ function DbChartTab() {
         <button onClick={go} className="px-3 py-1.5 text-sm rounded-lg bg-md-primary text-md-on-primary font-medium">Load</button>
       </div>
       <CodeCandleChart ticker={ticker} tf="1d" initialLimit={300} showFooter />
+      <CodesV2Panel ticker={ticker} />
     </div>
   )
 }
