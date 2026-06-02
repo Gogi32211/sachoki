@@ -3565,27 +3565,34 @@ function CodesV2Panel({ ticker }) {
             const sb     = result.next_bar.filter(r => r.is_bull).reduce((a, r) => a + r.pct, 0)
             const sz     = result.next_bar.filter(r => r.is_bear).reduce((a, r) => a + r.pct, 0)
             return (
-              <div className={cls('rounded border p-2 flex items-baseline gap-2',
-                best.is_bull ? 'border-lime-700/40 bg-lime-900/15'
-                : best.is_bear ? 'border-red-700/40 bg-red-900/15'
-                : 'border-md-outline-var bg-md-surface/40')}>
-                <span className="text-[10px] text-md-on-surface-var/70">🎯 most likely next bar</span>
-                <span className={cls('text-lg font-mono font-bold',
-                  best.is_bull ? 'text-lime-300' : best.is_bear ? 'text-red-300' : 'text-md-on-surface-var')}>
-                  {best.sig}
-                </span>
-                <span className="text-sm font-bold text-md-on-surface/80">{best.pct}%</span>
-                {best.sig === 'NONE' && topSig && (
-                  <span className="text-[10px] text-md-on-surface-var/50">
-                    · top signal <span className={cls('font-mono font-semibold', topSig.is_bull ? 'text-lime-400' : 'text-red-400')}>{topSig.sig}</span> {topSig.pct}%
+              <div className={cls('rounded-lg border-2 p-3 flex items-center gap-4 flex-wrap',
+                best.is_bull ? 'border-lime-500/60 bg-lime-900/25'
+                : best.is_bear ? 'border-red-500/60 bg-red-900/25'
+                : 'border-md-outline-var bg-md-surface/50')}>
+                <div className="flex flex-col">
+                  <span className="text-[11px] uppercase tracking-wide font-semibold text-md-on-surface-var/80">🎯 predicted next bar</span>
+                  <span className="text-[10px] text-md-on-surface-var/55">most common over {fmtNum(result.next_bar_total)} matches</span>
+                </div>
+                <div className="flex items-baseline gap-2">
+                  <span className={cls('text-4xl font-mono font-extrabold leading-none',
+                    best.is_bull ? 'text-lime-300' : best.is_bear ? 'text-red-300' : 'text-md-on-surface-var')}>
+                    {best.sig}
                   </span>
+                  <span className="text-2xl font-bold text-md-on-surface/80">{best.pct}%</span>
+                </div>
+                {best.sig === 'NONE' && topSig && (
+                  <div className="text-xs text-md-on-surface-var/60">
+                    top signal <span className={cls('text-lg font-mono font-bold', topSig.is_bull ? 'text-lime-300' : 'text-red-300')}>{topSig.sig}</span> {topSig.pct}%
+                  </div>
                 )}
-                <span className="ml-auto text-[10px] font-mono">
-                  <span className="text-lime-400">↑{sb.toFixed(0)}%</span>
-                  <span className="text-md-on-surface-var/30"> · </span>
-                  <span className="text-red-400">↓{sz.toFixed(0)}%</span>
-                  <span className="text-md-on-surface-var/40"> · n={fmtNum(result.next_bar_total)}</span>
-                </span>
+                <div className="ml-auto text-right font-mono">
+                  <div className="text-base font-bold">
+                    <span className="text-lime-400">↑{sb.toFixed(0)}%</span>
+                    <span className="text-md-on-surface-var/30"> · </span>
+                    <span className="text-red-400">↓{sz.toFixed(0)}%</span>
+                  </div>
+                  <div className="text-[10px] text-md-on-surface-var/50">bull / bear lean</div>
+                </div>
               </div>
             )
           })()}
