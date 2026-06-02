@@ -3558,6 +3558,38 @@ function CodesV2Panel({ ticker }) {
             </span>
           </div>
 
+          {/* Most likely next bar (next-bar T/Z signal distribution) */}
+          {result.next_bar?.length > 0 && (() => {
+            const best   = result.next_bar[0]
+            const topSig = result.next_bar.find(r => r.is_bull || r.is_bear)
+            const sb     = result.next_bar.filter(r => r.is_bull).reduce((a, r) => a + r.pct, 0)
+            const sz     = result.next_bar.filter(r => r.is_bear).reduce((a, r) => a + r.pct, 0)
+            return (
+              <div className={cls('rounded border p-2 flex items-baseline gap-2',
+                best.is_bull ? 'border-lime-700/40 bg-lime-900/15'
+                : best.is_bear ? 'border-red-700/40 bg-red-900/15'
+                : 'border-md-outline-var bg-md-surface/40')}>
+                <span className="text-[10px] text-md-on-surface-var/70">🎯 most likely next bar</span>
+                <span className={cls('text-lg font-mono font-bold',
+                  best.is_bull ? 'text-lime-300' : best.is_bear ? 'text-red-300' : 'text-md-on-surface-var')}>
+                  {best.sig}
+                </span>
+                <span className="text-sm font-bold text-md-on-surface/80">{best.pct}%</span>
+                {best.sig === 'NONE' && topSig && (
+                  <span className="text-[10px] text-md-on-surface-var/50">
+                    · top signal <span className={cls('font-mono font-semibold', topSig.is_bull ? 'text-lime-400' : 'text-red-400')}>{topSig.sig}</span> {topSig.pct}%
+                  </span>
+                )}
+                <span className="ml-auto text-[10px] font-mono">
+                  <span className="text-lime-400">↑{sb.toFixed(0)}%</span>
+                  <span className="text-md-on-surface-var/30"> · </span>
+                  <span className="text-red-400">↓{sz.toFixed(0)}%</span>
+                  <span className="text-md-on-surface-var/40"> · n={fmtNum(result.next_bar_total)}</span>
+                </span>
+              </div>
+            )
+          })()}
+
           {/* Headline up/down probability (10d forward) */}
           {up10 != null && (
             <div className="flex items-stretch gap-2">

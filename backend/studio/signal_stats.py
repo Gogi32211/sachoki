@@ -855,6 +855,9 @@ def query_exact_sequence(
                     f"bars_to_next_hl_{P}",  f"bars_to_next_hh_{P}",
                     "fwd_5d", "fwd_10d", "fwd_20d"):
             select_cols.append(col)
+        # Next bar (the bar AFTER the sequence ends) — for "most likely next signal"
+        select_cols.append("LEAD(t_sig, 1) OVER w AS nxt_t")
+        select_cols.append("LEAD(z_sig, 1) OVER w AS nxt_z")
 
         # ── Build WHERE conditions per bar ────────────────────────────────────
         # Values may contain '%' (from user '*' wildcard input) — _sql_cond() emits
@@ -929,6 +932,41 @@ def query_exact_sequence(
         next_pivot_known = hl_count + hh_count
         baseline = conn.execute(f"SELECT COUNT(*) FROM bars {base_where}").fetchone()[0]
 
+        # ── Next-bar signal distribution — what T/Z fires on the bar AFTER the
+        # matched sequence. Excludes end-of-data rows (no next bar exists). ──────
+        next_bar, next_bar_total = [], 0
+        if matches > 0:
+            nb_conds = conds + ["(nxt_t IS NOT NULL OR nxt_z IS NOT NULL)"]
+            nb_where = "WHERE " + " AND ".join(nb_conds)
+            nb_sql = f"""
+            WITH base AS (
+              SELECT * FROM bars {base_where}
+            ),
+            lagged AS (
+              SELECT
+                {", ".join(select_cols)}
+              FROM base
+              WINDOW w AS (PARTITION BY ticker ORDER BY date)
+            )
+            SELECT COALESCE(NULLIF(nxt_t, ''), NULLIF(nxt_z, ''), 'NONE') AS nsig,
+                   COUNT(*) AS cnt
+            FROM lagged
+            {nb_where}
+            GROUP BY nsig
+            ORDER BY cnt DESC
+            """
+            nb_rows = conn.execute(nb_sql).fetchall()
+            next_bar_total = sum(int(c or 0) for _, c in nb_rows)
+            for nsig, cnt in nb_rows[:12]:
+                s = str(nsig or "NONE")
+                next_bar.append({
+                    "sig":     s,
+                    "count":   int(cnt or 0),
+                    "pct":     round(int(cnt or 0) / next_bar_total * 100, 1) if next_bar_total else 0,
+                    "is_bull": s.startswith("T"),
+                    "is_bear": s.startswith("Z"),
+                })
+
         def _round(v, nd=2):
             return None if v is None else round(float(v), nd)
 
@@ -971,6 +1009,8 @@ def query_exact_sequence(
             "baseline":        int(baseline),
             "sequence_label":  seq_label,
             "outcomes":        outcomes,
+            "next_bar":        next_bar,
+            "next_bar_total":  next_bar_total,
             "pivot_lr":        pivot_lr,
             "n_bars":          n,
             "strictness":      strict,
