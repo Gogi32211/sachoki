@@ -954,6 +954,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
   const [exported,   setExported]   = useState(false)
+  const [tvExported, setTvExported] = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
 
@@ -1509,6 +1510,39 @@ export default function UltraScanPanel({ onSelectTicker }) {
   }
 
   // ULTRA export: CSV including Turbo fields + enrichment columns (read-only)
+  // ── TradingView watchlist export ───────────────────────────────────────────
+  // Plain ticker symbols (deduped, current sort order) as a comma-separated .txt
+  // — the format TradingView's "Import watchlist" accepts. Respects the picked
+  // selection if any, otherwise the full filtered list.
+  const exportTradingView = () => {
+    const src = pickedTickers.size > 0
+      ? results.filter(r => pickedTickers.has(r.ticker))
+      : results
+    const seen = new Set()
+    const syms = []
+    for (const r of src) {
+      const t = String(r.ticker || '').trim().toUpperCase()
+      if (t && !seen.has(t)) { seen.add(t); syms.push(t) }
+    }
+    if (!syms.length) return
+    const blob = new Blob([syms.join(',')], { type: 'text/plain' })
+    const url  = URL.createObjectURL(blob)
+    const a    = document.createElement('a')
+    const date = new Date().toISOString().slice(0, 10)
+    const parts = [universe, localTf.toUpperCase()]
+    if (direction !== 'all') parts.push(direction.toUpperCase())
+    if (pickedTickers.size > 0) parts.push(`picked${syms.length}`)
+    parts.push(date)
+    a.href = url
+    a.download = `ultra_${parts.join('_')}_tradingview.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    URL.revokeObjectURL(url)
+    setTvExported(true)
+    setTimeout(() => setTvExported(false), 2000)
+  }
+
   const exportTickers = () => {
     const src = pickedTickers.size > 0
       ? results.filter(r => pickedTickers.has(r.ticker))
@@ -2037,6 +2071,20 @@ export default function UltraScanPanel({ onSelectTicker }) {
             : pickedTickers.size > 0
               ? `⬇ Export (${pickedTickers.size})`
               : '⬇ Export'}
+        </button>
+
+        {/* TradingView watchlist export — ticker symbols only (.txt, comma-sep) */}
+        <button onClick={exportTradingView} disabled={results.length === 0}
+          title={pickedTickers.size > 0
+            ? `Export ${pickedTickers.size} selected tickers as a TradingView watchlist (.txt)`
+            : 'Export all filtered tickers as a TradingView watchlist (.txt, comma-separated)'}
+          className={`px-2.5 py-1 rounded text-xs font-medium transition-colors border
+            ${tvExported
+              ? 'border-lime-500 text-lime-300 bg-lime-900/30'
+              : results.length === 0
+                ? 'border-md-outline-var text-md-on-surface-var/70 cursor-not-allowed'
+                : 'border-sky-600 text-sky-300 hover:border-sky-400 hover:text-white'}`}>
+          {tvExported ? '✓ TV list' : '📈 TV list'}
         </button>
         {/* Clear selection */}
         {pickedTickers.size > 0 && (
