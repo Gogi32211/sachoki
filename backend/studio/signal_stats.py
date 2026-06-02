@@ -17,7 +17,7 @@ from typing import Optional
 
 import pandas as pd
 
-from studio.db import get_conn
+from studio.db import get_conn, UNIVERSE_PRIORITY_SQL
 
 log = logging.getLogger(__name__)
 
@@ -823,6 +823,15 @@ def query_exact_sequence(
 
         _uni = _safe_universe(universe)
         base_where = f"WHERE universe = '{_uni}'" if _uni else ""
+        # Dedup to ONE row per (ticker, date). Without a universe filter the same
+        # ticker-date lives in several universe rows (e.g. AAPL in sp500+nasdaq);
+        # the LAG/LEAD window (PARTITION BY ticker ORDER BY date) would otherwise
+        # treat those duplicates as consecutive bars — inflating match counts and,
+        # critically, making LEAD("next bar") point at the same date's other-universe
+        # row (identical codes), which produced impossible "T4 → T4" predictions.
+        base_cte = (f"SELECT * FROM bars {base_where} "
+                    f"QUALIFY ROW_NUMBER() OVER "
+                    f"(PARTITION BY ticker, date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1")
 
         # ── Build LAG SELECT clause ─────────────────────────────────────────
         # current bar = lag 0, oldest = lag n-1
@@ -896,7 +905,7 @@ def query_exact_sequence(
 
         sql = f"""
         WITH base AS (
-          SELECT * FROM bars {base_where}
+          {base_cte}
         ),
         lagged AS (
           SELECT
@@ -930,7 +939,7 @@ def query_exact_sequence(
         hl_count   = int(row[1] or 0)
         hh_count   = int(row[2] or 0)
         next_pivot_known = hl_count + hh_count
-        baseline = conn.execute(f"SELECT COUNT(*) FROM bars {base_where}").fetchone()[0]
+        baseline = conn.execute(f"SELECT COUNT(*) FROM ({base_cte})").fetchone()[0]
 
         # ── Next-bar signal distribution — what T/Z fires on the bar AFTER the
         # matched sequence. Excludes end-of-data rows (no next bar exists). ──────
@@ -940,7 +949,7 @@ def query_exact_sequence(
             nb_where = "WHERE " + " AND ".join(nb_conds)
             nb_sql = f"""
             WITH base AS (
-              SELECT * FROM bars {base_where}
+              {base_cte}
             ),
             lagged AS (
               SELECT
