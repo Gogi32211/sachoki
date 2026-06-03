@@ -1276,9 +1276,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
     } else {
       filtered.sort((a, b) => {
         const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
-        // pm_chg_pct lives in pmData (external cache), not in allResults rows
-        const getVal = (r) => col === 'pm_chg_pct'
-          ? (pmData[r.ticker]?.pm_chg_pct ?? -Infinity)
+        // pm_chg_pct / rt_chg_pct live in pmData (external cache), not in the rows
+        const getVal = (r) => (col === 'pm_chg_pct' || col === 'rt_chg_pct')
+          ? (pmData[r.ticker]?.[col] ?? -Infinity)
           : (r[col] ?? 0)
         const av = getVal(a)
         const bv = getVal(b)

@@ -508,6 +508,13 @@ export default function ScannerDataGrid({
             <SortTh col="last_price" cls="text-right min-w-[64px]">Price</SortTh>
             {/* % */}
             <SortTh col="change_pct" cls="text-right min-w-[52px]">%</SortTh>
+            {/* Real-time intraday % (ultra only) */}
+            {variant === 'ultra' && (
+              <SortTh col="rt_chg_pct" cls="text-right min-w-[64px] text-sky-300"
+                title="RT%: real-time regular-session % change vs prev close (Massive snapshot) · live during market hours, full-day move after close · refreshes every 15 min">
+                RT%
+              </SortTh>
+            )}
             {/* Pre-market (ultra only) */}
             {variant === 'ultra' && (
               <SortTh col="pm_chg_pct" cls="text-right min-w-[72px] text-violet-300"
@@ -714,6 +721,22 @@ export default function ScannerDataGrid({
                 <td className={`px-2 py-1 text-right font-mono text-xs ${chg >= 0 ? 'text-lime-400' : 'text-red-400'}`}>
                   {chg >= 0 ? '+' : ''}{fmt(chg)}%
                 </td>
+
+                {/* Real-time intraday % (ultra only) */}
+                {variant === 'ultra' && (() => {
+                  const pm = pmData[r.ticker]
+                  const pct = pm?.rt_chg_pct
+                  if (pct == null) {
+                    return <td className="px-2 py-1 text-right font-mono text-xs text-gray-600">—</td>
+                  }
+                  const clr = pct >= 0 ? 'text-sky-300' : 'text-rose-400'
+                  return (
+                    <td className={`px-2 py-1 text-right font-mono text-xs ${clr}`}
+                        title={`RT: ${pm.rt_price != null ? '$' + pm.rt_price + ' ' : ''}(${pct >= 0 ? '+' : ''}${pct.toFixed(2)}%) vs prev close`}>
+                      {pct >= 0 ? '+' : ''}{pct.toFixed(2)}%
+                    </td>
+                  )
+                })()}
 
                 {/* Pre-market % (ultra only) */}
                 {variant === 'ultra' && (() => {
