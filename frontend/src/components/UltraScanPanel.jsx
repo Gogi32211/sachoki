@@ -1576,7 +1576,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'rtb_total', 'rtb_phase', 'tz_sig', 'tz_bull',
       'signal_score', 'profile_score', 'profile_category', 'profile_name',
       'sweet_spot_active', 'late_warning', 'gog_tier',
-      'rsi', 'cci', 'last_price', 'change_pct', 'avg_vol', 'vol_bucket',
+      'rsi', 'cci', 'last_price', 'change_pct',
+      // RT% (today's real-time regular-session move) + PM% — from Massive snapshot
+      'rt_chg_pct', 'rt_price', 'pm_chg_pct',
+      'avg_vol', 'vol_bucket',
       'sector', 'data_source',
       // BETA Score
       'beta_score', 'beta_raw', 'beta_setup', 'beta_momentum',
@@ -1708,6 +1711,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
       // doesn't mangle them.
       for (const k of CORE_FIELDS)      flat[k] = r[k]
       for (const k of RAW_TURBO_FIELDS) flat[k] = r[k]
+
+      // RT%/PM% live in pmData (external Massive cache), not the row — inject them
+      const _pm = pmData[r.ticker] || {}
+      flat.rt_chg_pct = _pm.rt_chg_pct ?? ''
+      flat.rt_price   = _pm.rt_price ?? ''
+      flat.pm_chg_pct = _pm.pm_chg_pct ?? ''
 
       // ULTRA flags / enrichment slots
       flat.ultra_enriched           = !!r.ultra_enriched
