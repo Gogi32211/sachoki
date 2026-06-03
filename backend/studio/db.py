@@ -554,6 +554,8 @@ def ensure_schema() -> None:
         "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
         # PREBREAK extra sub-signals (260515 v6.0 port) — pb_lvbo already in CREATE
         "pb_pp_rtv", "pb_fly_cd_c", "pb_follow_confirm",
+        # cross-bar sequence flags
+        "seq_l34_eb",
     ]
     _ENRICHMENT_DOUBLE_COLS = [
         # ATR (used by gap/range + downstream)

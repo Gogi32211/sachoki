@@ -40,12 +40,16 @@ const DIR_OPTS = [
 // custom: fn(row)→bool for computed filters
 const SIG_GROUPS = [
   // ── ★ COMPOSITE setups (backtested edge, 8M-bar fwd-return analysis) ──────
-  //   Vol-Bull = bias_up + volume spike (V×5/V×10) → ~66-69% fwd_10d win
-  //   Struct-BO = LVBO + bullish-engulf → ~76% next-pivot-HH (n=130k, robust)
+  //   Vol-Bull   = bias_up + volume spike (V×5/V×10)            → ~66-69% fwd_10d win
+  //   Struct-BO  = LVBO + bullish-engulf + RSI>65               → ~82% next-pivot-HH
+  //   Absorb→EB  = prev-bar L34 absorption → EB engulf + RSI>65 → ~78% next-pivot-HH
+  //   (RSI>65 gate: structural breakouts need momentum context — verified.)
   { key: '_combo_volbull',  label: '⚡Vol-Bull',  cls: 'text-lime-300 font-bold',
     custom: r => !!(r.bias_up && (r.vol_spike_5x || r.vol_spike_10x)) },
   { key: '_combo_structbo', label: '❖Struct-BO', cls: 'text-cyan-300 font-bold',
-    custom: r => !!(r.pb_lvbo && r.eb_bull) },
+    custom: r => !!(r.pb_lvbo && r.eb_bull && r.rsi > 65) },
+  { key: '_combo_absorbeb', label: '❖Absorb→EB', cls: 'text-teal-300 font-bold',
+    custom: r => !!(r.seq_l34_eb && r.rsi > 65) },
   { divider: true, label: '★ combo (backtested)' },
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },

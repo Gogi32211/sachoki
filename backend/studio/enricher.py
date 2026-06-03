@@ -546,6 +546,8 @@ ENRICH_COLUMNS = [
     "wt_quality", "wt_support", "wt_resistance",
     # PREBREAK extra sub-signals (260515 v6.0 port — pure OHLC, no VIX/network)
     "pb_pp_rtv", "pb_fly_cd_c", "pb_lvbo", "pb_follow_confirm",
+    # Cross-bar sequence flags
+    "seq_l34_eb",
     # Version
     "enrich_version",
 ]
@@ -640,9 +642,24 @@ def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
     df = _ultra_extras(df)            # tz_bull, avg_vol_20d, profile_*, rsi_14, cci_20
     df = _acc_exit_labels(df)         # acc_exit_in_n, acc_exit_class
     df = _aes_score_compute(df)       # aes_score (uses lift cache if available)
-    df = _compute_pine_engines(df)    # 260308/L88 + ULTRA v2 + PARA + FLY + Delta
+    df = _compute_pine_engines(df)    # 260308/L88 + ULTRA v2 + PARA + FLY + Delta (sets eb_bull)
     df = _compute_wyckoff_structure(df)  # 260529 Wyckoff V2 (state machine + triggers)
+    df = _compute_seq_signals(df)     # seq_l34_eb (prev-bar L34 → current EB; needs eb_bull above)
     df["enrich_version"] = ENRICH_VERSION
+    return df
+
+
+def _compute_seq_signals(df: pd.DataFrame) -> pd.DataFrame:
+    """Cross-bar sequence flags that single-bar chips can't express.
+    seq_l34_eb = previous bar's L-code was L34 (bull absorption) AND the current
+    bar is a bullish engulf (eb_bull). Backtests ~66% next-pivot-HH (78% when
+    RSI>65) — a structural swing setup. df must be date-sorted (one ticker)."""
+    if "l_sig" in df.columns and "eb_bull" in df.columns:
+        l34_prev = (df["l_sig"].astype(str) == "L34").shift(1).fillna(False)
+        eb = df["eb_bull"].fillna(0).astype(bool)
+        df["seq_l34_eb"] = (l34_prev & eb).astype("int8")
+    else:
+        df["seq_l34_eb"] = 0
     return df
 
 
