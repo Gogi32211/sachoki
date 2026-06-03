@@ -552,6 +552,8 @@ def ensure_schema() -> None:
         "w2_evr", "w2_accum", "w2_break", "w2_state",
         # Wyckoff structure triggers (260529_WYCK_TRIG / WyckoffTradingAgent)
         "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
+        # PREBREAK extra sub-signals (260515 v6.0 port) — pb_lvbo already in CREATE
+        "pb_pp_rtv", "pb_fly_cd_c", "pb_follow_confirm",
     ]
     _ENRICHMENT_DOUBLE_COLS = [
         # ATR (used by gap/range + downstream)

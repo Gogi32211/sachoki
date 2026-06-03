@@ -1006,6 +1006,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [pbLvbo,       setPbLvbo]         = useState(null)       // null|true
   const [pbStopCause,  setPbStopCause]    = useState(null)
   const [pbWvfConfirm, setPbWvfConfirm]   = useState(null)
+  const [pbPpRtv,      setPbPpRtv]        = useState(null)       // null|true (PP+RTV)
+  const [pbFlyCdC,     setPbFlyCdC]       = useState(null)       // null|true (FLY-CD confirmed)
+  const [pbFollow,     setPbFollow]       = useState(null)       // null|true (FOLLOW confirm)
   const [pbMacroPen,   setPbMacroPen]     = useState(null)       // null|true|false
   const [wycInTr,      setWycInTr]        = useState(null)
   const hoverTimer = useRef(null)
@@ -1234,6 +1237,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (pbLvbo === true       && !evHit('pb_lvbo'))         return false
       if (pbStopCause === true  && !evHit('pb_stop_cause'))   return false
       if (pbWvfConfirm === true && !evHit('pb_wvf_confirm'))  return false
+      if (pbPpRtv === true      && !evHit('pb_pp_rtv'))       return false
+      if (pbFlyCdC === true     && !evHit('pb_fly_cd_c'))     return false
+      if (pbFollow === true     && !evHit('pb_follow_confirm')) return false
       if (pbMacroPen === false  && !notSeenInN('pb_macro_penalty')) return false
       if (pbMacroPen === true   && !evHit('pb_macro_penalty'))      return false
       if (wycInTr === true      && !evHit('wyc_in_tr'))             return false
@@ -1281,7 +1287,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbMacroPen, wycInTr])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2339,6 +2345,24 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 pbWvfConfirm ? 'bg-blue-900/60 text-blue-200 border-blue-500 font-semibold'
                              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
               }`}>WVF</button>
+            <button onClick={() => setPbPpRtv(pbPpRtv ? null : true)}
+              title="PP+RTV: Williams pivot + return-to-value within 1.5% of EMA20"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbPpRtv ? 'bg-yellow-900/60 text-yellow-200 border-yellow-500 font-semibold'
+                        : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>PP+RTV</button>
+            <button onClick={() => setPbFlyCdC(pbFlyCdC ? null : true)}
+              title="FLY-CD-C: confirmed FLY-CD (8-bar low + close>EMA9 + bull + prev-bull)"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbFlyCdC ? 'bg-lime-900/60 text-lime-200 border-lime-500 font-semibold'
+                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>FLY-CD-C</button>
+            <button onClick={() => setPbFollow(pbFollow ? null : true)}
+              title="FOLLOW: follow-spring (T9/T3/T1G) → confirm (T4/T6/T2G/T2) breakout above spring high"
+              className={`px-2 py-0.5 rounded text-xs shrink-0 border ${
+                pbFollow ? 'bg-green-900/60 text-green-200 border-green-500 font-semibold'
+                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>FOLLOW</button>
             <span className="text-md-on-surface-var text-xs shrink-0 ml-2 mr-1">Macro:</span>
             {[
               { label: 'Any',        value: null,  cls: '' },
@@ -2358,12 +2382,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 wycInTr ? 'bg-gray-700/80 text-gray-200 border-gray-500 font-semibold'
                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
               }`}>In TR</button>
-            {(prebreakTier || pbLvbo || pbStopCause || pbWvfConfirm ||
+            {(prebreakTier || pbLvbo || pbStopCause || pbWvfConfirm || pbPpRtv || pbFlyCdC || pbFollow ||
               pbMacroPen !== null || wycInTr) && (
               <button onClick={() => {
                 setPrebreakTier(''); setPbLvbo(null); setPbStopCause(null);
-                setPbWvfConfirm(null); setPbMacroPen(null);
-                setWycInTr(null);
+                setPbWvfConfirm(null); setPbPpRtv(null); setPbFlyCdC(null); setPbFollow(null);
+                setPbMacroPen(null); setWycInTr(null);
               }} className="ml-2 px-2 py-0.5 rounded text-xs shrink-0 bg-red-900/40 text-red-400 hover:bg-red-900/60">
                 ✕ clear PREBREAK
               </button>

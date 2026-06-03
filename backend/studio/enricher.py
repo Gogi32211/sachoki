@@ -544,9 +544,81 @@ ENRICH_COLUMNS = [
     # Wyckoff structure triggers (260529_WYCK_TRIG / WyckoffTradingAgent)
     "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
     "wt_quality", "wt_support", "wt_resistance",
+    # PREBREAK extra sub-signals (260515 v6.0 port — pure OHLC, no VIX/network)
+    "pb_pp_rtv", "pb_fly_cd_c", "pb_lvbo", "pb_follow_confirm",
     # Version
     "enrich_version",
 ]
+
+
+def _compute_prebreak_extra(df: pd.DataFrame) -> pd.DataFrame:
+    """PREBREAK sub-signals that the CSV-import path never materialised as DB
+    columns: pb_pp_rtv, pb_fly_cd_c, pb_follow_confirm — plus a corrected pb_lvbo.
+
+    Pure vectorised OHLC math (no network / no VIX fetch). Ports the detectors
+    from Pine 260515 PREBREAK v6.0:
+      • pb_pp_rtv     — pivot bar (Williams 3-3) AND price within 1.5% of EMA20
+      • pb_fly_cd_c   — 8-bar low set 3 bars ago + close>EMA9 + bull + prev-bull
+      • pb_lvbo       — bull breakout above prev high after a recent L-compression
+                        bar. FIX: DB l_sig is ASCENDING-digit (L46/L34/L22), so the
+                        original L64/L43 lookup matched zero rows → pb_lvbo was 0.
+      • pb_follow_confirm — stateful: after a prebreak_prime, a follow-spring
+                        (T9/T3/T1G) then a follow-confirm (T4/T6/T2G/T2) closing
+                        above the spring's high, within the Pine bar windows.
+    Requires df sorted oldest→newest with: open,high,low,close (+ optional
+    l_sig, t_sig, is_pivot_high_3/low_3, prebreak_prime)."""
+    n = len(df)
+    close = df["close"]; high = df["high"]; low = df["low"]; openp = df["open"]
+    is_bull   = (close > openp).values
+    breakout  = (close > high.shift(1)).fillna(False).values
+
+    # pb_pp_rtv — Williams pivot near EMA20
+    ema20 = close.ewm(span=20, adjust=False).mean()
+    near20 = ((close - ema20).abs() / close.replace(0, np.nan) < 0.015).fillna(False).values
+    piv = np.zeros(n, dtype=bool)
+    for c in ("is_pivot_high_3", "is_pivot_low_3"):
+        if c in df.columns:
+            piv |= df[c].fillna(0).astype(bool).values
+    df["pb_pp_rtv"] = (piv & near20).astype("int8")
+
+    # pb_fly_cd_c — FLY-CD confirmed
+    ema9 = close.ewm(span=9, adjust=False).mean()
+    low8 = low.rolling(8, min_periods=1).min().shift(3)
+    fly = ((low.shift(3) == low8).fillna(False).values
+           & (close > ema9).fillna(False).values & is_bull)
+    prev_bull = (close.shift(1) > openp.shift(1)).fillna(False).values
+    df["pb_fly_cd_c"] = (fly & prev_bull).astype("int8")
+
+    # pb_lvbo — bull bar breaking ABOVE the prior 8-bar high (real LVBO breakout),
+    # after an L-compression bar (ascending L46/L34/L22) within those 8 bars.
+    # Breakout vs the 8-bar high (not just prev bar) keeps it selective — the
+    # prev-bar-only version fired ~25% (just bull+up-close), which is noise.
+    roll_high8 = high.rolling(8, min_periods=2).max().shift(1)
+    breakout8 = (close > roll_high8).fillna(False).values
+    if "l_sig" in df.columns:
+        ls = df["l_sig"].astype(str).fillna("")
+        lrc_any = ls.isin(["L46", "L34", "L22"]).rolling(8, min_periods=1).max().fillna(0).astype(bool).values
+    else:
+        lrc_any = np.zeros(n, dtype=bool)
+    df["pb_lvbo"] = (is_bull & breakout8 & lrc_any).astype("int8")
+
+    # pb_follow_confirm — follow-spring (T9/T3/T1G) → follow-confirm (T4/T6/T2G/T2)
+    # that closes above the spring's high, within 12 bars. (The Pine anchors this
+    # to a prior PRIME, but PRIME fires ~0.01% so that gate makes it dead — the
+    # spring→confirm breakout chain is the meaningful, standalone pattern.)
+    follow = np.zeros(n, dtype=bool)
+    tsig = df["t_sig"].astype(str).fillna("").values if "t_sig" in df.columns else np.array([""] * n)
+    high_v = high.values; close_v = close.values
+    _SPRING = {"T9", "T3", "T1G"}
+    _CONFIRM = {"T4", "T6", "T2G", "T2"}
+    spring_until = -1; spring_high = 0.0
+    for i in range(n):
+        if tsig[i] in _SPRING:                      # (re)arm on each spring
+            spring_until = i + 12; spring_high = high_v[i]
+        elif 0 <= spring_until and i <= spring_until and tsig[i] in _CONFIRM and close_v[i] > spring_high:
+            follow[i] = True; spring_until = -1
+    df["pb_follow_confirm"] = follow.astype("int8")
+    return df
 
 
 def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
@@ -564,6 +636,7 @@ def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
     df = _l_digit_flags(df)
     df = _classify_pivots(df, pivot_lr=3, suffix="3")
     df = _classify_pivots(df, pivot_lr=5, suffix="5")
+    df = _compute_prebreak_extra(df)  # pb_pp_rtv / pb_fly_cd_c / pb_lvbo(fix) / pb_follow_confirm
     df = _ultra_extras(df)            # tz_bull, avg_vol_20d, profile_*, rsi_14, cci_20
     df = _acc_exit_labels(df)         # acc_exit_in_n, acc_exit_class
     df = _aes_score_compute(df)       # aes_score (uses lift cache if available)
@@ -782,6 +855,7 @@ _AES_FALLBACK_WEIGHTS = {
     # Prebreak
     "prebreak_prime": 3.0, "prebreak_ready": 2.2, "prebreak_watch": 1.5,
     "pb_lvbo": 3.5, "pb_wvf_confirm": 2.8, "pb_stop_cause": 2.0,
+    "pb_pp_rtv": 3.0, "pb_fly_cd_c": 2.5, "pb_follow_confirm": 3.0,
     # AD
     "ad_fresh": 2.5, "ad_cluster": 3.2,
     # TZ — T family

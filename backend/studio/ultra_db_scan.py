@@ -92,6 +92,9 @@ _DB_TO_UI_COL_MAP = {
     "pb_wvf_confirm":    "pb_wvf_confirm",
     "pb_stop_cause":     "pb_stop_cause",
     "pb_macro_penalty":  "pb_macro_penalty",
+    "pb_pp_rtv":         "pb_pp_rtv",
+    "pb_fly_cd_c":       "pb_fly_cd_c",
+    "pb_follow_confirm": "pb_follow_confirm",
     # Williams pivots
     "swing_type_3":      "swing_type_3",
     "swing_type_5":      "swing_type_5",
@@ -541,6 +544,7 @@ def run_ultra_db_scan(
                 "ad_fresh", "ad_cluster",
                 "prebreak_prime", "prebreak_ready", "prebreak_watch",
                 "pb_lvbo", "pb_stop_cause", "pb_wvf_confirm", "pb_macro_penalty",
+                "pb_pp_rtv", "pb_fly_cd_c", "pb_follow_confirm",
                 "wyc_spring", "wyc_sos", "wyc_in_tr", "wyc_sow",
             ]
 
@@ -617,6 +621,7 @@ def run_ultra_db_scan(
             "ad_fresh", "ad_cluster",
             "prebreak_prime", "prebreak_ready", "prebreak_watch",
             "pb_lvbo", "pb_stop_cause", "pb_wvf_confirm", "pb_macro_penalty",
+            "pb_pp_rtv", "pb_fly_cd_c", "pb_follow_confirm",
             "wyc_spring", "wyc_sos", "wyc_in_tr", "wyc_sow",
             "swing_type",
         }
