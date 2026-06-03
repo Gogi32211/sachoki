@@ -39,6 +39,14 @@ const DIR_OPTS = [
 // divider:true = thin separator between groups
 // custom: fn(row)→bool for computed filters
 const SIG_GROUPS = [
+  // ── ★ COMPOSITE setups (backtested edge, 8M-bar fwd-return analysis) ──────
+  //   Vol-Bull = bias_up + volume spike (V×5/V×10) → ~66-69% fwd_10d win
+  //   Struct-BO = LVBO + bullish-engulf → ~76% next-pivot-HH (n=130k, robust)
+  { key: '_combo_volbull',  label: '⚡Vol-Bull',  cls: 'text-lime-300 font-bold',
+    custom: r => !!(r.bias_up && (r.vol_spike_5x || r.vol_spike_10x)) },
+  { key: '_combo_structbo', label: '❖Struct-BO', cls: 'text-cyan-300 font-bold',
+    custom: r => !!(r.pb_lvbo && r.eb_bull) },
+  { divider: true, label: '★ combo (backtested)' },
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
   { key: 'strong_sig', label: 'STRONG', cls: 'text-emerald-300' },
