@@ -12,11 +12,33 @@ import os
 import time
 import logging
 import threading
+from datetime import datetime, time as _dtime
 from typing import Optional
 
 import requests
 
 log = logging.getLogger(__name__)
+
+try:
+    from zoneinfo import ZoneInfo
+    _ET = ZoneInfo("America/New_York")
+except Exception:
+    _ET = None
+
+
+def _regular_session_open() -> bool:
+    """True only during the US regular session (Mon–Fri 9:30–16:00 ET).
+
+    RT% (todaysChangePerc / day.c) is meaningful only while today's regular
+    session is live. Pre-market / overnight, Massive's snapshot still carries the
+    PREVIOUS session in `day`, so RT% would show stale yesterday data — hide it.
+    (Holidays aren't handled; on a holiday RT% just stays ~flat, harmless.)"""
+    if _ET is None:
+        return True  # no tz info → don't gate (fail open)
+    now = datetime.now(_ET)
+    if now.weekday() >= 5:          # Sat/Sun
+        return False
+    return _dtime(9, 30) <= now.time() <= _dtime(16, 0)
 
 _CACHE_TTL   = 900   # 15 minutes
 _BATCH_SIZE  = 100   # Massive snapshot allows up to ~300; 100 is safe
@@ -158,4 +180,11 @@ def get_premarket(tickers: list[str]) -> dict[str, dict]:
                     _fetched_at[ticker] = now
 
     with _lock:
-        return {t: _data[t] for t in tickers_upper if t in _data}
+        out = {t: dict(_data[t]) for t in tickers_upper if t in _data}
+    # RT% is only valid while today's regular session is live. Outside it, Massive's
+    # `day` aggregate is the prior session → null RT so the UI shows "—" (not stale).
+    if not _regular_session_open():
+        for v in out.values():
+            v["rt_chg_pct"] = None
+            v["rt_price"]   = None
+    return out
