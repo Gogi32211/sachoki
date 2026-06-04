@@ -49,12 +49,7 @@ const ROWS = [
       return 'bg-blue-900 text-blue-300'
     },
   },
-  {
-    key: 'f',
-    label: 'F',
-    getSigs: (b) => b.f ?? [],
-    chipCls: () => 'bg-orange-900 text-orange-300',
-  },
+  // F-row (F1–F11) retired from display — matches ULTRA (still computed backend-side).
   {
     key: 'fly',
     label: 'FLY',
