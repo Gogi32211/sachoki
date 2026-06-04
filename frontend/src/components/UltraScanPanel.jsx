@@ -1592,6 +1592,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       // RT% (today's real-time regular-session move) + PM% — from Massive snapshot
       'rt_chg_pct', 'rt_price', 'pm_chg_pct',
       'avg_vol', 'vol_bucket',
+      // PreBreakout v3 (additive cluster score + reasons)
+      'prebreak_v3', 'prebreak_v3_reasons',
       'sector', 'data_source',
       // BETA Score
       'beta_score', 'beta_raw', 'beta_setup', 'beta_momentum',

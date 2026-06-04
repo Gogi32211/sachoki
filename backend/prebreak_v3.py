@@ -35,7 +35,8 @@ _SCORE_SQL = f"""
    + CASE WHEN rtb_phase='D' THEN 6 WHEN rtb_phase='C' THEN 3 ELSE 0 END
    + CASE WHEN sig_wk_up=1 THEN 3 ELSE 0 END
    + CASE WHEN load=1 THEN 4 ELSE 0 END
-   + CASE WHEN sq=1 THEN 4 ELSE 0 END)
+   + CASE WHEN sq=1 THEN 4 ELSE 0 END
+   + CASE WHEN sig_vol_20x=1 THEN 10 WHEN sig_vol_10x=1 THEN 7 WHEN sig_vol_5x=1 THEN 4 ELSE 0 END)
 """
 
 _REASONS_SQL = f"""
@@ -48,7 +49,8 @@ _REASONS_SQL = f"""
     CASE WHEN rtb_phase='D' THEN 'PhaseD' WHEN rtb_phase='C' THEN 'PhaseC' END,
     CASE WHEN sig_wk_up=1 THEN 'WICK' END,
     CASE WHEN load=1 THEN 'LOAD' END,
-    CASE WHEN sq=1 THEN 'SQ' END)
+    CASE WHEN sq=1 THEN 'SQ' END,
+    CASE WHEN sig_vol_20x=1 THEN 'V×20' WHEN sig_vol_10x=1 THEN 'V×10' WHEN sig_vol_5x=1 THEN 'V×5' END)
 """
 
 
