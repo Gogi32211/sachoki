@@ -229,6 +229,22 @@ const ROWS = [
       return 'bg-md-surface-high text-md-on-surface-var'
     },
   },
+  {
+    key: 'prebreak_v3',
+    label: 'V3',
+    getSigs: (b) => {
+      const v = b.prebreak_v3 ?? 0
+      return v >= 8 ? [String(v)] : []
+    },
+    sigTitle: (s, b) => b?.prebreak_v3_reasons || `PreBreakout v3 = ${s}`,
+    chipCls: (s) => {
+      const n = Number(s)
+      if (n >= 35) return 'bg-fuchsia-700 text-fuchsia-100 font-bold ring-1 ring-fuchsia-400'
+      if (n >= 25) return 'bg-purple-800 text-purple-100 font-semibold'
+      if (n >= 15) return 'bg-indigo-900 text-indigo-200'
+      return 'bg-md-surface-high text-md-on-surface-var'
+    },
+  },
 ]
 
 const BETA_ZONE_CLS = {
@@ -780,6 +796,7 @@ export default function SuperchartPanel({
                           <div className="flex flex-col gap-px items-center">
                             {sigs.map(s => (
                               <span key={s}
+                                title={row.sigTitle ? row.sigTitle(s, b) : undefined}
                                 className={`px-1 py-px rounded border border-white/10 font-mono leading-none ${row.chipCls(s)}`}
                                 style={{ fontSize: 12 }}>
                                 {s}

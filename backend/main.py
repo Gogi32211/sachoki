@@ -2617,6 +2617,15 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
 
+        # prebreak_v3 (additive cluster, 0..50) computed from this bar's signals —
+        # so the Superchart V3 row matches the DB/ULTRA prebreak_v3.
+        try:
+            from prebreak_v3 import calc_prebreak_v3
+            result[-1]["prebreak_v3"], result[-1]["prebreak_v3_reasons"] = calc_prebreak_v3(result[-1])
+        except Exception:
+            result[-1].setdefault("prebreak_v3", 0)
+            result[-1].setdefault("prebreak_v3_reasons", "")
+
     return result
 
 

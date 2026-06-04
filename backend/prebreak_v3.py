@@ -56,6 +56,37 @@ _REASONS_SQL = f"""
 """
 
 
+def calc_prebreak_v3(d) -> tuple[int, str]:
+    """Per-bar prebreak_v3 from a Superchart bar dict (LIVE path) — mirrors the
+    SQL exactly. ULT cluster is read from the 'ultra' display-tag list; load/sq
+    use the raw_* keys present in api_bar_signals output."""
+    g = lambda k: 1 if (d.get(k) in (1, True, "1")) else 0
+    s = 0; r = []
+    if g("sig_fly_abcd"):   s += 12; r.append("ABCD")
+    elif g("sig_fly_cd"):   s += 6;  r.append("CD")
+    _ult_tags = {"260308", "4BF", "FBO↑", "EB↑", "3↑"}
+    ult = sum(1 for x in (d.get("ultra") or []) if x in _ult_tags)
+    if ult >= 2:  s += 10; r.append(f"ULT×{ult}")
+    elif ult == 1: s += 4; r.append("ULT×1")
+    ha, hb = g("sig_abs"), g("sig_bc")
+    if ha and hb: s += 8; r.append("ABS+BC")
+    elif ha:      s += 4; r.append("ABS")
+    elif hb:      s += 3; r.append("BC")
+    if g("sig_svs") or g("svs"): s += 5; r.append("SVS")
+    if g("sig_conso"):           s += 5; r.append("CONSO")
+    ph = str(d.get("rtb_phase", "") or "")
+    if ph == "D":   s += 6; r.append("PhaseD")
+    elif ph == "C": s += 3; r.append("PhaseC")
+    if g("sig_wk_up"):            s += 3; r.append("WICK")
+    if g("raw_load") or g("load"): s += 4; r.append("LOAD")
+    if g("raw_sq") or g("sq"):     s += 4; r.append("SQ")
+    if g("sig_vol_20x"):   s += 10; r.append("V×20")
+    elif g("sig_vol_10x"): s += 7;  r.append("V×10")
+    elif g("sig_vol_5x"):  s += 4;  r.append("V×5")
+    if g("sig_cci0r"):     s += 3;  r.append("CCI0R")
+    return min(s, 50), "|".join(r)
+
+
 def apply_prebreak_v3(universe: str | None = None) -> dict:
     """Recompute prebreak_v3 + prebreak_v3_reasons. One vectorised SQL UPDATE.
     `universe` limits to one universe (used by the incremental refresh); None = all."""
