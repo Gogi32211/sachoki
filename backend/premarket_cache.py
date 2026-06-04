@@ -103,27 +103,34 @@ def _parse_snapshot(snap: dict) -> dict:
     day       = snap.get("day")     or {}
     minute    = snap.get("min")     or {}
 
-    prev_close = prev_day.get("c")
-    day_close  = day.get("c")          # 0 or None before regular open
-    min_close  = minute.get("c")       # last trade (pre-market if session not open)
-    min_vol    = minute.get("v")
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return None
+    prev_c = _f(prev_day.get("c"))
+    day_c  = _f(day.get("c"))      # live regular-session price; 0/None before open
+    min_c  = _f(minute.get("c"))   # last trade — updates in pre/post market too
+    min_vol = minute.get("v")
+    day_open = bool(day_c and day_c > 0)
 
-    # Use day close if session is open (day.c > 0), else fall back to last minute bar
-    day_open   = bool(day_close and float(day_close) > 0)
-    pm_price   = None if day_open else (min_close if min_close else None)
-    pm_vol     = None if day_open else (int(min_vol) if min_vol else None)
+    # Last COMPLETED regular-session close. Massive rolls `day` at the open, so
+    # before that the prior close may sit in day.c (stale) OR — once rolled —
+    # in prevDay.c. Either way this is the correct pre/post-market baseline.
+    last_close = day_c if day_open else prev_c
 
+    # ── PM% — extended-hours (pre/post-market) move vs last completed close ─────
+    # min.c is the last trade (pre-market price when session is closed). Shown
+    # only OUTSIDE the regular session (gated in get_premarket).
+    pm_price = min_c
+    pm_vol   = int(min_vol) if min_vol else None
     pm_chg_pct: Optional[float] = None
-    if pm_price is not None and prev_close and float(prev_close) != 0:
-        pm_chg_pct = round(
-            (float(pm_price) - float(prev_close)) / float(prev_close) * 100, 2
-        )
+    if min_c is not None and last_close:
+        pm_chg_pct = round((min_c - last_close) / last_close * 100, 2)
 
-    # ── RT (regular-session real-time) — same snapshot, no extra API call ───────
-    # day.c is the live last regular-session price (>0 once 9:30 ET opens, and the
-    # final close after hours). Massive snapshot also carries `todaysChangePerc`
-    # (regular-session % vs prev close) at item level — prefer it, else compute.
-    rt_price = float(day_close) if day_open else None
+    # ── RT% — regular-session move (day.c live + todaysChangePerc). Shown only
+    # DURING the regular session (gated in get_premarket). ──────────────────────
+    rt_price = day_c if day_open else None
     rt_chg_pct: Optional[float] = None
     _tcp = snap.get("todaysChangePerc")
     if _tcp is not None:
@@ -131,14 +138,14 @@ def _parse_snapshot(snap: dict) -> dict:
             rt_chg_pct = round(float(_tcp), 2)
         except (TypeError, ValueError):
             rt_chg_pct = None
-    if rt_chg_pct is None and rt_price is not None and prev_close and float(prev_close) != 0:
-        rt_chg_pct = round((rt_price - float(prev_close)) / float(prev_close) * 100, 2)
+    if rt_chg_pct is None and rt_price is not None and prev_c:
+        rt_chg_pct = round((rt_price - prev_c) / prev_c * 100, 2)
 
     return {
-        "pm_price":    round(float(pm_price), 4) if pm_price is not None else None,
+        "pm_price":    round(pm_price, 4) if pm_price is not None else None,
         "pm_chg_pct":  pm_chg_pct,
         "pm_vol":      pm_vol,
-        "prev_close":  round(float(prev_close), 4) if prev_close is not None else None,
+        "prev_close":  round(prev_c, 4) if prev_c is not None else None,
         "rt_price":    round(rt_price, 4) if rt_price is not None else None,
         "rt_chg_pct":  rt_chg_pct,
     }
@@ -181,9 +188,14 @@ def get_premarket(tickers: list[str]) -> dict[str, dict]:
 
     with _lock:
         out = {t: dict(_data[t]) for t in tickers_upper if t in _data}
-    # RT% is only valid while today's regular session is live. Outside it, Massive's
-    # `day` aggregate is the prior session → null RT so the UI shows "—" (not stale).
-    if not _regular_session_open():
+    # Show RT% only during the regular session, PM% only outside it (pre/post
+    # market) — they're complementary windows. Avoids RT% showing stale prior-
+    # session data pre-market, and surfaces the live pre-market move in PM%.
+    if _regular_session_open():
+        for v in out.values():
+            v["pm_chg_pct"] = None
+            v["pm_price"]   = None
+    else:
         for v in out.values():
             v["rt_chg_pct"] = None
             v["rt_price"]   = None
