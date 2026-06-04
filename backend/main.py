@@ -7,6 +7,14 @@ import sys
 import logging
 from typing import Optional
 
+# ── Load .env before anything else reads os.environ ──────────────────────────
+try:
+    from dotenv import load_dotenv as _load_dotenv
+    _env_path = os.path.join(os.path.dirname(os.path.abspath(__file__)), ".env")
+    _load_dotenv(_env_path, override=False)   # override=False: real env vars take precedence
+except ImportError:
+    pass  # python-dotenv not installed — env vars must be set externally
+
 # Ensure backend/ directory is on sys.path so sub-packages (analyzers/) are importable
 # regardless of which directory uvicorn is launched from.
 _backend_dir = os.path.dirname(os.path.abspath(__file__))
@@ -51,6 +59,18 @@ from ultra_pump_routes import router as ultra_pump_router
 from dashboard_routes import router as dashboard_router
 from ultra_scan_migration import ensure_ultra_scan_tables
 from ultra_scan_routes import router as ultra_scan_router
+try:
+    from studio_api import router as studio_router
+    _STUDIO_AVAILABLE = True
+except Exception as _studio_err:
+    log.warning("Analytic Studio not available: %s", _studio_err)
+    _STUDIO_AVAILABLE = False
+try:
+    from qlib_lab.api import router as qlib_router
+    _QLIB_AVAILABLE = True
+except Exception as _qlib_err:
+    log.warning("QLIB lab not available: %s", _qlib_err)
+    _QLIB_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
 log = logging.getLogger(__name__)
@@ -92,8 +112,29 @@ async def lifespan(app: FastAPI):
             max_instances=1,
             coalesce=True,
         )
+
+        # ── Studio DB daily incremental refresh: market close + 1h, Mon-Fri ──
+        # Market closes at 16:00 ET. We run at 17:00 ET to ensure all bars
+        # are settled. Adds at most ~1 bar per ticker per day.
+        def _scheduled_studio_refresh():
+            try:
+                from studio_api import _run_incremental
+                _run_incremental(["sp500", "nasdaq"])
+            except Exception as _e:
+                log.warning("Scheduled studio refresh failed: %s", _e)
+
+        scheduler.add_job(
+            _scheduled_studio_refresh,
+            CronTrigger(hour=17, minute=0, day_of_week="mon-fri"),
+            id="studio_daily_refresh",
+            replace_existing=True,
+            max_instances=1,
+            coalesce=True,
+        )
+
         scheduler.start()
-        log.info("Scheduler started")
+        log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
+                 "studio_daily_refresh @ 17:00 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
@@ -119,6 +160,10 @@ app.include_router(signal_replay_router)
 app.include_router(ultra_pump_router)
 app.include_router(dashboard_router)
 app.include_router(ultra_scan_router)
+if _STUDIO_AVAILABLE:
+    app.include_router(studio_router)
+if _QLIB_AVAILABLE:
+    app.include_router(qlib_router)
 
 
 def _normalise_date(idx) -> list[str]:
@@ -170,12 +215,12 @@ def api_ticker_info(ticker: str):
     if t in _ticker_info_cache:
         return _ticker_info_cache[t]
     try:
-        import yfinance as yf
-        info = yf.Ticker(t).info or {}
+        from data_massive import get_ticker_info
+        info = get_ticker_info(t)
         result = {
-            "ticker":  t,
-            "name":    info.get("longName") or info.get("shortName") or t,
-            "sector":  info.get("sector") or "",
+            "ticker":   t,
+            "name":     info.get("name") or t,
+            "sector":   info.get("sector") or "",
             "industry": info.get("industry") or "",
         }
     except Exception:
@@ -200,12 +245,12 @@ def api_ticker_info_batch(body: dict):
     if need_fetch:
         def _fetch_one(t: str):
             try:
-                import yfinance as yf
-                info = yf.Ticker(t).info or {}
+                from data_massive import get_ticker_info
+                info = get_ticker_info(t)
                 r = {
-                    "ticker": t,
-                    "name":   info.get("longName") or info.get("shortName") or t,
-                    "sector": info.get("sector") or "",
+                    "ticker":   t,
+                    "name":     info.get("name") or t,
+                    "sector":   info.get("sector") or "",
                     "industry": info.get("industry") or "",
                 }
             except Exception:
@@ -243,6 +288,48 @@ def api_signals(ticker: str, tf: str = "1d", bars: int = 150):
         return _df_to_records(out)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.get("/api/studio/live-tail/{ticker}")
+def api_studio_live_tail(ticker: str, after: str = "", tf: str = "1d"):
+    """Today's LIVE forming 1d bar(s) + signals from Massive, to append onto the
+    DB chart (which ends at the last enriched bar). Returns bars with date > `after`
+    (the client's last DB bar date) in the compact studioBars row shape.
+
+    Only returns data while the US regular session is live ("when the market opens,
+    start forming the bar") — pre-open/after-close → []. 15-min delayed is fine for
+    context. Reuses api_bar_signals (full engine suite, Massive primary source)."""
+    try:
+        from premarket_cache import _regular_session_open
+        if not _regular_session_open():
+            return {"bars": [], "reason": "market_closed"}
+        rows = api_bar_signals(ticker, tf="1d", bars=210)
+        after = (after or "")[:10]
+        out = []
+        for b in rows:
+            d = str(b.get("date") or "")[:10]
+            if not d or (after and d <= after):
+                continue
+            tzs = str(b.get("tz") or "")
+            out.append({
+                "date": d,
+                "open": b.get("open"), "high": b.get("high"),
+                "low": b.get("low"), "close": b.get("close"), "volume": b.get("volume"),
+                "vol_bucket": b.get("vol_bucket") or "",
+                "t_sig": tzs if tzs.startswith("T") else "",
+                "z_sig": tzs if tzs.startswith("Z") else "",
+                "l_sig": b.get("l_chart") or b.get("l") or "",
+                "composite_full_suffix": "",          # not computed in live path
+                "bar_body_wick": b.get("bar_body_wick") or "",
+                "bar_gap_range": b.get("bar_gap_range") or "",
+                "bar_line5": b.get("bar_line5") or "",
+                "wyc_stage": "", "wt_stage": "",
+                "forming": True,
+            })
+        return {"bars": out}
+    except Exception as e:
+        log.warning("live-tail %s: %s", ticker, e)
+        return {"bars": [], "error": str(e)}
 
 
 @app.get("/api/wlnbb/{ticker}")
@@ -332,7 +419,7 @@ def api_watchlist_save(body: dict):
 @app.get("/api/predict/{ticker}")
 def api_predict(ticker: str, tf: str = "1d"):
     try:
-        from predictor import compute_tz_stats, compute_tz_matrix
+        from predictor import compute_tz_stats, compute_tz_matrix, get_last_tz_signals
         df    = fetch_ohlcv(ticker, interval=tf, bars=5000)
         sigs  = compute_signals(df)
         full  = df.join(sigs)
@@ -344,7 +431,29 @@ def api_predict(ticker: str, tf: str = "1d"):
         full_w = full.join(wlnbb)
         l_preds = predict_l_next(full_w)
 
-        return {**tz, **l_preds, "tz_stats": tz_stats, "tz_matrix": tz_matrix}
+        last_tz = get_last_tz_signals(full, n=5)
+
+        return {**tz, **l_preds, "tz_stats": tz_stats, "tz_matrix": tz_matrix,
+                "last_tz_signals": last_tz}
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/api/predict-sequence/{ticker}")
+def api_predict_sequence(ticker: str, body: dict, tf: str = "1d"):
+    """
+    Predict next T/Z signal for an arbitrary N-bar sequence on a specific ticker.
+    body: { "sequence": ["T1", null, "T2G", "T1"], "tf": "1d" }
+    null in sequence = wildcard (any signal).
+    """
+    try:
+        from predictor import predict_sequence
+        sequence = body.get("sequence", [])
+        interval = body.get("tf", tf)
+        df   = fetch_ohlcv(ticker, interval=interval, bars=5000)
+        sigs = compute_signals(df)
+        full = df.join(sigs)
+        return predict_sequence(full, sequence)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1424,19 +1533,63 @@ def api_admin_scan_start(background_tasks: BackgroundTasks, tf: str = "1d", univ
     return {"ok": True, "tf": tf, "universe": universe, "min_store_score": min_store_score}
 
 
-@app.get("/api/bar_signals/{ticker}")
-def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500"):
-    """Per-bar signal matrix for SuperChart view."""
+def compute_all_signals(df, ticker: str = "?", tf: str = "1d"):
+    """Run every per-bar signal engine on one OHLCV frame and return them bundled.
+
+    Extracted from api_bar_signals (audit #5) so the engine set is a single named,
+    reusable, testable unit. Each engine is wrapped so a failure is LOGGED (which
+    engine, which ticker) and falls back to an empty frame, instead of silently
+    blanking the whole row. This is a pure relocation: the engine calls and their
+    fallbacks are byte-for-byte the same as the previous inline version, so signal
+    output is unchanged.
+
+    Returns a SimpleNamespace with: sig_df, wlnbb, f_sigs, fly_sigs, g_sigs,
+    b_sigs, combo_df, vabs, wick, ultra260, ultraV2, tz_state_ser.
+    """
     import pandas as pd
     import numpy as np
+    from types import SimpleNamespace
     from signal_engine import compute_g_signals, compute_b_signals
     from f_engine import compute_f_signals
     from fly_engine import compute_fly_series
     from vabs_engine import compute_vabs
     from wick_engine import compute_wick
     from ultra_engine import compute_260308_l88, compute_ultra_v2
-    from turbo_engine import _calc_turbo_score
     from combo_engine import compute_tz_state
+
+    _EDF = pd.DataFrame()
+
+    def _safe_engine(name, fn, fallback):
+        try:
+            return fn()
+        except Exception as _e:
+            log.warning("bar_signals: engine %s failed for %s [%s]: %s",
+                        name, ticker, tf, _e)
+            return fallback
+
+    return SimpleNamespace(
+        sig_df       = _safe_engine("compute_signals",     lambda: compute_signals(df),     _EDF),
+        wlnbb        = _safe_engine("compute_wlnbb",        lambda: compute_wlnbb(df),       _EDF),
+        f_sigs       = _safe_engine("compute_f_signals",   lambda: compute_f_signals(df),   _EDF),
+        fly_sigs     = _safe_engine("compute_fly_series",  lambda: compute_fly_series(df),  _EDF),
+        g_sigs       = _safe_engine("compute_g_signals",   lambda: compute_g_signals(df),   _EDF),
+        b_sigs       = _safe_engine("compute_b_signals",   lambda: compute_b_signals(df),   _EDF),
+        combo_df     = _safe_engine("compute_combo",       lambda: compute_combo(df),       _EDF),
+        vabs         = _safe_engine("compute_vabs",        lambda: compute_vabs(df),        _EDF),
+        wick         = _safe_engine("compute_wick",        lambda: compute_wick(df),        _EDF),
+        ultra260     = _safe_engine("compute_260308_l88",  lambda: compute_260308_l88(df),  _EDF),
+        ultraV2      = _safe_engine("compute_ultra_v2",    lambda: compute_ultra_v2(df),    _EDF),
+        tz_state_ser = _safe_engine("compute_tz_state",    lambda: compute_tz_state(df),
+                                    pd.Series(0, index=df.index, dtype=np.int8)),
+    )
+
+
+@app.get("/api/bar_signals/{ticker}")
+def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500"):
+    """Per-bar signal matrix for SuperChart view."""
+    import pandas as pd
+    import numpy as np
+    from turbo_engine import _calc_turbo_score
     try:
         from profile_playbook import compute_profile_playbook_for_row as _pf_compute
         _pf_ok = True
@@ -1448,56 +1601,22 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
-    _EDF = pd.DataFrame()
-
-    try:
-        sig_df = compute_signals(df)
-    except Exception:
-        sig_df = _EDF
-    try:
-        wlnbb = compute_wlnbb(df)
-    except Exception:
-        wlnbb = _EDF
-    try:
-        f_sigs = compute_f_signals(df)
-    except Exception:
-        f_sigs = _EDF
-    try:
-        fly_sigs = compute_fly_series(df)
-    except Exception:
-        fly_sigs = _EDF
-    try:
-        g_sigs = compute_g_signals(df)
-    except Exception:
-        g_sigs = _EDF
-    try:
-        b_sigs = compute_b_signals(df)
-    except Exception:
-        b_sigs = _EDF
-    try:
-        combo_df = compute_combo(df)
-    except Exception:
-        combo_df = _EDF
-    try:
-        vabs = compute_vabs(df)
-    except Exception:
-        vabs = _EDF
-    try:
-        wick = compute_wick(df)
-    except Exception:
-        wick = _EDF
-    try:
-        ultra260 = compute_260308_l88(df)
-    except Exception:
-        ultra260 = _EDF
-    try:
-        ultraV2 = compute_ultra_v2(df)
-    except Exception:
-        ultraV2 = _EDF
-    try:
-        tz_state_ser = compute_tz_state(df)
-    except Exception:
-        tz_state_ser = pd.Series(0, index=df.index, dtype=np.int8)
+    # Run all per-bar engines via the shared orchestrator, then unpack into the
+    # same local names the rest of this function already uses (downstream code
+    # unchanged → no behavioural difference).
+    _eng = compute_all_signals(df, ticker, tf)
+    sig_df       = _eng.sig_df
+    wlnbb        = _eng.wlnbb
+    f_sigs       = _eng.f_sigs
+    fly_sigs     = _eng.fly_sigs
+    g_sigs       = _eng.g_sigs
+    b_sigs       = _eng.b_sigs
+    combo_df     = _eng.combo_df
+    vabs         = _eng.vabs
+    wick         = _eng.wick
+    ultra260     = _eng.ultra260
+    ultraV2      = _eng.ultraV2
+    tz_state_ser = _eng.tz_state_ser
     tz_state_prev = tz_state_ser.shift(1, fill_value=0).astype(int)
 
     # ── 260523 per-bar signals (AD / WYC / PREBREAK / Pullback / Swing) ──────
@@ -1538,13 +1657,15 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         gog_setup_ser   = gog_result.get("SETUP",    pd.Series("",  index=df.index))
         gog_tier_ser    = gog_result.get("GOG_TIER", pd.Series("",  index=df.index))
         gog_context_ser = gog_result.get("CONTEXT",  pd.Series("",  index=df.index))
-        gog_score_ser   = gog_result.get("GOG_SCORE",pd.Series(0.0, index=df.index))
+        gog_score_ser      = gog_result.get("GOG_SCORE",    pd.Series(0.0, index=df.index))
+        gog_all_sig_ser    = gog_result.get("ALL_SIGNALS",  pd.Series("",  index=df.index))
         _gog_ok = True
     except Exception:
-        gog_setup_ser   = pd.Series("",  index=df.index)
-        gog_tier_ser    = pd.Series("",  index=df.index)
-        gog_context_ser = pd.Series("",  index=df.index)
-        gog_score_ser   = pd.Series(0.0, index=df.index)
+        gog_setup_ser      = pd.Series("",  index=df.index)
+        gog_tier_ser       = pd.Series("",  index=df.index)
+        gog_context_ser    = pd.Series("",  index=df.index)
+        gog_score_ser      = pd.Series(0.0, index=df.index)
+        gog_all_sig_ser    = pd.Series("",  index=df.index)
         _gog_ok = False
 
     # seq_bcont vectorized from bc column
@@ -1617,6 +1738,65 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         _bar_shape_fn = None
         _atr_arr = None
         _line5_arr = None
+
+    # ── EMA for PRICE_GT_* / PRICE_LT_* + D/P family ────────────────────────
+    try:
+        _ema9   = df["close"].ewm(span=9,   adjust=False).mean()
+        _ema20  = df["close"].ewm(span=20,  adjust=False).mean()
+        _ema34  = df["close"].ewm(span=34,  adjust=False).mean()
+        _ema50  = df["close"].ewm(span=50,  adjust=False).mean()
+        _ema89  = df["close"].ewm(span=89,  adjust=False).mean()
+        _ema200 = df["close"].ewm(span=200, adjust=False).mean()
+    except Exception:
+        _ema9 = _ema20 = _ema34 = _ema50 = _ema89 = _ema200 = pd.Series(0.0, index=df.index)
+
+    # ── D-family (PREDN) and P66/P55 (PREUP) — vectorized ────────────────────
+    try:
+        _o = df["open"]; _c = df["close"]
+        _drop9  = (_o > _ema9)   & (_c < _ema9)
+        _drop20 = (_o > _ema20)  & (_c < _ema20)
+        _drop34 = (_o > _ema34)  & (_c < _ema34)
+        _drop50 = (_o > _ema50)  & (_c < _ema50)
+        _drop89 = (_o > _ema89)  & (_c < _ema89)
+        _drop200= (_o > _ema200) & (_c < _ema200)
+        _d66_ser = _drop200 & (_drop89 | _drop50 | _drop34 | _drop20 | _drop9)
+        _d55_ser = _drop89  & (_drop200| _drop50 | _drop34 | _drop20 | _drop9)
+        _d89_ser = _drop89
+        _d3_ser  = _drop9 & _drop20 & _drop50
+        _d2_ser  = _drop9 & _drop20
+        _d50_ser = _drop50
+        _cross9  = (_o < _ema9)   & (_c > _ema9)
+        _cross20 = (_o < _ema20)  & (_c > _ema20)
+        _cross34 = (_o < _ema34)  & (_c > _ema34)
+        _cross50 = (_o < _ema50)  & (_c > _ema50)
+        _cross89 = (_o < _ema89)  & (_c > _ema89)
+        _cross200= (_o < _ema200) & (_c > _ema200)
+        _p66_ser = _cross200 & (_cross89 | _cross50 | _cross34 | _cross20 | _cross9)
+        _p55_ser = _cross89  & (_cross200| _cross50 | _cross34 | _cross20 | _cross9)
+    except Exception:
+        _d66_ser = _d55_ser = _d89_ser = _d3_ser = _d2_ser = _d50_ser = \
+        _p66_ser = _p55_ser = pd.Series(False, index=df.index)
+
+    # ── CISD engine ───────────────────────────────────────────────────────────
+    try:
+        from cisd_engine import compute_cisd as _compute_cisd
+        _cisd_df = _compute_cisd(df)
+    except Exception:
+        _cisd_df = pd.DataFrame()
+
+    # ── PARA engine (series mode) ─────────────────────────────────────────────
+    try:
+        from para_engine import compute_para_series as _compute_para_series
+        _para_df = _compute_para_series(df, is_daily=(tf == "1d"))
+    except Exception:
+        _para_df = None
+
+    # ── Delta engine ──────────────────────────────────────────────────────────
+    try:
+        from delta_engine import compute_delta as _compute_delta
+        _delta_df = _compute_delta(df)
+    except Exception:
+        _delta_df = pd.DataFrame()
 
     result = []
 
@@ -1993,6 +2173,36 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         _st = _swing_type_arr[i] or ""
         if _st: wy523_list.append(_st)    # HL / LL / HH / LH
 
+        # Chart-format L code (single value matching chart tooltip exactly).
+        # Logic mirrors signal_logic.compute_tz_wlnbb_for_bar(): ascending concat
+        # of active L1..L6 digit flags. E.g. L4 AND L6 → "L46" (not "L64").
+        # Falls back to priority-named labels (BO_UP, FRI34, etc.) when no L digit
+        # is active but a non-L wlnbb signal fires.
+        try:
+            if i < len(wlnbb):
+                _wlnbb_row = wlnbb.iloc[i]
+                _digits = "".join(
+                    str(d) for d in range(1, 7)
+                    if bool(_wlnbb_row.get(f"L{d}", False))
+                )
+                if _digits:
+                    _l_chart = "L" + _digits
+                else:
+                    # No L digit active → fall back to priority-named wlnbb signals
+                    _l_chart = ""
+                    for _name in ("FRI34", "FRI43", "FRI64", "BLUE", "CCI_READY",
+                                  "CCI_0_RETEST_OK", "CCI_BLUE_TURN",
+                                  "BE_UP", "BE_DN", "BO_UP", "BO_DN",
+                                  "BX_UP", "BX_DN", "FUCHSIA_RL", "FUCHSIA_RH",
+                                  "PRE_PUMP"):
+                        if bool(_wlnbb_row.get(_name, False)):
+                            _l_chart = _name
+                            break
+            else:
+                _l_chart = ""
+        except Exception:
+            _l_chart = ""
+
         result.append({
             "date":       date_val,
             "open":       float(row["open"]),
@@ -2006,6 +2216,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "bar_line5":     _bar_line5,
             "tz":        tz,
             "l":         l_list,
+            "l_chart":   _l_chart,           # ← new: single chart-format L code (e.g. "L1", "L34")
             "f":         f_list,
             "fly":       fly_list,
             "g":         g_list,
@@ -2125,6 +2336,222 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "rolling_score_max_5d": (
                 max(_ultra_score_history[-5:]) if _ultra_score_history else 0.0
             ),
+            # ── ALL_SIGNALS text ────────────────────────────────────────────────
+            "all_signals": str(gog_all_sig_ser.iloc[i] or "") if i < len(gog_all_sig_ser) else "",
+            # ── GOG sub-tier booleans ───────────────────────────────────────────
+            "g1p": 1 if _gog_tier_val.startswith("G1P") else 0,
+            "g2p": 1 if _gog_tier_val.startswith("G2P") else 0,
+            "g3p": 1 if _gog_tier_val.startswith("G3P") else 0,
+            "g1l": 1 if _gog_tier_val.startswith("G1L") else 0,
+            "g2l": 1 if _gog_tier_val.startswith("G2L") else 0,
+            "g3l": 1 if _gog_tier_val.startswith("G3L") else 0,
+            "g1c": 1 if _gog_tier_val.startswith("G1C") else 0,
+            "g2c": 1 if _gog_tier_val.startswith("G2C") else 0,
+            "g3c": 1 if _gog_tier_val.startswith("G3C") else 0,
+            # ── VABS individual booleans ────────────────────────────────────────
+            "sig_best":    int(_b(vabs, "best_sig")),
+            "sig_strong":  int(_b(vabs, "strong_sig")),
+            "sig_vbo_dn":  int(_b(vabs, "vbo_dn")),
+            "sig_ns_vabs": int(_b(vabs, "ns")),
+            "sig_nd_vabs": int(_b(vabs, "nd")),
+            "sig_sc":      int(_b(vabs, "sc")),
+            "sig_bc":      int(not vabs.empty and "bc" in vabs.columns and i < len(vabs) and int(vabs.iloc[i].get("bc", 0) or 0) > 0),
+            "sig_abs":     int(_b(vabs, "abs_sig")),
+            "sig_clm":     int(_b(vabs, "climb_sig")),
+            # ── UltraV2 individual booleans ────────────────────────────────────
+            "sig_best_up": int(_b(ultraV2, "best_long")),
+            "sig_fbo_up":  int(_b(ultraV2, "fbo_bull")),
+            "sig_eb_up":   int(_b(ultraV2, "eb_bull")),
+            "sig_3up":     int(_b(ultraV2, "ultra_3up")),
+            "sig_fbo_dn":  int(_b(ultraV2, "fbo_bear")),
+            "sig_eb_dn":   int(_b(ultraV2, "eb_bear")),
+            "sig_4bf_dn":  int(_b(ultraV2, "bf_sell")),
+            # ── wlnbb L-signal booleans ────────────────────────────────────────
+            "sig_fri34": int(_b(wlnbb, "FRI34")),
+            "sig_fri43": int(_b(wlnbb, "FRI43")),
+            "sig_fri64": int(_b(wlnbb, "FRI64")),
+            "sig_l555":  int(_b(wlnbb, "L555")),
+            "sig_l2l4":  int(_b(wlnbb, "ONLY_L2L4")),
+            "sig_blue":  int(_b(wlnbb, "BLUE")),
+            "sig_cci":   int(_b(wlnbb, "CCI_READY")),
+            "sig_cci0r": int(_b(wlnbb, "CCI_0_RETEST_OK")),
+            "sig_ccib":  int(_b(wlnbb, "CCI_BLUE_TURN")),
+            "sig_bo_dn": int(_b(wlnbb, "BO_DN")),
+            "sig_bx_dn": int(_b(wlnbb, "BX_DN")),
+            "sig_be_dn": int(_b(wlnbb, "BE_DN")),
+            "sig_rl":    int(_b(wlnbb, "FUCHSIA_RL")),
+            "sig_rh":    int(_b(wlnbb, "FUCHSIA_RH")),
+            "sig_pp":    int(_b(wlnbb, "PRE_PUMP")),
+            # ── G individual booleans ──────────────────────────────────────────
+            "sig_g1":  int(_b(g_sigs, "g1")),
+            "sig_g2":  int(_b(g_sigs, "g2")),
+            "sig_g4":  int(_b(g_sigs, "g4")),
+            "sig_g6":  int(_b(g_sigs, "g6")),
+            "sig_g11": int(_b(g_sigs, "g11")),
+            # ── B individual booleans ──────────────────────────────────────────
+            "sig_b1":  int(_b(b_sigs, "b1")),
+            "sig_b2":  int(_b(b_sigs, "b2")),
+            "sig_b3":  int(_b(b_sigs, "b3")),
+            "sig_b4":  int(_b(b_sigs, "b4")),
+            "sig_b5":  int(_b(b_sigs, "b5")),
+            "sig_b6":  int(_b(b_sigs, "b6")),
+            "sig_b7":  int(_b(b_sigs, "b7")),
+            "sig_b8":  int(_b(b_sigs, "b8")),
+            "sig_b9":  int(_b(b_sigs, "b9")),
+            "sig_b10": int(_b(b_sigs, "b10")),
+            "sig_b11": int(_b(b_sigs, "b11")),
+            # ── F individual booleans ──────────────────────────────────────────
+            "sig_f1":  int(_b(f_sigs, "f1")),
+            "sig_f2":  int(_b(f_sigs, "f2")),
+            "sig_f3":  int(_b(f_sigs, "f3")),
+            "sig_f4":  int(_b(f_sigs, "f4")),
+            "sig_f5":  int(_b(f_sigs, "f5")),
+            "sig_f6":  int(_b(f_sigs, "f6")),
+            "sig_f7":  int(_b(f_sigs, "f7")),
+            "sig_f8":  int(_b(f_sigs, "f8")),
+            "sig_f9":  int(_b(f_sigs, "f9")),
+            "sig_f10": int(_b(f_sigs, "f10")),
+            "sig_f11": int(_b(f_sigs, "f11")),
+            # ── FLY booleans ───────────────────────────────────────────────────
+            "sig_fly_abcd": int(_b(fly_sigs, "fly_abcd")),
+            "sig_fly_cd":   int(_b(fly_sigs, "fly_cd")),
+            "sig_fly_bd":   int(_b(fly_sigs, "fly_bd")),
+            "sig_fly_ad":   int(_b(fly_sigs, "fly_ad")),
+            # ── Wick booleans ──────────────────────────────────────────────────
+            "sig_wk_up": int(_b(wick, "WICK_BULL_CONFIRM")),
+            "sig_wk_dn": int(_b(wick, "WICK_BEAR_CONFIRM")),
+            "sig_x1":    int(_b(wick, "x1_wick")),
+            "sig_x2":    int(_b(wick, "x2_wick")),
+            "sig_x1g":   int(_b(wick, "x1g_wick")),
+            "sig_x3":    int(_b(wick, "x3_wick")),
+            # ── Combo booleans ─────────────────────────────────────────────────
+            "sig_bias_up": int(_b(combo_df, "bias_up")),
+            "sig_bias_dn": int(_b(combo_df, "bias_down")),
+            "sig_svs":     int(_b(combo_df, "svs_2809")),
+            "sig_conso":   int(_b(combo_df, "conso_2809")),
+            "sig_p2":      int(_b(combo_df, "preup2")),
+            "sig_p3":      int(_b(combo_df, "preup3")),
+            "sig_p50":     int(_b(combo_df, "preup50")),
+            "sig_p89":     int(_b(combo_df, "preup89")),
+            "sig_buy":     int(_b(combo_df, "buy_2809")),
+            "sig_3g":      int(_b(combo_df, "sig3g")),
+            # ── Volume ATR / spike ─────────────────────────────────────────────
+            "sig_va":      int(bool(va_ser.iloc[i])),
+            "sig_vol_5x":  int(float(vol_ratio.iloc[i]) >= 5),
+            "sig_vol_10x": int(float(vol_ratio.iloc[i]) >= 10),
+            "sig_vol_20x": int(float(vol_ratio.iloc[i]) >= 20),
+            # ── TZ state booleans ──────────────────────────────────────────────
+            "sig_tz":       int(int(tz_state_ser.iloc[i]) >= 1),
+            "sig_t":        int(bool(tz_s.startswith("T"))),
+            "sig_z":        int(bool(tz_s.startswith("Z"))),
+            "sig_tz3":      int(int(tz_state_ser.iloc[i]) == 3),
+            "sig_tz2":      int(int(tz_state_ser.iloc[i]) == 2),
+            "sig_tz_flip":  int(sig_row["tz_bull_flip"]),
+            "sig_cd":       int(sig_row["cd"]),
+            "sig_ca":       int(sig_row["ca"]),
+            "sig_cw":       int(sig_row["cw"]),
+            "sig_seq_bcont":int(bool(seq_bcont_ser.iloc[i])),
+            # ── P66/P55 (PREUP EMA cross-up) ──────────────────────────────────
+            "sig_p66": int(bool(_p66_ser.iloc[i])),
+            "sig_p55": int(bool(_p55_ser.iloc[i])),
+            # ── D-family (PREDN EMA cross-down) ───────────────────────────────
+            "sig_d66": int(bool(_d66_ser.iloc[i])),
+            "sig_d55": int(bool(_d55_ser.iloc[i])),
+            "sig_d89": int(bool(_d89_ser.iloc[i])),
+            "sig_d50": int(bool(_d50_ser.iloc[i])),
+            "sig_d3":  int(bool(_d3_ser.iloc[i])),
+            "sig_d2":  int(bool(_d2_ser.iloc[i])),
+            # ── CISD ──────────────────────────────────────────────────────────
+            "sig_cisd_cplus":       int(_b(_cisd_df, "PLUS_CISD")),
+            "sig_cisd_cplus_minus": int(_b(_cisd_df, "CISD_PPM")),
+            "sig_cisd_cplus_mm":    int(_b(_cisd_df, "CISD_PMM")),
+            # ── PARA context ──────────────────────────────────────────────────
+            "sig_para_prep":   int(bool(_para_df.iloc[i]["para_prep"])   if _para_df is not None and i < len(_para_df) and "para_prep"   in _para_df.columns else 0),
+            "sig_para_start":  int(bool(_para_df.iloc[i]["para_start"])  if _para_df is not None and i < len(_para_df) and "para_start"  in _para_df.columns else 0),
+            "sig_para_plus":   int(bool(_para_df.iloc[i]["para_plus"])   if _para_df is not None and i < len(_para_df) and "para_plus"   in _para_df.columns else 0),
+            "sig_para_retest": int(bool(_para_df.iloc[i]["para_retest"]) if _para_df is not None and i < len(_para_df) and "para_retest" in _para_df.columns else 0),
+            # ── Delta extras ──────────────────────────────────────────────────
+            "sig_flp_up":      int(_b(_delta_df, "flip_bull")),
+            "sig_org_up":      int(_b(_delta_df, "orange_bull")),
+            "sig_dd_up_red":   int(_b(_delta_df, "blast_bull_red")),
+            "sig_d_up_red":    int(_b(_delta_df, "surge_bull_red")),
+            "sig_d_dn_green":  int(_b(_delta_df, "surge_bear_grn")),
+            "sig_dd_dn_green": int(_b(_delta_df, "blast_bear_grn")),
+            # ── NS/ND Delta (combo vs vabs disambiguation) ────────────────────
+            "sig_ns_delta": int("NS" in combo_list and "NS" not in vabs_list),
+            "sig_nd_delta": int("ND" in combo_list and "ND" not in vabs_list),
+            # ── Meta family any-flags (derived) ───────────────────────────────
+            "sig_any_f":    int(any(_b(f_sigs,  f"f{n}") for n in range(1, 12))),
+            "sig_any_b":    int(any(_b(b_sigs,  f"b{n}") for n in range(1, 12))),
+            "sig_any_p":    int(_b(combo_df,"preup2") or _b(combo_df,"preup3") or
+                                _b(combo_df,"preup50") or _b(combo_df,"preup89") or
+                                bool(_p66_ser.iloc[i]) or bool(_p55_ser.iloc[i])),
+            "sig_any_d":    int(bool(_d66_ser.iloc[i]) or bool(_d55_ser.iloc[i]) or
+                                bool(_d89_ser.iloc[i]) or bool(_d50_ser.iloc[i]) or
+                                bool(_d3_ser.iloc[i])  or bool(_d2_ser.iloc[i])),
+            "sig_l_any":    int(_b(wlnbb,"L34") or _b(wlnbb,"L43") or
+                                _b(wlnbb,"L64") or _b(wlnbb,"L22") or _b(wlnbb,"L555")),
+            "sig_be_any":   int(_b(wlnbb,"BE_UP") or _b(wlnbb,"BE_DN") or
+                                _b(ultraV2,"eb_bull") or _b(ultraV2,"eb_bear")),
+            "sig_gog_plus": int(_gog_tier_val.startswith("G1P") or
+                                _gog_tier_val.startswith("G2P") or
+                                _gog_tier_val.startswith("G3P")),
+            "sig_not_ext":  int(not (_b(sig_df,"already_extended")
+                                     if not sig_df.empty and "already_extended" in sig_df.columns
+                                     else False)),
+            # ── RSI thresholds ─────────────────────────────────────────────────
+            "sig_rsi_le_35": int(rsi_val is not None and rsi_val <= 35),
+            "sig_rsi_ge_70": int(rsi_val is not None and rsi_val >= 70),
+            # ── Price vs EMA ───────────────────────────────────────────────────
+            "sig_price_gt_20":  int(float(row["close"]) > float(_ema20.iloc[i])),
+            "sig_price_gt_50":  int(float(row["close"]) > float(_ema50.iloc[i])),
+            "sig_price_gt_89":  int(float(row["close"]) > float(_ema89.iloc[i])),
+            "sig_price_gt_200": int(float(row["close"]) > float(_ema200.iloc[i])),
+            "sig_price_lt_20":  int(float(row["close"]) < float(_ema20.iloc[i])),
+            "sig_price_lt_50":  int(float(row["close"]) < float(_ema50.iloc[i])),
+            "sig_price_lt_89":  int(float(row["close"]) < float(_ema89.iloc[i])),
+            "sig_price_lt_200": int(float(row["close"]) < float(_ema200.iloc[i])),
+            # ── Raw individual signal booleans ─────────────────────────────────
+            "raw_load":      int(_b(vabs, "load_sig")),
+            "raw_sq":        int(_b(vabs, "sq")),
+            "raw_vbo_up":    int(_b(vabs, "vbo_up")),
+            "raw_bo_up":     int(_b(wlnbb, "BO_UP")),
+            "raw_be_up":     int(_b(wlnbb, "BE_UP")),
+            "raw_bx_up":     int(_b(wlnbb, "BX_UP")),
+            "raw_l34":       int(_b(wlnbb, "L34")),
+            "raw_l43":       int(_b(wlnbb, "L43")),
+            "raw_l64":       int(_b(wlnbb, "L64")),
+            "raw_l22":       int(_b(wlnbb, "L22")),
+            "raw_f8":        int(_b(f_sigs, "f8")),
+            "raw_f3":        int(_b(f_sigs, "f3")),
+            "raw_f4":        int(_b(f_sigs, "f4")),
+            "raw_f6":        int(_b(f_sigs, "f6")),
+            "raw_f11":       int(_b(f_sigs, "f11")),
+            "raw_t10":       int(tz_s == "T10"),
+            "raw_t11":       int(tz_s == "T11"),
+            "raw_t12":       int(tz_s == "T12"),
+            "raw_z10":       int(tz_s == "Z10"),
+            "raw_z11":       int(tz_s == "Z11"),
+            "raw_z12":       int(tz_s == "Z12"),
+            "raw_z4":        int(tz_s == "Z4"),
+            "raw_z6":        int(tz_s == "Z6"),
+            "raw_z9":        int(tz_s == "Z9"),
+            "raw_sig260308": int(_b(ultra260, "sig_260308")),
+            "raw_l88":       int(_b(ultra260, "sig_l88")),
+            "raw_um":        int(_b(combo_df, "um_2809")),
+            "raw_svs_raw":   int(_b(combo_df, "svs_2809")),
+            "raw_cons":      int(_b(combo_df, "cons_atr") if not combo_df.empty and "cons_atr" in combo_df.columns else False),
+            "raw_buy_here":  int(_b(combo_df, "buy_2809")),
+            "raw_atr_brk":   int(_b(combo_df, "atr_brk")),
+            "raw_bb_brk":    int(_b(combo_df, "bb_brk")),
+            "raw_hilo_buy":  int(_b(combo_df, "hilo_buy")),
+            "raw_rtv":       int(_b(combo_df, "rtv")),
+            "raw_three_g":   int(_b(combo_df, "sig3g")),
+            "raw_rocket":    int(_b(combo_df, "rocket")),
+            "raw_bf4":       int(_b(ultraV2, "bf_buy")),
+            "raw_w":         int(_b(wick, "WICK_BULL_CONFIRM")),
+            # ── Diagnostics ────────────────────────────────────────────────────
+            "already_extended": int(_b(sig_df, "already_extended") if not sig_df.empty and "already_extended" in sig_df.columns else False),
         })
 
         # Track ultra_score for next bar's DECAY MEMORY BONUS (rolling_score_max_5d).
@@ -4740,6 +5167,25 @@ def _run_pivot_swing_bg(
         _pivot_swing_state["error"] = str(e)
     finally:
         _pivot_swing_state["running"] = False
+
+
+# ── Pre-market cache endpoint ─────────────────────────────────────────────────
+@app.get("/api/premarket")
+def api_premarket(tickers: str = Query("", description="Comma-separated ticker list")):
+    """Return pre-market price and % change for given tickers (TTL 15 min).
+
+    Response: { "data": { "AAPL": { pm_price, pm_chg_pct, pm_vol, prev_close }, ... } }
+    """
+    ticker_list = [t.strip().upper() for t in tickers.split(",") if t.strip()]
+    if not ticker_list:
+        return {"data": {}, "count": 0}
+    try:
+        from premarket_cache import get_premarket
+        data = get_premarket(ticker_list)
+        return {"data": data, "count": len(data)}
+    except Exception as exc:
+        log.warning("api_premarket error: %s", exc)
+        return {"data": {}, "count": 0, "error": str(exc)}
 
 
 _static = os.path.join(os.path.dirname(__file__), "static")

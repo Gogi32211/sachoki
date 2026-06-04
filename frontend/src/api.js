@@ -148,6 +148,11 @@ export const api = {
   studioBars: (ticker, limit = 300) =>
     get(`/api/studio/bars/${ticker}?limit=${limit}`),
 
+  // Today's LIVE forming 1d bar(s) + signals (Massive, 15-min delayed) to append
+  // onto the DB chart. Returns {bars:[...]} with date > `after`; [] when closed.
+  studioLiveTail: (ticker, after = '') =>
+    get(`/api/studio/live-tail/${ticker}?after=${encodeURIComponent(after)}`),
+
   // TZ Sequence Lab — rank N-bar T/Z sequences by forward outcome
   studioSeqLab: (params = {}) => {
     const q = new URLSearchParams(
@@ -340,4 +345,12 @@ export const api = {
 
   // Pre-market price + % change (TTL 15 min, Massive snapshot)
   premarket: (tickers) => get(`/api/premarket?tickers=${tickers.join(',')}`),
+
+  // ── QLIB lab (LightGBM factor research over DuckDB) ───────────────────────
+  qlibColumns: (universe = 'sp500') => get(`/api/qlib/columns?universe=${universe}`),
+  qlibModels:  ()                   => get('/api/qlib/models'),
+  qlibBuild:   (body)               => post('/api/qlib/build', body),
+  qlibTrain:   (body)               => post('/api/qlib/train', body),
+  qlibSearch:  (body)               => post('/api/qlib/search', body),
+  qlibJob:     (jobId)              => get(`/api/qlib/job/${jobId}`),
 }

@@ -210,25 +210,25 @@ export default function CodeCandleChart({
       }
       const asc = Object.keys(byTime).sort().map(t => byTime[t])
       if (!asc.length) return loadSignals('1d')      // ticker not in DB → live fallback
+      // build a signal-overlay object from a row (DB or live forming bar)
+      const mkSig = (r) => {
+        const time = fmtDate(r.date)
+        const tz = r.t_sig || r.z_sig
+        const suffix = r.composite_full_suffix || r.full_suffix || ''
+        const wyc = r.wyc_stage ? `❖${r.wyc_stage}` : (r.wt_stage || '')
+        if (!(tz || r.l_sig || suffix || wyc)) return null
+        const lines = [
+          tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),
+          suffix, r.bar_body_wick || '', r.bar_gap_range || '', r.bar_line5 || '', wyc,
+        ].filter(Boolean)
+        return { time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines, vol: r.vol_bucket || '' }
+      }
       const candles = [], volumes = [], signals = []
       for (const r of asc) {
         const time = fmtDate(r.date)
         candles.push({ time, open: +r.open, high: +r.high, low: +r.low, close: +r.close })
         volumes.push({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
-        const tz = r.t_sig || r.z_sig
-        const suffix = r.composite_full_suffix || r.full_suffix || ''
-        const wyc = r.wyc_stage ? `❖${r.wyc_stage}` : (r.wt_stage || '')   // Wyckoff stage marker
-        if (tz || r.l_sig || suffix || wyc) {
-          const lines = [
-            tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),
-            suffix,
-            r.bar_body_wick || '',
-            r.bar_gap_range || '',
-            r.bar_line5 || '',
-            wyc,
-          ].filter(Boolean)
-          signals.push({ time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines, vol: r.vol_bucket || '' })
-        }
+        const s = mkSig(r); if (s) signals.push(s)
       }
       signalsRef.current = signals
       seriesRef.current.setData(candles)
@@ -237,7 +237,25 @@ export default function CodeCandleChart({
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
       chartRef.current.timeScale().fitContent()
       requestAnimationFrame(() => { try { chartRef.current?.timeScale().fitContent(); renderOverlay() } catch {} })
-      setMeta(asc.length ? { n: asc.length, src: 'db', dmin: fmtDate(asc[0].date), dmax: fmtDate(asc[asc.length - 1].date) } : null)
+      setMeta({ n: asc.length, src: 'db', dmin: fmtDate(asc[0].date), dmax: fmtDate(asc[asc.length - 1].date) })
+
+      // ── append today's LIVE forming bar (Massive, 15-min delayed) ──────────
+      // Only while the US regular session is open; backend returns [] otherwise.
+      const lastDate = fmtDate(asc[asc.length - 1].date)
+      api.studioLiveTail(ticker, lastDate).then((res) => {
+        if (cancelled || !res?.bars?.length) return
+        for (const r of res.bars) {
+          if (r.close == null) continue
+          const time = fmtDate(r.date)
+          seriesRef.current.update({ time, open: +r.open, high: +r.high, low: +r.low, close: +r.close })
+          volRef.current?.update({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
+          const s = mkSig(r); if (s) signalsRef.current.push(s)
+        }
+        const lr = res.bars[res.bars.length - 1]
+        chartRef.current.timeScale().fitContent()
+        requestAnimationFrame(() => { try { renderOverlay() } catch {} })
+        setMeta(m => m ? { ...m, live: true, dmax: fmtDate(lr.date) } : m)
+      }).catch(() => {})
     })
 
     const p = useDb ? loadStudio() : loadSignals(tf)
@@ -286,6 +304,7 @@ export default function CodeCandleChart({
         <div className="flex items-center justify-between px-4 py-2 border-b border-md-outline-var gap-3 flex-wrap">
           <span className="font-semibold text-sm">
             {ticker} <span className="text-md-on-surface-var font-normal">{srcIsDb ? '· DB (Studio) · 1d' : `· ${tf} · live`}</span>
+            {meta?.live && <span className="ml-1 text-[10px] text-lime-400 font-semibold" title="Today's forming bar appended live from Massive (15-min delayed)">+live</span>}
             {sector && (
               <span className="ml-2 text-xs font-normal text-md-on-surface-var bg-md-surface-high px-1.5 py-0.5 rounded">{sector}</span>
             )}
