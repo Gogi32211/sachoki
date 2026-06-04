@@ -37,7 +37,16 @@ _SCORE_SQL = f"""
    + CASE WHEN load=1 THEN 4 ELSE 0 END
    + CASE WHEN sq=1 THEN 4 ELSE 0 END
    + CASE WHEN sig_vol_20x=1 THEN 10 WHEN sig_vol_10x=1 THEN 7 WHEN sig_vol_5x=1 THEN 4 ELSE 0 END
-   + CASE WHEN sig_cci0r=1 THEN 3 ELSE 0 END)
+   + CASE WHEN sig_cci0r=1 THEN 3 ELSE 0 END
+   -- Superchart-sync structural cluster (validated on HH continuation; see prebreak_v3 docstring)
+   + CASE WHEN sig_p3=1 THEN 4 WHEN (sig_p2=1 OR sig_p89=1) THEN 3 WHEN sig_p50=1 THEN 2 ELSE 0 END
+   + CASE WHEN bx_up=1 THEN 4 ELSE 0 END
+   + CASE WHEN sig_clm=1 THEN 4 ELSE 0 END
+   + CASE WHEN sig_fri34=1 THEN 3 ELSE 0 END
+   + CASE WHEN sig_best=1 THEN 3 ELSE 0 END
+   + CASE WHEN sig_blue=1 THEN 2 ELSE 0 END
+   + CASE WHEN l34=1 THEN 2 ELSE 0 END
+   + CASE WHEN wt_lps=1 THEN 2 ELSE 0 END)
 """
 
 _REASONS_SQL = f"""
@@ -52,7 +61,15 @@ _REASONS_SQL = f"""
     CASE WHEN load=1 THEN 'LOAD' END,
     CASE WHEN sq=1 THEN 'SQ' END,
     CASE WHEN sig_vol_20x=1 THEN 'V×20' WHEN sig_vol_10x=1 THEN 'V×10' WHEN sig_vol_5x=1 THEN 'V×5' END,
-    CASE WHEN sig_cci0r=1 THEN 'CCI0R' END)
+    CASE WHEN sig_cci0r=1 THEN 'CCI0R' END,
+    CASE WHEN sig_p3=1 THEN 'P3' WHEN sig_p2=1 THEN 'P2' WHEN sig_p89=1 THEN 'P89' WHEN sig_p50=1 THEN 'P50' END,
+    CASE WHEN bx_up=1 THEN 'BX↑' END,
+    CASE WHEN sig_clm=1 THEN 'CLM' END,
+    CASE WHEN sig_fri34=1 THEN 'FRI34' END,
+    CASE WHEN sig_best=1 THEN 'BEST★' END,
+    CASE WHEN sig_blue=1 THEN 'BL' END,
+    CASE WHEN l34=1 THEN 'L34' END,
+    CASE WHEN wt_lps=1 THEN 'tLPS' END)
 """
 
 
@@ -84,6 +101,23 @@ def calc_prebreak_v3(d) -> tuple[int, str]:
     elif g("sig_vol_10x"): s += 7;  r.append("V×10")
     elif g("sig_vol_5x"):  s += 4;  r.append("V×5")
     if g("sig_cci0r"):     s += 3;  r.append("CCI0R")
+    # Superchart-sync structural cluster — read from display-tag arrays
+    # (combo: PREUP P2/P3/P50/P89 · l: L34/FRI34/BL/BX↑ · vabs: CLM/BEST★ · wyck: tLPS)
+    combo = set(d.get("combo") or [])
+    lset  = set(d.get("l") or [])
+    vabs  = set(d.get("vabs") or [])
+    wyck  = set(d.get("wyck") or [])
+    if   "P3"  in combo: s += 4; r.append("P3")
+    elif "P2"  in combo: s += 3; r.append("P2")
+    elif "P89" in combo: s += 3; r.append("P89")
+    elif "P50" in combo: s += 2; r.append("P50")
+    if "BX↑"  in lset: s += 4; r.append("BX↑")
+    if "CLM"  in vabs: s += 4; r.append("CLM")
+    if "FRI34" in lset: s += 3; r.append("FRI34")
+    if "BEST★" in vabs: s += 3; r.append("BEST★")
+    if "BL"   in lset: s += 2; r.append("BL")
+    if "L34"  in lset: s += 2; r.append("L34")
+    if "tLPS" in wyck: s += 2; r.append("tLPS")
     return min(s, 50), "|".join(r)
 
 
