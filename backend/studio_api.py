@@ -754,6 +754,24 @@ def ultra_from_db(req: UltraDBScanRequest):
         raise HTTPException(500, detail=str(exc))
 
 
+@router.post("/ultra-preview")
+def ultra_preview(req: UltraDBScanRequest):
+    """Hybrid Preview scan — DB history + today's LIVE forming bar (Massive),
+    full signal suite recomputed. Falls back to the DB scan off-hours."""
+    try:
+        from studio.preview_scan import run_preview_scan
+        result = run_preview_scan(
+            universes    = req.universes,
+            min_price    = req.min_price,
+            min_volume   = req.min_volume,
+            age_lookback = req.age_lookback,
+        )
+        return _sanitize_for_json(result)
+    except Exception as exc:
+        log.exception("ultra_preview failed")
+        raise HTTPException(500, detail=str(exc))
+
+
 def _sanitize_for_json(obj):
     """Replace NaN / Inf floats with None recursively (FastAPI strict JSON)."""
     if isinstance(obj, float):

@@ -1585,8 +1585,21 @@ def compute_all_signals(df, ticker: str = "?", tf: str = "1d"):
 
 
 @app.get("/api/bar_signals/{ticker}")
-def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500"):
-    """Per-bar signal matrix for SuperChart view."""
+def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500",
+                    _df=None, _last_only=False):
+    """Per-bar signal matrix for SuperChart view.
+
+    `_df` (optional): a pre-built OHLCV DataFrame (UTC DatetimeIndex, cols
+    open/high/low/close/volume — same schema as fetch_ohlcv). When provided,
+    the Massive fetch is skipped and signals are computed on the given frame.
+    Used by the hybrid Preview scan (DB history + today's live forming bar).
+
+    `_last_only` (optional): when True, the vectorised engines still run over the
+    full series (so all rolling context is correct), but ONLY the LAST bar's
+    output dict is assembled. This skips the ~80k pandas row-lookups the per-bar
+    assembly loop does for every historical bar — ~5× faster — which makes the
+    universe-scale Preview scan viable. Returns a 1-element list.
+    """
     import pandas as pd
     import numpy as np
     from turbo_engine import _calc_turbo_score
@@ -1597,7 +1610,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         _pf_ok = False
 
     try:
-        df = fetch_ohlcv(ticker, interval=tf, bars=bars)
+        df = _df if _df is not None else fetch_ohlcv(ticker, interval=tf, bars=bars)
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
 
@@ -1825,7 +1838,15 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
 
     result = []
 
-    for i in range(len(df)):
+    # Preview scan only needs the latest bar; assembling the per-bar dict for
+    # every historical bar is the dominant cost (~80k pandas row-lookups/ticker).
+    # We still assemble a short TAIL (last 12 bars) so the loop-accumulated
+    # cross-bar state — _ultra_score_history (rolling_score_max_5d decay bonus),
+    # etc. — is correctly seeded for the final bar, matching the full computation.
+    _TAIL = 12
+    _loop_indices = (range(max(0, len(df) - _TAIL), len(df)) if (_last_only and len(df) > 0)
+                     else range(len(df)))
+    for i in _loop_indices:
         row = df.iloc[i]
         ts  = df.index[i]
         date_val = int(ts.timestamp()) if isIntraday else str(ts)[:10]

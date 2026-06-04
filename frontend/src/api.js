@@ -218,6 +218,10 @@ export const api = {
   // DB-backed scan — instant (~1-2 sec) read from enriched Studio DB
   ultraScanFromDB:  (universes = ['sp500', 'nasdaq'], opts = {}) =>
     post('/api/studio/ultra-from-db', { universes, ...opts }),
+  // Hybrid Preview scan — DB history + today's LIVE forming bar (Massive),
+  // full signal suite recomputed. Falls back to DB scan off-hours.
+  ultraPreview:     (universes = ['sp500', 'nasdaq'], opts = {}) =>
+    post('/api/studio/ultra-preview', { universes, ...opts }),
   // Stage 2 — enrich a chosen subset of tickers. POSTs JSON body.
   ultraScanEnrich: ({ universe = 'sp500', tf = '1d', nasdaq_batch = '',
                        tickers = [], direction = 'all',

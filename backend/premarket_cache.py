@@ -153,6 +153,48 @@ def _parse_snapshot(snap: dict) -> dict:
 
 # ── Public API ───────────────────────────────────────────────────────────────
 
+def get_today_bars(tickers: list[str]) -> dict[str, dict]:
+    """Return today's still-forming daily OHLCV bar per ticker, from the Massive
+    snapshot `day` object. Used by the hybrid Preview scan.
+
+    Returns {TICKER: {"open","high","low","close","volume"}} for tickers whose
+    today regular-session bar is populated. Empty dict if the regular session is
+    NOT open (pre/post-market / weekend) — the caller then falls back to the
+    plain DB scan. Not cached here (Preview is on-demand); fetched in 100-ticker
+    snapshot batches.
+    """
+    if not tickers or not _regular_session_open():
+        return {}
+
+    def _f(x):
+        try:
+            return float(x)
+        except (TypeError, ValueError):
+            return None
+
+    syms = [t.upper().strip() for t in tickers if t]
+    out: dict[str, dict] = {}
+    for i in range(0, len(syms), _BATCH_SIZE):
+        chunk = syms[i:i + _BATCH_SIZE]
+        raw = _fetch_batch(chunk)
+        for sym, item in raw.items():
+            day = item.get("day") or {}
+            o, h, l, c = _f(day.get("o")), _f(day.get("h")), _f(day.get("l")), _f(day.get("c"))
+            v = day.get("v")
+            # day.c populated only once the regular session has trades. Skip
+            # tickers with no live bar yet (no fabricated zero bars).
+            if not (c and c > 0):
+                continue
+            out[sym] = {
+                "open":   o if o else c,
+                "high":   h if h else c,
+                "low":    l if l else c,
+                "close":  c,
+                "volume": int(v) if v else 0,
+            }
+    return out
+
+
 def get_premarket(tickers: list[str]) -> dict[str, dict]:
     """Return pre-market data for the given tickers.
 

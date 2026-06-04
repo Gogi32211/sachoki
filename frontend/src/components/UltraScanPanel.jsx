@@ -1001,6 +1001,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [buildingFilter,  setBuildingFilter]  = useState(false)
   const [watchFilter,     setWatchFilter]     = useState(false)
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
+  const [previewing,  setPreviewing]  = useState(false)  // hybrid Preview scan in flight
+  const [previewInfo, setPreviewInfo] = useState(null)   // {session, note, liveBars} or null
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
   const [hoverPopup,  setHoverPopup]  = useState(null)   // { row, pos }
@@ -1101,6 +1103,38 @@ export default function UltraScanPanel({ onSelectTicker }) {
       setScanning(false)
     }
   }, [universe, localTf])
+
+  // Hybrid Preview scan — DB history + today's LIVE forming bar (Massive),
+  // full signal suite recomputed per ticker. Feeds the SAME grid state path as
+  // fetchFromDB so all columns/filters/sort work unchanged.
+  const runPreviewScan = useCallback(async () => {
+    const seq = ++fetchSeqRef.current
+    setPreviewing(true); setError(null); setPreviewInfo(null)
+    try {
+      const unis = universe === 'all'     ? ['sp500', 'nasdaq']
+                 : universe === 'sp500'   ? ['sp500']
+                 : universe === 'nasdaq'  ? ['nasdaq']
+                 : universe === 'all_us'  ? ['sp500', 'nasdaq', 'russell2k']
+                 : universe === 'split'   ? ['split']
+                 : ['sp500', 'nasdaq']
+      const d = await api.ultraPreview(unis)
+      if (seq !== fetchSeqRef.current) return
+      const results = d.results || []
+      setAllResults(results)
+      setLastScan(d.scanned_at || null)
+      setPreviewInfo({
+        session:  d.preview_session,
+        note:     d.preview_note || null,
+        liveBars: d.live_bar_count ?? null,
+        elapsed:  d.elapsed_seconds ?? null,
+      })
+      // Don't overwrite the DB cache with preview (today-overlaid) rows.
+    } catch (e) {
+      setError(e.message)
+    } finally {
+      setPreviewing(false)
+    }
+  }, [universe])
 
   // Fetch fresh results from server after a scan completes, then cache.
   // Uses fetchSeqRef to discard responses from stale (superseded) requests.
@@ -2049,6 +2083,30 @@ export default function UltraScanPanel({ onSelectTicker }) {
             ? <span className="animate-pulse">🧬 Scanning…</span>
             : '🧬 ULTRA Scan'}
         </button>
+
+        {/* Hybrid Preview scan — DB history + TODAY's live forming bar (Massive).
+            Recomputes the full signal suite so you can act on today's signals
+            before the close / premarket gap. */}
+        <button onClick={runPreviewScan} disabled={scanning || enriching || previewing}
+          title="Preview — DB history + TODAY's live forming bar from Massive (recomputes all signals). Use shortly before close to act before the premarket gap. ~10-20s for S&P500/NASDAQ. Falls back to DB scan when the market is closed."
+          className={`px-3 py-1 rounded text-xs font-semibold transition-colors
+            ${previewing ? 'bg-gray-700 text-md-on-surface-var cursor-not-allowed'
+                         : 'bg-emerald-600 hover:bg-emerald-500 text-white'}`}>
+          {previewing
+            ? <span className="animate-pulse">⚡ Preview…</span>
+            : '⚡ Preview'}
+        </button>
+        {previewInfo && (
+          <span className={`text-[11px] px-2 py-0.5 rounded border ${
+            previewInfo.session === 'open'
+              ? 'border-emerald-500/50 text-emerald-300 bg-emerald-900/20'
+              : 'border-amber-500/50 text-amber-300 bg-amber-900/20'}`}
+            title={previewInfo.note || ''}>
+            {previewInfo.session === 'open'
+              ? `⚡ live today · ${previewInfo.liveBars ?? '?'} bars${previewInfo.elapsed != null ? ` · ${previewInfo.elapsed}s` : ''}`
+              : '🕒 market closed — DB bars'}
+          </span>
+        )}
 
         {/* Stage 2: enrich the visible / selected subset
             (in DB mode this stage is unnecessary — DB already has full enrichment) */}
