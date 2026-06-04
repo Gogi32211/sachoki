@@ -342,6 +342,8 @@ def incremental_delta_refresh(
                 try:
                     from prebreak_v2 import apply_prebreak_v2
                     apply_prebreak_v2(universe)
+                    from prebreak_v3 import apply_prebreak_v3
+                    apply_prebreak_v3(universe)
                 except Exception:
                     log.exception("prebreak_v2 apply failed for %s", universe)
                 try:

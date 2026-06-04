@@ -51,6 +51,8 @@ _DB_TO_UI_COL_MAP = {
     # PreBreakout v2 (data-derived OOS-validated score)
     "prebreak_v2":       "prebreak_v2",
     "prebreak_v2_band":  "prebreak_v2_band",
+    "prebreak_v3":       "prebreak_v3",
+    "prebreak_v3_reasons": "prebreak_v3_reasons",
     # Profile
     "profile_score":     "profile_score",
     "profile_category":  "profile_category",

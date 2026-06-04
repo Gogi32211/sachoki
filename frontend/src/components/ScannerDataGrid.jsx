@@ -490,6 +490,8 @@ export default function ScannerDataGrid({
             <SortTh col="beta_score" cls="text-center min-w-[60px]" title="BETA Score — non-linear quality rank">BETA</SortTh>
             {/* V2 — PreBreakout v2 (data-derived, OOS-validated) */}
             <SortTh col="prebreak_v2" cls="text-center min-w-[52px]" title="PreBreakout v2 — data-derived, OOS-validated breakout-probability. BUY=sweet spot, HOT=overbought/lottery, WATCH=avoid">V2</SortTh>
+            {/* V3 — simple additive pre-breakout cluster (0..50, heuristic) */}
+            <SortTh col="prebreak_v3" cls="text-center min-w-[44px]" title="PreBreakout v3 — additive signal cluster 0..50 (FLY/ULT/ABS+BC/SVS/CONSO/PhaseD/WICK/LOAD/SQ). Hover a value for the reasons. Heuristic, not OOS-validated.">V3</SortTh>
             {/* RTB */}
             <SortTh col="rtb_total" cls="text-center min-w-[40px]">RTB</SortTh>
             {/* T/Z */}
@@ -648,6 +650,17 @@ export default function ScannerDataGrid({
                         </div>
                       )}
                     </div>
+                  ) : <span className="text-gray-700">—</span>}
+                </td>
+
+                {/* V3 — additive pre-breakout cluster (0..50) + reasons on hover */}
+                <td className="px-2 py-1 text-center"
+                  title={r.prebreak_v3 ? `PreBreakout v3 = ${r.prebreak_v3}/50 · ${r.prebreak_v3_reasons || ''}` : 'No v3 signals'}>
+                  {r.prebreak_v3 ? (
+                    <span className={`font-mono text-xs font-semibold ${
+                      r.prebreak_v3 >= 30 ? 'text-lime-300'
+                      : r.prebreak_v3 >= 18 ? 'text-yellow-300'
+                      : 'text-md-on-surface-var'}`}>{r.prebreak_v3}</span>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 

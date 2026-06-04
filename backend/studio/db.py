@@ -525,6 +525,7 @@ def ensure_schema() -> None:
         "aes_stage",              # human-readable stage label
         # PreBreakout v2 (data-derived OOS-validated score) — WATCH/BUY/HOT
         "prebreak_v2_band",
+        "prebreak_v3_reasons",
         # composite + volume bucket combined string (e.g. Z2L46NBO·VB)
         "composite_vol",
         # Enrichment metadata
@@ -547,6 +548,7 @@ def ensure_schema() -> None:
         "late_warning",            # turbo dropping recently
         # PreBreakout v2 (data-derived OOS-validated breakout-probability ×100)
         "prebreak_v2",
+        "prebreak_v3",
         # Wyckoff V2 Soft state machine (260529): SC→AR→ST→Spring→SOS/JAC→LPS
         "w2_sc", "w2_ar", "w2_st", "w2_spring", "w2_sos", "w2_jac", "w2_lps",
         "w2_evr", "w2_accum", "w2_break", "w2_state",
