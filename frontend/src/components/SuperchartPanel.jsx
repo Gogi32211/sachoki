@@ -180,11 +180,34 @@ const ROWS = [
       if (s === 'WVF')      return 'bg-violet-900 text-violet-300 font-semibold'
       if (s === 'W-PH')     return 'bg-teal-900 text-teal-200'
       if (s === 'PEN')      return 'bg-rose-900/50 text-rose-300'
+      // PREBREAK extra sub-signals (synced with ULTRA)
+      if (s === 'PP+RTV')   return 'bg-yellow-900/60 text-yellow-200 font-semibold'
+      if (s === 'FLY-C')    return 'bg-lime-900/60 text-lime-200 font-semibold'
+      if (s === 'FOLLOW')   return 'bg-green-900/60 text-green-200 font-semibold'
       // Swing classification
       if (s === 'HL')       return 'bg-emerald-900/60 text-emerald-300 font-semibold'
       if (s === 'LL')       return 'bg-sky-900/60 text-sky-300'
       if (s === 'HH')       return 'bg-lime-900/40 text-lime-200'
       if (s === 'LH')       return 'bg-red-900/60 text-red-300 font-semibold'
+      return 'bg-md-surface-high text-md-on-surface'
+    },
+  },
+  {
+    // 260529 Wyckoff V2 (accumulation cycle) + structure triggers — mirrors
+    // ULTRA's "Wyckoff cycle (260529)" chips. Stages: SC→AR→ST→SPR→SOS/JAC→LPS,
+    // EVR absorption, plus valid-TR triggers (tSPR/tSOS/tLPS/tEVR).
+    key: 'wyck',
+    label: 'WYCK',
+    getSigs: (b) => b.wyck ?? [],
+    chipCls: (s) => {
+      if (s === 'SPR' || s === 'tSPR')   return 'bg-teal-800/80 text-teal-100 ring-1 ring-teal-400 font-bold'
+      if (s === 'SOS' || s === 'tSOS')   return 'bg-green-800/80 text-green-100 ring-1 ring-green-400 font-bold'
+      if (s === 'JAC')                   return 'bg-lime-800 text-lime-100 font-bold'
+      if (s === 'LPS' || s === 'tLPS')   return 'bg-blue-900 text-blue-200 font-semibold'
+      if (s === 'EVR' || s === 'tEVR')   return 'bg-fuchsia-900 text-fuchsia-300'
+      if (s === 'SC')                    return 'bg-red-900 text-red-300'
+      if (s === 'AR')                    return 'bg-orange-900 text-orange-300'
+      if (s === 'ST')                    return 'bg-purple-900 text-purple-300'
       return 'bg-md-surface-high text-md-on-surface'
     },
   },

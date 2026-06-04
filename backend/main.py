@@ -1634,6 +1634,31 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             return [default] * len(df)
         return _wy523_df[col].tolist()
 
+    # ── 260529 Wyckoff V2 (w2) + structure triggers (wt) — Superchart WYCK row,
+    # syncs with ULTRA's "Wyckoff cycle" chips. Live-computed per bar. ──────────
+    try:
+        from wyckoff_v2_engine import compute_wyckoff_v2
+        _w2_df = compute_wyckoff_v2(df.copy())
+    except Exception:
+        _w2_df = None
+    try:
+        from wyckoff_trig_engine import compute_wyckoff_trig
+        _wt_df = compute_wyckoff_trig(df.copy())
+    except Exception:
+        _wt_df = None
+
+    def _eng_arr(_d, col):
+        return _d[col].tolist() if (_d is not None and col in _d.columns) else [0] * len(df)
+    _w2_sc, _w2_ar, _w2_st = _eng_arr(_w2_df, "w2_sc"), _eng_arr(_w2_df, "w2_ar"), _eng_arr(_w2_df, "w2_st")
+    _w2_spr, _w2_sos2, _w2_jac = _eng_arr(_w2_df, "w2_spring"), _eng_arr(_w2_df, "w2_sos"), _eng_arr(_w2_df, "w2_jac")
+    _w2_lps, _w2_evr = _eng_arr(_w2_df, "w2_lps"), _eng_arr(_w2_df, "w2_evr")
+    _wt_spr, _wt_sos, _wt_lps, _wt_evr = (_eng_arr(_wt_df, "wt_spring"), _eng_arr(_wt_df, "wt_sos"),
+                                          _eng_arr(_wt_df, "wt_lps"), _eng_arr(_wt_df, "wt_evr"))
+    # PREBREAK extra sub-signals (already computed in _wy523_df, just not emitted)
+    _pb_pp_rtv_arr      = _wy523_arr("pb_pp_rtv", False)
+    _pb_fly_cd_c_arr    = _wy523_arr("pb_fly_cd_c", False)
+    _pb_follow_arr      = _wy523_arr("pb_follow_confirm", False)
+
     _ad_fresh_arr        = _wy523_arr("ad_fresh", False)
     _ad_cluster_arr      = _wy523_arr("ad_cluster", False)
     _wyc_phase_arr       = _wy523_arr("wyc_phase", "")
@@ -2170,8 +2195,26 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         if _pb_wvf_confirm_arr[i]: wy523_list.append("WVF")
         if _pb_stop_cause_arr[i]:  wy523_list.append("W-PH")
         if _pb_macro_pen_arr[i]:   wy523_list.append("PEN")
+        if _pb_pp_rtv_arr[i]:      wy523_list.append("PP+RTV")
+        if _pb_fly_cd_c_arr[i]:    wy523_list.append("FLY-C")
+        if _pb_follow_arr[i]:      wy523_list.append("FOLLOW")
         _st = _swing_type_arr[i] or ""
         if _st: wy523_list.append(_st)    # HL / LL / HH / LH
+
+        # 260529 Wyckoff V2 (w2) + structure triggers (wt) — WYCK row
+        wyck_list: list = []
+        if _w2_sc[i]:   wyck_list.append("SC")
+        if _w2_ar[i]:   wyck_list.append("AR")
+        if _w2_st[i]:   wyck_list.append("ST")
+        if _w2_spr[i]:  wyck_list.append("SPR")
+        if _w2_sos2[i]: wyck_list.append("SOS")
+        if _w2_jac[i]:  wyck_list.append("JAC")
+        if _w2_lps[i]:  wyck_list.append("LPS")
+        if _w2_evr[i]:  wyck_list.append("EVR")
+        if _wt_spr[i]:  wyck_list.append("tSPR")
+        if _wt_sos[i]:  wyck_list.append("tSOS")
+        if _wt_lps[i]:  wyck_list.append("tLPS")
+        if _wt_evr[i]:  wyck_list.append("tEVR")
 
         # Chart-format L code (single value matching chart tooltip exactly).
         # Logic mirrors signal_logic.compute_tz_wlnbb_for_bar(): ascending concat
@@ -2230,6 +2273,7 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "gog_tier":       _gog_tier_val,
             "context":        context_list,
             "wy523":          wy523_list,
+            "wyck":           wyck_list,   # 260529 Wyckoff V2 (SC/AR/ST/SPR/SOS/JAC/LPS/EVR + tSPR/tSOS/tLPS/tEVR)
             # ── 260523 individual fields (sync: ULTRA screener = Superchart = CSV) ──
             "ad_fresh":         bool(_ad_fresh_arr[i]),
             "ad_cluster":       bool(_ad_cluster_arr[i]),
