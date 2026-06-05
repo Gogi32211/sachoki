@@ -190,7 +190,8 @@ def ensure_schema() -> None:
         # Migrations for pre-existing journal.duckdb files (idempotent).
         for col, typ in [("entry_mode", "VARCHAR"), ("decided_session", "VARCHAR"),
                          ("decided_at", "TIMESTAMP"), ("atr_at_decision", "DOUBLE"),
-                         ("filled_date", "DATE")]:
+                         ("filled_date", "DATE"), ("sector", "VARCHAR"),
+                         ("mcap_bucket", "VARCHAR")]:
             conn.execute(f"ALTER TABLE journal_position ADD COLUMN IF NOT EXISTS {col} {typ}")
         # Seed account once.
         row = conn.execute("SELECT count(*) FROM journal_state").fetchone()[0]

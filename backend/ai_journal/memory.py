@@ -35,14 +35,24 @@ def fingerprint(row: dict) -> str:
     """Canonical key from a candidate/decision row (as-of the decision bar)."""
     v3 = float(row.get("prebreak_v3") or 0)
     rsi = float(row.get("rsi") or row.get("rsi_14") or 0)
-    px = float(row.get("last_price") or row.get("close") or 0)
     tz = row.get("tz_sig") or row.get("t_sig") or row.get("z_sig") or ""
     ph = row.get("rtb_phase") or ""
     vb = row.get("vol_bucket") or ""
+    mc = row.get("mcap_bucket") or "?"
     v3b = _bucket(v3, [10, 20, 30, 40, 999], ["0-9", "10-19", "20-29", "30-39", "40-50"])
     rb  = _bucket(rsi, [30, 45, 55, 70, 999], ["<30", "30-45", "45-55", "55-70", ">70"])
-    pb  = _bucket(px, [2, 10, 50, 1e9], ["<2", "2-10", "10-50", ">50"])
-    return f"V3:{v3b}|tz:{tz}|ph:{ph}|vol:{vb}|rsi:{rb}|px:{pb}"
+    return f"V3:{v3b}|tz:{tz}|ph:{ph}|vol:{vb}|rsi:{rb}|mc:{mc}"
+
+
+def load_ticker_meta() -> dict:
+    """ticker -> {sector, mcap_bucket, market_cap} from journal.duckdb.ticker_meta."""
+    j = get_journal_conn(read_only=True)
+    try:
+        rows = j.execute("SELECT ticker, sector, mcap_bucket, market_cap FROM ticker_meta").fetchall()
+    finally:
+        j.close()
+    return {r[0]: {"sector": r[1] or "", "mcap_bucket": r[2] or "unknown",
+                   "market_cap": r[3]} for r in rows}
 
 
 def load_tier1_index(as_of: str) -> dict:

@@ -31,6 +31,12 @@ GROUND TRUTH (measured on 8M+ historical bars, do not override with intuition):
 - They have ~NO directional 5-day edge (median forward return ≈ 0, big-move lift ≈ 1x).
 - Therefore profit comes from ASYMMETRIC EXITS riding HH continuation, not from a
   raw directional bet. Size up only when the HH edge + conviction are genuinely strong.
+- MARKET CAP matters more than sector: mega/large caps have the best structural
+  continuation (HH ~66-68%, positive drift); MICRO caps are the worst (HH 59.5%,
+  NEGATIVE median drift -1.16%) — their only payoff is a rare unpredictable
+  lottery pop. The code already blocks micro/unknown; among the rest, prefer
+  larger caps and treat small caps with more caution. Sector barely matters
+  (the signal works ~+15pp in every sector), so don't pick on sector.
 
 YOUR JOB: for each candidate, decide BUY / WATCH / SKIP and give conviction 0-100
 with a one-sentence thesis grounded in the provided Tier-1 evidence (each signal's
@@ -73,10 +79,18 @@ def load_candidates(as_of: str, min_v3: int = rails.V3_MIN, limit: int = 200) ->
         """, [as_of, min_v3, limit]).fetchdf()
     finally:
         a.close()
-    out = []
+    metamap = mem.load_ticker_meta()
+    out, seen = [], set()
     for _, r in rows.iterrows():
         d = r.to_dict()
+        if d["ticker"] in seen:      # a ticker can sit in >1 universe — keep highest V3 (rows are V3-desc)
+            continue
+        seen.add(d["ticker"])
         d["tz_sig"] = d.get("t_sig") or d.get("z_sig") or ""
+        m = metamap.get(d["ticker"], {})
+        d["sector"] = m.get("sector") or ""
+        d["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        d["market_cap"] = m.get("market_cap")
         out.append(d)
     return out
 
@@ -96,7 +110,8 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     try:
         capital = float(j.execute("SELECT capital FROM journal_state WHERE id=1").fetchone()[0])
         open_pos = [dict(zip(["id", "ticker", "sector"], r)) for r in
-                    j.execute("SELECT id, ticker, NULL FROM journal_position WHERE status='OPEN'").fetchall()]
+                    j.execute("SELECT id, ticker, sector FROM journal_position "
+                              "WHERE status IN ('OPEN','PENDING_OPEN')").fetchall()]
     finally:
         j.close()
 
@@ -115,6 +130,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             "ticker": c["ticker"], "price": round(float(c["last_price"]), 2),
             "v3": int(c["prebreak_v3"] or 0), "reasons": c.get("prebreak_v3_reasons") or "",
             "tz": c.get("tz_sig"), "phase": c.get("rtb_phase"), "rsi": round(float(c["rsi"] or 0), 0),
+            "sector": c.get("sector") or "?", "mcap": c.get("mcap_bucket") or "unknown",
             "fingerprint": fp, "tier1_evidence": ev[:6],
             "tier2_own": mem.tier2_for(fp, as_of),
         })
@@ -156,7 +172,8 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             ev = mem.candidate_evidence(c, t1)
             best_hh = max([e["hh_edge_pp"] for e in ev], default=0.0)
             size_pct = rails.position_size(d["conviction"], best_hh, capital)
-            ok, why = rails.can_open(tk, c.get("sector"), open_pos, bl, fp, size_pct, capital)
+            ok, why = rails.can_open(tk, c.get("sector"), open_pos, bl, fp, size_pct,
+                                     capital, mcap_bucket=c.get("mcap_bucket"))
             if not ok:
                 refused.append({"ticker": tk, "reason": why})
                 continue
@@ -177,11 +194,12 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
                 (id, ticker, universe, decision_date, opened_at, action, conviction,
                  fingerprint, entry_px, size_pct, shares, stop_px, target_px,
                  horizon_days, status, entry_mode, decided_session, decided_at,
-                 atr_at_decision, verdict, thesis, evidence_json)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,current_timestamp,?,'PENDING',?,?)""",
+                 atr_at_decision, sector, mcap_bucket, verdict, thesis, evidence_json)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,current_timestamp,?,?,?,'PENDING',?,?)""",
                 [pid, tk, c.get("universe"), as_of, opened_at, "BUY", d["conviction"], fp,
                  entry, size_pct, shares, stop, target, rails.HORIZON_DAYS, status, mode,
-                 sess_state, atr, d["thesis"], json.dumps(ev)])
+                 sess_state, atr, c.get("sector"), c.get("mcap_bucket"),
+                 d["thesis"], json.dumps(ev)])
             open_pos.append({"id": pid, "ticker": tk, "sector": c.get("sector")})
         jw.execute("""INSERT INTO journal_session_log
                       (ts, candidates_n, decisions_json, capital_before, capital_after, notes)
