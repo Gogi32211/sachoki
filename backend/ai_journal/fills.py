@@ -20,6 +20,26 @@ from . import rails
 log = logging.getLogger(__name__)
 
 
+def _live_open(ticker: str, after: str):
+    """Today's OPEN from Massive (the forming daily bar) — used at the real
+    session open, before the DB has today's bar (DB only refreshes after close).
+    Returns (today_date, open) for a session strictly AFTER `after`, else None."""
+    try:
+        from data import fetch_ohlcv
+        df = fetch_ohlcv(ticker, interval="1d", bars=3)
+        if df is None or not len(df):
+            return None
+        ts = df.index[-1]
+        d = str(ts.date() if hasattr(ts, "date") else ts)[:10]
+        if d <= str(after)[:10]:
+            return None                       # no new session bar yet
+        o = float(df["open"].iloc[-1])
+        return (d, o) if o and o > 0 else None
+    except Exception as e:
+        log.warning("live_open %s failed: %s", ticker, e)
+        return None
+
+
 def fill_pending_open() -> dict:
     t0 = time.time()
     j = get_journal_conn(read_only=False)
@@ -38,10 +58,14 @@ def fill_pending_open() -> dict:
                    ORDER BY date ASC LIMIT 1""",
                 [ticker, universe or "sp500", str(ddate)[:10]],
             ).fetchone()
-            if not nxt or nxt[1] is None:
-                still_pending += 1     # next session not in the DB yet → stay pending
-                continue
-            fill_date, open_px = nxt[0], float(nxt[1])
+            if nxt and nxt[1] is not None:
+                fill_date, open_px = str(nxt[0])[:10], float(nxt[1])   # DB has the next bar (post-refresh)
+            else:
+                live = _live_open(ticker, str(ddate)[:10])             # else fill at the LIVE open (market just opened)
+                if not live:
+                    still_pending += 1     # no next session yet (market still closed) → stay pending
+                    continue
+                fill_date, open_px = live
             stop, target = rails.stop_target(open_px, float(atr or 0))
             shares = round(capital * float(size_pct or 0) / open_px, 4) if open_px else 0
             j.execute(

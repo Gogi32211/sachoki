@@ -153,13 +153,15 @@ async def lifespan(app: FastAPI):
 
         scheduler.add_job(_journal_session, CronTrigger(hour=15, minute=30, day_of_week="mon-fri"),
                           id="journal_session", replace_existing=True, max_instances=1, coalesce=True)
-        scheduler.add_job(_journal_open_routine, CronTrigger(hour=9, minute=31, day_of_week="mon-fri"),
+        # 9:50 (not 9:31): the Massive feed is ~15 min delayed, so today's opening
+        # price isn't available right at the bell — fill once it is.
+        scheduler.add_job(_journal_open_routine, CronTrigger(hour=9, minute=50, day_of_week="mon-fri"),
                           id="journal_open_routine", replace_existing=True, max_instances=1, coalesce=True)
 
         scheduler.start()
         log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
                  "studio_daily_refresh @ 17:00 ET Mon-Fri; "
-                 "journal_session @ 15:30; journal_open_routine @ 9:31 ET Mon-Fri)")
+                 "journal_session @ 15:30; journal_open_routine @ 9:50 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
