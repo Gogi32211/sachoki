@@ -30,6 +30,8 @@ const PortfolioPanel        = lazy(() => import('./components/PortfolioPanel'))
 const ChartObsPanel         = lazy(() => import('./components/ChartObsPanel'))
 const UltraPumpResearchPanel= lazy(() => import('./components/UltraPumpResearchPanel'))
 const StudioPanel           = lazy(() => import('./components/StudioPanel'))
+const QlibPanel             = lazy(() => import('./components/QlibPanel'))
+const AiJournalPanel        = lazy(() => import('./components/AiJournalPanel'))
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -92,7 +94,9 @@ const TAB_GROUPS = [
   {
     label: 'Analytics',
     tabs: [
-      { id: 'studio', label: '📊 Studio' },
+      { id: 'studio',    label: '📊 Studio' },
+      { id: 'qlib',      label: '🧪 QLIB' },
+      { id: 'aijournal', label: '🤖 AI Journal' },
     ],
   },
   {
@@ -110,7 +114,7 @@ const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -329,6 +333,8 @@ export default function App() {
           {activeTab === 'chartobs'       && <ChartObsPanel onSelectTicker={handleSelect} />}
           {activeTab === 'sigreplay'      && <UltraPumpResearchPanel />}
           {activeTab === 'studio'         && <StudioPanel />}
+          {activeTab === 'qlib'           && <QlibPanel />}
+          {activeTab === 'aijournal'      && <AiJournalPanel />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
         </div>

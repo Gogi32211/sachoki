@@ -164,6 +164,11 @@ if _STUDIO_AVAILABLE:
     app.include_router(studio_router)
 if _QLIB_AVAILABLE:
     app.include_router(qlib_router)
+try:
+    from ai_journal.api import router as ai_journal_router
+    app.include_router(ai_journal_router)
+except Exception as _aij_exc:  # never block app startup on the journal
+    log.warning("ai_journal router not loaded: %s", _aij_exc)
 
 
 def _normalise_date(idx) -> list[str]:
