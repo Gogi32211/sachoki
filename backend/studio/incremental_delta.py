@@ -225,20 +225,56 @@ def incremental_delta_refresh(
         errors: list[dict] = []
         affected = set()
 
-        for i, ticker in enumerate(tickers):
-            last_date = ticker_last.get(ticker, "1900-01-01")[:10]
-            if ticker in _bar_cache:
-                bars = _bar_cache[ticker]          # reuse — guarantees identical bars across universes
-            else:
-                try:
-                    bars = api_bar_signals(ticker, tf="1d", bars=warmup_bars,
-                                           universe=universe)
-                except Exception as e:
-                    errors.append({"ticker": ticker, "stage": "fetch", "error": str(e)})
-                    bars = []
-                _bar_cache[ticker] = bars
+        # ── Parallel fetch pass (network-bound → threads scale near-linearly) ──
+        # api_bar_signals' Massive HTTP fetch dominates wall-time; the GIL is
+        # released during the request, so a thread pool parallelises the waits.
+        # _last_only assembles only the last ~12 bars' dicts (≈8× less CPU) — we
+        # keep only bars newer than the DB tail anyway. Full history is still
+        # fetched (signals need the warm-up) but the per-bar matrix is skipped.
+        # Big gaps / unseen tickers fall back to full assembly so no bar slips by.
+        def _last_only_ok(tk: str) -> bool:
+            if refetch_from is not None:
+                return False
+            ld = ticker_last.get(tk, "1900-01-01")[:10]
+            if ld <= "1901-01-01":
+                return False
+            try:
+                return (_date.today() - _date.fromisoformat(ld)).days <= 10
+            except Exception:
+                return False
 
-            for b in bars:
+        to_fetch = [t for t in tickers if t not in _bar_cache]
+        if to_fetch:
+            from concurrent.futures import ThreadPoolExecutor, as_completed
+            workers = max(4, min(12, (os.cpu_count() or 4) + 6))
+
+            def _fetch_one(tk: str):
+                try:
+                    return tk, api_bar_signals(tk, tf="1d", bars=warmup_bars,
+                                               universe=universe,
+                                               _last_only=_last_only_ok(tk)), None
+                except Exception as e:
+                    return tk, [], str(e)
+
+            done = 0
+            with ThreadPoolExecutor(max_workers=workers) as ex:
+                futs = [ex.submit(_fetch_one, t) for t in to_fetch]
+                for fut in as_completed(futs):
+                    tk, bars, err = fut.result()
+                    _bar_cache[tk] = bars
+                    if err:
+                        errors.append({"ticker": tk, "stage": "fetch", "error": err})
+                    done += 1
+                    if done % 50 == 0 or done == len(to_fetch):
+                        _write_progress(f"fetching {universe}", done, len(to_fetch), started,
+                                        extra={"current_universe": universe,
+                                               "new_rows": len(new_rows),
+                                               "errors": len(errors)})
+
+        # ── Build rows (cheap, serial) from the cached bars ───────────────────
+        for ticker in tickers:
+            last_date = ticker_last.get(ticker, "1900-01-01")[:10]
+            for b in _bar_cache.get(ticker, []):
                 bdate = str(b.get("date", ""))[:10]
                 if not bdate or bdate > today_str:
                     continue
@@ -255,13 +291,6 @@ def incremental_delta_refresh(
                     affected.add(ticker)
                 except Exception as e:
                     errors.append({"ticker": ticker, "stage": "row", "error": str(e)})
-
-            if (i + 1) % 25 == 0 or (i + 1) == total:
-                _write_progress(f"fetching {universe}", i + 1, total, started,
-                                extra={"current_universe": universe,
-                                       "new_rows": len(new_rows),
-                                       "affected_tickers": len(affected),
-                                       "errors": len(errors)})
 
         # ── INSERT ────────────────────────────────────────────────────────────
         inserted = 0
