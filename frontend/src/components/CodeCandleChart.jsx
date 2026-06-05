@@ -215,11 +215,10 @@ export default function CodeCandleChart({
         const time = fmtDate(r.date)
         const tz = r.t_sig || r.z_sig
         const suffix = r.composite_full_suffix || r.full_suffix || ''
-        const wyc = r.wyc_stage ? `❖${r.wyc_stage}` : (r.wt_stage || '')
-        if (!(tz || r.l_sig || suffix || wyc)) return null
+        if (!(tz || r.l_sig || suffix)) return null
         const lines = [
           tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),
-          suffix, r.bar_body_wick || '', r.bar_gap_range || '', r.bar_line5 || '', wyc,
+          suffix, r.bar_body_wick || '', r.bar_gap_range || '', r.bar_line5 || '',
         ].filter(Boolean)
         return { time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines, vol: r.vol_bucket || '' }
       }
