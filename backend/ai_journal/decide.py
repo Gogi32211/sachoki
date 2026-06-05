@@ -74,14 +74,17 @@ _SCHEMA = {
 def load_candidates(as_of: str, min_v3: int = rails.V3_MIN, limit: int = 200) -> list[dict]:
     a = get_analytics_conn()
     try:
+        # Rank by V4 (P&L-weighted, validated) but accept any bar where V4 >= 8.
+        # V3 is kept in the row for legacy display/comparison; V4 drives the rank.
         rows = a.execute("""
             SELECT ticker, universe, close AS last_price, atr_14, rsi_14 AS rsi,
                    vol_bucket, rtb_phase, t_sig, z_sig,
-                   prebreak_v3, prebreak_v3_reasons, sector
+                   prebreak_v3, prebreak_v3_reasons,
+                   prebreak_v4, prebreak_v4_reasons, sector
             FROM bars
-            WHERE date = ? AND prebreak_v3 >= ?
-            ORDER BY prebreak_v3 DESC LIMIT ?
-        """, [as_of, min_v3, limit]).fetchdf()
+            WHERE date = ? AND prebreak_v4 >= 8
+            ORDER BY prebreak_v4 DESC, prebreak_v3 DESC LIMIT ?
+        """, [as_of, limit]).fetchdf()
     finally:
         a.close()
     metamap = mem.load_ticker_meta()
@@ -159,6 +162,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
 
         prompt_cands.append({
             "ticker": c["ticker"], "price": round(float(c["last_price"]), 2),
+            "v4": int(c.get("prebreak_v4") or 0), "v4_reasons": c.get("prebreak_v4_reasons") or "",
             "v3": int(c["prebreak_v3"] or 0), "reasons": c.get("prebreak_v3_reasons") or "",
             "tz": c.get("tz_sig"), "phase": c.get("rtb_phase"), "rsi": round(float(c["rsi"] or 0), 0),
             "sector": c.get("sector") or "?", "mcap": c.get("mcap_bucket") or "unknown",
