@@ -181,6 +181,44 @@ CREATE TABLE IF NOT EXISTS ticker_meta (
     updated_at   TIMESTAMP
 );
 
+-- ── Combo catalog — walk-forward validated multi-predicate setups ──────────
+CREATE TABLE IF NOT EXISTS combo_catalog (
+    combo_id        VARCHAR PRIMARY KEY,    -- stable hash of predicate set
+    predicates      VARCHAR,                -- comma-separated predicate names
+    size            INTEGER,                -- 1 / 2 / 3 (singles/pairs/triples)
+    -- TRAIN (in-sample edge discovery)
+    n_train         BIGINT,
+    train_hh5       DOUBLE,                 -- P(next_pivot_is_hh_5)
+    train_big5      DOUBLE,                 -- P(fwd_5d >= 5)
+    train_fwd5_med  DOUBLE,
+    train_win5      DOUBLE,
+    base_hh5_train  DOUBLE,
+    train_hh_edge   DOUBLE,                 -- (train_hh5 - base) in pp
+    p_value         DOUBLE,                 -- binomial vs baseline (HH5)
+    bonferroni_p    DOUBLE,                 -- p_value * K (# combos tested)
+    -- OOS (out-of-sample confirmation)
+    n_oos           BIGINT,
+    oos_hh5         DOUBLE,
+    oos_big5        DOUBLE,
+    oos_fwd5_med    DOUBLE,
+    base_hh5_oos    DOUBLE,
+    oos_hh_edge     DOUBLE,
+    -- decision
+    status          VARCHAR,                -- candidate / passed / rejected
+    pass_reason     VARCHAR,
+    -- best exits (filled in Phase 2)
+    best_stop_atr   DOUBLE,
+    best_target_atr DOUBLE,
+    best_hold_days  INTEGER,
+    realized_win    DOUBLE,                 -- realized win-rate with best exits, OOS
+    realized_avg    DOUBLE,                 -- realized avg pnl% per trade, OOS
+    -- metadata
+    train_period    VARCHAR,
+    oos_period      VARCHAR,
+    created_at      TIMESTAMP,
+    revalidated_at  TIMESTAMP
+);
+
 -- ── Insider transactions (SEC EDGAR Form 4) ─────────────────────────────────
 CREATE TABLE IF NOT EXISTS insider_tx (
     accession   VARCHAR,

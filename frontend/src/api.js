@@ -357,4 +357,7 @@ export const api = {
   qlibTrain:   (body)               => post('/api/qlib/train', body),
   qlibSearch:  (body)               => post('/api/qlib/search', body),
   qlibJob:     (jobId)              => get(`/api/qlib/job/${jobId}`),
+  qlibComboDiscover:      (body)    => post('/api/qlib/combo/discover', body || {}),
+  qlibComboOptimizeExits: (limit=30) => post(`/api/qlib/combo/optimize-exits?limit=${limit}`, {}),
+  qlibComboCatalog:       (status)  => get(`/api/qlib/combo/catalog${status?`?status=${status}`:''}`),
 }

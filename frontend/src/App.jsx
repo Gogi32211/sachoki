@@ -32,6 +32,7 @@ const UltraPumpResearchPanel= lazy(() => import('./components/UltraPumpResearchP
 const StudioPanel           = lazy(() => import('./components/StudioPanel'))
 const QlibPanel             = lazy(() => import('./components/QlibPanel'))
 const AiJournalPanel        = lazy(() => import('./components/AiJournalPanel'))
+const ComboLabPanel         = lazy(() => import('./components/ComboLabPanel'))
 const IndustryPulsePanel    = lazy(() => import('./components/IndustryPulsePanel'))
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
@@ -98,6 +99,7 @@ const TAB_GROUPS = [
     tabs: [
       { id: 'studio',    label: '📊 Studio' },
       { id: 'qlib',      label: '🧪 QLIB' },
+      { id: 'combolab',  label: '🧬 Combo Lab' },
       { id: 'aijournal', label: '🤖 AI Journal' },
     ],
   },
@@ -116,7 +118,7 @@ const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -337,6 +339,7 @@ export default function App() {
           {activeTab === 'studio'         && <StudioPanel />}
           {activeTab === 'qlib'           && <QlibPanel />}
           {activeTab === 'aijournal'      && <AiJournalPanel />}
+          {activeTab === 'combolab'       && <ComboLabPanel />}
           {activeTab === 'pulse'          && <IndustryPulsePanel />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
