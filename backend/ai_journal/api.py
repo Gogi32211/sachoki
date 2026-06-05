@@ -200,6 +200,53 @@ def regime():
     return compute_regime()
 
 
+def _live_prices(tickers: list[str]) -> dict:
+    """Current price per ticker from the Massive snapshot (fresh, no 15-min cache):
+    day.c (regular session) → min.c (last trade) → prevDay.c. + today's change%."""
+    out = {}
+    if not tickers:
+        return out
+    try:
+        from premarket_cache import _fetch_batch
+        for i in range(0, len(tickers), 100):
+            raw = _fetch_batch(tickers[i:i + 100]) or {}
+            for tk, it in raw.items():
+                day = it.get("day") or {}; mn = it.get("min") or {}; prev = it.get("prevDay") or {}
+                def _f(x):
+                    try: return float(x)
+                    except (TypeError, ValueError): return 0.0
+                px = _f(day.get("c")) or _f(mn.get("c")) or _f(prev.get("c"))
+                if px > 0:
+                    out[tk.upper()] = {"price": round(px, 4),
+                                       "chg_pct": it.get("todaysChangePerc")}
+    except Exception as e:
+        log.warning("live_prices failed: %s", e)
+    return out
+
+
+@router.get("/live")
+def live():
+    """Live price + unrealized P&L for all open/pending position tickers."""
+    j = get_journal_conn(read_only=True)
+    try:
+        rows = _rows(j, """SELECT ticker, entry_px, shares, status FROM journal_position
+                           WHERE status IN ('OPEN','PENDING_OPEN')""")
+    finally:
+        j.close()
+    prices = _live_prices(sorted({r["ticker"] for r in rows}))
+    out = {}
+    for r in rows:
+        p = prices.get(r["ticker"])
+        if not p:
+            continue
+        e = {"price": p["price"], "chg_pct": p["chg_pct"]}
+        if r["entry_px"]:
+            e["upnl_pct"] = round((p["price"] - r["entry_px"]) / r["entry_px"] * 100, 2)
+            e["upnl"] = round((p["price"] - r["entry_px"]) * (r["shares"] or 0), 2)
+        out[r["ticker"]] = e
+    return {"prices": out}
+
+
 @router.get("/pulse")
 def pulse():
     """Industry Pulse: regime + sector heat + movers + market-cap (market context)."""

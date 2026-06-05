@@ -16,6 +16,7 @@ export default function AiJournalPanel() {
   const [uni, setUni] = useState(null)
   const [sub, setSub] = useState('positions')
   const [drawerTk, setDrawerTk] = useState(null)
+  const [live, setLive] = useState({})
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
   const [lastSession, setLastSession] = useState(null)
@@ -28,6 +29,13 @@ export default function AiJournalPanel() {
   useEffect(() => {
     if (sub === 'universe' && !uni) jget('/api/journal/universe').then(setUni).catch(e => setErr(String(e)))
   }, [sub, uni])
+  // live prices for open/pending positions — refresh every 30s
+  useEffect(() => {
+    const pull = () => jget('/api/journal/live').then(d => setLive(d.prices || {})).catch(() => {})
+    pull()
+    const id = setInterval(pull, 30000)
+    return () => clearInterval(id)
+  }, [])
 
   const runSession = async () => {
     setBusy('session'); setErr(null)
@@ -66,6 +74,13 @@ export default function AiJournalPanel() {
         <Kpi label="Closed" v={stats.closed ?? 0} />
         <Kpi label="Win rate" v={stats.win_rate == null ? '—' : `${stats.win_rate.toFixed(0)}%`} />
         <Kpi label="Avg ret" v={stats.avg_ret_pct == null ? '—' : fmtPct(stats.avg_ret_pct)} />
+        {(() => {
+          const op = (ov?.open_positions || [])
+          const tot = op.reduce((s, p) => s + (live[p.ticker]?.upnl ?? 0), 0)
+          const has = op.some(p => live[p.ticker]?.upnl != null)
+          return <div><div className="text-xs text-md-on-surface-var">Open P&L (live)</div>
+            <div className={`text-lg font-bold font-mono ${tot>=0?'text-emerald-400':'text-rose-400'}`}>{has ? `${tot>=0?'+':''}$${Math.abs(tot).toFixed(0)}` : '—'}</div></div>
+        })()}
         {ov?.regime && <div title={`breadth ${ov.regime.score} · RSI>50 ${ov.regime.breadth?.pct_rsi_gt50}% · phaseD ${ov.regime.breadth?.pct_phase_D}%`}>
           <div className="text-xs text-md-on-surface-var">Regime</div>
           <div className={`text-lg font-bold ${ov.regime.label==='RISK_ON'?'text-emerald-400':ov.regime.label==='RISK_OFF'?'text-rose-400':'text-yellow-400'}`}>
@@ -99,7 +114,7 @@ export default function AiJournalPanel() {
         ))}
       </div>
 
-      {sub === 'positions' && <Positions ov={ov} onTicker={setDrawerTk} />}
+      {sub === 'positions' && <Positions ov={ov} onTicker={setDrawerTk} live={live} />}
       {sub === 'knowledge' && <Knowledge kb={kb} />}
       {sub === 'universe'  && <Universe uni={uni} />}
       {sub === 'lessons'   && <Lessons ov={ov} />}
@@ -121,7 +136,7 @@ function Kpi({ label, v }) {
 function Th({ children, r }) { return <th className={`px-2 py-1 font-semibold text-md-on-surface-var ${r?'text-right':'text-left'}`}>{children}</th> }
 function Td({ children, r, cls='' }) { return <td className={`px-2 py-1 font-mono ${r?'text-right':'text-left'} ${cls}`}>{children}</td> }
 
-function Positions({ ov, onTicker }) {
+function Positions({ ov, onTicker, live = {} }) {
   const open = ov?.open_positions || [], closed = ov?.closed_positions || []
   const pending = ov?.pending_positions || []
   return (
@@ -142,12 +157,16 @@ function Positions({ ov, onTicker }) {
         <div className="text-sm font-semibold mb-1">Open ({open.length})</div>
         {open.length === 0 ? <Empty>Нет открытых позиций — нажми «Run session».</Empty> :
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-          <Th>Ticker</Th><Th>Cap</Th><Th>Sector</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
-        <tbody>{open.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Tk t={p.ticker} onTicker={onTicker} cls="text-emerald-300" /><Cap b={p.mcap_bucket} /><Td className="text-md-on-surface-var">{p.sector||'—'}</Td><Td r>{p.conviction}</Td>
-          <Td r>${p.entry_px?.toFixed(2)}</Td><Td r className="text-rose-400">${p.stop_px?.toFixed(2)}</Td>
-          <Td r className="text-sky-300">${p.target_px?.toFixed(2)}</Td><Td r>{(p.size_pct*100).toFixed(1)}</Td>
-          <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>}
+          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Now</Th><Th r>uP&L</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
+        <tbody>{open.map(p => { const lv = live[p.ticker] || {}; const up = lv.upnl_pct
+          return <tr key={p.id} className="border-b border-white/5">
+          <Tk t={p.ticker} onTicker={onTicker} cls="text-emerald-300" /><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
+          <Td r>${p.entry_px?.toFixed(2)}</Td>
+          <Td r cls="font-semibold">{lv.price != null ? `$${lv.price.toFixed(2)}` : '—'}</Td>
+          <Td r cls={up==null?'text-gray-500':up>=0?'text-emerald-400 font-bold':'text-rose-400 font-bold'}>{up==null?'—':`${up>=0?'+':''}${up.toFixed(2)}%`}</Td>
+          <Td r cls="text-rose-400">${p.stop_px?.toFixed(2)}</Td>
+          <Td r cls="text-sky-300">${p.target_px?.toFixed(2)}</Td><Td r>{(p.size_pct*100).toFixed(1)}</Td>
+          <td className="px-2 py-1 text-md-on-surface-var max-w-[360px] truncate" title={p.thesis}>{p.thesis}</td></tr> })}</tbody></table>}
       </div>
       <div>
         <div className="text-sm font-semibold mb-1">Closed ({closed.length})</div>
