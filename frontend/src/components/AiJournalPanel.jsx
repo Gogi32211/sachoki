@@ -42,6 +42,11 @@ export default function AiJournalPanel() {
     try { await jpost('/api/journal/grade', {}); reload() }
     catch (e) { setErr(String(e)) } finally { setBusy(null) }
   }
+  const runReflect = async () => {
+    setBusy('reflect'); setErr(null)
+    try { await jpost('/api/journal/reflect', {}); reload() }
+    catch (e) { setErr(String(e)) } finally { setBusy(null) }
+  }
 
   const st = ov?.state || {}
   const stats = ov?.stats || {}
@@ -59,6 +64,10 @@ export default function AiJournalPanel() {
         <Kpi label="Closed" v={stats.closed ?? 0} />
         <Kpi label="Win rate" v={stats.win_rate == null ? '—' : `${stats.win_rate.toFixed(0)}%`} />
         <Kpi label="Avg ret" v={stats.avg_ret_pct == null ? '—' : fmtPct(stats.avg_ret_pct)} />
+        {ov?.regime && <div title={`breadth ${ov.regime.score} · RSI>50 ${ov.regime.breadth?.pct_rsi_gt50}% · phaseD ${ov.regime.breadth?.pct_phase_D}%`}>
+          <div className="text-xs text-md-on-surface-var">Regime</div>
+          <div className={`text-lg font-bold ${ov.regime.label==='RISK_ON'?'text-emerald-400':ov.regime.label==='RISK_OFF'?'text-rose-400':'text-yellow-400'}`}>
+            {ov.regime.label==='RISK_ON'?'🟢':ov.regime.label==='RISK_OFF'?'🔴':'🟡'} {ov.regime.score}</div></div>}
         <div className="flex-1" />
         <button onClick={runSession} disabled={!!busy}
           className="px-3 py-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white text-sm font-semibold disabled:opacity-50">
@@ -70,6 +79,10 @@ export default function AiJournalPanel() {
         <button onClick={runGrade} disabled={!!busy}
           className="px-3 py-1.5 rounded bg-md-surface border border-white/15 hover:bg-white/10 text-sm disabled:opacity-50">
           {busy==='grade' ? '⏳ Grading…' : 'Grade now'}</button>
+        <button onClick={runReflect} disabled={!!busy}
+          className="px-3 py-1.5 rounded bg-md-surface border border-white/15 hover:bg-white/10 text-sm disabled:opacity-50"
+          title="Agent B: rebuild pattern memory → draft lessons → promotion gate">
+          {busy==='reflect' ? '⏳…' : '🧠 Reflect'}</button>
       </div>
 
       {err && <div className="mb-3 p-2 rounded bg-rose-900/40 text-rose-200 text-xs font-mono break-all">{err}</div>}

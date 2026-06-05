@@ -132,9 +132,34 @@ async def lifespan(app: FastAPI):
             coalesce=True,
         )
 
+        # ── AI Journal daily cadence ────────────────────────────────────────
+        # 15:30 ET: decide IN-SESSION (→ AT_DECISION fills, ~30 min before close).
+        # 09:31 ET: fill yesterday's PENDING_OPEN at the open + grade + reflect.
+        def _journal_session():
+            try:
+                from ai_journal.decide import run_session
+                run_session()
+            except Exception as _e:
+                log.warning("Journal session failed: %s", _e)
+
+        def _journal_open_routine():
+            try:
+                from ai_journal.fills import fill_pending_open
+                from ai_journal.grading import grade_open_positions
+                from ai_journal.lessons import reflect as _reflect
+                fill_pending_open(); grade_open_positions(); _reflect()
+            except Exception as _e:
+                log.warning("Journal open routine failed: %s", _e)
+
+        scheduler.add_job(_journal_session, CronTrigger(hour=15, minute=30, day_of_week="mon-fri"),
+                          id="journal_session", replace_existing=True, max_instances=1, coalesce=True)
+        scheduler.add_job(_journal_open_routine, CronTrigger(hour=9, minute=31, day_of_week="mon-fri"),
+                          id="journal_open_routine", replace_existing=True, max_instances=1, coalesce=True)
+
         scheduler.start()
         log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
-                 "studio_daily_refresh @ 17:00 ET Mon-Fri)")
+                 "studio_daily_refresh @ 17:00 ET Mon-Fri; "
+                 "journal_session @ 15:30; journal_open_routine @ 9:31 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 

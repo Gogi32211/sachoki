@@ -121,6 +121,8 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
         return {"as_of": as_of, "candidates": 0, "note": "no eligible candidates"}
     t1 = mem.load_tier1_index(as_of)
     bl = {b["pattern"] for b in mem.active_blacklist()}
+    from . import regime as regime_mod
+    reg = regime_mod.compute_regime(as_of)
 
     prompt_cands = []
     for c in cands:
@@ -138,6 +140,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     user = {
         "as_of": as_of,
         "account": {"capital": capital, "open_positions": len(open_pos), "max_open": rails.MAX_OPEN},
+        "market_regime": {"label": reg["label"], "score": reg["score"], "breadth": reg["breadth"]},
         "active_lessons": mem.active_lessons(),
         "candidates": prompt_cands,
     }
@@ -172,6 +175,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             ev = mem.candidate_evidence(c, t1)
             best_hh = max([e["hh_edge_pp"] for e in ev], default=0.0)
             size_pct = rails.position_size(d["conviction"], best_hh, capital)
+            size_pct = round(min(size_pct * reg["conv_mult"], rails.MAX_POS_PCT), 4)  # regime gate
             ok, why = rails.can_open(tk, c.get("sector"), open_pos, bl, fp, size_pct,
                                      capital, mcap_bucket=c.get("mcap_bucket"))
             if not ok:
@@ -214,10 +218,10 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     dur = time.time() - t0
     log.info("session as_of=%s session=%s: %d cand, %d opened, %d pending_open, %d refused, %.1fs",
              as_of, sess_state, len(cands), len(opened), len(pending), len(refused), dur)
-    return {"as_of": as_of, "session": sess_state, "candidates": len(cands),
-            "opened": opened, "pending_open": pending, "refused": refused,
-            "decisions": decisions.get("decisions", []), "usage": usage,
-            "duration_sec": round(dur, 1)}
+    return {"as_of": as_of, "session": sess_state, "regime": reg["label"],
+            "candidates": len(cands), "opened": opened, "pending_open": pending,
+            "refused": refused, "decisions": decisions.get("decisions", []),
+            "usage": usage, "duration_sec": round(dur, 1)}
 
 
 if __name__ == "__main__":

@@ -46,7 +46,13 @@ def overview():
         last_session = _rows(c, "SELECT ts, candidates_n, notes FROM journal_session_log ORDER BY ts DESC LIMIT 1")
         lessons = _rows(c, """SELECT lesson, scope_fingerprint, status, evidence_n, evidence_lift
                               FROM trade_lesson ORDER BY created_at DESC LIMIT 50""")
+        try:
+            from .regime import compute_regime
+            regime = compute_regime()
+        except Exception:
+            regime = None
         return {
+            "regime": regime,
             "state": state,
             "open_positions": open_pos,
             "pending_positions": pending,
@@ -145,3 +151,16 @@ def fill():
 def grade():
     from .grading import grade_open_positions
     return grade_open_positions()
+
+
+@router.post("/reflect")
+def reflect():
+    """Agent B: rebuild pattern memory → draft lessons → run the promotion gate."""
+    from .lessons import reflect as _reflect
+    return _reflect()
+
+
+@router.get("/regime")
+def regime():
+    from .regime import compute_regime
+    return compute_regime()
