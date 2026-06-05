@@ -112,6 +112,11 @@ def _parse_snapshot(snap: dict) -> dict:
     day_c  = _f(day.get("c"))      # live regular-session price; 0/None before open
     min_c  = _f(minute.get("c"))   # last trade — updates in pre/post market too
     min_vol = minute.get("v")
+    # Massive returns min.c = 0 (not null) when there are no extended-hours trades
+    # yet (e.g. before pre-market really starts). Treat 0/negative as "no price"
+    # so PM% renders as "—" rather than a bogus -100% ((0 - prev)/prev).
+    if min_c is not None and min_c <= 0:
+        min_c = None
     day_open = bool(day_c and day_c > 0)
 
     # Last COMPLETED regular-session close. Massive rolls `day` at the open, so
