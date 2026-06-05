@@ -26,7 +26,16 @@ ANALYTICS_DB_PATH = os.environ.get(
 
 
 def get_journal_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    return duckdb.connect(JOURNAL_DB_PATH, read_only=read_only)
+    """Always opened READ-WRITE so every connection to journal.duckdb in this
+    process shares ONE instance config. DuckDB caches the database instance per
+    path and raises "Can't open ... with a different configuration" if read_only
+    and read-write opens are mixed in the same process — which broke every
+    endpoint when read-only reads (overview/pulse) coexisted with read-write
+    writes (session/grade/reflect/ingest). The `read_only` arg is kept for call
+    sites but intentionally ignored. (NOTE: never run a SEPARATE journal-writer
+    process — e.g. `python -m ai_journal.edgar` — while the server is up; it would
+    hold a cross-process write lock. Use the /insider/ingest endpoint instead.)"""
+    return duckdb.connect(JOURNAL_DB_PATH, read_only=False)
 
 
 def get_analytics_conn() -> duckdb.DuckDBPyConnection:
