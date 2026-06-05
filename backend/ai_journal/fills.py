@@ -20,24 +20,36 @@ from . import rails
 log = logging.getLogger(__name__)
 
 
-def _live_open(ticker: str, after: str):
-    """Today's OPEN from Massive (the forming daily bar) — used at the real
-    session open, before the DB has today's bar (DB only refreshes after close).
-    Returns (today_date, open) for a session strictly AFTER `after`, else None."""
+def _et_today() -> str:
     try:
-        from data import fetch_ohlcv
-        df = fetch_ohlcv(ticker, interval="1d", bars=3)
-        if df is None or not len(df):
-            return None
-        ts = df.index[-1]
-        d = str(ts.date() if hasattr(ts, "date") else ts)[:10]
-        if d <= str(after)[:10]:
-            return None                       # no new session bar yet
-        o = float(df["open"].iloc[-1])
-        return (d, o) if o and o > 0 else None
+        from zoneinfo import ZoneInfo
+        from datetime import datetime
+        return datetime.now(ZoneInfo("America/New_York")).date().isoformat()
+    except Exception:
+        return _date.today().isoformat()
+
+
+def _live_opens(tickers: list[str]) -> dict:
+    """ticker -> today's regular-session OPEN from the Massive snapshot (day.o).
+    day.o is the official session open; it populates ~15-20 min after the bell
+    (the feed is ~15 min delayed) and is 0 before then — so we only fill once a
+    real open exists, never a guessed price. Batched (one snapshot call/chunk)."""
+    out = {}
+    try:
+        from premarket_cache import _fetch_batch
+        for i in range(0, len(tickers), 100):
+            raw = _fetch_batch(tickers[i:i + 100]) or {}
+            for tk, it in raw.items():
+                o = (it.get("day") or {}).get("o")
+                try:
+                    o = float(o)
+                except (TypeError, ValueError):
+                    o = 0.0
+                if o > 0:
+                    out[tk.upper()] = o
     except Exception as e:
-        log.warning("live_open %s failed: %s", ticker, e)
-        return None
+        log.warning("live_opens failed: %s", e)
+    return out
 
 
 def fill_pending_open() -> dict:
@@ -51,6 +63,12 @@ def fill_pending_open() -> dict:
                FROM journal_position WHERE status = 'PENDING_OPEN'"""
         ).fetchall()
         capital = float(j.execute("SELECT capital FROM journal_state WHERE id=1").fetchone()[0])
+        # Tickers with no DB bar yet → try the live session open (snapshot day.o).
+        et_today = _et_today()
+        need_live = [r[1] for r in rows
+                     if not a.execute("SELECT 1 FROM bars WHERE ticker=? AND universe=? AND date > ? LIMIT 1",
+                                      [r[1], r[2] or "sp500", str(r[3])[:10]]).fetchone()]
+        live_opens = _live_opens(sorted(set(need_live))) if need_live else {}
         for pid, ticker, universe, ddate, size_pct, atr in rows:
             nxt = a.execute(
                 """SELECT date, open FROM bars
@@ -60,12 +78,11 @@ def fill_pending_open() -> dict:
             ).fetchone()
             if nxt and nxt[1] is not None:
                 fill_date, open_px = str(nxt[0])[:10], float(nxt[1])   # DB has the next bar (post-refresh)
+            elif ticker in live_opens and et_today > str(ddate)[:10]:
+                fill_date, open_px = et_today, live_opens[ticker]      # live session open (snapshot day.o)
             else:
-                live = _live_open(ticker, str(ddate)[:10])             # else fill at the LIVE open (market just opened)
-                if not live:
-                    still_pending += 1     # no next session yet (market still closed) → stay pending
-                    continue
-                fill_date, open_px = live
+                still_pending += 1     # open price not available yet (feed delay / market closed)
+                continue
             stop, target = rails.stop_target(open_px, float(atr or 0))
             shares = round(capital * float(size_pct or 0) / open_px, 4) if open_px else 0
             j.execute(
