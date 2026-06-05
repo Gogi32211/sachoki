@@ -10,8 +10,8 @@ MAX_POS_PCT       = 0.12     # max % of capital in one position
 BASE_POS_PCT      = 0.05
 MAX_SECTOR        = 3
 STOP_ATR_MULT     = 1.5
-TARGET_ATR_MULT   = 2.5
-HORIZON_DAYS      = 7
+TARGET_ATR_MULT   = 5.0      # wider — matches Brownian-scaled cap at H=10 (~7%)
+HORIZON_DAYS      = 10       # raised from 7 — Combo Lab proved edge peaks at H=10
 V3_MIN            = 20       # entry filter floor
 TOP_N             = 12
 # Market-cap rule (validated): micro caps have the WORST structural continuation

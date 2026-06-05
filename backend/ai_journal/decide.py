@@ -25,18 +25,23 @@ log = logging.getLogger(__name__)
 
 _SYSTEM = """You are the decision engine of a disciplined PAPER-trading journal.
 
-GROUND TRUTH (measured on 8M+ historical bars, do not override with intuition):
-- Our signals have a REAL structural edge: they predict whether price makes a
-  higher-high continuation (HH edge, in percentage points vs baseline).
-- They have ~NO directional 5-day edge (median forward return ≈ 0, big-move lift ≈ 1x).
-- Therefore profit comes from ASYMMETRIC EXITS riding HH continuation, not from a
-  raw directional bet. Size up only when the HH edge + conviction are genuinely strong.
-- MARKET CAP matters more than sector: mega/large caps have the best structural
-  continuation (HH ~66-68%, positive drift); MICRO caps are the worst (HH 59.5%,
-  NEGATIVE median drift -1.16%) — their only payoff is a rare unpredictable
-  lottery pop. The code already blocks micro/unknown; among the rest, prefer
-  larger caps and treat small caps with more caution. Sector barely matters
-  (the signal works ~+15pp in every sector), so don't pick on sector.
+GROUND TRUTH (measured on 8M+ historical bars, walk-forward + Bonferroni-validated;
+do NOT override with intuition):
+- HH-edge (structural higher-high continuation) does NOT convert to P&L through
+  tradeable ATR exits. Combo Lab proved this with n=20k OOS bars: top HH-passing
+  combos return realized −1.6%..−3.1% avg P&L. Ignore HH-edge as a profit signal.
+- REAL P&L edge is THIN but exists at LONG horizons (H=10d), not short. Top single
+  predicates: blue +0.13%, squeeze +0.10%, clm +0.09%, fri34 +0.09%, best +0.07%
+  (per-trade after asymmetric exit, vs baseline +0.95% on H=10d). Building blocks:
+  L-codes (blue/fri34) and VABS (clm/best/squeeze).
+- Multi-predicate combos can stack P&L edge to +0.5%..+0.9% on H=10 (greedy beam,
+  see combo_catalog_pnl). Examples: blue+cci0r+conso+fly_abcd (n=772, +0.66%),
+  clm+squeeze (n=11715, +0.14% most-stable).
+- V3 is an HH-predictor, NOT a P&L-predictor (v3_ge40 edge -0.16%). Do NOT raise
+  conviction just because V3 is high. Look at the candidate's `pnl_evidence` and
+  `matched_combos` first.
+- MARKET-CAP: mega/large best; micro is auto-blocked. Sector barely matters.
+- HORIZON: hold ~10 days. Short holds (5d) kill the edge before it accrues.
 
 YOUR JOB: for each candidate, decide BUY / WATCH / SKIP and give conviction 0-100
 with a one-sentence thesis grounded in the provided Tier-1 evidence (each signal's
@@ -120,6 +125,8 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     if not cands:
         return {"as_of": as_of, "candidates": 0, "note": "no eligible candidates"}
     t1 = mem.load_tier1_index(as_of)
+    pnl_idx = mem.load_pnl_edges(horizon=rails.HORIZON_DAYS)
+    passed_combos = mem.load_passed_combos(horizon=rails.HORIZON_DAYS)
     bl = {b["pattern"] for b in mem.active_blacklist()}
     from . import regime as regime_mod
     reg = regime_mod.compute_regime(as_of)
@@ -128,13 +135,38 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     for c in cands:
         fp = mem.fingerprint(c)
         ev = mem.candidate_evidence(c, t1)
+        # find which atoms this candidate satisfies (by reasons-tag intersection)
+        from .memory import TAG2PRED
+        reasons_text = str(c.get("prebreak_v3_reasons") or "")
+        atoms_here = {pred for tag, pred in TAG2PRED.items() if tag in reasons_text}
+        if float(c.get("prebreak_v3") or 0) >= 40: atoms_here.add("v3_ge40")
+        elif float(c.get("prebreak_v3") or 0) >= 30: atoms_here.add("v3_ge30")
+        # P&L per-atom edges (the truth — Combo Lab validated)
+        pnl_ev = []
+        for a_ in sorted(atoms_here):
+            s = pnl_idx.get(a_)
+            if s:
+                pnl_ev.append({"signal": a_, "n": s["n"],
+                               "edge_pnl_pct": round(s["edge_avg"], 3),
+                               "edge_win_pp": round(s["edge_win"], 1)})
+        pnl_ev.sort(key=lambda e: -e["edge_pnl_pct"])
+        # matched validated combos (atoms-subset of any passed combo)
+        matched = [c2 for c2 in passed_combos if c2["atoms"].issubset(atoms_here)]
+        matched.sort(key=lambda c2: -c2["edge"])
+        matched_brief = [{"combo": ",".join(sorted(c2["atoms"])),
+                          "edge_pnl_pct": round(c2["edge"], 3), "n": c2["n"]}
+                         for c2 in matched[:3]]
+
         prompt_cands.append({
             "ticker": c["ticker"], "price": round(float(c["last_price"]), 2),
             "v3": int(c["prebreak_v3"] or 0), "reasons": c.get("prebreak_v3_reasons") or "",
             "tz": c.get("tz_sig"), "phase": c.get("rtb_phase"), "rsi": round(float(c["rsi"] or 0), 0),
             "sector": c.get("sector") or "?", "mcap": c.get("mcap_bucket") or "unknown",
-            "fingerprint": fp, "tier1_evidence": ev[:6],
-            "tier2_own": mem.tier2_for(fp, as_of),
+            "fingerprint": fp,
+            "pnl_evidence":   pnl_ev[:6],                          # ← REAL P&L per-atom edge (H=10)
+            "matched_combos": matched_brief,                       # ← validated multi-predicate combos
+            "hh_evidence":    ev[:4],                              # ← legacy HH (informational; do not trade on)
+            "tier2_own":      mem.tier2_for(fp, as_of),
         })
 
     user = {

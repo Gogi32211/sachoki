@@ -188,14 +188,27 @@ function Knowledge({ kb }) {
   const rows = kb?.predicates || []
   return (
     <div>
-      <div className="text-xs text-md-on-surface-var mb-2">Tier-1 база знаний (из истории, as-of {kb?.as_of || '…'}) — ранг по HH-edge. Это «правда», на которую опирается агент.</div>
+      <div className="text-xs text-md-on-surface-var mb-2">
+        Tier-1 база знаний (as-of {kb?.as_of || '…'}) — сортировано по <b>P&L edge на H={kb?.horizon || 10}d</b> (валидированный Combo Lab'ом). HH-edge показан рядом для сверки — но <b>HH не предсказывает P&L</b>, ориентируйся на P&L колонку.
+      </div>
       <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-        <Th>Signal</Th><Th>Cat</Th><Th r>n</Th><Th r>rate%</Th><Th r>fwd5 med</Th><Th r>win5</Th><Th r>big5</Th><Th r>lift</Th><Th r>HH%</Th><Th r>HH edge</Th></tr></thead>
+        <Th>Signal</Th><Th>Cat</Th><Th r>n</Th>
+        <th colSpan={3} className="px-2 py-1 text-center bg-emerald-900/30 text-emerald-300">— P&L edge (real $) —</th>
+        <th colSpan={3} className="px-2 py-1 text-center bg-amber-900/20 text-amber-300">— HH edge (structural) —</th>
+        </tr><tr className="border-b border-white/10 text-md-on-surface-var">
+        <Th></Th><Th></Th><Th></Th>
+        <Th r>pnl avg</Th><Th r>pnl edge</Th><Th r>edge win</Th>
+        <Th r>HH%</Th><Th r>HH edge</Th><Th r>fwd5med</Th></tr></thead>
       <tbody>{rows.map(p => <tr key={p.predicate} className="border-b border-white/5">
         <Td cls="font-bold">{p.predicate}</Td><Td className="text-md-on-surface-var">{p.category}</Td>
-        <Td r>{fmtNum(p.n)}</Td><Td r>{p.rate_pct}</Td><Td r className={p.fwd5_med>=0?'text-emerald-400':'text-rose-400'}>{p.fwd5_med}</Td>
-        <Td r>{p.win5}</Td><Td r>{p.big5}</Td><Td r>{p.lift_big5}×</Td><Td r>{p.hh5}</Td>
-        <Td r className={p.hh_edge_pp>=8?'text-emerald-300 font-bold':p.hh_edge_pp>=3?'text-emerald-400':'text-md-on-surface-var'}>{p.hh_edge_pp>=0?'+':''}{p.hh_edge_pp}pp</Td></tr>)}</tbody></table>
+        <Td r>{fmtNum(p.n)}</Td>
+        <Td r>{p.pnl_avg!=null?`${p.pnl_avg}%`:'—'}</Td>
+        <Td r cls={p.pnl_edge==null?'text-gray-500':p.pnl_edge>=0.05?'text-emerald-300 font-bold':p.pnl_edge>=0?'text-emerald-400':'text-rose-400'}>{p.pnl_edge!=null?`${p.pnl_edge>=0?'+':''}${p.pnl_edge}%`:'—'}</Td>
+        <Td r cls={p.pnl_edge_win==null?'text-gray-500':p.pnl_edge_win>=0?'text-emerald-400':'text-rose-400'}>{p.pnl_edge_win!=null?`${p.pnl_edge_win>=0?'+':''}${p.pnl_edge_win}pp`:'—'}</Td>
+        <Td r>{p.hh5}</Td>
+        <Td r cls={p.hh_edge_pp>=8?'text-amber-200':p.hh_edge_pp>=3?'text-amber-400':'text-md-on-surface-var'}>{p.hh_edge_pp>=0?'+':''}{p.hh_edge_pp}pp</Td>
+        <Td r>{p.fwd5_med}</Td>
+      </tr>)}</tbody></table>
     </div>
   )
 }

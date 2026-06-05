@@ -67,20 +67,35 @@ def overview():
 
 
 @router.get("/knowledge")
-def knowledge():
-    """Tier-1 knowledge base, ranked by HH-continuation edge (where the real edge is)."""
+def knowledge(horizon: int = 10):
+    """Tier-1 knowledge base — HH-edge (structural) + P&L-edge (the real edge)
+    per predicate, joined. Sorted by P&L edge at the chosen horizon."""
     ensure_schema()
     c = get_journal_conn(read_only=True)
     try:
+        # Ensure pnl table exists so join works even if pnl_metric never ran
+        c.execute("""CREATE TABLE IF NOT EXISTS signal_outcomes_pnl (
+            predicate VARCHAR, category VARCHAR, as_of_date DATE, horizon INTEGER,
+            stop_pct DOUBLE, target_pct DOUBLE, n BIGINT, avg_raw_fwd DOUBLE,
+            avg_clip DOUBLE, win_rate DOUBLE, big_rate DOUBLE, loss_rate DOUBLE,
+            base_avg_clip DOUBLE, base_win_rate DOUBLE,
+            edge_avg_clip DOUBLE, edge_win DOUBLE, updated_at TIMESTAMP,
+            PRIMARY KEY (predicate, as_of_date, horizon))""")
         rows = _rows(c, """
-            SELECT predicate, category, n, round(rate_pct,1) AS rate_pct,
-                   round(fwd5_med,2) AS fwd5_med, round(win5*100,1) AS win5,
-                   round(big5*100,1) AS big5, round(lift_big5,2) AS lift_big5,
-                   round(hh5*100,1) AS hh5, round(hh5_edge_pp,1) AS hh_edge_pp, as_of_date
-            FROM signal_outcomes
-            WHERE as_of_date = (SELECT max(as_of_date) FROM signal_outcomes)
-            ORDER BY hh5_edge_pp DESC""")
-        return {"as_of": rows[0]["as_of_date"] if rows else None, "predicates": rows}
+            SELECT h.predicate, h.category, h.n,
+                   round(h.hh5*100,1) AS hh5, round(h.hh5_edge_pp,1) AS hh_edge_pp,
+                   round(h.lift_big5,2) AS lift_big5, round(h.fwd5_med,2) AS fwd5_med,
+                   p.horizon, round(p.avg_clip,3) AS pnl_avg,
+                   round(p.edge_avg_clip,3) AS pnl_edge, round(p.edge_win,1) AS pnl_edge_win,
+                   round(p.win_rate*100,1) AS pnl_win, h.as_of_date
+            FROM signal_outcomes h
+            LEFT JOIN signal_outcomes_pnl p
+              ON p.predicate = h.predicate AND p.horizon = ?
+                 AND p.as_of_date = (SELECT max(as_of_date) FROM signal_outcomes_pnl WHERE horizon = ?)
+            WHERE h.as_of_date = (SELECT max(as_of_date) FROM signal_outcomes)
+            ORDER BY p.edge_avg_clip DESC NULLS LAST""", [horizon, horizon])
+        return {"as_of": rows[0]["as_of_date"] if rows else None,
+                "horizon": horizon, "predicates": rows}
     finally:
         c.close()
 

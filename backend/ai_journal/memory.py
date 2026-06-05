@@ -102,6 +102,40 @@ def tier2_for(fp: str, as_of: str) -> dict | None:
     return {"n_trades": r[0], "win_rate": r[1], "avg_ret": r[2]} if r else None
 
 
+def load_pnl_edges(horizon: int = 10) -> dict:
+    """predicate -> {avg_clip, edge_avg, win, edge_win, n} from signal_outcomes_pnl
+    at the chosen horizon. Used by candidate_evidence as a SECOND-LAYER honest
+    edge view (HH-edge is structural, P&L-edge is what actually pays)."""
+    j = get_journal_conn()
+    try:
+        # signal_outcomes_pnl may not exist if pnl_metric was never run
+        try:
+            rows = j.execute("""SELECT predicate, n, avg_clip, edge_avg_clip, win_rate, edge_win
+                                FROM signal_outcomes_pnl WHERE horizon = ?""", [horizon]).fetchall()
+        except Exception:
+            return {}
+    finally:
+        j.close()
+    return {r[0]: {"n": r[1], "avg_clip": r[2], "edge_avg": r[3], "win": r[4], "edge_win": r[5]} for r in rows}
+
+
+def load_passed_combos(horizon: int = 10) -> list[dict]:
+    """Greedy-validated P&L-passing combos at the given horizon. Used by the
+    journal to flag candidates whose signal set matches a known edge."""
+    j = get_journal_conn()
+    try:
+        try:
+            rows = j.execute("""SELECT predicates, n_oos, oos_edge_avg, size
+                                FROM combo_catalog_pnl
+                                WHERE horizon = ? AND status = 'passed'
+                                ORDER BY oos_edge_avg DESC""", [horizon]).fetchall()
+        except Exception:
+            return []
+    finally:
+        j.close()
+    return [{"atoms": set(r[0].split(",")), "n": r[1], "edge": r[2], "size": r[3]} for r in rows]
+
+
 def active_lessons() -> list[dict]:
     j = get_journal_conn(read_only=True)
     try:

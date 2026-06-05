@@ -360,4 +360,7 @@ export const api = {
   qlibComboDiscover:      (body)    => post('/api/qlib/combo/discover', body || {}),
   qlibComboOptimizeExits: (limit=30) => post(`/api/qlib/combo/optimize-exits?limit=${limit}`, {}),
   qlibComboCatalog:       (status)  => get(`/api/qlib/combo/catalog${status?`?status=${status}`:''}`),
+  qlibComboDiscoverPnl:   (body)    => post('/api/qlib/combo/discover-pnl', body || {}),
+  qlibComboCatalogPnl:    (horizon=10, status) => get(`/api/qlib/combo/catalog-pnl?horizon=${horizon}${status?`&status=${status}`:''}`),
+  qlibComboPnlSummary:    ()        => get('/api/qlib/combo/pnl-summary'),
 }

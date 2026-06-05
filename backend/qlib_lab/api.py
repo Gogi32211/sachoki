@@ -173,6 +173,79 @@ def combo_optimize_exits(limit: int = 30, background_tasks: BackgroundTasks = No
     return {"job_id": job_id, "status": "queued"}
 
 
+class ComboPnlDiscoverRequest(BaseModel):
+    horizon: int = 10
+    beam: int = 40
+    depth_max: int = 5
+
+
+@router.post("/combo/discover-pnl")
+def combo_discover_pnl(req: ComboPnlDiscoverRequest, background_tasks: BackgroundTasks):
+    """Greedy beam search on realized P&L edge for a given horizon (H=1/3/5/10)."""
+    from .combo_lab.enumerate_greedy import run_greedy
+    job_id = jobs.create_job(f"combo_pnl_h{req.horizon}")
+    def _run():
+        try:
+            res = run_greedy(horizon=req.horizon, depth_max=req.depth_max, beam=req.beam)
+            jobs.finish_job(job_id, result={k: v for k, v in res.items() if k != "top"})
+        except Exception as e:
+            jobs.fail_job(job_id, str(e))
+    background_tasks.add_task(_run)
+    return {"job_id": job_id, "status": "queued"}
+
+
+@router.get("/combo/catalog-pnl")
+def combo_catalog_pnl(horizon: int = 10, status: str | None = None, limit: int = 400):
+    """P&L-based combo catalog (greedy beam search) for a given horizon."""
+    from ai_journal.db import get_journal_conn, ensure_schema
+    ensure_schema()
+    c = get_journal_conn()
+    try:
+        # Ensure table exists (may be missing if discover never ran)
+        c.execute("""CREATE TABLE IF NOT EXISTS combo_catalog_pnl (
+            combo_id VARCHAR, predicates VARCHAR, size INTEGER, horizon INTEGER,
+            n_train BIGINT, train_avg_clip DOUBLE, train_win DOUBLE,
+            base_avg_train DOUBLE, train_edge_avg DOUBLE,
+            n_oos BIGINT, oos_avg_clip DOUBLE, oos_win DOUBLE,
+            base_avg_oos DOUBLE, oos_edge_avg DOUBLE,
+            p_value DOUBLE, bonferroni_p DOUBLE, status VARCHAR,
+            grown_from VARCHAR, discovered_at TIMESTAMP,
+            PRIMARY KEY (combo_id, horizon))""")
+        where = ["horizon = ?"]; params = [horizon]
+        if status:
+            where.append("status = ?"); params.append(status)
+        rows = c.execute(f"""
+            SELECT combo_id, predicates, size, horizon,
+                   n_train, round(train_avg_clip,3) train_avg, round(train_win*100,1) train_win,
+                   round(train_edge_avg,3) train_edge,
+                   n_oos, round(oos_avg_clip,3) oos_avg, round(oos_win*100,1) oos_win,
+                   round(oos_edge_avg,3) oos_edge, p_value, bonferroni_p,
+                   status, grown_from
+            FROM combo_catalog_pnl WHERE {' AND '.join(where)}
+            ORDER BY (CASE WHEN status='passed' THEN 0 ELSE 1 END), oos_edge_avg DESC NULLS LAST
+            LIMIT ?""", params + [limit]).fetchall()
+        cols = ["combo_id", "predicates", "size", "horizon", "n_train", "train_avg",
+                "train_win", "train_edge", "n_oos", "oos_avg", "oos_win", "oos_edge",
+                "p_value", "bonferroni_p", "status", "grown_from"]
+        return {"rows": [dict(zip(cols, r)) for r in rows], "count": len(rows),
+                "horizon": horizon}
+    finally:
+        c.close()
+
+
+@router.get("/combo/pnl-summary")
+def combo_pnl_summary():
+    """Summary across all horizons: how many combos passed at each depth & H."""
+    from ai_journal.db import get_journal_conn
+    c = get_journal_conn()
+    try:
+        rows = c.execute("""SELECT horizon, size, status, count(*) AS n
+                            FROM combo_catalog_pnl GROUP BY 1,2,3 ORDER BY 1,2,3""").fetchall()
+    finally:
+        c.close()
+    return {"breakdown": [dict(zip(["horizon", "size", "status", "n"], r)) for r in rows]}
+
+
 @router.get("/combo/catalog")
 def combo_catalog(status: str | None = None, limit: int = 200):
     """Return the combo catalog rows for the UI table."""
