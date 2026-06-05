@@ -159,6 +159,19 @@ CREATE TABLE IF NOT EXISTS shadow_position (
     reason_excluded VARCHAR
 );
 
+-- ── Ticker metadata (sector / industry / market-cap) — from Massive reference ─
+CREATE TABLE IF NOT EXISTS ticker_meta (
+    ticker       VARCHAR PRIMARY KEY,
+    name         VARCHAR,
+    sector       VARCHAR,
+    industry     VARCHAR,      -- sic_description
+    sic_code     INTEGER,
+    market_cap   DOUBLE,
+    employees    INTEGER,
+    mcap_bucket  VARCHAR,      -- mega / large / mid / small / micro
+    updated_at   TIMESTAMP
+);
+
 CREATE TABLE IF NOT EXISTS journal_session_log (
     ts              TIMESTAMP,
     candidates_n    INTEGER,
