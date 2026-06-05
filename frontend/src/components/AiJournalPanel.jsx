@@ -28,6 +28,11 @@ export default function AiJournalPanel() {
     try { const r = await jpost('/api/journal/session', {}); setLastSession(r); reload() }
     catch (e) { setErr(String(e)) } finally { setBusy(null) }
   }
+  const runFill = async () => {
+    setBusy('fill'); setErr(null)
+    try { await jpost('/api/journal/fill', {}); reload() }
+    catch (e) { setErr(String(e)) } finally { setBusy(null) }
+  }
   const runGrade = async () => {
     setBusy('grade'); setErr(null)
     try { await jpost('/api/journal/grade', {}); reload() }
@@ -46,6 +51,7 @@ export default function AiJournalPanel() {
         <div><div className="text-xs text-md-on-surface-var">Equity</div>
           <div className="text-lg font-bold font-mono">${fmtNum(Math.round(equity))} <span className={eqPct>=0?'text-emerald-400':'text-rose-400'}>{fmtPct(eqPct)}</span></div></div>
         <Kpi label="Open" v={stats.open ?? 0} />
+        <Kpi label="Pending" v={stats.pending ?? 0} />
         <Kpi label="Closed" v={stats.closed ?? 0} />
         <Kpi label="Win rate" v={stats.win_rate == null ? '—' : `${stats.win_rate.toFixed(0)}%`} />
         <Kpi label="Avg ret" v={stats.avg_ret_pct == null ? '—' : fmtPct(stats.avg_ret_pct)} />
@@ -53,6 +59,10 @@ export default function AiJournalPanel() {
         <button onClick={runSession} disabled={!!busy}
           className="px-3 py-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white text-sm font-semibold disabled:opacity-50">
           {busy==='session' ? '⏳ Running…' : '▶ Run session'}</button>
+        <button onClick={runFill} disabled={!!busy}
+          className="px-3 py-1.5 rounded bg-md-surface border border-white/15 hover:bg-white/10 text-sm disabled:opacity-50"
+          title="Fill PENDING_OPEN positions at the next session's open price">
+          {busy==='fill' ? '⏳…' : '⏱ Fill opens'}</button>
         <button onClick={runGrade} disabled={!!busy}
           className="px-3 py-1.5 rounded bg-md-surface border border-white/15 hover:bg-white/10 text-sm disabled:opacity-50">
           {busy==='grade' ? '⏳ Grading…' : 'Grade now'}</button>
@@ -86,8 +96,21 @@ function Td({ children, r, cls='' }) { return <td className={`px-2 py-1 font-mon
 
 function Positions({ ov }) {
   const open = ov?.open_positions || [], closed = ov?.closed_positions || []
+  const pending = ov?.pending_positions || []
   return (
     <div className="space-y-5">
+      {pending.length > 0 && (
+      <div>
+        <div className="text-sm font-semibold mb-1 text-amber-300">⏱ Pending open ({pending.length})
+          <span className="ml-2 text-xs font-normal text-md-on-surface-var">— решено при закрытой бирже, вход по open следующей сессии</span></div>
+        <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
+          <Th>Ticker</Th><Th r>Conv</Th><Th r>Size%</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
+        <tbody>{pending.map(p => <tr key={p.id} className="border-b border-white/5">
+          <Td cls="font-bold text-amber-300">{p.ticker}</Td><Td r>{p.conviction}</Td>
+          <Td r>{(p.size_pct*100).toFixed(1)}</Td><Td>{p.decision_date} ({p.decided_session})</Td>
+          <Td className="text-amber-400">{p.entry_mode}</Td>
+          <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>
+      </div>)}
       <div>
         <div className="text-sm font-semibold mb-1">Open ({open.length})</div>
         {open.length === 0 ? <Empty>Нет открытых позиций — нажми «Run session».</Empty> :

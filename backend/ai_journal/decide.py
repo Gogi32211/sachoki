@@ -14,6 +14,7 @@ import sys
 import json
 import time
 import logging
+from datetime import datetime, timezone
 
 from .db import get_analytics_conn, get_journal_conn, ensure_schema, next_id
 from . import memory as mem
@@ -131,9 +132,18 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     )
     decmap = {d["ticker"]: d for d in decisions.get("decisions", [])}
 
-    # Execute BUYs through the rails
+    # ── Execution-realism rule ───────────────────────────────────────────────
+    # We cannot trade while the exchange is closed. If the session is OPEN
+    # (journal is meant to run ~30 min before the close), fill AT_DECISION at the
+    # decision price. If CLOSED (pre/post-market, weekend), defer: PENDING_OPEN,
+    # to be filled at the NEXT session's OPEN price (fills.fill_pending_open()).
+    from premarket_cache import _regular_session_open
+    session_open = bool(_regular_session_open())
+    sess_state = "open" if session_open else "closed"
+
     cand_by_tk = {c["ticker"]: c for c in cands}
-    opened, refused = [], []
+    opened, pending, refused = [], [], []
+    now = datetime.now(timezone.utc)
     jw = get_journal_conn(read_only=False)
     try:
         for tk, d in decmap.items():
@@ -150,34 +160,44 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             if not ok:
                 refused.append({"ticker": tk, "reason": why})
                 continue
-            entry = float(c["last_price"])
-            stop, target = rails.stop_target(entry, float(c.get("atr_14") or 0))
-            shares = round(capital * size_pct / entry, 4)
+            atr = float(c.get("atr_14") or 0)
             pid = next_id(jw, "journal_position")
+            if session_open:
+                entry = float(c["last_price"])
+                stop, target = rails.stop_target(entry, atr)
+                shares = round(capital * size_pct / entry, 4)
+                status, mode, opened_at = "OPEN", "AT_DECISION", now
+                opened.append({"ticker": tk, "conviction": d["conviction"], "size_pct": size_pct,
+                               "entry": entry, "stop": stop, "target": target})
+            else:
+                entry = stop = target = shares = None     # resolved at the next open
+                status, mode, opened_at = "PENDING_OPEN", "NEXT_OPEN", None
+                pending.append({"ticker": tk, "conviction": d["conviction"], "size_pct": size_pct})
             jw.execute("""INSERT INTO journal_position
                 (id, ticker, universe, decision_date, opened_at, action, conviction,
                  fingerprint, entry_px, size_pct, shares, stop_px, target_px,
-                 horizon_days, status, verdict, thesis, evidence_json)
-                VALUES (?,?,?,?,current_timestamp,?,?,?,?,?,?,?,?,?, 'OPEN','PENDING',?,?)""",
-                [pid, tk, c.get("universe"), as_of, "BUY", d["conviction"], fp, entry,
-                 size_pct, shares, stop, target, rails.HORIZON_DAYS,
-                 d["thesis"], json.dumps(ev)])
+                 horizon_days, status, entry_mode, decided_session, decided_at,
+                 atr_at_decision, verdict, thesis, evidence_json)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,current_timestamp,?,'PENDING',?,?)""",
+                [pid, tk, c.get("universe"), as_of, opened_at, "BUY", d["conviction"], fp,
+                 entry, size_pct, shares, stop, target, rails.HORIZON_DAYS, status, mode,
+                 sess_state, atr, d["thesis"], json.dumps(ev)])
             open_pos.append({"id": pid, "ticker": tk, "sector": c.get("sector")})
-            opened.append({"ticker": tk, "conviction": d["conviction"], "size_pct": size_pct,
-                           "entry": entry, "stop": stop, "target": target})
         jw.execute("""INSERT INTO journal_session_log
                       (ts, candidates_n, decisions_json, capital_before, capital_after, notes)
                       VALUES (current_timestamp,?,?,?,?,?)""",
                    [len(cands), json.dumps(decisions, default=str), capital, capital,
-                    f"as_of={as_of} opened={len(opened)} refused={len(refused)}"])
+                    f"as_of={as_of} session={sess_state} opened={len(opened)} "
+                    f"pending={len(pending)} refused={len(refused)}"])
         jw.commit()
     finally:
         jw.close()
 
     dur = time.time() - t0
-    log.info("session as_of=%s: %d candidates, %d BUY opened, %d refused, %.1fs, usage=%s",
-             as_of, len(cands), len(opened), len(refused), dur, usage)
-    return {"as_of": as_of, "candidates": len(cands), "opened": opened, "refused": refused,
+    log.info("session as_of=%s session=%s: %d cand, %d opened, %d pending_open, %d refused, %.1fs",
+             as_of, sess_state, len(cands), len(opened), len(pending), len(refused), dur)
+    return {"as_of": as_of, "session": sess_state, "candidates": len(cands),
+            "opened": opened, "pending_open": pending, "refused": refused,
             "decisions": decisions.get("decisions", []), "usage": usage,
             "duration_sec": round(dur, 1)}
 

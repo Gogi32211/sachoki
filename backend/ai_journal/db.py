@@ -60,7 +60,12 @@ CREATE TABLE IF NOT EXISTS journal_position (
     stop_px        DOUBLE,
     target_px      DOUBLE,
     horizon_days   INTEGER,
-    status         VARCHAR,     -- OPEN / CLOSED
+    status         VARCHAR,     -- PENDING_OPEN / OPEN / CLOSED
+    entry_mode     VARCHAR,     -- AT_DECISION (in-session) / NEXT_OPEN (decided while closed)
+    decided_session VARCHAR,    -- 'open' / 'closed' at decision time
+    decided_at     TIMESTAMP,
+    atr_at_decision DOUBLE,     -- ATR snapshot → stop/target computed at fill for NEXT_OPEN
+    filled_date    DATE,        -- the session-open date a NEXT_OPEN was filled on
     closed_at      TIMESTAMP,
     exit_date      DATE,
     exit_px        DOUBLE,
@@ -169,6 +174,11 @@ def ensure_schema() -> None:
     conn = get_journal_conn(read_only=False)
     try:
         conn.execute(_SCHEMA)
+        # Migrations for pre-existing journal.duckdb files (idempotent).
+        for col, typ in [("entry_mode", "VARCHAR"), ("decided_session", "VARCHAR"),
+                         ("decided_at", "TIMESTAMP"), ("atr_at_decision", "DOUBLE"),
+                         ("filled_date", "DATE")]:
+            conn.execute(f"ALTER TABLE journal_position ADD COLUMN IF NOT EXISTS {col} {typ}")
         # Seed account once.
         row = conn.execute("SELECT count(*) FROM journal_state").fetchone()[0]
         if row == 0:

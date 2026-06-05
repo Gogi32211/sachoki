@@ -34,9 +34,11 @@ def overview():
         positions = _rows(c, """
             SELECT id, ticker, decision_date, action, conviction, fingerprint,
                    entry_px, size_pct, shares, stop_px, target_px, horizon_days,
-                   status, exit_date, exit_px, exit_reason, pnl_pct, verdict, thesis
-            FROM journal_position ORDER BY opened_at DESC, id DESC LIMIT 200""")
+                   status, entry_mode, decided_session, filled_date,
+                   exit_date, exit_px, exit_reason, pnl_pct, verdict, thesis
+            FROM journal_position ORDER BY id DESC LIMIT 300""")
         open_pos = [p for p in positions if p["status"] == "OPEN"]
+        pending  = [p for p in positions if p["status"] == "PENDING_OPEN"]
         closed   = [p for p in positions if p["status"] == "CLOSED"]
         wins = [p for p in closed if p["verdict"] == "WIN"]
         win_rate = (len(wins) / len(closed) * 100) if closed else None
@@ -47,8 +49,9 @@ def overview():
         return {
             "state": state,
             "open_positions": open_pos,
+            "pending_positions": pending,
             "closed_positions": closed,
-            "stats": {"open": len(open_pos), "closed": len(closed),
+            "stats": {"open": len(open_pos), "pending": len(pending), "closed": len(closed),
                       "win_rate": win_rate, "avg_ret_pct": avg_ret},
             "last_session": last_session[0] if last_session else None,
             "lessons": lessons,
@@ -85,6 +88,13 @@ class SessionReq(BaseModel):
 def session(req: SessionReq):
     from .decide import run_session
     return run_session(as_of=req.as_of, top_n=req.top_n)
+
+
+@router.post("/fill")
+def fill():
+    """Fill PENDING_OPEN positions at the next session's open (execution-realism)."""
+    from .fills import fill_pending_open
+    return fill_pending_open()
 
 
 @router.post("/grade")
