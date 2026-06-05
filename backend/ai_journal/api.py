@@ -129,6 +129,40 @@ def universe():
             "sector_counts": sector_counts, "bucket_stats": bucket_stats, "sector_stats": sector_stats}
 
 
+@router.get("/ticker/{ticker}")
+def ticker_detail(ticker: str):
+    """Everything the drawer shows: meta + latest bar signals + positions + insider."""
+    import duckdb
+    from .db import ANALYTICS_DB_PATH
+    ensure_schema()
+    tk = ticker.upper()
+    j = get_journal_conn(read_only=True)
+    try:
+        meta = _rows(j, "SELECT ticker, name, sector, industry, market_cap, employees, mcap_bucket FROM ticker_meta WHERE ticker=?", [tk])
+        positions = _rows(j, """SELECT id, decision_date, action, conviction, status, entry_mode,
+                                       entry_px, stop_px, target_px, size_pct, pnl_pct, verdict,
+                                       sector, mcap_bucket, fingerprint, thesis
+                                FROM journal_position WHERE ticker=? ORDER BY id DESC""", [tk])
+        insider = _rows(j, """SELECT insider, title, tx_date, code, shares, price, value
+                              FROM insider_tx WHERE ticker=? ORDER BY tx_date DESC LIMIT 20""", [tk])
+    finally:
+        j.close()
+    latest = {}
+    try:
+        a = duckdb.connect(ANALYTICS_DB_PATH, read_only=True)
+        r = a.execute("""SELECT date, close, change_pct, rsi_14, cci_20, atr_14, vol_bucket,
+                                rtb_phase, t_sig, z_sig, prebreak_v3, prebreak_v3_reasons,
+                                ultra_score, turbo_score
+                         FROM bars WHERE ticker=? ORDER BY date DESC LIMIT 1""", [tk]).fetchdf()
+        a.close()
+        if len(r):
+            latest = {k: (None if str(v) == 'nan' else v) for k, v in r.iloc[0].to_dict().items()}
+    except Exception as e:
+        log.warning("ticker_detail bars failed for %s: %s", tk, e)
+    return {"ticker": tk, "meta": meta[0] if meta else None, "latest": latest,
+            "positions": positions, "insider": insider}
+
+
 class SessionReq(BaseModel):
     as_of: str | None = None
     top_n: int = 12

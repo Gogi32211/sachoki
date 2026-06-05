@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import TickerDrawer from './TickerDrawer'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -14,6 +15,7 @@ export default function AiJournalPanel() {
   const [kb, setKb] = useState(null)
   const [uni, setUni] = useState(null)
   const [sub, setSub] = useState('positions')
+  const [drawerTk, setDrawerTk] = useState(null)
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
   const [lastSession, setLastSession] = useState(null)
@@ -97,12 +99,19 @@ export default function AiJournalPanel() {
         ))}
       </div>
 
-      {sub === 'positions' && <Positions ov={ov} />}
+      {sub === 'positions' && <Positions ov={ov} onTicker={setDrawerTk} />}
       {sub === 'knowledge' && <Knowledge kb={kb} />}
       {sub === 'universe'  && <Universe uni={uni} />}
       {sub === 'lessons'   && <Lessons ov={ov} />}
+
+      <TickerDrawer ticker={drawerTk} onClose={() => setDrawerTk(null)} />
     </div>
   )
+}
+
+function Tk({ t, onTicker, cls = '' }) {
+  return <td className={`px-2 py-1 ${cls}`}>
+    <button onClick={() => onTicker?.(t)} className="font-bold hover:underline cursor-pointer">{t}</button></td>
 }
 
 function Kpi({ label, v }) {
@@ -112,7 +121,7 @@ function Kpi({ label, v }) {
 function Th({ children, r }) { return <th className={`px-2 py-1 font-semibold text-md-on-surface-var ${r?'text-right':'text-left'}`}>{children}</th> }
 function Td({ children, r, cls='' }) { return <td className={`px-2 py-1 font-mono ${r?'text-right':'text-left'} ${cls}`}>{children}</td> }
 
-function Positions({ ov }) {
+function Positions({ ov, onTicker }) {
   const open = ov?.open_positions || [], closed = ov?.closed_positions || []
   const pending = ov?.pending_positions || []
   return (
@@ -124,7 +133,7 @@ function Positions({ ov }) {
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
           <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Size%</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
         <tbody>{pending.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Td cls="font-bold text-amber-300">{p.ticker}</Td><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
+          <Tk t={p.ticker} onTicker={onTicker} cls="text-amber-300" /><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
           <Td r>{(p.size_pct*100).toFixed(1)}</Td><Td>{p.decision_date} ({p.decided_session})</Td>
           <Td className="text-amber-400">{p.entry_mode}</Td>
           <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>
@@ -135,7 +144,7 @@ function Positions({ ov }) {
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
           <Th>Ticker</Th><Th>Cap</Th><Th>Sector</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
         <tbody>{open.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Td cls="font-bold text-emerald-300">{p.ticker}</Td><Cap b={p.mcap_bucket} /><Td className="text-md-on-surface-var">{p.sector||'—'}</Td><Td r>{p.conviction}</Td>
+          <Tk t={p.ticker} onTicker={onTicker} cls="text-emerald-300" /><Cap b={p.mcap_bucket} /><Td className="text-md-on-surface-var">{p.sector||'—'}</Td><Td r>{p.conviction}</Td>
           <Td r>${p.entry_px?.toFixed(2)}</Td><Td r className="text-rose-400">${p.stop_px?.toFixed(2)}</Td>
           <Td r className="text-sky-300">${p.target_px?.toFixed(2)}</Td><Td r>{(p.size_pct*100).toFixed(1)}</Td>
           <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>}
@@ -146,7 +155,7 @@ function Positions({ ov }) {
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
           <Th>Ticker</Th><Th>Verdict</Th><Th r>P&L%</Th><Th>Exit</Th><Th>Thesis</Th></tr></thead>
         <tbody>{closed.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Td cls="font-bold">{p.ticker}</Td>
+          <Tk t={p.ticker} onTicker={onTicker} />
           <Td><span className={p.verdict==='WIN'?'text-emerald-400':p.verdict==='LOSS'?'text-rose-400':'text-md-on-surface-var'}>{p.verdict}</span></Td>
           <Td r className={p.pnl_pct>=0?'text-emerald-400':'text-rose-400'}>{fmtPct(p.pnl_pct)}</Td>
           <Td>{p.exit_reason}</Td>
