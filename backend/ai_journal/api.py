@@ -164,3 +164,10 @@ def reflect():
 def regime():
     from .regime import compute_regime
     return compute_regime()
+
+
+@router.get("/pulse")
+def pulse():
+    """Industry Pulse: regime + sector heat + movers + market-cap (market context)."""
+    from .industry_pulse import compute_pulse
+    return compute_pulse()
