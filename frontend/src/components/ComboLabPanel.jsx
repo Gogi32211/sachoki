@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { api } from '../api'
+import ComboDrawer from './ComboDrawer'
 
 const fmt = (v, d=2) => v == null ? '—' : Number(v).toFixed(d)
 const fmtPp = (v) => v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}pp`
@@ -38,6 +39,8 @@ function PnLPanel() {
   const [busy, setBusy] = useState(false)
   const [job, setJob] = useState(null)
   const [err, setErr] = useState(null)
+  const [drawerCombo, setDrawerCombo] = useState(null)
+  const [drawerEdge, setDrawerEdge] = useState(null)
 
   const load = () => {
     api.qlibComboCatalogPnl(horizon, filter === 'all' ? null : filter)
@@ -134,8 +137,10 @@ function PnLPanel() {
           <th className="text-left px-2 py-1">status</th>
         </tr></thead>
         <tbody>{rows.map(r => (
-          <tr key={r.combo_id} className="border-b border-white/5 hover:bg-white/5">
-            <td className="px-2 py-1 font-mono">{r.predicates}</td>
+          <tr key={r.combo_id} className="border-b border-white/5 hover:bg-violet-900/20 cursor-pointer"
+              onClick={() => { setDrawerCombo(r.predicates); setDrawerEdge({edge:r.oos_edge, n_oos:r.n_oos, horizon, bonf:r.bonferroni_p}) }}
+              title="Click → see tickers currently matching this combo">
+            <td className="px-2 py-1 font-mono">{r.predicates} <span className="text-md-on-surface-var">▸</span></td>
             <td className="px-2 py-1 text-center font-mono">{r.size}</td>
             <td className="px-2 py-1 text-right text-md-on-surface-var">{r.n_train}/{r.n_oos}</td>
             <td className={`px-2 py-1 text-right font-mono ${r.train_avg>=0?'text-emerald-400':'text-rose-400'}`}>{fmt(r.train_avg, 3)}%</td>
@@ -150,6 +155,8 @@ function PnLPanel() {
         </tbody>
       </table>
       </div>}
+
+      <ComboDrawer combo={drawerCombo} edgeInfo={drawerEdge} onClose={() => { setDrawerCombo(null); setDrawerEdge(null) }} />
 
       <div className="mt-3 text-xs text-md-on-surface-var italic">
         Greedy beam search: на каждом уровне держим топ-40 по OOS P&L edge, расширяем добавлением одного атома, повторяем до 5. Pass требует OOS edge {'>'} 0 И OOS ≥ 0.5×train (нет коллапса) И bonferroni-p {'<'} 0.05. <b>train edge ≪ OOS edge</b> — подозрительно, скорее всего small-n/period-bias; доверяй комбо где оба положительны.
@@ -170,6 +177,7 @@ function HHPanel() {
   const [busy, setBusy] = useState(null)
   const [job, setJob] = useState(null)
   const [err, setErr] = useState(null)
+  const [drawerCombo, setDrawerCombo] = useState(null)
 
   const load = () => api.qlibComboCatalog(filter === 'all' ? null : filter)
     .then(d => setRows(d.rows || [])).catch(e => setErr(String(e)))
@@ -231,8 +239,9 @@ function HHPanel() {
           <th className="text-left px-2 py-1">status</th>
         </tr></thead>
         <tbody>{rows.map(r => (
-          <tr key={r.combo_id} className="border-b border-white/5 hover:bg-white/5">
-            <td className="px-2 py-1 font-mono">{r.predicates}</td>
+          <tr key={r.combo_id} className="border-b border-white/5 hover:bg-violet-900/20 cursor-pointer"
+              onClick={() => setDrawerCombo(r.predicates)} title="Click → active tickers">
+            <td className="px-2 py-1 font-mono">{r.predicates} <span className="text-md-on-surface-var">▸</span></td>
             <td className="px-2 py-1 text-right">{r.size}</td>
             <td className="px-2 py-1 text-right text-md-on-surface-var">{r.n_train}/{r.n_oos}</td>
             <td className="px-2 py-1 text-right font-mono">{r.train_hh5}%</td>
@@ -247,6 +256,8 @@ function HHPanel() {
         </tbody>
       </table>
       </div>}
+
+      <ComboDrawer combo={drawerCombo} onClose={() => setDrawerCombo(null)} />
     </div>
   )
 }

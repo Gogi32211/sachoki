@@ -233,6 +233,64 @@ def combo_catalog_pnl(horizon: int = 10, status: str | None = None, limit: int =
         c.close()
 
 
+@router.get("/combo/active")
+def combo_active(predicates: str, as_of: str | None = None, limit: int = 100):
+    """Tickers that satisfy a combo's full predicate set on the latest bar
+    (or `as_of`). Atoms come as a comma-separated string of predicate names —
+    we look them up in the ATOMS catalog and AND their SQLs.
+    Joined with ticker_meta for sector/mcap/name."""
+    import duckdb
+    from ai_journal.db import ANALYTICS_DB_PATH, get_journal_conn, ensure_schema
+    from .combo_lab.enumerate import ATOMS
+    ensure_schema()
+    atoms = [a.strip() for a in predicates.split(",") if a.strip()]
+    if not atoms:
+        return {"rows": [], "predicates": []}
+    unknown = [a for a in atoms if a not in ATOMS]
+    if unknown:
+        raise HTTPException(400, f"unknown predicate(s): {unknown}")
+    sql_cond = " AND ".join(f"({ATOMS[a]})" for a in atoms)
+    # meta first
+    j = get_journal_conn()
+    try:
+        meta = {r[0]: {"name": r[1], "sector": r[2], "mcap_bucket": r[3],
+                       "market_cap": r[4]}
+                for r in j.execute("SELECT ticker,name,sector,mcap_bucket,market_cap FROM ticker_meta").fetchall()}
+    finally:
+        j.close()
+    a = duckdb.connect(ANALYTICS_DB_PATH, read_only=True)
+    try:
+        if as_of is None:
+            as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+        rows = a.execute(f"""
+            SELECT ticker, universe, close, change_pct, rsi_14, atr_14,
+                   prebreak_v3, prebreak_v3_reasons, t_sig, z_sig, rtb_phase, vol_bucket
+            FROM bars WHERE date = ? AND ({sql_cond})
+            ORDER BY prebreak_v3 DESC NULLS LAST LIMIT ?""", [as_of, limit]).fetchdf()
+    finally:
+        a.close()
+    out = []
+    seen = set()
+    for _, r in rows.iterrows():
+        tk = r["ticker"]
+        if tk in seen: continue
+        seen.add(tk)
+        m = meta.get(tk, {})
+        out.append({
+            "ticker": tk, "universe": r["universe"],
+            "name": m.get("name") or "", "sector": m.get("sector") or "",
+            "mcap_bucket": m.get("mcap_bucket") or "unknown",
+            "close": float(r["close"]) if r["close"] is not None else None,
+            "change_pct": float(r["change_pct"]) if r["change_pct"] is not None else None,
+            "rsi": int(round(float(r["rsi_14"]))) if r["rsi_14"] is not None else None,
+            "v3": int(r["prebreak_v3"]) if r["prebreak_v3"] is not None else 0,
+            "reasons": r["prebreak_v3_reasons"] or "",
+            "tz": r["t_sig"] or r["z_sig"] or "",
+            "phase": r["rtb_phase"] or "", "vol": r["vol_bucket"] or "",
+        })
+    return {"as_of": as_of, "predicates": atoms, "rows": out, "count": len(out)}
+
+
 @router.get("/combo/pnl-summary")
 def combo_pnl_summary():
     """Summary across all horizons: how many combos passed at each depth & H."""

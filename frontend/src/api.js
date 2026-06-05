@@ -363,4 +363,5 @@ export const api = {
   qlibComboDiscoverPnl:   (body)    => post('/api/qlib/combo/discover-pnl', body || {}),
   qlibComboCatalogPnl:    (horizon=10, status) => get(`/api/qlib/combo/catalog-pnl?horizon=${horizon}${status?`&status=${status}`:''}`),
   qlibComboPnlSummary:    ()        => get('/api/qlib/combo/pnl-summary'),
+  qlibComboActive: (predicates, asOf) => get(`/api/qlib/combo/active?predicates=${encodeURIComponent(predicates)}${asOf?`&as_of=${asOf}`:''}`),
 }
