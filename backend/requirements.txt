@@ -12,3 +12,13 @@ redis==5.0.4
 psycopg2-binary==2.9.9
 pyarrow>=15.0.0
 duckdb>=0.10.0
+
+# ── QLIB factor lab (lean LightGBM engine; macOS needs `brew install libomp`) ──
+lightgbm>=4.0
+scikit-learn>=1.3
+# scipy is pulled in transitively (Rank IC); pyqlib is OPTIONAL (qlib-lgbm backend)
+
+# ── dev / test ───────────────────────────────────────────────────────────────
+pytest>=8.2
+anthropic
+python-dotenv
