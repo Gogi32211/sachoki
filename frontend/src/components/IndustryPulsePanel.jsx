@@ -6,10 +6,13 @@ const CAP_CLS = { mega:'text-amber-200', large:'text-emerald-300', mid:'text-sky
 
 export default function IndustryPulsePanel() {
   const [p, setP] = useState(null)
+  const [ins, setIns] = useState(null)
   const [err, setErr] = useState(null)
   const [busy, setBusy] = useState(false)
   const load = () => { setBusy(true); fetch('/api/journal/pulse').then(r=>r.json()).then(d=>{setP(d);setBusy(false)}).catch(e=>{setErr(String(e));setBusy(false)}) }
-  useEffect(() => { load() }, [])
+  const loadIns = () => fetch('/api/journal/insider').then(r=>r.json()).then(setIns).catch(()=>{})
+  const ingest = () => { setBusy(true); fetch('/api/journal/insider/ingest',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({days:10})}).then(r=>r.json()).then(()=>{loadIns();setBusy(false)}).catch(e=>{setErr(String(e));setBusy(false)}) }
+  useEffect(() => { load(); loadIns() }, [])
 
   if (err) return <div className="p-4 text-rose-300 text-xs font-mono">{err}</div>
   if (!p) return <div className="p-4 text-md-on-surface-var">Загрузка Industry Pulse…</div>
@@ -60,10 +63,43 @@ export default function IndustryPulsePanel() {
           </div>
         </div>
       </div>
-      <div className="text-xs text-md-on-surface-var italic">Industry/sector — слабое альфа-измерение (валидировано: сигнал даёт ~+15pp HH в каждом секторе). Это ситуационный контекст тейпа, не источник пиков. Insider/SEC слой — отдельно (Phase 2).</div>
+      {/* Insider (SEC Form 4) */}
+      <div className="pt-2 border-t border-white/10">
+        <div className="flex items-center gap-3 mb-1">
+          <div className="text-sm font-semibold">🏛 Insider buys (SEC Form 4)</div>
+          <button onClick={ingest} disabled={busy} className="px-2 py-0.5 rounded bg-md-surface-high border border-white/15 text-xs hover:bg-white/10 disabled:opacity-50">{busy?'⏳':'↻ Ingest 10d'}</button>
+          <span className="text-xs text-md-on-surface-var">кластер = ≥2 разных инсайдера покупают один тикер</span>
+        </div>
+        {!ins || (!ins.recent?.length && !ins.clusters?.length) ?
+          <Empty>Пока нет данных. Нажми «Ingest 10d» (тянет Form 4 из EDGAR, ~1-3 мин, SEC rate-limited).</Empty> :
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-5">
+          <div>
+            <div className="text-xs font-semibold mb-1 text-amber-300">🔥 Clusters ({ins.clusters?.length||0})</div>
+            {ins.clusters?.length ?
+            <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
+              <th className="px-2 py-1 text-left text-md-on-surface-var">Ticker</th><th className="px-2 py-1 text-right text-md-on-surface-var">#insiders</th>
+              <th className="px-2 py-1 text-right text-md-on-surface-var">#buys</th><th className="px-2 py-1 text-right text-md-on-surface-var">$value</th><th className="px-2 py-1 text-right text-md-on-surface-var">last</th></tr></thead>
+            <tbody>{ins.clusters.map(c=>(<tr key={c.ticker} className="border-b border-white/5">
+              <td className="px-2 py-1 font-bold text-amber-300">{c.ticker}</td><td className="px-2 py-1 text-right font-mono">{c.n_insiders}</td>
+              <td className="px-2 py-1 text-right font-mono">{c.n_tx}</td><td className="px-2 py-1 text-right font-mono">${Math.round(c.tot_value||0).toLocaleString()}</td>
+              <td className="px-2 py-1 text-right font-mono text-md-on-surface-var">{c.last_buy}</td></tr>))}</tbody></table>
+            : <Empty>Кластеров нет в окне.</Empty>}
+          </div>
+          <div>
+            <div className="text-xs font-semibold mb-1">Recent buys</div>
+            <table className="w-full text-xs"><tbody>{(ins.recent||[]).slice(0,14).map((r,i)=>(<tr key={i} className="border-b border-white/5">
+              <td className="px-2 py-0.5 font-bold">{r.ticker}</td><td className="px-2 py-0.5 text-md-on-surface-var truncate max-w-[150px]" title={r.insider}>{r.insider}</td>
+              <td className="px-2 py-0.5 text-right font-mono">${Math.round(r.value||0).toLocaleString()}</td>
+              <td className="px-2 py-0.5 text-right font-mono text-md-on-surface-var">{r.tx_date}</td></tr>))}</tbody></table>
+          </div>
+        </div>}
+      </div>
+      <div className="text-xs text-md-on-surface-var italic">Industry/sector — слабое альфа-измерение (валидировано: ~+15pp HH в каждом секторе) → контекст, не пики. Insider clusters — реальный сигнал, но его forward-edge (Tier-1, горизонт недели) ещё не валидирован (нужен исторический backfill) — пока показываем как контекст.</div>
     </div>
   )
 }
+
+function Empty({ children }) { return <div className="text-xs text-md-on-surface-var italic p-2">{children}</div> }
 
 function Movers({ title, rows, pos }) {
   return (

@@ -172,6 +172,23 @@ CREATE TABLE IF NOT EXISTS ticker_meta (
     updated_at   TIMESTAMP
 );
 
+-- ── Insider transactions (SEC EDGAR Form 4) ─────────────────────────────────
+CREATE TABLE IF NOT EXISTS insider_tx (
+    accession   VARCHAR,
+    ticker      VARCHAR,
+    cik         VARCHAR,
+    insider     VARCHAR,
+    title       VARCHAR,
+    tx_date     DATE,
+    code        VARCHAR,      -- P = open-market purchase, S = sale, A = grant, ...
+    acq_disp    VARCHAR,      -- A / D
+    shares      DOUBLE,
+    price       DOUBLE,
+    value       DOUBLE,
+    filed_date  DATE,
+    PRIMARY KEY (accession, ticker, insider, tx_date, code, shares)
+);
+
 CREATE TABLE IF NOT EXISTS journal_session_log (
     ts              TIMESTAMP,
     candidates_n    INTEGER,

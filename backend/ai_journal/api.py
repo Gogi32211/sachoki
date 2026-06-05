@@ -171,3 +171,21 @@ def pulse():
     """Industry Pulse: regime + sector heat + movers + market-cap (market context)."""
     from .industry_pulse import compute_pulse
     return compute_pulse()
+
+
+@router.get("/insider")
+def insider(days: int = 30):
+    """Recent SEC Form 4 open-market buys + insider-cluster flags."""
+    from .edgar import recent_insider
+    return recent_insider(limit_days=days)
+
+
+class InsiderIngestReq(BaseModel):
+    days: int = 10
+
+
+@router.post("/insider/ingest")
+def insider_ingest(req: InsiderIngestReq):
+    """Pull recent Form 4 filings from EDGAR into insider_tx (slow — SEC rate-limited)."""
+    from .edgar import ingest_form4
+    return ingest_form4(days=req.days)
