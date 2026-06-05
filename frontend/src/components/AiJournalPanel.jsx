@@ -12,6 +12,7 @@ async function jpost(path, body) {
 export default function AiJournalPanel() {
   const [ov, setOv] = useState(null)
   const [kb, setKb] = useState(null)
+  const [uni, setUni] = useState(null)
   const [sub, setSub] = useState('positions')
   const [busy, setBusy] = useState(null)
   const [err, setErr] = useState(null)
@@ -22,6 +23,9 @@ export default function AiJournalPanel() {
     jget('/api/journal/knowledge').then(setKb).catch(() => {})
   }, [])
   useEffect(() => { reload() }, [reload])
+  useEffect(() => {
+    if (sub === 'universe' && !uni) jget('/api/journal/universe').then(setUni).catch(e => setErr(String(e)))
+  }, [sub, uni])
 
   const runSession = async () => {
     setBusy('session'); setErr(null)
@@ -74,7 +78,7 @@ export default function AiJournalPanel() {
 
       {/* Sub-tabs */}
       <div className="flex gap-1 mb-3">
-        {['positions','knowledge','lessons'].map(s => (
+        {['positions','knowledge','universe','lessons'].map(s => (
           <button key={s} onClick={() => setSub(s)}
             className={`px-3 py-1 rounded text-sm capitalize ${sub===s?'bg-violet-700 text-white':'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{s}</button>
         ))}
@@ -82,6 +86,7 @@ export default function AiJournalPanel() {
 
       {sub === 'positions' && <Positions ov={ov} />}
       {sub === 'knowledge' && <Knowledge kb={kb} />}
+      {sub === 'universe'  && <Universe uni={uni} />}
       {sub === 'lessons'   && <Lessons ov={ov} />}
     </div>
   )
@@ -104,9 +109,9 @@ function Positions({ ov }) {
         <div className="text-sm font-semibold mb-1 text-amber-300">⏱ Pending open ({pending.length})
           <span className="ml-2 text-xs font-normal text-md-on-surface-var">— решено при закрытой бирже, вход по open следующей сессии</span></div>
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-          <Th>Ticker</Th><Th r>Conv</Th><Th r>Size%</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
+          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Size%</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
         <tbody>{pending.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Td cls="font-bold text-amber-300">{p.ticker}</Td><Td r>{p.conviction}</Td>
+          <Td cls="font-bold text-amber-300">{p.ticker}</Td><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
           <Td r>{(p.size_pct*100).toFixed(1)}</Td><Td>{p.decision_date} ({p.decided_session})</Td>
           <Td className="text-amber-400">{p.entry_mode}</Td>
           <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>
@@ -115,12 +120,12 @@ function Positions({ ov }) {
         <div className="text-sm font-semibold mb-1">Open ({open.length})</div>
         {open.length === 0 ? <Empty>Нет открытых позиций — нажми «Run session».</Empty> :
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-          <Th>Ticker</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
+          <Th>Ticker</Th><Th>Cap</Th><Th>Sector</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
         <tbody>{open.map(p => <tr key={p.id} className="border-b border-white/5">
-          <Td cls="font-bold text-emerald-300">{p.ticker}</Td><Td r>{p.conviction}</Td>
+          <Td cls="font-bold text-emerald-300">{p.ticker}</Td><Cap b={p.mcap_bucket} /><Td className="text-md-on-surface-var">{p.sector||'—'}</Td><Td r>{p.conviction}</Td>
           <Td r>${p.entry_px?.toFixed(2)}</Td><Td r className="text-rose-400">${p.stop_px?.toFixed(2)}</Td>
           <Td r className="text-sky-300">${p.target_px?.toFixed(2)}</Td><Td r>{(p.size_pct*100).toFixed(1)}</Td>
-          <td className="px-2 py-1 text-md-on-surface-var max-w-[460px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>}
+          <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>}
       </div>
       <div>
         <div className="text-sm font-semibold mb-1">Closed ({closed.length})</div>
@@ -168,6 +173,45 @@ function Lessons({ ov }) {
             <div className="text-md-on-surface-var mt-0.5">scope: {l.scope_fingerprint} · n={l.evidence_n} · lift={l.evidence_lift}</div></div>)}
         </div>
       ))}
+    </div>
+  )
+}
+
+const CAP_CLS = { mega:'text-amber-200', large:'text-emerald-300', mid:'text-sky-300',
+                  small:'text-yellow-400', micro:'text-rose-400', unknown:'text-gray-500' }
+function Cap({ b }) {
+  const k = b || 'unknown'
+  return <td className={`px-2 py-1 font-mono ${CAP_CLS[k] || 'text-gray-400'}`}>{k}</td>
+}
+
+function Universe({ uni }) {
+  if (!uni) return <Empty>Загрузка… (джойн ticker_meta × bars, пара секунд)</Empty>
+  const blocked = new Set(uni.blocked_buckets || [])
+  const bs = uni.bucket_stats || [], ss = uni.sector_stats || []
+  const counts = Object.fromEntries((uni.bucket_counts||[]).map(b => [b.bucket, b.n]))
+  return (
+    <div className="space-y-5">
+      <div>
+        <div className="text-sm font-semibold mb-1">Market-cap — setup (V3≥25) forward-исходы</div>
+        <div className="text-xs text-md-on-surface-var mb-2">Это рычаг, который реально работает. Заблокированные бакеты движок не торгует (лотерея/непредсказуемо).</div>
+        <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
+          <Th>Bucket</Th><Th r>Tickers</Th><Th r>setups n</Th><Th r>HH5</Th><Th r>fwd5 med</Th><Th r>P(fwd5≥10%)</Th><Th>Rule</Th></tr></thead>
+        <tbody>{bs.map(r => <tr key={r.bucket} className="border-b border-white/5">
+          <Cap b={r.bucket} /><Td r className="text-md-on-surface-var">{counts[r.bucket]??'—'}</Td><Td r>{(r.n||0).toLocaleString()}</Td>
+          <Td r className="font-bold">{r.hh5}%</Td>
+          <Td r className={r.fwd5_med>=0?'text-emerald-400':'text-rose-400'}>{r.fwd5_med}</Td>
+          <Td r>{r.big10}%</Td>
+          <Td>{blocked.has(r.bucket) ? <span className="text-rose-400">⛔ blocked</span> : <span className="text-emerald-400">✓ allowed</span>}</Td></tr>)}</tbody></table>
+      </div>
+      <div>
+        <div className="text-sm font-semibold mb-1">Sector — setup HH vs сигнал-lift</div>
+        <div className="text-xs text-md-on-surface-var mb-2">Слабое измерение: разброс HH мал, а сигнал даёт ~+15pp в КАЖДОМ секторе → для отбора не используем.</div>
+        <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
+          <Th>Sector</Th><Th r>setups n</Th><Th r>setup HH5</Th><Th r>signal lift</Th></tr></thead>
+        <tbody>{ss.map(r => <tr key={r.sector} className="border-b border-white/5">
+          <Td cls="font-bold">{r.sector}</Td><Td r>{(r.n||0).toLocaleString()}</Td><Td r>{r.setup_hh}%</Td>
+          <Td r className="text-emerald-400">+{r.sig_lift}pp</Td></tr>)}</tbody></table>
+      </div>
     </div>
   )
 }
