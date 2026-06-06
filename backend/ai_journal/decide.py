@@ -40,6 +40,14 @@ do NOT override with intuition):
 - V3 is an HH-predictor, NOT a P&L-predictor (v3_ge40 edge -0.16%). Do NOT raise
   conviction just because V3 is high. Look at the candidate's `pnl_evidence` and
   `matched_combos` first.
+- `anti_matched_combos` are combos the candidate SATISFIES but that were tested
+  and REJECTED by the same walk-forward pipeline. Treat each as a warning:
+    * reason="oos edge non-positive" — proven negative on OOS, strong negative
+    * reason="oos edge collapsed"    — train edge gone OOS, evidence of overfit
+    * reason="low_n"                 — too few bars, uncertain (modest weight)
+    * reason="bonferroni p too high" — noise after multiple-testing, weak signal
+  A candidate matching one good combo BUT also a severely-rejected combo is
+  NOT a clean BUY — call it out and cap conviction.
 - MARKET-CAP: mega/large best; micro is auto-blocked. Sector barely matters.
 - HORIZON: hold ~10 days. Short holds (5d) kill the edge before it accrues.
 
@@ -129,7 +137,8 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
         return {"as_of": as_of, "candidates": 0, "note": "no eligible candidates"}
     t1 = mem.load_tier1_index(as_of)
     pnl_idx = mem.load_pnl_edges(horizon=rails.HORIZON_DAYS)
-    passed_combos = mem.load_passed_combos(horizon=rails.HORIZON_DAYS)
+    passed_combos   = mem.load_passed_combos(horizon=rails.HORIZON_DAYS)
+    rejected_combos = mem.load_rejected_combos(horizon=rails.HORIZON_DAYS)
     bl = {b["pattern"] for b in mem.active_blacklist()}
     from . import regime as regime_mod
     reg = regime_mod.compute_regime(as_of)
@@ -159,6 +168,25 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
         matched_brief = [{"combo": ",".join(sorted(c2["atoms"])),
                           "edge_pnl_pct": round(c2["edge"], 3), "n": c2["n"]}
                          for c2 in matched[:3]]
+        # anti-matched combos: candidate satisfies a TESTED-AND-REJECTED combo.
+        # These are warnings — the LLM should NOT treat them as edge. Prefer
+        # combos rejected for substance (oos collapse / negative) over those
+        # killed only by Bonferroni (those are statistically inconclusive, not
+        # outright bad). Cap at 3 most informative.
+        anti = [c2 for c2 in rejected_combos if c2["atoms"].issubset(atoms_here)]
+        def _anti_severity(c2):
+            r = (c2.get("reason") or "")
+            if "non-positive" in r: return 3       # worst — edge actually negative OOS
+            if "collapsed"    in r: return 2       # train edge collapsed OOS
+            if "low_n"        in r: return 1       # uncertain, just thin
+            return 0                               # bonferroni — noise, low signal value
+        anti.sort(key=lambda c2: (-_anti_severity(c2), -c2["size"], -(c2["n"] or 0)))
+        anti_brief = [{"combo": ",".join(sorted(c2["atoms"])),
+                       "size": c2["size"], "reason": c2["reason"],
+                       "oos_edge_pct": round(c2["oos_edge"] or 0, 3),
+                       "train_edge_pct": round(c2["train_edge"] or 0, 3),
+                       "n_oos": c2["n"]}
+                      for c2 in anti[:3]]
 
         prompt_cands.append({
             "ticker": c["ticker"], "price": round(float(c["last_price"]), 2),
@@ -167,10 +195,11 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             "tz": c.get("tz_sig"), "phase": c.get("rtb_phase"), "rsi": round(float(c["rsi"] or 0), 0),
             "sector": c.get("sector") or "?", "mcap": c.get("mcap_bucket") or "unknown",
             "fingerprint": fp,
-            "pnl_evidence":   pnl_ev[:6],                          # ← REAL P&L per-atom edge (H=10)
-            "matched_combos": matched_brief,                       # ← validated multi-predicate combos
-            "hh_evidence":    ev[:4],                              # ← legacy HH (informational; do not trade on)
-            "tier2_own":      mem.tier2_for(fp, as_of),
+            "pnl_evidence":      pnl_ev[:6],                       # ← REAL P&L per-atom edge (H=10)
+            "matched_combos":    matched_brief,                    # ← validated multi-predicate combos
+            "anti_matched_combos": anti_brief,                     # ← TESTED-AND-REJECTED combos this satisfies (warnings)
+            "hh_evidence":       ev[:4],                           # ← legacy HH (informational; do not trade on)
+            "tier2_own":         mem.tier2_for(fp, as_of),
         })
 
     user = {

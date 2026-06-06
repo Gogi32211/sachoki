@@ -136,6 +136,40 @@ def load_passed_combos(horizon: int = 10) -> list[dict]:
     return [{"atoms": set(r[0].split(",")), "n": r[1], "edge": r[2], "size": r[3]} for r in rows]
 
 
+def load_rejected_combos(horizon: int = 10, top_n: int = 200) -> list[dict]:
+    """Combos that were TESTED at this horizon but rejected — with the reason.
+    The journal uses these as anti-evidence: a candidate that satisfies a
+    rejected combo whose reason is 'oos edge collapsed' should NOT be reasoned
+    as if the setup were sound. Filtered to combos with size ≥ 2 (singles
+    rejected by Bonferroni alone aren't actionable warnings)."""
+    j = get_journal_conn()
+    try:
+        try:
+            # Prioritise SUBSTANTIVE rejections (oos collapse / non-positive)
+            # — those carry real information. Bonferroni-only rejections are
+            # "couldn't tell apart from noise"; useful but secondary.
+            rows = j.execute("""SELECT predicates, size, oos_edge_avg, train_edge_avg, n_oos, pass_reason
+                                FROM combo_catalog_pnl
+                                WHERE horizon = ? AND status = 'rejected' AND size >= 2
+                                  AND pass_reason IS NOT NULL
+                                ORDER BY
+                                    CASE
+                                        WHEN pass_reason LIKE 'oos edge non-positive%' THEN 0
+                                        WHEN pass_reason LIKE 'oos edge collapsed%' THEN 1
+                                        WHEN pass_reason LIKE 'low_n%' THEN 2
+                                        ELSE 3
+                                    END,
+                                    size DESC, n_oos DESC
+                                LIMIT ?""", [horizon, top_n]).fetchall()
+        except Exception:
+            return []
+    finally:
+        j.close()
+    return [{"atoms": set(r[0].split(",")), "size": r[1],
+             "oos_edge": r[2], "train_edge": r[3], "n": r[4], "reason": r[5]}
+            for r in rows]
+
+
 def active_lessons() -> list[dict]:
     j = get_journal_conn(read_only=True)
     try:
