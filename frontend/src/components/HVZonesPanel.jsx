@@ -26,19 +26,36 @@ export default function HVZonesPanel() {
   const [tierFilter, setTierFilter] = useState({ 'x10+': true, 'x5-10': true, 'x2-5': true })
   const [relFilter, setRelFilter] = useState({ inside: true, cross: true, touch_below: true, touch_above: true, above: false, below: false })
   const [search, setSearch] = useState('')
-  const [zoneClassifications, setZoneClassifications] = useState([])  // per-bar rels for selected ticker
+  const [zones,  setZones]  = useState([])             // [{trigger_date, zone_low, zone_high, bar_classifications:[...]}]
 
   const reload = () => fetch('/api/zone-retest/scan').then(r => r.json()).then(setData).catch(e => setErr(String(e)))
   useEffect(() => { reload() }, [])
 
-  // Load classified bars for the selected ticker, then push markers to the chart
+  // Load ALL zones for the selected ticker (each with its own bar_classifications)
   useEffect(() => {
-    if (!selected) { setZoneClassifications([]); return }
+    if (!selected) { setZones([]); return }
     fetch(`/api/zone-retest/zones/${selected}?classify=true`)
       .then(r => r.json())
-      .then(d => setZoneClassifications((d.zones || [])[0]?.bar_classifications || []))
-      .catch(() => setZoneClassifications([]))
+      .then(d => setZones(d.zones || []))
+      .catch(() => setZones([]))
   }, [selected])
+
+  // Pick the "strongest" relation across all zones for each date — drives one
+  // marker per bar on the chart. Priority: cross > touch > inside > others.
+  const REL_PRIORITY = { cross: 4, touch_below: 3, touch_above: 3, inside: 2, above: 1, below: 1 }
+  const mergedClassifications = useMemo(() => {
+    if (!zones.length) return []
+    const byDate = new Map()
+    for (const z of zones) {
+      for (const b of z.bar_classifications || []) {
+        const cur = byDate.get(b.date)
+        if (!cur || (REL_PRIORITY[b.rel] || 0) > (REL_PRIORITY[cur.rel] || 0)) {
+          byDate.set(b.date, b)
+        }
+      }
+    }
+    return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
+  }, [zones])
 
   const rows = useMemo(() => {
     const arr = (data?.rows || []).filter(r => {
@@ -129,11 +146,12 @@ export default function HVZonesPanel() {
             <SelectedHeader row={(data.rows || []).find(r => r.ticker === selected)} />
             <div className="rounded-lg overflow-hidden border border-white/10 mb-3">
               <CodeCandleChart ticker={selected} tf="1d" initialLimit={150}
-                height={460} zoneMarkers={zoneClassifications}
+                height={460} zoneMarkers={mergedClassifications}
                 showBarSelector={false} />
             </div>
             <Legend />
-            <RelTable bars={zoneClassifications} />
+            <ZoneSummary zones={zones} />
+            <RelMatrix zones={zones} />
           </>
         ) : (
           <div className="text-sm text-md-on-surface-var italic">Pick a ticker on the left.</div>
@@ -173,35 +191,80 @@ function Legend() {
   )
 }
 
-function RelTable({ bars }) {
-  if (!bars?.length) return null
-  // Show last 20 bars, most recent first
-  const last = [...bars].slice(-20).reverse()
+function ZoneSummary({ zones }) {
+  if (!zones?.length) return null
+  return (
+    <div className="mb-3">
+      <div className="text-xs font-semibold mb-1">Zones ({zones.length})</div>
+      <table className="text-xs">
+        <thead><tr className="border-b border-white/10 text-md-on-surface-var">
+          <th className="text-left px-2 py-1">#</th>
+          <th className="text-left px-2 py-1">Trigger</th>
+          <th className="text-right px-2 py-1">Zone</th>
+          <th className="text-right px-2 py-1">Vol×</th>
+          <th className="text-left px-2 py-1">Left date</th>
+        </tr></thead>
+        <tbody>{zones.map((z, i) => (
+          <tr key={i} className="border-b border-white/5">
+            <td className="px-2 py-0.5 font-mono text-cyan-300">Z{i+1}</td>
+            <td className="px-2 py-0.5 font-mono">{z.trigger_date}</td>
+            <td className="px-2 py-0.5 text-right font-mono">${z.zone_low} – ${z.zone_high}</td>
+            <td className="px-2 py-0.5 text-right font-mono text-amber-300">×{z.trigger_vol_mult}</td>
+            <td className="px-2 py-0.5 font-mono text-md-on-surface-var">{z.left_date || '—'}</td>
+          </tr>
+        ))}</tbody>
+      </table>
+    </div>
+  )
+}
+
+function RelMatrix({ zones }) {
+  if (!zones?.length) return null
+  // Build union of all bar dates across zones, then matrix [date × zone#] → relation
+  const dateSet = new Set()
+  for (const z of zones) for (const b of z.bar_classifications || []) dateSet.add(b.date)
+  const dates = [...dateSet].sort().slice(-20)   // last 20 bars
+  // For each zone, index by date for quick lookup
+  const zoneIdx = zones.map(z => {
+    const m = new Map()
+    for (const b of z.bar_classifications || []) m.set(b.date, b)
+    return m
+  })
   return (
     <div>
-      <div className="text-xs font-semibold mb-1">Recent bars (last 20)</div>
-      <table className="w-full text-xs"><thead><tr className="border-b border-white/10 text-md-on-surface-var">
-        <th className="text-left px-2 py-1">Date</th>
-        <th className="text-right px-2 py-1">Open</th>
-        <th className="text-right px-2 py-1">High</th>
-        <th className="text-right px-2 py-1">Low</th>
-        <th className="text-right px-2 py-1">Close</th>
-        <th className="text-left px-2 py-1">Relation</th>
-      </tr></thead>
-      <tbody>{last.map((b, i) => {
-        const v = REL_CLS[b.rel] || REL_CLS.inside
-        return (
-          <tr key={i} className="border-b border-white/5">
-            <td className="px-2 py-0.5 font-mono">{b.date}</td>
-            <td className="px-2 py-0.5 text-right font-mono">{b.open.toFixed(2)}</td>
-            <td className="px-2 py-0.5 text-right font-mono">{b.high.toFixed(2)}</td>
-            <td className="px-2 py-0.5 text-right font-mono">{b.low.toFixed(2)}</td>
-            <td className="px-2 py-0.5 text-right font-mono">{b.close.toFixed(2)}</td>
-            <td className="px-2 py-0.5 font-mono" style={{ color: v.color }}>{v.shape} {v.label}</td>
-          </tr>
-        )
-      })}</tbody>
-      </table>
+      <div className="text-xs font-semibold mb-1">Recent bars × zones (last 20)</div>
+      <div className="overflow-x-auto"><table className="text-xs">
+        <thead><tr className="border-b border-white/10 text-md-on-surface-var">
+          <th className="text-left px-2 py-1">Date</th>
+          <th className="text-right px-2 py-1">Open</th>
+          <th className="text-right px-2 py-1">High</th>
+          <th className="text-right px-2 py-1">Low</th>
+          <th className="text-right px-2 py-1">Close</th>
+          {zones.map((_, i) => <th key={i} className="text-center px-2 py-1 text-cyan-300">Z{i+1}</th>)}
+        </tr></thead>
+        <tbody>{[...dates].reverse().map(date => {
+          // Take OHLC from first zone that has this date
+          let ohlc = null
+          for (const m of zoneIdx) if (m.has(date)) { ohlc = m.get(date); break }
+          if (!ohlc) return null
+          return (
+            <tr key={date} className="border-b border-white/5">
+              <td className="px-2 py-0.5 font-mono">{date}</td>
+              <td className="px-2 py-0.5 text-right font-mono">{ohlc.open.toFixed(2)}</td>
+              <td className="px-2 py-0.5 text-right font-mono">{ohlc.high.toFixed(2)}</td>
+              <td className="px-2 py-0.5 text-right font-mono">{ohlc.low.toFixed(2)}</td>
+              <td className="px-2 py-0.5 text-right font-mono">{ohlc.close.toFixed(2)}</td>
+              {zoneIdx.map((m, i) => {
+                const b = m.get(date)
+                const v = b ? (REL_CLS[b.rel] || REL_CLS.inside) : null
+                return <td key={i} className="px-2 py-0.5 text-center font-mono" style={v ? { color: v.color } : {}}>
+                  {v ? `${v.shape} ${v.label}` : '·'}
+                </td>
+              })}
+            </tr>
+          )
+        })}</tbody>
+      </table></div>
     </div>
   )
 }
