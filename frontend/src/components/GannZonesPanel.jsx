@@ -145,7 +145,33 @@ export default function GannZonesPanel() {
             <div className="rounded-lg overflow-hidden border border-white/10 mb-3">
               <CodeCandleChart ticker={selected} tf="1d" initialLimit={Math.max(200, lookback + 30)}
                 height={460} zoneMarkers={mergedClassifications}
-                zoneSource="gann" showBarSelector={false} />
+                zoneSource="gann" showBarSelector={false}
+                sidePanelExtras={
+                  <div>
+                    <div className="text-[11px] text-md-on-surface-var mb-1">Gann lookback</div>
+                    <div className="flex gap-1 flex-wrap">
+                      {LOOKBACKS.map(lb => (
+                        <button key={lb} onClick={() => setLookback(lb)}
+                          className={`px-2 py-0.5 rounded text-[11px] font-mono border ${
+                            lookback === lb
+                              ? 'bg-amber-900/60 text-amber-300 border-amber-600'
+                              : 'bg-md-surface text-md-on-surface-var border-white/10'}`}>{lb}d</button>
+                      ))}
+                    </div>
+                    <div className="mt-2 flex gap-1">
+                      <button onClick={() => setShowTop(s => !s)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                          showTop ? 'bg-rose-900/40 text-rose-300 border-rose-700' : 'bg-md-surface text-md-on-surface-var border-white/10 opacity-60'}`}>
+                        TOP zone
+                      </button>
+                      <button onClick={() => setShowBot(s => !s)}
+                        className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                          showBot ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700' : 'bg-md-surface text-md-on-surface-var border-white/10 opacity-60'}`}>
+                        BOT zone
+                      </button>
+                    </div>
+                  </div>
+                } />
             </div>
             <Legend />
             <ZoneTable zones={zones} />

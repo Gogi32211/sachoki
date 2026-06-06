@@ -53,6 +53,8 @@ export default function CodeCandleChart({
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
   zoneSource = 'hv',     // 'hv' (cyan) | 'gann' (amber) — which zone overlay to draw
+  sidePanelExtras = null,// optional JSX rendered in the fullscreen side panel
+                         // (parent supplies its own settings/controls)
 }) {
   const containerRef = useRef(null)
   const overlayRef   = useRef(null)
@@ -177,7 +179,14 @@ export default function CodeCandleChart({
     volRef.current = vol
     onChartReady?.(chart)
 
-    const ro = new ResizeObserver(() => requestAnimationFrame(renderOverlay))
+    // Resize observer: re-fit the chart canvas AND re-position code overlays.
+    const ro = new ResizeObserver(() => {
+      const el = containerRef.current
+      if (el && chartRef.current) {
+        try { chartRef.current.resize(el.clientWidth, el.clientHeight) } catch {}
+      }
+      requestAnimationFrame(renderOverlay)
+    })
     ro.observe(containerRef.current)
 
     return () => { ro.disconnect(); chart.remove(); onChartReady?.(null) }
@@ -556,12 +565,12 @@ export default function CodeCandleChart({
       {inner}
       <FullscreenSidePanel ticker={ticker} hvZones={hvZones} candles={candlesRef.current}
                            historyCount={historyCount} historyTier={historyTier}
-                           zoneSource={zoneSource} />
+                           zoneSource={zoneSource} extras={sidePanelExtras} />
     </div>
   )
 }
 
-function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTier, zoneSource }) {
+function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTier, zoneSource, extras }) {
   const last = candles?.length ? candles[candles.length - 1] : null
   const lastN = candles ? candles.slice(-15).reverse() : []
   const isGann = zoneSource === 'gann'
@@ -578,6 +587,14 @@ function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTi
           </div>
         )}
       </div>
+
+      {/* Parent-supplied settings (e.g. Gann lookback selector) */}
+      {extras && (
+        <div className="p-3 border-b border-white/5">
+          <div className="text-xs font-semibold mb-2 uppercase tracking-wide text-md-on-surface-var">Settings</div>
+          {extras}
+        </div>
+      )}
 
       {/* Active zones */}
       <div className="p-3 border-b border-white/5">
