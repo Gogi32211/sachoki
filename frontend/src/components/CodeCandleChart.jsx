@@ -179,14 +179,9 @@ export default function CodeCandleChart({
     volRef.current = vol
     onChartReady?.(chart)
 
-    // Resize observer: re-fit the chart canvas AND re-position code overlays.
-    const ro = new ResizeObserver(() => {
-      const el = containerRef.current
-      if (el && chartRef.current) {
-        try { chartRef.current.resize(el.clientWidth, el.clientHeight) } catch {}
-      }
-      requestAnimationFrame(renderOverlay)
-    })
+    // ResizeObserver: chart canvas itself is handled by lightweight-charts'
+    // autoSize:true; we only need to re-position the code overlays.
+    const ro = new ResizeObserver(() => requestAnimationFrame(renderOverlay))
     ro.observe(containerRef.current)
 
     return () => { ro.disconnect(); chart.remove(); onChartReady?.(null) }
@@ -438,8 +433,10 @@ export default function CodeCandleChart({
   }, [ticker, tf, zoneSource])
 
   const chartBody = (
-    <div className="relative">
-      <div ref={containerRef} className="w-full" style={{ height: fullscreen ? 'calc(100vh - 56px)' : height }} />
+    <div className={fullscreen ? 'relative flex-1 min-h-0' : 'relative'}>
+      <div ref={containerRef}
+           className={fullscreen ? 'w-full h-full' : 'w-full'}
+           style={fullscreen ? undefined : { height }} />
       <div ref={overlayRef} className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 4 }} />
       {loading && !meta && (
         <div className="absolute inset-0 flex items-center justify-center text-md-on-surface-var text-xs animate-pulse pointer-events-none">
