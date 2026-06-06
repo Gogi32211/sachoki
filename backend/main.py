@@ -254,6 +254,22 @@ def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 60, vol_mult
         return {"as_of": None, "tickers": [], "error": str(e)}
 
 
+@app.get("/api/zone-retest/zones/{ticker}")
+def zone_retest_zones(ticker: str, lookback_min: int = 20, lookback_max: int = 60,
+                      vol_mult: int = 10):
+    """All currently-active zones for one ticker (drawn on the chart).
+    Returns the trigger date, zone [low, high], trigger close + vol multiple."""
+    from ai_journal.zone_retest import zones_for_ticker
+    tk = ticker.upper()
+    try:
+        zones = zones_for_ticker(tk, lb_min=lookback_min, lb_max=lookback_max,
+                                 vol_mult=vol_mult)
+        return {"ticker": tk, "zones": zones, "count": len(zones)}
+    except Exception as e:
+        log.warning("zone-retest zones failed for %s: %s", ticker, e)
+        return {"ticker": tk, "zones": [], "error": str(e)}
+
+
 _ticker_info_cache: dict = {}
 
 @app.get("/api/ticker-info/{ticker}")

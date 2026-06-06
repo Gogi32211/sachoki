@@ -58,6 +58,8 @@ export default function CodeCandleChart({
   const volRef       = useRef(null)
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
+  const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
+  const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
   const [limit, setLimit]     = useState(initialLimit)
   const [showCodes, setShowCodes] = useState(codes)
   const [error, setError]     = useState(null)
@@ -267,6 +269,40 @@ export default function CodeCandleChart({
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
+  // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
+  // Two horizontal lines per zone (zone_low / zone_high) using lightweight-
+  // charts createPriceLine. They auto-track pan/zoom and stay above candles.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    // clear any prior zones first (also on ticker switch)
+    for (const ln of zoneLinesRef.current) {
+      try { series.removePriceLine(ln) } catch {}
+    }
+    zoneLinesRef.current = []
+    setHvZones([])
+    if (!ticker || tf !== '1d') return
+    let dead = false
+    fetch(`/api/zone-retest/zones/${ticker}`).then(r => r.json()).then(d => {
+      if (dead) return
+      const zones = d?.zones || []
+      setHvZones(zones)
+      zones.forEach((z, i) => {
+        const color = '#22d3ee'  // cyan-400
+        const titlePref = zones.length > 1 ? `Z${i + 1} ` : ''
+        zoneLinesRef.current.push(series.createPriceLine({
+          price: z.zone_high, color, lineWidth: 1, lineStyle: 2,
+          axisLabelVisible: true, title: `${titlePref}HV-top ${z.trigger_date}`,
+        }))
+        zoneLinesRef.current.push(series.createPriceLine({
+          price: z.zone_low, color, lineWidth: 1, lineStyle: 2,
+          axisLabelVisible: true, title: `${titlePref}HV-bot`,
+        }))
+      })
+    }).catch(() => {})
+    return () => { dead = true }
+  }, [ticker, tf])
+
   const chartBody = (
     <div className="relative">
       <div ref={containerRef} className="w-full" style={{ height }} />
@@ -310,6 +346,12 @@ export default function CodeCandleChart({
             {meta && (
               <span className="ml-2 text-xs text-md-on-surface-var">
                 {meta.n} bars{meta.dmin ? ` · ${meta.dmin} → ${meta.dmax}` : ''}
+              </span>
+            )}
+            {hvZones.length > 0 && (
+              <span className="ml-2 text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded ring-1 ring-cyan-700/50"
+                    title={hvZones.map((z, i) => `Z${i+1}: $${z.zone_low}-$${z.zone_high} · trig ${z.trigger_date} (vol×${z.trigger_vol_mult})`).join('\n')}>
+                🎯 HV-Zone × {hvZones.length}
               </span>
             )}
           </span>

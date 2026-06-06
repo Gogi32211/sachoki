@@ -76,6 +76,37 @@ def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int, vol_mult: int) -> str
     """
 
 
+def zones_for_ticker(ticker: str, as_of: str | None = None,
+                     lb_min: int = TRIGGER_LOOKBACK_MIN,
+                     lb_max: int = TRIGGER_LOOKBACK_MAX,
+                     vol_mult: int = TRIGGER_VOL_MULT) -> list[dict]:
+    """All currently-active zones for ONE ticker (keep all triggers, sorted
+    most-recent first). For chart overlay."""
+    a = get_analytics_conn()
+    try:
+        if as_of is None:
+            as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+        sql = _zone_retest_sql(as_of, lb_min, lb_max, vol_mult) + " "  # already orders by ticker, trigger_date desc
+        df = a.execute(sql).fetchdf()
+    finally:
+        a.close()
+    df = df[df["ticker"] == ticker.upper()].sort_values("trigger_date", ascending=False)
+    # A ticker can sit in >1 universe → same zone reported twice. De-dup.
+    df = df.drop_duplicates(subset=["trigger_date", "zone_low", "zone_high"], keep="first")
+    out = []
+    for _, r in df.iterrows():
+        out.append({
+            "trigger_date":  str(r["trigger_date"])[:10],
+            "left_date":     str(r["left_date"])[:10] if r["left_date"] else None,
+            "zone_low":      round(float(r["zone_low"]), 4),
+            "zone_high":     round(float(r["zone_high"]), 4),
+            "trigger_close": round(float(r["trigger_close"]), 4),
+            "trigger_vol_mult": round(float(r["volume"]) / float(r["avg_vol_20d"]), 1),
+            "current_close": round(float(r["current_close"]), 4),
+        })
+    return out
+
+
 def active_retests(as_of: str | None = None,
                    lb_min: int = TRIGGER_LOOKBACK_MIN,
                    lb_max: int = TRIGGER_LOOKBACK_MAX,
