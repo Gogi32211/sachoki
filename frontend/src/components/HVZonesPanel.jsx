@@ -155,6 +155,11 @@ export default function HVZonesPanel() {
                   {isFirstOfTicker && <span className="text-md-on-surface-var truncate">{r.sector}</span>}
                 </div>
                 <div className="mt-0.5 text-[10px] text-md-on-surface-var font-mono">
+                  {r.direction && (
+                    <span className={`mr-1 ${r.direction==='bull'?'text-emerald-400':'text-rose-400'}`}>
+                      {r.direction==='bull'?'▲':'▼'}
+                    </span>
+                  )}
                   ${r.zone_low}-${r.zone_high} · {r.trigger_date} vol×{r.trigger_vol_mult}
                 </div>
               </div>
@@ -224,6 +229,7 @@ function ZoneSummary({ zones }) {
       <table className="text-xs">
         <thead><tr className="border-b border-white/10 text-md-on-surface-var">
           <th className="text-left px-2 py-1">#</th>
+          <th className="text-left px-2 py-1">Dir</th>
           <th className="text-left px-2 py-1">Trigger</th>
           <th className="text-right px-2 py-1">Zone</th>
           <th className="text-right px-2 py-1">Vol×</th>
@@ -232,6 +238,9 @@ function ZoneSummary({ zones }) {
         <tbody>{zones.map((z, i) => (
           <tr key={i} className="border-b border-white/5">
             <td className="px-2 py-0.5 font-mono font-bold" style={{ color: zoneColor(i) }}>Z{i+1}</td>
+            <td className={`px-2 py-0.5 font-mono font-bold ${z.direction==='bull'?'text-emerald-400':'text-rose-400'}`}>
+              {z.direction==='bull'?'▲ BULL':'▼ BEAR'}
+            </td>
             <td className="px-2 py-0.5 font-mono">{z.trigger_date}</td>
             <td className="px-2 py-0.5 text-right font-mono">${z.zone_low} – ${z.zone_high}</td>
             <td className="px-2 py-0.5 text-right font-mono text-amber-300">×{z.trigger_vol_mult}</td>

@@ -36,18 +36,24 @@ def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int,
     """The core re-test query. One pass; window-based.
     vol_min/vol_max: volume/avg_vol_20d band [vol_min, vol_max) (vol_max=None → open-ended).
 
-    Returns (ticker, universe, trigger_date, zone_low, zone_high, current_close,
-             left_date, pct_in_zone) for every active re-test today."""
+    Triggers include both bullish AND bearish high-volume bars (the institutional
+    footprint matters regardless of direction). Bullish bar → accumulation-style
+    re-test from below; bearish bar → distribution-style re-test from above.
+    `direction` is surfaced in the result.
+
+    Returns (ticker, universe, trigger_date, zone_low, zone_high, trigger_close,
+             direction, ..., left_date, current_close) for every active re-test
+    today (cur close back inside zone after at least one bar closed OUTSIDE it)."""
     upper = f" AND volume < {vol_max} * avg_vol_20d" if vol_max else ""
     return f"""
         WITH triggers AS (
             SELECT ticker, universe, date AS trigger_date,
                    low  AS zone_low, high AS zone_high, close AS trigger_close,
+                   CASE WHEN close > open THEN 'bull' ELSE 'bear' END AS direction,
                    volume, avg_vol_20d
             FROM bars
             WHERE date BETWEEN (DATE '{as_of}' - INTERVAL {lb_max} DAY)
                            AND (DATE '{as_of}' - INTERVAL {lb_min} DAY)
-              AND close > open                              -- bullish trigger
               AND avg_vol_20d > 0
               AND volume >= {vol_min} * avg_vol_20d{upper}
               AND high > low
@@ -57,21 +63,23 @@ def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int,
                    close AS current_close, atr_14
             FROM bars WHERE date = DATE '{as_of}'
         ),
-        -- For every (trigger, candidate) pair: did the price LEAVE upward?
+        -- For every (trigger, candidate) pair: did the price leave the zone
+        -- (any direction) and is it back inside now?
         with_exit AS (
             SELECT t.*, cs.current_close, cs.atr_14, cs.current_date,
-                   MAX(CASE WHEN b.close > t.zone_high THEN b.date END) AS left_date
+                   MAX(CASE WHEN b.close NOT BETWEEN t.zone_low AND t.zone_high
+                            THEN b.date END) AS left_date
             FROM triggers t
             JOIN current_state cs USING (ticker, universe)
             JOIN bars b ON b.ticker = t.ticker AND b.universe = t.universe
                        AND b.date  > t.trigger_date AND b.date < cs.current_date
             GROUP BY t.ticker, t.universe, t.trigger_date, t.zone_low, t.zone_high,
-                     t.trigger_close, t.volume, t.avg_vol_20d,
+                     t.trigger_close, t.direction, t.volume, t.avg_vol_20d,
                      cs.current_close, cs.atr_14, cs.current_date
         )
         SELECT ticker, universe, trigger_date, zone_low, zone_high, trigger_close,
-               volume, avg_vol_20d, current_close, current_date, atr_14, left_date,
-               (current_close - zone_low) / (zone_high - zone_low) AS pct_in_zone
+               direction, volume, avg_vol_20d, current_close, current_date, atr_14,
+               left_date, (current_close - zone_low) / (zone_high - zone_low) AS pct_in_zone
         FROM with_exit
         WHERE left_date IS NOT NULL
           AND current_close BETWEEN zone_low AND zone_high
@@ -106,6 +114,7 @@ def zones_for_ticker(ticker: str, as_of: str | None = None,
             "zone_high":     round(float(r["zone_high"]), 4),
             "trigger_close": round(float(r["trigger_close"]), 4),
             "trigger_vol_mult": round(float(r["volume"]) / float(r["avg_vol_20d"]), 1),
+            "direction":     str(r["direction"]),
             "current_close": round(float(r["current_close"]), 4),
         })
     return out
@@ -159,6 +168,7 @@ def active_retests(as_of: str | None = None,
             "zone_high":      round(float(r["zone_high"]), 2),
             "trigger_close":  round(float(r["trigger_close"]), 2),
             "trigger_vol_mult": round(float(r["volume"]) / float(r["avg_vol_20d"]), 1),
+            "direction":      str(r["direction"]),
             "current_close":  round(float(r["current_close"]), 2),
             "pct_in_zone":    round(float(r["pct_in_zone"]) * 100, 1),  # 0=low, 100=high
             "atr_14":         round(float(r["atr_14"] or 0), 2),
