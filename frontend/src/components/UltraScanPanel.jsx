@@ -1000,9 +1000,25 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [sweetSpotFilter, setSweetSpotFilter] = useState(false)
   const [buildingFilter,  setBuildingFilter]  = useState(false)
   const [watchFilter,     setWatchFilter]     = useState(false)
-  const [zoneRetestFilter,setZoneRetestFilter]= useState(false)
-  const [zoneRetestSet,   setZoneRetestSet]   = useState(null)   // Set<string> | null
-  const [zoneRetestBusy,  setZoneRetestBusy]  = useState(false)
+  // HV-Zone re-test filter (3 vol-spike tiers, multi-select; union of selected sets)
+  const [zoneTiers, setZoneTiers] = useState({ t25: false, t510: false, t10p: false })
+  const [zoneTierSets, setZoneTierSets] = useState({}) // {tierKey: Set<string>}
+  const [zoneRetestBusy, setZoneRetestBusy] = useState(false)
+  const ZONE_TIERS = [
+    { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
+    { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
+    { key: 't10p', label: 'x10+',  vmin: 10, vmax: null, color: 'cyan' },
+  ]
+  // union of all enabled tiers; null while nothing toggled OR any toggled tier not yet loaded
+  const activeZoneSet = (() => {
+    const enabled = ZONE_TIERS.filter(t => zoneTiers[t.key])
+    if (!enabled.length) return null
+    if (enabled.some(t => !zoneTierSets[t.key])) return null   // still loading some tier
+    const u = new Set()
+    enabled.forEach(t => zoneTierSets[t.key].forEach(x => u.add(x)))
+    return u
+  })()
+  const zoneFilterActive = ZONE_TIERS.some(t => zoneTiers[t.key])
   const [partialDay,  setPartialDay]  = useState(false)  // include today's in-progress bar
   const [previewing,  setPreviewing]  = useState(false)  // hybrid Preview scan in flight
   const [previewInfo, setPreviewInfo] = useState(null)   // {session, note, liveBars} or null
@@ -1296,7 +1312,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (direction === 'bear' && r.tz_bull)  return false
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
       if (buildingFilter && r.profile_category !== 'BUILDING') return false
-      if (zoneRetestFilter && zoneRetestSet && !zoneRetestSet.has(r.ticker)) return false
+      if (zoneFilterActive && activeZoneSet && !activeZoneSet.has(r.ticker)) return false
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
@@ -1337,7 +1353,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneRetestFilter, zoneRetestSet])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2576,28 +2592,42 @@ export default function UltraScanPanel({ onSelectTicker }) {
           }`}>
           👁 Watch
         </button>
-        <button
-          onClick={async () => {
-            const nextOn = !zoneRetestFilter
-            setZoneRetestFilter(nextOn)
-            if (nextOn && !zoneRetestSet) {
-              setZoneRetestBusy(true)
-              try {
-                const r = await fetch('/api/zone-retest/tickers').then(x => x.json())
-                setZoneRetestSet(new Set(r.tickers || []))
-              } catch (e) { /* keep filter on; empty set → shows nothing, easy to spot */ }
-              finally { setZoneRetestBusy(false) }
-            }
-          }}
-          title="Show only tickers currently inside a recent (20-60d ago) high-volume bullish bar's [low,high] zone after having left it upward (re-test). Pure filter — no edge claim."
-          className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            zoneRetestFilter
-              ? 'bg-cyan-900/60 text-cyan-300 border-cyan-600 ring-1 ring-cyan-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          {zoneRetestBusy ? '⏳' : '🎯'} In HV-Zone
-          {zoneRetestFilter && zoneRetestSet && <span className="ml-1 text-[10px] opacity-80">{zoneRetestSet.size}</span>}
-        </button>
+        <span className="text-md-on-surface-var text-xs shrink-0 ml-2">🎯 HV-Zone:</span>
+        {ZONE_TIERS.map(t => {
+          const on = zoneTiers[t.key]
+          const tierSet = zoneTierSets[t.key]
+          // Static Tailwind classes (no string interpolation — JIT requires literals).
+          const onCls = {
+            sky:  'bg-sky-900/60 text-sky-300 border-sky-600 ring-1 ring-sky-500',
+            teal: 'bg-teal-900/60 text-teal-300 border-teal-600 ring-1 ring-teal-500',
+            cyan: 'bg-cyan-900/60 text-cyan-300 border-cyan-600 ring-1 ring-cyan-500',
+          }[t.color]
+          return (
+            <button
+              key={t.key}
+              onClick={async () => {
+                const next = !on
+                setZoneTiers(s => ({ ...s, [t.key]: next }))
+                if (next && !zoneTierSets[t.key]) {
+                  setZoneRetestBusy(true)
+                  try {
+                    const q = new URLSearchParams({ vol_min: t.vmin })
+                    if (t.vmax) q.set('vol_max', t.vmax)
+                    const r = await fetch(`/api/zone-retest/tickers?${q}`).then(x => x.json())
+                    setZoneTierSets(s => ({ ...s, [t.key]: new Set(r.tickers || []) }))
+                  } catch { /* leave set empty */ }
+                  finally { setZoneRetestBusy(false) }
+                }
+              }}
+              title={`Volume spike ${t.label} on a bullish bar 20-60 days back; price LEFT zone upward and is now back inside [low,high].`}
+              className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+                on ? onCls : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+              }`}>
+              {zoneRetestBusy && on && !tierSet ? '⏳' : ''} {t.label}
+              {on && tierSet && <span className="ml-1 text-[10px] opacity-80">{tierSet.size}</span>}
+            </button>
+          )
+        })}
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
             {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score

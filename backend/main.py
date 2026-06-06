@@ -240,13 +240,14 @@ def health():
 
 
 @app.get("/api/zone-retest/tickers")
-def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 60, vol_mult: int = 10):
-    """Just the set of tickers currently in a high-volume zone re-test.
-    Filter chip in Ultra Scan calls this and intersects with the grid."""
+def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 60,
+                        vol_min: float = 10.0, vol_max: float | None = None):
+    """Tickers currently in a high-volume zone re-test, with vol band
+    [vol_min, vol_max). Filter chips in Ultra call this per tier."""
     from ai_journal.zone_retest import active_retests
     try:
         res = active_retests(lb_min=lookback_min, lb_max=lookback_max,
-                             vol_mult=vol_mult, limit=5000)
+                             vol_min=vol_min, vol_max=vol_max, limit=5000)
         return {"as_of": res["as_of"], "params": res["params"],
                 "tickers": sorted({r["ticker"] for r in res["rows"]})}
     except Exception as e:
@@ -256,14 +257,14 @@ def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 60, vol_mult
 
 @app.get("/api/zone-retest/zones/{ticker}")
 def zone_retest_zones(ticker: str, lookback_min: int = 20, lookback_max: int = 60,
-                      vol_mult: int = 10):
-    """All currently-active zones for one ticker (drawn on the chart).
-    Returns the trigger date, zone [low, high], trigger close + vol multiple."""
+                      vol_min: float = 2.0, vol_max: float | None = None):
+    """All currently-active zones for one ticker (drawn on the chart) — default
+    vol_min=2 shows every tier so chart matches whatever filter was used."""
     from ai_journal.zone_retest import zones_for_ticker
     tk = ticker.upper()
     try:
         zones = zones_for_ticker(tk, lb_min=lookback_min, lb_max=lookback_max,
-                                 vol_mult=vol_mult)
+                                 vol_min=vol_min, vol_max=vol_max)
         return {"ticker": tk, "zones": zones, "count": len(zones)}
     except Exception as e:
         log.warning("zone-retest zones failed for %s: %s", ticker, e)

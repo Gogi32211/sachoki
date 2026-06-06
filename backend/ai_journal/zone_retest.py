@@ -31,11 +31,14 @@ TRIGGER_LOOKBACK_MIN = 20      # days ago (most recent trigger eligible)
 TRIGGER_LOOKBACK_MAX = 60      # days ago (oldest trigger eligible)
 
 
-def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int, vol_mult: int) -> str:
+def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int,
+                     vol_min: float, vol_max: float | None = None) -> str:
     """The core re-test query. One pass; window-based.
+    vol_min/vol_max: volume/avg_vol_20d band [vol_min, vol_max) (vol_max=None → open-ended).
 
     Returns (ticker, universe, trigger_date, zone_low, zone_high, current_close,
              left_date, pct_in_zone) for every active re-test today."""
+    upper = f" AND volume < {vol_max} * avg_vol_20d" if vol_max else ""
     return f"""
         WITH triggers AS (
             SELECT ticker, universe, date AS trigger_date,
@@ -46,7 +49,7 @@ def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int, vol_mult: int) -> str
                            AND (DATE '{as_of}' - INTERVAL {lb_min} DAY)
               AND close > open                              -- bullish trigger
               AND avg_vol_20d > 0
-              AND volume >= {vol_mult} * avg_vol_20d
+              AND volume >= {vol_min} * avg_vol_20d{upper}
               AND high > low
         ),
         current_state AS (
@@ -79,14 +82,15 @@ def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int, vol_mult: int) -> str
 def zones_for_ticker(ticker: str, as_of: str | None = None,
                      lb_min: int = TRIGGER_LOOKBACK_MIN,
                      lb_max: int = TRIGGER_LOOKBACK_MAX,
-                     vol_mult: int = TRIGGER_VOL_MULT) -> list[dict]:
+                     vol_min: float = 2.0,
+                     vol_max: float | None = None) -> list[dict]:
     """All currently-active zones for ONE ticker (keep all triggers, sorted
-    most-recent first). For chart overlay."""
+    most-recent first). For chart overlay — default vol_min=2 shows every tier."""
     a = get_analytics_conn()
     try:
         if as_of is None:
             as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
-        sql = _zone_retest_sql(as_of, lb_min, lb_max, vol_mult) + " "  # already orders by ticker, trigger_date desc
+        sql = _zone_retest_sql(as_of, lb_min, lb_max, vol_min, vol_max) + " "
         df = a.execute(sql).fetchdf()
     finally:
         a.close()
@@ -110,14 +114,15 @@ def zones_for_ticker(ticker: str, as_of: str | None = None,
 def active_retests(as_of: str | None = None,
                    lb_min: int = TRIGGER_LOOKBACK_MIN,
                    lb_max: int = TRIGGER_LOOKBACK_MAX,
-                   vol_mult: int = TRIGGER_VOL_MULT,
+                   vol_min: float = TRIGGER_VOL_MULT,
+                   vol_max: float | None = None,
                    limit: int = 200) -> dict:
     """Tickers currently re-testing a recent high-volume zone."""
     a = get_analytics_conn()
     try:
         if as_of is None:
             as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
-        df = a.execute(_zone_retest_sql(as_of, lb_min, lb_max, vol_mult)).fetchdf()
+        df = a.execute(_zone_retest_sql(as_of, lb_min, lb_max, vol_min, vol_max)).fetchdf()
     finally:
         a.close()
     # Keep most-recent trigger per ticker (clearer interpretation)
@@ -154,7 +159,8 @@ def active_retests(as_of: str | None = None,
         })
     return {
         "as_of": as_of, "count": len(rows),
-        "params": {"lookback_min": lb_min, "lookback_max": lb_max, "vol_mult": vol_mult},
+        "params": {"lookback_min": lb_min, "lookback_max": lb_max,
+                   "vol_min": vol_min, "vol_max": vol_max},
         "rows": rows,
     }
 
