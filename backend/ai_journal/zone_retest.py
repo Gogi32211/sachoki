@@ -28,7 +28,7 @@ log = logging.getLogger(__name__)
 # Filter parameters — kept explicit so the UI can show them.
 TRIGGER_VOL_MULT = 10
 TRIGGER_LOOKBACK_MIN = 20      # days ago (most recent trigger eligible)
-TRIGGER_LOOKBACK_MAX = 60      # days ago (oldest trigger eligible)
+TRIGGER_LOOKBACK_MAX = 90      # days ago (oldest trigger eligible)
 
 
 def _zone_retest_sql(as_of: str, lb_min: int, lb_max: int,
