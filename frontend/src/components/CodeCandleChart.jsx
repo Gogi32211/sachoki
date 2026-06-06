@@ -62,7 +62,23 @@ export default function CodeCandleChart({
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
+  const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
+
+  // Re-apply zone colors over the stored candles. Trigger-bar = colored
+  // candle/border/wick; everything else uses the default green/red.
+  const applyZoneColors = useCallback((zones) => {
+    const series = seriesRef.current
+    if (!series || !candlesRef.current.length) return
+    if (!zones?.length) { try { series.setData(candlesRef.current) } catch {} ; return }
+    const colorByDate = new Map()
+    for (const z of zones) if (z.trigger_date) colorByDate.set(z.trigger_date, z._color)
+    const recoloured = candlesRef.current.map(c => {
+      const col = colorByDate.get(c.time)
+      return col ? { ...c, color: col, borderColor: col, wickColor: col } : c
+    })
+    try { series.setData(recoloured) } catch {}
+  }, [])
   const [limit, setLimit]     = useState(initialLimit)
   const [showCodes, setShowCodes] = useState(codes)
   const [error, setError]     = useState(null)
@@ -194,9 +210,12 @@ export default function CodeCandleChart({
         })
       }
       signalsRef.current = sigOverlay
+      candlesRef.current = candles
       seriesRef.current.setData(candles)
       seriesRef.current.setMarkers([])
       volRef.current?.setData(volumes)
+      // If zones already loaded before candles, recolour the triggers now.
+      if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
       chartRef.current.timeScale().fitContent()
       requestAnimationFrame(renderOverlay)
@@ -235,9 +254,11 @@ export default function CodeCandleChart({
         const s = mkSig(r); if (s) signals.push(s)
       }
       signalsRef.current = signals
+      candlesRef.current = candles
       seriesRef.current.setData(candles)
       seriesRef.current.setMarkers([])
       volRef.current?.setData(volumes)
+      if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
       chartRef.current.timeScale().fitContent()
       requestAnimationFrame(() => { try { chartRef.current?.timeScale().fitContent(); renderOverlay() } catch {} })
@@ -325,7 +346,9 @@ export default function CodeCandleChart({
     fetch(url).then(r => r.json()).then(d => {
       if (dead) return
       const zones = d?.zones || []
-      setHvZones(zones.map((z, i) => ({ ...z, _source: zoneSource, _color: zColor(i), _idx: i + 1 })))
+      const coloured = zones.map((z, i) => ({ ...z, _source: zoneSource, _color: zColor(i), _idx: i + 1 }))
+      setHvZones(coloured)
+      applyZoneColors(coloured)             // recolor trigger candles
       zones.forEach((z, i) => {
         const color = zColor(i)
         const kindTag = z.kind ? z.kind.toUpperCase().slice(0,3) + ' ' : ''
