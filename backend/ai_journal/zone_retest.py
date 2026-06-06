@@ -116,8 +116,11 @@ def active_retests(as_of: str | None = None,
                    lb_max: int = TRIGGER_LOOKBACK_MAX,
                    vol_min: float = TRIGGER_VOL_MULT,
                    vol_max: float | None = None,
-                   limit: int = 200) -> dict:
-    """Tickers currently re-testing a recent high-volume zone."""
+                   limit: int = 200,
+                   dedupe_per_ticker: bool = True) -> dict:
+    """Tickers currently re-testing a recent high-volume zone.
+    dedupe_per_ticker=True keeps only the most-recent trigger per ticker;
+    set False (used by the sidebar scan) to surface every zone."""
     a = get_analytics_conn()
     try:
         if as_of is None:
@@ -125,9 +128,12 @@ def active_retests(as_of: str | None = None,
         df = a.execute(_zone_retest_sql(as_of, lb_min, lb_max, vol_min, vol_max)).fetchdf()
     finally:
         a.close()
-    # Keep most-recent trigger per ticker (clearer interpretation)
+    # Drop true cross-universe duplicates (same (ticker, trigger_date, zone)).
     df = df.sort_values(["ticker", "trigger_date"], ascending=[True, False])
-    df = df.drop_duplicates(subset=["ticker"], keep="first").head(limit)
+    df = df.drop_duplicates(subset=["ticker", "trigger_date", "zone_low", "zone_high"], keep="first")
+    if dedupe_per_ticker:
+        df = df.drop_duplicates(subset=["ticker"], keep="first")
+    df = df.head(limit)
 
     # Enrich with ticker_meta
     j = get_journal_conn()
@@ -282,18 +288,23 @@ def classify_recent_bars(ticker: str, universe: str, zone_low: float, zone_high:
 
 
 def scan() -> dict:
-    """Full list of tickers with active zones — sidebar for the HV-Zones page."""
-    res = active_retests(vol_min=2.0, limit=5000)
-    # active_retests already de-dupes per ticker (keep most-recent trigger).
+    """Full list of tickers × active zones — sidebar for the HV-Zones page.
+    Returns ONE row per (ticker, zone) so a ticker with multiple HV-spikes
+    appears multiple times. Sidebar can group / count or show inline."""
+    res = active_retests(vol_min=2.0, limit=10000, dedupe_per_ticker=False)
+    # Count zones per ticker first so the row can carry that summary.
+    from collections import Counter
+    zone_counts = Counter(r["ticker"] for r in res["rows"])
     rows = []
     for r in res["rows"]:
         rel = classify_bar(r["current_close"] - 1e-9, r["current_close"] + 1e-9,
                            r["current_close"], r["zone_low"], r["zone_high"])
-        # tier label from vol multiple
         vm = r["trigger_vol_mult"]
         tier = "x10+" if vm >= 10 else "x5-10" if vm >= 5 else "x2-5"
-        rows.append({**r, "current_rel": rel, "tier": tier})
-    return {"as_of": res["as_of"], "count": len(rows), "rows": rows}
+        rows.append({**r, "current_rel": rel, "tier": tier,
+                     "n_zones": zone_counts[r["ticker"]]})
+    return {"as_of": res["as_of"], "count": len(rows),
+            "n_tickers": len(zone_counts), "rows": rows}
 
 
 if __name__ == "__main__":

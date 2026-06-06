@@ -64,13 +64,23 @@ export default function HVZonesPanel() {
       if (search && !r.ticker.toUpperCase().includes(search.toUpperCase())) return false
       return true
     })
-    arr.sort((a, b) => b.trigger_vol_mult - a.trigger_vol_mult)
+    // sort by ticker (alpha), then by trigger_date desc (newest zone first)
+    arr.sort((a, b) => {
+      if (a.ticker !== b.ticker) return a.ticker.localeCompare(b.ticker)
+      return b.trigger_date.localeCompare(a.trigger_date)
+    })
+    // tag each row with its index within ticker (1-based) for "Z#" badge
+    let prev = null, idx = 0
+    arr.forEach(r => {
+      if (r.ticker !== prev) { prev = r.ticker; idx = 1 } else { idx += 1 }
+      r._zone_idx = idx
+    })
     return arr
   }, [data, tierFilter, relFilter, search])
 
-  // Auto-select first row when data loads or filter changes
+  // Auto-select first ticker when data loads or filter changes
   useEffect(() => {
-    if (rows.length && !rows.find(r => r.ticker === selected)) setSelected(rows[0].ticker)
+    if (rows.length && !rows.some(r => r.ticker === selected)) setSelected(rows[0].ticker)
   }, [rows, selected])
 
   if (err) return <div className="p-4 text-rose-300 text-xs font-mono">{err}</div>
@@ -83,7 +93,9 @@ export default function HVZonesPanel() {
         <div className="p-3 border-b border-white/10 space-y-2">
           <div className="flex items-center gap-2">
             <div className="text-base font-bold">🎯 HV-Zones</div>
-            <div className="text-xs text-md-on-surface-var">as-of {data.as_of} · {rows.length}/{data.count}</div>
+            <div className="text-xs text-md-on-surface-var">
+              as-of {data.as_of} · {new Set(rows.map(r => r.ticker)).size} tickers · {rows.length} zones (of {data.count})
+            </div>
           </div>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
@@ -113,24 +125,34 @@ export default function HVZonesPanel() {
         </div>
 
         <div className="flex-1 overflow-y-auto">
-          {rows.map(r => {
+          {rows.map((r, i) => {
             const rel = REL_CLS[r.current_rel] || REL_CLS.inside
             const isSel = r.ticker === selected
+            const isFirstOfTicker = r._zone_idx === 1
             return (
-              <div key={r.ticker} onClick={() => setSelected(r.ticker)}
-                className={`px-3 py-2 cursor-pointer border-b border-white/5 hover:bg-white/5 ${isSel ? 'bg-violet-900/30 border-l-2 border-l-violet-500' : ''}`}>
+              <div key={`${r.ticker}-${r.trigger_date}-${r.zone_low}`} onClick={() => setSelected(r.ticker)}
+                className={`px-3 py-2 cursor-pointer border-b border-white/5 hover:bg-white/5 ${
+                  isSel ? 'bg-violet-900/30 border-l-2 border-l-violet-500' : ''
+                } ${!isFirstOfTicker ? 'border-t-0 pl-7' : ''}`}>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-emerald-300">{r.ticker}</span>
-                  <span className={`text-[10px] font-mono ${CAP_CLS[r.mcap_bucket] || 'text-gray-400'}`}>{r.mcap_bucket}</span>
+                  {isFirstOfTicker ? (
+                    <span className="font-bold text-emerald-300">{r.ticker}</span>
+                  ) : (
+                    <span className="text-md-on-surface-var/60 text-[10px] font-mono">↳</span>
+                  )}
+                  <span className="text-[10px] text-cyan-400 font-mono" title={`Zone ${r._zone_idx} of ${r.n_zones}`}>
+                    Z{r._zone_idx}{r.n_zones > 1 ? `/${r.n_zones}` : ''}
+                  </span>
+                  {isFirstOfTicker && <span className={`text-[10px] font-mono ${CAP_CLS[r.mcap_bucket] || 'text-gray-400'}`}>{r.mcap_bucket}</span>}
                   <span className="text-[10px] text-md-on-surface-var ml-auto">${r.current_close}</span>
                 </div>
                 <div className="flex items-baseline gap-2 mt-0.5 text-[10px]">
                   <span className={`px-1 rounded font-semibold border ${TIER_CLS[r.tier]}`}>{r.tier}</span>
                   <span style={{ color: rel.color }} className="font-mono" title={rel.text}>{rel.shape} {rel.label}</span>
-                  <span className="text-md-on-surface-var truncate">{r.sector}</span>
+                  {isFirstOfTicker && <span className="text-md-on-surface-var truncate">{r.sector}</span>}
                 </div>
                 <div className="mt-0.5 text-[10px] text-md-on-surface-var font-mono">
-                  zone ${r.zone_low}-${r.zone_high} · trig {r.trigger_date} vol×{r.trigger_vol_mult}
+                  ${r.zone_low}-${r.zone_high} · {r.trigger_date} vol×{r.trigger_vol_mult}
                 </div>
               </div>
             )
