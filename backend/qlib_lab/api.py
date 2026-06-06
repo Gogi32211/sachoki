@@ -208,9 +208,10 @@ def combo_catalog_pnl(horizon: int = 10, status: str | None = None, limit: int =
             base_avg_train DOUBLE, train_edge_avg DOUBLE,
             n_oos BIGINT, oos_avg_clip DOUBLE, oos_win DOUBLE,
             base_avg_oos DOUBLE, oos_edge_avg DOUBLE,
-            p_value DOUBLE, bonferroni_p DOUBLE, status VARCHAR,
+            p_value DOUBLE, bonferroni_p DOUBLE, status VARCHAR, pass_reason VARCHAR,
             grown_from VARCHAR, discovered_at TIMESTAMP,
             PRIMARY KEY (combo_id, horizon))""")
+        c.execute("ALTER TABLE combo_catalog_pnl ADD COLUMN IF NOT EXISTS pass_reason VARCHAR")
         where = ["horizon = ?"]; params = [horizon]
         if status:
             where.append("status = ?"); params.append(status)
@@ -220,13 +221,13 @@ def combo_catalog_pnl(horizon: int = 10, status: str | None = None, limit: int =
                    round(train_edge_avg,3) train_edge,
                    n_oos, round(oos_avg_clip,3) oos_avg, round(oos_win*100,1) oos_win,
                    round(oos_edge_avg,3) oos_edge, p_value, bonferroni_p,
-                   status, grown_from
+                   status, pass_reason, grown_from
             FROM combo_catalog_pnl WHERE {' AND '.join(where)}
             ORDER BY (CASE WHEN status='passed' THEN 0 ELSE 1 END), oos_edge_avg DESC NULLS LAST
             LIMIT ?""", params + [limit]).fetchall()
         cols = ["combo_id", "predicates", "size", "horizon", "n_train", "train_avg",
                 "train_win", "train_edge", "n_oos", "oos_avg", "oos_win", "oos_edge",
-                "p_value", "bonferroni_p", "status", "grown_from"]
+                "p_value", "bonferroni_p", "status", "pass_reason", "grown_from"]
         return {"rows": [dict(zip(cols, r)) for r in rows], "count": len(rows),
                 "horizon": horizon}
     finally:

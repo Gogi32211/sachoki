@@ -135,6 +135,7 @@ function PnLPanel() {
           <th className="text-right px-2 py-1">bonf-p</th>
           <th className="text-left px-2 py-1">grown from</th>
           <th className="text-left px-2 py-1">status</th>
+          <th className="text-left px-2 py-1">reason</th>
         </tr></thead>
         <tbody>{rows.map(r => (
           <tr key={r.combo_id} className="border-b border-white/5 hover:bg-violet-900/20 cursor-pointer"
@@ -151,6 +152,7 @@ function PnLPanel() {
             <td className="px-2 py-1 text-right font-mono text-md-on-surface-var">{r.bonferroni_p != null ? r.bonferroni_p.toExponential(1) : '—'}</td>
             <td className="px-2 py-1 text-md-on-surface-var font-mono text-[10px]">{r.grown_from?.slice(0,8)||'·'}</td>
             <td className={`px-2 py-1 ${r.status==='passed'?'text-emerald-300 font-bold':r.status==='rejected'?'text-rose-400':'text-amber-300'}`}>{r.status}</td>
+            <td className="px-2 py-1 text-md-on-surface-var text-[11px] max-w-[280px] truncate" title={r.pass_reason||''}>{r.pass_reason||'—'}</td>
           </tr>))}
         </tbody>
       </table>
@@ -237,6 +239,7 @@ function HHPanel() {
           <th className="text-right px-2 py-1">stop·tgt·hold</th>
           <th className="text-right px-2 py-1">real win/avg</th>
           <th className="text-left px-2 py-1">status</th>
+          <th className="text-left px-2 py-1">reason</th>
         </tr></thead>
         <tbody>{rows.map(r => (
           <tr key={r.combo_id} className="border-b border-white/5 hover:bg-violet-900/20 cursor-pointer"
@@ -252,6 +255,7 @@ function HHPanel() {
             <td className="px-2 py-1 text-right font-mono">{r.best_stop_atr ? `${r.best_stop_atr}·${r.best_target_atr}·${r.best_hold_days}d` : '—'}</td>
             <td className={`px-2 py-1 text-right font-mono ${r.realized_avg<0?'text-rose-400':'text-emerald-400'}`}>{r.realized_win!=null ? `${(r.realized_win*100).toFixed(0)}%/${r.realized_avg>=0?'+':''}${r.realized_avg?.toFixed(2)}%` : '—'}</td>
             <td className={`px-2 py-1 ${r.status==='passed'?'text-emerald-300 font-bold':r.status==='rejected'?'text-rose-400':'text-amber-300'}`}>{r.status}</td>
+            <td className="px-2 py-1 text-md-on-surface-var text-[11px] max-w-[260px] truncate" title={r.pass_reason||''}>{r.pass_reason||'—'}</td>
           </tr>))}
         </tbody>
       </table>

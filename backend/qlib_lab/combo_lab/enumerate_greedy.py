@@ -67,6 +67,7 @@ CREATE TABLE IF NOT EXISTS combo_catalog_pnl (
     p_value         DOUBLE,
     bonferroni_p    DOUBLE,
     status          VARCHAR,
+    pass_reason     VARCHAR,       -- why a combo passed or was rejected
     grown_from      VARCHAR,       -- parent combo_id (NULL for depth=1)
     discovered_at   TIMESTAMP,
     PRIMARY KEY (combo_id, horizon)
@@ -104,7 +105,10 @@ def run_greedy(horizon: int = HORIZON_DEFAULT, depth_max: int = DEPTH_MAX,
     if persist:
         j = get_journal_conn()
         try:
-            j.execute(_SCHEMA); j.commit()
+            j.execute(_SCHEMA)
+            # idempotent migration for existing tables created before pass_reason
+            j.execute("ALTER TABLE combo_catalog_pnl ADD COLUMN IF NOT EXISTS pass_reason VARCHAR")
+            j.commit()
             j.execute("DELETE FROM combo_catalog_pnl WHERE horizon = ?", [horizon]); j.commit()
         finally:
             j.close()
@@ -134,6 +138,7 @@ def run_greedy(horizon: int = HORIZON_DEFAULT, depth_max: int = DEPTH_MAX,
                 t_ = tm[c["combo_id"]]; o_ = om[c["combo_id"]]
                 if t_["n"] < N_MIN_TRAIN or o_["n"] < N_MIN_OOS:
                     rec = {**c, "train": t_, "oos": o_, "status": "rejected",
+                           "pass_reason": f"low_n (train={t_['n']}, oos={o_['n']})",
                            "train_edge": None, "oos_edge": None}
                     all_results.append(rec); continue
                 te = _score(t_, bt["avg_clip"])
@@ -190,7 +195,16 @@ def run_greedy(horizon: int = HORIZON_DEFAULT, depth_max: int = DEPTH_MAX,
         te = r.get("train_edge") or 0
         ok_oos = oe > 0 and (te <= 0 or oe >= OOS_LIFT_RATIO * te)
         ok_p = bp < BONFERRONI_P
-        r["status"] = "passed" if (ok_oos and ok_p) else "rejected"
+        if ok_oos and ok_p:
+            r["status"] = "passed"; r["pass_reason"] = "ok"
+        else:
+            r["status"] = "rejected"
+            if not ok_p:
+                r["pass_reason"] = f"bonferroni p too high ({bp:.2e})"
+            elif oe <= 0:
+                r["pass_reason"] = f"oos edge non-positive ({oe:+.3f}%)"
+            else:
+                r["pass_reason"] = f"oos edge collapsed (train {te:+.3f}% → oos {oe:+.3f}%)"
 
     if persist:
         _persist(all_results, horizon, bt, bo)
@@ -222,12 +236,13 @@ def _persist(results: list[dict], horizon: int, bt: dict, bo: dict):
                 (combo_id, predicates, size, horizon,
                  n_train, train_avg_clip, train_win, base_avg_train, train_edge_avg,
                  n_oos, oos_avg_clip, oos_win, base_avg_oos, oos_edge_avg,
-                 p_value, bonferroni_p, status, grown_from, discovered_at)
-                VALUES (?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?, current_timestamp)""",
+                 p_value, bonferroni_p, status, pass_reason, grown_from, discovered_at)
+                VALUES (?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, ?,?,?,?,?, current_timestamp)""",
                 [r["combo_id"], ",".join(r["predicates"]), r["size"], horizon,
                  t_.get("n", 0), t_.get("avg_clip"), t_.get("win"), bt["avg_clip"], r.get("train_edge"),
                  o_.get("n", 0), o_.get("avg_clip"), o_.get("win"), bo["avg_clip"], r.get("oos_edge"),
-                 r.get("p_value"), r.get("bonferroni_p"), r.get("status"), r.get("grown_from")])
+                 r.get("p_value"), r.get("bonferroni_p"), r.get("status"),
+                 r.get("pass_reason"), r.get("grown_from")])
         j.commit()
     finally:
         j.close()
