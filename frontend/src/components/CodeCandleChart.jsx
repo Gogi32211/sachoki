@@ -64,8 +64,7 @@ export default function CodeCandleChart({
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
-  const histHvRef    = useRef([])           // grey history overlay (HV-spike triggers)
-  const histGannRef  = useRef([])           // lime history overlay (Gann pivots)
+  const histLinesRef = useRef([])           // grey/white history overlay (HV + Gann, merged)
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
   // Independent history pickers — user can show grey HV history and lime Gann
@@ -335,40 +334,59 @@ export default function CodeCandleChart({
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
-  // Helper: clear + maybe-draw a history overlay (HV grey OR Gann lime).
-  const drawHistory = useCallback((kind, tier, ref, setCount) => {
+  // Combined HV + Gann history overlay. Both sources are grey by default; when
+  // a price level appears in BOTH (within rounding tolerance), it's drawn
+  // white to highlight the confluence.
+  useEffect(() => {
     const series = seriesRef.current
     if (!series) return
-    for (const ln of ref.current) { try { series.removePriceLine(ln) } catch {} }
-    ref.current = []
-    setCount(0)
-    if (!tier || !ticker || tf !== '1d') return () => {}
+    // Clear existing
+    for (const ln of histLinesRef.current) { try { series.removePriceLine(ln) } catch {} }
+    histLinesRef.current = []
+    setHistoryHvCount(0); setHistoryGannCount(0)
+    if (!ticker || tf !== '1d') return
+    if (!historyHvTier && !historyGannTier) return
     let dead = false
     const firstDate = candlesRef.current?.[0]?.time
     const fromQ = firstDate ? `&from_date=${firstDate}` : ''
-    const url = kind === 'gann'
-      ? `/api/gann-zones/history/${ticker}?pivot=${tier}&limit=500${fromQ}`
-      : `/api/hv-zones/history/${ticker}?vol_min=${tier}&limit=500${fromQ}`
-    fetch(url).then(r => r.json()).then(d => {
-      if (dead || !d?.zones?.length) return
-      const color = kind === 'gann' ? '#a3e635' : '#64748b'
-      for (const z of d.zones) {
-        ref.current.push(series.createPriceLine({
-          price: z.zone_high, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
-        }))
-        ref.current.push(series.createPriceLine({
-          price: z.zone_low, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
+    const fetches = []
+    if (historyHvTier > 0)   fetches.push(
+      fetch(`/api/hv-zones/history/${ticker}?vol_min=${historyHvTier}&limit=500${fromQ}`)
+        .then(r => r.json()).then(d => ({ kind: 'hv',   zones: d?.zones || [] })))
+    if (historyGannTier > 0) fetches.push(
+      fetch(`/api/gann-zones/history/${ticker}?pivot=${historyGannTier}&limit=500${fromQ}`)
+        .then(r => r.json()).then(d => ({ kind: 'gann', zones: d?.zones || [] })))
+    Promise.all(fetches).then(results => {
+      if (dead) return
+      // Bucket prices by rounded key so HV-bound and Gann-pivot at the same
+      // level coalesce. 2 decimals for >$5, 4 for <$5 (penny precision).
+      const toKey = (p) => p >= 5 ? p.toFixed(2) : p.toFixed(4)
+      const bucket = new Map()                     // key → { price, hv: bool, gann: bool }
+      for (const r of results) {
+        if (r.kind === 'hv')   setHistoryHvCount(r.zones.length)
+        else                   setHistoryGannCount(r.zones.length)
+        for (const z of r.zones) {
+          for (const p of [z.zone_high, z.zone_low]) {
+            const k = toKey(p)
+            const ex = bucket.get(k) || { price: p, hv: false, gann: false }
+            ex[r.kind] = true
+            bucket.set(k, ex)
+          }
+        }
+      }
+      for (const e of bucket.values()) {
+        const both = e.hv && e.gann
+        histLinesRef.current.push(series.createPriceLine({
+          price: e.price,
+          color: both ? '#ffffff' : '#64748b',
+          lineWidth: both ? 1 : 1,
+          lineStyle: 2,
+          axisLabelVisible: false,
         }))
       }
-      setCount(d.zones.length)
     }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf])
-
-  useEffect(() => drawHistory('hv',   historyHvTier,   histHvRef,   setHistoryHvCount),
-            [ticker, tf, historyHvTier,   limit])
-  useEffect(() => drawHistory('gann', historyGannTier, histGannRef, setHistoryGannCount),
-            [ticker, tf, historyGannTier, limit])
+  }, [ticker, tf, historyHvTier, historyGannTier, limit])
 
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
@@ -528,21 +546,21 @@ export default function CodeCandleChart({
                 <span className="ml-0.5 text-slate-400">{historyHvCount}</span>
               )}
             </div>
-            {/* Lime Gann pivot picker */}
+            {/* Gann pivot picker (also grey lines; confluences with HV → white) */}
             <div className="flex items-center gap-0.5 text-[10px]"
-                 title="Lime overlay: historical Gann pivots (swing highs/lows). Radius = bars on each side.">
-              <span className="mr-0.5" style={{ color: '#a3e635' }}>📐</span>
+                 title="Grey overlay: historical Gann pivots (swing highs/lows). Where a Gann pivot coincides with an HV-history level, the line is drawn WHITE to mark the confluence.">
+              <span className="mr-0.5" style={{ color: '#64748b' }}>📐</span>
               {[5, 10, 20].map(v => (
                 <button key={v} onClick={() => setHistoryGannTier(historyGannTier === v ? 0 : v)}
                   className={`px-1.5 py-0.5 rounded font-mono border ${
                     historyGannTier === v
-                      ? 'bg-lime-700/50 text-lime-200 border-lime-500'
+                      ? 'bg-slate-600/60 text-slate-100 border-slate-400'
                       : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
                   ±{v}
                 </button>
               ))}
               {historyGannTier > 0 && historyGannCount > 0 && (
-                <span className="ml-0.5 text-lime-300">{historyGannCount}</span>
+                <span className="ml-0.5 text-slate-400">{historyGannCount}</span>
               )}
             </div>
             {legend}
@@ -633,14 +651,14 @@ function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyH
           ))}
       </div>
 
-      {/* History summary — both overlays can be on at once */}
+      {/* History summary — both overlays can be on at once; confluence = white */}
       {(historyHvTier > 0 || historyGannTier > 0) && (
-        <div className="p-3 border-b border-white/5 text-xs space-y-0.5">
-          {historyHvTier > 0 && (
-            <div className="font-mono"><span style={{ color: '#64748b' }}>📊 ×{historyHvTier}+ Grey HV history</span>: {historyHvCount} zones</div>
-          )}
-          {historyGannTier > 0 && (
-            <div className="font-mono"><span style={{ color: '#a3e635' }}>📐 ±{historyGannTier} Lime Gann pivots</span>: {historyGannCount}</div>
+        <div className="p-3 border-b border-white/5 text-xs space-y-0.5 font-mono"
+             style={{ color: '#94a3b8' }}>
+          {historyHvTier > 0 && <div>📊 HV history ×{historyHvTier}+: {historyHvCount}</div>}
+          {historyGannTier > 0 && <div>📐 Gann pivots ±{historyGannTier}: {historyGannCount}</div>}
+          {historyHvTier > 0 && historyGannTier > 0 && (
+            <div className="text-white">⚪ White = confluence (same price level in both)</div>
           )}
         </div>
       )}
