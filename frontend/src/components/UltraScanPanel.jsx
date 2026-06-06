@@ -2624,7 +2624,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                   finally { setZoneRetestBusy(false) }
                 }
               }}
-              title={`Volume spike ${t.label} on a bullish bar 20-90 days back; price LEFT zone upward and is now back inside [low,high].`}
+              title={`Volume spike ${t.label} on a bullish bar 8-90 days back; price LEFT zone upward and is now back inside [low,high].`}
               className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
                 on ? onCls : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
               }`}>

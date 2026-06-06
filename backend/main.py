@@ -240,7 +240,7 @@ def health():
 
 
 @app.get("/api/zone-retest/tickers")
-def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 90,
+def zone_retest_tickers(lookback_min: int = 8, lookback_max: int = 90,
                         vol_min: float = 10.0, vol_max: float | None = None):
     """Tickers currently in a high-volume zone re-test, with vol band
     [vol_min, vol_max). Filter chips in Ultra call this per tier."""
@@ -256,7 +256,7 @@ def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 90,
 
 
 @app.get("/api/zone-retest/zones/{ticker}")
-def zone_retest_zones(ticker: str, lookback_min: int = 20, lookback_max: int = 90,
+def zone_retest_zones(ticker: str, lookback_min: int = 8, lookback_max: int = 90,
                       vol_min: float = 2.0, vol_max: float | None = None,
                       classify: bool = False):
     """All currently-active zones for one ticker (drawn on the chart) — default
