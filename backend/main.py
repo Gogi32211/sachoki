@@ -303,6 +303,20 @@ def hv_zones_history(ticker: str, vol_min: float = 5.0,
         return {"ticker": ticker.upper(), "zones": [], "error": str(e)}
 
 
+@app.get("/api/gann-zones/history/{ticker}")
+def gann_zones_history(ticker: str, pivot: int = 5,
+                       from_date: str | None = None, limit: int = 500):
+    """Pivot-based Gann historical zones (highs and lows of local swings)
+    over the chart's visible range."""
+    from ai_journal.gann_zones import history_pivots
+    try:
+        return history_pivots(ticker, pivot=pivot,
+                              from_date=from_date, limit=limit)
+    except Exception as e:
+        log.warning("gann-zones history for %s failed: %s", ticker, e)
+        return {"ticker": ticker.upper(), "zones": [], "error": str(e)}
+
+
 @app.get("/api/gann-zones/tickers")
 def gann_zones_tickers(lookback: int = 90, zone_kind: str = "any"):
     """Tickers whose current close sits inside a Gann zone (top, bottom, or

@@ -131,6 +131,63 @@ def active_tickers(as_of: str | None = None, lookback: int = DEFAULT_LOOKBACK,
             "tickers": tickers, "count": len(tickers)}
 
 
+def history_pivots(ticker: str, pivot: int = 5,
+                   from_date: str | None = None, limit: int = 500) -> dict:
+    """Pivot highs and lows over the visible chart range (Gann historical
+    overlay). A pivot HIGH is a bar whose high is the max over [-pivot, +pivot]
+    window centred on it; a pivot LOW is its min. These are the "highest
+    sticks" and "lowest sticks" of local swings.
+
+    The last `pivot` days can never confirm a pivot (no future bars yet) — that
+    is the inherent cost of confirmed swings."""
+    a = get_analytics_conn()
+    try:
+        params = [ticker.upper()]
+        date_where = ""
+        if from_date:
+            date_where = " AND date >= ?"
+            params.append(from_date)
+        params.append(limit)
+        rows = a.execute(f"""
+            WITH ranked AS (
+                SELECT date, low, high, open, close, universe,
+                  MAX(high) OVER (
+                    PARTITION BY universe ORDER BY date
+                    ROWS BETWEEN {pivot} PRECEDING AND {pivot} FOLLOWING) AS roll_max_h,
+                  MIN(low) OVER (
+                    PARTITION BY universe ORDER BY date
+                    ROWS BETWEEN {pivot} PRECEDING AND {pivot} FOLLOWING) AS roll_min_l
+                FROM bars WHERE ticker = ?{date_where}
+            )
+            SELECT date, low, high, open, close, universe,
+                   (high = roll_max_h) AS is_top,
+                   (low  = roll_min_l) AS is_bot
+            FROM ranked
+            WHERE high = roll_max_h OR low = roll_min_l
+            ORDER BY date DESC LIMIT ?
+        """, params).fetchall()
+    finally:
+        a.close()
+    seen = set()
+    zones = []
+    for d, lo, hi, o, c, _u, is_top, is_bot in rows:
+        key = (str(d)[:10], round(float(lo), 4), round(float(hi), 4))
+        if key in seen: continue
+        seen.add(key)
+        direction = "bull" if (c or 0) > (o or 0) else "bear"
+        kind = "top" if is_top else "bottom"
+        zones.append({
+            "trigger_date": str(d)[:10],
+            "zone_low":     round(float(lo), 4),
+            "zone_high":    round(float(hi), 4),
+            "direction":    direction,
+            "kind":         kind,
+        })
+    zones.sort(key=lambda z: z["trigger_date"])
+    return {"ticker": ticker.upper(), "pivot": pivot,
+            "from_date": from_date, "count": len(zones), "zones": zones}
+
+
 def scan(as_of: str | None = None, lookback: int = DEFAULT_LOOKBACK) -> dict:
     """List view: every ticker with its top/bottom zones + current relation.
     Sidebar of the Gann-Zones page."""

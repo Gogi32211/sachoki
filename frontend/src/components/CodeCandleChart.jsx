@@ -65,9 +65,12 @@ export default function CodeCandleChart({
   const histLinesRef = useRef([])           // grey "history" overlay priceLines (separate ref → independent toggle)
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
-  // History tier: 0 = off, 2 / 5 / 10 = the vol-multiple threshold
+  // History tier: 0 = off; for HV it's vol-multiple (2/5/10), for Gann it's
+  // pivot radius (5/10/20). Reset on zoneSource change so the user isn't left
+  // with a stale value (e.g. vol_min=5 silently turning into pivot=5).
   const [historyTier, setHistoryTier] = useState(0)
   const [historyCount, setHistoryCount] = useState(0)
+  useEffect(() => { setHistoryTier(0) }, [zoneSource])
 
   // Re-apply zone colors over the stored candles. Trigger-bar = colored
   // candle/border/wick; everything else uses the default green/red.
@@ -314,7 +317,10 @@ export default function CodeCandleChart({
     // Match the chart's earliest visible bar so lines don't float off-screen.
     const firstDate = candlesRef.current?.[0]?.time
     const fromQ = firstDate ? `&from_date=${firstDate}` : ''
-    fetch(`/api/hv-zones/history/${ticker}?vol_min=${historyTier}&limit=500${fromQ}`)
+    const url = zoneSource === 'gann'
+      ? `/api/gann-zones/history/${ticker}?pivot=${historyTier}&limit=500${fromQ}`
+      : `/api/hv-zones/history/${ticker}?vol_min=${historyTier}&limit=500${fromQ}`
+    fetch(url)
       .then(r => r.json())
       .then(d => {
         if (dead || !d?.zones?.length) { setHistoryCount(0); return }
@@ -333,7 +339,7 @@ export default function CodeCandleChart({
       })
       .catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, historyTier, limit])
+  }, [ticker, tf, historyTier, limit, zoneSource])
 
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
@@ -472,21 +478,32 @@ export default function CodeCandleChart({
                 <span>codes</span>
               </label>
             )}
-            <div className="flex items-center gap-0.5 text-[10px]" title="Overlay historical HV-spike zones for THIS ticker over THIS chart's visible range. Pick a vol-multiple threshold.">
-              <span className="text-md-on-surface-var mr-0.5">📊</span>
-              {[2, 5, 10].map(v => (
-                <button key={v} onClick={() => setHistoryTier(historyTier === v ? 0 : v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    historyTier === v
-                      ? 'bg-slate-600/60 text-slate-100 border-slate-400'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  ×{v}
-                </button>
-              ))}
-              {historyTier > 0 && historyCount > 0 && (
-                <span className="ml-1 text-slate-400">× {historyCount}</span>
-              )}
-            </div>
+            {(() => {
+              const isGann = zoneSource === 'gann'
+              const tiers = isGann ? [5, 10, 20] : [2, 5, 10]
+              const prefix = isGann ? '±' : '×'
+              const icon = isGann ? '📐' : '📊'
+              const tip = isGann
+                ? 'Overlay historical Gann pivots (highs/lows of local swings) over the chart range. Radius = bars on each side.'
+                : 'Overlay historical HV-spike zones over the chart range. Pick a vol-multiple threshold.'
+              return (
+                <div className="flex items-center gap-0.5 text-[10px]" title={tip}>
+                  <span className="text-md-on-surface-var mr-0.5">{icon}</span>
+                  {tiers.map(v => (
+                    <button key={v} onClick={() => setHistoryTier(historyTier === v ? 0 : v)}
+                      className={`px-1.5 py-0.5 rounded font-mono border ${
+                        historyTier === v
+                          ? 'bg-slate-600/60 text-slate-100 border-slate-400'
+                          : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                      {prefix}{v}
+                    </button>
+                  ))}
+                  {historyTier > 0 && historyCount > 0 && (
+                    <span className="ml-1 text-slate-400">× {historyCount}</span>
+                  )}
+                </div>
+              )
+            })()}
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}
