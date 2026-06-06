@@ -72,6 +72,19 @@ export default function CodeCandleChart({
   const [historyCount, setHistoryCount] = useState(0)
   useEffect(() => { setHistoryTier(0) }, [zoneSource])
 
+  // Fullscreen toggle — wraps chart + side data panel.
+  const [fullscreen, setFullscreen] = useState(false)
+  useEffect(() => {
+    if (!fullscreen) return
+    const onKey = e => { if (e.key === 'Escape') setFullscreen(false) }
+    window.addEventListener('keydown', onKey)
+    document.body.style.overflow = 'hidden'
+    return () => {
+      window.removeEventListener('keydown', onKey)
+      document.body.style.overflow = ''
+    }
+  }, [fullscreen])
+
   // Re-apply zone colors over the stored candles. Trigger-bar = colored
   // candle/border/wick; everything else uses the default green/red.
   const applyZoneColors = useCallback((zones) => {
@@ -139,7 +152,7 @@ export default function CodeCandleChart({
     const chart = createChart(containerRef.current, {
       autoSize: true,
       layout: { background: { color: '#030712' }, textColor: '#9ca3af' },
-      grid: { vertLines: { color: '#1f2937' }, horzLines: { color: '#1f2937' } },
+      grid: { vertLines: { visible: false }, horzLines: { visible: false } },
       crosshair: { mode: 1 },
       rightPriceScale: { borderColor: '#374151' },
       timeScale: { borderColor: '#374151', timeVisible: intraday },
@@ -324,14 +337,15 @@ export default function CodeCandleChart({
       .then(r => r.json())
       .then(d => {
         if (dead || !d?.zones?.length) { setHistoryCount(0); return }
-        const grey = '#64748b'   // slate-500 — muted background context
+        // HV history → slate grey; Gann pivots → salad lime (visually distinct)
+        const color = zoneSource === 'gann' ? '#a3e635' : '#64748b'
         for (const z of d.zones) {
           histLinesRef.current.push(series.createPriceLine({
-            price: z.zone_high, color: grey, lineWidth: 1, lineStyle: 2,
+            price: z.zone_high, color, lineWidth: 1, lineStyle: 2,
             axisLabelVisible: false,
           }))
           histLinesRef.current.push(series.createPriceLine({
-            price: z.zone_low, color: grey, lineWidth: 1, lineStyle: 2,
+            price: z.zone_low, color, lineWidth: 1, lineStyle: 2,
             axisLabelVisible: false,
           }))
         }
@@ -416,7 +430,7 @@ export default function CodeCandleChart({
 
   const chartBody = (
     <div className="relative">
-      <div ref={containerRef} className="w-full" style={{ height }} />
+      <div ref={containerRef} className="w-full" style={{ height: fullscreen ? 'calc(100vh - 56px)' : height }} />
       <div ref={overlayRef} className="absolute inset-0 overflow-hidden pointer-events-none" style={{ zIndex: 4 }} />
       {loading && !meta && (
         <div className="absolute inset-0 flex items-center justify-center text-md-on-surface-var text-xs animate-pulse pointer-events-none">
@@ -444,8 +458,10 @@ export default function CodeCandleChart({
     </div>
   )
 
-  return (
-    <div className="bg-md-surface-con rounded-xl border border-md-outline-var">
+  const inner = (
+    <div className={fullscreen
+        ? 'flex-1 flex flex-col bg-md-surface-con overflow-hidden'
+        : 'bg-md-surface-con rounded-xl border border-md-outline-var'}>
       {showToolbar && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-md-outline-var gap-3 flex-wrap">
           <span className="font-semibold text-sm">
@@ -513,6 +529,11 @@ export default function CodeCandleChart({
             )}
             {loading && <span className="text-xs text-md-on-surface-var animate-pulse">loading…</span>}
             {error && <span className="text-xs text-red-400">{error}</span>}
+            <button onClick={() => setFullscreen(f => !f)}
+              title={fullscreen ? 'Exit fullscreen (Esc)' : 'Open chart fullscreen with side data'}
+              className="ml-1 px-1.5 py-0.5 rounded text-xs hover:bg-white/10 text-md-on-surface-var">
+              {fullscreen ? '✕' : '⛶'}
+            </button>
           </div>
         </div>
       )}
@@ -524,6 +545,100 @@ export default function CodeCandleChart({
             : 'Live feed (ticker not in the Studio DB or intraday) — codes show TZ · L · vol bucket only; the full 6-line suffix/body/gap/line5 exist for daily DB tickers.'}
         </div>
       )}
+    </div>
+  )
+
+  if (!fullscreen) return inner
+
+  // Fullscreen wrapper: chart on the left, contextual data sidebar on the right.
+  return (
+    <div className="fixed inset-0 z-[60] flex bg-md-surface">
+      {inner}
+      <FullscreenSidePanel ticker={ticker} hvZones={hvZones} candles={candlesRef.current}
+                           historyCount={historyCount} historyTier={historyTier}
+                           zoneSource={zoneSource} />
+    </div>
+  )
+}
+
+function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTier, zoneSource }) {
+  const last = candles?.length ? candles[candles.length - 1] : null
+  const lastN = candles ? candles.slice(-15).reverse() : []
+  const isGann = zoneSource === 'gann'
+  return (
+    <div className="w-[380px] shrink-0 border-l border-white/10 bg-md-surface-high overflow-y-auto">
+      <div className="p-3 border-b border-white/10 sticky top-0 bg-md-surface-high z-10">
+        <div className="text-lg font-bold">{ticker}</div>
+        {last && (
+          <div className="text-xs text-md-on-surface-var mt-1 font-mono">
+            <span className="mr-3">${last.close?.toFixed(2)}</span>
+            <span className="mr-3">O ${last.open?.toFixed(2)}</span>
+            <span className="mr-3">H ${last.high?.toFixed(2)}</span>
+            <span>L ${last.low?.toFixed(2)}</span>
+          </div>
+        )}
+      </div>
+
+      {/* Active zones */}
+      <div className="p-3 border-b border-white/5">
+        <div className="text-xs font-semibold mb-1 uppercase tracking-wide text-md-on-surface-var">
+          Active {isGann ? 'Gann' : 'HV'} zones ({hvZones?.length || 0})
+        </div>
+        {(!hvZones || !hvZones.length)
+          ? <div className="text-xs text-md-on-surface-var/60 italic">none</div>
+          : hvZones.map((z, i) => (
+            <div key={i} className="text-xs font-mono mb-1 flex items-baseline gap-2"
+                 style={{ color: z._color }}>
+              <span className="font-bold">Z{i + 1}</span>
+              <span>${z.zone_low} – ${z.zone_high}</span>
+              <span className="text-md-on-surface-var">{z.trigger_date}</span>
+              {z.trigger_vol_mult && <span className="text-amber-300">×{z.trigger_vol_mult}</span>}
+              {z.kind && <span className={z.kind==='top'?'text-rose-300':'text-emerald-300'}>{z.kind}</span>}
+              {z.direction && <span className={z.direction==='bull'?'text-emerald-400':'text-rose-400'}>{z.direction==='bull'?'▲':'▼'}</span>}
+            </div>
+          ))}
+      </div>
+
+      {/* History summary */}
+      {historyTier > 0 && (
+        <div className="p-3 border-b border-white/5 text-xs">
+          <span className="text-slate-400 font-mono">
+            {isGann ? '📐 Lime pivots' : '📊 Grey history'}: {isGann ? `±${historyTier}` : `×${historyTier}+`} · {historyCount} zones
+          </span>
+        </div>
+      )}
+
+      {/* Recent bars table */}
+      <div className="p-3">
+        <div className="text-xs font-semibold mb-1 uppercase tracking-wide text-md-on-surface-var">
+          Recent bars (last 15)
+        </div>
+        <table className="w-full text-[11px] font-mono">
+          <thead><tr className="text-md-on-surface-var border-b border-white/10">
+            <th className="text-left px-1 py-0.5">Date</th>
+            <th className="text-right px-1 py-0.5">O</th>
+            <th className="text-right px-1 py-0.5">H</th>
+            <th className="text-right px-1 py-0.5">L</th>
+            <th className="text-right px-1 py-0.5">C</th>
+            <th className="text-right px-1 py-0.5">Δ%</th>
+          </tr></thead>
+          <tbody>{lastN.map((b, i) => {
+            const prev = lastN[i + 1]
+            const ch = prev ? ((b.close - prev.close) / prev.close * 100) : null
+            const dCls = ch == null ? 'text-md-on-surface-var' : ch >= 0 ? 'text-emerald-400' : 'text-rose-400'
+            return (
+              <tr key={b.time} className="border-b border-white/5">
+                <td className="px-1 py-0.5">{b.time}</td>
+                <td className="px-1 py-0.5 text-right">{b.open?.toFixed(2)}</td>
+                <td className="px-1 py-0.5 text-right">{b.high?.toFixed(2)}</td>
+                <td className="px-1 py-0.5 text-right">{b.low?.toFixed(2)}</td>
+                <td className="px-1 py-0.5 text-right">{b.close?.toFixed(2)}</td>
+                <td className={`px-1 py-0.5 text-right ${dCls}`}>{ch == null ? '—' : `${ch>=0?'+':''}${ch.toFixed(2)}`}</td>
+              </tr>
+            )
+          })}</tbody>
+        </table>
+      </div>
     </div>
   )
 }
