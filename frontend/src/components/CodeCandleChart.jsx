@@ -62,8 +62,11 @@ export default function CodeCandleChart({
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
+  const histLinesRef = useRef([])           // grey "history" overlay priceLines (separate ref → independent toggle)
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
+  const [showHistory, setShowHistory] = useState(false)
+  const [historyCount, setHistoryCount] = useState(0)
 
   // Re-apply zone colors over the stored candles. Trigger-bar = colored
   // candle/border/wick; everything else uses the default green/red.
@@ -293,6 +296,41 @@ export default function CodeCandleChart({
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
+  // ── Grey "history" overlay — ALL ×5+ HV-spikes for this ticker, drawn as
+  // thin grey dashed lines. Independent of the active-zone band; safe to
+  // co-exist. Cleared on toggle off / ticker switch.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    // Always clear first (handles toggle-off + ticker switch).
+    for (const ln of histLinesRef.current) {
+      try { series.removePriceLine(ln) } catch {}
+    }
+    histLinesRef.current = []
+    setHistoryCount(0)
+    if (!showHistory || !ticker || tf !== '1d') return
+    let dead = false
+    fetch(`/api/hv-zones/history/${ticker}?vol_min=5&limit=100`)
+      .then(r => r.json())
+      .then(d => {
+        if (dead || !d?.zones?.length) return
+        const grey = '#64748b'   // slate-500 — muted background context
+        for (const z of d.zones) {
+          histLinesRef.current.push(series.createPriceLine({
+            price: z.zone_high, color: grey, lineWidth: 1, lineStyle: 2,
+            axisLabelVisible: false,
+          }))
+          histLinesRef.current.push(series.createPriceLine({
+            price: z.zone_low, color: grey, lineWidth: 1, lineStyle: 2,
+            axisLabelVisible: false,
+          }))
+        }
+        setHistoryCount(d.zones.length)
+      })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [ticker, tf, showHistory])
+
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
   useEffect(() => {
@@ -430,6 +468,11 @@ export default function CodeCandleChart({
                 <span>codes</span>
               </label>
             )}
+            <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                   title="Overlay ALL historical HV-spike (vol×5+) zones for this ticker as thin grey lines — long-term context, not actionable.">
+              <input type="checkbox" checked={showHistory} onChange={e => setShowHistory(e.target.checked)} />
+              <span>📊 history{showHistory && historyCount ? ` × ${historyCount}` : ''}</span>
+            </label>
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}

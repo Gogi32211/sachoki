@@ -288,6 +288,17 @@ def zone_retest_zones(ticker: str, lookback_min: int = 8, lookback_max: int = 90
         return {"ticker": tk, "zones": [], "error": str(e)}
 
 
+@app.get("/api/hv-zones/history/{ticker}")
+def hv_zones_history(ticker: str, vol_min: float = 5.0, limit: int = 100):
+    """All historical HV-spike triggers for a ticker — chart 'history' overlay."""
+    from ai_journal.zone_retest import history_for_ticker
+    try:
+        return history_for_ticker(ticker, vol_min=vol_min, limit=limit)
+    except Exception as e:
+        log.warning("hv-zones history for %s failed: %s", ticker, e)
+        return {"ticker": ticker.upper(), "zones": [], "error": str(e)}
+
+
 @app.get("/api/gann-zones/tickers")
 def gann_zones_tickers(lookback: int = 90, zone_kind: str = "any"):
     """Tickers whose current close sits inside a Gann zone (top, bottom, or

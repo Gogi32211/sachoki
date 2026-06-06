@@ -250,6 +250,47 @@ def edge_check(horizon: int = 10) -> dict:
     }
 
 
+def history_for_ticker(ticker: str, vol_min: float = 5.0, limit: int = 100) -> dict:
+    """ALL HV-spike triggers ever recorded for this ticker (no re-test check,
+    no classification — just the zones). Used for the chart's grey 'history'
+    overlay so the user sees the full chronology of significant volume bars.
+
+    Capped at `limit` newest triggers to keep the chart from drowning in lines."""
+    a = get_analytics_conn()
+    try:
+        rows = a.execute(f"""
+            SELECT date, universe, low, high, close, open,
+                   volume / NULLIF(avg_vol_20d, 0) AS vol_mult,
+                   CASE WHEN close > open THEN 'bull' ELSE 'bear' END AS direction
+            FROM bars
+            WHERE ticker = ? AND avg_vol_20d > 0
+              AND volume >= ? * avg_vol_20d
+              AND high > low
+            ORDER BY date DESC
+            LIMIT ?
+        """, [ticker.upper(), vol_min, limit]).fetchall()
+    finally:
+        a.close()
+    # Same-zone-across-universes de-dupe.
+    seen = set()
+    zones = []
+    for d, _u, lo, hi, c, o, vm, dr in rows:
+        key = (str(d)[:10], round(float(lo), 4), round(float(hi), 4))
+        if key in seen: continue
+        seen.add(key)
+        zones.append({
+            "trigger_date": str(d)[:10],
+            "zone_low":     round(float(lo), 4),
+            "zone_high":    round(float(hi), 4),
+            "direction":    dr,
+            "trigger_vol_mult": round(float(vm), 1),
+        })
+    # Chronological ascending for chart consumption.
+    zones.sort(key=lambda z: z["trigger_date"])
+    return {"ticker": ticker.upper(), "vol_min": vol_min,
+            "count": len(zones), "zones": zones}
+
+
 def classify_bar(bar_low: float, bar_high: float, bar_close: float,
                  zone_low: float, zone_high: float) -> str:
     """Single-bar relationship to a zone:
