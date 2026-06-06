@@ -289,11 +289,15 @@ def zone_retest_zones(ticker: str, lookback_min: int = 8, lookback_max: int = 90
 
 
 @app.get("/api/hv-zones/history/{ticker}")
-def hv_zones_history(ticker: str, vol_min: float = 5.0, limit: int = 100):
-    """All historical HV-spike triggers for a ticker — chart 'history' overlay."""
+def hv_zones_history(ticker: str, vol_min: float = 5.0,
+                     from_date: str | None = None, limit: int = 500):
+    """All historical HV-spike triggers for a ticker — chart 'history' overlay.
+    from_date: optional, restricts to triggers since that date (matches the
+    chart's earliest visible bar)."""
     from ai_journal.zone_retest import history_for_ticker
     try:
-        return history_for_ticker(ticker, vol_min=vol_min, limit=limit)
+        return history_for_ticker(ticker, vol_min=vol_min,
+                                  from_date=from_date, limit=limit)
     except Exception as e:
         log.warning("hv-zones history for %s failed: %s", ticker, e)
         return {"ticker": ticker.upper(), "zones": [], "error": str(e)}

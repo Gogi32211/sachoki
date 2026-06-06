@@ -65,7 +65,8 @@ export default function CodeCandleChart({
   const histLinesRef = useRef([])           // grey "history" overlay priceLines (separate ref → independent toggle)
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
-  const [showHistory, setShowHistory] = useState(false)
+  // History tier: 0 = off, 2 / 5 / 10 = the vol-multiple threshold
+  const [historyTier, setHistoryTier] = useState(0)
   const [historyCount, setHistoryCount] = useState(0)
 
   // Re-apply zone colors over the stored candles. Trigger-bar = colored
@@ -308,12 +309,15 @@ export default function CodeCandleChart({
     }
     histLinesRef.current = []
     setHistoryCount(0)
-    if (!showHistory || !ticker || tf !== '1d') return
+    if (!historyTier || !ticker || tf !== '1d') return
     let dead = false
-    fetch(`/api/hv-zones/history/${ticker}?vol_min=5&limit=100`)
+    // Match the chart's earliest visible bar so lines don't float off-screen.
+    const firstDate = candlesRef.current?.[0]?.time
+    const fromQ = firstDate ? `&from_date=${firstDate}` : ''
+    fetch(`/api/hv-zones/history/${ticker}?vol_min=${historyTier}&limit=500${fromQ}`)
       .then(r => r.json())
       .then(d => {
-        if (dead || !d?.zones?.length) return
+        if (dead || !d?.zones?.length) { setHistoryCount(0); return }
         const grey = '#64748b'   // slate-500 — muted background context
         for (const z of d.zones) {
           histLinesRef.current.push(series.createPriceLine({
@@ -329,7 +333,7 @@ export default function CodeCandleChart({
       })
       .catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, showHistory])
+  }, [ticker, tf, historyTier, limit])
 
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
@@ -468,11 +472,21 @@ export default function CodeCandleChart({
                 <span>codes</span>
               </label>
             )}
-            <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
-                   title="Overlay ALL historical HV-spike (vol×5+) zones for this ticker as thin grey lines — long-term context, not actionable.">
-              <input type="checkbox" checked={showHistory} onChange={e => setShowHistory(e.target.checked)} />
-              <span>📊 history{showHistory && historyCount ? ` × ${historyCount}` : ''}</span>
-            </label>
+            <div className="flex items-center gap-0.5 text-[10px]" title="Overlay historical HV-spike zones for THIS ticker over THIS chart's visible range. Pick a vol-multiple threshold.">
+              <span className="text-md-on-surface-var mr-0.5">📊</span>
+              {[2, 5, 10].map(v => (
+                <button key={v} onClick={() => setHistoryTier(historyTier === v ? 0 : v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    historyTier === v
+                      ? 'bg-slate-600/60 text-slate-100 border-slate-400'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  ×{v}
+                </button>
+              ))}
+              {historyTier > 0 && historyCount > 0 && (
+                <span className="ml-1 text-slate-400">× {historyCount}</span>
+              )}
+            </div>
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}

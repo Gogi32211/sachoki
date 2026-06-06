@@ -250,14 +250,23 @@ def edge_check(horizon: int = 10) -> dict:
     }
 
 
-def history_for_ticker(ticker: str, vol_min: float = 5.0, limit: int = 100) -> dict:
-    """ALL HV-spike triggers ever recorded for this ticker (no re-test check,
+def history_for_ticker(ticker: str, vol_min: float = 5.0,
+                       from_date: str | None = None, limit: int = 500) -> dict:
+    """ALL HV-spike triggers in history for this ticker (no re-test check,
     no classification — just the zones). Used for the chart's grey 'history'
     overlay so the user sees the full chronology of significant volume bars.
 
-    Capped at `limit` newest triggers to keep the chart from drowning in lines."""
+    from_date: optional lower bound (matches the chart's earliest visible bar
+    so we don't draw lines off-screen).
+    Capped at `limit` newest triggers."""
     a = get_analytics_conn()
     try:
+        params = [ticker.upper(), vol_min]
+        where_date = ""
+        if from_date:
+            where_date = " AND date >= ?"
+            params.append(from_date)
+        params.append(limit)
         rows = a.execute(f"""
             SELECT date, universe, low, high, close, open,
                    volume / NULLIF(avg_vol_20d, 0) AS vol_mult,
@@ -265,10 +274,10 @@ def history_for_ticker(ticker: str, vol_min: float = 5.0, limit: int = 100) -> d
             FROM bars
             WHERE ticker = ? AND avg_vol_20d > 0
               AND volume >= ? * avg_vol_20d
-              AND high > low
+              AND high > low{where_date}
             ORDER BY date DESC
             LIMIT ?
-        """, [ticker.upper(), vol_min, limit]).fetchall()
+        """, params).fetchall()
     finally:
         a.close()
     # Same-zone-across-universes de-dupe.
@@ -288,7 +297,7 @@ def history_for_ticker(ticker: str, vol_min: float = 5.0, limit: int = 100) -> d
     # Chronological ascending for chart consumption.
     zones.sort(key=lambda z: z["trigger_date"])
     return {"ticker": ticker.upper(), "vol_min": vol_min,
-            "count": len(zones), "zones": zones}
+            "from_date": from_date, "count": len(zones), "zones": zones}
 
 
 def classify_bar(bar_low: float, bar_high: float, bar_close: float,
