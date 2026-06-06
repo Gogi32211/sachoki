@@ -147,7 +147,7 @@ class ComboDiscoverRequest(BaseModel):
 def combo_discover(req: ComboDiscoverRequest, background_tasks: BackgroundTasks):
     """Enumerate + walk-forward backtest all combos. Heavy — runs as a job."""
     from .combo_lab.backtest import run_walk_forward
-    job_id = jobs.create_job("combo_discover")
+    job_id = jobs.create_job("combo_discover", req.dict())
     def _run():
         try:
             res = run_walk_forward(sizes=tuple(req.sizes))
@@ -162,7 +162,7 @@ def combo_discover(req: ComboDiscoverRequest, background_tasks: BackgroundTasks)
 def combo_optimize_exits(limit: int = 30, background_tasks: BackgroundTasks = None):
     """Grid-search (stop/target/hold) for top-N passed combos. Slower."""
     from .combo_lab.exits import optimize_passed_combos
-    job_id = jobs.create_job("combo_exits")
+    job_id = jobs.create_job("combo_exits", {"limit": limit})
     def _run():
         try:
             res = optimize_passed_combos(limit=limit)
@@ -183,7 +183,7 @@ class ComboPnlDiscoverRequest(BaseModel):
 def combo_discover_pnl(req: ComboPnlDiscoverRequest, background_tasks: BackgroundTasks):
     """Greedy beam search on realized P&L edge for a given horizon (H=1/3/5/10)."""
     from .combo_lab.enumerate_greedy import run_greedy
-    job_id = jobs.create_job(f"combo_pnl_h{req.horizon}")
+    job_id = jobs.create_job(f"combo_pnl_h{req.horizon}", req.dict())
     def _run():
         try:
             res = run_greedy(horizon=req.horizon, depth_max=req.depth_max, beam=req.beam)
