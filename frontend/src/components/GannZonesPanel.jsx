@@ -3,11 +3,6 @@ import CodeCandleChart from './CodeCandleChart'
 
 const CAP_CLS = { mega:'text-amber-200', large:'text-emerald-300', mid:'text-sky-300',
                   small:'text-yellow-400', micro:'text-rose-400', unknown:'text-gray-500' }
-const TIER_CLS = {
-  'x10+':  'bg-cyan-900/60 text-cyan-300 border-cyan-600',
-  'x5-10': 'bg-teal-900/60 text-teal-300 border-teal-600',
-  'x2-5':  'bg-sky-900/60 text-sky-300 border-sky-600',
-}
 const REL_CLS = {
   inside:      { color: '#22c55e', shape: '●', label: 'IN',  text: 'inside the zone' },
   cross:       { color: '#eab308', shape: '◆', label: 'CR',  text: 'bar spans the entire zone' },
@@ -16,32 +11,33 @@ const REL_CLS = {
   above:       { color: '#94a3b8', shape: '↑', label: 'AB',  text: 'above the zone' },
   below:       { color: '#94a3b8', shape: '↓', label: 'BL',  text: 'below the zone' },
 }
+const LOOKBACKS = [30, 60, 90, 120, 180]
 
-const fmtPct = (v) => v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`
-
-export default function HVZonesPanel() {
+export default function GannZonesPanel() {
+  const [lookback, setLookback] = useState(90)
   const [data, setData] = useState(null)
   const [err, setErr] = useState(null)
   const [selected, setSelected] = useState(null)
-  const [tierFilter, setTierFilter] = useState({ 'x10+': true, 'x5-10': true, 'x2-5': true })
-  const [relFilter, setRelFilter] = useState({ inside: true, cross: true, touch_below: true, touch_above: true, above: false, below: false })
   const [search, setSearch] = useState('')
-  const [zones,  setZones]  = useState([])             // [{trigger_date, zone_low, zone_high, bar_classifications:[...]}]
+  const [showTop, setShowTop] = useState(true)
+  const [showBot, setShowBot] = useState(true)
+  const [zones, setZones] = useState([])
 
-  const reload = () => fetch('/api/zone-retest/scan').then(r => r.json()).then(setData).catch(e => setErr(String(e)))
-  useEffect(() => { reload() }, [])
+  const reload = () => {
+    setData(null)
+    fetch(`/api/gann-zones/scan?lookback=${lookback}`).then(r => r.json())
+      .then(setData).catch(e => setErr(String(e)))
+  }
+  useEffect(() => { reload() }, [lookback])
 
-  // Load ALL zones for the selected ticker (each with its own bar_classifications)
   useEffect(() => {
     if (!selected) { setZones([]); return }
-    fetch(`/api/zone-retest/zones/${selected}?classify=true`)
-      .then(r => r.json())
-      .then(d => setZones(d.zones || []))
+    fetch(`/api/gann-zones/zones/${selected}?lookback=${lookback}`)
+      .then(r => r.json()).then(d => setZones(d.zones || []))
       .catch(() => setZones([]))
-  }, [selected])
+  }, [selected, lookback])
 
-  // Pick the "strongest" relation across all zones for each date — drives one
-  // marker per bar on the chart. Priority: cross > touch > inside > others.
+  // Merge bar classifications across top+bottom; strongest relation wins per date.
   const REL_PRIORITY = { cross: 4, touch_below: 3, touch_above: 3, inside: 2, above: 1, below: 1 }
   const mergedClassifications = useMemo(() => {
     if (!zones.length) return []
@@ -49,9 +45,7 @@ export default function HVZonesPanel() {
     for (const z of zones) {
       for (const b of z.bar_classifications || []) {
         const cur = byDate.get(b.date)
-        if (!cur || (REL_PRIORITY[b.rel] || 0) > (REL_PRIORITY[cur.rel] || 0)) {
-          byDate.set(b.date, b)
-        }
+        if (!cur || (REL_PRIORITY[b.rel] || 0) > (REL_PRIORITY[cur.rel] || 0)) byDate.set(b.date, b)
       }
     }
     return [...byDate.values()].sort((a, b) => a.date.localeCompare(b.date))
@@ -59,16 +53,16 @@ export default function HVZonesPanel() {
 
   const rows = useMemo(() => {
     const arr = (data?.rows || []).filter(r => {
-      if (!tierFilter[r.tier]) return false
-      if (!relFilter[r.current_rel]) return false
+      if (!showTop && r.current_rel_top === 'inside') {} // we want to keep only those matching enabled kind
+      const topOk = showTop && r.current_rel_top === 'inside'
+      const botOk = showBot && r.current_rel_bot === 'inside'
+      if (!topOk && !botOk) return false
       if (search && !r.ticker.toUpperCase().includes(search.toUpperCase())) return false
       return true
     })
-    arr.sort((a, b) => b.trigger_vol_mult - a.trigger_vol_mult)
     return arr
-  }, [data, tierFilter, relFilter, search])
+  }, [data, search, showTop, showBot])
 
-  // Auto-select first row when data loads or filter changes
   useEffect(() => {
     if (rows.length && !rows.find(r => r.ticker === selected)) setSelected(rows[0].ticker)
   }, [rows, selected])
@@ -78,79 +72,82 @@ export default function HVZonesPanel() {
 
   return (
     <div className="flex h-full overflow-hidden">
-      {/* ── Sidebar ────────────────────────────────────────────────────────── */}
       <div className="w-[380px] shrink-0 border-r border-white/10 flex flex-col">
         <div className="p-3 border-b border-white/10 space-y-2">
           <div className="flex items-center gap-2">
-            <div className="text-base font-bold">🎯 HV-Zones</div>
-            <div className="text-xs text-md-on-surface-var">as-of {data.as_of} · {rows.length}/{data.count}</div>
+            <div className="text-base font-bold">📐 Gann Zones</div>
+            <div className="text-xs text-md-on-surface-var">{rows.length}/{data.count} · {lookback}d</div>
+          </div>
+          <div className="text-[10px] text-md-on-surface-var leading-tight">
+            "The lowest stick of the highest bar, and the highest stick of the lowest bar" — W.D. Gann.
+            Top zone = OHLC of period's HIGHEST high bar. Bottom = LOWEST low bar.
           </div>
           <input
             value={search} onChange={e => setSearch(e.target.value)}
             placeholder="Search ticker…"
             className="w-full px-2 py-1 text-xs rounded bg-md-surface-high border border-white/10 text-md-on-surface placeholder-md-on-surface-var/50"
           />
-          <div className="flex gap-1 flex-wrap">
-            {['x2-5', 'x5-10', 'x10+'].map(t => (
-              <button key={t} onClick={() => setTierFilter(s => ({ ...s, [t]: !s[t] }))}
-                className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${tierFilter[t] ? TIER_CLS[t] : 'bg-md-surface text-md-on-surface-var border-white/10'}`}>
-                {t}
-              </button>
+          <div className="flex gap-1 flex-wrap items-center">
+            <span className="text-[10px] text-md-on-surface-var mr-1">Lookback:</span>
+            {LOOKBACKS.map(lb => (
+              <button key={lb} onClick={() => setLookback(lb)}
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                  lookback === lb
+                    ? 'bg-amber-900/60 text-amber-300 border-amber-600'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10'}`}>{lb}d</button>
             ))}
           </div>
           <div className="flex gap-1 flex-wrap">
-            {Object.entries(REL_CLS).map(([key, v]) => (
-              <button key={key} onClick={() => setRelFilter(s => ({ ...s, [key]: !s[key] }))}
-                title={v.text}
-                className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
-                  relFilter[key] ? 'bg-md-surface-high border-white/30' : 'opacity-40 bg-md-surface border-white/10'
-                }`}
-                style={relFilter[key] ? { color: v.color } : {}}>
-                {v.shape} {v.label}
-              </button>
-            ))}
+            <button onClick={() => setShowTop(s => !s)}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                showTop ? 'bg-rose-900/40 text-rose-300 border-rose-700' : 'bg-md-surface text-md-on-surface-var border-white/10 opacity-60'}`}>
+              In Top Zone (resistance)
+            </button>
+            <button onClick={() => setShowBot(s => !s)}
+              className={`px-2 py-0.5 rounded text-[11px] font-semibold border ${
+                showBot ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700' : 'bg-md-surface text-md-on-surface-var border-white/10 opacity-60'}`}>
+              In Bottom Zone (support)
+            </button>
           </div>
         </div>
 
         <div className="flex-1 overflow-y-auto">
           {rows.map(r => {
-            const rel = REL_CLS[r.current_rel] || REL_CLS.inside
             const isSel = r.ticker === selected
             return (
               <div key={r.ticker} onClick={() => setSelected(r.ticker)}
-                className={`px-3 py-2 cursor-pointer border-b border-white/5 hover:bg-white/5 ${isSel ? 'bg-violet-900/30 border-l-2 border-l-violet-500' : ''}`}>
+                className={`px-3 py-2 cursor-pointer border-b border-white/5 hover:bg-white/5 ${isSel ? 'bg-amber-900/20 border-l-2 border-l-amber-500' : ''}`}>
                 <div className="flex items-baseline gap-2">
-                  <span className="font-bold text-emerald-300">{r.ticker}</span>
+                  <span className="font-bold text-amber-300">{r.ticker}</span>
                   <span className={`text-[10px] font-mono ${CAP_CLS[r.mcap_bucket] || 'text-gray-400'}`}>{r.mcap_bucket}</span>
                   <span className="text-[10px] text-md-on-surface-var ml-auto">${r.current_close}</span>
                 </div>
                 <div className="flex items-baseline gap-2 mt-0.5 text-[10px]">
-                  <span className={`px-1 rounded font-semibold border ${TIER_CLS[r.tier]}`}>{r.tier}</span>
-                  <span style={{ color: rel.color }} className="font-mono" title={rel.text}>{rel.shape} {rel.label}</span>
+                  {r.current_rel_top === 'inside' && <span className="px-1 rounded bg-rose-900/30 text-rose-300">▼ in TOP</span>}
+                  {r.current_rel_bot === 'inside' && <span className="px-1 rounded bg-emerald-900/30 text-emerald-300">▲ in BOT</span>}
                   <span className="text-md-on-surface-var truncate">{r.sector}</span>
                 </div>
                 <div className="mt-0.5 text-[10px] text-md-on-surface-var font-mono">
-                  zone ${r.zone_low}-${r.zone_high} · trig {r.trigger_date} vol×{r.trigger_vol_mult}
+                  top ${r.top_low}-${r.top_high} ({r.top_date}) · bot ${r.bot_low}-${r.bot_high} ({r.bot_date})
                 </div>
               </div>
             )
           })}
-          {!rows.length && <div className="p-4 text-xs text-md-on-surface-var italic">No tickers match filters.</div>}
+          {!rows.length && <div className="p-4 text-xs text-md-on-surface-var italic">No tickers in zone.</div>}
         </div>
       </div>
 
-      {/* ── Main: chart + summary ────────────────────────────────────────── */}
       <div className="flex-1 overflow-y-auto p-3">
         {selected ? (
           <>
-            <SelectedHeader row={(data.rows || []).find(r => r.ticker === selected)} />
+            <Header row={(data.rows || []).find(r => r.ticker === selected)} />
             <div className="rounded-lg overflow-hidden border border-white/10 mb-3">
-              <CodeCandleChart ticker={selected} tf="1d" initialLimit={150}
+              <CodeCandleChart ticker={selected} tf="1d" initialLimit={Math.max(200, lookback + 30)}
                 height={460} zoneMarkers={mergedClassifications}
-                zoneSource="hv" showBarSelector={false} />
+                zoneSource="gann" showBarSelector={false} />
             </div>
             <Legend />
-            <ZoneSummary zones={zones} />
+            <ZoneTable zones={zones} />
             <RelMatrix zones={zones} />
           </>
         ) : (
@@ -161,21 +158,17 @@ export default function HVZonesPanel() {
   )
 }
 
-function SelectedHeader({ row }) {
+function Header({ row }) {
   if (!row) return null
-  const rel = REL_CLS[row.current_rel] || REL_CLS.inside
   return (
     <div className="mb-3 p-2 rounded-lg bg-md-surface-high border border-white/10 flex flex-wrap items-center gap-3 text-xs">
-      <span className="text-lg font-bold text-emerald-300">{row.ticker}</span>
-      <span className={`px-1.5 py-0.5 rounded font-semibold border ${TIER_CLS[row.tier]}`}>{row.tier}</span>
+      <span className="text-lg font-bold text-amber-300">{row.ticker}</span>
       <span className={`font-mono ${CAP_CLS[row.mcap_bucket] || ''}`}>{row.mcap_bucket}</span>
       <span className="text-md-on-surface-var">{row.sector || '—'}</span>
       <div className="mx-2 h-5 border-r border-white/10" />
-      <span style={{ color: rel.color }} className="font-mono font-bold">{rel.shape} {rel.text}</span>
-      <div className="mx-2 h-5 border-r border-white/10" />
       <span className="font-mono">Price ${row.current_close}</span>
-      <span className="font-mono">Zone ${row.zone_low} – ${row.zone_high}</span>
-      <span className="font-mono text-md-on-surface-var">trig {row.trigger_date} vol×{row.trigger_vol_mult}</span>
+      {row.current_rel_top === 'inside' && <span className="font-mono text-rose-300">▼ in TOP ${row.top_low}-${row.top_high}</span>}
+      {row.current_rel_bot === 'inside' && <span className="font-mono text-emerald-300">▲ in BOT ${row.bot_low}-${row.bot_high}</span>}
     </div>
   )
 }
@@ -191,7 +184,7 @@ function Legend() {
   )
 }
 
-function ZoneSummary({ zones }) {
+function ZoneTable({ zones }) {
   if (!zones?.length) return null
   return (
     <div className="mb-3">
@@ -199,18 +192,16 @@ function ZoneSummary({ zones }) {
       <table className="text-xs">
         <thead><tr className="border-b border-white/10 text-md-on-surface-var">
           <th className="text-left px-2 py-1">#</th>
-          <th className="text-left px-2 py-1">Trigger</th>
+          <th className="text-left px-2 py-1">Kind</th>
+          <th className="text-left px-2 py-1">Bar date</th>
           <th className="text-right px-2 py-1">Zone</th>
-          <th className="text-right px-2 py-1">Vol×</th>
-          <th className="text-left px-2 py-1">Left date</th>
         </tr></thead>
         <tbody>{zones.map((z, i) => (
           <tr key={i} className="border-b border-white/5">
-            <td className="px-2 py-0.5 font-mono text-cyan-300">Z{i+1}</td>
+            <td className="px-2 py-0.5 font-mono text-amber-300">Z{i+1}</td>
+            <td className={`px-2 py-0.5 font-mono ${z.kind === 'top' ? 'text-rose-300' : 'text-emerald-300'}`}>{z.kind?.toUpperCase()}</td>
             <td className="px-2 py-0.5 font-mono">{z.trigger_date}</td>
             <td className="px-2 py-0.5 text-right font-mono">${z.zone_low} – ${z.zone_high}</td>
-            <td className="px-2 py-0.5 text-right font-mono text-amber-300">×{z.trigger_vol_mult}</td>
-            <td className="px-2 py-0.5 font-mono text-md-on-surface-var">{z.left_date || '—'}</td>
           </tr>
         ))}</tbody>
       </table>
@@ -220,11 +211,9 @@ function ZoneSummary({ zones }) {
 
 function RelMatrix({ zones }) {
   if (!zones?.length) return null
-  // Build union of all bar dates across zones, then matrix [date × zone#] → relation
   const dateSet = new Set()
   for (const z of zones) for (const b of z.bar_classifications || []) dateSet.add(b.date)
-  const dates = [...dateSet].sort().slice(-20)   // last 20 bars
-  // For each zone, index by date for quick lookup
+  const dates = [...dateSet].sort().slice(-20)
   const zoneIdx = zones.map(z => {
     const m = new Map()
     for (const b of z.bar_classifications || []) m.set(b.date, b)
@@ -240,10 +229,9 @@ function RelMatrix({ zones }) {
           <th className="text-right px-2 py-1">High</th>
           <th className="text-right px-2 py-1">Low</th>
           <th className="text-right px-2 py-1">Close</th>
-          {zones.map((_, i) => <th key={i} className="text-center px-2 py-1 text-cyan-300">Z{i+1}</th>)}
+          {zones.map((z, i) => <th key={i} className={`text-center px-2 py-1 ${z.kind==='top'?'text-rose-300':'text-emerald-300'}`}>Z{i+1} {z.kind?.[0]?.toUpperCase()}</th>)}
         </tr></thead>
         <tbody>{[...dates].reverse().map(date => {
-          // Take OHLC from first zone that has this date
           let ohlc = null
           for (const m of zoneIdx) if (m.has(date)) { ohlc = m.get(date); break }
           if (!ohlc) return null

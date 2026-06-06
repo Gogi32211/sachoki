@@ -51,6 +51,7 @@ export default function CodeCandleChart({
   codes = true,          // initial state of the code overlay (off for clean previews)
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
+  zoneSource = 'hv',     // 'hv' (cyan) | 'gann' (amber) — which zone overlay to draw
 }) {
   const containerRef = useRef(null)
   const overlayRef   = useRef(null)
@@ -304,25 +305,30 @@ export default function CodeCandleChart({
     setHvZones([])
     if (!ticker || tf !== '1d') return
     let dead = false
-    fetch(`/api/zone-retest/zones/${ticker}`).then(r => r.json()).then(d => {
+    const isGann = zoneSource === 'gann'
+    const url = isGann ? `/api/gann-zones/zones/${ticker}` : `/api/zone-retest/zones/${ticker}`
+    const color = isGann ? '#f59e0b' : '#22d3ee'   // amber-500 for Gann; cyan-400 for HV
+    const labelTop = isGann ? 'Gann-top' : 'HV-top'
+    const labelBot = isGann ? 'Gann-bot' : 'HV-bot'
+    fetch(url).then(r => r.json()).then(d => {
       if (dead) return
       const zones = d?.zones || []
-      setHvZones(zones)
+      setHvZones(zones.map(z => ({ ...z, _source: zoneSource })))
       zones.forEach((z, i) => {
-        const color = '#22d3ee'  // cyan-400
+        const kindTag = z.kind ? z.kind.toUpperCase().slice(0,3) + ' ' : ''
         const titlePref = zones.length > 1 ? `Z${i + 1} ` : ''
         zoneLinesRef.current.push(series.createPriceLine({
           price: z.zone_high, color, lineWidth: 1, lineStyle: 2,
-          axisLabelVisible: true, title: `${titlePref}HV-top ${z.trigger_date}`,
+          axisLabelVisible: true, title: `${titlePref}${kindTag}${labelTop} ${z.trigger_date}`,
         }))
         zoneLinesRef.current.push(series.createPriceLine({
           price: z.zone_low, color, lineWidth: 1, lineStyle: 2,
-          axisLabelVisible: true, title: `${titlePref}HV-bot`,
+          axisLabelVisible: true, title: `${titlePref}${kindTag}${labelBot}`,
         }))
       })
     }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf])
+  }, [ticker, tf, zoneSource])
 
   const chartBody = (
     <div className="relative">
@@ -369,12 +375,16 @@ export default function CodeCandleChart({
                 {meta.n} bars{meta.dmin ? ` · ${meta.dmin} → ${meta.dmax}` : ''}
               </span>
             )}
-            {hvZones.length > 0 && (
-              <span className="ml-2 text-[10px] font-semibold text-cyan-300 bg-cyan-950/60 px-1.5 py-0.5 rounded ring-1 ring-cyan-700/50"
-                    title={hvZones.map((z, i) => `Z${i+1}: $${z.zone_low}-$${z.zone_high} · trig ${z.trigger_date} (vol×${z.trigger_vol_mult})`).join('\n')}>
-                🎯 HV-Zone × {hvZones.length}
+            {hvZones.length > 0 && (() => {
+              const gann = zoneSource === 'gann'
+              const cls = gann ? 'text-amber-300 bg-amber-950/60 ring-amber-700/50' : 'text-cyan-300 bg-cyan-950/60 ring-cyan-700/50'
+              const icon = gann ? '📐' : '🎯'
+              const label = gann ? 'Gann-Zone' : 'HV-Zone'
+              return <span className={`ml-2 text-[10px] font-semibold px-1.5 py-0.5 rounded ring-1 ${cls}`}
+                    title={hvZones.map((z, i) => `Z${i+1}${z.kind?` (${z.kind})`:''}: $${z.zone_low}-$${z.zone_high} · trig ${z.trigger_date}${z.trigger_vol_mult?` (vol×${z.trigger_vol_mult})`:''}`).join('\n')}>
+                {icon} {label} × {hvZones.length}
               </span>
-            )}
+            })()}
           </span>
           <div className="flex items-center gap-3">
             {(

@@ -288,6 +288,53 @@ def zone_retest_zones(ticker: str, lookback_min: int = 20, lookback_max: int = 9
         return {"ticker": tk, "zones": [], "error": str(e)}
 
 
+@app.get("/api/gann-zones/tickers")
+def gann_zones_tickers(lookback: int = 90, zone_kind: str = "any"):
+    """Tickers whose current close sits inside a Gann zone (top, bottom, or
+    either). Filter chip in Ultra calls this."""
+    from ai_journal.gann_zones import active_tickers
+    try:
+        return active_tickers(lookback=lookback, zone_kind=zone_kind)
+    except Exception as e:
+        log.warning("gann zones tickers failed: %s", e)
+        return {"tickers": [], "error": str(e)}
+
+
+@app.get("/api/gann-zones/zones/{ticker}")
+def gann_zones_zones(ticker: str, lookback: int = 90):
+    """Top + bottom Gann zones for one ticker with per-bar classifications."""
+    from ai_journal.gann_zones import zones_for_ticker
+    tk = ticker.upper()
+    try:
+        zones = zones_for_ticker(tk, lookback=lookback)
+        return {"ticker": tk, "zones": zones, "count": len(zones)}
+    except Exception as e:
+        log.warning("gann zones for %s failed: %s", ticker, e)
+        return {"ticker": tk, "zones": [], "error": str(e)}
+
+
+@app.get("/api/gann-zones/scan")
+def gann_zones_scan(lookback: int = 90):
+    """Sidebar list view for the Gann-Zones page."""
+    from ai_journal.gann_zones import scan as _gscan
+    from ai_journal.db import get_journal_conn
+    try:
+        res = _gscan(lookback=lookback)
+        with get_journal_conn() as j:
+            meta = {r[0]: {"name": r[1], "sector": r[2], "mcap_bucket": r[3]}
+                    for r in j.execute(
+                        "SELECT ticker,name,sector,mcap_bucket FROM ticker_meta").fetchall()}
+        for r in res["rows"]:
+            m = meta.get(r["ticker"], {})
+            r["name"]        = m.get("name") or ""
+            r["sector"]      = m.get("sector") or ""
+            r["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        return res
+    except Exception as e:
+        log.warning("gann zones scan failed: %s", e)
+        return {"rows": [], "error": str(e)}
+
+
 @app.get("/api/zone-retest/scan")
 def zone_retest_scan():
     """List view for the HV-Zones page — all active tickers across all tiers

@@ -1004,6 +1004,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [zoneTiers, setZoneTiers] = useState({ t25: false, t510: false, t10p: false })
   const [zoneTierSets, setZoneTierSets] = useState({}) // {tierKey: Set<string>}
   const [zoneRetestBusy, setZoneRetestBusy] = useState(false)
+  // Gann zone filter (current close inside top or bottom Gann zone over a lookback window)
+  const [gannFilter, setGannFilter] = useState(false)
+  const [gannSet, setGannSet] = useState(null)
+  const [gannBusy, setGannBusy] = useState(false)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1313,6 +1317,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
       if (buildingFilter && r.profile_category !== 'BUILDING') return false
       if (zoneFilterActive && activeZoneSet && !activeZoneSet.has(r.ticker)) return false
+      if (gannFilter && gannSet && !gannSet.has(r.ticker)) return false
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
@@ -1353,7 +1358,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2628,6 +2633,27 @@ export default function UltraScanPanel({ onSelectTicker }) {
             </button>
           )
         })}
+        <button
+          onClick={async () => {
+            const next = !gannFilter
+            setGannFilter(next)
+            if (next && !gannSet) {
+              setGannBusy(true)
+              try {
+                const r = await fetch('/api/gann-zones/tickers').then(x => x.json())
+                setGannSet(new Set(r.tickers || []))
+              } catch { /* keep empty */ } finally { setGannBusy(false) }
+            }
+          }}
+          title="Gann zones: tickers whose CURRENT close sits inside the [low,high] of the highest-high bar OR the lowest-low bar in the last 90 days. Magnet S/R levels in Gann's framework."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            gannFilter
+              ? 'bg-amber-900/60 text-amber-300 border-amber-600 ring-1 ring-amber-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          {gannBusy ? '⏳' : '📐'} Gann
+          {gannFilter && gannSet && <span className="ml-1 text-[10px] opacity-80">{gannSet.size}</span>}
+        </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
             {results.length} ticker{results.length !== 1 ? 's' : ''} · sorted by Pf Score
