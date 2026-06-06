@@ -374,13 +374,19 @@ export default function CodeCandleChart({
           }
         }
       }
+      // Style per source:
+      //   HV only         → grey dashed   (lineStyle 2 — "-----")
+      //   Gann only       → grey dotted   (lineStyle 1 — closest to "-.-.-")
+      //   Confluence      → white solid   (lineStyle 0 — strongest)
       for (const e of bucket.values()) {
         const both = e.hv && e.gann
+        const style = both ? 0 : (e.gann ? 1 : 2)
+        const color = both ? '#ffffff' : '#64748b'
         histLinesRef.current.push(series.createPriceLine({
           price: e.price,
-          color: both ? '#ffffff' : '#64748b',
-          lineWidth: both ? 1 : 1,
-          lineStyle: 2,
+          color,
+          lineWidth: both ? 2 : 1,
+          lineStyle: style,
           axisLabelVisible: false,
         }))
       }
