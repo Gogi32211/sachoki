@@ -257,18 +257,59 @@ def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 90,
 
 @app.get("/api/zone-retest/zones/{ticker}")
 def zone_retest_zones(ticker: str, lookback_min: int = 20, lookback_max: int = 90,
-                      vol_min: float = 2.0, vol_max: float | None = None):
+                      vol_min: float = 2.0, vol_max: float | None = None,
+                      classify: bool = False):
     """All currently-active zones for one ticker (drawn on the chart) — default
-    vol_min=2 shows every tier so chart matches whatever filter was used."""
-    from ai_journal.zone_retest import zones_for_ticker
+    vol_min=2 shows every tier so chart matches whatever filter was used.
+
+    If classify=true, each zone gets a `bar_classifications` array — every daily
+    bar from trigger_date until today tagged inside / cross / touch_below /
+    touch_above / above / below — used to render markers on the chart."""
+    from ai_journal.zone_retest import zones_for_ticker, classify_recent_bars, get_analytics_conn
     tk = ticker.upper()
     try:
         zones = zones_for_ticker(tk, lb_min=lookback_min, lb_max=lookback_max,
                                  vol_min=vol_min, vol_max=vol_max)
+        if classify and zones:
+            # Need universe for the per-bar query
+            with get_analytics_conn() as a:
+                uni = a.execute(
+                    "SELECT universe FROM bars WHERE ticker=? ORDER BY date DESC LIMIT 1",
+                    [tk]).fetchone()
+                as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+            universe = uni[0] if uni else "sp500"
+            for z in zones:
+                z["bar_classifications"] = classify_recent_bars(
+                    tk, universe, z["zone_low"], z["zone_high"],
+                    since_date=z["trigger_date"], until_date=as_of)
         return {"ticker": tk, "zones": zones, "count": len(zones)}
     except Exception as e:
         log.warning("zone-retest zones failed for %s: %s", ticker, e)
         return {"ticker": tk, "zones": [], "error": str(e)}
+
+
+@app.get("/api/zone-retest/scan")
+def zone_retest_scan():
+    """List view for the HV-Zones page — all active tickers across all tiers
+    with their meta + current zone + tier."""
+    from ai_journal.zone_retest import scan
+    from ai_journal.db import get_journal_conn
+    try:
+        res = scan()
+        # Enrich with ticker_meta (sector/mcap/name)
+        with get_journal_conn() as j:
+            meta = {r[0]: {"name": r[1], "sector": r[2], "mcap_bucket": r[3]}
+                    for r in j.execute(
+                        "SELECT ticker,name,sector,mcap_bucket FROM ticker_meta").fetchall()}
+        for r in res["rows"]:
+            m = meta.get(r["ticker"], {})
+            r["name"]        = m.get("name") or ""
+            r["sector"]      = m.get("sector") or ""
+            r["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        return res
+    except Exception as e:
+        log.warning("zone-retest scan failed: %s", e)
+        return {"as_of": None, "rows": [], "error": str(e)}
 
 
 _ticker_info_cache: dict = {}

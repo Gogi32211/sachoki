@@ -234,6 +234,68 @@ def edge_check(horizon: int = 10) -> dict:
     }
 
 
+def classify_bar(bar_low: float, bar_high: float, bar_close: float,
+                 zone_low: float, zone_high: float) -> str:
+    """Single-bar relationship to a zone:
+        inside       — bar fully within [zone_low, zone_high]
+        cross        — bar spans the whole zone (low < zone_low AND high > zone_high)
+        touch_below  — bar pokes the zone from BELOW (low < zone_low ≤ high < zone_high)
+        touch_above  — bar pokes the zone from ABOVE (zone_low < low ≤ zone_high < high)
+        below        — entire bar below zone   (high < zone_low)
+        above        — entire bar above zone   (low > zone_high)
+    """
+    if bar_low >= zone_low and bar_high <= zone_high:
+        return "inside"
+    if bar_low < zone_low and bar_high > zone_high:
+        return "cross"
+    if bar_high < zone_low:
+        return "below"
+    if bar_low > zone_high:
+        return "above"
+    if bar_low < zone_low <= bar_high <= zone_high:
+        return "touch_below"
+    if zone_low <= bar_low <= zone_high < bar_high:
+        return "touch_above"
+    return "inside"   # fallback (overlap edge cases)
+
+
+def classify_recent_bars(ticker: str, universe: str, zone_low: float, zone_high: float,
+                         since_date: str, until_date: str) -> list[dict]:
+    """For each daily bar in (since_date, until_date], compute its relationship
+    to the given zone. since_date is typically the trigger_date."""
+    a = get_analytics_conn()
+    try:
+        rows = a.execute("""
+            SELECT date, open, high, low, close, volume
+            FROM bars WHERE ticker=? AND universe=? AND date > ? AND date <= ?
+            ORDER BY date ASC""",
+            [ticker, universe, since_date, until_date]).fetchall()
+    finally:
+        a.close()
+    out = []
+    for d, o, h, l, c, v in rows:
+        rel = classify_bar(float(l or 0), float(h or 0), float(c or 0), zone_low, zone_high)
+        out.append({"date": str(d)[:10], "open": float(o), "high": float(h),
+                    "low": float(l), "close": float(c), "volume": int(v or 0),
+                    "rel": rel})
+    return out
+
+
+def scan() -> dict:
+    """Full list of tickers with active zones — sidebar for the HV-Zones page."""
+    res = active_retests(vol_min=2.0, limit=5000)
+    # active_retests already de-dupes per ticker (keep most-recent trigger).
+    rows = []
+    for r in res["rows"]:
+        rel = classify_bar(r["current_close"] - 1e-9, r["current_close"] + 1e-9,
+                           r["current_close"], r["zone_low"], r["zone_high"])
+        # tier label from vol multiple
+        vm = r["trigger_vol_mult"]
+        tier = "x10+" if vm >= 10 else "x5-10" if vm >= 5 else "x2-5"
+        rows.append({**r, "current_rel": rel, "tier": tier})
+    return {"as_of": res["as_of"], "count": len(rows), "rows": rows}
+
+
 if __name__ == "__main__":
     import json
     logging.basicConfig(level=logging.INFO, format="%(asctime)s %(levelname)s %(message)s")

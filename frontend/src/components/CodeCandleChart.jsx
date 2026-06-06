@@ -50,6 +50,7 @@ export default function CodeCandleChart({
   bare = false,
   codes = true,          // initial state of the code overlay (off for clean previews)
   onChartReady,
+  zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
 }) {
   const containerRef = useRef(null)
   const overlayRef   = useRef(null)
@@ -268,6 +269,26 @@ export default function CodeCandleChart({
 
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
+
+  // External zone-classification markers (one per bar with relation to HV-zone).
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    if (!zoneMarkers?.length) { try { series.setMarkers([]) } catch {} ; return }
+    const REL = {
+      inside:      { color: '#22c55e', position: 'belowBar', shape: 'circle',   text: 'IN' },
+      cross:       { color: '#eab308', position: 'belowBar', shape: 'square',   text: 'CR' },
+      touch_below: { color: '#22d3ee', position: 'belowBar', shape: 'arrowUp',  text: 'TB' },
+      touch_above: { color: '#f472b6', position: 'aboveBar', shape: 'arrowDown',text: 'TA' },
+    }
+    const markers = []
+    for (const b of zoneMarkers) {
+      const m = REL[b.rel]
+      if (!m) continue   // skip above/below
+      markers.push({ time: b.date, ...m })
+    }
+    try { series.setMarkers(markers) } catch {}
+  }, [zoneMarkers])
 
   // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
   // Two horizontal lines per zone (zone_low / zone_high) using lightweight-
