@@ -64,15 +64,16 @@ export default function CodeCandleChart({
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
-  const histLinesRef = useRef([])           // grey "history" overlay priceLines (separate ref → independent toggle)
+  const histHvRef    = useRef([])           // grey history overlay (HV-spike triggers)
+  const histGannRef  = useRef([])           // lime history overlay (Gann pivots)
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
-  // History tier: 0 = off; for HV it's vol-multiple (2/5/10), for Gann it's
-  // pivot radius (5/10/20). Reset on zoneSource change so the user isn't left
-  // with a stale value (e.g. vol_min=5 silently turning into pivot=5).
-  const [historyTier, setHistoryTier] = useState(0)
-  const [historyCount, setHistoryCount] = useState(0)
-  useEffect(() => { setHistoryTier(0) }, [zoneSource])
+  // Independent history pickers — user can show grey HV history and lime Gann
+  // pivots at the same time on ANY chart, regardless of zoneSource.
+  const [historyHvTier,   setHistoryHvTier]   = useState(0)   // 0/2/5/10 vol multiple
+  const [historyGannTier, setHistoryGannTier] = useState(0)   // 0/5/10/20 pivot radius
+  const [historyHvCount,   setHistoryHvCount]   = useState(0)
+  const [historyGannCount, setHistoryGannCount] = useState(0)
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -85,6 +86,23 @@ export default function CodeCandleChart({
       window.removeEventListener('keydown', onKey)
       document.body.style.overflow = ''
     }
+  }, [fullscreen])
+  // Explicitly resize the chart on fullscreen change — autoSize sometimes
+  // misses the layout transition (CSS hasn't applied yet on the same tick).
+  useEffect(() => {
+    if (!chartRef.current || !containerRef.current) return
+    const apply = () => {
+      const el = containerRef.current
+      if (!el || !chartRef.current) return
+      try {
+        chartRef.current.applyOptions({ width: el.clientWidth, height: el.clientHeight })
+        chartRef.current.timeScale().fitContent()
+      } catch {}
+    }
+    const r1 = requestAnimationFrame(apply)
+    const t1 = setTimeout(apply, 60)   // catch any late CSS transition
+    const t2 = setTimeout(apply, 200)
+    return () => { cancelAnimationFrame(r1); clearTimeout(t1); clearTimeout(t2) }
   }, [fullscreen])
 
   // Re-apply zone colors over the stored candles. Trigger-bar = colored
@@ -317,47 +335,40 @@ export default function CodeCandleChart({
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
-  // ── Grey "history" overlay — ALL ×5+ HV-spikes for this ticker, drawn as
-  // thin grey dashed lines. Independent of the active-zone band; safe to
-  // co-exist. Cleared on toggle off / ticker switch.
-  useEffect(() => {
+  // Helper: clear + maybe-draw a history overlay (HV grey OR Gann lime).
+  const drawHistory = useCallback((kind, tier, ref, setCount) => {
     const series = seriesRef.current
     if (!series) return
-    // Always clear first (handles toggle-off + ticker switch).
-    for (const ln of histLinesRef.current) {
-      try { series.removePriceLine(ln) } catch {}
-    }
-    histLinesRef.current = []
-    setHistoryCount(0)
-    if (!historyTier || !ticker || tf !== '1d') return
+    for (const ln of ref.current) { try { series.removePriceLine(ln) } catch {} }
+    ref.current = []
+    setCount(0)
+    if (!tier || !ticker || tf !== '1d') return () => {}
     let dead = false
-    // Match the chart's earliest visible bar so lines don't float off-screen.
     const firstDate = candlesRef.current?.[0]?.time
     const fromQ = firstDate ? `&from_date=${firstDate}` : ''
-    const url = zoneSource === 'gann'
-      ? `/api/gann-zones/history/${ticker}?pivot=${historyTier}&limit=500${fromQ}`
-      : `/api/hv-zones/history/${ticker}?vol_min=${historyTier}&limit=500${fromQ}`
-    fetch(url)
-      .then(r => r.json())
-      .then(d => {
-        if (dead || !d?.zones?.length) { setHistoryCount(0); return }
-        // HV history → slate grey; Gann pivots → salad lime (visually distinct)
-        const color = zoneSource === 'gann' ? '#a3e635' : '#64748b'
-        for (const z of d.zones) {
-          histLinesRef.current.push(series.createPriceLine({
-            price: z.zone_high, color, lineWidth: 1, lineStyle: 2,
-            axisLabelVisible: false,
-          }))
-          histLinesRef.current.push(series.createPriceLine({
-            price: z.zone_low, color, lineWidth: 1, lineStyle: 2,
-            axisLabelVisible: false,
-          }))
-        }
-        setHistoryCount(d.zones.length)
-      })
-      .catch(() => {})
+    const url = kind === 'gann'
+      ? `/api/gann-zones/history/${ticker}?pivot=${tier}&limit=500${fromQ}`
+      : `/api/hv-zones/history/${ticker}?vol_min=${tier}&limit=500${fromQ}`
+    fetch(url).then(r => r.json()).then(d => {
+      if (dead || !d?.zones?.length) return
+      const color = kind === 'gann' ? '#a3e635' : '#64748b'
+      for (const z of d.zones) {
+        ref.current.push(series.createPriceLine({
+          price: z.zone_high, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
+        }))
+        ref.current.push(series.createPriceLine({
+          price: z.zone_low, color, lineWidth: 1, lineStyle: 2, axisLabelVisible: false,
+        }))
+      }
+      setCount(d.zones.length)
+    }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, historyTier, limit, zoneSource])
+  }, [ticker, tf])
+
+  useEffect(() => drawHistory('hv',   historyHvTier,   histHvRef,   setHistoryHvCount),
+            [ticker, tf, historyHvTier,   limit])
+  useEffect(() => drawHistory('gann', historyGannTier, histGannRef, setHistoryGannCount),
+            [ticker, tf, historyGannTier, limit])
 
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
@@ -500,32 +511,40 @@ export default function CodeCandleChart({
                 <span>codes</span>
               </label>
             )}
-            {(() => {
-              const isGann = zoneSource === 'gann'
-              const tiers = isGann ? [5, 10, 20] : [2, 5, 10]
-              const prefix = isGann ? '±' : '×'
-              const icon = isGann ? '📐' : '📊'
-              const tip = isGann
-                ? 'Overlay historical Gann pivots (highs/lows of local swings) over the chart range. Radius = bars on each side.'
-                : 'Overlay historical HV-spike zones over the chart range. Pick a vol-multiple threshold.'
-              return (
-                <div className="flex items-center gap-0.5 text-[10px]" title={tip}>
-                  <span className="text-md-on-surface-var mr-0.5">{icon}</span>
-                  {tiers.map(v => (
-                    <button key={v} onClick={() => setHistoryTier(historyTier === v ? 0 : v)}
-                      className={`px-1.5 py-0.5 rounded font-mono border ${
-                        historyTier === v
-                          ? 'bg-slate-600/60 text-slate-100 border-slate-400'
-                          : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                      {prefix}{v}
-                    </button>
-                  ))}
-                  {historyTier > 0 && historyCount > 0 && (
-                    <span className="ml-1 text-slate-400">× {historyCount}</span>
-                  )}
-                </div>
-              )
-            })()}
+            {/* Grey HV history picker */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Grey overlay: historical HV-spike zones (vol×N+) over the chart range.">
+              <span className="mr-0.5" style={{ color: '#64748b' }}>📊</span>
+              {[2, 5, 10].map(v => (
+                <button key={v} onClick={() => setHistoryHvTier(historyHvTier === v ? 0 : v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    historyHvTier === v
+                      ? 'bg-slate-600/60 text-slate-100 border-slate-400'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  ×{v}
+                </button>
+              ))}
+              {historyHvTier > 0 && historyHvCount > 0 && (
+                <span className="ml-0.5 text-slate-400">{historyHvCount}</span>
+              )}
+            </div>
+            {/* Lime Gann pivot picker */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Lime overlay: historical Gann pivots (swing highs/lows). Radius = bars on each side.">
+              <span className="mr-0.5" style={{ color: '#a3e635' }}>📐</span>
+              {[5, 10, 20].map(v => (
+                <button key={v} onClick={() => setHistoryGannTier(historyGannTier === v ? 0 : v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    historyGannTier === v
+                      ? 'bg-lime-700/50 text-lime-200 border-lime-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  ±{v}
+                </button>
+              ))}
+              {historyGannTier > 0 && historyGannCount > 0 && (
+                <span className="ml-0.5 text-lime-300">{historyGannCount}</span>
+              )}
+            </div>
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}
@@ -561,13 +580,14 @@ export default function CodeCandleChart({
     <div className="fixed inset-0 z-[60] flex bg-md-surface">
       {inner}
       <FullscreenSidePanel ticker={ticker} hvZones={hvZones} candles={candlesRef.current}
-                           historyCount={historyCount} historyTier={historyTier}
+                           historyHvTier={historyHvTier} historyHvCount={historyHvCount}
+                           historyGannTier={historyGannTier} historyGannCount={historyGannCount}
                            zoneSource={zoneSource} extras={sidePanelExtras} />
     </div>
   )
 }
 
-function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTier, zoneSource, extras }) {
+function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyHvCount, historyGannTier, historyGannCount, zoneSource, extras }) {
   const last = candles?.length ? candles[candles.length - 1] : null
   const lastN = candles ? candles.slice(-15).reverse() : []
   const isGann = zoneSource === 'gann'
@@ -613,12 +633,15 @@ function FullscreenSidePanel({ ticker, hvZones, candles, historyCount, historyTi
           ))}
       </div>
 
-      {/* History summary */}
-      {historyTier > 0 && (
-        <div className="p-3 border-b border-white/5 text-xs">
-          <span className="text-slate-400 font-mono">
-            {isGann ? '📐 Lime pivots' : '📊 Grey history'}: {isGann ? `±${historyTier}` : `×${historyTier}+`} · {historyCount} zones
-          </span>
+      {/* History summary — both overlays can be on at once */}
+      {(historyHvTier > 0 || historyGannTier > 0) && (
+        <div className="p-3 border-b border-white/5 text-xs space-y-0.5">
+          {historyHvTier > 0 && (
+            <div className="font-mono"><span style={{ color: '#64748b' }}>📊 ×{historyHvTier}+ Grey HV history</span>: {historyHvCount} zones</div>
+          )}
+          {historyGannTier > 0 && (
+            <div className="font-mono"><span style={{ color: '#a3e635' }}>📐 ±{historyGannTier} Lime Gann pivots</span>: {historyGannCount}</div>
+          )}
         </div>
       )}
 
