@@ -1,5 +1,6 @@
 import { useState, useEffect, useMemo } from 'react'
 import CodeCandleChart from './CodeCandleChart'
+import { zoneColor } from '../utils/zoneColors'
 
 const CAP_CLS = { mega:'text-amber-200', large:'text-emerald-300', mid:'text-sky-300',
                   small:'text-yellow-400', micro:'text-rose-400', unknown:'text-gray-500' }
@@ -140,7 +141,9 @@ export default function HVZonesPanel() {
                   ) : (
                     <span className="text-md-on-surface-var/60 text-[10px] font-mono">↳</span>
                   )}
-                  <span className="text-[10px] text-cyan-400 font-mono" title={`Zone ${r._zone_idx} of ${r.n_zones}`}>
+                  <span className="text-[10px] font-mono font-semibold"
+                        style={{ color: zoneColor(r._zone_idx - 1) }}
+                        title={`Zone ${r._zone_idx} of ${r.n_zones}`}>
                     Z{r._zone_idx}{r.n_zones > 1 ? `/${r.n_zones}` : ''}
                   </span>
                   {isFirstOfTicker && <span className={`text-[10px] font-mono ${CAP_CLS[r.mcap_bucket] || 'text-gray-400'}`}>{r.mcap_bucket}</span>}
@@ -228,7 +231,7 @@ function ZoneSummary({ zones }) {
         </tr></thead>
         <tbody>{zones.map((z, i) => (
           <tr key={i} className="border-b border-white/5">
-            <td className="px-2 py-0.5 font-mono text-cyan-300">Z{i+1}</td>
+            <td className="px-2 py-0.5 font-mono font-bold" style={{ color: zoneColor(i) }}>Z{i+1}</td>
             <td className="px-2 py-0.5 font-mono">{z.trigger_date}</td>
             <td className="px-2 py-0.5 text-right font-mono">${z.zone_low} – ${z.zone_high}</td>
             <td className="px-2 py-0.5 text-right font-mono text-amber-300">×{z.trigger_vol_mult}</td>
@@ -262,7 +265,7 @@ function RelMatrix({ zones }) {
           <th className="text-right px-2 py-1">High</th>
           <th className="text-right px-2 py-1">Low</th>
           <th className="text-right px-2 py-1">Close</th>
-          {zones.map((_, i) => <th key={i} className="text-center px-2 py-1 text-cyan-300">Z{i+1}</th>)}
+          {zones.map((_, i) => <th key={i} className="text-center px-2 py-1 font-bold" style={{ color: zoneColor(i) }}>Z{i+1}</th>)}
         </tr></thead>
         <tbody>{[...dates].reverse().map(date => {
           // Take OHLC from first zone that has this date

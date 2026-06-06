@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, useCallback } from 'react'
+import { zoneColor as zColor } from '../utils/zoneColors'
 import { createChart } from 'lightweight-charts'
 import { api } from '../api'
 
@@ -271,11 +272,11 @@ export default function CodeCandleChart({
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
 
-  // External zone-classification markers (one per bar with relation to HV-zone).
+  // External zone-classification markers (one per bar with relation to HV-zone)
+  // merged with trigger-bar markers (per-zone colored to match its lines).
   useEffect(() => {
     const series = seriesRef.current
     if (!series) return
-    if (!zoneMarkers?.length) { try { series.setMarkers([]) } catch {} ; return }
     const REL = {
       inside:      { color: '#22c55e', position: 'belowBar', shape: 'circle',   text: 'IN' },
       cross:       { color: '#eab308', position: 'belowBar', shape: 'square',   text: 'CR' },
@@ -283,13 +284,25 @@ export default function CodeCandleChart({
       touch_above: { color: '#f472b6', position: 'aboveBar', shape: 'arrowDown',text: 'TA' },
     }
     const markers = []
-    for (const b of zoneMarkers) {
+    // 1) Classification markers — relation to zones, on every bar after the trigger.
+    for (const b of (zoneMarkers || [])) {
       const m = REL[b.rel]
-      if (!m) continue   // skip above/below
+      if (!m) continue
       markers.push({ time: b.date, ...m })
     }
+    // 2) Trigger-bar markers — square ABOVE the bar in the same color as the zone.
+    for (const z of (hvZones || [])) {
+      if (!z?.trigger_date) continue
+      markers.push({
+        time: z.trigger_date,
+        position: 'aboveBar', shape: 'square', color: z._color,
+        text: `Z${z._idx || ''}${z.kind ? ' ' + z.kind[0].toUpperCase() : ''} TRIG`,
+      })
+    }
+    // setMarkers needs chronological order, else lightweight-charts warns.
+    markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers])
+  }, [zoneMarkers, hvZones])
 
   // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
   // Two horizontal lines per zone (zone_low / zone_high) using lightweight-
@@ -307,16 +320,16 @@ export default function CodeCandleChart({
     let dead = false
     const isGann = zoneSource === 'gann'
     const url = isGann ? `/api/gann-zones/zones/${ticker}` : `/api/zone-retest/zones/${ticker}`
-    const color = isGann ? '#f59e0b' : '#22d3ee'   // amber-500 for Gann; cyan-400 for HV
     const labelTop = isGann ? 'Gann-top' : 'HV-top'
     const labelBot = isGann ? 'Gann-bot' : 'HV-bot'
     fetch(url).then(r => r.json()).then(d => {
       if (dead) return
       const zones = d?.zones || []
-      setHvZones(zones.map(z => ({ ...z, _source: zoneSource })))
+      setHvZones(zones.map((z, i) => ({ ...z, _source: zoneSource, _color: zColor(i), _idx: i + 1 })))
       zones.forEach((z, i) => {
+        const color = zColor(i)
         const kindTag = z.kind ? z.kind.toUpperCase().slice(0,3) + ' ' : ''
-        const titlePref = zones.length > 1 ? `Z${i + 1} ` : ''
+        const titlePref = `Z${i + 1} `
         zoneLinesRef.current.push(series.createPriceLine({
           price: z.zone_high, color, lineWidth: 1, lineStyle: 2,
           axisLabelVisible: true, title: `${titlePref}${kindTag}${labelTop} ${z.trigger_date}`,
