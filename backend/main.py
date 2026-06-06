@@ -239,6 +239,21 @@ def health():
     return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.8"}
 
 
+@app.get("/api/zone-retest/tickers")
+def zone_retest_tickers(lookback_min: int = 20, lookback_max: int = 60, vol_mult: int = 10):
+    """Just the set of tickers currently in a high-volume zone re-test.
+    Filter chip in Ultra Scan calls this and intersects with the grid."""
+    from ai_journal.zone_retest import active_retests
+    try:
+        res = active_retests(lb_min=lookback_min, lb_max=lookback_max,
+                             vol_mult=vol_mult, limit=5000)
+        return {"as_of": res["as_of"], "params": res["params"],
+                "tickers": sorted({r["ticker"] for r in res["rows"]})}
+    except Exception as e:
+        log.warning("zone-retest tickers failed: %s", e)
+        return {"as_of": None, "tickers": [], "error": str(e)}
+
+
 _ticker_info_cache: dict = {}
 
 @app.get("/api/ticker-info/{ticker}")
