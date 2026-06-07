@@ -21,6 +21,11 @@ export default function ZoneEdgePanel() {
   const [data, setData]   = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr]     = useState(null)
+  // 2-way combinations
+  const [comboEvent, setComboEvent]   = useState('retest')
+  const [comboAnchor, setComboAnchor] = useState(true)   // anchor on T/Z follow-through
+  const [combo, setCombo] = useState(null)
+  const [comboLoading, setComboLoading] = useState(false)
 
   useEffect(() => {
     let dead = false
@@ -33,6 +38,20 @@ export default function ZoneEdgePanel() {
       .finally(() => { if (!dead) setLoading(false) })
     return () => { dead = true }
   }, [volMin, horizon, firstOnly])
+
+  useEffect(() => {
+    let dead = false
+    setComboLoading(true)
+    const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon,
+      first_only: firstOnly ? '1' : '0', min_n: '40', top: '15' })
+    if (comboAnchor) q.set('anchor', 'tz_up_next3')
+    fetch(`/api/zone-events/combos?${q}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setCombo(d) })
+      .catch(() => { if (!dead) setCombo(null) })
+      .finally(() => { if (!dead) setComboLoading(false) })
+    return () => { dead = true }
+  }, [comboEvent, comboAnchor, volMin, horizon, firstOnly])
 
   const base = data?.baseline
 
@@ -151,6 +170,61 @@ export default function ZoneEdgePanel() {
             </div>
           )
         })}
+      </div>
+
+      {/* 2-way combinations */}
+      <div className="mt-7">
+        <h2 className="text-sm font-bold mb-1">2-way combinations — signal × bar-shape</h2>
+        <p className="text-[11px] text-md-on-surface-var mb-3">
+          Single features barely move the needle; <b>pairs</b> are where the edge concentrates
+          (e.g. follow-through + a rejection bar shape). Watch <b>n</b> — small samples overfit.
+        </p>
+        <div className="flex flex-wrap items-center gap-3 text-xs mb-3">
+          <div className="flex items-center gap-1">
+            {['retest', 'exit_up', 'exit_down'].map(et => (
+              <button key={et} onClick={() => setComboEvent(et)}
+                className={`px-2 py-0.5 rounded border ${comboEvent === et ? `bg-md-surface-high border-white/30 ${EVENT_META[et].color}` : 'bg-md-surface border-white/10 hover:text-white'}`}>
+                {EVENT_META[et].label.split(' ')[0]} {EVENT_META[et].label.includes('↑') ? '↑' : EVENT_META[et].label.includes('↓') ? '↓' : ''}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-1 cursor-pointer select-none">
+            <input type="checkbox" checked={comboAnchor} onChange={e => setComboAnchor(e.target.checked)} />
+            <span className="text-md-on-surface-var">anchor on T/Z follow-through</span>
+          </label>
+          {comboLoading && <span className="text-sky-400 animate-pulse">computing…</span>}
+          {combo?.event_base && <span className="text-md-on-surface-var/60">base win {combo.event_base.win_rate_pct}% · {combo.params?.n_pairs} pairs</span>}
+        </div>
+        <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
+          <thead className="bg-md-surface-high text-md-on-surface-var">
+            <tr>
+              <th className="text-left px-3 py-1.5">combination</th>
+              <th className="text-right px-3 py-1.5">n</th>
+              <th className="text-right px-3 py-1.5">win</th>
+              <th className="text-right px-3 py-1.5">lift</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(combo?.best || []).map((c, i) => (
+              <tr key={i} className="border-t border-white/5">
+                <td className="px-3 py-1.5 font-mono">
+                  <span className="text-sky-300">{c.a}</span>
+                  <span className="text-md-on-surface-var/40"> + </span>
+                  <span className="text-violet-300">{c.b}</span>
+                </td>
+                <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 500 ? 'text-emerald-300' : c.n >= 150 ? 'text-md-on-surface' : 'text-amber-400/70'}`}
+                    title={c.n >= 500 ? 'solid sample' : c.n >= 150 ? 'ok sample' : 'small — overfit risk'}>
+                  {c.n.toLocaleString()}{c.n < 150 ? ' ⚠' : ''}
+                </td>
+                <td className="text-right px-3 py-1.5 font-mono">{c.win_rate_pct}%</td>
+                <td className="text-right px-3 py-1.5 font-mono font-bold text-emerald-400">{pct(c.lift_avg_pct)} <span className="text-md-on-surface-var/50 font-normal">{pp(c.lift_win_pp)}</span></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[10px] text-md-on-surface-var/50 mt-1">
+          n ≥ 500 green = trustworthy · 150–500 neutral · &lt;150 ⚠ overfit risk. Lift vs the event's own average.
+        </p>
       </div>
 
       <p className="text-[10px] text-md-on-surface-var/50 mt-4">

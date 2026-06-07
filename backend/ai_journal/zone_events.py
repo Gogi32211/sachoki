@@ -38,7 +38,12 @@ _BOOL_CTX = [
     "sig_abs", "vbo_up", "eb_bull", "fbo_bull", "prebreak_prime", "pb_lvbo",
     "l34", "be_up",
 ]
-_CAT_CTX = ["vol_bucket", "bar_body_wick"]
+# Bar-description categoricals (low cardinality) — the SHAPE of the event bar.
+# The atomic suffixes (wick/close/penetration/ne) are the building blocks the
+# combo search recombines; bar_line5 is the price-action code.
+_CAT_CTX = ["vol_bucket", "bar_body_wick", "wick_suffix", "close_suffix",
+            "penetration_suffix", "ne_suffix", "bar_gap_class", "bar_range_class",
+            "bar_line5"]
 # Derived (computed in SQL): T/Z FOLLOW-THROUGH — did tz_bull turn on in the 3
 # bars AFTER the event (not on it). The "already going up" confirmation done right.
 _DERIVED_CTX = ["tz_up_next3"]
@@ -58,7 +63,7 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
         ),
         fwd AS (
             SELECT z.ticker, z.universe, z.z_date, z.z_low, z.z_high, z.z_atr,
-                   z.z_mult, z.z_dir, b.date AS e_date,
+                   z.z_mult, z.z_dir, b.date AS e_date, b.tz_bull AS tzb,
                    datediff('day', z.z_date, b.date) AS age_days,
                    (b.close > z.z_high)                      AS above,
                    (b.close < z.z_low)                       AS below,
@@ -71,7 +76,11 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
         seq AS (
             SELECT *,
                    coalesce(lag(above)  OVER w, FALSE) AS p_above,
-                   coalesce(lag(below)  OVER w, FALSE) AS p_below
+                   coalesce(lag(below)  OVER w, FALSE) AS p_below,
+                   -- T/Z follow-through: tz_bull turns on in the next 3 bars (window,
+                   -- not a per-row subquery — keeps the whole scan one pass).
+                   coalesce(max(tzb) OVER (PARTITION BY ticker, universe, z_date
+                       ORDER BY e_date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING), 0) AS tz_up_next3
             FROM fwd
             WINDOW w AS (PARTITION BY ticker, universe, z_date ORDER BY e_date)
         ),
@@ -95,10 +104,8 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
                e.e_date, e.event_type, e.age_days, e.ev_seq,
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
-               coalesce((SELECT max(b2.tz_bull) FROM bars b2
-                         WHERE b2.ticker = e.ticker AND b2.universe = e.universe
-                           AND b2.date > e.e_date
-                           AND b2.date <= e.e_date + INTERVAL 3 DAY), 0) AS tz_up_next3,
+               -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
+               CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
                {cat_cols}, {bool_cols}
         FROM ranked e
         JOIN bars b ON b.ticker = e.ticker AND b.universe = e.universe AND b.date = e.e_date
@@ -265,6 +272,89 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
                      "win_rate_pct": round(base["win"] * 100, 1), "n": base["n"]},
         "events": events_out,
         "context": context_out,
+    }
+
+
+def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
+               horizon: int = 10, first_only: bool = True, min_n: int = 40,
+               top: int = 15, anchor: str | None = None) -> dict:
+    """2-way COMBINATIONS of context features (signals + bar-description shapes)
+    on one event type, ranked by forward-edge lift vs the event's own average.
+    Single features rarely move the needle — pairs (e.g. follow-through + a
+    rejection shape) are where the edge concentrates. Matrix-computed (MᵀM) so
+    thousands of pairs cost ~nothing. anchor=<label> restricts to pairs that
+    include that feature (e.g. 'tz_up_next3' → best partners for follow-through)."""
+    import numpy as np
+    df = _load_events(vol_min, lb_max)
+    s, t = _clip_bounds(horizon)
+    col = f"fwd_{horizon}d"
+    empty = {"event_type": event_type, "event_base": None, "best": [], "worst": []}
+    if df.empty:
+        return empty
+    if first_only:
+        df = df[df["ev_seq"] == 1]
+    df = df[(df["event_type"] == event_type) & df[col].notna() & df[col].between(-90, 500)]
+    if not len(df):
+        return empty
+    ret = df[col].clip(lower=-s, upper=t).to_numpy(dtype=float)
+    winv = (df[col].to_numpy(dtype=float) > 0).astype(float)
+    base_avg, base_win, base_n = float(ret.mean()), float(winv.mean()), int(len(df))
+
+    feats = []  # (label, bool vector)
+    for f in _BOOL_CTX + _DERIVED_CTX:
+        if f in df.columns:
+            v = (df[f].fillna(0).to_numpy() == 1)
+            if v.sum() >= min_n:
+                feats.append((f, v))
+    for f in _CAT_CTX:
+        if f not in df.columns:
+            continue
+        for val, cnt in df[f].value_counts().items():
+            if val is None or cnt < min_n:
+                continue
+            feats.append((f"{f}={val}", (df[f].to_numpy() == val)))
+    if len(feats) < 2:
+        return {**empty, "event_base": {"avg_clip_pct": round(base_avg, 3),
+                                        "win_rate_pct": round(base_win * 100, 1), "n": base_n}}
+
+    labels = [lbl for lbl, _ in feats]
+    field_of = [lbl.split("=")[0] for lbl in labels]
+    M = np.array([v for _, v in feats], dtype=float).T          # events × F
+    C = M.T @ M                                                 # pair counts
+    S = (M * ret[:, None]).T @ M                                # pair sum(ret)
+    W = (M * winv[:, None]).T @ M                               # pair sum(win)
+
+    combos = []
+    F = len(labels)
+    for i in range(F):
+        if anchor and labels[i] != anchor:
+            # still allow j==anchor handled below; only prune when neither is anchor
+            pass
+        for j in range(i + 1, F):
+            if anchor and labels[i] != anchor and labels[j] != anchor:
+                continue
+            if field_of[i] == field_of[j]:        # same categorical field → impossible/empty
+                continue
+            n = C[i, j]
+            if n < min_n:
+                continue
+            avg = S[i, j] / n
+            win = W[i, j] / n
+            combos.append({"a": labels[i], "b": labels[j], "n": int(n),
+                           "avg_clip_pct": round(float(avg), 3),
+                           "win_rate_pct": round(float(win) * 100, 1),
+                           "lift_avg_pct": round(float(avg - base_avg), 3),
+                           "lift_win_pp": round(float(win - base_win) * 100, 1)})
+    combos.sort(key=lambda r: r["lift_avg_pct"], reverse=True)
+    return {
+        "event_type": event_type,
+        "params": {"vol_min": vol_min, "lb_max": lb_max, "horizon": horizon,
+                   "first_only": first_only, "min_n": min_n, "anchor": anchor,
+                   "n_features": F, "n_pairs": len(combos)},
+        "event_base": {"avg_clip_pct": round(base_avg, 3),
+                       "win_rate_pct": round(base_win * 100, 1), "n": base_n},
+        "best": combos[:top],
+        "worst": combos[-top:][::-1],
     }
 
 

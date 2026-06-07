@@ -440,6 +440,23 @@ def zone_events_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10
         return {"events": [], "context": {}, "error": str(e)}
 
 
+@app.get("/api/zone-events/combos")
+def zone_events_combos(event_type: str = "retest", vol_min: float = 5.0,
+                       lb_max: int = 90, horizon: int = 10, first_only: bool = True,
+                       min_n: int = 40, anchor: str | None = None, top: int = 15):
+    """Top 2-way feature COMBINATIONS (signals × bar-description shapes) for one
+    zone event type, ranked by forward-edge lift. anchor=tz_up_next3 → best
+    partners for the T/Z follow-through."""
+    from ai_journal.zone_events import combo_lift
+    try:
+        return combo_lift(event_type=event_type, vol_min=vol_min, lb_max=lb_max,
+                          horizon=horizon, first_only=first_only, min_n=min_n,
+                          anchor=anchor or None, top=top)
+    except Exception as e:
+        log.exception("zone-events combos failed")
+        return {"best": [], "worst": [], "error": str(e)}
+
+
 _ticker_info_cache: dict = {}
 
 @app.get("/api/ticker-info/{ticker}")
