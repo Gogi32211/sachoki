@@ -19,7 +19,7 @@ const fmtFeat = (f) => {
     .replace(/^p1_tz=/, '−1:T=').replace(/^p1_z=/, '−1:Z=').replace(/^p1_vol=/, '−1:vol=').replace(/^p1_l5=/, '−1:l5=')
     .replace(/^p2_tz=/, '−2:T=').replace(/^p2_z=/, '−2:Z=')
     .replace(/^vol_bucket=/, 'vol=').replace(/^bar_body_wick=/, 'body=').replace(/^bar_line5=/, 'l5=')
-    .replace(/^bar_range_class=/, 'rng=').replace(/^l_sig=/, 'L=').replace(/^full_suffix=/, 'sfx=')
+    .replace(/^bar_range_class=/, 'rng=').replace(/^l_sig=/, 'L=').replace(/^composite_full_suffix=/, 'sfx=')
 }
 const pct = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(2) + '%'
 const pp = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(1) + 'pp'

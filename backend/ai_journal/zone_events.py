@@ -42,7 +42,7 @@ _BOOL_CTX = [
 # T/Z are usually empty on a retest bar (they're the follow-through, captured by
 # flip_code) but L / suffix / body-wk / gap-rng / l5 / volume ARE filled, so they
 # all participate in the combo / context-lift search.
-_CAT_CTX = ["l_sig", "full_suffix",                                # L-line, composite suffix
+_CAT_CTX = ["l_sig", "composite_full_suffix",                      # L-line, FULL suffix (EBA/EBO/NDI…)
             "vol_bucket", "bar_body_wick", "bar_line5",            # volume, body/wick, line5
             "wick_suffix", "close_suffix", "penetration_suffix", "ne_suffix",  # atomic suffix parts
             "bar_gap_class", "bar_range_class"]                    # gap / range
@@ -185,7 +185,7 @@ PATTERN_SLOTS = {
     "tz":     "t_sig",         # T2G, T1 … (bullish T-code on the event bar)
     "z":      "z_sig",         # Z2G, Z6 … (bearish Z-code on the event bar)
     "l":      "l_sig",         # L34, L46 …
-    "suffix": "full_suffix",   # EU, ED …
+    "suffix": "composite_full_suffix",   # EBA, EBO, NDI … (full code w/ close pos)
     "bodywk": "bar_body_wick", # STB, M …
     "gaprng": "gap_rng",       # G1-C …
     "l5":     "bar_line5",     # PS-R2X …
