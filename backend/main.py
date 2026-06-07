@@ -553,6 +553,22 @@ def zone_events_pattern_values(event_type: str = "retest", require_flip: bool = 
         return {"slots": {}, "error": str(e)}
 
 
+@app.post("/api/admin/backfill-z1")
+def admin_backfill_z1(universes: str = ""):
+    """One-shot: backfill the historically-missing Z1 signal in `bars`
+    (recompute with the fixed engine, patch only Z1-involved rows). Runs in a
+    background thread; poll /api/admin/backfill-z1/status."""
+    from studio.backfill_z1 import start_backfill_bg
+    unis = [u.strip() for u in universes.split(",") if u.strip()] or None
+    return start_backfill_bg(unis)
+
+
+@app.get("/api/admin/backfill-z1/status")
+def admin_backfill_z1_status():
+    from studio.backfill_z1 import STATUS
+    return STATUS
+
+
 @app.get("/api/zone-events/sequences")
 def zone_events_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 10,
                           vol_min: float = 5.0, min_n: int = 30, ways: int = 2):
