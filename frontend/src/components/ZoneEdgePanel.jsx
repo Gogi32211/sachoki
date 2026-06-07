@@ -469,13 +469,21 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           {seqLoading && <span className="text-sky-400 animate-pulse">mining…</span>}
           {seqData?.event_base && <span className="text-md-on-surface-var/60">base {seqData.event_base.win_rate_pct}% · {seqData.params?.n_signals} lead-in signals · {seqData.params?.n_combos} sequences</span>}
         </div>
+        {/* how to read the −2/−1/0 offsets */}
+        <div className="mb-1.5 text-[11px] text-md-on-surface-var/80 flex items-center gap-1.5 flex-wrap">
+          <span className="text-md-on-surface-var/50">how to read:</span>
+          each badge has a small number = <b>which bar it fired on, counting back from the breakout</b>:
+          <span className="font-mono px-1 rounded bg-emerald-500/15 text-emerald-300/80">0</span> = the breakout bar ·
+          <span className="font-mono px-1 rounded bg-white/[0.06]">−1</span> = the bar before it ·
+          <span className="font-mono px-1 rounded bg-white/[0.06]">−2</span> = two bars before. Read <b>left → right in time</b>.
+        </div>
         {/* family color key — what each badge color means */}
         <div className="flex flex-wrap items-center gap-1.5 mb-2 text-[10px]">
           <span className="text-md-on-surface-var/50">colour =</span>
           {FAMILY_LEGEND.map(([fam, name]) => (
-            <span key={fam} className={`px-1.5 py-0.5 rounded border ${FAMILY_CLS[fam]}`}>{name}</span>
+            <span key={fam} className={`px-1.5 py-px rounded border border-white/10 font-mono ${FAMILY_CLS[fam]}`}>{name}</span>
           ))}
-          <span className="text-md-on-surface-var/40 ml-1">· hover a badge for its meaning · 0 = exit bar</span>
+          <span className="text-md-on-surface-var/40 ml-1">· hover any badge for its full meaning</span>
         </div>
         <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
           <thead className="bg-md-surface-high text-md-on-surface-var">
@@ -498,14 +506,20 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                     <div className="flex items-center gap-1 flex-wrap">
                       {(c.sequence || []).map((x, j) => {
                         const bd = badgeFor(x.signal)
-                        const barLbl = x.bar === 'exit' ? '0' : x.bar
+                        const off = x.bar === 'exit' ? 0 : Math.abs(parseInt(x.bar, 10))
+                        const offTip = off === 0 ? 'the breakout (exit) bar' : `${off} bar${off > 1 ? 's' : ''} before the breakout`
                         return (
                           <span key={j} className="inline-flex items-center gap-1">
                             {j > 0 && <span className="text-md-on-surface-var/30 text-xs">→</span>}
-                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-medium cursor-help ${bd.cls}`}
-                              title={descFor(x.signal) + '  ·  on bar ' + (x.bar === 'exit' ? 'exit (0)' : x.bar)}>
-                              <span className="opacity-50 font-mono text-[9px]">{barLbl}</span>
-                              {bd.label}
+                            <span className="inline-flex items-center gap-0.5">
+                              <span title={offTip}
+                                className={`text-[9px] font-mono px-1 rounded cursor-help ${off === 0 ? 'bg-emerald-500/15 text-emerald-300/80' : 'bg-white/[0.06] text-md-on-surface-var/55'}`}>
+                                {off === 0 ? '0' : x.bar}
+                              </span>
+                              <span title={descFor(x.signal)}
+                                className={`inline-block rounded border border-white/10 font-mono text-[10px] px-1 py-px cursor-help ${bd.cls}`}>
+                                {bd.label}
+                              </span>
                             </span>
                           </span>
                         )

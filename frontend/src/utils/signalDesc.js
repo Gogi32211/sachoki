@@ -129,16 +129,17 @@ function familyDesc(name) {
 // so a color tells you the kind of signal at a glance (green=momentum,
 // cyan=coil, amber=absorption, teal=delta, violet=T-timing, slate=structure,
 // yellow=volume, orange=parabolic).
+// Ultra-screener badge palette (SignalChip): solid dark bg + white border + mono.
 const _C = {
-  green:  'bg-emerald-900/40 text-emerald-200 border-emerald-700/50',
-  cyan:   'bg-cyan-900/40 text-cyan-200 border-cyan-700/50',
-  amber:  'bg-amber-900/40 text-amber-200 border-amber-700/50',
-  teal:   'bg-teal-900/40 text-teal-200 border-teal-700/50',
-  violet: 'bg-violet-900/40 text-violet-200 border-violet-700/50',
-  slate:  'bg-slate-600/40 text-slate-200 border-slate-400/40',
-  yellow: 'bg-yellow-900/40 text-yellow-200 border-yellow-700/50',
-  orange: 'bg-orange-900/40 text-orange-200 border-orange-700/50',
-  gray:   'bg-md-surface-high text-md-on-surface-var border-white/10',
+  green:  'bg-green-900 text-green-300',
+  cyan:   'bg-cyan-900 text-cyan-300',
+  amber:  'bg-amber-900 text-amber-300',
+  teal:   'bg-teal-900 text-teal-300',
+  violet: 'bg-violet-900 text-violet-200',
+  slate:  'bg-slate-700 text-slate-200',
+  yellow: 'bg-yellow-900 text-yellow-200',
+  orange: 'bg-orange-900 text-orange-300',
+  gray:   'bg-white/5 text-md-on-surface-var',
 }
 export const FAMILY_LEGEND = [
   ['green', 'momentum / breakout'], ['cyan', 'coil / prebreak'],
