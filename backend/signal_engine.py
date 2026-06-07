@@ -140,7 +140,7 @@ def compute_signals(
 
     # ── Bearish patterns (direct Pine translation) ────────────────────────
     cZ1G = p1Bull & (o < c.shift(1)) & (o < o.shift(1)) & (c < o.shift(1)) & isBear
-    cZ1  = p1Bull & (o <= c.shift(1)) & (o <= o.shift(1)) & (c < o.shift(1)) & isBear
+    cZ1  = p1Bull & (o <= c.shift(1)) & (o > o.shift(1)) & (c < o.shift(1)) & isBear
     cZ2G = p1Bear & (o <= o.shift(1)) & (o < c.shift(1)) & (c < c.shift(1)) & isBear
     cZ2  = p1Bear & (o <= o.shift(1)) & (o >= c.shift(1)) & (c < c.shift(1)) & isBear
     cZ3  = (p1Bull & isBear & (o > o.shift(1)) & (o > c.shift(1))
