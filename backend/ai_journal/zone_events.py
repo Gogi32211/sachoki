@@ -519,6 +519,30 @@ def pattern_values(event_type: str = "retest", require_flip: bool = False,
     return {"event_type": event_type, "n": int(len(df)) if not df.empty else 0, "slots": out}
 
 
+# Named OOS-validated robust patterns (confirmed retest = flip implied). Each
+# setup is tagged with whichever of these its event bar satisfies — so the user
+# sees BY WHICH pattern it qualifies, strongest first.
+_ROBUST_PATTERNS = [
+    {"name": "vol=B + range=N", "tag": "B·N", "oos_win": 64.5,
+     "cond": lambda r: str(r.get("vol_bucket")) == "B" and str(r.get("bar_range_class")) == "N"},
+    {"name": "sig_abs + vol=B", "tag": "abs·B", "oos_win": 59.4,
+     "cond": lambda r: str(r.get("vol_bucket")) == "B" and int(r.get("sig_abs") or 0) == 1},
+    {"name": "vol=B", "tag": "B", "oos_win": 53.2,
+     "cond": lambda r: str(r.get("vol_bucket")) == "B"},
+]
+
+
+def _match_patterns(r) -> list:
+    out = []
+    for p in _ROBUST_PATTERNS:
+        try:
+            if p["cond"](r):
+                out.append({"tag": p["tag"], "name": p["name"], "oos_win": p["oos_win"]})
+        except Exception:
+            pass
+    return out
+
+
 def live_setups(event_type: str = "retest", slots: dict | None = None,
                 bools: list | None = None, require_flip: bool = False,
                 vol_min: float = 5.0, lb_max: int = 90,
@@ -581,6 +605,7 @@ def live_setups(event_type: str = "retest", slots: dict | None = None,
             "zone_low": round(float(r["z_low"]), 4), "zone_high": round(float(r["z_high"]), 4),
             "close": round(float(r["e_close"]), 4), "z_mult": round(float(r["z_mult"]), 1),
             "vol_bucket": r.get("vol_bucket"), "range": r.get("bar_range_class"),
+            "patterns": _match_patterns(r),
         })
     setups.sort(key=lambda x: (0 if x["status"] == "confirmed" else 1, x["days_ago"]))
     return {"as_of": as_of, "event_type": event_type, "applied": applied,

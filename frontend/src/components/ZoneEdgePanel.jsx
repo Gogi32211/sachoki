@@ -218,14 +218,25 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                     {st === 'confirmed' ? '✅ confirmed (flip fired)' : '⏳ pending (watch)'} · {rows.length}
                   </div>
                   <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
-                    {rows.map((s, i) => (
-                      <button key={i} onClick={() => onSelectTicker?.(s.ticker)}
-                        title={`zone ${s.zone_low}–${s.zone_high} · close ${s.close} · vol ×${s.z_mult} (${s.vol_bucket}/${s.range})`}
-                        className={`flex items-center justify-between gap-1 px-2 py-1 rounded border text-left ${st === 'confirmed' ? 'border-emerald-700/40 bg-emerald-900/20 hover:border-emerald-400' : 'border-amber-700/30 bg-amber-900/10 hover:border-amber-400'}`}>
-                        <span className="font-mono font-semibold text-xs">{s.ticker}</span>
-                        <span className="font-mono text-[10px] text-md-on-surface-var">{s.days_ago}d ·×{s.z_mult}</span>
-                      </button>
-                    ))}
+                    {rows.map((s, i) => {
+                      const top = s.patterns?.[0]
+                      const pTitle = s.patterns?.length
+                        ? 'matched: ' + s.patterns.map(p => `${p.name} (OOS ${p.oos_win}%)`).join(' · ')
+                        : 'no robust pattern (vol≠B)'
+                      const pColor = !top ? '' : top.oos_win >= 62 ? 'bg-emerald-700/50 text-emerald-100'
+                        : top.oos_win >= 57 ? 'bg-sky-800/50 text-sky-200' : 'bg-slate-700/50 text-slate-200'
+                      return (
+                        <button key={i} onClick={() => onSelectTicker?.(s.ticker)}
+                          title={`${pTitle}\nzone ${s.zone_low}–${s.zone_high} · close ${s.close} · vol ×${s.z_mult} (${s.vol_bucket}/${s.range})`}
+                          className={`flex items-center justify-between gap-1 px-2 py-1 rounded border text-left ${st === 'confirmed' ? 'border-emerald-700/40 bg-emerald-900/20 hover:border-emerald-400' : 'border-amber-700/30 bg-amber-900/10 hover:border-amber-400'}`}>
+                          <span className="font-mono font-semibold text-xs flex items-center gap-1">
+                            {s.ticker}
+                            {top && <span className={`px-1 rounded text-[9px] font-normal ${pColor}`} title={pTitle}>{top.tag}{s.patterns.length > 1 ? `+${s.patterns.length - 1}` : ''}</span>}
+                          </span>
+                          <span className="font-mono text-[10px] text-md-on-surface-var">{s.days_ago}d ·×{s.z_mult}</span>
+                        </button>
+                      )
+                    })}
                   </div>
                 </div>
               )
