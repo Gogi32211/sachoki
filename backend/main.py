@@ -517,14 +517,17 @@ def zone_events_pattern(event_type: str = "retest", require_flip: bool = False,
 def zone_events_live(event_type: str = "retest", require_flip: bool = False,
                      vol_min: float = 5.0, horizon: int = 10, max_age_days: int = 5,
                      tz: str = "*", l: str = "*", suffix: str = "*", bodywk: str = "*",
-                     gaprng: str = "*", l5: str = "*", vol: str = "*"):
+                     gaprng: str = "*", l5: str = "*", vol: str = "*", bools: str = ""):
     """LIVE setup scan — recent bars matching the pattern, flagged confirmed
-    (flip fired) vs pending (watch for flip). The OOS pattern as a daily alert."""
+    (flip fired) vs pending (watch for flip). The OOS pattern as a daily alert.
+    `bools` = comma-separated boolean signal names (sig_abs, wyc_spring, …)."""
     from ai_journal.zone_events import live_setups
     slots = {"tz": tz, "l": l, "suffix": suffix, "bodywk": bodywk,
              "gaprng": gaprng, "l5": l5, "vol": vol}
+    bool_list = [b.strip() for b in bools.split(",") if b.strip()]
     try:
-        return live_setups(event_type=event_type, slots=slots, require_flip=require_flip,
+        return live_setups(event_type=event_type, slots=slots, bools=bool_list,
+                          require_flip=require_flip,
                           vol_min=vol_min, horizon=horizon, max_age_days=max_age_days)
     except Exception as e:
         log.exception("zone-events live failed")

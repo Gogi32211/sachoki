@@ -520,7 +520,8 @@ def pattern_values(event_type: str = "retest", require_flip: bool = False,
 
 
 def live_setups(event_type: str = "retest", slots: dict | None = None,
-                require_flip: bool = False, vol_min: float = 5.0, lb_max: int = 90,
+                bools: list | None = None, require_flip: bool = False,
+                vol_min: float = 5.0, lb_max: int = 90,
                 horizon: int = 10, max_age_days: int = 5, limit: int = 80) -> dict:
     """LIVE scan: tickers whose RECENT bars (last `max_age_days`) are a setup
     matching the pattern. Each is 'confirmed' (T/Z already flipped up after the
@@ -546,6 +547,11 @@ def live_setups(event_type: str = "retest", slots: dict | None = None,
         if c and c in d.columns:
             d = d[d[c].astype(str) == str(val)]
             applied[slot] = val
+    # boolean signal filters (sig_abs, wyc_spring, at_fib, …) from the combos
+    for b in (bools or []):
+        if b and b in d.columns:
+            d = d[d[b] == 1]
+            applied[b] = "1"
     if d.empty:
         return {"as_of": as_of, "event_type": event_type, "applied": applied,
                 "count": 0, "confirmed": 0, "pending": 0, "setups": []}

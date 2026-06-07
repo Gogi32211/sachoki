@@ -35,6 +35,8 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [patLoading, setPatLoading] = useState(false)
   const [live, setLive] = useState(null)
   const [liveLoading, setLiveLoading] = useState(false)
+  const [liveBools, setLiveBools] = useState([])   // boolean signals applied to live
+  const [liveFlip, setLiveFlip]   = useState(false) // confirmed-only (flip required)
 
   useEffect(() => {
     let dead = false
@@ -95,16 +97,44 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     return () => { dead = true }
   }, [patSlots, comboEvent, comboAnchor, volMin, horizon])
 
-  // live setups — recent bars matching the current pattern slots
+  // live setups — recent bars matching the current pattern slots + bool signals
   useEffect(() => {
     let dead = false
     setLiveLoading(true)
-    const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon, max_age_days: '7', ...patSlots })
+    const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon, max_age_days: '7',
+      require_flip: liveFlip ? '1' : '0', ...patSlots })
+    if (liveBools.length) q.set('bools', liveBools.join(','))
     fetch(`/api/zone-events/live?${q}`).then(r => r.json())
       .then(d => { if (!dead) setLive(d) }).catch(() => { if (!dead) setLive(null) })
       .finally(() => { if (!dead) setLiveLoading(false) })
     return () => { dead = true }
-  }, [patSlots, comboEvent, volMin, horizon])
+  }, [patSlots, liveBools, liveFlip, comboEvent, volMin, horizon])
+
+  // map a combo's features → live filter (slots + bool signals + flip), then scroll up
+  const SLOT_OF_COL = { t_sig: 'tz', l_sig: 'l', full_suffix: 'suffix', bar_body_wick: 'bodywk',
+                        gap_rng: 'gaprng', bar_line5: 'l5', vol_bucket: 'vol' }
+  function applyComboToLive(c) {
+    const feats = [c.a, c.b, c.c].filter(Boolean)
+    const slots = { tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
+    const bools = []; let flip = false
+    for (const f of feats) {
+      if (f.includes('=')) {
+        const i = f.indexOf('='); const col = f.slice(0, i); const val = f.slice(i + 1)
+        const slot = SLOT_OF_COL[col]
+        if (slot) slots[slot] = val          // categorical that maps to a bar-code slot
+      } else if (f === 'tz_up_next3') {
+        flip = true                          // the follow-through flip → confirmed-only
+      } else {
+        bools.push(f)                        // a boolean signal (sig_abs, wyc_spring, at_fib…)
+      }
+    }
+    setPatSlots(slots); setLiveBools(bools); setLiveFlip(flip)
+    document.getElementById('live-setups')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const clearLive = () => {
+    setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+    setLiveBools([]); setLiveFlip(false)
+  }
 
   const base = data?.baseline
 
@@ -150,7 +180,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
       )}
 
       {/* LIVE setups — recent bars matching the pattern (the actionable output) */}
-      <div className="mb-5 border border-emerald-700/40 bg-emerald-900/10 rounded-lg p-3">
+      <div id="live-setups" className="mb-5 border border-emerald-700/40 bg-emerald-900/10 rounded-lg p-3 scroll-mt-4">
         <div className="flex items-baseline justify-between mb-1">
           <h2 className="text-sm font-bold">🔔 Live setups — recent {EVENT_META[comboEvent]?.label.split(' ')[0]} bars matching the pattern</h2>
           <span className="text-[10px] text-md-on-surface-var">as of {live?.as_of || '—'} · last 7d {liveLoading && <span className="text-sky-400 animate-pulse">…</span>}</span>
@@ -158,7 +188,22 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
         <p className="text-[11px] text-md-on-surface-var mb-2">
           <b className="text-emerald-300">confirmed</b> = T/Z already flipped up after the event (actionable) ·
           <b className="text-amber-300"> pending</b> = event fired, not bullish yet (watch for the flip).
-          Filtered by the Pattern-builder slots below ({Object.entries(live?.applied || {}).map(([k, v]) => `${k}=${v}`).join(', ') || 'all *'}).
+        </p>
+        <div className="flex flex-wrap items-center gap-2 mb-2 text-[11px]">
+          <span className="text-md-on-surface-var">filter:</span>
+          {Object.keys(live?.applied || {}).length === 0
+            ? <span className="text-md-on-surface-var/50 italic">none — showing all recent {comboEvent}s (no edge filter)</span>
+            : Object.entries(live.applied).map(([k, v]) => (
+                <span key={k} className="font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-700/40 text-emerald-200">{k}={v}</span>
+              ))}
+          {liveFlip && <span className="font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-700/40 text-emerald-200">confirmed-only</span>}
+          <button onClick={() => { setPatSlots(s => ({ ...s, vol: 'B' })); setLiveBools(['sig_abs']); setLiveFlip(true) }}
+            className="px-2 py-0.5 rounded border border-amber-600/50 text-amber-300 hover:bg-amber-900/20">★ robust (sig_abs+flip+vol=B)</button>
+          {(Object.keys(live?.applied || {}).length > 0 || liveFlip) &&
+            <button onClick={clearLive} className="px-2 py-0.5 rounded border border-white/10 text-md-on-surface-var hover:text-white">clear</button>}
+        </div>
+        <p className="text-[10px] text-md-on-surface-var/50 mb-2">
+          💡 Click <b className="text-emerald-300">→ Live</b> on any combination below (or ★ robust) to filter this list to that OOS-validated edge.
         </p>
         {!live?.setups?.length ? (
           <div className="text-xs text-md-on-surface-var/60 italic">no recent setups for this pattern</div>
@@ -314,6 +359,8 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               return (
                 <tr key={i} className="border-t border-white/5">
                   <td className="px-3 py-1.5 font-mono text-[11px]">
+                    <button onClick={() => applyComboToLive(c)} title="Apply this combo to the Live setups list above"
+                      className="mr-2 px-1 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 not-italic">→ Live</button>
                     <span className="text-sky-300">{c.a}</span>
                     <span className="text-md-on-surface-var/40"> + </span>
                     <span className="text-violet-300">{c.b}</span>
