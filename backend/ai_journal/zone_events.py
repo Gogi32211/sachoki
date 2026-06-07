@@ -30,12 +30,18 @@ log = logging.getLogger(__name__)
 # 0/1 in the DB; categoricals are strings. Kept small & meaningful on purpose —
 # the point is interpretable lift, not a 394-column dump.
 _BOOL_CTX = [
+    # T/Z timing — "already going up" at the event bar
+    "tz_bull", "sig_t2g", "sig_t1g", "sig_tz3", "sig_buy",
+    # structure / absorption / pattern
     "wyc_spring", "wyc_sos", "wyc_in_tr",
     "d_absorb_bull", "d_absorb_bear", "d_div_bull", "d_strong_bull",
     "sig_abs", "vbo_up", "eb_bull", "fbo_bull", "prebreak_prime", "pb_lvbo",
     "l34", "be_up",
 ]
 _CAT_CTX = ["vol_bucket", "bar_body_wick"]
+# Derived (computed in SQL): T/Z FOLLOW-THROUGH — did tz_bull turn on in the 3
+# bars AFTER the event (not on it). The "already going up" confirmation done right.
+_DERIVED_CTX = ["tz_up_next3"]
 
 
 def _events_sql(vol_min: float, lb_max: int) -> str:
@@ -89,6 +95,10 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
                e.e_date, e.event_type, e.age_days, e.ev_seq,
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
+               coalesce((SELECT max(b2.tz_bull) FROM bars b2
+                         WHERE b2.ticker = e.ticker AND b2.universe = e.universe
+                           AND b2.date > e.e_date
+                           AND b2.date <= e.e_date + INTERVAL 3 DAY), 0) AS tz_up_next3,
                {cat_cols}, {bool_cols}
         FROM ranked e
         JOIN bars b ON b.ticker = e.ticker AND b.universe = e.universe AND b.date = e.e_date
@@ -192,19 +202,37 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
                 continue
             clip = sub[col].clip(lower=-s, upper=t)
             avg, win = float(clip.mean()), float((sub[col] > 0).mean())
+
+            def _winh(d, h):
+                c = d[f"fwd_{h}d"].dropna()
+                c = c[c.between(-90, 500)]
+                return round((c > 0).mean() * 100, 1) if len(c) else None
+            mfe = float(sub["mfe_10d"].mean()); mae = float(sub["mae_10d"].mean())
+            rr = round(mfe / abs(mae), 2) if mae else None
+            # T/Z follow-through: outcome WHEN tz flips up in the 3 bars AFTER the event
+            ftz = sub[sub["tz_up_next3"] == 1]
+            tz_follow = None
+            if len(ftz) >= min_n:
+                tz_follow = {
+                    "n": int(len(ftz)),
+                    "win10_pct": _winh(ftz, 10),
+                    "avg10_pct": round(float(ftz[col].clip(lower=-s, upper=t).mean()), 3),
+                    "share_pct": round(len(ftz) / len(sub) * 100, 1),
+                }
             events_out.append({
                 "event_type": et, "n": int(len(sub)),
                 "avg_clip_pct": round(avg, 3), "win_rate_pct": round(win * 100, 1),
+                "win5_pct": _winh(sub, 5), "win10_pct": _winh(sub, 10), "win20_pct": _winh(sub, 20),
                 "edge_avg_pct": round(avg - base["avg"], 3),
                 "edge_win_pp": round((win - base["win"]) * 100, 1),
-                "avg_mfe_pct": round(float(sub["mfe_10d"].mean()), 2),
-                "avg_mae_pct": round(float(sub["mae_10d"].mean()), 2),
+                "avg_mfe_pct": round(mfe, 2), "avg_mae_pct": round(mae, 2), "rr_ratio": rr,
+                "tz_follow": tz_follow,
             })
             # context lift within this event type
             feats = []
             base_avg = avg
             base_win = win
-            for f in _BOOL_CTX:
+            for f in _BOOL_CTX + _DERIVED_CTX:
                 if f not in sub.columns:
                     continue
                 s2 = sub[sub[f] == 1]

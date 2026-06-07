@@ -78,37 +78,57 @@ export default function ZoneEdgePanel() {
       )}
 
       {/* Event edge table */}
-      <table className="w-full text-xs mb-6 border border-white/10 rounded overflow-hidden">
+      <table className="w-full text-xs mb-2 border border-white/10 rounded overflow-hidden">
         <thead className="bg-md-surface-high text-md-on-surface-var">
           <tr>
             <th className="text-left px-3 py-1.5">Event</th>
             <th className="text-right px-3 py-1.5">n</th>
-            <th className="text-right px-3 py-1.5">avg ret</th>
-            <th className="text-right px-3 py-1.5">win</th>
-            <th className="text-right px-3 py-1.5" title="vs baseline avg">edge</th>
-            <th className="text-right px-3 py-1.5" title="vs baseline win-rate">edge win</th>
-            <th className="text-right px-3 py-1.5">MFE</th>
-            <th className="text-right px-3 py-1.5">MAE</th>
+            <th className="text-right px-2 py-1.5" title="win-rate 5d / 10d / 20d">win 5/10/20</th>
+            <th className="text-right px-2 py-1.5" title="avg MFE / avg MAE (reward/risk skew)">MFE/MAE · RR</th>
+            <th className="text-right px-3 py-1.5" title="avg forward return vs baseline">edge</th>
+            <th className="text-left px-3 py-1.5" title="outcome when T/Z flips up within 3 bars AFTER the event">+ T/Z follow-through (next 3 bars)</th>
           </tr>
         </thead>
         <tbody>
-          {(data?.events || []).map(e => (
-            <tr key={e.event_type} className="border-t border-white/5">
-              <td className={`px-3 py-1.5 font-semibold ${EVENT_META[e.event_type]?.color}`}>
-                {EVENT_META[e.event_type]?.label || e.event_type}
-                <span className="block text-[10px] text-md-on-surface-var/60 font-normal">{EVENT_META[e.event_type]?.desc}</span>
-              </td>
-              <td className="text-right px-3 py-1.5 font-mono">{e.n.toLocaleString()}</td>
-              <td className="text-right px-3 py-1.5 font-mono">{pct(e.avg_clip_pct)}</td>
-              <td className="text-right px-3 py-1.5 font-mono">{e.win_rate_pct}%</td>
-              <td className={`text-right px-3 py-1.5 font-mono font-bold ${edgeColor(e.edge_avg_pct)}`}>{pct(e.edge_avg_pct)}</td>
-              <td className={`text-right px-3 py-1.5 font-mono ${edgeColor(e.edge_win_pp / 10)}`}>{pp(e.edge_win_pp)}</td>
-              <td className="text-right px-3 py-1.5 font-mono text-emerald-400/70">{pct(e.avg_mfe_pct)}</td>
-              <td className="text-right px-3 py-1.5 font-mono text-rose-400/70">{pct(e.avg_mae_pct)}</td>
-            </tr>
-          ))}
+          {(data?.events || []).map(e => {
+            const tf = e.tz_follow
+            const lift = tf ? (tf.win10_pct - e.win10_pct) : null
+            return (
+              <tr key={e.event_type} className="border-t border-white/5 align-top">
+                <td className={`px-3 py-2 font-semibold ${EVENT_META[e.event_type]?.color}`}>
+                  {EVENT_META[e.event_type]?.label || e.event_type}
+                  <span className="block text-[10px] text-md-on-surface-var/60 font-normal">{EVENT_META[e.event_type]?.desc}</span>
+                </td>
+                <td className="text-right px-3 py-2 font-mono">{e.n.toLocaleString()}</td>
+                <td className="text-right px-2 py-2 font-mono">
+                  {e.win5_pct}/<b>{e.win10_pct}</b>/{e.win20_pct}%
+                </td>
+                <td className="text-right px-2 py-2 font-mono text-[11px]">
+                  <span className="text-emerald-400/70">{pct(e.avg_mfe_pct)}</span>
+                  <span className="text-md-on-surface-var/40"> / </span>
+                  <span className="text-rose-400/70">{pct(e.avg_mae_pct)}</span>
+                  <span className="block text-md-on-surface-var">RR {e.rr_ratio}</span>
+                </td>
+                <td className={`text-right px-3 py-2 font-mono font-bold ${edgeColor(e.edge_avg_pct)}`}>{pct(e.edge_avg_pct)}</td>
+                <td className="px-3 py-2">
+                  {!tf ? <span className="text-md-on-surface-var/40 text-[11px]">—</span> : (
+                    <div className="text-[11px] bg-emerald-900/20 border border-emerald-700/40 rounded px-2 py-1 inline-block">
+                      <span className="font-mono">win10 <b className="text-emerald-300">{tf.win10_pct}%</b></span>
+                      {lift != null && <span className={`font-mono ml-1 ${lift > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>({lift > 0 ? '+' : ''}{lift.toFixed(1)}pp)</span>}
+                      <span className="font-mono ml-1 text-md-on-surface-var">avg {pct(tf.avg10_pct)}</span>
+                      <span className="block text-md-on-surface-var/60">{tf.share_pct}% of events · n={tf.n.toLocaleString()}</span>
+                    </div>
+                  )}
+                </td>
+              </tr>
+            )
+          })}
         </tbody>
       </table>
+      <p className="text-[11px] text-md-on-surface-var mb-6">
+        💡 The confirmation isn't T/Z bullish <i>on</i> the event bar — it's T/Z <b>flipping up in the bars AFTER</b>.
+        That follow-through lifts every event's win-rate above the {base?.win_rate_pct}% baseline. RR = avg&nbsp;MFE / avg&nbsp;MAE.
+      </p>
 
       {/* Context lift per event */}
       <h2 className="text-sm font-bold mb-2">Context lift — what improves / hurts each event</h2>
