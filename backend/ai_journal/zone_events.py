@@ -54,10 +54,12 @@ _DERIVED_CAT = ["fib_level"]
 def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
     bool_cols = ", ".join(f"b.{c}" for c in _BOOL_CTX)
     cat_cols = ", ".join(f"b.{c}" for c in _CAT_CTX)
-    tk_filter = ""
+    tk_filter = ""   # appended to an existing WHERE (zones CTE)
+    tk_where = ""    # standalone WHERE (bx CTE, which has none)
     if ticker:
         tk = "".join(c for c in ticker.upper() if c.isalnum() or c in ".-")
         tk_filter = f" AND ticker = '{tk}'"
+        tk_where = f" WHERE ticker = '{tk}'"
     return f"""
         WITH zones AS (
             SELECT ticker, universe, date AS z_date,
@@ -112,7 +114,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
             SELECT ticker, universe, date,
                    min(low)  OVER w AS t_lo,
                    max(high) OVER w AS t_hi
-            FROM bars{tk_filter}
+            FROM bars{tk_where}
             WINDOW w AS (PARTITION BY ticker, universe ORDER BY date ROWS UNBOUNDED PRECEDING)
         )
         SELECT e.ticker, e.universe, e.z_date, e.z_low, e.z_high, e.z_mult, e.z_dir,
