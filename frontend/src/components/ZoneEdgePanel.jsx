@@ -45,6 +45,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [seqWays, setSeqWays]   = useState(2)
   const [seqData, setSeqData]   = useState(null)
   const [seqLoading, setSeqLoading] = useState(false)
+  const [seqZoneDef, setSeqZoneDef] = useState('spike')   // 'spike' (V1) | 'vb' (V2)
   const [legendOpen, setLegendOpen] = useState(false)
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
@@ -89,14 +90,14 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     let dead = false
     setSeqLoading(true)
     const q = new URLSearchParams({ event_type: seqEvent, depth: seqDepth, ways: seqWays,
-      vol_min: volMin, horizon, min_n: '30' })
+      vol_min: volMin, horizon, min_n: '30', zone_def: seqZoneDef })
     fetch(`/api/zone-events/sequences?${q}`)
       .then(r => r.json())
       .then(d => { if (!dead) setSeqData(d) })
       .catch(() => { if (!dead) setSeqData(null) })
       .finally(() => { if (!dead) setSeqLoading(false) })
     return () => { dead = true }
-  }, [seqEvent, seqDepth, seqWays, volMin, horizon])
+  }, [seqEvent, seqDepth, seqWays, volMin, horizon, seqZoneDef])
 
   useEffect(() => {
     let dead = false
@@ -465,6 +466,14 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               <button key={w} onClick={() => setSeqWays(w)}
                 className={`px-2 py-0.5 rounded border ${seqWays === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-bar</button>
             ))}
+          </div>
+          <div className="flex items-center gap-1" title="How the zone is formed">
+            <span className="text-md-on-surface-var/60">zone:</span>
+            {[['spike', `spike ≥${volMin}×`], ['vb', 'VB class']].map(([zd, lbl]) => (
+              <button key={zd} onClick={() => setSeqZoneDef(zd)}
+                className={`px-2 py-0.5 rounded border ${seqZoneDef === zd ? 'bg-rose-900/50 text-rose-200 border-rose-600' : 'bg-md-surface border-white/10 hover:text-white'}`}>{lbl}</button>
+            ))}
+            {seqZoneDef === 'vb' && <span className="text-rose-300/70 text-[10px]">V2</span>}
           </div>
           {seqLoading && <span className="text-sky-400 animate-pulse">mining…</span>}
           {seqData?.event_base && <span className="text-md-on-surface-var/60">base {seqData.event_base.win_rate_pct}% · {seqData.params?.n_signals} lead-in signals · {seqData.params?.n_combos} sequences</span>}

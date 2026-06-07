@@ -571,14 +571,16 @@ def admin_backfill_z1_status():
 
 @app.get("/api/zone-events/sequences")
 def zone_events_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 10,
-                          vol_min: float = 5.0, min_n: int = 30, ways: int = 2):
+                          vol_min: float = 5.0, min_n: int = 30, ways: int = 2,
+                          zone_def: str = "spike"):
     """AUTO-MINER: ranked multi-bar lead-in signal buildups before a zone exit.
     Each result is an ordered sequence (e.g. −2:sig_abs → −1:eb_bull → 0:vbo_up)
-    with forward win-rate, lift and IS/OOS split. depth = bars back (2–4)."""
+    with forward win-rate, lift and IS/OOS split. depth = bars back (2–4).
+    zone_def: 'spike' (vol ≥ N×avg, V1) or 'vb' (VB vol-class bar, V2)."""
     from ai_journal.zone_events import exit_sequences
     try:
         return exit_sequences(event_type=event_type, depth=depth, horizon=horizon,
-                             vol_min=vol_min, min_n=min_n, ways=ways)
+                             vol_min=vol_min, min_n=min_n, ways=ways, zone_def=zone_def)
     except Exception as e:
         log.exception("zone-events sequences failed")
         return {"event_type": event_type, "best": [], "worst": [], "error": str(e)}

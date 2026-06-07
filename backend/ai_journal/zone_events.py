@@ -952,9 +952,11 @@ def _leadin_cols():
     return [s for s in _LEADIN_SIGNALS if s in have]
 
 
-def _seq_sql(vol_min: float, depth: int, sigs: list) -> str:
+def _seq_sql(vol_min: float, depth: int, sigs: list, zone_def: str = "spike") -> str:
     """Zone-exit population with the lead-in signals lagged over the `depth` bars
-    ending at the exit (offset 0 = exit bar, 1..depth-1 = prior bars)."""
+    ending at the exit (offset 0 = exit bar, 1..depth-1 = prior bars).
+    zone_def: 'spike' = zone formed by a volume ≥ vol_min×avg_vol_20d bar (V1);
+              'vb'    = zone formed by a VB vol-class bar (vol_bucket='VB', V2)."""
     fwd_sel = ", ".join(f"b.{s} AS e0_{s}" for s in sigs)
     lag_sel = ", ".join(
         f"lag(e0_{s}, {k}) OVER w AS e{k}_{s}"
@@ -963,11 +965,13 @@ def _seq_sql(vol_min: float, depth: int, sigs: list) -> str:
     out_lag = ", ".join(f"r.e{k}_{s}" for k in range(1, depth) for s in sigs)
     extra_lag = (", " + lag_sel) if lag_sel else ""
     extra_outlag = (", " + out_lag) if out_lag else ""
+    zone_where = ("vol_bucket = 'VB' AND high > low" if zone_def == "vb"
+                  else f"avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low")
     return f"""
         WITH zones AS (
             SELECT ticker, universe, date AS z_date, low AS z_low, high AS z_high
             FROM bars
-            WHERE avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low
+            WHERE {zone_where}
         ),
         fwd AS (
             SELECT z.ticker, z.universe, z.z_date, b.date AS e_date,
@@ -1006,7 +1010,7 @@ LB_MAX_SEQ = 90
 
 def exit_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 10,
                    vol_min: float = 5.0, min_n: int = 30, top: int = 20,
-                   ways: int = 2, first_only: bool = True) -> dict:
+                   ways: int = 2, first_only: bool = True, zone_def: str = "spike") -> dict:
     """AUTO-MINER: rank the multi-bar lead-in signal buildups that precede the
     highest-edge zone exits. Each feature is a (signal, bar-offset) — e.g.
     prebreak_ready@-2 — so a 2/3-way combo IS an ordered sequence like
@@ -1020,7 +1024,7 @@ def exit_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 1
         return empty
     a = get_analytics_conn()
     try:
-        df = a.execute(_seq_sql(vol_min, depth, sigs)).fetchdf()
+        df = a.execute(_seq_sql(vol_min, depth, sigs, zone_def=zone_def)).fetchdf()
     finally:
         a.close()
     if df.empty:
@@ -1075,6 +1079,7 @@ def exit_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 1
         "event_type": event_type, "depth": depth,
         "params": {"vol_min": vol_min, "horizon": horizon, "min_n": min_n,
                    "ways": ways, "first_only": first_only, "oos_from": _OOS_FROM,
+                   "zone_def": zone_def,
                    "n_signals": len(sigs), "n_features": F, "n_combos": len(combos)},
         "event_base": {"avg_clip_pct": round(base_avg, 3),
                        "win_rate_pct": round(base_win * 100, 1), "n": base_n},
