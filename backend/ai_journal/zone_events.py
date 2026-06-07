@@ -120,6 +120,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
                b.close AS e_close, b.atr_14 AS e_atr, x.t_lo, x.t_hi,
+               b.t_sig, b.l_sig, b.full_suffix,    -- extra slots for the pattern builder
                -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
                CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
                {cat_cols}, {bool_cols}
@@ -141,7 +142,23 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
     # A ticker dual-listed across universes yields the same zone/event twice.
     df = df.drop_duplicates(subset=["ticker", "z_date", "z_low", "z_high", "e_date", "event_type"])
     _add_fib(df)
+    # combined gap/range slot, e.g. "G1-C"
+    if "bar_gap_class" in df.columns and "bar_range_class" in df.columns:
+        df["gap_rng"] = (df["bar_gap_class"].fillna("").astype(str) + "-"
+                         + df["bar_range_class"].fillna("").astype(str)).replace("-", None)
     return df
+
+
+# Pattern-builder slots → the column each maps to (the user's full bar-code).
+PATTERN_SLOTS = {
+    "tz":     "t_sig",         # T2G, T1 …
+    "l":      "l_sig",         # L34, L46 …
+    "suffix": "full_suffix",   # EU, ED …
+    "bodywk": "bar_body_wick", # STB, M …
+    "gaprng": "gap_rng",       # G1-C …
+    "l5":     "bar_line5",     # PS-R2X …
+    "vol":    "vol_bucket",    # VB, W …
+}
 
 
 _FIB_RATIOS = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
@@ -386,6 +403,90 @@ def examples(event_type: str = "retest", require_flip: bool = True, vol_min: flo
     return {"event_type": event_type, "require_flip": require_flip,
             "params": {"vol_min": vol_min, "horizon": horizon},
             "count": len(rows), "examples": rows}
+
+
+def pattern(event_type: str = "retest", slots: dict | None = None,
+            require_flip: bool = False, vol_min: float = 5.0, lb_max: int = 90,
+            horizon: int = 10, first_only: bool = True) -> dict:
+    """Filter zone events by a full bar-code PATTERN (each slot = a value or *)
+    and report the matched edge vs the event base + example tickers. This is the
+    'how do all the bar lines work together' builder."""
+    slots = slots or {}
+    df = _load_events(vol_min, lb_max)
+    s, t = _clip_bounds(horizon)
+    col = f"fwd_{horizon}d"
+    if df.empty:
+        return {"event_type": event_type, "matched": {"n": 0}, "examples": []}
+    if first_only:
+        df = df[df["ev_seq"] == 1]
+    df = df[(df["event_type"] == event_type) & df[col].notna() & df[col].between(-90, 500)]
+    if require_flip:
+        df = df[df["tz_up_next3"] == 1]
+    base_n = int(len(df))
+    base_win = float((df[col] > 0).mean()) if base_n else 0.0
+    base_avg = float(df[col].clip(lower=-s, upper=t).mean()) if base_n else 0.0
+
+    applied = {}
+    m = df
+    for slot, val in slots.items():
+        if not val or val == "*":
+            continue
+        c = PATTERN_SLOTS.get(slot)
+        if c and c in m.columns:
+            m = m[m[c].astype(str) == str(val)]
+            applied[slot] = val
+    n = int(len(m))
+
+    def _winh(h):
+        cc = m[f"fwd_{h}d"].dropna()
+        cc = cc[cc.between(-90, 500)]
+        return round((cc > 0).mean() * 100, 1) if len(cc) else None
+
+    win = float((m[col] > 0).mean()) if n else None
+    avg = float(m[col].clip(lower=-s, upper=t).mean()) if n else None
+    ex = []
+    if n:
+        mm = m.sort_values("e_date", ascending=False).drop_duplicates("ticker").head(12)
+        for _, r in mm.iterrows():
+            ex.append({"ticker": r["ticker"], "event_date": str(r["e_date"])[:10],
+                       f"fwd_{horizon}d": round(float(r[col]), 2), "win": bool(r[col] > 0)})
+    return {
+        "event_type": event_type, "require_flip": require_flip, "applied": applied,
+        "base": {"n": base_n, "win_rate_pct": round(base_win * 100, 1),
+                 "avg_clip_pct": round(base_avg, 3)},
+        "matched": {"n": n,
+                    "win_rate_pct": round(win * 100, 1) if n else None,
+                    "win5_pct": _winh(5), "win10_pct": _winh(10), "win20_pct": _winh(20),
+                    "avg_clip_pct": round(avg, 3) if n else None,
+                    "lift_win_pp": round((win - base_win) * 100, 1) if n else None,
+                    "lift_avg_pct": round(avg - base_avg, 3) if n else None},
+        "examples": ex,
+    }
+
+
+def pattern_values(event_type: str = "retest", require_flip: bool = False,
+                   vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
+                   first_only: bool = True, top: int = 30) -> dict:
+    """Distinct values present per slot in the event population — for the
+    builder's dropdowns (most frequent first)."""
+    df = _load_events(vol_min, lb_max)
+    col = f"fwd_{horizon}d"
+    out = {}
+    if not df.empty:
+        if first_only:
+            df = df[df["ev_seq"] == 1]
+        df = df[(df["event_type"] == event_type) & df[col].notna()]
+        if require_flip:
+            df = df[df["tz_up_next3"] == 1]
+        for slot, c in PATTERN_SLOTS.items():
+            if c in df.columns:
+                col_s = df[c].dropna().astype(str).str.strip()
+                col_s = col_s[(col_s != "") & (col_s != "-")]   # drop blanks / empty gap-rng
+                vc = col_s.value_counts().head(top)
+                out[slot] = [{"value": str(v), "n": int(cnt)} for v, cnt in vc.items()]
+            else:
+                out[slot] = []
+    return {"event_type": event_type, "n": int(len(df)) if not df.empty else 0, "slots": out}
 
 
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,

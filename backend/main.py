@@ -479,6 +479,37 @@ def zone_events_examples(event_type: str = "retest", require_flip: bool = True,
         return {"examples": [], "error": str(e)}
 
 
+@app.get("/api/zone-events/pattern")
+def zone_events_pattern(event_type: str = "retest", require_flip: bool = False,
+                        vol_min: float = 5.0, horizon: int = 10,
+                        tz: str = "*", l: str = "*", suffix: str = "*",
+                        bodywk: str = "*", gaprng: str = "*", l5: str = "*", vol: str = "*"):
+    """Full bar-code pattern → matched zone-event edge + example tickers. Each
+    slot is a value or '*' (wildcard)."""
+    from ai_journal.zone_events import pattern
+    slots = {"tz": tz, "l": l, "suffix": suffix, "bodywk": bodywk,
+             "gaprng": gaprng, "l5": l5, "vol": vol}
+    try:
+        return pattern(event_type=event_type, slots=slots, require_flip=require_flip,
+                      vol_min=vol_min, horizon=horizon)
+    except Exception as e:
+        log.exception("zone-events pattern failed")
+        return {"matched": {"n": 0}, "examples": [], "error": str(e)}
+
+
+@app.get("/api/zone-events/pattern/values")
+def zone_events_pattern_values(event_type: str = "retest", require_flip: bool = False,
+                               vol_min: float = 5.0, horizon: int = 10):
+    """Distinct values per slot for the pattern builder dropdowns."""
+    from ai_journal.zone_events import pattern_values
+    try:
+        return pattern_values(event_type=event_type, require_flip=require_flip,
+                             vol_min=vol_min, horizon=horizon)
+    except Exception as e:
+        log.warning("pattern values failed: %s", e)
+        return {"slots": {}, "error": str(e)}
+
+
 @app.get("/api/zone-events/combos")
 def zone_events_combos(event_type: str = "retest", vol_min: float = 5.0,
                        lb_max: int = 90, horizon: int = 10, first_only: bool = True,

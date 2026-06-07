@@ -27,6 +27,11 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [combo, setCombo] = useState(null)
   const [comboLoading, setComboLoading] = useState(false)
   const [examples, setExamples] = useState(null)
+  // Pattern builder (full bar-code slots)
+  const [patValues, setPatValues] = useState(null)
+  const [patSlots, setPatSlots]   = useState({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+  const [patResult, setPatResult] = useState(null)
+  const [patLoading, setPatLoading] = useState(false)
 
   useEffect(() => {
     let dead = false
@@ -64,6 +69,28 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
       .catch(() => { if (!dead) setExamples(null) })
     return () => { dead = true }
   }, [comboEvent, comboAnchor, volMin, horizon])
+
+  // pattern dropdown values — refetch + reset slots when event/flip context changes
+  useEffect(() => {
+    let dead = false
+    setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+    const q = new URLSearchParams({ event_type: comboEvent, require_flip: comboAnchor ? '1' : '0', vol_min: volMin, horizon })
+    fetch(`/api/zone-events/pattern/values?${q}`).then(r => r.json())
+      .then(d => { if (!dead) setPatValues(d?.slots || {}) }).catch(() => {})
+    return () => { dead = true }
+  }, [comboEvent, comboAnchor, volMin, horizon])
+
+  // pattern result — refetch when slots / context change
+  useEffect(() => {
+    let dead = false
+    setPatLoading(true)
+    const q = new URLSearchParams({ event_type: comboEvent, require_flip: comboAnchor ? '1' : '0',
+      vol_min: volMin, horizon, ...patSlots })
+    fetch(`/api/zone-events/pattern?${q}`).then(r => r.json())
+      .then(d => { if (!dead) setPatResult(d) }).catch(() => { if (!dead) setPatResult(null) })
+      .finally(() => { if (!dead) setPatLoading(false) })
+    return () => { dead = true }
+  }, [patSlots, comboEvent, comboAnchor, volMin, horizon])
 
   const base = data?.baseline
 
@@ -237,6 +264,58 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
         <p className="text-[10px] text-md-on-surface-var/50 mt-1">
           n ≥ 500 green = trustworthy · 150–500 neutral · &lt;150 ⚠ overfit risk. Lift vs the event's own average.
         </p>
+      </div>
+
+      {/* Pattern builder — the full bar-code, all slots together */}
+      <div className="mt-7">
+        <h2 className="text-sm font-bold mb-1">Pattern builder — the full bar code, together</h2>
+        <p className="text-[11px] text-md-on-surface-var mb-2">
+          Set each slot to a value or leave <b>*</b> (any). Uses the current event ({EVENT_META[comboEvent]?.label.split(' ')[0]})
+          {comboAnchor && <span className="text-emerald-300"> + T/Z flip</span>}. ⚠ small n = overfit — trust n ≥ 150.
+        </p>
+        <div className="flex flex-wrap gap-2 mb-3 text-[11px]">
+          {[['tz','TZ'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
+            <label key={slot} className="flex flex-col gap-0.5">
+              <span className="text-md-on-surface-var/60 uppercase tracking-wide text-[9px]">{label}</span>
+              <select value={patSlots[slot]} onChange={e => setPatSlots(s => ({ ...s, [slot]: e.target.value }))}
+                className="bg-md-surface border border-white/10 rounded px-1.5 py-1 font-mono text-md-on-surface min-w-[64px]">
+                <option value="*">*</option>
+                {(patValues?.[slot] || []).map(v => (
+                  <option key={v.value} value={v.value}>{v.value} ({v.n})</option>
+                ))}
+              </select>
+            </label>
+          ))}
+          <button onClick={() => setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })}
+            className="self-end px-2 py-1 rounded border border-white/10 bg-md-surface text-md-on-surface-var hover:text-white">reset</button>
+        </div>
+        {patResult?.matched && (
+          <div className="flex flex-wrap items-center gap-4 text-xs bg-md-surface-high border border-white/10 rounded px-3 py-2">
+            {patLoading && <span className="text-sky-400 animate-pulse">…</span>}
+            <span>matched <b className={`font-mono ${patResult.matched.n >= 150 ? 'text-emerald-300' : patResult.matched.n >= 40 ? 'text-md-on-surface' : 'text-amber-400'}`}>
+              {patResult.matched.n?.toLocaleString() ?? 0}{patResult.matched.n < 40 ? ' ⚠' : ''}</b>
+              <span className="text-md-on-surface-var/50"> / {patResult.base?.n?.toLocaleString()} {comboEvent}</span>
+            </span>
+            {patResult.matched.n > 0 && <>
+              <span className="font-mono">win 5/10/20 <b>{patResult.matched.win5_pct}/{patResult.matched.win10_pct}/{patResult.matched.win20_pct}%</b></span>
+              <span className={`font-mono font-bold ${patResult.matched.lift_win_pp > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                {pp(patResult.matched.lift_win_pp)} vs base {patResult.base?.win_rate_pct}%
+              </span>
+              <span className="font-mono text-md-on-surface-var">avg {pct(patResult.matched.avg_clip_pct)}</span>
+            </>}
+          </div>
+        )}
+        {patResult?.examples?.length > 0 && (
+          <div className="grid grid-cols-3 sm:grid-cols-6 gap-1.5 mt-2 text-xs">
+            {patResult.examples.map((e, i) => (
+              <button key={i} onClick={() => onSelectTicker?.(e.ticker)}
+                className="flex items-center justify-between gap-1 px-2 py-1 rounded border border-white/10 bg-md-surface hover:border-sky-500 text-left">
+                <span className="font-mono font-semibold">{e.ticker}</span>
+                <span className={`font-mono text-[10px] ${e.win ? 'text-emerald-400' : 'text-rose-400'}`}>{e[`fwd_${horizon}d`] > 0 ? '+' : ''}{e[`fwd_${horizon}d`]}%</span>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {/* Concrete examples — see them on a chart */}
