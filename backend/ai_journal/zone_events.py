@@ -38,12 +38,14 @@ _BOOL_CTX = [
     "sig_abs", "vbo_up", "eb_bull", "fbo_bull", "prebreak_prime", "pb_lvbo",
     "l34", "be_up",
 ]
-# Bar-description categoricals (low cardinality) — the SHAPE of the event bar.
-# The atomic suffixes (wick/close/penetration/ne) are the building blocks the
-# combo search recombines; bar_line5 is the price-action code.
-_CAT_CTX = ["vol_bucket", "bar_body_wick", "wick_suffix", "close_suffix",
-            "penetration_suffix", "ne_suffix", "bar_gap_class", "bar_range_class",
-            "bar_line5"]
+# The full 6-line bar code on the EVENT bar — same lines as the Sequence Builder.
+# T/Z are usually empty on a retest bar (they're the follow-through, captured by
+# flip_code) but L / suffix / body-wk / gap-rng / l5 / volume ARE filled, so they
+# all participate in the combo / context-lift search.
+_CAT_CTX = ["l_sig", "full_suffix",                                # L-line, composite suffix
+            "vol_bucket", "bar_body_wick", "bar_line5",            # volume, body/wick, line5
+            "wick_suffix", "close_suffix", "penetration_suffix", "ne_suffix",  # atomic suffix parts
+            "bar_gap_class", "bar_range_class"]                    # gap / range
 # Derived booleans: tz_up_next3 (T/Z flip in the 3 bars after) and at_fib (event
 # close within 0.5×ATR of a Fibonacci level of the TRAILING range — confluence).
 _DERIVED_CTX = ["tz_up_next3", "at_fib"]
@@ -127,7 +129,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
                b.close AS e_close, b.atr_14 AS e_atr, x.t_lo, x.t_hi,
-               b.t_sig, b.z_sig, b.l_sig, b.full_suffix,    -- extra slots for the pattern builder
+               b.t_sig, b.z_sig,                            -- T/Z slots (l_sig/full_suffix come via cat_cols)
                e.ld1, e.ld2, e.ld3,                          -- next-3-bar T-codes (flip driver)
                -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
                CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
