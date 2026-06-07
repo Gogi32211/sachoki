@@ -90,6 +90,10 @@ export default function CodeCandleChart({
   // Zone events overlay — EXIT/RETEST markers (+ T/Z-flip ✓) from the Zone Edge analysis.
   const [showZoneEvents, setShowZoneEvents] = useState(false)
   const [zoneEvents, setZoneEvents] = useState([])
+  // Fibonacci overlays — macro (5Y low→high) and swing (visible range). Two buttons.
+  const [showFibMacro, setShowFibMacro] = useState(false)
+  const [showFibSwing, setShowFibSwing] = useState(false)
+  const fibLinesRef = useRef([])
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -486,6 +490,40 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showInsider, limit])
 
+  // Fibonacci overlays — macro (5Y) and/or swing (visible range). Violet lines,
+  // each labelled with its ratio; macro solid, swing dashed.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    for (const ln of fibLinesRef.current) { try { series.removePriceLine(ln) } catch {} }
+    fibLinesRef.current = []
+    if (!ticker || tf !== '1d') return
+    if (!showFibMacro && !showFibSwing) return
+    let dead = false
+    const firstDate = candlesRef.current?.[0]?.time
+    const jobs = []
+    if (showFibMacro) jobs.push(
+      fetch(`/api/fib/levels/${ticker}?mode=macro`).then(r => r.json())
+        .then(d => ({ mode: 'macro', d })))
+    if (showFibSwing) jobs.push(
+      fetch(`/api/fib/levels/${ticker}?mode=swing${firstDate ? `&from_date=${firstDate}` : ''}`).then(r => r.json())
+        .then(d => ({ mode: 'swing', d })))
+    Promise.all(jobs).then(results => {
+      if (dead) return
+      for (const { mode, d } of results) {
+        const color = mode === 'macro' ? '#a78bfa' : '#c4b5fd'
+        const style = mode === 'macro' ? 0 : 2
+        for (const lv of (d?.levels || [])) {
+          fibLinesRef.current.push(series.createPriceLine({
+            price: lv.price, color, lineWidth: 1, lineStyle: style,
+            axisLabelVisible: false, title: `fib ${lv.label}${mode === 'swing' ? ' sw' : ''}`,
+          }))
+        }
+      }
+    }).catch(() => {})
+    return () => { dead = true }
+  }, [ticker, tf, showFibMacro, showFibSwing, limit])
+
   // Zone-events overlay — fetch EXIT/RETEST events for this ticker (Zone Edge).
   useEffect(() => {
     if (!showZoneEvents || !ticker || tf !== '1d') { setZoneEvents([]); return }
@@ -751,6 +789,25 @@ export default function CodeCandleChart({
                 ⊏⊐ Zone evt
               </button>
               {showZoneEvents && zoneEvents.length > 0 && <span className="text-sky-300">{zoneEvents.length}</span>}
+            </div>
+            {/* Fibonacci — macro 5Y (solid) + swing/visible (dashed), violet */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Fibonacci retracement levels. Fib 5Y = last 5 years low→high (macro support/resistance). Fib swg = visible range. See if zones/events cluster on these lines.">
+              <span className="mr-0.5" style={{ color: '#a78bfa' }}>𝑭</span>
+              <button onClick={() => setShowFibMacro(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showFibMacro
+                    ? 'bg-violet-900/50 text-violet-200 border-violet-500'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                5Y
+              </button>
+              <button onClick={() => setShowFibSwing(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showFibSwing
+                    ? 'bg-violet-900/50 text-violet-200 border-violet-400'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                swg
+              </button>
             </div>
             {legend}
             {showBarSelector && (

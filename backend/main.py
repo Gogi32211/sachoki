@@ -440,6 +440,19 @@ def zone_events_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10
         return {"events": [], "context": {}, "error": str(e)}
 
 
+@app.get("/api/fib/levels/{ticker}")
+def fib_levels_api(ticker: str, mode: str = "macro", from_date: str | None = None,
+                   years: int = 5):
+    """Fibonacci retracement levels for a ticker — chart overlay. mode=macro
+    (last `years`) or swing (visible range via from_date)."""
+    from ai_journal.fib_levels import fib_levels
+    try:
+        return fib_levels(ticker, mode=mode, from_date=from_date, years=years)
+    except Exception as e:
+        log.warning("fib levels %s failed: %s", ticker, e)
+        return {"ticker": ticker.upper(), "mode": mode, "levels": [], "error": str(e)}
+
+
 @app.get("/api/zone-events/ticker/{ticker}")
 def zone_events_ticker(ticker: str, vol_min: float = 5.0, from_date: str | None = None,
                        horizon: int = 10):
