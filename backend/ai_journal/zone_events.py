@@ -56,9 +56,58 @@ _DERIVED_CAT = ["fib_level", "flip_code"]
 # the analysis multi-bar (like the Sequence Builder), zone-anchored.
 _SEQ_CAT = ["p1_tz", "p1_z", "p1_vol", "p1_l5", "p2_tz", "p2_z"]
 
+# ── FULL Ultra-screener signal suite ──────────────────────────────────────────
+# The curated _BOOL_CTX above is the readable core; the WHOLE boolean signal set
+# from the live `bars` schema is folded in below so every Ultra-screener filter
+# participates in the lift / combo / sequence search. Forward-looking OUTCOME
+# columns are excluded — they encode the future and would leak look-ahead edge.
+_BOOL_DENY_PREFIX = ("hit_", "drop_", "next_pivot_is_", "fwd_", "mfe", "mae",
+                     "ret_", "fut_", "target")
+_BOOL_DENY = {"vix_range"}                       # not a per-bar setup signal
+_DISCOVERED_BOOL = None                          # cache (schema introspected once)
+
+
+def _all_bool_ctx() -> list:
+    """The full boolean signal suite present in `bars` (SMALLINT/BOOLEAN 0/1
+    flags) — the entire Ultra-screener signal set, not just the curated core.
+    Curated core kept first for stable ordering; forward-looking outcome columns
+    dropped (no look-ahead leakage). Discovered from the schema once, cached."""
+    global _DISCOVERED_BOOL
+    if _DISCOVERED_BOOL is not None:
+        return _DISCOVERED_BOOL
+    found = []
+    try:
+        a = get_analytics_conn()
+        try:
+            info = a.execute("PRAGMA table_info('bars')").fetchall()
+        finally:
+            a.close()
+        taken = set(_CAT_CTX) | set(_DERIVED_CAT) | set(_SEQ_CAT) | {"t_sig", "z_sig", "l_sig"}
+        for row in info:
+            name = row[1]; typ = str(row[2]).upper()
+            low = name.lower()
+            if typ not in ("SMALLINT", "TINYINT", "BOOLEAN"):
+                continue
+            if name in taken or name in _BOOL_DENY:
+                continue
+            if any(low.startswith(p) for p in _BOOL_DENY_PREFIX):
+                continue
+            found.append(name)
+    except Exception as e:                       # DB unavailable → degrade to core
+        log.warning("signal-column discovery failed (%s) — using curated core only", e)
+        found = []
+    seen, out = set(), []
+    for c in _BOOL_CTX + found:
+        if c not in seen:
+            seen.add(c); out.append(c)
+    _DISCOVERED_BOOL = out
+    log.info("zone-edge context: %d boolean signal features (%d core + %d discovered)",
+             len(out), len(_BOOL_CTX), len(out) - len(_BOOL_CTX))
+    return out
+
 
 def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
-    bool_cols = ", ".join(f"b.{c}" for c in _BOOL_CTX)
+    bool_cols = ", ".join(f"b.{c}" for c in _all_bool_ctx())
     cat_cols = ", ".join(f"b.{c}" for c in _CAT_CTX)
     tk_filter = ""   # appended to an existing WHERE (zones CTE)
     tk_where = ""    # standalone WHERE (bx CTE, which has none)
@@ -174,8 +223,14 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
                 df["gap_rng"] = (df["bar_gap_class"].fillna("").astype(str) + "-"
                                  + df["bar_range_class"].fillna("").astype(str)).replace("-", None)
             _add_flip_code(df)
+            # Downcast the (now ~220) boolean signal columns 0/1 → int8. Without
+            # this the full Ultra suite would balloon the cached frame past ~850MB
+            # (float64 per flag); int8 keeps it ~0.5GB and speeds the combo matrix.
+            bcols = [c for c in _all_bool_ctx() if c in df.columns]
+            if bcols:
+                df[bcols] = df[bcols].fillna(0).astype("int8")
         _EVENTS_CACHE[key] = df
-        if len(_EVENTS_CACHE) > 8:
+        if len(_EVENTS_CACHE) > 4:               # each frame is ~0.5GB — cap tight
             _EVENTS_CACHE.pop(next(iter(_EVENTS_CACHE)))
         return df
 
@@ -372,7 +427,7 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
             feats = []
             base_avg = avg
             base_win = win
-            for f in _BOOL_CTX + _DERIVED_CTX:
+            for f in _all_bool_ctx() + _DERIVED_CTX:
                 if f not in sub.columns:
                     continue
                 s2 = sub[sub[f] == 1]
@@ -751,7 +806,7 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
     base_avg, base_win, base_n = float(ret.mean()), float(winv.mean()), int(len(df))
 
     feats = []  # (label, bool vector)
-    for f in _BOOL_CTX + _DERIVED_CTX:
+    for f in _all_bool_ctx() + _DERIVED_CTX:
         if f in df.columns:
             v = (df[f].fillna(0).to_numpy() == 1)
             if v.sum() >= min_n:
@@ -766,6 +821,20 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
     if len(feats) < 2:
         return {**empty, "event_base": {"avg_clip_pct": round(base_avg, 3),
                                         "win_rate_pct": round(base_win * 100, 1), "n": base_n}}
+
+    # With the full Ultra suite there can be ~220 features. 2-way over all of them
+    # is cheap, but 3-way apriori is O(frequent_pairs × F) and explodes. Cap the
+    # feature set for N-way by SUPPORT — rare signals in a triple are overfit noise
+    # anyway. The anchor (if any) is always kept so anchored search still works.
+    max_feats = 90 if ways >= 3 else 220
+    if len(feats) > max_feats:
+        feats.sort(key=lambda fv: int(fv[1].sum()), reverse=True)
+        kept = feats[:max_feats]
+        if anchor and not any(lbl == anchor for lbl, _ in kept):
+            anch = [fv for fv in feats if fv[0] == anchor]
+            if anch:
+                kept = kept[:max_feats - 1] + anch
+        feats = kept
 
     labels = [lbl for lbl, _ in feats]
     field_of = [lbl.split("=")[0] for lbl in labels]
@@ -793,22 +862,34 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
     C = M.T @ M
     combos = []
     if ways >= 3:
-        # apriori: extend each FREQUENT pair with a third feature (cheap)
+        # apriori, BOUNDED: score every frequent pair cheaply, keep only the
+        # strongest TOP_PAIRS bases, then extend each with a third feature. The
+        # naive "extend every pair" is O(pairs × F) and explodes to ~100k triples
+        # over the full Ultra suite; this caps it to ~TOP_PAIRS × F. A triple is
+        # deduped by its index set so the same {i,j,k} isn't counted three times.
+        TOP_PAIRS = 200
+        pairs = []
         for i in range(F):
             for j in range(i + 1, F):
                 if field_of[i] == field_of[j] or C[i, j] < min_n:
                     continue
                 if anchor and anchor not in (labels[i], labels[j]):
-                    # for anchored 3-way, require the anchor in the base pair
                     continue
                 vij = M[:, i] * M[:, j]
-                ck = vij @ M                       # counts of (i,j,k) for all k
-                for k in range(j + 1, F):
-                    if field_of[k] in (field_of[i], field_of[j]) or ck[k] < min_n:
-                        continue
-                    vec = vij * M[:, k]
-                    st = _stats(vec)
-                    combos.append({"a": labels[i], "b": labels[j], "c": labels[k], **st})
+                pairs.append((abs(_stats(vij)["lift_avg_pct"]), i, j, vij))
+        pairs.sort(key=lambda p: p[0], reverse=True)
+        seen = set()
+        for _, i, j, vij in pairs[:TOP_PAIRS]:
+            ck = vij @ M                           # counts of (i,j,k) for all k
+            for k in range(F):
+                if k == i or k == j or field_of[k] in (field_of[i], field_of[j]) or ck[k] < min_n:
+                    continue
+                key3 = frozenset((i, j, k))
+                if key3 in seen:
+                    continue
+                seen.add(key3)
+                combos.append({"a": labels[i], "b": labels[j], "c": labels[k],
+                               **_stats(vij * M[:, k])})
     else:
         for i in range(F):
             for j in range(i + 1, F):
@@ -848,7 +929,7 @@ def context_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int =
             base_win = float((df[col] > 0).mean())
             base_n = int(len(df))
             # boolean features: feature == 1
-            for f in _BOOL_CTX:
+            for f in _all_bool_ctx():
                 if f not in df.columns:
                     continue
                 sub = df[df[f] == 1]
