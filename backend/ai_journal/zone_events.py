@@ -44,9 +44,11 @@ _BOOL_CTX = [
 _CAT_CTX = ["vol_bucket", "bar_body_wick", "wick_suffix", "close_suffix",
             "penetration_suffix", "ne_suffix", "bar_gap_class", "bar_range_class",
             "bar_line5"]
-# Derived (computed in SQL): T/Z FOLLOW-THROUGH — did tz_bull turn on in the 3
-# bars AFTER the event (not on it). The "already going up" confirmation done right.
-_DERIVED_CTX = ["tz_up_next3"]
+# Derived booleans: tz_up_next3 (T/Z flip in the 3 bars after) and at_fib (event
+# close within 0.5×ATR of a Fibonacci level of the TRAILING range — confluence).
+_DERIVED_CTX = ["tz_up_next3", "at_fib"]
+# Derived categorical: which Fib level the event sits on (None when not at one).
+_DERIVED_CAT = ["fib_level"]
 
 
 def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
@@ -103,16 +105,27 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                                       ORDER BY e_date) AS ev_seq
             FROM events
             WHERE event_type IS NOT NULL
+        ),
+        -- TRAILING extremes known at each bar (expanding low/high so far) — the
+        -- Fib anchors, with NO look-ahead. Data spans ~5y so this ≈ 5y low/high.
+        bx AS (
+            SELECT ticker, universe, date,
+                   min(low)  OVER w AS t_lo,
+                   max(high) OVER w AS t_hi
+            FROM bars{tk_filter}
+            WINDOW w AS (PARTITION BY ticker, universe ORDER BY date ROWS UNBOUNDED PRECEDING)
         )
         SELECT e.ticker, e.universe, e.z_date, e.z_low, e.z_high, e.z_mult, e.z_dir,
                e.e_date, e.event_type, e.age_days, e.ev_seq,
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
+               b.close AS e_close, b.atr_14 AS e_atr, x.t_lo, x.t_hi,
                -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
                CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
                {cat_cols}, {bool_cols}
         FROM ranked e
         JOIN bars b ON b.ticker = e.ticker AND b.universe = e.universe AND b.date = e.e_date
+        JOIN bx   x ON x.ticker = e.ticker AND x.universe = e.universe AND x.date = e.e_date
     """
 
 
@@ -127,6 +140,38 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
         return df
     # A ticker dual-listed across universes yields the same zone/event twice.
     df = df.drop_duplicates(subset=["ticker", "z_date", "z_low", "z_high", "e_date", "event_type"])
+    _add_fib(df)
+    return df
+
+
+_FIB_RATIOS = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
+_FIB_LABELS = ["0", "0.236", "0.382", "0.5", "0.618", "0.786", "1"]
+
+
+def _add_fib(df, tol_atr: float = 0.5):
+    """Add at_fib (close within tol_atr×ATR of any Fib level of the TRAILING
+    range) and fib_level (the nearest level's label, or None). Anchors are the
+    expanding low/high (no look-ahead). Ratio measured from the trailing low."""
+    import numpy as np
+    if df.empty or "t_lo" not in df.columns:
+        df["at_fib"] = 0
+        df["fib_level"] = None
+        return df
+    lo = df["t_lo"].to_numpy(dtype=float)
+    hi = df["t_hi"].to_numpy(dtype=float)
+    close = df["e_close"].to_numpy(dtype=float)
+    atr = df["e_atr"].to_numpy(dtype=float)
+    rng = hi - lo
+    ratios = np.array(_FIB_RATIOS)
+    levels = lo[:, None] + ratios[None, :] * rng[:, None]    # n × 7 prices
+    dist = np.abs(close[:, None] - levels)
+    near_idx = dist.argmin(axis=1)
+    near_dist = dist[np.arange(len(df)), near_idx]
+    tol = tol_atr * atr
+    at = (near_dist <= tol) & (rng > 0) & np.isfinite(atr) & (atr > 0)
+    df["at_fib"] = at.astype(int)
+    labels = np.array(_FIB_LABELS)
+    df["fib_level"] = np.where(at, labels[near_idx], None)
     return df
 
 
@@ -255,7 +300,7 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
                               "avg_clip_pct": round(a2, 3), "win_rate_pct": round(w2 * 100, 1),
                               "lift_avg_pct": round(a2 - base_avg, 3),
                               "lift_win_pp": round((w2 - base_win) * 100, 1)})
-            for f in _CAT_CTX:
+            for f in _CAT_CTX + _DERIVED_CAT:
                 if f not in sub.columns:
                     continue
                 for val, s2 in sub.groupby(f):
@@ -374,7 +419,7 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
             v = (df[f].fillna(0).to_numpy() == 1)
             if v.sum() >= min_n:
                 feats.append((f, v))
-    for f in _CAT_CTX:
+    for f in _CAT_CTX + _DERIVED_CAT:
         if f not in df.columns:
             continue
         for val, cnt in df[f].value_counts().items():
@@ -457,7 +502,7 @@ def context_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int =
                              "lift_avg_pct": round(avg - base_avg, 3),
                              "lift_win_pp": round((win - base_win) * 100, 1)})
             # categorical features: per distinct value
-            for f in _CAT_CTX:
+            for f in _CAT_CTX + _DERIVED_CAT:
                 if f not in df.columns:
                     continue
                 for val, sub in df.groupby(f):
