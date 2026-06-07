@@ -10,6 +10,17 @@ const EVENT_META = {
 const VOL_MINS = [2, 5, 10]
 const HORIZONS = [5, 10, 20]
 
+// prettify combo feature names: sequence (p1_/p2_ = bar -1/-2), flip, etc.
+const fmtFeat = (f) => {
+  if (!f) return f
+  return f
+    .replace(/^tz_up_next3$/, 'flip✓')
+    .replace(/^flip_code=/, 'flip→')
+    .replace(/^p1_tz=/, '−1:T=').replace(/^p1_z=/, '−1:Z=').replace(/^p1_vol=/, '−1:vol=').replace(/^p1_l5=/, '−1:l5=')
+    .replace(/^p2_tz=/, '−2:T=').replace(/^p2_z=/, '−2:Z=')
+    .replace(/^vol_bucket=/, 'vol=').replace(/^bar_body_wick=/, 'body=').replace(/^bar_line5=/, 'l5=')
+    .replace(/^bar_range_class=/, 'rng=').replace(/^l_sig=/, 'L=').replace(/^full_suffix=/, 'sfx=')
+}
 const pct = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(2) + '%'
 const pp = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(1) + 'pp'
 const edgeColor = (v) => v > 0.05 ? 'text-emerald-400' : v < -0.05 ? 'text-rose-400' : 'text-md-on-surface-var'
@@ -377,10 +388,10 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                   <td className="px-3 py-1.5 font-mono text-[11px]">
                     <button onClick={() => applyComboToLive(c)} title="Apply this combo to the Live setups list above"
                       className="mr-2 px-1 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 not-italic">→ Live</button>
-                    <span className="text-sky-300">{c.a}</span>
+                    <span className="text-sky-300">{fmtFeat(c.a)}</span>
                     <span className="text-md-on-surface-var/40"> + </span>
-                    <span className="text-violet-300">{c.b}</span>
-                    {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300">{c.c}</span></>}
+                    <span className="text-violet-300">{fmtFeat(c.b)}</span>
+                    {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300">{fmtFeat(c.c)}</span></>}
                   </td>
                   <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 300 ? 'text-emerald-300' : c.n >= 100 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>
                     {c.n.toLocaleString()}{c.n < 100 ? ' ⚠' : ''}

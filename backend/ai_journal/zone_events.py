@@ -52,6 +52,9 @@ _DERIVED_CTX = ["tz_up_next3", "at_fib"]
 # Derived categoricals: which Fib level the event sits on, and which specific
 # T-code drove the follow-through flip (T4/T6/T2G…). Both None when N/A.
 _DERIVED_CAT = ["fib_level", "flip_code"]
+# SEQUENCE features — codes of the bars BEFORE the event (bar -1, bar -2). Makes
+# the analysis multi-bar (like the Sequence Builder), zone-anchored.
+_SEQ_CAT = ["p1_tz", "p1_z", "p1_vol", "p1_l5", "p2_tz", "p2_z"]
 
 
 def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
@@ -75,6 +78,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
         fwd AS (
             SELECT z.ticker, z.universe, z.z_date, z.z_low, z.z_high, z.z_atr,
                    z.z_mult, z.z_dir, b.date AS e_date, b.tz_bull AS tzb, b.t_sig AS tsig,
+                   b.z_sig AS f_zs, b.vol_bucket AS f_vb, b.bar_line5 AS f_l5,
                    datediff('day', z.z_date, b.date) AS age_days,
                    (b.close > z.z_high)                      AS above,
                    (b.close < z.z_low)                       AS below,
@@ -95,7 +99,11 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                    -- the T-code of each of the next 3 bars (which specific T drives the flip)
                    lead(tsig, 1) OVER w AS ld1,
                    lead(tsig, 2) OVER w AS ld2,
-                   lead(tsig, 3) OVER w AS ld3
+                   lead(tsig, 3) OVER w AS ld3,
+                   -- the SEQUENCE before the event: codes of bar -1 and bar -2
+                   lag(tsig, 1) OVER w AS p1_tz,  lag(tsig, 2) OVER w AS p2_tz,
+                   lag(f_zs, 1) OVER w AS p1_z,   lag(f_zs, 2) OVER w AS p2_z,
+                   lag(f_vb, 1) OVER w AS p1_vol, lag(f_l5, 1) OVER w AS p1_l5
             FROM fwd
             WINDOW w AS (PARTITION BY ticker, universe, z_date ORDER BY e_date)
         ),
@@ -131,6 +139,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                b.close AS e_close, b.atr_14 AS e_atr, x.t_lo, x.t_hi,
                b.t_sig, b.z_sig,                            -- T/Z slots (l_sig/full_suffix come via cat_cols)
                e.ld1, e.ld2, e.ld3,                          -- next-3-bar T-codes (flip driver)
+               e.p1_tz, e.p2_tz, e.p1_z, e.p2_z, e.p1_vol, e.p1_l5,  -- sequence: bars -1, -2
                -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
                CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
                {cat_cols}, {bool_cols}
@@ -374,7 +383,7 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
                               "avg_clip_pct": round(a2, 3), "win_rate_pct": round(w2 * 100, 1),
                               "lift_avg_pct": round(a2 - base_avg, 3),
                               "lift_win_pp": round((w2 - base_win) * 100, 1)})
-            for f in _CAT_CTX + _DERIVED_CAT:
+            for f in _CAT_CTX + _DERIVED_CAT + _SEQ_CAT:
                 if f not in sub.columns:
                     continue
                 for val, s2 in sub.groupby(f):
@@ -675,7 +684,7 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
             v = (df[f].fillna(0).to_numpy() == 1)
             if v.sum() >= min_n:
                 feats.append((f, v))
-    for f in _CAT_CTX + _DERIVED_CAT:
+    for f in _CAT_CTX + _DERIVED_CAT + _SEQ_CAT:
         if f not in df.columns:
             continue
         for val, cnt in df[f].value_counts().items():
@@ -780,7 +789,7 @@ def context_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int =
                              "lift_avg_pct": round(avg - base_avg, 3),
                              "lift_win_pp": round((win - base_win) * 100, 1)})
             # categorical features: per distinct value
-            for f in _CAT_CTX + _DERIVED_CAT:
+            for f in _CAT_CTX + _DERIVED_CAT + _SEQ_CAT:
                 if f not in df.columns:
                     continue
                 for val, sub in df.groupby(f):
