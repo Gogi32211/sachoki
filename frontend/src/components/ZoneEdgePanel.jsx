@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { descFor, SIGNAL_DESC } from '../utils/signalDesc'
 
 // Zone EXIT vs RETEST forward-edge research. Raw events are usually NOT an edge;
 // the value is which bar-context (signal / pattern / description) lifts them.
@@ -44,6 +45,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [seqWays, setSeqWays]   = useState(2)
   const [seqData, setSeqData]   = useState(null)
   const [seqLoading, setSeqLoading] = useState(false)
+  const [legendOpen, setLegendOpen] = useState(false)
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
   const [patValues, setPatValues] = useState(null)
@@ -413,10 +415,10 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                   <td className="px-3 py-1.5 font-mono text-[11px]">
                     <button onClick={() => applyComboToLive(c)} title="Apply this combo to the Live setups list above"
                       className="mr-2 px-1 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 not-italic">→ Live</button>
-                    <span className="text-sky-300">{fmtFeat(c.a)}</span>
+                    <span className="text-sky-300 cursor-help" title={descFor(c.a)}>{fmtFeat(c.a)}</span>
                     <span className="text-md-on-surface-var/40"> + </span>
-                    <span className="text-violet-300">{fmtFeat(c.b)}</span>
-                    {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300">{fmtFeat(c.c)}</span></>}
+                    <span className="text-violet-300 cursor-help" title={descFor(c.b)}>{fmtFeat(c.b)}</span>
+                    {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300 cursor-help" title={descFor(c.c)}>{fmtFeat(c.c)}</span></>}
                   </td>
                   <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 300 ? 'text-emerald-300' : c.n >= 100 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>
                     {c.n.toLocaleString()}{c.n < 100 ? ' ⚠' : ''}
@@ -488,7 +490,8 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                     {(c.sequence || []).map((x, j) => (
                       <span key={j}>
                         {j > 0 && <span className="text-md-on-surface-var/30"> → </span>}
-                        <span className={x.bar === 'exit' ? 'text-emerald-300 font-bold' : 'text-sky-300/80'}>
+                        <span className={`cursor-help ${x.bar === 'exit' ? 'text-emerald-300 font-bold' : 'text-sky-300/80'}`}
+                          title={descFor(x.signal) + '  ·  on bar ' + (x.bar === 'exit' ? 'exit (0)' : x.bar)}>
                           <span className="text-md-on-surface-var/40">{x.bar === 'exit' ? '0:' : x.bar + ':'}</span>{x.signal}
                         </span>
                       </span>
@@ -513,6 +516,38 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           Lead-in set = curated move-initiation signals (momentum / coil / absorption / structure / volume), lagged over the window.
           {seqEvent === 'exit_down' && <span className="text-amber-400/70"> ⚠ exit↓ "win" = price UP after the breakdown (i.e. a failed/spring breakdown).</span>}
         </p>
+
+        {/* Signal legend — descriptions for every signal in the panel */}
+        <div className="mt-3 border border-white/10 rounded">
+          <button onClick={() => setLegendOpen(o => !o)}
+            className="w-full text-left px-3 py-1.5 text-xs font-semibold flex items-center gap-2 hover:text-white">
+            <span className={`transition-transform ${legendOpen ? 'rotate-90' : ''}`}>▸</span>
+            ℹ️ Signal legend — what each code means
+            <span className="text-md-on-surface-var/50 font-normal">(hover any signal anywhere for its description)</span>
+          </button>
+          {legendOpen && (
+            <div className="px-3 pb-3 pt-1 grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-x-5 gap-y-1 text-[11px]">
+              {Object.entries(SIGNAL_DESC).map(([sg, d]) => (
+                <div key={sg} className="flex gap-2 leading-snug">
+                  <span className="font-mono text-sky-300 shrink-0 min-w-[92px]">{sg}</span>
+                  <span className="text-md-on-surface-var">{d}</span>
+                </div>
+              ))}
+              <div className="flex gap-2 leading-snug">
+                <span className="font-mono text-emerald-300 shrink-0 min-w-[92px]">vol=B / VB</span>
+                <span className="text-md-on-surface-var">Big vs Very-Big volume class. B = controlled edge; VB = climactic, often a retest trap.</span>
+              </div>
+              <div className="flex gap-2 leading-snug">
+                <span className="font-mono text-amber-300 shrink-0 min-w-[92px]">@-1 / @-2</span>
+                <span className="text-md-on-surface-var">Bar offset in a sequence: 0 = the exit bar, −1 / −2 = bars before it.</span>
+              </div>
+              <div className="flex gap-2 leading-snug">
+                <span className="font-mono text-violet-300 shrink-0 min-w-[92px]">T1G…T5</span>
+                <span className="text-md-on-surface-var">Flip code = which T-code drives the follow-through. T1G strongest (~64%), T5 a trap (~33%).</span>
+              </div>
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Pattern builder — the full bar-code, all slots together */}
@@ -524,9 +559,17 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           <br/><span className="text-emerald-300/80">On a <b>retest</b> the event bar has no T-code (it's bearish/neutral) — the bullish T fires <b>after</b>: pick it in <b>flip→T</b> (T1G/T1/T4), not the empty <b>T</b> slot.</span>
         </p>
         <div className="flex flex-wrap gap-2 mb-3 text-[11px]">
-          {[['tz','T'],['z','Z'],['flip','flip→T'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
+          {[['tz','T','T-code on the event bar (TZ_WLNBB bullish 2-bar pattern). Usually empty on a retest.'],
+            ['z','Z','Z-code on the event bar (bearish 2-bar pattern).'],
+            ['flip','flip→T','The FLIP T-code — the bullish T that fires AFTER a retest (the follow-through). T1G strongest, T5 trap.'],
+            ['l','L','L-line code (WLNBB absorption / level).'],
+            ['suffix','suffix','Full close-position suffix (EBA/EBO/NDI…) — where the bar closed within its range.'],
+            ['bodywk','body/wk','Body-vs-wick shape of the bar.'],
+            ['gaprng','gap/rng','Gap class + range class (N=narrow … wide).'],
+            ['l5','l5','Line-5 micro-structure code.'],
+            ['vol','vol','Volume class (Bollinger band on volume): W/L/N/B/VB. B=edge, VB=trap.']].map(([slot, label, tip]) => (
             <label key={slot} className="flex flex-col gap-0.5">
-              <span className={`uppercase tracking-wide text-[9px] ${slot==='flip' ? 'text-emerald-300/70' : 'text-md-on-surface-var/60'}`}>{label}</span>
+              <span className={`uppercase tracking-wide text-[9px] cursor-help ${slot==='flip' ? 'text-emerald-300/70' : 'text-md-on-surface-var/60'}`} title={tip}>{label}</span>
               <select value={patSlots[slot]} onChange={e => setPatSlots(s => ({ ...s, [slot]: e.target.value }))}
                 className={`bg-md-surface border rounded px-1.5 py-1 font-mono text-md-on-surface min-w-[64px] ${slot==='flip' ? 'border-emerald-700/40' : 'border-white/10'}`}>
                 <option value="*">*</option>
@@ -619,8 +662,9 @@ function CtxList({ title, rows, good }) {
       <div className="text-[10px] uppercase tracking-wide text-md-on-surface-var/60 mb-1">{title}</div>
       {(rows || []).map((r, i) => (
         <div key={i} className="flex items-baseline justify-between text-[11px] font-mono py-0.5">
-          <span className="truncate" title={`${r.feature}=${r.value}  (n=${r.n}, win ${r.win_rate_pct}%)`}>
-            {r.feature}<span className="text-md-on-surface-var/50">={r.value}</span>
+          <span className="truncate cursor-help"
+            title={`${descFor(r.value === '1' ? r.feature : r.feature + '=' + r.value)}\n\n(n=${r.n}, win ${r.win_rate_pct}%)`}>
+            {r.feature}{r.value !== '1' && <span className="text-md-on-surface-var/50">={r.value}</span>}
           </span>
           <span className={`shrink-0 ml-2 ${good ? 'text-emerald-400' : 'text-rose-400'}`}>
             {(r.lift_avg_pct > 0 ? '+' : '') + r.lift_avg_pct.toFixed(2)}%
