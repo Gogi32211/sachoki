@@ -780,6 +780,86 @@ def tickers_in_zone(vol_min: float = 5.0, lb_max: int = 90) -> dict:
     return out
 
 
+def _combo_search(feats, ret, winv, oos, base_avg, base_win, min_n, ways, top,
+                  anchor=None, field_fn=None):
+    """Shared MᵀM combo miner. feats = [(label, 0/1 vector)]. Returns
+    (combos_sorted, n_features). field_fn(label)→field decides which features may
+    NOT be combined (same field): for bar-code combos two values of one column
+    can't co-occur (split on '='); for the sequence miner every (signal, bar)
+    feature is independent, so field_fn = identity. Combos carry IS/OOS split."""
+    import numpy as np
+    field_fn = field_fn or (lambda l: l.split("=")[0])
+    # cap features for N-way (rare triples overfit; keeps the search bounded)
+    max_feats = 90 if ways >= 3 else 220
+    if len(feats) > max_feats:
+        feats = sorted(feats, key=lambda fv: int(fv[1].sum()), reverse=True)
+        kept = feats[:max_feats]
+        if anchor and not any(lbl == anchor for lbl, _ in kept):
+            anch = [fv for fv in feats if fv[0] == anchor]
+            if anch:
+                kept = kept[:max_feats - 1] + anch
+        feats = kept
+    labels = [lbl for lbl, _ in feats]
+    field_of = [field_fn(l) for l in labels]
+    M = np.array([v for _, v in feats], dtype=float).T          # events × F
+    F = len(labels)
+    in_s = 1.0 - oos
+
+    def _stats(vec):
+        n = float(vec.sum())
+        if not n:
+            return None
+        avg = float((vec * ret).sum() / n)
+        win = float((vec * winv).sum() / n)
+        n_is = float((vec * in_s).sum()); n_oos = float((vec * oos).sum())
+        win_is = float((vec * winv * in_s).sum() / n_is) if n_is else None
+        win_oos = float((vec * winv * oos).sum() / n_oos) if n_oos else None
+        return {"n": int(n), "avg_clip_pct": round(avg, 3),
+                "win_rate_pct": round(win * 100, 1),
+                "lift_avg_pct": round(avg - base_avg, 3),
+                "lift_win_pp": round((win - base_win) * 100, 1),
+                "win_is_pct": round(win_is * 100, 1) if win_is is not None else None,
+                "win_oos_pct": round(win_oos * 100, 1) if win_oos is not None else None,
+                "n_is": int(n_is), "n_oos": int(n_oos)}
+
+    C = M.T @ M
+    combos = []
+    if ways >= 3:
+        TOP_PAIRS = 200
+        pairs = []
+        for i in range(F):
+            for j in range(i + 1, F):
+                if field_of[i] == field_of[j] or C[i, j] < min_n:
+                    continue
+                if anchor and anchor not in (labels[i], labels[j]):
+                    continue
+                vij = M[:, i] * M[:, j]
+                pairs.append((abs(_stats(vij)["lift_avg_pct"]), i, j, vij))
+        pairs.sort(key=lambda p: p[0], reverse=True)
+        seen = set()
+        for _, i, j, vij in pairs[:TOP_PAIRS]:
+            ck = vij @ M
+            for k in range(F):
+                if k == i or k == j or field_of[k] in (field_of[i], field_of[j]) or ck[k] < min_n:
+                    continue
+                key3 = frozenset((i, j, k))
+                if key3 in seen:
+                    continue
+                seen.add(key3)
+                combos.append({"a": labels[i], "b": labels[j], "c": labels[k],
+                               **_stats(vij * M[:, k])})
+    else:
+        for i in range(F):
+            for j in range(i + 1, F):
+                if field_of[i] == field_of[j] or C[i, j] < min_n:
+                    continue
+                if anchor and anchor not in (labels[i], labels[j]):
+                    continue
+                combos.append({"a": labels[i], "b": labels[j], **_stats(M[:, i] * M[:, j])})
+    combos.sort(key=lambda r: r["lift_avg_pct"], reverse=True)
+    return combos, F
+
+
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
                horizon: int = 10, first_only: bool = True, min_n: int = 40,
                top: int = 15, anchor: str | None = None, ways: int = 2) -> dict:
@@ -822,88 +902,180 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
         return {**empty, "event_base": {"avg_clip_pct": round(base_avg, 3),
                                         "win_rate_pct": round(base_win * 100, 1), "n": base_n}}
 
-    # With the full Ultra suite there can be ~220 features. 2-way over all of them
-    # is cheap, but 3-way apriori is O(frequent_pairs × F) and explodes. Cap the
-    # feature set for N-way by SUPPORT — rare signals in a triple are overfit noise
-    # anyway. The anchor (if any) is always kept so anchored search still works.
-    max_feats = 90 if ways >= 3 else 220
-    if len(feats) > max_feats:
-        feats.sort(key=lambda fv: int(fv[1].sum()), reverse=True)
-        kept = feats[:max_feats]
-        if anchor and not any(lbl == anchor for lbl, _ in kept):
-            anch = [fv for fv in feats if fv[0] == anchor]
-            if anch:
-                kept = kept[:max_feats - 1] + anch
-        feats = kept
-
-    labels = [lbl for lbl, _ in feats]
-    field_of = [lbl.split("=")[0] for lbl in labels]
-    M = np.array([v for _, v in feats], dtype=float).T          # events × F
-    F = len(labels)
     oos = (df["e_date"].astype(str).to_numpy() >= _OOS_FROM).astype(float)
-    in_s = 1.0 - oos
-
-    def _stats(vec):
-        """For a boolean combo vector: overall + IS/OOS win, avg, lift."""
-        n = float(vec.sum())
-        avg = float((vec * ret).sum() / n)
-        win = float((vec * winv).sum() / n)
-        n_is = float((vec * in_s).sum()); n_oos = float((vec * oos).sum())
-        win_is = float((vec * winv * in_s).sum() / n_is) if n_is else None
-        win_oos = float((vec * winv * oos).sum() / n_oos) if n_oos else None
-        return {"n": int(n), "avg_clip_pct": round(avg, 3),
-                "win_rate_pct": round(win * 100, 1),
-                "lift_avg_pct": round(avg - base_avg, 3),
-                "lift_win_pp": round((win - base_win) * 100, 1),
-                "win_is_pct": round(win_is * 100, 1) if win_is is not None else None,
-                "win_oos_pct": round(win_oos * 100, 1) if win_oos is not None else None,
-                "n_is": int(n_is), "n_oos": int(n_oos)}
-
-    C = M.T @ M
-    combos = []
-    if ways >= 3:
-        # apriori, BOUNDED: score every frequent pair cheaply, keep only the
-        # strongest TOP_PAIRS bases, then extend each with a third feature. The
-        # naive "extend every pair" is O(pairs × F) and explodes to ~100k triples
-        # over the full Ultra suite; this caps it to ~TOP_PAIRS × F. A triple is
-        # deduped by its index set so the same {i,j,k} isn't counted three times.
-        TOP_PAIRS = 200
-        pairs = []
-        for i in range(F):
-            for j in range(i + 1, F):
-                if field_of[i] == field_of[j] or C[i, j] < min_n:
-                    continue
-                if anchor and anchor not in (labels[i], labels[j]):
-                    continue
-                vij = M[:, i] * M[:, j]
-                pairs.append((abs(_stats(vij)["lift_avg_pct"]), i, j, vij))
-        pairs.sort(key=lambda p: p[0], reverse=True)
-        seen = set()
-        for _, i, j, vij in pairs[:TOP_PAIRS]:
-            ck = vij @ M                           # counts of (i,j,k) for all k
-            for k in range(F):
-                if k == i or k == j or field_of[k] in (field_of[i], field_of[j]) or ck[k] < min_n:
-                    continue
-                key3 = frozenset((i, j, k))
-                if key3 in seen:
-                    continue
-                seen.add(key3)
-                combos.append({"a": labels[i], "b": labels[j], "c": labels[k],
-                               **_stats(vij * M[:, k])})
-    else:
-        for i in range(F):
-            for j in range(i + 1, F):
-                if field_of[i] == field_of[j] or C[i, j] < min_n:
-                    continue
-                if anchor and anchor not in (labels[i], labels[j]):
-                    continue
-                combos.append({"a": labels[i], "b": labels[j], **_stats(M[:, i] * M[:, j])})
-    combos.sort(key=lambda r: r["lift_avg_pct"], reverse=True)
+    combos, F = _combo_search(feats, ret, winv, oos, base_avg, base_win,
+                              min_n, ways, top, anchor=anchor)
     return {
         "event_type": event_type,
         "params": {"vol_min": vol_min, "lb_max": lb_max, "horizon": horizon,
                    "first_only": first_only, "min_n": min_n, "anchor": anchor,
                    "ways": ways, "oos_from": _OOS_FROM, "n_features": F, "n_combos": len(combos)},
+        "event_base": {"avg_clip_pct": round(base_avg, 3),
+                       "win_rate_pct": round(base_win * 100, 1), "n": base_n},
+        "best": combos[:top],
+        "worst": combos[-top:][::-1],
+    }
+
+
+# ── EXIT-SEQUENCE MINER ────────────────────────────────────────────────────────
+# Curated "lead-in" signals — the ones that plausibly BUILD a move in the bars
+# before a zone exit (momentum / coil / absorption / structure / volume). The
+# sequence miner lags these over the bars before the exit and finds which
+# multi-bar buildups precede the highest-edge breakouts. Kept to a focused set
+# (not the full 220) because an N-bar × full-suite search is both intractable and
+# hopelessly overfit; these are the move-initiation signals that matter.
+_LEADIN_SIGNALS = [
+    # momentum / breakout
+    "vbo_up", "eb_bull", "be_up", "fbo_bull", "bo_up", "bx_up",
+    # coil / prebreak / consolidation
+    "prebreak_ready", "prebreak_prime", "prebreak_v3", "prebreak_v4", "pb_lvbo",
+    "sig_conso", "sq",
+    # absorption / Wyckoff / spring
+    "sig_abs", "l34", "wyc_spring", "wyc_sos", "d_absorb_bull", "d_spring",
+    "w2_spring", "w2_sos",
+    # surge / strength / divergence
+    "d_surge_bull", "d_blast_bull", "d_strong_bull", "d_div_bull",
+    # T/Z timing
+    "sig_t1g", "sig_t2g", "sig_buy", "sig_t6",
+    # structure / trend / volume
+    "is_pivot_low_3", "is_pivot_low_5", "psar_bull",
+    "sig_vol_5x", "sig_vol_10x",
+    # parabolic / momentum-late
+    "para_prep", "para_start", "rocket",
+]
+
+
+def _leadin_cols():
+    """The lead-in signals that actually exist as columns in `bars` (guards the
+    SQL against schema drift). Cached via _all_bool_ctx's discovery."""
+    have = set(_all_bool_ctx())
+    return [s for s in _LEADIN_SIGNALS if s in have]
+
+
+def _seq_sql(vol_min: float, depth: int, sigs: list) -> str:
+    """Zone-exit population with the lead-in signals lagged over the `depth` bars
+    ending at the exit (offset 0 = exit bar, 1..depth-1 = prior bars)."""
+    fwd_sel = ", ".join(f"b.{s} AS e0_{s}" for s in sigs)
+    lag_sel = ", ".join(
+        f"lag(e0_{s}, {k}) OVER w AS e{k}_{s}"
+        for k in range(1, depth) for s in sigs)
+    out_e0 = ", ".join(f"r.e0_{s}" for s in sigs)
+    out_lag = ", ".join(f"r.e{k}_{s}" for k in range(1, depth) for s in sigs)
+    extra_lag = (", " + lag_sel) if lag_sel else ""
+    extra_outlag = (", " + out_lag) if out_lag else ""
+    return f"""
+        WITH zones AS (
+            SELECT ticker, universe, date AS z_date, low AS z_low, high AS z_high
+            FROM bars
+            WHERE avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low
+        ),
+        fwd AS (
+            SELECT z.ticker, z.universe, z.z_date, b.date AS e_date,
+                   (b.close > z.z_high) AS above, (b.close < z.z_low) AS below,
+                   {fwd_sel}
+            FROM zones z
+            JOIN bars b ON b.ticker = z.ticker AND b.universe = z.universe
+                       AND b.date > z.z_date AND b.date <= z.z_date + INTERVAL {LB_MAX_SEQ} DAY
+        ),
+        seq AS (
+            SELECT *,
+                   coalesce(lag(above) OVER w, FALSE) AS p_above,
+                   coalesce(lag(below) OVER w, FALSE) AS p_below{extra_lag}
+            FROM fwd
+            WINDOW w AS (PARTITION BY ticker, universe, z_date ORDER BY e_date)
+        ),
+        events AS (
+            SELECT *, CASE WHEN above AND NOT p_above THEN 'exit_up'
+                           WHEN below AND NOT p_below THEN 'exit_down' END AS et
+            FROM seq
+        ),
+        ranked AS (
+            SELECT *, row_number() OVER (PARTITION BY ticker, universe, z_date, et
+                                         ORDER BY e_date) AS ev_seq
+            FROM events WHERE et IS NOT NULL
+        )
+        SELECT r.ticker, r.e_date, r.et, r.ev_seq,
+               b.fwd_5d, b.fwd_10d, b.fwd_20d, {out_e0}{extra_outlag}
+        FROM ranked r
+        JOIN bars b ON b.ticker = r.ticker AND b.universe = r.universe AND b.date = r.e_date
+    """
+
+
+LB_MAX_SEQ = 90
+
+
+def exit_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 10,
+                   vol_min: float = 5.0, min_n: int = 30, top: int = 20,
+                   ways: int = 2, first_only: bool = True) -> dict:
+    """AUTO-MINER: rank the multi-bar lead-in signal buildups that precede the
+    highest-edge zone exits. Each feature is a (signal, bar-offset) — e.g.
+    prebreak_ready@-2 — so a 2/3-way combo IS an ordered sequence like
+    '−2:prebreak_ready → −1:pb_lvbo → 0:vbo_up'. depth = how many bars back
+    (2–4). Forward edge measured vs the exit population, with IS/OOS split."""
+    import numpy as np
+    depth = max(2, min(4, int(depth)))
+    sigs = _leadin_cols()
+    empty = {"event_type": event_type, "depth": depth, "best": [], "worst": [], "event_base": None}
+    if not sigs:
+        return empty
+    a = get_analytics_conn()
+    try:
+        df = a.execute(_seq_sql(vol_min, depth, sigs)).fetchdf()
+    finally:
+        a.close()
+    if df.empty:
+        return empty
+    df = df.drop_duplicates(subset=["ticker", "e_date", "et"])
+    col = f"fwd_{horizon}d"
+    if first_only:
+        df = df[df["ev_seq"] == 1]
+    df = df[(df["et"] == event_type) & df[col].notna() & df[col].between(-90, 500)]
+    if not len(df):
+        return empty
+    s, t = _clip_bounds(horizon)
+    ret = df[col].clip(lower=-s, upper=t).to_numpy(dtype=float)
+    winv = (df[col].to_numpy(dtype=float) > 0).astype(float)
+    base_avg, base_win, base_n = float(ret.mean()), float(winv.mean()), int(len(df))
+
+    # features = (signal, bar-offset). offset 0 = exit bar, k = k bars before.
+    feats = []
+    for k in range(0, depth):
+        for sg in sigs:
+            cname = f"e{k}_{sg}"
+            if cname not in df.columns:
+                continue
+            v = (df[cname].fillna(0).to_numpy() == 1)
+            if v.sum() >= min_n:
+                feats.append((f"{sg}@-{k}", v))
+    if len(feats) < 2:
+        return {**empty, "event_base": {"avg_clip_pct": round(base_avg, 3),
+                                        "win_rate_pct": round(base_win * 100, 1), "n": base_n}}
+    oos = (df["e_date"].astype(str).to_numpy() >= _OOS_FROM).astype(float)
+    # field_fn = identity → every (signal, bar) feature is independent, so the same
+    # signal on different bars (a genuine 2-bar sequence) and different signals on
+    # the same bar both combine.
+    combos, F = _combo_search(feats, ret, winv, oos, base_avg, base_win,
+                              min_n, ways, top, field_fn=lambda l: l)
+
+    def _order(c):
+        """Render a combo as an ordered buildup: earliest bar → exit bar."""
+        parts = [c.get("a"), c.get("b"), c.get("c")]
+        items = []
+        for p in parts:
+            if not p or "@-" not in p:
+                continue
+            sg, off = p.split("@-")
+            items.append((int(off), sg))
+        items.sort(key=lambda x: -x[0])          # −2, −1, 0
+        return [{"bar": (f"−{o}" if o else "exit"), "signal": sg} for o, sg in items]
+
+    for c in combos:
+        c["sequence"] = _order(c)
+    return {
+        "event_type": event_type, "depth": depth,
+        "params": {"vol_min": vol_min, "horizon": horizon, "min_n": min_n,
+                   "ways": ways, "first_only": first_only, "oos_from": _OOS_FROM,
+                   "n_signals": len(sigs), "n_features": F, "n_combos": len(combos)},
         "event_base": {"avg_clip_pct": round(base_avg, 3),
                        "win_rate_pct": round(base_win * 100, 1), "n": base_n},
         "best": combos[:top],

@@ -38,6 +38,12 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [comboWays, setComboWays]     = useState(2)       // 2- or 3-way
   const [combo, setCombo] = useState(null)
   const [comboLoading, setComboLoading] = useState(false)
+  // Exit-sequence miner (multi-bar lead-in buildups)
+  const [seqEvent, setSeqEvent] = useState('exit_up')
+  const [seqDepth, setSeqDepth] = useState(3)             // bars back: 2–4
+  const [seqWays, setSeqWays]   = useState(2)
+  const [seqData, setSeqData]   = useState(null)
+  const [seqLoading, setSeqLoading] = useState(false)
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
   const [patValues, setPatValues] = useState(null)
@@ -75,6 +81,20 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
       .finally(() => { if (!dead) setComboLoading(false) })
     return () => { dead = true }
   }, [comboEvent, comboAnchor, comboWays, volMin, horizon, firstOnly])
+
+  // Exit-sequence miner — multi-bar lead-in buildups before a zone exit
+  useEffect(() => {
+    let dead = false
+    setSeqLoading(true)
+    const q = new URLSearchParams({ event_type: seqEvent, depth: seqDepth, ways: seqWays,
+      vol_min: volMin, horizon, min_n: '30' })
+    fetch(`/api/zone-events/sequences?${q}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setSeqData(d) })
+      .catch(() => { if (!dead) setSeqData(null) })
+      .finally(() => { if (!dead) setSeqLoading(false) })
+    return () => { dead = true }
+  }, [seqEvent, seqDepth, seqWays, volMin, horizon])
 
   useEffect(() => {
     let dead = false
@@ -412,6 +432,86 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
         </table>
         <p className="text-[10px] text-md-on-surface-var/50 mt-1">
           ✅ holds = OOS within 6pp of IS AND above base. ❌ = overfit (looked good in-sample, failed out-of-sample). n ≥ 300 green.
+        </p>
+      </div>
+
+      {/* Exit-sequence miner — multi-bar lead-in buildups */}
+      <div className="mt-7">
+        <h2 className="text-sm font-bold mb-1">🧬 Exit-sequence miner — the multi-bar buildup before a move</h2>
+        <p className="text-[11px] text-md-on-surface-var mb-3">
+          A move often <b>starts as a several-bar combination</b>. This ranks the lead-in signal sequences
+          in the {seqDepth} bars ending at a zone exit — e.g. <span className="font-mono">−2:sig_abs → −1:eb_bull → 0:vbo_up</span>.
+          Forward edge vs the exit population, IS/OOS-validated. <span className="text-md-on-surface-var/60">0 = exit bar.</span>
+        </p>
+        <div className="flex flex-wrap items-center gap-3 text-xs mb-3">
+          <div className="flex items-center gap-1">
+            {['exit_up', 'exit_down'].map(et => (
+              <button key={et} onClick={() => setSeqEvent(et)}
+                className={`px-2 py-0.5 rounded border ${seqEvent === et ? `bg-md-surface-high border-white/30 ${EVENT_META[et].color}` : 'bg-md-surface border-white/10 hover:text-white'}`}>
+                {EVENT_META[et].label.split(' ')[0]} {EVENT_META[et].label.includes('↑') ? '↑' : '↓'}
+              </button>
+            ))}
+          </div>
+          <label className="flex items-center gap-2">
+            <span className="text-md-on-surface-var/70">depth</span>
+            <input type="range" min={2} max={4} step={1} value={seqDepth}
+              onChange={e => setSeqDepth(Number(e.target.value))} className="accent-sky-400 w-24" />
+            <span className="font-mono text-sky-300">{seqDepth} bars</span>
+          </label>
+          <div className="flex items-center gap-1">
+            {[2, 3].map(w => (
+              <button key={w} onClick={() => setSeqWays(w)}
+                className={`px-2 py-0.5 rounded border ${seqWays === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-bar</button>
+            ))}
+          </div>
+          {seqLoading && <span className="text-sky-400 animate-pulse">mining…</span>}
+          {seqData?.event_base && <span className="text-md-on-surface-var/60">base {seqData.event_base.win_rate_pct}% · {seqData.params?.n_signals} lead-in signals · {seqData.params?.n_combos} sequences</span>}
+        </div>
+        <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
+          <thead className="bg-md-surface-high text-md-on-surface-var">
+            <tr>
+              <th className="text-left px-3 py-1.5">lead-in sequence (earliest → exit)</th>
+              <th className="text-right px-3 py-1.5">n</th>
+              <th className="text-right px-3 py-1.5">win</th>
+              <th className="text-right px-3 py-1.5" title="in-sample">IS</th>
+              <th className="text-right px-3 py-1.5" title="out-of-sample">OOS</th>
+              <th className="text-center px-2 py-1.5" title="does OOS hold within 6pp of IS?">holds?</th>
+            </tr>
+          </thead>
+          <tbody>
+            {(seqData?.best || []).map((c, i) => {
+              const base = seqData.event_base?.win_rate_pct ?? 0
+              const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > base
+              return (
+                <tr key={i} className="border-t border-white/5">
+                  <td className="px-3 py-1.5 font-mono text-[11px]">
+                    {(c.sequence || []).map((x, j) => (
+                      <span key={j}>
+                        {j > 0 && <span className="text-md-on-surface-var/30"> → </span>}
+                        <span className={x.bar === 'exit' ? 'text-emerald-300 font-bold' : 'text-sky-300/80'}>
+                          <span className="text-md-on-surface-var/40">{x.bar === 'exit' ? '0:' : x.bar + ':'}</span>{x.signal}
+                        </span>
+                      </span>
+                    ))}
+                  </td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 200 ? 'text-emerald-300' : c.n >= 60 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>
+                    {c.n.toLocaleString()}{c.n < 60 ? ' ⚠' : ''}
+                  </td>
+                  <td className="text-right px-3 py-1.5 font-mono font-bold">{c.win_rate_pct}%</td>
+                  <td className="text-right px-3 py-1.5 font-mono text-md-on-surface-var">{c.win_is_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_is}</span></td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span></td>
+                  <td className="text-center px-2 py-1.5">{holds ? '✅' : '❌'}</td>
+                </tr>
+              )
+            })}
+            {!seqLoading && !(seqData?.best || []).length && (
+              <tr><td colSpan={6} className="px-3 py-3 text-center text-md-on-surface-var/50">no sequences ≥ min-n at this depth</td></tr>
+            )}
+          </tbody>
+        </table>
+        <p className="text-[10px] text-md-on-surface-var/50 mt-1">
+          Lead-in set = curated move-initiation signals (momentum / coil / absorption / structure / volume), lagged over the window.
+          {seqEvent === 'exit_down' && <span className="text-amber-400/70"> ⚠ exit↓ "win" = price UP after the breakdown (i.e. a failed/spring breakdown).</span>}
         </p>
       </div>
 
