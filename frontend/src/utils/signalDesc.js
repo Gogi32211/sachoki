@@ -124,6 +124,67 @@ function familyDesc(name) {
  * descFor(label) → plain-text description for any Zone Edge signal label.
  * Handles "@-k" sequence offsets and "field=value" categoricals.
  */
+// ── Styled badges for the lead-in / sequence signals ─────────────────────────
+// Pill look: tinted bg + colored border + light text, grouped by signal FAMILY
+// so a color tells you the kind of signal at a glance (green=momentum,
+// cyan=coil, amber=absorption, teal=delta, violet=T-timing, slate=structure,
+// yellow=volume, orange=parabolic).
+const _C = {
+  green:  'bg-emerald-900/40 text-emerald-200 border-emerald-700/50',
+  cyan:   'bg-cyan-900/40 text-cyan-200 border-cyan-700/50',
+  amber:  'bg-amber-900/40 text-amber-200 border-amber-700/50',
+  teal:   'bg-teal-900/40 text-teal-200 border-teal-700/50',
+  violet: 'bg-violet-900/40 text-violet-200 border-violet-700/50',
+  slate:  'bg-slate-600/40 text-slate-200 border-slate-400/40',
+  yellow: 'bg-yellow-900/40 text-yellow-200 border-yellow-700/50',
+  orange: 'bg-orange-900/40 text-orange-200 border-orange-700/50',
+  gray:   'bg-md-surface-high text-md-on-surface-var border-white/10',
+}
+export const FAMILY_LEGEND = [
+  ['green', 'momentum / breakout'], ['cyan', 'coil / prebreak'],
+  ['amber', 'absorption / Wyckoff'], ['teal', 'delta / order-flow'],
+  ['violet', 'T-timing'], ['slate', 'structure / trend'],
+  ['yellow', 'volume'], ['orange', 'parabolic'],
+]
+export const FAMILY_CLS = _C
+const _BADGE = {
+  // momentum / breakout
+  vbo_up: ['VBO↑', 'green'], bo_up: ['BO↑', 'green'], bx_up: ['BX↑', 'green'],
+  eb_bull: ['EB↑', 'green'], be_up: ['BE↑', 'green'], fbo_bull: ['FBO↑', 'green'],
+  rocket: ['🚀 RKT', 'green'],
+  // coil / prebreak
+  prebreak_ready: ['PB·R', 'cyan'], prebreak_prime: ['PB·P', 'cyan'],
+  prebreak_v3: ['PB3', 'cyan'], prebreak_v4: ['PB4', 'cyan'],
+  pb_lvbo: ['LVBO', 'cyan'], sig_conso: ['CONSO', 'cyan'], sq: ['SQ', 'cyan'],
+  // absorption / Wyckoff
+  sig_abs: ['ABS', 'amber'], l34: ['L34', 'amber'], wyc_spring: ['SPRING', 'amber'],
+  wyc_sos: ['SOS', 'amber'], d_absorb_bull: ['Ab↑', 'amber'], d_spring: ['dSPR', 'amber'],
+  w2_spring: ['W·SPR', 'amber'], w2_sos: ['W·SOS', 'amber'],
+  // delta / order-flow
+  d_surge_bull: ['Δ↑', 'teal'], d_blast_bull: ['ΔΔ↑', 'teal'],
+  d_strong_bull: ['B/S↑', 'teal'], d_div_bull: ['Δdiv', 'teal'],
+  // T-timing
+  sig_t1g: ['T1G', 'violet'], sig_t2g: ['T2G', 'violet'], sig_buy: ['BUY', 'violet'],
+  sig_t6: ['T6', 'violet'],
+  // structure / trend
+  is_pivot_low_3: ['PvL3', 'slate'], is_pivot_low_5: ['PvL5', 'slate'],
+  psar_bull: ['PSAR', 'slate'],
+  // volume
+  sig_vol_5x: ['V×5', 'yellow'], sig_vol_10x: ['V×10', 'yellow'],
+  // parabolic
+  para_prep: ['PARA·p', 'orange'], para_start: ['PARA', 'orange'],
+}
+
+/** badgeFor(signal) → {label, cls, fam} styled pill for a lead-in signal. */
+export function badgeFor(sig) {
+  const b = _BADGE[sig]
+  if (b) return { label: b[0], cls: _C[b[1]], fam: b[1] }
+  // fallback: known label from descFor's families, neutral pill
+  const lbl = (sig || '').replace(/^sig_/, '').replace(/_/g, ' ')
+  return { label: lbl, cls: _C.gray, fam: 'gray' }
+}
+
+
 export function descFor(label) {
   if (!label) return ''
   // sequence offset: "vbo_up@-2"

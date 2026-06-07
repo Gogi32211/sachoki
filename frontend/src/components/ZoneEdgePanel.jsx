@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { descFor, SIGNAL_DESC } from '../utils/signalDesc'
+import { descFor, SIGNAL_DESC, badgeFor, FAMILY_LEGEND, FAMILY_CLS } from '../utils/signalDesc'
 
 // Zone EXIT vs RETEST forward-edge research. Raw events are usually NOT an edge;
 // the value is which bar-context (signal / pattern / description) lifts them.
@@ -469,6 +469,14 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           {seqLoading && <span className="text-sky-400 animate-pulse">mining…</span>}
           {seqData?.event_base && <span className="text-md-on-surface-var/60">base {seqData.event_base.win_rate_pct}% · {seqData.params?.n_signals} lead-in signals · {seqData.params?.n_combos} sequences</span>}
         </div>
+        {/* family color key — what each badge color means */}
+        <div className="flex flex-wrap items-center gap-1.5 mb-2 text-[10px]">
+          <span className="text-md-on-surface-var/50">colour =</span>
+          {FAMILY_LEGEND.map(([fam, name]) => (
+            <span key={fam} className={`px-1.5 py-0.5 rounded border ${FAMILY_CLS[fam]}`}>{name}</span>
+          ))}
+          <span className="text-md-on-surface-var/40 ml-1">· hover a badge for its meaning · 0 = exit bar</span>
+        </div>
         <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
           <thead className="bg-md-surface-high text-md-on-surface-var">
             <tr>
@@ -486,16 +494,23 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > base
               return (
                 <tr key={i} className="border-t border-white/5">
-                  <td className="px-3 py-1.5 font-mono text-[11px]">
-                    {(c.sequence || []).map((x, j) => (
-                      <span key={j}>
-                        {j > 0 && <span className="text-md-on-surface-var/30"> → </span>}
-                        <span className={`cursor-help ${x.bar === 'exit' ? 'text-emerald-300 font-bold' : 'text-sky-300/80'}`}
-                          title={descFor(x.signal) + '  ·  on bar ' + (x.bar === 'exit' ? 'exit (0)' : x.bar)}>
-                          <span className="text-md-on-surface-var/40">{x.bar === 'exit' ? '0:' : x.bar + ':'}</span>{x.signal}
-                        </span>
-                      </span>
-                    ))}
+                  <td className="px-3 py-1.5">
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {(c.sequence || []).map((x, j) => {
+                        const bd = badgeFor(x.signal)
+                        const barLbl = x.bar === 'exit' ? '0' : x.bar
+                        return (
+                          <span key={j} className="inline-flex items-center gap-1">
+                            {j > 0 && <span className="text-md-on-surface-var/30 text-xs">→</span>}
+                            <span className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded border text-[11px] font-medium cursor-help ${bd.cls}`}
+                              title={descFor(x.signal) + '  ·  on bar ' + (x.bar === 'exit' ? 'exit (0)' : x.bar)}>
+                              <span className="opacity-50 font-mono text-[9px]">{barLbl}</span>
+                              {bd.label}
+                            </span>
+                          </span>
+                        )
+                      })}
+                    </div>
                   </td>
                   <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 200 ? 'text-emerald-300' : c.n >= 60 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>
                     {c.n.toLocaleString()}{c.n < 60 ? ' ⚠' : ''}
