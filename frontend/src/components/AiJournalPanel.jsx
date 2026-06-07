@@ -139,6 +139,10 @@ function Td({ children, r, cls='' }) { return <td className={`px-2 py-1 font-mon
 function Positions({ ov, onTicker, live = {} }) {
   const open = ov?.open_positions || [], closed = ov?.closed_positions || []
   const pending = ov?.pending_positions || []
+  const cap = ov?.state?.capital ?? 0
+  // dollar size of a buy: filled = shares×entry; not-yet-filled = target size%×capital
+  const usdSize = (p) => (p.shares && p.entry_px) ? p.shares * p.entry_px : (p.size_pct || 0) * cap
+  const fmtUsd = (v) => v ? `$${Math.round(v).toLocaleString()}` : '—'
   return (
     <div className="space-y-5">
       {pending.length > 0 && (
@@ -146,10 +150,10 @@ function Positions({ ov, onTicker, live = {} }) {
         <div className="text-sm font-semibold mb-1 text-amber-300">⏱ Pending open ({pending.length})
           <span className="ml-2 text-xs font-normal text-md-on-surface-var">— решено при закрытой бирже, вход по open следующей сессии</span></div>
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Size%</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
+          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Size%</Th><Th r>$ Buy</Th><Th>Decided</Th><Th>Mode</Th><Th>Thesis</Th></tr></thead>
         <tbody>{pending.map(p => <tr key={p.id} className="border-b border-white/5">
           <Tk t={p.ticker} onTicker={onTicker} cls="text-amber-300" /><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
-          <Td r>{(p.size_pct*100).toFixed(1)}</Td><Td>{p.decision_date} ({p.decided_session})</Td>
+          <Td r>{(p.size_pct*100).toFixed(1)}</Td><Td r cls="font-semibold text-amber-200">{fmtUsd(usdSize(p))}</Td><Td>{p.decision_date} ({p.decided_session})</Td>
           <Td className="text-amber-400">{p.entry_mode}</Td>
           <td className="px-2 py-1 text-md-on-surface-var max-w-[420px] truncate" title={p.thesis}>{p.thesis}</td></tr>)}</tbody></table>
       </div>)}
@@ -157,7 +161,7 @@ function Positions({ ov, onTicker, live = {} }) {
         <div className="text-sm font-semibold mb-1">Open ({open.length})</div>
         {open.length === 0 ? <Empty>Нет открытых позиций — нажми «Run session».</Empty> :
         <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Now</Th><Th r>uP&L</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th>Thesis</Th></tr></thead>
+          <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Now</Th><Th r>uP&L</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th r>$ Buy</Th><Th>Thesis</Th></tr></thead>
         <tbody>{open.map(p => { const lv = live[p.ticker] || {}; const up = lv.upnl_pct
           return <tr key={p.id} className="border-b border-white/5">
           <Tk t={p.ticker} onTicker={onTicker} cls="text-emerald-300" /><Cap b={p.mcap_bucket} /><Td r>{p.conviction}</Td>
@@ -166,6 +170,7 @@ function Positions({ ov, onTicker, live = {} }) {
           <Td r cls={up==null?'text-gray-500':up>=0?'text-emerald-400 font-bold':'text-rose-400 font-bold'}>{up==null?'—':`${up>=0?'+':''}${up.toFixed(2)}%`}</Td>
           <Td r cls="text-rose-400">${p.stop_px?.toFixed(2)}</Td>
           <Td r cls="text-sky-300">${p.target_px?.toFixed(2)}</Td><Td r>{(p.size_pct*100).toFixed(1)}</Td>
+          <Td r cls="font-semibold text-emerald-200">{fmtUsd(usdSize(p))}</Td>
           <td className="px-2 py-1 text-md-on-surface-var max-w-[360px] truncate" title={p.thesis}>{p.thesis}</td></tr> })}</tbody></table>}
       </div>
       <div>
