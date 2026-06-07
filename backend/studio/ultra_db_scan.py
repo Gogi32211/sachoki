@@ -483,6 +483,26 @@ def run_ultra_db_scan(
             }
         universes = ["sp500", "nasdaq"]  # query all standard universes from DB
 
+    # ── ZONE universe: tickers whose latest bar sits inside an active HV zone ──
+    zone_meta: dict = {}    # ticker → zone metadata (populated if zone mode)
+    zone_mode = len(universes) == 1 and universes[0] == "zone"
+    if zone_mode:
+        try:
+            from ai_journal.zone_events import tickers_in_zone
+            zone_meta = tickers_in_zone(vol_min=5.0, lb_max=90)
+            log.info("UltraDB ZONE mode: %d tickers currently inside a zone", len(zone_meta))
+        except Exception as exc:
+            log.warning("UltraDB ZONE mode: tickers_in_zone failed (%s) — returning empty", exc)
+            return {
+                "results": [], "running": False, "stage": "done", "progress_pct": 100,
+                "elapsed_seconds": 0, "data_source": "studio_db",
+                "universes": ["zone"], "row_count": 0,
+                "min_price": min_price, "min_volume": min_volume,
+                "scanned_at": pd.Timestamp.utcnow().isoformat(),
+                "zone_count": 0, "zone_error": str(exc),
+            }
+        universes = ["sp500", "nasdaq", "russell2k"]  # widest standard coverage
+
     conn = get_conn(read_only=True)
     try:
         placeholders = ",".join("?" * len(universes))
@@ -661,9 +681,25 @@ def run_ultra_db_scan(
     finally:
         conn.close()
 
-    # ── SPLIT post-filter: keep only live split tickers + add lifecycle fields ─
-    out_universes = ["split"] if split_mode else universes
+    # ── ZONE / SPLIT post-filter: keep only the matched set + add metadata ─────
+    out_universes = ["split"] if split_mode else (["zone"] if zone_mode else universes)
     extra_meta: dict = {}
+    if zone_mode:
+        try:
+            filtered = []
+            for r in results:
+                z = zone_meta.get(str(r.get("ticker", "")))
+                if z:
+                    r.update(z)                       # zone_low/high/date/mult/dir/age/pos/dist_*
+                    r["universe"] = "zone"            # tag row as zone universe
+                    filtered.append(r)
+            results = filtered
+            extra_meta["zone_count"]    = len(zone_meta)
+            extra_meta["zone_in_db"]    = len(results)
+            extra_meta["zone_missing"]  = len(zone_meta) - len(results)
+            log.info("UltraDB ZONE: %d/%d in-zone tickers found in DB", len(results), len(zone_meta))
+        except Exception as exc:
+            log.warning("UltraDB ZONE post-filter failed: %s", exc)
     if split_mode:
         try:
             from split_universe import normalize_split_symbol

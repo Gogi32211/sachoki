@@ -453,7 +453,7 @@ export default function ScannerDataGrid({
   // Number of columns for colSpan calculation
   // ultra adds: ULTRA + PM columns (+2 vs turbo); split adds Split column (+1)
   const baseColCount = variant === 'ultra' ? 19 : 16
-  const colCount = universe === 'split' ? baseColCount + 1 : baseColCount
+  const colCount = (universe === 'split' || universe === 'zone') ? baseColCount + 1 : baseColCount
 
   const SortTh = ({ col, children, cls = '' }) => (
     <th
@@ -527,6 +527,11 @@ export default function ScannerDataGrid({
             {/* Split (only for split universe) */}
             {universe === 'split' && (
               <th className="px-2 py-1.5 font-medium text-amber-300 min-w-[64px]" title="Split ratio + phase">Split</th>
+            )}
+            {/* Zone (only for zone universe) */}
+            {universe === 'zone' && (
+              <th className="px-2 py-1.5 font-medium text-emerald-300 min-w-[120px]"
+                  title="Position inside the active HV zone · spike× · age">Zone</th>
             )}
           </tr>
         </thead>
@@ -781,6 +786,28 @@ export default function ScannerDataGrid({
                         <span className="text-md-on-surface-var">
                           {r.split_ratio} <span className="opacity-60">{wave}</span> <span>{dLabel}</span>
                         </span>
+                      )
+                    })() : '—'}
+                  </td>
+                )}
+                {/* Zone — position-in-band gauge + spike× + age */}
+                {universe === 'zone' && (
+                  <td className="px-2 py-1 font-mono text-xs">
+                    {(r.zone_low != null && r.zone_high != null) ? (() => {
+                      const pos  = Math.max(0, Math.min(1, r.zone_pos ?? 0.5))   // 0=floor 1=ceil
+                      const bull = r.zone_dir === 'bull'
+                      const dotCls = bull ? 'bg-emerald-400' : 'bg-rose-400'
+                      return (
+                        <div className="flex items-center gap-1.5" title={`zone ${r.zone_low}–${r.zone_high} · spike ${r.zone_mult}× · ${r.zone_age_days}d old · close ${(pos*100).toFixed(0)}% up the band`}>
+                          <div className="relative h-1.5 w-14 rounded bg-white/10">
+                            <div className="absolute top-1/2 -translate-y-1/2 -translate-x-1/2 h-2.5 w-1.5 rounded-sm"
+                                 style={{ left: `${pos*100}%` }}>
+                              <div className={`h-full w-full rounded-sm ${dotCls}`} />
+                            </div>
+                          </div>
+                          <span className="text-emerald-300/80">×{r.zone_mult}</span>
+                          <span className="text-md-on-surface-var/60">{r.zone_age_days}d</span>
+                        </div>
                       )
                     })() : '—'}
                   </td>

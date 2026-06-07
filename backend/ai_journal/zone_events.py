@@ -661,6 +661,70 @@ def live_setups(event_type: str = "retest", slots: dict | None = None,
             "setups": setups}
 
 
+def tickers_in_zone(vol_min: float = 5.0, lb_max: int = 90) -> dict:
+    """Every ticker whose LATEST bar's close currently sits INSIDE an active HV
+    zone band. A 'zone' = the [low, high] of a volume-spike bar
+    (volume >= vol_min × avg_vol_20d) that is still fresh (z_date within the last
+    lb_max days). Returns {ticker: {zone metadata}} keyed by ticker, keeping the
+    freshest qualifying zone per ticker. This is the screener feed for the Ultra
+    'ZONE' universe — 'who is sitting on support/resistance right now'."""
+    sql = f"""
+        WITH latest AS (
+            SELECT ticker, max(date) AS d FROM bars GROUP BY ticker
+        ),
+        last_bar AS (
+            SELECT b.ticker, b.universe, b.date AS e_date,
+                   b.close, b.low AS b_low, b.high AS b_high
+            FROM bars b
+            JOIN latest l ON b.ticker = l.ticker AND b.date = l.d
+        ),
+        zones AS (
+            SELECT ticker, universe, date AS z_date, low AS z_low, high AS z_high,
+                   volume / avg_vol_20d AS z_mult,
+                   CASE WHEN close > open THEN 'bull' ELSE 'bear' END AS z_dir
+            FROM bars
+            WHERE avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low
+        ),
+        hits AS (
+            SELECT lb.ticker, lb.universe, lb.e_date, lb.close,
+                   z.z_low, z.z_high, z.z_date, z.z_mult, z.z_dir,
+                   datediff('day', z.z_date, lb.e_date) AS age_days,
+                   row_number() OVER (PARTITION BY lb.ticker
+                       ORDER BY z.z_date DESC, z.z_mult DESC) AS rn
+            FROM last_bar lb
+            JOIN zones z ON z.ticker = lb.ticker AND z.universe = lb.universe
+                        AND z.z_date < lb.e_date
+                        AND z.z_date >= lb.e_date - INTERVAL {lb_max} DAY
+                        AND lb.close BETWEEN z.z_low AND z.z_high
+        )
+        SELECT * FROM hits WHERE rn = 1
+    """
+    a = get_analytics_conn()
+    try:
+        df = a.execute(sql).fetchdf()
+    finally:
+        a.close()
+    out = {}
+    if df.empty:
+        return out
+    for _, r in df.iterrows():
+        lo, hi, px = float(r["z_low"]), float(r["z_high"]), float(r["close"])
+        width = hi - lo
+        pos = (px - lo) / width if width > 0 else 0.5       # 0=at floor, 1=at ceiling
+        out[str(r["ticker"])] = {
+            "zone_low":          round(lo, 4),
+            "zone_high":         round(hi, 4),
+            "zone_date":         str(r["z_date"])[:10],
+            "zone_mult":         round(float(r["z_mult"]), 1),
+            "zone_dir":          str(r["z_dir"]),
+            "zone_age_days":     int(r["age_days"]),
+            "zone_pos":          round(pos, 3),
+            "zone_dist_high_pct": round((hi - px) / px * 100, 2) if px else None,  # room to ceiling
+            "zone_dist_low_pct":  round((px - lo) / px * 100, 2) if px else None,  # room to floor
+        }
+    return out
+
+
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
                horizon: int = 10, first_only: bool = True, min_n: int = 40,
                top: int = 15, anchor: str | None = None, ways: int = 2) -> dict:

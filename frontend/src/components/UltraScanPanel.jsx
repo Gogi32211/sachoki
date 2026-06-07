@@ -13,6 +13,8 @@ const UNIVERSES = [
   { key: 'all_us',    label: '🌐 All US',    desc: '~8K tickers (Massive)',cls: 'text-violet-300' },
   { key: 'split',     label: '✂️ SPLIT',     desc: 'Reverse splits: −7d / +5d window',
                                                                             cls: 'text-amber-300'  },
+  { key: 'zone',      label: '⊏⊐ ZONE',      desc: 'Currently inside an active HV zone',
+                                                                            cls: 'text-emerald-300' },
 ]
 
 // ── Timeframes ────────────────────────────────────────────────────────────────
@@ -1115,6 +1117,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                  : universe === 'sp500'   ? ['sp500']
                  : universe === 'nasdaq'  ? ['nasdaq']
                  : universe === 'split'   ? ['split']   // backend cross-filters to live split window
+                 : universe === 'zone'    ? ['zone']    // backend filters to tickers currently in a zone
                  : ['sp500', 'nasdaq']
       const d = await api.ultraScanFromDB(unis)
       if (seq !== fetchSeqRef.current) return
@@ -1142,6 +1145,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
                  : universe === 'nasdaq'  ? ['nasdaq']
                  : universe === 'all_us'  ? ['sp500', 'nasdaq', 'russell2k']
                  : universe === 'split'   ? ['split']
+                 : universe === 'zone'    ? ['zone']
                  : ['sp500', 'nasdaq']
       const d = await api.ultraPreview(unis)
       if (seq !== fetchSeqRef.current) return
@@ -2698,6 +2702,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
             <span className="ml-1 text-amber-600"> · NASDAQ profile is experimental</span>}
           {universe === 'split' &&
             <span className="ml-1 text-sky-700"> · SPLIT lifecycle: D-7→D+90 window</span>}
+          {universe === 'zone' &&
+            <span className="ml-1 text-emerald-600"> · ZONE: close inside an active HV zone (≥5× vol, ≤90d old)</span>}
         </span>
       </div>
 
