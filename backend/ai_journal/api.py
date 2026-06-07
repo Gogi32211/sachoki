@@ -276,6 +276,26 @@ def insider(days: int = 30):
     return recent_insider(limit_days=days)
 
 
+@router.get("/insider/marks/{ticker}")
+def insider_marks(ticker: str, from_date: str | None = None,
+                  ensure: bool = False, lookback_days: int = 365):
+    """Per-date open-market insider BUYS for one ticker — chart ★ markers.
+    ensure=1 → first lazily pull this ticker's last-year Form 4 history from SEC
+    (cached), so the chart works on-demand without a universe-wide backfill."""
+    from .edgar import marks_for_ticker, fetch_ticker_form4
+    fetch_info = None
+    try:
+        if ensure:
+            fetch_info = fetch_ticker_form4(ticker, lookback_days=lookback_days)
+        out = marks_for_ticker(ticker, from_date=from_date)
+        if fetch_info is not None:
+            out["fetch"] = fetch_info
+        return out
+    except Exception as e:
+        log.warning("insider marks for %s failed: %s", ticker, e)
+        return {"ticker": ticker.upper(), "marks": [], "error": str(e)}
+
+
 class InsiderIngestReq(BaseModel):
     days: int = 10
 
@@ -285,3 +305,28 @@ def insider_ingest(req: InsiderIngestReq):
     """Pull recent Form 4 filings from EDGAR into insider_tx (slow — SEC rate-limited)."""
     from .edgar import ingest_form4
     return ingest_form4(days=req.days)
+
+
+class InsiderBackfillReq(BaseModel):
+    days: int = 365
+
+
+@router.post("/insider/backfill")
+def insider_backfill(req: InsiderBackfillReq):
+    """Kick the long historical backfill as a BACKGROUND thread (resumable via
+    insider_ingest_log). Returns immediately; poll /insider/backfill/status."""
+    import threading
+    from .edgar import run_backfill, backfill_status
+    st = backfill_status()
+    if st.get("running"):
+        return {"started": False, "already_running": True, **st}
+    threading.Thread(target=run_backfill, args=(req.days,), daemon=True,
+                     name="insider-backfill").start()
+    return {"started": True, "days": req.days}
+
+
+@router.get("/insider/backfill/status")
+def insider_backfill_status():
+    """Live progress of the historical insider backfill."""
+    from .edgar import backfill_status
+    return backfill_status()

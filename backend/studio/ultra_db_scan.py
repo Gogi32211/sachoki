@@ -488,10 +488,22 @@ def run_ultra_db_scan(
         placeholders = ",".join("?" * len(universes))
 
         # ── Get each ticker's most recent bar ─────────────────────────────────
+        # Dedup to ONE row per ticker. A ticker dual-listed across universes
+        # (e.g. LNT/MDLZ/NWSA in both sp500 & nasdaq) would otherwise produce a
+        # row per universe → duplicate entries in the screener. Prefer sp500,
+        # then nasdaq, then anything else, taking the most recent bar.
         latest = conn.execute(f"""
             WITH ranked AS (
               SELECT *,
-                     ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                     ROW_NUMBER() OVER (
+                       PARTITION BY ticker
+                       ORDER BY date DESC,
+                                CASE universe
+                                  WHEN 'sp500'  THEN 0
+                                  WHEN 'nasdaq' THEN 1
+                                  ELSE 2
+                                END
+                     ) AS rn
               FROM bars
               WHERE universe IN ({placeholders})
             )

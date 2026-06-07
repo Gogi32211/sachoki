@@ -65,6 +65,7 @@ export default function CodeCandleChart({
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
   const histLinesRef = useRef([])           // grey/white history overlay (HV + Gann, merged)
+  const volClassLinesRef = useRef([])       // VB (red) / W (grey-dotted) volume-class overlay
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
   // Independent history pickers — user can show grey HV history and lime Gann
@@ -73,6 +74,19 @@ export default function CodeCandleChart({
   const [historyGannTier, setHistoryGannTier] = useState(0)   // 0/5/10/20 pivot radius
   const [historyHvCount,   setHistoryHvCount]   = useState(0)
   const [historyGannCount, setHistoryGannCount] = useState(0)
+  // Volume-class overlays — lines at high/low of VB ("Very Big") and W ("Weak")
+  // bars. Independent toggles, both can be on. VB = red solid, W = grey dotted.
+  const [showVB, setShowVB] = useState(false)
+  const [showW,  setShowW]  = useState(false)
+  const [vbCount, setVbCount] = useState(0)
+  const [wCount,  setWCount]  = useState(0)
+  // "Recent N" limiter — draw only the most recent N occurrences of EACH
+  // overlay signal (HV / Gann / VB / W). 0 = show all (default).
+  const [recentN, setRecentN] = useState(0)
+  // Insider buys (SEC Form 4, open-market purchases) — gold ★ marker on the bar.
+  const [showInsider,  setShowInsider]  = useState(false)
+  const [insiderMarks, setInsiderMarks] = useState([])
+  const [insiderLoading, setInsiderLoading] = useState(false)
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -361,11 +375,16 @@ export default function CodeCandleChart({
       // Bucket prices by rounded key so HV-bound and Gann-pivot at the same
       // level coalesce. 2 decimals for >$5, 4 for <$5 (penny precision).
       const toKey = (p) => p >= 5 ? p.toFixed(2) : p.toFixed(4)
+      // Keep only the most recent N occurrences per source when limiter is on.
+      const recent = (arr) => recentN > 0
+        ? [...arr].sort((a, b) => String(a.trigger_date).localeCompare(String(b.trigger_date))).slice(-recentN)
+        : arr
       const bucket = new Map()                     // key → { price, hv: bool, gann: bool }
       for (const r of results) {
-        if (r.kind === 'hv')   setHistoryHvCount(r.zones.length)
-        else                   setHistoryGannCount(r.zones.length)
-        for (const z of r.zones) {
+        const zs = recent(r.zones)
+        if (r.kind === 'hv')   setHistoryHvCount(zs.length)
+        else                   setHistoryGannCount(zs.length)
+        for (const z of zs) {
           for (const p of [z.zone_high, z.zone_low]) {
             const k = toKey(p)
             const ex = bucket.get(k) || { price: p, hv: false, gann: false }
@@ -392,7 +411,77 @@ export default function CodeCandleChart({
       }
     }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, historyHvTier, historyGannTier, limit])
+  }, [ticker, tf, historyHvTier, historyGannTier, limit, recentN])
+
+  // Volume-class overlay — horizontal lines at the [low, high] of every VB
+  // ("Very Big" volume) and/or W ("Weak" volume) bar over the chart range.
+  // VB = red solid, W = grey sparse-dotted (distinct from HV dashed / Gann dotted).
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    for (const ln of volClassLinesRef.current) { try { series.removePriceLine(ln) } catch {} }
+    volClassLinesRef.current = []
+    setVbCount(0); setWCount(0)
+    if (!ticker || tf !== '1d') return
+    if (!showVB && !showW) return
+    let dead = false
+    const firstDate = candlesRef.current?.[0]?.time
+    const fromQ = firstDate ? `&from_date=${firstDate}` : ''
+    const fetches = []
+    if (showVB) fetches.push(
+      fetch(`/api/vol-class/history/${ticker}?cls=VB&limit=500${fromQ}`)
+        .then(r => r.json()).then(d => ({ cls: 'VB', zones: d?.zones || [] })))
+    if (showW)  fetches.push(
+      fetch(`/api/vol-class/history/${ticker}?cls=W&limit=500${fromQ}`)
+        .then(r => r.json()).then(d => ({ cls: 'W', zones: d?.zones || [] })))
+    Promise.all(fetches).then(results => {
+      if (dead) return
+      // VB = red-400 solid (matches legend's red VB badge); W = gray-400
+      // sparse-dotted (legend grey, but a 4th line-style so it never reads as
+      // an HV/Gann grey line).
+      const STYLE = {
+        VB: { color: '#f87171', lineStyle: 0, lineWidth: 1 },
+        W:  { color: '#9ca3af', lineStyle: 4, lineWidth: 1 },
+      }
+      const recent = (arr) => recentN > 0
+        ? [...arr].sort((a, b) => String(a.trigger_date).localeCompare(String(b.trigger_date))).slice(-recentN)
+        : arr
+      for (const r of results) {
+        const zs = recent(r.zones)
+        if (r.cls === 'VB') setVbCount(zs.length); else setWCount(zs.length)
+        const s = STYLE[r.cls]
+        for (const z of zs) {
+          for (const p of [z.zone_high, z.zone_low]) {
+            volClassLinesRef.current.push(series.createPriceLine({
+              price: p, color: s.color, lineWidth: s.lineWidth,
+              lineStyle: s.lineStyle, axisLabelVisible: false,
+            }))
+          }
+        }
+      }
+    }).catch(() => {})
+    return () => { dead = true }
+  }, [ticker, tf, showVB, showW, limit, recentN])
+
+  // Insider-buy fetch — SEC Form 4 open-market purchases (gold ★ on the bar).
+  // Stored in state and merged into the markers layer below (one setMarkers call
+  // owns the series, so insider markers must live alongside the zone markers).
+  useEffect(() => {
+    if (!showInsider || !ticker || tf !== '1d') { setInsiderMarks([]); setInsiderLoading(false); return }
+    let dead = false
+    const firstDate = candlesRef.current?.[0]?.time
+    // ensure=1 → backend lazily fetches this ticker's last-year Form 4 from SEC
+    // (cached after first view), so no universe-wide backfill is needed.
+    const q = new URLSearchParams({ ensure: '1' })
+    if (firstDate) q.set('from_date', firstDate)
+    setInsiderLoading(true)
+    fetch(`/api/journal/insider/marks/${ticker}?${q}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setInsiderMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setInsiderMarks([]) })
+      .finally(() => { if (!dead) setInsiderLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showInsider, limit])
 
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
@@ -421,10 +510,20 @@ export default function CodeCandleChart({
         text: `Z${z._idx || ''}${z.kind ? ' ' + z.kind[0].toUpperCase() : ''} TRIG`,
       })
     }
+    // 3) Insider-buy markers — gold ★ above the bar. Text shows insider count
+    //    when a cluster (>1) bought that day.
+    for (const ib of (insiderMarks || [])) {
+      if (!ib?.date) continue
+      markers.push({
+        time: ib.date,
+        position: 'aboveBar', shape: 'circle', color: '#fbbf24',
+        text: ib.n_insiders > 1 ? `★${ib.n_insiders}` : '★',
+      })
+    }
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones])
+  }, [zoneMarkers, hvZones, insiderMarks])
 
   // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
   // Two horizontal lines per zone (zone_low / zone_high) using lightweight-
@@ -535,6 +634,14 @@ export default function CodeCandleChart({
                 <span>codes</span>
               </label>
             )}
+            {/* Recent-N limiter — draw only the last N occurrences of EACH signal */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Show only the most recent N occurrences of each enabled overlay signal (HV / Gann / VB / W). Blank = all.">
+              <span className="mr-0.5 text-md-on-surface-var">🕒 last</span>
+              <input type="number" min="0" value={recentN || ''} placeholder="all"
+                onChange={e => setRecentN(Math.max(0, parseInt(e.target.value, 10) || 0))}
+                className="w-9 px-1 py-0.5 rounded bg-md-surface border border-white/10 text-center text-md-on-surface" />
+            </div>
             {/* Grey HV history picker */}
             <div className="flex items-center gap-0.5 text-[10px]"
                  title="Grey overlay: historical HV-spike zones (vol×N+) over the chart range.">
@@ -569,6 +676,41 @@ export default function CodeCandleChart({
                 <span className="ml-0.5 text-slate-400">{historyGannCount}</span>
               )}
             </div>
+            {/* Volume-class picker — VB (red) / W (grey) bar high+low levels */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Draw horizontal lines at the high AND low of every VB (Very Big volume — red) and W (Weak/dried-up volume — grey) bar over the chart range.">
+              <span className="mr-0.5" style={{ color: '#f87171' }}>🔊</span>
+              <button onClick={() => setShowVB(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showVB
+                    ? 'bg-red-900/50 text-red-200 border-red-500'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                VB
+              </button>
+              {showVB && vbCount > 0 && <span className="text-red-300">{vbCount}</span>}
+              <button onClick={() => setShowW(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showW
+                    ? 'bg-slate-600/60 text-slate-100 border-slate-400'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                W
+              </button>
+              {showW && wCount > 0 && <span className="text-slate-400">{wCount}</span>}
+            </div>
+            {/* Insider buys — SEC Form 4 open-market purchases, gold ★ on the bar */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Mark bars with SEC Form 4 insider BUYS (open-market purchases). ★N = N distinct insiders bought that day.">
+              <button onClick={() => setShowInsider(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showInsider
+                    ? 'bg-amber-900/50 text-amber-200 border-amber-500'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                {insiderLoading ? '⏳' : '★'} Insider
+              </button>
+              {showInsider && !insiderLoading && (
+                <span className="text-amber-300">{insiderMarks.length}</span>
+              )}
+            </div>
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}
@@ -597,24 +739,34 @@ export default function CodeCandleChart({
     </div>
   )
 
-  if (!fullscreen) return inner
-
-  // Fullscreen wrapper: chart on the left, contextual data sidebar on the right.
+  // STABLE wrapper in BOTH modes so React never unmounts `inner` (and the chart
+  // canvas inside it) when toggling fullscreen. Non-fullscreen uses `contents`
+  // so the wrapper is invisible to layout; fullscreen becomes a fixed overlay
+  // with the chart on the left and the contextual data sidebar on the right.
   return (
-    <div className="fixed inset-0 z-[60] flex bg-md-surface">
+    <div className={fullscreen ? 'fixed inset-0 z-[60] flex bg-md-surface' : 'contents'}>
       {inner}
-      <FullscreenSidePanel ticker={ticker} hvZones={hvZones} candles={candlesRef.current}
-                           historyHvTier={historyHvTier} historyHvCount={historyHvCount}
-                           historyGannTier={historyGannTier} historyGannCount={historyGannCount}
-                           zoneSource={zoneSource} extras={sidePanelExtras} />
+      {fullscreen && (
+        <FullscreenSidePanel ticker={ticker} hvZones={hvZones} candles={candlesRef.current}
+                             historyHvTier={historyHvTier} historyHvCount={historyHvCount}
+                             historyGannTier={historyGannTier} historyGannCount={historyGannCount}
+                             zoneSource={zoneSource} extras={sidePanelExtras}
+                             showInsider={showInsider} insiderMarks={insiderMarks}
+                             insiderLoading={insiderLoading} />
+      )}
     </div>
   )
 }
 
-function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyHvCount, historyGannTier, historyGannCount, zoneSource, extras }) {
+function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyHvCount, historyGannTier, historyGannCount, zoneSource, extras, showInsider, insiderMarks, insiderLoading }) {
   const last = candles?.length ? candles[candles.length - 1] : null
   const lastN = candles ? candles.slice(-15).reverse() : []
   const isGann = zoneSource === 'gann'
+  const fmtMoney = (v) => v >= 1e6 ? `$${(v / 1e6).toFixed(2)}M` : v >= 1e3 ? `$${(v / 1e3).toFixed(0)}K` : `$${Math.round(v)}`
+  const insiderTotal = (insiderMarks || []).reduce((s, m) => s + (m.total_value || 0), 0)
+  // "isDirector,isOfficer" → "Director, Officer"; "isTenPercentOwner" → "10% Owner"
+  const fmtRole = (t) => !t ? '' : t.split(',').map(s => s.trim().replace(/^is/, '')
+    .replace('TenPercentOwner', '10% Owner').replace(/([a-z])([A-Z])/g, '$1 $2')).filter(Boolean).join(', ')
   return (
     <div className="w-[380px] shrink-0 border-l border-white/10 bg-md-surface-high overflow-y-auto">
       <div className="p-3 border-b border-white/10 sticky top-0 bg-md-surface-high z-10">
@@ -628,6 +780,40 @@ function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyH
           </div>
         )}
       </div>
+
+      {/* Insider buys (SEC Form 4) — who bought what & how much, per date */}
+      {showInsider && (
+        <div className="p-3 border-b border-white/5">
+          <div className="text-xs font-semibold mb-2 uppercase tracking-wide text-amber-300 flex items-center justify-between">
+            <span>★ Insider buys {!insiderLoading && `(${insiderMarks?.length || 0})`}</span>
+            {!insiderLoading && insiderTotal > 0 && (
+              <span className="text-amber-200 font-mono normal-case">{fmtMoney(insiderTotal)} total</span>
+            )}
+          </div>
+          {insiderLoading
+            ? <div className="text-xs text-md-on-surface-var/60 italic">⏳ loading SEC Form 4…</div>
+            : (!insiderMarks || !insiderMarks.length)
+              ? <div className="text-xs text-md-on-surface-var/60 italic">no open-market buys in range</div>
+              : [...insiderMarks].reverse().map((m, i) => (
+                <div key={i} className="mb-2 pb-2 border-b border-white/5 last:border-0">
+                  <div className="flex items-baseline justify-between text-xs font-mono mb-0.5">
+                    <span className="text-amber-300 font-bold">★ {m.date}</span>
+                    <span className="text-amber-200">{fmtMoney(m.total_value)}</span>
+                  </div>
+                  {(m.txs || []).map((t, k) => (
+                    <div key={k} className="text-[11px] text-md-on-surface-var flex items-baseline justify-between gap-2 pl-3">
+                      <span className="truncate" title={`${t.insider}${t.title ? ' — ' + fmtRole(t.title) : ''}`}>
+                        {t.insider}{t.title ? <span className="text-md-on-surface-var/50"> · {fmtRole(t.title)}</span> : ''}
+                      </span>
+                      <span className="font-mono shrink-0">
+                        {t.shares.toLocaleString()} sh{t.price ? ` @ $${t.price.toFixed(2)}` : ''}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              ))}
+        </div>
+      )}
 
       {/* Parent-supplied settings (e.g. Gann lookback selector) */}
       {extras && (

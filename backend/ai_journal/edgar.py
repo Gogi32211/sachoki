@@ -21,6 +21,7 @@ import re
 import time
 import logging
 from datetime import date, timedelta
+from concurrent.futures import ThreadPoolExecutor
 from xml.etree import ElementTree as ET
 
 import requests
@@ -30,14 +31,30 @@ from .db import get_analytics_conn, get_journal_conn, ensure_schema
 log = logging.getLogger(__name__)
 _UA = os.environ.get("AIJ_SEC_UA", "Sachoki Screener research contact@example.com")
 _HDR = {"User-Agent": _UA, "Accept-Encoding": "gzip, deflate"}
-_SLEEP = 0.12   # ~8 req/s, under SEC's 10/s
+
+# GLOBAL rate limiter — caps the aggregate request rate across ALL threads so the
+# parallel backfill stays under SEC's 10 req/s fair-access limit. Workers fetch
+# concurrently (hiding network latency) but their request STARTS are spaced here.
+import threading as _threading
+_MIN_INTERVAL = float(os.environ.get("AIJ_SEC_MIN_INTERVAL", "0.11"))  # ~9 req/s
+_WORKERS      = int(os.environ.get("AIJ_SEC_WORKERS", "5"))
+_RATE_LOCK    = _threading.Lock()
+_LAST_REQ     = [0.0]
+
+
+def _rate_wait():
+    with _RATE_LOCK:
+        gap = _MIN_INTERVAL - (time.time() - _LAST_REQ[0])
+        if gap > 0:
+            time.sleep(gap)
+        _LAST_REQ[0] = time.time()
 
 
 def _get(url: str, retries: int = 2, **kw):
     """Resilient GET — never raises; returns response or None (one bad fetch
-    must not kill a long ingest)."""
+    must not kill a long ingest). Rate-limited globally (thread-safe)."""
     for attempt in range(retries + 1):
-        time.sleep(_SLEEP)
+        _rate_wait()
         try:
             return requests.get(url, headers=_HDR, timeout=20, **kw)
         except Exception:
@@ -62,6 +79,104 @@ def build_cik_map(universe_only: bool = True) -> dict:
     finally:
         a.close()
     return {t: c for t, c in full.items() if t in uni}
+
+
+_CIKMAP = {"map": None, "at": 0.0}
+
+
+def _cikmap_cached(max_age_h: float = 24):
+    """Universe ticker→CIK map, cached in-process (the SEC ticker file + DB query
+    is ~1s — don't repeat it on every on-demand per-ticker load)."""
+    if _CIKMAP["map"] is None or (time.time() - _CIKMAP["at"]) > max_age_h * 3600:
+        _CIKMAP["map"] = build_cik_map(universe_only=True)
+        _CIKMAP["at"] = time.time()
+    return _CIKMAP["map"]
+
+
+def _ensure_ticker_cache_table(j):
+    j.execute("""CREATE TABLE IF NOT EXISTS insider_ticker_cache (
+        ticker VARCHAR PRIMARY KEY, fetched_at TIMESTAMP,
+        lookback_days INTEGER, n_filings INTEGER, n_tx INTEGER)""")
+
+
+def fetch_ticker_form4(ticker: str, lookback_days: int = 365,
+                       max_age_h: float = 24, force: bool = False) -> dict:
+    """ON-DEMAND: pull ONE ticker's Form 4 history (last `lookback_days`) straight
+    from the SEC per-company submissions API, store in insider_tx, and remember
+    the fetch in insider_ticker_cache so repeat views are instant. Idempotent
+    (INSERT OR REPLACE). This is the lazy alternative to the universe-wide scan —
+    we only ever fetch tickers the user actually opens."""
+    ensure_schema()
+    tk = ticker.upper()
+
+    j = get_journal_conn(read_only=False)
+    try:
+        _ensure_ticker_cache_table(j)
+        if not force:
+            fresh = j.execute("""SELECT 1 FROM insider_ticker_cache
+                WHERE ticker=? AND lookback_days>=?
+                  AND fetched_at > now() - INTERVAL (?) HOUR""",
+                [tk, lookback_days, max_age_h]).fetchone()
+            if fresh:
+                return {"ticker": tk, "fetched": False, "cached": True}
+    finally:
+        j.close()
+
+    cik = _cikmap_cached().get(tk)
+    if not cik:
+        return {"ticker": tk, "fetched": False, "error": "ticker not in universe / no CIK"}
+    r = _get(f"https://data.sec.gov/submissions/CIK{cik}.json")
+    if not r or r.status_code != 200:
+        return {"ticker": tk, "fetched": False, "error": "submissions fetch failed"}
+    rec = (r.json().get("filings") or {}).get("recent") or {}
+    forms = rec.get("form", []); dates = rec.get("filingDate", []); accs = rec.get("accessionNumber", [])
+    cutoff = str(date.today() - timedelta(days=lookback_days))
+    f4 = [accs[i] for i in range(len(forms)) if forms[i] == "4" and dates[i] >= cutoff]
+    cik_int = str(int(cik))
+
+    def _one(acc):
+        url = f"https://www.sec.gov/Archives/edgar/data/{cik_int}/{acc.replace('-', '')}/{acc}.txt"
+        fr = _get(url)
+        if not fr or fr.status_code != 200:
+            return None
+        doc = _parse_form4(fr.text)
+        if not doc or not doc["ticker"]:
+            return None
+        out = []
+        for tx in doc["txs"]:
+            if not tx["tx_date"]:
+                continue
+            out.append((acc, doc["ticker"], cik, doc["insider"], doc["title"],
+                        tx["tx_date"], tx["code"], tx["acq_disp"], tx["shares"],
+                        tx["price"], tx["value"], str(date.today())))
+        return out
+
+    rows = []
+    if f4:
+        with ThreadPoolExecutor(max_workers=_WORKERS) as ex:
+            for res in ex.map(_one, f4):
+                if res:
+                    rows.extend(res)
+
+    jw = get_journal_conn(read_only=False)
+    try:
+        for row in rows:
+            try:
+                jw.execute("""INSERT OR REPLACE INTO insider_tx
+                    (accession,ticker,cik,insider,title,tx_date,code,acq_disp,shares,price,value,filed_date)
+                    VALUES (?,?,?,?,?,?,?,?,?,?,?,?)""", list(row))
+            except Exception:
+                pass
+        _ensure_ticker_cache_table(jw)
+        jw.execute("""INSERT OR REPLACE INTO insider_ticker_cache
+            (ticker, fetched_at, lookback_days, n_filings, n_tx)
+            VALUES (?, now(), ?, ?, ?)""", [tk, lookback_days, len(f4), len(rows)])
+        jw.commit()
+    finally:
+        jw.close()
+    buys = sum(1 for x in rows if x[6] == "P")
+    return {"ticker": tk, "fetched": True, "n_filings": len(f4),
+            "n_tx": len(rows), "buys": buys}
 
 
 def _parse_form4(txt: str):
@@ -100,12 +215,61 @@ def _parse_form4(txt: str):
     return {"ticker": ticker, "insider": insider, "title": title, "txs": txs}
 
 
-def ingest_form4(days: int = 10) -> dict:
+# Resumable day-log + live backfill progress (for the long 1-year backfill that
+# must survive server restarts and run as a background task).
+import threading
+_BF_LOCK = threading.Lock()
+_BACKFILL = {"running": False, "total_days": 0, "done_days": 0, "current_day": None,
+             "stored": 0, "buys": 0, "started_at": None, "finished_at": None, "error": None}
+
+
+def _ensure_log_table(j):
+    j.execute("""CREATE TABLE IF NOT EXISTS insider_ingest_log (
+        day DATE PRIMARY KEY, scanned INTEGER, stored INTEGER, done_at TIMESTAMP)""")
+
+
+def backfill_status() -> dict:
+    with _BF_LOCK:
+        return dict(_BACKFILL)
+
+
+def run_backfill(days: int = 365) -> dict:
+    """Thread entry-point for the long backfill. Tracks progress in _BACKFILL and
+    skips days already recorded in insider_ingest_log (resumable across restarts)."""
+    with _BF_LOCK:
+        if _BACKFILL["running"]:
+            return {"already_running": True, **_BACKFILL}
+        _BACKFILL.update({"running": True, "total_days": days, "done_days": 0,
+                          "current_day": None, "stored": 0, "buys": 0,
+                          "started_at": time.strftime("%Y-%m-%d %H:%M:%S"),
+                          "finished_at": None, "error": None})
+    try:
+        return ingest_form4(days=days, skip_done=True, _track=True)
+    except Exception as e:
+        with _BF_LOCK:
+            _BACKFILL["error"] = str(e)
+        log.exception("insider backfill failed")
+        return {"error": str(e)}
+    finally:
+        with _BF_LOCK:
+            _BACKFILL["running"] = False
+            _BACKFILL["finished_at"] = time.strftime("%Y-%m-%d %H:%M:%S")
+
+
+def ingest_form4(days: int = 10, skip_done: bool = False, _track: bool = False) -> dict:
     ensure_schema()
     t0 = time.time()
     cikmap = build_cik_map(universe_only=True)
     cik_set = set(cikmap.values())
     log.info("edgar: %d universe CIKs mapped", len(cik_set))
+
+    # Resumable day-log: which ingest-days are already complete.
+    j0 = get_journal_conn(read_only=False)
+    try:
+        _ensure_log_table(j0)
+        done_set = {str(r[0])[:10] for r in j0.execute("SELECT day FROM insider_ingest_log").fetchall()} if skip_done else set()
+    finally:
+        j0.close()
 
     def _flush(batch):
         if not batch:
@@ -128,12 +292,23 @@ def ingest_form4(days: int = 10) -> dict:
         day = date.today() - timedelta(days=d)
         if day.weekday() >= 5:
             continue
+        if skip_done and str(day) in done_set:
+            if _track:
+                with _BF_LOCK:
+                    _BACKFILL["done_days"] += 1
+            continue
+        if _track:
+            with _BF_LOCK:
+                _BACKFILL["current_day"] = str(day)
         q = (day.month - 1) // 3 + 1
         idx_url = f"https://www.sec.gov/Archives/edgar/daily-index/{day.year}/QTR{q}/form.{day:%Y%m%d}.idx"
         r = _get(idx_url)
         if not r or r.status_code != 200:
             continue
-        rows = []
+        day_scanned0 = scanned
+        # Collect this day's universe Form-4 filings, then fetch the docs in
+        # PARALLEL (the global rate limiter keeps the aggregate under SEC's cap).
+        filings = []
         for line in r.text.splitlines():
             if not line.startswith("4 "):
                 continue
@@ -143,23 +318,51 @@ def ingest_form4(days: int = 10) -> dict:
             cik, fname = parts[2].zfill(10), parts[-1]
             if cik not in cik_set:
                 continue
-            scanned += 1
+            filings.append((cik, fname))
+        scanned += len(filings)
+
+        def _fetch_one(cf):
+            cik, fname = cf
             fr = _get(f"https://www.sec.gov/Archives/{fname}")
             if not fr or fr.status_code != 200:
-                continue
+                return None
             doc = _parse_form4(fr.text)
             if not doc or not doc["ticker"]:
-                continue
-            parsed += 1
+                return None
             acc = fname.rsplit("/", 1)[-1].replace(".txt", "")
+            out = []
             for tx in doc["txs"]:
                 if not tx["tx_date"]:
                     continue
-                rows.append((acc, doc["ticker"], cik, doc["insider"], doc["title"],
-                             tx["tx_date"], tx["code"], tx["acq_disp"], tx["shares"],
-                             tx["price"], tx["value"], str(day)))
+                out.append((acc, doc["ticker"], cik, doc["insider"], doc["title"],
+                            tx["tx_date"], tx["code"], tx["acq_disp"], tx["shares"],
+                            tx["price"], tx["value"], str(day)))
+            return out
+
+        rows = []
+        if filings:
+            with ThreadPoolExecutor(max_workers=_WORKERS) as ex:
+                for res in ex.map(_fetch_one, filings):
+                    if res is not None:
+                        parsed += 1
+                        rows.extend(res)
         _flush(rows)          # persist per-day so a later failure can't lose progress
         stored += len(rows)
+        # Mark this day done so a restart resumes from here (idempotent).
+        jl = get_journal_conn(read_only=False)
+        try:
+            _ensure_log_table(jl)
+            jl.execute("""INSERT OR REPLACE INTO insider_ingest_log (day, scanned, stored, done_at)
+                          VALUES (?,?,?, now())""", [day, scanned - day_scanned0, len(rows)])
+            jl.commit()
+        except Exception:
+            pass
+        finally:
+            jl.close()
+        if _track:
+            with _BF_LOCK:
+                _BACKFILL["done_days"] += 1
+                _BACKFILL["stored"] = stored
         log.info("  %s: scanned=%d parsed=%d stored=%d", day, scanned, parsed, stored)
 
     j = get_journal_conn(read_only=True)
@@ -168,6 +371,9 @@ def ingest_form4(days: int = 10) -> dict:
         buys = j.execute("SELECT count(*) FROM insider_tx WHERE code='P'").fetchone()[0]
     finally:
         j.close()
+    if _track:
+        with _BF_LOCK:
+            _BACKFILL["buys"] = buys
     dur = time.time() - t0
     log.info("edgar ingest: scanned %d, parsed %d, %d tx stored (%d buys), table=%d, %.0fs",
              scanned, parsed, stored, buys, total, dur)
@@ -198,6 +404,61 @@ def recent_insider(limit_days: int = 30, cluster_window: int = 7) -> dict:
     return {"clusters": clusters, "by_ticker": by_ticker[:40],
             "recent": [dict(zip(cols2, r)) for r in recent],
             "cluster_window": cluster_window}
+
+
+def marks_for_ticker(ticker: str, from_date: str | None = None) -> dict:
+    """Open-market insider BUYS (Form 4, code='P') for ONE ticker, grouped per
+    transaction date — for the chart's ★ markers AND the fullscreen detail panel.
+    Each mark carries a `txs` breakdown (who / title / shares / price / $value) so
+    the side panel can show exactly who bought what. Optional from_date lower
+    bound matches the chart's earliest visible bar."""
+    ensure_schema()
+    j = get_journal_conn(read_only=True)
+    try:
+        params: list = [ticker.upper()]
+        where_date = ""
+        if from_date:
+            where_date = " AND tx_date >= ?"
+            params.append(from_date)
+        rows = j.execute(f"""
+            SELECT tx_date, insider, title, shares, price, value
+            FROM insider_tx
+            WHERE ticker = ? AND code = 'P'{where_date}
+            ORDER BY tx_date, value DESC NULLS LAST
+        """, params).fetchall()
+    finally:
+        j.close()
+
+    from collections import OrderedDict
+    by_date: "OrderedDict[str, dict]" = OrderedDict()
+    for tx_date, insider, title, shares, price, value in rows:
+        d = str(tx_date)[:10]
+        m = by_date.get(d)
+        if m is None:
+            m = {"date": d, "_insiders": set(), "n_tx": 0,
+                 "total_shares": 0.0, "total_value": 0.0, "txs": []}
+            by_date[d] = m
+        m["_insiders"].add(insider)
+        m["n_tx"] += 1
+        m["total_shares"] += float(shares or 0)
+        m["total_value"] += float(value or 0)
+        m["txs"].append({"insider": insider or "", "title": title or "",
+                         "shares": float(shares or 0), "price": float(price or 0),
+                         "value": float(value or 0)})
+
+    marks = []
+    for d, m in by_date.items():
+        marks.append({
+            "date":         d,
+            "n_insiders":   len(m["_insiders"]),
+            "n_tx":         m["n_tx"],
+            "total_shares": m["total_shares"],
+            "total_value":  m["total_value"],
+            "insiders":     ", ".join(sorted(m["_insiders"])),
+            "txs":          m["txs"],
+        })
+    return {"ticker": ticker.upper(), "from_date": from_date,
+            "count": len(marks), "marks": marks}
 
 
 if __name__ == "__main__":

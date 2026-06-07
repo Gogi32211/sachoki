@@ -1008,6 +1008,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [gannFilter, setGannFilter] = useState(false)
   const [gannSet, setGannSet] = useState(null)
   const [gannBusy, setGannBusy] = useState(false)
+  // Volume-class filter — current bar's TZ_WLNBB bucket is VB and/or W (union).
+  // Pure client-side on existing row data (vol_bucket), no fetch needed.
+  const [vbwFilter, setVbwFilter] = useState({ vb: false, w: false })
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1318,6 +1321,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (buildingFilter && r.profile_category !== 'BUILDING') return false
       if (zoneFilterActive && activeZoneSet && !activeZoneSet.has(r.ticker)) return false
       if (gannFilter && gannSet && !gannSet.has(r.ticker)) return false
+      if (vbwFilter.vb || vbwFilter.w) {
+        const b = r.tz_wlnbb_volume_bucket || r.vol_bucket
+        if (!((vbwFilter.vb && b === 'VB') || (vbwFilter.w && b === 'W'))) return false
+      }
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
@@ -1358,7 +1365,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2653,6 +2660,26 @@ export default function UltraScanPanel({ onSelectTicker }) {
           }`}>
           {gannBusy ? '⏳' : '📐'} Gann
           {gannFilter && gannSet && <span className="ml-1 text-[10px] opacity-80">{gannSet.size}</span>}
+        </button>
+        <button
+          onClick={() => setVbwFilter(f => ({ ...f, vb: !f.vb }))}
+          title="Volume class VB (Very Big): the latest bar's volume is ≥ 2×mean + 1·std (TZ_WLNBB Bollinger bucket) — exceptional interest."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            vbwFilter.vb
+              ? 'bg-red-900/60 text-red-300 border-red-600 ring-1 ring-red-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          🔊 VB
+        </button>
+        <button
+          onClick={() => setVbwFilter(f => ({ ...f, w: !f.w }))}
+          title="Volume class W (Weak): the latest bar's volume is < mean − 1·std (TZ_WLNBB Bollinger bucket) — dried-up / low interest."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            vbwFilter.w
+              ? 'bg-slate-600/70 text-slate-100 border-slate-400 ring-1 ring-slate-400'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          🔉 W
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">

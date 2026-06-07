@@ -158,10 +158,23 @@ async def lifespan(app: FastAPI):
         scheduler.add_job(_journal_open_routine, CronTrigger(hour=9, minute=50, day_of_week="mon-fri"),
                           id="journal_open_routine", replace_existing=True, max_instances=1, coalesce=True)
 
+        # Daily SEC Form 4 incremental — re-fetch the last few days (catches late /
+        # amended filings) so the chart's ★ insider-buy markers stay fresh.
+        def _insider_daily():
+            try:
+                from ai_journal.edgar import ingest_form4
+                ingest_form4(days=5)   # small window, ~5 min, runs in-process
+            except Exception as _e:
+                log.warning("Insider daily ingest failed: %s", _e)
+
+        scheduler.add_job(_insider_daily, CronTrigger(hour=18, minute=30, day_of_week="mon-fri"),
+                          id="insider_daily", replace_existing=True, max_instances=1, coalesce=True)
+
         scheduler.start()
         log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
                  "studio_daily_refresh @ 17:00 ET Mon-Fri; "
-                 "journal_session @ 15:30; journal_open_routine @ 9:50 ET Mon-Fri)")
+                 "journal_session @ 15:30; journal_open_routine @ 9:50 ET Mon-Fri; "
+                 "insider_daily @ 18:30 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
@@ -329,6 +342,31 @@ def gann_zones_tickers(lookback: int = 90, zone_kind: str = "any"):
         return {"tickers": [], "error": str(e)}
 
 
+@app.get("/api/vol-class/history/{ticker}")
+def vol_class_history(ticker: str, cls: str = "VB",
+                      from_date: str | None = None, limit: int = 500):
+    """All historical bars of a given volume-class (VB/W/...) for a ticker —
+    chart overlay drawing S/R lines at each bar's [low, high]. `cls` is the
+    TZ_WLNBB volume bucket (W/L/N/B/VB)."""
+    from ai_journal.vol_class import history_vol_class
+    try:
+        return history_vol_class(ticker, cls=cls, from_date=from_date, limit=limit)
+    except Exception as e:
+        log.warning("vol-class history for %s (%s) failed: %s", ticker, cls, e)
+        return {"ticker": ticker.upper(), "cls": cls, "zones": [], "error": str(e)}
+
+
+@app.get("/api/vol-class/tickers")
+def vol_class_tickers(cls: str = "VB"):
+    """Tickers whose latest bar is volume-class `cls`. Ultra VB/W filter chip."""
+    from ai_journal.vol_class import active_tickers
+    try:
+        return active_tickers(cls=cls)
+    except Exception as e:
+        log.warning("vol-class tickers (%s) failed: %s", cls, e)
+        return {"cls": cls, "tickers": [], "error": str(e)}
+
+
 @app.get("/api/gann-zones/zones/{ticker}")
 def gann_zones_zones(ticker: str, lookback: int = 90):
     """Top + bottom Gann zones for one ticker with per-bar classifications."""
@@ -386,6 +424,20 @@ def zone_retest_scan():
     except Exception as e:
         log.warning("zone-retest scan failed: %s", e)
         return {"as_of": None, "rows": [], "error": str(e)}
+
+
+@app.get("/api/zone-events/report")
+def zone_events_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
+                       first_only: bool = True, min_n: int = 30):
+    """Zone EXIT vs RETEST forward-edge analytics + the bar-context lifts that
+    most improve each event's outcome (research, whole-history)."""
+    from ai_journal.zone_events import full_report
+    try:
+        return full_report(vol_min=vol_min, lb_max=lb_max, horizon=horizon,
+                           first_only=first_only, min_n=min_n)
+    except Exception as e:
+        log.exception("zone-events report failed")
+        return {"events": [], "context": {}, "error": str(e)}
 
 
 _ticker_info_cache: dict = {}
