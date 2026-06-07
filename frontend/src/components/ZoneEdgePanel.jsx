@@ -41,7 +41,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
   const [patValues, setPatValues] = useState(null)
-  const [patSlots, setPatSlots]   = useState({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+  const [patSlots, setPatSlots]   = useState({ tz: '*', z: '*', flip: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
   const [patResult, setPatResult] = useState(null)
   const [patLoading, setPatLoading] = useState(false)
   const [live, setLive] = useState(null)
@@ -125,11 +125,12 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   }, [patSlots, liveBools, liveFlip, liveCats, comboEvent, volMin, horizon])
 
   // map a combo's features → live filter (slots + bool signals + flip), then scroll up
-  const SLOT_OF_COL = { t_sig: 'tz', z_sig: 'z', l_sig: 'l', full_suffix: 'suffix', bar_body_wick: 'bodywk',
+  const SLOT_OF_COL = { t_sig: 'tz', z_sig: 'z', flip_code: 'flip', l_sig: 'l',
+                        full_suffix: 'suffix', composite_full_suffix: 'suffix', bar_body_wick: 'bodywk',
                         gap_rng: 'gaprng', bar_line5: 'l5', vol_bucket: 'vol' }
   function applyComboToLive(c) {
     const feats = [c.a, c.b, c.c].filter(Boolean)
-    const slots = { tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
+    const slots = { tz: '*', z: '*', flip: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
     const bools = []; const cats = {}; let flip = false
     for (const f of feats) {
       if (f === 'tz_up_next3') {
@@ -147,7 +148,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     document.getElementById('live-setups')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   const clearLive = () => {
-    setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+    setPatSlots({ tz: '*', z: '*', flip: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
     setLiveBools([]); setLiveCats({}); setLiveFlip(false)
   }
 
@@ -420,13 +421,14 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
         <p className="text-[11px] text-md-on-surface-var mb-2">
           Set each slot to a value or leave <b>*</b> (any). Uses the current event ({EVENT_META[comboEvent]?.label.split(' ')[0]})
           {comboAnchor && <span className="text-emerald-300"> + T/Z flip</span>}. ⚠ small n = overfit — trust n ≥ 150.
+          <br/><span className="text-emerald-300/80">On a <b>retest</b> the event bar has no T-code (it's bearish/neutral) — the bullish T fires <b>after</b>: pick it in <b>flip→T</b> (T1G/T1/T4), not the empty <b>T</b> slot.</span>
         </p>
         <div className="flex flex-wrap gap-2 mb-3 text-[11px]">
-          {[['tz','T'],['z','Z'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
+          {[['tz','T'],['z','Z'],['flip','flip→T'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
             <label key={slot} className="flex flex-col gap-0.5">
-              <span className="text-md-on-surface-var/60 uppercase tracking-wide text-[9px]">{label}</span>
+              <span className={`uppercase tracking-wide text-[9px] ${slot==='flip' ? 'text-emerald-300/70' : 'text-md-on-surface-var/60'}`}>{label}</span>
               <select value={patSlots[slot]} onChange={e => setPatSlots(s => ({ ...s, [slot]: e.target.value }))}
-                className="bg-md-surface border border-white/10 rounded px-1.5 py-1 font-mono text-md-on-surface min-w-[64px]">
+                className={`bg-md-surface border rounded px-1.5 py-1 font-mono text-md-on-surface min-w-[64px] ${slot==='flip' ? 'border-emerald-700/40' : 'border-white/10'}`}>
                 <option value="*">*</option>
                 {(patValues?.[slot] || []).map(v => (
                   <option key={v.value} value={v.value}>{v.value} ({v.n})</option>
@@ -434,7 +436,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               </select>
             </label>
           ))}
-          <button onClick={() => setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })}
+          <button onClick={() => setPatSlots({ tz: '*', z: '*', flip: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })}
             className="self-end px-2 py-1 rounded border border-white/10 bg-md-surface text-md-on-surface-var hover:text-white">reset</button>
         </div>
         {patResult?.matched && (

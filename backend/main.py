@@ -498,12 +498,12 @@ def zone_events_examples(event_type: str = "retest", require_flip: bool = True,
 @app.get("/api/zone-events/pattern")
 def zone_events_pattern(event_type: str = "retest", require_flip: bool = False,
                         vol_min: float = 5.0, horizon: int = 10,
-                        tz: str = "*", l: str = "*", suffix: str = "*",
+                        tz: str = "*", z: str = "*", flip: str = "*", l: str = "*", suffix: str = "*",
                         bodywk: str = "*", gaprng: str = "*", l5: str = "*", vol: str = "*"):
     """Full bar-code pattern → matched zone-event edge + example tickers. Each
     slot is a value or '*' (wildcard)."""
     from ai_journal.zone_events import pattern
-    slots = {"tz": tz, "l": l, "suffix": suffix, "bodywk": bodywk,
+    slots = {"tz": tz, "z": z, "flip": flip, "l": l, "suffix": suffix, "bodywk": bodywk,
              "gaprng": gaprng, "l5": l5, "vol": vol}
     try:
         return pattern(event_type=event_type, slots=slots, require_flip=require_flip,
@@ -516,14 +516,14 @@ def zone_events_pattern(event_type: str = "retest", require_flip: bool = False,
 @app.get("/api/zone-events/live")
 def zone_events_live(event_type: str = "retest", require_flip: bool = False,
                      vol_min: float = 5.0, horizon: int = 10, max_age_days: int = 5,
-                     tz: str = "*", z: str = "*", l: str = "*", suffix: str = "*", bodywk: str = "*",
+                     tz: str = "*", z: str = "*", flip: str = "*", l: str = "*", suffix: str = "*", bodywk: str = "*",
                      gaprng: str = "*", l5: str = "*", vol: str = "*", bools: str = "", cats: str = ""):
     """LIVE setup scan — recent bars matching the pattern, flagged confirmed
     (flip fired) vs pending (watch for flip). The OOS pattern as a daily alert.
     `bools` = comma-separated boolean signal names; `cats` = comma-separated
     col=val categoricals (flip_code, sequence p1_*/p2_*, fib_level, …)."""
     from ai_journal.zone_events import live_setups
-    slots = {"tz": tz, "z": z, "l": l, "suffix": suffix, "bodywk": bodywk,
+    slots = {"tz": tz, "z": z, "flip": flip, "l": l, "suffix": suffix, "bodywk": bodywk,
              "gaprng": gaprng, "l5": l5, "vol": vol}
     bool_list = [b.strip() for b in bools.split(",") if b.strip()]
     cat_map = {}

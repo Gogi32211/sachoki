@@ -182,8 +182,9 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
 
 # Pattern-builder slots → the column each maps to (the user's full bar-code).
 PATTERN_SLOTS = {
-    "tz":     "t_sig",         # T2G, T1 … (bullish T-code on the event bar)
-    "z":      "z_sig",         # Z2G, Z6 … (bearish Z-code on the event bar)
+    "tz":     "t_sig",         # T-code ON the event bar (empty on retest)
+    "z":      "z_sig",         # Z-code ON the event bar
+    "flip":   "flip_code",     # the FLIP T-code (T1G/T1/T4 …) — fires AFTER a retest
     "l":      "l_sig",         # L34, L46 …
     "suffix": "composite_full_suffix",   # EBA, EBO, NDI … (full code w/ close pos)
     "bodywk": "bar_body_wick", # STB, M …
