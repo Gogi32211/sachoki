@@ -50,6 +50,12 @@ do NOT override with intuition):
   NOT a clean BUY — call it out and cap conviction.
 - MARKET-CAP: mega/large best; micro is auto-blocked. Sector barely matters.
 - HORIZON: hold ~10 days. Short holds (5d) kill the edge before it accrues.
+- Some candidates carry a `zone_edge` block: an INDEPENDENT, OOS-validated setup
+  (price retested a high-volume zone and T/Z flipped up within 3 bars). It backtests
+  ~60% win at H=10 and HOLDS out-of-sample (n=336) — unlike HH-edge, treat it as
+  REAL P&L evidence, comparable to a strong matched_combo. `insider_buy_90d=true`
+  means a SEC Form-4 open-market insider buy in the last 90 days (extra conviction).
+  This is a separate edge from the prebreak V3/V4 pipeline; weigh the confluence.
 
 YOUR JOB: for each candidate, decide BUY / WATCH / SKIP and give conviction 0-100
 with a one-sentence thesis grounded in the provided Tier-1 evidence (each signal's
@@ -111,6 +117,75 @@ def load_candidates(as_of: str, min_v3: int = rails.V3_MIN, limit: int = 200) ->
     return out
 
 
+def zone_edge_candidates(as_of: str, max_age_days: int = 3, limit: int = 12) -> list[dict]:
+    """Second candidate stream: CONFIRMED robust Zone-Edge setups (price retested a
+    high-volume zone and T/Z flipped up within 3 bars, on a big-volume bar). Each
+    carries its bar-row context + a `zone_edge` evidence block (OOS-validated
+    pattern + zone + recent-insider flag) so the LLM can weigh the confluence."""
+    from .zone_events import live_setups
+    try:
+        res = live_setups(event_type="retest", slots={"vol": "B"}, require_flip=True,
+                          max_age_days=max_age_days, vol_min=5.0)
+    except Exception as e:
+        log.warning("zone_edge_candidates failed: %s", e)
+        return []
+    setups = {s["ticker"]: s for s in res.get("setups", []) if s.get("status") == "confirmed"}
+    if not setups:
+        return []
+    tickers = list(setups)
+    ph = ",".join("?" * len(tickers))
+    a = get_analytics_conn()
+    try:
+        rows = a.execute(f"""
+            SELECT ticker, universe, close AS last_price, atr_14, rsi_14 AS rsi,
+                   vol_bucket, rtb_phase, t_sig, z_sig,
+                   prebreak_v3, prebreak_v3_reasons, prebreak_v4, prebreak_v4_reasons, sector
+            FROM bars WHERE date = ? AND ticker IN ({ph})
+        """, [as_of] + tickers).fetchdf()
+    finally:
+        a.close()
+    insiders: set = set()
+    try:
+        j = get_journal_conn(read_only=True)
+        try:
+            insiders = {r[0] for r in j.execute(
+                f"SELECT DISTINCT ticker FROM insider_tx WHERE code='P' AND ticker IN ({ph}) "
+                f"AND tx_date >= (DATE '{as_of}' - INTERVAL 90 DAY)", tickers).fetchall()}
+        finally:
+            j.close()
+    except Exception:
+        pass
+    metamap = mem.load_ticker_meta()
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        d = r.to_dict()
+        tk = d["ticker"]
+        if tk in seen:
+            continue
+        seen.add(tk)
+        s = setups[tk]
+        d["tz_sig"] = d.get("t_sig") or d.get("z_sig") or ""
+        m = metamap.get(tk, {})
+        d["sector"] = m.get("sector") or ""
+        d["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        d["market_cap"] = m.get("market_cap")
+        d["zone_edge"] = {
+            "setup": "retest + T/Z-flip + vol=B",
+            "validation": "OOS-validated ~60% win@10d, holds out-of-sample (n=336)",
+            "vol_mult": s.get("z_mult"), "zone": [s.get("zone_low"), s.get("zone_high")],
+            "days_ago": s.get("days_ago"), "insider_buy_90d": tk in insiders,
+        }
+        out.append(d)
+    return out[:limit]
+
+
+def _fp(c: dict) -> str:
+    """Fingerprint; Zone-Edge candidates get a 'ZE|' prefix so their pattern memory
+    and lessons stay isolated (the journal validates the Zone-Edge edge separately)."""
+    fp = mem.fingerprint(c)
+    return ("ZE|" + fp) if c.get("zone_edge") else fp
+
+
 def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     ensure_schema()
     t0 = time.time()
@@ -133,6 +208,15 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
 
     # Candidates + memory
     cands = rails.entry_filter(load_candidates(as_of), top_n=top_n)
+    # Second stream: OOS-validated Zone-Edge setups. They bypass the V3 entry gate
+    # (validated independently), but the risk rails (can_open / micro-veto) still
+    # apply downstream — so only the liquid ones actually get paper-traded.
+    have = {c["ticker"]: c for c in cands}
+    for z in zone_edge_candidates(as_of):
+        if z["ticker"] in have:
+            have[z["ticker"]]["zone_edge"] = z["zone_edge"]   # tag existing candidate
+        else:
+            cands.append(z); have[z["ticker"]] = z
     if not cands:
         return {"as_of": as_of, "candidates": 0, "note": "no eligible candidates"}
     t1 = mem.load_tier1_index(as_of)
@@ -145,7 +229,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
 
     prompt_cands = []
     for c in cands:
-        fp = mem.fingerprint(c)
+        fp = _fp(c)
         ev = mem.candidate_evidence(c, t1)
         # find which atoms this candidate satisfies (by reasons-tag intersection)
         from .memory import TAG2PRED
@@ -200,6 +284,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             "anti_matched_combos": anti_brief,                     # ← TESTED-AND-REJECTED combos this satisfies (warnings)
             "hh_evidence":       ev[:4],                           # ← legacy HH (informational; do not trade on)
             "tier2_own":         mem.tier2_for(fp, as_of),
+            **({"zone_edge": c["zone_edge"]} if c.get("zone_edge") else {}),
         })
 
     user = {
@@ -236,7 +321,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             c = cand_by_tk.get(tk)
             if not c:
                 continue
-            fp = mem.fingerprint(c)
+            fp = _fp(c)
             ev = mem.candidate_evidence(c, t1)
             best_hh = max([e["hh_edge_pp"] for e in ev], default=0.0)
             size_pct = rails.position_size(d["conviction"], best_hh, capital)
