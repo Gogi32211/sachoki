@@ -170,11 +170,27 @@ async def lifespan(app: FastAPI):
         scheduler.add_job(_insider_daily, CronTrigger(hour=18, minute=30, day_of_week="mon-fri"),
                           id="insider_daily", replace_existing=True, max_instances=1, coalesce=True)
 
+        # Daily Zone-Edge ALERT — the OOS-validated retest+flip+volB pattern as a
+        # daily log line (open the Zone Edge tab for the full clickable list).
+        def _zone_setup_daily():
+            try:
+                from ai_journal.zone_events import live_setups
+                r = live_setups(event_type="retest", slots={"vol": "B"},
+                                require_flip=True, max_age_days=3)
+                tks = [s["ticker"] for s in r.get("setups", [])][:25]
+                log.info("ZONE-SETUP alert %s: %d confirmed retest+flip+volB: %s",
+                         r.get("as_of"), r.get("confirmed", 0), ", ".join(tks))
+            except Exception as _e:
+                log.warning("Zone setup daily failed: %s", _e)
+
+        scheduler.add_job(_zone_setup_daily, CronTrigger(hour=17, minute=30, day_of_week="mon-fri"),
+                          id="zone_setup_daily", replace_existing=True, max_instances=1, coalesce=True)
+
         scheduler.start()
         log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
                  "studio_daily_refresh @ 17:00 ET Mon-Fri; "
                  "journal_session @ 15:30; journal_open_routine @ 9:50 ET Mon-Fri; "
-                 "insider_daily @ 18:30 ET Mon-Fri)")
+                 "insider_daily @ 18:30 ET Mon-Fri; zone_setup_daily @ 17:30 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
@@ -495,6 +511,24 @@ def zone_events_pattern(event_type: str = "retest", require_flip: bool = False,
     except Exception as e:
         log.exception("zone-events pattern failed")
         return {"matched": {"n": 0}, "examples": [], "error": str(e)}
+
+
+@app.get("/api/zone-events/live")
+def zone_events_live(event_type: str = "retest", require_flip: bool = False,
+                     vol_min: float = 5.0, horizon: int = 10, max_age_days: int = 5,
+                     tz: str = "*", l: str = "*", suffix: str = "*", bodywk: str = "*",
+                     gaprng: str = "*", l5: str = "*", vol: str = "*"):
+    """LIVE setup scan — recent bars matching the pattern, flagged confirmed
+    (flip fired) vs pending (watch for flip). The OOS pattern as a daily alert."""
+    from ai_journal.zone_events import live_setups
+    slots = {"tz": tz, "l": l, "suffix": suffix, "bodywk": bodywk,
+             "gaprng": gaprng, "l5": l5, "vol": vol}
+    try:
+        return live_setups(event_type=event_type, slots=slots, require_flip=require_flip,
+                          vol_min=vol_min, horizon=horizon, max_age_days=max_age_days)
+    except Exception as e:
+        log.exception("zone-events live failed")
+        return {"setups": [], "count": 0, "error": str(e)}
 
 
 @app.get("/api/zone-events/pattern/values")

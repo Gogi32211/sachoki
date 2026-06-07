@@ -517,6 +517,71 @@ def pattern_values(event_type: str = "retest", require_flip: bool = False,
     return {"event_type": event_type, "n": int(len(df)) if not df.empty else 0, "slots": out}
 
 
+def live_setups(event_type: str = "retest", slots: dict | None = None,
+                require_flip: bool = False, vol_min: float = 5.0, lb_max: int = 90,
+                horizon: int = 10, max_age_days: int = 5, limit: int = 80) -> dict:
+    """LIVE scan: tickers whose RECENT bars (last `max_age_days`) are a setup
+    matching the pattern. Each is 'confirmed' (T/Z already flipped up after the
+    event → actionable) or 'pending' (event fired, not bullish yet → watch for
+    the flip). Turns the OOS-validated pattern into a daily alert list."""
+    import pandas as pd
+    slots = slots or {}
+    df = _load_events(vol_min, lb_max)
+    if df.empty:
+        return {"as_of": None, "count": 0, "setups": []}
+    a = get_analytics_conn()
+    try:
+        as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+    finally:
+        a.close()
+    cutoff = (pd.Timestamp(as_of) - pd.Timedelta(days=max_age_days)).strftime("%Y-%m-%d")
+    d = df[(df["event_type"] == event_type) & (df["e_date"].astype(str) >= cutoff)].copy()
+    applied = {}
+    for slot, val in slots.items():
+        if not val or val == "*":
+            continue
+        c = PATTERN_SLOTS.get(slot)
+        if c and c in d.columns:
+            d = d[d[c].astype(str) == str(val)]
+            applied[slot] = val
+    if d.empty:
+        return {"as_of": as_of, "event_type": event_type, "applied": applied,
+                "count": 0, "confirmed": 0, "pending": 0, "setups": []}
+    d["days_ago"] = (pd.Timestamp(as_of) - pd.to_datetime(d["e_date"])).dt.days
+
+    def _status(r):
+        if int(r.get("tz_up_next3", 0) or 0) == 1:
+            return "confirmed"
+        if int(r.get("tz_bull", 0) or 0) == 0:
+            return "pending"
+        return "extended"
+    d["status"] = d.apply(_status, axis=1)
+    d = d[d["status"].isin(["confirmed"] if require_flip else ["confirmed", "pending"])]
+    # confirmed first, then by recency — so the limit keeps actionable ones
+    d["_rank"] = (d["status"] != "confirmed").astype(int)
+    d = d.sort_values(["_rank", "e_date"], ascending=[True, False]).drop_duplicates("ticker")
+    # cap EACH group (by recency) so neither crowds the other out
+    per = max(12, limit // 2)
+    d = pd.concat([d[d["status"] == "confirmed"].head(per),
+                   d[d["status"] == "pending"].head(per)])
+
+    setups = []
+    for _, r in d.iterrows():
+        setups.append({
+            "ticker": r["ticker"], "event_date": str(r["e_date"])[:10],
+            "days_ago": int(r["days_ago"]), "status": r["status"],
+            "zone_low": round(float(r["z_low"]), 4), "zone_high": round(float(r["z_high"]), 4),
+            "close": round(float(r["e_close"]), 4), "z_mult": round(float(r["z_mult"]), 1),
+            "vol_bucket": r.get("vol_bucket"), "range": r.get("bar_range_class"),
+        })
+    setups.sort(key=lambda x: (0 if x["status"] == "confirmed" else 1, x["days_ago"]))
+    return {"as_of": as_of, "event_type": event_type, "applied": applied,
+            "count": len(setups),
+            "confirmed": sum(1 for s in setups if s["status"] == "confirmed"),
+            "pending": sum(1 for s in setups if s["status"] == "pending"),
+            "setups": setups}
+
+
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
                horizon: int = 10, first_only: bool = True, min_n: int = 40,
                top: int = 15, anchor: str | None = None, ways: int = 2) -> dict:

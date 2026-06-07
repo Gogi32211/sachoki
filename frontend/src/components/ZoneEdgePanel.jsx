@@ -33,6 +33,8 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [patSlots, setPatSlots]   = useState({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
   const [patResult, setPatResult] = useState(null)
   const [patLoading, setPatLoading] = useState(false)
+  const [live, setLive] = useState(null)
+  const [liveLoading, setLiveLoading] = useState(false)
 
   useEffect(() => {
     let dead = false
@@ -93,6 +95,17 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     return () => { dead = true }
   }, [patSlots, comboEvent, comboAnchor, volMin, horizon])
 
+  // live setups — recent bars matching the current pattern slots
+  useEffect(() => {
+    let dead = false
+    setLiveLoading(true)
+    const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon, max_age_days: '7', ...patSlots })
+    fetch(`/api/zone-events/live?${q}`).then(r => r.json())
+      .then(d => { if (!dead) setLive(d) }).catch(() => { if (!dead) setLive(null) })
+      .finally(() => { if (!dead) setLiveLoading(false) })
+    return () => { dead = true }
+  }, [patSlots, comboEvent, volMin, horizon])
+
   const base = data?.baseline
 
   return (
@@ -135,6 +148,49 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           Baseline (all bars): avg <b className="text-md-on-surface">{pct(base.avg_clip_pct)}</b> · win <b className="text-md-on-surface">{base.win_rate_pct}%</b> · n={base.n.toLocaleString()}
         </div>
       )}
+
+      {/* LIVE setups — recent bars matching the pattern (the actionable output) */}
+      <div className="mb-5 border border-emerald-700/40 bg-emerald-900/10 rounded-lg p-3">
+        <div className="flex items-baseline justify-between mb-1">
+          <h2 className="text-sm font-bold">🔔 Live setups — recent {EVENT_META[comboEvent]?.label.split(' ')[0]} bars matching the pattern</h2>
+          <span className="text-[10px] text-md-on-surface-var">as of {live?.as_of || '—'} · last 7d {liveLoading && <span className="text-sky-400 animate-pulse">…</span>}</span>
+        </div>
+        <p className="text-[11px] text-md-on-surface-var mb-2">
+          <b className="text-emerald-300">confirmed</b> = T/Z already flipped up after the event (actionable) ·
+          <b className="text-amber-300"> pending</b> = event fired, not bullish yet (watch for the flip).
+          Filtered by the Pattern-builder slots below ({Object.entries(live?.applied || {}).map(([k, v]) => `${k}=${v}`).join(', ') || 'all *'}).
+        </p>
+        {!live?.setups?.length ? (
+          <div className="text-xs text-md-on-surface-var/60 italic">no recent setups for this pattern</div>
+        ) : (
+          <>
+            {['confirmed', 'pending'].map(st => {
+              const rows = live.setups.filter(s => s.status === st)
+              if (!rows.length) return null
+              return (
+                <div key={st} className="mb-2">
+                  <div className={`text-[10px] uppercase tracking-wide mb-1 ${st === 'confirmed' ? 'text-emerald-300' : 'text-amber-300'}`}>
+                    {st === 'confirmed' ? '✅ confirmed (flip fired)' : '⏳ pending (watch)'} · {rows.length}
+                  </div>
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5">
+                    {rows.map((s, i) => (
+                      <button key={i} onClick={() => onSelectTicker?.(s.ticker)}
+                        title={`zone ${s.zone_low}–${s.zone_high} · close ${s.close} · vol ×${s.z_mult} (${s.vol_bucket}/${s.range})`}
+                        className={`flex items-center justify-between gap-1 px-2 py-1 rounded border text-left ${st === 'confirmed' ? 'border-emerald-700/40 bg-emerald-900/20 hover:border-emerald-400' : 'border-amber-700/30 bg-amber-900/10 hover:border-amber-400'}`}>
+                        <span className="font-mono font-semibold text-xs">{s.ticker}</span>
+                        <span className="font-mono text-[10px] text-md-on-surface-var">{s.days_ago}d ·×{s.z_mult}</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+            <p className="text-[10px] text-md-on-surface-var/50">
+              Click → opens in Superchart (toggle ⊏⊐ Zone evt to see the RT marker). Build a pattern below to narrow this list.
+            </p>
+          </>
+        )}
+      </div>
 
       {/* Event edge table */}
       <table className="w-full text-xs mb-2 border border-white/10 rounded overflow-hidden">
