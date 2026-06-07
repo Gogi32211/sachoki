@@ -469,11 +469,12 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           </div>
           <div className="flex items-center gap-1" title="How the zone is formed">
             <span className="text-md-on-surface-var/60">zone:</span>
-            {[['spike', `spike ≥${volMin}×`], ['vb', 'VB class']].map(([zd, lbl]) => (
+            {[['spike', `spike ≥${volMin}×`], ['spike25', 'spike 2–5×'], ['vb', 'VB class']].map(([zd, lbl]) => (
               <button key={zd} onClick={() => setSeqZoneDef(zd)}
                 className={`px-2 py-0.5 rounded border ${seqZoneDef === zd ? 'bg-rose-900/50 text-rose-200 border-rose-600' : 'bg-md-surface border-white/10 hover:text-white'}`}>{lbl}</button>
             ))}
             {seqZoneDef === 'vb' && <span className="text-rose-300/70 text-[10px]">V2</span>}
+            {seqZoneDef === 'spike25' && <span className="text-rose-300/70 text-[10px]">V3</span>}
           </div>
           {seqLoading && <span className="text-sky-400 animate-pulse">mining…</span>}
           {seqData?.event_base && <span className="text-md-on-surface-var/60">base {seqData.event_base.win_rate_pct}% · {seqData.params?.n_signals} lead-in signals · {seqData.params?.n_combos} sequences</span>}

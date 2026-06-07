@@ -965,8 +965,13 @@ def _seq_sql(vol_min: float, depth: int, sigs: list, zone_def: str = "spike") ->
     out_lag = ", ".join(f"r.e{k}_{s}" for k in range(1, depth) for s in sigs)
     extra_lag = (", " + lag_sel) if lag_sel else ""
     extra_outlag = (", " + out_lag) if out_lag else ""
-    zone_where = ("vol_bucket = 'VB' AND high > low" if zone_def == "vb"
-                  else f"avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low")
+    if zone_def == "vb":
+        zone_where = "vol_bucket = 'VB' AND high > low"
+    elif zone_def == "spike25":      # moderate spike band: 2× ≤ vol < 5× avg
+        zone_where = ("avg_vol_20d > 0 AND volume >= 2 * avg_vol_20d "
+                      "AND volume < 5 * avg_vol_20d AND high > low")
+    else:                             # 'spike' (V1): vol ≥ vol_min × avg
+        zone_where = f"avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low"
     return f"""
         WITH zones AS (
             SELECT ticker, universe, date AS z_date, low AS z_low, high AS z_high
