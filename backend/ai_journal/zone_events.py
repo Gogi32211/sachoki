@@ -581,7 +581,8 @@ def _match_patterns(r) -> list:
 
 
 def live_setups(event_type: str = "retest", slots: dict | None = None,
-                bools: list | None = None, require_flip: bool = False,
+                bools: list | None = None, cats: dict | None = None,
+                require_flip: bool = False,
                 vol_min: float = 5.0, lb_max: int = 90,
                 horizon: int = 10, max_age_days: int = 5, limit: int = 80) -> dict:
     """LIVE scan: tickers whose RECENT bars (last `max_age_days`) are a setup
@@ -613,6 +614,12 @@ def live_setups(event_type: str = "retest", slots: dict | None = None,
         if b and b in d.columns:
             d = d[d[b] == 1]
             applied[b] = "1"
+    # generic categorical filters from the combos: flip_code, sequence (p1_*/p2_*),
+    # fib_level — anything not one of the 8 bar-code slots.
+    for col, val in (cats or {}).items():
+        if col and val and val != "*" and col in d.columns:
+            d = d[d[col].astype(str) == str(val)]
+            applied[col] = val
     if d.empty:
         return {"as_of": as_of, "event_type": event_type, "applied": applied,
                 "count": 0, "confirmed": 0, "pending": 0, "setups": []}

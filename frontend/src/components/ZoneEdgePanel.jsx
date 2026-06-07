@@ -48,6 +48,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [liveLoading, setLiveLoading] = useState(false)
   const [liveBools, setLiveBools] = useState([])   // boolean signals applied to live
   const [liveFlip, setLiveFlip]   = useState(false) // confirmed-only (flip required)
+  const [liveCats, setLiveCats]   = useState({})    // flip_code / sequence p1_*/p2_* filters
 
   useEffect(() => {
     let dead = false
@@ -115,11 +116,13 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon, max_age_days: '7',
       require_flip: liveFlip ? '1' : '0', ...patSlots })
     if (liveBools.length) q.set('bools', liveBools.join(','))
+    const catStr = Object.entries(liveCats).map(([k, v]) => `${k}=${v}`).join(',')
+    if (catStr) q.set('cats', catStr)
     fetch(`/api/zone-events/live?${q}`).then(r => r.json())
       .then(d => { if (!dead) setLive(d) }).catch(() => { if (!dead) setLive(null) })
       .finally(() => { if (!dead) setLiveLoading(false) })
     return () => { dead = true }
-  }, [patSlots, liveBools, liveFlip, comboEvent, volMin, horizon])
+  }, [patSlots, liveBools, liveFlip, liveCats, comboEvent, volMin, horizon])
 
   // map a combo's features → live filter (slots + bool signals + flip), then scroll up
   const SLOT_OF_COL = { t_sig: 'tz', z_sig: 'z', l_sig: 'l', full_suffix: 'suffix', bar_body_wick: 'bodywk',
@@ -127,24 +130,25 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   function applyComboToLive(c) {
     const feats = [c.a, c.b, c.c].filter(Boolean)
     const slots = { tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
-    const bools = []; let flip = false
+    const bools = []; const cats = {}; let flip = false
     for (const f of feats) {
-      if (f.includes('=')) {
+      if (f === 'tz_up_next3') {
+        flip = true                          // the follow-through flip → confirmed-only
+      } else if (f.includes('=')) {
         const i = f.indexOf('='); const col = f.slice(0, i); const val = f.slice(i + 1)
         const slot = SLOT_OF_COL[col]
-        if (slot) slots[slot] = val          // categorical that maps to a bar-code slot
-      } else if (f === 'tz_up_next3') {
-        flip = true                          // the follow-through flip → confirmed-only
+        if (slot) slots[slot] = val          // a bar-code slot (vol/l5/body…)
+        else cats[col] = val                 // flip_code / sequence p1_*/p2_* / fib_level
       } else {
         bools.push(f)                        // a boolean signal (sig_abs, wyc_spring, at_fib…)
       }
     }
-    setPatSlots(slots); setLiveBools(bools); setLiveFlip(flip)
+    setPatSlots(slots); setLiveBools(bools); setLiveCats(cats); setLiveFlip(flip)
     document.getElementById('live-setups')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   const clearLive = () => {
     setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
-    setLiveBools([]); setLiveFlip(false)
+    setLiveBools([]); setLiveCats({}); setLiveFlip(false)
   }
 
   const base = data?.baseline
@@ -205,7 +209,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           {Object.keys(live?.applied || {}).length === 0
             ? <span className="text-md-on-surface-var/50 italic">none — showing all recent {comboEvent}s (no edge filter)</span>
             : Object.entries(live.applied).map(([k, v]) => (
-                <span key={k} className="font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-700/40 text-emerald-200">{k}={v}</span>
+                <span key={k} className="font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-700/40 text-emerald-200">{fmtFeat(`${k}=${v}`)}</span>
               ))}
           {liveFlip && <span className="font-mono px-1.5 py-0.5 rounded bg-emerald-900/30 border border-emerald-700/40 text-emerald-200">confirmed-only</span>}
           <button onClick={() => { setPatSlots(s => ({ ...s, vol: 'B' })); setLiveBools(['sig_abs']); setLiveFlip(true) }}
