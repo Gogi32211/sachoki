@@ -24,6 +24,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   // 2-way combinations
   const [comboEvent, setComboEvent]   = useState('retest')
   const [comboAnchor, setComboAnchor] = useState(true)   // anchor on T/Z follow-through
+  const [comboWays, setComboWays]     = useState(2)       // 2- or 3-way
   const [combo, setCombo] = useState(null)
   const [comboLoading, setComboLoading] = useState(false)
   const [examples, setExamples] = useState(null)
@@ -49,7 +50,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     let dead = false
     setComboLoading(true)
     const q = new URLSearchParams({ event_type: comboEvent, vol_min: volMin, horizon,
-      first_only: firstOnly ? '1' : '0', min_n: '40', top: '15' })
+      first_only: firstOnly ? '1' : '0', min_n: comboWays === 3 ? '80' : '40', top: '15', ways: comboWays })
     if (comboAnchor) q.set('anchor', 'tz_up_next3')
     fetch(`/api/zone-events/combos?${q}`)
       .then(r => r.json())
@@ -57,7 +58,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
       .catch(() => { if (!dead) setCombo(null) })
       .finally(() => { if (!dead) setComboLoading(false) })
     return () => { dead = true }
-  }, [comboEvent, comboAnchor, volMin, horizon, firstOnly])
+  }, [comboEvent, comboAnchor, comboWays, volMin, horizon, firstOnly])
 
   useEffect(() => {
     let dead = false
@@ -213,10 +214,10 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
 
       {/* 2-way combinations */}
       <div className="mt-7">
-        <h2 className="text-sm font-bold mb-1">2-way combinations — signal × bar-shape</h2>
+        <h2 className="text-sm font-bold mb-1">{comboWays}-way combinations — IS vs OOS validated</h2>
         <p className="text-[11px] text-md-on-surface-var mb-3">
-          Single features barely move the needle; <b>pairs</b> are where the edge concentrates
-          (e.g. follow-through + a rejection bar shape). Watch <b>n</b> — small samples overfit.
+          Pairs/triples are where the edge concentrates. <b>IS</b> = before {combo?.params?.oos_from || '2025-01-01'},
+          <b> OOS</b> = after (out-of-sample). A real edge holds in BOTH; if OOS collapses, it's overfit.
         </p>
         <div className="flex flex-wrap items-center gap-3 text-xs mb-3">
           <div className="flex items-center gap-1">
@@ -227,12 +228,18 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               </button>
             ))}
           </div>
+          <div className="flex items-center gap-1">
+            {[2, 3].map(w => (
+              <button key={w} onClick={() => setComboWays(w)}
+                className={`px-2 py-0.5 rounded border ${comboWays === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-way</button>
+            ))}
+          </div>
           <label className="flex items-center gap-1 cursor-pointer select-none">
             <input type="checkbox" checked={comboAnchor} onChange={e => setComboAnchor(e.target.checked)} />
             <span className="text-md-on-surface-var">anchor on T/Z follow-through</span>
           </label>
           {comboLoading && <span className="text-sky-400 animate-pulse">computing…</span>}
-          {combo?.event_base && <span className="text-md-on-surface-var/60">base win {combo.event_base.win_rate_pct}% · {combo.params?.n_pairs} pairs</span>}
+          {combo?.event_base && <span className="text-md-on-surface-var/60">base {combo.event_base.win_rate_pct}% · {combo.params?.n_combos} combos</span>}
         </div>
         <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
           <thead className="bg-md-surface-high text-md-on-surface-var">
@@ -240,29 +247,36 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               <th className="text-left px-3 py-1.5">combination</th>
               <th className="text-right px-3 py-1.5">n</th>
               <th className="text-right px-3 py-1.5">win</th>
-              <th className="text-right px-3 py-1.5">lift</th>
+              <th className="text-right px-3 py-1.5" title="in-sample">IS</th>
+              <th className="text-right px-3 py-1.5" title="out-of-sample">OOS</th>
+              <th className="text-center px-2 py-1.5" title="does OOS hold within 6pp of IS?">holds?</th>
             </tr>
           </thead>
           <tbody>
-            {(combo?.best || []).map((c, i) => (
-              <tr key={i} className="border-t border-white/5">
-                <td className="px-3 py-1.5 font-mono">
-                  <span className="text-sky-300">{c.a}</span>
-                  <span className="text-md-on-surface-var/40"> + </span>
-                  <span className="text-violet-300">{c.b}</span>
-                </td>
-                <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 500 ? 'text-emerald-300' : c.n >= 150 ? 'text-md-on-surface' : 'text-amber-400/70'}`}
-                    title={c.n >= 500 ? 'solid sample' : c.n >= 150 ? 'ok sample' : 'small — overfit risk'}>
-                  {c.n.toLocaleString()}{c.n < 150 ? ' ⚠' : ''}
-                </td>
-                <td className="text-right px-3 py-1.5 font-mono">{c.win_rate_pct}%</td>
-                <td className="text-right px-3 py-1.5 font-mono font-bold text-emerald-400">{pct(c.lift_avg_pct)} <span className="text-md-on-surface-var/50 font-normal">{pp(c.lift_win_pp)}</span></td>
-              </tr>
-            ))}
+            {(combo?.best || []).map((c, i) => {
+              const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > combo.event_base.win_rate_pct
+              return (
+                <tr key={i} className="border-t border-white/5">
+                  <td className="px-3 py-1.5 font-mono text-[11px]">
+                    <span className="text-sky-300">{c.a}</span>
+                    <span className="text-md-on-surface-var/40"> + </span>
+                    <span className="text-violet-300">{c.b}</span>
+                    {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300">{c.c}</span></>}
+                  </td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${c.n >= 300 ? 'text-emerald-300' : c.n >= 100 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>
+                    {c.n.toLocaleString()}{c.n < 100 ? ' ⚠' : ''}
+                  </td>
+                  <td className="text-right px-3 py-1.5 font-mono font-bold">{c.win_rate_pct}%</td>
+                  <td className="text-right px-3 py-1.5 font-mono text-md-on-surface-var">{c.win_is_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_is}</span></td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span></td>
+                  <td className="text-center px-2 py-1.5">{holds ? '✅' : '❌'}</td>
+                </tr>
+              )
+            })}
           </tbody>
         </table>
         <p className="text-[10px] text-md-on-surface-var/50 mt-1">
-          n ≥ 500 green = trustworthy · 150–500 neutral · &lt;150 ⚠ overfit risk. Lift vs the event's own average.
+          ✅ holds = OOS within 6pp of IS AND above base. ❌ = overfit (looked good in-sample, failed out-of-sample). n ≥ 300 green.
         </p>
       </div>
 
@@ -301,7 +315,15 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               <span className={`font-mono font-bold ${patResult.matched.lift_win_pp > 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
                 {pp(patResult.matched.lift_win_pp)} vs base {patResult.base?.win_rate_pct}%
               </span>
-              <span className="font-mono text-md-on-surface-var">avg {pct(patResult.matched.avg_clip_pct)}</span>
+              {patResult.matched.split && (() => {
+                const sp = patResult.matched.split
+                const holds = sp.is?.win_rate_pct != null && sp.oos?.win_rate_pct != null && (sp.oos.win_rate_pct - sp.is.win_rate_pct) >= -6
+                return <span className="font-mono">
+                  <span className="text-md-on-surface-var">IS {sp.is?.win_rate_pct}%·{sp.is?.n}</span>
+                  <span className="text-md-on-surface-var/40"> / </span>
+                  <span className={holds ? 'text-emerald-300' : 'text-rose-300'}>OOS {sp.oos?.win_rate_pct ?? '—'}%·{sp.oos?.n} {sp.oos?.win_rate_pct != null && (holds ? '✅' : '❌')}</span>
+                </span>
+              })()}
             </>}
           </div>
         )}

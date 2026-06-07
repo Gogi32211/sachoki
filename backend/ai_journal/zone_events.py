@@ -130,23 +130,34 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
     """
 
 
+import threading as _threading
+_EVENTS_CACHE: dict = {}
+_EVENTS_LOCK = _threading.Lock()
+
+
 def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
-    import pandas as pd
-    a = get_analytics_conn()
-    try:
-        df = a.execute(_events_sql(vol_min, lb_max, ticker=ticker)).fetchdf()
-    finally:
-        a.close()
-    if df.empty:
+    """Build (or reuse) the labelled event log. Cached + serialised so the panel's
+    several concurrent endpoints share ONE scan instead of recomputing it each."""
+    key = (float(vol_min), int(lb_max), ticker)
+    with _EVENTS_LOCK:                       # first caller computes; the rest hit cache
+        if key in _EVENTS_CACHE:
+            return _EVENTS_CACHE[key]
+        a = get_analytics_conn()
+        try:
+            df = a.execute(_events_sql(vol_min, lb_max, ticker=ticker)).fetchdf()
+        finally:
+            a.close()
+        if not df.empty:
+            # A ticker dual-listed across universes yields the same event twice.
+            df = df.drop_duplicates(subset=["ticker", "z_date", "z_low", "z_high", "e_date", "event_type"])
+            _add_fib(df)
+            if "bar_gap_class" in df.columns and "bar_range_class" in df.columns:
+                df["gap_rng"] = (df["bar_gap_class"].fillna("").astype(str) + "-"
+                                 + df["bar_range_class"].fillna("").astype(str)).replace("-", None)
+        _EVENTS_CACHE[key] = df
+        if len(_EVENTS_CACHE) > 8:
+            _EVENTS_CACHE.pop(next(iter(_EVENTS_CACHE)))
         return df
-    # A ticker dual-listed across universes yields the same zone/event twice.
-    df = df.drop_duplicates(subset=["ticker", "z_date", "z_low", "z_high", "e_date", "event_type"])
-    _add_fib(df)
-    # combined gap/range slot, e.g. "G1-C"
-    if "bar_gap_class" in df.columns and "bar_range_class" in df.columns:
-        df["gap_rng"] = (df["bar_gap_class"].fillna("").astype(str) + "-"
-                         + df["bar_range_class"].fillna("").astype(str)).replace("-", None)
-    return df
 
 
 # Pattern-builder slots → the column each maps to (the user's full bar-code).
@@ -190,6 +201,22 @@ def _add_fib(df, tol_atr: float = 0.5):
     labels = np.array(_FIB_LABELS)
     df["fib_level"] = np.where(at, labels[near_idx], None)
     return df
+
+
+_OOS_FROM = "2025-01-01"   # events on/after this date = out-of-sample test set
+
+
+def _split_stats(sub, col, oos_from: str = _OOS_FROM):
+    """In-sample vs out-of-sample win-rate for a df subset (split by event date)."""
+    if sub is None or not len(sub):
+        return {"is": {"n": 0, "win_rate_pct": None}, "oos": {"n": 0, "win_rate_pct": None}}
+    ed = sub["e_date"].astype(str)
+
+    def _stat(d):
+        c = d[col].dropna()
+        c = c[c.between(-90, 500)]
+        return {"n": int(len(d)), "win_rate_pct": round(float((c > 0).mean()) * 100, 1) if len(c) else None}
+    return {"is": _stat(sub[ed < oos_from]), "oos": _stat(sub[ed >= oos_from]), "oos_from": oos_from}
 
 
 def _clip_bounds(horizon: int):
@@ -459,7 +486,8 @@ def pattern(event_type: str = "retest", slots: dict | None = None,
                     "win5_pct": _winh(5), "win10_pct": _winh(10), "win20_pct": _winh(20),
                     "avg_clip_pct": round(avg, 3) if n else None,
                     "lift_win_pp": round((win - base_win) * 100, 1) if n else None,
-                    "lift_avg_pct": round(avg - base_avg, 3) if n else None},
+                    "lift_avg_pct": round(avg - base_avg, 3) if n else None,
+                    "split": _split_stats(m, col)},
         "examples": ex,
     }
 
@@ -491,7 +519,7 @@ def pattern_values(event_type: str = "retest", require_flip: bool = False,
 
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
                horizon: int = 10, first_only: bool = True, min_n: int = 40,
-               top: int = 15, anchor: str | None = None) -> dict:
+               top: int = 15, anchor: str | None = None, ways: int = 2) -> dict:
     """2-way COMBINATIONS of context features (signals + bar-description shapes)
     on one event type, ranked by forward-edge lift vs the event's own average.
     Single features rarely move the needle — pairs (e.g. follow-through + a
@@ -534,37 +562,59 @@ def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 9
     labels = [lbl for lbl, _ in feats]
     field_of = [lbl.split("=")[0] for lbl in labels]
     M = np.array([v for _, v in feats], dtype=float).T          # events × F
-    C = M.T @ M                                                 # pair counts
-    S = (M * ret[:, None]).T @ M                                # pair sum(ret)
-    W = (M * winv[:, None]).T @ M                               # pair sum(win)
-
-    combos = []
     F = len(labels)
-    for i in range(F):
-        if anchor and labels[i] != anchor:
-            # still allow j==anchor handled below; only prune when neither is anchor
-            pass
-        for j in range(i + 1, F):
-            if anchor and labels[i] != anchor and labels[j] != anchor:
-                continue
-            if field_of[i] == field_of[j]:        # same categorical field → impossible/empty
-                continue
-            n = C[i, j]
-            if n < min_n:
-                continue
-            avg = S[i, j] / n
-            win = W[i, j] / n
-            combos.append({"a": labels[i], "b": labels[j], "n": int(n),
-                           "avg_clip_pct": round(float(avg), 3),
-                           "win_rate_pct": round(float(win) * 100, 1),
-                           "lift_avg_pct": round(float(avg - base_avg), 3),
-                           "lift_win_pp": round(float(win - base_win) * 100, 1)})
+    oos = (df["e_date"].astype(str).to_numpy() >= _OOS_FROM).astype(float)
+    in_s = 1.0 - oos
+
+    def _stats(vec):
+        """For a boolean combo vector: overall + IS/OOS win, avg, lift."""
+        n = float(vec.sum())
+        avg = float((vec * ret).sum() / n)
+        win = float((vec * winv).sum() / n)
+        n_is = float((vec * in_s).sum()); n_oos = float((vec * oos).sum())
+        win_is = float((vec * winv * in_s).sum() / n_is) if n_is else None
+        win_oos = float((vec * winv * oos).sum() / n_oos) if n_oos else None
+        return {"n": int(n), "avg_clip_pct": round(avg, 3),
+                "win_rate_pct": round(win * 100, 1),
+                "lift_avg_pct": round(avg - base_avg, 3),
+                "lift_win_pp": round((win - base_win) * 100, 1),
+                "win_is_pct": round(win_is * 100, 1) if win_is is not None else None,
+                "win_oos_pct": round(win_oos * 100, 1) if win_oos is not None else None,
+                "n_is": int(n_is), "n_oos": int(n_oos)}
+
+    C = M.T @ M
+    combos = []
+    if ways >= 3:
+        # apriori: extend each FREQUENT pair with a third feature (cheap)
+        for i in range(F):
+            for j in range(i + 1, F):
+                if field_of[i] == field_of[j] or C[i, j] < min_n:
+                    continue
+                if anchor and anchor not in (labels[i], labels[j]):
+                    # for anchored 3-way, require the anchor in the base pair
+                    continue
+                vij = M[:, i] * M[:, j]
+                ck = vij @ M                       # counts of (i,j,k) for all k
+                for k in range(j + 1, F):
+                    if field_of[k] in (field_of[i], field_of[j]) or ck[k] < min_n:
+                        continue
+                    vec = vij * M[:, k]
+                    st = _stats(vec)
+                    combos.append({"a": labels[i], "b": labels[j], "c": labels[k], **st})
+    else:
+        for i in range(F):
+            for j in range(i + 1, F):
+                if field_of[i] == field_of[j] or C[i, j] < min_n:
+                    continue
+                if anchor and anchor not in (labels[i], labels[j]):
+                    continue
+                combos.append({"a": labels[i], "b": labels[j], **_stats(M[:, i] * M[:, j])})
     combos.sort(key=lambda r: r["lift_avg_pct"], reverse=True)
     return {
         "event_type": event_type,
         "params": {"vol_min": vol_min, "lb_max": lb_max, "horizon": horizon,
                    "first_only": first_only, "min_n": min_n, "anchor": anchor,
-                   "n_features": F, "n_pairs": len(combos)},
+                   "ways": ways, "oos_from": _OOS_FROM, "n_features": F, "n_combos": len(combos)},
         "event_base": {"avg_clip_pct": round(base_avg, 3),
                        "win_rate_pct": round(base_win * 100, 1), "n": base_n},
         "best": combos[:top],
