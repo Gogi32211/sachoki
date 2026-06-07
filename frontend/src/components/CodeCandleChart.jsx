@@ -87,6 +87,9 @@ export default function CodeCandleChart({
   const [showInsider,  setShowInsider]  = useState(false)
   const [insiderMarks, setInsiderMarks] = useState([])
   const [insiderLoading, setInsiderLoading] = useState(false)
+  // Zone events overlay — EXIT/RETEST markers (+ T/Z-flip ✓) from the Zone Edge analysis.
+  const [showZoneEvents, setShowZoneEvents] = useState(false)
+  const [zoneEvents, setZoneEvents] = useState([])
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -483,6 +486,19 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showInsider, limit])
 
+  // Zone-events overlay — fetch EXIT/RETEST events for this ticker (Zone Edge).
+  useEffect(() => {
+    if (!showZoneEvents || !ticker || tf !== '1d') { setZoneEvents([]); return }
+    let dead = false
+    const firstDate = candlesRef.current?.[0]?.time
+    const fromQ = firstDate ? `&from_date=${firstDate}` : ''
+    fetch(`/api/zone-events/ticker/${ticker}?vol_min=5${fromQ}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setZoneEvents(d?.events || []) })
+      .catch(() => { if (!dead) setZoneEvents([]) })
+    return () => { dead = true }
+  }, [ticker, tf, showZoneEvents, limit])
+
   // External zone-classification markers (one per bar with relation to HV-zone)
   // merged with trigger-bar markers (per-zone colored to match its lines).
   useEffect(() => {
@@ -520,10 +536,23 @@ export default function CodeCandleChart({
         text: ib.n_insiders > 1 ? `★${ib.n_insiders}` : '★',
       })
     }
+    // 4) Zone EXIT/RETEST events (Zone Edge). ✓ suffix = T/Z flipped up after.
+    const ZEV = {
+      exit_up:   { position: 'aboveBar', shape: 'arrowUp',   color: '#34d399', t: 'X↑' },
+      exit_down: { position: 'belowBar', shape: 'arrowDown', color: '#fb7185', t: 'X↓' },
+      retest:    { position: 'belowBar', shape: 'circle',    color: '#fbbf24', t: 'RT' },
+    }
+    for (const ev of (zoneEvents || [])) {
+      const m = ZEV[ev.event_type]
+      if (!m) continue
+      markers.push({ time: ev.event_date, position: m.position, shape: m.shape,
+        color: ev.tz_flip ? m.color : m.color + '80',
+        text: m.t + (ev.tz_flip ? '✓' : '') })
+    }
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents])
 
   // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
   // Two horizontal lines per zone (zone_low / zone_high) using lightweight-
@@ -710,6 +739,18 @@ export default function CodeCandleChart({
               {showInsider && !insiderLoading && (
                 <span className="text-amber-300">{insiderMarks.length}</span>
               )}
+            </div>
+            {/* Zone EXIT/RETEST events (Zone Edge) — RT/X↑/X↓ markers, ✓ = T/Z flip */}
+            <div className="flex items-center gap-0.5 text-[10px]"
+                 title="Zone Edge events: RT=retest, X↑/X↓=exit. ✓ = T/Z flipped up in the 3 bars after (the edge). Zones from vol≥5 spikes.">
+              <button onClick={() => setShowZoneEvents(v => !v)}
+                className={`px-1.5 py-0.5 rounded font-mono border ${
+                  showZoneEvents
+                    ? 'bg-sky-900/50 text-sky-200 border-sky-500'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                ⊏⊐ Zone evt
+              </button>
+              {showZoneEvents && zoneEvents.length > 0 && <span className="text-sky-300">{zoneEvents.length}</span>}
             </div>
             {legend}
             {showBarSelector && (

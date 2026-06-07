@@ -14,7 +14,7 @@ const pct = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(2) + '%'
 const pp = (v) => (v > 0 ? '+' : '') + (v ?? 0).toFixed(1) + 'pp'
 const edgeColor = (v) => v > 0.05 ? 'text-emerald-400' : v < -0.05 ? 'text-rose-400' : 'text-md-on-surface-var'
 
-export default function ZoneEdgePanel() {
+export default function ZoneEdgePanel({ onSelectTicker }) {
   const [volMin, setVolMin]   = useState(5)
   const [horizon, setHorizon] = useState(10)
   const [firstOnly, setFirstOnly] = useState(true)
@@ -26,6 +26,7 @@ export default function ZoneEdgePanel() {
   const [comboAnchor, setComboAnchor] = useState(true)   // anchor on T/Z follow-through
   const [combo, setCombo] = useState(null)
   const [comboLoading, setComboLoading] = useState(false)
+  const [examples, setExamples] = useState(null)
 
   useEffect(() => {
     let dead = false
@@ -52,6 +53,17 @@ export default function ZoneEdgePanel() {
       .finally(() => { if (!dead) setComboLoading(false) })
     return () => { dead = true }
   }, [comboEvent, comboAnchor, volMin, horizon, firstOnly])
+
+  useEffect(() => {
+    let dead = false
+    const q = new URLSearchParams({ event_type: comboEvent, require_flip: comboAnchor ? '1' : '0',
+      vol_min: volMin, horizon, limit: '20' })
+    fetch(`/api/zone-events/examples?${q}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setExamples(d) })
+      .catch(() => { if (!dead) setExamples(null) })
+    return () => { dead = true }
+  }, [comboEvent, comboAnchor, volMin, horizon])
 
   const base = data?.baseline
 
@@ -224,6 +236,35 @@ export default function ZoneEdgePanel() {
         </table>
         <p className="text-[10px] text-md-on-surface-var/50 mt-1">
           n ≥ 500 green = trustworthy · 150–500 neutral · &lt;150 ⚠ overfit risk. Lift vs the event's own average.
+        </p>
+      </div>
+
+      {/* Concrete examples — see them on a chart */}
+      <div className="mt-7">
+        <h2 className="text-sm font-bold mb-1">
+          See it on a chart — {examples?.count || 0} example {EVENT_META[comboEvent]?.label.split(' ')[0]} instances
+          {comboAnchor && <span className="text-emerald-300"> with T/Z flip</span>}
+        </h2>
+        <p className="text-[11px] text-md-on-surface-var mb-2">
+          One recent instance per ticker. Open any in <b>Superchart</b>, then toggle <b>⊏⊐ Zone evt</b> to see the
+          RT / X↑ / X↓ markers (✓ = T/Z flipped up after). Honest mix of wins & losses — that's the ~48% reality.
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-1.5 text-xs">
+          {(examples?.examples || []).map((e, i) => {
+            const ret = e[`fwd_${horizon}d`]
+            return (
+              <button key={i} onClick={() => onSelectTicker?.(e.ticker)}
+                className="flex items-center justify-between gap-1 px-2 py-1 rounded border border-white/10 bg-md-surface hover:border-sky-500 hover:bg-md-surface-high text-left">
+                <span className="font-mono font-semibold">{e.ticker}</span>
+                <span className={`font-mono text-[11px] ${e.win ? 'text-emerald-400' : 'text-rose-400'}`}>
+                  {ret > 0 ? '+' : ''}{ret}%
+                </span>
+              </button>
+            )
+          })}
+        </div>
+        <p className="text-[10px] text-md-on-surface-var/50 mt-1">
+          ×N = zone vol multiple · click a ticker to load it (then open Superchart). Sorted most-recent first.
         </p>
       </div>
 

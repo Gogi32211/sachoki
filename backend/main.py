@@ -440,6 +440,32 @@ def zone_events_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10
         return {"events": [], "context": {}, "error": str(e)}
 
 
+@app.get("/api/zone-events/ticker/{ticker}")
+def zone_events_ticker(ticker: str, vol_min: float = 5.0, from_date: str | None = None,
+                       horizon: int = 10):
+    """All EXIT/RETEST events for one ticker — chart overlay (zone + markers + flip)."""
+    from ai_journal.zone_events import events_for_ticker
+    try:
+        return events_for_ticker(ticker, vol_min=vol_min, from_date=from_date, horizon=horizon)
+    except Exception as e:
+        log.warning("zone-events ticker %s failed: %s", ticker, e)
+        return {"ticker": ticker.upper(), "events": [], "error": str(e)}
+
+
+@app.get("/api/zone-events/examples")
+def zone_events_examples(event_type: str = "retest", require_flip: bool = True,
+                         vol_min: float = 5.0, horizon: int = 10, limit: int = 20):
+    """~limit concrete example instances of a pattern (one per ticker) to open and
+    inspect on the chart."""
+    from ai_journal.zone_events import examples
+    try:
+        return examples(event_type=event_type, require_flip=require_flip,
+                       vol_min=vol_min, horizon=horizon, limit=limit)
+    except Exception as e:
+        log.exception("zone-events examples failed")
+        return {"examples": [], "error": str(e)}
+
+
 @app.get("/api/zone-events/combos")
 def zone_events_combos(event_type: str = "retest", vol_min: float = 5.0,
                        lb_max: int = 90, horizon: int = 10, first_only: bool = True,

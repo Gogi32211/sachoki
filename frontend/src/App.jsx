@@ -349,7 +349,7 @@ export default function App() {
           {activeTab === 'pulse'          && <IndustryPulsePanel />}
           {activeTab === 'hvzones'        && <HVZonesPanel />}
           {activeTab === 'gannzones'      && <GannZonesPanel />}
-          {activeTab === 'zoneedge'       && <ZoneEdgePanel />}
+          {activeTab === 'zoneedge'       && <ZoneEdgePanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
         </div>

@@ -49,9 +49,13 @@ _CAT_CTX = ["vol_bucket", "bar_body_wick", "wick_suffix", "close_suffix",
 _DERIVED_CTX = ["tz_up_next3"]
 
 
-def _events_sql(vol_min: float, lb_max: int) -> str:
+def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
     bool_cols = ", ".join(f"b.{c}" for c in _BOOL_CTX)
     cat_cols = ", ".join(f"b.{c}" for c in _CAT_CTX)
+    tk_filter = ""
+    if ticker:
+        tk = "".join(c for c in ticker.upper() if c.isalnum() or c in ".-")
+        tk_filter = f" AND ticker = '{tk}'"
     return f"""
         WITH zones AS (
             SELECT ticker, universe, date AS z_date,
@@ -59,7 +63,7 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
                    volume / avg_vol_20d AS z_mult,
                    CASE WHEN close > open THEN 'bull' ELSE 'bear' END AS z_dir
             FROM bars
-            WHERE avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low
+            WHERE avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low{tk_filter}
         ),
         fwd AS (
             SELECT z.ticker, z.universe, z.z_date, z.z_low, z.z_high, z.z_atr,
@@ -112,11 +116,11 @@ def _events_sql(vol_min: float, lb_max: int) -> str:
     """
 
 
-def _load_events(vol_min: float, lb_max: int):
+def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
     import pandas as pd
     a = get_analytics_conn()
     try:
-        df = a.execute(_events_sql(vol_min, lb_max)).fetchdf()
+        df = a.execute(_events_sql(vol_min, lb_max, ticker=ticker)).fetchdf()
     finally:
         a.close()
     if df.empty:
@@ -273,6 +277,70 @@ def full_report(vol_min: float = 5.0, lb_max: int = 90, horizon: int = 10,
         "events": events_out,
         "context": context_out,
     }
+
+
+def events_for_ticker(ticker: str, vol_min: float = 5.0, lb_max: int = 90,
+                      from_date: str | None = None, horizon: int = 10) -> dict:
+    """Every EXIT/RETEST event for ONE ticker — chart overlay (zone box + event
+    markers + T/Z-flip flag + forward outcome). Fast (zones filtered to ticker)."""
+    df = _load_events(vol_min, lb_max, ticker=ticker.upper())
+    col = f"fwd_{horizon}d"
+    events = []
+    if not df.empty:
+        if from_date:
+            df = df[df["e_date"].astype(str) >= from_date]
+        df = df.sort_values("e_date")
+        for _, r in df.iterrows():
+            fwd = r.get(col)
+            events.append({
+                "trigger_date": str(r["z_date"])[:10],
+                "zone_low":     round(float(r["z_low"]), 4),
+                "zone_high":    round(float(r["z_high"]), 4),
+                "event_date":   str(r["e_date"])[:10],
+                "event_type":   r["event_type"],
+                "tz_flip":      int(r.get("tz_up_next3", 0) or 0),
+                "z_mult":       round(float(r["z_mult"]), 1),
+                f"fwd_{horizon}d": None if fwd is None or fwd != fwd else round(float(fwd), 2),
+                "vol_bucket":   r.get("vol_bucket"),
+                "bar_body_wick": r.get("bar_body_wick"),
+                "wyc_spring":   int(r.get("wyc_spring", 0) or 0),
+            })
+    return {"ticker": ticker.upper(), "vol_min": vol_min, "horizon": horizon,
+            "count": len(events), "events": events}
+
+
+def examples(event_type: str = "retest", require_flip: bool = True, vol_min: float = 5.0,
+             lb_max: int = 90, horizon: int = 10, first_only: bool = True,
+             limit: int = 20) -> dict:
+    """~`limit` concrete example instances of a pattern (one per ticker, most
+    recent) — so the user can open those tickers and SEE the events on the chart."""
+    df = _load_events(vol_min, lb_max)
+    col = f"fwd_{horizon}d"
+    rows = []
+    if not df.empty:
+        if first_only:
+            df = df[df["ev_seq"] == 1]
+        df = df[(df["event_type"] == event_type) & df[col].notna() & df[col].between(-90, 500)]
+        if require_flip:
+            df = df[df["tz_up_next3"] == 1]
+        df = df.sort_values("e_date", ascending=False).drop_duplicates(subset=["ticker"])
+        for _, r in df.head(limit).iterrows():
+            rows.append({
+                "ticker":      r["ticker"],
+                "event_date":  str(r["e_date"])[:10],
+                "trigger_date": str(r["z_date"])[:10],
+                "zone_low":    round(float(r["z_low"]), 4),
+                "zone_high":   round(float(r["z_high"]), 4),
+                "z_mult":      round(float(r["z_mult"]), 1),
+                "tz_flip":     int(r.get("tz_up_next3", 0) or 0),
+                f"fwd_{horizon}d": round(float(r[col]), 2),
+                "win":         bool(r[col] > 0),
+                "vol_bucket":  r.get("vol_bucket"),
+                "bar_body_wick": r.get("bar_body_wick"),
+            })
+    return {"event_type": event_type, "require_flip": require_flip,
+            "params": {"vol_min": vol_min, "horizon": horizon},
+            "count": len(rows), "examples": rows}
 
 
 def combo_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
