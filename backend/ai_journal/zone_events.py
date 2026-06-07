@@ -47,8 +47,9 @@ _CAT_CTX = ["vol_bucket", "bar_body_wick", "wick_suffix", "close_suffix",
 # Derived booleans: tz_up_next3 (T/Z flip in the 3 bars after) and at_fib (event
 # close within 0.5×ATR of a Fibonacci level of the TRAILING range — confluence).
 _DERIVED_CTX = ["tz_up_next3", "at_fib"]
-# Derived categorical: which Fib level the event sits on (None when not at one).
-_DERIVED_CAT = ["fib_level"]
+# Derived categoricals: which Fib level the event sits on, and which specific
+# T-code drove the follow-through flip (T4/T6/T2G…). Both None when N/A.
+_DERIVED_CAT = ["fib_level", "flip_code"]
 
 
 def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
@@ -71,7 +72,7 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
         ),
         fwd AS (
             SELECT z.ticker, z.universe, z.z_date, z.z_low, z.z_high, z.z_atr,
-                   z.z_mult, z.z_dir, b.date AS e_date, b.tz_bull AS tzb,
+                   z.z_mult, z.z_dir, b.date AS e_date, b.tz_bull AS tzb, b.t_sig AS tsig,
                    datediff('day', z.z_date, b.date) AS age_days,
                    (b.close > z.z_high)                      AS above,
                    (b.close < z.z_low)                       AS below,
@@ -88,7 +89,11 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                    -- T/Z follow-through: tz_bull turns on in the next 3 bars (window,
                    -- not a per-row subquery — keeps the whole scan one pass).
                    coalesce(max(tzb) OVER (PARTITION BY ticker, universe, z_date
-                       ORDER BY e_date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING), 0) AS tz_up_next3
+                       ORDER BY e_date ROWS BETWEEN 1 FOLLOWING AND 3 FOLLOWING), 0) AS tz_up_next3,
+                   -- the T-code of each of the next 3 bars (which specific T drives the flip)
+                   lead(tsig, 1) OVER w AS ld1,
+                   lead(tsig, 2) OVER w AS ld2,
+                   lead(tsig, 3) OVER w AS ld3
             FROM fwd
             WINDOW w AS (PARTITION BY ticker, universe, z_date ORDER BY e_date)
         ),
@@ -122,7 +127,8 @@ def _events_sql(vol_min: float, lb_max: int, ticker: str | None = None) -> str:
                (e.z_high - e.z_low) / NULLIF(e.z_atr, 0) AS width_atr,
                b.fwd_5d, b.fwd_10d, b.fwd_20d, b.mfe_10d, b.mae_10d,
                b.close AS e_close, b.atr_14 AS e_atr, x.t_lo, x.t_hi,
-               b.t_sig, b.l_sig, b.full_suffix,    -- extra slots for the pattern builder
+               b.t_sig, b.z_sig, b.l_sig, b.full_suffix,    -- extra slots for the pattern builder
+               e.ld1, e.ld2, e.ld3,                          -- next-3-bar T-codes (flip driver)
                -- genuine FLIP: not bullish at the event bar, turns bullish within 3 bars
                CASE WHEN coalesce(e.tzb, 0) = 0 AND e.tz_up_next3 = 1 THEN 1 ELSE 0 END AS tz_up_next3,
                {cat_cols}, {bool_cols}
@@ -156,6 +162,7 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
             if "bar_gap_class" in df.columns and "bar_range_class" in df.columns:
                 df["gap_rng"] = (df["bar_gap_class"].fillna("").astype(str) + "-"
                                  + df["bar_range_class"].fillna("").astype(str)).replace("-", None)
+            _add_flip_code(df)
         _EVENTS_CACHE[key] = df
         if len(_EVENTS_CACHE) > 8:
             _EVENTS_CACHE.pop(next(iter(_EVENTS_CACHE)))
@@ -164,7 +171,8 @@ def _load_events(vol_min: float, lb_max: int, ticker: str | None = None):
 
 # Pattern-builder slots → the column each maps to (the user's full bar-code).
 PATTERN_SLOTS = {
-    "tz":     "t_sig",         # T2G, T1 …
+    "tz":     "t_sig",         # T2G, T1 … (bullish T-code on the event bar)
+    "z":      "z_sig",         # Z2G, Z6 … (bearish Z-code on the event bar)
     "l":      "l_sig",         # L34, L46 …
     "suffix": "full_suffix",   # EU, ED …
     "bodywk": "bar_body_wick", # STB, M …
@@ -176,6 +184,24 @@ PATTERN_SLOTS = {
 
 _FIB_RATIOS = [0.0, 0.236, 0.382, 0.5, 0.618, 0.786, 1.0]
 _FIB_LABELS = ["0", "0.236", "0.382", "0.5", "0.618", "0.786", "1"]
+
+
+def _add_flip_code(df):
+    """flip_code = WHICH specific T-code drove the follow-through flip (the first
+    non-empty t_sig in the next 3 bars), only for genuine flips. Lets us see which
+    T (T4/T6 engulf vs T9 inside …) actually carries the edge, not just 'any T'."""
+    import numpy as np
+    if df.empty or "ld1" not in df.columns:
+        df["flip_code"] = None
+        return df
+    ld1 = df["ld1"].fillna("").astype(str)
+    ld2 = df["ld2"].fillna("").astype(str)
+    ld3 = df["ld3"].fillna("").astype(str)
+    fc = ld1.where(ld1 != "", ld2)
+    fc = fc.where(fc != "", ld3)
+    flipped = df["tz_up_next3"].fillna(0).to_numpy() == 1
+    df["flip_code"] = np.where(flipped & (fc.to_numpy() != ""), fc.to_numpy(), None)
+    return df
 
 
 def _add_fib(df, tol_atr: float = 0.5):
@@ -605,6 +631,7 @@ def live_setups(event_type: str = "retest", slots: dict | None = None,
             "zone_low": round(float(r["z_low"]), 4), "zone_high": round(float(r["z_high"]), 4),
             "close": round(float(r["e_close"]), 4), "z_mult": round(float(r["z_mult"]), 1),
             "vol_bucket": r.get("vol_bucket"), "range": r.get("bar_range_class"),
+            "flip_code": r.get("flip_code"),
             "patterns": _match_patterns(r),
         })
     setups.sort(key=lambda x: (0 if x["status"] == "confirmed" else 1, x["days_ago"]))

@@ -30,7 +30,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
   const [patValues, setPatValues] = useState(null)
-  const [patSlots, setPatSlots]   = useState({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+  const [patSlots, setPatSlots]   = useState({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
   const [patResult, setPatResult] = useState(null)
   const [patLoading, setPatLoading] = useState(false)
   const [live, setLive] = useState(null)
@@ -78,7 +78,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   // pattern dropdown values — refetch + reset slots when event/flip context changes
   useEffect(() => {
     let dead = false
-    setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+    setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
     const q = new URLSearchParams({ event_type: comboEvent, require_flip: comboAnchor ? '1' : '0', vol_min: volMin, horizon })
     fetch(`/api/zone-events/pattern/values?${q}`).then(r => r.json())
       .then(d => { if (!dead) setPatValues(d?.slots || {}) }).catch(() => {})
@@ -111,11 +111,11 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   }, [patSlots, liveBools, liveFlip, comboEvent, volMin, horizon])
 
   // map a combo's features → live filter (slots + bool signals + flip), then scroll up
-  const SLOT_OF_COL = { t_sig: 'tz', l_sig: 'l', full_suffix: 'suffix', bar_body_wick: 'bodywk',
+  const SLOT_OF_COL = { t_sig: 'tz', z_sig: 'z', l_sig: 'l', full_suffix: 'suffix', bar_body_wick: 'bodywk',
                         gap_rng: 'gaprng', bar_line5: 'l5', vol_bucket: 'vol' }
   function applyComboToLive(c) {
     const feats = [c.a, c.b, c.c].filter(Boolean)
-    const slots = { tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
+    const slots = { tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
     const bools = []; let flip = false
     for (const f of feats) {
       if (f.includes('=')) {
@@ -132,7 +132,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
     document.getElementById('live-setups')?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
   const clearLive = () => {
-    setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
+    setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })
     setLiveBools([]); setLiveFlip(false)
   }
 
@@ -225,13 +225,18 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                         : 'no robust pattern (vol≠B)'
                       const pColor = !top ? '' : top.oos_win >= 62 ? 'bg-emerald-700/50 text-emerald-100'
                         : top.oos_win >= 57 ? 'bg-sky-800/50 text-sky-200' : 'bg-slate-700/50 text-slate-200'
+                      // which T-code drove the flip → strong (T1G/T1/T4) green, T5 trap red
+                      const fc = s.flip_code
+                      const fcColor = !fc ? '' : ['T1G','T1','T4','T2G'].includes(fc) ? 'text-emerald-300'
+                        : fc === 'T5' ? 'text-rose-400' : 'text-md-on-surface-var'
                       return (
                         <button key={i} onClick={() => onSelectTicker?.(s.ticker)}
-                          title={`${pTitle}\nzone ${s.zone_low}–${s.zone_high} · close ${s.close} · vol ×${s.z_mult} (${s.vol_bucket}/${s.range})`}
+                          title={`${pTitle}\nflip via ${fc || '—'}  (T1G 64% · T1 57% · T4 53% · T5 33% trap)\nzone ${s.zone_low}–${s.zone_high} · close ${s.close} · vol ×${s.z_mult} (${s.vol_bucket}/${s.range})`}
                           className={`flex items-center justify-between gap-1 px-2 py-1 rounded border text-left ${st === 'confirmed' ? 'border-emerald-700/40 bg-emerald-900/20 hover:border-emerald-400' : 'border-amber-700/30 bg-amber-900/10 hover:border-amber-400'}`}>
                           <span className="font-mono font-semibold text-xs flex items-center gap-1">
                             {s.ticker}
                             {top && <span className={`px-1 rounded text-[9px] font-normal ${pColor}`} title={pTitle}>{top.tag}{s.patterns.length > 1 ? `+${s.patterns.length - 1}` : ''}</span>}
+                            {fc && <span className={`text-[9px] font-normal ${fcColor}`} title={`flip via ${fc}`}>↑{fc}</span>}
                           </span>
                           <span className="font-mono text-[10px] text-md-on-surface-var">{s.days_ago}d ·×{s.z_mult}</span>
                         </button>
@@ -402,7 +407,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           {comboAnchor && <span className="text-emerald-300"> + T/Z flip</span>}. ⚠ small n = overfit — trust n ≥ 150.
         </p>
         <div className="flex flex-wrap gap-2 mb-3 text-[11px]">
-          {[['tz','TZ'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
+          {[['tz','T'],['z','Z'],['l','L'],['suffix','suffix'],['bodywk','body/wk'],['gaprng','gap/rng'],['l5','l5'],['vol','vol']].map(([slot, label]) => (
             <label key={slot} className="flex flex-col gap-0.5">
               <span className="text-md-on-surface-var/60 uppercase tracking-wide text-[9px]">{label}</span>
               <select value={patSlots[slot]} onChange={e => setPatSlots(s => ({ ...s, [slot]: e.target.value }))}
@@ -414,7 +419,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               </select>
             </label>
           ))}
-          <button onClick={() => setPatSlots({ tz: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })}
+          <button onClick={() => setPatSlots({ tz: '*', z: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' })}
             className="self-end px-2 py-1 rounded border border-white/10 bg-md-surface text-md-on-surface-var hover:text-white">reset</button>
         </div>
         {patResult?.matched && (
