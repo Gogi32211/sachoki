@@ -1290,6 +1290,127 @@ def sequence_board(zone_def: str = "spike", depth: int = 4, vol_min: float = 5.0
             "count": len(out), "rows": out[:top]}
 
 
+# combo feature-column → live_setups slot key (mirrors the frontend SLOT_OF_COL)
+_COMBO_SLOT_OF_COL = {
+    "t_sig": "tz", "z_sig": "z", "flip_code": "flip", "l_sig": "l",
+    "full_suffix": "suffix", "composite_full_suffix": "suffix",
+    "bar_body_wick": "bodywk", "gap_rng": "gaprng", "bar_line5": "l5",
+    "vol_bucket": "vol",
+}
+
+
+def _combo_to_filters(c: dict):
+    """Decompose a combo's a/b/c labels into live_setups filters (mirrors the
+    frontend applyCombo): slot dict, bool list, cat dict, and require-flip flag."""
+    slots, bools, cats, flip = {}, [], {}, False
+    for f in (c.get("a"), c.get("b"), c.get("c")):
+        if not f:
+            continue
+        if f == "tz_up_next3":
+            flip = True
+        elif "=" in f:
+            i = f.index("="); col, val = f[:i], f[i + 1:]
+            slot = _COMBO_SLOT_OF_COL.get(col)
+            if slot:
+                slots[slot] = val
+            else:
+                cats[col] = val
+        else:
+            bools.append(f)
+    return slots, bools, cats, flip
+
+
+def combo_board(event_type: str = "retest", vol_min: float = 5.0, horizon: int = 10,
+                ways: int = 2, min_n: int = 40, top_combos: int = 50,
+                max_age_days: int = 10, anchor: str | None = "tz_up_next3",
+                limit: int = 120) -> dict:
+    """The 'Combos Board': take the OOS-HOLDING retest combos, match each to the
+    recent tickers that currently satisfy it, aggregate per ticker keeping the
+    best combo, and score each ticker for BUY quality (OOS win + lift + a
+    confirmed-flip bonus + recency). One scored ticker list, not a per-combo
+    drill-down — the combo analogue of the sequence Setups Board."""
+    import pandas as pd
+    cl = combo_lift(event_type=event_type, vol_min=vol_min, horizon=horizon,
+                    first_only=True, min_n=min_n, top=top_combos, anchor=anchor, ways=ways)
+    base = float((cl.get("event_base") or {}).get("win_rate_pct") or 0)
+    combos = cl.get("best") or []
+    holding = [c for c in combos
+               if c.get("win_is_pct") is not None and c.get("win_oos_pct") is not None
+               and (c["win_oos_pct"] - c["win_is_pct"]) >= -6 and c["win_oos_pct"] > base]
+    rows = {}                                   # ticker -> best scored candidate
+    for c in holding:
+        slots, bools, cats, flip = _combo_to_filters(c)
+        try:
+            live = live_setups(event_type=event_type, slots=slots, bools=bools, cats=cats,
+                               require_flip=flip, vol_min=vol_min, horizon=horizon,
+                               max_age_days=max_age_days, limit=limit)
+        except Exception:
+            continue
+        lbl = " + ".join(x for x in (c.get("a"), c.get("b"), c.get("c")) if x)
+        prob = c["win_oos_pct"]; lift = c.get("lift_win_pp") or 0
+        n_oos = c.get("n_oos")
+        optimistic = (c.get("win_is_pct") is not None and (prob - c["win_is_pct"]) > 20
+                      and n_oos is not None and n_oos < 15)
+        for s in (live.get("setups") or []):
+            tk = s["ticker"]; confirmed = s.get("status") == "confirmed"
+            rec = max(0, 10 - int(s.get("days_ago", 99) or 99))
+            score = round(min(100, prob * 0.7 + lift * 1.0 + (12 if confirmed else 0)
+                              + rec * 0.8 - (15 if optimistic else 0)))
+            cand = {
+                "ticker": tk, "combo": lbl, "status": s.get("status"),
+                "days_ago": int(s.get("days_ago", 0) or 0),
+                "event_date": s.get("event_date"), "close": s.get("close"),
+                "prob_up": prob, "win_is": c.get("win_is_pct"), "base": round(base, 1),
+                "edge_pp": lift, "n": c.get("n"), "n_oos": n_oos,
+                "optimistic": bool(optimistic), "score": score,
+                "flip_code": s.get("flip_code"), "vol_bucket": s.get("vol_bucket"),
+            }
+            prev = rows.get(tk)
+            if prev is None or score > prev["score"]:
+                rows[tk] = cand
+    if not rows:
+        return {"event_type": event_type, "base": round(base, 1), "count": 0, "rows": []}
+    tickers = list(rows)
+    ph = ",".join("?" * len(tickers))
+    a = get_analytics_conn()
+    try:
+        px = a.execute(f"""
+            SELECT ticker, close AS last_price, universe, date AS px_date, rsi_14 AS rsi
+            FROM bars WHERE date = (SELECT max(date) FROM bars) AND ticker IN ({ph})
+        """, tickers).fetchdf()
+    finally:
+        a.close()
+    pxmap = {r["ticker"]: r for _, r in px.iterrows()}
+    jstat = {}
+    try:
+        from .db import get_journal_conn
+        j = get_journal_conn(read_only=True)
+        try:
+            for r in j.execute(f"SELECT ticker, status, conviction FROM journal_position "
+                               f"WHERE status IN ('OPEN','PENDING_OPEN') AND ticker IN ({ph})",
+                               tickers).fetchall():
+                jstat[r[0]] = {"status": r[1], "conviction": r[2]}
+        finally:
+            j.close()
+    except Exception:
+        pass
+    as_of = None
+    out = []
+    for tk, d in rows.items():
+        p = pxmap.get(tk)
+        if p is not None and p.get("px_date") is not None:
+            as_of = str(p["px_date"])[:10]
+        d["last_price"] = round(float(p["last_price"]), 2) if p is not None and p.get("last_price") is not None else d.get("close")
+        d["universe"] = p.get("universe") if p is not None else None
+        d["rsi"] = round(float(p["rsi"]), 0) if p is not None and p.get("rsi") is not None else None
+        d["journal"] = jstat.get(tk)
+        out.append(d)
+    # confirmed first, then score
+    out.sort(key=lambda r: (r["status"] == "confirmed", r["score"], r["prob_up"]), reverse=True)
+    return {"event_type": event_type, "base": round(base, 1), "as_of": as_of,
+            "n_combos": len(holding), "count": len(out), "rows": out}
+
+
 def sequence_tickers(seq: str, event_type: str = "exit_up", zone_def: str = "spike",
                      depth: int = 4, vol_min: float = 5.0, max_age_days: int = 60,
                      top: int = 200) -> dict:

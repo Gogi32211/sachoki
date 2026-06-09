@@ -649,6 +649,21 @@ def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: 
         return {"rows": [], "count": 0, "error": str(e)}
 
 
+@app.get("/api/zone-events/combo-board")
+def zone_events_combo_board(event_type: str = "retest", vol_min: float = 5.0,
+                            horizon: int = 10, ways: int = 2, min_n: int = 40,
+                            max_age_days: int = 10):
+    """Combos Board: recent tickers satisfying an OOS-holding retest combo, each
+    scored for BUY quality (OOS win + lift + confirmed-flip bonus + recency)."""
+    from ai_journal.zone_events import combo_board
+    try:
+        return combo_board(event_type=event_type, vol_min=vol_min, horizon=horizon,
+                           ways=ways, min_n=min_n, max_age_days=max_age_days)
+    except Exception as e:
+        log.exception("combo board failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
 @app.get("/api/zone-events/sequence-tickers")
 def zone_events_sequence_tickers(seq: str, event_type: str = "exit_up",
                                  zone_def: str = "spike", depth: int = 4,

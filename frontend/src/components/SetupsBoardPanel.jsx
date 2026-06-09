@@ -265,6 +265,129 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
   )
 }
 
+// combo label "tz_up_next3 + flip_code=T1G" → colored chips
+function ComboBadges({ combo }) {
+  const parts = (combo || '').split(' + ')
+  const cls = ['text-sky-300', 'text-violet-300', 'text-amber-300']
+  return (
+    <span className="font-mono text-[11px]">
+      {parts.map((p, i) => (
+        <Fragment key={i}>
+          {i > 0 && <span className="text-md-on-surface-var/40"> + </span>}
+          <span className={cls[i] || 'text-md-on-surface'}>{fmtFeat(p)}</span>
+        </Fragment>
+      ))}
+    </span>
+  )
+}
+
+// ── combos TICKER board: recent tickers satisfying a holding combo, scored for BUY
+function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [ways, setWays] = useState(2)
+  const [live, setLive] = useState({})
+  const [liveLoading, setLiveLoading] = useState(false)
+  const [msg, setMsg] = useState('')
+  const [jTick, setJTick] = useState(0)
+
+  const fetchLive = (tks) => {
+    if (!tks.length) return
+    setLiveLoading(true)
+    fetch(`/api/live-prices?tickers=${tks.join(',')}`).then(r => r.json())
+      .then(d => setLive(d.prices || {})).catch(() => {}).finally(() => setLiveLoading(false))
+  }
+  useEffect(() => {
+    let dead = false; setLoading(true); setLive({})
+    const q = new URLSearchParams({ ways: String(ways), max_age_days: '10' })
+    fetch(`/api/zone-events/combo-board?${q}`).then(r => r.json())
+      .then(d => { if (dead) return; setData(d); fetchLive((d.rows || []).map(r => r.ticker).slice(0, 250)) })
+      .catch(() => {}).finally(() => { if (!dead) setLoading(false) })
+    return () => { dead = true }
+  }, [ways])
+
+  const rows = data?.rows || []
+  const jEntry = (r) => ({ ticker: r.ticker, sequence: r.combo, prob_up: r.prob_up, score: r.score, last_price: r.last_price })
+  const addWl = (r) => { pwlAdd({ ticker: r.ticker, _tf: '1d', last_price: r.last_price, tz_sig: r.combo }); sjAdd(jEntry(r), 'combo'); setJTick(t => t + 1) }
+  const aiDecide = () => runAi?.(rows.slice(0, 60).map(r => ({ ticker: r.ticker, source: 'combo',
+    setup: { combo: r.combo, prob_up_pct: r.prob_up, edge_pp: r.edge_pp, n: r.n, status: r.status } })))
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 text-xs mb-2 flex-wrap">
+        <span className="text-md-on-surface-var/60">RETEST tickers on a holding combo · score = OOS·0.7 + lift + confirmed-flip + recency</span>
+        {[2, 3].map(w => (
+          <button key={w} onClick={() => setWays(w)}
+            className={`px-2 py-0.5 rounded border ${ways === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-way</button>
+        ))}
+        {loading && <span className="text-sky-400 animate-pulse">scoring…</span>}
+        {data && <span className="text-md-on-surface-var/50">base {data.base}% · {data.n_combos} combos · {data.count} tickers</span>}
+        <button onClick={() => fetchLive(rows.map(r => r.ticker).slice(0, 250))} disabled={!rows.length || liveLoading}
+          className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40">{liveLoading ? '↻ live…' : '↻ live'}</button>
+        <button onClick={aiDecide} disabled={!rows.length || aiLoading}
+          className="px-2 py-0.5 rounded border border-violet-600/60 text-violet-200 bg-violet-900/30 hover:bg-violet-900/50 disabled:opacity-40">{aiLoading ? '🤖 thinking…' : '🤖 AI decide top'}</button>
+        <button onClick={() => downloadTV(`sachoki_combos_${data?.as_of || 'board'}.txt`, [{ name: `Sachoki Combos ${data?.as_of || ''}`.trim(), tickers: rows.map(r => r.ticker) }])}
+          disabled={!rows.length}
+          className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40" title="Download .txt for TradingView">⬇ TV .txt</button>
+        <button onClick={() => { rows.forEach(r => addWl(r)); setMsg(`★ ${rows.length} → Watchlist`); setTimeout(() => setMsg(''), 2500) }}
+          disabled={!rows.length} className="px-2 py-0.5 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40">★ all</button>
+        {msg && <span className="text-emerald-400 text-[11px]">{msg}</span>}
+      </div>
+      <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
+        <thead className="bg-md-surface-high text-md-on-surface-var">
+          <tr>
+            <th className="text-right px-2 py-1.5">score</th>
+            <th className="text-left px-2 py-1.5">ticker</th>
+            <th className="text-center px-2 py-1.5" title="confirmed = T/Z flip already fired (actionable); pending = waiting for flip">state</th>
+            <th className="text-right px-2 py-1.5">close</th>
+            <th className="text-right px-2 py-1.5">live</th>
+            <th className="text-right px-2 py-1.5" title="combo OOS win-rate = probability up">prob↑</th>
+            <th className="text-right px-2 py-1.5" title="in-sample win">IS</th>
+            <th className="text-left px-3 py-1.5">combo</th>
+            <th className="text-right px-2 py-1.5">rsi</th>
+            <th className="text-left px-2 py-1.5">univ</th>
+            <th className="text-left px-2 py-1.5">AI</th>
+            <th className="text-right px-2 py-1.5">age</th>
+            <th className="text-center px-2 py-1.5"></th>
+          </tr>
+        </thead>
+        <tbody>
+          {rows.map((r) => (
+            <tr key={r.ticker} className="border-t border-white/5 hover:bg-white/[0.03]">
+              <td className={`text-right px-2 py-1.5 font-mono font-bold ${scoreCls(r.score)}`}>{r.score}</td>
+              <td className="px-2 py-1.5"><button onClick={() => onSelectTicker?.(r.ticker)} className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button></td>
+              <td className="text-center px-2 py-1.5">
+                <span className={`text-[9px] px-1 rounded border ${r.status === 'confirmed' ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-amber-900/30 text-amber-300/80 border-amber-700/40'}`}>{r.status === 'confirmed' ? '✓ flip' : '⌛ pend'}</span>
+              </td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{r.last_price != null ? '$' + r.last_price : '—'}</td>
+              <td className="text-right px-2 py-1.5 font-mono">
+                {live[r.ticker] ? <span>${live[r.ticker].price}{live[r.ticker].change_pct != null && <span className={`ml-1 text-[10px] ${live[r.ticker].change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>{live[r.ticker].change_pct >= 0 ? '+' : ''}{live[r.ticker].change_pct}%</span>}</span> : <span className="text-md-on-surface-var/30">{liveLoading ? '…' : '—'}</span>}
+              </td>
+              <td className={`text-right px-2 py-1.5 font-mono font-bold ${probCls(r.prob_up)}`}>
+                {r.optimistic && <span title={`over-optimistic: OOS +${Math.round(r.prob_up - r.win_is)}pp over IS on ${r.n_oos} samples`} className="text-amber-400/70 cursor-help mr-0.5">⚠</span>}
+                {r.prob_up}%<span className="text-[9px] text-md-on-surface-var/40"> ·{r.n_oos ?? r.n}</span></td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/70">{r.win_is != null ? r.win_is + '%' : '—'}</td>
+              <td className="px-3 py-1.5"><ComboBadges combo={r.combo} /></td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{r.rsi ?? '—'}</td>
+              <td className="px-2 py-1.5 text-[10px] text-md-on-surface-var/70">{r.universe}</td>
+              <td className="px-2 py-1.5">{ai[r.ticker] ? <span title={ai[r.ticker].thesis} className={`text-[10px] px-1 rounded border cursor-help ${actCls(ai[r.ticker].action)}`}>{ai[r.ticker].action} ·{ai[r.ticker].conviction}</span> : <span className="text-md-on-surface-var/25 text-[10px]">—</span>}</td>
+              <td className="text-right px-2 py-1.5 text-md-on-surface-var/60 font-mono">{r.days_ago}d</td>
+              <td className="px-2 py-1.5 text-center">
+                <button onClick={() => addWl(r)} title="Add to Watchlist (+ Journal)" className="px-1 rounded border border-emerald-700/40 text-[10px] text-emerald-300 hover:bg-emerald-900/30">★</button>
+              </td>
+            </tr>
+          ))}
+          {!loading && !rows.length && <tr><td colSpan={13} className="px-3 py-4 text-center text-md-on-surface-var/50">no tickers on a holding combo</td></tr>}
+        </tbody>
+      </table>
+      <p className="text-[10px] text-md-on-surface-var/50 mt-2">
+        Each ticker is scored by its single BEST holding combo. <b>✓ flip</b> = the T/Z already flipped up after the retest (actionable now);
+        <b> ⌛ pend</b> = retest fired, waiting for the up-flip. prob↑ = combo OOS win-rate. ⚠ = optimistic OOS (small sample).
+      </p>
+    </div>
+  )
+}
+
 // ── combos board: IS/OOS-validated retest combos, scored, drill to tickers ────
 function ComboBoardView({ onSelectTicker, ai = {}, runAi, aiLoading }) {
   const [data, setData] = useState(null)
@@ -273,6 +396,19 @@ function ComboBoardView({ onSelectTicker, ai = {}, runAi, aiLoading }) {
   const [pick, setPick] = useState(null)
   const [tk, setTk] = useState(null)
   const [tkL, setTkL] = useState(false)
+  const [cview, setCview] = useState('tickers')   // 'tickers' (scored list) | 'combos' (combo table)
+
+  const subTabs = (
+    <div className="flex items-center gap-1 mb-2">
+      {[['tickers', '🎯 Tickers'], ['combos', '🔗 Combo table']].map(([v, lbl]) => (
+        <button key={v} onClick={() => setCview(v)}
+          className={`px-2 py-0.5 rounded border text-xs ${cview === v ? 'bg-md-surface-high border-white/30 text-white' : 'bg-md-surface border-white/10 hover:text-white'}`}>{lbl}</button>
+      ))}
+    </div>
+  )
+  if (cview === 'tickers') return (
+    <div>{subTabs}<ComboTickerBoard onSelectTicker={onSelectTicker} ai={ai} runAi={runAi} aiLoading={aiLoading} /></div>
+  )
 
   useEffect(() => {
     let dead = false; setLoading(true); setPick(null); setTk(null)
@@ -301,6 +437,7 @@ function ComboBoardView({ onSelectTicker, ai = {}, runAi, aiLoading }) {
 
   return (
     <div>
+      {subTabs}
       <div className="flex items-center gap-2 text-xs mb-2">
         <span className="text-md-on-surface-var/60">RETEST + T/Z-flip combinations · score = OOS win + lift + holds + n</span>
         {[2, 3].map(w => (
