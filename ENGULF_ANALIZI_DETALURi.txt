@@ -1,0 +1,254 @@
+================================================================================
+  ENGULF SIGNALEBIS DETALURI ANALIZI  —  rogor icvleboda edge 1 baridan 4 baramde
+  (sachoki / studio_analytics.duckdb — 8.3M dRiuri bari, sp500/nasdaq/russell2k)
+  meTodi: median (ara mean), win% = fwd_10d>0, min n=30, universe yovelTvis calke
+================================================================================
+
+--------------------------------------------------------------------------------
+0. ra kiTxvas vpasuxobT
+--------------------------------------------------------------------------------
+T4/T6 (bullish engulf) da Z4/Z6 (bearish engulf) — es 4 "engulf" signalia
+(mimdinare bari faravs wina baris sxeuls). davsvi kiTxva: rogor icvleba maTi
+momgebianoba rodesac vamatebT konteqsts da damatebiT barebs — 1 baridan 4-mde.
+da — yvelaze mTavari — xom ar aris 4-bariani ZALIAN gadawyobili (overfit)?
+
+================================================================================
+  NABIJI 1 — NEDLI SIGNALI (1 bari)
+================================================================================
+nedli T4/T6/Z4/Z6 poolad (yvela bazari erTad) — TiTqmis brtyeli/uaryofiTia
+(median ~ -0.4%). gamamijneveli faqtori PATERNI KI ARAA — BAZARIA:
+
+  signali        sp500         nasdaq        russell2k
+  T4/T6 (bull)   +0.25% OK     -0.7%  CUDI   -0.4%
+  Z4/Z6 (bear)   +0.4..0.5% (fasi mainc avida!)   -0.4% (muSaobs)   ~0
+
+  >>> sp500-Si yvelaferi ZEVIT midis: bull engulf muSaobs, bear engulf ZEVIT
+      brundeba (kontrarianuli). nasdaq-Si yvelaferi QVEVIT.
+  >>> baris bull/bear gareghnoba SIGNALI ARAA — universe-i wyvets.
+      sp500 = LONG-is saxli, nasdaq = SHORT-is saxli.
+
+  ratom: sp500 msxvili kapitalizaciaa, mean-reversion + zevit drift; nasdaq/
+  russell ufro momenturi/growth, ufro arastabiluri.
+
+================================================================================
+  NABIJI 1b — LIFT vs DRIFT  [centraluri SESWOREBA — ABSOLUTE ar aris edge]
+================================================================================
+zemoT yvela cifri ABSOLUTE forward median-ia. magram:
+    signal_return = universe_drift + signal_edge
+2021-26 periodSi sp500 mega-cap-ma aafrina, nasdaq/russell ჩამორჩa. amitom
+"sp500=zevit, nasdaq=qveviT" SeiZleba umetesad DRIFT iyos, ara engulf-is edge.
+sworad gasazomi: LIFT = signal_median - universe_unconditional_median.
+
+  UNCONDITIONAL baseline (dakarguli mნიშვnელი):
+    sp500     +0.339%       nasdaq    -0.500%       russell2k  -0.206%
+
+  LADERI LIFT-Si (sp500 baseline 0.339 gამოkლebuli):
+    done            absolute   LIFT
+    1 engulf        +0.354%   +0.015%   <- NULI! ნედლ engulf-s edge ar aqvs
+    2 +vol=B        +0.627%   +0.288%
+    3 +bar+1 bear   +0.869%   +0.530%
+    4 +bar+2 turn   +1.168%   +0.829%
+
+  >>> NEDLI engulf = sufTa drift (lift ~0). edge KONTEQSTMA aaSena nuliდან.
+      absolute cifrebis ~40% drift iyo. realuri 4-bar edge = +0.83% lift.
+
+  2022 DRIFT-FREE testi (smoking gun):
+    weli   4bar    sp500_base   LIFT
+    2021  +0.72%   +0.44%      +0.28%
+    2022  +1.76%   -0.21%      +1.97%   <- daTvis wels sp500 UARYOFITI, setup +1.97 LIFT!
+    2023  +1.79%   +0.43%      +1.36%
+    2024  +0.99%   +0.50%      +0.49%
+    2025  +3.06%   +0.54%      +2.52%
+    2026  +1.00%   -0.03%      +1.03%
+
+  >>> LIFT dadebiTia YOVEL wels (+0.28..+2.52). 2022 daTvis bazarSi +1.97% lift —
+      es adasturebs: 1-bar "universe decides" = DRIFT; 4-bar refined = NAMDVILI EDGE.
+  >>> es gansxvaveba CENTRALURIA: nedli signali drift-confounded; daxvewili 4-bar
+      setup-i drift-is miRma muSaobs.
+
+  SURVIVORSHIP: lift = signal - IMAVE universe-is baseline. Tu absolute survivorship-iT
+  gaberilia, numerator-sac da denominator-sac Tanabrad — bias ikveceba lift-Si.
+  ese igi lift survivorship-robust-ia (absolute ara). [russell2k jer gadasamowmebelia]
+
+================================================================================
+  NABIJI 2 — VOLUME KLASI (vol_bucket: W < L < N < B < VB)
+================================================================================
+sp500-Si davamateT volume klasi (Bollinger Band-i volumeze). monotonuria:
+
+  T4/T6 sp500:   vol=B  +0.46%      vol=N  +0.29%     vol=VB  +0.11% (xafangi)
+  Z4/Z6 sp500 (buy-weakness):  vol=B-ze +2.1%-mde
+
+  >>> vol=B (didi, magram kontrolirebadi) = saukeTeso.
+  >>> vol=VB (klimaqsuri, panika) = yvelaze cudi, XAFANGI.
+      nasdaq-Si T6+VB = -1.85% (win 40%!) — klimaqsuri bull engulf = exhaustion.
+
+  bazis cifri:  sp500 engulf + vol=B  =  median +0.627% / win 55.0% (n=11,779)
+
+================================================================================
+  NABIJI 3 — L-KODI (WLNBB: L1..L6, da kombinaciebi L46, L34, L12...)
+================================================================================
+L-kodi = volume mimarTuleba + fasis poza. yvela L sp500-Si dadebiTia,
+magram Signiidan:
+  L6 (vol+down) +0.42% > L4 > L5 > L1/L2 > L3 (vol+up) +0.28%  <- "Zala" yvelaze suvsti
+  >>> sp500-Si IYIDE SISUSTE: down-close kodebi (L5/L6) sjobs "Zalas" (L3).
+
+  saukeTeso 2-bariani kombinaciebi (sp500, vol=B + L):
+    Z6 . L5  . B   +2.13% / win 65%   (n=155)
+    Z4 . L46 . B   +0.75% / win 56%   (n=3,538  — mtkice, didi n)
+    Z6 . L25 . B   +1.50% / win 64%   (n=141)
+
+  logika: bearish engulf didi volumeze sp500-Si = SHAKEOUT romelic brundeba.
+
+================================================================================
+  NABIJI 4 — 3-BARIANI (vamatebT MOMDEVNO bars, bar+1)
+================================================================================
+engulf+B-is Semdeg, ra akeTebs bar+1? — GAGRZELEBULI SISUSTE aZlierebs:
+
+  bar+1 = bear (ufro Rrma vardna)   median +0.869% / win 56.3%  (n=5,932)
+  bar+1 = bull (follow-through)      median +0.330% / win 53.0%
+  bar+1 = Z9 (bear inside)           median +1.792% / win 60.3%  (n=998)
+
+  >>> IYIDE MEORE DOWN-BARI. follow-through (bull bar+1) asustebs.
+  (Sesvla bar+1-ze, forward bar+1-dan — lookahead-is gareSe)
+
+================================================================================
+  NABIJI 5 — 4-BARIANI (vamatebT bar+2)
+================================================================================
+bar+2-ze optimaluri qmedeba ICVLEBA: axla TURN unda, ara mesame down-bari:
+
+  bar+2 = bullish T (T9/T3/T4) + volume     median +1.168% / win 57.8% (n=1,600)
+    L  romelic mxolod T4/T6-trigger-iT       median +1.898% / win 63.1% (n=800)
+  xafangi: bar+2 = bear + vol=W (dana agrZelebs) -0.406% / win 45% (n=120)
+
+  >>> 4-bariani = momenturi PULLBACK-RESUME (ara buy-weakness):
+      Zlieri bari -> jansaRi pullback -> ganaxleba.
+
+================================================================================
+  NABIJI 6 — SRULI DISTRIBUCIA TiTo doneze (ara mxolod median!)
+================================================================================
+  done            n        p25     med     p75    win    +5%    -5%    RR
+  1 engulf      92,118   -3.33   +0.35   +4.03  52.7%  20.0%  17.3%  1.08
+  2 +vol=B      11,779   -3.17   +0.63   +4.40  55.0%  21.8%  16.8%  1.16
+  3 +bar+1 bear  5,932   -3.01   +0.87   +4.88  56.3%  24.6%  16.1%  1.28
+  4 +bar+2 turn  1,600   -2.64   +1.17   +4.94  57.8%  24.8%  14.9%  1.28
+  4b T4/T6-trig    800   -1.91   +1.90   +5.73  63.1%  28.7%  12.4%  1.36
+
+  ra xdeba mTel distribuciaSi (ara mxolod centrSi):
+  * DOWNSIDE ikumSeba: p25  -3.33 -> -1.91. uares kvartilic ki naxevardeba.
+  * kudebis asimetria gadaitrialeba: big-win 20%->29%, big-loss 17%->12%.
+    4b-ze es 2.3:1 (iyo 1.2:1 ნედლი).
+  * RR (MFE/MAE): 1.08 -> 1.36. MAE rCeba ~-4.6, MFE izrdeba -> sufTa trade-ebi.
+  * TiTo damatebuli bari mTel distribucias marjvniv wevs.
+
+================================================================================
+  NABIJI 7 — DROIS gasaRebi (5 vs 10 vs 20 dRe)  [axali, mniSvnelovani]
+================================================================================
+  done           med_5d    med_10d   med_20d
+  1 engulf       +0.20     +0.35     +0.43
+  4b T4/T6-trig  -0.50     +1.90     +3.45
+
+  >>> 4-bariani 5 dReze UARYOFITIA, 20-ze yvelaze didi!
+      pullback jer agrZelebs vardnas, mere magrad mean-revert.
+  >>> AUCILEBLAD GEჭIROS 10-20 dRe. 5-dRiani stop klavs edge-s.
+
+================================================================================
+  NABIJI 8 — REGIME (yovel wels)  [overfit-killer]
+================================================================================
+  4-bariani (T4/T6-trigger), median fwd_10d / win / n weliwadis mixedviT:
+    2021  bull        +0.72%  53%   n=51
+    2022  BEAR        +1.76%  57%   n=155   <- daTvis bazarSic dadebiTi!
+    2023  bull        +1.79%  64%   n=133
+    2024  bull        +0.99%  59%   n=108
+    2025  dip-buy     +3.06%  70%   n=291   <- yvelaze Zlieri (regime-favorable)
+    2026  -           +1.00%  60%   n=62
+
+  >>> EQVSIVE WELI DADEBITIA, 2022 daTvis bazarSic. ar aris erTi regime-is fluke.
+      2025-is didi cifri regime-ma gaaberka, magram iatakic (~+0.7-1%) namdvilia.
+
+================================================================================
+  NABIJI 9 — ROBUSTNESS (wesis cvlilebaze mgrZnobeloba)  [overfit-testi]
+================================================================================
+  bar+2 "turn"-is gansazRvris cvla (baza = T4/T6 engulf+B -> bear pullback):
+    just not-W (turn ar moiTxoveba)   n=2,742   +1.089%   57.8%
+    NEBISMIERI bull bari               n=1,493   +1.394%   59.7%
+    nebismieri T-kodi                  n=1,491   +1.395%   59.8%
+    T9/T3/T4 (arCeuli)                 n=800     +1.898%   63.1%
+    T9/T3/T4 + vol=B (mkacri)          n=154     +2.414%   66.9%
+
+  >>> edge TANDATAN icvleba (nebismieri-bull mainc +1.39%) — KLDE ar aris.
+      konkretuli T-kodebi REFINEMENT-ia, ara mTeli edge. ESE IGI — ARA OVERFIT.
+
+================================================================================
+  NABIJI 10 — ROMELI BARI amoZravebs edge-s (per-bar)
+================================================================================
+  4-bariani (n=800), median fwd_10d / win TiTo baris kodiT:
+    bar-2 engulf:   T4 +2.29%/65%  >>  T6 +1.06%/58%
+    bar-2 L:        L12 +2.52%, L3 +2.24% (Zala)  >>  L34 +0.65%
+    bar-1 pullback: Z9 +3.21%/69%  >>  Z1 +2.26 > Z4 +1.77 > Z5 +1.34 > Z3 +1.07
+    bar 0 turn:     T9 +2.53%/65%  >  T4 +1.74 > T3 +1.70
+    bar 0 L:        L12 +2.14%/64% > L3 +1.38 > L34 +1.30
+
+  >>> yvelaze didi berketi — PULLBACK-is XARISXi (bar-1).
+      Z9 INSIDE-BARI (mWidro, kontrolirebadi, araRrma) -> +3.21% / 69%.
+      Rrma Z3 pullback ki mxolod +1.07% / 59%.
+      es saxelmZRvanelo FLAG-ia: Zlieri bari -> moworesigebuli inside-pause -> resume.
+
+================================================================================
+  NABIJI 11 — OPTIMALURi gza (da sad iwyeba overfit)
+================================================================================
+  gza                               n     median    win     p25
+  4-bariani (T4/T6 trig)           800   +1.90%   63.1%   -1.91
+  + bar-2 = T4                     594   +2.29%   65.0%   -1.90
+  + bar-1 = Z9 (inside)            285   +3.21%   69.5%   -1.23
+  + T4 & Z9 (OPTIMALURi)           245   +3.43%   71.8%   -0.86  <<<
+  + & bar0 = T9 (zedmeti)           58   +3.07% (eca) 67% (eca) -0.99
+
+  >>> OPTIMALURi = T4 engulf+B -> Z9 inside-bar pullback -> bull-T turn:
+      median +3.43%, win 71.8%, uares kvartili mxolod -0.86% (n=245).
+  >>> kidev erTi piroba (bar0=T9) — edge ECEMA, n ingreva. SWORED AQ iwyeba
+      overfit. GAჩERDi T4+Z9-ze.
+
+================================================================================
+  DASKVNEBI  —  ra isaCqave
+================================================================================
+1. NEDLI engulf signali (T4/T6/Z4/Z6) TviTon araferia — LIFT +0.015% (~0).
+   absolute median drift-confounded iyo. edge KONTEQSTSi da TANMIMDEVROBASia.
+
+2. "sp500=long, nasdaq=short" — ZIRiTadad DRIFT, ara signali (sp500 baseline +0.34%,
+   nasdaq -0.50%). magram daxvewili 4-bar setup-s NAMDVILI lift aqvs drift-is miRma:
+   +0.83% pooled, da +1.97% 2022 daTvis bazarSi (sadac sp500 TviTon uaryofiTi iyo).
+   ese igi: 1-bar = drift; 4-bar refined = real edge. es gansxvaveba centraluria.
+
+2b. T4 ≠ T6 — calke unda. lift: T4 +1.95%, T6 mxolod +0.72%. pooled "engulf"
+    T4-iT iyo marTuli. saimedo forward = ROBUST tier (~+1.4-1.9% abs / ~+1.0-1.5%
+    lift), ara headline +3.43% (es didi search-is maqsimumia, regress to mean garda-
+    uvalia). headline-s nu endobi — robust tier-s ende.
+
+3. vol=B (kontrolirebadi) saukeTeso; vol=VB (klimaqsuri) yvelaze cudi xafangi.
+
+4. baris damateba (1->4) monotonurad amatebs edge-s DA, rac mTavaria, ჭRis
+   DOWNSIDE-s (p25 -3.33 -> -0.86). win 53% -> 72%.
+
+5. 4-bariani NOT OVERFIT — 3 damoukidebeli testi gaiara:
+   (a) dadebiTi yovel wels 2021-26, 2022 daTvis bazarSic;
+   (b) mdgradi wesis cvlilebaze (nebismieri-bull mainc +1.39%);
+   (c) mTeli distribucia (ara erTi cifri) marjvniv iwevs downside-is SekumSviT.
+
+6. PULLBACK-is XARISXi mTavari berketia — Z9 inside-bar (moworesigebuli) >> Rrma.
+
+7. DROZE damokidebuli — 5 dReze UARYOFITIA, 10-20 dReze +1.9..+3.4%.
+   AUCILEBLAD geჭiros 10-20 dRe.
+
+8. OPTIMALURi setup:  sp500 + T4 engulf+vol=B -> Z9 inside pullback -> bull-T turn,
+   hold 10-20d.  +3.43% median, 72% win, p25 -0.86%, n=245.
+   (overfit-is zRvari: nu daamateb metს — T4+Z9 sakmarisia.)
+
+================================================================================
+  AI JOURNAL-Si ra daematebia (am analizidan)
+================================================================================
+  stream 3:  engulf 2-bar buy-weakness — Z4/Z6 + weakness-L + vol=B (sp500)
+  stream 4:  engulf 4-bar pullback-resume — T4/T6 engulf+B -> bear -> bull-T turn
+  Claude TiTo kandidats `engulf_edge` evidence-iT afasebs (bars=2 an 4,
+  edge_med10_pct). risk rails (likviduroba/micro-cap) mainc filtravs. long-only.
+  (optimal T4+Z9 calke high-conviction filtrad jer ar damatebula.)
+================================================================================
