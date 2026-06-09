@@ -282,10 +282,14 @@ function ComboBadges({ combo }) {
 }
 
 // ── combos TICKER board: recent tickers satisfying a holding combo, scored for BUY
+const EVT_CLS = { retest: 'bg-sky-900/40 text-sky-300 border-sky-700/40',
+  breakout: 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40',
+  spring: 'bg-violet-900/40 text-violet-300 border-violet-700/40' }
 function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [ways, setWays] = useState(2)
+  const [evtFilter, setEvtFilter] = useState('all')   // all | retest | breakout | spring
   const [live, setLive] = useState({})
   const [liveLoading, setLiveLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -306,7 +310,9 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
     return () => { dead = true }
   }, [ways])
 
-  const rows = data?.rows || []
+  const allRows = data?.rows || []
+  const rows = evtFilter === 'all' ? allRows : allRows.filter(r => r.event_label === evtFilter)
+  const counts = allRows.reduce((m, r) => { m[r.event_label] = (m[r.event_label] || 0) + 1; return m }, {})
   const jEntry = (r) => ({ ticker: r.ticker, sequence: r.combo, prob_up: r.prob_up, score: r.score, last_price: r.last_price })
   const addWl = (r) => { pwlAdd({ ticker: r.ticker, _tf: '1d', last_price: r.last_price, tz_sig: r.combo }); sjAdd(jEntry(r), 'combo'); setJTick(t => t + 1) }
   const aiDecide = () => runAi?.(rows.slice(0, 60).map(r => ({ ticker: r.ticker, source: 'combo',
@@ -315,13 +321,20 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
   return (
     <div>
       <div className="flex items-center gap-2 text-xs mb-2 flex-wrap">
-        <span className="text-md-on-surface-var/60">RETEST tickers on a holding combo · score = OOS·0.7 + lift + confirmed-flip + recency</span>
+        <span className="text-md-on-surface-var/60">tickers on a holding combo across retest/breakout/spring · score = OOS·0.7 + lift + confirmed-flip + recency</span>
         {[2, 3].map(w => (
           <button key={w} onClick={() => setWays(w)}
             className={`px-2 py-0.5 rounded border ${ways === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-way</button>
         ))}
         {loading && <span className="text-sky-400 animate-pulse">scoring…</span>}
-        {data && <span className="text-md-on-surface-var/50">base {data.base}% · {data.n_combos} combos · {data.count} tickers</span>}
+        {data && <span className="text-md-on-surface-var/50">{data.n_combos} combos · {data.count} tickers</span>}
+        {data && <span className="flex items-center gap-1">
+          {[['all', 'all'], ['retest', 'retest'], ['breakout', 'breakout'], ['spring', 'spring']].map(([v, lbl]) => (
+            <button key={v} onClick={() => setEvtFilter(v)}
+              className={`px-1.5 py-0.5 rounded border text-[10px] ${evtFilter === v ? 'border-white/40 text-white bg-white/10' : 'border-white/10 text-md-on-surface-var/70 hover:text-white'}`}>
+              {lbl}{v !== 'all' && counts[v] ? ` ·${counts[v]}` : ''}</button>
+          ))}
+        </span>}
         <button onClick={() => fetchLive(rows.map(r => r.ticker).slice(0, 250))} disabled={!rows.length || liveLoading}
           className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40">{liveLoading ? '↻ live…' : '↻ live'}</button>
         <button onClick={aiDecide} disabled={!rows.length || aiLoading}
@@ -338,6 +351,7 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
           <tr>
             <th className="text-right px-2 py-1.5">score</th>
             <th className="text-left px-2 py-1.5">ticker</th>
+            <th className="text-center px-2 py-1.5" title="retest = pullback to zone · breakout = exit-up follow-through · spring = exit-down failed-breakdown bounce">type</th>
             <th className="text-center px-2 py-1.5" title="confirmed = T/Z flip already fired (actionable); pending = waiting for flip">state</th>
             <th className="text-right px-2 py-1.5">close</th>
             <th className="text-right px-2 py-1.5">live</th>
@@ -356,6 +370,9 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
             <tr key={r.ticker} className="border-t border-white/5 hover:bg-white/[0.03]">
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${scoreCls(r.score)}`}>{r.score}</td>
               <td className="px-2 py-1.5"><button onClick={() => onSelectTicker?.(r.ticker)} className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button></td>
+              <td className="text-center px-2 py-1.5">
+                <span className={`text-[9px] px-1 rounded border ${EVT_CLS[r.event_label] || 'border-white/10 text-md-on-surface-var'}`}>{r.event_label}</span>
+              </td>
               <td className="text-center px-2 py-1.5">
                 <span className={`text-[9px] px-1 rounded border ${r.status === 'confirmed' ? 'bg-emerald-900/40 text-emerald-300 border-emerald-700/40' : 'bg-amber-900/30 text-amber-300/80 border-amber-700/40'}`}>{r.status === 'confirmed' ? '✓ flip' : '⌛ pend'}</span>
               </td>
@@ -377,7 +394,7 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
               </td>
             </tr>
           ))}
-          {!loading && !rows.length && <tr><td colSpan={13} className="px-3 py-4 text-center text-md-on-surface-var/50">no tickers on a holding combo</td></tr>}
+          {!loading && !rows.length && <tr><td colSpan={14} className="px-3 py-4 text-center text-md-on-surface-var/50">no tickers on a holding combo</td></tr>}
         </tbody>
       </table>
       <p className="text-[10px] text-md-on-surface-var/50 mt-2">

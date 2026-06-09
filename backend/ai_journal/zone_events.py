@@ -1320,56 +1320,67 @@ def _combo_to_filters(c: dict):
     return slots, bools, cats, flip
 
 
-def combo_board(event_type: str = "retest", vol_min: float = 5.0, horizon: int = 10,
-                ways: int = 2, min_n: int = 40, top_combos: int = 50,
+_COMBO_EVENT_LABEL = {"retest": "retest", "exit_up": "breakout", "exit_down": "spring"}
+
+
+def combo_board(event_types=("retest", "exit_up", "exit_down"), vol_min: float = 5.0,
+                horizon: int = 10, ways: int = 2, min_n: int = 40, top_combos: int = 50,
                 max_age_days: int = 10, anchor: str | None = "tz_up_next3",
                 limit: int = 120) -> dict:
-    """The 'Combos Board': take the OOS-HOLDING retest combos, match each to the
-    recent tickers that currently satisfy it, aggregate per ticker keeping the
-    best combo, and score each ticker for BUY quality (OOS win + lift + a
-    confirmed-flip bonus + recency). One scored ticker list, not a per-combo
-    drill-down — the combo analogue of the sequence Setups Board."""
+    """The 'Combos Board': across ALL buy event types (retest / breakout=exit_up /
+    spring=exit_down — same spread as the sequence Setups Board), take the
+    OOS-HOLDING combos, match each to the recent tickers that satisfy it,
+    aggregate per ticker keeping the best combo, and score each for BUY quality
+    (OOS win + lift + confirmed-flip bonus + recency). One scored ticker list."""
     import pandas as pd
-    cl = combo_lift(event_type=event_type, vol_min=vol_min, horizon=horizon,
-                    first_only=True, min_n=min_n, top=top_combos, anchor=anchor, ways=ways)
-    base = float((cl.get("event_base") or {}).get("win_rate_pct") or 0)
-    combos = cl.get("best") or []
-    holding = [c for c in combos
-               if c.get("win_is_pct") is not None and c.get("win_oos_pct") is not None
-               and (c["win_oos_pct"] - c["win_is_pct"]) >= -6 and c["win_oos_pct"] > base]
+    if isinstance(event_types, str):
+        event_types = [e.strip() for e in event_types.split(",") if e.strip()]
     rows = {}                                   # ticker -> best scored candidate
-    for c in holding:
-        slots, bools, cats, flip = _combo_to_filters(c)
-        try:
-            live = live_setups(event_type=event_type, slots=slots, bools=bools, cats=cats,
-                               require_flip=flip, vol_min=vol_min, horizon=horizon,
-                               max_age_days=max_age_days, limit=limit)
-        except Exception:
-            continue
-        lbl = " + ".join(x for x in (c.get("a"), c.get("b"), c.get("c")) if x)
-        prob = c["win_oos_pct"]; lift = c.get("lift_win_pp") or 0
-        n_oos = c.get("n_oos")
-        optimistic = (c.get("win_is_pct") is not None and (prob - c["win_is_pct"]) > 20
-                      and n_oos is not None and n_oos < 15)
-        for s in (live.get("setups") or []):
-            tk = s["ticker"]; confirmed = s.get("status") == "confirmed"
-            rec = max(0, 10 - int(s.get("days_ago", 99) or 99))
-            score = round(min(100, prob * 0.7 + lift * 1.0 + (12 if confirmed else 0)
-                              + rec * 0.8 - (15 if optimistic else 0)))
-            cand = {
-                "ticker": tk, "combo": lbl, "status": s.get("status"),
-                "days_ago": int(s.get("days_ago", 0) or 0),
-                "event_date": s.get("event_date"), "close": s.get("close"),
-                "prob_up": prob, "win_is": c.get("win_is_pct"), "base": round(base, 1),
-                "edge_pp": lift, "n": c.get("n"), "n_oos": n_oos,
-                "optimistic": bool(optimistic), "score": score,
-                "flip_code": s.get("flip_code"), "vol_bucket": s.get("vol_bucket"),
-            }
-            prev = rows.get(tk)
-            if prev is None or score > prev["score"]:
-                rows[tk] = cand
+    bases, n_holding = {}, 0
+    for et in event_types:
+        cl = combo_lift(event_type=et, vol_min=vol_min, horizon=horizon,
+                        first_only=True, min_n=min_n, top=top_combos, anchor=anchor, ways=ways)
+        base = float((cl.get("event_base") or {}).get("win_rate_pct") or 0)
+        bases[et] = round(base, 1)
+        holding = [c for c in (cl.get("best") or [])
+                   if c.get("win_is_pct") is not None and c.get("win_oos_pct") is not None
+                   and (c["win_oos_pct"] - c["win_is_pct"]) >= -6 and c["win_oos_pct"] > base]
+        n_holding += len(holding)
+        etlabel = _COMBO_EVENT_LABEL.get(et, et)
+        for c in holding:
+            slots, bools, cats, flip = _combo_to_filters(c)
+            try:
+                live = live_setups(event_type=et, slots=slots, bools=bools, cats=cats,
+                                   require_flip=flip, vol_min=vol_min, horizon=horizon,
+                                   max_age_days=max_age_days, limit=limit)
+            except Exception:
+                continue
+            lbl = " + ".join(x for x in (c.get("a"), c.get("b"), c.get("c")) if x)
+            prob = c["win_oos_pct"]; lift = c.get("lift_win_pp") or 0
+            n_oos = c.get("n_oos")
+            optimistic = (c.get("win_is_pct") is not None and (prob - c["win_is_pct"]) > 20
+                          and n_oos is not None and n_oos < 15)
+            for s in (live.get("setups") or []):
+                tk = s["ticker"]; confirmed = s.get("status") == "confirmed"
+                rec = max(0, 10 - int(s.get("days_ago", 99) or 99))
+                score = round(min(100, prob * 0.7 + lift * 1.0 + (12 if confirmed else 0)
+                                  + rec * 0.8 - (15 if optimistic else 0)))
+                cand = {
+                    "ticker": tk, "combo": lbl, "status": s.get("status"),
+                    "event_type": et, "event_label": etlabel,
+                    "days_ago": int(s.get("days_ago", 0) or 0),
+                    "event_date": s.get("event_date"), "close": s.get("close"),
+                    "prob_up": prob, "win_is": c.get("win_is_pct"), "base": round(base, 1),
+                    "edge_pp": lift, "n": c.get("n"), "n_oos": n_oos,
+                    "optimistic": bool(optimistic), "score": score,
+                    "flip_code": s.get("flip_code"), "vol_bucket": s.get("vol_bucket"),
+                }
+                prev = rows.get(tk)
+                if prev is None or score > prev["score"]:
+                    rows[tk] = cand
     if not rows:
-        return {"event_type": event_type, "base": round(base, 1), "count": 0, "rows": []}
+        return {"event_types": list(event_types), "bases": bases, "n_combos": n_holding,
+                "count": 0, "rows": []}
     tickers = list(rows)
     ph = ",".join("?" * len(tickers))
     a = get_analytics_conn()
@@ -1407,8 +1418,8 @@ def combo_board(event_type: str = "retest", vol_min: float = 5.0, horizon: int =
         out.append(d)
     # confirmed first, then score
     out.sort(key=lambda r: (r["status"] == "confirmed", r["score"], r["prob_up"]), reverse=True)
-    return {"event_type": event_type, "base": round(base, 1), "as_of": as_of,
-            "n_combos": len(holding), "count": len(out), "rows": out}
+    return {"event_types": list(event_types), "bases": bases, "as_of": as_of,
+            "n_combos": n_holding, "count": len(out), "rows": out}
 
 
 def sequence_tickers(seq: str, event_type: str = "exit_up", zone_def: str = "spike",

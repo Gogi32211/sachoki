@@ -650,14 +650,16 @@ def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: 
 
 
 @app.get("/api/zone-events/combo-board")
-def zone_events_combo_board(event_type: str = "retest", vol_min: float = 5.0,
-                            horizon: int = 10, ways: int = 2, min_n: int = 40,
-                            max_age_days: int = 10):
-    """Combos Board: recent tickers satisfying an OOS-holding retest combo, each
-    scored for BUY quality (OOS win + lift + confirmed-flip bonus + recency)."""
+def zone_events_combo_board(event_types: str = "retest,exit_up,exit_down",
+                            vol_min: float = 5.0, horizon: int = 10, ways: int = 2,
+                            min_n: int = 40, max_age_days: int = 10):
+    """Combos Board: across retest/breakout(exit_up)/spring(exit_down), recent
+    tickers satisfying an OOS-holding combo, scored for BUY quality (OOS win +
+    lift + confirmed-flip bonus + recency)."""
     from ai_journal.zone_events import combo_board
+    ets = [e.strip() for e in event_types.split(",") if e.strip()]
     try:
-        return combo_board(event_type=event_type, vol_min=vol_min, horizon=horizon,
+        return combo_board(event_types=ets, vol_min=vol_min, horizon=horizon,
                            ways=ways, min_n=min_n, max_age_days=max_age_days)
     except Exception as e:
         log.exception("combo board failed")
