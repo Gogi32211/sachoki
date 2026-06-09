@@ -121,6 +121,39 @@ def fetch_bars(
     return df
 
 
+def fetch_snapshot(tickers: list[str]) -> dict:
+    """Bulk LIVE price snapshot for a list of tickers (one or few calls).
+    Returns {ticker: {price, change_pct}} using last trade (fallback day close)."""
+    out: dict = {}
+    tickers = [t for t in tickers if t]
+    if not tickers:
+        return out
+    # snapshot endpoint accepts a comma list; chunk to stay under URL limits
+    for i in range(0, len(tickers), 250):
+        chunk = tickers[i:i + 250]
+        url = f"{_BASE}/v2/snapshot/locale/us/markets/stocks/tickers"
+        params = {"tickers": ",".join(chunk), "apiKey": _key()}
+        try:
+            r = requests.get(url, params=params, timeout=(5, 12))
+            r.raise_for_status()
+            data = r.json()
+        except requests.RequestException as exc:
+            log.warning("snapshot chunk failed: %s", exc)
+            continue
+        for s in (data.get("tickers") or []):
+            tk = s.get("ticker")
+            if not tk:
+                continue
+            lt = (s.get("lastTrade") or {}).get("p")
+            day = (s.get("day") or {})
+            price = lt or day.get("c") or (s.get("prevDay") or {}).get("c")
+            chg = s.get("todaysChangePerc")
+            if price:
+                out[tk] = {"price": round(float(price), 2),
+                           "change_pct": round(float(chg), 2) if chg is not None else None}
+    return out
+
+
 def polygon_available() -> bool:
     """True if MASSIVE_API_KEY (or POLYGON_API_KEY) is set in environment."""
     return bool(os.environ.get("MASSIVE_API_KEY") or

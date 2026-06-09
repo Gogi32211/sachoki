@@ -600,6 +600,18 @@ def zone_events_live_sequences(event_type: str = "exit_down", zone_def: str = "s
         return {"event_type": event_type, "setups": [], "count": 0, "error": str(e)}
 
 
+@app.get("/api/live-prices")
+def live_prices(tickers: str):
+    """Bulk LIVE price snapshot (Massive) for a comma-separated ticker list."""
+    from data_polygon import fetch_snapshot
+    tks = [t.strip().upper() for t in tickers.split(",") if t.strip()][:400]
+    try:
+        return {"prices": fetch_snapshot(tks)}
+    except Exception as e:
+        log.warning("live-prices failed: %s", e)
+        return {"prices": {}, "error": str(e)}
+
+
 @app.get("/api/zone-events/board")
 def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
     """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with

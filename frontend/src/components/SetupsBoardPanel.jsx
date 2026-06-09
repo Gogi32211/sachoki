@@ -37,14 +37,31 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
   const [loading, setLoading] = useState(false)
   const [err, setErr]     = useState(null)
   const [wlMsg, setWlMsg] = useState('')
+  const [live, setLive]   = useState({})       // ticker -> { price, change_pct }
+  const [liveLoading, setLiveLoading] = useState(false)
+
+  const fetchLive = (tickers) => {
+    if (!tickers.length) return
+    setLiveLoading(true)
+    fetch(`/api/live-prices?tickers=${tickers.join(',')}`)
+      .then(r => r.json())
+      .then(d => setLive(d.prices || {}))
+      .catch(() => {})
+      .finally(() => setLiveLoading(false))
+  }
 
   useEffect(() => {
     let dead = false
-    setLoading(true); setErr(null)
+    setLoading(true); setErr(null); setLive({})
     const q = new URLSearchParams({ zone_def: zoneDef, max_age_days: '20', min_oos: '55' })
     fetch(`/api/zone-events/board?${q}`)
       .then(r => r.json())
-      .then(d => { if (!dead) { d.error ? setErr(d.error) : setData(d) } })
+      .then(d => {
+        if (dead) return
+        if (d.error) { setErr(d.error); return }
+        setData(d)
+        fetchLive((d.rows || []).map(r => r.ticker))   // auto-fetch live on load
+      })
       .catch(e => { if (!dead) setErr(String(e)) })
       .finally(() => { if (!dead) setLoading(false) })
     return () => { dead = true }
@@ -72,6 +89,9 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
         ))}
         {loading && <span className="text-sky-400 animate-pulse">scoring…</span>}
         {data && <span className="text-md-on-surface-var/60">{data.count} setups · as of {data.as_of}</span>}
+        <button onClick={() => fetchLive(rows.map(r => r.ticker))} disabled={!rows.length || liveLoading}
+          className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40"
+          title="Refresh live prices (Massive)">{liveLoading ? '↻ live…' : '↻ live'}</button>
         <button onClick={addAll} disabled={!rows.length}
           className="ml-auto px-2 py-0.5 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40">★ all → Watchlist</button>
         {wlMsg && <span className="text-emerald-400 text-[11px]">{wlMsg}</span>}
@@ -82,7 +102,8 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
           <tr>
             <th className="text-right px-2 py-1.5">score</th>
             <th className="text-left px-2 py-1.5">ticker</th>
-            <th className="text-right px-2 py-1.5">price</th>
+            <th className="text-right px-2 py-1.5" title="last DB close">close</th>
+            <th className="text-right px-2 py-1.5" title="live snapshot (Massive)">live</th>
             <th className="text-right px-2 py-1.5" title="OOS win-rate of the matched sequence">prob↑</th>
             <th className="text-left px-3 py-1.5">sequence used</th>
             <th className="text-right px-2 py-1.5">rsi</th>
@@ -99,7 +120,17 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
                 <button onClick={() => onSelectTicker?.(r.ticker)}
                   className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button>
               </td>
-              <td className="text-right px-2 py-1.5 font-mono">{r.last_price != null ? '$' + r.last_price : '—'}</td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{r.last_price != null ? '$' + r.last_price : '—'}</td>
+              <td className="text-right px-2 py-1.5 font-mono">
+                {live[r.ticker] ? (
+                  <span>${live[r.ticker].price}
+                    {live[r.ticker].change_pct != null && (
+                      <span className={`ml-1 text-[10px] ${live[r.ticker].change_pct >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>
+                        {live[r.ticker].change_pct >= 0 ? '+' : ''}{live[r.ticker].change_pct}%</span>
+                    )}
+                  </span>
+                ) : <span className="text-md-on-surface-var/30">{liveLoading ? '…' : '—'}</span>}
+              </td>
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${probCls(r.prob_up)}`}>{r.prob_up}%
                 <span className="text-[9px] text-md-on-surface-var/40"> ·{r.n}</span></td>
               <td className="px-3 py-1.5" title={r.why}><SeqBadges sequence={r.sequence} /></td>
@@ -114,7 +145,7 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
             </tr>
           ))}
           {!loading && !rows.length && (
-            <tr><td colSpan={9} className="px-3 py-4 text-center text-md-on-surface-var/50">no holding-sequence setups in the last 20d</td></tr>
+            <tr><td colSpan={10} className="px-3 py-4 text-center text-md-on-surface-var/50">no holding-sequence setups in the last 20d</td></tr>
           )}
         </tbody>
       </table>
