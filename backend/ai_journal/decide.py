@@ -326,6 +326,53 @@ def _fp(c: dict) -> str:
     return fp
 
 
+_ADVISE_SYSTEM = _SYSTEM + """
+
+ADVISORY RUN: each candidate carries a `setup` block — a zone-exit lead-in SEQUENCE
+that HELD out-of-sample, with `prob_up` = its OOS win-rate (probability the move
+follows through) and `why`. Treat prob_up as a base-rate edge, NOT a guarantee.
+Many are smaller-cap — apply the usual market-cap / liquidity caution (micro =
+SKIP). Output advisory decisions only; NO position is opened. Be decisive and
+concise in `thesis` (one sentence: why BUY/WATCH/SKIP, naming the setup or the risk)."""
+
+
+def advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit: int = 25) -> dict:
+    """Ask the decision LLM to judge the Setups-Board tickers (BUY/WATCH/SKIP +
+    conviction + one-line thesis). Advisory only — opens no positions. Each ticker
+    is passed with its sequence-edge block so the model weighs the validated setup."""
+    from .zone_events import sequence_board
+    board = sequence_board(zone_def=zone_def, max_age_days=max_age_days)
+    rows = (board.get("rows") or [])[:limit]
+    if not rows:
+        return {"as_of": board.get("as_of"), "count": 0, "decisions": []}
+    cands = [{
+        "ticker": r["ticker"], "price": r.get("last_price"), "rsi": r.get("rsi"),
+        "sector": r.get("sector") or "?", "mcap": r.get("mcap_bucket") or "unknown",
+        "universe": r.get("universe"), "board_score": r.get("score"),
+        "already_in_journal": bool(r.get("journal")),
+        "setup": {"sequence": r.get("sequence"), "prob_up_pct": r.get("prob_up"),
+                  "edge_pp": r.get("edge_pp"), "n": r.get("n"), "why": r.get("why")},
+    } for r in rows]
+    a = get_analytics_conn()
+    try:
+        as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+    finally:
+        a.close()
+    user = {"as_of": as_of, "active_lessons": mem.active_lessons(),
+            "candidates": cands,
+            "note": "Advisory only — decide BUY / WATCH / SKIP per ticker."}
+    try:
+        decisions, usage = call_structured(
+            _ADVISE_SYSTEM, json.dumps(user, default=str), _SCHEMA,
+            model=MODEL_DECISION, tool_name="emit_decisions", max_tokens=4096)
+    except Exception as e:
+        log.exception("advise_setups LLM failed")
+        return {"as_of": as_of, "count": len(cands), "decisions": [], "error": str(e)}
+    return {"as_of": as_of, "count": len(cands),
+            "decisions": decisions.get("decisions", []),
+            "usage": {"in": usage.get("input_tokens"), "out": usage.get("output_tokens")}}
+
+
 def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     ensure_schema()
     t0 = time.time()

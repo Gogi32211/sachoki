@@ -612,6 +612,18 @@ def live_prices(tickers: str):
         return {"prices": {}, "error": str(e)}
 
 
+@app.post("/api/journal/advise-setups")
+def journal_advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit: int = 25):
+    """Ask the journal's decision LLM to judge the Setups-Board tickers
+    (BUY/WATCH/SKIP + conviction + thesis). Advisory — opens no positions."""
+    from ai_journal.decide import advise_setups
+    try:
+        return advise_setups(zone_def=zone_def, max_age_days=max_age_days, limit=limit)
+    except Exception as e:
+        log.exception("advise-setups failed")
+        return {"decisions": [], "error": str(e)}
+
+
 @app.get("/api/zone-events/board")
 def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
     """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with
