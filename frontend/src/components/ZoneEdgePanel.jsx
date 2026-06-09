@@ -1,5 +1,6 @@
 import { useEffect, useState, Fragment } from 'react'
 import { descFor, SIGNAL_DESC, badgeFor, FAMILY_LEGEND, FAMILY_CLS } from '../utils/signalDesc'
+import { pwlAdd } from './PersonalWatchlistPanel'
 
 // Zone EXIT vs RETEST forward-edge research. Raw events are usually NOT an edge;
 // the value is which bar-context (signal / pattern / description) lifts them.
@@ -50,6 +51,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [seqTk, setSeqTk] = useState(null)           // { seq, tickers } drill-down result
   const [seqTkLoading, setSeqTkLoading] = useState(false)
   const [seqList, setSeqList] = useState([])         // accumulated { ticker, seq, date } across clicks
+  const [seqWlMsg, setSeqWlMsg] = useState('')       // watchlist-export toast
   const [legendOpen, setLegendOpen] = useState(false)
 
   // click a miner row → fetch the tickers that built that exact sequence
@@ -624,8 +626,17 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
             <div className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-white/10">
               <span className="font-semibold">📋 Matched tickers</span>
               <span className="text-md-on-surface-var/60">{seqList.length} from {new Set(seqList.map(s => s.seq)).size} pattern(s)</span>
+              <button onClick={() => {
+                  const uniq = [...new Set(seqList.map(s => s.ticker))]
+                  uniq.forEach(tk => pwlAdd({ ticker: tk, _tf: '1d' }))
+                  setSeqWlMsg(`added ${uniq.length} → Watchlist`)
+                  setTimeout(() => setSeqWlMsg(''), 2500)
+                }}
+                className="ml-auto px-2 py-0.5 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30"
+                title="Add all unique tickers to your Watchlist">★ → Watchlist</button>
+              {seqWlMsg && <span className="text-emerald-400 text-[11px]">{seqWlMsg}</span>}
               <button onClick={() => navigator.clipboard?.writeText([...new Set(seqList.map(s => s.ticker))].join(','))}
-                className="ml-auto px-2 py-0.5 rounded border border-white/10 hover:text-white" title="Copy unique tickers (comma-separated)">copy</button>
+                className="px-2 py-0.5 rounded border border-white/10 hover:text-white" title="Copy unique tickers (comma-separated)">copy</button>
               <button onClick={() => { setSeqList([]); setSeqPick(null); setSeqTk(null) }}
                 className="px-2 py-0.5 rounded border border-white/10 text-md-on-surface-var hover:text-white">clear</button>
             </div>
