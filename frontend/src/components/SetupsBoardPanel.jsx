@@ -37,6 +37,9 @@ const ZONES = [['spike', 'spike ≥5×'], ['spike25', 'spike 2–5×'], ['vb', '
 
 const scoreCls = (s) => s >= 80 ? 'text-emerald-300' : s >= 65 ? 'text-lime-300' : s >= 50 ? 'text-amber-300' : 'text-md-on-surface-var'
 const probCls  = (p) => p >= 70 ? 'text-emerald-300' : p >= 60 ? 'text-lime-300' : 'text-amber-300'
+// over-optimistic OOS: win-rate jumped >20pp above IS on a tiny OOS sample (<15) → luck, not edge
+const isOptimistic = (r) => r.win_is != null && r.prob_up != null && r.n_oos != null &&
+  (r.prob_up - r.win_is) > 20 && r.n_oos < 15
 
 function SeqBadges({ sequence }) {
   // "−2:sig_abs → 0:sig_vol_10x"
@@ -218,8 +221,10 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
                   </span>
                 ) : <span className="text-md-on-surface-var/30">{liveLoading ? '…' : '—'}</span>}
               </td>
-              <td className={`text-right px-2 py-1.5 font-mono font-bold ${probCls(r.prob_up)}`}>{r.prob_up}%
-                <span className="text-[9px] text-md-on-surface-var/40"> ·{r.n}</span></td>
+              <td className={`text-right px-2 py-1.5 font-mono font-bold ${probCls(r.prob_up)}`}>
+                {isOptimistic(r) && <span title={`over-optimistic: OOS win jumped +${Math.round(r.prob_up - r.win_is)}pp above IS on only ${r.n_oos} OOS samples — likely luck, not edge`} className="text-amber-400/70 cursor-help mr-0.5">⚠</span>}
+                {r.prob_up}%
+                <span className="text-[9px] text-md-on-surface-var/40"> ·{r.n_oos ?? r.n}</span></td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/70">{r.win_is != null ? r.win_is + '%' : '—'}</td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/45">{r.base != null ? r.base + '%' : '—'}</td>
               <td className="px-3 py-1.5" title={r.why}><SeqBadges sequence={r.sequence} /></td>

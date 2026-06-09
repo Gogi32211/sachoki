@@ -1231,6 +1231,7 @@ def sequence_board(zone_def: str = "spike", depth: int = 4, vol_min: float = 5.0
                     "age_days": int((maxd - pd.to_datetime(str(r["e_date"])[:10])).days),
                     "sequence": label, "prob_up": prob, "edge_pp": c.get("lift_win_pp"),
                     "n": c["n"], "win_is": c.get("win_is_pct"), "base": base_win_pct,
+                    "n_oos": c.get("n_oos"), "n_is": c.get("n_is"),
                     "why": ("failed-breakdown bounce: " if et == "exit_down" else "breakout follow-through: ")
                            + label + f"  (holds OOS {prob}%, n={c['n']})",
                 }
