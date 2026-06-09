@@ -56,6 +56,15 @@ do NOT override with intuition):
   REAL P&L evidence, comparable to a strong matched_combo. `insider_buy_90d=true`
   means a SEC Form-4 open-market insider buy in the last 90 days (extra conviction).
   This is a separate edge from the prebreak V3/V4 pipeline; weigh the confluence.
+- Some candidates carry an `engulf_edge` block: a full-DB-measured sp500 "buy-
+  weakness" setup — an engulf (T4/T6 or Z4/Z6) on BIG volume (vol=B) + an L-line
+  code. Measured +0.6%..+2.1% MEDIAN @10d in sp500 (`edge_med10_pct`). KEY: when
+  `contrarian=true` the trigger is a BEARISH engulf — counter-intuitive, but on big
+  volume in sp500 it is a SHAKEOUT that bounces (the strongest variant, Z6+L5+B,
+  is +2.1% / 65% win). This edge is sp500-only and direction-agnostic: the bar's
+  bull/bear look is NOT the signal — the universe(sp500) × weakness × vol=B is.
+  Treat `edge_med10_pct` as REAL P&L evidence (median, large-n). Do NOT down-rate a
+  contrarian bear-engulf candidate for "looking bearish" — that look IS the edge.
 
 YOUR JOB: for each candidate, decide BUY / WATCH / SKIP and give conviction 0-100
 with a one-sentence thesis grounded in the provided Tier-1 evidence (each signal's
@@ -179,11 +188,79 @@ def zone_edge_candidates(as_of: str, max_age_days: int = 3, limit: int = 12) -> 
     return out[:limit]
 
 
+# Validated sp500 "buy-weakness" engulf setups — (engulf_sig, l_sig) → (label,
+# validation, median fwd_10d %). Measured on the full DB (8.3M bars): an engulf on
+# BIG volume + an L-line code in sp500 returns +0.6%..+2.1% median @10d. Contrarian:
+# a BEARISH engulf on big volume in sp500 is a shakeout that bounces (the strongest
+# longs). nasdaq's mirror (short bull-engulf×strength) is NOT paper-traded (long-only).
+_ENGULF_SETUPS = {
+    ("Z6", "L5"):  ("bear-engulf + L5 (vol↓+down) + vol=B", "+2.13% med@10d, 65% win (n=155, sp500)",  2.13),
+    ("Z6", "L25"): ("bear-engulf + L25 + vol=B",            "+1.50% med@10d, 64% win (n=141, sp500)",  1.50),
+    ("T6", "L12"): ("bull-engulf + L12 + vol=B",            "+1.13% med@10d, 59% win (n=190, sp500)",  1.13),
+    ("Z4", "L25"): ("bear-engulf + L25 + vol=B",            "+1.08% med@10d, 58% win (n=249, sp500)",  1.08),
+    ("Z4", "L46"): ("bear-engulf + L46 + vol=B",            "+0.75% med@10d, 56% win (n=3538, robust)", 0.75),
+    ("Z4", "L5"):  ("bear-engulf + L5 + vol=B",             "+0.73% med@10d, 55% win (n=247, sp500)",  0.73),
+    ("T4", "L12"): ("bull-engulf + L12 + vol=B",            "+0.62% med@10d, 54% win (n=505, sp500)",  0.62),
+    ("Z6", "L46"): ("bear-engulf + L46 + vol=B",            "+0.61% med@10d, 55% win (n=1746, sp500)", 0.61),
+}
+
+
+def engulf_edge_candidates(as_of: str, limit: int = 12) -> list[dict]:
+    """Fourth candidate stream: sp500 'buy-weakness' engulf setups — a bull OR bear
+    engulf on BIG volume + a specific L-line code (see _ENGULF_SETUPS). Full-DB
+    measured +0.6%..+2.1% median @10d, sp500 only. The bearish-engulf variants are
+    CONTRARIAN (a shakeout that bounces). Each carries an `engulf_edge` evidence
+    block so the LLM can weigh the confluence."""
+    a = get_analytics_conn()
+    try:
+        rows = a.execute("""
+            SELECT ticker, universe, close AS last_price, atr_14, rsi_14 AS rsi,
+                   vol_bucket, rtb_phase, t_sig, z_sig, l_sig,
+                   prebreak_v3, prebreak_v3_reasons, prebreak_v4, prebreak_v4_reasons, sector
+            FROM bars
+            WHERE date = ? AND universe = 'sp500' AND vol_bucket = 'B'
+              AND (t_sig IN ('T4','T6') OR z_sig IN ('Z4','Z6'))
+              AND l_sig IS NOT NULL AND l_sig <> ''
+        """, [as_of]).fetchdf()
+    except Exception as e:
+        log.warning("engulf_edge_candidates failed: %s", e)
+        return []
+    finally:
+        a.close()
+    metamap = mem.load_ticker_meta()
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        d = r.to_dict()
+        tk = d["ticker"]
+        eng = d.get("z_sig") if d.get("z_sig") in ("Z4", "Z6") else d.get("t_sig")
+        key = (eng, d.get("l_sig"))
+        if key not in _ENGULF_SETUPS or tk in seen:
+            continue
+        seen.add(tk)
+        label, validation, edge = _ENGULF_SETUPS[key]
+        d["tz_sig"] = d.get("t_sig") or d.get("z_sig") or ""
+        m = metamap.get(tk, {})
+        d["sector"] = m.get("sector") or d.get("sector") or ""
+        d["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        d["market_cap"] = m.get("market_cap")
+        d["engulf_edge"] = {
+            "setup": label, "validation": validation, "edge_med10_pct": edge,
+            "contrarian": eng in ("Z4", "Z6"),   # bear-engulf = contrarian long (shakeout)
+        }
+        out.append(d)
+    out.sort(key=lambda c: c["engulf_edge"]["edge_med10_pct"], reverse=True)
+    return out[:limit]
+
+
 def _fp(c: dict) -> str:
-    """Fingerprint; Zone-Edge candidates get a 'ZE|' prefix so their pattern memory
-    and lessons stay isolated (the journal validates the Zone-Edge edge separately)."""
+    """Fingerprint; second-stream candidates get a prefix so their pattern memory
+    and lessons stay isolated (each edge is validated by the journal separately)."""
     fp = mem.fingerprint(c)
-    return ("ZE|" + fp) if c.get("zone_edge") else fp
+    if c.get("zone_edge"):
+        return "ZE|" + fp
+    if c.get("engulf_edge"):
+        return "EG|" + fp
+    return fp
 
 
 def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
@@ -217,6 +294,12 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             have[z["ticker"]]["zone_edge"] = z["zone_edge"]   # tag existing candidate
         else:
             cands.append(z); have[z["ticker"]] = z
+    # Fourth stream: sp500 buy-weakness engulf×L×vol=B setups (same risk rails apply).
+    for e in engulf_edge_candidates(as_of):
+        if e["ticker"] in have:
+            have[e["ticker"]]["engulf_edge"] = e["engulf_edge"]
+        else:
+            cands.append(e); have[e["ticker"]] = e
     if not cands:
         return {"as_of": as_of, "candidates": 0, "note": "no eligible candidates"}
     t1 = mem.load_tier1_index(as_of)
@@ -285,6 +368,7 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
             "hh_evidence":       ev[:4],                           # ← legacy HH (informational; do not trade on)
             "tier2_own":         mem.tier2_for(fp, as_of),
             **({"zone_edge": c["zone_edge"]} if c.get("zone_edge") else {}),
+            **({"engulf_edge": c["engulf_edge"]} if c.get("engulf_edge") else {}),
         })
 
     user = {
