@@ -65,6 +65,10 @@ do NOT override with intuition):
   bull/bear look is NOT the signal — the universe(sp500) × weakness × vol=B is.
   Treat `edge_med10_pct` as REAL P&L evidence (median, large-n). Do NOT down-rate a
   contrarian bear-engulf candidate for "looking bearish" — that look IS the edge.
+  When `bars=4` the block is the 4-BAR PULLBACK-RESUME: a bull engulf (T4/T6) on big
+  volume → a bearish pullback → a bullish T-turn TODAY (you enter on the confirmed
+  turn). It is cleaner and higher-edge than the 2-bar (T4-trigger +2.29% / 58% win)
+  — weight it as a strong matched setup.
 
 YOUR JOB: for each candidate, decide BUY / WATCH / SKIP and give conviction 0-100
 with a one-sentence thesis grounded in the provided Tier-1 evidence (each signal's
@@ -252,6 +256,65 @@ def engulf_edge_candidates(as_of: str, limit: int = 12) -> list[dict]:
     return out[:limit]
 
 
+# 4-bar PULLBACK-RESUME (sp500), trigger engulf → median fwd_10d. A bull engulf on
+# big volume, then a bearish pullback bar, then a bullish T-turn = momentum resume.
+# Stronger and cleaner than the 2-bar buy-weakness (you enter on the confirmed turn).
+_ENGULF_4BAR = {
+    "T4": ("4-bar pullback-resume: T4 bull-engulf+B → bear pullback → bull-T turn", "+2.29% med@10d, 58% win (n=594, sp500)", 2.29),
+    "T6": ("4-bar pullback-resume: T6 bull-engulf+B → bear pullback → bull-T turn", "+1.06% med@10d, 56% win (n=206, sp500)", 1.06),
+}
+
+
+def engulf_pullback_candidates(as_of: str, limit: int = 12) -> list[dict]:
+    """Fifth stream: the 4-bar sp500 PULLBACK-RESUME completing TODAY. bar-2 = a bull
+    engulf (T4/T6) on BIG volume, bar-1 = a bearish pullback, bar0(as_of) = a bullish
+    T-turn (T9/T3/T4) on volume (not W) → enter at today's close. Full-DB measured
+    +1.06%..+2.29% median @10d (sp500). Carries an `engulf_edge` block (bars=4)."""
+    a = get_analytics_conn()
+    try:
+        rows = a.execute("""
+            WITH x AS (
+              SELECT ticker, close AS last_price, atr_14, rsi_14 AS rsi, vol_bucket,
+                     rtb_phase, t_sig, z_sig, l_sig, sector, date,
+                     prebreak_v3, prebreak_v3_reasons, prebreak_v4, prebreak_v4_reasons,
+                     lag(CASE WHEN close < open THEN 1 ELSE 0 END, 1) OVER w AS p1_bear,
+                     lag(t_sig, 2) OVER w AS p2_t, lag(vol_bucket, 2) OVER w AS p2_vol
+              FROM bars WHERE universe = 'sp500'
+              WINDOW w AS (PARTITION BY ticker ORDER BY date))
+            SELECT * FROM x
+            WHERE date = ? AND t_sig IN ('T9','T3','T4') AND vol_bucket <> 'W'
+              AND p1_bear = 1 AND p2_t IN ('T4','T6') AND p2_vol = 'B'
+        """, [as_of]).fetchdf()
+    except Exception as e:
+        log.warning("engulf_pullback_candidates failed: %s", e)
+        return []
+    finally:
+        a.close()
+    metamap = mem.load_ticker_meta()
+    out, seen = [], set()
+    for _, r in rows.iterrows():
+        d = r.to_dict()
+        tk = d["ticker"]
+        trig = d.get("p2_t")
+        if trig not in _ENGULF_4BAR or tk in seen:
+            continue
+        seen.add(tk)
+        label, validation, edge = _ENGULF_4BAR[trig]
+        d["universe"] = "sp500"
+        d["tz_sig"] = d.get("t_sig") or ""
+        m = metamap.get(tk, {})
+        d["sector"] = m.get("sector") or d.get("sector") or ""
+        d["mcap_bucket"] = m.get("mcap_bucket") or "unknown"
+        d["market_cap"] = m.get("market_cap")
+        d["engulf_edge"] = {
+            "setup": label, "validation": validation, "edge_med10_pct": edge,
+            "bars": 4, "turn": d.get("t_sig"), "trigger_engulf": trig, "contrarian": False,
+        }
+        out.append(d)
+    out.sort(key=lambda c: c["engulf_edge"]["edge_med10_pct"], reverse=True)
+    return out[:limit]
+
+
 def _fp(c: dict) -> str:
     """Fingerprint; second-stream candidates get a prefix so their pattern memory
     and lessons stay isolated (each edge is validated by the journal separately)."""
@@ -298,6 +361,15 @@ def run_session(as_of: str | None = None, top_n: int = rails.TOP_N) -> dict:
     for e in engulf_edge_candidates(as_of):
         if e["ticker"] in have:
             have[e["ticker"]]["engulf_edge"] = e["engulf_edge"]
+        else:
+            cands.append(e); have[e["ticker"]] = e
+    # Fifth stream: 4-bar pullback-resume (sp500). If a ticker also matched the 2-bar
+    # buy-weakness, keep whichever engulf_edge has the higher measured edge.
+    for e in engulf_pullback_candidates(as_of):
+        ex = have.get(e["ticker"])
+        if ex:
+            if e["engulf_edge"]["edge_med10_pct"] > ex.get("engulf_edge", {}).get("edge_med10_pct", -9):
+                ex["engulf_edge"] = e["engulf_edge"]
         else:
             cands.append(e); have[e["ticker"]] = e
     if not cands:
