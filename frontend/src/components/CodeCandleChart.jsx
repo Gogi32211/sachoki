@@ -49,7 +49,7 @@ export default function CodeCandleChart({
   showSector = false,
   interactive = true,
   bare = false,
-  codes = true,          // initial state of the code overlay (off for clean previews)
+  codes = false,         // initial state of the code overlay — OFF by default; toggle on when needed
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
   zoneSource = 'hv',     // 'hv' (cyan) | 'gann' (amber) — which zone overlay to draw

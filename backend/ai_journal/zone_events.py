@@ -938,7 +938,7 @@ _LEADIN_SIGNALS = [
     # T/Z timing
     "sig_t1g", "sig_t2g", "sig_buy", "sig_t6",
     # structure / trend / volume
-    "is_pivot_low_3", "is_pivot_low_5", "psar_bull",
+    "psar_bull",
     "sig_vol_5x", "sig_vol_10x",
     # parabolic / momentum-late
     "para_prep", "para_start", "rocket",
