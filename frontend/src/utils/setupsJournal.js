@@ -35,3 +35,25 @@ export function sjByDate() {
   return Object.entries(g).sort((a, b) => b[0].localeCompare(a[0]))
 }
 export function sjCount() { return sjLoad().length }
+
+/** Download a TradingView-importable watchlist .txt.
+ *  `sections` = array of {name, tickers:[]} → '###Name,\nA,B,C' blocks,
+ *  or a flat array of tickers → comma-separated. */
+export function downloadTV(filename, sections) {
+  const uniq = (arr) => [...new Set(arr.filter(Boolean))]
+  let text
+  if (Array.isArray(sections) && (sections.length === 0 || typeof sections[0] === 'string')) {
+    text = uniq(sections).join(',')
+  } else {
+    text = (sections || [])
+      .filter(s => (s.tickers || []).length)
+      .map(s => `###${(s.name || 'Setups').replace(/[\n,]/g, ' ')},\n${uniq(s.tickers).join(',')}`)
+      .join('\n')
+  }
+  const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement('a')
+  a.href = url; a.download = filename
+  document.body.appendChild(a); a.click(); a.remove()
+  setTimeout(() => URL.revokeObjectURL(url), 1000)
+}

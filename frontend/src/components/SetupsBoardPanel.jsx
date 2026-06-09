@@ -1,7 +1,7 @@
 import { useEffect, useState, Fragment } from 'react'
 import { badgeFor, descFor } from '../utils/signalDesc'
 import { pwlAdd } from './PersonalWatchlistPanel'
-import { sjAdd, sjByDate, sjRemove, sjClear, sjCount } from '../utils/setupsJournal'
+import { sjAdd, sjByDate, sjRemove, sjClear, sjCount, downloadTV } from '../utils/setupsJournal'
 
 const actCls = (a) => a === 'BUY' ? 'bg-emerald-900/50 text-emerald-200 border-emerald-600'
   : a === 'WATCH' ? 'bg-amber-900/40 text-amber-200 border-amber-700/50'
@@ -158,12 +158,20 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
             className="ml-auto px-2 py-0.5 rounded border border-white/10 hover:text-white disabled:opacity-40" title="Log all to the dated Journal">+ all → Journal</button>
           <button onClick={addAll} disabled={!rows.length}
             className="px-2 py-0.5 rounded border border-emerald-700/50 text-emerald-300 hover:bg-emerald-900/30 disabled:opacity-40">★ all → Watchlist</button>
+          <button onClick={() => downloadTV(`sachoki_setups_${data?.as_of || 'board'}.txt`, [{ name: `Sachoki Setups ${data?.as_of || ''}`.trim(), tickers: rows.map(r => r.ticker) }])}
+            disabled={!rows.length}
+            className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40"
+            title="Download .txt watchlist for TradingView import">⬇ TV .txt</button>
           {wlMsg && <span className="text-emerald-400 text-[11px]">{wlMsg}</span>}
         </>}
-        {view === 'journal' && (
+        {view === 'journal' && (<>
+          <button onClick={() => downloadTV('sachoki_journal.txt', sjByDate().map(([date, items]) => ({ name: date, tickers: items.map(it => it.ticker) })))}
+            disabled={!sjCount()}
+            className="ml-auto px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40"
+            title="Download .txt watchlist (sections by date) for TradingView">⬇ TV .txt</button>
           <button onClick={() => { sjClear(); setJTick(t => t + 1) }}
-            className="ml-auto px-2 py-0.5 rounded border border-white/10 text-md-on-surface-var hover:text-white">clear journal</button>
-        )}
+            className="px-2 py-0.5 rounded border border-white/10 text-md-on-surface-var hover:text-white">clear journal</button>
+        </>)}
       </div>
       {err && <div className="text-rose-400 text-xs mb-2">error: {err}</div>}
       {view === 'journal' ? (
@@ -341,10 +349,17 @@ function ComboBoardView({ onSelectTicker, ai = {}, runAi, aiLoading }) {
                     }
                     return (
                       <div className="space-y-1">
-                        {!!all.length && runAi && (
-                          <button onClick={(e) => { e.stopPropagation(); runAi(all.map(s => ({ ticker: s.ticker, source: 'combo', setup: { combo: comboLbl, prob_up_pct: c.win_oos_pct, n: c.n } }))) }}
-                            disabled={aiLoading}
-                            className="px-2 py-0.5 rounded border border-violet-600/60 text-violet-200 bg-violet-900/30 hover:bg-violet-900/50 disabled:opacity-40 text-[11px] mb-1">{aiLoading ? '🤖 thinking…' : '🤖 AI decide these'}</button>
+                        {!!all.length && (
+                          <div className="flex items-center gap-1 mb-1">
+                            {runAi && (
+                              <button onClick={(e) => { e.stopPropagation(); runAi(all.map(s => ({ ticker: s.ticker, source: 'combo', setup: { combo: comboLbl, prob_up_pct: c.win_oos_pct, n: c.n } }))) }}
+                                disabled={aiLoading}
+                                className="px-2 py-0.5 rounded border border-violet-600/60 text-violet-200 bg-violet-900/30 hover:bg-violet-900/50 disabled:opacity-40 text-[11px]">{aiLoading ? '🤖 thinking…' : '🤖 AI decide these'}</button>
+                            )}
+                            <button onClick={(e) => { e.stopPropagation(); downloadTV(`sachoki_combo_${i + 1}.txt`, [{ name: comboLbl, tickers: all.map(s => s.ticker) }]) }}
+                              className="px-2 py-0.5 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 text-[11px]"
+                              title="Download these tickers as a TradingView .txt watchlist">⬇ TV .txt</button>
+                          </div>
                         )}
                         <div><span className="text-[10px] text-emerald-300/80 mr-2">✅ confirmed {conf.length}</span>
                           <span className="inline-flex flex-wrap gap-1">{conf.map(s => chip(s, 'border-emerald-700/40 bg-emerald-900/10 text-emerald-200'))}</span></div>
