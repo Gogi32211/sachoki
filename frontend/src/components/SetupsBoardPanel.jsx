@@ -7,6 +7,30 @@ const actCls = (a) => a === 'BUY' ? 'bg-emerald-900/50 text-emerald-200 border-e
   : a === 'WATCH' ? 'bg-amber-900/40 text-amber-200 border-amber-700/50'
   : 'bg-md-surface text-md-on-surface-var/60 border-white/10'
 
+// combo feature → live-setup slot, + prettifier (mirrors ZoneEdgePanel)
+const SLOT_OF_COL = { t_sig: 'tz', z_sig: 'z', flip_code: 'flip', l_sig: 'l',
+  full_suffix: 'suffix', composite_full_suffix: 'suffix', bar_body_wick: 'bodywk',
+  gap_rng: 'gaprng', bar_line5: 'l5', vol_bucket: 'vol' }
+const fmtFeat = (f) => !f ? f : f
+  .replace(/^tz_up_next3$/, 'flip✓').replace(/^flip_code=/, 'flip→')
+  .replace(/^p1_tz=/, '−1:T=').replace(/^p1_z=/, '−1:Z=').replace(/^p1_vol=/, '−1:vol=').replace(/^p1_l5=/, '−1:l5=')
+  .replace(/^p2_tz=/, '−2:T=').replace(/^p2_z=/, '−2:Z=')
+  .replace(/^vol_bucket=/, 'vol=').replace(/^bar_body_wick=/, 'body=').replace(/^bar_line5=/, 'l5=')
+  .replace(/^bar_range_class=/, 'rng=').replace(/^l_sig=/, 'L=').replace(/^composite_full_suffix=/, 'sfx=')
+function applyCombo(c) {
+  const slots = { tz: '*', z: '*', flip: '*', l: '*', suffix: '*', bodywk: '*', gaprng: '*', l5: '*', vol: '*' }
+  const bools = []; const cats = {}; let flip = false
+  for (const f of [c.a, c.b, c.c].filter(Boolean)) {
+    if (f === 'tz_up_next3') flip = true
+    else if (f.includes('=')) { const i = f.indexOf('='); const col = f.slice(0, i); const val = f.slice(i + 1); const slot = SLOT_OF_COL[col]; if (slot) slots[slot] = val; else cats[col] = val }
+    else bools.push(f)
+  }
+  return { slots, bools, cats, flip }
+}
+const comboHolds = (c, base) => c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > base
+const comboScore = (c, base) => Math.round(Math.min(100,
+  (c.win_oos_pct || 0) * 0.8 + (c.lift_win_pp || 0) * 1.2 + (comboHolds(c, base) ? 6 : -10) + Math.min(c.n || 0, 2500) / 250))
+
 // Setups Board — recent tickers that built an OOS-holding lead-in sequence,
 // scored, with probability-up (= OOS win%), why, last price, journal status.
 const ZONES = [['spike', 'spike ≥5×'], ['spike25', 'spike 2–5×'], ['vb', 'VB class']]
@@ -107,7 +131,7 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
       </p>
       <div className="flex items-center gap-2 text-xs mb-3 flex-wrap">
         <div className="flex items-center gap-1 mr-1">
-          {[['board', 'Board'], ['journal', `📓 Journal${sjCount() ? ` (${sjCount()})` : ''}`]].map(([v, lbl]) => (
+          {[['board', 'Board'], ['combos', '🔗 Combos'], ['journal', `📓 Journal${sjCount() ? ` (${sjCount()})` : ''}`]].map(([v, lbl]) => (
             <button key={v} onClick={() => setView(v)}
               className={`px-2 py-0.5 rounded border ${view === v ? 'bg-md-surface-high border-white/30 text-white' : 'bg-md-surface border-white/10 hover:text-white'}`}>{lbl}</button>
           ))}
@@ -140,6 +164,8 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
       {err && <div className="text-rose-400 text-xs mb-2">error: {err}</div>}
       {view === 'journal' ? (
         <SetupsJournalView key={jTick} onSelectTicker={onSelectTicker} />
+      ) : view === 'combos' ? (
+        <ComboBoardView onSelectTicker={onSelectTicker} />
       ) : (
       <>
       <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
@@ -214,6 +240,111 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
       </p>
       </>
       )}
+    </div>
+  )
+}
+
+// ── combos board: IS/OOS-validated retest combos, scored, drill to tickers ────
+function ComboBoardView({ onSelectTicker }) {
+  const [data, setData] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const [ways, setWays] = useState(2)
+  const [pick, setPick] = useState(null)
+  const [tk, setTk] = useState(null)
+  const [tkL, setTkL] = useState(false)
+
+  useEffect(() => {
+    let dead = false; setLoading(true); setPick(null); setTk(null)
+    const q = new URLSearchParams({ event_type: 'retest', vol_min: '5', horizon: '10',
+      ways: String(ways), top: '40', min_n: ways === 3 ? '80' : '40', anchor: 'tz_up_next3' })
+    fetch(`/api/zone-events/combos?${q}`)
+      .then(r => r.json()).then(d => { if (!dead) setData(d) })
+      .catch(() => {}).finally(() => { if (!dead) setLoading(false) })
+    return () => { dead = true }
+  }, [ways])
+
+  const base = data?.event_base?.win_rate_pct ?? 0
+  const scored = (data?.best || []).map(c => ({ ...c, _s: comboScore(c, base), _h: comboHolds(c, base) }))
+    .sort((a, b) => b._s - a._s)
+
+  const pickCombo = (c, i) => {
+    if (pick === i) { setPick(null); setTk(null); return }
+    setPick(i); setTk(null); setTkL(true)
+    const { slots, bools, cats, flip } = applyCombo(c)
+    const q = new URLSearchParams({ event_type: 'retest', require_flip: flip ? '1' : '0',
+      vol_min: '5', horizon: '10', max_age_days: '10', ...slots })
+    if (bools.length) q.set('bools', bools.join(','))
+    if (Object.keys(cats).length) q.set('cats', Object.entries(cats).map(([k, v]) => `${k}=${v}`).join(','))
+    fetch(`/api/zone-events/live?${q}`).then(r => r.json()).then(d => setTk(d)).catch(() => setTk({ setups: [] })).finally(() => setTkL(false))
+  }
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 text-xs mb-2">
+        <span className="text-md-on-surface-var/60">RETEST + T/Z-flip combinations · score = OOS win + lift + holds + n</span>
+        {[2, 3].map(w => (
+          <button key={w} onClick={() => setWays(w)}
+            className={`px-2 py-0.5 rounded border ${ways === w ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{w}-way</button>
+        ))}
+        {loading && <span className="text-sky-400 animate-pulse">computing…</span>}
+        {data && <span className="text-md-on-surface-var/50">base {base}% · {scored.length} combos · click → tickers</span>}
+      </div>
+      <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
+        <thead className="bg-md-surface-high text-md-on-surface-var">
+          <tr>
+            <th className="text-right px-2 py-1.5">score</th>
+            <th className="text-left px-3 py-1.5">combination</th>
+            <th className="text-right px-2 py-1.5">n</th>
+            <th className="text-right px-2 py-1.5">win</th>
+            <th className="text-right px-2 py-1.5">IS</th>
+            <th className="text-right px-2 py-1.5">OOS</th>
+            <th className="text-center px-2 py-1.5">holds</th>
+          </tr>
+        </thead>
+        <tbody>
+          {scored.map((c, i) => (
+            <Fragment key={i}>
+              <tr onClick={() => pickCombo(c, i)} className={`border-t border-white/5 cursor-pointer hover:bg-white/[0.03] ${pick === i ? 'bg-sky-900/20' : ''}`}>
+                <td className={`text-right px-2 py-1.5 font-mono font-bold ${c._s >= 70 ? 'text-emerald-300' : c._s >= 55 ? 'text-lime-300' : 'text-amber-300'}`}>{c._s}</td>
+                <td className="px-3 py-1.5 font-mono text-[11px]">
+                  <span className="text-md-on-surface-var/30 mr-1">{pick === i ? '▾' : '▸'}</span>
+                  <span className="text-sky-300">{fmtFeat(c.a)}</span>
+                  <span className="text-md-on-surface-var/40"> + </span>
+                  <span className="text-violet-300">{fmtFeat(c.b)}</span>
+                  {c.c && <><span className="text-md-on-surface-var/40"> + </span><span className="text-amber-300">{fmtFeat(c.c)}</span></>}
+                </td>
+                <td className={`text-right px-2 py-1.5 font-mono ${c.n >= 300 ? 'text-emerald-300' : c.n >= 100 ? 'text-md-on-surface' : 'text-amber-400/70'}`}>{c.n.toLocaleString()}</td>
+                <td className="text-right px-2 py-1.5 font-mono font-bold">{c.win_rate_pct}%</td>
+                <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{c.win_is_pct}%</td>
+                <td className={`text-right px-2 py-1.5 font-mono ${c._h ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%</td>
+                <td className="text-center px-2 py-1.5">{c._h ? '✅' : '❌'}</td>
+              </tr>
+              {pick === i && (
+                <tr className="bg-md-surface-con/40"><td colSpan={7} className="px-4 py-2">
+                  {tkL ? <span className="text-sky-400 animate-pulse text-xs">loading tickers…</span> : (() => {
+                    const conf = (tk?.setups || []).filter(s => s.status === 'confirmed')
+                    const pend = (tk?.setups || []).filter(s => s.status === 'pending')
+                    const chip = (s, cls) => (
+                      <button key={s.ticker} onClick={(e) => { e.stopPropagation(); onSelectTicker?.(s.ticker) }}
+                        title={`${s.status} · ${s.days_ago ?? 0}d ago${s.flip_code ? ' · flip ' + s.flip_code : ''}`}
+                        className={`px-1.5 py-0.5 rounded border text-[11px] font-mono hover:border-sky-500 ${cls}`}>{s.ticker}</button>)
+                    return (
+                      <div className="space-y-1">
+                        <div><span className="text-[10px] text-emerald-300/80 mr-2">✅ confirmed {conf.length}</span>
+                          <span className="inline-flex flex-wrap gap-1">{conf.map(s => chip(s, 'border-emerald-700/40 bg-emerald-900/10 text-emerald-200'))}</span></div>
+                        <div><span className="text-[10px] text-amber-300/80 mr-2">⌛ pending {pend.length}</span>
+                          <span className="inline-flex flex-wrap gap-1">{pend.map(s => chip(s, 'border-white/10 bg-md-surface text-md-on-surface-var'))}</span></div>
+                        {!conf.length && !pend.length && <span className="text-md-on-surface-var/40 text-xs">no recent tickers for this combo</span>}
+                      </div>)
+                  })()}
+                </td></tr>
+              )}
+            </Fragment>
+          ))}
+          {!loading && !scored.length && <tr><td colSpan={7} className="px-3 py-4 text-center text-md-on-surface-var/50">no combos</td></tr>}
+        </tbody>
+      </table>
+      <p className="text-[10px] text-md-on-surface-var/50 mt-2">Click a combo → its recent confirmed/pending retest tickers (confirmed = T/Z already flipped up). Score blends OOS win, lift, holds and n.</p>
     </div>
   )
 }
