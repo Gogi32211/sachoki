@@ -1230,7 +1230,7 @@ def sequence_board(zone_def: str = "spike", depth: int = 4, vol_min: float = 5.0
                     "ticker": tk, "event_type": et, "exit_date": str(r["e_date"])[:10],
                     "age_days": int((maxd - pd.to_datetime(str(r["e_date"])[:10])).days),
                     "sequence": label, "prob_up": prob, "edge_pp": c.get("lift_win_pp"),
-                    "n": c["n"], "win_is": c.get("win_is_pct"),
+                    "n": c["n"], "win_is": c.get("win_is_pct"), "base": base_win_pct,
                     "why": ("failed-breakdown bounce: " if et == "exit_down" else "breakout follow-through: ")
                            + label + f"  (holds OOS {prob}%, n={c['n']})",
                 }

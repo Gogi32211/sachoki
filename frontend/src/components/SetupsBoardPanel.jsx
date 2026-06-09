@@ -187,7 +187,9 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
             <th className="text-left px-2 py-1.5">ticker</th>
             <th className="text-right px-2 py-1.5" title="last DB close">close</th>
             <th className="text-right px-2 py-1.5" title="live snapshot (Massive)">live</th>
-            <th className="text-right px-2 py-1.5" title="OOS win-rate of the matched sequence">prob↑</th>
+            <th className="text-right px-2 py-1.5" title="OOS win-rate of the matched sequence = probability up">prob↑</th>
+            <th className="text-right px-2 py-1.5" title="in-sample win-rate (the same sequence's IS row in the miner)">IS</th>
+            <th className="text-right px-2 py-1.5" title="base win-rate of the exit population (the miner's 'base XX%')">base</th>
             <th className="text-left px-3 py-1.5">sequence used</th>
             <th className="text-right px-2 py-1.5">rsi</th>
             <th className="text-left px-2 py-1.5">univ</th>
@@ -218,6 +220,8 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
               </td>
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${probCls(r.prob_up)}`}>{r.prob_up}%
                 <span className="text-[9px] text-md-on-surface-var/40"> ·{r.n}</span></td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/70">{r.win_is != null ? r.win_is + '%' : '—'}</td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/45">{r.base != null ? r.base + '%' : '—'}</td>
               <td className="px-3 py-1.5" title={r.why}><SeqBadges sequence={r.sequence} /></td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{r.rsi ?? '—'}</td>
               <td className="px-2 py-1.5 text-[10px] text-md-on-surface-var/70">{r.universe}</td>
@@ -241,7 +245,7 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
             </tr>
           ))}
           {!loading && !rows.length && (
-            <tr><td colSpan={13} className="px-3 py-4 text-center text-md-on-surface-var/50">no holding-sequence setups in the last 20d</td></tr>
+            <tr><td colSpan={15} className="px-3 py-4 text-center text-md-on-surface-var/50">no holding-sequence setups in the last 20d</td></tr>
           )}
         </tbody>
       </table>
