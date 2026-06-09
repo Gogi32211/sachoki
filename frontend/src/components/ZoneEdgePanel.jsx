@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Fragment } from 'react'
 import { descFor, SIGNAL_DESC, badgeFor, FAMILY_LEGEND, FAMILY_CLS } from '../utils/signalDesc'
 
 // Zone EXIT vs RETEST forward-edge research. Raw events are usually NOT an edge;
@@ -46,7 +46,38 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
   const [seqData, setSeqData]   = useState(null)
   const [seqLoading, setSeqLoading] = useState(false)
   const [seqZoneDef, setSeqZoneDef] = useState('spike')   // 'spike' (V1) | 'vb' (V2)
+  const [seqPick, setSeqPick] = useState(null)       // index of the clicked pattern
+  const [seqTk, setSeqTk] = useState(null)           // { seq, tickers } drill-down result
+  const [seqTkLoading, setSeqTkLoading] = useState(false)
+  const [seqList, setSeqList] = useState([])         // accumulated { ticker, seq, date } across clicks
   const [legendOpen, setLegendOpen] = useState(false)
+
+  // click a miner row → fetch the tickers that built that exact sequence
+  const seqToTokens = (c) => (c.sequence || [])
+    .map(x => `${x.signal}@-${x.bar === 'exit' ? 0 : Math.abs(parseInt(x.bar, 10))}`).join(',')
+  const seqLabel = (c) => (c.sequence || [])
+    .map(x => `${x.bar === 'exit' ? '0' : x.bar}:${x.signal}`).join(' → ')
+  const pickPattern = (c, i) => {
+    if (seqPick === i) { setSeqPick(null); setSeqTk(null); return }
+    setSeqPick(i); setSeqTk(null); setSeqTkLoading(true)
+    const q = new URLSearchParams({ seq: seqToTokens(c), event_type: seqEvent,
+      zone_def: seqZoneDef, depth: String(seqDepth), max_age_days: '60' })
+    fetch(`/api/zone-events/sequence-tickers?${q}`)
+      .then(r => r.json())
+      .then(d => {
+        setSeqTk({ ...d, label: seqLabel(c) })
+        // merge into the accumulated list (dedupe by ticker+seq)
+        const lbl = seqLabel(c)
+        setSeqList(prev => {
+          const have = new Set(prev.map(p => p.ticker + '|' + p.seq))
+          const add = (d.tickers || []).filter(t => !have.has(t.ticker + '|' + lbl))
+            .map(t => ({ ticker: t.ticker, seq: lbl, date: t.exit_date, age: t.age_days }))
+          return [...add, ...prev].slice(0, 400)
+        })
+      })
+      .catch(() => setSeqTk({ tickers: [], error: 'failed' }))
+      .finally(() => setSeqTkLoading(false))
+  }
   const [examples, setExamples] = useState(null)
   // Pattern builder (full bar-code slots)
   const [patValues, setPatValues] = useState(null)
@@ -511,9 +542,13 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
               const base = seqData.event_base?.win_rate_pct ?? 0
               const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > base
               return (
-                <tr key={i} className="border-t border-white/5">
+              <Fragment key={i}>
+                <tr onClick={() => pickPattern(c, i)}
+                  className={`border-t border-white/5 cursor-pointer hover:bg-white/[0.03] ${seqPick === i ? 'bg-sky-900/20' : ''}`}
+                  title="Click to see the tickers that built this sequence">
                   <td className="px-3 py-1.5">
                     <div className="flex items-center gap-1 flex-wrap">
+                      <span className={`text-[10px] mr-0.5 ${seqPick === i ? 'text-sky-300' : 'text-md-on-surface-var/30'}`}>{seqPick === i ? '▾' : '▸'}</span>
                       {(c.sequence || []).map((x, j) => {
                         const bd = badgeFor(x.signal)
                         const off = x.bar === 'exit' ? 0 : Math.abs(parseInt(x.bar, 10))
@@ -544,6 +579,32 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                   <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span></td>
                   <td className="text-center px-2 py-1.5">{holds ? '✅' : '❌'}</td>
                 </tr>
+                {seqPick === i && (
+                  <tr key={i + '-d'} className="bg-md-surface-con/40">
+                    <td colSpan={6} className="px-4 py-2">
+                      {seqTkLoading ? <span className="text-sky-400 animate-pulse text-xs">loading tickers…</span> : (
+                        <div>
+                          <div className="text-[11px] text-md-on-surface-var/70 mb-1">
+                            <b className="text-md-on-surface">{seqTk?.count ?? 0}</b> tickers built this in the last 60d
+                            {seqTk?.as_of && <span> · as of {seqTk.as_of}</span>}
+                            {!!(seqTk?.tickers || []).length && <span className="text-md-on-surface-var/40"> · click a ticker → chart</span>}
+                          </div>
+                          <div className="flex flex-wrap gap-1">
+                            {(seqTk?.tickers || []).map(t => (
+                              <button key={t.ticker} onClick={(e) => { e.stopPropagation(); onSelectTicker?.(t.ticker) }}
+                                title={`exit ${t.exit_date} · ${t.age_days}d ago`}
+                                className="px-1.5 py-0.5 rounded border border-white/10 bg-md-surface text-[11px] font-mono hover:border-sky-500 hover:text-sky-200">
+                                {t.ticker}<span className="text-md-on-surface-var/40 ml-1">{t.age_days}d</span>
+                              </button>
+                            ))}
+                            {!(seqTk?.tickers || []).length && !seqTkLoading && <span className="text-md-on-surface-var/40 text-xs">none in the last 60d</span>}
+                          </div>
+                        </div>
+                      )}
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
               )
             })}
             {!seqLoading && !(seqData?.best || []).length && (
@@ -554,7 +615,38 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
         <p className="text-[10px] text-md-on-surface-var/50 mt-1">
           Lead-in set = curated move-initiation signals (momentum / coil / absorption / structure / volume), lagged over the window.
           {seqEvent === 'exit_down' && <span className="text-amber-400/70"> ⚠ exit↓ "win" = price UP after the breakdown (i.e. a failed/spring breakdown).</span>}
+          <span className="text-sky-300/70"> · click any row → its tickers.</span>
         </p>
+
+        {/* Accumulated ticker list across clicked patterns */}
+        {seqList.length > 0 && (
+          <div className="mt-3 border border-sky-700/30 rounded bg-sky-950/10">
+            <div className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-white/10">
+              <span className="font-semibold">📋 Matched tickers</span>
+              <span className="text-md-on-surface-var/60">{seqList.length} from {new Set(seqList.map(s => s.seq)).size} pattern(s)</span>
+              <button onClick={() => navigator.clipboard?.writeText([...new Set(seqList.map(s => s.ticker))].join(','))}
+                className="ml-auto px-2 py-0.5 rounded border border-white/10 hover:text-white" title="Copy unique tickers (comma-separated)">copy</button>
+              <button onClick={() => { setSeqList([]); setSeqPick(null); setSeqTk(null) }}
+                className="px-2 py-0.5 rounded border border-white/10 text-md-on-surface-var hover:text-white">clear</button>
+            </div>
+            <div className="px-3 py-2 max-h-56 overflow-auto">
+              {[...new Set(seqList.map(s => s.seq))].map(seqLbl => (
+                <div key={seqLbl} className="mb-2">
+                  <div className="text-[10px] font-mono text-md-on-surface-var/60 mb-1">{seqLbl}</div>
+                  <div className="flex flex-wrap gap-1">
+                    {seqList.filter(s => s.seq === seqLbl).map(s => (
+                      <button key={s.ticker} onClick={() => onSelectTicker?.(s.ticker)}
+                        title={`exit ${s.date} · ${s.age}d ago`}
+                        className="px-1.5 py-0.5 rounded border border-white/10 bg-md-surface text-[11px] font-mono hover:border-sky-500 hover:text-sky-200">
+                        {s.ticker}<span className="text-md-on-surface-var/40 ml-1">{s.age}d</span>
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Signal legend — descriptions for every signal in the panel */}
         <div className="mt-3 border border-white/10 rounded">

@@ -586,6 +586,35 @@ def zone_events_sequences(event_type: str = "exit_up", depth: int = 3, horizon: 
         return {"event_type": event_type, "best": [], "worst": [], "error": str(e)}
 
 
+@app.get("/api/zone-events/live-sequences")
+def zone_events_live_sequences(event_type: str = "exit_down", zone_def: str = "spike",
+                               depth: int = 4, max_age_days: int = 10, min_sigs: int = 2):
+    """LIVE scan: recent zone exits with the de-biased lead-in buildup that fired,
+    flagging any cross-stable validated pattern. No look-ahead (pivots excluded)."""
+    from ai_journal.zone_events import live_sequences
+    try:
+        return live_sequences(event_type=event_type, zone_def=zone_def, depth=depth,
+                             max_age_days=max_age_days, min_sigs=min_sigs)
+    except Exception as e:
+        log.exception("zone-events live-sequences failed")
+        return {"event_type": event_type, "setups": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/zone-events/sequence-tickers")
+def zone_events_sequence_tickers(seq: str, event_type: str = "exit_up",
+                                 zone_def: str = "spike", depth: int = 4,
+                                 max_age_days: int = 60):
+    """Drill-down for a clicked miner sequence: the recent tickers that built it.
+    `seq` = comma-separated 'signal@-k' tokens (k=0 = exit bar)."""
+    from ai_journal.zone_events import sequence_tickers
+    try:
+        return sequence_tickers(seq=seq, event_type=event_type, zone_def=zone_def,
+                               depth=depth, max_age_days=max_age_days)
+    except Exception as e:
+        log.exception("sequence-tickers failed")
+        return {"seq": seq, "tickers": [], "count": 0, "error": str(e)}
+
+
 @app.get("/api/zone-events/combos")
 def zone_events_combos(event_type: str = "retest", vol_min: float = 5.0,
                        lb_max: int = 90, horizon: int = 10, first_only: bool = True,

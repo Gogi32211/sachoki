@@ -61,8 +61,8 @@ _SEQ_CAT = ["p1_tz", "p1_z", "p1_vol", "p1_l5", "p2_tz", "p2_z"]
 # from the live `bars` schema is folded in below so every Ultra-screener filter
 # participates in the lift / combo / sequence search. Forward-looking OUTCOME
 # columns are excluded — they encode the future and would leak look-ahead edge.
-_BOOL_DENY_PREFIX = ("hit_", "drop_", "next_pivot_is_", "fwd_", "mfe", "mae",
-                     "ret_", "fut_", "target")
+_BOOL_DENY_PREFIX = ("hit_", "drop_", "next_pivot_is_", "is_pivot", "fwd_", "mfe", "mae",
+                     "ret_", "fut_", "target")   # is_pivot_* repaint (confirmed N bars late) → look-ahead
 _BOOL_DENY = {"vix_range"}                       # not a per-bar setup signal
 _DISCOVERED_BOOL = None                          # cache (schema introspected once)
 
@@ -970,6 +970,8 @@ def _seq_sql(vol_min: float, depth: int, sigs: list, zone_def: str = "spike") ->
     elif zone_def == "spike25":      # moderate spike band: 2× ≤ vol < 5× avg
         zone_where = ("avg_vol_20d > 0 AND volume >= 2 * avg_vol_20d "
                       "AND volume < 5 * avg_vol_20d AND high > low")
+    elif zone_def == "cci":          # NON-volume nature: zone formed by a CCI-extreme bar
+        zone_where = "sig_ccib = 1 AND high > low"
     else:                             # 'spike' (V1): vol ≥ vol_min × avg
         zone_where = f"avg_vol_20d > 0 AND volume >= {vol_min} * avg_vol_20d AND high > low"
     return f"""
@@ -1091,6 +1093,121 @@ def exit_sequences(event_type: str = "exit_up", depth: int = 3, horizon: int = 1
         "best": combos[:top],
         "worst": combos[-top:][::-1],
     }
+
+
+# Cross-stable de-biased patterns worth flagging live (from the sweep). Each is a
+# set of "signal@-offset" tokens; a recent exit containing ALL tokens MATCHES.
+_LIVE_PATTERNS = {
+    "exit_up": [
+        {"name": "T6→RKT",  "tokens": ["sig_t6@-2", "rocket@-0"]},
+        {"name": "ABS→EB",  "tokens": ["sig_abs@-2", "eb_bull@-1"]},
+        {"name": "SQ→Ab",   "tokens": ["sq@-2", "d_absorb_bull@-0"]},
+        {"name": "BE→W·SOS", "tokens": ["be_up@-2", "w2_sos@-0"]},
+    ],
+    "exit_down": [
+        {"name": "FBO→SPRING", "tokens": ["fbo_bull@-2", "wyc_spring@-2"]},
+        {"name": "T2G→BUY",    "tokens": ["sig_t2g@-1", "sig_buy@-1"]},
+        {"name": "BO→BE",      "tokens": ["bo_up@-3", "be_up@-1"]},
+    ],
+}
+
+
+def live_sequences(event_type: str = "exit_down", zone_def: str = "spike",
+                   depth: int = 4, max_age_days: int = 10, vol_min: float = 5.0,
+                   min_sigs: int = 2, top: int = 50) -> dict:
+    """LIVE counterpart of the miner: recent zone exits with the lead-in buildup
+    that actually fired. Lists the genuine (de-biased, no-pivot) lead-in signals
+    per recent exit and flags any cross-stable validated pattern. Tradeable: every
+    listed signal is computed from the bar + its past (no look-ahead)."""
+    import pandas as pd
+    sigs = _leadin_cols()
+    empty = {"event_type": event_type, "zone_def": zone_def, "setups": [], "count": 0}
+    if not sigs:
+        return empty
+    a = get_analytics_conn()
+    try:
+        df = a.execute(_seq_sql(vol_min, depth, sigs, zone_def=zone_def)).fetchdf()
+    finally:
+        a.close()
+    if df.empty:
+        return empty
+    df = df.drop_duplicates(subset=["ticker", "e_date", "et"])
+    df = df[df["et"] == event_type]
+    if df.empty:
+        return empty
+    maxd = pd.to_datetime(df["e_date"]).max()
+    cut = maxd - pd.Timedelta(days=max_age_days)
+    df = df[pd.to_datetime(df["e_date"]) >= cut]
+    pats = _LIVE_PATTERNS.get(event_type, [])
+    out = []
+    for _, r in df.iterrows():
+        present = [(k, sg) for k in range(depth) for sg in sigs
+                   if r.get(f"e{k}_{sg}") == 1]
+        if len(present) < min_sigs:
+            continue
+        present.sort(key=lambda x: -x[0])                 # earliest (largest k) first
+        tokens = {f"{sg}@-{k}" for k, sg in present}
+        matched = [p["name"] for p in pats if set(p["tokens"]).issubset(tokens)]
+        ed = str(r["e_date"])[:10]
+        out.append({
+            "ticker": r["ticker"], "exit_date": ed,
+            "age_days": int((maxd - pd.to_datetime(ed)).days),
+            "sequence": [{"bar": ("0" if k == 0 else f"−{k}"), "signal": sg} for k, sg in present],
+            "patterns": matched, "n_sigs": len(present),
+        })
+    out.sort(key=lambda s: (len(s["patterns"]) > 0, s["n_sigs"], -s["age_days"]), reverse=True)
+    return {"event_type": event_type, "zone_def": zone_def, "as_of": str(maxd)[:10],
+            "count": len(out), "matched": sum(1 for s in out if s["patterns"]),
+            "setups": out[:top]}
+
+
+def sequence_tickers(seq: str, event_type: str = "exit_up", zone_def: str = "spike",
+                     depth: int = 4, vol_min: float = 5.0, max_age_days: int = 60,
+                     top: int = 200) -> dict:
+    """Drill-down: the recent tickers whose zone-exit built ONE specific lead-in
+    sequence. `seq` = comma-separated 'signal@-k' tokens (k=0 is the exit bar),
+    exactly the tokens of a clicked miner row. Returns the matching tickers with
+    their exit date + age (most recent first)."""
+    import pandas as pd
+    toks = []
+    for t in (seq or "").split(","):
+        t = t.strip()
+        if "@-" not in t:
+            continue
+        sg, k = t.rsplit("@-", 1)
+        try:
+            toks.append((int(k), sg))
+        except ValueError:
+            pass
+    if not toks:
+        return {"seq": seq, "tickers": [], "count": 0}
+    sigs = _leadin_cols()
+    depth = max(depth, (max(k for k, _ in toks) + 1))
+    a = get_analytics_conn()
+    try:
+        df = a.execute(_seq_sql(vol_min, depth, sigs, zone_def=zone_def)).fetchdf()
+    finally:
+        a.close()
+    if df.empty:
+        return {"seq": seq, "tickers": [], "count": 0}
+    df = df.drop_duplicates(subset=["ticker", "e_date", "et"])
+    df = df[df["et"] == event_type]
+    if df.empty:
+        return {"seq": seq, "tickers": [], "count": 0}
+    maxd = pd.to_datetime(df["e_date"]).max()
+    df = df[pd.to_datetime(df["e_date"]) >= (maxd - pd.Timedelta(days=max_age_days))]
+    for k, sg in toks:
+        col = f"e{k}_{sg}"
+        if col in df.columns:
+            df = df[df[col] == 1]
+        else:
+            return {"seq": seq, "tickers": [], "count": 0, "note": f"unknown signal {sg}"}
+    df = df.sort_values("e_date", ascending=False).drop_duplicates("ticker")
+    out = [{"ticker": r["ticker"], "exit_date": str(r["e_date"])[:10],
+            "age_days": int((maxd - pd.to_datetime(str(r["e_date"])[:10])).days)}
+           for _, r in df.iterrows()]
+    return {"seq": seq, "event_type": event_type, "zone_def": zone_def,
+            "as_of": str(maxd)[:10], "count": len(out), "tickers": out[:top]}
 
 
 def context_lift(event_type: str = "retest", vol_min: float = 5.0, lb_max: int = 90,
