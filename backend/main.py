@@ -600,6 +600,18 @@ def zone_events_live_sequences(event_type: str = "exit_down", zone_def: str = "s
         return {"event_type": event_type, "setups": [], "count": 0, "error": str(e)}
 
 
+@app.get("/api/zone-events/board")
+def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
+    """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with
+    score, probability-up (= OOS win%), why, last price, sector and journal status."""
+    from ai_journal.zone_events import sequence_board
+    try:
+        return sequence_board(zone_def=zone_def, max_age_days=max_age_days, min_oos=min_oos)
+    except Exception as e:
+        log.exception("sequence board failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
 @app.get("/api/zone-events/sequence-tickers")
 def zone_events_sequence_tickers(seq: str, event_type: str = "exit_up",
                                  zone_def: str = "spike", depth: int = 4,

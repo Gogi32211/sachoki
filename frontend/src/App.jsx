@@ -20,6 +20,7 @@ const SignalCorrelPanel     = lazy(() => import('./components/SignalCorrelPanel'
 const TickerAnalysisPanel   = lazy(() => import('./components/TickerAnalysisPanel'))
 const PersonalWatchlistPanel= lazy(() => import('./components/PersonalWatchlistPanel'))
 const SuperchartPanel       = lazy(() => import('./components/SuperchartPanel'))
+const SetupsBoardPanel      = lazy(() => import('./components/SetupsBoardPanel'))
 const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
@@ -58,6 +59,7 @@ const TAB_GROUPS = [
       { id: 'turbo',      label: '⚡ Turbo' },
       { id: 'ultra',      label: '🧬 Ultra' },
       { id: 'superchart', label: '📋 Superchart' },
+      { id: 'setups',     label: '🎯 Setups' },
     ],
   },
   {
@@ -124,7 +126,7 @@ const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -350,6 +352,7 @@ export default function App() {
           {activeTab === 'hvzones'        && <HVZonesPanel />}
           {activeTab === 'gannzones'      && <GannZonesPanel />}
           {activeTab === 'zoneedge'       && <ZoneEdgePanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'setups'         && <SetupsBoardPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
         </div>

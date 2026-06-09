@@ -1161,6 +1161,134 @@ def live_sequences(event_type: str = "exit_down", zone_def: str = "spike",
             "setups": out[:top]}
 
 
+def sequence_board(zone_def: str = "spike", depth: int = 4, vol_min: float = 5.0,
+                   max_age_days: int = 20, min_oos: float = 55.0, min_n: int = 40,
+                   top: int = 120) -> dict:
+    """The 'Setups Board': recent tickers that built an OOS-HOLDING lead-in sequence,
+    each scored with the sequence's out-of-sample win-rate (= probability the move
+    follows through), why, last price, and journal status. Loads the seq frame ONCE
+    per event type and both mines the holding patterns and matches recent tickers
+    from it."""
+    import numpy as np, pandas as pd
+    sigs = _leadin_cols()
+    s, t = _clip_bounds(10)
+    rows = {}                                   # ticker -> best board row
+    for et in ("exit_up", "exit_down"):
+        a = get_analytics_conn()
+        try:
+            df = a.execute(_seq_sql(vol_min, depth, sigs, zone_def=zone_def)).fetchdf()
+        finally:
+            a.close()
+        if df.empty:
+            continue
+        df = df.drop_duplicates(subset=["ticker", "e_date", "et"])
+        df = df[(df["et"] == et) & df["fwd_10d"].notna() & df["fwd_10d"].between(-90, 500)]
+        if len(df) < min_n:
+            continue
+        ret = df["fwd_10d"].clip(lower=-s, upper=t).to_numpy(dtype=float)
+        winv = (df["fwd_10d"].to_numpy(dtype=float) > 0).astype(float)
+        base_avg, base_win = float(ret.mean()), float(winv.mean())
+        oos = (df["e_date"].astype(str).to_numpy() >= _OOS_FROM).astype(float)
+        feats = []
+        for k in range(depth):
+            for sg in sigs:
+                c = f"e{k}_{sg}"
+                if c in df.columns:
+                    v = (df[c].fillna(0).to_numpy() == 1)
+                    if v.sum() >= min_n:
+                        feats.append((f"{sg}@-{k}", v))
+        if len(feats) < 2:
+            continue
+        combos, _ = _combo_search(feats, ret, winv, oos, base_avg, base_win,
+                                  min_n, 2, top, field_fn=lambda l: l)
+        base_win_pct = round(base_win * 100, 1)
+        holding = [c for c in combos
+                   if c.get("win_is_pct") is not None and c.get("win_oos_pct") is not None
+                   and (c["win_oos_pct"] - c["win_is_pct"]) >= -6
+                   and c["win_oos_pct"] >= min_oos and c["win_oos_pct"] > base_win_pct]
+        maxd = pd.to_datetime(df["e_date"]).max()
+        recent = df[pd.to_datetime(df["e_date"]) >= (maxd - pd.Timedelta(days=max_age_days))]
+        for c in holding:
+            toks = [c.get("a"), c.get("b")] + ([c.get("c")] if c.get("c") else [])
+            need = []
+            for tok in toks:
+                if tok and "@-" in tok:
+                    sg, k = tok.rsplit("@-", 1)
+                    need.append((int(k), sg))
+            label = " → ".join(("0" if k == 0 else f"−{k}") + ":" + sg for k, sg in
+                               sorted(need, key=lambda x: -x[0]))
+            m = recent
+            for k, sg in need:
+                col = f"e{k}_{sg}"
+                m = m[m[col] == 1] if col in m.columns else m.iloc[0:0]
+            for _, r in m.sort_values("e_date", ascending=False).drop_duplicates("ticker").iterrows():
+                tk = r["ticker"]
+                prob = c["win_oos_pct"]
+                if tk in rows and rows[tk]["prob_up"] >= prob:
+                    continue
+                rows[tk] = {
+                    "ticker": tk, "event_type": et, "exit_date": str(r["e_date"])[:10],
+                    "age_days": int((maxd - pd.to_datetime(str(r["e_date"])[:10])).days),
+                    "sequence": label, "prob_up": prob, "edge_pp": c.get("lift_win_pp"),
+                    "n": c["n"], "win_is": c.get("win_is_pct"),
+                    "why": ("failed-breakdown bounce: " if et == "exit_down" else "breakout follow-through: ")
+                           + label + f"  (holds OOS {prob}%, n={c['n']})",
+                }
+    if not rows:
+        return {"zone_def": zone_def, "count": 0, "rows": []}
+    tickers = list(rows)
+    ph = ",".join("?" * len(tickers))
+    # enrich: last price + sector
+    a = get_analytics_conn()
+    try:
+        px = a.execute(f"""
+            SELECT ticker, close AS last_price, universe, date AS px_date, rsi_14 AS rsi
+            FROM bars WHERE date = (SELECT max(date) FROM bars) AND ticker IN ({ph})
+        """, tickers).fetchdf()
+    finally:
+        a.close()
+    pxmap = {r["ticker"]: r for _, r in px.iterrows()}
+    from .db import get_journal_conn
+    try:
+        from . import memory as _mem
+        meta = _mem.load_ticker_meta()
+    except Exception:
+        meta = {}
+    # journal status
+    jstat = {}
+    try:
+        j = get_journal_conn(read_only=True)
+        try:
+            for r in j.execute(f"SELECT ticker, status, conviction FROM journal_position "
+                               f"WHERE status IN ('OPEN','PENDING_OPEN') AND ticker IN ({ph})",
+                               tickers).fetchall():
+                jstat[r[0]] = {"status": r[1], "conviction": r[2]}
+        finally:
+            j.close()
+    except Exception:
+        pass
+    out = []
+    for tk, d in rows.items():
+        p = pxmap.get(tk, {})
+        m = meta.get(tk, {}) if isinstance(meta, dict) else {}
+        d["last_price"] = round(float(p["last_price"]), 2) if p is not None and p.get("last_price") is not None else None
+        d["price_date"] = str(p.get("px_date"))[:10] if p is not None and p.get("px_date") is not None else None
+        d["universe"] = p.get("universe") if p is not None else None
+        d["rsi"] = round(float(p["rsi"]), 0) if p is not None and p.get("rsi") is not None else None
+        d["sector"] = m.get("sector") or ""
+        d["mcap_bucket"] = m.get("mcap_bucket") or ""
+        d["journal"] = jstat.get(tk)
+        # score 0-100: blend OOS prob + edge + recency
+        prob = d["prob_up"] or 0
+        edge = d["edge_pp"] or 0
+        rec = max(0, 10 - d["age_days"])
+        d["score"] = round(min(100, prob * 0.8 + edge * 1.0 + rec * 0.8), 0)
+        out.append(d)
+    out.sort(key=lambda r: (r["score"], r["prob_up"]), reverse=True)
+    return {"zone_def": zone_def, "as_of": d.get("price_date"),
+            "count": len(out), "rows": out[:top]}
+
+
 def sequence_tickers(seq: str, event_type: str = "exit_up", zone_def: str = "spike",
                      depth: int = 4, vol_min: float = 5.0, max_age_days: int = 60,
                      top: int = 200) -> dict:
