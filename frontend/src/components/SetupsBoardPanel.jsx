@@ -111,15 +111,19 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
   const addOneWl = (r) => { pwlAdd({ ticker: r.ticker, _tf: '1d', last_price: r.last_price, tz_sig: r.sequence }); sjAdd(journalEntry(r), 'watchlist'); setJTick(t => t + 1) }
   const addOneJrnl = (r) => { sjAdd(journalEntry(r), 'journal'); setJTick(t => t + 1) }
   const addAllJrnl = () => { rows.forEach(r => sjAdd(journalEntry(r), 'journal')); setJTick(t => t + 1); setWlMsg(`logged ${rows.length} → Journal`); setTimeout(() => setWlMsg(''), 2500) }
-  const aiDecide = () => {
+  // generic: judge an arbitrary list of {ticker, source, setup} via the LLM, merge
+  // results into the shared `ai` map (so decisions persist across all 3 tabs)
+  const runAi = (items) => {
+    if (!items.length) return Promise.resolve()
     setAiLoading(true)
-    const q = new URLSearchParams({ zone_def: zoneDef, max_age_days: '20', limit: '25' })
-    fetch(`/api/journal/advise-setups?${q}`, { method: 'POST' })
+    return fetch('/api/journal/advise', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(items) })
       .then(r => r.json())
-      .then(d => setAi(Object.fromEntries((d.decisions || []).map(x => [x.ticker, x]))))
+      .then(d => setAi(prev => ({ ...prev, ...Object.fromEntries((d.decisions || []).map(x => [x.ticker, x])) })))
       .catch(() => {})
       .finally(() => setAiLoading(false))
   }
+  const aiDecide = () => runAi(rows.map(r => ({ ticker: r.ticker, source: 'sequence',
+    setup: { sequence: r.sequence, prob_up_pct: r.prob_up, edge_pp: r.edge_pp, n: r.n, why: r.why } })))
 
   return (
     <div className="p-4 text-md-on-surface">
@@ -163,9 +167,9 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
       </div>
       {err && <div className="text-rose-400 text-xs mb-2">error: {err}</div>}
       {view === 'journal' ? (
-        <SetupsJournalView key={jTick} onSelectTicker={onSelectTicker} />
+        <SetupsJournalView key={jTick} onSelectTicker={onSelectTicker} ai={ai} />
       ) : view === 'combos' ? (
-        <ComboBoardView onSelectTicker={onSelectTicker} />
+        <ComboBoardView onSelectTicker={onSelectTicker} ai={ai} runAi={runAi} aiLoading={aiLoading} />
       ) : (
       <>
       <table className="w-full text-xs border border-white/10 rounded overflow-hidden">
@@ -245,7 +249,7 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
 }
 
 // ── combos board: IS/OOS-validated retest combos, scored, drill to tickers ────
-function ComboBoardView({ onSelectTicker }) {
+function ComboBoardView({ onSelectTicker, ai = {}, runAi, aiLoading }) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [ways, setWays] = useState(2)
@@ -324,12 +328,24 @@ function ComboBoardView({ onSelectTicker }) {
                   {tkL ? <span className="text-sky-400 animate-pulse text-xs">loading tickers…</span> : (() => {
                     const conf = (tk?.setups || []).filter(s => s.status === 'confirmed')
                     const pend = (tk?.setups || []).filter(s => s.status === 'pending')
-                    const chip = (s, cls) => (
-                      <button key={s.ticker} onClick={(e) => { e.stopPropagation(); onSelectTicker?.(s.ticker) }}
-                        title={`${s.status} · ${s.days_ago ?? 0}d ago${s.flip_code ? ' · flip ' + s.flip_code : ''}`}
-                        className={`px-1.5 py-0.5 rounded border text-[11px] font-mono hover:border-sky-500 ${cls}`}>{s.ticker}</button>)
+                    const all = [...conf, ...pend]
+                    const comboLbl = [c.a, c.b, c.c].filter(Boolean).map(fmtFeat).join(' + ')
+                    const chip = (s, cls) => {
+                      const dec = ai[s.ticker]
+                      return (
+                        <button key={s.ticker} onClick={(e) => { e.stopPropagation(); onSelectTicker?.(s.ticker) }}
+                          title={`${s.status} · ${s.days_ago ?? 0}d ago${dec ? ' · AI: ' + dec.action + ' ' + dec.conviction + ' — ' + dec.thesis : ''}`}
+                          className={`px-1.5 py-0.5 rounded border text-[11px] font-mono hover:border-sky-500 ${cls}`}>
+                          {s.ticker}{dec && <span className={`ml-1 text-[9px] ${dec.action === 'BUY' ? 'text-emerald-400' : dec.action === 'WATCH' ? 'text-amber-400' : 'text-md-on-surface-var/40'}`}>{dec.action[0]}{dec.conviction}</span>}
+                        </button>)
+                    }
                     return (
                       <div className="space-y-1">
+                        {!!all.length && runAi && (
+                          <button onClick={(e) => { e.stopPropagation(); runAi(all.map(s => ({ ticker: s.ticker, source: 'combo', setup: { combo: comboLbl, prob_up_pct: c.win_oos_pct, n: c.n } }))) }}
+                            disabled={aiLoading}
+                            className="px-2 py-0.5 rounded border border-violet-600/60 text-violet-200 bg-violet-900/30 hover:bg-violet-900/50 disabled:opacity-40 text-[11px] mb-1">{aiLoading ? '🤖 thinking…' : '🤖 AI decide these'}</button>
+                        )}
                         <div><span className="text-[10px] text-emerald-300/80 mr-2">✅ confirmed {conf.length}</span>
                           <span className="inline-flex flex-wrap gap-1">{conf.map(s => chip(s, 'border-emerald-700/40 bg-emerald-900/10 text-emerald-200'))}</span></div>
                         <div><span className="text-[10px] text-amber-300/80 mr-2">⌛ pending {pend.length}</span>
@@ -350,7 +366,7 @@ function ComboBoardView({ onSelectTicker }) {
 }
 
 // ── dated journal view (localStorage log of added setups) ─────────────────────
-function SetupsJournalView({ onSelectTicker }) {
+function SetupsJournalView({ onSelectTicker, ai = {} }) {
   const byDate = sjByDate()
   const [, force] = useState(0)
   if (!byDate.length) return <div className="text-md-on-surface-var/50 text-xs py-6 text-center">Journal is empty — add setups from the Board (+J / ★).</div>
@@ -369,6 +385,7 @@ function SetupsJournalView({ onSelectTicker }) {
                   <td className="py-1 pr-2 w-20 font-mono text-md-on-surface-var">{it.last_price != null ? '$' + it.last_price : ''}</td>
                   <td className="py-1 pr-2 w-16 font-mono text-emerald-300/80">{it.prob_up != null ? it.prob_up + '%' : ''}</td>
                   <td className="py-1 pr-2"><SeqBadges sequence={it.sequence} /></td>
+                  <td className="py-1 pr-2 w-16">{ai[it.ticker] && <span title={ai[it.ticker].thesis} className={`text-[10px] px-1 rounded border cursor-help ${actCls(ai[it.ticker].action)}`}>{ai[it.ticker].action[0]}·{ai[it.ticker].conviction}</span>}</td>
                   <td className="py-1 pr-2 w-20 text-[10px] text-md-on-surface-var/50">{it.source}</td>
                   <td className="py-1 w-8 text-right">
                     <button onClick={() => { sjRemove(it.ticker, it.date); force(n => n + 1) }}

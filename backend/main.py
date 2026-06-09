@@ -612,6 +612,19 @@ def live_prices(tickers: str):
         return {"prices": {}, "error": str(e)}
 
 
+@app.post("/api/journal/advise")
+def journal_advise(items: list[dict]):
+    """Generic advisory: judge a list of {ticker, setup?, source?} (BUY/WATCH/SKIP +
+    conviction + thesis). Advisory — opens no positions. Used to decide ALL tickers
+    on the Setups page (sequences + combos) at once."""
+    from ai_journal.decide import advise_tickers
+    try:
+        return advise_tickers(items)
+    except Exception as e:
+        log.exception("advise failed")
+        return {"decisions": [], "error": str(e)}
+
+
 @app.post("/api/journal/advise-setups")
 def journal_advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit: int = 25):
     """Ask the journal's decision LLM to judge the Setups-Board tickers

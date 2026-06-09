@@ -336,6 +336,62 @@ SKIP). Output advisory decisions only; NO position is opened. Be decisive and
 concise in `thesis` (one sentence: why BUY/WATCH/SKIP, naming the setup or the risk)."""
 
 
+def advise_tickers(items: list[dict]) -> dict:
+    """Generic advisory: judge an arbitrary list of tickers (BUY/WATCH/SKIP +
+    conviction + thesis). `items` = [{ticker, setup?, source?, price?}]. Each ticker
+    is enriched with its latest bar context (rsi, vol, tz, sector, mcap). Advisory
+    only — opens nothing. Used by the Setups page to decide ALL its tickers at once."""
+    items = [it for it in (items or []) if it.get("ticker")][:40]
+    if not items:
+        return {"count": 0, "decisions": []}
+    tickers = list({str(it["ticker"]).upper() for it in items})
+    a = get_analytics_conn()
+    try:
+        as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+        ph = ",".join("?" * len(tickers))
+        px = a.execute(f"""
+            SELECT ticker, close AS last_price, rsi_14 AS rsi, vol_bucket,
+                   t_sig, z_sig, sector, universe
+            FROM bars WHERE date = ? AND ticker IN ({ph})
+        """, [as_of] + tickers).fetchdf()
+    finally:
+        a.close()
+    pxmap = {r["ticker"]: r for _, r in px.iterrows()}
+    meta = mem.load_ticker_meta()
+    cands, seen = [], set()
+    for it in items:
+        tk = str(it["ticker"]).upper()
+        if tk in seen:
+            continue
+        seen.add(tk)
+        p = pxmap.get(tk)
+        m = meta.get(tk, {})
+        cands.append({
+            "ticker": tk,
+            "price": round(float(p["last_price"]), 2) if p is not None and p.get("last_price") is not None else it.get("price"),
+            "rsi": round(float(p["rsi"]), 0) if p is not None and p.get("rsi") is not None else None,
+            "tz": (p.get("t_sig") or p.get("z_sig") if p is not None else "") or "",
+            "vol": p.get("vol_bucket") if p is not None else None,
+            "sector": m.get("sector") or (p.get("sector") if p is not None else "") or "?",
+            "mcap": m.get("mcap_bucket") or "unknown",
+            "universe": p.get("universe") if p is not None else None,
+            "source": it.get("source"),
+            "setup": it.get("setup"),
+        })
+    user = {"as_of": as_of, "active_lessons": mem.active_lessons(),
+            "candidates": cands, "note": "Advisory only — decide BUY / WATCH / SKIP per ticker."}
+    try:
+        decisions, usage = call_structured(
+            _ADVISE_SYSTEM, json.dumps(user, default=str), _SCHEMA,
+            model=MODEL_DECISION, tool_name="emit_decisions", max_tokens=4096)
+    except Exception as e:
+        log.exception("advise_tickers LLM failed")
+        return {"as_of": as_of, "count": len(cands), "decisions": [], "error": str(e)}
+    return {"as_of": as_of, "count": len(cands),
+            "decisions": decisions.get("decisions", []),
+            "usage": {"in": usage.get("input_tokens"), "out": usage.get("output_tokens")}}
+
+
 def advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit: int = 25) -> dict:
     """Ask the decision LLM to judge the Setups-Board tickers (BUY/WATCH/SKIP +
     conviction + one-line thesis). Advisory only — opens no positions. Each ticker
