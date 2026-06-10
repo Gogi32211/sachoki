@@ -103,14 +103,17 @@ def load_candidates(as_of: str, min_v3: int = rails.V3_MIN, limit: int = 200) ->
     try:
         # Rank by V4 (P&L-weighted, validated) but accept any bar where V4 >= 8.
         # V3 is kept in the row for legacy display/comparison; V4 drives the rank.
+        # RESILIENCE: a freshly-appended bar can have V4 not-yet-enriched (NULL) while
+        # V3 is present — fall back to V3 so the session never goes blank on the
+        # latest date. coalesce(V4,V3) keeps V4 wherever it exists.
         rows = a.execute("""
             SELECT ticker, universe, close AS last_price, atr_14, rsi_14 AS rsi,
                    vol_bucket, rtb_phase, t_sig, z_sig,
                    prebreak_v3, prebreak_v3_reasons,
                    prebreak_v4, prebreak_v4_reasons, sector
             FROM bars
-            WHERE date = ? AND prebreak_v4 >= 8
-            ORDER BY prebreak_v4 DESC, prebreak_v3 DESC LIMIT ?
+            WHERE date = ? AND coalesce(prebreak_v4, prebreak_v3) >= 8
+            ORDER BY coalesce(prebreak_v4, prebreak_v3) DESC, prebreak_v3 DESC LIMIT ?
         """, [as_of, limit]).fetchdf()
     finally:
         a.close()
