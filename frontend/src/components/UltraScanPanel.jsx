@@ -46,12 +46,17 @@ const SIG_GROUPS = [
   //   Struct-BO  = LVBO + bullish-engulf + RSI>65               → ~82% next-pivot-HH
   //   Absorb→EB  = prev-bar L34 absorption → EB engulf + RSI>65 → ~78% next-pivot-HH
   //   (RSI>65 gate: structural breakouts need momentum context — verified.)
+  //   Blowoff↓   = volume climax (V×5/V×10) + weak close (c=O)  → SHORT fade,
+  //               +10.8…+13.4 clip25-lift, 6/6 yrs (WHAT_ACTUALLY_WORKS.md).
+  //               ⚠️ short tail risk: ~1/20 trade is a >50% squeeze — size + hard stop.
   { key: '_combo_volbull',  label: '⚡Vol-Bull',  cls: 'text-lime-300 font-bold',
     custom: r => !!(r.bias_up && (r.vol_spike_5x || r.vol_spike_10x)) },
   { key: '_combo_structbo', label: '❖Struct-BO', cls: 'text-cyan-300 font-bold',
     custom: r => !!(r.pb_lvbo && r.eb_bull && r.rsi > 65) },
   { key: '_combo_absorbeb', label: '❖Absorb→EB', cls: 'text-teal-300 font-bold',
     custom: r => !!(r.seq_l34_eb && r.rsi > 65) },
+  { key: '_combo_blowoff',  label: '⚡Blowoff↓',  cls: 'text-red-400 font-bold',
+    custom: r => !!((r.vol_spike_5x || r.vol_spike_10x) && (r.tz_wlnbb_full_suffix || '').includes('O')) },
   { divider: true, label: '★ combo (backtested)' },
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
@@ -1014,6 +1019,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // Pure client-side on existing row data (vol_bucket), no fetch needed.
   const [vbwFilter, setVbwFilter] = useState({ vb: false, w: false })
   const [atomicFilter, setAtomicFilter] = useState(false)   // ⚛ weak-close gap-up (atomic edge)
+  const [shortFilter,  setShortFilter]  = useState(false)   // ⚡ blow-off fade (short edge)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1332,6 +1338,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       }
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
       if (atomicFilter   && !(r.atomic_match && r.atomic_age != null && r.atomic_age < (lookbackN || 1))) return false
+      if (shortFilter    && !(r.short_match  && r.short_age  != null && r.short_age  < (lookbackN || 1))) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1371,7 +1378,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2700,6 +2707,20 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           ⚛ Atomic{atomicFilter ? ` ${results.filter(r => r.atomic_match && r.atomic_age != null && r.atomic_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !shortFilter; setShortFilter(v)
+            // cached results may predate the short-age enrichment → pull fresh (fast, no re-scan)
+            if (v && !allResults.some(r => r.short_age != null)) fetchFreshResults(localTf, universe)
+          }}
+          title="⚡ Blow-off Short: 5-year-validated fade edge — a volume CLIMAX bar (V×5/V×10) that closes WEAK (close=O) = exhaustion → short the fade. +10.8…+13.4 clip25-lift, 6/6 years (WHAT_ACTUALLY_WORKS.md). ⚠️ short tail risk: ~1/20 trade is a >50% squeeze — size small, hard stop."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            shortFilter
+              ? 'bg-red-900/60 text-red-200 border-red-500 ring-1 ring-red-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          ⚡ Short{shortFilter ? ` ${results.filter(r => r.short_match && r.short_age != null && r.short_age < (lookbackN || 1)).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">

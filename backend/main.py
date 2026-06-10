@@ -1483,6 +1483,58 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
     return results
 
 
+def _enrich_atomic_short(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Attach the 5-year-validated 'blow-off fade' SHORT atomic flags to each Ultra
+    result row (additive, read-only). The validated short edge = a volume CLIMAX bar
+    (V×5/V×10) that closes WEAK (close=O) = exhaustion → fade. +10.8…+13.4 clip25-lift,
+    6/6 yrs (WHAT_ACTUALLY_WORKS.md). ⚠️ short tail risk: ~1/20 trade is a >50% squeeze.
+    Scans each ticker's LAST `lookback_n` bars, keeps the MOST RECENT match. Sets
+    short_match / short_score / short_atoms / short_age (bars ago, 0 = latest)."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                SELECT ticker, close_suffix, sig_vol_5x AS v5, sig_vol_10x AS v10,
+                       sig_vol_20x AS v20,
+                       CASE WHEN regexp_matches(bar_line5,'R2H') THEN 1 ELSE 0 END AS r2h,
+                       row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
+                FROM bars WHERE universe=? AND ticker IN ({ph})
+                QUALIFY age < {int(lookback_n)}
+                ORDER BY ticker, age
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("atomic-short enrich failed: %s", exc)
+        return results
+    info = {}
+    for _, r in df.iterrows():
+        tk = str(r["ticker"])
+        if tk in info:                      # keep the most-recent match per ticker
+            continue
+        climax = bool(int(r["v5"] or 0) or int(r["v10"] or 0))
+        match = (r["close_suffix"] == "O" and climax)
+        if not match:
+            continue
+        atoms = ["c=O", "V×5"]; score = 40
+        if int(r["v10"] or 0): atoms.append("V×10"); score += 25
+        if int(r["v20"] or 0): atoms.append("V×20"); score += 15
+        if int(r["r2h"] or 0): atoms.append("R2H"); score += 10   # overbought fade context
+        info[tk] = (min(score, 100), atoms, int(r["age"]))
+    for r in results:
+        sc, at, age = info.get(r.get("ticker"), (0, [], None))
+        r["short_match"] = age is not None
+        r["short_score"] = int(sc); r["short_atoms"] = at; r["short_age"] = age
+    return results
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -5054,6 +5106,7 @@ def api_ultra_scan_results(
                 wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
             results = _enrich_atomic(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_atomic_short(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])
