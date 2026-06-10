@@ -5008,7 +5008,7 @@ def api_ultra_scan_results(
     pb_macro_penalty:Optional[bool] = None,
     wyc_in_tr:       Optional[bool] = None,
     wyc_sow:         Optional[bool] = None,
-    atomic_lookback: int = 3,
+    atomic_lookback: int = 10,
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
     batch). Falls back to DB when memory cache is empty (survives restart)."""

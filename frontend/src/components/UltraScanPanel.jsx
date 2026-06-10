@@ -1331,7 +1331,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         if (!((vbwFilter.vb && b === 'VB') || (vbwFilter.w && b === 'W'))) return false
       }
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
-      if (atomicFilter   && !r.atomic_match)                   return false
+      if (atomicFilter   && !(r.atomic_match && r.atomic_age != null && r.atomic_age < (lookbackN || 1))) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -2690,8 +2690,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
         <button
           onClick={() => {
             const v = !atomicFilter; setAtomicFilter(v)
-            // cached results may predate the atomic enrichment → pull fresh (fast, no re-scan)
-            if (v && !allResults.some(r => 'atomic_match' in r)) fetchFreshResults(localTf, universe)
+            // cached results may predate the atomic-age enrichment → pull fresh (fast, no re-scan)
+            if (v && !allResults.some(r => r.atomic_age != null)) fetchFreshResults(localTf, universe)
           }}
           title="⚛ Atomic: 5-year-validated 'weak-close gap-up' edge — a bull T-signal that closes WEAK (close=O, below prior body) on a gap-up bar. Orthogonal to turbo_score (which is anti-predictive at the high end). Backtest +0.84 sp500 / +0.70 r2k, positive 5/6 years."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
@@ -2699,7 +2699,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
               ? 'bg-fuchsia-900/60 text-fuchsia-200 border-fuchsia-500 ring-1 ring-fuchsia-500'
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
-          ⚛ Atomic{atomicFilter ? ` ${results.filter(r => r.atomic_match).length}` : ''}
+          ⚛ Atomic{atomicFilter ? ` ${results.filter(r => r.atomic_match && r.atomic_age != null && r.atomic_age < (lookbackN || 1)).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
