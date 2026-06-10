@@ -2688,7 +2688,11 @@ export default function UltraScanPanel({ onSelectTicker }) {
           🔉 W
         </button>
         <button
-          onClick={() => setAtomicFilter(v => !v)}
+          onClick={() => {
+            const v = !atomicFilter; setAtomicFilter(v)
+            // cached results may predate the atomic enrichment → pull fresh (fast, no re-scan)
+            if (v && !allResults.some(r => 'atomic_match' in r)) fetchFreshResults(localTf, universe)
+          }}
           title="⚛ Atomic: 5-year-validated 'weak-close gap-up' edge — a bull T-signal that closes WEAK (close=O, below prior body) on a gap-up bar. Orthogonal to turbo_score (which is anti-predictive at the high end). Backtest +0.84 sp500 / +0.70 r2k, positive 5/6 years."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             atomicFilter
