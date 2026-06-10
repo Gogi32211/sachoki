@@ -1399,6 +1399,53 @@ def _diagnose_260523_columns(results: list, requested: dict) -> list:
     return warnings
 
 
+def _enrich_atomic(results: list, universe: str) -> list:
+    """Attach the 5-year-validated 'weak-close gap-up' atomic flags to each Ultra
+    result row (additive, orthogonal to turbo_score). Sets atomic_match / atomic_score
+    / atomic_atoms by joining each ticker's latest bar (close=O + gap + R2L/EO/vol=B/wick=D/G3).
+    Read-only; never touches the canonical score."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    _BULL = ("T1", "T1G", "T2", "T2G", "T3", "T4", "T5", "T6", "T9", "T10", "T11", "T12")
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                WITH latest AS (SELECT ticker, max(date) d FROM bars WHERE universe=? AND ticker IN ({ph}) GROUP BY ticker)
+                SELECT b.ticker, b.t_sig, b.close_suffix, b.bar_gap_class AS gap, b.vol_bucket AS vol,
+                       b.full_suffix AS sfx, CASE WHEN regexp_matches(b.bar_line5,'R2L') THEN 1 ELSE 0 END AS r2l
+                FROM bars b JOIN latest l ON b.ticker=l.ticker AND b.date=l.d
+                WHERE b.universe=?
+            """, [universe, *tickers, universe]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("atomic enrich failed: %s", exc)
+        return results
+    info = {}
+    for _, r in df.iterrows():
+        sfx = str(r["sfx"] or "")
+        match = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3"))
+        atoms, score = [], 0
+        if match:
+            atoms = ["close=O", "gap"]; score = 40
+            if int(r["r2l"] or 0): atoms.append("R2L"); score += 25
+            if sfx[:1] == "E": atoms.append("EO"); score += 15
+            if r["vol"] == "B": atoms.append("vol=B"); score += 15
+            if "D" in sfx[1:2]: atoms.append("wick=D"); score += 10
+            if r["gap"] == "G3": atoms.append("G3"); score += 10
+        info[str(r["ticker"])] = (match, min(score, 100), atoms)
+    for r in results:
+        m, sc, at = info.get(r.get("ticker"), (False, 0, []))
+        r["atomic_match"] = bool(m); r["atomic_score"] = int(sc); r["atomic_atoms"] = at
+    return results
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -4968,6 +5015,7 @@ def api_ultra_scan_results(
                 pb_wvf_confirm=pb_wvf_confirm, pb_macro_penalty=pb_macro_penalty,
                 wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
+            results = _enrich_atomic(results, universe)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

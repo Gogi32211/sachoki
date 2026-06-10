@@ -1013,6 +1013,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // Volume-class filter — current bar's TZ_WLNBB bucket is VB and/or W (union).
   // Pure client-side on existing row data (vol_bucket), no fetch needed.
   const [vbwFilter, setVbwFilter] = useState({ vb: false, w: false })
+  const [atomicFilter, setAtomicFilter] = useState(false)   // ⚛ weak-close gap-up (atomic edge)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1330,6 +1331,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         if (!((vbwFilter.vb && b === 'VB') || (vbwFilter.w && b === 'W'))) return false
       }
       if (watchFilter    && r.profile_category !== 'WATCH')    return false
+      if (atomicFilter   && !r.atomic_match)                   return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1369,7 +1371,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2684,6 +2686,16 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           🔉 W
+        </button>
+        <button
+          onClick={() => setAtomicFilter(v => !v)}
+          title="⚛ Atomic: 5-year-validated 'weak-close gap-up' edge — a bull T-signal that closes WEAK (close=O, below prior body) on a gap-up bar. Orthogonal to turbo_score (which is anti-predictive at the high end). Backtest +0.84 sp500 / +0.70 r2k, positive 5/6 years."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            atomicFilter
+              ? 'bg-fuchsia-900/60 text-fuchsia-200 border-fuchsia-500 ring-1 ring-fuchsia-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          ⚛ Atomic{atomicFilter ? ` ${results.filter(r => r.atomic_match).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
