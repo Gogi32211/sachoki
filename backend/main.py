@@ -637,6 +637,19 @@ def journal_advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit
         return {"decisions": [], "error": str(e)}
 
 
+@app.get("/api/atomic-scan")
+def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live 'weak-close gap-up' scan — bull T-signal + close=O + gap(G2/G3), the
+    5-year-validated atomic edge. Scored by corroborating atoms (R2L/EO/vol=B/wick=D/G3),
+    with the current market regime attached as a size gate. Surfaces candidates only."""
+    from ai_journal.atomic_scan import atomic_scan
+    try:
+        return atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor)
+    except Exception as e:
+        log.exception("atomic scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
 @app.get("/api/zone-events/board")
 def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
     """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with
