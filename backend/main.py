@@ -1429,10 +1429,12 @@ def _diagnose_260523_columns(results: list, requested: dict) -> list:
     return warnings
 
 
-def _enrich_atomic(results: list, universe: str) -> list:
+def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
     """Attach the 5-year-validated 'weak-close gap-up' atomic flags to each Ultra
-    result row (additive, orthogonal to turbo_score). Sets atomic_match / atomic_score
-    / atomic_atoms by joining each ticker's latest bar (close=O + gap + R2L/EO/vol=B/wick=D/G3).
+    result row (additive, orthogonal to turbo_score). Scans each ticker's LAST
+    `lookback_n` bars and keeps the MOST RECENT match (close=O + gap + R2L/EO/vol=B/
+    wick=D/G3) — a signal 1-3 bars ago is still inside the entry window. Sets
+    atomic_match / atomic_score / atomic_atoms / atomic_age (bars ago, 0 = latest).
     Read-only; never touches the canonical score."""
     if not results:
         return results
@@ -1446,12 +1448,13 @@ def _enrich_atomic(results: list, universe: str) -> list:
         try:
             ph = ",".join("?" * len(tickers))
             df = a.execute(f"""
-                WITH latest AS (SELECT ticker, max(date) d FROM bars WHERE universe=? AND ticker IN ({ph}) GROUP BY ticker)
-                SELECT b.ticker, b.t_sig, b.close_suffix, b.bar_gap_class AS gap, b.vol_bucket AS vol,
-                       b.full_suffix AS sfx, CASE WHEN regexp_matches(b.bar_line5,'R2L') THEN 1 ELSE 0 END AS r2l
-                FROM bars b JOIN latest l ON b.ticker=l.ticker AND b.date=l.d
-                WHERE b.universe=?
-            """, [universe, *tickers, universe]).fetchdf()
+                SELECT ticker, t_sig, close_suffix, bar_gap_class AS gap, vol_bucket AS vol,
+                       full_suffix AS sfx, CASE WHEN regexp_matches(bar_line5,'R2L') THEN 1 ELSE 0 END AS r2l,
+                       row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
+                FROM bars WHERE universe=? AND ticker IN ({ph})
+                QUALIFY age < {int(lookback_n)}
+                ORDER BY ticker, age
+            """, [universe, *tickers]).fetchdf()
         finally:
             a.close()
     except Exception as exc:
@@ -1459,20 +1462,24 @@ def _enrich_atomic(results: list, universe: str) -> list:
         return results
     info = {}
     for _, r in df.iterrows():
+        tk = str(r["ticker"])
+        if tk in info:                      # already have a more-recent match for this ticker
+            continue
         sfx = str(r["sfx"] or "")
         match = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3"))
-        atoms, score = [], 0
-        if match:
-            atoms = ["close=O", "gap"]; score = 40
-            if int(r["r2l"] or 0): atoms.append("R2L"); score += 25
-            if sfx[:1] == "E": atoms.append("EO"); score += 15
-            if r["vol"] == "B": atoms.append("vol=B"); score += 15
-            if "D" in sfx[1:2]: atoms.append("wick=D"); score += 10
-            if r["gap"] == "G3": atoms.append("G3"); score += 10
-        info[str(r["ticker"])] = (match, min(score, 100), atoms)
+        if not match:
+            continue
+        atoms = ["close=O", "gap"]; score = 40
+        if int(r["r2l"] or 0): atoms.append("R2L"); score += 25
+        if sfx[:1] == "E": atoms.append("EO"); score += 15
+        if r["vol"] == "B": atoms.append("vol=B"); score += 15
+        if "D" in sfx[1:2]: atoms.append("wick=D"); score += 10
+        if str(r["gap"]) == "G3": atoms.append("G3"); score += 10
+        info[tk] = (min(score, 100), atoms, int(r["age"]))
     for r in results:
-        m, sc, at = info.get(r.get("ticker"), (False, 0, []))
-        r["atomic_match"] = bool(m); r["atomic_score"] = int(sc); r["atomic_atoms"] = at
+        sc, at, age = info.get(r.get("ticker"), (0, [], None))
+        r["atomic_match"] = age is not None
+        r["atomic_score"] = int(sc); r["atomic_atoms"] = at; r["atomic_age"] = age
     return results
 
 
@@ -5001,6 +5008,7 @@ def api_ultra_scan_results(
     pb_macro_penalty:Optional[bool] = None,
     wyc_in_tr:       Optional[bool] = None,
     wyc_sow:         Optional[bool] = None,
+    atomic_lookback: int = 3,
 ):
     """Return the most recently merged ULTRA results for this (universe, tf,
     batch). Falls back to DB when memory cache is empty (survives restart)."""
@@ -5045,7 +5053,7 @@ def api_ultra_scan_results(
                 pb_wvf_confirm=pb_wvf_confirm, pb_macro_penalty=pb_macro_penalty,
                 wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
-            results = _enrich_atomic(results, universe)
+            results = _enrich_atomic(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])
