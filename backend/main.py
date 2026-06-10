@@ -650,6 +650,36 @@ def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000):
         return {"rows": [], "count": 0, "error": str(e)}
 
 
+@app.get("/api/atomic-journal")
+def api_atomic_journal():
+    """Separate paper-trading journal for the atomic weak-close gap-up edge."""
+    from ai_journal.atomic_journal import summary
+    try:
+        return summary()
+    except Exception as e:
+        log.exception("atomic journal failed"); return {"open": [], "closed": [], "error": str(e)}
+
+
+@app.post("/api/atomic-journal/open")
+def api_atomic_journal_open(top: int = 15, min_score: int = 70):
+    """Open paper positions from today's atomic scan (regime-sized)."""
+    from ai_journal.atomic_journal import open_from_scan
+    try:
+        return open_from_scan(top=top, min_score=min_score)
+    except Exception as e:
+        log.exception("atomic open failed"); return {"opened": [], "error": str(e)}
+
+
+@app.post("/api/atomic-journal/grade")
+def api_atomic_journal_grade():
+    """Walk forward the open atomic positions; close on stop/target/horizon."""
+    from ai_journal.atomic_journal import grade
+    try:
+        return grade()
+    except Exception as e:
+        log.exception("atomic grade failed"); return {"graded": 0, "error": str(e)}
+
+
 @app.get("/api/zone-events/board")
 def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
     """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with

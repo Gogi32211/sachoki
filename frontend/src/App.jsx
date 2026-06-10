@@ -22,6 +22,7 @@ const PersonalWatchlistPanel= lazy(() => import('./components/PersonalWatchlistP
 const SuperchartPanel       = lazy(() => import('./components/SuperchartPanel'))
 const SetupsBoardPanel      = lazy(() => import('./components/SetupsBoardPanel'))
 const AtomicScanPanel       = lazy(() => import('./components/AtomicScanPanel'))
+const AtomicJournalPanel    = lazy(() => import('./components/AtomicJournalPanel'))
 const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
@@ -62,6 +63,7 @@ const TAB_GROUPS = [
       { id: 'superchart', label: '📋 Superchart' },
       { id: 'setups',     label: '🎯 Setups' },
       { id: 'atomic',     label: '⚛️ Atomic' },
+      { id: 'atomicjournal', label: '⚛️📓 Atomic Jrnl' },
     ],
   },
   {
@@ -128,7 +130,7 @@ const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -356,6 +358,7 @@ export default function App() {
           {activeTab === 'zoneedge'       && <ZoneEdgePanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'setups'         && <SetupsBoardPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'atomic'         && <AtomicScanPanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'atomicjournal'  && <AtomicJournalPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
         </div>
