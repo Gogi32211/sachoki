@@ -123,8 +123,15 @@ def summary() -> dict:
             live = fetch_snapshot([r["ticker"] for r in op])
         except Exception:
             live = {}
+    try:
+        from . import memory as _mem
+        meta = _mem.load_ticker_meta()
+    except Exception:
+        meta = {}
     open_pnl_live = 0.0
     for r in op:
+        m = meta.get(r["ticker"], {}) if isinstance(meta, dict) else {}
+        r["mcap_bucket"] = m.get("mcap_bucket") or ""
         r["dollar_buy"] = round(START_CAPITAL * (r.get("size_pct") or 0) / 100.0, 0)
         lp = (live.get(r["ticker"]) or {}).get("price")
         if lp and r.get("entry_px"):
