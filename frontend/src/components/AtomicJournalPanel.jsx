@@ -34,12 +34,13 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
         5/6 years. Paper only — no real orders.
       </p>
       <div className="flex items-center gap-3 text-xs mb-3 flex-wrap">
-        <span className="px-3 py-1 rounded bg-md-surface-high border border-white/10">equity <b className="font-mono">${s.equity?.toLocaleString?.() ?? '—'}</b></span>
+        <span className="px-3 py-1 rounded bg-md-surface-high border border-white/10">equity <b className="font-mono">${(s.equity_live ?? s.equity)?.toLocaleString?.() ?? '—'}</b></span>
         <span>open <b>{s.open ?? 0}</b></span>
         <span>closed <b>{s.closed ?? 0}</b></span>
         <span>win <b>{s.win_rate != null ? s.win_rate + '%' : '—'}</b></span>
         <span>avg P&L <b className={pnlCls(s.avg_pnl)}>{s.avg_pnl != null ? s.avg_pnl + '%' : '—'}</b></span>
         <span>realized <b className={pnlCls(s.total_realized_pct)}>{s.total_realized_pct ?? 0}%</b></span>
+        <span>Open P&L (live) <b className={`font-mono ${pnlCls(s.open_pnl_live)}`}>{s.open_pnl_live != null ? (s.open_pnl_live >= 0 ? '+' : '') + '$' + Math.round(s.open_pnl_live) : '—'}</b></span>
         {reg && <span className={`px-2 py-0.5 rounded border ${REG_CLS[reg.label] || ''}`}>{reg.label} · size ×{reg.conv_mult}</span>}
       </div>
       <div className="flex items-center gap-2 text-xs mb-4">
@@ -47,6 +48,8 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
           className="px-3 py-1 rounded border border-fuchsia-600/60 text-fuchsia-200 bg-fuchsia-900/30 hover:bg-fuchsia-900/50 disabled:opacity-40">{busy === 'open' ? '…' : '⚛ Open from scan (score ≥70)'}</button>
         <button onClick={() => act('/api/atomic-journal/grade', 'grade')} disabled={!!busy}
           className="px-3 py-1 rounded border border-sky-700/50 text-sky-300 hover:bg-sky-900/30 disabled:opacity-40">{busy === 'grade' ? '…' : '↻ Grade now'}</button>
+        <button onClick={load} disabled={!!busy}
+          className="px-3 py-1 rounded border border-white/10 text-md-on-surface-var hover:text-white disabled:opacity-40" title="Refresh live prices / P&L">↻ live</button>
         {reg?.label === 'RISK_OFF' && <span className="text-rose-300/80 text-[11px]">⚠ RISK_OFF — positions auto-sized small (×{reg.conv_mult})</span>}
         {msg && <span className="text-emerald-400 text-[11px]">{msg}</span>}
       </div>
@@ -57,8 +60,9 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
           <tr>
             <th className="text-left px-2 py-1.5">ticker</th><th className="text-left px-2 py-1.5">univ</th>
             <th className="text-right px-2 py-1.5">entry</th><th className="text-right px-2 py-1.5">stop</th>
-            <th className="text-right px-2 py-1.5">target</th><th className="text-right px-2 py-1.5">mark</th>
+            <th className="text-right px-2 py-1.5">target</th><th className="text-right px-2 py-1.5">now (live)</th>
             <th className="text-right px-2 py-1.5">uP&L</th><th className="text-right px-2 py-1.5">size</th>
+            <th className="text-right px-2 py-1.5">$ buy</th>
             <th className="text-right px-2 py-1.5">sc</th><th className="text-left px-3 py-1.5">atoms</th>
             <th className="text-left px-2 py-1.5">opened</th>
           </tr>
@@ -71,15 +75,16 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
               <td className="text-right px-2 py-1.5 font-mono">${p.entry_px}</td>
               <td className="text-right px-2 py-1.5 font-mono text-rose-300/70">${p.stop_px}</td>
               <td className="text-right px-2 py-1.5 font-mono text-emerald-300/70">${p.target_px}</td>
-              <td className="text-right px-2 py-1.5 font-mono">{p.mark_px != null ? '$' + p.mark_px : '—'}</td>
+              <td className="text-right px-2 py-1.5 font-mono">{p.now_px != null ? '$' + p.now_px : '—'}</td>
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${pnlCls(p.upnl_pct)}`}>{p.upnl_pct != null ? (p.upnl_pct > 0 ? '+' : '') + p.upnl_pct + '%' : '—'}</td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{p.size_pct}%</td>
+              <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/70">{p.dollar_buy != null ? '$' + p.dollar_buy.toLocaleString() : '—'}</td>
               <td className="text-right px-2 py-1.5 font-mono font-bold text-fuchsia-300">{p.atomic_score}</td>
               <td className="px-3 py-1.5"><div className="flex flex-wrap gap-1">{(p.atoms || []).map((a, i) => <span key={i} className={`text-[9px] font-mono px-1 rounded border border-white/10 ${ATOM_CLS[a] || ''}`}>{a}</span>)}</div></td>
               <td className="px-2 py-1.5 text-[10px] text-md-on-surface-var/60">{p.open_date}</td>
             </tr>
           ))}
-          {!open.length && <tr><td colSpan={11} className="px-3 py-4 text-center text-md-on-surface-var/50">no open positions — click ⚛ Open from scan</td></tr>}
+          {!open.length && <tr><td colSpan={12} className="px-3 py-4 text-center text-md-on-surface-var/50">no open positions — click ⚛ Open from scan</td></tr>}
         </tbody>
       </table>
 

@@ -115,6 +115,25 @@ def summary() -> dict:
             r["atoms"] = []
     op = [r for r in rows if r["status"] == "OPEN"]
     cl = [r for r in rows if r["status"] == "CLOSED"]
+    # live mark-to-market for open positions (so "now" / uP&L are real, like the AI Journal)
+    live = {}
+    if op:
+        try:
+            from data_polygon import fetch_snapshot
+            live = fetch_snapshot([r["ticker"] for r in op])
+        except Exception:
+            live = {}
+    open_pnl_live = 0.0
+    for r in op:
+        r["dollar_buy"] = round(START_CAPITAL * (r.get("size_pct") or 0) / 100.0, 0)
+        lp = (live.get(r["ticker"]) or {}).get("price")
+        if lp and r.get("entry_px"):
+            r["now_px"] = round(float(lp), 4)
+            r["upnl_pct"] = round((float(lp) / r["entry_px"] - 1) * 100, 2)
+        else:
+            r["now_px"] = r.get("mark_px")
+        if r.get("upnl_pct") is not None and r.get("size_pct"):
+            open_pnl_live += START_CAPITAL * (r["size_pct"] / 100.0) * (r["upnl_pct"] / 100.0)
     realized = [r["pnl_pct"] for r in cl if r.get("pnl_pct") is not None]
     wins = [x for x in realized if x > 0]
     # paper equity: each position weighted by its size_pct
@@ -132,7 +151,9 @@ def summary() -> dict:
         "win_rate": round(len(wins) / len(realized) * 100, 1) if realized else None,
         "avg_pnl": round(sum(realized) / len(realized), 2) if realized else None,
         "total_realized_pct": round(sum(realized), 2) if realized else 0,
+        "open_pnl_live": round(open_pnl_live, 2),
         "equity": round(eq, 2),
+        "equity_live": round(eq + open_pnl_live, 2),
     }
     return {"open": op, "closed": cl, "stats": stats,
             "regime": {"label": reg["label"], "score": reg["score"], "conv_mult": reg["conv_mult"]}}
