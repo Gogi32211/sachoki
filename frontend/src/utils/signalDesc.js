@@ -27,6 +27,10 @@ export const SIGNAL_DESC = {
   sig_conso:     'Consolidation — price compressing into a tight range.',
   sq:            'Squeeze — volatility compression (Bollinger inside Keltner) before expansion.',
   sig_abs:       'Absorption (VABS) — sellers being absorbed on volume; demand soaking supply.',
+  close_o:       'Atomic: close=O — bar closes WEAK (below the prior body). The dominant 5-yr edge component (+0.3 lift); strongest on spring/bounce lead-ins.',
+  gap_up:        'Atomic: gap-up (G2/G3) — bar gapped up. +2–3pp win on spring/bounce lead-ins.',
+  r2l_os:        'Atomic: R2L — RSI2 oversold. The "buy oversold weakness" axis (+1–1.4pp).',
+  atomic:        'Atomic: weak-close gap-up (close=O + gap). The 5-yr-validated edge; +2–4.6pp win as a spring/bounce lead-in.',
   l34:           'WLNBB L34 — absorption level transition (L-line 3→4), demand stepping in.',
   wyc_spring:    'Wyckoff Spring — false break BELOW support that reverses up (shakeout).',
   wyc_sos:       'Wyckoff Sign Of Strength — strong up-move confirming accumulation.',
@@ -139,13 +143,14 @@ const _C = {
   slate:  'bg-slate-700 text-slate-200',
   yellow: 'bg-yellow-900 text-yellow-200',
   orange: 'bg-orange-900 text-orange-300',
+  fuchsia:'bg-fuchsia-900 text-fuchsia-200',
   gray:   'bg-white/5 text-md-on-surface-var',
 }
 export const FAMILY_LEGEND = [
   ['green', 'momentum / breakout'], ['cyan', 'coil / prebreak'],
   ['amber', 'absorption / Wyckoff'], ['teal', 'delta / order-flow'],
   ['violet', 'T-timing'], ['slate', 'structure / trend'],
-  ['yellow', 'volume'], ['orange', 'parabolic'],
+  ['yellow', 'volume'], ['orange', 'parabolic'], ['fuchsia', 'atomic (5-yr)'],
 ]
 export const FAMILY_CLS = _C
 const _BADGE = {
@@ -174,6 +179,9 @@ const _BADGE = {
   sig_vol_5x: ['V×5', 'yellow'], sig_vol_10x: ['V×10', 'yellow'],
   // parabolic
   para_prep: ['PARA·p', 'orange'], para_start: ['PARA', 'orange'],
+  // atomic (5-year-validated weak-close / oversold / gap axis)
+  close_o: ['c=O', 'fuchsia'], gap_up: ['GAP↑', 'fuchsia'],
+  r2l_os: ['R2L', 'fuchsia'], atomic: ['⚛', 'fuchsia'],
 }
 
 /** badgeFor(signal) → {label, cls, fam} styled pill for a lead-in signal. */

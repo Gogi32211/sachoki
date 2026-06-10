@@ -947,9 +947,21 @@ _LEADIN_SIGNALS = [
 
 def _leadin_cols():
     """The lead-in signals that actually exist as columns in `bars` (guards the
-    SQL against schema drift). Cached via _all_bool_ctx's discovery."""
+    SQL against schema drift), PLUS the derived atomic lead-ins (close_o / gap_up /
+    r2l_os / atomic) which are SQL expressions, not columns. Cached via _all_bool_ctx."""
     have = set(_all_bool_ctx())
-    return [s for s in _LEADIN_SIGNALS if s in have]
+    return [s for s in _LEADIN_SIGNALS if s in have] + list(_DERIVED_LEADIN)
+
+
+# Atomic lead-in signals (5-year-validated): derived boolean expressions (not raw
+# bool columns) so the miner can discover whether the weak-close / gap / oversold
+# axis shows up in winning lead-in sequences. Keys are virtual signal names.
+_DERIVED_LEADIN = {
+    "close_o": "CAST(b.close_suffix = 'O' AS INTEGER)",                       # weak close (below prior body)
+    "gap_up":  "CAST(b.bar_gap_class IN ('G2','G3') AS INTEGER)",             # gap-up bar
+    "r2l_os":  "CAST(b.bar_line5 LIKE '%R2L%' AS INTEGER)",                   # RSI2 oversold
+    "atomic":  "CAST(b.close_suffix='O' AND b.bar_gap_class IN ('G2','G3') AS INTEGER)",  # weak-close gap-up
+}
 
 
 def _seq_sql(vol_min: float, depth: int, sigs: list, zone_def: str = "spike") -> str:
@@ -957,7 +969,8 @@ def _seq_sql(vol_min: float, depth: int, sigs: list, zone_def: str = "spike") ->
     ending at the exit (offset 0 = exit bar, 1..depth-1 = prior bars).
     zone_def: 'spike' = zone formed by a volume ≥ vol_min×avg_vol_20d bar (V1);
               'vb'    = zone formed by a VB vol-class bar (vol_bucket='VB', V2)."""
-    fwd_sel = ", ".join(f"b.{s} AS e0_{s}" for s in sigs)
+    _expr = lambda s: _DERIVED_LEADIN.get(s, f"b.{s}")
+    fwd_sel = ", ".join(f"{_expr(s)} AS e0_{s}" for s in sigs)
     lag_sel = ", ".join(
         f"lag(e0_{s}, {k}) OVER w AS e{k}_{s}"
         for k in range(1, depth) for s in sigs)
