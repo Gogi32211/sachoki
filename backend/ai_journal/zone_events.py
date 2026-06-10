@@ -780,6 +780,20 @@ def tickers_in_zone(vol_min: float = 5.0, lb_max: int = 90) -> dict:
     return out
 
 
+def _wilson_lb(wins, n, z=1.96):
+    """Wilson score lower bound of a win proportion at ~95%. Shrinks high win-rates
+    on small n toward 0 (a 10/12 = 83% → ~55%), so noise on tiny OOS samples stops
+    masquerading as a durable edge. Returns a 0..1 fraction (or None if n<=0)."""
+    import math as _m
+    if not n or n <= 0:
+        return None
+    p = wins / n
+    denom = 1.0 + z * z / n
+    centre = p + z * z / (2 * n)
+    margin = z * _m.sqrt(max(p * (1 - p) / n + z * z / (4 * n * n), 0.0))
+    return max(0.0, (centre - margin) / denom)
+
+
 def _combo_search(feats, ret, winv, oos, base_avg, base_win, min_n, ways, top,
                   anchor=None, field_fn=None):
     """Shared MᵀM combo miner. feats = [(label, 0/1 vector)]. Returns
@@ -814,12 +828,18 @@ def _combo_search(feats, ret, winv, oos, base_avg, base_win, min_n, ways, top,
         n_is = float((vec * in_s).sum()); n_oos = float((vec * oos).sum())
         win_is = float((vec * winv * in_s).sum() / n_is) if n_is else None
         win_oos = float((vec * winv * oos).sum() / n_oos) if n_oos else None
+        # Wilson 95% lower bound — an HONEST win-rate that penalises small samples
+        # (a 83% on n=12 collapses to ~55%), so the "holds" gate stops trusting noise.
+        win_lb = _wilson_lb(win * n, n)
+        oos_lb = _wilson_lb(win_oos * n_oos, n_oos) if (win_oos is not None and n_oos) else None
         return {"n": int(n), "avg_clip_pct": round(avg, 3),
                 "win_rate_pct": round(win * 100, 1),
+                "win_lb_pct": round(win_lb * 100, 1) if win_lb is not None else None,
                 "lift_avg_pct": round(avg - base_avg, 3),
                 "lift_win_pp": round((win - base_win) * 100, 1),
                 "win_is_pct": round(win_is * 100, 1) if win_is is not None else None,
                 "win_oos_pct": round(win_oos * 100, 1) if win_oos is not None else None,
+                "oos_lb_pct": round(oos_lb * 100, 1) if oos_lb is not None else None,
                 "n_is": int(n_is), "n_oos": int(n_oos)}
 
     C = M.T @ M

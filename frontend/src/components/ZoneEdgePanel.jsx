@@ -443,7 +443,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           </thead>
           <tbody>
             {(combo?.best || []).map((c, i) => {
-              const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > combo.event_base.win_rate_pct
+              const holds = c.oos_lb_pct != null && c.win_is_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.oos_lb_pct > combo.event_base.win_rate_pct
               return (
                 <tr key={i} className="border-t border-white/5">
                   <td className="px-3 py-1.5 font-mono text-[11px]">
@@ -459,7 +459,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                   </td>
                   <td className="text-right px-3 py-1.5 font-mono font-bold">{c.win_rate_pct}%</td>
                   <td className="text-right px-3 py-1.5 font-mono text-md-on-surface-var">{c.win_is_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_is}</span></td>
-                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span></td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`} title={`Wilson 95% lower bound: ${c.oos_lb_pct}% (small-n honest win)`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span><span className="text-[9px] text-md-on-surface-var/55"> LB{c.oos_lb_pct}</span></td>
                   <td className="text-center px-2 py-1.5">{holds ? '✅' : '❌'}</td>
                 </tr>
               )
@@ -542,7 +542,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
           <tbody>
             {(seqData?.best || []).map((c, i) => {
               const base = seqData.event_base?.win_rate_pct ?? 0
-              const holds = c.win_is_pct != null && c.win_oos_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.win_oos_pct > base
+              const holds = c.oos_lb_pct != null && c.win_is_pct != null && (c.win_oos_pct - c.win_is_pct) >= -6 && c.oos_lb_pct > base
               return (
               <Fragment key={i}>
                 <tr onClick={() => pickPattern(c, i)}
@@ -578,7 +578,7 @@ export default function ZoneEdgePanel({ onSelectTicker }) {
                   </td>
                   <td className="text-right px-3 py-1.5 font-mono font-bold">{c.win_rate_pct}%</td>
                   <td className="text-right px-3 py-1.5 font-mono text-md-on-surface-var">{c.win_is_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_is}</span></td>
-                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span></td>
+                  <td className={`text-right px-3 py-1.5 font-mono ${holds ? 'text-emerald-300' : 'text-rose-300'}`} title={`Wilson 95% lower bound: ${c.oos_lb_pct}% (small-n honest win)`}>{c.win_oos_pct}%<span className="text-[9px] text-md-on-surface-var/40"> ·{c.n_oos}</span><span className="text-[9px] text-md-on-surface-var/55"> LB{c.oos_lb_pct}</span></td>
                   <td className="text-center px-2 py-1.5">{holds ? '✅' : '❌'}</td>
                 </tr>
                 {seqPick === i && (
