@@ -60,4 +60,26 @@ try:
 except Exception as e:
     print("  (max-date შემოწმება გამოტოვდა:", e, ")")
 PY
+
+# 6) ULTRA re-scan — the screener snapshot is a SEPARATE cached job from the bars DB.
+#    Updating bars does NOT refresh it, so without this the screener shows yesterday's
+#    RSI/CCI/TZ/score even though the DB is current. Re-scan each universe (heavy: full
+#    Turbo pass). Skip with NO_RESCAN=1 ./update_db.sh
+API="http://127.0.0.1:$PORT/api"
+if [ "${NO_RESCAN:-0}" != "1" ]; then
+  echo "── ULTRA re-scan (screener snapshot) ───────"
+  for u in sp500 nasdaq russell2k; do
+    printf "  🔄 %-10s" "$u"
+    curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d" >/dev/null 2>&1
+    sleep 2
+    for i in $(seq 1 180); do                      # wait up to ~15 min per universe
+      run=$(curl -s --max-time 8 "$API/ultra-scan/status" | python3 -c "import sys,json;print(json.load(sys.stdin).get('running',False))" 2>/dev/null)
+      [ "$run" != "True" ] && break
+      sleep 5
+    done
+    echo "done"
+  done
+else
+  echo "  (ULTRA re-scan გამოტოვდა — NO_RESCAN=1)"
+fi
 echo "✅ მზადაა."

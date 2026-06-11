@@ -1537,13 +1537,15 @@ def _enrich_atomic_short(results: list, universe: str, lookback_n: int = 3) -> l
 
 def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> list:
     """Attach the 5-year-validated CAPITULATION-BOUNCE long flags (additive, read-only).
-    The strongest edge in the L-line study (L_LINE_DISCOVERIES.md): an L34/L46 VSA bar in
-    DEEP aligned capitulation (RSI<20 AND CCI<-100) with a volume-COIL bar (BLUE / FRI64) =
-    Wyckoff selling-climax spring. median fwd_10d EXCESS +1.27 (clip25 +1.40, NOT tail-driven),
-    6/6 yrs incl 2022, IS<=OOS, 1286 tickers (broad, not pump-concentrated), all 3 universes.
-    ⚠️ bounce play: sit through ~-7% MAE; ~7% are falling knives — diversify. Scans each
-    ticker's LAST `lookback_n` bars, keeps the MOST RECENT match. Sets cap_match / cap_score /
-    cap_atoms / cap_age (bars ago, 0 = latest)."""
+    The L-line study (L_LINE_DISCOVERIES.md): an L34/L46 VSA bar in ALIGNED capitulation =
+    Wyckoff selling-climax spring. CORE (required) = L34/L46 + RSI<30 + CCI<-100 — the RSI+CCI
+    alignment is the key knife-guard (RSI-oversold WITHOUT deep CCI is a falling knife: e.g.
+    SMX CCI -28 correctly excluded; GRRR/CPOP/RGTI with CCI<-100 correctly caught). Loose core
+    median fwd_10d EXCESS +0.85 (6/6 yrs, 116k bars); RED flush + moderate vol(1.5-5x) → +1.09;
+    + volume-coil(BLUE/FRI64) → +1.20 (coil is a SCORE bonus, not required — it was too strict
+    and missed valid deep-CCI capitulations). ⚠️ bounce play: sit through ~-7% MAE; a minority
+    are falling knives — diversify; blow-off volume(>7x) is penalised. Scans each ticker's LAST
+    `lookback_n` bars, keeps the MOST RECENT match. Sets cap_match/score/atoms/age."""
     if not results:
         return results
     tickers = [r.get("ticker") for r in results if r.get("ticker")]
@@ -1555,10 +1557,10 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
         try:
             ph = ",".join("?" * len(tickers))
             df = a.execute(f"""
-                SELECT ticker, l_sig, rsi_14, cci_20, sig_blue AS blue, sig_fri64 AS fri64,
-                       d_absorb_bear AS absb,
+                SELECT ticker, l_sig, rsi_14, cci_20, open, close, volume, avg_vol_20d,
+                       sig_blue AS blue, sig_fri64 AS fri64, d_absorb_bear AS absb,
                        row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
-                FROM bars WHERE universe=? AND ticker IN ({ph})
+                FROM bars WHERE universe=? AND ticker IN ({ph}) AND avg_vol_20d > 0
                 QUALIFY age < {int(lookback_n)}
                 ORDER BY ticker, age
             """, [universe, *tickers]).fetchdf()
@@ -1574,17 +1576,23 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
             continue
         try:
             rsi = float(r["rsi_14"]); cci = float(r["cci_20"])
+            vr = float(r["volume"]) / float(r["avg_vol_20d"]) if r["avg_vol_20d"] else 0.0
+            red = float(r["close"]) <= float(r["open"])
         except Exception:
             continue
-        coil = bool(int(r["blue"] or 0) or int(r["fri64"] or 0))
-        match = (str(r["l_sig"]) in ("L34", "L46") and rsi < 20 and cci < -100 and coil)
+        # CORE (required): L34/L46 + RSI<30 + CCI<-100 (the knife-guard alignment)
+        match = (str(r["l_sig"]) in ("L34", "L46") and rsi < 30 and cci < -100)
         if not match:
             continue
-        atoms = [str(r["l_sig"]), "RSI<20", "CCI<-100", "coil"]; score = 60
-        if int(r["fri64"] or 0): atoms.append("FRI64"); score += 20
-        elif int(r["blue"] or 0): atoms.append("BLUE"); score += 15
-        if int(r["absb"] or 0): atoms.append("absorb"); score += 10
-        info[tk] = (min(score, 100), atoms, int(r["age"]))
+        atoms = [str(r["l_sig"]), f"RSI{int(rsi)}", f"CCI{int(cci)}"]; score = 45
+        if red: atoms.append("red"); score += 15                         # red flush > green
+        if 1.5 <= vr < 5: atoms.append(f"vol{vr:.1f}x"); score += 15      # goldilocks ~2x
+        elif vr >= 7:     atoms.append(f"⚠blowoff{vr:.0f}x"); score -= 15  # blow-off, penalise
+        if int(r["fri64"] or 0): atoms.append("FRI64"); score += 15       # coil = bonus
+        elif int(r["blue"] or 0): atoms.append("BLUE"); score += 12
+        if int(r["absb"] or 0): atoms.append("absorb"); score += 8
+        if rsi < 20:      atoms.append("deep"); score += 5
+        info[tk] = (max(0, min(score, 100)), atoms, int(r["age"]))
     for r in results:
         sc, at, age = info.get(r.get("ticker"), (0, [], None))
         r["cap_match"] = age is not None
