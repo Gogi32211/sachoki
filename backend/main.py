@@ -1600,6 +1600,68 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
     return results
 
 
+def _enrich_momentum(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Attach the MOMENTUM Zone-Dense long flags (additive, read-only). The mirror of
+    capitulation (L_LINE_DISCOVERIES.md): instead of buying an oversold flush, this buys
+    the COMPRESSION inside an uptrend — a DENSE L34/L46 accumulation churn (>=6 of them in
+    the last 10 bars) + RSI in the markup band (40-65) + squeeze & load (the coil) + price
+    flat-or-rising over the window. median fwd_10d EXCESS +1.15 (5/6 yrs). Density-only or
+    chasing strength (L3 markup, price already +10%) does NOT work — the edge is the coil,
+    not the breakout. Sets mom_match/score/atoms/age (bars ago, 0 = latest)."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                WITH r AS (
+                  SELECT ticker, date, l_sig, rsi_14, sq, load, sig_best, close,
+                         SUM(CASE WHEN l_sig IN ('L34','L46') THEN 1 ELSE 0 END) OVER (
+                           PARTITION BY ticker ORDER BY date ROWS BETWEEN 10 PRECEDING AND 1 PRECEDING) AS d10,
+                         lag(close, 10) OVER (PARTITION BY ticker ORDER BY date) AS c10,
+                         row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
+                  FROM bars WHERE universe=? AND ticker IN ({ph}))
+                SELECT ticker, l_sig, rsi_14, sq, load, sig_best, close, d10, c10, age
+                FROM r WHERE age < {int(lookback_n)} ORDER BY ticker, age
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("momentum enrich failed: %s", exc)
+        return results
+    info = {}
+    for _, r in df.iterrows():
+        tk = str(r["ticker"])
+        if tk in info:
+            continue
+        try:
+            rsi = float(r["rsi_14"]); d10 = float(r["d10"] or 0)
+            chg10 = (float(r["close"]) / float(r["c10"]) - 1) * 100 if r["c10"] else None
+        except Exception:
+            continue
+        # CORE: dense L34/L46 churn + markup RSI + squeeze & load coil + price flat/rising
+        match = (str(r["l_sig"]) in ("L34", "L46") and d10 >= 6 and 40 <= rsi < 65
+                 and int(r["sq"] or 0) and int(r["load"] or 0)
+                 and chg10 is not None and chg10 >= 0)
+        if not match:
+            continue
+        atoms = [str(r["l_sig"]), f"dense{int(d10)}", f"RSI{int(rsi)}", "SQ", "LOAD"]; score = 60
+        if rsi < 50: atoms.append("early"); score += 12        # early markup > late
+        if chg10 < 10: atoms.append("pre-run"); score += 8     # not yet chased
+        if int(r["sig_best"] or 0): atoms.append("BEST"); score += 8
+        info[tk] = (max(0, min(score, 100)), atoms, int(r["age"]))
+    for r in results:
+        sc, at, age = info.get(r.get("ticker"), (0, [], None))
+        r["mom_match"] = age is not None
+        r["mom_score"] = int(sc); r["mom_atoms"] = at; r["mom_age"] = age
+    return results
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -5173,6 +5235,7 @@ def api_ultra_scan_results(
             results = _enrich_atomic(results, universe, lookback_n=atomic_lookback)
             results = _enrich_atomic_short(results, universe, lookback_n=atomic_lookback)
             results = _enrich_capitulation(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_momentum(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

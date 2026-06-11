@@ -1021,6 +1021,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [atomicFilter, setAtomicFilter] = useState(false)   // ⚛ weak-close gap-up (atomic edge)
   const [shortFilter,  setShortFilter]  = useState(false)   // ⚡ blow-off fade (short edge)
   const [capFilter,    setCapFilter]    = useState(false)   // 💥 capitulation bounce (long edge)
+  const [momFilter,    setMomFilter]    = useState(false)   // 🚀 momentum zone-dense (long edge)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1341,6 +1342,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (atomicFilter   && !(r.atomic_match && r.atomic_age != null && r.atomic_age < (lookbackN || 1))) return false
       if (shortFilter    && !(r.short_match  && r.short_age  != null && r.short_age  < (lookbackN || 1))) return false
       if (capFilter      && !(r.cap_match    && r.cap_age    != null && r.cap_age    < (lookbackN || 1))) return false
+      if (momFilter      && !(r.mom_match    && r.mom_age    != null && r.mom_age    < (lookbackN || 1))) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1380,7 +1382,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2739,6 +2741,20 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           💥 Capit{capFilter ? ` ${results.filter(r => r.cap_match && r.cap_age != null && r.cap_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !momFilter; setMomFilter(v)
+            if (v) setShortFilter(false)   // Momentum (long) vs Short — opposite directions
+            if (v && !allResults.some(r => r.mom_age != null)) fetchFreshResults(localTf, universe)
+          }}
+          title="🚀 Momentum Zone-Dense: the markup mirror of Capit (L_LINE_DISCOVERIES.md) — buy the COIL inside an uptrend, not the breakout. A dense L34/L46 accumulation churn (≥6 in last 10 bars) + RSI 40-65 (markup band) + squeeze & load (the coil) + price flat/rising. median fwd_10d +1.15, 5/6 years. NB: density-only or chasing strength (L3 markup, price already +10%) does NOT work — the edge is the compression, not the chase."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            momFilter
+              ? 'bg-violet-900/60 text-violet-200 border-violet-500 ring-1 ring-violet-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          🚀 Mom{momFilter ? ` ${results.filter(r => r.mom_match && r.mom_age != null && r.mom_age < (lookbackN || 1)).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
