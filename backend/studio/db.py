@@ -50,7 +50,13 @@ STUDIO_DB_PATH: str = os.environ.get("STUDIO_DB_PATH", _DEFAULT_DB)
 
 
 def get_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
-    """Return a new DuckDB connection to the studio database."""
+    """Return a new DuckDB connection to the studio database. Honors `read_only`:
+    readers (status / signal-stats / most queries) open read-only so they SHARE the
+    instance and don't take an exclusive lock that would block enricher worker
+    subprocesses or external analysis scripts; writers (import / enrich / refresh)
+    open read-write. NB: a read-write writer and read-only readers cannot be open
+    SIMULTANEOUSLY in one process (DuckDB raises "different configuration") — callers
+    around a write must avoid overlapping reads (see _is_config_conflict retry)."""
     return duckdb.connect(STUDIO_DB_PATH, read_only=read_only)
 
 
@@ -485,8 +491,18 @@ CREATE TABLE IF NOT EXISTS import_log (
 """
 
 
+_schema_ensured = False
+
+
 def ensure_schema() -> None:
-    """Create all tables if they don't exist. Safe to call multiple times."""
+    """Create all tables / run column migrations if needed. Runs ONCE per process:
+    it opens a READ-WRITE connection, so re-running it on every request (e.g. the
+    /stats poll) would conflict with concurrent read-only readers (ultra-scan /
+    dashboard polling) and raise "different configuration". After the first success
+    the guard makes subsequent calls a no-op."""
+    global _schema_ensured
+    if _schema_ensured:
+        return
     conn = get_conn()
     try:
         # DuckDB doesn't have executescript — split on semicolons and run each statement
@@ -616,6 +632,7 @@ def ensure_schema() -> None:
         pass
     finally:
         conn.close()
+    _schema_ensured = True   # both schema + migrations succeeded → skip on later calls
     log.info("Studio DB schema ensured at %s", STUDIO_DB_PATH)
 
 

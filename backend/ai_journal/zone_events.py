@@ -1438,6 +1438,37 @@ def combo_board(event_types=("retest", "exit_up", "exit_down"), vol_min: float =
             j.close()
     except Exception:
         pass
+    # split markers — tickers with a (reverse) split in the last ~100 days. Uses the
+    # ALREADY-CACHED split universe only (never triggers a blocking NASDAQ fetch on
+    # the board's request path); it warms via the Ultra 'split' feature / periodic
+    # refresh. Best-effort — never let the splits source break the board.
+    split_map = {}
+    try:
+        from datetime import date, datetime
+        import split_universe as _su
+        _svc = _su.split_service
+        _cached = getattr(_svc, "_last_result", None)
+        _valid = getattr(_svc, "_is_cache_valid", lambda: False)()
+        _rows = _cached.rows if (_cached is not None and _valid) else []
+        if not _rows:   # cache cold → warm it in the background; splits show on next load
+            import threading
+            threading.Thread(target=_svc.get_split_universe, daemon=True).start()
+        _today = date.today()
+        for _sr in _rows:
+            _sym = _su.normalize_split_symbol(_sr.get("ticker", ""))
+            _sd = _sr.get("split_date")
+            if not _sym or not _sd:
+                continue
+            try:
+                _ago = (_today - datetime.strptime(str(_sd)[:10], "%Y-%m-%d").date()).days
+            except Exception:
+                continue
+            if 0 <= _ago <= 100:
+                _prev = split_map.get(_sym)
+                if _prev is None or _ago < _prev["days_ago"]:   # keep the most recent split
+                    split_map[_sym] = {"date": str(_sd)[:10], "ratio": _sr.get("ratio"), "days_ago": _ago}
+    except Exception:
+        pass
     as_of = None
     out = []
     for tk, d in rows.items():
@@ -1448,6 +1479,7 @@ def combo_board(event_types=("retest", "exit_up", "exit_down"), vol_min: float =
         d["universe"] = p.get("universe") if p is not None else None
         d["rsi"] = round(float(p["rsi"]), 0) if p is not None and p.get("rsi") is not None else None
         d["journal"] = jstat.get(tk)
+        d["split"] = split_map.get(str(tk).upper())   # {date, ratio, days_ago} or None
         out.append(d)
     # confirmed first, then score
     out.sort(key=lambda r: (r["status"] == "confirmed", r["score"], r["prob_up"]), reverse=True)

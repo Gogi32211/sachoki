@@ -38,9 +38,14 @@ def get_journal_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     return duckdb.connect(JOURNAL_DB_PATH, read_only=False)
 
 
-def get_analytics_conn() -> duckdb.DuckDBPyConnection:
-    """Always read-only — we never write to the analytics DB from the journal."""
-    return duckdb.connect(ANALYTICS_DB_PATH, read_only=True)
+def get_analytics_conn(read_only: bool = True) -> duckdb.DuckDBPyConnection:
+    """Read-only by default — the frequent analytics reads (ultra-scan / atomic /
+    short enrich, dashboard polling) must stay read-only so they SHARE the instance
+    and don't take an exclusive lock: an exclusive lock would block the multiprocess
+    enricher's read-only worker subprocesses and any separate analysis script.
+    (Studio's read-write import/enrich is reconciled separately — see studio.db.)
+    The `read_only` arg lets a caller force read-write if it genuinely must write."""
+    return duckdb.connect(ANALYTICS_DB_PATH, read_only=read_only)
 
 
 _SCHEMA = """

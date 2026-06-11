@@ -1535,6 +1535,63 @@ def _enrich_atomic_short(results: list, universe: str, lookback_n: int = 3) -> l
     return results
 
 
+def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Attach the 5-year-validated CAPITULATION-BOUNCE long flags (additive, read-only).
+    The strongest edge in the L-line study (L_LINE_DISCOVERIES.md): an L34/L46 VSA bar in
+    DEEP aligned capitulation (RSI<20 AND CCI<-100) with a volume-COIL bar (BLUE / FRI64) =
+    Wyckoff selling-climax spring. median fwd_10d EXCESS +1.27 (clip25 +1.40, NOT tail-driven),
+    6/6 yrs incl 2022, IS<=OOS, 1286 tickers (broad, not pump-concentrated), all 3 universes.
+    ⚠️ bounce play: sit through ~-7% MAE; ~7% are falling knives — diversify. Scans each
+    ticker's LAST `lookback_n` bars, keeps the MOST RECENT match. Sets cap_match / cap_score /
+    cap_atoms / cap_age (bars ago, 0 = latest)."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                SELECT ticker, l_sig, rsi_14, cci_20, sig_blue AS blue, sig_fri64 AS fri64,
+                       d_absorb_bear AS absb,
+                       row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
+                FROM bars WHERE universe=? AND ticker IN ({ph})
+                QUALIFY age < {int(lookback_n)}
+                ORDER BY ticker, age
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("capitulation enrich failed: %s", exc)
+        return results
+    info = {}
+    for _, r in df.iterrows():
+        tk = str(r["ticker"])
+        if tk in info:                      # keep the most-recent match per ticker
+            continue
+        try:
+            rsi = float(r["rsi_14"]); cci = float(r["cci_20"])
+        except Exception:
+            continue
+        coil = bool(int(r["blue"] or 0) or int(r["fri64"] or 0))
+        match = (str(r["l_sig"]) in ("L34", "L46") and rsi < 20 and cci < -100 and coil)
+        if not match:
+            continue
+        atoms = [str(r["l_sig"]), "RSI<20", "CCI<-100", "coil"]; score = 60
+        if int(r["fri64"] or 0): atoms.append("FRI64"); score += 20
+        elif int(r["blue"] or 0): atoms.append("BLUE"); score += 15
+        if int(r["absb"] or 0): atoms.append("absorb"); score += 10
+        info[tk] = (min(score, 100), atoms, int(r["age"]))
+    for r in results:
+        sc, at, age = info.get(r.get("ticker"), (0, [], None))
+        r["cap_match"] = age is not None
+        r["cap_score"] = int(sc); r["cap_atoms"] = at; r["cap_age"] = age
+    return results
+
+
 @app.get("/api/turbo-scan")
 def api_turbo_scan(
     limit: int = 10000,
@@ -5107,6 +5164,7 @@ def api_ultra_scan_results(
             )
             results = _enrich_atomic(results, universe, lookback_n=atomic_lookback)
             results = _enrich_atomic_short(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_capitulation(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

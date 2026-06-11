@@ -209,6 +209,13 @@ export default function SetupsBoardPanel({ onSelectTicker }) {
               <td className="px-2 py-1.5">
                 <button onClick={() => onSelectTicker?.(r.ticker)}
                   className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button>
+                {r.split && (
+                  <span
+                    title={`Reverse split ${r.split.ratio ? r.split.ratio + ' ' : ''}on ${r.split.date} (${r.split.days_ago}d ago)`}
+                    className="ml-1.5 px-1 py-0.5 rounded text-[10px] font-bold bg-purple-900/60 text-purple-200 border border-purple-500 align-middle">
+                    ✂{r.split.days_ago}d
+                  </span>
+                )}
               </td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var">{r.last_price != null ? '$' + r.last_price : '—'}</td>
               <td className="text-right px-2 py-1.5 font-mono">

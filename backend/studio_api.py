@@ -837,6 +837,12 @@ def stats():
         ensure_schema()
         return get_stats()
     except Exception as e:
+        from studio.db import _is_busy_error
+        if _is_busy_error(e):
+            # a write (enrich/import/refresh) is briefly holding the DB — report calmly
+            return {"updating": True,
+                    "message": "Database is busy (writing) — stats available shortly.",
+                    "db_path": STUDIO_DB_PATH}
         return {"error": str(e), "db_path": STUDIO_DB_PATH}
 
 
