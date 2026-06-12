@@ -57,10 +57,6 @@ const SIG_GROUPS = [
     custom: r => !!(r.seq_l34_eb && r.rsi > 65) },
   { key: '_combo_blowoff',  label: '⚡Blowoff↓',  cls: 'text-red-400 font-bold',
     custom: r => !!((r.vol_spike_5x || r.vol_spike_10x) && (r.tz_wlnbb_full_suffix || '').includes('O')) },
-  //   Capit→Atomic = weak-close gap-up that follows a recent B+ capitulation (≤15d) →
-  //               the premium confluence: win 67%, med +4.2% vs +1.4% baseline.
-  { key: '_combo_postcapit', label: '🔥Capit→Atom', cls: 'text-amber-300 font-bold',
-    custom: r => !!r.atomic_post_capit },
   { divider: true, label: '★ combo (backtested)' },
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
@@ -1028,6 +1024,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [shortFilter,  setShortFilter]  = useState(false)   // ⚡ blow-off fade (short edge)
   const [capFilter,    setCapFilter]    = useState(false)   // 💥 capitulation bounce (long edge)
   const [momFilter,    setMomFilter]    = useState(false)   // 🚀 momentum zone-dense (long edge)
+  const [postCapitFilter, setPostCapitFilter] = useState(false)  // 🔥 Capit→Atom confluence (premium atomic subset)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1349,6 +1346,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (shortFilter    && !(r.short_match  && r.short_age  != null && r.short_age  < (lookbackN || 1))) return false
       if (capFilter      && !(r.cap_match    && r.cap_age    != null && r.cap_age    < (lookbackN || 1))) return false
       if (momFilter      && !(r.mom_match    && r.mom_age    != null && r.mom_age    < (lookbackN || 1))) return false
+      if (postCapitFilter && !r.atomic_post_capit) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1388,7 +1386,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2761,6 +2759,21 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           🚀 Mom{momFilter ? ` ${results.filter(r => r.mom_match && r.mom_age != null && r.mom_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !postCapitFilter; setPostCapitFilter(v)
+            if (v) setShortFilter(false)   // Capit→Atom (long) vs Short — opposite directions
+            // cached results may predate the post-capit enrichment → pull fresh (fast, no re-scan)
+            if (v && !allResults.some(r => r.atomic_age != null)) fetchFreshResults(localTf, universe)
+          }}
+          title="🔥 Capit→Atom confluence — a weak-close gap-up (Atomic) that FOLLOWS a recent B+ capitulation on the same ticker (≤15d). The capitulation confirms the bottom; the gap-up is the continuation entry. Validated this session: rich+capit≤10d win 67%, med +4.2% vs +1.4% baseline; survives price-control, dedup (510 tickers) and ex-cluster. The premium subset of the Atomic edge — also rescues good <$16 names that the price floor alone would drop."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            postCapitFilter
+              ? 'bg-orange-900/60 text-orange-200 border-orange-400 ring-1 ring-orange-400'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          🔥 Capit→Atom{postCapitFilter ? ` ${results.filter(r => r.atomic_post_capit).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">
