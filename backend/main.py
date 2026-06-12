@@ -1679,9 +1679,17 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
         #     flushes dodges falling knives in downtrend regimes. B was the ONLY variant
         #     positive in BOTH halves of the year (recent H2 +1.23 while the deeper E2/A
         #     went -3.3/-2.2), highest win (57%), HALF the catastrophe (2.6% vs 5.3%).
+        # + knife-band exclusions (track-record deep-dive, stability-checked both halves):
+        # drop new-listings (no 20-bar drawdown → median -0.10, 49% win, 9% cat) and the
+        # $1-2 price knife (median -0.85, 48% win, 17% cat — robust across close/entry
+        # metrics). The sub-$1 GEM (+17..+39 mean, big moonshot rate) is kept. NB: a mid
+        # price knife also shows up but its exact band drifts ($5-8 vs $7-10 by metric) =
+        # not robust → NOT filtered, to avoid overfitting.
+        px = float(r["close"]) if r["close"] else 0.0
         match = (str(r["l_sig"]) in ("L34", "L46") and 15 <= rsi < 30 and cci < -100
-                 and (chg20 is None or chg20 > -25)
-                 and not int(r["fri64"] or 0) and not int(r["absb"] or 0))
+                 and chg20 is not None and chg20 > -25
+                 and not int(r["fri64"] or 0) and not int(r["absb"] or 0)
+                 and not (1 <= px < 2))
         if not match:
             continue
         atoms = [str(r["l_sig"]), f"RSI{int(rsi)}", f"CCI{int(cci)}"]; score = 45

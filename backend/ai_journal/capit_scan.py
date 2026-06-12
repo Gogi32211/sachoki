@@ -37,8 +37,9 @@ def capit_scan(max_age_days: int = 3, dv_floor: float = 300_000, limit: int = 12
             FROM recent
             WHERE l_sig IN ('L34','L46') AND rsi_14 >= 15 AND rsi_14 < 30 AND cci_20 < -100
               AND date >= DATE '{as_of}' - INTERVAL {int(max_age_days)} DAY
-              AND dv >= {dv_floor} AND (c20 IS NULL OR close / c20 - 1 > -0.25)
+              AND dv >= {dv_floor} AND c20 IS NOT NULL AND close / c20 - 1 > -0.25
               AND coalesce(fri64,0) = 0 AND coalesce(absb,0) = 0
+              AND NOT (close >= 1 AND close < 2)
         """).fetchdf()
     finally:
         a.close()

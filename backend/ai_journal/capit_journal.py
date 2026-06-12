@@ -177,8 +177,9 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 60,
               & (df.fri64 == 0) & (df.absb == 0))
         if recipe == "A":      # E2 + strong-vol buckets (high-mean, tail-seeking)
             cap = e2 & df.vol_bucket.isin(["L", "VB", "W"])
-        elif recipe == "B":    # E2 + shallow dip (low-catastrophe, consistency)
-            cap = e2 & ((df.c20.isna()) | (df.chg20 > -25))
+        elif recipe == "B":    # PRODUCTION: E2 + shallow dip + robust knife exclusions ($1-2, new-list)
+            cap = (e2 & df.chg20.notna() & (df.chg20 > -25)
+                   & ~((df.close >= 1) & (df.close < 2)))
         else:                  # e2 (the base)
             cap = e2
     sc = np.full(len(df), 45.0)
