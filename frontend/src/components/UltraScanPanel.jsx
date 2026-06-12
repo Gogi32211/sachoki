@@ -57,6 +57,10 @@ const SIG_GROUPS = [
     custom: r => !!(r.seq_l34_eb && r.rsi > 65) },
   { key: '_combo_blowoff',  label: '⚡Blowoff↓',  cls: 'text-red-400 font-bold',
     custom: r => !!((r.vol_spike_5x || r.vol_spike_10x) && (r.tz_wlnbb_full_suffix || '').includes('O')) },
+  //   Capit→Atomic = weak-close gap-up that follows a recent B+ capitulation (≤15d) →
+  //               the premium confluence: win 67%, med +4.2% vs +1.4% baseline.
+  { key: '_combo_postcapit', label: '🔥Capit→Atom', cls: 'text-amber-300 font-bold',
+    custom: r => !!r.atomic_post_capit },
   { divider: true, label: '★ combo (backtested)' },
   // ── VABS ──────────────────────────────────────────────────────────────
   { key: 'best_sig',   label: 'BEST★',  cls: 'text-lime-300'    },
@@ -884,6 +888,8 @@ const KEEP_ALWAYS = new Set([
   'prebreak_prime','prebreak_ready','prebreak_watch','prebreak_score',
   'pb_lvbo','pb_stop_cause','pb_pp_rtv','pb_fly_cd_c',
   'pb_wvf_confirm','pb_follow_confirm','pb_macro_penalty',
+  // Capit→Atomic confluence (boolean — needed for the 🔥Capit→Atom filter after cache reload)
+  'atomic_post_capit','atomic_capit_age',
 ])
 function _slimRow(r) {
   const out = {}
