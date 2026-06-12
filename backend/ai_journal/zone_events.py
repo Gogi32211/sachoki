@@ -1422,9 +1422,43 @@ def combo_board(event_types=("retest", "exit_up", "exit_down"), vol_min: float =
             SELECT ticker, close AS last_price, universe, date AS px_date, rsi_14 AS rsi
             FROM bars WHERE date = (SELECT max(date) FROM bars) AND ticker IN ({ph})
         """, tickers).fetchdf()
+        # ── Blow-off guard ────────────────────────────────────────────────────
+        # The combo anchors on the (older) event bar and is BLIND to a pump-dump
+        # that happened AFTER it. Validated on 5yr/8M bars: a bar whose intraday
+        # high ran >= +80% over the prior close has median fwd_10d excess -22..-27
+        # and is 0/6 years positive — buying it is a -25% trade. A weak/rejected
+        # close (close < 55% of the high) makes it worse. EDHL is the canonical
+        # trap: spring 06-09 @ $3.10, then 06-11 gapped to $16.53, spiked $17.49,
+        # crashed -66% to close $5.98 (61M vol). We scan the recent window for the
+        # worst such spike and flag the row so the board never reads it as a buy.
+        bdf = a.execute(f"""
+            WITH recent AS (
+              SELECT ticker, date, high, low, close, volume, avg_vol_20d,
+                     lag(close) OVER (PARTITION BY ticker ORDER BY date) AS pc,
+                     row_number() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+              FROM bars WHERE ticker IN ({ph})
+            )
+            SELECT ticker, date, high, low, close, volume, avg_vol_20d, pc
+            FROM recent
+            WHERE rn <= {int(max_age_days) + 3} AND pc > 0 AND high > low
+              AND high / pc - 1 >= 0.80
+        """, tickers).fetchdf()
     finally:
         a.close()
     pxmap = {r["ticker"]: r for _, r in px.iterrows()}
+    blow = {}
+    for _, r in bdf.iterrows():
+        tk = r["ticker"]
+        hi_run = (float(r["high"]) / float(r["pc"]) - 1) * 100
+        c_vs_hi = float(r["close"]) / float(r["high"]) if r["high"] else 1.0
+        volx = (float(r["volume"]) / float(r["avg_vol_20d"])) if r["avg_vol_20d"] else None
+        cur = blow.get(tk)
+        if cur is None or hi_run > cur["hi_run"]:   # keep the worst spike in the window
+            blow[tk] = {
+                "date": str(r["date"])[:10], "hi_run": round(hi_run),
+                "c_vs_hi": round(c_vs_hi, 2), "volx": round(volx, 1) if volx else None,
+                "severe": bool(hi_run >= 150 or c_vs_hi < 0.55),
+            }
     jstat = {}
     try:
         from .db import get_journal_conn
@@ -1480,9 +1514,13 @@ def combo_board(event_types=("retest", "exit_up", "exit_down"), vol_min: float =
         d["rsi"] = round(float(p["rsi"]), 0) if p is not None and p.get("rsi") is not None else None
         d["journal"] = jstat.get(tk)
         d["split"] = split_map.get(str(tk).upper())   # {date, ratio, days_ago} or None
+        d["blowoff"] = blow.get(tk)   # {date,hi_run,c_vs_hi,volx,severe} or None
+        if d["blowoff"]:              # demote: a contaminated setup is not a buy
+            d["score"] = max(0, d["score"] - (35 if d["blowoff"]["severe"] else 20))
         out.append(d)
-    # confirmed first, then score
-    out.sort(key=lambda r: (r["status"] == "confirmed", r["score"], r["prob_up"]), reverse=True)
+    # clean rows first, then confirmed, then score (blow-off rows sink to the bottom)
+    out.sort(key=lambda r: (not r.get("blowoff"), r["status"] == "confirmed",
+                            r["score"], r["prob_up"]), reverse=True)
     return {"event_types": list(event_types), "bases": bases, "as_of": as_of,
             "n_combos": n_holding, "count": len(out), "rows": out}
 

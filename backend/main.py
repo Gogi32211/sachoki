@@ -680,6 +680,82 @@ def api_atomic_journal_grade():
         log.exception("atomic grade failed"); return {"graded": 0, "error": str(e)}
 
 
+@app.get("/api/atomic-journal/replay")
+def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: int = 70):
+    """Historical backtest of the Atomic weak-close gap-up edge (entry next-open,
+    -15% stop / +100% target / 20-bar). Builds the track record retroactively."""
+    from ai_journal.atomic_journal import replay
+    try:
+        return replay(months=months, universe=(universe or None), min_score=min_score)
+    except Exception as e:
+        log.exception("atomic replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
+
+
+# ── Capit Journal — paper-trading journal for the validated capitulation-bounce edge ──
+@app.get("/api/capit-scan")
+def api_capit_scan(max_age_days: int = 3, universe: str = ""):
+    """Live capitulation-bounce candidates (L34/L46 + RSI<30 + CCI<-100, knife-guard)."""
+    from ai_journal.capit_scan import capit_scan
+    try:
+        return capit_scan(max_age_days=max_age_days, universe=(universe or None))
+    except Exception as e:
+        log.exception("capit scan failed"); return {"rows": [], "error": str(e)}
+
+
+@app.get("/api/capit-journal")
+def api_capit_journal():
+    """Separate paper-trading journal for the capitulation-bounce edge."""
+    from ai_journal.capit_journal import summary
+    try:
+        return summary()
+    except Exception as e:
+        log.exception("capit journal failed"); return {"open": [], "closed": [], "error": str(e)}
+
+
+@app.post("/api/capit-journal/open")
+def api_capit_journal_open(top: int = 20, min_score: int = 60, universe: str = ""):
+    """Auto-open paper positions from today's capit scan (regime-sized, date-stamped)."""
+    from ai_journal.capit_journal import open_from_scan
+    try:
+        return open_from_scan(top=top, min_score=min_score, universe=(universe or None))
+    except Exception as e:
+        log.exception("capit open failed"); return {"opened": [], "error": str(e)}
+
+
+@app.post("/api/capit-journal/grade")
+def api_capit_journal_grade():
+    """Walk forward the open capit positions; exit on -35% catastrophe floor or 20-bar hold."""
+    from ai_journal.capit_journal import grade
+    try:
+        return grade()
+    except Exception as e:
+        log.exception("capit grade failed"); return {"graded": 0, "error": str(e)}
+
+
+@app.get("/api/capit-journal/replay")
+def api_capit_journal_replay(months: int = 6, universe: str = "", min_score: int = 60,
+                             recipe: str = "B"):
+    """Historical backtest of the Capit edge over the last `months` (journal rules:
+    entry next-open, hold 20, -35% floor). recipe = B (production) | e2 | A | baseline
+    — for the A/B/stability bake-off. Builds the track record retroactively."""
+    from ai_journal.capit_journal import replay
+    try:
+        return replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe)
+    except Exception as e:
+        log.exception("capit replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
+
+
+@app.get("/api/journal/replay")
+def api_ai_journal_replay(months: int = 6, top_n: int = 12, universe: str = ""):
+    """Historical backtest of the AI Journal's deterministic substrate (rails candidate
+    pool + ATR exit), WITHOUT the LLM — the underlying edge the agent draws from."""
+    from ai_journal.ai_replay import replay
+    try:
+        return replay(months=months, top_n=top_n, universe=(universe or None))
+    except Exception as e:
+        log.exception("ai journal replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
+
+
 @app.get("/api/zone-events/board")
 def zone_events_board(zone_def: str = "spike", max_age_days: int = 20, min_oos: float = 55.0):
     """Setups Board: recent tickers that built an OOS-holding lead-in sequence, with
@@ -1541,11 +1617,18 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
     Wyckoff selling-climax spring. CORE (required) = L34/L46 + RSI<30 + CCI<-100 — the RSI+CCI
     alignment is the key knife-guard (RSI-oversold WITHOUT deep CCI is a falling knife: e.g.
     SMX CCI -28 correctly excluded; GRRR/CPOP/RGTI with CCI<-100 correctly caught). Loose core
-    median fwd_10d EXCESS +0.85 (6/6 yrs, 116k bars); RED flush + moderate vol(1.5-5x) → +1.09;
-    + volume-coil(BLUE/FRI64) → +1.20 (coil is a SCORE bonus, not required — it was too strict
-    and missed valid deep-CCI capitulations). ⚠️ bounce play: sit through ~-7% MAE; a minority
-    are falling knives — diversify; blow-off volume(>7x) is penalised. Scans each ticker's LAST
-    `lookback_n` bars, keeps the MOST RECENT match. Sets cap_match/score/atoms/age."""
+    median fwd_10d EXCESS +0.85 (6/6 yrs, 116k bars). FINAL refinements (this session,
+    gap-aware path-sim validated):
+      • 20-bar DRAWDOWN knife-guard — bounce sweet-spot is a -45..-10% flush (+1.12, 6/6);
+        a >-60% collapse is a falling knife / delisting (-4.65, 0/6) → EXCLUDED from match;
+        -45..-60% deepening → score penalty + ⚠deep flag.
+      • RED flush + moderate vol(1.5-5x) → +1.09; volume-coil(BLUE/FRI64) bonus; blow-off(>7x)
+        penalised.
+      • EXIT (validated): the bounce is HELD, not stopped — hold-20 +4.6% cost-adj / 5-6 yrs;
+        a -15% stop cuts it before the bounce. Sets cap_exit guidance.
+    Capit survived the rigorous gap-aware path-sim that killed the breakout/momentum family —
+    the one deployable edge. Scans each ticker's LAST `lookback_n` bars, keeps the MOST RECENT
+    match. Sets cap_match/score/atoms/age/exit."""
     if not results:
         return results
     tickers = [r.get("ticker") for r in results if r.get("ticker")]
@@ -1559,6 +1642,7 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
             df = a.execute(f"""
                 SELECT ticker, l_sig, rsi_14, cci_20, open, close, volume, avg_vol_20d,
                        sig_blue AS blue, sig_fri64 AS fri64, d_absorb_bear AS absb,
+                       lag(close, 20) OVER (PARTITION BY ticker ORDER BY date) AS c20,
                        row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
                 FROM bars WHERE universe=? AND ticker IN ({ph}) AND avg_vol_20d > 0
                 QUALIFY age < {int(lookback_n)}
@@ -1578,25 +1662,46 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
             rsi = float(r["rsi_14"]); cci = float(r["cci_20"])
             vr = float(r["volume"]) / float(r["avg_vol_20d"]) if r["avg_vol_20d"] else 0.0
             red = float(r["close"]) <= float(r["open"])
+            _c20 = r["c20"]
+            chg20 = (float(r["close"]) / float(_c20) - 1) * 100 if _c20 and float(_c20) > 0 else None
         except Exception:
             continue
-        # CORE (required): L34/L46 + RSI<30 + CCI<-100 (the knife-guard alignment)
-        match = (str(r["l_sig"]) in ("L34", "L46") and rsi < 30 and cci < -100)
+        # CORE (required): L34/L46 + RSI<30 + CCI<-100 (knife-guard alignment) AND not a
+        # catastrophic crash. The 20-bar drawdown matters: validated bounce sweet-spot is a
+        # -45..-10% flush (median fwd_10d excess +1.12, 6/6 yrs); a >-60% collapse is a falling
+        # knife / likely delisting (-4.65, 0/6) — excluded; -45..-60% is the weakening edge.
+        # CORE match — "recipe B", the winner of the 12-mo track-record deep-dive +
+        # A/B/stability bake-off (capit_track.csv, next-open/hold-20 path-sim):
+        #   RSI floored at 15 (RSI<15 = 14% catastrophe knife);
+        #   FRI64-coil + absorption EXCLUDED (fwd-proxy artifacts: -0.76 / -1.59 mean;
+        #     BLUE-only is fine +2.90, kept);
+        #   SHALLOW-DIP guard chg20 > -25 — the decisive filter: avoiding the deeper
+        #     flushes dodges falling knives in downtrend regimes. B was the ONLY variant
+        #     positive in BOTH halves of the year (recent H2 +1.23 while the deeper E2/A
+        #     went -3.3/-2.2), highest win (57%), HALF the catastrophe (2.6% vs 5.3%).
+        match = (str(r["l_sig"]) in ("L34", "L46") and 15 <= rsi < 30 and cci < -100
+                 and (chg20 is None or chg20 > -25)
+                 and not int(r["fri64"] or 0) and not int(r["absb"] or 0))
         if not match:
             continue
         atoms = [str(r["l_sig"]), f"RSI{int(rsi)}", f"CCI{int(cci)}"]; score = 45
-        if red: atoms.append("red"); score += 15                         # red flush > green
-        if 1.5 <= vr < 5: atoms.append(f"vol{vr:.1f}x"); score += 15      # goldilocks ~2x
+        # 20-bar drawdown context — the validated bounce sweet-spot
+        if chg20 is not None and -45 <= chg20 <= -10:
+            atoms.append(f"flush{chg20:.0f}%"); score += 15
+        if red: atoms.append("red"); score += 15                         # red flush > green (validated +)
+        if 1.5 <= vr < 5: atoms.append(f"vol{vr:.1f}x"); score += 15      # ~2x
         elif vr >= 7:     atoms.append(f"⚠blowoff{vr:.0f}x"); score -= 15  # blow-off, penalise
-        if int(r["fri64"] or 0): atoms.append("FRI64"); score += 15       # coil = bonus
-        elif int(r["blue"] or 0): atoms.append("BLUE"); score += 12
-        if int(r["absb"] or 0): atoms.append("absorb"); score += 8
+        if int(r["blue"] or 0): atoms.append("BLUE"); score += 12         # BLUE-only coil (validated +2.90)
         if rsi < 20:      atoms.append("deep"); score += 5
         info[tk] = (max(0, min(score, 100)), atoms, int(r["age"]))
     for r in results:
         sc, at, age = info.get(r.get("ticker"), (0, [], None))
         r["cap_match"] = age is not None
         r["cap_score"] = int(sc); r["cap_atoms"] = at; r["cap_age"] = age
+        # Validated EXIT (gap-aware path-sim, 5/6 yrs): a capitulation bounce is held, NOT
+        # stopped — a tight stop cuts it before the bounce (hold-20 +4.6% vs -15%stop +1.5%).
+        if age is not None:
+            r["cap_exit"] = "hold ~15-20d · no stop · sit ~-7% MAE"
     return results
 
 

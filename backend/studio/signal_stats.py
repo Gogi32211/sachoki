@@ -662,6 +662,59 @@ def _sql_cond(col_alias: str, value: str) -> str:
     return f"{col_alias} = '{safe}'"
 
 
+def _multi_cond(col_alias: str, value: str):
+    """Build a per-field condition that supports space-separated tokens and a '!'
+    NOT prefix. Positives are OR'd (a "one of" set), negatives AND'd:
+      'L34'        -> lsig = 'L34'
+      'L% !L34'    -> (lsig LIKE 'L%') AND NOT (lsig = 'L34')    # any L but not L34
+      'T2 T3'      -> (t = 'T2' OR t = 'T3')
+      '!T1'        -> NOT (t = 'T1')
+    Returns a SQL fragment or None if no usable token. ('%' already substituted
+    for '*' upstream; '!' survives .strip()/.upper()/_wild.)"""
+    if not value:
+        return None
+    pos, neg = [], []
+    for tok in value.split():
+        if tok.startswith('!'):
+            t = tok[1:]
+            if t:
+                neg.append(_sql_cond(col_alias, t))
+        else:
+            pos.append(_sql_cond(col_alias, tok))
+    parts = []
+    if pos:
+        parts.append("(" + " OR ".join(pos) + ")")
+    parts.extend(f"NOT ({c})" for c in neg)
+    return " AND ".join(parts) if parts else None
+
+
+def _tz_multi_cond(t_alias: str, z_alias: str, raw: str):
+    """Like _multi_cond but for the TZ field, routing each token to the t_sig or
+    z_sig column (Z-prefixed → z, else t), with the same '!' NOT support.
+      'T% !T1'  -> (t LIKE 'T%') AND NOT (t = 'T1')
+      'Z6'      -> z = 'Z6'"""
+    if not raw:
+        return None
+    pos_t, neg_t, pos_z, neg_z = [], [], [], []
+    for tok in raw.split():
+        neg = tok.startswith('!')
+        v = tok[1:] if neg else tok
+        if not v:
+            continue
+        if v[0] == 'Z':
+            (neg_z if neg else pos_z).append(_sql_cond(z_alias, v))
+        else:
+            (neg_t if neg else pos_t).append(_sql_cond(t_alias, v))
+    parts = []
+    if pos_t:
+        parts.append("(" + " OR ".join(pos_t) + ")")
+    parts.extend(f"NOT ({c})" for c in neg_t)
+    if pos_z:
+        parts.append("(" + " OR ".join(pos_z) + ")")
+    parts.extend(f"NOT ({c})" for c in neg_z)
+    return " AND ".join(parts) if parts else None
+
+
 def _parse_tz(tz_only: str) -> tuple[str, str]:
     """Parse a TZ-only string like 'T2G' or 'Z4' into (t_sig, z_sig).
     Returns ('', '') for empty/None input.
@@ -765,7 +818,8 @@ def query_exact_sequence(
         return {"matches": 0, "sequence_label": "", "outcomes": {}}
 
     strict = {**{"line1": True, "line2": True, "line3": False,
-                 "line4": False, "line5": False, "line6": False, "line7": False},
+                 "line4": False, "line5": False, "line6": False, "line7": False,
+                 "line8": False, "line9": False},
               **(strictness or {})}
     pivot_lr = 3 if pivot_lr not in (3, 5) else pivot_lr
     P = str(pivot_lr)
@@ -775,6 +829,21 @@ def query_exact_sequence(
     def _wild(v: str) -> str:
         """Replace '*' with SQL LIKE '%' wildcard in a string field."""
         return v.replace('*', '%') if v else v
+
+    def _parse_range(v: str):
+        """Parse a numeric range field like '20-35' → (20.0, 35.0). Open ends:
+        '20-' → (20, None) [>=20], '-35' → (None, 35) [<=35], '20' → (20, None).
+        Returns (None, None) if blank/malformed (line is then a no-op)."""
+        v = (v or "").strip()
+        if not v:
+            return (None, None)
+        parts = v.split('-')
+        try:
+            lo = float(parts[0]) if parts[0].strip() else None
+            hi = float(parts[1]) if len(parts) > 1 and parts[1].strip() else None
+            return (lo, hi)
+        except Exception:
+            return (None, None)
 
     parsed = []
     for b in bars:
@@ -801,11 +870,17 @@ def query_exact_sequence(
             l_str = ""
         parsed.append({
             "t": t, "z": z, "l_digits": l_digits, "l_str": l_str,
+            # raw wildcarded TZ field (for negation/multi-token line1 + label);
+            # tz_legacy = combined "T2GL3" path, which keeps the old positive-only parse.
+            "tz_raw":    _wild(tz_raw.upper()),
+            "tz_legacy": bool(tz_raw and ("L" in tz_raw.upper()) and not l_raw),
             "suffix":    _wild((b.get("suffix") or "").strip().upper()),
             "body_wick": _wild((b.get("body_wick") or "").strip().upper()),
             "gap_range": _wild((b.get("gap_range") or "").strip().upper()),
             "line5":     _wild((b.get("line5") or "").strip().upper()),
             "vol":       _wild((b.get("vol") or "").strip().upper()),   # line7 = volume bucket (W/L/N/B/VB)
+            "ema":       _wild((b.get("ema") or "").strip().upper()),   # line8 = EMA-cross P/D code (P2..P89/D2..D89, P*/D*/*)
+            "rsi_rng":   _parse_range(b.get("rsi") or ""),              # line9 = rsi_14 numeric range (lo, hi)
         })
 
     _own_conn = conn is None
@@ -821,6 +896,22 @@ def query_exact_sequence(
             return {"matches": 0, "sequence_label": "", "outcomes": {},
                     "error": f"Enrichment columns missing: {sorted(missing)} — run /api/studio/enrich"}
 
+        # line8 = EMA-cross. Derive a single code from the per-bar P/D boolean
+        # flags (priority: fast cross first). 'P*'/'D*'/'*' wildcards handle "any".
+        # If the columns aren't enriched yet, ema_code degrades to '' (line8 is a
+        # no-op) rather than erroring.
+        _pd_cols = ["sig_p2", "sig_p3", "sig_p50", "sig_p55", "sig_p66", "sig_p89",
+                    "sig_d2", "sig_d3", "sig_d50", "sig_d55", "sig_d66", "sig_d89"]
+        if all(c in available for c in _pd_cols):
+            ema_case = (
+                "CASE WHEN sig_p2=1 THEN 'P2' WHEN sig_p3=1 THEN 'P3' WHEN sig_p50=1 THEN 'P50' "
+                "WHEN sig_p55=1 THEN 'P55' WHEN sig_p66=1 THEN 'P66' WHEN sig_p89=1 THEN 'P89' "
+                "WHEN sig_d2=1 THEN 'D2' WHEN sig_d3=1 THEN 'D3' WHEN sig_d50=1 THEN 'D50' "
+                "WHEN sig_d55=1 THEN 'D55' WHEN sig_d66=1 THEN 'D66' WHEN sig_d89=1 THEN 'D89' "
+                "ELSE '' END")
+        else:
+            ema_case = "''"
+
         _uni = _safe_universe(universe)
         base_where = f"WHERE universe = '{_uni}'" if _uni else ""
         # Dedup to ONE row per (ticker, date). Without a universe filter the same
@@ -829,7 +920,7 @@ def query_exact_sequence(
         # treat those duplicates as consecutive bars — inflating match counts and,
         # critically, making LEAD("next bar") point at the same date's other-universe
         # row (identical codes), which produced impossible "T4 → T4" predictions.
-        base_cte = (f"SELECT * FROM bars {base_where} "
+        base_cte = (f"SELECT *, {ema_case} AS ema_code FROM bars {base_where} "
                     f"QUALIFY ROW_NUMBER() OVER "
                     f"(PARTITION BY ticker, date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1")
 
@@ -842,10 +933,12 @@ def query_exact_sequence(
         # we use composite to match chart exactly (e.g. "NURA" not "NUR", "NDPO" not "NDP").
         for lag in range(n):
             base_cols = ["t_sig", "z_sig", "l_sig", "composite_full_suffix",
-                         "bar_body_wick", "bar_gap_range", "bar_line5", "vol_bucket"]
+                         "bar_body_wick", "bar_gap_range", "bar_line5", "vol_bucket",
+                         "ema_code", "rsi_14"]
             short_map = {"t_sig":"t","z_sig":"z","l_sig":"lsig",
                          "composite_full_suffix":"s","bar_body_wick":"bw",
-                         "bar_gap_range":"gr","bar_line5":"l5","vol_bucket":"vb"}
+                         "bar_gap_range":"gr","bar_line5":"l5","vol_bucket":"vb",
+                         "ema_code":"em","rsi_14":"rsi"}
             for col in base_cols:
                 short = short_map[col]
                 if lag == 0:
@@ -869,37 +962,53 @@ def query_exact_sequence(
         select_cols.append("LEAD(z_sig, 1) OVER w AS nxt_z")
 
         # ── Build WHERE conditions per bar ────────────────────────────────────
-        # Values may contain '%' (from user '*' wildcard input) — _sql_cond() emits
-        # LIKE when '%' is present, otherwise exact '=' match.
+        # Every categorical line goes through _multi_cond, which supports '%'
+        # wildcards (from user '*'), space-separated OR-sets, and a '!' NOT prefix
+        # (e.g. 'T* !T1' = any T but not T1).  line9 (RSI) is numeric → handled
+        # separately further down.
         conds = []
         for i, p in enumerate(parsed):
             lag = n - 1 - i   # bars[0] → LAG(n-1), bars[-1] → LAG(0)
-            # line1 = TZ only (t_sig / z_sig)
+            # line1 = TZ (t_sig / z_sig). Legacy combined "T2GL3" keeps the old
+            # positive-only parse; the modern tz field supports negation/multi-token.
             if strict["line1"]:
-                if p["t"]:
-                    conds.append(_sql_cond(f"t_{lag}", p["t"]))
-                if p["z"]:
-                    conds.append(_sql_cond(f"z_{lag}", p["z"]))
-            # line2 = L (chart-format). Exact string match on l_sig column
-            # (after 260525 re-import, l_sig contains chart-format codes like
-            # "L34", "L1", "L43", "BO↑", "FRI34" — single value matching chart tooltip).
+                if p.get("tz_legacy"):
+                    if p["t"]:
+                        conds.append(_sql_cond(f"t_{lag}", p["t"]))
+                    if p["z"]:
+                        conds.append(_sql_cond(f"z_{lag}", p["z"]))
+                else:
+                    c = _tz_multi_cond(f"t_{lag}", f"z_{lag}", p.get("tz_raw", ""))
+                    if c:
+                        conds.append(c)
+            # line2 = L (chart-format) — l_sig codes like "L34", "BO↑", "FRI34"
             if strict["line2"] and p["l_str"]:
-                conds.append(_sql_cond(f"lsig_{lag}", p["l_str"]))
+                c = _multi_cond(f"lsig_{lag}", p["l_str"]);  conds.append(c) if c else None
             # line3 = suffix
             if strict["line3"] and p["suffix"]:
-                conds.append(_sql_cond(f"s_{lag}", p["suffix"]))
+                c = _multi_cond(f"s_{lag}", p["suffix"]);    conds.append(c) if c else None
             # line4 = body/wick
             if strict["line4"] and p["body_wick"]:
-                conds.append(_sql_cond(f"bw_{lag}", p["body_wick"]))
+                c = _multi_cond(f"bw_{lag}", p["body_wick"]); conds.append(c) if c else None
             # line5 = gap/range
             if strict["line5"] and p["gap_range"]:
-                conds.append(_sql_cond(f"gr_{lag}", p["gap_range"]))
+                c = _multi_cond(f"gr_{lag}", p["gap_range"]); conds.append(c) if c else None
             # line6 = bar_line5 (VIX/PSAR/RSI2)
             if strict["line6"] and p["line5"]:
-                conds.append(_sql_cond(f"l5_{lag}", p["line5"]))
+                c = _multi_cond(f"l5_{lag}", p["line5"]);     conds.append(c) if c else None
             # line7 = volume bucket (W/L/N/B/VB)
             if strict["line7"] and p["vol"]:
-                conds.append(_sql_cond(f"vb_{lag}", p["vol"]))
+                c = _multi_cond(f"vb_{lag}", p["vol"]);       conds.append(c) if c else None
+            # line8 = EMA-cross code (P2..P89 / D2..D89; 'P*'/'D*'/'*' wildcards, '!' NOT)
+            if strict.get("line8") and p["ema"]:
+                c = _multi_cond(f"em_{lag}", p["ema"]);       conds.append(c) if c else None
+            # line9 = rsi_14 numeric range (lo/hi are validated floats — injection-safe)
+            if strict.get("line9"):
+                _lo, _hi = p["rsi_rng"]
+                if _lo is not None:
+                    conds.append(f"rsi_{lag} >= {_lo}")
+                if _hi is not None:
+                    conds.append(f"rsi_{lag} <= {_hi}")
 
         outer_where = ("WHERE " + " AND ".join(conds)) if conds else ""
 
@@ -1005,11 +1114,16 @@ def query_exact_sequence(
 
         # Build sequence label — show TZ and L separately
         def _bar_label(p):
-            tz_str = p["t"] or p["z"] or "?"
+            tz_str = p.get("tz_raw") or p["t"] or p["z"] or "?"
             l_label = p["l_str"] or "—"
             parts = [tz_str, l_label]
             for k in ("suffix", "body_wick", "gap_range", "line5"):
                 parts.append(p[k] or "—")
+            if p.get("ema"):
+                parts.append(p["ema"])
+            _lo, _hi = p.get("rsi_rng", (None, None))
+            if _lo is not None or _hi is not None:
+                parts.append(f"RSI{_lo if _lo is not None else ''}-{_hi if _hi is not None else ''}")
             return " / ".join(parts)
         seq_label = "  ➜  ".join(_bar_label(p) for p in parsed)
 

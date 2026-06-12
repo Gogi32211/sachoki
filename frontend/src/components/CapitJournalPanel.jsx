@@ -4,23 +4,35 @@ const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFi
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
 const CAP_CLS = { mega: 'text-amber-200', large: 'text-emerald-300', mid: 'text-sky-300', small: 'text-violet-300', micro: 'text-rose-300' }
 const pnlC = (p) => p == null ? '' : p >= 0 ? 'text-emerald-400' : 'text-rose-400'
-const ATOM_CLS = { 'close=O': 'bg-sky-900/50 text-sky-200', 'gap': 'bg-violet-900/50 text-violet-200',
-  'R2L': 'bg-emerald-900/50 text-emerald-200', 'EO': 'bg-amber-900/40 text-amber-200',
-  'vol=B': 'bg-teal-900/50 text-teal-200', 'wick=D': 'bg-rose-900/40 text-rose-200', 'G3': 'bg-fuchsia-900/50 text-fuchsia-200' }
+
+// Capit atoms are partly dynamic (RSI29, CCI-159, flush-15%, vol2.1x) — colour by prefix
+const atomCls = (x) => {
+  if (x.startsWith('L3') || x.startsWith('L4') || x.startsWith('L6')) return 'bg-sky-900/50 text-sky-200'
+  if (x.startsWith('RSI')) return 'bg-indigo-900/50 text-indigo-200'
+  if (x.startsWith('CCI')) return 'bg-violet-900/50 text-violet-200'
+  if (x.startsWith('flush')) return 'bg-emerald-900/50 text-emerald-200'
+  if (x === 'red') return 'bg-rose-900/40 text-rose-200'
+  if (x.startsWith('vol')) return 'bg-teal-900/50 text-teal-200'
+  if (x === 'FRI64' || x === 'BLUE') return 'bg-amber-900/40 text-amber-200'
+  if (x === 'absorb') return 'bg-fuchsia-900/40 text-fuchsia-200'
+  if (x === 'deep') return 'bg-purple-900/50 text-purple-200'
+  if (x.startsWith('⚠')) return 'bg-rose-800/60 text-rose-100'
+  return ''
+}
 
 const Kpi = ({ label, v }) => <div><div className="text-xs text-md-on-surface-var">{label}</div><div className="text-lg font-bold font-mono">{v}</div></div>
 const Th = ({ children, r }) => <th className={`px-2 py-1 font-semibold text-md-on-surface-var ${r ? 'text-right' : 'text-left'}`}>{children}</th>
 const Td = ({ children, r, cls = '' }) => <td className={`px-2 py-1 font-mono ${r ? 'text-right' : 'text-left'} ${cls}`}>{children}</td>
 const Cap = ({ b }) => { const k = b || 'unknown'; return <td className={`px-2 py-1 font-mono ${CAP_CLS[k] || 'text-gray-400'}`}>{k}</td> }
 const Empty = ({ children }) => <div className="text-md-on-surface-var/50 text-xs py-6 text-center">{children}</div>
-const Atoms = ({ a }) => <div className="flex flex-wrap gap-1">{(a || []).map((x, i) => <span key={i} className={`text-[9px] font-mono px-1 rounded border border-white/10 ${ATOM_CLS[x] || ''}`}>{x}</span>)}</div>
+const Atoms = ({ a }) => <div className="flex flex-wrap gap-1">{(a || []).map((x, i) => <span key={i} className={`text-[9px] font-mono px-1 rounded border border-white/10 ${atomCls(x)}`}>{x}</span>)}</div>
 
-export default function AtomicJournalPanel({ onSelectTicker }) {
+export default function CapitJournalPanel({ onSelectTicker }) {
   const [data, setData] = useState(null)
   const [busy, setBusy] = useState('')
   const [msg, setMsg] = useState('')
   const [sub, setSub] = useState('positions')
-  const load = () => fetch('/api/atomic-journal').then(r => r.json()).then(setData).catch(() => {})
+  const load = () => fetch('/api/capit-journal').then(r => r.json()).then(setData).catch(() => {})
   useEffect(() => { load() }, [])
   const act = (path, label) => {
     setBusy(label)
@@ -36,8 +48,7 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
 
   return (
     <div className="p-4 text-md-on-surface">
-      <p className="text-[11px] text-md-on-surface-var mb-2">⚛️📓 <b>Atomic Journal</b> — a separate, <b>mechanical</b> paper journal for the weak-close gap-up edge (close=O + gap). Rule-based exits (−15% stop / +100% target, 20-bar). Paper only.</p>
-      {/* KPI strip — identical layout to the AI Journal */}
+      <p className="text-[11px] text-md-on-surface-var mb-2">💥📓 <b>Capit Journal</b> — a separate, <b>mechanical</b> paper journal for the validated capitulation-bounce edge (L34/L46 + RSI&lt;30 + CCI&lt;-100, drawdown knife-guard). The one edge that survived rigorous gap-aware path-sim (+4.6% cost-adj, 5/6 yrs). <b>EXIT = HOLD ~20 bars, no tight stop</b> (a stop cuts the bounce); only a −35% catastrophe floor. Auto-adds each match with its date. Paper only.</p>
       <div className="flex flex-wrap items-center gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
         <div><div className="text-xs text-md-on-surface-var">Equity</div>
           <div className="text-lg font-bold font-mono">${fmtNum(Math.round(equity))} <span className={eqPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{fmtPct(eqPct)}</span></div></div>
@@ -53,10 +64,10 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
           <div className={`text-lg font-bold ${reg.label === 'RISK_ON' ? 'text-emerald-400' : reg.label === 'RISK_OFF' ? 'text-rose-400' : 'text-yellow-400'}`}>
             {reg.label === 'RISK_ON' ? '🟢' : reg.label === 'RISK_OFF' ? '🔴' : '🟡'} {reg.score}</div></div>}
         <div className="flex-1" />
-        <button onClick={() => act('/api/atomic-journal/open?top=15&min_score=70', 'open')} disabled={!!busy}
-          className="px-3 py-1.5 rounded bg-violet-700 hover:bg-violet-600 text-white text-sm font-semibold disabled:opacity-50">
-          {busy === 'open' ? '⏳…' : '⚛ Open from scan'}</button>
-        <button onClick={() => act('/api/atomic-journal/grade', 'grade')} disabled={!!busy}
+        <button onClick={() => act('/api/capit-journal/open?top=20&min_score=60', 'open')} disabled={!!busy}
+          className="px-3 py-1.5 rounded bg-amber-700 hover:bg-amber-600 text-white text-sm font-semibold disabled:opacity-50">
+          {busy === 'open' ? '⏳…' : '💥 Open from scan'}</button>
+        <button onClick={() => act('/api/capit-journal/grade', 'grade')} disabled={!!busy}
           className="px-3 py-1.5 rounded bg-md-surface border border-white/15 hover:bg-white/10 text-sm disabled:opacity-50">
           {busy === 'grade' ? '⏳ Grading…' : 'Grade now'}</button>
         <button onClick={load} disabled={!!busy}
@@ -64,44 +75,45 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
       </div>
 
       <div className="mb-3 text-xs text-md-on-surface-var">
-        Edge: weak-close gap-up · entry next-open · −15% stop / +100% target · regime-sized (×{reg.conv_mult ?? 1}).
+        Edge: L34/L46 + RSI&lt;30 + CCI&lt;-100 · drawdown sweet-spot −45..−10% · entry signal close · <b>hold ~20 bars, no stop</b> · −35% catastrophe floor · regime-sized (×{reg.conv_mult ?? 1}).
         {reg.label === 'RISK_OFF' && <span className="text-rose-300/80"> ⚠ RISK_OFF — positions auto-sized small.</span>}
         {msg && <span className="text-emerald-400 ml-2">{msg}</span>}
       </div>
 
-      {/* Sub-tabs */}
       <div className="flex gap-1 mb-3">
         {['positions', 'replay', 'knowledge'].map(t => (
           <button key={t} onClick={() => setSub(t)}
-            className={`px-3 py-1 rounded text-sm capitalize ${sub === t ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{t}</button>
+            className={`px-3 py-1 rounded text-sm capitalize ${sub === t ? 'bg-amber-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{t}</button>
         ))}
       </div>
 
       {sub === 'positions' ? (
         <>
           <div className="text-sm font-semibold mb-1">Open ({open.length})</div>
-          {open.length === 0 ? <Empty>No open positions — click «⚛ Open from scan».</Empty> :
+          {open.length === 0 ? <Empty>No open positions — click «💥 Open from scan».</Empty> :
             <table className="w-full text-xs mb-5"><thead><tr className="border-b border-white/10">
-              <Th>Ticker</Th><Th>Cap</Th><Th r>Conv</Th><Th r>Entry</Th><Th r>Now</Th><Th r>uP&L</Th><Th r>Stop</Th><Th r>Target</Th><Th r>Size%</Th><Th r>$ Buy</Th><Th>Thesis (atoms)</Th></tr></thead>
+              <Th>Ticker</Th><Th>Cap</Th><Th r>Score</Th><Th>Opened</Th><Th r>Entry</Th><Th r>Now</Th><Th r>uP&L</Th><Th r>Floor</Th><Th r>Size%</Th><Th r>$ Buy</Th><Th>Thesis (atoms)</Th></tr></thead>
               <tbody>{open.map(p => (
                 <tr key={p.id} className="border-b border-white/[0.04] hover:bg-white/[0.03]">
-                  <td className="px-2 py-1"><button onClick={() => onSelectTicker?.(p.ticker)} className="font-bold text-emerald-300 hover:underline">{p.ticker}</button></td>
-                  <Cap b={p.mcap_bucket} /><Td r>{p.atomic_score}</Td>
+                  <td className="px-2 py-1"><button onClick={() => onSelectTicker?.(p.ticker)} className="font-bold text-amber-300 hover:underline">{p.ticker}</button></td>
+                  <Cap b={p.mcap_bucket} /><Td r>{p.cap_score}</Td>
+                  <Td cls="text-md-on-surface-var/60">{p.open_date}</Td>
                   <Td r>${p.entry_px}</Td><Td r>{p.now_px != null ? '$' + p.now_px : '—'}</Td>
                   <Td r cls={`font-bold ${pnlC(p.upnl_pct)}`}>{p.upnl_pct != null ? fmtPct(p.upnl_pct) : '—'}</Td>
-                  <Td r cls="text-rose-300/70">${p.stop_px}</Td><Td r cls="text-emerald-300/70">${p.target_px}</Td>
+                  <Td r cls="text-rose-300/70">${p.floor_px}</Td>
                   <Td r cls="text-md-on-surface-var">{p.size_pct}%</Td><Td r cls="text-md-on-surface-var/70">${fmtNum(p.dollar_buy)}</Td>
                   <td className="px-2 py-1"><Atoms a={p.atoms} /></td>
                 </tr>))}</tbody></table>}
 
           <div className="text-sm font-semibold mb-1">Closed ({closed.length})</div>
-          {closed.length === 0 ? <Empty>No closed positions yet — grade after new bars print.</Empty> :
+          {closed.length === 0 ? <Empty>No closed positions yet — grade after ~20 bars print (held to horizon).</Empty> :
             <table className="w-full text-xs"><thead><tr className="border-b border-white/10">
-              <Th>Ticker</Th><Th>Verdict</Th><Th r>P&L%</Th><Th r>Entry</Th><Th r>Exit</Th><Th>Reason</Th><Th>Closed</Th></tr></thead>
+              <Th>Ticker</Th><Th>Verdict</Th><Th r>P&L%</Th><Th>Opened</Th><Th r>Entry</Th><Th r>Exit</Th><Th>Reason</Th><Th>Closed</Th></tr></thead>
               <tbody>{closed.map(p => (
                 <tr key={p.id} className="border-b border-white/[0.04]">
                   <td className="px-2 py-1"><button onClick={() => onSelectTicker?.(p.ticker)} className="font-bold hover:underline">{p.ticker}</button></td>
                   <Td>{p.verdict}</Td><Td r cls={`font-bold ${pnlC(p.pnl_pct)}`}>{fmtPct(p.pnl_pct)}</Td>
+                  <Td cls="text-md-on-surface-var/60">{p.open_date}</Td>
                   <Td r>${p.entry_px}</Td><Td r>${p.exit_px}</Td><Td cls="text-md-on-surface-var">{p.exit_reason}</Td>
                   <Td cls="text-md-on-surface-var/60">{p.close_date}</Td>
                 </tr>))}</tbody></table>}
@@ -115,28 +127,38 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
   )
 }
 
-// Replay: historical backtest of the atomic edge over a period, using the exact journal rules
+// Replay: historical backtest of the edge over a period, using the exact journal rules
 function Replay() {
   const [months, setMonths] = useState(6)
+  const [recipe, setRecipe] = useState('B')
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
-  const run = (m) => {
-    setMonths(m); setLoading(true); setD(null)
-    fetch(`/api/atomic-journal/replay?months=${m}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
+  const run = (m, rc) => {
+    setMonths(m); setRecipe(rc); setLoading(true); setD(null)
+    fetch(`/api/capit-journal/replay?months=${m}&recipe=${rc}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
   }
   const s = d?.stats || {}
+  const RECIPES = [['B', 'B ✓ prod'], ['e2', 'E2'], ['A', 'A vol'], ['baseline', 'baseline']]
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3 text-xs">
-        <span className="text-md-on-surface-var">Backtest period:</span>
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+        <span className="text-md-on-surface-var">Period:</span>
         {[3, 6, 12, 24].map(m => (
-          <button key={m} onClick={() => run(m)} disabled={loading}
-            className={`px-2 py-1 rounded ${months === m && d ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{m}mo</button>
+          <button key={m} onClick={() => run(m, recipe)} disabled={loading}
+            className={`px-2 py-1 rounded ${months === m && d ? 'bg-amber-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{m}mo</button>
         ))}
-        {loading && <span className="text-violet-400 animate-pulse">running…</span>}
-        {d && <span className="text-md-on-surface-var/60">from {d.win_start} · entry next-open · −15% stop / +100% target / 20-bar</span>}
+        <span className="text-md-on-surface-var ml-3">Recipe:</span>
+        {RECIPES.map(([rc, lbl]) => (
+          <button key={rc} onClick={() => run(months, rc)} disabled={loading}
+            className={`px-2 py-1 rounded ${recipe === rc && d ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`} title={
+              rc === 'B' ? 'production: E2 + shallow-dip (chg20>-25) — most robust, lowest catastrophe' :
+              rc === 'e2' ? 'E2: core + RSI≥15 + chg20>-45, no FRI64/absorb' :
+              rc === 'A' ? 'A: E2 + vol L/VB (high in-sample mean, but overfit)' : 'baseline: pre-deep-dive'}>{lbl}</button>
+        ))}
+        {loading && <span className="text-amber-400 animate-pulse">running…</span>}
+        {d && <span className="text-md-on-surface-var/60">from {d.win_start} · entry next-open · hold 20 · −35% floor</span>}
       </div>
-      {!d && !loading && <Empty>Pick a period to replay the weak-close gap-up edge historically (entry next-open, equal 4% bets).</Empty>}
+      {!d && !loading && <div className="text-md-on-surface-var/50 text-xs py-6 text-center">Pick a period to replay the Capit edge historically (entry next-open, hold 20 bars, equal 4% bets).</div>}
       {d && (
         <>
           <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
@@ -147,18 +169,18 @@ function Replay() {
             <div><div className="text-xs text-md-on-surface-var">Equity (4% bets)</div>
               <div className={`text-lg font-bold font-mono ${(s.equity_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>${fmtNum(s.equity_end)} <span className="text-sm">{fmtPct(s.equity_pct)}</span></div></div>
             <Kpi label="Best / Worst" v={`${fmtPct(s.best)} / ${fmtPct(s.worst)}`} />
-            <Kpi label="Stop / Target" v={`${s.stop_pct}% / ${s.target_pct}%`} />
+            <Kpi label="Catastrophe" v={s.catastrophe_pct != null ? `${s.catastrophe_pct}%` : '—'} />
             <Kpi label="Still open" v={s.still_open} />
           </div>
           <div className="text-sm font-semibold mb-1">By month</div>
-          <table className="w-full text-xs mb-3"><thead><tr className="border-b border-white/10">
+          <table className="w-full text-xs mb-4"><thead><tr className="border-b border-white/10">
             <Th>Month</Th><Th r>Trades</Th><Th r>Win%</Th><Th r>Avg P&L</Th></tr></thead>
             <tbody>{(d.by_month || []).map(m => (
               <tr key={m.month} className="border-b border-white/[0.04]">
                 <Td>{m.month}</Td><Td r>{m.n}</Td><Td r>{m.win_rate}%</Td>
                 <Td r cls={pnlC(m.avg_pnl)}>{fmtPct(m.avg_pnl)}</Td>
               </tr>))}</tbody></table>
-          <p className="text-[10px] text-md-on-surface-var/50">Retroactive track record — entry = next-session open, −15% stop / +100% target / 20-bar, one open per ticker, equal 4% paper bets. Tail-driven (the +100% target rarely hits but big winners carry it). Honest backtest, not a guarantee.</p>
+          <p className="text-[10px] text-md-on-surface-var/50">Retroactive track record using the EXACT journal rules — entry = next-session open (not signal close), hold 20 bars, −35% catastrophe floor, one open per ticker, equal 4% paper bets. Tail-driven (best can be +700%+); regime-varying month to month. This is the honest backtest, not a guarantee.</p>
         </>
       )}
     </div>
@@ -167,14 +189,14 @@ function Replay() {
 
 // Knowledge: per-atom forward edge from the journal's own closed (+ open mark) trades
 function Knowledge({ closed, open }) {
-  const ATOMS = ['close=O', 'gap', 'R2L', 'EO', 'vol=B', 'wick=D', 'G3']
+  const KEYS = ['L34', 'L46', 'red', 'flush', 'vol', 'FRI64', 'BLUE', 'absorb', 'deep']
   const pool = [...closed.map(p => ({ atoms: p.atoms, pnl: p.pnl_pct })), ...open.map(p => ({ atoms: p.atoms, pnl: p.upnl_pct }))]
     .filter(x => x.pnl != null)
-  const rows = ATOMS.map(a => {
-    const w = pool.filter(x => (x.atoms || []).includes(a))
+  const rows = KEYS.map(k => {
+    const w = pool.filter(x => (x.atoms || []).some(a => a === k || a.startsWith(k)))
     const n = w.length, wins = w.filter(x => x.pnl > 0).length
     const avg = n ? w.reduce((s, x) => s + x.pnl, 0) / n : null
-    return { a, n, win: n ? Math.round(wins / n * 100) : null, avg }
+    return { a: k, n, win: n ? Math.round(wins / n * 100) : null, avg }
   })
   return (
     <div>
@@ -183,11 +205,11 @@ function Knowledge({ closed, open }) {
         <Th>atom</Th><Th r>n</Th><Th r>win%</Th><Th r>avg P&L</Th></tr></thead>
         <tbody>{rows.map(r => (
           <tr key={r.a} className="border-b border-white/[0.04]">
-            <td className="px-2 py-1"><span className={`text-[10px] font-mono px-1 rounded border border-white/10 ${ATOM_CLS[r.a] || ''}`}>{r.a}</span></td>
+            <td className="px-2 py-1"><span className={`text-[10px] font-mono px-1 rounded border border-white/10 ${atomCls(r.a)}`}>{r.a}</span></td>
             <Td r>{r.n}</Td><Td r>{r.win != null ? r.win + '%' : '—'}</Td>
             <Td r cls={pnlC(r.avg)}>{r.avg != null ? fmtPct(r.avg) : '—'}</Td>
           </tr>))}</tbody></table>
-      <p className="text-[10px] text-md-on-surface-var/50 mt-2">Live edge of each atom within this journal's own positions — accumulates as trades close. Validated 5-year lift (for reference): close=O +0.31 · R2L +0.30 · gap/G3 +0.4–0.6.</p>
+      <p className="text-[10px] text-md-on-surface-var/50 mt-2">Live edge of each atom within this journal's own positions — accumulates as trades close. Validated 5-yr (reference): core +0.85 median fwd excess (6/6 yrs); −45..−10% flush +1.12; path-sim hold-20 +4.6% cost-adj. ⚠ EXIT = hold ~20 bars, no tight stop.</p>
     </div>
   )
 }

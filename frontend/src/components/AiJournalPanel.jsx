@@ -108,13 +108,14 @@ export default function AiJournalPanel() {
 
       {/* Sub-tabs */}
       <div className="flex gap-1 mb-3">
-        {['positions','knowledge','universe','lessons'].map(s => (
+        {['positions','replay','knowledge','universe','lessons'].map(s => (
           <button key={s} onClick={() => setSub(s)}
             className={`px-3 py-1 rounded text-sm capitalize ${sub===s?'bg-violet-700 text-white':'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{s}</button>
         ))}
       </div>
 
       {sub === 'positions' && <Positions ov={ov} onTicker={setDrawerTk} live={live} />}
+      {sub === 'replay'    && <JournalReplay />}
       {sub === 'knowledge' && <Knowledge kb={kb} />}
       {sub === 'universe'  && <Universe uni={uni} />}
       {sub === 'lessons'   && <Lessons ov={ov} />}
@@ -276,3 +277,63 @@ function Universe({ uni }) {
 }
 
 function Empty({ children }) { return <div className="text-xs text-md-on-surface-var italic p-3">{children}</div> }
+
+// Replay: historical backtest of the journal's deterministic substrate (rails
+// candidate pool + ATR exit), WITHOUT the LLM — the underlying edge the agent draws from.
+function JournalReplay() {
+  const [months, setMonths] = useState(6)
+  const [d, setD] = useState(null)
+  const [loading, setLoading] = useState(false)
+  const pc = (p) => p == null ? '' : p >= 0 ? 'text-emerald-400' : 'text-rose-400'
+  const num = (v) => v == null ? '—' : Number(v).toLocaleString()
+  const run = (m) => {
+    setMonths(m); setLoading(true); setD(null)
+    fetch(`/api/journal/replay?months=${m}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
+  }
+  const s = d?.stats || {}
+  const K = ({ label, v }) => <div><div className="text-xs text-md-on-surface-var">{label}</div><div className="text-lg font-bold font-mono">{v}</div></div>
+  return (
+    <div>
+      <p className="text-[11px] text-md-on-surface-var mb-2">🔁 <b>Replay</b> — historical backtest of the journal's <b>deterministic substrate</b> (rails candidate pool: prebreak_v3 ≥ 20, non-micro, top-12/day · entry next-open · stop −1.5×ATR / target +5×ATR / 10-bar). This is the edge the LLM picks FROM, measured without re-running it. Equal 5% paper bets.</p>
+      <div className="flex items-center gap-2 mb-3 text-xs">
+        <span className="text-md-on-surface-var">Period:</span>
+        {[3, 6, 12, 24].map(m => (
+          <button key={m} onClick={() => run(m)} disabled={loading}
+            className={`px-2 py-1 rounded ${months === m && d ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{m}mo</button>
+        ))}
+        {loading && <span className="text-violet-400 animate-pulse">running…</span>}
+        {d && <span className="text-md-on-surface-var/60">from {d.win_start} · cap-filter {s.cap_filter ? 'on' : 'off'}</span>}
+      </div>
+      {!d && !loading && <Empty>Pick a period to backtest the rails substrate historically.</Empty>}
+      {d && (
+        <>
+          <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
+            <K label="Trades" v={s.n} />
+            <K label="Win rate" v={s.win_rate != null ? `${s.win_rate}%` : '—'} />
+            <K label="Avg P&L" v={s.avg_pnl != null ? fmtPct(s.avg_pnl) : '—'} />
+            <K label="Median" v={s.median_pnl != null ? fmtPct(s.median_pnl) : '—'} />
+            <div><div className="text-xs text-md-on-surface-var">Equity (5% bets)</div>
+              <div className={`text-lg font-bold font-mono ${(s.equity_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>${num(s.equity_end)} <span className="text-sm">{fmtPct(s.equity_pct)}</span></div></div>
+            <K label="Best / Worst" v={`${fmtPct(s.best)} / ${fmtPct(s.worst)}`} />
+            <K label="Stop / Target" v={`${s.stop_pct}% / ${s.target_pct}%`} />
+            <K label="Still open" v={s.still_open} />
+          </div>
+          <div className="text-sm font-semibold mb-1">By month</div>
+          <table className="w-full text-xs mb-3"><thead><tr className="border-b border-white/10">
+            <th className="text-left px-2 py-1 text-md-on-surface-var">Month</th>
+            <th className="text-right px-2 py-1 text-md-on-surface-var">Trades</th>
+            <th className="text-right px-2 py-1 text-md-on-surface-var">Win%</th>
+            <th className="text-right px-2 py-1 text-md-on-surface-var">Avg P&L</th></tr></thead>
+            <tbody>{(d.by_month || []).map(m => (
+              <tr key={m.month} className="border-b border-white/[0.04]">
+                <td className="px-2 py-1 font-mono">{m.month}</td>
+                <td className="px-2 py-1 font-mono text-right">{m.n}</td>
+                <td className="px-2 py-1 font-mono text-right">{m.win_rate}%</td>
+                <td className={`px-2 py-1 font-mono text-right ${pc(m.avg_pnl)}`}>{fmtPct(m.avg_pnl)}</td>
+              </tr>))}</tbody></table>
+          <p className="text-[10px] text-md-on-surface-var/50">Systematic (no-LLM) track record: entry = next-session open, rails ATR exit, one ticker/day, top-12 by V3. Tail-driven (low win%, wide target carries it). The live journal's LLM aims to beat this by picking the better subset.</p>
+        </>
+      )}
+    </div>
+  )
+}

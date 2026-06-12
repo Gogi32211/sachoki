@@ -376,7 +376,16 @@ function ComboTickerBoard({ onSelectTicker, ai = {}, runAi, aiLoading }) {
           {rows.map((r) => (
             <tr key={r.ticker} className="border-t border-white/5 hover:bg-white/[0.03]">
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${scoreCls(r.score)}`}>{r.score}</td>
-              <td className="px-2 py-1.5"><button onClick={() => onSelectTicker?.(r.ticker)} className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button></td>
+              <td className="px-2 py-1.5">
+                <button onClick={() => onSelectTicker?.(r.ticker)} className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button>
+                {r.blowoff && (
+                  <span
+                    title={`Blow-off ${r.blowoff.date}: intraday high +${r.blowoff.hi_run}% over prior close, closed at ${Math.round(r.blowoff.c_vs_hi * 100)}% of high${r.blowoff.volx ? `, ${r.blowoff.volx}× vol` : ''}. The combo fired before this — setup is contaminated (5yr: such spikes are -22..-27% / 10d, 0/6 yrs positive). Not a buy.`}
+                    className={`ml-1 text-[9px] px-1 rounded border cursor-help ${r.blowoff.severe ? 'bg-rose-900/50 text-rose-300 border-rose-700/50' : 'bg-amber-900/40 text-amber-300 border-amber-700/40'}`}>
+                    ⚠blow-off
+                  </span>
+                )}
+              </td>
               <td className="text-center px-2 py-1.5">
                 <span className={`text-[9px] px-1 rounded border ${EVT_CLS[r.event_label] || 'border-white/10 text-md-on-surface-var'}`}>{r.event_label}</span>
               </td>

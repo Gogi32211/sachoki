@@ -2734,7 +2734,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
             if (v) setShortFilter(false)   // Capit (long) vs Short — opposite directions
             if (v && !allResults.some(r => r.cap_age != null)) fetchFreshResults(localTf, universe)
           }}
-          title="💥 Capitulation Bounce: the strongest L-line edge (L_LINE_DISCOVERIES.md) — an L34/L46 VSA bar in DEEP aligned capitulation (RSI<20 AND CCI<-100) with a volume-coil bar (BLUE/FRI64) = Wyckoff selling-climax spring. median fwd_10d +1.27 (clip25 +1.40), 6/6 years incl 2022, IS≤OOS, 1286 tickers across all 3 universes. ⚠️ bounce play: sit through ~-7% drawdown; ~7% are falling knives — diversify."
+          title="💥 Capitulation Bounce — the one edge that survived rigorous gap-aware path-sim (+4.6% cost-adj, 5/6 yrs) while every breakout/momentum signal failed. CORE: L34/L46 VSA bar + RSI<30 + CCI<-100 (aligned deep oversold = Wyckoff selling-climax spring; CCI is the knife-guard). REFINED: 20-bar drawdown sweet-spot is a -45..-10% flush (+1.12, 6/6); a >-60% collapse is a falling knife (-4.65, 0/6) → excluded. RED flush + ~2x vol + coil (BLUE/FRI64) add. ⚠️ EXIT = HOLD ~15-20 days, NO stop — a tight stop cuts the bounce (validated: hold +4.6% vs -15%-stop +1.5%); sit through ~-7% MAE; diversify (a minority still knife)."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
             capFilter
               ? 'bg-amber-900/60 text-amber-200 border-amber-500 ring-1 ring-amber-500'
