@@ -22,6 +22,7 @@ export default function AtomicScanPanel({ onSelectTicker }) {
   const [err, setErr] = useState(null)
   const [uni, setUni] = useState('all')
   const [minScore, setMinScore] = useState(55)
+  const [confOnly, setConfOnly] = useState(false)
   const [live, setLive] = useState({})
   const [liveLoading, setLiveLoading] = useState(false)
   const [msg, setMsg] = useState('')
@@ -43,7 +44,8 @@ export default function AtomicScanPanel({ onSelectTicker }) {
   }, [])
 
   const all = data?.rows || []
-  const rows = all.filter(r => (uni === 'all' || r.universe === uni) && r.score >= minScore)
+  const rows = all.filter(r => (uni === 'all' || r.universe === uni) && r.score >= minScore && (!confOnly || r.post_capit))
+  const confN = all.filter(r => r.post_capit).length
   const reg = data?.regime
   const addAll = () => { rows.forEach(r => pwlAdd({ ticker: r.ticker, _tf: '1d', last_price: r.close, tz_sig: 'atomic:' + r.atoms.join('+') })); setMsg(`★ ${rows.length} → Watchlist`); setTimeout(() => setMsg(''), 2500) }
 
@@ -54,6 +56,7 @@ export default function AtomicScanPanel({ onSelectTicker }) {
         The 5-year-validated atomic edge: a <b>bull T-signal that closes WEAK</b> (close below prior body) on a
         <b> gap-up</b> bar. Backtest +0.84 (sp500) / +0.70 (r2k) expectancy, <b>positive 5/6 years</b> (only 2022 bear −).
         Score = corroborating atoms (R2L oversold · EO escape · vol=B · wick=D · G3). Click ticker → chart.
+        <br/><span className="text-amber-300">🔥 post-capit</span> = follows a recent B+ capitulation (the premium Capit→Atomic confluence: win 67%, med +4.2% vs +1.4%) — amber rows, boosted to the top.
       </p>
       {reg && (
         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded border text-xs mb-3 ${REG_CLS[reg.label] || ''}`}>
@@ -72,6 +75,8 @@ export default function AtomicScanPanel({ onSelectTicker }) {
           <button key={s} onClick={() => setMinScore(s)}
             className={`px-2 py-0.5 rounded border ${minScore === s ? 'bg-sky-900/60 text-sky-200 border-sky-500' : 'bg-md-surface border-white/10 hover:text-white'}`}>{s}+</button>
         ))}
+        <button onClick={() => setConfOnly(v => !v)} title="only weak-close gap-ups that follow a recent B+ capitulation (the premium Capit→Atomic confluence)"
+          className={`px-2 py-0.5 rounded border ml-2 ${confOnly ? 'bg-amber-600 text-white border-amber-400' : 'bg-md-surface border-amber-500/40 text-amber-300 hover:bg-amber-900/30'}`}>🔥 confluence{confN ? ` (${confN})` : ''}</button>
         {loading && <span className="text-sky-400 animate-pulse">scanning…</span>}
         {data && <span className="text-md-on-surface-var/60">{rows.length} / {all.length} · {data.as_of}</span>}
         <button onClick={() => fetchLive(rows.map(r => r.ticker).slice(0, 250))} disabled={!rows.length || liveLoading}
@@ -101,7 +106,7 @@ export default function AtomicScanPanel({ onSelectTicker }) {
         </thead>
         <tbody>
           {rows.map(r => (
-            <tr key={r.ticker} className="border-t border-white/5 hover:bg-white/[0.03]">
+            <tr key={r.ticker} className={`border-t border-white/5 hover:bg-white/[0.03] ${r.post_capit ? 'bg-amber-500/[0.07] border-l-2 border-l-amber-500' : ''}`}>
               <td className={`text-right px-2 py-1.5 font-mono font-bold ${scoreCls(r.score)}`}>{r.score}</td>
               <td className="px-2 py-1.5"><button onClick={() => onSelectTicker?.(r.ticker)} className="font-mono font-semibold hover:text-sky-300">{r.ticker}</button></td>
               <td className="px-2 py-1.5 text-[10px] text-md-on-surface-var/70">{r.universe}</td>
@@ -113,7 +118,7 @@ export default function AtomicScanPanel({ onSelectTicker }) {
               <td className={`text-right px-2 py-1.5 font-mono ${r.rsi != null && r.rsi <= 35 ? 'text-emerald-300' : 'text-md-on-surface-var'}`}>{r.rsi ?? '—'}</td>
               <td className="px-3 py-1.5">
                 <div className="flex flex-wrap gap-1">
-                  {r.atoms.map((a, i) => <span key={i} className={`text-[9px] font-mono px-1 rounded border ${ATOM_CLS[a] || 'border-white/10'}`}>{a}</span>)}
+                  {r.atoms.map((a, i) => <span key={i} className={`text-[9px] font-mono px-1 rounded border ${a.startsWith('🔥') ? 'bg-amber-500/25 border-amber-400 text-amber-200 font-bold' : (ATOM_CLS[a] || 'border-white/10')}`}>{a}</span>)}
                 </div>
               </td>
               <td className="text-right px-2 py-1.5 font-mono text-md-on-surface-var/70">{r.dv_m != null ? r.dv_m + 'M' : '—'}</td>
