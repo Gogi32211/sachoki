@@ -136,7 +136,7 @@ function Replay() {
             className={`px-2 py-1 rounded ${months === m && d ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{m}mo</button>
         ))}
         <span className="text-md-on-surface-var ml-3">🔥 capit window:</span>
-        {[10, 15].map(w => (
+        {[5, 10, 15].map(w => (
           <button key={w} onClick={() => run(months, w)} disabled={loading}
             className={`px-2 py-1 rounded ${cw === w ? 'bg-amber-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{w}d</button>
         ))}
