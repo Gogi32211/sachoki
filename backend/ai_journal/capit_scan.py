@@ -14,6 +14,54 @@ from __future__ import annotations
 from .db import get_analytics_conn
 
 
+def capit_signal_dates(a, since_date: str, until_date: str | None = None,
+                       universe: str | None = None) -> dict:
+    """{(ticker, universe): sorted np.array of B+ capitulation signal dates} in
+    [since_date, until_date]. B+ definition (production marker): L34/L46 + RSI 15-30 +
+    CCI<-100 + 20-bar drawdown >-25% + no fri64/absorb + not the $1-2 knife band.
+
+    Used to flag Atomic candidates that follow a recent QUALITY capitulation — the
+    validated Capit→Atomic confluence (rich+capit≤10d: win 67%, med +4.24 vs +1.41
+    baseline). The QUALITY filter matters: a raw/penny capitulation does NOT rescue the
+    following gap-up (med -1.21), only a B+ one does (+1.70). Read-only on bars."""
+    import numpy as np
+    uni = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+    until = f"AND date <= DATE '{until_date}'" if until_date else ""
+    rows = a.execute(f"""
+        WITH recent AS (
+          SELECT ticker, universe, date, l_sig, rsi_14, cci_20, close,
+                 sig_fri64 AS fri64, d_absorb_bear AS absb,
+                 lag(close, 20) OVER (PARTITION BY ticker, universe ORDER BY date) AS c20
+          FROM bars
+          WHERE avg_vol_20d > 0 {uni}
+            AND date >= DATE '{since_date}' - INTERVAL 60 DAY {until}
+        )
+        SELECT ticker, universe, date FROM recent
+        WHERE l_sig IN ('L34','L46') AND rsi_14 >= 15 AND rsi_14 < 30 AND cci_20 < -100
+          AND c20 > 0 AND (close / c20 - 1) > -0.25
+          AND coalesce(fri64,0) = 0 AND coalesce(absb,0) = 0
+          AND NOT (close >= 1 AND close < 2)
+          AND date >= DATE '{since_date}'
+    """).fetchdf()
+    out: dict = {}
+    for r in rows.itertuples():
+        out.setdefault((str(r.ticker), str(r.universe)), []).append(r.date)
+    return {k: np.sort(np.array(v, dtype="datetime64[D]")) for k, v in out.items()}
+
+
+def days_since_capit(capit_dates: dict, ticker: str, universe: str, on_date) -> float | None:
+    """Calendar days since the nearest PRIOR B+ capitulation for this ticker (None if none)."""
+    import numpy as np
+    arr = capit_dates.get((str(ticker), str(universe)))
+    if arr is None or len(arr) == 0:
+        return None
+    od = np.datetime64(str(on_date)[:10])
+    prior = arr[arr <= od]
+    if len(prior) == 0:
+        return None
+    return float((od - prior[-1]) / np.timedelta64(1, "D"))
+
+
 def capit_scan(max_age_days: int = 3, dv_floor: float = 300_000, limit: int = 120,
                universe: str | None = None) -> dict:
     a = get_analytics_conn()

@@ -118,25 +118,32 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
 // Replay: historical backtest of the atomic edge over a period, using the exact journal rules
 function Replay() {
   const [months, setMonths] = useState(6)
+  const [cw, setCw] = useState(15)
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
-  const run = (m) => {
-    setMonths(m); setLoading(true); setD(null)
-    fetch(`/api/atomic-journal/replay?months=${m}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
+  const run = (m, w) => {
+    setMonths(m); setCw(w); setLoading(true); setD(null)
+    fetch(`/api/atomic-journal/replay?months=${m}&capit_window=${w}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
   }
   const s = d?.stats || {}
+  const pc = s.post_capit
   return (
     <div>
-      <div className="flex items-center gap-2 mb-3 text-xs">
+      <div className="flex items-center flex-wrap gap-2 mb-3 text-xs">
         <span className="text-md-on-surface-var">Backtest period:</span>
         {[3, 6, 12, 24].map(m => (
-          <button key={m} onClick={() => run(m)} disabled={loading}
+          <button key={m} onClick={() => run(m, cw)} disabled={loading}
             className={`px-2 py-1 rounded ${months === m && d ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{m}mo</button>
+        ))}
+        <span className="text-md-on-surface-var ml-3">🔥 capit window:</span>
+        {[10, 15].map(w => (
+          <button key={w} onClick={() => run(months, w)} disabled={loading}
+            className={`px-2 py-1 rounded ${cw === w ? 'bg-amber-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{w}d</button>
         ))}
         {loading && <span className="text-violet-400 animate-pulse">running…</span>}
         {d && <span className="text-md-on-surface-var/60">from {d.win_start} · entry next-open · −15% stop / +100% target / 20-bar</span>}
       </div>
-      {!d && !loading && <Empty>Pick a period to replay the weak-close gap-up edge historically (entry next-open, equal 4% bets).</Empty>}
+      {!d && !loading && <Empty>Pick a period to replay the weak-close gap-up edge historically (≥$16 OR rescued by a B+ capit ≤{cw}d; entry next-open, equal 4% bets).</Empty>}
       {d && (
         <>
           <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
@@ -150,6 +157,15 @@ function Replay() {
             <Kpi label="Stop / Target" v={`${s.stop_pct}% / ${s.target_pct}%`} />
             <Kpi label="Still open" v={s.still_open} />
           </div>
+          {pc && (
+            <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-amber-500/10 border border-amber-500/30">
+              <div className="text-xs font-semibold text-amber-300 self-center">🔥 Capit→Atomic confluence (post-capit ≤{cw}d):</div>
+              <Kpi label="Trades" v={pc.n} />
+              <Kpi label="Win rate" v={pc.win_rate != null ? `${pc.win_rate}%` : '—'} />
+              <Kpi label="Avg P&L" v={fmtPct(pc.avg_pnl)} />
+              <Kpi label="Median" v={fmtPct(pc.median_pnl)} />
+            </div>
+          )}
           <div className="text-sm font-semibold mb-1">By month</div>
           <table className="w-full text-xs mb-3"><thead><tr className="border-b border-white/10">
             <Th>Month</Th><Th r>Trades</Th><Th r>Win%</Th><Th r>Avg P&L</Th></tr></thead>

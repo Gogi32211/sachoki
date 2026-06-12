@@ -131,11 +131,17 @@ def grade() -> dict:
 
 
 def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
-           dv_floor: float = 500_000, limit: int = 200) -> dict:
+           dv_floor: float = 500_000, limit: int = 200,
+           price_floor: float = 16.0, exclude_vb: bool = True,
+           capit_window: int = 15, capit_rescue: bool = True) -> dict:
     """Historical backtest of the Atomic weak-close gap-up edge over the last `months`,
     using the EXACT journal rules: entry = NEXT session open (the 5-yr backtest's
     convention), -15% stop / +100% target / 20-bar horizon, gap-aware stop-first, one
-    open per ticker, equal 4% paper bets."""
+    open per ticker, equal 4% paper bets.
+
+    The PRODUCTION knife-guard (price_floor=16, exclude_vb=True) drops the unstable
+    cheap/blow-off bands. Pass price_floor=0, exclude_vb=False to replay the RAW
+    universe (used for the prior-capit rescue study)."""
     import numpy as np, pandas as pd
     from datetime import date as _d, timedelta
     _BULL_T = ("T1", "T1G", "T2", "T2G", "T3", "T4", "T5", "T6", "T9", "T10", "T11", "T12")
@@ -143,18 +149,27 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
     try:
         as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
         uni = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        vb = "AND vol_bucket <> 'VB'" if exclude_vb else ""
         ph = ",".join(f"'{s}'" for s in _BULL_T)
+        # NOTE: no hard price gate in SQL — the prior-capit rescue (below) decides which
+        # cheap (<price_floor) candidates to keep, so we must pull them all here.
         df = a.execute(f"""
             SELECT ticker, universe, date, open, high, low, close, volume,
                    full_suffix AS sfx, bar_line5, vol_bucket,
                    CASE WHEN bar_gap_class='G3' THEN 1 ELSE 0 END AS g3
             FROM bars
             WHERE t_sig IN ({ph}) AND close_suffix='O' AND bar_gap_class IN ('G2','G3')
-              AND avg_vol_20d > 0 AND close*volume >= {dv_floor} {uni}
-              AND close >= 16 AND vol_bucket <> 'VB'
+              AND avg_vol_20d > 0 AND close*volume >= {dv_floor} {uni} {vb}
               AND date >= DATE '{as_of}' - INTERVAL {int(months * 31) + 10} DAY
             ORDER BY ticker, universe, date
         """).fetchdf()
+        # prior QUALITY (B+) capitulation marker for the rescue + premium boost
+        win_start = (_d.fromisoformat(as_of) - timedelta(days=int(months * 30.5))).isoformat()
+        capit_dates = {}
+        if capit_rescue:
+            from .capit_scan import capit_signal_dates
+            _since = str(_d.fromisoformat(win_start) - timedelta(days=int(capit_window) + 5))
+            capit_dates = capit_signal_dates(a, since_date=_since, universe=universe)
     finally:
         a.close()
     if len(df) == 0:
@@ -166,8 +181,25 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
     sc += np.where(df.vol_bucket == "B", 15, 0)
     sc += np.where(sfx.str[1:2] == "D", 10, 0)
     sc += np.where(df.g3 == 1, 10, 0)
+    # prior-capit: days since nearest B+ capitulation per row → rescue + premium boost
+    dd = df.date.values.astype("datetime64[D]")
+    dpc = np.full(len(df), np.nan)
+    for i, (tk, u) in enumerate(zip(df.ticker.values, df.universe.values)):
+        arr = capit_dates.get((str(tk), str(u)))
+        if arr is None:
+            continue
+        prior = arr[arr <= dd[i]]
+        if len(prior):
+            dpc[i] = (dd[i] - prior[-1]) / np.timedelta64(1, "D")
+    post_capit = (dpc <= capit_window)            # NaN<=w → False
+    sc += np.where(post_capit, 20, 0)
     df["score"] = np.clip(sc, 0, 100).astype(int)
-    win_start = (_d.fromisoformat(as_of) - timedelta(days=int(months * 30.5))).isoformat()
+    df["post_capit"] = post_capit
+    # price knife-guard: keep close>=price_floor, OR a cheap one rescued by a recent capit
+    keep = (df.close.values >= price_floor) | post_capit
+    df = df[keep].copy()
+    if len(df) == 0:
+        return {"as_of": as_of, "months": months, "trades": [], "stats": {}, "by_month": []}
     df["dstr"] = df.date.astype(str).str[:10]
 
     # need the FULL series per ticker for next-open + 20-bar exit walk → reload all bars
@@ -181,7 +213,7 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
     finally:
         a.close()
     allb["dstr"] = allb.date.astype(str).str[:10]
-    sig = {(r.ticker, r.universe, r.dstr): int(r.score) for r in df.itertuples()
+    sig = {(r.ticker, r.universe, r.dstr): (int(r.score), bool(r.post_capit)) for r in df.itertuples()
            if r.dstr >= win_start and int(r.score) >= min_score}
 
     trades, still_open, seen = [], 0, set()
@@ -190,9 +222,10 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
         ds = grp.dstr.to_numpy(); n = len(c)
         last = -999
         for i in range(n):
-            scn = sig.get((tk, u, ds[i]))
-            if scn is None or i - last < 20:
+            hit = sig.get((tk, u, ds[i]))
+            if hit is None or i - last < 20:
                 continue
+            scn, pc = hit
             if (tk, ds[i]) in seen:
                 continue
             if i + 1 >= n:
@@ -217,7 +250,8 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
             pnl = round((exit_px / entry - 1) * 100, 2)
             trades.append({"ticker": tk, "universe": u, "signal_date": ds[i], "open_date": ds[i + 1],
                            "close_date": exit_date, "entry": round(entry, 2), "exit": round(exit_px, 2),
-                           "pnl": pnl, "reason": reason, "score": scn, "month": ds[i + 1][:7]})
+                           "pnl": pnl, "reason": reason, "score": scn, "post_capit": pc,
+                           "month": ds[i + 1][:7]})
 
     pnls = [t["pnl"] for t in trades]
     wins = [p for p in pnls if p > 0]
@@ -242,6 +276,13 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
         "equity_end": round(eq, 0), "equity_pct": round((eq / START_CAPITAL - 1) * 100, 1),
         "still_open": still_open,
     }
+    # premium 🔥post-capit tier (the validated Capit→Atomic confluence)
+    pc = [t["pnl"] for t in trades if t.get("post_capit")]
+    if pc:
+        stats["post_capit"] = {
+            "n": len(pc), "win_rate": round(sum(1 for p in pc if p > 0) / len(pc) * 100, 1),
+            "avg_pnl": round(float(np.mean(pc)), 2), "median_pnl": round(float(np.median(pc)), 2),
+        }
     return {"as_of": as_of, "months": months, "win_start": win_start,
             "stats": stats, "by_month": by_month, "curve": curve,
             "trades": sorted(trades, key=lambda x: x["close_date"], reverse=True)[:limit]}

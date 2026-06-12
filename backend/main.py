@@ -638,13 +638,13 @@ def journal_advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit
 
 
 @app.get("/api/atomic-scan")
-def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, capit_window: int = 15):
     """Live 'weak-close gap-up' scan — bull T-signal + close=O + gap(G2/G3), the
-    5-year-validated atomic edge. Scored by corroborating atoms (R2L/EO/vol=B/wick=D/G3),
-    with the current market regime attached as a size gate. Surfaces candidates only."""
+    5-year-validated atomic edge. ≥$16 OR rescued by a B+ capit within `capit_window`
+    days; 🔥post-capit confluence boosted and sorted to the top. Surfaces candidates only."""
     from ai_journal.atomic_scan import atomic_scan
     try:
-        return atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor)
+        return atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor, capit_window=capit_window)
     except Exception as e:
         log.exception("atomic scan failed")
         return {"rows": [], "count": 0, "error": str(e)}
@@ -681,12 +681,15 @@ def api_atomic_journal_grade():
 
 
 @app.get("/api/atomic-journal/replay")
-def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: int = 70):
+def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: int = 70,
+                              capit_window: int = 15):
     """Historical backtest of the Atomic weak-close gap-up edge (entry next-open,
-    -15% stop / +100% target / 20-bar). Builds the track record retroactively."""
+    -15% stop / +100% target / 20-bar). ≥$16 OR prior-B+-capit rescue; post-capit boosted.
+    Builds the track record retroactively."""
     from ai_journal.atomic_journal import replay
     try:
-        return replay(months=months, universe=(universe or None), min_score=min_score)
+        return replay(months=months, universe=(universe or None), min_score=min_score,
+                      capit_window=capit_window)
     except Exception as e:
         log.exception("atomic replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
@@ -1505,13 +1508,15 @@ def _diagnose_260523_columns(results: list, requested: dict) -> list:
     return warnings
 
 
-def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
+def _enrich_atomic(results: list, universe: str, lookback_n: int = 3, capit_window: int = 15) -> list:
     """Attach the 5-year-validated 'weak-close gap-up' atomic flags to each Ultra
     result row (additive, orthogonal to turbo_score). Scans each ticker's LAST
     `lookback_n` bars and keeps the MOST RECENT match (close=O + gap + R2L/EO/vol=B/
     wick=D/G3) — a signal 1-3 bars ago is still inside the entry window. Sets
     atomic_match / atomic_score / atomic_atoms / atomic_age (bars ago, 0 = latest).
-    Read-only; never touches the canonical score."""
+    Price knife-guard: keep ≥$16, OR a cheap one IFF rescued by a recent B+ capitulation.
+    🔥 post-capit (B+ capit ≤capit_window days) = the premium Capit→Atomic confluence →
+    +20 boost + atomic_post_capit flag. Read-only; never touches the canonical score."""
     if not results:
         return results
     tickers = [r.get("ticker") for r in results if r.get("ticker")]
@@ -1520,17 +1525,22 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
     _BULL = ("T1", "T1G", "T2", "T2G", "T3", "T4", "T5", "T6", "T9", "T10", "T11", "T12")
     try:
         from ai_journal.db import get_analytics_conn
+        from ai_journal.capit_scan import capit_signal_dates, days_since_capit
+        from datetime import date as _d, timedelta as _td
         a = get_analytics_conn()
         try:
             ph = ",".join("?" * len(tickers))
             df = a.execute(f"""
-                SELECT ticker, t_sig, close, close_suffix, bar_gap_class AS gap, vol_bucket AS vol,
+                SELECT ticker, date, t_sig, close, close_suffix, bar_gap_class AS gap, vol_bucket AS vol,
                        full_suffix AS sfx, CASE WHEN regexp_matches(bar_line5,'R2L') THEN 1 ELSE 0 END AS r2l,
                        row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
                 FROM bars WHERE universe=? AND ticker IN ({ph})
                 QUALIFY age < {int(lookback_n)}
                 ORDER BY ticker, age
             """, [universe, *tickers]).fetchdf()
+            as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+            _since = str(_d.fromisoformat(as_of) - _td(days=int(lookback_n) + int(capit_window) + 5))
+            capit_dates = capit_signal_dates(a, since_date=_since, universe=universe)
         finally:
             a.close()
     except Exception as exc:
@@ -1542,10 +1552,14 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
         if tk in info:                      # already have a more-recent match for this ticker
             continue
         sfx = str(r["sfx"] or "")
-        # price knife-guard: <$16 = unstable/high-catastrophe, VB = blow-off knife (thirds-stability deep-dive)
-        match = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3")
-                 and float(r["close"] or 0) >= 16 and str(r["vol"]) != "VB")
-        if not match:
+        base = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3")
+                and str(r["vol"]) != "VB")
+        if not base:
+            continue
+        dpc = days_since_capit(capit_dates, tk, universe, r["date"])
+        post_capit = dpc is not None and dpc <= capit_window
+        # price knife-guard: keep ≥$16, OR a cheap one only if rescued by a recent B+ capit
+        if float(r["close"] or 0) < 16 and not post_capit:
             continue
         atoms = ["close=O", "gap"]; score = 40
         if int(r["r2l"] or 0): atoms.append("R2L"); score += 25
@@ -1553,11 +1567,13 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
         if r["vol"] == "B": atoms.append("vol=B"); score += 15
         if "D" in sfx[1:2]: atoms.append("wick=D"); score += 10
         if str(r["gap"]) == "G3": atoms.append("G3"); score += 10
-        info[tk] = (min(score, 100), atoms, int(r["age"]))
+        if post_capit: atoms.append(f"🔥post-capit{int(dpc)}d"); score += 20
+        info[tk] = (min(score, 100), atoms, int(r["age"]), bool(post_capit), int(dpc) if post_capit else None)
     for r in results:
-        sc, at, age = info.get(r.get("ticker"), (0, [], None))
+        sc, at, age, pc, cage = info.get(r.get("ticker"), (0, [], None, False, None))
         r["atomic_match"] = age is not None
         r["atomic_score"] = int(sc); r["atomic_atoms"] = at; r["atomic_age"] = age
+        r["atomic_post_capit"] = pc; r["atomic_capit_age"] = cage
     return results
 
 
