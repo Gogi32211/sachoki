@@ -1524,7 +1524,7 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
         try:
             ph = ",".join("?" * len(tickers))
             df = a.execute(f"""
-                SELECT ticker, t_sig, close_suffix, bar_gap_class AS gap, vol_bucket AS vol,
+                SELECT ticker, t_sig, close, close_suffix, bar_gap_class AS gap, vol_bucket AS vol,
                        full_suffix AS sfx, CASE WHEN regexp_matches(bar_line5,'R2L') THEN 1 ELSE 0 END AS r2l,
                        row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
                 FROM bars WHERE universe=? AND ticker IN ({ph})
@@ -1542,7 +1542,9 @@ def _enrich_atomic(results: list, universe: str, lookback_n: int = 3) -> list:
         if tk in info:                      # already have a more-recent match for this ticker
             continue
         sfx = str(r["sfx"] or "")
-        match = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3"))
+        # price knife-guard: <$16 = unstable/high-catastrophe, VB = blow-off knife (thirds-stability deep-dive)
+        match = (str(r["t_sig"]) in _BULL and r["close_suffix"] == "O" and str(r["gap"]) in ("G2", "G3")
+                 and float(r["close"] or 0) >= 16 and str(r["vol"]) != "VB")
         if not match:
             continue
         atoms = ["close=O", "gap"]; score = 40

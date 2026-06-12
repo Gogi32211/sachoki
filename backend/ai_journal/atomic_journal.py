@@ -151,6 +151,7 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
             FROM bars
             WHERE t_sig IN ({ph}) AND close_suffix='O' AND bar_gap_class IN ('G2','G3')
               AND avg_vol_20d > 0 AND close*volume >= {dv_floor} {uni}
+              AND close >= 16 AND vol_bucket <> 'VB'
               AND date >= DATE '{as_of}' - INTERVAL {int(months * 31) + 10} DAY
             ORDER BY ticker, universe, date
         """).fetchdf()

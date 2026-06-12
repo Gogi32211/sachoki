@@ -6,6 +6,12 @@ in all 3 universes, positive 5/6 years (only 2022 bear negative). Each candidate
 scored by how many corroborating atoms it stacks (R2L oversold, EO escape, vol=B,
 wick=D, G3 gap), and the current market regime is attached as a size gate.
 
+PRICE KNIFE-GUARD (thirds-stability deep-dive, this session): cheap stocks are the
+catastrophe driver — <$8 = robust knife (cat 38-52%), $8-16 = unstable/high-cat, while
+$16-300 is robust-positive in all 3 time-thirds (med +1.35, cat 22%→15%, win 52%→56%).
+VB (very-high-vol blow-off) bucket = a knife both halves. → EXCLUDE close<$16 and VB.
+NOTE: still a momentum/beta edge — regime-dependent (loses in corrections), unlike Capit.
+
 ANALYSIS/SCANNER ONLY — surfaces candidates, opens no positions. Read-only on bars.
 """
 from __future__ import annotations
@@ -28,6 +34,7 @@ def atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
             WHERE t_sig IN ({ph}) AND close_suffix = 'O' AND bar_gap_class IN ('G2', 'G3')
               AND date >= DATE '{as_of}' - INTERVAL {int(max_age_days)} DAY
               AND avg_vol_20d > 0 AND close * volume >= {dv_floor}
+              AND close >= 16 AND vol_bucket <> 'VB'
         """).fetchdf()
     finally:
         a.close()
@@ -80,9 +87,9 @@ def atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
         "as_of": as_of, "count": len(out), "rows": out,
         "regime": {"label": reg["label"], "score": reg["score"],
                    "conv_mult": reg["conv_mult"], "breadth": reg.get("breadth", {})},
-        "edge_note": ("weak-close gap-up: 5yr backtest +0.84 sp500 / +0.70 r2k expectancy, "
-                      "positive 5/6 years (2022 bear negative). Swing-grade; small size; "
-                      "stand down in RISK_OFF."),
+        "edge_note": ("weak-close gap-up (≥$16, no-VB knife-guard): robust all 3 time-thirds "
+                      "med +1.35, win 56%, cat 15%. Momentum/beta — loses in corrections, so "
+                      "swing-grade, small size, stand down in RISK_OFF."),
     }
 
 
