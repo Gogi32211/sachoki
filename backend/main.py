@@ -1644,10 +1644,15 @@ def _enrich_momentum(results: list, universe: str, lookback_n: int = 3) -> list:
             chg10 = (float(r["close"]) / float(r["c10"]) - 1) * 100 if r["c10"] else None
         except Exception:
             continue
-        # CORE: dense L34/L46 churn + markup RSI + squeeze & load coil + price flat/rising
+        # CORE: dense L34/L46 churn + markup RSI + squeeze & load coil + price flat/rising.
+        # chg10 is CAPPED at +25%: the validated edge (median fwd_10d excess +1.21, 5/6 yrs)
+        # lives entirely in chg10 0..30% — above +80% there are ZERO historical examples, so an
+        # uncapped `chg10>=0` let post-blow-off pumps leak in (e.g. ICCM +1065%, a $0.23→$5→$2.68
+        # pump-and-dump that the markup recipe was never meant to catch). The cap is the blow-off
+        # guard — buy the coil, not the chase. See L_LINE_DISCOVERIES.md / momentum_zone_dense.py.
         match = (str(r["l_sig"]) in ("L34", "L46") and d10 >= 6 and 40 <= rsi < 65
                  and int(r["sq"] or 0) and int(r["load"] or 0)
-                 and chg10 is not None and chg10 >= 0)
+                 and chg10 is not None and 0 <= chg10 <= 25)
         if not match:
             continue
         atoms = [str(r["l_sig"]), f"dense{int(d10)}", f"RSI{int(rsi)}", "SQ", "LOAD"]; score = 60

@@ -1808,6 +1808,124 @@ def _copy_from_allus_if_recent(interval: str, universe: str) -> int | None:
     return found
 
 
+# ── Cross-universe dedup: copy already-scanned tickers from sibling universes ──
+_SUB_UNIVERSES = ("sp500", "nasdaq", "russell2k")
+_TURBO_TEXT_FILL = {"tz_sig", "vol_bucket", "sig_ages", "data_source", "sector"}
+
+
+def _profile_for_universe(universe: str) -> str:
+    """Map a universe to its Turbo scoring profile (mirrors run_turbo_scan's
+    _profile). russell2k shares the sp500 profile."""
+    return ("nasdaq" if universe == "nasdaq"
+            else "all_us" if universe == "all_us"
+            else "sp500")
+
+
+def _copy_from_sibling_scans(interval: str, universe: str, wanted: list[str],
+                             scan_id, now_iso: str, min_store_score: float,
+                             cutoff_h: int = 6) -> set:
+    """Reuse results for tickers already scanned in the OTHER sub-universes
+    within `cutoff_h`, instead of re-computing them.
+
+    `cutoff_h` defaults to 6h: update_db.sh runs all three scans back-to-back
+    (minutes apart) so they share the same freshly-appended bars, while a daily
+    cadence (~24h gap) puts the prior day's scan out of range — so we never copy
+    a stale row that predates today's bar.
+
+    The same ticker carries IDENTICAL bars in every universe it belongs to
+    (nasdaq∩russell2k ≈ 3,164 tickers), so every price-derived signal is the
+    same — only `turbo_score` depends on the profile (sp500 vs nasdaq combo
+    caps). We copy the stored row and, when the origin profile differs from the
+    target, recompute turbo_score with the target profile. That makes the
+    copied row identical to what a fresh scan would produce.
+
+    Safe by construction:
+      • a ticker dropped at the sibling (score < its threshold) simply isn't in
+        the sibling's results → not copied → scanned fresh here;
+      • a copied row whose re-scored value falls below min_store_score is NOT
+        marked covered → scanned fresh (we never trust a borderline re-score to
+        silently drop a ticker);
+      • any re-score exception → not covered → scanned fresh.
+
+    Returns the set of tickers covered (already inserted under `scan_id`); the
+    caller scans only the remainder. Disable with TURBO_NO_SIBLING_COPY=1.
+    """
+    if os.environ.get("TURBO_NO_SIBLING_COPY") == "1":
+        return set()
+    if universe not in _SUB_UNIVERSES:
+        return set()
+    wanted_set = {t.upper() for t in wanted}
+    target_profile = _profile_for_universe(universe)
+    siblings = [u for u in _SUB_UNIVERSES if u != universe]
+
+    con = _db()
+    try:
+        # ticker (upper) → stored row dict (+ origin profile). First sibling
+        # that has it wins; bars are identical so the choice is immaterial.
+        ticker_row: dict[str, dict] = {}
+        for su in siblings:
+            run = con.execute(
+                "SELECT id, completed_at FROM turbo_scan_runs "
+                "WHERE tf=? AND universe=? AND completed_at IS NOT NULL "
+                "AND is_complete=1 ORDER BY id DESC LIMIT 1",
+                (interval, su),
+            ).fetchone()
+            if not run:
+                continue
+            try:
+                ca_str = run["completed_at"].rstrip("Z").split("+")[0]
+                ca = datetime.fromisoformat(ca_str).replace(tzinfo=timezone.utc)
+                if (datetime.now(timezone.utc) - ca).total_seconds() / 3600 > cutoff_h:
+                    continue
+            except Exception:
+                continue
+            origin_profile = _profile_for_universe(su)
+            rows = con.execute(
+                "SELECT * FROM turbo_scan_results WHERE scan_id=?", (run["id"],),
+            ).fetchall()
+            for r in rows:
+                tk = (r["ticker"] or "").upper()
+                if not tk or tk not in wanted_set or tk in ticker_row:
+                    continue
+                d = {k: v for k, v in r.items() if k != "id"}
+                d["_origin_profile"] = origin_profile
+                ticker_row[tk] = d
+
+        if not ticker_row:
+            return set()
+
+        cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
+        covered: set = set()
+        batch: list[dict] = []
+        for tk, d in ticker_row.items():
+            origin_profile = d.pop("_origin_profile")
+            d["scan_id"] = scan_id
+            d["scanned_at"] = now_iso
+            if origin_profile != target_profile:
+                try:
+                    d["turbo_score"] = _calc_turbo_score(d, target_profile)
+                except Exception:
+                    continue  # can't re-score safely → scan fresh
+                if (d.get("turbo_score") or 0) < min_store_score:
+                    continue  # borderline → scan fresh (never silently drop)
+            rec = {c: d.get(c, "" if c in _TURBO_TEXT_FILL else 0) for c in cols}
+            batch.append(rec)
+            covered.add(tk)
+
+        if batch:
+            ph = ", ".join(f":{c}" for c in cols)
+            con.executemany(
+                f"INSERT INTO turbo_scan_results ({', '.join(cols)}) VALUES ({ph})",
+                batch,
+            )
+            con.commit()
+        log.info("Sibling-copy %d/%d tickers into %s (siblings=%s) tf=%s",
+                 len(covered), len(wanted_set), universe, "+".join(siblings), interval)
+        return covered
+    finally:
+        con.close()
+
+
 # ── Scan runner ───────────────────────────────────────────────────────────────
 def run_turbo_scan(
     interval: str = "1d",
@@ -1902,6 +2020,24 @@ def run_turbo_scan(
     cols = ["scan_id", "ticker", "last_price", "change_pct", "scanned_at"] + _TURBO_COLS
     ph   = ", ".join(f":{c}" for c in cols)
     found = 0
+
+    # ── Cross-universe dedup ─────────────────────────────────────────────────
+    # Reuse rows for tickers already scanned in a sibling sub-universe this run
+    # (nasdaq∩russell2k ≈ 3,164). Scan only the remainder. Robust: any failure
+    # falls back to scanning the full set.
+    covered: set = set()
+    try:
+        covered = _copy_from_sibling_scans(
+            interval, universe, tickers, scan_id, now_iso, min_store_score)
+    except Exception as exc:
+        log.warning("Turbo sibling-copy failed (%s) — scanning full set", exc)
+        covered = set()
+    if covered:
+        found += len(covered)
+        _turbo_state["found"] += len(covered)
+        _turbo_state["done"]  += len(covered)
+    scan_tickers = [t for t in tickers if t.upper() not in covered]
+
     pool = ThreadPoolExecutor(max_workers=workers)
     try:
         _profile = (
@@ -1914,7 +2050,7 @@ def run_turbo_scan(
                 _scan_turbo_ticker, t, interval, min_price, max_price,
                 spy_chg, iwm_chg, partial_day, min_volume, _profile
             ): t
-            for t in tickers
+            for t in scan_tickers
         }
         batch: list[dict] = []
         remaining = set(futures.keys())
