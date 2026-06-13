@@ -1197,6 +1197,36 @@ export default function UltraScanPanel({ onSelectTicker }) {
       .catch(e => { if (seq === fetchSeqRef.current) setError(e.message) })
   }, [])
 
+  // Like fetchFreshResults, but MERGES only the enrichment fields into the loaded
+  // rows (matched by ticker) instead of REPLACING the dataset. Used by the Profile
+  // filters so toggling Capit / Capit→Atom / Atomic / Short / Mom never swaps the
+  // scan snapshot — canonical scores, V2/V3 and the row set stay put; we just attach
+  // the cap/atomic/mom flags the filter needs. (Fixes "scores jump / Capit→Atom count
+  // changes when I click a profile filter".)
+  const ENRICH_FIELDS = useMemo(() => [
+    'cap_match', 'cap_age', 'cap_score', 'cap_atoms',
+    'atomic_match', 'atomic_age', 'atomic_score', 'atomic_atoms', 'atomic_post_capit', 'atomic_capit_age',
+    'short_match', 'short_age', 'short_score', 'short_atoms',
+    'mom_match', 'mom_age', 'mom_score', 'mom_atoms',
+    'prebreak_v2', 'prebreak_v3', 'prebreak_score',
+  ], [])
+  const fetchEnrichmentMerge = useCallback((tf, uni) => {
+    api.ultraScanResults(uni, tf)
+      .then(d => {
+        const fresh = d.results || []
+        if (!fresh.length) return
+        const byTk = new Map(fresh.map(r => [r.ticker, r]))
+        setAllResults(prev => prev.map(r => {
+          const f = byTk.get(r.ticker)
+          if (!f) return r
+          const merged = { ...r }
+          for (const k of ENRICH_FIELDS) if (f[k] !== undefined) merged[k] = f[k]
+          return merged
+        }))
+      })
+      .catch(() => {})
+  }, [ENRICH_FIELDS])
+
   // Read from cache (IDB or localStorage) and populate allResults if empty
   const loadFromCache = useCallback(async (tf, uni) => {
     let cached
@@ -2707,7 +2737,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
             const v = !atomicFilter; setAtomicFilter(v)
             if (v) setShortFilter(false)   // Atomic (long) & Short are opposite directions — mutually exclusive
             // cached results may predate the atomic-age enrichment → pull fresh (fast, no re-scan)
-            if (v && !allResults.some(r => r.atomic_age != null)) fetchFreshResults(localTf, universe)
+            if (v && !allResults.some(r => r.atomic_age != null)) fetchEnrichmentMerge(localTf, universe)
           }}
           title="⚛ Atomic: 5-year-validated 'weak-close gap-up' edge — a bull T-signal that closes WEAK (close=O, below prior body) on a gap-up bar. Orthogonal to turbo_score (which is anti-predictive at the high end). Backtest +0.84 sp500 / +0.70 r2k, positive 5/6 years."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
@@ -2722,7 +2752,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
             const v = !shortFilter; setShortFilter(v)
             if (v) { setAtomicFilter(false); setCapFilter(false) }   // Short (short) vs Atomic/Capit (long) — mutually exclusive
             // cached results may predate the short-age enrichment → pull fresh (fast, no re-scan)
-            if (v && !allResults.some(r => r.short_age != null)) fetchFreshResults(localTf, universe)
+            if (v && !allResults.some(r => r.short_age != null)) fetchEnrichmentMerge(localTf, universe)
           }}
           title="⚡ Blow-off Short: 5-year-validated fade edge — a volume CLIMAX bar (V×5/V×10) that closes WEAK (close=O) = exhaustion → short the fade. +10.8…+13.4 clip25-lift, 6/6 years (WHAT_ACTUALLY_WORKS.md). ⚠️ short tail risk: ~1/20 trade is a >50% squeeze — size small, hard stop."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
@@ -2736,7 +2766,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
           onClick={() => {
             const v = !capFilter; setCapFilter(v)
             if (v) setShortFilter(false)   // Capit (long) vs Short — opposite directions
-            if (v && !allResults.some(r => r.cap_age != null)) fetchFreshResults(localTf, universe)
+            if (v && !allResults.some(r => r.cap_age != null)) fetchEnrichmentMerge(localTf, universe)
           }}
           title="💥 Capitulation Bounce — the one edge that survived rigorous gap-aware path-sim (+4.6% cost-adj, 5/6 yrs) while every breakout/momentum signal failed. CORE: L34/L46 VSA bar + RSI<30 + CCI<-100 (aligned deep oversold = Wyckoff selling-climax spring; CCI is the knife-guard). REFINED: 20-bar drawdown sweet-spot is a -45..-10% flush (+1.12, 6/6); a >-60% collapse is a falling knife (-4.65, 0/6) → excluded. RED flush + ~2x vol + coil (BLUE/FRI64) add. ⚠️ EXIT = HOLD ~15-20 days, NO stop — a tight stop cuts the bounce (validated: hold +4.6% vs -15%-stop +1.5%); sit through ~-7% MAE; diversify (a minority still knife)."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
@@ -2750,7 +2780,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
           onClick={() => {
             const v = !momFilter; setMomFilter(v)
             if (v) setShortFilter(false)   // Momentum (long) vs Short — opposite directions
-            if (v && !allResults.some(r => r.mom_age != null)) fetchFreshResults(localTf, universe)
+            if (v && !allResults.some(r => r.mom_age != null)) fetchEnrichmentMerge(localTf, universe)
           }}
           title="🚀 Momentum Zone-Dense: the markup mirror of Capit (L_LINE_DISCOVERIES.md) — buy the COIL inside an uptrend, not the breakout. A dense L34/L46 accumulation churn (≥6 in last 10 bars) + RSI 40-65 (markup band) + squeeze & load (the coil) + price flat/rising. median fwd_10d +1.15, 5/6 years. NB: density-only or chasing strength (L3 markup, price already +10%) does NOT work — the edge is the compression, not the chase."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
@@ -2765,7 +2795,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
             const v = !postCapitFilter; setPostCapitFilter(v)
             if (v) setShortFilter(false)   // Capit→Atom (long) vs Short — opposite directions
             // cached results may predate the post-capit enrichment → pull fresh (fast, no re-scan)
-            if (v && !allResults.some(r => r.atomic_age != null)) fetchFreshResults(localTf, universe)
+            if (v && !allResults.some(r => r.atomic_age != null)) fetchEnrichmentMerge(localTf, universe)
           }}
           title="🔥 Capit→Atom confluence — a weak-close gap-up (Atomic) that FOLLOWS a recent B+ capitulation on the same ticker (≤15d). The capitulation confirms the bottom; the gap-up is the continuation entry. Validated this session: rich+capit≤10d win 67%, med +4.2% vs +1.4% baseline; survives price-control, dedup (510 tickers) and ex-cluster. The premium subset of the Atomic edge — also rescues good <$16 names that the price floor alone would drop."
           className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
