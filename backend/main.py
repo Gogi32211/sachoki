@@ -1508,6 +1508,46 @@ def _diagnose_260523_columns(results: list, requested: dict) -> list:
     return warnings
 
 
+def _enrich_prebreak_scores(results: list, universe: str) -> list:
+    """Attach prebreak_v2 / prebreak_v3 / prebreak_score (the V2 / V3 columns) from the
+    DB's latest bar per ticker. The ULTRA Turbo cache does NOT carry these and the
+    stock_stat-CSV enrichment doesn't either, so without this the V2/V3 columns go BLANK
+    whenever the screener (re)loads the scan snapshot — e.g. when a profile filter
+    triggers a fresh fetch. Additive, read-only; never touches the canonical score."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                SELECT ticker, prebreak_v2, prebreak_v3, prebreak_score
+                FROM bars WHERE universe=? AND ticker IN ({ph})
+                QUALIFY row_number() OVER (PARTITION BY ticker ORDER BY date DESC) = 1
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("prebreak-score enrich failed: %s", exc)
+        return results
+    info = {}
+    for _, r in df.iterrows():
+        info[str(r["ticker"])] = r
+    for r in results:
+        row = info.get(r.get("ticker"))
+        if row is None:
+            continue
+        for c in ("prebreak_v2", "prebreak_v3", "prebreak_score"):
+            v = row[c]
+            if v is not None and not (isinstance(v, float) and v != v):  # skip None/NaN
+                r[c] = float(v)
+    return results
+
+
 def _enrich_atomic(results: list, universe: str, lookback_n: int = 3, capit_window: int = 15) -> list:
     """Attach the 5-year-validated 'weak-close gap-up' atomic flags to each Ultra
     result row (additive, orthogonal to turbo_score). Scans each ticker's LAST
@@ -5368,6 +5408,7 @@ def api_ultra_scan_results(
                 pb_wvf_confirm=pb_wvf_confirm, pb_macro_penalty=pb_macro_penalty,
                 wyc_in_tr=wyc_in_tr, wyc_sow=wyc_sow,
             )
+            results = _enrich_prebreak_scores(results, universe)   # V2/V3 from DB (Turbo cache lacks them)
             results = _enrich_atomic(results, universe, lookback_n=atomic_lookback)
             results = _enrich_atomic_short(results, universe, lookback_n=atomic_lookback)
             results = _enrich_capitulation(results, universe, lookback_n=atomic_lookback)

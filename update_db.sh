@@ -68,16 +68,25 @@ PY
 API="http://127.0.0.1:$PORT/api"
 if [ "${NO_RESCAN:-0}" != "1" ]; then
   echo "── ULTRA re-scan (screener snapshot) ───────"
+  _running() { curl -s --max-time 8 "$API/ultra-scan/status" | python3 -c "import sys,json;print(json.load(sys.stdin).get('running',True))" 2>/dev/null; }
+  _snap() { curl -s --max-time 8 "$API/ultra-scan/results?universe=$1&tf=1d" | python3 -c "import sys,json;print(json.load(sys.stdin).get('last_scan',''))" 2>/dev/null; }
   for u in sp500 nasdaq russell2k; do
     printf "  🔄 %-10s" "$u"
-    curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d" >/dev/null 2>&1
-    sleep 2
-    for i in $(seq 1 180); do                      # wait up to ~15 min per universe
-      run=$(curl -s --max-time 8 "$API/ultra-scan/status" | python3 -c "import sys,json;print(json.load(sys.stdin).get('running',False))" 2>/dev/null)
-      [ "$run" != "True" ] && break
+    # 1) wait for any in-flight scan to clear so our trigger isn't rejected (409)
+    until [ "$(_running)" = "False" ]; do sleep 3; done
+    old=$(_snap "$u")
+    # 2) trigger (retry once if it 409s because a scan slipped in)
+    resp=$(curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d")
+    echo "$resp" | grep -q "already running" && { until [ "$(_running)" = "False" ]; do sleep 3; done; curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d" >/dev/null; }
+    sleep 3
+    # 3) wait for THIS scan to finish (default-True on status hiccup → never break early)
+    for i in $(seq 1 180); do
+      [ "$(_running)" = "False" ] && break
       sleep 5
     done
-    echo "done"
+    # 4) VERIFY the snapshot timestamp actually advanced
+    new=$(_snap "$u")
+    if [ -n "$new" ] && [ "$new" != "$old" ]; then echo "done ✓"; else echo "⚠ NOT refreshed (still $old)"; fi
   done
 else
   echo "  (ULTRA re-scan გამოტოვდა — NO_RESCAN=1)"
