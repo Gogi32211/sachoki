@@ -950,13 +950,21 @@ function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelCol
         {hint && <span className="font-normal text-md-on-surface-var/45">· {hint}</span>}
       </div>
       <div className="flex gap-2 flex-wrap items-stretch">
-        <div className="rounded border border-lime-700/30 bg-lime-900/15 px-2 py-1 flex-1 min-w-[170px]">
-          <div className="text-[10px] text-lime-300 font-semibold mb-0.5">↗ Next pivot HH · <span className="font-mono">{o.hh_pct ?? '—'}%</span> <span className="text-md-on-surface-var/55 font-normal">({o.hh_count}/{o.next_pivot_known})</span></div>
-          <div className="text-[10px] font-mono text-md-on-surface-var">avg gain <span className="text-lime-400">{o.avg_pct_to_hh ?? '—'}%</span> · {o.avg_bars_to_hh ?? '—'} bars</div>
+        <div className="rounded border border-lime-700/30 bg-lime-900/15 px-3 py-2 flex-1 min-w-[210px]">
+          <div className="text-[11px] text-lime-300 font-semibold mb-1">↗ Next pivot HH</div>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-2xl font-mono font-bold text-lime-300">{o.hh_pct ?? '—'}%</span>
+            <span className="text-[10px] text-md-on-surface-var/60">({o.hh_count}/{o.next_pivot_known})</span>
+          </div>
+          <div className="text-[12px] font-mono text-md-on-surface-var">avg gain <span className="text-lime-400 font-bold">{o.avg_pct_to_hh ?? '—'}%</span> · <span className="text-md-on-surface">{o.avg_bars_to_hh ?? '—'}</span> bars</div>
         </div>
-        <div className="rounded border border-amber-700/30 bg-amber-900/15 px-2 py-1 flex-1 min-w-[170px]">
-          <div className="text-[10px] text-amber-300 font-semibold mb-0.5">↘ Next pivot HL · <span className="font-mono">{o.hl_pct ?? '—'}%</span> <span className="text-md-on-surface-var/55 font-normal">({o.hl_count}/{o.next_pivot_known})</span></div>
-          <div className="text-[10px] font-mono text-md-on-surface-var">avg drawdown <span className="text-amber-400">{o.avg_pct_to_hl ?? '—'}%</span> · {o.avg_bars_to_hl ?? '—'} bars</div>
+        <div className="rounded border border-amber-700/30 bg-amber-900/15 px-3 py-2 flex-1 min-w-[210px]">
+          <div className="text-[11px] text-amber-300 font-semibold mb-1">↘ Next pivot HL</div>
+          <div className="flex items-baseline gap-2 mb-1">
+            <span className="text-2xl font-mono font-bold text-amber-300">{o.hl_pct ?? '—'}%</span>
+            <span className="text-[10px] text-md-on-surface-var/60">({o.hl_count}/{o.next_pivot_known})</span>
+          </div>
+          <div className="text-[12px] font-mono text-md-on-surface-var">avg drawdown <span className="text-amber-400 font-bold">{o.avg_pct_to_hl ?? '—'}%</span> · <span className="text-md-on-surface">{o.avg_bars_to_hl ?? '—'}</span> bars</div>
         </div>
         <Fwd u={fwdUnits[0]} avg={o.avg_fwd_5d}  win={o.win_5d_pct}  n={o.fwd_5d_n} />
         <Fwd u={fwdUnits[1]} avg={o.avg_fwd_10d} win={o.win_10d_pct} n={o.fwd_10d_n} />
