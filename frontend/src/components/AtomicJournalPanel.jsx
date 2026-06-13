@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, Fragment } from 'react'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -121,12 +121,19 @@ function Replay() {
   const [cw, setCw] = useState(15)
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [openMonth, setOpenMonth] = useState(null)
   const run = (m, w) => {
-    setMonths(m); setCw(w); setLoading(true); setD(null)
+    setMonths(m); setCw(w); setLoading(true); setD(null); setOpenMonth(null)
     fetch(`/api/atomic-journal/replay?months=${m}&capit_window=${w}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
   }
   const s = d?.stats || {}
   const pc = s.post_capit
+  const tradesByMonth = useMemo(() => {
+    const g = {}
+    for (const t of (d?.trades || [])) (g[t.month] ||= []).push(t)
+    for (const k in g) g[k].sort((a, b) => (a.open_date < b.open_date ? -1 : 1))
+    return g
+  }, [d])
   return (
     <div>
       <div className="flex items-center flex-wrap gap-2 mb-3 text-xs">
@@ -166,14 +173,41 @@ function Replay() {
               <Kpi label="Median" v={fmtPct(pc.median_pnl)} />
             </div>
           )}
-          <div className="text-sm font-semibold mb-1">By month</div>
+          <div className="text-sm font-semibold mb-1">By month <span className="text-[10px] text-md-on-surface-var/50 font-normal">— click a month to see every trade (ticker · bought · exit · P&L)</span></div>
           <table className="w-full text-xs mb-3"><thead><tr className="border-b border-white/10">
             <Th>Month</Th><Th r>Trades</Th><Th r>Win%</Th><Th r>Avg P&L</Th></tr></thead>
-            <tbody>{(d.by_month || []).map(m => (
-              <tr key={m.month} className="border-b border-white/[0.04]">
-                <Td>{m.month}</Td><Td r>{m.n}</Td><Td r>{m.win_rate}%</Td>
-                <Td r cls={pnlC(m.avg_pnl)}>{fmtPct(m.avg_pnl)}</Td>
-              </tr>))}</tbody></table>
+            <tbody>{(d.by_month || []).map(m => {
+              const open = openMonth === m.month
+              const tr = tradesByMonth[m.month] || []
+              return (
+              <Fragment key={m.month}>
+                <tr className="border-b border-white/[0.04] cursor-pointer hover:bg-white/[0.04]"
+                    onClick={() => setOpenMonth(open ? null : m.month)}>
+                  <Td><span className="text-md-on-surface-var/40 mr-1">{open ? '▾' : '▸'}</span>{m.month}</Td>
+                  <Td r>{m.n}</Td><Td r>{m.win_rate}%</Td>
+                  <Td r cls={pnlC(m.avg_pnl)}>{fmtPct(m.avg_pnl)}</Td>
+                </tr>
+                {open && (
+                  <tr><td colSpan={4} className="px-2 py-2 bg-black/20">
+                    <table className="w-full text-[11px]"><thead><tr className="text-md-on-surface-var/60 border-b border-white/10">
+                      <th className="text-left px-1 py-0.5">Ticker</th><th className="text-left px-1">Bought (open)</th>
+                      <th className="text-left px-1">Exit</th><th className="text-right px-1">Entry</th>
+                      <th className="text-right px-1">Exit$</th><th className="text-right px-1">P&L</th>
+                      <th className="text-left px-1">Reason</th></tr></thead>
+                      <tbody>{tr.map((t, i) => (
+                        <tr key={i} className="border-b border-white/[0.03]">
+                          <td className="px-1 py-0.5 font-mono font-semibold">{t.ticker}{t.post_capit ? ' 🔥' : ''}</td>
+                          <td className="px-1 text-md-on-surface-var">{t.open_date}</td>
+                          <td className="px-1 text-md-on-surface-var">{t.close_date}</td>
+                          <td className="px-1 text-right font-mono">${t.entry}</td>
+                          <td className="px-1 text-right font-mono">${t.exit}</td>
+                          <td className={`px-1 text-right font-mono ${pnlC(t.pnl)}`}>{fmtPct(t.pnl)}</td>
+                          <td className="px-1 text-md-on-surface-var/70">{t.reason}</td>
+                        </tr>))}</tbody></table>
+                  </td></tr>
+                )}
+              </Fragment>
+            )})}</tbody></table>
           <p className="text-[10px] text-md-on-surface-var/50">Retroactive track record — entry = next-session open, −15% stop / +100% target / 20-bar, one open per ticker, equal 4% paper bets. Tail-driven (the +100% target rarely hits but big winners carry it). Honest backtest, not a guarantee.</p>
         </>
       )}

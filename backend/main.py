@@ -689,7 +689,7 @@ def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: in
     from ai_journal.atomic_journal import replay
     try:
         return replay(months=months, universe=(universe or None), min_score=min_score,
-                      capit_window=capit_window)
+                      capit_window=capit_window, limit=1_000_000)   # all trades → per-month detail
     except Exception as e:
         log.exception("atomic replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
@@ -743,7 +743,8 @@ def api_capit_journal_replay(months: int = 6, universe: str = "", min_score: int
     — for the A/B/stability bake-off. Builds the track record retroactively."""
     from ai_journal.capit_journal import replay
     try:
-        return replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe)
+        return replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe,
+                      limit=1_000_000)   # all trades → per-month detail
     except Exception as e:
         log.exception("capit replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
