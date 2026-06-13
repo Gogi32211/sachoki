@@ -1086,22 +1086,22 @@ def exact_sequence(req: ExactSequenceRequest):
     """
     try:
         tf = (req.tf or "1d").lower()
-        if tf == "1h":
-            # query the intraday DB (slow — 34M bars; the UI loads this async)
+        if tf in ("1h", "4h", "30m", "15m"):
+            # query a separate intraday DB (slow — tens of M bars; UI loads it async)
             import os as _os
-            db1h = _os.path.expanduser("~/Downloads/studio_1h.duckdb")
-            if not _os.path.exists(db1h):
-                return {"matches": 0, "tf": "1h", "error": "1H DB not built yet"}
+            dbtf = _os.path.expanduser(f"~/Downloads/studio_{tf}.duckdb")
+            if not _os.path.exists(dbtf):
+                return {"matches": 0, "tf": tf, "error": f"{tf} DB not built yet"}
             import duckdb as _duckdb
-            c1h = _duckdb.connect(db1h, read_only=True)
+            ctf = _duckdb.connect(dbtf, read_only=True)
             try:
                 r = query_exact_sequence(
                     bars=req.bars, universe=req.universe,
-                    strictness=req.strictness, pivot_lr=req.pivot_lr, conn=c1h,
+                    strictness=req.strictness, pivot_lr=req.pivot_lr, conn=ctf,
                 )
             finally:
-                c1h.close()
-            r["tf"] = "1h"
+                ctf.close()
+            r["tf"] = tf
             return r
         # default: 1D (fast)
         return query_exact_sequence(

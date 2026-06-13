@@ -974,6 +974,15 @@ function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelCol
   )
 }
 
+// Intraday timeframes compared under the 1D band (each loaded async, slowest last).
+// Ordered 4H → 1H (descending timeframe after the 1D band on top).
+const SEQ_INTRADAY = [
+  { tf: '4h', label: '⏱ 4H · same sequence on 4-hour bars', units: ['5 bars', '10 bars', '20 bars'],
+    hint: 'fwd = N bars (≈ N×4 hours)', accent: 'border-violet-700/40 bg-violet-900/15', color: 'text-violet-300' },
+  { tf: '1h', label: '⏱ 1H · same sequence on hourly bars', units: ['5 bars', '10 bars', '20 bars'],
+    hint: 'fwd = N bars (≈ hours), not days', accent: 'border-sky-700/40 bg-sky-900/15', color: 'text-sky-300' },
+]
+
 function ExactSequenceTab() {
   const [bars, setBars] = useState([
     { ...EXACT_EMPTY_BAR },
@@ -988,8 +997,8 @@ function ExactSequenceTab() {
   const [result,   setResult]   = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
-  const [tf1h,        setTf1h]        = useState(null)   // 1H comparison (loaded async)
-  const [tf1hLoading, setTf1hLoading] = useState(false)
+  const [tfData,    setTfData]    = useState({})   // { '4h': result, '1h': result } — loaded async
+  const [tfLoading, setTfLoading] = useState({})   // { '4h': bool, '1h': bool }
 
   const updateBar = (i, newBar) =>
     setBars(prev => prev.map((b, j) => j === i ? newBar : b))
@@ -1008,7 +1017,7 @@ function ExactSequenceTab() {
   }
 
   const run = async () => {
-    setLoading(true); setError(null); setResult(null); setTf1h(null)
+    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({})
     try {
       // "both" → omit universe (backend treats null as "all universes")
       const body = { bars, strictness: strict, pivot_lr: pivotLr }
@@ -1016,13 +1025,16 @@ function ExactSequenceTab() {
       const r = await api.studioExactSequence(body)
       if (r.error) { setError(r.error); return }
       setResult(r)
-      // 1H is a 34M-bar query (~20s) — load it in the BACKGROUND so 1D stays instant
+      // intraday DBs are tens-of-M-bar queries (~10-20s) — load each in the BACKGROUND
+      // so the 1D band stays instant.
       if (r.matches > 0) {
-        setTf1hLoading(true)
-        api.studioExactSequence({ ...body, tf: '1h' })
-          .then(h => setTf1h(h))
-          .catch(e => setTf1h({ error: e.message }))
-          .finally(() => setTf1hLoading(false))
+        SEQ_INTRADAY.forEach(({ tf }) => {
+          setTfLoading(p => ({ ...p, [tf]: true }))
+          api.studioExactSequence({ ...body, tf })
+            .then(h => setTfData(p => ({ ...p, [tf]: h })))
+            .catch(e => setTfData(p => ({ ...p, [tf]: { error: e.message } })))
+            .finally(() => setTfLoading(p => ({ ...p, [tf]: false })))
+        })
       }
     } catch (e) { setError(e.message) }
     finally     { setLoading(false) }
@@ -1171,26 +1183,23 @@ function ExactSequenceTab() {
                        fwdUnits={['5d', '10d', '20d']}
                        accent="border-emerald-700/30 bg-emerald-900/10" />
 
-              {/* 1H band — SAME sequence on hourly bars, loaded async (34M-bar query) */}
-              {tf1hLoading && (
-                <div className="rounded border border-sky-700/30 bg-sky-900/10 px-2 py-2 text-[10px] text-sky-300/80 animate-pulse">
-                  ⏱ loading 1H comparison (same sequence on 34M hourly bars)…
-                </div>
-              )}
-              {tf1h && !tf1h.error && tf1h.matches > 0 && (
-                <SeqBand o={tf1h.outcomes} label="⏱ 1H · same sequence on hourly bars"
-                         labelColor="text-sky-300"
-                         fwdUnits={['5 bars', '10 bars', '20 bars']}
-                         matches={tf1h.matches} baseline={tf1h.baseline}
-                         hint="fwd = N bars (≈ hours), not days"
-                         accent="border-sky-700/40 bg-sky-900/15" />
-              )}
-              {tf1h && !tf1h.error && tf1h.matches === 0 && (
-                <div className="text-[9px] text-md-on-surface-var/50">⏱ 1H: 0 matches for this sequence on hourly bars</div>
-              )}
-              {tf1h?.error && (
-                <div className="text-[9px] text-amber-400/60">⏱ 1H unavailable: {tf1h.error}</div>
-              )}
+              {/* Intraday bands — SAME sequence on 4H / 1H bars, each loaded async */}
+              {SEQ_INTRADAY.map(({ tf, label, units, hint, accent, color }) => {
+                const d = tfData[tf]
+                if (tfLoading[tf]) return (
+                  <div key={tf} className={cls('rounded border px-2 py-2 text-[10px] animate-pulse', accent, color)}>
+                    ⏱ loading {tf.toUpperCase()} comparison (same sequence on intraday bars)…
+                  </div>
+                )
+                if (!d) return null
+                if (d.error) return <div key={tf} className="text-[9px] text-amber-400/60">⏱ {tf.toUpperCase()} unavailable: {d.error}</div>
+                if (d.matches === 0) return <div key={tf} className="text-[9px] text-md-on-surface-var/50">⏱ {tf.toUpperCase()}: 0 matches for this sequence</div>
+                return (
+                  <SeqBand key={tf} o={d.outcomes} label={label} labelColor={color}
+                           fwdUnits={units} matches={d.matches} baseline={d.baseline}
+                           hint={hint} accent={accent} />
+                )
+              })}
 
               {/* Active strictness footer */}
               <div className="text-[9px] text-md-on-surface-var/50 font-mono">
