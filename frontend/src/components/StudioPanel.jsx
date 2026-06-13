@@ -929,6 +929,43 @@ function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
   )
 }
 
+// One compact outcomes band: HH / HL pivot boxes + 5/10/20 forward-return cells,
+// all in a single row. Reused for 1D and 1H so the two timeframes line up.
+function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelColor }) {
+  if (!o) return null
+  const Fwd = ({ u, avg, win, n }) => (
+    <div className="rounded bg-md-surface-high/40 px-2 py-1 text-center min-w-[82px]">
+      <div className="text-[9px] text-md-on-surface-var/60">{u}</div>
+      <div className={cls('text-base font-mono font-bold',
+        avg > 0 ? 'text-lime-400' : avg < 0 ? 'text-red-400' : 'text-md-on-surface-var')}>
+        {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}</div>
+      <div className="text-[8px] text-md-on-surface-var/55">w {win ?? '—'}% · n {fmtNum(n)}</div>
+    </div>
+  )
+  return (
+    <div className={cls('rounded border p-2', accent)}>
+      <div className="text-[10px] font-semibold mb-1.5 flex flex-wrap items-baseline gap-x-2">
+        <span className={labelColor}>{label}</span>
+        {matches != null && <span className="font-mono text-md-on-surface-var/70">{fmtNum(matches)} matches{baseline ? ` · ${(matches / baseline * 100).toFixed(3)}%` : ''}</span>}
+        {hint && <span className="font-normal text-md-on-surface-var/45">· {hint}</span>}
+      </div>
+      <div className="flex gap-2 flex-wrap items-stretch">
+        <div className="rounded border border-lime-700/30 bg-lime-900/15 px-2 py-1 flex-1 min-w-[170px]">
+          <div className="text-[10px] text-lime-300 font-semibold mb-0.5">↗ Next pivot HH · <span className="font-mono">{o.hh_pct ?? '—'}%</span> <span className="text-md-on-surface-var/55 font-normal">({o.hh_count}/{o.next_pivot_known})</span></div>
+          <div className="text-[10px] font-mono text-md-on-surface-var">avg gain <span className="text-lime-400">{o.avg_pct_to_hh ?? '—'}%</span> · {o.avg_bars_to_hh ?? '—'} bars</div>
+        </div>
+        <div className="rounded border border-amber-700/30 bg-amber-900/15 px-2 py-1 flex-1 min-w-[170px]">
+          <div className="text-[10px] text-amber-300 font-semibold mb-0.5">↘ Next pivot HL · <span className="font-mono">{o.hl_pct ?? '—'}%</span> <span className="text-md-on-surface-var/55 font-normal">({o.hl_count}/{o.next_pivot_known})</span></div>
+          <div className="text-[10px] font-mono text-md-on-surface-var">avg drawdown <span className="text-amber-400">{o.avg_pct_to_hl ?? '—'}%</span> · {o.avg_bars_to_hl ?? '—'} bars</div>
+        </div>
+        <Fwd u={fwdUnits[0]} avg={o.avg_fwd_5d}  win={o.win_5d_pct}  n={o.fwd_5d_n} />
+        <Fwd u={fwdUnits[1]} avg={o.avg_fwd_10d} win={o.win_10d_pct} n={o.fwd_10d_n} />
+        <Fwd u={fwdUnits[2]} avg={o.avg_fwd_20d} win={o.win_20d_pct} n={o.fwd_20d_n} />
+      </div>
+    </div>
+  )
+}
+
 function ExactSequenceTab() {
   const [bars, setBars] = useState([
     { ...EXACT_EMPTY_BAR },
@@ -943,6 +980,8 @@ function ExactSequenceTab() {
   const [result,   setResult]   = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
+  const [tf1h,        setTf1h]        = useState(null)   // 1H comparison (loaded async)
+  const [tf1hLoading, setTf1hLoading] = useState(false)
 
   const updateBar = (i, newBar) =>
     setBars(prev => prev.map((b, j) => j === i ? newBar : b))
@@ -961,14 +1000,22 @@ function ExactSequenceTab() {
   }
 
   const run = async () => {
-    setLoading(true); setError(null); setResult(null)
+    setLoading(true); setError(null); setResult(null); setTf1h(null)
     try {
       // "both" → omit universe (backend treats null as "all universes")
       const body = { bars, strictness: strict, pivot_lr: pivotLr }
       if (uni !== 'both') body.universe = uni
       const r = await api.studioExactSequence(body)
-      if (r.error) setError(r.error)
-      else         setResult(r)
+      if (r.error) { setError(r.error); return }
+      setResult(r)
+      // 1H is a 34M-bar query (~20s) — load it in the BACKGROUND so 1D stays instant
+      if (r.matches > 0) {
+        setTf1hLoading(true)
+        api.studioExactSequence({ ...body, tf: '1h' })
+          .then(h => setTf1h(h))
+          .catch(e => setTf1h({ error: e.message }))
+          .finally(() => setTf1hLoading(false))
+      }
     } catch (e) { setError(e.message) }
     finally     { setLoading(false) }
   }
@@ -1111,100 +1158,30 @@ function ExactSequenceTab() {
                 </span>
               </div>
 
-              {/* HL/HH outcomes */}
-              <div className="grid grid-cols-2 gap-3">
-                {/* HH side */}
-                <div className="rounded border border-lime-700/30 bg-lime-900/15 p-3">
-                  <div className="text-[10px] text-lime-300 mb-1 font-semibold">↗ Next pivot is HH</div>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-2xl font-mono font-bold text-lime-300">{o.hh_pct ?? '—'}%</span>
-                    <span className="text-[10px] text-md-on-surface-var/70">({o.hh_count} / {o.next_pivot_known})</span>
-                  </div>
-                  <div className="text-[11px] text-md-on-surface-var font-mono space-y-0.5">
-                    <div>avg gain to HH: <span className="text-lime-400">{o.avg_pct_to_hh ?? '—'}%</span></div>
-                    <div>avg bars to HH: <span className="text-md-on-surface">{o.avg_bars_to_hh ?? '—'}</span></div>
-                  </div>
-                </div>
-                {/* HL side */}
-                <div className="rounded border border-amber-700/30 bg-amber-900/15 p-3">
-                  <div className="text-[10px] text-amber-300 mb-1 font-semibold">↘ Next pivot is HL (pullback)</div>
-                  <div className="flex items-baseline gap-2 mb-2">
-                    <span className="text-2xl font-mono font-bold text-amber-300">{o.hl_pct ?? '—'}%</span>
-                    <span className="text-[10px] text-md-on-surface-var/70">({o.hl_count} / {o.next_pivot_known})</span>
-                  </div>
-                  <div className="text-[11px] text-md-on-surface-var font-mono space-y-0.5">
-                    <div>avg drawdown to HL: <span className="text-amber-400">{o.avg_pct_to_hl ?? '—'}%</span></div>
-                    <div>avg bars to HL: <span className="text-md-on-surface">{o.avg_bars_to_hl ?? '—'}</span></div>
-                  </div>
-                </div>
-              </div>
+              {/* 1D band — HH/HL pivots + 5/10/20d forward returns, one row */}
+              <SeqBand o={o} label="1D" labelColor="text-emerald-300"
+                       fwdUnits={['5d', '10d', '20d']}
+                       accent="border-emerald-700/30 bg-emerald-900/10" />
 
-              {/* Fwd returns */}
-              <div className="rounded border border-md-outline-var bg-md-surface/30 p-3">
-                <div className="text-[10px] text-md-on-surface-var/70 mb-2">Forward close-to-close returns</div>
-                <div className="grid grid-cols-3 gap-3 text-center">
-                  {[
-                    ['5d',  o.avg_fwd_5d,  o.win_5d_pct,  o.fwd_5d_n],
-                    ['10d', o.avg_fwd_10d, o.win_10d_pct, o.fwd_10d_n],
-                    ['20d', o.avg_fwd_20d, o.win_20d_pct, o.fwd_20d_n],
-                  ].map(([tf, avg, win, n]) => (
-                    <div key={tf} className="rounded bg-md-surface-high/40 p-2">
-                      <div className="text-[9px] text-md-on-surface-var/70">{tf}</div>
-                      <div className={cls(
-                        'text-lg font-mono font-bold',
-                        avg > 0 ? 'text-lime-400'
-                          : avg < 0 ? 'text-red-400'
-                          : 'text-md-on-surface-var')}>
-                        {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}
-                      </div>
-                      <div className="text-[9px] text-md-on-surface-var/60">
-                        win {win ?? '—'}% · n={n}
-                      </div>
-                    </div>
-                  ))}
+              {/* 1H band — SAME sequence on hourly bars, loaded async (34M-bar query) */}
+              {tf1hLoading && (
+                <div className="rounded border border-sky-700/30 bg-sky-900/10 px-2 py-2 text-[10px] text-sky-300/80 animate-pulse">
+                  ⏱ loading 1H comparison (same sequence on 34M hourly bars)…
                 </div>
-              </div>
-
-              {/* ── 1H timeframe comparison — SAME sequence on hourly bars ── */}
-              {result.tf_1h && !result.tf_1h.error && (result.tf_1h.matches > 0) && (() => {
-                const h = result.tf_1h.outcomes || {}
-                return (
-                  <div className="rounded border border-sky-700/40 bg-sky-900/15 p-3">
-                    <div className="text-[10px] text-sky-300 mb-2 font-semibold">
-                      ⏱ 1H timeframe — same sequence on hourly bars ·{' '}
-                      <span className="font-mono">{fmtNum(result.tf_1h.matches)}</span> matches
-                      {result.tf_1h.baseline ? ` (${(result.tf_1h.matches / result.tf_1h.baseline * 100).toFixed(3)}%)` : ''}
-                      <span className="text-md-on-surface-var/50 font-normal ml-1">· fwd = N bars (≈ N hours), not days</span>
-                    </div>
-                    <div className="grid grid-cols-3 gap-3 text-center mb-2">
-                      {[
-                        ['5 bars',  h.avg_fwd_5d,  h.win_5d_pct,  h.fwd_5d_n],
-                        ['10 bars', h.avg_fwd_10d, h.win_10d_pct, h.fwd_10d_n],
-                        ['20 bars', h.avg_fwd_20d, h.win_20d_pct, h.fwd_20d_n],
-                      ].map(([tf, avg, win, n]) => (
-                        <div key={tf} className="rounded bg-md-surface-high/40 p-2">
-                          <div className="text-[9px] text-md-on-surface-var/70">{tf}</div>
-                          <div className={cls('text-lg font-mono font-bold',
-                            avg > 0 ? 'text-lime-400' : avg < 0 ? 'text-red-400' : 'text-md-on-surface-var')}>
-                            {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}
-                          </div>
-                          <div className="text-[9px] text-md-on-surface-var/60">win {win ?? '—'}% · n={n}</div>
-                        </div>
-                      ))}
-                    </div>
-                    <div className="text-[10px] text-md-on-surface-var/70 font-mono">
-                      next pivot: HH <span className="text-lime-400">{h.hh_pct ?? '—'}%</span> ·
-                      HL <span className="text-amber-400">{h.hl_pct ?? '—'}%</span>
-                      <span className="text-md-on-surface-var/50"> (of {h.next_pivot_known ?? 0})</span>
-                    </div>
-                  </div>
-                )
-              })()}
-              {result.tf_1h && !result.tf_1h.error && result.tf_1h.matches === 0 && (
+              )}
+              {tf1h && !tf1h.error && tf1h.matches > 0 && (
+                <SeqBand o={tf1h.outcomes} label="⏱ 1H · same sequence on hourly bars"
+                         labelColor="text-sky-300"
+                         fwdUnits={['5 bars', '10 bars', '20 bars']}
+                         matches={tf1h.matches} baseline={tf1h.baseline}
+                         hint="fwd = N bars (≈ hours), not days"
+                         accent="border-sky-700/40 bg-sky-900/15" />
+              )}
+              {tf1h && !tf1h.error && tf1h.matches === 0 && (
                 <div className="text-[9px] text-md-on-surface-var/50">⏱ 1H: 0 matches for this sequence on hourly bars</div>
               )}
-              {result.tf_1h?.error && (
-                <div className="text-[9px] text-amber-400/60">⏱ 1H unavailable: {result.tf_1h.error}</div>
+              {tf1h?.error && (
+                <div className="text-[9px] text-amber-400/60">⏱ 1H unavailable: {tf1h.error}</div>
               )}
 
               {/* Active strictness footer */}
