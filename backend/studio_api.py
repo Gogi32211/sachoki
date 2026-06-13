@@ -1078,16 +1078,35 @@ class ExactSequenceRequest(BaseModel):
 @router.post("/exact-sequence")
 def exact_sequence(req: ExactSequenceRequest):
     """
-    Exact 5-line N-bar sequence match against enriched Studio DB.
-    Returns match count + HL/HH outcome statistics.
+    Exact 5-line N-bar sequence match against the enriched 1D Studio DB, AND — when a
+    separate intraday DB exists (~/Downloads/studio_1h.duckdb) — the SAME sequence run
+    against 1H bars under `tf_1h`, so a bar-sequence can be compared across timeframes.
+    (On 1H, fwd_Nd = N bars ≈ N trading hours ahead.) Returns match count + HL/HH stats.
     """
     try:
-        return query_exact_sequence(
+        res = query_exact_sequence(
             bars       = req.bars,
             universe   = req.universe,
             strictness = req.strictness,
             pivot_lr   = req.pivot_lr,
         )
+        import os as _os
+        db1h = _os.path.expanduser("~/Downloads/studio_1h.duckdb")
+        if _os.path.exists(db1h):
+            try:
+                import duckdb as _duckdb
+                c1h = _duckdb.connect(db1h, read_only=True)
+                try:
+                    res["tf_1h"] = query_exact_sequence(
+                        bars=req.bars, universe=req.universe,
+                        strictness=req.strictness, pivot_lr=req.pivot_lr, conn=c1h,
+                    )
+                finally:
+                    c1h.close()
+            except Exception as _e1h:
+                log.warning("exact_sequence 1H failed: %s", _e1h)
+                res["tf_1h"] = {"error": str(_e1h)}
+        return res
     except Exception as e:
         log.exception("exact_sequence failed")
         raise HTTPException(500, detail=str(e))

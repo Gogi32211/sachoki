@@ -15,87 +15,10 @@ import { api } from '../api'
 import StudioDatePicker from './StudioDatePicker'
 import SignalChip from './SignalChip'
 import CodeCandleChart from './CodeCandleChart'
+import { colLabel as colToLabel } from '../utils/colLabels'
 
-// ── DB column → display label (used by SignalChip) ───────────────────────────
-const COL_TO_LABEL = {
-  // Volume / VABS
-  sig_va:'VA', sig_abs:'ABS', sig_clm:'CLM', sig_bc:'BC', sig_sc:'SC',
-  sig_best:'BEST', sig_strong:'STR', sig_best_up:'BEST↑', sig_ns_vabs:'NS',
-  sig_nd_vabs:'ND', sig_vbo_dn:'VBO↓', vbo_up:'VBO↑',
-  sig_vol_5x:'V×5', sig_vol_10x:'V×10', sig_vol_20x:'V×20',
-  sig_fbo_up:'FBO↑', sig_fbo_dn:'FBO↓', sig_eb_up:'EB↑', sig_eb_dn:'EB↓',
-  sig_3up:'3UP',
-  // L / WLNBB
-  sig_fri34:'FRI34', sig_fri43:'FRI43', sig_fri64:'FRI64',
-  sig_l555:'L555', sig_l2l4:'L2L4', sig_blue:'BL',
-  sig_cci:'CCI', sig_cci0r:'CCI0R', sig_ccib:'CCIB',
-  sig_rl:'RL', sig_rh:'RH', sig_pp:'PP',
-  sig_l_any:'L★', sig_be_any:'BE★',
-  l34:'L34', l43:'L43', l22:'L22',
-  be_up:'BE↑', bo_up:'BO↑', bx_up:'BX↑',
-  // GOG
-  sig_g1:'G1', sig_g2:'G2', sig_g4:'G4', sig_g6:'G6', sig_g11:'G11',
-  sig_gog_plus:'GOG+', g1p:'G1P', g2p:'G2P', g3p:'G3P',
-  g1l:'G1L', g2l:'G2L', g1c:'G1C', g2c:'G2C', g3c:'G3C',
-  // B signals (B1–B11) retired from display
-  // F signals
-  sig_f1:'F1', sig_f2:'F2', sig_f3:'F3', sig_f4:'F4', sig_f5:'F5',
-  sig_f6:'F6', sig_f7:'F7', sig_f8:'F8', sig_f9:'F9', sig_f10:'F10',
-  sig_f11:'F11', sig_any_f:'F★', f8:'F8',
-  // FLY
-  sig_fly_abcd:'ABCD', sig_fly_cd:'FLY-CD', sig_fly_bd:'FLY-BD', sig_fly_ad:'FLY-AD',
-  // WICK
-  sig_wk_up:'WK↑', sig_wk_dn:'WK↓',
-  sig_x1:'X1', sig_x2:'X2', sig_x1g:'X1G', sig_x3:'X3',
-  // TZ state
-  sig_tz:'TZ', sig_t:'T', sig_z:'Z', sig_tz3:'TZ3', sig_tz2:'TZ2',
-  sig_tz_flip:'TZ→2', sig_bias_up:'BIAS↑', sig_bias_dn:'BIAS↓',
-  // Individual T signals
-  sig_t1g:'T1G', sig_t2g:'T2G',
-  sig_t1:'T1', sig_t2:'T2', sig_t3:'T3', sig_t4:'T4',
-  sig_t5:'T5', sig_t6:'T6', sig_t7:'T7', sig_t8:'T8',
-  sig_t9:'T9', sig_t10:'T10', sig_t11:'T11', sig_t12:'T12',
-  // Individual Z signals
-  sig_z1g:'Z1G', sig_z2g:'Z2G',
-  sig_z1:'Z1', sig_z2:'Z2', sig_z3:'Z3', sig_z4:'Z4',
-  sig_z5:'Z5', sig_z6:'Z6', sig_z7:'Z7', sig_z8:'Z8',
-  sig_z9:'Z9', sig_z10:'Z10', sig_z11:'Z11', sig_z12:'Z12',
-  // EMA cross
-  sig_p2:'P2', sig_p3:'P3', sig_p50:'P50', sig_p55:'P55',
-  sig_p66:'P66', sig_p89:'P89', sig_any_p:'P★',
-  sig_d2:'D2', sig_d3:'D3', sig_d50:'D50', sig_d55:'D55',
-  sig_d66:'D66', sig_d89:'D89', sig_any_d:'D★',
-  // Combo / Momentum
-  sig_buy:'BUY', sig_3g:'3G', three_g:'3G', sig_conso:'CONSO', sig_svs:'SVS',
-  sig_cd:'CD', sig_ca:'CA', sig_cw:'CW', sig_seq_bcont:'BCONT',
-  sig_ns_delta:'NS-Δ', sig_nd_delta:'ND-Δ',
-  rocket:'ROCKET', hilo_buy:'HILO↑', svs:'SVS', sq:'SQ', load:'LD', f8_dup:'F8',
-  // Delta
-  sig_flp_up:'FLIP↑', sig_org_up:'ORG↑', sig_dd_up_red:'ΔΔ↑', sig_d_up_red:'Δ↑',
-  sig_d_dn_green:'Δ↓', sig_dd_dn_green:'ΔΔ↓',
-  // CISD
-  sig_cisd_cplus:'C+', sig_cisd_cplus_minus:'C±', sig_cisd_cplus_mm:'C±±',
-  // PARA
-  sig_para_prep:'PARA-P', sig_para_start:'PARA-S', sig_para_plus:'PARA+', sig_para_retest:'PARA-R',
-  // Meta
-  sig_not_ext:'NOT-EXT', already_extended_flag:'EXT⚠',
-  // 260523 / Wyckoff / AD
-  ad_fresh:'AD-FR', ad_cluster:'AD-CLU',
-  wyc_spring:'SPRING', wyc_sos:'SOS', wyc_in_tr:'INTR', wyc_sow:'SOW',
-  // Prebreak
-  prebreak_prime:'PRIME★', prebreak_ready:'READY', prebreak_watch:'WATCH',
-  pb_lvbo:'LVBO', pb_wvf_confirm:'WVF',
-  // Scores
-  turbo_score:'TURBO', turbo_score_n3:'T3', turbo_score_n5:'T5', turbo_score_n10:'T10',
-  // EMA position
-  price_gt_200:'↑200', price_gt_89:'↑89', price_gt_50:'↑50', price_gt_20:'↑20',
-  price_lt_200:'↓200', price_lt_89:'↓89', rsi_le_35:'RSI≤35', rsi_ge_70:'RSI≥70',
-  // Swing
-  swing_type:'SWING',
-}
-function colToLabel(col) {
-  return COL_TO_LABEL[col] || col.replace(/^sig_/, '').toUpperCase().replace(/_/g, '-')
-}
+// ── DB column → display label: now sourced from utils/colLabels (single source
+// of truth shared with the QLIB tab). `colToLabel` is imported above.
 
 // ── tiny design helpers ───────────────────────────────────────────────────────
 const cls = (...args) => args.filter(Boolean).join(' ')
@@ -962,9 +885,11 @@ const EXACT_LINE_LABELS = {
   line5: 'L5 — gap/range',
   line6: 'L6 — VIX/PSAR/RSI2',
   line7: 'L7 — volume (W/L/N/B/VB)',
+  line8: 'L8 — EMA cross (P/D)',
+  line9: 'L9 — RSI range (e.g. 20-35)',
 }
 
-const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '', line5: '', vol: '' }
+const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '', line5: '', vol: '', ema: '', rsi: '' }
 
 function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
   const upd = (k, v) => onChange({ ...bar, [k]: v })
@@ -984,6 +909,8 @@ function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
         ['gap_range', 'gap/rng', 'e.g. G1-C or *'],
         ['line5',     'l5',      'e.g. PS-R2X or *'],
         ['vol',       'volume',  'W/L/N/B/VB or *'],
+        ['ema',       'EMA P/D', 'P2 D50 P* D* or *'],
+        ['rsi',       'RSI rng', 'e.g. 20-35'],
       ].map(([k, lab, ph]) => (
         <div key={k} className="flex items-center gap-1 mb-1">
           <span className="text-[9px] text-md-on-surface-var/60 font-mono w-12">{lab}</span>
@@ -1011,7 +938,7 @@ function ExactSequenceTab() {
   const [uni,      setUni]      = useState('sp500')
   const [pivotLr,  setPivotLr]  = useState(3)
   const [strict,   setStrict]   = useState({
-    line1: true, line2: true, line3: false, line4: false, line5: false, line6: false, line7: false,
+    line1: true, line2: true, line3: false, line4: false, line5: false, line6: false, line7: false, line8: false, line9: false,
   })
   const [result,   setResult]   = useState(null)
   const [loading,  setLoading]  = useState(false)
@@ -1053,20 +980,25 @@ function ExactSequenceTab() {
       {/* Intro card */}
       <Card>
         <h3 className="text-sm font-semibold text-md-on-surface mb-1">
-          Exact 6-Line Sequence — HL/HH Predictor
+          Exact 9-Line Sequence — HL/HH Predictor
         </h3>
         <p className="text-xs text-md-on-surface-var">
-          Type each bar's chart codes — six independent lines:
+          Type each bar's chart codes — nine independent lines:
           {' '}<span className="font-mono">TZ</span> · <span className="font-mono">L (WLNBB)</span> ·
           {' '}<span className="font-mono">suffix</span> · <span className="font-mono">body/wick</span> ·
-          {' '}<span className="font-mono">gap/range</span> · <span className="font-mono">line5 (VIX/PSAR/RSI2)</span>.
+          {' '}<span className="font-mono">gap/range</span> · <span className="font-mono">line5 (VIX/PSAR/RSI2)</span> ·
+          {' '}<span className="font-mono">volume</span> · <span className="font-mono">EMA cross (P/D)</span> ·
+          {' '}<span className="font-mono">RSI range</span>.
           Backend searches the enriched Studio DB for exact historical matches and
           returns Williams-pivot HL/HH outcome statistics + forward returns.
-          Toggle <span className="font-mono">LINE1-6</span> chips to control which lines participate.
-          Use <span className="font-mono text-amber-300">*</span> as a wildcard:
-          {' '}<span className="font-mono text-amber-300">T*</span> = any T signal,
-          {' '}<span className="font-mono text-amber-300">L*</span> = any L signal,
-          {' '}<span className="font-mono text-amber-300">*</span> = any value in that field.
+          Toggle the <span className="font-mono">LINE</span> chips to control which lines participate.
+          Syntax: <span className="font-mono text-amber-300">*</span> = wildcard
+          (<span className="font-mono text-amber-300">T*</span> = any T);
+          {' '}<span className="font-mono text-rose-300">!</span> = NOT
+          (<span className="font-mono text-rose-300">T* !T1</span> = any T except T1);
+          {' '}space = OR (<span className="font-mono text-sky-300">T2 T3</span> = T2 or T3);
+          {' '}EMA line: <span className="font-mono">P2 D50 P* D*</span>;
+          {' '}RSI line: <span className="font-mono">20-35</span> (range).
         </p>
       </Card>
 
@@ -1232,6 +1164,48 @@ function ExactSequenceTab() {
                   ))}
                 </div>
               </div>
+
+              {/* ── 1H timeframe comparison — SAME sequence on hourly bars ── */}
+              {result.tf_1h && !result.tf_1h.error && (result.tf_1h.matches > 0) && (() => {
+                const h = result.tf_1h.outcomes || {}
+                return (
+                  <div className="rounded border border-sky-700/40 bg-sky-900/15 p-3">
+                    <div className="text-[10px] text-sky-300 mb-2 font-semibold">
+                      ⏱ 1H timeframe — same sequence on hourly bars ·{' '}
+                      <span className="font-mono">{fmtNum(result.tf_1h.matches)}</span> matches
+                      {result.tf_1h.baseline ? ` (${(result.tf_1h.matches / result.tf_1h.baseline * 100).toFixed(3)}%)` : ''}
+                      <span className="text-md-on-surface-var/50 font-normal ml-1">· fwd = N bars (≈ N hours), not days</span>
+                    </div>
+                    <div className="grid grid-cols-3 gap-3 text-center mb-2">
+                      {[
+                        ['5 bars',  h.avg_fwd_5d,  h.win_5d_pct,  h.fwd_5d_n],
+                        ['10 bars', h.avg_fwd_10d, h.win_10d_pct, h.fwd_10d_n],
+                        ['20 bars', h.avg_fwd_20d, h.win_20d_pct, h.fwd_20d_n],
+                      ].map(([tf, avg, win, n]) => (
+                        <div key={tf} className="rounded bg-md-surface-high/40 p-2">
+                          <div className="text-[9px] text-md-on-surface-var/70">{tf}</div>
+                          <div className={cls('text-lg font-mono font-bold',
+                            avg > 0 ? 'text-lime-400' : avg < 0 ? 'text-red-400' : 'text-md-on-surface-var')}>
+                            {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}
+                          </div>
+                          <div className="text-[9px] text-md-on-surface-var/60">win {win ?? '—'}% · n={n}</div>
+                        </div>
+                      ))}
+                    </div>
+                    <div className="text-[10px] text-md-on-surface-var/70 font-mono">
+                      next pivot: HH <span className="text-lime-400">{h.hh_pct ?? '—'}%</span> ·
+                      HL <span className="text-amber-400">{h.hl_pct ?? '—'}%</span>
+                      <span className="text-md-on-surface-var/50"> (of {h.next_pivot_known ?? 0})</span>
+                    </div>
+                  </div>
+                )
+              })()}
+              {result.tf_1h && !result.tf_1h.error && result.tf_1h.matches === 0 && (
+                <div className="text-[9px] text-md-on-surface-var/50">⏱ 1H: 0 matches for this sequence on hourly bars</div>
+              )}
+              {result.tf_1h?.error && (
+                <div className="text-[9px] text-amber-400/60">⏱ 1H unavailable: {result.tf_1h.error}</div>
+              )}
 
               {/* Active strictness footer */}
               <div className="text-[9px] text-md-on-surface-var/50 font-mono">
