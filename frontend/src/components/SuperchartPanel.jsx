@@ -294,7 +294,7 @@ function MiniCandle({ b, globalMin, globalRange, h = MINI_H }) {
 }
 
 export default function SuperchartPanel({
-  initialTicker = 'AAPL', initialTf = '1d',
+  initialTicker = 'AAPL', initialTf = '1d', initialTrade = null,
   onTickerChange,
 }) {
   const [ticker, setTicker]       = useState(initialTicker)
@@ -736,8 +736,11 @@ export default function SuperchartPanel({
         {error   && <span className="text-xs text-red-400">{error}</span>}
       </div>
 
-      {/* Candlestick chart — DB codes on 1d, live feed on intraday */}
-      <CodeCandleChart ticker={ticker} tf={tf} height={420} showSector />
+      {/* Candlestick chart — DB codes on 1d, live feed on intraday.
+          Journal trade overlay (signal/buy/sell) shows only while the chart is on the
+          trade's own ticker — changing ticker clears it. */}
+      <CodeCandleChart ticker={ticker} tf={tf} height={420} showSector
+        tradeMarkers={initialTrade && initialTrade.ticker === ticker ? initialTrade : null} />
 
       {/* Matrix */}
       {bars.length > 0 && (

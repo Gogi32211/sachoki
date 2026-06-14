@@ -135,7 +135,18 @@ def grade() -> dict:
 
 
 def replay(months: int = 6, universe: str | None = None, min_score: int = 60,
-           dv_floor: float = 300_000, limit: int = 200, recipe: str = "B") -> dict:
+           dv_floor: float = 300_000, limit: int = 200, recipe: str = "B",
+           entry_pct: float = 0.0, target_pct: float = 0.0, stop_pct: float = 0.0,
+           hold: int = HORIZON, entry_win: int = 5) -> dict:
+    """MANUAL params (all 0/default = the EXACT production journal, unchanged):
+      entry_pct  > 0 → buy via a LIMIT that % below the signal-bar close (fills only if a
+                       forward bar trades there within `entry_win` bars; else 'nofill').
+                       0 → market fill at next-open (production).
+      target_pct > 0 → take-profit that % above entry. 0 → no target (hold to horizon).
+      stop_pct   > 0 → stop-loss that % below entry (stop-first vs target). 0 → no stop
+                       (only the −35% catastrophe floor, production).
+      hold           → max bars held before a time-stop close (default 20).
+    Every trade also reports mfe/mae = the max up/down spike (%) between fill and exit."""
     """Historical backtest of the Capit edge over the last `months`, using the EXACT
     journal rules (entry = signal close, HOLD 20 bars, -35% catastrophe floor, one
     open per ticker). Builds the track record retroactively. Equal 4%-paper-bet sizing
@@ -193,7 +204,7 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 60,
     win_start = (_d.fromisoformat(as_of) - timedelta(days=int(months * 30.5))).isoformat()
     df["dstr"] = df.date.astype(str).str[:10]
 
-    trades, still_open, seen = [], 0, set()
+    trades, still_open, nofill, seen = [], 0, 0, set()
     for (tk, u), grp in df.groupby(["ticker", "universe"], sort=False):
         o = grp.open.to_numpy(); hi = grp.high.to_numpy(); lo = grp.low.to_numpy(); c = grp.close.to_numpy()
         capf = cap.loc[grp.index].to_numpy(); scn = grp.score.to_numpy()
@@ -203,34 +214,56 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 60,
         for i in range(n):
             if not capf[i] or scn[i] < min_score or ds[i] < win_start:
                 continue
-            if i - last < 20:            # one open per ticker (no re-entry while held)
+            if i - last < hold:          # one open per ticker (no re-entry while held)
                 continue
             key = (tk, ds[i])            # dedup the SAME signal across universes (sp500∩nasdaq)
             if key in seen:
                 continue
             if i + 1 >= n:               # next session hasn't printed → would be a PENDING fill
                 still_open += 1; continue
-            entry = o[i + 1]             # ENTRY = next session's OPEN (execution realism, not signal close)
+            # ── ENTRY: market next-open (production) OR a LIMIT a fixed % below signal close ──
+            if entry_pct > 0:
+                limit_px = c[i] * (1 - entry_pct)         # ref = signal-bar close
+                fj = None
+                for j in range(i + 1, min(i + 1 + entry_win, n)):
+                    if lo[j] <= limit_px:                 # gap-down fills at the open
+                        entry = min(o[j], limit_px) if o[j] < limit_px else limit_px
+                        fj = j; break
+                if fj is None:                            # limit never reached in the window
+                    nofill += 1; continue
+            else:
+                entry = o[i + 1]; fj = i + 1              # ENTRY = next session's OPEN
             if entry <= 0:
                 continue
             last = i; seen.add(key)
-            floor = entry * (1 - CATASTROPHE_PCT)
-            eend = min(i + 1 + HORIZON, n - 1)   # hold 20 bars FROM the entry bar (i+1)
+            # ── EXIT: stop-first path-sim — downside (stop / catastrophe) checked before target ──
+            floor   = entry * (1 - CATASTROPHE_PCT)
+            stop_px = entry * (1 - stop_pct)   if stop_pct   > 0 else None
+            tgt_px  = entry * (1 + target_pct) if target_pct > 0 else None
+            hold_end = min(fj + hold, n - 1)
             exit_px = reason = exit_date = None
-            for j in range(i + 2, eend + 1):
+            mfe = mae = 0.0                                # max up / down spike between fill and exit
+            for j in range(fj + 1, hold_end + 1):
+                mfe = max(mfe, (hi[j] / entry - 1) * 100)
+                mae = min(mae, (lo[j] / entry - 1) * 100)
+                if stop_px is not None and lo[j] <= stop_px:
+                    exit_px = min(stop_px, o[j]); reason = "stop"; exit_date = ds[j]; break
                 if lo[j] <= floor:
                     exit_px = min(floor, o[j]); reason = "catastrophe"; exit_date = ds[j]; break
+                if tgt_px is not None and hi[j] >= tgt_px:
+                    exit_px = o[j] if o[j] >= tgt_px else tgt_px; reason = "target"; exit_date = ds[j]; break
             if exit_px is None:
-                if i + 1 + HORIZON <= n - 1:
-                    exit_px = c[eend]; reason = "hold20"; exit_date = ds[eend]
+                if fj + hold <= n - 1:
+                    exit_px = c[hold_end]; reason = f"hold{hold}"; exit_date = ds[hold_end]
                 else:
-                    still_open += 1; continue   # not enough forward bars yet
+                    still_open += 1; continue             # not enough forward bars yet
             pnl = round((exit_px / entry - 1) * 100, 2)
             _chg = float(chgA[i]) if chgA[i] == chgA[i] else None
             _vx = float(vxA[i]) if vxA[i] == vxA[i] else None
-            trades.append({"ticker": tk, "universe": u, "signal_date": ds[i], "open_date": ds[i + 1],
+            trades.append({"ticker": tk, "universe": u, "signal_date": ds[i], "open_date": ds[fj],
                            "close_date": exit_date, "entry": round(entry, 2), "exit": round(exit_px, 2),
-                           "pnl": pnl, "reason": reason, "score": int(scn[i]), "month": ds[i + 1][:7],
+                           "pnl": pnl, "reason": reason, "score": int(scn[i]), "month": ds[fj][:7],
+                           "mfe": round(mfe, 1), "mae": round(mae, 1),
                            "chg20": round(_chg, 1) if _chg is not None else None,
                            "volx": round(_vx, 1) if _vx is not None else None})
 
@@ -256,6 +289,13 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 60,
         "total_pct": round(sum(pnls), 1) if pnls else 0,
         "equity_end": round(eq, 0), "equity_pct": round((eq / START_CAPITAL - 1) * 100, 1),
         "still_open": still_open,
+        # manual-mode extras (also harmlessly present in production: nofill=0, target_hit=None)
+        "nofill": nofill,
+        "fill_rate": round(len(trades) / (len(trades) + nofill) * 100, 1) if (len(trades) + nofill) else None,
+        "target_hit_pct": round(sum(1 for t in trades if t["reason"] == "target") / len(trades) * 100, 1) if trades else None,
+        "stop_hit_pct":   round(sum(1 for t in trades if t["reason"] == "stop")   / len(trades) * 100, 1) if trades else None,
+        "avg_mfe": round(float(np.mean([t["mfe"] for t in trades])), 1) if trades else None,
+        "avg_mae": round(float(np.mean([t["mae"] for t in trades])), 1) if trades else None,
     }
     return {"as_of": as_of, "months": months, "win_start": win_start,
             "stats": stats, "by_month": by_month, "curve": curve,

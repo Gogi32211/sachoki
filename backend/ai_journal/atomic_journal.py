@@ -133,7 +133,10 @@ def grade() -> dict:
 def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
            dv_floor: float = 500_000, limit: int = 200,
            price_floor: float = 16.0, exclude_vb: bool = True,
-           capit_window: int = 15, capit_rescue: bool = True) -> dict:
+           capit_window: int = 15, capit_rescue: bool = True,
+           conf_only: bool = False, manual: bool = False,
+           entry_pct: float = 0.0, target_pct: float = 0.0, stop_pct: float = 0.0,
+           hold: int = HORIZON, entry_win: int = 5) -> dict:
     """Historical backtest of the Atomic weak-close gap-up edge over the last `months`,
     using the EXACT journal rules: entry = NEXT session open (the 5-yr backtest's
     convention), -15% stop / +100% target / 20-bar horizon, gap-aware stop-first, one
@@ -216,42 +219,70 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
     sig = {(r.ticker, r.universe, r.dstr): (int(r.score), bool(r.post_capit)) for r in df.itertuples()
            if r.dstr >= win_start and int(r.score) >= min_score}
 
-    trades, still_open, seen = [], 0, set()
+    # effective sim params: production = fixed -15% stop / +100% target / 20-bar / next-open;
+    # MANUAL = hand-entered limit-entry %, target %, stop %, hold (0 = that leg disabled).
+    e_pct = entry_pct  if manual else 0.0
+    t_pct = target_pct if manual else TARGET_PCT
+    s_pct = stop_pct   if manual else STOP_PCT
+    hbars = (hold if manual else HORIZON)
+    ewin  = entry_win  if manual else 0
+    trades, still_open, nofill, seen = [], 0, 0, set()
     for (tk, u), grp in allb.groupby(["ticker", "universe"], sort=False):
         o = grp.open.to_numpy(); hi = grp.high.to_numpy(); lo = grp.low.to_numpy(); c = grp.close.to_numpy()
         ds = grp.dstr.to_numpy(); n = len(c)
         last = -999
         for i in range(n):
             hit = sig.get((tk, u, ds[i]))
-            if hit is None or i - last < 20:
+            if hit is None or i - last < hbars:
                 continue
             scn, pc = hit
             if (tk, ds[i]) in seen:
                 continue
             if i + 1 >= n:
                 still_open += 1; continue
-            entry = o[i + 1]
+            # ── ENTRY: market next-open (production) OR a LIMIT a fixed % below signal close ──
+            if e_pct > 0:
+                limit_px = c[i] * (1 - e_pct); fj = None
+                for j in range(i + 1, min(i + 1 + ewin, n)):
+                    if lo[j] <= limit_px:                    # gap-down fills at the open
+                        entry = min(o[j], limit_px) if o[j] < limit_px else limit_px
+                        fj = j; break
+                if fj is None:
+                    if not conf_only or pc:   # in the confluence journal, only count 🔥 signals
+                        nofill += 1
+                    continue
+            else:
+                entry = o[i + 1]; fj = i + 1
             if entry <= 0:
                 continue
             last = i; seen.add((tk, ds[i]))
-            stop = entry * (1 - STOP_PCT); target = entry * (1 + TARGET_PCT)
-            eend = min(i + 1 + HORIZON, n - 1)
+            # ── EXIT: stop-first path-sim (downside before target) ──
+            stop   = entry * (1 - s_pct) if s_pct > 0 else None
+            target = entry * (1 + t_pct) if t_pct > 0 else None
+            hold_end = min(fj + hbars, n - 1)
             exit_px = reason = exit_date = None
-            for j in range(i + 2, eend + 1):
-                if lo[j] <= stop:
+            mfe = mae = 0.0                                  # max up / down spike between fill and exit
+            for j in range(fj + 1, hold_end + 1):
+                mfe = max(mfe, (hi[j] / entry - 1) * 100)
+                mae = min(mae, (lo[j] / entry - 1) * 100)
+                if stop is not None and lo[j] <= stop:
                     exit_px = min(stop, o[j]); reason = "stop"; exit_date = ds[j]; break
-                if hi[j] >= target:
-                    exit_px = max(target, o[j]); reason = "target"; exit_date = ds[j]; break
+                if target is not None and hi[j] >= target:
+                    exit_px = max(target, o[j]) if o[j] >= target else target; reason = "target"; exit_date = ds[j]; break
             if exit_px is None:
-                if i + 1 + HORIZON <= n - 1:
-                    exit_px = c[eend]; reason = "time"; exit_date = ds[eend]
+                if fj + hbars <= n - 1:
+                    exit_px = c[hold_end]; reason = "time"; exit_date = ds[hold_end]
                 else:
                     still_open += 1; continue
             pnl = round((exit_px / entry - 1) * 100, 2)
-            trades.append({"ticker": tk, "universe": u, "signal_date": ds[i], "open_date": ds[i + 1],
+            trades.append({"ticker": tk, "universe": u, "signal_date": ds[i], "open_date": ds[fj],
                            "close_date": exit_date, "entry": round(entry, 2), "exit": round(exit_px, 2),
                            "pnl": pnl, "reason": reason, "score": scn, "post_capit": pc,
-                           "month": ds[i + 1][:7]})
+                           "mfe": round(mfe, 1), "mae": round(mae, 1), "month": ds[fj][:7]})
+
+    # CONFLUENCE journal: keep only 🔥post-capit trades (the validated Capit→Atomic subset)
+    if conf_only:
+        trades = [t for t in trades if t.get("post_capit")]
 
     pnls = [t["pnl"] for t in trades]
     wins = [p for p in pnls if p > 0]
@@ -275,6 +306,13 @@ def replay(months: int = 6, universe: str | None = None, min_score: int = 70,
         "target_pct": round(sum(1 for t in trades if t["reason"] == "target") / len(trades) * 100, 1) if trades else None,
         "equity_end": round(eq, 0), "equity_pct": round((eq / START_CAPITAL - 1) * 100, 1),
         "still_open": still_open,
+        "avg_mfe": round(float(np.mean([t["mfe"] for t in trades])), 1) if trades else None,
+        "avg_mae": round(float(np.mean([t["mae"] for t in trades])), 1) if trades else None,
+        "conf_only": conf_only,
+        "nofill": nofill,
+        "fill_rate": round(len(trades) / (len(trades) + nofill) * 100, 1) if (len(trades) + nofill) else None,
+        "target_hit_pct": round(sum(1 for t in trades if t["reason"] == "target") / len(trades) * 100, 1) if trades else None,
+        "stop_hit_pct":   round(sum(1 for t in trades if t["reason"] == "stop")   / len(trades) * 100, 1) if trades else None,
     }
     # premium 🔥post-capit tier (the validated Capit→Atomic confluence)
     pc = [t["pnl"] for t in trades if t.get("post_capit")]

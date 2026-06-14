@@ -107,7 +107,7 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
                 </tr>))}</tbody></table>}
         </>
       ) : sub === 'replay' ? (
-        <Replay />
+        <Replay onSelectTicker={onSelectTicker} />
       ) : (
         <Knowledge closed={closed} open={open} />
       )}
@@ -116,7 +116,7 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
 }
 
 // Replay: historical backtest of the atomic edge over a period, using the exact journal rules
-function Replay() {
+function Replay({ onSelectTicker }) {
   const [months, setMonths] = useState(6)
   const [cw, setCw] = useState(15)
   const [d, setD] = useState(null)
@@ -195,7 +195,9 @@ function Replay() {
                       <th className="text-right px-1">Exit$</th><th className="text-right px-1">P&L</th>
                       <th className="text-left px-1">Reason</th></tr></thead>
                       <tbody>{tr.map((t, i) => (
-                        <tr key={i} className="border-b border-white/[0.03]">
+                        <tr key={i} className="border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03]"
+                            onClick={() => onSelectTicker && onSelectTicker(t.ticker, t)}
+                            title="open chart with signal · buy · sell markers">
                           <td className="px-1 py-0.5 font-mono font-semibold">{t.ticker}{t.post_capit ? ' 🔥' : ''}</td>
                           <td className="px-1 text-md-on-surface-var">{t.open_date}</td>
                           <td className="px-1 text-md-on-surface-var">{t.close_date}</td>

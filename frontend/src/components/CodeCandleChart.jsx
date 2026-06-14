@@ -52,6 +52,7 @@ export default function CodeCandleChart({
   codes = false,         // initial state of the code overlay — OFF by default; toggle on when needed
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
+  tradeMarkers,          // {signal_date, open_date, close_date, entry, exit} — journal trade overlay
   zoneSource = 'hv',     // 'hv' (cyan) | 'gann' (amber) — which zone overlay to draw
   sidePanelExtras = null,// optional JSX rendered in the fullscreen side panel
                          // (parent supplies its own settings/controls)
@@ -64,6 +65,7 @@ export default function CodeCandleChart({
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
+  const tradeLinesRef = useRef([])          // active priceLines for journal entry/exit overlay
   const histLinesRef = useRef([])           // grey/white history overlay (HV + Gann, merged)
   const volClassLinesRef = useRef([])       // VB (red) / W (grey-dotted) volume-class overlay
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
@@ -587,10 +589,36 @@ export default function CodeCandleChart({
         color: ev.tz_flip ? m.color : m.color + '80',
         text: m.t + (ev.tz_flip ? '✓' : '') })
     }
+    // 5) Journal TRADE overlay — signal bar + BUY (entry) + SELL (exit).
+    if (tradeMarkers) {
+      const tm = tradeMarkers
+      if (tm.signal_date)
+        markers.push({ time: tm.signal_date, position: 'belowBar', shape: 'circle', color: '#a78bfa', text: '⚡SIG' })
+      if (tm.open_date)
+        markers.push({ time: tm.open_date, position: 'belowBar', shape: 'arrowUp', color: '#22c55e',
+          text: `BUY${tm.entry != null ? ' $' + tm.entry : ''}` })
+      if (tm.close_date)
+        markers.push({ time: tm.close_date, position: 'aboveBar', shape: 'arrowDown', color: '#fb7185',
+          text: `SELL${tm.exit != null ? ' $' + tm.exit : ''}` })
+    }
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers])
+
+  // Journal trade price lines — horizontal entry (green) / exit (red) levels.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    for (const ln of tradeLinesRef.current) { try { series.removePriceLine(ln) } catch {} }
+    tradeLinesRef.current = []
+    const tm = tradeMarkers
+    if (!tm) return
+    if (tm.entry != null) tradeLinesRef.current.push(series.createPriceLine({
+      price: tm.entry, color: '#22c55e', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'entry' }))
+    if (tm.exit != null) tradeLinesRef.current.push(series.createPriceLine({
+      price: tm.exit, color: '#fb7185', lineWidth: 1, lineStyle: 2, axisLabelVisible: true, title: 'exit' }))
+  }, [tradeMarkers])
 
   // ── HV-Zone overlay (drawn only on the 1d DB chart) ──────────────────────
   // Two horizontal lines per zone (zone_low / zone_high) using lightweight-

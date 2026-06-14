@@ -694,6 +694,28 @@ def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: in
         log.exception("atomic replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
 
+@app.get("/api/capit-atom-journal/replay")
+def api_capit_atom_journal_replay(months: int = 12, universe: str = "", min_score: int = 70,
+                                  capit_window: int = 15, manual: bool = False,
+                                  entry_pct: float = 0.0, target_pct: float = 0.0,
+                                  stop_pct: float = 0.0, hold: int = 20, entry_win: int = 5):
+    """Capit→Atomic CONFLUENCE journal — the premium subset of the Atomic edge: a
+    weak-close gap-up that FOLLOWS a recent B+ capitulation (≤capit_window days) on the
+    same ticker. Same Atomic rules (entry next-open, -15% stop / +100% target / 20-bar),
+    filtered to 🔥post-capit trades only. Validated: win ~67%, med +4.2% vs +1.4%.
+
+    MANUAL (manual=true): hand-entered limit entry_pct / target_pct / stop_pct / hold —
+    same path-sim as the Capit journal, to filter the confluence entries by your own rules."""
+    from ai_journal.atomic_journal import replay
+    try:
+        return replay(months=months, universe=(universe or None), min_score=min_score,
+                      capit_window=capit_window, conf_only=True, manual=manual,
+                      entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
+                      hold=hold, entry_win=entry_win, limit=1_000_000)
+    except Exception as e:
+        log.exception("capit-atom replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
+
+
 # ── Capit Journal — paper-trading journal for the validated capitulation-bounce edge ──
 @app.get("/api/capit-scan")
 def api_capit_scan(max_age_days: int = 3, universe: str = ""):
@@ -737,13 +759,20 @@ def api_capit_journal_grade():
 
 @app.get("/api/capit-journal/replay")
 def api_capit_journal_replay(months: int = 6, universe: str = "", min_score: int = 60,
-                             recipe: str = "B"):
+                             recipe: str = "B", entry_pct: float = 0.0, target_pct: float = 0.0,
+                             stop_pct: float = 0.0, hold: int = 20, entry_win: int = 5):
     """Historical backtest of the Capit edge over the last `months` (journal rules:
     entry next-open, hold 20, -35% floor). recipe = B (production) | e2 | A | baseline
-    — for the A/B/stability bake-off. Builds the track record retroactively."""
+    — for the A/B/stability bake-off. Builds the track record retroactively.
+
+    MANUAL params (all 0 = production): entry_pct = limit % below signal close,
+    target_pct = take-profit %, stop_pct = stop-loss %, hold = max bars, entry_win =
+    bars the limit stays live. Every trade also returns mfe/mae (up/down spike %)."""
     from ai_journal.capit_journal import replay
     try:
         return replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe,
+                      entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
+                      hold=hold, entry_win=entry_win,
                       limit=1_000_000)   # all trades → per-month detail
     except Exception as e:
         log.exception("capit replay failed"); return {"trades": [], "stats": {}, "error": str(e)}

@@ -24,6 +24,7 @@ const SetupsBoardPanel      = lazy(() => import('./components/SetupsBoardPanel')
 const AtomicScanPanel       = lazy(() => import('./components/AtomicScanPanel'))
 const AtomicJournalPanel    = lazy(() => import('./components/AtomicJournalPanel'))
 const CapitJournalPanel     = lazy(() => import('./components/CapitJournalPanel'))
+const CapitAtomJournalPanel = lazy(() => import('./components/CapitAtomJournalPanel'))
 const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
@@ -66,6 +67,7 @@ const TAB_GROUPS = [
       { id: 'atomic',     label: '⚛️ Atomic' },
       { id: 'atomicjournal', label: '⚛️📓 Atomic Jrnl' },
       { id: 'capitjournal', label: '💥📓 Capit Jrnl' },
+      { id: 'capitatomjournal', label: '🔥📓 Capit→Atom Jrnl' },
     ],
   },
   {
@@ -153,6 +155,7 @@ export default function App() {
   })
   const [analyzeChart, setAnalyzeChart] = useState({ ticker: null, tf: '1d' })
   const [scTicker, setScTicker] = useState(null)
+  const [chartTrade, setChartTrade] = useState(null)   // journal trade → signal/buy/sell overlay on superchart
   const [scTf, setScTf]         = useState('1d')
   const chartInstanceRef        = useRef(null)
   const [chartReady, setChartReady] = useState(false)
@@ -187,8 +190,9 @@ export default function App() {
   const handleSelect       = (ticker, row = null, meta = null) => { setSelected(ticker); setSelectedRow(row); setSelectedMeta(meta) }
   const handleAddTicker    = (t) => setWatchlist(prev => [...new Set([...prev, t.toUpperCase()])])
   const handleRemoveTicker = (t) => setWatchlist(prev => prev.filter(x => x !== t))
-  const handleOpenChart    = useCallback((ticker) => {
+  const handleOpenChart    = useCallback((ticker, trade = null) => {
     setSelected(ticker)
+    setChartTrade(trade && trade.ticker ? trade : (trade ? { ...trade, ticker } : null))
     setActiveTab('superchart')
   }, [])
 
@@ -338,7 +342,7 @@ export default function App() {
           {activeTab === 'scanner'        && <ScannerPanel tf={tf} onSelectTicker={handleSelect} />}
           {activeTab === 'tzlstats'       && <TZLStatsPanel ticker={selected} tf={tf} />}
           {activeTab === 'corr'           && <SignalCorrelPanel />}
-          {activeTab === 'superchart'     && <SuperchartPanel initialTicker={selected} initialTf={tf} onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
+          {activeTab === 'superchart'     && <SuperchartPanel initialTicker={selected} initialTf={tf} initialTrade={chartTrade} onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
           {activeTab === 'sectors'        && <SectorAnalysisPanel onSelectTicker={handleSelect} />}
           {activeTab === 'analyze'        && <TickerAnalysisPanel onAddToWatchlist={handleAddTicker} onChartChange={setAnalyzeChart} />}
           {activeTab === 'replay'         && <ReplayPanel />}
@@ -362,6 +366,7 @@ export default function App() {
           {activeTab === 'atomic'         && <AtomicScanPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'atomicjournal'  && <AtomicJournalPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'capitjournal'   && <CapitJournalPanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'capitatomjournal' && <CapitAtomJournalPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'admin'          && <AdminPanel />}
          </Suspense>
         </div>

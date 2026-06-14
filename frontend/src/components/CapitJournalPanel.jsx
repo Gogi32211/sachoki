@@ -119,7 +119,7 @@ export default function CapitJournalPanel({ onSelectTicker }) {
                 </tr>))}</tbody></table>}
         </>
       ) : sub === 'replay' ? (
-        <Replay />
+        <Replay onSelectTicker={onSelectTicker} />
       ) : (
         <Knowledge closed={closed} open={open} />
       )}
@@ -128,15 +128,25 @@ export default function CapitJournalPanel({ onSelectTicker }) {
 }
 
 // Replay: historical backtest of the edge over a period, using the exact journal rules
-function Replay() {
+function Replay({ onSelectTicker }) {
   const [months, setMonths] = useState(6)
   const [recipe, setRecipe] = useState('B')
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
   const [openMonth, setOpenMonth] = useState(null)
-  const run = (m, rc) => {
-    setMonths(m); setRecipe(rc); setLoading(true); setD(null); setOpenMonth(null)
-    fetch(`/api/capit-journal/replay?months=${m}&recipe=${rc}`).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
+  // MANUAL mode — hand-entered limit-entry % / target % / stop % / hold
+  const [manual, setManual] = useState(false)
+  const [entryPct, setEntryPct] = useState(4)    // limit % below signal close
+  const [targetPct, setTargetPct] = useState(15) // take-profit %
+  const [stopPct, setStopPct] = useState(0)      // stop-loss % (0 = none, only −35% floor)
+  const [holdBars, setHoldBars] = useState(20)   // max bars held
+  const [entryWin, setEntryWin] = useState(5)    // bars the limit stays live
+  const run = (m, rc, man = manual) => {
+    setMonths(m); setRecipe(rc); setManual(man); setLoading(true); setD(null); setOpenMonth(null)
+    let url = `/api/capit-journal/replay?months=${m}&recipe=${rc}`
+    if (man) url += `&entry_pct=${(+entryPct || 0) / 100}&target_pct=${(+targetPct || 0) / 100}`
+           + `&stop_pct=${(+stopPct || 0) / 100}&hold=${+holdBars || 20}&entry_win=${+entryWin || 5}`
+    fetch(url).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
   }
   const s = d?.stats || {}
   const tradesByMonth = useMemo(() => {
@@ -163,8 +173,34 @@ function Replay() {
               rc === 'A' ? 'A: E2 + vol L/VB (high in-sample mean, but overfit)' : 'baseline: pre-deep-dive'}>{lbl}</button>
         ))}
         {loading && <span className="text-amber-400 animate-pulse">running…</span>}
-        {d && <span className="text-md-on-surface-var/60">from {d.win_start} · entry next-open · hold 20 · −35% floor</span>}
+        <button onClick={() => setManual(v => !v)}
+          className={`px-2 py-1 rounded ml-auto ${manual ? 'bg-cyan-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}
+          title="Hand-enter your own limit entry %, target %, stop %, and hold — runs the same path-sim">⚙ Manual</button>
       </div>
+
+      {/* MANUAL controls — limit-entry %, target %, stop %, hold (path-sim) */}
+      {manual && (
+        <div className="flex flex-wrap items-end gap-3 mb-3 p-2.5 rounded-lg bg-cyan-900/15 border border-cyan-700/40 text-xs">
+          {[
+            ['Entry limit −%', entryPct, setEntryPct, 'buy this % below the signal-bar close'],
+            ['Target +%', targetPct, setTargetPct, 'take-profit this % above fill'],
+            ['Stop −%', stopPct, setStopPct, '0 = no stop (only −35% floor)'],
+            ['Hold (bars)', holdBars, setHoldBars, 'max bars before time-stop close'],
+            ['Entry window', entryWin, setEntryWin, 'bars the limit stays live'],
+          ].map(([lbl, val, setter, hint]) => (
+            <label key={lbl} className="flex flex-col gap-0.5" title={hint}>
+              <span className="text-cyan-300/80">{lbl}</span>
+              <input type="number" value={val} onChange={e => setter(e.target.value)}
+                className="w-20 px-2 py-1 rounded bg-md-surface border border-cyan-700/40 font-mono text-md-on-surface" />
+            </label>
+          ))}
+          <button onClick={() => run(months, recipe, true)} disabled={loading}
+            className="px-3 py-1.5 rounded bg-cyan-600 text-white font-semibold hover:bg-cyan-500 disabled:opacity-50">▶ Run manual</button>
+          <span className="text-cyan-300/50 text-[10px] basis-full">
+            limit buy −{entryPct}% (fills if price dips there within {entryWin} bars) · exit at +{targetPct}% target{+stopPct > 0 ? ` or −${stopPct}% stop` : ''} or {holdBars}-bar close
+          </span>
+        </div>
+      )}
       {!d && !loading && <div className="text-md-on-surface-var/50 text-xs py-6 text-center">Pick a period to replay the Capit edge historically (entry next-open, hold 20 bars, equal 4% bets).</div>}
       {d && (
         <>
@@ -177,6 +213,10 @@ function Replay() {
               <div className={`text-lg font-bold font-mono ${(s.equity_pct ?? 0) >= 0 ? 'text-emerald-400' : 'text-rose-400'}`}>${fmtNum(s.equity_end)} <span className="text-sm">{fmtPct(s.equity_pct)}</span></div></div>
             <Kpi label="Best / Worst" v={`${fmtPct(s.best)} / ${fmtPct(s.worst)}`} />
             <Kpi label="Catastrophe" v={s.catastrophe_pct != null ? `${s.catastrophe_pct}%` : '—'} />
+            <Kpi label="Avg spike ↑/↓" v={s.avg_mfe != null ? `${fmtPct(s.avg_mfe)} / ${fmtPct(s.avg_mae)}` : '—'} />
+            {manual && <Kpi label="Fill rate" v={s.fill_rate != null ? `${s.fill_rate}%` : '—'} />}
+            {manual && <Kpi label="Target hit" v={s.target_hit_pct != null ? `${s.target_hit_pct}%` : '—'} />}
+            {manual && +stopPct > 0 && <Kpi label="Stop hit" v={s.stop_hit_pct != null ? `${s.stop_hit_pct}%` : '—'} />}
             <Kpi label="Still open" v={s.still_open} />
           </div>
           <div className="text-sm font-semibold mb-1">By month <span className="text-[10px] text-md-on-surface-var/50 font-normal">— click a month to see every trade (ticker · bought · exit · P&L)</span></div>
@@ -198,16 +238,21 @@ function Replay() {
                     <table className="w-full text-[11px]"><thead><tr className="text-md-on-surface-var/60 border-b border-white/10">
                       <th className="text-left px-1 py-0.5">Ticker</th><th className="text-left px-1">Bought (open)</th>
                       <th className="text-left px-1">Exit</th><th className="text-right px-1">Entry</th>
-                      <th className="text-right px-1">Exit$</th><th className="text-right px-1">chg20</th>
+                      <th className="text-right px-1">Exit$</th>
+                      <th className="text-right px-1" title="max DOWN spike between fill and exit">↓ spike</th>
+                      <th className="text-right px-1" title="max UP spike between fill and exit">↑ spike</th>
                       <th className="text-right px-1">P&L</th><th className="text-left px-1">Reason</th></tr></thead>
                       <tbody>{tr.map((t, i) => (
-                        <tr key={i} className="border-b border-white/[0.03]">
+                        <tr key={i} className="border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03]"
+                            onClick={() => onSelectTicker && onSelectTicker(t.ticker, t)}
+                            title="open chart with signal · buy · sell markers">
                           <td className="px-1 py-0.5 font-mono font-semibold">{t.ticker}</td>
                           <td className="px-1 text-md-on-surface-var">{t.open_date}</td>
                           <td className="px-1 text-md-on-surface-var">{t.close_date}</td>
                           <td className="px-1 text-right font-mono">${t.entry}</td>
                           <td className="px-1 text-right font-mono">${t.exit}</td>
-                          <td className="px-1 text-right font-mono text-md-on-surface-var/70">{t.chg20 != null ? `${t.chg20}%` : '—'}</td>
+                          <td className="px-1 text-right font-mono text-rose-300/80" title="lowest the price went vs entry before exiting">{t.mae != null ? `${t.mae}%` : '—'}</td>
+                          <td className="px-1 text-right font-mono text-emerald-300/80" title="highest the price went vs entry before exiting">{t.mfe != null ? `+${t.mfe}%` : '—'}</td>
                           <td className={`px-1 text-right font-mono ${pnlC(t.pnl)}`}>{fmtPct(t.pnl)}</td>
                           <td className="px-1 text-md-on-surface-var/70">{t.reason}</td>
                         </tr>))}</tbody></table>
