@@ -716,6 +716,21 @@ def api_capit_atom_journal_replay(months: int = 12, universe: str = "", min_scor
         log.exception("capit-atom replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
 
+@app.get("/api/capit-atom-journal/prebuy")
+def api_capit_atom_prebuy(max_age_days: int = 5, capit_window: int = 15, dv_floor: float = 500_000):
+    """Live Capit→Atomic PreBuy scan — atomic signals that follow a recent B+ capitulation.
+    Returns only post_capit=True rows from atomic_scan, sorted by score desc, as buy candidates."""
+    from ai_journal.atomic_scan import atomic_scan
+    try:
+        result = atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor, capit_window=capit_window)
+        rows = [r for r in result.get("rows", []) if r.get("post_capit")]
+        rows.sort(key=lambda x: (-x.get("score", 0), x.get("age_days", 99)))
+        return {"rows": rows, "count": len(rows), "as_of": result.get("as_of"),
+                "regime": result.get("regime"), "capit_window": capit_window}
+    except Exception as e:
+        log.exception("capit-atom prebuy failed"); return {"rows": [], "count": 0, "error": str(e)}
+
+
 # ── Capit Journal — paper-trading journal for the validated capitulation-bounce edge ──
 @app.get("/api/capit-scan")
 def api_capit_scan(max_age_days: int = 3, universe: str = ""):

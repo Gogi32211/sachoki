@@ -13,6 +13,7 @@ const Th = ({ children, r }) => <th className={`px-2 py-1 font-semibold text-md-
 const Td = ({ children, r, cls = '' }) => <td className={`px-2 py-1 font-mono ${r ? 'text-right' : 'text-left'} ${cls}`}>{children}</td>
 
 export default function CapitAtomJournalPanel({ onSelectTicker }) {
+  const [tab, setTab] = useState('prebuy')   // 'replay' | 'prebuy'
   const [months, setMonths] = useState(12)
   const [cw, setCw] = useState(15)            // capit_window (days) — how recent the B+ capit must be
   const [d, setD] = useState(null)
@@ -21,6 +22,15 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
   const [chartTrade, setChartTrade] = useState(null)   // inline chart at top (no navigation)
   const chartRef = useRef(null)
   const pickTrade = (t) => { setChartTrade(t); setTimeout(() => chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40) }
+  // PreBuy tab state
+  const [pb, setPb] = useState(null)
+  const [pbLoading, setPbLoading] = useState(false)
+  const [pbCw, setPbCw] = useState(15)
+  const loadPrebuy = (w = pbCw) => {
+    setPbCw(w); setPbLoading(true); setPb(null)
+    fetch(`/api/capit-atom-journal/prebuy?capit_window=${w}`)
+      .then(r => r.json()).then(setPb).catch(() => {}).finally(() => setPbLoading(false))
+  }
   // MANUAL mode — hand-entered limit-entry % / target % / stop % / hold (filter the entry)
   const [manual, setManual] = useState(false)
   const [entryPct, setEntryPct] = useState(4)
@@ -35,7 +45,7 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
            + `&stop_pct=${(+stopPct || 0) / 100}&hold=${+holdBars || 20}&entry_win=${+entryWin || 5}`
     fetch(url).then(r => r.json()).then(setD).catch(() => {}).finally(() => setLoading(false))
   }
-  useEffect(() => { run(12, 15) }, [])   // auto-load on first open
+  useEffect(() => { loadPrebuy(15) }, [])   // auto-load prebuy on first open (default tab)
   const s = d?.stats || {}
   const tradesByMonth = useMemo(() => {
     const g = {}
@@ -64,15 +74,30 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
 
       {/* Header — same shell as Capit Jrnl */}
       <div className="mb-3">
-        <h2 className="text-lg font-bold flex items-center gap-2">🔥 Capit→Atom Journal
-          <span className="text-[11px] font-normal text-amber-300/80">premium confluence subset</span></h2>
-        <p className="text-xs text-md-on-surface-var mt-1">
+        <div className="flex items-center gap-3 mb-2">
+          <h2 className="text-lg font-bold flex items-center gap-2">🔥 Capit→Atom Journal
+            <span className="text-[11px] font-normal text-amber-300/80">premium confluence subset</span></h2>
+          <div className="flex gap-1 ml-auto">
+            {[['prebuy', '🛒 PreBuy'], ['replay', '📋 Replay']].map(([t, lbl]) => (
+              <button key={t} onClick={() => { setTab(t); if (t === 'prebuy' && !pb) loadPrebuy(); if (t === 'replay' && !d) run(12, 15) }}
+                className={`px-3 py-1 rounded text-xs font-semibold ${tab === t ? 'bg-amber-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>{lbl}</button>
+            ))}
+          </div>
+        </div>
+        {tab === 'replay' && <p className="text-xs text-md-on-surface-var mt-1">
           A weak-close <b>gap-up (Atomic)</b> that <b>follows a recent B+ capitulation</b> (≤{cw}d) on the same ticker —
           the capitulation confirms the bottom, the gap-up is the continuation entry. Atomic rules: entry next-open,
           −15% stop / +100% target / 20-bar, equal 4% paper bets. <span className="text-amber-300">Validated: win ~67%, med +4.2% vs +1.4% baseline.</span>
-        </p>
+        </p>}
+        {tab === 'prebuy' && <p className="text-xs text-md-on-surface-var mt-1">
+          Live scan — Atomic weak-close gap-up signals that ALSO have a recent B+ capitulation on the same ticker.
+          These are the freshest 🔥 confluence setups (not yet in the replay). Click a row to view the chart.
+          <span className="text-amber-300 ml-1">Refresh to see today's signals.</span>
+        </p>}
       </div>
 
+      {/* ─── REPLAY tab ─── */}
+      {tab === 'replay' && (<>
       {/* Controls */}
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
         <span className="text-md-on-surface-var">Period:</span>
@@ -183,6 +208,93 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
           <p className="text-[10px] text-md-on-surface-var/50">Retroactive track record of the Capit→Atomic confluence — the 🔥post-capit subset of the Atomic edge, using the EXACT Atomic rules (entry next-open, −15% stop / +100% target / 20-bar, one open per ticker, equal 4% paper bets). Tail-driven; regime-varying. Honest backtest, not a guarantee.</p>
         </>
       )}
+      </>)}
+
+      {/* ─── PREBUY tab ─── */}
+      {tab === 'prebuy' && (
+        <PreBuyTab pb={pb} loading={pbLoading} pbCw={pbCw} onLoad={loadPrebuy} onPick={pickTrade} />
+      )}
+    </div>
+  )
+}
+
+const REGIME_COLOR = { RISK_OFF: 'text-rose-400', NEUTRAL: 'text-amber-300', RISK_ON: 'text-emerald-400' }
+const ATOM_CHIP = { R2L: 'bg-violet-900/60 text-violet-200', EO: 'bg-sky-900/60 text-sky-200',
+  'vol=B': 'bg-orange-900/60 text-orange-200', 'wick=D': 'bg-slate-700/60 text-slate-200',
+  G3: 'bg-emerald-900/60 text-emerald-200' }
+
+function PreBuyTab({ pb, loading, pbCw, onLoad, onPick }) {
+  const reg = pb?.regime
+  const rows = pb?.rows || []
+  return (
+    <div>
+      {/* Toolbar */}
+      <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
+        <span className="text-md-on-surface-var">Capit window:</span>
+        {[10, 15, 20].map(w => (
+          <button key={w} onClick={() => onLoad(w)}
+            className={`px-2 py-1 rounded ${pbCw === w && pb ? 'bg-violet-700 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:bg-white/10'}`}>≤{w}d</button>
+        ))}
+        <button onClick={() => onLoad(pbCw)} disabled={loading}
+          className="px-3 py-1 rounded bg-amber-700 text-white font-semibold hover:bg-amber-600 disabled:opacity-50 flex items-center gap-1">
+          {loading ? <span className="animate-spin">↻</span> : '↻'} Refresh
+        </button>
+        {pb && <span className="text-md-on-surface-var/60 text-[10px]">as of {pb.as_of}</span>}
+        {reg && (
+          <span className={`ml-auto font-semibold text-[11px] ${REGIME_COLOR[reg.label] || 'text-md-on-surface-var'}`}>
+            {reg.label}{reg.score != null ? ` (${reg.score})` : ''} · size ×{reg.conv_mult ?? 1}
+          </span>
+        )}
+        {loading && <span className="text-amber-400 animate-pulse ml-2">scanning…</span>}
+      </div>
+
+      {pb && !rows.length && !loading && (
+        <div className="text-md-on-surface-var/60 text-sm py-6 text-center">No 🔥 Capit→Atom signals in the last 5 days. Market may not have produced any — try Refresh later.</div>
+      )}
+
+      {rows.length > 0 && (
+        <table className="w-full text-xs">
+          <thead><tr className="border-b border-white/10 text-md-on-surface-var">
+            <th className="text-left px-2 py-1">Score</th>
+            <th className="text-left px-2">Ticker</th>
+            <th className="text-left px-2">Signal</th>
+            <th className="text-right px-2">Age</th>
+            <th className="text-right px-2">Capit age</th>
+            <th className="text-right px-2">Price</th>
+            <th className="text-right px-2">RSI</th>
+            <th className="text-right px-2">Vol</th>
+            <th className="text-left px-2">Atoms</th>
+          </tr></thead>
+          <tbody>{rows.map((r, i) => (
+            <tr key={i} className="border-b border-white/[0.04] cursor-pointer hover:bg-amber-900/10"
+                onClick={() => onPick({ ticker: r.ticker, signal_date: r.signal_date })}
+                title="click to view chart at signal date">
+              <td className="px-2 py-1.5">
+                <span className={`font-bold font-mono text-sm ${r.score >= 90 ? 'text-emerald-400' : r.score >= 70 ? 'text-amber-300' : 'text-md-on-surface-var'}`}>{r.score}</span>
+              </td>
+              <td className="px-2 font-mono font-bold text-amber-200">{r.ticker} 🔥</td>
+              <td className="px-2 text-md-on-surface-var">{r.signal_date}</td>
+              <td className="px-2 text-right font-mono">{r.age_days === 0 ? 'today' : `${r.age_days}d ago`}</td>
+              <td className="px-2 text-right font-mono text-amber-300/80">{r.capit_age != null ? `capit ${r.capit_age}d` : '—'}</td>
+              <td className="px-2 text-right font-mono">${r.close}</td>
+              <td className="px-2 text-right font-mono text-violet-300">{r.rsi != null ? r.rsi : '—'}</td>
+              <td className="px-2 text-right font-mono">{r.vol}</td>
+              <td className="px-2">
+                <div className="flex flex-wrap gap-0.5">
+                  {(r.atoms || []).filter(a => !a.startsWith('close=') && !a.startsWith('gap') && !a.startsWith('🔥')).map((a, j) => (
+                    <span key={j} className={`px-1 py-0.5 rounded text-[10px] font-mono ${ATOM_CHIP[a] || 'bg-white/10 text-md-on-surface-var'}`}>{a}</span>
+                  ))}
+                </div>
+              </td>
+            </tr>
+          ))}</tbody>
+        </table>
+      )}
+      <p className="text-[10px] text-md-on-surface-var/50 mt-3">
+        Live scan — weak-close gap-up (Atomic) with a recent B+ capitulation on the same ticker (≤{pbCw}d).
+        Score ≥90 = 5+ atoms stacked (R2L + EO + vol + wick + G3 + post-capit). Click any row to view the chart.
+        This is a SCANNER, not a trade signal — validate the chart before acting.
+      </p>
     </div>
   )
 }
