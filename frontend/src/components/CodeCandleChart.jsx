@@ -70,6 +70,7 @@ export default function CodeCandleChart({
   const volClassLinesRef = useRef([])       // VB (red) / W (grey-dotted) volume-class overlay
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
+  const [dataTick, setDataTick] = useState(0) // bumps after each setData → re-applies markers (data-load clears them)
   // Independent history pickers — user can show grey HV history and lime Gann
   // pivots at the same time on ANY chart, regardless of zoneSource.
   const [historyHvTier,   setHistoryHvTier]   = useState(0)   // 0/2/5/10 vol multiple
@@ -277,6 +278,7 @@ export default function CodeCandleChart({
       candlesRef.current = candles
       seriesRef.current.setData(candles)
       seriesRef.current.setMarkers([])
+      setDataTick(t => t + 1)            // re-apply overlay markers after this data load
       volRef.current?.setData(volumes)
       // If zones already loaded before candles, recolour the triggers now.
       if (hvZones?.length) applyZoneColors(hvZones)
@@ -321,6 +323,7 @@ export default function CodeCandleChart({
       candlesRef.current = candles
       seriesRef.current.setData(candles)
       seriesRef.current.setMarkers([])
+      setDataTick(t => t + 1)            // re-apply overlay markers after this data load
       volRef.current?.setData(volumes)
       if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
@@ -604,7 +607,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {

@@ -134,7 +134,7 @@ const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
