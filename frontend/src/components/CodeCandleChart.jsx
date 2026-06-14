@@ -52,7 +52,8 @@ export default function CodeCandleChart({
   codes = false,         // initial state of the code overlay — OFF by default; toggle on when needed
   onChartReady,
   zoneMarkers,           // [{date, rel}] — external markers to draw on bars (for HV-Zones panel)
-  tradeMarkers,          // {signal_date, open_date, close_date, entry, exit} — journal trade overlay
+  tradeMarkers,          // {signal_date, open_date, close_date, entry, exit} — focused journal trade
+  tradeHistory,          // [{open_date, close_date, pnl}] — ALL journal trades on this ticker (B/S arrows)
   zoneSource = 'hv',     // 'hv' (cyan) | 'gann' (amber) — which zone overlay to draw
   sidePanelExtras = null,// optional JSX rendered in the fullscreen side panel
                          // (parent supplies its own settings/controls)
@@ -592,7 +593,18 @@ export default function CodeCandleChart({
         color: ev.tz_flip ? m.color : m.color + '80',
         text: m.t + (ev.tz_flip ? '✓' : '') })
     }
-    // 5) Journal TRADE overlay — signal bar + BUY (entry) + SELL (exit).
+    // 5a) Journal TRADE HISTORY — every other trade on this ticker, compact B/S arrows
+    //     (win = green, loss = red). The focused trade (below) keeps the full labels.
+    const focusKey = tradeMarkers?.open_date
+    for (const h of (tradeHistory || [])) {
+      if (h.open_date === focusKey) continue
+      const win = (h.pnl ?? 0) >= 0
+      if (h.open_date)
+        markers.push({ time: h.open_date, position: 'belowBar', shape: 'arrowUp', color: win ? '#16a34a99' : '#16a34a66', text: 'B' })
+      if (h.close_date)
+        markers.push({ time: h.close_date, position: 'aboveBar', shape: 'arrowDown', color: win ? '#10b98199' : '#fb718599', text: 'S' })
+    }
+    // 5b) Focused journal TRADE — signal bar + BUY (entry) + SELL (exit), full labels.
     if (tradeMarkers) {
       const tm = tradeMarkers
       if (tm.signal_date)
@@ -607,7 +619,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers, dataTick])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers, tradeHistory, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {

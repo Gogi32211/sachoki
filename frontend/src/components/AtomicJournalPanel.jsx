@@ -150,7 +150,8 @@ function Replay({ onSelectTicker }) {
             </span>
             <button onClick={() => setChartTrade(null)} className="ml-auto text-md-on-surface-var/60 hover:text-md-on-surface">✕</button>
           </div>
-          <CodeCandleChart ticker={chartTrade.ticker} tf="1d" height={320} tradeMarkers={chartTrade} />
+          <CodeCandleChart ticker={chartTrade.ticker} tf="1d" height={320} tradeMarkers={chartTrade}
+            tradeHistory={(d?.trades || []).filter(t => t.ticker === chartTrade.ticker)} />
         </div>
       )}
       <div className="flex items-center flex-wrap gap-2 mb-3 text-xs">

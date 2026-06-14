@@ -130,7 +130,7 @@ export default function CapitJournalPanel({ onSelectTicker }) {
 
 // Replay: historical backtest of the edge over a period, using the exact journal rules
 // Inline chart shown at the top of a journal replay — signal/buy/sell markers, no nav.
-function InlineTradeChart({ trade, onClose, chartRef }) {
+function InlineTradeChart({ trade, history, onClose, chartRef }) {
   if (!trade) return null
   return (
     <div ref={chartRef} className="mb-3 scroll-mt-16 rounded-lg border border-amber-700/30 bg-md-surface-high/40 overflow-hidden">
@@ -142,7 +142,7 @@ function InlineTradeChart({ trade, onClose, chartRef }) {
         </span>
         <button onClick={onClose} className="ml-auto text-md-on-surface-var/60 hover:text-md-on-surface">✕</button>
       </div>
-      <CodeCandleChart ticker={trade.ticker} tf="1d" height={320} tradeMarkers={trade} />
+      <CodeCandleChart ticker={trade.ticker} tf="1d" height={320} tradeMarkers={trade} tradeHistory={history} />
     </div>
   )
 }
@@ -180,7 +180,8 @@ function Replay({ onSelectTicker }) {
   const RECIPES = [['B', 'B ✓ prod'], ['e2', 'E2'], ['A', 'A vol'], ['baseline', 'baseline']]
   return (
     <div>
-      <InlineTradeChart trade={chartTrade} onClose={() => setChartTrade(null)} chartRef={chartRef} />
+      <InlineTradeChart trade={chartTrade} chartRef={chartRef} onClose={() => setChartTrade(null)}
+        history={(d?.trades || []).filter(t => chartTrade && t.ticker === chartTrade.ticker)} />
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
         <span className="text-md-on-surface-var">Period:</span>
         {[3, 6, 12, 24].map(m => (
