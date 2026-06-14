@@ -2,7 +2,8 @@
 // gap-up (Atomic) that FOLLOWS a recent B+ capitulation (≤capit_window days) on the same
 // ticker. Same Atomic path-sim rules (entry next-open, -15% stop / +100% target / 20-bar),
 // filtered to 🔥post-capit trades only. Mirrors the Capit Journal's Replay design/structure.
-import { useEffect, useState, useMemo, Fragment } from 'react'
+import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
+import CodeCandleChart from './CodeCandleChart'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -17,6 +18,9 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
   const [openMonth, setOpenMonth] = useState(null)
+  const [chartTrade, setChartTrade] = useState(null)   // inline chart at top (no navigation)
+  const chartRef = useRef(null)
+  const pickTrade = (t) => { setChartTrade(t); setTimeout(() => chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40) }
   // MANUAL mode — hand-entered limit-entry % / target % / stop % / hold (filter the entry)
   const [manual, setManual] = useState(false)
   const [entryPct, setEntryPct] = useState(4)
@@ -42,6 +46,21 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
 
   return (
     <div className="p-3 max-w-[1100px]">
+      {/* Inline chart at top — signal · buy · sell markers, no navigation */}
+      {chartTrade && (
+        <div ref={chartRef} className="mb-3 scroll-mt-16 rounded-lg border border-amber-700/30 bg-md-surface-high/40 overflow-hidden">
+          <div className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-white/10">
+            <span className="font-bold text-amber-300">{chartTrade.ticker}</span>
+            <span className="text-md-on-surface-var/70">
+              ⚡{chartTrade.signal_date} · 🟢BUY ${chartTrade.entry} {chartTrade.open_date} · 🔴SELL ${chartTrade.exit} {chartTrade.close_date}
+              {chartTrade.pnl != null && <span className={chartTrade.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}> · {fmtPct(chartTrade.pnl)}</span>}
+            </span>
+            <button onClick={() => setChartTrade(null)} className="ml-auto text-md-on-surface-var/60 hover:text-md-on-surface">✕</button>
+          </div>
+          <CodeCandleChart ticker={chartTrade.ticker} tf="1d" height={320} tradeMarkers={chartTrade} />
+        </div>
+      )}
+
       {/* Header — same shell as Capit Jrnl */}
       <div className="mb-3">
         <h2 className="text-lg font-bold flex items-center gap-2">🔥 Capit→Atom Journal
@@ -140,8 +159,8 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
                       <th className="text-right px-1">P&L</th><th className="text-left px-1">Reason</th></tr></thead>
                       <tbody>{tr.map((t, i) => (
                         <tr key={i} className="border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03]"
-                            onClick={() => onSelectTicker && onSelectTicker(t.ticker, t)}
-                            title="open chart with signal · buy · sell markers">
+                            onClick={() => pickTrade(t)}
+                            title="show chart with signal · buy · sell markers">
                           <td className="px-1 py-0.5 font-mono font-semibold">{t.ticker} 🔥</td>
                           <td className="px-1 text-md-on-surface-var">{t.open_date}</td>
                           <td className="px-1 text-md-on-surface-var">{t.close_date}</td>

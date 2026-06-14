@@ -1,4 +1,5 @@
-import { useEffect, useState, useMemo, Fragment } from 'react'
+import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
+import CodeCandleChart from './CodeCandleChart'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -128,8 +129,29 @@ export default function CapitJournalPanel({ onSelectTicker }) {
 }
 
 // Replay: historical backtest of the edge over a period, using the exact journal rules
+// Inline chart shown at the top of a journal replay — signal/buy/sell markers, no nav.
+function InlineTradeChart({ trade, onClose, chartRef }) {
+  if (!trade) return null
+  return (
+    <div ref={chartRef} className="mb-3 scroll-mt-16 rounded-lg border border-amber-700/30 bg-md-surface-high/40 overflow-hidden">
+      <div className="flex items-center gap-2 px-3 py-1.5 text-xs border-b border-white/10">
+        <span className="font-bold text-amber-300">{trade.ticker}</span>
+        <span className="text-md-on-surface-var/70">
+          ⚡{trade.signal_date} · 🟢BUY ${trade.entry} {trade.open_date} · 🔴SELL ${trade.exit} {trade.close_date}
+          {trade.pnl != null && <span className={trade.pnl >= 0 ? 'text-emerald-400' : 'text-rose-400'}> · {fmtPct(trade.pnl)}</span>}
+        </span>
+        <button onClick={onClose} className="ml-auto text-md-on-surface-var/60 hover:text-md-on-surface">✕</button>
+      </div>
+      <CodeCandleChart ticker={trade.ticker} tf="1d" height={320} tradeMarkers={trade} />
+    </div>
+  )
+}
+
 function Replay({ onSelectTicker }) {
   const [months, setMonths] = useState(6)
+  const [chartTrade, setChartTrade] = useState(null)
+  const chartRef = useRef(null)
+  const pickTrade = (t) => { setChartTrade(t); setTimeout(() => chartRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 40) }
   const [recipe, setRecipe] = useState('B')
   const [d, setD] = useState(null)
   const [loading, setLoading] = useState(false)
@@ -158,6 +180,7 @@ function Replay({ onSelectTicker }) {
   const RECIPES = [['B', 'B ✓ prod'], ['e2', 'E2'], ['A', 'A vol'], ['baseline', 'baseline']]
   return (
     <div>
+      <InlineTradeChart trade={chartTrade} onClose={() => setChartTrade(null)} chartRef={chartRef} />
       <div className="flex flex-wrap items-center gap-2 mb-3 text-xs">
         <span className="text-md-on-surface-var">Period:</span>
         {[3, 6, 12, 24].map(m => (
@@ -244,8 +267,8 @@ function Replay({ onSelectTicker }) {
                       <th className="text-right px-1">P&L</th><th className="text-left px-1">Reason</th></tr></thead>
                       <tbody>{tr.map((t, i) => (
                         <tr key={i} className="border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03]"
-                            onClick={() => onSelectTicker && onSelectTicker(t.ticker, t)}
-                            title="open chart with signal · buy · sell markers">
+                            onClick={() => pickTrade(t)}
+                            title="show chart with signal · buy · sell markers">
                           <td className="px-1 py-0.5 font-mono font-semibold">{t.ticker}</td>
                           <td className="px-1 text-md-on-surface-var">{t.open_date}</td>
                           <td className="px-1 text-md-on-surface-var">{t.close_date}</td>
