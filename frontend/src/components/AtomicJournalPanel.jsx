@@ -197,6 +197,8 @@ function Replay({ onSelectTicker }) {
             <tbody>{(d.by_month || []).map(m => {
               const open = openMonth === m.month
               const tr = tradesByMonth[m.month] || []
+              const vis = tr.slice(0, 200)
+              const hidden = tr.length - vis.length
               return (
               <Fragment key={m.month}>
                 <tr className="border-b border-white/[0.04] cursor-pointer hover:bg-white/[0.04]"
@@ -212,7 +214,7 @@ function Replay({ onSelectTicker }) {
                       <th className="text-left px-1">Exit</th><th className="text-right px-1">Entry</th>
                       <th className="text-right px-1">Exit$</th><th className="text-right px-1">P&L</th>
                       <th className="text-left px-1">Reason</th></tr></thead>
-                      <tbody>{tr.map((t, i) => (
+                      <tbody>{vis.map((t, i) => (
                         <tr key={i} className="border-b border-white/[0.03] cursor-pointer hover:bg-white/[0.03]"
                             onClick={() => pickTrade(t)}
                             title="show chart with signal · buy · sell markers">
@@ -223,7 +225,9 @@ function Replay({ onSelectTicker }) {
                           <td className="px-1 text-right font-mono">${t.exit}</td>
                           <td className={`px-1 text-right font-mono ${pnlC(t.pnl)}`}>{fmtPct(t.pnl)}</td>
                           <td className="px-1 text-md-on-surface-var/70">{t.reason}</td>
-                        </tr>))}</tbody></table>
+                        </tr>))}
+                        {hidden > 0 && <tr><td colSpan={7} className="px-2 py-1.5 text-center text-[10px] text-amber-500/70 italic">… {hidden} more trades not shown — reduce date range to see all</td></tr>}
+                      </tbody></table>
                   </td></tr>
                 )}
               </Fragment>
