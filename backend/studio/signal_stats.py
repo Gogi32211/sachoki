@@ -783,6 +783,9 @@ def query_exact_sequence(
     conn=None,                          # optional shared read-only connection (reused by callers
                                         # that loop — e.g. edge scanner — to avoid re-opening the
                                         # DB per ticker, which is the main cost on a 2.4GB file)
+    match_rows: bool = False,           # ADDITIVE: also return the matched (ticker,date,outcome)
+                                        # rows under "rows" — lets callers re-aggregate a FILTERED
+                                        # subset (e.g. join to the intraday DB) on the SAME metric.
 ) -> dict:
     """
     Exact-match N-bar sequence query with HL/HH outcome statistics.
@@ -926,7 +929,9 @@ def query_exact_sequence(
 
         # ── Build LAG SELECT clause ─────────────────────────────────────────
         # current bar = lag 0, oldest = lag n-1
-        select_cols = []
+        # ticker/date carried through so match_rows callers can re-join the matched
+        # set to another DB (e.g. intraday) — harmless to the aggregate query below.
+        select_cols = ["ticker", "date"]
         # T/Z + l_sig (chart-format L) + line3/4/5 strings + digit flags fallback.
         # NOTE: suffix uses composite_full_suffix (chart's display = ne+wick+pen+close
         # when "interesting"). DB has both full_suffix and composite_full_suffix —
@@ -1050,6 +1055,30 @@ def query_exact_sequence(
         next_pivot_known = hl_count + hh_count
         baseline = conn.execute(f"SELECT COUNT(*) FROM ({base_cte})").fetchone()[0]
 
+        # ── ADDITIVE: matched-row dump (ticker, date, outcomes) for filtered re-agg ──
+        matched_rows = None
+        if match_rows and matches > 0:
+            rows_sql = f"""
+            WITH base AS (
+              {base_cte}
+            ),
+            lagged AS (
+              SELECT {", ".join(select_cols)}
+              FROM base
+              WINDOW w AS (PARTITION BY ticker ORDER BY date)
+            )
+            SELECT ticker, CAST(date AS DATE) AS d,
+                   next_pivot_is_hh_{P} AS hh, next_pivot_is_hl_{P} AS hl,
+                   fwd_5d, fwd_10d, fwd_20d
+            FROM lagged
+            {outer_where}
+            """
+            matched_rows = [
+                {"ticker": r[0], "date": str(r[1]), "hh": r[2], "hl": r[3],
+                 "fwd_5d": r[4], "fwd_10d": r[5], "fwd_20d": r[6]}
+                for r in conn.execute(rows_sql).fetchall()
+            ]
+
         # ── Next-bar signal distribution — what T/Z fires on the bar AFTER the
         # matched sequence. Excludes end-of-data rows (no next bar exists). ──────
         next_bar, next_bar_total = [], 0
@@ -1137,6 +1166,7 @@ def query_exact_sequence(
             "pivot_lr":        pivot_lr,
             "n_bars":          n,
             "strictness":      strict,
+            **({"rows": matched_rows} if matched_rows is not None else {}),
         }
 
     except Exception as exc:

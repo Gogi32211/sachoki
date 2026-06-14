@@ -1115,6 +1115,126 @@ def exact_sequence(req: ExactSequenceRequest):
         raise HTTPException(500, detail=str(e))
 
 
+_ICS_CACHE: dict | None = None
+
+
+@router.get("/intraday-confirm-score")
+def intraday_confirm_score(trigger: str = ""):
+    """ADDITIVE (does not touch the 1d/4h/1h sequence engine): for a daily TRIGGER
+    signal (the last bar's TZ, e.g. 'T1G'), return how the *intraday 1H structure
+    inside the trigger day* shifts the forward outcome.
+
+    score = (# confirmer 1H signals present in the trigger day)
+          − (# trap 1H signals present), clamped to −2..+2. Monotonic in win%.
+    Precomputed population-level (studio/intraday_confirm_score.json) so it stays
+    statistically robust — we never subdivide a single small sequence's matches.
+    Falls back to '*' (pooled across all triggers) if the trigger is unknown.
+    """
+    global _ICS_CACHE
+    if _ICS_CACHE is None:
+        import os as _os
+        import json as _json
+        p = _os.path.join(_os.path.dirname(__file__), "studio", "intraday_confirm_score.json")
+        try:
+            _ICS_CACHE = _json.load(open(p))
+        except Exception:
+            _ICS_CACHE = {"triggers": {}, "confirmers": [], "traps": []}
+    trig = (trigger or "").strip().upper()
+    tbl = _ICS_CACHE.get("triggers", {})
+    bl  = _ICS_CACHE.get("baseline", {})
+    key = trig if trig in tbl else "*"
+    return {
+        "trigger":    trig,
+        "resolved":   key,            # which row we actually returned ('*' = pooled fallback)
+        "confirmers": _ICS_CACHE.get("confirmers", []),
+        "traps":      _ICS_CACHE.get("traps", []),
+        "score_def":  _ICS_CACHE.get("score_def", ""),
+        "baseline":   bl.get(key, {}),    # unconditional win/med for THIS 1D signal — the Δ reference
+        "scores":     tbl.get(key, {}),   # { "-2":{n,med5,win5,med10,win10}, ... "2":{...} }
+    }
+
+
+_ICS_CONF = ['Z3', 'T2G', 'T1', 'T2', 'T3', 'Z1']
+_ICS_TRAP = ['T10', 'T11', 'T12', 'Z10', 'Z11', 'Z12']
+
+
+@router.post("/exact-sequence-1h-filter")
+def exact_sequence_1h_filter(req: ExactSequenceRequest):
+    """ADDITIVE: take the EXACT 1D sequence's real matches and re-aggregate the SAME
+    metric (Next-pivot-HH %, the 61.8% the 1D band shows) on the subset that passes a
+    1H-confirm filter — so you see directly whether the intraday 1H structure adds edge
+    FOR THIS SEQUENCE (not a population proxy).
+
+    Honest baseline: the filter can only see days the 1H DB covers (~5yr), so we report
+    HH% on the 1H-covered subset, then keep ≥+1 / ≥+2 / avoided(≤0) within it.
+    """
+    try:
+        r = query_exact_sequence(bars=req.bars, universe=req.universe,
+                                 strictness=req.strictness, pivot_lr=req.pivot_lr,
+                                 match_rows=True)
+        rows = r.get("rows") or []
+        if not rows:
+            return {"matches": 0, "error": r.get("error", "no matches")}
+
+        import os as _os
+        dbtf = _os.path.expanduser("~/Downloads/studio_1h.duckdb")
+        if not _os.path.exists(dbtf):
+            return {"matches": len(rows), "error": "1h DB not built"}
+
+        import duckdb as _duckdb
+        import pandas as _pd
+        md = _pd.DataFrame([{"ticker": x["ticker"], "d": x["date"]} for x in rows])
+        conf = "+".join(f"CASE WHEN list_contains(hs,'{s}') THEN 1 ELSE 0 END" for s in _ICS_CONF)
+        trap = "+".join(f"CASE WHEN list_contains(hs,'{s}') THEN 1 ELSE 0 END" for s in _ICS_TRAP)
+        c = _duckdb.connect(dbtf, read_only=True)
+        try:
+            c.execute("PRAGMA threads=4")
+            c.register("m", md)
+            score_rows = c.execute(f"""
+              WITH dh AS (
+                SELECT b.ticker, CAST(b.date AS DATE) d,
+                  list_distinct(list(coalesce(NULLIF(b.t_sig,''),NULLIF(b.z_sig,'')))
+                                FILTER (WHERE coalesce(NULLIF(b.t_sig,''),NULLIF(b.z_sig,'')) IS NOT NULL)) hs
+                FROM bars b JOIN m ON m.ticker=b.ticker AND CAST(b.date AS DATE)=CAST(m.d AS DATE)
+                GROUP BY 1,2)
+              SELECT ticker, CAST(d AS VARCHAR), greatest(-2, least(2, ({conf})-({trap}))) FROM dh
+            """).fetchall()
+        finally:
+            c.close()
+        smap = {(t, d): int(s) for t, d, s in score_rows}
+        for x in rows:
+            x["score"] = smap.get((x["ticker"], x["date"]))   # None = no 1H coverage
+
+        def agg(subset):
+            n = len(subset)
+            hh = sum(1 for x in subset if x["hh"] == 1)
+            hl = sum(1 for x in subset if x["hl"] == 1)
+            known = hh + hl
+            w = [x["fwd_10d"] for x in subset if x["fwd_10d"] is not None]
+            return {
+                "n": n,
+                "hh_pct": round(hh / known * 100, 1) if known else None,
+                "pivot_known": known,
+                "win10": round(sum(1 for v in w if v > 0) / len(w) * 100, 1) if w else None,
+                "avg_fwd10": round(sum(w) / len(w), 2) if w else None,
+            }
+
+        covered = [x for x in rows if x["score"] is not None]
+        return {
+            "matches": len(rows),
+            "confirmers": _ICS_CONF, "traps": _ICS_TRAP,
+            "all_1d":   agg(rows),                                            # = the 1D band's 61.8%
+            "covered":  agg(covered),                                         # honest filter baseline (1H-covered)
+            "keep_ge1": agg([x for x in covered if x["score"] >= 1]),
+            "keep_ge2": agg([x for x in covered if x["score"] >= 2]),
+            "avoided":  agg([x for x in covered if x["score"] <= 0]),
+            "n_uncovered": len(rows) - len(covered),
+        }
+    except Exception as e:
+        log.exception("exact_sequence_1h_filter failed")
+        raise HTTPException(500, detail=str(e))
+
+
 @router.post("/confluence-sequence")
 def confluence_sequence(req: ConfluenceSequenceRequest):
     """

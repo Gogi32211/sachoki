@@ -344,6 +344,8 @@ export const api = {
   studioSigSequence:   (body)                  => post('/api/studio/signal-stats/sequence', body),
   studioConfluence:    (body)                  => post('/api/studio/confluence-sequence', body),
   studioExactSequence: (body)                  => post('/api/studio/exact-sequence', body),
+  studioIntradayConfirmScore: (trigger)        => get(`/api/studio/intraday-confirm-score?trigger=${encodeURIComponent(trigger || '')}`),
+  studioExactSeq1hFilter: (body)               => post('/api/studio/exact-sequence-1h-filter', body),
 
   predictSequence:     (ticker, body)          => post(`/api/predict-sequence/${ticker}`, body),
 

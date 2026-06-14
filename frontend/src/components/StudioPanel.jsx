@@ -983,6 +983,196 @@ const SEQ_INTRADAY = [
     hint: 'fwd = N bars (≈ hours), not days', accent: 'border-sky-700/40 bg-sky-900/15', color: 'text-sky-300' },
 ]
 
+// ADDITIVE — 1H confirmation re-aggregated on THIS sequence's REAL matches, on the
+// SAME Next-pivot-HH% metric the 1D band shows. Answers "does +1H actually add edge
+// for this exact sequence?" — apples-to-apples, not a population proxy.
+function SeqFilterCompare({ s, pivotLr }) {
+  const base = s.covered || s.all_1d
+  const bHH = base?.hh_pct
+  const P = pivotLr || 3
+  const cards = [
+    { key: 'all_1d',   label: '1D all matches',     tone: 'neutral' },
+    { key: 'keep_ge1', label: '+1H filter · ≥ +1',  tone: 'good' },
+    { key: 'keep_ge2', label: '+1H filter · ≥ +2',  tone: 'good' },
+    { key: 'avoided',  label: 'avoided (≤ 0)',      tone: 'bad' },
+  ]
+  const wrap = {
+    neutral: 'bg-md-surface-high/60 border-md-outline-var',
+    good:    'bg-emerald-900/15 border-emerald-700/40',
+    bad:     'bg-rose-900/15 border-rose-800/40',
+  }
+  const dHH = (v) => bHH == null || v == null ? null : +(v - bHH).toFixed(1)
+  return (
+    <div className="rounded border border-violet-700/30 bg-violet-900/10 px-3 py-2">
+      <div className="flex items-center gap-2 mb-2">
+        <span className="text-[11px] font-bold text-violet-300">⊞ 1H confirmation on THIS sequence</span>
+        <span className="text-[10px] text-md-on-surface-var/70">
+          same <span className="font-mono">Next-pivot-HH {P}-{P}</span> metric as the 1D band
+        </span>
+        <span className="ml-auto text-[9px] text-md-on-surface-var/50">
+          {fmtNum(s.matches)} matches{s.n_uncovered ? ` · ${fmtNum(s.n_uncovered)} pre-1H-DB (excluded)` : ''}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-stretch gap-2">
+        {cards.map(({ key, label, tone }) => {
+          const a = s[key]; if (!a || a.hh_pct == null) return null
+          const d = key === 'all_1d' ? null : dHH(a.hh_pct)
+          return (
+            <div key={key} className={cls('rounded border px-2.5 py-1.5 min-w-[132px]', wrap[tone])}>
+              <div className={cls('text-[9px]', tone === 'good' ? 'text-emerald-300/70' : tone === 'bad' ? 'text-rose-300/70' : 'text-md-on-surface-var/60')}>
+                {label}
+              </div>
+              <div className="flex items-baseline gap-1.5">
+                <span className={cls('font-mono text-base font-bold', tone === 'bad' ? 'text-rose-300' : tone === 'good' ? 'text-emerald-300' : 'text-md-on-surface')}>
+                  {a.hh_pct}%
+                </span>
+                {d != null && (
+                  <span className={cls('font-mono text-[10px] font-bold', d >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                    {d >= 0 ? '+' : ''}{d}pp
+                  </span>
+                )}
+              </div>
+              <div className="text-[9px] text-md-on-surface-var/50">
+                HH% · win10 {a.win10 ?? '–'}% · n {fmtNum(a.n)}
+              </div>
+            </div>
+          )
+        })}
+      </div>
+      <div className="mt-1.5 text-[9px] text-md-on-surface-var/50 leading-snug">
+        Δ vs the 1H-covered baseline ({bHH}% HH). The edge is the <span className="text-rose-300/80">avoided</span> set —
+        cut those days and the kept HH% / win rate rise. Filter = keep days whose intraday 1H score ≥ threshold.
+      </div>
+    </div>
+  )
+}
+
+// ADDITIVE panel — "1H-confirm score" for the sequence's TRIGGER bar (its last TZ).
+// score = (#confirmer 1H signals inside the trigger day) − (#trap 1H signals), −2..+2.
+// Population-level + monotonic in win% → a robust quality overlay for ANY sequence
+// without subdividing (and overfitting) the sequence's own small match set.
+function IntradayConfirmScore({ ics, trigger }) {
+  const order = ['2', '1', '0', '-1', '-2']
+  const rows = order.filter(k => ics.scores[k]).map(k => ({ k, ...ics.scores[k] }))
+  if (!rows.length) return null
+  const base = ics.baseline || {}                       // this 1D signal's OWN win rate — the Δ reference
+  const bW10 = base.win10, bW5 = base.win5, bM10 = base.med10
+  const pooled = ics.resolved === '*'
+
+  // ── 1D-alone  vs  1D+1H-FILTERED  comparison ──────────────────────────────
+  // A "filter" keeps only days whose 1H-confirm score ≥ threshold. win% is a
+  // proportion → an n-weighted average across the kept buckets is EXACT (medians
+  // can't be combined this way, so we only headline win%). This is the direct
+  // "what does adding the 1H filter buy you" view the per-bucket grid below can't show.
+  const wWin = (keys) => {
+    let n = 0, hit = 0
+    keys.forEach(k => { const s = ics.scores[k]; if (s) { n += s.n; hit += s.n * s.win10 / 100 } })
+    return n ? { n, win: +(hit / n * 100).toFixed(1) } : null
+  }
+  const baseN = base.n
+  const filters = [
+    { label: 'keep ≥ +1', set: wWin(['2', '1']) },
+    { label: 'keep = +2', set: wWin(['2']) },
+  ]
+  const avoided = wWin(['0', '-1', '-2'])   // the days a "≥+1" filter removes
+  // colour the row by its LIFT over the signal's own baseline (the meaningful axis),
+  // not by the absolute level (which is ~46% for almost every T/Z signal).
+  const dW10 = (r) => bW10 == null ? null : +(r.win10 - bW10).toFixed(1)
+  const tone = (d) => d == null ? 'text-md-on-surface-var' : d > 0.3 ? 'text-emerald-300' : d < -0.3 ? 'text-rose-300' : 'text-md-on-surface-var'
+  const deltas = rows.map(dW10).filter(d => d != null)
+  const dMax = deltas.length ? Math.max(...deltas.map(Math.abs), 1) : 1   // bar scaling
+  return (
+    <div className="rounded border border-indigo-700/30 bg-indigo-900/10 px-3 py-2">
+      <div className="flex items-center gap-2 mb-1.5">
+        <span className="text-[11px] font-bold text-indigo-300">⊞ 1H-confirm lift</span>
+        <span className="text-[10px] text-md-on-surface-var/70">
+          1D signal <span className="font-mono text-indigo-200">{(trigger || '').trim() || '—'}</span>
+          {pooled && <span className="text-amber-400/80"> · pooled (all triggers)</span>}
+          {bW10 != null &&
+            <span className="ml-1">· baseline win10 <span className="font-mono text-indigo-200">{bW10}%</span>
+              {bM10 != null && <span className="text-md-on-surface-var/50"> / med {bM10 >= 0 ? '+' : ''}{bM10}</span>}</span>}
+        </span>
+        <span className="ml-auto text-[9px] text-md-on-surface-var/50">
+          how much the intraday 1H structure shifts THIS signal's odds
+        </span>
+      </div>
+
+      {/* 1D-alone vs 1D+1H-filtered — the direct comparison */}
+      {bW10 != null && (
+        <div className="flex flex-wrap items-stretch gap-2 mb-2">
+          <div className="rounded bg-md-surface-high/60 border border-md-outline-var px-2.5 py-1.5 min-w-[120px]">
+            <div className="text-[9px] text-md-on-surface-var/60">1D alone</div>
+            <div className="font-mono text-base font-bold text-md-on-surface">{bW10}%</div>
+            <div className="text-[9px] text-md-on-surface-var/50">win10 · n {fmtNum(baseN)}</div>
+          </div>
+          {filters.map(f => f.set && (
+            <div key={f.label} className="rounded bg-emerald-900/15 border border-emerald-700/40 px-2.5 py-1.5 min-w-[140px]">
+              <div className="text-[9px] text-emerald-300/70">+ 1H filter · <span className="font-mono">{f.label}</span></div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-base font-bold text-emerald-300">{f.set.win}%</span>
+                <span className={cls('font-mono text-[10px] font-bold', f.set.win - bW10 >= 0 ? 'text-emerald-400' : 'text-rose-400')}>
+                  {f.set.win - bW10 >= 0 ? '+' : ''}{(f.set.win - bW10).toFixed(1)}pp
+                </span>
+              </div>
+              <div className="text-[9px] text-md-on-surface-var/50">
+                n {fmtNum(f.set.n)} · keeps {Math.round(f.set.n / baseN * 100)}% of days
+              </div>
+            </div>
+          ))}
+          {avoided && (
+            <div className="rounded bg-rose-900/15 border border-rose-800/40 px-2.5 py-1.5 min-w-[120px]">
+              <div className="text-[9px] text-rose-300/70">avoided (score ≤ 0)</div>
+              <div className="flex items-baseline gap-1.5">
+                <span className="font-mono text-base font-bold text-rose-300">{avoided.win}%</span>
+                <span className="font-mono text-[10px] font-bold text-rose-400">{(avoided.win - bW10).toFixed(1)}pp</span>
+              </div>
+              <div className="text-[9px] text-md-on-surface-var/50">n {fmtNum(avoided.n)} · the days you skip</div>
+            </div>
+          )}
+        </div>
+      )}
+
+      <div className="grid grid-cols-[auto_1fr_auto_auto_auto_auto] gap-x-3 gap-y-0.5 text-[10px]">
+        <div className="text-md-on-surface-var/50">score</div>
+        <div className="text-md-on-surface-var/50">Δ win10 (vs baseline)</div>
+        <div className="text-md-on-surface-var/50 text-right">win10</div>
+        <div className="text-md-on-surface-var/50 text-right">med10</div>
+        <div className="text-md-on-surface-var/50 text-right">win5</div>
+        <div className="text-md-on-surface-var/50 text-right">n</div>
+        {rows.map(r => {
+          const d = dW10(r)
+          const frac = d == null ? 0 : Math.abs(d) / dMax
+          return [
+            <div key={`${r.k}-s`} className="font-mono font-bold text-md-on-surface-var">
+              {+r.k > 0 ? '+' : ''}{r.k}
+            </div>,
+            <div key={`${r.k}-d`} className="flex items-center gap-1.5">
+              {/* diverging bar from a centre line: green right for +Δ, red left for −Δ */}
+              <div className="relative h-2 flex-1 max-w-[150px]">
+                <div className="absolute top-0 bottom-0 left-1/2 w-px bg-white/20" />
+                <div className={cls('absolute top-0 bottom-0 rounded-sm', d >= 0 ? 'bg-emerald-400/70 left-1/2' : 'bg-rose-400/70 right-1/2')}
+                     style={{ width: `${frac * 50}%`, ...(d >= 0 ? { left: '50%' } : { right: '50%' }) }} />
+              </div>
+              <span className={cls('font-mono font-bold', tone(d))}>{d == null ? '–' : (d > 0 ? '+' : '') + d + 'pp'}</span>
+            </div>,
+            <div key={`${r.k}-w`} className="text-right font-mono text-md-on-surface-var/70">{r.win10}%</div>,
+            <div key={`${r.k}-m`} className={cls('text-right font-mono', r.med10 >= 0 ? 'text-emerald-300' : 'text-rose-300/80')}>
+              {r.med10 >= 0 ? '+' : ''}{r.med10}
+            </div>,
+            <div key={`${r.k}-w5`} className="text-right font-mono text-md-on-surface-var/50">{r.win5}%</div>,
+            <div key={`${r.k}-n`} className="text-right font-mono text-md-on-surface-var/40">{fmtNum(r.n)}</div>,
+          ]
+        })}
+      </div>
+      <div className="mt-1.5 text-[9px] text-md-on-surface-var/50 leading-snug">
+        <span className="text-emerald-400/80">confirmers</span> {(ics.confirmers || []).join(' ')} ·{' '}
+        <span className="text-rose-400/80">traps</span> {(ics.traps || []).join(' ')} — score = (#confirmers − #traps inside the trigger day).
+        Mostly a <span className="text-rose-300/80">downside filter</span>: +2 lifts modestly, but score ≤0 cuts win rate sharply.
+      </div>
+    </div>
+  )
+}
+
 function ExactSequenceTab() {
   const [bars, setBars] = useState([
     { ...EXACT_EMPTY_BAR },
@@ -999,6 +1189,9 @@ function ExactSequenceTab() {
   const [error,    setError]    = useState(null)
   const [tfData,    setTfData]    = useState({})   // { '4h': result, '1h': result } — loaded async
   const [tfLoading, setTfLoading] = useState({})   // { '4h': bool, '1h': bool }
+  const [ics,       setIcs]       = useState(null) // ADDITIVE: 1H-confirm-score for the trigger bar (population)
+  const [seqFlt,    setSeqFlt]    = useState(null) // ADDITIVE: 1H filter on THIS sequence's real matches
+  const [seqFltLoad,setSeqFltLoad]= useState(false)
 
   const updateBar = (i, newBar) =>
     setBars(prev => prev.map((b, j) => j === i ? newBar : b))
@@ -1017,7 +1210,7 @@ function ExactSequenceTab() {
   }
 
   const run = async () => {
-    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({})
+    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({}); setIcs(null); setSeqFlt(null); setSeqFltLoad(false)
     try {
       // "both" → omit universe (backend treats null as "all universes")
       const body = { bars, strictness: strict, pivot_lr: pivotLr }
@@ -1035,6 +1228,20 @@ function ExactSequenceTab() {
             .catch(e => setTfData(p => ({ ...p, [tf]: { error: e.message } })))
             .finally(() => setTfLoading(p => ({ ...p, [tf]: false })))
         })
+        // ADDITIVE: the trigger = last bar's TZ. Fetch how the intraday 1H structure
+        // inside that trigger-day shifts the odds (population-level, robust).
+        const trig = (bars[bars.length - 1]?.tz || '').trim()
+        api.studioIntradayConfirmScore(trig)
+          .then(s => setIcs(s))
+          .catch(() => {})
+        // ADDITIVE: 1H filter on THIS sequence's REAL matches — same HH% metric as the
+        // 1D band, so it answers "does +1H confirmation actually add edge here?" (slower
+        // — re-runs the match + joins the 1H DB — so load in the background).
+        setSeqFltLoad(true)
+        api.studioExactSeq1hFilter(body)
+          .then(s => setSeqFlt(s))
+          .catch(e => setSeqFlt({ error: e.message }))
+          .finally(() => setSeqFltLoad(false))
       }
     } catch (e) { setError(e.message) }
     finally     { setLoading(false) }
@@ -1200,6 +1407,24 @@ function ExactSequenceTab() {
                            hint={hint} accent={accent} />
                 )
               })}
+
+              {/* ADDITIVE — 1H confirmation on THIS sequence's REAL matches. Same
+                  Next-pivot-HH% metric as the 1D band above, re-aggregated on the
+                  subset that passes the 1H filter → directly answers "does it add edge?" */}
+              {seqFltLoad && (
+                <div className="rounded border border-violet-700/30 bg-violet-900/10 px-2 py-2 text-[10px] text-violet-300/80 animate-pulse">
+                  ⏱ checking what this sequence's {result.outcomes?.hh_pct ?? ''}% HH becomes with 1H confirmation…
+                </div>
+              )}
+              {seqFlt && !seqFlt.error && seqFlt.all_1d && (
+                <SeqFilterCompare s={seqFlt} pivotLr={result.pivot_lr} />
+              )}
+
+              {/* ADDITIVE — population-level 1H-confirm score for the trigger bar (context;
+                  does NOT touch the 1d/4h/1h sequence bands above). */}
+              {ics && ics.scores && Object.keys(ics.scores).length > 0 && (
+                <IntradayConfirmScore ics={ics} trigger={bars[bars.length - 1]?.tz} />
+              )}
 
               {/* Active strictness footer */}
               <div className="text-[9px] text-md-on-surface-var/50 font-mono">
