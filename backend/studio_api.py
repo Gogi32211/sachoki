@@ -1507,10 +1507,12 @@ class PumpLogRequest(BaseModel):
 
 @router.post("/pump/analyze")
 def pump_analyze(body: PumpAnalyzeRequest):
-    """Analyze pre-pump signals for a list of tickers (last N bars from daily DB)."""
+    """Analyze ALL signals for pump tickers. Signal-agnostic: returns every sig_* column
+    that fired, plus cross-ticker frequency so research can discover which signals
+    are universally present before pumps — not just capit/atom."""
     from studio.db import get_conn
     if not body.tickers:
-        return {"rows": []}
+        return {"rows": [], "freq": []}
     tks = [t.upper().strip() for t in body.tickers if t.strip()]
     window = max(7, min(body.window, 30))
     try:
@@ -1520,12 +1522,67 @@ def pump_analyze(body: PumpAnalyzeRequest):
     try:
         qualify = f"QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker, date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1"
         placeholders = ", ".join("?" * len(tks))
+
+        # ── Discover all SMALLINT signal columns dynamically ──────────────────
+        schema_df = conn.execute("DESCRIBE bars").fetchdf()
+        all_cols = schema_df["column_name"].tolist()
+        all_types = dict(zip(schema_df["column_name"], schema_df["column_type"]))
+
+        # Signal columns: SMALLINT that start with sig_, or known signal prefixes
+        # Exclude price_gt_/price_lt_ (EMA position, not signals), fwd_*, mfe_*, mae_*
+        SIGNAL_COL_PREFIXES = (
+            "sig_", "l34", "l43", "l22", "be_up", "bo_up", "bx_up", "vbo_up",
+            "g1p", "g2p", "g3p", "g1l", "g2l", "g1c", "g2c", "g3c",
+            "rocket", "hilo_buy", "three_g", "svs", "sq", "load", "f8",
+            "wyc_spring", "wyc_sos", "wyc_in_tr", "wyc_sow",
+            "wvf_spike", "psar_bull", "psar_bear",
+            "eb_bull", "eb_bear", "fbo_bull", "fbo_bear", "bf_buy", "bf_sell",
+            "ultra_3up", "ultra_3dn", "best_long", "best_short",
+            "d_strong_bull", "d_strong_bear", "d_absorb_bull", "d_absorb_bear",
+            "d_div_bull", "d_div_bear", "d_cd_bull", "d_cd_bear",
+            "d_surge_bull", "d_surge_bear", "d_blast_bull", "d_blast_bear",
+            "d_vd_div_bull", "d_vd_div_bear", "d_spring", "d_upthrust",
+            "d_flip_bull", "d_flip_bear", "d_orange_bull",
+            "d_blast_bull_red", "d_blast_bear_grn", "d_surge_bull_red", "d_surge_bear_grn",
+            "para_prep", "para_start", "para_plus", "para_retest",
+            "fly_abcd", "fly_cd", "fly_bd", "fly_ad",
+            "tz_bull", "sweet_spot_active", "rsi_le_35", "rsi_ge_70",
+            "w2_sc", "w2_ar", "w2_st", "w2_spring", "w2_sos", "w2_jac",
+            "w2_lps", "w2_evr", "w2_accum", "w2_break",
+            "wt_valid_tr", "wt_sos", "wt_spring", "wt_lps", "wt_evr",
+            "prebreak_prime", "prebreak_ready", "prebreak_watch",
+            "prebreak_v2", "prebreak_v3", "prebreak_v4",
+            "pb_pp_rtv", "pb_fly_cd_c", "pb_follow_confirm", "pb_lvbo", "pb_wvf_confirm",
+            "seq_l34_eb", "ad_fresh", "ad_cluster",
+        )
+        EXCL_PREFIXES = ("fwd_", "mfe_", "mae_", "hit_", "drop_", "price_gt_", "price_lt_",
+                         "is_pivot_", "next_pivot_", "bars_to_", "pct_to_", "fwd_swing_",
+                         "swing_ret_", "atr_", "acc_exit_", "aes_", "pb_stop_", "pb_macro_",
+                         "vix_range", "sig_260308", "sig_l88",  # noisy / meta
+                         "w2_state", "w2_tr_quality", "wt_quality", "wt_support", "wt_resistance",
+                         "prebreak_score", "profile_score",)
+        sig_cols = [
+            c for c in all_cols
+            if all_types.get(c) == "SMALLINT"
+            and any(c.startswith(p) for p in SIGNAL_COL_PREFIXES)
+            and not any(c.startswith(ex) for ex in EXCL_PREFIXES)
+        ]
+
+        # Always include vol columns and EMA-below flags
+        extra_always = ["sig_vol_5x", "sig_vol_10x", "sig_vol_20x",
+                        "price_lt_20", "price_lt_50", "price_lt_89", "price_lt_200"]
+        for c in extra_always:
+            if c in all_cols and c not in sig_cols:
+                sig_cols.append(c)
+
+        # Core context columns (not signals, but needed for per-bar summary)
+        context_cols = ["ticker", "date::VARCHAR AS dt", "close", "volume", "avg_vol_20d",
+                        "t_sig", "z_sig", "l_sig", "bar_gap_class", "close_suffix",
+                        "rsi_14", "cci_20", "ultra_score", "turbo_score", "wyc_phase"]
+
+        sel = ", ".join(context_cols + sig_cols)
         df = conn.execute(f"""
-            SELECT ticker, date::VARCHAR AS dt, close, volume, avg_vol_20d,
-                   t_sig, z_sig, l_sig, bar_gap_class, close_suffix,
-                   rsi_14, cci_20, price_gt_20,
-                   sig_p2, sig_p3, sig_p50, sig_p55, sig_p66, sig_p89,
-                   sig_d2, sig_d3, sig_d50
+            SELECT {sel}
             FROM bars
             WHERE ticker IN ({placeholders})
             {qualify}
@@ -1533,101 +1590,82 @@ def pump_analyze(body: PumpAnalyzeRequest):
         """, tks).fetchdf()
 
         if df.empty:
-            return {"rows": [{"ticker": t, "status": "not_in_db"} for t in tks]}
+            return {"rows": [{"ticker": t, "status": "not_in_db"} for t in tks], "freq": []}
 
         df["dt"] = df["dt"].str[:10]
         df["vol_ratio"] = (df["volume"] / df["avg_vol_20d"].replace(0, float("nan"))).round(1)
 
+        # ── Per-ticker analysis ────────────────────────────────────────────────
         results = []
+        ticker_sig_sets = {}   # ticker → set of sig cols that fired at least once
+
         for tk in tks:
-            tdf = df[df["ticker"] == tk].tail(window)
+            tdf = df[df["ticker"] == tk].tail(window).copy()
             if tdf.empty:
                 results.append({"ticker": tk, "status": "not_in_db"})
+                ticker_sig_sets[tk] = set()
                 continue
 
             last = tdf.iloc[-1]
             n = len(tdf)
-
-            # Capit bars (L34/L46)
-            capit_bars = tdf[tdf["l_sig"].isin(["L34", "L46"])]
-            capit_dates = capit_bars["dt"].tolist()
-
-            # T-signals (any)
-            t_bars = tdf[tdf["t_sig"].notna() & (tdf["t_sig"] != "")]
-            t_list = t_bars[["dt", "t_sig"]].values.tolist()
-
-            # Z-signals
-            z_bars = tdf[tdf["z_sig"].notna() & (tdf["z_sig"] != "")]
-            z_list = z_bars[["dt", "z_sig"]].values.tolist()
-
-            # Capit→Atom check (L34/L46 followed by T1G/T2G within 10 bars)
-            capit_atom = False
-            atom_date = None
-            for cdt in capit_dates:
-                ci = tdf.index[tdf["dt"] == cdt]
-                if not len(ci):
-                    continue
-                ci = ci[0]
-                ci_pos = tdf.index.get_loc(ci)
-                window_after = tdf.iloc[ci_pos + 1: ci_pos + 11]
-                gap_t = window_after[window_after["t_sig"].isin(["T1G", "T2G"])]
-                if not gap_t.empty:
-                    capit_atom = True
-                    atom_date = gap_t.iloc[-1]["dt"]
-
-            # Vol spikes
-            big_vols = tdf[tdf["vol_ratio"] >= 3][["dt", "vol_ratio", "close_suffix"]].copy()
-            big_vols["vol_ratio"] = big_vols["vol_ratio"].round(1)
-            vol_spikes = big_vols.to_dict("records")
             max_vol = float(tdf["vol_ratio"].max()) if not tdf.empty else 0
 
-            # EMA20 days below
-            below_ema20 = int((~tdf["price_gt_20"].astype(bool)).sum())
+            # ALL signals that fired (any bar in window)
+            fired = {}
+            for col in sig_cols:
+                if col not in tdf.columns:
+                    continue
+                cnt = int(tdf[col].fillna(0).astype(bool).sum())
+                if cnt > 0:
+                    fired[col] = cnt  # count of bars where signal was active
 
-            # P66 in window
-            p66_date = None
-            p66_rows = tdf[tdf["sig_p66"].astype(bool)]
-            if not p66_rows.empty:
-                p66_date = p66_rows.iloc[-1]["dt"]
+            ticker_sig_sets[tk] = set(fired.keys())
 
-            # Recipe match: capit + vol_spike >= 5x + below_ema20 >= 5 + t_sig in window
-            recipe_score = 0
-            if capit_dates:
-                recipe_score += 2
-            if max_vol >= 5:
-                recipe_score += 2
-            if below_ema20 >= 5:
-                recipe_score += 1
-            if any(x[1] in ("T1G", "T2G") for x in t_list):
-                recipe_score += 2
-            if capit_atom:
-                recipe_score += 2
-            if max_vol >= 15:
-                recipe_score += 1  # ultra vol
+            # Categorical signals
+            t_vals = tdf[tdf["t_sig"].notna() & (tdf["t_sig"] != "")][["dt", "t_sig"]].values.tolist()
+            z_vals = tdf[tdf["z_sig"].notna() & (tdf["z_sig"] != "")][["dt", "z_sig"]].values.tolist()
+            l_vals = tdf[tdf["l_sig"].notna() & (tdf["l_sig"] != "")][["dt", "l_sig"]].values.tolist()
+
+            # Vol spikes
+            vol_spikes = tdf[tdf["vol_ratio"] >= 3][["dt", "vol_ratio", "close_suffix"]].copy()
+            vol_spikes["vol_ratio"] = vol_spikes["vol_ratio"].round(1)
 
             results.append({
                 "ticker": tk,
                 "status": "ok",
-                "pump_pct": body.pumps.get(tk, body.pumps.get(tk.upper(), None)),
+                "pump_pct": body.pumps.get(tk),
                 "last_date": str(last["dt"])[:10],
                 "last_close": round(float(last["close"]), 2),
                 "last_rsi": round(float(last["rsi_14"]), 1) if pd.notna(last["rsi_14"]) else None,
-                "last_cci": round(float(last["cci_20"]), 0) if pd.notna(last["cci_20"]) else None,
-                "below_ema20": below_ema20,
                 "n_bars": n,
-                "capit_dates": capit_dates,
-                "capit_atom": capit_atom,
-                "atom_date": atom_date,
-                "t_sigs": t_list[-6:],   # last 6
-                "z_sigs": z_list[-6:],
-                "vol_spikes": vol_spikes,
                 "max_vol_ratio": round(max_vol, 1),
-                "p66_date": p66_date,
-                "recipe_score": recipe_score,
+                "t_sigs": t_vals[-6:],
+                "z_sigs": z_vals[-6:],
+                "l_sigs": l_vals[-6:],
+                "vol_spikes": vol_spikes.to_dict("records"),
+                "fired": fired,           # {sig_col: bar_count}
+                "n_fired": len(fired),
             })
 
-        results.sort(key=lambda r: r.get("recipe_score", 0), reverse=True)
-        return {"rows": results}
+        # ── Cross-ticker signal frequency ──────────────────────────────────────
+        ok_count = sum(1 for t in tks if ticker_sig_sets.get(t))
+        freq_map = {}
+        for tk, sigs in ticker_sig_sets.items():
+            for s in sigs:
+                freq_map[s] = freq_map.get(s, 0) + 1
+
+        freq = sorted(
+            [{"sig": k, "n": v, "pct": round(100 * v / max(ok_count, 1))}
+             for k, v in freq_map.items()],
+            key=lambda x: x["n"], reverse=True
+        )
+
+        return {
+            "rows": results,
+            "freq": freq,
+            "n_tickers": ok_count,
+            "sig_cols_total": len(sig_cols),
+        }
     finally:
         conn.close()
 

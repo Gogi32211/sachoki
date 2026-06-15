@@ -1,17 +1,13 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useMemo } from 'react'
 
-// Parse paste like:
-//   "CAST +159%, CUPR +144%" or "CAST 159 CUPR 144" or one-per-line
+// Parse paste like "CAST +159%, CUPR +144%" or one-per-line
 function parsePaste(text) {
   const entries = []
-  // Try comma-separated first
   const lines = text.split(/[\n,]+/).map(s => s.trim()).filter(Boolean)
   for (const line of lines) {
     const m = line.match(/^([A-Z]{1,6})\s*[+-]?([\d.]+)%?/i)
-    if (m) {
-      entries.push({ ticker: m[1].toUpperCase(), pump: parseFloat(m[2]) })
-    } else {
-      // Just a ticker symbol
+    if (m) entries.push({ ticker: m[1].toUpperCase(), pump: parseFloat(m[2]) })
+    else {
       const sym = line.match(/^([A-Z]{1,6})$/i)
       if (sym) entries.push({ ticker: sym[1].toUpperCase(), pump: null })
     }
@@ -19,35 +15,40 @@ function parsePaste(text) {
   return entries
 }
 
-const SCORE_COLOR = s =>
-  s >= 7 ? 'text-emerald-400 font-bold' :
-  s >= 5 ? 'text-yellow-300' :
-  s >= 3 ? 'text-orange-300' : 'text-red-400'
+const PCT_COLOR = pct =>
+  pct >= 80 ? 'text-emerald-400 font-bold' :
+  pct >= 60 ? 'text-yellow-300 font-semibold' :
+  pct >= 40 ? 'text-orange-300' : 'text-white/50'
 
-const RECIPE_FIELDS = [
-  { key: 'capit_dates', label: 'Capit (L34/L46)', fmt: v => v?.length > 0 ? v.slice(-2).map(d => d.slice(5)).join(', ') : '—', good: v => v?.length > 0 },
-  { key: 'capit_atom',  label: 'Capit→Atom',      fmt: (v, r) => v ? `✅ ${(r.atom_date || '').slice(5)}` : '—', good: v => v },
-  { key: 'max_vol_ratio', label: 'Max Vol/Avg',   fmt: v => v ? `${v}x` : '—', good: v => v >= 5 },
-  { key: 'last_rsi',   label: 'RSI',               fmt: v => v?.toFixed(1) ?? '—', good: v => v != null && v < 40 },
-  { key: 'below_ema20', label: 'Days ↓ EMA20',    fmt: (v, r) => `${v}/${r.n_bars}`, good: (v, r) => v >= (r?.n_bars || 14) * 0.5 },
-  { key: 'p66_date',   label: 'P66',               fmt: v => v ? v.slice(5) : '—', good: v => !!v },
-]
+const PCT_BAR = pct => (
+  <div className="w-16 h-1.5 bg-white/10 rounded-full inline-block align-middle mr-1">
+    <div className="h-full rounded-full"
+      style={{ width: `${pct}%`,
+        background: pct >= 80 ? '#34d399' : pct >= 60 ? '#fbbf24' : pct >= 40 ? '#fb923c' : '#6b7280' }} />
+  </div>
+)
+
+// Friendly label for sig column names
+const SIG_LABEL = s => s.replace(/^sig_/, '').replace(/_/g, ' ')
 
 export default function PumpLogPanel() {
-  const [paste, setPaste]       = useState('')
-  const [rows, setRows]         = useState([])
-  const [loading, setLoading]   = useState(false)
-  const [notes, setNotes]       = useState('')
-  const [logStatus, setLogStatus] = useState(null)  // null | 'ok' | 'err'
+  const [paste, setPaste]         = useState('')
+  const [rows, setRows]           = useState([])
+  const [freq, setFreq]           = useState([])
+  const [meta, setMeta]           = useState(null)  // {n_tickers, sig_cols_total}
+  const [loading, setLoading]     = useState(false)
+  const [notes, setNotes]         = useState('')
+  const [logStatus, setLogStatus] = useState(null)
   const [mdContent, setMdContent] = useState(null)
   const [mdLoading, setMdLoading] = useState(false)
+  const [freqThresh, setFreqThresh] = useState(50)  // show signals present in ≥N% of tickers
+  const [expandTicker, setExpandTicker] = useState(null)
+  const [tab, setTab]             = useState('freq') // 'freq' | 'tickers' | 'log'
 
   const handleAnalyze = useCallback(async () => {
     const entries = parsePaste(paste)
     if (!entries.length) return
-    setLoading(true)
-    setRows([])
-    setLogStatus(null)
+    setLoading(true); setRows([]); setFreq([]); setLogStatus(null)
     try {
       const pumps = {}
       entries.forEach(e => { if (e.pump != null) pumps[e.ticker] = e.pump })
@@ -58,9 +59,10 @@ export default function PumpLogPanel() {
       })
       const d = await res.json()
       setRows(d.rows || [])
-    } finally {
-      setLoading(false)
-    }
+      setFreq(d.freq || [])
+      setMeta({ n_tickers: d.n_tickers, sig_cols_total: d.sig_cols_total })
+      setTab('freq')
+    } finally { setLoading(false) }
   }, [paste])
 
   const handleLog = useCallback(async () => {
@@ -72,13 +74,7 @@ export default function PumpLogPanel() {
     const res = await fetch('/api/studio/pump/log', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        date: today,
-        tickers: entries.map(e => e.ticker),
-        pumps,
-        rows,
-        notes,
-      }),
+      body: JSON.stringify({ date: today, tickers: entries.map(e => e.ticker), pumps, rows, notes }),
     })
     setLogStatus(res.ok ? 'ok' : 'err')
   }, [rows, paste, notes])
@@ -89,170 +85,236 @@ export default function PumpLogPanel() {
       const res = await fetch('/api/studio/pump/md')
       const d = await res.json()
       setMdContent(d.content || '')
-    } finally {
-      setMdLoading(false)
-    }
+      setTab('log')
+    } finally { setMdLoading(false) }
   }, [])
 
-  const okRows = rows.filter(r => r.status === 'ok')
+  const okRows   = rows.filter(r => r.status === 'ok')
   const notFound = rows.filter(r => r.status === 'not_in_db').map(r => r.ticker)
 
+  const filteredFreq = useMemo(
+    () => freq.filter(f => f.pct >= freqThresh),
+    [freq, freqThresh]
+  )
+
+  // Per-ticker expanded signal view
+  const expandedRow = expandTicker ? okRows.find(r => r.ticker === expandTicker) : null
+
   return (
-    <div className="flex flex-col gap-4 p-4 text-sm text-md-on-surface">
+    <div className="flex flex-col gap-3 p-4 text-sm text-md-on-surface min-h-0">
+
       {/* ── Header ── */}
-      <div className="flex items-center gap-3">
-        <h2 className="text-base font-semibold text-white">🔥 Pump Log</h2>
-        <span className="text-xs text-md-on-surface-var">daily pre-pump signal tracker → PUMP_RESEARCH.md</span>
-        <button
-          onClick={handleShowMd}
-          className="ml-auto px-2 py-0.5 rounded text-xs border border-white/10 hover:bg-white/10 text-md-on-surface-var"
-        >
+      <div className="flex items-center gap-3 flex-wrap">
+        <h2 className="text-base font-semibold text-white">🔥 Pump Research</h2>
+        <span className="text-xs text-md-on-surface-var">
+          paste gainers → analyze ALL signals → discover patterns
+        </span>
+        <button onClick={handleShowMd} disabled={mdLoading}
+          className="ml-auto px-2 py-0.5 rounded text-xs border border-white/10 hover:bg-white/10 text-md-on-surface-var">
           {mdLoading ? '…' : '📄 Show Log'}
         </button>
       </div>
 
-      {/* ── Input ── */}
+      {/* ── Input row ── */}
       <div className="flex gap-3 items-start">
         <div className="flex-1">
-          <div className="text-xs text-md-on-surface-var mb-1">Paste tickers (CAST +159%, CUPR +144%... or one per line)</div>
+          <div className="text-xs text-md-on-surface-var mb-1">
+            Paste tickers — <span className="text-white/40">CAST +159%, CUPR +144%…</span>
+          </div>
           <textarea
-            value={paste}
-            onChange={e => setPaste(e.target.value)}
-            className="w-full h-24 bg-md-surface-var border border-md-outline-var rounded px-2 py-1.5 text-xs font-mono text-white resize-none"
-            placeholder={"CAST +159%, CUPR +144%, VSME +104%, PAVS +97%, QTEX +65%,\nAHMA +50%, HQ +48%, HUBC +45%, GPUS +42%, SDOT +40%"}
-          />
+            value={paste} onChange={e => setPaste(e.target.value)}
+            className="w-full h-20 bg-md-surface-var border border-md-outline-var rounded px-2 py-1.5 text-xs font-mono text-white resize-none"
+            placeholder="CAST +159%, CUPR +144%, VSME +104%, PAVS +97%, QTEX +65%,&#10;AHMA +50%, HQ +48%, HUBC +45%, GPUS +42%, SDOT +40%" />
         </div>
         <div className="flex flex-col gap-2 pt-5">
-          <button
-            onClick={handleAnalyze}
-            disabled={loading || !paste.trim()}
-            className="px-4 py-1.5 rounded bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-semibold"
-          >
+          <button onClick={handleAnalyze} disabled={loading || !paste.trim()}
+            className="px-4 py-1.5 rounded bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-semibold whitespace-nowrap">
             {loading ? '⏳ Analyzing…' : '🔍 Analyze'}
           </button>
-          <button
-            onClick={handleLog}
-            disabled={!okRows.length}
-            className="px-4 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold"
-          >
+          <button onClick={handleLog} disabled={!okRows.length}
+            className="px-4 py-1.5 rounded bg-emerald-800 hover:bg-emerald-700 disabled:opacity-40 text-white text-xs font-semibold whitespace-nowrap">
             💾 Log Session
           </button>
         </div>
       </div>
 
-      {/* ── Notes ── */}
-      {okRows.length > 0 && (
-        <input
-          value={notes}
-          onChange={e => setNotes(e.target.value)}
-          placeholder="Session notes (optional)…"
-          className="w-full bg-md-surface-var border border-md-outline-var rounded px-2 py-1 text-xs text-white"
-        />
-      )}
-
-      {/* ── Log status ── */}
-      {logStatus === 'ok' && (
-        <div className="text-xs text-emerald-400">✅ Session logged to PUMP_RESEARCH.md</div>
-      )}
-      {logStatus === 'err' && (
-        <div className="text-xs text-red-400">❌ Log failed</div>
-      )}
-
-      {/* ── Not in DB ── */}
       {notFound.length > 0 && (
         <div className="text-xs text-yellow-400">Not in DB: {notFound.join(', ')}</div>
       )}
+      {logStatus === 'ok' && <div className="text-xs text-emerald-400">✅ Logged to PUMP_RESEARCH.md</div>}
+      {logStatus === 'err' && <div className="text-xs text-red-400">❌ Log failed</div>}
 
-      {/* ── Results table ── */}
-      {okRows.length > 0 && (
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs border-collapse">
-            <thead>
-              <tr className="text-md-on-surface-var border-b border-white/10">
-                <th className="text-left px-2 py-1">Ticker</th>
-                <th className="text-left px-2 py-1">Pump%</th>
-                <th className="text-left px-2 py-1">Score</th>
-                <th className="text-left px-2 py-1">Capit</th>
-                <th className="text-left px-2 py-1">Capit→Atom</th>
-                <th className="text-left px-2 py-1">MaxVol</th>
-                <th className="text-left px-2 py-1">RSI</th>
-                <th className="text-left px-2 py-1">↓EMA20</th>
-                <th className="text-left px-2 py-1">T-sigs</th>
-                <th className="text-left px-2 py-1">P66</th>
-                <th className="text-left px-2 py-1">Last</th>
-              </tr>
-            </thead>
-            <tbody>
-              {okRows.map(r => (
-                <tr key={r.ticker} className="border-b border-white/5 hover:bg-white/5">
-                  <td className="px-2 py-1 font-mono font-bold text-white">{r.ticker}</td>
-                  <td className="px-2 py-1 text-emerald-400">
-                    {r.pump_pct != null ? `+${r.pump_pct.toFixed(0)}%` : '—'}
-                  </td>
-                  <td className={`px-2 py-1 font-bold ${SCORE_COLOR(r.recipe_score)}`}>
-                    {r.recipe_score}/9
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.capit_dates?.length > 0
-                      ? <span className="text-red-400">{r.capit_dates.slice(-2).map(d => d.slice(5)).join(', ')}</span>
-                      : <span className="text-white/30">—</span>}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.capit_atom
-                      ? <span className="text-orange-400">✅ {r.atom_date?.slice(5)}</span>
-                      : <span className="text-white/30">—</span>}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.max_vol_ratio >= 5
-                      ? <span className="text-yellow-300">{r.max_vol_ratio}x</span>
-                      : <span className="text-white/30">{r.max_vol_ratio}x</span>}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.last_rsi != null
-                      ? <span className={r.last_rsi < 35 ? 'text-red-400' : r.last_rsi < 45 ? 'text-orange-300' : 'text-white/70'}>
-                          {r.last_rsi?.toFixed(1)}
-                        </span>
-                      : '—'}
-                  </td>
-                  <td className="px-2 py-1">
-                    <span className={r.below_ema20 >= r.n_bars * 0.7 ? 'text-red-400' : 'text-white/70'}>
-                      {r.below_ema20}/{r.n_bars}
-                    </span>
-                  </td>
-                  <td className="px-2 py-1 text-violet-300 font-mono text-[10px]">
-                    {r.t_sigs?.slice(-4).map(([d, s]) => s).join(' ') || '—'}
-                  </td>
-                  <td className="px-2 py-1">
-                    {r.p66_date
-                      ? <span className="text-cyan-400">{r.p66_date.slice(5)}</span>
-                      : <span className="text-white/30">—</span>}
-                  </td>
-                  <td className="px-2 py-1 text-white/50">{r.last_date?.slice(5)} ${r.last_close}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-
-          {/* ── Recipe legend ── */}
-          <div className="mt-3 text-[10px] text-md-on-surface-var flex flex-wrap gap-3">
-            <span>Score: Capit+2, →Atom+2, T1G/T2G+2, Vol≥5x+2, ↓EMA20≥50%+1, Vol≥15x+1 (max 9+1)</span>
-            <span className="text-emerald-400">≥7 = strong</span>
-            <span className="text-yellow-300">≥5 = watch</span>
-            <span className="text-orange-300">≥3 = weak</span>
-          </div>
+      {/* ── Tabs ── */}
+      {(freq.length > 0 || mdContent !== null) && (
+        <div className="flex gap-1 border-b border-white/10 pb-0">
+          {[
+            { id: 'freq',    label: `📊 Signal Freq${meta ? ` (${meta.sig_cols_total} cols)` : ''}` },
+            { id: 'tickers', label: `🔎 Per Ticker (${okRows.length})` },
+            { id: 'log',     label: '📄 Log' },
+          ].map(t => (
+            <button key={t.id} onClick={() => setTab(t.id)}
+              className={`px-3 py-1 text-xs rounded-t border-b-2 -mb-px transition-colors ${
+                tab === t.id
+                  ? 'border-orange-400 text-white bg-md-surface-var'
+                  : 'border-transparent text-md-on-surface-var hover:text-white'}`}>
+              {t.label}
+            </button>
+          ))}
         </div>
       )}
 
-      {/* ── PUMP_RESEARCH.md viewer ── */}
-      {mdContent !== null && (
-        <div className="mt-2">
-          <div className="flex items-center justify-between mb-1">
-            <span className="text-xs text-md-on-surface-var">PUMP_RESEARCH.md</span>
-            <button onClick={() => setMdContent(null)} className="text-xs text-white/40 hover:text-white">✕</button>
+      {/* ══ TAB: Signal Frequency ══ */}
+      {tab === 'freq' && freq.length > 0 && (
+        <div className="flex flex-col gap-2 min-h-0">
+          <div className="flex items-center gap-3 text-xs text-md-on-surface-var flex-wrap">
+            <span>Show signals present in ≥</span>
+            <select value={freqThresh} onChange={e => setFreqThresh(Number(e.target.value))}
+              className="bg-md-surface-var border border-md-outline-var rounded px-1 py-0.5 text-xs text-white">
+              {[20,30,40,50,60,70,80,90,100].map(v => (
+                <option key={v} value={v}>{v}%</option>
+              ))}
+            </select>
+            <span>of {meta?.n_tickers} tickers</span>
+            <span className="text-white/30">({filteredFreq.length} signals)</span>
+            <span className="ml-auto text-white/30">total signal columns scanned: {meta?.sig_cols_total}</span>
           </div>
-          <pre className="bg-md-surface-var rounded p-3 text-[10px] font-mono text-white/80 overflow-auto max-h-[50vh] whitespace-pre-wrap">
-            {mdContent}
-          </pre>
+
+          <div className="overflow-y-auto max-h-[55vh]">
+            <table className="w-full text-xs border-collapse">
+              <thead className="sticky top-0 bg-md-surface z-10">
+                <tr className="text-md-on-surface-var border-b border-white/10">
+                  <th className="text-left px-2 py-1 w-8">#</th>
+                  <th className="text-left px-2 py-1">Signal</th>
+                  <th className="text-right px-2 py-1 w-16">Tickers</th>
+                  <th className="text-left px-2 py-1 w-36">Coverage</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredFreq.map((f, i) => (
+                  <tr key={f.sig}
+                    className={`border-b border-white/5 hover:bg-white/5 ${f.pct === 100 ? 'bg-emerald-950/30' : ''}`}>
+                    <td className="px-2 py-0.5 text-white/30">{i + 1}</td>
+                    <td className="px-2 py-0.5 font-mono">
+                      <span className={PCT_COLOR(f.pct)}>{SIG_LABEL(f.sig)}</span>
+                      <span className="text-white/20 text-[10px] ml-1">({f.sig})</span>
+                    </td>
+                    <td className="px-2 py-0.5 text-right">
+                      <span className={PCT_COLOR(f.pct)}>{f.n}/{meta?.n_tickers}</span>
+                    </td>
+                    <td className="px-2 py-0.5">
+                      {PCT_BAR(f.pct)}
+                      <span className={`text-[10px] ${PCT_COLOR(f.pct)}`}>{f.pct}%</span>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {notes !== undefined && okRows.length > 0 && (
+            <input value={notes} onChange={e => setNotes(e.target.value)}
+              placeholder="Session notes (optional)…"
+              className="w-full bg-md-surface-var border border-md-outline-var rounded px-2 py-1 text-xs text-white mt-1" />
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: Per Ticker ══ */}
+      {tab === 'tickers' && okRows.length > 0 && (
+        <div className="flex gap-3 min-h-0 overflow-hidden">
+          {/* Ticker list */}
+          <div className="w-48 flex flex-col gap-0.5 overflow-y-auto">
+            {okRows.map(r => (
+              <button key={r.ticker}
+                onClick={() => setExpandTicker(expandTicker === r.ticker ? null : r.ticker)}
+                className={`text-left px-2 py-1 rounded text-xs font-mono transition-colors ${
+                  expandTicker === r.ticker
+                    ? 'bg-orange-900/50 text-orange-200'
+                    : 'hover:bg-white/5 text-white/80'}`}>
+                <span className="font-bold">{r.ticker}</span>
+                {r.pump_pct != null && <span className="text-emerald-400 ml-1">+{r.pump_pct.toFixed(0)}%</span>}
+                <span className="text-white/30 ml-1 text-[10px]">{r.n_fired}sig</span>
+              </button>
+            ))}
+          </div>
+
+          {/* Expanded signal list */}
+          {expandedRow ? (
+            <div className="flex-1 overflow-y-auto text-xs">
+              <div className="font-semibold text-white mb-2">
+                {expandedRow.ticker}
+                {expandedRow.pump_pct != null && <span className="text-emerald-400 ml-2">+{expandedRow.pump_pct.toFixed(0)}%</span>}
+                <span className="text-white/40 ml-2 font-normal">
+                  RSI {expandedRow.last_rsi} · Vol {expandedRow.max_vol_ratio}x · {expandedRow.n_fired} signals fired
+                </span>
+              </div>
+
+              {/* Categorical sigs */}
+              <div className="flex gap-4 mb-3 flex-wrap text-[10px]">
+                {expandedRow.t_sigs?.length > 0 && (
+                  <div>
+                    <div className="text-md-on-surface-var mb-0.5">T-sigs</div>
+                    {expandedRow.t_sigs.map(([d, s], i) => (
+                      <span key={i} className="text-violet-300 mr-1">{s}<span className="text-white/30">({d.slice(5)})</span></span>
+                    ))}
+                  </div>
+                )}
+                {expandedRow.z_sigs?.length > 0 && (
+                  <div>
+                    <div className="text-md-on-surface-var mb-0.5">Z-sigs</div>
+                    {expandedRow.z_sigs.map(([d, s], i) => (
+                      <span key={i} className="text-red-400 mr-1">{s}<span className="text-white/30">({d.slice(5)})</span></span>
+                    ))}
+                  </div>
+                )}
+                {expandedRow.l_sigs?.length > 0 && (
+                  <div>
+                    <div className="text-md-on-surface-var mb-0.5">L-sigs</div>
+                    {expandedRow.l_sigs.map(([d, s], i) => (
+                      <span key={i} className="text-orange-300 mr-1">{s}<span className="text-white/30">({d.slice(5)})</span></span>
+                    ))}
+                  </div>
+                )}
+                {expandedRow.vol_spikes?.length > 0 && (
+                  <div>
+                    <div className="text-md-on-surface-var mb-0.5">Vol spikes</div>
+                    {expandedRow.vol_spikes.map((v, i) => (
+                      <span key={i} className="text-yellow-300 mr-1">{v.vol_ratio}x<span className="text-white/30">({v.dt?.slice(5)})</span></span>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* All fired signals */}
+              <div className="text-md-on-surface-var text-[10px] mb-1">All fired signals ({expandedRow.n_fired})</div>
+              <div className="flex flex-wrap gap-1">
+                {Object.entries(expandedRow.fired || {})
+                  .sort(([,a],[,b]) => b - a)
+                  .map(([sig, cnt]) => (
+                    <span key={sig}
+                      className="px-1.5 py-0.5 rounded bg-md-surface-var border border-white/10 font-mono text-[10px] text-white/70">
+                      {SIG_LABEL(sig)}
+                      {cnt > 1 && <span className="text-yellow-400 ml-0.5">×{cnt}</span>}
+                    </span>
+                  ))}
+              </div>
+            </div>
+          ) : (
+            <div className="flex-1 text-xs text-white/30 pt-4">← Select a ticker to see all fired signals</div>
+          )}
+        </div>
+      )}
+
+      {/* ══ TAB: Log ══ */}
+      {tab === 'log' && (
+        <div className="min-h-0 overflow-y-auto max-h-[60vh]">
+          {mdContent ? (
+            <pre className="bg-md-surface-var rounded p-3 text-[10px] font-mono text-white/80 whitespace-pre-wrap">
+              {mdContent}
+            </pre>
+          ) : (
+            <div className="text-xs text-white/30">Click "📄 Show Log" to load PUMP_RESEARCH.md</div>
+          )}
         </div>
       )}
     </div>
