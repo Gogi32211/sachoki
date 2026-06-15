@@ -980,17 +980,29 @@ def scoring_lab_backtest(req: BacktestRequest):
 # Bar Descriptions & Narratives
 # ─────────────────────────────────────────────────────────────────────────────
 
+_WEEKLY_DB = os.path.expanduser("~/Downloads/studio_1w.duckdb")
+
 @router.get("/bars/{ticker}")
 def get_ticker_bars(
     ticker: str,
     limit:  int = Query(120, ge=1, le=2500),
     offset: int = Query(0, ge=0),
+    tf:     str = Query("1d"),
 ):
-    """Get all bars for a ticker with forward returns + full 6-line chart codes
-    (TZ / L / suffix / body-wick / gap-range / line5) straight from the DB so a
-    Studio chart can render exactly what the Sequence Builder matches."""
+    """Get all bars for a ticker. tf=1d uses the main daily DB; tf=1w uses studio_1w.duckdb."""
+    import duckdb as _duckdb
     from studio.db import get_conn
-    conn = get_conn(read_only=True)
+    if tf == "1w":
+        if not os.path.exists(_WEEKLY_DB):
+            raise HTTPException(404, detail="Weekly DB not built yet — run build_weekly_db.py --all")
+        try:
+            conn = _duckdb.connect(_WEEKLY_DB, read_only=True)
+        except Exception as e:
+            if "lock" in str(e).lower():
+                raise HTTPException(503, detail="Weekly DB is being built — try again in a few minutes")
+            raise
+    else:
+        conn = get_conn(read_only=True)
     try:
         rows = conn.execute(
             f"""SELECT ticker, date, open, high, low, close, volume,
@@ -1022,6 +1034,121 @@ def get_ticker_bars(
             [ticker.upper(), limit, offset],
         ).fetchdf()
         return _safe_records(rows)
+    finally:
+        conn.close()
+
+
+@router.get("/capit-atom-marks/{ticker}")
+def capit_atom_marks(ticker: str, universe: str = Query(None)):
+    """Return all historical Capit + Atom signal dates for a ticker from the Studio DB.
+    Capit  = L34/L46 + RSI 15-30 + CCI<-100 (B+ quality).
+    Atom   = T-sig + close_suffix='O' (weak-close) + bar_gap_class IN ('G2','G3').
+    Returns {capit: [{date, l_sig, rsi, cci, close, score}], atom: [{date, t_sig, gap, rsi, close, post_capit}]}
+    """
+    import numpy as np
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500","nasdaq","russell2k") else ""
+        qualify   = f"QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1"
+
+        # ── Capit: B+ quality capitulation bars ──────────────────────────────
+        capit_rows = conn.execute(f"""
+            WITH lag20 AS (
+              SELECT ticker, universe, date, l_sig, rsi_14, cci_20, close, volume, avg_vol_20d,
+                     LAG(close, 20) OVER (PARTITION BY ticker, universe ORDER BY date) AS c20
+              FROM bars WHERE ticker = ? {uni_where}
+            )
+            SELECT date, l_sig, round(rsi_14,1) AS rsi, round(cci_20,0) AS cci,
+                   round(close,2) AS close
+            FROM lag20
+            WHERE l_sig IN ('L34','L46')
+              AND rsi_14 >= 15 AND rsi_14 < 30
+              AND cci_20 < -100
+              AND c20 > 0 AND (close / c20 - 1) > -0.25
+              AND avg_vol_20d > 0
+            {qualify}
+            ORDER BY date
+        """, [tk]).fetchdf()
+
+        capit_dates = set(str(d)[:10] for d in capit_rows["date"].tolist())
+
+        # ── Atom: weak-close gap-up T-sig bars ───────────────────────────────
+        atom_rows = conn.execute(f"""
+            SELECT date, t_sig, bar_gap_class AS gap, round(rsi_14,1) AS rsi,
+                   round(close,2) AS close, close_suffix
+            FROM bars WHERE ticker = ? {uni_where}
+              AND t_sig IS NOT NULL
+              AND close_suffix = 'O'
+              AND bar_gap_class IN ('G2','G3')
+            {qualify}
+            ORDER BY date
+        """, [tk]).fetchdf()
+
+        # flag post_capit: is there a B+ capit ≤ 15 calendar days before?
+        capit_arr = sorted(capit_dates)
+        def _days_since(d_str):
+            from datetime import date as _date
+            d = _date.fromisoformat(d_str[:10])
+            prior = [_date.fromisoformat(c) for c in capit_arr if c <= d_str[:10]]
+            if not prior: return None
+            return (d - prior[-1]).days
+
+        capit_out = [
+            {"date": str(r.date)[:10], "l_sig": r.l_sig,
+             "rsi": float(r.rsi), "cci": float(r.cci), "close": float(r.close)}
+            for r in capit_rows.itertuples()
+        ]
+        atom_out = []
+        for r in atom_rows.itertuples():
+            ds = _days_since(str(r.date)[:10])
+            atom_out.append({
+                "date": str(r.date)[:10], "t_sig": r.t_sig,
+                "gap": r.gap, "rsi": float(r.rsi), "close": float(r.close),
+                "post_capit": ds is not None and ds <= 15,
+                "days_since_capit": int(ds) if ds is not None else None,
+            })
+        # ── 2nd P66: for each post-capit Atom, find the 2nd P signal that is P66 ──
+        post_capit_atom_dates = [a["date"] for a in atom_out if a["post_capit"]]
+        p66_out = []
+        if post_capit_atom_dates:
+            bar_df = conn.execute(f"""
+                SELECT date::VARCHAR AS dt, close,
+                       sig_p2, sig_p3, sig_p50, sig_p55, sig_p66, sig_p89
+                FROM bars WHERE ticker = ? {uni_where}
+                {qualify}
+                ORDER BY dt
+            """, [tk]).fetchdf()
+            bar_df['dt'] = bar_df['dt'].str[:10]
+            bar_df = bar_df.sort_values('dt').reset_index(drop=True)
+            for atom_date in post_capit_atom_dates:
+                ai_list = bar_df.index[bar_df['dt'] == atom_date].tolist()
+                if not ai_list:
+                    continue
+                ai = ai_list[0]
+                window = bar_df.iloc[ai + 1: ai + 31]
+                p_mask = (
+                    window['sig_p2'].astype(bool) | window['sig_p3'].astype(bool) |
+                    window['sig_p50'].astype(bool) | window['sig_p55'].astype(bool) |
+                    window['sig_p66'].astype(bool) | window['sig_p89'].astype(bool)
+                )
+                p_bars = window[p_mask]
+                if len(p_bars) < 2:
+                    continue
+                second_p = p_bars.iloc[1]
+                if not bool(second_p['sig_p66']):
+                    continue
+                p66_out.append({
+                    "date": str(second_p['dt'])[:10],
+                    "close": round(float(second_p['close']), 2),
+                    "atom_date": atom_date,
+                })
+
+        return {"ticker": tk, "capit": capit_out, "atom": atom_out, "p66": p66_out}
     finally:
         conn.close()
 
@@ -1074,6 +1201,7 @@ class ExactSequenceRequest(BaseModel):
     strictness: Optional[dict]      = None
     pivot_lr:   int                 = 3
     tf:         str                 = "1d"  # "1d" (default, fast) or "1h" (intraday DB)
+    match_rows: bool                = False  # also return per-match (ticker, date, hh, hl)
 
 
 @router.post("/exact-sequence")
@@ -1086,18 +1214,24 @@ def exact_sequence(req: ExactSequenceRequest):
     """
     try:
         tf = (req.tf or "1d").lower()
-        if tf in ("1h", "4h", "30m", "15m"):
+        if tf in ("1w", "1h", "4h", "30m", "15m"):
             # query a separate intraday DB (slow — tens of M bars; UI loads it async)
             import os as _os
             dbtf = _os.path.expanduser(f"~/Downloads/studio_{tf}.duckdb")
             if not _os.path.exists(dbtf):
                 return {"matches": 0, "tf": tf, "error": f"{tf} DB not built yet"}
             import duckdb as _duckdb
-            ctf = _duckdb.connect(dbtf, read_only=True)
+            try:
+                ctf = _duckdb.connect(dbtf, read_only=True)
+            except Exception as _le:
+                if "lock" in str(_le).lower():
+                    return {"matches": 0, "tf": tf, "error": f"{tf} DB is still being built — try again soon"}
+                raise
             try:
                 r = query_exact_sequence(
                     bars=req.bars, universe=req.universe,
                     strictness=req.strictness, pivot_lr=req.pivot_lr, conn=ctf,
+                    match_rows=req.match_rows,
                 )
             finally:
                 ctf.close()
@@ -1109,6 +1243,7 @@ def exact_sequence(req: ExactSequenceRequest):
             universe   = req.universe,
             strictness = req.strictness,
             pivot_lr   = req.pivot_lr,
+            match_rows = req.match_rows,
         )
     except Exception as e:
         log.exception("exact_sequence failed")
@@ -1351,3 +1486,214 @@ def bars_search(body: dict):
         return {"count": len(rows), "rows": _safe_records(rows)}
     finally:
         conn.close()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pump Research — daily pump log analysis
+# ─────────────────────────────────────────────────────────────────────────────
+
+class PumpAnalyzeRequest(BaseModel):
+    tickers: list[str]
+    pumps: dict[str, float] = {}   # ticker → pump% (optional)
+    window: int = 14               # bars to look back
+
+class PumpLogRequest(BaseModel):
+    date: str
+    tickers: list[str]
+    pumps: dict[str, float] = {}
+    rows: list[dict]
+    notes: str = ""
+
+
+@router.post("/pump/analyze")
+def pump_analyze(body: PumpAnalyzeRequest):
+    """Analyze pre-pump signals for a list of tickers (last N bars from daily DB)."""
+    from studio.db import get_conn
+    if not body.tickers:
+        return {"rows": []}
+    tks = [t.upper().strip() for t in body.tickers if t.strip()]
+    window = max(7, min(body.window, 30))
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        qualify = f"QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker, date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1"
+        placeholders = ", ".join("?" * len(tks))
+        df = conn.execute(f"""
+            SELECT ticker, date::VARCHAR AS dt, close, volume, avg_vol_20d,
+                   t_sig, z_sig, l_sig, bar_gap_class, close_suffix,
+                   rsi_14, cci_20, price_gt_20,
+                   sig_p2, sig_p3, sig_p50, sig_p55, sig_p66, sig_p89,
+                   sig_d2, sig_d3, sig_d50
+            FROM bars
+            WHERE ticker IN ({placeholders})
+            {qualify}
+            ORDER BY ticker, dt
+        """, tks).fetchdf()
+
+        if df.empty:
+            return {"rows": [{"ticker": t, "status": "not_in_db"} for t in tks]}
+
+        df["dt"] = df["dt"].str[:10]
+        df["vol_ratio"] = (df["volume"] / df["avg_vol_20d"].replace(0, float("nan"))).round(1)
+
+        results = []
+        for tk in tks:
+            tdf = df[df["ticker"] == tk].tail(window)
+            if tdf.empty:
+                results.append({"ticker": tk, "status": "not_in_db"})
+                continue
+
+            last = tdf.iloc[-1]
+            n = len(tdf)
+
+            # Capit bars (L34/L46)
+            capit_bars = tdf[tdf["l_sig"].isin(["L34", "L46"])]
+            capit_dates = capit_bars["dt"].tolist()
+
+            # T-signals (any)
+            t_bars = tdf[tdf["t_sig"].notna() & (tdf["t_sig"] != "")]
+            t_list = t_bars[["dt", "t_sig"]].values.tolist()
+
+            # Z-signals
+            z_bars = tdf[tdf["z_sig"].notna() & (tdf["z_sig"] != "")]
+            z_list = z_bars[["dt", "z_sig"]].values.tolist()
+
+            # Capit→Atom check (L34/L46 followed by T1G/T2G within 10 bars)
+            capit_atom = False
+            atom_date = None
+            for cdt in capit_dates:
+                ci = tdf.index[tdf["dt"] == cdt]
+                if not len(ci):
+                    continue
+                ci = ci[0]
+                ci_pos = tdf.index.get_loc(ci)
+                window_after = tdf.iloc[ci_pos + 1: ci_pos + 11]
+                gap_t = window_after[window_after["t_sig"].isin(["T1G", "T2G"])]
+                if not gap_t.empty:
+                    capit_atom = True
+                    atom_date = gap_t.iloc[-1]["dt"]
+
+            # Vol spikes
+            big_vols = tdf[tdf["vol_ratio"] >= 3][["dt", "vol_ratio", "close_suffix"]].copy()
+            big_vols["vol_ratio"] = big_vols["vol_ratio"].round(1)
+            vol_spikes = big_vols.to_dict("records")
+            max_vol = float(tdf["vol_ratio"].max()) if not tdf.empty else 0
+
+            # EMA20 days below
+            below_ema20 = int((~tdf["price_gt_20"].astype(bool)).sum())
+
+            # P66 in window
+            p66_date = None
+            p66_rows = tdf[tdf["sig_p66"].astype(bool)]
+            if not p66_rows.empty:
+                p66_date = p66_rows.iloc[-1]["dt"]
+
+            # Recipe match: capit + vol_spike >= 5x + below_ema20 >= 5 + t_sig in window
+            recipe_score = 0
+            if capit_dates:
+                recipe_score += 2
+            if max_vol >= 5:
+                recipe_score += 2
+            if below_ema20 >= 5:
+                recipe_score += 1
+            if any(x[1] in ("T1G", "T2G") for x in t_list):
+                recipe_score += 2
+            if capit_atom:
+                recipe_score += 2
+            if max_vol >= 15:
+                recipe_score += 1  # ultra vol
+
+            results.append({
+                "ticker": tk,
+                "status": "ok",
+                "pump_pct": body.pumps.get(tk, body.pumps.get(tk.upper(), None)),
+                "last_date": str(last["dt"])[:10],
+                "last_close": round(float(last["close"]), 2),
+                "last_rsi": round(float(last["rsi_14"]), 1) if pd.notna(last["rsi_14"]) else None,
+                "last_cci": round(float(last["cci_20"]), 0) if pd.notna(last["cci_20"]) else None,
+                "below_ema20": below_ema20,
+                "n_bars": n,
+                "capit_dates": capit_dates,
+                "capit_atom": capit_atom,
+                "atom_date": atom_date,
+                "t_sigs": t_list[-6:],   # last 6
+                "z_sigs": z_list[-6:],
+                "vol_spikes": vol_spikes,
+                "max_vol_ratio": round(max_vol, 1),
+                "p66_date": p66_date,
+                "recipe_score": recipe_score,
+            })
+
+        results.sort(key=lambda r: r.get("recipe_score", 0), reverse=True)
+        return {"rows": results}
+    finally:
+        conn.close()
+
+
+@router.post("/pump/log")
+def pump_log(body: PumpLogRequest):
+    """Append a new session to PUMP_RESEARCH.md."""
+    import os
+    from pathlib import Path
+    log_path = Path(__file__).parent.parent / "PUMP_RESEARCH.md"
+
+    # Build markdown table rows
+    def _fmt(r):
+        tk = r.get("ticker", "?")
+        pump = f"+{r['pump_pct']:.0f}%" if r.get("pump_pct") else "—"
+        capit = ", ".join(r.get("capit_dates", [])[-2:]) or "—"
+        atom = "✅ " + (r.get("atom_date") or "") if r.get("capit_atom") else "—"
+        p66 = r.get("p66_date") or "—"
+        vol_spikes = r.get("vol_spikes", [])
+        vol_str = f"{vol_spikes[-1]['vol_ratio']}x ({vol_spikes[-1]['dt'][-5:]})" if vol_spikes else "—"
+        t_sigs = " ".join(x[1] for x in (r.get("t_sigs") or [])[-4:]) or "—"
+        rsi = r.get("last_rsi")
+        below = r.get("below_ema20", 0)
+        score = r.get("recipe_score", 0)
+        return f"| {tk} | {pump} | {capit} | {atom} | {p66} | {vol_str} | {t_sigs} | {rsi} | {below}/{r.get('n_bars',14)} | {score}/9 |"
+
+    ok_rows = [r for r in body.rows if r.get("status") == "ok"]
+    not_found = [r["ticker"] for r in body.rows if r.get("status") == "not_in_db"]
+
+    header = f"""
+## Session: {body.date}
+
+**Tickers**: {', '.join(body.tickers)}
+**Not in DB**: {', '.join(not_found) if not_found else 'none'}
+
+| Ticker | Pump% | Capit (last 2) | Capit→Atom | P66 | Vol spike | T-sigs (last 4) | RSI | EMA20↓/{body.rows[0].get('n_bars',14) if body.rows else 14}d | Score |
+|--------|-------|----------------|------------|-----|-----------|-----------------|-----|----------|-------|
+"""
+    rows_md = "\n".join(_fmt(r) for r in ok_rows)
+
+    notes_md = f"\n**Notes**: {body.notes}" if body.notes else ""
+
+    capit_atom_list = [r for r in ok_rows if r.get("capit_atom")]
+    ca_md = ""
+    if capit_atom_list:
+        ca_md = "\n**Capit→Atom setups**: " + ", ".join(
+            f"{r['ticker']} ({r['atom_date']})" for r in capit_atom_list
+        )
+
+    session_block = header + rows_md + notes_md + ca_md + "\n\n---\n"
+
+    # Append to file (or create if missing)
+    if not log_path.exists():
+        log_path.write_text("# PUMP_RESEARCH — Daily Signal Log\n\n")
+
+    with open(log_path, "a") as f:
+        f.write(session_block)
+
+    return {"ok": True, "path": str(log_path), "sessions_appended": 1}
+
+
+@router.get("/pump/md")
+def pump_md():
+    """Return the current PUMP_RESEARCH.md content."""
+    from pathlib import Path
+    log_path = Path(__file__).parent.parent / "PUMP_RESEARCH.md"
+    if not log_path.exists():
+        return {"content": ""}
+    return {"content": log_path.read_text()}

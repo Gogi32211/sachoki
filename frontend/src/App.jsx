@@ -42,6 +42,7 @@ const IndustryPulsePanel    = lazy(() => import('./components/IndustryPulsePanel
 const HVZonesPanel          = lazy(() => import('./components/HVZonesPanel'))
 const GannZonesPanel        = lazy(() => import('./components/GannZonesPanel'))
 const ZoneEdgePanel         = lazy(() => import('./components/ZoneEdgePanel'))
+const PumpLogPanel          = lazy(() => import('./components/PumpLogPanel'))
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -87,6 +88,7 @@ const TAB_GROUPS = [
     tabs: [
       { id: 'analyze',        label: '🔍 Analyze' },
       { id: 'sigreplay',      label: '🧪 Pump Research' },
+      { id: 'pumplog',        label: '🔥 Pump Log' },
       { id: 'replay',         label: '🔬 Replay' },
       { id: 'tzlstats',       label: '📈 T/Z × L Stats' },
       { id: 'corr',           label: '📊 Corr' },
@@ -130,11 +132,11 @@ const TAB_GROUPS = [
 
 const TABS = TAB_GROUPS.flatMap(g => g.tabs)
 const VALID_TAB_IDS = new Set(TABS.map(t => t.id))
-const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
+const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -354,6 +356,7 @@ export default function App() {
           {activeTab === 'portfolio'      && <PortfolioPanel />}
           {activeTab === 'chartobs'       && <ChartObsPanel onSelectTicker={handleSelect} />}
           {activeTab === 'sigreplay'      && <UltraPumpResearchPanel />}
+          {activeTab === 'pumplog'        && <PumpLogPanel />}
           {activeTab === 'studio'         && <StudioPanel />}
           {activeTab === 'qlib'           && <QlibPanel />}
           {activeTab === 'aijournal'      && <AiJournalPanel />}
