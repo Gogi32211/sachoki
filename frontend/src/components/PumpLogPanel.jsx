@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from 'react'
+import { useState, useCallback, useMemo, useEffect } from 'react'
 
 // Parse paste like "CAST +159%, CUPR +144%" or one-per-line
 function parsePaste(text) {
@@ -43,7 +43,14 @@ export default function PumpLogPanel() {
   const [mdLoading, setMdLoading] = useState(false)
   const [freqThresh, setFreqThresh] = useState(50)  // show signals present in ≥N% of tickers
   const [expandTicker, setExpandTicker] = useState(null)
-  const [tab, setTab]             = useState('freq') // 'freq' | 'tickers' | 'log'
+  const [tab, setTab]             = useState('screener') // 'screener' | 'freq' | 'tickers' | 'log'
+  // Live pump screener
+  const [screener, setScreener]     = useState([])
+  const [scrLoading, setScrLoading] = useState(false)
+  const [scrUniverse, setScrUniverse] = useState('nasdaq')
+  const [scrMinScore, setScrMinScore] = useState(9)
+  const [scrMaxScore, setScrMaxScore] = useState(14)
+  const [scrMaxPrice, setScrMaxPrice] = useState(10)
 
   const handleAnalyze = useCallback(async () => {
     const entries = parsePaste(paste)
@@ -78,6 +85,21 @@ export default function PumpLogPanel() {
     })
     setLogStatus(res.ok ? 'ok' : 'err')
   }, [rows, paste, notes])
+
+  const handleScreener = useCallback(async () => {
+    setScrLoading(true); setScreener([])
+    try {
+      const url = `/api/studio/pump-screener?universe=${scrUniverse}&min_score=${scrMinScore}&max_score=${scrMaxScore}&max_price=${scrMaxPrice}&limit=50`
+      const res = await fetch(url)
+      const d   = await res.json()
+      setScreener(d.results || [])
+    } finally { setScrLoading(false) }
+  }, [scrUniverse, scrMinScore, scrMaxScore, scrMaxPrice])
+
+  // Auto-load screener on first visit
+  useEffect(() => {
+    if (tab === 'screener' && screener.length === 0 && !scrLoading) handleScreener()
+  }, [tab]) // eslint-disable-line
 
   const handleShowMd = useCallback(async () => {
     setMdLoading(true)
@@ -145,12 +167,14 @@ export default function PumpLogPanel() {
       {logStatus === 'err' && <div className="text-xs text-red-400">❌ Log failed</div>}
 
       {/* ── Tabs ── */}
-      {(freq.length > 0 || mdContent !== null) && (
-        <div className="flex gap-1 border-b border-white/10 pb-0">
+      <div className="flex gap-1 border-b border-white/10 pb-0">
           {[
-            { id: 'freq',    label: `📊 Signal Freq${meta ? ` (${meta.sig_cols_total} cols)` : ''}` },
-            { id: 'tickers', label: `🔎 Per Ticker (${okRows.length})` },
-            { id: 'log',     label: '📄 Log' },
+            { id: 'screener', label: `⚡ Screener${screener.length ? ` (${screener.length})` : ''}` },
+            ...(freq.length > 0 ? [
+              { id: 'freq',    label: `📊 Freq${meta ? ` (${meta.sig_cols_total})` : ''}` },
+              { id: 'tickers', label: `🔎 Tickers (${okRows.length})` },
+            ] : []),
+            ...(mdContent !== null ? [{ id: 'log', label: '📄 Log' }] : []),
           ].map(t => (
             <button key={t.id} onClick={() => setTab(t.id)}
               className={`px-3 py-1 text-xs rounded-t border-b-2 -mb-px transition-colors ${
@@ -160,6 +184,101 @@ export default function PumpLogPanel() {
               {t.label}
             </button>
           ))}
+        </div>
+
+      {/* ══ TAB: Live Pump Screener ══ */}
+      {tab === 'screener' && (
+        <div className="flex flex-col gap-3 min-h-0">
+          {/* Controls */}
+          <div className="flex items-center gap-3 flex-wrap text-xs text-md-on-surface-var">
+            <select value={scrUniverse} onChange={e => setScrUniverse(e.target.value)}
+              className="bg-md-surface-var border border-md-outline-var rounded px-1.5 py-0.5 text-white text-xs">
+              <option value="nasdaq">NASDAQ</option>
+              <option value="russell2k">Russell 2K</option>
+              <option value="sp500">S&P 500</option>
+            </select>
+            <label className="flex items-center gap-1">Score
+              <select value={scrMinScore} onChange={e => setScrMinScore(Number(e.target.value))}
+                className="bg-md-surface-var border border-md-outline-var rounded px-1 py-0.5 text-white text-xs">
+                {[4,5,6,7,8,9,10,12,14].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+              –
+              <select value={scrMaxScore} onChange={e => setScrMaxScore(Number(e.target.value))}
+                className="bg-md-surface-var border border-md-outline-var rounded px-1 py-0.5 text-white text-xs">
+                {[7,8,9,10,11,12,14,16,20,99].map(v => <option key={v} value={v}>{v === 99 ? 'any' : v}</option>)}
+              </select>
+            </label>
+            <label className="flex items-center gap-1">Price ≤ $
+              <select value={scrMaxPrice} onChange={e => setScrMaxPrice(Number(e.target.value))}
+                className="bg-md-surface-var border border-md-outline-var rounded px-1 py-0.5 text-white text-xs">
+                {[3,5,7,10,15,20,50].map(v => <option key={v} value={v}>{v}</option>)}
+              </select>
+            </label>
+            <button onClick={handleScreener} disabled={scrLoading}
+              className="px-3 py-0.5 rounded bg-orange-700 hover:bg-orange-600 disabled:opacity-40 text-white text-xs font-semibold">
+              {scrLoading ? '⏳' : '🔄 Refresh'}
+            </button>
+            {screener.length > 0 && (
+              <span className="text-slate-400">{screener.length} tickers — latest bar</span>
+            )}
+          </div>
+          {/* Score legend */}
+          <div className="text-xs text-slate-500 flex gap-4">
+            <span><span className="text-green-400">★</span> score 6–10 sweet spot</span>
+            <span><span className="text-orange-400">🔥</span> score&gt;10 high (late risk)</span>
+            <span><span className="text-slate-400">·</span> score&lt;6 weak</span>
+          </div>
+          {/* Table */}
+          {scrLoading ? (
+            <div className="text-xs text-slate-400 animate-pulse">Scanning universe…</div>
+          ) : screener.length === 0 ? (
+            <div className="text-xs text-slate-500">No hits. Try lowering min_score or raising max_price.</div>
+          ) : (
+            <div className="overflow-auto flex-1 min-h-0">
+              <table className="w-full text-xs border-separate border-spacing-0">
+                <thead>
+                  <tr className="text-left text-slate-400 sticky top-0 bg-md-bg z-10">
+                    <th className="pb-1 pr-3 font-normal">Ticker</th>
+                    <th className="pb-1 pr-2 font-normal">Total</th>
+                    <th className="pb-1 pr-2 font-normal" title="setup (5d lookback)">S↺</th>
+                    <th className="pb-1 pr-3 font-normal" title="trigger (today)">T!</th>
+                    <th className="pb-1 pr-3 font-normal">Price</th>
+                    <th className="pb-1 pr-3 font-normal">RSI</th>
+                    <th className="pb-1 pr-3 font-normal">L-sig</th>
+                    <th className="pb-1 pr-3 font-normal">VolRatio</th>
+                    <th className="pb-1 font-normal">Signals fired</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {screener.map(r => {
+                    const tier = r.score >= 10 ? 'text-orange-400' : r.score >= 6 ? 'text-yellow-300' : 'text-slate-400'
+                    const icon = r.score >= 10 ? '🔥' : r.score >= 6 ? '⚡' : '·'
+                    return (
+                      <tr key={r.ticker} className="border-t border-white/5 hover:bg-white/5">
+                        <td className="py-1 pr-3 font-mono font-semibold text-white">{r.ticker}</td>
+                        <td className={`py-1 pr-2 font-semibold ${tier}`}>{icon}{r.score}</td>
+                        <td className="py-1 pr-2 text-teal-400">{r.setup_score ?? '—'}</td>
+                        <td className="py-1 pr-3 text-amber-400 font-semibold">{r.trigger_score ?? '—'}</td>
+                        <td className="py-1 pr-3 text-slate-300">${r.close}</td>
+                        <td className={`py-1 pr-3 ${r.rsi < 35 ? 'text-cyan-400' : r.rsi > 70 ? 'text-rose-400' : 'text-slate-300'}`}>
+                          {r.rsi}
+                        </td>
+                        <td className={`py-1 pr-3 font-mono ${r.l_sig === 'L3' ? 'text-orange-300 font-semibold' : 'text-slate-400'}`}>
+                          {r.l_sig}
+                        </td>
+                        <td className={`py-1 pr-3 ${(r.vol_ratio||0) >= 5 ? 'text-orange-300 font-semibold' : (r.vol_ratio||0) >= 2 ? 'text-yellow-300' : 'text-slate-400'}`}>
+                          {r.vol_ratio != null ? `${r.vol_ratio}x` : '—'}
+                        </td>
+                        <td className="py-1 text-slate-400 max-w-xs truncate">
+                          {(r.signals || []).join(' · ')}
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
       )}
 

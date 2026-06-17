@@ -1153,6 +1153,124 @@ def capit_atom_marks(ticker: str, universe: str = Query(None)):
         conn.close()
 
 
+@router.get("/gann-grid/{ticker}")
+def gann_grid(ticker: str, tf: str = Query("1d"), universe: str = Query(None),
+              levels: int = Query(6), min_bps: int = Query(20),
+              up_asc: int = Query(10), dn_asc: int = Query(5),
+              up_dn: int = Query(10), dn_dn: int = Query(5)):
+    """Gann parallel grid lines for lightweight-charts overlay.
+    Returns ascending (red) and descending (cyan) line series data points.
+    Each line = list of {time, value} sampled every ~20 bars.
+    """
+    import math
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        # pick correct DB / date column
+        if tf in ("1h", "4h", "30m", "15m"):
+            from studio.db import get_conn_tf
+            try:
+                conn2 = get_conn_tf(tf, read_only=True)
+            except Exception:
+                conn2 = conn
+            df = conn2.execute(
+                "SELECT date::VARCHAR AS dt, high, low, close FROM bars "
+                "WHERE ticker=? ORDER BY dt", [tk]
+            ).fetchdf()
+            if conn2 is not conn:
+                conn2.close()
+        else:
+            uni_where = ""
+            if universe:
+                uni_where = f"AND universe='{universe}'"
+            df = conn.execute(
+                f"SELECT date::VARCHAR AS dt, high, low, close FROM bars "
+                f"WHERE ticker=? {uni_where} ORDER BY dt", [tk]
+            ).fetchdf()
+
+        if df.empty:
+            raise HTTPException(404, detail=f"{tk} not in DB")
+
+        df = df.reset_index(drop=True)
+        df["dt"] = df["dt"].str[:10]
+        n = len(df)
+
+        # locate all-time low and high by close price
+        low_idx  = int(df["close"].idxmin())
+        high_idx = int(df["close"].idxmax())
+        low_price  = float(df.loc[low_idx, "close"])
+        high_price = float(df.loc[high_idx, "close"])
+
+        if low_price <= 0:
+            raise HTTPException(422, detail="low_price <= 0")
+
+        # vibration step (geometric)
+        ratio    = high_price / low_price
+        pct_step = (math.pow(ratio, 1.0 / levels) - 1.0) * 100.0
+        mult     = 1.0 + pct_step / 100.0
+        bars_diff = abs(high_idx - low_idx)
+        bps      = max(min_bps, bars_diff // levels)  # bars per step
+
+        anchor_price = low_price
+        anchor_idx   = low_idx
+        anchor_date  = df.loc[anchor_idx, "dt"]
+
+        # sample bar indices across full range with step ~bps//4 for smoothness
+        sample_step = max(5, bps // 4)
+        x_range = range(0, n, sample_step)
+
+        def asc_line(level: int):
+            pts = []
+            for x in x_range:
+                exp = level + (x - anchor_idx) / bps
+                price = anchor_price * math.pow(mult, exp)
+                if price <= 0 or math.isinf(price) or math.isnan(price):
+                    continue
+                pts.append({"time": df.loc[x, "dt"], "value": round(price, 4)})
+            return pts
+
+        def dn_line(level: int):
+            pts = []
+            for x in x_range:
+                exp = level - (x - anchor_idx) / bps
+                price = anchor_price * math.pow(mult, exp)
+                if price <= 0 or math.isinf(price) or math.isnan(price):
+                    continue
+                pts.append({"time": df.loc[x, "dt"], "value": round(price, 4)})
+            return pts
+
+        ascending  = []
+        descending = []
+
+        for i in range(-dn_asc, up_asc + 1):
+            pts = asc_line(i)
+            if pts:
+                ascending.append({"level": i, "points": pts})
+
+        for i in range(-dn_dn, up_dn + 1):
+            pts = dn_line(i)
+            if pts:
+                descending.append({"level": i, "points": pts})
+
+        return {
+            "ticker": tk,
+            "anchor_price": round(anchor_price, 4),
+            "anchor_date": anchor_date,
+            "pct_step": round(pct_step, 2),
+            "bars_per_step": bps,
+            "low_date": df.loc[low_idx, "dt"],
+            "high_date": df.loc[high_idx, "dt"],
+            "ascending": ascending,
+            "descending": descending,
+        }
+    finally:
+        conn.close()
+
+
 @router.get("/narrative/{ticker}/{date}/bar")
 def bar_narrative(ticker: str, date: str):
     """Get description for one bar."""
@@ -1735,3 +1853,244 @@ def pump_md():
     if not log_path.exists():
         return {"content": ""}
     return {"content": log_path.read_text()}
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Pre-Pump Setup Score v2 — chart markers + live screener
+# Two-layer model (updated from full 195-signal 10-bar lift analysis):
+#
+#   SETUP signals  (lookback 5 bars) — background accumulation pattern
+#     l_sig='L3'        +4  (6.9x at T-1, strongest day-specific signal)
+#     sig_bias_dn       +3  (3.79x — NEW: downward bias = reversal precondition)
+#     wyc_in_tr         +2  (3.15x — upgraded from +1)
+#     sig_dd_dn_green   +2  (1.97x — NEW: bear day closing green = absorption)
+#     wyc_spring        +2  (1.86x — NEW: Wyckoff Spring = classic reversal)
+#     sig_260308        +2  (1.73x)
+#     sweet_spot_active +2  (1.31x)
+#     rsi_le_35         +1  (1.49x)
+#     sig_abs           +1  (1.25x)
+#     close $0.5–$7     +1  (price sweet spot, current bar)
+#
+#   TRIGGER signals (current bar only) — something happening TODAY
+#     sig_vol_20x +5 / sig_vol_10x +4 / sig_vol_5x +3  [highest vol tier]
+#     sig_va      +3  (1.56x over 10d, strong VSA trigger)
+#     sig_sc      +3  (2.00x)
+#     sig_bc      +3  (2.21x)
+#     d_upthrust  +3  (2.15x)
+#     d_absorb_bear   +2  (1.60x)
+#     d_blast_bear_grn+2  (1.95x)
+#     sig_svs     +2  (1.30x)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# Trigger score: must fire on the CURRENT bar
+_TRIGGER_SCORE_SQL = """
+    GREATEST(
+      CASE WHEN sig_vol_20x > 0 THEN 5 ELSE 0 END,
+      CASE WHEN sig_vol_10x > 0 THEN 4 ELSE 0 END,
+      CASE WHEN sig_vol_5x  > 0 THEN 3 ELSE 0 END,
+      0
+    )
+  + (CASE WHEN sig_va           > 0 THEN 3 ELSE 0 END)
+  + (CASE WHEN sig_sc           > 0 THEN 3 ELSE 0 END)
+  + (CASE WHEN sig_bc           > 0 THEN 3 ELSE 0 END)
+  + (CASE WHEN d_upthrust       > 0 THEN 3 ELSE 0 END)
+  + (CASE WHEN d_absorb_bear    > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN d_blast_bear_grn > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN sig_svs          > 0 THEN 2 ELSE 0 END)
+"""
+
+# Setup score fragment used inside a CTE that declares WINDOW w5
+# w5 = PARTITION BY ticker ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW
+_SETUP_SCORE_W5 = """
+    (CASE WHEN MAX(CASE WHEN l_sig = 'L3' THEN 1 ELSE 0 END) OVER w5 > 0 THEN 4 ELSE 0 END)
+  + (CASE WHEN MAX(sig_bias_dn)       OVER w5 > 0 THEN 3 ELSE 0 END)
+  + (CASE WHEN MAX(wyc_in_tr)         OVER w5 > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN MAX(sig_dd_dn_green)   OVER w5 > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN MAX(wyc_spring)        OVER w5 > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN MAX(sig_260308)        OVER w5 > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN MAX(sweet_spot_active) OVER w5 > 0 THEN 2 ELSE 0 END)
+  + (CASE WHEN MAX(rsi_le_35)         OVER w5 > 0 THEN 1 ELSE 0 END)
+  + (CASE WHEN MAX(sig_abs)           OVER w5 > 0 THEN 1 ELSE 0 END)
+  + (CASE WHEN close BETWEEN 0.5 AND 7 THEN 1 ELSE 0 END)
+"""
+
+# Setup column expressions for SELECT (individual flags, used for signals display)
+_SETUP_COLS_W5 = """
+    MAX(CASE WHEN l_sig = 'L3' THEN 1 ELSE 0 END) OVER w5  AS setup_l3,
+    MAX(sig_bias_dn)       OVER w5                          AS setup_bias_dn,
+    MAX(wyc_in_tr)         OVER w5                          AS setup_wyc_in_tr,
+    MAX(sig_dd_dn_green)   OVER w5                          AS setup_dd_dn_green,
+    MAX(wyc_spring)        OVER w5                          AS setup_wyc_spring,
+    MAX(sig_260308)        OVER w5                          AS setup_260308,
+    MAX(sweet_spot_active) OVER w5                          AS setup_sweet_spot,
+    MAX(rsi_le_35)         OVER w5                          AS setup_rsi_le35,
+    MAX(sig_abs)           OVER w5                          AS setup_abs
+"""
+
+
+def _pump_score_signals(row) -> list[str]:
+    """Extract which signal components fired. Setup signals suffixed ↺, triggers suffixed !"""
+    fired = []
+    # setup signals (5-bar lookback)
+    if row.get("setup_l3", 0):            fired.append("L3↺")
+    if row.get("setup_bias_dn", 0):       fired.append("BiasD↺")
+    if row.get("setup_wyc_in_tr", 0):     fired.append("WycTR↺")
+    if row.get("setup_dd_dn_green", 0):   fired.append("DnGrn↺")
+    if row.get("setup_wyc_spring", 0):    fired.append("Spring↺")
+    if row.get("setup_260308", 0):        fired.append("260308↺")
+    if row.get("setup_sweet_spot", 0):    fired.append("SweetSpot↺")
+    if row.get("setup_rsi_le35", 0):      fired.append("RSI<35↺")
+    if row.get("setup_abs", 0):           fired.append("Abs↺")
+    # trigger signals (current bar)
+    if row.get("sig_vol_20x", 0):         fired.append("vol20x!")
+    elif row.get("sig_vol_10x", 0):       fired.append("vol10x!")
+    elif row.get("sig_vol_5x",  0):       fired.append("vol5x!")
+    if row.get("sig_va",           0):    fired.append("VA!")
+    if row.get("sig_sc",           0):    fired.append("SC!")
+    if row.get("sig_bc",           0):    fired.append("BC!")
+    if row.get("d_upthrust",       0):  fired.append("Upthrust!")
+    if row.get("d_absorb_bear",    0):  fired.append("AbsorbBear!")
+    if row.get("d_blast_bear_grn", 0):  fired.append("BlastBearGrn!")
+    if row.get("sig_svs",          0):  fired.append("SVS!")
+    return fired
+
+
+@router.get("/pump-setup/{ticker}")
+def pump_setup_marks(ticker: str, universe: str = Query(None), min_score: int = 4):
+    """Return historical bars where pump-setup score >= min_score.
+    Score = setup_score (5-bar lookback) + trigger_score (current bar).
+    trigger_score > 0 required — something must fire today."""
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        uni_dedup = f"QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1"
+
+        rows = conn.execute(f"""
+            WITH scored AS (
+                SELECT date, close, rsi_14, l_sig, wyc_phase,
+                       sig_vol_20x, sig_vol_10x, sig_vol_5x,
+                       sig_va, sig_sc, sig_bc, d_upthrust,
+                       d_absorb_bear, d_blast_bear_grn, sig_svs,
+                       {_SETUP_COLS_W5},
+                       ({_SETUP_SCORE_W5})  AS setup_score,
+                       ({_TRIGGER_SCORE_SQL}) AS trigger_score
+                FROM bars
+                WHERE ticker = ? {uni_where}
+                WINDOW w5 AS (PARTITION BY ticker ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+                {uni_dedup}
+            )
+            SELECT date::VARCHAR AS date,
+                   round(close, 2) AS close,
+                   round(rsi_14, 1) AS rsi,
+                   l_sig, wyc_phase,
+                   sig_vol_20x, sig_vol_10x, sig_vol_5x,
+                   sig_va, sig_sc, sig_bc, d_upthrust,
+                   d_absorb_bear, d_blast_bear_grn, sig_svs,
+                   setup_l3, setup_wyc_in_tr, setup_rsi_le35,
+                   setup_sweet_spot, setup_260308, setup_abs,
+                   setup_score, trigger_score,
+                   setup_score + trigger_score AS pump_score
+            FROM scored
+            WHERE trigger_score > 0
+              AND setup_score + trigger_score >= {min_score}
+            ORDER BY date
+        """, [tk]).fetchdf()
+
+        marks = []
+        for r in rows.itertuples(index=False):
+            d = r._asdict()
+            marks.append({
+                "date":          d["date"][:10],
+                "close":         float(d["close"])  if d["close"] is not None else None,
+                "rsi":           float(d["rsi"])    if d["rsi"]   is not None else None,
+                "l_sig":         d["l_sig"],
+                "wyc_phase":     d["wyc_phase"],
+                "score":         int(d["pump_score"]),
+                "setup_score":   int(d["setup_score"]),
+                "trigger_score": int(d["trigger_score"]),
+                "signals":       _pump_score_signals(d),
+            })
+        return {"ticker": tk, "marks": marks, "count": len(marks)}
+    finally:
+        conn.close()
+
+
+@router.get("/pump-screener")
+def pump_screener(
+    universe: str = Query("nasdaq"),
+    min_score: int = 6,
+    max_score: int = 99,
+    max_price: float = 10.0,
+    limit: int = 40,
+):
+    """Live screener: latest bar per ticker, scored by setup (5-bar lookback) + trigger (today).
+    trigger_score > 0 is mandatory — something must fire on the latest bar."""
+    from studio.db import get_conn
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_filter = f"universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else "universe IN ('nasdaq','sp500','russell2k')"
+        rows = conn.execute(f"""
+            WITH scored AS (
+                SELECT ticker, date, close, rsi_14, l_sig, wyc_phase,
+                       avg_vol_20d, volume,
+                       sig_vol_20x, sig_vol_10x, sig_vol_5x,
+                       sig_va, sig_sc, sig_bc, d_upthrust,
+                       d_absorb_bear, d_blast_bear_grn, sig_svs,
+                       {_SETUP_COLS_W5},
+                       ({_SETUP_SCORE_W5})    AS setup_score,
+                       ({_TRIGGER_SCORE_SQL}) AS trigger_score,
+                       ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+                FROM bars
+                WHERE {uni_filter}
+                  AND close BETWEEN 0.30 AND {max_price}
+                  AND avg_vol_20d > 0
+                WINDOW w5 AS (PARTITION BY ticker ORDER BY date ROWS BETWEEN 4 PRECEDING AND CURRENT ROW)
+            )
+            SELECT ticker, date::VARCHAR AS date,
+                   round(close, 2) AS close,
+                   round(rsi_14, 1) AS rsi,
+                   l_sig, wyc_phase,
+                   setup_score, trigger_score,
+                   setup_score + trigger_score AS pump_score,
+                   round(volume / avg_vol_20d, 2) AS vol_ratio,
+                   sig_vol_20x, sig_vol_10x, sig_vol_5x,
+                   sig_va, sig_sc, sig_bc, d_upthrust,
+                   d_absorb_bear, d_blast_bear_grn, sig_svs,
+                   setup_l3, setup_wyc_in_tr, setup_rsi_le35,
+                   setup_sweet_spot, setup_260308, setup_abs
+            FROM scored
+            WHERE rn = 1
+              AND trigger_score > 0
+              AND setup_score + trigger_score >= {min_score}
+              AND setup_score + trigger_score <= {max_score}
+            ORDER BY pump_score DESC
+            LIMIT {limit}
+        """).fetchdf()
+
+        results = []
+        for r in rows.itertuples(index=False):
+            d = r._asdict()
+            results.append({
+                "ticker":        d["ticker"],
+                "date":          d["date"][:10],
+                "close":         float(d["close"]),
+                "rsi":           float(d["rsi"]) if d["rsi"] is not None else None,
+                "l_sig":         d["l_sig"],
+                "wyc_phase":     d["wyc_phase"],
+                "score":         int(d["pump_score"]),
+                "setup_score":   int(d["setup_score"]),
+                "trigger_score": int(d["trigger_score"]),
+                "vol_ratio":     float(d["vol_ratio"]) if d["vol_ratio"] is not None else None,
+                "signals":       _pump_score_signals(d),
+            })
+        return {"results": results, "count": len(results), "min_score": min_score, "max_score": max_score}
+    finally:
+        conn.close()
