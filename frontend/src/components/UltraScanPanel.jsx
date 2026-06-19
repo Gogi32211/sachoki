@@ -802,6 +802,18 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
+        {row.tzt4_match && row.tzt4_age != null && (
+          <span
+            title={`T-Z-T4 pattern: ${row.tzt4_tier} tier · suffix ${row.tzt4_suffix || '—'} · RSI ${row.tzt4_rsi} · ${row.tzt4_age === 0 ? 'today' : `${row.tzt4_age}d ago`}`}
+            className={`px-1.5 py-0.5 rounded text-xs font-bold border shrink-0 ${
+              row.tzt4_tier === 'T1' ? 'bg-emerald-900/70 text-emerald-200 border-emerald-500' :
+              row.tzt4_tier === 'T2' ? 'bg-teal-900/70 text-teal-200 border-teal-500' :
+              row.tzt4_tier === 'T3' ? 'bg-cyan-900/70 text-cyan-200 border-cyan-600' :
+                                       'bg-slate-800 text-slate-400 border-slate-600'
+            }`}>
+            🎯{row.tzt4_tier}·{row.tzt4_suffix || '?'}{row.tzt4_age > 0 ? ` -${row.tzt4_age}d` : ''}
+          </span>
+        )}
         {row.avg_vol > 0 && (
           <span className="ml-auto">
             {row.avg_vol >= 1_000_000 ? `${(row.avg_vol/1_000_000).toFixed(1)}M` : row.avg_vol >= 1_000 ? `${Math.round(row.avg_vol/1_000)}K` : Math.round(row.avg_vol)}
@@ -1025,6 +1037,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [capFilter,    setCapFilter]    = useState(false)   // 💥 capitulation bounce (long edge)
   const [momFilter,    setMomFilter]    = useState(false)   // 🚀 momentum zone-dense (long edge)
   const [postCapitFilter, setPostCapitFilter] = useState(false)  // 🔥 Capit→Atom confluence (premium atomic subset)
+  const [tzt4Filter,   setTzt4Filter]   = useState(false)   // 🎯 T-Z-T4 pattern (validated 3-bar sequence)
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1208,6 +1221,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     'atomic_match', 'atomic_age', 'atomic_score', 'atomic_atoms', 'atomic_post_capit', 'atomic_capit_age',
     'short_match', 'short_age', 'short_score', 'short_atoms',
     'mom_match', 'mom_age', 'mom_score', 'mom_atoms',
+    'tzt4_match', 'tzt4_age', 'tzt4_tier', 'tzt4_suffix', 'tzt4_rsi',
     'prebreak_v2', 'prebreak_v3', 'prebreak_score',
   ], [])
   const fetchEnrichmentMerge = useCallback((tf, uni) => {
@@ -1377,6 +1391,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (capFilter      && !(r.cap_match    && r.cap_age    != null && r.cap_age    < (lookbackN || 1))) return false
       if (momFilter      && !(r.mom_match    && r.mom_age    != null && r.mom_age    < (lookbackN || 1))) return false
       if (postCapitFilter && !r.atomic_post_capit) return false
+      if (tzt4Filter     && !(r.tzt4_match   && r.tzt4_age  != null && r.tzt4_age   < (lookbackN || 1))) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1416,7 +1431,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2804,6 +2819,19 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           🔥 Capit→Atom{postCapitFilter ? ` ${results.filter(r => r.atomic_post_capit).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !tzt4Filter; setTzt4Filter(v)
+            if (v && !allResults.some(r => r.tzt4_age != null)) fetchEnrichmentMerge(localTf, universe)
+          }}
+          title="🎯 T-Z-T4 pattern: T-signal 2 bars ago → Z-signal 1 bar ago → T4 today. 5yr validated: RSI≥60 + EBA/EUR suffix → +3-4% exp (Tier1=T4[-2]+4%, Tier2=T3/T9/T10[-2]+3.6%, Tier3=T2/T2G/T5[-2]+3.2%). Use N= to look back further."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            tzt4Filter
+              ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500 ring-1 ring-emerald-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          🎯 T-Z-T4{tzt4Filter ? ` ${results.filter(r => r.tzt4_match && r.tzt4_age != null && r.tzt4_age < (lookbackN || 1)).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">

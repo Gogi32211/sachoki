@@ -1153,6 +1153,70 @@ def capit_atom_marks(ticker: str, universe: str = Query(None)):
         conn.close()
 
 
+@router.get("/tzt4-marks/{ticker}")
+def tzt4_marks(ticker: str, universe: str = Query(None)):
+    """All historical T[-2]-Z[-1]-T4[0] signals for chart markers.
+    Returns [{date, tier, suffix, rsi}] sorted by date.
+    Tier 1=T4[-2], Tier 2=T3/T9/T10[-2], Tier 3=T2/T2G/T5[-2], Tier 4=others."""
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            WITH base AS (
+              SELECT date, composite_full_suffix, rsi_14,
+                     sig_t4, sig_z,
+                     sig_t2, sig_t2g, sig_t3, sig_t5, sig_t9, sig_t10,
+                     sig_t1, sig_t1g, sig_t11, sig_t12
+              FROM bars WHERE ticker = ? {uni_where}
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ),
+            lagged AS (
+              SELECT date, rsi_14, composite_full_suffix,
+                     sig_t4,
+                     LAG(sig_z,   1) OVER (ORDER BY date) AS z_1,
+                     LAG(sig_t4,  2) OVER (ORDER BY date) AS t4_2,
+                     LAG(sig_t3,  2) OVER (ORDER BY date) AS t3_2,
+                     LAG(sig_t9,  2) OVER (ORDER BY date) AS t9_2,
+                     LAG(sig_t10, 2) OVER (ORDER BY date) AS t10_2,
+                     LAG(sig_t2,  2) OVER (ORDER BY date) AS t2_2,
+                     LAG(sig_t2g, 2) OVER (ORDER BY date) AS t2g_2,
+                     LAG(sig_t5,  2) OVER (ORDER BY date) AS t5_2,
+                     LAG(sig_t1,  2) OVER (ORDER BY date) AS t1_2,
+                     LAG(sig_t1g, 2) OVER (ORDER BY date) AS t1g_2,
+                     LAG(sig_t11, 2) OVER (ORDER BY date) AS t11_2,
+                     LAG(sig_t12, 2) OVER (ORDER BY date) AS t12_2
+              FROM base
+            )
+            SELECT
+              CAST(date AS DATE)::VARCHAR AS date,
+              CASE
+                WHEN t4_2  > 0                             THEN 'T1'
+                WHEN t3_2  > 0 OR t9_2 > 0 OR t10_2 > 0  THEN 'T2'
+                WHEN t2_2  > 0 OR t2g_2> 0 OR t5_2  > 0  THEN 'T3'
+                ELSE 'T4'
+              END AS tier,
+              composite_full_suffix AS suffix,
+              round(rsi_14, 1) AS rsi
+            FROM lagged
+            WHERE sig_t4 > 0 AND z_1 > 0
+              AND (t4_2>0 OR t3_2>0 OR t9_2>0 OR t10_2>0
+                   OR t2_2>0 OR t2g_2>0 OR t5_2>0
+                   OR t1_2>0 OR t1g_2>0 OR t11_2>0 OR t12_2>0)
+            ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [
+            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
+            for r in rows
+        ]}
+    finally:
+        conn.close()
+
+
 @router.get("/gann-grid/{ticker}")
 def gann_grid(ticker: str, tf: str = Query("1d"), universe: str = Query(None),
               levels: int = Query(6), min_bps: int = Query(20),

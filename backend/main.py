@@ -1816,6 +1816,103 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
     return results
 
 
+def _enrich_tzt4(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Detect T[-2]-Z[-1]-T4[0] pattern in the last `lookback_n` bars per ticker.
+    Sets tzt4_match (bool), tzt4_age (bars ago, 0=today), tzt4_tier (T1/T2/T3/T4),
+    tzt4_suffix (composite_full_suffix at T4 bar), tzt4_rsi (RSI at T4 bar).
+    No RSI filter here — client side applies RSI≥60 gate.
+    Tier 1=T4[-2], Tier 2=T3/T9/T10[-2], Tier 3=T2/T2G/T5[-2], Tier 4=T1/T1G/T11/T12[-2]."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t4, sig_z,
+                         sig_t2, sig_t2g, sig_t3, sig_t5, sig_t9, sig_t10,
+                         sig_t1, sig_t1g, sig_t11, sig_t12,
+                         rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                pattern AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         sig_t4,
+                         LEAD(sig_z,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS z_1,
+                         LEAD(sig_t4,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t4_2,
+                         LEAD(sig_t3,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t3_2,
+                         LEAD(sig_t9,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t9_2,
+                         LEAD(sig_t10, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t10_2,
+                         LEAD(sig_t2,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2_2,
+                         LEAD(sig_t2g, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2g_2,
+                         LEAD(sig_t5,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t5_2,
+                         LEAD(sig_t1,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1_2,
+                         LEAD(sig_t1g, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1g_2,
+                         LEAD(sig_t11, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t11_2,
+                         LEAD(sig_t12, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t12_2
+                  FROM ranked WHERE rn <= {lookback + 4}
+                ),
+                matched AS (
+                  SELECT ticker, universe, age, rsi_14, sfx,
+                         CASE
+                           WHEN t4_2  > 0                         THEN 'T1'
+                           WHEN t3_2  > 0 OR t9_2 > 0 OR t10_2>0 THEN 'T2'
+                           WHEN t2_2  > 0 OR t2g_2>0 OR t5_2  >0 THEN 'T3'
+                           ELSE 'T4'
+                         END AS tier
+                  FROM pattern
+                  WHERE sig_t4 > 0 AND z_1 > 0
+                    AND (t4_2>0 OR t3_2>0 OR t9_2>0 OR t10_2>0
+                         OR t2_2>0 OR t2g_2>0 OR t5_2>0
+                         OR t1_2>0 OR t1g_2>0 OR t11_2>0 OR t12_2>0)
+                    AND age < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)              AS tzt4_age,
+                       ARG_MIN(tier, age)    AS tzt4_tier,
+                       ARG_MIN(sfx,  age)    AS tzt4_suffix,
+                       ARG_MIN(rsi_14, age)  AS tzt4_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("tzt4 enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "tzt4_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "tzt4_match":  True,
+            "tzt4_age":    int(age),
+            "tzt4_tier":   str(row.tzt4_tier or ""),
+            "tzt4_suffix": str(row.tzt4_suffix or ""),
+            "tzt4_rsi":    round(float(row.tzt4_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["tzt4_match"] = False
+            r["tzt4_age"]   = None
+    return results
+
+
 def _enrich_momentum(results: list, universe: str, lookback_n: int = 3) -> list:
     """Attach the MOMENTUM Zone-Dense long flags (additive, read-only). The mirror of
     capitulation (L_LINE_DISCOVERIES.md): instead of buying an oversold flush, this buys
@@ -5458,6 +5555,7 @@ def api_ultra_scan_results(
             results = _enrich_atomic_short(results, universe, lookback_n=atomic_lookback)
             results = _enrich_capitulation(results, universe, lookback_n=atomic_lookback)
             results = _enrich_momentum(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_tzt4(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

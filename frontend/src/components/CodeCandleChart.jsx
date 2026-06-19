@@ -5,10 +5,11 @@ import { api } from '../api'
 
 // Volume-bucket colours (shared palette)
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
-const BAR_OPTIONS = [120, 200, 300, 500, 1000]
+const BAR_OPTIONS = [120, 200, 300, 500, 1000, 2000, 5000]
 
 const fmtDate = (d) => String(d ?? '').slice(0, 10)
 const isIntradayTf = (tf) => ['30m', '15m', '1h', '4h'].includes(tf)
+const isDbTf       = (tf) => tf === '1d' || tf === '1w'
 
 // lightweight-charts requires STRICTLY ascending, unique timestamps — drop any
 // adjacent duplicate (intraday feeds occasionally repeat a bar's timestamp).
@@ -71,6 +72,7 @@ export default function CodeCandleChart({
   const volClassLinesRef = useRef([])       // VB (red) / W (grey-dotted) volume-class overlay
   const candlesRef   = useRef([])           // base candles (no zone colors) — re-recolored on zone change
   const [hvZones, setHvZones] = useState([]) // for tiny "HV-Zone" info badge
+  const [showZones, setShowZones] = useState(true)
   const [dataTick, setDataTick] = useState(0) // bumps after each setData → re-applies markers (data-load clears them)
   // Independent history pickers — user can show grey HV history and lime Gann
   // pivots at the same time on ANY chart, regardless of zoneSource.
@@ -91,6 +93,18 @@ export default function CodeCandleChart({
   const [showInsider,  setShowInsider]  = useState(false)
   const [insiderMarks, setInsiderMarks] = useState([])
   const [insiderLoading, setInsiderLoading] = useState(false)
+  // Capit→Atom historical markers — 🔥 capitulation + ⚛ atomic gap-up overlays.
+  const [showCapitAtom,    setShowCapitAtom]    = useState(false)
+  const [capitAtomMarks,   setCapitAtomMarks]   = useState(null)   // {capit:[], atom:[]}
+  const [capitAtomLoading, setCapitAtomLoading] = useState(false)
+  // T-Z-T4 historical markers — green diamond below bar on each T-Z-T4 signal.
+  const [showTzt4,      setShowTzt4]      = useState(false)
+  const [tzt4Marks,     setTzt4Marks]     = useState(null)   // [{date, tier, suffix, rsi}]
+  const [tzt4Loading,   setTzt4Loading]   = useState(false)
+  // Pre-pump setup markers — orange triangle above bar when setup score fires.
+  const [showPumpSetup,    setShowPumpSetup]    = useState(false)
+  const [pumpSetupMarks,   setPumpSetupMarks]   = useState(null)   // {marks:[]}
+  const [pumpSetupLoading, setPumpSetupLoading] = useState(false)
   // Zone events overlay — EXIT/RETEST markers (+ T/Z-flip ✓) from the Zone Edge analysis.
   const [showZoneEvents, setShowZoneEvents] = useState(false)
   const [zoneEvents, setZoneEvents] = useState([])
@@ -98,6 +112,11 @@ export default function CodeCandleChart({
   const [showFibMacro, setShowFibMacro] = useState(false)
   const [showFibSwing, setShowFibSwing] = useState(false)
   const fibLinesRef = useRef([])
+
+  // Gann parallel grid overlay
+  const [showGannGrid, setShowGannGrid] = useState(false)
+  const [gannGridLoading, setGannGridLoading] = useState(false)
+  const gannGridSeriesRef = useRef([])
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -151,7 +170,7 @@ export default function CodeCandleChart({
   const [sector, setSector]   = useState(null)
 
   const intraday = isIntradayTf(tf)
-  const useDb    = tf === '1d'                // weekly + intraday → live signals
+  const useDb    = isDbTf(tf)                 // 1d + 1w → Studio DB; intraday → live signals
 
   // ── per-bar 6-line code overlay (positioned imperatively from the coordinate
   //    API so it tracks pan / zoom / resize). Only populated for DB (1d) data. ──
@@ -291,7 +310,7 @@ export default function CodeCandleChart({
     })
 
     // ── DB path (1d) → candles + full 6-line code overlay ──
-    const loadStudio = () => api.studioBars(ticker, limit).then((rows) => {
+    const loadStudio = () => (tf === '1w' ? api.studioWeeklyBars(ticker, limit) : api.studioBars(ticker, limit)).then((rows) => {
       if (cancelled) return
       const byTime = {}
       for (const r of rows) {
@@ -378,10 +397,10 @@ export default function CodeCandleChart({
     const fromQ = firstDate ? `&from_date=${firstDate}` : ''
     const fetches = []
     if (historyHvTier > 0)   fetches.push(
-      fetch(`/api/hv-zones/history/${ticker}?vol_min=${historyHvTier}&limit=500${fromQ}`)
+      fetch(`/api/hv-zones/history/${ticker}?vol_min=${historyHvTier}&limit=5000${fromQ}`)
         .then(r => r.json()).then(d => ({ kind: 'hv',   zones: d?.zones || [] })))
     if (historyGannTier > 0) fetches.push(
-      fetch(`/api/gann-zones/history/${ticker}?pivot=${historyGannTier}&limit=500${fromQ}`)
+      fetch(`/api/gann-zones/history/${ticker}?pivot=${historyGannTier}&limit=5000${fromQ}`)
         .then(r => r.json()).then(d => ({ kind: 'gann', zones: d?.zones || [] })))
     Promise.all(fetches).then(results => {
       if (dead) return
@@ -442,10 +461,10 @@ export default function CodeCandleChart({
     const fromQ = firstDate ? `&from_date=${firstDate}` : ''
     const fetches = []
     if (showVB) fetches.push(
-      fetch(`/api/vol-class/history/${ticker}?cls=VB&limit=500${fromQ}`)
+      fetch(`/api/vol-class/history/${ticker}?cls=VB&limit=5000${fromQ}`)
         .then(r => r.json()).then(d => ({ cls: 'VB', zones: d?.zones || [] })))
     if (showW)  fetches.push(
-      fetch(`/api/vol-class/history/${ticker}?cls=W&limit=500${fromQ}`)
+      fetch(`/api/vol-class/history/${ticker}?cls=W&limit=5000${fromQ}`)
         .then(r => r.json()).then(d => ({ cls: 'W', zones: d?.zones || [] })))
     Promise.all(fetches).then(results => {
       if (dead) return
@@ -475,6 +494,45 @@ export default function CodeCandleChart({
     }).catch(() => {})
     return () => { dead = true }
   }, [ticker, tf, showVB, showW, limit, recentN])
+
+  // Pump setup fetch — historical bars where pre-pump score >= 4.
+  useEffect(() => {
+    if (!showPumpSetup || !ticker || !isDbTf(tf)) { setPumpSetupMarks(null); setPumpSetupLoading(false); return }
+    let dead = false
+    setPumpSetupLoading(true)
+    fetch(`/api/studio/pump-setup/${ticker}?min_score=4`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setPumpSetupMarks(d) })
+      .catch(() => { if (!dead) setPumpSetupMarks(null) })
+      .finally(() => { if (!dead) setPumpSetupLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showPumpSetup])
+
+  // T-Z-T4 fetch — all historical T-Z-T4 pattern dates for the ticker (1D only).
+  useEffect(() => {
+    if (!showTzt4 || !ticker || tf !== '1d') { setTzt4Marks(null); setTzt4Loading(false); return }
+    let dead = false
+    setTzt4Loading(true)
+    fetch(`/api/studio/tzt4-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setTzt4Marks(d?.marks || []) })
+      .catch(() => { if (!dead) setTzt4Marks([]) })
+      .finally(() => { if (!dead) setTzt4Loading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showTzt4])
+
+  // Capit→Atom fetch — all historical B+ capit + atomic weak-close gap-up dates from Studio DB.
+  useEffect(() => {
+    if (!showCapitAtom || !ticker || !isDbTf(tf)) { setCapitAtomMarks(null); setCapitAtomLoading(false); return }
+    let dead = false
+    setCapitAtomLoading(true)
+    fetch(`/api/studio/capit-atom-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setCapitAtomMarks(d) })
+      .catch(() => { if (!dead) setCapitAtomMarks(null) })
+      .finally(() => { if (!dead) setCapitAtomLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showCapitAtom])
 
   // Insider-buy fetch — SEC Form 4 open-market purchases (gold ★ on the bar).
   // Stored in state and merged into the markers layer below (one setMarkers call
@@ -530,6 +588,44 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showFibMacro, showFibSwing, limit])
 
+  // Gann parallel grid — ascending (red) + descending (cyan) line series.
+  // MUST use log scale — geometric % steps are straight lines only in log space.
+  useEffect(() => {
+    const chart = chartRef.current
+    for (const s of gannGridSeriesRef.current) { try { chart.removeSeries(s) } catch {} }
+    gannGridSeriesRef.current = []
+    if (!chart) return
+    if (!showGannGrid) {
+      // restore linear scale
+      try { chart.priceScale('right').applyOptions({ mode: 0 }) } catch {}
+      return
+    }
+    if (!ticker) return
+    // switch to log scale so geometric lines appear straight
+    try { chart.priceScale('right').applyOptions({ mode: 1 }) } catch {}
+    setGannGridLoading(true)
+    let dead = false
+    fetch(`/api/studio/gann-grid/${ticker}?tf=${tf}&up_asc=20&dn_asc=12&up_dn=20&dn_dn=12`)
+      .then(r => r.json())
+      .then(d => {
+        if (dead) return
+        const addLine = (points, color) => {
+          if (!points || points.length < 2) return
+          const s = chart.addLineSeries({
+            color, lineWidth: 1, lineStyle: 0,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          })
+          s.setData(points)
+          gannGridSeriesRef.current.push(s)
+        }
+        for (const ln of (d.ascending  || [])) addLine(ln.points, 'rgba(220,50,50,0.5)')
+        for (const ln of (d.descending || [])) addLine(ln.points, 'rgba(0,191,255,0.5)')
+      })
+      .catch(() => {})
+      .finally(() => { if (!dead) setGannGridLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showGannGrid])
+
   // Zone-events overlay — fetch EXIT/RETEST events for this ticker (Zone Edge).
   useEffect(() => {
     if (!showZoneEvents || !ticker || tf !== '1d') { setZoneEvents([]); return }
@@ -570,7 +666,42 @@ export default function CodeCandleChart({
         text: `Z${z._idx || ''}${z.kind ? ' ' + z.kind[0].toUpperCase() : ''} TRIG`,
       })
     }
-    // 3) Insider-buy markers — gold ★ above the bar. Text shows insider count
+    // 2b) Pre-pump setup markers — triangle above bar, color by score tier
+    for (const m of (pumpSetupMarks?.marks || [])) {
+      if (!m?.date) continue
+      const color = m.score >= 10 ? '#f97316' : m.score >= 6 ? '#facc15' : '#94a3b8'
+      const label = m.score >= 10 ? `🔥${m.score}` : m.score >= 6 ? `⚡${m.score}` : `·${m.score}`
+      markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowUp', color, text: label })
+    }
+    // 2c) T-Z-T4 markers — green diamond below bar, tier-coded
+    for (const m of (tzt4Marks || [])) {
+      if (!m?.date) continue
+      const color = m.tier === 'T1' ? '#10b981' : m.tier === 'T2' ? '#14b8a6' : m.tier === 'T3' ? '#06b6d4' : '#64748b'
+      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
+      const rsiOk   = (m.rsi || 0) >= 60
+      const label   = `${m.tier}${isPrime && rsiOk ? '★' : ''}·${m.suffix || '?'}`
+      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color,
+        text: label })
+    }
+    // 3) Capit→Atom markers — 🔥 capit (red below) + ⚛ atom (violet below, 🔥 if post-capit)
+    for (const c of (capitAtomMarks?.capit || [])) {
+      if (!c?.date) continue
+      markers.push({ time: c.date, position: 'belowBar', shape: 'circle', color: '#ef4444',
+        text: `🔥${c.l_sig}` })
+    }
+    for (const a of (capitAtomMarks?.atom || [])) {
+      if (!a?.date) continue
+      markers.push({ time: a.date, position: 'belowBar', shape: 'arrowUp',
+        color: a.post_capit ? '#f97316' : '#8b5cf6',
+        text: a.post_capit ? `🔥${a.t_sig}` : `⚛${a.t_sig}` })
+    }
+    // 3b) 2nd P66 markers — cyan arrowUp above bar (Capit→Atom→P66 setup)
+    for (const p of (capitAtomMarks?.p66 || [])) {
+      if (!p?.date) continue
+      markers.push({ time: p.date, position: 'aboveBar', shape: 'arrowUp', color: '#22d3ee',
+        text: '⚡P66' })
+    }
+    // 4) Insider-buy markers — gold ★ above the bar. Text shows insider count
     //    when a cluster (>1) bought that day.
     for (const ib of (insiderMarks || [])) {
       if (!ib?.date) continue
@@ -619,7 +750,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, tradeMarkers, tradeHistory, dataTick])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, tzt4Marks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {
@@ -647,7 +778,7 @@ export default function CodeCandleChart({
     }
     zoneLinesRef.current = []
     setHvZones([])
-    if (!ticker || tf !== '1d') return
+    if (!showZones || !ticker || tf !== '1d') return
     let dead = false
     const isGann = zoneSource === 'gann'
     const url = isGann ? `/api/gann-zones/zones/${ticker}` : `/api/zone-retest/zones/${ticker}`
@@ -674,7 +805,7 @@ export default function CodeCandleChart({
       })
     }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, zoneSource])
+  }, [ticker, tf, zoneSource, showZones])
 
   const chartBody = (
     <div className={fullscreen ? 'relative flex-1 min-h-0' : 'relative'}>
@@ -807,6 +938,67 @@ export default function CodeCandleChart({
               </button>
               {showW && wCount > 0 && <span className="text-slate-400">{wCount}</span>}
             </div>
+            {/* Capit→Atom historical markers — 🔥 capit red / ⚛ atom violet / 🔥 post-capit orange */}
+            {isDbTf(tf) && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="Show all historical Capit (🔥 red) and Atom (⚛ violet / 🔥 orange=post-capit) signals from the Studio DB.">
+                <button onClick={() => setShowCapitAtom(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showCapitAtom
+                      ? 'bg-orange-900/50 text-orange-200 border-orange-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {capitAtomLoading ? '⏳' : '🔥'} Capit
+                </button>
+                {showCapitAtom && !capitAtomLoading && capitAtomMarks && (
+                  <span className="text-orange-300">
+                    {capitAtomMarks.capit?.length ?? 0}c·{capitAtomMarks.atom?.length ?? 0}a
+                    {(capitAtomMarks.p66?.length ?? 0) > 0 && (
+                      <span className="text-cyan-400 ml-0.5">·{capitAtomMarks.p66.length}P66</span>
+                    )}
+                  </span>
+                )}
+              </div>
+            )}
+            {/* T-Z-T4 historical markers — green diamond below bar */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="T-Z-T4 pattern: T[-2] → Z[-1] → T4[0]. Green=T1/T2 (edge +3-4%), teal=T2 tier, cyan=T3. ★ = EBA/EUR suffix + RSI≥60 (highest edge).">
+                <button onClick={() => setShowTzt4(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showTzt4
+                      ? 'bg-emerald-900/50 text-emerald-200 border-emerald-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {tzt4Loading ? '⏳' : '🎯'} T-Z-T4
+                </button>
+                {showTzt4 && !tzt4Loading && tzt4Marks && (
+                  <span className="text-emerald-300">
+                    {tzt4Marks.length}·{tzt4Marks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Pre-pump setup markers — orange/yellow triangles above bar when score fires */}
+            {isDbTf(tf) && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="Pre-pump setup score markers. 🔥score≥10 orange / ⚡score≥6 yellow / ·score≥4 gray. Based on vol spike + VSA absorption + L3 signal.">
+                <button onClick={() => setShowPumpSetup(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showPumpSetup
+                      ? 'bg-orange-900/50 text-orange-200 border-orange-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {pumpSetupLoading ? '⏳' : '⚡'} Pump
+                </button>
+                {showPumpSetup && !pumpSetupLoading && pumpSetupMarks && (
+                  <span className="text-orange-300">
+                    {pumpSetupMarks.count ?? 0}
+                    <span className="text-slate-400 ml-0.5">
+                      ({(pumpSetupMarks.marks ?? []).filter(m => m.score >= 10).length}🔥
+                      {(pumpSetupMarks.marks ?? []).filter(m => m.score >= 6 && m.score < 10).length}⚡)
+                    </span>
+                  </span>
+                )}
+              </div>
+            )}
             {/* Insider buys — SEC Form 4 open-market purchases, gold ★ on the bar */}
             <div className="flex items-center gap-0.5 text-[10px]"
                  title="Mark bars with SEC Form 4 insider BUYS (open-market purchases). ★N = N distinct insiders bought that day.">
@@ -821,6 +1013,17 @@ export default function CodeCandleChart({
                 <span className="text-amber-300">{insiderMarks.length}</span>
               )}
             </div>
+            {/* HV/Gann Zone lines toggle */}
+            {tf === '1d' && (
+              <button onClick={() => setShowZones(v => !v)}
+                title="Show/hide HV-Zone / Gann-Zone price lines on chart"
+                className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                  showZones
+                    ? 'bg-cyan-900/50 text-cyan-200 border-cyan-600'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                🎯 Zones
+              </button>
+            )}
             {/* Zone EXIT/RETEST events (Zone Edge) — RT/X↑/X↓ markers, ✓ = T/Z flip */}
             <div className="flex items-center gap-0.5 text-[10px]"
                  title="Zone Edge events: RT=retest, X↑/X↓=exit. ✓ = T/Z flipped up in the 3 bars after (the edge). Zones from vol≥5 spikes.">
@@ -852,6 +1055,15 @@ export default function CodeCandleChart({
                 swg
               </button>
             </div>
+            {/* Gann parallel grid — ascending red + descending cyan */}
+            <button onClick={() => setShowGannGrid(v => !v)}
+              title="Gann parallel grid — ascending (red) + descending (cyan) channels from all-time low→high"
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                showGannGrid
+                  ? 'bg-amber-900/40 text-amber-300 border-amber-500'
+                  : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+              {gannGridLoading ? '⏳' : '⬡'} Gann
+            </button>
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}
