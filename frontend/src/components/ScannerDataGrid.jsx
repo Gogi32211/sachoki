@@ -689,6 +689,18 @@ export default function ScannerDataGrid({
                   {r.tz_sig ? (
                     <TZChip label={r.tz_sig} />
                   ) : <span className="text-gray-700">—</span>}
+                  {r.tzt4_match && r.tzt4_tier && (
+                    <div
+                      title={`T-Z-T4: ${r.tzt4_tier} · ${r.tzt4_suffix || '?'} · RSI ${r.tzt4_rsi}${r.tzt4_age > 0 ? ` · ${r.tzt4_age}d ago` : ''}`}
+                      className={`mt-0.5 text-[9px] font-bold px-1 rounded border leading-tight ${
+                        r.tzt4_tier === 'T1' ? 'text-emerald-300 border-emerald-700 bg-emerald-950/60' :
+                        r.tzt4_tier === 'T2' ? 'text-teal-300 border-teal-700 bg-teal-950/60' :
+                        r.tzt4_tier === 'T3' ? 'text-cyan-300 border-cyan-700 bg-cyan-950/60' :
+                                               'text-slate-400 border-slate-700 bg-slate-950/60'
+                      }`}>
+                      🎯{r.tzt4_tier}{(r.tzt4_suffix==='EBA'||r.tzt4_suffix==='EUR')&&(r.tzt4_rsi||0)>=60?'★':''}
+                    </div>
+                  )}
                 </td>
 
                 {/* Category */}
