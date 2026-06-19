@@ -838,7 +838,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // Cache version bump invalidates ALL cached entries that pre-date the bump.
 // Increment this when row schema changes (new enrichment columns added) so
 // stale caches without the new fields don't survive a redeploy.
-const _CACHE_VERSION = '260523_v4.0'  // bumped: Wyckoff V2 (w2_*/wt_*) scan fields
+const _CACHE_VERSION = '260619_v4.1'  // bumped: T-Z-T4 enrichment fields added
 
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
 const _tsGet  = (tf, uni) => {
