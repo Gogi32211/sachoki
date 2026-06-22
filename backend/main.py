@@ -1743,12 +1743,23 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
         try:
             ph = ",".join("?" * len(tickers))
             df = a.execute(f"""
-                SELECT ticker, l_sig, rsi_14, cci_20, open, close, volume, avg_vol_20d,
-                       sig_blue AS blue, sig_fri64 AS fri64, d_absorb_bear AS absb,
-                       lag(close, 20) OVER (PARTITION BY ticker ORDER BY date) AS c20,
-                       row_number() OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
-                FROM bars WHERE universe=? AND ticker IN ({ph}) AND avg_vol_20d > 0
-                QUALIFY age < {int(lookback_n)}
+                WITH ranked AS (
+                  SELECT ticker, l_sig, rsi_14, cci_20, open, close, volume, avg_vol_20d,
+                         sig_blue AS blue, sig_fri64 AS fri64, d_absorb_bear AS absb,
+                         sig_t5, sig_t12,
+                         lag(close,  20) OVER (PARTITION BY ticker ORDER BY date)      AS c20,
+                         lag(volume,  1) OVER (PARTITION BY ticker ORDER BY date DESC)  AS v1,
+                         lag(volume,  2) OVER (PARTITION BY ticker ORDER BY date DESC)  AS v2,
+                         lag(rsi_14,  1) OVER (PARTITION BY ticker ORDER BY date DESC)  AS rsi_m1,
+                         row_number()    OVER (PARTITION BY ticker ORDER BY date DESC) - 1 AS age
+                  FROM bars WHERE universe=? AND ticker IN ({ph}) AND avg_vol_20d > 0
+                )
+                SELECT *,
+                  CASE WHEN v1 IS NOT NULL AND v2 IS NOT NULL AND volume > v1 AND v1 > v2
+                            AND rsi_m1 IS NOT NULL AND (rsi_m1 - rsi_14) BETWEEN 2 AND 10
+                       THEN 1 ELSE 0 END AS vol3_ok
+                FROM ranked
+                WHERE age < {int(lookback_n)}
                 ORDER BY ticker, age
             """, [universe, *tickers]).fetchdf()
         finally:
@@ -1756,6 +1767,18 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
     except Exception as exc:
         log.warning("capitulation enrich failed: %s", exc)
         return results
+    # Pre-scan all bars for T5/T12 + vol3 + RSI drop 2-10pt (any bar in lookback)
+    vol3_by_tk: dict = {}
+    for _, row in df.iterrows():
+        tk = str(row["ticker"])
+        if tk in vol3_by_tk:
+            continue
+        if int(row.get("vol3_ok", 0) or 0):
+            if int(row.get("sig_t5", 0) or 0):
+                vol3_by_tk[tk] = ("T5·Vol↑", int(row["age"]))
+            elif int(row.get("sig_t12", 0) or 0):
+                vol3_by_tk[tk] = ("T12·Vol↑", int(row["age"]))
+
     info = {}
     for _, r in df.iterrows():
         tk = str(r["ticker"])
@@ -1804,6 +1827,10 @@ def _enrich_capitulation(results: list, universe: str, lookback_n: int = 3) -> l
         elif vr >= 7:     atoms.append(f"⚠blowoff{vr:.0f}x"); score -= 15  # blow-off, penalise
         if int(r["blue"] or 0): atoms.append("BLUE"); score += 12         # BLUE-only coil (validated +2.90)
         if rsi < 20:      atoms.append("deep"); score += 5
+        # vol3 confirmation: T5 or T12 + 3-bar rising vol + RSI drop 2-10pt in same lookback
+        if tk in vol3_by_tk:
+            vsig, vage = vol3_by_tk[tk]
+            atoms.append(vsig); score += 10
         info[tk] = (max(0, min(score, 100)), atoms, int(r["age"]))
     for r in results:
         sc, at, age = info.get(r.get("ticker"), (0, [], None))
