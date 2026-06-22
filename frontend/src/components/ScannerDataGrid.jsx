@@ -759,6 +759,34 @@ export default function ScannerDataGrid({
                       🟢Z1G→EUR{r.z1gt2g_tier === 'premium' ? '★' : r.z1gt2g_tier === 'hi-nha' ? '·NHA' : r.z1gt2g_tier === 'hi-edp' ? '·EDP' : ''}
                     </div>
                   )}
+                  {r.vol3t5_match && (
+                    <div
+                      title={`T5·Vol↑↑↑: T5+3bar rising vol+RSI drop ${r.vol3t5_drop}pt · RSI ${r.vol3t5_rsi}${r.vol3t5_age > 0 ? ` · ${r.vol3t5_age}d ago` : ''} · absorption+recovery`}
+                      className="mt-0.5 text-[9px] font-bold px-1 rounded border leading-tight text-teal-300 border-teal-700 bg-teal-950/60">
+                      📈T5·Vol
+                    </div>
+                  )}
+                  {r.vol3t9_match && (
+                    <div
+                      title={`T9·Vol↑↑↑: T9+3bar rising vol · RSI ${r.vol3t9_rsi}${r.vol3t9_age > 0 ? ` · ${r.vol3t9_age}d ago` : ''} · ${r.vol3t9_tier === 'premium' ? 'RSI30-35 PREMIUM (exp+1.43%)' : 'base RSI25-40'}`}
+                      className={`mt-0.5 text-[9px] font-bold px-1 rounded border leading-tight ${
+                        r.vol3t9_tier === 'premium' ? 'text-sky-200 border-sky-500 bg-sky-950/60' : 'text-sky-400 border-sky-700 bg-sky-950/40'
+                      }`}>
+                      📈T9·Vol{r.vol3t9_tier === 'premium' ? '★' : ''}
+                    </div>
+                  )}
+                  {r.vol3t12_match && (
+                    <div
+                      title={`T12·Vol↑↑↑: T12+3bar rising vol+RSI drop · RSI ${r.vol3t12_rsi}${r.vol3t12_age > 0 ? ` · ${r.vol3t12_age}d ago` : ''} · ${r.vol3t12_tier}`}
+                      className={`mt-0.5 text-[9px] font-bold px-1 rounded border leading-tight ${
+                        r.vol3t12_tier === 'premium' ? 'text-violet-200 border-violet-500 bg-violet-950/60' :
+                        r.vol3t12_tier === 'hi-rsi'  ? 'text-violet-300 border-violet-600 bg-violet-950/50' :
+                        r.vol3t12_tier === 'hi-2bar' ? 'text-purple-300 border-purple-700 bg-purple-950/50' :
+                                                       'text-slate-400 border-slate-700 bg-slate-950/60'
+                      }`}>
+                      📈T12·Vol{r.vol3t12_tier === 'premium' ? '★' : r.vol3t12_tier === 'hi-rsi' ? '·R' : r.vol3t12_tier === 'hi-2bar' ? '·2↓' : ''}
+                    </div>
+                  )}
                 </td>
 
                 {/* Category */}

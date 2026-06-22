@@ -862,7 +862,7 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
 // Cache version bump invalidates ALL cached entries that pre-date the bump.
 // Increment this when row schema changes (new enrichment columns added) so
 // stale caches without the new fields don't survive a redeploy.
-const _CACHE_VERSION = '260622_v4.5'  // bumped: Z1G→T1→T2G+EUR enrichment filter added
+const _CACHE_VERSION = '260622_v4.6'  // bumped: vol3rise T5/T9/T12 enrichment filters added
 
 const _tsKey  = (tf, uni) => `sachoki_ultra_${tf}_${uni}`
 const _tsGet  = (tf, uni) => {
@@ -1067,6 +1067,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [t3seqFilter,  setT3seqFilter]  = useState(false)   // 🟡 T3 RSI<35 (fresh/fresh-nbi/streak/plain)
   const [t9rsiFilter,  setT9rsiFilter]  = useState(false)   // 🔵 T9 RSI<35 (premium=N*/base)
   const [z1gt2gFilter, setZ1gt2gFilter] = useState(false)   // 🟢 Z1G→T1→T2G+EUR RSI35-60 (psim +6.4%)
+  const [vol3t5Filter,  setVol3t5Filter]  = useState(false)  // 📈 T5 + vol↑↑↑ + RSI drop 2-10pt
+  const [vol3t9Filter,  setVol3t9Filter]  = useState(false)  // 📈 T9 + vol↑↑↑ + RSI 25-40
+  const [vol3t12Filter, setVol3t12Filter] = useState(false)  // 📈 T12 + vol↑↑↑ + RSI drop 2-10pt
   const ZONE_TIERS = [
     { key: 't25',  label: 'x2–5',  vmin: 2,  vmax: 5,  color: 'sky' },
     { key: 't510', label: 'x5–10', vmin: 5,  vmax: 10, color: 'teal' },
@@ -1256,6 +1259,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
     't3seq_match', 't3seq_age', 't3seq_tier', 't3seq_suffix', 't3seq_rsi',
     't9rsi_match', 't9rsi_age', 't9rsi_tier', 't9rsi_suffix', 't9rsi_rsi',
     'z1gt2g_match', 'z1gt2g_age', 'z1gt2g_tier', 'z1gt2g_suffix', 'z1gt2g_rsi',
+    'vol3t5_match', 'vol3t5_age', 'vol3t5_rsi', 'vol3t5_drop',
+    'vol3t9_match', 'vol3t9_age', 'vol3t9_rsi', 'vol3t9_tier',
+    'vol3t12_match', 'vol3t12_age', 'vol3t12_rsi', 'vol3t12_tier',
     'prebreak_v2', 'prebreak_v3', 'prebreak_score',
   ], [])
   const fetchEnrichmentMerge = useCallback((tf, uni) => {
@@ -1431,6 +1437,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (t3seqFilter    && !(r.t3seq_match  && r.t3seq_age  != null && r.t3seq_age  < (lookbackN || 1))) return false
       if (t9rsiFilter    && !(r.t9rsi_match  && r.t9rsi_age  != null && r.t9rsi_age  < (lookbackN || 1))) return false
       if (z1gt2gFilter   && !(r.z1gt2g_match && r.z1gt2g_age != null && r.z1gt2g_age < (lookbackN || 1))) return false
+      if (vol3t5Filter   && !(r.vol3t5_match  && r.vol3t5_age  != null && r.vol3t5_age  < (lookbackN || 1))) return false
+      if (vol3t9Filter   && !(r.vol3t9_match  && r.vol3t9_age  != null && r.vol3t9_age  < (lookbackN || 1))) return false
+      if (vol3t12Filter  && !(r.vol3t12_match && r.vol3t12_age != null && r.vol3t12_age < (lookbackN || 1))) return false
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1470,7 +1479,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter, ttt6Filter, t1seqFilter, t3seqFilter, t9rsiFilter, z1gt2gFilter])
+  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter, ttt6Filter, t1seqFilter, t3seqFilter, t9rsiFilter, z1gt2gFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -2936,6 +2945,45 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           🟢 Z1G→EUR{z1gt2gFilter ? ` ${results.filter(r => r.z1gt2g_match && r.z1gt2g_age != null && r.z1gt2g_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !vol3t5Filter; setVol3t5Filter(v)
+            if (v && !allResults.some(r => r.vol3t5_age != null)) fetchEnrichmentMerge(localTf, universe)
+          }}
+          title="📈 T5·Vol↑↑↑: T5 bar + 3-bar rising volume + RSI drop 2-10pt. Absorption with volume recovery. SP500: exp+0.79% med+0.64% win53%. RSI drop sweet spot: 2-10pt (bigger=panic, smaller=noise)."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            vol3t5Filter
+              ? 'bg-teal-900/60 text-teal-200 border-teal-500 ring-1 ring-teal-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          📈 T5·Vol{vol3t5Filter ? ` ${results.filter(r => r.vol3t5_match && r.vol3t5_age != null && r.vol3t5_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !vol3t9Filter; setVol3t9Filter(v)
+            if (v && !allResults.some(r => r.vol3t9_age != null)) fetchEnrichmentMerge(localTf, universe)
+          }}
+          title="📈 T9·Vol↑↑↑: T9 bar + 3-bar rising volume + RSI 25-40. Premium=RSI30-35 (exp+1.43%). T9 is always RSI-rising (momentum), volume recovery confirms. SP500: med+0.74% win53%."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            vol3t9Filter
+              ? 'bg-sky-900/60 text-sky-200 border-sky-500 ring-1 ring-sky-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          📈 T9·Vol{vol3t9Filter ? ` ${results.filter(r => r.vol3t9_match && r.vol3t9_age != null && r.vol3t9_age < (lookbackN || 1)).length}` : ''}
+        </button>
+        <button
+          onClick={() => {
+            const v = !vol3t12Filter; setVol3t12Filter(v)
+            if (v && !allResults.some(r => r.vol3t12_age != null)) fetchEnrichmentMerge(localTf, universe)
+          }}
+          title="📈 T12·Vol↑↑↑: T12 bar + 3-bar rising volume + RSI drop 2-10pt. Premium=RSI30-35+2bar RSI fall (med+0.70% win51.8%). T12+RSI30-35: exp+4.22%, win49.5%. Best absorption+recovery combo."
+          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+            vol3t12Filter
+              ? 'bg-violet-900/60 text-violet-200 border-violet-500 ring-1 ring-violet-500'
+              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+          }`}>
+          📈 T12·Vol{vol3t12Filter ? ` ${results.filter(r => r.vol3t12_match && r.vol3t12_age != null && r.vol3t12_age < (lookbackN || 1)).length}` : ''}
         </button>
         {(sweetSpotFilter || buildingFilter || watchFilter) && (
           <span className="text-xs text-md-on-surface-var">

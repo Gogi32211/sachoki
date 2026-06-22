@@ -2343,6 +2343,130 @@ def _enrich_z1gt2g(results: list, universe: str, lookback_n: int = 3) -> list:
     return results
 
 
+def _enrich_vol3rise(results: list, universe: str, lookback_n: int = 3) -> list:
+    """3-bar rising volume + T5/T9/T12 enrichment (path-sim validated).
+    T5 + vol↑↑↑ + RSI drop 2-10pt  → vol3t5  (exp +0.58%, SP500 med +0.64%)
+    T9 + vol↑↑↑ + RSI 25-40        → vol3t9  (RSI30-35: exp +1.43%)
+    T12 + vol↑↑↑ + RSI drop 2-10pt → vol3t12 (tier: premium=RSI30-35+2bar↓, hi-rsi, hi-2bar, base)
+    RSI drop sweet spot: 2-10pt (bigger=panic, smaller=noise)."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t5, sig_t9, sig_t12, rsi_14, volume,
+                         LAG(volume,  1) OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS v1,
+                         LAG(volume,  2) OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS v2,
+                         LAG(rsi_14,  1) OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rsi_m1,
+                         LAG(rsi_14,  2) OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rsi_m2,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars WHERE universe = ? AND ticker IN ({ph})
+                ),
+                base AS (
+                  SELECT *,
+                    rn - 1 AS age,
+                    CASE WHEN v1 IS NOT NULL AND v2 IS NOT NULL
+                              AND volume > v1 AND v1 > v2 THEN 1 ELSE 0 END AS vol3,
+                    COALESCE(rsi_m1 - rsi_14, 0)                            AS rsi_drop,
+                    CASE WHEN rsi_m1 IS NOT NULL AND rsi_m2 IS NOT NULL
+                              AND rsi_14 < rsi_m1 AND rsi_m1 < rsi_m2
+                         THEN 1 ELSE 0 END                                  AS rsi_2bar
+                  FROM ranked WHERE rn - 1 < {lookback}
+                ),
+                t5m AS (
+                  SELECT ticker, universe,
+                         MIN(age)                           AS age,
+                         ARG_MIN(rsi_14,   age)             AS rsi,
+                         ARG_MIN(ROUND(rsi_drop, 1), age)   AS drop_pt
+                  FROM base
+                  WHERE sig_t5 > 0 AND vol3 = 1
+                    AND rsi_drop BETWEEN 2 AND 10
+                  GROUP BY ticker, universe
+                ),
+                t9m AS (
+                  SELECT ticker, universe,
+                         MIN(age)                           AS age,
+                         ARG_MIN(rsi_14, age)               AS rsi,
+                         ARG_MIN(CASE WHEN rsi_14 BETWEEN 30 AND 35
+                                      THEN 'premium' ELSE 'base' END, age) AS tier
+                  FROM base
+                  WHERE sig_t9 > 0 AND vol3 = 1
+                    AND rsi_14 BETWEEN 25 AND 40
+                  GROUP BY ticker, universe
+                ),
+                t12m AS (
+                  SELECT ticker, universe,
+                         MIN(age)    AS age,
+                         ARG_MIN(rsi_14, age) AS rsi,
+                         ARG_MIN(
+                           CASE
+                             WHEN rsi_14 BETWEEN 30 AND 35 AND rsi_2bar = 1 THEN 'premium'
+                             WHEN rsi_14 BETWEEN 30 AND 35                   THEN 'hi-rsi'
+                             WHEN rsi_2bar = 1                               THEN 'hi-2bar'
+                             ELSE 'base'
+                           END, age)  AS tier
+                  FROM base
+                  WHERE sig_t12 > 0 AND vol3 = 1
+                    AND rsi_drop BETWEEN 2 AND 10
+                  GROUP BY ticker, universe
+                )
+                SELECT
+                  COALESCE(t5m.ticker,  t9m.ticker,  t12m.ticker)  AS ticker,
+                  COALESCE(t5m.universe,t9m.universe,t12m.universe) AS universe,
+                  t5m.age   AS t5_age,  t5m.rsi  AS t5_rsi,  t5m.drop_pt AS t5_drop,
+                  t9m.age   AS t9_age,  t9m.rsi  AS t9_rsi,  t9m.tier    AS t9_tier,
+                  t12m.age  AS t12_age, t12m.rsi AS t12_rsi, t12m.tier   AS t12_tier
+                FROM t5m
+                FULL OUTER JOIN t9m  USING (ticker, universe)
+                FULL OUTER JOIN t12m USING (ticker, universe)
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("vol3rise enrich failed: %s", exc)
+        return results
+
+    import pandas as _pd
+    info = {}
+    for row in df.itertuples(index=False):
+        entry = {}
+        for sig, age_col, rsi_col, extra_col, extra_key in [
+            ("t5",  "t5_age",  "t5_rsi",  "t5_drop",  "drop"),
+            ("t9",  "t9_age",  "t9_rsi",  "t9_tier",  "tier"),
+            ("t12", "t12_age", "t12_rsi", "t12_tier", "tier"),
+        ]:
+            age = getattr(row, age_col, None)
+            if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+                entry[f"vol3{sig}_match"] = False
+                entry[f"vol3{sig}_age"]   = None
+            else:
+                extra_val = getattr(row, extra_col, None)
+                entry[f"vol3{sig}_match"] = True
+                entry[f"vol3{sig}_age"]   = int(age)
+                entry[f"vol3{sig}_rsi"]   = round(float(getattr(row, rsi_col) or 0), 1)
+                entry[f"vol3{sig}_{extra_key}"] = str(extra_val or "") if extra_key == "tier" else round(float(extra_val or 0), 1)
+        info[str(row.ticker)] = entry
+
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            for sig in ("t5", "t9", "t12"):
+                r[f"vol3{sig}_match"] = False
+                r[f"vol3{sig}_age"]   = None
+    return results
+
+
 def _enrich_momentum(results: list, universe: str, lookback_n: int = 3) -> list:
     """Attach the MOMENTUM Zone-Dense long flags (additive, read-only). The mirror of
     capitulation (L_LINE_DISCOVERIES.md): instead of buying an oversold flush, this buys
@@ -5991,6 +6115,7 @@ def api_ultra_scan_results(
             results = _enrich_t3seq(results, universe, lookback_n=atomic_lookback)
             results = _enrich_t9rsi35(results, universe, lookback_n=atomic_lookback)
             results = _enrich_z1gt2g(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_vol3rise(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])
