@@ -458,6 +458,7 @@ def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
 
     conn = get_conn(read_only=True)
     lookback = max(int(lookback_n), 1)
+    z1g_lb = max(lookback, 65)  # z1gt2g is rare (~9/yr), needs longer window
     try:
         for uni, rows in by_uni.items():
             tickers = [r.get("ticker") for r in rows if r.get("ticker")]
@@ -514,7 +515,7 @@ def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
                              LEAD(sig_z1g, 2) OVER (PARTITION BY ticker ORDER BY rn) AS z1g_2,
                              LEAD(composite_full_suffix, 1) OVER (PARTITION BY ticker ORDER BY rn) AS sfx_1,
                              LEAD(composite_full_suffix, 2) OVER (PARTITION BY ticker ORDER BY rn) AS sfx_2
-                      FROM ranked WHERE rn <= {lookback + 4}
+                      FROM ranked WHERE rn <= {z1g_lb + 4}
                     ),
                     tzt4_m AS (
                       SELECT ticker, age, rsi_14, sfx,
@@ -570,7 +571,7 @@ def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
                                   ELSE 'base' END AS tier
                       FROM pat WHERE sig_t2g>0 AND sfx LIKE 'EUR%'
                         AND COALESCE(t1_1,0)>0 AND COALESCE(z1g_2,0)>0
-                        AND rsi_14 BETWEEN 35 AND 60 AND age < {lookback}
+                        AND rsi_14 BETWEEN 35 AND 60 AND age < {z1g_lb}
                     ),
                     agg4 AS (SELECT ticker, MIN(age) AS age4,
                                ARG_MIN(tier,age) AS tier4, ARG_MIN(sfx,age) AS sfx4,
