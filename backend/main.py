@@ -1913,6 +1913,436 @@ def _enrich_tzt4(results: list, universe: str, lookback_n: int = 3) -> list:
     return results
 
 
+def _enrich_ttt6(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Detect T[-2]-T[-1]-T6[0] pattern in the last `lookback_n` bars per ticker.
+    Sets ttt6_match (bool), ttt6_age (bars ago, 0=today), ttt6_tier (T1/T2/T3/T4),
+    ttt6_suffix (composite_full_suffix at T6 bar), ttt6_rsi (RSI at T6 bar).
+    Tier 1=T3/T1/T10[-2], Tier 2=T4/T1G[-2], Tier 3=T2G/T9[-2], Tier 4=rest."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t6,
+                         sig_t1, sig_t1g, sig_t2, sig_t2g, sig_t3, sig_t4,
+                         sig_t5, sig_t9, sig_t10, sig_t11, sig_t12,
+                         rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                pattern AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         sig_t6,
+                         LEAD(sig_t1,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1_1,
+                         LEAD(sig_t1g,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1g_1,
+                         LEAD(sig_t2,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2_1,
+                         LEAD(sig_t2g,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2g_1,
+                         LEAD(sig_t3,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t3_1,
+                         LEAD(sig_t4,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t4_1,
+                         LEAD(sig_t5,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t5_1,
+                         LEAD(sig_t9,   1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t9_1,
+                         LEAD(sig_t10,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t10_1,
+                         LEAD(sig_t11,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t11_1,
+                         LEAD(sig_t12,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t12_1,
+                         LEAD(sig_t3,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t3_2,
+                         LEAD(sig_t1,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1_2,
+                         LEAD(sig_t10,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t10_2,
+                         LEAD(sig_t4,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t4_2,
+                         LEAD(sig_t1g,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1g_2,
+                         LEAD(sig_t2g,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2g_2,
+                         LEAD(sig_t9,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t9_2,
+                         LEAD(sig_t2,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t2_2,
+                         LEAD(sig_t5,   2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t5_2,
+                         LEAD(sig_t11,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t11_2,
+                         LEAD(sig_t12,  2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t12_2
+                  FROM ranked WHERE rn <= {lookback + 4}
+                ),
+                t_any1 AS (
+                  SELECT *,
+                    (COALESCE(t1_1,0) + COALESCE(t1g_1,0) + COALESCE(t2_1,0) + COALESCE(t2g_1,0)
+                   + COALESCE(t3_1,0) + COALESCE(t4_1,0) + COALESCE(t5_1,0) + COALESCE(t9_1,0)
+                   + COALESCE(t10_1,0) + COALESCE(t11_1,0) + COALESCE(t12_1,0)) AS t_sum1
+                  FROM pattern
+                ),
+                matched AS (
+                  SELECT ticker, universe, age, rsi_14, sfx,
+                         CASE
+                           WHEN t3_2 > 0 OR t1_2 > 0 OR t10_2 > 0          THEN 'T1'
+                           WHEN t4_2 > 0 OR t1g_2 > 0                       THEN 'T2'
+                           WHEN t2g_2 > 0 OR t9_2 > 0                       THEN 'T3'
+                           ELSE 'T4'
+                         END AS tier
+                  FROM t_any1
+                  WHERE sig_t6 > 0 AND t_sum1 > 0
+                    AND (t3_2>0 OR t1_2>0 OR t10_2>0 OR t4_2>0 OR t1g_2>0
+                         OR t2g_2>0 OR t9_2>0 OR t2_2>0 OR t5_2>0 OR t11_2>0 OR t12_2>0)
+                    AND age < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)              AS ttt6_age,
+                       ARG_MIN(tier, age)    AS ttt6_tier,
+                       ARG_MIN(sfx,  age)    AS ttt6_suffix,
+                       ARG_MIN(rsi_14, age)  AS ttt6_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("ttt6 enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "ttt6_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "ttt6_match":  True,
+            "ttt6_age":    int(age),
+            "ttt6_tier":   str(row.ttt6_tier or ""),
+            "ttt6_suffix": str(row.ttt6_suffix or ""),
+            "ttt6_rsi":    round(float(row.ttt6_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["ttt6_match"] = False
+            r["ttt6_age"]   = None
+    return results
+
+
+def _enrich_t1seq(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Detect 3-bar T1 sequences in the last `lookback_n` bars per ticker.
+    Pattern: any[-2] → any[-1] → T1[0]. Tier by context:
+      Tier 1 = Z[-2] + Z[-1]  (+2.26%),  Tier 2 = T[-2] + Z[-1]  (+2.21%),
+      Tier 3 = Z[-2] + T[-1],             Tier 4 = T[-2] + T[-1]."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t1, sig_z, sig_t,
+                         rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                pattern AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         sig_t1,
+                         LEAD(sig_z, 1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS z_1,
+                         LEAD(sig_t, 1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t_1,
+                         LEAD(sig_z, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS z_2,
+                         LEAD(sig_t, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t_2
+                  FROM ranked WHERE rn <= {lookback + 4}
+                ),
+                matched AS (
+                  SELECT ticker, universe, age, rsi_14, sfx,
+                         CASE
+                           WHEN z_2 > 0 AND z_1 > 0 THEN 'T1'
+                           WHEN t_2 > 0 AND z_1 > 0 THEN 'T2'
+                           WHEN z_2 > 0 AND t_1 > 0 THEN 'T3'
+                           ELSE 'T4'
+                         END AS tier
+                  FROM pattern
+                  WHERE sig_t1 > 0
+                    AND (z_2 > 0 OR t_2 > 0)
+                    AND (z_1 > 0 OR t_1 > 0)
+                    AND age < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)              AS t1seq_age,
+                       ARG_MIN(tier, age)    AS t1seq_tier,
+                       ARG_MIN(sfx,  age)    AS t1seq_suffix,
+                       ARG_MIN(rsi_14, age)  AS t1seq_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("t1seq enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "t1seq_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "t1seq_match":  True,
+            "t1seq_age":    int(age),
+            "t1seq_tier":   str(row.t1seq_tier or ""),
+            "t1seq_suffix": str(row.t1seq_suffix or ""),
+            "t1seq_rsi":    round(float(row.t1seq_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["t1seq_match"] = False
+            r["t1seq_age"]   = None
+    return results
+
+
+def _enrich_t3seq(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Detect T3 RSI<35 bars in last lookback_n bars. Tier by context:
+      fresh-nbi = no T3 at [-1] + NBI suffix (+4.5% exp),
+      fresh     = no T3 at [-1]             (+1.0%),
+      streak    = T3[-1] + T3[-2]           (+0.9%),
+      plain     = partial or other."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t3, rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                pattern AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         sig_t3,
+                         COALESCE(LEAD(sig_t3, 1) OVER (PARTITION BY ticker, universe ORDER BY rn), 0) AS t3_1,
+                         COALESCE(LEAD(sig_t3, 2) OVER (PARTITION BY ticker, universe ORDER BY rn), 0) AS t3_2
+                  FROM ranked WHERE rn <= {lookback + 4}
+                ),
+                matched AS (
+                  SELECT ticker, universe, age, rsi_14, sfx,
+                         CASE
+                           WHEN t3_1 = 0 AND sfx LIKE 'NBI%' THEN 'fresh-nbi'
+                           WHEN t3_1 = 0                      THEN 'fresh'
+                           WHEN t3_1 > 0 AND t3_2 > 0         THEN 'streak'
+                           ELSE 'plain'
+                         END AS tier
+                  FROM pattern
+                  WHERE sig_t3 > 0 AND rsi_14 < 35 AND age < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)             AS t3seq_age,
+                       ARG_MIN(tier, age)   AS t3seq_tier,
+                       ARG_MIN(sfx,  age)   AS t3seq_suffix,
+                       ARG_MIN(rsi_14, age) AS t3seq_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("t3seq enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "t3seq_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "t3seq_match":  True,
+            "t3seq_age":    int(age),
+            "t3seq_tier":   str(row.t3seq_tier or ""),
+            "t3seq_suffix": str(row.t3seq_suffix or ""),
+            "t3seq_rsi":    round(float(row.t3seq_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["t3seq_match"] = False
+            r["t3seq_age"]   = None
+    return results
+
+
+def _enrich_t9rsi35(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Detect T9 RSI<35 bars in last lookback_n bars. Tier by suffix:
+      premium = N* suffix (NUI/NRI/N...) (+1.0-1.35% exp),
+      base    = other                     (+0.67-0.93%)."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t9, rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                matched AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         CASE WHEN composite_full_suffix LIKE 'N%' THEN 'premium'
+                              ELSE 'base' END AS tier
+                  FROM ranked
+                  WHERE sig_t9 > 0 AND rsi_14 < 35 AND rn - 1 < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)             AS t9rsi_age,
+                       ARG_MIN(tier, age)   AS t9rsi_tier,
+                       ARG_MIN(sfx,  age)   AS t9rsi_suffix,
+                       ARG_MIN(rsi_14, age) AS t9rsi_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("t9rsi35 enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "t9rsi_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "t9rsi_match":  True,
+            "t9rsi_age":    int(age),
+            "t9rsi_tier":   str(row.t9rsi_tier or ""),
+            "t9rsi_suffix": str(row.t9rsi_suffix or ""),
+            "t9rsi_rsi":    round(float(row.t9rsi_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["t9rsi_match"] = False
+            r["t9rsi_age"]   = None
+    return results
+
+
+def _enrich_z1gt2g(results: list, universe: str, lookback_n: int = 3) -> list:
+    """Z1G→T1→T2G + EUR suffix + RSI 35-60 (n=46, psim +6.4%, fwd5 +17.5%).
+    Tier: premium (NHA T1 + EDP Z1G, best combo), hi-nha (NHA T1, 82% win),
+          hi-edp (EDP Z1G, 71% win), base."""
+    if not results:
+        return results
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            lookback = max(int(lookback_n), 1)
+            df = a.execute(f"""
+                WITH ranked AS (
+                  SELECT ticker, universe, date,
+                         sig_t2g, sig_t1, sig_z1g,
+                         rsi_14, composite_full_suffix,
+                         ROW_NUMBER() OVER (PARTITION BY ticker, universe ORDER BY date DESC) AS rn
+                  FROM bars
+                  WHERE universe = ? AND ticker IN ({ph})
+                ),
+                pattern AS (
+                  SELECT ticker, universe,
+                         rn - 1 AS age, rsi_14, composite_full_suffix AS sfx,
+                         sig_t2g,
+                         LEAD(sig_t1,  1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS t1_1,
+                         LEAD(sig_z1g, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS z1g_2,
+                         LEAD(composite_full_suffix, 1) OVER (PARTITION BY ticker, universe ORDER BY rn) AS sfx_1,
+                         LEAD(composite_full_suffix, 2) OVER (PARTITION BY ticker, universe ORDER BY rn) AS sfx_2
+                  FROM ranked WHERE rn <= {lookback + 4}
+                ),
+                matched AS (
+                  SELECT ticker, universe, age, rsi_14, sfx_1 AS t1_sfx,
+                         CASE
+                           WHEN sfx_1 LIKE 'NHA%' AND sfx_2 LIKE 'EDP%' THEN 'premium'
+                           WHEN sfx_1 LIKE 'NHA%'                        THEN 'hi-nha'
+                           WHEN sfx_2 LIKE 'EDP%'                        THEN 'hi-edp'
+                           ELSE 'base'
+                         END AS tier
+                  FROM pattern
+                  WHERE sig_t2g > 0
+                    AND sfx LIKE 'EUR%'
+                    AND COALESCE(t1_1, 0) > 0
+                    AND COALESCE(z1g_2, 0) > 0
+                    AND rsi_14 BETWEEN 35 AND 60
+                    AND age < {lookback}
+                )
+                SELECT ticker, universe,
+                       MIN(age)              AS z1gt2g_age,
+                       ARG_MIN(tier, age)    AS z1gt2g_tier,
+                       ARG_MIN(t1_sfx, age)  AS z1gt2g_suffix,
+                       ARG_MIN(rsi_14, age)  AS z1gt2g_rsi
+                FROM matched
+                GROUP BY ticker, universe
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+    except Exception as exc:
+        log.warning("z1gt2g enrich failed: %s", exc)
+        return results
+    info = {}
+    for row in df.itertuples(index=False):
+        import pandas as _pd
+        age = getattr(row, "z1gt2g_age", None)
+        if age is None or (hasattr(_pd, "isna") and _pd.isna(age)):
+            continue
+        info[str(row.ticker)] = {
+            "z1gt2g_match":  True,
+            "z1gt2g_age":    int(age),
+            "z1gt2g_tier":   str(row.z1gt2g_tier or ""),
+            "z1gt2g_suffix": str(row.z1gt2g_suffix or ""),
+            "z1gt2g_rsi":    round(float(row.z1gt2g_rsi or 0), 1),
+        }
+    for r in results:
+        d = info.get(r.get("ticker"))
+        if d:
+            r.update(d)
+        else:
+            r["z1gt2g_match"] = False
+            r["z1gt2g_age"]   = None
+    return results
+
+
 def _enrich_momentum(results: list, universe: str, lookback_n: int = 3) -> list:
     """Attach the MOMENTUM Zone-Dense long flags (additive, read-only). The mirror of
     capitulation (L_LINE_DISCOVERIES.md): instead of buying an oversold flush, this buys
@@ -5556,6 +5986,11 @@ def api_ultra_scan_results(
             results = _enrich_capitulation(results, universe, lookback_n=atomic_lookback)
             results = _enrich_momentum(results, universe, lookback_n=atomic_lookback)
             results = _enrich_tzt4(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_ttt6(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_t1seq(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_t3seq(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_t9rsi35(results, universe, lookback_n=atomic_lookback)
+            results = _enrich_z1gt2g(results, universe, lookback_n=atomic_lookback)
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])

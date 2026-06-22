@@ -442,6 +442,203 @@ def _row_to_dict(row: pd.Series) -> dict:
     return out
 
 
+def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
+    """In-place enrichment: tzt4 / ttt6 / t1seq patterns for DB-mode scan results.
+    Runs one DuckDB query per universe group. Sets *_match/*_age/*_tier/*_suffix/*_rsi."""
+    if not results:
+        return
+    import pandas as _pd
+    from collections import defaultdict
+
+    # Group by actual universe for the WHERE clause (split rows use ticker-only query)
+    by_uni: dict[str, list] = defaultdict(list)
+    for r in results:
+        uni = r.get("universe") or "sp500"
+        by_uni["__any__" if uni == "split" else uni].append(r)
+
+    conn = get_conn(read_only=True)
+    lookback = max(int(lookback_n), 1)
+    try:
+        for uni, rows in by_uni.items():
+            tickers = [r.get("ticker") for r in rows if r.get("ticker")]
+            if not tickers:
+                continue
+            ph = ",".join("?" * len(tickers))
+            uni_where = f"AND universe = '{uni}'" if uni != "__any__" else ""
+            try:
+                df = conn.execute(f"""
+                    WITH deduped AS (
+                      SELECT ticker, date,
+                             sig_t4, sig_z, sig_t, sig_t1, sig_t6,
+                             sig_t2, sig_t2g, sig_t3, sig_t5, sig_t9, sig_t10,
+                             sig_t1g, sig_t11, sig_t12, sig_z1g,
+                             rsi_14, composite_full_suffix
+                      FROM bars
+                      WHERE ticker IN ({ph}) {uni_where}
+                      QUALIFY ROW_NUMBER() OVER (PARTITION BY ticker, date ORDER BY universe) = 1
+                    ),
+                    ranked AS (
+                      SELECT *, ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) AS rn
+                      FROM deduped
+                    ),
+                    pat AS (
+                      SELECT ticker, rn - 1 AS age, rn, rsi_14,
+                             composite_full_suffix AS sfx,
+                             sig_t4, sig_t1, sig_t6, sig_t3, sig_t9, sig_t2g,
+                             LEAD(sig_z,   1) OVER (PARTITION BY ticker ORDER BY rn) AS z_1,
+                             LEAD(sig_t,   1) OVER (PARTITION BY ticker ORDER BY rn) AS t_1,
+                             LEAD(sig_z,   2) OVER (PARTITION BY ticker ORDER BY rn) AS z_2,
+                             LEAD(sig_t,   2) OVER (PARTITION BY ticker ORDER BY rn) AS t_2,
+                             LEAD(sig_t4,  2) OVER (PARTITION BY ticker ORDER BY rn) AS t4_2,
+                             LEAD(sig_t3,  2) OVER (PARTITION BY ticker ORDER BY rn) AS t3_2,
+                             LEAD(sig_t9,  2) OVER (PARTITION BY ticker ORDER BY rn) AS t9_2,
+                             LEAD(sig_t10, 2) OVER (PARTITION BY ticker ORDER BY rn) AS t10_2,
+                             LEAD(sig_t2,  2) OVER (PARTITION BY ticker ORDER BY rn) AS t2_2,
+                             LEAD(sig_t2g, 2) OVER (PARTITION BY ticker ORDER BY rn) AS t2g_2,
+                             LEAD(sig_t5,  2) OVER (PARTITION BY ticker ORDER BY rn) AS t5_2,
+                             LEAD(sig_t1g, 2) OVER (PARTITION BY ticker ORDER BY rn) AS t1g_2,
+                             LEAD(sig_t11, 2) OVER (PARTITION BY ticker ORDER BY rn) AS t11_2,
+                             LEAD(sig_t12, 2) OVER (PARTITION BY ticker ORDER BY rn) AS t12_2,
+                             LEAD(sig_t1,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t1_1,
+                             LEAD(sig_t2,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t2_1,
+                             LEAD(sig_t2g, 1) OVER (PARTITION BY ticker ORDER BY rn) AS t2g_1,
+                             LEAD(sig_t3,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t3_1,
+                             LEAD(sig_t4,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t4_1,
+                             LEAD(sig_t5,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t5_1,
+                             LEAD(sig_t9,  1) OVER (PARTITION BY ticker ORDER BY rn) AS t9_1,
+                             LEAD(sig_t10, 1) OVER (PARTITION BY ticker ORDER BY rn) AS t10_1,
+                             LEAD(sig_t11, 1) OVER (PARTITION BY ticker ORDER BY rn) AS t11_1,
+                             LEAD(sig_t12, 1) OVER (PARTITION BY ticker ORDER BY rn) AS t12_1,
+                             LEAD(sig_t1g, 1) OVER (PARTITION BY ticker ORDER BY rn) AS t1g_1,
+                             LEAD(sig_t3,  3) OVER (PARTITION BY ticker ORDER BY rn) AS t3_3,
+                             LEAD(sig_z1g, 2) OVER (PARTITION BY ticker ORDER BY rn) AS z1g_2,
+                             LEAD(composite_full_suffix, 1) OVER (PARTITION BY ticker ORDER BY rn) AS sfx_1,
+                             LEAD(composite_full_suffix, 2) OVER (PARTITION BY ticker ORDER BY rn) AS sfx_2
+                      FROM ranked WHERE rn <= {lookback + 4}
+                    ),
+                    tzt4_m AS (
+                      SELECT ticker, age, rsi_14, sfx,
+                             CASE WHEN t4_2>0 THEN 'T1'
+                                  WHEN t3_2>0 OR t9_2>0 OR t10_2>0 THEN 'T2'
+                                  WHEN t2_2>0 OR t2g_2>0 OR t5_2>0 THEN 'T3'
+                                  ELSE 'T4' END AS tier
+                      FROM pat WHERE sig_t4>0 AND z_1>0
+                        AND (t4_2>0 OR t3_2>0 OR t9_2>0 OR t10_2>0 OR t2_2>0
+                             OR t2g_2>0 OR t5_2>0 OR t1g_2>0 OR t11_2>0 OR t12_2>0)
+                        AND age < {lookback}
+                    ),
+                    ttt6_m AS (
+                      SELECT ticker, age, rsi_14, sfx,
+                             CASE WHEN t3_2>0 OR t2_2>0 OR t10_2>0 THEN 'T1'
+                                  WHEN t4_2>0 OR t1g_2>0 THEN 'T2'
+                                  WHEN t2g_2>0 OR t9_2>0 THEN 'T3'
+                                  ELSE 'T4' END AS tier
+                      FROM pat WHERE sig_t6>0
+                        AND (t1_1>0 OR t2_1>0 OR t2g_1>0 OR t3_1>0 OR t4_1>0
+                             OR t5_1>0 OR t9_1>0 OR t10_1>0 OR t11_1>0 OR t12_1>0 OR t1g_1>0)
+                        AND (t3_2>0 OR t2_2>0 OR t10_2>0 OR t4_2>0 OR t1g_2>0 OR t2g_2>0
+                             OR t9_2>0 OR t5_2>0 OR t11_2>0 OR t12_2>0)
+                        AND age < {lookback}
+                    ),
+                    t1seq_m AS (
+                      SELECT ticker, age, rsi_14, sfx,
+                             CASE WHEN z_2>0 AND z_1>0 THEN 'T1'
+                                  WHEN t_2>0 AND z_1>0 THEN 'T2'
+                                  WHEN z_2>0 AND t_1>0 THEN 'T3'
+                                  ELSE 'T4' END AS tier
+                      FROM pat WHERE sig_t1>0 AND (z_2>0 OR t_2>0) AND (z_1>0 OR t_1>0)
+                        AND age < {lookback}
+                    ),
+                    t3seq_m AS (
+                      SELECT ticker, age, rsi_14, sfx,
+                             CASE WHEN COALESCE(t3_1,0)=0 AND sfx LIKE 'NBI%' THEN 'fresh-nbi'
+                                  WHEN COALESCE(t3_1,0)=0 THEN 'fresh'
+                                  WHEN COALESCE(t3_1,0)>0 AND COALESCE(t3_2,0)>0 THEN 'streak'
+                                  ELSE 'plain' END AS tier
+                      FROM pat WHERE sig_t3>0 AND rsi_14<35 AND age < {lookback}
+                    ),
+                    t9rsi_m AS (
+                      SELECT ticker, age, rsi_14, sfx,
+                             CASE WHEN sfx LIKE 'N%' THEN 'premium' ELSE 'base' END AS tier
+                      FROM pat WHERE sig_t9>0 AND rsi_14<35 AND age < {lookback}
+                    ),
+                    z1gt2g_m AS (
+                      SELECT ticker, age, rsi_14, sfx_1 AS t1_sfx,
+                             CASE WHEN sfx_1 LIKE 'NHA%' AND sfx_2 LIKE 'EDP%' THEN 'premium'
+                                  WHEN sfx_1 LIKE 'NHA%' THEN 'hi-nha'
+                                  WHEN sfx_2 LIKE 'EDP%' THEN 'hi-edp'
+                                  ELSE 'base' END AS tier
+                      FROM pat WHERE sig_t2g>0 AND sfx LIKE 'EUR%'
+                        AND COALESCE(t1_1,0)>0 AND COALESCE(z1g_2,0)>0
+                        AND rsi_14 BETWEEN 35 AND 60 AND age < {lookback}
+                    ),
+                    agg4 AS (SELECT ticker, MIN(age) AS age4,
+                               ARG_MIN(tier,age) AS tier4, ARG_MIN(sfx,age) AS sfx4,
+                               ARG_MIN(rsi_14,age) AS rsi4 FROM tzt4_m GROUP BY ticker),
+                    agg6 AS (SELECT ticker, MIN(age) AS age6,
+                               ARG_MIN(tier,age) AS tier6, ARG_MIN(sfx,age) AS sfx6,
+                               ARG_MIN(rsi_14,age) AS rsi6 FROM ttt6_m GROUP BY ticker),
+                    agg1 AS (SELECT ticker, MIN(age) AS age1,
+                               ARG_MIN(tier,age) AS tier1, ARG_MIN(sfx,age) AS sfx1,
+                               ARG_MIN(rsi_14,age) AS rsi1 FROM t1seq_m GROUP BY ticker),
+                    agg_t3 AS (SELECT ticker, MIN(age) AS aget3,
+                               ARG_MIN(tier,age) AS tiert3, ARG_MIN(sfx,age) AS sfxt3,
+                               ARG_MIN(rsi_14,age) AS rsit3 FROM t3seq_m GROUP BY ticker),
+                    agg_t9 AS (SELECT ticker, MIN(age) AS aget9,
+                               ARG_MIN(tier,age) AS tiert9, ARG_MIN(sfx,age) AS sfxt9,
+                               ARG_MIN(rsi_14,age) AS rsit9 FROM t9rsi_m GROUP BY ticker),
+                    agg_z1g AS (SELECT ticker, MIN(age) AS agez,
+                               ARG_MIN(tier,age) AS tierz, ARG_MIN(t1_sfx,age) AS sfxz,
+                               ARG_MIN(rsi_14,age) AS rsiz FROM z1gt2g_m GROUP BY ticker)
+                    SELECT r.ticker,
+                           a4.age4, a4.tier4, a4.sfx4, a4.rsi4,
+                           a6.age6, a6.tier6, a6.sfx6, a6.rsi6,
+                           a1.age1, a1.tier1, a1.sfx1, a1.rsi1,
+                           at3.aget3, at3.tiert3, at3.sfxt3, at3.rsit3,
+                           at9.aget9, at9.tiert9, at9.sfxt9, at9.rsit9,
+                           az.agez, az.tierz, az.sfxz, az.rsiz
+                    FROM (SELECT DISTINCT ticker FROM ranked WHERE rn=1) r
+                    LEFT JOIN agg4  a4  USING (ticker)
+                    LEFT JOIN agg6  a6  USING (ticker)
+                    LEFT JOIN agg1  a1  USING (ticker)
+                    LEFT JOIN agg_t3 at3 USING (ticker)
+                    LEFT JOIN agg_t9 at9 USING (ticker)
+                    LEFT JOIN agg_z1g az USING (ticker)
+                """, tickers).fetchdf()
+            except Exception as exc:
+                log.warning("_enrich_seq_patterns query failed for %s: %s", uni, exc)
+                continue
+
+            lookup = {row.ticker: row for row in df.itertuples(index=False)}
+            for r in rows:
+                row = lookup.get(r.get("ticker"))
+                if row is None:
+                    r["tzt4_match"]   = False; r["tzt4_age"]   = None
+                    r["ttt6_match"]   = False; r["ttt6_age"]   = None
+                    r["t1seq_match"]  = False; r["t1seq_age"]  = None
+                    r["t3seq_match"]  = False; r["t3seq_age"]  = None
+                    r["t9rsi_match"]  = False; r["t9rsi_age"]  = None
+                    r["z1gt2g_match"] = False; r["z1gt2g_age"] = None
+                    continue
+                def _set(prefix, age_v, tier_v, sfx_v, rsi_v):
+                    if age_v is None or (_pd.isna(age_v) if hasattr(_pd, "isna") else False):
+                        r[f"{prefix}_match"] = False; r[f"{prefix}_age"] = None
+                    else:
+                        r[f"{prefix}_match"]  = True
+                        r[f"{prefix}_age"]    = int(age_v)
+                        r[f"{prefix}_tier"]   = str(tier_v or "")
+                        r[f"{prefix}_suffix"] = str(sfx_v or "")
+                        r[f"{prefix}_rsi"]    = round(float(rsi_v or 0), 1)
+                _set("tzt4",   row.age4,  row.tier4,  row.sfx4,  row.rsi4)
+                _set("ttt6",   row.age6,  row.tier6,  row.sfx6,  row.rsi6)
+                _set("t1seq",  row.age1,  row.tier1,  row.sfx1,  row.rsi1)
+                _set("t3seq",  row.aget3, row.tiert3, row.sfxt3, row.rsit3)
+                _set("t9rsi",  row.aget9, row.tiert9, row.sfxt9, row.rsit9)
+                _set("z1gt2g", row.agez,  row.tierz,  row.sfxz,  row.rsiz)
+    finally:
+        conn.close()
+
+
 def run_ultra_db_scan(
     universes:   list[str] | None = None,
     min_price:   float | None     = None,
@@ -730,6 +927,11 @@ def run_ultra_db_scan(
             log.info("UltraDB SPLIT: %d/%d split tickers found in DB", len(results), len(live_tickers))
         except Exception as exc:
             log.warning("UltraDB SPLIT post-filter failed: %s", exc)
+
+    try:
+        _enrich_seq_patterns(results, lookback_n=age_lookback)
+    except Exception as exc:
+        log.warning("_enrich_seq_patterns failed: %s", exc)
 
     duration = time.time() - started
     return {
