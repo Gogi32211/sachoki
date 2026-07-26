@@ -432,6 +432,42 @@ def _row_to_dict(row: pd.Series) -> dict:
             # Last-resort fallback to avoid breaking the scan
             out["ultra_score"] = out.get("final_bull_score")
 
+    # ULTRA Score v3 — reweighted ranker (2026-07-18), attached ALONGSIDE the old score on the
+    # DB-instant path too (the frontend UV3 column). The DB row uses rsi_14/close; map them to
+    # the keys v3 reads, and inject the 🏆RS/🎯cluster/🎋TLS axes from the cached edge frame.
+    try:
+        from ultra_score import compute_ultra_score_v3 as _compute_ultra_score_v3
+        _v3row = dict(row)
+        if _v3row.get("rsi") in (None, ""):
+            _v3row["rsi"] = _v3row.get("rsi_14")
+        if _v3row.get("last_price") in (None, ""):
+            _v3row["last_price"] = _v3row.get("close")
+        try:
+            from ultra_orchestrator import _v3_axes_map
+            _ax = _v3_axes_map().get(out.get("ticker") or _v3row.get("ticker"))
+            if _ax:
+                _v3row["rs_intact"], _v3row["conf_n"], _v3row["tls_bar"] = _ax
+        except Exception:
+            pass
+        _v3 = _compute_ultra_score_v3(_v3row)
+        out["ultra_score_v3"]         = _v3["ultra_score_v3"]
+        out["ultra_score_v3_band"]    = _v3["ultra_score_v3_band"]
+        out["ultra_score_v3_reasons"] = _v3["ultra_score_v3_reasons"]
+    except Exception:
+        out["ultra_score_v3"] = None; out["ultra_score_v3_band"] = ""; out["ultra_score_v3_reasons"] = []
+
+    # BUY score (2026-07-03) — the screener's headline Score column: prebreak_v2 backbone
+    # (saturated at its HOT threshold) + RSI oversold-position + vol=B, with a two-sided
+    # veto (RSI≥60 EXTENDED / RSI<28 KNIFE). Validated path-sim-monotone; see buy_score.py.
+    try:
+        from buy_score import compute_buy_score as _cbs
+        _bs = _cbs(out.get("prebreak_v2"), out.get("rsi"), out.get("vol_bucket"))
+        out["buy_score"] = _bs["buy_score"]
+        out["buy_tag"]   = _bs["buy_tag"]
+    except Exception:
+        out["buy_score"] = None
+        out["buy_tag"] = ""
+
     # tz_state — pulled from final_regime if available
     fr = row.get("final_regime") or ""
     out["tz_state"] = "bull" if str(fr).lower() == "bull" else ("bear" if str(fr).lower() == "bear" else "")
@@ -440,6 +476,295 @@ def _row_to_dict(row: pd.Series) -> dict:
     out["data_source"] = "studio_db"
 
     return out
+
+
+_CONF_CACHE: list = [0.0, {}]
+
+
+def _conf_map() -> dict:
+    """{ticker: (conf, top)} for the LATEST bar (2026-07-21, CONF column). EMAs come
+    from a light close-history query; every other feature from the last bar itself.
+    TTL 15 min."""
+    import time
+    if _CONF_CACHE[1] and (time.time() - _CONF_CACHE[0]) < 900:
+        return _CONF_CACHE[1]
+    m = {}
+    try:
+        from conf_score import compute, needed_raw_columns
+        from ai_journal.db import get_analytics_conn
+        raw = needed_raw_columns()
+        rawsel = ", ".join(f'coalesce(CAST("{c}" AS TINYINT),0) AS "{c}"' for c in raw)
+        a = get_analytics_conn()
+        try:
+            last = a.execute(f"""WITH r AS (SELECT ticker, date, open, close, rsi_14, cci_20,
+                coalesce(t_sig,'') tt, coalesce(z_sig,'') zz, coalesce(l_sig,'') ll,
+                coalesce(bar_gap_class,'') gap, coalesce(vol_bucket,'') vb,
+                coalesce(wyc_phase,'') wp,
+                coalesce(setup_tokens,'') sut, coalesce(context_tokens,'') cxt, {rawsel},
+                row_number() OVER (PARTITION BY ticker ORDER BY date DESC, universe) rn
+                FROM bars WHERE close >= 5)
+                SELECT * EXCLUDE rn FROM r WHERE rn = 1""").fetchdf()
+            hist = a.execute("""WITH r AS (SELECT ticker, date, max(close) AS cl
+                FROM bars WHERE close >= 5 GROUP BY 1, 2)
+                SELECT ticker, cl FROM (SELECT *, row_number() OVER
+                  (PARTITION BY ticker ORDER BY date DESC) rn FROM r)
+                WHERE rn <= 210 ORDER BY ticker, rn DESC""").fetchdf()
+        finally:
+            a.close()
+        import pandas as pd
+        g = hist.groupby("ticker")["cl"]
+        emas = pd.DataFrame({
+            "e20": g.apply(lambda s: s.ewm(span=20, adjust=False).mean().iloc[-1]),
+            "e50": g.apply(lambda s: s.ewm(span=50, adjust=False).mean().iloc[-1]),
+            "e200": g.apply(lambda s: s.ewm(span=200, adjust=False).mean().iloc[-1]),
+        }).reset_index()
+        last = last.merge(emas, on="ticker", how="left")
+        last = last[last.e200.notna()].reset_index(drop=True)
+        sc, det, ext, extd = compute(last, with_ext=True)
+        for i, tk in enumerate(last["ticker"]):
+            if sc[i] != 0 or ext[i] != 0:
+                m[str(tk)] = (round(float(sc[i]), 1), det[i], round(float(ext[i]), 1), extd[i])
+        _CONF_CACHE[0] = time.time()
+        _CONF_CACHE[1] = m
+    except Exception:
+        log.debug("conf map failed", exc_info=True)
+    return m
+
+
+_SEQ34_CACHE: list = [0.0, {}]
+
+
+def _seq34_map() -> dict:
+    """{ticker: fire} — tickers whose LATEST trading day completed a frozen-OOS-verified
+    2-4-bar robust sequence with a good OOS win rate (2026-07-20, user request):
+    tier OOS✓ · depth>=2, any ending (T-rule removed 2026-07-20), NO win/ps gate (2026-07-20: confluence axis — frequency is
+    fine, the chip shows win% so quality stays visible). 🏆 = DSR>=0.6
+    (selection-proof). Reuses seq_scan (the Robust Seqs tab engine). TTL 15 min."""
+    import time
+    if _SEQ34_CACHE[1] and (time.time() - _SEQ34_CACHE[0]) < 900:
+        return _SEQ34_CACHE[1]
+    m = {}
+    try:
+        from seq_scan import today_seq_map
+        m = today_seq_map()
+        _SEQ34_CACHE[0] = time.time()
+        _SEQ34_CACHE[1] = m
+    except Exception:
+        log.debug("seq34 map failed", exc_info=True)
+    return m
+
+
+def _enrich_buy_flags(results: list) -> None:
+    """🟢 REV / 🔵 BRK buy-flags on the latest bar (validated 2026-07-18, flagval.py; the
+    actionable output of the two-zone study). Needs 5-bar RSI lag features not in the
+    latest-bar row → one batched DuckDB query for the result tickers' recent daily bars.
+      REV = min-5 RSI<38 & RSI 30-55 & up-bar & beta≤13  → +1.04%/win44/PF1.15/+8.4σ/4-6yr
+      BRK = RSI crosses 50 up & up-bar & turbo≤28         → +0.57%/+2.1σ/4-6yr (weaker)
+    Sets rev_buy/brk_buy (bool) + buy_flag ('🟢REV'|'🔵BRK'|'')."""
+    if not results:
+        return
+    from ai_journal.db import get_analytics_conn
+    tks = sorted({str(r.get("ticker")) for r in results if r.get("ticker")})
+    if not tks:
+        return
+    # EDGE fires map (build=False: a cold frame returns {} instead of blocking the scan;
+    # the startup warmer fills the (60,3M) frame minutes after boot)
+    try:
+        from edge_replay import latest_edges_map
+        _edge_fires = latest_edges_map()
+    except Exception:
+        _edge_fires = {}
+    _seq34 = _seq34_map()
+    _confm = _conf_map()
+    a = get_analytics_conn()
+    try:
+        ph = ",".join("?" * len(tks))
+        df = a.execute(f"""
+            WITH r AS (SELECT ticker, date, close, rsi_14, coalesce(atr_14,0) atr_14,
+                 coalesce(z_sig,'') z, coalesce(t_sig,'') t, coalesce(l_sig,'') l,
+                 coalesce(close_suffix,'') sx, coalesce(bar_body_wick,'') bw,
+                 coalesce(bar_gap_range,'') gr, coalesce(bar_line5,'') q5,
+                 coalesce(vol_bucket,'') vb,
+                 row_number() OVER (PARTITION BY ticker,date ORDER BY universe) rn
+               FROM bars WHERE ticker IN ({ph})
+                 AND date >= (SELECT max(date) FROM bars) - INTERVAL 12 DAY)
+            SELECT * EXCLUDE rn FROM r WHERE rn = 1 ORDER BY ticker, date
+        """, tks).fetchdf()
+    finally:
+        a.close()
+    from buyseq_context import make_tokens, lookup as _ctx_lookup
+    by = {}
+    toks = {}
+    _atr_db = {}   # {ticker: atr_pct} straight from stored bars.atr_14 (no frame/API dependency)
+    for tk, g in df.groupby("ticker"):
+        g = g.sort_values("date")
+        by[tk] = (g["rsi_14"].to_numpy(float), g["close"].to_numpy(float),
+                  [str(x)[:10] for x in g["date"]])
+        _lc = float(g["close"].iloc[-1]); _la = float(g["atr_14"].iloc[-1])
+        if _lc > 0 and _la > 0:
+            _atr_db[tk] = round(_la / _lc, 4)
+        _ct, _ft = [], []
+        for _z, _t, _l in zip(g["z"], g["t"], g["l"]):
+            _c, _f = make_tokens(str(_z), str(_t), str(_l))
+            _ct.append(_c); _ft.append(_f)
+        toks[tk] = {"c": _ct, "f": _ft,
+                    "sx": [str(x) for x in g["sx"]], "bw": [str(x) for x in g["bw"]],
+                    "gr": [str(x) for x in g["gr"]], "q5": [str(x) for x in g["q5"]],
+                    "vb": [str(x) for x in g["vb"]]}
+    # ── MTF confirmation sets (validated 2026-07-19, project_mtf_confirmation) ─────────
+    # Per intraday TF, two day-sets over the last ~2 weeks for these tickers:
+    #   rev:  the strict REV-turn printed (min5-RSI<38 · RSI 30-55 · up · rising)
+    #   bs60: intraday buy_score>=60 (v2 backbone; 15m computes v2 on the fly — its column
+    #         is empty there by design, see the nightly hook note in studio_api)
+    _rev_sets: dict = {}
+    _bs_sets: dict = {}
+    try:
+        import duckdb as _dk
+        from studio.paths import db_path as _idbp
+        from prebreak_v2 import prebreak_v2_score_sql as _pv2sql
+        _BS_T = ("LEAST(GREATEST((1.5*LEAST(GREATEST(COALESCE({v2},0),0),27)"
+                 " + 12*(CASE WHEN upper(COALESCE(vol_bucket,''))='B' THEN 1 ELSE 0 END)"
+                 " + 0.9*GREATEST(0, 55-COALESCE(rsi_14,50)))*1.3, 0), 100)")
+        def _veto(v2col):
+            _b = _BS_T.format(v2=v2col)
+            return (f"CASE WHEN rsi_14>=60 THEN LEAST({_b},20) "
+                    f"WHEN rsi_14<28 THEN LEAST({_b},60) ELSE {_b} END")
+        for _tfdb, _v2c in (("4h", "prebreak_v2"), ("1h", "prebreak_v2"),
+                            ("15m", f"({_pv2sql()})")):
+            try:
+                _c = _dk.connect(_idbp(f"studio_{_tfdb}.duckdb"), read_only=True)
+                _rd = _c.execute(f"""
+                    WITH r AS (SELECT ticker, date, close, rsi_14,
+                        MIN(rsi_14) OVER (PARTITION BY ticker ORDER BY date
+                            ROWS BETWEEN 5 PRECEDING AND 1 PRECEDING) m5,
+                        LAG(close)  OVER (PARTITION BY ticker ORDER BY date) cp,
+                        LAG(rsi_14) OVER (PARTITION BY ticker ORDER BY date) rp
+                      FROM bars WHERE ticker IN ({ph}) AND close >= 5
+                        AND date >= (SELECT max(date) FROM bars) - INTERVAL 14 DAY)
+                    SELECT DISTINCT ticker, strftime(CAST(date AS TIMESTAMP),'%Y-%m-%d') d
+                    FROM r WHERE m5 < 38 AND rsi_14 BETWEEN 30 AND 55
+                      AND close > cp AND rsi_14 > rp
+                """, tks).fetchdf()
+                _bd = _c.execute(f"""
+                    SELECT DISTINCT ticker, strftime(CAST(date AS TIMESTAMP),'%Y-%m-%d') d
+                    FROM bars WHERE ticker IN ({ph}) AND close >= 5
+                      AND date >= (SELECT max(date) FROM bars) - INTERVAL 6 DAY
+                      AND ({_veto(_v2c)}) >= 60
+                """, tks).fetchdf()
+                _c.close()
+                _rev_sets[_tfdb] = set(zip(_rd["ticker"], _rd["d"]))
+                _bs_sets[_tfdb] = set(zip(_bd["ticker"], _bd["d"]))
+            except Exception:
+                _rev_sets[_tfdb] = set(); _bs_sets[_tfdb] = set()
+    except Exception:
+        pass
+    _TFS = ("4h", "1h", "15m")
+    for r in results:
+        rev = brk = False
+        turn_ok = False
+        d0 = d1 = ""
+        tk = str(r.get("ticker"))
+        d = by.get(tk)
+        if d is not None and len(d[0]) >= 2:
+            rs, cl, dts = d
+            rr, rp, c, cp = rs[-1], rs[-2], cl[-1], cl[-2]
+            d0, d1 = dts[-1], dts[-2]
+            m5 = float(min(rs[-5:])) if len(rs) >= 5 else float(min(rs))
+            up = c > cp
+            beta = float(r.get("beta_score") or 0)
+            turbo = float(r.get("turbo_score") or 0)
+            if rr == rr and rp == rp and c > 0 and cp > 0:      # not-NaN guard
+                if m5 < 38 and 30 <= rr <= 55 and up and beta <= 13:
+                    rev = True
+                if rp < 50 <= rr and up and turbo <= 28:
+                    brk = True
+                turn_ok = up and rr > rp and rr < 55
+        r["rev_buy"] = rev
+        r["brk_buy"] = brk
+        # MTF annotations (same semantics as the Superchart BUY row)
+        def _hit(s):
+            return (tk, d0) in s or (tk, d1) in s
+        if rev:
+            r["mtf_echo"] = _hit(_rev_sets.get("4h", set())) or _hit(_rev_sets.get("1h", set()))
+        n_rev = sum(1 for t in _TFS if _hit(_rev_sets.get(t, set())))
+        n_bs = sum(1 for t in _TFS if _hit(_bs_sets.get(t, set())))
+        if float(r.get("buy_score") or 0) >= 60:
+            r["mtf_score_conf"] = n_bs                          # 0-3 (0 = validated hard-skip)
+        if turn_ok and n_rev > 0 and not rev and not brk:
+            r["turn_echo_n"] = n_rev                            # ①②③
+        r["h4_rev_today"] = (tk, d0) in _rev_sets.get("4h", set())
+        r["h1_rev_today"] = (tk, d0) in _rev_sets.get("1h", set())
+        # heavy institutional VSA line on the latest bar (triple-confluence leg, 2026-07-20:
+        # 🟢REV + RED L34 + ▲4H = +2.05%/PF1.32/5-6yr, TRAIN +2.27 ≈ TEST +1.85).
+        # RED only (close<open, absorbed weakness): green L34 on a reversal bar is the
+        # trap type (−1.01%, PF 0.87, TRAIN −2.81). l_sig never takes L43/L64/L22.
+        try:
+            _l34_red = float(r.get("last_price") or 0) < float(r.get("open") or 0)
+        except (TypeError, ValueError):
+            _l34_red = False
+        r["heavy_l"] = str(r.get("tz_wlnbb_l_signal") or "") == "L34" and _l34_red
+        # ⏱ ATR% for the client-side time-to-target forecast (2026-07-26) — straight from
+        # stored bars.atr_14 (nightly-enriched), NOT the edge frame and NOT a Massive call:
+        # no cold-frame gaps, no network, always present.
+        _ap = _atr_db.get(tk)
+        if _ap:
+            r["atr_pct"] = _ap
+        # ✅ EDGE fires (2026-07-20): validated Edge-board setups on the last 5 bars,
+        # from the SAME edge_replay masks the backtest uses. "G3" = today, "G3·2d" = 2 bars ago.
+        _ef = _edge_fires.get(tk)
+        if _ef:
+            r["edges"] = [c if age == 0 else f"{c}·{age}d" for c, age in _ef]
+            r["edge_n"] = sum(1 for _, age in _ef if age == 0)
+            # EDGE🟢 premium combo (validated 2026-07-20, edgebuy.py): location-reversal
+            # setups get a REAL boost from same-bar 🟢REV — QZC +1.65→+2.69 (med flips +),
+            # D+L1 +1.60→+3.46 (TRAIN turns +), RTB →+2.04 6/6yr, P55 0.25→+1.89.
+            # NOT the others: WSH/ZRT are hurt by REV; CAP/Z11/L43/G3A never coincide.
+            # mtf_echo=False is the validated hard veto (−1.07%, 0/6yr) — a vetoed
+            # ⚠️REV must not light the premium combo.
+            r["edge_rev"] = bool(rev) and r.get("mtf_echo") is not False and any(
+                age == 0 and c in ("QZC", "D+L1", "RTB", "P55") for c, age in _ef)
+        _sq = _seq34.get(tk)
+        if _sq:
+            r["seq34"] = _sq
+        _cf = _confm.get(tk)
+        if _cf:
+            if _cf[0] != 0:
+                r["conf_score"] = _cf[0]
+                if _cf[1]:
+                    r["conf_top"] = _cf[1]
+            elif len(_cf) > 2 and _cf[2]:
+                # gray info-only tier — unvalidated sub-threshold cells, core silent
+                r["conf_ext"] = _cf[2]
+                if _cf[3]:
+                    r["conf_ext_top"] = _cf[3]
+        # ⤴/⤵ preceding-sequence context on the BUY signals (2026-07-20 redesign):
+        # the fire bar's PRECEDING 2-4 bars looked up in the era-consistent
+        # conditioner table (buyseq_context.json). Strongest |lift| wins.
+        _sigs = []
+        if rev: _sigs.append("rev")
+        if brk: _sigs.append("brk")
+        if r.get("h4_rev_today"): _sigs.append("h4")
+        if r.get("heavy_l"): _sigs.append("lh")
+        if r.get("edge_n"): _sigs.append("ea")
+        if r.get("edge_rev"): _sigs.append("ep")
+        if any(r.get(k) for k in ("fly_abcd", "fly_cd", "fly_bd", "fly_ad")): _sigs.append("fly")
+        if r.get("mtf_score_conf") is not None: _sigs.append("score")   # digits (score-day)
+        if r.get("turn_echo_n"): _sigs.append("turn")                   # ①②③
+        if r.get("h1_rev_today"): _sigs.append("h1")                    # △
+        _sigs.append("anyb")   # per-bar mini-forecast (2026-07-20b): every bar gets a look
+        if _sigs:
+            _tt = toks.get(tk)
+            if _tt and len(_tt["c"]) >= 2:
+                # sequence ends ON the latest bar (2026-07-20e user fix)
+                _hit = _ctx_lookup(dict(_tt), _sigs)
+                if _hit:
+                    r["seq_ctx"] = _hit
+        _flag = ("⚠️REV" if (rev and r.get("mtf_echo") is False) else
+                 "🟢REV" if rev else
+                 "🔵BRK" if brk else
+                 (f"{n_bs}/3" if r.get("mtf_score_conf") is not None else
+                  ({1: "①", 2: "②", 3: "③"}.get(r.get("turn_echo_n"), ""))))
+        r["buy_flag"] = _flag + ("▲" if r["h4_rev_today"] and _flag else "")
 
 
 def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
@@ -933,6 +1258,11 @@ def run_ultra_db_scan(
         _enrich_seq_patterns(results, lookback_n=age_lookback)
     except Exception as exc:
         log.warning("_enrich_seq_patterns failed: %s", exc)
+
+    try:
+        _enrich_buy_flags(results)
+    except Exception as exc:
+        log.warning("_enrich_buy_flags failed: %s", exc)
 
     duration = time.time() - started
     return {

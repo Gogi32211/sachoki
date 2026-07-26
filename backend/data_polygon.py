@@ -52,6 +52,7 @@ _SPAN = {
 
 # conservative: Starter plan is unlimited but burst-friendly
 _RATE_DELAY = 0.08   # ~12 req/s across workers
+_MAX_PAGES  = 80     # next_url cursor pages per fetch (≈160k bars cap; 5yr 30m ≈ 20)
 
 
 def _key() -> str:
@@ -86,25 +87,55 @@ def fetch_bars(
         "apiKey":   _key(),
     }
 
-    for attempt in range(3):
-        try:
-            r = requests.get(url, params=params, timeout=(5, 10))
-            if r.status_code == 429:
-                wait = 1 * (attempt + 1)  # 1s, 2s, 3s — keep workers moving
-                log.debug("Polygon rate-limit %s, waiting %ds", ticker, wait)
-                time.sleep(wait)
-                continue
-            r.raise_for_status()
-            data = r.json()
+    # The aggs endpoint caps a page at ~1-2k rows for intraday and returns a
+    # `next_url` cursor for the rest. Daily windows fit in one page; intraday
+    # (5yr of 30m ≈ 40k bars) needs ~20 pages — follow the cursor to the end.
+    results: list = []
+    nxt = url
+    nxt_params: dict | None = params
+    completed = False                    # did we walk the cursor to its end?
+    _ATTEMPTS = 6
+    for _page in range(_MAX_PAGES):
+        for attempt in range(_ATTEMPTS):
+            try:
+                # generous timeouts: intraday crawls run many concurrent workers and
+                # Massive can be slow to first-byte under burst — (connect, read).
+                r = requests.get(nxt, params=nxt_params, timeout=(10, 45))
+                if r.status_code == 429:
+                    time.sleep(min(2 * (attempt + 1), 20))  # 2,4,6,… capped 20s
+                    continue
+                r.raise_for_status()
+                data = r.json()
+                break
+            except requests.RequestException:
+                if attempt == _ATTEMPTS - 1:
+                    raise
+                time.sleep(min(2 ** attempt, 20))          # 1,2,4,8,16,20 — ride out timeouts
+        else:
+            # All 3 attempts hit 429 on this page. If we already collected earlier
+            # pages, return them as a partial rather than discarding everything;
+            # only hard-fail when we have nothing at all.
+            if results:
+                break
+            raise RuntimeError(f"Polygon: rate-limited (429) for {ticker} with no data")
+        page = data.get("results") or []
+        results.extend(page)
+        nxt = data.get("next_url")
+        if not nxt:
+            completed = True
             break
-        except requests.RequestException as exc:
-            if attempt == 2:
-                raise
-            time.sleep(2 ** attempt)
+        nxt_params = {"apiKey": _key()}  # next_url already carries the query + cursor
+        time.sleep(_RATE_DELAY)          # gentle pacing between pages
     else:
-        raise RuntimeError(f"Polygon: max retries reached for {ticker}")
+        # Loop exhausted _MAX_PAGES while a cursor was still pending — the result
+        # is silently truncated. Surface it loudly instead of returning a partial
+        # window that downstream backtests would treat as complete history.
+        if not completed:
+            raise RuntimeError(
+                f"Polygon: hit _MAX_PAGES={_MAX_PAGES} for {ticker} ({interval}) "
+                f"with more pages pending — increase _MAX_PAGES or narrow the window"
+            )
 
-    results = data.get("results") or []
     if not results:
         raise ValueError(f"Polygon: no data for {ticker} ({interval})")
 

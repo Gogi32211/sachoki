@@ -1,0 +1,71 @@
+//@version=5
+// =============================================================================
+// 260628_TREND_PB_BO  —  Trend Pullback & Breakout timing overlay
+// -----------------------------------------------------------------------------
+// HONEST FRAMING (read before using):
+//   This is a DISCRETIONARY TIMING tool, NOT a validated universe edge.
+//   Universe-wide (5088 tickers, 2021-26) the raw pullback-buy = +0.00% / win50%
+//   and the breakout = +0.29% / win51% — both ~coin-flips (symmetric MFE/MAE).
+//   The strong numbers (RKLB: PB +4-8% / win57-62%) are SURVIVORSHIP: they only
+//   show up on stocks that turned out to be monster trenders.
+//   => Use this ONLY on names YOU have already qualified as a strong uptrend
+//      (rising 200-EMA, series of higher highs). It tells you WHERE in that
+//      trend to act; it does NOT tell you the trend will continue.
+//
+// What it marks (the two RKLB regularities, validated as RKLB-specific):
+//   1) PULLBACK-BUY  — in an uptrend, price dips to the 20-EMA and CLOSES back
+//      above it (the dip gets bought). RKLB: 1D +3.95%/win56, 4H +7.83%/win62.
+//   2) BREAKOUT      — fresh close above the prior 20-bar high.
+//        green  = RSI<70  (the only breakout worth taking: RKLB +4.0%/win59)
+//        orange = RSI>=70 (EXTENDED — historically RKLB's worst entry, -0.45/win46;
+//                          2026 chase cohort -6.67%/win38). Do NOT chase these.
+//   Regime tint: faint green when close>200-EMA (uptrend "ON"), faint red below.
+// =============================================================================
+indicator("260628 Trend PB / BO", overlay=true, max_labels_count=500)
+
+// ---- inputs ----
+lenFast  = input.int(20,  "Fast EMA (pullback target)")
+lenMid   = input.int(50,  "Mid EMA (trend filter)")
+lenSlow  = input.int(200, "Slow EMA (regime filter)")
+boLook   = input.int(20,  "Breakout lookback (bars)")
+rsiExt   = input.int(70,  "RSI 'extended' threshold")
+showPB   = input.bool(true,  "Show pullback-buy")
+showBO   = input.bool(true,  "Show breakouts")
+showTint = input.bool(true,  "Regime background tint")
+showEMA  = input.bool(true,  "Plot EMAs")
+
+emaF = ta.ema(close, lenFast)
+emaM = ta.ema(close, lenMid)
+emaS = ta.ema(close, lenSlow)
+rsi  = ta.rsi(close, 14)
+
+// regime: confirmed uptrend
+uptrend = emaF > emaM and close > emaS
+slopeUp = emaS > emaS[10]            // 200-EMA rising (extra quality, not required)
+
+// 1) PULLBACK-BUY: uptrend + bar's low touched the fast EMA + close held above it + up-close
+pbBuy = showPB and uptrend and low <= emaF and close > emaF and close > close[1]
+
+// 2) BREAKOUT: fresh close above prior N-bar high (cross, not a level already held)
+priorHigh = ta.highest(high, boLook)[1]
+brk      = showBO and close > priorHigh and close[1] <= priorHigh[1]
+brkClean = brk and rsi <  rsiExt    // green — take
+brkExt   = brk and rsi >= rsiExt    // orange — extended, avoid chasing
+
+// ---- plots ----
+plot(showEMA ? emaF : na, "EMA20",  color=color.new(color.aqua,0),   linewidth=1)
+plot(showEMA ? emaM : na, "EMA50",  color=color.new(color.orange,0), linewidth=1)
+plot(showEMA ? emaS : na, "EMA200", color=color.new(color.gray,0),   linewidth=2)
+
+bgcolor(showTint ? (close > emaS ? color.new(color.green,94) : color.new(color.red,94)) : na)
+
+plotshape(pbBuy,    title="Pullback-buy", style=shape.triangleup,   location=location.belowbar,
+          color=color.new(color.lime,0),   size=size.small,  text="PB")
+plotshape(brkClean, title="Breakout OK",  style=shape.triangleup,   location=location.belowbar,
+          color=color.new(color.green,0),  size=size.tiny,   text="BO")
+plotshape(brkExt,   title="Breakout EXT", style=shape.xcross,       location=location.abovebar,
+          color=color.new(color.orange,0), size=size.tiny,   text="ext")
+
+// optional alerts
+alertcondition(pbBuy,    "Pullback-buy", "Trend pullback to EMA20 held")
+alertcondition(brkClean, "Breakout OK",  "Fresh 20-bar-high breakout, RSI<70")

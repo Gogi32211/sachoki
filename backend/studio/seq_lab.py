@@ -99,6 +99,8 @@ def seq_lab(
     limit:     int = 25,
     by_phase:  bool = False,
     confirm_lag: int = 0,
+    years:     Optional[list] = None,
+    months:    Optional[list] = None,
 ) -> dict:
     """Rank N-bar T/Z sequences by forward outcome. Returns {baseline, rows, params}.
 
@@ -124,6 +126,21 @@ def seq_lab(
     sep = "" if mode == "color" else "|"
     tok = _token_expr(mode)
 
+    # year / month restriction — int-cast (injection-safe)
+    _ymc = []
+    try:
+        _yrs = sorted({int(y) for y in (years or []) if str(y).strip()})
+        if _yrs:
+            _ymc.append(f"EXTRACT(YEAR FROM date) IN ({','.join(map(str, _yrs))})")
+    except (TypeError, ValueError):
+        pass
+    try:
+        _mos = sorted({int(m) for m in (months or []) if str(m).strip() and 1 <= int(m) <= 12})
+        if _mos:
+            _ymc.append(f"EXTRACT(MONTH FROM date) IN ({','.join(map(str, _mos))})")
+    except (TypeError, ValueError):
+        pass
+
     base_clauses = [f"{hcol} IS NOT NULL"]
     if uni:
         base_clauses.append(f"universe = '{uni}'")
@@ -132,11 +149,13 @@ def seq_lab(
     if mode == "wyckoff":
         # sequence only over Wyckoff-stage event bars (SC/AR/ST/Spring/SOS/JAC/LPS)
         base_clauses.append(_WYC_EVENT_WHERE)
+    base_clauses.extend(_ymc)
     base_where = " AND ".join(base_clauses)
     # universe/phase only (no hcol-not-null, no pivot filter) — used by the swing
     # path, whose LEAD(lag) must count EVERY bar to offset the confirmation bar.
     uniphase = [c for c in (f"universe = '{uni}'" if uni else None,
                             f"wyc_phase = '{phase}'" if phase else None) if c]
+    uniphase.extend(_ymc)
     uniphase_where = " AND ".join(uniphase) if uniphase else "TRUE"
 
     conn = get_conn(read_only=True)

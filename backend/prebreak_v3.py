@@ -7,7 +7,7 @@ accumulation/breakout signals, ported from the user's reference spec, with each
 logical signal mapped to its real DB column (UI-name → DB-name gap handled).
 
   prebreak_v3          SMALLINT   0..50
-  prebreak_v3_reasons  VARCHAR    pipe-separated tags (e.g. "ABCD|ULT×2|SVS|PhaseD")
+  prebreak_v3_reasons  VARCHAR    pipe-separated tags (e.g. "ABCD|ULT×2|SVS|WICK")
 
 Computed in one vectorised SQL UPDATE. Called by incremental_delta after enrich
 (like apply_prebreak_v2), and runnable standalone:
@@ -32,7 +32,11 @@ _SCORE_SQL = f"""
    + CASE WHEN sig_abs=1 AND sig_bc=1 THEN 8 WHEN sig_abs=1 THEN 4 WHEN sig_bc=1 THEN 3 ELSE 0 END
    + CASE WHEN svs=1 THEN 5 ELSE 0 END
    + CASE WHEN sig_conso=1 THEN 5 ELSE 0 END
-   + CASE WHEN rtb_phase='D' THEN 6 WHEN rtb_phase='C' THEN 3 ELSE 0 END
+   -- RTB phase weight REMOVED (2026-07-09): path-sim showed rtb_phase='D' (already
+   -- broke out) is the WORST performer (med −1.66) and phases rank BACKWARDS vs
+   -- their design (A/B > C > D); rtb_total is monotonically anti-predictive. Adding
+   -- +6 for D actively hurt this pre-breakout score. The only RTB signal that pays
+   -- is EARLY phase (A/B) + oversold — served separately as the RTB-Base edge.
    + CASE WHEN sig_wk_up=1 THEN 3 ELSE 0 END
    + CASE WHEN load=1 THEN 4 ELSE 0 END
    + CASE WHEN sq=1 THEN 4 ELSE 0 END
@@ -56,7 +60,7 @@ _REASONS_SQL = f"""
     CASE WHEN sig_abs=1 AND sig_bc=1 THEN 'ABS+BC' WHEN sig_abs=1 THEN 'ABS' WHEN sig_bc=1 THEN 'BC' END,
     CASE WHEN svs=1 THEN 'SVS' END,
     CASE WHEN sig_conso=1 THEN 'CONSO' END,
-    CASE WHEN rtb_phase='D' THEN 'PhaseD' WHEN rtb_phase='C' THEN 'PhaseC' END,
+    -- RTB phase reason tag removed with its weight (see _SCORE_SQL note)
     CASE WHEN sig_wk_up=1 THEN 'WICK' END,
     CASE WHEN load=1 THEN 'LOAD' END,
     CASE WHEN sq=1 THEN 'SQ' END,
@@ -91,9 +95,7 @@ def calc_prebreak_v3(d) -> tuple[int, str]:
     elif hb:      s += 3; r.append("BC")
     if g("sig_svs") or g("svs"): s += 5; r.append("SVS")
     if g("sig_conso"):           s += 5; r.append("CONSO")
-    ph = str(d.get("rtb_phase", "") or "")
-    if ph == "D":   s += 6; r.append("PhaseD")
-    elif ph == "C": s += 3; r.append("PhaseC")
+    # RTB phase weight removed 2026-07-09 (anti-predictive — see _SCORE_SQL note)
     if g("sig_wk_up"):            s += 3; r.append("WICK")
     if g("raw_load") or g("load"): s += 4; r.append("LOAD")
     if g("raw_sq") or g("sq"):     s += 4; r.append("SQ")

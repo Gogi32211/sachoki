@@ -1,0 +1,222 @@
+//@version=6
+// =====================================================================================
+// REVERSAL CONFLUENCE — EXACT ENGINES (research 2026-05-28)
+// =====================================================================================
+// Faithful ports of the real engines (not approximations):
+//   • Delta order-flow   — 260403_Delta V2  (buy/sell vol decomposition -> d_spring,
+//                          d_absorb_bull/bear, d_div, d_blast/surge, d_upthrust)
+//   • Wyckoff macro      — 260523_WYC        (Fourier cycles -> in_tr / spring / acc-TR)
+//                          => pb_stop_cause = spring | acc-TR  ;  wyc_in_tr = ATR compression
+//   • RSI(14)<=35, volume>=N×prev bar, WVF spike  (verified faithful)
+//
+// CONFLUENCE (from the data screen):
+//   LONG bottom  = RSI<=35  AND (wyc_in_tr | pb_stop_cause)  AND (d_spring | d_absorb_bull)
+//   SHORT top    = vol climax AND (d_blast_bear_grn | d_absorb_bear | d_upthrust) [+WVF opt]
+// Research lift: LONG triple win20 ~48-52% (base 25%) ; SHORT pair win20 ~80% (base 19%).
+//
+// Labels show REALIZED swing % to the next Williams pivot so you can eyeball quality.
+// =====================================================================================
+indicator("Reversal Confluence — Exact Engines [260528]", overlay=true, max_labels_count=500, max_bars_back=600)
+
+// ───────────────────────── inputs ─────────────────────────
+gC = "Confluence"
+reqRSI   = input.bool(true,  "LONG: require RSI(14) <= thr", group=gC)
+rsiThr   = input.int(35,     "  RSI threshold", group=gC)
+reqWYC   = input.bool(true,  "LONG: require Wyckoff (in_tr | spring | acc-TR)", group=gC)
+reqDelta = input.bool(true,  "LONG: require delta (d_spring | absorb_bull)", group=gC)
+volMult  = input.int(10,     "SHORT: volume >= N × previous bar", options=[5,10,20], group=gC)
+reqDeltaB= input.bool(true,  "SHORT: require delta bear (blast_grn | absorb | upthrust)", group=gC)
+reqWVF   = input.bool(false, "SHORT: also require WVF spike", group=gC)
+
+gD = "Delta engine (260403)"
+divLen     = input.int(3,    "Divergence lookback", group=gD)
+absVolMult = input.float(1.5,"Absorption vol mult", group=gD)
+absBodyPct = input.float(0.3,"Max body/range for absorption", group=gD)
+deltaMult1 = input.float(1.5,"Surge mult ×1", group=gD)
+deltaMult2 = input.float(5.0,"Blast mult ×2", group=gD)
+
+gW = "Wyckoff Fourier (260523)"
+c1_len   = input.int(200, "C1 slow", group=gW)
+c2_len   = input.int(55,  "C2 medium", group=gW)
+comp_thr = input.float(0.40,"Fourier compression thr", group=gW)
+atrCompM = input.float(0.70,"ATR compression (atr<avg×N)", group=gW)
+tr_len   = input.int(50,  "TR lookback", group=gW)
+wycVolM  = input.float(1.5,"Spring volume mult", group=gW)
+
+gV = "Display"
+piv       = input.int(3, "Williams pivot L/R", group=gV)
+showSwing = input.bool(true, "label realized swing % to next pivot", group=gV)
+showComp  = input.bool(true, "show faint component dots", group=gV)
+showTable = input.bool(true, "status table", group=gV)
+
+// ───────────────────────── faithful primitives ─────────────────────────
+rsi    = ta.rsi(close, 14)
+rsiOS  = rsi <= rsiThr
+volX   = (na(volume[1]) or volume[1]==0) ? 0.0 : volume/volume[1]
+volClimax = volX >= volMult
+
+// WVF spike (exact)
+hcW      = ta.highest(close, 22)
+wvf      = (hcW - low)/hcW*100.0
+wvfUp    = ta.sma(wvf,20) + 2.0*ta.stdev(wvf,20)
+wvfSpike = wvf >= wvfUp
+
+isBull = close > open
+isBear = close < open
+
+// ───────────────────────── DELTA ENGINE (260403_Delta V2) ─────────────────────────
+rangeHL  = high - low
+bodySize = math.abs(close - open)
+bodyTop  = math.max(open, close)
+bodyBot  = math.min(open, close)
+upWick   = high - bodyTop
+loWick   = bodyBot - low
+rangeNZ  = rangeHL < syminfo.mintick ? syminfo.mintick : rangeHL
+buyVol   = volume * (loWick + (close >= open ? bodySize : 0)) / rangeNZ
+sellVol  = volume * (upWick + (close <  open ? bodySize : 0)) / rangeNZ
+delta    = buyVol - sellVol
+
+avgVol     = ta.sma(volume, 20)
+highVol    = volume > avgVol * absVolMult
+smallBody  = bodySize / rangeNZ < absBodyPct
+absorption = highVol and smallBody
+absorbBull = absorption and delta > 0
+absorbBear = absorption and delta < 0
+
+hh = ta.highest(high, divLen)
+ll = ta.lowest(low,  divLen)
+priceHH = high > hh[1]
+priceLL = low  < ll[1]
+divBear = priceHH and delta < 0 and close > open
+divBull = priceLL and delta > 0 and close < open
+
+absD  = math.abs(delta)
+absD1 = math.abs(delta[1])
+dBlastBull = delta > 0 and absD > absD1*deltaMult2
+dBlastBear = delta < 0 and absD > absD1*deltaMult2
+dSurgeBull = delta > 0 and absD > absD1*deltaMult1 and not dBlastBull
+dSurgeBear = delta < 0 and absD > absD1*deltaMult1 and not dBlastBear
+
+d_spring    = divBull and absorbBull          // Wyckoff spring (delta)
+d_upthrust  = divBear and absorbBear
+blastBearGrn = dBlastBear and close > open     // bearish blast on GREEN candle (distribution)
+surgeBearGrn = dSurgeBear and close > open
+
+// ───────────────────────── WYCKOFF FOURIER (260523_WYC) ─────────────────────────
+bp(src, p) => ta.ema(src, math.max(2, math.round(p*0.6))) - ta.ema(src, math.round(p*1.5))
+c1_raw = bp(close, c1_len)
+c2_raw = bp(close, c2_len)
+c1_amp = ta.stdev(c1_raw, c1_len)
+c2_amp = ta.stdev(c2_raw, c2_len)
+c1_ph  = c1_amp > 1e-10 ? c1_raw/c1_amp : 0.0
+compress = c1_amp > 1e-10 ? c2_amp/c1_amp : 1.0
+atr14    = ta.atr(14)
+atr14avg = ta.ema(atr14, 50)
+in_tr    = compress < comp_thr or atr14 < atr14avg*atrCompM   // wyc_in_tr
+acc_ctx  = c1_ph < -0.2
+vol_avg  = ta.sma(volume, 20)
+vol_hi   = vol_avg > 0 and volume > vol_avg*wycVolM
+prev_sup = ta.lowest(low, tr_len)[1]
+wyc_spring = low < prev_sup and close > prev_sup and isBull and vol_hi and acc_ctx
+acc_tr     = acc_ctx and in_tr
+pb_stop_cause = wyc_spring or acc_tr          // W-PHASE (matches Python enricher)
+
+// ───────────────────────── CONFLUENCE ─────────────────────────
+longLeg_rsi   = not reqRSI   or rsiOS
+longLeg_wyc   = not reqWYC   or (in_tr or pb_stop_cause)
+longLeg_delta = not reqDelta or (d_spring or absorbBull or divBull)
+LONG = longLeg_rsi and longLeg_wyc and longLeg_delta and (reqRSI or reqWYC or reqDelta)
+
+shortLeg_clmx  = volClimax
+shortLeg_delta = not reqDeltaB or (blastBearGrn or absorbBear or d_upthrust or surgeBearGrn)
+shortLeg_wvf   = not reqWVF or wvfSpike
+SHORT = shortLeg_clmx and shortLeg_delta and shortLeg_wvf
+
+// ───────────────────────── plots ─────────────────────────
+plotshape(LONG,  title="LONG confluence",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.lime,0), size=size.small, text="L")
+plotshape(SHORT, title="SHORT confluence", style=shape.triangledown, location=location.abovebar, color=color.new(color.red,0),  size=size.small, text="S")
+
+// faint component dots (context)
+plotshape(showComp and d_spring,     title="d_spring",   style=shape.circle, location=location.belowbar, color=color.new(color.teal,40),   size=size.tiny)
+plotshape(showComp and absorbBull,   title="absorb_bull",style=shape.circle, location=location.belowbar, color=color.new(color.yellow,55), size=size.tiny)
+plotshape(showComp and pb_stop_cause,title="W-PHASE",    style=shape.cross,  location=location.belowbar, color=color.new(color.green,60),  size=size.tiny)
+plotshape(showComp and d_upthrust,   title="d_upthrust", style=shape.circle, location=location.abovebar, color=color.new(color.fuchsia,30),size=size.tiny)
+plotshape(showComp and blastBearGrn, title="blast_grn",  style=shape.circle, location=location.abovebar, color=color.new(color.red,30),    size=size.tiny)
+
+// ───────────────────────── realized swing % to next pivot ─────────────────────────
+ph = ta.pivothigh(high, piv, piv)
+pl = ta.pivotlow(low,  piv, piv)
+var float pLowPrc = na
+var int   pLowBar = na
+var float pHiPrc  = na
+var int   pHiBar  = na
+var float sumL=0.0
+var int   cntL=0
+var int   winL=0
+var float sumS=0.0
+var int   cntS=0
+var int   winS=0
+
+if LONG
+    pLowPrc := close
+    pLowBar := bar_index
+if SHORT
+    pHiPrc := close
+    pHiBar := bar_index
+
+// resolve LONG at next pivot high
+if not na(ph) and not na(pLowPrc)
+    sw = (ph - pLowPrc)/pLowPrc*100.0
+    sumL += sw
+    cntL += 1
+    winL += sw >= 20 ? 1 : 0
+    if showSwing
+        label.new(pLowBar, low, str.tostring(sw, "#.#")+"%", yloc=yloc.belowbar, style=label.style_label_up, color=color.new(color.green,25), textcolor=color.white, size=size.small)
+    pLowPrc := na
+    pLowBar := na
+// resolve SHORT at next pivot low
+if not na(pl) and not na(pHiPrc)
+    sw = (pl - pHiPrc)/pHiPrc*100.0
+    sumS += sw
+    cntS += 1
+    winS += sw <= -20 ? 1 : 0
+    if showSwing
+        label.new(pHiBar, high, str.tostring(sw, "#.#")+"%", yloc=yloc.abovebar, style=label.style_label_down, color=color.new(color.red,25), textcolor=color.white, size=size.small)
+    pHiPrc := na
+    pHiBar := na
+
+// ───────────────────────── status table ─────────────────────────
+cBg = color.new(#15171c, 0)
+hBg = color.new(#1b3a2e, 0)
+if showTable and barstate.islast
+    var table t = table.new(position.top_right, 4, 6, border_width=1, frame_color=color.gray)
+    table.cell(t,0,0,"signal",   bgcolor=hBg,text_color=color.white,text_size=size.small)
+    table.cell(t,1,0,"N",        bgcolor=hBg,text_color=color.white,text_size=size.small)
+    table.cell(t,2,0,"avg swg%", bgcolor=hBg,text_color=color.white,text_size=size.small)
+    table.cell(t,3,0,"win≥20%",  bgcolor=hBg,text_color=color.white,text_size=size.small)
+    aL = cntL>0 ? sumL/cntL : 0.0
+    aS = cntS>0 ? sumS/cntS : 0.0
+    table.cell(t,0,1,"LONG",  bgcolor=cBg,text_color=color.lime,text_size=size.small)
+    table.cell(t,1,1,str.tostring(cntL),bgcolor=cBg,text_color=color.white,text_size=size.small)
+    table.cell(t,2,1,str.tostring(aL,"#.#"),bgcolor=cBg,text_color=color.lime,text_size=size.small)
+    table.cell(t,3,1,cntL>0?str.tostring(winL*100/cntL)+"%":"-",bgcolor=cBg,text_color=color.white,text_size=size.small)
+    table.cell(t,0,2,"SHORT", bgcolor=cBg,text_color=#ff5252,text_size=size.small)
+    table.cell(t,1,2,str.tostring(cntS),bgcolor=cBg,text_color=color.white,text_size=size.small)
+    table.cell(t,2,2,str.tostring(aS,"#.#"),bgcolor=cBg,text_color=#ff5252,text_size=size.small)
+    table.cell(t,3,2,cntS>0?str.tostring(winS*100/cntS)+"%":"-",bgcolor=cBg,text_color=color.white,text_size=size.small)
+    // live component state
+    table.cell(t,0,3,"RSI",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,1,3,str.tostring(rsi,"#.#"),bgcolor=cBg,text_color=rsiOS?color.lime:color.silver,text_size=size.small)
+    table.cell(t,2,3,"in_tr",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,3,3,in_tr?"YES":"-",bgcolor=cBg,text_color=in_tr?color.lime:color.silver,text_size=size.small)
+    table.cell(t,0,4,"W-PHASE",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,1,4,pb_stop_cause?"YES":"-",bgcolor=cBg,text_color=pb_stop_cause?color.lime:color.silver,text_size=size.small)
+    table.cell(t,2,4,"delta",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,3,4,str.tostring(delta,"#"),bgcolor=cBg,text_color=delta>0?color.lime:#ff5252,text_size=size.small)
+    table.cell(t,0,5,"volX",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,1,5,str.tostring(volX,"#.#"),bgcolor=cBg,text_color=volClimax?color.orange:color.silver,text_size=size.small)
+    table.cell(t,2,5,"WVF",bgcolor=cBg,text_color=color.silver,text_size=size.small)
+    table.cell(t,3,5,wvfSpike?"!":"-",bgcolor=cBg,text_color=wvfSpike?color.orange:color.silver,text_size=size.small)
+
+alertcondition(LONG,  "Reversal LONG confluence",  "LONG bottom confluence: RSI<=35 + Wyckoff + delta")
+alertcondition(SHORT, "Reversal SHORT confluence", "SHORT top confluence: vol climax + bearish delta")

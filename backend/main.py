@@ -21,9 +21,10 @@ _backend_dir = os.path.dirname(os.path.abspath(__file__))
 if _backend_dir not in sys.path:
     sys.path.insert(0, _backend_dir)
 import concurrent.futures
+import threading
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, HTTPException, BackgroundTasks, Query
+from fastapi import FastAPI, HTTPException, BackgroundTasks, Query, Body
 from fastapi.responses import FileResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
@@ -47,6 +48,7 @@ from scanner import (
     get_combo_scan_progress,
 )
 from combo_engine import compute_combo, last_n_active, COMBO_LABELS
+from scan_cache import cached as _scan_cached   # single-flight TTL memo for DB-backed scans
 from pump_finder import find_pump_combos, save_pump_combos, get_pump_combos
 from paper_portfolio_migration import ensure_paper_portfolio_tables
 from paper_portfolio_api import router as portfolio_router
@@ -73,6 +75,31 @@ except Exception as _qlib_err:
     _QLIB_AVAILABLE = False
 
 logging.basicConfig(level=logging.INFO)
+
+# ── Secret-redaction filter (defense-in-depth) ──────────────────────────────────
+# requests/urllib3 exceptions stringify the full request URL, which for Massive/
+# Polygon calls carries `apiKey=<secret>`. A single root-logger filter guarantees
+# NO log line (from any module, including 3rd-party) can ever emit the key, no
+# matter how the message was formatted. Redacts apiKey / api_key / token / apitoken.
+import re as _re
+_SECRET_RE = _re.compile(r"(?i)(api[_-]?key|api[_-]?token|token)=[^&\s'\")]+")
+
+
+class _RedactSecretsFilter(logging.Filter):
+    def filter(self, record: logging.LogRecord) -> bool:
+        try:
+            msg = record.getMessage()
+            if "=" in msg and _SECRET_RE.search(msg):
+                record.msg = _SECRET_RE.sub(r"\1=<redacted>", msg)
+                record.args = ()
+        except Exception:
+            pass
+        return True
+
+
+for _h in logging.getLogger().handlers:
+    _h.addFilter(_RedactSecretsFilter())
+
 log = logging.getLogger(__name__)
 
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -88,6 +115,16 @@ async def lifespan(app: FastAPI):
         ensure_signal_replay_tables()
         ensure_ultra_pump_tables()
         ensure_ultra_scan_tables()
+        # Studio schema DDL takes a one-time READ-WRITE connection; running it lazily on the
+        # first /api/studio/stats call (post-restart page load) collided with concurrent
+        # read-only readers → DuckDB "different configuration" errors on d+l1/h1 scans and
+        # multi-second /studio/bars (black hover charts). Do the write window HERE, before
+        # the server starts accepting requests. (2026-07-13)
+        try:
+            from studio.db import ensure_schema as _studio_ensure_schema
+            _studio_ensure_schema()
+        except Exception as _exc:
+            log.warning("studio ensure_schema at startup failed (non-fatal): %s", _exc)
         # Pre-warm memory cache from DB so dashboard/ultra tab show data immediately
         try:
             from ultra_orchestrator import load_latest_ultra_scan_from_db
@@ -99,6 +136,21 @@ async def lifespan(app: FastAPI):
                         pass
         except Exception as _exc:
             log.warning("DB pre-warm failed (non-fatal): %s", _exc)
+        # ── Edge-frame warmup (2026-07-13): after a restart the first page load fired ~20 scans
+        # that all cold-built edge_replay frames at once (now serialized by _FRAME_LOCK, but the
+        # first visitor still waited minutes). Pre-build the two hot keys sequentially in a
+        # daemon thread so the board hits warm frames.
+        def _warm_edge_frames():
+            import time as _t
+            _t.sleep(3)                     # let the server bind/serve first
+            import edge_replay as _ER
+            for _key in ((60, 3_000_000), (60, 5_000_000)):
+                try:
+                    _ER._frame(*_key)
+                    log.info("edge frame warmed %s", _key)
+                except Exception as _e:
+                    log.warning("edge frame warmup %s failed: %s", _key, _e)
+        threading.Thread(target=_warm_edge_frames, daemon=True, name="edge-warmup").start()
         scheduler = BackgroundScheduler(timezone="America/New_York")
         def _scheduled_scan():
             if not get_scan_progress().get("running"):
@@ -119,7 +171,7 @@ async def lifespan(app: FastAPI):
         def _scheduled_studio_refresh():
             try:
                 from studio_api import _run_incremental
-                _run_incremental(["sp500", "nasdaq"])
+                _run_incremental(["sp500", "nasdaq", "index"])
             except Exception as _e:
                 log.warning("Scheduled studio refresh failed: %s", _e)
 
@@ -170,6 +222,29 @@ async def lifespan(app: FastAPI):
         scheduler.add_job(_insider_daily, CronTrigger(hour=18, minute=30, day_of_week="mon-fri"),
                           id="insider_daily", replace_existing=True, max_instances=1, coalesce=True)
 
+        # ── Atomic + Capit PAPER journals: open today's picks, then grade matured ones ──
+        # These two live in their own tables (atomic_position / capit_position) and were NEVER
+        # scheduled — journal_open_routine above only grades the main journal_position. So they
+        # froze in June 2026: atomic held 52 closed trades all from ONE week (36 of them from a
+        # single day), capit had ZERO closed trades ever — its "51.7% win" was unrealised marks
+        # on 58 still-open positions. A paper journal is the only TRUE out-of-sample evidence we
+        # can get (a replay is in-sample by construction), but only if it actually accumulates.
+        # 18:45 ET: after studio_daily_refresh (17:00, ~1h incl. the swap) so bars are current.
+        def _paper_journals_daily():
+            for name, mod in (("atomic", "ai_journal.atomic_journal"),
+                              ("capit", "ai_journal.capit_journal")):
+                try:
+                    m = __import__(mod, fromlist=["open_from_scan", "grade"])
+                    o = m.open_from_scan()          # dedupes against OPEN/PENDING holdings
+                    g = m.grade()                   # fills PENDING + closes matured positions
+                    log.info("paper journal %s: opened=%s pending=%s | graded=%s",
+                             name, len(o.get("opened", [])), len(o.get("pending", [])), g)
+                except Exception:
+                    log.exception("paper journal %s failed (non-fatal)", name)
+
+        scheduler.add_job(_paper_journals_daily, CronTrigger(hour=18, minute=45, day_of_week="mon-fri"),
+                          id="paper_journals_daily", replace_existing=True, max_instances=1, coalesce=True)
+
         # Daily Zone-Edge ALERT — the OOS-validated retest+flip+volB pattern as a
         # daily log line (open the Zone Edge tab for the full clickable list).
         def _zone_setup_daily():
@@ -190,7 +265,8 @@ async def lifespan(app: FastAPI):
         log.info("Scheduler started (daily_scan @ 9:30,12:30,15:30 ET; "
                  "studio_daily_refresh @ 17:00 ET Mon-Fri; "
                  "journal_session @ 15:30; journal_open_routine @ 9:50 ET Mon-Fri; "
-                 "insider_daily @ 18:30 ET Mon-Fri; zone_setup_daily @ 17:30 ET Mon-Fri)")
+                 "insider_daily @ 18:30 ET Mon-Fri; zone_setup_daily @ 17:30 ET Mon-Fri; "
+                 "paper_journals_daily @ 18:45 ET Mon-Fri)")
     except Exception as exc:
         log.warning("Scheduler failed to start: %s", exc)
 
@@ -266,6 +342,83 @@ def _df_to_records(df) -> list[dict]:
 @app.get("/api/health")
 def health():
     return {"status": "ok", "service": "tz-signal-dashboard", "version": "2.8"}
+
+
+@app.get("/api/gex/{ticker}")
+def api_gex(ticker: str, max_dte: int = 60, expiration: str = None):
+    """💠 GEX levels (gamma-flip, power-zone, call/put walls, max-pain, net GEX, ATM IV)
+    from the Massive options-chain snapshot (2026-07-22, ISOLATED options module).
+    `expiration` (YYYY-MM-DD) targets one expiry like the OptionFlow dropdown; else
+    aggregates ≤max_dte. Always returns available_expirations for the UI selector.
+    Requires the Options plan; degrades to {available:false}. 15-min delayed. Cached."""
+    exp = (expiration or "").strip() or None
+    def _build():
+        try:
+            from gex_engine import gex_for_ticker
+            r = gex_for_ticker(ticker, max_dte=int(max_dte), expiration=exp, with_expirations=True)
+            if not r or r.get("regime") is None:
+                # no GEX but maybe expirations exist (populate the dropdown regardless)
+                exps = (r or {}).get("available_expirations", [])
+                return {"available": False, "ticker": ticker.upper(), "available_expirations": exps}
+            r["available"] = True
+            return r
+        except Exception as e:
+            log.debug("gex failed for %s", ticker, exc_info=True)
+            return {"available": False, "ticker": ticker.upper(), "error": str(e)}
+    try:
+        return _scan_cached(f"gex:{ticker.upper()}:{max_dte}:{exp or 'agg'}", _build, ttl=600)
+    except Exception as e:
+        return {"available": False, "ticker": ticker.upper(), "error": str(e)}
+
+
+@app.get("/api/gex-batch")
+def api_gex_batch(tickers: str, max_dte: int = 45, cap: int = 30):
+    """Compact GEX regime for many tickers at once (Edge board / scanner badges).
+    Concurrent + per-ticker TTL-cached; capped so a fresh batch stays bounded. Returns
+    {ticker: {available, regime, atm_iv, spot, near} } where `near` = which level the
+    price is hugging (put_wall/call_wall/power_zone/gamma_flip within 2%), else null."""
+    from concurrent.futures import ThreadPoolExecutor
+    tks = [t.strip().upper() for t in (tickers or "").split(",") if t.strip()][:int(cap)]
+
+    def one(tk):
+        try:
+            from gex_engine import gex_for_ticker
+            def _b(_tk=tk):
+                r = gex_for_ticker(_tk, max_dte=int(max_dte))
+                if r:
+                    r["available"] = True
+                    return r
+                return {"available": False, "ticker": _tk}
+            g = _scan_cached(f"gex:{tk}:{max_dte}", _b, ttl=600)   # same key+shape as /api/gex
+            if not g or not g.get("available"):
+                return tk, {"available": False}
+            spot = g.get("spot")
+            near = None
+            if spot:
+                for key in ("put_wall", "call_wall", "power_zone", "gamma_flip"):
+                    lv = g.get(key)
+                    if lv and abs(lv - spot) / spot <= 0.02:
+                        near = key
+                        break
+            return tk, {"available": True, "regime": g.get("regime"),
+                        "atm_iv": g.get("atm_iv"), "spot": spot, "near": near,
+                        "lean": g.get("lean"), "lean_score": g.get("lean_score"),
+                        "put_wall": g.get("put_wall"), "call_wall": g.get("call_wall"),
+                        "max_pain": g.get("max_pain"),
+                        # ⚖️ VRP (2026-07-26): IV vs ATR-realized vol dissonance
+                        "rv_atr": g.get("rv_atr"), "vrp": g.get("vrp"),
+                        "vrp_state": g.get("vrp_state")}
+        except Exception:
+            return tk, {"available": False}
+
+    out = {}
+    try:
+        with ThreadPoolExecutor(max_workers=6) as ex:
+            for tk, res in ex.map(one, tks):
+                out[tk] = res
+    except Exception as e:
+        return {"gex": out, "error": str(e)}
+    return {"gex": out}
 
 
 @app.get("/api/zone-retest/tickers")
@@ -637,6 +790,22 @@ def journal_advise_setups(zone_def: str = "spike", max_age_days: int = 20, limit
         return {"decisions": [], "error": str(e)}
 
 
+@app.get("/api/market-breadth")
+def api_market_breadth(refresh: bool = False):
+    """Causal market-breadth regime (fraction of universe with +20d trailing return).
+    The atomic capitulation-reversion edge trades in FEAR (risk_off), stands down in euphoria."""
+    import market_breadth as mb
+    try:
+        data = mb.refresh_cache() if refresh else mb._load()
+        cur = mb.current_regime(data)
+        recent = list(data["series"].items())[-30:]
+        return {**cur, "window": data.get("window"),
+                "recent": [{"date": d, "breadth": v} for d, v in recent]}
+    except Exception as e:
+        log.exception("market breadth failed")
+        return {"error": str(e)}
+
+
 @app.get("/api/atomic-scan")
 def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, capit_window: int = 15):
     """Live 'weak-close gap-up' scan — bull T-signal + close=O + gap(G2/G3), the
@@ -644,10 +813,920 @@ def api_atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, capit_wind
     days; 🔥post-capit confluence boosted and sorted to the top. Surfaces candidates only."""
     from ai_journal.atomic_scan import atomic_scan
     try:
-        return atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor, capit_window=capit_window)
+        return _scan_cached(f"atomic:{max_age_days}:{dv_floor}:{capit_window}",
+                            lambda: atomic_scan(max_age_days=max_age_days, dv_floor=dv_floor, capit_window=capit_window))
     except Exception as e:
         log.exception("atomic scan failed")
         return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/p55-setup-scan")
+def api_p55_setup_scan(max_age_days: int = 4, dv_floor: float = 500_000, window: int = 6):
+    """Live scan for the validated P55 'refined grind' LONG setup (2026-06 research):
+    1D+1H P55 exact + good-T (T5/T6/T9-12) + non-VB + Z1G/T5 prelude + P→D→P + shallow
+    shakeout. Validated clip25 ~+1%, win ~50-54%, 5/6yr, median-positive. Candidates only."""
+    from p55_setup_scan import p55_setup_scan
+    try:
+        return _scan_cached(f"p55:{max_age_days}:{dv_floor}:{window}",
+                            lambda: p55_setup_scan(max_age_days=max_age_days, dv_floor=dv_floor, window=window))
+    except Exception as e:
+        log.exception("p55 setup scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/d-l1-scan")
+def api_d_l1_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live scan for the validated D+L1 'bear-trap reversal' LONG setup (2026-06 research):
+    a D-signal breakdown absorbed by an L1 VSA volume-line = failed breakdown → reversal.
+    True path-sim (entry next-open, stop −12%, 20-bar): EXP +0.97%, win 51%, 5/6yr;
+    +RSI<40 → +2.58%, win 58%, 6/6yr (only setup that survived 2022). Candidates only."""
+    from d_l1_scan import d_l1_scan
+    try:
+        return _scan_cached(f"dl1:{max_age_days}:{dv_floor}",
+                            lambda: d_l1_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("d+l1 scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/engulf-scan")
+def api_engulf_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live GEM2 — Engulf-Reversal (bull-T range-engulfs prior 2 bars, ≥$21, RSI<45, swallowed
+    bar had L46/L5 VSA absorption). Backtest 'Engulf-L46' PF 2.94/6-of-6yr (era-tilted)."""
+    from engulf_scan import engulf_scan
+    try:
+        return _scan_cached(f"engulf:{max_age_days}:{dv_floor}",
+                            lambda: engulf_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("engulf scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/t1-capbounce-scan")
+def api_t1_capbounce_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live GEM1 — T1 capitulation-bounce (small T1 off a big-bear/capitulation Z, RSI30-50,
+    vol=B). The most robust validated edge (6/6yr, TRAIN≈TEST era-independent, PF 2.32)."""
+    from t1_capbounce_scan import t1_capbounce_scan
+    try:
+        return _scan_cached(f"t1cap:{max_age_days}:{dv_floor}",
+                            lambda: t1_capbounce_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("t1 capbounce scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/mtf-ema-scan")
+def api_mtf_ema_scan(min_price: float = 3.0, min_avg_vol10: float = 30_000, refresh: bool = False):
+    """Multi-TF EMA-stack signals (1412_SMX + 0912_RGTI Pine ports): 15m+1H+4H EMA geometry
+    + Daily RSI/vol base, on completed session-anchored bars. 15-min JSON cache (the 3-DB
+    tail pull is ~1-2 min); refresh=true forces a recompute."""
+    from mtf_ema_scan import scan
+    try:
+        return scan(min_price=min_price, min_avg_vol10=min_avg_vol10,
+                    use_cache_sec=0 if refresh else 900)
+    except Exception as e:
+        log.exception("mtf ema scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/t6-sc-scan")
+def api_t6_sc_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live T6-SC-OVERSOLD — a T6 in the Wyckoff SC zone (±5% support) while RSI<40, non-VB.
+    Validated 2026-07-04 (band+RSI plateau, 2×-slip-safe): +1.92/med+1.33/PF1.36/5-6yr/'22+0.28."""
+    from t6_sc_scan import t6_sc_scan
+    try:
+        return _scan_cached(f"t6sc:{max_age_days}:{dv_floor}",
+                            lambda: t6_sc_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("t6-sc scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/sweep-scan")
+def api_sweep_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live T1 LOW-SWEEP (SWEEP-only, GEM1 excluded) — a T1 that sweeps the t-2(+t-3) lows in the
+    STATE band (≥$21, RSI30-50, vol=B). Modest standalone (+2.36, '22 +1.2); the weaker of the
+    four T1/GEM1×sweep cells, tracked separately for refinement."""
+    from sweep_scan import sweep_scan
+    try:
+        return _scan_cached(f"sweep:{max_age_days}:{dv_floor}",
+                            lambda: sweep_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("sweep scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/g3-gap-scan")
+def api_g3_gap_scan(max_age_days: int = 4, dv_floor: float = 500_000):
+    """Live scan for the validated G3 gap-reclaim LONG setup (2026-06 research):
+    large gap-up (G3) on an oversold bar (RSI<45) + T-signal + L3 vol-line, non-VB.
+    Validated (entry next-open, stop −12%, 20-bar): fwd20 +1.90%, win 58%. Candidates only."""
+    from g3_gap_scan import g3_gap_scan
+    try:
+        return _scan_cached(f"g3:{max_age_days}:{dv_floor}",
+                            lambda: g3_gap_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("g3 gap scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/washout-reversal-scan")
+def api_washout_reversal_scan(max_age_days: int = 5, dv_floor: float = 3_000_000):
+    """Washout/capitulation reversal (2026-06-29): quality (beta 0.6–1.5) name oversold in a
+    VIX-spike panic + RSI2-extreme + L12/L46 absorption, non-VB. CORE +1.73%/win57/6yr
+    (2022-survivor); energy/semis booster +4.4%. First beta/regime-conditioned setup."""
+    from washout_reversal_scan import washout_reversal_scan
+    try:
+        return _scan_cached(f"washout:{max_age_days}:{dv_floor}",
+                            lambda: washout_reversal_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("washout reversal scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/h1-bottom-scan")
+def api_h1_bottom_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """1H-confirmed bottom (2026-06-29): a 1D deep-oversold name (RSI<35) whose 1H TF printed a
+    VX-climax (RSI<30) → R2X reclaim. The 1H confirmation flips the 1D-oversold knife into an
+    edge (−0.23%→+1.38%): RSI<35 +1.07%/6yr, RSI<30 +1.38%/6yr. Flag-free; caught MRNA/RKLB."""
+    from h1_bottom_scan import h1_bottom_scan
+    try:
+        return _scan_cached(f"h1bottom:{max_age_days}:{dv_floor}",
+                            lambda: h1_bottom_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("h1 bottom scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/qz-capit-scan")
+def api_qz_capit_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """🎯 QZ-Capit-Reversal (2026-07-11): quality-zone ($21-89) daily-Z oversold pullback (RSI<45)
+    to a FRESH 15d-low whose intraday 1H shows a Z2G/Z1G capitulation + a T1G reversal confirm.
+    +2.40/med+0.91/win52/PF1.41, 5-6yr era-independent (2022 flat). Born from an LLY chart obs,
+    universe-dissolved, then RESCUED by price-bucketing (cheap-stock lottery was inflating it).
+    Uses edge_replay's own E_qzcapit mask (no drift). Entry = next open."""
+    def _build():
+        import edge_replay as ER
+        import pandas as pd
+        grp, as_of = ER._frame(60, dv_floor)
+        cut = pd.to_datetime(as_of) - pd.Timedelta(days=max_age_days)
+        rows = []
+        for tk, g in grp.items():
+            if "E_qzcapit" not in g.columns:
+                continue
+            m = g[g["E_qzcapit"] & (pd.to_datetime(g["date"]) >= cut)]
+            for _, r in m.iterrows():
+                _rsi = float(r["rsi_14"])
+                # every row satisfies fresh-low + 1H Z-cap + 1H-T1G by definition — so atoms
+                # only carries what VARIES: deep-capitulation flag (RSI<35) and daily VSA L.
+                _at = []
+                if _rsi < 35:
+                    _at.append("🔥deep")
+                _at.append("1H·rev")   # 1H reversal-cluster confirmation (T1G/T5/T11/Z11/Z1G)
+                # 🔑 key-level: support tested ≥2× = real level (QZ-Capit🔑 → 6/6yr, med+0.90);
+                # weak level (untested) is a knife (med−0.42). See keylvl.py.
+                if bool(r.get("key_level")):
+                    _at.append("🔑key")
+                elif r.get("key_touches") is not None:
+                    _at.append("⚠️weak-sup")
+                # 🏛️ BOS: structure shifted bullish (downtrend swing-high broken) ≤6d — confirms
+                # the capitulation reversal (QZ-Capit+BOS → med+1.98/win55/6-6yr). See bos.py.
+                if bool(r.get("bos_up")):
+                    _at.append("🏛️BOS")
+                # 🧱 order-block retest: price re-tapped an institutional absorption zone (last down
+                # candle before a strong up-move) → QZ-Capit+OB med+4.46/win59/PF2.70/6-6yr. fvgob.py
+                if bool(r.get("ob_retest")):
+                    _at.append("🧱OB")
+                _lsig = str(r.get("l") or "")
+                if _lsig in ("L46", "L34"):
+                    _at.append(_lsig)   # heavy-volume VSA on the daily bar
+                rows.append({
+                    "ticker": tk,
+                    "signal_date": str(r["date"])[:10],
+                    "date": str(r["date"])[:10],
+                    "close": round(float(r["close"]), 2),
+                    "price": round(float(r["close"]), 2),
+                    "rsi": round(_rsi, 0),
+                    "z_sig": str(r.get("z") or ""),
+                    "l_sig": _lsig,
+                    "universe": str(r.get("universe") or ""),
+                    "tier": "premium" if _rsi < 35 else "",
+                    "atoms": _at,
+                    "fresh_low": bool(r.get("freshlow15", False)),
+                })
+            # 🎋 TLS-entry rows — the validated ENTRY refinement (2026-07-17, tls2.py): a QZ-Capit
+            # fired ≤5 bars earlier and a Three Line Strike just completed on THIS bar (enter next
+            # open). Distinct, LATER bar than the state row above, so surfaced separately: it is
+            # the "enter now" moment. QZ-Capit🎋TLS +3.22/med+2.47/win55/PF1.57/5-6yr (base +2.04,
+            # lift +1.18pp, TRAIN & TEST both positive, +2.98σ). This is the causal, tradeable one.
+            if "E_qzcapit_tls" in g.columns:
+                mt = g[g["E_qzcapit_tls"] & (pd.to_datetime(g["date"]) >= cut)]
+                for _, r in mt.iterrows():
+                    _rsi = float(r["rsi_14"])
+                    _at = ["🎋TLS-entry"]
+                    if bool(r.get("key_level")):
+                        _at.append("🔑key")
+                    if bool(r.get("bos_up")):
+                        _at.append("🏛️BOS")
+                    if bool(r.get("ob_retest")):
+                        _at.append("🧱OB")
+                    rows.append({
+                        "ticker": tk,
+                        "signal_date": str(r["date"])[:10],
+                        "date": str(r["date"])[:10],
+                        "close": round(float(r["close"]), 2),
+                        "price": round(float(r["close"]), 2),
+                        "rsi": round(_rsi, 0),
+                        "z_sig": str(r.get("z") or ""),
+                        "l_sig": str(r.get("l") or ""),
+                        "universe": str(r.get("universe") or ""),
+                        "tier": "premium",              # the entry signal ranks up
+                        "atoms": _at,
+                        "tls_entry": True,
+                        "fresh_low": bool(r.get("freshlow15", False)),
+                    })
+        rows.sort(key=lambda x: (x["signal_date"], -x["rsi"]), reverse=True)
+        return {"rows": rows, "count": len(rows), "as_of": str(as_of)[:10]}
+    try:
+        return _scan_cached(f"qzcapit:{max_age_days}:{dv_floor}", _build)
+    except Exception as e:
+        log.exception("qz capit scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/z-absorb-scan")
+def api_z_absorb_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """💤 Z-Absorb-Turn (validated 2026-07-22): the PRIOR bar is a deep-bear Z5/Z11 carrying the
+    wt_evr end-of-reaction + a RED L34 absorption (institutional soak into a no-result down bar);
+    THIS bar confirms the turn with T3 or T9. Enter next open. n=142/6yr · ps +5.54 · med +2.51 ·
+    win 58 · PF 2.44 · 5/6yr (2022 +9.4) · TRAIN+3.0 TEST+7.9. Ablation: the wt_evr+L34red anchor
+    3× the bare Z5|Z11→T3/T9 (+1.83→+5.54); exit-invariant (5 exit families +); bootstrap 95%CI
+    [+2.02,+9.32]; z=+2.69. 1D-native (cross-TF echo weak, like GEM1). Uses edge_replay's own
+    E_zabsorb mask (no drift)."""
+    def _build():
+        import edge_replay as ER
+        import pandas as pd
+        grp, as_of = ER._frame(60, dv_floor)
+        cut = pd.to_datetime(as_of) - pd.Timedelta(days=max_age_days)
+        rows = []
+        for tk, g in grp.items():
+            if "E_zabsorb" not in g.columns:
+                continue
+            m = g[g["E_zabsorb"] & (pd.to_datetime(g["date"]) >= cut)]
+            for _, r in m.iterrows():
+                _rsi = float(r["rsi_14"])
+                _t = str(r.get("t") or "")
+                # every row is (prior Z5/Z11 + wt_evr + red-L34) → T3/T9 by definition; atoms carry
+                # only what VARIES: which confirm bar, deep-oversold, quality-price, prior anchor.
+                _at = [f"⤴{_t}"]                                   # T3 or T9 confirm
+                if _rsi < 40:
+                    _at.append("🔥deep")
+                if 21 <= float(r["close"]) < 89:
+                    _at.append("💎$21-89")                        # quality zone (+7.45 vs pooled)
+                _pz = str(g["z"].shift(1).loc[r.name] if r.name in g.index else "")
+                if _pz in ("Z5", "Z11"):
+                    _at.append(f"⌛{_pz}")                         # the absorbing anchor
+                rows.append({
+                    "ticker": tk,
+                    "signal_date": str(r["date"])[:10],
+                    "date": str(r["date"])[:10],
+                    "close": round(float(r["close"]), 2),
+                    "price": round(float(r["close"]), 2),
+                    "rsi": round(_rsi, 0),
+                    "t_sig": _t,
+                    "z_sig": str(r.get("z") or ""),
+                    "l_sig": str(r.get("l") or ""),
+                    "universe": str(r.get("universe") or ""),
+                    "tier": "premium" if (21 <= float(r["close"]) < 89) else "",
+                    "atoms": _at,
+                })
+        rows.sort(key=lambda x: (x["signal_date"], -x["rsi"]), reverse=True)
+        return {"rows": rows, "count": len(rows), "as_of": str(as_of)[:10]}
+    try:
+        return _scan_cached(f"zabsorb:{max_age_days}:{dv_floor}", _build)
+    except Exception as e:
+        log.exception("z-absorb scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+# readable labels for the de-duplicated edge families (mirror edge_replay._FAMILIES)
+_CONF_FAM_LABEL = {
+    "capit": "capit", "retest": "retest", "spring": "spring", "gap": "gap",
+    "atomic": "atomic", "oseq": "Z11T11", "l43": "L43", "engulf": "engulf",
+}
+
+# ── 🏆 Relative-Strength gate (validated 2026-07-13, rs_test.py / rs_sec.py) ──────────────
+# rs = close/benchmark; INTACT = rs above its own EMA200. Sector-ETF version is the sharper
+# gate (Cluster≥3: intact +4.49/med+3.29/win58/PF1.96 5-5yr incl 2022 vs broken +2.84/med+0.87
+# 2021-22 negative); the sniper cell is "sector-RS intact while SPY-RS broken" = the strong
+# name inside a beaten sector (med+4.12/win61/PF2.07). This is the CAG-vs-OKLO discriminator:
+# CAG's RS collapsed all year (cluster fired & failed), OKLO's RS held (cluster paid).
+_RS_S2E = {"Technology": "XLK", "Healthcare": "XLV", "Financials": "XLF", "Industrials": "XLI",
+           "Materials": "XLB", "Consumer Discretionary": "XLY", "Consumer Staples": "XLP",
+           "Energy": "XLE", "Utilities": "XLU", "Communication Services": "XLC",
+           "Real Estate": "XLRE"}
+_RS_CACHE: dict = {}
+
+
+def _mtf_recovery_sets() -> tuple:
+    """(k0_tickers, any_tickers) with an MTF-EMA recovery fire ≤5 days old — the 📐 booster axis
+    (validated 2026-07-13, mtfcorr.py): edges firing with a recent multi-TF recovery geometry
+    outperform — Cluster≥3 +3.64/med+1.83 vs +2.29/med+0.79; ⚡G3-Abs×K0 +7.49/med+4.39/win61/
+    PF2.67 6-6yr (vs +3.47 without).
+
+    Reads the mtf-ema JSON cache READ-ONLY — never triggers a rebuild. 2026-07-16 fix: this used
+    to call api_mtf_ema_scan(), which rebuilds when its 15-min JSON cache is stale — a 1-2 min
+    pull over the 15m/1h/4h DBs that can also hit 'database is locked' right after the nightly
+    swap. That blocked the confluence + g3abs scans (45s+ timeouts, sections stuck 'scanning…').
+    The 📐 badge is opportunistic: if the cache is missing/stale, skip it (the 📐 MTF-EMA board
+    section warms it on its own)."""
+    try:
+        import json as _json, time as _t
+        p = os.path.join(os.path.dirname(__file__), "mtf_ema_scan.json")
+        if not os.path.exists(p) or (_t.time() - os.stat(p).st_mtime) > 6 * 3600:
+            return set(), set()          # missing or >6h stale → no badges, never block
+        with open(p) as f:
+            d = _json.load(f)
+        rows = d.get("rows", []) if isinstance(d, dict) else []
+        any_ = {r["ticker"] for r in rows if r.get("age_days", 99) <= 5}
+        k0 = {r["ticker"] for r in rows if r.get("age_days", 99) <= 5 and "K0" in (r.get("variants") or [])}
+        return k0, any_
+    except Exception:
+        return set(), set()
+
+
+def _rs_sector_map() -> dict:
+    if "smap" not in _RS_CACHE:
+        try:
+            import json as _json
+            with open(os.path.join(os.path.dirname(__file__), "..", "data", "sector_map.json")) as f:
+                _RS_CACHE["smap"] = _json.load(f)
+        except Exception:
+            _RS_CACHE["smap"] = {}
+    return _RS_CACHE["smap"]
+
+
+def _rs_bench_series() -> dict:
+    """{etf: pd.Series(date_str -> close)} for SPY + 11 sector ETFs, ~6h TTL. Live fetch via
+    Massive (data.fetch_ohlcv, 400 bars — enough for EMA200 min_periods=120); parquet fallback."""
+    import time as _t
+    if _RS_CACHE.get("bench") and _t.time() - _RS_CACHE.get("bench_ts", 0) < 6 * 3600:
+        return _RS_CACHE["bench"]
+    import pandas as _pd
+    out = {}
+    try:
+        from data import fetch_ohlcv
+        for et in ["SPY"] + sorted(set(_RS_S2E.values())):
+            try:
+                df = fetch_ohlcv(et, interval="1d", bars=400)
+                d = df.reset_index()
+                dcol = [c for c in d.columns if str(c).lower() in ("date", "datetime", "index", "timestamp")][0]
+                out[et] = _pd.Series(d["close"].values,
+                                     index=_pd.to_datetime(d[dcol]).dt.strftime("%Y-%m-%d"))
+            except Exception:
+                pass
+    except Exception:
+        pass
+    if len(out) < 6:                       # live fetch failed — fall back to the saved parquet
+        try:
+            px = _pd.read_parquet(os.path.join(os.path.dirname(__file__), "..", "data", "etf_px.parquet"))
+            out = {c: px[c].dropna() for c in px.columns}
+        except Exception:
+            pass
+    if out:
+        _RS_CACHE["bench"] = out
+        _RS_CACHE["bench_ts"] = _t.time()
+    return out
+
+
+def _rs_flags(g, ticker: str) -> tuple:
+    """(sec_intact, spy_intact, has_data) — RS vs sector-ETF & SPY, EMA200 on the ratio."""
+    try:
+        import pandas as _pd, numpy as _np
+        bench = _rs_bench_series()
+        if "SPY" not in bench:
+            return None, None, False
+        et = _RS_S2E.get(_rs_sector_map().get(ticker, ""), None)
+        tail = g.tail(340)
+        ds = tail["date"].astype(str).str[:10]
+        cl = tail["close"].to_numpy(float)
+        def _intact(series):
+            b = ds.map(series).to_numpy(float)
+            with _np.errstate(invalid="ignore", divide="ignore"):
+                rs = cl / b
+            e = _pd.Series(rs).ewm(span=200, adjust=False, min_periods=120).mean().to_numpy()
+            if _np.isnan(e[-1]) or _np.isnan(rs[-1]):
+                return None
+            return bool(rs[-1] > e[-1])
+        spy_i = _intact(bench["SPY"])
+        sec_i = _intact(bench[et]) if et and et in bench else None
+        return sec_i, spy_i, (spy_i is not None)
+    except Exception:
+        return None, None, False
+
+
+@app.get("/api/confluence-scan")
+def api_confluence_scan(min_fam: int = 3, max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """🎯 Confluence / Cluster-Bottom (2026-07-12): the user's hypothesis — a real bottom is marked
+    not by ONE edge but by SEVERAL distinct edge FAMILIES firing inside a tight 10-bar window. The
+    forward edge rises MONOTONICALLY with the count and, unlike any single family, survives 2022 &
+    cluster-dedup. $21-89, trail25, 6yr: ≥3 fam +3.05/med+1.60/win54 · ≥4 +4.66/med+3.12/win58/PF1.94.
+    Gate $21+ (2026-07-13): $89+ bucket ladder validated separately (×3 med+2.42/win57, 2022-positive
+    all tiers) — rows there carry a 💎$89+ atom. Uses edge_replay's own conf_n mask (no drift).
+    Entry = next open. min_fam=3|4."""
+    def _build():
+        import edge_replay as ER
+        import pandas as pd
+        grp, as_of = ER._frame(60, dv_floor)
+        cut = pd.to_datetime(as_of) - pd.Timedelta(days=max_age_days)
+        fam_keys = list(_CONF_FAM_LABEL.keys())
+        _mtf_k0, _mtf_any = _mtf_recovery_sets()
+        rows = []
+        for tk, g in grp.items():
+            if "conf_n" not in g.columns:
+                continue
+            # gate $21+ (2026-07-13): the $89+ bucket ladder holds (×3 med+2.42/win57, all tiers
+            # 2022-positive) — confluence bends the Fib price-zone law; <$21 lottery stays out.
+            m = g[g["conf_anyfam"] & (g["conf_n"] >= min_fam) & (g["close"] >= 21)
+                  & g["clean"] & (pd.to_datetime(g["date"]) >= cut)]
+            for _, r in m.iterrows():
+                _rsi = float(r["rsi_14"])
+                _nfam = int(r["conf_n"])
+                # which families lit up in the trailing 10-bar window (the "how many edges in the box")
+                _fams = [_CONF_FAM_LABEL[f] for f in fam_keys if bool(r.get("cf_" + f, False))]
+                # atoms carry only what VARIES: family count, the family names, deep-oversold flag
+                _at = [f"×{_nfam}fam"] + _fams
+                # 🏆 RS gate — read the frame's own per-bar flags (computed once in ER._prep;
+                # recomputing here per row made the cold scan rebuild take 90s+). sec-lead =
+                # strong name inside a beaten sector (med+4.12/win61/PF2.07).
+                _sec_i = bool(r.get("rs_intact", False))
+                _spy_i = bool(r.get("rs_spy_intact", False))
+                if _sec_i:
+                    _at.append("💪sec-lead" if not _spy_i else "🏆RS")
+                if bool(r.get("E_g3abs")):
+                    # ⚡ the "contradiction bar": G3 gap-up absorbed into a weak close on THIS bar
+                    # (+4.52/med+2.68/PF1.93 inside a cluster — the AMD-Mar-2 archetype)
+                    _at.append("⚡G3-Abs")
+                if tk in _mtf_k0:
+                    _at.append("📐K0")     # earliest multi-TF recovery geometry ≤5d — booster
+                elif tk in _mtf_any:
+                    _at.append("📐MTF")
+                if bool(r.get("ob_retest")):
+                    _at.append("🧱OB")     # order-block retest — Cluster+OB +2.16/PF1.92/6-6yr
+                if float(r["close"]) >= 89:
+                    _at.append("💎$89+")   # large-cap bucket — its own validated ladder
+                if _rsi < 50:
+                    _at.append("RSI<50")
+                # LADDER tiers (episode analysis 2026-07-12, entry@≥3-birth, 4yr, n=12050):
+                # ×3 +3.80/med+2.09/win55 · ×4 +4.72/win56 · ×5 +5.61/win59 · ×6+ +12.93/med+9.58/win72,
+                # 27% of ×6+ end >+25%. BUT 60% of all big winners are ×3-only (they're 64% of episodes)
+                # — so ×3 is the base, not noise; ×6+ is the rare sniper.
+                _tier = "🔥×6+" if _nfam >= 6 else ("★×5" if _nfam == 5 else ("×4" if _nfam == 4 else "×3"))
+                rows.append({
+                    "ticker": tk,
+                    "signal_date": str(r["date"])[:10],
+                    "date": str(r["date"])[:10],
+                    "close": round(float(r["close"]), 2),
+                    "price": round(float(r["close"]), 2),
+                    "rsi": round(_rsi, 0),
+                    "z_sig": str(r.get("z") or ""),
+                    "t_sig": str(r.get("t") or ""),
+                    "l_sig": str(r.get("l") or ""),
+                    "universe": str(r.get("universe") or ""),
+                    "n_fam": _nfam,
+                    "families": _fams,
+                    "tier": _tier,
+                    "atoms": _at,
+                })
+        # one row per ticker (the strongest cluster then freshest) — avoids duplicate keys and
+        # matches the cluster-dedup philosophy (one bottom signal per name in the window)
+        best = {}
+        for r in rows:
+            k = r["ticker"]
+            if k not in best or (r["n_fam"], r["signal_date"]) > (best[k]["n_fam"], best[k]["signal_date"]):
+                best[k] = r
+        rows = list(best.values())
+        # LADDER order: highest confluence first (×6+ → ×5 → ×4 → ×3), then freshest
+        rows.sort(key=lambda x: (x["n_fam"], x["signal_date"], -x["rsi"]), reverse=True)
+        return {"rows": rows, "count": len(rows), "as_of": str(as_of)[:10]}
+    try:
+        return _scan_cached(f"confluence:{min_fam}:{max_age_days}:{dv_floor}", _build)
+    except Exception as e:
+        log.exception("confluence scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/g3abs-scan")
+def api_g3abs_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """⚡ G3-Abs 'contradiction bar' (2026-07-13): a G3 gap-up that closes WEAK (Atomic O-close)
+    on the SAME bar — the gap got absorbed. +4.24/med+2.33/win56/PF1.83/5-6yr ($21+); inside a
+    conf≥3 cluster +4.52/PF1.93; 🏆RS-intact tier +5.00/med+3.95/win60/PF2.08. Uses edge_replay's
+    E_g3abs mask (no drift). Entry = next open."""
+    def _build():
+        import edge_replay as ER
+        import pandas as pd
+        grp, as_of = ER._frame(60, dv_floor)
+        cut = pd.to_datetime(as_of) - pd.Timedelta(days=max_age_days)
+        _mtf_k0, _mtf_any = _mtf_recovery_sets()
+        rows = []
+        for tk, g in grp.items():
+            if "E_g3abs" not in g.columns:
+                continue
+            _gdates = pd.to_datetime(g["date"])
+            m = g[g["E_g3abs"] & (_gdates >= cut)]
+            # 🟡 TLS-watch: a Three Line Strike entry fired on this G3-Abs in the window. Tagged
+            # WATCH, not built as an entry (2026-07-17, tls2.py): G3-Abs🎋TLS is +6.6/PF2.44 but
+            # the lift over immediate entry is TEST-only (TRAIN 21-23 −0.55pp) → era-tilted, so we
+            # only FLAG it, awaiting TRAIN confirmation — unlike QZ-Capit🎋TLS which is built live.
+            _has_tls = bool(("E_g3abs_tls" in g.columns) and (g["E_g3abs_tls"] & (_gdates >= cut)).any())
+            for _, r in m.iterrows():
+                _rsi = float(r["rsi_14"])
+                _sec_i = bool(r.get("rs_intact", False))
+                _spy_i = bool(r.get("rs_spy_intact", False))
+                _cn = int(r.get("conf_n", 0))
+                # G3+O-close+bull-T+RSI<45+$21 are definitional — atoms carry only what VARIES
+                _at = []
+                if _has_tls:
+                    _at.append("🟡TLS-watch")
+                if _sec_i:
+                    _at.append("💪sec-lead" if not _spy_i else "🏆RS")
+                if tk in _mtf_k0:
+                    _at.append("📐K0")     # K0×G3-Abs = +7.49/med+4.39/win61/PF2.67, 6-6yr
+                elif tk in _mtf_any:
+                    _at.append("📐MTF")
+                if _cn >= 2:
+                    _at.append(f"×{_cn}fam")   # firing inside a cluster (+4.52/PF1.93 at ≥3)
+                if str(r.get("vb") or "") == "B":
+                    _at.append("vol=B")
+                _l = str(r.get("l") or "")
+                if _l in ("L46", "L34", "L5"):
+                    _at.append(_l)
+                if float(r["close"]) >= 89:
+                    _at.append("💎$89+")
+                rows.append({
+                    "ticker": tk,
+                    "signal_date": str(r["date"])[:10],
+                    "date": str(r["date"])[:10],
+                    "close": round(float(r["close"]), 2),
+                    "price": round(float(r["close"]), 2),
+                    "rsi": round(_rsi, 0),
+                    "t_sig": str(r.get("t") or ""),
+                    "z_sig": str(r.get("z") or ""),
+                    "l_sig": _l,
+                    "universe": str(r.get("universe") or ""),
+                    "n_fam": _cn,
+                    "tier": "🏆RS" if _sec_i else "",   # auto tier-chip → RS filter for free
+                    "atoms": _at,
+                })
+        # one row per ticker (freshest, RS-preferred), ordered RS-first then freshest
+        best = {}
+        for r in rows:
+            k = r["ticker"]
+            if k not in best or (r["tier"] != "", r["signal_date"]) > (best[k]["tier"] != "", best[k]["signal_date"]):
+                best[k] = r
+        rows = sorted(best.values(), key=lambda x: (x["tier"] != "", x["signal_date"], -x["rsi"]), reverse=True)
+        return {"rows": rows, "count": len(rows), "as_of": str(as_of)[:10]}
+    try:
+        return _scan_cached(f"g3abs:{max_age_days}:{dv_floor}", _build)
+    except Exception as e:
+        log.exception("g3abs scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/l43-triple-scan")
+def api_l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000):
+    """L43-TRIPLE (2026-06-30): L43 (VSA absorbed body) + reversal-T + gap-sweet, clean of
+    suppressors, RSI<40, non-VB. 6-level validated (path-sim +2.13%/PF1.65/6yr, OOS-robust,
+    Monte-Carlo P(>0)=100%, beats random by +1.62pp, ablation+plateau+broad). Premium=RSI<32/sector."""
+    from l43_triple_scan import l43_triple_scan
+    try:
+        return _scan_cached(f"l43:{max_age_days}:{dv_floor}",
+                            lambda: l43_triple_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("l43 triple scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/seq-scan")
+def api_seq_scan(max_age_days: int = 4, limit: int = 150, tf: str = "1d"):
+    """Live scanner for the time-robust sequence rule-database (per-timeframe: 1d/4h/1h).
+    Surfaces tickers whose trailing 2/3/4-bar TZ+L+ULTRA token sequence matches a ROBUST rule
+    (STABLE, ≥5/6yr, not 2025-concentrated). med20/win are the rule's historicals."""
+    from seq_scan import seq_scan
+    try:
+        _tf = tf if tf in ("1d", "4h", "1h") else "1d"
+        return _scan_cached(f"seq:{max_age_days}:{limit}:{_tf}",
+                            lambda: seq_scan(max_age_days=max_age_days, limit=limit, tf=_tf))
+    except Exception as e:
+        log.exception("seq scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/seq-scan-live")
+def api_seq_scan_live(limit: int = 60):
+    """TODAY-0 LIVE: tickers whose last completed bars match a robust-rule prefix where
+    today's still-forming bar (current live price → engine signals) completes the sequence.
+    Provisional (updates as price moves). Falls back when the session is closed."""
+    from seq_scan import seq_scan_live
+    try:
+        return seq_scan_live(limit=limit)
+    except Exception as e:
+        log.exception("seq scan live failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/trendlines/{ticker}")
+def api_trendlines(ticker: str, tf: str = "1d", limit: int = 700):
+    """Auto pivot-based trendlines + sloped zones for the chart overlay (percent-tolerance,
+    relevance-filtered, top-4 per side). headline = state vs best descending resistance."""
+    from trendlines import detect
+    try:
+        _tf = tf if tf in ("1d", "1w") else "1d"
+        return _scan_cached(f"tlines:{ticker.upper()}:{_tf}:{limit}",
+                            lambda: detect(ticker, tf=_tf, limit=limit), ttl=1800)
+    except Exception as e:
+        log.exception("trendlines failed")
+        return {"ticker": ticker, "tf": tf, "lines": [], "headline": None, "error": str(e)}
+
+
+@app.get("/api/zone-retest-scan")
+def api_zone_retest_scan(max_age_days: int = 4, dv_floor: float = 3_000_000):
+    """🔁 Zone-Retest live scanner — buy the 2nd+ touch (retest) of a support zone, not the
+    first drop. Mirrors edge_replay E_zoneretest. 🔥absorb tier + ⚡/⛔ badges."""
+    from zone_retest_scan import zone_retest_scan
+    try:
+        return _scan_cached(f"zoneretest:{max_age_days}:{dv_floor}",
+                            lambda: zone_retest_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("zone retest scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/engulf-goga-scan")
+def api_engulf_goga_scan(max_age_days: int = 4, dv_floor: float = 3_000_000, min_net: int = 3):
+    """🥊 Engulf-Goga accumulation DESCRIPTOR (not a validated edge — net failed random-control
+    7×). Green bars absorbing the prior distribution (net = swallowed-red − swallowed-green ≥ min_net)."""
+    from engulf_goga_scan import engulf_goga_scan
+    try:
+        return _scan_cached(f"goga:{max_age_days}:{dv_floor}:{min_net}",
+                            lambda: engulf_goga_scan(max_age_days=max_age_days, dv_floor=dv_floor, min_net=min_net))
+    except Exception as e:
+        log.exception("engulf goga scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/highbase-scan")
+def api_highbase_scan(max_age_days: int = 4, dv_floor: float = 3_000_000):
+    """🧗 High-Base 15m-Dip — strong name in a high base whose intraday dip is deep on 15m
+    while the daily stays calm. Validated 2026-07-08 (+1.86/PF1.31/5-6yr, 6σ vs random)."""
+    from highbase_scan import highbase_scan
+    try:
+        return _scan_cached(f"highbase:{max_age_days}:{dv_floor}",
+                            lambda: highbase_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("highbase scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/edge-fires")
+def api_edge_fires(tickers: str = ""):
+    """ticker → parallel EDGE-setup fires (label + signal date), aggregated from the same
+    TTL-cached scans the Edge board runs. Full map is cached once; `tickers` only filters
+    the response. Powers cross-panel confluence columns (e.g. 🧬 Robust Seqs EDGE column)."""
+    def _build():
+        from concurrent.futures import ThreadPoolExecutor
+        srcs = [
+            ("Capit",    lambda: api_atomic_scan(),            lambda r: r.get("post_capit")),
+            ("CORE",     lambda: api_atomic_scan(),            lambda r: not r.get("post_capit")),
+            ("GEM1",     lambda: api_t1_capbounce_scan(),      None),
+            ("Z11-fam",  lambda: api_z11_t11_scan(),           None),
+            ("G3",       lambda: api_g3_gap_scan(),            None),
+            ("L43",      lambda: api_l43_triple_scan(),        None),
+            ("Engulf",   lambda: api_engulf_scan(),            None),
+            ("Sweep",    lambda: api_sweep_scan(),             None),
+            ("Absorb→P", lambda: api_absorption_p_scan(),      None),
+            ("D+L1",     lambda: api_d_l1_scan(),              None),
+            ("Washout",  lambda: api_washout_reversal_scan(),  None),
+            ("1H-bot",   lambda: api_h1_bottom_scan(),         None),
+            ("Spring",   lambda: api_wyckoff_spring_scan(),    None),
+            ("QZ-Capit", lambda: api_qz_capit_scan(),          None),
+            ("Confluence", lambda: api_confluence_scan(),      None),
+            ("G3-Abs",   lambda: api_g3abs_scan(),             None),
+            ("T6-SC",    lambda: api_t6_sc_scan(),             None),
+            ("P55",      lambda: api_p55_setup_scan(),         None),
+            ("Parabola", lambda: api_p_parabola_scan(),        None),
+        ]
+        def _one(item):
+            label, fn, keep = item
+            try:
+                d = fn() or {}
+                return [(label, r) for r in d.get("rows", []) if keep is None or keep(r)]
+            except Exception:
+                return []
+        fires: dict = {}
+        with ThreadPoolExecutor(max_workers=8) as ex:
+            for pairs in ex.map(_one, srcs):
+                for label, r in pairs:
+                    tk = r.get("ticker")
+                    dt = r.get("signal_date") or r.get("date") or ""
+                    if not tk:
+                        continue
+                    cur = fires.setdefault(tk, {})
+                    if label not in cur or dt > cur[label]:
+                        cur[label] = dt
+        return {"fires": {tk: [{"edge": e, "date": d} for e, d in sorted(v.items(), key=lambda x: x[1], reverse=True)]
+                          for tk, v in fires.items()}}
+    try:
+        full = _scan_cached("edgefires", _build, ttl=600)
+        want = {t.strip().upper() for t in tickers.split(",") if t.strip()}
+        f = full["fires"]
+        return {"fires": {tk: v for tk, v in f.items() if tk in want} if want else f}
+    except Exception as e:
+        log.exception("edge fires failed")
+        return {"fires": {}, "error": str(e)}
+
+
+@app.get("/api/edge-replay")
+def api_edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_000,
+                    mode: str = "trail", stop: float = 0.10, target: float = 0.25,
+                    trail: float = 0.25, maxh: int = 60, with_trades: bool = False,
+                    slip: float = None):
+    """Unified backtest of ALL Edge setups with one path-sim engine (entry@next-open,
+    stop-first, GAP-REALISTIC fills, 15bps, cooldown-5). setup='all' → head-to-head;
+    a name → per-year + trade list. exit mode 'trail' or 'bracket'. slip overrides the
+    15bps default (e.g. slip=0.003 = 2× stress run — backtest-expert discipline)."""
+    from edge_replay import edge_replay
+    try:
+        # cache the RESULT (not just the frame) — the 20-setup path-sim re-runs on every
+        # request and is heavy (~60-90s under CPU load); a repeated identical Run is instant.
+        key = f"edgereplay:{setup}:{months}:{dv_floor}:{mode}:{stop}:{target}:{trail}:{maxh}:{with_trades}:{slip}"
+        return _scan_cached(key, lambda: edge_replay(
+            setup=setup, months=months, dv_floor=dv_floor, mode=mode,
+            stop=stop, target=target, trail=trail, maxh=maxh,
+            with_trades=with_trades, slip=slip), ttl=3600)
+    except Exception as e:
+        log.exception("edge replay failed")
+        return {"rows": [], "error": str(e)}
+
+
+@app.get("/api/spike-radar")
+def api_spike_radar(dv_floor: float = 2_000_000, price_min: float = 3.0, limit: int = 120):
+    """🎆 Spike-Radar — volatility/spike-probability watchlist (NOT a buy list).
+    Year-stable cells from the pre-breakout study; direction needs an Edge anchor."""
+    try:
+        from spike_radar import scan
+        return _scan_cached(f"spikeradar:{dv_floor}:{price_min}:{limit}",
+                            lambda: scan(dv_floor, price_min, limit), ttl=900)
+    except Exception as e:
+        log.exception("spike radar failed")
+        return {"rows": [], "error": str(e)}
+
+
+@app.get("/api/edge-overfit")
+def api_edge_overfit(refresh: bool = False, months: int = 62, trials: int = 100):
+    """DSR + PBO overfitting stats for the Edge setups (overfit_stats.py math,
+    Bailey & López de Prado). Serves the cached edge_overfit.json; refresh=true
+    recomputes (heavy: full 62mo path-sim over all setups, minutes)."""
+    import json as _json, os as _os
+    path = _os.path.join(_os.path.dirname(__file__), "edge_overfit.json")
+    try:
+        if not refresh and _os.path.exists(path):
+            with open(path) as f:
+                return _json.load(f)
+        from edge_overfit import run as _run
+        return _scan_cached(f"edgeoverfit:{months}:{trials}",
+                            lambda: _run(months=months, n_trials=trials), ttl=86400)
+    except Exception as e:
+        log.exception("edge overfit failed")
+        return {"rows": [], "error": str(e)}
+
+
+@app.get("/api/edge-tearsheet")
+def api_edge_tearsheet(setup: str, months: int = 62, refresh: bool = False):
+    """quantstats HTML tearsheet of a setup's equal-slot portfolio curve
+    (equity, drawdown depth+duration, rolling Sharpe, monthly heatmap).
+    Cached on disk per (setup, months); refresh=true regenerates."""
+    from fastapi.responses import FileResponse
+    import os as _os
+    from edge_tearsheet import make_tearsheet, OUT_DIR, _slug
+    try:
+        path = _os.path.join(OUT_DIR, f"{_slug(setup)}_{months}mo.html")
+        if refresh or not _os.path.exists(path):
+            r = make_tearsheet(setup, months=months)
+            if "error" in r:
+                return r
+            path = r["path"]
+        return FileResponse(path, media_type="text/html")
+    except Exception as e:
+        log.exception("edge tearsheet failed")
+        return {"error": str(e)}
+
+
+@app.get("/api/absorption-p-scan")
+def api_absorption_p_scan(max_age_days: int = 4, dv_floor: float = 2_000_000):
+    """Live scan for the ABSORPTION → P reversal flagship (2026-06 research): a validated
+    oversold absorption combo (distribution T/Z + absorption-L + RSI2-extreme, RSI14 30-45)
+    confirmed by a P-signal within 3 bars → enter@P. Validated: any-P +1.70%/win57%/6yr;
+    P50 +2.29%/win61%. Tier by P-type (premium=P50). Candidates only."""
+    from absorption_p_scan import absorption_p_scan
+    try:
+        return _scan_cached(f"absp:{max_age_days}:{dv_floor}",
+                            lambda: absorption_p_scan(max_age_days=max_age_days, dv_floor=dv_floor))
+    except Exception as e:
+        log.exception("absorption-p scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/z11-t11-scan")
+def api_z11_t11_scan(max_age_days: int = 6, dv_floor: float = 2_000_000,
+                     require_l12: bool = False, require_sharp_l: bool = False):
+    """Live scan for the oversold-reversal FAMILY (2026-06): bear anchor (Z11/Z3/Z1G/Z5)
+    while RSI14 30-45 → T3/T5 confirm next bar → T11/T12 resolution at +2 → enter@T11/T12
+    (next-open), −12% stop, 20-bar. fwd_20d screen: Z11 +2.04/win55 (flagship), Z3 +2.47/
+    win58 (robust), Z1G +2.67/win59 (clustered — market-dip play), Z5 +1.30/win54. All
+    survived 2022. Tier: premium=Z11/Z3 · dip=Z1G · medium=Z5. Candidates only."""
+    from z11_t11_scan import z11_t11_scan
+    try:
+        return _scan_cached(f"z11t11:{max_age_days}:{dv_floor}:{require_l12}:{require_sharp_l}",
+                            lambda: z11_t11_scan(max_age_days=max_age_days, dv_floor=dv_floor,
+                                                 require_l12=require_l12, require_sharp_l=require_sharp_l))
+    except Exception as e:
+        log.exception("z11-t11 scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/wyckoff-spring-scan")
+def api_wyckoff_spring_scan(max_age_days: int = 8, dv_floor: float = 2_000_000,
+                            mode: str = "spring"):
+    """Live scan for the WYCKOFF SPRING accumulation entry (2026-06-27 research): the
+    shakeout below TR support (sellers trapped, reclaimed) — the validated low-risk entry,
+    NOT the breakout (no edge, survivorship). w2_spring + RSI 35-45 + bull-T + non-VB:
+    med +1.06%/win 54%/6-6yr. Premium = gap=G3-V (+2.87/win61) / l5=PS-R2L. Schematic #2
+    (no-spring) does not validate. Enter@spring, stop below spring low. Candidates only."""
+    from wyckoff_spring_scan import wyckoff_spring_scan
+    try:
+        return _scan_cached(f"wyspring:{max_age_days}:{dv_floor}:{mode}",
+                            lambda: wyckoff_spring_scan(max_age_days=max_age_days, dv_floor=dv_floor, mode=mode))
+    except Exception as e:
+        log.exception("wyckoff-spring scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+@app.get("/api/p-parabola-scan")
+def api_p_parabola_scan(max_age_days: int = 4, dv_floor: float = 1_000_000, limit: int = 120):
+    """Live scan for the P PARABOLA RIDE trend-follow setup (2026-06 research):
+    any P-signal + a clean accumulation fingerprint (≥50% strong closes · non-VB ·
+    Z-absent · RSI rising · advanced) → ride with a 25% trailing stop. Validated 2024-26:
+    med≈0, mean +5-6%, win ~46-48%, edge in the tail. Signal-agnostic. Candidates only."""
+    from p_parabola_scan import p_parabola_scan
+    def _build():
+        d = p_parabola_scan(max_age_days=max_age_days, dv_floor=dv_floor, limit=limit)
+        # 🏆 RS enrich (validated 2026-07-15, paraf.py): RS-intact is the ONE axis that lifts the
+        # trend-ride Parabola — mean +1.41→+2.60, median −1.33→−0.10, win 47→50 (it's orthogonal:
+        # RS = relative strength, Parabola = absolute momentum; charged/energy is correlated → no
+        # lift). RS∧momentum-sector = mean +3.49, tail 2× (the SNDK profile). Filters the risk-off
+        # defensive-drift names Parabola otherwise floods on.
+        try:
+            import edge_replay as ER
+            grp, _ = ER._frame(60, 3_000_000)
+            for r in d.get("rows", []):
+                g = grp.get(r["ticker"])
+                if g is None:
+                    continue
+                # use the LIVE-ETF helper (not the frame's rs_intact column) — the etf parquet can
+                # lag the DB by a day, which NaNs the last frame bar and hides every badge.
+                sec_i, spy_i, has = _rs_flags(g, r["ticker"])
+                if sec_i:
+                    r.setdefault("atoms", []).append("💪sec-lead" if spy_i is False else "🏆RS")
+        except Exception:
+            log.debug("parabola RS enrich skipped", exc_info=True)
+        return d
+    try:
+        return _scan_cached(f"parab:{max_age_days}:{dv_floor}:{limit}", _build)
+    except Exception as e:
+        log.exception("p parabola scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
+def _bench(payload: dict, trades_key: str = "trades", date_key: str = "signal_date",
+           stats_key: str = "stats", rule: str = "stop15") -> dict:
+    """Attach the same-window RANDOM-BASKET baseline to a journal payload (2026-07-17).
+
+    Load-bearing: these journals exit on a 20-bar hold (+100% target hits ~0.2%, so the
+    target is decorative), and a 20-bar hold wins ~55-59% on ANY liquid stock in a bull
+    window. Read alone, their win% measures the market. Measured: the Atomic journal's
+    73.1%/+5.49% vs a random basket on its OWN dates = 57.9%/+2.62% (win +15.2pp but mean
+    only +0.59σ); the 🔥Capit→Atom replay's 58.9%/+2.83% vs random 55.5%/+2.60% = +0.32σ,
+    i.e. indistinguishable. Never surface the raw win% without this. Fails open — a missing
+    cache just omits the block."""
+    try:
+        import journal_bench as JB
+        rows = payload.get(trades_key) or []
+        dates = [str(r.get(date_key))[:10] for r in rows if r.get(date_key)]
+        JB.annotate(payload.get(stats_key) or payload, dates, rule=rule)
+    except Exception:
+        log.debug("journal bench skipped", exc_info=True)
+    return payload
 
 
 @app.get("/api/atomic-journal")
@@ -655,7 +1734,9 @@ def api_atomic_journal():
     """Separate paper-trading journal for the atomic weak-close gap-up edge."""
     from ai_journal.atomic_journal import summary
     try:
-        return summary()
+        d = summary()
+        # benchmark the CLOSED record against a random basket on the same signal dates
+        return _bench(d, trades_key="closed")
     except Exception as e:
         log.exception("atomic journal failed"); return {"open": [], "closed": [], "error": str(e)}
 
@@ -688,8 +1769,8 @@ def api_atomic_journal_replay(months: int = 6, universe: str = "", min_score: in
     Builds the track record retroactively."""
     from ai_journal.atomic_journal import replay
     try:
-        return replay(months=months, universe=(universe or None), min_score=min_score,
-                      capit_window=capit_window, limit=1_000_000)   # all trades → per-month detail
+        return _bench(replay(months=months, universe=(universe or None), min_score=min_score,
+                             capit_window=capit_window, limit=1_000_000))  # all trades → per-month
     except Exception as e:
         log.exception("atomic replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
@@ -708,10 +1789,13 @@ def api_capit_atom_journal_replay(months: int = 12, universe: str = "", min_scor
     same path-sim as the Capit journal, to filter the confluence entries by your own rules."""
     from ai_journal.atomic_journal import replay
     try:
-        return replay(months=months, universe=(universe or None), min_score=min_score,
-                      capit_window=capit_window, conf_only=True, manual=manual,
-                      entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
-                      hold=hold, entry_win=entry_win, limit=1_000_000)
+        d = replay(months=months, universe=(universe or None), min_score=min_score,
+                   capit_window=capit_window, conf_only=True, manual=manual,
+                   entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
+                   hold=hold, entry_win=entry_win, limit=1_000_000)
+        # only meaningful for the PRODUCTION rule — a manual entry/target/stop/hold is a
+        # different exit than the baseline replays, so the comparison would be apples/oranges
+        return d if manual else _bench(d)
     except Exception as e:
         log.exception("capit-atom replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
@@ -747,7 +1831,9 @@ def api_capit_journal():
     """Separate paper-trading journal for the capitulation-bounce edge."""
     from ai_journal.capit_journal import summary
     try:
-        return summary()
+        # 'cat35' — this journal holds through a -35% floor with NO tight stop, so its
+        # baseline must use that exit too (a -15%-stopped basket is a different strategy).
+        return _bench(summary(), trades_key="closed", rule="cat35")
     except Exception as e:
         log.exception("capit journal failed"); return {"open": [], "closed": [], "error": str(e)}
 
@@ -785,10 +1871,14 @@ def api_capit_journal_replay(months: int = 6, universe: str = "", min_score: int
     bars the limit stays live. Every trade also returns mfe/mae (up/down spike %)."""
     from ai_journal.capit_journal import replay
     try:
-        return replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe,
-                      entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
-                      hold=hold, entry_win=entry_win,
-                      limit=1_000_000)   # all trades → per-month detail
+        d = replay(months=months, universe=(universe or None), min_score=min_score, recipe=recipe,
+                   entry_pct=entry_pct, target_pct=target_pct, stop_pct=stop_pct,
+                   hold=hold, entry_win=entry_win,
+                   limit=1_000_000)   # all trades → per-month detail
+        # baseline only for the PRODUCTION exit — a hand-entered entry/target/stop/hold is a
+        # different strategy than the cat35 basket, so the comparison would mislead
+        manual = any((entry_pct, target_pct, stop_pct)) or hold != 20
+        return d if manual else _bench(d, rule="cat35")
     except Exception as e:
         log.exception("capit replay failed"); return {"trades": [], "stats": {}, "error": str(e)}
 
@@ -1518,6 +2608,52 @@ def _enrich_with_260523(results: list, universe: str, tf: str, nasdaq_batch: str
         results, universe, tf, nasdaq_batch,
         path_resolver=_tz_batch_stat_path,
     )
+
+
+# Wyckoff-faithful phase from the V2 state machine (wyckoff_v2_engine.w2_state):
+#   0 idle → 1 SC → 2 AR → 3 ST → 4 SPRING → 5 SOS/JAC → 6 LPS
+# Mapped to A/B/C/D per the classic accumulation schematic (A = stopping action).
+_WYK_STATE_PHASE = {1: "A", 2: "A", 3: "B", 4: "C", 5: "D", 6: "D"}
+_WYK_STATE_MARK  = {1: "SC", 2: "AR", 3: "ST", 4: "SPR", 5: "SOS", 6: "LPS"}
+
+
+def _enrich_wyckoff_phase(results: list, universe: str) -> list:
+    """OVERWRITE the RTB-column phase (`rtb_phase`) with the Wyckoff-faithful phase
+    from the V2 state machine, and add the event mark. The RTB column NAME and the
+    "RTB Phase" filter above the table are unchanged — both read `rtb_phase`, so the
+    filter now filters this Wyckoff logic automatically (per user, 2026-07-09):
+      A = SC/AR (state 1-2, stopping action)   B = ST (3)
+      C = SPRING (4 — the money phase)         D = SOS/LPS (5-6, markup/breakout)
+    Validated (path-sim trail25): C-Spring pays (2026 +8.2, +oversold +1.60),
+    D-SOS/breakout is WORST (med −1.77) — buy the shakeout, not the breakout.
+    The old RTB engine's phase was anti-predictive; this replaces its DISPLAY only."""
+    tickers = [r.get("ticker") for r in results if r.get("ticker")]
+    if not tickers:
+        return results
+    try:
+        from ai_journal.db import get_analytics_conn
+        a = get_analytics_conn()
+        try:
+            ph = ",".join("?" * len(tickers))
+            df = a.execute(f"""
+                SELECT ticker, w2_state FROM (
+                  SELECT ticker, coalesce(w2_state,0) w2_state,
+                         ROW_NUMBER() OVER (PARTITION BY ticker ORDER BY date DESC) rn
+                  FROM bars WHERE universe = ? AND ticker IN ({ph})
+                ) WHERE rn = 1
+            """, [universe, *tickers]).fetchdf()
+        finally:
+            a.close()
+        smap = {row["ticker"]: int(row["w2_state"]) for _, row in df.iterrows()}
+    except Exception as exc:
+        log.warning("wyckoff phase enrich error: %s", exc)
+        return results
+    for r in results:
+        st = smap.get(r.get("ticker"), 0)
+        r["w2_state"]  = st
+        r["rtb_phase"] = _WYK_STATE_PHASE.get(st, "")   # overwrite → column + filter use it
+        r["rtb_mark"]  = _WYK_STATE_MARK.get(st, "")
+    return results
 
 
 def _diagnose_260523_columns(results: list, requested: dict) -> list:
@@ -3251,6 +4387,432 @@ def compute_all_signals(df, ticker: str = "?", tf: str = "1d"):
     )
 
 
+@app.get("/api/brain/decisions")
+def api_brain_decisions(max_age: int = 0, drawdown: float = 0.0, losing_streak: int = 0,
+                        critique: bool = False):
+    """🧠 Decision brain: run the layer-2→5→8 spine over today's real edge fires and return
+    BUY plans with their full chain (regime→candidate→sizing→portfolio). Read-only.
+    critique=true also runs the LLM agents (regime-synth + adversarial critic on the allocated
+    set) — slower, needs ANTHROPIC_API_KEY; fail-open otherwise."""
+    try:
+        from brain.live import run_universe
+        return run_universe(max_age=max_age, drawdown=drawdown, losing_streak=losing_streak,
+                            critique=critique)
+    except Exception as e:
+        return {"error": str(e), "decisions": []}
+
+
+@app.get("/api/brain/regime")
+def api_brain_regime():
+    """🧠 Current market regime permission verdict (layer 2)."""
+    try:
+        from brain.regime import current_regime
+        return current_regime()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/learn")
+def api_brain_learn(apply: bool = False):
+    """🧠 Self-learning step: blend own closed-trade outcomes with historical priors, propose
+    (or apply) tier changes to the registry, and log lessons to the brain's own memory.
+    Dry-run by default; apply=true commits. Writes ONLY to brain/ files — nothing external."""
+    try:
+        from brain.learn import calibrate
+        return calibrate(apply=apply)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/revalidate")
+def api_brain_revalidate(apply: bool = False):
+    """🧠 Data-learning: re-path-sim every live edge on today's frame, compare recent years to
+    history, flag/demote decayed edges. Learns from the data itself (independent of own trades).
+    Dry-run by default; writes ONLY to brain/ files."""
+    try:
+        from brain.learn import revalidate
+        return revalidate(apply=apply)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/mine")
+def api_brain_mine(apply: bool = False):
+    """🧠 Self-discovery: search base×conditioner signal combinations, path-sim each, and promote
+    only those that survive the OOS gate (walk-forward + worst-year + DSR + family-PBO + lift).
+    HEAVY (~minutes, builds the frame + hundreds of path-sims). Dry-run by default; apply=true
+    writes survivors to brain/mined_combos.json + registry so the spine fires them."""
+    try:
+        from brain.miner import mine
+        return mine(apply=apply)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/discoveries")
+def api_brain_discoveries():
+    """🧠 What the brain has auto-discovered: promoted mined combos + realized per-signal outcomes
+    (which active signals actually paid on closed trades). Read-only."""
+    import json as _json, os as _os
+    try:
+        from brain import fingerprint
+        mc_path = _os.path.join(_os.path.dirname(__file__), "brain", "mined_combos.json")
+        mined = _json.load(open(mc_path)) if _os.path.exists(mc_path) else []
+        return {"mined": mined, "realized": fingerprint.combo_stats()}
+    except Exception as e:
+        return {"error": str(e), "mined": [], "realized": {}}
+
+
+@app.get("/api/brain/auto-take")
+def api_brain_auto_take(apply: bool = False, max_age: int = 1):
+    """🧠 Paper 'auto-click +take': open today's allocated BUYs into the paper book automatically.
+    NO real money / NO broker — writes ONLY brain/book.json. Idempotent (skips already-open).
+    apply=false previews; apply=true opens them. Feeds the autonomous paper-learning loop."""
+    try:
+        from brain.live import auto_take
+        return auto_take(max_age=max_age, apply=apply)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/auto-close")
+def api_brain_auto_close(apply: bool = False):
+    """🧠 Paper auto-EXIT: close open paper positions that hit the validated exit rule (structural
+    stop / 25% trailing / 60-bar). Writes ONLY brain/book.json (+ autopsy). apply=false previews."""
+    try:
+        from brain.live import auto_close
+        return auto_close(apply=apply)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/learning-log")
+def api_brain_learning_log():
+    """🧠 The brain's own growing memory — why it changed its mind over time."""
+    try:
+        from brain.learn import learning_log, outcome_stats
+        return {"log": learning_log(), "outcomes": outcome_stats()}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/map")
+def api_brain_map():
+    """🧠 The brain's self-portrait for the 🕸 Brain-Map tab: neurons (modules/agents/layers),
+    the decision wiring, knowledge counts, data freshness, and its live GAPS. Read-only."""
+    try:
+        from brain.introspect import brain_map
+        return brain_map()
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/requests")
+def api_brain_requests(status: str = ""):
+    """🧠 Self-directed data requests — questions the brain raised because it can't get the data
+    itself (real fill price, earnings/catalyst, outcome logging, config). ?status=open to filter."""
+    try:
+        from brain.requests import list_requests
+        return {"requests": list_requests(status or None)}
+    except Exception as e:
+        return {"error": str(e), "requests": []}
+
+
+@app.post("/api/brain/requests/answer")
+def api_brain_answer(body: dict = Body(...)):
+    """Answer one data request. Body: {id, answer}. The brain records it + applies where it can
+    (a fill price corrects the book; a catalyst flags the position). Writes only brain/ files."""
+    try:
+        from brain.requests import answer
+        return answer(body["id"], str(body["answer"]))
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/journal")
+def api_brain_journal():
+    """🧠 Live paper book: open positions + account state (L9)."""
+    try:
+        from brain import journal
+        return {"account": journal.account_state(), "positions": journal.open_positions()}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/brain/journal/open")
+def api_brain_open(pos: dict = Body(...)):
+    """Record a taken trade into the paper book (feeds the risk envelope)."""
+    try:
+        from brain import journal
+        return journal.open_position(pos)
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.post("/api/brain/journal/close")
+def api_brain_close(body: dict = Body(...)):
+    """Close a position at exit_price. Body: {ticker, exit_price, reason?}. Returns the closed
+    record WITH its autopsy (why it was a good buy or a failure) auto-attached."""
+    try:
+        from brain import journal
+        return journal.close_position(body["ticker"], float(body["exit_price"]), body.get("reason", ""))
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/brain/closed")
+def api_brain_closed():
+    """🧠 Closed trades (newest first), each with its deterministic autopsy: verdict, R-multiple,
+    attribution (edge behaved / edge-miss / regime-drag) and the lesson. Read-only."""
+    try:
+        from brain import journal
+        return {"closed": journal.closed_trades()}
+    except Exception as e:
+        return {"error": str(e), "closed": []}
+
+
+@app.get("/api/brain/postmortem")
+def api_brain_postmortem(ticker: str):
+    """🧠 LLM narrative post-mortem for one closed trade — the human 'why it worked / why it failed',
+    layered on the deterministic autopsy. Fail-open (no key -> returns the autopsy lesson)."""
+    try:
+        from brain import journal, agents, autopsy
+        tk = ticker.upper().strip()
+        trade = next((c for c in journal.closed_trades() if c.get("ticker") == tk), None)
+        if not trade:
+            return {"error": f"{tk} not in closed trades"}
+        analysis = trade.get("analysis") or autopsy.analyze(trade)
+        return {"ticker": tk, "analysis": analysis, "narrative": agents.postmortem(trade, analysis)}
+    except Exception as e:
+        return {"error": str(e)}
+
+
+@app.get("/api/anatomy-latest")
+def api_anatomy_latest():
+    """Whole-universe latest-bar Bottom-Anatomy verdict for the Ultra screener ▽△ column:
+    {ticker: {v:'rev'|'cont', s:score, rs:bool}}. Server-cached 1h (batch ~2s)."""
+    from bottom_anatomy import latest_anatomy_map
+    return latest_anatomy_map()
+
+
+@app.get("/api/day1h/{ticker}")
+def api_day1h(ticker: str, days: int = 45):
+    """1D←1H decomposition for the '1D←1H' Superchart tab. Each recent DAY is broken
+    into its 1H bars; every 1H bar carries its own TZ token + L-signal + WLNBB volume
+    CLASS (W/L/N/B/VB from a BB(20,1) on the 1H volume series — the Pine 260711 logic,
+    computed here since only the raw t_sig/z_sig/l_sig are stored). Read-only, additive."""
+    import duckdb
+    from collections import OrderedDict
+    from datetime import timedelta
+    from studio.db import tf_db_path
+    tk = ticker.upper().strip()
+    try:
+        con = duckdb.connect(tf_db_path("1h"), read_only=True)
+    except Exception as e:
+        return {"ticker": tk, "days": [], "error": f"1h db: {e}"}
+    try:
+        # A bare `ORDER BY date DESC LIMIT` scans+sorts the 24.5M-row table (~seconds).
+        # A date lower bound hits the (ticker,universe,date) index → instant. So first grab
+        # the ticker's own max date (index-served), then window back generously (BB-20 warmup
+        # + weekends/holidays), and read only that slice.
+        mx = con.execute("SELECT max(date) FROM bars WHERE ticker = ?", [tk]).fetchone()[0]
+        if mx is None:
+            return {"ticker": tk, "days": []}
+        cutoff = mx - timedelta(days=int(days) * 2 + 45)
+        df = con.execute(
+            """SELECT date, open, high, low, close, volume,
+                      coalesce(t_sig,'') t, coalesce(z_sig,'') z, coalesce(l_sig,'') l
+               FROM bars WHERE ticker = ? AND date >= ? ORDER BY date""",
+            [tk, cutoff],
+        ).fetchdf()
+    finally:
+        con.close()
+    if df is None or len(df) == 0:
+        return {"ticker": tk, "days": []}
+    df = df.reset_index(drop=True)                       # already ascending by date
+    vol = df["volume"].astype(float)
+    basis = vol.rolling(20, min_periods=20).mean()
+    sd = vol.rolling(20, min_periods=20).std(ddof=0)     # Pine ta.stdev = population
+    vup, vlow, vmid = (basis + sd).to_numpy(), (basis - sd).to_numpy(), basis.to_numpy()
+    voln = vol.to_numpy()
+
+    def _vclass(i):
+        b = vmid[i]
+        if b != b:                                       # NaN warmup → N (neutral)
+            return 2
+        v = voln[i]
+        if v < vlow[i]: return 0                         # W
+        if v < vmid[i]: return 1                         # L
+        if v < vup[i]:  return 2                         # N
+        if v < (vup[i] + vmid[i]): return 3              # B
+        return 4                                         # VB
+
+    ds = df["date"].astype(str)
+    dk = ds.str[:10]
+    o = df["open"].astype(float).to_numpy(); c = df["close"].astype(float).to_numpy()
+    hi = df["high"].astype(float).to_numpy(); lowv = df["low"].astype(float).to_numpy()
+    t = df["t"].to_numpy(); z = df["z"].to_numpy(); ll = df["l"].to_numpy()
+
+    # ── Bottom Anatomy Detector inputs (DEFINITION system, not a trade signal) ─────────
+    # A bottom is a NESTED-absorption structure, not a single signal — 3 axes that repeat
+    # fractally across TFs: LOCATION (held/tested floor, daily) · ABSORPTION (multi-TF Z
+    # density, 1H+15m) · INTERNAL REVERSAL (low made early + close upper-range + Z→T flip).
+    _ABSZ = ("Z1", "Z1G", "Z2", "Z2G", "Z5", "Z9", "Z10", "Z11")
+    _ABSZ_SQL = "(" + ",".join("'" + _z + "'" for _z in _ABSZ) + ")"
+    # LOCATION — daily held-floor + key-level (support tested ≥2×), from the daily DB.
+    dmap: dict = {}
+    try:
+        ac = duckdb.connect(tf_db_path("1d"), read_only=True)
+        ddf = ac.execute(
+            """SELECT date, open, high, low, close FROM bars
+               WHERE ticker=? AND close>=5 AND date >= ?
+               QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY
+                 CASE universe WHEN 'sp500' THEN 1 WHEN 'nasdaq' THEN 2
+                               WHEN 'russell2k' THEN 3 ELSE 4 END)=1
+               ORDER BY date""",
+            [tk, str(cutoff)[:10]],
+        ).fetchdf()
+        ac.close()
+        _dd = ddf["date"].astype(str).str[:10].to_numpy()
+        _dh = ddf["high"].to_numpy(float); _dl = ddf["low"].to_numpy(float)
+        _do = ddf["open"].to_numpy(float); _dc = ddf["close"].to_numpy(float)
+        # 💪 RS-intact = close/SPY above its own EMA200 (quality dip vs structural knife) —
+        # the discriminator that turns a structural bottom into a precise one (path-sim).
+        _rsf = [False] * len(_dd)
+        try:
+            ac2 = duckdb.connect(tf_db_path("1d"), read_only=True)
+            _spy = ac2.execute(
+                "SELECT substr(CAST(date AS VARCHAR),1,10) d, close FROM bars "
+                "WHERE ticker='SPY' AND date >= ? ORDER BY date", [str(cutoff)[:10]]).fetchdf()
+            ac2.close()
+            _spm = dict(zip(_spy["d"], _spy["close"].astype(float)))
+            _a = 2.0 / 201.0; _prev = None; _cnt = 0
+            for i in range(len(_dd)):
+                _s = _spm.get(_dd[i])
+                if _s and _s > 0:
+                    _rs = _dc[i] / _s
+                    _prev = _rs if _prev is None else _a * _rs + (1 - _a) * _prev
+                    _cnt += 1
+                    if _cnt >= 120 and _rs > _prev:
+                        _rsf[i] = True
+        except Exception:
+            pass
+        for i in range(len(ddf)):
+            if i < 25:
+                dmap[_dd[i]] = {"held": False, "key": False, "rs": bool(_rsf[i]),
+                                "up": bool(_dc[i] >= _do[i])}
+                continue
+            w_hi = float(_dh[i - 25:i].max()); w_lo = float(_dl[i - 25:i].min())
+            rng = (w_hi - w_lo) / w_lo if w_lo > 0 else 9.0
+            held = rng <= 0.35 and (_dl[i] - w_lo) / w_lo <= 0.06
+            key = sum(1 for x in _dl[i - 25:i] if x <= w_lo * 1.01) >= 2
+            pos = (_dc[i] - w_lo) / (w_hi - w_lo) if w_hi > w_lo else 0.5   # 0=low 1=high of 25b range
+            dmap[_dd[i]] = {"held": bool(held), "key": bool(key), "pos": float(pos),
+                            "rs": bool(_rsf[i]), "up": bool(_dc[i] >= _do[i])}
+    except Exception:
+        dmap = {}
+    # ABSORPTION (fine layer) — 15m Z-code count per day.
+    z15: dict = {}; t15hv: dict = {}
+    try:
+        mc = duckdb.connect(tf_db_path("15m"), read_only=True)
+        m15 = mc.execute(
+            f"""WITH r AS (SELECT substr(CAST(date AS VARCHAR),1,10) d, coalesce(t_sig,'') t,
+                  coalesce(z_sig,'') z, volume,
+                  row_number() OVER (PARTITION BY substr(CAST(date AS VARCHAR),1,10) ORDER BY date) rn,
+                  count(*) OVER (PARTITION BY substr(CAST(date AS VARCHAR),1,10)) m,
+                  avg(volume) OVER (ORDER BY date ROWS BETWEEN 20 PRECEDING AND CURRENT ROW) vm,
+                  stddev_pop(volume) OVER (ORDER BY date ROWS BETWEEN 20 PRECEDING AND CURRENT ROW) vs
+                FROM bars WHERE ticker=? AND date >= ?)
+              SELECT d, sum(CASE WHEN z IN {_ABSZ_SQL} THEN 1 ELSE 0 END) z15,
+                max(CASE WHEN rn>m-ceil(m/3.0) AND t LIKE 'T%' AND volume>vm+vs THEN 1 ELSE 0 END) t_close_hv
+              FROM r GROUP BY d""",
+            [tk, cutoff],
+        ).fetchdf()
+        mc.close()
+        for r in m15.itertuples():
+            z15[r.d] = r.z15
+            t15hv[r.d] = r.t_close_hv
+    except Exception:
+        z15 = {}; t15hv = {}
+
+    grouped = OrderedDict()
+    for i in range(len(df)):
+        grouped.setdefault(dk.iloc[i], []).append(i)
+    out = []
+    for day, idxs in grouped.items():
+        fi, li = idxs[0], idxs[-1]
+        hours = [{
+            "t": ds.iloc[i][11:16],
+            "tok": (t[i] or z[i] or "-"),
+            "kind": ("T" if t[i] else "Z" if z[i] else "-"),
+            "l": (ll[i] or ""),
+            "up": bool(c[i] >= o[i]),
+            "v": _vclass(i),
+        } for i in idxs]
+        day_hi = float(max(hi[i] for i in idxs)); day_lo = float(min(lowv[i] for i in idxs))
+        day_c = float(c[li])
+        # ── anatomy ──
+        m = len(idxs)
+        lows = [lowv[i] for i in idxs]
+        low_pos = lows.index(min(lows))
+        low_early = low_pos <= (m - 1) / 2.0
+        close_upper = (day_c - day_lo) / (day_hi - day_lo) >= 0.5 if day_hi > day_lo else False
+        third = max(1, m // 3)
+        z_first = any(z[i] in _ABSZ for i in idxs[:third])
+        t_last = any(str(t[i]).startswith("T") for i in idxs[-third:])
+        z1h = sum(1 for i in idxs if z[i] in _ABSZ)
+        t1h = sum(1 for i in idxs if str(t[i]).startswith("T"))
+        # late hi-vol T-reversal (last-third 1H bar is a T-code on B/VB volume) — the
+        # ONLY tell of a 🌀 shakeout/spring, since its daily bar closes weak (low-late).
+        _lt = idxs[-max(1, m // 3):]
+        # late hi-vol T-reversal on 1H OR 15m (AMD's spring fired on 15m, not 1H)
+        t_close_hv = any(str(t[j]).startswith("T") and _vclass(j) >= 3 for j in _lt) or bool(t15hv.get(day, 0))
+        down_day = day_c < o[fi]
+        close_weak = (day_c - day_lo) / (day_hi - day_lo) <= 0.40 if day_hi > day_lo else False
+        loc = dmap.get(day, {}); held = loc.get("held", False); key = loc.get("key", False)
+        pos = loc.get("pos", 0.5); z15n = z15.get(day, 0)
+        a_loc = int(held) + int(key)
+        a_abs = (1 if z1h >= 1 else 0) + (1 if z1h >= 3 else 0) + (1 if z15n >= 4 else 0)
+        a_rev = int(low_early) + int(close_upper) + int(z_first and t_last)
+        # REVERSAL bottom = at a genuine floor (tight-coil held, OR low-in-range with a real
+        # key/absorption) + intraday reversal. The low-in-range gate (pos<0.4) is what stops
+        # every green up-trend pullback from lighting up as a "bottom".
+        at_floor = held or (pos < 0.40 and (key or a_abs >= 2))
+        if at_floor and a_abs >= 1 and a_rev >= 2:
+            verdict = "rev"
+        elif at_floor and down_day and close_weak and t_close_hv:
+            verdict = "shake"  # 🌀 spring/terminal shakeout — weak close, late hi-vol T-reversal
+        elif pos >= 0.6 and loc.get("up", False) and close_upper and t1h >= z1h and not held:
+            verdict = "cont"   # markup continuation: upper-range, momentum, higher-low
+        else:
+            verdict = ""
+        out.append({
+            "date": day, "up": bool(c[li] >= o[fi]),
+            "o": round(float(o[fi]), 2), "h": round(day_hi, 2),
+            "l": round(day_lo, 2), "c": round(day_c, 2),
+            "vol": float(sum(voln[i] for i in idxs)),      # daily volume (for the histogram)
+            "hours": hours,
+            "anat": {"v": verdict, "s": a_loc + a_abs + a_rev,
+                     "loc": a_loc, "abs": a_abs, "rev": a_rev,
+                     "rs": bool(loc.get("rs", False))},
+        })
+    return {"ticker": tk, "days": out[-int(days):]}
+
+
+@app.get("/api/atr-forecast/{ticker}")
+def api_atr_forecast(ticker: str):
+    """ATR-based time-to-target forecast (2026-07-26): given a ticker's current ATR%, the
+    OOS-calibrated (TRAIN≈TEST) days & hit-rate to reach +10/+25% (targets) and −10/−20%
+    (stops). The real price↔time law is volatility-driven (cup/AM-GM/parabola shape = noise;
+    signal STATE only +4pp). For stop-distance / time-stop / expectation, NOT a buy signal."""
+    try:
+        from atr_forecast import forecast_ticker
+        return forecast_ticker(ticker)
+    except Exception as e:
+        log.exception("atr-forecast failed")
+        return {"error": str(e)}
+
+
 @app.get("/api/bar_signals/{ticker}")
 def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str = "sp500",
                     _df=None, _last_only=False):
@@ -3513,15 +5075,31 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     _TAIL = 12
     _loop_indices = (range(max(0, len(df) - _TAIL), len(df)) if (_last_only and len(df) > 0)
                      else range(len(df)))
+    # perf (2026-07-03): cache each read-frame's columns as numpy arrays ONCE.
+    # _b was `frame.iloc[i][col]` — every call rebuilt the whole row Series (pandas
+    # fast_xs, O(ncols)), and _b fires ~83×/bar across 11 frames → the entire cost of
+    # api_bar_signals (2.5M fast_xs calls, ~84% of runtime). Now O(1) numpy scalar reads.
+    _arr_cache: dict = {}
+
+    def _cols(frame):
+        key = id(frame)
+        cc = _arr_cache.get(key)
+        if cc is None:
+            cc = {} if (frame is None or getattr(frame, "empty", True)) \
+                else {c: frame[c].to_numpy() for c in frame.columns}
+            _arr_cache[key] = cc
+        return cc
+
     for i in _loop_indices:
         row = df.iloc[i]
         ts  = df.index[i]
         date_val = int(ts.timestamp()) if isIntraday else str(ts)[:10]
 
-        def _b(frame, col):
-            if frame is None or frame.empty or col not in frame.columns:
+        def _b(frame, col, _i=i):
+            cc = _cols(frame)
+            if not cc or col not in cc:
                 return False
-            return bool(frame.iloc[i][col])
+            return bool(cc[col][_i])
 
         # T/Z signal name
         tz = ""
@@ -4298,6 +5876,18 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             _ultra_score_history.append(_us_val)
             if len(_ultra_score_history) > 10:
                 _ultra_score_history.pop(0)
+            # ULTRA Score v3 (2026-07-18) per-bar for the SuperChart UV3 row. CORE only
+            # (oversold + price-zone + earners) — causal from this bar's rsi/close/signals.
+            # The 🏆RS/🎯cluster/🎋TLS bonuses are a LIVE snapshot (not knowable per historical
+            # bar), so they are omitted here; the live Ultra screener adds them.
+            try:
+                from ultra_score import compute_ultra_score_v3 as _cv3
+                _v3 = _cv3(result[-1])
+                result[-1]["ultra_score_v3"]      = _v3.get("ultra_score_v3", 0)
+                result[-1]["ultra_score_v3_band"] = _v3.get("ultra_score_v3_band", "")
+            except Exception:
+                result[-1].setdefault("ultra_score_v3", 0)
+                result[-1].setdefault("ultra_score_v3_band", "")
         except Exception:
             result[-1].setdefault("ultra_score", 0.0)
             result[-1].setdefault("ultra_score_band", "")
@@ -4313,6 +5903,366 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         except Exception:
             result[-1].setdefault("prebreak_v3", 0)
             result[-1].setdefault("prebreak_v3_reasons", "")
+
+    # ── ✦ FLY-fresh (validated 2026-07-19, flyfresh.py): the FIRST FLY after a ≥15-bar
+    # absence — blind-F1 +0.84%/PF1.13/+4.3σ/5-6yr, TRAIN +0.30 & TEST +1.37 both positive.
+    # NOTE the tested-and-rejected refinement: waiting for the SECOND appearance (after the
+    # first fizzles) drops the edge to +0.10% — the move runs between F1 and F2. Enter F1.
+    try:
+        _last_fly = -99
+        for _i, _b in enumerate(result):
+            _has = bool(_b.get("fly"))
+            if _has and (_i - _last_fly) > 15:
+                _b["fly_fresh"] = True
+            if _has:
+                _last_fly = _i
+    except Exception:
+        pass
+
+    # ── per-bar VSA L-line (l_sig: L1/L3/L5/L12/L25/L46/L34/L64…) ────────────────────────
+    # The Superchart L row only carried the WLNBB EVENT chips; the bar's own l_sig — present
+    # on EVERY bar and load-bearing for the user's pattern work — was missing (2026-07-19).
+    # 1d reads the analytics DB; intraday TFs read their studio DB (matched by epoch).
+    try:
+        import duckdb as _dk
+        if tf == "1d":
+            _ac = _dk.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                           "data", "studio_analytics.duckdb"), read_only=True)
+            _ldf = _ac.execute(
+                "SELECT strftime(CAST(date AS TIMESTAMP),'%Y-%m-%d') d, max(coalesce(l_sig,'')) l, "
+                "max(coalesce(z_sig,'')) zs, max(coalesce(t_sig,'')) ts, "
+                "max(coalesce(close_suffix,'')) sx, max(coalesce(bar_body_wick,'')) bw, "
+                "max(coalesce(bar_gap_range,'')) gr, max(coalesce(bar_line5,'')) q5, "
+                "max(coalesce(vol_bucket,'')) vb "
+                "FROM bars WHERE ticker = ? GROUP BY 1", [ticker.upper()]).fetchdf()
+            _ac.close()
+            _lmap = dict(zip(_ldf["d"], _ldf["l"]))
+            _ztmap = {d: (z, t) for d, z, t in zip(_ldf["d"], _ldf["zs"], _ldf["ts"])}
+            _lyrmap = {r_["d"]: (r_["sx"], r_["bw"], r_["gr"], r_["q5"], r_["vb"])
+                       for _, r_ in _ldf.iterrows()}
+            for _b in result:
+                _v = _lmap.get(str(_b.get("date"))[:10])
+                if _v:
+                    _b["l_sig"] = _v
+                _zt = _ztmap.get(str(_b.get("date"))[:10])
+                if _zt:
+                    _b["_zt"] = _zt
+                _ly = _lyrmap.get(str(_b.get("date"))[:10])
+                if _ly:
+                    _b["_ly"] = _ly
+        else:
+            from studio.paths import db_path as _ldbp
+            _sc = _dk.connect(_ldbp(f"studio_{tf}.duckdb"), read_only=True)
+            _ldf = _sc.execute(
+                "SELECT CAST(epoch(CAST(date AS TIMESTAMP)) AS BIGINT) d, max(coalesce(l_sig,'')) l "
+                "FROM bars WHERE ticker = ? GROUP BY 1", [ticker.upper()]).fetchdf()
+            _sc.close()
+            _lmap = dict(zip(_ldf["d"], _ldf["l"]))
+            for _b in result:
+                _dv = _b.get("date")
+                _v = _lmap.get(int(_dv)) if isinstance(_dv, (int, float)) else None
+                if _v:
+                    _b["l_sig"] = _v
+    except Exception:
+        log.debug("l_sig attach skipped", exc_info=True)
+
+    # ── L34 GRADE (2026-07-21, l34_grade.py): strength differentiation of L34 bars.
+    # Axes that SEPARATE (per-bar path-sim, monotone ladder 0→5: −0.48% → +3.46%):
+    #   red (close<open) · near 25-bar low (≤10%) · campaign (prior red-L34 ±5% in 20 bars)
+    #   · RSI<40. Volume class does NOT separate; high CLV slightly hurts (dropped).
+    # Grade shown only on RED L34 bars: 0-3 extra points over the red base.
+    if tf == "1d":
+        try:
+            _lows = [float(b.get("low") or 0) for b in result]
+            _clss = [float(b.get("close") or 0) for b in result]
+            _opns = [float(b.get("open") or 0) for b in result]
+            _rsis2 = [float(b.get("rsi") or 50) for b in result]
+            _isl = [str(b.get("l_sig") or "") == "L34" for b in result]
+            for _i, _b in enumerate(result):
+                if not _isl[_i] or _clss[_i] >= _opns[_i]:
+                    continue
+                _g = 0
+                _lo25 = min(_lows[max(0, _i - 25):_i] or [0])
+                if _lo25 > 0 and _clss[_i] / _lo25 - 1 <= 0.10:
+                    _g += 1
+                if _rsis2[_i] < 40:
+                    _g += 1
+                for _k in range(max(0, _i - 20), _i):
+                    if _isl[_k] and _clss[_k] < _opns[_k] and _clss[_k] > 0                        and abs(_clss[_i] / _clss[_k] - 1) <= 0.05:
+                        _g += 1
+                        break
+                _b["l34_grade"] = _g
+        except Exception:
+            log.debug("l34 grade skipped", exc_info=True)
+
+    # ── ✅ EDGE fires per bar (2026-07-20) — the validated Edge-board setups, computed by
+    # the SAME edge_replay masks that the backtest uses (backtest == display, no drift).
+    # 1d only: the setups are daily-defined. Codes per edge_replay.DISPLAY_SETUPS.
+    if tf == "1d":
+        try:
+            from edge_replay import ticker_edges
+            _emap = ticker_edges(ticker.upper())
+            for _b in result:
+                _e = _emap.get(str(_b.get("date"))[:10])
+                if _e:
+                    _b["edges"] = _e
+        except Exception:
+            log.debug("edge attach skipped", exc_info=True)
+        # ⛔ NO-VOLUME-EVENT flag (2026-07-26): the session's biggest 15m bar never reached 2.5× that
+        # session's own average. Validated across ALL 29 TZ/L signal codes — a day without a real
+        # intraday volume event drops EVERY signal's median by ~4-8pts (Z9 −8.0, T1 −7.1; only Z11
+        # resists). Rare (~3% of days) but severe, so it is worth flagging per bar.
+        try:
+            from edge_replay import _load_intraday_lines
+            _dry = _load_intraday_lines()[4]
+            _tku = ticker.upper()
+            for _b in result:
+                _b["no_vol_event"] = (f"{_tku}|{str(_b.get('date'))[:10]}" in _dry)
+        except Exception:
+            log.debug("vol-event flag skipped", exc_info=True)
+
+    # ── 🧬 SEQ fires per bar (2026-07-20): frozen-OOS 3/4-bar robust-sequence completions,
+    # same quality gate as the Ultra 🧬SEQ chip (OOS✓ · depth≥3 · win≥60 · ps_med>0).
+    if tf == "1d":
+        try:
+            from seq_scan import ticker_seq_hits
+            _sqm = ticker_seq_hits(ticker.upper())
+            for _b in result:
+                _s = _sqm.get(str(_b.get("date"))[:10])
+                if _s:
+                    _b["seq34"] = _s
+        except Exception:
+            log.debug("seq34 attach skipped", exc_info=True)
+
+    # ── CONF score per bar (2026-07-21): the all-vs-all confluence ranker — 812
+    # dual-gate-qualified signal pairs aggregated per bar (validated: monotone decile
+    # ladder D0 −3.07% → D9 +3.63%, both 5%-tails era-robust all 6 years).
+    if tf == "1d":
+        try:
+            from conf_score import compute as _confc, needed_raw_columns as _confcols
+            import duckdb as _dk
+            _raw = _confcols()
+            _rawsel = ", ".join(f'coalesce(CAST("{c2}" AS TINYINT),0) AS "{c2}"' for c2 in _raw)
+            _ac = _dk.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                           "data", "studio_analytics.duckdb"), read_only=True)
+            _cdf = _ac.execute(f"""WITH r AS (SELECT ticker, date, open, close, rsi_14, cci_20,
+                coalesce(t_sig,'') tt, coalesce(z_sig,'') zz, coalesce(l_sig,'') ll,
+                coalesce(bar_gap_class,'') gap, coalesce(vol_bucket,'') vb,
+                coalesce(wyc_phase,'') wp,
+                coalesce(setup_tokens,'') sut, coalesce(context_tokens,'') cxt, {_rawsel},
+                row_number() OVER (PARTITION BY ticker,date ORDER BY universe) rn
+                FROM bars WHERE ticker = ?)
+                SELECT * EXCLUDE rn FROM r WHERE rn = 1 ORDER BY date""",
+                [ticker.upper()]).fetchdf()
+            _ac.close()
+            if len(_cdf) >= 30:
+                _sc, _det, _ext, _extd = _confc(_cdf, with_ext=True)
+                _cmap = {}
+                for _i2, _d2 in enumerate(_cdf["date"]):
+                    _cmap[str(_d2)[:10]] = (float(_sc[_i2]), _det[_i2], float(_ext[_i2]), _extd[_i2])
+                for _b in result:
+                    _v = _cmap.get(str(_b.get("date"))[:10])
+                    if not _v:
+                        continue
+                    if _v[0] != 0:
+                        _b["conf"] = round(_v[0], 1)
+                        if _v[1]:
+                            _b["conf_top"] = _v[1]
+                    elif _v[2] != 0:
+                        # gray info-only tier (unvalidated sub-threshold cells) — shown
+                        # only where the validated core is silent
+                        _b["conf_ext"] = round(_v[2], 1)
+                        if _v[3]:
+                            _b["conf_ext_top"] = _v[3]
+        except Exception:
+            log.debug("conf attach skipped", exc_info=True)
+
+    # ── 🟢 REV-buy / 🔵 BRK-buy flags (validated 2026-07-18, zones.py) ───────────────────
+    # The actionable output of the two-zone study. Per-bar, causal (uses only this bar + past).
+    #   REV-buy  = bounce off oversold (min-5 RSI <38, RSI now 30-55, up bar) + LOW beta (≤13).
+    #             Reversal zone +0.62% base; beta-low bin +1.05%/win~50%/5-6yr (best robust rule;
+    #             HIGH momentum scores are the trap here — buy the beaten-down bounce, not the run).
+    #   BRK-buy  = RSI crosses 50 UP + up bar + LOW turbo (≤28). Breakout zone is weaker (+0.18%);
+    #             turbo-low bin +0.58%/5-6yr (again: high turbo = already extended = weak forward).
+    try:
+        _rsis = [float(b.get("rsi") or 0) for b in result]
+        _cls  = [float(b.get("close") or 0) for b in result]
+        for _i in range(len(result)):
+            _rev = _brk = False
+            if _i >= 1 and _cls[_i] > 0 and _cls[_i - 1] > 0:
+                _r, _rp = _rsis[_i], _rsis[_i - 1]
+                _min5 = min(_rsis[max(0, _i - 4):_i + 1])
+                _up = _cls[_i] > _cls[_i - 1]
+                _beta = float(result[_i].get("beta_score") or 0)
+                _turbo = float(result[_i].get("turbo_score") or 0)
+                if _min5 < 38 and 30 <= _r <= 55 and _up and _beta <= 13:
+                    _rev = True
+                if _rp < 50 <= _r and _up and _turbo <= 28:
+                    _brk = True
+            result[_i]["rev_buy"] = _rev
+            result[_i]["brk_buy"] = _brk
+    except Exception:
+        for _b in result:
+            _b.setdefault("rev_buy", False); _b.setdefault("brk_buy", False)
+
+    # ── ⏱️ MTF echo on the 🟢REV flag (validated 2026-07-19, conf_tf.py, n=328k/6yr) ─────
+    # A daily REV-buy whose oversold-turn ALSO printed on 4H or 1H (same day or D-1) is the
+    # real thing (+1.17%/win46 both-TF, +1.09 any, 6/6yr); one with NO intraday echo is a
+    # validated VETO (−1.07%/win39, 0/6yr). Daily view only; intraday DBs are nightly, so
+    # today's forming day may lack echo data — D-1 still covers it. Best-effort.
+    if tf == "1d":
+        try:
+            import duckdb as _dk
+            from studio.paths import db_path as _dbp
+            _rev_sets: list = []                 # per-TF REV-turn day sets: 4h, 1h, 15m
+            for _tfdb in ("4h", "1h", "15m"):
+                _s: set = set()
+                try:
+                    _c = _dk.connect(_dbp(f"studio_{_tfdb}.duckdb"), read_only=True)
+                    _idf = _c.execute(
+                        "SELECT date, close, rsi_14 FROM bars WHERE ticker = ? AND close >= 5 "
+                        "ORDER BY date", [ticker.upper()]).fetchdf()
+                    _c.close()
+                    if len(_idf) >= 6:
+                        _rs = _idf["rsi_14"].to_numpy(float); _cl = _idf["close"].to_numpy(float)
+                        _m5 = pd.Series(_rs).rolling(5, min_periods=2).min().shift(1).to_numpy()
+                        _up = np.concatenate([[False], _cl[1:] > _cl[:-1]])
+                        _ri = np.concatenate([[False], _rs[1:] > _rs[:-1]])
+                        _mm = (_m5 < 38) & (_rs >= 30) & (_rs <= 55) & _up & _ri
+                        _mm[np.isnan(_m5) | np.isnan(_rs)] = False
+                        _s = {str(x)[:10] for x in _idf["date"][_mm]}
+                except Exception:
+                    pass
+                _rev_sets.append(_s)
+            _rev_days = _rev_sets[0] | _rev_sets[1]      # echo on the 🟢REV flag: 4h/1h (validated def)
+            for _i, _b in enumerate(result):
+                _d0 = str(_b.get("date"))[:10]
+                _d1 = str(result[_i - 1].get("date"))[:10] if _i > 0 else ""
+                # ⏱ intraday-leads marker (validated 2026-07-19, lead4h.py): a 4H REV-trigger
+                # fired DURING this daily bar — the early intraday entry existed. Entering on
+                # the 4H trigger instead of the daily close: +0.84pp mean, 6/6yr (n=244k).
+                if _d0 in _rev_sets[0]:
+                    _b["h4_rev_today"] = True
+                if _d0 in _rev_sets[1]:
+                    _b["h1_rev_today"] = True
+                if _b.get("rev_buy") and _rev_days:
+                    _b["mtf_echo"] = (_d0 in _rev_days) or (_d1 in _rev_days)
+                # ①②③ turn-echo (2026-07-19, turn_echo.py): on ANY loose daily up-turn
+                # (close up + RSI rising + RSI<55 — no depth requirement, the AMD-type case),
+                # how many intraday TFs printed the strict REV-turn on D or D-1.
+                try:
+                    _rsi_now = float(_b.get("rsi") or 0)
+                    _rsi_prev = float(result[_i - 1].get("rsi") or 0) if _i > 0 else 0
+                    _cl_now = float(_b.get("close") or 0)
+                    _cl_prev = float(result[_i - 1].get("close") or 0) if _i > 0 else 0
+                    if _i > 0 and _cl_now > _cl_prev and _rsi_now > _rsi_prev and _rsi_now < 55:
+                        _n = sum(1 for _s in _rev_sets if (_d0 in _s) or (_d1 in _s))
+                        if _n > 0:
+                            _b["turn_echo_n"] = _n
+                except Exception:
+                    pass
+        except Exception:
+            log.debug("mtf echo annotate skipped", exc_info=True)
+
+        # ── 0-3 MTF SCORE confirmation (validated 2026-07-19, score_conf3.py, n=452k/6yr) ──
+        # On a bar where the DAILY buy_score>=60 ("1D score is good"), count how many intraday
+        # TFs (4h/1h/15m) ALSO printed buy_score>=60 on D or D-1. Monotone ladder:
+        #   0/3 → −2.10%/med−10.2/win36/0-6yr = HARD SKIP · ≥1 → +1.3…+1.6, 5-6/6yr.
+        # 15m adds nothing on the positive side but rescues false vetoes + sharpens the 0-veto.
+        # 4h/1h read the stored prebreak_v2; 15m computes it on the fly (column empty there).
+        try:
+            import duckdb as _dk
+            from studio.paths import db_path as _idbp
+            from prebreak_v2 import prebreak_v2_score_sql as _pv2sql
+            _BS = ("LEAST(GREATEST((1.5*LEAST(GREATEST(COALESCE({v2},0),0),27)"
+                   " + 12*(CASE WHEN upper(COALESCE(vol_bucket,''))='B' THEN 1 ELSE 0 END)"
+                   " + 0.9*GREATEST(0, 55-COALESCE(rsi_14,50)))*1.3, 0), 100)")
+            def _veto(v2col):
+                _b = _BS.format(v2=v2col)
+                return (f"CASE WHEN rsi_14>=60 THEN LEAST({_b},20) "
+                        f"WHEN rsi_14<28 THEN LEAST({_b},60) ELSE {_b} END")
+            _conf_sets = []
+            for _tfdb, _v2c in (("4h", "prebreak_v2"), ("1h", "prebreak_v2"),
+                                ("15m", f"({_pv2sql()})")):
+                try:
+                    _c = _dk.connect(_idbp(f"studio_{_tfdb}.duckdb"), read_only=True)
+                    _df = _c.execute(
+                        f"SELECT DISTINCT strftime(CAST(date AS TIMESTAMP),'%Y-%m-%d') d "
+                        f"FROM bars WHERE ticker = ? AND close >= 5 AND ({_veto(_v2c)}) >= 60",
+                        [ticker.upper()]).fetchdf()
+                    _c.close()
+                    _conf_sets.append(set(_df["d"]))
+                except Exception:
+                    _conf_sets.append(set())
+            # daily buy_score per day (stored historically since 2026-07-18)
+            _ac = _dk.connect(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                                           "data", "studio_analytics.duckdb"), read_only=True)
+            _bs_df = _ac.execute(
+                "SELECT strftime(CAST(date AS TIMESTAMP),'%Y-%m-%d') d, max(buy_score) b "
+                "FROM bars WHERE ticker = ? GROUP BY 1", [ticker.upper()]).fetchdf()
+            _ac.close()
+            _bsmap = dict(zip(_bs_df["d"], _bs_df["b"]))
+            for _i, _b in enumerate(result):
+                _d0 = str(_b.get("date"))[:10]
+                _bsv = _bsmap.get(_d0)
+                if _bsv is not None and _bsv == _bsv:   # NaN-guard: fresh rows have
+                    _b["buy_score"] = float(_bsv)        # NULL buy_score until the nightly
+                                                          # score backfill (JSON rejects NaN)
+                if _bsv is None or _bsv < 60:
+                    continue
+                _d1 = str(result[_i - 1].get("date"))[:10] if _i > 0 else ""
+                _b["mtf_score_conf"] = sum(
+                    1 for _s in _conf_sets if (_d0 in _s) or (_d1 in _s))
+        except Exception:
+            log.debug("mtf score-conf annotate skipped", exc_info=True)
+
+        # ── ⤴/⤵ preceding-sequence context on BUY signals (2026-07-20 redesign) ────────
+        # Per fire bar: its PRECEDING 2-4 bars' tokens (coarse T/Z + fine T/Z+L) looked up
+        # in the era-consistent conditioner table (buyseq_context.json). Strongest |lift|.
+        try:
+            from buyseq_context import make_tokens as _mkt, lookup as _ctxlk, lookup_ensemble as _ctxens
+            _cts, _fts = [], []
+            _lys = {k: [] for k in ("sx", "bw", "gr", "q5", "vb")}
+            for _b in result:
+                _zt = _b.get("_zt") or ("", "")
+                _c, _f = _mkt(str(_zt[0]), str(_zt[1]), str(_b.get("l_sig") or ""))
+                _cts.append(_c); _fts.append(_f)
+                _ly = _b.get("_ly") or ("", "", "", "", "")
+                for _k, _v in zip(("sx", "bw", "gr", "q5", "vb"), _ly):
+                    _lys[_k].append(str(_v))
+            for _i, _b in enumerate(result):
+                if _i < 1:
+                    continue
+                _sigs = []
+                if _b.get("rev_buy"): _sigs.append("rev")
+                if _b.get("brk_buy"): _sigs.append("brk")
+                if _b.get("h4_rev_today"): _sigs.append("h4")
+                if str(_b.get("l_sig") or "") == "L34" and float(_b.get("close") or 0) < float(_b.get("open") or 0):
+                    _sigs.append("lh")
+                if _b.get("edges"): _sigs.append("ea")
+                if _b.get("fly"): _sigs.append("fly")
+                if _b.get("fly_fresh"): _sigs.append("flyf")
+                if _b.get("mtf_score_conf") is not None: _sigs.append("score")
+                if _b.get("turn_echo_n"): _sigs.append("turn")
+                if _b.get("h1_rev_today"): _sigs.append("h1")
+                _sigs.append("anyb")   # per-bar mini-forecast: every bar gets a look
+                _lo = max(0, _i - 3)
+                # sequence ends ON this bar (2026-07-20e user fix)
+                _layers = {"c": _cts[_lo:_i + 1], "f": _fts[_lo:_i + 1]}
+                for _k in ("sx", "bw", "gr", "q5", "vb"):
+                    _layers[_k] = _lys[_k][_lo:_i + 1]
+                _hit = _ctxlk(_layers, _sigs)
+                if _hit:
+                    _b["seq_ctx"] = _hit
+                # ENS row (separate, does not touch the SEQ winner chip): consensus
+                # across ALL layers' verdicts — "how many independent languages agree".
+                _ens = _ctxens(_layers, _sigs)
+                if _ens:
+                    _b["seq_ens"] = _ens
+            for _b in result:
+                _b.pop("_zt", None); _b.pop("_ly", None)
+        except Exception:
+            log.debug("seq_ctx annotate skipped", exc_info=True)
 
     return result
 
@@ -6063,6 +8013,76 @@ def api_ultra_scan_status():
     return get_ultra_status()
 
 
+def _attach_ultra_v3(results: list) -> list:
+    """Fill ultra_score_v3 on rows that lack it (cached results persisted before the v3
+    ranker shipped, 2026-07-18). Injects the 🏆RS/🎯cluster/🎋TLS axes from the cached edge
+    frame and computes the reweighted score. Cheap (dict lookup + arithmetic); best-effort."""
+    try:
+        from ultra_orchestrator import _v3_axes_map
+        from ultra_score import compute_ultra_score_v3
+        axmap = _v3_axes_map()
+        for r in results:
+            if r.get("ultra_score_v3") not in (None, ""):
+                continue
+            tk = r.get("ticker")
+            if tk and "rs_intact" not in r:
+                ax = axmap.get(tk)
+                if ax:
+                    r["rs_intact"], r["conf_n"], r["tls_bar"] = ax
+            v3 = compute_ultra_score_v3(r)
+            r["ultra_score_v3"]         = v3["ultra_score_v3"]
+            r["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
+            r["ultra_score_v3_reasons"] = v3["ultra_score_v3_reasons"]
+    except Exception:
+        log.debug("ultra v3 serve-attach skipped", exc_info=True)
+    return results
+
+
+def _enrich_edges(results: list, tf: str = "1d") -> list:
+    """Attach TODAY's validated Edge-board fires to each Ultra row (2026-07-26) — the SAME
+    edge_replay masks the backtest + Superchart + CSV use (backtest == display, no drift).
+    Fills the Ultra EDGE column + the 'edge'/'edgerev' buy filters, which were unwired until
+    now. 1d only (edges are daily-defined). One warm-frame pass via latest_edges_map (cheap);
+    a cold frame → {} so the scan never blocks. New edges flow in automatically via DISPLAY_SETUPS."""
+    if tf != "1d":
+        return results
+    try:
+        from edge_replay import latest_edges_map, latest_atr_map
+        emap = latest_edges_map(lookback=2, build=False)   # {ticker: [(code, age_bars)]}
+        amap = latest_atr_map()                            # {ticker: atr_pct} for the time-to-target forecast
+        _REV = ("QZC", "D+L1", "RTB", "P55")               # location-reversal edges (per EDGE🟢 combo)
+        for r in results:
+            tk = (r.get("ticker") or "").upper()
+            fires = emap.get(tk) or []
+            codes = [c for (c, age) in fires if age <= 1]   # fired today (as_of) / prior close
+            if codes:
+                r["edges"]   = codes
+                r["edge_n"]  = len(codes)
+                if r.get("rev_buy") and any(c in _REV for c in codes):
+                    r["edge_rev"] = True
+            ap = amap.get(tk)
+            if ap:
+                r["atr_pct"] = ap                           # ATR14/close → client-side time-to-target forecast
+        # ⛔ no-volume-event flag on the LATEST bar (see api_bar_signals for the validation).
+        # Warm-frame only: a cold frame would mean a multi-minute build inside a scan request.
+        try:
+            import edge_replay as _ER
+            if (60, 3_000_000) in _ER._CACHE:
+                _dry = _ER._load_intraday_lines()[4]
+                grp, _as_of = _ER._frame(60, 3_000_000)
+                for r in results:
+                    tk = (r.get("ticker") or "").upper()
+                    g = grp.get(tk)
+                    if g is not None and len(g):
+                        d = str(g["date"].iloc[-1])[:10]
+                        r["no_vol_event"] = (f"{tk}|{d}" in _dry)
+        except Exception:
+            log.debug("ultra vol-event flag skipped", exc_info=True)
+    except Exception:
+        log.debug("ultra edge serve-attach skipped", exc_info=True)
+    return results
+
+
 @app.get("/api/ultra-scan/results")
 def api_ultra_scan_results(
     universe:     str = Query("sp500"),
@@ -6105,6 +8125,7 @@ def api_ultra_scan_results(
         results = resp.get("results") or []
         if results:
             results = _enrich_with_260523(results, universe, tf, nasdaq_batch)
+            results = _enrich_wyckoff_phase(results, universe)
             warnings_260523 = _diagnose_260523_columns(
                 results,
                 requested={
@@ -6143,6 +8164,8 @@ def api_ultra_scan_results(
             results = _enrich_t9rsi35(results, universe, lookback_n=atomic_lookback)
             results = _enrich_z1gt2g(results, universe, lookback_n=atomic_lookback)
             results = _enrich_vol3rise(results, universe, lookback_n=atomic_lookback)
+            _attach_ultra_v3(results)   # reweighted ranker — fill on serve for pre-change caches
+            _enrich_edges(results, tf)  # attach TODAY's Edge-board fires → EDGE column + edge filters
             resp["results"] = results
             if warnings_260523:
                 existing = list(resp.get("warnings") or [])
@@ -6204,10 +8227,25 @@ _seq_state_lock = _SeqLock()
 
 
 def _seq_cache_key(universe: str, tf: str, seq_len: int, mode: str,
-                   min_count: int, nasdaq_batch: str = "") -> str:
+                   min_count: int, nasdaq_batch: str = "",
+                   years: str = "", months: str = "",
+                   rsi_min: str = "", rsi_max: str = "", l_sig: str = "",
+                   price_min: str = "", price_max: str = "", robust: str = "") -> str:
     parts = [universe, tf, str(seq_len), mode, str(min_count)]
     if nasdaq_batch:
         parts.append(nasdaq_batch)
+    if years:
+        parts.append("y" + ",".join(sorted(y for y in years.split(",") if y.strip())))
+    if months:
+        parts.append("m" + ",".join(sorted(m for m in months.split(",") if m.strip())))
+    if rsi_min or rsi_max:
+        parts.append(f"r{rsi_min}-{rsi_max}")
+    if l_sig:
+        parts.append("L" + ",".join(sorted(x.strip().upper() for x in l_sig.split(",") if x.strip())))
+    if price_min or price_max:
+        parts.append(f"p{price_min}-{price_max}")
+    if robust:
+        parts.append("ROB")
     return "|".join(parts)
 
 
@@ -6229,7 +8267,9 @@ def _seq_store_completed(cache_key: str, payload: dict) -> None:
 
 def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
                           seq_len: int, mode: str, min_count: int,
-                          nasdaq_batch: str) -> None:
+                          nasdaq_batch: str, years: str = "", months: str = "",
+                          rsi_min: str = "", rsi_max: str = "", l_sig: str = "",
+                          price_min: str = "", price_max: str = "", robust: bool = False) -> None:
     """Background worker. Updates the live ``_seq_state`` for progress polls,
     and on completion stores the result in ``_seq_results[cache_key]`` so
     /status and /results can return it after the worker exits."""
@@ -6259,6 +8299,14 @@ def _run_sequence_scan_bg(cache_key: str, universe: str, tf: str,
             universe=universe, tf=tf, seq_len=seq_len, mode=mode,
             min_count=min_count, nasdaq_batch=nasdaq_batch,
             progress_cb=_on_progress,
+            years=[int(y) for y in years.split(",") if y.strip()] if years else None,
+            months=[int(m) for m in months.split(",") if m.strip()] if months else None,
+            rsi_min=float(rsi_min) if rsi_min else None,
+            rsi_max=float(rsi_max) if rsi_max else None,
+            l_sigs=[x for x in l_sig.split(",") if x.strip()] if l_sig else None,
+            price_min=float(price_min) if price_min else None,
+            price_max=float(price_max) if price_max else None,
+            robust=robust,
         )
     except Exception as exc:
         log.exception("sequence-scan worker crashed")
@@ -6309,18 +8357,30 @@ def api_sequence_scan_trigger(
     min_count:    int = Query(10, ge=1),
     mode:         str = Query("type"),
     nasdaq_batch: str = Query(""),
+    years:        str = Query(""),
+    months:       str = Query(""),
+    rsi_min:      str = Query(""),
+    rsi_max:      str = Query(""),
+    l_sig:        str = Query(""),
+    price_min:    str = Query(""),
+    price_max:    str = Query(""),
+    robust:       bool = Query(False),
 ):
-    """Start a universe-wide sequence scan over the existing TZ/WLNBB
-    stock_stat / bulk Stock Stat CSV. Returns immediately; poll
-    /api/sequence-scan/status for progress."""
-    if mode not in ("type", "full"):
-        raise HTTPException(400, "mode must be 'type' or 'full'")
+    """Start a universe-wide sequence scan. Reads the DuckDB `bars` base
+    directly (any universe incl. all_us, any TF, optional year/month filter);
+    falls back to the legacy Stock Stat CSV only for the plain no-filter case.
+    Returns immediately; poll /api/sequence-scan/status for progress."""
+    if mode not in ("type", "full", "full_l"):
+        raise HTTPException(400, "mode must be 'type', 'full', or 'full_l'")
     if _seq_state.get("running"):
         raise HTTPException(409, "Another sequence scan is already running")
-    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
+    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch,
+                               years, months, rsi_min, rsi_max, l_sig, price_min, price_max,
+                               "1" if robust else "")
     background_tasks.add_task(
         _run_sequence_scan_bg, cache_key, universe, tf, seq_len, mode,
-        min_count, nasdaq_batch,
+        min_count, nasdaq_batch, years, months, rsi_min, rsi_max, l_sig, price_min, price_max,
+        robust,
     )
     return {"status": "started", "cache_key": cache_key}
 
@@ -6333,10 +8393,20 @@ def api_sequence_scan_status(
     min_count:    int = Query(10),
     mode:         str = Query("type"),
     nasdaq_batch: str = Query(""),
+    years:        str = Query(""),
+    months:       str = Query(""),
+    rsi_min:      str = Query(""),
+    rsi_max:      str = Query(""),
+    l_sig:        str = Query(""),
+    price_min:    str = Query(""),
+    price_max:    str = Query(""),
+    robust:       bool = Query(False),
 ):
     """Live in-memory progress while a scan with this cache_key is running;
     cached completed-run state otherwise."""
-    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
+    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch,
+                               years, months, rsi_min, rsi_max, l_sig, price_min, price_max,
+                               "1" if robust else "")
     with _seq_state_lock:
         live      = dict(_seq_state) if _seq_state.get("cache_key") == cache_key else None
         completed = dict(_seq_results.get(cache_key) or {}) or None
@@ -6380,9 +8450,19 @@ def api_sequence_scan_results(
     nasdaq_batch: str = Query(""),
     limit:        int = Query(50, ge=1, le=10000),
     sort_by:      str = Query("score"),    # score|win_rate|count|ticker_count
+    years:        str = Query(""),
+    months:       str = Query(""),
+    rsi_min:      str = Query(""),
+    rsi_max:      str = Query(""),
+    l_sig:        str = Query(""),
+    price_min:    str = Query(""),
+    price_max:    str = Query(""),
+    robust:       bool = Query(False),
 ):
     """Return cached top sequences for the given params."""
-    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch)
+    cache_key = _seq_cache_key(universe, tf, seq_len, mode, min_count, nasdaq_batch,
+                               years, months, rsi_min, rsi_max, l_sig, price_min, price_max,
+                               "1" if robust else "")
     with _seq_state_lock:
         completed = dict(_seq_results.get(cache_key) or {})
     if not completed:
@@ -6403,7 +8483,14 @@ def api_sequence_scan_results(
         "avg_ret_3d":   lambda x: (-(x.get("avg_ret_3d")   or 0), -(x.get("count") or 0)),
         "avg_ret_5d":   lambda x: (-(x.get("avg_ret_5d")   or 0), -(x.get("count") or 0)),
         "avg_ret_9d":   lambda x: (-(x.get("avg_ret_9d")   or 0), -(x.get("count") or 0)),
+        # 2022-aware cross-period stability: robust rows first (by robust_score),
+        # then the bear-survivors, then n. Non-robust rows sink.
+        "robust":       lambda x: (not x.get("is_robust"), -(x.get("robust_score") or 0),
+                                   not x.get("bear_ok"), -(x.get("count") or 0)),
     }
+    # when sorting by robustness, drop rows that failed the verdict entirely
+    if sort_by == "robust":
+        results = [x for x in results if x.get("is_robust")]
     results.sort(key=sort_keys.get(sort_by, sort_keys["score"]))
 
     return {

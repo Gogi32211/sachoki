@@ -1,0 +1,195 @@
+// ══════════════════════════════════════════════════════════════════════
+//  260627_CTX_OSC — CTX Sequence Scanner (oscillator) — RECOMPUTED
+//  Same patterns as 260509_CTX_OSC, but every WR% / CTX-median is RE-COMPUTED
+//  on studio_analytics.duckdb (2019-2026, deduped, fwd_10d). The original
+//  260509 table was massively inflated: e.g. TZZT+T3 said 90% → real 47.6%.
+//  RECOMPUTED REALITY:  every 4-bar/5-bar WR ≈ 47-49% (= base rate, NO edge).
+//  CTX 4-bar SEQUENCES + RSI<45 gate (entry oversold) lift sharply: top
+//  Z1G·Z2G·T4→Z3 = +7.2%/win74, Z3·T4·Z9→T = +6.8%/win81. RSI does the work,
+//  WR = % fwd_10d>0 ; CTX = median fwd_10d% . Cells with n<30 dropped.
+// ══════════════════════════════════════════════════════════════════════
+//@version=5
+indicator("260627_CTX_OSC", shorttitle="260627_CTX_OSC", overlay=false, max_labels_count=500)
+
+// ─── Parameters ───────────────────────────────────────────────────────
+grp1 = "4-bar"
+show4  = input.bool(true,  "Show 4-bar",     group=grp1)
+min4   = input.float(49.0, "Min WR %",       group=grp1, minval=40, maxval=95, step=0.5)
+col4b  = input.color(color.new(#1B6B2F,10),  "Bull color", group=grp1)
+col4z  = input.color(color.new(#8B1A1A,10),  "Bear color", group=grp1)
+
+grp2 = "5-bar"
+show5  = input.bool(true,  "Show 5-bar",     group=grp2)
+min5   = input.float(49.0, "Min WR %",       group=grp2, minval=40, maxval=95, step=0.5)
+col5b  = input.color(color.new(#1A4BAA,10),  "Bull color", group=grp2)
+col5z  = input.color(color.new(#7B1A8B,10),  "Bear color", group=grp2)
+
+grp4 = "Context Layer (CTX)"
+show_ctx    = input.bool(true,  "Show ★ CTX confirmation", group=grp4)
+col_strong  = input.color(color.new(#E07B00,5), "★ Strong color", group=grp4)
+min_ctx_med = input.float(3.0,  "CTX min med return (10D%)", group=grp4, minval=0, maxval=15, step=0.5)
+ctx_rsi_max = input.float(45.0, "CTX RSI14 max (entry oversold)", group=grp4, minval=20, maxval=70, step=1)
+
+grp3 = "Display"
+show_wr  = input.bool(true,  "Show WR %",       group=grp3)
+show_sig = input.bool(true,  "Show last signal", group=grp3)
+show_med = input.bool(true,  "Show CTX med 10D", group=grp3)
+showLanes = input.bool(true, "Show lanes",       group=grp3)
+lsz_in   = input.string("small", "Size",         group=grp3, options=["tiny","small","normal","large"])
+lsz = lsz_in=="tiny"?size.tiny:lsz_in=="small"?size.small:lsz_in=="normal"?size.normal:size.large
+
+grpE         = "Engulfing"
+useWick      = input.bool(false, "Use Wick (vs Body)", group=grpE)
+minBodyRatio = input.float(1.0,  "Min body ratio",     group=grpE, minval=0.5, step=0.05)
+
+// ─── Lanes ────────────────────────────────────────────────────────────
+bullLane = 1.0
+bearLane = 3.0
+hline(0.0, "Bot", color=color.new(color.gray, 95))
+hline(4.0, "Top", color=color.new(color.gray, 95))
+plot(showLanes ? bullLane : na, "Bull", color=color.new(color.green, 80), linewidth=1)
+plot(showLanes ? bearLane : na, "Bear", color=color.new(color.red,   80), linewidth=1)
+plot(showLanes ? 2.0      : na, "Mid",  color=color.new(color.gray,  80), linewidth=1)
+
+// ─── 260507 exact T/Z logic — flat variables ─────────────────────────
+isDoji = close == open
+isBull = close > open
+isBear = close < open
+prev1IsBull = close[1] > open[1]
+prev1IsBear = close[1] < open[1] or isDoji[1]
+
+prevTop  = math.max(open[1], close[1])
+prevBot  = math.min(open[1], close[1])
+currTop  = math.max(open, close)
+currBot  = math.min(open, close)
+
+eHigh = useWick ? high   : currTop
+eLow  = useWick ? low    : currBot
+ePH   = useWick ? high[1]: prevTop
+ePL   = useWick ? low[1] : prevBot
+
+prevBodySafe = math.max(math.abs(close[1] - open[1]), syminfo.mintick)
+bodyRatioOk  = (math.abs(close - open) / prevBodySafe) >= minBodyRatio
+fullyEngulfs = eHigh >= ePH and ePL >= eLow and bodyRatioOk
+isInside     = currTop <= prevTop and currBot >= prevBot
+
+T1G_raw = prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull
+T1_raw  = prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+T2G_raw = prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull
+T2_raw  = prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull
+T3_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+T4_raw  = prev1IsBear and isBull and fullyEngulfs
+T5_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+T6_raw  = prev1IsBull and isBull and fullyEngulfs
+T9_raw  = prev1IsBear and isBull and isInside
+T10_raw = prev1IsBull and isBull and isInside
+T12_raw = prev1IsBull and isBull and (open < open[1]) and (close < open[1])
+T11_raw = prev1IsBull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+
+Z1G_raw = prev1IsBull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear
+Z1_raw  = prev1IsBull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear
+Z2G_raw = prev1IsBear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear
+Z2_raw  = prev1IsBear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear
+Z3_raw  = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+Z4_raw  = prev1IsBull and isBear and fullyEngulfs
+Z5_raw  = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+Z6_raw  = prev1IsBear and isBear and fullyEngulfs
+Z9_raw  = prev1IsBull and isBear and isInside
+Z10_raw = prev1IsBear and isBear and isInside
+Z11_raw = prev1IsBear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+
+bullCode = T4_raw?1:T6_raw?2:T1G_raw?3:T2G_raw?4:T1_raw?5:T2_raw?6:T9_raw?7:T10_raw?8:T3_raw?9:T11_raw?10:T5_raw?11:T12_raw?12:0
+bearCode = Z4_raw?1:Z6_raw?2:Z1G_raw?3:Z2G_raw?4:Z1_raw?5:Z2_raw?6:Z9_raw?7:Z10_raw?8:Z3_raw?9:Z11_raw?10:Z5_raw?11:0
+
+T4  = bullCode == 1
+T6  = bullCode == 2
+T1G = bullCode == 3
+T2G = bullCode == 4
+T1  = bullCode == 5
+T2  = bullCode == 6
+T9  = bullCode == 7
+T10 = bullCode == 8
+T3  = bullCode == 9
+T11 = bullCode == 10
+T5  = bullCode == 11
+T12 = bullCode == 12
+
+Z4  = bearCode == 1
+Z6  = bearCode == 2
+Z1G = bearCode == 3
+Z2G = bearCode == 4
+Z1  = bearCode == 5
+Z2  = bearCode == 6
+Z9  = bearCode == 7
+Z10 = bearCode == 8
+Z3  = bearCode == 9
+Z11 = bearCode == 10
+Z5  = bearCode == 11
+
+tBase = T4?"T4":T6?"T6":T1G?"T1G":T2G?"T2G":T1?"T1":T2?"T2":T9?"T9":T10?"T10":T3?"T3":T11?"T11":T5?"T5":T12?"T12":""
+zBase = Z4?"Z4":Z6?"Z6":Z1G?"Z1G":Z2G?"Z2G":Z1?"Z1":Z2?"Z2":Z9?"Z9":Z10?"Z10":Z3?"Z3":Z11?"Z11":Z5?"Z5":""
+ls    = str.length(tBase) > 0 ? tBase : str.length(zBase) > 0 ? zBase : "?"
+
+// ─── Bitmask (isBull series) ──────────────────────────────────────────
+m4 = (isBull[3]?8:0)+(isBull[2]?4:0)+(isBull[1]?2:0)+(isBull?1:0)
+m5 = (isBull[4]?16:0)+(isBull[3]?8:0)+(isBull[2]?4:0)+(isBull[1]?2:0)+(isBull?1:0)
+
+t4n(m) => m==9?"TZZT":m==10?"TZTZ":m==11?"TZTT":m==13?"TTZT":m==14?"TTTZ":m==15?"TTTT":m==12?"TTZZ":m==8?"TZZZ":m==0?"ZZZZ":m==1?"ZZZT":m==3?"ZZTT":m==2?"ZZTZ":m==4?"ZTZZ":m==5?"ZTZT":m==6?"ZTTZ":m==7?"ZTTT":""
+t5n(m) => m==25?"TTZZT":m==9?"ZTZZT":m==18?"TZZTZ":m==27?"TTZTT":m==14?"ZTTTZ":m==28?"TTTZZ":m==24?"TTZZZ":m==15?"ZTTTT":m==8?"ZTZZZ":m==12?"ZTTZZ":m==19?"TZZTT":m==17?"TZZZT":m==4?"ZZTZZ":m==3?"ZZZTT":m==1?"ZZZZT":m==30?"TTTTZ":m==31?"TTTTT":m==0?"ZZZZZ":""
+
+// ─── RECOMPUTED WR tables (fwd_10d win%, 2019-26 DB) ──────────────────
+wr4(m, ls) => m==9 and ls=="T3"?47.6:m==9 and ls=="T1G"?47.3:m==9 and ls=="T9"?47.6:m==9 and ls=="T1"?46.8:m==11 and ls=="T10"?48.2:m==11 and ls=="T2G"?47.8:m==14 and ls=="Z3"?49.5:m==14 and ls=="Z5"?48.9:m==14 and ls=="Z1G"?47.6:m==14 and ls=="Z9"?47.7:m==6 and ls=="Z1G"?49.2:m==6 and ls=="Z3"?48.3:m==5 and ls=="T1"?47.7:m==4 and ls=="Z10"?47.5:m==4 and ls=="Z2G"?48.7:m==4 and ls=="Z2"?47.1:m==3 and ls=="T2"?45.6:m==3 and ls=="T2G"?47.8:m==12 and ls=="Z2"?48.0:m==12 and ls=="Z2G"?48.7:m==8 and ls=="T12"?44.4:m==8 and ls=="T1G"?55.6:m==8 and ls=="T2G"?47.3:m==1 and ls=="T9"?47.7:m==1 and ls=="T1"?47.0:m==1 and ls=="T1G"?47.3:m==15 and ls=="T6"?46.8:m==15 and ls=="T2"?47.4:m==0 and ls=="Z10"?47.7:m==0 and ls=="Z2"?47.9:m==7 and ls=="T6"?46.3:m==7 and ls=="T2"?46.6:0.0
+wr5(m) => m==25?47.8:m==9?47.0:m==18?47.7:m==27?48.1:m==14?48.9:m==8?48.5:m==12?48.4:m==19?47.1:m==17?47.8:m==28?48.5:m==24?48.5:m==4?47.9:m==1?47.5:m==3?47.2:m==30?48.1:m==15?47.3:m==31?47.5:m==0?49.2:0.0
+
+// ─── RECOMPUTED CTX (median fwd_10d%, RESOLVED ls[] sequences) ────────
+ctx_med() => ls[3]=="Z1G" and ls[2]=="Z2G" and ls[1]=="T4" and ls=="Z3"?7.2:ls[3]=="Z3" and ls[2]=="T4" and ls[1]=="Z9" and (ls=="T3" or ls=="T5" or ls=="T9")?6.8:ls[3]=="T3" and ls[2]=="Z3" and ls[1]=="T4" and ls=="Z9"?5.9:ls[3]=="Z1G" and ls[2]=="Z2G" and ls[1]=="T5" and ls=="Z4"?5.8:ls[3]=="T6" and ls[2]=="Z1G" and ls[1]=="Z2G" and ls=="T4"?4.5:ls[3]=="T4" and ls[2]=="Z9" and ls[1]=="T5" and ls=="Z5"?4.2:ls[3]=="Z1G" and ls[2]=="Z2G" and ls[1]=="Z2G" and ls=="Z6"?2.5:ls[3]=="Z2G" and ls[2]=="Z2G" and ls[1]=="T1G" and ls=="Z1G"?1.5:ls[3]=="T3" and ls[2]=="Z5" and ls[1]=="Z2G" and ls=="Z2G"?1.1:ls[3]=="Z5" and ls[2]=="Z2G" and ls[1]=="Z2G" and ls=="Z2"?1.0:ls[3]=="Z5" and ls[2]=="Z2G" and ls[1]=="Z2G" and ls=="Z10"?0.8:0.0
+ctx_stars(med) => med >= 7.0 ? "★★★" : med >= 5.0 ? "★★" : med >= 3.0 ? "★" : ""
+
+// ─── Compute ──────────────────────────────────────────────────────────
+w4    = wr4(m4, ls)
+w5    = wr5(m5)
+rsi14 = ta.rsi(close, 14)
+ctxM  = show_ctx ? ctx_med() : 0.0
+ctxOk = show_ctx and ctxM >= min_ctx_med and rsi14 < ctx_rsi_max
+stars = ctx_stars(ctxM)
+isBullBar = isBull
+tn4 = t4n(m4)
+tn5 = t5n(m5)
+
+// ─── Label text ───────────────────────────────────────────────────────
+mk4txt() =>
+    t = (ctxOk and stars != "" ? stars + " " : "G ") + tn4
+    t := show_sig ? t + "|" + ls : t
+    t := show_wr  ? t + "\n" + str.tostring(w4,"#.0") + "%" : t
+    t := (show_med and ctxOk and ctxM > 0) ? t + "  10D+" + str.tostring(ctxM,"#.0") + "%" : t
+    t
+
+mk5txt() =>
+    t = (ctxOk and stars != "" ? stars + " " : "G ") + tn5
+    t := show_wr  ? t + "\n" + str.tostring(w5,"#.0") + "%" : t
+    t := (show_med and ctxOk and ctxM > 0) ? t + "  10D+" + str.tostring(ctxM,"#.0") + "%" : t
+    t
+
+// ─── Colors ───────────────────────────────────────────────────────────
+c4bull = ctxOk ? col_strong : col4b
+c4bear = ctxOk ? col_strong : col4z
+c5bull = ctxOk ? col_strong : col5b
+c5bear = ctxOk ? col_strong : col5z
+
+// ─── Draw 4-bar — lane-attached ──────────────────────────────────────
+if show4 and w4 >= min4
+    if isBullBar
+        label.new(bar_index, bullLane, mk4txt(), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up,   color=c4bull, textcolor=color.white, size=lsz)
+    else
+        label.new(bar_index, bearLane, mk4txt(), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down, color=c4bear, textcolor=color.white, size=lsz)
+
+// ─── Draw 5-bar ───────────────────────────────────────────────────────
+if show5 and w5 >= min5 and tn5 != ""
+    if isBullBar
+        label.new(bar_index, bullLane, mk5txt(), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up,   color=c5bull, textcolor=color.white, size=lsz)
+    else
+        label.new(bar_index, bearLane, mk5txt(), xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down, color=c5bear, textcolor=color.white, size=lsz)
+
+// ─── Background ───────────────────────────────────────────────────────
+bgcolor((show4 and w4>=min4 and show5 and w5>=min5 and tn5!="") ? color.new(color.yellow,90) : na, title="4+5 overlap")
+bgcolor((show_ctx and ctxOk and (show4 and w4>=min4 or show5 and w5>=min5)) ? color.new(#E07B00,93) : na, title="CTX confirmed")

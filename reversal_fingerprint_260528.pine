@@ -1,0 +1,155 @@
+//@version=5
+// =====================================================================================
+// REVERSAL FINGERPRINT SCANNER  —  built from DB research 2026-05-28
+// =====================================================================================
+// Marks LL pivot-low bottoms / HH pivot-high tops that carry the research-backed
+// reversal fingerprint, and labels the REALIZED swing % to the next pivot so you can
+// eyeball how good each signal is.
+//
+// FAITHFUL to the enricher (exact formulas verified in source):
+//   - RSI(14) <= 35                         (sig_rsi_le_35)
+//   - volume >= N x PREVIOUS bar volume      (sig_vol_5x/10x/20x  -> vs prior bar, not 20d avg!)
+//   - WVF capitulation spike                 (compute_line5: wvf >= sma(wvf,20)+2*stdev)
+//   - Williams 3-3 pivots, LL/HL/HH/LH       (is_pivot_low/high_3, swing_type_3)
+//
+// APPROXIMATION NOTE: the full research bottom = rsi<=35 + wyc_in_tr + d_spring/pb_stop_cause,
+// and top = vol_climax + d_blast_bear_grn/d_absorb_bear. The Wyckoff/delta order-flow parts
+// (d_spring, wyc_in_tr, d_blast_bear_grn, d_absorb_bear, pb_stop_cause) come from engines that
+// can't be reproduced standalone. This script uses the faithful subset (oversold+capitulation
+// for longs, volume climax for shorts). For the exact engine signals, overlay your TZ_WLNBB
+// 260523 indicator and confirm visually.
+//
+// Research stats it targets (pivot 3-3, all universes):
+//   LONG  LL low + rsi<=35 (+WVF):  baseline swing +11% -> ~+19% , win20 25% -> ~48%
+//   SHORT HH high + vol climax:     baseline swing  -10% -> ~-25%, win20 19% -> ~63%
+// =====================================================================================
+indicator("Reversal Fingerprint Scanner [260528]", overlay=true, max_labels_count=500)
+
+// ---------------- inputs ----------------
+piv        = input.int(3, "Williams pivot left/right", minval=1)
+grpL       = "LONG (bottom) fingerprint"
+useRSI     = input.bool(true,  "require RSI(14) <= 35",        group=grpL)
+rsiThr     = input.int(35,     "RSI threshold",                group=grpL)
+useWVF     = input.bool(true,  "require WVF capitulation spike", group=grpL)
+onlyLL     = input.bool(true,  "only on LL (lower-low) pivots", group=grpL)
+grpS       = "SHORT (top) fingerprint"
+volMult    = input.int(10,     "volume >= N x previous bar",   options=[5,10,20], group=grpS)
+onlyHH     = input.bool(true,  "only on HH (higher-high) pivots", group=grpS)
+grpV       = "Display"
+showSwing  = input.bool(true,  "label realized swing % to next pivot", group=grpV)
+showStats  = input.bool(true,  "stats table",                  group=grpV)
+
+// ---------------- faithful components ----------------
+rsi      = ta.rsi(close, 14)
+rsiOS    = rsi <= rsiThr
+
+volX     = (na(volume[1]) or volume[1] == 0) ? 0.0 : volume / volume[1]
+volClmx  = volX >= volMult
+
+// WVF spike (Williams VIX Fix), exact to compute_line5
+hc       = ta.highest(close, 22)
+wvf      = (hc - low) / hc * 100.0
+wvfUp    = ta.sma(wvf, 20) + 2.0 * ta.stdev(wvf, 20)
+wvfSpike = wvf >= wvfUp
+
+// ---------------- Williams pivots + LL/HL/HH/LH classification ----------------
+ph = ta.pivothigh(high, piv, piv)   // value sits at bar  (bar_index - piv)
+pl = ta.pivotlow(low,  piv, piv)
+
+var float prevPL = na
+var float prevPH = na
+isLL = false
+isHL = false
+isHH = false
+isLH = false
+if not na(pl)
+    isLL := not na(prevPL) and pl <  prevPL
+    isHL := not na(prevPL) and pl >= prevPL
+    prevPL := pl
+if not na(ph)
+    isHH := not na(prevPH) and ph >  prevPH
+    isLH := not na(prevPH) and ph <= prevPH
+    prevPH := ph
+
+// signal values are evaluated AT the pivot bar = piv bars ago
+longSetup  = not na(pl) and (not onlyLL or isLL) and (not useRSI or rsiOS[piv]) and (not useWVF or wvfSpike[piv])
+shortSetup = not na(ph) and (not onlyHH or isHH) and volClmx[piv]
+
+// ---------------- plot markers at the actual pivot bar ----------------
+plotshape(longSetup,  title="LONG bottom",  style=shape.triangleup,   location=location.belowbar, color=color.lime,   size=size.small, offset=-piv, text="L")
+plotshape(shortSetup, title="SHORT top",    style=shape.triangledown, location=location.abovebar, color=color.red,    size=size.small, offset=-piv, text="S")
+// faint markers for every pivot (structure context)
+plotshape(not na(pl) and not longSetup,  style=shape.circle, location=location.belowbar, color=color.new(color.gray,60), size=size.tiny, offset=-piv)
+plotshape(not na(ph) and not shortSetup, style=shape.circle, location=location.abovebar, color=color.new(color.gray,60), size=size.tiny, offset=-piv)
+
+// ---------------- realized forward-swing measurement ----------------
+// pending long: a setup low waiting for the next pivot high to resolve the rally %
+var float pLowPrc = na
+var int   pLowBar = na
+var float pHighPrc = na
+var int   pHighBar = na
+var float sumL = 0.0
+var int   cntL = 0
+var float sumS = 0.0
+var int   cntS = 0
+var int   winL = 0
+var int   winS = 0
+
+if longSetup
+    pLowPrc := low[piv]
+    pLowBar := bar_index - piv
+if shortSetup
+    pHighPrc := high[piv]
+    pHighBar := bar_index - piv
+
+// resolve LONG when next pivot HIGH confirms
+if not na(ph) and not na(pLowPrc)
+    nextHigh = ph
+    sw = (nextHigh - pLowPrc) / pLowPrc * 100.0
+    sumL := sumL + sw
+    cntL := cntL + 1
+    winL := winL + (sw >= 20 ? 1 : 0)
+    if showSwing
+        label.new(pLowBar, low[piv], str.tostring(sw, "#.#") + "%", yloc=yloc.belowbar, style=label.style_label_up, color=color.new(color.green, 25), textcolor=color.white, size=size.small)
+    pLowPrc := na
+    pLowBar := na
+
+// resolve SHORT when next pivot LOW confirms
+if not na(pl) and not na(pHighPrc)
+    nextLow = pl
+    sw = (nextLow - pHighPrc) / pHighPrc * 100.0
+    sumS := sumS + sw
+    cntS := cntS + 1
+    winS := winS + (sw <= -20 ? 1 : 0)
+    if showSwing
+        label.new(pHighBar, high[piv], str.tostring(sw, "#.#") + "%", yloc=yloc.abovebar, style=label.style_label_down, color=color.new(color.red, 25), textcolor=color.white, size=size.small)
+    pHighPrc := na
+    pHighBar := na
+
+// ---------------- stats table ----------------
+hdrBg  = color.new(#1b3a2e, 0)     // dark green-grey header
+cellBg = color.new(#15171c, 0)     // near-black cells (readable on any theme)
+if showStats and barstate.islast
+    var table t = table.new(position.top_right, 4, 4, border_width=1, frame_color=color.gray, frame_width=1)
+    table.cell(t, 0, 0, "setup",      bgcolor=hdrBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 1, 0, "N",          bgcolor=hdrBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 2, 0, "avg swing%", bgcolor=hdrBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 3, 0, "win>=20%",   bgcolor=hdrBg, text_color=color.white, text_size=size.small)
+    avgL = cntL > 0 ? sumL / cntL : 0.0
+    avgS = cntS > 0 ? sumS / cntS : 0.0
+    table.cell(t, 0, 1, "LONG bottom", bgcolor=cellBg, text_color=color.lime,   text_size=size.small)
+    table.cell(t, 1, 1, str.tostring(cntL), bgcolor=cellBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 2, 1, str.tostring(avgL, "#.#"), bgcolor=cellBg, text_color=color.lime, text_size=size.small)
+    table.cell(t, 3, 1, cntL>0 ? str.tostring(winL*100/cntL)+"%" : "-", bgcolor=cellBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 0, 2, "SHORT top", bgcolor=cellBg, text_color=#ff5252, text_size=size.small)
+    table.cell(t, 1, 2, str.tostring(cntS), bgcolor=cellBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 2, 2, str.tostring(avgS, "#.#"), bgcolor=cellBg, text_color=#ff5252, text_size=size.small)
+    table.cell(t, 3, 2, cntS>0 ? str.tostring(winS*100/cntS)+"%" : "-", bgcolor=cellBg, text_color=color.white, text_size=size.small)
+    table.cell(t, 0, 3, "RSI " + str.tostring(rsi, "#.#"), bgcolor=cellBg, text_color=color.silver, text_size=size.small)
+    table.cell(t, 1, 3, "volX " + str.tostring(volX, "#.#"), bgcolor=cellBg, text_color=color.silver, text_size=size.small)
+    table.cell(t, 2, 3, wvfSpike ? "WVF!" : "-", bgcolor=cellBg, text_color=color.orange, text_size=size.small)
+    table.cell(t, 3, 3, "", bgcolor=cellBg, text_size=size.small)
+
+// ---------------- alerts ----------------
+alertcondition(longSetup,  "Reversal LONG bottom",  "Reversal LONG fingerprint at pivot low")
+alertcondition(shortSetup, "Reversal SHORT top",    "Reversal SHORT fingerprint at pivot high")

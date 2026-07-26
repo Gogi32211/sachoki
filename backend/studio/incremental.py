@@ -106,6 +106,27 @@ def _bar_dict_to_db_row(b: dict, ticker: str, universe: str) -> dict:
         "pb_stop_cause":    1 if b.get("pb_stop_cause") else 0,
         "pb_macro_penalty": 1 if b.get("pb_macro_penalty") else 0,
         "swing_type":       b.get("swing_type", ""),
+        # 2026-07-21: engine-only signals now persisted ("ertxel da samudamod")
+        "um_2809":       int(b.get("raw_um") or 0),
+        "ev_l22":        int(b.get("raw_l22") or 0),
+        "ev_l43":        int(b.get("raw_l43") or 0),
+        "ev_l64":        int(b.get("raw_l64") or 0),
+        "ev_l34":        int(b.get("raw_l34") or 0),
+        "bo_dn":         int(b.get("sig_bo_dn") or 0),
+        "bx_dn":         int(b.get("sig_bx_dn") or 0),
+        "be_dn":         int(b.get("sig_be_dn") or 0),
+        "buy_here":      int(b.get("raw_buy_here") or 0),
+        "atr_brk":       int(b.get("raw_atr_brk") or 0),
+        "bb_brk":        int(b.get("raw_bb_brk") or 0),
+        "rtv":           int(b.get("raw_rtv") or 0),
+        "svs_raw":       int(b.get("raw_svs_raw") or 0),
+        "cons_atr":      int(b.get("raw_cons") or 0),
+        "gog1":          int(b.get("gog1") or 0),
+        "gog2":          int(b.get("gog2") or 0),
+        "gog3":          int(b.get("gog3") or 0),
+        "setup_tokens":  " ".join(b.get("setup") or []) if isinstance(b.get("setup"), list) else str(b.get("setup") or ""),
+        "context_tokens": " ".join(b.get("context") or []) if isinstance(b.get("context"), list) else str(b.get("context") or ""),
+
     }
 
 

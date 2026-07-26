@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import CodeCandleChart from './CodeCandleChart'
+import JournalBench from './JournalBench'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -38,6 +39,7 @@ export default function AtomicJournalPanel({ onSelectTicker }) {
   return (
     <div className="p-4 text-md-on-surface">
       <p className="text-[11px] text-md-on-surface-var mb-2">⚛️📓 <b>Atomic Journal</b> — a separate, <b>mechanical</b> paper journal for the weak-close gap-up edge (close=O + gap). Rule-based exits (−15% stop / +100% target, 20-bar). Paper only.</p>
+      <JournalBench stats={s} n={s.closed} />
       {/* KPI strip — identical layout to the AI Journal */}
       <div className="flex flex-wrap items-center gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
         <div><div className="text-xs text-md-on-surface-var">Equity</div>
@@ -171,6 +173,7 @@ function Replay({ onSelectTicker }) {
       {!d && !loading && <Empty>Pick a period to replay the weak-close gap-up edge historically (≥$16 OR rescued by a B+ capit ≤{cw}d; entry next-open, equal 4% bets).</Empty>}
       {d && (
         <>
+          <JournalBench stats={s} n={s.n} />
           <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
             <Kpi label="Trades" v={s.n} />
             <Kpi label="Win rate" v={s.win_rate != null ? `${s.win_rate}%` : '—'} />

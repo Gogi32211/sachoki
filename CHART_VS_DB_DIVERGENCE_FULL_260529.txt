@@ -1,0 +1,206 @@
+================================================================================
+CHART (TradingView) vs DB (Studio/Massive) — FULL DIVERGENCE ANALYSIS
+2026-05-29 · Sachoki Screener · DuckDB studio_analytics (8.22M bars, 5y)
+================================================================================
+
+PURPOSE
+-------
+Why signal codes read off the live TradingView chart sometimes do NOT match the
+Studio DB (and so the Sequence Builder / Ultra screener return "0 matches" or
+different labels). Plus a full per-filter audit of which signals are at risk, and
+the fix we built (a DB-sourced chart).
+
+
+================================================================================
+1. THE CORE FINDING
+================================================================================
+TradingView and the Studio DB run on DIFFERENT price feeds:
+  - TradingView chart   = TradingView's consolidated price feed + live Pine indicator
+  - Studio DB           = Massive API feed + Python-ported enrichment (and can be
+                          stale: e.g. JOBY only to 2026-05-27 at time of test)
+
+VOLUME is identical across the two feeds. OHLC PRICES differ by small amounts.
+=> Any signal sensitive to exact price (especially cumulative indicators and
+   penny-level wick comparisons) can read DIFFERENTLY on the chart vs the DB.
+=> Volume-only signals are SAFE (match).
+
+This is NOT a code bug and NOT a matcher bug — it is a data-source difference.
+
+
+================================================================================
+2. EVIDENCE — JOBY bar-by-bar (6 lines), CHART vs DB, same dates
+================================================================================
+date    line     CHART (TradingView)     DB (Studio)        match
+05-19   TZ       Z1G                     Z1G                ✓
+        L        L46                     L46                ✓
+        suffix   ED                      NDPI               ✗
+        body/wk  XBB                     XBB                ✓
+        gap/rng  N                       N                  ✓
+        line5    PB-R2L                  PS                 ✗
+05-20   TZ       T3                      T3                 ✓
+        L        L12                     L12                ✓
+        suffix   NURI                    NHI                ✗
+        body/wk  SJ                      MJ                 ✗
+        gap/rng  N                       N                  ✓
+        line5    PS-R2X                  PS-R2L             ✗
+05-22   TZ       T2G                     T2G                ✓
+        L        L3                      L3                 ✓
+        suffix   EU                      EUR                ✗
+        body/wk  S                       X                  ✗
+        gap/rng  G1-N                    N                  ✗
+        line5    PB-R2H                  PS-R2X             ✗
+05-26   ALL 6    T2G·L3·EU·S·N·PB-R2H    (identical)        ✓✓✓✓✓✓
+05-27   TZ       T10                     Z9                 ✗ (bull vs bear!)
+        suffix   NDPI                    NDI                ✗
+        line5    PB-R2H                  PB-R2D             ✗
+
+PER-LINE MATCH RATE (7 bars, 05-18..05-27):
+  L (line2 / volume buckets) .......... 7/7   <- volume identical
+  TZ (line1 / candle direction) ....... 6/7
+  gap/range ........................... 6/7
+  body/wick ........................... 4/7
+  suffix (wick vs prev hi/lo) ......... 1/7   <- penny sensitive
+  line5 (PSAR/RSI2/VIX) ............... 1/7   <- path dependent (worst)
+
+INTERPRETATION
+  - L matched 7/7 and is volume-based => VOLUME IS IDENTICAL between feeds.
+  - Price-sensitive lines (suffix, line5, body/wick) diverge heavily => PRICES DIFFER.
+  - 05-26 matched on all 6 => that day the two feeds' OHLC agreed; proves the
+    Python PORT is correct (no port bug) — divergence comes from input data.
+  - 05-27 even TZ flipped (T10 bull vs Z9 bear) => that day prices differed enough
+    to change candle direction.
+
+
+================================================================================
+3. WHY THE SEQUENCE BUILDER RETURNED "0 MATCHES"
+================================================================================
+Three independent causes, all real (none a code bug):
+
+(a) FEED DIVERGENCE — codes read off the TradingView chart don't exist on those
+    exact DB bars (section 2). Fix: read codes from the DB Chart, not TradingView.
+
+(b) OVER-SPECIFICATION — requiring many exact attributes across multiple
+    consecutive bars collapses to 0. Example tested:
+      bar-2 (Z1G + ED + PB-R2L)  AND  bar-1 (T3 + NURI + PS-R2X) consecutive
+        - each bar's full signature alone: 6,863 and 2,858 occurrences
+        - the exact consecutive transition (all 6): 0 in 8.2M bars
+      Sub-combos exist (Z1G/ED->T3/NURI = 227, etc.) but all-6 together = 0.
+
+(c) TYPO / DASH — "PSR2X" vs "PS-R2X" (missing hyphen) => 0.
+    Verified: as typed = 0 matches; corrected to PS-R2X = 1 match (the JOBY bars).
+    Lesson: exact spelling incl. hyphens matters. (Optional fix: make the builder
+    dash-insensitive — not yet applied.)
+
+
+================================================================================
+4. FULL FILTER DIVERGENCE AUDIT (Ultra Scan / Advanced Filters)
+================================================================================
+RULE: risk = sensitivity to small price differences.
+  Cumulative indicators (EMA/RSI/CCI/ATR/PSAR/Bollinger/WVF/Fourier) = HIGH
+  Penny-level geometry (wick/penetration/body/gap/exact-cross/doji)   = HIGH
+  Gross candle direction / engulfing                                  = MEDIUM
+  Pure volume                                                         = LOW (safe)
+
+-------------------------------------------------------------------------------
+TIER 1 — HIGH RISK (verify against DB Chart before trusting)
+-------------------------------------------------------------------------------
+  line5:    L5* / VX / VR / PB / PS / R2L / R2H / R2X        (WVF, PSAR, RSI2) - worst
+  suffix:   NE / E / WK up/dn/both                            (wick vs prev hi/lo)
+  body/wk:  X / M / S / J / TB / BB / F / XF / MF             (body & wick fractions)
+  gap/rng:  G1 / G2 / G3 / V / C / N                          (gap, range vs ATR)
+  osc:      CCI / CCI0R / CCIB ; RSI<=35 / RSI>=70            (CCI, RSI14)
+  bands:    BB up / BO up/dn / BX up/dn / BE up/dn / RH / RL / PP / BE / BL  (Bollinger)
+  vol-atr:  ATR up                                           (ATR cumulative)
+  EMA:      PREUP/PREDN (P66 P55 P89 P3 P2 P50 / D66 D55 D89 D3 D2 D50 / ANY P / ANY D)
+            P>200 P>89 P>50 P>20  P<200 P<89 P<50 P<20  3G    (EMA crosses / vs EMA)
+  combo:    RTV (RSI2+WVF) / HILO (RSI2) / ^BIAS (MACD+EMA+RSI) / CON (ATR/BB)
+  psar:     PREP / PARA / PARA+ / RETEST                      (Parabolic SAR)
+  wick-ext: X2G / X2 / X1G / X1 / X3 / WK up
+  260523:   AD-FRESH* / AD-CLUSTER** / WYC SPRING/UTAD/SOS/ACC_TR/DIST_TR/MARKUP/MKDN
+            / In TR / SOW                                     (Fourier + ATR + EMA)
+  prebreak: PRIME* / READY / WATCH / LVBO / W-PHASE / WVF     (composite cumulative)
+  macro:    No penalty / Penalty                             (pb_macro_penalty, EMA)
+  regime:   RTB Phase A-Build/B-Turn/C-Ready/D-Late
+  rs:       RS+ / RS    (Relative Strength vs SPY+IWM — price ratio + needs index feed)
+  special:  Z7 (doji = close==open exact — one cent removes it)
+  profile:  Sweet Spot / Building / Watch  (composite turbo score)
+
+-------------------------------------------------------------------------------
+TIER 2 — MEDIUM RISK (usually agree; can flip on borderline candles)
+-------------------------------------------------------------------------------
+  TZ:       T1..T12 / Z1..Z12 / T1G T2G Z1G Z2G / ANY T / ANY Z / TZ->3 / TZ->2 / W
+            (confirmed 6/7; saw T10<->Z9 flip)
+  delta:    DD up / D up / B/S up / Ab up / dSPR / T dn / NS / ND / cd up / FLP up
+            / ORG up / DD up R / D up R / D dn G / DD dn G   (buy/sell-vol from wicks)
+  ultra v2: BEST up / FBO up/dn / EB up/dn / 4BF / 4BF dn / 3up
+  vabs:     BEST* / STRONG / ABS / CLB / LD / NS / SQ / SC / ND   (volume + spread/CLV)
+  vbo:      VBO up                                          (volume breakout + level)
+  combo:    BUY / rocket / UM / SVS / CON-family
+  f/g:      CD / CA / CW / G1 / G2 / G4 / G6 / G11 / SBC
+  fly:      ABCD / CD / BD / AD                             (swing/pivot geometry)
+  ultra260: 260308 / L88                                    (volume jump + delta + L34)
+  swing:    HL / LL / HH / LH / Any pivot   <-- SEE NOTE BELOW
+
+  SWING NOTE (important — this underpins the whole reversal study / swing_type_3):
+    pivot detection (local extreme +/-3) mostly agrees, but on near-ties the pivot
+    can shift +/-1 bar; and pivot CLASSIFICATION (is this low < prior pivot low =>
+    LL, else HL) flips on cents. So LL<->HL and HH<->LH can differ between feeds on
+    borderline pivots even though the pivot itself is detected.
+
+-------------------------------------------------------------------------------
+TIER 3 — LOW RISK (volume-based -> SAFE, matches TradingView)
+-------------------------------------------------------------------------------
+  L family: ANY L / L1..L6 / L22 / L34 / L43 / L64 / FRI34 / FRI43 / FRI64
+            / L555 / L1L2 / L2L4 / L*        (WLNBB volume Bollinger buckets) - 7/7
+  buckets:  VB / B / N
+  vol mult: V x20 / V x10 / V x5            (volume / prev-bar volume)
+  vol-atr:  VA                              (VERIFIED: vol-ratio crossover, volume-only)
+
+-------------------------------------------------------------------------------
+METADATA (no price-feed divergence as such)
+-------------------------------------------------------------------------------
+  [E]   earnings marker (event date; needs earnings data in DB)
+  yf    definition not located in engines — UNKNOWN / verify separately
+
+-------------------------------------------------------------------------------
+NOT IN DB AT ALL (separate issue — never computes in DB-instant mode)
+-------------------------------------------------------------------------------
+  RGTI:  LL / UP / up-up / up-up-up / ORG / GRN / GC ; SMX   (disabled in LIVE too)
+  GOG/CTX: A / SM / N / MX / GOG / G1P..G3C / *GOG+ / !EXT / LDS / LDC / LDP / LRC
+           / LRP / WRC / SQB / BCT          (gog_engine multi-input, not ported)
+  cross:  zap x2+ / x3+ / x4+               (counts the above)
+  sector: XLC..XLU                          (sector column NULL, lazy-fetched)
+
+
+================================================================================
+5. THE FIX WE BUILT — DB-sourced chart in Studio
+================================================================================
+New Studio tab: "DB Chart" (next to Exact Sequence). Component DbCandleChart.jsx.
+  - Backend: /api/studio/bars/{ticker} extended to return all 6 lines
+    (t_sig/z_sig, l_sig, composite_full_suffix, bar_body_wick, bar_gap_range,
+     bar_line5) + swing_type_3 + pivots, straight from the DB.
+  - Frontend: lightweight-charts candles + volume (bucket colours) + T/Z markers;
+    HOVER any bar -> tooltip shows the exact 6 DB lines.
+  - These are the EXACT codes the Sequence Builder / Ultra screener use, so what you
+    read here will match (no TradingView feed mismatch).
+
+HOW TO USE: Studio -> DB Chart -> type ticker -> Load -> hover bars to read 6 lines.
+Take codes for the Sequence Builder FROM THIS CHART, not from TradingView.
+
+
+================================================================================
+6. PRACTICAL RULES
+================================================================================
+  1. Trust on any chart (TV or DB): L-codes, vol buckets, V x N, VA  (volume-based).
+  2. Cross-check on the DB Chart before acting: everything in TIER 1
+     (line5, suffix, RSI/CCI/PSAR/EMA/WVF, PREUP/PREDN, WYC, PREBREAK, RS, Macro).
+  3. TIER 2 usually agrees; verify on borderline candles. Watch LL<->HL / HH<->LH.
+  4. For the Sequence Builder: read codes from the DB Chart, spell exactly
+     (including hyphens, e.g. PS-R2X not PSR2X), and don't over-specify (1-2 lines
+     across a sequence, not all 6 on every bar, or you get 0).
+  5. Ultra screener and DB Chart both read the same DuckDB -> they always agree
+     with each other; only TradingView differs.
+
+================================================================================
+END
+================================================================================

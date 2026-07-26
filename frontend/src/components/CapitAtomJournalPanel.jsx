@@ -4,6 +4,7 @@
 // filtered to 🔥post-capit trades only. Mirrors the Capit Journal's Replay design/structure.
 import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import CodeCandleChart from './CodeCandleChart'
+import JournalBench from './JournalBench'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -144,6 +145,7 @@ export default function CapitAtomJournalPanel({ onSelectTicker }) {
       {d && d.error && <div className="text-rose-400 text-xs py-4">{d.error}</div>}
       {d && !d.error && (
         <>
+          <JournalBench stats={s} n={s.n} />
           <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-amber-900/15 border border-amber-700/30">
             <Kpi label="Trades" v={s.n} />
             <Kpi label="Win rate" v={s.win_rate != null ? `${s.win_rate}%` : '—'} />

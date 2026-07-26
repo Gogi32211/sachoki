@@ -1,0 +1,1364 @@
+"""
+edge_replay.py — ONE unified backtest engine for ALL Edge-board setups.
+
+Replaces the scattered per-journal replays (each with its own conventions) with a
+single path-sim engine + a signature registry that mirrors the LIVE scanners, so
+backtest == what you'd actually trade (no live≠replay drift).
+
+Every setup is reduced to a lookahead-free ENTRY mask on a shared per-ticker bar
+frame. The SAME path-sim (entry@next-open, stop-first, 15bps, cooldown-5) runs on
+all of them. Two exit modes: 'trail' (trailing-% over maxh bars) or 'bracket'
+(fixed stop/target over maxh bars). Returns mean/win/PF/per-year/concentration so
+setups can be compared head-to-head.
+
+READ-ONLY on bars.
+"""
+from __future__ import annotations
+import json
+import logging
+import os
+import threading
+import numpy as np
+import pandas as pd
+
+log = logging.getLogger(__name__)
+
+SLIP = 0.0015
+_BULLT = ("T1", "T1G", "T2", "T2G", "T3", "T5", "T9", "T10", "T11", "T12")
+_ANCH = ("Z11", "Z3", "Z1G", "Z5")
+_CONF = ("T3", "T5")
+_RES = ("T11", "T12")
+
+
+def _load_h1() -> dict:
+    path = os.path.join(os.path.dirname(__file__), "onehour_capit.json")
+    try:
+        with open(path) as f:
+            return json.load(f).get("events", {})
+    except Exception:
+        return {}
+
+
+_M15RSI = None
+
+
+def _load_m15rsi() -> pd.Series:
+    """(ticker|day) -> day's MIN 15m RSI, from the m15_dayrsi.duckdb cache (built off the
+    enriched studio_15m DB; refresh: rebuild cache after a 15m re-enrich). Empty on miss."""
+    global _M15RSI
+    if _M15RSI is None:
+        try:
+            import duckdb
+            from studio.paths import db_path
+            p = os.path.join(os.path.dirname(db_path("studio_15m.duckdb")), "m15_dayrsi.duckdb")
+            c = duckdb.connect(p, read_only=True)
+            t = c.execute("SELECT ticker, d, rsi15 FROM day_rsi").fetchdf()
+            c.close()
+            _M15RSI = pd.Series(t["rsi15"].to_numpy(),
+                                index=(t["ticker"] + "|" + t["d"]).to_numpy())
+        except Exception:
+            _M15RSI = pd.Series(dtype=float)
+    return _M15RSI
+
+
+_QZCAP = None
+
+
+def _load_qzcap():
+    """(ticker|day) frozensets: hcap = day had a 1H Z2G/Z1G (intraday capitulation);
+    hrev = day had a 1H REVERSAL-CLUSTER signal (T1G/T5/T11/Z11/Z1G — validated 2026-07-11 to
+    be ~interchangeable; T1G alone was a mild overfit, the cluster is 5× broader & more robust).
+    One-time DB load, cached."""
+    global _QZCAP
+    if _QZCAP is None:
+        try:
+            import duckdb
+            from studio.paths import db_path
+            c = duckdb.connect(db_path("studio_1h.duckdb"), read_only=True)
+            q = ("SELECT DISTINCT ticker || '|' || "
+                 "CAST(CAST(date - INTERVAL 5 HOUR AS DATE) AS VARCHAR) k FROM bars WHERE ")
+            cap = c.execute(q + "z_sig IN ('Z2G','Z1G')").fetchdf()
+            rev = c.execute(q + "t_sig IN ('T1G','T5','T11') OR z_sig IN ('Z11','Z1G')").fetchdf()
+            c.close()
+            _QZCAP = (frozenset(cap["k"].to_numpy()), frozenset(rev["k"].to_numpy()))
+        except Exception:
+            _QZCAP = (frozenset(), frozenset())
+    return _QZCAP
+
+
+_M15_ZDOM = None
+
+
+def _load_m15_zdom():
+    """(ticker|day) frozenset of days whose 15m session was Z-DOMINANT (T/(Z+T) < 0.5) — i.e.
+    intraday absorption still outweighs clean demand. The novel ingredient of the watch-tier
+    Engulf-Absorb-Reversal setup. One-time whole-universe 15m aggregate (~7s), cached."""
+    global _M15_ZDOM
+    if _M15_ZDOM is None:
+        try:
+            import duckdb
+            from studio.db import tf_db_path
+            c = duckdb.connect(tf_db_path("15m"), read_only=True)
+            mr = c.execute(
+                "SELECT ticker || '|' || substr(CAST(date AS VARCHAR),1,10) k, "
+                "sum(CASE WHEN coalesce(t_sig,'') LIKE 'T%' THEN 1 ELSE 0 END) tc, "
+                "sum(CASE WHEN coalesce(z_sig,'')<>'' THEN 1 ELSE 0 END) zc "
+                "FROM bars GROUP BY k").fetchdf()
+            c.close()
+            _M15_ZDOM = frozenset(
+                r.k for r in mr.itertuples() if (r.tc + r.zc) > 0 and r.tc / (r.tc + r.zc) < 0.50)
+        except Exception:
+            _M15_ZDOM = frozenset()
+    return _M15_ZDOM
+
+
+_IV_LINES = None
+def _load_intraday_lines():
+    """(2026-07-26) Per (ticker|day) 15m VSA-line presence — the validated MTF veto layer.
+    Returns three frozensets of 'TICKER|YYYY-MM-DD' keys:
+      l34g — a GREEN L34 (demand line) printed at least once intraday
+      l34  — any L34 printed intraday
+      l46r — a RED L46 (supply being worked) printed at least once intraday
+    Validated 2026-07-26 (intraday_l34_in_l46.py / intraday_color.py). On a daily L46 day the
+    intraday session must show BOTH sides or the daily signal is hollow:
+      · 15m RED L46 absent  → med −8.84 / pf 0.52 / 1-6yr  (supply never actually worked)
+      · 15m GREEN L34 absent → med −1.79 / worst −3.9      (buyers never stepped in)
+    The "no intraday L34" cell is a veto on several edges: washout **1/6yr med −5.28 pf 0.72**,
+    zoneretest 3/6 med −1.72, atomic 3/6 med −2.54, D+L1 2/6 med −2.40 (NOT qzcapit/coilfloor —
+    edge-specific, like every gate). Same lazy whole-universe aggregate as _load_m15_zdom (~7s,
+    cached per process); the 15m DB is refreshed by the nightly, so no extra job is needed."""
+    global _IV_LINES
+    if _IV_LINES is None:
+        try:
+            import duckdb
+            from studio.db import tf_db_path
+            c = duckdb.connect(tf_db_path("15m"), read_only=True)
+            mr = c.execute(
+                "SELECT ticker || '|' || substr(CAST(date AS VARCHAR),1,10) k, "
+                "sum(CASE WHEN coalesce(l_sig,'')='L34' AND close>open THEN 1 ELSE 0 END) g34, "
+                "sum(CASE WHEN coalesce(l_sig,'')='L34' THEN 1 ELSE 0 END) a34, "
+                "sum(CASE WHEN coalesce(l_sig,'')='L46' AND close<open THEN 1 ELSE 0 END) r46, "
+                "max(volume) / nullif(avg(volume),0) vsp "
+                "FROM bars WHERE volume > 0 GROUP BY k").fetchdf()
+            c.close()
+            _IV_LINES = (frozenset(r.k for r in mr.itertuples() if r.g34 >= 1),
+                         frozenset(r.k for r in mr.itertuples() if r.a34 >= 1),
+                         frozenset(r.k for r in mr.itertuples() if r.r46 >= 1),
+                         frozenset(r.k for r in mr.itertuples() if r.vsp >= 4),
+                         # DRY session = the severe veto cell (<2.5×, only ~3% of days). Kept
+                         # separate from the ≥4× positive gate on purpose: the 2.5-4× middle band
+                         # is merely mediocre, so flagging it as ⛔ would cry wolf on 28% of days.
+                         frozenset(r.k for r in mr.itertuples() if r.vsp < 2.5))
+        except Exception:
+            log.debug("intraday line map failed", exc_info=True)
+            _IV_LINES = (frozenset(), frozenset(), frozenset(), frozenset(), frozenset())
+    return _IV_LINES
+
+
+def _pull(months: int, dv_floor: float, ticker: str = None) -> pd.DataFrame:
+    from ai_journal.db import get_analytics_conn
+    a = get_analytics_conn()
+    try:
+        as_of = str(a.execute("SELECT max(date) FROM bars").fetchone()[0])[:10]
+        _tkf = f"AND ticker = '{str(ticker).upper().replace(chr(39), '')}'" if ticker else ""
+        df = a.execute(f"""
+            WITH r AS (
+              SELECT *, row_number() OVER (PARTITION BY ticker,date ORDER BY universe) rn
+              FROM bars
+              WHERE close >= 5 AND avg_vol_20d > 0 AND close*volume >= {dv_floor}
+                AND universe <> 'index'   -- ETF/index rows must not enter stock backtest stats
+                AND date >= DATE '{as_of}' - INTERVAL {int(months)*31 + 40} DAY
+                {_tkf}
+            )
+            SELECT universe, ticker, date, open, high, low, close, volume, rsi_14, atr_14,
+                   coalesce(t_sig,'') t, coalesce(z_sig,'') z, coalesce(l_sig,'') l,
+                   coalesce(vol_bucket,'') vb, coalesce(bar_gap_class,'') gap,
+                   coalesce(close_suffix,'') csfx, coalesce(bar_line5,'') l5,
+                   coalesce(w2_spring,0) spring,
+                   coalesce(sig_t11,0) t11, coalesce(sig_t12,0) t12, coalesce(sig_eb_up,0) ebu,
+                   coalesce(sig_any_d,0) anyd, coalesce(sig_l1,0) l1,
+                   coalesce(sig_p55,0) p55, coalesce(sig_para_start,0) para,
+                   CASE WHEN sig_l6=1 AND sig_l4=1 AND close>=open THEN 1 ELSE 0 END l43,
+                   coalesce(wt_valid_tr,0) vtr, coalesce(wt_support,0) wt_sup,
+                   coalesce(wt_resistance,0) wt_res, coalesce(rtb_phase,'0') rtb_ph,
+                   coalesce(wt_evr,0) wtevr,
+                   CASE WHEN sig_bias_dn=1 OR sig_vol_5x=1 OR sig_vol_10x=1 OR sig_vol_20x=1
+                        THEN 1 ELSE 0 END supp,
+                   coalesce(CAST(pb_pp_rtv AS TINYINT),0) ppr,
+                   coalesce(CAST(sig_ns_vabs AS TINYINT),0) nsv,
+                   coalesce(CAST(sig_rl AS TINYINT),0) rlv,
+                   coalesce(CAST(w2_sc AS TINYINT),0) w2sc,
+                   coalesce(cci_20,0) cci20,
+                   CASE WHEN sig_fbo_dn=1 OR sig_eb_dn=1 OR sig_vbo_dn=1 OR sig_any_d=1
+                        THEN 1 ELSE 0 END pressev,
+                   coalesce(CAST(sig_nd_vabs AS TINYINT),0) ndv,
+                   CASE WHEN sig_vol_10x=1 OR sig_vol_20x=1 THEN 1 ELSE 0 END vspk,
+                   coalesce(beta_score,0) betas
+            FROM r WHERE rn = 1 ORDER BY ticker, date
+        """).fetchdf()
+        return df, as_of
+    finally:
+        a.close()
+
+
+def _prep(df: pd.DataFrame) -> pd.DataFrame:
+    """Add helper + lag columns + entry masks for every setup (lookahead-free)."""
+    _refresh_mined()                       # pick up any freshly-promoted mined combos
+    g = df.groupby("ticker", sort=False)
+    df["pc"] = g["close"].shift(1)
+    df["disp"] = (df["open"] - df["pc"]).abs() / df["atr_14"].replace(0, np.nan)
+    df["sweet"] = df["disp"].between(0.5, 1.5)
+    df["revt"] = ((df["t11"] == 1) | (df["t12"] == 1) | (df["ebu"] == 1))
+    df["bullt"] = df["t"].isin(_BULLT)
+    df["clean"] = df["supp"] == 0
+    df["nonvb"] = df["vb"] != "VB"
+    # sequence lags for Z11-T11
+    df["z2"] = g["z"].shift(2)
+    df["rsi2"] = g["rsi_14"].shift(2)
+    df["t1"] = g["t"].shift(1)
+    # 1H confirmation (h1-bottom) from cache
+    h1 = _load_h1()
+    dstr = df["date"].astype(str).str[:10]
+    df["h1c"] = [d in h1.get(t, ()) for t, d in zip(df["ticker"], dstr)]
+
+    base = df["clean"] & df["nonvb"]
+    df["E_l43triple"] = base & (df["l43"] == 1) & df["revt"] & df["sweet"] & (df["rsi_14"] < 40)
+    df["E_z11t11"] = (base & df["z2"].isin(_ANCH) & df["rsi2"].between(30, 45)
+                      & df["t1"].isin(_CONF) & df["t"].isin(_RES))
+    df["E_washout"] = (base & df["rsi_14"].between(20, 36) & df["bullt"]
+                       & (df["l5"].str.contains("VX|VR", regex=True, na=False))
+                       & df["l5"].str.contains("R2", na=False))
+    df["E_dl1"] = base & (df["anyd"] == 1) & (df["l1"] == 1)
+    df["E_g3"] = base & (df["gap"] == "G3") & df["bullt"] & (df["rsi_14"] < 45)
+    df["E_atomic"] = base & df["bullt"] & (df["csfx"] == "O") & df["gap"].isin(("G2", "G3"))
+    df["E_h1bottom"] = base & (df["rsi_14"] < 35) & df["bullt"] & df["h1c"]
+    df["E_spring"] = base & (df["spring"] == 1) & (df["rsi_14"] < 60) & df["bullt"]
+    df["E_p55"] = base & (df["p55"] == 1) & df["bullt"]
+    df["E_parabola"] = base & (df["para"] == 1)
+    # Atomic-R — the refined atomic (validated 2026-07-01, project_atomic_edge_validated):
+    # weak-close gap-up is a CAPITULATION-REVERSION edge. Base Atomic + 3 gates that ~2x it:
+    #   vol=B (controlled) · price $21-89 (quality zone; $8-21 dead) · breadth risk-OFF (fear).
+    # breadth = causal fraction of universe with +20d trailing return (computed inline here).
+    d = df.sort_values(["ticker", "date"])
+    _up = (d["close"] > d.groupby("ticker")["close"].shift(20)).astype(float)
+    _br = _up.groupby(d["date"]).transform("mean").reindex(df.index)
+    df["risk_off"] = (_br < 0.50).fillna(False)
+    df["E_atomicR"] = (df["E_atomic"] & (df["vb"] == "B")
+                       & df["close"].between(21, PRICE_CAP) & df["risk_off"])
+    # 🥊 Engulf-Absorption (validated 2026-07-01, project_engulf_absorption): a bull-T that
+    # RANGE-engulfs the prior 2 bars (outside bar) AND swallows a fresh Edge signal in them,
+    # in the quality band (≥$21, RSI<45). +edge vs no-edge: +5.07/med+3.24/PF1.99 vs +1.18/med−0.41.
+    # Washout- and G3-absorption are the reliable stars. ANY bull-T (incl T4/T6).
+    _any_bt = df["t"].str.match(r"^T\d").fillna(False)
+    _h2 = g["high"].transform(lambda s: s.shift(1).rolling(2).max())
+    _l2 = g["low"].transform(lambda s: s.shift(1).rolling(2).min())
+    _eng2 = (df["high"] >= _h2) & (df["low"] <= _l2)
+    _E = ["E_l43triple", "E_z11t11", "E_washout", "E_dl1", "E_g3", "E_atomic",
+          "E_h1bottom", "E_spring", "E_p55", "E_parabola", "E_atomicR"]
+    _ae = df[_E].any(axis=1).astype(float).groupby(df["ticker"])
+    _edge_in2 = (_ae.shift(1).fillna(0) + _ae.shift(2).fillna(0)) > 0
+    df["E_engulfabs"] = (_any_bt & base & _eng2 & (df["close"] >= 21)
+                         & (df["rsi_14"] < 45) & _edge_in2)
+    # GEM1 — T1 capitulation-bounce (validated 2026-07-01, project_capitulation_bounce): a SMALL
+    # T1 (body < 0.5× the prior Z bar's body = a modest bounce off a big bear/capitulation),
+    # moderate-oversold RSI 30-50, controlled vol=B. 6/6yr positive (+5..+9 each), TRAIN≈TEST
+    # (era-independent), all 3 universes. med +5.43 / win 60 / PF 2.32 — the most robust edge found.
+    _body = (df["close"] - df["open"]).abs()
+    _ratio = _body / _body.groupby(df["ticker"]).shift(1).replace(0, np.nan)   # T body / prior body
+    _prevZ = g["z"].shift(1).fillna("") != ""
+    df["E_t1capbounce"] = ((df["t"] == "T1") & df["clean"] & _prevZ & (_ratio < 0.5)
+                           & df["rsi_14"].between(30, 50) & (df["vb"] == "B"))
+    # GEM2 — engulf-abs where the SWALLOWED (absorbed) bar carried L46 VSA (strong, era-tilted).
+    _swL = g["l"].shift(1).fillna("").where(g["l"].shift(1).fillna("") != "", g["l"].shift(2).fillna(""))
+    df["E_engulfL46"] = df["E_engulfabs"] & (_swL == "L46")
+    # 💤 Z-Absorb-Turn (validated 2026-07-22, this session): the PRIOR bar is a deep-bear
+    # Z5/Z11 carrying the wt_evr end-of-reaction + a RED L34 absorption (institutional soak
+    # into a no-result down bar) — then THIS bar confirms the turn with T3 or T9. Entry here.
+    #   n=142 · ps +5.54% · med +2.51% · win 57.7% · 5/6yr (2022 +5.99) · TRAIN+3.0 TEST+7.9
+    #   ablation: the wt_evr+L34red anchor 3× the bare Z5|Z11→T3/T9 (+1.83→+5.54); exit-
+    #   invariant (5 exit families +); bootstrap 95%CI [+2.02,+9.32]; z=+2.69. 1D-native
+    #   (cross-TF echo weak — like GEM1). Z3/Z4 never co-occur with wt_evr+L34red so add nothing.
+    _pz = g["z"].shift(1).fillna("")
+    _pwtevr = g["wtevr"].shift(1).fillna(0)
+    _pl = g["l"].shift(1).fillna("")
+    _pclose = g["close"].shift(1)
+    _popen = g["open"].shift(1)
+    _prior_absorb = (_pz.isin(("Z5", "Z11")) & (_pwtevr == 1)
+                     & (_pl == "L34") & (_pclose < _popen))
+    df["E_zabsorb"] = base & _prior_absorb & df["t"].isin(("T3", "T9"))
+    # 🔥 Engulf-Abs-Lⁿ (validated 2026-07-07): Engulf-Abs whose RANGE sweeps up ≥2 high-volume
+    # L46/L34 VSA bars in the last 21 sessions — the bar absorbed the recent volume distribution
+    # in one move. Counter-intuitive but plateau- & 2×-slip-robust: heavy overhead L IMPROVES the
+    # TIGHT engulf (opposite of loose-Goga where L-cluster mutes). L>=2: +3.64/med+1.93/PF1.64/5-6yr
+    # vs base +3.04/PF1.52; plateau L2-L3 (L4 thins out); 2×-slip holds +3.14/PF1.53. Whole-range
+    # absorption = strength, not resistance. (validate_goga_edge.py)
+    df["_isL_tmp"] = df["l"].isin(("L46", "L34")).astype(float)
+    _lo = df["low"].to_numpy(float); _hi = df["high"].to_numpy(float)
+    _swLn = np.zeros(len(df))
+    for _k in range(1, 22):                      # 21-bar overhead window
+        _po = g["open"].shift(_k).to_numpy(float); _pcl = g["close"].shift(_k).to_numpy(float)
+        _fl = g["_isL_tmp"].shift(_k).to_numpy(float)
+        _sw = ((_po >= _lo) & (_po <= _hi)) | ((_pcl >= _lo) & (_pcl <= _hi))
+        _swLn += (_sw & ~np.isnan(_po) & ~np.isnan(_pcl) & (_fl == 1))
+    df.drop(columns=["_isL_tmp"], inplace=True)
+    df["engabs_swLn"] = _swLn
+    df["E_engulfabs_Lheavy"] = df["E_engulfabs"] & (_swLn >= 2)
+    # FailedBear-Turn (2026-07-21, USER's chart observation → failbear_final_validation):
+    # >=3 bear-pressure bars in 7 (down-break events / D-signals / bear-Z chain) where the
+    # price HELD (close >= 95% of 7 bars ago) → T1G turn bar, in the MODERATE-oversold
+    # zone (CCI<-100 & RSI 30-45). +2.77%/med+1.99/win55/PF1.60/6-6yr/z=+3.8σ,
+    # TRAIN +2.78 ≈ TEST +2.76 — the best era balance of the 2026-07 additions.
+    # Level structure is the key: deep oversold (RSI<30) is a KNIFE (Δ−3.3), high is dead.
+    # Plateau-proven (W5/7/10, HELD 93/95, P3/P4). ~165 fires/yr.
+    _bearz = df["z"].isin(("Z2", "Z2G", "Z4", "Z6", "Z10", "Z12"))
+    _press = (df["pressev"] == 1) | _bearz
+    df["_pr_tmp"] = _press.astype(float)
+    _prcnt = g["_pr_tmp"].transform(lambda s: s.shift(1).rolling(7, min_periods=1).sum()).fillna(0)
+    _held = (df["close"] >= g["close"].shift(7) * 0.95)
+    df["E_failbear"] = (_prcnt >= 3) & _held & (df["t"] == "T1G")                        & (df["cci20"] < -100) & df["rsi_14"].between(30, 45)
+    df.drop(columns=["_pr_tmp"], inplace=True)
+    # SC-chain family (2026-07-21, sc_chains_bobxbe.py — Wyckoff textbook grammar in
+    # consecutive-bar form; TEST-era-tilted like the G3 family, TRAIN mildly positive):
+    #   ND→SC→L46  +7.10%/med+4.36/win58/PF2.52/z+6.1σ, $21-89 +8.9  (premium, ~68/yr)
+    #   NS→SC      +3.55%/PF1.61, TRAIN +1.68 (best era balance of the family)
+    #   G3→L46     +2.67%/PF1.47, n=31.6k, z=+16.7σ (the big-n workhorse)
+    _l46bar = df["l"] == "L46"
+    _sc_p1 = g["w2sc"].shift(1).fillna(0)
+    _nd_p2 = g["ndv"].shift(2).fillna(0)
+    _ns_p1 = g["nsv"].shift(1).fillna(0)
+    df["E_ndscl46"] = (_nd_p2 == 1) & (_sc_p1 == 1) & _l46bar
+    df["E_nssc"] = (_ns_p1 == 1) & (df["w2sc"] == 1)
+    df["E_g3l46"] = g["gap"].shift(1).eq("G3") & _l46bar
+    # L34camp→REV (2026-07-21, l34_campaign_entries.py): an all-red L34 CAMPAIGN at one
+    # price level (current red L34 + a prior red L34 within 20 bars, closes within 5%)
+    # RESOLVED by the strict REV-turn within <=3 bars — entry ON the turn bar.
+    # +3.26%/med+2.27/PF1.62/5-6yr · TRAIN +3.94 / TEST +2.62 (era-balanced, 2021 +3.3
+    # and 2022 +3.6 both positive) · ~78 fires/yr. The campaign alone (no turn) is NOT
+    # tradeable (+0.4..+1.4, TRAIN-negative) — institution visits mark the zone, the
+    # turn is the trigger. BO↑-gate entry tested and REJECTED (matched −2.5pp).
+    _redl34 = (df["l"] == "L34") & (df["close"] < df["open"])
+    df["_rl_tmp"] = _redl34.astype(float)
+    df["_rlc_tmp"] = df["close"].where(_redl34)
+    _prior_rl = g["_rl_tmp"].transform(lambda s: s.shift(1).rolling(20, min_periods=1).max()).fillna(0)
+    _last_rlc = g["_rlc_tmp"].transform(lambda s: s.shift(1).ffill())
+    _camp = _redl34 & (_prior_rl == 1) & ((df["close"] / _last_rlc - 1).abs() <= 0.05)
+    df["_camp_tmp"] = _camp.astype(float)
+    _m5 = g["rsi_14"].transform(lambda s: s.rolling(5, min_periods=2).min().shift(1))
+    _rev = (_m5 < 38) & df["rsi_14"].between(30, 55) & (df["close"] > df["pc"])            & (df["rsi_14"] > g["rsi_14"].shift(1)) & (df["betas"] <= 13)
+    _c1 = g["_camp_tmp"].shift(1).fillna(0)
+    _c2 = g["_camp_tmp"].shift(2).fillna(0)
+    _c3 = g["_camp_tmp"].shift(3).fillna(0)
+    df["E_l34camp_rev"] = _rev & ((_c1 == 1) | (_c2 == 1) | (_c3 == 1))
+    df.drop(columns=["_rl_tmp", "_rlc_tmp", "_camp_tmp"], inplace=True)
+    # G3+RL / G3→G3 gap-chain family (2026-07-21, grand confluence → g3rl_gapchain_validation):
+    #   G3+RL       +4.63%/med+2.47/win56/PF1.99/6-6yr/z=+16σ, TR+1.94, all price zones +4-5,
+    #               2022 +0.8 (bear-year positive).
+    #   G3→G3       back-to-back large gaps (the campaign/ignition grammar) +3.94%/PF1.72/z=29σ;
+    #               served WITH the vol-spike veto (V10/V20 on either bar kills it — the ⛔
+    #               vol-adjacency law, 6/6yr− on the toxic side) → 6/6yr.
+    #   G3→G3→RL    the premium tier: +8.35%/med+7.17/win64/PF3.09, TR+2.19.
+    # Plateau verified: G2+RL collapses (gap size matters), RL→G3 weaker (order matters),
+    # loose 3-bar adjacency weaker (strictness matters).
+    _g3bar = df["gap"] == "G3"
+    _g3p1 = g["gap"].shift(1).eq("G3")
+    _g3p2 = g["gap"].shift(2).eq("G3")
+    _vspk_p1 = g["vspk"].shift(1).fillna(0).astype(int)
+    df["E_g3rl"] = _g3bar & (df["rlv"] == 1)
+    df["E_g3g3"] = _g3p1 & _g3bar & (df["vspk"] == 0) & (_vspk_p1 == 0)
+    df["E_g3g3rl"] = _g3p2 & _g3p1 & (df["rlv"] == 1)
+    # ppr×NS (2026-07-21, confluence sweeps → magnet_val.py): prebreak PP/RTV component
+    # + VABS no-supply on the same bar. Path-sim +2.21%/PF1.41/+6.4σ vs random, 5/6yr,
+    # both quality price zones positive — but REGIME-TILTED (TRAIN +0.09 / TEST +3.94):
+    # a 2024-26-era edge, NOT era-independent like GEM1. Label carries the warning.
+    df["E_ppr_ns"] = (df["ppr"] == 1) & (df["nsv"] == 1)
+    # 🔁 Zone-Retest (validated 2026-07-07, project_zone_retest): buy the RETEST (2nd+ touch) of a
+    # support zone, NOT the first drop (a knife: first-touch median −1.80 vs retest −0.45). Support
+    # = causal 25-bar low (shift 3); touch = low within +3% & ≥−10% & CLOSE held above & green bar;
+    # retest = touch with ≥1 prior touch in the last 15 bars. Base +0.99/PF1.15/win48/4-6yr. The
+    # E-tier (retest whose range swallows a validated EDGE signal in the last 10 bars) = +1.66/
+    # PF1.24. reclaim(pierce-below) & RSI<40 & L-absorb all HURT — plain touch-and-hold is best.
+    _rl = g["low"].transform(lambda s: s.rolling(25, min_periods=15).min().shift(3))
+    df["zr_ref_low"] = _rl
+    _touch = (df["low"] <= _rl * 1.03) & (df["low"] >= _rl * 0.90)
+    df["_touch_tmp"] = _touch.astype(float)
+    _prior = g["_touch_tmp"].transform(lambda s: s.shift(1).rolling(15, min_periods=1).sum()).fillna(0)
+    df["zr_prior_touch"] = _prior
+    _zr_entry = _touch & (df["close"] >= _rl) & (df["close"] > df["open"]) & _rl.notna()
+    df["E_zoneretest"] = _zr_entry & (_prior >= 1)
+    # E-absorb tier: the retest range sweeps up a validated EDGE-signal bar in the last 10 sessions
+    df["_anyE_tmp"] = df[["E_l43triple", "E_z11t11", "E_washout", "E_dl1", "E_g3", "E_atomic",
+                          "E_h1bottom", "E_spring", "E_p55", "E_parabola", "E_atomicR",
+                          "E_t1capbounce"]].any(axis=1).astype(float)
+    _swE = np.zeros(len(df))
+    for _k in range(1, 11):                       # 10-bar absorption window
+        _po = g["open"].shift(_k).to_numpy(float); _pcl = g["close"].shift(_k).to_numpy(float)
+        _fe = g["_anyE_tmp"].shift(_k).to_numpy(float)
+        _sw = ((_po >= _lo) & (_po <= _hi)) | ((_pcl >= _lo) & (_pcl <= _hi))
+        _swE += (_sw & ~np.isnan(_po) & ~np.isnan(_pcl) & (_fe == 1))
+    df.drop(columns=["_touch_tmp", "_anyE_tmp"], inplace=True)
+    df["zr_swE"] = _swE
+    df["E_zoneretest_E"] = df["E_zoneretest"] & (_swE >= 1)
+    # 📉 DiT tier (validated 2026-07-07): retest inside a DIP-IN-TREND EMA geometry e50>e20>e200
+    # (short-term pulled back below the medium-term = a real dip, but still above the long-term =
+    # primary uptrend intact). The single best STATE filter found: retest & DiT = +2.06/med+0.73/
+    # PF1.36 vs base retest +1.36/med−0.17/PF1.21 (universe, trail25). DiT beats golden-cross
+    # (e50>e200 alone, +1.77) AND the full stack (e20>e50>e200, +1.05 — that's extension not dip).
+    _e20 = g["close"].transform(lambda s: s.ewm(span=20, adjust=False).mean())
+    _e50 = g["close"].transform(lambda s: s.ewm(span=50, adjust=False).mean())
+    _e200 = g["close"].transform(lambda s: s.ewm(span=200, adjust=False).mean())
+    df["dip_in_trend"] = (_e50 > _e20) & (_e20 > _e200)
+    df["E_zoneretest_dit"] = df["E_zoneretest"] & df["dip_in_trend"]
+    # 🧗 High-Base 15m-Dip (validated 2026-07-08, project_highbase_15m_dip): a strong name in a
+    # HIGH base whose intraday dip is deep on 15m while the daily stays calm — fills the RGTI-2025
+    # coverage gap (uptrend re-accumulation never gets daily-oversold, so the whole board is
+    # silent). ctx = close>e200 · RSI_1d 40-60 · close≥85% of 20d-high · green; trigger = the
+    # day's MIN 15m RSI ≤ 28 (from the m15_dayrsi cache). +1.84/med+0.27/PF1.31/5-6yr vs
+    # random-same-size +1.37±0.08 → 6.0σ. Threshold plateau 25-28 (22 declines). Modest tier
+    # (Zone-Retest-E class), unique niche: the board's first HIGH-BASE setup.
+    _m15 = _load_m15rsi()
+    if len(_m15):
+        _key = (df["ticker"] + "|" + df["date"].astype(str).str[:10]).to_numpy()
+        df["m15rsi"] = pd.Series(_key).map(_m15).to_numpy()
+    else:
+        df["m15rsi"] = np.nan
+    _hi20hb = g["high"].transform(lambda s: s.shift(1).rolling(20).max())
+    df["E_highbase15"] = ((df["close"] > _e200) & df["rsi_14"].between(40, 60)
+                          & (df["close"] >= 0.85 * _hi20hb)
+                          & (df["close"] > df["open"]) & (df["m15rsi"] <= 28))
+    # 🏗️ RTB-Base Oversold (validated 2026-07-09): the ONLY RTB signal that survives path-sim.
+    # RTB's whole thesis (buy the pre-breakout C / breakout D) is anti-predictive — phases rank
+    # BACKWARDS (A/B > C > D, med −1.66) and rtb_total is monotonically anti-predictive. But the
+    # EARLY phases (A=accumulation build, B=turn) + oversold IS a real modest edge: it lifts plain
+    # RSI<35 from med −0.87 to +0.48, win 48→51, PF 1.22→1.29, 4→5/6yr (2021-22 stop bleeding),
+    # +3.2σ vs random-same-size-from-RSI<35 pool, TRAIN +1.61 ≈ TEST +1.88 (OOS-holds). Zone-Retest-E
+    # tier — modest, median-positive. RTB used here as a STATE gate, not a score. (inline validation)
+    df["E_rtb_base"] = (df["clean"] & df["rtb_ph"].isin(("A", "B")) & (df["rsi_14"] < 35))
+    # 🎯 QZ-Capit-Reversal (validated 2026-07-11): born from an LLY chart observation, universe-
+    # dissolved (1H-L46 ubiquitous, opens-T1G negative), then RESCUED by price-bucketing. In the
+    # QUALITY zone $21-89 (pooled median was −0.9 = cheap-stock lottery), a daily-Z oversold pullback
+    # to a FRESH 15d-low whose intraday 1H shows a Z2G/Z1G CAPITULATION + a REVERSAL-CLUSTER signal.
+    # STATE (oversold+freshlow+$21-89) carries the edge; the 1H reversal signal flips median −1.32→+0.73
+    # (with-signal +1.97/med+0.73/win52 vs no-signal +0.76/med−1.32/win46), 5-6yr. NB: T1G alone was a
+    # mild overfit (+2.24, z+0.6 vs random) — the cluster {T1G,T5,T11,Z11,Z1G} is ~interchangeable, 5×
+    # broader & more robust (why_t1g.py / cluster.py). "any bull-T" is too broad (+1.67). STATE>SHAPE.
+    _hcap, _hrev = _load_qzcap()
+    _keys = (df["ticker"].astype(str) + "|" + dstr).to_numpy()
+    df["hcap"] = [k in _hcap for k in _keys]
+    df["hrev"] = [k in _hrev for k in _keys]
+    _lo15 = g["low"].transform(lambda s: s.rolling(15).min())
+    df["freshlow15"] = df["low"] <= _lo15 * 1.02
+    # Core (price-free) conditions, then two price variants: the BASE keeps $21-89 (widening it
+    # costs a year: 5/6→4/6), while the RS/dwell-gated variants use $21-377 — those gates filter
+    # out exactly the high-priced cases that hurt the raw setup (2026-07-26 cap sweep).
+    _qzc_core = (df["clean"] & df["hcap"] & df["hrev"] & df["freshlow15"]
+                 & (df["close"] >= 21) & (df["rsi_14"] < 45)
+                 & df["z"].astype(str).str.startswith("Z"))
+    df["E_qzcapit"]     = _qzc_core & (df["close"] <= PRICE_CAP)
+    df["_qzcapit_wide"] = _qzc_core & (df["close"] <= PRICE_CAP_WIDE)
+    # 🌀 SC-SUPER variants (2026-07-03, project_wyckoff_range_super): the setup fires within ±5%
+    # of the Wyckoff range support (SC floor). Validated median-lifting tier (band-plateau +
+    # 2×-slip-safe) for these 6 — a "more consistent / lower tail-risk" version, not higher mean.
+    _sc = ((df["vtr"] == 1) & (df["wt_res"] > df["wt_sup"]) & (df["wt_sup"] > 0)
+           & ((df["close"] / df["wt_sup"].replace(0, np.nan) - 1).abs() <= 0.05)).fillna(False)
+    df["_sc"] = _sc
+    df["E_t1capbounce_SC"] = df["E_t1capbounce"] & _sc
+    df["E_dl1_SC"]         = df["E_dl1"] & _sc
+    df["E_spring_SC"]      = df["E_spring"] & _sc
+    df["E_atomic_SC"]      = df["E_atomic"] & _sc
+    df["E_h1bottom_SC"]    = df["E_h1bottom"] & _sc
+    df["E_washout_SC"]     = df["E_washout"] & _sc
+    # 🎯 Confluence / Cluster-Bottom (validated 2026-07-12, the user's hypothesis): a REAL bottom is
+    # marked not by one edge but by SEVERAL distinct edge FAMILIES firing inside a tight window. Count
+    # the distinct families fired in the trailing 10 bars; forward edge rises MONOTONICALLY with the
+    # count and — unlike any single family — survives 2022 AND cluster-dedup. $21-89, trail25, 6yr
+    # (dedup, independent trades): ≥2 fam +2.51/med+1.02/win53/PF1.45/6-6yr · ≥3 +3.28/med+1.66/win54/
+    # 5-6yr · ≥4 +4.47/med+3.05/win58/PF1.92/6-6yr. NOT an oversold proxy (≥4&RSI<50 ≈ ≥4 any-RSI).
+    # Families are DE-DUPLICATED (Zone-Retest's 3 variants = 1 family; capit groups 5 reversal setups)
+    # so variants can't double-count. Entry only on a family-event bar (conf_anyfam) with trailing
+    # density ≥ tier. This is what "how many edges are in the green accumulation box" measures. cf conf.py
+    _FAMILIES = {
+        "capit":  ["E_qzcapit", "E_washout", "E_dl1", "E_t1capbounce", "E_h1bottom"],
+        "retest": ["E_zoneretest"],
+        "spring": ["E_spring"],
+        "gap":    ["E_g3"],
+        "atomic": ["E_atomic"],
+        "oseq":   ["E_z11t11"],
+        "l43":    ["E_l43triple"],
+        "engulf": ["E_engulfabs"],
+    }
+    gg = df.groupby("ticker", sort=False)
+    _conf = np.zeros(len(df))
+    _anyfam = np.zeros(len(df), dtype=bool)
+    for _fam, _cols in _FAMILIES.items():
+        _cols = [c for c in _cols if c in df.columns]
+        if not _cols:
+            continue
+        _hit = df[_cols].fillna(False).any(axis=1)
+        _anyfam |= _hit.to_numpy()
+        df["_famhit_tmp"] = _hit.astype(float)
+        _recent = gg["_famhit_tmp"].transform(
+            lambda s: s.rolling(10, min_periods=1).max()).fillna(0).to_numpy() >= 1
+        df["cf_" + _fam] = _recent           # did this family fire in the trailing 10 bars
+        _conf += _recent.astype(float)
+    df.drop(columns=["_famhit_tmp"], inplace=True)
+    df["conf_n"] = _conf.astype(int)
+    df["conf_anyfam"] = _anyfam
+    # Gate extended $21-89 → $21+ (2026-07-13): the $89+ bucket ladder holds — ×3 +3.77/med+2.42/
+    # win57 5-5yr (2022 +4.3!) · ×5 +5.90 (2022 +7.2) · ×6+ med+6.66 win68 — confluence is the one
+    # place the Fib price-zone law bends: single signals at $89+ are weak, but 3-4 independent edges
+    # stacking on a quality large-cap is rare & informative (AMD Feb-Mar'26 ×4 @$195 → +50% was
+    # being excluded). <$21 stays out (lottery). See lad89.py.
+    df["E_confluence"]    = _anyfam & (df["conf_n"] >= 3) & (df["close"] >= 21) & df["clean"]
+    df["E_confluence_p"]  = _anyfam & (df["conf_n"] >= 4) & (df["close"] >= 21) & df["clean"]
+    df["E_confluence_hi"] = _anyfam & (df["conf_n"] >= 3) & (df["close"] >= 89) & df["clean"]
+    # 🏆 Relative-Strength flag (validated 2026-07-13, rs_test.py/rs_sec.py, see main._rs_flags for
+    # the live-scan twin): rs = close/benchmark (sector ETF, SPY fallback) above its own EMA200 =
+    # a QUALITY name in a temporary dip vs a structural-laggard knife (OKLO vs CAG). RS-intact
+    # turns Cluster/QZ-Capit/G3-Abs 2022-POSITIVE; the un-gated halves bleed in 2021-22.
+    # NB the ETF parquet starts 2021-07 → +120-bar warmup means RS-gated masks fire from ~2022.
+    _rs_flag = np.zeros(len(df), dtype=bool)
+    _rs_spy_flag = np.zeros(len(df), dtype=bool)
+    try:
+        _px, _smap = _load_rs_ref()
+        if _px is not None:
+            _S2E = {"Technology": "XLK", "Healthcare": "XLV", "Financials": "XLF",
+                    "Industrials": "XLI", "Materials": "XLB", "Consumer Discretionary": "XLY",
+                    "Consumer Staples": "XLP", "Energy": "XLE", "Utilities": "XLU",
+                    "Communication Services": "XLC", "Real Estate": "XLRE"}
+            def _intact(_c, _b):
+                with np.errstate(invalid="ignore", divide="ignore"):
+                    _rs = _c / _b
+                _e = pd.Series(_rs).ewm(span=200, adjust=False, min_periods=120).mean().to_numpy()
+                return (_rs > _e) & ~np.isnan(_e)
+            for _tk, _gg in df.groupby("ticker", sort=False):
+                _ds = _gg["date"].astype(str).str[:10]
+                _c = _gg["close"].to_numpy(float)
+                _bspy = _ds.map(_px["SPY"]).to_numpy(float)
+                _rs_spy_flag[_gg.index] = _intact(_c, _bspy)
+                _et = _S2E.get(_smap.get(_tk, ""), None)
+                if _et and _et in _px.columns:
+                    _rs_flag[_gg.index] = _intact(_c, _ds.map(_px[_et]).to_numpy(float))
+                else:
+                    _rs_flag[_gg.index] = _rs_spy_flag[_gg.index]   # no sector → SPY fallback
+    except Exception:
+        pass                                   # no RS data → gated masks simply stay empty
+    df["rs_intact"] = _rs_flag                 # sector-RS (SPY fallback) — the primary gate
+    df["rs_spy_intact"] = _rs_spy_flag         # SPY-RS — for the 💪sec-lead split in the scanner
+    # 🧊 Coil-Floor Absorption (validated 2026-07-23, project_coil_floor_absorption): born from AMD's
+    # classic accumulations. A daily-Z absorption at the FLOOR of a HELD compressed base — prior-25-bar
+    # range ≤35% (a coil, not a trending drop) AND this bar's low within 6% of the 25-bar base low (at
+    # the floor, not mid-range) — with rs_intact + rsi<40. The held-base STRUCTURE is orthogonal to
+    # QZ-Capit's fresh-15-low & Washout's VIX-panic (16% / 0% overlap): the portion DISJOINT from the
+    # capit family is the strongest cohort — med +3.35/mean+4.86/win58/5-5yr incl 2022 +2.1, TR+3.4/
+    # TE+3.2. PBO 0.014 (92% OOS-retention). floor-entry ≫ breakout-exit; deep-shakeout base HURTS
+    # (base must HOLD). STATE>SHAPE: it's structure(held coil)+location(floor)+state(RS,oversold), NOT
+    # the signal identity (T*L46/L34 levels & red/Z absorption alone = random ~54%). coilfloor.py
+    _ABSZ = ("Z1", "Z1G", "Z2", "Z2G", "Z5", "Z10", "Z11")
+    _cf_hi = g["high"].transform(lambda s: s.rolling(25, min_periods=25).max().shift(1)).to_numpy(float)
+    _cf_lo = g["low"].transform(lambda s: s.rolling(25, min_periods=25).min().shift(1)).to_numpy(float)
+    with np.errstate(invalid="ignore", divide="ignore"):
+        _cf_rng = (_cf_hi - _cf_lo) / _cf_lo                       # base compression (prior 25 bars)
+        _cf_floor = (df["low"].to_numpy(float) - _cf_lo) / _cf_lo  # this bar's low vs the base low
+    df["E_coilfloor"] = (
+        df["z"].astype(str).isin(_ABSZ)
+        & (df["rsi_14"] < 40) & (df["rsi_14"] > 0)
+        & df["rs_intact"]
+        & (_cf_rng <= 0.35) & (_cf_floor <= 0.06)
+    ).fillna(False)
+    # 🌀 Engulf-Absorb-Reversal (WATCH-tier, 2026-07-23, project_bottom_anatomy_mtf): a bull-engulf
+    # (T4/T6) whose INTRADAY 15m is still Z-DOMINANT (T/(Z+T)<0.5 = absorption, NOT clean demand) =
+    # a genuine reversal-FROM-absorption, on a quality name (rs_intact) in a base (rsi<60, prior-10d
+    # <+8%), $21-89. The counter-intuitive tell: clean-demand intraday is WORSE (extended); Z-dominant
+    # is better (buy absorbed weakness, engulf-version). 100% ORTHOGONAL to coilfloor/engulfabs/capit
+    # (0% overlap). Overfit-pass (DSR~1.0, PBO 0.13, 81% OOS-retention) but MODEST: +0.29 med/win51/
+    # TEST+1.5, small-n (~2.6k), 2022/2024 negative → WATCH/display, NOT auto-buy. cf 15m-Z-dominant.
+    _zdom = _load_m15_zdom()
+    _kz = (df["ticker"].astype(str) + "|" + dstr).to_numpy()
+    df["m15_zdom"] = [k in _zdom for k in _kz]
+    # 🔎 intraday VSA-line presence (2026-07-26) — the MTF veto layer, see _load_intraday_lines
+    _g34, _a34, _r46, _vsp, _dry = _load_intraday_lines()
+    df["iv_l34g"] = [k in _g34 for k in _kz]     # green L34 (demand) printed intraday
+    df["iv_l34"]  = [k in _a34 for k in _kz]     # any L34 intraday
+    df["iv_l46r"] = [k in _r46 for k in _kz]     # red L46 (supply worked) intraday
+    # 💥 intraday VOLUME EVENT: the session's biggest 15m bar is ≥4× that session's own average.
+    # The single most UNIVERSAL filter found (2026-07-26, volume_deep.py) — unlike RS/dissonance
+    # (edge-specific), it improves EVERY edge tested and its absence is a loss cell everywhere:
+    #   raw daily L46 by intraday spike: <2.5× med −5.85/win39/pf0.90 → 2.5-4× −1.31 → 4-6× −0.10
+    #   → 6×+ med +0.36/win51/pf1.22 (monotone ladder). Same shape on L34 (<2.5× → pf 0.81, 3/6yr).
+    # On built edges (spike<2.5 vs ≥4): washout med −0.59→+0.42 & worst −2.2→−0.0 · t3_rs_dip
+    # +1.66→+2.02/worst +0.9 · coilfloor +2.82→+3.16/worst +1.8 · qzcapit_dwell +1.15→+1.45.
+    # Reads: "was there a REAL volume event inside the day, or just a flat session?"
+    df["iv_vspike"] = [k in _vsp for k in _kz]     # ≥4× (positive gate)
+    df["iv_dry"]    = [k in _dry for k in _kz]     # <2.5× = the severe veto cell (~3% of days)
+    _prior10 = g["close"].transform(lambda s: s / s.shift(10) - 1)
+    df["E_engulf_absorb_rev"] = (
+        df["t"].isin(["T4", "T6"]) & df["m15_zdom"] & df["rs_intact"]
+        & (df["rsi_14"] < 60) & (df["rsi_14"] > 0) & (_prior10 < 0.08)
+        & df["close"].between(21, PRICE_CAP)
+    ).fillna(False)
+    # ⚡ G3-Abs — the "contradiction bar" (validated 2026-07-13, user's AMD-Mar-2 chart obs, contra.py):
+    # an aggressive G3 gap-up that closes WEAK (Atomic O-close) on the SAME bar = the gap got
+    # absorbed — buyers attacked, sellers unloaded all day, price held anyway. Synergy is real:
+    # G3∧Atomic +4.24/med+2.33/win56/PF1.83/z+11.9/5-6yr (n=11253, $21+) beats G3 alone (+3.10)
+    # and dwarfs Atomic alone (+1.60/med+0.13, z−13). Inside a conf≥3 cluster → +4.52/PF1.93.
+    # $21-89 +4.98/PF1.98. L43 adds nothing (absorption already in the O-close); SC-zone dilutes
+    # the mean (G3 is zone-agnostic) but keeps the median. 2022 ~flat (−0.5), not a bear edge.
+    df["E_g3abs"] = df["E_g3"] & df["E_atomic"] & (df["close"] >= 21)
+    # 🔑 KEY-LEVEL flag (validated 2026-07-15, keylvl.py — the real core of the "smart-money
+    # liquidity sweep" infographic): support = causal 25-bar low (shift 3); a level is a KEY
+    # level if it was TESTED ≥2× in the last 25 bars (resting buy orders), vs a weak/incidental
+    # level. Discriminates hold-vs-knife: Spring med +1.00 (key) vs −3.90 (weak, win43!); QZ-Capit
+    # key → 6/6yr; D+L1 key med +1.31 vs −0.10. "Deep wick below support" HURTS (that's a real
+    # breakdown, not a stop-hunt) — location quality > wick drama. STATE>SHAPE again.
+    # LEVEL-ANCHORED count (must match keylvl.py): for bar i, how many of the PRIOR 25 bars' lows
+    # sit at/below THIS bar's support level sup[i] (±1%). Not a plain rolling sum — each bar uses
+    # its own level as the threshold — so we slide a 25-window of prior lows and compare to sup[i].
+    from numpy.lib.stride_tricks import sliding_window_view as _swv
+    _sup = g["low"].transform(lambda s: s.rolling(25, min_periods=15).min().shift(3)).to_numpy(float)
+    _low = df["low"].to_numpy(float)
+    _kt = np.zeros(len(df))
+    for _tk, _idx in df.groupby("ticker", sort=False).indices.items():
+        _idx = np.sort(_idx)
+        lo_ = _low[_idx]; sp_ = _sup[_idx]; n_ = len(_idx)
+        if n_ < 26:
+            continue
+        _w = _swv(lo_, 25)                       # rows k = lo_[k:k+25]; bar i uses window k=i-25
+        _thr = sp_[25:] * 1.01                   # threshold = this bar's support, i=25..n-1
+        _cnt = (_w[:len(_thr)] <= _thr[:, None]).sum(axis=1)
+        _out = np.zeros(n_); _out[25:] = _cnt
+        _kt[_idx] = _out
+    df["key_touches"] = _kt
+    df["key_level"] = df["key_touches"] >= 2
+    # $21+ floor: the key-level lift was validated in the quality zone (keylvl.py); below it the
+    # parent setups drag on cheap stocks. QZ-Capit already has its $21-89 gate.
+    df["E_spring_key"]   = df["E_spring"] & df["key_level"] & (df["close"] >= 21)
+    df["E_qzcapit_key"]  = df["E_qzcapit"] & df["key_level"]
+    df["E_dl1_key"]      = df["E_dl1"] & df["key_level"] & (df["close"] >= 21)
+    # 🏛️ BOS-up (Break of Structure, validated 2026-07-15, bos.py — from the Chart.Logic PAU
+    # series' most-repeated concept): a downtrend swing-HIGH (2-2 fractal formed while close<EMA50)
+    # broken by a daily close = structure shifted bullish. As a gate it's SELECTIVE: it CONFIRMS
+    # deep-capitulation reversals (QZ-Capit + BOS≤6d: med+0.52→+1.98, win51→55, 5/6→6/6yr) but
+    # HURTS bottom-tick setups (Spring/D+L1/G3-Abs) — by the time structure breaks, the exact low
+    # is gone ("confirmation costs"). So gate ONLY QZ-Capit. Recent BOS within 6d.
+    _bos_recent = np.zeros(len(df), dtype=bool)
+    _e50f = g["close"].transform(lambda s: s.ewm(span=50, adjust=False).mean()).to_numpy(float)
+    for _tk, _ix in df.groupby("ticker", sort=False).indices.items():
+        _ix = np.sort(_ix)
+        _h = df["high"].to_numpy()[_ix]; _c = df["close"].to_numpy()[_ix]; _e = _e50f[_ix]
+        _n = len(_ix)
+        if _n < 6:
+            continue
+        _bos = np.zeros(_n, dtype=bool)
+        _last = np.nan; _last_dn = False
+        for _i in range(_n):
+            if _i >= 4 and _h[_i - 2] == max(_h[_i - 4:_i + 1]):   # 2-2 fractal high, confirmed at i
+                _last = _h[_i - 2]; _last_dn = _c[_i - 2] < _e[_i - 2]
+            if (not np.isnan(_last)) and _last_dn and _c[_i] > _last and _c[_i - 1] <= _last:
+                _bos[_i] = True; _last = np.nan
+        # BOS active if fired in the last 6 bars (inclusive)
+        _rw = pd.Series(_bos.astype(float)).rolling(6, min_periods=1).max().to_numpy() >= 1
+        _bos_recent[_ix] = _rw
+    df["bos_up"] = _bos_recent
+    df["E_qzcapit_bos"] = df["E_qzcapit"] & df["bos_up"]
+    # 🧱 ORDER BLOCK retest (validated 2026-07-15, fvgob.py — Chart.Logic 'last down candle before
+    # the move' = institutional absorption zone; price returns to retest it). Precomputed dayset
+    # (data/ob_days.json, ticker→dates where price re-tapped a ≤8-bar-old bullish OB) to keep _prep
+    # cheap — a simple membership map, no per-ticker loop. As a gate: STRONG on capitulation/absorption
+    # edges — QZ-Capit +OB med −0.11→+4.46/win59/PF2.70/6-6yr, Cluster +2.16/PF1.92/6-6yr, D+L1 +2.16/
+    # PF2.12/6-6yr — but HURTS bottom-tick (Spring/G3-Abs). Gate only QZ/Cluster/D+L1. (FVG tested
+    # same day = no edge, not built.)
+    _ob = _load_ob_days()
+    _obkeys = (df["ticker"].astype(str) + "|" + dstr).to_numpy()
+    df["ob_retest"] = np.array([k in _ob for k in _obkeys], dtype=bool)
+    df["E_qzcapit_ob"]   = df["E_qzcapit"] & df["ob_retest"]
+    df["E_confluence_ob"] = df["E_confluence"] & df["ob_retest"]
+    df["E_dl1_ob"]       = df["E_dl1"] & df["ob_retest"] & (df["close"] >= 21)
+    # 🏆 RS-gated variants — the separate-edge versions (user request 2026-07-13): each is its
+    # parent setup restricted to RS-intact names. Validated split (episode-level, 2022-26):
+    # Cluster≥3 intact +4.49/med+3.29/win58/PF1.96 5-5yr · QZ-Capit intact 2022 +1.0 (broken
+    # 2021 −10.4) · G3-Abs intact +4.93/med+3.59/win59/PF2.06.
+    df["E_confluence_rs"] = df["E_confluence"] & df["rs_intact"]
+    df["E_qzcapit_rs"]    = df["_qzcapit_wide"] & df["rs_intact"]   # $21-377 (cap sweep 2026-07-26)
+    df["E_g3abs_rs"]      = df["E_g3abs"] & df["rs_intact"]
+    # 🔑 Gate-strengthened variants (validated 2026-07-22, systematic OB/RS/quality sweep across
+    # every base setup — built ONLY where the gate is era-BALANCED, improves the worst year, and
+    # lifts ps with adequate n; not a blanket application). Two clean patterns emerged:
+    #   🧱OB (order-block retest) = the biggest AMPLIFIER — turns strong setups elite.
+    #   🏆RS (relative-strength intact) = the best worst-year RESCUER — flips median-negative
+    #        Tier-4 setups (Washout/Spring/D+L1/Z11-T11/Engulf-Abs) to 5/5yr all-positive.
+    # 🧱OB amplifiers (already-strong bases → even stronger, worst-year held ≥0):
+    df["E_rtb_base_ob"] = df["E_rtb_base"] & df["ob_retest"]        # +1.79→+7.33/med+5.06/6-6yr/worst+3.6
+    df["E_failbear_ob"] = df["E_failbear"] & df["ob_retest"]        # +3.19→+8.38/med+4.27/6-6yr/worst+0.3
+    df["E_g3g3rl_ob"]   = df["E_g3g3rl"] & df["ob_retest"]          # +8.70→+21.4/med+17.9/6-6yr/worst+5.5
+    # 🏆RS rescuers (Tier-4 median-negative bases → 5/5yr all-positive, worst-year flipped +):
+    df["E_rtb_base_rs"] = df["E_rtb_base"] & df["rs_intact"]        # +1.79→+4.25/med+3.61/5-5yr/worst+1.8
+    df["E_z11t11_rs"]   = df["E_z11t11"] & df["rs_intact"]          # +7.04→+8.76/med+8.01/win75/5-5yr/worst+1.5
+    df["E_washout_rs"]  = df["E_washout"] & df["rs_intact"]         # +1.67(med−0.5)→+4.33/med+3.32/5-5yr/worst+1.4
+    df["E_dl1_rs"]      = df["E_dl1"] & df["rs_intact"]             # +1.92(med−0.1)→+3.98/med+2.12/5-5yr/worst+0.1
+    df["E_spring_rs"]   = df["E_spring"] & df["rs_intact"]          # +1.06(med−1.1)→+4.25/med+2.40/5-5yr/worst+0.5
+    df["E_engulfabs_rs"] = df["E_engulfabs"] & df["rs_intact"]      # +4.99(worst−4.1)→+7.05/med+5.72/5-5yr/worst+0.2
+    df["E_l43triple_rs"] = df["E_l43triple"] & df["rs_intact"]      # +4.86→+6.41/med+5.86/win67/5-5yr/worst+1.9
+    # 🏆💎 Atomic-RS-Q (2026-07-26 strengthening sweep): base Atomic (n61k) had NO gated variant and
+    # was the weakest big edge (med −0.08, worst −1.5). RS-intact + $21-89 quality → med +0.78,
+    # expR +0.10, pf 1.42, worst −1.5→−0.8 (still 5/6; 2022 −0.8 residual). Modest but real —
+    # median flips positive, worst-year halved. Consolidation, not a new edge (subset of Atomic).
+    df["E_atomic_rsq"] = df["E_atomic"] & df["rs_intact"] & df["close"].between(21, PRICE_CAP)
+    # 🔵 DWELL booster (2026-07-26, AM-GM/cup study #2): "rounded bottom" = price DWELLS at the floor
+    # for many days (absorption) vs a sharp V-spike. dwell = # of last-10 bars whose low is within
+    # 3% of the trailing-20 low; ≥5 = a rounded/held base. DAILY-computed (no intraday infra), and
+    # ORTHOGONAL to the intraday dissonance-confirm (Jaccard 0.29). Worst-year rescuer on 3 edges:
+    # qzcapit 5/6 worst−0.8 → 6/6 worst+0.2 (n26k); dl1 4/6 worst−1.0 → 5/6 worst−0.1 (2021 +0.5,
+    # where late-reclaim FAILED −3.2); l43 worst+0.9 → +1.9. Complements dissonance (different edges).
+    _dw_min20 = g["low"].transform(lambda s: s.rolling(20).min())
+    _dw_near = (df["low"] <= _dw_min20 * 1.03).astype(float)
+    _dwell5 = (_dw_near.groupby(df["ticker"]).transform(lambda s: s.rolling(10).sum()) >= 5).fillna(False)
+    df["E_qzcapit_dwell"]   = df["_qzcapit_wide"] & _dwell5  # $21-377: 6/6yr worst+0.1/med+1.15/n40k
+    df["E_dl1_dwell"]       = df["E_dl1"] & _dwell5          # 5/6yr worst−0.1/2021+0.5 (dissonance couldn't)
+    df["E_l43triple_dwell"] = df["E_l43triple"] & _dwell5    # 6/6yr worst+1.9/med+2.94
+    # 🎯 T1-RS-Dip (2026-07-25 discovery): raw T1 demand bar is era-dependent noise (med −1.34),
+    # but a T1 at RSI<45 with RS-intact in the $21-89 quality zone = a quality-dip in a strong name.
+    # 5/5yr all-positive (incl 2022 +1.4), med +2.56, n1697, DSR 1.00, family PBO 0.41, plateau-robust
+    # (RSI 35/40/45 all +). Cheap buckets fail (2021 −24) → quality zone is load-bearing.
+    df["E_t1_rs_dip"] = ((df["t"] == "T1") & (df["rsi_14"] < 45) & df["rs_intact"]
+                         & df["close"].between(21, PRICE_CAP))
+    # 🎯 T3-RS-Dip (2026-07-25): T3 continuation-demand at RSI<45 with RS-intact in $21-89. Raw T3
+    # is era-dependent noise (med −1.43); RS+quality → 6/6yr all-positive (incl 2021 +10.5, 2022 +0.1)
+    # med +1.21, n3387, DSR 1.00, plateau-robust across 5 price buckets + RSI 40/50. family PBO 0.54
+    # (near-dup-variant artifact, not overfit — the wide plateau + DSR are the real evidence).
+    df["E_t3_rs_dip"] = ((df["t"] == "T3") & (df["rsi_14"] < 45) & df["rs_intact"]
+                         & df["close"].between(21, PRICE_CAP_WIDE))
+    # 🏆 L34→L34 continuity (2026-07-25, l34_validate.py): a T1 demand bar whose PRIOR bar was a
+    # Z-absorption, with the SAME L34 VSA volume-line on BOTH bars ($21-89). The CONTINUITY is the
+    # edge — T1-bar L34 alone = null (+0.59/med−0.91/4-6yr); requiring L34 on the absorption AND
+    # the demand bar → mean +2.60/med +0.53/5-6yr with BOTH bear years positive (2021 +2.65,
+    # 2022 +2.52), worst −0.5, DSR 0.84. NOT RSI-subsumed (beats RSI<45 state on every axis;
+    # 2021 flips −2.4→+2.6). Price-bucket law holds (<8 & 8-21 dead, $21-89 only, 89+ weaker med).
+    # L46/L25 never persist across Z→T1 (n0); L3→L3 fails (−0.92). Clean continuity-family PBO 0.5.
+    _pz_l34 = g["z"].shift(1).fillna("")
+    _pl_l34 = g["l"].shift(1).fillna("")
+    df["E_l34cont"] = ((df["t"] == "T1") & (_pz_l34 != "") & (_pl_l34 == "L34")
+                       & (df["l"] == "L34") & df["close"].between(21, PRICE_CAP_WIDE))
+    # 🏆 +RS flagship: RS-intact → 5/5yr ALL-positive (worst +2.60), med +1.90, n112, DSR 0.93 —
+    # the universal worst-year rescuer again ([[project_rs_gate]]).
+    df["E_l34cont_rs"] = df["E_l34cont"] & df["rs_intact"]
+    # 🟢 Zone-Retest × GREEN-L46 (2026-07-26, user's "a green L46 and a red L46 are two different
+    # signals" insight). Zone-Retest was our weakest big edge (4/6yr, worst −1.7) and RS is a TRAP
+    # on it (2021 −11..−22). The right gate turned out to be the L46 VSA volume-line: every ZRT bar
+    # is already green (its definition needs an up bar), so ZRT∧L46 = green-L46 by construction.
+    # ZRT+L46 → 6/6yr worst +0.1; +$21-89 → med +1.03/worst +0.6; +dwell (price hugging the 20d low
+    # ≥5 of last 10 bars = a genuinely repeated retest) → med +1.32/expR +0.10/pf1.48/worst +0.9.
+    # DSR 1.00 vs 35 swept conditioners, family PBO 0.243, plateau across all 4 T-codes (green L46
+    # is always T5/T10/T11/T12) and both dwell thresholds. Discovered as "green L46 + dwell" which
+    # was 94% overlapping ZRT (dwell at the 20d low IS a retest) → built as a ZRT gate, not a new edge.
+    _l46g = (df["l"] == "L46") & (df["close"] > df["open"])
+    _min20 = g["low"].transform(lambda s: s.rolling(20).min())
+    _dwell5 = ((df["low"] <= _min20 * 1.03).astype(float)
+               .groupby(df["ticker"]).transform(lambda s: s.rolling(10).sum()) >= 5).fillna(False)
+    # PRICE GATE $21-377 (widened from $21-89 on 2026-07-26 after a Fibonacci-zone sweep — the
+    # user's point that ">$89 was still fine" in the old price research). Per-trade quality keeps
+    # IMPROVING with price (win% 53.3→54.6→55.2→55.2→56.7, catastrophe ≤−20% falls 10.8→9.3→6.6→
+    # 7.0→6.7→7.6% across 21-34…233-377) — the 21-89 cap was leaving good trades on the table.
+    # Widening to 377: n 6771→10689 (+58%), median +1.32→+1.35, catastrophe 8.8→8.2%, still 6/6yr
+    # (worst +0.9→+0.7). **377+ is excluded deliberately**: on its own it is 3/6yr with 2021 −6.8,
+    # and an uncapped gate drags worst-year down. Under $21 stays out (8-21: win ~45%, cat ~16%,
+    # median −1.7..−1.9) — the cheap-lottery zone of [[project_fib_price_zones]].
+    df["E_zrt_l46"]    = df["E_zoneretest"] & _l46g & df["close"].between(21, 377)
+    df["E_zrt_l46_dw"] = df["E_zrt_l46"] & _dwell5
+    # 🔎 intraday-demand CONFIRMED variants (2026-07-26). The veto is "no demand line printed
+    # intraday" — validated as a genuine loss cell, not just a weak one:
+    #   washout & NO 15m L34 → 1/6yr, med −5.28, pf 0.72   (removing it: worst −2.2 → −1.1)
+    #   ZRT🟢 & NO 15m green-L34 → 3/6yr, worst −2.0        (removing it: worst +0.6 → +0.9)
+    # Edge-SPECIFIC as always: qzcapit/coilfloor are unaffected (their no-L34 cell is fine), so
+    # only the two validated ones are gated. Degrades safely — if the 15m map is empty the
+    # iv_* columns are all False and these masks simply never fire (base edges untouched).
+    df["E_washout_iv"]  = df["E_washout"] & df["iv_l34"]
+    df["E_zrt_l46_iv"]  = df["E_zrt_l46"] & df["iv_l34g"]
+    # 💥 Washout × intraday volume event — the most dramatic single application of iv_vspike:
+    # med −0.59 → +0.42, win 48.6 → 50.9, pf 1.24 → 1.35, worst-year −2.2 → −0.0 (n19732).
+    # Washout was our most "expensive" edge (buy panic, wide heat); requiring a real intraday
+    # volume event separates a genuine climax from a slow drift down.
+    df["E_washout_vs"]  = df["E_washout"] & df["iv_vspike"]
+    # 🎬 Confirmed stopping-volume (2026-07-26). From the VSA-video test: of ALL 13 narrated
+    # patterns built raw (no priors), this was one of only two that weren't coin-flips — and the
+    # single-candle ones (absorption, no-supply, pin bar) all failed. A prior WIDE-RANGE DOWN bar
+    # on EXTREME volume (selling climax) FOLLOWED by a GREEN bar on LOWER volume (demand confirms).
+    # Raw shape = coin-flip (+0.05/4-6yr); it needs our STATE gate. +Q$21-89+RS → +2.31/med+0.73/
+    # expR+0.09/pf1.37/4-5yr, +RSI<45 → +3.92/med+2.46/pf1.74. DSR 0.997; overlap with the
+    # capitulation family only 26% (+Q+RS) — 74% NOVEL, disjoint part strong. 2021 sparse, 2022 soft.
+    _svr = df["high"] - df["low"]
+    _avg_rng_bp = _svr.groupby(df["ticker"]).transform(lambda s: s.rolling(20).mean().shift(2))
+    _vmax_bp    = df["volume"].groupby(df["ticker"]).transform(lambda s: s.rolling(20).max().shift(2))
+    _climax_p = ((g["close"].shift(1) < g["open"].shift(1))                       # prior bar red
+                 & (_svr.groupby(df["ticker"]).shift(1) >= 1.5 * _avg_rng_bp)     # prior wide-range
+                 & (g["volume"].shift(1) >= _vmax_bp))                            # prior extreme vol
+    _confirm = (df["close"] > df["open"]) & (df["volume"] < g["volume"].shift(1)) # green, lower vol
+    df["E_stopvol_confirm"] = (_climax_p & _confirm
+                               & df["close"].between(21, PRICE_CAP_WIDE) & df["rs_intact"]).fillna(False)
+    df["E_stopvol_confirm_deep"] = df["E_stopvol_confirm"] & (df["rsi_14"] < 45)
+    # 💎 quality-price rescuer for Z-Absorb (OB variant n too thin + worst worsened; $21-89 is the
+    # clean lift — improves era-balance and worst year −4.2→−2.6, per the booster study).
+    df["E_zabsorb_q"]   = df["E_zabsorb"] & df["close"].between(21, PRICE_CAP)   # +5.75→+8.69/med+4.39/worst−2.6
+    # 🎋 THREE-LINE-STRIKE entry (validated 2026-07-17, tls2.py — from the user's "candlestick
+    # patterns as entry triggers" idea). A Three Line Strike completes on bar j: 3 consecutively
+    # LOWER closes (j-3>j-2>j-1) then a GREEN bar that closes ABOVE the high of bar j-3 (engulfs
+    # the 3-bar decline). It is a bad TIMER (matched vs immediate −3.8pp: waiting makes you chase)
+    # but, as a CAUSAL ENTRY GATE on top of an edge that fired ≤5 bars earlier, it adds real lift
+    # on TWO setups and nothing on the others — an edge-SPECIFIC entry filter, not universal:
+    #   QZ-Capit🎋TLS  +1.10pp (TRAIN +0.38 · TEST +1.71, BOTH positive) · 4/6yr · +2.98σ → BUILT
+    #   G3-Abs🎋TLS    +3.04pp but TRAIN −0.55 / TEST +4.79 (2024-26-only) → WATCH, era-tilted
+    #   Atomic/Cluster: −0.03 / +0.21pp, σ<1 → nothing (not built)
+    # NOTE the earlier lookahead trap: labelling a fire by whether a TLS forms in the NEXT 5 bars
+    # gave a fake +6.4%/12σ — you'd be entering BEFORE the TLS. This gate enters AFTER it (j+1).
+    o_ = df["open"].to_numpy(float); h_ = df["high"].to_numpy(float); c_ = df["close"].to_numpy(float)
+    tls = np.zeros(len(df), bool)
+    for _tk, _idx in df.groupby("ticker", sort=False).indices.items():
+        _idx = np.sort(_idx); m = len(_idx)
+        if m < 4:
+            continue
+        oo = o_[_idx]; hh = h_[_idx]; cc = c_[_idx]
+        t = np.zeros(m, bool)
+        t[3:] = ((cc[:-3] > cc[1:-2]) & (cc[1:-2] > cc[2:-1])   # 3 lower closes j-3>j-2>j-1
+                 & (cc[3:] > oo[3:])                            # bar j green
+                 & (cc[3:] > hh[:-3]))                          # closes above high[j-3]
+        tls[_idx] = t
+    df["tls_bar"] = tls
+    # "an edge fired in the trailing 6 bars (this bar + prior 5), causal" — rolling-OR
+    def _recent6(col):
+        return (df.groupby("ticker", sort=False)[col]
+                  .transform(lambda s: s.astype(float).rolling(6, min_periods=1).max()) > 0)
+    df["E_qzcapit_tls"] = df["tls_bar"] & _recent6("E_qzcapit")            # robust (built live)
+    df["E_g3abs_tls"]   = df["tls_bar"] & _recent6("E_g3abs")             # 🟡 watch (era-tilted)
+    # ── self-learned mined combos (base ∧ conditioner masks the brain validated OOS and
+    #    promoted via brain/miner.py). Built here so the spine can path-sim + fire them. ──
+    for _mc in _MINED_COMBOS:
+        b, c = _mc.get("base_col"), _mc.get("cond_col")
+        if b in df.columns and c in df.columns:
+            df[_mc["id"]] = df[b].fillna(False).astype(bool) & df[c].fillna(False).astype(bool)
+    return df
+
+
+# display name + the entry column for each setup
+SETUPS = [
+    ("L43-TRIPLE", "E_l43triple"), ("Z11-T11", "E_z11t11"), ("Washout", "E_washout"),
+    ("D+L1", "E_dl1"), ("G3-gap", "E_g3"), ("Atomic", "E_atomic"),
+    ("H1-bottom", "E_h1bottom"), ("Spring", "E_spring"), ("P55", "E_p55"),
+    ("Parabola", "E_parabola"), ("Atomic-R", "E_atomicR"), ("Engulf-Abs", "E_engulfabs"),
+    ("T1-CapBounce", "E_t1capbounce"), ("Engulf-L46", "E_engulfL46"),
+    ("Engulf-Abs-Lⁿ", "E_engulfabs_Lheavy"),
+    ("Zone-Retest", "E_zoneretest"), ("Zone-Retest-E", "E_zoneretest_E"),
+    ("Zone-Retest-DiT", "E_zoneretest_dit"), ("HighBase-15mDip", "E_highbase15"),
+    ("RTB-Base", "E_rtb_base"), ("QZ-Capit-Rev", "E_qzcapit"),
+    ("🎯Confluence≥3", "E_confluence"), ("🎯Confluence≥4", "E_confluence_p"),
+    ("🎯Confluence💎89+", "E_confluence_hi"), ("⚡G3-Abs", "E_g3abs"),
+    # 🏆 RS-gated variants (rs=close/sector-ETF above its EMA200; ETF data starts 2021-07)
+    ("🎯Cluster🏆RS", "E_confluence_rs"), ("QZ-Capit🏆RS", "E_qzcapit_rs"),
+    ("⚡G3-Abs🏆RS", "E_g3abs_rs"),
+    # 🔑 KEY-LEVEL variants (support tested ≥2× = real level, not a knife)
+    ("Spring🔑", "E_spring_key"), ("QZ-Capit🔑", "E_qzcapit_key"), ("D+L1🔑", "E_dl1_key"),
+    ("QZ-Capit🏛️BOS", "E_qzcapit_bos"),
+    ("QZ-Capit🧱OB", "E_qzcapit_ob"), ("🎯Cluster🧱OB", "E_confluence_ob"), ("D+L1🧱OB", "E_dl1_ob"),
+    # 🎋 THREE-LINE-STRIKE entry gate (edge fired ≤5 bars before, enter after the TLS completes)
+    ("QZ-Capit🎋TLS", "E_qzcapit_tls"), ("G3-Abs🎋TLS", "E_g3abs_tls"),
+    # 🌀 SC-SUPER variants — the 6 setups gated to the Wyckoff SC zone (±5% support)
+    ("ppr×NS 🕐24-26", "E_ppr_ns"),
+    ("G3+RL", "E_g3rl"), ("G3→G3", "E_g3g3"), ("G3→G3→RL", "E_g3g3rl"),
+    ("L34camp→REV", "E_l34camp_rev"),
+    ("ND→SC→L46 🕐", "E_ndscl46"), ("NS→SC", "E_nssc"), ("G3→L46 🕐", "E_g3l46"),
+    ("FailedBear-Turn", "E_failbear"),
+    ("Z-Absorb-Turn", "E_zabsorb"),
+    ("T1-CapBounce🌀SC", "E_t1capbounce_SC"), ("D+L1🌀SC", "E_dl1_SC"),
+    ("Spring🌀SC", "E_spring_SC"), ("Atomic🌀SC", "E_atomic_SC"),
+    ("H1-bottom🌀SC", "E_h1bottom_SC"), ("Washout🌀SC", "E_washout_SC"),
+    # 🔑 Gate-strengthened variants (2026-07-22 sweep — era-balanced, worst-year improved):
+    ("RTB-Base🧱OB", "E_rtb_base_ob"), ("FailedBear🧱OB", "E_failbear_ob"),
+    ("G3→G3→RL🧱OB", "E_g3g3rl_ob"),
+    ("RTB-Base🏆RS", "E_rtb_base_rs"), ("Z11-T11🏆RS", "E_z11t11_rs"),
+    ("Washout🏆RS", "E_washout_rs"), ("D+L1🏆RS", "E_dl1_rs"), ("Spring🏆RS", "E_spring_rs"),
+    ("Engulf-Abs🏆RS", "E_engulfabs_rs"), ("L43-TRIPLE🏆RS", "E_l43triple_rs"),
+    ("Atomic🏆RS💎", "E_atomic_rsq"),
+    ("QZ-Capit🔵dwell", "E_qzcapit_dwell"), ("D+L1🔵dwell", "E_dl1_dwell"),
+    ("L43🔵dwell", "E_l43triple_dwell"),
+    ("ZRT🟢L46", "E_zrt_l46"), ("ZRT🟢L46🔵dw", "E_zrt_l46_dw"),
+    ("Washout🔎iv", "E_washout_iv"), ("ZRT🟢🔎iv", "E_zrt_l46_iv"),
+    ("Washout💥vol", "E_washout_vs"),
+    ("Z-Absorb💎$21-89", "E_zabsorb_q"),
+    ("🧊Coil-Floor", "E_coilfloor"),
+    ("🌀Engulf-AbsRev🟡", "E_engulf_absorb_rev"),
+    ("🎯T1-RS-Dip", "E_t1_rs_dip"),
+    ("🎯T3-RS-Dip", "E_t3_rs_dip"),
+    ("🏆L34→L34", "E_l34cont"),
+    ("🏆L34→L34+RS", "E_l34cont_rs"),
+    ("🎬StopVol-Confirm", "E_stopvol_confirm"),
+    ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
+]
+
+
+# ── EDGE-fire display maps (Superchart EDGE row + Ultra screener EDGE column) ──
+# Base setups only — the gated variants (🏆RS/🔑/🧱/🎋/🌀) are subsets of the same
+# fires and would only duplicate chips. Short codes keep the chip row readable.
+DISPLAY_SETUPS = [
+    ("CAP",  "E_t1capbounce"), ("QZC", "E_qzcapit"),  ("D+L1", "E_dl1"),
+    ("G3",   "E_g3"),          ("⚡G3A", "E_g3abs"),   ("ATM",  "E_atomic"),
+    ("ATMR", "E_atomicR"),     ("SPR", "E_spring"),   ("Z11",  "E_z11t11"),
+    ("L43",  "E_l43triple"),   ("WSH", "E_washout"),  ("H1B",  "E_h1bottom"),
+    ("ENG",  "E_engulfabs"),   ("EL46", "E_engulfL46"), ("ZRT", "E_zoneretest"),
+    ("HB15", "E_highbase15"),  ("RTB", "E_rtb_base"), ("P55",  "E_p55"),
+    ("PAR",  "E_parabola"),    ("🎯3", "E_confluence"), ("🎯4", "E_confluence_p"),
+    ("G3RL", "E_g3rl"), ("G3²", "E_g3g3"), ("G3²RL", "E_g3g3rl"),
+    ("💠L34C", "E_l34camp_rev"),
+    ("SC46", "E_ndscl46"), ("NSSC", "E_nssc"), ("G3L46", "E_g3l46"),
+    ("⚔️FBT", "E_failbear"),
+    ("💤ZAT", "E_zabsorb"),
+    ("🧊CF", "E_coilfloor"),
+    ("🌀EAR", "E_engulf_absorb_rev"),
+    ("🎯T1RS", "E_t1_rs_dip"),
+    ("🎯T3RS", "E_t3_rs_dip"),
+    ("🏆L34C", "E_l34cont"),
+    ("🎬SVC", "E_stopvol_confirm"),
+    # QUALITY marker (exception to the "base setups only" rule, 2026-07-26): ZRT fires are
+    # common (n138k, 4/6yr) and the L46 gate is what separates the 6/6yr subset — without this
+    # chip a CSV/chart review cannot tell a good ZRT from a plain one. The tighter +dwell
+    # variant is a subset of this and stays board-only to avoid stacking three chips per bar.
+    ("ZRT🟢", "E_zrt_l46"),
+    # 🔎 intraday-demand confirmed washout — the un-confirmed cell is a 1/6yr loser (med −5.28,
+    # pf 0.72), so knowing WHICH washout has intraday demand matters on a chart/CSV review.
+    ("WSH🔎", "E_washout_iv"),
+    # 💥 washout with a real intraday volume event (the universal filter) — its absence is a
+    # 3/6yr med −5.04 cell, so this marker matters on a chart/CSV review.
+    ("WSH💥", "E_washout_vs"),
+]
+
+# ── self-learned mined combos: brain/miner.py validates base×conditioner masks OOS (walk-forward
+# + worst-year + DSR + family-PBO) and writes the survivors to brain/mined_combos.json. Loaded here
+# so _prep builds their masks and the brain spine can fire them. Kept OUT of DISPLAY_SETUPS so they
+# never clutter the Superchart/Ultra EDGE chip rows — they ride a separate MINED_DISPLAY list that
+# only latest_edges_map (the brain's feed) consumes. Fully guarded: absent/bad file = no-op. ──
+_MINED_COMBOS = []
+MINED_DISPLAY = []
+
+
+def _refresh_mined():
+    """(Re)load the promoted mined combos from brain/mined_combos.json and register them as
+    scoreable setups + the brain's fire feed. Called at import and at every frame build, so a
+    freshly-promoted combo becomes live on the next _frame() without needing a code change."""
+    global _MINED_COMBOS, MINED_DISPLAY
+    import json as _json, os as _os
+    path = _os.path.join(_os.path.dirname(__file__), "brain", "mined_combos.json")
+    try:
+        _MINED_COMBOS = (_json.load(open(path)) or []) if _os.path.exists(path) else []
+    except Exception:
+        _MINED_COMBOS = []
+    MINED_DISPLAY = [(mc["id"], mc["id"]) for mc in _MINED_COMBOS]   # code == col == id
+    have = {c for _, c in SETUPS}
+    for mc in _MINED_COMBOS:                                         # scoreable by revalidate
+        if mc["id"] not in have:
+            SETUPS.append((mc.get("display", mc["id"]), mc["id"]))
+
+
+_refresh_mined()
+
+_EDGE_TK_CACHE: dict = {}          # ticker -> (built_ts, {'YYYY-MM-DD': [codes]})
+_EDGE_MAP_CACHE: list = [0.0, {}]  # [built_ts, {ticker: [(code, age_bars)]}]
+
+
+def _edges_from_group(g) -> dict:
+    """{date: [codes]} for one prepped per-ticker frame."""
+    out = {}
+    ds = g["date"].astype(str).str[:10].to_numpy()
+    for code, col in DISPLAY_SETUPS:
+        if col not in g:
+            continue
+        for d in ds[g[col].to_numpy(bool)]:
+            out.setdefault(d, []).append(code)
+    return out
+
+
+def ticker_edges(ticker: str, months: int = 16) -> dict:
+    """Per-bar Edge fires for ONE ticker: {'YYYY-MM-DD': ['G3', '🎯3', …]}.
+    Uses the warm (60, 3M) frame when the ticker is in it (zero cost); otherwise a
+    single-ticker build with the SAME 3M dv floor — the floor drops low-volume days,
+    which shifts every rolling feature, so a floorless fallback produces fire dates
+    that disagree with the backtest and the screener (EOLS 2026-07-20: RTB showed
+    07-15/16 floorless vs 07-16/17 in the real frame). TTL 1h."""
+    import time
+    tk = str(ticker).upper()
+    hit = _EDGE_TK_CACHE.get(tk)
+    if hit and (time.time() - hit[0]) < 3600:
+        return hit[1]
+    out = {}
+    try:
+        warm = _CACHE.get((60, 3_000_000))
+        if warm and tk in warm[0]:
+            out = _edges_from_group(warm[0][tk])
+        else:
+            df, _ = _pull(months, 3_000_000, ticker=tk)
+            if len(df) >= 60:
+                out = _edges_from_group(_prep(df))
+    except Exception:
+        log.debug("ticker_edges failed for %s", tk, exc_info=True)
+    _EDGE_TK_CACHE[tk] = (time.time(), out)
+    while len(_EDGE_TK_CACHE) > 400:
+        _EDGE_TK_CACHE.pop(next(iter(_EDGE_TK_CACHE)))
+    return out
+
+
+_ATR_MAP_CACHE = [0.0, None]
+def latest_atr_map() -> dict:
+    """{ticker: atr_pct} (ATR14/close of the latest bar) from the warm (60,3M) frame — for the
+    ATR time-to-target forecast on the Ultra screener. Cold frame → {} (no blocking build). TTL 1h."""
+    import time
+    if _ATR_MAP_CACHE[1] and (time.time() - _ATR_MAP_CACHE[0]) < 3600:
+        return _ATR_MAP_CACHE[1]
+    if (60, 3_000_000) not in _CACHE:
+        return {}
+    try:
+        grp, _ = _frame(60, 3_000_000)
+        m = {}
+        for tk, g in grp.items():
+            if len(g):
+                cl = float(g["close"].iloc[-1]); at = float(g["atr_14"].iloc[-1])
+                if cl > 0 and at == at:
+                    m[tk] = round(at / cl, 4)
+        _ATR_MAP_CACHE[0] = time.time(); _ATR_MAP_CACHE[1] = m
+        return m
+    except Exception:
+        log.debug("latest_atr_map failed", exc_info=True)
+        return {}
+
+
+def latest_edges_map(lookback: int = 5, build: bool = False) -> dict:
+    """{ticker: [(code, age_bars)]} — Edge fires within the last `lookback` bars,
+    from the warm (60, 3M) frame. With build=False (screener path) a cold frame
+    returns {} instead of blocking the scan for a multi-minute build; the startup
+    warmer fills it shortly after boot. TTL 1h."""
+    import time
+    if _EDGE_MAP_CACHE[1] and (time.time() - _EDGE_MAP_CACHE[0]) < 3600:
+        return _EDGE_MAP_CACHE[1]
+    if not build and (60, 3_000_000) not in _CACHE:
+        return {}
+    try:
+        from datetime import date as _date
+        grp, as_of = _frame(60, 3_000_000)
+        # Age = CALENDAR days behind the global as_of, NOT bars behind the ticker's
+        # own last frame row (EOLS bug 2026-07-20: a ticker whose latest day fails
+        # the dv floor has an older "last bar", so index-age mislabels an old fire
+        # as "today" — and the EDGE🟢 premium combo lights on a bar with no edge).
+        _asof = _date.fromisoformat(str(as_of)[:10])
+        m = {}
+        for tk, g in grp.items():
+            n = len(g)
+            fires = []
+            ds = g["date"].astype(str).str[:10].to_numpy()
+            for code, col in DISPLAY_SETUPS + MINED_DISPLAY:
+                if col not in g:
+                    continue
+                e = g[col].to_numpy(bool)
+                for i in range(max(0, n - lookback - 3), n):
+                    if e[i]:
+                        age = (_asof - _date.fromisoformat(ds[i])).days
+                        if age <= lookback:
+                            fires.append((code, age))
+            if fires:
+                m[tk] = sorted(fires, key=lambda x: x[1])
+        _EDGE_MAP_CACHE[0] = time.time()
+        _EDGE_MAP_CACHE[1] = m
+        return m
+    except Exception:
+        log.debug("latest_edges_map failed", exc_info=True)
+        return {}
+
+
+def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
+             trail: float, maxh: int, slip: float = None) -> pd.DataFrame:
+    """GAP-REALISTIC fills (2026-07-03 backtest-expert audit fix):
+    when a bar OPENS through the stop/trail level (overnight gap), the fill is the
+    OPEN (what you'd actually get), not the stop price. Target fills stay AT target
+    (no gap-up bonus) — pessimism is one-sided by design. `slip` overrides SLIP for
+    stress runs (e.g. 2×=30bps each way). Trades carry date_in/date_out for
+    portfolio-level simulation."""
+    S = SLIP if slip is None else slip
+    risk = trail if mode == "trail" else stop     # planned initial risk per trade (for R-multiple)
+    trades = []
+    for tk, gdf in grp.items():
+        if col not in gdf:
+            continue
+        o = gdf["open"].to_numpy(float); hi = gdf["high"].to_numpy(float)
+        lo = gdf["low"].to_numpy(float); cl = gdf["close"].to_numpy(float)
+        ent = gdf[col].to_numpy(bool); n = len(gdf); last = -99
+        dfull = gdf["date"].astype(str).to_numpy()
+        dts = gdf["date"].astype(str).str[:4].to_numpy()
+        for i in range(n - 1):
+            if not ent[i] or i + 1 >= n or i - last < 5:
+                continue
+            ep = o[i + 1]
+            if ep <= 0:
+                continue
+            last = i
+            entry = ep * (1 + S); ret = None; end = min(i + 1 + maxh, n); pk = entry
+            jout = end - 1; mlo = entry; mhi = entry        # trough/crest for MAE/MFE (heat)
+            for j in range(i + 1, end):
+                if lo[j] < mlo: mlo = lo[j]                  # track path excursion up to (incl.) exit bar
+                if hi[j] > mhi: mhi = hi[j]
+                if mode == "trail":
+                    ts_prev = pk * (1 - trail)          # trail level from PRIOR peak
+                    if j > i + 1 and o[j] <= ts_prev:    # gapped through overnight → fill at open
+                        ret = o[j] / entry - 1 - S; jout = j; break
+                    pk = max(pk, hi[j]); ts = pk * (1 - trail)
+                    if lo[j] <= ts:                      # intrabar touch → fill at trail level
+                        ret = ts / entry - 1 - S; jout = j; break
+                else:
+                    sl = entry * (1 - stop)
+                    if j > i + 1 and o[j] <= sl:         # gapped through the stop → fill at open
+                        ret = o[j] / entry - 1 - S; jout = j; break
+                    if lo[j] <= sl:
+                        ret = -stop - S; jout = j; break
+                    if hi[j] >= entry * (1 + target):    # target fills AT target (no gap-up bonus)
+                        ret = target - S; jout = j; break
+            if ret is None:
+                ret = cl[end - 1] / entry - 1 - S
+            trades.append({"ticker": tk, "ret": ret, "yr": dts[i],
+                           "date_in": dfull[i + 1], "date_out": dfull[jout],
+                           "mae": mlo / entry - 1,          # max adverse excursion (≤0 heat taken)
+                           "mfe": mhi / entry - 1,          # max favorable excursion
+                           "hold": int(jout - i),           # bars held (entry@i+1 → exit@jout)
+                           "risk": risk})
+    return pd.DataFrame(trades)
+
+
+def _stats(name: str, tr: pd.DataFrame) -> dict:
+    if len(tr) == 0:
+        return {"setup": name, "n": 0}
+    wins = tr["ret"] > 0
+    pf_n = tr.loc[wins, "ret"].sum(); pf_d = -tr.loc[~wins, "ret"].sum()
+    pf = round(pf_n / pf_d, 2) if pf_d > 0 else None
+    yrs = tr.groupby("yr")["ret"].mean()
+    pos_yrs = int((yrs > 0).sum())
+    # ── risk-reward block (path-aware; supersedes fixed-horizon fwd-return) ──
+    _mret = float(tr["ret"].mean())
+    _risk = float(tr["risk"].iloc[0]) if "risk" in tr.columns else 0.10
+    exp_r = round(_mret / _risk, 3) if _risk > 0 else None            # expectancy in R (mean ÷ planned risk)
+    _aw = tr.loc[wins, "ret"].mean(); _al = tr.loc[~wins, "ret"].mean()
+    payoff = round(float(_aw / -_al), 2) if (wins.any() and (~wins).any() and _al < 0) else None
+    _dn = tr.loc[tr["ret"] < 0, "ret"]                               # downside deviation → Sortino
+    _dd = float(_dn.std(ddof=1)) if len(_dn) > 1 else 0.0
+    sortino = round(_mret / _dd, 3) if _dd > 0 else None
+    med_mae = round(float(tr["mae"].median()) * 100, 2) if "mae" in tr.columns else None   # typical heat
+    med_mfe = round(float(tr["mfe"].median()) * 100, 2) if "mfe" in tr.columns else None
+    avg_hold = round(float(tr["hold"].mean()), 1) if "hold" in tr.columns else None
+    # concentration: top-10% of tickers' share of total positive PnL
+    by_tk = tr.groupby("ticker")["ret"].sum().sort_values(ascending=False)
+    tot = by_tk[by_tk > 0].sum()
+    top10 = by_tk.head(max(1, len(by_tk) // 10)).clip(lower=0).sum()
+    conc = round(top10 / tot * 100, 0) if tot > 0 else None
+    return {
+        "setup": name, "n": int(len(tr)),
+        "mean": round(float(tr["ret"].mean()) * 100, 2),
+        "median": round(float(tr["ret"].median()) * 100, 2),
+        "win": round(float(wins.mean()) * 100, 1),
+        "pf": pf, "pos_years": pos_yrs, "total_years": int(len(yrs)),
+        "best_year": round(float(yrs.max()) * 100, 1),
+        "worst_year": round(float(yrs.min()) * 100, 1),
+        "conc_top10pct": conc,
+        # risk-reward (path-aware): expectancy in R, payoff ratio, Sortino, typical heat (MAE), hold
+        "exp_r": exp_r, "payoff": payoff, "sortino": sortino,
+        "med_mae": med_mae, "med_mfe": med_mfe, "avg_hold": avg_hold,
+        "per_year": {y: round(float(v) * 100, 2) for y, v in yrs.items()},
+    }
+
+
+# Upper price gate shared by the quality-zone edges. 89 was the original "quality zone" cap
+# ([[project_fib_price_zones]]); a 2026-07-26 Fibonacci sweep showed per-trade quality keeps
+# improving above it, so this is a single knob to sweep/raise for ALL capped edges at once.
+PRICE_CAP = 89
+# Widened cap for the edges where a 2026-07-26 Fibonacci sweep showed $21-377 is as good or
+# BETTER than $21-89 (per-trade quality keeps improving with price: win% up, catastrophe down).
+# Applied per-edge, NOT globally — qzcapit(base)/qzcapit_key/atomic_rsq/t1_rs_dip degrade to 4/6yr
+# (t1_rs_dip catastrophically: worst −24) and deliberately stay at 89. 377+ is excluded everywhere
+# (3/6yr on its own, 2021 −6.8). See [[project_fib_price_zones]].
+PRICE_CAP_WIDE = 377
+
+from collections import OrderedDict
+_CACHE: "OrderedDict" = OrderedDict()
+_CACHE_MAX = 3   # LRU: keep the last 3 (months, dv_floor) frames — window switches stay warm
+                 # (2026-07-04 fix: was single-entry `_CACHE.clear()` → any window switch evicted
+                 # the others, so a warmed 24mo vanished the moment 36mo was requested).
+
+
+_RS_REF: dict = {}
+
+
+def _load_rs_ref():
+    """(etf_price_df, sector_map) for the 🏆RS flag. Loads data/etf_px.parquet (SPY + 11 XL*
+    sector ETFs, date-str index) + data/sector_map.json. If the parquet is >5 days stale and a
+    Massive key is available, auto-extends it in place (best-effort; falls back to stale data).
+    Cached for the process lifetime — frames are rebuilt often enough."""
+    if "px" in _RS_REF:
+        return _RS_REF["px"], _RS_REF["smap"]
+    import json as _json
+    _dd = os.path.join(os.path.dirname(__file__), "..", "data")
+    px, smap = None, {}
+    try:
+        px = pd.read_parquet(os.path.join(_dd, "etf_px.parquet"))
+        with open(os.path.join(_dd, "sector_map.json")) as f:
+            smap = _json.load(f)
+        last = str(px.index[-1])
+        if (pd.Timestamp.now() - pd.Timestamp(last)).days > 5:
+            try:                                  # stale — extend via Massive (never yfinance)
+                from data import fetch_ohlcv
+                fresh = {}
+                for et in px.columns:
+                    d = fetch_ohlcv(et, interval="1d", bars=60).reset_index()
+                    dc = [c for c in d.columns if str(c).lower() in ("date", "datetime", "index", "timestamp")][0]
+                    fresh[et] = pd.Series(d["close"].values,
+                                          index=pd.to_datetime(d[dc]).dt.strftime("%Y-%m-%d"))
+                fx = pd.DataFrame(fresh)
+                px = pd.concat([px[~px.index.isin(fx.index)], fx]).sort_index()
+                try:
+                    px.to_parquet(os.path.join(_dd, "etf_px.parquet"))
+                except Exception:
+                    pass
+            except Exception:
+                pass                              # keep the stale parquet
+    except Exception:
+        px = None
+    _RS_REF["px"], _RS_REF["smap"] = px, smap
+    return px, smap
+
+
+_OB_DAYS = {}
+
+
+def _load_ob_days():
+    """frozenset of 'TICKER|YYYY-MM-DD' where price retested a ≤8-bar-old bullish order block.
+    Precomputed snapshot in data/ob_days.json (build_ob.py / nightly). Process-cached; returns
+    empty set if missing (masks just stay empty). Recent days are causal (OB confirmed at +3 bars)."""
+    if "s" in _OB_DAYS:
+        return _OB_DAYS["s"]
+    import json as _json
+    try:
+        p = os.path.join(os.path.dirname(__file__), "..", "data", "ob_days.json")
+        with open(p) as f:
+            _raw = _json.load(f)
+        _OB_DAYS["s"] = frozenset(f"{tk}|{d}" for tk, days in _raw.items() for d in days)
+    except Exception:
+        _OB_DAYS["s"] = frozenset()
+    return _OB_DAYS["s"]
+
+
+def refresh_ob_days():
+    """Recompute data/ob_days.json from the freshest bars (called by the nightly DB refresh AFTER
+    the staging swap), then RE-WARM the hot frames in place so post-refresh scans hit warm caches
+    instead of each triggering a cold-build storm (the 2026-07-16 thrash bug: the old version did
+    _CACHE.clear() + rebuilt only ONE frame, so the 60mo warmup frames were evicted and every scan
+    cold-built → 99% CPU / timeouts / a manual restart needed). Heavy (~2-3min) — nightly only.
+    Mirror of build_ob.py; keep the OB rule in sync there."""
+    import json as _json
+    W = 8
+    # 1. fresh 72mo frame (throwaway ob_retest — we only need OHLC to detect order blocks),
+    #    built under the lock so it doesn't race concurrent scans.
+    _OB_DAYS.pop("s", None)
+    with _FRAME_LOCK:
+        _df, _asof = _pull(72, 3_000_000)
+        _df = _prep(_df)
+        grp = {tk: g.reset_index(drop=True) for tk, g in _df.groupby("ticker", sort=False)}
+    out = {}
+    for tk, k in grp.items():
+        o = k["open"].to_numpy(float); cl = k["close"].to_numpy(float); lo = k["low"].to_numpy(float)
+        ds = k["date"].astype(str).str[:10].to_numpy(); n = len(k)
+        ob = np.zeros(n, dtype=bool)
+        for j in range(1, n - 3):
+            if cl[j] < o[j] and (cl[j + 3] / cl[j] - 1) > 0.04:
+                ob[j] = True
+        recent = []; days = []
+        for i in range(n):
+            recent = [(hh, ll, a + 1) for (hh, ll, a) in recent if a + 1 <= W]
+            if ob[i]:
+                recent.append((max(o[i], cl[i]), min(o[i], cl[i]), 0))
+            for (hh, ll, a) in recent:
+                if lo[i] <= hh and cl[i] >= ll:
+                    days.append(ds[i]); break
+        if days:
+            out[tk] = sorted(set(days))
+    p = os.path.join(os.path.dirname(__file__), "..", "data", "ob_days.json")
+    with open(p, "w") as f:
+        _json.dump(out, f)
+    _OB_DAYS.pop("s", None)                 # next frame build reads the fresh json
+    # 2. re-warm the hot frames (warmup keys + replay default) so their ob_retest reflects the new
+    #    dayset and the cache is never left empty — each replaces one entry under the lock.
+    for _key in ((60, 3_000_000), (60, 5_000_000), (72, 3_000_000)):
+        try:
+            with _FRAME_LOCK:
+                _d2, _as2 = _pull(*_key)
+                _d2 = _prep(_d2)
+                _CACHE[_key] = ({tk: g.reset_index(drop=True)
+                                 for tk, g in _d2.groupby("ticker", sort=False)}, _as2)
+                _CACHE.move_to_end(_key)
+                while len(_CACHE) > _CACHE_MAX:
+                    _CACHE.popitem(last=False)
+        except Exception:
+            pass
+    return sum(len(v) for v in out.values())
+
+
+_FRAME_LOCK = threading.Lock()   # 2026-07-13: serialize builds — see below
+
+
+def _frame(months: int, dv_floor: float):
+    key = (months, dv_floor)
+    if key in _CACHE:
+        _CACHE.move_to_end(key)              # mark as most-recently-used
+        return _CACHE[key]
+    # STAMPEDE FIX (2026-07-13): a fresh page load fires several scans that all want the SAME
+    # (60, 3M) frame; without a lock each concurrent miss rebuilt it independently (3× the same
+    # multi-minute build → CPU storm, RAM spike, OOM in DuckDB, "app looks dead"). One global
+    # lock: first caller builds, the rest wait and hit the cache; different keys also serialize,
+    # which caps peak memory during warmup.
+    with _FRAME_LOCK:
+        if key in _CACHE:                    # built while we waited for the lock
+            _CACHE.move_to_end(key)
+            return _CACHE[key]
+        df, as_of = _pull(months, dv_floor)
+        df = _prep(df)
+        grp = {tk: g.reset_index(drop=True) for tk, g in df.groupby("ticker", sort=False)}
+        _CACHE[key] = (grp, as_of)
+        while len(_CACHE) > _CACHE_MAX:
+            _CACHE.popitem(last=False)       # evict least-recently-used
+        return _CACHE[key]
+
+
+def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_000,
+                mode: str = "trail", stop: float = 0.10, target: float = 0.25,
+                trail: float = 0.25, maxh: int = 60, with_trades: bool = False,
+                slip: float = None) -> dict:
+    grp, as_of = _frame(int(months), float(dv_floor))
+    want = [s for s in SETUPS if setup == "all" or s[0].lower() == setup.lower()]
+    if not want:
+        want = SETUPS
+    out = []
+    trades_out = None
+    for name, col in want:
+        tr = _pathsim(grp, col, mode, stop, target, trail, maxh, slip=slip)
+        out.append(_stats(name, tr))
+        if with_trades and setup != "all":
+            trades_out = [{"ticker": r["ticker"], "year": r["yr"], "ret_pct": round(r["ret"] * 100, 2)}
+                          for _, r in tr.sort_values("ret", ascending=False).iterrows()]
+    out.sort(key=lambda x: (x.get("pf") or 0), reverse=True)
+    res = {"as_of": as_of, "months": int(months),
+           "exit": {"mode": mode, "stop": stop, "target": target, "trail": trail, "maxh": maxh,
+                    "slip": SLIP if slip is None else slip},
+           "rows": out}
+    if trades_out is not None:
+        res["trades"] = trades_out[:300]
+    return res
+
+
+if __name__ == "__main__":
+    import sys
+    r = edge_replay(months=24)
+    print(f"as_of {r['as_of']}  exit={r['exit']}")
+    print(f"{'setup':14}{'n':>7}{'mean%':>7}{'win%':>7}{'PF':>6}{'yrs+':>7}{'conc%':>7}")
+    for x in r["rows"]:
+        if x["n"] == 0:
+            print(f"{x['setup']:14}{'0':>7}"); continue
+        print(f"{x['setup']:14}{x['n']:>7}{x['mean']:>7.2f}{x['win']:>7.1f}{x['pf'] or 0:>6.2f}"
+              f"{str(x['pos_years'])+'/'+str(x['total_years']):>7}{x['conc_top10pct'] or 0:>7.0f}")

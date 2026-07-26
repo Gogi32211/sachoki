@@ -1,0 +1,75 @@
+//@version=5
+// ─────────────────────────────────────────────────────────────────────────────
+// 260716 — TOP-6 CANDLESTICK PATTERNS  (Sachoki 9-line translation → native PA)
+// Detects the 6 patterns from the Imperial-FX infographic, BOTH directions.
+// Each pattern is our TZ/9-line encoding expressed in raw price action, since
+// Pine can't read the studio DB. Optional RSI + EMA200 context filters mirror
+// the 9-line's RSI-range and EMA(P/D) fields.
+//   bull-reversal  → green ▲ below bar
+//   bear-reversal  → red   ▼ above bar
+//   continuation   → gray  ◆
+// NOTE: raw candlestick "win %" (84%/78%…) is marketing/MFE-illusion — our
+// path-sim engine is the truth. This overlay is for eyeballing, not an edge.
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("260716 · Top-6 Candlesticks (9-line)", overlay=true, max_labels_count=500)
+
+// ── inputs ───────────────────────────────────────────────────────────────────
+grpP = "Patterns"
+p_tls   = input.bool(true,  "① Three-Line-Strike (bull+bear)", group=grpP)
+p_crows = input.bool(true,  "③ Three Black Crows (bear)",       group=grpP)
+p_match = input.bool(true,  "④ Matching Low (bull)",            group=grpP)
+p_baby  = input.bool(true,  "⑤ Abandoned Baby (bull)",          group=grpP)
+p_2gap  = input.bool(true,  "⑥ Two Black Gapping (bear)",       group=grpP)
+
+grpF = "9-line context filters"
+useRSI  = input.bool(true,  "RSI context (bull→oversold / bear→overbought)", group=grpF)
+rsiLen  = input.int(14,     "RSI length", group=grpF)
+rsiBull = input.int(45,     "bull: require RSI ≤", group=grpF)
+rsiBear = input.int(55,     "bear: require RSI ≥", group=grpF)
+useEMA  = input.bool(false, "EMA200 trend gate (bull below / bear above)",   group=grpF)
+
+// ── helpers (the 9-line 'body/gap/RSI/EMA' fields in raw PA) ──────────────────
+rsi   = ta.rsi(close, rsiLen)
+ema200= ta.ema(close, 200)
+rng   = high - low
+bd    = math.abs(close - open)
+isRed(i)   => close[i] < open[i]
+isGreen(i) => close[i] > open[i]
+isDoji(i)  => bd[i] <= rng[i] * 0.12                        // narrow body = doji
+strongBull = isGreen(0) and bd > rng * 0.5                 // STB(bull)
+strongBear = isRed(0)   and bd > rng * 0.5                 // STB(bear)
+
+// context gates mirror the 9-line RSI-range + EMA P/D fields
+okBull = (not useRSI or rsi <= rsiBull) and (not useEMA or close < ema200)
+okBear = (not useRSI or rsi >= rsiBear) and (not useEMA or close > ema200)
+
+// ── ① THREE-LINE-STRIKE ───────────────────────────────────────────────────────
+// bull: 3 lower-closing reds  →  big green engulfing all three (T2G swallow Z-run)
+tlsBull = p_tls and isRed(3) and isRed(2) and isRed(1) and close[3] > close[2] and close[2] > close[1] and strongBull and close > open[3] and okBull
+// bear: 3 higher-closing greens → big red engulfing all three (Z2G swallow T-run)
+tlsBear = p_tls and isGreen(3) and isGreen(2) and isGreen(1) and close[3] < close[2] and close[2] < close[1] and strongBear and close < open[3] and okBear
+
+// ── ③ THREE BLACK CROWS  (bear reversal from a top) ──────────────────────────
+crows = p_crows and isRed(2) and isRed(1) and isRed(0) and close[2] > close[1] and close[1] > close[0] and open[1] <= open[2] and open[1] >= close[2] and open <= open[1] and open >= close[1] and close[3] > ema200[3] and okBear
+
+// ── ④ MATCHING LOW  (bull: support tested 2× = key-level / double-bottom) ────
+matchTol = input.float(0.3, "Matching-Low tolerance %", group=grpF) / 100.0
+match = p_match and isRed(1) and math.abs(close - close[1]) <= close * matchTol and close < ema200 and okBull
+
+// ── ⑤ ABANDONED BABY BULLISH  (island reversal = capit + G3-reclaim) ─────────
+baby = p_baby and isRed(2) and isDoji(1) and high[1] < low[2] and isGreen(0) and low > high[1] and okBull
+
+// ── ⑥ TWO BLACK GAPPING  (bear continuation after a gap-down) ────────────────
+gap2 = p_2gap and high[1] < low[2] and isRed(1) and isRed(0) and close < close[1] and okBear
+
+// ── plot ─────────────────────────────────────────────────────────────────────
+plotshape(tlsBull, title="TLS-Bull",  style=shape.triangleup,   location=location.belowbar, color=color.new(color.green, 0),  size=size.small, text="3LS")
+plotshape(match,   title="MatchLow",  style=shape.triangleup,   location=location.belowbar, color=color.new(#00c853, 0),      size=size.small, text="MatchLo")
+plotshape(baby,    title="AbandBaby", style=shape.triangleup,   location=location.belowbar, color=color.new(#00e676, 0),      size=size.small, text="Baby")
+plotshape(tlsBear, title="TLS-Bear",  style=shape.triangledown, location=location.abovebar, color=color.new(color.red, 0),    size=size.small, text="3LS")
+plotshape(crows,   title="3Crows",    style=shape.triangledown, location=location.abovebar, color=color.new(#d50000, 0),      size=size.small, text="Crows")
+plotshape(gap2,    title="2BlackGap", style=shape.diamond,      location=location.abovebar, color=color.new(#ff6d00, 0),      size=size.tiny,  text="2Gap")
+
+// ── alerts ───────────────────────────────────────────────────────────────────
+alertcondition(tlsBull or match or baby, title="Bullish pattern", message="Bullish candlestick pattern on {{ticker}}")
+alertcondition(tlsBear or crows or gap2,  title="Bearish pattern", message="Bearish candlestick pattern on {{ticker}}")

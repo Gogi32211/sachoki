@@ -1,0 +1,156 @@
+[
+  {
+    "id": "fill_SKYT",
+    "kind": "fill_price",
+    "ticker": "SKYT",
+    "severity": "warn",
+    "title": "SKYT: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill SKYT? (plan was $30.72)",
+    "created": "2026-07-24 17:07",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_SKYT",
+    "kind": "catalyst",
+    "ticker": "SKYT",
+    "severity": "info",
+    "title": "SKYT: I can't see earnings/catalysts",
+    "question": "Does SKYT have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:07",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_GRRR",
+    "kind": "fill_price",
+    "ticker": "GRRR",
+    "severity": "warn",
+    "title": "GRRR: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill GRRR? (plan was $12.57)",
+    "created": "2026-07-24 17:32",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_GRRR",
+    "kind": "catalyst",
+    "ticker": "GRRR",
+    "severity": "info",
+    "title": "GRRR: I can't see earnings/catalysts",
+    "question": "Does GRRR have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:32",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_MAR",
+    "kind": "fill_price",
+    "ticker": "MAR",
+    "severity": "warn",
+    "title": "MAR: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill MAR? (plan was $364.47)",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_MAR",
+    "kind": "catalyst",
+    "ticker": "MAR",
+    "severity": "info",
+    "title": "MAR: I can't see earnings/catalysts",
+    "question": "Does MAR have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_RMBS",
+    "kind": "fill_price",
+    "ticker": "RMBS",
+    "severity": "warn",
+    "title": "RMBS: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill RMBS? (plan was $103.19)",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_RMBS",
+    "kind": "catalyst",
+    "ticker": "RMBS",
+    "severity": "info",
+    "title": "RMBS: I can't see earnings/catalysts",
+    "question": "Does RMBS have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_UAL",
+    "kind": "fill_price",
+    "ticker": "UAL",
+    "severity": "warn",
+    "title": "UAL: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill UAL? (plan was $115.34)",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_UAL",
+    "kind": "catalyst",
+    "ticker": "UAL",
+    "severity": "info",
+    "title": "UAL: I can't see earnings/catalysts",
+    "question": "Does UAL have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_AAUC",
+    "kind": "fill_price",
+    "ticker": "AAUC",
+    "severity": "warn",
+    "title": "AAUC: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill AAUC? (plan was $21.22)",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_AAUC",
+    "kind": "catalyst",
+    "ticker": "AAUC",
+    "severity": "info",
+    "title": "AAUC: I can't see earnings/catalysts",
+    "question": "Does AAUC have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:33",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "fill_EQX",
+    "kind": "fill_price",
+    "ticker": "EQX",
+    "severity": "warn",
+    "title": "EQX: entry is the PLAN price, not your real fill",
+    "question": "What price did you actually fill EQX? (plan was $9.29)",
+    "created": "2026-07-24 17:55",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_EQX",
+    "kind": "catalyst",
+    "ticker": "EQX",
+    "severity": "info",
+    "title": "EQX: I can't see earnings/catalysts",
+    "question": "Does EQX have earnings or a known catalyst before your target?",
+    "created": "2026-07-24 17:55",
+    "status": "open",
+    "answer": null
+  }
+]

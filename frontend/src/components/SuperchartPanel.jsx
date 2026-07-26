@@ -1,14 +1,191 @@
-import { useState, useRef, useEffect, useCallback, useMemo, Fragment } from 'react'
+import { useState, useRef, useEffect, useCallback, useMemo, useReducer, Fragment } from 'react'
 import { api } from '../api'
 import CodeCandleChart from './CodeCandleChart'
+import { atrForecast, computeAtr14, forecastCsvCells, FORECAST_CSV_HEADERS, fmtForecast } from '../atrForecast'
+import { requestGex, getGex, subscribeGex } from '../gexStore'
 
-const TF_OPTIONS = ['1d', '4h', '1h', '30m', '15m']
+const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 const CELL_W  = 64   // px per bar column
 const HDR_W   = 46   // px for the sticky label column
 const MINI_H  = 24   // px height of mini-candle row
 
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
 const PREUP_SET  = new Set(['P2', 'P3', 'P50', 'P89'])
+
+// WLNBB 1H volume-class palette for the optional 1H-decomposition row (with1H)
+const H_VOL_BG  = ['#9E9E9E', '#1E88E5', '#F9A825', '#EF6C00', '#C62828']
+const H_VOL_TXT = ['#111', '#fff', '#111', '#fff', '#fff']
+const H_VOL_LBL = ['W', 'L', 'N', 'B', 'VB']
+
+// Bottom-Anatomy verdict row (with1H): 🔻 REVERSAL = accumulation-bottom structure
+// (held/tested floor + multi-TF absorption + intraday reversal) · 🔺 CONTINUES = markup
+// (upper-range, momentum, higher-low). A DEFINITION/detector, not a trade signal.
+function AnatRow({ bars, hoursMap }) {
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13, lineHeight: 1 }}>▽△</td>
+      {bars.map((b, i) => {
+        const a = hoursMap[String(b.date).slice(0, 10)]?.anat
+        let el = null
+        if (a?.v === 'rev')
+          el = a.rs
+            ? <span className="rounded px-1 font-bold" style={{ fontSize: 11, background: '#b45309', color: '#fff7ed', boxShadow: '0 0 0 1px #fbbf24' }}
+                title={`🔻💪 PRECISE bottom — anatomy REVERSAL + RS-intact (close/SPY > EMA200). score ${a.s}/8 (loc ${a.loc}, abs ${a.abs}, rev ${a.rev}). RS is the discriminator that separates a durable bottom from a mid-range absorption pause (🧊 coil-floor logic).`}>🔻💪{a.s}</span>
+            : <span className="rounded px-1 font-bold" style={{ fontSize: 11, background: '#7c2d12', color: '#fdba74' }}
+                title={`🔻 STRUCTURAL bottom-anatomy · score ${a.s}/8 (loc ${a.loc}, abs ${a.abs}, rev ${a.rev}). Structure only (~1.37× enriched for real lows) — NO RS gate, so lower precision. 🔻💪 (with RS) = the precise version.`}>🔻{a.s}</span>
+        else if (a?.v === 'shake')
+          el = <span className="rounded px-1 font-bold" style={{ fontSize: 11, background: '#4c1d95', color: '#ddd6fe' }}
+            title={`🌀 SHAKEOUT / spring — bearish-engulf at a held floor, weak close, but a LATE hi-vol T-reversal at the close (the tell the daily bar hides). The 🔻 detector misses this (low-late/weak-close). Intraday-only signal (base −1.57 → +1H-tell −0.48 vs random −2.52). score ${a.s}`}>🌀{a.s}</span>
+        else if (a?.v === 'cont')
+          el = <span className="rounded px-1 font-bold" style={{ fontSize: 11, background: '#14532d', color: '#86efac' }}
+            title={`🔺 CONTINUATION (markup) · score ${a.s}`}>🔺</span>
+        return (
+          <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+              style={{ width: CELL_W, minWidth: CELL_W }}>{el}</td>
+        )
+      })}
+    </tr>
+  )
+}
+
+// ⛔ NO-VOLUME-EVENT row (2026-07-26): the session's biggest 15m bar never reached 2.5× that
+// session's own average volume. Validated across ALL 29 TZ/L signal codes — on such a day every
+// signal's median falls 4-8 points, and it holds inside every price band (not a mega-cap artifact).
+// Rare per name (~0.5-3% for most, more on smooth-volume mega-caps), so the row is mostly empty.
+function VolRow({ bars }) {
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
+          title="⛔ NO intraday volume EVENT — the biggest 15m bar of that session never reached 2.5× the session's own average volume. Validated across ALL 29 TZ/L signal codes ($21-377): on such a day EVERY signal's median drops 4-8 points (Z9 −8.0, T1 −7.1, L5 −6.7; only Z11 resists at −0.8) and PF falls below 1.0 — and it holds separately inside $21-89, $89-377 and $377+, so it is not a mega-cap artifact. Treat any signal printed on a flagged bar as untrustworthy.">⛔</td>
+      {bars.map((b, i) => (
+        <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+            style={{ width: CELL_W, minWidth: CELL_W }}>
+          {b.no_vol_event ? (
+            <span className="rounded px-1 font-bold" style={{ fontSize: 10, background: '#7f1d1d', color: '#fecaca' }}
+              title="⛔ no intraday volume event on this bar — the day's biggest 15m bar stayed under 2.5× the session average. Every TZ/L signal's median falls 4-8 points on such days.">⛔</span>
+          ) : null}
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+// ⚖️ VRP header chip (2026-07-26): IV vs ATR-realized vol dissonance — current snapshot only
+// (no IV history exists; accumulating in gex_edge_log). Descriptive, not a signal.
+function VrpLine({ ticker }) {
+  const [, force] = useReducer(x => x + 1, 0)
+  useEffect(() => { requestGex(ticker); return subscribeGex(force) }, [ticker])
+  const g = getGex(ticker)
+  if (!g || !g.available || g.vrp == null) return null
+  const cls = g.vrp_state === 'EVENT-PRICED' ? 'text-amber-300'
+            : g.vrp_state === 'COMPLACENT' ? 'text-violet-300' : 'text-md-on-surface-var/60'
+  return (
+    <span className={`text-xs ml-2 ${cls}`}
+      title={`⚖️ VRP = ATM IV ÷ ATR-realized vol. Calibrated on 40 liquid names (p25 0.77 · MEDIAN 0.81 · p75 1.31) — ATR is range-based, so 'fair' sits near 0.8, not 1.0. EVENT-PRICED ≥1.35: options expensive, a move is already priced in (earnings/news); IV deflates if nothing happens. COMPLACENT ≤0.65: the stock moves far more than options price in — often precedes a volatility expansion. 0.65-1.35 = the normal state, no signal. Snapshot only (no IV history — accumulating forward in gex_edge_log). Descriptive gauge, NOT a validated signal.`}>
+      ⚖️ VRP {g.vrp.toFixed(2)} · IV {g.atm_iv}% vs real {g.rv_atr}%{g.vrp_state !== 'BALANCED' ? ` · ${g.vrp_state}` : ''}
+    </span>
+  )
+}
+
+// ⚖️ VRP matrix row (2026-07-26, user request: after the L row): IV↔ATR-realized dissonance.
+// NO IV history exists (snapshot-only, accumulating in gex_edge_log) → only the LATEST bar
+// can show a value; earlier cells stay empty until forward history builds up.
+function VrpRow({ bars, ticker }) {
+  const [, force] = useReducer(x => x + 1, 0)
+  useEffect(() => { requestGex(ticker); return subscribeGex(force) }, [ticker])
+  const g = getGex(ticker)
+  const has = g && g.available && g.vrp != null
+  const st = has ? g.vrp_state : null
+  const badge = has ? (
+    <span className="rounded px-1 font-bold" style={{ fontSize: 10,
+        background: st === 'EVENT-PRICED' ? '#78350f' : st === 'COMPLACENT' ? '#4c1d95' : '#1f2937',
+        color: st === 'EVENT-PRICED' ? '#fcd34d' : st === 'COMPLACENT' ? '#ddd6fe' : '#9ca3af' }}
+      title={`⚖️ VRP ${g?.vrp} — ATM IV ${g?.atm_iv}% vs ATR-realized ${g?.rv_atr}%. ${st === 'EVENT-PRICED' ? 'EVENT-PRICED: options expensive, a move is already priced in (event/earnings risk?)' : st === 'COMPLACENT' ? 'COMPLACENT: the stock actually moves MORE than options price in (cheap options)' : 'balanced'}. Snapshot-only (no IV history — accumulating forward). Descriptive, NOT a signal.`}>
+      ⚖️{g?.vrp?.toFixed(2)}
+    </span>
+  ) : null
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
+          title="⚖️ VRP — options implied vol (ATM IV) ÷ ATR-realized vol. Amber = EVENT-PRICED (≥1.3, options expensive / move priced in) · violet = COMPLACENT (≤0.75, stock moves more than options price in). Only TODAY's bar has a value — no IV history exists yet (accumulating forward in gex_edge_log). Descriptive, not a signal.">⚖️</td>
+      {bars.map((b, i) => (
+        <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+            style={{ width: CELL_W, minWidth: CELL_W }}>
+          {i === bars.length - 1 ? badge : null}
+        </td>
+      ))}
+    </tr>
+  )
+}
+
+// ⏱ ATR time-to-target row (2026-07-26): per-bar historical forecast — typical days for the
+// stock to move +10% given THAT bar's ATR% (Wilder ATR14 from the loaded OHLC). OOS-calibrated
+// volatility law days ≈ (10/ATR%)^0.67. TIMING/expectation context, NOT a buy signal.
+function TtRow({ bars }) {
+  const atrArr = computeAtr14(bars)
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
+          title="⏱d — ATR time-to-target: typical (median) DAYS for this stock to move +10%, from each bar's ATR% (volatility). Small number = fast mover (targets/stops arrive sooner); big = slow. ≤7d lights up blue. OOS-calibrated (TRAIN 2021-23 ≈ TEST 2024-26). Hover a cell for hit-rate, +25% and −10% stop-timing. A volatility/timing gauge, NOT a buy signal.">⏱d</td>
+      {bars.map((b, i) => {
+        const ap = b.close > 0 && atrArr[i] > 0 ? atrArr[i] / b.close : 0
+        const f = ap > 0 ? atrForecast(ap) : null
+        const fast = f && f.up10.days <= 7
+        return (
+          <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+              style={{ width: CELL_W, minWidth: CELL_W }}>
+            {f ? (
+              <span className={`font-mono ${fast ? 'text-sky-300' : 'text-sky-500/70'}`} style={{ fontSize: 11 }}
+                title={`⏱ ATR ${f.atrPct}% → +10% ~${f.up10.days} დღეში (hit ${f.up10.hit}%) · +25% ~${f.up25.days}d · −10% ~${f.dn10.days}d (stop-timing). პატარა = სწრაფი აქცია`}>
+                {f.up10.days}d
+              </span>
+            ) : null}
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
+// One matrix row that decomposes each day into its 1H bars (TZ token + L + vol class),
+// stacked in the direction price moved — inserted between L and SCORE when with1H is on.
+// Same cell width / fonts as every other ChipRow so it matches the Superchart exactly.
+function Row1H({ bars, hoursMap }) {
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13, lineHeight: 1 }}>1H</td>
+      {bars.map((b, i) => {
+        const day = hoursMap[String(b.date).slice(0, 10)]
+        const hrs = day ? (day.up ? day.hours.slice().reverse() : day.hours) : []
+        return (
+          <td key={i} className="px-0 py-px text-center border-r border-white/[0.05] align-top"
+              style={{ width: CELL_W, minWidth: CELL_W }}>
+            <div className="flex flex-col gap-px items-stretch px-px">
+              {hrs.map((h, j) => (
+                <span key={j}
+                  title={`${h.t} · ${h.tok}${h.l ? ' ' + h.l : ''} · vol ${H_VOL_LBL[h.v]}${h.up ? ' ▲' : ' ▼'}`}
+                  className="rounded border border-white/10 px-1 py-px font-mono leading-none text-center truncate"
+                  style={{ fontSize: 12, background: H_VOL_BG[h.v], color: H_VOL_TXT[h.v] }}>
+                  {h.tok !== '-' ? h.tok : '·'}{h.l || ''}
+                </span>
+              ))}
+            </div>
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
 
 // Row definitions — getSigs(bar) returns array of signal labels
 const ROWS = [
@@ -25,16 +202,58 @@ const ROWS = [
       : 'bg-red-900 text-red-300',
   },
   {
-    key: 't',
-    label: 'T',
-    getSigs: (b) => b.tz?.startsWith('T') ? [b.tz] : [],
-    chipCls: () => 'bg-green-900 text-green-300',
+    // T (bullish) and D (PREDN bearish) merged onto one row — they almost never
+    // co-occur on the same bar, so sharing a line keeps the matrix compact.
+    key: 'td',
+    label: 'T/D',
+    getSigs: (b) => {
+      const t = b.tz?.startsWith('T') ? [b.tz] : []
+      const d = [
+        b.sig_d66 && 'D66', b.sig_d55 && 'D55', b.sig_d89 && 'D89',
+        b.sig_d50 && 'D50', b.sig_d3  && 'D3',  b.sig_d2  && 'D2',
+      ].filter(Boolean)
+      return [...t, ...d]
+    },
+    chipCls: (s) => {
+      if (s === 'D66' || s === 'D55') return 'bg-rose-900 text-rose-300 font-bold'
+      if (s === 'D89')                return 'bg-red-900 text-red-300 font-semibold'
+      if (s.startsWith('D'))          return 'bg-orange-900 text-orange-300'
+      return 'bg-green-900 text-green-300'   // T-signals
+    },
   },
   {
     key: 'l',
     label: 'L',
-    getSigs: (b) => b.l ?? [],
-    chipCls: (s) => {
+    // every bar's own VSA L-line (l_sig) first, then the WLNBB event chips (2026-07-19 —
+    // the plain L was missing and it is load-bearing for the user's pattern work)
+    getSigs: (b) => {
+      const ev = b.l ?? []
+      const sup = ['', '¹', '²', '³']
+      const tag = b.l_sig === 'L34' && b.l34_grade > 0 ? `·L34${sup[b.l34_grade] ?? '³'}` : (b.l_sig ? `·${b.l_sig}` : null)
+      const base = tag && !ev.includes(b.l_sig) ? [tag] : []
+      return [...base, ...ev]
+    },
+    sigTitle: (s, b) => {
+      if (!s.startsWith('·L34') || !b) return undefined
+      const red = Number(b.close) < Number(b.open)
+      if (red && b.rev_buy && b.h4_rev_today)
+        return '💠 TRIPLE — red-L34 + 🟢REV + ▲4H on ONE bar: +2.05%/win47/PF1.29, TRAIN +1.98 ≈ TEST +1.80 (the most era-balanced enhancement). If a same-level red-L34 visited within the prior 20 bars this is also the L34camp→REV shape (+3.26%/med+2.27/PF1.62, both bear years positive).'
+      if (red && (b.l34_grade ?? 0) > 0) return `red L34, grade +${b.l34_grade}/3 (axes: near-25bar-low / RSI<40 / same-level campaign — validated ladder: grade5 ps +3.46% vs grade0 −0.48%). Institutional absorption line.`
+      if (red) return 'red L34 — institutional absorption line (heavy volume, pressed down intraday, held above prior close). The type that carries the edge; green L34 on reversal bars is the trap.'
+      return undefined
+    },
+    chipCls: (s, b) => {
+      // heavy institutional L (triple-confluence leg: 🟢REV + red-L34 + ▲4H, era-balanced).
+      // Only the RED type (close<open, absorbed weakness) lights up — green L34 on a
+      // reversal bar is the trap type (−1.01%, PF 0.87), so it stays muted.
+      // 💠 (2026-07-21): when the SAME bar also has 🟢REV + ▲4H, the chip goes full-bright.
+      if (s.startsWith('·L34') && b && Number(b.close) < Number(b.open) && b.rev_buy && b.h4_rev_today)
+        return 'bg-amber-400 text-amber-950 ring-2 ring-amber-100 font-bold'
+      if (s.startsWith('·L34') && b && Number(b.close) < Number(b.open))
+        return (b.l34_grade ?? 0) >= 2
+          ? 'bg-amber-600 text-amber-50 ring-1 ring-amber-300 font-bold'
+          : 'bg-amber-900 text-amber-200 ring-1 ring-amber-400/70 font-semibold'
+      if (s.startsWith('·')) return 'bg-slate-800/80 text-slate-300'   // the bar's own l_sig (muted)
       if (s.startsWith('FRI'))                   return 'bg-cyan-900 text-cyan-300'
       if (s === 'BL')                            return 'bg-sky-900 text-sky-300'
       if (s === 'CCI' || s === 'CCI0R' || s === 'CCIB') return 'bg-violet-900 text-violet-300'
@@ -53,8 +272,116 @@ const ROWS = [
   {
     key: 'fly',
     label: 'FLY',
-    getSigs: (b) => b.fly ?? [],
-    chipCls: () => 'bg-purple-900 text-purple-200',
+    // ✦-prefix = FLY-fresh: first FLY after a >=15-bar absence (validated 2026-07-19:
+    // +0.84%/PF1.13/+4.3σ/5-6yr, TRAIN & TEST both positive). Waiting for the SECOND
+    // appearance was tested and REJECTED (+0.10% — the move runs away between them).
+    getSigs: (b) => {
+      const f = b.fly ?? []
+      return b.fly_fresh && f.length ? [`✦${f[0]}`, ...f.slice(1)] : f
+    },
+    sigTitle: (s) => s.startsWith('✦')
+      ? '✦ FLY-fresh — first FLY after ≥15 bars of silence: +0.84%/PF1.13/+4.3σ, 5-6yr, TRAIN & TEST positive. (2nd-appearance waiting tested: edge gone — act on the first.)'
+      : undefined,
+    chipCls: (s) => s.startsWith('✦')
+      ? 'bg-purple-600 text-purple-50 font-bold ring-1 ring-purple-300'
+      : 'bg-purple-900 text-purple-200',
+  },
+  {
+    // ✅ EDGE row (2026-07-20): validated Edge-board setup fires per bar, computed by the
+    // SAME edge_replay masks the backtest uses (backtest == display). Codes:
+    // CAP=T1-CapBounce QZC=QZ-Capit D+L1 G3 ⚡G3A=G3-Abs ATM/ATMR=Atomic(-R) SPR=Spring
+    // Z11=Z11-T11 L43=L43-TRIPLE WSH=Washout H1B=1H-bottom ENG/EL46=Engulf ZRT=Zone-Retest
+    // HB15=HighBase-15m RTB=RTB-Base P55 PAR=Parabola 🎯3/🎯4=Cluster
+    key: 'edges',
+    label: 'EDGE',
+    getSigs: (b) => b.edges ?? [],
+    sigTitle: (s, b) => (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
+      ? `EDGE🟢 premium combo: ${s} + same-bar 🟢REV (validated 2026-07-20 — QZC +2.69% med+ · D+L1 +3.46% TRAIN+ · RTB +2.04% 6/6yr · P55 +1.89%)`
+      : `Edge-board setup fired on this bar: ${s} (edge_replay mask — identical to the backtest)`,
+    chipCls: (s, b) => (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
+      ? 'bg-amber-600 text-amber-50 font-bold ring-1 ring-amber-300'
+      : s.startsWith('🎯')
+      ? 'bg-emerald-600 text-emerald-50 font-bold ring-1 ring-emerald-300'
+      : 'bg-emerald-900 text-emerald-200 ring-1 ring-emerald-500/50 font-semibold',
+  },
+  {
+    // 🧬 SEQ row (2026-07-20): frozen-OOS 2-4-bar robust-sequence completed on this bar
+    // (same gate as the Ultra 🧬SEQ chip: OOS✓ tier · depth≥3 · OOS win≥55% · ps_med>0 (bright ≥60)).
+    // 🏆 = DSR≥0.6 selection-proof (the only fully-trustable tier).
+    key: 'seq',
+    label: 'SEQ',
+    getSigs: (b) => {
+      const out = []
+      if (b.seq34) out.push(`🧬${b.seq34.coarse ? '°' : ''}${(b.seq34.dsr ?? 0) >= 0.6 ? '🏆' : ''}${Math.round(b.seq34.win)}`)
+      if (b.seq_ctx) out.push(`${b.seq_ctx.kind === 'tail' ? '🎲' : b.seq_ctx.dir === 'up' ? '⤴' : '⤵'}${Math.round(b.seq_ctx.up)}`)
+      return out
+    },
+    sigTitle: (s, b) => s.startsWith('⤴') || s.startsWith('⤵') || s.startsWith('🎲')
+      ? (b.seq_ctx ? `${b.seq_ctx.kind === 'tail' ? '🎲 TAIL-context — rarely continues but FAT when it does (parabola fuel): mean ' + (b.seq_ctx.mean > 0 ? '+' : '') + b.seq_ctx.mean + '% despite low up-rate.' : b.seq_ctx.dir === 'up' ? '⤴ BOOSTER' : '⤵ SUPPRESSOR'} context for ${b.seq_ctx.sig.toUpperCase()} [layer ${b.seq_ctx.layer ?? 'TZ'}]: sequence (ends on this bar) ${b.seq_ctx.seq} → historical fwd-20 up ${b.seq_ctx.up}% (signal baseline ${b.seq_ctx.base_up}%, lift ${b.seq_ctx.lift > 0 ? '+' : ''}${b.seq_ctx.lift}pp, n=${b.seq_ctx.n}, era-consistent)` : undefined)
+      : b.seq34
+      ? `🧬 ${b.seq34.depth}-bar ${b.seq34.coarse ? 'COARSE (no-L token) ' : 'exact '}frozen-OOS sequence: ${b.seq34.seq} — OOS win ${b.seq34.win}% · ps_med +${b.seq34.ps_med}%${(b.seq34.dsr ?? 0) >= 0.6 ? ' · 🏆 DSR≥0.6 selection-proof' : ''}`
+      : undefined,
+    chipCls: (s, b) => s.startsWith('🎲')
+      ? 'bg-amber-700 text-amber-50 font-bold ring-1 ring-amber-300'
+      : s.startsWith('⤴')
+      ? ((b?.seq_ctx?.up ?? 0) >= 60
+          ? 'bg-teal-400 text-teal-950 font-bold ring-2 ring-teal-100'
+          : 'bg-teal-700 text-teal-50 font-bold ring-1 ring-teal-300')
+      : s.startsWith('⤵')
+      ? 'bg-rose-800 text-rose-100 font-bold ring-1 ring-rose-400'
+      : (b?.seq34?.dsr ?? 0) >= 0.6
+      ? 'bg-violet-600 text-violet-50 font-bold ring-1 ring-violet-300'
+      : (b?.seq34?.win ?? 0) >= 60
+        ? 'bg-violet-900 text-violet-200 ring-1 ring-violet-500/50 font-semibold'
+        : 'bg-violet-950 text-violet-300/80',
+  },
+  {
+    // ⇶ ENS row (2026-07-20c): ENSEMBLE consensus across ALL descriptor layers —
+    // one verdict per layer (TZ/TZ+L/suffix/body/gap/line5/volume), majority + 
+    // |lift|-weighted avg up%. Separate row so the SEQ winner chip stays untouched.
+    key: 'ens',
+    label: 'ENS',
+    getSigs: (b) => b.seq_ens
+      ? [`${b.seq_ens.dir === 'up' ? '⤴' : '⤵'}${b.seq_ens.n_up}:${b.seq_ens.n_dn}·${Math.round(b.seq_ens.up_avg)}`]
+      : [],
+    sigTitle: (s, b) => b.seq_ens
+      ? `ENSEMBLE ${b.seq_ens.n_up}⤴ / ${b.seq_ens.n_dn}⤵${b.seq_ens.n_tail ? ` (${b.seq_ens.n_tail}🎲)` : ''} · weighted up ${b.seq_ens.up_avg}% — per-layer: ${b.seq_ens.detail.map(v => `${v.layer} ${v.kind === 'tail' ? '🎲' : v.dir === 'up' ? '⤴' : '⤵'}${Math.round(v.up)} (${v.seq})`).join(' · ')}`
+      : undefined,
+    chipCls: (s, b) => {
+      const e = b?.seq_ens
+      const unanim = e && (e.n_up === 0 || e.n_dn === 0) && (e.n_up + e.n_dn) >= 3
+      if (e?.dir === 'up') return unanim
+        ? 'bg-teal-500 text-teal-950 font-bold ring-2 ring-teal-200'
+        : 'bg-teal-900 text-teal-200 ring-1 ring-teal-500/50'
+      return unanim
+        ? 'bg-rose-600 text-rose-50 font-bold ring-2 ring-rose-200'
+        : 'bg-rose-950 text-rose-300 ring-1 ring-rose-500/50'
+    },
+  },
+  {
+    // CONF row (2026-07-21): the all-vs-all confluence score — 812 dual-gate-qualified
+    // signal pairs per bar (validated monotone: D0 −3.07% → D9 +3.63%, tails 6/6yr).
+    // Bands from the decile ladder: ≥12 = D9 (bright), ≥8 D8, ≤−16 = D0 (bright red).
+    key: 'conf',
+    label: 'CONF',
+    // gray ext tier (2026-07-21): sub-threshold cells, info-only — chip prefixed '·'
+    getSigs: (b) => b.conf != null ? [String(b.conf)]
+      : b.conf_ext != null ? ['·' + b.conf_ext] : [],
+    sigTitle: (s, b) => b.conf != null
+      ? `CONF ${b.conf} — all-vs-all confluence, 718 deduped cells (D9≥10 → ps +4.01%/med+1.51/6-6yr · D0≤−15 → −3.04%/0-6yr; both 5% tails era-robust). Top cells: ${b.conf_top ?? '—'}`
+      : b.conf_ext != null
+        ? `CONF~ ${b.conf_ext} (ნაცრისფერი info-ტიერი — sub-threshold უჯრები, არავალიდირებული; მხოლოდ საორიენტაციო). Top cells: ${b.conf_ext_top ?? '—'}`
+        : undefined,
+    chipCls: (s) => {
+      if (s.startsWith('·')) return 'bg-md-surface-high text-zinc-500'
+      const v = Number(s)
+      if (v >= 10) return 'bg-emerald-500 text-emerald-950 font-bold ring-2 ring-emerald-200'
+      if (v >= 7)  return 'bg-emerald-800 text-emerald-100 font-semibold'
+      if (v >= 3)  return 'bg-teal-900 text-teal-300'
+      if (v <= -15) return 'bg-red-600 text-red-50 font-bold ring-2 ring-red-200'
+      if (v <= -7)  return 'bg-rose-900 text-rose-200 font-semibold'
+      return 'bg-md-surface-high text-md-on-surface-var'
+    },
   },
   {
     key: 'g',
@@ -218,7 +545,9 @@ const ROWS = [
       const fbs = b.final_bull_score ?? 0
       const ss  = b.signal_score ?? 0
       const score = fbs > 0 ? fbs : ss
-      return score >= 20 ? [score] : []
+      // no display threshold (2026-07-18): SCORE = turbo_score (canonical alias), and the
+      // separate turbo row was removed as a duplicate — so SCORE must show EVERY value.
+      return score > 0 ? [score] : []
     },
     chipCls: (s) => {
       const n = Number(s)
@@ -247,6 +576,41 @@ const ROWS = [
   },
 ]
 
+
+// Chip-style signal row (Z/T/L/FLY/... + SCORE/V3) — extracted so the score block can be
+// rendered between the L and FLY rows in the screener's column order (2026-07-18).
+function ChipRow({ row, bars }) {
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td
+        className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                   text-right border-r border-white/[0.08] font-mono whitespace-nowrap"
+        style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13, lineHeight: 1 }}>
+        {row.label}
+      </td>
+      {bars.map((b, i) => {
+        const sigs = row.getSigs(b)
+        return (
+          <td key={i}
+            className="px-0 py-px text-center border-r border-white/[0.05] align-top"
+            style={{ width: CELL_W, minWidth: CELL_W }}>
+            <div className="flex flex-col gap-px items-center">
+              {sigs.map(s => (
+                <span key={s}
+                  title={row.sigTitle ? row.sigTitle(s, b) : undefined}
+                  className={`px-1 py-px rounded border border-white/10 font-mono leading-none ${row.chipCls(s, b)}`}
+                  style={{ fontSize: 12 }}>
+                  {s}
+                </span>
+              ))}
+            </div>
+          </td>
+        )
+      })}
+    </tr>
+  )
+}
+
 const BETA_ZONE_CLS = {
   ELITE:       'text-amber-200 font-bold',
   OPTIMAL:     'text-emerald-300 font-bold',
@@ -263,7 +627,10 @@ const BETA_ZONE_SHORT = {
 }
 
 function barsForTf(tf) {
-  return tf === '15m' ? 400 : ['30m', '1h'].includes(tf) ? 300 : tf === '4h' ? 200 : 150
+  // Per-bar signal-matrix history depth. Bumped so the matrix shows ~300 bars of
+  // history instead of ~150 (it used to stop ~7 months back on the daily view).
+  return tf === '15m' ? 500 : ['30m', '1h'].includes(tf) ? 400 : tf === '4h' ? 300
+       : tf === '1w' ? 260 : 300   // 1d → 300 (~14 months); 1w → 260 (~5 years)
 }
 
 function fmtDate(d, isIntraday) {
@@ -295,13 +662,14 @@ function MiniCandle({ b, globalMin, globalRange, h = MINI_H }) {
 
 export default function SuperchartPanel({
   initialTicker = 'AAPL', initialTf = '1d', initialTrade = null,
-  onTickerChange,
+  onTickerChange, with1H = false,
 }) {
   const [ticker, setTicker]       = useState(initialTicker)
   const [inputVal, setInputVal]   = useState(initialTicker)
   const [tf, setTf]               = useState(initialTf)
   const [bars, setBars]           = useState([])
   const [v2Map, setV2Map]         = useState({})   // date(YYYY-MM-DD) → {v2, band} from DB (daily only)
+  const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
   const [showStats, setShowStats] = useState(false)
@@ -358,7 +726,21 @@ export default function SuperchartPanel({
     } else {
       setV2Map({})
     }
-  }, [])
+    // Bottom-Anatomy + (with1H) 1H-decomposition — each day → its 1H bars + anatomy
+    // verdict. Fetched on EVERY daily load so the ▽△ anatomy row shows on the main
+    // Superchart too; the 1H-decomposition row itself renders only when with1H.
+    if (f === '1d') {
+      api.day1h(t, 300)
+        .then(d => {
+          const m = {}
+          for (const day of (d?.days ?? [])) m[day.date] = day
+          setDay1hMap(m)
+        })
+        .catch(() => setDay1hMap({}))
+    } else {
+      setDay1hMap({})
+    }
+  }, [with1H])
 
   const loadStats = useCallback((t, f) => {
     setStatsLoading(true)
@@ -489,10 +871,20 @@ export default function SuperchartPanel({
       'prebreak_score','prebreak_prime','prebreak_ready','prebreak_watch',
       'pb_lvbo','pb_wvf_confirm','pb_stop_cause','pb_macro_penalty',
       'swing_type',
+      // ── All scores (2026-07-18 — every score visible historically in the export)
+      'ultra_score','ultra_score_band','ultra_score_v3','ultra_score_v3_band',
+      'prebreak_v2','prebreak_v3','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','fly_fresh','EDGES', 'SEQ34', 'SEQ34_WIN', 'SEQ_CTX', 'SEQ_CTX_UP', 'SEQ_ENS', 'SEQ_ENS_UP', 'CONF', 'CONF_TOP', 'CONF_EXT', 'CONF_EXT_TOP',
+      // ── chart↔CSV parity (2026-07-21): everything the Superchart renders
+      'L_SIG','BUY_SCORE','RSI','CCI','PROFILE_SCORE','PROFILE_CAT','EDGE_GOLD',
+      'SEQ_CTX_LAYER','SEQ_CTX_KIND','SEQ_CTX_MEAN','SEQ_CTX_SIG','SEQ_ENS_DETAIL',
+      // ── ATR time-to-target forecast (2026-07-26): per-bar historical forecast for review
+      ...FORECAST_CSV_HEADERS,
+      'NO_VOL_EVENT',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
-    const rows = bars.map(b => [
+    const _atrArr = computeAtr14(bars)
+    const rows = bars.map((b, _bi) => [
       b.date,
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
       b.vol_bucket ?? '',
@@ -664,6 +1056,46 @@ export default function SuperchartPanel({
       b.pb_stop_cause ? 1 : 0,
       b.pb_macro_penalty ? 1 : 0,
       b.swing_type ?? '',
+      // ── All scores (must stay in sync with the score headers above)
+      b.ultra_score ?? '',
+      b.ultra_score_band ?? '',
+      b.ultra_score_v3 ?? '',
+      b.ultra_score_v3_band ?? '',
+      v2Map[String(b.date).slice(0, 10)]?.v2 ?? '',
+      b.prebreak_v3 ?? '',
+      b.rev_buy ? 1 : 0,
+      b.brk_buy ? 1 : 0,
+      b.mtf_echo === true ? 1 : (b.mtf_echo === false ? 0 : ''),
+      b.mtf_score_conf ?? '',
+      b.turn_echo_n ?? '',
+      b.h4_rev_today ? 1 : 0,
+      b.h1_rev_today ? 1 : 0,
+      b.fly_fresh ? 1 : 0,
+      join(b.edges),
+      b.seq34 ? b.seq34.seq : '',
+      b.seq34?.win ?? '',
+      b.seq_ctx ? `${b.seq_ctx.dir}:${b.seq_ctx.seq}` : '',
+      b.seq_ctx?.up ?? '',
+      b.seq_ens ? `${b.seq_ens.n_up}up/${b.seq_ens.n_dn}dn` : '',
+      b.seq_ens?.up_avg ?? '',
+      b.conf ?? '',
+      b.conf_top ?? '',
+      b.conf_ext ?? '',
+      b.conf_ext_top ?? '',
+      b.l_sig ?? '',
+      b.buy_score ?? '',
+      b.rsi ?? b.RSI ?? '',
+      b.cci ?? b.CCI ?? '',
+      b.profile_score ?? '',
+      b.profile_category ?? '',
+      (b.rev_buy && b.mtf_echo !== false && (b.edges ?? []).some(e => ['QZC', 'D+L1', 'RTB', 'P55'].includes(e))) ? 1 : 0,
+      b.seq_ctx?.layer ?? '',
+      b.seq_ctx?.kind ?? '',
+      b.seq_ctx?.mean ?? '',
+      b.seq_ctx?.sig ?? '',
+      b.seq_ens ? b.seq_ens.detail.map(v => `${v.layer}:${v.kind === 'tail' ? '~' : v.dir === 'up' ? '+' : '-'}${Math.round(v.up)}`).join('|') : '',
+      ...forecastCsvCells(b.close > 0 ? _atrArr[_bi] / b.close : 0),
+      b.no_vol_event ? 1 : 0,
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
@@ -674,7 +1106,7 @@ export default function SuperchartPanel({
     a.download = `${ticker}_${tf}_signals.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-  }, [bars, ticker, tf])
+  }, [bars, ticker, tf, v2Map])
 
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
 
@@ -734,6 +1166,22 @@ export default function SuperchartPanel({
         )}
         {loading && <span className="text-xs text-md-on-surface-var/60 animate-pulse">loading…</span>}
         {error   && <span className="text-xs text-red-400">{error}</span>}
+        {/* ⏱ ATR time-to-target forecast (2026-07-26): volatility-driven timing, OOS-calibrated.
+            NOT a buy signal — expectation/stop-timing context. */}
+        {bars.length > 14 && (() => {
+          const _a = computeAtr14(bars); const _last = bars[bars.length - 1]
+          const _ap = _last?.close > 0 ? _a[bars.length - 1] / _last.close : 0
+          const _lo20 = Math.min(...bars.slice(-20).map(b => +b.low || Infinity))
+          const _off = _ap > 0 && isFinite(_lo20) ? (_last.close - _lo20) / (_ap * _last.close) : null
+          const _txt = fmtForecast(_ap, _off)
+          return _txt ? (
+            <span className="text-xs text-sky-300/80 ml-2"
+              title="⏱ ATR time-to-target forecast — OOS-calibrated (TRAIN 2021-23 ≈ TEST 2024-26): typical days & hit-rate to reach ±X% given this stock's current volatility (ATR%). days ≈ (X/ATR)^0.67. σ off low = distance above the 20d low in ATR units. TIMING/expectation & stop-calibration context — NOT a directional buy signal (targets hit at ~base-rate; the edge lives in downside/path).">
+              ⏱ {_txt}
+            </span>
+          ) : null
+        })()}
+        <VrpLine ticker={ticker} />
       </div>
 
       {/* Candlestick chart — DB codes on 1d, live feed on intraday.
@@ -771,6 +1219,12 @@ export default function SuperchartPanel({
                         className="font-normal px-0 py-0 text-center border-r border-white/[0.05]">
                       <div className="flex flex-col items-center gap-px pb-0.5">
                         <span className="text-md-on-surface-var/70 font-mono" style={{ fontSize: 13 }}>
+                          {/* ⛔ no intraday volume EVENT that day (biggest 15m bar < 4× the session
+                              average). Validated across all 29 TZ/L codes: median drops 4-8pts. */}
+                          {b.no_vol_event ? (
+                            <span className="text-red-400/90" style={{ marginRight: 2 }}
+                              title="⛔ NO intraday volume event — the biggest 15m bar never reached 2.5× that session's own average. Validated across ALL 29 TZ/L signal codes ($21-377): on such a day EVERY signal's median falls 4-8 points (Z9 −8.0, T1 −7.1, L5 −6.7; only Z11 resists at −0.8). Rare (~3% of days) but severe → treat any signal on this bar as untrustworthy.">⛔</span>
+                          ) : null}
                           {fmtDate(b.date, isIntraday)}
                         </span>
                         <div className="rounded-sm"
@@ -782,53 +1236,34 @@ export default function SuperchartPanel({
               </thead>
 
               <tbody>
-                {ROWS.map(row => (
-                  <tr key={row.key} className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
-                    <td
-                      className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
-                                 text-right border-r border-white/[0.08] font-mono whitespace-nowrap"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13, lineHeight: 1 }}>
-                      {row.label}
-                    </td>
-                    {bars.map((b, i) => {
-                      const sigs = row.getSigs(b)
-                      return (
-                        <td key={i}
-                          className="px-0 py-px text-center border-r border-white/[0.05] align-top"
-                          style={{ width: CELL_W, minWidth: CELL_W }}>
-                          <div className="flex flex-col gap-px items-center">
-                            {sigs.map(s => (
-                              <span key={s}
-                                title={row.sigTitle ? row.sigTitle(s, b) : undefined}
-                                className={`px-1 py-px rounded border border-white/10 font-mono leading-none ${row.chipCls(s)}`}
-                                style={{ fontSize: 12 }}>
-                                {s}
-                              </span>
-                            ))}
-                          </div>
-                        </td>
-                      )
-                    })}
-                  </tr>
-                ))}
+                {/* z / T-D / L — then ALL score rows (screener column order), then the rest */}
+                {ROWS.filter(r => ['z', 'td', 'l'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {/* ⏱ TtRow removed 2026-07-26 (user: adds nothing) — within ONE ticker the ATR%
+                    bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
+                    "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
+                    fast vs slow names) + the current-state header line — those stay. */}
+                <VolRow bars={bars} />
+                <VrpRow bars={bars} ticker={ticker} />
+                <AnatRow bars={bars} hoursMap={day1hMap} />
+                {with1H && <Row1H bars={bars} hoursMap={day1hMap} />}
+                {ROWS.filter(r => r.key === 'score').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
-                {/* Turbo score row */}
-                <tr className="border-t border-white/[0.06]">
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
-                    turbo
+                    ULTRA
                   </td>
                   {bars.map((b, i) => {
-                    const s = b.turbo_score ?? 0
-                    const cls = s >= 65 ? 'text-lime-300 font-bold'
-                              : s >= 50 ? 'text-green-400 font-bold'
-                              : s >= 35 ? 'text-yellow-400'
-                              : s >= 20 ? 'text-md-on-surface'
+                    const s = Math.round(b.ultra_score ?? 0)
+                    const cls = s >= 80 ? 'text-lime-300 font-bold'
+                              : s >= 65 ? 'text-green-400 font-bold'
+                              : s >= 50 ? 'text-yellow-400'
+                              : s >= 30 ? 'text-md-on-surface'
                               : s > 0   ? 'text-md-on-surface-var'
                               : 'text-gray-700'
                     return (
-                      <td key={i}
+                      <td key={i} title={b.ultra_score_reasons || (s ? `ULTRA ${s}` : '')}
                         className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
                         style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
                         {s > 0 ? s : ''}
@@ -837,8 +1272,123 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* PreBreakout v2 row (DB enrichment, daily only) */}
+                                <tr className="border-t border-white/[0.06]">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-cyan-300/90 px-1
+                                 text-right border-r border-white/[0.08] font-mono font-semibold"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}
+                      title="ULTRA Score v3 — reweighted ranker (per-bar CORE: oversold RSI + price-zone + earners; the live 🏆RS/🎯cluster/🎋TLS bonuses are omitted historically). Peaks in the oversold-reversal zone, fades into a breakout.">
+                    UV3
+                  </td>
+                  {bars.map((b, i) => {
+                    const s = Math.round(b.ultra_score_v3 ?? 0)
+                    const band = b.ultra_score_v3_band
+                    const cls = band === 'A' ? 'text-green-300 font-bold'
+                              : band === 'B' ? 'text-lime-300 font-semibold'
+                              : band === 'C' ? 'text-amber-300'
+                              : s > 0        ? 'text-md-on-surface-var'
+                              : 'text-gray-700'
+                    return (
+                      <td key={i}
+                        title={Array.isArray(b.ultra_score_v3_reasons) ? b.ultra_score_v3_reasons.join(' · ') : (s ? `UV3 ${s}` : '')}
+                        className={`px-0 py-0.5 text-center border-r border-white/[0.05] font-mono ${cls}`}
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
+                        {s > 0 ? s : ''}
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                                <tr className="border-t border-white/[0.12]">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-white/[0.08] font-mono font-semibold"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}
+                      title="Validated BUY flags (6yr path-sim). 🟢 REV = bounce off oversold (min-5 RSI<38, RSI 30-55, up bar) + LOW beta ≤13 → +1.05%/win~50%/5-6yr — shown GREEN only when the 4H/1H also printed the turn (⏱️MTF echo, +1.09…+1.17%/6-6yr). ⚠️ = same REV but NO intraday echo — validated VETO (−1.07%/win39, 0/6yr): skip. 🔵 BRK = RSI crosses 50 up + LOW turbo ≤28 → +0.58%/5-6yr. DIGITS 0-3 = on days where the 1D buy_score≥60, how many intraday TFs (4H/1H/15M) also print buy_score≥60 (D or D-1): 0=red HARD SKIP (−2.10%/med−10.2/win36, 0/6yr) · 1-3 tradeable (+1.3…+1.6%, 5-6/6yr) — the whole edge is 0↔1. CIRCLED ①②③ = turn-echo: a loose daily up-turn (no depth needed, the AMD-type case) where N/3 intraday TFs printed the strict REV-turn (echo≥1 +0.7…+1.05%/5-6yr; zero-echo turns −1.40%/win39/0-6yr are simply not marked). High momentum scores are the trap — these buy the beaten-down turn, not the run.">
+                    BUY
+                  </td>
+                  {bars.map((b, i) => (
+                    <td key={i}
+                      title={b.rev_buy
+                        ? (b.mtf_echo === false
+                          ? '⚠️ REV-buy WITHOUT 4H/1H echo — validated VETO (no-echo group: −1.07%/win39, 0/6yr). The intraday never printed the oversold-turn → the daily turn is likely shallow/fake. Skip.'
+                          : b.mtf_echo === true
+                            ? '🟢 REV-buy + ⏱️MTF echo — 4H/1H also printed the oversold-turn (echo group +1.09…+1.17%/win46, 6/6yr)'
+                            : '🟢 REV-buy — oversold bounce + low beta (intraday echo data unavailable for this bar)')
+                        : b.brk_buy ? '🔵 BRK-buy — RSI>50 cross + low turbo'
+                        : b.mtf_score_conf != null
+                          ? (b.mtf_score_conf === 0
+                            ? '0/3 — 1D buy_score≥60 but NO intraday TF (4H/1H/15M) confirms ≥60 — validated HARD SKIP (−2.10%/med−10.2/win36, 0/6yr)'
+                            : `${b.mtf_score_conf}/3 intraday TFs confirm the good 1D buy_score (≥1 confirmed → +1.3…+1.6%, 5-6/6yr; the big edge is 0↔1)`)
+                          : b.turn_echo_n
+                            ? `①②③ turn-echo: daily up-turn (no depth needed) where ${b.turn_echo_n}/3 intraday TFs printed the strict REV-turn on D or D-1 (echo≥1 → +0.7…+1.05%, 5/6yr; a turn with ZERO echo = −1.40%/win39, 0/6yr). The AMD-type shallow-dip turn marker.`
+                            : ''}
+                      className="px-0 py-0.5 text-center border-r border-white/[0.05]"
+                      style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}>
+                      {b.rev_buy ? (b.mtf_echo === false ? '⚠️' : '🟢')
+                        : b.brk_buy ? '🔵'
+                        : b.mtf_score_conf != null ? (
+                          <span className={`font-mono font-bold ${
+                            b.mtf_score_conf === 0 ? 'text-red-400'
+                            : b.mtf_score_conf === 1 ? 'text-amber-300'
+                            : b.mtf_score_conf === 2 ? 'text-lime-300'
+                            : 'text-green-300'}`}>{b.mtf_score_conf}</span>
+                        ) : b.turn_echo_n ? (
+                          <span className="text-cyan-300 font-bold" style={{ fontSize: 22, lineHeight: 1 }}>
+                            {b.turn_echo_n === 1 ? '①' : b.turn_echo_n === 2 ? '②' : '③'}
+                          </span>
+                        ) : ''}
+                    </td>
+                  ))}
+                </tr>
+
+                {/* 4H intraday-leads row — the early-entry trigger existed inside this daily bar */}
                 <tr className="border-t border-white/[0.06]">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-cyan-400/90 px-1
+                                 text-right border-r border-white/[0.08] font-mono font-semibold"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}
+                      title="⏱ intraday-leads (validated 2026-07-19, lead4h.py, n=244k matched pairs): ▲ = a 4H REV-trigger fired DURING this daily bar — the early intraday entry existed. Entering on the 4H trigger instead of waiting for the daily close: +0.84pp mean, 6/6yr incl 2022 (fill advantage +0.70%). △ = only the 1H fired. On breakout mornings this is the validated early entry — open the 4H view and take the trigger.">
+                    4H⏱
+                  </td>
+                  {bars.map((b, i) => (
+                    <td key={i}
+                      title={b.h4_rev_today ? '▲ 4H REV-trigger fired during this daily bar — early entry beat the daily close by +0.84pp mean (6/6yr). Switch to the 4H view for the exact bar.'
+                        : b.h1_rev_today ? '△ 1H REV-trigger fired during this daily bar (4H stayed silent)' : ''}
+                      className="px-0 py-0.5 text-center border-r border-white/[0.05]"
+                      style={{ fontSize: 14, width: CELL_W, minWidth: CELL_W }}>
+                      {b.h4_rev_today ? <span className="text-cyan-300 font-bold">▲</span>
+                        : b.h1_rev_today ? <span className="text-cyan-500/70">△</span> : ''}
+                    </td>
+                  ))}
+                </tr>
+
+                                <tr className="border-t border-white/[0.06]">
+                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
+                                 text-right border-r border-white/[0.08] font-mono"
+                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
+                    β
+                  </td>
+                  {bars.map((b, i) => {
+                    const sc   = b.beta_score
+                    const zone = b.beta_zone ?? 'NEUTRAL'
+                    const auto = b.beta_auto_buy
+                    if (!sc) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-white/[0.05]" />
+                    const cls = BETA_ZONE_CLS[zone] ?? 'text-md-on-surface-var'
+                    return (
+                      <td key={i}
+                        className={`px-0 py-px text-center border-r border-white/[0.05] font-mono ${cls}`}
+                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}
+                        title={`BETA ${sc} · ${zone}${auto ? ' · AUTO-BUY ★' : ''}`}>
+                        <div className="flex flex-col items-center leading-none gap-px">
+                          <span>{sc}{auto ? '★' : ''}</span>
+                          <span style={{ fontSize: 11 }} className="text-md-on-surface-var font-mono">
+                            {BETA_ZONE_SHORT[zone] ?? ''}
+                          </span>
+                        </div>
+                      </td>
+                    )
+                  })}
+                </tr>
+
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -871,8 +1421,9 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* RTB v4 phase row */}
-                <tr className="border-t border-white/[0.06]">
+                {ROWS.filter(r => r.key === 'prebreak_v3').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -909,37 +1460,7 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* BETA Score row */}
-                <tr className="border-t border-white/[0.06]">
-                  <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
-                                 text-right border-r border-white/[0.08] font-mono"
-                      style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
-                    β
-                  </td>
-                  {bars.map((b, i) => {
-                    const sc   = b.beta_score
-                    const zone = b.beta_zone ?? 'NEUTRAL'
-                    const auto = b.beta_auto_buy
-                    if (!sc) return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-white/[0.05]" />
-                    const cls = BETA_ZONE_CLS[zone] ?? 'text-md-on-surface-var'
-                    return (
-                      <td key={i}
-                        className={`px-0 py-px text-center border-r border-white/[0.05] font-mono ${cls}`}
-                        style={{ fontSize: 13, width: CELL_W, minWidth: CELL_W }}
-                        title={`BETA ${sc} · ${zone}${auto ? ' · AUTO-BUY ★' : ''}`}>
-                        <div className="flex flex-col items-center leading-none gap-px">
-                          <span>{sc}{auto ? '★' : ''}</span>
-                          <span style={{ fontSize: 11 }} className="text-md-on-surface-var font-mono">
-                            {BETA_ZONE_SHORT[zone] ?? ''}
-                          </span>
-                        </div>
-                      </td>
-                    )
-                  })}
-                </tr>
-
-                {/* Close price row */}
-                <tr className="border-t border-white/[0.08]">
+                                <tr className="border-t border-white/[0.08]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -961,8 +1482,7 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* RSI row */}
-                <tr className="border-t border-white/[0.06]">
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -982,8 +1502,7 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* CCI row */}
-                <tr className="border-t border-white/[0.06]">
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -1003,8 +1522,7 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* Pf Score row */}
-                <tr className="border-t border-white/[0.06]">
+                                <tr className="border-t border-white/[0.06]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -1024,8 +1542,7 @@ export default function SuperchartPanel({
                   })}
                 </tr>
 
-                {/* Category row */}
-                <tr className="border-t border-white/[0.08]">
+                                <tr className="border-t border-white/[0.08]">
                   <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1
                                  text-right border-r border-white/[0.08] font-mono"
                       style={{ width: HDR_W, minWidth: HDR_W, fontSize: 13 }}>
@@ -1033,6 +1550,27 @@ export default function SuperchartPanel({
                   </td>
                   {bars.map((b, i) => {
                     const cat = b.profile_category
+                    // 💠 TRIPLE (2026-07-21, user request — surfaced in the Cat row): red-L34 +
+                    // 🟢REV + ▲4H on ONE bar (+2.05%/PF1.29, TRAIN≈TEST). Takes the cell over.
+                    const triple = b.l_sig === 'L34' && Number(b.close) < Number(b.open) && b.rev_buy && b.h4_rev_today
+                    if (triple) return (
+                      <td key={i} style={{ width: CELL_W, minWidth: CELL_W }}
+                        className="border-r border-white/[0.05] text-center"
+                        title="💠 TRIPLE — red-L34 + 🟢REV + ▲4H same bar: +2.05%/win47/PF1.29, TRAIN +1.98 ≈ TEST +1.80 (the era-balanced triple confluence)">
+                        <span style={{ fontSize: 14 }}>💠</span>
+                      </td>
+                    )
+                    // ● whisper (2026-07-21, RGTI 09-08 case): strong bullish seq-context
+                    // (⤴ up>=60, era-consistent cell) + an intraday echo on the SAME bar.
+                    const whisper = b.seq_ctx?.dir === 'up' && (b.seq_ctx?.up ?? 0) >= 60
+                      && ((b.turn_echo_n ?? 0) > 0 || (b.mtf_score_conf ?? 0) > 0 || b.h4_rev_today || b.h1_rev_today)
+                    if (whisper) return (
+                      <td key={i} style={{ width: CELL_W, minWidth: CELL_W }}
+                        className="border-r border-white/[0.05] text-center"
+                        title={`● whisper — strong seq-context ⤴${Math.round(b.seq_ctx.up)} (${b.seq_ctx.seq}) + intraday echo on the same bar (the RGTI-0908 shape: coil flagged before ignition)`}>
+                        <span className="text-teal-300" style={{ fontSize: 13 }}>●</span>
+                      </td>
+                    )
                     if (!cat || cat === 'WATCH') return <td key={i} style={{ width: CELL_W, minWidth: CELL_W }} className="border-r border-white/[0.05]" />
                     const cls =
                       cat === 'SWEET_SPOT' ? 'text-green-300 font-bold' :
@@ -1052,6 +1590,29 @@ export default function SuperchartPanel({
                     )
                   })}
                 </tr>
+
+                {/* the remaining signal families */}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+
+                {/* ULTRA row — computed per-bar (independent confluence ranking) */}
+
+                {/* UV3 row — ULTRA Score v3, reweighted ranker (oversold + price + earners) */}
+
+
+
+                {/* RTB v4 phase row */}
+
+                {/* BETA Score row */}
+
+                {/* Close price row */}
+
+                {/* RSI row */}
+
+                {/* CCI row */}
+
+                {/* Pf Score row */}
+
+
 
               </tbody>
             </table>

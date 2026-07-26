@@ -1,0 +1,128 @@
+==================================================================================
+DATA-DRIVEN REVERSAL SIGNAL SCREEN — all binary signals ranked by reversal lift
+==================================================================================
+Generated: 2026-05-28 15:41 | pivot 3-3 | all 3 universes | 218 signals screened
+Unit = confirmed pivots. Outcome = fwd_swing_ret_3 (% move to NEXT pivot — STRUCTURAL,
+NOT day-based). All metrics are swing %, never fixed 1d/5d/10d windows. Min N 300.
+
+BULLISH BOTTOMS  : LL pivot lows, n=471,275.  Baseline swing_med=+11.3%  win10=56%  win20=25%
+BEARISH TOPS     : HH pivot highs, n=369,273.  Baseline swing_med=-9.9%  win10=49%  win20=19%
+swg_med = median swing %; win10/20/30 = % of pivots whose swing reaches +/-10/20/30%;
+lift = signal swg_med minus baseline. Bottoms: bigger +lift & higher win = stronger rally.
+
+
+==================================================================================
+A. TOP 30 BULLISH-BOTTOM SIGNALS (biggest rally lift above LL baseline)
+==================================================================================
+signal                         n swg_med  win10  win20  win30    lift
+---------------------------------------------------------------------
+pb_stop_cause             32,486    15.6     67     40     25    +4.3
+sig_bias_dn               11,302    15.3     65     39     25    +3.9
+wyc_in_tr                 36,071    14.0     62     36     22    +2.7
+sig_bc                     4,424    13.7     62     34     19    +2.4
+wyc_sos                    1,645    13.6     66     30     16    +2.2
+d_spring                  12,030    13.5     64     31     17    +2.1
+d_absorb_bull             26,826    13.1     62     30     16    +1.7
+sig_l88                    9,867    13.0     60     30     17    +1.7
+d_blast_bull_red           6,536    13.0     62     31     18    +1.6
+rsi_le_35                112,197    12.8     62     30     16    +1.5
+sig_b6                     1,233    12.6     61     26     14    +1.3
+d_surge_bull_red          11,323    12.5     60     28     15    +1.2
+pb_macro_penalty         246,080    12.5     61     28     15    +1.2
+d_flip_bull               41,262    12.4     60     29     15    +1.1
+sig_dd_up_red              4,798    12.4     60     29     17    +1.1
+sig_d_up_red               8,665    12.3     59     28     15    +0.9
+sig_f9                     5,853    12.2     60     26     14    +0.8
+sig_ccib                   4,715    12.1     58     29     16    +0.8
+sig_flp_up                32,237    12.1     58     28     15    +0.8
+sig_va                    39,412    12.1     58     29     16    +0.8
+d_div_bull                61,915    12.1     59     27     14    +0.7
+d_orange_bull             21,467    12.1     59     28     15    +0.7
+sig_260308                19,737    12.0     56     31     18    +0.7
+fly_abcd                  45,736    12.0     59     26     13    +0.7
+sig_b8                     8,459    12.0     59     27     14    +0.7
+sig_f11                   17,917    12.0     59     27     14    +0.7
+hilo_buy                  81,313    12.0     59     26     14    +0.6
+d_surge_bull              62,621    12.0     59     26     13    +0.6
+sig_cci                   11,876    11.9     58     26     14    +0.6
+sig_z2                    50,308    11.9     58     28     15    +0.6
+
+  >> WORST 12 (signals that mark FAILED/weak LL lows — avoid as longs):
+signal                         n swg_med  win10  win20  win30    lift
+---------------------------------------------------------------------
+best_short                   967   -10.6     14      9      5   -21.9
+fbo_bear                   2,288    -7.8     18     10      6   -19.2
+d_upthrust                   790    -7.5     26     17     11   -18.8
+d_div_bear                 2,401    -1.0     32     18     12   -12.3
+sig_bias_up                1,519     1.7     26     12      6    -9.6
+para_plus                  2,342     6.9     35     15      6    -4.5
+para_start                 2,793     7.1     36     14      6    -4.2
+d_blast_bear_grn           1,517     7.3     43     20     12    -4.0
+d_strong_bull              3,030     7.4     41     18     10    -3.9
+psar_bull                 39,544     7.9     42     19     10    -3.5
+sig_vol_20x                4,395     7.9     46     28     20    -3.4
+para_retest                  728     8.1     42     16      8    -3.3
+
+
+==================================================================================
+B. TOP 30 BEARISH-TOP SIGNALS (biggest drop = most NEGATIVE lift below HH baseline)
+==================================================================================
+signal                         n swg_med  win10  win20  win30    lift
+---------------------------------------------------------------------
+sig_vol_20x                5,059   -29.4     77     63     49   -19.5
+sig_vol_10x                8,538   -22.5     73     54     39   -12.6
+sig_sc                     4,404   -18.3     76     46     26    -8.4
+d_blast_bear_grn           8,439   -18.2     71     47     29    -8.3
+vix_range                  3,364   -17.5     72     44     28    -7.6
+fbo_bull                     463   -17.5     74     46     27    -7.6
+sig_vol_5x                16,409   -17.4     69     44     28    -7.5
+d_upthrust                14,350   -15.8     70     39     21    -6.0
+sig_l88                    4,806   -15.7     70     38     20    -5.8
+wvf_spike                  5,496   -15.6     68     41     27    -5.7
+sig_260308                31,426   -15.3     68     37     20    -5.4
+d_absorb_bear             29,150   -15.2     68     38     20    -5.3
+sig_dd_dn_green            5,787   -15.2     66     40     25    -5.3
+sig_va                    33,213   -13.9     64     33     17    -4.0
+sig_bc                     4,951   -13.6     64     32     16    -3.7
+d_orange_bull             20,777   -13.4     62     34     18    -3.5
+d_blast_bear              31,671   -13.3     61     34     21    -3.4
+pb_stop_cause             15,733   -12.9     61     31     16    -3.0
+sig_ccib                   3,988   -12.7     60     29     14    -2.8
+sig_3g                     2,291   -12.6     60     34     21    -2.7
+three_g                    2,291   -12.6     60     34     21    -2.7
+best_short                 6,154   -12.6     63     26     13    -2.7
+bf_sell                    6,590   -12.6     63     26     13    -2.7
+rocket                     2,572   -12.5     62     26     11    -2.6
+d_absorb_bull              7,513   -12.4     59     27     13    -2.5
+sig_best_up                  348   -12.3     60     30     15    -2.4
+sig_svs                   32,952   -12.2     59     27     12    -2.3
+svs                       32,952   -12.2     59     27     12    -2.3
+sig_abs                   39,942   -12.1     58     28     14    -2.2
+d_strong_bear              1,972   -12.1     58     30     18    -2.2
+
+  >> Tops that actually keep rising (weak shorts — avoid):
+signal                         n swg_med  win10  win20  win30    lift
+---------------------------------------------------------------------
+sig_bias_up                1,100    -5.7     34     14      6    +4.2
+para_start                43,159    -8.2     39     11      3    +1.7
+para_plus                 43,020    -8.2     39     11      3    +1.7
+para_retest               14,086    -8.3     39     10      3    +1.6
+sig_cisd_cplus_mm          3,595    -8.3     41     13      5    +1.6
+sig_nd_vabs               17,131    -8.4     42     14      6    +1.5
+sig_para_plus             27,492    -8.5     41     12      4    +1.4
+sig_para_start            27,851    -8.5     41     12      4    +1.4
+sig_l1                    80,757    -8.5     42     14      5    +1.4
+sig_para_retest            9,469    -8.6     41     11      4    +1.3
+d_vd_div_bull             13,386    -8.6     42     13      5    +1.3
+sig_b6                       556    -8.9     44     15      6    +1.0
+
+
+==================================================================================
+NOTES
+----------------------------------------------------------------------------------
+  - Signal measured AT the pivot bar (the turning bar). Confirmation lags 3 bars but the
+    signal value is known in real time -> this is the fingerprint of good reversals.
+  - fwd_swing_ret_3 is robust-median; penny extremes handled by median + big% hit-rate.
+  - NEXT LAYER (run on request): pairwise confluence of the top signals at LL lows, and
+    2-3 bar sequences leading INTO the LL (does signal X on bar-1 + Y on bar0 lift more?).
+==================================================================================

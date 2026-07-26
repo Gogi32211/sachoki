@@ -1,0 +1,134 @@
+//@version=6
+// ══════════════════════════════════════════════════════════════════════
+//  260528 — Reversal Sequence Scanner  (data-driven, NOT bar-color)
+//  2-3 bar sequences of REAL signals (T/Z priority + delta + WYC + RSI)
+//  that carry verified forward-edge on 3.8M SP500+NASDAQ bars (5y).
+//  Stat shown = empirical 5-bar mean% & win% (expectancy edge, win ~50%).
+//  Bull → below bar (green) | Capitulation → below (orange) | Bear → above (red)
+//  Replaces 260509 (whose 65-91% WR were overfit on 15-count single-day data).
+// ══════════════════════════════════════════════════════════════════════
+indicator("260528 Reversal Sequence", overlay=true, max_labels_count=500, max_bars_back=600)
+
+gF = "Filter"
+minMean = input.float(1.4, "Min |mean 5-bar %| to show", step=0.1, group=gF)
+showBull = input.bool(true, "Show bull bounce seq",  group=gF)
+showCap  = input.bool(true, "Show capitulation seq", group=gF)
+showBear = input.bool(true, "Show bear seq",         group=gF)
+lszIn = input.string("small","Label size", options=["tiny","small","normal"], group=gF)
+lsz = lszIn=="tiny"?size.tiny:lszIn=="normal"?size.normal:size.small
+
+// ───────────────── candle primitives ─────────────────
+isDoji = close==open
+isBull = close>open
+isBear = close<open
+p1Bull = close[1]>open[1]
+p1Bear = close[1]<open[1] or close[1]==open[1]
+prevTop=math.max(open[1],close[1])
+prevBot=math.min(open[1],close[1])
+currTop=math.max(open,close)
+currBot=math.min(open,close)
+prevBodySafe=math.max(math.abs(close[1]-open[1]), syminfo.mintick)
+currBody=math.abs(close-open)
+fullyEngulfs = currTop>=prevTop and prevBot>=currBot and currBody/prevBodySafe>=1.0
+isInside = currTop<=prevTop and currBot>=prevBot
+
+// ───────────────── T/Z RAW (260523_TZ_F definitions) ─────────────────
+T1G_r = p1Bear and open>close[1] and open>open[1] and close>open[1] and isBull
+T2G_r = p1Bull and open>=open[1] and open>close[1] and close>close[1] and isBull
+T2_r  = p1Bull and open>=open[1] and open<=close[1] and close>close[1] and isBull
+T4_r  = p1Bear and isBull and fullyEngulfs
+T6_r  = p1Bull and isBull and fullyEngulfs
+Z1G_r = p1Bull and open<close[1] and open<open[1] and close<open[1] and isBear
+Z2G_r = p1Bear and open<=open[1] and open<close[1] and close<close[1] and isBear
+Z4_r  = p1Bull and isBear and fullyEngulfs
+Z6_r  = p1Bear and isBear and fullyEngulfs
+
+// priority resolve (match DB t_sig/z_sig: highest priority wins)
+bullCode = T4_r?1 : T6_r?2 : T1G_r?3 : T2G_r?4 : T2_r?6 : 0
+bearCode = Z4_r?1 : Z6_r?2 : Z1G_r?3 : Z2G_r?4 : 0
+T4=bullCode==1
+T6=bullCode==2
+T1G=bullCode==3
+T2G=bullCode==4
+Z4=bearCode==1
+Z6=bearCode==2
+Z1G=bearCode==3
+Z2G=bearCode==4
+
+// ───────────────── RSI oversold ─────────────────
+rsiOS = ta.rsi(close,14) <= 35
+
+// ───────────────── DELTA engine (260403) — upthrust / absorbBear ─────────────────
+rangeNZ = (high-low)<syminfo.mintick ? syminfo.mintick : (high-low)
+bodySz  = math.abs(close-open)
+buyVol  = volume*((math.min(open,close)-low) + (close>=open?bodySz:0))/rangeNZ
+sellVol = volume*((high-math.max(open,close)) + (close<open?bodySz:0))/rangeNZ
+delta   = buyVol-sellVol
+avgVol  = ta.sma(volume,20)
+absorption = volume>avgVol*1.5 and bodySz/rangeNZ<0.3
+absorbBear = absorption and delta<0
+hh3 = ta.highest(high,3)
+ll3 = ta.lowest(low,3)
+divBear = high>hh3[1] and delta<0 and close>open
+upthrust = divBear and (absorption and delta<0)   // divBear & absorbBear
+
+// ───────────────── WYC (260523) — inTR / wphase ─────────────────
+bp(src,p) => ta.ema(src, math.max(2,math.round(p*0.6))) - ta.ema(src, math.round(p*1.5))
+c1raw=bp(close,200)
+c2raw=bp(close,55)
+c1amp=ta.stdev(c1raw,200)
+c2amp=ta.stdev(c2raw,55)
+c1ph = c1amp>1e-10 ? c1raw/c1amp : 0.0
+compress = c1amp>1e-10 ? c2amp/c1amp : 1.0
+atr14=ta.atr(14)
+atr14avg=ta.ema(atr14,50)
+inTR = compress<0.40 or atr14<atr14avg*0.70
+accCtx = c1ph < -0.2
+volHi = avgVol>0 and volume>avgVol*1.5
+prevSup = ta.lowest(low,50)[1]
+wycSpring = low<prevSup and close>prevSup and isBull and volHi and accCtx
+wphase = wycSpring or (accCtx and inTR)
+
+// ───────────────── SEQUENCE DETECTION (empirical stats baked in) ─────────────────
+// each: cond, name, mean%, win%, N(k)
+// 3-bar bull (strongest)
+s_b1 = Z2G[2] and Z2G[1] and rsiOS      // Z2G·Z2G·rsiOS  +2.23 50.6 32k
+s_b2 = Z4[2]  and Z2G[1] and Z2G        // Z4·Z2G·Z2G     +2.25 49.9 8k
+s_b3 = Z2G[2] and Z2G[1] and Z2G        // Z2G·Z2G·Z2G    +2.22 49.8 27k
+// 2-bar bull
+s_b4 = rsiOS[1] and Z6                   // rsiOS·Z6       +1.91 51.1 17k
+s_b5 = Z1G[1]  and Z6                    // Z1G·Z6         +1.86 51.5 5k
+s_b6 = Z2G[1]  and rsiOS                 // Z2G·rsiOS      +1.76 49.9 99k
+s_b7 = Z2G[1]  and Z2G                   // Z2G·Z2G        +1.44 49.6 102k
+// capitulation (fat tail)
+s_c1 = Z2G[1]   and absorbBear           // Z2G·AbsBear    +6.59 48.4 8k
+s_c2 = rsiOS[1] and absorbBear           // rsiOS·AbsBear  +5.97 48.2 10k
+s_c3 = wphase[2] and rsiOS[1] and Z6     // wphase·rsiOS·Z6 +4.32 42.7 3k
+// bear
+s_d1 = upthrust[1] and wphase            // UT·Wphase      -1.09 38.8 1k
+s_d2 = upthrust[1] and inTR              // UT·inTR        -1.01 39.5 1.2k
+
+// pick strongest match per class via priority ternary (ordered by |mean|)
+bmean = s_b2?2.25 : s_b1?2.23 : s_b3?2.22 : s_b4?1.91 : s_b5?1.86 : s_b6?1.76 : s_b7?1.44 : 0.0
+btxt  = s_b2?"Z4·Z2G·Z2G\n+2.3% w50%" : s_b1?"Z2G·Z2G·rsiOS\n+2.2% w51%" : s_b3?"Z2G·Z2G·Z2G\n+2.2% w50%" : s_b4?"rsiOS·Z6\n+1.9% w51%" : s_b5?"Z1G·Z6\n+1.9% w52%" : s_b6?"Z2G·rsiOS\n+1.8% w50%" : s_b7?"Z2G·Z2G\n+1.4% w50%" : ""
+
+cmean = s_c1?6.59 : s_c2?5.97 : s_c3?4.32 : 0.0
+ctxt  = s_c1?"Z2G·AbsBear\n+6.6% w48%" : s_c2?"rsiOS·AbsBear\n+6.0% w48%" : s_c3?"wphase·rsiOS·Z6\n+4.3% w43%" : ""
+
+dmean = s_d1?-1.09 : s_d2?-1.01 : 0.0
+dtxt  = s_d1?"UT·Wphase\n-1.1% w39%" : s_d2?"UT·inTR\n-1.0% w40%" : ""
+
+// ───────────────── draw ─────────────────
+hasBull = showBull and str.length(btxt)>0 and bmean>=minMean
+hasCap  = showCap  and str.length(ctxt)>0 and cmean>=minMean
+hasBear = showBear and str.length(dtxt)>0 and math.abs(dmean)>=minMean
+if hasBull
+    label.new(bar_index, low, btxt, yloc=yloc.belowbar, style=label.style_label_up, color=color.new(#1B6B2F,10), textcolor=color.white, size=lsz)
+if hasCap and not hasBull
+    label.new(bar_index, low, ctxt, yloc=yloc.belowbar, style=label.style_label_up, color=color.new(color.orange,10), textcolor=color.black, size=lsz)
+if hasBear
+    label.new(bar_index, high, dtxt, yloc=yloc.abovebar, style=label.style_label_down, color=color.new(#8B1A1A,10), textcolor=color.white, size=lsz)
+
+alertcondition(showBull and str.length(btxt)>0, "Bull bounce sequence", "260528 bull reversal sequence")
+alertcondition(showCap and str.length(ctxt)>0, "Capitulation sequence", "260528 capitulation sequence")
+alertcondition(showBear and str.length(dtxt)>0, "Bear sequence", "260528 bear sequence")

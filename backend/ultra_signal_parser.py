@@ -51,8 +51,15 @@ _COLUMN_ALIASES = {
 
 
 def _is_nan(v) -> bool:
+    """True for NaN OR pandas NA. Must not raise on pd.NA (which has ambiguous bool)."""
     try:
-        return v != v  # NaN check
+        import pandas as _pd
+        if _pd.isna(v):
+            return True
+    except Exception:
+        pass
+    try:
+        return bool(v != v)  # NaN check (fallback)
     except Exception:
         return False
 
@@ -121,7 +128,13 @@ def has_any_token(row: dict, columns: Iterable[str], tokens: Iterable[str]) -> b
 # ─────────────────────────────────────────────────────────────────────────────
 
 def _truthy(v) -> bool:
-    if v is None or v == "" or _is_nan(v):
+    # Check NaN / pd.NA first (must precede `v == ""` — pd.NA == "" raises).
+    if v is None or _is_nan(v):
+        return False
+    try:
+        if v == "":
+            return False
+    except (TypeError, ValueError):
         return False
     if isinstance(v, bool):
         return v

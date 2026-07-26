@@ -21,6 +21,15 @@ from studio.db import get_conn, UNIVERSE_PRIORITY_SQL
 
 log = logging.getLogger(__name__)
 
+def _num01(series: "pd.Series") -> "pd.Series":
+    """Coerce a 0/1 flag column to plain float, tolerant of pandas nullable
+    BOOLEAN dtype (the intraday/1w DBs return hit_*/drop_* as masked booleans,
+    where .fillna(0) raises 'Invalid value for dtype boolean')."""
+    if str(series.dtype) in ("boolean", "bool"):
+        return series.astype("boolean").fillna(False).astype("int8").astype(float)
+    return pd.to_numeric(series, errors="coerce").fillna(0).astype(float)
+
+
 # ── SQL-safety helpers ────────────────────────────────────────────────────────
 # Several query paths build window-function SQL that can't easily use bound
 # params, so user-supplied values are interpolated into string literals. These
@@ -154,7 +163,7 @@ def _outcome_stats(df: pd.DataFrame, min_n: int = 10) -> dict:
         result[f"n_{label}"]     = int(len(fwd))
 
         if hit_col and hit_col in df.columns:
-            hit_vals = pd.to_numeric(df[hit_col], errors="coerce").fillna(0)
+            hit_vals = _num01(df[hit_col])
             result[f"hit_{label}"] = _clean(hit_vals.mean() * 100)
 
         if mae_col and mae_col in df.columns:
@@ -174,10 +183,25 @@ def _build_where(
     turbo_min:  Optional[float],
     turbo_max:  Optional[float],
     available:  list[str],
+    years:      Optional[list] = None,
+    months:     Optional[list] = None,
 ) -> tuple[str, list]:
     """Build SQL WHERE clause and params list."""
     clauses: list[str] = []
     params:  list      = []
+    # year / month restriction — int-cast (injection-safe), no param binding needed
+    try:
+        _yrs = sorted({int(y) for y in (years or []) if str(y).strip()})
+        if _yrs:
+            clauses.append(f"EXTRACT(YEAR FROM date) IN ({','.join(map(str, _yrs))})")
+    except (TypeError, ValueError):
+        pass
+    try:
+        _mos = sorted({int(m) for m in (months or []) if str(m).strip() and 1 <= int(m) <= 12})
+        if _mos:
+            clauses.append(f"EXTRACT(MONTH FROM date) IN ({','.join(map(str, _mos))})")
+    except (TypeError, ValueError):
+        pass
 
     # Signal conditions (AND logic — all must be present)
     for sig in signals:
@@ -219,6 +243,8 @@ def query_combo(
     turbo_min:  Optional[float] = None,
     turbo_max:  Optional[float] = None,
     min_n:      int             = 5,
+    years:      Optional[list]  = None,
+    months:     Optional[list]  = None,
 ) -> dict:
     """
     Compute outcome statistics for a specific signal combo.
@@ -231,7 +257,7 @@ def query_combo(
         # ── Combo stats ──────────────────────────────────────────────────────
         where, params = _build_where(
             signals, universe, regime, date_from, date_to,
-            turbo_min, turbo_max, available,
+            turbo_min, turbo_max, available, years, months,
         )
         fwd_cols = [c for _, c, _, _ in TIMEFRAMES if c in available]
         hit_cols = [c for _, _, c, _ in TIMEFRAMES if c and c in available]
@@ -250,7 +276,7 @@ def query_combo(
         # ── Baseline (no signal filter, same context) ────────────────────────
         base_where, base_params = _build_where(
             [], universe, regime, date_from, date_to,
-            turbo_min, turbo_max, available,
+            turbo_min, turbo_max, available, years, months,
         )
         base_df = conn.execute(
             f"SELECT {sel} FROM bars WHERE {base_where} USING SAMPLE 50000",
@@ -287,6 +313,8 @@ def rank_signals(
     sort_by:    str             = "win_5d",
     min_n:      int             = 30,
     top_n:      int             = 60,
+    years:      Optional[list]  = None,
+    months:     Optional[list]  = None,
 ) -> dict:
     """
     Rank all single signals by a chosen metric.
@@ -306,7 +334,7 @@ def rank_signals(
         # Context filter (no signal yet)
         base_where, base_params = _build_where(
             [], universe, regime, date_from, date_to,
-            turbo_min, turbo_max, available,
+            turbo_min, turbo_max, available, years, months,
         )
         df = conn.execute(
             f"SELECT {sel} FROM bars WHERE {base_where}",
@@ -319,7 +347,7 @@ def rank_signals(
         for col in sig_cols:
             if col not in df.columns:
                 continue
-            mask = pd.to_numeric(df[col], errors="coerce").fillna(0) >= 1
+            mask = _num01(df[col]) >= 1
             sub  = df[mask]
             if len(sub) < min_n:
                 continue
@@ -786,6 +814,10 @@ def query_exact_sequence(
     match_rows: bool = False,           # ADDITIVE: also return the matched (ticker,date,outcome)
                                         # rows under "rows" — lets callers re-aggregate a FILTERED
                                         # subset (e.g. join to the intraday DB) on the SAME metric.
+    min_price: float | None = None,     # ADDITIVE: close-price band on the CURRENT (entry) bar.
+    max_price: float | None = None,     # Lets you restrict matches to a price zone (e.g. $21-89).
+    years:  list | None = None,         # ADDITIVE: restrict entry bar to these calendar years
+    months: list | None = None,         # ADDITIVE: restrict entry bar to these months (1-12)
 ) -> dict:
     """
     Exact-match N-bar sequence query with HL/HH outcome statistics.
@@ -931,7 +963,7 @@ def query_exact_sequence(
         # current bar = lag 0, oldest = lag n-1
         # ticker/date carried through so match_rows callers can re-join the matched
         # set to another DB (e.g. intraday) — harmless to the aggregate query below.
-        select_cols = ["ticker", "date"]
+        select_cols = ["ticker", "date", "universe"]
         # T/Z + l_sig (chart-format L) + line3/4/5 strings + digit flags fallback.
         # NOTE: suffix uses composite_full_suffix (chart's display = ne+wick+pen+close
         # when "interesting"). DB has both full_suffix and composite_full_suffix —
@@ -962,9 +994,29 @@ def query_exact_sequence(
                     f"bars_to_next_hl_{P}",  f"bars_to_next_hh_{P}",
                     "fwd_5d", "fwd_10d", "fwd_20d"):
             select_cols.append(col)
+        _has_mfe = "mfe_20d" in available and "mae_20d" in available
+        if _has_mfe:
+            select_cols += ["mfe_20d", "mae_20d"]
+        # 2026-07-22 (user: "5/10/20 bar Cveni surat ar gvazlevs, SualedebSi
+        # SeiZleba didi spaiki gvqonda") — same max-favorable/adverse-excursion stat
+        # as the 20d one, but at the 5d/10d horizons the Fwd cells themselves show.
+        _has_mfe_short = ("mfe_5d" in available and "mae_5d" in available and
+                           "mfe_10d" in available and "mae_10d" in available)
+        if _has_mfe_short:
+            select_cols += ["mfe_5d", "mae_5d", "mfe_10d", "mae_10d"]
         # Next bar (the bar AFTER the sequence ends) — for "most likely next signal"
         select_cols.append("LEAD(t_sig, 1) OVER w AS nxt_t")
         select_cols.append("LEAD(z_sig, 1) OVER w AS nxt_z")
+        # current-bar close — for the optional price-band filter (entry bar = lag 0)
+        select_cols.append("close AS c_0")
+        # LIVE forward returns (LEAD close N bars ahead) — replaces the DB fwd_Nd
+        # columns, which carry STALE NULLs on recent bars (the backfill fills fwd_5d
+        # first and never revisits to fill fwd_10d/20d once fwd_5d is set), biasing
+        # the average toward the older, fully-labelled subset. Base is deduped to one
+        # canonical row per (ticker,date), so LEAD over w = exactly N bars ahead.
+        select_cols.append("(LEAD(close, 5)  OVER w / close - 1) * 100 AS lf_5d")
+        select_cols.append("(LEAD(close, 10) OVER w / close - 1) * 100 AS lf_10d")
+        select_cols.append("(LEAD(close, 20) OVER w / close - 1) * 100 AS lf_20d")
 
         # ── Build WHERE conditions per bar ────────────────────────────────────
         # Every categorical line goes through _multi_cond, which supports '%'
@@ -1015,7 +1067,48 @@ def query_exact_sequence(
                 if _hi is not None:
                     conds.append(f"rsi_{lag} <= {_hi}")
 
+        # ── price band on the current (entry) bar — validated floats, injection-safe ──
+        try:
+            if min_price is not None and str(min_price) != "":
+                conds.append(f"c_0 >= {float(min_price)}")
+            if max_price is not None and str(max_price) != "":
+                conds.append(f"c_0 <= {float(max_price)}")
+        except (TypeError, ValueError):
+            pass
+
+        # ── year / month filter on the entry bar — cast to int (injection-safe) ──
+        try:
+            yrs = sorted({int(y) for y in (years or []) if str(y).strip()})
+            if yrs:
+                conds.append(f"EXTRACT(YEAR FROM date) IN ({','.join(map(str, yrs))})")
+        except (TypeError, ValueError):
+            pass
+        try:
+            mos = sorted({int(m) for m in (months or []) if str(m).strip() and 1 <= int(m) <= 12})
+            if mos:
+                conds.append(f"EXTRACT(MONTH FROM date) IN ({','.join(map(str, mos))})")
+        except (TypeError, ValueError):
+            pass
+
         outer_where = ("WHERE " + " AND ".join(conds)) if conds else ""
+
+        _mfe_sql = ("""
+          ,AVG(mfe_20d)   AS avg_mfe_20d
+          ,AVG(mae_20d)   AS avg_mae_20d
+          ,COUNT(CASE WHEN mfe_20d >=  5 THEN 1 END)*100.0/NULLIF(COUNT(mfe_20d),0) AS spike_5pct
+          ,COUNT(CASE WHEN mfe_20d >= 10 THEN 1 END)*100.0/NULLIF(COUNT(mfe_20d),0) AS spike_10pct
+          ,COUNT(CASE WHEN mfe_20d >= 20 THEN 1 END)*100.0/NULLIF(COUNT(mfe_20d),0) AS spike_20pct
+          ,COUNT(CASE WHEN mae_20d <= -4 THEN 1 END)*100.0/NULLIF(COUNT(mae_20d),0) AS drop_4pct
+          ,COUNT(CASE WHEN mae_20d <= -8 THEN 1 END)*100.0/NULLIF(COUNT(mae_20d),0) AS drop_8pct
+          ,COUNT(CASE WHEN mae_20d <=-15 THEN 1 END)*100.0/NULLIF(COUNT(mae_20d),0) AS drop_15pct
+        """ if _has_mfe else "")
+
+        _mfe_short_sql = ("""
+          ,AVG(mfe_5d)    AS avg_mfe_5d
+          ,AVG(mae_5d)    AS avg_mae_5d
+          ,AVG(mfe_10d)   AS avg_mfe_10d
+          ,AVG(mae_10d)   AS avg_mae_10d
+        """ if _has_mfe_short else "")
 
         sql = f"""
         WITH base AS (
@@ -1035,15 +1128,17 @@ def query_exact_sequence(
           AVG(CASE WHEN pct_to_next_hh_{P} IS NOT NULL THEN pct_to_next_hh_{P} END)  AS avg_pct_to_hh,
           AVG(CASE WHEN bars_to_next_hl_{P} IS NOT NULL THEN bars_to_next_hl_{P} END) AS avg_bars_to_hl,
           AVG(CASE WHEN bars_to_next_hh_{P} IS NOT NULL THEN bars_to_next_hh_{P} END) AS avg_bars_to_hh,
-          AVG(fwd_5d)  AS avg_fwd_5d,
-          AVG(fwd_10d) AS avg_fwd_10d,
-          AVG(fwd_20d) AS avg_fwd_20d,
-          SUM(CASE WHEN fwd_5d  > 0 THEN 1 ELSE 0 END) AS win_5d_n,
-          SUM(CASE WHEN fwd_10d > 0 THEN 1 ELSE 0 END) AS win_10d_n,
-          SUM(CASE WHEN fwd_20d > 0 THEN 1 ELSE 0 END) AS win_20d_n,
-          COUNT(fwd_5d)  AS fwd_5d_n,
-          COUNT(fwd_10d) AS fwd_10d_n,
-          COUNT(fwd_20d) AS fwd_20d_n
+          AVG(lf_5d)  AS avg_fwd_5d,
+          AVG(lf_10d) AS avg_fwd_10d,
+          AVG(lf_20d) AS avg_fwd_20d,
+          SUM(CASE WHEN lf_5d  > 0 THEN 1 ELSE 0 END) AS win_5d_n,
+          SUM(CASE WHEN lf_10d > 0 THEN 1 ELSE 0 END) AS win_10d_n,
+          SUM(CASE WHEN lf_20d > 0 THEN 1 ELSE 0 END) AS win_20d_n,
+          COUNT(lf_5d)  AS fwd_5d_n,
+          COUNT(lf_10d) AS fwd_10d_n,
+          COUNT(lf_20d) AS fwd_20d_n
+          {_mfe_sql}
+          {_mfe_short_sql}
         FROM lagged
         {outer_where}
         """
@@ -1067,15 +1162,15 @@ def query_exact_sequence(
               FROM base
               WINDOW w AS (PARTITION BY ticker ORDER BY date)
             )
-            SELECT ticker, CAST(date AS DATE) AS d,
+            SELECT ticker, CAST(date AS DATE) AS d, universe,
                    next_pivot_is_hh_{P} AS hh, next_pivot_is_hl_{P} AS hl,
                    fwd_5d, fwd_10d, fwd_20d
             FROM lagged
             {outer_where}
             """
             matched_rows = [
-                {"ticker": r[0], "date": str(r[1]), "hh": r[2], "hl": r[3],
-                 "fwd_5d": r[4], "fwd_10d": r[5], "fwd_20d": r[6]}
+                {"ticker": r[0], "date": str(r[1]), "universe": r[2], "hh": r[3], "hl": r[4],
+                 "fwd_5d": r[5], "fwd_10d": r[6], "fwd_20d": r[7]}
                 for r in conn.execute(rows_sql).fetchall()
             ]
 
@@ -1139,7 +1234,21 @@ def query_exact_sequence(
             "fwd_5d_n":         int(row[13] or 0),
             "fwd_10d_n":        int(row[14] or 0),
             "fwd_20d_n":        int(row[15] or 0),
+            "avg_mfe_20d":      _round(row[16]) if _has_mfe and row[16] is not None else None,
+            "avg_mae_20d":      _round(row[17]) if _has_mfe and row[17] is not None else None,
+            "spike_5pct":       _round(row[18], 1) if _has_mfe and row[18] is not None else None,
+            "spike_10pct":      _round(row[19], 1) if _has_mfe and row[19] is not None else None,
+            "spike_20pct":      _round(row[20], 1) if _has_mfe and row[20] is not None else None,
+            "drop_4pct":        _round(row[21], 1) if _has_mfe and row[21] is not None else None,
+            "drop_8pct":        _round(row[22], 1) if _has_mfe and row[22] is not None else None,
+            "drop_15pct":       _round(row[23], 1) if _has_mfe and row[23] is not None else None,
         }
+        if _has_mfe_short:
+            _o = 24 if _has_mfe else 16   # _mfe_short_sql columns land right after _mfe_sql's (if any)
+            outcomes["avg_mfe_5d"]  = _round(row[_o])     if row[_o]     is not None else None
+            outcomes["avg_mae_5d"]  = _round(row[_o + 1]) if row[_o + 1] is not None else None
+            outcomes["avg_mfe_10d"] = _round(row[_o + 2]) if row[_o + 2] is not None else None
+            outcomes["avg_mae_10d"] = _round(row[_o + 3]) if row[_o + 3] is not None else None
 
         # Build sequence label — show TZ and L separately
         def _bar_label(p):

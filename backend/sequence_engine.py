@@ -90,6 +90,55 @@ def _read_rows_grouped(path: str) -> dict[str, list]:
     return dict(grouped)
 
 
+def _read_rows_grouped_db(universe: str, tf: str) -> dict[str, list]:
+    """Build the same {ticker: [row,...]} structure directly from the DuckDB
+    `bars` table (no Stock Stat CSV needed) — routes to the tf DB (1d=analytics,
+    else studio_<tf>.duckdb). 'all_us' = sp500+nasdaq+russell2k deduped to ONE
+    canonical row per (ticker,date) by universe priority. Returns {} if the DB
+    is missing/locked. The engine derives forward returns from `close`."""
+    import os as _os
+    from collections import defaultdict as _dd
+    try:
+        import duckdb as _duck
+        from studio.paths import db_path as _dbp, ANALYTICS_DB as _ANA
+    except Exception:
+        return {}
+    tf = (tf or "1d").lower()
+    dbp = _ANA if tf == "1d" else _dbp(tf)
+    if not _os.path.exists(dbp):
+        return {}
+    unis = (["sp500", "nasdaq", "russell2k"]
+            if universe in ("all_us", "all", "") else [universe])
+    ph = ",".join("?" * len(unis))
+    try:
+        con = _duck.connect(dbp, read_only=True)
+    except Exception as exc:
+        log.warning("sequence_engine DB read: cannot open %s: %s", dbp, exc)
+        return {}
+    try:
+        df = con.execute(f"""
+            WITH r AS (
+              SELECT ticker, CAST(date AS VARCHAR) AS date, close, rsi_14,
+                     coalesce(t_sig,'') AS t_signal, coalesce(z_sig,'') AS z_signal,
+                     coalesce(l_sig,'') AS l_signal,
+                     row_number() OVER (PARTITION BY ticker, date ORDER BY
+                       CASE universe WHEN 'sp500' THEN 1 WHEN 'nasdaq' THEN 2
+                                     WHEN 'russell2k' THEN 3 ELSE 9 END) AS rn
+              FROM bars WHERE universe IN ({ph}) AND close > 0)
+            SELECT ticker, date, close, rsi_14, t_signal, z_signal, l_signal
+            FROM r WHERE rn = 1 ORDER BY ticker, date
+        """, unis).fetchdf()
+    except Exception as exc:
+        log.warning("sequence_engine DB read failed (%s): %s", dbp, exc)
+        return {}
+    finally:
+        con.close()
+    grouped: dict[str, list] = _dd(list)
+    for rec in df.to_dict("records"):
+        grouped[rec["ticker"]].append(rec)
+    return dict(grouped)
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Standard sequence pool — excludes T7, T8, Z8 per spec.
 # ─────────────────────────────────────────────────────────────────────────────
@@ -180,6 +229,15 @@ def run_sequence_scan(
     mode:        str = "type",        # "type"  → TZTZ  |  "full" → T4|Z2|T1G|Z3
     nasdaq_batch: str = "",
     progress_cb: Callable[[int, int], None] | None = None,
+    years:       list | None = None,  # restrict entry bar (window's last bar) to these years
+    months:      list | None = None,  # ... and/or these months (1-12)
+    source:      str = "auto",        # "auto" = CSV then DB · "db" = force DuckDB
+    rsi_min:     float | None = None, # entry-bar RSI-14 band
+    rsi_max:     float | None = None,
+    l_sigs:      list | None = None,  # entry-bar l_sig must be one of these (e.g. ['L3','L12'])
+    price_min:   float | None = None, # entry-bar close-price band
+    price_max:   float | None = None,
+    robust:      bool = False,        # compute 2022-aware cross-period stability verdict
 ) -> dict:
     """Read the existing TZ/WLNBB stock_stat CSV, slide an N-bar window over
     each ticker's chronologically-ordered T/Z signal events, aggregate
@@ -192,26 +250,56 @@ def run_sequence_scan(
     """
     if seq_len < 2 or seq_len > 6:
         return {"status": "error", "error": f"seq_len must be 2..6 (got {seq_len})"}
-    if mode not in ("type", "full"):
-        return {"status": "error", "error": f"mode must be 'type' or 'full' (got {mode!r})"}
+    if mode not in ("type", "full", "full_l"):
+        return {"status": "error", "error": f"mode must be 'type'|'full'|'full_l' (got {mode!r})"}
 
-    # Walk the candidate paths, keeping the first one that contains at least
-    # one ticker row. A leftover empty TZ/WLNBB CSV from a prior session must
-    # NOT shadow a freshly-generated bulk Stock Stat file.
-    candidates = _candidate_paths(universe, tf, nasdaq_batch)
+    # Year/month filter sets (applied to the window's ENTRY bar = last bar).
+    try:
+        _yrs = {int(y) for y in (years or []) if str(y).strip()}
+    except (TypeError, ValueError):
+        _yrs = set()
+    try:
+        _mos = {int(m) for m in (months or []) if str(m).strip() and 1 <= int(m) <= 12}
+    except (TypeError, ValueError):
+        _mos = set()
+    _lset = {str(x).strip().upper() for x in (l_sigs or []) if str(x).strip()}
+    def _fnum(v):
+        try:
+            return float(v) if v is not None and str(v) != "" else None
+        except (TypeError, ValueError):
+            return None
+    _rmin, _rmax = _fnum(rsi_min), _fnum(rsi_max)
+    _pmin, _pmax = _fnum(price_min), _fnum(price_max)
+    _entry_filter = bool(_yrs or _mos or _lset or _rmin is not None or _rmax is not None
+                         or _pmin is not None or _pmax is not None)
+
+    # Data source: DuckDB directly (any universe incl. all_us, any TF, exact
+    # year/month filtering) OR the legacy Stock Stat CSV. 'db' forces DB; 'auto'
+    # uses DB for all_us / when a year-month filter is set, else tries CSV first
+    # and falls back to DB when no CSV exists (so all_us & fresh universes work).
+    # DuckDB is the primary source (full history, all universes, all TFs, and the
+    # only source that can serve RSI/L/price/year filters). The legacy Stock Stat
+    # CSV is a fallback ONLY when the DB is unavailable AND no entry filter is set
+    # (its recent-snapshot semantics can't answer a filtered query anyway). Using
+    # DB always keeps counts consistent — adding a filter narrows, never jumps.
     rows_by_ticker: dict[str, list] = {}
     stat_path: str | None = None
     tried: list = []
-    for p in candidates:
-        if not os.path.exists(p):
-            continue
-        tried.append(p)
-        rows_by_ticker = _read_rows_grouped(p)
-        if rows_by_ticker:
-            stat_path = p
-            break
-        log.info("sequence_engine: %s exists but contains 0 ticker rows; "
-                 "trying next candidate", p)
+    rows_by_ticker = _read_rows_grouped_db(universe, tf)
+    if rows_by_ticker:
+        stat_path = f"DB:{tf}:{universe}"
+    elif not _entry_filter and source != "db":
+        candidates = _candidate_paths(universe, tf, nasdaq_batch)
+        for p in candidates:
+            if not os.path.exists(p):
+                continue
+            tried.append(p)
+            rows_by_ticker = _read_rows_grouped(p)
+            if rows_by_ticker:
+                stat_path = p
+                break
+            log.info("sequence_engine: %s exists but contains 0 ticker rows; "
+                     "trying next candidate", p)
     if not stat_path:
         if tried:
             return {
@@ -245,6 +333,12 @@ def run_sequence_scan(
             # Per-horizon return lists. 1d is canonical; 3/5/9d are extras.
             "rets_by_h": {n: [] for n in _HORIZONS},
             "tickers": set(),
+            # Robustness (only populated when robust=True): per-YEAR next-day
+            # win counters. 1d win-rate is outlier- AND drift-immune (unlike the
+            # 9d win rate, which just measures market up-drift), so it's the right
+            # cross-period stability metric. O(1) memory (counters, ≤6 years).
+            "yr_n":  defaultdict(int),
+            "yr_w1": defaultdict(int),
         }
     )
 
@@ -284,15 +378,42 @@ def run_sequence_scan(
             # Other horizons may legitimately be None for events near the
             # end of the dataset (e.g. ret_9d on the last 9 bars).
             rets_by_h = {n: _safe_float(r.get(f"ret_{n}d")) for n in _HORIZONS}
-            events.append((cls[0], cls[1], rets_by_h, r.get("date", "")))
+            events.append((cls[0], cls[1], rets_by_h, r.get("date", ""),
+                           _safe_float(r.get("rsi_14")),
+                           (r.get("l_signal") or r.get("l_sig") or "").strip().upper(),
+                           _safe_float(r.get("close"))))
 
         # Slide window. Forward returns are taken from the LAST bar of the
         # window (entry-at-close, exit-N-bars-later).
         for i in range(len(events) - seq_len + 1):
             window = events[i : i + seq_len]
+            # entry-bar filters (window's last bar): year/month/RSI/L-signal/price.
+            # Keeps sequences that CROSS a boundary but END inside the selection.
+            if _entry_filter:
+                ent = window[-1]
+                _ed = str(ent[3])                 # entry date 'YYYY-MM-DD...'
+                if _yrs and (not _ed[:4].isdigit() or int(_ed[:4]) not in _yrs):
+                    continue
+                if _mos and (len(_ed) < 7 or not _ed[5:7].isdigit() or int(_ed[5:7]) not in _mos):
+                    continue
+                _ersi = ent[4] if len(ent) > 4 else None
+                if _rmin is not None and (_ersi is None or _ersi < _rmin):
+                    continue
+                if _rmax is not None and (_ersi is None or _ersi > _rmax):
+                    continue
+                if _lset and (len(ent) <= 5 or ent[5] not in _lset):
+                    continue
+                _ecl = ent[6] if len(ent) > 6 else None
+                if _pmin is not None and (_ecl is None or _ecl < _pmin):
+                    continue
+                if _pmax is not None and (_ecl is None or _ecl > _pmax):
+                    continue
             last_rets = window[-1][2]
             if mode == "type":
                 key = "".join(w[0] for w in window)
+            elif mode == "full_l":
+                # full label WITH each bar's L signal appended, e.g. T1GL3|Z2GL12
+                key = "|".join((w[1] + (w[5] if len(w) > 5 and w[5] else "")) for w in window)
             else:
                 key = "|".join(w[1] for w in window)
             entry = seq_map[key]
@@ -308,6 +429,13 @@ def run_sequence_scan(
             r1 = last_rets.get(1)
             if r1 is not None and r1 > 0:
                 entry["wins"] += 1
+            # per-year 1d win counters for the robustness verdict
+            if robust and r1 is not None:
+                _yr = str(window[-1][3])[:4]
+                if _yr.isdigit():
+                    entry["yr_n"][_yr] += 1
+                    if r1 > 0:
+                        entry["yr_w1"][_yr] += 1
 
         if progress_cb:
             progress_cb(idx + 1, total)
@@ -340,7 +468,7 @@ def run_sequence_scan(
         avg1, med1, std1, wr1 = _stats(rets1)
         wr1 = wr1 if wr1 is not None else (d["wins"] / d["count"])
 
-        if mode == "full":
+        if mode in ("full", "full_l"):
             type_seq = "".join("T" if p[:1] == "T" else "Z" for p in key.split("|"))
         else:
             type_seq = key
@@ -367,6 +495,30 @@ def run_sequence_scan(
             out[f"avg_ret_{n}d"]  = round(avg, 6) if avg is not None else None
             out[f"med_ret_{n}d"]  = round(med, 6) if med is not None else None
             out[f"count_{n}d"]    = len(xs)
+
+        # ── Robustness verdict (2022-aware cross-period stability) ──────────────
+        # 2022 is a bear year that drags nearly every long setup negative, so we
+        # DON'T require it — stability is judged on the non-2022 years, and 2022
+        # is a separate "bear stress" flag. Metric = per-year 1d WIN-RATE (>52% =
+        # a real next-day directional edge, immune to the drift/outlier illusion
+        # that makes 9d win-rates look great on random entries).
+        if robust:
+            _MIN_YR_N = 5
+            yr_win = {y: d["yr_w1"][y] / d["yr_n"][y]
+                      for y in d["yr_n"] if d["yr_n"][y] >= _MIN_YR_N}
+            non22 = {y: w for y, w in yr_win.items() if y != "2022"}
+            good  = sum(1 for w in non22.values() if w >= 0.52)   # beats coin-flip
+            total = len(non22)
+            bear_ok = ("2022" in yr_win) and (yr_win["2022"] >= 0.50)
+            out["pos_years"]  = good
+            out["tot_years"]  = total
+            out["bear_ok"]    = bool(bear_ok)
+            out["yr_win"]     = {y: round(w, 3) for y, w in sorted(yr_win.items())}
+            out["is_robust"]  = bool(total >= 3 and good / max(total, 1) >= 0.6)
+            # robust_score ranks the stable ones: fraction of good years × log(n),
+            # + a bear-survivor bonus. Non-robust rows keep their normal score.
+            out["robust_score"] = round((good / max(total, 1)) * math.log1p(d["count"])
+                                        + (0.5 if bear_ok else 0), 4)
         results.append(out)
 
     results.sort(key=lambda x: (-x["score"], -x["count"]))

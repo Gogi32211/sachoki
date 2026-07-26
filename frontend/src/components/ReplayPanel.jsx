@@ -643,7 +643,7 @@ export default function ReplayPanel() {
           </select>
           <select value={tf} onChange={e => setTf(e.target.value)}
             className="text-xs bg-md-surface-high border border-md-outline-var rounded px-2 py-1 text-md-on-surface">
-            {['1d','4h','1h','30m'].map(t =>
+            {['1w','1d','4h','1h','30m'].map(t =>
               <option key={t} value={t}>{t}</option>)}
           </select>
           <StatusBadge status={status.status} />

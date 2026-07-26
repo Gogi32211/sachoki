@@ -59,11 +59,10 @@
     font-size: 14px;
     line-height: 20px;
     -webkit-font-smoothing: antialiased;
-    min-font-size: 14px;
+    /* Global readability bump — scales the whole app uniformly (incl. px-fixed
+       text like text-[9px]/[10px] that rem/font-size can't reach). Adjust here. */
+    zoom: 1.15;
   }
-
-  /* Enforce min 14px — catches any stray smaller sizes */
-  * { min-font-size: 14px; }
 
   /* Monospace */
   code, kbd, pre, .font-mono { font-family: 'JetBrains Mono', 'Fira Code', monospace; }

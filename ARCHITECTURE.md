@@ -5,6 +5,11 @@
 
 ---
 
+> 📊 **Scoring Systems quick-reference:** see [`SCORING_SYSTEMS.md`](./SCORING_SYSTEMS.md)  
+> Covers all 8 scoring engines, every output field, score ranges, thresholds and interaction flow.
+
+---
+
 ## Table of Contents
 
 1. [Overview](#overview)
@@ -25,6 +30,7 @@
 16. [Build Marker & Artifact Audit](#build-marker--artifact-audit)
 17. [Deployment](#deployment)
 18. [Test Suite](#test-suite)
+19. [Scoring Systems Reference](#scoring-systems-reference)
 
 ---
 
@@ -1484,3 +1490,153 @@ Located in `tests/`. Run with `pytest tests/ -q`. **663 tests, all passing.**
 | Test count | 663 |
 | Tabs | 20 |
 | Scheduled scans/day | 3 (09:30, 12:30, 15:30 ET) |
+
+---
+
+## Scoring Systems Reference
+
+> Full details in **[`SCORING_SYSTEMS.md`](./SCORING_SYSTEMS.md)**
+
+All scoring engines and their output fields at a glance:
+
+| Engine | File | Key output fields | Range |
+|--------|------|-------------------|-------|
+| **TURBO Score** | `turbo_engine.py` | `turbo_score`, `turbo_score_n3/n5/n10` | 0–100 |
+| **Canonical Sub-scores** | `canonical_scoring_engine.py` | `FINAL_BULL_SCORE`, `ROCKET_SCORE`, `CLEAN_ENTRY_SCORE`, `SHAKEOUT_ABSORB_SCORE`, `EXTRA_BULL_SCORE`, `EXPERIMENTAL_SCORE`, `REBOUND_SQUEEZE_SCORE`, `HARD_BEAR_SCORE`, `VOLATILITY_RISK_SCORE` | 0–40 each |
+| **Canonical Regime** | `canonical_scoring_engine.py` | `FINAL_REGIME`, `FINAL_SCORE_BUCKET` | string labels |
+| **ULTRA Score v2** | `ultra_score.py` | `ultra_score`, `ultra_score_band`, `ultra_score_band_v2`, `ultra_score_priority`, `ultra_score_reasons`, `ultra_score_flags` | 0–100 |
+| **BETA Score v2.1** | `beta_engine.py` | `beta_score`, `beta_raw`, `beta_setup`, `beta_momentum`, `beta_excess`, `beta_zone`, `beta_auto_buy` | 0–100 |
+| **Profile Score** | `profile_playbook.py` | `profile_score`, `profile_category`, `sweet_spot_active`, `late_warning` | 0–80+ |
+| **GOG Score** | `gog_engine.py` | `gog_score`, `gog_tier` | 42–100 |
+| **Prebreak Score** | `analyzers/tz_wlnbb/signal_extraction.py` | `prebreak_score`, `prebreak_watch`, `prebreak_ready`, `prebreak_prime` | 0–80+ |
+
+### Score tiers quick-reference
+
+**TURBO / FINAL_BULL_SCORE**
+
+| Range | Tier |
+|-------|------|
+| 80–100 | 🔥 Elite |
+| 60–79 | ✅ Strong |
+| 40–59 | 🟡 Actionable |
+| 20–39 | 🔵 Early |
+| 0–19 | ⬛ Weak |
+
+**ULTRA Score bands**
+
+| Score | Band | Priority |
+|-------|------|---------|
+| ≥ 90 | A+ | HIGH_PRIORITY |
+| ≥ 80 | A | WATCH_A |
+| ≥ 65 | B | STRONG_WATCH |
+| ≥ 50 | C | CONTEXT_WATCH |
+| < 50 | D | LOW |
+
+**BETA zones**
+
+| Display | Zone |
+|---------|------|
+| ≥ 80 | ELITE |
+| 75–79 | OPTIMAL |
+| 70–74 | BUY |
+| 60–69 | WATCH |
+| 40–59 | BUILDING |
+| < 40 | NEUTRAL / SHORT_WATCH |
+
+**Prebreak tiers**
+
+| Flag | Score threshold | Chip |
+|------|----------------|------|
+| `prebreak_watch` | ≥ 18 | `WATCH` |
+| `prebreak_ready` | ≥ 28 | `READY` |
+| `prebreak_prime` | ≥ 45 | `PRIME★` |
+
+---
+
+## 18. DB-Instant Pipeline (2026-05-27 v4.8.116)
+
+Ultra Scan's **DB (instant)** mode reads from the Studio DuckDB, returning ~3,000 enriched ticker rows in ~2 seconds instead of running the full 30-60 minute live scan. As of v4.8.116 the pipeline produces output **identical** to a live CSV-import path for Pine columns (validated 100% on SP500 sample).
+
+### Daily delta append flow
+
+```
+17:00 ET (Mon-Fri) │  APScheduler in main.py lifespan
+                   ↓
+                   │  studio_api._run_incremental(["sp500","nasdaq"])
+                   ↓
+                   │  studio.incremental_delta.incremental_delta_refresh()
+                   ↓
+                   │  For each ticker:
+                   │    last_date = SELECT MAX(date) FROM bars
+                   │    bars      = api_bar_signals(t, '1d', 200, universe)
+                   │                       # warmup=200 → Pine convergence
+                   │    new_bars  = [b for b in bars if b.date > last_date]
+                   ↓
+                   │  Bulk INSERT with auto-IDs + DELETE-then-INSERT idempotency
+                   ↓
+                   │  studio.enricher.enrich_universe(universe)
+                   │    → suffixes, ATR, RSI, CCI, avg_vol_20d, pivots, AES, ACC Exit
+                   │    → _compute_pine_engines(df):
+                   │        compute_260308_l88   → sig_260308, sig_l88
+                   │        compute_ultra_v2     → eb_*, fbo_*, bf_*, ultra_3*, best_*
+                   │        compute_para_series  → para_prep/start/plus/retest
+                   │        compute_fly_series   → fly_abcd/cd/bd/ad
+                   │        compute_delta        → 23 d_* signals
+                   ↓
+DB ready @ ~17:30 │  All 30+ Pine-equivalent signals populated
+```
+
+### Components
+
+| Module | Purpose |
+|---|---|
+| `studio/incremental_delta.py` | Daily +1 bar / +N bar delta append; reuses `bulk_export.bar_to_row` + `importer._COL_MAP` for byte-identical row shape |
+| `studio/enricher.py::_compute_pine_engines()` | Runs 5 self-contained Pine engines on each ticker's DataFrame: 260308/L88, ULTRA v2, PARA, FLY, Delta |
+| `studio/ultra_db_scan.py::_UI_KEY_TO_DB_COL` | 80+ alias map translating DB-side `sig_*` cols to frontend filter keys (`best_sig`, `buy_2809`, `preup66`, `gog_g1p`, ...) |
+| `studio/ultra_db_scan.py` sig_ages SQL | DuckDB conditional `MIN(CASE WHEN sig=1 THEN rn END)` — 8× faster than pandas iteration (2.3s vs 18s for 3000 tickers × 50 sigs × 20 bars) |
+
+### Schema additions (v4.8.116)
+
+35 new SMALLINT columns added to `bars` via `ALTER TABLE`:
+
+- **L88 + 260308** (2): `sig_l88`, `sig_260308` — backfilled from CSV via direct UPDATE, then ongoing via enricher
+- **ULTRA v2** (10): `eb_bull/bear`, `fbo_bull/bear`, `bf_buy/sell`, `ultra_3up/3dn`, `best_long/short`
+- **Delta order-flow** (23): `d_strong_*`, `d_absorb_*`, `d_div_*`, `d_cd_*`, `d_surge_*`, `d_blast_*`, `d_vd_div_*`, `d_spring`, `d_upthrust`, `d_flip_*`, `d_orange_bull`, `d_blast_bull_red`, `d_blast_bear_grn`, `d_surge_bull_red`, `d_surge_bear_grn`
+
+PARA + FLY already had `sig_para_*` / `sig_fly_*` from CSV import; the bare-name columns are populated by enricher for direct passthrough (frontend filter keys are `para_prep`, `fly_abcd` etc.).
+
+### Idempotent updates
+
+Every incremental run is safe to re-trigger. The flow:
+
+```sql
+DELETE FROM bars
+WHERE universe = ?
+  AND (ticker, date) IN (SELECT ticker, date FROM new_rows);
+
+INSERT INTO bars (col1, col2, ..., id) SELECT ..., MAX(id)+row_number() FROM new_rows;
+```
+
+DuckDB's auto-incrementing IDs are explicitly computed (`MAX(id) + 1 + row_index`) — DuckDB sequences in this codebase aren't reliable across multi-process writes.
+
+### Filter coverage
+
+UltraScanPanel's `SIG_GROUPS` (~150 filter keys) works in DB-instant mode for:
+- ✅ TZ, L (WLNBB chart codes), Vol bucket, Suffixes, Body/Wick, Gap/Range, L5
+- ✅ VABS (BEST/STRONG/V×20/V×10/V×5/VBO↑/ABS/CLB/LD), Wyckoff legacy (NS/SQ/SC/ND)
+- ✅ Combo 2809 (BUY/🚀/3G/HILO↑/VA/↑BIAS/SVS/CON)
+- ✅ F/G/B families, GOG context (G1P/G2P/G3P/G1L/G2L/G1C/G2C/G3C)
+- ✅ Price vs EMA (P>200/89/50/20 + P<*), RSI thresholds
+- ✅ PARA/FLY/Delta/ULTRA v2/260308/L88 (enricher-computed)
+- ✅ PREUP/PREDN (P66/P55/P89/P50/P3/P2 + D66/D55/D89/D50/D3/D2)
+- ✅ 260523 (AD-FRESH/AD-CLUSTER), WYC Phase, PREBREAK tiers, Swing type
+- ✅ N=lookback (1d/3d/5d/10d) via sig_ages JSON
+- ⚠️ NOT in DB: RGTI/SMX (disabled in LIVE too), AKAN/NNN/MX/GOG_sig/CTX_* (gog_engine multi-input), Sectors (NULL column, lazy-fetched via `/api/ticker-info-batch`)
+
+### Manual triggers
+
+- **UI button** "🔄 Update DB" in Ultra Scan panel (DB mode) → `POST /api/studio/incremental-update`
+- **API**: `curl -X POST http://127.0.0.1:8080/api/studio/incremental-update -d '{"universes":["sp500","nasdaq","russell2k"]}'`
+- **Status**: `GET /api/studio/incremental-update/status` — returns `{running, progress: {stage, done, total, pct, new_rows, errors, elapsed_seconds, eta_seconds}}`
+
+Detailed session notes: see `SESSION_NOTES_260527_DB_MODE.md`.

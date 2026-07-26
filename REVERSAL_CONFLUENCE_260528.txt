@@ -1,0 +1,124 @@
+==========================================================================
+LAYER 2 — REVERSAL CONFLUENCE + SEQUENCE (swing-based, pivot 3-3)
+==========================================================================
+Generated: 2026-05-28 15:46 | LL lows=471,275 (base swg +11.3%) | HH highs=369,273 (base -9.9%)
+swg_med=median swing %; win20/30=% reaching +/-20/30%; lift=swg_med - baseline.
+
+
+==========================================================================
+A. BOTTOM CONFLUENCE — pairs on the SAME LL low (top 20 by win20, N>=150)
+==========================================================================
+combo                                  n swg_med win20 win30   lift
+-------------------------------------------------------------------
+pb_stop_cause + rsi_le_35       13,843    19.3     48     32   +7.9
+wyc_in_tr + rsi_le_35           14,019    19.2     48     32   +7.8
+sig_bias_dn + d_blast_bull_red     165    19.0     47     33   +7.7
+sig_bias_dn + d_surge_bull_red     261    17.8     47     31   +6.5
+pb_stop_cause + d_blast_bull_r     474    18.3     46     29   +6.9
+sig_bc + rsi_le_35                 345    18.6     46     27   +7.3
+pb_stop_cause + sig_bc             917    18.3     46     29   +7.0
+sig_bias_dn + rsi_le_35          5,977    17.6     45     30   +6.3
+pb_stop_cause + d_surge_bull_r     739    17.7     44     28   +6.3
+sig_bias_dn + d_spring             152    17.2     44     28   +5.8
+pb_stop_cause + d_flip_bull      3,323    16.8     44     28   +5.5
+pb_stop_cause + d_absorb_bull    1,756    17.5     44     29   +6.2
+wyc_in_tr + d_blast_bull_red       530    17.0     44     28   +5.7
+sig_bias_dn + sig_l88              211    16.9     43     27   +5.6
+sig_bias_dn + d_flip_bull          936    16.7     43     28   +5.4
+wyc_in_tr + d_surge_bull_red       818    17.1     43     27   +5.8
+pb_stop_cause + d_spring           657    17.3     43     30   +6.0
+pb_stop_cause + sig_bias_dn      7,607    16.5     42     27   +5.1
+pb_stop_cause + sig_l88            808    16.3     42     26   +4.9
+wyc_in_tr + d_spring               724    16.9     41     29   +5.6
+
+  >> Best TRIPLES (among d_spring/rsi_le_35/wyc_in_tr/d_absorb_bull/pb_stop_cause/sig_bias_dn, N>=80):
+combo                                  n swg_med win20 win30   lift
+-------------------------------------------------------------------
+d_spring+rsi_le_35+wyc_in_tr       303    21.3     52     40   +9.9
+d_spring+rsi_le_35+pb_stop_cau     293    20.8     52     39   +9.4
+rsi_le_35+wyc_in_tr+d_absorb_b     621    20.2     51     36   +8.8
+rsi_le_35+d_absorb_bull+pb_sto     699    20.0     50     35   +8.7
+rsi_le_35+wyc_in_tr+pb_stop_ca  13,514    19.2     48     32   +7.9
+d_spring+wyc_in_tr+sig_bias_dn     117    19.1     47     32   +7.7
+d_spring+pb_stop_cause+sig_bia     115    19.1     47     31   +7.7
+rsi_le_35+pb_stop_cause+sig_bi   4,889    18.5     47     31   +7.2
+rsi_le_35+wyc_in_tr+sig_bias_d   5,018    18.4     46     31   +7.1
+d_spring+d_absorb_bull+sig_bia     152    17.2     44     28   +5.8
+d_spring+d_absorb_bull+pb_stop     657    17.3     43     30   +6.0
+d_spring+wyc_in_tr+pb_stop_cau     655    17.3     43     30   +5.9
+
+
+==========================================================================
+B. TOP CONFLUENCE — pairs on the SAME HH high (top 20 by win20, N>=120)
+==========================================================================
+combo                                  n swg_med win20 win30   lift
+-------------------------------------------------------------------
+d_blast_bear_grn + vix_range       288   -41.6     88     65  -31.7
+vix_range + sig_dd_dn_green        161   -41.2     86     66  -31.3
+sig_vol_20x + vix_range            294   -43.9     84     74  -34.0
+sig_vol_20x + d_upthrust           781   -38.3     82     64  -28.4
+sig_vol_20x + d_blast_bear_grn   1,156   -38.7     82     66  -28.8
+sig_vol_20x + d_absorb_bear      1,394   -38.7     80     64  -28.8
+d_blast_bear_grn + wvf_spike       247   -55.1     79     72  -45.2
+sig_vol_20x + wvf_spike            508   -44.6     78     68  -34.7
+vix_range + d_upthrust             212   -34.3     78     55  -24.4
+sig_vol_10x + vix_range            411   -38.8     77     65  -28.9
+sig_vol_10x + d_blast_bear_grn   1,632   -34.3     76     57  -24.4
+sig_vol_10x + d_upthrust         1,172   -33.3     76     56  -23.4
+sig_vol_20x + sig_dd_dn_green    1,263   -36.6     76     60  -26.7
+sig_vol_20x + sig_sc               343   -39.1     76     64  -29.2
+wvf_spike + sig_dd_dn_green        151   -46.4     74     68  -36.5
+sig_vol_10x + d_absorb_bear      2,112   -32.7     73     55  -22.8
+sig_vol_10x + wvf_spike            718   -36.9     72     60  -27.0
+sig_vol_20x + sig_260308         2,205   -32.9     71     55  -23.0
+d_upthrust + wvf_spike             155   -49.2     71     65  -39.3
+d_blast_bear_grn + sig_vol_5x    2,221   -30.1     70     50  -20.2
+
+
+==========================================================================
+C. SEQUENCE — bottom signal AT the low vs fired in prior 1-2 bars
+==========================================================================
+For each signal: [AT low] sig@bar0 ; [prior] sig@bar-1 or -2 (not nec. at low) ;
+[window] sig fired on any of bar-2..bar0. Shows if the signal is timing-precise.
+
+combo                                  n swg_med win20 win30   lift
+-------------------------------------------------------------------
+pb_stop_cause  [AT low]         32,486    15.6     40     25   +4.3
+pb_stop_cause  [prior -1/-2]     3,156    14.0     37     23   +2.6
+pb_stop_cause  [window -2..0]   35,642    15.5     39     25   +4.2
+
+sig_bias_dn  [AT low]           11,302    15.3     39     25   +3.9
+sig_bias_dn  [prior -1/-2]       2,675    14.0     37     24   +2.7
+sig_bias_dn  [window -2..0]     13,977    15.0     39     25   +3.7
+
+wyc_in_tr  [AT low]             36,071    14.0     36     22   +2.7
+wyc_in_tr  [prior -1/-2]         3,810    13.0     35     22   +1.6
+wyc_in_tr  [window -2..0]       39,881    13.9     36     22   +2.6
+
+sig_bc  [AT low]                 4,424    13.7     34     19   +2.4
+sig_bc  [prior -1/-2]            1,811    11.2     26     14   -0.1
+sig_bc  [window -2..0]           6,235    12.9     32     18   +1.5
+
+wyc_sos  [AT low]                1,645    13.6     30     16   +2.2
+wyc_sos  [prior -1/-2]             420    11.4     26     12   +0.0
+wyc_sos  [window -2..0]          2,065    13.1     29     15   +1.8
+
+d_spring  [AT low]              12,030    13.5     31     17   +2.1
+d_spring  [prior -1/-2]          4,099    12.1     26     13   +0.8
+d_spring  [window -2..0]        16,129    13.0     30     16   +1.7
+
+d_absorb_bull  [AT low]         26,826    13.1     30     16   +1.7
+d_absorb_bull  [prior -1/-2]    13,689    11.4     25     13   +0.0
+d_absorb_bull  [window -2..0]   40,515    12.5     28     15   +1.1
+
+sig_l88  [AT low]                9,867    13.0     30     17   +1.7
+sig_l88  [prior -1/-2]           6,281    11.1     26     15   -0.3
+sig_l88  [window -2..0]         16,148    12.2     29     16   +0.9
+
+==========================================================================
+NOTES
+--------------------------------------------------------------------------
+  - Confluence rarer => smaller N; weigh win20/win30 with N. lift vs LL/HH baseline.
+  - Sequence: if [window] keeps high win20 ~ [AT low], the signal allows earlier entry;
+    if [prior] alone is weak, the signal must coincide with the low to matter.
+==========================================================================

@@ -463,11 +463,12 @@ def import_csv(
     }
 
 
-# ── Default CSV paths ──────────────────────────────────────────────────────────
+# ── Default CSV paths (one-time DB-rebuild import seeds → <project>/data/seeds) ──
+from studio.paths import seed_path as _seed
 UNIVERSE_CSV_MAP: dict[str, str] = {
-    "sp500":    os.path.join(os.path.expanduser("~"), "Downloads", "sp500_signals_5y.csv"),
-    "nasdaq":   os.path.join(os.path.expanduser("~"), "Downloads", "nasdaq_signals_5y.csv"),
-    "russell2k": os.path.join(os.path.expanduser("~"), "Downloads", "russell2k_signals_5y.csv"),
+    "sp500":     _seed("sp500_signals_5y.csv"),
+    "nasdaq":    _seed("nasdaq_signals_5y.csv"),
+    "russell2k": _seed("russell2k_signals_5y.csv"),
 }
 
 

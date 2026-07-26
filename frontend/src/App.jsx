@@ -20,11 +20,14 @@ const SignalCorrelPanel     = lazy(() => import('./components/SignalCorrelPanel'
 const TickerAnalysisPanel   = lazy(() => import('./components/TickerAnalysisPanel'))
 const PersonalWatchlistPanel= lazy(() => import('./components/PersonalWatchlistPanel'))
 const SuperchartPanel       = lazy(() => import('./components/SuperchartPanel'))
+const BrainPanel            = lazy(() => import('./components/BrainPanel'))
 const SetupsBoardPanel      = lazy(() => import('./components/SetupsBoardPanel'))
 const AtomicScanPanel       = lazy(() => import('./components/AtomicScanPanel'))
 const AtomicJournalPanel    = lazy(() => import('./components/AtomicJournalPanel'))
 const CapitJournalPanel     = lazy(() => import('./components/CapitJournalPanel'))
 const CapitAtomJournalPanel = lazy(() => import('./components/CapitAtomJournalPanel'))
+const EdgeReplayPanel       = lazy(() => import('./components/EdgeReplayPanel'))
+const SeqRulesPanel         = lazy(() => import('./components/SeqRulesPanel'))
 const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
@@ -43,6 +46,7 @@ const HVZonesPanel          = lazy(() => import('./components/HVZonesPanel'))
 const GannZonesPanel        = lazy(() => import('./components/GannZonesPanel'))
 const ZoneEdgePanel         = lazy(() => import('./components/ZoneEdgePanel'))
 const PumpLogPanel          = lazy(() => import('./components/PumpLogPanel'))
+const EdgeBoardPanel        = lazy(() => import('./components/EdgeBoardPanel'))
 
 // ── localStorage helpers ──────────────────────────────────────────────────────
 const LS = {
@@ -61,9 +65,14 @@ const TAB_GROUPS = [
     label: 'Main',
     tabs: [
       { id: 'dashboard',  label: '🏠 Dashboard' },
+      { id: 'brain',      label: '🧠 Brain' },
+      { id: 'edge',       label: '✅ Edge' },
+      { id: 'edgereplay', label: '🔁 Edge Replay' },
+      { id: 'seqrules',   label: '🧬 Robust Seqs' },
       { id: 'turbo',      label: '⚡ Turbo' },
       { id: 'ultra',      label: '🧬 Ultra' },
       { id: 'superchart', label: '📋 Superchart' },
+      { id: 'day1h',      label: '📊 1D←1H' },
       { id: 'setups',     label: '🎯 Setups' },
       { id: 'atomic',     label: '⚛️ Atomic' },
       { id: 'atomicjournal', label: '⚛️📓 Atomic Jrnl' },
@@ -136,7 +145,7 @@ const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'studio', 'superchart', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -345,6 +354,8 @@ export default function App() {
           {activeTab === 'tzlstats'       && <TZLStatsPanel ticker={selected} tf={tf} />}
           {activeTab === 'corr'           && <SignalCorrelPanel />}
           {activeTab === 'superchart'     && <SuperchartPanel initialTicker={selected} initialTf={tf} initialTrade={chartTrade} onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
+          {activeTab === 'day1h'          && <SuperchartPanel key="sc1h" initialTicker={selected} initialTf="1d" with1H onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
+          {activeTab === 'brain'          && <BrainPanel onSelectTicker={handleSelect} />}
           {activeTab === 'sectors'        && <SectorAnalysisPanel onSelectTicker={handleSelect} />}
           {activeTab === 'analyze'        && <TickerAnalysisPanel onAddToWatchlist={handleAddTicker} onChartChange={setAnalyzeChart} />}
           {activeTab === 'replay'         && <ReplayPanel />}
@@ -365,6 +376,9 @@ export default function App() {
           {activeTab === 'hvzones'        && <HVZonesPanel />}
           {activeTab === 'gannzones'      && <GannZonesPanel />}
           {activeTab === 'zoneedge'       && <ZoneEdgePanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'edge'           && <EdgeBoardPanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'edgereplay'     && <EdgeReplayPanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'seqrules'       && <SeqRulesPanel onSelectTicker={(t) => handleSelect(t)} />}
           {activeTab === 'setups'         && <SetupsBoardPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'atomic'         && <AtomicScanPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'atomicjournal'  && <AtomicJournalPanel onSelectTicker={handleOpenChart} />}

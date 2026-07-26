@@ -1,0 +1,67 @@
+[
+  {
+    "date": "2026-07-24",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-07-24",
+    "kind": "revalidate_run",
+    "observation": "all 24 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-24",
+    "kind": "combo_mined",
+    "observation": "searched 154 combos, 10 passed OOS gate (family PBO 0.086)",
+    "action": "promoted 10: M_coil_floor_ob_retest, M_gem1_capbounce_rs_intact, M_gem1_capbounce_m15_zdom, M_engulf_absorb_rev_wtevr, M_z11t11_m15_zdom, M_g3g3rl_rs_intact, M_g3g3rl_key_level, M_g3g3rl_conf_anyfam, M_g3g3rl_m15_zdom, M_g3rl_ob_retest"
+  },
+  {
+    "date": "2026-07-24",
+    "kind": "trade_autopsy",
+    "edge": "coil_floor",
+    "ticker": "AAL",
+    "observation": "weak_exit / edge_miss (0.0%, 0.0R)",
+    "action": "single loss within coil_floor's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-07-24",
+    "kind": "combo_mined",
+    "observation": "searched 228 combos, 11 passed OOS gate (family PBO 0.057)",
+    "action": "promoted 11: M_gem1_capbounce_rs_intact, M_M_g3g3rl_rs_intact_ob_retest, M_M_g3g3rl_rs_intact_key_level, M_M_g3g3rl_key_level_rs_intact, M_M_g3g3rl_key_level_ob_retest, M_M_g3g3rl_key_level_conf_anyfam, M_M_g3g3rl_key_level_m15_zdom, M_M_g3g3rl_conf_anyfam_ob_retest, M_M_g3g3rl_m15_zdom_ob_retest, M_M_g3g3rl_m15_zdom_key_level, M_M_g3rl_ob_retest_m15_zdom"
+  },
+  {
+    "date": "2026-07-24",
+    "kind": "miner_fix",
+    "observation": "miner mined its own outputs → 10 M_M_* double-stacked overfit-risk combos",
+    "action": "removed 10 M_M_* + capped miner depth to 1 (exclude M_* from bases)"
+  },
+  {
+    "date": "2026-07-25",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-07-25",
+    "kind": "revalidate_run",
+    "observation": "all 34 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-25",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-07-25",
+    "kind": "revalidate_run",
+    "observation": "all 34 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-25",
+    "kind": "combo_mined",
+    "observation": "searched 154 combos, 10 passed OOS gate (family PBO 0.086)",
+    "action": "promoted 10: M_coil_floor_ob_retest, M_gem1_capbounce_rs_intact, M_gem1_capbounce_m15_zdom, M_engulf_absorb_rev_wtevr, M_z11t11_m15_zdom, M_g3g3rl_rs_intact, M_g3g3rl_key_level, M_g3g3rl_conf_anyfam, M_g3g3rl_m15_zdom, M_g3rl_ob_retest"
+  }
+]

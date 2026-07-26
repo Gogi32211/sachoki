@@ -1,0 +1,133 @@
+//@version=5
+// ═══════════════════════════════════════════════════════════════════
+// 260711_1D <- 1H SEQUENCE  (v2: per-line labels + L-signal + WLNBB vol color)
+// Separate lower pane. Each 1D bar decomposed into its 1H bars, stacked in the
+// direction price moved. Each line = one 1H bar:  TZ token + L-signal (e.g. Z4L34),
+// colored by that 1H bar's WLNBB volume class (W/L/N/B/VB).
+//   up day  -> open BOTTOM, close TOP   |   down day -> open TOP, close BOTTOM
+// vol color: W=gray  L=blue  N=yellow  B=orange  VB=red
+// NOTE: per-line color needs 1 label per 1H bar -> Pine's 500-label cap means
+//       ~70 daily bars max on screen. Lower "Only last N bars" if labels vanish.
+// TZ + WLNBB logic ported from 260523_TZ_F_WLNBB_CMB_pattern.pine
+// ═══════════════════════════════════════════════════════════════════
+indicator("1D<-1H Seq v2", shorttitle="1D<-1H v2", overlay=false, max_labels_count=500)
+
+confTF  = input.timeframe("60", "Intraday timeframe")
+useWick = input.bool(false, "Engulf: use wick (vs body)")
+minBody = input.float(1.0,  "Engulf: min body ratio", minval=0.5, step=0.05)
+maLen   = input.int(20,     "WLNBB volume MA period", minval=2, maxval=100)
+lastN   = input.int(60,     "Only last N bars (7 labels each, max ~70)", minval=1)
+lblSizeStr = input.string("normal", "Label size", options=["tiny", "small", "normal", "large"])
+lblSize = lblSizeStr == "tiny" ? size.tiny : lblSizeStr == "normal" ? size.normal : lblSizeStr == "large" ? size.large : size.small
+
+// ── one cell string per 1H bar: "TOKEN[Ldigits]~volclass" ──────────────────
+f_cell() =>
+    isDoji = close == open
+    isBull = close > open
+    isBear = close < open
+    p1Bull = close[1] > open[1]
+    p1Bear = close[1] < open[1] or (close[1] == open[1])
+    prevBody = math.abs(close[1] - open[1])
+    prevTop  = math.max(open[1], close[1])
+    prevBot  = math.min(open[1], close[1])
+    currTop  = math.max(open, close)
+    currBot  = math.min(open, close)
+    eHigh = useWick ? high    : currTop
+    eLow  = useWick ? low     : currBot
+    ePH   = useWick ? high[1] : prevTop
+    ePL   = useWick ? low[1]  : prevBot
+    pbs  = math.max(prevBody, syminfo.mintick)
+    brOk = (math.abs(close - open) / pbs) >= minBody
+    fEng = eHigh >= ePH and ePL >= eLow and brOk
+    isIn = currTop <= prevTop and currBot >= prevBot
+    T1G_raw = p1Bear and (open >  close[1]) and (open >  open[1]) and (close > open[1]) and isBull
+    T1_raw  = p1Bear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+    T2G_raw = p1Bull and (open >= open[1])  and (open >  close[1]) and (close > close[1]) and isBull
+    T2_raw  = p1Bull and (open >= open[1])  and (open <= close[1]) and (close > close[1]) and isBull
+    T3_raw  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+    T4_raw  = p1Bear and isBull and fEng
+    T5_raw  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+    T6_raw  = p1Bull and isBull and fEng
+    T9_raw  = p1Bear and isBull and isIn
+    T10_raw = p1Bull and isBull and isIn
+    T11_raw = p1Bull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+    T12_raw = p1Bull and isBull and (open < open[1]) and (close < open[1])
+    Z1G_raw = p1Bull and (open <  close[1]) and (open <  open[1]) and (close < open[1]) and isBear
+    Z1_raw  = p1Bull and (open <= close[1]) and (open >  open[1]) and (close < open[1]) and isBear
+    Z2G_raw = p1Bear and (open <= open[1])  and (open <  close[1]) and (close < close[1]) and isBear
+    Z2_raw  = p1Bear and (open <= open[1])  and (open >= close[1]) and (close < close[1]) and isBear
+    Z3_raw  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+    Z4_raw  = p1Bull and isBear and fEng
+    Z5_raw  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+    Z6_raw  = p1Bear and isBear and fEng
+    Z9_raw  = p1Bull and isBear and isIn
+    Z10_raw = p1Bear and isBear and isIn
+    Z11_raw = p1Bear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+    Z12_raw = p1Bull and (open <= open[1]) and (close < open)
+    aB = T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw
+    aZ = Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw
+    Z7c = isDoji and not aB and not aZ
+    string tok = T4_raw?"T4":T6_raw?"T6":T1G_raw?"T1G":T2G_raw?"T2G":T1_raw?"T1":T2_raw?"T2":T9_raw?"T9":T10_raw?"T10":T3_raw?"T3":T11_raw?"T11":T5_raw?"T5":T12_raw?"T12":Z4_raw?"Z4":Z6_raw?"Z6":Z1G_raw?"Z1G":Z2G_raw?"Z2G":Z1_raw?"Z1":Z2_raw?"Z2":Z9_raw?"Z9":Z10_raw?"Z10":Z3_raw?"Z3":Z11_raw?"Z11":Z5_raw?"Z5":Z12_raw?"Z12":Z7c?"Z7":"-"
+    // ── WLNBB volume class + L signal ──
+    volSafe = nz(volume, 0.0)
+    [vmid, vup, vlow] = ta.bb(volSafe, maLen, 1)
+    isW  = volSafe < vlow
+    isLl = not isW and volSafe < vmid
+    isN2 = not isW and not isLl and volSafe < vup
+    isB  = not isW and not isLl and not isN2 and volSafe < (vup + vmid)
+    isVB = not isW and not isLl and not isN2 and not isB
+    int vcls = isW?0:isLl?1:isN2?2:isB?3:4
+    sameBucket = (isW and isW[1]) or (isLl and isLl[1]) or (isN2 and isN2[1]) or (isB and isB[1]) or (isVB and isVB[1])
+    vUp = volSafe > nz(volSafe[1], 0.0)
+    vDn = volSafe < nz(volSafe[1], 0.0)
+    bDown = (isVB[1] and (isB or isN2 or isLl or isW)) or (isB[1] and (isN2 or isLl or isW)) or (isN2[1] and (isLl or isW)) or (isLl[1] and isW)
+    bUp   = (isW[1] and (isLl or isN2 or isB or isVB)) or (isLl[1] and (isN2 or isB or isVB)) or (isN2[1] and (isB or isVB)) or (isB[1] and isVB)
+    vDnA = bDown or (sameBucket and vDn)
+    vUpA = bUp   or (sameBucket and vUp)
+    upClose  = close > close[1]
+    dnClose  = close < close[1]
+    noNewLo  = close >= low[1]
+    noNewHi  = close <= high[1]
+    string Ls = ""
+    Ls := Ls + (vDnA and upClose ? "1" : "")
+    Ls := Ls + (vDnA and noNewLo ? "2" : "")
+    Ls := Ls + (vUpA and upClose ? "3" : "")
+    Ls := Ls + (vUpA and noNewHi ? "4" : "")
+    Ls := Ls + (vDnA and dnClose ? "5" : "")
+    Ls := Ls + (vUpA and dnClose ? "6" : "")
+    string cellTxt = tok + (str.length(Ls) > 0 ? "L" + Ls : "")
+    cellTxt + "~" + str.tostring(vcls)
+
+cells = request.security_lower_tf(syminfo.tickerid, confTF, f_cell())
+
+hline(10,  "top", color=color.new(color.gray, 85))
+hline(-10, "bot", color=color.new(color.gray, 85))
+
+f_volcol(v) => v==0?color.new(#9E9E9E,0):v==1?color.new(#1E88E5,0):v==2?color.new(#F9A825,0):v==3?color.new(#EF6C00,0):color.new(#C62828,0)
+f_txtcol(v) => (v==1 or v==3 or v==4) ? color.white : color.black
+
+bool isUp = close > open
+barsFromEnd = last_bar_index - bar_index
+bool inWindow = barsFromEnd < lastN
+
+if barstate.isconfirmed and inWindow and not na(cells)
+    m = array.size(cells)
+    if m > 0
+        step = m > 1 ? 18.0 / (m - 1) : 0.0
+        for i = 0 to m - 1
+            raw = array.get(cells, i)
+            parts = str.split(raw, "~")
+            txt = array.size(parts) > 0 ? array.get(parts, 0) : "-"
+            vc  = array.size(parts) > 1 ? math.round(str.tonumber(array.get(parts, 1))) : 0
+            // i = 0 is the OPEN 1H bar. up day: open at bottom; down day: open at top.
+            y = isUp ? (-9.0 + i * step) : (9.0 - i * step)
+            label.new(bar_index, y, txt, yloc=yloc.price, style=label.style_label_center, size=lblSize, color=f_volcol(vc), textcolor=f_txtcol(vc))
+
+var table lg = table.new(position.top_right, 1, 6, border_width=1)
+if barstate.islast
+    table.cell(lg, 0, 0, "1H vol (WLNBB)", bgcolor=color.new(color.black,0), text_color=color.white, text_size=size.tiny)
+    table.cell(lg, 0, 1, "W low",   bgcolor=f_volcol(0), text_color=color.black, text_size=size.tiny)
+    table.cell(lg, 0, 2, "L",       bgcolor=f_volcol(1), text_color=color.white, text_size=size.tiny)
+    table.cell(lg, 0, 3, "N",       bgcolor=f_volcol(2), text_color=color.black, text_size=size.tiny)
+    table.cell(lg, 0, 4, "B",       bgcolor=f_volcol(3), text_color=color.white, text_size=size.tiny)
+    table.cell(lg, 0, 5, "VB high", bgcolor=f_volcol(4), text_color=color.white, text_size=size.tiny)

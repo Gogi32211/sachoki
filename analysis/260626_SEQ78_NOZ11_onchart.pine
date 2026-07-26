@@ -1,0 +1,333 @@
+//@version=5
+// 260626 — DE-ANCHORED SEQUENCES (78, Z11 removed, on-chart)
+// The signal-chains that remain after stripping the Z11L12 anchor from the 82
+// grammar patterns. These are plain consecutive T/Z runs ANYWHERE on the chart
+// (NOT oversold-anchored) — the old median/win stats DO NOT apply, none shown.
+// Optional "require oversold on first bar" toggle to re-add some context.
+indicator("260626 De-anchored Sequences (78)", shorttitle="260626_SEQ78_NOZ11", overlay=true, max_labels_count=500, max_bars_back=5000)
+
+// ── inputs ───────────────────────────────────────────────────────────────────
+grpA       = "Filters"
+showSeq    = input.bool(true,  "Show sequences", group=grpA)
+reqOversold= input.bool(false, "Require RSI oversold on FIRST bar of sequence", group=grpA)
+patRsiLo   = input.float(30, "RSI14 oversold low",  group=grpA)
+patRsiHi   = input.float(45, "RSI14 oversold high", group=grpA)
+minBars    = input.int(2,    "Min sequence length to show", group=grpA, minval=2, maxval=4)
+useWick    = input.bool(false, "Engulfing: use wick (vs body)", group=grpA)
+minBodyRatio = input.float(1.0,"Engulfing min body ratio", group=grpA, minval=0.5, step=0.05)
+
+// ── bar components ─────────────────────────────────────────────────────────────
+isDoji = close == open
+Z7_raw = isDoji
+isBull = close > open
+isBear = close < open
+prev1IsBull = close[1] > open[1]
+prev1IsBear = close[1] < open[1] or Z7_raw[1]
+
+prevBull = prev1IsBull
+prevBear = prev1IsBear
+prevBody = math.abs(close[1] - open[1])
+prevTop  = math.max(open[1], close[1])
+prevBot  = math.min(open[1], close[1])
+currBody = math.abs(close - open)
+currTop  = math.max(open, close)
+currBot  = math.min(open, close)
+eHigh = useWick ? high    : currTop
+eLow  = useWick ? low     : currBot
+ePH   = useWick ? high[1] : prevTop
+ePL   = useWick ? low[1]  : prevBot
+prevBodySafe = math.max(prevBody, syminfo.mintick)
+bodyRatioOk  = (currBody / prevBodySafe) >= minBodyRatio
+fullyEngulfs = eHigh >= ePH and ePL >= eLow and bodyRatioOk
+isInside     = currTop <= prevTop and currBot >= prevBot
+
+// ── raw T patterns (= Python signal_engine) ────────────────────────────────────
+T1G_raw = prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull
+T1_raw  = prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+T2G_raw = prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull
+T2_raw  = prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull
+T3_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+T4_raw  = prevBear and isBull and fullyEngulfs
+T5_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+T6_raw  = prevBull and isBull and fullyEngulfs
+T9_raw  = prev1IsBear and isBull and isInside
+T10_raw = prev1IsBull and isBull and isInside
+T11_raw = prev1IsBull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+T12_raw = prev1IsBull and isBull and (open < open[1]) and (close < open[1])
+
+// ── raw Z patterns ──────────────────────────────────────────────────────────────
+Z1G_raw  = prev1IsBull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear
+Z1_raw   = prev1IsBull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear
+Z2G_raw  = prev1IsBear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear
+Z2_raw   = prev1IsBear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear
+Z3_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+Z4_raw   = prevBull and isBear and fullyEngulfs
+Z5_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+Z6_raw   = prevBear and isBear and fullyEngulfs
+Z9_raw   = prev1IsBull and isBear and isInside
+Z10_raw  = prev1IsBear and isBear and isInside
+Z11_raw  = prev1IsBear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+Z12_raw  = prev1IsBull and (open <= open[1]) and (close < open)
+anyB = T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw
+anyZ = Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw
+Z7_clean = Z7_raw and not anyB and not anyZ
+
+// ── priority engine ──────────────────────────────────────────────────────────────
+bullCode = T4_raw?1:T6_raw?2:T1G_raw?3:T2G_raw?4:T1_raw?5:T2_raw?6:T9_raw?7:T10_raw?8:T3_raw?9:T11_raw?10:T5_raw?11:T12_raw?12:0
+bearCode = Z4_raw?1:Z6_raw?2:Z1G_raw?3:Z2G_raw?4:Z1_raw?5:Z2_raw?6:Z9_raw?7:Z10_raw?8:Z3_raw?9:Z11_raw?10:Z5_raw?11:Z12_raw?12:Z7_clean?13:0
+
+string sigU = bullCode==1?"T4":bullCode==2?"T6":bullCode==3?"T1G":bullCode==4?"T2G":bullCode==5?"T1":bullCode==6?"T2":bullCode==7?"T9":bullCode==8?"T10":bullCode==9?"T3":bullCode==10?"T11":bullCode==11?"T5":bullCode==12?"T12":""
+string sigD = bearCode==1?"Z4":bearCode==2?"Z6":bearCode==3?"Z1G":bearCode==4?"Z2G":bearCode==5?"Z1":bearCode==6?"Z2":bearCode==7?"Z9":bearCode==8?"Z10":bearCode==9?"Z3":bearCode==10?"Z11":bearCode==11?"Z5":bearCode==12?"Z12":bearCode==13?"Z7":""
+string sig = str.length(sigU) > 0 ? sigU : sigD
+
+// ── RSI (optional first-bar filter) ─────────────────────────────────────────────
+rsi14p   = ta.rsi(close, 14)
+osBandP  = rsi14p >= patRsiLo and rsi14p < patRsiHi
+
+// ── 78 de-anchored sequences (longest wins on same bar) ─────────────────────────
+string seqName = ""
+int    seqBars = na
+if showSeq
+    if seqName == "" and ((not reqOversold or osBandP[3]) and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1")
+        seqName := "Z2G→Z2G→Z2G→T1"
+        seqBars := 4
+    if seqName == "" and ((not reqOversold or osBandP[3]) and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1")
+        seqName := "Z2G→Z2G→Z2→T1"
+        seqBars := 4
+    if seqName == "" and ((not reqOversold or osBandP[3]) and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2G")
+        seqName := "Z2G→Z2G→T5→T2G"
+        seqBars := 4
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z10" and sig=="T1G")
+        seqName := "Z2G→Z10→T1G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T3" and sig[1]=="Z5" and sig=="T4")
+        seqName := "T3→Z5→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T4")
+        seqName := "Z2G→Z2G→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T9")
+        seqName := "Z11→Z2G→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2")
+        seqName := "Z2G→T5→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T5" and sig[1]=="Z1" and sig=="T1")
+        seqName := "T5→Z1→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T3" and sig[1]=="Z4" and sig=="T9")
+        seqName := "T3→Z4→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2" and sig=="T4")
+        seqName := "Z2→Z2→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="Z10" and sig=="T4")
+        seqName := "Z6→Z10→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z6" and sig=="T1")
+        seqName := "Z2G→Z6→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T3" and sig[1]=="Z3" and sig=="T4")
+        seqName := "T3→Z3→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="Z2" and sig=="T1")
+        seqName := "Z6→Z2→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="T3" and sig=="T2")
+        seqName := "Z2G→T3→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="T5" and sig=="T2")
+        seqName := "Z2→T5→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1")
+        seqName := "Z2G→Z2G→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T4")
+        seqName := "Z2G→Z2→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T5" and sig[1]=="Z4" and sig=="T9")
+        seqName := "T5→Z4→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T4")
+        seqName := "Z6→Z2G→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1G")
+        seqName := "Z2G→Z2→T1G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T4")
+        seqName := "Z11→Z2G→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T1")
+        seqName := "Z6→Z2G→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T9")
+        seqName := "Z2G→Z2G→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T5" and sig[1]=="Z4" and sig=="T1")
+        seqName := "T5→Z4→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="T3" and sig=="T2")
+        seqName := "Z2→T3→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T9")
+        seqName := "Z2G→Z2→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z6" and sig=="T9")
+        seqName := "Z2G→Z6→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T1")
+        seqName := "Z2→Z2G→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T9")
+        seqName := "Z2→Z2G→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="T5" and sig[1]=="Z1G" and sig=="T4")
+        seqName := "T5→Z1G→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1")
+        seqName := "Z2G→Z2→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1G")
+        seqName := "Z2G→Z2G→T1G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2G")
+        seqName := "Z2G→T5→T2G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="T3" and sig=="T2")
+        seqName := "Z6→T3→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="T5" and sig=="T2")
+        seqName := "Z6→T5→T2"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T6")
+        seqName := "Z2G→T5→T6"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T1G")
+        seqName := "Z11→Z2G→T1G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T9")
+        seqName := "Z6→Z2G→T9"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="T3" and sig=="T2G")
+        seqName := "Z2G→T3→T2G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T4")
+        seqName := "Z2→Z2G→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T1G")
+        seqName := "Z2→Z2G→T1G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z6" and sig[1]=="T3" and sig=="T2G")
+        seqName := "Z6→T3→T2G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="Z2" and sig=="T1")
+        seqName := "Z2→Z2→T1"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2" and sig[1]=="T3" and sig=="T2G")
+        seqName := "Z2→T3→T2G"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[2]) and sig[2]=="Z2G" and sig[1]=="Z10" and sig=="T4")
+        seqName := "Z2G→Z10→T4"
+        seqBars := 3
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T12")
+        seqName := "T5→T12"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T3" and sig=="T2G")
+        seqName := "T3→T2G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T3" and sig=="T2")
+        seqName := "T3→T2"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2G" and sig=="T9")
+        seqName := "Z2G→T9"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T3" and sig=="T11")
+        seqName := "T3→T11"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T11")
+        seqName := "T5→T11"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T2G")
+        seqName := "T5→T2G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2G" and sig=="T4")
+        seqName := "Z2G→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z7" and sig=="T1G")
+        seqName := "Z7→T1G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2" and sig=="T1")
+        seqName := "Z2→T1"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z11" and sig=="T1G")
+        seqName := "Z11→T1G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z11" and sig=="T4")
+        seqName := "Z11→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z6" and sig=="T9")
+        seqName := "Z6→T9"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2" and sig=="T9")
+        seqName := "Z2→T9"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z6" and sig=="T1")
+        seqName := "Z6→T1"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z6" and sig=="T4")
+        seqName := "Z6→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T6")
+        seqName := "T5→T6"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2" and sig=="T4")
+        seqName := "Z2→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T2")
+        seqName := "T5→T2"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2G" and sig=="T1")
+        seqName := "Z2G→T1"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z7" and sig=="T4")
+        seqName := "Z7→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T3" and sig=="T10")
+        seqName := "T3→T10"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T5" and sig=="T10")
+        seqName := "T5→T10"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2G" and sig=="T1G")
+        seqName := "Z2G→T1G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z10" and sig=="T1G")
+        seqName := "Z10→T1G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z6" and sig=="T1G")
+        seqName := "Z6→T1G"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z10" and sig=="T4")
+        seqName := "Z10→T4"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z11" and sig=="T9")
+        seqName := "Z11→T9"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z11" and sig=="T1")
+        seqName := "Z11→T1"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="T3" and sig=="T6")
+        seqName := "T3→T6"
+        seqBars := 2
+    if seqName == "" and ((not reqOversold or osBandP[1]) and sig[1]=="Z2" and sig=="T1G")
+        seqName := "Z2→T1G"
+        seqBars := 2
+
+atr = ta.atr(14)
+bool seqHit = showSeq and str.length(seqName) > 0 and seqBars >= minBars
+color seqCol = seqBars >= 4 ? color.new(color.orange, 0) : seqBars == 3 ? color.new(color.aqua, 0) : color.new(color.silver, 0)
+if seqHit
+    label.new(bar_index, low - atr * 0.6, seqName + "\n" + str.tostring(seqBars) + "b",
+         xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up,
+         size=size.small, color=seqCol, textcolor=color.black)
+alertcondition(seqHit, "De-anchored sequence", "A de-anchored T/Z sequence completed")

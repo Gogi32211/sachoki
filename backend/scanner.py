@@ -378,6 +378,12 @@ def _cached_massive_tickers(cache_key: str, fetcher, fallback, limit: int) -> li
 
 def get_universe_tickers(universe: str = "sp500", limit: int = 10_000) -> list[str]:
     """Return ticker list for the given universe key."""
+    # 'index' = the fixed ETF set (2026-07-21). MUST be handled before the config
+    # lookup — the silent sp500 fallback below once inserted 600 sp500 tickers
+    # under universe='index' during the nightly delta refresh.
+    if universe == "index":
+        from seed_index_universe import INDEX_TICKERS
+        return list(INDEX_TICKERS)
     cfg = UNIVERSE_CONFIGS.get(universe, UNIVERSE_CONFIGS["sp500"])
     fetch = cfg["fetch"]
 

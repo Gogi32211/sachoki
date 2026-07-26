@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef, Fragment } from 'react'
 import CodeCandleChart from './CodeCandleChart'
+import JournalBench from './JournalBench'
 
 const fmtPct = (v) => (v == null ? '—' : `${v >= 0 ? '+' : ''}${Number(v).toFixed(1)}%`)
 const fmtNum = (v) => (v == null ? '—' : Number(v).toLocaleString())
@@ -50,6 +51,16 @@ export default function CapitJournalPanel({ onSelectTicker }) {
   return (
     <div className="p-4 text-md-on-surface">
       <p className="text-[11px] text-md-on-surface-var mb-2">💥📓 <b>Capit Journal</b> — a separate, <b>mechanical</b> paper journal for the validated capitulation-bounce edge (L34/L46 + RSI&lt;30 + CCI&lt;-100, drawdown knife-guard). The one edge that survived rigorous gap-aware path-sim (+4.6% cost-adj, 5/6 yrs). <b>EXIT = HOLD ~20 bars, no tight stop</b> (a stop cuts the bounce); only a −35% catastrophe floor. Auto-adds each match with its date. Paper only.</p>
+      {s.closed ? <JournalBench stats={s} n={s.closed} /> : (
+        <div className="mb-3 rounded border border-rose-700/40 bg-rose-950/20 px-3 py-2 text-[11px] text-rose-100/90 max-w-5xl">
+          ⚠ <b>No closed trades yet — this journal has no track record.</b> Every number below except
+          Open/Pending is <b>unrealised mark-to-market on positions that are still running</b>, so it is a
+          snapshot, not a result: winners and losers are both still open, and in a rising window that always
+          looks good. Nothing scheduled ever graded this journal until 2026-07-17 (the nightly
+          <span className="font-mono"> paper_journals_daily </span> job now fills + closes matured positions);
+          once trades close, this box is replaced by the vs-random-basket baseline.
+        </div>
+      )}
       <div className="flex flex-wrap items-center gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
         <div><div className="text-xs text-md-on-surface-var">Equity</div>
           <div className="text-lg font-bold font-mono">${fmtNum(Math.round(equity))} <span className={eqPct >= 0 ? 'text-emerald-400' : 'text-rose-400'}>{fmtPct(eqPct)}</span></div></div>
@@ -228,6 +239,7 @@ function Replay({ onSelectTicker }) {
       {!d && !loading && <div className="text-md-on-surface-var/50 text-xs py-6 text-center">Pick a period to replay the Capit edge historically (entry next-open, hold 20 bars, equal 4% bets).</div>}
       {d && (
         <>
+          <JournalBench stats={s} n={s.n} />
           <div className="flex flex-wrap gap-4 mb-4 p-3 rounded-lg bg-md-surface-high border border-white/10">
             <Kpi label="Trades" v={s.n} />
             <Kpi label="Win rate" v={s.win_rate != null ? `${s.win_rate}%` : '—'} />

@@ -20,7 +20,7 @@ import pandas as pd
 from fastapi import APIRouter, BackgroundTasks, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from studio.db import ensure_schema, get_stats, STUDIO_DB_PATH, UNIVERSE_PRIORITY_SQL
+from studio.db import ensure_schema, get_stats, STUDIO_DB_PATH, UNIVERSE_PRIORITY_SQL, use_tf
 from studio.importer import import_all, UNIVERSE_CSV_MAP, PROGRESS_FILE
 from studio.event_detector import (
     detect_events, get_events_summary, list_events,
@@ -91,6 +91,7 @@ class ImportRequest(BaseModel):
     force: bool = False   # override the regression guard (full rebuild)
 
 class EventDetectRequest(BaseModel):
+    tf: str = "1d"
     event_type: str = "BULL_2X_60D"
     universes: list[str] = ["sp500", "nasdaq"]
     date_from: Optional[str] = None
@@ -112,6 +113,7 @@ class EventDetectRequest(BaseModel):
     clear_existing: bool = True
 
 class PatternMineRequest(BaseModel):
+    tf: str = "1d"
     event_type:    str         = "BULL_2X_60D"
     pre_window:    int         = 20
     min_lift:      float       = 2.0
@@ -121,6 +123,7 @@ class PatternMineRequest(BaseModel):
     universes:     Optional[list[str]] = None
 
 class MissRequest(BaseModel):
+    tf: str = "1d"
     event_type: str         = "BULL_2X_60D"
     turbo_max:  float       = 15.0
     universes:  Optional[list[str]] = None
@@ -128,6 +131,7 @@ class MissRequest(BaseModel):
     top_n:      int         = 20
 
 class FPRequest(BaseModel):
+    tf: str = "1d"
     turbo_min:  float       = 50.0
     fwd_max:    float       = -10.0
     fwd_col:    str         = "fwd_10d"
@@ -142,6 +146,7 @@ class DefineScoreRequest(BaseModel):
     threshold:    int = 45
 
 class BacktestRequest(BaseModel):
+    tf: str = "1d"
     score_id:   str
     event_type: str               = "BULL_2X_60D"
     date_from:  Optional[str]     = None
@@ -149,16 +154,21 @@ class BacktestRequest(BaseModel):
     universes:  Optional[list[str]] = None
 
 class TZSequenceRequest(BaseModel):
+    tf: str = "1d"
     sequence:  list[str | None] = []   # signal names or null for wildcard
     universe:  Optional[str]    = None
     regime:    Optional[str]    = None
     min_n:     int              = 5
 
 class ConfluenceSequenceRequest(BaseModel):
+    tf: str = "1d"
     bars:      list[str | None] = []   # T/Z signal per bar (None = wildcard); bars[0]=oldest
     universe:  Optional[str]    = None
 
 class SignalStatsRequest(BaseModel):
+    tf: str = "1d"
+    years:      Optional[list[int]] = None
+    months:     Optional[list[int]] = None
     signals:    list[str]         = []
     universe:   Optional[str]     = None
     regime:     Optional[str]     = None
@@ -169,6 +179,9 @@ class SignalStatsRequest(BaseModel):
     min_n:      int               = 5
 
 class SignalRankRequest(BaseModel):
+    tf: str = "1d"
+    years:      Optional[list[int]] = None
+    months:     Optional[list[int]] = None
     universe:   Optional[str]     = None
     regime:     Optional[str]     = None
     date_from:  Optional[str]     = None
@@ -310,30 +323,81 @@ class IncrementalRequest(BaseModel):
 
 
 def _run_incremental(universes: list[str]) -> None:
-    """Run the new delta-append refresh (studio.incremental_delta).
+    """Run the delta-append refresh with ZERO-DOWNTIME staging+swap.
 
-    Replaces the legacy `_incremental_refresh` path which inserted rows with
-    id=NULL and missed Pine score columns. The new path matches bulk_export
-    output 100% on Pine cols (validated SP500 sample).
+    The delta append + enrich + forward-backfill now run in a SEPARATE process
+    against a STAGING copy of the DB (studio.incremental_swap), which is then
+    atomically swapped over the live file. This keeps the live backend serving
+    read-only queries uninterrupted — the old in-process read-write path broke
+    the scanner with DuckDB "different configuration"/lock errors while running.
     """
     global _incremental_running, _incremental_results
     _incremental_running = True
     try:
-        from studio.db import ensure_schema
-        from studio.incremental_delta import incremental_delta_refresh
-        ensure_schema()
-        result = incremental_delta_refresh(universes=universes)
-        # Backfill forward-return labels for the trailing bars whose future has
-        # now arrived (otherwise they keep NULL fwd_* — a silent backtest gap).
+        from studio.incremental_swap import run_swap
+        _incremental_results = run_swap(universes)
+        # fresh DB → drop the scan TTL memo so the Edge board shows new data immediately
         try:
-            from studio.backfill_fwd import backfill_forward_returns
-            result["forward_backfill"] = backfill_forward_returns()
+            from scan_cache import invalidate as _inv
+            _inv()
         except Exception:
-            log.exception("forward-return backfill failed (non-fatal)")
-            result["forward_backfill"] = {"error": "backfill failed — see logs"}
-        _incremental_results = result
+            pass
+        # recompute the 🧱 order-block dayset on the new bars (also rebuilds/warms the edge frame)
+        try:
+            import edge_replay as _ER
+            _n = _ER.refresh_ob_days()
+            log.info("ob_days refreshed: %s day-flags", _n)
+        except Exception:
+            log.exception("ob_days refresh failed (non-fatal)")
+        # warm the mtf-ema JSON cache here (nightly) so the 📐 badge is ready by morning — the
+        # scans only READ it (never rebuild), so if we don't warm it the badge silently vanishes.
+        try:
+            from mtf_ema_scan import scan as _mtf_scan
+            _m = _mtf_scan(use_cache_sec=0)
+            log.info("mtf_ema warmed: %s rows", _m.get("count") if isinstance(_m, dict) else "?")
+        except Exception:
+            log.exception("mtf_ema warm failed (non-fatal)")
+        # rebuild the journal BASELINE table (~5s) — the per-(ticker,date) outcome of each
+        # journal's own exit across the liquid universe. Without it the journal tabs report a
+        # bare win%, which measures the market (a 20-bar hold wins ~55-59% on anything in a
+        # bull window), not the signal. Cheap, so refresh it with the bars it depends on.
+        try:
+            import journal_bench as _JB
+            _b = _JB.build()
+            log.info("journal_bench rebuilt: %s liquid outcomes", len(_b))
+        except Exception:
+            log.exception("journal_bench rebuild failed (non-fatal)")
+        # fill ultra_score / ultra_score_v3 / buy_score on the NEW bars (2026-07-18: all
+        # scores are stored historically now; full history was backfilled once via
+        # backfill_scores.py, this keeps the fresh bars filled). In-process — the backend
+        # owns the analytics DB here, so the write is safe.
+        try:
+            import backfill_scores as _BS
+            _n = _BS.run_incremental(days=6)
+            log.info("score backfill (incremental): %s rows", _n)
+        except Exception:
+            log.exception("score backfill failed (non-fatal)")
+        # prebreak_v2 on the INTRADAY DBs (2026-07-19): the model is a pure SQL formula that
+        # was only ever applied to the daily DB — the 4h/1h tables carried empty columns.
+        # Backfilled in full once; this keeps NEW intraday bars filled (NULL-only, cheap).
+        # Needed for the intraday buy_score / MTF score-confirmation work.
+        try:
+            import duckdb as _dk
+            from prebreak_v2 import prebreak_v2_score_sql as _pv2s, prebreak_v2_band_sql as _pv2b
+            from studio.paths import db_path as _idbp
+            for _tfdb in ("4h", "1h"):
+                try:
+                    _c = _dk.connect(_idbp(f"studio_{_tfdb}.duckdb"))
+                    _c.execute(f"UPDATE bars SET prebreak_v2 = {_pv2s()} WHERE prebreak_v2 IS NULL")
+                    _c.execute(f"UPDATE bars SET prebreak_v2_band = {_pv2b()} WHERE prebreak_v2_band IS NULL")
+                    _c.commit(); _c.close()
+                except Exception:
+                    log.exception("intraday prebreak_v2 %s fill failed (non-fatal)", _tfdb)
+            log.info("intraday prebreak_v2 incremental fill done")
+        except Exception:
+            log.exception("intraday prebreak_v2 hook failed (non-fatal)")
     except Exception as exc:
-        log.exception("incremental delta refresh failed")
+        log.exception("incremental swap refresh failed")
         _incremental_results = {"error": str(exc)}
     finally:
         _incremental_running = False
@@ -365,6 +429,9 @@ def seq_lab_endpoint(
     confirm_lag: int = Query(0, ge=0, le=10),
     evaluate:  bool = Query(False),
     cost:      float = Query(0.5, ge=0.0, le=10.0),
+    tf:        str  = Query("1d"),
+    years:     Optional[str] = Query(None),
+    months:    Optional[str] = Query(None),
 ):
     """TZ Sequence Lab — rank N-bar T/Z sequences by forward outcome vs baseline.
 
@@ -374,10 +441,13 @@ def seq_lab_endpoint(
     huge, but below cost) is flagged in the UI."""
     from studio.seq_lab import seq_lab
     try:
+      with use_tf(tf):
         res = seq_lab(
             universe=universe, n_bars=n_bars, mode=mode, horizon=horizon,
             min_occ=min_occ, wyc_phase=wyc_phase, prefix=prefix, sort=sort,
             limit=limit, by_phase=by_phase, confirm_lag=confirm_lag,
+            years=[int(x) for x in years.split(",") if x.strip()] if years else None,
+            months=[int(x) for x in months.split(",") if x.strip()] if months else None,
         )
         if evaluate:
             try:
@@ -385,6 +455,7 @@ def seq_lab_endpoint(
                 res = annotate_seq_lab(res, cost_per_trade_pct=cost)
             except Exception:
                 log.exception("seq-lab verdict annotation failed (rows returned unannotated)")
+        res["tf"] = tf
         return res
     except Exception as e:
         log.exception("seq-lab failed")
@@ -400,13 +471,15 @@ def seq_backtest_endpoint(
     stop_pct:   float = Query(5.0,  ge=0.5, le=100),
     max_hold:   int   = Query(20,   ge=1,  le=120),
     side:       str   = Query("long"),
+    tf:         str   = Query("1d"),
 ):
     """Realised backtest of an entry condition (entry next open, target/stop/time exit)."""
     from studio.seq_backtest import backtest
     flags = [s for s in (signals or "").split(",") if s.strip()]
     try:
-        return backtest(signals=flags, universe=universe, wyc_phase=wyc_phase,
-                        target_pct=target_pct, stop_pct=stop_pct, max_hold=max_hold, side=side)
+        with use_tf(tf):
+            return backtest(signals=flags, universe=universe, wyc_phase=wyc_phase,
+                            target_pct=target_pct, stop_pct=stop_pct, max_hold=max_hold, side=side)
     except Exception as e:
         log.exception("seq-backtest failed")
         raise HTTPException(500, detail=str(e))
@@ -419,12 +492,14 @@ def playbook_endpoint(
     min_price:  float = Query(5.0,     ge=0),
     min_volume: int   = Query(100_000, ge=0),
     max_live:   int   = Query(40,      ge=1,   le=500),
+    tf:         str   = Query("1d"),
 ):
     """Build the Playbook — run every predefined setup through the realised-backtest
     gate (expectancy>0 & PF>1 & positive in BOTH halves & enough trades) and attach
     today's live tickers for the survivors. One universe per call."""
     from studio.playbook import build_playbook
     try:
+      with use_tf(tf):
         return _sanitize_for_json(build_playbook(
             universe=universe, min_trades=min_trades,
             min_price=min_price, min_volume=min_volume, max_live=max_live,
@@ -486,6 +561,7 @@ _edge_results: dict = {}
 
 
 class EdgeScanRequest(BaseModel):
+    tf: str = "1d"
     universes:    list[str] = ["sp500", "nasdaq"]
     n_bars:       int       = 3
     min_matches:  int       = 20
@@ -499,6 +575,7 @@ def _run_edge(req: EdgeScanRequest) -> None:
     global _edge_running, _edge_results
     _edge_running = True
     try:
+      with use_tf(getattr(req, "tf", "1d")):   # explicit: contextvars don't cross task boundaries
         result = _run_edge_scan(
             universes   = req.universes,
             strictness  = req.strictness,
@@ -657,12 +734,13 @@ def acc_exit_hunter(
     stage:        Optional[str] = Query(None, description="ACC | READY | PRIME★★ | SPRING★ | SOS★ | MARKUP — filter by aes_stage"),
     pre_bo_only:  bool  = Query(True, description="Only show ACC_TR / SPRING phase bars (true pre-BO candidates)"),
     limit:        int   = Query(100, ge=1, le=500),
+    tf:           str   = Query("1d"),
 ):
     """Rank tickers by AES (accumulation-exit score). Returns latest bar per ticker
     in (typically) ACC_TR phase, sorted by AES descending.
     """
-    from studio.db import get_conn, UNIVERSE_PRIORITY_SQL
-    conn = get_conn(read_only=True)
+    from studio.db import get_conn_tf, UNIVERSE_PRIORITY_SQL
+    conn = get_conn_tf(tf, read_only=True)
     try:
         # A ticker living in >1 universe (e.g. ZS in nasdaq+sp500, RPGL in
         # nasdaq+russell2k) would otherwise appear once PER universe — and since
@@ -831,11 +909,12 @@ def edge_scan_results(
 
 
 @router.get("/stats")
-def stats():
+def stats(tf: str = Query("1d")):
     """Overall DB stats: row count, ticker count, date range, events."""
     try:
         ensure_schema()
-        return get_stats()
+        with use_tf(tf):
+            return get_stats()
     except Exception as e:
         from studio.db import _is_busy_error
         if _is_busy_error(e):
@@ -878,12 +957,14 @@ def events_detect(req: EventDetectRequest):
         price_max    = req.price_max,
         volume_min   = req.volume_min,
     )
-    return detect_events(f, clear_existing=req.clear_existing)
+    with use_tf(req.tf):
+        return detect_events(f, clear_existing=req.clear_existing)
 
 
 @router.get("/events/summary")
-def events_summary():
-    return get_events_summary()
+def events_summary(tf: str = Query("1d")):
+    with use_tf(tf):
+        return get_events_summary()
 
 
 @router.get("/events/list")
@@ -892,8 +973,10 @@ def events_list(
     universe:   Optional[str] = Query(None),
     limit:      int = Query(100, ge=1, le=1000),
     offset:     int = Query(0, ge=0),
+    tf:         str = Query("1d"),
 ):
-    return list_events(event_type, universe, limit, offset)
+    with use_tf(tf):
+        return list_events(event_type, universe, limit, offset)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -903,15 +986,16 @@ def events_list(
 @router.post("/patterns/mine")
 def patterns_mine(req: PatternMineRequest):
     """Mine pre-event signal patterns with lift scores."""
-    return mine_patterns(
-        event_type   = req.event_type,
-        pre_window   = req.pre_window,
-        min_lift     = req.min_lift,
-        min_n        = req.min_n,
-        combo_depth  = req.combo_depth,
-        include_seqs = req.include_seqs,
-        universes    = req.universes,
-    )
+    with use_tf(req.tf):
+        return mine_patterns(
+            event_type   = req.event_type,
+            pre_window   = req.pre_window,
+            min_lift     = req.min_lift,
+            min_n        = req.min_n,
+            combo_depth  = req.combo_depth,
+            include_seqs = req.include_seqs,
+            universes    = req.universes,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -921,26 +1005,28 @@ def patterns_mine(req: PatternMineRequest):
 @router.post("/analysis/miss")
 def analysis_miss(req: MissRequest):
     """Analyze missed opportunities (big move, no signal)."""
-    return analyze_misses(
-        event_type = req.event_type,
-        turbo_max  = req.turbo_max,
-        universes  = req.universes,
-        pre_window = req.pre_window,
-        top_n      = req.top_n,
-    )
+    with use_tf(req.tf):
+        return analyze_misses(
+            event_type = req.event_type,
+            turbo_max  = req.turbo_max,
+            universes  = req.universes,
+            pre_window = req.pre_window,
+            top_n      = req.top_n,
+        )
 
 
 @router.post("/analysis/false-pos")
 def analysis_fp(req: FPRequest):
     """Analyze false positives (signal fired, price dropped)."""
-    return analyze_false_positives(
-        turbo_min  = req.turbo_min,
-        fwd_max    = req.fwd_max,
-        fwd_col    = req.fwd_col,
-        universes  = req.universes,
-        pre_window = req.pre_window,
-        top_n      = req.top_n,
-    )
+    with use_tf(req.tf):
+        return analyze_false_positives(
+            turbo_min  = req.turbo_min,
+            fwd_max    = req.fwd_max,
+            fwd_col    = req.fwd_col,
+            universes  = req.universes,
+            pre_window = req.pre_window,
+            top_n      = req.top_n,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -967,20 +1053,21 @@ def scoring_lab_list():
 @router.post("/scoring-lab/backtest")
 def scoring_lab_backtest(req: BacktestRequest):
     """Run backtest for a custom score. Returns comparison vs turbo_score."""
-    return backtest_score(
-        score_id   = req.score_id,
-        event_type = req.event_type,
-        date_from  = req.date_from,
-        date_to    = req.date_to,
-        universes  = req.universes,
-    )
+    with use_tf(req.tf):
+        return backtest_score(
+            score_id   = req.score_id,
+            event_type = req.event_type,
+            date_from  = req.date_from,
+            date_to    = req.date_to,
+            universes  = req.universes,
+        )
 
 
 # ─────────────────────────────────────────────────────────────────────────────
 # Bar Descriptions & Narratives
 # ─────────────────────────────────────────────────────────────────────────────
 
-_WEEKLY_DB = os.path.expanduser("~/Downloads/studio_1w.duckdb")
+from studio.paths import WEEKLY_DB as _WEEKLY_DB
 
 @router.get("/bars/{ticker}")
 def get_ticker_bars(
@@ -989,17 +1076,21 @@ def get_ticker_bars(
     offset: int = Query(0, ge=0),
     tf:     str = Query("1d"),
 ):
-    """Get all bars for a ticker. tf=1d uses the main daily DB; tf=1w uses studio_1w.duckdb."""
+    """Get all bars for a ticker. tf routes to the matching DB (1d/1w/4h/1h/15m)."""
     import duckdb as _duckdb
-    from studio.db import get_conn
-    if tf == "1w":
-        if not os.path.exists(_WEEKLY_DB):
-            raise HTTPException(404, detail="Weekly DB not built yet — run build_weekly_db.py --all")
+    from studio.db import get_conn, tf_db_path, TF_DB_FILES
+    tf = (tf or "1d").lower()
+    if tf not in TF_DB_FILES:
+        raise HTTPException(400, detail=f"unknown tf '{tf}'")
+    if tf != "1d":
+        dbp = tf_db_path(tf)
+        if not os.path.exists(dbp):
+            raise HTTPException(404, detail=f"{tf} DB not built yet")
         try:
-            conn = _duckdb.connect(_WEEKLY_DB, read_only=True)
+            conn = _duckdb.connect(dbp, read_only=True)
         except Exception as e:
             if "lock" in str(e).lower():
-                raise HTTPException(503, detail="Weekly DB is being built — try again in a few minutes")
+                raise HTTPException(503, detail=f"{tf} DB is being built — try again in a few minutes")
             raise
     else:
         conn = get_conn(read_only=True)
@@ -1217,6 +1308,296 @@ def tzt4_marks(ticker: str, universe: str = Query(None)):
         conn.close()
 
 
+@router.get("/mtf-ema-marks/{ticker}")
+def mtf_ema_marks(ticker: str):
+    """Historical MTF-EMA (SMX/RGTI) variant fires for chart markers — EOD daily snapshot of the
+    15m/1h/4h EMA geometry. Returns [{date, variant}] (variant ∈ SMX/LL/UP/UPUP/UPUPUP/ORANGE)."""
+    try:
+        from mtf_ema_scan import marks_for_ticker
+        return marks_for_ticker(ticker)
+    except Exception as e:
+        log.exception("mtf-ema marks failed")
+        raise HTTPException(500, detail=str(e))
+
+
+@router.get("/edge-marks/{ticker}")
+def edge_marks(ticker: str, universe: str = Query(None)):
+    """All historical Edge-board setup fires for chart markers (1D).
+    Returns [{date, setup}] — setup ∈ {spring, g3, core, family, l43base, l22absorb}. Validated definitions:
+      spring  = w2_spring + RSI 35-45 + bull-T + non-VB
+      g3      = G3 gap + RSI<45 + bull-T + non-VB (any L)
+      core    = weak-close (close_suffix=O) gap-up (G2/G3) bull-T + non-VB
+      family  = anchor(Z11/Z3/Z1G/Z5, RSI30-45)[-2] → T3/T5[-1] → T11/T12[0]"""
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            WITH b AS (
+              SELECT date, rsi_14, coalesce(t_sig,'') t, coalesce(z_sig,'') z,
+                     coalesce(vol_bucket,'') vol, coalesce(bar_gap_class,'') gapc,
+                     coalesce(close_suffix,'') csfx, coalesce(w2_spring,0) spring,
+                     CASE WHEN coalesce(wt_valid_tr,0)=1 AND wt_resistance > wt_support
+                               AND wt_support > 0 AND abs(close/wt_support - 1) <= 0.05
+                          THEN 1 ELSE 0 END sc_super,
+                     CASE WHEN sig_l3 = 1 AND sig_l4 = 1 AND close < open
+                               AND volume / NULLIF(avg_vol_20d, 0) BETWEEN 0.7 AND 2.0
+                          THEN 1 ELSE 0 END l22c,
+                     CASE WHEN sig_l6 = 1 AND sig_l4 = 1 AND close >= open
+                               AND volume / NULLIF(avg_vol_20d, 0) BETWEEN 0.7 AND 2.0
+                          THEN 1 ELSE 0 END l43c
+              FROM bars WHERE ticker = ? {uni_where}
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ),
+            lg AS (
+              SELECT *, lag(t,1) OVER (ORDER BY date) t1,
+                        lag(z,2) OVER (ORDER BY date) z2,
+                        lag(rsi_14,2) OVER (ORDER BY date) rsi2
+              FROM b
+            )
+            SELECT date, setup, sc_super FROM (
+              SELECT CAST(date AS DATE)::VARCHAR AS date, 'spring' AS setup, sc_super FROM lg
+                WHERE spring = 1 AND rsi_14 >= 35 AND rsi_14 < 45 AND t <> '' AND vol <> 'VB'
+              UNION ALL
+              SELECT CAST(date AS DATE)::VARCHAR, 'g3', sc_super FROM lg
+                WHERE gapc = 'G3' AND rsi_14 < 45 AND t <> '' AND vol <> 'VB'
+              UNION ALL
+              SELECT CAST(date AS DATE)::VARCHAR, 'core', sc_super FROM lg
+                WHERE t <> '' AND csfx = 'O' AND gapc IN ('G2', 'G3') AND vol <> 'VB'
+              UNION ALL
+              SELECT CAST(date AS DATE)::VARCHAR, 'family', sc_super FROM lg
+                WHERE z2 IN ('Z11','Z3','Z1G','Z5') AND rsi2 >= 30 AND rsi2 < 45
+                  AND (t1 = 'T3' OR t1 = 'T5') AND (t = 'T11' OR t = 'T12')
+              UNION ALL
+              SELECT CAST(date AS DATE)::VARCHAR, 'l43base', sc_super FROM lg WHERE l43c = 1
+              UNION ALL
+              SELECT CAST(date AS DATE)::VARCHAR, 'l22absorb', sc_super FROM lg WHERE l22c = 1
+            ) ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [{"date": r[0], "setup": r[1], "sc_super": bool(r[2])} for r in rows]}
+    finally:
+        conn.close()
+
+
+@router.get("/ttt6-marks/{ticker}")
+def ttt6_marks(ticker: str, universe: str = Query(None)):
+    """All historical T[-2]-T[-1]-T6[0] signals for chart markers.
+    Returns [{date, tier, suffix, rsi}] sorted by date.
+    Tier 1=T3/T1/T10[-2], Tier 2=T4/T1G[-2], Tier 3=T2G/T9[-2], Tier 4=rest."""
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            WITH base AS (
+              SELECT date, composite_full_suffix, rsi_14,
+                     sig_t6,
+                     sig_t1, sig_t1g, sig_t2, sig_t2g, sig_t3, sig_t4,
+                     sig_t5, sig_t9, sig_t10, sig_t11, sig_t12
+              FROM bars WHERE ticker = ? {uni_where}
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ),
+            lagged AS (
+              SELECT date, rsi_14, composite_full_suffix, sig_t6,
+                     LAG(sig_t1,  1) OVER (ORDER BY date) AS t1_1,
+                     LAG(sig_t1g, 1) OVER (ORDER BY date) AS t1g_1,
+                     LAG(sig_t2,  1) OVER (ORDER BY date) AS t2_1,
+                     LAG(sig_t2g, 1) OVER (ORDER BY date) AS t2g_1,
+                     LAG(sig_t3,  1) OVER (ORDER BY date) AS t3_1,
+                     LAG(sig_t4,  1) OVER (ORDER BY date) AS t4_1,
+                     LAG(sig_t5,  1) OVER (ORDER BY date) AS t5_1,
+                     LAG(sig_t9,  1) OVER (ORDER BY date) AS t9_1,
+                     LAG(sig_t10, 1) OVER (ORDER BY date) AS t10_1,
+                     LAG(sig_t11, 1) OVER (ORDER BY date) AS t11_1,
+                     LAG(sig_t12, 1) OVER (ORDER BY date) AS t12_1,
+                     LAG(sig_t3,  2) OVER (ORDER BY date) AS t3_2,
+                     LAG(sig_t1,  2) OVER (ORDER BY date) AS t1_2,
+                     LAG(sig_t10, 2) OVER (ORDER BY date) AS t10_2,
+                     LAG(sig_t4,  2) OVER (ORDER BY date) AS t4_2,
+                     LAG(sig_t1g, 2) OVER (ORDER BY date) AS t1g_2,
+                     LAG(sig_t2g, 2) OVER (ORDER BY date) AS t2g_2,
+                     LAG(sig_t9,  2) OVER (ORDER BY date) AS t9_2,
+                     LAG(sig_t2,  2) OVER (ORDER BY date) AS t2_2,
+                     LAG(sig_t5,  2) OVER (ORDER BY date) AS t5_2,
+                     LAG(sig_t11, 2) OVER (ORDER BY date) AS t11_2,
+                     LAG(sig_t12, 2) OVER (ORDER BY date) AS t12_2
+              FROM base
+            )
+            SELECT
+              CAST(date AS DATE)::VARCHAR AS date,
+              CASE
+                WHEN t3_2 > 0 OR t1_2 > 0 OR t10_2 > 0   THEN 'T1'
+                WHEN t4_2 > 0 OR t1g_2 > 0                THEN 'T2'
+                WHEN t2g_2 > 0 OR t9_2 > 0                THEN 'T3'
+                ELSE 'T4'
+              END AS tier,
+              composite_full_suffix AS suffix,
+              round(rsi_14, 1) AS rsi
+            FROM lagged
+            WHERE sig_t6 > 0
+              AND (t1_1>0 OR t1g_1>0 OR t2_1>0 OR t2g_1>0 OR t3_1>0 OR t4_1>0
+                   OR t5_1>0 OR t9_1>0 OR t10_1>0 OR t11_1>0 OR t12_1>0)
+              AND (t3_2>0 OR t1_2>0 OR t10_2>0 OR t4_2>0 OR t1g_2>0
+                   OR t2g_2>0 OR t9_2>0 OR t2_2>0 OR t5_2>0 OR t11_2>0 OR t12_2>0)
+            ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [
+            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
+            for r in rows
+        ]}
+    finally:
+        conn.close()
+
+
+@router.get("/t1seq-marks/{ticker}")
+def t1seq_marks(ticker: str, universe: str = Query(None)):
+    """All historical T1-sequence signals for chart markers.
+    Pattern: any[-2] → any[-1] → T1[0]. Tier by context:
+    Tier 1=Z-Z, Tier 2=T-Z, Tier 3=Z-T, Tier 4=T-T."""
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            WITH base AS (
+              SELECT date, composite_full_suffix, rsi_14, sig_t1, sig_z, sig_t
+              FROM bars WHERE ticker = ? {uni_where}
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ),
+            lagged AS (
+              SELECT date, rsi_14, composite_full_suffix, sig_t1,
+                     LAG(sig_z, 1) OVER (ORDER BY date) AS z_1,
+                     LAG(sig_t, 1) OVER (ORDER BY date) AS t_1,
+                     LAG(sig_z, 2) OVER (ORDER BY date) AS z_2,
+                     LAG(sig_t, 2) OVER (ORDER BY date) AS t_2
+              FROM base
+            )
+            SELECT
+              CAST(date AS DATE)::VARCHAR AS date,
+              CASE
+                WHEN z_2 > 0 AND z_1 > 0 THEN 'T1'
+                WHEN t_2 > 0 AND z_1 > 0 THEN 'T2'
+                WHEN z_2 > 0 AND t_1 > 0 THEN 'T3'
+                ELSE 'T4'
+              END AS tier,
+              composite_full_suffix AS suffix,
+              round(rsi_14, 1) AS rsi
+            FROM lagged
+            WHERE sig_t1 > 0
+              AND (z_2 > 0 OR t_2 > 0)
+              AND (z_1 > 0 OR t_1 > 0)
+            ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [
+            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
+            for r in rows
+        ]}
+    finally:
+        conn.close()
+
+
+@router.get("/t3seq-marks/{ticker}")
+def t3seq_marks(ticker: str, universe: str = Query(None)):
+    """T3 RSI<35 sequence marks for chart overlay.
+    Tier: gold=fresh+NBI (exp≈4.5), amber=fresh (exp≈1.0), blue=streak T3→T3→T3 (exp≈0.9), slate=plain.
+    'fresh' = T3 only at [-1], nothing at [-2]. 'streak' = T3 at all of [-1,-2,-3].
+    """
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            WITH base AS (
+              SELECT date, rsi_14, sig_t3, sig_t, composite_full_suffix AS sfx
+              FROM bars WHERE ticker = ? {uni_where}
+              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ),
+            lagged AS (
+              SELECT date, rsi_14, sfx, sig_t3,
+                     COALESCE(LAG(sig_t3, 1) OVER (ORDER BY date), 0) AS t3_1,
+                     COALESCE(LAG(sig_t,  1) OVER (ORDER BY date), 0) AS t_1,
+                     COALESCE(LAG(sig_t3, 2) OVER (ORDER BY date), 0) AS t3_2,
+                     COALESCE(LAG(sig_t,  2) OVER (ORDER BY date), 0) AS t_2,
+                     COALESCE(LAG(sig_t3, 3) OVER (ORDER BY date), 0) AS t3_3
+              FROM base
+            )
+            SELECT
+              CAST(date AS DATE)::VARCHAR AS date,
+              sfx AS suffix,
+              round(rsi_14, 1) AS rsi,
+              CASE
+                WHEN t3_1 > 0 AND t_2 = 0 AND sfx = 'NBI' THEN 'fresh-nbi'
+                WHEN t3_1 > 0 AND t_2 = 0                  THEN 'fresh'
+                WHEN t3_1 > 0 AND t3_2 > 0 AND t3_3 > 0   THEN 'streak'
+                ELSE 'plain'
+              END AS tier
+            FROM lagged
+            WHERE sig_t3 > 0 AND rsi_14 < 35
+            ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [
+            {"date": r[0], "suffix": r[1] or "", "rsi": r[2], "tier": r[3]}
+            for r in rows
+        ]}
+    finally:
+        conn.close()
+
+
+@router.get("/t9rsi35-marks/{ticker}")
+def t9rsi35_marks(ticker: str, universe: str = Query(None)):
+    """T9 RSI<35 marks for chart overlay.
+    Tier: gold=NUI/NRI/N suffix (exp≈1.0+), teal=other (exp≈0.67-1.35).
+    T9 RSI<35 baseline exp=+0.93 vs T9 RSI≥60 exp=-0.16.
+    NOTE: the premium set includes plain 'N' (matches the SQL below); if only
+    NUI/NRI were validated as premium, drop 'N' from the CASE instead.
+    """
+    from studio.db import get_conn
+    tk = ticker.upper()
+    try:
+        conn = get_conn(read_only=True)
+    except Exception as e:
+        raise HTTPException(503, detail=str(e))
+    try:
+        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
+        rows = conn.execute(f"""
+            SELECT
+              CAST(date AS DATE)::VARCHAR AS date,
+              composite_full_suffix AS suffix,
+              round(rsi_14, 1) AS rsi,
+              CASE
+                WHEN composite_full_suffix IN ('NUI','NRI','N') THEN 'premium'
+                ELSE 'base'
+              END AS tier
+            FROM bars
+            WHERE ticker = ? {uni_where}
+              AND sig_t9 > 0 AND rsi_14 < 35
+            QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
+            ORDER BY date
+        """, [tk]).fetchall()
+        return {"ticker": tk, "marks": [
+            {"date": r[0], "suffix": r[1] or "", "rsi": r[2], "tier": r[3]}
+            for r in rows
+        ]}
+    finally:
+        conn.close()
+
+
 @router.get("/gann-grid/{ticker}")
 def gann_grid(ticker: str, tf: str = Query("1d"), universe: str = Query(None),
               levels: int = Query(6), min_bps: int = Query(20),
@@ -1366,6 +1747,7 @@ def signal_stats_sequence(req: TZSequenceRequest):
     Null elements in sequence = wildcard (any signal at that position).
     """
     try:
+      with use_tf(req.tf):
         return query_tz_sequence(
             sequence  = req.sequence,
             universe  = req.universe,
@@ -1384,6 +1766,10 @@ class ExactSequenceRequest(BaseModel):
     pivot_lr:   int                 = 3
     tf:         str                 = "1d"  # "1d" (default, fast) or "1h" (intraday DB)
     match_rows: bool                = False  # also return per-match (ticker, date, hh, hl)
+    min_price:  Optional[float]     = None   # close-price band on the entry bar
+    max_price:  Optional[float]     = None
+    years:      Optional[list[int]] = None   # restrict entry bar to these calendar years
+    months:     Optional[list[int]] = None   # restrict entry bar to these months (1-12)
 
 
 @router.post("/exact-sequence")
@@ -1399,7 +1785,8 @@ def exact_sequence(req: ExactSequenceRequest):
         if tf in ("1w", "1h", "4h", "30m", "15m"):
             # query a separate intraday DB (slow — tens of M bars; UI loads it async)
             import os as _os
-            dbtf = _os.path.expanduser(f"~/Downloads/studio_{tf}.duckdb")
+            from studio.paths import db_path as _dbp
+            dbtf = _dbp(tf)
             if not _os.path.exists(dbtf):
                 return {"matches": 0, "tf": tf, "error": f"{tf} DB not built yet"}
             import duckdb as _duckdb
@@ -1414,6 +1801,8 @@ def exact_sequence(req: ExactSequenceRequest):
                     bars=req.bars, universe=req.universe,
                     strictness=req.strictness, pivot_lr=req.pivot_lr, conn=ctf,
                     match_rows=req.match_rows,
+                    min_price=req.min_price, max_price=req.max_price,
+                    years=req.years, months=req.months,
                 )
             finally:
                 ctf.close()
@@ -1426,6 +1815,10 @@ def exact_sequence(req: ExactSequenceRequest):
             strictness = req.strictness,
             pivot_lr   = req.pivot_lr,
             match_rows = req.match_rows,
+            min_price  = req.min_price,
+            max_price  = req.max_price,
+            years      = req.years,
+            months     = req.months,
         )
     except Exception as e:
         log.exception("exact_sequence failed")
@@ -1488,13 +1881,15 @@ def exact_sequence_1h_filter(req: ExactSequenceRequest):
     try:
         r = query_exact_sequence(bars=req.bars, universe=req.universe,
                                  strictness=req.strictness, pivot_lr=req.pivot_lr,
-                                 match_rows=True)
+                                 match_rows=True,
+                                 min_price=req.min_price, max_price=req.max_price)
         rows = r.get("rows") or []
         if not rows:
             return {"matches": 0, "error": r.get("error", "no matches")}
 
         import os as _os
-        dbtf = _os.path.expanduser("~/Downloads/studio_1h.duckdb")
+        from studio.paths import db_path as _dbp
+        dbtf = _dbp("1h")
         if not _os.path.exists(dbtf):
             return {"matches": len(rows), "error": "1h DB not built"}
 
@@ -1560,6 +1955,7 @@ def confluence_sequence(req: ConfluenceSequenceRequest):
     (T/Z only → +WLNBB → +Wick → +GOG → +PARA → +VABS).
     """
     try:
+      with use_tf(req.tf):
         return query_confluence_sequence(
             bars      = req.bars,
             universe  = req.universe,
@@ -1570,10 +1966,11 @@ def confluence_sequence(req: ConfluenceSequenceRequest):
 
 
 @router.get("/signal-stats/filters")
-def signal_stats_filters():
+def signal_stats_filters(tf: str = Query("1d")):
     """Return available filter values (universes, regimes, date range)."""
     try:
-        return get_available_filters()
+        with use_tf(tf):
+            return get_available_filters()
     except Exception as e:
         raise HTTPException(500, detail=str(e))
 
@@ -1585,6 +1982,7 @@ def signal_stats_query(req: SignalStatsRequest):
     Returns combo stats + baseline + regime breakdown.
     """
     try:
+      with use_tf(req.tf):
         return query_combo(
             signals   = req.signals,
             universe  = req.universe,
@@ -1594,6 +1992,8 @@ def signal_stats_query(req: SignalStatsRequest):
             turbo_min = req.turbo_min,
             turbo_max = req.turbo_max,
             min_n     = req.min_n,
+            years     = req.years,
+            months    = req.months,
         )
     except Exception as e:
         log.exception("signal_stats_query failed")
@@ -1607,6 +2007,7 @@ def signal_stats_rank(req: SignalRankRequest):
     Returns sorted list with forward-return stats per signal.
     """
     try:
+      with use_tf(req.tf):
         return rank_signals(
             universe  = req.universe,
             regime    = req.regime,
@@ -1617,6 +2018,8 @@ def signal_stats_rank(req: SignalRankRequest):
             sort_by   = req.sort_by,
             min_n     = req.min_n,
             top_n     = req.top_n,
+            years     = req.years,
+            months    = req.months,
         )
     except Exception as e:
         log.exception("signal_stats_rank failed")

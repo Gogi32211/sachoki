@@ -787,6 +787,52 @@ def _sig_age(frame: "pd.DataFrame | None", col: str, max_age: int = 30) -> int:
     return max_age
 
 
+_TZ_SIG_NAMES = [
+    "T1G", "T2G",
+    "T1", "T2", "T3", "T4", "T5", "T6",
+    "T9", "T10", "T11", "T12",          # NB: no T7/T8 — SIG_NAMES skips them
+    "Z1G", "Z2G",
+    "Z1", "Z2", "Z3", "Z4", "Z5", "Z6",
+    "Z7", "Z9", "Z10", "Z11", "Z12",    # NB: Z7 valid, but no Z8
+]
+
+def _build_tz_sig_ages(sig_df: "pd.DataFrame | None", max_age: int = 30) -> dict:
+    """
+    Build age entries for individual T/Z signal names from sig_df.
+    Key format: tz_t1, tz_t2g, tz_z3, etc. — used by Ultra Scanner N= filter.
+    Also adds tz_any_t and tz_any_z aggregate ages.
+    """
+    _NA = max_age
+    if sig_df is None or "sig_name" not in sig_df.columns:
+        return {f"tz_{n.lower()}": _NA for n in _TZ_SIG_NAMES} | {"tz_any_t": _NA, "tz_any_z": _NA}
+
+    names = sig_df["sig_name"].values  # string array per bar
+    result: dict = {}
+    for n in _TZ_SIG_NAMES:
+        key = f"tz_{n.lower()}"
+        age = _NA
+        for i in range(len(names) - 1, -1, -1):
+            if names[i] == n:
+                age = len(names) - 1 - i
+                break
+        result[key] = age
+
+    # ANY T / ANY Z
+    any_t = _NA
+    for i in range(len(names) - 1, -1, -1):
+        if isinstance(names[i], str) and names[i].startswith("T"):
+            any_t = len(names) - 1 - i
+            break
+    any_z = _NA
+    for i in range(len(names) - 1, -1, -1):
+        if isinstance(names[i], str) and names[i].startswith("Z"):
+            any_z = len(names) - 1 - i
+            break
+    result["tz_any_t"] = any_t
+    result["tz_any_z"] = any_z
+    return result
+
+
 # ── RGTI/SMX multi-TF helper ──────────────────────────────────────────────────
 def _fetch_htf(ticker: str, interval: str, days: int) -> "pd.DataFrame | None":
     """Fetch intraday OHLCV bars for RGTI/SMX multi-TF computation."""
@@ -1581,6 +1627,8 @@ def _scan_turbo_ticker(
             "gog_sig":  0 if row.get("gog_sig")  else 999,
             "gog_tier": row.get("gog_tier", ""),
             "gog_score": row.get("gog_score", 0),
+            # ── Individual T/Z signal ages (for N= lookback in Ultra Scanner) ──
+            **_build_tz_sig_ages(sig_df),
         }, separators=(',', ':'))
 
         # N=3, N=5 and N=10 turbo scores

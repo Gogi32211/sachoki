@@ -122,7 +122,24 @@ def _to_iter(v) -> Iterable[str]:
 
 
 def _truthy(v) -> bool:
-    if v is None or v == "":
+    # Handle None first, then NaN / pd.NA (must precede `v == ""` — pd.NA == "" raises).
+    if v is None:
+        return False
+    try:
+        import pandas as _pd
+        if _pd.isna(v):
+            return False
+    except Exception:
+        pass
+    # Sized non-string collections (list / set / ndarray / Series): truthy iff
+    # non-empty. Handle before the `v == ""` check, which raises on arrays and
+    # would otherwise fall through to a False return for any non-empty collection.
+    if not isinstance(v, (str, bytes)) and hasattr(v, "__len__"):
+        return len(v) > 0
+    try:
+        if v == "":
+            return False
+    except (TypeError, ValueError):
         return False
     if isinstance(v, bool):
         return v
@@ -630,6 +647,88 @@ def compute_ultra_score(row: dict) -> dict:
         "ultra_score_caps_applied":       list(caps_applied),
         "ultra_score_cap_reason":         "|".join(cap_reasons),
     }
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# ULTRA Score v3 — the reweighted ranker (validated 2026-07-18, reweight.py).
+#
+# The v1/v2 score above is anchored on the BREAKOUT block (ROCKET+20, BUY_2809+20,
+# BX_UP+12, BO/BE/EB +10). A 6-yr path-sim of every component (trail25) showed that block
+# is mostly non- or ANTI-predictive: ROCKET 0/6 yrs (mLift −0.79), BUY_2809 1/6 (−0.52),
+# BO_UP 0/6, VA/SVS negative. Reconstructed & banded, the whole breakout-heavy core has
+# Spearman ≈ −0.004 vs forward return — it does NOT rank. The two STRONGEST rankers the old
+# score ignores are RSI-oversold (RSI<35 mLift +0.72) and the PRICE zone ($21-89). Adding
+# those + keeping only the components that earn their points (BX_UP 5/6 yrs, STR 5/6,
+# d_absorb) lifts Spearman to +0.051 (Q5−Q1 med +3.49pp, 5/6 yrs). Adding this session's
+# VALIDATED edge axes — 🏆RS-intact, 🎯cluster (conf_n), 🎋TLS — reaches +0.078 (Q5−Q1 med
+# +6.74pp, win +11pp, monotone quintiles, Q5>Q1 6/6 yrs incl 2021-22).
+#
+# ⚠ Still MODEST in absolute terms (a better TRIAGE, not a standalone edge — top quintile
+# med −0.72/win 48% vs bottom −7.46/win 37%). Shipped ALONGSIDE the old score, not replacing
+# it. RS/cluster/TLS are read from the row when the serving layer injects them (they live in
+# edge_replay, not the raw Ultra row) — the score degrades gracefully to the +0.051 core
+# when they are absent. Weights are the validated-direction heuristics, not grid-tuned.
+_V3_OSV = ((30, 20), (35, 15), (50, 8), (60, 0), (70, -8))   # RSI cut → oversold points
+_V3_PXV = ((8, -12), (21, -6), (89, 10))                     # price cut → zone points
+
+
+def compute_ultra_score_v3(row: dict) -> dict:
+    """Reweighted ULTRA ranker. Returns {ultra_score_v3, ultra_score_v3_band,
+    ultra_score_v3_reasons}. Pure — reads only row fields (incl. optional rs_intact /
+    conf_n / tls_bar injected by the serving layer). Never raises on a bad row."""
+    try:
+        sigs = _signal_set(row)
+        reasons: list[str] = []
+        # ── earners (the only breakout/setup components that path-sim-rank; cap 25) ──
+        earn = 0
+        if "BX_UP" in sigs:                     earn += 12; reasons.append("BX↑")
+        if "STR" in sigs:                       earn += 8;  reasons.append("STR")
+        if _truthy(row.get("d_absorb_bull")):   earn += 15; reasons.append("ABSORB")
+        earn = min(earn, 25)
+        # ── oversold (RSI) — the strongest ignored ranker ──
+        rsi = _safe_float(row.get("rsi"), default=50.0)
+        osv = -18
+        for cut, pts in _V3_OSV:
+            if rsi < cut:
+                osv = pts; break
+        if   osv >= 15: reasons.append(f"OVERSOLD{int(rsi)}")
+        elif osv <= -8: reasons.append(f"OVERBOUGHT{int(rsi)}")
+        # ── price zone (the Fib quality law) ──
+        px = _safe_float(row.get("last_price") or row.get("price") or row.get("close"), 0.0)
+        pzv = 3
+        for cut, pts in _V3_PXV:
+            if px < cut:
+                pzv = pts; break
+        if   pzv == 10: reasons.append("QZ$21-89")
+        elif pzv < 0:   reasons.append("CHEAP$-")
+        # ── this session's validated edge axes (present only when the serving layer injects) ──
+        bonus = 0
+        if _truthy(row.get("rs_intact")):
+            bonus += 12; reasons.append("🏆RS")
+        cn = int(_safe_float(row.get("conf_n"), 0.0))
+        if cn >= 3:
+            bonus += min(cn, 6) * 4; reasons.append(f"🎯×{cn}fam")
+        if _truthy(row.get("tls_bar")):
+            bonus += 10; reasons.append("🎋TLS")
+        score = max(0, min(100, int(round(earn + osv + pzv + bonus))))
+        return {
+            "ultra_score_v3":         score,
+            "ultra_score_v3_band":    compute_ultra_score_v3_band(score),
+            "ultra_score_v3_reasons": reasons[:10],
+        }
+    except Exception:
+        return {"ultra_score_v3": 0, "ultra_score_v3_band": "D", "ultra_score_v3_reasons": []}
+
+
+def compute_ultra_score_v3_band(score) -> str:
+    """v3 has its OWN range (~0-100 but a strong name = quality-zone + oversold + cluster
+    lands ~55-75, top-with-TLS ~85+), so it needs its own thresholds — the v1/v2 80/65/50
+    cutoffs would band nearly everything D. Calibrated to v3's Q5/Q4/Q3 quintile edges."""
+    s = _safe_float(score, default=0)
+    if   s >= 60: return "A"
+    elif s >= 45: return "B"
+    elif s >= 30: return "C"
+    else:         return "D"
 
 
 def compute_ultra_score_band(score) -> str:

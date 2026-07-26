@@ -1,0 +1,202 @@
+[
+  {
+    "id": "M_coil_floor_ob_retest",
+    "display": "coil_floor·🧱OB",
+    "base_col": "E_coilfloor",
+    "cond_col": "ob_retest",
+    "base": "coil_floor",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 7.93,
+      "lift": 5.11,
+      "win": 66.5,
+      "pf": 3.62,
+      "n": 4247,
+      "pos_years": "5/5",
+      "worst_year": 5.3,
+      "train_mean": 9.03,
+      "verify_mean": 11.89,
+      "dsr": 1.0
+    }
+  },
+  {
+    "id": "M_gem1_capbounce_rs_intact",
+    "display": "gem1_capbounce·🏆RS",
+    "base_col": "E_t1capbounce",
+    "cond_col": "rs_intact",
+    "base": "gem1_capbounce",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 9.02,
+      "lift": 4.06,
+      "win": 68.9,
+      "pf": 5.28,
+      "n": 61,
+      "pos_years": "4/5",
+      "worst_year": -0.2,
+      "train_mean": 8.21,
+      "verify_mean": 12.65,
+      "dsr": 0.9798
+    }
+  },
+  {
+    "id": "M_gem1_capbounce_m15_zdom",
+    "display": "gem1_capbounce·15mZ",
+    "base_col": "E_t1capbounce",
+    "cond_col": "m15_zdom",
+    "base": "gem1_capbounce",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 6.3,
+      "lift": 1.34,
+      "win": 62.2,
+      "pf": 2.57,
+      "n": 135,
+      "pos_years": "6/6",
+      "worst_year": 3.3,
+      "train_mean": 9.79,
+      "verify_mean": 8.81,
+      "dsr": 0.5797
+    }
+  },
+  {
+    "id": "M_engulf_absorb_rev_wtevr",
+    "display": "engulf_absorb_rev·EVR",
+    "base_col": "E_engulf_absorb_rev",
+    "cond_col": "wtevr",
+    "base": "engulf_absorb_rev",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 3.43,
+      "lift": 1.92,
+      "win": 63.1,
+      "pf": 3.42,
+      "n": 65,
+      "pos_years": "5/5",
+      "worst_year": 0.0,
+      "train_mean": 6.67,
+      "verify_mean": 6.22,
+      "dsr": 0.8217
+    }
+  },
+  {
+    "id": "M_z11t11_m15_zdom",
+    "display": "z11t11·15mZ",
+    "base_col": "E_z11t11",
+    "cond_col": "m15_zdom",
+    "base": "z11t11",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 6.57,
+      "lift": 1.23,
+      "win": 64.9,
+      "pf": 3.11,
+      "n": 288,
+      "pos_years": "6/6",
+      "worst_year": 0.8,
+      "train_mean": 1.8,
+      "verify_mean": 9.52,
+      "dsr": 0.9125
+    }
+  },
+  {
+    "id": "M_g3g3rl_rs_intact",
+    "display": "g3g3rl·🏆RS",
+    "base_col": "E_g3g3rl",
+    "cond_col": "rs_intact",
+    "base": "g3g3rl",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 8.12,
+      "lift": 0.95,
+      "win": 66.5,
+      "pf": 3.54,
+      "n": 397,
+      "pos_years": "5/5",
+      "worst_year": 0.1,
+      "train_mean": 2.04,
+      "verify_mean": 8.97,
+      "dsr": 0.9995
+    }
+  },
+  {
+    "id": "M_g3g3rl_key_level",
+    "display": "g3g3rl·🔑KEY",
+    "base_col": "E_g3g3rl",
+    "cond_col": "key_level",
+    "base": "g3g3rl",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 8.21,
+      "lift": 1.04,
+      "win": 68.0,
+      "pf": 3.6,
+      "n": 1251,
+      "pos_years": "6/6",
+      "worst_year": 0.3,
+      "train_mean": 3.03,
+      "verify_mean": 7.84,
+      "dsr": 1.0
+    }
+  },
+  {
+    "id": "M_g3g3rl_conf_anyfam",
+    "display": "g3g3rl·CONF",
+    "base_col": "E_g3g3rl",
+    "cond_col": "conf_anyfam",
+    "base": "g3g3rl",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 8.98,
+      "lift": 1.81,
+      "win": 72.4,
+      "pf": 4.37,
+      "n": 409,
+      "pos_years": "6/6",
+      "worst_year": 0.7,
+      "train_mean": 3.9,
+      "verify_mean": 8.11,
+      "dsr": 0.9995
+    }
+  },
+  {
+    "id": "M_g3g3rl_m15_zdom",
+    "display": "g3g3rl·15mZ",
+    "base_col": "E_g3g3rl",
+    "cond_col": "m15_zdom",
+    "base": "g3g3rl",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 8.85,
+      "lift": 1.68,
+      "win": 68.2,
+      "pf": 3.87,
+      "n": 1108,
+      "pos_years": "6/6",
+      "worst_year": 0.6,
+      "train_mean": 3.64,
+      "verify_mean": 8.36,
+      "dsr": 1.0
+    }
+  },
+  {
+    "id": "M_g3rl_ob_retest",
+    "display": "g3rl·🧱OB",
+    "base_col": "E_g3rl",
+    "cond_col": "ob_retest",
+    "base": "g3rl",
+    "promoted": "2026-07-25",
+    "stats": {
+      "median": 8.51,
+      "lift": 5.61,
+      "win": 67.7,
+      "pf": 4.31,
+      "n": 592,
+      "pos_years": "5/6",
+      "worst_year": -0.1,
+      "train_mean": 5.65,
+      "verify_mean": 11.97,
+      "dsr": 1.0
+    }
+  }
+]

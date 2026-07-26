@@ -4,10 +4,14 @@ import { pwlAdd, pwlHas, pwlRemove } from './PersonalWatchlistPanel'
 import { idbGet, idbSet, getCacheBackend } from '../turboCache'
 import ScannerDataGrid from './ScannerDataGrid'
 import CodeCandleChart from './CodeCandleChart'
+import { gexSortVal, vrpSortVal, requestGexBulk, subscribeGex } from '../gexStore'
+import { anatSortVal, requestAnatomy, subscribeAnatomy } from '../anatomyStore'
+import { atrForecast } from '../atrForecast'
 
 // ── Universes ─────────────────────────────────────────────────────────────────
 const UNIVERSES = [
   { key: 'sp500',     label: 'S&P 500',      desc: '~500 large-caps',     cls: 'text-blue-300'   },
+  { key: 'index',     label: '📊 INDEX',     desc: 'SPY·QQQ·DIA·IWM + 11 sector ETFs + SMH — sector reversals', cls: 'text-yellow-200' },
   { key: 'nasdaq',    label: 'NASDAQ',        desc: '~4K NASDAQ stocks',   cls: 'text-cyan-300'   },
   { key: 'russell2k', label: 'Russell 2K',   desc: 'All US small-caps',   cls: 'text-orange-300' },
   { key: 'all_us',    label: '🌐 All US',    desc: '~8K tickers (Massive)',cls: 'text-violet-300' },
@@ -393,6 +397,26 @@ const SIG_GROUPS = [
   { key: 'rgti_green',    label: 'GRN',  cls: 'text-green-300'    },
   { key: 'rgti_greencirc',label: 'GC',   cls: 'text-emerald-300'  },
   { key: 'smx',           label: 'SMX',  cls: 'text-lime-300'     },
+  { divider: true, label: '📐 MTF-EMA (15m·1h·4h DB)' },
+  // ── 📐 MTF-EMA (DB-computed, 260704) — SMX/RGTI EMA-stack geometry from the
+  //   real 15m·1h·4h bars (EOD daily snapshot), NOT the live single-bar flags above.
+  //   r.mtf_ema_variants is attached from the /api/mtf-ema-scan map.
+  // 📐 MTF-EMA chips: age-aware — match a variant that fired within the last N bars
+  // (r.mtf_ema_ages[V] = trading days back; N=1 → today only). age 99 = never in window.
+  { key: 'mtf_k0',     label: '📐K0',  cls: 'text-cyan-300 font-bold',
+    custom: (r, N) => (r.mtf_ema_ages?.K0 ?? 99) < (N || 1) },
+  { key: 'mtf_smx',    label: '📐SMX', cls: 'text-lime-300 font-bold',
+    custom: (r, N) => (r.mtf_ema_ages?.SMX ?? 99) < (N || 1) },
+  { key: 'mtf_orange', label: '📐ORG', cls: 'text-orange-300 font-bold',
+    custom: (r, N) => (r.mtf_ema_ages?.ORANGE ?? 99) < (N || 1) },
+  { key: 'mtf_up',     label: '📐UP',  cls: 'text-blue-300',
+    custom: (r, N) => (r.mtf_ema_ages?.UP ?? 99) < (N || 1) },
+  { key: 'mtf_upup',   label: '📐↑↑',  cls: 'text-indigo-300',
+    custom: (r, N) => (r.mtf_ema_ages?.UPUP ?? 99) < (N || 1) },
+  { key: 'mtf_upupup', label: '📐↑↑↑', cls: 'text-violet-300',
+    custom: (r, N) => (r.mtf_ema_ages?.UPUPUP ?? 99) < (N || 1) },
+  { key: 'mtf_ll',     label: '📐LL',  cls: 'text-purple-300',
+    custom: (r, N) => (r.mtf_ema_ages?.LL ?? 99) < (N || 1) },
   { divider: true },
   // ── GOG Priority Engine (260501 FULL) ────────────────────────────────
   { key: 'akan_sig', label: 'A',    cls: 'text-orange-300 font-semibold'  },
@@ -468,6 +492,9 @@ const LIVE_ONLY_SIGS = new Set([
   'rgti_orange', 'rgti_green', 'rgti_greencirc',
   // SMX / GOG priority engine
   'smx', 'akan_sig', 'smx_sig', 'nnn_sig', 'mx_sig', 'gog_sig', 'gog_g3l',
+  // NOTE: mtf_* (📐 MTF-EMA) are intentionally NOT here — their variants are attached
+  // client-side from /api/mtf-ema-scan (keyed by ticker), so they work in BOTH DB and
+  // live modes. Adding them to LIVE_ONLY would wrongly hide the chips in DB-instant mode.
   // GOG context signals
   'ctx_lds', 'ctx_ldc', 'ctx_ldp', 'ctx_lrc', 'ctx_lrp', 'ctx_wrc', 'ctx_sqb', 'ctx_bct',
   // yfinance source flag — every DB row is enriched, so this matches nothing in DB mode
@@ -879,7 +906,20 @@ const _tsGet  = (tf, uni) => {
 }
 
 const _ALL_TF  = ['1d', '4h', '1h', '30m', '15m', '1wk']
-const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us', 'split']
+const _ALL_UNI = ['sp500', 'nasdaq', 'russell2k', 'all_us', 'split', 'index']
+
+// Map a selected universe → the backend universe list. Single source of truth so the
+// DB and Preview fetch paths never drift (2026-07-07 fix: russell2k/all_us were missing
+// from fetchFromDB → "Russell 2K" and "🌐 All US" silently fetched only sp500+nasdaq).
+const _uniList = (u) =>
+    u === 'sp500'     ? ['sp500']
+  : u === 'index'     ? ['index']
+  : u === 'nasdaq'    ? ['nasdaq']
+  : u === 'russell2k' ? ['russell2k']
+  : u === 'all_us'    ? ['sp500', 'nasdaq', 'russell2k']
+  : u === 'split'     ? ['split']   // backend cross-filters to the live split window
+  : u === 'zone'      ? ['zone']    // backend filters to tickers currently in a zone
+  : ['sp500', 'nasdaq']             // 'all' / default
 
 // Evict ALL cached entries except the one being written
 function _evictAll(exceptKey) {
@@ -894,6 +934,7 @@ function _evictAll(exceptKey) {
 // sig_ages handled separately: only keep entries with age < 15 to cut size
 const KEEP_ALWAYS = new Set([
   'ticker','turbo_score','turbo_score_n3','turbo_score_n5','turbo_score_n10',
+  'buy_score','buy_tag',
   'tz_sig','tz_bull','last_price','change_pct','rsi','cci','avg_vol',
   'vol_bucket','data_source',
   'ema20','ema50','ema89','ema200',
@@ -904,6 +945,11 @@ const KEEP_ALWAYS = new Set([
   'ultra_score_reasons','ultra_score_flags','ultra_score_raw_before_penalty',
   'ultra_score_penalty_total','ultra_score_regime_bonus',
   'ultra_score_caps_applied','ultra_score_cap_reason',
+  // v3 reweighted ranker (2026-07-18) — alongside the old score, non-destructive
+  'ultra_score_v3','ultra_score_v3_band','ultra_score_v3_reasons',
+  // validated zone buy-flags (2026-07-18)
+  'buy_flag','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','heavy_l','edges','edge_n','edge_rev','seq34','seq_ctx','conf_score','conf_top','conf_ext','conf_ext_top',
+  'atr_pct','tt10','tt10_hit','ttdn10','no_vol_event',
   'beta_score','beta_zone','beta_auto_buy',
   'final_bull_score','final_regime',
   'gog_score','gog_tier',
@@ -1008,12 +1054,18 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [direction,  setDirection]  = useState('bull')
   const [secFilter,  setSecFilter]  = useState('')    // '' = all sectors
   const [sectorMap,  setSectorMap]  = useState({})    // { TICKER: sector_string }
+  const [mtfEmaMap,  setMtfEmaMap]  = useState({})    // { TICKER: [variants] } from /api/mtf-ema-scan
+  const [mtfEmaAgeMap, setMtfEmaAgeMap] = useState({}) // { TICKER: {variant: age_days} } — age-aware N filtering
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
   const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
   const [exported,   setExported]   = useState(false)
   const [tvExported, setTvExported] = useState(false)
   const [sortBy,     setSortBy]     = useState('turbo_score')
   const [sortDir,    setSortDir]    = useState('desc')
+  const [gexTick,    setGexTick]    = useState(0)   // bumps as 💠 GEX data streams in → re-sorts
+  useEffect(() => subscribeGex(() => setGexTick(t => t + 1)), [])
+  const [anatTick,   setAnatTick]   = useState(0)   // bumps when ▽△ anatomy map loads → re-sorts
+  useEffect(() => { requestAnatomy(); return subscribeAnatomy(() => setAnatTick(t => t + 1)) }, [])
 
   // ── Pre-market cache: { TICKER: { pm_price, pm_chg_pct, pm_vol } } ────────
   const [pmData,    setPmData]    = useState({})
@@ -1043,6 +1095,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     else { pwlAdd(r) }
   }
   const [sweetSpotFilter, setSweetSpotFilter] = useState(false)
+  const [buyFilter, setBuyFilter] = useState(() => new Set())  // multi-select AND: rev/brk/conf/turn/h4/any/veto (2026-07-19)
   const [buildingFilter,  setBuildingFilter]  = useState(false)
   const [watchFilter,     setWatchFilter]     = useState(false)
   // HV-Zone re-test filter (3 vol-spike tiers, multi-select; union of selected sets)
@@ -1090,6 +1143,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [previewInfo, setPreviewInfo] = useState(null)   // {session, note, liveBars} or null
   const [volMin,      setVolMin]      = useState(100_000) // min avg daily volume filter
   const [volMax,      setVolMax]      = useState(0)       // max avg daily volume (0 = no cap)
+  const [priceMin,    setPriceMin]    = useState('')      // min last price ('' = off) — $21-89 = quality zone
+  const [priceMax,    setPriceMax]    = useState('')      // max last price ('' = off)
   const [hoverPopup,  setHoverPopup]  = useState(null)   // { row, pos }
   const [expandedRows, setExpandedRows] = useState(new Set())  // tickers with open sub-row
   const [showAdvanced, setShowAdvanced] = useState(false)      // collapsible adv filters
@@ -1170,12 +1225,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     const seq = ++fetchSeqRef.current
     setScanning(true); setError(null)
     try {
-      const unis = universe === 'all'     ? ['sp500', 'nasdaq']
-                 : universe === 'sp500'   ? ['sp500']
-                 : universe === 'nasdaq'  ? ['nasdaq']
-                 : universe === 'split'   ? ['split']   // backend cross-filters to live split window
-                 : universe === 'zone'    ? ['zone']    // backend filters to tickers currently in a zone
-                 : ['sp500', 'nasdaq']
+      const unis = _uniList(universe)
       const d = await api.ultraScanFromDB(unis)
       if (seq !== fetchSeqRef.current) return
       const results = d.results || []
@@ -1197,13 +1247,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     const seq = ++fetchSeqRef.current
     setPreviewing(true); setError(null); setPreviewInfo(null)
     try {
-      const unis = universe === 'all'     ? ['sp500', 'nasdaq']
-                 : universe === 'sp500'   ? ['sp500']
-                 : universe === 'nasdaq'  ? ['nasdaq']
-                 : universe === 'all_us'  ? ['sp500', 'nasdaq', 'russell2k']
-                 : universe === 'split'   ? ['split']
-                 : universe === 'zone'    ? ['zone']
-                 : ['sp500', 'nasdaq']
+      const unis = _uniList(universe)
       const d = await api.ultraPreview(unis)
       if (seq !== fetchSeqRef.current) return
       const results = d.results || []
@@ -1336,6 +1380,26 @@ export default function UltraScanPanel({ onSelectTicker }) {
       .catch(() => {})
   }, [allResults]) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // 📐 MTF-EMA map — fetch the DB-computed SMX/RGTI EMA-stack variants once and
+  // attach to rows so the 📐 SIG chips can filter. It's a latest-daily-close
+  // snapshot (tf-independent), so one fetch covers every ultra tf/universe.
+  useEffect(() => {
+    let dead = false
+    fetch('/api/mtf-ema-scan')
+      .then(r => r.json())
+      .then(d => {
+        if (dead) return
+        const map = {}
+        for (const row of (d?.rows || [])) {
+          if (row.ticker && row.variants?.length) map[row.ticker] = row.variants
+        }
+        setMtfEmaMap(map)
+        setMtfEmaAgeMap(d?.ages || {})   // {ticker: {variant: age_days}} — age-aware N filtering
+      })
+      .catch(() => {})
+    return () => { dead = true }
+  }, [])
+
   // ULTRA does not subscribe to the admin "sachoki:scan-cached" Turbo event —
   // that event delivers raw Turbo rows, which would overwrite ULTRA's enriched
   // rows. ULTRA refreshes via its own /api/ultra-scan/results endpoint.
@@ -1367,14 +1431,22 @@ export default function UltraScanPanel({ onSelectTicker }) {
   useEffect(() => { api.getConfig().then(c => setMassiveReady(c.massive_api_ready)).catch(() => {}) }, [])
 
   // ── Effective score column based on selected N ────────────────────────────
+  // default (N=1d) Score column = buy_score (V2-backbone + RSI + volB, two-sided veto —
+  // 2026-07-03 scoring analysis); N>1 lookback variants still use the turbo_nX columns.
   const effectiveScoreCol = lookbackN >= 10 ? 'turbo_score_n10'
                           : lookbackN >= 5  ? 'turbo_score_n5'
                           : lookbackN >= 3  ? 'turbo_score_n3'
-                          : 'turbo_score'
+                          : 'buy_score'
 
   // ── Client-side filter + sort ──────────────────────────────────────────────
   const results = useMemo(() => {
-    const filtered = allResults.filter(r => {
+    // Attach DB-computed MTF-EMA variants (today, for display) + per-variant AGES (last 12
+    // sessions) so the 📐 SIG chips honor the "last N bars" selector like the DB signals do.
+    const withVar = allResults.map(r => {
+      const v = mtfEmaMap[r.ticker], a = mtfEmaAgeMap[r.ticker]
+      return (v || a) ? { ...r, mtf_ema_variants: v || r.mtf_ema_variants, mtf_ema_ages: a } : r
+    })
+    const filtered = withVar.filter(r => {
       // score band filter (multi-select)
       const score = r[effectiveScoreCol] ?? r.turbo_score ?? 0
       if (!scoreBands.has('all') && scoreBands.size > 0) {
@@ -1385,6 +1457,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       }
       if (volMin > 0 && r.avg_vol > 0 && r.avg_vol < volMin) return false
       if (volMax > 0 && r.avg_vol > 0 && r.avg_vol > volMax) return false
+      if (priceMin !== '' && +priceMin > 0 && r.last_price > 0 && r.last_price < +priceMin) return false
+      if (priceMax !== '' && +priceMax > 0 && r.last_price > 0 && r.last_price > +priceMax) return false
       if (secFilter && !(sectorMap[r.ticker] || r.sector || '').toLowerCase().includes(secFilter)) return false
       if (rtbPhase && (r.rtb_phase || '0') !== rtbPhase) return false
       // 260523 filters — every bool that can flip bar-to-bar honors
@@ -1417,6 +1491,24 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (wycInTr === true      && !evHit('wyc_in_tr'))             return false
       if (direction === 'bull' && !r.tz_bull) return false
       if (direction === 'bear' && r.tz_bull)  return false
+      if (buyFilter.size) {
+        const conf = r.mtf_score_conf
+        // AND semantics — every selected chip must hold (e.g. 🟢REV✓ + ▲4H = confirmed REV
+        // whose 4H trigger fired today; stack as many as you like)
+        if (buyFilter.has('rev')  && !(r.rev_buy && r.mtf_echo !== false)) return false
+        if (buyFilter.has('brk')  && !r.brk_buy) return false
+        if (buyFilter.has('conf') && !(conf != null && conf >= 1)) return false
+        if (buyFilter.has('turn') && !r.turn_echo_n) return false
+        if (buyFilter.has('h4')   && !r.h4_rev_today) return false
+        if (buyFilter.has('lheavy') && !r.heavy_l) return false
+        if (buyFilter.has('edge') && !(r.edge_n > 0)) return false
+        if (buyFilter.has('edgerev') && !r.edge_rev) return false
+        if (buyFilter.has('seq34') && !r.seq34) return false
+        if (buyFilter.has('ctxup') && r.seq_ctx?.dir !== 'up') return false
+        if (buyFilter.has('ctxdn') && r.seq_ctx?.dir !== 'down') return false
+        if (buyFilter.has('veto') && !((r.rev_buy && r.mtf_echo === false) || conf === 0)) return false
+        if (buyFilter.has('any')  && !((r.rev_buy && r.mtf_echo !== false) || r.brk_buy || (conf != null && conf >= 1) || r.turn_echo_n)) return false
+      }
       if (sweetSpotFilter && !(r.sweet_spot_active && !r.late_warning)) return false
       if (buildingFilter && r.profile_category !== 'BUILDING') return false
       if (zoneFilterActive && activeZoneSet && !activeZoneSet.has(r.ticker)) return false
@@ -1448,7 +1540,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
         const ages = r._ages || {}
         const ok = [...selSigs].every(k => {
           const sig = SIG_GROUPS.find(s => !s.divider && s.key === k)
-          if (sig?.custom) return sig.custom(r)
+          if (sig?.custom) return sig.custom(r, lookbackN)
           // age-based check takes priority: works for all N (N=1 means age<1 = current bar only)
           if (k in ages) return ages[k] < lookbackN
           // fallback for signals not tracked in sig_ages (direct row field)
@@ -1468,9 +1560,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
     } else {
       filtered.sort((a, b) => {
         const col = sortBy === 'turbo_score' ? effectiveScoreCol : sortBy
-        // pm_chg_pct / rt_chg_pct live in pmData (external cache), not in the rows
+        // pm_chg_pct / rt_chg_pct live in pmData; gex lives in the shared gexStore —
+        // both external caches, not in the row objects.
         const getVal = (r) => (col === 'pm_chg_pct' || col === 'rt_chg_pct')
           ? (pmData[r.ticker]?.[col] ?? -Infinity)
+          : col === 'anat' ? anatSortVal(r.ticker)
+          : col === 'gex' ? gexSortVal(r.ticker)
+          : col === 'vrp' ? vrpSortVal(r.ticker)
           : (r[col] ?? 0)
         const av = getVal(a)
         const bv = getVal(b)
@@ -1479,11 +1575,14 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, effectiveScoreCol, volMin, volMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter, ttt6Filter, t1seqFilter, t3seqFilter, t9rsiFilter, z1gt2gFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
+  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter, ttt6Filter, t1seqFilter, t3seqFilter, t9rsiFilter, z1gt2gFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
     else { setSortBy(col); setSortDir('desc') }
+    // 💠 GEX is async/lazy — kick a bulk fetch for every currently-filtered row so
+    // the sort has values to order by (fills progressively; store re-renders on arrival).
+    if (col === 'gex' || col === 'vrp') requestGexBulk(results.map(r => r.ticker))
   }
 
   const SortTh = ({ col, children, cls = '' }) => (
@@ -1593,6 +1692,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     const PREDN = [['predn66','D66'],['predn55','D55'],['predn89','D89'],
                     ['predn3','D3'],['predn2','D2'],['predn50','D50']]
     for (const [k, lbl] of PREDN) if (r[k]) { out.push(lbl); break }
+    for (const v of (r.mtf_ema_variants || [])) out.push('📐' + (v === 'ORANGE' ? 'ORG' : v))
     return out.join(' | ')
   }
   const _displayWyck = (r) => {
@@ -1765,6 +1865,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
     // Core / category fields visible in the table
     const CORE_FIELDS = [
       'ticker', 'turbo_score', 'turbo_score_n3', 'turbo_score_n5', 'turbo_score_n10',
+      'buy_score', 'buy_tag',
       'rtb_total', 'rtb_phase', 'tz_sig', 'tz_bull',
       'signal_score', 'profile_score', 'profile_category', 'profile_name',
       'sweet_spot_active', 'late_warning', 'gog_tier',
@@ -1898,6 +1999,38 @@ export default function UltraScanPanel({ onSelectTicker }) {
         : (r.ultra_score_caps_applied ?? '')
       flat.ultra_score_cap_reason   = r.ultra_score_cap_reason ?? ''
       flat.ultra_score_reasons      = r.ultra_score_reasons ?? ''
+      // v3 reweighted ranker (oversold + price-zone + earners + 🏆RS/🎯cluster/🎋TLS)
+      flat.ultra_score_v3        = r.ultra_score_v3 ?? ''
+      flat.ultra_score_v3_band   = r.ultra_score_v3_band ?? ''
+      flat.ultra_score_v3_reasons = Array.isArray(r.ultra_score_v3_reasons)
+        ? r.ultra_score_v3_reasons.join(' ')
+        : (r.ultra_score_v3_reasons ?? '')
+      flat.buy_flag = r.buy_flag ?? ''
+      flat.mtf_score_conf = r.mtf_score_conf ?? ''
+      flat.turn_echo_n = r.turn_echo_n ?? ''
+      flat.h4_rev_today = r.h4_rev_today ? 1 : 0
+      flat.heavy_l = r.heavy_l ? 1 : 0
+      flat.edges = (r.edges ?? []).join(' ')
+      flat.edge_n = r.edge_n ?? 0
+      flat.edge_rev = r.edge_rev ? 1 : 0
+      // ⏱ ATR time-to-target forecast (2026-07-26): backend attaches atr_pct (ATR14/close)
+      flat.atr_pct = r.atr_pct != null ? +(r.atr_pct * 100).toFixed(1) : ''
+      { const _f = r.atr_pct != null ? atrForecast(r.atr_pct) : null
+        flat.tt10 = _f ? _f.up10.days : ''      // typical days to +10%
+        flat.tt10_hit = _f ? _f.up10.hit : ''   // hit-rate %
+        flat.ttdn10 = _f ? _f.dn10.days : '' }  // typical days to −10% (stop timing)
+      flat.no_vol_event = r.no_vol_event ? 1 : 0   // ⛔ no intraday volume event today
+      flat.seq34 = r.seq34 ? r.seq34.seq : ''
+      flat.seq34_win = r.seq34?.win ?? ''
+      flat.seq34_ps_med = r.seq34?.ps_med ?? ''
+      flat.seq34_dsr = r.seq34?.dsr ?? ''
+      flat.seq_ctx = r.seq_ctx ? `${r.seq_ctx.dir}:${r.seq_ctx.seq}` : ''
+      flat.seq_ctx_up = r.seq_ctx?.up ?? ''
+      flat.seq_ctx_sig = r.seq_ctx?.sig ?? ''
+      flat.conf_score = r.conf_score ?? ''
+      flat.conf_top = r.conf_top ?? ''
+      flat.conf_ext = r.conf_ext ?? ''
+      flat.conf_ext_top = r.conf_ext_top ?? ''
       flat.pullback_display_compact      = pullbackCompact(r.pullback)
       flat.rare_reversal_display_compact = rareCompact(r.rare_reversal)
 
@@ -2406,6 +2539,22 @@ export default function UltraScanPanel({ onSelectTicker }) {
           })}
         </div>
 
+        {/* Price range filter */}
+        <div className="flex items-center gap-1 ml-2" title="Last-price band (e.g. 21–89 = the quality zone; blank = off)">
+          <span className="text-md-on-surface-var text-xs">$</span>
+          <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)}
+            placeholder="min" min="0"
+            className={`w-14 px-1.5 py-0.5 rounded text-xs bg-md-surface-high border ${priceMin !== '' ? 'border-cyan-600 text-white' : 'border-transparent text-md-on-surface-var'} focus:outline-none focus:border-cyan-500`} />
+          <span className="text-md-on-surface-var/50 text-xs">–</span>
+          <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)}
+            placeholder="max" min="0"
+            className={`w-14 px-1.5 py-0.5 rounded text-xs bg-md-surface-high border ${priceMax !== '' ? 'border-cyan-600 text-white' : 'border-transparent text-md-on-surface-var'} focus:outline-none focus:border-cyan-500`} />
+          {(priceMin !== '' || priceMax !== '') && (
+            <button onClick={() => { setPriceMin(''); setPriceMax('') }}
+              className="text-xs text-md-on-surface-var hover:text-white px-0.5" title="Clear price filter">✕</button>
+          )}
+        </div>
+
         {/* Stats + stale warning */}
         <span className="ml-auto text-md-on-surface-var/70 shrink-0 flex items-center gap-1.5">
           {partialDay && <span className="text-amber-400 font-medium">~preview</span>}
@@ -2684,6 +2833,37 @@ export default function UltraScanPanel({ onSelectTicker }) {
           </div>
         </div>
       )}
+
+      {/* ── BUY / MTF-confirmation filter row (validated 2026-07-19, project_mtf_confirmation) ── */}
+      <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">
+        <span className="text-md-on-surface-var text-xs shrink-0 mr-0.5 w-16">BUY</span>
+        {[['rev', '🟢 REV✓', 'REV-buy WITH intraday echo (+1.09…+1.17%, 6/6yr)'],
+          ['brk', '🔵 BRK', 'BRK-buy — RSI>50 cross + low turbo (+0.57%, weaker)'],
+          ['conf', '1-3 conf', '1D buy_score≥60 AND ≥1 intraday TF confirms ≥60 (+1.3…+1.6%, 5-6/6yr)'],
+          ['turn', '①②③ turn', 'loose up-turn with ≥1 intraday REV-echo (+0.7…+1.05%, 5/6yr)'],
+          ['h4', '▲ 4H', 'a 4H REV-trigger fired inside the latest daily bar — early entry existed (+0.84pp, 6/6yr)'],
+          ['lheavy', 'L-heavy', 'latest bar = RED L34 (close<open, absorbed weakness) — the triple-confluence leg: 🟢REV✓ + ▲4H + red-L34 = +2.05%/PF1.32/5-6yr, TRAIN +2.27 ≈ TEST +1.85 (era-balanced). Green L34 is excluded: on reversal bars it is the trap type (−1.01%, PF 0.87). ⚠ On deep buy_score≥60 days heavy-L HURTS (knife volume) — stack it with REV, not with bare score-days'],
+          ['edge', 'EDGE✓', 'a validated Edge-board setup fired TODAY (edge_replay masks, backtest-identical): CAP/QZC/D+L1/G3/⚡G3A/ATM/SPR/Z11/L43/WSH/H1B/ENG/ZRT/HB15/RTB/P55/PAR/🎯3-4 — see the EDGE column for which'],
+          ['edgerev', 'EDGE🟢', 'PREMIUM combo (validated 2026-07-20): a location-reversal edge (QZC/D+L1/RTB/P55) fired TODAY on the same bar as 🟢REV — QZC +1.65→+2.69% (median flips positive), D+L1 +1.60→+3.46% (TRAIN turns +), RTB +2.04% 6/6yr, P55 +1.89%. Only these four: WSH/ZRT are HURT by REV, and CAP/Z11/L43/⚡G3A never coincide with it (different bar anatomy)'],
+          ['seq34', '🧬SEQ', 'a frozen-OOS-verified 2-4-bar robust sequence completed TODAY (tier OOS_VERIFIED, OOS path-sim win≥55%, ps_med>0; bright chip ≥60; rules mined 2021-23, verified 2024-26). 🏆 on the chip = DSR≥0.6 selection-proof (the only fully-trustable tier). Same engine as the Robust Seqs tab'],
+          ['ctxup', '⤴CTX', 'the BUY-signal fire has a BOOSTER preceding-sequence context: the 2-4 bars before it historically LIFT that signal\'s fwd-20 up% (era-consistent cells only, buyseq_context.json). Hover the ⤴ chip for the sequence and numbers'],
+          ['ctxdn', '⤵CTX', 'SUPPRESSOR preceding-sequence context — the bars before this fire historically LOWER the signal\'s up% (chop/weak-T chains). Consider skipping or demanding extra confluence'],
+          ['any', '✅ any buy', 'any of: 🟢REV✓ / 🔵BRK / conf≥1 / ①②③'],
+          ['veto', '⚠️ veto', 'the validated SKIP group: REV without echo (−1.07%) or score-conf 0/3 (−2.10%)']].map(([k, label, title]) => (
+          <button key={k}
+            onClick={() => setBuyFilter(f => { const x = new Set(f); x.has(k) ? x.delete(k) : x.add(k); return x })}
+            title={title}
+            className={`px-2.5 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
+              buyFilter.has(k)
+                ? (k === 'veto'
+                  ? 'bg-red-900/60 text-red-300 border-red-600 ring-1 ring-red-500'
+                  : 'bg-cyan-900/60 text-cyan-200 border-cyan-600 ring-1 ring-cyan-500')
+                : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
+            }`}>
+            {label}
+          </button>
+        ))}
+      </div>
 
       {/* ── Row 5: Profile Sweet Spot filter ── */}
       <div className="flex flex-wrap items-center gap-x-2 gap-y-1 px-3 py-1.5 border-b border-white/[0.07] bg-md-surface-con/20">

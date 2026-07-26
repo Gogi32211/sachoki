@@ -89,9 +89,10 @@ def _load_event_bars(
     """
     conn = get_conn(read_only=True)
     try:
-        # Get events
-        ev_where = "event_type = ?"
-        ev_params = [event_type]
+        # Get events (only ones detected on the active timeframe)
+        from studio.db import current_tf
+        ev_where = "event_type = ? AND coalesce(tf,'1d') = ?"
+        ev_params = [event_type, current_tf()]
         if universes:
             ev_where += f" AND universe IN ({', '.join('?' * len(universes))})"
             ev_params.extend(universes)

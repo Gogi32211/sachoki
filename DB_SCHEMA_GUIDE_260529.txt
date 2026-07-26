@@ -1,0 +1,230 @@
+================================================================================
+SACHOKI SCREENER — STUDIO DATABASE GUIDE
+Hand this to another chat to explain exactly what data we have.
+Generated: 2026-05-29
+================================================================================
+
+WHAT THIS IS
+------------
+A single DuckDB analytics database of US daily stock bars (OHLCV) that has been
+"enriched" — every bar carries ~350 precomputed signal / pattern / forward-return
+columns. It powers the Sachoki screener (Ultra Scan, Sequence Builder, Studio,
+DB Chart). It is NOT a live feed; it is a precomputed analytics store rebuilt by
+bulk CSV import and topped up daily by an incremental "delta append".
+
+  File   : /Users/sachoki/Downloads/studio_analytics.duckdb
+  Engine : DuckDB (columnar, single file)
+  Size   : ~2.4 GB
+  Source : Massive API OHLCV → Python signal engines (ports of TradingView Pine
+           scripts) → DuckDB. NOTE: prices differ slightly from a TradingView
+           chart feed (volume is identical); see CHART_VS_DB_DIVERGENCE doc.
+
+
+TABLES (9)
+----------
+  bars                   8,221,841 rows · 363 cols   ← THE MAIN TABLE (everything)
+  events                   383,466 rows · 13  cols   signal-event log w/ outcomes
+  ticker_signal_lift_v1     43,500 rows · 11  cols   per-ticker signal edge stats
+  mined_patterns             1,644 rows · 13  cols   pattern-miner output (lift)
+  acc_exit_lift_v1             144 rows ·  9  cols   exit-timing lift stats
+  import_log                    20 rows · 11  cols   bulk-import provenance
+  custom_scores                  1 row  ·  6  cols   user-defined scoring weights
+  backtest_results               0 rows · 16  cols   (empty — backtest output)
+  bar_descriptions               0 rows ·  4  cols   (empty — NL bar narratives)
+
+
+================================================================================
+THE `bars` TABLE  — 8.22M rows, 363 columns
+================================================================================
+Grain: one row = one ticker on one daily bar. Primary axes: (ticker, date, universe).
+
+COVERAGE
+  total rows     : 8,221,841
+  unique tickers : 5,225
+  date range     : 2021-05-26 → 2026-05-28  (≈5 years, daily)
+  universes:
+     universe    rows        tickers   max date
+     sp500         743,072       610    2026-05-28
+     nasdaq      3,059,205     3,302    2026-05-28
+     russell2k   4,419,564     5,001    2026-05-27 (being topped up to 05-28)
+
+  Tickers can appear in more than one universe; treat (ticker, universe, date) as
+  the unique key. Filter by `universe` for clean per-index analysis.
+
+ALL VALUES ARE PRECOMPUTED PER BAR with NO lookahead in the signals themselves
+(a signal at bar i uses only data up to bar i). The forward-return columns (fwd_*,
+mfe_*, mae_*) DO look ahead by design — they are the OUTCOME labels for backtesting
+and must never be used as model inputs.
+
+
+--------------------------------------------------------------------------------
+COLUMN GROUPS (363 total)
+--------------------------------------------------------------------------------
+
+1) IDENTITY + PRICE (9)
+   id, ticker, date, universe, open, high, low, close, volume
+   - The raw daily OHLCV. Everything else is derived from these.
+
+2) TZ CANDLE SIGNALS (32)   — "T" = bullish candle pattern, "Z" = bearish
+   t_sig, z_sig                 ← string label of the bar's resolved T or Z signal
+   sig_t1..sig_t12, sig_t1g, sig_t2g   ← boolean flags (1/0) per T variant
+   sig_z1..sig_z12, sig_z1g, sig_z2g   ← boolean flags per Z variant
+   sig_tz_flip, sig_tz, sig_tz2, sig_tz3, tz_bull
+   - Candle-direction / engulfing patterns vs the prior bar. Robust to feed diffs.
+
+3) L / WLNBB VOLUME SIGNALS (13)   — volume-Bollinger "lane" classification
+   l_sig                        ← string code, e.g. "L34","L43","L64","L22"
+   sig_l1..sig_l6, l34, l43, l22, sig_l555, sig_l2l4, sig_l88
+   - Based on a Bollinger band over VOLUME. VOLUME-ONLY → identical to TV feed.
+
+4) BAR SHAPE / SUFFIX / LINE5 (14)   — the multi-line chart label
+   vol_bucket                   ← W / L / N / B / VB  (volume tier; see counts below)
+   ne_suffix, wick_suffix, penetration_suffix, close_suffix
+   full_suffix, composite_full_suffix   ← the 2nd label line, e.g. "EU","NDPO","EBA"
+   bar_body_wick                ← body/wick shape code, e.g. "X","MJ","STB"
+   bar_gap_range                ← gap & range-vs-ATR code, e.g. "G1-C","N"
+   bar_line5                    ← PSAR/RSI2/VIX line, e.g. "PS-R2L","VX-PB-R2H"
+   sig_x1, sig_x2, sig_x1g, sig_x3   ← wick-extension flags
+   - composite_full_suffix and bar_line5 are PRICE-SENSITIVE (cents flip them) →
+     these can differ from a TradingView chart. This is what the DB Chart tab shows.
+   vol_bucket counts: L 4.57M · N 1.79M · B 0.90M · W 0.71M · VB 0.26M
+
+5) F / G / B SIGNAL FAMILIES (41)
+   sig_f1..sig_f11 + sig_any_f          ← "F" builder patterns (260418)
+   sig_g1,g2,g4,g6,g11 + g1p,g2p,g3p,g1l,g2l,g1c,g2c,g3c   ← "G" / GOG-context
+   sig_b1..sig_b11 + sig_any_b          ← "B" continuation patterns (260321)
+   sig_cd, sig_ca, sig_cw, sbc          ← F/G combos
+
+6) VABS / VOLUME (14)
+   sig_vol_5x, sig_vol_10x, sig_vol_20x ← volume ≥ N× previous bar (VOLUME-ONLY, safe)
+   sig_abs, sig_clm, sig_sc, sig_bc     ← absorption / climax / selling-climax / buy-climax
+   vbo_up, sig_vbo_dn, load, pb_lvbo, sig_ns_vabs, sig_nd_vabs, sig_va
+
+7) COMBO "2809" / MOMENTUM (11)
+   sig_buy, rocket, hilo_buy, svs, sig_svs, sig_conso, sig_3g, three_g,
+   sig_bias_up, sig_bias_dn, sig_seq_bcont
+   - Upmove + consolidation + breakout momentum logic.
+
+8) FLY (9)   — swing-leg ABCD geometry
+   fly_sig, fly_abcd, fly_cd, fly_bd, fly_ad (+ sig_fly_* mirrors)
+
+9) DELTA ORDER-FLOW (27)   — buy/sell volume split from candle shape (260403)
+   d_strong_bull/bear, d_absorb_bull/bear, d_div_bull/bear, d_cd_bull/bear,
+   d_surge_bull/bear, d_blast_bull/bear, d_vd_div_bull/bear, d_spring, d_upthrust,
+   d_flip_bull/bear, d_orange_bull, d_blast_bull_red, d_blast_bear_grn,
+   d_surge_bull_red, d_surge_bear_grn, sig_flp_up, sig_org_up
+   - "delta" = volume weighted by where price closed in the bar (not true order flow).
+
+10) ULTRA v2 / 260308 (16)
+    eb_bull/bear, fbo_bull/bear, bf_buy/bf_sell, ultra_3up/3dn, best_long/best_short,
+    sig_260308, sig_l88, sig_best_up, sig_fbo_up/dn, sig_eb_up/dn, sig_3up
+    - Break-fail-out + breakout-fail momentum signals.
+
+11) GOG / CTX (3 populated)
+    gog_tier (G1L,G1C,GOG1,G1P,GOG2...), gog_score, sig_gog_plus
+    - NOTE: most CTX/AKAN/RGTI/SMX context signals are NOT computed in this DB.
+
+12) PREUP / PREDN / EMA POSITION (16)
+    sig_p2,p3,p50,p55,p66,p89    ← EMA-cross-up "pre-up" signals
+    sig_d2,d3,d50,d55,d66,d89    ← EMA-drop "pre-down" (in the 'other' group)
+    price_gt_20/50/89/200, price_lt_20/50/89/200   ← price vs EMA flags
+    rsi_le_35, rsi_ge_70         ← RSI(14) oversold / overbought
+    - EMA/RSI are cumulative → PRICE-SENSITIVE, can differ from a TV chart.
+
+13) WYCKOFF / AD-FRESH / PREBREAK — 260523 layer (14)
+    wyc_phase    ← MARKUP / MKDN / ACC_TR / DIST_TR / SPRING / UTAD / SOS / NEUTRAL
+    wyc_spring, wyc_sos, wyc_sow, wyc_in_tr
+    ad_fresh, ad_cluster         ← Z→T reversal-sequence "fresh" / clustered flags
+    prebreak_score, prebreak_prime/ready/watch   ← pre-breakout readiness score+tiers
+    pb_wvf_confirm, pb_stop_cause, pb_macro_penalty
+    wyc_phase counts: MKDN 4.31M · MARKUP 3.38M · ACC_TR 0.44M · DIST_TR 68K ·
+                      NEUTRAL 9.3K · SOS 7.1K · UTAD 4.2K · SPRING 3.7K
+
+14) PIVOTS / SWING STRUCTURE (17)   — Williams pivots (3-3 and 5-5)
+    swing_type, swing_type_3, swing_type_5   ← HH / HL / LH / LL classification
+    is_pivot_high_3, is_pivot_low_3, is_pivot_high_5, is_pivot_low_5
+    next_pivot_is_hl_3/hh_3, next_pivot_is_hl_5/hh_5
+    fwd_swing_ret_3/5            ← % move from this pivot to the NEXT pivot (structural)
+    fwd_swing_bars_3/5, swing_ret_from_prev_3/5
+    swing_type_3 counts: LL 500K · LH 484K · HL 401K · HH 362K
+    - KEY for reversal research: an LL pivot-low = downtrend bottom; HH = uptrend top.
+    - fwd_swing_ret_3 measures the rally/drop to the next pivot (NOT a fixed N days).
+
+15) FORWARD RETURNS / OUTCOME LABELS (27)   ← LOOKAHEAD; backtest labels only
+    fwd_1d, fwd_3d, fwd_5d, fwd_10d, fwd_20d, fwd_30d, fwd_60d, fwd_90d   (% close-to-close)
+    mfe_5d/10d/20d/30d/60d       ← Max Favourable Excursion (% best high ahead)
+    mae_5d/10d/20d/30d           ← Max Adverse Excursion (% worst low ahead)
+    hit_5pct_5d, hit_10pct_5d, hit_20pct_5d, hit_30pct_10d, hit_50pct_20d,
+    hit_2x_60d, hit_3x_90d       ← boolean "did it reach +X% within N days"
+    drop_10pct_5d, drop_20pct_10d, drop_30pct_20d   ← boolean downside hits
+    ⚠️ NEVER use these as features — they peek into the future. Use them only to
+       measure how a signal performed. Tail/recent bars may be NULL until their
+       future arrives (a backfill job fills them — see backfill_fwd.py).
+
+16) SCORES / REGIME (15)
+    turbo_score (+ _n3/_n5/_n10 lookback variants)   ← composite bullish score 0-100
+    ultra_score, final_bull_score, beta_score, beta_zone, aes_score, profile_score
+    rtb_phase (A-Build/B-Turn/C-Ready/D-Late/0), rtb_total
+    final_regime   ← NEUTRAL_OR_LOW / EARLY_WATCH / RISK_REBOUND / CLEAN_ENTRY /
+                     BEARISH_PHASE / ROCKET_WATCH / ACTIONABLE_SETUP / ... (11 values)
+    profile_category, sweet_spot_active
+
+17) OTHER / AGGREGATE STRINGS (~85)
+    all_signals_text             ← human-readable concatenation of every signal on the bar
+    g_sig, b_sig, combo_sig, ult_sig, vol_sig   ← per-engine summary strings
+    sig_fri34/43/64, sig_blue, sig_cci/cci0r/ccib, sig_rl/rh/pp, sig_l_any, sig_be_any,
+    be_up, bo_up, bx_up, sig_wk_up/dn, sq, ...   ← misc WLNBB-extended + wick flags
+
+
+================================================================================
+SECONDARY TABLES (for context — `bars` is the workhorse)
+================================================================================
+events (383,466)        One row per signal-event (e.g. a turbo trigger) with its
+                        forward outcome: ticker, event_date, event_type, close_price,
+                        mfe_60d, fwd_30d, fwd_60d, universe, turbo_at_event.
+                        Use for "how did THIS event type pay off" studies.
+
+ticker_signal_lift_v1   Per-(ticker,signal) historical edge: n_acc, n_local,
+(43,500)                lift_local_2_3, lift_blend_2_3, lift_global_2_3 ...
+                        i.e. how much a signal lifts that specific ticker's odds.
+
+mined_patterns (1,644)  Pattern-miner output: event_type, pre_window, pattern_type,
+                        signals, freq_in_events, base_freq, lift, avg_fwd_30d.
+                        Pre-event signal combos ranked by lift.
+
+acc_exit_lift_v1 (144)  Exit-timing edge per signal (p_close / p_2_3 / p_4_5 + lifts).
+
+import_log (20)         Provenance of each bulk CSV import (rows, tickers, date range,
+                        duration, status). Audit trail of how the DB was built.
+
+custom_scores (1)       A saved user scoring config (weights, hard_filters, threshold).
+
+
+================================================================================
+HOW THE DATA IS MAINTAINED
+================================================================================
+  • Bulk import: bulk_export CSVs (one per universe) → DuckDB `bars`, then enrichment
+    computes all derived columns. Recorded in import_log.
+  • Daily top-up: studio.incremental_delta appends the latest bar(s) per ticker
+    (DELETE-then-INSERT on (universe,ticker,date) for idempotency) and re-runs the
+    enricher so rolling columns (RSI/ATR/avg_vol/pivots/suffixes/Pine engines) stay
+    correct. Forward-return labels for newly-resolved tail bars are backfilled by
+    studio.backfill_fwd (purely additive — only previously-NULL labels get filled).
+  • All signal columns are Python ports of TradingView Pine scripts (260308, 260321,
+    260403_Delta, 260418_F, 260523_WYC/PREBREAK/TZ_WLNBB, etc.).
+
+
+================================================================================
+QUICK USAGE NOTES FOR ANOTHER CHAT
+================================================================================
+  • Connect read-only:  duckdb.connect('/Users/sachoki/Downloads/studio_analytics.duckdb', read_only=True)
+  • Boolean signal columns are 1/0 (or true/false). String columns ('' = none).
+  • To study a signal's edge:   filter rows where the flag = 1, then aggregate
+    fwd_5d / mfe_20d / hit_* against an unfiltered baseline. Compare LIFT vs baseline.
+  • For reversal/structure work use swing_type_3 (+ fwd_swing_ret_3), NOT fixed-day
+    returns — swings are not day-bounded.
+  • VOLUME-based signals (L*, vol_bucket, V×N) match any chart. PRICE-sensitive ones
+    (suffix, bar_line5, RSI/CCI/PSAR/EMA, WYC, prebreak) can differ from TradingView
+    because the price feed differs — trust the DB's own values for DB queries.
+  • Don't leak: fwd_*/mfe_*/mae_*/hit_*/drop_* are OUTCOMES, never inputs.
+================================================================================

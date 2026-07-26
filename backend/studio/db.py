@@ -43,10 +43,63 @@ def _is_busy_error(exc: Exception) -> bool:
             or ("connection error" in m and "database" in m))
 
 # ── DB path ────────────────────────────────────────────────────────────────────
-_DEFAULT_DB = os.path.join(
-    os.path.expanduser("~"), "Downloads", "studio_analytics.duckdb"
-)
+from studio.paths import ANALYTICS_DB as _DEFAULT_DB   # <project>/data (or $SACHOKI_DATA_DIR)
 STUDIO_DB_PATH: str = os.environ.get("STUDIO_DB_PATH", _DEFAULT_DB)
+
+# ── Timeframe routing ───────────────────────────────────────────────────────────
+# Every tf DB shares the identical 394-col `bars` schema; the aux/result tables
+# (events, mined_patterns, custom_scores, …) live ONLY in the 1d analytics DB.
+# use_tf('1h') makes get_conn() transparently serve that tf to every studio
+# module without touching module code:
+#   read-only  → connect the tf DB, ATTACH analytics RO, TEMP VIEWs for aux tables
+#   read-write → connect analytics RW (single-writer rule intact), ATTACH the tf
+#                DB RO, TEMP VIEW `bars` shadows main.bars for reads; unqualified
+#                writes to aux tables still hit the real analytics tables.
+import contextvars
+from contextlib import contextmanager
+
+TF_DB_FILES = {
+    "1d":  None,                      # native analytics DB
+    "1w":  "studio_1w.duckdb",
+    "4h":  "studio_4h.duckdb",
+    "1h":  "studio_1h.duckdb",
+    "15m": "studio_15m.duckdb",       # enriched (static — rebuilt after 15m re-enrich)
+}
+_AUX_TABLES = ("events", "mined_patterns", "custom_scores", "backtest_results",
+               "bar_descriptions", "acc_exit_lift_v1", "ticker_signal_lift_v1",
+               "import_log")
+_active_tf: contextvars.ContextVar[str] = contextvars.ContextVar("studio_tf", default="1d")
+
+
+def current_tf() -> str:
+    return _active_tf.get()
+
+
+def tf_db_path(tf: str) -> str:
+    from studio.paths import db_path
+    fname = TF_DB_FILES.get(tf)
+    return STUDIO_DB_PATH if fname is None else db_path(fname)
+
+
+@contextmanager
+def use_tf(tf: str | None):
+    """Route all get_conn() calls inside the block to the given timeframe DB."""
+    tf = (tf or "1d").lower()
+    if tf not in TF_DB_FILES:
+        raise ValueError(f"unknown tf '{tf}' (expected one of {list(TF_DB_FILES)})")
+    if tf != "1d" and not os.path.exists(tf_db_path(tf)):
+        raise FileNotFoundError(f"{tf} DB not built yet: {tf_db_path(tf)}")
+    token = _active_tf.set(tf)
+    try:
+        yield
+    finally:
+        _active_tf.reset(token)
+
+
+def get_conn_tf(tf: str, read_only: bool = True) -> duckdb.DuckDBPyConnection:
+    """One-off connection for an explicit timeframe (bypasses the context var)."""
+    with use_tf(tf):
+        return get_conn(read_only=read_only)
 
 
 def get_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
@@ -56,8 +109,46 @@ def get_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:
     subprocesses or external analysis scripts; writers (import / enrich / refresh)
     open read-write. NB: a read-write writer and read-only readers cannot be open
     SIMULTANEOUSLY in one process (DuckDB raises "different configuration") — callers
-    around a write must avoid overlapping reads (see _is_config_conflict retry)."""
-    return duckdb.connect(STUDIO_DB_PATH, read_only=read_only)
+    around a write must avoid overlapping reads (see _is_config_conflict retry).
+    When a use_tf(...) context is active, the connection is transparently routed
+    to that timeframe's DB (see the Timeframe routing note above)."""
+    tf = _active_tf.get()
+    if tf in (None, "1d"):
+        if not read_only:
+            return _connect_rw_retry(STUDIO_DB_PATH)
+        return duckdb.connect(STUDIO_DB_PATH, read_only=read_only)
+    tfp = tf_db_path(tf)
+    if read_only:
+        conn = duckdb.connect(tfp, read_only=True)
+        try:
+            conn.execute(f"ATTACH IF NOT EXISTS '{STUDIO_DB_PATH}' AS ana (READ_ONLY)")
+            for t in _AUX_TABLES:
+                conn.execute(f"CREATE TEMP VIEW IF NOT EXISTS {t} AS SELECT * FROM ana.{t}")
+        except Exception as e:
+            # analytics may be locked by a concurrent writer — bars still work,
+            # aux tables just won't resolve in this connection
+            log.debug("tf conn: analytics attach skipped (%s)", str(e)[:80])
+        return conn
+    conn = _connect_rw_retry(STUDIO_DB_PATH)
+    conn.execute(f"ATTACH IF NOT EXISTS '{tfp}' AS tfdb (READ_ONLY)")
+    conn.execute("CREATE TEMP VIEW IF NOT EXISTS bars AS SELECT * FROM tfdb.bars")
+    return conn
+
+
+def _connect_rw_retry(path: str, attempts: int = 10, delay: float = 0.35) -> duckdb.DuckDBPyConnection:
+    """Open a read-write connection, retrying through transient in-process
+    ro/rw configuration conflicts (a read-only reader — e.g. a tf connection
+    that ATTACHed analytics RO — is briefly open somewhere)."""
+    last = None
+    for _ in range(attempts):
+        try:
+            return duckdb.connect(path, read_only=False)
+        except Exception as e:
+            if not _is_busy_error(e):
+                raise
+            last = e
+            time.sleep(delay)
+    raise last
 
 
 # ── Schema ─────────────────────────────────────────────────────────────────────
@@ -627,6 +718,11 @@ def ensure_schema() -> None:
                     conn.execute(f"ALTER TABLE bars ADD COLUMN {col} DOUBLE")
                 except Exception:
                     pass
+        # Migration: events carry the timeframe they were detected on (TF routing)
+        try:
+            conn.execute("ALTER TABLE events ADD COLUMN IF NOT EXISTS tf VARCHAR DEFAULT '1d'")
+        except Exception:
+            pass
         conn.commit()
     except Exception:
         pass
@@ -655,7 +751,10 @@ def get_stats(retries: int = 3) -> dict:
                 date_range = conn.execute(
                     "SELECT MIN(date), MAX(date) FROM bars"
                 ).fetchone()
-                events = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+                try:
+                    events = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
+                except Exception:
+                    events = None   # tf conn with analytics locked — aux views absent
             return {
                 "rows": rows,
                 "tickers": tickers,
@@ -663,7 +762,8 @@ def get_stats(retries: int = 3) -> dict:
                 "date_from": str(date_range[0]) if date_range[0] else None,
                 "date_to": str(date_range[1]) if date_range[1] else None,
                 "events": events,
-                "db_path": STUDIO_DB_PATH,
+                "tf": current_tf(),
+                "db_path": tf_db_path(current_tf()),
             }
         except Exception as exc:
             last_exc = exc

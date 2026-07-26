@@ -62,7 +62,13 @@ export default function AtomicScanPanel({ onSelectTicker }) {
         <div className={`inline-flex items-center gap-2 px-3 py-1 rounded border text-xs mb-3 ${REG_CLS[reg.label] || ''}`}>
           <b>REGIME: {reg.label}</b>
           <span className="opacity-80">score {reg.score} · size ×{reg.conv_mult}</span>
-          {reg.label === 'RISK_OFF' && <span className="opacity-90">— ⚠ this edge loses in bear tape; small size / watch only</span>}
+        </div>
+      )}
+      {data?.atomic_regime?.breadth != null && (
+        <div className={`inline-flex items-center gap-2 px-3 py-1 rounded border text-xs mb-3 ml-2 ${data.atomic_regime.risk_off ? 'bg-emerald-900/30 border-emerald-500/50 text-emerald-200' : 'bg-amber-900/20 border-amber-600/40 text-amber-200'}`}>
+          {data.atomic_regime.risk_off
+            ? <><b>🩸 FEAR · breadth {data.atomic_regime.breadth}</b><span className="opacity-90">— edge ACTIVE (validated OOS: capitulation-reversion works in fear; deeper = stronger)</span></>
+            : <><b>😀 EUPHORIA · breadth {data.atomic_regime.breadth}</b><span className="opacity-90">— edge MUTED, stand down (this edge lives in fear, dies in euphoria)</span></>}
         </div>
       )}
       <div className="flex items-center gap-2 text-xs mb-3 flex-wrap">

@@ -363,6 +363,35 @@ def _cache_key(universe: str, tf: str, nasdaq_batch: str = "") -> tuple:
 # ─────────────────────────────────────────────────────────────────────────────
 
 from ultra_score import compute_ultra_score as _shared_compute_ultra_score
+from ultra_score import compute_ultra_score_v3 as _shared_compute_ultra_score_v3
+
+# ── v3 edge-axis lookup: latest-bar rs_intact / conf_n / tls_bar per ticker ──────────────
+# The v3 ranker's 🏆RS / 🎯cluster / 🎋TLS bonuses live in edge_replay, not the raw Ultra
+# row. We build a {ticker: (rs_intact, conf_n, tls_bar)} map from the CACHED edge frame's
+# last bar (cheap dict lookup; the frame is already warmed), TTL 1h. Best-effort: any failure
+# leaves the axes absent and v3 degrades to its +0.051 oversold+price+earners core.
+_V3_AXES: dict = {}
+_V3_AXES_TS: list = [0.0]
+
+
+def _v3_axes_map() -> dict:
+    import time
+    if _V3_AXES and (time.time() - _V3_AXES_TS[0]) < 3600:
+        return _V3_AXES
+    try:
+        import edge_replay as _ER
+        grp, _ = _ER._frame(60, 3_000_000)
+        m = {}
+        for tk, g in grp.items():
+            r = g.iloc[-1]
+            m[tk] = (bool(r.get("rs_intact", False)),
+                     int(r.get("conf_n", 0) or 0),
+                     bool(r.get("tls_bar", False)))
+        if m:
+            _V3_AXES.clear(); _V3_AXES.update(m); _V3_AXES_TS[0] = time.time()
+    except Exception:
+        log.debug("v3 axes map build skipped", exc_info=True)
+    return _V3_AXES
 
 
 def _attach_ultra_score(row: dict) -> None:
@@ -374,9 +403,27 @@ def _attach_ultra_score(row: dict) -> None:
     leaving `ultra_score` as null (→ frontend "—") for every row.
     """
     try:
+        # inject the v3 edge axes (rs_intact / conf_n / tls_bar) from the cached edge frame,
+        # unless the row already carries them — best-effort, never blocks the score
+        try:
+            tk = row.get("ticker")
+            if tk and "rs_intact" not in row:
+                ax = _v3_axes_map().get(tk)
+                if ax:
+                    row["rs_intact"], row["conf_n"], row["tls_bar"] = ax
+        except Exception:
+            pass
         sc = _shared_compute_ultra_score(row)
         row["ultra_score"]                    = sc["ultra_score"]
         row["ultra_score_band"]               = sc["ultra_score_band"]
+        # v3 reweighted ranker — attached ALONGSIDE the v1/v2 score (non-destructive)
+        try:
+            v3 = _shared_compute_ultra_score_v3(row)
+            row["ultra_score_v3"]         = v3["ultra_score_v3"]
+            row["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
+            row["ultra_score_v3_reasons"] = v3["ultra_score_v3_reasons"]
+        except Exception:
+            row["ultra_score_v3"] = 0; row["ultra_score_v3_band"] = "D"; row["ultra_score_v3_reasons"] = []
         row["ultra_score_reasons"]            = sc["ultra_score_reasons"]
         row["ultra_score_flags"]              = sc["ultra_score_flags"]
         row["ultra_score_raw_before_penalty"] = sc["ultra_score_raw_before_penalty"]

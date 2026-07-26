@@ -1,0 +1,210 @@
+================================================================================
+CHART (TradingView) vs DB (Studio/Massive) — სრული DIVERGENCE ანალიზი
+2026-05-29 · Sachoki Screener · DuckDB studio_analytics (8.22M ბარი, 5 წელი)
+================================================================================
+
+მიზანი
+------
+რატომ ხდება, რომ ცოცხალ TradingView chart-ზე წაკითხული სიგნალების კოდები ზოგჯერ
+არ ემთხვევა Studio DB-ს (და ამიტომ Sequence Builder / Ultra screener აბრუნებს
+"0 match"-ს ან განსხვავებულ label-ებს). პლუს ყველა ფილტრის აუდიტი — რომელი
+სიგნალია რისკის ქვეშ, და ფიქსი, რაც ავაშენეთ (DB-ზე დაფუძნებული chart).
+
+
+================================================================================
+1. მთავარი დასკვნა
+================================================================================
+TradingView და Studio DB სხვადასხვა ფასის feed-ზე დგანან:
+  - TradingView chart  = TradingView-ის კონსოლიდირებული ფასის feed + ცოცხალი Pine
+  - Studio DB          = Massive API feed + Python-port enrichment (და შეიძლება
+                         stale იყოს: მაგ. JOBY მხოლოდ 2026-05-27-მდე ტესტის დროს)
+
+მოცულობა (volume) იდენტურია ორ feed-ში. ფასები (OHLC) კი ოდნავ განსხვავდება.
+=> ნებისმიერი სიგნალი, რომელიც მგრძნობიარეა ზუსტ ფასზე (განსაკუთრებით cumulative
+   ინდიკატორები და ცენტების დონეზე wick-შედარებები), შეიძლება სხვანაირად იკითხოს
+   chart-ზე, ვიდრე DB-ში.
+=> მხოლოდ-მოცულობითი სიგნალები უსაფრთხოა (ემთხვევა).
+
+ეს არც კოდის bug-ია და არც matcher-ის bug-ი — ეს მონაცემთა-წყაროს სხვაობაა.
+
+
+================================================================================
+2. მტკიცებულება — JOBY ბარ-ბარ (6 ხაზი), CHART vs DB, იმავე თარიღებზე
+================================================================================
+date    ხაზი     CHART (TradingView)     DB (Studio)        ემთხვევა
+05-19   TZ       Z1G                     Z1G                ✓
+        L        L46                     L46                ✓
+        suffix   ED                      NDPI               ✗
+        body/wk  XBB                     XBB                ✓
+        gap/rng  N                       N                  ✓
+        line5    PB-R2L                  PS                 ✗
+05-20   TZ       T3                      T3                 ✓
+        L        L12                     L12                ✓
+        suffix   NURI                    NHI                ✗
+        body/wk  SJ                      MJ                 ✗
+        gap/rng  N                       N                  ✓
+        line5    PS-R2X                  PS-R2L             ✗
+05-22   TZ       T2G                     T2G                ✓
+        L        L3                      L3                 ✓
+        suffix   EU                      EUR                ✗
+        body/wk  S                       X                  ✗
+        gap/rng  G1-N                    N                  ✗
+        line5    PB-R2H                  PS-R2X             ✗
+05-26   ყველა 6  T2G·L3·EU·S·N·PB-R2H    (იდენტური)         ✓✓✓✓✓✓
+05-27   TZ       T10                     Z9                 ✗ (bull vs bear!)
+        suffix   NDPI                    NDI                ✗
+        line5    PB-R2H                  PB-R2D             ✗
+
+ხაზ-ხაზ ემთხვევის პროცენტი (7 ბარი, 05-18..05-27):
+  L (line2 / მოცულობის bucket) ........ 7/7   <- მოცულობა იდენტურია
+  TZ (line1 / სანთლის მიმართულება) .... 6/7
+  gap/range ........................... 6/7
+  body/wick ........................... 4/7
+  suffix (wick vs წინა hi/lo) ......... 1/7   <- ცენტებზე მგრძნობიარე
+  line5 (PSAR/RSI2/VIX) ............... 1/7   <- path-dependent (ყველაზე ცუდი)
+
+ინტერპრეტაცია
+  - L ემთხვევა 7/7 და მოცულობაზეა დაფუძნებული => მოცულობა იდენტურია ორ feed-ში.
+  - ფასზე-მგრძნობიარე ხაზები (suffix, line5, body/wick) მძაფრად იშლება => ფასები
+    განსხვავდება.
+  - 05-26-ზე ყველა 6 დაემთხვა => იმ დღეს ორი feed-ის OHLC დაემთხვა; ეს ამტკიცებს,
+    რომ Python PORT სწორია (port-bug არ არის) — სხვაობა input მონაცემშია.
+  - 05-27-ზე TZ-ც გადაბრუნდა (T10 bull vs Z9 bear) => იმ დღეს ფასები იმდენად
+    განსხვავდა, რომ სანთლის მიმართულებაც შეიცვალა.
+
+
+================================================================================
+3. რატომ აბრუნებდა Sequence Builder "0 MATCH"-ს
+================================================================================
+სამი დამოუკიდებელი მიზეზი, ყველა ნამდვილი (ვერცერთი კოდის bug):
+
+(a) FEED DIVERGENCE — TradingView chart-იდან წაკითხული კოდები იმ ზუსტ DB ბარებზე
+    არ არსებობს (სექცია 2). ფიქსი: კოდები DB Chart-იდან აიღე, არა TradingView-დან.
+
+(b) OVER-SPECIFICATION — ბევრი ზუსტი ატრიბუტის მოთხოვნა რამდენიმე თანმიმდევრულ
+    ბარზე 0-მდე ჩამოვა. მაგალითი:
+      bar-2 (Z1G + ED + PB-R2L)  და  bar-1 (T3 + NURI + PS-R2X) თანმიმდევრულად
+        - თითო ბარის სრული signature ცალკე: 6,863 და 2,858 შემთხვევა
+        - ზუსტი თანმიმდევრული transition (ყველა 6): 0 მთელ 8.2M ბარ-ში
+      sub-კომბინაციები არსებობს (Z1G/ED->T3/NURI = 227 და ასე), მაგრამ ყველა-6
+      ერთად = 0.
+
+(c) TYPO / DASH — "PSR2X" vs "PS-R2X" (ტირე აკლდა) => 0.
+    დადასტურებული: როგორც აკრიფე = 0 match; გასწორებული PS-R2X = 1 match (JOBY).
+    გაკვეთილი: ზუსტი მართლწერა ტირეებითურთ მნიშვნელოვანია. (არჩევითი ფიქსი:
+    builder dash-insensitive — ჯერ არ გაკეთებულა.)
+
+
+================================================================================
+4. სრული FILTER DIVERGENCE AUDIT (Ultra Scan / Advanced Filters)
+================================================================================
+წესი: რისკი = ზუსტ ფასზე მგრძნობელობა.
+  Cumulative ინდიკატორები (EMA/RSI/CCI/ATR/PSAR/Bollinger/WVF/Fourier) = HIGH
+  ცენტების დონეზე გეომეტრია (wick/penetration/body/gap/exact-cross/doji) = HIGH
+  უხეში სანთლის მიმართულება / engulfing                                  = MEDIUM
+  სუფთა მოცულობა                                                          = LOW (უსაფრთხო)
+
+-------------------------------------------------------------------------------
+TIER 1 — მაღალი რისკი (DB Chart-ით გადაამოწმე, სანამ ენდობი)
+-------------------------------------------------------------------------------
+  line5:    L5* / VX / VR / PB / PS / R2L / R2H / R2X       (WVF, PSAR, RSI2) - ყველაზე ცუდი
+  suffix:   NE / E / WK up/dn/both                           (wick vs წინა hi/lo)
+  body/wk:  X / M / S / J / TB / BB / F / XF / MF            (body & wick ფრაქცია)
+  osc:      CCI / CCI0R / CCIB ; RSI<=35 / RSI>=70           (CCI, RSI14)
+  gap/rng:  G1 / G2 / G3 / V / C / N                         (gap, range vs ATR)
+  bands:    BB up / BO up/dn / BX up/dn / BE up/dn / RH / RL / PP / BE / BL  (Bollinger)
+  vol-atr:  ATR up                                          (ATR cumulative)
+  EMA:      PREUP/PREDN (P66 P55 P89 P3 P2 P50 / D66 D55 D89 D3 D2 D50 / ANY P / ANY D)
+            P>200 P>89 P>50 P>20  P<200 P<89 P<50 P<20  3G   (EMA cross-ები / vs EMA)
+  combo:    RTV (RSI2+WVF) / HILO (RSI2) / ^BIAS (MACD+EMA+RSI) / CON (ATR/BB)
+  psar:     PREP / PARA / PARA+ / RETEST                     (Parabolic SAR)
+  wick-ext: X2G / X2 / X1G / X1 / X3 / WK up
+  260523:   AD-FRESH* / AD-CLUSTER** / WYC SPRING/UTAD/SOS/ACC_TR/DIST_TR/MARKUP/MKDN
+            / In TR / SOW                                    (Fourier + ATR + EMA)
+  prebreak: PRIME* / READY / WATCH / LVBO / W-PHASE / WVF    (composite cumulative)
+  macro:    No penalty / Penalty                            (pb_macro_penalty, EMA)
+  regime:   RTB Phase A-Build/B-Turn/C-Ready/D-Late
+  rs:       RS+ / RS   (Relative Strength vs SPY+IWM — ფასის ratio + სჭირდება index feed)
+  special:  Z7 (doji = close==open ზუსტი — ერთი ცენტი შლის)
+  profile:  Sweet Spot / Building / Watch  (composite turbo score)
+
+-------------------------------------------------------------------------------
+TIER 2 — საშუალო რისკი (ჩვეულებრივ ემთხვევა; borderline სანთელზე შეიძლება გადაბრუნდეს)
+-------------------------------------------------------------------------------
+  TZ:       T1..T12 / Z1..Z12 / T1G T2G Z1G Z2G / ANY T / ANY Z / TZ->3 / TZ->2 / W
+            (დადასტურდა 6/7; ვნახეთ T10<->Z9 flip)
+  delta:    DD up / D up / B/S up / Ab up / dSPR / T dn / NS / ND / cd up / FLP up
+            / ORG up / DD up R / D up R / D dn G / DD dn G  (buy/sell-vol wick-იდან)
+  ultra v2: BEST up / FBO up/dn / EB up/dn / 4BF / 4BF dn / 3up
+  vabs:     BEST* / STRONG / ABS / CLB / LD / NS / SQ / SC / ND  (მოცულობა + spread/CLV)
+  vbo:      VBO up                                         (მოცულობის breakout + დონე)
+  combo:    BUY / rocket / UM / SVS
+  f/g:      CD / CA / CW / G1 / G2 / G4 / G6 / G11 / SBC
+  fly:      ABCD / CD / BD / AD                            (swing/pivot გეომეტრია)
+  ultra260: 260308 / L88                                   (მოცულობის jump + delta + L34)
+  swing:    HL / LL / HH / LH / Any pivot   <-- იხ. შენიშვნა ქვევით
+
+  SWING შენიშვნა (მნიშვნელოვანია — ამან დაუდო საზღვარი მთელ reversal-კვლევას /
+  swing_type_3):
+    pivot detection (ლოკალური extremum +/-3) ძირითადად ემთხვევა, მაგრამ near-tie-ზე
+    pivot შეიძლება +/-1 ბარით გადაიწიოს; და pivot კლასიფიკაცია (ეს low წინა pivot-low-ზე
+    დაბალია => LL, თუ არა HL) ცენტებზე გადაბრუნდება. ანუ TradingView-ზე "HL" შეიძლება
+    DB-ში "LL" იყოს, თუ feed-ი ოდნავ განსხვავდება — თუნდაც pivot-ი დადასტურდეს.
+
+-------------------------------------------------------------------------------
+TIER 3 — დაბალი რისკი (მოცულობაზე დაფუძნებული -> უსაფრთხო, ემთხვევა TradingView-ს)
+-------------------------------------------------------------------------------
+  L family: ANY L / L1..L6 / L22 / L34 / L43 / L64 / FRI34 / FRI43 / FRI64
+            / L555 / L1L2 / L2L4 / L*       (WLNBB მოცულობის Bollinger bucket) - 7/7
+  buckets:  VB / B / N
+  vol mult: V x20 / V x10 / V x5            (მოცულობა / წინა-ბარის მოცულობა)
+  vol-atr:  VA                              (დადასტურდა: vol-ratio crossover, მხოლოდ მოცულობა)
+
+-------------------------------------------------------------------------------
+METADATA (ფასის-feed divergence არ აქვს)
+-------------------------------------------------------------------------------
+  [E]   earnings marker (event date; სჭირდება earnings მონაცემი DB-ში)
+  yf    განმარტება engine-ში ვერ მოინახა — უცნობი / ცალკე გადასამოწმებელი
+
+-------------------------------------------------------------------------------
+DB-ში საერთოდ არ არის (ცალკე საკითხი — DB-instant რეჟიმში არასდროს ითვლება)
+-------------------------------------------------------------------------------
+  RGTI:  LL / UP / up-up / up-up-up / ORG / GRN / GC ; SMX   (LIVE-შიც disabled)
+  GOG/CTX: A / SM / N / MX / GOG / G1P..G3C / *GOG+ / !EXT / LDS / LDC / LDP / LRC
+           / LRP / WRC / SQB / BCT          (gog_engine multi-input, არ არის portირებული)
+  cross:  zap x2+ / x3+ / x4+               (ზემოტებს ითვლის)
+  sector: XLC..XLU                          (sector სვეტი NULL, lazy-fetch)
+
+
+================================================================================
+5. ფიქსი, რაც ავაშენეთ — DB-ზე დაფუძნებული chart Studio-ში
+================================================================================
+ახალი Studio tab: "DB Chart" (Exact Sequence-ის გვერდით). Component DbCandleChart.jsx.
+  - Backend: /api/studio/bars/{ticker} გაფართოვდა — აბრუნებს ყველა 6 ხაზს
+    (t_sig/z_sig, l_sig, composite_full_suffix, bar_body_wick, bar_gap_range,
+     bar_line5) + swing_type_3 + pivot-ები, პირდაპირ DB-დან.
+  - Frontend: lightweight-charts სანთლები + მოცულობა (bucket ფერები) + T/Z მარკერები;
+    გადაატარე მაუსი ნებისმიერ ბარზე -> tooltip აჩვენებს ზუსტ 6 DB ხაზს.
+  - ეს არის ზუსტი კოდები, რასაც Sequence Builder / Ultra screener იყენებს, ანუ რასაც
+    აქ წაიკითხავ, დაემთხვევა (TradingView feed-ის სხვაობის გარეშე).
+
+როგორ გამოვიყენო: Studio -> DB Chart -> ჩაწერე ticker -> Load -> გადაატარე ბარებზე.
+Sequence Builder-ისთვის კოდები აქედან აიღე, არა TradingView-დან.
+
+
+================================================================================
+6. პრაქტიკული წესები
+================================================================================
+  1. ენდე ნებისმიერ chart-ზე (TV ან DB): L-კოდები, vol bucket, V x N, VA (მოცულობა).
+  2. გადაამოწმე DB Chart-ზე, სანამ მოქმედებ: ყველაფერი TIER 1-ში
+     (line5, suffix, RSI/CCI/PSAR/EMA/WVF, PREUP/PREDN, WYC, PREBREAK, RS, Macro).
+  3. TIER 2 ჩვეულებრივ ემთხვევა; borderline-ზე გადაამოწმე. უყურე LL<->HL / HH<->LH.
+  4. Sequence Builder: კოდები DB Chart-იდან აიღე, ზუსტად დაწერე (ტირეებითურთ, მაგ.
+     PS-R2X არა PSR2X) და ნუ გადააჭარბებ (1-2 ხაზი sequence-ზე, არა ყველა 6 თითო
+     ბარზე, თორემ 0-ს მიიღებ).
+  5. Ultra screener და DB Chart ერთსა და იმავე DuckDB-ს კითხულობენ -> ყოველთვის
+     ერთმანეთს ემთხვევიან; მხოლოდ TradingView განსხვავდება.
+
+================================================================================
+დასასრული
+================================================================================

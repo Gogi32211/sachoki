@@ -144,9 +144,34 @@ export const api = {
   barSignals: (ticker, tf = '1d', bars = 80) =>
     get(`/api/bar_signals/${ticker}?tf=${tf}&bars=${bars}`),
 
+  // 1D←1H decomposition: each day broken into its 1H bars (TZ token + L + vol class)
+  day1h: (ticker, days = 45) =>
+    get(`/api/day1h/${ticker}?days=${days}`),
+
+  // 🧠 Decision brain: today's risk-budgeted BUY plans + regime
+  brainDecisions: (critique = false) =>
+    get(`/api/brain/decisions?critique=${critique}`),
+  brainRegime: () => get('/api/brain/regime'),
+  brainJournal: () => get('/api/brain/journal'),
+  brainOpen: (pos) => post('/api/brain/journal/open', pos),
+  brainClose: (ticker, exitPrice, reason = '') =>
+    post('/api/brain/journal/close', { ticker, exit_price: exitPrice, reason }),
+  brainClosed: () => get('/api/brain/closed'),
+  brainPostmortem: (ticker) => get(`/api/brain/postmortem?ticker=${encodeURIComponent(ticker)}`),
+  brainLearningLog: () => get('/api/brain/learning-log'),
+  brainLearn: (apply = false) => get(`/api/brain/learn?apply=${apply}`),
+  brainRevalidate: (apply = false) => get(`/api/brain/revalidate?apply=${apply}`),
+  brainMap: () => get('/api/brain/map'),
+  brainDiscoveries: () => get('/api/brain/discoveries'),
+  brainMine: (apply = false) => get(`/api/brain/mine?apply=${apply}`),
+  brainRequests: (status = '') => get(`/api/brain/requests${status ? `?status=${status}` : ''}`),
+  brainAnswer: (id, answer) => post('/api/brain/requests/answer', { id, answer }),
+
   // DB-sourced bars (stored OHLC + 6-line chart codes, matches Sequence Builder)
-  studioBars: (ticker, limit = 300) =>
-    get(`/api/studio/bars/${ticker}?limit=${limit}`),
+  studioBars: (ticker, limit = 300, tf = '1d') =>
+    get(`/api/studio/bars/${ticker}?limit=${limit}&tf=${tf}`),
+  studioWeeklyBars: (ticker, limit = 300) =>
+    get(`/api/studio/bars/${ticker}?limit=${limit}&tf=1w`),
 
   // Today's LIVE forming 1d bar(s) + signals (Massive, 15-min delayed) to append
   // onto the DB chart. Returns {bars:[...]} with date > `after`; [] when closed.
@@ -283,7 +308,7 @@ export const api = {
     post('/portfolio/entry-price', prices),
 
   // ── Analytic Studio ─────────────────────────────────────────────────────────
-  studioStats:         ()                      => get('/api/studio/stats'),
+  studioStats:         (tf = '1d')             => get(`/api/studio/stats?tf=${tf}`),
   studioImport:        (universes)             => post('/api/studio/import', { universes }),
   studioImportStatus:  ()                      => get('/api/studio/import/status'),
   studioEnrich:        (universe = 'sp500', max_workers = 1) =>
@@ -319,7 +344,7 @@ export const api = {
   studioPresets:       ()                      => get('/api/studio/presets'),
 
   studioEventsDetect:  (body)                  => post('/api/studio/events/detect', body),
-  studioEventsSummary: ()                      => get('/api/studio/events/summary'),
+  studioEventsSummary: (tf = '1d')             => get(`/api/studio/events/summary?tf=${tf}`),
   studioEventsList:    (params = {})           => {
     const p = new URLSearchParams()
     Object.entries(params).forEach(([k, v]) => v != null && v !== '' && p.set(k, v))
@@ -338,7 +363,7 @@ export const api = {
   studioTickerBars:    (ticker, limit = 120)   => get(`/api/studio/bars/${ticker}?limit=${limit}`),
   studioBarsSearch:    (body)                  => post('/api/studio/bars/search', body),
 
-  studioSigFilters:    ()                      => get('/api/studio/signal-stats/filters'),
+  studioSigFilters:    (tf = '1d')             => get(`/api/studio/signal-stats/filters?tf=${tf}`),
   studioSigQuery:      (body)                  => post('/api/studio/signal-stats/query', body),
   studioSigRank:       (body)                  => post('/api/studio/signal-stats/rank', body),
   studioSigSequence:   (body)                  => post('/api/studio/signal-stats/sequence', body),

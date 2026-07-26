@@ -17,7 +17,7 @@ from typing import Optional
 
 import pandas as pd
 
-from studio.db import get_conn
+from studio.db import get_conn, current_tf
 
 log = logging.getLogger(__name__)
 
@@ -144,7 +144,8 @@ def detect_events(f: EventFilter, clear_existing: bool = True) -> dict:
         rows = conn.execute(sql, params).fetchdf()
 
         if clear_existing:
-            conn.execute("DELETE FROM events WHERE event_type = ?", [event_type])
+            conn.execute("DELETE FROM events WHERE event_type = ? AND coalesce(tf,'1d') = ?",
+                         [event_type, current_tf()])
 
         if len(rows) == 0:
             conn.commit()
@@ -153,6 +154,7 @@ def detect_events(f: EventFilter, clear_existing: bool = True) -> dict:
         rows["event_type"]  = event_type
         rows["tags"]        = "[]"
         rows["notes"]       = ""
+        rows["tf"]          = current_tf()
 
         # Rename to match events table
         rows = rows.rename(columns={
@@ -166,10 +168,10 @@ def detect_events(f: EventFilter, clear_existing: bool = True) -> dict:
         conn.execute("""
             INSERT INTO events
               (ticker, event_date, event_type, close_price, mfe_60d,
-               fwd_30d, fwd_60d, universe, turbo_at_event, tags, notes)
+               fwd_30d, fwd_60d, universe, turbo_at_event, tags, notes, tf)
             SELECT
               ticker, event_date, event_type, close_price, mfe_60d,
-              fwd_30d, fwd_60d, universe, turbo_at_event, tags, notes
+              fwd_30d, fwd_60d, universe, turbo_at_event, tags, notes, tf
             FROM _ev_df
         """)
         conn.commit()
@@ -216,10 +218,12 @@ def get_events_summary() -> dict:
     conn = get_conn(read_only=True)
     try:
         by_type = conn.execute(
-            "SELECT event_type, COUNT(*) as n FROM events GROUP BY event_type ORDER BY n DESC"
+            "SELECT event_type, COUNT(*) as n FROM events WHERE coalesce(tf,'1d') = ? "
+            "GROUP BY event_type ORDER BY n DESC", [current_tf()]
         ).fetchdf().to_dict("records")
-        total = conn.execute("SELECT COUNT(*) FROM events").fetchone()[0]
-        return {"total": total, "by_type": by_type}
+        total = conn.execute("SELECT COUNT(*) FROM events WHERE coalesce(tf,'1d') = ?",
+                             [current_tf()]).fetchone()[0]
+        return {"total": total, "by_type": by_type, "tf": current_tf()}
     finally:
         conn.close()
 
@@ -231,12 +235,12 @@ def list_events(
     offset:     int = 0,
 ) -> list[dict]:
     """Paginated event listing."""
-    clauses, params = [], []
+    clauses, params = ["coalesce(tf,'1d') = ?"], [current_tf()]
     if event_type:
         clauses.append("event_type = ?"); params.append(event_type)
     if universe:
         clauses.append("universe = ?");   params.append(universe)
-    where = " AND ".join(clauses) if clauses else "1=1"
+    where = " AND ".join(clauses)
     sql = f"""
         SELECT id, ticker, event_date, event_type, close_price,
                mfe_60d, fwd_30d, universe, turbo_at_event

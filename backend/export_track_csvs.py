@@ -7,7 +7,7 @@ score, dates). Fully synchronised with the DB so you can load it back into DuckD
 ask "which feature drives winners?" before changing a pattern.
 
 Usage:   uv run python export_track_csvs.py [months]      (default 12)
-Outputs: ~/Downloads/{capit,atomic,ai}_track.csv
+Outputs: <project>/exports/{capit,atomic,ai}_track.csv
 
 Then in DuckDB / Python, e.g.:
     SELECT l_sig, count(*) n, round(avg(pnl),2) avg_pnl,
@@ -19,8 +19,10 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(__file__))
 from ai_journal.db import get_analytics_conn
 from ai_journal import capit_journal, atomic_journal, ai_replay
+from studio.paths import EXPORTS_DIR
 
-OUT = os.path.expanduser("~/Downloads")
+OUT = EXPORTS_DIR
+os.makedirs(OUT, exist_ok=True)
 MONTHS = int(sys.argv[1]) if len(sys.argv) > 1 else 12
 _OUT_FIRST = ["ticker", "universe", "signal_date", "open_date", "close_date",
               "entry", "exit", "pnl", "reason", "score", "v3", "month"]

@@ -9,13 +9,15 @@ const UNIVERSES = [
   { key: 'all_us',     label: 'All US' },
   { key: 'split',      label: 'SPLIT' },
 ]
-const TF_OPTS    = ['1d', '4h', '1h']
+const TF_OPTS    = ['1w', '1d', '4h', '1h', '15m']
 const SEQ_LENGTHS = [2, 3, 4, 5, 6]
 const MODES = [
   { key: 'type', label: 'T/Z type', help: 'Each bar contributes "T" or "Z" — e.g. "TZTZ"' },
   { key: 'full', label: 'Full label', help: 'Each bar contributes its full signal name — e.g. "T4|Z2|T1G|Z3"' },
+  { key: 'full_l', label: 'Full label + L', help: 'Full label WITH each bar\'s L signal — e.g. "T1GL3|Z2GL12|T11"' },
 ]
 const SORTS = [
+  { key: 'robust',       label: '🛡️ Robust (2022-aware)' },
   { key: 'score',        label: 'Score (WR × log count)' },
   { key: 'win_rate',     label: 'Win rate (1D)' },
   { key: 'win_rate_3d',  label: 'Win rate (3D)' },
@@ -57,6 +59,13 @@ export default function SequenceScanPanel() {
   const [sortBy,    setSortBy]    = useState('score')
   const [limit,     setLimit]     = useState(100)
   const [filter,    setFilter]    = useState('')
+  const [years,     setYears]     = useState([])
+  const [months,    setMonths]    = useState([])
+  const [rsiMin,    setRsiMin]    = useState('')
+  const [rsiMax,    setRsiMax]    = useState('')
+  const [lSigs,     setLSigs]     = useState([])
+  const [priceMin,  setPriceMin]  = useState('')
+  const [priceMax,  setPriceMax]  = useState('')
 
   const [status,    setStatus]    = useState({ status: 'idle', progress: 0, total: 0, pct: 0 })
   const [results,   setResults]   = useState([])
@@ -66,8 +75,18 @@ export default function SequenceScanPanel() {
   const pollRef = useRef(null)
 
   const params = useMemo(
-    () => ({ universe, tf, seq_len: seqLen, mode, min_count: minCount }),
-    [universe, tf, seqLen, mode, minCount]
+    () => ({
+      universe, tf, seq_len: seqLen, mode, min_count: minCount,
+      years:  years.length  ? years.join(',')  : '',
+      months: months.length ? months.join(',') : '',
+      rsi_min: rsiMin, rsi_max: rsiMax,
+      l_sig:  lSigs.length ? lSigs.join(',') : '',
+      price_min: priceMin, price_max: priceMax,
+      // the robustness verdict is computed at SCAN time, so selecting the
+      // 🛡️ Robust sort flags the scan (and its cache key) to compute it.
+      robust: sortBy === 'robust' ? 'true' : '',
+    }),
+    [universe, tf, seqLen, mode, minCount, years, months, rsiMin, rsiMax, lSigs, priceMin, priceMax, sortBy]
   )
 
   const fetchStatus = async () => {
@@ -257,6 +276,62 @@ export default function SequenceScanPanel() {
                className="bg-md-surface-high border border-md-outline-var text-md-on-surface text-xs rounded-md-sm px-2 py-1 w-48" />
       </div>
 
+      {/* ── Year / month filter (entry bar) — [] = all. Press Run to apply. ── */}
+      <div className="mt-2 flex flex-wrap items-center gap-1">
+        <span className="text-[10px] text-md-on-surface-var/70 w-12">years</span>
+        <button onClick={() => setYears([])}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium ${years.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>all</button>
+        {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+          <button key={y}
+            onClick={() => setYears(p => p.includes(y) ? p.filter(x => x !== y) : [...p, y])}
+            className={`px-2 py-0.5 rounded text-[11px] font-medium ${years.includes(y) ? 'bg-emerald-700 text-emerald-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>
+            {String(y).slice(2)}</button>
+        ))}
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        <span className="text-[10px] text-md-on-surface-var/70 w-12">months</span>
+        <button onClick={() => setMonths([])}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium ${months.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>all</button>
+        {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((mn, i) => (
+          <button key={mn}
+            onClick={() => setMonths(p => p.includes(i + 1) ? p.filter(x => x !== i + 1) : [...p, i + 1])}
+            className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${months.includes(i + 1) ? 'bg-sky-700 text-sky-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>
+            {mn}</button>
+        ))}
+      </div>
+
+      {/* ── RSI / L-signal / price filters (all on the entry bar) ── */}
+      <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px]">
+        <span className="text-[10px] text-md-on-surface-var/70 w-12">RSI</span>
+        <input type="number" value={rsiMin} onChange={e => setRsiMin(e.target.value)}
+          placeholder="min" title="entry-bar RSI-14 min"
+          className="w-14 bg-md-surface-high border border-md-outline-var rounded px-1.5 py-0.5 text-md-on-surface" />
+        <span className="text-md-on-surface-var/50">–</span>
+        <input type="number" value={rsiMax} onChange={e => setRsiMax(e.target.value)}
+          placeholder="max" title="entry-bar RSI-14 max"
+          className="w-14 bg-md-surface-high border border-md-outline-var rounded px-1.5 py-0.5 text-md-on-surface" />
+        <span className="text-[10px] text-md-on-surface-var/70 ml-3">price $</span>
+        <input type="number" value={priceMin} onChange={e => setPriceMin(e.target.value)}
+          placeholder="min" title="entry-bar close price min ($21-89 = quality zone)"
+          className="w-16 bg-md-surface-high border border-md-outline-var rounded px-1.5 py-0.5 text-md-on-surface" />
+        <span className="text-md-on-surface-var/50">–</span>
+        <input type="number" value={priceMax} onChange={e => setPriceMax(e.target.value)}
+          placeholder="max" title="entry-bar close price max"
+          className="w-16 bg-md-surface-high border border-md-outline-var rounded px-1.5 py-0.5 text-md-on-surface" />
+      </div>
+      <div className="mt-1 flex flex-wrap items-center gap-1">
+        <span className="text-[10px] text-md-on-surface-var/70 w-12">L-sig</span>
+        <button onClick={() => setLSigs([])}
+          className={`px-2 py-0.5 rounded text-[11px] font-medium ${lSigs.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>any</button>
+        {['L1','L3','L5','L12','L22','L34','L46','L64'].map(lv => (
+          <button key={lv}
+            onClick={() => setLSigs(p => p.includes(lv) ? p.filter(x => x !== lv) : [...p, lv])}
+            className={`px-1.5 py-0.5 rounded text-[11px] font-medium ${lSigs.includes(lv) ? 'bg-violet-700 text-violet-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface'}`}>
+            {lv}</button>
+        ))}
+        <span className="text-[10px] text-md-on-surface-var/50 ml-1">(entry bar's L)</span>
+      </div>
+
       {/* ── Status / progress ─────────────────────────────────────────── */}
       <div className="mt-2 flex flex-wrap items-center gap-3 text-xs">
         <span className={`px-1.5 py-0.5 rounded font-medium
@@ -319,6 +394,7 @@ export default function SequenceScanPanel() {
               <th className="px-2 py-1.5 text-right">Avg 5D</th>
               <th className="px-2 py-1.5 text-right">Avg 9D</th>
               <th className="px-2 py-1.5 text-right">Med 1D</th>
+              <th className="px-2 py-1.5 text-center" title="2022-aware robustness: good non-2022 years (1d win-rate ≥52%) / total. 🐻 = also survived 2022.">Robust</th>
               <th className="px-2 py-1.5 text-right">Score</th>
             </tr>
           </thead>
@@ -385,6 +461,14 @@ export default function SequenceScanPanel() {
                   </td>
                   <td className={`px-2 py-1 text-right font-mono ${retCls(r.med_ret_1d)}`}>
                     {fmtNum(r.med_ret_1d, 4)}
+                  </td>
+                  <td className="px-2 py-1 text-center font-mono whitespace-nowrap"
+                    title={r.yr_win ? 'per-year 1d win-rate: ' + Object.entries(r.yr_win).map(([y, w]) => `${y}:${(w * 100).toFixed(0)}%`).join('  ') : ''}>
+                    {r.tot_years != null ? (
+                      <span className={r.is_robust ? 'text-emerald-300' : 'text-md-on-surface-var/50'}>
+                        {r.pos_years}/{r.tot_years}{r.bear_ok ? ' 🐻' : ''}
+                      </span>
+                    ) : <span className="text-md-on-surface-var/30">—</span>}
                   </td>
                   <td className="px-2 py-1 text-right font-mono text-amber-200">{fmtNum(r.score, 4)}</td>
                 </tr>

@@ -1,0 +1,99 @@
+//@version=5
+// TZ Signal Browser — faithful port of backend/signal_engine.py (T1-T12 / Z1-Z12)
+// + RSI(14) oversold context + Z11 → [T3/T5 confirm] → T11/T12 pattern highlighter.
+// Drop on any chart, any timeframe. For manual pattern inspection.
+indicator("TZ Signal Browser", overlay=true, max_labels_count=500)
+
+// ── inputs ─────────────────────────────────────────────────────────────────
+showAll   = input.bool(true,  "Show ALL T/Z signal labels")
+showT     = input.bool(true,  "  • bullish T")
+showZ     = input.bool(true,  "  • bearish Z")
+osOnly    = input.bool(false, "Only label bars while RSI in oversold band")
+rsiLo     = input.float(30,   "Oversold RSI low")
+rsiHi     = input.float(45,   "Oversold RSI high")
+hiPat     = input.bool(true,  "Highlight Z11(os) → T3/T5 → T11/T12 pattern")
+
+// ── bar components (= signal_engine.py) ──────────────────────────────────────
+mintick = 1e-10
+isDoji = close == open
+isBull = close > open
+isBear = close < open
+p1Bull = close[1] > open[1]
+p1Bear = (close[1] < open[1]) or (close[1] == open[1])
+pBody  = math.abs(close[1] - open[1])
+pTop   = math.max(open[1], close[1])
+pBot   = math.min(open[1], close[1])
+cBody  = math.abs(close - open)
+cTop   = math.max(open, close)
+cBot   = math.min(open, close)
+eH  = cTop          // use_wick = false
+eL  = cBot
+eP  = pTop
+ePl = pBot
+safe  = math.max(pBody, mintick)
+engOk = (cBody / safe >= 1.0) and (eH >= eP) and (ePl >= eL)
+insOk = (cTop <= pTop) and (cBot >= pBot)
+
+// ── bullish T patterns ───────────────────────────────────────────────────────
+cT1G = p1Bear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull
+cT1  = p1Bear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+cT2G = p1Bull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull
+cT2  = p1Bull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull
+cT3  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+cT4  = p1Bear and isBull and engOk
+cT5  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+cT6  = p1Bull and isBull and engOk
+cT9  = p1Bear and isBull and insOk
+cT10 = p1Bull and isBull and insOk
+cT11 = p1Bull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+cT12 = p1Bull and isBull and (open < open[1]) and (close < open[1])
+
+// ── bearish Z patterns ─────────────────────────────────────────────────────
+cZ1G = p1Bull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear
+cZ1  = p1Bull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear
+cZ2G = p1Bear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear
+cZ2  = p1Bear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear
+cZ3  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+cZ4  = p1Bull and isBear and engOk
+cZ5  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+cZ6  = p1Bear and isBear and engOk
+cZ9  = p1Bull and isBear and insOk
+cZ10 = p1Bear and isBear and insOk
+cZ11 = p1Bear and (open > open[1]) and isBear and ((close > close[1]) or (close > open[1]))
+cZ12 = p1Bull and (open <= open[1]) and isBear
+anyB = cT1G or cT1 or cT2G or cT2 or cT3 or cT4 or cT5 or cT6 or cT9 or cT10 or cT11 or cT12
+anyZ = cZ1G or cZ1 or cZ2G or cZ2 or cZ3 or cZ4 or cZ5 or cZ6 or cZ9 or cZ10 or cZ11 or cZ12
+cZ7  = isDoji and (not anyB) and (not anyZ)
+
+// ── resolve to one signal name (priority order = signal_engine.py) ───────────
+// bullish: T4>T6>T1G>T2G>T1>T2>T9>T10>T3>T11>T5>T12
+tName = cT4 ? "T4" : cT6 ? "T6" : cT1G ? "T1G" : cT2G ? "T2G" : cT1 ? "T1" : cT2 ? "T2" : cT9 ? "T9" : cT10 ? "T10" : cT3 ? "T3" : cT11 ? "T11" : cT5 ? "T5" : cT12 ? "T12" : ""
+// bearish: Z4>Z6>Z1G>Z2G>Z1>Z2>Z9>Z10>Z3>Z11>Z5>Z12>Z7  (only if no bullish)
+zName = tName != "" ? "" : cZ4 ? "Z4" : cZ6 ? "Z6" : cZ1G ? "Z1G" : cZ2G ? "Z2G" : cZ1 ? "Z1" : cZ2 ? "Z2" : cZ9 ? "Z9" : cZ10 ? "Z10" : cZ3 ? "Z3" : cZ11 ? "Z11" : cZ5 ? "Z5" : cZ12 ? "Z12" : cZ7 ? "Z7" : ""
+sigName = tName != "" ? tName : zName
+isBullSig = tName != ""
+isBearSig = zName != ""
+
+// ── RSI context ──────────────────────────────────────────────────────────────
+rsi = ta.rsi(close, 14)
+inOS = rsi >= rsiLo and rsi < rsiHi
+bgcolor(inOS ? color.new(color.teal, 92) : na, title="RSI oversold band")
+
+// ── labels: all signals ──────────────────────────────────────────────────────
+showThis = showAll and (sigName != "") and (not osOnly or inOS) and ((isBullSig and showT) or (isBearSig and showZ))
+if showThis
+    col = isBullSig ? color.new(color.green, 20) : color.new(color.red, 20)
+    yp  = isBullSig ? low - (high-low)*0.4 : high + (high-low)*0.4
+    sty = isBullSig ? label.style_label_up : label.style_label_down
+    label.new(bar_index, yp, sigName + (inOS ? "•" : ""), style=sty, color=col, textcolor=color.white, size=size.tiny)
+
+// ── pattern highlighter: Z11(oversold) → [T3/T5] → T11/T12 (the validated setup) ─
+// bar -2 = Z11 while RSI 30-45 ; bar -1 = T3 or T5 ; bar 0 = T11 or T12
+z11os    = (zName == "Z11") and (rsi >= rsiLo and rsi < rsiHi)
+confirmB = (tName == "T3") or (tName == "T5")
+resolT   = (tName == "T11") or (tName == "T12")
+patHit   = hiPat and resolT and confirmB[1] and z11os[2]
+plotshape(patHit, title="Z11→conf→T11/12", style=shape.triangleup, location=location.belowbar, color=color.new(color.lime, 0), size=size.normal, text="ENTRY")
+if patHit
+    label.new(bar_index, high + (high-low)*1.0, "🪤 Z11→" + sigName[1] + "→" + sigName + "  (RSI " + str.tostring(rsi[2], "#") + ")", style=label.style_label_down, color=color.new(color.lime, 10), textcolor=color.black, size=size.small)
+alertcondition(patHit, "Z11→T3/T5→T11/T12", "Absorption→confirm→T11/T12 reversal entry")

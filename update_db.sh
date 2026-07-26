@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # update_db.sh — ერთი ბრძანება: Studio DB-ის განახლება ბოლო დახურულ ბარზე,
-# სამივე ინდექსზე (sp500 / nasdaq / russell2k).
+# ოთხივე universe-ზე (sp500 / nasdaq / russell2k / index).
 #
 # იყენებს გაშვებული backend-ის incremental-delta endpoint-ს — DB-write სერვერს
 # ეკუთვნის (single-writer კონფლიქტი არ ხდება). yfinance არასდროს; MASSIVE API.
@@ -10,7 +10,12 @@
 set -uo pipefail
 PORT="${BACKEND_PORT:-8080}"
 BASE="http://127.0.0.1:$PORT/api/studio"
-UNIVERSES='["sp500","nasdaq","russell2k"]'
+# 2026-07-22: "index" (16 sector/market ETF) added — this list is the ACTUAL
+# nightly trigger (launchd com.sachoki.dbupdate → update_all.sh → here), separate
+# from main.py's in-app APScheduler cron which already included "index" — this
+# script's list was the one actually running each night and had been missing it,
+# so the index universe silently lagged a day behind every refresh.
+UNIVERSES='["sp500","nasdaq","russell2k","index"]'
 DB="${STUDIO_DB:-/Users/sachoki/Downloads/studio_analytics.duckdb}"
 
 # 1) სერვერი მუშაობს?

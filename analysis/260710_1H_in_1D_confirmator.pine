@@ -1,0 +1,200 @@
+//@version=5
+// 260710_1H-in-1D TZ CONFIRMATOR VIEWER
+// Toggle each 1H confirmation separately. Colors:
+//   T1G=gold | T1=orange | T2G=cyan | T2=green | T4=purple | T6=blue
+//   T10=pink | T11=lime | Z11=red(oversold-rev) | Z10=brown | other-Z=gray
+// MASTER = hide all. "Hide on down bars" = only green 1D bars.
+indicator("1H-in-1D TZ Confirmator", shorttitle="1H2D-CONF", overlay=true, max_labels_count=500)
+
+confTF        = input.timeframe("60", "Confirmator timeframe (lower)")
+useWick       = input.bool(false, "Engulf: use wick (vs body)")
+minBodyRatio  = input.float(1.0,  "Engulf: min body ratio", minval=0.5, step=0.05)
+lblSizeStr    = input.string("large", "Label size", options=["small", "normal", "large", "huge"])
+lblSize = lblSizeStr == "small" ? size.small : lblSizeStr == "normal" ? size.normal : lblSizeStr == "huge" ? size.huge : size.large
+
+grpW = "Which 1H confirmations (toggle each)"
+masterOn    = input.bool(true,  "MASTER — show labels (uncheck = hide ALL)", group=grpW)
+showT1G     = input.bool(true,  "1H-T1G  (gold, BEST)",   group=grpW)
+showT1      = input.bool(true,  "1H-T1   (orange)",        group=grpW)
+showT2G     = input.bool(true,  "1H-T2G  (cyan)",          group=grpW)
+showT2      = input.bool(true,  "1H-T2   (green)",         group=grpW)
+showT4      = input.bool(true,  "1H-T4   (purple, engulf RARE)", group=grpW)
+showT6      = input.bool(true,  "1H-T6   (blue, engulf RARE)",   group=grpW)
+showT10     = input.bool(true,  "1H-T10  (pink, inside-bull)",   group=grpW)
+showT11     = input.bool(true,  "1H-T11  (lime)",                group=grpW)
+showZ11     = input.bool(true,  "1H-Z11  (red, oversold-rev)",   group=grpW)
+showZ10     = input.bool(true,  "1H-Z10  (brown, inside-bear)",  group=grpW)
+showNonConf = input.bool(false, "1H other-Z / no bull-T (gray)", group=grpW)
+hideDown    = input.bool(false, "Hide labels on down / bearish 1D bars", group=grpW)
+
+f_tzcode() =>
+    isDoji = close == open
+    isBull = close > open
+    isBear = close < open
+    p1Bull = close[1] > open[1]
+    p1Bear = close[1] < open[1] or (close[1] == open[1])
+    prevBody = math.abs(close[1] - open[1])
+    prevTop  = math.max(open[1], close[1])
+    prevBot  = math.min(open[1], close[1])
+    currTop  = math.max(open, close)
+    currBot  = math.min(open, close)
+    eHigh = useWick ? high    : currTop
+    eLow  = useWick ? low     : currBot
+    ePH   = useWick ? high[1] : prevTop
+    ePL   = useWick ? low[1]  : prevBot
+    prevBodySafe = math.max(prevBody, syminfo.mintick)
+    bodyRatioOk  = (math.abs(close - open) / prevBodySafe) >= minBodyRatio
+    fullyEngulfs = eHigh >= ePH and ePL >= eLow and bodyRatioOk
+    isInside     = currTop <= prevTop and currBot >= prevBot
+    T1G_raw = p1Bear and (open >  close[1]) and (open >  open[1]) and (close > open[1]) and isBull
+    T1_raw  = p1Bear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+    T2G_raw = p1Bull and (open >= open[1])  and (open >  close[1]) and (close > close[1]) and isBull
+    T2_raw  = p1Bull and (open >= open[1])  and (open <= close[1]) and (close > close[1]) and isBull
+    T3_raw  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+    T4_raw  = p1Bear and isBull and fullyEngulfs
+    T5_raw  = p1Bear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+    T6_raw  = p1Bull and isBull and fullyEngulfs
+    T9_raw  = p1Bear and isBull and isInside
+    T10_raw = p1Bull and isBull and isInside
+    T11_raw = p1Bull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+    T12_raw = p1Bull and isBull and (open < open[1]) and (close < open[1])
+    Z1G_raw = p1Bull and (open <  close[1]) and (open <  open[1]) and (close < open[1]) and isBear
+    Z1_raw  = p1Bull and (open <= close[1]) and (open >  open[1]) and (close < open[1]) and isBear
+    Z2G_raw = p1Bear and (open <= open[1])  and (open <  close[1]) and (close < close[1]) and isBear
+    Z2_raw  = p1Bear and (open <= open[1])  and (open >= close[1]) and (close < close[1]) and isBear
+    Z3_raw  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+    Z4_raw  = p1Bull and isBear and fullyEngulfs
+    Z5_raw  = p1Bull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+    Z6_raw  = p1Bear and isBear and fullyEngulfs
+    Z9_raw  = p1Bull and isBear and isInside
+    Z10_raw = p1Bear and isBear and isInside
+    Z11_raw = p1Bear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+    Z12_raw = p1Bull and (open <= open[1]) and (close < open)
+    aBull = T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw
+    aBear = Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw
+    Z7_clean = isDoji and not aBull and not aBear
+    bc = T4_raw?1:T6_raw?2:T1G_raw?3:T2G_raw?4:T1_raw?5:T2_raw?6:T9_raw?7:T10_raw?8:T3_raw?9:T11_raw?10:T5_raw?11:T12_raw?12:0
+    zc = Z4_raw?1:Z6_raw?2:Z1G_raw?3:Z2G_raw?4:Z1_raw?5:Z2_raw?6:Z9_raw?7:Z10_raw?8:Z3_raw?9:Z11_raw?10:Z5_raw?11:Z12_raw?12:Z7_clean?13:0
+    bc > 0 ? bc : (zc > 0 ? 100 + zc : 0)
+
+f_bear(c) => c==101?"Z4":c==102?"Z6":c==103?"Z1G":c==104?"Z2G":c==105?"Z1":c==106?"Z2":c==107?"Z9":c==108?"Z10":c==109?"Z3":c==110?"Z11":c==111?"Z5":c==112?"Z12":c==113?"Z7":""
+
+codes = request.security_lower_tf(syminfo.tickerid, confTF, f_tzcode())
+
+string zList = ""
+bool hasT1G = false
+bool hasT1  = false
+bool hasT2G = false
+bool hasT2  = false
+bool hasT4  = false
+bool hasT6  = false
+bool hasT10 = false
+bool hasT11 = false
+bool hasZ10 = false
+bool hasZ11 = false
+bool hasAnyBull = false
+if not na(codes)
+    n = array.size(codes)
+    if n > 0
+        for i = 0 to n - 1
+            c = array.get(codes, i)
+            if c > 0 and c < 100
+                hasAnyBull := true
+                hasT4  := hasT4  or c == 1
+                hasT6  := hasT6  or c == 2
+                hasT1G := hasT1G or c == 3
+                hasT1  := hasT1  or c == 5
+                hasT2G := hasT2G or c == 4
+                hasT2  := hasT2  or c == 6
+                hasT10 := hasT10 or c == 8
+                hasT11 := hasT11 or c == 10
+            else if c > 100
+                hasZ10 := hasZ10 or c == 108
+                hasZ11 := hasZ11 or c == 110
+                znm = f_bear(c)
+                if not str.contains(zList, znm)
+                    zList := zList + (str.length(zList) > 0 ? " " : "") + znm
+
+color GOLD   = color.new(#FFC300, 0)
+color ORANGE = color.new(#FF6D00, 0)
+color CYAN   = color.new(#00B8D4, 0)
+color GRN    = color.new(#00C853, 0)
+color PURP   = color.new(#AA00FF, 0)
+color BLUE   = color.new(#2962FF, 0)
+color PINK   = color.new(#FF4081, 0)
+color LIME   = color.new(#AEEA00, 0)
+color RED    = color.new(#D50000, 0)
+color BROWN  = color.new(#795548, 0)
+color GRAY   = color.new(#607D8B, 20)
+
+string tag = ""
+if showT4 and hasT4
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T4"
+if showT6 and hasT6
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T6"
+if showT1G and hasT1G
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T1G"
+if showT1 and hasT1
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T1"
+if showT2G and hasT2G
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T2G"
+if showT2 and hasT2
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T2"
+if showT10 and hasT10
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T10"
+if showT11 and hasT11
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "T11"
+if showZ11 and hasZ11
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "Z11"
+if showZ10 and hasZ10
+    tag := tag + (str.length(tag) > 0 ? " " : "") + "Z10"
+
+color col  = color.black
+color txtc = color.black
+if showT4 and hasT4
+    col := PURP
+    txtc := color.white
+else if showT6 and hasT6
+    col := BLUE
+    txtc := color.white
+else if showT1G and hasT1G
+    col := GOLD
+else if showT1 and hasT1
+    col := ORANGE
+else if showT2G and hasT2G
+    col := CYAN
+else if showT2 and hasT2
+    col := GRN
+else if showT10 and hasT10
+    col := PINK
+else if showT11 and hasT11
+    col := LIME
+else if showZ11 and hasZ11
+    col := RED
+    txtc := color.white
+else if showZ10 and hasZ10
+    col := BROWN
+    txtc := color.white
+
+bool anyShown = str.length(tag) > 0
+gateOk = not hideDown or close >= open
+
+if barstate.isconfirmed and gateOk and masterOn
+    if anyShown
+        label.new(bar_index, low, "1H: " + tag, yloc=yloc.belowbar, style=label.style_label_up, size=lblSize, color=col, textcolor=txtc)
+    else if not hasAnyBull and str.length(zList) > 0 and showNonConf
+        label.new(bar_index, low, "1H: " + zList, yloc=yloc.belowbar, style=label.style_label_up, size=lblSize, color=GRAY, textcolor=color.white)
+
+var table lg = table.new(position.top_right, 1, 11, border_width=1)
+if barstate.islast
+    table.cell(lg, 0, 0,  "1H->1D confirmator", bgcolor=color.new(color.black,0), text_color=color.white, text_size=size.small)
+    table.cell(lg, 0, 1,  "T1G = BEST", bgcolor=GOLD,   text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 2,  "T1",         bgcolor=ORANGE, text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 3,  "T2G",        bgcolor=CYAN,   text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 4,  "T2",         bgcolor=GRN,    text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 5,  "T4 (rare)",  bgcolor=PURP,   text_color=color.white, text_size=size.small)
+    table.cell(lg, 0, 6,  "T6 (rare)",  bgcolor=BLUE,   text_color=color.white, text_size=size.small)
+    table.cell(lg, 0, 7,  "T10",        bgcolor=PINK,   text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 8,  "T11",        bgcolor=LIME,   text_color=color.black, text_size=size.small)
+    table.cell(lg, 0, 9,  "Z11 oversold", bgcolor=RED,  text_color=color.white, text_size=size.small)
+    table.cell(lg, 0, 10, "Z10",        bgcolor=BROWN,  text_color=color.white, text_size=size.small)

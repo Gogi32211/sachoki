@@ -110,6 +110,28 @@ def _bar_to_db_row(ticker: str, bar: dict, universe: str,
     for n in _Z_NAMES:
         row[f"sig_{n.lower()}"] = 1 if zsig == n else 0
 
+    # 5b. 2026-07-21: engine-only signals now persisted ("ertxel da samudamod")
+    row["um_2809"] = int(bar.get("raw_um") or 0)
+    row["ev_l22"] = int(bar.get("raw_l22") or 0)
+    row["ev_l43"] = int(bar.get("raw_l43") or 0)
+    row["ev_l64"] = int(bar.get("raw_l64") or 0)
+    row["ev_l34"] = int(bar.get("raw_l34") or 0)
+    row["bo_dn"] = int(bar.get("sig_bo_dn") or 0)
+    row["bx_dn"] = int(bar.get("sig_bx_dn") or 0)
+    row["be_dn"] = int(bar.get("sig_be_dn") or 0)
+    row["buy_here"] = int(bar.get("raw_buy_here") or 0)
+    row["atr_brk"] = int(bar.get("raw_atr_brk") or 0)
+    row["bb_brk"] = int(bar.get("raw_bb_brk") or 0)
+    row["rtv"] = int(bar.get("raw_rtv") or 0)
+    row["svs_raw"] = int(bar.get("raw_svs_raw") or 0)
+    row["cons_atr"] = int(bar.get("raw_cons") or 0)
+    row["gog1"] = int(bar.get("gog1") or 0)
+    row["gog2"] = int(bar.get("gog2") or 0)
+    row["gog3"] = int(bar.get("gog3") or 0)
+    _su = bar.get("setup"); _cx = bar.get("context")
+    row["setup_tokens"] = " ".join(_su) if isinstance(_su, list) else str(_su or "")
+    row["context_tokens"] = " ".join(_cx) if isinstance(_cx, list) else str(_cx or "")
+
     # 6. Filter to actual DB columns
     return {k: v for k, v in row.items() if k in db_cols}
 
@@ -169,7 +191,7 @@ def incremental_delta_refresh(
     universes = universes or ["sp500", "nasdaq"]
     # Whitelist universe names — they are interpolated into the idempotency DELETE,
     # so restrict to known values to prevent any SQL injection via the request body.
-    _ALLOWED_UNIVERSES = {"sp500", "nasdaq", "russell2k"}
+    _ALLOWED_UNIVERSES = {"sp500", "nasdaq", "russell2k", "index"}
     _bad = [u for u in universes if str(u).strip().lower() not in _ALLOWED_UNIVERSES]
     if _bad:
         log.warning("incremental_delta: ignoring unknown universes %s", _bad)

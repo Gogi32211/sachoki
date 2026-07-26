@@ -1,0 +1,638 @@
+//@version=5
+// Z11L12 PATTERN SCANNER — 83 signals ON CHART (82 grammar + 1 flagship)
+// overlay on price. Detects the Z11L12-anchored consecutive-bar sequences and
+// the validated Z11→T3/T5→T11/T12 reversal, labels them at the resolution bar.
+// Pure signal engine (T/Z + L12 absorption + RSI) — no oscillator lanes.
+indicator("Z11L12 Pattern Scanner (83 on-chart)", shorttitle="Z11L12_PAT83", overlay=true, max_labels_count=500, max_bars_back=5000)
+
+// ── inputs ───────────────────────────────────────────────────────────────────
+grpA       = "Anchor / RSI"
+patRsiLo   = input.float(30, "RSI14 oversold low",  group=grpA)
+patRsiHi   = input.float(45, "RSI14 oversold high", group=grpA)
+ma_period  = input.int(20,   "WLNBB MA period (L12 absorption)", group=grpA, minval=2, maxval=100)
+
+grpF       = "★ Flagship  Z11→T3/T5→T11/T12"
+showFlag   = input.bool(true, "Show flagship reversal", group=grpF)
+flagT12    = input.bool(false,"T12 resolution only (sharper)", group=grpF)
+
+grpGRAM    = "★★ 82 grammar patterns"
+showGram   = input.bool(true,  "Show 82-pattern library", group=grpGRAM)
+gramReqL12 = input.bool(true,  "Require L12 absorption on anchor", group=grpGRAM)
+gramMinMed = input.float(-99,  "Min median% to display (1.5 = winners only)", group=grpGRAM)
+gramMinN   = input.int(8,      "Min n to display", group=grpGRAM, minval=1)
+useWick    = input.bool(false, "Engulfing: use wick (vs body)", group=grpGRAM)
+minBodyRatio = input.float(1.0,"Engulfing min body ratio", group=grpGRAM, minval=0.5, step=0.05)
+
+// ── bar components ─────────────────────────────────────────────────────────────
+isDoji = close == open
+Z7_raw = isDoji
+isBull = close > open
+isBear = close < open
+prev1IsBull = close[1] > open[1]
+prev1IsBear = close[1] < open[1] or Z7_raw[1]
+
+prevBull = prev1IsBull
+prevBear = prev1IsBear
+prevBody = math.abs(close[1] - open[1])
+prevTop  = math.max(open[1], close[1])
+prevBot  = math.min(open[1], close[1])
+currBody = math.abs(close - open)
+currTop  = math.max(open, close)
+currBot  = math.min(open, close)
+eHigh = useWick ? high    : currTop
+eLow  = useWick ? low     : currBot
+ePH   = useWick ? high[1] : prevTop
+ePL   = useWick ? low[1]  : prevBot
+prevBodySafe = math.max(prevBody, syminfo.mintick)
+bodyRatioOk  = (currBody / prevBodySafe) >= minBodyRatio
+fullyEngulfs = eHigh >= ePH and ePL >= eLow and bodyRatioOk
+isInside     = currTop <= prevTop and currBot >= prevBot
+
+// ── raw T patterns (= Python signal_engine) ────────────────────────────────────
+T1G_raw = prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull
+T1_raw  = prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+T2G_raw = prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull
+T2_raw  = prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull
+T3_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+T4_raw  = prevBear and isBull and fullyEngulfs
+T5_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+T6_raw  = prevBull and isBull and fullyEngulfs
+T9_raw  = prev1IsBear and isBull and isInside
+T10_raw = prev1IsBull and isBull and isInside
+T11_raw = prev1IsBull and isBull and (open < open[1]) and (close >= open[1]) and (close < close[1])
+T12_raw = prev1IsBull and isBull and (open < open[1]) and (close < open[1])
+
+// ── raw Z patterns ──────────────────────────────────────────────────────────────
+Z1G_raw  = prev1IsBull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear
+Z1_raw   = prev1IsBull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear
+Z2G_raw  = prev1IsBear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear
+Z2_raw   = prev1IsBear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear
+Z3_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+Z4_raw   = prevBull and isBear and fullyEngulfs
+Z5_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+Z6_raw   = prevBear and isBear and fullyEngulfs
+Z9_raw   = prev1IsBull and isBear and isInside
+Z10_raw  = prev1IsBear and isBear and isInside
+Z11_raw  = prev1IsBear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+Z12_raw  = prev1IsBull and (open <= open[1]) and (close < open)
+anyB = T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw
+anyZ = Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw
+Z7_clean = Z7_raw and not anyB and not anyZ
+
+// ── priority engine ──────────────────────────────────────────────────────────────
+bullCode = T4_raw?1:T6_raw?2:T1G_raw?3:T2G_raw?4:T1_raw?5:T2_raw?6:T9_raw?7:T10_raw?8:T3_raw?9:T11_raw?10:T5_raw?11:T12_raw?12:0
+bearCode = Z4_raw?1:Z6_raw?2:Z1G_raw?3:Z2G_raw?4:Z1_raw?5:Z2_raw?6:Z9_raw?7:Z10_raw?8:Z3_raw?9:Z11_raw?10:Z5_raw?11:Z12_raw?12:Z7_clean?13:0
+
+string sigU = bullCode==1?"T4":bullCode==2?"T6":bullCode==3?"T1G":bullCode==4?"T2G":bullCode==5?"T1":bullCode==6?"T2":bullCode==7?"T9":bullCode==8?"T10":bullCode==9?"T3":bullCode==10?"T11":bullCode==11?"T5":bullCode==12?"T12":""
+string sigD = bearCode==1?"Z4":bearCode==2?"Z6":bearCode==3?"Z1G":bearCode==4?"Z2G":bearCode==5?"Z1":bearCode==6?"Z2":bearCode==7?"Z9":bearCode==8?"Z10":bearCode==9?"Z3":bearCode==10?"Z11":bearCode==11?"Z5":bearCode==12?"Z12":bearCode==13?"Z7":""
+string sig = str.length(sigU) > 0 ? sigU : sigD
+
+// ── L12 absorption (WLNBB volume buckets, l1&l2) ────────────────────────────────
+volSafe = nz(volume, 0.0)
+[vol_mid, vol_up, vol_low] = ta.bb(volSafe, ma_period, 1)
+isW  = volSafe < vol_low
+isL  = not isW and volSafe < vol_mid
+isN2 = not isW and not isL and volSafe < vol_up
+isB  = not isW and not isL and not isN2 and volSafe < (vol_up + vol_mid)
+isVB = not isW and not isL and not isN2 and not isB
+sameBucket = (isW and isW[1]) or (isL and isL[1]) or (isN2 and isN2[1]) or (isB and isB[1]) or (isVB and isVB[1])
+volDown = volSafe < nz(volSafe[1], 0.0)
+dn_VB = isVB[1] and (isB or isN2 or isL or isW)
+dn_B  = isB[1]  and (isN2 or isL or isW)
+dn_N  = isN2[1] and (isL or isW)
+dn_L  = isL[1]  and isW
+bucketDown = dn_VB or dn_B or dn_N or dn_L
+volDownAdapted = bucketDown or (sameBucket and volDown)
+upClose         = close > close[1]
+noNewLowByClose = close >= low[1]
+l1Raw = volDownAdapted and upClose
+l2Raw = volDownAdapted and noNewLowByClose
+
+// ── RSI + anchor ─────────────────────────────────────────────────────────────────
+rsi14p   = ta.rsi(close, 14)
+osBandP  = rsi14p >= patRsiLo and rsi14p < patRsiHi
+bool anchorOK = (bearCode == 10) and osBandP and (not gramReqL12 or (l1Raw and l2Raw))
+
+// ── 82 grammar patterns (highest median wins on same bar) ───────────────────────
+string patName = ""
+float  patMed  = na
+float  patWin  = na
+int    patN    = na
+int    patBars = na
+if showGram
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z10" and sig=="T1G")
+        patName := "Z11L12→Z2G→Z10→T1G"
+        patMed  := 10.04
+        patWin  := 73
+        patN    := 11
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="T3" and sig[1]=="Z5" and sig=="T4")
+        patName := "Z11L12→T3→Z5→T4"
+        patMed  := 8.54
+        patWin  := 88
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T4")
+        patName := "Z11L12→Z2G→Z2G→T4"
+        patMed  := 8.11
+        patWin  := 78
+        patN    := 36
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T9")
+        patName := "Z11L12→Z11→Z2G→T9"
+        patMed  := 8.09
+        patWin  := 75
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[4] and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1")
+        patName := "Z11L12→Z2G→Z2G→Z2G→T1"
+        patMed  := 7.82
+        patWin  := 89
+        patN    := 9
+        patBars := 5
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2")
+        patName := "Z11L12→Z2G→T5→T2"
+        patMed  := 7.54
+        patWin  := 78
+        patN    := 18
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="T5" and sig[1]=="Z1" and sig=="T1")
+        patName := "Z11L12→T5→Z1→T1"
+        patMed  := 7.26
+        patWin  := 89
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[4] and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1")
+        patName := "Z11L12→Z2G→Z2G→Z2→T1"
+        patMed  := 7.21
+        patWin  := 89
+        patN    := 9
+        patBars := 5
+    if patName == "" and (anchorOK[3] and sig[2]=="T3" and sig[1]=="Z4" and sig=="T9")
+        patName := "Z11L12→T3→Z4→T9"
+        patMed  := 6.29
+        patWin  := 88
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2" and sig=="T4")
+        patName := "Z11L12→Z2→Z2→T4"
+        patMed  := 5.47
+        patWin  := 77
+        patN    := 13
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="Z10" and sig=="T4")
+        patName := "Z11L12→Z6→Z10→T4"
+        patMed  := 5.26
+        patWin  := 75
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z6" and sig=="T1")
+        patName := "Z11L12→Z2G→Z6→T1"
+        patMed  := 4.86
+        patWin  := 67
+        patN    := 15
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="T3" and sig[1]=="Z3" and sig=="T4")
+        patName := "Z11L12→T3→Z3→T4"
+        patMed  := 3.83
+        patWin  := 60
+        patN    := 10
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="Z2" and sig=="T1")
+        patName := "Z11L12→Z6→Z2→T1"
+        patMed  := 3.53
+        patWin  := 62
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T12")
+        patName := "Z11L12→T5→T12"
+        patMed  := 3.5
+        patWin  := 71
+        patN    := 24
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="T3" and sig=="T2")
+        patName := "Z11L12→Z2G→T3→T2"
+        patMed  := 3.34
+        patWin  := 58
+        patN    := 12
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="T5" and sig=="T2")
+        patName := "Z11L12→Z2→T5→T2"
+        patMed  := 3.29
+        patWin  := 62
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1")
+        patName := "Z11L12→Z2G→Z2G→T1"
+        patMed  := 3.23
+        patWin  := 61
+        patN    := 33
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T4")
+        patName := "Z11L12→Z2G→Z2→T4"
+        patMed  := 3.03
+        patWin  := 64
+        patN    := 25
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="T5" and sig[1]=="Z4" and sig=="T9")
+        patName := "Z11L12→T5→Z4→T9"
+        patMed  := 2.99
+        patWin  := 56
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T4")
+        patName := "Z11L12→Z6→Z2G→T4"
+        patMed  := 2.98
+        patWin  := 50
+        patN    := 12
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T3" and sig=="T2G")
+        patName := "Z11L12→T3→T2G"
+        patMed  := 2.77
+        patWin  := 62
+        patN    := 104
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1G")
+        patName := "Z11L12→Z2G→Z2→T1G"
+        patMed  := 2.69
+        patWin  := 62
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T4")
+        patName := "Z11L12→Z11→Z2G→T4"
+        patMed  := 2.65
+        patWin  := 64
+        patN    := 14
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T3" and sig=="T2")
+        patName := "Z11L12→T3→T2"
+        patMed  := 2.52
+        patWin  := 61
+        patN    := 54
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2G" and sig=="T9")
+        patName := "Z11L12→Z2G→T9"
+        patMed  := 2.31
+        patWin  := 59
+        patN    := 129
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="T3" and sig=="T11")
+        patName := "Z11L12→T3→T11"
+        patMed  := 2.19
+        patWin  := 60
+        patN    := 10
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T1")
+        patName := "Z11L12→Z6→Z2G→T1"
+        patMed  := 2.19
+        patWin  := 75
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T11")
+        patName := "Z11L12→T5→T11"
+        patMed  := 2.15
+        patWin  := 65
+        patN    := 17
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T9")
+        patName := "Z11L12→Z2G→Z2G→T9"
+        patMed  := 2.11
+        patWin  := 54
+        patN    := 24
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="T5" and sig[1]=="Z4" and sig=="T1")
+        patName := "Z11L12→T5→Z4→T1"
+        patMed  := 2.08
+        patWin  := 70
+        patN    := 10
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="T3" and sig=="T2")
+        patName := "Z11L12→Z2→T3→T2"
+        patMed  := 2.0
+        patWin  := 56
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T2G")
+        patName := "Z11L12→T5→T2G"
+        patMed  := 1.74
+        patWin  := 58
+        patN    := 139
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2G" and sig=="T4")
+        patName := "Z11L12→Z2G→T4"
+        patMed  := 1.68
+        patWin  := 55
+        patN    := 139
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z7" and sig=="T1G")
+        patName := "Z11L12→Z7→T1G"
+        patMed  := 1.68
+        patWin  := 75
+        patN    := 12
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2" and sig=="T1")
+        patName := "Z11L12→Z2→T1"
+        patMed  := 1.63
+        patWin  := 60
+        patN    := 53
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z11" and sig=="T1G")
+        patName := "Z11L12→Z11→T1G"
+        patMed  := 1.54
+        patWin  := 64
+        patN    := 55
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z11" and sig=="T4")
+        patName := "Z11L12→Z11→T4"
+        patMed  := 1.52
+        patWin  := 56
+        patN    := 32
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T9")
+        patName := "Z11L12→Z2G→Z2→T9"
+        patMed  := 1.48
+        patWin  := 61
+        patN    := 31
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z6" and sig=="T9")
+        patName := "Z11L12→Z6→T9"
+        patMed  := 1.45
+        patWin  := 56
+        patN    := 71
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z6" and sig=="T9")
+        patName := "Z11L12→Z2G→Z6→T9"
+        patMed  := 1.43
+        patWin  := 60
+        patN    := 15
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T1")
+        patName := "Z11L12→Z2→Z2G→T1"
+        patMed  := 1.41
+        patWin  := 50
+        patN    := 10
+        patBars := 4
+    if patName == "" and (anchorOK[1] and sig=="T1G")
+        patName := "Z11L12→→T1G"
+        patMed  := 1.4
+        patWin  := 56
+        patN    := 824
+        patBars := 2
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T9")
+        patName := "Z11L12→Z2→Z2G→T9"
+        patMed  := 1.4
+        patWin  := 54
+        patN    := 13
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2" and sig=="T9")
+        patName := "Z11L12→Z2→T9"
+        patMed  := 1.37
+        patWin  := 54
+        patN    := 68
+        patBars := 3
+    if patName == "" and (anchorOK[1] and sig=="T9")
+        patName := "Z11L12→→T9"
+        patMed  := 1.17
+        patWin  := 56
+        patN    := 217
+        patBars := 2
+    if patName == "" and (anchorOK[2] and sig[1]=="Z6" and sig=="T1")
+        patName := "Z11L12→Z6→T1"
+        patMed  := 1.17
+        patWin  := 57
+        patN    := 65
+        patBars := 3
+    if patName == "" and (anchorOK[1] and sig=="T4")
+        patName := "Z11L12→→T4"
+        patMed  := 1.16
+        patWin  := 54
+        patN    := 811
+        patBars := 2
+    if patName == "" and (anchorOK[2] and sig[1]=="Z6" and sig=="T4")
+        patName := "Z11L12→Z6→T4"
+        patMed  := 1.16
+        patWin  := 57
+        patN    := 21
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T6")
+        patName := "Z11L12→T5→T6"
+        patMed  := 1.06
+        patWin  := 56
+        patN    := 71
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="T5" and sig[1]=="Z1G" and sig=="T4")
+        patName := "Z11L12→T5→Z1G→T4"
+        patMed  := 1.01
+        patWin  := 50
+        patN    := 12
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2" and sig=="T1")
+        patName := "Z11L12→Z2G→Z2→T1"
+        patMed  := 0.98
+        patWin  := 55
+        patN    := 20
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2" and sig=="T4")
+        patName := "Z11L12→Z2→T4"
+        patMed  := 0.91
+        patWin  := 51
+        patN    := 49
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T2")
+        patName := "Z11L12→T5→T2"
+        patMed  := 0.89
+        patWin  := 57
+        patN    := 67
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2G" and sig=="T1")
+        patName := "Z11L12→Z2G→T1"
+        patMed  := 0.75
+        patWin  := 55
+        patN    := 143
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z7" and sig=="T4")
+        patName := "Z11L12→Z7→T4"
+        patMed  := 0.7
+        patWin  := 55
+        patN    := 11
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="T3" and sig=="T10")
+        patName := "Z11L12→T3→T10"
+        patMed  := 0.7
+        patWin  := 53
+        patN    := 17
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="T5" and sig=="T10")
+        patName := "Z11L12→T5→T10"
+        patMed  := 0.65
+        patWin  := 56
+        patN    := 9
+        patBars := 3
+    if patName == "" and (anchorOK[1] and sig=="T1")
+        patName := "Z11L12→→T1"
+        patMed  := 0.62
+        patWin  := 53
+        patN    := 560
+        patBars := 2
+    if patName == "" and (anchorOK[4] and sig[3]=="Z2G" and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2G")
+        patName := "Z11L12→Z2G→Z2G→T5→T2G"
+        patMed  := 0.53
+        patWin  := 50
+        patN    := 8
+        patBars := 5
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2G" and sig=="T1G")
+        patName := "Z11L12→Z2G→T1G"
+        patMed  := 0.17
+        patWin  := 51
+        patN    := 103
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z2G" and sig=="T1G")
+        patName := "Z11L12→Z2G→Z2G→T1G"
+        patMed  := 0.01
+        patWin  := 52
+        patN    := 31
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T2G")
+        patName := "Z11L12→Z2G→T5→T2G"
+        patMed  := -0.0
+        patWin  := 50
+        patN    := 30
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="T3" and sig=="T2")
+        patName := "Z11L12→Z6→T3→T2"
+        patMed  := -0.03
+        patWin  := 47
+        patN    := 15
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z10" and sig=="T1G")
+        patName := "Z11L12→Z10→T1G"
+        patMed  := -0.05
+        patWin  := 46
+        patN    := 24
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z6" and sig=="T1G")
+        patName := "Z11L12→Z6→T1G"
+        patMed  := -0.06
+        patWin  := 50
+        patN    := 10
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z10" and sig=="T4")
+        patName := "Z11L12→Z10→T4"
+        patMed  := -0.09
+        patWin  := 50
+        patN    := 16
+        patBars := 3
+    if patName == "" and (anchorOK[2] and sig[1]=="Z11" and sig=="T9")
+        patName := "Z11L12→Z11→T9"
+        patMed  := -0.09
+        patWin  := 50
+        patN    := 10
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="T5" and sig=="T2")
+        patName := "Z11L12→Z6→T5→T2"
+        patMed  := -0.19
+        patWin  := 50
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z11" and sig=="T1")
+        patName := "Z11L12→Z11→T1"
+        patMed  := -0.57
+        patWin  := 41
+        patN    := 34
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="T5" and sig=="T6")
+        patName := "Z11L12→Z2G→T5→T6"
+        patMed  := -0.89
+        patWin  := 44
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="T3" and sig=="T6")
+        patName := "Z11L12→T3→T6"
+        patMed  := -1.07
+        patWin  := 44
+        patN    := 16
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z11" and sig[1]=="Z2G" and sig=="T1G")
+        patName := "Z11L12→Z11→Z2G→T1G"
+        patMed  := -1.42
+        patWin  := 50
+        patN    := 10
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="Z2G" and sig=="T9")
+        patName := "Z11L12→Z6→Z2G→T9"
+        patMed  := -1.56
+        patWin  := 44
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="T3" and sig=="T2G")
+        patName := "Z11L12→Z2G→T3→T2G"
+        patMed  := -1.73
+        patWin  := 44
+        patN    := 43
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T4")
+        patName := "Z11L12→Z2→Z2G→T4"
+        patMed  := -1.74
+        patWin  := 47
+        patN    := 15
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2G" and sig=="T1G")
+        patName := "Z11L12→Z2→Z2G→T1G"
+        patMed  := -1.83
+        patWin  := 44
+        patN    := 9
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z6" and sig[1]=="T3" and sig=="T2G")
+        patName := "Z11L12→Z6→T3→T2G"
+        patMed  := -1.92
+        patWin  := 42
+        patN    := 12
+        patBars := 4
+    if patName == "" and (anchorOK[2] and sig[1]=="Z2" and sig=="T1G")
+        patName := "Z11L12→Z2→T1G"
+        patMed  := -3.7
+        patWin  := 45
+        patN    := 40
+        patBars := 3
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="Z2" and sig=="T1")
+        patName := "Z11L12→Z2→Z2→T1"
+        patMed  := -4.54
+        patWin  := 12
+        patN    := 8
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2" and sig[1]=="T3" and sig=="T2G")
+        patName := "Z11L12→Z2→T3→T2G"
+        patMed  := -4.7
+        patWin  := 36
+        patN    := 14
+        patBars := 4
+    if patName == "" and (anchorOK[3] and sig[2]=="Z2G" and sig[1]=="Z10" and sig=="T4")
+        patName := "Z11L12→Z2G→Z10→T4"
+        patMed  := -4.89
+        patWin  := 33
+        patN    := 12
+        patBars := 4
+
+atr = ta.atr(14)
+bool gramHit = showGram and str.length(patName) > 0 and patN >= gramMinN and patMed >= gramMinMed
+color gramCol = na(patMed) ? color.gray : patMed >= 1.5 ? color.new(color.lime, 0) : patMed >= 0 ? color.new(color.yellow, 0) : color.new(color.red, 0)
+if gramHit
+    label.new(bar_index, low - atr * 0.6,
+         patName + "\n" + str.tostring(patMed, "#.##") + "% w" + str.tostring(patWin, "#") + " n" + str.tostring(patN) + " " + str.tostring(patBars) + "b",
+         xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_up,
+         size=size.small, color=gramCol, textcolor=color.black)
+alertcondition(gramHit, "Z11L12 grammar pattern", "A Z11L12 grammar pattern completed")
+
+// ── flagship Z11(os) → T3/T5 → T11/T12 ──────────────────────────────────────────
+isZ11os  = (bearCode == 10) and osBandP
+isConfP  = (bullCode == 9) or (bullCode == 11)
+isResolP = flagT12 ? (bullCode == 12) : ((bullCode == 10) or (bullCode == 12))
+flagHit  = showFlag and isResolP and isConfP[1] and isZ11os[2]
+bgcolor(flagHit ? color.new(color.lime, 75) : na, title="★ Flagship entry bar")
+if flagHit
+    string _conf = bullCode[1] == 9 ? "T3" : "T5"
+    string _res  = bullCode == 10 ? "T11" : "T12"
+    label.new(bar_index, high + atr * 0.6, "🪤 Z11→" + _conf + "→" + _res + "\nRSI " + str.tostring(rsi14p[2], "#"),
+         xloc=xloc.bar_index, yloc=yloc.price, style=label.style_label_down,
+         size=size.small, color=color.new(color.lime, 0), textcolor=color.black)
+alertcondition(flagHit, "Z11 flagship reversal", "Z11(os)->T3/T5->T11/T12 entry")

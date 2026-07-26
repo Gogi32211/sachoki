@@ -6,7 +6,11 @@ node_modules/
 frontend/dist/
 frontend/package-lock.json
 *.db
+*.duckdb
 *.sqlite
+data/
+exports/
+*.log
 tz_intelligence_package/.DS_Store
 split_universe_latest.csv
 .claude/
@@ -16,3 +20,11 @@ backend/static/
 backend/.venv/
 backend/stock_stat_*.csv
 backend/stock_stat_*.parquet
+
+# generated analysis artifacts (regenerable, large) — 2026-07-26
+.DS_Store
+**/.DS_Store
+backend/mlruns/
+backend/edge_tearsheets/
+backend/analysis/*.csv
+analysis/*.csv

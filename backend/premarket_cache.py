@@ -15,9 +15,18 @@ import threading
 from datetime import datetime, time as _dtime
 from typing import Optional
 
+import re
 import requests
 
 log = logging.getLogger(__name__)
+
+# requests exceptions stringify the full request URL, which includes
+# `apiKey=<secret>` — redact it before it can reach any log / traceback.
+_APIKEY_RE = re.compile(r"(apiKey=)[^&\s'\")]+", re.IGNORECASE)
+
+
+def _scrub(text: object) -> str:
+    return _APIKEY_RE.sub(r"\1<redacted>", str(text))
 
 try:
     from zoneinfo import ZoneInfo
@@ -86,7 +95,7 @@ def _fetch_batch(tickers: list[str]) -> dict[str, dict]:
         else:
             log.warning("premarket_cache: snapshot batch HTTP %s", r.status_code)
     except Exception as exc:
-        log.warning("premarket_cache: batch fetch error: %s", exc)
+        log.warning("premarket_cache: batch fetch error: %s", _scrub(exc))
     return result
 
 

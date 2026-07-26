@@ -11,6 +11,18 @@ const fmtDate = (d) => String(d ?? '').slice(0, 10)
 const isIntradayTf = (tf) => ['30m', '15m', '1h', '4h'].includes(tf)
 const isDbTf       = (tf) => tf === '1d' || tf === '1w'
 
+// Empty bars of right-edge padding so the latest candle isn't pinned to the
+// right border (easier to read the most recent bars). fitContent() alone glues
+// the last bar to the edge, so we fit then extend the logical range rightward.
+const RIGHT_PAD_BARS = 4
+const fitContentPadded = (chart) => {
+  const ts = chart?.timeScale?.()
+  if (!ts) return
+  ts.fitContent()
+  const r = ts.getVisibleLogicalRange()
+  if (r) ts.setVisibleLogicalRange({ from: r.from, to: r.to + RIGHT_PAD_BARS })
+}
+
 // lightweight-charts requires STRICTLY ascending, unique timestamps — drop any
 // adjacent duplicate (intraday feeds occasionally repeat a bar's timestamp).
 const dedupeByTime = (arr) => {
@@ -80,6 +92,9 @@ export default function CodeCandleChart({
   const [historyGannTier, setHistoryGannTier] = useState(0)   // 0/5/10/20 pivot radius
   const [historyHvCount,   setHistoryHvCount]   = useState(0)
   const [historyGannCount, setHistoryGannCount] = useState(0)
+  // When on, draw ONLY the white confluence lines (HV ∩ Gann) and hide the grey
+  // HV-only / Gann-only lines — de-clutters the chart to just the strong levels.
+  const [confluenceOnly, setConfluenceOnly] = useState(false)
   // Volume-class overlays — lines at high/low of VB ("Very Big") and W ("Weak")
   // bars. Independent toggles, both can be on. VB = red solid, W = grey dotted.
   const [showVB, setShowVB] = useState(false)
@@ -100,7 +115,29 @@ export default function CodeCandleChart({
   // T-Z-T4 historical markers — green diamond below bar on each T-Z-T4 signal.
   const [showTzt4,      setShowTzt4]      = useState(false)
   const [tzt4Marks,     setTzt4Marks]     = useState(null)   // [{date, tier, suffix, rsi}]
+  const [showT3seq,     setShowT3seq]     = useState(false)
+  const [t3seqMarks,    setT3seqMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
+  const [t3seqLoading,  setT3seqLoading]  = useState(false)
+  const [showT9rsi,     setShowT9rsi]     = useState(false)
+  const [t9rsiMarks,    setT9rsiMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
+  const [t9rsiLoading,  setT9rsiLoading]  = useState(false)
   const [tzt4Loading,   setTzt4Loading]   = useState(false)
+  const [showTtt6,      setShowTtt6]      = useState(false)
+  const [ttt6Marks,     setTtt6Marks]     = useState(null)   // [{date, tier, suffix, rsi}]
+  const [ttt6Loading,   setTtt6Loading]   = useState(false)
+  const [showT1seq,     setShowT1seq]     = useState(false)
+  const [t1seqMarks,    setT1seqMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
+  const [t1seqLoading,  setT1seqLoading]  = useState(false)
+  // Edge-board setup markers — where the validated Edge setups fired (spring/g3/core/family).
+  const [showEdge,    setShowEdge]    = useState(false)
+  const [edgeMarks,   setEdgeMarks]   = useState(null)   // [{date, setup}]
+  // 🌀 SC-SUPER markers — bars where an Edge setup fired in the Wyckoff SC zone (±5% support).
+  const [showScSuper, setShowScSuper] = useState(false)
+  const [scSuperMarks, setScSuperMarks] = useState(null) // [{date, setup}] filtered to sc_super
+  // 📐 MTF-EMA markers — SMX/RGTI multi-tf EMA-stack fires (15m·1h·4h geometry, EOD).
+  const [showMtfEma, setShowMtfEma] = useState(false)
+  const [mtfEmaMarks, setMtfEmaMarks] = useState(null)   // [{date, variant}]
+  const [edgeLoading, setEdgeLoading] = useState(false)
   // Pre-pump setup markers — orange triangle above bar when setup score fires.
   const [showPumpSetup,    setShowPumpSetup]    = useState(false)
   const [pumpSetupMarks,   setPumpSetupMarks]   = useState(null)   // {marks:[]}
@@ -112,11 +149,20 @@ export default function CodeCandleChart({
   const [showFibMacro, setShowFibMacro] = useState(false)
   const [showFibSwing, setShowFibSwing] = useState(false)
   const fibLinesRef = useRef([])
+  // 💠 GEX (options gamma-exposure) level overlay — isolated options module (2026-07-22).
+  const [showGex, setShowGex] = useState(false)
+  const [gexInfo, setGexInfo] = useState(null)   // {available, regime, atm_iv, ...} for the badge
+  const [gexExp, setGexExp] = useState('')       // '' = aggregate ≤45DTE · else a YYYY-MM-DD expiry
+  const gexLinesRef = useRef([])
 
   // Gann parallel grid overlay
   const [showGannGrid, setShowGannGrid] = useState(false)
   const [gannGridLoading, setGannGridLoading] = useState(false)
   const gannGridSeriesRef = useRef([])
+  const [showTrendlines, setShowTrendlines] = useState(false)
+  const [tlLoading, setTlLoading] = useState(false)
+  const [tlHeadline, setTlHeadline] = useState(null)
+  const tlSeriesRef = useRef([])
 
   // Fullscreen toggle — wraps chart + side data panel.
   const [fullscreen, setFullscreen] = useState(false)
@@ -139,7 +185,7 @@ export default function CodeCandleChart({
       if (!el || !chartRef.current) return
       try {
         chartRef.current.applyOptions({ width: el.clientWidth, height: el.clientHeight })
-        chartRef.current.timeScale().fitContent()
+        fitContentPadded(chartRef.current)
       } catch {}
     }
     const r1 = requestAnimationFrame(apply)
@@ -303,7 +349,7 @@ export default function CodeCandleChart({
       // If zones already loaded before candles, recolour the triggers now.
       if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
-      chartRef.current.timeScale().fitContent()
+      fitContentPadded(chartRef.current)
       requestAnimationFrame(renderOverlay)
       const dmin = candles.length ? fmtDate(rows[0]?.date ?? rows[0]?.Datetime ?? rows[0]?.Date) : null
       setMeta(candles.length ? { n: candles.length, src: 'live', dmin: null, dmax: null } : null)
@@ -347,8 +393,8 @@ export default function CodeCandleChart({
       volRef.current?.setData(volumes)
       if (hvZones?.length) applyZoneColors(hvZones)
       chartRef.current.priceScale('right').applyOptions({ autoScale: true })
-      chartRef.current.timeScale().fitContent()
-      requestAnimationFrame(() => { try { chartRef.current?.timeScale().fitContent(); renderOverlay() } catch {} })
+      fitContentPadded(chartRef.current)
+      requestAnimationFrame(() => { try { fitContentPadded(chartRef.current); renderOverlay() } catch {} })
       setMeta({ n: asc.length, src: 'db', dmin: fmtDate(asc[0].date), dmax: fmtDate(asc[asc.length - 1].date) })
 
       // ── append today's LIVE forming bar (Massive, 15-min delayed) ──────────
@@ -364,7 +410,7 @@ export default function CodeCandleChart({
           const s = mkSig(r); if (s) signalsRef.current.push(s)
         }
         const lr = res.bars[res.bars.length - 1]
-        chartRef.current.timeScale().fitContent()
+        fitContentPadded(chartRef.current)
         requestAnimationFrame(() => { try { renderOverlay() } catch {} })
         setMeta(m => m ? { ...m, live: true, dmax: fmtDate(lr.date) } : m)
       }).catch(() => {})
@@ -431,6 +477,7 @@ export default function CodeCandleChart({
       //   Confluence      → white solid   (lineStyle 0 — strongest)
       for (const e of bucket.values()) {
         const both = e.hv && e.gann
+        if (confluenceOnly && !both) continue       // de-clutter: keep only white confluences
         const style = both ? 0 : (e.gann ? 1 : 2)
         const color = both ? '#ffffff' : '#64748b'
         histLinesRef.current.push(series.createPriceLine({
@@ -443,7 +490,7 @@ export default function CodeCandleChart({
       }
     }).catch(() => {})
     return () => { dead = true }
-  }, [ticker, tf, historyHvTier, historyGannTier, limit, recentN])
+  }, [ticker, tf, historyHvTier, historyGannTier, limit, recentN, confluenceOnly])
 
   // Volume-class overlay — horizontal lines at the [low, high] of every VB
   // ("Very Big" volume) and/or W ("Weak" volume) bar over the chart range.
@@ -521,6 +568,93 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showTzt4])
 
+  // Edge fetch — all historical Edge-board setup fires for the ticker (1D only).
+  useEffect(() => {
+    if (!showEdge || !ticker || tf !== '1d') { setEdgeMarks(null); setEdgeLoading(false); return }
+    let dead = false
+    setEdgeLoading(true)
+    fetch(`/api/studio/edge-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setEdgeMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setEdgeMarks([]) })
+      .finally(() => { if (!dead) setEdgeLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showEdge])
+
+  // 🌀 SC-SUPER fetch — the SC-zone subset of the Edge fires (1D only).
+  useEffect(() => {
+    if (!showScSuper || !ticker || tf !== '1d') { setScSuperMarks(null); return }
+    let dead = false
+    fetch(`/api/studio/edge-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setScSuperMarks((d?.marks || []).filter(m => m.sc_super)) })
+      .catch(() => { if (!dead) setScSuperMarks([]) })
+    return () => { dead = true }
+  }, [ticker, tf, showScSuper])
+
+  // 📐 MTF-EMA fetch — SMX/RGTI multi-tf EMA-stack fires (1D only; heavy — lazy).
+  useEffect(() => {
+    if (!showMtfEma || !ticker || tf !== '1d') { setMtfEmaMarks(null); return }
+    let dead = false
+    fetch(`/api/studio/mtf-ema-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setMtfEmaMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setMtfEmaMarks([]) })
+    return () => { dead = true }
+  }, [ticker, tf, showMtfEma])
+
+  // T1-seq fetch — all historical T1-sequence pattern dates for the ticker (1D only).
+  useEffect(() => {
+    if (!showT1seq || !ticker || tf !== '1d') { setT1seqMarks(null); setT1seqLoading(false); return }
+    let dead = false
+    setT1seqLoading(true)
+    fetch(`/api/studio/t1seq-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setT1seqMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setT1seqMarks([]) })
+      .finally(() => { if (!dead) setT1seqLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showT1seq])
+
+  // T-T-T6 fetch — all historical T-T-T6 pattern dates for the ticker (1D only).
+  useEffect(() => {
+    if (!showTtt6 || !ticker || tf !== '1d') { setTtt6Marks(null); setTtt6Loading(false); return }
+    let dead = false
+    setTtt6Loading(true)
+    fetch(`/api/studio/ttt6-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setTtt6Marks(d?.marks || []) })
+      .catch(() => { if (!dead) setTtt6Marks([]) })
+      .finally(() => { if (!dead) setTtt6Loading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showTtt6])
+
+  // T3-seq fetch — T3 RSI<35 sequence marks (1D only).
+  useEffect(() => {
+    if (!showT3seq || !ticker || tf !== '1d') { setT3seqMarks(null); setT3seqLoading(false); return }
+    let dead = false
+    setT3seqLoading(true)
+    fetch(`/api/studio/t3seq-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setT3seqMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setT3seqMarks([]) })
+      .finally(() => { if (!dead) setT3seqLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showT3seq])
+
+  // T9 RSI<35 fetch — T9 bars where RSI<35 (1D only).
+  useEffect(() => {
+    if (!showT9rsi || !ticker || tf !== '1d') { setT9rsiMarks(null); setT9rsiLoading(false); return }
+    let dead = false
+    setT9rsiLoading(true)
+    fetch(`/api/studio/t9rsi35-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setT9rsiMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setT9rsiMarks([]) })
+      .finally(() => { if (!dead) setT9rsiLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showT9rsi])
+
   // Capit→Atom fetch — all historical B+ capit + atomic weak-close gap-up dates from Studio DB.
   useEffect(() => {
     if (!showCapitAtom || !ticker || !isDbTf(tf)) { setCapitAtomMarks(null); setCapitAtomLoading(false); return }
@@ -588,6 +722,41 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showFibMacro, showFibSwing, limit])
 
+  // 💠 GEX levels — dealer gamma-exposure lines from the options chain (gamma-flip,
+  // power-zone, call/put walls, max-pain). Live/15-min-delayed; drawn like Fib.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    for (const ln of gexLinesRef.current) { try { series.removePriceLine(ln) } catch {} }
+    gexLinesRef.current = []
+    if (!showGex || !ticker) { setGexInfo(null); return }
+    let dead = false
+    const expQ = gexExp ? `&expiration=${gexExp}` : ''
+    fetch(`/api/gex/${ticker}?max_dte=45${expQ}`).then(r => r.json()).then(d => {
+      if (dead) return
+      setGexInfo(d)
+      if (!d || !d.available) return
+      const L = [
+        ['power_zone', d.power_zone, '#fbc02d', 0, 'PZ'],       // yellow — strongest magnet
+        ['gamma_flip', d.gamma_flip, '#ff9800', 0, 'γflip'],    // orange — regime line
+        ['call_wall',  d.call_wall,  '#ef5350', 2, 'CallWall'], // red dashed — resistance
+        ['put_wall',   d.put_wall,   '#26a69a', 2, 'PutWall'],  // teal dashed — support
+        ['max_pain',   d.max_pain,   '#90a4ae', 2, 'MaxPain'],  // grey dashed — pin
+      ]
+      for (const [key, price, color, style, label] of L) {
+        if (price == null) continue
+        gexLinesRef.current.push(series.createPriceLine({
+          price, color, lineWidth: key === 'power_zone' ? 2 : 1, lineStyle: style,
+          axisLabelVisible: false, title: `💠${label}`,
+        }))
+      }
+    }).catch(() => { if (!dead) setGexInfo({ available: false }) })
+    return () => { dead = true }
+  }, [ticker, showGex, gexExp])
+
+  // reset expiration selection when the ticker changes (expirations are per-symbol)
+  useEffect(() => { setGexExp('') }, [ticker])
+
   // Gann parallel grid — ascending (red) + descending (cyan) line series.
   // MUST use log scale — geometric % steps are straight lines only in log space.
   useEffect(() => {
@@ -625,6 +794,41 @@ export default function CodeCandleChart({
       .finally(() => { if (!dead) setGannGridLoading(false) })
     return () => { dead = true }
   }, [ticker, tf, showGannGrid])
+
+  // 📉 Auto-trendlines — pivot-based sloped resistance/support lines (percent-tolerance,
+  // relevance-filtered; backend trendlines.py). Drawn like the gann grid but in LINEAR
+  // space (each line is a straight 2-point segment from its anchor to today).
+  useEffect(() => {
+    const chart = chartRef.current
+    for (const s of tlSeriesRef.current) { try { chart.removeSeries(s) } catch {} }
+    tlSeriesRef.current = []
+    setTlHeadline(null)
+    if (!chart || !showTrendlines || !ticker) return
+    if (tf !== '1d' && tf !== '1w') return   // daily/weekly only
+    setTlLoading(true)
+    let dead = false
+    fetch(`/api/trendlines/${ticker}?tf=${tf}&limit=${Math.max(limit, 500)}`)
+      .then(r => r.json())
+      .then(d => {
+        if (dead) return
+        setTlHeadline(d.headline || null)
+        for (const ln of (d.lines || [])) {
+          if (!ln.points || ln.points.length < 2) continue
+          const color = ln.side === 'res'
+            ? (ln.slope_dir === 'down' ? 'rgba(244,63,94,0.85)' : 'rgba(251,146,60,0.75)')
+            : 'rgba(52,211,153,0.8)'
+          const s = chart.addLineSeries({
+            color, lineWidth: ln.broke ? 1 : 2, lineStyle: ln.broke ? 2 : 0,
+            priceLineVisible: false, lastValueVisible: false, crosshairMarkerVisible: false,
+          })
+          s.setData(ln.points)
+          tlSeriesRef.current.push(s)
+        }
+      })
+      .catch(() => {})
+      .finally(() => { if (!dead) setTlLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showTrendlines, limit])
 
   // Zone-events overlay — fetch EXIT/RETEST events for this ticker (Zone Edge).
   useEffect(() => {
@@ -682,6 +886,73 @@ export default function CodeCandleChart({
       const label   = `${m.tier}${isPrime && rsiOk ? '★' : ''}·${m.suffix || '?'}`
       markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color,
         text: label })
+    }
+    // 2c2) T1-seq markers — amber arrow below bar, context-coded
+    for (const m of (t1seqMarks || [])) {
+      if (!m?.date) continue
+      const color = m.tier === 'T1' ? '#f59e0b' : m.tier === 'T2' ? '#f97316' : m.tier === 'T3' ? '#eab308' : '#64748b'
+      const ctx   = m.tier === 'T1' ? 'ZZ' : m.tier === 'T2' ? 'TZ' : m.tier === 'T3' ? 'ZT' : 'TT'
+      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
+      const rsiOk   = (m.rsi || 0) >= 60
+      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color,
+        text: `${ctx}·T1${isPrime && rsiOk ? '★' : ''}` })
+    }
+    // 2d) T-T-T6 markers — violet arrow below bar, tier-coded
+    for (const m of (ttt6Marks || [])) {
+      if (!m?.date) continue
+      const color = m.tier === 'T1' ? '#8b5cf6' : m.tier === 'T2' ? '#a855f7' : m.tier === 'T3' ? '#d946ef' : '#64748b'
+      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
+      const rsiOk   = (m.rsi || 0) >= 60
+      const label   = `${m.tier}${isPrime && rsiOk ? '★' : ''}·${m.suffix || '?'}`
+      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
+    }
+    // 2e) T3-seq RSI<35 markers — gold/amber/blue below bar, context-coded
+    for (const m of (t3seqMarks || [])) {
+      if (!m?.date) continue
+      const color = m.tier === 'fresh-nbi' ? '#f59e0b'
+                  : m.tier === 'fresh'     ? '#fb923c'
+                  : m.tier === 'streak'    ? '#60a5fa'
+                  : '#475569'
+      const label = m.tier === 'fresh-nbi' ? `T3★NBI`
+                  : m.tier === 'fresh'     ? `T3↑${m.suffix||'?'}`
+                  : m.tier === 'streak'    ? `T3×3`
+                  : `T3·${m.suffix||'?'}`
+      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
+    }
+    // 2f) T9 RSI<35 markers — teal/gold below bar
+    for (const m of (t9rsiMarks || [])) {
+      if (!m?.date) continue
+      const color = m.tier === 'premium' ? '#f59e0b' : '#2dd4bf'
+      const label = `T9↓${m.rsi}${m.tier === 'premium' ? '★' : ''}`
+      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
+    }
+    // 2g) Edge-board setup markers — ABOVE bar (entries), colored per setup.
+    //     Absorption bars (l43base/l22absorb) are CONTEXT, not entries → drawn BELOW
+    //     the bar as small circles (the validated pre-absorption booster fuel).
+    for (const m of (edgeMarks || [])) {
+      if (!m?.date) continue
+      if (m.setup === 'l43base' || m.setup === 'l22absorb') {
+        const ab = m.setup === 'l43base' ? ['#22c55e', '🟢L43'] : ['#f59e0b', '🧱L22']
+        markers.push({ time: m.date, position: 'belowBar', shape: 'circle', color: ab[0], text: ab[1] })
+        continue
+      }
+      const cfg = {
+        spring: ['#2dd4bf', '🌀SPR'], g3: ['#84cc16', '⚡G3'],
+        core:   ['#38bdf8', '✅CORE'], family: ['#a78bfa', '🎯Z→T11'],
+      }[m.setup] || ['#94a3b8', m.setup]
+      markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowDown', color: cfg[0], text: cfg[1] })
+    }
+    // 2h) 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar, sky.
+    for (const m of (scSuperMarks || [])) {
+      if (!m?.date) continue
+      markers.push({ time: m.date, position: 'belowBar', shape: 'circle', color: '#38bdf8', text: '🌀SC' })
+    }
+    // 2i) 📐 MTF-EMA markers — SMX/RGTI multi-tf EMA-stack fires, above bar, colored per variant.
+    for (const m of (mtfEmaMarks || [])) {
+      if (!m?.date) continue
+      const cfg = { K0: ['#22d3ee', 'K0'], SMX: ['#84cc16', 'SMX'], ORANGE: ['#f97316', 'ORG'], UP: ['#3b82f6', 'UP'],
+                    UPUP: ['#6366f1', 'UP2'], UPUPUP: ['#8b5cf6', 'UP3'], LL: ['#a855f7', 'LL'] }[m.variant] || ['#94a3b8', m.variant]
+      markers.push({ time: m.date, position: 'aboveBar', shape: 'circle', color: cfg[0], text: '📐' + cfg[1] })
     }
     // 3) Capit→Atom markers — 🔥 capit (red below) + ⚛ atom (violet below, 🔥 if post-capit)
     for (const c of (capitAtomMarks?.capit || [])) {
@@ -750,7 +1021,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, tzt4Marks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, tzt4Marks, ttt6Marks, t1seqMarks, t3seqMarks, t9rsiMarks, edgeMarks, scSuperMarks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {
@@ -917,6 +1188,17 @@ export default function CodeCandleChart({
                 <span className="ml-0.5 text-slate-400">{historyGannCount}</span>
               )}
             </div>
+            {/* Confluence-only toggle — needs both HV + Gann on; hides grey lines, keeps white */}
+            {historyHvTier > 0 && historyGannTier > 0 && (
+              <button onClick={() => setConfluenceOnly(v => !v)}
+                title="Show ONLY the white confluence levels (where an HV-history zone and a Gann pivot land on the same price) — hides the grey HV-only and Gann-only lines to de-clutter."
+                className={`px-1.5 py-0.5 rounded font-mono border text-[10px] ${
+                  confluenceOnly
+                    ? 'bg-white/90 text-black border-white'
+                    : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                ⚪ only
+              </button>
+            )}
             {/* Volume-class picker — VB (red) / W (grey) bar high+low levels */}
             <div className="flex items-center gap-0.5 text-[10px]"
                  title="Draw horizontal lines at the high AND low of every VB (Very Big volume — red) and W (Weak/dried-up volume — grey) bar over the chart range.">
@@ -973,6 +1255,126 @@ export default function CodeCandleChart({
                 {showTzt4 && !tzt4Loading && tzt4Marks && (
                   <span className="text-emerald-300">
                     {tzt4Marks.length}·{tzt4Marks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
+                  </span>
+                )}
+              </div>
+            )}
+            {/* Edge-board setup markers — spring/g3/core/family fires (above bar) */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="Edge: where the validated Edge-board setups fired. 🌀SPR Wyckoff spring (teal) · ⚡G3 gap-reclaim (lime) · ✅CORE weak-close gap-up (sky) · 🎯Z→T11 oversold-reversal family (violet). 1D only.">
+                <button onClick={() => setShowEdge(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showEdge
+                      ? 'bg-teal-900/50 text-teal-200 border-teal-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {edgeLoading ? '⏳' : '🎯'} Edge
+                </button>
+                {showEdge && !edgeLoading && edgeMarks && (
+                  <span className="text-teal-300">{edgeMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="🌀 SC-SUPER: Edge fires that occurred within ±5% of the Wyckoff range support (the SC accumulation floor). Validated median-lifting tier. 1D only.">
+                <button onClick={() => setShowScSuper(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showScSuper
+                      ? 'bg-sky-900/50 text-sky-200 border-sky-400'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  🌀 SC
+                </button>
+                {showScSuper && scSuperMarks && (
+                  <span className="text-sky-300">{scSuperMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* 📐 MTF-EMA markers — SMX/RGTI multi-tf EMA-stack fires, above bar */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="📐 MTF-EMA: SMX/RGTI multi-timeframe EMA-stack fires (15m·1h·4h geometry, EOD-evaluated). K0 cyan (earliest, family best) · SMX lime · ORG orange · UP/UP2/UP3 blue · LL purple. 1D only.">
+                <button onClick={() => setShowMtfEma(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showMtfEma
+                      ? 'bg-lime-900/50 text-lime-200 border-lime-400'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  📐 EMA
+                </button>
+                {showMtfEma && mtfEmaMarks && (
+                  <span className="text-lime-300">{mtfEmaMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* T1-seq historical markers — amber arrow below bar, context-coded */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="T1-seq: ?[-2]→?[-1]→T1[0]. Amber=ZZ context (+2.26%), orange=TZ (+2.21%), yellow=ZT, slate=TT. ★=EBA/EUR+RSI≥60. Best: Z9[-2]·Z6[-1]+EUR → Win=70%, Exp=+5.5%.">
+                <button onClick={() => setShowT1seq(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showT1seq
+                      ? 'bg-amber-900/50 text-amber-200 border-amber-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {t1seqLoading ? '⏳' : '⚡'} T1-seq
+                </button>
+                {showT1seq && !t1seqLoading && t1seqMarks && (
+                  <span className="text-amber-300">
+                    {t1seqMarks.length}·{t1seqMarks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
+                  </span>
+                )}
+              </div>
+            )}
+            {/* T-T-T6 historical markers — violet arrow below bar */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="T-T-T6 pattern: T[-2] → T[-1] → T6[0]. Violet=T1(T3/T1/T10 at -2, edge +3.8%), purple=T2(T4/T1G), fuchsia=T3(T2G/T9). ★ = EBA/EUR + RSI≥60.">
+                <button onClick={() => setShowTtt6(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showTtt6
+                      ? 'bg-violet-900/50 text-violet-200 border-violet-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {ttt6Loading ? '⏳' : '🔺'} T-T-T6
+                </button>
+                {showTtt6 && !ttt6Loading && ttt6Marks && (
+                  <span className="text-violet-300">
+                    {ttt6Marks.length}·{ttt6Marks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
+                  </span>
+                )}
+              </div>
+            )}
+            {/* T3-seq RSI<35 markers — gold=fresh+NBI, amber=fresh, blue=streak */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="T3 RSI<35 sequence. Gold★=fresh+NBI (exp≈+4.5), amber=fresh T3[-1] (exp≈+1.0), blue=T3×3 streak (exp≈+0.9). 'fresh'=T3 at [-1] only, nothing at [-2]. Slate=plain RSI<35.">
+                <button onClick={() => setShowT3seq(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showT3seq
+                      ? 'bg-amber-900/50 text-amber-200 border-amber-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {t3seqLoading ? '⏳' : '🟡'} T3·35
+                </button>
+                {showT3seq && !t3seqLoading && t3seqMarks && (
+                  <span className="text-amber-300">
+                    {t3seqMarks.length}·{t3seqMarks.filter(m => m.tier === 'fresh-nbi').length}★
+                  </span>
+                )}
+              </div>
+            )}
+            {/* T9 RSI<35 markers — teal=base, gold=NUI/NRI/N premium (exp≈+0.93-1.35) */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="T9 RSI<35: exp=+0.93 baseline. Gold★=NUI/NRI/N suffix (exp≈+1.0-1.35). T9 RSI<35 is monotonically best zone — RSI≥60 exp=-0.16.">
+                <button onClick={() => setShowT9rsi(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showT9rsi
+                      ? 'bg-teal-900/50 text-teal-200 border-teal-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {t9rsiLoading ? '⏳' : '🔵'} T9·35
+                </button>
+                {showT9rsi && !t9rsiLoading && t9rsiMarks && (
+                  <span className="text-teal-300">
+                    {t9rsiMarks.length}·{t9rsiMarks.filter(m => m.tier === 'premium').length}★
                   </span>
                 )}
               </div>
@@ -1064,6 +1466,61 @@ export default function CodeCandleChart({
                   : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
               {gannGridLoading ? '⏳' : '⬡'} Gann
             </button>
+            {/* 📉 auto-trendlines — rose = descending resistance · orange = rising resistance ·
+                emerald = support; dashed = already broken. Headline chip answers "below/inside/above". */}
+            <button onClick={() => setShowTrendlines(v => !v)}
+              title="Auto trendlines (pivot pairs, percent tolerance, relevance-filtered): rose = descending resistance, orange = rising resistance, emerald = support. Dashed = broken. 1d/1w only."
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                showTrendlines
+                  ? 'bg-rose-900/40 text-rose-300 border-rose-500'
+                  : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+              {tlLoading ? '⏳' : '📉'} TL
+            </button>
+            {showTrendlines && tlHeadline && (
+              <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                tlHeadline.vs_desc_resistance === 'above' ? 'bg-emerald-900/40 text-emerald-300 border-emerald-600'
+                : tlHeadline.vs_desc_resistance === 'inside' ? 'bg-amber-900/40 text-amber-300 border-amber-600'
+                : 'bg-md-surface text-md-on-surface-var border-white/15'}`}
+                title={`vs best descending resistance @ ${tlHeadline.line_value} (touches ${tlHeadline.touches}${tlHeadline.broke ? ', broken' : ''})`}>
+                {tlHeadline.vs_desc_resistance === 'above' ? '↑ above' : tlHeadline.vs_desc_resistance === 'inside' ? '≈ testing' : '↓ below'} desc-R
+              </span>
+            )}
+            {/* 💠 GEX — options gamma-exposure levels (PZ=yellow magnet · γflip=orange regime ·
+                CallWall=red R · PutWall=teal S · MaxPain=grey pin). Options plan only. */}
+            <button onClick={() => setShowGex(v => !v)}
+              title="GEX — dealer gamma-exposure levels from the live options chain: Power Zone (strongest magnet), Gamma Flip (regime line), Call Wall (resistance), Put Wall (support), Max Pain (pin). Options data, 15-min delayed."
+              className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                showGex
+                  ? 'bg-yellow-900/40 text-yellow-300 border-yellow-500'
+                  : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+              💠 GEX
+            </button>
+            {showGex && gexInfo && (gexInfo.available
+              ? <span className={`px-1.5 py-0.5 rounded text-[10px] font-mono border ${
+                  gexInfo.regime === 'negative' ? 'bg-rose-900/40 text-rose-300 border-rose-600'
+                  : 'bg-emerald-900/40 text-emerald-300 border-emerald-600'}`}
+                  title={`net GEX ${(gexInfo.net_gex/1e9).toFixed(2)}B · ${gexInfo.n_contracts} contracts · OI ${gexInfo.total_oi?.toLocaleString?.()} · lean ${gexInfo.lean} (${gexInfo.lean_score}) from max-pain ${gexInfo.max_pain} / walls ${gexInfo.put_wall}–${gexInfo.call_wall} — LOCATION bias, unvalidated context`}>
+                  {gexInfo.regime === 'negative' ? '⚡ neg-γ' : '🛡 pos-γ'}
+                  {gexInfo.lean && gexInfo.lean !== 'flat' && (
+                    <b className={gexInfo.lean === 'up' ? 'text-emerald-300' : 'text-rose-300'}> {gexInfo.lean === 'up' ? '↑' : '↓'}</b>
+                  )}
+                  {' · IV '}{gexInfo.atm_iv ?? '—'}%
+                </span>
+              : <span className="px-1.5 py-0.5 rounded text-[10px] font-mono border bg-md-surface text-md-on-surface-var/60 border-white/10"
+                  title="No options chain for this ticker, or the Options plan is off.">
+                  no options
+                </span>)}
+            {/* 💠 expiration selector — pick one expiry (like OptionFlow) or aggregate ≤45DTE */}
+            {showGex && gexInfo?.available_expirations?.length > 0 && (
+              <select value={gexExp} onChange={e => setGexExp(e.target.value)}
+                title="Options expiration used for the GEX levels. '≤45DTE' aggregates every near-term expiry; pick one to see that expiration's walls/gamma alone."
+                className="bg-md-surface border border-yellow-700/40 rounded px-1 py-0.5 text-[10px] font-mono text-yellow-200/90 focus:outline-none focus:border-yellow-500">
+                <option value="">≤45DTE (agg)</option>
+                {gexInfo.available_expirations.map(e => (
+                  <option key={e.date} value={e.date}>{e.date} · {e.dte}DTE</option>
+                ))}
+              </select>
+            )}
             {legend}
             {showBarSelector && (
               <select value={limit} onChange={e => setLimit(Number(e.target.value))}
@@ -1104,6 +1561,7 @@ export default function CodeCandleChart({
                              historyHvTier={historyHvTier} historyHvCount={historyHvCount}
                              historyGannTier={historyGannTier} historyGannCount={historyGannCount}
                              zoneSource={zoneSource} extras={sidePanelExtras}
+                             confluenceOnly={confluenceOnly}
                              showInsider={showInsider} insiderMarks={insiderMarks}
                              insiderLoading={insiderLoading} />
       )}
@@ -1111,7 +1569,7 @@ export default function CodeCandleChart({
   )
 }
 
-function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyHvCount, historyGannTier, historyGannCount, zoneSource, extras, showInsider, insiderMarks, insiderLoading }) {
+function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyHvCount, historyGannTier, historyGannCount, zoneSource, extras, confluenceOnly, showInsider, insiderMarks, insiderLoading }) {
   const last = candles?.length ? candles[candles.length - 1] : null
   const lastN = candles ? candles.slice(-15).reverse() : []
   const isGann = zoneSource === 'gann'
@@ -1200,10 +1658,10 @@ function FullscreenSidePanel({ ticker, hvZones, candles, historyHvTier, historyH
       {(historyHvTier > 0 || historyGannTier > 0) && (
         <div className="p-3 border-b border-white/5 text-xs space-y-0.5 font-mono"
              style={{ color: '#94a3b8' }}>
-          {historyHvTier > 0 && <div>📊 HV history ×{historyHvTier}+: {historyHvCount}</div>}
-          {historyGannTier > 0 && <div>📐 Gann pivots ±{historyGannTier}: {historyGannCount}</div>}
+          {!confluenceOnly && historyHvTier > 0 && <div>📊 HV history ×{historyHvTier}+: {historyHvCount}</div>}
+          {!confluenceOnly && historyGannTier > 0 && <div>📐 Gann pivots ±{historyGannTier}: {historyGannCount}</div>}
           {historyHvTier > 0 && historyGannTier > 0 && (
-            <div className="text-white">⚪ White = confluence (same price level in both)</div>
+            <div className="text-white">⚪ White = confluence (same price level in both){confluenceOnly ? ' · confluence-only' : ''}</div>
           )}
         </div>
       )}

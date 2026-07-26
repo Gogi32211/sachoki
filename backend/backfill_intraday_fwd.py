@@ -13,6 +13,8 @@ Usage:  uv run python backfill_intraday_fwd.py [1h|30m]   (default 1h)
 Idempotent: only fills rows whose fwd_5d IS NULL.
 """
 import os, sys, time, duckdb
+sys.path.insert(0, os.path.dirname(__file__))
+from studio.paths import db_path as _dbp
 
 _FWD = [1, 3, 5, 10, 20, 30, 60, 90]
 _MFE = [5, 10, 20, 30, 60]
@@ -40,7 +42,7 @@ def _select_exprs():
 
 
 def main(tf="1h"):
-    db = os.path.expanduser(f"~/Downloads/studio_{tf}.duckdb")
+    db = _dbp(tf)
     if not os.path.exists(db):
         print(f"no DB at {db}"); return
     con = duckdb.connect(db)
@@ -56,13 +58,27 @@ def main(tf="1h"):
     sets += [f"mfe_{n}d=c.mfe_{n}d" for n in _MFE if f"mfe_{n}d" in avail]
     sets += [f"mae_{n}d=c.mae_{n}d" for n in _MAE if f"mae_{n}d" in avail]
     t0 = time.time()
-    print("computing window labels + UPDATE (this is the heavy step)…", flush=True)
-    con.execute(f"""
-        UPDATE bars AS b SET {', '.join(sets)}
-        FROM (SELECT {_select_exprs()} FROM bars
-              WINDOW w AS (PARTITION BY ticker,universe ORDER BY date)) AS c
-        WHERE b.id = c.id AND b.fwd_5d IS NULL
-    """)
+    # One transaction over a very large table (15m: 88M rows) needs more DuckDB
+    # temp storage than the disk holds — it once filled the drive and rolled back.
+    # Chunk by ticker first letter: windows are per-ticker, so per-chunk UPDATEs
+    # are exact, each commit bounds temp usage, and reruns stay idempotent.
+    chunks = [None]
+    if todo > 30_000_000:
+        chunks = [r[0] for r in con.execute(
+            "SELECT DISTINCT upper(substr(ticker,1,1)) FROM bars ORDER BY 1").fetchall()]
+    print(f"computing window labels + UPDATE ({len(chunks)} chunk(s))…", flush=True)
+    for ch in chunks:
+        where_src = f"WHERE upper(substr(ticker,1,1)) = '{ch}'" if ch else ""
+        and_b     = f"AND upper(substr(b.ticker,1,1)) = '{ch}'" if ch else ""
+        con.execute(f"""
+            UPDATE bars AS b SET {', '.join(sets)}
+            FROM (SELECT {_select_exprs()} FROM bars {where_src}
+                  WINDOW w AS (PARTITION BY ticker,universe ORDER BY date)) AS c
+            WHERE b.id = c.id AND b.fwd_5d IS NULL {and_b}
+        """)
+        if ch:
+            con.execute("CHECKPOINT")
+            print(f"  chunk {ch} done ({(time.time()-t0)/60:.1f}min)", flush=True)
     print(f"  fwd/mfe/mae done in {(time.time()-t0)/60:.1f}min", flush=True)
     for col, cond in _HIT:
         if col in avail:

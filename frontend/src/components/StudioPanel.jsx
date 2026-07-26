@@ -90,6 +90,61 @@ const Select = ({ label, value, onChange, options, className = '' }) => (
   </label>
 )
 
+const TF_OPTS = ['1d', '1w', '4h', '1h', '15m']
+const TfPicker = ({ tf, onChange }) => (
+  <div className="flex gap-0.5 rounded-lg bg-md-surface-con p-0.5">
+    {TF_OPTS.map(t => (
+      <button
+        key={t}
+        onClick={() => onChange(t)}
+        className={cls(
+          'px-2 py-1 text-[11px] font-semibold rounded-md transition-colors',
+          tf === t
+            ? 'bg-md-primary text-md-on-primary'
+            : 'text-md-on-surface-var hover:text-md-on-surface hover:bg-white/5'
+        )}
+        title={t === '15m' ? '15m enriched DB (static — through last re-enrich)' : `${t} DB`}
+      >
+        {t.toUpperCase()}
+      </button>
+    ))}
+  </div>
+)
+
+// Year + month multi-select chips. [] = all; else restrict the query to the picked
+// calendar years / months. Shared by Exact Sequence, Seq Lab, Signal Stats.
+const YM_MONTHS = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec']
+const YearMonthChips = ({ years, setYears, months, setMonths }) => (
+  <div className="space-y-1">
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[10px] text-md-on-surface-var/70 w-12">years</span>
+      <button onClick={() => setYears([])}
+        className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+          years.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+      {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+        <button key={y}
+          onClick={() => setYears(p => p.includes(y) ? p.filter(x => x !== y) : [...p, y])}
+          className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+            years.includes(y) ? 'bg-emerald-700 text-emerald-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+          {String(y).slice(2)}</button>
+      ))}
+    </div>
+    <div className="flex flex-wrap items-center gap-1">
+      <span className="text-[10px] text-md-on-surface-var/70 w-12">months</span>
+      <button onClick={() => setMonths([])}
+        className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+          months.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+      {YM_MONTHS.map((mn, i) => (
+        <button key={mn}
+          onClick={() => setMonths(p => p.includes(i + 1) ? p.filter(x => x !== i + 1) : [...p, i + 1])}
+          className={cls('px-1.5 py-0.5 rounded text-[11px] font-medium',
+            months.includes(i + 1) ? 'bg-sky-700 text-sky-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+          {mn}</button>
+      ))}
+    </div>
+  </div>
+)
+
 const Spinner = () => (
   <svg className="animate-spin h-4 w-4 text-md-primary" fill="none" viewBox="0 0 24 24">
     <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"/>
@@ -158,7 +213,7 @@ const HUNTER_STAGE_COLORS = {
   'UTAD':     'text-orange-400',
 }
 
-function ExitHunterTab() {
+function ExitHunterTab({ tf = '1d' } = {}) {
   const [universe, setUniverse]   = useState('')
   const [minAes,   setMinAes]     = useState(10)
   const [minPrice, setMinPrice]   = useState(5)
@@ -180,6 +235,7 @@ function ExitHunterTab() {
     setLoading(true); setError(null)
     try {
       const r = await api.studioAccHunter({
+        tf,
         universe: universe || undefined,
         min_aes: minAes,
         min_price: minPrice,
@@ -608,7 +664,7 @@ const EDGE_TABS = [
   { id: 'by_quality', label: '⭐ Sweet Spot', color: 'text-amber-300' },
 ]
 
-function EdgeScannerTab() {
+function EdgeScannerTab({ tf = '1d' } = {}) {
   const [activeView, setActiveView]   = useState('top_buys')
   const [universe,   setUniverse]     = useState('')   // '' = all
   const [minN,       setMinN]         = useState(30)
@@ -642,6 +698,7 @@ function EdgeScannerTab() {
     setLoading(true)
     try {
       const r = await api.studioEdgeResults({
+        tf,
         tab, limit: 100,
         universe: universe || undefined,
         min_n: minN || undefined,
@@ -665,6 +722,7 @@ function EdgeScannerTab() {
     setRunning(true)
     try {
       await api.studioEdgeTrigger({
+        tf,
         universes: ['sp500', 'nasdaq'],
         n_bars: 3,
         min_matches: 20,
@@ -931,15 +989,25 @@ function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
 
 // One compact outcomes band: HH / HL pivot boxes + 5/10/20 forward-return cells,
 // all in a single row. Reused for 1D and 1H so the two timeframes line up.
-function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelColor }) {
+function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelColor, onTickerClick }) {
   if (!o) return null
-  const Fwd = ({ u, avg, win, n }) => (
-    <div className="rounded bg-md-surface-high/40 px-2 py-1 text-center min-w-[82px]">
-      <div className="text-[9px] text-md-on-surface-var/60">{u}</div>
+  // mfe/mae = avg max-favorable / max-adverse excursion WITHIN this same window —
+  // added 2026-07-22 (user: "5/10/20 bar Cveni surat ar gvazlevs srul suraTs,
+  // radgan SualedebSi SeiZleba didi spaiki gvqonda") — the plain close-to-close
+  // avg can hide a big intervening spike either direction.
+  const Fwd = ({ u, avg, win, n, mfe, mae }) => (
+    <div className="rounded bg-md-surface-high/40 px-2 py-1 text-center min-w-[92px]">
+      <div className="text-[10px] text-md-on-surface-var/60">{u}</div>
       <div className={cls('text-base font-mono font-bold',
         avg > 0 ? 'text-lime-400' : avg < 0 ? 'text-red-400' : 'text-md-on-surface-var')}>
         {avg != null ? `${avg > 0 ? '+' : ''}${avg}%` : '—'}</div>
-      <div className="text-[8px] text-md-on-surface-var/55">w {win ?? '—'}% · n {fmtNum(n)}</div>
+      <div className="text-[10px] text-md-on-surface-var/55">w {win ?? '—'}% · n {fmtNum(n)}</div>
+      {(mfe != null || mae != null) && (
+        <div className="text-[10px] font-mono mt-0.5 flex justify-center gap-2">
+          <span className="text-lime-400/80">▲{mfe != null ? mfe.toFixed(1) : '—'}%</span>
+          <span className="text-red-400/80">▼{mae != null ? mae.toFixed(1) : '—'}%</span>
+        </div>
+      )}
     </div>
   )
   return (
@@ -947,11 +1015,18 @@ function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelCol
       <div className="text-[10px] font-semibold mb-1.5 flex flex-wrap items-baseline gap-x-2">
         <span className={labelColor}>{label}</span>
         {matches != null && <span className="font-mono text-md-on-surface-var/70">{fmtNum(matches)} matches{baseline ? ` · ${(matches / baseline * 100).toFixed(3)}%` : ''}</span>}
+        {onTickerClick && matches > 0 && (
+          <button onClick={onTickerClick}
+            className="ml-1 rounded border border-white/10 bg-white/5 px-1.5 py-0.5 text-[9px] text-md-on-surface-var/60 hover:bg-white/10 hover:text-white/80 transition-colors">
+            tickers ↗
+          </button>
+        )}
         {hint && <span className="font-normal text-md-on-surface-var/45">· {hint}</span>}
       </div>
       <div className="flex gap-2 flex-wrap items-stretch">
         <div className="rounded border border-lime-700/30 bg-lime-900/15 px-3 py-2 flex-1 min-w-[210px]">
-          <div className="text-[11px] text-lime-300 font-semibold mb-1">↗ Next pivot HH</div>
+          <div className="text-[11px] text-lime-300 font-semibold mb-0.5">↗ Next pivot HH</div>
+          <div className="text-[9px] text-md-on-surface-var/50 mb-1">Price went UP to make Higher High</div>
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-2xl font-mono font-bold text-lime-300">{o.hh_pct ?? '—'}%</span>
             <span className="text-[10px] text-md-on-surface-var/60">({o.hh_count}/{o.next_pivot_known})</span>
@@ -959,24 +1034,51 @@ function SeqBand({ o, label, fwdUnits, matches, baseline, hint, accent, labelCol
           <div className="text-[12px] font-mono text-md-on-surface-var">avg gain <span className="text-lime-400 font-bold">{o.avg_pct_to_hh ?? '—'}%</span> · <span className="text-md-on-surface">{o.avg_bars_to_hh ?? '—'}</span> bars</div>
         </div>
         <div className="rounded border border-amber-700/30 bg-amber-900/15 px-3 py-2 flex-1 min-w-[210px]">
-          <div className="text-[11px] text-amber-300 font-semibold mb-1">↘ Next pivot HL</div>
+          <div className="text-[11px] text-amber-300 font-semibold mb-0.5">↘ Next pivot HL</div>
+          <div className="text-[9px] text-md-on-surface-var/50 mb-1">Price went DOWN to make Higher Low</div>
           <div className="flex items-baseline gap-2 mb-1">
             <span className="text-2xl font-mono font-bold text-amber-300">{o.hl_pct ?? '—'}%</span>
             <span className="text-[10px] text-md-on-surface-var/60">({o.hl_count}/{o.next_pivot_known})</span>
           </div>
           <div className="text-[12px] font-mono text-md-on-surface-var">avg drawdown <span className="text-amber-400 font-bold">{o.avg_pct_to_hl ?? '—'}%</span> · <span className="text-md-on-surface">{o.avg_bars_to_hl ?? '—'}</span> bars</div>
         </div>
-        <Fwd u={fwdUnits[0]} avg={o.avg_fwd_5d}  win={o.win_5d_pct}  n={o.fwd_5d_n} />
-        <Fwd u={fwdUnits[1]} avg={o.avg_fwd_10d} win={o.win_10d_pct} n={o.fwd_10d_n} />
-        <Fwd u={fwdUnits[2]} avg={o.avg_fwd_20d} win={o.win_20d_pct} n={o.fwd_20d_n} />
+        <Fwd u={fwdUnits[0]} avg={o.avg_fwd_5d}  win={o.win_5d_pct}  n={o.fwd_5d_n}
+             mfe={o.avg_mfe_5d}  mae={o.avg_mae_5d} />
+        <Fwd u={fwdUnits[1]} avg={o.avg_fwd_10d} win={o.win_10d_pct} n={o.fwd_10d_n}
+             mfe={o.avg_mfe_10d} mae={o.avg_mae_10d} />
+        <Fwd u={fwdUnits[2]} avg={o.avg_fwd_20d} win={o.win_20d_pct} n={o.fwd_20d_n}
+             mfe={o.avg_mfe_20d} mae={o.avg_mae_20d} />
       </div>
+      {o.spike_5pct != null && (
+        <div className="mt-1.5 flex flex-wrap gap-1.5 items-center">
+          <span className="text-[9px] text-md-on-surface-var/50 mr-0.5">MFE 20d →</span>
+          {[['+5%', o.spike_5pct], ['+10%', o.spike_10pct], ['+20%', o.spike_20pct]].map(([lbl, v]) => (
+            <span key={lbl} className={cls('rounded px-1.5 py-0.5 text-[10px] font-mono',
+              v >= 50 ? 'bg-lime-900/40 text-lime-300' : v >= 30 ? 'bg-lime-900/25 text-lime-400/80' : 'bg-md-surface-high/40 text-md-on-surface-var/60')}>
+              {lbl} <b>{v?.toFixed(0)}%</b>
+            </span>
+          ))}
+          <span className="text-[9px] text-md-on-surface-var/40 mx-1">avg +{o.avg_mfe_20d?.toFixed(1)}%</span>
+          <span className="text-[9px] text-md-on-surface-var/30 mx-1">|</span>
+          <span className="text-[9px] text-md-on-surface-var/50 mr-0.5">MAE 20d →</span>
+          {[['-4%', o.drop_4pct], ['-8%', o.drop_8pct], ['-15%', o.drop_15pct]].map(([lbl, v]) => (
+            <span key={lbl} className={cls('rounded px-1.5 py-0.5 text-[10px] font-mono',
+              v >= 50 ? 'bg-red-900/40 text-red-300' : v >= 30 ? 'bg-red-900/25 text-red-400/80' : 'bg-md-surface-high/40 text-md-on-surface-var/60')}>
+              {lbl} <b>{v?.toFixed(0)}%</b>
+            </span>
+          ))}
+          <span className="text-[9px] text-md-on-surface-var/40 mx-1">avg {o.avg_mae_20d?.toFixed(1)}%</span>
+        </div>
+      )}
     </div>
   )
 }
 
-// Intraday timeframes compared under the 1D band (each loaded async, slowest last).
-// Ordered 4H → 1H (descending timeframe after the 1D band on top).
+// Multi-timeframe comparisons under the 1D band (each loaded async).
+// Ordered 1W → 4H → 1H (weekly first = highest timeframe context).
 const SEQ_INTRADAY = [
+  { tf: '1w', label: '📅 1W · same sequence on weekly bars', units: ['2 bars', '4 bars', '8 bars'],
+    hint: 'fwd = N weekly bars (≈ N weeks)', accent: 'border-emerald-700/40 bg-emerald-900/15', color: 'text-emerald-300' },
   { tf: '4h', label: '⏱ 4H · same sequence on 4-hour bars', units: ['5 bars', '10 bars', '20 bars'],
     hint: 'fwd = N bars (≈ N×4 hours)', accent: 'border-violet-700/40 bg-violet-900/15', color: 'text-violet-300' },
   { tf: '1h', label: '⏱ 1H · same sequence on hourly bars', units: ['5 bars', '10 bars', '20 bars'],
@@ -1173,7 +1275,7 @@ function IntradayConfirmScore({ ics, trigger }) {
   )
 }
 
-function ExactSequenceTab() {
+function ExactSequenceTab({ tf: tfProp = '1d' } = {}) {
   const [bars, setBars] = useState([
     { ...EXACT_EMPTY_BAR },
     { ...EXACT_EMPTY_BAR },
@@ -1181,17 +1283,24 @@ function ExactSequenceTab() {
   ])
   const [uni,      setUni]      = useState('sp500')
   const [pivotLr,  setPivotLr]  = useState(3)
+  const [minPrice, setMinPrice] = useState('')   // close-price band on the entry bar
+  const [maxPrice, setMaxPrice] = useState('')
+  const [years,    setYears]    = useState([])   // [] = all years; else subset e.g. [2023,2024]
+  const [months,   setMonths]   = useState([])   // [] = all months; else subset 1-12
   const [strict,   setStrict]   = useState({
     line1: true, line2: true, line3: false, line4: false, line5: false, line6: false, line7: false, line8: false, line9: false,
   })
   const [result,   setResult]   = useState(null)
   const [loading,  setLoading]  = useState(false)
   const [error,    setError]    = useState(null)
-  const [tfData,    setTfData]    = useState({})   // { '4h': result, '1h': result } — loaded async
-  const [tfLoading, setTfLoading] = useState({})   // { '4h': bool, '1h': bool }
+  const [tfData,    setTfData]    = useState({})   // { '1w': result, '4h': result, '1h': result }
+  const [tfLoading, setTfLoading] = useState({})   // { tf: bool }
+  const [tfOpen,    setTfOpen]    = useState({})   // { tf: bool } — user-toggled; lazy load
   const [ics,       setIcs]       = useState(null) // ADDITIVE: 1H-confirm-score for the trigger bar (population)
   const [seqFlt,    setSeqFlt]    = useState(null) // ADDITIVE: 1H filter on THIS sequence's real matches
   const [seqFltLoad,setSeqFltLoad]= useState(false)
+  const [tickerModal, setTickerModal] = useState(null)  // { rows, tf } — list of matched tickers
+  const [tickerLoading, setTickerLoading] = useState(false)
 
   const updateBar = (i, newBar) =>
     setBars(prev => prev.map((b, j) => j === i ? newBar : b))
@@ -1209,39 +1318,62 @@ function ExactSequenceTab() {
     setResult(null); setError(null)
   }
 
+  const _seqBodyRef = useRef(null)
+
+  const loadTf = (tf) => {
+    const body = _seqBodyRef.current
+    if (!body) return
+    setTfOpen(p => ({ ...p, [tf]: true }))
+    if (tfData[tf] || tfLoading[tf]) return  // already loaded
+    setTfLoading(p => ({ ...p, [tf]: true }))
+    api.studioExactSequence({ ...body, tf })
+      .then(h => setTfData(p => ({ ...p, [tf]: h })))
+      .catch(e => setTfData(p => ({ ...p, [tf]: { error: e.message } })))
+      .finally(() => setTfLoading(p => ({ ...p, [tf]: false })))
+  }
+
+  const loadSeqFlt = () => {
+    const body = _seqBodyRef.current
+    if (!body || seqFlt || seqFltLoad) return
+    setSeqFltLoad(true)
+    api.studioExactSeq1hFilter(body)
+      .then(s => setSeqFlt(s))
+      .catch(e => setSeqFlt({ error: e.message }))
+      .finally(() => setSeqFltLoad(false))
+  }
+
+  const openTickerModal = (tf = '1d') => {
+    const body = _seqBodyRef.current
+    if (!body) return
+    setTickerLoading(true)
+    setTickerModal(null)
+    api.studioExactSequence({ ...body, tf, match_rows: true })
+      .then(r => setTickerModal({ rows: r.rows || [], tf }))
+      .catch(() => setTickerModal({ rows: [], tf }))
+      .finally(() => setTickerLoading(false))
+  }
+
   const run = async () => {
-    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({}); setIcs(null); setSeqFlt(null); setSeqFltLoad(false)
+    setLoading(true); setError(null); setResult(null); setTfData({}); setTfLoading({}); setTfOpen({}); setIcs(null); setSeqFlt(null); setSeqFltLoad(false)
     try {
       // "both" → omit universe (backend treats null as "all universes")
-      const body = { bars, strictness: strict, pivot_lr: pivotLr }
+      const body = { bars, strictness: strict, pivot_lr: pivotLr, tf: tfProp }
       if (uni !== 'both') body.universe = uni
+      if (minPrice !== '' && !isNaN(Number(minPrice))) body.min_price = Number(minPrice)
+      if (maxPrice !== '' && !isNaN(Number(maxPrice))) body.max_price = Number(maxPrice)
+      if (years.length)  body.years  = years
+      if (months.length) body.months = months
       const r = await api.studioExactSequence(body)
       if (r.error) { setError(r.error); return }
       setResult(r)
-      // intraday DBs are tens-of-M-bar queries (~10-20s) — load each in the BACKGROUND
-      // so the 1D band stays instant.
+      _seqBodyRef.current = body
       if (r.matches > 0) {
-        SEQ_INTRADAY.forEach(({ tf }) => {
-          setTfLoading(p => ({ ...p, [tf]: true }))
-          api.studioExactSequence({ ...body, tf })
-            .then(h => setTfData(p => ({ ...p, [tf]: h })))
-            .catch(e => setTfData(p => ({ ...p, [tf]: { error: e.message } })))
-            .finally(() => setTfLoading(p => ({ ...p, [tf]: false })))
-        })
-        // ADDITIVE: the trigger = last bar's TZ. Fetch how the intraday 1H structure
-        // inside that trigger-day shifts the odds (population-level, robust).
+        // ADDITIVE: the trigger = last bar's TZ. Fetch population-level 1H confirm score.
         const trig = (bars[bars.length - 1]?.tz || '').trim()
         api.studioIntradayConfirmScore(trig)
           .then(s => setIcs(s))
           .catch(() => {})
-        // ADDITIVE: 1H filter on THIS sequence's REAL matches — same HH% metric as the
-        // 1D band, so it answers "does +1H confirmation actually add edge here?" (slower
-        // — re-runs the match + joins the 1H DB — so load in the background).
-        setSeqFltLoad(true)
-        api.studioExactSeq1hFilter(body)
-          .then(s => setSeqFlt(s))
-          .catch(e => setSeqFlt({ error: e.message }))
-          .finally(() => setSeqFltLoad(false))
+        // Other TFs (1W / 4H / 1H) and 1H-filter are lazy — user clicks to load.
       }
     } catch (e) { setError(e.message) }
     finally     { setLoading(false) }
@@ -1348,9 +1480,46 @@ function ExactSequenceTab() {
             ))}
           </select>
 
+          <span className="text-[10px] text-md-on-surface-var/70 ml-1">price $</span>
+          <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)}
+            placeholder="min" title="min close price on the entry bar ($21-89 = quality zone)"
+            className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-1.5 py-0.5" />
+          <span className="text-[10px] text-md-on-surface-var/50">–</span>
+          <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
+            placeholder="max" title="max close price on the entry bar"
+            className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-1.5 py-0.5" />
+
           <Btn onClick={run} disabled={loading} size="sm" className="ml-auto">
             {loading ? <><Spinner /> Searching...</> : '▶ Find Matches'}
           </Btn>
+        </div>
+
+        {/* Year / month filter — [] = all; else restrict entry bar to selected years/months */}
+        <div className="flex flex-wrap items-center gap-1 px-3 pb-2 border-t border-md-outline-var pt-2">
+          <span className="text-[10px] text-md-on-surface-var/70 w-12">years</span>
+          <button onClick={() => setYears([])}
+            className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+              years.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+          {[2021, 2022, 2023, 2024, 2025, 2026].map(y => (
+            <button key={y}
+              onClick={() => setYears(p => p.includes(y) ? p.filter(x => x !== y) : [...p, y])}
+              className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+                years.includes(y) ? 'bg-emerald-700 text-emerald-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {String(y).slice(2)}</button>
+          ))}
+        </div>
+        <div className="flex flex-wrap items-center gap-1 px-3 pb-2">
+          <span className="text-[10px] text-md-on-surface-var/70 w-12">months</span>
+          <button onClick={() => setMonths([])}
+            className={cls('px-2 py-0.5 rounded text-[11px] font-medium',
+              months.length === 0 ? 'bg-md-primary text-md-on-primary' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>all</button>
+          {['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'].map((mn, i) => (
+            <button key={mn}
+              onClick={() => setMonths(p => p.includes(i + 1) ? p.filter(x => x !== i + 1) : [...p, i + 1])}
+              className={cls('px-1.5 py-0.5 rounded text-[11px] font-medium',
+                months.includes(i + 1) ? 'bg-sky-700 text-sky-50' : 'bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface')}>
+              {mn}</button>
+          ))}
         </div>
 
         {error && <div className="px-4 py-2 text-red-400 text-xs border-t border-md-outline-var">{error}</div>}
@@ -1388,33 +1557,66 @@ function ExactSequenceTab() {
               {/* 1D band — HH/HL pivots + 5/10/20d forward returns, one row */}
               <SeqBand o={o} label="1D" labelColor="text-emerald-300"
                        fwdUnits={['5d', '10d', '20d']}
-                       accent="border-emerald-700/30 bg-emerald-900/10" />
+                       accent="border-emerald-700/30 bg-emerald-900/10"
+                       matches={result.matches}
+                       onTickerClick={() => openTickerModal('1d')} />
 
-              {/* Intraday bands — SAME sequence on 4H / 1H bars, each loaded async */}
+              {/* Multi-TF bands — lazy toggle: + to open, × to close */}
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {SEQ_INTRADAY.map(({ tf, accent, color }) => {
+                  const open = tfOpen[tf]
+                  if (tfLoading[tf]) return (
+                    <div key={tf} className={cls('rounded border px-2 py-1 text-[10px] animate-pulse', accent, color)}>
+                      ⏳ {tf.toUpperCase()}…
+                    </div>
+                  )
+                  if (open) return (
+                    <button key={tf} onClick={() => setTfOpen(p => ({ ...p, [tf]: false }))}
+                      className={cls('rounded border px-2 py-1 text-[10px] font-mono hover:opacity-70 transition-opacity', accent, color)}>
+                      {tf.toUpperCase()} ×
+                    </button>
+                  )
+                  return (
+                    <button key={tf} onClick={() => loadTf(tf)}
+                      className={cls('rounded border px-2 py-1 text-[10px] font-mono hover:opacity-90 transition-opacity opacity-50', accent, color)}>
+                      + {tf.toUpperCase()}
+                    </button>
+                  )
+                })}
+                {seqFlt && !seqFlt.error ? (
+                  <button onClick={() => setSeqFlt(null)}
+                    className="rounded border border-violet-700/40 bg-violet-900/15 px-2 py-1 text-[10px] font-mono text-violet-300 hover:opacity-70 transition-opacity">
+                    1H filter ×
+                  </button>
+                ) : !seqFltLoad && (
+                  <button onClick={loadSeqFlt}
+                    className="rounded border border-violet-700/40 bg-violet-900/15 px-2 py-1 text-[10px] font-mono text-violet-300 hover:opacity-90 transition-opacity opacity-50">
+                    + 1H filter
+                  </button>
+                )}
+              </div>
+
               {SEQ_INTRADAY.map(({ tf, label, units, hint, accent, color }) => {
+                if (!tfOpen[tf] || tfLoading[tf]) return null
                 const d = tfData[tf]
-                if (tfLoading[tf]) return (
-                  <div key={tf} className={cls('rounded border px-2 py-2 text-[10px] animate-pulse', accent, color)}>
-                    ⏱ loading {tf.toUpperCase()} comparison (same sequence on intraday bars)…
-                  </div>
-                )
                 if (!d) return null
-                if (d.error) return <div key={tf} className="text-[9px] text-amber-400/60">⏱ {tf.toUpperCase()} unavailable: {d.error}</div>
-                if (d.matches === 0) return <div key={tf} className="text-[9px] text-md-on-surface-var/50">⏱ {tf.toUpperCase()}: 0 matches for this sequence</div>
+                if (d.error) return <div key={tf} className="text-[9px] text-amber-400/60">{tf.toUpperCase()} unavailable: {d.error}</div>
+                if (d.matches === 0) return <div key={tf} className="text-[9px] text-md-on-surface-var/50">{tf.toUpperCase()}: 0 matches for this sequence</div>
                 return (
                   <SeqBand key={tf} o={d.outcomes} label={label} labelColor={color}
                            fwdUnits={units} matches={d.matches} baseline={d.baseline}
-                           hint={hint} accent={accent} />
+                           hint={hint} accent={accent}
+                           onTickerClick={() => openTickerModal(tf)} />
                 )
               })}
 
-              {/* ADDITIVE — 1H confirmation on THIS sequence's REAL matches. Same
-                  Next-pivot-HH% metric as the 1D band above, re-aggregated on the
-                  subset that passes the 1H filter → directly answers "does it add edge?" */}
               {seqFltLoad && (
                 <div className="rounded border border-violet-700/30 bg-violet-900/10 px-2 py-2 text-[10px] text-violet-300/80 animate-pulse">
-                  ⏱ checking what this sequence's {result.outcomes?.hh_pct ?? ''}% HH becomes with 1H confirmation…
+                  ⏱ checking 1H confirmation edge…
                 </div>
+              )}
+              {seqFlt && seqFlt.error && (
+                <div className="text-[9px] text-amber-400/60">1H filter unavailable: {seqFlt.error}</div>
               )}
               {seqFlt && !seqFlt.error && seqFlt.all_1d && (
                 <SeqFilterCompare s={seqFlt} pivotLr={result.pivot_lr} />
@@ -1435,6 +1637,104 @@ function ExactSequenceTab() {
           )}
         </Card>
       )}
+
+      {/* ── Ticker modal ── */}
+      {(tickerLoading || tickerModal) && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 backdrop-blur-sm"
+             onClick={() => { setTickerModal(null); setTickerLoading(false) }}>
+          <div className="bg-md-surface rounded-xl border border-md-outline-var shadow-2xl w-[700px] max-h-[80vh] overflow-hidden flex flex-col"
+               onClick={e => e.stopPropagation()}>
+            <div className="flex items-center justify-between px-4 py-3 border-b border-md-outline-var">
+              <span className="text-sm font-semibold text-md-on-surface">
+                Matched tickers · {tickerModal?.tf?.toUpperCase() ?? '…'}
+              </span>
+              <button onClick={() => { setTickerModal(null); setTickerLoading(false) }}
+                className="text-md-on-surface-var/60 hover:text-white text-lg leading-none">×</button>
+            </div>
+            {tickerLoading ? (
+              <div className="p-6 text-center text-[11px] text-md-on-surface-var/50 animate-pulse">loading tickers…</div>
+            ) : (() => {
+              const hh = (tickerModal?.rows || []).filter(r => r.hh === 1 || r.hh === true)
+              const hl = (tickerModal?.rows || []).filter(r => r.hl === 1 || r.hl === true)
+              const none = (tickerModal?.rows || []).filter(r => !r.hh && !r.hl)
+              // universe breakdown (2026-07-22, user: "iq rom dayofili iyos tickerebi
+              // indexebis mixedvit... Seizleba romelime indeqsze konkretuli seqvence
+              // kargad muSaobdes") — group the SAME matched rows by universe so a
+              // universe-specific edge (or lack of one) is visible at a glance.
+              const UNI_META = {
+                sp500:     { label: 'SP500',   cls: 'bg-emerald-900/40 text-emerald-300' },
+                nasdaq:    { label: 'NASDAQ',  cls: 'bg-sky-900/40 text-sky-300' },
+                russell2k: { label: 'R2K',     cls: 'bg-violet-900/40 text-violet-300' },
+                index:     { label: 'IDX',     cls: 'bg-amber-900/40 text-amber-300' },
+              }
+              const uniOf = (r) => r.universe || '?'
+              const byUni = {}
+              for (const r of (tickerModal?.rows || [])) {
+                const u = uniOf(r)
+                byUni[u] = byUni[u] || { total: 0, hh: 0, hl: 0 }
+                byUni[u].total++
+                if (r.hh === 1 || r.hh === true) byUni[u].hh++
+                if (r.hl === 1 || r.hl === true) byUni[u].hl++
+              }
+              const uniKeys = Object.keys(byUni).sort((a, b) => byUni[b].total - byUni[a].total)
+              const TRow = ({ r, side }) => {
+                const meta = UNI_META[uniOf(r)] || { label: uniOf(r), cls: 'bg-white/5 text-md-on-surface-var/50' }
+                return (
+                  <div className="flex items-center gap-2 px-3 py-1 hover:bg-white/5 rounded cursor-pointer text-[11px]"
+                       title="click to copy ticker"
+                       onClick={() => navigator.clipboard?.writeText(r.ticker).catch(() => {})}>
+                    <span className={cls('font-mono font-bold w-14', side === 'hh' ? 'text-lime-300' : 'text-amber-300')}>{r.ticker}</span>
+                    <span className={cls('rounded px-1 text-[8px] font-mono', meta.cls)}>{meta.label}</span>
+                    <span className="text-md-on-surface-var/50">{r.date}</span>
+                    {r.fwd_20d != null && <span className={cls('ml-auto font-mono text-[10px]', r.fwd_20d > 0 ? 'text-lime-400' : 'text-red-400')}>
+                      {r.fwd_20d > 0 ? '+' : ''}{r.fwd_20d?.toFixed(1)}% 20d
+                    </span>}
+                  </div>
+                )
+              }
+              return (
+                <div className="overflow-y-auto flex-1 p-3">
+                  {uniKeys.length > 1 && (
+                    <div className="flex flex-wrap gap-2 mb-3 px-1">
+                      {uniKeys.map(u => {
+                        const meta = UNI_META[u] || { label: u, cls: 'bg-white/5 text-md-on-surface-var/60' }
+                        const d = byUni[u]
+                        const known = d.hh + d.hl
+                        const hhPct = known ? Math.round(d.hh / known * 100) : null
+                        return (
+                          <div key={u} className={cls('rounded px-2 py-1 text-[10px] font-mono', meta.cls)}>
+                            <span className="font-bold">{meta.label}</span>
+                            <span className="opacity-70"> · n={d.total}</span>
+                            {hhPct != null && <span className="opacity-70"> · HH {hhPct}%</span>}
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <div className="text-[10px] font-semibold text-lime-300 mb-1.5 px-1">
+                        ↗ HH — went UP ({hh.length})
+                      </div>
+                      {hh.map((r, i) => <TRow key={i} r={r} side="hh" />)}
+                    </div>
+                    <div>
+                      <div className="text-[10px] font-semibold text-amber-300 mb-1.5 px-1">
+                        ↘ HL — went DOWN ({hl.length})
+                      </div>
+                      {hl.map((r, i) => <TRow key={i} r={r} side="hl" />)}
+                      {none.length > 0 && <>
+                        <div className="text-[10px] text-md-on-surface-var/40 mt-2 mb-1 px-1">no next pivot yet ({none.length})</div>
+                        {none.map((r, i) => <TRow key={i} r={r} side="none" />)}
+                      </>}
+                    </div>
+                  </div>
+                </div>
+              )
+            })()}
+          </div>
+        </div>
+      )}
     </div>
   )
 }
@@ -1443,7 +1743,7 @@ function ExactSequenceTab() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── OVERVIEW TAB ──────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-function OverviewTab() {
+function OverviewTab({ tf = '1d' } = {}) {
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(false)
   const [importing, setImporting] = useState(false)
@@ -1453,7 +1753,7 @@ function OverviewTab() {
 
   const loadStats = useCallback(async () => {
     setLoading(true)
-    try { setStats(await api.studioStats()) } catch (e) { setStats({ error: e.message }) }
+    try { setStats(await api.studioStats(tf)) } catch (e) { setStats({ error: e.message }) }
     finally { setLoading(false) }
   }, [])
 
@@ -1823,7 +2123,7 @@ function EnrichCard() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── EVENTS TAB ────────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-function EventsTab() {
+function EventsTab({ tf = '1d' } = {}) {
   const [preset, setPreset] = useState('BULL_2X_60D')
   const [universes, setUniverses] = useState(['sp500', 'nasdaq'])
   const [dateFrom, setDateFrom] = useState('')
@@ -1838,7 +2138,7 @@ function EventsTab() {
   const [evLoading, setEvLoading] = useState(false)
 
   const loadSummary = async () => {
-    try { setSummary(await api.studioEventsSummary()) } catch {}
+    try { setSummary(await api.studioEventsSummary(tf)) } catch {}
   }
   useEffect(() => { loadSummary() }, [])
 
@@ -1855,7 +2155,7 @@ function EventsTab() {
         ...(priceMax && { price_max: +priceMax }),
         clear_existing: true,
       }
-      const r = await api.studioEventsDetect(body)
+      const r = await api.studioEventsDetect({ ...body, tf })
       setResult(r)
       loadSummary()
     } catch (e) {
@@ -1868,7 +2168,7 @@ function EventsTab() {
   const loadEvents = async () => {
     setEvLoading(true)
     try {
-      const rows = await api.studioEventsList({ event_type: evFilter, limit: 100 })
+      const rows = await api.studioEventsList({ event_type: evFilter, limit: 100, tf })
       setEvents(rows)
     } catch {}
     finally { setEvLoading(false) }
@@ -2021,7 +2321,7 @@ function EventsTab() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── PATTERNS TAB ─────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-function PatternsTab() {
+function PatternsTab({ tf = '1d' } = {}) {
   const [eventType, setEventType] = useState('BULL_2X_60D')
   const [preWindow, setPreWindow] = useState('10')
   const [minLift, setMinLift] = useState('2.0')
@@ -2036,6 +2336,7 @@ function PatternsTab() {
     setResult(null)
     try {
       const r = await api.studioPatternsMine({
+        tf,
         event_type:   eventType,
         pre_window:   +preWindow,
         min_lift:     +minLift,
@@ -2239,7 +2540,7 @@ function PatternsTab() {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── MISSED TAB ───────────────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-function MissedTab() {
+function MissedTab({ tf = '1d' } = {}) {
   const [eventType, setEventType] = useState('BULL_2X_60D')
   const [turboMax, setTurboMax] = useState('15')
   const [preWindow, setPreWindow] = useState('20')
@@ -2252,6 +2553,7 @@ function MissedTab() {
     setResult(null)
     try {
       const r = await api.studioMiss({
+        tf,
         event_type: eventType,
         turbo_max:  +turboMax,
         pre_window: +preWindow,
@@ -2393,7 +2695,7 @@ function MissResults({ result }) {
 // ═══════════════════════════════════════════════════════════════════════════════
 // ── FALSE POSITIVES TAB ───────────────────────────────────────────────────────
 // ═══════════════════════════════════════════════════════════════════════════════
-function FalsePostitiveTab() {
+function FalsePostitiveTab({ tf = '1d' } = {}) {
   const [turboMin, setTurboMin] = useState('50')
   const [fwdMax, setFwdMax] = useState('-10')
   const [fwdCol, setFwdCol] = useState('fwd_10d')
@@ -2407,6 +2709,7 @@ function FalsePostitiveTab() {
     setResult(null)
     try {
       const r = await api.studioFP({
+        tf,
         turbo_min:  +turboMin,
         fwd_max:    +fwdMax,
         fwd_col:    fwdCol,
@@ -2622,7 +2925,7 @@ const SCORE_SIGNAL_OPTS = [
   'already_extended_flag',
 ]
 
-function ScoringLabTab() {
+function ScoringLabTab({ tf = '1d' } = {}) {
   const [scores, setScores] = useState([])
   const [loading, setLoading] = useState(false)
 
@@ -2686,6 +2989,7 @@ function ScoringLabTab() {
     setBtResult(null)
     try {
       const r = await api.studioScoreBacktest({
+        tf,
         score_id: btScoreId,
         event_type: btEventType,
         ...(btDateFrom && { date_from: btDateFrom }),
@@ -3017,7 +3321,7 @@ function ComboStatsCard({ stats, baseline, label }) {
   )
 }
 
-function SignalStatsTab() {
+function SignalStatsTab({ tf = '1d' } = {}) {
   const [filters, setFilters]         = useState(null)
   const [selectedSigs, setSelected]   = useState([])
   const [universe, setUniverse]       = useState('')
@@ -3027,6 +3331,8 @@ function SignalStatsTab() {
   const [turboMin, setTurboMin]       = useState('')
   const [sortBy, setSortBy]           = useState('win_5d')
   const [minN, setMinN]               = useState(30)
+  const [years, setYears]             = useState([])
+  const [months, setMonths]           = useState([])
   const [pickerOpen, setPickerOpen]   = useState(false)
   const [pickerGroup, setPickerGroup] = useState(0)
 
@@ -3038,7 +3344,7 @@ function SignalStatsTab() {
 
   // Load filters on mount
   useEffect(() => {
-    api.studioSigFilters().then(setFilters).catch(() => {})
+    api.studioSigFilters(tf).then(setFilters).catch(() => {})
   }, [])
 
   const baseFilters = () => ({
@@ -3047,12 +3353,14 @@ function SignalStatsTab() {
     date_from: dateFrom  || null,
     date_to:   dateTo    || null,
     turbo_min: turboMin  ? +turboMin : null,
+    years:     years.length  ? years  : null,
+    months:    months.length ? months : null,
   })
 
   const runCombo = async () => {
     setLoading(true); setError(null); setComboResult(null)
     try {
-      const res = await api.studioSigQuery({ ...baseFilters(), signals: selectedSigs, min_n: 5 })
+      const res = await api.studioSigQuery({ ...baseFilters(), tf, signals: selectedSigs, min_n: 5 })
       setComboResult(res)
     } catch(e) { setError(e.message) }
     finally { setLoading(false) }
@@ -3061,7 +3369,7 @@ function SignalStatsTab() {
   const runRanking = async () => {
     setRankLoading(true); setError(null); setRankResult(null)
     try {
-      const res = await api.studioSigRank({ ...baseFilters(), sort_by: sortBy, min_n: minN, top_n: 60 })
+      const res = await api.studioSigRank({ ...baseFilters(), tf, sort_by: sortBy, min_n: minN, top_n: 60 })
       setRankResult(res)
     } catch(e) { setError(e.message) }
     finally { setRankLoading(false) }
@@ -3092,6 +3400,9 @@ function SignalStatsTab() {
             placeholder={filters?.date_max || 'YYYY-MM-DD'} className="w-32" />
           <Input  label="Turbo≥"    value={turboMin} onChange={setTurboMin}
             type="number" placeholder="0" className="w-20" />
+        </div>
+        <div className="mt-2 pt-2 border-t border-md-outline-var">
+          <YearMonthChips years={years} setYears={setYears} months={months} setMonths={setMonths} />
         </div>
       </Card>
 
@@ -3323,7 +3634,7 @@ function VerdictChip({ v }) {
   )
 }
 
-function SeqLabTab() {
+function SeqLabTab({ tf = '1d' } = {}) {
   const [p, setP] = useState({
     universe: 'sp500', n_bars: 4, mode: 'color', horizon: 'fwd_1d',
     min_occ: 500, wyc_phase: '', prefix: '', sort: 'win', limit: 25, by_phase: false,
@@ -3332,13 +3643,17 @@ function SeqLabTab() {
   const [data, setData]   = useState(null)
   const [loading, setLd]  = useState(false)
   const [error, setError] = useState(null)
+  const [years, setYears]   = useState([])
+  const [months, setMonths] = useState([])
   const upd = (k, v) => setP(prev => ({ ...prev, [k]: v }))
 
   const run = async () => {
     setLd(true); setError(null)
     try {
-      const params = { ...p }
+      const params = { ...p, tf }
       if (params.universe === 'all') delete params.universe
+      if (years.length)  params.years  = years.join(',')
+      if (months.length) params.months = months.join(',')
       const r = await api.studioSeqLab(params)
       if (r.error) setError(r.error); else setData(r)
     } catch (e) { setError(e.message) } finally { setLd(false) }
@@ -3452,6 +3767,8 @@ function SeqLabTab() {
         </button>
       </div>
 
+      <YearMonthChips years={years} setYears={setYears} months={months} setMonths={setMonths} />
+
       {error && <div className="text-xs text-red-400">{error}</div>}
 
       {/* baseline */}
@@ -3506,13 +3823,13 @@ function SeqLabTab() {
         </div>
       )}
 
-      <SeqBacktestPanel />
+      <SeqBacktestPanel tf={tf} />
     </div>
   )
 }
 
 // ── Realized backtest sub-panel (turns a signal condition into a tradeable rule) ──
-function SeqBacktestPanel() {
+function SeqBacktestPanel({ tf = '1d' } = {}) {
   const [p, setP] = useState({
     signals: 'rsi_le_35,wyc_in_tr', universe: 'sp500', wyc_phase: 'MARKUP',
     target_pct: 8, stop_pct: 4, max_hold: 15, side: 'long',
@@ -3524,7 +3841,7 @@ function SeqBacktestPanel() {
   const run = async () => {
     setLd(true); setErr(null)
     try {
-      const params = { ...p }
+      const params = { ...p, tf }
       if (params.universe === 'all') delete params.universe
       if (!params.wyc_phase) delete params.wyc_phase
       const r = await api.studioSeqBacktest(params)
@@ -3606,7 +3923,7 @@ const _V2_FIELD = {  // strictness key → bar field it constrains (for the dimm
 }
 const _V2_UNI = [['all', 'All US'], ['nasdaq', 'Nasdaq'], ['sp500', 'S&P 500'], ['russell2k', 'Russell 2K']]
 
-function CodesV2Panel({ ticker }) {
+function CodesV2Panel({ ticker, tf = '1d' }) {
   const [nBars,   setNBars]   = useState(3)
   const [pivotLr, setPivotLr] = useState(3)
   const [uni,     setUni]     = useState('all')   // 'all' = whole DB (omit universe)
@@ -3623,7 +3940,7 @@ function CodesV2Panel({ ticker }) {
   useEffect(() => {
     let cancelled = false
     setError(null)
-    api.studioBars(ticker, nBars).then(rows => {
+    api.studioBars(ticker, nBars, tf).then(rows => {
       if (cancelled) return
       const top = (rows || []).slice(0, nBars).reverse()
       setSeq(top.map(r => ({
@@ -3650,7 +3967,7 @@ function CodesV2Panel({ ticker }) {
         tz: b.tz, l: b.l, suffix: b.suffix, body_wick: b.body_wick,
         gap_range: b.gap_range, line5: b.line5, vol: b.vol,
       })),
-      strictness: strict, pivot_lr: pivotLr,
+      strictness: strict, pivot_lr: pivotLr, tf,
     }
     if (uni !== 'all') body.universe = uni
     const t = setTimeout(() => {
@@ -3839,7 +4156,7 @@ function CodesV2Panel({ ticker }) {
   )
 }
 
-function DbChartTab() {
+function DbChartTab({ tf = '1d' } = {}) {
   const [ticker, setTicker]   = useState(() => { try { return localStorage.getItem('studio_dbchart_ticker') || 'AAPL' } catch { return 'AAPL' } })
   const [inputVal, setInputVal] = useState(ticker)
   const go = () => {
@@ -3870,7 +4187,7 @@ function DbChartTab() {
         <button onClick={go} className="px-3 py-1.5 text-sm rounded-lg bg-md-primary text-md-on-primary font-medium">Load</button>
       </div>
       <CodeCandleChart ticker={ticker} tf="1d" initialLimit={300} showFooter />
-      <CodesV2Panel ticker={ticker} />
+      <CodesV2Panel ticker={ticker} tf={tf} />
     </div>
   )
 }
@@ -3977,7 +4294,7 @@ function PlaybookSetupCard({ s }) {
   )
 }
 
-function PlaybookTab() {
+function PlaybookTab({ tf = '1d' } = {}) {
   const [p, setP] = useState({ universe: 'sp500', min_trades: 30, min_price: 5, min_volume: 100000 })
   const [data, setData]   = useState(null)
   const [loading, setLd]  = useState(false)
@@ -3987,7 +4304,7 @@ function PlaybookTab() {
   const run = async () => {
     setLd(true); setError(null)
     try {
-      const r = await api.studioPlaybook(p)
+      const r = await api.studioPlaybook({ ...p, tf })
       if (r.error && !r.setups?.length) setError(r.error)
       setData(r)
     } catch (e) { setError(e.message) } finally { setLd(false) }
@@ -4073,10 +4390,17 @@ export default function StudioPanel() {
   const [activeTab, setActiveTab] = useState(() => {
     try { return localStorage.getItem('studio_tab') || 'overview' } catch { return 'overview' }
   })
+  const [tf, setTf] = useState(() => {
+    try { return localStorage.getItem('studio_tf') || '1d' } catch { return '1d' }
+  })
 
   const switchTab = (id) => {
     setActiveTab(id)
     try { localStorage.setItem('studio_tab', id) } catch {}
+  }
+  const switchTf = (t) => {
+    setTf(t)
+    try { localStorage.setItem('studio_tf', t) } catch {}
   }
 
   return (
@@ -4088,6 +4412,10 @@ export default function StudioPanel() {
           <p className="text-[11px] text-md-on-surface-var">
             DuckDB-powered signal analytics · 1.2M+ bars · lift-based pattern mining
           </p>
+        </div>
+        <div className="ml-auto flex items-center gap-2">
+          <span className="text-[10px] uppercase tracking-wide text-md-on-surface-var">TF</span>
+          <TfPicker tf={tf} onChange={switchTf} />
         </div>
       </div>
 
@@ -4109,21 +4437,21 @@ export default function StudioPanel() {
         ))}
       </div>
 
-      {/* Tab content */}
-      <div className="flex-1">
-        {activeTab === 'overview'  && <OverviewTab />}
-        {activeTab === 'hunter'    && <ExitHunterTab />}
-        {activeTab === 'edge'      && <EdgeScannerTab />}
-        {activeTab === 'playbook'  && <PlaybookTab />}
-        {activeTab === 'sigstats'  && <SignalStatsTab />}
-        {activeTab === 'exact'     && <ExactSequenceTab />}
-        {activeTab === 'seqlab'    && <SeqLabTab />}
-        {activeTab === 'dbchart'   && <DbChartTab />}
-        {activeTab === 'events'    && <EventsTab />}
-        {activeTab === 'patterns'  && <PatternsTab />}
-        {activeTab === 'miss'      && <MissedTab />}
-        {activeTab === 'fp'        && <FalsePostitiveTab />}
-        {activeTab === 'scoring'   && <ScoringLabTab />}
+      {/* Tab content — key={tf} remounts the active tab so every fetch re-runs on the new DB */}
+      <div className="flex-1" key={tf}>
+        {activeTab === 'overview'  && <OverviewTab tf={tf} />}
+        {activeTab === 'hunter'    && <ExitHunterTab tf={tf} />}
+        {activeTab === 'edge'      && <EdgeScannerTab tf={tf} />}
+        {activeTab === 'playbook'  && <PlaybookTab tf={tf} />}
+        {activeTab === 'sigstats'  && <SignalStatsTab tf={tf} />}
+        {activeTab === 'exact'     && <ExactSequenceTab tf={tf} />}
+        {activeTab === 'seqlab'    && <SeqLabTab tf={tf} />}
+        {activeTab === 'dbchart'   && <DbChartTab tf={tf} />}
+        {activeTab === 'events'    && <EventsTab tf={tf} />}
+        {activeTab === 'patterns'  && <PatternsTab tf={tf} />}
+        {activeTab === 'miss'      && <MissedTab tf={tf} />}
+        {activeTab === 'fp'        && <FalsePostitiveTab tf={tf} />}
+        {activeTab === 'scoring'   && <ScoringLabTab tf={tf} />}
       </div>
     </div>
   )

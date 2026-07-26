@@ -11,18 +11,16 @@ holds decisions, positions, the three memory tiers, calibration and shadow state
 from __future__ import annotations
 
 import os
+import sys
 import duckdb
 
-# Journal DB lives next to the analytics DB in the user's data dir.
-JOURNAL_DB_PATH = os.environ.get(
-    "AI_JOURNAL_DB_PATH",
-    os.path.expanduser("~/Downloads/ai_journal.duckdb"),
-)
+sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+from studio.paths import db_path as _dbp, ANALYTICS_DB as _ANALYTICS_DEFAULT
+
+# Journal DB lives next to the analytics DB in the project data dir.
+JOURNAL_DB_PATH = os.environ.get("AI_JOURNAL_DB_PATH", _dbp("ai_journal.duckdb"))
 # Read-only source of truth (bars + fwd_*/next_pivot_is_hh_* metrics).
-ANALYTICS_DB_PATH = os.environ.get(
-    "STUDIO_DB_PATH",
-    os.path.expanduser("~/Downloads/studio_analytics.duckdb"),
-)
+ANALYTICS_DB_PATH = os.environ.get("STUDIO_DB_PATH", _ANALYTICS_DEFAULT)
 
 
 def get_journal_conn(read_only: bool = False) -> duckdb.DuckDBPyConnection:

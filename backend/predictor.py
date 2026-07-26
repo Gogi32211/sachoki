@@ -149,6 +149,105 @@ def _empty() -> dict:
     return {"current_regime": "unknown", "tz_3bar": empty, "tz_2bar": empty}
 
 
+# ── Inverted name lookup ──────────────────────────────────────────────────────
+_NAME_TO_ID: dict[str, int] = {v: k for k, v in SIG_NAMES.items() if k != 0}
+
+# Sentinel for "any signal" positions
+_ANY = None
+
+
+def get_last_tz_signals(df: pd.DataFrame, n: int = 5) -> list[str]:
+    """Return last N T/Z signal names from df (most recent last)."""
+    if "sig_id" not in df.columns or len(df) == 0:
+        return ["NONE"] * n
+    sigs = df["sig_id"].tail(n).tolist()
+    return [SIG_NAMES.get(int(s), "NONE") for s in sigs]
+
+
+def predict_sequence(
+    df:       pd.DataFrame,
+    sequence: list[str | None],
+) -> dict:
+    """
+    Match an arbitrary T/Z sequence and return next-bar outcome distribution.
+
+    sequence : list of signal name strings or None (None = wildcard).
+               sequence[0] = oldest bar, sequence[-1] = most recent bar.
+               We return what signal appears on the bar AFTER sequence[-1].
+
+    Example:
+        predict_sequence(df, ["T1", None, "T2G", "T1"])
+        → what signal follows a T1 … T2G → T1 pattern?
+    """
+    if "sig_id" not in df.columns:
+        return {"pattern": "", "total_matches": 0, "top_outcomes": [],
+                "bull_matches": 0, "bear_matches": 0,
+                "bull_bull_pct": 0, "bear_bull_pct": 0}
+
+    # Validate the request before matching. An empty sequence would match every
+    # bar vacuously (all([]) is True), and an unknown name would silently collapse
+    # to a wildcard via _NAME_TO_ID.get(...) → None — both yield misleading stats.
+    if not sequence:
+        raise ValueError("sequence is empty — provide at least one signal or wildcard")
+    unknown = [s for s in sequence
+               if not (s is None or s in ("NONE", "—", "")) and s not in _NAME_TO_ID]
+    if unknown:
+        raise ValueError(f"unknown signal name(s): {', '.join(map(str, unknown))}")
+
+    sigs = df["sig_id"].to_numpy(dtype=np.int16)
+    n    = len(sequence)
+    N    = len(sigs)
+
+    if N < n + 1:
+        return {"pattern": "", "total_matches": 0, "top_outcomes": [],
+                "bull_matches": 0, "bear_matches": 0,
+                "bull_bull_pct": 0, "bear_bull_pct": 0}
+
+    # Regime
+    if "close" in df.columns and len(df) >= 50:
+        ema20 = df["close"].ewm(span=20, adjust=False).mean().to_numpy()
+        ema50 = df["close"].ewm(span=50, adjust=False).mean().to_numpy()
+        is_bull = ema20 > ema50
+    else:
+        is_bull = np.ones(N, dtype=bool)
+
+    # Convert sequence names → IDs (None stays None = wildcard)
+    seq_ids: list[int | None] = []
+    for s in sequence:
+        if s is None or s in ("NONE", "—", ""):
+            seq_ids.append(None)
+        else:
+            seq_ids.append(_NAME_TO_ID.get(s))
+
+    out_all: list[int] = []
+    out_bull: list[int] = []
+    out_bear: list[int] = []
+
+    for i in range(N - n):
+        match = all(
+            (sid is None or int(sigs[i + j]) == sid)
+            for j, sid in enumerate(seq_ids)
+        )
+        if match:
+            outcome = int(sigs[i + n])
+            out_all.append(outcome)
+            if is_bull[i + n - 1]:
+                out_bull.append(outcome)
+            else:
+                out_bear.append(outcome)
+
+    sig_label = " → ".join(
+        (SIG_NAMES.get(sid, "?") if sid is not None else "?")
+        for sid in seq_ids
+    )
+    pat = "".join(
+        ("T" if sid in BULLISH_SIGS else "Z" if sid in BEARISH_SIGS else "N")
+        if sid is not None else "?"
+        for sid in seq_ids
+    )
+    return _summarize(pat, sig_label, out_all, out_bull, out_bear)
+
+
 # ── T/Z signal frequency statistics ──────────────────────────────────────────
 
 def compute_tz_stats(df: pd.DataFrame, doji_thresh: float = 0.05) -> dict:

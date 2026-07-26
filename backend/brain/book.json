@@ -1,0 +1,277 @@
+{
+  "starting_capital": 10000.0,
+  "peak_equity": 10000.0,
+  "positions": [
+    {
+      "ticker": "SKYT",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 81,
+      "entry": 30.72,
+      "stop": 29.49,
+      "target": 33.18,
+      "sector": "Technology",
+      "risk_dollars": 99.63,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['washout'])",
+        "sizing: 81sh (stop structural (base low) 4%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 81sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2488.32,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:WSH",
+        "EDGE:ZRT",
+        "EDGE:🎯3",
+        "EDGE:🎯4"
+      ]
+    },
+    {
+      "ticker": "GRRR",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 53,
+      "entry": 12.57,
+      "stop": 10.69,
+      "target": 16.33,
+      "sector": "",
+      "risk_dollars": 99.64,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
+        "sizing: 53sh (stop structural (base low) 15%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 53sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 666.21,
+      "fingerprint": [
+        "T11",
+        "L2",
+        "L5",
+        "w2_accum",
+        "NOT_EXT",
+        "L25",
+        "EDGE:Z11",
+        "EDGE:M_z11t11_m15_zdom"
+      ]
+    },
+    {
+      "ticker": "MAR",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 6,
+      "entry": 364.47,
+      "stop": 349.89,
+      "target": 393.63,
+      "sector": "Consumer Discretionary",
+      "risk_dollars": 87.48,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['g3_gap', 'g3abs', 'highbase15'])",
+        "sizing: 6sh (stop structural (base low) 4%, risk 0.9%, R:R 2.0, x1.0) -> regime x1.0 = 6sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2186.82,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:ZRT",
+        "EDGE:HB15",
+        "EDGE:🎯3",
+        "EDGE:🎯4"
+      ]
+    },
+    {
+      "ticker": "RMBS",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 9,
+      "entry": 103.19,
+      "stop": 92.4,
+      "target": 124.77,
+      "sector": "Technology",
+      "risk_dollars": 97.11,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
+        "sizing: 9sh (stop structural (base low) 10%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 9sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 928.71,
+      "fingerprint": [
+        "T11",
+        "L2",
+        "L5",
+        "NOT_EXT",
+        "L25",
+        "EDGE:Z11",
+        "EDGE:M_z11t11_m15_zdom",
+        "EDGE:ATM"
+      ]
+    },
+    {
+      "ticker": "UAL",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 21,
+      "entry": 115.34,
+      "stop": 110.73,
+      "target": 124.56,
+      "sector": "Industrials",
+      "risk_dollars": 96.81,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['g3_gap', 'g3abs'])",
+        "sizing: 21sh (stop structural (base low) 4%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 21sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2422.14,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:🎯3"
+      ]
+    },
+    {
+      "ticker": "AAUC",
+      "edge": "g3abs",
+      "edge_title": "⚡G3-Abs",
+      "tier": "core",
+      "shares": 14,
+      "entry": 21.22,
+      "stop": 20.02,
+      "target": 23.62,
+      "sector": "",
+      "risk_dollars": 16.8,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: ⚡G3-Abs [core] (also: ['g3_gap'])",
+        "sizing: 83sh (stop structural (base low) 6%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 83sh",
+        "portfolio: x0.175 (cash binding) -> 14sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 297.08,
+      "fingerprint": [
+        "T12",
+        "L5",
+        "NOT_EXT",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:🎯3",
+        "EDGE:🎯4",
+        "EDGE:WSH",
+        "EDGE:ZRT"
+      ]
+    },
+    {
+      "ticker": "EQX",
+      "edge": "g3_gap",
+      "edge_title": "G3 gap reclaim",
+      "tier": "core",
+      "shares": 1,
+      "entry": 9.29,
+      "stop": 8.44,
+      "target": 10.99,
+      "sector": "",
+      "risk_dollars": 0.85,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: G3 gap reclaim [core] (also: [])",
+        "sizing: 117sh (stop structural (base low) 9%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 117sh",
+        "portfolio: x0.01 (cash binding) -> 1sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 9.29,
+      "fingerprint": [
+        "T5",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:ATM",
+        "EDGE:G3²",
+        "EDGE:G3L46",
+        "EDGE:ZRT"
+      ]
+    }
+  ],
+  "closed": [
+    {
+      "ticker": "AAL",
+      "edge": "coil_floor",
+      "shares": 169,
+      "entry": 14.79,
+      "stop": 14.2,
+      "target": 15.97,
+      "sector": "Industrials",
+      "risk_dollars": 99.71,
+      "opened": "2026-07-22",
+      "position_value": 2499.51,
+      "exit": 14.79,
+      "pnl": 0.0,
+      "closed": "2026-07-24",
+      "reason": "",
+      "analysis": {
+        "verdict": "weak_exit",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": 0.0,
+        "r_multiple": 0.0,
+        "planned_rr": 2.0,
+        "edge": "coil_floor",
+        "edge_title": "Coil-Floor Absorption",
+        "tier": "core",
+        "expected": {
+          "median": 2.69,
+          "win": 56,
+          "pf": 1.81
+        },
+        "factors": [
+          "planned R:R 2.0 · realized +0.00R",
+          "edge base median +2.69% (this trade +0.00%)",
+          "edge base win 56% — losses are expected 44% of the time",
+          "one loss inside a 56%-win edge — within base rate, not a broken edge"
+        ],
+        "lesson": "single loss within coil_floor's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    }
+  ]
+}
