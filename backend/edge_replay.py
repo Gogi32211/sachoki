@@ -798,6 +798,38 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # 💎 quality-price rescuer for Z-Absorb (OB variant n too thin + worst worsened; $21-89 is the
     # clean lift — improves era-balance and worst year −4.2→−2.6, per the booster study).
     df["E_zabsorb_q"]   = df["E_zabsorb"] & df["close"].between(21, PRICE_CAP)   # +5.75→+8.69/med+4.39/worst−2.6
+    # 🕯️ MID-CLOSE gate (validated 2026-07-27, breakout_closepos.py / midclose_validate.py).
+    # Born from a "STRONG vs WEAK BREAKOUT" infographic claiming a breakout is tradeable only if
+    # the candle closes ≥62% of its range beyond the broken level. Tested raw: REFUTED — every
+    # 20d/50d breakout × close-position cell is negative (STRONG −0.88 vs a −0.75 baseline) and
+    # the colour rule runs BACKWARDS (green breakout −0.88 vs red −0.68; the picture's "do not
+    # enter" cells are the LESS bad ones). Same law as always: fade strength, buy absorbed
+    # weakness ([[project_what_actually_works]]).
+    # But as a GATE on real edges the ladder is an INVERTED-U — the MIDDLE wins, not the strong
+    # close and not the weak one. cp = (close − low) / (high − low):
+    #   strong close (cp≥62) HURTS 6/8 edges (D+L1 −0.90, G3-Abs −0.48, Washout −0.40)
+    #   mid   close (38-62)  helps 6/8, and the plateau is wide (30-70 … 45-55 all work)
+    # Reads as "demand showed up but is not yet exhausted" — the absorbed-effort law in the
+    # close-position axis, and the THIRD inverted-U in the system after volume magnitude and
+    # the score zones ([[project_volume_magnitude]], [[project_score_ensemble]]).
+    # ROLE IS EDGE-SPECIFIC (as with RS / dwell / TLS): G3-Abs and L43 carry it alone; on
+    # Washout and ZRT mid-close ALONE is a trap (4/6 worst −3.6 · 3/6 worst −1.0) and only pays
+    # together with the 💥 intraday volume event (Washout 4/6 worst −2.0 → 6/6 worst +1.2 · ZRT
+    # +0.2 → +1.2). Those two combined variants are **deliberately NOT built**: DSR 0.541 / 0.537
+    # against the 24-variant combined family (SR +0.156 vs SR* +0.154) is below our 0.6 trust bar,
+    # so the worst-year rescue is real in-sample but not selection-proof. WATCH tier.
+    # Not built either: D+L1 (TRAIN −0.30, 2021 worsens −1.0→−2.6 — era-dependent) and QZ-Capit
+    # (marginal, 2021 worsens 0.0→−0.5).
+    _midclose = (df["close"] - df["low"]) / (df["high"] - df["low"]).clip(lower=1e-9)
+    df["mid_close"] = _midclose.between(0.38, 0.62, inclusive="right")
+    # G3-Abs: med +2.00→+3.39, win 55.1→59.6, pf 1.73→2.30, 5/6yr worst −0.8 → 6/6yr worst +1.6.
+    # DSR 1.000 vs the 24-variant mid-band family. Plateau: 6/6yr at ALL six cuts tested.
+    # Survives BOTH price buckets ($21-89 6/6 worst +2.1 · $89-377 6/6 worst +0.7). TRAIN 3/3.
+    df["E_g3abs_mid"] = df["E_g3abs"] & df["mid_close"]
+    # L43-TRIPLE: med +2.77→+4.16, win 57.8→62.6, pf 1.91→2.52, worst +0.3 → +1.8, DSR 0.999.
+    # $21-89 ONLY — the $89-377 bucket is 4/6yr worst −2.0, so the price cap stays tight here
+    # (the opposite of E_g3abs_mid, which widens cleanly). TRAIN +2.71 3/3.
+    df["E_l43triple_mid"] = df["E_l43triple"] & df["mid_close"] & df["close"].between(21, PRICE_CAP)
     # 🎋 THREE-LINE-STRIKE entry (validated 2026-07-17, tls2.py — from the user's "candlestick
     # patterns as entry triggers" idea). A Three Line Strike completes on bar j: 3 consecutively
     # LOWER closes (j-3>j-2>j-1) then a GREEN bar that closes ABOVE the high of bar j-3 (engulfs
@@ -888,6 +920,7 @@ SETUPS = [
     ("🎯T3-RS-Dip", "E_t3_rs_dip"),
     ("🏆L34→L34", "E_l34cont"),
     ("🏆L34→L34+RS", "E_l34cont_rs"),
+    ("G3-Abs🕯️mid", "E_g3abs_mid"), ("L43-TRIPLE🕯️mid", "E_l43triple_mid"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
 ]
