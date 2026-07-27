@@ -446,7 +446,9 @@ def _row_to_dict(row: pd.Series) -> dict:
             from ultra_orchestrator import _v3_axes_map
             _ax = _v3_axes_map().get(out.get("ticker") or _v3row.get("ticker"))
             if _ax:
-                _v3row["rs_intact"], _v3row["conf_n"], _v3row["tls_bar"] = _ax
+                # dict since 2026-07-27 (was a 3-tuple) so new axes — 💥iv_vspike / ⛔no_vol_event
+                # — flow here without touching this call site again.
+                _v3row.update(_ax)
         except Exception:
             pass
         _v3 = _compute_ultra_score_v3(_v3row)

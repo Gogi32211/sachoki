@@ -384,9 +384,13 @@ def _v3_axes_map() -> dict:
         m = {}
         for tk, g in grp.items():
             r = g.iloc[-1]
-            m[tk] = (bool(r.get("rs_intact", False)),
-                     int(r.get("conf_n", 0) or 0),
-                     bool(r.get("tls_bar", False)))
+            # dict (not a tuple) since 2026-07-27 so new axes can be added without touching
+            # every consumer — iv_vspike / iv_dry feed v3's 💥/⛔ volume-event terms.
+            m[tk] = {"rs_intact": bool(r.get("rs_intact", False)),
+                     "conf_n":    int(r.get("conf_n", 0) or 0),
+                     "tls_bar":   bool(r.get("tls_bar", False)),
+                     "iv_vspike": bool(r.get("iv_vspike", False)),
+                     "no_vol_event": bool(r.get("iv_dry", False))}
         if m:
             _V3_AXES.clear(); _V3_AXES.update(m); _V3_AXES_TS[0] = time.time()
     except Exception:
@@ -410,7 +414,7 @@ def _attach_ultra_score(row: dict) -> None:
             if tk and "rs_intact" not in row:
                 ax = _v3_axes_map().get(tk)
                 if ax:
-                    row["rs_intact"], row["conf_n"], row["tls_bar"] = ax
+                    row.update(ax)
         except Exception:
             pass
         sc = _shared_compute_ultra_score(row)

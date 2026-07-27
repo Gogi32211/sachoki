@@ -669,7 +669,19 @@ def compute_ultra_score(row: dict) -> dict:
 # edge_replay, not the raw Ultra row) — the score degrades gracefully to the +0.051 core
 # when they are absent. Weights are the validated-direction heuristics, not grid-tuned.
 _V3_OSV = ((30, 20), (35, 15), (50, 8), (60, 0), (70, -8))   # RSI cut → oversold points
-_V3_PXV = ((8, -12), (21, -6), (89, 10))                     # price cut → zone points
+# price cut → zone points. Upper quality band widened 89 → 377 on 2026-07-27 after the
+# Fibonacci-zone sweep (win% and catastrophe keep improving above $89; 233-377 has the best
+# win% of all); anything ≥$377 falls to the default −6 (that band is 3/6yr on its own).
+_V3_PXV = ((8, -12), (21, -6), (377, 10))
+_V3_PX_DEFAULT = -6
+# Intraday volume-event axes (2026-07-27). Validated across ALL 29 TZ/L signal codes: a day
+# whose biggest 15m bar never reached 2.5× the session average drops every signal's median by
+# 4-8 points, and on the v3 top band it is a med −4.01 cell. Measured on v3's own quintile
+# spread (Q5−Q1 median): as-is +0.71 → +veto +1.12 → +bonus +1.56 → +all three **+2.32**,
+# with Q5 median turning positive (−0.45 → +0.05) and win% 48.9 → 50.1. Additive, not
+# redundant — each component helps alone. See [[project_volume_magnitude]].
+_V3_VOL_EVENT_BONUS = 8
+_V3_NO_VOL_VETO     = 25
 
 
 def compute_ultra_score_v3(row: dict) -> dict:
@@ -695,12 +707,13 @@ def compute_ultra_score_v3(row: dict) -> dict:
         elif osv <= -8: reasons.append(f"OVERBOUGHT{int(rsi)}")
         # ── price zone (the Fib quality law) ──
         px = _safe_float(row.get("last_price") or row.get("price") or row.get("close"), 0.0)
-        pzv = 3
+        pzv = _V3_PX_DEFAULT
         for cut, pts in _V3_PXV:
             if px < cut:
                 pzv = pts; break
-        if   pzv == 10: reasons.append("QZ$21-89")
-        elif pzv < 0:   reasons.append("CHEAP$-")
+        if   pzv == 10:            reasons.append("QZ$21-377")
+        elif px >= 377:            reasons.append("MEGA$377+")
+        elif pzv < 0:              reasons.append("CHEAP$-")
         # ── this session's validated edge axes (present only when the serving layer injects) ──
         bonus = 0
         if _truthy(row.get("rs_intact")):
@@ -710,6 +723,11 @@ def compute_ultra_score_v3(row: dict) -> dict:
             bonus += min(cn, 6) * 4; reasons.append(f"🎯×{cn}fam")
         if _truthy(row.get("tls_bar")):
             bonus += 10; reasons.append("🎋TLS")
+        # 💥/⛔ intraday volume event — the most universal axis we have (29/29 signal codes)
+        if _truthy(row.get("no_vol_event")):
+            bonus -= _V3_NO_VOL_VETO; reasons.append("⛔noVOL")
+        elif _truthy(row.get("iv_vspike")):
+            bonus += _V3_VOL_EVENT_BONUS; reasons.append("💥vol")
         score = max(0, min(100, int(round(earn + osv + pzv + bonus))))
         return {
             "ultra_score_v3":         score,

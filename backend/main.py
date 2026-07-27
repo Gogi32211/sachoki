@@ -8014,21 +8014,23 @@ def api_ultra_scan_status():
 
 
 def _attach_ultra_v3(results: list) -> list:
-    """Fill ultra_score_v3 on rows that lack it (cached results persisted before the v3
-    ranker shipped, 2026-07-18). Injects the 🏆RS/🎯cluster/🎋TLS axes from the cached edge
-    frame and computes the reweighted score. Cheap (dict lookup + arithmetic); best-effort."""
+    """(Re)compute ultra_score_v3 on serve. Injects the 🏆RS/🎯cluster/🎋TLS/💥vol axes from the
+    cached edge frame and runs the reweighted ranker. Cheap (dict lookup + arithmetic).
+
+    2026-07-27: this used to SKIP rows that already carried a v3 value, which meant a cached
+    scan kept serving scores from an older formula — after the volume-event refinement the UI
+    still showed the pre-change reasons. v3 is pure and cheap, so always recompute: the served
+    score is then guaranteed to match the current formula."""
     try:
         from ultra_orchestrator import _v3_axes_map
         from ultra_score import compute_ultra_score_v3
         axmap = _v3_axes_map()
         for r in results:
-            if r.get("ultra_score_v3") not in (None, ""):
-                continue
             tk = r.get("ticker")
-            if tk and "rs_intact" not in r:
-                ax = axmap.get(tk)
-                if ax:
-                    r["rs_intact"], r["conf_n"], r["tls_bar"] = ax
+            ax = axmap.get(tk) if tk else None
+            if ax:
+                for _k, _v in ax.items():
+                    r.setdefault(_k, _v)   # fill missing axes, never override scan-time values
             v3 = compute_ultra_score_v3(r)
             r["ultra_score_v3"]         = v3["ultra_score_v3"]
             r["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
