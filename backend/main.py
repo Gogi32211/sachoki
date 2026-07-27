@@ -1415,6 +1415,12 @@ def api_g3abs_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
                     _at.append("📐MTF")
                 if _cn >= 2:
                     _at.append(f"×{_cn}fam")   # firing inside a cluster (+4.52/PF1.93 at ≥3)
+                if bool(r.get("mid_close", False)):
+                    # 🕯️ the close sits in the MIDDLE of the bar's range (38-62%). Validated as an
+                    # inverted-U gate 2026-07-27: med +1.96→+3.43, 5/6yr worst −0.8 → 6/6yr worst
+                    # +1.5, DSR 1.000, plateau-wide. The only G3-Abs gate that is 6/6 with a
+                    # positive worst year (🎋TLS 5/6 −1.9 · 🏆RS 4/5 −0.2) — and 3× the fires of RS.
+                    _at.append("🕯️mid")
                 if str(r.get("vb") or "") == "B":
                     _at.append("vol=B")
                 _l = str(r.get("l") or "")

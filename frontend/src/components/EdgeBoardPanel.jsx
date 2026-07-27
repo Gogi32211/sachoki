@@ -167,6 +167,15 @@ function SetupRow({ r, live, liveLoading, onSelectTicker, accent, onTkEnter, onT
   )
 }
 
+// 🕯️ mid-close toggle — shared by the L43-TRIPLE and G3-Abs cards (the two setups the gate was
+// DSR-proven on). Filters to fires whose close sits in the middle 38-62% of the bar's own range.
+const MidChip = ({ on, set, n, title }) => (
+  <button title={title} disabled={!n} onClick={() => set(v => !v)}
+    className={`px-1.5 py-0.5 rounded border font-mono text-[10px] transition-colors ${on ? 'border-orange-400 bg-orange-500/20 text-orange-100' : n ? 'border-orange-700/40 text-orange-300/80 hover:border-orange-500' : 'border-white/5 text-md-on-surface-var/30 cursor-not-allowed'}`}>
+    🕯️ mid<span className="opacity-50"> {n}</span>
+  </button>
+)
+
 const EDGE_SECS = [
   ['all', 'ALL'], ['conf', '🔗 თანხვედრა'], ['gem1', '🏆 GEM1'], ['z11', '🎯 Z11-fam'],
   ['g3', '⚡ G3'], ['l43', '🧩 L43'], ['core', '✅ CORE'], ['capitatom', '🔥 Capit→Atom'],
@@ -351,6 +360,7 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
   const [zabsorb, setZabsorb] = useState(null)  // 💤 Z-Absorb-Turn (Z5/Z11+wt_evr+red-L34 → T3/T9)
   const [l34c, setL34c] = useState(null)        // 🏆 L34→L34 continuity (same L34 on the Z-absorption AND the T1 demand bar)
   const [l34Gates, setL34Gates] = useState(() => new Set())  // 🏆 L34→L34 atom filters (AND-stacked)
+  const [midOnly, setMidOnly] = useState(false)  // 🕯️ mid-close gate — shared by the L43 & G3-Abs cards
   const [z11ReqL12, setZ11ReqL12] = useState(false)  // require L12 absorption on the anchor
   const [z11Anchor, setZ11Anchor] = useState([])  // anchor-family filter ([] = all): Z11/Z3/Z1G/Z5
   const [z11SharpL, setZ11SharpL] = useState(false)  // require sharp entry-L (L5/L46) on resolution bar
@@ -856,8 +866,10 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
           L43 (VSA absorbed body) + reversal-T (T11/T12/engulf) + gap-sweet (0.5-1.5×ATR), clean of suppressors, RSI&lt;40 · <b className="text-emerald-200/90">path-sim +2.13%/PF1.65/6yr · Monte-Carlo P(&gt;0)=100% · beats random +1.62pp</b> · stop−10/12% target+25/30%
           {l43t?.rows?.length ? ` · ${l43t.rows.length}` : ''}
         </span>
+        <div className="ml-auto"><MidChip on={midOnly} set={setMidOnly} n={(l43t?.rows || []).filter(r => r.mid_close).length}
+          title="🕯️ mid-close (2026-07-27) — the close sits in the MIDDLE 38-62% of the bar's own range. An INVERTED-U gate: a STRONG close hurts, the middle pays. L43-TRIPLE med +2.69→+6.18, win 57→64%, pf 1.89→2.85, worst-year +0.9→+3.2 (the best worst-year on the whole Replay board), DSR 0.999. Plateau-wide: every cut from 30-70 to 45-55 works. $21-89 only — the $89-377 bucket is 4/6yr worst −2.0." /></div>
       </div>
-      <FilteredEdgeTable rows={sortByDate(applyQ((l43t?.rows || []).filter(r => uni === 'all' || r.universe === uni)))} live={live}
+      <FilteredEdgeTable rows={sortByDate(applyQ((l43t?.rows || []).filter(r => (uni === 'all' || r.universe === uni) && (!midOnly || r.mid_close))))} live={live}
         onSelectTicker={onSelectTicker} onTkEnter={handleTkEnter} onTkLeave={handleTkLeave} onToggleDate={toggleDateSort} dateArrow={dateArrow} wlPrefix="l43triple"
         accent={{ rowPrem: 'bg-emerald-500/[0.08] border-l-2 border-l-emerald-500', hover: 'hover:text-emerald-300', tz: 'text-emerald-300/90', badge: 'text-emerald-200 border-emerald-400 bg-emerald-950/60' }}
         extras={[DISP_EXTRA]}
@@ -991,8 +1003,10 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
           same-bar <b className="text-lime-200/90">G3 gap-up + Atomic weak close (O)</b> — buyers gapped, sellers unloaded all day, price held = absorption · $21+ · RSI&lt;45 · <b className="text-lime-200/90">+4.24/med+2.33/win56/PF1.83 · 5-6yr</b> · beats G3 alone (+3.10) &amp; dwarfs Atomic alone (+1.60/med+0.13) · inside a ≥3 cluster +4.52/PF1.93 · <b className="text-amber-200/90">🏆RS-intact tier +5.00/med+3.95/win60/PF2.08</b> · typical peak +13.7% med @ ~7 weeks — trail, don't hold
           {g3abs?.rows?.length ? ` · ${g3abs.rows.length}` : ''}
         </span>
+        <div className="ml-auto"><MidChip on={midOnly} set={setMidOnly} n={(g3abs?.rows || []).filter(r => (r.atoms || []).includes('🕯️mid')).length}
+          title="🕯️ mid-close (2026-07-27) — the close sits in the MIDDLE 38-62% of the bar's own range. An INVERTED-U gate: a STRONG close hurts, the middle pays. G3-Abs med +1.96→+3.43, pf 1.71→2.32, 5/6yr worst −0.8 → 6/6yr worst +1.5, DSR 1.000. The ONLY G3-Abs gate that is 6/6 with a positive worst year (🎋TLS 5/6 −1.9 · 🏆RS 4/5 −0.2) and it fires 3× as often as RS. Survives both price buckets, so no cap." /></div>
       </div>
-      <FilteredEdgeTable rows={sortByDate(applyQ((g3abs?.rows || []).filter(r => uni === 'all' || r.universe === uni)))} live={live}
+      <FilteredEdgeTable rows={sortByDate(applyQ((g3abs?.rows || []).filter(r => (uni === 'all' || r.universe === uni) && (!midOnly || (r.atoms || []).includes('🕯️mid')))))} live={live}
         onSelectTicker={onSelectTicker} onTkEnter={handleTkEnter} onTkLeave={handleTkLeave} onToggleDate={toggleDateSort} dateArrow={dateArrow} wlPrefix="g3abs"
         accent={{ rowPrem: 'bg-lime-500/[0.08] border-l-2 border-l-lime-500', hover: 'hover:text-lime-300', tz: 'text-lime-300/90', badge: 'text-lime-200 border-lime-400 bg-lime-950/60' }}
         emptyMsg={!g3abs ? 'scanning…' : 'no G3-Abs today (G3 gap-up + weak O-close · $21+ · RSI<45)'} />

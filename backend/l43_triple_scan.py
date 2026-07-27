@@ -51,7 +51,7 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
         rows = a.execute(f"""
             WITH base AS (
                 SELECT universe, ticker, date, t_sig, coalesce(l_sig,'') AS l, rsi_14, cci_20,
-                       close, open, atr_14, vol_bucket, volume, avg_vol_20d,
+                       close, open, high, low, atr_14, vol_bucket, volume, avg_vol_20d,
                        sig_l4, sig_l6, sig_t11, sig_t12, sig_eb_up,
                        lag(close) OVER (PARTITION BY universe, ticker ORDER BY date) AS prev_close
                 FROM bars
@@ -59,6 +59,12 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
             )
             SELECT universe, ticker, date, t_sig, l, rsi_14, cci_20, close, vol_bucket,
                    close * volume AS dv,
+                   -- 🕯️ mid-close (2026-07-27): where the close sits inside the bar's own range.
+                   -- Validated as an INVERTED-U gate — the MIDDLE band pays, not a strong close
+                   -- (L43-TRIPLE med +2.69→+6.18, worst-year +0.9→+3.2, DSR 0.999). Kept as a
+                   -- displayed atom + filter, NOT a hard condition, so the card still shows every
+                   -- L43-TRIPLE fire and the user chooses.
+                   CASE WHEN high > low THEN (close - low) / (high - low) END AS cp,
                    CASE WHEN sig_t11 = 1 THEN 'T11' WHEN sig_t12 = 1 THEN 'T12'
                         WHEN sig_eb_up = 1 THEN 'engulf' END AS trig,
                    abs(open - prev_close) / atr_14 AS disp
@@ -107,6 +113,10 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
             atoms.append("🕐1H-confirm")
         if rsi is not None:
             atoms.append(f"RSI{rsi:.0f}{'·deep' if deep else ''}")
+        cp = float(r["cp"]) if r["cp"] is not None else None
+        mid = cp is not None and 0.38 < cp <= 0.62
+        if mid:
+            atoms.append("🕯️mid")   # the 6/6yr worst+3.2 cell
         out.append({
             "ticker": tk, "universe": str(r["universe"]),
             "signal_date": str(r["date"])[:10], "t_sig": str(r["trig"] or ""), "l_sig": "L43",
@@ -114,6 +124,7 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
             "rsi": round(rsi, 0) if rsi is not None else None,
             "disp_atr": round(ratio, 2) if ratio is not None else None,
             "sector": sector, "h1_confirm": bool(h1_confirm), "l43": True,
+            "cp": round(cp, 2) if cp is not None else None, "mid_close": bool(mid),
             "dv_m": round(float(r["dv"]) / 1e6, 1) if r["dv"] else None,
             "age_days": (aod - _d.fromisoformat(str(r["date"])[:10])).days,
             "tier": tier, "score": int(max(0, min(score, 100))), "atoms": atoms,
