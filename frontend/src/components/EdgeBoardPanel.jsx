@@ -174,7 +174,7 @@ const EDGE_SECS = [
   ['t6sc', '🎋 T6-SC'], ['sweep', '🕳️ Sweep'], ['mtf', '📐 MTF-EMA'], ['washout', '🌊 Washout'],
   ['h1bot', '🕐 1H-Bottom'], ['qzcapit', '🎯 QZ-Capit'], ['cluster', '🎯 Cluster'], ['g3abs', '⚡ G3-Abs'], ['p55', '🧬 P55'], ['parabola', '📈 Parabola'],
   ['zoneretest', '🔁 Zone-Retest'], ['highbase', '🧗 High-Base'], ['goga', '🥊 Goga'], ['radar', '🎆 Radar'],
-  ['zabsorb', '💤 Z-Absorb'],
+  ['zabsorb', '💤 Z-Absorb'], ['l34cont', '🏆 L34→L34'],
 ]
 
 function SetupTable({ rows, live, liveLoading, onSelectTicker, accent, emptyMsg, onToggleDate, dateArrow, onTkEnter, onTkLeave, wlPrefix = 'setup' }) {
@@ -349,6 +349,8 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
   const [absp, setAbsp] = useState(null)  // ABSORPTION → P reversal flagship
   const [z11t11, setZ11t11] = useState(null)  // Z11→T3/T5→T11/T12 oversold reversal (rare)
   const [zabsorb, setZabsorb] = useState(null)  // 💤 Z-Absorb-Turn (Z5/Z11+wt_evr+red-L34 → T3/T9)
+  const [l34c, setL34c] = useState(null)        // 🏆 L34→L34 continuity (same L34 on the Z-absorption AND the T1 demand bar)
+  const [l34Gates, setL34Gates] = useState(() => new Set())  // 🏆 L34→L34 atom filters (AND-stacked)
   const [z11ReqL12, setZ11ReqL12] = useState(false)  // require L12 absorption on the anchor
   const [z11Anchor, setZ11Anchor] = useState([])  // anchor-family filter ([] = all): Z11/Z3/Z1G/Z5
   const [z11SharpL, setZ11SharpL] = useState(false)  // require sharp entry-L (L5/L46) on resolution bar
@@ -435,6 +437,7 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
     fetch('/api/absorption-p-scan?max_age_days=4').then(r => r.json()).then(d => { if (!dead) { setAbsp(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
     fetch('/api/z11-t11-scan?max_age_days=30').then(r => r.json()).then(d => { if (!dead) { setZ11t11(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
     fetch('/api/z-absorb-scan?max_age_days=45').then(r => r.json()).then(d => { if (!dead) { setZabsorb(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
+    fetch('/api/l34cont-scan?max_age_days=45').then(r => r.json()).then(d => { if (!dead) { setL34c(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
     fetch('/api/t1-capbounce-scan?max_age_days=6').then(r => r.json()).then(d => { if (!dead) { setT1cb(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
     fetch('/api/engulf-scan?max_age_days=6').then(r => r.json()).then(d => { if (!dead) { setEngulf(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
     fetch('/api/sweep-scan?max_age_days=6').then(r => r.json()).then(d => { if (!dead) { setSweep(d); fetchLive((d.rows || []).map(r => r.ticker)) } }).catch(() => {})
@@ -922,6 +925,36 @@ export default function EdgeBoardPanel({ onSelectTicker }) {
         onSelectTicker={onSelectTicker} onTkEnter={handleTkEnter} onTkLeave={handleTkLeave} onToggleDate={toggleDateSort} dateArrow={dateArrow} wlPrefix="zabsorb"
         accent={{ rowPrem: 'bg-indigo-500/[0.08] border-l-2 border-l-indigo-500', hover: 'hover:text-indigo-300', tz: 'text-indigo-300/90', badge: 'text-indigo-200 border-indigo-400 bg-indigo-950/60' }}
         emptyMsg={!zabsorb ? 'scanning…' : (zabGates.size ? `no Z-Absorb-Turn with ${[...zabGates].join('+')} in the last 45d` : 'no Z-Absorb-Turn in the last 45d (Z5/Z11 + wt_evr + red-L34 → T3/T9) — a rare setup (~1.7/mo universe-wide)')} />
+      </>)}
+      {_v('l34cont') && (<>
+      {/* ── 🏆 L34→L34 continuity — the SAME L34 volume-line on the Z-absorption AND the T1 demand bar ── */}
+      <div className="mt-6 mb-1.5 flex items-baseline gap-2 flex-wrap">
+        <h2 className="text-sm font-bold text-sky-300">🏆 L34→L34 <span className="text-sky-400/80">— the same volume-line persists from absorption into demand</span><span className="ml-1 px-1.5 py-0.5 rounded bg-white/10 border border-white/15 text-[10px] font-mono font-normal text-white/85">+2.60 · 5/6yr · both bear yrs +</span></h2>
+        <ExportBtn rows={l34c?.rows} label="l34cont" />
+        <span className="text-[10px] text-md-on-surface-var/70">
+          PRIOR bar = <b className="text-sky-200/90">any Z absorption carrying L34</b> · THIS bar = <b className="text-sky-200/90">T1 demand carrying the SAME L34</b> · enter next open · the <b className="text-sky-200/90">CONTINUITY</b> is the edge — L34 on the T1 bar alone is null (+0.59/med−0.91/4-6yr) · <b className="text-sky-200/90">+2.60/med+0.53 · 5/6yr, 2021 +2.65 & 2022 +2.52</b>, worst −0.5, DSR 0.84 · not RSI-subsumed (2021 flips −2.4→+2.6) · L46/L25 never persist across Z→T1 (n0), L3→L3 fails — L34 specifically · 1D-native
+          {l34c?.rows?.length ? ` · ${l34c.rows.length}` : ''}
+        </span>
+        <div className="flex items-center gap-1.5 text-[10px] ml-auto">
+          {[['🏆RS', '🏆 RS', 'the flagship gate — RS-intact → 5/5yr ALL-positive, worst +2.60, med +1.90, DSR 0.93'],
+            ['💎$21-89', '💎 $21-89', 'the bucket the edge was mined in (<$8 and $8-21 are dead; 89+ has a weaker median)'],
+            ['🔥deep', '🔥 deep', 'RSI<45 on the demand bar — deeper oversold']].map(([atom, label, title]) => {
+            const n = (l34c?.rows || []).filter(r => (r.atoms || []).includes(atom)).length
+            const on = l34Gates.has(atom)
+            return (
+              <button key={atom} title={title} disabled={!n}
+                onClick={() => setL34Gates(s => { const x = new Set(s); x.has(atom) ? x.delete(atom) : x.add(atom); return x })}
+                className={`px-1.5 py-0.5 rounded border font-mono transition-colors ${on ? 'border-sky-400 bg-sky-500/20 text-sky-100' : n ? 'border-sky-700/40 text-sky-300/80 hover:border-sky-500' : 'border-white/5 text-md-on-surface-var/30 cursor-not-allowed'}`}>
+                {label}<span className="opacity-50"> {n}</span>
+              </button>
+            )
+          })}
+        </div>
+      </div>
+      <FilteredEdgeTable rows={sortByDate(applyQ((l34c?.rows || []).filter(r => (uni === 'all' || r.universe === uni) && [...l34Gates].every(g => (r.atoms || []).includes(g)))))} live={live}
+        onSelectTicker={onSelectTicker} onTkEnter={handleTkEnter} onTkLeave={handleTkLeave} onToggleDate={toggleDateSort} dateArrow={dateArrow} wlPrefix="l34cont"
+        accent={{ rowPrem: 'bg-sky-500/[0.08] border-l-2 border-l-sky-500', hover: 'hover:text-sky-300', tz: 'text-sky-300/90', badge: 'text-sky-200 border-sky-400 bg-sky-950/60' }}
+        emptyMsg={!l34c ? 'scanning…' : (l34Gates.size ? `no L34→L34 with ${[...l34Gates].join('+')} in the last 45d` : 'no L34→L34 continuity in the last 45d (Z+L34 → T1+L34, $21-377) — a rare setup')} />
       </>)}
       {_v('cluster') && (<>
       {/* ── 🎯 Confluence / Cluster-Bottom — ≥N distinct edge families in a 10-bar window ── */}

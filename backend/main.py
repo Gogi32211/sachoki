@@ -1109,6 +1109,65 @@ def api_z_absorb_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
         return {"rows": [], "count": 0, "error": str(e)}
 
 
+@app.get("/api/l34cont-scan")
+def api_l34cont_scan(max_age_days: int = 6, dv_floor: float = 3_000_000):
+    """🏆 L34→L34 continuity (validated 2026-07-25, l34_validate.py): a T1 demand bar whose PRIOR
+    bar was a Z-absorption, with the SAME L34 VSA volume-line printed on BOTH bars. The CONTINUITY
+    is the edge — L34 on the T1 bar alone is null (+0.59/med−0.91/4-6yr); requiring it on the
+    absorption AND the demand bar → mean +2.60/med +0.53/5-6yr with BOTH bear years positive
+    (2021 +2.65, 2022 +2.52), worst −0.5, DSR 0.84. Not RSI-subsumed (beats an RSI<45 state on
+    every axis; 2021 flips −2.4→+2.6). +🏆RS is the flagship: 5/5yr ALL-positive, worst +2.60,
+    med +1.90, DSR 0.93. L46/L25 never persist across Z→T1 (n0) and L3→L3 fails — L34 specifically.
+    Uses edge_replay's own E_l34cont mask (backtest == display, no drift)."""
+    def _build():
+        import edge_replay as ER
+        import pandas as pd
+        grp, as_of = ER._frame(60, dv_floor)
+        cut = pd.to_datetime(as_of) - pd.Timedelta(days=max_age_days)
+        rows = []
+        for tk, g in grp.items():
+            if "E_l34cont" not in g.columns:
+                continue
+            m = g[g["E_l34cont"] & (pd.to_datetime(g["date"]) >= cut)]
+            _pz = g["z"].shift(1).fillna("")
+            for _, r in m.iterrows():
+                _rsi = float(r["rsi_14"])
+                _px = float(r["close"])
+                # every row is (prior Z + L34) → (T1 + L34) by definition; atoms carry only what
+                # VARIES: the RS gate (the flagship), oversold depth, price zone, absorbing anchor.
+                _at = []
+                if bool(r.get("rs_intact", False)):
+                    _at.append("🏆RS")                            # 5/5yr all-positive, worst +2.60
+                if _rsi < 45:
+                    _at.append("🔥deep")
+                if 21 <= _px < 89:
+                    _at.append("💎$21-89")                        # the bucket the edge was mined in
+                _z = str(_pz.loc[r.name]) if r.name in _pz.index else ""
+                if _z:
+                    _at.append(f"⌛{_z}")                          # which Z absorbed
+                rows.append({
+                    "ticker": tk,
+                    "signal_date": str(r["date"])[:10],
+                    "date": str(r["date"])[:10],
+                    "close": round(_px, 2),
+                    "price": round(_px, 2),
+                    "rsi": round(_rsi, 0),
+                    "t_sig": str(r.get("t") or ""),
+                    "z_sig": str(r.get("z") or ""),
+                    "l_sig": str(r.get("l") or ""),
+                    "universe": str(r.get("universe") or ""),
+                    "tier": "premium" if bool(r.get("rs_intact", False)) else "",
+                    "atoms": _at,
+                })
+        rows.sort(key=lambda x: (x["signal_date"], -x["rsi"]), reverse=True)
+        return {"rows": rows, "count": len(rows), "as_of": str(as_of)[:10]}
+    try:
+        return _scan_cached(f"l34cont:{max_age_days}:{dv_floor}", _build)
+    except Exception as e:
+        log.exception("l34cont scan failed")
+        return {"rows": [], "count": 0, "error": str(e)}
+
+
 # readable labels for the de-duplicated edge families (mirror edge_replay._FAMILIES)
 _CONF_FAM_LABEL = {
     "capit": "capit", "retest": "retest", "spring": "spring", "gap": "gap",
