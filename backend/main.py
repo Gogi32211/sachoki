@@ -8023,7 +8023,7 @@ def _attach_ultra_v3(results: list) -> list:
     score is then guaranteed to match the current formula."""
     try:
         from ultra_orchestrator import _v3_axes_map
-        from ultra_score import compute_ultra_score_v3
+        from ultra_score import compute_ultra_score_v3, compute_score_hits
         axmap = _v3_axes_map()
         for r in results:
             tk = r.get("ticker")
@@ -8035,6 +8035,9 @@ def _attach_ultra_v3(results: list) -> list:
             r["ultra_score_v3"]         = v3["ultra_score_v3"]
             r["ultra_score_v3_band"]    = v3["ultra_score_v3_band"]
             r["ultra_score_v3_reasons"] = v3["ultra_score_v3_reasons"]
+            # 🎲 score-hits rides along: same inputs, and v3 is one of its six components,
+            # so it has to be recomputed whenever v3 is.
+            r.update(compute_score_hits(r))
     except Exception:
         log.debug("ultra v3 serve-attach skipped", exc_info=True)
     return results

@@ -438,6 +438,12 @@ def _attach_ultra_score(row: dict) -> None:
         row["ultra_score_regime_bonus"]       = sc.get("ultra_score_regime_bonus", 0)
         row["ultra_score_caps_applied"]       = sc.get("ultra_score_caps_applied", [])
         row["ultra_score_cap_reason"]         = sc.get("ultra_score_cap_reason", "")
+        # 🎲 score-hits (2026-07-27) — agreement across our rankers' own good zones.
+        try:
+            from ultra_score import compute_score_hits as _csh
+            row.update(_csh(row))
+        except Exception:
+            pass
     except Exception as exc:
         try:
             _tk = row.get("ticker", "?")

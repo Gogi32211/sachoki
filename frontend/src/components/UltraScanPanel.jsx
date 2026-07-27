@@ -947,6 +947,8 @@ const KEEP_ALWAYS = new Set([
   'ultra_score_caps_applied','ultra_score_cap_reason',
   // v3 reweighted ranker (2026-07-18) — alongside the old score, non-destructive
   'ultra_score_v3','ultra_score_v3_band','ultra_score_v3_reasons',
+  // 🎲 score-hits (2026-07-27) — agreement count across the 6 rankers' own good zones
+  'score_hits','score_hits_which',
   // validated zone buy-flags (2026-07-18)
   'buy_flag','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','heavy_l','edges','edge_n','edge_rev','seq34','seq_ctx','conf_score','conf_top','conf_ext','conf_ext_top',
   'atr_pct','tt10','tt10_hit','ttdn10','no_vol_event',
@@ -2005,6 +2007,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       flat.ultra_score_v3_reasons = Array.isArray(r.ultra_score_v3_reasons)
         ? r.ultra_score_v3_reasons.join(' ')
         : (r.ultra_score_v3_reasons ?? '')
+      flat.score_hits = r.score_hits ?? ''
+      flat.score_hits_which = Array.isArray(r.score_hits_which) ? r.score_hits_which.join(' ') : ''
       flat.buy_flag = r.buy_flag ?? ''
       flat.mtf_score_conf = r.mtf_score_conf ?? ''
       flat.turn_echo_n = r.turn_echo_n ?? ''

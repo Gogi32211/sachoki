@@ -738,6 +738,50 @@ def compute_ultra_score_v3(row: dict) -> dict:
         return {"ultra_score_v3": 0, "ultra_score_v3_band": "D", "ultra_score_v3_reasons": []}
 
 
+# ── 🎲 SCORE-HITS: how many of our rankers sit in THEIR OWN good zone ────────────────────
+# 2026-07-27 (user's idea: "don't change any score — just map where each one is actually
+# good, then combine those zones"). Every score was bucketed by quintile and path-simmed:
+# most carry NO information (profile/beta/rtb_total/aes/prebreak_v4 are flat), and two are
+# INVERTED — high ultra_score and high buy_score are traps, high prebreak_v2 is the worst
+# cell of all (med −3.80/win 43%). So the zones below are NOT "high is good"; each is that
+# score's own measured sweet spot.
+#
+# Zones were selected on TRAIN (2021-23) ONLY and the ensemble then tested on 2024-26:
+#   full period  hits 0 → 5 : med −1.06 · −0.67 · +0.00 · +1.05 · +2.12 · +3.79  (monotone)
+#                hits ≥4 = 6/6yr, BOTH bear years positive (2021 +2.0/+5.1, 2022 +1.6/+2.5)
+#   OOS 2024-26  hits 0 → 5 : med +0.43 · +0.62 · +1.09 · +1.38 · +1.98 · +3.54  (holds)
+# Individually every component is near-worthless (best bucket med −0.2..−1.4); the AGREEMENT
+# is what carries. hits=5 is rare (~400/yr universe-wide) — that rarity is the point.
+_HIT_ZONES = (
+    ("ultra_score_v3", 18.0, 1e9),    # the only monotone ranker: high is genuinely good
+    ("ultra_score",     7.0, 20.0),   # INVERTED-U: mid is gold, ≥21 is the survivorship trap
+    ("buy_score",      38.0, 57.0),   # INVERTED-U: ≥57 is the worst cell (med −1.38)
+    ("prebreak_v2",     9.0, 12.0),   # ANTI-predictive: high V2 = med −3.80/win 43%
+    ("prebreak_v3",     4.0,  5.0),   # weak inverted-U
+    ("conf_n",          4.0, 1e9),    # ≥5 families — the only component positive on its own
+)
+
+
+def compute_score_hits(row: dict) -> dict:
+    """{score_hits, score_hits_of, score_hits_which} — count of rankers inside their own
+    measured good zone. A FILTER, not a score: hits≥4 was 6/6yr with both bear years
+    positive. Missing fields simply don't count (never raises)."""
+    try:
+        hit, which = 0, []
+        for key, lo, hi in _HIT_ZONES:
+            v = row.get(key)
+            if v is None or v == "":
+                continue
+            v = _safe_float(v, default=None)
+            if v is None:
+                continue
+            if lo < v <= hi:
+                hit += 1; which.append(key)
+        return {"score_hits": hit, "score_hits_of": len(_HIT_ZONES), "score_hits_which": which}
+    except Exception:
+        return {"score_hits": 0, "score_hits_of": len(_HIT_ZONES), "score_hits_which": []}
+
+
 def compute_ultra_score_v3_band(score) -> str:
     """v3 has its OWN range (~0-100 but a strong name = quality-zone + oversold + cluster
     lands ~55-75, top-with-TLS ~85+), so it needs its own thresholds — the v1/v2 80/65/50

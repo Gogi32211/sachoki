@@ -155,6 +155,12 @@ function scoreCls(n) {
   return 'text-md-on-surface-var'
 }
 
+// 🎲 score-hits — backend key → short label for the cell tooltip (see compute_score_hits)
+const _HIT_LABEL = {
+  ultra_score_v3: 'UV3', ultra_score: 'ULTRA', buy_score: 'BUY',
+  prebreak_v2: 'V2', prebreak_v3: 'V3', conf_n: 'CONF-n',
+}
+
 const fmt = (v, d = 2) => v == null ? '—' : Number(v).toFixed(d)
 
 // ── Row left-border by profile category ──────────────────────────────────────
@@ -522,8 +528,8 @@ export default function ScannerDataGrid({
   // Row click selects the ticker (switches the top chart) — no inline expansion.
 
   // Number of columns for colSpan calculation
-  // ultra adds: ULTRA + UV3 + BUY + EDGE + PM + ⏱ + ⚖️ columns (+7 vs turbo); split adds Split column (+1)
-  const baseColCount = variant === 'ultra' ? 28 : 16
+  // ultra adds: ULTRA + UV3 + 🎲 + BUY + EDGE + PM + ⏱ + ⚖️ columns (+8 vs turbo); split adds Split column (+1)
+  const baseColCount = variant === 'ultra' ? 29 : 16
   const colCount = (universe === 'split' || universe === 'zone') ? baseColCount + 1 : baseColCount
 
   const SortTh = ({ col, children, cls = '' }) => (
@@ -560,6 +566,10 @@ export default function ScannerDataGrid({
             {/* UV3 — ULTRA Score v3, the reweighted ranker (NOT the PreBreakout V3 column) */}
             {variant === 'ultra' && (
               <SortTh col="ultra_score_v3" cls="text-right min-w-[46px]" title="ULTRA Score v3 (2026-07-18) — reweighted ranker: oversold(RSI) + price-zone($21-89) + earners(BX↑/STR/absorb) + 🏆RS/🎯cluster/🎋TLS. Ranks forward return (Spearman +0.08 vs the old score's −0.00, 6yr path-sim); DEMOTES the overbought/extended names the old ULTRA tops. Own bands A≥60/B≥45/C≥30. Hover a value for reasons.">UV3</SortTh>
+            )}
+            {/* 🎲 — score AGREEMENT: how many rankers sit in their own measured good zone */}
+            {variant === 'ultra' && (
+              <SortTh col="score_hits" cls="text-center min-w-[40px]" title="🎲 SCORE-HITS (2026-07-27) — how many of our 6 rankers sit in THEIR OWN measured good zone (UV3 >18 · ULTRA 8-20 · BUY 39-57 · V2 10-12 · V3 5 · CONF-n ≥5). Note these are NOT 'high is good': ULTRA and BUY are inverted-U, and high V2 is the single worst cell in the system (med −3.80). Each component alone is near-worthless — the AGREEMENT is the edge. Full 6yr path-sim: hits 0→5 = −1.06 · −0.67 · +0.00 · +1.05 · +2.12 · +3.79 (monotone); hits≥4 = 6/6yr with BOTH bear years positive. Zones picked on 2021-23 only and the ladder HELD out-of-sample on 2024-26 (+0.43 → +3.54, pf 2.28). hits=5 is rare (~400/yr universe-wide) — that rarity is the point.">🎲</SortTh>
             )}
             {/* BUY — validated zone buy-flags */}
             {variant === 'ultra' && (
@@ -735,6 +745,22 @@ export default function ScannerDataGrid({
                         : r.ultra_score_v3_band === 'B' ? 'text-lime-300'
                         : r.ultra_score_v3_band === 'C' ? 'text-amber-300'
                         : 'text-md-on-surface-var/60'}`}>{r.ultra_score_v3}</span>
+                    ) : <span className="text-gray-700">—</span>}
+                  </td>
+                )}
+
+                {/* 🎲 — score-hits: agreement count across the 6 rankers' own good zones */}
+                {variant === 'ultra' && (
+                  <td className="px-1 py-1 text-center"
+                    title={Array.isArray(r.score_hits_which) && r.score_hits_which.length
+                      ? `in-zone: ${r.score_hits_which.map(k => _HIT_LABEL[k] || k).join(' · ')}`
+                      : 'no ranker in its good zone'}>
+                    {r.score_hits != null ? (
+                      <span className={`font-mono text-xs ${
+                        r.score_hits >= 5 ? 'text-green-300 font-semibold'
+                        : r.score_hits === 4 ? 'text-lime-300'
+                        : r.score_hits === 3 ? 'text-amber-300'
+                        : 'text-md-on-surface-var/40'}`}>{r.score_hits}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>
                 )}

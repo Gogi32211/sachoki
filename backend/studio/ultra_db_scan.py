@@ -449,6 +449,10 @@ def _row_to_dict(row: pd.Series) -> dict:
                 # dict since 2026-07-27 (was a 3-tuple) so new axes — 💥iv_vspike / ⛔no_vol_event
                 # — flow here without touching this call site again.
                 _v3row.update(_ax)
+                # conf_n is also a 🎲 score-hits component, so it has to reach the served row,
+                # not just the v3 computation it was originally added for.
+                if _ax.get("conf_n") is not None:
+                    out["conf_n"] = _ax["conf_n"]
         except Exception:
             pass
         _v3 = _compute_ultra_score_v3(_v3row)
@@ -469,6 +473,14 @@ def _row_to_dict(row: pd.Series) -> dict:
     except Exception:
         out["buy_score"] = None
         out["buy_tag"] = ""
+
+    # 🎲 score-hits — how many rankers sit in their own measured good zone. Must run LAST:
+    # it reads `out` (not `row`) and needs v3 + buy_score already written above.
+    try:
+        from ultra_score import compute_score_hits as _csh
+        out.update(_csh(out))
+    except Exception:
+        pass
 
     # tz_state — pulled from final_regime if available
     fr = row.get("final_regime") or ""
