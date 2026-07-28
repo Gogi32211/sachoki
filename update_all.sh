@@ -42,13 +42,12 @@ if [ "$up" != "1" ]; then echo "❌ backend :$PORT not responding — aborting";
 echo "──── [1/2] 1D + ULTRA  (update_db.sh) ────"
 BACKEND_PORT="$PORT" ./update_db.sh || echo "  ⚠ update_db.sh returned non-zero"
 
-# ── [2/2] intraday + weekly DBs ────────────────────────────────────────────────
-# NOTE (2026-07-24): evaluated deriving 1h/4h from the 15m base (single source) instead of the
-# separate MASSIVE fetch below. Validation: OHLC came out bit-identical (1h & 4h, AAPL+NVDA,
-# same 13:30/17:30 anchors) and derived 4h was even MORE complete — BUT 15m-summed VOLUME
-# differs from MASSIVE's native intraday volume on a minority of bars (~9% on some 1h bars).
-# Since the VSA/WLNBB/VABS signals are volume-classified, that would subtly shift them app-wide,
-# so 1h/4h stay FETCHED (native volume authoritative). Revisit only if the volume source is
+# MOVED AHEAD OF [2/2] (2026-07-28): options have NO history API, so a day missed here is
+# gone FOREVER — and that is not hypothetical: the 07-27 snapshot was lost when the nightly
+# hung in the ULTRA re-scan, which used to sit between the delta and this call. The logger
+# needs the FRESH bars (latest_edges_map(build=True) reads today's fires), so it cannot move
+# to the top — but it can run the moment the 1D delta is in, ahead of the slower intraday
+# phase. Non-fatal and isolated either way.
 # reconciled. derive_intraday still builds 30m/2h and the 15m-enriched top-up below.
 if [ "${NO_INTRADAY:-0}" != "1" ]; then
   cd "$ROOT/backend"
@@ -103,4 +102,11 @@ fi
 echo "──── 💠 GEX edge-context log  ($(date '+%T')) ────"
 ( cd "$ROOT/backend" && .venv/bin/python gex_edge_logger.py ) || echo "  ⚠ GEX log skipped (options plan off?)"
 
+# ── [2/2] intraday + weekly DBs ────────────────────────────────────────────────
+# NOTE (2026-07-24): evaluated deriving 1h/4h from the 15m base (single source) instead of the
+# separate MASSIVE fetch below. Validation: OHLC came out bit-identical (1h & 4h, AAPL+NVDA,
+# same 13:30/17:30 anchors) and derived 4h was even MORE complete — BUT 15m-summed VOLUME
+# differs from MASSIVE's native intraday volume on a minority of bars (~9% on some 1h bars).
+# Since the VSA/WLNBB/VABS signals are volume-classified, that would subtly shift them app-wide,
+# so 1h/4h stay FETCHED (native volume authoritative). Revisit only if the volume source is
 echo "════════════════ $(date '+%F %T %Z') DONE ════════════════"

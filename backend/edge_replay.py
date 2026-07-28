@@ -204,8 +204,8 @@ def _pull(months: int, dv_floor: float, ticker: str = None) -> pd.DataFrame:
 _DIV_L, _DIV_R, _DIV_MAXGAP = 1, 4, 60
 
 
-def _divergence_arrays(df: pd.DataFrame):
-    """Causal RSI divergence on confirmed price pivots (2026-07-28).
+def _divergence_arrays(df: pd.DataFrame, osc: str = "rsi_14"):
+    """Causal oscillator divergence on confirmed price pivots (2026-07-28).
 
     A pivot at bar i is only KNOWN at i+R, so the flag is raised on bar i+R and the
     RSI compared is the RSI *at the pivot* — nothing peeks forward. Pivot detection is
@@ -225,7 +225,7 @@ def _divergence_arrays(df: pd.DataFrame):
             continue
         lo = df["low"].to_numpy(float)[idx]
         hi = df["high"].to_numpy(float)[idx]
-        rs = df["rsi_14"].to_numpy(float)[idx]
+        rs = df[osc].to_numpy(float)[idx]
         lS, hS = pd.Series(lo), pd.Series(hi)
         lo_prev = lS.shift(1).rolling(L).min().to_numpy()
         lo_next = lS[::-1].rolling(R).min()[::-1].shift(-1).to_numpy()
@@ -871,11 +871,38 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # >70 −3.71/win41/pf0.84/1-6yr. RS-intact instead → +0.16, so the RS direction flips exactly
     # as it should (intact = quality dip → buy · broken = failing leadership → distribution).
     # Used as "do not open a long / consider exiting here", never as a short entry.
-    _div_bull, _div_bear, _dv_rsi_lo, _dv_rsi_hi = _divergence_arrays(df)
+    _div_bull, _div_bear, _dv_rsi_lo, _dv_rsi_hi = _divergence_arrays(df, "rsi_14")
     df["div_bull"]   = _div_bull                  # RSI bull divergence on a confirmed pivot low
     df["div_bear"]   = _div_bear                  # RSI bear divergence on a confirmed pivot high
     df["dv_rsi_lo"]  = _dv_rsi_lo                 # RSI AT that pivot low  (NaN when no fire)
     df["dv_rsi_hi"]  = _dv_rsi_hi                 # RSI AT that pivot high (NaN when no fire)
+    _dvc_bull, _dvc_bear, _dv_cci_lo, _dv_cci_hi = _divergence_arrays(df, "cci20")
+    df["divc_bull"]  = _dvc_bull                  # the same on CCI — it validated independently
+    df["divc_bear"]  = _dvc_bear                  # (+1.76/5-5yr with RS; alone −0.45, like RSI)
+    df["dv_cci_lo"]  = _dv_cci_lo
+    df["dv_cci_hi"]  = _dv_cci_hi
+
+    # ── graduated STAGE per bar (2026-07-28, user: "the RSI/CCI interaction should be visible on
+    # every bar — it often reaches the zone but no signal fires because of the restrictions").
+    # The fired edge is rare by construction (~0.16 buy/ticker/YEAR), so showing only completions
+    # hides 12 of every 13 occurrences. These stages expose the whole funnel:
+    #   1 raw divergence · 2 in the oversold/overbought zone but BLOCKED by the RS gate ·
+    #   3 full signal · 4 deep tier.  Stage 2 is the interesting one — it is the near-miss.
+    def _stages(bull, bear, lo, hi, os_th, deep_th, ob_th):
+        b = np.zeros(len(df), np.int8); t = np.zeros(len(df), np.int8)
+        rsi_ok = df["rs_intact"].to_numpy(bool)
+        inz = bull & (lo < os_th)
+        b[bull] = 1
+        b[inz & ~rsi_ok] = 2                      # reached the zone, RS broken → blocked
+        b[inz & rsi_ok] = 3
+        b[inz & rsi_ok & (lo < deep_th)] = 4
+        inzt = bear & (hi > ob_th)
+        t[bear] = 1
+        t[inzt & rsi_ok] = 2                      # overbought divergence but RS still INTACT
+        t[inzt & ~rsi_ok] = 3                     # ...and leadership broken → the suppressor
+        return b, t
+    df["dvr_b"], df["dvr_t"] = _stages(_div_bull, _div_bear, _dv_rsi_lo, _dv_rsi_hi, 45, 40, 65)
+    df["dvc_b"], df["dvc_t"] = _stages(_dvc_bull, _dvc_bear, _dv_cci_lo, _dv_cci_hi, 0, -100, 100)
     _dv_q = df["close"].between(21, PRICE_CAP_WIDE)
     df["E_rsidiv_rs"]      = df["div_bull"] & (df["dv_rsi_lo"] < 45) & df["rs_intact"] & _dv_q
     df["E_rsidiv_rs_deep"] = df["div_bull"] & (df["dv_rsi_lo"] < 40) & df["rs_intact"] & _dv_q

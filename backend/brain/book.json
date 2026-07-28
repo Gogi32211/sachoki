@@ -103,36 +103,6 @@
       ]
     },
     {
-      "ticker": "RMBS",
-      "edge": "z11t11",
-      "edge_title": "Z11-T11",
-      "tier": "core",
-      "shares": 9,
-      "entry": 103.19,
-      "stop": 92.4,
-      "target": 124.77,
-      "sector": "Technology",
-      "risk_dollars": 97.11,
-      "opened": "2026-07-23",
-      "log": [
-        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
-        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
-        "sizing: 9sh (stop structural (base low) 10%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 9sh"
-      ],
-      "regime_risk_mult": 1,
-      "position_value": 928.71,
-      "fingerprint": [
-        "T11",
-        "L2",
-        "L5",
-        "NOT_EXT",
-        "L25",
-        "EDGE:Z11",
-        "EDGE:M_z11t11_m15_zdom",
-        "EDGE:ATM"
-      ]
-    },
-    {
       "ticker": "UAL",
       "edge": "z11t11",
       "edge_title": "Z11-T11",
@@ -231,6 +201,35 @@
         "EDGE:G3L46",
         "EDGE:ZRT"
       ]
+    },
+    {
+      "ticker": "QS",
+      "edge": "gem1_capbounce",
+      "edge_title": "T1 Capitulation-Bounce (GEM1)",
+      "tier": "core",
+      "shares": 179,
+      "entry": 5.18,
+      "stop": 4.9,
+      "target": 5.74,
+      "sector": "Industrials",
+      "risk_dollars": 50.12,
+      "opened": "2026-07-27",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: T1 Capitulation-Bounce (GEM1) [core] (also: ['washout'])",
+        "sizing: 357sh (stop structural (base low) 5%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 357sh",
+        "portfolio: x0.503 (cash binding) -> 179sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 927.22,
+      "fingerprint": [
+        "T1",
+        "L3",
+        "NOT_EXT",
+        "G11",
+        "EDGE:CAP",
+        "EDGE:WSH"
+      ]
     }
   ],
   "closed": [
@@ -271,6 +270,63 @@
           "one loss inside a 56%-win edge — within base rate, not a broken edge"
         ],
         "lesson": "single loss within coil_floor's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    },
+    {
+      "ticker": "RMBS",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 9,
+      "entry": 103.19,
+      "stop": 92.4,
+      "target": 124.77,
+      "sector": "Technology",
+      "risk_dollars": 97.11,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
+        "sizing: 9sh (stop structural (base low) 10%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 9sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 928.71,
+      "fingerprint": [
+        "T11",
+        "L2",
+        "L5",
+        "NOT_EXT",
+        "L25",
+        "EDGE:Z11",
+        "EDGE:M_z11t11_m15_zdom",
+        "EDGE:ATM"
+      ],
+      "exit": 92.4,
+      "pnl": -97.11,
+      "closed": "2026-07-28",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -10.46,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "z11t11",
+        "edge_title": "Z11-T11",
+        "tier": "core",
+        "expected": {
+          "median": 8.01,
+          "win": 75,
+          "pf": null
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +8.01% (this trade -10.46%)",
+          "edge base win 75% — losses are expected 25% of the time",
+          "one loss inside a 75%-win edge — within base rate, not a broken edge"
+        ],
+        "lesson": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
       }
     }
   ]

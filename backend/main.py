@@ -6107,6 +6107,27 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                         _v = _gg[_c].to_numpy(bool)
                         for _i in _np.nonzero(_v)[0]:
                             _bd.setdefault(_dts[_i], {})[_k] = True
+                # graduated stages (1 raw · 2 in-zone but BLOCKED by the RS gate · 3 signal ·
+                # 4 deep) for both oscillators, plus the pivot value, so the chart row can show
+                # the whole funnel instead of only the rare completion.
+                for _c, _k in (("dvr_b", "dvr_b"), ("dvr_t", "dvr_t"),
+                               ("dvc_b", "dvc_b"), ("dvc_t", "dvc_t")):
+                    if _c in _gg.columns:
+                        _v = _gg[_c].to_numpy()
+                        for _i in _np.nonzero(_v)[0]:
+                            _bd.setdefault(_dts[_i], {})[_k] = int(_v[_i])
+                for _c, _k in (("dv_rsi_lo", "dv_rlo"), ("dv_rsi_hi", "dv_rhi"),
+                               ("dv_cci_lo", "dv_clo"), ("dv_cci_hi", "dv_chi")):
+                    if _c in _gg.columns:
+                        _v = _gg[_c].to_numpy(float)
+                        for _i in _np.nonzero(_np.isfinite(_v))[0]:
+                            _bd.setdefault(_dts[_i], {})[_k] = round(float(_v[_i]), 1)
+                if "rs_intact" in _gg.columns:
+                    _rsv = _gg["rs_intact"].to_numpy(bool)
+                    for _d in list(_bd):
+                        _w = _np.nonzero(_dts == _d)[0]
+                        if len(_w):
+                            _bd[_d]["dv_rs"] = bool(_rsv[_w[0]])
                 for _b in result:
                     _f = _bd.get(str(_b.get("date"))[:10])
                     if _f:

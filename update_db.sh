@@ -73,16 +73,21 @@ PY
 API="http://127.0.0.1:$PORT/api"
 if [ "${NO_RESCAN:-0}" != "1" ]; then
   echo "── ULTRA re-scan (screener snapshot) ───────"
-  _running() { curl -s --max-time 8 "$API/ultra-scan/status" | python3 -c "import sys,json;print(json.load(sys.stdin).get('running',True))" 2>/dev/null; }
+  # NOTE (2026-07-28): the `|| echo True` is load-bearing. When /ultra-scan/status 500s the
+  # python parse fails, 2>/dev/null eats it and the function returned an EMPTY string — so
+  # `until [ "$(_running)" = "False" ]` spun forever. That is exactly how a nightly run hung
+  # for 5h and never reached the intraday phase or the GEX logger. Empty now means "still
+  # running", and every wait below is bounded so a broken endpoint costs minutes, not a night.
+  _running() { curl -s --max-time 8 "$API/ultra-scan/status" | python3 -c "import sys,json;print(json.load(sys.stdin).get('running',True))" 2>/dev/null || echo True; }
   _snap() { curl -s --max-time 8 "$API/ultra-scan/results?universe=$1&tf=1d" | python3 -c "import sys,json;print(json.load(sys.stdin).get('last_scan',''))" 2>/dev/null; }
   for u in sp500 nasdaq russell2k; do
     printf "  🔄 %-10s" "$u"
     # 1) wait for any in-flight scan to clear so our trigger isn't rejected (409)
-    until [ "$(_running)" = "False" ]; do sleep 3; done
+    for i in $(seq 1 100); do [ "$(_running)" = "False" ] && break; sleep 3; done
     old=$(_snap "$u")
     # 2) trigger (retry once if it 409s because a scan slipped in)
     resp=$(curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d")
-    echo "$resp" | grep -q "already running" && { until [ "$(_running)" = "False" ]; do sleep 3; done; curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d" >/dev/null; }
+    echo "$resp" | grep -q "already running" && { for i in $(seq 1 100); do [ "$(_running)" = "False" ] && break; sleep 3; done; curl -s -X POST "$API/ultra-scan/trigger?universe=$u&tf=1d" >/dev/null; }
     sleep 3
     # 3) wait for THIS scan to finish (default-True on status hiccup → never break early)
     for i in $(seq 1 180); do

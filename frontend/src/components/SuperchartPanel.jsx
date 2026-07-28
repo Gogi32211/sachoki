@@ -74,29 +74,66 @@ function VolRow({ bars }) {
   )
 }
 
-function DivRow({ bars }) {
+// 📐 divergence funnel rows (2026-07-28, user: "the RSI/CCI interaction should be visible on
+// EVERY bar — it often reaches the zone but no signal fires because of the restrictions").
+// The fired edge is rare by construction (~0.16 buy per ticker per YEAR), so a row that only
+// marks completions hides ~12 of every 13 occurrences. Stages: 1 raw divergence · 2 IN the
+// oversold/overbought zone but BLOCKED by the RS gate (the near-miss worth seeing) · 3 signal ·
+// 4 deep tier. One row per oscillator so agreement/disagreement between them is visible — CCI
+// validated independently (+1.76/5-5yr with RS), and requiring BOTH is redundant (+1.77, 4/5).
+const DIV_STAGE = {
+  1: { txt: '·',  cls: 'text-md-on-surface-var/35' },
+  2: { txt: '◦',  cls: 'text-amber-400/80' },
+  3: { txt: '🟢', cls: '' },
+  4: { txt: '🟢⁺', cls: '' },
+}
+const DIV_STAGE_T = {
+  1: { txt: '·',  cls: 'text-md-on-surface-var/35' },
+  2: { txt: '◦',  cls: 'text-amber-400/80' },
+  3: { txt: '🔻', cls: '' },
+}
+
+function DivFunnelRow({ bars, osc }) {
+  const kb = osc === 'r' ? 'dvr_b' : 'dvc_b'
+  const kt = osc === 'r' ? 'dvr_t' : 'dvc_t'
+  const vlo = osc === 'r' ? 'dv_rlo' : 'dv_clo'
+  const vhi = osc === 'r' ? 'dv_rhi' : 'dv_chi'
+  const name = osc === 'r' ? 'RSI' : 'CCI'
+  const zone = osc === 'r' ? 'RSI<45 (deep <40)' : 'CCI<0 (deep <−100)'
+  const obz = osc === 'r' ? 'RSI>65' : 'CCI>100'
   return (
     <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
       <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
                      border-r border-white/[0.08] font-mono whitespace-nowrap"
-          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
-          title="📐 OSCILLATOR DIVERGENCE × 🏆RS (validated 2026-07-28). 🟢 = price made a LOWER low while RSI made a HIGHER low, with relative strength still INTACT and RSI<45 — absorbed selling in a name whose leadership never broke: +2.58%/win56/PF1.65, 5/5yr, worst year +1.4 (the rsi<40 tier 🟢⁺ is +3.34/PF1.75). Monotone across five oversold cuts, TRAIN 2022-23 ≈ TEST 2024-26, DSR 1.000, and it REPLICATES on CCI — so it is momentum exhaustion, not an RSI artifact. 🔻 = the mirror and a SUPPRESSOR, not a short: price made a HIGHER high while RSI made a LOWER high and RS is BROKEN (rsi>65) — holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years. Naked divergence WITHOUT the RS gate is worthless (−0.64, worse than its own opposite cell) — the RS side is what separates a quality dip from a falling knife.">📐</td>
-      {bars.map((b, i) => (
-        <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
-            style={{ width: CELL_W, minWidth: CELL_W }}>
-          {b.div_top ? (
-            <span className="rounded px-1 font-bold" style={{ fontSize: 10, background: '#7f1d1d', color: '#fecaca' }}
-              title="🔻 bearish divergence + RS BROKEN + RSI>65 — price printed a higher high while momentum and relative leadership both failed. Long return from here: −2.94%/win 43%/PF 0.85, positive in 2 of 6 years. Do not open a long; consider exiting.">🔻</span>
-          ) : b.div_buy ? (
-            <span className="rounded px-1 font-bold"
-              style={{ fontSize: 10, background: b.div_deep ? '#14532d' : '#166534', color: '#bbf7d0' }}
-              title={b.div_deep
-                ? '🟢⁺ bullish divergence + 🏆RS intact + RSI<40 (deep tier) — +3.34%/win58/PF1.75, 5/5yr, worst year +1.5.'
-                : '🟢 bullish divergence + 🏆RS intact + RSI<45 — price made a lower low, RSI made a higher low, leadership intact. +2.58%/win56/PF1.65, 5/5yr, worst year +1.4.'}>
-              {b.div_deep ? '🟢⁺' : '🟢'}</span>
-          ) : null}
-        </td>
-      ))}
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11, lineHeight: 1 }}
+          title={`📐 ${name} DIVERGENCE FUNNEL vs 🏆RS. Every stage is shown, not just the fires — the completed edge is rare (~0.16 per ticker per YEAR) so a completions-only row would be empty almost always.
+· (faint)  raw divergence: price made a LOWER low while ${name} made a HIGHER low (bull), or a HIGHER high while ${name} made a LOWER high (bear). On its own this is WORTHLESS (−0.64, actually worse than its own opposite cell) and deeper oversold makes it WORSE — naked divergence catches falling knives.
+◦ (amber)  reached the ${zone} zone but the 🏆RS gate BLOCKED it — this is the near-miss you asked to see. Bull needs RS INTACT (leadership held = quality dip); bear needs RS BROKEN (leadership already failing = distribution).
+🟢 / 🟢⁺   full long signal / deep tier → +2.58 and +3.34 median, win 56-58%, PF 1.65-1.75, 5/5 positive years, worst year +1.4/+1.5. Monotone across five oversold cuts, TRAIN ≈ TEST, DSR 1.000.
+🔻         the SUPPRESSOR (${obz} + RS broken): holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years. Not a short — our short side is closed 0/29.
+RSI and CCI are shown as separate rows on purpose: CCI validated independently (+1.76/5-5yr), so agreement is informative — but requiring BOTH does NOT help (+1.77, 4/5), they are redundant.`}>
+        📐{osc === 'r' ? 'R' : 'C'}</td>
+      {bars.map((b, i) => {
+        const bs = b[kb] || 0, ts = b[kt] || 0
+        const st = bs ? DIV_STAGE[bs] : ts ? DIV_STAGE_T[ts] : null
+        const val = bs ? b[vlo] : ts ? b[vhi] : null
+        const why = bs === 2 ? `in the zone but 🏆RS is BROKEN — signal blocked`
+                  : ts === 2 ? `overbought divergence but 🏆RS still INTACT — suppressor not armed`
+                  : bs === 1 ? `raw ${name} bull divergence, not yet oversold enough`
+                  : ts === 1 ? `raw ${name} bear divergence, not yet overbought enough`
+                  : bs >= 3 ? `full signal — ${name} higher low + RS intact`
+                  : ts >= 3 ? `suppressor — ${name} lower high + RS broken` : ''
+        return (
+          <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+              style={{ width: CELL_W, minWidth: CELL_W }}>
+            {st ? (
+              <span className={`font-bold ${st.cls}`} style={{ fontSize: bs >= 3 || ts >= 3 ? 10 : 12 }}
+                title={`📐${name}: ${why}${val != null ? ` · pivot ${name} ${val}` : ''}${b.dv_rs != null ? ` · RS ${b.dv_rs ? 'intact' : 'broken'}` : ''}`}>
+                {st.txt}</span>
+            ) : null}
+          </td>
+        )
+      })}
     </tr>
   )
 }
@@ -913,6 +950,10 @@ export default function SuperchartPanel({
       // long / consider exiting"). Rare by construction: ~0.16 buy and ~0.32 top fires
       // per ticker per YEAR, so most rows are legitimately 0.
       'DIV_BUY','DIV_DEEP','DIV_TOP',
+      // the graduated funnel: 1 raw · 2 in-zone-but-RS-blocked · 3 signal · 4 deep. Stage 2 is
+      // the near-miss — far more common than a completion, and the reason the row exists.
+      'DIV_R_BULL_STAGE','DIV_R_BEAR_STAGE','DIV_C_BULL_STAGE','DIV_C_BEAR_STAGE',
+      'DIV_PIVOT_RSI','DIV_PIVOT_CCI','DIV_RS_INTACT',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -1132,6 +1173,9 @@ export default function SuperchartPanel({
       b.div_buy ? 1 : 0,
       b.div_deep ? 1 : 0,
       b.div_top ? 1 : 0,
+      b.dvr_b ?? 0, b.dvr_t ?? 0, b.dvc_b ?? 0, b.dvc_t ?? 0,
+      b.dv_rlo ?? b.dv_rhi ?? '', b.dv_clo ?? b.dv_chi ?? '',
+      b.dv_rs == null ? '' : (b.dv_rs ? 1 : 0),
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
@@ -1278,7 +1322,8 @@ export default function SuperchartPanel({
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
                     fast vs slow names) + the current-state header line — those stay. */}
-                <DivRow bars={bars} />
+                <DivFunnelRow bars={bars} osc="r" />
+                <DivFunnelRow bars={bars} osc="c" />
                 <VolRow bars={bars} />
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />

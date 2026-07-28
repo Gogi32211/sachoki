@@ -152,5 +152,27 @@
     "created": "2026-07-24 17:55",
     "status": "open",
     "answer": null
+  },
+  {
+    "id": "fill_QS",
+    "kind": "fill_price",
+    "ticker": "QS",
+    "severity": "warn",
+    "title": "QS: confirm your real fill",
+    "question": "What price did you actually fill QS? (plan was $5.18)",
+    "created": "2026-07-28 17:30",
+    "status": "open",
+    "answer": null
+  },
+  {
+    "id": "catalyst_QS",
+    "kind": "catalyst",
+    "ticker": "QS",
+    "severity": "info",
+    "title": "QS: earnings / catalyst?",
+    "question": "Does QS have earnings or a known catalyst before your target $5.74?",
+    "created": "2026-07-28 17:30",
+    "status": "open",
+    "answer": null
   }
 ]

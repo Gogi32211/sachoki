@@ -74,5 +74,13 @@
     "date": "2026-07-28",
     "kind": "revalidate_run",
     "observation": "all 43 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-28",
+    "kind": "trade_autopsy",
+    "edge": "z11t11",
+    "ticker": "RMBS",
+    "observation": "stopped_out / edge_miss (-10.46%, -1.0R)",
+    "action": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
   }
 ]
