@@ -113,6 +113,63 @@ def _load_m15_zdom():
 
 
 _IV_LINES = None
+_H1_DR = None
+
+
+def _load_h1_dr():
+    """(2026-07-28) Per (ticker|day): did a 1H 🔄 DUAL RECLAIM fire that session?
+
+    1H RSI(14) crossing back up through 35 with a 1H CCI(20) reclaim of −100 within ±14 bars
+    (±2 calendar days). The RS half is NOT applied here — it is a daily state and is ANDed in
+    _prep, which keeps this loader a pure function of the 1h DB and therefore cacheable.
+
+    Standalone the intraday DR is NOT tradeable (5-day-hold excess +0.08..+0.19, under the
+    0.5-1% round-trip cost) — but as a CONFIRMATION on a daily setup it is the second
+    universal booster we have found, alongside the 💥 intraday volume event:
+      63 board setups tested, 52 improved (83%), median Δ +1.34 with the base restricted to
+      the SAME 2022+ window the 1h DB covers (unrestricted it is +1.45 — so this is not the
+      2021 sample simply dropping out; that control was run precisely because it could have been).
+      Washout −0.16 → +3.45 · L43-TRIPLE +2.70 → +6.61 · Zone-Retest +0.23 → +2.18 ·
+      RTB-Base🧱OB +5.72 → +9.49.
+    The ~10 setups it does NOT help are almost all 🏆RS variants (QZ-Capit🏆RS −0.07,
+    Cluster🏆RS −0.16, D+L1🏆RS −0.45) — the DR already carries RS, so on an RS-gated setup
+    there is nothing left to add. That pattern is evidence the mechanism is real, not noise.
+
+    Same lazy whole-universe aggregate as _load_intraday_lines; the 1h DB is refreshed nightly.
+    """
+    global _H1_DR
+    if _H1_DR is None:
+        try:
+            import duckdb
+            from studio.db import tf_db_path
+            c = duckdb.connect(tf_db_path("1h"), read_only=True)
+            df = c.execute(
+                "SELECT ticker, CAST(date AS VARCHAR) dt, rsi_14, cci_20 FROM bars "
+                "WHERE rsi_14 IS NOT NULL AND cci_20 IS NOT NULL ORDER BY ticker, date").fetchdf()
+            c.close()
+            keys = set()
+            for tk, g in df.groupby("ticker", sort=False):
+                r = g["rsi_14"].to_numpy(float); cc = g["cci_20"].to_numpy(float)
+                pr = np.concatenate([[np.nan], r[:-1]])[:len(r)]
+                pc = np.concatenate([[np.nan], cc[:-1]])[:len(cc)]
+                rx = (pr < 35) & (r >= 35)
+                cx = (pc < -100) & (cc >= -100)
+                nx = cx.copy()
+                for k in range(1, 15):                      # ±14 bars ≈ ±2 calendar days
+                    nx |= np.concatenate([cx[k:], np.zeros(k, bool)])[:len(cx)]
+                    nx |= np.concatenate([np.zeros(k, bool), cx[:-k]])[:len(cx)]
+                hit = rx & nx
+                day = g["dt"].str[:10].to_numpy()
+                for d in day[hit]:
+                    keys.add(f"{tk}|{d}")
+            _H1_DR = frozenset(keys)
+            log.info("h1_dr map: %s ticker-days", len(_H1_DR))
+        except Exception:
+            log.exception("h1_dr load failed — gate degrades to never-fires")
+            _H1_DR = frozenset()
+    return _H1_DR
+
+
 def _load_intraday_lines():
     """(2026-07-26) Per (ticker|day) 15m VSA-line presence — the validated MTF veto layer.
     Returns three frozensets of 'TICKER|YYYY-MM-DD' keys:
@@ -910,6 +967,24 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # fires a year, where >70 is stronger (−3.71/pf0.84/1-6yr) but too rare to be a useful badge.
     df["div_top"] = df["div_bear"] & (df["dv_rsi_hi"] > 65) & ~df["rs_intact"]
 
+    # 🕐 1H-DR CONFIRMATION gate (validated 2026-07-28, h1dr_boost.py / h1dr_ctrl.py). A 1H dual
+    # reclaim on this session or the previous one, ANDed with today's RS. Standalone the intraday
+    # DR is not tradeable; as a confirmation it lifted 52 of 63 board setups (median Δ +1.34 on a
+    # period-matched base). Built on the two where the base was weakest and the lift largest.
+    _h1 = _load_h1_dr()
+    _dkey = df["ticker"] + "|" + df["date"].astype(str).str[:10]
+    _h1_today = _dkey.isin(_h1).to_numpy()
+    _h1_yest = np.concatenate([[False], _h1_today[:-1]])[:len(_h1_today)]
+    # a ticker boundary must not leak yesterday's flag into the next ticker's first bar
+    _first = ~df["ticker"].eq(df["ticker"].shift(1)).fillna(False).to_numpy()
+    _h1_yest[_first] = False
+    df["h1_dr"] = (_h1_today | _h1_yest) & df["rs_intact"].to_numpy(bool)
+    # NB the 1h DB starts 2021-07, so 2021 carries a HANDFUL of gated fires (ZRT🕐DR: exactly 1,
+    # at −24%) and _stats scores that single trade as a whole "worst year". Read these two by
+    # 2022-2026, where every year is positive; the 2021 cell is not a signal about the gate.
+    df["E_washout_h1dr"] = df["E_washout"] & df["h1_dr"]
+    df["E_zrt_h1dr"]     = df["E_zoneretest"] & df["h1_dr"] & df["close"].between(21, PRICE_CAP_WIDE)
+
     # 🔄 DUAL OVERSOLD RECLAIM × 🏆RS (validated 2026-07-28, dual_reclaim.py / dr_val.py /
     # dr_disj.py — the user's own read: "show where RSI and CCI both come back from oversold
     # into the zone; the advance usually starts there"). Not divergence: a RECLAIM, i.e. each
@@ -1077,6 +1152,7 @@ SETUPS = [
     ("G3-Abs🕯️mid", "E_g3abs_mid"), ("L43-TRIPLE🕯️mid", "E_l43triple_mid"),
     ("📐RSI-Div🏆RS", "E_rsidiv_rs"), ("📐RSI-Div🏆RS deep", "E_rsidiv_rs_deep"),
     ("🔄DualReclaim🏆RS", "E_dualrec_rs"), ("🔄DualReclaim deep", "E_dualrec_rs_deep"),
+    ("Washout🕐DR", "E_washout_h1dr"), ("Zone-Retest🕐DR", "E_zrt_h1dr"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
 ]
