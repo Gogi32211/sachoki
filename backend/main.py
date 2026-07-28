@@ -6090,6 +6090,12 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
         try:
             import numpy as _np
             import edge_replay as _ERD
+            # ONLY read an ALREADY-WARM frame. Calling _frame() unguarded made every chart
+            # load able to trigger a full edge-frame build (minutes) — a single Superchart
+            # open could hang the whole app. The Edge board / Ultra warm the frame anyway,
+            # so the row fills in once it is up; until then it just stays empty.
+            if (60, 3_000_000) not in _ERD._CACHE:
+                raise RuntimeError("edge frame cold — skip divergence flags")
             _g, _ = _ERD._frame(60, 3_000_000)
             _gg = _g.get(ticker.upper())
             if _gg is not None and len(_gg):

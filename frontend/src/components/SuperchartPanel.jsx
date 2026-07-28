@@ -907,6 +907,12 @@ export default function SuperchartPanel({
       // ── ATR time-to-target forecast (2026-07-26): per-bar historical forecast for review
       ...FORECAST_CSV_HEADERS,
       'NO_VOL_EVENT',
+      // ── 📐 oscillator divergence × 🏆RS (2026-07-28) — stored per bar so the history
+      // accumulates in these exports. DIV_BUY/DIV_DEEP = the validated long tiers
+      // (+2.58 / +3.34, 5/5yr); DIV_TOP = the suppressor (−2.94/pf0.85, "do not open a
+      // long / consider exiting"). Rare by construction: ~0.16 buy and ~0.32 top fires
+      // per ticker per YEAR, so most rows are legitimately 0.
+      'DIV_BUY','DIV_DEEP','DIV_TOP',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
@@ -1123,6 +1129,9 @@ export default function SuperchartPanel({
       b.seq_ens ? b.seq_ens.detail.map(v => `${v.layer}:${v.kind === 'tail' ? '~' : v.dir === 'up' ? '+' : '-'}${Math.round(v.up)}`).join('|') : '',
       ...forecastCsvCells(b.close > 0 ? _atrArr[_bi] / b.close : 0),
       b.no_vol_event ? 1 : 0,
+      b.div_buy ? 1 : 0,
+      b.div_deep ? 1 : 0,
+      b.div_top ? 1 : 0,
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))

@@ -949,6 +949,8 @@ const KEEP_ALWAYS = new Set([
   'ultra_score_v3','ultra_score_v3_band','ultra_score_v3_reasons',
   // 🎲 score-hits (2026-07-27) — agreement count across the 6 rankers' own good zones
   'score_hits','score_hits_which',
+  // 📐 divergence × 🏆RS (2026-07-28) — bars-ago of the freshest fire (blank = none in 5 bars)
+  'div_buy','div_deep','div_top','div_rsi_lo','div_rsi_hi',
   // validated zone buy-flags (2026-07-18)
   'buy_flag','rev_buy','brk_buy','mtf_echo','mtf_score_conf','turn_echo_n','h4_rev_today','h1_rev_today','heavy_l','edges','edge_n','edge_rev','seq34','seq_ctx','conf_score','conf_top','conf_ext','conf_ext_top',
   'atr_pct','tt10','tt10_hit','ttdn10','no_vol_event',
@@ -2009,6 +2011,11 @@ export default function UltraScanPanel({ onSelectTicker }) {
         : (r.ultra_score_v3_reasons ?? '')
       flat.score_hits = r.score_hits ?? ''
       flat.score_hits_which = Array.isArray(r.score_hits_which) ? r.score_hits_which.join(' ') : ''
+      flat.div_buy    = r.div_buy ?? ''
+      flat.div_deep   = r.div_deep ? 1 : 0
+      flat.div_top    = r.div_top ?? ''
+      flat.div_rsi_lo = r.div_rsi_lo ?? ''
+      flat.div_rsi_hi = r.div_rsi_hi ?? ''
       flat.buy_flag = r.buy_flag ?? ''
       flat.mtf_score_conf = r.mtf_score_conf ?? ''
       flat.turn_echo_n = r.turn_echo_n ?? ''
