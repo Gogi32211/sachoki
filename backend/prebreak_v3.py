@@ -102,7 +102,9 @@ def calc_prebreak_v3(d) -> tuple[int, str]:
     if g("sig_vol_20x"):   s += 10; r.append("V×20")
     elif g("sig_vol_10x"): s += 7;  r.append("V×10")
     elif g("sig_vol_5x"):  s += 4;  r.append("V×5")
-    if g("sig_cci0r"):     s += 3;  r.append("CCI0R")
+    # CCI0R +3 REMOVED 2026-07-28 (path-sim: indistinguishable from baseline, −0.66 vs −0.69).
+    # Still surfaced as a REASON tag so the chart/CSV keep showing it, just with no score effect.
+    if g("sig_cci0r"):     r.append("CCI0R")
     # Superchart-sync structural cluster — read from display-tag arrays
     # (combo: PREUP P2/P3/P50/P89 · l: L34/FRI34/BL/BX↑ · vabs: CLM/BEST★ · wyck: tLPS)
     combo = set(d.get("combo") or [])

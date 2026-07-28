@@ -487,7 +487,13 @@ _SIG_WEIGHTS_SP500 = {
     "SIG_WK_DN":       ("SHAKEOUT_ABSORB_SCORE",  10),  # SP500 keep (1C)
     "SIG_FBO_DN":      ("HARD_BEAR_SCORE",         20),  # SP500 keep (1C)
     "SIG_BIAS_DN":     ("HARD_BEAR_SCORE",          6),  # SP500 add/keep (1A)
-    "SIG_CCI0R":       ("HARD_BEAR_SCORE",          5),  # SP500 add (1A)
+    # SIG_CCI0R (WLNBB CCI_0_RETEST_OK) weight REMOVED 2026-07-28 — path-sim says it carries
+    # NO information: median −0.66 vs a −0.69 baseline and −0.69 for bars with neither CCI
+    # flag; pf 1.09 vs 1.10; 4/6yr either way. It also sat on the WRONG SIDE — 88% of its
+    # fires are CCI reclaiming 0 from below (avg CCI +74), i.e. mechanically BULLISH, yet it
+    # added to HARD_BEAR_SCORE. The justification in the old comment ("SP avg10=+0.39%") was
+    # a fixed-horizon mean — the metric we replaced with path-sim. As a suppressor it does
+    # not suppress: ZRT +0.50→+1.23 and QZ-Capit +0.45→+1.02 WITH it. Kept as a chart marker.
     # SIG_BC: removed (1B: both datasets)
     "SIG_RH":          ("HARD_BEAR_SCORE",         10),  # SP500 keep (1A)
     "SIG_ND_VABS":     ("HARD_BEAR_SCORE",          8),

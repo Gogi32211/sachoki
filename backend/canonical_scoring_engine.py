@@ -146,7 +146,10 @@ def _hard_bear_score(r: dict, profile: str = "sp500") -> float:
     # SP500-only bear context signals (negative predictive on SP500, irrelevant on NQ)
     if not is_nq:
         if r.get("bias_down"):    s += 6  # SIG_BIAS_DN: SP avg10=+1.20% (bear-in-bull ctx)
-        if r.get("cci_0_retest"): s += 5  # SIG_CCI0R: SP avg10=+0.39% bear-watch signal
+        # cci_0_retest (SIG_CCI0R) +5 REMOVED 2026-07-28 — path-sim: median −0.66 vs −0.69
+        # baseline, pf 1.09 vs 1.10, indistinguishable from a random bar. And it was inverted:
+        # 88% of fires are CCI reclaiming 0 from BELOW (avg +74) = bullish, scored as bear.
+        # The old "+0.39% avg10" justification is a fixed-horizon mean, not path-sim.
     return min(s, 40.0)
 
 
