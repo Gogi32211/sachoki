@@ -1248,6 +1248,35 @@ _EDGE_TK_CACHE: dict = {}          # ticker -> (built_ts, {'YYYY-MM-DD': [codes]
 _EDGE_MAP_CACHE: list = [0.0, {}]  # [built_ts, {ticker: [(code, age_bars)]}]
 
 
+def _collapse_codes(codes: list) -> list:
+    """Collapse NESTED display chips so a bar shows each family once, at its strongest tier.
+
+    Several DISPLAY_SETUPS entries are strict subsets of one another, so they always fire
+    together and the chip row repeats itself (user, 2026-07-28: "WSH shows three times", "are
+    🎯3 and 🎯4 not the same thing?"). They were:
+      E_confluence_p (conf_n>=4) ⊂ E_confluence (conf_n>=3)      → 🎯4 implies 🎯3
+      E_washout_iv / E_washout_vs ⊂ E_washout                     → WSH🔎 / WSH💥 imply WSH
+    Rules: keep only the HIGHEST confluence tier, and fold the washout qualifiers into ONE
+    chip ("WSH🔎💥") instead of three. 🔎 and 💥 are NOT nested in each other (intraday demand
+    line vs intraday volume event), so a bar can legitimately carry either or both — which is
+    why they are appended as markers rather than collapsed away.
+    """
+    out = list(codes)
+    # confluence ladder — highest tier wins
+    for lo, hi in (("🎯3", "🎯4"),):
+        if hi in out and lo in out:
+            out.remove(lo)
+    # washout qualifiers — one chip carrying its markers
+    quals = [q for c, q in (("WSH🔎", "🔎"), ("WSH💥", "💥")) if c in out]
+    if quals:
+        out = [c for c in out if c not in ("WSH🔎", "WSH💥")]
+        merged = "WSH" + "".join(quals)
+        out = [merged if c == "WSH" else c for c in out]
+        if merged not in out:
+            out.append(merged)
+    return out
+
+
 def _edges_from_group(g) -> dict:
     """{date: [codes]} for one prepped per-ticker frame."""
     out = {}
@@ -1257,7 +1286,7 @@ def _edges_from_group(g) -> dict:
             continue
         for d in ds[g[col].to_numpy(bool)]:
             out.setdefault(d, []).append(code)
-    return out
+    return {d: _collapse_codes(c) for d, c in out.items()}
 
 
 def ticker_edges(ticker: str, months: int = 16) -> dict:
@@ -1429,6 +1458,13 @@ def latest_edges_map(lookback: int = 5, build: bool = False) -> dict:
                         if age <= lookback:
                             fires.append((code, age))
             if fires:
+                # collapse nested chips WITHIN each age bucket (a 🎯4 and the 🎯3 it implies
+                # always share a bar, so they always share an age) — same rule the per-bar
+                # Superchart row uses, so the two views cannot disagree.
+                by_age = {}
+                for code, age in fires:
+                    by_age.setdefault(age, []).append(code)
+                fires = [(c, a) for a, cs in by_age.items() for c in _collapse_codes(cs)]
                 m[tk] = sorted(fires, key=lambda x: x[1])
         _EDGE_MAP_CACHE[0] = time.time()
         _EDGE_MAP_CACHE[1] = m
