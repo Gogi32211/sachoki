@@ -910,6 +910,48 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # fires a year, where >70 is stronger (−3.71/pf0.84/1-6yr) but too rare to be a useful badge.
     df["div_top"] = df["div_bear"] & (df["dv_rsi_hi"] > 65) & ~df["rs_intact"]
 
+    # 🔄 DUAL OVERSOLD RECLAIM × 🏆RS (validated 2026-07-28, dual_reclaim.py / dr_val.py /
+    # dr_disj.py — the user's own read: "show where RSI and CCI both come back from oversold
+    # into the zone; the advance usually starts there"). Not divergence: a RECLAIM, i.e. each
+    # oscillator crossing back UP through its oversold threshold, the two within a few bars.
+    #
+    # Either one alone is near-nothing (RSI35 reclaim +0.22 · CCI−100 reclaim +0.04); TOGETHER
+    # +0.89, and the window is a smooth plateau (±0 +0.77 · ±1 +0.70 · ±2 +0.89 · ±3 +0.91 ·
+    # ±5 +0.73) rather than a knife-edge. 🏆RS then does what it always does:
+    #   RSI35∧CCI ±2 +RS  +3.52/win59/pf1.97 · 5/5yr · worst +1.6   (vs RSI-alone+RS +2.99,
+    #   CCI-alone+RS +1.83/4-5yr) · deep RSI30∧CCI ±3 +3.86/pf2.42/worst +3.2
+    #   +💥 intraday volume event → +3.86/win60/pf2.04/worst +2.2
+    # Plateau 9/9 variants 5/5yr positive-worst · TRAIN 2022-23 +2.80 & TEST 2024-26 +4.38 both
+    # positive · DSR 1.000 vs a 24-variant family · $8-21 dead, $21-89 +2.85, $89-377 +4.22.
+    #
+    # NOVELTY (the check that usually kills things here): 73% of fires coincide with an existing
+    # edge, 64% with Zone-Retest — high enough to suspect a relabel. It is not: the DISJOINT 27%
+    # pays just as well (+3.23/pf2.08/5-5yr/worst +1.9), while ZRT-that-is-NOT-this is only
+    # +0.44/4-6yr. So the reclaim selects the good part of ZRT *and* finds an equally good set
+    # outside it. Also note ZRT+RS carries a −11.4 2021 (RS is a known trap on ZRT) where this
+    # is +1.6 — different animal despite the co-occurrence.
+    _r14 = df["rsi_14"]; _c20 = df["cci20"]
+    _pr14 = g["rsi_14"].shift(1); _pc20 = g["cci20"].shift(1)
+    _rx35 = (_pr14 < 35) & (_r14 >= 35)          # RSI reclaims 35
+    _rx30 = (_pr14 < 30) & (_r14 >= 30)
+    _cx100 = (_pc20 < -100) & (_c20 >= -100)     # CCI reclaims −100
+
+    def _near(mask, w):
+        """mask fired within ±w bars, per ticker (the 'together' window)."""
+        m = mask.astype(float)
+        out = m.copy()
+        for k in range(1, w + 1):
+            out = out + m.groupby(df["ticker"]).shift(-k).fillna(0) \
+                      + m.groupby(df["ticker"]).shift(k).fillna(0)
+        return out > 0
+
+    _cx_w2 = _near(_cx100, 2)
+    _cx_w3 = _near(_cx100, 3)
+    _dr_q = df["close"].between(21, PRICE_CAP_WIDE)
+    df["dual_reclaim"] = _rx35 & _cx_w2                       # raw state, for display
+    df["E_dualrec_rs"]      = df["dual_reclaim"] & df["rs_intact"] & _dr_q
+    df["E_dualrec_rs_deep"] = _rx30 & _cx_w3 & df["rs_intact"] & _dr_q
+
     # 🕯️ MID-CLOSE gate (validated 2026-07-27, breakout_closepos.py / midclose_validate.py).
     # Born from a "STRONG vs WEAK BREAKOUT" infographic claiming a breakout is tradeable only if
     # the candle closes ≥62% of its range beyond the broken level. Tested raw: REFUTED — every
@@ -1034,6 +1076,7 @@ SETUPS = [
     ("🏆L34→L34+RS", "E_l34cont_rs"),
     ("G3-Abs🕯️mid", "E_g3abs_mid"), ("L43-TRIPLE🕯️mid", "E_l43triple_mid"),
     ("📐RSI-Div🏆RS", "E_rsidiv_rs"), ("📐RSI-Div🏆RS deep", "E_rsidiv_rs_deep"),
+    ("🔄DualReclaim🏆RS", "E_dualrec_rs"), ("🔄DualReclaim deep", "E_dualrec_rs_deep"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
 ]
@@ -1043,6 +1086,9 @@ SETUPS = [
 # Base setups only — the gated variants (🏆RS/🔑/🧱/🎋/🌀) are subsets of the same
 # fires and would only duplicate chips. Short codes keep the chip row readable.
 DISPLAY_SETUPS = [
+    # 🔄 dual oversold reclaim (2026-07-28) — fires ~2.4x as often as the 📐 divergence edge,
+    # so it earns a chip on the Superchart / Ultra EDGE row rather than a row of its own.
+    ("🔄DR", "E_dualrec_rs"),
     ("CAP",  "E_t1capbounce"), ("QZC", "E_qzcapit"),  ("D+L1", "E_dl1"),
     ("G3",   "E_g3"),          ("⚡G3A", "E_g3abs"),   ("ATM",  "E_atomic"),
     ("ATMR", "E_atomicR"),     ("SPR", "E_spring"),   ("Z11",  "E_z11t11"),
