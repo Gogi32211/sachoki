@@ -113,6 +113,15 @@ def washout_reversal_scan(max_age_days: int = 5, dv_floor: float = 3_000_000,
     from datetime import date as _d
     aod = _d.fromisoformat(as_of)
     out, seen = [], set()
+    # 🕐 1H-DR confirmation (2026-07-28) — the SAME gate the Replay board and backtest use
+    # (edge_replay.h1_dr_days: a 1H dual reclaim this session or the previous one, AND that day's
+    # RS intact). Shown as an ATOM, not a hard filter, so every base fire stays visible and the
+    # user opts in. NOT the older 🕐1H-confirm atom, which is the VX-climax→R2X bottom.
+    try:
+        from edge_replay import h1_dr_days as _h1dd
+        _H1DR = _h1dd()
+    except Exception:
+        _H1DR = frozenset()
     for _, r in rows.iterrows():
         tk = str(r["ticker"])
         if tk in seen:
@@ -174,6 +183,8 @@ def washout_reversal_scan(max_age_days: int = 5, dv_floor: float = 3_000_000,
             atoms.append("🕐1H-confirm")
         if rsi is not None:
             atoms.append(f"RSI{rsi:.0f}{'·deep' if deep else ''}")
+        if f"{tk}|{str(r['date'])[:10]}" in _H1DR:
+            atoms.append("🕐DR")
         # SC-SUPER (2026-07-03): washout within ±5% of the Wyckoff range support — validated
         # band-plateau, median −0.56→+0.45, '22 +0.18→+1.19, TR +0.35→+0.5 (mean cost ~0.4pp).
         from wyc_zone import sc_zone

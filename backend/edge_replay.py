@@ -995,6 +995,12 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     df["E_rtb_base_h1dr"]  = df["E_rtb_base"] & df["h1_dr"]
     df["E_g3g3_h1dr"]      = df["E_g3g3"] & df["h1_dr"]
     df["E_qzcapit_h1dr"]   = df["E_qzcapit"] & df["h1_dr"]
+    # ONE display chip for the whole family — a bar where the gate was on AND one of the six
+    # gated bases fired. Six separate chips would just duplicate the base codes already shown
+    # ("WSH 🕐DR" reads better than "WSH Washout🕐DR"), and this is what makes the gate visible
+    # historically on the Superchart EDGE row and in the CSV, not only in the Replay backtest.
+    df["h1dr_chip"] = df["h1_dr"] & (df["E_washout"] | df["E_zoneretest"] | df["E_l43triple"]
+                                     | df["E_rtb_base"] | df["E_g3g3"] | df["E_qzcapit"])
 
     # 🔄 DUAL OVERSOLD RECLAIM × 🏆RS (validated 2026-07-28, dual_reclaim.py / dr_val.py /
     # dr_disj.py — the user's own read: "show where RSI and CCI both come back from oversold
@@ -1177,7 +1183,7 @@ SETUPS = [
 DISPLAY_SETUPS = [
     # 🔄 dual oversold reclaim (2026-07-28) — fires ~2.4x as often as the 📐 divergence edge,
     # so it earns a chip on the Superchart / Ultra EDGE row rather than a row of its own.
-    ("🔄DR", "E_dualrec_rs"),
+    ("🔄DR", "E_dualrec_rs"), ("🕐DR", "h1dr_chip"),
     ("CAP",  "E_t1capbounce"), ("QZC", "E_qzcapit"),  ("D+L1", "E_dl1"),
     ("G3",   "E_g3"),          ("⚡G3A", "E_g3abs"),   ("ATM",  "E_atomic"),
     ("ATMR", "E_atomicR"),     ("SPR", "E_spring"),   ("Z11",  "E_z11t11"),
@@ -1353,6 +1359,41 @@ def latest_div_map(lookback: int = 5) -> dict:
     except Exception:
         log.debug("latest_div_map failed", exc_info=True)
         return {}
+
+
+_H1DR_DAYS_CACHE: list = [0.0, frozenset()]
+
+
+def h1_dr_days(lookback: int = 45) -> frozenset:
+    """{'TICKER|YYYY-MM-DD'} for which the 🕐 1H-DR confirmation is ON, over the last
+    `lookback` sessions — so the live Edge-board scanners can show/filter the same gate the
+    Replay board and the backtest use (2026-07-28).
+
+    The gate = a 1H dual reclaim that session or the previous one, AND that day's RS intact.
+    Reads the warm frame only; a cold frame returns an empty set and the badge simply never
+    shows rather than blocking a scan. TTL 1h.
+    """
+    import time
+    if _H1DR_DAYS_CACHE[1] and (time.time() - _H1DR_DAYS_CACHE[0]) < 3600:
+        return _H1DR_DAYS_CACHE[1]
+    if (60, 3_000_000) not in _CACHE:
+        return frozenset()
+    try:
+        grp, _ = _frame(60, 3_000_000)
+        out = set()
+        for tk, g in grp.items():
+            if "h1_dr" not in g.columns or not len(g):
+                continue
+            tail = g.iloc[-lookback:]
+            m = tail["h1_dr"].to_numpy(bool)
+            if m.any():
+                for d in tail["date"].astype(str).str[:10].to_numpy()[m]:
+                    out.add(f"{tk}|{d}")
+        _H1DR_DAYS_CACHE[0] = time.time(); _H1DR_DAYS_CACHE[1] = frozenset(out)
+        return _H1DR_DAYS_CACHE[1]
+    except Exception:
+        log.debug("h1_dr_days failed", exc_info=True)
+        return frozenset()
 
 
 def latest_edges_map(lookback: int = 5, build: bool = False) -> dict:
