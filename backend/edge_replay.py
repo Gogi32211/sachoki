@@ -984,6 +984,17 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # 2022-2026, where every year is positive; the 2021 cell is not a signal about the gate.
     df["E_washout_h1dr"] = df["E_washout"] & df["h1_dr"]
     df["E_zrt_h1dr"]     = df["E_zoneretest"] & df["h1_dr"] & df["close"].between(21, PRICE_CAP_WIDE)
+    # Four more, chosen on the TIER-1 bar (5/5 positive years AND a positive worst year on the
+    # period-matched 2022+ base). Only BASE setups — gating an already-gated variant just stacks
+    # correlated filters and thins n, and we have a standing rule against proliferation here.
+    #   L43-TRIPLE   +2.70 → +6.61  worst +5.0      RTB-Base  +0.91 → +3.70  worst +2.1
+    #   G3→G3        +2.74 → +5.26  worst +1.1      QZ-Capit  +0.55 → +1.80  worst +0.3 (4/5→5/5)
+    # Deliberately NOT gated despite a real lift, because the worst year stays negative:
+    #   P55 +1.98Δ (worst −2.3) · G3-gap +1.54Δ (−0.8) · D+L1 +1.18Δ (−0.9) · Atomic +0.81Δ (−0.5)
+    df["E_l43triple_h1dr"] = df["E_l43triple"] & df["h1_dr"]
+    df["E_rtb_base_h1dr"]  = df["E_rtb_base"] & df["h1_dr"]
+    df["E_g3g3_h1dr"]      = df["E_g3g3"] & df["h1_dr"]
+    df["E_qzcapit_h1dr"]   = df["E_qzcapit"] & df["h1_dr"]
 
     # 🔄 DUAL OVERSOLD RECLAIM × 🏆RS (validated 2026-07-28, dual_reclaim.py / dr_val.py /
     # dr_disj.py — the user's own read: "show where RSI and CCI both come back from oversold
@@ -1153,6 +1164,8 @@ SETUPS = [
     ("📐RSI-Div🏆RS", "E_rsidiv_rs"), ("📐RSI-Div🏆RS deep", "E_rsidiv_rs_deep"),
     ("🔄DualReclaim🏆RS", "E_dualrec_rs"), ("🔄DualReclaim deep", "E_dualrec_rs_deep"),
     ("Washout🕐DR", "E_washout_h1dr"), ("Zone-Retest🕐DR", "E_zrt_h1dr"),
+    ("L43-TRIPLE🕐DR", "E_l43triple_h1dr"), ("RTB-Base🕐DR", "E_rtb_base_h1dr"),
+    ("G3→G3🕐DR", "E_g3g3_h1dr"), ("QZ-Capit🕐DR", "E_qzcapit_h1dr"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
 ]
