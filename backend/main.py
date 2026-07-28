@@ -125,6 +125,28 @@ async def lifespan(app: FastAPI):
             _studio_ensure_schema()
         except Exception as _exc:
             log.warning("studio ensure_schema at startup failed (non-fatal): %s", _exc)
+        # Pre-warm the EDGE FRAME in a BACKGROUND thread (2026-07-28). Everything that reads
+        # edge_replay's frame — the EDGE column, ▽△ anatomy, the 📐 divergence rows — is
+        # guarded to skip when the frame is cold, so that a chart request can never trigger a
+        # multi-minute build on the request path. Correct, but it meant those fields stayed
+        # EMPTY after every restart until someone happened to open the Edge board or Ultra.
+        # Warming it here off-thread gives both: startup and chart loads stay fast, and the
+        # frame is ready a minute or two later without anyone having to poke it.
+        try:
+            import threading as _th
+
+            def _warm_edge_frame():
+                try:
+                    import time as _tt, edge_replay as _ER
+                    _t0 = _tt.time()
+                    _ER._frame(60, 3_000_000)
+                    log.info("edge frame pre-warmed in %.0fs", _tt.time() - _t0)
+                except Exception:
+                    log.exception("edge frame pre-warm failed (non-fatal)")
+
+            _th.Thread(target=_warm_edge_frame, name="warm-edge-frame", daemon=True).start()
+        except Exception:
+            log.exception("could not start edge-frame warm thread (non-fatal)")
         # Pre-warm memory cache from DB so dashboard/ultra tab show data immediately
         try:
             from ultra_orchestrator import load_latest_ultra_scan_from_db

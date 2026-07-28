@@ -81,16 +81,20 @@ function VolRow({ bars }) {
 // oversold/overbought zone but BLOCKED by the RS gate (the near-miss worth seeing) · 3 signal ·
 // 4 deep tier. One row per oscillator so agreement/disagreement between them is visible — CCI
 // validated independently (+1.76/5-5yr with RS), and requiring BOTH is redundant (+1.77, 4/5).
+// Glyphs must be READABLE on the dark matrix. The first cut used '·' at 35% opacity for
+// stage 1 and it was effectively invisible — the row looked empty even where it wasn't
+// (user: "only the balls show up, the other fields are empty"). Stage 2 is the whole point
+// of this row (in the zone, blocked by RS), so it gets the loudest non-emoji treatment.
 const DIV_STAGE = {
-  1: { txt: '·',  cls: 'text-md-on-surface-var/35' },
-  2: { txt: '◦',  cls: 'text-amber-400/80' },
-  3: { txt: '🟢', cls: '' },
-  4: { txt: '🟢⁺', cls: '' },
+  1: { txt: '◦', cls: 'text-sky-300/70',                    sz: 13 },
+  2: { txt: '◉', cls: 'text-amber-300 font-bold',           sz: 14 },
+  3: { txt: '🟢', cls: '',                                   sz: 10 },
+  4: { txt: '🟢⁺', cls: '',                                  sz: 10 },
 }
 const DIV_STAGE_T = {
-  1: { txt: '·',  cls: 'text-md-on-surface-var/35' },
-  2: { txt: '◦',  cls: 'text-amber-400/80' },
-  3: { txt: '🔻', cls: '' },
+  1: { txt: '◦', cls: 'text-rose-300/70',                   sz: 13 },
+  2: { txt: '◉', cls: 'text-amber-300 font-bold',           sz: 14 },
+  3: { txt: '🔻', cls: '',                                   sz: 10 },
 }
 
 function DivFunnelRow({ bars, osc }) {
@@ -127,7 +131,7 @@ RSI and CCI are shown as separate rows on purpose: CCI validated independently (
           <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
               style={{ width: CELL_W, minWidth: CELL_W }}>
             {st ? (
-              <span className={`font-bold ${st.cls}`} style={{ fontSize: bs >= 3 || ts >= 3 ? 10 : 12 }}
+              <span className={`font-bold ${st.cls}`} style={{ fontSize: st.sz }}
                 title={`📐${name}: ${why}${val != null ? ` · pivot ${name} ${val}` : ''}${b.dv_rs != null ? ` · RS ${b.dv_rs ? 'intact' : 'broken'}` : ''}`}>
                 {st.txt}</span>
             ) : null}
