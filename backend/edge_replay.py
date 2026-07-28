@@ -201,6 +201,56 @@ def _pull(months: int, dv_floor: float, ticker: str = None) -> pd.DataFrame:
         a.close()
 
 
+_DIV_L, _DIV_R, _DIV_MAXGAP = 1, 4, 60
+
+
+def _divergence_arrays(df: pd.DataFrame):
+    """Causal RSI divergence on confirmed price pivots (2026-07-28).
+
+    A pivot at bar i is only KNOWN at i+R, so the flag is raised on bar i+R and the
+    RSI compared is the RSI *at the pivot* — nothing peeks forward. Pivot detection is
+    vectorised per ticker; only the handful of pivot bars are then walked in order to
+    compare each low/high with the previous one (>_DIV_MAXGAP bars apart = not comparable).
+
+    Returns (bull, bear, rsi_at_low, rsi_at_high) aligned to df's rows.
+    """
+    n_all = len(df)
+    bull = np.zeros(n_all, bool); bear = np.zeros(n_all, bool)
+    rlo = np.full(n_all, np.nan); rhi = np.full(n_all, np.nan)
+    L, R, GAP = _DIV_L, _DIV_R, _DIV_MAXGAP
+    for _, idx in df.groupby("ticker", sort=False).indices.items():
+        idx = np.asarray(idx)
+        n = len(idx)
+        if n < 4 * R + 10:
+            continue
+        lo = df["low"].to_numpy(float)[idx]
+        hi = df["high"].to_numpy(float)[idx]
+        rs = df["rsi_14"].to_numpy(float)[idx]
+        lS, hS = pd.Series(lo), pd.Series(hi)
+        lo_prev = lS.shift(1).rolling(L).min().to_numpy()
+        lo_next = lS[::-1].rolling(R).min()[::-1].shift(-1).to_numpy()
+        hi_prev = hS.shift(1).rolling(L).max().to_numpy()
+        hi_next = hS[::-1].rolling(R).max()[::-1].shift(-1).to_numpy()
+        pl = (lo < lo_prev) & (lo < lo_next) & np.isfinite(lo_prev) & np.isfinite(lo_next)
+        ph = (hi > hi_prev) & (hi > hi_next) & np.isfinite(hi_prev) & np.isfinite(hi_next)
+        for piv, price, better, out, val in (
+                (pl, lo, np.less, bull, rlo),          # bull: price LOWER low, RSI HIGHER low
+                (ph, hi, np.greater, bear, rhi)):      # bear: price HIGHER high, RSI LOWER high
+            prev_i = -1
+            for i in np.nonzero(piv)[0]:
+                c = i + R
+                if c >= n:
+                    break
+                if prev_i >= 0 and (i - prev_i) <= GAP and better(price[i], price[prev_i]):
+                    # bull wants rsi[i] > rsi[prev]; bear wants rsi[i] < rsi[prev]
+                    hit = (rs[i] > rs[prev_i]) if out is bull else (rs[i] < rs[prev_i])
+                    if hit:
+                        out[idx[c]] = True
+                        val[idx[c]] = rs[i]
+                prev_i = i
+    return bull, bear, rlo, rhi
+
+
 def _prep(df: pd.DataFrame) -> pd.DataFrame:
     """Add helper + lag columns + entry masks for every setup (lookahead-free)."""
     _refresh_mined()                       # pick up any freshly-promoted mined combos
@@ -798,6 +848,41 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # 💎 quality-price rescuer for Z-Absorb (OB variant n too thin + worst worsened; $21-89 is the
     # clean lift — improves era-balance and worst year −4.2→−2.6, per the booster study).
     df["E_zabsorb_q"]   = df["E_zabsorb"] & df["close"].between(21, PRICE_CAP)   # +5.75→+8.69/med+4.39/worst−2.6
+    # 📐 OSCILLATOR DIVERGENCE × 🏆RS (validated 2026-07-28, rsi_divergence.py / div_validate.py
+    # / beardiv.py). Came out of reviewing two "RSI trendline breakout" Pine scripts: their
+    # breakout thesis is null (the slope is worth +0.09pp over a FLAT line), but the divergence
+    # block one of them had — broken and switched off — points the right way.
+    #
+    # BULL: a confirmed price pivot low that is LOWER than the prior one while RSI/CCI makes a
+    # HIGHER low = selling pressure stopped producing result = absorbed weakness.
+    # Alone it is WORSE than its own opposite cell (div −0.64 vs "RSI confirms the low" −0.43)
+    # and deeper oversold makes it WORSE (rsi<30 → −2.26): naked divergence catches knives.
+    # 🏆RS flips the sign — it removes the structural knives and leaves quality dips:
+    #   rsi<35 +4.14 · <40 +3.34 · <45 +2.58 · <50 +1.94 · <55 +1.42  — monotone, 5/5yr at four
+    #   cuts, and beats BOTH matched controls (conf+RS +1.48, plain+RS +1.48) by ~1.1pp.
+    #   TRAIN 2022-23 +2.84 ≈ TEST 2024-26 +2.26 (no era tilt) · DSR 1.000 vs a 32-variant family
+    #   · only 17% overlap with edges we already own (ZRT 12%) · $8-21 dead, 21-89 and 89-377 both 5/5.
+    # REPLICATES ON CCI (a different formula entirely): alone −0.45, +RS +1.76, +cci<−100 +2.45,
+    # same monotone shape — so it is a momentum-exhaustion effect, not an RSI artifact. Requiring
+    # BOTH oscillators does NOT help (+1.77, 4/5) — they are redundant, so we ship the RSI one.
+    #
+    # BEAR (mirror, a SUPPRESSOR not an edge — our short side is closed 0/29): price HIGHER high +
+    # RSI LOWER high + RS BROKEN. Monotone the other way: rsi>55 −1.78 · >60 −2.09 · >65 −2.94 ·
+    # >70 −3.71/win41/pf0.84/1-6yr. RS-intact instead → +0.16, so the RS direction flips exactly
+    # as it should (intact = quality dip → buy · broken = failing leadership → distribution).
+    # Used as "do not open a long / consider exiting here", never as a short entry.
+    _div_bull, _div_bear, _dv_rsi_lo, _dv_rsi_hi = _divergence_arrays(df)
+    df["div_bull"]   = _div_bull                  # RSI bull divergence on a confirmed pivot low
+    df["div_bear"]   = _div_bear                  # RSI bear divergence on a confirmed pivot high
+    df["dv_rsi_lo"]  = _dv_rsi_lo                 # RSI AT that pivot low  (NaN when no fire)
+    df["dv_rsi_hi"]  = _dv_rsi_hi                 # RSI AT that pivot high (NaN when no fire)
+    _dv_q = df["close"].between(21, PRICE_CAP_WIDE)
+    df["E_rsidiv_rs"]      = df["div_bull"] & (df["dv_rsi_lo"] < 45) & df["rs_intact"] & _dv_q
+    df["E_rsidiv_rs_deep"] = df["div_bull"] & (df["dv_rsi_lo"] < 40) & df["rs_intact"] & _dv_q
+    # 🔻 the suppressor flag. rsi>65 (not >70) is the shipped cut: −2.94/pf0.85/2-6yr and ~400
+    # fires a year, where >70 is stronger (−3.71/pf0.84/1-6yr) but too rare to be a useful badge.
+    df["div_top"] = df["div_bear"] & (df["dv_rsi_hi"] > 65) & ~df["rs_intact"]
+
     # 🕯️ MID-CLOSE gate (validated 2026-07-27, breakout_closepos.py / midclose_validate.py).
     # Born from a "STRONG vs WEAK BREAKOUT" infographic claiming a breakout is tradeable only if
     # the candle closes ≥62% of its range beyond the broken level. Tested raw: REFUTED — every
@@ -921,6 +1006,7 @@ SETUPS = [
     ("🏆L34→L34", "E_l34cont"),
     ("🏆L34→L34+RS", "E_l34cont_rs"),
     ("G3-Abs🕯️mid", "E_g3abs_mid"), ("L43-TRIPLE🕯️mid", "E_l43triple_mid"),
+    ("📐RSI-Div🏆RS", "E_rsidiv_rs"), ("📐RSI-Div🏆RS deep", "E_rsidiv_rs_deep"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
 ]
@@ -1056,6 +1142,54 @@ def latest_atr_map() -> dict:
         return m
     except Exception:
         log.debug("latest_atr_map failed", exc_info=True)
+        return {}
+
+
+_DIV_MAP_CACHE: list = [0.0, {}]
+
+
+def latest_div_map(lookback: int = 5) -> dict:
+    """{ticker: {"buy": age|None, "deep": bool, "top": age|None, "rsi": float}} — the 📐 divergence
+    state of the last `lookback` bars, for the Ultra column and the Superchart row (2026-07-28).
+
+    `buy` = E_rsidiv_rs fired (bull divergence + RS-intact + rsi<45) · `deep` = the rsi<40 tier ·
+    `top` = the 🔻 suppressor (bear divergence + rsi>65 + RS BROKEN). Ages are in bars, 0 = today.
+    Cold frame → {} (never blocks a scan to build one). TTL 1h.
+    """
+    import time
+    if _DIV_MAP_CACHE[1] and (time.time() - _DIV_MAP_CACHE[0]) < 3600:
+        return _DIV_MAP_CACHE[1]
+    if (60, 3_000_000) not in _CACHE:
+        return {}
+    try:
+        grp, _ = _frame(60, 3_000_000)
+        m = {}
+        for tk, g in grp.items():
+            n = len(g)
+            if not n:
+                continue
+            tail = g.iloc[-lookback:]
+            ent = {}
+            for col, key in (("E_rsidiv_rs", "buy"), ("E_rsidiv_rs_deep", "deep"), ("div_top", "top")):
+                if col not in tail.columns:
+                    continue
+                v = tail[col].to_numpy(bool)
+                w = np.nonzero(v)[0]
+                if len(w):
+                    ent[key] = int(len(v) - 1 - w[-1])          # bars ago, 0 = latest bar
+            if ent:
+                # the RSI at the pivot that produced the freshest fire — what the tooltip shows
+                for c in ("dv_rsi_lo", "dv_rsi_hi"):
+                    if c in tail.columns:
+                        vals = tail[c].to_numpy(float)
+                        ok = np.isfinite(vals)
+                        if ok.any():
+                            ent["rsi_lo" if c == "dv_rsi_lo" else "rsi_hi"] = round(float(vals[ok][-1]), 1)
+                m[tk] = ent
+        _DIV_MAP_CACHE[0] = time.time(); _DIV_MAP_CACHE[1] = m
+        return m
+    except Exception:
+        log.debug("latest_div_map failed", exc_info=True)
         return {}
 
 

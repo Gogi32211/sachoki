@@ -894,6 +894,25 @@ def ultra_from_db(req: UltraDBScanRequest):
             age_signals  = req.age_signals,
             age_lookback = req.age_lookback,
         )
+        # 📐 divergence × 🏆RS (2026-07-28). This is the endpoint the Ultra grid actually
+        # calls — main._enrich_edges only runs on /api/ultra-scan/results, so anything
+        # attached there alone never reaches the DB-instant path (the same trap that once
+        # left UV3 and score-hits unfilled here). Best-effort: a cold edge frame yields {}
+        # and the column simply shows "—" rather than blocking the scan.
+        try:
+            import edge_replay as _ER
+            _dv = _ER.latest_div_map(lookback=5)
+            if _dv:
+                for _r in (result.get("results") or []):
+                    _d = _dv.get((_r.get("ticker") or "").upper())
+                    if _d:
+                        _r["div_buy"]    = _d.get("buy")
+                        _r["div_deep"]   = _d.get("deep") is not None
+                        _r["div_top"]    = _d.get("top")
+                        _r["div_rsi_lo"] = _d.get("rsi_lo")
+                        _r["div_rsi_hi"] = _d.get("rsi_hi")
+        except Exception:
+            log.debug("ultra-from-db divergence attach skipped", exc_info=True)
         return _sanitize_for_json(result)
     except Exception as exc:
         log.exception("ultra_from_db failed")

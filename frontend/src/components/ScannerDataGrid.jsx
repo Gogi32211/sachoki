@@ -529,7 +529,8 @@ export default function ScannerDataGrid({
 
   // Number of columns for colSpan calculation
   // ultra adds: ULTRA + UV3 + 🎲 + BUY + EDGE + PM + ⏱ + ⚖️ columns (+8 vs turbo); split adds Split column (+1)
-  const baseColCount = variant === 'ultra' ? 29 : 16
+  // 📐 divergence is added for BOTH variants (it sits after T/Z, which turbo also has)
+  const baseColCount = (variant === 'ultra' ? 29 : 16) + 1
   const colCount = (universe === 'split' || universe === 'zone') ? baseColCount + 1 : baseColCount
 
   const SortTh = ({ col, children, cls = '' }) => (
@@ -595,6 +596,9 @@ export default function ScannerDataGrid({
             <SortTh col="rtb_total" cls="text-center min-w-[40px]">RTB</SortTh>
             {/* T/Z */}
             <SortTh col="tz_sig" cls="text-center min-w-[44px]">T/Z</SortTh>
+            {/* 📐 divergence × RS — Ultra has no L column (L lives in the Signals chips), so this
+                sits right after T/Z, the closest analogue of the Superchart TZ/L block */}
+            <SortTh col="div_sort" cls="text-center min-w-[46px]" title="📐 DIVERGENCE × 🏆RS (validated 2026-07-28) — the last 5 bars. 🟢 = price made a LOWER low while RSI made a HIGHER low, with relative strength still INTACT and RSI<45: absorbed selling in a name whose leadership never broke → +2.58%/win56/PF1.65, 5/5yr, worst year +1.4. 🟢⁺ = the deep tier (RSI<40) → +3.34%/win58/PF1.75. Monotone across five oversold cuts (35/40/45/50/55), TRAIN 2022-23 +2.84 ≈ TEST 2024-26 +2.26 (no era tilt), DSR 1.000 vs a 32-variant family, only 17% overlap with edges we already own — and it REPLICATES on CCI, so it is momentum exhaustion rather than an RSI artifact. 🔻 = the MIRROR and a SUPPRESSOR, never a short: price made a HIGHER high while RSI made a LOWER high and RS is BROKEN (RSI>65). Holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years — do not open a long, consider exiting. NOTE naked divergence WITHOUT the 🏆RS gate is worthless (−0.64, worse than its own opposite cell) and deeper oversold makes it WORSE — the RS side is what separates a quality dip from a falling knife. '·2d' = fired 2 bars ago.">📐</SortTh>
             {/* Category */}
             <th className="px-2 py-1.5 font-medium text-center min-w-[60px]">Cat</th>
             {/* Signals — all chips shown, may wrap or grow row height */}
@@ -1066,6 +1070,21 @@ export default function ScannerDataGrid({
                       📈T12·Vol{r.vol3t12_tier === 'premium' ? '★' : r.vol3t12_tier === 'hi-rsi' ? '·R' : r.vol3t12_tier === 'hi-2bar' ? '·2↓' : ''}
                     </div>
                   )}
+                </td>
+
+                {/* 📐 divergence × RS */}
+                <td className="px-1 py-1 text-center whitespace-nowrap">
+                  {r.div_top != null ? (
+                    <span className="font-mono text-[11px] px-1 rounded border text-red-200 border-red-500 bg-red-950/60"
+                      title={`🔻 bearish divergence + RS BROKEN + RSI>65${r.div_rsi_hi ? ` (pivot RSI ${r.div_rsi_hi})` : ''} — a higher price high on failing momentum AND failing leadership. Long return from here: −2.94%/win 43%/PF 0.85, positive in 2 of 6 years. Do not open a long; consider exiting.${r.div_top > 0 ? ` Fired ${r.div_top} bar(s) ago.` : ' Fired today.'}`}>
+                      🔻{r.div_top > 0 ? `·${r.div_top}d` : ''}</span>
+                  ) : r.div_buy != null ? (
+                    <span className={`font-mono text-[11px] px-1 rounded border ${r.div_deep
+                        ? 'text-green-200 border-green-400 bg-green-950/70 font-semibold'
+                        : 'text-emerald-300 border-emerald-700 bg-emerald-950/60'}`}
+                      title={`${r.div_deep ? '🟢⁺ DEEP tier (RSI<40): +3.34%/win58/PF1.75, 5/5yr, worst +1.5.' : '🟢 bullish divergence + 🏆RS intact + RSI<45: +2.58%/win56/PF1.65, 5/5yr, worst +1.4.'}${r.div_rsi_lo ? ` Pivot RSI ${r.div_rsi_lo}.` : ''} Price made a lower low, RSI made a higher low, relative strength held.${r.div_buy > 0 ? ` Fired ${r.div_buy} bar(s) ago.` : ' Fired today.'}`}>
+                      {r.div_deep ? '🟢⁺' : '🟢'}{r.div_buy > 0 ? `·${r.div_buy}d` : ''}</span>
+                  ) : <span className="text-gray-700">—</span>}
                 </td>
 
                 {/* Category */}

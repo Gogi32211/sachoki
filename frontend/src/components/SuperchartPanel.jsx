@@ -74,6 +74,33 @@ function VolRow({ bars }) {
   )
 }
 
+function DivRow({ bars }) {
+  return (
+    <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
+      <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
+                     border-r border-white/[0.08] font-mono whitespace-nowrap"
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
+          title="📐 OSCILLATOR DIVERGENCE × 🏆RS (validated 2026-07-28). 🟢 = price made a LOWER low while RSI made a HIGHER low, with relative strength still INTACT and RSI<45 — absorbed selling in a name whose leadership never broke: +2.58%/win56/PF1.65, 5/5yr, worst year +1.4 (the rsi<40 tier 🟢⁺ is +3.34/PF1.75). Monotone across five oversold cuts, TRAIN 2022-23 ≈ TEST 2024-26, DSR 1.000, and it REPLICATES on CCI — so it is momentum exhaustion, not an RSI artifact. 🔻 = the mirror and a SUPPRESSOR, not a short: price made a HIGHER high while RSI made a LOWER high and RS is BROKEN (rsi>65) — holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years. Naked divergence WITHOUT the RS gate is worthless (−0.64, worse than its own opposite cell) — the RS side is what separates a quality dip from a falling knife.">📐</td>
+      {bars.map((b, i) => (
+        <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
+            style={{ width: CELL_W, minWidth: CELL_W }}>
+          {b.div_top ? (
+            <span className="rounded px-1 font-bold" style={{ fontSize: 10, background: '#7f1d1d', color: '#fecaca' }}
+              title="🔻 bearish divergence + RS BROKEN + RSI>65 — price printed a higher high while momentum and relative leadership both failed. Long return from here: −2.94%/win 43%/PF 0.85, positive in 2 of 6 years. Do not open a long; consider exiting.">🔻</span>
+          ) : b.div_buy ? (
+            <span className="rounded px-1 font-bold"
+              style={{ fontSize: 10, background: b.div_deep ? '#14532d' : '#166534', color: '#bbf7d0' }}
+              title={b.div_deep
+                ? '🟢⁺ bullish divergence + 🏆RS intact + RSI<40 (deep tier) — +3.34%/win58/PF1.75, 5/5yr, worst year +1.5.'
+                : '🟢 bullish divergence + 🏆RS intact + RSI<45 — price made a lower low, RSI made a higher low, leadership intact. +2.58%/win56/PF1.65, 5/5yr, worst year +1.4.'}>
+              {b.div_deep ? '🟢⁺' : '🟢'}</span>
+          ) : null}
+        </td>
+      ))}
+    </tr>
+  )
+}
+
 // ⚖️ VRP header chip (2026-07-26): IV vs ATR-realized vol dissonance — current snapshot only
 // (no IV history exists; accumulating in gex_edge_log). Descriptive, not a signal.
 function VrpLine({ ticker }) {
@@ -1242,6 +1269,7 @@ export default function SuperchartPanel({
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
                     fast vs slow names) + the current-state header line — those stay. */}
+                <DivRow bars={bars} />
                 <VolRow bars={bars} />
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />

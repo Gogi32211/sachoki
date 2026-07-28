@@ -6085,6 +6085,28 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
                 _b["no_vol_event"] = (f"{_tku}|{str(_b.get('date'))[:10]}" in _dry)
         except Exception:
             log.debug("vol-event flag skipped", exc_info=True)
+        # 📐 divergence per bar (2026-07-28) — the same edge_replay masks the backtest uses,
+        # so the chart row and the Replay numbers can never drift apart.
+        try:
+            import numpy as _np
+            import edge_replay as _ERD
+            _g, _ = _ERD._frame(60, 3_000_000)
+            _gg = _g.get(ticker.upper())
+            if _gg is not None and len(_gg):
+                _bd = {}
+                _dts = _gg["date"].astype(str).str[:10].to_numpy()
+                for _c, _k in (("E_rsidiv_rs", "div_buy"), ("E_rsidiv_rs_deep", "div_deep"),
+                               ("div_top", "div_top")):
+                    if _c in _gg.columns:
+                        _v = _gg[_c].to_numpy(bool)
+                        for _i in _np.nonzero(_v)[0]:
+                            _bd.setdefault(_dts[_i], {})[_k] = True
+                for _b in result:
+                    _f = _bd.get(str(_b.get("date"))[:10])
+                    if _f:
+                        _b.update(_f)
+        except Exception:
+            log.debug("divergence per-bar flags skipped", exc_info=True)
 
     # ── 🧬 SEQ fires per bar (2026-07-20): frozen-OOS 3/4-bar robust-sequence completions,
     # same quality gate as the Ultra 🧬SEQ chip (OOS✓ · depth≥3 · win≥60 · ps_med>0).
@@ -8148,6 +8170,21 @@ def _enrich_edges(results: list, tf: str = "1d") -> list:
                         r["no_vol_event"] = (f"{tk}|{d}" in _dry)
         except Exception:
             log.debug("ultra vol-event flag skipped", exc_info=True)
+        # 📐 oscillator-divergence state (2026-07-28): the 🟢 buy edge (bull divergence +
+        # 🏆RS + oversold, +2.58/5-5yr) and the 🔻 top suppressor (bear divergence + RS
+        # BROKEN + rsi>65, −2.94/pf0.85/2-6yr — never open a long / consider exiting).
+        try:
+            _dv = _ER.latest_div_map(lookback=5)
+            for r in results:
+                d = _dv.get((r.get("ticker") or "").upper())
+                if d:
+                    r["div_buy"]  = d.get("buy")
+                    r["div_deep"] = d.get("deep") is not None
+                    r["div_top"]  = d.get("top")
+                    r["div_rsi_lo"] = d.get("rsi_lo")
+                    r["div_rsi_hi"] = d.get("rsi_hi")
+        except Exception:
+            log.debug("ultra divergence attach skipped", exc_info=True)
     except Exception:
         log.debug("ultra edge serve-attach skipped", exc_info=True)
     return results

@@ -63,5 +63,16 @@
     "kind": "combo_mined",
     "observation": "searched 154 combos, 10 passed OOS gate (family PBO 0.086)",
     "action": "promoted 10: M_coil_floor_ob_retest, M_gem1_capbounce_rs_intact, M_gem1_capbounce_m15_zdom, M_engulf_absorb_rev_wtevr, M_z11t11_m15_zdom, M_g3g3rl_rs_intact, M_g3g3rl_key_level, M_g3g3rl_conf_anyfam, M_g3g3rl_m15_zdom, M_g3rl_ob_retest"
+  },
+  {
+    "date": "2026-07-28",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-07-28",
+    "kind": "revalidate_run",
+    "observation": "all 43 live edges healthy on recent data"
   }
 ]

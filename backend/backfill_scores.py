@@ -25,7 +25,7 @@ Usage:  python backfill_scores.py compute [--days N]     (omit --days = full his
         python backfill_scores.py apply
 """
 from __future__ import annotations
-import os, sys, time, types, logging
+import os, sys, time, types, logging, contextlib
 
 log = logging.getLogger("backfill_scores")
 _DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
@@ -33,16 +33,63 @@ _DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
 _PARQ = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data", "score_backfill.parquet")
 
 
+@contextlib.contextmanager
 def _stub_axes():
-    """Force ultra_score_v3 to its CORE (no live RS/cluster/TLS axes — lookahead in history)."""
-    m = types.ModuleType("ultra_orchestrator")
-    m._v3_axes_map = lambda: {}
-    sys.modules["ultra_orchestrator"] = m
+    """Force ultra_score_v3 to its CORE (no live RS/cluster/TLS axes — lookahead in history).
+
+    2026-07-28 — this used to do `sys.modules["ultra_orchestrator"] = types.ModuleType(...)`
+    and never put the real module back. Standalone that is harmless, but `run_incremental`
+    is also called IN-PROCESS by the backend after every nightly swap (studio_api), so the
+    backend was left with a bare stub module for the rest of its life. Two consequences,
+    both observed:
+      · every `from ultra_orchestrator import get_ultra_status` then failed with
+        "(unknown location)" — a hand-made ModuleType has no __file__ — 14k times in one
+        log, which 500s /api/ultra-scan/status and hangs the nightly ULTRA re-scan loop;
+      · the stub only carries `_v3_axes_map = lambda: {}`, so UV3 silently lost its
+        🏆RS/🎯cluster/🎋TLS axes after every nightly update until the next restart.
+    Now: patch ONLY the one attribute, on the REAL module, and restore it afterwards. The
+    real module keeps working for every other importer even while the backfill runs.
+    """
+    uo = sys.modules.get("ultra_orchestrator")
+    if uo is None:
+        # Standalone run: the real module is NOT loaded and importing it is expensive (it
+        # warms the edge frame) — which is why this was a fake module to begin with. Keep
+        # the cheap stub for that path, but SCOPE it so it cannot leak.
+        prev_missing = True
+        m = types.ModuleType("ultra_orchestrator")
+        m._v3_axes_map = lambda: {}
+        sys.modules["ultra_orchestrator"] = m
+        try:
+            yield
+        finally:
+            if prev_missing and sys.modules.get("ultra_orchestrator") is m:
+                sys.modules.pop("ultra_orchestrator", None)
+        return
+    # In-process (the backend after a nightly swap): the real module is already loaded, so
+    # patching one attribute costs nothing and leaves every other importer working.
+    _MISSING = object()
+    orig = getattr(uo, "_v3_axes_map", _MISSING)
+    uo._v3_axes_map = lambda: {}
+    try:
+        yield
+    finally:
+        if orig is _MISSING:
+            try:
+                delattr(uo, "_v3_axes_map")
+            except AttributeError:
+                pass
+        else:
+            uo._v3_axes_map = orig
 
 
 def compute(days: int | None = None, out_path: str = _PARQ) -> int:
     import duckdb, pandas as pd
-    _stub_axes()
+    with _stub_axes():
+        return _compute_inner(days, out_path)
+
+
+def _compute_inner(days, out_path):
+    import duckdb, pandas as pd
     from studio.ultra_db_scan import _row_to_dict
     con = duckdb.connect(_DB, read_only=True)
     cols = {r[0] for r in con.execute("DESCRIBE bars").fetchall()}
