@@ -97,44 +97,51 @@ const DIV_STAGE_T = {
   3: { txt: '🔻', cls: '',                                   sz: 10 },
 }
 
-function DivFunnelRow({ bars, osc }) {
-  const kb = osc === 'r' ? 'dvr_b' : 'dvc_b'
-  const kt = osc === 'r' ? 'dvr_t' : 'dvc_t'
-  const vlo = osc === 'r' ? 'dv_rlo' : 'dv_clo'
-  const vhi = osc === 'r' ? 'dv_rhi' : 'dv_chi'
-  const name = osc === 'r' ? 'RSI' : 'CCI'
-  const zone = osc === 'r' ? 'RSI<45 (deep <40)' : 'CCI<0 (deep <−100)'
-  const obz = osc === 'r' ? 'RSI>65' : 'CCI>100'
+function DivFunnelRow({ bars }) {
+  // ONE row, merged (2026-07-28). It shipped as two rows (📐R / 📐C) on the theory that
+  // disagreement between the oscillators was informative. Measured: on KO 5 of 8 marked bars
+  // disagree — but NO validated rule uses a single oscillator. The divergence edge is RSI-only
+  // (requiring both was redundant: +1.77 vs +1.76) and the 🔄 reclaim edge already REQUIRES
+  // both inside the mask. So "CCI is in the zone, RSI is not" is not actionable, and the second
+  // row was visual noise. The cell now shows the STRONGER of the two stages; the tooltip names
+  // which oscillator produced it, its pivot value, and the RS state.
+  const NAME = { r: 'RSI', c: 'CCI' }
   return (
     <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
       <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
                      border-r border-white/[0.08] font-mono whitespace-nowrap"
-          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 11, lineHeight: 1 }}
-          title={`📐 ${name} DIVERGENCE FUNNEL vs 🏆RS. Every stage is shown, not just the fires — the completed edge is rare (~0.16 per ticker per YEAR) so a completions-only row would be empty almost always.
-· (faint)  raw divergence: price made a LOWER low while ${name} made a HIGHER low (bull), or a HIGHER high while ${name} made a LOWER high (bear). On its own this is WORTHLESS (−0.64, actually worse than its own opposite cell) and deeper oversold makes it WORSE — naked divergence catches falling knives.
-◦ (amber)  reached the ${zone} zone but the 🏆RS gate BLOCKED it — this is the near-miss you asked to see. Bull needs RS INTACT (leadership held = quality dip); bear needs RS BROKEN (leadership already failing = distribution).
-🟢 / 🟢⁺   full long signal / deep tier → +2.58 and +3.34 median, win 56-58%, PF 1.65-1.75, 5/5 positive years, worst year +1.4/+1.5. Monotone across five oversold cuts, TRAIN ≈ TEST, DSR 1.000.
-🔻         the SUPPRESSOR (${obz} + RS broken): holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years. Not a short — our short side is closed 0/29.
-RSI and CCI are shown as separate rows on purpose: CCI validated independently (+1.76/5-5yr), so agreement is informative — but requiring BOTH does NOT help (+1.77, 4/5), they are redundant.`}>
-        📐{osc === 'r' ? 'R' : 'C'}</td>
+          style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
+          title={`📐 DIVERGENCE FUNNEL (RSI + CCI merged) vs 🏆RS. Every stage is shown, not just the fires — a completed signal happens ~0.16 times per ticker per YEAR, so a completions-only row would look broken.
+◦  raw divergence: price made a LOWER low while the oscillator made a HIGHER low (bull), or a HIGHER high with a LOWER oscillator high (bear). Alone this is WORTHLESS (−0.64, worse than its own opposite cell) and deeper oversold makes it WORSE — naked divergence catches falling knives.
+◉  reached the oversold/overbought zone but the 🏆RS gate BLOCKED it — the near-miss. Bull needs RS INTACT (leadership held = quality dip); bear needs RS BROKEN (leadership failing = distribution).
+🟢 / 🟢⁺  full long signal / deep tier → +2.58 and +3.34 median, win 56-58%, PF 1.65-1.75, 5/5 positive years, worst +1.4/+1.5. Monotone across five oversold cuts, TRAIN ≈ TEST, DSR 1.000, replicates on CCI.
+🔻  the SUPPRESSOR (RSI>65 + RS broken): holding a long through it returns −2.94%/win43/PF0.85, positive in only 2 of 6 years. Never a short — our short side is closed 0/29.
+Hover a cell to see which oscillator fired it.`}>📐</td>
       {bars.map((b, i) => {
-        const bs = b[kb] || 0, ts = b[kt] || 0
+        // strongest stage across the two oscillators; remember which produced it
+        let bs = 0, ts = 0, bw = [], tw = []
+        for (const k of ['r', 'c']) {
+          const vb = b[`dv${k}_b`] || 0, vt = b[`dv${k}_t`] || 0
+          if (vb) { if (vb > bs) bs = vb; bw.push(NAME[k]) }
+          if (vt) { if (vt > ts) ts = vt; tw.push(NAME[k]) }
+        }
         const st = bs ? DIV_STAGE[bs] : ts ? DIV_STAGE_T[ts] : null
-        const val = bs ? b[vlo] : ts ? b[vhi] : null
-        const why = bs === 2 ? `in the zone but 🏆RS is BROKEN — signal blocked`
-                  : ts === 2 ? `overbought divergence but 🏆RS still INTACT — suppressor not armed`
-                  : bs === 1 ? `raw ${name} bull divergence, not yet oversold enough`
-                  : ts === 1 ? `raw ${name} bear divergence, not yet overbought enough`
-                  : bs >= 3 ? `full signal — ${name} higher low + RS intact`
-                  : ts >= 3 ? `suppressor — ${name} lower high + RS broken` : ''
+        if (!st) return <td key={i} className="px-0 py-px border-r border-white/[0.05]"
+                            style={{ width: CELL_W, minWidth: CELL_W }} />
+        const who = (bs ? bw : tw).join(' + ')
+        const val = bs ? (b.dv_rlo ?? b.dv_clo) : (b.dv_rhi ?? b.dv_chi)
+        const stage = bs || ts
+        const why = stage === 1 ? 'raw divergence — not yet far enough into the zone'
+                  : stage === 2 ? (bs ? 'in the oversold zone but 🏆RS is BROKEN — signal blocked'
+                                      : 'overbought divergence but 🏆RS still INTACT — suppressor not armed')
+                  : bs ? 'full signal — higher oscillator low + RS intact'
+                       : 'suppressor — lower oscillator high + RS broken'
         return (
           <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
               style={{ width: CELL_W, minWidth: CELL_W }}>
-            {st ? (
-              <span className={`font-bold ${st.cls}`} style={{ fontSize: st.sz }}
-                title={`📐${name}: ${why}${val != null ? ` · pivot ${name} ${val}` : ''}${b.dv_rs != null ? ` · RS ${b.dv_rs ? 'intact' : 'broken'}` : ''}`}>
-                {st.txt}</span>
-            ) : null}
+            <span className={`font-bold ${st.cls}`} style={{ fontSize: st.sz }}
+              title={`📐 ${who}: ${why}${val != null ? ` · pivot ${val}` : ''}${b.dv_rs != null ? ` · RS ${b.dv_rs ? 'intact' : 'broken'}` : ''}`}>
+              {st.txt}</span>
           </td>
         )
       })}
@@ -1326,8 +1333,7 @@ export default function SuperchartPanel({
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
                     fast vs slow names) + the current-state header line — those stay. */}
-                <DivFunnelRow bars={bars} osc="r" />
-                <DivFunnelRow bars={bars} osc="c" />
+                <DivFunnelRow bars={bars} />
                 <VolRow bars={bars} />
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />
