@@ -522,13 +522,79 @@ def trigger_backfill_forward(lookback_days: int = Query(150, ge=10, le=400)):
         raise HTTPException(500, detail=str(e))
 
 
+def _swap_worker_liveness() -> dict:
+    """Is the staging delta worker alive and actually doing work? (2026-07-28)
+
+    The swap path runs `studio._delta_worker` as a SEPARATE PROCESS against a staging
+    copy, so it never touches this process's in-memory progress dict. That made a
+    healthy multi-hour run indistinguishable from a hang: the status endpoint reported
+    running=true / stage=idle / 0-of-0 / ts=null for hours either way — which is exactly
+    how a legitimately running update got killed by mistake.
+
+    These three fields answer "is it alive?" without needing the worker to report in:
+      worker_pid    — the running _delta_worker process (None = no worker)
+      worker_cpu_s  — CPU seconds it has burned (rising = doing real work, not blocked)
+      staging_age_s — seconds since the staging DB was last written (small = progressing)
+    Best-effort and never raises: a status endpoint must not fail because `ps` did.
+    """
+    out = {"worker_pid": None, "worker_cpu_s": None, "staging_age_s": None,
+           "staging_gb": None, "worker_elapsed_s": None}
+    try:
+        import os as _os, subprocess as _sp
+        # A bare `pgrep -f studio._delta_worker` also matches any shell / monitor / pgrep
+        # whose own command line merely MENTIONS the worker — that reports a phantom worker
+        # (and makes a watch-loop that greps for it never terminate, since it sees itself).
+        # So: widen with pgrep, then confirm per-pid that it really is `python -m
+        # studio._delta_worker`, and never match ourselves. (The pattern cannot start with
+        # "-m …" — pgrep parses a leading dash as a flag and silently matches nothing.)
+        ps = _sp.run(["pgrep", "-f", r"studio\._delta_worker"],
+                     capture_output=True, text=True, timeout=5)
+        me = _os.getpid()
+        pids = [p for p in (ps.stdout or "").split() if p.isdigit() and int(p) != me]
+        for pid in pids:
+            det = _sp.run(["ps", "-o", "comm=,command=", "-p", pid],
+                          capture_output=True, text=True, timeout=5)
+            line = (det.stdout or "").strip()
+            if "python" not in line.lower() or "-m studio._delta_worker" not in line:
+                continue                                    # a shell mentioning it, not the worker
+            out["worker_pid"] = int(pid)
+            info = _sp.run(["ps", "-o", "etime=,time=", "-p", pid],
+                           capture_output=True, text=True, timeout=5)
+            parts = (info.stdout or "").split()
+            def _secs(t: str) -> int:                       # [[dd-]hh:]mm:ss → seconds
+                t = t.split(".")[0].replace("-", ":")
+                bits = [int(x) for x in t.split(":") if x.isdigit()]
+                s = 0
+                for b in bits:
+                    s = s * 60 + b
+                return s
+            if len(parts) >= 2:
+                out["worker_elapsed_s"] = _secs(parts[0])
+                out["worker_cpu_s"] = _secs(parts[1])
+            break
+    except Exception:
+        pass
+    try:
+        import os, time as _t
+        from studio.incremental_swap import _STAGING
+        if os.path.exists(_STAGING):
+            st = os.stat(_STAGING)
+            out["staging_age_s"] = round(_t.time() - st.st_mtime, 1)
+            out["staging_gb"] = round(st.st_size / 1e9, 2)
+    except Exception:
+        pass
+    return out
+
+
 @router.get("/incremental-update/status")
 def incremental_status():
     """Poll incremental refresh progress.
 
-    Reads from the new delta module's progress file when present, falls
-    back to the legacy module otherwise.
+    Reads from the new delta module's progress file when present, falls back to the
+    legacy module otherwise. Always carries `worker` liveness (see _swap_worker_liveness)
+    so a running staging swap can be told apart from a genuine hang.
     """
+    worker = _swap_worker_liveness()
     try:
         from studio.incremental_delta import get_progress as _delta_progress
         progress = _delta_progress()
@@ -537,6 +603,7 @@ def incremental_status():
                 "running":  _incremental_running,
                 "results":  _incremental_results,
                 "progress": progress,
+                "worker":   worker,
             }
     except Exception:
         pass
@@ -550,6 +617,7 @@ def incremental_status():
         "running":  _incremental_running,
         "results":  _incremental_results,
         "progress": _prog,
+        "worker":   worker,
     }
 
 
