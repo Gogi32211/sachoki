@@ -370,7 +370,13 @@ def compute_ultra_score(row: dict) -> dict:
     a = 0
     if "BUY_2809" in sigs: a += 20; reasons.append("BUY_2809")
     if "ROCKET"   in sigs: a += 20; reasons.append("ROCKET")
-    if "BB_BRK"   in sigs: a += 15; reasons.append("BB↑")
+    # BB↑ weight REMOVED 2026-07-29 — measured for the first time and it is NEGATIVE:
+    # path-sim $21-377, 6yr, n=18,514 → median −1.55 / win 46.1 / pf 1.05 vs a −0.63 baseline
+    # (0.92pp WORSE), and the NOT-BB↑ half is −0.56. It was the largest single bonus in this
+    # whole scheme, pointing the wrong way. Same story as CCI0R (a89ef7d): a weight riding on
+    # an unmeasured heuristic. Definition: close > BB_upper(20,2) & vol crosses 1.5x & RSI>55
+    # — a pure strength-chase breakout, exactly what "fade strength" predicts should lose.
+    # if "BB_BRK" in sigs: a += 15
     if "BX_UP"    in sigs: a += 12; reasons.append("BX↑")
     if "EB_BULL"  in sigs: a += 10; reasons.append("EB↑")
     if "BE_UP"    in sigs: a += 10; reasons.append("BE↑")
@@ -382,7 +388,10 @@ def compute_ultra_score(row: dict) -> dict:
     b = 0
     if "ABS"          in sigs: b += 10; reasons.append("ABS")
     if "VA"           in sigs: b += 8;  reasons.append("VA")
-    if "SVS"          in sigs: b += 8;  reasons.append("SVS")
+    # SVS weight REMOVED 2026-07-29 — measured empty: n=79,977, median −0.69 vs a −0.63
+    # baseline, and NOT-SVS is −0.53. Zero content. (vol/avg20 crosses 1.4x on a GREEN bar —
+    # the breakout side of the context-dependent volume law, where volume does not pay.)
+    # if "SVS" in sigs: b += 8
     if "CLB"          in sigs: b += 7;  reasons.append("CLB")
     if "LD"           in sigs: b += 6;  reasons.append("LD")
     if "STR"          in sigs: b += 8;  reasons.append("STR")

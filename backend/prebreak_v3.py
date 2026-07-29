@@ -93,7 +93,10 @@ def calc_prebreak_v3(d) -> tuple[int, str]:
     if ha and hb: s += 8; r.append("ABS+BC")
     elif ha:      s += 4; r.append("ABS")
     elif hb:      s += 3; r.append("BC")
-    if g("sig_svs") or g("svs"): s += 5; r.append("SVS")
+    # SVS +5 REMOVED 2026-07-29 — measured empty (median −0.69 vs −0.63 baseline, n=79,977).
+    # CONSO below is KEPT: it survived its control (CONSO +0.03 vs NOT-CONSO −3.67) — though
+    # note that was measured as a gate on reversal setups, not against prebreak_v3's own
+    # target, so the +5 here is retained on the old basis, not on new evidence.
     if g("sig_conso"):           s += 5; r.append("CONSO")
     # RTB phase weight removed 2026-07-09 (anti-predictive — see _SCORE_SQL note)
     if g("sig_wk_up"):            s += 3; r.append("WICK")

@@ -287,6 +287,18 @@ function Row1H({ bars, hoursMap }) {
 const HIDDEN_L_SIGS = new Set(['CCI', 'CCI0R', 'BX↑', 'BX↓', 'BO↑', 'BO↓',
                                'L64', 'L43', 'L22'])
 
+// I-row chips hidden 2026-07-29 after the first measurement of the four (path-sim, 6yr,
+// $21-377, baseline −0.63). Display only — both are still computed and exported.
+//   UM  (ema9>20>50 & ROC40>=8% & max-vol40>1.4x)  −1.40 / win 46.5 / 3-6yr, 0.77pp WORSE
+//       than baseline, and NOT-UM is −0.29. It also POISONS validated setups as a gate:
+//       D+L1 −2.66, QZ-Capit −2.51. The worst of the four.
+//   BB↑ (close>BB_upper(20,2) & vol crosses 1.5x & RSI>55)  −1.55 / win 46.1, 0.92pp worse.
+//       Its +15 in ultra_score — the largest single bonus there — was removed the same day.
+// Both are pure strength-chase, which is exactly what "fade strength, buy absorbed
+// weakness" predicts should lose. SVS (−0.69 ≈ baseline) is left visible: it is merely
+// empty, not harmful. CONSO stays too — its absence is a real suppressor (NOT-CONSO −3.67).
+const HIDDEN_I_SIGS = new Set(['UM', 'BB↑'])
+
 const MAX_ROW_SIGS = 2
 const DP_RANK = ['D66', 'D55', 'D89', 'D50', 'D3', 'D2',
                  'P66', 'P55', 'P89', 'P50', 'P3', 'P2']
@@ -526,7 +538,7 @@ const ROWS = [
   {
     key: 'combo',
     label: 'I',
-    getSigs: (b) => (b.combo ?? []).filter(s => !PREUP_SET.has(s)),
+    getSigs: (b) => (b.combo ?? []).filter(s => !PREUP_SET.has(s) && !HIDDEN_I_SIGS.has(s)),
     chipCls: (s) => {
       if (s === 'ROCKET' || s === 'BUY') return 'bg-green-900 text-green-200 font-bold'
       if (s.includes('↑') || s === '3G') return 'bg-lime-900 text-lime-300'

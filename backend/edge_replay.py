@@ -257,7 +257,8 @@ def _pull(months: int, dv_floor: float, ticker: str = None) -> pd.DataFrame:
                         THEN 1 ELSE 0 END pressev,
                    coalesce(CAST(sig_nd_vabs AS TINYINT),0) ndv,
                    CASE WHEN sig_vol_10x=1 OR sig_vol_20x=1 THEN 1 ELSE 0 END vspk,
-                   coalesce(beta_score,0) betas
+                   coalesce(beta_score,0) betas,
+                   coalesce(CAST(sig_conso AS TINYINT),0) conso
             FROM r WHERE rn = 1 ORDER BY ticker, date
         """).fetchdf()
         return df, as_of
@@ -1002,6 +1003,27 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     df["E_rtb_base_h1dr"]  = df["E_rtb_base"] & df["h1_dr"]
     df["E_g3g3_h1dr"]      = df["E_g3g3"] & df["h1_dr"]
     df["E_qzcapit_h1dr"]   = df["E_qzcapit"] & df["h1_dr"]
+
+    # ── 🧊 COMPRESSION gate (2026-07-29) ────────────────────────────────────────────────
+    # sig_conso = the combo_engine tight gate: 6-bar range<=3.5% OR ATR%<=3.0 OR
+    # |ema9-ema20|/ema20<=2.0. It fires on 69% of bars, so it is a REGIME, not a signal —
+    # its own median is +0.03, i.e. zero. What carries is the OTHER side: NOT-CONSO is
+    # −3.67/win 43.6 over the same window, a genuine suppressor. So this is a veto on the
+    # expansion state, read as a gate.
+    # Across 11 base setups it helped 8, median Δ +0.31, and the split is mechanical:
+    # it helps every absorption/capitulation setup and HURTS the three that need range
+    # expansion by their own definition (Engulf-Abs −1.32, L43-TRIPLE −0.44, G3-Abs −0.27).
+    # Only these two clear the TIER-1 bar (6/6 years AND a positive worst year).
+    # AS BUILT (these masks, no price filter — the numbers this code actually produces):
+    #   Washout  −0.53 → +1.54  win 48.8→54.8  pf 1.24→1.48  worst −2.2 → +0.7  (5/6 → 6/6)
+    #   RTB-Base +0.72 → +1.09  win 51.9→53.1  pf 1.32→1.35  worst −0.1 → +0.4  (5/6 → 6/6)
+    # Sliced to $21-377 the same two read +0.27 → +1.79 and +1.27 → +1.51 (worst +0.6 / +0.8),
+    # so the gate holds across the whole price range, not just the quality band.
+    # Real lift but NOT gated, worst year still negative ($21-377): Spring +1.17Δ (−0.7, 4/6) ·
+    # QZ-Capit +0.61Δ (−0.9) · Zone-Retest +0.59Δ (−0.6) · Atomic +0.38Δ (−1.7) · D+L1 +0.25Δ.
+    df["conso"] = df["conso"].fillna(0).astype(bool)
+    df["E_washout_conso"]  = df["E_washout"] & df["conso"]
+    df["E_rtb_base_conso"] = df["E_rtb_base"] & df["conso"]
     # ONE display chip for the whole family — a bar where the gate was on AND one of the six
     # gated bases fired. Six separate chips would just duplicate the base codes already shown
     # ("WSH 🕐DR" reads better than "WSH Washout🕐DR"), and this is what makes the gate visible
@@ -1181,6 +1203,7 @@ SETUPS = [
     ("G3→G3🕐DR", "E_g3g3_h1dr"), ("QZ-Capit🕐DR", "E_qzcapit_h1dr"),
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
+    ("Washout🧊CONSO", "E_washout_conso"), ("RTB-Base🧊CONSO", "E_rtb_base_conso"),
 ]
 
 

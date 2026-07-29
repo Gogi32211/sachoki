@@ -389,7 +389,9 @@ def _calc_turbo_score(r: dict, profile: str = "sp500") -> float:
     if r.get("sig3g"):    combo += 4
     if r.get("rtv"):      combo += 3
     if r.get("hilo_buy"): combo += 4   # NASDAQ: 93% A with conso_2809, raised from +2
-    if r.get("atr_brk") or r.get("bb_brk"): combo += 2
+    # bb_brk dropped from this bonus 2026-07-29 — measured negative (median −1.55 vs a −0.63
+    # baseline, 6yr, n=18,514). atr_brk is untested and keeps the +2 on its own.
+    if r.get("atr_brk"): combo += 2
     if r.get("cd"):   combo += 5
     elif r.get("ca"): combo += 3
     elif r.get("cw"): combo += 2
