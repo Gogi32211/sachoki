@@ -417,7 +417,7 @@ const ROWS = [
     getSigs: (b) => {
       const f = b.fly ?? []
       const fly = b.fly_fresh && f.length ? [`✦${f[0]}`, ...f.slice(1)] : f
-      return [...(b.edges ?? []), ...fly]   // edge codes lead; FLY (purple) trails
+      return [...fly, ...(b.edges ?? [])]   // FLY leads whenever the bar has one
     },
     sigTitle: (s, b) => {
       if (s.startsWith('✦'))
