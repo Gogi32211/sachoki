@@ -16,6 +16,14 @@ import os, sys, json
 
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
+# Write bars, nothing else. api_bar_signals() decorates every 1d bar with Edge chips, the
+# intraday no-volume-event flag and the divergence funnel; each of those reaches through
+# ticker_edges → _prep into whole-universe intraday aggregates (15m and 1h DBs, GB-scale)
+# that this process then holds forever. Harmless in the backend, fatal here: the worker is
+# called once per ticker for ~9,600 tickers and was SIGKILLed by the OS every night from
+# 2026-07-28 on. Set BEFORE any backend module is imported.
+os.environ["SACHOKI_BARS_ONLY"] = "1"
+
 
 def main():
     universes = json.loads(sys.argv[1]) if len(sys.argv) > 1 else ["sp500", "nasdaq"]

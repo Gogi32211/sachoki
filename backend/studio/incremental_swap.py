@@ -14,7 +14,7 @@ The backend opens the analytics DB read-only per request, so the next request af
 swap transparently picks up the fresh file; in-flight reads finish on the old inode.
 """
 from __future__ import annotations
-import os, sys, json, time, shutil, subprocess, logging
+import os, sys, json, time, shutil, signal, subprocess, logging
 from studio.paths import ANALYTICS_DB, BACKEND_DIR
 
 log = logging.getLogger(__name__)
@@ -52,7 +52,15 @@ def run_swap(universes: list[str]) -> dict:
 
     if proc.returncode != 0:
         _rm(staging, staging + ".wal")
-        raise RuntimeError("delta worker failed:\n" + (proc.stderr or "")[-3000:])
+        # 2026-07-29: the returncode used to be dropped, so a worker killed by a SIGNAL was
+        # indistinguishable from one that raised — both surfaced as "delta worker failed"
+        # with whatever stderr happened to be flushed (for a signal: no traceback at all).
+        # Negative returncode == -N means killed by signal N (-9 SIGKILL, -15 SIGTERM).
+        rc = proc.returncode
+        how = f"killed by signal {-rc} ({signal.Signals(-rc).name})" if rc < 0 else f"exit code {rc}"
+        raise RuntimeError(f"delta worker failed: {how}\n"
+                           f"--- stderr (tail) ---\n{(proc.stderr or '(empty)')[-3000:]}\n"
+                           f"--- stdout (tail) ---\n{(proc.stdout or '(empty)')[-1500:]}")
 
     # parse the worker's result payload
     res = {}

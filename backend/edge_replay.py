@@ -1585,9 +1585,32 @@ PRICE_CAP_WIDE = 377
 
 from collections import OrderedDict
 _CACHE: "OrderedDict" = OrderedDict()
-_CACHE_MAX = 3   # LRU: keep the last 3 (months, dv_floor) frames — window switches stay warm
+_CACHE_MAX = 2   # LRU: the CANONICAL frame is pinned (never evicted) + at most 1 other.
                  # (2026-07-04 fix: was single-entry `_CACHE.clear()` → any window switch evicted
-                 # the others, so a warmed 24mo vanished the moment 36mo was requested).
+                 # the others, so a warmed 24mo vanished the moment 36mo was requested.)
+                 # (2026-07-29: was 3. Each frame is the WHOLE universe of bars in pandas —
+                 # ~2-3 GB — so three of them plus the boot pre-warm took the backend to a
+                 # 19 GB peak on a 16 GB machine. The machine went to swap and the nightly
+                 # delta worker, a sibling process, was the one that died. Pinning the
+                 # canonical key keeps window switches from ever evicting the frame that
+                 # every scanner needs, so 2 buys back more than the old 3 did.)
+_CANON_KEY = (60, 3_000_000)   # the frame every scanner/Superchart/Ultra path asks for
+
+
+def _evict_frames():
+    """Trim _CACHE to _CACHE_MAX, never dropping the canonical frame.
+
+    Callers must already hold _FRAME_LOCK. Plain LRU could evict (60, 3M) — the frame
+    Superchart/Ultra/the edge chips all need — after two Replay window switches, and
+    rebuilding it costs ~107s during which those views render empty.
+    """
+    while len(_CACHE) > _CACHE_MAX:
+        for k in _CACHE:                       # oldest first
+            if k != _CANON_KEY or len(_CACHE) == 1:
+                _CACHE.pop(k)
+                break
+        else:                                  # only the canonical key is left
+            break
 
 
 _RS_REF: dict = {}
@@ -1699,8 +1722,7 @@ def refresh_ob_days():
                 _CACHE[_key] = ({tk: g.reset_index(drop=True)
                                  for tk, g in _d2.groupby("ticker", sort=False)}, _as2)
                 _CACHE.move_to_end(_key)
-                while len(_CACHE) > _CACHE_MAX:
-                    _CACHE.popitem(last=False)
+                _evict_frames()
         except Exception:
             pass
     return sum(len(v) for v in out.values())
@@ -1727,8 +1749,7 @@ def _frame(months: int, dv_floor: float):
         df = _prep(df)
         grp = {tk: g.reset_index(drop=True) for tk, g in df.groupby("ticker", sort=False)}
         _CACHE[key] = (grp, as_of)
-        while len(_CACHE) > _CACHE_MAX:
-            _CACHE.popitem(last=False)       # evict least-recently-used
+        _evict_frames()                      # LRU, but the canonical frame is pinned
         return _CACHE[key]
 
 

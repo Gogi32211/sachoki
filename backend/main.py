@@ -6085,7 +6085,17 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
     # ── ✅ EDGE fires per bar (2026-07-20) — the validated Edge-board setups, computed by
     # the SAME edge_replay masks that the backtest uses (backtest == display, no drift).
     # 1d only: the setups are daily-defined. Codes per edge_replay.DISPLAY_SETUPS.
-    if tf == "1d":
+    #
+    # SACHOKI_BARS_ONLY (2026-07-29): the nightly delta worker calls this function once per
+    # ticker (~9,600 of them) purely to WRITE BARS — it never renders a chart, so none of the
+    # decorations below are wanted. But ticker_edges → _prep pulls in FIVE whole-universe
+    # aggregates (_load_m15_zdom, _load_intraday_lines over the 33 GB 15m DB, _load_ob_days,
+    # _load_h1_dr over the 11 GB 1h DB, _load_rs_ref) and holds them for the life of the
+    # process. That is what killed the 1D delta: swap went 2.8 → 22.9 GB in four minutes and
+    # the worker was SIGKILLed (rc=137) on every attempt from 2026-07-28 on — the day
+    # _load_h1_dr was added — including with the backend fully stopped. It also made each
+    # fetch ~4× slower. The worker sets this flag; nothing else does.
+    if tf == "1d" and os.environ.get("SACHOKI_BARS_ONLY") != "1":
         try:
             from edge_replay import ticker_edges
             _emap = ticker_edges(ticker.upper())

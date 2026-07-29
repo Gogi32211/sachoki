@@ -16,12 +16,30 @@ BASE="http://127.0.0.1:$PORT/api/studio"
 # script's list was the one actually running each night and had been missing it,
 # so the index universe silently lagged a day behind every refresh.
 UNIVERSES='["sp500","nasdaq","russell2k","index"]'
-DB="${STUDIO_DB:-/Users/sachoki/Downloads/studio_analytics.duckdb}"
+# 2026-07-29: this pointed at ~/Downloads/studio_analytics.duckdb — a file that does not
+# exist. Together with `python3` (system 3.11, no duckdb module) and a `2>/dev/null`, the
+# max-date verification below had been silently dead, which is why a nightly could report
+# "✅ მზადაა" on a run whose delta worker was SIGKILLed and inserted nothing.
+ROOT="$(cd "$(dirname "$0")" && pwd)"
+DB="${STUDIO_DB:-$ROOT/data/studio_analytics.duckdb}"
+PY="$ROOT/backend/.venv/bin/python"          # system python3 has no duckdb — never use it here
 
 # 1) სერვერი მუშაობს?
 if ! curl -sf --max-time 5 "$BASE/incremental-update/status" >/dev/null; then
   echo "❌ backend არ პასუხობს :$PORT-ზე — სერვერი გაშვებულია?"; exit 1
 fi
+
+# 1b) max(date) BEFORE the run — the only honest way to prove the delta actually landed.
+_maxdate() { "$PY" -c "
+import sys, duckdb
+try:
+    c = duckdb.connect('$DB', read_only=True)
+    print(c.execute('SELECT max(date) FROM bars').fetchone()[0]); c.close()
+except Exception as e:
+    print('ERR:' + str(e)[:90])
+" 2>/dev/null || echo "ERR:python-failed"; }
+DATE_BEFORE="$(_maxdate)"
+echo "  ბაზის ბოლო თარიღი განახლებამდე: $DATE_BEFORE"
 
 # 2) უკვე მუშაობს?
 running=$(curl -s "$BASE/incremental-update/status" | python3 -c "import sys,json;print(json.load(sys.stdin)['running'])" 2>/dev/null)
@@ -43,28 +61,49 @@ while true; do
   sleep 15
 done
 
-# 4) summary
+# 4) summary — AND fail loudly if the worker died. `running:false` alone means "not running",
+#    NOT "succeeded": on a crash the backend stores results={"error": ...} and the old summary
+#    silently printed nothing but "duration: Nones" and carried on to print "✅ მზადაა".
 echo "── summary ─────────────────────────────"
-curl -s "$BASE/incremental-update/status" | python3 -c "
-import sys,json
-r=json.load(sys.stdin).get('results',{})
-for u,d in r.get('universes',{}).items():
+STATUS_JSON="$(curl -s "$BASE/incremental-update/status")"
+echo "$STATUS_JSON" | "$PY" -c "
+import sys, json
+r = json.load(sys.stdin).get('results', {}) or {}
+for u, d in (r.get('universes') or {}).items():
     print(f\"  {u:10}+{d['new_rows_inserted']:>5} rows · {d['errors']} err · {d['affected_tickers']} tickers\")
 print(f\"  duration: {r.get('duration_sec')}s\")
 " 2>/dev/null
 
-# 5) ვამოწმებ ბოლო თარიღს (read-only — write-ს არ ეხება)
-python3 - "$DB" <<'PY' 2>/dev/null
+# 5) ვამოწმებ ბოლო თარიღს — და ვადარებ განახლებამდელს
+DATE_AFTER="$(_maxdate)"
+echo "── ბოლო თარიღი DB-ში ────────────────────"
+"$PY" - "$DB" <<'PY'
 import sys, duckdb
 try:
-    c=duckdb.connect(sys.argv[1], read_only=True)
-    print("── ბოლო თარიღი DB-ში ────────────────────")
-    for u,d,n in c.execute("SELECT universe,max(date),count(distinct ticker) FROM bars GROUP BY universe ORDER BY universe").fetchall():
+    c = duckdb.connect(sys.argv[1], read_only=True)
+    for u, d, n in c.execute("SELECT universe,max(date),count(distinct ticker) "
+                             "FROM bars GROUP BY universe ORDER BY universe").fetchall():
         print(f"  {u:10}{d}  ({n} tickers)")
     c.close()
 except Exception as e:
-    print("  (max-date შემოწმება გამოტოვდა:", e, ")")
+    print("  ⚠ max-date შემოწმება ჩავარდა:", e)
 PY
+
+DELTA_ERR="$(echo "$STATUS_JSON" | "$PY" -c \
+  "import sys,json; print(((json.load(sys.stdin).get('results') or {}).get('error') or '').strip())" 2>/dev/null)"
+DELTA_OK=1
+if [ -n "$DELTA_ERR" ]; then
+  DELTA_OK=0
+  echo ""
+  echo "❌❌ 1D DELTA FAILED — ბაზა არ განახლდა ❌❌"
+  echo "$DELTA_ERR" | head -20 | sed 's/^/   /'
+elif [ "$DATE_AFTER" = "$DATE_BEFORE" ]; then
+  echo ""
+  echo "⚠️  max(date) არ დაიძრა: $DATE_BEFORE → $DATE_AFTER"
+  echo "   (ნორმალურია შაბ/კვირას ან დღესასწაულზე — სამუშაო დღეს კი ჩავარდნაა)"
+else
+  echo "  ✔ $DATE_BEFORE → $DATE_AFTER"
+fi
 
 # 6) ULTRA re-scan — the screener snapshot is a SEPARATE cached job from the bars DB.
 #    Updating bars does NOT refresh it, so without this the screener shows yesterday's
@@ -101,4 +140,11 @@ if [ "${NO_RESCAN:-0}" != "1" ]; then
 else
   echo "  (ULTRA re-scan გამოტოვდა — NO_RESCAN=1)"
 fi
-echo "✅ მზადაა."
+if [ "$DELTA_OK" = "1" ]; then
+  echo "✅ მზადაა."
+else
+  # Non-zero so update_all.sh's `|| echo "⚠ update_db.sh returned non-zero"` fires and the
+  # nightly log carries a searchable failure marker instead of a green "✅ მზადაა".
+  echo "❌ დასრულდა შეცდომით — 1D ბარები არ ჩაიწერა."
+  exit 1
+fi
