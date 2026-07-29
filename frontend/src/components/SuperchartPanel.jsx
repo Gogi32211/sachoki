@@ -390,7 +390,11 @@ const ROWS = [
       if (s === 'PP')                            return 'bg-yellow-900 text-yellow-300'
       if (s === 'L555' || s === 'L22')           return 'bg-rose-900 text-rose-300'
       if (s === 'L2L4')                          return 'bg-sky-900 text-sky-400'
-      if (s.includes('BE'))                      return 'bg-emerald-900 text-emerald-300'
+      // BE↓ red, BE↑ green (2026-07-29). This rule sits ahead of the generic ↑/↓ rules
+      // below, so both directions used to come out emerald.
+      if (s.includes('BE'))                      return s.includes('↓')
+        ? 'bg-red-900 text-red-400'
+        : 'bg-emerald-900 text-emerald-300'
       if (s.includes('↑'))                       return 'bg-lime-900 text-lime-300'
       if (s.includes('↓'))                       return 'bg-red-900 text-red-400'
       return 'bg-blue-900 text-blue-300'
