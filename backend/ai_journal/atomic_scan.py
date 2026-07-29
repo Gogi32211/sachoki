@@ -22,7 +22,19 @@ NOTE: still a momentum/beta edge — regime-dependent (loses in corrections), un
 ANALYSIS/SCANNER ONLY — surfaces candidates, opens no positions. Read-only on bars.
 """
 from __future__ import annotations
+import math
 from .db import get_analytics_conn
+
+
+def _finite(v):
+    """float(v) if it is a real number, else None — NaN/inf must never reach JSON."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
 
 _BULL_T = ("T1", "T1G", "T2", "T2G", "T3", "T4", "T5", "T6", "T9", "T10", "T11", "T12")
 
@@ -88,7 +100,7 @@ def atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
     best: dict = {}
     for _, r in rows.iterrows():
         sfx = str(r["sfx"] or "")
-        px = float(r["close"]) if r["close"] is not None else 0.0
+        px = _finite(r["close"]) or 0.0
         # prior QUALITY (B+) capitulation within the window → premium Capit→Atomic confluence
         dpc = days_since_capit(capit_dates, r["ticker"], r["universe"], r["date"])
         post_capit = dpc is not None and dpc <= capit_window
@@ -98,8 +110,14 @@ def atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
         # Scoring re-weighted by validated atom-edge (full-DB, fwd_20d vs base +0.76%):
         #   RSI<40 +1.08pp (strongest) · G3 +0.51 · vol=B +0.36 · R2L +0.26 · EO/wick≈0.
         #   Premium combo R2L+G3+RSI<45 = +2.45%, win 60%, fail 10.5% (3× base).
-        rsi_v = float(r["rsi_14"]) if r["rsi_14"] is not None else None
-        ratio = float(r["disp_ratio"]) if r["disp_ratio"] is not None else None
+        rsi_v = _finite(r["rsi_14"])
+        # `is not None` is NOT enough: a SQL NULL in a float column arrives from pandas as
+        # NaN, and NaN is not None — so a missing disp_ratio sailed through, round(nan, 2)
+        # stayed NaN, and FastAPI's json.dumps died with "Out of range float values are not
+        # JSON compliant" → 500 on the whole endpoint. It fires when the window's BOUNDARY
+        # row (no lag(close) predecessor) is itself a signal row: DBC 2026-07-24 took the
+        # Edge board down. Same pattern in g3_gap_scan and l43_triple_scan.
+        ratio = _finite(r["disp_ratio"])
         # gap×RSI interaction (2026-06-28, validated on THIS Atomic pool):
         #   sweet (disp 0.5–1.5·ATR) × RSI 25–35 = +2.45/win58/6yr/risk1.59 (peak);
         #   sweet × RSI 35–45 = +1.26/6yr; sweet × RSI≥45 = +0.08 (dead);
@@ -171,11 +189,11 @@ def atomic_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
             "signal_date": str(r["date"])[:10], "t_sig": str(r["t_sig"]),
             "l_sig": _l,
             "close": round(px, 2) if r["close"] is not None else None,
-            "rsi": round(float(r["rsi_14"]), 0) if r["rsi_14"] is not None else None,
+            "rsi": round(rsi_v, 0) if rsi_v is not None else None,
             "gap": str(r["gap"]), "vol": str(r["vol"]), "suffix": sfx,
             "disp_atr": round(ratio, 2) if ratio is not None else None,
             "gap_band": ("sweet" if sweet else "exhaust" if exhaust else "g3"),
-            "dv_m": round(float(r["dv"]) / 1e6, 1) if r["dv"] else None,
+            "dv_m": round(_finite(r["dv"]) / 1e6, 1) if _finite(r["dv"]) else None,
             "score": int(score), "atoms": atoms, "age_days": None,
             "post_capit": bool(post_capit), "capit_age": int(dpc) if post_capit else None,
             "pre_l43": bool(pre_l43), "pre_l22": bool(pre_l22), "sc_super": bool(sc_super),

@@ -24,6 +24,19 @@ VALIDATED (entry next-open, stop −12%, 20-bar):
 READ-ONLY on bars — surfaces candidates, opens nothing.
 """
 from __future__ import annotations
+import math
+
+
+def _finite(v):
+    """float(v) if it is a real number, else None — NaN/inf must never reach JSON."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
 
 
 def g3_gap_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 120) -> dict:
@@ -93,9 +106,12 @@ def g3_gap_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
         if tk in seen:
             continue
         seen.add(tk)
-        rsi = float(r["rsi_14"]) if r["rsi_14"] is not None else None
+        # NaN, not None, is how a SQL NULL in a float column reaches us through pandas —
+        # `is not None` lets it through and json.dumps then 500s the whole endpoint. See
+        # ai_journal/atomic_scan._finite (DBC 2026-07-24 took the Edge board down).
+        rsi = _finite(r["rsi_14"])
         ll = str(r["l_sig"]) if r["l_sig"] else ""
-        ratio = float(r["disp_ratio"]) if r["disp_ratio"] is not None else None
+        ratio = _finite(r["disp_ratio"])
         # entry-L sharpener (2026-06-27 audit): any-L beats the old L3-only requirement
         # (+2.15/6yr vs +1.86/5yr); L5 best (+2.53/win60/6yr), L12 +2.20 — L3 was the WORST.
         sharp_l = ll in ("L5", "L12", "L46", "L34")
@@ -147,10 +163,10 @@ def g3_gap_scan(max_age_days: int = 4, dv_floor: float = 500_000, limit: int = 1
             "ticker": tk, "universe": str(r["universe"]),
             "signal_date": str(r["date"])[:10], "t_sig": str(r["t_sig"]),
             "l_sig": str(r["l_sig"]) if r["l_sig"] else "",
-            "close": round(float(r["close"]), 2) if r["close"] is not None else None,
+            "close": round(_finite(r["close"]), 2) if _finite(r["close"]) is not None else None,
             "rsi": round(rsi, 0) if rsi is not None else None,
-            "cci": round(float(r["cci_20"]), 0) if r["cci_20"] is not None else None,
-            "dv_m": round(float(r["dv"]) / 1e6, 1) if r["dv"] else None,
+            "cci": round(_finite(r["cci_20"]), 0) if _finite(r["cci_20"]) is not None else None,
+            "dv_m": round(_finite(r["dv"]) / 1e6, 1) if _finite(r["dv"]) else None,
             "disp_atr": round(ratio, 2) if ratio is not None else None,
             "gap_band": ("sweet" if sweet else "exhaust" if exhaust else "g3"),
             "l43": l43, "pre_l43": pre_l43, "pre_l22": pre_l22,

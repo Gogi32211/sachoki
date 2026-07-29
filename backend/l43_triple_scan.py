@@ -22,8 +22,21 @@ Boosters (further lift): RSI<32 deep (+2.65), energy/semis sector (+5.05/+2.88),
 READ-ONLY on bars.
 """
 from __future__ import annotations
+import math
 import json
 import os
+
+
+def _finite(v):
+    """float(v) if it is a real number, else None — NaN/inf must never reach JSON."""
+    if v is None:
+        return None
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if math.isfinite(f) else None
+
 
 _ENERGY = {"SLB", "HAL", "WFRD", "BKR", "TDW", "NE", "RIG", "VAL", "PTEN", "RES", "OIS", "CLB",
            "NOG", "CRC", "CHRD", "SM", "PARR", "CRGY", "RRC", "SDRL", "CNQ", "SU", "TTE", "CVI",
@@ -105,8 +118,11 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
         if tk in seen:
             continue
         seen.add(tk)
-        rsi = float(r["rsi_14"]) if r["rsi_14"] is not None else None
-        ratio = float(r["disp"]) if r["disp"] is not None else None
+        # NaN, not None, is how a SQL NULL in a float column reaches us through pandas —
+        # `is not None` lets it through and json.dumps then 500s the whole endpoint. See
+        # ai_journal/atomic_scan._finite (DBC 2026-07-24 took the Edge board down).
+        rsi = _finite(r["rsi_14"])
+        ratio = _finite(r["disp"])
         deep = rsi is not None and rsi < 32
         sector = "energy" if tk in _ENERGY else "semis" if tk in _SEMIS else ""
         h1_confirm = str(r["date"])[:10] in h1.get(tk, ())
@@ -124,7 +140,7 @@ def l43_triple_scan(max_age_days: int = 6, dv_floor: float = 5_000_000, limit: i
             atoms.append(f"RSI{rsi:.0f}{'·deep' if deep else ''}")
         if f"{tk}|{str(r['date'])[:10]}" in _H1DR:
             atoms.append("🕐DR")
-        cp = float(r["cp"]) if r["cp"] is not None else None
+        cp = _finite(r["cp"])          # NULL whenever high == low (a halted / flat bar)
         mid = cp is not None and 0.38 < cp <= 0.62
         if mid:
             atoms.append("🕯️mid")   # the 6/6yr worst+3.2 cell
