@@ -401,23 +401,11 @@ const ROWS = [
     },
   },
   // F-row (F1–F11) retired from display — matches ULTRA (still computed backend-side).
-  {
-    key: 'fly',
-    label: 'FLY',
-    // ✦-prefix = FLY-fresh: first FLY after a >=15-bar absence (validated 2026-07-19:
-    // +0.84%/PF1.13/+4.3σ/5-6yr, TRAIN & TEST both positive). Waiting for the SECOND
-    // appearance was tested and REJECTED (+0.10% — the move runs away between them).
-    getSigs: (b) => {
-      const f = b.fly ?? []
-      return b.fly_fresh && f.length ? [`✦${f[0]}`, ...f.slice(1)] : f
-    },
-    sigTitle: (s) => s.startsWith('✦')
-      ? '✦ FLY-fresh — first FLY after ≥15 bars of silence: +0.84%/PF1.13/+4.3σ, 5-6yr, TRAIN & TEST positive. (2nd-appearance waiting tested: edge gone — act on the first.)'
-      : undefined,
-    chipCls: (s) => s.startsWith('✦')
-      ? 'bg-purple-600 text-purple-50 font-bold ring-1 ring-purple-300'
-      : 'bg-purple-900 text-purple-200',
-  },
+  // FLY row folded into EDGE 2026-07-29 (user) — one row instead of two. The FLY chips keep
+  // their purple palette so they stay instantly separable from the emerald edge codes.
+  //   ✦-prefix = FLY-fresh: first FLY after a >=15-bar absence (validated 2026-07-19:
+  //   +0.84%/PF1.13/+4.3σ/5-6yr, TRAIN & TEST both positive). Waiting for the SECOND
+  //   appearance was tested and REJECTED (+0.10% — the move runs away between them).
   {
     // ✅ EDGE row (2026-07-20): validated Edge-board setup fires per bar, computed by the
     // SAME edge_replay masks the backtest uses (backtest == display). Codes:
@@ -426,11 +414,24 @@ const ROWS = [
     // HB15=HighBase-15m RTB=RTB-Base P55 PAR=Parabola 🎯3/🎯4=Cluster
     key: 'edges',
     label: 'EDGE',
-    getSigs: (b) => b.edges ?? [],
-    sigTitle: (s, b) => (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
-      ? `EDGE🟢 premium combo: ${s} + same-bar 🟢REV (validated 2026-07-20 — QZC +2.69% med+ · D+L1 +3.46% TRAIN+ · RTB +2.04% 6/6yr · P55 +1.89%)`
-      : `Edge-board setup fired on this bar: ${s} (edge_replay mask — identical to the backtest)`,
-    chipCls: (s, b) => (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
+    getSigs: (b) => {
+      const f = b.fly ?? []
+      const fly = b.fly_fresh && f.length ? [`✦${f[0]}`, ...f.slice(1)] : f
+      return [...(b.edges ?? []), ...fly]   // edge codes lead; FLY (purple) trails
+    },
+    sigTitle: (s, b) => {
+      if (s.startsWith('✦'))
+        return '✦ FLY-fresh — first FLY after ≥15 bars of silence: +0.84%/PF1.13/+4.3σ, 5-6yr, TRAIN & TEST positive. (2nd-appearance waiting tested: edge gone — act on the first.)'
+      if (s.startsWith('FLY')) return `FLY signal: ${s}`
+      return (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
+        ? `EDGE🟢 premium combo: ${s} + same-bar 🟢REV (validated 2026-07-20 — QZC +2.69% med+ · D+L1 +3.46% TRAIN+ · RTB +2.04% 6/6yr · P55 +1.89%)`
+        : `Edge-board setup fired on this bar: ${s} (edge_replay mask — identical to the backtest)`
+    },
+    chipCls: (s, b) => s.startsWith('✦')
+      ? 'bg-purple-600 text-purple-50 font-bold ring-1 ring-purple-300'
+      : s.startsWith('FLY')
+      ? 'bg-purple-900 text-purple-200'
+      : (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
       ? 'bg-amber-600 text-amber-50 font-bold ring-1 ring-amber-300'
       : s.startsWith('🎯')
       ? 'bg-emerald-600 text-emerald-50 font-bold ring-1 ring-emerald-300'
