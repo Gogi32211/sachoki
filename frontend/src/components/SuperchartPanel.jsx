@@ -272,6 +272,18 @@ function Row1H({ bars, hoursMap }) {
 // vol≥10× filter, where the VOLUME is the edge, not the cross. So this simply mirrors the
 // hierarchy the row's own colours already encode: the slow/structural EMAs first
 // (D66=EMA200, D55=EMA89-reclaim, D89=EMA89, D50, D3=9&20&50, D2=9&20).
+// WLNBB event chips hidden from the L row (2026-07-29, user request — display only; the
+// backend still computes them and the CSV export still carries SIG_CCI / SIG_BX_DN etc.).
+// Both families were measured and came back empty:
+//   CCI0R / CCI — the CCI-zero-reclaim pair. Measured 2026-07-28: no edge, and the score
+//     weights riding on them pointed the WRONG way, so they were stripped from
+//     replay_engine / canonical_scoring_engine / prebreak_v3 in a89ef7d.
+//   BX↑ / BX↓  — on the confluence kill-list with BO and BE ("confirmation costs"): the
+//     breakout-family chips are noise once the state layers are already on the bar.
+// NOT hidden, and not measured any differently — BO↑/↓, BE↑/↓ and CCIB are still shown
+// because the user asked only for these four.
+const HIDDEN_L_SIGS = new Set(['CCI', 'CCI0R', 'BX↑', 'BX↓'])
+
 const MAX_ROW_SIGS = 2
 const DP_RANK = ['D66', 'D55', 'D89', 'D50', 'D3', 'D2',
                  'P66', 'P55', 'P89', 'P50', 'P3', 'P2']
@@ -331,7 +343,7 @@ const ROWS = [
     // every bar's own VSA L-line (l_sig) first, then the WLNBB event chips (2026-07-19 —
     // the plain L was missing and it is load-bearing for the user's pattern work)
     getSigs: (b) => {
-      const ev = b.l ?? []
+      const ev = (b.l ?? []).filter(s => !HIDDEN_L_SIGS.has(s))
       const sup = ['', '¹', '²', '³']
       const tag = b.l_sig === 'L34' && b.l34_grade > 0 ? `·L34${sup[b.l34_grade] ?? '³'}` : (b.l_sig ? `·${b.l_sig}` : null)
       const base = tag && !ev.includes(b.l_sig) ? [tag] : []
