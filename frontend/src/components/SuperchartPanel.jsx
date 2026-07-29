@@ -372,7 +372,16 @@ const ROWS = [
         return (b.l34_grade ?? 0) >= 2
           ? 'bg-amber-600 text-amber-50 ring-1 ring-amber-300 font-bold'
           : 'bg-amber-900 text-amber-200 ring-1 ring-amber-400/70 font-semibold'
+      // ·L46 in blue (2026-07-29, user request) — it is the other absorption line and was
+      // lost in the muted `·` styling. Placed AFTER the red-L34 amber rules so the validated
+      // grade colouring keeps priority, and before the generic muted rule.
+      if (s.startsWith('·L46')) return 'bg-sky-900 text-sky-300 font-semibold'
       if (s.startsWith('·')) return 'bg-slate-800/80 text-slate-300'   // the bar's own l_sig (muted)
+      // L34 event chip in green (2026-07-29, user request). Only this one — the bar's own
+      // ·L34 keeps its validated colouring: amber/graded when RED (absorbed weakness, the
+      // type that carries the edge) and muted when green, because a green L34 on a reversal
+      // bar is the trap type (−1.01%, PF 0.87) and must not look inviting.
+      if (s === 'L34')                           return 'bg-green-900 text-green-300 font-semibold'
       if (s.startsWith('FRI'))                   return 'bg-cyan-900 text-cyan-300'
       if (s === 'BL')                            return 'bg-sky-900 text-sky-300'
       if (s === 'CCI' || s === 'CCI0R' || s === 'CCIB') return 'bg-violet-900 text-violet-300'
@@ -1322,7 +1331,10 @@ export default function SuperchartPanel({
       {/* Candlestick chart — DB codes on 1d, live feed on intraday.
           Journal trade overlay (signal/buy/sell) shows only while the chart is on the
           trade's own ticker — changing ticker clears it. */}
-      <CodeCandleChart ticker={ticker} tf={tf} height={420} showSector
+      {/* 2000 bars by default (2026-07-29). Scoped to the Superchart on purpose — raising
+          CodeCandleChart's own default would also hit every scanner thumbnail and the
+          MiniChartPopup, which only need a few hundred bars. */}
+      <CodeCandleChart ticker={ticker} tf={tf} height={420} showSector initialLimit={2000}
         tradeMarkers={initialTrade && initialTrade.ticker === ticker ? initialTrade : null} />
 
       {/* Matrix */}
@@ -1377,8 +1389,12 @@ export default function SuperchartPanel({
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
                     fast vs slow names) + the current-state header line — those stay. */}
-                <DivFunnelRow bars={bars} />
-                <VolRow bars={bars} />
+                {/* 📐 DivFunnelRow and ⛔ VolRow removed from the matrix 2026-07-29 (user).
+                    Both components are kept intact — restoring either is one line. Nothing
+                    is lost analytically: the divergence masks still drive the Ultra 📐
+                    column, the Superchart CSV (DIV_BUY / DIV_R_BULL_STAGE / …) and the
+                    Replay board, and the no-volume-event flag still renders as the ⛔ badge
+                    on the candle itself plus the ⛔ vol-adjacency veto in the edge gates. */}
                 <VrpRow bars={bars} ticker={ticker} />
                 <AnatRow bars={bars} hoursMap={day1hMap} />
                 {with1H && <Row1H bars={bars} hoursMap={day1hMap} />}
