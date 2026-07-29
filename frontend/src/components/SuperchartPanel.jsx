@@ -262,16 +262,51 @@ function Row1H({ bars, hoursMap }) {
   )
 }
 
+// ── EMA-cross chip capping (2026-07-29) ──────────────────────────────────────────────
+// A single bar can raise up to six D codes (and four P codes), which stacked the T/D and Z
+// cells five deep and blew up the matrix height. Cap each of those rows at two chips.
+//
+// The order below is NOT a strength ranking. Path-sim over six years, $21-377, found all
+// twelve D/P codes indistinguishable from baseline (−0.47…−0.83 around a −0.69 baseline,
+// every one 4/6 years, pf 1.07-1.14) — the doc's old "P2 +5.5%" is an artifact of its
+// vol≥10× filter, where the VOLUME is the edge, not the cross. So this simply mirrors the
+// hierarchy the row's own colours already encode: the slow/structural EMAs first
+// (D66=EMA200, D55=EMA89-reclaim, D89=EMA89, D50, D3=9&20&50, D2=9&20).
+const MAX_ROW_SIGS = 2
+const DP_RANK = ['D66', 'D55', 'D89', 'D50', 'D3', 'D2',
+                 'P66', 'P55', 'P89', 'P50', 'P3', 'P2']
+const dpOrder = (a, b) => {
+  const ia = DP_RANK.indexOf(a), ib = DP_RANK.indexOf(b)
+  return (ia < 0 ? 99 : ia) - (ib < 0 ? 99 : ib)
+}
+// tz (at most one, from b.tz) always survives; the rest of the budget goes to the
+// highest-ranked EMA-cross codes. Returns [shown, hiddenCount] so the tooltip can own up.
+const capRow = (tz, dp) => {
+  const ranked = dp.slice().sort(dpOrder)
+  const keep = ranked.slice(0, Math.max(0, MAX_ROW_SIGS - tz.length))
+  return [[...tz, ...keep], ranked.slice(keep.length)]
+}
+const zAll = (b) => [
+  b.tz?.startsWith('Z') ? [b.tz] : [],
+  (b.combo ?? []).filter(s => PREUP_SET.has(s)),
+]
+const tdAll = (b) => [
+  b.tz?.startsWith('T') ? [b.tz] : [],
+  [b.sig_d66 && 'D66', b.sig_d55 && 'D55', b.sig_d89 && 'D89',
+   b.sig_d50 && 'D50', b.sig_d3 && 'D3', b.sig_d2 && 'D2'].filter(Boolean),
+]
+const cappedTitle = (all) => (s, b) => {
+  const hidden = capRow(...all(b))[1]
+  return hidden.length ? `${s}\nასევე: ${hidden.join(' · ')}` : undefined
+}
+
 // Row definitions — getSigs(bar) returns array of signal labels
 const ROWS = [
   {
     key: 'z',
     label: 'Z',
-    getSigs: (b) => {
-      const z = b.tz?.startsWith('Z') ? [b.tz] : []
-      const p = (b.combo ?? []).filter(s => PREUP_SET.has(s))
-      return [...z, ...p]
-    },
+    getSigs: (b) => capRow(...zAll(b))[0],
+    sigTitle: cappedTitle(zAll),
     chipCls: (s) => PREUP_SET.has(s)
       ? 'bg-gray-700 text-white'
       : 'bg-red-900 text-red-300',
@@ -281,14 +316,8 @@ const ROWS = [
     // co-occur on the same bar, so sharing a line keeps the matrix compact.
     key: 'td',
     label: 'T/D',
-    getSigs: (b) => {
-      const t = b.tz?.startsWith('T') ? [b.tz] : []
-      const d = [
-        b.sig_d66 && 'D66', b.sig_d55 && 'D55', b.sig_d89 && 'D89',
-        b.sig_d50 && 'D50', b.sig_d3  && 'D3',  b.sig_d2  && 'D2',
-      ].filter(Boolean)
-      return [...t, ...d]
-    },
+    getSigs: (b) => capRow(...tdAll(b))[0],
+    sigTitle: cappedTitle(tdAll),
     chipCls: (s) => {
       if (s === 'D66' || s === 'D55') return 'bg-rose-900 text-rose-300 font-bold'
       if (s === 'D89')                return 'bg-red-900 text-red-300 font-semibold'
