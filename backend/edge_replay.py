@@ -108,7 +108,8 @@ def _load_m15_zdom():
             _M15_ZDOM = frozenset(
                 r.k for r in mr.itertuples() if (r.tc + r.zc) > 0 and r.tc / (r.tc + r.zc) < 0.50)
         except Exception:
-            _M15_ZDOM = frozenset()
+            log.exception("m15_zdom load failed — retrying on next call")
+            return frozenset()      # never cache a failure — see _load_h1_dr
     return _M15_ZDOM
 
 
@@ -165,8 +166,13 @@ def _load_h1_dr():
             _H1_DR = frozenset(keys)
             log.info("h1_dr map: %s ticker-days", len(_H1_DR))
         except Exception:
-            log.exception("h1_dr load failed — gate degrades to never-fires")
-            _H1_DR = frozenset()
+            # Do NOT cache the failure. The commonest cause is the nightly holding the 1h DB
+            # lock ("Could not set lock"); caching frozenset() there would leave the 🕐DR gate
+            # silently dead for the life of the process — every gated setup would stop firing
+            # with nothing in the UI to say so. Returning empty for THIS call degrades the gate
+            # to never-fires only until the next call, which will retry.
+            log.exception("h1_dr load failed — retrying on next call (gate empty meanwhile)")
+            return frozenset()
     return _H1_DR
 
 
@@ -207,8 +213,9 @@ def _load_intraday_lines():
                          # is merely mediocre, so flagging it as ⛔ would cry wolf on 28% of days.
                          frozenset(r.k for r in mr.itertuples() if r.vsp < 2.5))
         except Exception:
-            log.debug("intraday line map failed", exc_info=True)
-            _IV_LINES = (frozenset(), frozenset(), frozenset(), frozenset(), frozenset())
+            log.exception("intraday line map failed — retrying on next call")
+            # never cache a failure — see _load_h1_dr
+            return (frozenset(), frozenset(), frozenset(), frozenset(), frozenset())
     return _IV_LINES
 
 
