@@ -1346,17 +1346,12 @@ export default function SuperchartPanel({
           >
             <table className="text-xs border-collapse" style={{ tableLayout: 'fixed' }}>
               <thead>
-                {/* Mini-candle row */}
-                <tr className="bg-md-surface">
-                  <th style={{ width: HDR_W, minWidth: HDR_W }}
-                      className="sticky left-0 z-10 bg-md-surface border-r border-white/[0.08]" />
-                  {bars.map((b, i) => (
-                    <th key={i} style={{ width: CELL_W, minWidth: CELL_W, padding: 0 }}
-                        className="border-r border-white/[0.05]">
-                      <MiniCandle b={b} globalMin={globalMin} globalRange={globalRange} />
-                    </th>
-                  ))}
-                </tr>
+                {/* Mini-candle row removed 2026-07-29 (user). It scaled every bar to the
+                    price range of the WHOLE visible window, so at the new 2000-bar default
+                    the range is so wide that every candle collapses to a 1px dash — the
+                    real chart above already shows this, properly zoomed. The MiniCandle
+                    component and its globalMin/globalRange memo are kept: one line restores
+                    it if the window ever goes back to a few hundred bars. */}
                 {/* Date + vol bucket row */}
                 <tr className="bg-md-surface">
                   <th style={{ width: HDR_W, minWidth: HDR_W }}
