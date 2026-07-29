@@ -297,7 +297,13 @@ const HIDDEN_L_SIGS = new Set(['CCI', 'CCI0R', 'BX↑', 'BX↓', 'BO↑', 'BO↓
 // Both are pure strength-chase, which is exactly what "fade strength, buy absorbed
 // weakness" predicts should lose. SVS (−0.69 ≈ baseline) is left visible: it is merely
 // empty, not harmful. CONSO stays too — its absence is a real suppressor (NOT-CONSO −3.67).
-const HIDDEN_I_SIGS = new Set(['UM', 'BB↑'])
+//   CONSO — hidden for a different reason: it is not harmful, it is REDUNDANT per bar. It
+//       fires on 69% of the universe (299 of 300 bars on AAPL), so as a chip it marks almost
+//       every bar and carries no information at that level. Its real content is the OTHER
+//       side — NOT-CONSO is −3.67/win 43.6, a genuine suppressor — and that is now expressed
+//       where it belongs, as the ❄️ gate behind Washout🧊CONSO and RTB-Base🧊CONSO on the
+//       Replay board. SVS stays visible: empty, but rare (12 bars) and therefore harmless.
+const HIDDEN_I_SIGS = new Set(['UM', 'BB↑', 'CONSO'])
 
 const MAX_ROW_SIGS = 2
 const DP_RANK = ['D66', 'D55', 'D89', 'D50', 'D3', 'D2',
