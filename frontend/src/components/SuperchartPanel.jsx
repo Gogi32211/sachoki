@@ -278,11 +278,14 @@ function Row1H({ bars, hoursMap }) {
 //   CCI0R / CCI — the CCI-zero-reclaim pair. Measured 2026-07-28: no edge, and the score
 //     weights riding on them pointed the WRONG way, so they were stripped from
 //     replay_engine / canonical_scoring_engine / prebreak_v3 in a89ef7d.
-//   BX↑ / BX↓  — on the confluence kill-list with BO and BE ("confirmation costs"): the
-//     breakout-family chips are noise once the state layers are already on the bar.
-// NOT hidden, and not measured any differently — BO↑/↓, BE↑/↓ and CCIB are still shown
-// because the user asked only for these four.
-const HIDDEN_L_SIGS = new Set(['CCI', 'CCI0R', 'BX↑', 'BX↓'])
+//   BX↑ / BX↓ / BO↑ / BO↓ — the confluence kill-list ("confirmation costs"): the
+//     breakout family is noise once the state layers are already on the bar.
+//   L64 / L43 / L22 — the WLNBB *event* chips, which are NOT the bar's own l_sig (that
+//     one renders with a `·` prefix and is untouched). l_sig never carries L43/L64/L22,
+//     so nothing here overlaps with the L34/L46 absorption work.
+// NOT hidden: L34 (the flagship absorption line), BE↑/↓, CCIB.
+const HIDDEN_L_SIGS = new Set(['CCI', 'CCI0R', 'BX↑', 'BX↓', 'BO↑', 'BO↓',
+                               'L64', 'L43', 'L22'])
 
 const MAX_ROW_SIGS = 2
 const DP_RANK = ['D66', 'D55', 'D89', 'D50', 'D3', 'D2',
