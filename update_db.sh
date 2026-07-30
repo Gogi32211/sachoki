@@ -40,6 +40,8 @@ except Exception as e:
 " 2>/dev/null || echo "ERR:python-failed"; }
 DATE_BEFORE="$(_maxdate)"
 echo "  ბაზის ბოლო თარიღი განახლებამდე: $DATE_BEFORE"
+# UTC stamp for the ULTRA re-scan freshness assertion at the end (last_scan is UTC ISO)
+RUN_STARTED="$(date -u '+%Y-%m-%dT%H:%M:%S')"
 
 # 2) უკვე მუშაობს?
 running=$(curl -s "$BASE/incremental-update/status" | python3 -c "import sys,json;print(json.load(sys.stdin)['running'])" 2>/dev/null)
@@ -133,9 +135,32 @@ if [ "${NO_RESCAN:-0}" != "1" ]; then
       [ "$(_running)" = "False" ] && break
       sleep 5
     done
-    # 4) VERIFY the snapshot timestamp actually advanced
-    new=$(_snap "$u")
-    if [ -n "$new" ] && [ "$new" != "$old" ]; then echo "done ✓"; else echo "⚠ NOT refreshed (still $old)"; fi
+    # 4) VERIFY the snapshot actually advanced.
+    #
+    # 2026-07-30: comparing `new != old` the instant `running` flips to False is a RACE, and
+    # it was wrong in BOTH directions on the 07-30 nightly — it reported nasdaq as "NOT
+    # refreshed" when it had refreshed, and russell2k as "done ✓" when its scan had died in
+    # the merge phase and left a day-old snapshot. The false POSITIVE is the dangerous one:
+    # a genuinely stale screener passes silently.
+    # Fixed by polling for the snapshot to actually appear (it is published a moment after
+    # the running flag clears) and then asserting it is NEWER THAN THIS RUN, rather than
+    # merely different from what we happened to read before triggering.
+    new=""
+    for i in $(seq 1 20); do
+      new=$(_snap "$u")
+      [ -n "$new" ] && [ "$new" != "$old" ] && break
+      sleep 3
+    done
+    if [ -z "$new" ]; then
+      echo "⚠ NOT refreshed (no snapshot returned)"
+    elif [ "$new" = "$old" ]; then
+      echo "⚠ NOT refreshed (still $old)"
+    elif [ "$new" \< "$RUN_STARTED" ]; then
+      # advanced, but to a timestamp older than this run began — not our scan
+      echo "⚠ STALE ($new predates this run)"
+    else
+      echo "done ✓ ($new)"
+    fi
   done
 else
   echo "  (ULTRA re-scan გამოტოვდა — NO_RESCAN=1)"
