@@ -114,6 +114,59 @@ def _load_m15_zdom():
 
 
 _IV_LINES = None
+_H1_QUIET = None
+
+
+def _load_h1_quiet():
+    """{TICKER|YYYY-MM-DD} where the trailing 10 sessions of 1H tape were QUIET —
+    max(1h volume) / avg(1h volume) < 4.
+
+    Found by inverting a spike hunt (2026-07-30). Chasing what precedes a +40% day led to a
+    1H volume extreme days earlier: at $21+ it appears in 18.8% of pre-spike windows vs 2.0%
+    of price-matched controls, a 9.4× lift on spike FREQUENCY. Path-sim then said those same
+    states LOSE — monotonically worse as the threshold rises (≥6× −1.04 · ≥8× −1.48 ·
+    ≥10× −1.65 · ≥15× −1.68, against a −0.71 baseline) — because a volume event predicts
+    VOLATILITY, not direction. The complement was the best cell in the whole table:
+    quiet tape −0.22 / win 49.4 on n=285,087.
+    So the harvest is the inverse of the search, and it is the same thing the ⛔ vol-adjacency
+    veto already says, reached from a new direction.
+    15m is the wrong granularity for this: ≥6× fires on ~90% of ALL windows there, spike or
+    not. 1D averages the event away. 1H is where it is legible.
+    """
+    global _H1_QUIET
+    if _H1_QUIET is None:
+        try:
+            import duckdb
+            from studio.db import tf_db_path
+            c = duckdb.connect(tf_db_path("1h"), read_only=True)
+            df = c.execute("""
+                WITH day AS (
+                  SELECT ticker, CAST(date AS DATE) d,
+                         max(volume) mx, sum(volume) sv, count(*) nb
+                  FROM bars WHERE volume > 0 GROUP BY ticker, CAST(date AS DATE)),
+                r AS (
+                  SELECT ticker, d,
+                    max(mx) OVER (PARTITION BY ticker ORDER BY d
+                                  ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) rmx,
+                    sum(sv) OVER (PARTITION BY ticker ORDER BY d
+                                  ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) rsv,
+                    sum(nb) OVER (PARTITION BY ticker ORDER BY d
+                                  ROWS BETWEEN 9 PRECEDING AND CURRENT ROW) rnb
+                  FROM day)
+                SELECT ticker, CAST(d AS VARCHAR) dt
+                FROM r
+                WHERE rnb >= 30 AND rmx / NULLIF(rsv / NULLIF(rnb, 0), 0) < 4.0
+            """).fetchdf()
+            c.close()
+            _H1_QUIET = frozenset(df["ticker"] + "|" + df["dt"].str[:10])
+            log.info("h1_quiet map: %s ticker-days", len(_H1_QUIET))
+        except Exception:
+            # never cache a failure — see _load_h1_dr
+            log.exception("h1_quiet load failed — retrying on next call")
+            return frozenset()
+    return _H1_QUIET
+
+
 _H1_DR = None
 
 
@@ -1025,6 +1078,21 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     df["E_washout_conso"]  = df["E_washout"] & df["conso"]
     df["E_rtb_base_conso"] = df["E_rtb_base"] & df["conso"]
 
+    # ── 🔇 QUIET 1H TAPE gate (2026-07-30) ──────────────────────────────────────────────
+    # See _load_h1_quiet for how a spike hunt produced its own inverse. As a gate the
+    # mechanism is GENERAL — it improved 10 of 10 base setups (Δ +0.18 to +0.93) and the
+    # ordering is monotone everywhere: quiet > base > loud. That complement ordering, not
+    # the deltas, is what makes it credible.
+    # Two cleared TIER-1 (6/6 years AND positive worst). Only ONE cleared DSR against 20
+    # honest trials (10 setups × quiet/loud):
+    #   L43-TRIPLE  +2.72 → +3.43  worst +0.1  6/6   sr 0.2512 vs sr* 0.1406  DSR 1.000 ✓
+    #   RTB-Base    +0.68 → +1.51  worst +1.3  6/6   sr 0.1292 vs sr* 0.1406  DSR 0.101 ✗
+    # RTB-Base is the second gate this week to look perfect on every eyeball criterion and
+    # fail deflation — same shape as RTB-Base🌀ROUGH that morning. Not built.
+    _q = _load_h1_quiet()
+    df["h1_quiet"] = (df["ticker"] + "|" + df["date"].astype(str).str[:10]).isin(_q).to_numpy()
+    df["E_l43triple_quiet"] = df["E_l43triple"] & df["h1_quiet"]
+
     # ── 🌀 PATH ROUGHNESS — Hurst, variance-ratio (2026-07-30) ─────────────────────────
     # std of overlapping k-step log returns scales as k^H, so H = slope of log(std_k) on
     # log(k) over lags 1,2,4,8 in a trailing 60-bar window. Measured on 2.7M bars the raw
@@ -1245,6 +1313,7 @@ SETUPS = [
     ("🎬StopVol-Confirm", "E_stopvol_confirm"),
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
     ("Washout🧊CONSO", "E_washout_conso"), ("RTB-Base🧊CONSO", "E_rtb_base_conso"),
+    ("L43-TRIPLE🔇QUIET", "E_l43triple_quiet"),
 ]
 
 
