@@ -1327,7 +1327,7 @@ DISPLAY_SETUPS = [
     ("CAP",  "E_t1capbounce"), ("QZC", "E_qzcapit"),  ("D+L1", "E_dl1"),
     ("G3",   "E_g3"),          ("⚡G3A", "E_g3abs"),   ("ATM",  "E_atomic"),
     ("ATMR", "E_atomicR"),     ("SPR", "E_spring"),   ("Z11",  "E_z11t11"),
-    ("L43",  "E_l43triple"),   ("WSH", "E_washout"),  ("H1B",  "E_h1bottom"),
+    ("L43",  "E_l43triple"), ("L43🔇", "E_l43triple_quiet"),   ("WSH", "E_washout"),  ("H1B",  "E_h1bottom"),
     ("ENG",  "E_engulfabs"),   ("EL46", "E_engulfL46"), ("ZRT", "E_zoneretest"),
     ("HB15", "E_highbase15"),  ("RTB", "E_rtb_base"), ("P55",  "E_p55"),
     ("PAR",  "E_parabola"),    ("🎯3", "E_confluence"), ("🎯4", "E_confluence_p"),
@@ -1414,6 +1414,12 @@ def _collapse_codes(codes: list) -> list:
         out = [merged if c == "WSH" else c for c in out]
         if merged not in out:
             out.append(merged)
+    # L43 quiet-tape qualifier (2026-07-30) — ONE chip at two strengths rather than a second
+    # chip, because L43🔇 is a strict subset of L43 and a separate entry would just repeat it.
+    # The quiet variant is the validated one: +2.72 → +3.43, pf 1.88 → 2.08, 6/6 years,
+    # worst +0.9 → +0.1, DSR 1.000 vs 20 trials. The frontend brightens on the 🔇 suffix.
+    if "L43🔇" in out:
+        out = [c for c in out if c != "L43"]
     return out
 
 

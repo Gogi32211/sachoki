@@ -441,6 +441,14 @@ const ROWS = [
       if (s.startsWith('✦'))
         return '✦ FLY-fresh — first FLY after ≥15 bars of silence: +0.84%/PF1.13/+4.3σ, 5-6yr, TRAIN & TEST positive. (2nd-appearance waiting tested: edge gone — act on the first.)'
       if (s.startsWith('FLY')) return `FLY signal: ${s}`
+      if (s.endsWith('🔇'))
+        return ('🔇 L43-TRIPLE on a QUIET 1H tape — max(1h volume)/avg over the trailing 10 '
+              + 'sessions under 4×. The validated tier: +2.72 → +3.43, win 57.0 → 59.5, '
+              + 'pf 1.88 → 2.08, 6/6 years, worst year +0.9 → +0.1, DSR 1.000 against 20 '
+              + 'trials. Found by inverting a spike hunt: a LOUD tape lifts the odds of a '
+              + '+40% day 9.4× and still loses money (−1.65 median at ≥10×), because a '
+              + 'volume event predicts volatility, not direction. Quiet helped 10 of 10 '
+              + 'setups; only this one also survived deflation.')
       return (b?.rev_buy && b?.mtf_echo !== false && ['QZC', 'D+L1', 'RTB', 'P55'].includes(s))
         ? `EDGE🟢 premium combo: ${s} + same-bar 🟢REV (validated 2026-07-20 — QZC +2.69% med+ · D+L1 +3.46% TRAIN+ · RTB +2.04% 6/6yr · P55 +1.89%)`
         : `Edge-board setup fired on this bar: ${s} (edge_replay mask — identical to the backtest)`
@@ -453,6 +461,12 @@ const ROWS = [
       ? 'bg-amber-600 text-amber-50 font-bold ring-1 ring-amber-300'
       : s.startsWith('🎯')
       ? 'bg-emerald-600 text-emerald-50 font-bold ring-1 ring-emerald-300'
+      // 🔇 quiet-tape qualifier (2026-07-30) — the SAME chip at a brighter tier, not a second
+      // chip: L43🔇 is a strict subset of L43, so a separate entry would only repeat it. The
+      // quiet variant is the validated one (+2.72→+3.43, pf 1.88→2.08, 6/6yr, worst +0.9→+0.1,
+      // DSR 1.000 vs 20 trials), so it earns the brighter treatment.
+      : s.endsWith('🔇')
+      ? 'bg-teal-500 text-teal-950 font-bold ring-2 ring-teal-200'
       : 'bg-emerald-900 text-emerald-200 ring-1 ring-emerald-500/50 font-semibold',
   },
   {
