@@ -47,6 +47,26 @@ def main() -> int:
         rc = 1
         print("[revalidate] FAILED:\n" + traceback.format_exc(), flush=True)
 
+    # 2b) missed-move review — the frame is already warm from step 2, so this is cheap.
+    # It classifies today's top-30 gainers by WHY we did not take them and appends to the
+    # ledger. It concludes nothing: top gainers are selected ON THE OUTCOME, so any state
+    # found inside them looks predictive (law_single_name_conviction_is_survivorship).
+    # It may only raise QUESTIONS, and only once the ledger is deep enough.
+    try:
+        from brain.missed import review, hypotheses
+        d = review()
+        cnt = ", ".join(f"{k} {v}" for k, v in sorted(d["counts"].items(), key=lambda x: -x[1]))
+        print(f"[missed] {d['date']}: {d['n']} gainers (median {d['median_move']:+.1f}%) — {cnt}",
+              flush=True)
+        for g, n in sorted(d.get("gate_hits", {}).items(), key=lambda x: -x[1]):
+            print(f"           · vetoed by {g}: {n}", flush=True)
+        for q in hypotheses():
+            if q.get("status") == "open":
+                print(f"           ? {q['question']}", flush=True)
+    except Exception:
+        rc = 1
+        print("[missed] FAILED:\n" + traceback.format_exc(), flush=True)
+
     # 3) self-discovery (HEAVY) — weekly only, on Saturdays, to avoid over-mining
     from datetime import datetime
     promoted = 0
