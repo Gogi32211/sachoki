@@ -589,18 +589,20 @@ const ROWS = [
     getSigs: (b) => b.wick ?? [],
     chipCls: (s) => s.includes('↑') ? 'bg-sky-900 text-sky-300' : 'bg-red-900/50 text-red-300',
   },
-  {
-    key: 'setup',
-    label: 'SETUP',
-    getSigs: (b) => b.setup ?? [],
-    chipCls: (s) => {
-      if (s === 'A')   return 'bg-orange-800/80 text-orange-100 ring-1 ring-orange-400 font-bold'
-      if (s === 'SM')  return 'bg-lime-800/80 text-lime-100 ring-1 ring-lime-400 font-bold'
-      if (s === 'N')   return 'bg-cyan-800/80 text-cyan-100 ring-1 ring-cyan-400 font-bold'
-      if (s === 'MX')  return 'bg-pink-800/80 text-pink-100 ring-1 ring-pink-400 font-bold'
-      return 'bg-md-surface-high text-md-on-surface'
-    },
-  },
+  // SETUP row (A / SM / N / MX from gog_engine) REMOVED 2026-07-30 — all four measured and
+  // all four empty. Path-sim, 6yr, $21-377, baseline −0.63/win 48.4:
+  //   SM −0.44 · MX −0.46 · A −0.48 · N −0.48   — a 0.04pp spread across four "different"
+  //   signals, and each one's own complement lands in the same place: NOT-A −0.54,
+  //   NOT-SM −0.55, NOT-N −0.54, NOT-MX −0.55. Presence vs absence is worth 0.08pp.
+  // Stacking adds nothing (all four together −0.39 vs any single ≈ −0.46) and +🏆RS lifts
+  // all four to the SAME number (+0.29/+0.33/+0.31/+0.31) — which is what you see when it
+  // is one mask wearing four labels: they share preTurnStructure and the same
+  // fullSequence|supportAbsSequence|preFinalSequence|resetSequence gates, differing only in
+  // trigger flavour. As gates they hurt (D+L1+SM −2.30, Washout+N −0.99).
+  // My prior that SM would be best (it is the only absorption-flavoured one) was WRONG — the
+  // absorption logic is diluted to nothing by the shared structure gates.
+  // No score anywhere reads these, so removal changes only the display. Still computed and
+  // still exported (setup_tokens in the DB, SETUP in the CSV).
   {
     key: 'gog',
     label: 'GOG',
