@@ -7,7 +7,7 @@ chain (why, how many shares, where the stop/target, which limits bound it). The 
 knowledge lives in the registry, the math in sizing/portfolio, the permission in regime.
 """
 from __future__ import annotations
-from . import registry, sizing, portfolio, regime as regime_mod
+from . import registry, sizing, portfolio, regime as regime_mod, gates
 
 HARD_STOP = 0.15      # path-sim standard hard stop (-15%); a structural stop can override later
 TARGET = 0.25         # notional target (+25%) for the R:R gate (real exit is trail25)
@@ -20,7 +20,8 @@ def decide(ticker: str, fired_edges: list[str], price: float, *,
            sector: str = "?", atr_pct: float | None = None, adv_dollars: float | None = None,
            swing_low: float | None = None,
            open_positions: list[dict] | None = None, losing_streak: int = 0, drawdown: float = 0.0,
-           regime: dict | None = None, cfg_sizing=None, cfg_pf=None) -> dict:
+           regime: dict | None = None, bar_state: dict | None = None,
+           cfg_sizing=None, cfg_pf=None) -> dict:
     """fired_edges: registry ids or edge_replay cols that fired on this ticker's latest bar.
     price: current/entry price. Returns {decision: BUY|NO, ...full plan..., log:[...]}."""
     log: list[str] = []
@@ -55,6 +56,19 @@ def decide(ticker: str, fired_edges: list[str], price: float, *,
     best = max(matched, key=lambda e: (e.get("stats", {}).get("median", 0), e.get("tier") == "core"))
     log.append(f"candidate: {best['title']} [{best.get('tier')}] (also: {[m['id'] for m in matched if m is not best]})")
 
+    # ── L4 disqualifiers + gates ──────────────────────────────────────────────
+    # This stage was in the docstring from the start and never existed, so every null and
+    # every gate in the registry was inert — and those are the findings that measure
+    # LARGEST (Dec-Mar kills all 14 setups; no-volume-event −4..−8 on all 29 codes;
+    # NOT-CONSO −3.67; H>0.65 −2.37) against a good edge's +2..+5. A gate with missing
+    # inputs ABSTAINS and says so; it never silently passes.
+    gres = gates.evaluate(bar_state or {}, edge_id=best["id"])
+    log.append(gates.summary(gres))
+    if gres["veto"]:
+        return {"decision": "NO", "ticker": ticker, "edge": best["id"],
+                "reason": f"gate: {gres['reason']}", "gates": gres["checks"], "log": log}
+    gate_mult = gres["mult"]
+
     # ── L5 geometry + sizing ──────────────────────────────────────────────────
     entry = float(price)
     # STRUCTURAL stop = just under the recent swing/base low, clamped to [-MIN_STOP, -HARD_STOP].
@@ -74,10 +88,10 @@ def decide(ticker: str, fired_edges: list[str], price: float, *,
                              adv_dollars=adv_dollars, cfg=cfg_sizing)
     if not size["ok"]:
         return {"decision": "NO", "ticker": ticker, "reason": f"sizing: {size['reason']}", "log": log}
-    reg_shares = int(size["shares"] * reg["risk_mult"])
+    reg_shares = int(size["shares"] * reg["risk_mult"] * gate_mult)
     if reg_shares < 1:
         return {"decision": "NO", "ticker": ticker, "reason": "regime risk-mult -> size < 1 share", "log": log}
-    log.append(f"sizing: {size['shares']}sh (stop {stop_kind} {size['stop_pct']:.0%}, risk {size['risk_pct_actual']:.1%}, R:R {size['rr']}, x{size['size_mult']}) -> regime x{reg['risk_mult']} = {reg_shares}sh")
+    log.append(f"sizing: {size['shares']}sh (stop {stop_kind} {size['stop_pct']:.0%}, risk {size['risk_pct_actual']:.1%}, R:R {size['rr']}, x{size['size_mult']}) -> regime x{reg['risk_mult']} · gates x{gate_mult} = {reg_shares}sh")
 
     # ── L8 portfolio envelope ─────────────────────────────────────────────────
     cand = {"sector": sector, "risk_dollars": reg_shares * (entry - stop), "position_value": reg_shares * entry}
@@ -104,6 +118,8 @@ def decide(ticker: str, fired_edges: list[str], price: float, *,
         "risk_dollars": round(final_shares * (entry - stop), 2),
         "position_value": round(final_shares * entry, 2),
         "regime_risk_mult": reg["risk_mult"],
+        "gate_mult": gate_mult,
+        "gates": gres["checks"],
         "log": log,
     }
 

@@ -1024,6 +1024,47 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     df["conso"] = df["conso"].fillna(0).astype(bool)
     df["E_washout_conso"]  = df["E_washout"] & df["conso"]
     df["E_rtb_base_conso"] = df["E_rtb_base"] & df["conso"]
+
+    # ── 🌀 PATH ROUGHNESS — Hurst, variance-ratio (2026-07-30) ─────────────────────────
+    # std of overlapping k-step log returns scales as k^H, so H = slope of log(std_k) on
+    # log(k) over lags 1,2,4,8 in a trailing 60-bar window. Measured on 2.7M bars the raw
+    # ladder is MONOTONE on median, win%, pf AND positive-year count simultaneously —
+    #   H<0.35 +0.14/win50.4/pf1.24 · .35-.45 −0.31 · .45-.55 −0.74 (baseline −0.71)
+    #   · .55-.65 −0.93/3-6yr · H>0.65 −2.37/win44.8/pf0.90/3-6yr
+    # — replicates on a 40-bar window (−2.33/pf0.91) and is NOT volatility: corr(H,ATR%)
+    # = −0.008 and the H<0.45 vs H>0.55 spread survives INSIDE every ATR% tercile, widening
+    # with vol (lo 0.25pp · mid 0.96pp · hi 3.14pp).
+    #
+    # ⚠ NO GATE IS BUILT ON THIS. RTB-Base🌀ROUGH was built and then REMOVED the same day,
+    # 2026-07-30, because it FAILED DSR: sr 0.1202 vs sr* 0.1436 over 30 honest trials
+    # (10 setups x 2 directions + 5 H60 bands + 5 H40 bands) → DSR 0.010 against a 0.6 bar.
+    # Its Sharpe was the HIGHEST of the three gates measured that day and still sat BELOW
+    # what picking the best of 30 variants produces by chance. Everything an eyeball checks
+    # said yes — 6/6 positive years, worst +0.5, Δ+0.63, pf 1.31→1.44, win 51.8→53.5 — and
+    # it was selection noise. Compare the two CONSO gates, chosen from 11 trials: sr 0.1193
+    # and 0.1017 vs sr* 0.0943 → DSR 0.944 and 0.891, which is why those two stand.
+    # The LAW stands on different evidence and is unaffected: a monotone ladder across five
+    # bands on four metrics at once, replicated on a second window, orthogonal to vol. That
+    # is not a max-pick, so DSR's selection critique does not apply to it.
+    # For the record, the per-setup deltas that tempted the build: D+L1 +1.11Δ (worst −0.0)
+    # · Washout +0.90Δ (−2.1) · L43-TRIPLE +0.69Δ (−1.5) · RTB-Base +0.68Δ (+0.6, 6/6) ·
+    # Atomic +0.62Δ (−1.1) · G3-Abs +0.61Δ (−0.7) · Zone-Retest +0.43Δ · QZ-Capit +0.41Δ ·
+    # Engulf-Abs +0.34Δ. Wyckoff Spring alone prefers SMOOTH (+0.11→+1.58 at H>0.55).
+    # `hurst`/`rough` stay as COLUMNS: the law is real, the Superchart/brain read the state,
+    # and a future walk-forward replay can calibrate it. They just gate nothing.
+    _lags = (1, 2, 4, 8)
+    _hx = np.log(np.asarray(_lags, float)); _hxc = _hx - _hx.mean(); _hden = float((_hxc ** 2).sum())
+    _lp = np.log(df["close"].where(df["close"] > 0))
+    _hnum = np.zeros(len(df)); _hok = np.ones(len(df), bool)
+    for _j, _k in enumerate(_lags):
+        _sd = _lp.groupby(df["ticker"], sort=False).diff(_k) \
+                 .groupby(df["ticker"], sort=False).rolling(60, min_periods=30).std() \
+                 .reset_index(level=0, drop=True).to_numpy(float)
+        _hok &= np.isfinite(_sd) & (_sd > 0)
+        _hnum += _hxc[_j] * np.log(np.where(_sd > 0, _sd, np.nan))
+    df["hurst"] = np.where(_hok, _hnum / _hden, np.nan)
+    df["rough"] = df["hurst"] < 0.45
+    # (E_rtb_base_hurst deliberately NOT defined — see the DSR note above.)
     # ONE display chip for the whole family — a bar where the gate was on AND one of the six
     # gated bases fired. Six separate chips would just duplicate the base codes already shown
     # ("WSH 🕐DR" reads better than "WSH Washout🕐DR"), and this is what makes the gate visible

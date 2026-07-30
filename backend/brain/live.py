@@ -7,6 +7,59 @@ spine.decide() for a BUY/NO with its full chain. Read-only; isolated from the li
 from __future__ import annotations
 
 
+
+def _bar_states(tickers: list[str]) -> dict:
+    """{ticker: state dict} for brain.gates, taken from the WARM edge_replay frame.
+
+    Only keys we can compute honestly are included; anything else is omitted so the gate
+    abstains loudly instead of passing silently. EMAs are derived here because the frame
+    carries close but no ema columns, and Hurst is the variance-ratio estimator from the
+    2026-07-30 study (std of k-step log returns scales as k^H).
+    """
+    import numpy as np
+    import edge_replay as er          # module-level `er` lives inside run_universe, not here
+    out: dict = {}
+    try:
+        grp, _ = er._frame(60, 3_000_000)
+    except Exception:
+        return out
+    lags = (1, 2, 4, 8)
+    x = np.log(np.asarray(lags, float)); xc = x - x.mean(); den = float((xc ** 2).sum())
+    for t in tickers:
+        g = grp.get(t)
+        if g is None or len(g) < 60:
+            continue
+        c = g["close"]
+        st: dict = {"close": float(c.iloc[-1])}
+        try:
+            st["month"] = int(str(g["date"].iloc[-1])[5:7])
+        except Exception:
+            pass
+        for span, key in ((9, "e9"), (20, "e20"), (50, "e50"), (200, "e200")):
+            if len(g) >= span:
+                st[key] = float(c.ewm(span=span, adjust=False).mean().iloc[-1])
+        for col, key in (("rs_intact", "rs_intact"), ("conso", "conso"),
+                         ("iv_dry", "no_vol_event"), ("supp", "vol_extreme")):
+            if col in g.columns:
+                v = g[col].iloc[-1]
+                if v == v:                       # not NaN
+                    st[key] = bool(v)
+        # Hurst, variance-ratio over the trailing 60 bars
+        try:
+            lp = np.log(c.replace(0, np.nan))
+            num, ok = 0.0, True
+            for j, k in enumerate(lags):
+                sd = lp.diff(k).rolling(60, min_periods=30).std().iloc[-1]
+                if not (sd == sd) or sd <= 0:
+                    ok = False; break
+                num += xc[j] * float(np.log(sd))
+            if ok:
+                st["hurst"] = round(num / den, 3)
+        except Exception:
+            pass
+        out[t] = st
+    return out
+
 def run_universe(*, max_age: int = 0, regime: dict | None = None,
                  open_positions: list[dict] | None = None, drawdown: float = 0.0,
                  losing_streak: int = 0, limit: int = 200, critique: bool = False) -> dict:
@@ -77,6 +130,17 @@ def run_universe(*, max_age: int = 0, regime: dict | None = None,
     except Exception:
         smap = {}
 
+    # ── bar STATE for the L4 gate layer ───────────────────────────────────────────
+    # Read off the warm edge_replay frame (latest_edges_map already built it), so the gates
+    # see exactly the same numbers the backtest did. A key we cannot compute honestly is
+    # LEFT OUT — gates.evaluate() then abstains and says so, which is the whole point.
+    #
+    # mtf_echo is deliberately NOT supplied: the frame's h1_dr is the narrow 1H dual-reclaim
+    # gate (~0.42 fires per ticker-year), not "any 4H/1H/15m confirmation". Wiring it into a
+    # hard MTF veto would reject nearly every candidate for the wrong reason. That gate stays
+    # abstained until the real cross-TF echo variable is plumbed.
+    bar_state = _bar_states(tickers)
+
     decisions = []
     for t, cols in fired.items():
         if t in held:                                  # already in the book — skip
@@ -85,6 +149,7 @@ def run_universe(*, max_age: int = 0, regime: dict | None = None,
         if not p:
             continue
         d = spine.decide(t, cols, p, sector=smap.get(t, "?"), adv_dollars=adv, swing_low=swing,
+                         bar_state=bar_state.get(t),
                          open_positions=open_positions, drawdown=drawdown,
                          losing_streak=losing_streak, regime=reg)
         if d.get("decision") == "BUY":

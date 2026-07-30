@@ -1889,14 +1889,14 @@
     {
       "id": "gate_hurst_rough",
       "type": "gate",
-      "title": "🌀 Rough-path gate (H<0.45)",
-      "definition": "Trailing-60-bar Hurst below 0.45 — a choppy, non-persistent path. Improved 9 of 10 base setups: D+L1 +1.08→+2.19 (worst −0.0) · Washout +0.21→+1.11 · L43-TRIPLE +2.90→+3.59 · RTB-Base +1.23→+1.91 (6/6, worst +0.6) · Atomic +0.40→+1.02 · G3-Abs +2.05→+2.66. Its mirror is a WARNING, not a gate: H>0.55 destroys momentum setups — L43-TRIPLE +2.90→+0.08, D+L1 +1.08→−0.90, G3-Abs +2.05→+0.20. ONE documented exception: Wyckoff Spring prefers SMOOTH (+0.11→+1.58 with H>0.55; rough HURTS it at −0.57) — a shakeout inside a controlled range is a different animal. Orthogonal to volatility (corr −0.008).",
+      "title": "🌀 Rough-path H<0.45 — measured, NOT built (failed DSR)",
+      "definition": "Trailing-60-bar Hurst below 0.45 improved 9 of 10 base setups (D+L1 +1.11Δ · Washout +0.90Δ · L43-TRIPLE +0.69Δ · RTB-Base +0.68Δ at 6/6 and worst +0.6 · Atomic +0.62Δ · G3-Abs +0.61Δ), and its mirror H>0.55 destroys momentum setups (L43 −2.82, D+L1 −1.98, G3-Abs −1.85). RTB-Base🌀ROUGH was BUILT on the TIER-1 bar and REMOVED the same day: DSR 0.010 against a 0.6 bar — sr 0.1202 vs sr* 0.1436 over 30 honest trials (10 setups × 2 directions + 5 H60 bands + 5 H40 bands). Its Sharpe was the HIGHEST of the three gates measured that day and still BELOW what picking the best of 30 produces by chance. Every eyeball criterion passed — 6/6 years, worst +0.5, pf 1.31→1.44, win 51.8→53.5. THE LESSON: TIER-1 (positive worst year + 6/6) is necessary and NOT sufficient; it says nothing about how many variants you searched. Run DSR before calling anything built. The LAW is unaffected — a monotone ladder over five bands on four metrics, replicated on a second window, is not a max-pick, so the selection critique does not touch it. Wyckoff Spring is the one setup preferring SMOOTH (+0.11→+1.58 at H>0.55).",
       "layer": 4,
       "direction": "long",
       "action": "boost",
       "tier": "core",
       "status": "live",
-      "source": "hurst.py 2026-07-30",
+      "source": "hurst.py + dsr_gates.py 2026-07-30",
       "stats": {},
       "date": "2026-07-30"
     },
@@ -2023,6 +2023,18 @@
       "action": "context",
       "status": "live",
       "source": "project_edge_gate_system",
+      "stats": {},
+      "date": "2026-07-30"
+    },
+    {
+      "id": "method_dsr_before_built",
+      "type": "discriminator",
+      "title": "TIER-1 is necessary, NOT sufficient — run DSR",
+      "definition": "A positive worst year plus 6/6 positive years says a variant is ROBUST ACROSS TIME. It says nothing about how many variants you searched to find it. RTB-Base🌀ROUGH cleared TIER-1 (6/6, worst +0.5, Δ+0.63, pf 1.31→1.44) with the HIGHEST raw Sharpe of its cohort — 0.1202 — and failed DSR at 0.010 because it came from 30 trials where sr* = 0.1436. The two CONSO gates, from 11 trials with sr* = 0.0943, passed at 0.944 and 0.891 on LOWER Sharpes. Count the trials HONESTLY: everything examined while choosing, not the survivors. Same evidence, opposite verdict, purely from search width.",
+      "direction": "none",
+      "action": "context",
+      "status": "live",
+      "source": "dsr_gates.py 2026-07-30",
       "stats": {},
       "date": "2026-07-30"
     }
