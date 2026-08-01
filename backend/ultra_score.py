@@ -770,13 +770,19 @@ def compute_ultra_score_v3(row: dict) -> dict:
 #   OOS 2024-26  hits 0 → 5 : med +0.43 · +0.62 · +1.09 · +1.38 · +1.98 · +3.54  (holds)
 # Individually every component is near-worthless (best bucket med −0.2..−1.4); the AGREEMENT
 # is what carries. hits=5 is rare (~400/yr universe-wide) — that rarity is the point.
+# Re-derived 2026-08-01 after ultra_score lost BB↑+15 / SVS+8 / BUY+20 / ROCKET+20 (the DB
+# history is mixed-formula, so derivation ran on an ADJUSTED score: stored − removed-weight
+# flags). Band shapes on fwd_10d medians, then the ladder path-sim-validated: the NEW ladder
+# is monotone 0→5 (−1.22 → +3.69) and hits>=4 went +1.05/5-6yr/worst −0.8 (old zones) →
+# +2.14/6-6yr/worst +1.0 — double the median and a positive worst year. turbo_score (pocket
+# 9-15, +0.107) was tried as a 7th member and REJECTED: >=4 drops to +1.70 — it dilutes.
 _HIT_ZONES = (
-    ("ultra_score_v3", 18.0, 1e9),    # the only monotone ranker: high is genuinely good
-    ("ultra_score",     7.0, 20.0),   # INVERTED-U: mid is gold, ≥21 is the survivorship trap
-    ("buy_score",      38.0, 57.0),   # INVERTED-U: ≥57 is the worst cell (med −1.38)
-    ("prebreak_v2",     9.0, 12.0),   # ANTI-predictive: high V2 = med −3.80/win 43%
-    ("prebreak_v3",     4.0,  5.0),   # weak inverted-U
-    ("conf_n",          4.0, 1e9),    # ≥5 families — the only component positive on its own
+    ("ultra_score_v3", 25.0, 1e9),    # monotone ranker; the 18-25 shoulder is only +0.06 — was 18+
+    ("ultra_score",     9.0, 22.0),   # INVERTED-U plateau +0.62..+0.68/win 55 — was 7-20
+    ("buy_score",      39.0, 57.0),   # INVERTED-U: peak 39-46; >=66 is −0.21 — was 38-57
+    ("prebreak_v2",    11.0, 13.0),   # ANTI-predictive: 25-44 is −1.23(!) — was 9-12
+    ("prebreak_v3",     4.0,  5.0),   # unchanged; second (non-contiguous) pocket at 8-11 noted
+    ("conf_n",          4.0, 1e9),    # unchanged
 )
 
 

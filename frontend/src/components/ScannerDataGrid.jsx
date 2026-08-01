@@ -80,6 +80,29 @@ function VrpScanCell({ ticker }) {
 const TZ_STRONG = new Set(['T4','T6','T1G','T2G'])
 const TZ_BEAR   = new Set(['Z4','Z6','Z1G','Z2G','Z1','Z2','Z3','Z5','Z7','Z9','Z10','Z11','Z12'])
 
+
+// ── measured ZONE colours (2026-08-01) ──────────────────────────────────────────────
+// Each ranker pays only inside ITS OWN zone (band shapes on 3.9M bars, ladder path-sim
+// validated — hits>=4: +2.14/6-6yr). Colour = where the value sits relative to that zone:
+//   green  = inside the paying zone          gray = below it (nothing measured there)
+//   orange = slightly past it (weakens)      red  = deep past it (measured NEGATIVE)
+// The old "higher = brighter" colouring painted the survivorship trap as best.
+function zoneCls(v, z) {
+  if (v == null || v === '') return 'text-gray-700'
+  if (v >= z.g[0] && v <= z.g[1]) return 'text-emerald-300 font-semibold'
+  if (z.r && v >= z.r) return 'text-red-400'
+  if (z.o && v > z.o[0] && v <= z.o[1]) return 'text-orange-300'
+  return 'text-md-on-surface-var/50'
+}
+const ZONES = {
+  ultra: { g: [9, 22],  o: [22, 26], r: null },  // >26 is sub-zone but measured mildly + → gray
+  uv3:   { g: [25, 1e9], o: null,    r: null },  // genuinely monotone: no "too much" exists
+  buy:   { g: [39, 57], o: [57, 66], r: 66 },
+  v2:    { g: [11, 13], o: [13, 18], r: 18 },    // 25-44 measured −1.23: deep red territory
+  v3:    { g: [4, 5],   o: [5, 15],  r: 15 },
+  turbo: { g: [9, 15],  o: [15, 25], r: 25 },
+}
+
 function scoreColor(s) {
   if (s >= 65) return 'text-lime-300 font-bold'
   if (s >= 50) return 'text-yellow-300 font-semibold'
@@ -723,7 +746,8 @@ export default function ScannerDataGrid({
                   title={r.buy_tag === 'EXTENDED' ? 'RSI≥60 — overextended, worst forward zone (veto-capped)'
                        : r.buy_tag === 'KNIFE' ? 'RSI<28 — falling-knife zone (guard-capped)'
                        : `Score: ${sc}`}>
-                  <span className={`font-mono text-xs ${scoreColor(sc)}`}>{fmt(sc, 0)}</span>
+                  <span className={`font-mono text-xs ${effectiveScoreCol === 'buy_score'
+                    ? zoneCls(sc, ZONES.buy) : zoneCls(sc, ZONES.turbo)}`}>{fmt(sc, 0)}</span>
                   {effectiveScoreCol === 'buy_score' && r.buy_tag && (
                     <div className={`text-[8px] leading-tight font-semibold ${r.buy_tag === 'EXTENDED' ? 'text-red-400' : 'text-amber-400'}`}>
                       {r.buy_tag === 'EXTENDED' ? '🔴EXT' : '🔪KNIFE'}
@@ -736,7 +760,7 @@ export default function ScannerDataGrid({
                   <td className="px-2 py-1 text-right"
                     title={r.ultra_score_reasons || (r.ultra_score != null ? `ULTRA ${r.ultra_score}` : '')}>
                     {r.ultra_score != null ? (
-                      <span className={`font-mono text-xs ${ultraScoreCls(r.ultra_score)}`}>{r.ultra_score}</span>
+                      <span className={`font-mono text-xs ${zoneCls(r.ultra_score, ZONES.ultra)}`}>{r.ultra_score}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>
                 )}
@@ -747,11 +771,7 @@ export default function ScannerDataGrid({
                     title={Array.isArray(r.ultra_score_v3_reasons) ? r.ultra_score_v3_reasons.join(' · ')
                       : (r.ultra_score_v3_reasons || (r.ultra_score_v3 != null ? `UV3 ${r.ultra_score_v3}` : ''))}>
                     {r.ultra_score_v3 != null && r.ultra_score_v3 !== '' ? (
-                      <span className={`font-mono text-xs ${
-                        r.ultra_score_v3_band === 'A' ? 'text-green-300 font-semibold'
-                        : r.ultra_score_v3_band === 'B' ? 'text-lime-300'
-                        : r.ultra_score_v3_band === 'C' ? 'text-amber-300'
-                        : 'text-md-on-surface-var/60'}`}>{r.ultra_score_v3}</span>
+                      <span className={`font-mono text-xs ${zoneCls(r.ultra_score_v3, ZONES.uv3)}`}>{r.ultra_score_v3}</span>
                     ) : <span className="text-gray-700">—</span>}
                   </td>
                 )}
@@ -923,10 +943,7 @@ export default function ScannerDataGrid({
                   title={r.prebreak_v2 != null ? `PreBreakout v2 = ${r.prebreak_v2} (≈breakout probability) · ${r.prebreak_v2_band}` : 'No v2 data'}>
                   {r.prebreak_v2 != null ? (
                     <div className="leading-none">
-                      <span className={`font-mono text-xs font-semibold ${
-                        r.prebreak_v2_band === 'BUY' ? 'text-green-300'
-                        : r.prebreak_v2_band === 'HOT' ? 'text-amber-300'
-                        : 'text-md-on-surface-var'}`}>{r.prebreak_v2}</span>
+                      <span className={`font-mono text-xs font-semibold ${zoneCls(r.prebreak_v2, ZONES.v2)}`}>{r.prebreak_v2}</span>
                       {r.prebreak_v2_band !== 'WATCH' && (
                         <div className={`text-[9px] opacity-80 ${r.prebreak_v2_band === 'BUY' ? 'text-green-300' : 'text-amber-300'}`}>
                           {r.prebreak_v2_band}
@@ -940,10 +957,7 @@ export default function ScannerDataGrid({
                 <td className="px-2 py-1 text-center"
                   title={r.prebreak_v3 ? `PreBreakout v3 = ${r.prebreak_v3}/50 · ${r.prebreak_v3_reasons || ''}` : 'No v3 signals'}>
                   {r.prebreak_v3 ? (
-                    <span className={`font-mono text-xs font-semibold ${
-                      r.prebreak_v3 >= 30 ? 'text-lime-300'
-                      : r.prebreak_v3 >= 18 ? 'text-yellow-300'
-                      : 'text-md-on-surface-var'}`}>{r.prebreak_v3}</span>
+                    <span className={`font-mono text-xs font-semibold ${zoneCls(r.prebreak_v3, ZONES.v3)}`}>{r.prebreak_v3}</span>
                   ) : <span className="text-gray-700">—</span>}
                 </td>
 
