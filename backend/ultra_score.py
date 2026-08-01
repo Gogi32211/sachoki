@@ -368,8 +368,17 @@ def compute_ultra_score(row: dict) -> dict:
 
     # ── A. Breakout / Trigger (cap 35) ──────────────────────────────────────
     a = 0
-    if "BUY_2809" in sigs: a += 20; reasons.append("BUY_2809")
-    if "ROCKET"   in sigs: a += 20; reasons.append("ROCKET")
+    # BUY_2809 +20 and ROCKET +20 REMOVED 2026-08-01 — the two largest bonuses left in this
+    # scheme after BB↑ (+15) fell, and both measured WORSE than baseline in the 46-signal
+    # league (path-sim $21-377, 6yr, baseline −0.73):
+    #   BUY_2809 (buy_here): median −1.05 / win 47.0 / 3-6yr / worst −6.4  (n=28,614)
+    #   ROCKET:              median −1.46 / win 46.2 / 3-6yr / worst −3.5  (n=3,651)
+    # That makes it 5 of 5 measured legacy weights empty or backwards (CCI0R, BB↑, SVS,
+    # BUY_2809, ROCKET). The MOMO+CAT combination bonus below still references them as
+    # category members — untouched, as with has_breakout_any: changing a combination's
+    # membership changes other bonuses' behaviour and needs its own measurement.
+    # if "BUY_2809" in sigs: a += 20
+    # if "ROCKET"   in sigs: a += 20
     # BB↑ weight REMOVED 2026-07-29 — measured for the first time and it is NEGATIVE:
     # path-sim $21-377, 6yr, n=18,514 → median −1.55 / win 46.1 / pf 1.05 vs a −0.63 baseline
     # (0.92pp WORSE), and the NOT-BB↑ half is −0.56. It was the largest single bonus in this

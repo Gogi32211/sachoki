@@ -672,7 +672,8 @@ const ROWS = [
       // Pullback / pivots
       if (s === 'LVBO')     return 'bg-sky-800 text-sky-100 font-semibold ring-1 ring-sky-400'
       if (s === 'WVF')      return 'bg-violet-900 text-violet-300 font-semibold'
-      if (s === 'W-PH')     return 'bg-teal-900 text-teal-200'
+      // measured league-worst (−7.90/pf 0.84) — red, not teal, since 2026-08-01
+      if (s === 'W-PH')     return 'bg-red-900 text-red-300'
       if (s === 'PEN')      return 'bg-rose-900/50 text-rose-300'
       // PREBREAK extra sub-signals (synced with ULTRA)
       if (s === 'PP+RTV')   return 'bg-yellow-900/60 text-yellow-200 font-semibold'

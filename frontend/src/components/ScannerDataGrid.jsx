@@ -291,7 +291,10 @@ export function collectSignals(r) {
   // Pullback-miner per-bar events
   if (r.pb_lvbo)         bull('LVBO', 7)
   if (r.pb_wvf_confirm)  bull('WVF', 6)
-  if (r.pb_stop_cause)   bull('W-PH', 6)
+  // W-PH flipped bull→bear 2026-08-01: measured as the WORST signal of the entire 46-chip
+  // league — median −7.90, win 37.3, pf 0.84, 3/6 years (n=3,189, path-sim $21-377). It was
+  // rendered green with priority 6, i.e. actively inviting. Kept visible as a warning.
+  if (r.pb_stop_cause)   bear('W-PH', 6)
   if (r.pb_macro_penalty) bear('PEN', 4)
   // Swing classification (HL/LL/HH/LH)
   const st = r.swing_type
