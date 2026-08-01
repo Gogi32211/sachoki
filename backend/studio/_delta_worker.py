@@ -27,13 +27,19 @@ os.environ["SACHOKI_BARS_ONLY"] = "1"
 
 def main():
     universes = json.loads(sys.argv[1]) if len(sys.argv) > 1 else ["sp500", "nasdaq"]
+    # optional argv[2]: ISO date — one-shot REPAIR mode. Bars with date >= refetch_from are
+    # OVERWRITTEN from a fresh fetch instead of append-only skipped. Needed 2026-08-01: the
+    # in-app 17:00-ET refresh (= 01:00 Tbilisi, colliding with the launchd nightly) wrote
+    # nasdaq's 07-31 bars from PRELIMINARY aggregates (RGTI closed 14.95/16.1M, stored
+    # 15.56/1.7M) and the nightly then skipped them as already-present.
+    refetch_from = sys.argv[2] if len(sys.argv) > 2 and sys.argv[2] not in ("", "null") else None
     tgt = os.environ.get("STUDIO_DB_PATH", "?")
-    print(f"[delta_worker] STUDIO_DB_PATH={tgt} universes={universes}", flush=True)
+    print(f"[delta_worker] STUDIO_DB_PATH={tgt} universes={universes} refetch_from={refetch_from}", flush=True)
 
     from studio.db import ensure_schema, get_conn
     from studio.incremental_delta import incremental_delta_refresh
     ensure_schema()
-    res = incremental_delta_refresh(universes=universes)
+    res = incremental_delta_refresh(universes=universes, refetch_from=refetch_from)
     try:
         from studio.backfill_fwd import backfill_forward_returns
         res["forward_backfill"] = backfill_forward_returns()

@@ -197,14 +197,23 @@ async def lifespan(app: FastAPI):
             except Exception as _e:
                 log.warning("Scheduled studio refresh failed: %s", _e)
 
-        scheduler.add_job(
-            _scheduled_studio_refresh,
-            CronTrigger(hour=17, minute=0, day_of_week="mon-fri"),
-            id="studio_daily_refresh",
-            replace_existing=True,
-            max_instances=1,
-            coalesce=True,
-        )
+        # DISABLED 2026-08-01. 17:00 ET is EXACTLY 01:00 Tbilisi in summer — this job
+        # collided with the launchd nightly (com.sachoki.dbupdate) every single night,
+        # and being first to fetch it stored PRELIMINARY aggregates: one hour after the
+        # close, small-cap consolidated volume is not final (RGTI 07-31: stored
+        # 15.56/1.7M vs the finalized 14.95/16.1M). The launchd delta then skipped those
+        # rows as already-present, leaving 34% of nasdaq's day partial and 693
+        # dual-universe tickers with two CONTRADICTORY bars — chart said T2G, matrix
+        # said Z5. The launchd nightly owns the daily refresh; it runs later, on
+        # finalized data, and covers russell2k too (this list never did).
+        # scheduler.add_job(
+        #     _scheduled_studio_refresh,
+        #     CronTrigger(hour=17, minute=0, day_of_week="mon-fri"),
+        #     id="studio_daily_refresh",
+        #     replace_existing=True,
+        #     max_instances=1,
+        #     coalesce=True,
+        # )
 
         # ── AI Journal daily cadence ────────────────────────────────────────
         # 15:30 ET: decide IN-SESSION (→ AT_DECISION fills, ~30 min before close).

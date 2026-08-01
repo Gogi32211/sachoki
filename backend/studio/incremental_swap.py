@@ -31,7 +31,7 @@ def _rm(*paths):
             pass
 
 
-def run_swap(universes: list[str]) -> dict:
+def run_swap(universes: list[str], refetch_from: str | None = None) -> dict:
     t0 = time.time()
     live, staging = ANALYTICS_DB, _STAGING
     if not os.path.exists(live):
@@ -44,7 +44,8 @@ def run_swap(universes: list[str]) -> dict:
     env = {**os.environ, "STUDIO_DB_PATH": staging}
     try:
         proc = subprocess.run(
-            [sys.executable, "-m", "studio._delta_worker", json.dumps(universes)],
+            [sys.executable, "-m", "studio._delta_worker", json.dumps(universes),
+             refetch_from or ""],
             cwd=BACKEND_DIR, env=env, capture_output=True, text=True, timeout=_TIMEOUT)
     except subprocess.TimeoutExpired:
         _rm(staging, staging + ".wal")

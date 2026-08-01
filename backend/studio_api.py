@@ -320,9 +320,11 @@ _incremental_results: dict = {}
 
 class IncrementalRequest(BaseModel):
     universes: list[str] = ["sp500", "nasdaq"]
+    # ISO date → REPAIR mode: overwrite bars from this date instead of append-only.
+    refetch_from: str | None = None
 
 
-def _run_incremental(universes: list[str]) -> None:
+def _run_incremental(universes: list[str], refetch_from: str | None = None) -> None:
     """Run the delta-append refresh with ZERO-DOWNTIME staging+swap.
 
     The delta append + enrich + forward-backfill now run in a SEPARATE process
@@ -335,7 +337,7 @@ def _run_incremental(universes: list[str]) -> None:
     _incremental_running = True
     try:
         from studio.incremental_swap import run_swap
-        _incremental_results = run_swap(universes)
+        _incremental_results = run_swap(universes, refetch_from=refetch_from)
         # fresh DB → drop the scan TTL memo so the Edge board shows new data immediately
         try:
             from scan_cache import invalidate as _inv
@@ -410,7 +412,7 @@ def trigger_incremental(req: IncrementalRequest, background_tasks: BackgroundTas
     global _incremental_running
     if _incremental_running:
         return {"status": "already_running"}
-    background_tasks.add_task(_run_incremental, req.universes)
+    background_tasks.add_task(_run_incremental, req.universes, req.refetch_from)
     return {"status": "started", "universes": req.universes}
 
 
