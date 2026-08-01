@@ -93,6 +93,7 @@ def _new_phase_dict() -> dict:
 def _set_phase(phase: str, state: str, message: str = "") -> None:
     with _ultra_lock:
         _ultra_state["phase"] = phase
+        _ultra_state["heartbeat"] = _time.time()   # liveness for the stale-watchdog
         ph = _ultra_state.setdefault("phases", _new_phase_dict())
         ph.setdefault(phase, {"state": "pending", "message": ""})
         ph[phase]["state"]   = state
@@ -234,6 +235,7 @@ def _generate_subset_csv_fresh(universe: str, tf: str, tickers: list[str],
         with _ultra_lock:
             _ultra_state["stock_stat_done"]  = done
             _ultra_state["stock_stat_total"] = total
+            _ultra_state["heartbeat"]        = _time.time()
 
     gen_min_price = 5.0 if universe == "nasdaq_gt5" else 0.0
     # generate_stock_stat writes CSV — route it through a sibling .csv path
@@ -631,6 +633,7 @@ def run_ultra_scan_job(
                             with _ultra_lock:
                                 _ultra_state["turbo_done"]  = p.get("done",  0)
                                 _ultra_state["turbo_total"] = p.get("total", 0)
+                                _ultra_state["heartbeat"]   = _time.time()
                         except Exception:
                             pass
                         _stop_poll.wait(timeout=1.0)
@@ -651,6 +654,7 @@ def run_ultra_scan_job(
                 with _ultra_lock:
                     _ultra_state["turbo_done"]  = prog.get("done", 0)
                     _ultra_state["turbo_total"] = prog.get("total", 0)
+                    _ultra_state["heartbeat"]   = _time.time()
                 turbo_rows = get_turbo_results(
                     limit=10000, min_score=0, direction="all",
                     tf=tf, universe=universe,
@@ -1027,6 +1031,7 @@ def run_ultra_enrich_job(
             patches[ticker] = patch
         with _ultra_lock:
             _ultra_state["enrich_done"] += 1
+            _ultra_state["heartbeat"] = _time.time()
 
     _patch_cached_rows(universe, tf, nasdaq_batch, patches,
                        fresh_warnings, src_sources, phase="enrich_done")
@@ -1183,15 +1188,24 @@ def get_ultra_status() -> dict:
     "Another ULTRA scan is in progress" error from getting stuck when a
     background task dies silently (OOM kill, worker restart, etc.).
     """
-    STALE_TIMEOUT_S = 600  # 10 minutes with no progress → assume dead
+    STALE_TIMEOUT_S = 600  # 10 minutes with no HEARTBEAT → assume dead
+    # 2026-08-01: this used to compare against started_at — wall-clock since the scan BEGAN —
+    # so any healthy scan longer than 10 minutes was declared dead mid-flight. sp500 (~600
+    # tickers) always fit; nasdaq/russell2k (3-5k tickers, 10-17 min) were killed at 604s,
+    # update_db.sh then saw running=False and triggered the next universe CONCURRENTLY, the
+    # two scans collided on sqlite ("database is locked") and the nightly published stale or
+    # partial snapshots three nights running. The docstring always said "no progress"; now
+    # the code finally measures progress: every progress site stamps _ultra_state["heartbeat"]
+    # (turbo poller each second, stock_stat, enrich, phase changes). 600s of true heartbeat
+    # silence means genuinely dead.
     with _ultra_lock:
         snap = dict(_ultra_state)
         if snap.get("running"):
-            started = snap.get("started_at") or 0.0
+            started = snap.get("heartbeat") or snap.get("started_at") or 0.0
             if started > 0 and (_time.time() - started) > STALE_TIMEOUT_S:
                 # No progress for too long — clear stuck state
                 log.warning("ULTRA: auto-clearing stale running state "
-                            "(started %.0fs ago, no completion signal)",
+                            "(last heartbeat %.0fs ago, no completion signal)",
                             _time.time() - started)
                 _ultra_state["running"]      = False
                 _ultra_state["completed_at"] = _time.time()
