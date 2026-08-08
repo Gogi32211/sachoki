@@ -14,7 +14,23 @@ from dataclasses import dataclass, field
 @dataclass
 class PortfolioConfig:
     capital: float = 10_000.0
-    max_total_risk_pct: float = 0.06    # sum of open risks <= 6% of capital (=> ~6 full-risk slots)
+    # 2026-08-07 PORTFOLIO SIMULATION (portfolio_sim2.py) — the first test of this layer.
+    # The board fires ~114 times/day (p90 308) and the median hold under the ATR exit is 60
+    # bars, so slot count — not signal quality — is the binding constraint: at the old 6%
+    # cap the account took 61 trades in 5 YEARS, i.e. 0.03% of fires. Simulated slot sweep
+    # (equal-weight slots, best-edge-first, mark-to-market curve):
+    #     3 slots  CAGR +14.8%  maxDD -55.6%  Sharpe 0.57   (the old envelope)
+    #     5        +15.0        -40.0         0.71
+    #     8        +18.6        -25.0         1.02          <- both better
+    #    10        +17.1        -29.8
+    #    20        +11.1        -33.8         0.94
+    #    50         +7.7        -33.0         0.89
+    # 8-10 concurrent raises return AND halves drawdown — pure diversification, the one
+    # place both move the right way. 2022 alone: -49.4% at 3 slots vs -28.0% at 10.
+    # ⚠ per-trade worst-years (-1..-3%) CANNOT see this: correlated drawdown is invisible
+    # to a per-trade statistic. ⚠ the sim used equal-weight slots, not risk-based sizing,
+    # so this maps the SLOT COUNT, not the exact dollar geometry.
+    max_total_risk_pct: float = 0.10    # sum of open risks <= 10% of capital (=> ~10 full-risk slots)
     max_gross_pct: float = 1.00         # gross exposure <= 100% (cash account, no leverage)
     max_sector_pct: float = 0.40        # <= 40% of capital in one sector
     cash_reserve_pct: float = 0.10      # keep >= 10% cash

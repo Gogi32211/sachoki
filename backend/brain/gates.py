@@ -90,6 +90,20 @@ def _vol_extreme(st):
     return False, 1.0, "no vol-extreme suppressor"
 
 
+def _vspike(st):
+    # 💥 15m volume concentration (project_volume_magnitude, vspike_all_signals.py): the
+    # session's biggest 15m bar ÷ session average. ≥4× improves the median of ALL 29 TZ/L
+    # codes (Δ +0.28..+0.76, zero exceptions); its absence weakens every one. The severe
+    # tail (<2.5×, ~3% of days) is already a hard veto in gate_no_vol_event — this gate
+    # covers the 2.5-4× MIDDLE band, whose per-edge size effect is NOT calibrated, so it
+    # REPORTS and does not resize (the gates' own no-invented-numbers rule).
+    if st["iv_vspike"]:
+        return False, 1.0, ("≥4× 15m volume event — the precondition the whole TZ/L system "
+                            "needs (universal, 29/29 codes)")
+    return False, 1.0, ("⚠ no ≥4× 15m event (middle band 2.5-4×): every code measured weaker "
+                        "without it — REPORTED ONLY, size effect not yet calibrated")
+
+
 # ── UNCALIBRATED states (2026-07-30) ───────────────────────────────────────────────────
 # These three carry a MEASURED sign but no measured SIZE. "NOT-CONSO is −3.67" is a fact;
 # "therefore trade 55% of the position" is a number I invented from the median, and so were
@@ -134,15 +148,125 @@ def _mtf(st):
     return False, 1.1, "confirmed on a lower timeframe"
 
 
+def _t1nb(st):
+    # 🕯️ T1+NB indecision bar (2026-08-03 suffix study): a no-effort, both-wick T1 close
+    # measured −1.24pp vs other T1 bars, sign 6/6 YEARS (n=2,323) — gapless indecision means
+    # nothing happened; the drift continues. REPORT-ONLY: the delta was measured on raw T1
+    # bars, not on edge fires — the transfer is informational until measured on fires.
+    # (Mirror: the SAME suffix on a gap bar, T1G+NB, is a POSITIVE — absorbed-and-held gap.)
+    if st["t1_nb"]:
+        return False, 1.0, ("⚠ today's bar is T1+NB (no-effort indecision): −1.24pp vs other "
+                            "T1, 6/6 years — REPORTED ONLY")
+    return False, 1.0, "no T1+NB indecision state"
+
+
+def _earnings(st):
+    # 📅 post-report window (2026-08-03 EDGAR study, pre-registered criteria PASSED):
+    # an edge fire ≤5 days AFTER a report event underperforms its complement by −1.17pp with
+    # the sign holding 6/6 YEARS (n=5,731) — the post-report information vacuum starves
+    # mean-reversion setups. Absolute median is still positive in 2023-26 (+0.7..+5.2), so
+    # this REPORTS rather than vetoes; the ⚠ reaches the Opus decider. The PRE side of the
+    # same study is NOT acted on: the cadence predictor's median error is 33 days — noise.
+    d = int(st["days_since_report"])
+    if d <= 5:
+        return False, 1.0, (f"⚠ {d}d after a SEC report event: post-report fires −1.17pp vs "
+                            f"complement, 6/6 years — REPORTED ONLY (absolute median still "
+                            f"positive in bull years)")
+    return False, 1.0, f"{d}d since last report event — outside the post-report window"
+
+
+def _gex(st):
+    # 💠 GEX / options context (2026-08-03): net dealer gamma + VRP from the nightly forward
+    # log (project_gex_options). REPORT-ONLY BY CONSTRUCTION: the log started 2026-07-22 —
+    # days of history, no validation possible yet. The pre-registered study (negative-gamma
+    # entry Δ≥1.0pp · high-VRP forward drag) runs when the log reaches ~4-6 months. The ⚠
+    # notes flow into the Opus decider's context, which may weigh but not resize them.
+    net = float(st["gex_net"])
+    vrp = st.get("gex_vrp")
+    vtxt = f", VRP {vrp:+.1f}" if isinstance(vrp, (int, float)) else ""
+    if net < 0:
+        return False, 1.0, (f"⚠ NEGATIVE net GEX ({net:,.0f}{vtxt}): dealers amplify moves "
+                            f"(accelerant zone) — FORWARD-ONLY log, not calibrated, no resize")
+    return False, 1.0, f"positive net GEX ({net:,.0f}{vtxt}): dealers dampen moves"
+
+
+def _h1dr(st):
+    # 🕐 1H dual-reclaim (project_oscillator_divergence_reclaim): the 2nd UNIVERSAL booster —
+    # improved 52 of 63 setups by +1.34pp median, period-matched. BOOST-only by design:
+    # it fires ~0.42×/ticker-year, so its ABSENCE is the norm and must not be a haircut.
+    # ×1.1 is deliberately conservative (+1.34pp on a +2pp edge would justify far more) —
+    # boosters lift modestly, suppressors cut hard; MAX_MULT caps the stack anyway.
+    if st["h1_dr"]:
+        return False, 1.1, "1H dual-reclaim printed on D or D-1 (+1.34pp booster, 52/63 setups)"
+    return False, 1.0, "no 1H dual-reclaim (normal — not a suppressor)"
+
+
+def _sector_lag(st):
+    # 🥇 LEAD-in-LAG (2026-08-06, user's own hypothesis, validated per-edge): rs_intact says
+    # the STOCK is strong vs its sector; this adds that the SECTOR is weak vs SPY (20d
+    # relative < −1%). A leader inside a laggard group. Four-quadrant gradient on the pooled
+    # reversal family (n=217k): strong×lagging +3.61 6/6yr worst +1.29 · strong×leading +2.38
+    # · weak×lagging +1.60 4/6yr · weak×leading +0.91 4/6yr worst −4.08 — monotone, so it is
+    # a 2-D effect and not one lucky cell. Per-edge: median lift 7/7 edges, SR lift 7/7, and
+    # DSR crosses 0.000 → 0.88-0.95 on G3 / G3-Abs / L43 (the three built as own variants).
+    # ×1.15 — larger than the 1H-DR booster because the lift is +2.0pp median, not +1.34pp,
+    # and it carries a worst-year improvement too. MAX_MULT still caps the stack.
+    # ⚠ EXEMPT: it DEGRADES D+L1 (3/5 years, worst −3.88) — see _LEAD_EXEMPT.
+    if st["lead_in_lag"]:
+        return False, 1.15, ("🥇 leader-in-laggard: stock strong vs its sector AND the sector "
+                             "lagging SPY (+2.0pp median, 7/7 edges, DSR 0.00→0.9 on G3/G3A/L43)")
+    return False, 1.0, "not a leader-in-laggard configuration (normal — not a suppressor)"
+
+
+def _macro_vix(st):
+    # 🌡️ macro VIX-up (2026-08-06): VIXY 5d change > +3% and NOT a vspike day — the 210
+    # sessions (68% of rising-VIX days) that the existing 15m vspike gate cannot see.
+    # REPORT-ONLY BY MEASUREMENT: it does NOT move Sharpe (DSR lift 0/7 edges), so it must
+    # never resize. What it DOES do is convert 5/6 → 6/6 positive years with a POSITIVE
+    # worst year on QZC (−0.09→+0.59), G3 (−0.45→+1.57), WSH (−2.79→+0.89), G3-Abs
+    # (−0.92→+1.77) — a stabiliser, not an amplifier. ⚠ it HURTS L43 (worst +2.27→−5.71).
+    # Rationale: reversal setups need something to revert FROM; rising fear supplies it.
+    if st["macro_vix_up"]:
+        return False, 1.0, ("✔ VIX rising (5d >+3%) outside a panic spike: reversal edges run "
+                            "5/6→6/6 positive years here — REPORTED ONLY, no resize")
+    return False, 1.0, "VIX not rising outside a spike"
+
+
+def _adx_trend(st):
+    # 📐 ADX TREND-UP suppressor (2026-08-07, from the user's Pine port; the script's own
+    # hypothesis was the opposite and is REFUTED). ADX>=25 with DI+>DI− is the WORST regime
+    # for this book — for BOTH families, because our whole book buys ABSORBED WEAKNESS, not
+    # strength (what we call "momentum" — G3 gap-reclaim, Atomic weak-close gap-up, L43 — is
+    # reversion-flavoured too). Measured on the ATR exit:
+    #   reversal family base +1.87 → TREND-UP −0.83 (2/6yr, n=703 thin)
+    #   momentum family base +1.86 → TREND-UP −0.03 (3/6yr, worst −5.81, n=10,242)
+    #   per-edge on TREND-UP: QZC −3.25 · D+L1 −2.08 · ATM −1.38
+    # REPORT-ONLY: every DSR in the study was 0.000, so this must never resize. It is
+    # context for the Opus decider — "the fire is in the one regime our book dislikes".
+    # NOT a duplicate of gate_hurst_rough: agreement only 63.5%, corr(adx,hurst) +0.20.
+    if st["adx_trend_up"]:
+        return False, 1.0, ("⚠ ADX TREND-UP (ADX≥25, DI+>DI−): the book's WEAKEST regime — "
+                            "reversal −2.7pp / momentum −1.9pp vs their own base — REPORTED ONLY")
+    return False, 1.0, "not in an ADX strong-uptrend regime"
+
+
 GATES: list[Gate] = [
     Gate("gate_season_decmar", "🗓️ Dec-Mar season suppressor", ("month",), _season),
     Gate("gate_sub200", "⛔ Sub-200 bear-rally", ("close", "e200", "e9", "e20", "e50"), _sub200),
     Gate("gate_no_vol_event", "⛔ No intraday volume event", ("no_vol_event",), _vol_event),
+    Gate("gate_vspike", "💥 15m volume concentration", ("iv_vspike",), _vspike),
     Gate("gate_vol_adjacency", "⛔ Vol-extreme / bias-dn veto", ("vol_extreme",), _vol_extreme),
     Gate("gate_mtf", "🕐 MTF confirmation", ("mtf_echo",), _mtf),
+    Gate("gate_h1dr", "🕐 1H dual-reclaim booster", ("h1_dr",), _h1dr),
+    Gate("gate_gex", "💠 GEX context", ("gex_net",), _gex),
+    Gate("gate_earnings", "📅 Post-report window", ("days_since_report",), _earnings),
+    Gate("gate_t1nb", "🕯️ T1+NB indecision", ("t1_nb",), _t1nb),
     Gate("gate_hurst_rough", "🌀 Path roughness (Hurst)", ("hurst",), _hurst),
     Gate("gate_conso_compression", "❄️ Compression state", ("conso",), _conso),
     Gate("gate_rs", "🏆 RS integrity", ("rs_intact",), _rs),
+    Gate("gate_sector_lag", "🥇 Leader-in-laggard", ("lead_in_lag",), _sector_lag),
+    Gate("gate_macro_vix", "🌡️ Macro VIX-up", ("macro_vix_up",), _macro_vix),
+    Gate("gate_adx_trend", "📐 ADX trend-up regime", ("adx_trend_up",), _adx_trend),
 ]
 
 # Setups whose own definition REQUIRES range expansion — the compression gate measured
@@ -151,12 +275,24 @@ _CONSO_EXEMPT = {"engulfabs", "engulf_absorb_rev", "l43triple", "g3abs"}
 # Wyckoff Spring is the one documented setup that prefers a SMOOTH path (+0.11→+1.58 with
 # H>0.55) and is HURT by roughness (−0.57): a shakeout inside a controlled range.
 _HURST_EXEMPT = {"spring", "wyckoff_spring"}
+# 🥇 the leader-in-laggard boost measured NEGATIVE on D+L1 (3/5 years, worst −3.88)
+# and the 🌡️ VIX-up context measured negative on L43 (worst +2.27 → −5.71).
+_LEAD_EXEMPT = {"dl1", "d_l1_reversal"}
+_VIXUP_EXEMPT = {"l43triple", "l43triple_quiet"}
 
 
 def evaluate(state: dict, edge_id: str = "") -> dict:
     """Run every applicable gate. Returns {veto, reason, mult, checks[], applied, abstained}."""
     checks, mult = [], 1.0
     for g in GATES:
+        if g.fid == "gate_sector_lag" and edge_id in _LEAD_EXEMPT:
+            checks.append({"id": g.fid, "title": g.title, "applicable": False, "veto": False,
+                           "mult": 1.0, "note": f"exempt — measured negative on {edge_id}"})
+            continue
+        if g.fid == "gate_macro_vix" and edge_id in _VIXUP_EXEMPT:
+            checks.append({"id": g.fid, "title": g.title, "applicable": False, "veto": False,
+                           "mult": 1.0, "note": f"exempt — measured negative on {edge_id}"})
+            continue
         if g.fid == "gate_conso_compression" and edge_id in _CONSO_EXEMPT:
             checks.append({"id": g.fid, "title": g.title, "applicable": False, "veto": False,
                            "mult": 1.0, "note": f"exempt — {edge_id} requires range expansion"})

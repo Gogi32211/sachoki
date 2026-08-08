@@ -82,5 +82,281 @@
     "ticker": "RMBS",
     "observation": "stopped_out / edge_miss (-10.46%, -1.0R)",
     "action": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-07-29",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 2
+  },
+  {
+    "date": "2026-07-29",
+    "kind": "revalidate_run",
+    "observation": "all 43 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-29",
+    "kind": "trade_autopsy",
+    "edge": "gem1_capbounce",
+    "ticker": "QS",
+    "observation": "stopped_out / edge_miss (-5.41%, -1.0R)",
+    "action": "single loss within gem1_capbounce's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-07-30",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 3
+  },
+  {
+    "date": "2026-07-30",
+    "kind": "revalidate_run",
+    "observation": "all 43 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-07-30",
+    "kind": "trade_autopsy",
+    "edge": "z11t11",
+    "ticker": "GRRR",
+    "observation": "stopped_out / edge_miss (-14.96%, -1.0R)",
+    "action": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-07-30",
+    "kind": "trade_autopsy",
+    "edge": "g3abs",
+    "ticker": "AAUC",
+    "observation": "stopped_out / edge_miss (-5.66%, -1.0R)",
+    "action": "single loss within g3abs's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-07-31",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 5
+  },
+  {
+    "date": "2026-07-31",
+    "kind": "revalidate_run",
+    "observation": "all 43 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-01",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 5
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "SKYT",
+    "observation": "fill_price: What price did you actually fill SKYT? (plan was $30.72)",
+    "action": "answer: $30.72 (corrected SKYT fill to $30.72)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "SKYT",
+    "observation": "catalyst: Does SKYT have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat SKYT (small-cap semiconductor foundry, historically high earnings gap risk) as elevated risk; assume an earnings event may fall before the $33.18 target and size/stop accordingly, or flatten ahead of any suspected report. (noted catalyst on SKYT)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "MAR",
+    "observation": "fill_price: What price did you actually fill MAR? (plan was $364.47)",
+    "action": "answer: $364.47 (corrected MAR fill to $364.47)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "MAR",
+    "observation": "catalyst: Does MAR have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — cannot confirm an earnings date or catalyst from available data. Policy: Marriott is a large-cap with a regular quarterly report; treat the holding period toward $393.63 as potentially spanning an earnings week and manage as elevated risk. (noted catalyst on MAR)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "UAL",
+    "observation": "fill_price: What price did you actually fill UAL? (plan was $115.34)",
+    "action": "answer: $115.34 (corrected UAL fill to $115.34)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "UAL",
+    "observation": "catalyst: Does UAL have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst verifiable here. Policy: airlines carry both scheduled quarterly results and unscheduled catalysts (fuel, guidance updates, traffic data); treat the run to $124.56 as elevated risk. (noted catalyst on UAL)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "EQX",
+    "observation": "fill_price: What price did you actually fill EQX? (plan was $9.29)",
+    "action": "answer: $9.29 (corrected EQX fill to $9.29)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "EQX",
+    "observation": "catalyst: Does EQX have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — cannot confirm earnings or a catalyst date. Policy: gold miner with 1-share position (negligible risk); note that quarterly results and production/gold-price moves can gap it, so treat as elevated risk without assuming a date. (noted catalyst on EQX)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "QS",
+    "observation": "fill_price: What price did you actually fill QS? (plan was $5.17)",
+    "action": "answer: $5.17 (corrected QS fill to $5.17)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "QS",
+    "observation": "catalyst: Does QS have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst confirmable from this data. Policy: pre-revenue battery developer, historically headline- and earnings-sensitive; treat any period toward $6.01 as elevated risk and keep the $4.75 stop firm. (noted catalyst on QS)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "SD",
+    "observation": "fill_price: What price did you actually fill SD? (plan was $13.63)",
+    "action": "answer: $13.63 (corrected SD fill to $13.63)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "SD",
+    "observation": "catalyst: Does SD have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — cannot confirm earnings or a catalyst date. Policy: small-cap E&P with commodity and quarterly-report exposure; treat the window to $14.73 as elevated risk rather than assuming a clear calendar. (noted catalyst on SD)"
+  },
+  {
+    "date": "2026-08-03",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": null,
+    "observation": "outcome_logging: Log your closed trades (take/close in the book) so I can learn from real outcomes.",
+    "action": "answer: No closed trades exist yet — the paper book is empty ([]), so there are zero entries, zero exits, and no realized outcomes to learn from. Nothing can be logged at this time. Policy going forward: once a position is opened in the paper book, the fill is recorded at the plan entry price, and on close I will log ticker, direction, entry price, exit price, exit reason (target / stop / time-stop / thesis change), holding period, and P&L in R-multiples. Until at least one round-trip is recorded, any outcome statistics, win rate, or expectancy would be fabricated and must not be reported."
+  },
+  {
+    "date": "2026-08-04",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-04",
+    "kind": "revalidate_run",
+    "observation": "all 43 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "revalidate_run",
+    "observation": "all 50 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "BWA",
+    "observation": "fill_price: What price did you actually fill BWA? (plan was $63.04)",
+    "action": "answer: 63.04 (corrected BWA fill to $63.04)"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "BWA",
+    "observation": "catalyst: Does BWA have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst calendar is available in the paper book, and I cannot confirm external dates. Policy: treat any earnings window as elevated risk (size already set, honor the $59.77 stop; consider no adds into an unconfirmed print). (noted catalyst on BWA)"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "NKE",
+    "observation": "fill_price: What price did you actually fill NKE? (plan was $41.53)",
+    "action": "answer: 41.53 (corrected NKE fill to $41.53)"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "NKE",
+    "observation": "catalyst: Does NKE have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — I have no earnings calendar in this dataset and cannot confirm external dates. Policy: assume an earnings/guidance event could land before the $44.85 target and treat that week as elevated risk; keep the $39.87 stop firm and do not add. (noted catalyst on NKE)"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "NEXT",
+    "observation": "fill_price: What price did you actually fill NEXT? (plan was $6.52)",
+    "action": "answer: 6.52 (corrected NEXT fill to $6.52)"
+  },
+  {
+    "date": "2026-08-05",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "NEXT",
+    "observation": "catalyst: Does NEXT have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no catalyst or earnings information is contained in the paper book and I cannot verify external filings. Policy: for a low-priced, higher-volatility name, assume event risk is possible before the $7.54 target; hold the $6.01 stop and avoid increasing exposure on unconfirmed news. (noted catalyst on NEXT)"
+  },
+  {
+    "date": "2026-08-06",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-06",
+    "kind": "revalidate_run",
+    "observation": "all 51 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-07",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-07",
+    "kind": "revalidate_run",
+    "observation": "all 54 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-08",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-08",
+    "kind": "revalidate_run",
+    "observation": "all 54 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-08",
+    "kind": "combo_mined",
+    "observation": "searched 314 combos, 4 passed OOS gate (family PBO 0.114)",
+    "action": "promoted 4: M_z9hl_conf_anyfam, M_z1gt36_m15_zdom, M_z1gcrown_key_level, M_z1gcrown_m15_zdom"
   }
 ]

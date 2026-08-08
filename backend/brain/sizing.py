@@ -16,7 +16,11 @@ class SizingConfig:
     capital: float = 10_000.0        # account base
     risk_pct: float = 0.01           # risk per trade = 1% = $100
     min_rr: float = 1.5              # reject if reward:risk below this
-    max_pos_pct: float = 0.25        # cap one position at 25% of capital (small account)
+    # 0.25 was set for a ~3-6 slot book; with the 2026-08-07 envelope targeting 8-10
+    # concurrent (portfolio.py), a single 25% position would defeat the diversification
+    # that made 8 slots better than 3 on BOTH return and drawdown. 0.12 keeps ~8 positions
+    # inside the 90% deployable cash with room to spare.
+    max_pos_pct: float = 0.12        # cap one position at 12% of capital
     liq_cap_pct: float = 0.01        # cap size at 1% of ADV (dollar) to avoid impact
     watch_mult: float = 0.5          # watch-tier edges trade at half size
     high_vol_atr: float = 0.08       # ATR% above this -> downsize

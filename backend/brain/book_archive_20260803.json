@@ -1,0 +1,486 @@
+{
+  "starting_capital": 10000.0,
+  "peak_equity": 10000.0,
+  "positions": [
+    {
+      "ticker": "SKYT",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 81,
+      "entry": 30.72,
+      "stop": 29.49,
+      "target": 33.18,
+      "sector": "Technology",
+      "risk_dollars": 99.63,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['washout'])",
+        "sizing: 81sh (stop structural (base low) 4%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 81sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2488.32,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:WSH",
+        "EDGE:ZRT",
+        "EDGE:🎯3",
+        "EDGE:🎯4"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat SKYT (small-cap semiconductor foundry, historically high earnings gap risk) as elevated risk; assume an earnings event may fall before the $33.18 target and size/stop accordingly, or flatten ahead of any suspected report."
+    },
+    {
+      "ticker": "MAR",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 6,
+      "entry": 364.47,
+      "stop": 349.89,
+      "target": 393.63,
+      "sector": "Consumer Discretionary",
+      "risk_dollars": 87.48,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['g3_gap', 'g3abs', 'highbase15'])",
+        "sizing: 6sh (stop structural (base low) 4%, risk 0.9%, R:R 2.0, x1.0) -> regime x1.0 = 6sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2186.82,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:ZRT",
+        "EDGE:HB15",
+        "EDGE:🎯3",
+        "EDGE:🎯4"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — cannot confirm an earnings date or catalyst from available data. Policy: Marriott is a large-cap with a regular quarterly report; treat the holding period toward $393.63 as potentially spanning an earnings week and manage as elevated risk."
+    },
+    {
+      "ticker": "UAL",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 21,
+      "entry": 115.34,
+      "stop": 110.73,
+      "target": 124.56,
+      "sector": "Industrials",
+      "risk_dollars": 96.81,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['g3_gap', 'g3abs'])",
+        "sizing: 21sh (stop structural (base low) 4%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 21sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 2422.14,
+      "fingerprint": [
+        "T12",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:Z11",
+        "EDGE:🎯3"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst verifiable here. Policy: airlines carry both scheduled quarterly results and unscheduled catalysts (fuel, guidance updates, traffic data); treat the run to $124.56 as elevated risk."
+    },
+    {
+      "ticker": "EQX",
+      "edge": "g3_gap",
+      "edge_title": "G3 gap reclaim",
+      "tier": "core",
+      "shares": 1,
+      "entry": 9.29,
+      "stop": 8.44,
+      "target": 10.99,
+      "sector": "",
+      "risk_dollars": 0.85,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: G3 gap reclaim [core] (also: [])",
+        "sizing: 117sh (stop structural (base low) 9%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 117sh",
+        "portfolio: x0.01 (cash binding) -> 1sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 9.29,
+      "fingerprint": [
+        "T5",
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:ATM",
+        "EDGE:G3²",
+        "EDGE:G3L46",
+        "EDGE:ZRT"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — cannot confirm earnings or a catalyst date. Policy: gold miner with 1-share position (negligible risk); note that quarterly results and production/gold-price moves can gap it, so treat as elevated risk without assuming a date."
+    },
+    {
+      "ticker": "QS",
+      "edge": "gem1_capbounce",
+      "edge_title": "T1 Capitulation-Bounce (GEM1)",
+      "tier": "core",
+      "shares": 179,
+      "entry": 5.17,
+      "stop": 4.75,
+      "target": 6.01,
+      "sector": "Industrials",
+      "risk_dollars": 75.18,
+      "opened": "2026-07-28",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: T1 Capitulation-Bounce (GEM1) [core] (also: [])",
+        "sizing: 238sh (stop structural (base low) 8%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 238sh",
+        "portfolio: x0.756 (cash binding) -> 179sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 925.43,
+      "fingerprint": [
+        "L4",
+        "L6",
+        "ev_l43",
+        "NOT_EXT",
+        "T10",
+        "L46",
+        "EDGE:CAP",
+        "EDGE:WSH🔎"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst confirmable from this data. Policy: pre-revenue battery developer, historically headline- and earnings-sensitive; treat any period toward $6.01 as elevated risk and keep the $4.75 stop firm."
+    },
+    {
+      "ticker": "SD",
+      "edge": "gem1_capbounce",
+      "edge_title": "T1 Capitulation-Bounce (GEM1)",
+      "tier": "core",
+      "shares": 71,
+      "entry": 13.63,
+      "stop": 13.08,
+      "target": 14.73,
+      "sector": "Energy",
+      "risk_dollars": 39.05,
+      "opened": "2026-07-29",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: T1 Capitulation-Bounce (GEM1) [core] (also: [])",
+        "sizing: 90sh (stop structural (base low) 4%, risk 0.5%, R:R 2.0, x0.5) -> regime x1.0 = 90sh",
+        "portfolio: x0.789 (cash binding) -> 71sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 967.73,
+      "fingerprint": [
+        "T1",
+        "L3",
+        "NOT_EXT",
+        "G11",
+        "EDGE:CAP",
+        "EDGE:ZRT",
+        "EDGE:G3",
+        "EDGE:ATM",
+        "EDGE:G3²",
+        "EDGE:G3L46"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — cannot confirm earnings or a catalyst date. Policy: small-cap E&P with commodity and quarterly-report exposure; treat the window to $14.73 as elevated risk rather than assuming a clear calendar."
+    }
+  ],
+  "closed": [
+    {
+      "ticker": "AAL",
+      "edge": "coil_floor",
+      "shares": 169,
+      "entry": 14.79,
+      "stop": 14.2,
+      "target": 15.97,
+      "sector": "Industrials",
+      "risk_dollars": 99.71,
+      "opened": "2026-07-22",
+      "position_value": 2499.51,
+      "exit": 14.79,
+      "pnl": 0.0,
+      "closed": "2026-07-24",
+      "reason": "",
+      "analysis": {
+        "verdict": "weak_exit",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": 0.0,
+        "r_multiple": 0.0,
+        "planned_rr": 2.0,
+        "edge": "coil_floor",
+        "edge_title": "Coil-Floor Absorption",
+        "tier": "core",
+        "expected": {
+          "median": 2.69,
+          "win": 56,
+          "pf": 1.81
+        },
+        "factors": [
+          "planned R:R 2.0 · realized +0.00R",
+          "edge base median +2.69% (this trade +0.00%)",
+          "edge base win 56% — losses are expected 44% of the time",
+          "one loss inside a 56%-win edge — within base rate, not a broken edge"
+        ],
+        "lesson": "single loss within coil_floor's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    },
+    {
+      "ticker": "RMBS",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 9,
+      "entry": 103.19,
+      "stop": 92.4,
+      "target": 124.77,
+      "sector": "Technology",
+      "risk_dollars": 97.11,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
+        "sizing: 9sh (stop structural (base low) 10%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 9sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 928.71,
+      "fingerprint": [
+        "T11",
+        "L2",
+        "L5",
+        "NOT_EXT",
+        "L25",
+        "EDGE:Z11",
+        "EDGE:M_z11t11_m15_zdom",
+        "EDGE:ATM"
+      ],
+      "exit": 92.4,
+      "pnl": -97.11,
+      "closed": "2026-07-28",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -10.46,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "z11t11",
+        "edge_title": "Z11-T11",
+        "tier": "core",
+        "expected": {
+          "median": 8.01,
+          "win": 75,
+          "pf": null
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +8.01% (this trade -10.46%)",
+          "edge base win 75% — losses are expected 25% of the time",
+          "one loss inside a 75%-win edge — within base rate, not a broken edge"
+        ],
+        "lesson": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    },
+    {
+      "ticker": "QS",
+      "edge": "gem1_capbounce",
+      "edge_title": "T1 Capitulation-Bounce (GEM1)",
+      "tier": "core",
+      "shares": 179,
+      "entry": 5.18,
+      "stop": 4.9,
+      "target": 5.74,
+      "sector": "Industrials",
+      "risk_dollars": 50.12,
+      "opened": "2026-07-27",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: T1 Capitulation-Bounce (GEM1) [core] (also: ['washout'])",
+        "sizing: 357sh (stop structural (base low) 5%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 357sh",
+        "portfolio: x0.503 (cash binding) -> 179sh"
+      ],
+      "regime_risk_mult": 1.0,
+      "position_value": 927.22,
+      "fingerprint": [
+        "T1",
+        "L3",
+        "NOT_EXT",
+        "G11",
+        "EDGE:CAP",
+        "EDGE:WSH"
+      ],
+      "exit": 4.9,
+      "pnl": -50.12,
+      "closed": "2026-07-29",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -5.41,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "gem1_capbounce",
+        "edge_title": "T1 Capitulation-Bounce (GEM1)",
+        "tier": "core",
+        "expected": {
+          "median": 5.43,
+          "win": null,
+          "pf": 2.32
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +5.43% (this trade -5.41%)"
+        ],
+        "lesson": "single loss within gem1_capbounce's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    },
+    {
+      "ticker": "GRRR",
+      "edge": "z11t11",
+      "edge_title": "Z11-T11",
+      "tier": "core",
+      "shares": 53,
+      "entry": 12.57,
+      "stop": 10.69,
+      "target": 16.33,
+      "sector": "",
+      "risk_dollars": 99.64,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: Z11-T11 [core] (also: ['M_z11t11_m15_zdom'])",
+        "sizing: 53sh (stop structural (base low) 15%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 53sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 666.21,
+      "fingerprint": [
+        "T11",
+        "L2",
+        "L5",
+        "w2_accum",
+        "NOT_EXT",
+        "L25",
+        "EDGE:Z11",
+        "EDGE:M_z11t11_m15_zdom"
+      ],
+      "exit": 10.69,
+      "pnl": -99.64,
+      "closed": "2026-07-30",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -14.96,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "z11t11",
+        "edge_title": "Z11-T11",
+        "tier": "core",
+        "expected": {
+          "median": 8.01,
+          "win": 75,
+          "pf": null
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +8.01% (this trade -14.96%)",
+          "edge base win 75% — losses are expected 25% of the time",
+          "one loss inside a 75%-win edge — within base rate, not a broken edge"
+        ],
+        "lesson": "single loss within z11t11's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    },
+    {
+      "ticker": "AAUC",
+      "edge": "g3abs",
+      "edge_title": "⚡G3-Abs",
+      "tier": "core",
+      "shares": 14,
+      "entry": 21.22,
+      "stop": 20.02,
+      "target": 23.62,
+      "sector": "",
+      "risk_dollars": 16.8,
+      "opened": "2026-07-23",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: ⚡G3-Abs [core] (also: ['g3_gap'])",
+        "sizing: 83sh (stop structural (base low) 6%, risk 1.0%, R:R 2.0, x1.0) -> regime x1.0 = 83sh",
+        "portfolio: x0.175 (cash binding) -> 14sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 297.08,
+      "fingerprint": [
+        "T12",
+        "L5",
+        "NOT_EXT",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:🎯3",
+        "EDGE:🎯4",
+        "EDGE:WSH",
+        "EDGE:ZRT"
+      ],
+      "exit": 20.02,
+      "pnl": -16.8,
+      "closed": "2026-07-30",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -5.66,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "g3abs",
+        "edge_title": "⚡G3-Abs",
+        "tier": "core",
+        "expected": {
+          "median": 4.24,
+          "win": null,
+          "pf": 1.83
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +4.24% (this trade -5.66%)"
+        ],
+        "lesson": "single loss within g3abs's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    }
+  ]
+}

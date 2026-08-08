@@ -1,0 +1,274 @@
+{
+ "days": [
+  {
+   "date": "2026-07-29",
+   "n": 30,
+   "counts": {
+    "out_of_universe": 14,
+    "thin_history": 2,
+    "no_edge_fired": 9,
+    "capital": 4,
+    "gate_veto": 1
+   },
+   "gate_hits": {
+    "\u26d4 Vol-extreme / bias-dn veto": 1
+   },
+   "median_move": 22.0,
+   "names": [
+    {
+     "ticker": "NCRA",
+     "pct": 1.181818181818182,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $3.12, dv $394.5M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "DFNS",
+     "pct": 1.0924999999999998,
+     "bucket": "thin_history",
+     "gate": null,
+     "detail": "passes the floor today ($50.22, $1011M) but has too few qualifying bars \u2014 illiquid past or a recent listing",
+     "fired": null
+    },
+    {
+     "ticker": "SPRC",
+     "pct": 0.7054409005628517,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "AMIX",
+     "pct": 0.6618181818181819,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $4.57, dv $317.2M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "GSUN",
+     "pct": 0.5999999999999999,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "AGRZ",
+     "pct": 0.5454545454545456,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $0.34, dv $40.4M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "HURN",
+     "pct": 0.40372414929554257,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "LVWR",
+     "pct": 0.32820512820512815,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $2.59, dv $27.2M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "MWYN",
+     "pct": 0.3265306122448981,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $0.65, dv $1.7M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "STFS",
+     "pct": 0.3168044077134988,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "VIVK",
+     "pct": 0.23711340206185572,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $2.40, dv $117.5M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "CLW",
+     "pct": 0.2341519131924612,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "GWAV",
+     "pct": 0.2338709677419355,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "SKYQ",
+     "pct": 0.228882833787466,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $4.51, dv $44.1M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "MPLT",
+     "pct": 0.22014622258326555,
+     "bucket": "capital",
+     "gate": null,
+     "detail": "passed gates (\u00d71.0) \u2014 not taken: rank/room/age",
+     "fired": [
+      "E_atomic"
+     ]
+    },
+    {
+     "ticker": "VRRM",
+     "pct": 0.22009569377990434,
+     "bucket": "gate_veto",
+     "gate": "\u26d4 Vol-extreme / bias-dn veto",
+     "detail": "\u26d4 Vol-extreme / bias-dn veto \u2014 vol-extreme / bias-dn suppressor present \u2014 kills ALL setups",
+     "fired": [
+      "E_zoneretest",
+      "E_zoneretest_E"
+     ]
+    },
+    {
+     "ticker": "PHOE",
+     "pct": 0.2158564814814814,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $21.01, dv $1.5M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "MANH",
+     "pct": 0.21317714217755857,
+     "bucket": "capital",
+     "gate": null,
+     "detail": "passed gates (\u00d71.0) \u2014 not taken: rank/room/age",
+     "fired": [
+      "E_parabola"
+     ]
+    },
+    {
+     "ticker": "DCX",
+     "pct": 0.19999999999999996,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $1.08, dv $8.7M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "LAD",
+     "pct": 0.19304512851999678,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "RACC",
+     "pct": 0.19219653179190743,
+     "bucket": "thin_history",
+     "gate": null,
+     "detail": "passes the floor today ($16.50, $9M) but has too few qualifying bars \u2014 illiquid past or a recent listing",
+     "fired": null
+    },
+    {
+     "ticker": "BATL",
+     "pct": 0.1875,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $1.52, dv $22.6M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "GMM",
+     "pct": 0.18623481781376516,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $2.93, dv $66.9M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "BXBL",
+     "pct": 0.18571428571428572,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $4.98, dv $2.7M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "EXLS",
+     "pct": 0.17884048476907966,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "CBZ",
+     "pct": 0.17558886509635974,
+     "bucket": "capital",
+     "gate": null,
+     "detail": "passed gates (\u00d71.0) \u2014 not taken: rank/room/age",
+     "fired": [
+      "E_parabola"
+     ]
+    },
+    {
+     "ticker": "PN",
+     "pct": 0.17543859649122817,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $10.72, dv $2.8M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    },
+    {
+     "ticker": "BLKB",
+     "pct": 0.1739493459504593,
+     "bucket": "no_edge_fired",
+     "gate": null,
+     "detail": "no registry edge in the 5 bars before",
+     "fired": null
+    },
+    {
+     "ticker": "GRMN",
+     "pct": 0.1623496944608711,
+     "bucket": "capital",
+     "gate": null,
+     "detail": "passed gates (\u00d71.0) \u2014 not taken: rank/room/age",
+     "fired": [
+      "E_p55",
+      "E_parabola"
+     ]
+    },
+    {
+     "ticker": "YHC",
+     "pct": 0.15827338129496415,
+     "bucket": "out_of_universe",
+     "gate": null,
+     "detail": "price $1.61, dv $0.9M \u2014 under the $5 / $3M floor. A policy choice, not a miss.",
+     "fired": null
+    }
+   ],
+   "reviewed_at": "2026-07-30 20:12"
+  }
+ ]
+}

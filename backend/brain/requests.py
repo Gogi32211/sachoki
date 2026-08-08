@@ -99,14 +99,16 @@ def list_requests(status: str | None = None) -> list:
     return sorted(items, key=lambda r: (r.get("status") != "open", r.get("created", "")))
 
 
-def answer(rid: str, value: str) -> dict:
-    """Record the user's answer and APPLY it where the brain can act on it."""
+def answer(rid: str, value: str, by: str = "user") -> dict:
+    """Record an answer and APPLY it where the brain can act on it. `by` marks who answered
+    ('user' or 'opus-5' — the 2026-08-03 delegation of open questions to the Opus decider)."""
     items = _load()
     r = next((x for x in items if x["id"] == rid), None)
     if r is None:
         return {"error": f"request {rid} not found"}
     r["answer"] = value
     r["status"] = "answered"
+    r["answered_by"] = by
     r["answered_at"] = _now()
     applied = _apply(r, value)
     r["applied"] = applied

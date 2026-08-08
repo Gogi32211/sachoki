@@ -34,7 +34,8 @@ def open_position(pos: dict) -> dict:
     if any(p["ticker"] == pos["ticker"] for p in doc["positions"]):
         raise ValueError(f"{pos['ticker']} already open")
     keep = ("ticker", "edge", "edge_title", "tier", "shares", "entry", "stop", "target", "sector",
-            "risk_dollars", "opened", "log", "regime_risk_mult", "opened_regime")
+            "risk_dollars", "opened", "log", "regime_risk_mult", "opened_regime",
+            "fire_date", "below")   # 🎯 signal-bar date + pullback trigger — the chart's markers
     rec = {k: pos.get(k) for k in keep if pos.get(k) is not None}
     if "opened" not in rec:
         from datetime import date

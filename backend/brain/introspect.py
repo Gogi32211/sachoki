@@ -17,7 +17,8 @@ _LAYERS = [
     ("L3", "Candidate", "which registry edges fired on each ticker today", ["live", "registry"]),
     ("L4", "Scoring", "pick the best fired edge by tier + historical median", ["spine", "registry"]),
     ("L5", "Entry/Size", "structural stop, R:R gate, 1%-risk sizing", ["sizing", "spine"]),
-    ("L6", "Execution", "(manual) the user takes the trade", []),
+    ("L6", "Execution", "auto (paper): 🎯 pullback orders → auto_take fills · 🧠 Opus 5 final "
+     "take/skip · auto_close exits (structural/trail-25/60-bar)", ["live", "pending", "agents"]),
     ("L7", "Position", "stop/target management on open trades", ["journal"]),
     ("L8", "Portfolio", "6%-risk / sector / drawdown envelope → allocate", ["portfolio"]),
     ("L9", "Feedback", "book → autopsy → two-way learning → memory", ["journal", "autopsy", "learn", "critic", "postmortem"]),
@@ -151,8 +152,9 @@ def brain_map() -> dict:
     # layers with live status
     layers = []
     for lid, name, role, mods in _LAYERS:
-        # crude strength: a layer with wired modules is 'active'; L6 is manual; L9 richer now
-        status = "manual" if lid == "L6" else "active"
+        # crude strength: a layer with wired modules is 'active' (L6 went manual→auto-paper
+        # on 2026-08-03: pending pullback orders + Opus decider + auto_close)
+        status = "active"
         layers.append({"id": lid, "name": name, "role": role, "modules": mods, "status": status})
 
     modules = [{"key": k, "name": n, "layer": lyr, "does": does, "reads": reads, "note": note}
