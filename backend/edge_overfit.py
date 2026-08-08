@@ -28,7 +28,8 @@ def run(months: int = 62, dv_floor: float = 3_000_000, n_trials: int = None) -> 
     grp, as_of = ER._frame(int(months), float(dv_floor))
     per_setup: dict[str, pd.DataFrame] = {}
     for name, col in ER.SETUPS:
-        tr = ER._pathsim(grp, col, "trail", 0.10, 0.25, 0.25, 60)
+        # ATR-adaptive exit = the book default since 2026-08-06 (law_exit_geometry)
+        tr = ER._pathsim(grp, col, "trail", 0.10, 0.25, 0.25, 60, atr_k=12.0)
         if len(tr):
             per_setup[name] = tr
 

@@ -291,6 +291,7 @@ def _pull(months: int, dv_floor: float, ticker: str = None) -> pd.DataFrame:
                    coalesce(t_sig,'') t, coalesce(z_sig,'') z, coalesce(l_sig,'') l,
                    coalesce(vol_bucket,'') vb, coalesce(bar_gap_class,'') gap,
                    coalesce(close_suffix,'') csfx, coalesce(bar_line5,'') l5,
+                   coalesce(full_suffix,'') fsfx,
                    coalesce(w2_spring,0) spring,
                    coalesce(sig_t11,0) t11, coalesce(sig_t12,0) t12, coalesce(sig_eb_up,0) ebu,
                    coalesce(sig_any_d,0) anyd, coalesce(sig_l1,0) l1,
@@ -712,6 +713,58 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
         pass                                   # no RS data → gated masks simply stay empty
     df["rs_intact"] = _rs_flag                 # sector-RS (SPY fallback) — the primary gate
     df["rs_spy_intact"] = _rs_spy_flag         # SPY-RS — for the 💪sec-lead split in the scanner
+
+    # ── 🥇 SECTOR-LAG: the second RS level (2026-08-06, user's own hypothesis) ──────────
+    # rs_intact says the STOCK is strong vs its sector. This says the SECTOR is weak vs SPY
+    # (20d relative change < −1%). Together = "leader inside a laggard group" — the one
+    # configuration the book had never tested, and the strongest result of the macro study.
+    # Four-quadrant gradient on the pooled reversal family (n=217k, ATR exit):
+    #   stock strong × sector LAGGING +3.61 6/6yr worst +1.29   <- this cell
+    #   stock strong × sector leading +2.38 6/6yr worst +0.39
+    #   stock weak   × sector lagging +1.60 4/6yr worst −3.09
+    #   stock weak   × sector leading +0.91 4/6yr worst −4.08
+    # Per-edge (the deciding test): median lift 7/7 edges, SR lift 7/7, and DSR crosses from
+    # 0.000 to 0.88–0.95 on G3 / G3-Abs / L43. ⚠ NOT universal: it degrades D+L1 (3/5yr).
+    # NB the broad-index version is the OPPOSITE (nasdaq names do better when QQQ LEADS) —
+    # the sector ETF is the meaningful benchmark, not the index.
+    _sec_lag = np.zeros(len(df), dtype=bool)
+    _vix_up = np.zeros(len(df), dtype=bool)
+    _S2E_L = {"Technology": "XLK", "Healthcare": "XLV", "Financials": "XLF",
+              "Industrials": "XLI", "Materials": "XLB", "Consumer Discretionary": "XLY",
+              "Consumer Staples": "XLP", "Energy": "XLE", "Utilities": "XLU",
+              "Communication Services": "XLC", "Real Estate": "XLRE"}
+    try:
+        _px, _smap = _load_rs_ref()
+        if _px is not None:
+            _spy = _px["SPY"]
+            _rel20 = {et: (_px[et] / _spy).pct_change(20) for et in _px.columns if et != "SPY"}
+            for _tk, _gg in df.groupby("ticker", sort=False):
+                _et = _S2E_L.get(_smap.get(_tk, ""), None)
+                if _et and _et in _rel20:
+                    _v = _gg["date"].astype(str).str[:10].map(_rel20[_et]).to_numpy(float)
+                    _sec_lag[_gg.index] = _v < -0.01
+    except Exception:
+        pass
+    df["sector_lag"] = _sec_lag
+    df["lead_in_lag"] = _rs_flag & _sec_lag    # the composite the study validated
+
+    # 🌡️ MACRO VIX-UP (same study): VIXY 5d change > +3% AND NOT a vspike day. 210 sessions —
+    # the 68% of rising-VIX days the existing vspike gate does NOT cover. It does NOT move
+    # Sharpe (DSR lift 0/7) but it converts 5/6 -> 6/6 positive years with a POSITIVE worst
+    # year on QZC (−0.09→+0.59), G3 (−0.45→+1.57), WSH (−2.79→+0.89), G3-Abs (−0.92→+1.77).
+    # Stabiliser, not amplifier → report-only in the brain, never a size multiplier.
+    # ⚠ it HURTS L43 (worst +2.27 → −5.71) — do not apply blindly.
+    try:
+        _vx = _load_vix_ref()
+        if _vx is not None:
+            _c5 = _vx.pct_change(5)
+            _sp = (_vx.pct_change() > 0.05) | (
+                _vx.rolling(252).apply(lambda x: (x[-1] > x[:-1]).mean(), raw=True) > 0.80)
+            _flag = ((_c5 > 0.03) & ~_sp.fillna(False))
+            _vix_up = df["date"].astype(str).str[:10].map(_flag).fillna(False).to_numpy(bool)
+    except Exception:
+        pass
+    df["macro_vix_up"] = _vix_up
     # 🧊 Coil-Floor Absorption (validated 2026-07-23, project_coil_floor_absorption): born from AMD's
     # classic accumulations. A daily-Z absorption at the FLOOR of a HELD compressed base — prior-25-bar
     # range ≤35% (a coil, not a trending drop) AND this bar's low within 6% of the 25-bar base low (at
@@ -772,6 +825,18 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     # $21-89 +4.98/PF1.98. L43 adds nothing (absorption already in the O-close); SC-zone dilutes
     # the mean (G3 is zone-agnostic) but keeps the median. 2022 ~flat (−0.5), not a bear edge.
     df["E_g3abs"] = df["E_g3"] & df["E_atomic"] & (df["close"] >= 21)
+
+    # ── 🥇 LEAD-in-LAG variants (2026-08-06, BUILT on the user's hypothesis) ────────────
+    # parent & rs_intact & sector_lag. Per-edge validation vs the 112-setup board family
+    # (ATR×12 exit, 75 pre-specified macro trials as the DSR denominator):
+    #   G3    +3.34 5/6yr DSR 0.000  ->  +5.35 5/5yr worst +2.32 DSR 0.925
+    #   G3A   +3.23 5/6yr DSR 0.000  ->  +5.47 5/5yr worst +2.70 DSR 0.884
+    #   L43   +4.51 6/6yr DSR 0.017  ->  +6.36 5/5yr worst +2.27 DSR 0.947
+    # Only these three crossed DSR 0.6; QZC/WSH improve but stay below (0.150–0.507) and are
+    # left ungated. D+L1 DEGRADES under the gate — deliberately excluded.
+    df["E_g3_lead"] = df["E_g3"] & df["lead_in_lag"]
+    df["E_g3abs_lead"] = df["E_g3abs"] & df["lead_in_lag"]
+    df["E_l43triple_lead"] = df["E_l43triple"] & df["lead_in_lag"]
     # 🔑 KEY-LEVEL flag (validated 2026-07-15, keylvl.py — the real core of the "smart-money
     # liquidity sweep" infographic): support = causal 25-bar low (shift 3); a level is a KEY
     # level if it was TESTED ≥2× in the last 25 bars (resting buy orders), vs a weak/incidental
@@ -1093,6 +1158,138 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     df["h1_quiet"] = (df["ticker"] + "|" + df["date"].astype(str).str[:10]).isin(_q).to_numpy()
     df["E_l43triple_quiet"] = df["E_l43triple"] & df["h1_quiet"]
 
+    # ── 🥪 T2G-SANDWICH (2026-08-02, the from-scratch TZ×L correlation session) ─────────
+    # T2G → T10 → T2G: one distribution bar swallowed between two gap-up closes, entered on
+    # the second T2G, in a LEADER (rs_intact) that is already overbought (RSI≥70), $21-89.
+    # The book's first OVERBOUGHT-momentum setup — strength is buyable only after a
+    # tested-and-absorbed washout. med +1.70/win57/pf1.93/5-5yr/worst +0.0 (2021 thin, n196),
+    # DSR 0.947 vs sr*=0.115 with N=27 honest chain trials, Δ vs the same-RS-same-RSI
+    # complement +2.73 (sign 5/5), overlap with the G3 gap family 0%. RSI plateau: direction
+    # holds 65-72 (medians +0.14..+0.47, pf 1.3-1.5), magnitude peaks at 70.
+    # ⚠ RS is a REQUIRED component, not a booster: without rs_intact the same pattern is
+    # toxic (med −1.74, worst −11.5, 2/6yr). Do not ship an un-gated variant.
+    _t_p1 = g["t"].shift(1).fillna("")
+    _t_p2 = g["t"].shift(2).fillna("")
+    df["E_t2gsand_rs"] = ((df["t"] == "T2G") & (_t_p1 == "T10") & (_t_p2 == "T2G")
+                          & (df["rsi_14"] >= 70) & df["rs_intact"]
+                          & df["close"].between(21, 89))
+
+    # ── 🌉 Z1G→T4 (2026-08-04, prefix-sweep line; BUILT AT THE USER'S EXPLICIT REQUEST) ──
+    # Three specific 4-bar sequences ending in a T4 reversal, all carrying a Z1G (absorbed
+    # gap-down) in the prefix: T6→Z1G→Z2G→T4 · Z1G→T1G→Z5→T4 · Z1G→Z6→Z2G→T4. $21-377.
+    # Path-sim: med +7.74/win 64.5/pf 5.5/5-6yr/worst −3.2 (n=166); Δ vs other-prefix T4
+    # +8.33 (sign 5/6).
+    # ⚠ WATCH-TIER BY THE BOOK, TRADED BY USER DECISION: (a) selection-circular — these are
+    # the top-3 of a 1,512-cell sweep verified on the SAME window; (b) worst-year −3.2
+    # fails the ≥−2 gate; (c) 2025 contributes +29.4. The user accepts the tail with a
+    # structural stop ("stoplossit sheval da tu ramea gaminusdeba") and treats it as an
+    # 📈emerging-style candidate. Revisit after ~6 months of live fires.
+    _c1 = g["t"].shift(1).fillna(""); _z1 = g["z"].shift(1).fillna("")
+    _c2 = g["t"].shift(2).fillna(""); _z2 = g["z"].shift(2).fillna("")
+    _c3 = g["t"].shift(3).fillna(""); _z3 = g["z"].shift(3).fillna("")
+    _b1 = np.where(_c1 != "", _c1, _z1); _b2 = np.where(_c2 != "", _c2, _z2)
+    _b3 = np.where(_c3 != "", _c3, _z3)
+    df["E_z1gt4"] = ((df["t"] == "T4") & df["close"].between(21, 377)
+                     & (((_b3 == "T6") & (_b2 == "Z1G") & (_b1 == "Z2G"))
+                        | ((_b3 == "Z1G") & (_b2 == "T1G") & (_b1 == "Z5"))
+                        | ((_b3 == "Z1G") & (_b2 == "Z6") & (_b1 == "Z2G"))))
+
+    # ── 🧲 Z9-HL + 🌉v2 (2026-08-04, prefix-sweep series; BUILT AT THE USER'S REQUEST) ────
+    # Same WATCH-TIER contract as E_z1gt4: spectacular medians, failed worst-year gates,
+    # selection-circular (tops of ~1,200-cell same-window sweeps), 2025-heavy. The user
+    # trades them with structural stops as 📈emerging-style bets; revisit on live fires.
+    # 🧲 Z9-HL — the higher-low grammar (reversal → absorbed Z9 retest → reversal), the two
+    #   biggest-n cells of the whole series: Z3→T4→Z9→T3 (n=340 fwd) · T4→Z9→T3→Z5 (n=314).
+    #   Path-sim $21-377: med +12.89/win 73/pf 5.26/4-6yr/worst −10.7 (2022!), n=270.
+    # 🌉v2 — the Z1G family on the new endings: T6→Z1G→Z2G→T3 · T6→Z1G→T5→T6 ·
+    #   Z1G→T1→T2G→T6. Path-sim $21-377: med +15.36/win 75.5/pf 6.52/5-6yr/worst −6.1, n=188.
+    _b0 = np.where(df["t"] != "", df["t"], df["z"])
+    df["E_z9hl"] = (df["close"].between(21, 377)
+                    & (((_b3 == "Z3") & (_b2 == "T4") & (_b1 == "Z9") & (_b0 == "T3"))
+                       | ((_b3 == "T4") & (_b2 == "Z9") & (_b1 == "T3") & (_b0 == "Z5"))))
+    df["E_z1gt36"] = (df["close"].between(21, 377)
+                      & (((_b3 == "T6") & (_b2 == "Z1G") & (_b1 == "Z2G") & (_b0 == "T3"))
+                         | ((_b3 == "T6") & (_b2 == "Z1G") & (_b1 == "T5") & (_b0 == "T6"))
+                         | ((_b3 == "Z1G") & (_b2 == "T1") & (_b1 == "T2G") & (_b0 == "T6"))))
+
+    # 🧺 SEQ-20 collection (2026-08-04): the REMAINING top triples of the 8-ending sweep
+    # (n>=39, med>=+2.6 each on fwd10), 20 pre-registered sequences pooled. Path-sim
+    # $21-377: med +2.92/win 56.1/pf 1.88/4-6yr/worst −2.3 (n=594) — the tamest of the
+    # three user-requested WATCH builds, one whisker off the worst>=−2 gate.
+    _SEQ20 = {("Z1","Z2G","T1","T6"),("T4","Z3","T1G","T6"),
+              ("T1G","T6","Z3","T3"),("Z6","T3","Z1G","T3"),("Z1G","T5","Z3","T3"),
+              ("Z9","T3","Z5","T9"),("T5","Z3","Z6","T9"),
+              ("T6","Z1","T5","Z5"),("Z1G","T5","T11","Z5"),("T4","Z4","T5","Z5"),
+              ("T12","T2G","Z4","T1"),("T3","T6","Z9","T1"),
+              ("Z6","T3","Z1","T1G"),("T5","T2","Z1","T1G"),
+              ("T11","Z5","T1G","T2"),("T1","T2G","T12","T2"),
+              ("T12","Z3","T1G","T2G"),("Z3","T9","T11","T2G"),
+              ("T6","T11","T2G","T2G"),("T10","Z3","T1G","T2G")}
+    _quad = pd.Series(list(zip(_b3, _b2, _b1, _b0)), index=df.index)
+    df["E_seq20"] = df["close"].between(21, 377) & _quad.isin(_SEQ20).to_numpy()
+
+    # 👑 Z1G-CROWN (2026-08-04, the prefix series' closing find; same user WATCH contract).
+    # The BIG-N family: double absorbed gap-down -> green attempt -> SOFT RED entry bar
+    # (no confirmation premium): Z1G>Z2G>T5>Z3 · Z1G>Z2G>T3>Z3 · Z1G>Z2G>T5>Z4 ·
+    # T5>Z3>T4>Z9 (+5 siblings added same day — the FULL Z3/Z4/Z9 top table, 9 sequences).
+    # $8-377. With the lower-half-close filter, 9-seq path-sim $21-377: med +14.53/win 72.9/
+    # pf 5.83/worst −2.5 (n=853, 3/6yr — 2025 +26.8); $8-21: +12.57/5-6yr (2021-25 all
+    # positive, n=250). Δ vs other Z3/Z4/Z9 endings +14..+16 (sign 4-5/6).
+    # ⚠ era-tilted like its siblings — traded by user decision with structural stops.
+    _CROWN = {("Z1G","Z2G","T5","Z3"),("Z1G","Z2G","T3","Z3"),
+              ("Z1G","Z2G","T5","Z4"),("T5","Z3","T4","Z9"),
+              # +5 (2026-08-04, user: the rest of the Z3/Z4/Z9 top table belongs here too)
+              ("T12","Z1G","T5","Z3"),("Z1G","T5","T11","Z3"),
+              ("T12","Z1G","T3","Z3"),("Z1G","T5","T12","Z4"),
+              ("T3","Z3","T4","Z9")}
+    # intraday-anatomy filter (2026-08-04, crown_intraday.py on 982 fires): an entry day
+    # that ALREADY recovered into the upper half of its range is the family's weak subset
+    # (med +3.57 vs +6.66; with a same-day 1H REV on top it collapses to +0.98) — buy the
+    # still-compressed close, not the half-bounced one. Daily-computable, no intraday dep.
+    # (Same study: same-day 1H REV-turn adds +2.3pp — flows to the brain via mtf_echo;
+    # 15m vol-event is NOT required here — the volume drama happened on the Z1G/Z2G bars.)
+    _rng = (df["high"] - df["low"])
+    _cpos = ((df["close"] - df["low"]) / _rng.where(_rng > 0)).fillna(1.0)
+    df["E_z1gcrown"] = (df["close"].between(8, 377) & _quad.isin(_CROWN).to_numpy()
+                        & (_cpos < 0.5))
+
+    # ── 🪨 T1G-NB (2026-08-03, WLNBB suffix league) ─────────────────────────────────────
+    # A gap-up T1 whose bar prints the NB suffix (No-effort + Both wicks): the gap was
+    # tested both ways on no effort and HELD — absorbed-and-accepted strength. The suffix
+    # league's only double-REAL: Δ+1.19 vs other T1G (sign 6/6), while the SAME suffix on
+    # gapless T1 is a 6/6 SUPPRESSOR (−1.24) — the gap context flips the meaning.
+    # +🏆RS: med +2.42/win 56.9/pf 1.91/5-5yr ALL positive/worst +2.3/n339 (2021 thin);
+    # DSR 0.982 (sr*=0.063, N=20 honest suffix-league trials); overlap with Atomic/GEM1/G3
+    # 0.0% — fully disjoint. ⚠ RS REQUIRED: without it worst −4.8 (2022), do not un-gate.
+    df["E_t1gnb_rs"] = ((df["t"] == "T1G") & (df["fsfx"] == "NB") & df["rs_intact"]
+                        & df["close"].between(21, 89))
+
+    # 🪨+ T1G-NB with an L34 ABSORPTION BAR IN THE PRECEDING 3 BARS (2026-08-05).
+    # Found by the full-descriptor re-audit: the 5 sequence edges had been mined on t/z
+    # codes ALONE, ignoring the L-line and suffix layers. Slicing all 7 edges by those
+    # layers (112 cells) surfaced exactly one cell that survived scrutiny:
+    #   L34 in prefix  n=94  med +6.40 win 66.0 pf 2.52  5/5yr ALL positive  worst +2.4
+    #   no L34         n=247 med +1.12 win 54.3 pf 1.77  2/5yr               worst -0.9
+    #   parent         n=340 med +2.79                   5/5yr               worst +0.0
+    # Δ vs complement +5.28, Δ vs parent +3.61. Buckets hold both sides ($21-40 +9.36,
+    # $40-89 +5.28). Overlap with E_l34cont / E_l34cont_rs = 0.0% — a genuinely new cell,
+    # not a relabel of the L34-continuity edge (though it replicates that edge's idea:
+    # supply absorbed on an L34 bar, then demand confirms).
+    # PLATEAU (the gate that decided it): L34 within w bars, w=1..6 →
+    #   +8.77(n32,3/5) · +5.85(64,5/5) · +6.40(94,5/5) · +5.54(113,5/5) · +5.19(131,5/5)
+    #   · +4.95(152,5/5) — smooth monotone decay, every window beats the parent, every
+    #   worst-year >= +0.4. Noise does not produce a family like that.
+    # CONTROL: it is L34 SPECIFICALLY, not "any L in the prefix" —
+    #   L34 +6.40(5/5,+2.4) >> L46 +3.74(4/5) > L3 +2.78 > L25 +2.46 > L12 +2.42 > L5 +1.35(2/5)
+    #   (L12/L25/L3 sit at the parent's +2.79, i.e. no effect at all).
+    # ⚠ HONEST CAVEAT: DSR over the FULL 87-cell search family = 0.000 (sr* 0.671 vs cell
+    # SR 0.336) — it FAILS wide deflation. Narrow DSR, over this parent's own 12 cells,
+    # is 0.982. The wide family mixes parents whose medians differ 5x (CROWN +17% vs
+    # SAND +1.8%), so sr* is set by CROWN's scale rather than by this search. Built on the
+    # strength of the plateau + control + 0% overlap, NOT on the wide DSR. Watch it live.
+    _pre34 = (g["l"].shift(1).eq("L34") | g["l"].shift(2).eq("L34") | g["l"].shift(3).eq("L34"))
+    df["E_t1gnb_l34pre"] = df["E_t1gnb_rs"] & _pre34.to_numpy()
+
     # ── 🌀 PATH ROUGHNESS — Hurst, variance-ratio (2026-07-30) ─────────────────────────
     # std of overlapping k-step log returns scales as k^H, so H = slope of log(std_k) on
     # log(k) over lags 1,2,4,8 in a trailing 60-bar window. Measured on 2.7M bars the raw
@@ -1132,6 +1329,104 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
         _hnum += _hxc[_j] * np.log(np.where(_sd > 0, _sd, np.nan))
     df["hurst"] = np.where(_hok, _hnum / _hden, np.nan)
     df["rough"] = df["hurst"] < 0.45
+
+    # ── 📐 ADX / DI regime (2026-08-07, from the user's Pine v6 port 260807 V1) ─────────
+    # Wilder TR/+DM/−DM with the classic accumulator (x − x/n + new), DI = smDM/smTR·100,
+    # DX = |DI+−DI−|/(DI++DI−)·100, ADX = RMA(DX, 14). TWO CORRECTIONS vs the script:
+    #   (a) it used ta.sma(dx) — textbook ADX is RMA. The two disagree on the regime call
+    #       for 20.4% of bars, so the deviation matters; we use the correct RMA.
+    #   (b) it had no warmup guard, so the first ~len bars of every ticker were garbage
+    #       (harmless on a chart, contamination in a backtest) — masked to −1 for 3×len.
+    # regime: 1 TREND-UP (adx≥25 & DI+>DI−) · 2 TREND-DN · 3 RANGE (adx≤20) · 0 transition.
+    #
+    # NOT a duplicate of hurst: agreement with hurst>0.55 is only 63.5% and corr(adx,hurst)
+    # is +0.20 — genuinely separate information (conso agreement 59.0%).
+    #
+    # THE SCRIPT'S HYPOTHESIS IS REFUTED. It claimed TREND-UP favours breakout/momentum
+    # edges. Measured on the ATR exit, TREND-UP is the WORST regime for BOTH families:
+    #   REVERSAL (base +1.87): RANGE +2.27 (6/6yr, worst +0.15) · TREND-DN +1.87
+    #                          · TREND-UP −0.83 (2/6yr, n=703 thin)
+    #   MOMENTUM (base +1.86): TREND-DN +3.19 (5/6) · RANGE +1.79 · TREND-UP −0.03
+    #                          (3/6yr, worst −5.81, n=10,242)
+    # Reading: our whole book — including what we call "momentum" (G3 gap-reclaim, Atomic
+    # weak-close gap-up, L43) — BUYS ABSORBED WEAKNESS, not strength. In a strong uptrend it
+    # has nothing to buy. Per-edge on TREND-UP: QZC −3.25 · D+L1 −2.08 · ATM −1.38.
+    # RANGE is NOT built as a booster: inconsistent, and it HURTS the gap family
+    # (G3 −0.37, G3A −0.59). DSR is 0.000 for every cell → nothing here is a size lever.
+    _n = 14
+    _pc = g["close"].shift(1); _ph = g["high"].shift(1); _pl = g["low"].shift(1)
+    _tr = np.maximum(np.maximum(df["high"] - df["low"], (df["high"] - _pc).abs()),
+                     (df["low"] - _pc).abs()).fillna(0.0)
+    _up = (df["high"] - _ph).fillna(0.0); _dn = (_pl - df["low"]).fillna(0.0)
+    _dmp = np.where((_up > _dn) & (_up > 0), _up, 0.0)
+    _dmm = np.where((_dn > _up) & (_dn > 0), _dn, 0.0)
+    # Wilder accumulation == an EWM with alpha=1/n scaled by n; use ewm for speed
+    _sTR = _tr.groupby(df["ticker"]).transform(lambda s: s.ewm(alpha=1 / _n, adjust=False).mean())
+    _sP = pd.Series(_dmp, index=df.index).groupby(df["ticker"]).transform(
+        lambda s: s.ewm(alpha=1 / _n, adjust=False).mean())
+    _sM = pd.Series(_dmm, index=df.index).groupby(df["ticker"]).transform(
+        lambda s: s.ewm(alpha=1 / _n, adjust=False).mean())
+    with np.errstate(invalid="ignore", divide="ignore"):
+        _dip = np.where(_sTR != 0, _sP / _sTR * 100, 0.0)
+        _dim = np.where(_sTR != 0, _sM / _sTR * 100, 0.0)
+        _sum = _dip + _dim
+        _dx = np.where(_sum != 0, np.abs(_dip - _dim) / _sum * 100, 0.0)
+    _adx = pd.Series(_dx, index=df.index).groupby(df["ticker"]).transform(
+        lambda s: s.ewm(alpha=1 / _n, adjust=False).mean()).to_numpy()
+    _bar_i = g.cumcount().to_numpy()
+    _warm = _bar_i >= 3 * _n
+    _reg = np.zeros(len(df), dtype=np.int8)
+    _reg = np.where((_adx >= 25) & (_dip > _dim), 1, _reg)
+    _reg = np.where((_adx >= 25) & (_dim > _dip), 2, _reg)
+    _reg = np.where(_adx <= 20, 3, _reg)
+    df["adx"] = np.where(_warm, _adx, np.nan)
+    df["di_plus"] = np.where(_warm, _dip, np.nan)
+    df["di_minus"] = np.where(_warm, _dim, np.nan)
+    df["adx_regime"] = np.where(_warm, _reg, -1).astype(np.int8)
+    df["adx_trend_up"] = df["adx_regime"] == 1      # the report-only suppressor state
+
+    # ── 🌊 WaveTrend (LazyBear) — the "Market Cipher B" oscillator, honest version ──────
+    # The user brought four Pine scripts; all four share ONE core. LazyBear's is the
+    # original, the two "Market Cipher B" reskins are byte-identical to it in maths, and
+    # the WeloTrades build changes three params (close/9/sma2 vs hlc3/10/sma4) and adds a
+    # fake "Money Flow" (no volume in its formula at all) plus divergences drawn with
+    # offset=-10 (visually prescient, known 10 bars late). We take the ORIGINAL params.
+    #   ap=hlc3 · esa=EMA(ap,10) · d=EMA(|ap−esa|,10) · ci=(ap−esa)/(0.015·d)
+    #   wt1=EMA(ci,21) · wt2=SMA(wt1,4)
+    # wt1 is literally a twice-smoothed CCI: (price−MA)/(0.015·mean-deviation) IS the CCI
+    # formula, so this is EMA21(CCI10) — a different smoothing of something we already have
+    # as cci_20, which is exactly why it has to be overlap-tested before it means anything.
+    # `d != 0` guard is from the v6 port; the original divides by zero on a flat bar.
+    _wn1, _wn2, _wml = 10, 21, 4
+    _ap = (df["high"] + df["low"] + df["close"]) / 3.0
+    _esa = _ap.groupby(df["ticker"]).transform(lambda s: s.ewm(span=_wn1, adjust=False).mean())
+    _dv = (_ap - _esa).abs().groupby(df["ticker"]).transform(
+        lambda s: s.ewm(span=_wn1, adjust=False).mean())
+    _ci = np.where(_dv.to_numpy() != 0, (_ap - _esa) / (0.015 * _dv), 0.0)
+    _wt1 = pd.Series(_ci, index=df.index).groupby(df["ticker"]).transform(
+        lambda s: s.ewm(span=_wn2, adjust=False).mean())
+    _wt2 = _wt1.groupby(df["ticker"]).transform(lambda s: s.rolling(_wml).mean())
+    df["wt1"] = _wt1
+    df["wt2"] = _wt2
+    _p1 = _wt1.groupby(df["ticker"]).shift(1)
+    _p2 = _wt2.groupby(df["ticker"]).shift(1)
+    _xup = (_wt1 > _wt2) & (_p1 <= _p2)          # wt1 crosses ABOVE wt2 = bullish
+    df["wt_cross_up"] = _xup.fillna(False)
+    # the zone-gated rule is the only one of the four scripts that defines an actual TRADE:
+    # a cross only counts inside oversold, with a two-tier strength (−45 / −60) that is a
+    # free plateau test the author built in.
+    df["wt_bull_dot"] = df["wt_cross_up"] & (_wt2 <= -45)
+    df["wt_bull_strong"] = df["wt_cross_up"] & (_wt2 <= -60)
+    # 💥 the one component only the WeloTrades build has, and it is lookahead-free:
+    # wt1 AND price both stop making new 28-bar lows on the same bar.
+    _w28 = _wt1.groupby(df["ticker"]).transform(lambda s: s.rolling(28, min_periods=28).min())
+    _c28 = df["close"].groupby(df["ticker"]).transform(
+        lambda s: s.rolling(28, min_periods=28).min())
+    _pw28 = _w28.groupby(df["ticker"]).shift(1)
+    _pc28 = _c28.groupby(df["ticker"]).shift(1)
+    df["wt_dbl_reclaim"] = ((_wt1 > _pw28) & (_p1 <= _pw28)
+                            & (df["close"] > _pc28)
+                            & (df["close"].groupby(df["ticker"]).shift(1) <= _pc28)).fillna(False)
     # (E_rtb_base_hurst deliberately NOT defined — see the DSR note above.)
     # ONE display chip for the whole family — a bar where the gate was on AND one of the six
     # gated bases fired. Six separate chips would just duplicate the base codes already shown
@@ -1314,6 +1609,17 @@ SETUPS = [
     ("🎬StopVol-Deep", "E_stopvol_confirm_deep"),
     ("Washout🧊CONSO", "E_washout_conso"), ("RTB-Base🧊CONSO", "E_rtb_base_conso"),
     ("L43-TRIPLE🔇QUIET", "E_l43triple_quiet"),
+    ("🥇G3·LEAD-in-LAG", "E_g3_lead"),
+    ("🥇G3A·LEAD-in-LAG", "E_g3abs_lead"),
+    ("🥇L43·LEAD-in-LAG", "E_l43triple_lead"),
+    ("🥪T2G-Sandwich🏆RS", "E_t2gsand_rs"),
+    ("🪨T1G-NB🏆RS", "E_t1gnb_rs"),
+    ("🪨+ T1G-NB·L34pre", "E_t1gnb_l34pre"),
+    ("🌉Z1G→T4 🟡watch", "E_z1gt4"),
+    ("🧲Z9-HL 🟡watch", "E_z9hl"),
+    ("🌉v2 Z1G→T3/T6 🟡watch", "E_z1gt36"),
+    ("🧺SEQ-20 🟡watch", "E_seq20"),
+    ("👑Z1G-CROWN 🟡watch", "E_z1gcrown"),
 ]
 
 
@@ -1342,6 +1648,19 @@ DISPLAY_SETUPS = [
     ("🎯T3RS", "E_t3_rs_dip"),
     ("🏆L34C", "E_l34cont"),
     ("🎬SVC", "E_stopvol_confirm"),
+    # 🥪 exception to "base setups only": the RS-gated variant IS the setup here — the
+    # un-gated pattern is toxic (worst −11.5), so the chip must carry the gate.
+    ("🥇G3", "E_g3_lead"), ("🥇G3A", "E_g3abs_lead"), ("🥇L43", "E_l43triple_lead"),
+    ("🥪SAND", "E_t2gsand_rs"),
+    # 🪨 same exception: RS is a REQUIRED component (worst −4.8 without), chip carries the gate
+    ("🪨GNB", "E_t1gnb_rs"),
+    ("🪨+L34", "E_t1gnb_l34pre"),
+    # 🌉 WATCH-tier at the user's request — the chip carries the 🟡 so the screen says so too
+    ("🌉Z1G4🟡", "E_z1gt4"),
+    ("🧲Z9HL🟡", "E_z9hl"),
+    ("🌉v2🟡", "E_z1gt36"),
+    ("🧺SEQ🟡", "E_seq20"),
+    ("👑Z1G🟡", "E_z1gcrown"),
     # QUALITY marker (exception to the "base setups only" rule, 2026-07-26): ZRT fires are
     # common (n138k, 4/6yr) and the L46 gate is what separates the 6/6yr subset — without this
     # chip a CSV/chart review cannot tell a good ZRT from a plain one. The tighter +dwell
@@ -1448,16 +1767,24 @@ def ticker_edges(ticker: str, months: int = 16) -> dict:
     if hit and (time.time() - hit[0]) < 3600:
         return hit[1]
     out = {}
+    from_warm = False
     try:
         warm = _CACHE.get((60, 3_000_000))
         if warm and tk in warm[0]:
             out = _edges_from_group(warm[0][tk])
+            from_warm = True
         else:
             df, _ = _pull(months, 3_000_000, ticker=tk)
             if len(df) >= 60:
                 out = _edges_from_group(_prep(df))
     except Exception:
-        log.debug("ticker_edges failed for %s", tk, exc_info=True)
+        log.warning("ticker_edges failed for %s", tk, exc_info=True)
+    # never cache failures: an empty result off the FALLBACK path (warm frame still
+    # pre-warming ~230s after restart, or a build error) used to get cached for 1h and the
+    # chart showed no EDGE chips for an hour (caught live 2026-08-04 on DXCM). An empty
+    # result from the WARM frame is a real "no fires" and is safe to cache.
+    if not out and not from_warm:
+        return out
     _EDGE_TK_CACHE[tk] = (time.time(), out)
     while len(_EDGE_TK_CACHE) > 400:
         _EDGE_TK_CACHE.pop(next(iter(_EDGE_TK_CACHE)))
@@ -1621,13 +1948,23 @@ def latest_edges_map(lookback: int = 5, build: bool = False) -> dict:
 
 
 def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
-             trail: float, maxh: int, slip: float = None) -> pd.DataFrame:
+             trail: float, maxh: int, slip: float = None,
+             atr_k: float = None) -> pd.DataFrame:
     """GAP-REALISTIC fills (2026-07-03 backtest-expert audit fix):
     when a bar OPENS through the stop/trail level (overnight gap), the fill is the
     OPEN (what you'd actually get), not the stop price. Target fills stay AT target
     (no gap-up bonus) — pessimism is one-sided by design. `slip` overrides SLIP for
     stress runs (e.g. 2×=30bps each way). Trades carry date_in/date_out for
-    portfolio-level simulation."""
+    portfolio-level simulation.
+
+    ATR-ADAPTIVE TRAIL (2026-08-06, user-approved build): `atr_k` set (trail mode only)
+    makes each trade's trail = clip(atr_k * atr_14/close at the SIGNAL bar, 15%, 60%)
+    instead of the fixed `trail`. Validated over 6yr on all 49 board setups: med
+    improved 49/49, worst-year 45/49 (pooled REV family +0.19→+1.43, worst −2.60→−1.06,
+    2022 −2.60→−0.72). k-plateau flat over 10..16 (clip saturates) → k=12 chosen.
+    Root cause it fixes: a fixed 25% trail sits inside a volatile name's noise band —
+    the "⚡-segment edge weakness" was entirely this exit artifact (hold-20-no-stop
+    equalized all segments). Fixed trail stays the DEFAULT; this is additive."""
     S = SLIP if slip is None else slip
     risk = trail if mode == "trail" else stop     # planned initial risk per trade (for R-multiple)
     trades = []
@@ -1636,6 +1973,13 @@ def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
             continue
         o = gdf["open"].to_numpy(float); hi = gdf["high"].to_numpy(float)
         lo = gdf["low"].to_numpy(float); cl = gdf["close"].to_numpy(float)
+        if atr_k is not None and mode == "trail" and "atr_14" in gdf:
+            with np.errstate(invalid="ignore", divide="ignore"):
+                _tr_arr = np.clip(np.nan_to_num(
+                    atr_k * gdf["atr_14"].to_numpy(float) / np.where(cl > 0, cl, np.nan),
+                    nan=trail), 0.15, 0.60)
+        else:
+            _tr_arr = None
         ent = gdf[col].to_numpy(bool); n = len(gdf); last = -99
         dfull = gdf["date"].astype(str).to_numpy()
         dts = gdf["date"].astype(str).str[:4].to_numpy()
@@ -1646,16 +1990,17 @@ def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
             if ep <= 0:
                 continue
             last = i
+            _tr = trail if _tr_arr is None else float(_tr_arr[i])   # per-trade trail (ATR mode)
             entry = ep * (1 + S); ret = None; end = min(i + 1 + maxh, n); pk = entry
             jout = end - 1; mlo = entry; mhi = entry        # trough/crest for MAE/MFE (heat)
             for j in range(i + 1, end):
                 if lo[j] < mlo: mlo = lo[j]                  # track path excursion up to (incl.) exit bar
                 if hi[j] > mhi: mhi = hi[j]
                 if mode == "trail":
-                    ts_prev = pk * (1 - trail)          # trail level from PRIOR peak
+                    ts_prev = pk * (1 - _tr)            # trail level from PRIOR peak
                     if j > i + 1 and o[j] <= ts_prev:    # gapped through overnight → fill at open
                         ret = o[j] / entry - 1 - S; jout = j; break
-                    pk = max(pk, hi[j]); ts = pk * (1 - trail)
+                    pk = max(pk, hi[j]); ts = pk * (1 - _tr)
                     if lo[j] <= ts:                      # intrabar touch → fill at trail level
                         ret = ts / entry - 1 - S; jout = j; break
                 else:
@@ -1673,7 +2018,7 @@ def _pathsim(grp: dict, col: str, mode: str, stop: float, target: float,
                            "mae": mlo / entry - 1,          # max adverse excursion (≤0 heat taken)
                            "mfe": mhi / entry - 1,          # max favorable excursion
                            "hold": int(jout - i),           # bars held (entry@i+1 → exit@jout)
-                           "risk": risk})
+                           "risk": (_tr if mode == "trail" else risk)})
     return pd.DataFrame(trades)
 
 
@@ -1760,6 +2105,29 @@ def _evict_frames():
 
 
 _RS_REF: dict = {}
+
+
+
+_VIX_REF = {}
+
+
+def _load_vix_ref():
+    """VIXY daily closes (date-str index) for the 🌡️ macro-VIX flag. Read from the analytics
+    DB — VIXY sits below the frame's dollar-volume floor so it never appears in the frame
+    itself. Cached for the process lifetime."""
+    if "s" in _VIX_REF:
+        return _VIX_REF["s"]
+    try:
+        import duckdb
+        from studio.paths import ANALYTICS_DB
+        c = duckdb.connect(ANALYTICS_DB, read_only=True)
+        d = c.execute("""SELECT substr(CAST(date AS VARCHAR),1,10) d, any_value("close") c
+                         FROM bars WHERE ticker='VIXY' GROUP BY date ORDER BY date""").fetchdf()
+        c.close()
+        _VIX_REF["s"] = pd.Series(d["c"].to_numpy(float), index=d["d"].to_numpy())
+    except Exception:
+        _VIX_REF["s"] = None
+    return _VIX_REF["s"]
 
 
 def _load_rs_ref():
@@ -1902,7 +2270,10 @@ def _frame(months: int, dv_floor: float):
 def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_000,
                 mode: str = "trail", stop: float = 0.10, target: float = 0.25,
                 trail: float = 0.25, maxh: int = 60, with_trades: bool = False,
-                slip: float = None) -> dict:
+                slip: float = None, atr_k: float = 12.0) -> dict:
+    # atr_k=12 is the BOOK DEFAULT since 2026-08-06 (law_exit_geometry: 49/49 setups
+    # improved over fixed trail25, 2022 included). Pass atr_k=0/None for the legacy
+    # fixed-trail view — the Replay UI exposes both.
     grp, as_of = _frame(int(months), float(dv_floor))
     want = [s for s in SETUPS if setup == "all" or s[0].lower() == setup.lower()]
     if not want:
@@ -1910,7 +2281,7 @@ def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_00
     out = []
     trades_out = None
     for name, col in want:
-        tr = _pathsim(grp, col, mode, stop, target, trail, maxh, slip=slip)
+        tr = _pathsim(grp, col, mode, stop, target, trail, maxh, slip=slip, atr_k=(atr_k or None))
         out.append(_stats(name, tr))
         if with_trades and setup != "all":
             trades_out = [{"ticker": r["ticker"], "year": r["yr"], "ret_pct": round(r["ret"] * 100, 2)}
@@ -1918,7 +2289,8 @@ def edge_replay(setup: str = "all", months: int = 36, dv_floor: float = 3_000_00
     out.sort(key=lambda x: (x.get("pf") or 0), reverse=True)
     res = {"as_of": as_of, "months": int(months),
            "exit": {"mode": mode, "stop": stop, "target": target, "trail": trail, "maxh": maxh,
-                    "slip": SLIP if slip is None else slip},
+                    "slip": SLIP if slip is None else slip,
+                    "atr_k": atr_k},
            "rows": out}
     if trades_out is not None:
         res["trades"] = trades_out[:300]
