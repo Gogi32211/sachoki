@@ -1,0 +1,1642 @@
+# Sachoki Screener — Architecture & Signal Reference
+
+> Version 4.8.5 · API v2.9 · TZ_WLNBB Pine 260523 v3.5 (PREBREAK + WYC additional filters & scoring)
+> Build marker format: `<TZ_WLNBB_VERSION>__sha-<git_short>__built-<UTC_TIMESTAMP>`
+
+---
+
+> 📊 **Scoring Systems quick-reference:** see [`SCORING_SYSTEMS.md`](./SCORING_SYSTEMS.md)  
+> Covers all 8 scoring engines, every output field, score ranges, thresholds and interaction flow.
+
+---
+
+## Table of Contents
+
+1. [Overview](#overview)
+2. [Directory Structure](#directory-structure)
+3. [Backend Architecture](#backend-architecture)
+4. [Signal Types Reference](#signal-types-reference)
+5. [Scoring & Turbo Engine](#scoring--turbo-engine)
+6. [ULTRA Score v2](#ultra-score-v2)
+7. [Sequences Engine](#sequences-engine)
+8. [BETA Score Engine](#beta-score-engine)
+9. [TZ Intelligence Statistical Layer v2.8](#tz-intelligence-statistical-layer-v28)
+10. [Paper Portfolio](#paper-portfolio)
+11. [Chart Observations](#chart-observations)
+12. [API Endpoints](#api-endpoints)
+13. [Frontend Tabs](#frontend-tabs)
+14. [Analyzer Modules](#analyzer-modules)
+15. [Pivot Swing Character Analytics Engine](#pivot-swing-character-analytics-engine)
+16. [Build Marker & Artifact Audit](#build-marker--artifact-audit)
+17. [Deployment](#deployment)
+18. [Test Suite](#test-suite)
+19. [Scoring Systems Reference](#scoring-systems-reference)
+
+---
+
+## Overview
+
+Sachoki is a real-time multi-timeframe stock screener built on FastAPI + React. It aggregates signals from a dozen independent engines (T/Z candle logic, L-signal volume patterns, GOG priority scoring, VABS volume absorption, Wyckoff phase detection, and more) into a single unified **TURBO_SCORE** (0–100) and a calibrated **ULTRA_SCORE** (0–100, replay-derived). The UI exposes 18 analysis tabs covering scanning, prediction, correlation, backtesting, sector rotation, and sequence analysis.
+
+**Tech stack:**
+- Backend: Python 3.11 · FastAPI 0.111 · APScheduler · yfinance / Polygon.io
+- Frontend: React 18 · Vite 5 · Tailwind 3 · lightweight-charts 4
+- Storage: SQLite (local) · PostgreSQL (production) · Redis (optional cache)
+- Deploy: Docker (multi-stage) · Railway (railway.toml)
+
+---
+
+## Directory Structure
+
+```
+sachoki/
+├── backend/                     # FastAPI application
+│   ├── main.py                  # App entry point, all API routes
+│   ├── signal_engine.py         # T/Z signal computation
+│   ├── wlnbb_engine.py          # L-signal / WLNBB engine
+│   ├── gog_engine.py            # GOG priority engine
+│   ├── vabs_engine.py           # Volume absorption signals
+│   ├── combo_engine.py          # B-signal combo patterns
+│   ├── turbo_engine.py          # Turbo multi-engine scoring
+│   ├── ultra_engine.py          # ULTRA two-stage scan engine
+│   ├── ultra_orchestrator.py    # ULTRA Stage 1+2 orchestrator (lazy enrichment)
+│   ├── ultra_score.py           # Shared ULTRA Score formula (no lookahead)
+│   ├── ultra_signal_parser.py   # Compact label parser for live + Stock Stat rows
+│   ├── sequence_engine.py       # Universe-wide N-bar T/Z sequence analyzer
+│   ├── beta_engine.py           # BETA Score v2.1 (exchange-calibrated)
+│   ├── paper_portfolio_api.py   # Paper portfolio router (/portfolio/*)
+│   ├── paper_portfolio_migration.py  # Startup migration for portfolio tables
+│   ├── daily_scanner_runner.py  # Daily 5pm ET scanner → portfolio entry workflow
+│   ├── chart_obs_api_v2.py      # Chart Observations router (/obs/*) for K-signal tagging
+│   ├── chart_obs_migration.py   # Startup migration for chart_observations table
+│   ├── scanner.py               # Scan orchestrator + universe management
+│   ├── profile_playbook.py      # Multi-timeframe profile analysis
+│   ├── replay_engine.py         # Backtest / replay engine + ULTRA analytics
+│   ├── rtb_engine.py            # Range / Trend / Breakout
+│   ├── tpsl_engine.py           # Take profit / stop loss
+│   ├── br_engine.py             # Bollinger Range breakouts
+│   ├── sector_engine.py         # Sector rotation + RRG
+│   ├── canonical_scoring_engine.py  # Canonical score computation
+│   ├── predictor.py             # T/Z prediction
+│   ├── wyckoff_engine.py        # Wyckoff phase detection
+│   ├── para_engine.py           # Parabolic SAR patterns
+│   ├── fly_engine.py            # Flyby / breakaway patterns
+│   ├── power_engine.py          # Price-action power analysis
+│   ├── f_engine.py              # Wyckoff F-strength patterns
+│   ├── data.py                  # yfinance OHLCV fetching
+│   ├── data_polygon.py          # Polygon.io data provider
+│   ├── indicators.py            # RSI, CCI, ATR, normalization
+│   ├── db.py                    # SQLite / PostgreSQL helpers
+│   ├── analyzers/
+│   │   ├── rare_reversal/miner.py       # Rare reversal pattern miner
+│   │   ├── pullback_miner/miner.py      # Pullback pattern miner
+│   │   ├── pivot_swing/                 # Pivot Swing Character Analytics Engine
+│   │   │   ├── pivot_detector.py        # Confirmed pivot HIGH/LOW detection
+│   │   │   ├── swing_builder.py         # Alternating LOW→HIGH / HIGH→LOW swings
+│   │   │   ├── pivot_analytics.py       # 17-file aggregated output pipeline
+│   │   │   └── runner.py                # CLI entry point
+│   │   └── tz_wlnbb/
+│   │       ├── signal_extraction.py     # Vectorised T/Z + line3/4/5 + ATR + PSAR
+│   │       ├── signal_logic.py          # Per-bar Pine-equivalent priority engine
+│   │       ├── stock_stat.py            # Emits stock_stat_tz_wlnbb_*.csv
+│   │       ├── replay.py                # Replay ZIP builder (embeds pivot_swing/)
+│   │       ├── build_marker.py          # Version + git_sha + UTC build marker
+│   │       ├── config.py                # TZ_WLNBB_VERSION, Z_PRIORITY (no Z8)
+│   │       └── schemas.py
+│   ├── ultra_scan_routes.py         # Stub router (avoids ImportError on startup)
+│   └── tz_intelligence/
+│       ├── classifier.py            # ABR + matrix classification
+│       ├── abr_classifier.py        # ABR rule matching
+│       ├── scanner.py               # TZ Intel scan orchestrator
+│       ├── matrix_loader.py         # Master matrix CSV loader
+│       ├── stat_engine.py           # Statistical quality labels (STRONG/GOOD/AVERAGE/WEAK/REJECT)
+│       ├── final_normalizer.py      # Final action normalizer v2.8 (GO/WATCH_HIGH/WATCH/…)
+│       ├── whitelist_builder.py     # Whitelist/blacklist CSV generator from stock_stat
+│       └── ABR_rule_database.csv
+├── frontend/
+│   └── src/
+│       ├── App.jsx              # Main shell, tab routing, global state
+│       ├── api.js               # API client utilities
+│       ├── turboCache.js        # Client-side turbo result cache
+│       └── components/          # 24 React panel components
+├── tests/                       # Pytest test suite (663 tests)
+├── tz_intelligence_package/     # TZ signal intelligence data & guides
+├── TURBO_SCORE_REFERENCE.md     # Turbo score family details
+├── Dockerfile                   # Multi-stage build (Node 20 → Python 3.11)
+├── requirements.txt
+├── Procfile                     # Railway / Heroku process definition
+└── railway.toml                 # Railway deployment config
+```
+
+---
+
+## Backend Architecture
+
+### Request Flow
+
+```
+Browser → React (Vite) ──HTTP──► FastAPI (main.py)
+                                    │
+                        ┌───────────┼────────────────────────┐
+                        ▼           ▼                        ▼
+                  signal_engine  turbo_engine          ultra_orchestrator
+                  wlnbb_engine   gog_engine             └─ ultra_score.py
+                  vabs_engine    combo_engine            sequence_engine
+                  replay_engine  sector_engine
+                        │           │
+                        └───────────┘
+                                    │
+                              pandas DataFrames
+                                    │
+                         yfinance / Polygon.io OHLCV
+```
+
+### Scheduled Scans (APScheduler)
+
+Turbo and combined scans run automatically at **09:30, 12:30, 15:30 ET** on weekdays. Results are cached in-memory and served instantly.
+
+### Universe Definitions
+
+| Key | Description | Size |
+|-----|-------------|------|
+| `sp500` | S&P 500 large-caps | ~500 |
+| `nasdaq` | NASDAQ stocks | ~4,000 |
+| `russell2k` | Russell 2K small-caps | ~2,000 |
+| `all_us` | All US equities | ~8,000 |
+| `split` | Reverse-split window (D-7 → D+90) | dynamic |
+
+---
+
+## Signal Types Reference
+
+### T/Z Signals — Bullish (T) and Bearish (Z)
+
+T/Z signals classify each price bar based on its open/close relationship to the prior bar. They are the foundation of all scoring.
+
+#### Bullish T Signals
+
+| Signal | ID | Description |
+|--------|----|-------------|
+| T1G | 1 | First bullish gap — bull bar opening above prior close after bear bar |
+| T1 | 2 | Standard bullish — bull bar opening above prior close |
+| T2G | 3 | Continuation gap — bull bar after bull bar, gap up |
+| T2 | 4 | Continuation — bull bar after bull bar (standard) |
+| T3 | 5 | Lower-open bull — opens below prior open, closes above prior open |
+| T4 | 6 | Full engulf — bull bar engulfs entire prior bar (highest priority) |
+| T5 | 7 | Weak bull — opens below prior open, closes below prior close |
+| T6 | 8 | Engulf bull — bull bar engulfs prior bull bar |
+| T9 | 9 | Inside bull — bull bar fully inside prior bar |
+| T10 | 10 | Inside continuation — bull bar inside prior bull bar |
+| T11 | 11 | Mid-close bull — closes between prior open and close |
+| T12 | 12 | Lower-open continuation — bull bar after bull bar, lower open |
+
+#### Bearish Z Signals
+
+| Signal | ID | Description |
+|--------|----|-------------|
+| Z1G | 13 | First bearish gap — gap down after bull bar |
+| Z1 | 14 | Standard bearish — bear bar below prior close |
+| Z2G | 15 | Continuation gap — bear bar after bear bar, gap down |
+| Z2 | 16 | Continuation — bear bar after bear bar |
+| Z3 | 17 | Higher-open bear — opens above prior open, closes below prior open |
+| Z4 | 18 | Full engulf — bear bar engulfs entire prior bar (highest priority) |
+| Z5 | 19 | Weak bear — opens above prior open, closes above prior close |
+| Z6 | 20 | Engulf bear — bear bar engulfs prior bear bar |
+| Z7 | 21 | Doji — open equals close |
+| Z9 | 22 | Inside bear — bear bar inside prior bar |
+| Z10 | 23 | Inside continuation — bear bar inside prior bear bar |
+| Z11 | 24 | Mid-close bear — closes between prior open and close |
+| Z12 | 25 | Higher-open continuation — bear bar after bull bar, higher open |
+
+**Signal ID 0** = NONE (neutral bar).
+
+---
+
+### L-Signals — Volume × Price Classification
+
+Computed by `wlnbb_engine.py`.
+
+#### Base L-Signals
+
+| Signal | Condition |
+|--------|-----------|
+| L1 | Volume ↓, Close ↑ — bullish absorption |
+| L2 | Volume ↓, No new low — support on low volume |
+| L3 | Volume ↑, Close ↑ — demand |
+| L4 | Volume ↑, No new high — supply appearing |
+| L5 | Volume ↓, Close ↓ — distribution on low volume |
+| L6 | Volume ↑, Close ↓ — selling pressure |
+
+#### L-Combo & WLNBB Overlay Signals
+
+| Signal | Condition | Meaning |
+|--------|-----------|---------|
+| L34 | L3 ∧ L4 ∧ close ≥ open | Volume surge, no breakout — coiling |
+| FRI34 | BLUE ∧ L34 | Premium-quality coiling bar |
+| BLUE | Vol Z-score ≥ 1.1 ∧ RSI range ≤ 5.0 | High volume, flat RSI (controlled) |
+| UI | BLUE ≥ 2× in last 10 bars | Sustained premium accumulation |
+| CCI_READY | CCI in [−110, −50], rising | CCI softening before reversal |
+| PRE_PUMP | VSA absorption ≥ 2 bars | Pump precursor signature |
+| FUCHSIA_RH | RSI at 50-bar high ∧ volume down | Overbought divergence |
+| FUCHSIA_RL | RSI at 50-bar low ∧ volume down | Oversold with drying volume |
+
+---
+
+### VABS Signals — Volume Absorption & Breakout
+
+Computed by `vabs_engine.py`.
+
+| Signal | Description |
+|--------|-------------|
+| ABS | Absorption spike — volume bucket jumps ≥ 2 levels |
+| CLIMB | Volume climb — 3 consecutive rising bucket bars |
+| LOAD | Load signature — accumulation combination |
+| NS | Narrow Space — narrow spread + low volume + down close |
+| SQ | Squeeze — high volume + narrow spread |
+| VBO_UP | Volume Breakout Up — closes above 5–10 bar high |
+| BC | Breakout Climax — wide spread + high volume + good close |
+| SC | Selling Climax — wide spread + high volume + bad close |
+
+---
+
+### Profile Categories
+
+Computed by `profile_playbook.py`.
+
+| Category | Description |
+|----------|-------------|
+| SWEET_SPOT | `sweet_spot_active=true` and `late_warning=false` — optimal entry zone |
+| BUILDING | Pattern building toward breakout |
+| WATCH | On watchlist — no immediate signal |
+| LATE | Late-stage — risk/reward no longer favorable |
+
+---
+
+## Scoring & Turbo Engine
+
+The **TURBO_SCORE** (0–100) is a weighted aggregate computed by `turbo_engine.py`.
+
+### Score Component Families (capped)
+
+| Family | Cap | Source |
+|--------|-----|--------|
+| Backbone (conso_2809 + tz_bull chain) | 18 | signal_engine |
+| Volume / Accumulation (VABS, Wyckoff) | 22 | vabs_engine |
+| Breakout / Expansion | 18 | combo_engine |
+| Combo buy patterns | 14 | combo_engine |
+| Trend (T/Z, WLNBB, CCI) | 17 | signal_engine / wlnbb_engine |
+| Delta / Order-flow | 12 | delta_engine |
+| EMA cross series | 10 | turbo_engine |
+| G-signals | 10 | gog_engine |
+| Confluence bonuses | 18 | turbo_engine |
+| Context (Wick, PARA, FLY) | uncapped ~18 | fly_engine / para_engine |
+
+See `TURBO_SCORE_REFERENCE.md` for the full per-signal weight table.
+
+> **Hard rule:** ULTRA Score calibration never modifies Turbo score, Turbo category logic, or live Turbo behavior.
+
+---
+
+## ULTRA Score v2
+
+`backend/ultra_score.py` is the single source of truth for the ULTRA Score formula. Both the live ULTRA orchestrator and historical Stock Stat / Replay use it identically — **no lookahead** (never reads `ret_*d / mfe_* / mae_*`).
+
+### Score Components
+
+| Component | Cap | Description |
+|-----------|-----|-------------|
+| A. Breakout / Trigger | 35 | BUY_2809 (+20), ROCKET (+20), BB↑ (+15), BX↑ (+12), EB↑/BE↑/BO↑ (+10) |
+| B. Setup / Accumulation | 25 | ABS (+10), VA/SVS/STR (+8), CLB (+7), LD (+6), L34/FRI34 (+6), TZ→3 (+10) |
+| C. Confirmation / Quality | 25 | RS+ (+8), PF score tiers (+3/+6/+9/+12), SWEET_SPOT (+10), BUILDING (+6) |
+| D. Context | −20..+20 | TZ Intel role, Pullback tier, Rare tier, ABR category |
+| E. Penalties | negative | REJECT (−10), SHORT_WATCH (−8), WATCH+low_PF (−4), ISOLATED (−5) |
+| F. Combination bonuses | additive | MOMENTUM_A, REVERSAL_GROWTH, TRANSITION_A, PULLBACK_ENTRY, L34_TRIGGER |
+| G. Regime bonus (v2) | additive | FINAL_REGIME bonus (see table below) |
+
+### Regime Bonus (v2, replay-derived)
+
+| FINAL_REGIME | Bonus | Reason label |
+|---|---|---|
+| ACTIONABLE_SETUP | +12 | REGIME:ACTIONABLE |
+| SHAKEOUT_ABSORB | +10 | REGIME:SHAKEOUT |
+| CLEAN_ENTRY | +8 | REGIME:CLEAN |
+| REBOUND_SQUEEZE | +5 | REGIME:REBOUND_SQUEEZE |
+| RISK_REBOUND | +3 | REGIME:RISK_REBOUND |
+| BEARISH_PHASE / BEARISH_CONTEXT | 0 | `BEARISH_CONTEXT_WARN` flag (warning only) |
+
+### Bands v2 (replay-derived calibration)
+
+Historical evidence from SP500 1D replay:
+
+| Score | Band v2 | Priority | Replay data |
+|-------|---------|----------|-------------|
+| 90–100 | **A+** | HIGH_PRIORITY | avg 10D +2.36%, win 62.1%, fail 8.6% |
+| 80–89 | A | WATCH_A | median 10D 0.00%, win 48.3% |
+| 65–79 | B | STRONG_WATCH | — |
+| 50–64 | C | CONTEXT_WATCH | — |
+| <50 | D | LOW | — |
+
+> The old `ultra_score_band` (A/B/C/D at 80/65/50) is kept for backward compatibility. UI and CSV prefer `ultra_score_band_v2` + `ultra_score_priority`.
+
+### Confluence Caps (v2)
+
+| Condition | Cap | Override |
+|-----------|-----|---------|
+| MOMENTUM_A + no strong regime | ≤ 89 | if ≥2 of {setup present, PF≥12, SWEET_SPOT} |
+| SETUP_ONLY (no breakout) | ≤ 49 | if PF≥12 + strong regime |
+| BREAKOUT_ONLY (no setup) | ≤ 59 | if PF≥12 + strong regime |
+| L34/FRI34 alone | +2 max | +5 with breakout, +7 +PF, +10 +PF +regime |
+| change_pct ≥ 25 + no strong regime | −4 light penalty | `EXTENDED_PENALTY_LIGHT` flag |
+
+Strong regime = ACTIONABLE_SETUP, SHAKEOUT_ABSORB, or CLEAN_ENTRY.
+
+### ULTRA Score Output Fields
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `ultra_score` | int 0..100 | Final clamped score |
+| `ultra_score_band` | str | Legacy A/B/C/D |
+| `ultra_score_band_v2` | str | A+/A/B/C/D (replay-calibrated) |
+| `ultra_score_priority` | str | HIGH_PRIORITY / WATCH_A / STRONG_WATCH / CONTEXT_WATCH / LOW |
+| `ultra_score_reasons` | list[str] | Deduped signal labels, max 12 |
+| `ultra_score_flags` | list[str] | Combo flags (MOMENTUM_A, SETUP_ONLY, …) |
+| `ultra_score_raw_before_penalty` | int | Pre-penalty raw sum |
+| `ultra_score_penalty_total` | int | Absolute penalty |
+| `ultra_score_regime_bonus` | int | Points added by FINAL_REGIME |
+| `ultra_score_caps_applied` | list[str] | Which caps fired |
+| `ultra_score_cap_reason` | str | Pipe-separated cap rationale |
+
+All fields are written to the Stock Stat CSV and exposed in the live ULTRA scan JSON.
+
+### ULTRA Two-Stage Orchestrator
+
+`ultra_orchestrator.py` runs a two-stage scan to avoid OOM on large universes:
+
+1. **Stage 1 (Turbo-only)** — fast scan of all tickers, produce `ultra_score` from Turbo fields alone. Results served immediately.
+2. **Stage 2 (Lazy enrichment)** — background enrichment of top-N tickers with TZ/WLNBB, TZ Intel, Pullback, and Rare Reversal data. Score recomputed after each batch. UI live-updates.
+
+### Replay Analytics — ULTRA Score
+
+After Stock Stat + Replay, the engine produces:
+
+| File | Description |
+|------|-------------|
+| `replay_ultra_score_band_summary.csv` | Legacy A/B/C/D band metrics |
+| `replay_ultra_score_band_v2_summary.csv` | v2 A+/A/B/C/D band metrics |
+| `replay_ultra_score_priority_summary.csv` | Priority label metrics |
+| `replay_ultra_score_bucket_summary.csv` | Fine-grained 0–20 / 21–40 / … / 90–100 buckets |
+| `replay_ultra_combo_perf.csv` | Per-combo-group (MOMENTUM_A, SETUP_ONLY, …) metrics |
+| `replay_ultra_score_events.csv` | Top-N individual events |
+| `replay_ultra_false_positives.csv` | Band A events with negative 5D returns |
+| `replay_ultra_missed_winners.csv` | Sub-65 events with large 10D gains |
+
+All metrics: count, avg/median 1D/3D/5D/10D returns, win rates, hit +5%/+10%, fail rates, MFE.
+
+---
+
+## Sequences Engine
+
+`backend/sequence_engine.py` scans the full universe for recurring N-bar T/Z signal sequences and aggregates their multi-horizon forward-return statistics.
+
+### How It Works
+
+1. For each ticker, load Stock Stat CSV (TZ/WLNBB or Bulk Signal format).
+2. Walk every bar; emit `(sequence_key, type)` events with per-horizon returns.
+3. Aggregate events by sequence key → compute win rate, avg return, median return for 1D/3D/5D/9D.
+4. Score = `win_rate_1d × log1p(count)` (balanced: high win rate + enough events).
+5. Rank across universe; expose breadth (ticker_count / total_tickers).
+
+### Multi-Horizon Returns
+
+Returns derived from `close` (close-to-close). If CSV already has `ret_Nd`, that value is preserved; otherwise:
+
+```
+ret_Nd = (close[i+n] / close[i] - 1) × 100
+```
+
+Horizons: **1D, 3D, 5D, 9D**. A horizon is `None` when fewer than `n` bars remain.
+
+### Sequence Result Columns
+
+| Column | Description |
+|--------|-------------|
+| `sequence` | N-bar T/Z key, e.g. `T4→Z3→T2` |
+| `type_seq` | BULL / BEAR |
+| `count` | Total events (1D horizon) |
+| `wins` | Events with ret_1d > 0 |
+| `win_rate` | wins / count (1D) |
+| `ticker_count` | Distinct tickers that showed this sequence |
+| `score` | win_rate × log1p(count) |
+| `win_rate_3d/5d/9d` | Win rates at other horizons |
+| `avg_ret_1d/3d/5d/9d` | Average forward returns |
+| `med_ret_1d/3d/5d/9d` | Median forward returns |
+| `count_3d/5d/9d` | Events with sufficient forward bars |
+
+### Sort Options
+
+`score` (default), `win_rate`, `win_rate_3d`, `win_rate_5d`, `win_rate_9d`, `avg_ret_1d`, `avg_ret_3d`, `avg_ret_5d`, `avg_ret_9d`, `count`, `ticker_count`, `breadth`.
+
+---
+
+## BETA Score Engine
+
+`backend/beta_engine.py` — BETA Score v2.1 (calibrated 2026-05-10 from NQ1+NQ2 = 478,909 rows and SP500 = 88,934 rows of replay data).
+
+### Components
+
+| Field | Range | Meaning |
+|-------|-------|---------|
+| `beta_score` | 0–100 | Display value (non-linear transform of `beta_raw`) |
+| `beta_raw` | int | Pre-transform raw value |
+| `beta_setup` | 0–60 | Structural quality component |
+| `beta_momentum` | −5–50 | Momentum / regime component |
+| `beta_zone` | string | Categorical zone label |
+
+### Exchange-Specific Calibration
+
+| Exchange | setup × | momentum × | excess × |
+|----------|--------|-----------|---------|
+| NASDAQ   | 1.40   | 0.30      | 0.85    |
+| SP500    | 1.00   | 1.50      | 0.55    |
+
+Regime multipliers also differ per exchange — `ROCKET_WATCH` NQ=1.2/SP=0.7, `ACTIONABLE_SETUP` SP=1.2, `REBOUND_SQUEEZE` NQ=1.1.
+
+### Gates
+
+- **P89 boost** — ×1.1 when an EMA89 cross-up aligns with WATCH/BUY/OPTIMAL.
+- **D89 downgrade** — BUILDING → NEUTRAL when an EMA89 drop is active.
+
+BETA is wired into TURBO/ULTRA scan rows, the SuperChart matrix (BETA Score row), and Replay Analytics.
+
+---
+
+## TZ Intelligence Statistical Layer v2.8
+
+Added in v2.8. A statistical quality gate and final-action normalizer layered on top of the existing ABR classifier. Consumes per-signal SP500 1D replay data to upgrade raw ABR classifications into actionable tiers.
+
+### Modules
+
+| Module | Description |
+|--------|-------------|
+| `tz_intelligence/stat_engine.py` | Statistical threshold functions; maps (count, median_10d, fail_rate) → quality status |
+| `tz_intelligence/final_normalizer.py` | v2.8 normalizer; combines composite lookup, seq4 lookup, ABR role, volume, suffix, and static lists into a single `final_action` |
+| `tz_intelligence/whitelist_builder.py` | Reads a `stock_stat_tz_wlnbb_*.csv` and writes 8 output CSV files |
+| `tz_intelligence/classifier.py` | Extended to propagate `matched_n` (sample count from master matrix rule) |
+| `tz_intelligence/scanner.py` | Calls `normalize_final_action(r)` on every result row |
+
+### Statistical Quality Labels (`stat_engine.py`)
+
+| Status | Criteria |
+|--------|----------|
+| `STRONG` | median_10d ≥ 1.0%, fail_rate ≤ 20%, n ≥ 50 |
+| `GOOD` | median_10d ≥ 0.5%, fail_rate ≤ 25%, n ≥ 50 |
+| `AVERAGE` | median_10d ≥ 0.0%, fail_rate ≤ 30%, n ≥ 30 |
+| `WEAK` | median_10d < −0.25% or fail_rate ≥ 35% (below AVERAGE thresholds) |
+| `REJECT` | Extreme: median_10d deeply negative or fail_rate ≥ 35% |
+| `LOW_SAMPLE` | n < 20 (insufficient data) |
+
+Sample confidence labels: `HIGH` (n ≥ 100), `USABLE` (n ≥ 50), `DIRECTIONAL` (n ≥ 20), `LOW` (n < 20).
+
+### Final Action Tiers (`final_normalizer.py`)
+
+| Tier | Meaning | Color |
+|------|---------|-------|
+| `GO` | All gates pass; STRONG/GOOD composite + correct ABR role | Green |
+| `WATCH_HIGH` | One soft cap triggered (AVERAGE stat or WEAK blacklist) | Emerald |
+| `WATCH` | One or more hard blocks triggered (see below) | Yellow |
+| `SHORT_WATCH` | Bearish/short context | Orange |
+| `REJECT` | Hard statistical reject; static blacklist match | Red |
+
+**GO-eligible ABR roles:** `BULL_A`, `PULLBACK_GO`, `PULLBACK_READY_A`
+
+**Hard blocks → WATCH:**
+- Volume bucket in `VB_FAIL` set
+- ABR conflict flag (`abr_conflict_flag=True`)
+- Composite stat = WEAK or REJECT (lookup)
+- Composite stat = LOW_SAMPLE
+- Composite × seq4 stat = REJECT
+- REJECT-level blacklist hit (composite or seq4)
+- Static hardcoded REJECT composite match (`_STATIC_REJECT_COMPOSITES`, 29 entries)
+- EUR suffix without STRONG whitelist
+- Legacy blacklist match
+
+**Soft caps → WATCH_HIGH (not WATCH):**
+- `matched_status = AVERAGE` (requires composite GOOD/STRONG)
+- WEAK-level blacklist hit (composite or seq4)
+- Composite × seq4 stat = WEAK
+
+### CSV Lookup Files
+
+`whitelist_builder.py` generates 8 files from a `stock_stat_tz_wlnbb_*.csv`:
+
+| File | Rows (SP500/1D example) | Description |
+|------|------------------------|-------------|
+| `composite_whitelist.csv` | 129 | STRONG/GOOD composites |
+| `composite_blacklist.csv` | 88 | WEAK/REJECT composites |
+| `seq4_whitelist.csv` | 59 | STRONG/GOOD 4-bar signal sequences |
+| `seq4_blacklist.csv` | 1105 | WEAK/REJECT 4-bar sequences |
+| `composite_seq4_whitelist.csv` | 1 | STRONG/GOOD (composite, seq4) pairs |
+| `composite_seq4_blacklist.csv` | 197 | WEAK/REJECT (composite, seq4) pairs |
+| `composite_seq4_stats.csv` | 86395 | ALL observed (composite, seq4) pairs (n ≥ 1) |
+| `aio_suffix_performance.csv` | 435 | A/I/O close-suffix comparison per base composite |
+
+Files are searched in order: `./`, `/tmp/whitelists`, `/tmp`. The normalizer lazy-loads them on first call and exposes a `reload_lookups()` function.
+
+### seq4 Definition
+
+The 4-bar signal sequence is derived from 3 prior bars + current bar:
+```
+seq4 = "prev3_signal|prev2_signal|prev1_signal|current_signal"
+```
+Signals are resolved in priority order: `t_signal` → `z_signal` → `l_signal` → `—`.
+
+### Suffix System (A/I/O)
+
+The composite label has a 4-part suffix:
+```
+[ne_suffix][wick_suffix][penetration_suffix][close_suffix]
+```
+where `close_suffix ∈ {A, I, O}` represents the close position within the bar (Above midpoint / In midpoint zone / On/below low).
+
+The `_VALID_SUFFIX_RE` regex was fixed in v2.8 to accept all A/I/O close suffix variants:
+```
+^[NE][UDB]?[PRH]?[AIO]?$
+```
+
+### Volume Bucket (WLNBB)
+
+Volume is classified into 5 buckets per bar relative to 20-bar rolling stats:
+
+| Bucket | Description |
+|--------|-------------|
+| `VB` | Very Bullish volume |
+| `B` | Bullish volume |
+| `N` | Neutral volume |
+| `L` | Low volume |
+| `W` | Weak / depressed volume |
+
+`volume_bucket` is included in the composite label suffix and in the suffix-stats slice key.
+
+### Diagnostic Columns
+
+Every `tz-intelligence/scan` result row now includes:
+
+| Column | Description |
+|--------|-------------|
+| `final_action` | GO / WATCH_HIGH / WATCH / SHORT_WATCH / REJECT |
+| `final_action_reason` | Pipe-separated list of gate decisions |
+| `stat_composite_status` | STRONG/GOOD/AVERAGE/WEAK/REJECT/LOW_SAMPLE/UNKNOWN |
+| `stat_seq4_status` | Same for the seq4 lookup |
+| `stat_comp_seq4_status` | Same for the (composite, seq4) pair |
+| `stat_volume_status` | Volume quality from suffix stats |
+| `composite_lookup_status_used` | Which of the 3 composite lookup tables was used |
+| `seq4_lookup_status_used` | Which seq4 lookup table was used |
+| `suffix_lookup_status_used` | Which suffix/AIO lookup was used |
+| `volume_lookup_status_used` | Which volume lookup was used |
+| `static_reject_match` | bool — matched `_STATIC_REJECT_COMPOSITES` |
+| `matched_n` | Sample count from the master matrix rule |
+| `matched_status` | ABR role quality from master matrix |
+| `abr_conflict_flag` | bool — ABR role conflicted with T/Z direction |
+
+### Replay ZIP Integration
+
+When `POST /api/tz-wlnbb/replay` completes, `generate_replay_zip()` automatically:
+1. Calls `build_whitelists(stat_path)` to produce the 8 lookup CSVs.
+2. Embeds all 8 CSVs into the download ZIP.
+3. Persists `composite_seq4_stats.csv` to disk so the running normalizer can reload it.
+4. Calls `reload_lookups()` to hot-swap the lookup tables without a service restart.
+
+### Static Fallback Blacklist
+
+`_STATIC_REJECT_COMPOSITES` (29 hardcoded composites) provides a runtime safety net when no CSV files are present. Derived from SP500 1D replay data with n ≥ 50 and status = REJECT.
+
+---
+
+## Paper Portfolio
+
+A paper-trading layer that consumes top-tier ULTRA picks, simulates entries at next-day open, tracks open positions, and reports realised returns.
+
+### Tables (auto-created via `paper_portfolio_migration.py`)
+
+- `paper_portfolio` — one row per entry: `ticker`, `signal_date`, `entry_price`, `current_price`, `realized_return_p`, `status` (PENDING / OPEN / CLOSED), `tier`, `score`, plus daily OHLC tracking.
+
+### Workflow (driven by `daily_scanner_runner.py`)
+
+1. **5pm ET** — read the day's ULTRA CSV, filter TIER 1 + TIER 2 → `POST /api/portfolio/scan-and-add` (or `/entry`).
+2. **Next morning** — actual opens posted via `POST /api/portfolio/entry-price` (PENDING → OPEN).
+3. **Each evening** — daily OHLC posted via `POST /api/portfolio/daily-prices` then `POST /api/portfolio/daily-check` evaluates take-profit / stop-loss / holding-period rules and closes qualifying rows.
+
+The frontend `PortfolioPanel` exposes Pending / Open / Closed tabs and a server-side **Scan & Add** action that requires no CSV upload.
+
+---
+
+## Chart Observations
+
+A manual K-signal tagging layer (`backend/chart_obs_api_v2.py`) for retrospective annotation and calibration of T/Z + L + sequence setups.
+
+### Flow
+
+1. User enters **ticker + observation date** in the UI.
+2. `GET /api/obs/prefill` looks up the row in the `stock_stat` table, auto-fills T/Z signals, sequence label, turbo/beta/ultra scores, sweet-spot flag, RTB phase, prior 3 bars, and an entry-price suggestion.
+3. User confirms / annotates and adds the discretionary fields:
+   - `k_signal_match` (K1..K11 or NONE), `k_fired` (bool)
+   - `entry_quality` (PERFECT / GOOD / OK / BAD)
+   - free-text `notes`
+4. `POST /api/obs/save` upserts on `(obs_date, ticker, t_signal)` into the `chart_observations` table.
+
+### Result Tracking
+
+`POST /api/obs/sync-results` joins `chart_observations` to `paper_portfolio` on `(ticker, signal_date)` for closed trades, back-filling `result_5d`, `result_10d`, and `result_outcome` (WIN / LOSS / NEUTRAL).
+
+### Stats & Recent Endpoints
+
+`GET /api/obs/stats?days=N` returns win-rate and avg-10d aggregated by `(t_signal, sequence_label, k_signal_match)`. `GET /api/obs/recent?limit=N` returns the most recent observations for review.
+
+> **Requires** the `stock_stat` table to be populated in the backing DB (CSV import on Railway Postgres). If missing, `/obs/prefill` returns `503` with a clear "data not loaded" message instead of a raw Postgres error.
+
+---
+
+## API Endpoints
+
+All endpoints prefixed `/api/`. Backend serves on port **8080**.
+
+### Health & Config
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/health` | Service status, version |
+| GET | `/api/settings` | Load persisted settings |
+| POST | `/api/settings` | Save settings |
+
+### Ticker Data
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/ticker-info/{ticker}` | Name, sector, industry |
+| POST | `/api/ticker-info-batch` | Batch info (up to 200 tickers) |
+| GET | `/api/signals/{ticker}` | T/Z signals |
+| GET | `/api/wlnbb/{ticker}` | WLNBB L-signals |
+| GET | `/api/bar_signals/{ticker}` | Per-bar full signal breakdown |
+| GET | `/api/watchlist` | Real-time scan for comma-separated tickers |
+
+### Prediction & Stats
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/predict/{ticker}` | T/Z prediction + TZ matrix |
+| GET | `/api/pooled-predict/{ticker}` | Prediction using pooled stats |
+| POST | `/api/pooled-stats/build` | Build pooled stats (background) |
+| GET | `/api/signal-stats/{ticker}` | Per-signal win% and return stats |
+| GET | `/api/tz-l-stats/{ticker}` | T/Z × L matrix + SPY/QQQ benchmarks |
+| GET | `/api/signal-correlation` | Signal co-occurrence correlation |
+
+### Scanning
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/scan/results` | T/Z scanner results |
+| POST | `/api/scan/trigger` | Start T/Z scan |
+| GET | `/api/combined-scan` | Multi-engine aggregated results |
+| GET | `/api/turbo-scan` | Turbo scan results (ranked) |
+| POST | `/api/turbo-scan/trigger` | Start turbo scan |
+| GET | `/api/turbo-analyze/{ticker}` | Deep turbo breakdown |
+
+### ULTRA Scan
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/ultra-scan/results` | ULTRA scan results (stage-aware, paginated) |
+| POST | `/api/ultra-scan/trigger` | Start ULTRA two-stage scan |
+| GET | `/api/ultra-scan/status` | Scan phase + enrichment progress |
+
+### Sequences
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/sequence-scan/trigger` | Start sequence scan (background) |
+| GET | `/api/sequence-scan/status` | Scan progress |
+| GET | `/api/sequence-scan/results` | Ranked sequence results (paginated, sortable) |
+
+### Sectors
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/sectors/overview` | All-sector returns + strength |
+| GET | `/api/sectors/rrg` | Relative Rotation Graph data |
+| GET | `/api/sectors/heatmap` | Heatmap by metric |
+| GET | `/api/sectors/{etf}` | Single sector ETF detail |
+
+### Replay / Backtest
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/replay/run` | Run backtest (tf, universe) |
+| GET | `/api/replay/reports` | List result reports |
+| GET | `/api/replay/report/{name}` | Get report (paginated) |
+| GET | `/api/replay/export/{name}` | Export report as CSV |
+| GET | `/api/replay/export-all` | Export all reports as ZIP |
+
+### Stock Stat / Bulk Signal CSV
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/stock-stat/trigger` | Generate bulk signal CSV for universe |
+| GET | `/api/stock-stat/status` | Generation progress |
+| GET | `/api/stock-stat/download` | Download generated CSV |
+
+### TZ/WLNBB Analyzer
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/tz-wlnbb/scan` | TZ × WLNBB scan results |
+| POST | `/api/tz-wlnbb/generate-stock-stat` | Generate per-stock stat CSV (260523 Pine version with `build_marker`, `ad_fresh`, `ad_cluster`, `wyc_phase` + 4 wyc_* columns) |
+| GET | `/api/tz-wlnbb/status` | Generation progress |
+| POST | `/api/tz-wlnbb/replay` | Run TZ/WLNBB replay (embeds whitelists + Pivot Swing pivot_swing/ files + BUILD_MARKER.txt) |
+| POST | `/api/tz-wlnbb/build-whitelists` | Build whitelist/blacklist CSVs from a stock_stat CSV path |
+| GET | `/api/tz-wlnbb/replay-perf` | Replay perf rankings (kind = body_wick / gap_range / line5) |
+| GET | `/api/tz-wlnbb/download/{filename}` | Download a stock_stat or replay CSV |
+
+### Pivot Swing Character Analytics
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/pivot-swing/run` | Run pivot swing engine (aggregated multi-ticker) |
+| GET | `/api/pivot-swing/status` | Current run progress |
+| GET | `/api/pivot-swing/results` | List of generated output files |
+| GET | `/api/pivot-swing/download/{filename}` | Download a pivot swing artifact |
+
+### Build Verification & Artifact Audit
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/code-version` | Active code's `build_marker`, `tz_wlnbb_version`, Z_PRIORITY, and fingerprint of the deployed final_normalizer / scanner / pivot_swing modules |
+| GET | `/api/artifact-audit` | On-disk audit: stock_stat versions, `scan_as_of_date`, `stale_dropped_count`, `WATCH_HIGH:GATES_PASS` count, `bad_gates_pass_count`, `pivot_output_file_count`, `zip_build_marker` vs `active_code_build_marker` + a `checks{}` block + `all_checks_pass` bool |
+| POST | `/api/regenerate-and-audit` | One-click chain: generate-stock-stat → replay ZIP (with pivot_swing) → artifact-audit |
+| GET | `/api/regenerate-and-audit/status` | Poll for chain progress + final audit result |
+
+### Specialized Miners & Intelligence
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/rare-reversal/scan` | Rare reversal pattern scan |
+| GET | `/api/pullback-miner/scan` | Pullback pattern scan |
+| GET | `/api/pullback-miner/report` | Pullback pattern report |
+| GET | `/api/tz-intelligence/scan` | ABR classification scan |
+
+### Paper Portfolio
+
+| Method | Path | Description |
+|--------|------|-------------|
+| POST | `/api/portfolio/scan-and-add` | Server-side scan → push TIER 1/2 picks |
+| POST | `/api/portfolio/entry` | Add a single ticker (PENDING) |
+| POST | `/api/portfolio/entry-price` | Set actual entry price (PENDING → OPEN) |
+| POST | `/api/portfolio/daily-prices` | Bulk daily OHLC update |
+| POST | `/api/portfolio/daily-check` | Evaluate exit rules; close qualifying rows |
+| GET | `/api/portfolio/open` | Currently open positions |
+| GET | `/api/portfolio/stats` | Aggregate performance metrics |
+| GET | `/api/portfolio/export` | CSV export |
+| GET | `/api/portfolio/` | Full portfolio listing |
+
+### Chart Observations
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/obs/prefill?ticker=&obs_date=` | Auto-fill observation form from `stock_stat` |
+| POST | `/api/obs/save` | Upsert observation with K-signal + notes |
+| POST | `/api/obs/sync-results` | Backfill result_5d/10d from `paper_portfolio` |
+| GET | `/api/obs/stats?days=N` | Win-rate / avg-10d grouped by signal + K-match |
+| GET | `/api/obs/recent?limit=N` | Recent observations |
+
+---
+
+## Frontend Tabs
+
+All tabs defined in `App.jsx`. **20 tabs total.**
+
+### ⚡ TURBO (`TurboScanPanel.jsx`)
+
+High-speed multi-engine scan ranked by TURBO_SCORE. Always-mounted.
+
+Filters: universe / tf / direction / score-band / signal / profile / volume / sector / RTB phase / lookback.
+
+### 🧬 ULTRA (`UltraScanPanel.jsx`)
+
+Two-stage ULTRA scan ranked by ULTRA Score. Always-mounted.
+
+- Stage 1 scores appear immediately after fast Turbo-only pass.
+- Stage 2 enriches top-N with TZ/WLNBB + TZ Intel + Pullback + Rare Reversal in background.
+- ULTRA Score column shows numeric + v2 band (A+/A/B/C/D). 90+ highlighted with stronger glow than 80–89.
+- Tooltip: `ULTRA 92 (A+/HIGH_PRIORITY) · BUY_2809 MOMO+CAT REGIME:ACTIONABLE`
+- CSV export carries all `ultra_score_*` fields (legacy + v2 calibration).
+
+### ⭐ Watchlist (`PersonalWatchlistPanel.jsx`)
+
+Personal watchlist. Current signals and scores per ticker. Add/remove support.
+
+### Combined Scan (`CombinedScanPanel.jsx`)
+
+Aggregated results from all engines, tabbed by signal family.
+
+### Predictor (`PredictorPanel.jsx`)
+
+Statistical T/Z signal predictor. Next-bar probability matrix, L-signal prediction, benchmark vs SPY/QQQ.
+
+### T/Z Scanner (`ScannerPanel.jsx`)
+
+Traditional T/Z scan. Filter by signal type, timeframe, min score.
+
+### T/Z × L Stats (`TZLStatsPanel.jsx`)
+
+T/Z × L correlation matrix for a single ticker.
+
+### 📊 Corr (`SignalCorrelPanel.jsx`)
+
+Universe-wide signal co-occurrence correlation heatmap.
+
+### 📋 Superchart (`SuperchartPanel.jsx`)
+
+Dense multi-row candle view with overlaid signal data (T/Z, L, B-signals, GOG, F-signals, Fly, RTB, TPSL).
+
+### 🌐 Sectors (`SectorAnalysisPanel.jsx`)
+
+Sector rotation: overview, RRG, heatmap, macro analysis.
+
+### 🔍 Analyze (`TickerAnalysisPanel.jsx`)
+
+Deep single-ticker analysis across all engine families.
+
+### 🔬 Replay (`ReplayPanel.jsx`)
+
+Backtest results viewer. Includes ULTRA Score analytics sections:
+
+| Section | Key |
+|---------|-----|
+| ULTRA Score Bands | Legacy A/B/C/D with aggregate return metrics |
+| ULTRA Score Bands v2 | A+/A/B/C/D (replay-calibrated) |
+| ULTRA Score Priority | HIGH_PRIORITY..LOW aggregate metrics |
+| ULTRA Score Buckets | Fine-grained 0–100 bucket breakdown |
+| ULTRA Combos | Per-combo-group (MOMENTUM_A, SETUP_ONLY, …) performance |
+| ULTRA Examples | Top events with forward returns |
+| ULTRA False Positives | Band A losses analysis |
+| ULTRA Missed Winners | Sub-65 large-gain events |
+
+### 📡 TZ/WLNBB (`TZWLNBBPanel.jsx`)
+
+TZ × WLNBB scanner. Controls Stock Stat file generation and TZ/WLNBB replay.
+
+### 🧠 TZ Intel (`TZIntelligencePanel.jsx`)
+
+ABR (Activation / Breaking / Retest) pattern scanner using `tz_intelligence/`. In v2.8, the table includes a `Final` column showing GO/WATCH_HIGH/WATCH/SHORT_WATCH/REJECT with color coding, plus StatComp, CompSeq4, Sample, and Reason columns. CSV export includes all 18+ diagnostic fields.
+
+**Color coding:**
+
+| Tier | Color |
+|------|-------|
+| GO | green-400 |
+| WATCH_HIGH | emerald-300 |
+| WATCH | yellow-300 |
+| SHORT_WATCH | orange-400 |
+| REJECT | red-400 |
+
+### 🔄 Rare Reversal (`RareReversalPanel.jsx`)
+
+4–6 bar T/Z rare reversal sequence miner with tier badges, completion progress, and CSV export.
+
+### 🔢 Sequences (`SequenceScanPanel.jsx`)
+
+Universe-wide N-bar T/Z sequence analyzer.
+
+- Universe, timeframe, sequence length (2–6 bars), type (BULL/BEAR/ALL).
+- Multi-horizon stats: Win 1D/3D/5D/9D · Avg 1D/3D/5D/9D · Med 1D.
+- Sort by any horizon win rate or return.
+- Breadth column shows how many tickers exhibited the sequence.
+- CSV export with all 20 horizon columns.
+
+### 💼 Portfolio (`PortfolioPanel.jsx`)
+
+Paper-trading dashboard. Pending / Open / Closed tabs with Set-Entry-Prices UI and a server-side **Scan & Add** button (consumes the day's ULTRA results — no CSV upload required). Shows realized return per row and aggregate stats.
+
+### 📈 Chart Obs (`ChartObsPanel.jsx`)
+
+Chart Observation form for K-signal tagging. Enter ticker + date → system prefills T/Z signals, sequence, scores, prior bars from `stock_stat`; user confirms K-signal match (K1..K11), entry quality, and notes. Backed by `/api/obs/*`.
+
+### How It Works (`HowItWorksPanel.jsx`)
+
+Educational reference for signals and scoring.
+
+### ⚙ Admin (`AdminPanel.jsx`)
+
+Operational controls: scan history, manual triggers, pooled stats rebuild, stock-stat generation.
+
+---
+
+## Analyzer Modules
+
+### ULTRA Signal Parser (`backend/ultra_signal_parser.py`)
+
+Normalises two row shapes for the ULTRA Score formula:
+- **Live ULTRA rows** — flat boolean keys: `row['buy_2809']=1`
+- **Stock Stat rows** — compact label columns: `row['combo']=['BUY_2809','ROCKET']`
+
+Emits a canonical dict of parsed signal flags consumed by `ultra_score.py`.
+
+### TZ/WLNBB Analyzer (`backend/analyzers/tz_wlnbb/`)
+
+Generates per-stock stat CSV for the Pullback Miner, Sequence Engine, and Pivot Swing Engine. Computes T/Z + L sequences with forward returns (ret_1d, ret_5d, ret_10d), MFE, MAE.
+
+**Pine 260523 features (current production version):**
+
+- **Z8 removed**: confirmed not a real signal. `Z_PRIORITY` has 13 entries (Z7 at tail). Combined T+Z signal count = **25**.
+- **line3 — Body + Wick shape**: unchanged from 260521. `bar_body_wick` column.
+- **line4 — Gap + Range (ATR-relative)**: unchanged from 260521. `bar_gap_range` column.
+- **line5 — VIX-Fix / PSAR / RSI2**: unchanged from 260521. `bar_line5` column.
+- **AD-FRESH** (new): `ad_fresh` column (bool).
+  `A_signal = Z1G OR Z2G` (bearish exhaustion). `D_signal = T4 OR T6 OR T2G OR T2` (bullish flip).
+  `AD_FRESH = D_signal AND barssince(A_signal) <= AD_FRESH_LOOKBACK (12) AND pos_in_range(close, 20bar) < AD_FRESH_POS_THR (0.50)`.
+  Empirically confirmed strongest reversal marker across RGTI/RKLB daily and weekly charts.
+- **AD-CLUSTER** (new): `ad_cluster` column (bool). 2+ AD-FRESH events within an 8-bar rolling window. Highest-conviction reversal entry.
+- **WYC Phase** (new): `wyc_phase` column (str). Macro Wyckoff context using EMA50/200 + dual TR detection (Fourier amplitude ratio OR ATR compression < 70% of 50-bar EMA avg).
+  Values: `SPRING | UTAD | SOS | ACC_TR | DIST_TR | MARKUP | MKDN | NEUTRAL`. State persists across bars (state machine, not snapshot).
+  - **SPRING**: low < prev-20 support, closes back above, `is_bull`, `macro_down`, vol spike, and **T1G/T4/T9 confirmation**.
+  - **UTAD**: high > prev-20 resistance, closes back below, `is_bear`, `macro_up`, vol spike, and **Z1G/Z4 confirmation**.
+  - **SOS**: AD-FRESH fires while `macro_down` and `bar_line5` starts with `VX` (VIX spike) — Sign of Strength.
+  - **ACC_TR / DIST_TR**: EMA50<EMA200 (resp >) AND in compression.
+  - **MARKUP / MKDN**: EMA50>EMA200 (resp <) AND not compressed.
+- **ATR**: Wilder smoothing `tr.ewm(alpha=1/14, adjust=False).mean()` (unchanged).
+- **WYC fixes applied**: Spring no longer requires Fourier `sync_up`; LPS/LPSY `c1_ph` signs corrected (LPS on C1 downswing, LPSY on upswing); TR detection uses dual method (Fourier ratio OR ATR compression).
+- Active version constant: `TZ_WLNBB_VERSION = "260523_TZ_F_WLNBB_CMB_python_v3_adfresh_wyc"`
+
+**Key files (260523):**
+- `config.py` — version + `AD_FRESH_*` + `WYC_*` tuning constants
+- `signal_extraction.py` — adds `compute_ad_fresh()` and `compute_wyc_phase()`; both auto-run inside `compute_signals_for_ticker()`
+- `stock_stat.py` — `OUTPUT_COLUMNS` adds 7 new columns: `ad_fresh`, `ad_cluster`, `wyc_phase`, `wyc_spring`, `wyc_sos`, `wyc_acc_tr`, `wyc_markup`
+- `turbo_engine.py` — AD-CLUSTER +18 / AD-FRESH +10 / WYC Spring +12 / SOS +8 / ACC_TR +5 / MARKUP +6 inside the volume/accumulation family (cap 22)
+- `ultra_score.py` — Section B adds AD-CLUSTER +15 / AD-FRESH +8 / WYC Spring +10 / SOS +6; `_REGIME_BONUS` adds `SPRING_CONFIRMED +12`, `SOS_CONFIRMED +8`, `ACC_TR_CONTEXT +4`
+
+**Key files:**
+- `config.py` — version, T_PRIORITY, Z_PRIORITY (13 entries, no Z8), suffix/L definitions
+- `signal_logic.py` — per-bar T/Z compute (Pine-equivalent priority engine)
+- `signal_extraction.py` — vectorised compute over a DataFrame; includes `_compute_psar`, `compute_line5`, `compute_atr_wilder`
+- `stock_stat.py` — emits `stock_stat_tz_wlnbb_*.csv` with `tz_wlnbb_version` + `build_marker` columns
+- `replay.py` — generates `replay_tz_wlnbb_*.zip` with 70+ analytics CSVs, the 17 pivot_swing/ files, BUILD_MARKER.txt at ZIP root, and config_snapshot.json
+- `build_marker.py` — produces `<version>__sha-<git>__built-<UTC>` marker at import time
+
+### Rare Reversal Miner (`backend/analyzers/rare_reversal/miner.py`)
+
+4–6 bar T/Z reversal sequences matched against the master matrix. Evidence tiers: CONFIRMED_RARE, READY, FORMING, ANECDOTAL, WATCH.
+
+### Pullback Pattern Miner (`backend/analyzers/pullback_miner/miner.py`)
+
+Pullback entry patterns within T/Z + L sequences.
+
+Evidence tiers:
+- `CONFIRMED_PULLBACK` — ≥2 events, median 10d > 0, win ≥ 50%, fail ≤ 35%
+- `ANECDOTAL_PULLBACK` — 1 event with positive return
+- `NO_DATA` — no stat data
+- `REJECT` — data exists but below thresholds
+
+### TZ Intelligence (`backend/tz_intelligence/`)
+
+ABR classifier using `ABR_rule_database.csv`. Classifies bars as Activation / Breaking / Retest using the master matrix. Also provides the `tz_intel_role` field read by ULTRA Score's D-component.
+
+In v2.8, the TZ Intelligence layer gained a full statistical normalization pipeline: `stat_engine.py` labels statistical quality, `final_normalizer.py` merges all signals into a 5-tier final action, and `whitelist_builder.py` builds the lookup tables from replay data. See [TZ Intelligence Statistical Layer v2.8](#tz-intelligence-statistical-layer-v28) for details.
+
+---
+
+## Pivot Swing Character Analytics Engine
+
+**Package:** `backend/analyzers/pivot_swing/`
+
+A self-contained analytics engine that discovers signal behavior at confirmed swing pivots. **Does not modify** signal_logic.py, signal_extraction.py, WLNBB L1–L6 logic, or candle-pattern logic — purely read-only consumer of the stock_stat CSV pipeline.
+
+### Modules
+
+| File | Purpose |
+|------|---------|
+| `pivot_detector.py` | Confirmed pivot HIGH/LOW detection. `pivot_left=3`, `pivot_right=3` by default. `confirmed_at_index = pivot_idx + pivot_right` — pivot is not known until that many bars close. Zero lookahead leakage. |
+| `swing_builder.py` | Alternating LOW→HIGH / HIGH→LOW swing segments. `min_swing_return_pct=3.0`, `min_swing_bars=2`. Same-direction duplicates collapse to the more extreme pivot. |
+| `pivot_analytics.py` | Aggregated analytics pipeline. Accepts a list of stock_stat CSV paths and emits a single output set covering all tickers. |
+| `runner.py` | CLI entry point (`python -m analyzers.pivot_swing.runner --csv-dir <dir> --out <out>`) |
+
+### Pivot zone window
+
+For every confirmed pivot, the engine extracts every signal at offsets `−5..+5` from the pivot price bar. Each record is tagged:
+- `LIVE_SAFE` if `offset ≤ 0` (bar happened before/at the pivot extreme)
+- `RESEARCH_ONLY` if `offset > 0` (uses bars after the pivot — must NOT be used in live trading rules)
+
+Statistical role discovery is **agnostic**: T is not assumed bullish, Z is not assumed bearish. Roles are derived from observed pivot side at offset=0: `BULLISH_REVERSAL` (≥65% at LOW), `BEARISH_REVERSAL` (≥65% at HIGH), `NEUTRAL`.
+
+### Confidence tiers
+
+| Tier | Min count |
+|------|-----------|
+| HIGH | ≥ 100 |
+| MEDIUM | ≥ 40 |
+| LOW | ≥ 15 |
+| RESEARCH_ONLY | < 15 |
+
+### Output files (17 total, all aggregated across input tickers)
+
+| File | Description |
+|------|-------------|
+| `pivot_swing_summary.csv` | One row per ticker: bars, pivot_lows, pivot_highs, swings, up/down split, avg swing return %, avg swing bars |
+| `pivot_low_single_signal_stats.csv` | Per (offset, signal_field, signal_value) at LOW pivots: count + avg forward returns + confidence_tier + lookahead_safe |
+| `pivot_high_single_signal_stats.csv` | Same shape, at HIGH pivots |
+| `pivot_low_sequence_2bar_stats.csv` … `pivot_low_sequence_6bar_stats.csv` | Sequence patterns of length 2..6 at LOW pivots |
+| `pivot_high_sequence_2bar_stats.csv` … `pivot_high_sequence_6bar_stats.csv` | Same at HIGH pivots |
+| `pivot_zone_offset_stats.csv` | Aggregate counts + returns per (pivot_type, offset) bucket |
+| `pivot_role_map.csv` | Per signal value: counts at LOW vs HIGH, discovered_role (BULLISH_REVERSAL / BEARISH_REVERSAL / NEUTRAL / RESEARCH_ONLY) |
+| `pivot_scanner_rules_proposal.md` | Live-safe candidate rules (offset ≤ 0) for incorporation into the live scanner — recommended modules listed |
+| `pivot_engine_audit_report.md` | Run parameters, per-ticker audit, version distribution, lookahead-safety policy, scope guarantees |
+
+### Embedding in the replay ZIP
+
+`replay.py::_embed_pivot_swing_in_zip()` builds a DataFrame from the `rows` arg, writes per-ticker temp CSVs, calls `run_pivot_analytics(csv_paths=…)`, and copies the 17 outputs into the replay ZIP under `pivot_swing/`. Embedding is non-fatal — a failure logs a warning and the ZIP is still produced.
+
+---
+
+## Build Marker & Artifact Audit
+
+Every artifact emitted by the backend carries a **build marker** that uniquely identifies the code version that produced it:
+
+```
+260521_TZ_F_WLNBB_CMB_python_v2_line345__sha-<git_short_sha>__built-<UTC_TIMESTAMP>
+```
+
+Generated at import time by `backend/analyzers/tz_wlnbb/build_marker.py` from:
+- `TZ_WLNBB_VERSION` constant in `config.py`
+- short git SHA (via `git rev-parse --short HEAD` or `.git/HEAD` fallback)
+- UTC timestamp at process boot
+
+### Where the marker lands
+
+| Artifact | Location of marker |
+|----------|--------------------|
+| Replay ZIP | `BUILD_MARKER.txt` at ZIP root (first line is the marker, body is `BUILD_INFO` JSON) |
+| `replay_tz_wlnbb_metadata.json` | `build_marker` + `build_info` keys |
+| `tz_wlnbb_config_snapshot.json` | `TZ_WLNBB_ANALYZER_VERSION` (matches the version portion) |
+| `stock_stat_tz_wlnbb_*.csv` | new `build_marker` column on every row |
+| `/api/tz-intelligence/scan` response | top-level `build_marker` + per-row `build_marker` |
+| `/api/code-version` response | `build_marker` + `build_info` dict |
+
+### Verifying deployed code matches uploaded artifacts
+
+```
+1. GET /api/code-version
+   → note the build_marker value
+2. Open the uploaded replay ZIP, read BUILD_MARKER.txt
+3. If they match → artifact came from the deployed code
+   If they differ → artifact is stale, rebuild required
+```
+
+`/api/artifact-audit` does this comparison automatically and returns:
+- `active_code_build_marker`
+- `zip_build_marker`
+- `zip_built_with_active_code` (bool, must be `true` for a clean run)
+
+### Bug-class guardrails
+
+The deployed code carries two complementary fixes for the **`WATCH_HIGH:GATES_PASS` data bug**:
+
+1. **Normalizer-level fix** (`final_normalizer.py:470–516`): `final_reason = GATES_PASS` is reserved strictly for rows where both `volume_gate_status == PASS` and `abr_gate_status == PASS`. Any modifier-promoted `WATCH_HIGH` row keeps its downgrade reasons.
+
+2. **Post-condition repair** (`final_normalizer.py:516–535`): if any path emits `GATES_PASS` / `WATCH_HIGH:GATES_PASS` / `GO:GATES_PASS` while gates failed, the row is rewritten in-place to include the actual gate-failure reasons. Makes the bug impossible to ship.
+
+3. **Defensive post-scan repair** (`main.py:/api/tz-intelligence/scan`): even if the on-disk CSV contains pre-fix rows, the scan endpoint re-checks every result before returning and rewrites stale `GATES_PASS` strings. `debug.post_scan_repair_count` reports how many rows were repaired.
+
+### Latest-mode stale-row filter
+
+`run_intelligence_scan()` accepts `max_stale_trading_days=2` (default). In `latest` mode it:
+1. Computes `scan_as_of_date` as the most recent bar date across all tickers in the stock_stat CSV
+2. For each ticker, computes `_count_trading_days_between(latest_date, scan_as_of_date)` (weekend-skip aware)
+3. If > `max_stale_trading_days`, drops the ticker (or for `split` universe `require_all_tickers` mode, emits a `STALE_DATA` row)
+
+`scan_as_of_date` and `stale_dropped` are surfaced in the response `debug` block.
+
+---
+
+## Swing Classification (260523 v3.2 — Forward Pivot-to-Pivot)
+
+`backend/analyzers/tz_wlnbb/swing_classifier.py` labels every confirmed pivot bar
+with **two distinct swing metrics** — backward (live-safe context) and
+forward (research-only, true pivot-to-pivot move).
+
+### Backward — LIVE-SAFE context
+
+| Column                | Values              | Description                                       |
+|-----------------------|---------------------|---------------------------------------------------|
+| `swing_type`          | HH / LH / HL / LL / "" | vs previous same-direction pivot               |
+| `swing_ret_from_prev` | float %             | % from previous pivot to this one (context only)  |
+
+Backward metric is safe for live scoring (no future bars needed).
+
+### Forward — RESEARCH_ONLY (lookahead)
+
+| Column           | Type   | Description                                       |
+|------------------|--------|---------------------------------------------------|
+| `fwd_swing_ret`  | float % | % from this pivot to the NEXT opposite pivot     |
+| `fwd_swing_bars` | float  | Bars from this pivot to the next opposite pivot   |
+
+**Direction convention:**
+- pivot **LOW** → next pivot **HIGH**: `fwd_swing_ret > 0` = price rose (bullish)
+- pivot **HIGH** → next pivot **LOW**: `fwd_swing_ret < 0` = price fell (bearish)
+
+**Lookahead policy:** `fwd_swing_ret` / `fwd_swing_bars` are listed in
+`stock_stat.LOOKAHEAD_COLUMNS` alongside `ret_5d`, `mfe_*`, etc. They MUST NOT
+appear in `turbo_engine.py`, `ultra_score.py`, or `scanner.py` (an automated
+test asserts this). Used only in replay analytics and backtesting.
+
+### Empirical edge (SP500 1D)
+
+Forward pivot-to-pivot return is **~3.3× larger** than the fixed-5d return and
+has dramatically higher win rates because it captures the *full* swing move.
+
+| Swing | fwd_avg  | fwd_median | win_rate | avg_bars | fixed_ret_5d |
+|-------|----------|------------|----------|----------|--------------|
+| HL    | +9.98%   | +7.48%     | 97.2%    | 6.3      | +3.00%       |
+| LL    | +9.69%   | +7.50%     | 97.2%    | 6.5      | +2.87%       |
+| HH    | −8.11%   | −6.84%     | 98.4%    | 5.6      | −2.28%       |
+| LH    | −8.30%   | −6.79%     | 98.5%    | 5.3      | −2.29%       |
+
+Average swing duration: 5–7 bars.
+
+**Top signal × swing combinations** (`fwd_swing_ret`, n ≥ 10):
+- Z4 + LL: +14.55%, win 97%
+- Z2 + LL: +10.94%, win 100%
+- Z2G + HL: +9.21%, win 96%
+- Z1G + HL: +9.83%, win 98%
+
+The two metrics serve different roles:
+| Use case        | Metric                  | Lookahead |
+|-----------------|-------------------------|-----------|
+| Live scoring    | `swing_type` (backward) | NO        |
+| Replay / research | `fwd_swing_ret` (forward) | YES — replay only |
+
+### Signal-to-Pivot Performance (RESEARCH_ONLY — 260523 v3.3)
+
+`backend/analyzers/tz_wlnbb/signal_to_pivot_analytics.py` measures the return
+from **every signal bar** to the next confirmed opposite pivot — independent
+of any fixed time window (`ret_5d`, `ret_10d`) and of whether the signal bar
+itself is a pivot.
+
+- **T signal → next pivot HIGH**: `ret_to_pivot > 0` = win (price rose to the pivot)
+- **Z signal → next pivot LOW**:  `ret_to_pivot < 0` = win (price fell to the pivot)
+
+Key difference vs `fwd_swing_ret`:
+
+| Metric              | Anchor              | Window                | Lookahead |
+|---------------------|---------------------|-----------------------|-----------|
+| `ret_5d`            | Any bar close       | Fixed 5 bars          | NO (live-safe) |
+| `fwd_swing_ret`     | Confirmed pivot bar | Variable (next pivot) | YES (research) |
+| `ret_to_pivot` (NEW)| **Any signal bar**  | Variable (next pivot) | YES (research) |
+
+Output: `replay_tz_wlnbb_signal_to_pivot_perf.csv` (min count 15, aggregated
+by `signal_field × signal_value × next_pivot_type`). File starts with a
+`# RESEARCH_ONLY — uses future pivot prices` comment row.
+
+| Column             | Description                                              |
+|--------------------|----------------------------------------------------------|
+| `signal_field`     | `t_signal` or `z_signal`                                 |
+| `signal_value`     | T2G, Z1G, etc.                                           |
+| `next_pivot_type`  | HH / LH / HL / LL                                        |
+| `count`            | observations (min 15)                                    |
+| `avg_ret_to_pivot` | avg % from signal close to pivot price                   |
+| `med_ret_to_pivot` | median %                                                 |
+| `win_rate`         | % correct direction (T→HH/LH: ret>0; Z→HL/LL: ret<0)   |
+| `avg_bars_to_pivot`| avg bars between signal bar and pivot                    |
+| `pct25` / `pct75`  | distribution quartiles                                   |
+
+**Key findings (SP500 1D, 80 tickers):**
+
+| Signal | Next pivot | avg_ret  | win_rate | avg_bars |
+|--------|-----------|----------|----------|----------|
+| T12    | HH        | +11.73%  | 100%     | 9.0      |
+| T5     | HH        | +10.98%  | 100%     | 8.2      |
+| T9     | HH        | +9.40%   | 100%     | 7.9      |
+| T2G    | HH        | +7.17%   | 100%     | 6.0      |
+| Z5     | LL        | −8.61%   | 100%*    | 7.4      |
+| Z3     | LL        | −7.55%   | 100%*    | 7.2      |
+| Z4     | LL        | −6.48%   | 100%*    | 5.7      |
+| Z2G    | LL        | −5.72%   | 100%*    | 5.0      |
+
+\*Z + LL `win_rate` counts rows where `ret_to_pivot < 0` as wins (price fell
+to the lower pivot, as the bearish signal predicted).
+
+**Lookahead policy:** `ret_to_pivot` and `bars_to_pivot` use future pivot
+prices. `test_no_lookahead_in_live_score` asserts neither symbol appears in
+`turbo_engine.py` or `ultra_score.py`. The raw per-observation DataFrame is
+intentionally NOT written to the ZIP (can be millions of rows) — only the
+aggregated summary is embedded.
+
+### Pivot Sequence + Suffix Analytics (RESEARCH_ONLY — 260523 v3.4)
+
+`backend/analyzers/tz_wlnbb/pivot_sequence_analytics.py` analyses **what
+appears at confirmed pivot bars** across six dimensions, all using
+`fwd_swing_ret` (pivot → next pivot) as the forward metric. RESEARCH_ONLY.
+
+Direction-aware win-rate: pivot LOWs use `fwd > 0 = win`; pivot HIGHs use
+`fwd < 0 = win`. Outputs split by `pivot_side ∈ {low, high}`.
+
+| Output CSV | Dimension | Source column |
+|------------|-----------|---------------|
+| `replay_tz_wlnbb_pivot_suffix_perf.csv` | Suffix at pivot | `full_suffix` |
+| `replay_tz_wlnbb_pivot_body_wick_perf.csv` | Body / wick class (line3) | `bar_body_wick` |
+| `replay_tz_wlnbb_pivot_line5_perf.csv` | VIX-Fix / PSAR / RSI2 (line5) | `bar_line5` |
+| `replay_tz_wlnbb_pivot_preup_predn_perf.csv` | EMA cross signal at pivot | `preup_signal` / `predn_signal` |
+| `replay_tz_wlnbb_pivot_seq2_perf.csv` | 2-bar sequence ending at pivot | `prev composite_core` \| `cur composite_core` |
+| `replay_tz_wlnbb_pivot_composite_suffix_perf.csv` | `composite_core + full_suffix` combo | `T12L46+ED` etc. |
+
+Min-count thresholds: suffix/seq/composite_suffix `n≥30`, body/wick & line5
+`n≥50`, PREUP/PREDN `n≥20`. Schema per row:
+`<group_col>, count, avg_fwd, med_fwd, pct25, pct75, win_rate, pivot_side`.
+
+**Empirical highlights (SP500 1D, 165K rows):**
+
+| View | Top at pivot LOW | Top at pivot HIGH |
+|------|------------------|-------------------|
+| Suffix | EBA +8.32%/95.8%, ED +7.79%/98.3%, NDI +7.27%/98.6% | — |
+| Body/Wick | XF +7.89%, MBB +7.81% (pin), M +7.66% | — |
+| Line5 | VX-PS-R2X +7.87%/97.7% (VIX spike + oversold reclaim) | VX-PS-R2L −11.03%/100%, PS-R2L −8.41%/100% |
+| 2-bar seq | Z3L46\|Z2GL46 +10.19%/100%, T5L25\|Z1GL46 +10.17%/100% | T1L3\|Z3L46 −9.27%/100%, T2GL3\|Z5L34 −8.98%/97% |
+| Composite+suffix | T12L46+ED +10.68%/98.8% (n=172), T5L46+ED +9.17%/98%, Z1GL46+ED +8.78%/98.2% | — |
+
+These views are the most actionable single-bar discriminators for live
+research — combine "composite + suffix at pivot LOW" with the live-safe
+`swing_type` classifier in scoring to gate entry decisions.
+
+### Bug-fixes applied in v3.1
+
+1. **AD-CLUSTER AND gate**: rolling cluster count was firing on bars where
+   `ad_fresh=False`, inflating row share from ~3.5% → ~12.8% on SP500 1D.
+   Fix: `ad_cluster = (rolling_sum >= min) & ad_fresh_on_this_bar`.
+
+2. **Spring tightening**: `wyc_phase == "SPRING"` had avg_5d −2.07% / win 39%
+   (inverted edge) because the 1.5× vol + 0.70 ATR mult was too loose. Fix:
+   - `WYC_SPRING_VOL_MULT = 2.0` (volume must be 2× 20-bar avg)
+   - `WYC_SPRING_CLOSE_POS = 0.60` (close in upper 60% of bar range)
+   - bar range > ATR(14) — must be an expansion bar, not a compressed one
+
+### Analytics files (3) in the replay ZIP — v3.2 uses `fwd_swing_ret`
+
+- `replay_tz_wlnbb_swing_perf.csv` — aggregate per swing_type; primary metric
+  is `avg_fwd_swing_ret` with direction-aware `win_rate` (HL/LL → fwd > 0;
+  HH/LH → fwd < 0). Keeps `avg_ret_5d`/`avg_ret_10d` columns for comparison.
+- `replay_tz_wlnbb_signal_swing_perf.csv` — T/Z signal × swing_type cross-table
+  using forward pivot returns (min count 10).
+- `replay_tz_wlnbb_ad_fresh_swing_perf.csv` — AD-FRESH by swing_type +
+  interpretation (`STRONG BUY` for HL/LL, `AVOID` for LH, `CAUTION` for HH).
+
+### Scoring integration
+
+`turbo_engine.py::_calc_turbo_score()` applies a **±15% multiplier** at the end:
+`s × 1.15` when `swing_type ∈ (HL, LL)`, `s × 0.85` when `swing_type ∈ (HH, LH)`.
+
+`ultra_score.py` Section D (Context, range −20..+20) adds the swing context:
+- HL +8 (best), LL +5 (bounce), LH −8 (worst), HH −5 (mean reversion risk).
+
+### Filter integration
+
+`swing_type` query param on `/api/turbo-scan` and `/api/ultra-scan/results`.
+Accepts `HH | LH | HL | LL | pivot` (`pivot` matches any non-empty swing_type).
+Frontend Turbo + Ultra panels expose a 6-button row under Advanced Filters:
+`Any · HL (bullish) · LL (bounce) · HH (top) · LH (bearish) · Any pivot`.
+
+---
+
+## Advanced Filter Parameters (260523+)
+
+Both TurboScanPanel and UltraScanPanel expose the following new filters, applied
+server-side via the same query params:
+
+| Filter         | Type   | Values                                              | Description                              |
+|----------------|--------|-----------------------------------------------------|------------------------------------------|
+| `ad_fresh`     | bool   | Active ★ / Any                                      | AD-FRESH sequence on this bar            |
+| `ad_cluster`   | bool   | Active ★★ / Any                                     | AD-CLUSTER (2+ AD-FRESH in 8-bar window) |
+| `wyc_phase`    | string | SPRING / UTAD / SOS / ACC_TR / DIST_TR / MARKUP / MKDN | Wyckoff macro phase exact match     |
+| `wyc_spring`   | bool   | true / false                                        | Direct SPRING boolean                    |
+| `wyc_sos`      | bool   | true / false                                        | Direct SOS boolean                       |
+| `wyc_acc_tr`   | bool   | true / false                                        | Direct ACC_TR boolean                    |
+| `swing_type`   | string | HH / LH / HL / LL / pivot                           | Swing context (260523 v3.1)              |
+| `prebreak_prime`   | bool | true / false                                      | 260523_PREBREAK score ≥ 45 (PRIME★)    |
+| `prebreak_ready`   | bool | true / false                                      | 260523_PREBREAK score ≥ 28 (READY)      |
+| `prebreak_watch`   | bool | true / false                                      | 260523_PREBREAK score ≥ 18 (WATCH)      |
+| `pb_lvbo`          | bool | true / false                                      | LRC → LVBO compression+bull breakout    |
+| `pb_stop_cause`    | bool | true / false                                      | W-PHASE / Wyckoff accumulation context  |
+| `pb_wvf_confirm`   | bool | true / false                                      | WVF capitulation spike (line5 VX)       |
+| `pb_macro_penalty` | bool | true / false                                      | Macro bear context (EMA20 falling + close<EMA50×0.97) |
+| `wyc_in_tr`        | bool | true / false                                      | In Trading Range (ACC_TR or DIST_TR)    |
+| `wyc_sow`          | bool | true / false                                      | Sign of Weakness (Z-confirmed bear turn) |
+
+**Scoring integration (260523 v3.5):**
+
+| Signal | Turbo (additive / multiplier) | Ultra Section D |
+|--------|------------------------------|-----------------|
+| `pb_lvbo`         | +8 | +6 (`LVBO`) |
+| `pb_stop_cause`   | +6 | — |
+| `pb_wvf_confirm`  | +6 | +5 (`WVF+`) |
+| `wyc_in_tr`       | +4 | +3 (`IN_TR`) |
+| `pb_macro_penalty`| × 0.85 | −8 (`MACRO-`) |
+| `wyc_sow`         | × 0.80 | −6 (`SOW`) |
+
+Backend implementation: `backend/analyzers/tz_wlnbb/filters_260523.py` —
+pure helpers (importable without FastAPI) `enrich_with_260523()`,
+`apply_260523_filters()`, `parse_line5_tokens()`. `main.py` wires both
+into `/api/turbo-scan` and `/api/ultra-scan/results`.
+
+Frontend implementation: `TurboScanPanel.jsx` + `UltraScanPanel.jsx` share
+an identical control block inside the Advanced Filters drawer:
+2 toggle buttons (AD-FRESH ★, AD-CLUSTER ★★) + a 7-option WYC phase row.
+Selections persist in component state and combine with existing SIG /
+Sector / RTB filters via AND.
+
+---
+
+## SuperChart Data Synchronisation
+
+### Endpoint
+
+`GET /api/superchart/{ticker}?universe=sp500&tf=1d&bars=60` returns the last
+`bars` rows from the **same `stock_stat_tz_wlnbb_*.csv` cache** that Turbo
+and Ultra read. Single source of truth — no separate yfinance fetch.
+
+### Response shape (per bar)
+
+```json
+{
+  "date": "2026-05-22", "open": 150.0, "high": 152.0, "low": 148.0, "close": 151.0,
+  "t_signal": "T4", "z_signal": "", "bull_priority_code": 1, "bear_priority_code": 0,
+  "l_signal": "L34", "l_digits": "34", "volume_bucket": "B",
+  "bar_body_wick": "XF", "bar_gap_range": "G2-V", "bar_line5": "VX-PB-R2X",
+  "wvf_spike": true, "vix_range": false, "psar_bull": true, "rsi2_token": "R2X",
+  "ad_fresh": true, "ad_cluster": false, "wyc_phase": "SPRING",
+  "wyc_spring": true, "wyc_sos": false, "wyc_acc_tr": false, "wyc_markup": false,
+  "preup_text": "P66", "predn_text": "", "composite_full_label": "...",
+  "tz_wlnbb_version": "260523_TZ_F_WLNBB_CMB_python_v3_adfresh_wyc",
+  "build_marker": "260523_..._sha-<git>__built-<utc>"
+}
+```
+
+Top-level fields: `ticker`, `tf`, `universe`, `bars[]`, `stock_stat_path`,
+`stock_stat_age_hours`, `tz_wlnbb_version`, `build_marker`. If
+`stock_stat_age_hours > 24`, `data_sync_warning` is set — the panel must
+display it as a yellow banner and offer "Regenerate" CTA.
+
+### Synchronisation rule
+
+If Turbo shows `ad_fresh=True` for RGTI on 2026-05-22, SuperChart MUST show
+AD★ on that bar. Any divergence is a data freshness issue — run
+`/api/tz-wlnbb/generate-stock-stat` (or `/api/regenerate-and-audit`) and the
+shared CSV cache is rebuilt for all three consumers atomically.
+
+### All signal rows in SuperChart (260523)
+
+T/Z signal · L1–L6/L34/L64/L43/L22 · VABS · GOG · F-signals · B-signals/Combo ·
+**AD-FRESH/AD-CLUSTER** · **WYC Phase** · **Line3** (body+wick) · **Line4** (gap+range) ·
+**Line5** (VIX/PSAR/RSI2) · PREUP/PREDN · RTB · TPSL · Turbo Score · Ultra Score.
+
+---
+
+## Stock Metadata Data Sources
+
+| Source       | Priority | Used for                                          | Fallback |
+|--------------|----------|---------------------------------------------------|----------|
+| Massive.com  | Primary  | Name, sector, industry, market cap, float, avg vol | yfinance |
+| yfinance     | Fallback | All metadata when Massive unavailable              | —        |
+| Polygon.io   | OHLCV    | Real-time and historical price data               | yfinance |
+
+All panels (Turbo, Ultra, SuperChart, Analyze, Watchlist) use Massive as primary.
+A `source` field (`massive` / `yfinance` / `error` / `cache`) is returned with
+every ticker-info response so the SuperChart header can show a provenance badge.
+
+**Configuration:**
+- `MASSIVE_API_KEY` env var holds the bearer token. If unset, code skips
+  Massive and goes straight to yfinance — no breakage.
+- `MASSIVE_BASE_URL` env var overrides the API base (default
+  `https://api.massive.com/v1`).
+- Metadata cached in-memory for **24h** (`MASSIVE_CACHE_TTL_SECONDS = 86_400`).
+- OHLCV cache TTL constant defined but OHLCV path not wired (5 min,
+  `MASSIVE_OHLCV_TTL_SECONDS = 300`).
+
+**Implementation:** `backend/data_massive.py`. Entry points:
+- `get_ticker_info_massive(ticker) -> dict` (sync, with cache + fallback)
+- `get_ticker_info_batch(tickers) -> dict[str, dict]`
+
+---
+
+## Deployment
+
+### Railway
+
+```toml
+# railway.toml
+[build]
+builder = "DOCKERFILE"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "uvicorn backend.main:app --host 0.0.0.0 --port $PORT"
+```
+
+### Environment Variables
+
+| Variable | Description |
+|----------|-------------|
+| `PORT` | HTTP port (default: 8080) |
+| `DATABASE_URL` | PostgreSQL connection string |
+| `POLYGON_API_KEY` | Polygon.io market data key |
+| `MASSIVE_API_KEY` | Massive API key (all_us universe) |
+| `ANTHROPIC_API_KEY` | Claude/Anthropic API key (backend only — never exposed to frontend) |
+| `CLAUDE_MODEL` | Claude model ID override (e.g. `claude-sonnet-4-6`) |
+| `USE_PG` | Set to `1` to use PostgreSQL instead of SQLite |
+
+> **Security note:** `ANTHROPIC_API_KEY` must never appear in React code, Vite env vars (public prefix), localStorage, or any network payload visible in browser devtools. Backend uses it only via Python `os.environ`. The dashboard must remain functional via deterministic fallback if the key is absent or the Claude API is unavailable.
+
+---
+
+## Test Suite
+
+Located in `tests/`. Run with `pytest tests/ -q`. **663 tests, all passing.**
+
+| File | Focus | Tests |
+|------|-------|-------|
+| `test_ultra_score.py` | ULTRA Score: no-lookahead, band/priority v2, regime bonus, confluence caps, replay summaries | 32 |
+| `test_ultra_engine.py` | ULTRA two-stage orchestrator | — |
+| `test_ultra_signal_parser.py` | Compact label parser — live + Stock Stat shapes | — |
+| `test_sequence_engine.py` | Sequence scanner: multi-horizon returns, state machine | 19 |
+| `test_tz_wlnbb.py` | Signal extraction, replay, stock-stat generation | — |
+| `test_tz_intelligence.py` | ABR classifier, pattern detection, matrix loading | — |
+| `test_pullback_miner.py` | Pullback pattern mining | — |
+| `test_rare_reversal.py` | Rare reversal mining | — |
+| `test_profile_playbook.py` | Multi-timeframe profile analysis | — |
+| `test_split_universe.py` | Universe definitions | — |
+
+---
+
+## Key Statistics
+
+| Metric | Value |
+|--------|-------|
+| Version | 4.4.674 · API v2.8 |
+| Backend modules | 33+ |
+| Frontend components | 24 |
+| API endpoints | 87+ |
+| T/Z signal IDs | 26 |
+| L-signal variants | 12 base + 8 combos + 10 WLNBB overlays |
+| WLNBB volume buckets | 5 (VB/B/N/L/W) |
+| TZ Intel final action tiers | 5 (GO/WATCH_HIGH/WATCH/SHORT_WATCH/REJECT) |
+| TZ Intel diagnostic columns | 18+ |
+| Static reject composites | 29 (hardcoded fallback) |
+| Whitelist CSVs generated | 8 per replay run |
+| Test count | 663 |
+| Tabs | 20 |
+| Scheduled scans/day | 3 (09:30, 12:30, 15:30 ET) |
+
+---
+
+## Scoring Systems Reference
+
+> Full details in **[`SCORING_SYSTEMS.md`](./SCORING_SYSTEMS.md)**
+
+All scoring engines and their output fields at a glance:
+
+| Engine | File | Key output fields | Range |
+|--------|------|-------------------|-------|
+| **TURBO Score** | `turbo_engine.py` | `turbo_score`, `turbo_score_n3/n5/n10` | 0–100 |
+| **Canonical Sub-scores** | `canonical_scoring_engine.py` | `FINAL_BULL_SCORE`, `ROCKET_SCORE`, `CLEAN_ENTRY_SCORE`, `SHAKEOUT_ABSORB_SCORE`, `EXTRA_BULL_SCORE`, `EXPERIMENTAL_SCORE`, `REBOUND_SQUEEZE_SCORE`, `HARD_BEAR_SCORE`, `VOLATILITY_RISK_SCORE` | 0–40 each |
+| **Canonical Regime** | `canonical_scoring_engine.py` | `FINAL_REGIME`, `FINAL_SCORE_BUCKET` | string labels |
+| **ULTRA Score v2** | `ultra_score.py` | `ultra_score`, `ultra_score_band`, `ultra_score_band_v2`, `ultra_score_priority`, `ultra_score_reasons`, `ultra_score_flags` | 0–100 |
+| **BETA Score v2.1** | `beta_engine.py` | `beta_score`, `beta_raw`, `beta_setup`, `beta_momentum`, `beta_excess`, `beta_zone`, `beta_auto_buy` | 0–100 |
+| **Profile Score** | `profile_playbook.py` | `profile_score`, `profile_category`, `sweet_spot_active`, `late_warning` | 0–80+ |
+| **GOG Score** | `gog_engine.py` | `gog_score`, `gog_tier` | 42–100 |
+| **Prebreak Score** | `analyzers/tz_wlnbb/signal_extraction.py` | `prebreak_score`, `prebreak_watch`, `prebreak_ready`, `prebreak_prime` | 0–80+ |
+
+### Score tiers quick-reference
+
+**TURBO / FINAL_BULL_SCORE**
+
+| Range | Tier |
+|-------|------|
+| 80–100 | 🔥 Elite |
+| 60–79 | ✅ Strong |
+| 40–59 | 🟡 Actionable |
+| 20–39 | 🔵 Early |
+| 0–19 | ⬛ Weak |
+
+**ULTRA Score bands**
+
+| Score | Band | Priority |
+|-------|------|---------|
+| ≥ 90 | A+ | HIGH_PRIORITY |
+| ≥ 80 | A | WATCH_A |
+| ≥ 65 | B | STRONG_WATCH |
+| ≥ 50 | C | CONTEXT_WATCH |
+| < 50 | D | LOW |
+
+**BETA zones**
+
+| Display | Zone |
+|---------|------|
+| ≥ 80 | ELITE |
+| 75–79 | OPTIMAL |
+| 70–74 | BUY |
+| 60–69 | WATCH |
+| 40–59 | BUILDING |
+| < 40 | NEUTRAL / SHORT_WATCH |
+
+**Prebreak tiers**
+
+| Flag | Score threshold | Chip |
+|------|----------------|------|
+| `prebreak_watch` | ≥ 18 | `WATCH` |
+| `prebreak_ready` | ≥ 28 | `READY` |
+| `prebreak_prime` | ≥ 45 | `PRIME★` |
+
+---
+
+## 18. DB-Instant Pipeline (2026-05-27 v4.8.116)
+
+Ultra Scan's **DB (instant)** mode reads from the Studio DuckDB, returning ~3,000 enriched ticker rows in ~2 seconds instead of running the full 30-60 minute live scan. As of v4.8.116 the pipeline produces output **identical** to a live CSV-import path for Pine columns (validated 100% on SP500 sample).
+
+### Daily delta append flow
+
+```
+17:00 ET (Mon-Fri) │  APScheduler in main.py lifespan
+                   ↓
+                   │  studio_api._run_incremental(["sp500","nasdaq"])
+                   ↓
+                   │  studio.incremental_delta.incremental_delta_refresh()
+                   ↓
+                   │  For each ticker:
+                   │    last_date = SELECT MAX(date) FROM bars
+                   │    bars      = api_bar_signals(t, '1d', 200, universe)
+                   │                       # warmup=200 → Pine convergence
+                   │    new_bars  = [b for b in bars if b.date > last_date]
+                   ↓
+                   │  Bulk INSERT with auto-IDs + DELETE-then-INSERT idempotency
+                   ↓
+                   │  studio.enricher.enrich_universe(universe)
+                   │    → suffixes, ATR, RSI, CCI, avg_vol_20d, pivots, AES, ACC Exit
+                   │    → _compute_pine_engines(df):
+                   │        compute_260308_l88   → sig_260308, sig_l88
+                   │        compute_ultra_v2     → eb_*, fbo_*, bf_*, ultra_3*, best_*
+                   │        compute_para_series  → para_prep/start/plus/retest
+                   │        compute_fly_series   → fly_abcd/cd/bd/ad
+                   │        compute_delta        → 23 d_* signals
+                   ↓
+DB ready @ ~17:30 │  All 30+ Pine-equivalent signals populated
+```
+
+### Components
+
+| Module | Purpose |
+|---|---|
+| `studio/incremental_delta.py` | Daily +1 bar / +N bar delta append; reuses `bulk_export.bar_to_row` + `importer._COL_MAP` for byte-identical row shape |
+| `studio/enricher.py::_compute_pine_engines()` | Runs 5 self-contained Pine engines on each ticker's DataFrame: 260308/L88, ULTRA v2, PARA, FLY, Delta |
+| `studio/ultra_db_scan.py::_UI_KEY_TO_DB_COL` | 80+ alias map translating DB-side `sig_*` cols to frontend filter keys (`best_sig`, `buy_2809`, `preup66`, `gog_g1p`, ...) |
+| `studio/ultra_db_scan.py` sig_ages SQL | DuckDB conditional `MIN(CASE WHEN sig=1 THEN rn END)` — 8× faster than pandas iteration (2.3s vs 18s for 3000 tickers × 50 sigs × 20 bars) |
+
+### Schema additions (v4.8.116)
+
+35 new SMALLINT columns added to `bars` via `ALTER TABLE`:
+
+- **L88 + 260308** (2): `sig_l88`, `sig_260308` — backfilled from CSV via direct UPDATE, then ongoing via enricher
+- **ULTRA v2** (10): `eb_bull/bear`, `fbo_bull/bear`, `bf_buy/sell`, `ultra_3up/3dn`, `best_long/short`
+- **Delta order-flow** (23): `d_strong_*`, `d_absorb_*`, `d_div_*`, `d_cd_*`, `d_surge_*`, `d_blast_*`, `d_vd_div_*`, `d_spring`, `d_upthrust`, `d_flip_*`, `d_orange_bull`, `d_blast_bull_red`, `d_blast_bear_grn`, `d_surge_bull_red`, `d_surge_bear_grn`
+
+PARA + FLY already had `sig_para_*` / `sig_fly_*` from CSV import; the bare-name columns are populated by enricher for direct passthrough (frontend filter keys are `para_prep`, `fly_abcd` etc.).
+
+### Idempotent updates
+
+Every incremental run is safe to re-trigger. The flow:
+
+```sql
+DELETE FROM bars
+WHERE universe = ?
+  AND (ticker, date) IN (SELECT ticker, date FROM new_rows);
+
+INSERT INTO bars (col1, col2, ..., id) SELECT ..., MAX(id)+row_number() FROM new_rows;
+```
+
+DuckDB's auto-incrementing IDs are explicitly computed (`MAX(id) + 1 + row_index`) — DuckDB sequences in this codebase aren't reliable across multi-process writes.
+
+### Filter coverage
+
+UltraScanPanel's `SIG_GROUPS` (~150 filter keys) works in DB-instant mode for:
+- ✅ TZ, L (WLNBB chart codes), Vol bucket, Suffixes, Body/Wick, Gap/Range, L5
+- ✅ VABS (BEST/STRONG/V×20/V×10/V×5/VBO↑/ABS/CLB/LD), Wyckoff legacy (NS/SQ/SC/ND)
+- ✅ Combo 2809 (BUY/🚀/3G/HILO↑/VA/↑BIAS/SVS/CON)
+- ✅ F/G/B families, GOG context (G1P/G2P/G3P/G1L/G2L/G1C/G2C/G3C)
+- ✅ Price vs EMA (P>200/89/50/20 + P<*), RSI thresholds
+- ✅ PARA/FLY/Delta/ULTRA v2/260308/L88 (enricher-computed)
+- ✅ PREUP/PREDN (P66/P55/P89/P50/P3/P2 + D66/D55/D89/D50/D3/D2)
+- ✅ 260523 (AD-FRESH/AD-CLUSTER), WYC Phase, PREBREAK tiers, Swing type
+- ✅ N=lookback (1d/3d/5d/10d) via sig_ages JSON
+- ⚠️ NOT in DB: RGTI/SMX (disabled in LIVE too), AKAN/NNN/MX/GOG_sig/CTX_* (gog_engine multi-input), Sectors (NULL column, lazy-fetched via `/api/ticker-info-batch`)
+
+### Manual triggers
+
+- **UI button** "🔄 Update DB" in Ultra Scan panel (DB mode) → `POST /api/studio/incremental-update`
+- **API**: `curl -X POST http://127.0.0.1:8080/api/studio/incremental-update -d '{"universes":["sp500","nasdaq","russell2k"]}'`
+- **Status**: `GET /api/studio/incremental-update/status` — returns `{running, progress: {stage, done, total, pct, new_rows, errors, elapsed_seconds, eta_seconds}}`
+
+Detailed session notes: see `SESSION_NOTES_260527_DB_MODE.md`.

@@ -28,3 +28,6 @@ backend/mlruns/
 backend/edge_tearsheets/
 backend/analysis/*.csv
 analysis/*.csv
+
+# research run logs (stdout captures — regenerable)
+backend/*.out
