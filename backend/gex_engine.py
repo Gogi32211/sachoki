@@ -177,11 +177,19 @@ def _max_pain(rows: list[dict], strikes: list[float]) -> Optional[float]:
 
 
 def gex_for_ticker(ticker: str, max_dte: int = 60, expiration: Optional[str] = None,
-                   with_expirations: bool = False) -> Optional[dict]:
+                   with_expirations: bool = False, source: str = "massive") -> Optional[dict]:
     """Fetch chain + spot and compute GEX. `expiration` (YYYY-MM-DD) targets one expiry
     (like the OptionFlow dropdown); else aggregates all contracts ≤ max_dte. With
-    with_expirations=True, also attaches the available-expirations list for the UI."""
-    from data_options import fetch_chain, spot_price, list_expirations
+    with_expirations=True, also attaches the available-expirations list for the UI.
+    source='cboe' (2026-08-03) reads the FREE Cboe delayed CDN instead of Massive — same
+    row contract, iv rescaled to one unit; runs in parallel for the cancellation parity week.
+    Cboe also serves true INDEX chains (SPX/NDX/RUT), which Massive never had."""
+    if source == "cboe":
+        from data_options_cboe import (fetch_chain_cboe as fetch_chain,
+                                       spot_price_cboe as spot_price,
+                                       list_expirations_cboe as list_expirations)
+    else:
+        from data_options import fetch_chain, spot_price, list_expirations
     chain = fetch_chain(ticker, max_dte=max_dte, expiration=expiration)
     if not chain:
         # still surface the expiration calendar so the dropdown can populate even if
@@ -200,6 +208,7 @@ def gex_for_ticker(ticker: str, max_dte: int = 60, expiration: Optional[str] = N
         res["ticker"] = ticker.upper()
         res["max_dte"] = max_dte
         res["expiration"] = expiration
+        res["source"] = source
         if with_expirations:
             res["available_expirations"] = list_expirations(ticker)
         _attach_vrp(res, ticker)

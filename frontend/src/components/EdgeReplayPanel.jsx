@@ -6,6 +6,9 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
   const [months, setMonths] = useState(36)
   const [mode, setMode]     = useState('trail')         // 'trail' | 'bracket'
   const [trail, setTrail]   = useState(0.25)
+  // ⚡ATR exit (2026-08-06, 6yr-validated): per-trade trail = clip(12×ATR%/close, 15%, 60%).
+  // Beat fixed trail25 on 49/49 setups (med) and 45/49 (worst-year). Off = book default.
+  const [atrExit, setAtrExit] = useState(true)   // BOOK DEFAULT since 2026-08-06
   const [stop, setStop]     = useState(0.10)
   const [target, setTarget] = useState(0.25)
   const [maxh, setMaxh]     = useState(60)
@@ -36,6 +39,7 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
   const run = useCallback(() => {
     setLoading(true); setErr(''); setDrill(null)
     const p = new URLSearchParams({ setup: 'all', months, mode, trail, stop, target, maxh })
+    if (atrExit && mode === 'trail') p.set('atr_k', 12)
     fetch(`/api/edge-replay?${p}`)
       .then(r => r.json())
       .then(d => {
@@ -44,13 +48,14 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
       })
       .catch(e => setErr(String(e)))
       .finally(() => setLoading(false))
-  }, [months, mode, trail, stop, target, maxh])
+  }, [months, mode, trail, stop, target, maxh, atrExit])
 
   useEffect(() => { run() }, [])   // initial load only; re-run on explicit "Run"
 
   const openDrill = (setup) => {
     setLoading(true)
     const p = new URLSearchParams({ setup, months, mode, trail, stop, target, maxh, with_trades: true })
+    if (atrExit && mode === 'trail') p.set('atr_k', 12)
     fetch(`/api/edge-replay?${p}`)
       .then(r => r.json())
       .then(d => {
@@ -94,9 +99,12 @@ export default function EdgeReplayPanel({ onSelectTicker }) {
           <>
             <span className="text-slate-500 ml-1">trail%</span>
             {[0.15, 0.20, 0.25, 0.30].map(t => (
-              <button key={t} onClick={() => setTrail(t)}
-                className={`px-1.5 py-0.5 rounded border ${trail === t ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400'}`}>{Math.round(t * 100)}</button>
+              <button key={t} onClick={() => { setAtrExit(false); setTrail(t) }}
+                className={`px-1.5 py-0.5 rounded border ${!atrExit && trail === t ? 'bg-slate-700 border-slate-500 text-white' : 'border-slate-700 text-slate-400'}`}>{Math.round(t * 100)}</button>
             ))}
+            <button onClick={() => setAtrExit(v => !v)}
+              title="ATR-ადაპტიური trail: თითო ვაჭრობის trail = clip(12×ATR₁₄/close, 15%, 60%) სიგნალის ბარზე. 6წ-ვალიდირებული: med 49/49 · worst-year 45/49 setup-ზე ჯობნის ფიქსირებულ 25%-ს (pooled +0.19→+1.43, 2022 −2.60→−0.72)."
+              className={`px-2 py-0.5 rounded border font-semibold ${atrExit ? 'bg-amber-700/40 border-amber-500 text-amber-200' : 'border-slate-700 text-slate-400'}`}>⚡ATR×12</button>
           </>
         ) : (
           <>

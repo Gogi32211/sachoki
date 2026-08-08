@@ -112,24 +112,14 @@ export default function CodeCandleChart({
   const [showCapitAtom,    setShowCapitAtom]    = useState(false)
   const [capitAtomMarks,   setCapitAtomMarks]   = useState(null)   // {capit:[], atom:[]}
   const [capitAtomLoading, setCapitAtomLoading] = useState(false)
-  // T-Z-T4 historical markers — green diamond below bar on each T-Z-T4 signal.
-  const [showTzt4,      setShowTzt4]      = useState(false)
-  const [tzt4Marks,     setTzt4Marks]     = useState(null)   // [{date, tier, suffix, rsi}]
-  const [showT3seq,     setShowT3seq]     = useState(false)
-  const [t3seqMarks,    setT3seqMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
-  const [t3seqLoading,  setT3seqLoading]  = useState(false)
-  const [showT9rsi,     setShowT9rsi]     = useState(false)
-  const [t9rsiMarks,    setT9rsiMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
-  const [t9rsiLoading,  setT9rsiLoading]  = useState(false)
-  const [tzt4Loading,   setTzt4Loading]   = useState(false)
-  const [showTtt6,      setShowTtt6]      = useState(false)
-  const [ttt6Marks,     setTtt6Marks]     = useState(null)   // [{date, tier, suffix, rsi}]
-  const [ttt6Loading,   setTtt6Loading]   = useState(false)
-  const [showT1seq,     setShowT1seq]     = useState(false)
-  const [t1seqMarks,    setT1seqMarks]    = useState(null)   // [{date, tier, suffix, rsi}]
-  const [t1seqLoading,  setT1seqLoading]  = useState(false)
+  // (2026-08-04) The five legacy sequence overlays — T-Z-T4 · T-T-T6 · T1-seq · T3·35 ·
+  // T9·35 — were REMOVED after a path-sim audit: every variant had a negative median and
+  // failed the 4/6-year gate; two were backwards (the shipped RSI≥60 gate on T-Z-T4 and
+  // the RSI<35 gate on T3 both made their base signal WORSE). See check_legacy_seq.py.
   // Edge-board setup markers — where the validated Edge setups fired (spring/g3/core/family).
   const [showEdge,    setShowEdge]    = useState(false)
+  const [showSeq5,    setShowSeq5]    = useState(false)  // 🟡 the five 2026-08-04 sequence edges
+  const [seqMarks,    setSeqMarks]    = useState(null)   // [{date, code}]
   const [edgeMarks,   setEdgeMarks]   = useState(null)   // [{date, setup}]
   // 🌀 SC-SUPER markers — bars where an Edge setup fired in the Wyckoff SC zone (±5% support).
   const [showScSuper, setShowScSuper] = useState(false)
@@ -214,6 +204,7 @@ export default function CodeCandleChart({
   const [loading, setLoading] = useState(false)
   const [meta, setMeta]       = useState(null) // {n, dmin, dmax, src}
   const [sector, setSector]   = useState(null)
+  const [coName, setCoName]   = useState(null) // company full name, same /api/ticker-info call
 
   const intraday = isIntradayTf(tf)
   const useDb    = isDbTf(tf)                 // 1d + 1w → Studio DB; intraday → live signals
@@ -249,10 +240,16 @@ export default function CodeCandleChart({
     }
   }, [])
 
-  // optional sector chip
+  // optional sector chip + company full name (one call, backend-cached)
   useEffect(() => {
-    if (!showSector || !ticker) { setSector(null); return }
-    api.tickerInfo(ticker).then(d => setSector(d?.sector || null)).catch(() => {})
+    if (!showSector || !ticker) { setSector(null); setCoName(null); return }
+    api.tickerInfo(ticker)
+      .then(d => {
+        setSector(d?.sector || null)
+        // the API falls back to the ticker itself when it has no name — don't echo it
+        setCoName(d?.name && d.name !== ticker ? d.name : null)
+      })
+      .catch(() => {})
   }, [ticker, showSector])
 
   // init chart once
@@ -555,19 +552,6 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showPumpSetup])
 
-  // T-Z-T4 fetch — all historical T-Z-T4 pattern dates for the ticker (1D only).
-  useEffect(() => {
-    if (!showTzt4 || !ticker || tf !== '1d') { setTzt4Marks(null); setTzt4Loading(false); return }
-    let dead = false
-    setTzt4Loading(true)
-    fetch(`/api/studio/tzt4-marks/${ticker}`)
-      .then(r => r.json())
-      .then(d => { if (!dead) setTzt4Marks(d?.marks || []) })
-      .catch(() => { if (!dead) setTzt4Marks([]) })
-      .finally(() => { if (!dead) setTzt4Loading(false) })
-    return () => { dead = true }
-  }, [ticker, tf, showTzt4])
-
   // Edge fetch — all historical Edge-board setup fires for the ticker (1D only).
   useEffect(() => {
     if (!showEdge || !ticker || tf !== '1d') { setEdgeMarks(null); setEdgeLoading(false); return }
@@ -580,6 +564,17 @@ export default function CodeCandleChart({
       .finally(() => { if (!dead) setEdgeLoading(false) })
     return () => { dead = true }
   }, [ticker, tf, showEdge])
+
+  // 🟡 Seq-edges fetch — the five user-built sequence setups (1D only).
+  useEffect(() => {
+    if (!showSeq5 || !ticker || tf !== '1d') { setSeqMarks(null); return }
+    let dead = false
+    fetch(`/api/studio/seq-marks/${ticker}`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setSeqMarks(d?.marks || []) })
+      .catch(() => { if (!dead) setSeqMarks([]) })
+    return () => { dead = true }
+  }, [ticker, tf, showSeq5])
 
   // 🌀 SC-SUPER fetch — the SC-zone subset of the Edge fires (1D only).
   useEffect(() => {
@@ -602,58 +597,6 @@ export default function CodeCandleChart({
       .catch(() => { if (!dead) setMtfEmaMarks([]) })
     return () => { dead = true }
   }, [ticker, tf, showMtfEma])
-
-  // T1-seq fetch — all historical T1-sequence pattern dates for the ticker (1D only).
-  useEffect(() => {
-    if (!showT1seq || !ticker || tf !== '1d') { setT1seqMarks(null); setT1seqLoading(false); return }
-    let dead = false
-    setT1seqLoading(true)
-    fetch(`/api/studio/t1seq-marks/${ticker}`)
-      .then(r => r.json())
-      .then(d => { if (!dead) setT1seqMarks(d?.marks || []) })
-      .catch(() => { if (!dead) setT1seqMarks([]) })
-      .finally(() => { if (!dead) setT1seqLoading(false) })
-    return () => { dead = true }
-  }, [ticker, tf, showT1seq])
-
-  // T-T-T6 fetch — all historical T-T-T6 pattern dates for the ticker (1D only).
-  useEffect(() => {
-    if (!showTtt6 || !ticker || tf !== '1d') { setTtt6Marks(null); setTtt6Loading(false); return }
-    let dead = false
-    setTtt6Loading(true)
-    fetch(`/api/studio/ttt6-marks/${ticker}`)
-      .then(r => r.json())
-      .then(d => { if (!dead) setTtt6Marks(d?.marks || []) })
-      .catch(() => { if (!dead) setTtt6Marks([]) })
-      .finally(() => { if (!dead) setTtt6Loading(false) })
-    return () => { dead = true }
-  }, [ticker, tf, showTtt6])
-
-  // T3-seq fetch — T3 RSI<35 sequence marks (1D only).
-  useEffect(() => {
-    if (!showT3seq || !ticker || tf !== '1d') { setT3seqMarks(null); setT3seqLoading(false); return }
-    let dead = false
-    setT3seqLoading(true)
-    fetch(`/api/studio/t3seq-marks/${ticker}`)
-      .then(r => r.json())
-      .then(d => { if (!dead) setT3seqMarks(d?.marks || []) })
-      .catch(() => { if (!dead) setT3seqMarks([]) })
-      .finally(() => { if (!dead) setT3seqLoading(false) })
-    return () => { dead = true }
-  }, [ticker, tf, showT3seq])
-
-  // T9 RSI<35 fetch — T9 bars where RSI<35 (1D only).
-  useEffect(() => {
-    if (!showT9rsi || !ticker || tf !== '1d') { setT9rsiMarks(null); setT9rsiLoading(false); return }
-    let dead = false
-    setT9rsiLoading(true)
-    fetch(`/api/studio/t9rsi35-marks/${ticker}`)
-      .then(r => r.json())
-      .then(d => { if (!dead) setT9rsiMarks(d?.marks || []) })
-      .catch(() => { if (!dead) setT9rsiMarks([]) })
-      .finally(() => { if (!dead) setT9rsiLoading(false) })
-    return () => { dead = true }
-  }, [ticker, tf, showT9rsi])
 
   // Capit→Atom fetch — all historical B+ capit + atomic weak-close gap-up dates from Studio DB.
   useEffect(() => {
@@ -877,55 +820,6 @@ export default function CodeCandleChart({
       const label = m.score >= 10 ? `🔥${m.score}` : m.score >= 6 ? `⚡${m.score}` : `·${m.score}`
       markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowUp', color, text: label })
     }
-    // 2c) T-Z-T4 markers — green diamond below bar, tier-coded
-    for (const m of (tzt4Marks || [])) {
-      if (!m?.date) continue
-      const color = m.tier === 'T1' ? '#10b981' : m.tier === 'T2' ? '#14b8a6' : m.tier === 'T3' ? '#06b6d4' : '#64748b'
-      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
-      const rsiOk   = (m.rsi || 0) >= 60
-      const label   = `${m.tier}${isPrime && rsiOk ? '★' : ''}·${m.suffix || '?'}`
-      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color,
-        text: label })
-    }
-    // 2c2) T1-seq markers — amber arrow below bar, context-coded
-    for (const m of (t1seqMarks || [])) {
-      if (!m?.date) continue
-      const color = m.tier === 'T1' ? '#f59e0b' : m.tier === 'T2' ? '#f97316' : m.tier === 'T3' ? '#eab308' : '#64748b'
-      const ctx   = m.tier === 'T1' ? 'ZZ' : m.tier === 'T2' ? 'TZ' : m.tier === 'T3' ? 'ZT' : 'TT'
-      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
-      const rsiOk   = (m.rsi || 0) >= 60
-      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color,
-        text: `${ctx}·T1${isPrime && rsiOk ? '★' : ''}` })
-    }
-    // 2d) T-T-T6 markers — violet arrow below bar, tier-coded
-    for (const m of (ttt6Marks || [])) {
-      if (!m?.date) continue
-      const color = m.tier === 'T1' ? '#8b5cf6' : m.tier === 'T2' ? '#a855f7' : m.tier === 'T3' ? '#d946ef' : '#64748b'
-      const isPrime = m.suffix === 'EBA' || m.suffix === 'EUR'
-      const rsiOk   = (m.rsi || 0) >= 60
-      const label   = `${m.tier}${isPrime && rsiOk ? '★' : ''}·${m.suffix || '?'}`
-      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
-    }
-    // 2e) T3-seq RSI<35 markers — gold/amber/blue below bar, context-coded
-    for (const m of (t3seqMarks || [])) {
-      if (!m?.date) continue
-      const color = m.tier === 'fresh-nbi' ? '#f59e0b'
-                  : m.tier === 'fresh'     ? '#fb923c'
-                  : m.tier === 'streak'    ? '#60a5fa'
-                  : '#475569'
-      const label = m.tier === 'fresh-nbi' ? `T3★NBI`
-                  : m.tier === 'fresh'     ? `T3↑${m.suffix||'?'}`
-                  : m.tier === 'streak'    ? `T3×3`
-                  : `T3·${m.suffix||'?'}`
-      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
-    }
-    // 2f) T9 RSI<35 markers — teal/gold below bar
-    for (const m of (t9rsiMarks || [])) {
-      if (!m?.date) continue
-      const color = m.tier === 'premium' ? '#f59e0b' : '#2dd4bf'
-      const label = `T9↓${m.rsi}${m.tier === 'premium' ? '★' : ''}`
-      markers.push({ time: m.date, position: 'belowBar', shape: 'arrowDown', color, text: label })
-    }
     // 2g) Edge-board setup markers — ABOVE bar (entries), colored per setup.
     //     Absorption bars (l43base/l22absorb) are CONTEXT, not entries → drawn BELOW
     //     the bar as small circles (the validated pre-absorption booster fuel).
@@ -941,6 +835,13 @@ export default function CodeCandleChart({
         core:   ['#38bdf8', '✅CORE'], family: ['#a78bfa', '🎯Z→T11'],
       }[m.setup] || ['#94a3b8', m.setup]
       markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowDown', color: cfg[0], text: cfg[1] })
+    }
+    // 2g2) 🟡 sequence-edge markers (2026-08-04 builds) — ABOVE bar, amber family.
+    for (const m of (seqMarks || [])) {
+      if (!m?.date) continue
+      const short = { '🌉Z1G4🟡': '🌉Z1G4', '🧲Z9HL🟡': '🧲Z9HL', '🌉v2🟡': '🌉v2',
+                      '🧺SEQ🟡': '🧺SEQ', '👑Z1G🟡': '👑Z1G' }[m.code] || m.code
+      markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowDown', color: '#fbbf24', text: short })
     }
     // 2h) 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar, sky.
     for (const m of (scSuperMarks || [])) {
@@ -1021,7 +922,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, tzt4Marks, ttt6Marks, t1seqMarks, t3seqMarks, t9rsiMarks, edgeMarks, scSuperMarks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, edgeMarks, seqMarks, scSuperMarks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {
@@ -1117,7 +1018,18 @@ export default function CodeCandleChart({
       {showToolbar && (
         <div className="flex items-center justify-between px-4 py-2 border-b border-md-outline-var gap-3 flex-wrap">
           <span className="font-semibold text-sm">
-            {ticker} <span className="text-md-on-surface-var font-normal">{srcIsDb ? '· DB (Studio) · 1d' : `· ${tf} · live`}</span>
+            <a href={`https://www.tradingview.com/chart/?symbol=${encodeURIComponent(ticker || '')}`}
+               target="_blank" rel="noopener noreferrer"
+               title={`Open ${ticker} on TradingView`}
+               className="hover:text-sky-300 hover:underline decoration-dotted underline-offset-2">
+              {ticker}<span className="ml-0.5 text-[9px] align-super opacity-60">↗</span>
+            </a>
+            {coName && (
+              <span className="ml-1.5 text-xs font-normal text-md-on-surface-var" title={coName}>
+                {coName.length > 34 ? coName.slice(0, 33) + '…' : coName}
+              </span>
+            )}
+            <span className="text-md-on-surface-var font-normal"> {srcIsDb ? '· DB (Studio) · 1d' : `· ${tf} · live`}</span>
             {meta?.live && <span className="ml-1 text-[10px] text-lime-400 font-semibold" title="Today's forming bar appended live from Massive (15-min delayed)">+live</span>}
             {sector && (
               <span className="ml-2 text-xs font-normal text-md-on-surface-var bg-md-surface-high px-1.5 py-0.5 rounded">{sector}</span>
@@ -1241,24 +1153,6 @@ export default function CodeCandleChart({
                 )}
               </div>
             )}
-            {/* T-Z-T4 historical markers — green diamond below bar */}
-            {tf === '1d' && (
-              <div className="flex items-center gap-0.5 text-[10px]"
-                   title="T-Z-T4 pattern: T[-2] → Z[-1] → T4[0]. Green=T1/T2 (edge +3-4%), teal=T2 tier, cyan=T3. ★ = EBA/EUR suffix + RSI≥60 (highest edge).">
-                <button onClick={() => setShowTzt4(v => !v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    showTzt4
-                      ? 'bg-emerald-900/50 text-emerald-200 border-emerald-500'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  {tzt4Loading ? '⏳' : '🎯'} T-Z-T4
-                </button>
-                {showTzt4 && !tzt4Loading && tzt4Marks && (
-                  <span className="text-emerald-300">
-                    {tzt4Marks.length}·{tzt4Marks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
-                  </span>
-                )}
-              </div>
-            )}
             {/* Edge-board setup markers — spring/g3/core/family fires (above bar) */}
             {tf === '1d' && (
               <div className="flex items-center gap-0.5 text-[10px]"
@@ -1272,6 +1166,22 @@ export default function CodeCandleChart({
                 </button>
                 {showEdge && !edgeLoading && edgeMarks && (
                   <span className="text-teal-300">{edgeMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* 🟡 sequence-edge markers — the five 2026-08-04 user builds (above bar, amber) */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="🟡 Seq: the five sequence edges built 2026-08-04 — 🌉Z1G→T4 · 🧲Z9-HL · 🌉v2 Z1G→T3/T6 · 🧺SEQ-20 · 👑Z1G-CROWN. WATCH-tier; 1D only.">
+                <button onClick={() => setShowSeq5(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showSeq5
+                      ? 'bg-amber-900/50 text-amber-200 border-amber-400'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  👑 Seq
+                </button>
+                {showSeq5 && seqMarks && (
+                  <span className="text-amber-300">{seqMarks.length}</span>
                 )}
               </div>
             )}
@@ -1304,78 +1214,6 @@ export default function CodeCandleChart({
                 </button>
                 {showMtfEma && mtfEmaMarks && (
                   <span className="text-lime-300">{mtfEmaMarks.length}</span>
-                )}
-              </div>
-            )}
-            {/* T1-seq historical markers — amber arrow below bar, context-coded */}
-            {tf === '1d' && (
-              <div className="flex items-center gap-0.5 text-[10px]"
-                   title="T1-seq: ?[-2]→?[-1]→T1[0]. Amber=ZZ context (+2.26%), orange=TZ (+2.21%), yellow=ZT, slate=TT. ★=EBA/EUR+RSI≥60. Best: Z9[-2]·Z6[-1]+EUR → Win=70%, Exp=+5.5%.">
-                <button onClick={() => setShowT1seq(v => !v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    showT1seq
-                      ? 'bg-amber-900/50 text-amber-200 border-amber-500'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  {t1seqLoading ? '⏳' : '⚡'} T1-seq
-                </button>
-                {showT1seq && !t1seqLoading && t1seqMarks && (
-                  <span className="text-amber-300">
-                    {t1seqMarks.length}·{t1seqMarks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
-                  </span>
-                )}
-              </div>
-            )}
-            {/* T-T-T6 historical markers — violet arrow below bar */}
-            {tf === '1d' && (
-              <div className="flex items-center gap-0.5 text-[10px]"
-                   title="T-T-T6 pattern: T[-2] → T[-1] → T6[0]. Violet=T1(T3/T1/T10 at -2, edge +3.8%), purple=T2(T4/T1G), fuchsia=T3(T2G/T9). ★ = EBA/EUR + RSI≥60.">
-                <button onClick={() => setShowTtt6(v => !v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    showTtt6
-                      ? 'bg-violet-900/50 text-violet-200 border-violet-500'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  {ttt6Loading ? '⏳' : '🔺'} T-T-T6
-                </button>
-                {showTtt6 && !ttt6Loading && ttt6Marks && (
-                  <span className="text-violet-300">
-                    {ttt6Marks.length}·{ttt6Marks.filter(m => (m.suffix==='EBA'||m.suffix==='EUR') && (m.rsi||0)>=60).length}★
-                  </span>
-                )}
-              </div>
-            )}
-            {/* T3-seq RSI<35 markers — gold=fresh+NBI, amber=fresh, blue=streak */}
-            {tf === '1d' && (
-              <div className="flex items-center gap-0.5 text-[10px]"
-                   title="T3 RSI<35 sequence. Gold★=fresh+NBI (exp≈+4.5), amber=fresh T3[-1] (exp≈+1.0), blue=T3×3 streak (exp≈+0.9). 'fresh'=T3 at [-1] only, nothing at [-2]. Slate=plain RSI<35.">
-                <button onClick={() => setShowT3seq(v => !v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    showT3seq
-                      ? 'bg-amber-900/50 text-amber-200 border-amber-500'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  {t3seqLoading ? '⏳' : '🟡'} T3·35
-                </button>
-                {showT3seq && !t3seqLoading && t3seqMarks && (
-                  <span className="text-amber-300">
-                    {t3seqMarks.length}·{t3seqMarks.filter(m => m.tier === 'fresh-nbi').length}★
-                  </span>
-                )}
-              </div>
-            )}
-            {/* T9 RSI<35 markers — teal=base, gold=NUI/NRI/N premium (exp≈+0.93-1.35) */}
-            {tf === '1d' && (
-              <div className="flex items-center gap-0.5 text-[10px]"
-                   title="T9 RSI<35: exp=+0.93 baseline. Gold★=NUI/NRI/N suffix (exp≈+1.0-1.35). T9 RSI<35 is monotonically best zone — RSI≥60 exp=-0.16.">
-                <button onClick={() => setShowT9rsi(v => !v)}
-                  className={`px-1.5 py-0.5 rounded font-mono border ${
-                    showT9rsi
-                      ? 'bg-teal-900/50 text-teal-200 border-teal-500'
-                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  {t9rsiLoading ? '⏳' : '🔵'} T9·35
-                </button>
-                {showT9rsi && !t9rsiLoading && t9rsiMarks && (
-                  <span className="text-teal-300">
-                    {t9rsiMarks.length}·{t9rsiMarks.filter(m => m.tier === 'premium').length}★
-                  </span>
                 )}
               </div>
             )}

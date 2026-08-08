@@ -30,29 +30,39 @@ def _client():
         return None
 
 
-def ask(prompt: str, system: str = "", max_tokens: int = 1024) -> str | None:
+def ask(prompt: str, system: str = "", max_tokens: int = 1024,
+        model: str | None = None) -> str | None:
     """
     Send a prompt to Claude. Returns the text response or None on failure.
     Never raises — callers must handle None as 'use fallback'.
+    `model` overrides the default (e.g. 'claude-opus-5' for the brain's final decider).
     """
     client = _client()
     if client is None:
         return None
     try:
         msgs = [{"role": "user", "content": prompt}]
-        kwargs: dict[str, Any] = {"model": _MODEL, "max_tokens": max_tokens, "messages": msgs}
+        kwargs: dict[str, Any] = {"model": model or _MODEL, "max_tokens": max_tokens,
+                                  "messages": msgs}
         if system:
             kwargs["system"] = system
         resp = client.messages.create(**kwargs)
-        return resp.content[0].text if resp.content else None
+        # Opus 5 may emit a ThinkingBlock before the text — take the first TEXT block,
+        # not blindly content[0] ('ThinkingBlock' object has no attribute 'text').
+        for block in (resp.content or []):
+            t = getattr(block, "text", None)
+            if t is not None:
+                return t
+        return None
     except Exception as exc:
         log.warning("Claude API call failed: %s", exc)
         return None
 
 
-def ask_json(prompt: str, system: str = "", max_tokens: int = 1024) -> dict | list | None:
+def ask_json(prompt: str, system: str = "", max_tokens: int = 1024,
+             model: str | None = None) -> dict | list | None:
     """Like ask() but parses JSON. Returns None on failure."""
-    raw = ask(prompt, system=system, max_tokens=max_tokens)
+    raw = ask(prompt, system=system, max_tokens=max_tokens, model=model)
     if raw is None:
         return None
     text = raw.strip()

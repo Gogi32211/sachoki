@@ -2,9 +2,70 @@ import { useEffect, useState, useCallback, Fragment } from 'react'
 import { api } from '../api'
 import BrainMap from './BrainMap'
 
+// 📈 Realized equity curve of the paper book — pure SVG, no chart lib. Built from closed
+// trades (start $10k + cumulative pnl by close date); dots carry per-trade tooltips.
+function EquityChart({ closed }) {
+  const START = 10000
+  const trades = [...(closed || [])].filter(c => c.closed)
+    .sort((a, b) => String(a.closed).localeCompare(String(b.closed)))
+  if (!trades.length) return (
+    <div className="text-[11px] text-slate-500 px-3 py-2">no closed trades yet — the equity curve draws itself as the paper book realizes P&L.</div>
+  )
+  let eq = START
+  const pts = [{ d: trades[0].closed, v: START, t: 'start' },
+    ...trades.map(c => { eq += (c.pnl || 0); return { d: c.closed, v: +eq.toFixed(2), t: c.ticker, pnl: c.pnl } })]
+  const W = 640, H = 130, P = 8
+  const vs = pts.map(p => p.v)
+  const lo = Math.min(...vs, START), hi = Math.max(...vs, START), span = (hi - lo) || 1
+  const x = i => P + i * (W - 2 * P) / Math.max(1, pts.length - 1)
+  const y = v => H - P - (v - lo) * (H - 2 * P) / span
+  const line = pts.map((p, i) => `${x(i)},${y(p.v)}`).join(' ')
+  const last = pts[pts.length - 1]
+  const up = last.v >= START
+  const wins = trades.filter(c => (c.pnl || 0) >= 0).length
+  return (
+    <div className="rounded border border-slate-800 bg-slate-900/40 px-3 py-2 mb-4">
+      <div className="flex items-center gap-4 text-[11px] text-slate-400 mb-1 flex-wrap">
+        <span className="font-semibold text-slate-300">📈 EQUITY (realized, paper)</span>
+        <span>now <b className={up ? 'text-emerald-300' : 'text-red-300'}>${last.v.toFixed(0)}</b></span>
+        <span>P&L <b className={up ? 'text-emerald-300' : 'text-red-300'}>{up ? '+' : ''}{(last.v - START).toFixed(0)}</b></span>
+        <span>trades <b className="text-slate-300">{trades.length}</b> · win <b className="text-slate-300">{(100 * wins / trades.length).toFixed(0)}%</b></span>
+        <span>peak <b className="text-slate-300">${hi.toFixed(0)}</b></span>
+      </div>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 130 }}>
+        <line x1={P} x2={W - P} y1={y(START)} y2={y(START)} stroke="#475569" strokeDasharray="4 3" strokeWidth="1" />
+        <text x={W - P - 2} y={y(START) - 3} textAnchor="end" fontSize="9" fill="#64748b">$10k</text>
+        <polyline points={line} fill="none" stroke={up ? '#34d399' : '#f87171'} strokeWidth="1.6" />
+        {pts.map((p, i) => i > 0 && (
+          <circle key={i} cx={x(i)} cy={y(p.v)} r="2.6"
+            fill={(p.pnl || 0) >= 0 ? '#34d399' : '#f87171'} opacity="0.9">
+            <title>{`${p.t} · ${p.d} · pnl ${(p.pnl || 0) >= 0 ? '+' : ''}${p.pnl} → $${p.v.toFixed(0)}`}</title>
+          </circle>
+        ))}
+      </svg>
+    </div>
+  )
+}
+
 // 🧠 Decision-brain panel — today's risk-budgeted BUY plans with their full layer chain.
 // Read-only view of /api/brain/decisions (regime L2 -> candidate L3/4 -> sizing L5 -> portfolio L8).
-export default function BrainPanel({ onSelectTicker }) {
+// Clicking a ticker opens the REAL Superchart (no popup — user request 2026-08-03) with the
+// trade's anatomy as tradeMarkers: ⚡SIG (fire bar) · BUY (entry) · SELL (exit) + price lines.
+export default function BrainPanel({ onSelectTicker, onOpenChart }) {
+  // map any brain row (position / pending order / closed trade / decision) → tradeMarkers
+  const openChart = (row) => {
+    const t = row.ticker
+    const trade = {
+      ticker: t,
+      signal_date: row.fire_date || row.pullback?.fire_date || null,
+      open_date: row.opened || null,
+      close_date: row.closed || null,
+      entry: row.entry ?? row.below ?? row.pullback?.below ?? null,
+      exit: row.exit ?? null,
+    }
+    if (onOpenChart) onOpenChart(t, trade)
+    else onSelectTicker?.(t)
+  }
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(false)
   const [err, setErr] = useState(null)
@@ -17,6 +78,12 @@ export default function BrainPanel({ onSelectTicker }) {
   const [showLog, setShowLog] = useState(false)
   const [openCl, setOpenCl] = useState({})  // expanded closed-trade autopsies
   const [view, setView] = useState('decisions')  // 'decisions' | 'map'
+  const [pend, setPend] = useState(null)    // 🎯 pending pullback orders
+  const [reqs, setReqs] = useState([])      // ❓ open data-gap questions
+  const [at, setAt] = useState(null)        // last auto-take run (opus verdict + placed/filled)
+  const [atBusy, setAtBusy] = useState(false)
+  const [ansBusy, setAnsBusy] = useState(false)
+  const [ans, setAns] = useState(null)      // opus answers preview
 
   const load = useCallback((crit = false) => {
     setLoading(true); setErr(null)
@@ -26,7 +93,24 @@ export default function BrainPanel({ onSelectTicker }) {
       .finally(() => setLoading(false))
     api.brainClosed().then(d => setClosed(d?.closed || [])).catch(() => {})
     api.brainLearningLog().then(d => setLearnLog(d?.log || [])).catch(() => {})
+    api.brainPending().then(d => setPend(d?.error ? null : d)).catch(() => {})
+    api.brainRequests('open').then(d => setReqs(d?.requests || d || [])).catch(() => {})
   }, [])
+
+  const runAutoTake = (apply) => {
+    setAtBusy(true)
+    api.brainAutoTake(apply)
+      .then(d => { setAt(d); if (apply) load(critique) })
+      .catch(e => setErr(String(e?.message || e)))
+      .finally(() => setAtBusy(false))
+  }
+  const runOpusAnswers = (apply) => {
+    setAnsBusy(true)
+    api.brainAnswerRequests(apply)
+      .then(d => { setAns(d); if (apply) load(critique) })
+      .catch(e => setErr(String(e?.message || e)))
+      .finally(() => setAnsBusy(false))
+  }
   useEffect(() => { load(false) }, [load])
 
   const explain = (ticker) => {
@@ -147,6 +231,109 @@ export default function BrainPanel({ onSelectTicker }) {
         </div>
       )}
 
+      {/* 📈 realized equity curve of the paper book */}
+      <EquityChart closed={closed} />
+
+      {/* 🧠 OPUS auto-take console: fills pending orders, then queues pullback orders for
+          today's allocated BUYs — with Opus 5 holding the last word (take/skip). */}
+      <div className="mb-4 rounded border border-violet-900/60 bg-violet-950/20 px-3 py-2">
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className="text-xs font-semibold text-violet-300">🧠 OPUS DECIDER · 🎯 pullback orders</span>
+          <button onClick={() => runAutoTake(false)} disabled={atBusy}
+            className="bg-slate-800 hover:bg-slate-700 rounded px-2 py-0.5 text-xs text-slate-200"
+            title="Preview: fills due pullback orders + asks Opus 5 to take/skip today's allocated BUYs. Nothing is written.">
+            {atBusy ? '…' : '▶ preview'}
+          </button>
+          <button onClick={() => runAutoTake(true)} disabled={atBusy}
+            className="bg-violet-800 hover:bg-violet-700 rounded px-2 py-0.5 text-xs text-violet-100"
+            title="Apply: writes paper book + pending orders (no real money).">
+            ✅ apply
+          </button>
+          <span className="text-[11px] text-slate-500">fills due orders → Opus takes/skips new BUYs → queues 🎯 dip-and-reclaim orders (low[fire]−, 5 bars)</span>
+        </div>
+        {at && (
+          <div className="mt-2 text-[11px] leading-relaxed">
+            {at.opus && (
+              <div className="rounded border border-violet-900/50 bg-violet-950/40 px-2 py-1 mb-1 text-slate-300">
+                🧠 <b className="text-violet-300">{at.opus_model || 'opus'}</b>: {at.opus}
+              </div>
+            )}
+            {(at.taken || []).length > 0 && <div className="text-emerald-300">filled: {(at.taken || []).map(f => `${f.ticker} @$${f.entry}`).join(' · ')}</div>}
+            {(at.placed || []).length > 0 && <div className="text-sky-300">🎯 placed: {(at.placed || []).map(p => `${p.ticker} below $${p.below}`).join(' · ')}</div>}
+            {(at.expired || []).length > 0 && <div className="text-slate-500">expired: {(at.expired || []).map(x => x.ticker).join(' · ')}</div>}
+            {(at.skipped || []).filter(s => String(s.why || '').startsWith('🧠')).map((s, i) => (
+              <div key={i} className="text-amber-300/90">{s.ticker} — {s.why}</div>
+            ))}
+            {!(at.taken || []).length && !(at.placed || []).length && !(at.expired || []).length &&
+              <div className="text-slate-500">nothing to fill or place today ({at.n_allocated ?? 0} allocated)</div>}
+          </div>
+        )}
+      </div>
+
+      {/* 🎯 pending pullback orders (waiting for their dip-and-reclaim trigger) */}
+      {(pend?.orders?.length > 0) && (
+        <div className="mb-4">
+          <div className="text-xs font-semibold text-sky-300 mb-1">🎯 PENDING PULLBACK ORDERS</div>
+          <div className="rounded border border-slate-800 overflow-hidden">
+            <table className="w-full text-xs">
+              <tbody>
+                {pend.orders.map(o => {
+                  const w = (pend.waiting || []).find(x => x.ticker === o.ticker)
+                  const wf = (pend.would_fill || []).find(x => x.ticker === o.ticker)
+                  return (
+                    <tr key={o.ticker} className="border-t border-slate-800 hover:bg-slate-800/40">
+                      <td className="px-2 py-1"><button className="font-bold text-sky-300 hover:underline" title="🕯️ chart with signal + trigger" onClick={() => openChart(o)}>{o.ticker}</button></td>
+                      <td className="px-2 py-1 text-slate-400">{o.edge}</td>
+                      <td className="px-2 py-1 font-mono">buy &lt; <span className="text-sky-300">${o.below}</span> + green close</td>
+                      <td className="px-2 py-1 text-slate-500">fired {o.fire_date}</td>
+                      <td className="px-2 py-1">
+                        {wf && <span className="text-emerald-300">✓ would fill @${wf.entry}</span>}
+                        {!wf && w && <span className="text-slate-400">{w.bars_left} bars left</span>}
+                        {!wf && !w && <span className="text-slate-600">—</span>}
+                      </td>
+                    </tr>
+                  )
+                })}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* ❓ needs input — the brain's open questions, answerable by Opus or by hand */}
+      {reqs.length > 0 && (
+        <div className="mb-4 rounded border border-amber-900/50 bg-amber-950/20 px-3 py-2">
+          <div className="flex items-center gap-2 flex-wrap mb-1">
+            <span className="text-xs font-semibold text-amber-300">❓ NEEDS INPUT — {reqs.length} open</span>
+            <button onClick={() => runOpusAnswers(false)} disabled={ansBusy}
+              className="bg-slate-800 hover:bg-slate-700 rounded px-2 py-0.5 text-xs text-slate-200"
+              title="Preview Opus 5's answers (paper fill = plan price; catalysts never invented — policy answers).">
+              {ansBusy ? '…' : '🧠 opus preview'}
+            </button>
+            <button onClick={() => runOpusAnswers(true)} disabled={ansBusy}
+              className="bg-amber-800 hover:bg-amber-700 rounded px-2 py-0.5 text-xs text-amber-100"
+              title="Record Opus's answers (marked answered_by: opus-5; fill prices apply to the book).">
+              ✅ opus apply
+            </button>
+          </div>
+          {reqs.map(r => {
+            const a = (ans?.answers || []).find(x => x.id === r.id)
+            return (
+              <div key={r.id} className="text-[11px] py-1 border-t border-amber-900/30">
+                <div className="text-slate-300">
+                  <b className="text-sky-300">{r.ticker}</b> · {r.question}
+                  <button className="ml-2 text-slate-500 hover:text-slate-300"
+                    onClick={() => { const v = window.prompt(r.question); if (v != null && v !== '') api.brainAnswer(r.id, v).then(() => load(critique)) }}>
+                    ✍ answer
+                  </button>
+                </div>
+                {a && <div className="text-violet-300/90 mt-0.5">🧠 {a.value}{a.note && <span className="text-slate-500"> · {a.note}</span>}</div>}
+              </div>
+            )
+          })}
+        </div>
+      )}
+
       {/* open positions */}
       {positions.length > 0 && (
         <div className="mb-4">
@@ -156,7 +343,7 @@ export default function BrainPanel({ onSelectTicker }) {
               <tbody>
                 {positions.map(p => (
                   <tr key={p.ticker} className="border-t border-slate-800 hover:bg-slate-800/40">
-                    <td className="px-2 py-1"><button className="font-bold text-sky-300 hover:underline" onClick={() => onSelectTicker?.(p.ticker)}>{p.ticker}</button></td>
+                    <td className="px-2 py-1"><button className="font-bold text-sky-300 hover:underline" title="🕯️ chart with signal + entry points" onClick={() => openChart(p)}>{p.ticker}</button></td>
                     <td className="px-2 py-1 text-slate-400">{p.edge}</td>
                     <td className="px-2 py-1 font-mono">{p.shares}sh @${p.entry}</td>
                     <td className="px-2 py-1 font-mono text-red-300">stop ${p.stop}</td>
@@ -184,7 +371,7 @@ export default function BrainPanel({ onSelectTicker }) {
                   return (
                     <Fragment key={c.ticker + i}>
                       <tr className="border-t border-slate-800 hover:bg-slate-800/40">
-                        <td className="px-2 py-1"><button className="font-bold text-sky-300 hover:underline" onClick={() => onSelectTicker?.(c.ticker)}>{c.ticker}</button></td>
+                        <td className="px-2 py-1"><button className="font-bold text-sky-300 hover:underline" title="🕯️ chart with entry + exit points" onClick={() => openChart(c)}>{c.ticker}</button></td>
                         <td className="px-2 py-1"><span className={`px-1 rounded ${tierCls(c.tier)}`} title={c.edge_title}>{c.edge}</span></td>
                         <td className="px-2 py-1 font-mono">${c.entry}→${c.exit}</td>
                         <td className={`px-2 py-1 font-mono ${win ? 'text-emerald-300' : 'text-red-300'}`}>${c.pnl} <span className="text-slate-500">({a.ret_pct > 0 ? '+' : ''}{a.ret_pct}% · {a.r_multiple}R)</span></td>
@@ -243,7 +430,8 @@ export default function BrainPanel({ onSelectTicker }) {
               <Fragment key={x.ticker}>
                 <tr className="border-t border-slate-800 hover:bg-slate-800/40">
                   <td className="px-2 py-1">
-                    <button className="font-bold text-sky-300 hover:underline" onClick={() => onSelectTicker?.(x.ticker)}>{x.ticker}</button>
+                    <button className="font-bold text-sky-300 hover:underline" title="🕯️ chart with signal + planned entry"
+                      onClick={() => openChart(x)}>{x.ticker}</button>
                   </td>
                   <td className="px-2 py-1">
                     <span className={`px-1 rounded ${tierCls(x.tier)}`} title={x.edge_title}>{x.edge}</span>
@@ -302,8 +490,9 @@ export default function BrainPanel({ onSelectTicker }) {
       {showWatch && (
         <div className="flex flex-wrap gap-1">
           {watch.slice(0, 120).map(x => (
-            <button key={x.ticker} onClick={() => onSelectTicker?.(x.ticker)}
-              title={`${x.edge_title} · ${x.shares}sh @$${x.entry}`}
+            <button key={x.ticker}
+              onClick={() => openChart(x)}
+              title={`${x.edge_title} · ${x.shares}sh @$${x.entry} · 🕯️ chart`}
               className="px-1.5 py-0.5 rounded text-[11px] bg-slate-800 hover:bg-slate-700 text-slate-300 font-mono">
               {x.ticker}<span className="text-slate-500"> {x.edge?.slice(0, 4)}</span>
             </button>

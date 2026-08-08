@@ -397,6 +397,30 @@ const SIG_GROUPS = [
   { key: 'rgti_green',    label: 'GRN',  cls: 'text-green-300'    },
   { key: 'rgti_greencirc',label: 'GC',   cls: 'text-emerald-300'  },
   { key: 'smx',           label: 'SMX',  cls: 'text-lime-300'     },
+  { divider: true, label: '🥇 Macro / sector (2026-08-06)' },
+  // validated per-edge: median lift 7/7 edges, DSR 0.00→0.9 on G3/G3A/L43
+  { key: 'lead_lag', label: '🥇LEAD-in-LAG', cls: 'text-yellow-300 font-bold',
+    custom: (r) => /🥇/.test((r.edges ?? []).join(' ')) },
+  { key: 'lead_g3',  label: '🥇G3',  cls: 'text-yellow-200',
+    custom: (r) => (r.edges ?? []).includes('🥇G3') },
+  { key: 'lead_g3a', label: '🥇G3A', cls: 'text-yellow-200',
+    custom: (r) => (r.edges ?? []).includes('🥇G3A') },
+  { key: 'lead_l43', label: '🥇L43', cls: 'text-yellow-200',
+    custom: (r) => (r.edges ?? []).includes('🥇L43') },
+  { divider: true, label: '🟡 Seq-edges (2026-08-04)' },
+  // the five user-built sequence setups — match on the row's EDGE chip list
+  { key: 'seq_any',   label: '🟡SEQ*',  cls: 'text-amber-300 font-bold',
+    custom: (r) => /🌉|🧲|🧺|👑/.test((r.edges ?? []).join(' ')) },
+  { key: 'seq_crown', label: '👑Z1G',   cls: 'text-amber-300',
+    custom: (r) => (r.edges ?? []).includes('👑Z1G🟡') },
+  { key: 'seq_z1gt4', label: '🌉Z1G4',  cls: 'text-amber-200',
+    custom: (r) => (r.edges ?? []).includes('🌉Z1G4🟡') },
+  { key: 'seq_v2',    label: '🌉v2',    cls: 'text-amber-200',
+    custom: (r) => (r.edges ?? []).includes('🌉v2🟡') },
+  { key: 'seq_z9hl',  label: '🧲Z9HL',  cls: 'text-amber-200',
+    custom: (r) => (r.edges ?? []).includes('🧲Z9HL🟡') },
+  { key: 'seq_20',    label: '🧺SEQ',   cls: 'text-amber-200',
+    custom: (r) => (r.edges ?? []).includes('🧺SEQ🟡') },
   { divider: true, label: '📐 MTF-EMA (15m·1h·4h DB)' },
   // ── 📐 MTF-EMA (DB-computed, 260704) — SMX/RGTI EMA-stack geometry from the
   //   real 15m·1h·4h bars (EOD daily snapshot), NOT the live single-bar flags above.
@@ -829,42 +853,6 @@ function MiniChartPopup({ row, tf, pos, onClose }) {
         <span>RSI <span className={row.rsi <= 35 ? 'text-lime-400' : row.rsi >= 70 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.rsi, 0)}</span></span>
         <span>CCI <span className={row.cci >= 100 ? 'text-lime-400' : row.cci <= -100 ? 'text-red-400' : 'text-md-on-surface'}>{fmt(row.cci, 0)}</span></span>
         <span>Score <span className={`font-semibold ${scoreColor(row.turbo_score ?? 0)}`}>{fmt(row.turbo_score, 1)}</span></span>
-        {row.tzt4_match && row.tzt4_age != null && (
-          <span
-            title={`T-Z-T4 pattern: ${row.tzt4_tier} tier · suffix ${row.tzt4_suffix || '—'} · RSI ${row.tzt4_rsi} · ${row.tzt4_age === 0 ? 'today' : `${row.tzt4_age}d ago`}`}
-            className={`px-1.5 py-0.5 rounded text-xs font-bold border shrink-0 ${
-              row.tzt4_tier === 'T1' ? 'bg-emerald-900/70 text-emerald-200 border-emerald-500' :
-              row.tzt4_tier === 'T2' ? 'bg-teal-900/70 text-teal-200 border-teal-500' :
-              row.tzt4_tier === 'T3' ? 'bg-cyan-900/70 text-cyan-200 border-cyan-600' :
-                                       'bg-slate-800 text-slate-400 border-slate-600'
-            }`}>
-            🎯{row.tzt4_tier}·{row.tzt4_suffix || '?'}{row.tzt4_age > 0 ? ` -${row.tzt4_age}d` : ''}
-          </span>
-        )}
-        {row.ttt6_match && row.ttt6_age != null && (
-          <span
-            title={`T-T-T6 pattern: ${row.ttt6_tier} tier · suffix ${row.ttt6_suffix || '—'} · RSI ${row.ttt6_rsi} · ${row.ttt6_age === 0 ? 'today' : `${row.ttt6_age}d ago`}`}
-            className={`px-1.5 py-0.5 rounded text-xs font-bold border shrink-0 ${
-              row.ttt6_tier === 'T1' ? 'bg-violet-900/70 text-violet-200 border-violet-500' :
-              row.ttt6_tier === 'T2' ? 'bg-purple-900/70 text-purple-200 border-purple-500' :
-              row.ttt6_tier === 'T3' ? 'bg-fuchsia-900/70 text-fuchsia-200 border-fuchsia-600' :
-                                       'bg-slate-800 text-slate-400 border-slate-600'
-            }`}>
-            🔺{row.ttt6_tier}·{row.ttt6_suffix || '?'}{row.ttt6_age > 0 ? ` -${row.ttt6_age}d` : ''}
-          </span>
-        )}
-        {row.t1seq_match && row.t1seq_age != null && (
-          <span
-            title={`T1-seq: ${row.t1seq_tier === 'T1' ? 'Z-Z→T1' : row.t1seq_tier === 'T2' ? 'T-Z→T1' : row.t1seq_tier === 'T3' ? 'Z-T→T1' : 'T-T→T1'} · suffix ${row.t1seq_suffix || '—'} · RSI ${row.t1seq_rsi} · ${row.t1seq_age === 0 ? 'today' : `${row.t1seq_age}d ago`}`}
-            className={`px-1.5 py-0.5 rounded text-xs font-bold border shrink-0 ${
-              row.t1seq_tier === 'T1' ? 'bg-amber-900/70 text-amber-200 border-amber-500' :
-              row.t1seq_tier === 'T2' ? 'bg-orange-900/70 text-orange-200 border-orange-500' :
-              row.t1seq_tier === 'T3' ? 'bg-yellow-900/70 text-yellow-200 border-yellow-600' :
-                                        'bg-slate-800 text-slate-400 border-slate-600'
-            }`}>
-            ⚡{row.t1seq_tier === 'T1' ? 'ZZ' : row.t1seq_tier === 'T2' ? 'TZ' : row.t1seq_tier === 'T3' ? 'ZT' : 'TT'}·T1{(row.t1seq_suffix==='EBA'||row.t1seq_suffix==='EUR')&&(row.t1seq_rsi||0)>=60?'★':''}{row.t1seq_age > 0 ? ` -${row.t1seq_age}d` : ''}
-          </span>
-        )}
         {row.avg_vol > 0 && (
           <span className="ml-auto">
             {row.avg_vol >= 1_000_000 ? `${(row.avg_vol/1_000_000).toFixed(1)}M` : row.avg_vol >= 1_000 ? `${Math.round(row.avg_vol/1_000)}K` : Math.round(row.avg_vol)}
@@ -1118,12 +1106,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [capFilter,    setCapFilter]    = useState(false)   // 💥 capitulation bounce (long edge)
   const [momFilter,    setMomFilter]    = useState(false)   // 🚀 momentum zone-dense (long edge)
   const [postCapitFilter, setPostCapitFilter] = useState(false)  // 🔥 Capit→Atom confluence (premium atomic subset)
-  const [tzt4Filter,   setTzt4Filter]   = useState(false)   // 🎯 T-Z-T4 pattern (validated 3-bar sequence)
-  const [ttt6Filter,   setTtt6Filter]   = useState(false)   // 🎯 T-T-T6 pattern (validated 3-bar sequence)
-  const [t1seqFilter,  setT1seqFilter]  = useState(false)   // ⚡ T1-seq pattern (?[-2]→?[-1]→T1[0])
-  const [t3seqFilter,  setT3seqFilter]  = useState(false)   // 🟡 T3 RSI<35 (fresh/fresh-nbi/streak/plain)
-  const [t9rsiFilter,  setT9rsiFilter]  = useState(false)   // 🔵 T9 RSI<35 (premium=N*/base)
-  const [z1gt2gFilter, setZ1gt2gFilter] = useState(false)   // 🟢 Z1G→T1→T2G+EUR RSI35-60 (psim +6.4%)
+  // (2026-08-04) tzt4 / ttt6 / t1seq / t3seq / t9rsi / z1gt2g filters REMOVED —
+  // path-sim audit: every variant negative-median and <4/6 positive years.
   const [vol3t5Filter,  setVol3t5Filter]  = useState(false)  // 📈 T5 + vol↑↑↑ + RSI drop 2-10pt
   const [vol3t9Filter,  setVol3t9Filter]  = useState(false)  // 📈 T9 + vol↑↑↑ + RSI 25-40
   const [vol3t12Filter, setVol3t12Filter] = useState(false)  // 📈 T12 + vol↑↑↑ + RSI drop 2-10pt
@@ -1301,12 +1285,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
     'atomic_match', 'atomic_age', 'atomic_score', 'atomic_atoms', 'atomic_post_capit', 'atomic_capit_age',
     'short_match', 'short_age', 'short_score', 'short_atoms',
     'mom_match', 'mom_age', 'mom_score', 'mom_atoms',
-    'tzt4_match', 'tzt4_age', 'tzt4_tier', 'tzt4_suffix', 'tzt4_rsi',
-    'ttt6_match', 'ttt6_age', 'ttt6_tier', 'ttt6_suffix', 'ttt6_rsi',
-    't1seq_match', 't1seq_age', 't1seq_tier', 't1seq_suffix', 't1seq_rsi',
-    't3seq_match', 't3seq_age', 't3seq_tier', 't3seq_suffix', 't3seq_rsi',
-    't9rsi_match', 't9rsi_age', 't9rsi_tier', 't9rsi_suffix', 't9rsi_rsi',
-    'z1gt2g_match', 'z1gt2g_age', 'z1gt2g_tier', 'z1gt2g_suffix', 'z1gt2g_rsi',
     'vol3t5_match', 'vol3t5_age', 'vol3t5_rsi', 'vol3t5_drop',
     'vol3t9_match', 'vol3t9_age', 'vol3t9_rsi', 'vol3t9_tier',
     'vol3t12_match', 'vol3t12_age', 'vol3t12_rsi', 'vol3t12_tier',
@@ -1527,12 +1505,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (capFilter      && !(r.cap_match    && r.cap_age    != null && r.cap_age    < (lookbackN || 1))) return false
       if (momFilter      && !(r.mom_match    && r.mom_age    != null && r.mom_age    < (lookbackN || 1))) return false
       if (postCapitFilter && !r.atomic_post_capit) return false
-      if (tzt4Filter     && !(r.tzt4_match   && r.tzt4_age  != null && r.tzt4_age   < (lookbackN || 1))) return false
-      if (ttt6Filter     && !(r.ttt6_match   && r.ttt6_age  != null && r.ttt6_age   < (lookbackN || 1))) return false
-      if (t1seqFilter    && !(r.t1seq_match  && r.t1seq_age != null && r.t1seq_age  < (lookbackN || 1))) return false
-      if (t3seqFilter    && !(r.t3seq_match  && r.t3seq_age  != null && r.t3seq_age  < (lookbackN || 1))) return false
-      if (t9rsiFilter    && !(r.t9rsi_match  && r.t9rsi_age  != null && r.t9rsi_age  < (lookbackN || 1))) return false
-      if (z1gt2gFilter   && !(r.z1gt2g_match && r.z1gt2g_age != null && r.z1gt2g_age < (lookbackN || 1))) return false
       if (vol3t5Filter   && !(r.vol3t5_match  && r.vol3t5_age  != null && r.vol3t5_age  < (lookbackN || 1))) return false
       if (vol3t9Filter   && !(r.vol3t9_match  && r.vol3t9_age  != null && r.vol3t9_age  < (lookbackN || 1))) return false
       if (vol3t12Filter  && !(r.vol3t12_match && r.vol3t12_age != null && r.vol3t12_age < (lookbackN || 1))) return false
@@ -1579,7 +1551,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, tzt4Filter, ttt6Filter, t1seqFilter, t3seqFilter, t9rsiFilter, z1gt2gFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
+  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -3058,84 +3030,6 @@ export default function UltraScanPanel({ onSelectTicker }) {
               : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
           }`}>
           🔥 Capit→Atom{postCapitFilter ? ` ${results.filter(r => r.atomic_post_capit).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !tzt4Filter; setTzt4Filter(v)
-            if (v && !allResults.some(r => r.tzt4_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="🎯 T-Z-T4 pattern: T-signal 2 bars ago → Z-signal 1 bar ago → T4 today. 5yr validated: RSI≥60 + EBA/EUR suffix → +3-4% exp (Tier1=T4[-2]+4%, Tier2=T3/T9/T10[-2]+3.6%, Tier3=T2/T2G/T5[-2]+3.2%). Use N= to look back further."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            tzt4Filter
-              ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500 ring-1 ring-emerald-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          🎯 T-Z-T4{tzt4Filter ? ` ${results.filter(r => r.tzt4_match && r.tzt4_age != null && r.tzt4_age < (lookbackN || 1)).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !ttt6Filter; setTtt6Filter(v)
-            if (v && !allResults.some(r => r.ttt6_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="🔺 T-T-T6 pattern: T-signal 2 bars ago → T-signal 1 bar ago → T6 today. 5yr validated: T1[T3/T1/T10 at -2]+EUR/EBA → +3-5% exp. Tier1=T3/T1/T10[-2]+3.8%, Tier2=T4/T1G[-2], Tier3=T2G/T9[-2]. Use N= to look back further."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            ttt6Filter
-              ? 'bg-violet-900/60 text-violet-200 border-violet-500 ring-1 ring-violet-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          🔺 T-T-T6{ttt6Filter ? ` ${results.filter(r => r.ttt6_match && r.ttt6_age != null && r.ttt6_age < (lookbackN || 1)).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !t1seqFilter; setT1seqFilter(v)
-            if (v && !allResults.some(r => r.t1seq_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="⚡ T1-seq: ?[-2]→?[-1]→T1[0]. Context tiers: ZZ→T1 +2.26% (amber), TZ→T1 +2.21% (orange), ZT→T1 (yellow), TT→T1 (slate). EBA/EUR+RSI≥60=★. Best: Z7/Z9[-2]·Z6[-1]·T1+EUR → +5.5-5.9% Win=70%+."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            t1seqFilter
-              ? 'bg-amber-900/60 text-amber-200 border-amber-500 ring-1 ring-amber-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          ⚡ T1-seq{t1seqFilter ? ` ${results.filter(r => r.t1seq_match && r.t1seq_age != null && r.t1seq_age < (lookbackN || 1)).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !t3seqFilter; setT3seqFilter(v)
-            if (v && !allResults.some(r => r.t3seq_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="🟡 T3·35: T3 signal with RSI<35. Tiers: fresh-nbi=T3 without prior T3 + NBI suffix (+4.5% exp), fresh=no T3 at [-1] (+1.0%), streak=T3×3 (+0.9%), plain=partial context. Oversold absorption — strongest when isolated (no prior T3)."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            t3seqFilter
-              ? 'bg-amber-900/60 text-amber-200 border-amber-500 ring-1 ring-amber-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          🟡 T3·35{t3seqFilter ? ` ${results.filter(r => r.t3seq_match && r.t3seq_age != null && r.t3seq_age < (lookbackN || 1)).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !t9rsiFilter; setT9rsiFilter(v)
-            if (v && !allResults.some(r => r.t9rsi_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="🔵 T9·35: T9 signal with RSI<35. Premium=N* suffix (NUI/NRI/N... +1.0-1.35% exp), Base=other (+0.67-0.93%). Monotonic RSI decay: edge disappears above RSI 60."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            t9rsiFilter
-              ? 'bg-teal-900/60 text-teal-200 border-teal-500 ring-1 ring-teal-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          🔵 T9·35{t9rsiFilter ? ` ${results.filter(r => r.t9rsi_match && r.t9rsi_age != null && r.t9rsi_age < (lookbackN || 1)).length}` : ''}
-        </button>
-        <button
-          onClick={() => {
-            const v = !z1gt2gFilter; setZ1gt2gFilter(v)
-            if (v && !allResults.some(r => r.z1gt2g_age != null)) fetchEnrichmentMerge(localTf, universe)
-          }}
-          title="🟢 Z1G→EUR: Z1G[-2]→T1[-1]→T2G[0] + EUR suffix + RSI 35-60. psim +6.4%, fwd5 +17.5% (n=46). Premium=NHA T1 + EDP Z1G (82% win). NASDAQ best."
-          className={`px-2 py-0.5 rounded text-xs font-semibold shrink-0 transition-colors border ${
-            z1gt2gFilter
-              ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500 ring-1 ring-emerald-500'
-              : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'
-          }`}>
-          🟢 Z1G→EUR{z1gt2gFilter ? ` ${results.filter(r => r.z1gt2g_match && r.z1gt2g_age != null && r.z1gt2g_age < (lookbackN || 1)).length}` : ''}
         </button>
         <button
           onClick={() => {

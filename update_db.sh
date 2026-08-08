@@ -165,6 +165,15 @@ if [ "${NO_RESCAN:-0}" != "1" ]; then
 else
   echo "  (ULTRA re-scan გამოტოვდა — NO_RESCAN=1)"
 fi
+# 📅 weekly EDGAR report-dates refresh (Sundays; feeds the brain's post-report gate).
+# Non-fatal by design — a failed refresh only ages earnings_dates.json by a week.
+if [ "$(date +%u)" = "7" ]; then
+  echo "📅 EDGAR earnings-dates weekly refresh…"
+  rm -f /Users/sachoki/Desktop/sachoki-desktop/data/earnings_dates.json
+  /Users/sachoki/Desktop/sachoki-desktop/backend/.venv/bin/python \
+    /Users/sachoki/Desktop/sachoki-desktop/backend/earnings_feed.py \
+    >> /tmp/edgar_refresh.log 2>&1 || echo "  ⚠ EDGAR refresh failed (non-fatal, stale dates keep serving)"
+fi
 if [ "$DELTA_OK" = "1" ]; then
   echo "✅ მზადაა."
 else

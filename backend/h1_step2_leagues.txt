@@ -1,0 +1,2026 @@
+
+##### ENDING  — base n=5,076 med+0.45 win53.4 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+    ── entry-bar L-line ──
+      FUCHSIA_RL                         n=  5076  med  +0.45  win 53.4  med70  -1.35  Δbase  +0.00
+    ── entry-bar suffix ──
+                                         n=  5076  med  +0.45  win 53.4  med70  -1.35  Δbase  +0.00
+   ▼                                  n=  5076  med  +0.45  win 53.4  med70  -1.35  Δbase  +0.00
+
+##### ENDING T1 — base n=740,339 med+0.13 win51.0 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→T9→T1                          n=   362  med  +1.47  win 58.3  med70  +1.63  Δbase  +1.34
+      T9→Z2G→T1                          n=   320  med  +1.20  win 56.6  med70  +1.03  Δbase  +1.08
+      Z2→T4→T1                           n=   379  med  +0.96  win 52.8  med70  +1.49  Δbase  +0.84
+      T2→Z2G→T1                          n=   488  med  +0.89  win 55.1  med70  +1.25  Δbase  +0.76
+      T2G→T2→T1                          n=   620  med  +0.87  win 53.5  med70  +0.52  Δbase  +0.75
+      T2→T2→T1                           n=   667  med  +0.64  win 52.6  med70  +1.27  Δbase  +0.52
+      T4→Z2→T1                           n=   370  med  +0.59  win 54.6  med70  +0.63  Δbase  +0.46
+      T4→T2→T1                           n=   451  med  +0.58  win 54.3  med70  +0.50  Δbase  +0.45
+      T4→Z2G→T1                          n=   348  med  +0.56  win 53.7  med70  +0.27  Δbase  +0.43
+      T9→T2→T1                           n=   349  med  +0.55  win 53.3  med70  +2.01  Δbase  +0.43
+      T4→T2G→T1                          n=   418  med  +0.52  win 54.5  med70  +1.11  Δbase  +0.39
+      Z3→Z11→T1                          n=  1271  med  +0.45  win 53.7  med70  +0.50  Δbase  +0.32
+      Z5→Z11→T1                          n=   424  med  +0.45  win 54.7  med70  +0.29  Δbase  +0.32
+      Z6→Z10→T1                          n=   531  med  +0.44  win 53.9  med70  +0.20  Δbase  +0.32
+      Z4→T9→T1                           n=   325  med  +0.40  win 52.9  med70  +0.88  Δbase  +0.28
+      ···
+      T2G→Z12→T1                         n=   483  med  -0.22  win 46.6  med70  -0.09  Δbase  -0.34
+      T9→T2G→T1                          n=   345  med  -0.27  win 48.1  med70  +1.04  Δbase  -0.39
+      T10→Z5→T1                          n=   468  med  -0.35  win 47.9  med70  +0.28  Δbase  -0.47
+      Z1→Z6→T1                           n=   363  med  -0.36  win 44.9  med70  -0.81  Δbase  -0.49
+      T6→Z5→T1                           n=   600  med  -0.38  win 46.7  med70  -0.05  Δbase  -0.51
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T10→T2G→Z9→T1                      n=   366  med  +0.98  win 56.0  med70  +0.60  Δbase  +0.85
+      Z6→T3→Z9→T1                        n=   496  med  +0.88  win 57.3  med70  +0.46  Δbase  +0.76
+      T5→Z1→Z2G→T1                       n=   330  med  +0.84  win 57.6  med70  +1.12  Δbase  +0.71
+      Z2G→T5→Z1→T1                       n=   302  med  +0.76  win 57.6  med70  +0.98  Δbase  +0.64
+      Z4→Z2G→Z10→T1                      n=   300  med  +0.75  win 57.0  med70  +0.66  Δbase  +0.62
+      Z2→T5→Z1→T1                        n=   333  med  +0.74  win 58.6  med70  +0.59  Δbase  +0.62
+      T4→T10→Z4→T1                       n=   354  med  +0.68  win 55.1  med70  +1.10  Δbase  +0.56
+      Z1G→T3→Z3→T1                       n=   311  med  +0.65  win 55.3  med70  -0.14  Δbase  +0.52
+      Z2G→T5→Z9→T1                       n=   371  med  +0.64  win 56.3  med70  +1.75  Δbase  +0.52
+      Z2→T4→Z5→T1                        n=   691  med  +0.64  win 55.6  med70  +0.67  Δbase  +0.51
+      Z2G→T4→Z1→T1                       n=   710  med  +0.58  win 54.8  med70  +0.38  Δbase  +0.45
+      Z11→Z2→Z2G→T1                      n=   536  med  +0.58  win 55.0  med70  +0.35  Δbase  +0.45
+      T3→T6→Z9→T1                        n=   321  med  +0.56  win 53.9  med70  +0.20  Δbase  +0.43
+      Z2G→T1→Z1→T1                       n=   531  med  +0.56  win 56.7  med70  +0.28  Δbase  +0.43
+      Z7→T4→Z9→T1                        n=   782  med  +0.55  win 55.2  med70  +0.30  Δbase  +0.42
+      ···
+      T12→T2→Z9→T1                       n=   312  med  -0.45  win 46.8  med70  -0.18  Δbase  -0.58
+      T2→Z1G→Z2G→T1                      n=  1108  med  -0.46  win 45.5  med70  -0.21  Δbase  -0.59
+      Z2→Z7→Z2G→T1                       n=   342  med  -0.47  win 46.5  med70  +0.36  Δbase  -0.59
+      Z9→T1G→Z3→T1                       n=   700  med  -0.53  win 45.0  med70  -0.31  Δbase  -0.66
+      T2G→Z5→Z6→T1                       n=   344  med  -0.58  win 44.8  med70  -0.55  Δbase  -0.71
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T4→T2G→T2G→Z4→T1                   n=   323  med  +0.93  win 56.7  med70  +0.85  Δbase  +0.80
+      Z1→Z2→Z2G→Z2→T1                    n=   554  med  +0.87  win 57.0  med70  +0.75  Δbase  +0.75
+      Z2→Z2→T9→Z9→T1                     n=   529  med  +0.83  win 56.5  med70  +0.61  Δbase  +0.70
+      T9→T2→Z3→Z2G→T1                    n=   371  med  +0.79  win 56.9  med70  +0.84  Δbase  +0.66
+      T2G→T2→T2→Z5→T1                    n=   302  med  +0.71  win 58.6  med70  +1.43  Δbase  +0.58
+      T4→T2G→Z4→Z2G→T1                   n=   455  med  +0.68  win 55.2  med70  +0.31  Δbase  +0.55
+      Z9→T4→T2→Z3→T1                     n=   362  med  +0.66  win 53.9  med70  +0.44  Δbase  +0.54
+      Z3→Z2→Z2G→Z2→T1                    n=   748  med  +0.62  win 54.7  med70  +0.49  Δbase  +0.50
+      T1G→T2G→T2→Z9→T1                   n=   303  med  +0.60  win 54.8  med70  +0.63  Δbase  +0.48
+      T9→T2→Z3→Z2→T1                     n=   462  med  +0.59  win 56.1  med70  +0.90  Δbase  +0.47
+      T2→Z3→Z2→Z2G→T1                    n=   724  med  +0.59  win 56.4  med70  +0.47  Δbase  +0.46
+      T2G→Z4→Z2→Z2G→T1                   n=   846  med  +0.58  win 55.7  med70  +0.66  Δbase  +0.46
+      Z9→Z2→Z2G→Z2G→T1                   n=   833  med  +0.57  win 55.2  med70  +0.45  Δbase  +0.44
+      Z9→Z2G→Z2G→Z2G→T1                  n=   719  med  +0.56  win 55.5  med70  +0.35  Δbase  +0.44
+      T9→T2→T2G→Z3→T1                    n=   507  med  +0.56  win 56.2  med70  +0.77  Δbase  +0.44
+      ···
+      Z2G→Z2G→T9→Z9→T1                   n=   399  med  -0.65  win 44.4  med70  -0.45  Δbase  -0.78
+      Z2G→T9→Z9→Z2G→T1                   n=   326  med  -0.68  win 46.3  med70  +0.22  Δbase  -0.81
+      Z3→Z2G→T4→Z9→T1                    n=   314  med  -0.72  win 45.5  med70  -0.04  Δbase  -0.84
+      T1G→T2→Z9→Z2→T1                    n=   311  med  -0.86  win 39.9  med70  +0.14  Δbase  -0.98
+      T3→T2G→T2→Z3→T1                    n=   347  med  -1.04  win 41.5  med70  -0.71  Δbase  -1.16
+    ── entry-bar L-line ──
+      L34                                n=146100  med  +0.15  win 51.3  med70  +0.27  Δbase  +0.03
+      L12                                n=321568  med  +0.12  win 51.0  med70  +0.23  Δbase  -0.00
+      L3                                 n=272664  med  +0.11  win 50.9  med70  +0.20  Δbase  -0.01
+    ── entry-bar suffix ──
+      NDP                                n= 59143  med  +0.20  win 51.7  med70  +0.29  Δbase  +0.08
+      NB                                 n= 30650  med  +0.17  win 51.4  med70  +0.27  Δbase  +0.04
+      NU                                 n= 30411  med  +0.16  win 51.3  med70  +0.24  Δbase  +0.03
+      EB                                 n= 89220  med  +0.14  win 51.1  med70  +0.29  Δbase  +0.01
+      EU                                 n=140673  med  +0.14  win 51.1  med70  +0.21  Δbase  +0.01
+      NUR                                n= 71114  med  +0.11  win 50.9  med70  +0.21  Δbase  -0.02
+      EUR                                n=218862  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.02
+      NP                                 n= 24328  med  +0.09  win 50.8  med70  +0.23  Δbase  -0.03
+      NH                                 n= 75938  med  +0.09  win 50.7  med70  +0.24  Δbase  -0.03
+   ▼  EUR                             n=218862  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.02
+   ▼  NP                              n= 24328  med  +0.09  win 50.8  med70  +0.23  Δbase  -0.03
+   ▼  NH                              n= 75938  med  +0.09  win 50.7  med70  +0.24  Δbase  -0.03
+
+##### ENDING T10 — base n=142,324 med+0.12 win51.0 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→T5→T10                          n=   381  med  +0.62  win 57.0  med70  +1.23  Δbase  +0.50
+      T5→T2G→T10                         n=  1043  med  +0.53  win 53.8  med70  +0.76  Δbase  +0.42
+      T5→T2→T10                          n=   866  med  +0.50  win 55.0  med70  +0.56  Δbase  +0.38
+      T3→T6→T10                          n=   375  med  +0.46  win 54.9  med70  +0.45  Δbase  +0.34
+      Z5→T1G→T10                         n=   364  med  +0.37  win 54.9  med70  +0.18  Δbase  +0.25
+      Z4→T1→T10                          n=  1195  med  +0.35  win 53.5  med70  +0.32  Δbase  +0.23
+      Z2→T5→T10                          n=   603  med  +0.35  win 53.7  med70  +0.08  Δbase  +0.23
+      T1G→T2→T10                         n=  1396  med  +0.32  win 52.8  med70  +0.54  Δbase  +0.20
+      Z7→T1G→T10                         n=   582  med  +0.29  win 52.9  med70  +0.31  Δbase  +0.17
+      Z6→T3→T10                          n=   638  med  +0.27  win 51.4  med70  +0.19  Δbase  +0.15
+      Z6→T9→T10                          n=   775  med  +0.26  win 52.4  med70  +0.12  Δbase  +0.14
+      Z1→T1G→T10                         n=   352  med  +0.25  win 51.1  med70  +0.14  Δbase  +0.13
+      Z3→T1→T10                          n=  1345  med  +0.24  win 51.6  med70  +0.05  Δbase  +0.12
+      Z3→T4→T10                          n=  1978  med  +0.24  win 52.4  med70  +0.20  Δbase  +0.12
+      T10→T2→T10                         n=   346  med  +0.23  win 51.4  med70  -0.12  Δbase  +0.11
+      ···
+      T2→T6→T10                          n=   772  med  -0.37  win 47.9  med70  -0.21  Δbase  -0.49
+      Z4→T1G→T10                         n=   438  med  -0.37  win 47.0  med70  -0.39  Δbase  -0.49
+      T10→T6→T10                         n=   303  med  -0.39  win 46.2  med70  -0.18  Δbase  -0.51
+      Z1G→T4→T10                         n=   554  med  -0.42  win 46.8  med70  -0.28  Δbase  -0.54
+      T12→T2→T10                         n=   341  med  -0.55  win 47.2  med70  -0.02  Δbase  -0.67
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→T4→T2→T10                       n=   312  med  +0.80  win 55.8  med70  -0.05  Δbase  +0.68
+      T2→Z1→T9→T10                       n=   342  med  +0.58  win 54.7  med70  +0.30  Δbase  +0.46
+      Z1→T3→T2→T10                       n=   316  med  +0.54  win 54.4  med70  +0.80  Δbase  +0.42
+      Z2G→T1→T2→T10                      n=   532  med  +0.52  win 53.6  med70  +0.35  Δbase  +0.40
+      Z2G→T3→T2→T10                      n=   666  med  +0.52  win 54.5  med70  +0.08  Δbase  +0.40
+      Z9→Z2G→T9→T10                      n=   343  med  +0.50  win 53.1  med70  +0.11  Δbase  +0.38
+      T2G→Z3→T4→T10                      n=   412  med  +0.47  win 54.4  med70  -0.10  Δbase  +0.35
+      Z2G→Z2→T4→T10                      n=   835  med  +0.41  win 53.8  med70  +0.24  Δbase  +0.29
+      Z9→Z2G→T4→T10                      n=   464  med  +0.40  win 53.2  med70  +0.52  Δbase  +0.28
+      Z4→Z2G→T4→T10                      n=   462  med  +0.40  win 53.0  med70  -0.02  Δbase  +0.28
+      T9→Z4→T4→T10                       n=   316  med  +0.39  win 52.5  med70  +0.21  Δbase  +0.27
+      Z9→Z2→T9→T10                       n=   343  med  +0.38  win 52.8  med70  +0.43  Δbase  +0.26
+      Z1→Z2G→T4→T10                      n=   330  med  +0.38  win 53.3  med70  -0.10  Δbase  +0.26
+      Z2G→Z2G→T3→T10                     n=   595  med  +0.38  win 53.1  med70  +0.27  Δbase  +0.26
+      T2G→Z4→T3→T10                      n=   409  med  +0.36  win 54.5  med70  +0.26  Δbase  +0.24
+      ···
+      Z3→T4→T2→T10                       n=   376  med  -0.31  win 45.7  med70  +0.24  Δbase  -0.43
+      Z9→Z2G→T1→T10                      n=   331  med  -0.36  win 44.7  med70  -0.75  Δbase  -0.48
+      T2G→Z9→T1→T10                      n=   363  med  -0.46  win 46.6  med70  -0.55  Δbase  -0.58
+      T9→T2→T2→T10                       n=   823  med  -0.46  win 47.4  med70  -0.03  Δbase  -0.58
+      Z9→Z2→T3→T10                       n=   314  med  -0.70  win 42.7  med70  -0.48  Δbase  -0.82
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→T2→T2→T2→T10                   n=   310  med  +0.23  win 53.9  med70  -0.03  Δbase  +0.11
+      T2→T2→T2→T2→T10                    n=   361  med  +0.11  win 51.5  med70  +0.05  Δbase  -0.01
+    ── entry-bar L-line ──
+      L46                                n= 50408  med  +0.16  win 51.4  med70  +0.28  Δbase  +0.04
+      L25                                n= 57294  med  +0.10  win 50.9  med70  +0.13  Δbase  -0.02
+      L4                                 n= 19373  med  +0.10  win 50.8  med70  +0.32  Δbase  -0.02
+      L2                                 n= 15248  med  +0.06  win 50.3  med70  +0.15  Δbase  -0.06
+    ── entry-bar suffix ──
+      ND                                 n=  4903  med  +0.35  win 52.6  med70  +0.34  Δbase  +0.23
+      NR                                 n=  2243  med  +0.35  win 52.8  med70  +0.43  Δbase  +0.23
+      N                                  n=  5169  med  +0.22  win 52.1  med70  +0.24  Δbase  +0.11
+      NB                                 n= 11495  med  +0.15  win 51.2  med70  +0.19  Δbase  +0.03
+      NDP                                n= 13324  med  +0.14  win 51.0  med70  +0.12  Δbase  +0.02
+      NH                                 n= 14227  med  +0.10  win 50.9  med70  +0.15  Δbase  -0.02
+      NUR                                n= 15327  med  +0.09  win 50.8  med70  +0.32  Δbase  -0.02
+      NP                                 n= 26425  med  +0.09  win 50.8  med70  +0.15  Δbase  -0.03
+      NU                                 n= 49211  med  +0.09  win 50.8  med70  +0.22  Δbase  -0.03
+   ▼  NUR                             n= 15327  med  +0.09  win 50.8  med70  +0.32  Δbase  -0.02
+   ▼  NP                              n= 26425  med  +0.09  win 50.8  med70  +0.15  Δbase  -0.03
+   ▼  NU                              n= 49211  med  +0.09  win 50.8  med70  +0.22  Δbase  -0.03
+
+##### ENDING T11 — base n=42,198 med+0.06 win50.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z1→T4→T11                          n=   306  med  +1.35  win 61.4  med70  +0.91  Δbase  +1.29
+      Z1→T3→T11                          n=   396  med  +0.79  win 57.1  med70  +1.27  Δbase  +0.73
+      Z9→T9→T11                          n=   377  med  +0.66  win 54.9  med70  +0.31  Δbase  +0.60
+      Z4→T9→T11                          n=  1021  med  +0.61  win 54.4  med70  +1.07  Δbase  +0.55
+      Z2G→T9→T11                         n=   924  med  +0.56  win 54.4  med70  +1.12  Δbase  +0.49
+      Z4→T3→T11                          n=   673  med  +0.45  win 54.2  med70  +0.61  Δbase  +0.39
+      Z2G→T3→T11                         n=   738  med  +0.36  win 52.6  med70  +0.82  Δbase  +0.30
+      Z9→T1→T11                          n=   508  med  +0.36  win 52.2  med70  +0.61  Δbase  +0.29
+      Z2→T3→T11                          n=   958  med  +0.21  win 51.4  med70  +0.46  Δbase  +0.15
+      Z4→T4→T11                          n=   513  med  +0.21  win 51.1  med70  +0.06  Δbase  +0.14
+      Z2G→T1→T11                         n=   728  med  +0.17  win 51.5  med70  +0.59  Δbase  +0.11
+      T1→T2G→T11                         n=   671  med  +0.16  win 51.3  med70  -0.01  Δbase  +0.10
+      Z4→T1→T11                          n=   330  med  +0.16  win 53.0  med70  +1.01  Δbase  +0.10
+      Z3→T9→T11                          n=   323  med  +0.15  win 50.8  med70  +0.58  Δbase  +0.09
+      Z2→T4→T11                          n=  1437  med  +0.15  win 51.4  med70  +0.42  Δbase  +0.09
+      ···
+      T4→T2G→T11                         n=   953  med  -0.18  win 48.4  med70  -0.06  Δbase  -0.25
+      T4→T2→T11                          n=  1598  med  -0.19  win 47.6  med70  -0.31  Δbase  -0.25
+      T9→T2→T11                          n=  1454  med  -0.38  win 46.1  med70  -0.20  Δbase  -0.44
+      T1→T2→T11                          n=   978  med  -0.45  win 45.9  med70  -0.61  Δbase  -0.52
+      T3→T2→T11                          n=  1043  med  -0.49  win 44.6  med70  -0.34  Δbase  -0.56
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z2→T9→T11                       n=   317  med  +0.83  win 56.5  med70  +0.98  Δbase  +0.76
+      Z2→Z2→T4→T11                       n=   368  med  +0.46  win 53.8  med70  +0.45  Δbase  +0.40
+      T2G→T2G→T2G→T11                    n=   323  med  +0.30  win 53.6  med70  +0.31  Δbase  +0.24
+      T2→T2G→T2→T11                      n=   548  med  +0.23  win 51.1  med70  -0.21  Δbase  +0.16
+      T2→T2→T2G→T11                      n=   412  med  +0.17  win 52.9  med70  -0.29  Δbase  +0.10
+      T4→T2→T2→T11                       n=   369  med  -0.04  win 49.9  med70  +0.54  Δbase  -0.10
+      T2→T2→T2→T11                       n=   728  med  -0.05  win 49.5  med70  +0.26  Δbase  -0.12
+      T9→T2→T2→T11                       n=   357  med  -0.08  win 47.9  med70  -0.56  Δbase  -0.15
+      T2G→T2→T2G→T11                     n=   323  med  -0.38  win 45.5  med70  -0.41  Δbase  -0.45
+      T2G→T2→T2→T11                      n=   499  med  -0.42  win 46.3  med70  -0.68  Δbase  -0.49
+      T2G→T2G→T2→T11                     n=   412  med  -0.44  win 45.9  med70  -1.04  Δbase  -0.50
+      Z2→T4→T2→T11                       n=   399  med  -0.48  win 44.1  med70  -0.20  Δbase  -0.55
+      Z4→T9→T2→T11                       n=   301  med  -0.56  win 44.5  med70  +0.16  Δbase  -0.62
+      Z2→T9→T2→T11                       n=   379  med  -0.69  win 44.3  med70  -0.19  Δbase  -0.76
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+    ── entry-bar L-line ──
+      L46                                n= 13653  med  +0.17  win 51.4  med70  +0.45  Δbase  +0.11
+      L25                                n= 28545  med  +0.01  win 50.0  med70  +0.12  Δbase  -0.05
+    ── entry-bar suffix ──
+      NUR                                n=  3576  med  +0.25  win 52.4  med70  +0.60  Δbase  +0.19
+      NR                                 n=   727  med  +0.20  win 52.4  med70  +0.62  Δbase  +0.13
+      NH                                 n=  2460  med  +0.18  win 51.8  med70  +0.37  Δbase  +0.11
+      ND                                 n=  9097  med  +0.15  win 51.1  med70  +0.20  Δbase  +0.09
+      NB                                 n= 17870  med  +0.00  win 49.9  med70  +0.16  Δbase  -0.06
+      NDP                                n=  8468  med  -0.01  win 49.6  med70  +0.11  Δbase  -0.08
+   ▼  ND                              n=  9097  med  +0.15  win 51.1  med70  +0.20  Δbase  +0.09
+   ▼  NB                              n= 17870  med  +0.00  win 49.9  med70  +0.16  Δbase  -0.06
+   ▼  NDP                             n=  8468  med  -0.01  win 49.6  med70  +0.11  Δbase  -0.08
+
+##### ENDING T12 — base n=92,617 med+0.08 win50.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→T5→T12                          n=   375  med  +0.80  win 57.1  med70  +1.42  Δbase  +0.72
+      Z4→T3→T12                          n=  1641  med  +0.72  win 55.1  med70  +1.42  Δbase  +0.65
+      Z4→T9→T12                          n=  2923  med  +0.63  win 54.8  med70  +0.86  Δbase  +0.55
+      Z1→T4→T12                          n=   428  med  +0.53  win 55.1  med70  +0.79  Δbase  +0.45
+      Z3→T3→T12                          n=   738  med  +0.47  win 54.6  med70  +0.50  Δbase  +0.40
+      Z1→T3→T12                          n=   950  med  +0.45  win 53.9  med70  +1.09  Δbase  +0.38
+      Z2→T3→T12                          n=  2231  med  +0.43  win 53.7  med70  +0.97  Δbase  +0.35
+      Z2→T5→T12                          n=   664  med  +0.42  win 54.2  med70  +0.41  Δbase  +0.34
+      Z1→T9→T12                          n=  1541  med  +0.41  win 53.0  med70  +1.14  Δbase  +0.34
+      Z6→T9→T12                          n=   474  med  +0.41  win 52.7  med70  +1.36  Δbase  +0.33
+      Z2G→T9→T12                         n=  2818  med  +0.40  win 52.8  med70  +0.93  Δbase  +0.32
+      Z9→T5→T12                          n=   392  med  +0.36  win 52.6  med70  +1.10  Δbase  +0.28
+      Z4→T4→T12                          n=   766  med  +0.34  win 52.7  med70  +0.17  Δbase  +0.26
+      Z2→T4→T12                          n=  2365  med  +0.33  win 52.6  med70  +0.58  Δbase  +0.25
+      Z2G→T5→T12                         n=   612  med  +0.33  win 52.5  med70  +0.88  Δbase  +0.25
+      ···
+      T4→T2G→T12                         n=  2140  med  -0.29  win 47.5  med70  -0.12  Δbase  -0.37
+      T4→T2→T12                          n=  3688  med  -0.30  win 47.1  med70  -0.22  Δbase  -0.37
+      T2G→T10→T12                        n=   537  med  -0.37  win 46.4  med70  -0.36  Δbase  -0.44
+      T1G→T2→T12                         n=   418  med  -0.43  win 45.2  med70  +0.00  Δbase  -0.51
+      Z2G→T1→T12                         n=  1179  med  -0.51  win 46.6  med70  -0.27  Δbase  -0.58
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→Z2→T3→T12                      n=   451  med  +1.36  win 61.9  med70  +1.77  Δbase  +1.28
+      Z2G→Z2G→T9→T12                     n=   616  med  +1.34  win 60.6  med70  +2.17  Δbase  +1.26
+      T9→Z4→T3→T12                       n=   305  med  +1.11  win 58.7  med70  +2.04  Δbase  +1.04
+      Z2G→Z2→T4→T12                      n=   458  med  +1.01  win 60.7  med70  +1.31  Δbase  +0.94
+      Z2G→Z2G→T3→T12                     n=   335  med  +0.95  win 58.2  med70  +0.85  Δbase  +0.87
+      Z2G→Z2G→T4→T12                     n=   394  med  +0.81  win 55.8  med70  +0.68  Δbase  +0.73
+      T3→Z4→T9→T12                       n=   337  med  +0.79  win 57.3  med70  +1.99  Δbase  +0.72
+      T9→Z4→T9→T12                       n=   506  med  +0.79  win 56.5  med70  +1.57  Δbase  +0.72
+      Z2G→T9→T2→T12                      n=   599  med  +0.75  win 54.8  med70  +0.49  Δbase  +0.67
+      Z4→T9→T2G→T12                      n=   439  med  +0.74  win 55.1  med70  +0.87  Δbase  +0.67
+      Z2→Z2→T3→T12                       n=   584  med  +0.64  win 55.3  med70  +1.12  Δbase  +0.56
+      T2→Z4→T3→T12                       n=   381  med  +0.63  win 53.3  med70  +1.22  Δbase  +0.55
+      Z2G→Z2→T9→T12                      n=   923  med  +0.63  win 54.2  med70  +1.32  Δbase  +0.55
+      T4→Z9→T4→T12                       n=   317  med  +0.58  win 55.5  med70  +0.20  Δbase  +0.51
+      Z2→Z2G→T4→T12                      n=   445  med  +0.57  win 55.1  med70  -0.18  Δbase  +0.50
+      ···
+      T2G→T2→T2G→T12                     n=   747  med  -0.57  win 45.4  med70  -0.91  Δbase  -0.65
+      Z4→T9→T2→T12                       n=   708  med  -0.61  win 44.4  med70  -0.09  Δbase  -0.69
+      Z9→T9→T2→T12                       n=   329  med  -0.70  win 42.9  med70  +0.08  Δbase  -0.78
+      Z4→T4→T2→T12                       n=   331  med  -0.73  win 45.3  med70  -0.38  Δbase  -0.81
+      Z2→T4→T2G→T12                      n=   500  med  -0.79  win 44.4  med70  -0.54  Δbase  -0.87
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T2→T2→T2G→T2→T12                   n=   307  med  +0.13  win 51.1  med70  -0.02  Δbase  +0.06
+      T2→T2G→T2→T2→T12                   n=   306  med  +0.12  win 50.7  med70  +0.12  Δbase  +0.05
+      T2→T2→T2→T2→T12                    n=   453  med  -0.12  win 48.8  med70  -0.36  Δbase  -0.20
+      T2G→T2→T2→T2→T12                   n=   335  med  -0.35  win 46.3  med70  +0.34  Δbase  -0.43
+    ── entry-bar L-line ──
+      L5                                 n= 42167  med  +0.09  win 50.7  med70  +0.36  Δbase  +0.02
+      L25                                n= 17858  med  +0.08  win 50.6  med70  +0.41  Δbase  +0.00
+      L46                                n= 32592  med  +0.05  win 50.3  med70  +0.34  Δbase  -0.03
+    ── entry-bar suffix ──
+      NUR                                n=  2027  med  +0.43  win 53.6  med70  +1.10  Δbase  +0.36
+      EB                                 n= 11110  med  +0.25  win 51.9  med70  +0.66  Δbase  +0.17
+      NR                                 n=   757  med  +0.19  win 51.9  med70  +0.65  Δbase  +0.12
+      NB                                 n=  9760  med  +0.15  win 51.0  med70  +0.40  Δbase  +0.08
+      EDP                                n=  6872  med  +0.06  win 50.4  med70  +0.25  Δbase  -0.02
+      NH                                 n=  1698  med  +0.04  win 50.2  med70  +0.05  Δbase  -0.04
+      ED                                 n= 47284  med  +0.04  win 50.2  med70  +0.31  Δbase  -0.04
+      ND                                 n=  7614  med  +0.03  win 50.2  med70  +0.29  Δbase  -0.05
+      NDP                                n=  5495  med  -0.08  win 49.2  med70  +0.35  Δbase  -0.16
+   ▼  ED                              n= 47284  med  +0.04  win 50.2  med70  +0.31  Δbase  -0.04
+   ▼  ND                              n=  7614  med  +0.03  win 50.2  med70  +0.29  Δbase  -0.05
+   ▼  NDP                             n=  5495  med  -0.08  win 49.2  med70  +0.35  Δbase  -0.16
+
+##### ENDING T1G — base n=370,067 med+0.12 win50.9 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→T2→T1G                         n=   326  med  +1.87  win 59.5  med70  +1.93  Δbase  +1.75
+      T2→T2G→T1G                         n=   341  med  +1.67  win 58.7  med70  +1.27  Δbase  +1.55
+      T2G→Z2G→T1G                        n=   329  med  +1.36  win 57.8  med70  +1.12  Δbase  +1.25
+      T2→T2→T1G                          n=   349  med  +1.01  win 54.4  med70  +2.06  Δbase  +0.90
+      T2G→T2G→T1G                        n=   340  med  +1.00  win 55.0  med70  +1.74  Δbase  +0.88
+      T2→Z2→T1G                          n=   320  med  +1.00  win 51.9  med70  +1.06  Δbase  +0.88
+      Z5→Z10→T1G                         n=   360  med  +0.84  win 58.1  med70  +0.89  Δbase  +0.72
+      Z11→Z2→T1G                         n=   392  med  +0.53  win 55.4  med70  +0.74  Δbase  +0.42
+      T9→Z12→T1G                         n=   380  med  +0.44  win 53.9  med70  +0.68  Δbase  +0.33
+      Z1G→Z2→T1G                         n=  1060  med  +0.41  win 53.5  med70  +0.30  Δbase  +0.29
+      Z1G→Z2G→T1G                        n=  1420  med  +0.38  win 53.3  med70  +0.97  Δbase  +0.27
+      T5→Z1G→T1G                         n=   667  med  +0.38  win 54.1  med70  +0.23  Δbase  +0.26
+      T4→Z4→T1G                          n=  2435  med  +0.35  win 53.1  med70  +0.47  Δbase  +0.23
+      T3→Z1→T1G                          n=  2310  med  +0.33  win 52.3  med70  +0.57  Δbase  +0.21
+      Z3→Z10→T1G                         n=  1376  med  +0.33  win 53.1  med70  +0.18  Δbase  +0.21
+      ···
+      T9→Z1G→T1G                         n=  1016  med  -0.19  win 48.0  med70  +0.59  Δbase  -0.30
+      Z3→Z11→T1G                         n=   398  med  -0.31  win 47.2  med70  -0.02  Δbase  -0.43
+      Z6→Z10→T1G                         n=   530  med  -0.45  win 46.8  med70  -0.97  Δbase  -0.56
+      Z1G→Z10→T1G                        n=   487  med  -0.52  win 46.0  med70  -0.51  Δbase  -0.63
+      Z12→Z2→T1G                         n=   320  med  -0.55  win 45.3  med70  -0.69  Δbase  -0.67
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→T3→Z1→T1G                       n=   639  med  +0.89  win 56.5  med70  +1.33  Δbase  +0.77
+      T1→T2→Z7→T1G                       n=   364  med  +0.85  win 55.5  med70  +0.86  Δbase  +0.73
+      T4→T2G→Z1→T1G                      n=   515  med  +0.70  win 56.5  med70  +0.72  Δbase  +0.58
+      Z2G→T1→Z5→T1G                      n=   345  med  +0.70  win 55.7  med70  +0.88  Δbase  +0.58
+      T1→T2G→Z4→T1G                      n=   467  med  +0.69  win 55.7  med70  +1.08  Δbase  +0.57
+      Z3→T9→Z9→T1G                       n=   333  med  +0.62  win 54.7  med70  +0.50  Δbase  +0.50
+      T4→T2G→Z7→T1G                      n=   544  med  +0.58  win 55.7  med70  +0.12  Δbase  +0.46
+      T9→T2→Z3→T1G                       n=   800  med  +0.57  win 55.5  med70  +0.33  Δbase  +0.45
+      Z2→Z2G→Z10→T1G                     n=   556  med  +0.56  win 57.2  med70  +0.58  Δbase  +0.45
+      Z1→T9→Z4→T1G                       n=   498  med  +0.55  win 54.0  med70  +0.04  Δbase  +0.43
+      T9→Z4→Z7→T1G                       n=   473  med  +0.51  win 53.3  med70  +0.29  Δbase  +0.40
+      T2→T2G→Z3→T1G                      n=  1332  med  +0.51  win 54.4  med70  +0.15  Δbase  +0.40
+      Z2G→T3→Z5→T1G                      n=   335  med  +0.50  win 55.5  med70  +0.62  Δbase  +0.38
+      Z2→T3→Z4→T1G                       n=   759  med  +0.50  win 53.8  med70  +0.62  Δbase  +0.38
+      T9→Z9→Z2→T1G                       n=   906  med  +0.49  win 54.0  med70  +0.39  Δbase  +0.37
+      ···
+      Z7→Z6→Z2G→T1G                      n=   379  med  -0.49  win 44.9  med70  -0.71  Δbase  -0.61
+      T3→Z3→Z2G→T1G                      n=   451  med  -0.51  win 46.3  med70  -0.48  Δbase  -0.63
+      Z3→T4→Z9→T1G                       n=   971  med  -0.53  win 45.6  med70  -0.34  Δbase  -0.64
+      T4→Z4→Z2G→T1G                      n=   663  med  -0.58  win 46.0  med70  -0.14  Δbase  -0.70
+      T4→Z1→Z2G→T1G                      n=   480  med  -0.66  win 44.6  med70  -0.21  Δbase  -0.78
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z2→T3→Z9→T1G                    n=   307  med  +0.92  win 58.6  med70  +1.45  Δbase  +0.80
+      Z2→Z2→Z2G→Z2G→T1G                  n=   691  med  +0.71  win 56.7  med70  +1.46  Δbase  +0.59
+      T2→T2→T2G→Z3→T1G                   n=   306  med  +0.69  win 55.2  med70  +0.20  Δbase  +0.57
+      T9→Z1→Z2→Z2→T1G                    n=   314  med  +0.67  win 55.1  med70  +0.56  Δbase  +0.56
+      T4→T2→T2G→Z9→T1G                   n=   332  med  +0.66  win 55.7  med70  +0.82  Δbase  +0.54
+      Z2→Z2→T9→Z4→T1G                    n=   378  med  +0.61  win 55.8  med70  +0.49  Δbase  +0.50
+      T2→T2G→Z9→Z2G→T1G                  n=   399  med  +0.61  win 56.9  med70  +0.85  Δbase  +0.49
+      Z9→Z2→Z2G→Z2G→T1G                  n=   365  med  +0.57  win 56.7  med70  +0.81  Δbase  +0.46
+      Z2→Z2→Z2→Z2G→T1G                   n=   912  med  +0.57  win 53.8  med70  +0.92  Δbase  +0.46
+      Z2→Z2→T4→Z9→T1G                    n=   575  med  +0.56  win 55.5  med70  +0.42  Δbase  +0.44
+      Z2→Z2G→Z2G→Z2G→T1G                 n=   572  med  +0.56  win 53.1  med70  +0.61  Δbase  +0.44
+      Z2→Z2→T9→Z9→T1G                    n=   383  med  +0.51  win 54.8  med70  +0.49  Δbase  +0.40
+      Z2→Z2→T1→Z9→T1G                    n=   365  med  +0.51  win 55.3  med70  +0.20  Δbase  +0.40
+      Z2G→T4→Z9→Z2→T1G                   n=   360  med  +0.51  win 56.1  med70  +0.65  Δbase  +0.40
+      Z2G→Z2→Z2G→Z2G→T1G                 n=   562  med  +0.43  win 53.0  med70  +0.70  Δbase  +0.32
+      ···
+      T2→T2→Z4→Z2→T1G                    n=   685  med  -0.56  win 45.7  med70  -0.44  Δbase  -0.67
+      T2G→T2G→Z4→Z2→T1G                  n=   366  med  -0.59  win 45.4  med70  -0.48  Δbase  -0.71
+      T2→T2→Z9→Z2G→T1G                   n=   467  med  -0.61  win 46.0  med70  +0.08  Δbase  -0.73
+      Z3→Z2G→Z2→Z2→T1G                   n=   327  med  -0.71  win 44.0  med70  -0.79  Δbase  -0.82
+      Z4→Z2G→Z2→Z2→T1G                   n=   406  med  -0.77  win 42.4  med70  -0.34  Δbase  -0.88
+    ── entry-bar L-line ──
+      L34                                n= 27210  med  +0.16  win 51.3  med70  +0.35  Δbase  +0.04
+      L12                                n=203581  med  +0.12  win 51.0  med70  +0.26  Δbase  -0.00
+      L3                                 n=139270  med  +0.11  win 50.7  med70  +0.25  Δbase  -0.01
+    ── entry-bar suffix ──
+      NU                                 n=  8075  med  +0.22  win 51.9  med70  +0.23  Δbase  +0.10
+      NP                                 n=  4327  med  +0.19  win 51.6  med70  +0.33  Δbase  +0.08
+      NB                                 n=  6329  med  +0.19  win 52.1  med70  +0.28  Δbase  +0.07
+      EUR                                n= 60479  med  +0.13  win 51.1  med70  +0.19  Δbase  +0.02
+      NH                                 n= 12436  med  +0.13  win 51.1  med70  +0.36  Δbase  +0.01
+      NDP                                n=  9041  med  +0.12  win 51.1  med70  +0.24  Δbase  +0.01
+      EB                                 n= 44223  med  +0.12  win 50.9  med70  +0.21  Δbase  +0.01
+      EU                                 n=210832  med  +0.10  win 50.8  med70  +0.28  Δbase  -0.01
+      NUR                                n= 14325  med  +0.10  win 50.8  med70  +0.25  Δbase  -0.02
+   ▼  EB                              n= 44223  med  +0.12  win 50.9  med70  +0.21  Δbase  +0.01
+   ▼  EU                              n=210832  med  +0.10  win 50.8  med70  +0.28  Δbase  -0.01
+   ▼  NUR                             n= 14325  med  +0.10  win 50.8  med70  +0.25  Δbase  -0.02
+
+##### ENDING T2 — base n=2,124,691 med+0.10 win50.8 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z1G→T2→T2                          n=   373  med  +1.51  win 58.2  med70  +1.70  Δbase  +1.41
+      T2G→T1G→T2                         n=   380  med  +1.41  win 55.8  med70  +1.74  Δbase  +1.31
+      Z6→T2G→T2                          n=   354  med  +1.26  win 58.5  med70  +1.61  Δbase  +1.16
+      T4→Z9→T2                           n=   777  med  +1.20  win 55.1  med70  +1.17  Δbase  +1.10
+      T2→T1G→T2                          n=   367  med  +1.20  win 56.9  med70  +1.30  Δbase  +1.10
+      Z5→Z2G→T2                          n=   341  med  +1.18  win 56.0  med70  +0.37  Δbase  +1.08
+      Z4→Z2→T2                           n=   879  med  +1.15  win 55.1  med70  +1.40  Δbase  +1.04
+      T9→T1→T2                           n=   494  med  +1.05  win 56.9  med70  +1.35  Δbase  +0.95
+      T2→T4→T2                           n=  1464  med  +0.99  win 54.6  med70  +1.42  Δbase  +0.89
+      T2G→Z9→T2                          n=   883  med  +0.97  win 54.7  med70  +0.83  Δbase  +0.87
+      T4→T4→T2                           n=   957  med  +0.97  win 55.7  med70  +1.40  Δbase  +0.87
+      T2→Z3→T2                           n=   693  med  +0.90  win 55.4  med70  +1.42  Δbase  +0.80
+      T1→Z3→T2                           n=   316  med  +0.90  win 54.1  med70  +1.53  Δbase  +0.80
+      T2→Z5→T2                           n=   389  med  +0.90  win 55.3  med70  +1.31  Δbase  +0.80
+      T4→T1→T2                           n=   492  med  +0.87  win 55.3  med70  +0.95  Δbase  +0.77
+      ···
+      Z1→Z2G→T2                          n=   479  med  -0.39  win 47.4  med70  +0.17  Δbase  -0.49
+      Z1G→T2G→T2                         n=   347  med  -0.40  win 48.7  med70  +0.78  Δbase  -0.50
+      T12→T6→T2                          n=   632  med  -0.40  win 45.9  med70  +0.08  Δbase  -0.50
+      T10→T12→T2                         n=   484  med  -0.40  win 45.9  med70  -0.39  Δbase  -0.50
+      T9→Z9→T2                           n=   366  med  -0.56  win 46.4  med70  +0.68  Δbase  -0.66
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2G→T5→T2                       n=  1267  med  +1.20  win 60.3  med70  +1.81  Δbase  +1.10
+      Z4→T3→T12→T2                       n=   440  med  +0.90  win 58.0  med70  +1.33  Δbase  +0.80
+      Z2G→T2→T2→T2                       n=   303  med  +0.83  win 55.1  med70  +1.52  Δbase  +0.73
+      T2→Z5→T9→T2                        n=  1122  med  +0.82  win 57.4  med70  +0.83  Δbase  +0.72
+      T5→Z3→T9→T2                        n=   379  med  +0.81  win 58.0  med70  +1.46  Δbase  +0.71
+      T5→Z9→T3→T2                        n=   312  med  +0.80  win 56.7  med70  +1.39  Δbase  +0.70
+      Z2G→T1→T6→T2                       n=   375  med  +0.76  win 54.1  med70  +0.75  Δbase  +0.65
+      Z2→T3→T12→T2                       n=   512  med  +0.71  win 57.2  med70  +1.06  Δbase  +0.61
+      T5→Z3→T1→T2                        n=   373  med  +0.70  win 53.6  med70  +0.82  Δbase  +0.60
+      T1→Z5→T9→T2                        n=   328  med  +0.67  win 55.8  med70  +0.65  Δbase  +0.57
+      T9→T10→T6→T2                       n=   358  med  +0.66  win 56.1  med70  +0.63  Δbase  +0.55
+      T3→Z1→T1G→T2                       n=   527  med  +0.65  win 56.7  med70  +0.90  Δbase  +0.55
+      Z2G→T3→T10→T2                      n=   400  med  +0.64  win 57.2  med70  +0.44  Δbase  +0.54
+      T3→T2→T10→T2                       n=   431  med  +0.63  win 54.3  med70  +0.59  Δbase  +0.53
+      T1→T10→T6→T2                       n=   302  med  +0.60  win 55.3  med70  +0.76  Δbase  +0.50
+      ···
+      Z4→Z10→T1G→T2                      n=   389  med  -0.64  win 45.0  med70  -0.36  Δbase  -0.74
+      T2→T12→T2→T2                       n=  1699  med  -0.68  win 44.4  med70  -0.53  Δbase  -0.78
+      T1→T2→T12→T2                       n=   550  med  -0.72  win 43.1  med70  -0.81  Δbase  -0.82
+      T4→Z1→T5→T2                        n=   387  med  -0.80  win 42.6  med70  -0.34  Δbase  -0.90
+      T2→T11→T2→T2                       n=   729  med  -0.93  win 42.1  med70  -0.95  Δbase  -1.04
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2G→T5→T2→T2                    n=   309  med  +1.10  win 60.2  med70  +1.04  Δbase  +1.00
+      T9→T2G→Z3→T3→T2                    n=   392  med  +0.91  win 56.1  med70  +1.04  Δbase  +0.81
+      Z2G→T3→Z1→T3→T2                    n=   471  med  +0.84  win 57.1  med70  +0.72  Δbase  +0.74
+      T1→T2→Z3→T9→T2                     n=   309  med  +0.83  win 59.2  med70  +1.09  Δbase  +0.73
+      T2→Z5→T9→T2→T2                     n=   304  med  +0.81  win 54.9  med70  +0.93  Δbase  +0.71
+      Z6→Z2G→Z2G→T9→T2                   n=   304  med  +0.80  win 56.9  med70  +0.83  Δbase  +0.70
+      Z2→T1G→Z9→T9→T2                    n=   389  med  +0.80  win 56.0  med70  +1.09  Δbase  +0.70
+      Z2G→T1→Z3→T9→T2                    n=   402  med  +0.78  win 54.2  med70  +0.36  Δbase  +0.68
+      Z10→T4→T2→T2→T2                    n=   381  med  +0.78  win 55.4  med70  +0.44  Δbase  +0.68
+      Z4→T3→Z4→T4→T2                     n=   332  med  +0.77  win 57.2  med70  +0.71  Δbase  +0.67
+      Z11→Z2→Z2→T4→T2                    n=   303  med  +0.75  win 56.8  med70  +1.37  Δbase  +0.65
+      Z9→Z2G→Z2→T1G→T2                   n=   392  med  +0.71  win 57.1  med70  +0.53  Δbase  +0.61
+      Z2G→Z2→Z2G→T5→T2                   n=   453  med  +0.71  win 57.0  med70  +0.40  Δbase  +0.60
+      Z9→T1G→T2→T2G→T2                   n=   673  med  +0.71  win 58.2  med70  +0.91  Δbase  +0.60
+      T3→T2→Z1→T4→T2                     n=   306  med  +0.70  win 55.2  med70  +0.68  Δbase  +0.60
+      ···
+      T9→Z3→T9→T2G→T2                    n=   312  med  -0.91  win 42.9  med70  -0.84  Δbase  -1.01
+      T4→T2→T6→T2→T2                     n=   476  med  -0.97  win 42.4  med70  -1.08  Δbase  -1.07
+      T9→T2→T6→T2→T2                     n=   413  med  -0.99  win 43.1  med70  -1.20  Δbase  -1.09
+      T2→T12→T2→T2G→T2                   n=   324  med  -1.05  win 40.1  med70  -0.89  Δbase  -1.15
+      Z1G→Z2→T1→T2→T2                    n=   337  med  -1.33  win 39.5  med70  -1.66  Δbase  -1.43
+    ── entry-bar L-line ──
+      L34                                n=331422  med  +0.13  win 51.1  med70  +0.27  Δbase  +0.03
+      L12                                n=913606  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.00
+      L3                                 n=879632  med  +0.09  win 50.7  med70  +0.21  Δbase  -0.01
+    ── entry-bar suffix ──
+      NH                                 n= 86800  med  +0.15  win 51.2  med70  +0.25  Δbase  +0.04
+      NDP                                n= 62612  med  +0.14  win 51.2  med70  +0.26  Δbase  +0.04
+      EUR                                n=221099  med  +0.13  win 51.1  med70  +0.21  Δbase  +0.03
+      EB                                 n= 78487  med  +0.12  win 50.9  med70  +0.13  Δbase  +0.02
+      NB                                 n= 31058  med  +0.12  win 51.0  med70  +0.22  Δbase  +0.02
+      NUR                                n= 85134  med  +0.11  win 50.9  med70  +0.26  Δbase  +0.01
+      NP                                 n=183517  med  +0.11  win 50.8  med70  +0.22  Δbase  +0.01
+      NU                                 n=277654  med  +0.11  win 50.8  med70  +0.22  Δbase  +0.00
+      EU                                 n=1098330  med  +0.08  win 50.6  med70  +0.20  Δbase  -0.02
+   ▼  NP                              n=183517  med  +0.11  win 50.8  med70  +0.22  Δbase  +0.01
+   ▼  NU                              n=277654  med  +0.11  win 50.8  med70  +0.22  Δbase  +0.00
+   ▼  EU                              n=1098330  med  +0.08  win 50.6  med70  +0.20  Δbase  -0.02
+
+##### ENDING T2G — base n=1,832,144 med+0.11 win50.9 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→Z5→T2G                         n=   307  med  +1.46  win 57.3  med70  +1.86  Δbase  +1.35
+      Z1→Z2→T2G                          n=   425  med  +1.30  win 59.1  med70  +1.08  Δbase  +1.19
+      Z6→Z2→T2G                          n=   318  med  +1.24  win 58.8  med70  +1.95  Δbase  +1.13
+      T2G→Z2G→T2G                        n=   347  med  +1.24  win 53.3  med70  +1.61  Δbase  +1.12
+      T2→T1G→T2G                         n=   397  med  +1.23  win 55.9  med70  +0.93  Δbase  +1.12
+      Z7→T2→T2G                          n=   315  med  +1.19  win 56.8  med70  +1.28  Δbase  +1.08
+      Z5→T2→T2G                          n=   332  med  +1.07  win 54.8  med70  +1.79  Δbase  +0.96
+      T2→T4→T2G                          n=  1117  med  +0.96  win 55.1  med70  +1.50  Δbase  +0.85
+      Z2→T2→T2G                          n=  1354  med  +0.96  win 54.9  med70  +1.40  Δbase  +0.85
+      T2G→Z3→T2G                         n=   571  med  +0.95  win 54.5  med70  +0.84  Δbase  +0.84
+      T2G→Z4→T2G                         n=   817  med  +0.94  win 55.4  med70  +1.12  Δbase  +0.83
+      T1→Z9→T2G                          n=   386  med  +0.93  win 54.7  med70  +0.50  Δbase  +0.82
+      Z1→T2→T2G                          n=   543  med  +0.93  win 55.6  med70  +0.69  Δbase  +0.81
+      T4→T9→T2G                          n=   445  med  +0.90  win 53.5  med70  +1.02  Δbase  +0.79
+      Z6→T2G→T2G                         n=   326  med  +0.90  win 54.0  med70  +0.72  Δbase  +0.78
+      ···
+      T1→T12→T2G                         n=  1212  med  -0.34  win 47.4  med70  +0.44  Δbase  -0.45
+      T10→T12→T2G                        n=   587  med  -0.36  win 47.0  med70  -0.48  Δbase  -0.47
+      T2→T11→T2G                         n=  2114  med  -0.51  win 45.3  med70  -0.55  Δbase  -0.63
+      T9→T1→T2G                          n=   342  med  -0.61  win 46.5  med70  -0.62  Δbase  -0.72
+      Z12→T1G→T2G                        n=   300  med  -0.69  win 42.3  med70  -0.50  Δbase  -0.81
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T5→Z3→T9→T2G                       n=   328  med  +1.04  win 57.6  med70  +0.58  Δbase  +0.93
+      T3→T12→T2→T2G                      n=   424  med  +0.94  win 57.5  med70  +1.40  Δbase  +0.83
+      Z3→T5→T6→T2G                       n=   338  med  +0.92  win 56.2  med70  +0.29  Δbase  +0.81
+      T5→Z9→T1→T2G                       n=   379  med  +0.90  win 54.4  med70  +1.33  Δbase  +0.79
+      T5→Z9→T9→T2G                       n=   320  med  +0.83  win 55.3  med70  +0.61  Δbase  +0.72
+      T2G→Z1G→T4→T2G                     n=  1030  med  +0.79  win 55.9  med70  +1.06  Δbase  +0.68
+      Z4→T3→T10→T2G                      n=   395  med  +0.78  win 55.4  med70  +0.40  Δbase  +0.66
+      T6→Z1→T3→T2G                       n=   320  med  +0.72  win 55.9  med70  +0.64  Δbase  +0.61
+      Z4→Z11→T9→T2G                      n=   359  med  +0.72  win 56.3  med70  +1.34  Δbase  +0.60
+      Z4→Z2G→T5→T2G                      n=  1310  med  +0.69  win 56.7  med70  +1.33  Δbase  +0.58
+      T6→Z3→T9→T2G                       n=   741  med  +0.69  win 55.3  med70  +0.11  Δbase  +0.58
+      Z5→T3→T2G→T2G                      n=   570  med  +0.67  win 56.5  med70  +0.43  Δbase  +0.56
+      Z3→Z11→T4→T2G                      n=   326  med  +0.64  win 55.8  med70  +0.45  Δbase  +0.53
+      Z10→Z2→T3→T2G                      n=   371  med  +0.62  win 55.5  med70  +0.92  Δbase  +0.51
+      Z9→Z11→T3→T2G                      n=   352  med  +0.62  win 54.5  med70  +1.20  Δbase  +0.50
+      ···
+      T2→T12→T2→T2G                      n=  1116  med  -0.61  win 44.2  med70  -0.17  Δbase  -0.72
+      T4→T2→T11→T2G                      n=   309  med  -0.65  win 43.4  med70  -0.74  Δbase  -0.76
+      Z1→T5→T6→T2G                       n=   325  med  -0.65  win 45.5  med70  -0.89  Δbase  -0.76
+      Z1→Z7→T4→T2G                       n=   421  med  -0.65  win 46.3  med70  -0.54  Δbase  -0.76
+      T2→T11→T2G→T2G                     n=   421  med  -0.81  win 41.1  med70  -1.16  Δbase  -0.92
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T2→Z9→Z2→T5→T2G                    n=   353  med  +0.92  win 55.5  med70  +1.64  Δbase  +0.81
+      Z2→T5→Z4→T9→T2G                    n=   336  med  +0.89  win 58.9  med70  +0.95  Δbase  +0.78
+      Z2→T3→Z1→T3→T2G                    n=   426  med  +0.88  win 57.3  med70  +0.80  Δbase  +0.77
+      Z1→Z2→Z2→T1G→T2G                   n=   357  med  +0.85  win 59.1  med70  +0.87  Δbase  +0.74
+      Z4→Z2→Z2→T5→T2G                    n=   370  med  +0.80  win 54.3  med70  +0.94  Δbase  +0.69
+      T2G→Z1G→T9→T2→T2G                  n=   362  med  +0.77  win 54.7  med70  +0.67  Δbase  +0.66
+      T2G→T2G→Z5→T4→T2G                  n=   406  med  +0.76  win 56.9  med70  +0.75  Δbase  +0.65
+      Z2→T9→Z3→T1→T2G                    n=   351  med  +0.75  win 56.1  med70  +0.93  Δbase  +0.64
+      Z2G→T9→Z4→T4→T2G                   n=   620  med  +0.73  win 54.5  med70  +0.42  Δbase  +0.62
+      Z2→T9→Z1→T3→T2G                    n=   496  med  +0.73  win 56.5  med70  +0.45  Δbase  +0.62
+      Z2→Z2G→T5→T2→T2G                   n=   437  med  +0.71  win 55.6  med70  +0.33  Δbase  +0.60
+      Z2G→T4→Z9→T3→T2G                   n=   533  med  +0.71  win 55.5  med70  +0.62  Δbase  +0.59
+      T9→Z4→Z2→T5→T2G                    n=   304  med  +0.69  win 57.2  med70  +0.61  Δbase  +0.58
+      T4→Z3→T9→T2G→T2G                   n=   642  med  +0.69  win 56.1  med70  +0.44  Δbase  +0.57
+      Z4→Z2G→T9→T2G→T2G                  n=  1102  med  +0.67  win 55.9  med70  +0.73  Δbase  +0.56
+      ···
+      Z2→T4→T2→T6→T2G                    n=   315  med  -0.82  win 43.5  med70  -1.47  Δbase  -0.93
+      T2→T6→T2→T2→T2G                    n=   580  med  -0.92  win 42.4  med70  -0.97  Δbase  -1.04
+      T2G→T2G→T2→T6→T2G                  n=   334  med  -0.95  win 43.7  med70  -0.57  Δbase  -1.06
+      T2→T6→T2G→T2→T2G                   n=   434  med  -1.03  win 42.2  med70  -1.43  Δbase  -1.14
+      T2G→T2→Z9→T5→T2G                   n=   335  med  -1.06  win 41.2  med70  -0.04  Δbase  -1.17
+    ── entry-bar L-line ──
+      L34                                n=197532  med  +0.13  win 51.2  med70  +0.27  Δbase  +0.02
+      L12                                n=854673  med  +0.11  win 50.9  med70  +0.21  Δbase  -0.00
+      L3                                 n=779912  med  +0.11  win 50.8  med70  +0.20  Δbase  -0.00
+    ── entry-bar suffix ──
+      NB                                 n= 16354  med  +0.25  win 51.9  med70  +0.38  Δbase  +0.14
+      NDP                                n= 31018  med  +0.18  win 51.5  med70  +0.23  Δbase  +0.06
+      NH                                 n= 46528  med  +0.17  win 51.4  med70  +0.34  Δbase  +0.05
+      EUR                                n=147291  med  +0.14  win 51.2  med70  +0.24  Δbase  +0.03
+      NUR                                n= 46497  med  +0.12  win 50.9  med70  +0.24  Δbase  +0.01
+      EU                                 n=1163781  med  +0.11  win 50.9  med70  +0.19  Δbase  -0.00
+      NU                                 n=192953  med  +0.10  win 50.8  med70  +0.22  Δbase  -0.01
+      NP                                 n=118701  med  +0.09  win 50.7  med70  +0.25  Δbase  -0.02
+      EB                                 n= 69021  med  +0.07  win 50.5  med70  +0.19  Δbase  -0.05
+   ▼  NU                              n=192953  med  +0.10  win 50.8  med70  +0.22  Δbase  -0.01
+   ▼  NP                              n=118701  med  +0.09  win 50.7  med70  +0.25  Δbase  -0.02
+   ▼  EB                              n= 69021  med  +0.07  win 50.5  med70  +0.19  Δbase  -0.05
+
+##### ENDING T3 — base n=823,239 med+0.18 win51.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T4→T2→T3                           n=   360  med  +1.21  win 56.9  med70  +1.77  Δbase  +1.03
+      Z2G→T4→T3                          n=   304  med  +1.05  win 56.9  med70  +1.14  Δbase  +0.87
+      T2→T2→T3                           n=   467  med  +0.86  win 54.2  med70  +1.52  Δbase  +0.68
+      T2G→Z2→T3                          n=   506  med  +0.67  win 54.0  med70  +1.20  Δbase  +0.49
+      T4→Z2G→T3                          n=   326  med  +0.65  win 52.8  med70  +1.32  Δbase  +0.47
+      Z1→Z10→T3                          n=   348  med  +0.63  win 55.2  med70  +0.91  Δbase  +0.45
+      T2G→Z2G→T3                         n=   507  med  +0.61  win 52.5  med70  +1.16  Δbase  +0.44
+      T6→Z1→T3                           n=  1620  med  +0.46  win 53.2  med70  +0.55  Δbase  +0.28
+      T2G→T2→T3                          n=   470  med  +0.46  win 51.9  med70  +0.62  Δbase  +0.28
+      T11→Z4→T3                          n=   679  med  +0.45  win 53.9  med70  +0.43  Δbase  +0.27
+      T2→T2G→T3                          n=   483  med  +0.45  win 52.8  med70  +1.28  Δbase  +0.27
+      Z6→Z6→T3                           n=   500  med  +0.43  win 53.4  med70  +0.11  Δbase  +0.25
+      T9→Z5→T3                           n=  1771  med  +0.42  win 53.2  med70  +0.20  Δbase  +0.24
+      Z9→Z11→T3                          n=  1692  med  +0.39  win 53.7  med70  +0.57  Δbase  +0.22
+      T1→Z1G→T3                          n=  1896  med  +0.39  win 53.9  med70  +0.72  Δbase  +0.21
+      ···
+      T5→Z12→T3                          n=   371  med  -0.07  win 48.2  med70  +0.56  Δbase  -0.25
+      T5→Z5→T3                           n=   316  med  -0.10  win 48.4  med70  +0.55  Δbase  -0.27
+      T6→Z3→T3                           n=  2786  med  -0.24  win 48.2  med70  -0.18  Δbase  -0.42
+      T4→Z2→T3                           n=   389  med  -0.24  win 48.6  med70  +0.43  Δbase  -0.42
+      T12→Z9→T3                          n=   695  med  -0.25  win 48.6  med70  +0.28  Δbase  -0.43
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T9→Z7→Z6→T3                        n=   380  med  +1.07  win 57.9  med70  +1.14  Δbase  +0.89
+      Z4→T3→Z1G→T3                       n=   492  med  +0.99  win 59.1  med70  +1.00  Δbase  +0.81
+      T2G→Z4→Z6→T3                       n=   345  med  +0.93  win 56.5  med70  +1.24  Δbase  +0.75
+      Z3→Z11→Z2→T3                       n=   314  med  +0.87  win 57.0  med70  +0.84  Δbase  +0.69
+      Z2G→T9→Z5→T3                       n=   371  med  +0.87  win 55.0  med70  +0.76  Δbase  +0.69
+      Z1G→T4→Z3→T3                       n=   340  med  +0.77  win 57.1  med70  +0.68  Δbase  +0.59
+      T2G→Z9→Z11→T3                      n=   310  med  +0.77  win 58.7  med70  +0.92  Δbase  +0.59
+      T2→T10→Z1G→T3                      n=   307  med  +0.72  win 56.0  med70  +0.76  Δbase  +0.54
+      Z4→T1G→Z4→T3                       n=   322  med  +0.71  win 55.3  med70  +0.85  Δbase  +0.53
+      Z4→T5→Z4→T3                        n=   612  med  +0.69  win 56.2  med70  +0.49  Δbase  +0.51
+      T3→Z9→Z6→T3                        n=   465  med  +0.68  win 55.1  med70  +0.98  Δbase  +0.50
+      T9→T2G→Z5→T3                       n=   322  med  +0.67  win 52.8  med70  +1.04  Δbase  +0.49
+      Z6→T3→Z4→T3                        n=   484  med  +0.66  win 55.0  med70  +0.98  Δbase  +0.48
+      Z2→T5→Z4→T3                        n=  1156  med  +0.65  win 56.0  med70  +0.96  Δbase  +0.48
+      Z4→Z11→Z2G→T3                      n=   316  med  +0.65  win 57.3  med70  +0.89  Δbase  +0.47
+      ···
+      Z3→T1G→Z4→T3                       n=   337  med  -0.40  win 45.7  med70  +0.34  Δbase  -0.58
+      Z5→T4→Z3→T3                        n=   412  med  -0.45  win 45.9  med70  -0.07  Δbase  -0.63
+      Z1→T1→Z3→T3                        n=   520  med  -0.45  win 45.2  med70  -0.09  Δbase  -0.63
+      Z9→T1G→Z3→T3                       n=   620  med  -0.47  win 46.5  med70  -0.12  Δbase  -0.65
+      Z1G→T9→Z9→T3                       n=   304  med  -0.51  win 46.7  med70  +0.11  Δbase  -0.69
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T3→Z4→T9→Z4→T3                     n=   325  med  +1.34  win 58.5  med70  +1.50  Δbase  +1.17
+      T2G→Z3→T9→Z4→T3                    n=   393  med  +1.24  win 60.1  med70  +1.56  Δbase  +1.06
+      Z2G→T1→Z3→Z2→T3                    n=   372  med  +1.11  win 58.6  med70  +1.19  Δbase  +0.93
+      T3→Z3→Z2→Z2→T3                     n=   308  med  +1.00  win 57.5  med70  +0.61  Δbase  +0.82
+      Z3→Z2→Z2G→Z2G→T3                   n=   749  med  +0.97  win 58.3  med70  +1.15  Δbase  +0.79
+      Z5→Z2→Z2→Z2→T3                     n=   339  med  +0.90  win 58.7  med70  +1.62  Δbase  +0.72
+      T4→Z4→Z2G→Z2G→T3                   n=   352  med  +0.77  win 54.8  med70  +0.77  Δbase  +0.59
+      Z4→T3→Z4→Z2→T3                     n=   302  med  +0.76  win 56.3  med70  +0.68  Δbase  +0.58
+      T3→T2G→Z3→Z2→T3                    n=   344  med  +0.74  win 55.8  med70  +0.87  Δbase  +0.57
+      Z4→T9→Z1→Z2→T3                     n=   335  med  +0.74  win 53.4  med70  +0.54  Δbase  +0.56
+      Z4→Z2→T9→Z1→T3                     n=   323  med  +0.73  win 59.1  med70  +0.75  Δbase  +0.55
+      Z2→Z2→T9→Z1G→T3                    n=   339  med  +0.69  win 57.5  med70  +0.45  Δbase  +0.51
+      T9→T2→T2G→Z4→T3                    n=   717  med  +0.68  win 55.5  med70  +0.48  Δbase  +0.51
+      Z3→T4→T2G→Z4→T3                    n=   304  med  +0.68  win 54.6  med70  +0.08  Δbase  +0.50
+      T3→T2→Z3→Z2G→T3                    n=   347  med  +0.68  win 57.6  med70  +0.28  Δbase  +0.50
+      ···
+      Z2G→T9→T2G→Z1→T3                   n=   472  med  -0.58  win 43.6  med70  +0.07  Δbase  -0.75
+      T2→T2→Z5→Z2→T3                     n=   339  med  -0.63  win 46.0  med70  +0.52  Δbase  -0.80
+      T2→T2→T2G→Z1→T3                    n=   836  med  -0.66  win 44.6  med70  -0.79  Δbase  -0.84
+      T2→T2→T2G→Z1G→T3                   n=   348  med  -0.68  win 44.8  med70  +0.46  Δbase  -0.86
+      T4→T2G→T2G→Z3→T3                   n=   348  med  -0.83  win 41.7  med70  -1.12  Δbase  -1.01
+    ── entry-bar L-line ──
+      L34                                n=398725  med  +0.22  win 51.8  med70  +0.34  Δbase  +0.04
+      L12                                n=424497  med  +0.14  win 51.2  med70  +0.20  Δbase  -0.04
+    ── entry-bar suffix ──
+      ND                                 n=339352  med  +0.19  win 51.6  med70  +0.29  Δbase  +0.01
+      NR                                 n=201558  med  +0.19  win 51.5  med70  +0.23  Δbase  +0.01
+      NB                                 n= 54249  med  +0.18  win 51.5  med70  +0.27  Δbase  +0.01
+      NUR                                n= 62399  med  +0.18  win 51.6  med70  +0.29  Δbase  +0.00
+      NDP                                n= 87830  med  +0.14  win 51.2  med70  +0.30  Δbase  -0.04
+      NH                                 n= 77851  med  +0.13  win 51.1  med70  +0.22  Δbase  -0.04
+   ▼  NUR                             n= 62399  med  +0.18  win 51.6  med70  +0.29  Δbase  +0.00
+   ▼  NDP                             n= 87830  med  +0.14  win 51.2  med70  +0.30  Δbase  -0.04
+   ▼  NH                              n= 77851  med  +0.13  win 51.1  med70  +0.22  Δbase  -0.04
+
+##### ENDING T4 — base n=1,181,085 med+0.13 win51.1 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T1G→T2→T4                          n=   338  med  +1.56  win 55.3  med70  +2.10  Δbase  +1.43
+      T1→T2→T4                           n=   478  med  +1.55  win 58.4  med70  +1.88  Δbase  +1.42
+      T1G→T2G→T4                         n=   311  med  +1.38  win 58.5  med70  +1.39  Δbase  +1.25
+      T2G→T2→T4                          n=  1007  med  +1.24  win 56.0  med70  +1.26  Δbase  +1.11
+      T1→Z2G→T4                          n=   333  med  +1.17  win 60.1  med70  +1.59  Δbase  +1.04
+      Z2→T4→T4                           n=   717  med  +1.00  win 55.1  med70  +1.27  Δbase  +0.87
+      T9→Z2→T4                           n=   559  med  +0.85  win 54.2  med70  +0.46  Δbase  +0.71
+      Z2G→T9→T4                          n=   601  med  +0.78  win 53.7  med70  +1.08  Δbase  +0.64
+      T2G→Z2→T4                          n=   752  med  +0.77  win 52.4  med70  +0.34  Δbase  +0.63
+      T3→T2→T4                           n=   411  med  +0.77  win 53.8  med70  +0.96  Δbase  +0.63
+      T9→T2→T4                           n=   610  med  +0.76  win 55.6  med70  +2.10  Δbase  +0.62
+      Z2→T1→T4                           n=   476  med  +0.69  win 53.2  med70  +1.45  Δbase  +0.55
+      T9→T2G→T4                          n=   613  med  +0.67  win 54.0  med70  +1.02  Δbase  +0.53
+      Z2G→T4→T4                          n=   727  med  +0.64  win 53.2  med70  +1.20  Δbase  +0.51
+      T4→T2→T4                           n=   813  med  +0.63  win 53.1  med70  +1.23  Δbase  +0.50
+      ···
+      Z2G→T1→T4                          n=   404  med  -0.31  win 48.0  med70  +0.03  Δbase  -0.45
+      Z4→Z9→T4                           n=   321  med  -0.33  win 48.0  med70  -0.93  Δbase  -0.47
+      T12→Z5→T4                          n=   411  med  -0.46  win 45.3  med70  -0.14  Δbase  -0.59
+      T6→Z1G→T4                          n=   337  med  -0.50  win 46.9  med70  +0.09  Δbase  -0.63
+      Z11→Z6→T4                          n=   332  med  -0.55  win 44.6  med70  -0.37  Δbase  -0.68
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→T3→Z1G→T4                       n=   384  med  +0.93  win 58.3  med70  +0.61  Δbase  +0.79
+      T5→Z9→Z2G→T4                       n=   405  med  +0.84  win 55.3  med70  +1.18  Δbase  +0.70
+      T5→Z3→Z2G→T4                       n=   323  med  +0.79  win 56.3  med70  +1.00  Δbase  +0.66
+      Z11→T4→Z3→T4                       n=   331  med  +0.78  win 57.1  med70  -0.26  Δbase  +0.65
+      Z2→T3→Z1G→T4                       n=   595  med  +0.78  win 56.3  med70  +0.61  Δbase  +0.64
+      Z2→T5→Z3→T4                        n=   464  med  +0.76  win 56.0  med70  +0.93  Δbase  +0.63
+      T9→Z9→Z6→T4                        n=   390  med  +0.74  win 54.1  med70  +0.73  Δbase  +0.61
+      Z11→Z2G→Z2G→T4                     n=   709  med  +0.69  win 54.7  med70  +0.85  Δbase  +0.55
+      T12→T2→Z3→T4                       n=   350  med  +0.66  win 56.3  med70  +1.18  Δbase  +0.52
+      T2G→Z3→Z11→T4                      n=   312  med  +0.63  win 56.7  med70  +0.01  Δbase  +0.49
+      Z2→Z10→Z2→T4                       n=   563  med  +0.63  win 54.9  med70  +1.16  Δbase  +0.49
+      Z6→T9→Z1→T4                        n=   379  med  +0.62  win 55.4  med70  +0.35  Δbase  +0.48
+      T5→Z1G→Z2→T4                       n=   389  med  +0.61  win 53.5  med70  +0.59  Δbase  +0.48
+      T3→Z5→Z2G→T4                       n=   549  med  +0.61  win 56.3  med70  +1.11  Δbase  +0.47
+      T2G→Z9→Z11→T4                      n=   595  med  +0.60  win 53.6  med70  +0.76  Δbase  +0.46
+      ···
+      Z3→T3→Z3→T4                        n=   722  med  -0.40  win 47.2  med70  -0.21  Δbase  -0.53
+      Z5→T1G→Z9→T4                       n=   300  med  -0.44  win 48.0  med70  -0.81  Δbase  -0.58
+      Z9→Z2G→Z6→T4                       n=   385  med  -0.44  win 46.2  med70  -0.47  Δbase  -0.58
+      T2→T12→Z3→T4                       n=   304  med  -0.61  win 44.7  med70  -0.49  Δbase  -0.75
+      T2→Z1→Z7→T4                        n=   528  med  -0.65  win 44.1  med70  -0.69  Δbase  -0.78
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→T5→T2→Z9→T4                     n=   347  med  +1.02  win 57.1  med70  +1.87  Δbase  +0.89
+      Z1G→Z2→Z2→Z2G→T4                   n=   456  med  +0.94  win 57.7  med70  +1.11  Δbase  +0.81
+      Z4→Z2G→T1→Z9→T4                    n=   411  med  +0.93  win 57.2  med70  +1.20  Δbase  +0.80
+      Z2G→Z2→T3→Z1→T4                    n=   339  med  +0.90  win 56.0  med70  +1.43  Δbase  +0.77
+      T2→Z1→T4→Z9→T4                     n=   367  med  +0.90  win 57.2  med70  +0.39  Δbase  +0.77
+      T4→Z9→T9→Z9→T4                     n=   311  med  +0.89  win 57.9  med70  +1.15  Δbase  +0.76
+      T1→T2G→Z4→Z2G→T4                   n=   389  med  +0.88  win 55.0  med70  +0.47  Δbase  +0.74
+      Z2→T3→Z3→Z2→T4                     n=   410  med  +0.82  win 58.0  med70  +1.12  Δbase  +0.68
+      Z2→T9→T2G→Z4→T4                    n=   517  med  +0.76  win 56.1  med70  +0.67  Δbase  +0.63
+      Z4→T1→T2→Z9→T4                     n=   310  med  +0.74  win 57.4  med70  +1.17  Δbase  +0.61
+      T2→T2→T2→Z1G→T4                    n=   519  med  +0.74  win 56.8  med70  +0.09  Δbase  +0.60
+      Z2G→T4→Z1→Z2G→T4                   n=   308  med  +0.71  win 56.2  med70  +0.69  Δbase  +0.57
+      Z3→Z2G→T4→Z9→T4                    n=   519  med  +0.70  win 55.5  med70  +0.64  Δbase  +0.57
+      Z3→Z2G→T3→Z9→T4                    n=   313  med  +0.68  win 55.9  med70  +0.62  Δbase  +0.55
+      Z2→Z2G→T3→Z1→T4                    n=   306  med  +0.68  win 57.5  med70  +0.46  Δbase  +0.54
+      ···
+      Z2G→T4→Z1→Z2→T4                    n=   368  med  -0.61  win 43.2  med70  -0.34  Δbase  -0.75
+      Z2→Z2→T9→Z5→T4                     n=   390  med  -0.63  win 45.6  med70  -0.99  Δbase  -0.76
+      Z3→T1→T2G→Z9→T4                    n=   323  med  -0.70  win 45.2  med70  +0.13  Δbase  -0.84
+      Z1G→T9→T2→Z9→T4                    n=   325  med  -0.72  win 44.0  med70  -0.51  Δbase  -0.86
+      Z9→T3→T2G→Z9→T4                    n=   303  med  -0.76  win 45.2  med70  -0.47  Δbase  -0.89
+    ── entry-bar L-line ──
+      L3                                 n=414826  med  +0.14  win 51.1  med70  +0.26  Δbase  +0.01
+      L34                                n=277909  med  +0.14  win 51.2  med70  +0.23  Δbase  +0.01
+      L12                                n=485849  med  +0.12  win 51.0  med70  +0.21  Δbase  -0.01
+      L4                                 n=  1550  med  +0.10  win 51.5  med70  +0.17  Δbase  -0.04
+      L2                                 n=   933  med  +0.00  win 48.8  med70  +0.14  Δbase  -0.13
+    ── entry-bar suffix ──
+      EB                                 n=236708  med  +0.17  win 51.4  med70  +0.29  Δbase  +0.03
+      NDP                                n=146935  med  +0.15  win 51.2  med70  +0.27  Δbase  +0.02
+      NUR                                n=148485  med  +0.14  win 51.1  med70  +0.21  Δbase  +0.01
+      EUR                                n=416095  med  +0.13  win 51.0  med70  +0.22  Δbase  -0.01
+      NB                                 n= 82152  med  +0.11  win 50.9  med70  +0.24  Δbase  -0.02
+      NH                                 n=150710  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.03
+   ▼  EUR                             n=416095  med  +0.13  win 51.0  med70  +0.22  Δbase  -0.01
+   ▼  NB                              n= 82152  med  +0.11  win 50.9  med70  +0.24  Δbase  -0.02
+   ▼  NH                              n=150710  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.03
+
+##### ENDING T5 — base n=273,144 med+0.24 win52.0 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2G→T5                          n=  6505  med  +0.71  win 55.9  med70  +0.96  Δbase  +0.47
+      T3→Z1G→T5                          n=   592  med  +0.65  win 55.7  med70  +1.07  Δbase  +0.41
+      Z4→Z7→T5                           n=   452  med  +0.57  win 53.8  med70  +0.73  Δbase  +0.33
+      Z10→Z2G→T5                         n=   990  med  +0.54  win 55.2  med70  +0.48  Δbase  +0.31
+      Z10→Z2→T5                          n=   720  med  +0.53  win 56.2  med70  +0.96  Δbase  +0.29
+      T10→Z1G→T5                         n=   485  med  +0.48  win 53.8  med70  +0.60  Δbase  +0.24
+      T1G→Z1→T5                          n=   737  med  +0.47  win 53.3  med70  +0.28  Δbase  +0.23
+      Z2→Z10→T5                          n=  1027  med  +0.46  win 54.2  med70  +0.68  Δbase  +0.22
+      T9→Z1→T5                           n=  3114  med  +0.44  win 54.0  med70  +0.61  Δbase  +0.20
+      Z3→Z2G→T5                          n=  4894  med  +0.43  win 53.5  med70  +0.55  Δbase  +0.19
+      T5→Z1G→T5                          n=   598  med  +0.42  win 52.7  med70  +0.37  Δbase  +0.19
+      Z6→Z2G→T5                          n=  1574  med  +0.42  win 53.5  med70  +0.68  Δbase  +0.18
+      Z2→Z6→T5                           n=   951  med  +0.41  win 53.7  med70  +0.24  Δbase  +0.17
+      Z4→Z2→T5                           n=  8314  med  +0.40  win 53.7  med70  +0.68  Δbase  +0.17
+      Z10→Z6→T5                          n=   460  med  +0.38  win 52.0  med70  +0.41  Δbase  +0.15
+      ···
+      Z3→Z10→T5                          n=   415  med  -0.12  win 48.2  med70  -0.13  Δbase  -0.36
+      Z2G→Z10→T5                         n=   903  med  -0.13  win 48.7  med70  +0.37  Δbase  -0.36
+      T6→Z1→T5                           n=   395  med  -0.19  win 46.6  med70  +0.51  Δbase  -0.42
+      T1G→Z5→T5                          n=   330  med  -0.53  win 47.0  med70  -0.32  Δbase  -0.77
+      T10→Z1→T5                          n=   364  med  -0.53  win 44.0  med70  -0.48  Δbase  -0.77
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T4→Z4→Z2G→T5                       n=   588  med  +1.30  win 59.5  med70  +1.70  Δbase  +1.06
+      T1→Z4→Z2→T5                        n=   506  med  +1.00  win 57.5  med70  +1.79  Δbase  +0.76
+      T4→Z1→Z2→T5                        n=   481  med  +0.92  win 57.4  med70  +0.86  Δbase  +0.68
+      Z2→T9→Z1→T5                        n=   737  med  +0.92  win 58.9  med70  +0.85  Δbase  +0.68
+      T9→Z4→Z2G→T5                       n=  1023  med  +0.80  win 56.9  med70  +1.66  Δbase  +0.56
+      T2G→Z4→Z2G→T5                      n=  1378  med  +0.78  win 57.0  med70  +0.55  Δbase  +0.54
+      T1→Z3→Z2G→T5                       n=   543  med  +0.73  win 55.1  med70  +0.98  Δbase  +0.50
+      Z1→Z2→Z2→T5                        n=  1121  med  +0.73  win 55.5  med70  +1.38  Δbase  +0.49
+      Z2G→T3→Z1→T5                       n=   488  med  +0.72  win 54.7  med70  +0.40  Δbase  +0.49
+      T3→Z3→Z2G→T5                       n=   401  med  +0.71  win 56.6  med70  +1.18  Δbase  +0.47
+      T3→T2→Z1→T5                        n=   446  med  +0.69  win 56.5  med70  +1.32  Δbase  +0.45
+      T9→Z3→Z2G→T5                       n=   423  med  +0.68  win 56.0  med70  +0.65  Δbase  +0.44
+      T3→T2→Z9→T5                        n=   828  med  +0.67  win 55.4  med70  +0.47  Δbase  +0.43
+      T4→Z4→Z2→T5                        n=   785  med  +0.66  win 56.6  med70  +1.05  Δbase  +0.42
+      T3→Z4→Z2G→T5                       n=   654  med  +0.63  win 54.3  med70  +1.00  Δbase  +0.39
+      ···
+      T1G→T2→Z9→T5                       n=   301  med  -0.35  win 48.2  med70  +0.38  Δbase  -0.59
+      Z2→T3→Z9→T5                        n=   598  med  -0.35  win 48.2  med70  -0.44  Δbase  -0.59
+      T2G→T2→Z3→T5                       n=  1172  med  -0.42  win 46.5  med70  -0.37  Δbase  -0.65
+      T9→Z9→Z2G→T5                       n=   510  med  -0.43  win 46.1  med70  +0.39  Δbase  -0.66
+      Z4→T4→Z3→T5                        n=   347  med  -0.53  win 46.1  med70  -0.10  Δbase  -0.77
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2→Z2→Z2G→T5                    n=   416  med  +1.32  win 60.1  med70  +0.53  Δbase  +1.08
+      T2→T2G→Z4→Z2G→T5                   n=   346  med  +0.99  win 56.6  med70  +0.76  Δbase  +0.75
+      Z9→Z2→Z2→Z2G→T5                    n=   349  med  +0.96  win 54.7  med70  +0.59  Δbase  +0.72
+      T2G→T2→Z9→Z2G→T5                   n=   324  med  +0.78  win 57.7  med70  +1.92  Δbase  +0.54
+      Z4→Z2→Z2→Z2→T5                     n=   553  med  +0.77  win 55.7  med70  +0.91  Δbase  +0.54
+      Z2G→Z2G→Z2→Z2G→T5                  n=   425  med  +0.76  win 55.3  med70  +0.69  Δbase  +0.52
+      T4→T2→T2→Z9→T5                     n=   346  med  +0.74  win 57.2  med70  +0.00  Δbase  +0.50
+      T2G→Z4→Z2→Z2→T5                    n=   367  med  +0.74  win 56.9  med70  +1.11  Δbase  +0.50
+      T2→T2→Z4→Z2G→T5                    n=   330  med  +0.67  win 56.4  med70  +1.22  Δbase  +0.43
+      T2G→T2→Z4→Z2→T5                    n=   387  med  +0.66  win 56.6  med70  +1.10  Δbase  +0.42
+      T2→T2→Z4→Z2→T5                     n=   492  med  +0.63  win 54.1  med70  +0.41  Δbase  +0.39
+      Z2G→Z2G→Z2→Z2→T5                   n=   495  med  +0.58  win 53.9  med70  +0.65  Δbase  +0.34
+      Z2→Z2G→Z2→Z2G→T5                   n=   470  med  +0.58  win 55.3  med70  +0.84  Δbase  +0.34
+      Z2→Z2G→T4→Z9→T5                    n=   322  med  +0.54  win 53.1  med70  +0.77  Δbase  +0.30
+      T9→T2→T2→Z9→T5                     n=   316  med  +0.53  win 54.1  med70  +0.75  Δbase  +0.30
+      ···
+      Z2→T4→Z9→Z2→T5                     n=   309  med  -0.27  win 47.2  med70  -0.47  Δbase  -0.51
+      T2→T2→Z9→Z2G→T5                    n=   350  med  -0.29  win 48.0  med70  +0.66  Δbase  -0.52
+      T2→Z9→Z2→Z2G→T5                    n=   338  med  -0.34  win 47.6  med70  +0.03  Δbase  -0.58
+      T2G→T2G→T2→Z9→T5                   n=   353  med  -0.35  win 46.7  med70  -0.36  Δbase  -0.59
+      T2→T2G→T2G→Z9→T5                   n=   306  med  -0.48  win 44.8  med70  -1.00  Δbase  -0.72
+    ── entry-bar L-line ──
+      L5                                 n= 74622  med  +0.33  win 53.0  med70  +0.75  Δbase  +0.10
+      L46                                n= 96476  med  +0.26  win 52.1  med70  +0.44  Δbase  +0.02
+      L4                                 n= 21434  med  +0.20  win 51.6  med70  +0.28  Δbase  -0.04
+      L25                                n= 63234  med  +0.15  win 51.2  med70  +0.27  Δbase  -0.09
+      L2                                 n= 17370  med  +0.10  win 50.8  med70  +0.20  Δbase  -0.13
+    ── entry-bar suffix ──
+      EB                                 n= 16134  med  +0.36  win 52.9  med70  +0.57  Δbase  +0.13
+      ED                                 n= 91090  med  +0.35  win 53.0  med70  +0.73  Δbase  +0.12
+      EDP                                n= 11064  med  +0.27  win 52.3  med70  +0.66  Δbase  +0.03
+      NDP                                n= 20854  med  +0.20  win 51.7  med70  +0.24  Δbase  -0.04
+      NR                                 n= 24867  med  +0.19  win 51.7  med70  +0.25  Δbase  -0.04
+      ND                                 n= 67586  med  +0.16  win 51.3  med70  +0.29  Δbase  -0.07
+      NB                                 n= 18233  med  +0.13  win 51.1  med70  +0.34  Δbase  -0.10
+      NUR                                n= 10301  med  +0.13  win 50.9  med70  +0.31  Δbase  -0.11
+      NH                                 n= 13015  med  +0.09  win 50.9  med70  +0.18  Δbase  -0.14
+   ▼  NB                              n= 18233  med  +0.13  win 51.1  med70  +0.34  Δbase  -0.10
+   ▼  NUR                             n= 10301  med  +0.13  win 50.9  med70  +0.31  Δbase  -0.11
+   ▼  NH                              n= 13015  med  +0.09  win 50.9  med70  +0.18  Δbase  -0.14
+
+##### ENDING T6 — base n=218,731 med+0.07 win50.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→T3→T6                           n=  2816  med  +0.55  win 54.9  med70  +0.69  Δbase  +0.48
+      Z10→T1G→T6                         n=   348  med  +0.53  win 56.0  med70  +1.05  Δbase  +0.45
+      Z5→T1→T6                           n=   336  med  +0.44  win 54.5  med70  +1.25  Δbase  +0.37
+      Z7→T1G→T6                          n=   933  med  +0.40  win 53.6  med70  +0.37  Δbase  +0.32
+      Z3→T1G→T6                          n=   379  med  +0.36  win 53.0  med70  +0.12  Δbase  +0.29
+      T10→T2→T6                          n=   472  med  +0.33  win 51.3  med70  -0.17  Δbase  +0.26
+      T9→T10→T6                          n=  1581  med  +0.31  win 52.9  med70  +0.42  Δbase  +0.23
+      Z10→T5→T6                          n=   366  med  +0.30  win 53.3  med70  +0.96  Δbase  +0.23
+      Z1→T3→T6                           n=  1730  med  +0.29  win 52.2  med70  +0.25  Δbase  +0.22
+      Z4→T5→T6                           n=  2017  med  +0.27  win 52.0  med70  +0.41  Δbase  +0.19
+      Z6→T3→T6                           n=   509  med  +0.26  win 51.7  med70  +0.69  Δbase  +0.19
+      Z2→T1G→T6                          n=   823  med  +0.26  win 52.6  med70  +0.56  Δbase  +0.18
+      Z3→T5→T6                           n=  1602  med  +0.26  win 52.5  med70  +0.16  Δbase  +0.18
+      T9→T12→T6                          n=   434  med  +0.24  win 51.8  med70  +0.74  Δbase  +0.17
+      Z4→T9→T6                           n=  6543  med  +0.24  win 52.1  med70  +0.28  Δbase  +0.16
+      ···
+      T1→T2→T6                           n=  3890  med  -0.21  win 47.9  med70  -0.18  Δbase  -0.29
+      Z1G→T3→T6                          n=   363  med  -0.26  win 49.6  med70  +0.17  Δbase  -0.34
+      T5→T10→T6                          n=   301  med  -0.27  win 48.5  med70  -0.18  Δbase  -0.35
+      Z6→T4→T6                           n=   336  med  -0.30  win 46.7  med70  +0.19  Δbase  -0.37
+      T2→T6→T6                           n=   303  med  -0.84  win 43.6  med70  -0.90  Δbase  -0.92
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T9→Z4→T3→T6                        n=   448  med  +1.68  win 63.8  med70  +1.88  Δbase  +1.61
+      T9→Z4→T5→T6                        n=   350  med  +0.83  win 54.9  med70  +0.53  Δbase  +0.75
+      Z2G→Z2G→T3→T6                      n=   653  med  +0.82  win 57.0  med70  +1.22  Δbase  +0.75
+      T3→Z4→T3→T6                        n=   334  med  +0.66  win 54.2  med70  +1.07  Δbase  +0.59
+      T9→Z4→T9→T6                        n=  1087  med  +0.62  win 55.0  med70  +0.39  Δbase  +0.55
+      Z2G→T3→T10→T6                      n=   308  med  +0.62  win 52.6  med70  +0.70  Δbase  +0.55
+      T2G→Z4→T5→T6                       n=   375  med  +0.54  win 54.7  med70  +0.57  Δbase  +0.47
+      T4→Z4→T9→T6                        n=   574  med  +0.53  win 54.9  med70  +0.58  Δbase  +0.45
+      Z9→T3→T2G→T6                       n=   323  med  +0.52  win 53.9  med70  -0.02  Δbase  +0.44
+      T2→Z9→T5→T6                        n=   526  med  +0.49  win 53.0  med70  +1.12  Δbase  +0.42
+      Z6→Z2→T9→T6                        n=   336  med  +0.47  win 54.2  med70  +1.39  Δbase  +0.40
+      Z2G→T9→T10→T6                      n=   311  med  +0.47  win 55.9  med70  +0.55  Δbase  +0.39
+      T1→Z4→T9→T6                        n=   400  med  +0.46  win 53.2  med70  +0.28  Δbase  +0.39
+      Z2G→Z2→T9→T6                       n=  1949  med  +0.46  win 53.5  med70  +0.49  Δbase  +0.38
+      T2G→Z3→T5→T6                       n=   331  med  +0.44  win 55.3  med70  -0.34  Δbase  +0.36
+      ···
+      T2→Z3→T3→T6                        n=   351  med  -0.50  win 47.0  med70  -0.62  Δbase  -0.58
+      T2G→Z3→T3→T6                       n=   341  med  -0.53  win 47.2  med70  +0.16  Δbase  -0.61
+      Z9→Z2G→T3→T6                       n=   404  med  -0.54  win 47.5  med70  -0.02  Δbase  -0.61
+      Z4→T4→T2→T6                        n=   555  med  -0.55  win 45.4  med70  -0.30  Δbase  -0.63
+      Z1→Z2→T3→T6                        n=   375  med  -0.68  win 43.2  med70  -0.04  Δbase  -0.75
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→Z2G→Z2G→T9→T6                  n=   338  med  +0.90  win 56.5  med70  +0.83  Δbase  +0.82
+      T2→T2G→T2G→T2G→T6                  n=   379  med  +0.46  win 52.5  med70  -0.22  Δbase  +0.39
+      T2G→T2→T2→T2G→T6                   n=   451  med  +0.43  win 53.7  med70  +0.77  Δbase  +0.36
+      T2→Z4→Z2→T9→T6                     n=   360  med  +0.36  win 52.2  med70  +0.31  Δbase  +0.29
+      Z4→Z2→Z2→T9→T6                     n=   349  med  +0.30  win 52.4  med70  +0.97  Δbase  +0.23
+      Z9→T4→T2→T2→T6                     n=   348  med  +0.29  win 52.3  med70  -0.53  Δbase  +0.22
+      T2→T2→T2G→T2G→T6                   n=   411  med  +0.27  win 53.3  med70  -0.03  Δbase  +0.20
+      Z2→Z2→T9→T2G→T6                    n=   304  med  +0.26  win 51.0  med70  +0.21  Δbase  +0.19
+      Z2→T9→T2→T2→T6                     n=   401  med  +0.26  win 50.9  med70  -0.17  Δbase  +0.19
+      Z2→Z2G→Z2→T9→T6                    n=   468  med  +0.23  win 51.3  med70  +0.14  Δbase  +0.16
+      T2G→T2G→T2G→T2G→T6                 n=   390  med  +0.21  win 51.5  med70  +0.00  Δbase  +0.14
+      Z2G→Z2G→Z2→T9→T6                   n=   348  med  +0.20  win 51.4  med70  -0.02  Δbase  +0.12
+      Z2→Z2G→Z2G→T9→T6                   n=   366  med  +0.16  win 51.9  med70  +0.01  Δbase  +0.08
+      T2G→T2→T2G→T2G→T6                  n=   344  med  +0.15  win 51.7  med70  +0.04  Δbase  +0.07
+      Z2→Z2→Z2→T9→T6                     n=   590  med  +0.12  win 50.8  med70  -0.13  Δbase  +0.05
+      ···
+      T2G→T2G→T2G→T2→T6                  n=   340  med  -0.39  win 47.1  med70  -0.02  Δbase  -0.47
+      Z2G→T4→T2→T2→T6                    n=   319  med  -0.42  win 44.8  med70  -1.14  Δbase  -0.49
+      T2G→T2→T2G→T2→T6                   n=   411  med  -0.44  win 46.5  med70  -0.14  Δbase  -0.51
+      T9→T2→T2→T2→T6                     n=   455  med  -0.49  win 45.3  med70  -1.13  Δbase  -0.56
+      T2G→T2G→T2→T2→T6                   n=   418  med  -0.51  win 45.7  med70  -1.01  Δbase  -0.59
+    ── entry-bar L-line ──
+      L34                                n= 31824  med  +0.17  win 51.6  med70  +0.28  Δbase  +0.10
+      L4                                 n=  2835  med  +0.08  win 50.6  med70  +0.07  Δbase  +0.01
+      L2                                 n=  2888  med  +0.06  win 50.5  med70  +0.28  Δbase  -0.01
+      L12                                n=114600  med  +0.06  win 50.4  med70  +0.13  Δbase  -0.02
+      L3                                 n= 66582  med  +0.04  win 50.2  med70  +0.18  Δbase  -0.03
+    ── entry-bar suffix ──
+      EUR                                n= 55478  med  +0.15  win 51.2  med70  +0.28  Δbase  +0.07
+      NH                                 n= 15806  med  +0.12  win 51.1  med70  +0.16  Δbase  +0.04
+      NUR                                n= 17636  med  +0.08  win 50.7  med70  +0.23  Δbase  +0.01
+      NDP                                n= 20248  med  +0.08  win 50.6  med70  +0.21  Δbase  +0.01
+      NB                                 n= 21551  med  +0.07  win 50.5  med70  +0.10  Δbase  -0.00
+      EB                                 n= 88012  med  +0.00  win 49.9  med70  +0.08  Δbase  -0.07
+   ▼  NDP                             n= 20248  med  +0.08  win 50.6  med70  +0.21  Δbase  +0.01
+   ▼  NB                              n= 21551  med  +0.07  win 50.5  med70  +0.10  Δbase  -0.00
+   ▼  EB                              n= 88012  med  +0.00  win 49.9  med70  +0.08  Δbase  -0.07
+
+##### ENDING T9 — base n=1,182,304 med+0.16 win51.3 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→T9→T9                           n=   448  med  +1.32  win 56.0  med70  +1.57  Δbase  +1.16
+      Z2→T1→T9                           n=   310  med  +1.16  win 54.8  med70  +1.08  Δbase  +1.00
+      T2G→Z2G→T9                         n=   594  med  +1.10  win 55.7  med70  +1.29  Δbase  +0.94
+      T9→Z2G→T9                          n=   429  med  +1.08  win 56.9  med70  +1.57  Δbase  +0.92
+      T4→T2→T9                           n=   501  med  +0.89  win 55.3  med70  +1.12  Δbase  +0.73
+      T2→T2G→T9                          n=   658  med  +0.87  win 53.8  med70  +0.94  Δbase  +0.70
+      Z4→T9→T9                           n=   391  med  +0.85  win 55.0  med70  +0.55  Δbase  +0.69
+      Z2→Z1→T9                           n=   409  med  +0.85  win 55.0  med70  +1.16  Δbase  +0.68
+      Z2G→Z1→T9                          n=   352  med  +0.84  win 55.1  med70  +0.78  Δbase  +0.68
+      T2→Z2→T9                           n=   838  med  +0.76  win 55.0  med70  +1.48  Δbase  +0.59
+      T2→T2→T9                           n=   773  med  +0.75  win 54.2  med70  +1.45  Δbase  +0.59
+      Z2→T4→T9                           n=   487  med  +0.70  win 53.0  med70  -0.21  Δbase  +0.54
+      Z2G→T9→T9                          n=   401  med  +0.66  win 53.4  med70  +0.97  Δbase  +0.50
+      T2G→T2G→T9                         n=   643  med  +0.63  win 53.2  med70  +1.07  Δbase  +0.47
+      T2G→Z2→T9                          n=   760  med  +0.62  win 53.0  med70  +1.31  Δbase  +0.45
+      ···
+      T10→Z12→T9                         n=   420  med  -0.21  win 49.0  med70  -0.16  Δbase  -0.38
+      T1→Z2→T9                           n=   326  med  -0.22  win 48.8  med70  +0.45  Δbase  -0.38
+      T3→Z2→T9                           n=   376  med  -0.26  win 49.5  med70  +0.68  Δbase  -0.42
+      Z11→Z6→T9                          n=   642  med  -0.30  win 47.4  med70  -0.11  Δbase  -0.46
+      T12→Z1→T9                          n=  1626  med  -0.51  win 46.4  med70  -0.23  Δbase  -0.68
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→T5→Z1→T9                       n=   714  med  +1.09  win 58.5  med70  +1.60  Δbase  +0.92
+      Z2G→T5→Z3→T9                       n=   310  med  +1.04  win 56.8  med70  +0.84  Δbase  +0.87
+      T12→Z4→Z2G→T9                      n=   324  med  +0.99  win 59.0  med70  +0.54  Δbase  +0.83
+      T2G→T2→Z5→T9                       n=   994  med  +0.84  win 57.1  med70  +0.34  Δbase  +0.68
+      T5→Z3→Z2G→T9                       n=   306  med  +0.73  win 57.5  med70  +1.15  Δbase  +0.57
+      T9→T6→Z3→T9                        n=   665  med  +0.71  win 56.2  med70  +0.46  Δbase  +0.55
+      T2G→Z1→Z6→T9                       n=   411  med  +0.68  win 55.5  med70  +0.05  Δbase  +0.51
+      Z9→T3→Z3→T9                        n=   427  med  +0.67  win 56.7  med70  +1.10  Δbase  +0.51
+      Z3→T1G→Z1→T9                       n=   334  med  +0.62  win 55.4  med70  +0.14  Δbase  +0.46
+      Z5→T1G→Z4→T9                       n=   333  med  +0.61  win 54.7  med70  +0.80  Δbase  +0.45
+      T2G→Z4→Z6→T9                       n=   627  med  +0.60  win 56.8  med70  +0.54  Δbase  +0.44
+      Z1→Z11→Z2→T9                       n=   413  med  +0.60  win 54.2  med70  +0.89  Δbase  +0.44
+      Z3→T1G→Z4→T9                       n=   510  med  +0.60  win 53.9  med70  +0.63  Δbase  +0.44
+      Z2→Z7→Z2G→T9                       n=   666  med  +0.60  win 53.6  med70  +0.85  Δbase  +0.43
+      Z4→T1G→Z4→T9                       n=   564  med  +0.59  win 56.7  med70  +0.30  Δbase  +0.43
+      ···
+      Z9→Z2G→Z11→T9                      n=   395  med  -0.50  win 47.1  med70  +0.30  Δbase  -0.67
+      Z1→T1G→Z3→T9                       n=   324  med  -0.52  win 46.0  med70  +0.16  Δbase  -0.68
+      T10→Z1G→Z2G→T9                     n=   327  med  -0.63  win 45.3  med70  -0.14  Δbase  -0.79
+      Z2G→T1G→Z3→T9                      n=   990  med  -0.63  win 44.9  med70  -0.13  Δbase  -0.79
+      T2→T12→Z1→T9                       n=   467  med  -0.77  win 44.3  med70  -1.18  Δbase  -0.93
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z6→Z2→Z2→T9                     n=   444  med  +1.21  win 60.4  med70  +1.40  Δbase  +1.04
+      Z5→Z2G→Z2G→Z2→T9                   n=   335  med  +0.99  win 56.4  med70  +1.16  Δbase  +0.83
+      T3→Z3→Z2G→Z2→T9                    n=   347  med  +0.99  win 57.9  med70  +0.96  Δbase  +0.83
+      Z5→Z2G→Z2→Z2→T9                    n=   443  med  +0.94  win 57.1  med70  +1.22  Δbase  +0.77
+      T2→Z4→T4→Z3→T9                     n=   325  med  +0.90  win 56.6  med70  +0.22  Δbase  +0.73
+      Z9→Z2G→T3→Z1→T9                    n=   347  med  +0.87  win 57.9  med70  +0.63  Δbase  +0.71
+      Z2G→Z2→T9→Z1G→T9                   n=   422  med  +0.83  win 55.0  med70  +1.33  Δbase  +0.67
+      T2→T2→T2→Z5→T9                     n=   337  med  +0.82  win 57.3  med70  +0.40  Δbase  +0.66
+      Z2G→T3→Z3→Z2G→T9                   n=   317  med  +0.81  win 55.2  med70  +0.96  Δbase  +0.65
+      T9→Z1G→Z2→Z2→T9                    n=   466  med  +0.81  win 54.5  med70  +1.08  Δbase  +0.65
+      T2G→Z1→T9→Z1→T9                    n=   312  med  +0.80  win 56.7  med70  +0.80  Δbase  +0.63
+      Z9→T3→T2→Z4→T9                     n=   387  med  +0.79  win 57.1  med70  +0.70  Δbase  +0.63
+      T1→Z9→T9→Z4→T9                     n=   327  med  +0.78  win 56.6  med70  +0.93  Δbase  +0.62
+      Z2G→Z2→T1→Z4→T9                    n=   530  med  +0.77  win 56.6  med70  +0.44  Δbase  +0.61
+      Z2→Z2G→T1→Z3→T9                    n=   439  med  +0.76  win 53.8  med70  -0.35  Δbase  +0.60
+      ···
+      Z1→Z2→Z2→Z2G→T9                    n=   893  med  -0.49  win 45.9  med70  -0.29  Δbase  -0.65
+      Z9→T1→Z3→Z2→T9                     n=   371  med  -0.50  win 44.7  med70  -0.44  Δbase  -0.66
+      T2→T2→Z7→Z6→T9                     n=   311  med  -0.55  win 43.1  med70  -0.45  Δbase  -0.71
+      T1→Z4→T9→Z4→T9                     n=   322  med  -0.58  win 43.2  med70  -0.83  Δbase  -0.74
+      Z2→T4→T2→Z1G→T9                    n=   406  med  -0.82  win 44.8  med70  -0.54  Δbase  -0.98
+    ── entry-bar L-line ──
+      L34                                n=581105  med  +0.19  win 51.6  med70  +0.34  Δbase  +0.03
+      L12                                n=601187  med  +0.13  win 51.0  med70  +0.21  Δbase  -0.03
+    ── entry-bar suffix ──
+      NU                                 n= 29969  med  +0.23  win 51.9  med70  +0.31  Δbase  +0.06
+      ND                                 n=363719  med  +0.20  win 51.7  med70  +0.34  Δbase  +0.04
+      NP                                 n= 24967  med  +0.18  win 51.6  med70  +0.27  Δbase  +0.02
+      NB                                 n= 44379  med  +0.18  win 51.5  med70  +0.29  Δbase  +0.02
+      NUR                                n=103261  med  +0.17  win 51.4  med70  +0.31  Δbase  +0.01
+      NDP                                n=105043  med  +0.16  win 51.2  med70  +0.29  Δbase  -0.01
+      NR                                 n=312363  med  +0.14  win 51.1  med70  +0.22  Δbase  -0.02
+      NH                                 n=139041  med  +0.12  win 51.0  med70  +0.26  Δbase  -0.04
+      N                                  n= 59562  med  +0.08  win 50.6  med70  +0.13  Δbase  -0.08
+   ▼  NR                              n=312363  med  +0.14  win 51.1  med70  +0.22  Δbase  -0.02
+   ▼  NH                              n=139041  med  +0.12  win 51.0  med70  +0.26  Δbase  -0.04
+   ▼  N                               n= 59562  med  +0.08  win 50.6  med70  +0.13  Δbase  -0.08
+
+##### ENDING Z1 — base n=685,807 med+0.15 win51.2 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z2→Z1                           n=   466  med  +1.00  win 55.6  med70  +1.07  Δbase  +0.85
+      Z2G→Z2→Z1                          n=   511  med  +0.93  win 55.8  med70  +1.59  Δbase  +0.78
+      Z2→T2G→Z1                          n=   449  med  +0.84  win 55.7  med70  +1.29  Δbase  +0.69
+      Z9→T2→Z1                           n=   305  med  +0.80  win 55.7  med70  +0.81  Δbase  +0.65
+      T3→T12→Z1                          n=   834  med  +0.80  win 54.6  med70  +0.83  Δbase  +0.65
+      Z6→T1G→Z1                          n=   370  med  +0.65  win 54.1  med70  +0.49  Δbase  +0.50
+      T1G→T6→Z1                          n=   434  med  +0.62  win 55.3  med70  +0.84  Δbase  +0.48
+      Z6→T5→Z1                           n=   628  med  +0.60  win 53.8  med70  +0.73  Δbase  +0.45
+      T9→T11→Z1                          n=   449  med  +0.59  win 52.8  med70  +0.61  Δbase  +0.44
+      Z2→Z2G→Z1                          n=   478  med  +0.57  win 53.6  med70  +0.74  Δbase  +0.42
+      Z11→T3→Z1                          n=  1213  med  +0.53  win 54.8  med70  +0.78  Δbase  +0.39
+      T2G→T11→Z1                         n=   689  med  +0.52  win 53.6  med70  +0.37  Δbase  +0.38
+      Z5→T9→Z1                           n=  1677  med  +0.52  win 54.9  med70  +0.61  Δbase  +0.38
+      Z1G→T5→Z1                          n=   559  med  +0.49  win 55.5  med70  +0.25  Δbase  +0.34
+      T9→T12→Z1                          n=  1388  med  +0.49  win 54.3  med70  +0.90  Δbase  +0.34
+      ···
+      T1G→T10→Z1                         n=   409  med  -0.23  win 48.2  med70  -0.25  Δbase  -0.38
+      T4→T11→Z1                          n=   491  med  -0.30  win 47.7  med70  -0.17  Δbase  -0.45
+      T2→T11→Z1                          n=   880  med  -0.30  win 47.6  med70  -0.36  Δbase  -0.45
+      T2→T12→Z1                          n=  2244  med  -0.35  win 46.9  med70  -0.38  Δbase  -0.50
+      T4→T6→Z1                           n=   488  med  -0.36  win 47.5  med70  -0.13  Δbase  -0.51
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z11→T4→T2G→Z1                      n=   319  med  +1.10  win 59.2  med70  +1.11  Δbase  +0.95
+      T4→Z7→T4→Z1                        n=   304  med  +0.82  win 57.6  med70  +0.49  Δbase  +0.67
+      Z3→Z2G→T5→Z1                       n=   450  med  +0.79  win 55.8  med70  +1.15  Δbase  +0.65
+      Z5→T9→T2→Z1                        n=   312  med  +0.73  win 55.1  med70  +1.03  Δbase  +0.58
+      Z11→T4→T2→Z1                       n=   419  med  +0.70  win 53.5  med70  +0.51  Δbase  +0.55
+      Z2G→Z6→T3→Z1                       n=   487  med  +0.69  win 55.6  med70  +0.59  Δbase  +0.55
+      T1→Z4→T3→Z1                        n=   638  med  +0.66  win 54.4  med70  +0.55  Δbase  +0.51
+      Z9→Z2→T5→Z1                        n=   553  med  +0.65  win 58.0  med70  +0.86  Δbase  +0.50
+      T9→Z1G→T3→Z1                       n=   488  med  +0.63  win 53.9  med70  +0.58  Δbase  +0.48
+      Z5→T1→T2→Z1                        n=   597  med  +0.63  win 56.6  med70  +1.11  Δbase  +0.48
+      T2G→Z9→T1G→Z1                      n=   819  med  +0.63  win 55.9  med70  +0.42  Δbase  +0.48
+      Z2→Z2G→T5→Z1                       n=   873  med  +0.60  win 54.1  med70  +0.50  Δbase  +0.45
+      Z2→T5→T2G→Z1                       n=   855  med  +0.59  win 53.7  med70  +0.82  Δbase  +0.45
+      T2→Z5→T3→Z1                        n=   370  med  +0.58  win 55.7  med70  -0.17  Δbase  +0.43
+      Z1G→Z2G→T3→Z1                      n=   693  med  +0.58  win 54.7  med70  +0.78  Δbase  +0.43
+      ···
+      T1G→Z1→T9→Z1                       n=   411  med  -0.54  win 45.7  med70  -0.05  Δbase  -0.69
+      T4→Z3→T5→Z1                        n=   324  med  -0.60  win 46.0  med70  +0.97  Δbase  -0.74
+      T4→T2→T12→Z1                       n=   341  med  -0.67  win 43.1  med70  +0.39  Δbase  -0.82
+      T2G→T2G→T12→Z1                     n=   323  med  -0.77  win 45.5  med70  -0.44  Δbase  -0.92
+      Z1G→T1→T2→Z1                       n=   415  med  -0.82  win 41.0  med70  -0.54  Δbase  -0.96
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T4→Z3→Z2→T9→Z1                     n=   325  med  +0.96  win 60.9  med70  +0.65  Δbase  +0.81
+      Z2G→T3→T2→T2→Z1                    n=   804  med  +0.90  win 59.0  med70  +0.87  Δbase  +0.75
+      T2G→Z1→Z2→T9→Z1                    n=   360  med  +0.85  win 56.7  med70  +0.61  Δbase  +0.70
+      Z9→Z2→T1→T2G→Z1                    n=   355  med  +0.82  win 57.5  med70  +1.30  Δbase  +0.67
+      Z9→Z2→T3→T2G→Z1                    n=   313  med  +0.82  win 55.0  med70  +0.76  Δbase  +0.67
+      Z2→Z2→Z2G→T1→Z1                    n=   452  med  +0.81  win 58.0  med70  +0.90  Δbase  +0.66
+      Z9→T9→T2→T2→Z1                     n=   402  med  +0.79  win 56.0  med70  +0.83  Δbase  +0.65
+      T2G→T2→Z1→T3→Z1                    n=   357  med  +0.78  win 55.5  med70  +1.32  Δbase  +0.63
+      T9→T2G→T2G→T2→Z1                   n=   842  med  +0.77  win 56.2  med70  +0.55  Δbase  +0.62
+      Z2→T4→Z9→T4→Z1                     n=   414  med  +0.75  win 56.3  med70  +1.00  Δbase  +0.60
+      Z9→Z2→T9→T2G→Z1                    n=   439  med  +0.74  win 55.8  med70  +1.34  Δbase  +0.60
+      Z3→T9→T2→T2→Z1                     n=   313  med  +0.72  win 55.3  med70  +0.54  Δbase  +0.57
+      T2→Z3→T1→T2→Z1                     n=   311  med  +0.68  win 56.3  med70  +1.07  Δbase  +0.53
+      Z2G→Z2G→Z2→T4→Z1                   n=   546  med  +0.65  win 54.4  med70  +0.08  Δbase  +0.50
+      T4→Z9→T4→T2G→Z1                    n=   421  med  +0.65  win 54.6  med70  +0.80  Δbase  +0.50
+      ···
+      T1G→T2G→T2→T2→Z1                   n=   337  med  -0.42  win 46.9  med70  -0.26  Δbase  -0.57
+      T2→Z9→Z2→T4→Z1                     n=   464  med  -0.43  win 45.5  med70  +0.17  Δbase  -0.58
+      Z4→Z2→T1→T2→Z1                     n=   370  med  -0.48  win 46.2  med70  -0.31  Δbase  -0.63
+      Z4→T3→T2G→T2G→Z1                   n=   409  med  -0.50  win 44.7  med70  -0.41  Δbase  -0.64
+      T2→T2G→Z9→T1→Z1                    n=   375  med  -0.56  win 46.7  med70  -0.01  Δbase  -0.71
+    ── entry-bar L-line ──
+      L46                                n=386428  med  +0.17  win 51.4  med70  +0.36  Δbase  +0.02
+      L25                                n=129744  med  +0.13  win 51.0  med70  +0.26  Δbase  -0.02
+      L5                                 n=169625  med  +0.13  win 51.0  med70  +0.23  Δbase  -0.02
+    ── entry-bar suffix ──
+      NR                                 n= 22529  med  +0.23  win 52.0  med70  +0.37  Δbase  +0.09
+      NUR                                n= 56171  med  +0.19  win 51.7  med70  +0.35  Δbase  +0.04
+      ND                                 n= 27478  med  +0.16  win 51.4  med70  +0.35  Δbase  +0.02
+      ED                                 n=126369  med  +0.16  win 51.3  med70  +0.32  Δbase  +0.01
+      NH                                 n= 69250  med  +0.15  win 51.2  med70  +0.33  Δbase  +0.00
+      EB                                 n= 84113  med  +0.14  win 51.2  med70  +0.29  Δbase  -0.00
+      EDP                                n=205408  med  +0.14  win 51.1  med70  +0.28  Δbase  -0.01
+      NB                                 n= 29732  med  +0.12  win 51.0  med70  +0.33  Δbase  -0.03
+      NDP                                n= 64757  med  +0.11  win 50.9  med70  +0.29  Δbase  -0.03
+   ▼  EDP                             n=205408  med  +0.14  win 51.1  med70  +0.28  Δbase  -0.01
+   ▼  NB                              n= 29732  med  +0.12  win 51.0  med70  +0.33  Δbase  -0.03
+   ▼  NDP                             n= 64757  med  +0.11  win 50.9  med70  +0.29  Δbase  -0.03
+
+##### ENDING Z10 — base n=146,310 med+0.19 win51.7 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T3→Z5→Z10                          n=   315  med  +0.75  win 56.2  med70  +1.25  Δbase  +0.56
+      T5→Z4→Z10                          n=   972  med  +0.57  win 54.6  med70  +0.68  Δbase  +0.38
+      T4→Z5→Z10                          n=   406  med  +0.53  win 55.2  med70  -0.16  Δbase  +0.34
+      Z3→Z6→Z10                          n=   376  med  +0.53  win 53.5  med70  +0.20  Δbase  +0.33
+      T4→Z1G→Z10                         n=   422  med  +0.48  win 54.5  med70  +1.02  Δbase  +0.28
+      T2G→Z5→Z10                         n=   594  med  +0.43  win 53.2  med70  +0.93  Δbase  +0.24
+      T2→Z5→Z10                          n=   759  med  +0.43  win 54.2  med70  +0.30  Δbase  +0.23
+      T3→Z3→Z10                          n=  1021  med  +0.42  win 54.4  med70  +0.60  Δbase  +0.23
+      T1→Z3→Z10                          n=  1500  med  +0.41  win 54.1  med70  +0.12  Δbase  +0.22
+      T9→Z9→Z10                          n=  1159  med  +0.41  win 53.9  med70  +0.54  Δbase  +0.21
+      T5→Z1G→Z10                         n=   375  med  +0.39  win 52.8  med70  +1.00  Δbase  +0.19
+      T5→Z1→Z10                          n=   427  med  +0.36  win 52.2  med70  +0.10  Δbase  +0.16
+      T4→Z9→Z10                          n=  2612  med  +0.35  win 52.5  med70  +0.39  Δbase  +0.16
+      Z5→Z6→Z10                          n=   449  med  +0.34  win 52.8  med70  -0.04  Δbase  +0.15
+      T2→Z9→Z10                          n=  3222  med  +0.34  win 52.8  med70  +0.26  Δbase  +0.15
+      ···
+      T3→Z1G→Z10                         n=   435  med  -0.10  win 49.0  med70  +0.42  Δbase  -0.29
+      T6→Z4→Z10                          n=   365  med  -0.17  win 49.3  med70  +0.32  Δbase  -0.37
+      Z10→Z2G→Z10                        n=   545  med  -0.19  win 49.0  med70  -0.37  Δbase  -0.38
+      Z10→Z2→Z10                         n=   411  med  -0.21  win 47.7  med70  -0.29  Δbase  -0.41
+      Z9→Z6→Z10                          n=   876  med  -0.21  win 47.7  med70  -0.48  Δbase  -0.41
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T4→T2→Z9→Z10                       n=   435  med  +0.95  win 56.6  med70  +0.70  Δbase  +0.76
+      Z2→T1→Z3→Z10                       n=   340  med  +0.77  win 57.4  med70  +0.79  Δbase  +0.57
+      T9→T2G→Z1→Z10                      n=   323  med  +0.66  win 53.9  med70  +0.12  Δbase  +0.47
+      T4→T2→Z1→Z10                       n=   405  med  +0.64  win 54.8  med70  +1.08  Δbase  +0.45
+      Z2→T4→Z9→Z10                       n=   535  med  +0.63  win 55.1  med70  +0.67  Δbase  +0.43
+      Z2G→T1→Z3→Z10                      n=   308  med  +0.58  win 57.1  med70  +0.12  Δbase  +0.39
+      T9→Z4→Z2→Z10                       n=   645  med  +0.58  win 56.3  med70  +0.28  Δbase  +0.38
+      T1→Z9→Z2G→Z10                      n=   365  med  +0.57  win 54.2  med70  +0.94  Δbase  +0.38
+      Z2G→T4→Z9→Z10                      n=   496  med  +0.56  win 53.6  med70  +0.79  Δbase  +0.37
+      Z2G→T4→Z4→Z10                      n=   310  med  +0.56  win 55.8  med70  +0.41  Δbase  +0.37
+      Z2→T4→Z3→Z10                       n=   417  med  +0.55  win 53.5  med70  +0.28  Δbase  +0.35
+      T9→T2G→Z9→Z10                      n=   376  med  +0.51  win 55.3  med70  +0.95  Δbase  +0.32
+      T2G→T2→Z4→Z10                      n=   985  med  +0.48  win 54.5  med70  +0.74  Δbase  +0.29
+      Z2G→T9→Z4→Z10                      n=   593  med  +0.47  win 53.3  med70  +0.27  Δbase  +0.27
+      T3→Z4→Z2→Z10                       n=   387  med  +0.45  win 53.2  med70  +0.43  Δbase  +0.26
+      ···
+      T2→Z1→Z2G→Z10                      n=   473  med  -0.36  win 46.5  med70  +0.28  Δbase  -0.55
+      Z1→T9→Z4→Z10                       n=   301  med  -0.37  win 45.8  med70  +0.16  Δbase  -0.56
+      T2→Z9→Z2G→Z10                      n=   738  med  -0.37  win 46.9  med70  -0.24  Δbase  -0.56
+      T3→T2G→Z4→Z10                      n=   352  med  -0.59  win 46.3  med70  -0.43  Δbase  -0.79
+      Z3→T9→Z4→Z10                       n=   304  med  -0.71  win 45.1  med70  -0.79  Δbase  -0.90
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→Z2→Z2→Z2→Z10                   n=   309  med  +0.56  win 54.4  med70  +0.83  Δbase  +0.37
+      Z2→Z2G→Z2→Z2→Z10                   n=   329  med  +0.50  win 52.3  med70  -0.07  Δbase  +0.31
+      Z2→Z2→Z2→Z2→Z10                    n=   395  med  +0.38  win 54.4  med70  +0.12  Δbase  +0.18
+    ── entry-bar L-line ──
+      L34                                n= 51354  med  +0.25  win 52.2  med70  +0.40  Δbase  +0.06
+      L4                                 n= 19082  med  +0.18  win 51.3  med70  +0.27  Δbase  -0.01
+      L12                                n= 60316  med  +0.17  win 51.4  med70  +0.25  Δbase  -0.03
+      L2                                 n= 15554  med  +0.13  win 51.2  med70  +0.20  Δbase  -0.06
+    ── entry-bar suffix ──
+      N                                  n=  5365  med  +0.41  win 53.6  med70  +0.49  Δbase  +0.21
+      NU                                 n=  5764  med  +0.38  win 52.8  med70  +0.43  Δbase  +0.19
+      NP                                 n=  2408  med  +0.32  win 53.0  med70  +0.56  Δbase  +0.13
+      NDP                                n= 15723  med  +0.23  win 52.0  med70  +0.31  Δbase  +0.04
+      ND                                 n= 49218  med  +0.21  win 51.8  med70  +0.36  Δbase  +0.02
+      NB                                 n= 12461  med  +0.20  win 51.6  med70  +0.34  Δbase  +0.01
+      NR                                 n= 27359  med  +0.15  win 51.4  med70  +0.25  Δbase  -0.04
+      NUR                                n= 13663  med  +0.12  win 51.0  med70  +0.24  Δbase  -0.08
+      NH                                 n= 14349  med  +0.09  win 50.7  med70  +0.11  Δbase  -0.10
+   ▼  NR                              n= 27359  med  +0.15  win 51.4  med70  +0.25  Δbase  -0.04
+   ▼  NUR                             n= 13663  med  +0.12  win 51.0  med70  +0.24  Δbase  -0.08
+   ▼  NH                              n= 14349  med  +0.09  win 50.7  med70  +0.11  Δbase  -0.10
+
+##### ENDING Z11 — base n=150,757 med+0.15 win51.3 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T10→Z4→Z11                         n=   439  med  +0.67  win 54.9  med70  +0.54  Δbase  +0.52
+      T4→Z5→Z11                          n=   510  med  +0.62  win 52.4  med70  +0.14  Δbase  +0.47
+      T2G→Z7→Z11                         n=   581  med  +0.58  win 55.1  med70  +0.50  Δbase  +0.43
+      T2G→Z5→Z11                         n=   986  med  +0.46  win 54.5  med70  +0.57  Δbase  +0.31
+      Z5→Z2G→Z11                         n=   704  med  +0.43  win 53.8  med70  +0.44  Δbase  +0.28
+      T1→Z3→Z11                          n=  1427  med  +0.41  win 54.5  med70  +0.56  Δbase  +0.27
+      Z2G→Z7→Z11                         n=   518  med  +0.36  win 52.1  med70  +0.81  Δbase  +0.21
+      T2G→Z3→Z11                         n=  2539  med  +0.35  win 52.7  med70  +0.74  Δbase  +0.20
+      Z3→Z7→Z11                          n=   309  med  +0.35  win 53.4  med70  -0.20  Δbase  +0.20
+      Z1→Z2G→Z11                         n=  2401  med  +0.32  win 52.9  med70  +0.83  Δbase  +0.17
+      T4→Z1→Z11                          n=  1104  med  +0.31  win 53.3  med70  -0.09  Δbase  +0.17
+      T1→Z1→Z11                          n=   738  med  +0.30  win 53.3  med70  +0.49  Δbase  +0.16
+      T6→Z9→Z11                          n=   502  med  +0.29  win 52.0  med70  -0.30  Δbase  +0.14
+      T2→Z4→Z11                          n=  3951  med  +0.27  win 52.1  med70  +0.34  Δbase  +0.12
+      T2G→Z1→Z11                         n=  2152  med  +0.27  win 52.2  med70  +0.32  Δbase  +0.12
+      ···
+      T1→Z5→Z11                          n=   406  med  -0.21  win 47.5  med70  -0.19  Δbase  -0.36
+      Z4→Z10→Z11                         n=   487  med  -0.31  win 46.4  med70  -0.27  Δbase  -0.46
+      Z2G→Z6→Z11                         n=   334  med  -0.37  win 46.4  med70  +1.05  Δbase  -0.52
+      Z1G→Z2→Z11                         n=   387  med  -0.39  win 46.3  med70  -0.10  Δbase  -0.54
+      Z9→Z10→Z11                         n=   348  med  -0.40  win 46.3  med70  -0.62  Δbase  -0.55
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T4→T2G→Z3→Z11                      n=   321  med  +0.85  win 56.1  med70  +0.45  Δbase  +0.70
+      T4→Z3→Z2G→Z11                      n=   470  med  +0.82  win 58.9  med70  +0.79  Δbase  +0.67
+      T2G→T2→Z3→Z11                      n=   610  med  +0.82  win 57.5  med70  +0.71  Δbase  +0.67
+      T4→T2→Z1→Z11                       n=   446  med  +0.76  win 56.7  med70  +1.12  Δbase  +0.61
+      T4→Z9→Z2G→Z11                      n=   632  med  +0.68  win 55.1  med70  +0.66  Δbase  +0.53
+      T2G→T2G→Z3→Z11                     n=   558  med  +0.61  win 54.3  med70  +1.09  Δbase  +0.46
+      Z2→T1→Z9→Z11                       n=   694  med  +0.59  win 55.8  med70  +0.38  Δbase  +0.44
+      T9→Z1→Z2G→Z11                      n=   394  med  +0.57  win 55.3  med70  +0.37  Δbase  +0.43
+      T2G→T2G→Z9→Z11                     n=   857  med  +0.56  win 55.2  med70  +0.84  Δbase  +0.42
+      T4→T2→Z4→Z11                       n=   601  med  +0.52  win 54.9  med70  +0.34  Δbase  +0.37
+      T2→T2G→Z3→Z11                      n=   542  med  +0.51  win 53.5  med70  +0.91  Δbase  +0.36
+      T3→T2→Z3→Z11                       n=   313  med  +0.51  win 55.6  med70  +0.82  Δbase  +0.36
+      T1→T2→Z4→Z11                       n=   350  med  +0.49  win 54.9  med70  +0.82  Δbase  +0.34
+      T4→T2G→Z4→Z11                      n=   453  med  +0.49  win 53.6  med70  +0.47  Δbase  +0.34
+      T2G→T2G→Z4→Z11                     n=   623  med  +0.46  win 53.5  med70  +0.20  Δbase  +0.31
+      ···
+      Z3→Z2G→Z2→Z11                      n=   550  med  -0.31  win 46.4  med70  -0.14  Δbase  -0.46
+      Z2→T9→Z4→Z11                       n=   786  med  -0.32  win 48.2  med70  -0.08  Δbase  -0.47
+      T3→T2→Z4→Z11                       n=   360  med  -0.36  win 46.9  med70  +0.09  Δbase  -0.51
+      Z9→Z2→Z2→Z11                       n=  1174  med  -0.39  win 46.8  med70  -0.04  Δbase  -0.54
+      Z2→T4→Z4→Z11                       n=   322  med  -0.55  win 44.7  med70  +0.11  Δbase  -0.69
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→Z2→Z2→Z2G→Z11                  n=   306  med  +0.89  win 58.5  med70  +1.04  Δbase  +0.74
+      Z4→Z2→Z2→Z2→Z11                    n=   400  med  +0.71  win 56.5  med70  +0.53  Δbase  +0.56
+      Z2G→Z2→Z2→Z2→Z11                   n=   417  med  +0.60  win 54.2  med70  +0.40  Δbase  +0.45
+      Z2→Z2→Z2G→Z2→Z11                   n=   402  med  +0.35  win 54.2  med70  +0.26  Δbase  +0.20
+      T2→T2→Z9→Z2→Z11                    n=   354  med  +0.33  win 53.4  med70  -0.33  Δbase  +0.18
+      Z2→Z2G→Z2→Z2→Z11                   n=   391  med  +0.32  win 54.5  med70  +0.45  Δbase  +0.18
+      Z2→Z2G→Z2→Z2G→Z11                  n=   303  med  +0.30  win 52.8  med70  +0.43  Δbase  +0.15
+      Z2→Z2→Z2G→Z2G→Z11                  n=   321  med  +0.30  win 52.0  med70  -0.45  Δbase  +0.15
+      Z2→Z2→Z2→Z2→Z11                    n=   672  med  +0.28  win 52.4  med70  +0.66  Δbase  +0.13
+      T2→T2→T2→Z4→Z11                    n=   303  med  +0.13  win 50.2  med70  -0.18  Δbase  -0.02
+      Z9→Z2→Z2→Z2→Z11                    n=   398  med  +0.12  win 51.0  med70  -0.23  Δbase  -0.03
+      Z2→Z2→Z2→Z2G→Z11                   n=   412  med  +0.09  win 51.5  med70  +0.36  Δbase  -0.06
+      T2→T2→T2→Z9→Z11                    n=   420  med  -0.02  win 49.3  med70  +0.43  Δbase  -0.17
+      T2→Z4→Z2→Z2→Z11                    n=   354  med  -0.05  win 49.2  med70  +0.20  Δbase  -0.20
+      T2→T2→Z4→Z2→Z11                    n=   405  med  -0.26  win 45.2  med70  +0.61  Δbase  -0.41
+      T2→T2→T2→Z9→Z11                    n=   420  med  -0.02  win 49.3  med70  +0.43  Δbase  -0.17
+      T2→Z4→Z2→Z2→Z11                    n=   354  med  -0.05  win 49.2  med70  +0.20  Δbase  -0.20
+      T2→T2→Z4→Z2→Z11                    n=   405  med  -0.26  win 45.2  med70  +0.61  Δbase  -0.41
+      T2→T2G→T2→Z9→Z11                   n=   300  med  -0.27  win 49.0  med70  +0.25  Δbase  -0.42
+      T2→Z9→Z2→Z2→Z11                    n=   346  med  -0.69  win 44.5  med70  -0.52  Δbase  -0.84
+    ── entry-bar L-line ──
+      L12                                n= 97776  med  +0.16  win 51.6  med70  +0.30  Δbase  +0.02
+      L34                                n= 25313  med  +0.15  win 51.2  med70  +0.22  Δbase  +0.00
+      L3                                 n= 27668  med  +0.07  win 50.4  med70  +0.25  Δbase  -0.08
+    ── entry-bar suffix ──
+      NH                                 n=  4847  med  +0.21  win 51.8  med70  +0.31  Δbase  +0.06
+      NP                                 n=  1549  med  +0.18  win 51.8  med70  +0.48  Δbase  +0.03
+      NUR                                n= 16330  med  +0.17  win 51.6  med70  +0.16  Δbase  +0.02
+      NB                                 n= 30194  med  +0.17  win 51.4  med70  +0.24  Δbase  +0.02
+      NU                                 n= 19201  med  +0.16  win 51.5  med70  +0.09  Δbase  +0.01
+      EU                                 n= 51329  med  +0.13  win 51.1  med70  +0.32  Δbase  -0.01
+      EB                                 n= 12659  med  +0.13  win 51.2  med70  +0.53  Δbase  -0.02
+      EUR                                n=  8666  med  +0.12  win 51.0  med70  +0.39  Δbase  -0.03
+      NDP                                n=  5982  med  +0.10  win 50.9  med70  +0.32  Δbase  -0.05
+   ▼  EB                              n= 12659  med  +0.13  win 51.2  med70  +0.53  Δbase  -0.02
+   ▼  EUR                             n=  8666  med  +0.12  win 51.0  med70  +0.39  Δbase  -0.03
+   ▼  NDP                             n=  5982  med  +0.10  win 50.9  med70  +0.32  Δbase  -0.05
+
+##### ENDING Z12 — base n=38,787 med+0.12 win50.9 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z3→T5→Z12                          n=   307  med  +0.48  win 53.7  med70  +0.84  Δbase  +0.36
+      T3→T10→Z12                         n=   312  med  +0.44  win 53.2  med70  +0.18  Δbase  +0.31
+      Z9→T9→Z12                          n=  1123  med  +0.31  win 53.1  med70  +0.22  Δbase  +0.19
+      Z6→T9→Z12                          n=   330  med  +0.30  win 52.7  med70  +0.96  Δbase  +0.18
+      Z2G→T5→Z12                         n=   809  med  +0.24  win 52.7  med70  +0.78  Δbase  +0.11
+      T2G→T10→Z12                        n=   628  med  +0.18  win 52.5  med70  +0.23  Δbase  +0.06
+      T2→T2G→Z12                         n=  1550  med  +0.17  win 51.2  med70  +0.42  Δbase  +0.04
+      Z2→T5→Z12                          n=  1042  med  +0.15  win 51.2  med70  +0.38  Δbase  +0.02
+      T2→T2→Z12                          n=  1700  med  +0.12  win 50.8  med70  +0.60  Δbase  -0.00
+      T4→T2G→Z12                         n=   884  med  +0.12  win 50.9  med70  +0.14  Δbase  -0.00
+      T1→T2→Z12                          n=   471  med  +0.12  win 51.0  med70  +0.22  Δbase  -0.00
+      T2→T10→Z12                         n=   842  med  +0.10  win 50.8  med70  +0.56  Δbase  -0.03
+      Z4→T9→Z12                          n=  1306  med  +0.09  win 50.7  med70  +0.09  Δbase  -0.03
+      T4→T2→Z12                          n=   964  med  +0.07  win 50.8  med70  +0.12  Δbase  -0.05
+      T2G→T2G→Z12                        n=  1265  med  +0.07  win 50.8  med70  +0.10  Δbase  -0.05
+      ···
+      T9→T2G→Z12                         n=   865  med  -0.16  win 48.4  med70  +0.17  Δbase  -0.28
+      T9→T2→Z12                          n=   944  med  -0.16  win 48.1  med70  -0.15  Δbase  -0.28
+      T3→T2G→Z12                         n=   544  med  -0.18  win 48.3  med70  +0.01  Δbase  -0.30
+      Z2G→T3→Z12                         n=   468  med  -0.21  win 49.4  med70  -0.37  Δbase  -0.33
+      Z2→T3→Z12                          n=   521  med  -0.22  win 47.8  med70  +0.46  Δbase  -0.34
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T2→Z4→T9→Z12                       n=   313  med  +0.49  win 53.4  med70  +0.68  Δbase  +0.36
+      T2→T2→T2→Z12                       n=   411  med  +0.27  win 51.6  med70  +1.10  Δbase  +0.15
+      T2→T2→T2G→Z12                      n=   352  med  +0.14  win 50.6  med70  +0.31  Δbase  +0.02
+      Z9→Z2→T9→Z12                       n=   307  med  +0.10  win 51.1  med70  +0.57  Δbase  -0.03
+      T2→T2G→T2G→Z12                     n=   306  med  +0.09  win 50.7  med70  +0.20  Δbase  -0.03
+      T2G→T2→T2G→Z12                     n=   300  med  -0.12  win 49.0  med70  +0.92  Δbase  -0.24
+      Z2G→Z2→T9→Z12                      n=   391  med  -0.15  win 47.8  med70  -0.19  Δbase  -0.28
+      Z2→Z2→T9→Z12                       n=   498  med  -0.17  win 48.2  med70  -0.26  Δbase  -0.29
+      Z2→Z2G→T9→Z12                      n=   328  med  -0.28  win 47.6  med70  +0.42  Δbase  -0.40
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+    ── entry-bar L-line ──
+      L46                                n= 23352  med  +0.16  win 51.3  med70  +0.33  Δbase  +0.04
+      L25                                n=  6906  med  +0.07  win 50.5  med70  +0.16  Δbase  -0.06
+      L5                                 n=  8529  med  +0.05  win 50.3  med70  +0.23  Δbase  -0.07
+    ── entry-bar suffix ──
+      NR                                 n=   596  med  +0.32  win 53.0  med70  +0.69  Δbase  +0.20
+      NB                                 n=  1602  med  +0.28  win 52.5  med70  +0.72  Δbase  +0.15
+      ED                                 n=  6012  med  +0.22  win 51.5  med70  +0.60  Δbase  +0.10
+      NUR                                n=  3136  med  +0.16  win 51.2  med70  +0.44  Δbase  +0.04
+      EDP                                n= 12853  med  +0.14  win 51.1  med70  +0.29  Δbase  +0.02
+      NDP                                n=  5134  med  +0.06  win 50.5  med70  +0.00  Δbase  -0.06
+      NH                                 n=  4648  med  +0.06  win 50.4  med70  +0.16  Δbase  -0.06
+      EB                                 n=  3582  med  +0.00  win 49.8  med70  +0.05  Δbase  -0.12
+      ND                                 n=  1224  med  +0.00  win 49.8  med70  +0.29  Δbase  -0.12
+   ▼  NH                              n=  4648  med  +0.06  win 50.4  med70  +0.16  Δbase  -0.06
+   ▼  EB                              n=  3582  med  +0.00  win 49.8  med70  +0.05  Δbase  -0.12
+   ▼  ND                              n=  1224  med  +0.00  win 49.8  med70  +0.29  Δbase  -0.12
+
+##### ENDING Z1G — base n=288,658 med+0.16 win51.3 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z1→T4→Z1G                          n=  1041  med  +0.80  win 55.8  med70  +0.93  Δbase  +0.64
+      Z4→T3→Z1G                          n=  4053  med  +0.69  win 55.5  med70  +0.85  Δbase  +0.52
+      Z5→T1→Z1G                          n=   512  med  +0.61  win 53.9  med70  +1.27  Δbase  +0.45
+      Z3→T1G→Z1G                         n=   427  med  +0.60  win 55.5  med70  +0.12  Δbase  +0.43
+      Z1G→T5→Z1G                         n=   623  med  +0.54  win 54.6  med70  +1.08  Δbase  +0.38
+      Z6→T3→Z1G                          n=   764  med  +0.49  win 53.4  med70  +1.08  Δbase  +0.32
+      T12→T2G→Z1G                        n=   304  med  +0.48  win 53.9  med70  +0.90  Δbase  +0.31
+      Z3→T4→Z1G                          n=  2685  med  +0.47  win 53.3  med70  +0.82  Δbase  +0.31
+      Z5→T5→Z1G                          n=   628  med  +0.47  win 54.6  med70  +0.73  Δbase  +0.31
+      Z1G→T3→Z1G                         n=   489  med  +0.47  win 53.8  med70  +0.95  Δbase  +0.30
+      T10→T6→Z1G                         n=   349  med  +0.44  win 51.9  med70  +0.68  Δbase  +0.28
+      Z2G→T1→Z1G                         n=  3134  med  +0.42  win 53.8  med70  +0.60  Δbase  +0.25
+      Z10→T1G→Z1G                        n=   432  med  +0.42  win 53.5  med70  +0.88  Δbase  +0.25
+      Z10→T4→Z1G                         n=   797  med  +0.42  win 53.8  med70  +0.59  Δbase  +0.25
+      Z5→T1G→Z1G                         n=   617  med  +0.40  win 53.0  med70  +0.31  Δbase  +0.24
+      ···
+      T4→T2G→Z1G                         n=  6706  med  -0.10  win 49.0  med70  +0.10  Δbase  -0.26
+      T1→T10→Z1G                         n=  1248  med  -0.10  win 49.4  med70  +0.13  Δbase  -0.27
+      T2→T12→Z1G                         n=   522  med  -0.14  win 48.7  med70  -0.44  Δbase  -0.30
+      T1G→T2G→Z1G                        n=  1645  med  -0.15  win 48.5  med70  +0.34  Δbase  -0.31
+      T4→T2→Z1G                          n=  9708  med  -0.18  win 48.2  med70  +0.00  Δbase  -0.35
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T9→Z4→T3→Z1G                       n=   703  med  +0.92  win 56.5  med70  +1.15  Δbase  +0.76
+      T2G→Z9→T5→Z1G                      n=   406  med  +0.83  win 56.4  med70  +0.73  Δbase  +0.67
+      Z9→T3→T2G→Z1G                      n=   400  med  +0.83  win 58.0  med70  +1.66  Δbase  +0.66
+      Z2G→Z2G→T4→Z1G                     n=  1037  med  +0.80  win 57.3  med70  +1.07  Δbase  +0.64
+      T4→Z4→T3→Z1G                       n=   390  med  +0.79  win 56.4  med70  +0.62  Δbase  +0.63
+      Z2→Z2G→T1→Z1G                      n=   724  med  +0.77  win 56.4  med70  +0.80  Δbase  +0.61
+      T2→Z9→T3→Z1G                       n=   633  med  +0.76  win 56.6  med70  +1.50  Δbase  +0.60
+      T2G→Z9→T4→Z1G                      n=   810  med  +0.70  win 54.4  med70  +0.57  Δbase  +0.53
+      T4→Z4→T9→Z1G                       n=   784  med  +0.69  win 55.4  med70  +1.11  Δbase  +0.53
+      T3→Z4→T3→Z1G                       n=   491  med  +0.68  win 55.8  med70  +0.73  Δbase  +0.51
+      Z2→Z2G→T3→Z1G                      n=  1111  med  +0.67  win 54.5  med70  +0.29  Δbase  +0.51
+      Z3→Z2G→T5→Z1G                      n=   300  med  +0.67  win 56.3  med70  +0.78  Δbase  +0.50
+      T2→Z1→T3→Z1G                       n=   576  med  +0.64  win 55.9  med70  +1.04  Δbase  +0.48
+      Z2G→T4→T10→Z1G                     n=   356  med  +0.64  win 54.5  med70  +0.42  Δbase  +0.47
+      T3→Z3→T9→Z1G                       n=   323  med  +0.62  win 53.9  med70  +0.73  Δbase  +0.46
+      ···
+      Z9→T1→T2G→Z1G                      n=   790  med  -0.49  win 45.7  med70  -0.57  Δbase  -0.66
+      T4→Z9→T5→Z1G                       n=   337  med  -0.50  win 45.7  med70  -0.62  Δbase  -0.66
+      Z9→Z2→T3→Z1G                       n=   864  med  -0.58  win 45.5  med70  -0.20  Δbase  -0.75
+      Z4→Z2G→T3→Z1G                      n=   675  med  -0.65  win 43.1  med70  -0.50  Δbase  -0.81
+      Z9→Z2G→T3→Z1G                      n=   694  med  -1.01  win 43.5  med70  -1.23  Δbase  -1.17
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z2G→Z2→T3→Z1G                   n=   317  med  +0.95  win 56.2  med70  +0.43  Δbase  +0.78
+      Z9→Z2G→Z2→T9→Z1G                   n=   332  med  +0.86  win 55.1  med70  +0.59  Δbase  +0.70
+      Z2→Z2G→Z2→T4→Z1G                   n=   309  med  +0.84  win 57.0  med70  +0.86  Δbase  +0.67
+      T3→T2→T2G→T2→Z1G                   n=   370  med  +0.79  win 58.4  med70  +1.03  Δbase  +0.62
+      Z2→Z2G→Z2G→T9→Z1G                  n=   432  med  +0.76  win 57.2  med70  +1.30  Δbase  +0.60
+      Z2→T9→T2G→T2G→Z1G                  n=   320  med  +0.76  win 54.4  med70  +0.53  Δbase  +0.59
+      Z2→Z2G→Z2→T9→Z1G                   n=   599  med  +0.73  win 55.3  med70  +0.90  Δbase  +0.56
+      Z2→Z2→Z2→T3→Z1G                    n=   427  med  +0.72  win 54.8  med70  +0.62  Δbase  +0.55
+      T9→Z4→T9→T2→Z1G                    n=   316  med  +0.68  win 56.6  med70  +0.43  Δbase  +0.52
+      T2→Z4→T9→T2G→Z1G                   n=   312  med  +0.68  win 54.2  med70  +1.15  Δbase  +0.52
+      Z2→T9→T2→T2G→Z1G                   n=   399  med  +0.68  win 53.9  med70  +0.85  Δbase  +0.51
+      T9→Z4→Z2→T9→Z1G                    n=   323  med  +0.68  win 54.5  med70  +0.73  Δbase  +0.51
+      Z2G→Z2→Z2G→T9→Z1G                  n=   450  med  +0.64  win 55.3  med70  +0.97  Δbase  +0.48
+      Z2→T4→T2G→T2→Z1G                   n=   402  med  +0.63  win 56.2  med70  +0.83  Δbase  +0.47
+      T3→T2→T2→T2→Z1G                    n=   460  med  +0.61  win 55.4  med70  +0.23  Δbase  +0.44
+      ···
+      Z2G→T4→T2→T2G→Z1G                  n=   308  med  -0.51  win 47.1  med70  +0.12  Δbase  -0.67
+      T4→Z9→Z2→T9→Z1G                    n=   300  med  -0.54  win 44.7  med70  -0.47  Δbase  -0.70
+      Z9→T4→T2→T2→Z1G                    n=   511  med  -0.56  win 44.4  med70  +0.38  Δbase  -0.72
+      Z2→Z2→T1→T2→Z1G                    n=   382  med  -0.57  win 45.3  med70  -0.09  Δbase  -0.74
+      T2→Z9→T4→T2→Z1G                    n=   459  med  -0.80  win 41.6  med70  -0.57  Δbase  -0.96
+    ── entry-bar L-line ──
+      L5                                 n=143287  med  +0.17  win 51.4  med70  +0.39  Δbase  +0.00
+      L46                                n=126477  med  +0.16  win 51.2  med70  +0.36  Δbase  -0.00
+      L25                                n= 18891  med  +0.14  win 51.2  med70  +0.26  Δbase  -0.02
+    ── entry-bar suffix ──
+      NR                                 n=  3596  med  +0.25  win 51.9  med70  +0.30  Δbase  +0.09
+      NUR                                n=  6392  med  +0.21  win 51.8  med70  +0.45  Δbase  +0.05
+      NB                                 n=  4927  med  +0.20  win 51.7  med70  +0.38  Δbase  +0.03
+      ND                                 n=  6503  med  +0.18  win 51.4  med70  +0.36  Δbase  +0.02
+      ED                                 n=171804  med  +0.18  win 51.4  med70  +0.41  Δbase  +0.01
+      EB                                 n= 36368  med  +0.17  win 51.3  med70  +0.32  Δbase  +0.00
+      EDP                                n= 42238  med  +0.12  win 51.0  med70  +0.30  Δbase  -0.04
+      NDP                                n=  8966  med  +0.12  win 50.9  med70  +0.26  Δbase  -0.05
+      NH                                 n=  7864  med  +0.11  win 51.2  med70  +0.27  Δbase  -0.05
+   ▼  EDP                             n= 42238  med  +0.12  win 51.0  med70  +0.30  Δbase  -0.04
+   ▼  NDP                             n=  8966  med  +0.12  win 50.9  med70  +0.26  Δbase  -0.05
+   ▼  NH                              n=  7864  med  +0.11  win 51.2  med70  +0.27  Δbase  -0.05
+
+##### ENDING Z2 — base n=2,080,302 med+0.21 win51.7 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→T2→Z2                          n=   371  med  +1.36  win 54.4  med70  +1.53  Δbase  +1.15
+      Z2→Z4→Z2                           n=   919  med  +1.27  win 56.4  med70  +1.54  Δbase  +1.06
+      Z3→T9→Z2                           n=   302  med  +1.20  win 57.0  med70  +0.81  Δbase  +0.99
+      T3→Z2→Z2                           n=   649  med  +1.02  win 55.6  med70  +1.33  Δbase  +0.81
+      T2→Z2→Z2                           n=  1519  med  +0.97  win 56.1  med70  +1.44  Δbase  +0.76
+      Z4→Z1→Z2                           n=   341  med  +0.96  win 52.8  med70  +0.75  Δbase  +0.75
+      Z1→T9→Z2                           n=   334  med  +0.90  win 55.1  med70  +0.82  Δbase  +0.69
+      Z4→T9→Z2                           n=   676  med  +0.89  win 54.1  med70  +0.23  Δbase  +0.68
+      T2G→T2→Z2                          n=  1281  med  +0.88  win 54.8  med70  +1.84  Δbase  +0.67
+      T1→T2→Z2                           n=   571  med  +0.88  win 55.2  med70  +1.27  Δbase  +0.67
+      T9→T2→Z2                           n=   777  med  +0.87  win 55.3  med70  +1.14  Δbase  +0.66
+      T1G→Z2G→Z2                         n=   378  med  +0.84  win 54.0  med70  +1.14  Δbase  +0.63
+      Z2G→Z4→Z2                          n=   921  med  +0.81  win 55.7  med70  +0.90  Δbase  +0.60
+      T1G→T2→Z2                          n=   420  med  +0.78  win 53.8  med70  +0.40  Δbase  +0.57
+      T2→T2G→Z2                          n=  1212  med  +0.74  win 54.0  med70  +0.95  Δbase  +0.53
+      ···
+      T5→Z2→Z2                           n=   337  med  -0.17  win 48.1  med70  +0.00  Δbase  -0.39
+      Z9→T9→Z2                           n=   327  med  -0.26  win 47.7  med70  +0.37  Δbase  -0.47
+      Z2G→T1G→Z2                         n=   367  med  -0.26  win 48.0  med70  +0.75  Δbase  -0.47
+      Z1→Z4→Z2                           n=   336  med  -0.34  win 47.6  med70  +0.15  Δbase  -0.55
+      Z2→Z3→Z2                           n=   400  med  -1.31  win 45.5  med70  +0.23  Δbase  -1.52
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z5→T9→Z4→Z2                        n=   862  med  +1.00  win 59.5  med70  +0.62  Δbase  +0.79
+      Z5→T9→Z1→Z2                        n=   417  med  +0.96  win 56.6  med70  +0.66  Δbase  +0.75
+      T9→T12→Z9→Z2                       n=   405  med  +0.93  win 59.5  med70  +1.74  Δbase  +0.72
+      T12→Z3→Z2G→Z2                      n=   306  med  +0.92  win 57.8  med70  +1.19  Δbase  +0.71
+      Z11→T3→Z1→Z2                       n=   310  med  +0.91  win 60.3  med70  +1.28  Δbase  +0.69
+      T2G→T12→Z3→Z2                      n=   345  med  +0.89  win 55.1  med70  +1.20  Δbase  +0.68
+      T3→T12→Z4→Z2                       n=   307  med  +0.88  win 56.0  med70  +0.78  Δbase  +0.67
+      Z1→T4→Z1→Z2                        n=   561  med  +0.82  win 56.1  med70  +0.64  Δbase  +0.60
+      Z11→Z2G→Z2G→Z2                     n=  1394  med  +0.82  win 56.8  med70  +0.79  Δbase  +0.60
+      T3→Z4→Z10→Z2                       n=   342  med  +0.80  win 56.1  med70  +0.94  Δbase  +0.59
+      T4→T12→Z4→Z2                       n=   403  med  +0.78  win 55.3  med70  +0.76  Δbase  +0.57
+      Z5→T3→Z4→Z2                        n=   462  med  +0.77  win 58.7  med70  +0.78  Δbase  +0.56
+      Z9→Z10→Z2→Z2                       n=   510  med  +0.77  win 57.3  med70  +0.67  Δbase  +0.55
+      T2G→Z3→Z11→Z2                      n=   584  med  +0.76  win 57.4  med70  +0.89  Δbase  +0.55
+      T1→Z1G→Z2G→Z2                      n=   778  med  +0.74  win 54.8  med70  +0.90  Δbase  +0.53
+      ···
+      Z9→T5→Z1→Z2                        n=   629  med  -0.41  win 47.1  med70  +0.26  Δbase  -0.62
+      Z3→Z2G→Z10→Z2                      n=   371  med  -0.48  win 47.7  med70  -0.19  Δbase  -0.69
+      Z4→T9→Z12→Z2                       n=   316  med  -0.49  win 46.5  med70  -0.41  Δbase  -0.70
+      T9→Z7→Z2G→Z2                       n=   731  med  -0.54  win 46.0  med70  -0.03  Δbase  -0.75
+      T2→T12→Z1→Z2                       n=   555  med  -0.72  win 44.1  med70  -1.00  Δbase  -0.93
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z11→Z2G→Z2G→Z2→Z2                  n=   341  med  +1.48  win 60.7  med70  +1.72  Δbase  +1.26
+      Z1G→Z2→T4→Z9→Z2                    n=   432  med  +1.13  win 59.3  med70  +1.30  Δbase  +0.92
+      Z9→T4→Z1G→Z2→Z2                    n=   300  med  +1.07  win 57.3  med70  +1.37  Δbase  +0.86
+      Z2G→Z6→Z2G→Z2G→Z2                  n=   417  med  +0.99  win 57.1  med70  +1.23  Δbase  +0.78
+      T2→T2→Z4→Z11→Z2                    n=   303  med  +0.98  win 57.8  med70  +1.07  Δbase  +0.77
+      Z3→T9→T2G→Z9→Z2                    n=   498  med  +0.91  win 58.0  med70  +1.15  Δbase  +0.70
+      T4→Z5→Z2→Z2G→Z2                    n=   327  med  +0.90  win 56.6  med70  +0.21  Δbase  +0.68
+      T4→Z1G→Z2→Z2→Z2                    n=   463  med  +0.90  win 54.0  med70  +1.04  Δbase  +0.68
+      T5→T2G→Z9→Z2→Z2                    n=   383  med  +0.89  win 56.9  med70  +1.11  Δbase  +0.68
+      T4→Z4→T3→Z9→Z2                     n=   326  med  +0.89  win 56.4  med70  +0.98  Δbase  +0.68
+      T2→Z9→T3→Z1→Z2                     n=   381  med  +0.89  win 56.7  med70  +1.22  Δbase  +0.67
+      Z2G→Z11→Z2G→Z2→Z2                  n=   351  med  +0.88  win 59.0  med70  +1.25  Δbase  +0.67
+      Z9→Z11→Z2→Z2→Z2                    n=   394  med  +0.88  win 56.3  med70  +0.50  Δbase  +0.67
+      T9→Z5→Z2→Z2G→Z2                    n=   334  med  +0.88  win 59.9  med70  +1.13  Δbase  +0.67
+      T1G→Z4→Z2→Z2→Z2                    n=   591  med  +0.87  win 57.2  med70  +1.15  Δbase  +0.66
+      ···
+      T2→T2G→Z1G→Z2G→Z2                  n=   531  med  -0.63  win 44.8  med70  +0.26  Δbase  -0.84
+      T2G→Z1→T4→Z3→Z2                    n=   306  med  -0.65  win 43.1  med70  -0.74  Δbase  -0.87
+      Z3→T4→Z4→Z2G→Z2                    n=   433  med  -0.79  win 42.7  med70  -0.24  Δbase  -1.00
+      Z3→T1→Z4→Z2G→Z2                    n=   357  med  -0.86  win 44.0  med70  -0.43  Δbase  -1.07
+      Z2G→Z2G→Z11→Z2→Z2                  n=   310  med  -0.86  win 43.2  med70  -0.17  Δbase  -1.08
+    ── entry-bar L-line ──
+      L46                                n=1173854  med  +0.24  win 52.0  med70  +0.36  Δbase  +0.03
+      L5                                 n=537833  med  +0.21  win 51.8  med70  +0.29  Δbase  +0.00
+      L25                                n=368588  med  +0.13  win 51.0  med70  +0.24  Δbase  -0.08
+    ── entry-bar suffix ──
+      ED                                 n=1064804  med  +0.26  win 52.1  med70  +0.34  Δbase  +0.04
+      EDP                                n=221525  med  +0.20  win 51.7  med70  +0.35  Δbase  -0.01
+      NDP                                n= 83937  med  +0.18  win 51.5  med70  +0.31  Δbase  -0.04
+      ND                                 n=266876  med  +0.17  win 51.4  med70  +0.31  Δbase  -0.04
+      NB                                 n= 30930  med  +0.17  win 51.5  med70  +0.33  Δbase  -0.05
+      NH                                 n= 86888  med  +0.16  win 51.3  med70  +0.27  Δbase  -0.05
+      EB                                 n= 81306  med  +0.15  win 51.3  med70  +0.24  Δbase  -0.06
+      NUR                                n= 60714  med  +0.15  win 51.2  med70  +0.28  Δbase  -0.06
+      NR                                 n=183322  med  +0.15  win 51.2  med70  +0.28  Δbase  -0.07
+   ▼  EB                              n= 81306  med  +0.15  win 51.3  med70  +0.24  Δbase  -0.06
+   ▼  NUR                             n= 60714  med  +0.15  win 51.2  med70  +0.28  Δbase  -0.06
+   ▼  NR                              n=183322  med  +0.15  win 51.2  med70  +0.28  Δbase  -0.07
+
+##### ENDING Z2G — base n=1,811,071 med+0.22 win51.8 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→T5→Z2G                         n=   351  med  +1.74  win 59.3  med70  +2.51  Δbase  +1.52
+      Z2→T5→Z2G                          n=   324  med  +1.35  win 55.6  med70  +1.46  Δbase  +1.13
+      T3→T2→Z2G                          n=   568  med  +1.26  win 56.3  med70  +1.16  Δbase  +1.04
+      Z2G→T2→Z2G                         n=   358  med  +1.26  win 55.9  med70  +2.39  Δbase  +1.04
+      Z2→T1→Z2G                          n=   570  med  +1.21  win 56.5  med70  +2.17  Δbase  +0.99
+      T5→Z2→Z2G                          n=   329  med  +1.07  win 55.6  med70  +0.85  Δbase  +0.85
+      T1→Z2G→Z2G                         n=   554  med  +1.03  win 57.9  med70  +2.59  Δbase  +0.81
+      Z2G→Z4→Z2G                         n=   815  med  +1.02  win 56.1  med70  +1.02  Δbase  +0.80
+      T1→T2G→Z2G                         n=   506  med  +0.98  win 55.1  med70  +1.25  Δbase  +0.76
+      T5→T2G→Z2G                         n=   354  med  +0.98  win 54.5  med70  +0.94  Δbase  +0.76
+      Z2→Z4→Z2G                          n=   791  med  +0.98  win 55.1  med70  +1.07  Δbase  +0.76
+      Z9→Z4→Z2G                          n=   497  med  +0.94  win 56.7  med70  +1.20  Δbase  +0.72
+      T1G→Z2G→Z2G                        n=   397  med  +0.85  win 53.7  med70  +0.85  Δbase  +0.63
+      Z4→Z9→Z2G                          n=   365  med  +0.84  win 55.1  med70  +1.14  Δbase  +0.62
+      T9→Z2→Z2G                          n=   789  med  +0.84  win 54.0  med70  +0.10  Δbase  +0.62
+      ···
+      Z5→Z7→Z2G                          n=   541  med  -0.15  win 48.6  med70  -0.14  Δbase  -0.37
+      T2→Z12→Z2G                         n=  1177  med  -0.17  win 48.2  med70  +0.45  Δbase  -0.39
+      Z2→Z1→Z2G                          n=   481  med  -0.20  win 48.4  med70  +0.16  Δbase  -0.42
+      Z3→Z4→Z2G                          n=   355  med  -0.25  win 49.0  med70  +0.73  Δbase  -0.47
+      Z2→Z3→Z2G                          n=   414  med  -0.74  win 45.9  med70  -0.68  Δbase  -0.96
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z5→T9→Z4→Z2G                       n=   579  med  +1.39  win 59.9  med70  +0.48  Δbase  +1.17
+      Z1→T1G→Z4→Z2G                      n=   375  med  +1.14  win 60.0  med70  +1.16  Δbase  +0.92
+      Z3→T1G→Z1→Z2G                      n=   413  med  +1.02  win 60.3  med70  +1.20  Δbase  +0.80
+      T9→T12→Z4→Z2G                      n=   413  med  +1.00  win 60.0  med70  +1.43  Δbase  +0.78
+      T12→Z1→Z2G→Z2G                     n=   331  med  +0.99  win 56.5  med70  +1.71  Δbase  +0.77
+      Z2→T5→Z5→Z2G                       n=   316  med  +0.94  win 56.6  med70  +1.19  Δbase  +0.72
+      Z3→T4→Z1G→Z2G                      n=   555  med  +0.87  win 58.2  med70  +0.77  Δbase  +0.65
+      Z1→Z2G→Z6→Z2G                      n=   698  med  +0.87  win 57.9  med70  +1.49  Δbase  +0.65
+      T5→Z9→Z2G→Z2G                      n=   633  med  +0.87  win 57.3  med70  +0.95  Δbase  +0.65
+      Z2G→Z2G→Z7→Z2G                     n=   701  med  +0.84  win 56.3  med70  +1.01  Δbase  +0.62
+      Z5→T3→Z4→Z2G                       n=   351  med  +0.84  win 57.3  med70  +1.04  Δbase  +0.62
+      Z2→T5→Z9→Z2G                       n=   712  med  +0.83  win 55.8  med70  +0.58  Δbase  +0.61
+      T5→Z5→Z2G→Z2G                      n=   325  med  +0.82  win 54.2  med70  +0.64  Δbase  +0.60
+      Z3→Z11→Z2→Z2G                      n=   559  med  +0.81  win 57.6  med70  +0.59  Δbase  +0.59
+      T4→Z1G→Z2G→Z2G                     n=   933  med  +0.81  win 55.9  med70  +0.71  Δbase  +0.59
+      ···
+      T1G→T2G→Z1G→Z2G                    n=   360  med  -0.56  win 45.8  med70  -0.09  Δbase  -0.78
+      T9→Z4→Z11→Z2G                      n=   537  med  -0.58  win 46.6  med70  -0.16  Δbase  -0.80
+      T3→Z4→Z11→Z2G                      n=   311  med  -0.63  win 46.3  med70  -0.40  Δbase  -0.85
+      T9→Z1→Z6→Z2G                       n=   310  med  -0.68  win 44.5  med70  -0.46  Δbase  -0.90
+      T3→T2G→Z7→Z2G                      n=   317  med  -0.76  win 42.3  med70  -0.48  Δbase  -0.98
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→T4→Z5→Z2→Z2G                    n=   307  med  +1.16  win 60.9  med70  +0.42  Δbase  +0.94
+      Z2→Z6→Z2G→Z2→Z2G                   n=   430  med  +1.05  win 59.8  med70  +1.65  Δbase  +0.83
+      Z4→T9→Z1G→Z2→Z2G                   n=   350  med  +1.00  win 57.1  med70  +0.77  Δbase  +0.78
+      Z2→Z6→Z2→Z2→Z2G                    n=   549  med  +0.99  win 58.8  med70  +0.93  Δbase  +0.77
+      T5→Z4→Z2G→Z2G→Z2G                  n=   387  med  +0.97  win 58.4  med70  +0.59  Δbase  +0.75
+      Z2→Z2G→T5→Z4→Z2G                   n=   385  med  +0.96  win 60.3  med70  +1.18  Δbase  +0.74
+      Z4→T1→Z9→Z2→Z2G                    n=   533  med  +0.93  win 57.0  med70  +0.77  Δbase  +0.71
+      T3→Z1G→Z2→Z2→Z2G                   n=   305  med  +0.91  win 54.4  med70  +1.06  Δbase  +0.69
+      T5→T2→Z9→Z2→Z2G                    n=   319  med  +0.91  win 56.4  med70  +1.72  Δbase  +0.69
+      Z1→Z2G→T1→Z3→Z2G                   n=   313  med  +0.91  win 56.2  med70  +0.99  Δbase  +0.69
+      Z2→T1G→Z3→Z2→Z2G                   n=   449  med  +0.90  win 56.3  med70  +0.47  Δbase  +0.68
+      Z4→Z2G→T4→Z3→Z2G                   n=   657  med  +0.89  win 58.1  med70  +0.72  Δbase  +0.67
+      T2→Z3→T3→Z4→Z2G                    n=   391  med  +0.89  win 58.6  med70  +1.47  Δbase  +0.67
+      T2G→T2G→Z9→Z6→Z2G                  n=   350  med  +0.86  win 55.7  med70  +0.84  Δbase  +0.64
+      T2→Z9→T9→Z1→Z2G                    n=   375  med  +0.86  win 57.6  med70  +1.01  Δbase  +0.64
+      ···
+      T4→T2G→T2G→Z1G→Z2G                 n=   315  med  -0.73  win 43.8  med70  -0.73  Δbase  -0.95
+      Z9→T1G→T2G→Z9→Z2G                  n=   321  med  -0.75  win 44.9  med70  -0.30  Δbase  -0.97
+      Z2→T4→T2→Z5→Z2G                    n=   389  med  -0.78  win 43.4  med70  -0.50  Δbase  -1.00
+      Z7→Z2G→Z2→Z2G→Z2G                  n=   328  med  -0.79  win 44.8  med70  -0.09  Δbase  -1.01
+      Z9→T4→T2→Z1G→Z2G                   n=   340  med  -0.83  win 43.8  med70  -0.73  Δbase  -1.05
+    ── entry-bar L-line ──
+      L46                                n=986047  med  +0.23  win 51.9  med70  +0.40  Δbase  +0.01
+      L5                                 n=585324  med  +0.23  win 51.9  med70  +0.40  Δbase  +0.01
+      L25                                n=239671  med  +0.16  win 51.3  med70  +0.26  Δbase  -0.05
+    ── entry-bar suffix ──
+      ED                                 n=1124714  med  +0.25  win 52.0  med70  +0.42  Δbase  +0.03
+      ND                                 n=185845  med  +0.21  win 51.7  med70  +0.36  Δbase  -0.01
+      NR                                 n=116547  med  +0.20  win 51.7  med70  +0.34  Δbase  -0.02
+      NB                                 n= 17857  med  +0.19  win 51.5  med70  +0.28  Δbase  -0.03
+      EB                                 n= 71309  med  +0.16  win 51.2  med70  +0.30  Δbase  -0.06
+      EDP                                n=160866  med  +0.15  win 51.3  med70  +0.30  Δbase  -0.07
+      NUR                                n= 33055  med  +0.15  win 51.2  med70  +0.25  Δbase  -0.07
+      NDP                                n= 50989  med  +0.13  win 51.0  med70  +0.35  Δbase  -0.09
+      NH                                 n= 49889  med  +0.11  win 50.8  med70  +0.24  Δbase  -0.11
+   ▼  NUR                             n= 33055  med  +0.15  win 51.2  med70  +0.25  Δbase  -0.07
+   ▼  NDP                             n= 50989  med  +0.13  win 51.0  med70  +0.35  Δbase  -0.09
+   ▼  NH                              n= 49889  med  +0.11  win 50.8  med70  +0.24  Δbase  -0.11
+
+##### ENDING Z3 — base n=832,602 med+0.15 win51.2 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→T2→Z3                           n=   544  med  +1.12  win 55.7  med70  +0.94  Δbase  +0.97
+      Z7→T5→Z3                           n=   374  med  +0.91  win 56.7  med70  +0.45  Δbase  +0.77
+      T4→T4→Z3                           n=   350  med  +0.87  win 54.0  med70  +0.52  Δbase  +0.73
+      T3→T11→Z3                          n=   364  med  +0.80  win 55.8  med70  +1.30  Δbase  +0.65
+      T2→T4→Z3                           n=   460  med  +0.76  win 55.7  med70  +1.14  Δbase  +0.61
+      Z2G→T2G→Z3                         n=   515  med  +0.61  win 54.6  med70  +0.23  Δbase  +0.46
+      Z4→T2→Z3                           n=   354  med  +0.55  win 53.1  med70  +1.48  Δbase  +0.41
+      Z2G→T2→Z3                          n=   613  med  +0.55  win 52.9  med70  +0.57  Δbase  +0.41
+      Z1→T5→Z3                           n=  1146  med  +0.52  win 53.6  med70  +0.92  Δbase  +0.37
+      T2G→T1→Z3                          n=   334  med  +0.51  win 52.7  med70  +0.41  Δbase  +0.36
+      T4→T12→Z3                          n=   865  med  +0.51  win 54.9  med70  +0.31  Δbase  +0.36
+      T4→T10→Z3                          n=   474  med  +0.50  win 54.0  med70  +0.55  Δbase  +0.35
+      Z11→T3→Z3                          n=   996  med  +0.49  win 54.3  med70  +0.50  Δbase  +0.35
+      T2→T1→Z3                           n=   326  med  +0.47  win 52.1  med70  +0.58  Δbase  +0.32
+      T1→T10→Z3                          n=   318  med  +0.45  win 56.6  med70  +1.07  Δbase  +0.31
+      ···
+      Z12→T4→Z3                          n=   501  med  -0.19  win 48.5  med70  +0.16  Δbase  -0.34
+      Z3→T5→Z3                           n=  1227  med  -0.20  win 48.6  med70  +0.36  Δbase  -0.35
+      T2G→T4→Z3                          n=   487  med  -0.25  win 48.5  med70  +0.00  Δbase  -0.40
+      T12→T2G→Z3                         n=  1908  med  -0.33  win 47.1  med70  +0.09  Δbase  -0.48
+      Z2→Z2→Z3                           n=   378  med  -0.35  win 47.6  med70  +0.61  Δbase  -0.50
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2G→T5→Z3                       n=   317  med  +1.48  win 59.6  med70  +1.66  Δbase  +1.33
+      Z4→T3→T6→Z3                        n=   410  med  +1.00  win 59.5  med70  +0.93  Δbase  +0.86
+      Z4→Z2→T5→Z3                        n=   458  med  +0.95  win 57.6  med70  +1.51  Δbase  +0.80
+      Z1→T9→T6→Z3                        n=   543  med  +0.89  win 56.4  med70  +0.68  Δbase  +0.75
+      T9→Z1G→T9→Z3                       n=   617  med  +0.81  win 54.8  med70  +0.58  Δbase  +0.66
+      Z9→Z11→T4→Z3                       n=   421  med  +0.79  win 55.8  med70  +0.33  Δbase  +0.64
+      Z1G→Z2G→T9→Z3                      n=   554  med  +0.77  win 56.7  med70  +1.40  Δbase  +0.62
+      Z9→Z7→T4→Z3                        n=   346  med  +0.76  win 56.4  med70  +1.01  Δbase  +0.61
+      Z1G→Z2G→T3→Z3                      n=   558  med  +0.71  win 56.1  med70  +0.48  Δbase  +0.57
+      T2→Z5→T9→Z3                        n=   315  med  +0.71  win 55.6  med70  +0.58  Δbase  +0.56
+      Z4→T5→T2→Z3                        n=   593  med  +0.68  win 55.8  med70  +1.25  Δbase  +0.54
+      Z2→Z6→T3→Z3                        n=   591  med  +0.66  win 55.2  med70  +0.57  Δbase  +0.52
+      Z6→T3→T2→Z3                        n=   743  med  +0.66  win 56.0  med70  +0.38  Δbase  +0.51
+      Z10→T1G→T2G→Z3                     n=   302  med  +0.64  win 55.0  med70  +0.96  Δbase  +0.49
+      T9→Z1G→T4→Z3                       n=   697  med  +0.63  win 55.7  med70  +0.72  Δbase  +0.48
+      ···
+      T9→Z3→T1G→Z3                       n=   348  med  -0.50  win 46.0  med70  -0.12  Δbase  -0.65
+      T4→T10→T2G→Z3                      n=   390  med  -0.55  win 45.4  med70  -0.70  Δbase  -0.69
+      T3→T6→T2G→Z3                       n=   369  med  -0.58  win 44.7  med70  -0.62  Δbase  -0.73
+      T1G→Z3→T9→Z3                       n=   375  med  -0.64  win 45.6  med70  +0.42  Δbase  -0.78
+      T1G→Z3→T3→Z3                       n=   310  med  -0.73  win 41.9  med70  -0.78  Δbase  -0.87
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T4→T2→Z3→T4→Z3                     n=   413  med  +1.05  win 57.9  med70  +1.10  Δbase  +0.91
+      Z4→Z2G→Z2→T3→Z3                    n=   327  med  +0.90  win 56.6  med70  +0.88  Δbase  +0.76
+      T4→Z9→T4→T2→Z3                     n=   604  med  +0.89  win 56.8  med70  +0.78  Δbase  +0.75
+      Z1→Z2→Z2G→T1→Z3                    n=   326  med  +0.88  win 58.6  med70  +1.14  Δbase  +0.74
+      T4→T2→Z4→T4→Z3                     n=   370  med  +0.88  win 57.3  med70  +0.62  Δbase  +0.73
+      T2→Z4→Z2G→T1→Z3                    n=   451  med  +0.87  win 57.6  med70  +1.27  Δbase  +0.72
+      T9→Z9→T4→T2G→Z3                    n=   374  med  +0.84  win 57.5  med70  +0.68  Δbase  +0.70
+      Z2G→T9→T2G→T2G→Z3                  n=   862  med  +0.83  win 57.9  med70  +0.77  Δbase  +0.69
+      T3→Z9→T4→T2G→Z3                    n=   318  med  +0.81  win 57.5  med70  +0.58  Δbase  +0.66
+      T4→Z9→T1→T2→Z3                     n=   365  med  +0.77  win 52.9  med70  -0.47  Δbase  +0.62
+      Z1→T3→T2G→T2G→Z3                   n=   346  med  +0.76  win 56.6  med70  +0.59  Δbase  +0.61
+      Z3→Z2G→T3→T2G→Z3                   n=   345  med  +0.75  win 55.7  med70  +0.52  Δbase  +0.61
+      Z2G→Z2→T1→T2G→Z3                   n=   651  med  +0.75  win 55.3  med70  +0.44  Δbase  +0.60
+      Z2→Z2→T5→T2G→Z3                    n=   312  med  +0.75  win 57.1  med70  +1.42  Δbase  +0.60
+      T9→Z4→Z2→T1→Z3                     n=   447  med  +0.74  win 57.0  med70  +1.00  Δbase  +0.60
+      ···
+      T2→T2→T2→T6→Z3                     n=   402  med  -0.55  win 46.3  med70  -0.24  Δbase  -0.70
+      T4→Z9→T9→T2→Z3                     n=   337  med  -0.55  win 44.5  med70  -0.03  Δbase  -0.70
+      T2G→T2→Z9→T1G→Z3                   n=   331  med  -0.55  win 45.0  med70  -0.13  Δbase  -0.70
+      Z1→T3→T2→T2G→Z3                    n=   376  med  -0.55  win 45.5  med70  -0.37  Δbase  -0.70
+      T1G→T2→T2G→T2G→Z3                  n=   345  med  -0.58  win 45.2  med70  +0.39  Δbase  -0.72
+    ── entry-bar L-line ──
+      L46                                n=388841  med  +0.17  win 51.4  med70  +0.26  Δbase  +0.02
+      L25                                n=443746  med  +0.13  win 51.1  med70  +0.22  Δbase  -0.02
+    ── entry-bar suffix ──
+      NB                                 n= 56093  med  +0.17  win 51.4  med70  +0.24  Δbase  +0.02
+      NU                                 n=345078  med  +0.15  win 51.3  med70  +0.27  Δbase  +0.01
+      NDP                                n= 63683  med  +0.15  win 51.3  med70  +0.20  Δbase  +0.00
+      NP                                 n=201259  med  +0.15  win 51.3  med70  +0.25  Δbase  +0.00
+      NH                                 n= 78818  med  +0.15  win 51.2  med70  +0.22  Δbase  +0.00
+      NUR                                n= 87671  med  +0.10  win 50.9  med70  +0.15  Δbase  -0.04
+   ▼  NP                              n=201259  med  +0.15  win 51.3  med70  +0.25  Δbase  +0.00
+   ▼  NH                              n= 78818  med  +0.15  win 51.2  med70  +0.22  Δbase  +0.00
+   ▼  NUR                             n= 87671  med  +0.10  win 50.9  med70  +0.15  Δbase  -0.04
+
+##### ENDING Z4 — base n=1,116,517 med+0.18 win51.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z3→Z2G→Z4                          n=   334  med  +1.56  win 58.4  med70  +0.50  Δbase  +1.38
+      Z9→Z2→Z4                           n=   431  med  +1.26  win 57.8  med70  +1.57  Δbase  +1.08
+      T2→Z1→Z4                           n=   316  med  +1.06  win 54.7  med70  +1.13  Δbase  +0.87
+      Z4→T2G→Z4                          n=   432  med  +1.05  win 54.9  med70  +0.43  Δbase  +0.87
+      T2→T9→Z4                           n=   556  med  +1.03  win 55.6  med70  +0.98  Δbase  +0.85
+      Z4→Z2→Z4                           n=   574  med  +0.94  win 54.4  med70  +1.56  Δbase  +0.76
+      Z1→Z2G→Z4                          n=   300  med  +0.92  win 53.3  med70  +0.61  Δbase  +0.74
+      Z3→T2→Z4                           n=   326  med  +0.81  win 52.5  med70  +0.93  Δbase  +0.63
+      Z2→T2G→Z4                          n=   710  med  +0.78  win 53.5  med70  +1.18  Δbase  +0.60
+      Z2→Z2→Z4                           n=   835  med  +0.77  win 53.9  med70  +0.71  Δbase  +0.59
+      Z4→T2→Z4                           n=   488  med  +0.77  win 54.1  med70  +0.88  Δbase  +0.58
+      Z2→Z2G→Z4                          n=   730  med  +0.76  win 55.9  med70  +1.77  Δbase  +0.57
+      Z9→Z2G→Z4                          n=   497  med  +0.72  win 53.5  med70  +0.55  Δbase  +0.54
+      T1→T11→Z4                          n=   347  med  +0.71  win 55.3  med70  +0.56  Δbase  +0.53
+      T2→Z4→Z4                           n=   523  med  +0.70  win 55.6  med70  +1.90  Δbase  +0.52
+      ···
+      T2G→Z3→Z4                          n=   372  med  -0.37  win 47.8  med70  -0.05  Δbase  -0.56
+      T2G→Z1→Z4                          n=   307  med  -0.47  win 48.9  med70  -0.42  Δbase  -0.65
+      T9→Z4→Z4                           n=   354  med  -0.51  win 46.6  med70  -0.83  Δbase  -0.70
+      T4→Z3→Z4                           n=   313  med  -0.58  win 47.0  med70  +0.44  Δbase  -0.76
+      T2→Z3→Z4                           n=   361  med  -0.60  win 47.9  med70  +0.10  Δbase  -0.78
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→Z4→T1G→Z4                      n=   526  med  +0.98  win 58.6  med70  +0.60  Δbase  +0.79
+      T4→Z5→T9→Z4                        n=   503  med  +0.92  win 59.0  med70  -0.34  Δbase  +0.73
+      Z2G→Z11→T3→Z4                      n=   338  med  +0.87  win 55.6  med70  +1.33  Δbase  +0.69
+      T5→Z9→T9→Z4                        n=   313  med  +0.87  win 53.7  med70  +0.95  Δbase  +0.68
+      T2→Z5→T1G→Z4                       n=   402  med  +0.84  win 58.2  med70  +1.27  Δbase  +0.66
+      Z4→T9→T12→Z4                       n=   426  med  +0.82  win 57.7  med70  +0.62  Δbase  +0.63
+      Z11→T4→T2G→Z4                      n=   482  med  +0.79  win 55.4  med70  +0.72  Δbase  +0.61
+      T9→T2→T6→Z4                        n=   383  med  +0.76  win 56.9  med70  +1.64  Δbase  +0.58
+      Z2→Z10→T1G→Z4                      n=   350  med  +0.74  win 55.4  med70  +0.46  Δbase  +0.55
+      Z1G→T4→T2G→Z4                      n=   642  med  +0.71  win 55.9  med70  +0.69  Δbase  +0.53
+      T9→Z7→T1G→Z4                       n=   395  med  +0.71  win 57.0  med70  +0.54  Δbase  +0.52
+      T9→Z5→T1→Z4                        n=   311  med  +0.69  win 55.3  med70  +0.42  Δbase  +0.51
+      T9→Z1G→T3→Z4                       n=   699  med  +0.67  win 56.8  med70  +1.05  Δbase  +0.49
+      T3→Z9→T5→Z4                        n=   520  med  +0.66  win 55.0  med70  -0.02  Δbase  +0.47
+      Z5→T1→T2G→Z4                       n=   657  med  +0.65  win 54.5  med70  +0.67  Δbase  +0.47
+      ···
+      Z10→T4→T2→Z4                       n=   809  med  -0.47  win 47.5  med70  -0.21  Δbase  -0.65
+      Z6→Z2→T1→Z4                        n=   489  med  -0.49  win 46.8  med70  -0.15  Δbase  -0.68
+      T2G→T10→T2→Z4                      n=   464  med  -0.50  win 46.6  med70  +0.21  Δbase  -0.68
+      T1G→Z3→T4→Z4                       n=   369  med  -0.55  win 45.3  med70  -0.09  Δbase  -0.74
+      T12→T2→T2G→Z4                      n=   480  med  -0.73  win 46.2  med70  +0.35  Δbase  -0.91
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T3→Z4→T3→T2→Z4                     n=   332  med  +1.07  win 60.8  med70  +0.04  Δbase  +0.89
+      T3→T2→Z4→T3→Z4                     n=   344  med  +0.86  win 57.8  med70  +1.20  Δbase  +0.67
+      T3→T2G→Z3→T9→Z4                    n=   320  med  +0.85  win 56.2  med70  +0.16  Δbase  +0.67
+      Z9→T3→Z4→T9→Z4                     n=   359  med  +0.81  win 58.5  med70  +0.66  Δbase  +0.62
+      Z4→Z2→T3→T2G→Z4                    n=   520  med  +0.78  win 56.9  med70  +1.29  Δbase  +0.59
+      Z9→Z2→Z2→T4→Z4                     n=   666  med  +0.76  win 55.0  med70  +1.07  Δbase  +0.57
+      T3→Z1→T9→T2→Z4                     n=   316  med  +0.74  win 57.3  med70  +0.59  Δbase  +0.55
+      T9→T2→Z9→T3→Z4                     n=   326  med  +0.74  win 57.4  med70  +0.98  Δbase  +0.55
+      T2G→T2G→Z3→T3→Z4                   n=   459  med  +0.74  win 56.6  med70  +0.74  Δbase  +0.55
+      T9→Z1G→Z2→T9→Z4                    n=   316  med  +0.72  win 54.1  med70  +0.45  Δbase  +0.54
+      T2G→T2→Z9→T3→Z4                    n=   518  med  +0.72  win 54.4  med70  +0.00  Δbase  +0.53
+      T2→T2→T2→T10→Z4                    n=   371  med  +0.71  win 58.0  med70  +0.62  Δbase  +0.52
+      Z2→Z2→T5→T2→Z4                     n=   367  med  +0.71  win 57.2  med70  +0.36  Δbase  +0.52
+      Z4→Z2G→Z2G→T3→Z4                   n=   539  med  +0.69  win 55.5  med70  +0.69  Δbase  +0.51
+      T4→Z3→T1→T2G→Z4                    n=   312  med  +0.69  win 55.1  med70  +1.17  Δbase  +0.51
+      ···
+      T2→Z1G→Z2→T9→Z4                    n=   468  med  -0.44  win 47.0  med70  -0.23  Δbase  -0.63
+      T2→T2→T6→T2→Z4                     n=   350  med  -0.45  win 44.3  med70  -1.04  Δbase  -0.63
+      Z2→T4→Z3→T3→Z4                     n=   386  med  -0.50  win 45.1  med70  -0.70  Δbase  -0.69
+      T6→T2→T2→T2G→Z4                    n=   338  med  -0.66  win 43.2  med70  -0.59  Δbase  -0.84
+      T2→Z1→Z2→T4→Z4                     n=   331  med  -0.82  win 42.9  med70  -0.82  Δbase  -1.00
+    ── entry-bar L-line ──
+      L46                                n=634381  med  +0.20  win 51.7  med70  +0.32  Δbase  +0.02
+      L5                                 n=253428  med  +0.18  win 51.6  med70  +0.24  Δbase  -0.00
+      L25                                n=228696  med  +0.13  win 51.1  med70  +0.23  Δbase  -0.05
+    ── entry-bar suffix ──
+      EDP                                n=392184  med  +0.22  win 51.8  med70  +0.30  Δbase  +0.03
+      EB                                 n=233713  med  +0.18  win 51.5  med70  +0.28  Δbase  -0.01
+      NB                                 n= 79291  med  +0.17  win 51.4  med70  +0.27  Δbase  -0.01
+      NUR                                n=136520  med  +0.17  win 51.4  med70  +0.27  Δbase  -0.02
+      NH                                 n=140178  med  +0.16  win 51.3  med70  +0.27  Δbase  -0.02
+      NDP                                n=134631  med  +0.16  win 51.3  med70  +0.27  Δbase  -0.03
+   ▼  NUR                             n=136520  med  +0.17  win 51.4  med70  +0.27  Δbase  -0.02
+   ▼  NH                              n=140178  med  +0.16  win 51.3  med70  +0.27  Δbase  -0.02
+   ▼  NDP                             n=134631  med  +0.16  win 51.3  med70  +0.27  Δbase  -0.03
+
+##### ENDING Z5 — base n=276,588 med+0.19 win51.6 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z5→T1→Z5                           n=   758  med  +0.55  win 54.6  med70  +0.19  Δbase  +0.36
+      Z4→T5→Z5                           n=   842  med  +0.54  win 54.5  med70  +0.17  Δbase  +0.35
+      Z5→T4→Z5                           n=  1458  med  +0.50  win 53.9  med70  +0.57  Δbase  +0.31
+      Z5→T3→Z5                           n=   341  med  +0.48  win 55.7  med70  +0.80  Δbase  +0.29
+      Z10→T1→Z5                          n=   487  med  +0.48  win 55.4  med70  +0.77  Δbase  +0.29
+      Z6→T9→Z5                           n=  1538  med  +0.45  win 54.2  med70  +0.52  Δbase  +0.26
+      Z7→T1G→Z5                          n=  1204  med  +0.45  win 53.7  med70  +0.28  Δbase  +0.25
+      Z1→T4→Z5                           n=  1739  med  +0.40  win 53.7  med70  +0.46  Δbase  +0.21
+      Z5→T1G→Z5                          n=   640  med  +0.40  win 52.5  med70  +0.48  Δbase  +0.21
+      T5→T6→Z5                           n=   605  med  +0.38  win 53.7  med70  +0.50  Δbase  +0.19
+      T9→T12→Z5                          n=   364  med  +0.38  win 52.7  med70  +0.52  Δbase  +0.18
+      Z10→T1G→Z5                         n=   519  med  +0.36  win 53.9  med70  +0.74  Δbase  +0.17
+      Z2→T4→Z5                           n=  7589  med  +0.34  win 53.0  med70  +0.50  Δbase  +0.14
+      Z2G→T1→Z5                          n=  4615  med  +0.33  win 52.9  med70  +0.43  Δbase  +0.14
+      Z2→T3→Z5                           n=  5727  med  +0.33  win 52.9  med70  +0.37  Δbase  +0.13
+      ···
+      T10→T6→Z5                          n=   447  med  -0.20  win 48.1  med70  -0.50  Δbase  -0.39
+      Z1→T1→Z5                           n=  1409  med  -0.25  win 47.6  med70  +0.13  Δbase  -0.44
+      T2→T12→Z5                          n=   476  med  -0.26  win 46.4  med70  -0.54  Δbase  -0.46
+      Z1→T1G→Z5                          n=   403  med  -0.29  win 47.4  med70  +0.34  Δbase  -0.48
+      T2G→T12→Z5                         n=   366  med  -0.39  win 46.4  med70  -0.89  Δbase  -0.58
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→Z5→T4→Z5                       n=   300  med  +0.87  win 55.7  med70  +0.84  Δbase  +0.68
+      T3→Z1→T9→Z5                        n=   423  med  +0.79  win 57.0  med70  +1.14  Δbase  +0.60
+      T1G→T2G→T2G→Z5                     n=   442  med  +0.77  win 58.4  med70  +0.32  Δbase  +0.58
+      T9→Z4→T3→Z5                        n=   694  med  +0.69  win 55.3  med70  +0.73  Δbase  +0.50
+      T2G→Z1→T4→Z5                       n=   335  med  +0.64  win 57.9  med70  -0.05  Δbase  +0.45
+      Z9→Z2→T4→Z5                        n=   952  med  +0.64  win 55.8  med70  +0.69  Δbase  +0.45
+      T2→Z4→T4→Z5                        n=   608  med  +0.63  win 54.6  med70  +0.54  Δbase  +0.44
+      T2G→Z9→T4→Z5                       n=  1080  med  +0.63  win 55.1  med70  +0.41  Δbase  +0.44
+      Z9→Z2→T3→Z5                        n=   691  med  +0.61  win 54.7  med70  +0.65  Δbase  +0.42
+      T1→Z3→T4→Z5                        n=   400  med  +0.61  win 53.5  med70  +0.46  Δbase  +0.42
+      T1→Z9→T1→Z5                        n=   344  med  +0.60  win 54.9  med70  +0.60  Δbase  +0.41
+      T3→T2G→T2→Z5                       n=  1191  med  +0.59  win 55.0  med70  +0.72  Δbase  +0.40
+      T2→Z1→T4→Z5                        n=   404  med  +0.58  win 56.7  med70  +0.89  Δbase  +0.38
+      Z4→Z2G→T1→Z5                       n=   504  med  +0.57  win 54.0  med70  +0.51  Δbase  +0.37
+      T2→Z3→T3→Z5                        n=   441  med  +0.53  win 54.6  med70  +0.34  Δbase  +0.34
+      ···
+      T9→Z3→T4→Z5                        n=   344  med  -0.27  win 47.1  med70  +0.15  Δbase  -0.46
+      T9→Z1→T3→Z5                        n=   399  med  -0.50  win 45.6  med70  -0.59  Δbase  -0.69
+      Z2G→Z2G→T1G→Z5                     n=   354  med  -0.56  win 47.5  med70  -0.04  Δbase  -0.75
+      Z2→Z2→T1G→Z5                       n=   340  med  -0.61  win 46.2  med70  -0.73  Δbase  -0.80
+      T3→Z3→T4→Z5                        n=   306  med  -0.61  win 42.8  med70  -0.25  Δbase  -0.80
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T2G→T2G→T2→T2G→Z5                  n=   508  med  +0.83  win 56.9  med70  +0.28  Δbase  +0.64
+      Z2G→T4→T2G→T2→Z5                   n=   315  med  +0.79  win 56.5  med70  +0.48  Δbase  +0.59
+      Z2→Z2G→Z2G→T9→Z5                   n=   322  med  +0.72  win 55.3  med70  +0.67  Δbase  +0.53
+      T2→T2G→T2G→T2→Z5                   n=   684  med  +0.70  win 56.1  med70  +0.55  Δbase  +0.51
+      Z2→T9→T2G→T2→Z5                    n=   352  med  +0.66  win 56.0  med70  -0.11  Δbase  +0.47
+      Z2G→Z2G→Z2→T9→Z5                   n=   351  med  +0.64  win 53.6  med70  +0.37  Δbase  +0.45
+      Z2G→Z2→T9→T2→Z5                    n=   382  med  +0.64  win 55.8  med70  +0.30  Δbase  +0.45
+      T2→Z9→T4→T2→Z5                     n=   396  med  +0.57  win 55.3  med70  +0.28  Δbase  +0.37
+      Z2→T9→T2→T2G→Z5                    n=   362  med  +0.53  win 53.6  med70  +1.12  Δbase  +0.34
+      T2→T2→Z9→T4→Z5                     n=   348  med  +0.50  win 54.0  med70  +0.58  Δbase  +0.31
+      T2→T2→T2G→T2→Z5                    n=   737  med  +0.45  win 53.5  med70  +0.25  Δbase  +0.26
+      T4→T2G→T2G→T2→Z5                   n=   372  med  +0.45  win 54.6  med70  +0.49  Δbase  +0.26
+      Z2→T9→T2G→T2G→Z5                   n=   306  med  +0.45  win 54.6  med70  +0.77  Δbase  +0.26
+      Z2→Z2G→Z2→T9→Z5                    n=   424  med  +0.44  win 54.2  med70  +0.78  Δbase  +0.25
+      T2→T2G→T2→T2→Z5                    n=   721  med  +0.44  win 53.4  med70  +0.31  Δbase  +0.25
+      ···
+      Z2→T1→T2→T2→Z5                     n=   322  med  -0.26  win 47.8  med70  -0.76  Δbase  -0.45
+      Z2G→Z2→Z2→T9→Z5                    n=   352  med  -0.26  win 48.0  med70  +0.68  Δbase  -0.45
+      Z2→Z2→T3→T2→Z5                     n=   319  med  -0.33  win 46.1  med70  -0.17  Δbase  -0.52
+      Z9→Z2→Z2→T9→Z5                     n=   355  med  -0.40  win 45.4  med70  -0.22  Δbase  -0.60
+      Z4→T9→T2G→T2→Z5                    n=   303  med  -0.74  win 45.9  med70  -0.19  Δbase  -0.94
+    ── entry-bar L-line ──
+      L12                                n=141350  med  +0.22  win 52.0  med70  +0.31  Δbase  +0.03
+      L3                                 n= 45323  med  +0.19  win 51.3  med70  +0.35  Δbase  -0.00
+      L4                                 n= 21321  med  +0.15  win 51.2  med70  +0.25  Δbase  -0.05
+      L34                                n= 50081  med  +0.14  win 51.2  med70  +0.23  Δbase  -0.05
+      L2                                 n= 18511  med  +0.13  win 51.2  med70  +0.18  Δbase  -0.06
+    ── entry-bar suffix ──
+      EU                                 n= 93661  med  +0.26  win 52.2  med70  +0.39  Δbase  +0.07
+      EB                                 n= 15820  med  +0.25  win 51.9  med70  +0.32  Δbase  +0.06
+      EUR                                n= 11498  med  +0.19  win 51.8  med70  +0.34  Δbase  +0.00
+      NH                                 n= 12926  med  +0.18  win 51.5  med70  +0.18  Δbase  -0.01
+      NB                                 n= 17398  med  +0.15  win 51.2  med70  +0.20  Δbase  -0.04
+      NU                                 n= 69883  med  +0.15  win 51.3  med70  +0.23  Δbase  -0.04
+      NUR                                n= 20083  med  +0.13  win 51.1  med70  +0.20  Δbase  -0.06
+      NP                                 n= 25523  med  +0.13  win 51.2  med70  +0.25  Δbase  -0.06
+      NDP                                n=  9796  med  +0.12  win 51.0  med70  +0.22  Δbase  -0.07
+   ▼  NUR                             n= 20083  med  +0.13  win 51.1  med70  +0.20  Δbase  -0.06
+   ▼  NP                              n= 25523  med  +0.13  win 51.2  med70  +0.25  Δbase  -0.06
+   ▼  NDP                             n=  9796  med  +0.12  win 51.0  med70  +0.22  Δbase  -0.07
+
+##### ENDING Z6 — base n=300,014 med+0.18 win51.5 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z2→Z6→Z6                           n=   330  med  +0.78  win 57.9  med70  +1.32  Δbase  +0.61
+      T3→Z1G→Z6                          n=   383  med  +0.69  win 55.6  med70  +1.26  Δbase  +0.51
+      T10→Z1G→Z6                         n=   380  med  +0.51  win 55.5  med70  +0.02  Δbase  +0.34
+      Z1→Z2→Z6                           n=  3475  med  +0.50  win 54.1  med70  +0.43  Δbase  +0.33
+      Z5→Z2→Z6                           n=   856  med  +0.48  win 52.8  med70  +0.69  Δbase  +0.30
+      T1G→Z4→Z6                          n=   308  med  +0.47  win 54.2  med70  +0.14  Δbase  +0.29
+      T2G→Z1→Z6                          n=  1798  med  +0.44  win 54.0  med70  +0.43  Δbase  +0.27
+      T2G→T2G→Z6                         n=   307  med  +0.37  win 50.8  med70  +1.21  Δbase  +0.19
+      T4→Z5→Z6                           n=  2109  med  +0.36  win 54.6  med70  +0.25  Δbase  +0.18
+      T4→Z3→Z6                           n=  2767  med  +0.35  win 53.0  med70  +0.33  Δbase  +0.18
+      Z1→Z2G→Z6                          n=  3471  med  +0.35  win 52.9  med70  +0.51  Δbase  +0.17
+      T2G→Z4→Z6                          n=  2602  med  +0.34  win 52.8  med70  +0.41  Δbase  +0.16
+      T2→Z1G→Z6                          n=   857  med  +0.34  win 52.5  med70  +0.34  Δbase  +0.16
+      T5→Z7→Z6                           n=   936  med  +0.34  win 53.4  med70  +0.60  Δbase  +0.16
+      Z2→Z11→Z6                          n=   736  med  +0.33  win 53.8  med70  +0.45  Δbase  +0.16
+      ···
+      T4→Z1→Z6                           n=   821  med  -0.26  win 47.3  med70  -0.45  Δbase  -0.44
+      T10→Z5→Z6                          n=   348  med  -0.27  win 48.3  med70  -0.06  Δbase  -0.45
+      Z10→Z2G→Z6                         n=   761  med  -0.29  win 47.0  med70  +0.10  Δbase  -0.47
+      T4→Z1G→Z6                          n=   321  med  -0.32  win 46.4  med70  -0.25  Δbase  -0.50
+      T5→Z4→Z6                           n=   635  med  -0.34  win 47.6  med70  -0.01  Δbase  -0.52
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T1→T2G→Z3→Z6                       n=   346  med  +0.93  win 54.6  med70  +1.01  Δbase  +0.75
+      T3→Z1→Z2→Z6                        n=   424  med  +0.91  win 58.3  med70  +0.93  Δbase  +0.74
+      T2G→Z1→Z2→Z6                       n=   666  med  +0.82  win 56.2  med70  +0.51  Δbase  +0.65
+      T9→T2G→Z4→Z6                       n=   354  med  +0.80  win 56.5  med70  +1.08  Δbase  +0.63
+      Z2→T4→Z3→Z6                        n=   618  med  +0.80  win 55.8  med70  +0.74  Δbase  +0.63
+      T9→Z1→Z2G→Z6                       n=   541  med  +0.67  win 56.2  med70  +0.49  Δbase  +0.49
+      T2G→T2G→Z1→Z6                      n=   366  med  +0.62  win 55.7  med70  +0.51  Δbase  +0.44
+      Z2G→T3→Z5→Z6                       n=   348  med  +0.59  win 54.3  med70  +0.49  Δbase  +0.42
+      T4→Z1→Z2→Z6                        n=   347  med  +0.58  win 55.3  med70  -0.13  Δbase  +0.41
+      T2G→Z3→Z7→Z6                       n=   546  med  +0.58  win 55.5  med70  +0.48  Δbase  +0.40
+      Z2→T3→Z9→Z6                        n=   818  med  +0.57  win 55.6  med70  +0.50  Δbase  +0.40
+      T2G→Z3→Z2G→Z6                      n=   851  med  +0.54  win 54.9  med70  +0.51  Δbase  +0.36
+      T3→Z1→Z2G→Z6                       n=   418  med  +0.53  win 56.2  med70  +0.44  Δbase  +0.36
+      T9→Z9→Z2→Z6                        n=   533  med  +0.53  win 54.4  med70  +0.50  Δbase  +0.35
+      Z3→T3→Z9→Z6                        n=   309  med  +0.52  win 53.7  med70  +0.54  Δbase  +0.34
+      ···
+      T3→Z9→Z7→Z6                        n=   359  med  -0.33  win 47.4  med70  -0.36  Δbase  -0.50
+      T3→T2→Z4→Z6                        n=   308  med  -0.35  win 48.1  med70  -0.19  Δbase  -0.52
+      T1→Z4→Z2G→Z6                       n=   329  med  -0.38  win 47.1  med70  -0.43  Δbase  -0.56
+      Z3→Z2G→Z7→Z6                       n=   442  med  -0.39  win 45.0  med70  +0.41  Δbase  -0.57
+      Z1→Z2G→Z7→Z6                       n=   379  med  -0.44  win 46.2  med70  -0.24  Δbase  -0.62
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z2G→Z2→Z2G→Z2G→Z6                  n=   410  med  +0.63  win 54.1  med70  +0.58  Δbase  +0.45
+      Z2G→T9→T2→Z9→Z6                    n=   316  med  +0.60  win 55.7  med70  +0.31  Δbase  +0.42
+      T2→T2G→T2→Z7→Z6                    n=   340  med  +0.55  win 54.1  med70  -0.01  Δbase  +0.37
+      T2G→T2G→T2G→Z9→Z6                  n=   395  med  +0.53  win 56.5  med70  +0.48  Δbase  +0.36
+      T4→T2→T2→Z9→Z6                     n=   323  med  +0.52  win 55.7  med70  +0.12  Δbase  +0.34
+      Z2G→Z2G→Z2G→Z2→Z6                  n=   311  med  +0.50  win 55.0  med70  +1.05  Δbase  +0.33
+      Z2G→Z2→Z2G→Z2→Z6                   n=   344  med  +0.47  win 52.9  med70  -0.23  Δbase  +0.30
+      T2→T2G→T2G→Z9→Z6                   n=   389  med  +0.47  win 55.8  med70  +0.97  Δbase  +0.29
+      Z2G→Z2→Z2→Z2→Z6                    n=   529  med  +0.46  win 54.3  med70  +0.55  Δbase  +0.29
+      Z2→Z2→Z2→Z2G→Z6                    n=   540  med  +0.45  win 53.0  med70  +0.20  Δbase  +0.28
+      Z2G→Z2→T4→Z9→Z6                    n=   374  med  +0.41  win 54.8  med70  +0.43  Δbase  +0.23
+      Z2→Z2→T9→Z7→Z6                     n=   314  med  +0.36  win 53.5  med70  +0.00  Δbase  +0.18
+      Z2→T9→T2→Z9→Z6                     n=   417  med  +0.35  win 52.0  med70  +0.00  Δbase  +0.17
+      Z2→Z2→Z2G→Z2G→Z6                   n=   391  med  +0.32  win 54.0  med70  +0.34  Δbase  +0.14
+      Z2→Z2→Z2→Z2→Z6                     n=   764  med  +0.28  win 51.6  med70  +0.33  Δbase  +0.11
+      ···
+      T2G→T2→T2G→Z9→Z6                   n=   409  med  -0.22  win 47.4  med70  -0.51  Δbase  -0.39
+      T2G→T2→T2→Z9→Z6                    n=   483  med  -0.25  win 48.9  med70  -0.24  Δbase  -0.42
+      T2→Z9→Z2→Z2→Z6                     n=   408  med  -0.25  win 47.5  med70  -0.25  Δbase  -0.43
+      Z9→Z2→Z2→Z2→Z6                     n=   414  med  -0.26  win 47.3  med70  +0.80  Δbase  -0.44
+      Z2→Z2→Z2G→Z2→Z6                    n=   438  med  -0.31  win 47.5  med70  +0.00  Δbase  -0.48
+    ── entry-bar L-line ──
+      L5                                 n= 93640  med  +0.19  win 51.7  med70  +0.14  Δbase  +0.02
+      L46                                n=145739  med  +0.18  win 51.4  med70  +0.30  Δbase  -0.00
+      L4                                 n=  4514  med  +0.17  win 51.9  med70  +0.38  Δbase  -0.01
+      L25                                n= 52117  med  +0.16  win 51.5  med70  +0.24  Δbase  -0.01
+      L2                                 n=  4001  med  +0.00  win 49.7  med70  +0.18  Δbase  -0.18
+    ── entry-bar suffix ──
+      EDP                                n= 82605  med  +0.20  win 51.6  med70  +0.28  Δbase  +0.02
+      NB                                 n= 27452  med  +0.20  win 51.8  med70  +0.31  Δbase  +0.02
+      EB                                 n=103885  med  +0.19  win 51.6  med70  +0.17  Δbase  +0.01
+      NDP                                n= 29763  med  +0.17  win 51.4  med70  +0.32  Δbase  -0.01
+      NH                                 n= 27093  med  +0.13  win 51.3  med70  +0.18  Δbase  -0.04
+      NUR                                n= 29216  med  +0.12  win 51.1  med70  +0.32  Δbase  -0.06
+   ▼  NDP                             n= 29763  med  +0.17  win 51.4  med70  +0.32  Δbase  -0.01
+   ▼  NH                              n= 27093  med  +0.13  win 51.3  med70  +0.18  Δbase  -0.04
+   ▼  NUR                             n= 29216  med  +0.12  win 51.1  med70  +0.32  Δbase  -0.06
+
+##### ENDING Z7 — base n=251,608 med+0.13 win51.1 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      Z1G→T3→Z7                          n=   357  med  +0.70  win 56.6  med70  +0.14  Δbase  +0.57
+      Z9→Z6→Z7                           n=   617  med  +0.50  win 55.9  med70  +0.26  Δbase  +0.37
+      Z2G→T1G→Z7                         n=   589  med  +0.42  win 53.3  med70  +0.22  Δbase  +0.29
+      Z1→T9→Z7                           n=  1504  med  +0.42  win 53.3  med70  +0.49  Δbase  +0.29
+      T4→Z5→Z7                           n=   562  med  +0.39  win 53.7  med70  +0.24  Δbase  +0.26
+      T2G→T10→Z7                         n=   353  med  +0.38  win 53.8  med70  +0.31  Δbase  +0.25
+      T1G→Z9→Z7                          n=   829  med  +0.37  win 53.6  med70  +0.47  Δbase  +0.25
+      T9→Z1→Z7                           n=  1300  med  +0.36  win 52.9  med70  +0.66  Δbase  +0.24
+      Z5→T1→Z7                           n=   334  med  +0.36  win 54.5  med70  +0.44  Δbase  +0.23
+      Z4→T1→Z7                           n=   852  med  +0.36  win 52.8  med70  +0.30  Δbase  +0.23
+      T1→Z1→Z7                           n=   514  med  +0.34  win 52.5  med70  +0.13  Δbase  +0.22
+      T5→T2→Z7                           n=   743  med  +0.33  win 52.9  med70  +0.24  Δbase  +0.21
+      T1G→Z4→Z7                          n=   530  med  +0.32  win 54.3  med70  +0.24  Δbase  +0.19
+      Z11→Z2→Z7                          n=   564  med  +0.32  win 53.7  med70  +0.28  Δbase  +0.19
+      T3→T2→Z7                           n=  2530  med  +0.31  win 52.5  med70  +0.37  Δbase  +0.18
+      ···
+      T2G→T6→Z7                          n=   455  med  -0.13  win 47.3  med70  +0.24  Δbase  -0.26
+      T2G→Z5→Z7                          n=   542  med  -0.16  win 48.5  med70  +0.00  Δbase  -0.29
+      Z1→Z2G→Z7                          n=  1404  med  -0.18  win 48.4  med70  -0.10  Δbase  -0.30
+      Z4→Z10→Z7                          n=   331  med  -0.19  win 46.5  med70  -0.07  Δbase  -0.32
+      Z2→Z11→Z7                          n=   388  med  -0.27  win 47.7  med70  -0.60  Δbase  -0.40
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      Z4→Z2G→Z2G→Z7                      n=   445  med  +0.96  win 56.4  med70  +1.66  Δbase  +0.84
+      Z9→T9→Z4→Z7                        n=   332  med  +0.78  win 56.6  med70  +0.61  Δbase  +0.65
+      Z2→Z2→T1→Z7                        n=   547  med  +0.71  win 56.7  med70  +0.88  Δbase  +0.59
+      Z4→T3→T2→Z7                        n=   410  med  +0.67  win 55.6  med70  +0.51  Δbase  +0.54
+      Z2G→Z2G→T3→Z7                      n=   333  med  +0.61  win 54.7  med70  +0.41  Δbase  +0.49
+      T2→Z1→T9→Z7                        n=   353  med  +0.60  win 54.1  med70  +0.45  Δbase  +0.47
+      T2G→T2→Z1→Z7                       n=   357  med  +0.59  win 53.8  med70  +0.41  Δbase  +0.47
+      Z9→T9→T2→Z7                        n=   401  med  +0.57  win 54.6  med70  +0.37  Δbase  +0.45
+      Z2→T1→T2→Z7                        n=   519  med  +0.55  win 55.9  med70  +0.61  Δbase  +0.42
+      T4→T2G→T2G→Z7                      n=   533  med  +0.47  win 54.2  med70  +0.75  Δbase  +0.34
+      Z3→Z2G→Z2→Z7                       n=   409  med  +0.46  win 54.3  med70  +0.38  Δbase  +0.33
+      Z2→Z2→T4→Z7                        n=   976  med  +0.45  win 53.8  med70  +0.16  Δbase  +0.32
+      T2G→Z4→Z2→Z7                       n=   732  med  +0.44  win 53.6  med70  +0.51  Δbase  +0.31
+      T3→T2→T2G→Z7                       n=   416  med  +0.43  win 53.8  med70  +0.69  Δbase  +0.30
+      Z4→T9→Z9→Z7                        n=   347  med  +0.43  win 55.3  med70  +0.39  Δbase  +0.30
+      ···
+      T3→T2→Z4→Z7                        n=   330  med  -0.49  win 44.2  med70  -0.24  Δbase  -0.62
+      T2→T2→Z1→Z7                        n=   466  med  -0.52  win 42.5  med70  -0.17  Δbase  -0.65
+      Z2G→T3→T2G→Z7                      n=   354  med  -0.57  win 44.9  med70  -0.04  Δbase  -0.70
+      T2→Z9→T9→Z7                        n=   393  med  -0.63  win 43.3  med70  -0.48  Δbase  -0.76
+      T2→T2G→Z1→Z7                       n=   304  med  -0.77  win 41.4  med70  -0.22  Δbase  -0.89
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      T2→T2→T2→T2→Z7                     n=   451  med  +0.25  win 52.3  med70  +0.29  Δbase  +0.12
+      Z2→Z2→Z2→Z2→Z7                     n=   448  med  +0.23  win 52.0  med70  +0.47  Δbase  +0.10
+      Z2G→Z2→Z2→Z2→Z7                    n=   310  med  +0.11  win 50.3  med70  +0.07  Δbase  -0.02
+    ── entry-bar L-line ──
+      L3                                 n=  5875  med  +0.23  win 51.8  med70  +0.26  Δbase  +0.10
+      L46                                n= 48099  med  +0.18  win 51.6  med70  +0.36  Δbase  +0.05
+      L34                                n= 41793  med  +0.15  win 51.2  med70  +0.28  Δbase  +0.02
+      L5                                 n=  6030  med  +0.13  win 51.0  med70  +0.27  Δbase  -0.00
+      L4                                 n= 44057  med  +0.13  win 51.0  med70  +0.20  Δbase  -0.00
+      L25                                n= 33201  med  +0.11  win 50.9  med70  +0.20  Δbase  -0.02
+      L12                                n= 40271  med  +0.09  win 50.7  med70  +0.18  Δbase  -0.03
+      L2                                 n= 32255  med  +0.08  win 50.6  med70  +0.20  Δbase  -0.05
+    ── entry-bar suffix ──
+      ED                                 n=  8072  med  +0.26  win 52.0  med70  +0.42  Δbase  +0.13
+      EU                                 n=  8554  med  +0.24  win 51.9  med70  +0.28  Δbase  +0.11
+      N                                  n=  1199  med  +0.21  win 51.5  med70  +0.47  Δbase  +0.09
+      NR                                 n= 21033  med  +0.20  win 51.9  med70  +0.22  Δbase  +0.07
+      EDP                                n=  1613  med  +0.17  win 50.8  med70  +0.37  Δbase  +0.05
+      ND                                 n= 40226  med  +0.15  win 51.2  med70  +0.26  Δbase  +0.02
+      EB                                 n=  2880  med  +0.15  win 51.5  med70  +0.43  Δbase  +0.02
+      NH                                 n= 35766  med  +0.12  win 51.4  med70  +0.22  Δbase  -0.01
+      NP                                 n= 21346  med  +0.11  win 50.9  med70  +0.17  Δbase  -0.02
+      NUR                                n= 28708  med  +0.10  win 50.7  med70  +0.26  Δbase  -0.03
+   ▼  NB                              n= 10615  med  +0.09  win 50.7  med70  +0.20  Δbase  -0.04
+   ▼  NU                              n= 41463  med  +0.09  win 50.6  med70  +0.22  Δbase  -0.04
+   ▼  EUR                             n=  1615  med  -0.07  win 49.2  med70  +0.00  Δbase  -0.20
+
+##### ENDING Z9 — base n=1,189,527 med+0.13 win51.1 (global +0.16)
+    ── 3-bar sequences (top15 / bottom5, n≥300) ──
+      T1→T4→Z9                           n=   318  med  +1.28  win 56.3  med70  +0.94  Δbase  +1.14
+      Z2→T2G→Z9                          n=   663  med  +1.17  win 56.1  med70  +1.86  Δbase  +1.04
+      Z9→T2G→Z9                          n=   456  med  +0.99  win 54.8  med70  +1.61  Δbase  +0.85
+      T9→T11→Z9                          n=   577  med  +0.95  win 57.4  med70  +1.25  Δbase  +0.82
+      T9→T4→Z9                           n=   482  med  +0.88  win 53.5  med70  +1.20  Δbase  +0.75
+      Z2G→Z2G→Z9                         n=   619  med  +0.86  win 55.4  med70  +1.41  Δbase  +0.72
+      T2→T4→Z9                           n=   821  med  +0.83  win 55.3  med70  +0.53  Δbase  +0.70
+      Z9→T2→Z9                           n=   543  med  +0.79  win 54.0  med70  +0.00  Δbase  +0.65
+      T4→T4→Z9                           n=   563  med  +0.78  win 54.5  med70  +0.61  Δbase  +0.64
+      Z4→T2G→Z9                          n=   422  med  +0.77  win 54.7  med70  +1.76  Δbase  +0.63
+      Z7→T5→Z9                           n=   555  med  +0.74  win 57.7  med70  +0.82  Δbase  +0.61
+      Z4→T5→Z9                           n=  2250  med  +0.72  win 55.6  med70  +0.65  Δbase  +0.58
+      T2G→T4→Z9                          n=   711  med  +0.70  win 54.3  med70  +0.75  Δbase  +0.56
+      Z9→Z2G→Z9                          n=   359  med  +0.66  win 56.0  med70  +0.70  Δbase  +0.53
+      Z3→T2G→Z9                          n=   340  med  +0.64  win 52.6  med70  +1.86  Δbase  +0.50
+      ···
+      Z12→T1→Z9                          n=   472  med  -0.14  win 48.1  med70  +0.17  Δbase  -0.27
+      T4→Z9→Z9                           n=   348  med  -0.15  win 48.6  med70  -0.32  Δbase  -0.28
+      Z12→T3→Z9                          n=   321  med  -0.47  win 45.8  med70  -0.17  Δbase  -0.61
+      T2G→Z4→Z9                          n=   359  med  -0.57  win 47.1  med70  -0.74  Δbase  -0.71
+      Z2G→Z2→Z9                          n=   604  med  -0.63  win 46.4  med70  -0.26  Δbase  -0.77
+    ── 4-bar sequences (top15 / bottom5, n≥300) ──
+      T3→Z1G→T4→Z9                       n=   438  med  +1.09  win 55.0  med70  +1.11  Δbase  +0.96
+      T3→Z9→T3→Z9                        n=   422  med  +1.09  win 58.8  med70  +0.25  Δbase  +0.95
+      T9→Z4→T5→Z9                        n=   443  med  +1.00  win 59.4  med70  +1.34  Δbase  +0.87
+      Z6→T1→T2G→Z9                       n=   414  med  +0.90  win 57.2  med70  +0.28  Δbase  +0.77
+      Z4→T9→T12→Z9                       n=   319  med  +0.85  win 55.2  med70  +0.58  Δbase  +0.72
+      T3→Z5→T1→Z9                        n=   402  med  +0.81  win 56.5  med70  -0.25  Δbase  +0.67
+      T2G→Z4→T5→Z9                       n=   451  med  +0.80  win 57.9  med70  +0.25  Δbase  +0.67
+      T2→Z5→T9→Z9                        n=   470  med  +0.80  win 58.7  med70  +0.42  Δbase  +0.66
+      Z4→T3→T6→Z9                        n=   618  med  +0.75  win 55.0  med70  +0.84  Δbase  +0.61
+      Z5→Z2G→T4→Z9                       n=  1063  med  +0.70  win 55.5  med70  +0.43  Δbase  +0.57
+      T10→Z4→T9→Z9                       n=   365  med  +0.68  win 54.5  med70  +0.24  Δbase  +0.55
+      T2→Z5→T3→Z9                        n=   360  med  +0.67  win 54.4  med70  +0.73  Δbase  +0.54
+      T5→Z1→T9→Z9                        n=   388  med  +0.67  win 56.7  med70  +0.21  Δbase  +0.53
+      T11→T2→T2→Z9                       n=   348  med  +0.63  win 54.0  med70  +0.49  Δbase  +0.50
+      T9→Z1G→T3→Z9                       n=   677  med  +0.63  win 56.1  med70  +1.00  Δbase  +0.50
+      ···
+      T2G→T12→T2→Z9                      n=   532  med  -0.42  win 45.3  med70  +0.24  Δbase  -0.56
+      T3→Z1G→T1→Z9                       n=   349  med  -0.50  win 45.6  med70  -0.75  Δbase  -0.64
+      T1G→Z4→T3→Z9                       n=   575  med  -0.53  win 45.4  med70  -0.48  Δbase  -0.66
+      T12→T2→T2→Z9                       n=   888  med  -0.54  win 44.9  med70  -0.32  Δbase  -0.67
+      T9→Z7→T1G→Z9                       n=   385  med  -0.55  win 44.2  med70  -0.61  Δbase  -0.69
+    ── 5-bar sequences (top15 / bottom5, n≥300) ──
+      Z3→Z2G→T3→T2G→Z9                   n=   411  med  +0.88  win 55.2  med70  +0.98  Δbase  +0.75
+      Z1→T1→T2→T2→Z9                     n=   314  med  +0.88  win 60.8  med70  +1.36  Δbase  +0.74
+      Z3→Z2→Z2G→T3→Z9                    n=   356  med  +0.82  win 56.2  med70  +0.57  Δbase  +0.69
+      T9→Z4→T3→T2G→Z9                    n=   545  med  +0.81  win 56.0  med70  +0.27  Δbase  +0.68
+      T1→Z4→Z2→T4→Z9                     n=   330  med  +0.81  win 57.9  med70  +0.89  Δbase  +0.67
+      T9→Z9→Z2→T1→Z9                     n=   360  med  +0.80  win 56.1  med70  +0.97  Δbase  +0.67
+      Z2→T9→Z1G→T4→Z9                    n=   311  med  +0.80  win 55.6  med70  +1.25  Δbase  +0.66
+      Z3→T4→Z3→T4→Z9                     n=   339  med  +0.78  win 58.4  med70  +1.19  Δbase  +0.64
+      T3→Z1→Z2→T4→Z9                     n=   357  med  +0.76  win 58.5  med70  +1.39  Δbase  +0.63
+      T9→Z9→T1→T2→Z9                     n=   316  med  +0.76  win 55.1  med70  +0.59  Δbase  +0.63
+      Z4→Z2G→Z2G→T4→Z9                   n=  1002  med  +0.76  win 55.3  med70  +0.91  Δbase  +0.62
+      Z2→Z2→T5→T2G→Z9                    n=   409  med  +0.74  win 55.0  med70  +0.82  Δbase  +0.60
+      Z4→Z2→Z2G→T1G→Z9                   n=   310  med  +0.73  win 57.4  med70  +1.04  Δbase  +0.59
+      T2G→Z3→Z2G→T3→Z9                   n=   387  med  +0.72  win 55.3  med70  +0.34  Δbase  +0.58
+      T5→T2→T2→T2→Z9                     n=   430  med  +0.71  win 57.9  med70  +1.45  Δbase  +0.58
+      ···
+      T2→T6→T2→T2G→Z9                    n=   310  med  -0.63  win 43.5  med70  -0.20  Δbase  -0.76
+      T2→Z4→Z2→T1G→Z9                    n=   375  med  -0.64  win 43.7  med70  -0.22  Δbase  -0.78
+      Z9→T5→T2→T2→Z9                     n=   310  med  -0.65  win 43.2  med70  -0.25  Δbase  -0.79
+      Z9→Z2G→T1G→T2→Z9                   n=   327  med  -0.70  win 45.0  med70  +0.28  Δbase  -0.83
+      T2→Z1G→T3→T2→Z9                    n=   345  med  -0.86  win 44.3  med70  -1.60  Δbase  -0.99
+    ── entry-bar L-line ──
+      L46                                n=578146  med  +0.16  win 51.3  med70  +0.29  Δbase  +0.03
+      L25                                n=611371  med  +0.11  win 50.8  med70  +0.19  Δbase  -0.03
+    ── entry-bar suffix ──
+      NB                                 n= 45261  med  +0.18  win 51.5  med70  +0.25  Δbase  +0.05
+      N                                  n= 56431  med  +0.18  win 51.4  med70  +0.26  Δbase  +0.04
+      NR                                 n= 23207  med  +0.16  win 51.4  med70  +0.32  Δbase  +0.02
+      NDP                                n=105466  med  +0.15  win 51.2  med70  +0.26  Δbase  +0.01
+      NU                                 n=376988  med  +0.14  win 51.1  med70  +0.25  Δbase  +0.00
+      NH                                 n=136690  med  +0.14  win 51.0  med70  +0.22  Δbase  +0.00
+      NP                                 n=310198  med  +0.12  win 50.9  med70  +0.22  Δbase  -0.01
+      NUR                                n=106423  med  +0.11  win 50.8  med70  +0.26  Δbase  -0.03
+      ND                                 n= 28863  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.03
+   ▼  NP                              n=310198  med  +0.12  win 50.9  med70  +0.22  Δbase  -0.01
+   ▼  NUR                             n=106423  med  +0.11  win 50.8  med70  +0.26  Δbase  -0.03
+   ▼  ND                              n= 28863  med  +0.10  win 50.8  med70  +0.19  Δbase  -0.03
+
+
+===== CROSS-ENDING TOP (by Δ vs own base, n≥300) =====
+  T2G→T2→T1G                               [3-bar → T1G]  n=   326  med  +1.87  Δ  +1.75
+  T9→Z4→T3→T6                              [4-bar → T6]  n=   448  med  +1.68  Δ  +1.61
+  T2→T2G→T1G                               [3-bar → T1G]  n=   341  med  +1.67  Δ  +1.55
+  Z2G→T5→Z2G                               [3-bar → Z2G]  n=   351  med  +1.74  Δ  +1.52
+  T1G→T2→T4                                [3-bar → T4]  n=   338  med  +1.56  Δ  +1.43
+  T1→T2→T4                                 [3-bar → T4]  n=   478  med  +1.55  Δ  +1.42
+  Z1G→T2→T2                                [3-bar → T2]  n=   373  med  +1.51  Δ  +1.41
+  Z3→Z2G→Z4                                [3-bar → Z4]  n=   334  med  +1.56  Δ  +1.38
+  T2G→Z5→T2G                               [3-bar → T2G]  n=   307  med  +1.46  Δ  +1.35
+  Z2G→T9→T1                                [3-bar → T1]  n=   362  med  +1.47  Δ  +1.34
+  Z4→Z2G→T5→Z3                             [4-bar → Z3]  n=   317  med  +1.48  Δ  +1.33
+  T2G→T1G→T2                               [3-bar → T2]  n=   380  med  +1.41  Δ  +1.31
+  Z1→T4→T11                                [3-bar → T11]  n=   306  med  +1.35  Δ  +1.29
+  Z2G→Z2→T3→T12                            [4-bar → T12]  n=   451  med  +1.36  Δ  +1.28
+  Z11→Z2G→Z2G→Z2→Z2                        [5-bar → Z2]  n=   341  med  +1.48  Δ  +1.26
+  Z2G→Z2G→T9→T12                           [4-bar → T12]  n=   616  med  +1.34  Δ  +1.26
+  T2G→Z2G→T1G                              [3-bar → T1G]  n=   329  med  +1.36  Δ  +1.25
+  T1G→T2G→T4                               [3-bar → T4]  n=   311  med  +1.38  Δ  +1.25
+  Z1→Z2→T2G                                [3-bar → T2G]  n=   425  med  +1.30  Δ  +1.19
+  T3→Z4→T9→Z4→T3                           [5-bar → T3]  n=   325  med  +1.34  Δ  +1.17
+  Z5→T9→Z4→Z2G                             [4-bar → Z2G]  n=   579  med  +1.39  Δ  +1.17
+  Z6→T2G→T2                                [3-bar → T2]  n=   354  med  +1.26  Δ  +1.16
+  Z2→T9→T9                                 [3-bar → T9]  n=   448  med  +1.32  Δ  +1.16
+  Z2G→T2→Z2                                [3-bar → Z2]  n=   371  med  +1.36  Δ  +1.15
+  T1→T4→Z9                                 [3-bar → Z9]  n=   318  med  +1.28  Δ  +1.14
+  Z6→Z2→T2G                                [3-bar → T2G]  n=   318  med  +1.24  Δ  +1.13
+  Z2→T5→Z2G                                [3-bar → Z2G]  n=   324  med  +1.35  Δ  +1.13
+  Z4→Z2G→T5→T2                             [4-bar → T2]  n=  1267  med  +1.20  Δ  +1.10
+  Z4→Z2→Z2→Z2G→T5                          [5-bar → T5]  n=   416  med  +1.32  Δ  +1.08
+  Z9→Z2→Z4                                 [3-bar → Z4]  n=   431  med  +1.26  Δ  +1.08

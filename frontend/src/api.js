@@ -166,6 +166,10 @@ export const api = {
   brainMine: (apply = false) => get(`/api/brain/mine?apply=${apply}`),
   brainRequests: (status = '') => get(`/api/brain/requests${status ? `?status=${status}` : ''}`),
   brainAnswer: (id, answer) => post('/api/brain/requests/answer', { id, answer }),
+  brainPending: () => get('/api/brain/pending'),
+  brainAutoTake: (apply = false, maxAge = 1) =>
+    get(`/api/brain/auto-take?apply=${apply}&max_age=${maxAge}`),
+  brainAnswerRequests: (apply = false) => get(`/api/brain/answer-requests?apply=${apply}`),
 
   // DB-sourced bars (stored OHLC + 6-line chart codes, matches Sequence Builder)
   studioBars: (ticker, limit = 300, tf = '1d') =>

@@ -1333,70 +1333,6 @@ def capit_atom_marks(ticker: str, universe: str = Query(None)):
         conn.close()
 
 
-@router.get("/tzt4-marks/{ticker}")
-def tzt4_marks(ticker: str, universe: str = Query(None)):
-    """All historical T[-2]-Z[-1]-T4[0] signals for chart markers.
-    Returns [{date, tier, suffix, rsi}] sorted by date.
-    Tier 1=T4[-2], Tier 2=T3/T9/T10[-2], Tier 3=T2/T2G/T5[-2], Tier 4=others."""
-    from studio.db import get_conn
-    tk = ticker.upper()
-    try:
-        conn = get_conn(read_only=True)
-    except Exception as e:
-        raise HTTPException(503, detail=str(e))
-    try:
-        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
-        rows = conn.execute(f"""
-            WITH base AS (
-              SELECT date, composite_full_suffix, rsi_14,
-                     sig_t4, sig_z,
-                     sig_t2, sig_t2g, sig_t3, sig_t5, sig_t9, sig_t10,
-                     sig_t1, sig_t1g, sig_t11, sig_t12
-              FROM bars WHERE ticker = ? {uni_where}
-              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
-            ),
-            lagged AS (
-              SELECT date, rsi_14, composite_full_suffix,
-                     sig_t4,
-                     LAG(sig_z,   1) OVER (ORDER BY date) AS z_1,
-                     LAG(sig_t4,  2) OVER (ORDER BY date) AS t4_2,
-                     LAG(sig_t3,  2) OVER (ORDER BY date) AS t3_2,
-                     LAG(sig_t9,  2) OVER (ORDER BY date) AS t9_2,
-                     LAG(sig_t10, 2) OVER (ORDER BY date) AS t10_2,
-                     LAG(sig_t2,  2) OVER (ORDER BY date) AS t2_2,
-                     LAG(sig_t2g, 2) OVER (ORDER BY date) AS t2g_2,
-                     LAG(sig_t5,  2) OVER (ORDER BY date) AS t5_2,
-                     LAG(sig_t1,  2) OVER (ORDER BY date) AS t1_2,
-                     LAG(sig_t1g, 2) OVER (ORDER BY date) AS t1g_2,
-                     LAG(sig_t11, 2) OVER (ORDER BY date) AS t11_2,
-                     LAG(sig_t12, 2) OVER (ORDER BY date) AS t12_2
-              FROM base
-            )
-            SELECT
-              CAST(date AS DATE)::VARCHAR AS date,
-              CASE
-                WHEN t4_2  > 0                             THEN 'T1'
-                WHEN t3_2  > 0 OR t9_2 > 0 OR t10_2 > 0  THEN 'T2'
-                WHEN t2_2  > 0 OR t2g_2> 0 OR t5_2  > 0  THEN 'T3'
-                ELSE 'T4'
-              END AS tier,
-              composite_full_suffix AS suffix,
-              round(rsi_14, 1) AS rsi
-            FROM lagged
-            WHERE sig_t4 > 0 AND z_1 > 0
-              AND (t4_2>0 OR t3_2>0 OR t9_2>0 OR t10_2>0
-                   OR t2_2>0 OR t2g_2>0 OR t5_2>0
-                   OR t1_2>0 OR t1g_2>0 OR t11_2>0 OR t12_2>0)
-            ORDER BY date
-        """, [tk]).fetchall()
-        return {"ticker": tk, "marks": [
-            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
-            for r in rows
-        ]}
-    finally:
-        conn.close()
-
-
 @router.get("/mtf-ema-marks/{ticker}")
 def mtf_ema_marks(ticker: str):
     """Historical MTF-EMA (SMX/RGTI) variant fires for chart markers — EOD daily snapshot of the
@@ -1407,6 +1343,23 @@ def mtf_ema_marks(ticker: str):
     except Exception as e:
         log.exception("mtf-ema marks failed")
         raise HTTPException(500, detail=str(e))
+
+
+@router.get("/seq-marks/{ticker}")
+def seq_marks(ticker: str):
+    """🟡 The five user-built sequence edges (2026-08-04) as chart markers (1D):
+    🌉Z1G4 · 🧲Z9HL · 🌉v2 · 🧺SEQ · 👑Z1G. Reads edge_replay.ticker_edges (TTL-cached,
+    same masks as the backtest) and filters to the sequence-chip set — one source, so the
+    chart can never disagree with Replay/Ultra."""
+    _SEQ = {"🌉Z1G4🟡", "🧲Z9HL🟡", "🌉v2🟡", "🧺SEQ🟡", "👑Z1G🟡"}
+    try:
+        from edge_replay import ticker_edges
+        emap = ticker_edges(ticker.upper())
+        marks = [{"date": d, "code": c} for d, cs in sorted(emap.items())
+                 for c in cs if c in _SEQ]
+        return {"ticker": ticker.upper(), "marks": marks}
+    except Exception as e:
+        return {"ticker": ticker.upper(), "marks": [], "error": str(e)[:200]}
 
 
 @router.get("/edge-marks/{ticker}")
@@ -1468,221 +1421,6 @@ def edge_marks(ticker: str, universe: str = Query(None)):
             ) ORDER BY date
         """, [tk]).fetchall()
         return {"ticker": tk, "marks": [{"date": r[0], "setup": r[1], "sc_super": bool(r[2])} for r in rows]}
-    finally:
-        conn.close()
-
-
-@router.get("/ttt6-marks/{ticker}")
-def ttt6_marks(ticker: str, universe: str = Query(None)):
-    """All historical T[-2]-T[-1]-T6[0] signals for chart markers.
-    Returns [{date, tier, suffix, rsi}] sorted by date.
-    Tier 1=T3/T1/T10[-2], Tier 2=T4/T1G[-2], Tier 3=T2G/T9[-2], Tier 4=rest."""
-    from studio.db import get_conn
-    tk = ticker.upper()
-    try:
-        conn = get_conn(read_only=True)
-    except Exception as e:
-        raise HTTPException(503, detail=str(e))
-    try:
-        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
-        rows = conn.execute(f"""
-            WITH base AS (
-              SELECT date, composite_full_suffix, rsi_14,
-                     sig_t6,
-                     sig_t1, sig_t1g, sig_t2, sig_t2g, sig_t3, sig_t4,
-                     sig_t5, sig_t9, sig_t10, sig_t11, sig_t12
-              FROM bars WHERE ticker = ? {uni_where}
-              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
-            ),
-            lagged AS (
-              SELECT date, rsi_14, composite_full_suffix, sig_t6,
-                     LAG(sig_t1,  1) OVER (ORDER BY date) AS t1_1,
-                     LAG(sig_t1g, 1) OVER (ORDER BY date) AS t1g_1,
-                     LAG(sig_t2,  1) OVER (ORDER BY date) AS t2_1,
-                     LAG(sig_t2g, 1) OVER (ORDER BY date) AS t2g_1,
-                     LAG(sig_t3,  1) OVER (ORDER BY date) AS t3_1,
-                     LAG(sig_t4,  1) OVER (ORDER BY date) AS t4_1,
-                     LAG(sig_t5,  1) OVER (ORDER BY date) AS t5_1,
-                     LAG(sig_t9,  1) OVER (ORDER BY date) AS t9_1,
-                     LAG(sig_t10, 1) OVER (ORDER BY date) AS t10_1,
-                     LAG(sig_t11, 1) OVER (ORDER BY date) AS t11_1,
-                     LAG(sig_t12, 1) OVER (ORDER BY date) AS t12_1,
-                     LAG(sig_t3,  2) OVER (ORDER BY date) AS t3_2,
-                     LAG(sig_t1,  2) OVER (ORDER BY date) AS t1_2,
-                     LAG(sig_t10, 2) OVER (ORDER BY date) AS t10_2,
-                     LAG(sig_t4,  2) OVER (ORDER BY date) AS t4_2,
-                     LAG(sig_t1g, 2) OVER (ORDER BY date) AS t1g_2,
-                     LAG(sig_t2g, 2) OVER (ORDER BY date) AS t2g_2,
-                     LAG(sig_t9,  2) OVER (ORDER BY date) AS t9_2,
-                     LAG(sig_t2,  2) OVER (ORDER BY date) AS t2_2,
-                     LAG(sig_t5,  2) OVER (ORDER BY date) AS t5_2,
-                     LAG(sig_t11, 2) OVER (ORDER BY date) AS t11_2,
-                     LAG(sig_t12, 2) OVER (ORDER BY date) AS t12_2
-              FROM base
-            )
-            SELECT
-              CAST(date AS DATE)::VARCHAR AS date,
-              CASE
-                WHEN t3_2 > 0 OR t1_2 > 0 OR t10_2 > 0   THEN 'T1'
-                WHEN t4_2 > 0 OR t1g_2 > 0                THEN 'T2'
-                WHEN t2g_2 > 0 OR t9_2 > 0                THEN 'T3'
-                ELSE 'T4'
-              END AS tier,
-              composite_full_suffix AS suffix,
-              round(rsi_14, 1) AS rsi
-            FROM lagged
-            WHERE sig_t6 > 0
-              AND (t1_1>0 OR t1g_1>0 OR t2_1>0 OR t2g_1>0 OR t3_1>0 OR t4_1>0
-                   OR t5_1>0 OR t9_1>0 OR t10_1>0 OR t11_1>0 OR t12_1>0)
-              AND (t3_2>0 OR t1_2>0 OR t10_2>0 OR t4_2>0 OR t1g_2>0
-                   OR t2g_2>0 OR t9_2>0 OR t2_2>0 OR t5_2>0 OR t11_2>0 OR t12_2>0)
-            ORDER BY date
-        """, [tk]).fetchall()
-        return {"ticker": tk, "marks": [
-            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
-            for r in rows
-        ]}
-    finally:
-        conn.close()
-
-
-@router.get("/t1seq-marks/{ticker}")
-def t1seq_marks(ticker: str, universe: str = Query(None)):
-    """All historical T1-sequence signals for chart markers.
-    Pattern: any[-2] → any[-1] → T1[0]. Tier by context:
-    Tier 1=Z-Z, Tier 2=T-Z, Tier 3=Z-T, Tier 4=T-T."""
-    from studio.db import get_conn
-    tk = ticker.upper()
-    try:
-        conn = get_conn(read_only=True)
-    except Exception as e:
-        raise HTTPException(503, detail=str(e))
-    try:
-        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
-        rows = conn.execute(f"""
-            WITH base AS (
-              SELECT date, composite_full_suffix, rsi_14, sig_t1, sig_z, sig_t
-              FROM bars WHERE ticker = ? {uni_where}
-              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
-            ),
-            lagged AS (
-              SELECT date, rsi_14, composite_full_suffix, sig_t1,
-                     LAG(sig_z, 1) OVER (ORDER BY date) AS z_1,
-                     LAG(sig_t, 1) OVER (ORDER BY date) AS t_1,
-                     LAG(sig_z, 2) OVER (ORDER BY date) AS z_2,
-                     LAG(sig_t, 2) OVER (ORDER BY date) AS t_2
-              FROM base
-            )
-            SELECT
-              CAST(date AS DATE)::VARCHAR AS date,
-              CASE
-                WHEN z_2 > 0 AND z_1 > 0 THEN 'T1'
-                WHEN t_2 > 0 AND z_1 > 0 THEN 'T2'
-                WHEN z_2 > 0 AND t_1 > 0 THEN 'T3'
-                ELSE 'T4'
-              END AS tier,
-              composite_full_suffix AS suffix,
-              round(rsi_14, 1) AS rsi
-            FROM lagged
-            WHERE sig_t1 > 0
-              AND (z_2 > 0 OR t_2 > 0)
-              AND (z_1 > 0 OR t_1 > 0)
-            ORDER BY date
-        """, [tk]).fetchall()
-        return {"ticker": tk, "marks": [
-            {"date": r[0], "tier": r[1], "suffix": r[2] or "", "rsi": r[3]}
-            for r in rows
-        ]}
-    finally:
-        conn.close()
-
-
-@router.get("/t3seq-marks/{ticker}")
-def t3seq_marks(ticker: str, universe: str = Query(None)):
-    """T3 RSI<35 sequence marks for chart overlay.
-    Tier: gold=fresh+NBI (exp≈4.5), amber=fresh (exp≈1.0), blue=streak T3→T3→T3 (exp≈0.9), slate=plain.
-    'fresh' = T3 only at [-1], nothing at [-2]. 'streak' = T3 at all of [-1,-2,-3].
-    """
-    from studio.db import get_conn
-    tk = ticker.upper()
-    try:
-        conn = get_conn(read_only=True)
-    except Exception as e:
-        raise HTTPException(503, detail=str(e))
-    try:
-        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
-        rows = conn.execute(f"""
-            WITH base AS (
-              SELECT date, rsi_14, sig_t3, sig_t, composite_full_suffix AS sfx
-              FROM bars WHERE ticker = ? {uni_where}
-              QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
-            ),
-            lagged AS (
-              SELECT date, rsi_14, sfx, sig_t3,
-                     COALESCE(LAG(sig_t3, 1) OVER (ORDER BY date), 0) AS t3_1,
-                     COALESCE(LAG(sig_t,  1) OVER (ORDER BY date), 0) AS t_1,
-                     COALESCE(LAG(sig_t3, 2) OVER (ORDER BY date), 0) AS t3_2,
-                     COALESCE(LAG(sig_t,  2) OVER (ORDER BY date), 0) AS t_2,
-                     COALESCE(LAG(sig_t3, 3) OVER (ORDER BY date), 0) AS t3_3
-              FROM base
-            )
-            SELECT
-              CAST(date AS DATE)::VARCHAR AS date,
-              sfx AS suffix,
-              round(rsi_14, 1) AS rsi,
-              CASE
-                WHEN t3_1 > 0 AND t_2 = 0 AND sfx = 'NBI' THEN 'fresh-nbi'
-                WHEN t3_1 > 0 AND t_2 = 0                  THEN 'fresh'
-                WHEN t3_1 > 0 AND t3_2 > 0 AND t3_3 > 0   THEN 'streak'
-                ELSE 'plain'
-              END AS tier
-            FROM lagged
-            WHERE sig_t3 > 0 AND rsi_14 < 35
-            ORDER BY date
-        """, [tk]).fetchall()
-        return {"ticker": tk, "marks": [
-            {"date": r[0], "suffix": r[1] or "", "rsi": r[2], "tier": r[3]}
-            for r in rows
-        ]}
-    finally:
-        conn.close()
-
-
-@router.get("/t9rsi35-marks/{ticker}")
-def t9rsi35_marks(ticker: str, universe: str = Query(None)):
-    """T9 RSI<35 marks for chart overlay.
-    Tier: gold=NUI/NRI/N suffix (exp≈1.0+), teal=other (exp≈0.67-1.35).
-    T9 RSI<35 baseline exp=+0.93 vs T9 RSI≥60 exp=-0.16.
-    NOTE: the premium set includes plain 'N' (matches the SQL below); if only
-    NUI/NRI were validated as premium, drop 'N' from the CASE instead.
-    """
-    from studio.db import get_conn
-    tk = ticker.upper()
-    try:
-        conn = get_conn(read_only=True)
-    except Exception as e:
-        raise HTTPException(503, detail=str(e))
-    try:
-        uni_where = f"AND universe = '{universe}'" if universe in ("sp500", "nasdaq", "russell2k") else ""
-        rows = conn.execute(f"""
-            SELECT
-              CAST(date AS DATE)::VARCHAR AS date,
-              composite_full_suffix AS suffix,
-              round(rsi_14, 1) AS rsi,
-              CASE
-                WHEN composite_full_suffix IN ('NUI','NRI','N') THEN 'premium'
-                ELSE 'base'
-              END AS tier
-            FROM bars
-            WHERE ticker = ? {uni_where}
-              AND sig_t9 > 0 AND rsi_14 < 35
-            QUALIFY ROW_NUMBER() OVER (PARTITION BY date ORDER BY {UNIVERSE_PRIORITY_SQL}) = 1
-            ORDER BY date
-        """, [tk]).fetchall()
-        return {"ticker": tk, "marks": [
-            {"date": r[0], "suffix": r[1] or "", "rsi": r[2], "tier": r[3]}
-            for r in rows
-        ]}
     finally:
         conn.close()
 

@@ -28,11 +28,16 @@ def _dist(spot, level):
     return None
 
 
-def capture(as_of: str | None = None, max_dte: int = 45) -> dict:
-    """Snapshot today's edge-fires with their live GEX context. Returns a summary dict."""
+def capture(as_of: str | None = None, max_dte: int = 45, source: str = "massive",
+            out_path: str | None = None) -> dict:
+    """Snapshot today's edge-fires with their live GEX context. Returns a summary dict.
+    source='cboe' + its own out_path (2026-08-03): the PARITY run for cancelling the paid
+    Massive options add-on — both sources log the same fires side by side for ~a week,
+    then a comparison of the two parquets decides whether Cboe can take over."""
     from edge_replay import latest_edges_map
     from gex_engine import gex_for_ticker
 
+    log_path = out_path or _LOG_PATH
     today = as_of or str(date.today())
     edges = latest_edges_map(lookback=1, build=True) or {}   # {ticker: [codes]} fired ≤1 bar
     if not edges:
@@ -50,7 +55,7 @@ def capture(as_of: str | None = None, max_dte: int = 45) -> dict:
         base_codes = sorted({_code(c) for c in code_list})
         g = gex_cache.get(tk)
         if g is None:
-            g = gex_for_ticker(tk, max_dte=max_dte) or {}
+            g = gex_for_ticker(tk, max_dte=max_dte, source=source) or {}
             gex_cache[tk] = g
         if not g or g.get("regime") is None:  # gex_for_ticker sets 'regime' only when it worked
             continue                          # no options chain → skip (illiquid)
@@ -78,18 +83,26 @@ def capture(as_of: str | None = None, max_dte: int = 45) -> dict:
                 "note": "edge tickers had no optionable GEX"}
 
     new = pd.DataFrame(rows)
-    if os.path.exists(_LOG_PATH):
-        old = pd.read_parquet(_LOG_PATH)
+    if os.path.exists(log_path):
+        old = pd.read_parquet(log_path)
         combined = pd.concat([old, new], ignore_index=True)
         combined = combined.drop_duplicates(subset=["date", "ticker", "edge"], keep="last")
     else:
         combined = new
-    combined.to_parquet(_LOG_PATH, index=False)
+    combined.to_parquet(log_path, index=False)
     return {"date": today, "edge_tickers": len(edges), "optionable": new["ticker"].nunique(),
-            "logged": len(new), "total_rows": len(combined), "path": _LOG_PATH}
+            "logged": len(new), "total_rows": len(combined), "path": log_path}
 
 
 if __name__ == "__main__":
     logging.basicConfig(level=logging.INFO)
     import json
     print(json.dumps(capture(), indent=1, default=str))
+    # 🆓 parity pass (2026-08-03): same fires through the free Cboe source, own parquet.
+    # Non-fatal — a Cboe hiccup must never break the paid log while it is still primary.
+    try:
+        print(json.dumps(capture(source="cboe",
+                                 out_path=_LOG_PATH.replace(".parquet", "_cboe.parquet")),
+                         indent=1, default=str))
+    except Exception as e:
+        print(f"cboe parity pass failed (non-fatal): {e}")

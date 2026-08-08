@@ -355,7 +355,7 @@ export default function App() {
           {activeTab === 'corr'           && <SignalCorrelPanel />}
           {activeTab === 'superchart'     && <SuperchartPanel initialTicker={selected} initialTf={tf} initialTrade={chartTrade} onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
           {activeTab === 'day1h'          && <SuperchartPanel key="sc1h" initialTicker={selected} initialTf="1d" with1H onTickerChange={(t, f) => { setScTicker(t); setScTf(f) }} />}
-          {activeTab === 'brain'          && <BrainPanel onSelectTicker={handleSelect} />}
+          {activeTab === 'brain'          && <BrainPanel onSelectTicker={handleSelect} onOpenChart={handleOpenChart} />}
           {activeTab === 'sectors'        && <SectorAnalysisPanel onSelectTicker={handleSelect} />}
           {activeTab === 'analyze'        && <TickerAnalysisPanel onAddToWatchlist={handleAddTicker} onChartChange={setAnalyzeChart} />}
           {activeTab === 'replay'         && <ReplayPanel />}
