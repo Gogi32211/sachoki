@@ -1462,12 +1462,28 @@ def _prep(df: pd.DataFrame) -> pd.DataFrame:
     _cx100 = (_pc20 < -100) & (_c20 >= -100)     # CCI reclaims −100
 
     def _near(mask, w):
-        """mask fired within ±w bars, per ticker (the 'together' window)."""
+        """mask fired in the LAST w bars (inclusive), per ticker — the 'together' window.
+
+        Made causal 2026-08-10 (audit_lookahead.py). This used to read ±w, adding shift(-1)…
+        shift(-w), so the setup was true at bar i when the CCI reclaim happened at i+1 or i+2
+        — a price that had not printed. Both dual-reclaim setups were built on that.
+
+        The cost of the fix, measured through the book's own ⚡ATR×12 path-sim:
+            🔄DualReclaim🏆RS   +4.246 → +4.000   worst year IMPROVED +2.40 → +2.68
+            🔄DualReclaim deep  +4.804 → +3.944   worst year +2.30 → +1.00
+        The 🏆RS edge was never the lookahead. The deep variant kept 18% of its size from bars
+        that had not happened. Both remain 5/5 years positive.
+
+        The number to remember is not the median: causal fires on 60.7% and 47.1% of the old
+        signals, so these setups appear roughly HALF as often live as the old backtest implied.
+        Everything in the comment block above — the ±w plateau, the +3.52 and +3.86 headline
+        numbers, the DSR and the novelty split — was measured on the forward-looking version
+        and reads high.
+        """
         m = mask.astype(float)
         out = m.copy()
         for k in range(1, w + 1):
-            out = out + m.groupby(df["ticker"]).shift(-k).fillna(0) \
-                      + m.groupby(df["ticker"]).shift(k).fillna(0)
+            out = out + m.groupby(df["ticker"]).shift(k).fillna(0)
         return out > 0
 
     _cx_w2 = _near(_cx100, 2)
