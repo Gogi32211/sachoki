@@ -1,19 +1,4 @@
-"""Exit grid for one token, run identically on T6 and Z7 so the two can be compared.
-
-T6 was settled first and settled negatively: 48 exit rules, a mined→OOS rank correlation of
-−0.041, every single rule negative in 2021-23 and positive in 2024-26, and an OOS ranking that
-follows holding period monotonically from −0.173 at one bar to +5.211 at sixty. That is a beta
-dial, not an exit edge — which is what an exit grid looks like when the entry has nothing.
-
-Z7 is the one entry left standing after the duplicate-row correction: +3.76pp over a
-price × liquidity × year matched control on 140,248 bars, and the packages' Z7+L5+ED filter
-replicated on top of it (+1.11pp). Exit optimisation only means something once the entry does,
-so this is the first time the grid is being run on a signal that has a measured edge.
-
-The comparison is the point. If Z7's grid also just tracks holding period and also fails to
-transfer between halves, its entry edge does not survive contact with a real exit. If some
-rule is positive in BOTH halves and beats the pure-hold ladder, that is the first genuinely
-new thing today.
+"""T6 exits: the position sees +3.17% and keeps +0.10%. Can any exit rule change that?
 
 The entry side is settled — T6, T→T6 and T→T→T6 all overlap their controls at every horizon,
 so nothing here is trying to manufacture an edge from a signal that has none. The question is
@@ -46,14 +31,11 @@ MAXH = 60
 COST, SLIP = 0.15, 0.05
 SPLIT = np.datetime64("2024-01-01")
 
-st = NakedStudy(f"exit lab — {__import__('os').environ.get('TOKEN','T6')}", n_trials=2, columns=("t_sig", "z_sig", "atr_14"),
+st = NakedStudy("T6 exit lab", n_trials=2, columns=("t_sig", "z_sig", "atr_14"),
                 horizons=(5,), min_price=5.0, min_dollar_vol=3_000_000)
 d = st.df
 T = d["t_sig"].fillna("").astype(str).to_numpy()
-TOKEN = __import__("os").environ.get("TOKEN", "T6")
-Z = d["z_sig"].fillna("").astype(str).to_numpy()
-tok = np.where((T != "") & (T != "nan"), T, Z)
-t6 = (tok == TOKEN)
+t6 = (T == "T6")
 tk = d["ticker"].to_numpy()
 o = d["open"].to_numpy(float)
 h = d["high"].to_numpy(float)
@@ -67,7 +49,7 @@ idx = idx[tk[idx] == tk[idx + MAXH + 1]]          # whole path inside one ticker
 ent = o[idx + 1]
 good = np.isfinite(ent) & (ent > 0)
 idx, ent = idx[good], ent[good]
-print(f"\n  {TOKEN} trades with a full {MAXH}-bar path: {len(idx):,}", flush=True)
+print(f"\n  T6 trades with a full {MAXH}-bar path: {len(idx):,}", flush=True)
 
 # path matrices, built once: rows = trades, columns = bars held
 off = np.arange(1, MAXH + 1)
@@ -198,6 +180,6 @@ if len(bench):
     better = R[(R.mean_oos > b.mean_oos) & (R.mean_mined > b.mean_mined)]
     print(f"    rules beating it in BOTH halves: {len(better)}"
           + (f" → {list(better.rule)[:5]}" if len(better) else "  — none"), flush=True)
-R.to_csv(f"exit_lab_{TOKEN}.csv", index=False)
-print(f"\n  written: exit_lab_{TOKEN}.csv", flush=True)
+R.to_csv("t6_exit_lab.csv", index=False)
+print("\n  written: t6_exit_lab.csv", flush=True)
 print("\nDONE", flush=True)
