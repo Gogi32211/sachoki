@@ -1,0 +1,671 @@
+//@version=5
+indicator("260809_TZ_F_WLNBB_CMB — TZ+WLNBB+AD-FRESH+WYC +TRUE-GAP",
+     shorttitle="260809_TZ_truegap", overlay=false, max_labels_count=500, max_bars_back=5000)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — T Signals
+// ═══════════════════════════════════════════════════════════════════
+grpT = "T Signals (Bullish)"
+showT1G = input.bool(true, "Show T1G", group=grpT)
+showT1  = input.bool(true, "Show T1",  group=grpT)
+showT2G = input.bool(true, "Show T2G", group=grpT)
+showT2  = input.bool(true, "Show T2",  group=grpT)
+showT3  = input.bool(true, "Show T3",  group=grpT)
+showT4  = input.bool(true, "Show T4",  group=grpT)
+showT5  = input.bool(true, "Show T5",  group=grpT)
+showT6  = input.bool(true, "Show T6",  group=grpT)
+showT9  = input.bool(true, "Show T9",  group=grpT)
+showT10 = input.bool(true, "Show T10", group=grpT)
+showT11 = input.bool(true, "Show T11", group=grpT)
+showT12 = input.bool(true, "Show T12", group=grpT)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Z Signals
+// ═══════════════════════════════════════════════════════════════════
+grpZ = "Z Signals (Bearish)"
+showZ1G = input.bool(true, "Show Z1G", group=grpZ)
+showZ1  = input.bool(true, "Show Z1",  group=grpZ)
+showZ2G = input.bool(true, "Show Z2G", group=grpZ)
+showZ2  = input.bool(true, "Show Z2",  group=grpZ)
+showZ3  = input.bool(true, "Show Z3",  group=grpZ)
+showZ4  = input.bool(true, "Show Z4",  group=grpZ)
+showZ5  = input.bool(true, "Show Z5",  group=grpZ)
+showZ6  = input.bool(true, "Show Z6",  group=grpZ)
+showZ7  = input.bool(true, "Show Z7",  group=grpZ)
+showZ9  = input.bool(true, "Show Z9",  group=grpZ)
+showZ10 = input.bool(true, "Show Z10", group=grpZ)
+showZ11 = input.bool(true, "Show Z11", group=grpZ)
+showZ12 = input.bool(true, "Show Z12", group=grpZ)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — PREUP / PREDN
+// ═══════════════════════════════════════════════════════════════════
+grpPREUP    = "PREUP — EMA Cross ↑"
+showPREUP55 = input.bool(true, "Show P55", group=grpPREUP)
+showPREUP66 = input.bool(true, "Show P66", group=grpPREUP)
+showPREUP50 = input.bool(true, "Show P50", group=grpPREUP)
+showPREUP3  = input.bool(true, "Show P3 / P2", group=grpPREUP)
+showPREUP89 = input.bool(true, "Show P89", group=grpPREUP)
+
+grpPREDN    = "PREDN — EMA Drop ↓"
+showPREDN55 = input.bool(true, "Show D55", group=grpPREDN)
+showPREDN66 = input.bool(true, "Show D66", group=grpPREDN)
+showPREDN50 = input.bool(true, "Show D50", group=grpPREDN)
+showPREDN3  = input.bool(true, "Show D3 / D2", group=grpPREDN)
+showPREDN89 = input.bool(true, "Show D89", group=grpPREDN)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Engulfing / Doji
+// ═══════════════════════════════════════════════════════════════════
+grpE = "Engulfing Settings"
+useWick      = input.bool(false, "Use Wick (vs Body)", group=grpE)
+minBodyRatio = input.float(1.0, "Min body ratio", minval=0.5, step=0.05, group=grpE)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — WLNBB L signals
+// ═══════════════════════════════════════════════════════════════════
+grpL = "WLNBB L Signals"
+ma_period = input.int(20, "MA Period", minval=2, maxval=100, group=grpL)
+showL1 = input.bool(true, "Show L1", group=grpL)
+showL2 = input.bool(true, "Show L2", group=grpL)
+showL3 = input.bool(true, "Show L3", group=grpL)
+showL4 = input.bool(true, "Show L4", group=grpL)
+showL5 = input.bool(true, "Show L5", group=grpL)
+showL6 = input.bool(true, "Show L6", group=grpL)
+
+cW        = input.color(color.rgb(195, 192, 211, 40), "W color",        group=grpL)
+bgFade    = input.int(85, "BG fade L34/L43", minval=0, maxval=100,       group=grpL)
+bgFadeL64 = input.int(90, "BG fade L64",     minval=0, maxval=100,       group=grpL)
+cL        = input.color(color.rgb(0, 153, 255, 36),   "L color",        group=grpL)
+cN        = input.color(color.rgb(255, 208, 0, 30),   "N color",        group=grpL)
+cB        = input.color(color.rgb(228, 129, 0, 29),   "B color",        group=grpL)
+cVB       = input.color(color.rgb(176, 32, 32, 23),   "VB color",       group=grpL)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Suffix
+// ═══════════════════════════════════════════════════════════════════
+grpW = "Wick Extension Suffix"
+showWickSuffix = input.bool(true, "Show U / D / B suffix", group=grpW)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Label Text Colour  [NEW 260809]
+// ═══════════════════════════════════════════════════════════════════
+// The script's labels are split between two text colours: BLACK on lanes 1/3 and
+// on P-up (their backgrounds are light — cW light grey, cN yellow), and WHITE on
+// P-dn (red background) and lane 2. One switch would collapse both groups and
+// change the look when it is OFF, so the switch resolves into two variables and
+// OFF restores exactly what each label had before.
+grpTXT     = "Label Text Colour"
+whiteText  = input.bool(false, "White label text (all lanes)", group=grpTXT)
+cTxtCustom = input.color(color.white, "Custom text colour", group=grpTXT,
+     tooltip="Used when the switch above is ON. Defaults to white — change it if your lane backgrounds are light.")
+
+color cTxtDark  = whiteText ? cTxtCustom : color.black   // lanes 1/3, P-up
+color cTxtLight = whiteText ? cTxtCustom : color.white   // P-dn, lane 2
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Body Size / Wick Proportion (3rd line)
+// ═══════════════════════════════════════════════════════════════════
+grpBW = "Body Size / Wick Proportion (3rd label line)"
+showLine3      = input.bool(true,  "Show 3rd line (Body + Wick shape)", group=grpBW)
+bodyExpand     = input.float(1.5,  "X if body ≥ N × prev body",        group=grpBW, minval=1.1, step=0.1)
+bodyMinimal    = input.float(0.5,  "M if body < N × prev body",        group=grpBW, minval=0.05, maxval=0.9, step=0.05)
+wickHeavy      = input.float(0.5,  "TB/BB if wick ≥ N × bar range",    group=grpBW, minval=0.3, maxval=0.8, step=0.05)
+wickFlatMax    = input.float(0.3,  "F if both wicks < N × bar range",  group=grpBW, minval=0.1, maxval=0.5, step=0.05)
+dojiBodyRatio  = input.float(0.2,  "J if body ≤ N × bar range",        group=grpBW, minval=0.05, maxval=0.4, step=0.05)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Gap Size / Range vs ATR (4th line)
+// ═══════════════════════════════════════════════════════════════════
+grpGR = "Gap Size (ATR-relative) / Range vs ATR (4th label line)"
+showLine4    = input.bool(true,  "Show 4th line (Gap + Range)", group=grpGR)
+showGapTrue  = input.bool(true,  "Show TRUE-gap (empty-space edge, →corrected)", group=grpGR)
+gapSmallATR  = input.float(0.2, "G1 if |gap| < N × ATR",  group=grpGR, minval=0.05, step=0.05)
+gapMediumATR = input.float(0.5, "G2 if |gap| < N × ATR",  group=grpGR, minval=0.2,  step=0.05)
+atrPeriod    = input.int(14,    "ATR period",               group=grpGR, minval=2, maxval=50)
+volMult      = input.float(1.5, "V if range > N × ATR",    group=grpGR, minval=1.1, step=0.1)
+contractMult = input.float(0.5, "C if range < N × ATR",    group=grpGR, minval=0.1, maxval=0.9, step=0.05)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — VIX-Fix / PSAR / RSI2 (5th line)
+// ═══════════════════════════════════════════════════════════════════
+grpExt = "VIX-Fix / PSAR / RSI2 (5th label line)"
+showLine5      = input.bool(true,  "Show 5th line",                group=grpExt)
+showVixFix     = input.bool(true,  "Show VIX-Fix (VX/VR)",        group=grpExt)
+wvfLookback    = input.int(22,     "WVF lookback",                 group=grpExt, minval=5, maxval=100)
+wvfSDevLen     = input.int(20,     "WVF stdev length",             group=grpExt, minval=5, maxval=100)
+wvfSDevMult    = input.float(2.0,  "WVF stdev mult",               group=grpExt, minval=0.5, step=0.1)
+wvfRangeLen    = input.int(50,     "WVF range high length",        group=grpExt, minval=10, maxval=200)
+wvfRangePct    = input.float(0.85, "WVF range high %",             group=grpExt, minval=0.5, maxval=1.0, step=0.05)
+showPSAR       = input.bool(true,  "Show PSAR (PB/PS)",            group=grpExt)
+psarStart      = input.float(0.02, "PSAR start",                   group=grpExt, minval=0.01, step=0.01)
+psarInc        = input.float(0.02, "PSAR inc",                     group=grpExt, minval=0.01, step=0.01)
+psarMax        = input.float(0.2,  "PSAR max",                     group=grpExt, minval=0.05, step=0.05)
+showRSI2       = input.bool(true,  "Show RSI2 (R2L/R2H/R2X/R2D)", group=grpExt)
+rsi2Period     = input.int(2,      "RSI2 period",                  group=grpExt, minval=2, maxval=10)
+rsi2Low        = input.float(20,   "RSI2 oversold (R2L/R2X)",      group=grpExt, minval=5, maxval=40)
+rsi2High       = input.float(80,   "RSI2 overbought (R2H/R2D)",    group=grpExt, minval=60, maxval=95)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — AD-FRESH
+// ═══════════════════════════════════════════════════════════════════
+grpAD = "AD-FRESH — Z1G/Z2G → T Reversal Sequence"
+showADFresh     = input.bool(true,  "Show AD★ marker on label",        group=grpAD)
+adFreshLookback = input.int(12,     "Max bars Z1G/Z2G → D signal",     group=grpAD, minval=3, maxval=30)
+adClusterWin    = input.int(8,      "AD-CLUSTER window (bars)",         group=grpAD, minval=3, maxval=20)
+adFreshPosThr   = input.float(0.50, "Fresh: close pos in range <",      group=grpAD, minval=0.2, maxval=0.8, step=0.05)
+
+// ═══════════════════════════════════════════════════════════════════
+// INPUTS — Wyckoff Phase Lane 2
+// ═══════════════════════════════════════════════════════════════════
+grpWYC2 = "Wyckoff Phase — Lane 2"
+showWYCLane2 = input.bool(true,  "Show phase label in Lane 2",           group=grpWYC2)
+wycCompMult  = input.float(0.70, "Compression: ATR < slow ATR × N",     group=grpWYC2, minval=0.3, maxval=0.95, step=0.05)
+wycAlways    = input.bool(false, "Show lane2 on all signal bars (vs key events only)", group=grpWYC2)
+
+// ═══════════════════════════════════════════════════════════════════
+// EMAs
+// ═══════════════════════════════════════════════════════════════════
+ema9   = ta.ema(close, 9)
+ema20  = ta.ema(close, 20)
+ema34  = ta.ema(close, 34)
+ema50  = ta.ema(close, 50)
+ema89  = ta.ema(close, 89)
+ema200 = ta.ema(close, 200)
+
+// ═══════════════════════════════════════════════════════════════════
+// SHARED SUFFIXES
+// ═══════════════════════════════════════════════════════════════════
+neSuffix = (close > high[1] or close < low[1]) ? "E" : "N"
+
+wickExtUp   = showWickSuffix and (high > high[1])
+wickExtDown = showWickSuffix and (low  < low[1])
+wickSuffix  = wickExtUp and wickExtDown ? "B" : wickExtUp ? "U" : wickExtDown ? "D" : ""
+
+prevBodyTop = math.max(open[1], close[1])
+prevBodyBot = math.min(open[1], close[1])
+wickInUpper = high >= prevBodyTop and high <= high[1]
+wickInLower = low  <= prevBodyBot and low  >= low[1]
+penSuffix   = wickInUpper and wickInLower ? "H" : wickInUpper ? "P" : wickInLower ? "R" : ""
+
+closeAbove  = close > prevBodyTop
+closeBelow  = close < prevBodyBot
+closeSuffix = closeAbove ? "A" : closeBelow ? "O" : "I"
+appendClose = (neSuffix == "E" and wickSuffix == "B") or (neSuffix == "N" and (wickSuffix != "" or penSuffix != ""))
+
+// ═══════════════════════════════════════════════════════════════════
+// BODY SIZE CLASS — X / S / M
+// ═══════════════════════════════════════════════════════════════════
+bodyNow      = math.abs(close - open)
+bodyPrev     = math.abs(close[1] - open[1])
+bodyPrevSafe = math.max(bodyPrev, syminfo.mintick)
+bodyRatio    = bodyNow / bodyPrevSafe
+
+string bodyClass = bodyRatio >= bodyExpand ? "X" : bodyRatio <= bodyMinimal ? "M" : "S"
+
+// ═══════════════════════════════════════════════════════════════════
+// WICK PROPORTION — TB / BB / J / F
+// ═══════════════════════════════════════════════════════════════════
+barRange     = high - low
+barRangeSafe = math.max(barRange, syminfo.mintick)
+upperWick    = high - math.max(open, close)
+lowerWick    = math.min(open, close) - low
+upperFrac    = upperWick / barRangeSafe
+lowerFrac    = lowerWick / barRangeSafe
+bodyFrac     = bodyNow   / barRangeSafe
+
+string wickClass = bodyFrac <= dojiBodyRatio ? "J" : upperFrac >= wickHeavy ? "TB" : lowerFrac >= wickHeavy ? "BB" : (upperFrac < wickFlatMax and lowerFrac < wickFlatMax) ? "F" : ""
+
+string line3Text = showLine3 ? (bodyClass + (str.length(wickClass) > 0 ? wickClass : "")) : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// RANGE vs ATR / GAP SIZE
+// ═══════════════════════════════════════════════════════════════════
+atrVal  = ta.atr(atrPeriod)
+atrSafe = math.max(atrVal, syminfo.mintick)
+rangeRatio = (high - low) / atrSafe
+
+string rangeClass = rangeRatio > volMult ? "V" : rangeRatio < contractMult ? "C" : "N"
+
+hasGap      = (open > high[1]) or (open < low[1])
+gapAbs      = hasGap ? math.abs(open - close[1]) : 0.0
+gapAtrRatio = gapAbs / atrSafe
+
+string gapClass = ""
+if hasGap
+    gapClass := gapAtrRatio < gapSmallATR ? "G1" : gapAtrRatio < gapMediumATR ? "G2" : "G3"
+
+// ── TRUE-gap class: magnitude from the EMPTY-SPACE edge (prev high/low), ──
+// ── consistent with the detection rule. The prev_close version above measures  ──
+// ── overnight displacement and systematically INFLATES (~2x, never under).      ──
+gapTrueAbs   = hasGap ? ((open > high[1]) ? (open - high[1]) : (low[1] - open)) : 0.0
+gapTrueRatio = gapTrueAbs / atrSafe
+string gapTrueClass = ""
+if hasGap
+    gapTrueClass := gapTrueRatio < gapSmallATR ? "G1" : gapTrueRatio < gapMediumATR ? "G2" : "G3"
+
+// Combined gap token: old(prev_close); when TRUE differs, show "old→true".
+string gapTok = gapClass
+if showGapTrue and str.length(gapTrueClass) > 0 and gapTrueClass != gapClass
+    gapTok := gapClass + "→" + gapTrueClass
+
+string line4Text = showLine4 ? (gapTok + (str.length(rangeClass) > 0 ? (str.length(gapTok) > 0 ? "-" + rangeClass : rangeClass) : "")) : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// LINE 5 — VIX-Fix / PSAR / RSI2
+// ═══════════════════════════════════════════════════════════════════
+wvf      = (ta.highest(close, wvfLookback) - low) / ta.highest(close, wvfLookback) * 100
+wvfMid   = ta.sma(wvf, wvfSDevLen)
+wvfSDev  = wvfSDevMult * ta.stdev(wvf, wvfSDevLen)
+wvfUpper = wvfMid + wvfSDev
+wvfRange = ta.highest(wvf, wvfRangeLen) * wvfRangePct
+vixSpike = wvf >= wvfUpper
+vixRange = wvf >= wvfRange and not vixSpike
+string vixToken = showVixFix ? (vixSpike ? "VX" : vixRange ? "VR" : "") : ""
+
+psarVal  = ta.sar(psarStart, psarInc, psarMax)
+psarBull = close > psarVal
+string psarToken = showPSAR ? (psarBull ? "PB" : "PS") : ""
+
+rsi2        = ta.rsi(close, rsi2Period)
+rsi2Reclaim = rsi2[1] < rsi2Low  and rsi2 > rsi2Low
+rsi2Drop    = rsi2[1] > rsi2High and rsi2 < rsi2High
+string rsi2Token = showRSI2 ? (rsi2Reclaim ? "R2X" : rsi2Drop ? "R2D" : rsi2 < rsi2Low ? "R2L" : rsi2 > rsi2High ? "R2H" : "") : ""
+
+string line5Text = ""
+if showLine5
+    if str.length(vixToken) > 0
+        line5Text := vixToken
+    if str.length(psarToken) > 0
+        line5Text := str.length(line5Text) > 0 ? line5Text + "-" + psarToken : psarToken
+    if str.length(rsi2Token) > 0
+        line5Text := str.length(line5Text) > 0 ? line5Text + "-" + rsi2Token : rsi2Token
+
+// ═══════════════════════════════════════════════════════════════════
+// DOJI / DIRECTION
+// ═══════════════════════════════════════════════════════════════════
+isDoji = close == open
+Z7_raw = isDoji
+isBull = close > open
+isBear = close < open
+prev1IsBull = close[1] > open[1]
+prev1IsBear = close[1] < open[1] or Z7_raw[1]
+
+// ═══════════════════════════════════════════════════════════════════
+// ENGULFING
+// ═══════════════════════════════════════════════════════════════════
+prevBull = prev1IsBull
+prevBear = prev1IsBear
+prevBody = math.abs(close[1] - open[1])
+prevTop  = math.max(open[1], close[1])
+prevBot  = math.min(open[1], close[1])
+currBody = math.abs(close - open)
+currTop  = math.max(open, close)
+currBot  = math.min(open, close)
+
+eHigh = useWick ? high    : currTop
+eLow  = useWick ? low     : currBot
+ePH   = useWick ? high[1] : prevTop
+ePL   = useWick ? low[1]  : prevBot
+
+prevBodySafe = math.max(prevBody, syminfo.mintick)
+bodyRatioOk  = (currBody / prevBodySafe) >= minBodyRatio
+fullyEngulfs = eHigh >= ePH and ePL >= eLow and bodyRatioOk
+isInside     = currTop <= prevTop and currBot >= prevBot
+
+// ═══════════════════════════════════════════════════════════════════
+// RAW T PATTERNS
+// ═══════════════════════════════════════════════════════════════════
+T1G_raw = prev1IsBear and (open > close[1]) and (open > open[1]) and (close > open[1]) and isBull
+T1_raw  = prev1IsBear and (open >= close[1]) and (open[1] >= open) and (close > open[1]) and isBull
+T2G_raw = prev1IsBull and (open >= open[1]) and (open > close[1]) and (close > close[1]) and isBull
+T2_raw  = prev1IsBull and (open >= open[1]) and (open <= close[1]) and (close > close[1]) and isBull
+T3_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close > close[1])
+T4_raw  = prevBear and isBull and fullyEngulfs
+T5_raw  = prev1IsBear and isBull and (open < open[1]) and (open < close[1]) and (close < open[1]) and (close[1] >= close)
+T6_raw  = prevBull and isBull and fullyEngulfs
+T9_raw  = prev1IsBear and isBull and isInside
+T10_raw = prev1IsBull and isBull and isInside
+T11_raw = prev1IsBull and (open < open[1]) and (close < close[1] or close < open[1]) and isBull
+T12_raw = prev1IsBull and isBull and (open < open[1]) and (close < open[1])
+
+// ═══════════════════════════════════════════════════════════════════
+// RAW Z PATTERNS
+// ═══════════════════════════════════════════════════════════════════
+Z1G_raw  = prev1IsBull and (open < close[1]) and (open < open[1]) and (close < open[1]) and isBear
+Z1_raw   = prev1IsBull and (open <= close[1]) and (open > open[1]) and (close < open[1]) and isBear
+Z2G_raw  = prev1IsBear and (open <= open[1]) and (open < close[1]) and (close < close[1]) and isBear
+Z2_raw   = prev1IsBear and (open <= open[1]) and (open >= close[1]) and (close < close[1]) and isBear
+Z3_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close < close[1])
+Z4_raw   = prevBull and isBear and fullyEngulfs
+Z5_raw   = prev1IsBull and isBear and (open > open[1]) and (open > close[1]) and (close > open[1]) and (close >= close[1])
+Z6_raw   = prevBear and isBear and fullyEngulfs
+Z9_raw   = prev1IsBull and isBear and isInside
+Z10_raw  = prev1IsBear and isBear and isInside
+Z11_raw  = prev1IsBear and (open > open[1]) and isBear and (close > close[1] or close > open[1])
+Z12_raw  = prev1IsBull and (open <= open[1]) and (close < open)
+anyOtherBullRaw = T1G_raw or T1_raw or T2G_raw or T2_raw or T3_raw or T4_raw or T5_raw or T6_raw or T9_raw or T10_raw or T11_raw or T12_raw
+anyOtherBearRaw = Z1G_raw or Z1_raw or Z2G_raw or Z2_raw or Z3_raw or Z4_raw or Z5_raw or Z6_raw or Z9_raw or Z10_raw or Z11_raw or Z12_raw
+Z7_clean = Z7_raw and not anyOtherBullRaw and not anyOtherBearRaw
+
+// ═══════════════════════════════════════════════════════════════════
+// AD-FRESH — Z1G/Z2G (exhaustion) → T4/T6/T2G/T2 (flip)
+// ═══════════════════════════════════════════════════════════════════
+a_sig_raw = Z1G_raw or Z2G_raw
+d_sig_raw = T4_raw  or T6_raw  or T2G_raw or T2_raw
+
+barsSinceA  = ta.barssince(a_sig_raw)
+a_recent    = not na(barsSinceA) and barsSinceA <= adFreshLookback
+
+h20_ad  = ta.highest(high, 20)
+l20_ad  = ta.lowest(low,  20)
+rng20   = math.max(h20_ad - l20_ad, syminfo.mintick)
+posRng  = (close - l20_ad) / rng20
+isFreshPos = posRng < adFreshPosThr
+
+adFresh = showADFresh and d_sig_raw and a_recent and isFreshPos
+
+barsSinceADF = ta.barssince(adFresh)
+adCluster    = adFresh and not na(barsSinceADF[1]) and barsSinceADF[1] > 0 and barsSinceADF[1] <= adClusterWin
+
+string adMark = adCluster ? "★★" : adFresh ? "★" : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// PRIORITY ENGINE
+// ═══════════════════════════════════════════════════════════════════
+bullCode =
+     T4_raw   ? 1  : T6_raw   ? 2  : T1G_raw ? 3  : T2G_raw ? 4  :
+     T1_raw   ? 5  : T2_raw   ? 6  : T9_raw  ? 7  : T10_raw ? 8  :
+     T3_raw   ? 9  : T11_raw  ? 10 : T5_raw  ? 11 : T12_raw ? 12 : 0
+
+bearCode =
+     Z4_raw   ? 1  : Z6_raw   ? 2  : Z1G_raw ? 3  : Z2G_raw ? 4  :
+     Z1_raw   ? 5  : Z2_raw   ? 6  : Z9_raw  ? 7  : Z10_raw ? 8  :
+     Z3_raw   ? 9  : Z11_raw  ? 10 : Z5_raw  ? 11 : Z12_raw ? 12 :
+     Z7_clean ? 13 : 0
+
+T4  = bullCode == 1
+T6  = bullCode == 2
+T1G = bullCode == 3
+T2G = bullCode == 4
+T1  = bullCode == 5
+T2  = bullCode == 6
+T9  = bullCode == 7
+T10 = bullCode == 8
+T3  = bullCode == 9
+T11 = bullCode == 10
+T5  = bullCode == 11
+T12 = bullCode == 12
+
+Z4  = bearCode == 1
+Z6  = bearCode == 2
+Z1G = bearCode == 3
+Z2G = bearCode == 4
+Z1  = bearCode == 5
+Z2  = bearCode == 6
+Z9  = bearCode == 7
+Z10 = bearCode == 8
+Z3  = bearCode == 9
+Z11 = bearCode == 10
+Z5  = bearCode == 11
+Z12 = bearCode == 12
+Z7  = bearCode == 13
+
+// ═══════════════════════════════════════════════════════════════════
+// T BASE NAME
+// ═══════════════════════════════════════════════════════════════════
+string tBase = ""
+tBase :=
+     showT4  and T4  ? "T4"  : showT6  and T6  ? "T6"  :
+     showT1G and T1G ? "T1G" : showT2G and T2G ? "T2G" :
+     showT1  and T1  ? "T1"  : showT2  and T2  ? "T2"  :
+     showT9  and T9  ? "T9"  : showT10 and T10 ? "T10" :
+     showT3  and T3  ? "T3"  : showT11 and T11 ? "T11" :
+     showT5  and T5  ? "T5"  : showT12 and T12 ? "T12" : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// Z BASE NAME
+// ═══════════════════════════════════════════════════════════════════
+string zBase = ""
+zBase :=
+     showZ4  and Z4  ? "Z4"  : showZ6  and Z6  ? "Z6"  :
+     showZ1G and Z1G ? "Z1G" : showZ2G and Z2G ? "Z2G" :
+     showZ1  and Z1  ? "Z1"  : showZ2  and Z2  ? "Z2"  :
+     showZ9  and Z9  ? "Z9"  : showZ10 and Z10 ? "Z10" :
+     showZ3  and Z3  ? "Z3"  : showZ11 and Z11 ? "Z11" :
+     showZ5  and Z5  ? "Z5"  : showZ12 and Z12 ? "Z12" :
+     showZ7  and Z7  ? "Z7"  : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// PREUP / PREDN
+// ═══════════════════════════════════════════════════════════════════
+crossEMA9   = open < ema9   and close > ema9
+crossEMA20  = open < ema20  and close > ema20
+crossEMA34  = open < ema34  and close > ema34
+crossEMA50  = open < ema50  and close > ema50
+crossEMA89  = open < ema89  and close > ema89
+crossEMA200 = open < ema200 and close > ema200
+
+raw_p66 = crossEMA200 and (crossEMA9 or crossEMA20 or crossEMA34 or crossEMA50 or crossEMA89)
+raw_p55 = crossEMA89  and (crossEMA9 or crossEMA20 or crossEMA34 or crossEMA50 or crossEMA200)
+raw_p3  = crossEMA9 and crossEMA20 and crossEMA50
+raw_p2  = crossEMA9 and crossEMA20
+raw_p50 = crossEMA50
+
+preup66 = showPREUP66 and raw_p66
+preup55 = showPREUP55 and raw_p55 and not raw_p66
+preup89 = showPREUP89 and crossEMA89 and not raw_p55 and not raw_p66
+preup3  = showPREUP3  and raw_p3  and not raw_p55 and not raw_p66 and not crossEMA89
+preup2  = showPREUP3  and raw_p2  and not raw_p3  and not raw_p55 and not raw_p66 and not crossEMA89
+preup50 = showPREUP50 and raw_p50 and not raw_p2  and not raw_p3  and not raw_p55 and not raw_p66 and not crossEMA89
+
+dropEMA9   = open > ema9   and close < ema9
+dropEMA20  = open > ema20  and close < ema20
+dropEMA34  = open > ema34  and close < ema34
+dropEMA50  = open > ema50  and close < ema50
+dropEMA89  = open > ema89  and close < ema89
+dropEMA200 = open > ema200 and close < ema200
+
+raw_d66 = dropEMA200 and (dropEMA9 or dropEMA20 or dropEMA34 or dropEMA50 or dropEMA89)
+raw_d55 = dropEMA89  and (dropEMA9 or dropEMA20 or dropEMA34 or dropEMA50 or dropEMA200)
+raw_d3  = dropEMA9 and dropEMA20 and dropEMA50
+raw_d2  = dropEMA9 and dropEMA20
+raw_d50 = dropEMA50
+
+predn66 = showPREDN66 and raw_d66
+predn55 = showPREDN55 and raw_d55 and not raw_d66
+predn89 = showPREDN89 and dropEMA89 and not raw_d55 and not raw_d66
+predn3  = showPREDN3  and raw_d3  and not raw_d55 and not raw_d66 and not dropEMA89
+predn2  = showPREDN3  and raw_d2  and not raw_d3  and not raw_d55 and not raw_d66 and not dropEMA89
+predn50 = showPREDN50 and raw_d50 and not raw_d2  and not raw_d3  and not raw_d55 and not raw_d66 and not dropEMA89
+
+string preupText = preup66 ? "P66" : preup55 ? "P55" : preup89 ? "P89" : preup3 ? "P3" : preup2 ? "P2" : preup50 ? "P50" : ""
+string prednText = predn66 ? "D66" : predn55 ? "D55" : predn89 ? "D89" : predn3 ? "D3" : predn2 ? "D2" : predn50 ? "D50" : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// WLNBB CLASSIFICATION
+// ═══════════════════════════════════════════════════════════════════
+volSafe = nz(volume, 0.0)
+[vol_mid, vol_up, vol_low] = ta.bb(volSafe, ma_period, 1)
+
+isW  = volSafe < vol_low
+isL  = not isW and volSafe < vol_mid
+isN2 = not isW and not isL and volSafe < vol_up
+isB  = not isW and not isL and not isN2 and volSafe < (vol_up + vol_mid)
+isVB = not isW and not isL and not isN2 and not isB
+
+cNow = isW ? cW : isL ? cL : isN2 ? cN : isB ? cB : cVB
+
+sameBucket = (isW and isW[1]) or (isL and isL[1]) or (isN2 and isN2[1]) or (isB and isB[1]) or (isVB and isVB[1])
+volUp_raw  = volSafe > nz(volSafe[1], 0.0)
+volDown    = volSafe < nz(volSafe[1], 0.0)
+
+dn_VB = isVB[1] and (isB or isN2 or isL or isW)
+dn_B  = isB[1]  and (isN2 or isL or isW)
+dn_N  = isN2[1] and (isL or isW)
+dn_L  = isL[1]  and isW
+bucketDown = dn_VB or dn_B or dn_N or dn_L
+
+up_W = isW[1] and (isL or isN2 or isB or isVB)
+up_L = isL[1] and (isN2 or isB or isVB)
+up_N = isN2[1] and (isB or isVB)
+up_B = isB[1]  and isVB
+bucketUp = up_W or up_L or up_N or up_B
+
+volDownAdapted = bucketDown or (sameBucket and volDown)
+volUpAdapted   = bucketUp   or (sameBucket and volUp_raw)
+
+upClose          = close > close[1]
+downClose        = close < close[1]
+noNewLowByClose  = close >= low[1]
+noNewHighByClose = close <= high[1]
+
+l1Raw = volDownAdapted and upClose
+l2Raw = volDownAdapted and noNewLowByClose
+l3Raw = volUpAdapted   and upClose
+l4Raw = volUpAdapted   and noNewHighByClose
+l5Raw = volDownAdapted and downClose
+l6Raw = volUpAdapted   and downClose
+
+l34Raw  = l3Raw and l4Raw and (close >= open)
+l64Base = l6Raw and l4Raw
+l64Raw  = l64Base and (close < open)
+l43Raw  = l64Base and (close > open)
+L22raw  = l3Raw and l4Raw and (close < open)
+
+bgcolor(l34Raw ? color.new(cNow, bgFade) : l64Raw ? color.new(color.gray, bgFadeL64) : l43Raw ? color.new(cNow, bgFade) : na, title="L34/L64/L43 BG")
+bgcolor(L22raw ? color.new(#ff0188, 90) : na, title="L22 BG")
+
+string lAllDigits = ""
+if showL1 and l1Raw
+    lAllDigits := lAllDigits + "1"
+if showL2 and l2Raw
+    lAllDigits := lAllDigits + "2"
+if showL3 and l3Raw
+    lAllDigits := lAllDigits + "3"
+if showL4 and l4Raw
+    lAllDigits := lAllDigits + "4"
+if showL5 and l5Raw
+    lAllDigits := lAllDigits + "5"
+if showL6 and l6Raw
+    lAllDigits := lAllDigits + "6"
+
+hasL  = str.length(lAllDigits) > 0
+lPart = hasL ? "L" + lAllDigits : ""
+
+// ═══════════════════════════════════════════════════════════════════
+// WYCKOFF PHASE — Lane 2
+// ═══════════════════════════════════════════════════════════════════
+atrWYC    = atrVal
+atrWYCAvg = ta.ema(atrWYC, 50)
+inCompress = atrWYC < atrWYCAvg * wycCompMult
+
+macroUpWYC   = ema50 > ema200
+macroDownWYC = ema50 < ema200
+
+priorSup20  = ta.lowest(low,  20)[1]
+priorRes20  = ta.highest(high, 20)[1]
+
+sprWYC  = low < priorSup20 and close > priorSup20 and isBull and macroDownWYC and volUpAdapted
+utadWYC = high > priorRes20 and close < priorRes20 and isBear and macroUpWYC and volUpAdapted
+sosWYC  = adFresh and macroDownWYC and vixSpike
+string wycPhaseStr = ""
+if sprWYC
+    wycPhaseStr := "SPRING"
+else if utadWYC
+    wycPhaseStr := "UTAD"
+else if sosWYC
+    wycPhaseStr := "SOS★"
+else if macroDownWYC and inCompress
+    wycPhaseStr := "ACC-TR"
+else if macroUpWYC and inCompress
+    wycPhaseStr := "DIST-TR"
+else if macroUpWYC
+    wycPhaseStr := "MARKUP"
+else if macroDownWYC
+    wycPhaseStr := "MKDN"
+
+color wycLane2Col = sprWYC ? color.new(color.lime, 0) : utadWYC ? color.new(color.red, 10) : sosWYC ? color.new(color.green, 10) : macroUpWYC ? color.new(color.teal, 30) : color.new(color.orange, 30)
+
+// ═══════════════════════════════════════════════════════════════════
+// BUILD COMBINED LABELS
+// ═══════════════════════════════════════════════════════════════════
+f_addLine(_base, _part) =>
+    str.length(_part) == 0 ? _base : (str.length(_base) == 0 ? _part : _base + "\n" + _part)
+
+hasTsig = str.length(tBase) > 0
+hasZsig = str.length(zBase) > 0
+
+string suffixLine = neSuffix + wickSuffix + penSuffix + (appendClose ? closeSuffix : "")
+
+string lane1Core = hasTsig ? tBase + lPart : (not hasZsig ? lPart : "")
+string lane1Main = ""
+if str.length(lane1Core) > 0
+    lane1Main := lane1Core + "\n" + suffixLine
+    if str.length(line3Text) > 0
+        lane1Main := lane1Main + "\n" + line3Text
+    if str.length(line4Text) > 0
+        lane1Main := lane1Main + "\n" + line4Text
+    if str.length(line5Text) > 0
+        lane1Main := lane1Main + "\n" + line5Text
+
+string lane1Text = f_addLine("", lane1Main)
+
+string lane3Core = hasZsig ? zBase + lPart : ""
+string lane3Main = ""
+if str.length(lane3Core) > 0
+    lane3Main := lane3Core + "\n" + suffixLine
+    if str.length(line3Text) > 0
+        lane3Main := lane3Main + "\n" + line3Text
+    if str.length(line4Text) > 0
+        lane3Main := lane3Main + "\n" + line4Text
+    if str.length(line5Text) > 0
+        lane3Main := lane3Main + "\n" + line5Text
+
+string lane3Text = f_addLine("", lane3Main)
+
+// ═══════════════════════════════════════════════════════════════════
+// LANE COLORS
+// ═══════════════════════════════════════════════════════════════════
+color lane1Bg = str.length(lane1Main) > 0 ? cNow : color.new(color.black, 100)
+color lane3Bg = str.length(lane3Main) > 0 ? cNow : color.new(color.black, 100)
+
+// ═══════════════════════════════════════════════════════════════════
+// PANE + LABELS
+// ═══════════════════════════════════════════════════════════════════
+hline(0.0, "Bottom", color=color.new(color.white, 100))
+hline(1.0, "Lane 1", color=color.new(color.white, 100))
+hline(2.0, "Mid",    color=color.new(color.gray,  30))
+hline(3.0, "Lane 3", color=color.new(color.white, 100))
+hline(4.0, "Top",    color=color.new(color.white, 100))
+
+f_drawLabel(_txt, _y, _isUp, _bg, _txtCol) =>
+    if str.length(_txt) > 0
+        label.new(bar_index, _y, _txt, xloc=xloc.bar_index, yloc=yloc.price,
+             style=_isUp ? label.style_label_up : label.style_label_down,
+             size=size.normal, color=_bg, textcolor=_txtCol)
+
+f_drawLabel(lane1Text, 1.0, true,  lane1Bg, cTxtDark)
+f_drawLabel(lane3Text, 3.0, false, lane3Bg, cTxtDark)
+
+if str.length(prednText) > 0
+    label.new(bar_index, 1.0, prednText, xloc=xloc.bar_index, yloc=yloc.price,
+         style=label.style_label_up, size=size.normal,
+         color=color.new(#FF2200, 0), textcolor=cTxtLight)
+
+if str.length(preupText) > 0
+    label.new(bar_index, 3.0, preupText, xloc=xloc.bar_index, yloc=yloc.price,
+         style=label.style_label_down, size=size.normal,
+         color=color.new(#00C853, 0), textcolor=cTxtDark)
+
+// ─── Lane 2 — AD-FRESH marker + Wyckoff Phase ────────────
+if showWYCLane2
+    string lane2Txt  = adCluster ? "★★" : adFresh ? "★" : wycPhaseStr
+    bool   keyEvent  = sprWYC or utadWYC or sosWYC or adFresh or adCluster
+    bool   sigBar    = str.length(lane1Main) > 0 or str.length(lane3Main) > 0
+    bool   drawLane2 = str.length(lane2Txt) > 0 and (keyEvent or (wycAlways and sigBar))
+    color lane2Col2  = adCluster ? color.new(color.green, 0) : adFresh ? color.new(#7B2CFF, 0) : wycLane2Col
+    if drawLane2
+        label.new(bar_index, 2.0, lane2Txt, xloc=xloc.bar_index, yloc=yloc.price,
+             style=label.style_label_center, size=size.small,
+             color=lane2Col2, textcolor=cTxtLight)

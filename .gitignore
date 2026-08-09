@@ -31,3 +31,6 @@ analysis/*.csv
 
 # research run logs (stdout captures — regenerable)
 backend/*.out
+
+# DSR family cache (regenerable, keyed to frame date)
+backend/.dsr_family.json
