@@ -236,18 +236,33 @@ class NakedStudy:
                 f"cell {self.n_cells}. Re-register with the true count (which weakens "
                 f"every DSR downstream) or stop.")
 
-    def matched(self, mask, ratio: int = 5) -> pd.DataFrame:
+    def matched(self, mask, ratio: int = 5, on=None, bins: int = 8) -> pd.DataFrame:
         """Non-signal bars drawn to the cell's own price × liquidity × year mix.
 
         A pattern picks its own habitat. Comparing it to every bar in the market credits
         it for where it lives as much as for what it says; this draws the control from the
         same neighbourhoods, in the same proportions, so only the pattern is left.
+
+        `on` adds a further variable to match on, and it is not optional bookkeeping: the
+        one time this was skipped, a cell was selected on the overnight gap and compared to
+        a control matched on price and liquidity alone. The control sat at a shallower gap,
+        so the "signal" was a deeper bounce, and the framework printed SIGNAL on an effect
+        that was zero once the gap depth was equalised. Whenever a cell is defined by a
+        continuous quantity, pass that quantity here.
         """
-        want = self.df.loc[mask, "_stratum"].value_counts()
-        pool = self.df[~mask]
+        if on is not None:
+            v = pd.Series(np.asarray(on, float), index=self.df.index)
+            q = pd.qcut(v.rank(method="first"), bins, labels=False, duplicates="drop")
+            strat = self.df["_stratum"].astype("int64") * 100 + q.fillna(-1).astype("int64")
+        else:
+            strat = self.df["_stratum"]
+        want = strat[mask].value_counts()
+        pool_mask = ~pd.Series(np.asarray(mask, bool), index=self.df.index)
+        strat_pool = strat[pool_mask]
+        pool = self.df[pool_mask]
         idx = []
         for st_, k in want.items():
-            cand = pool.index[pool["_stratum"].to_numpy() == st_]
+            cand = pool.index[strat_pool.to_numpy() == st_]
             if not len(cand):
                 continue
             take = min(len(cand), int(k) * ratio)
@@ -257,20 +272,26 @@ class NakedStudy:
                                  "strata that contain nothing else.")
         return self.df.loc[np.concatenate(idx)]
 
-    def signal(self, label: str, mask, n_boot: int = 600, match: bool = True):
-        """Score one condition at every horizon against a matched control."""
+    def signal(self, label: str, mask, n_boot: int = 600, match: bool = True, on=None):
+        """Score one condition at every horizon against a matched control.
+
+        Pass `on` whenever the cell was selected using a continuous quantity, so the control
+        is drawn at the same value of it — see matched().
+        """
         if not hasattr(self, "base"):
             raise NakedViolation("call population() first — a cell without its baseline is "
                                  "a number without a meaning.")
         self._spend(1)
         mask = np.asarray(mask, bool) if not isinstance(mask, pd.Series) else mask.to_numpy()
         d = self.df[mask]
-        ctl = self.matched(mask) if match else None
+        ctl = self.matched(mask, on=on) if match else None
         print(f"\n  ▸ {label}   n={len(d):,}  ({len(d) / len(self.df):.2%} of bars, "
               f"≈{len(d) / self.df.dstr.nunique():.1f}/day)", flush=True)
         if match:
             print(f"    control: {len(ctl):,} non-signal bars matched on "
-                  f"price×liquidity×year strata", flush=True)
+                  f"price×liquidity×year"
+                  f"{' × the selection variable' if on is not None else ''} strata",
+                  flush=True)
         print(f"    {'N':>4s} {'↑':>7s} {'med':>7s} {'CI(days)':>17s} {'Δmed':>7s} "
               f"{'Δ↑':>7s} {'ΔMFE':>7s} {'ΔMAE':>7s} {'n_eff':>8s}  verdict", flush=True)
         out, self.ctl_stat = {}, {}
