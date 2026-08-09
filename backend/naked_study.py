@@ -47,6 +47,7 @@ import pandas as pd
 
 sys.path.insert(0, os.path.expanduser("~/.claude/skills/quant-study/scripts"))
 from analysis_kit import GuardError, bootstrap_ci_clustered, effective_n  # noqa: E402
+from data_contract import assert_contract, verify_sample  # noqa: E402
 
 DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data",
                   "studio_analytics.duckdb")
@@ -97,13 +98,22 @@ def _load(columns: tuple, start: str | None, end: str | None) -> pd.DataFrame:
     if key in _CACHE:
         return _CACHE[key]
     cols = ", ".join(IDENT + OHLCV + tuple(columns))
-    where = []
+    where = ["universe <> 'index'"]      # ETFs and indices are not stocks
     if start:
         where.append(f"date >= DATE '{start}'")
     if end:
         where.append(f"date <= DATE '{end}'")
-    q = (f"SELECT {cols} FROM bars"
-         + (" WHERE " + " AND ".join(where) if where else "")
+    # ONE ROW PER (ticker, date). The bars table carries a row per index membership, so a
+    # name in three universes appears three times with identical OHLCV — 39.6% of all rows.
+    # Sorted by (ticker, date) those copies land next to each other, which made shift(-1)
+    # return the SAME bar: "next open" became this bar's open, so gap = O/C−1 and the next
+    # return = C/O−1 were exact mirrors of one another by construction. That arithmetic, not
+    # microstructure, produced the 73%/26% gap asymmetry and every result built on it.
+    # edge_replay._pull has always done this; NakedStudy did not, and a chart the user
+    # checked by hand is what exposed it.
+    q = (f"SELECT {cols} FROM ("
+         f"  SELECT *, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn"
+         f"  FROM bars WHERE " + " AND ".join(where) + ") WHERE rn = 1"
          + " ORDER BY ticker, date")
     con = duckdb.connect(DB, read_only=True)
     df = con.execute(q).fetch_df()
@@ -155,6 +165,11 @@ class NakedStudy:
         df = df.sort_values(["ticker", "date"], ignore_index=True)
 
         self.df = self._forward(df)
+        # The contract runs before a single number is produced. Every statistical guard in
+        # this file validates arithmetic on the frame; none of them can see that the frame
+        # describes the wrong world. This one can.
+        assert_contract(self.df, name="NakedStudy frame",
+                        require_adjacency=None if not self.filters else 0.90)
         self.pop = self.df  # the population IS the baseline; no sampling, no proxy
         d0, d1 = str(self.df.date.min())[:10], str(self.df.date.max())[:10]
         print("=" * 122, flush=True)
@@ -185,7 +200,13 @@ class NakedStudy:
             df[f"r{N}"] = cc / ent - 1
             df[f"f{N}"] = hi / ent - 1
             df[f"a{N}"] = ll / ent - 1
+        # calendar adjacency, not row adjacency. A liquidity floor deletes bars from the
+        # middle of a ticker's history, so the previous ROW can be months away; a "3-bar
+        # sequence" measured on rows can be three quarters apart. Callers that build
+        # sequences must use `prev_ok` rather than assuming adjacency.
         df["_dt"] = pd.to_datetime(df["date"])
+        gapdays = df.groupby("ticker", sort=False)["_dt"].diff().dt.days
+        df["prev_ok"] = (gapdays <= 4).fillna(False)
         df["yr"] = df["_dt"].dt.year
         df["dstr"] = df["_dt"].dt.strftime("%Y-%m-%d")
         keep = np.isfinite(df[f"r{H}"].to_numpy()) & np.isfinite(ent) & (ent > 0)
@@ -271,6 +292,10 @@ class NakedStudy:
             raise NakedViolation("no matched control could be drawn — the cell occupies "
                                  "strata that contain nothing else.")
         return self.df.loc[np.concatenate(idx)]
+
+    def verify(self, mask, label: str = "cell", n: int = 6, **kw):
+        """Read a few of this cell's hits back from the source. Use it on every new mask."""
+        return verify_sample(self.df, mask, n=n, label=label, **kw)
 
     def signal(self, label: str, mask, n_boot: int = 600, match: bool = True, on=None):
         """Score one condition at every horizon against a matched control.
