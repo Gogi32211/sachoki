@@ -44,7 +44,7 @@ from dataclasses import dataclass
 
 __all__ = ["SamplingTarget", "Measurement", "SamplingSemanticsError",
            "finite_population_subsample", "empirical_cluster_resampling", "frozen_forward",
-           "synthetic_dgp", "fpc_ratio", "compatible", "calibration_metric",
+           "synthetic_dgp", "structured_permutation_null", "fpc_ratio", "compatible", "calibration_metric",
            "descriptive_metric"]
 
 
@@ -105,6 +105,18 @@ def frozen_forward(since: str, unit: str = "trading_date") -> SamplingTarget:
     return SamplingTarget("frozen_forward", unit, conditioned_on=f"frozen at {since}")
 
 
+def structured_permutation_null(generator_id: str, unit: str = "trading_date") -> SamplingTarget:
+    """A null built by permuting real outcomes inside preregistered strata.
+
+    Every rate measured against one of these is conditional on the generator, and the generator
+    is a modelling choice: `marginal_date_v1` and `conditional_date_setup_price_v1` can return
+    materially different false-positive rates from the same engine and the same data, because
+    they encode different null hypotheses. Reporting either as "the search FPR" would repeat, a
+    third time, the mistake this module was written for.
+    """
+    return SamplingTarget("structured_permutation_null", unit, conditioned_on=generator_id)
+
+
 def synthetic_dgp(name: str, unit: str = "trading_date") -> SamplingTarget:
     """A generator we wrote. Calibration against it tests the CODE, never the market."""
     return SamplingTarget("synthetic_dgp", unit, conditioned_on=name)
@@ -124,9 +136,11 @@ def compatible(interval: SamplingTarget, replication: SamplingTarget) -> tuple[b
         return False, (f"exchangeable unit differs: interval treats {interval.unit!r} as "
                        f"independent, replications vary {replication.unit!r}")
     if interval.kind == replication.kind:
-        if interval.kind == "synthetic_dgp" and interval.conditioned_on != \
-                replication.conditioned_on:
-            return False, "two different synthetic generators"
+        if interval.kind in ("synthetic_dgp", "structured_permutation_null") and \
+                interval.conditioned_on != replication.conditioned_on:
+            return False, (f"two different generators: {interval.conditioned_on!r} vs "
+                           f"{replication.conditioned_on!r} — a rate under one null model says "
+                           f"nothing about the other")
         return True, "same sampling target"
     pair = {interval.kind, replication.kind}
     if pair == {"empirical_cluster_resampling", "finite_population_subsample"}:

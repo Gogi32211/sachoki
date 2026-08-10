@@ -13,7 +13,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 from sampling_target import (SamplingSemanticsError, calibration_metric,  # noqa: E402
                              compatible, descriptive_metric,
                              empirical_cluster_resampling, finite_population_subsample,
-                             frozen_forward, fpc_ratio, synthetic_dgp)
+                             frozen_forward, fpc_ratio, structured_permutation_null,
+                             synthetic_dgp)
 
 HIST = "realized_history_2021_2026"
 ok_n = fail_n = 0
@@ -85,7 +86,19 @@ def t6():
     assert m.calibration_claim is True
     raises(lambda: calibration_metric("coverage", 0.951, interval=g,
                                       replication=synthetic_dgp("garch_v2"),
-                                      n_replications=2000), "different synthetic")
+                                      n_replications=2000), "two different generators")
+
+
+# 10 — a rate under one structured null says nothing about another
+def t10():
+    a = structured_permutation_null("marginal_date_v1")
+    b = structured_permutation_null("conditional_date_setup_price_v1")
+    assert compatible(a, a)[0]
+    raises(lambda: calibration_metric("type_i_error", 0.05, interval=a, replication=b,
+                                      n_replications=200), "two different generators")
+    m = calibration_metric("type_i_error", 0.048, interval=a, replication=a,
+                           n_replications=200)
+    assert "marginal_date_v1" in str(m), "the generator must print with the number"
 
 
 # 7 — the forward window is not something to calibrate against resampled history
@@ -113,7 +126,7 @@ def t9():
 print("=" * 96, flush=True)
 print("  SAMPLING SEMANTICS — regression on the 2026-08-10 calibration defect", flush=True)
 print("=" * 96, flush=True)
-for i, fn in enumerate([t1, t2, t3, t4, t5, t6, t7, t8, t9], 1):
+for i, fn in enumerate([t1, t2, t3, t4, t5, t6, t7, t8, t9, t10], 1):
     check(f"{i} · {fn.__doc__ or fn.__name__}", fn)
 print("=" * 96, flush=True)
 print(f"  {ok_n} passed · {fail_n} failed", flush=True)
