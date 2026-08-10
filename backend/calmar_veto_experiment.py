@@ -38,6 +38,8 @@ import sys
 import numpy as np
 import pandas as pd
 
+from data_contract import assert_time_aligned, keys_of
+
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 OPP = os.path.join(ROOT, "data", "opportunities.parquet")
 SLOTS, HOLD, BAR2CAL, SEEDS = 10, 60, 1.45, 24
@@ -56,8 +58,8 @@ BY_DAY = {d: g.index.to_numpy() for d, g in O.groupby("d", sort=True)}
 # DAYS must come FROM the dict, not from .unique(): the latter returns datetime64 while the
 # groupby keys are Timestamps, and dict.get() then misses every single day in silence — the
 # same dtype mismatch that broke the as-of join, and just as quiet.
-DAYS = np.array(sorted(BY_DAY.keys()))
-assert all(d in BY_DAY for d in DAYS), "day keys do not match the index"
+DAYS = keys_of(BY_DAY)
+assert_time_aligned(BY_DAY, DAYS, name="calendar loop")
 
 print("=" * 122, flush=True)
 print(f"  CALMAR EXPERIMENT · {SLOTS} slots · hold {HOLD} bars · random selection · "

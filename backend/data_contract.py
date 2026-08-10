@@ -225,3 +225,55 @@ def sequence_mask(df: pd.DataFrame, tokens: list, *, col: str = "tok") -> np.nda
             step = np.r_[np.zeros(back, bool), ok[back:]]
             m &= step
     return m
+
+
+# ── time canonicalisation ────────────────────────────────────────────────────
+# Twice in two days, and the second time was after I had already seen the first. DuckDB hands
+# back datetime64[us], a json path builds [ns], and pandas either refuses the merge loudly or —
+# far worse — a dict keyed by Timestamp silently misses every datetime64 lookup and the caller
+# gets an empty result that reads exactly like "no effect". The Calmar experiment reported four
+# arms of zero trades that way. So this is not advice, it is a function everything goes through.
+CANON = "datetime64[ns]"
+
+
+def canonical_time(x):
+    """Every time-bearing thing becomes datetime64[ns] before it meets another one."""
+    if isinstance(x, pd.DataFrame):
+        raise ContractError("pass a column, not a frame")
+    if isinstance(x, dict):
+        return {pd.Timestamp(k).to_datetime64(): v for k, v in x.items()}
+    s = pd.Series(x) if not isinstance(x, pd.Series) else x
+    return pd.to_datetime(s).astype(CANON)
+
+
+def assert_time_aligned(mapping: dict, keys, *, name: str = "lookup") -> None:
+    """Raise BEFORE iterating a time-keyed mapping with an independently built key list.
+
+    The first version of this checked dtypes and passed a case that was broken, which is
+    instructive: both sides ARE datetime64[ns]. The failure is not in the dtype but in the
+    HASH — np.datetime64 and pd.Timestamp compare equal and hash differently, so `d in
+    mapping` is False for every d and the loop simply does nothing. Nothing raises, and an
+    empty result is indistinguishable from a null finding. So the check is membership, which
+    is the property actually relied upon.
+    """
+    ks = np.asarray(keys)
+    if not len(ks) or not mapping:
+        return
+    probe = ks[:: max(1, len(ks) // 20)][:20]
+    miss = sum(1 for k in probe if k not in mapping)
+    if miss:
+        raise ContractError(
+            f"{name}: {miss} of {len(probe)} sampled keys do not resolve in the mapping "
+            f"(mapping key type {type(next(iter(mapping))).__name__}, lookup key type "
+            f"{type(ks[0]).__name__}). Take the key list FROM the mapping with keys_of() — "
+            f"np.datetime64 and Timestamp compare equal but hash differently, so this "
+            f"mismatch matches nothing instead of raising.")
+
+
+def keys_of(mapping: dict):
+    """The key list for iterating a time-keyed dict — taken FROM the dict, never rebuilt.
+
+    `np.sort(df[col].unique())` returns datetime64 while a groupby dict is keyed by Timestamp;
+    iterating the former to look up the latter misses every entry in silence.
+    """
+    return np.array(sorted(mapping.keys()))

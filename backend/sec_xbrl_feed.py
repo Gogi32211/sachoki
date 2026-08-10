@@ -12,6 +12,13 @@ fact carries its own `filed` date and its own accession number, and a restatemen
 an ADDITIONAL entry rather than a correction of the old one. So the honest design is simply
 to keep what the API already gives:
 
+    Measured on the full ingest: 49.5% of (ticker, concept, period) groups were filed more
+    than once, but three quarters of those are identical repeats — a comparative period
+    carried forward from quarter to quarter. The number that matters is that **14.3% of
+    groups hold more than one VALUE, and the median revision moves the figure by 9.1%.**
+    One figure in seven exists in several versions. An earlier note here said 21% of the
+    table was revised; that was the re-filing rate mistaken for the revision rate.
+
     one row per (concept, period, filing)   —   append-only, never UPDATE
 
 A restatement is a new row with a later `filed`. `as_of(ticker, concept, date)` then returns
