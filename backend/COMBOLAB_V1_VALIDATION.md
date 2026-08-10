@@ -9,8 +9,53 @@
 ├─ sealed search validation    PASS   needle, 120 sealed seeds
 ├─ structured null A           PASS   FWER 0.055 vs nominal 0.05
 ├─ nuisance decomposition B    DESIGN FINDING — not a defect
-└─ temporal integrity          open
+└─ temporal integrity          FOUND A CONTRACT GAP, then closed it
 ```
+
+## Temporal integrity — recorded as what it was, not as a score
+
+```
+discovered failure   daily-resolution same-day ambiguity lets an outcome record
+                     appear contemporaneously accessible
+observed live leak   NONE in the currently registered real sources — earnings and
+                     insider are keyed on filing dates, nothing on date_out
+contract gap         YES
+remediation          temporal_contract.py, regression-locked 9/9
+```
+
+`8/9` is not a permanent verdict; it is the state before the gap was closed. `attach()` behaves
+exactly as contracted and the boundary probes prove it separately: `available = decision` is
+visible, `available = decision + 1d` is not. The exposure came from the resolution of the data.
+
+**The fix is not `assert date_out > date_in`.** Inside the day the entry really may have preceded
+the exit. What the data lacks is not validity but ORDER, so the 253 rows stay and only their
+misuse becomes impossible:
+
+```
+date_out <  date_in                    corrupt        FATAL
+date_out == date_in at day resolution  ORDER UNKNOWN  SAME_DAY_ORDER_AMBIGUOUS
+```
+
+The general rule, of which `date_out` is one instance: **a system may not infer an ordering its
+data does not contain.** `available <= decision` is insufficient once both sides are dates;
+what is required is `available < decision`, or a known intraday phase ordering on both sides.
+
+Strongest form, and the one that guards the scenario the barrier surfaced — someone registering
+a source keyed on the exit tomorrow: an outcome-derived field (`date_out`, `ret`, `mae`, `mfe`,
+`stop_hit`, …) may never anchor or feed a FEATURE source at any resolution, while remaining
+exactly right in label space.
+
+**What SEC licenses, stated narrowly.** Proven: a record is unreachable before its filing date.
+Not proven: that it was readable before the open on that date. Stored as
+`temporal_resolution = DAY, same_day_ordering = UNKNOWN`, which stops `2024-05-15` becoming the
+fictitious timestamp `2024-05-15 00:00:00`.
+
+And the quantified cost of the anchor the fundamentals work was built to avoid: under
+`period_end`, **34,143 of 40,000 sampled opportunities contaminated (85.4%), median lead 395
+days, p90 400, max 400**. That argument now has a number.
+
+This is the best available outcome for a final barrier. It did not merely pass — it found a hole
+that had not yet done damage, before a source existed that could exploit it.
 
 The barrier is being finished **on the frozen v1** before anything is rebuilt. Changing the
 estimand now would leave no generation of this system fully characterised: estimator, decision,
