@@ -71,10 +71,39 @@ RNG_STREAMS = ("needle_location", "needle_effect", "search", "bootstrap")
 SEEDS = {
     "smoke":       tuple(range(900_000, 900_003)),
     "development": tuple(range(100_000, 100_040)),
-    "acceptance":  tuple(range(770_001, 770_121)),      # SEALED — see module docstring
 }
-SEED_MANIFEST_SHA = hashlib.sha256(
-    json.dumps({k: list(v) for k, v in SEEDS.items()}, sort_keys=True).encode()).hexdigest()
+N_ACCEPTANCE = 120
+
+# ── the seal, and why a plaintext seed list is not one ───────────────────────
+# The first version of this file listed 120 acceptance seeds in the open. That commits to WHICH
+# CODE the acceptance set saw, but it does not seal the set: freeze A → open acceptance → see
+# the numbers → change ComboLab → freeze B leaves a trace in the ledger and a contaminated test.
+# A secret file next to the repo is no better, because I can read it.
+#
+# So the seeds are derived from something that CANNOT EXIST until the implementation is frozen:
+# the git commit hash of the freeze commit itself. That hash is determined by the frozen code
+# and is unknowable while the code is still being written — including to me. What is committed
+# now is the DERIVATION RULE; the seeds materialise at freeze and are verifiable afterwards by
+# anyone holding the commit.
+
+
+def acceptance_seeds(freeze_commit_sha: str, n: int = N_ACCEPTANCE) -> tuple[int, ...]:
+    """Derived from the freeze commit — not knowable, by anyone, before the freeze."""
+    if not freeze_commit_sha or len(freeze_commit_sha) < 40:
+        raise SearchSpaceContractError(
+            "acceptance seeds require the full git hash of the IMPLEMENTATION_FROZEN commit; "
+            "there are no acceptance seeds before the implementation is frozen, which is the "
+            "entire point of the seal")
+    h = hashlib.sha256(f"combolab-acceptance:{freeze_commit_sha}".encode()).digest()
+    rng = np.random.default_rng(int.from_bytes(h[:8], "big"))
+    return tuple(int(x) for x in rng.integers(1, 2**31 - 1, size=n))
+
+
+SEED_COMMITMENT = hashlib.sha256(
+    json.dumps({"visible": {k: list(v) for k, v in SEEDS.items()},
+                "acceptance_rule": "sha256('combolab-acceptance:' + freeze_commit_sha) "
+                                   "→ default_rng → 120 integers",
+                "n_acceptance": N_ACCEPTANCE}, sort_keys=True).encode()).hexdigest()
 
 
 class SearchSpaceContractError(AssertionError):
@@ -164,33 +193,38 @@ def assert_search_space(produced_claim_ids) -> None:
 
 
 # ── overlap, frozen before injection ─────────────────────────────────────────
-def overlap_matrix(masks: dict) -> pd.DataFrame:
-    """O[i,j] = |Ci ∩ Cj| / |Ci| — asymmetric on purpose.
+def exposure_matrix(masks: dict) -> pd.DataFrame:
+    """E[j,i] = |Cj ∩ Ci| / |Cj| — the fraction of cell j's rows that also lie in cell i.
 
-    A needle planted in cell i leaks into any j that shares its rows, and a promotion of such a
-    j is NOT a false discovery. It is the geometry of the space. Without this matrix every
-    overlapping neighbour would be counted against the search layer.
+    Asymmetric, and the orientation is the substance. Because the injection adds δ to EVERY row
+    of the needle cell, `E[j, needle]` is not a similarity between rules — it is literally the
+    share of cell j's observations that carry the injected outcome. A cell built from 40%
+    injected rows will move for an entirely legitimate reason, and calling its promotion a false
+    discovery would blame the search layer for the geometry of the space it was given.
+
+    Frozen before injection, and before any implementation, so that "cell_29 came up next to the
+    needle, its overlap is 14%, let us call that contaminated" is not available after the fact.
     """
     ids = list(masks)
     M = np.zeros((len(ids), len(ids)))
-    for a, i in enumerate(ids):
-        mi = masks[i]
-        ni = mi.sum()
-        for b, j in enumerate(ids):
-            M[a, b] = (mi & masks[j]).sum() / ni if ni else 0.0
+    for a, j in enumerate(ids):
+        mj = masks[j]
+        nj = mj.sum()
+        for b, i in enumerate(ids):
+            M[a, b] = (mj & masks[i]).sum() / nj if nj else 0.0
     return pd.DataFrame(M, index=ids, columns=ids)
 
 
-OVERLAP_AFFECTED_THRESHOLD = 0.20   # ≥20% of a cell's rows shared with the needle cell
+EXPOSURE_THRESHOLD = 0.20   # ≥20% of the promoted cell's rows carry the injected outcome
 
 
-def classify_promotion(cell_id: str, needle_cell: str | None, ov: pd.DataFrame) -> str:
+def classify_promotion(cell_id: str, needle_cell: str | None, exposure: pd.DataFrame) -> str:
     """TRUE_NEEDLE · OVERLAP_AFFECTED · UNRELATED_PROMOTION. Only the last is a false discovery."""
     if needle_cell is None:
         return "NULL_PROMOTION"
     if cell_id == needle_cell:
         return "TRUE_NEEDLE"
-    if ov.loc[cell_id, needle_cell] >= OVERLAP_AFFECTED_THRESHOLD:
+    if exposure.loc[cell_id, needle_cell] >= EXPOSURE_THRESHOLD:
         return "OVERLAP_AFFECTED"
     return "UNRELATED_PROMOTION"
 
@@ -232,8 +266,9 @@ def spec_digest() -> str:
         "estimand": ESTIMAND, "horizon": HORIZON, "control": CONTROL,
         "base": BASE_POPULATION, "delta_grid": list(DELTA_GRID),
         "claims": [c.claim_id for c in MANIFEST], "k": DECLARED_K,
-        "top_k": TOP_K, "overlap_threshold": OVERLAP_AFFECTED_THRESHOLD,
-        "seeds_sha": SEED_MANIFEST_SHA, "streams": list(RNG_STREAMS),
+        "top_k": TOP_K, "exposure_threshold": EXPOSURE_THRESHOLD,
+        "exposure_metric": "E[j,i] = |Cj n Ci| / |Cj| (share of j's rows carrying injection)",
+        "seed_commitment": SEED_COMMITMENT, "streams": list(RNG_STREAMS),
     }, sort_keys=True)
     return hashlib.sha256(payload.encode()).hexdigest()
 
@@ -242,7 +277,8 @@ if __name__ == "__main__":
     print(f"claims declared      {DECLARED_K}")
     print(f"families             {len({c.family_id for c in MANIFEST})}")
     print(f"delta grid           {DELTA_GRID}")
-    print(f"seed manifest sha    {SEED_MANIFEST_SHA[:16]}…")
+    print(f"seed commitment      {SEED_COMMITMENT[:16]}…")
+    print(f"acceptance seeds     NOT YET DERIVABLE — need the freeze commit hash")
     print(f"SPEC DIGEST          {spec_digest()}")
     for fam in sorted({c.family_id for c in MANIFEST}):
         n = sum(c.family_id == fam for c in MANIFEST)

@@ -1,7 +1,8 @@
 # ComboLab needle test — preregistration, frozen 2026-08-10
 
-**SPEC DIGEST** `c020cc5caae5eaf13eaece68b6491f5af41b8b2589ce1177e81212bad0d47f4e`
-**SEED MANIFEST** `8808e3551a40237a…`
+**SPEC DIGEST** `fc70130c7d9faaec7a61d9b476b8d35167fb07f30f3c216f6ced015c79b73c10`
+**SEED COMMITMENT** `90bfafc7021d958d…`
+*Amended once, still before any ComboLab code — see "Amendment, same day" at the end.*
 
 Written **before ComboLab exists**. Normally a positive control is added after the algorithm
 works and its behaviour is explained backwards. The order here is inverted, and that inversion
@@ -77,13 +78,20 @@ share rows. A needle planted in `cell_17` legitimately leaks into any cell shari
 observations, and promoting such a neighbour is **not** a false discovery; it is the geometry of
 the space.
 
-`O[i,j] = |Ci ∩ Cj| / |Ci|`, asymmetric, frozen before injection. Every promotion is classified:
+Frozen before injection, and every promotion is classified.
+
+`E[j,i] = |Cj ∩ Ci| / |Cj|`, asymmetric — and the orientation is the substance. Because the injection adds δ to
+**every** row of the needle cell, `E[j, needle]` is not a similarity between rules: it is
+literally the share of cell *j*'s observations that carry the injected outcome.
 
 ```
 TRUE_NEEDLE          the planted cell itself
-OVERLAP_AFFECTED     ≥20% of its rows shared with the planted cell
+OVERLAP_AFFECTED     exposure ≥ τ = 0.20 — i.e. ≥20% of the PROMOTED cell's rows carry injection
 UNRELATED_PROMOTION  ← the only class counted as a false discovery
 ```
+
+Both the metric and τ are inside the `SPEC DIGEST`, so "cell_29 came up next to the needle, its
+overlap is 14%, let us call that contaminated" is not available after the fact.
 
 ## INJECTION
 
@@ -173,10 +181,28 @@ adding a diagnostic later does not move where the needle landed.
 ## TEST PARTITION — the seal
 
 ```
-smoke        3 seeds     does the code run at all; look freely
+smoke        3 seeds     visible; does the code run at all
 development  40 seeds    visible; debug the search architecture as often as needed
-acceptance   120 seeds   SEALED — not run, not looked at, until implementation freeze
+acceptance   120 seeds   DO NOT EXIST YET — derived from the freeze commit hash
 ```
+
+**A plaintext seed list is not a seal.** The first version of this document listed the 120
+acceptance seeds openly. That commits to *which code* the acceptance set saw, but leaves
+`freeze A → open acceptance → see numbers → change ComboLab → freeze B` available; the ledger
+records the violation, but the test is already contaminated. A secret file beside the repo is no
+better, because I can read it.
+
+So the acceptance seeds are derived from something that **cannot exist until the implementation
+is frozen** — the git hash of the freeze commit itself:
+
+```
+acceptance_seeds = sha256("combolab-acceptance:" + freeze_commit_sha) → default_rng → 120 ints
+```
+
+That hash is determined by the frozen code and is unknowable while the code is still being
+written, including to me. What is committed now is the **derivation rule**; the seeds materialise
+at freeze and are verifiable afterwards by anyone holding the commit. Calling
+`acceptance_seeds("")` raises rather than returning anything.
 
 If the frozen acceptance replications are run repeatedly while the search logic is being changed
 in response, the acceptance set becomes a development set, and `P(pass)` starts measuring the
@@ -201,3 +227,25 @@ ledger. This is the frozen-OOS principle turned on our own research infrastructu
 Only after this does the first real study — `dilution_yoy` — become meaningful. Until then we
 can say the statistic measures an effect when shown the right sample; we cannot yet say the
 search machinery finds one whose location took no part in its development.
+
+
+## Amendment, same day — before any implementation
+
+Two leaks were closed after the first freeze and before a line of `combo_lab.py` was written,
+which is why this is an amendment and not a violation:
+
+1. **The acceptance seeds were plaintext.** Replaced by derivation from the freeze commit hash
+   (above). `SEED_MANIFEST_SHA` → `SEED_COMMITMENT`.
+2. **`overlap` renamed to `exposure`,** with the metric stated as the literal fraction of a
+   promoted cell's rows carrying the injected outcome rather than a similarity between rules.
+   `τ = 0.20` was already inside the digest; the metric definition now is too.
+
+`SPEC DIGEST` moved `c020cc5c…` → `fc70130c…`. No further amendment is permitted: from here the
+next commits are `combo_lab.py`, debugged against **smoke and development only**.
+
+## No new acceptance metrics after implementation
+
+Anything additional the implementation makes visible is kept as an *exploratory diagnostic*.
+The acceptance evaluation answers only what is fixed above: `conditional_rank_recall`,
+`conditional_search_recall`, `conditional_final_acceptance`, `P(rank=1)`, `P(rank≤3)`,
+`P(rank≤5)`, median and p90 rank, `unrelated_false_promotions`, `overlap_affected_promotions`.
