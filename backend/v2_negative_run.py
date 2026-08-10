@@ -38,7 +38,10 @@ print("  COMBOLAB v2 · composition worlds — the regression test on the motive
 print(BAR, flush=True)
 print(f"  spec digest {V2.digest()[:16]}…", flush=True)
 O, _, dates = CL.load_base()
-masks = CL.build_masks(O)
+masks_all = CL.build_masks(O)
+classes = V2E.equivalence_classes(masks_all)
+masks = {c["representative"]: masks_all[c["representative"]] for c in classes}
+V2E.assert_no_degeneracy(list(masks), masks)
 sup = V2E.Support(O, dates, masks)
 if sup.below_floor:
     print(f"  below support floor: {sup.below_floor}", flush=True)
@@ -51,9 +54,9 @@ y1 = V2E.composition_world(O, dates, seed=11, noise=False, date_effect=False)
 t1 = sup.theta(y1)
 m1 = sup.marginal(y1, masks)
 worst = t1.abs().max()
-print(f"    v2 incremental  max |θ| {worst:.2e}  over {len(t1)} cells", flush=True)
+print(f"    v2 incremental  max |θ| {worst:.2e}  over {len(t1)} classes", flush=True)
 print(f"    v1 marginal     range {m1.min():+.3f} … {m1.max():+.3f}pp · "
-      f"{int((m1.abs() > 0.5).sum())} cells beyond ±0.5pp", flush=True)
+      f"{int((m1.abs() > 0.5).sum())} classes beyond ±0.5pp", flush=True)
 ok1 = worst < 1e-9
 _why = ("it is" if ok1 else "it is not, and the fault is in stratification, eligibility, "
         "weights, complement construction or aggregation")
@@ -93,7 +96,7 @@ print("\n" + BAR, flush=True)
 print("  P1 · COMPOSITION + PLANTED δ — exact truth, computed not derived", flush=True)
 print(BAR, flush=True)
 print(f"  {'δ':>6s} {'planted cell':<28s} {'θ̂ needle':>10s} {'θ true':>9s} {'bias':>9s} "
-      f"{'max bias, other 45':>19s} {'cells w/ true≠0':>16s}", flush=True)
+      f"{'max bias, other classes':>19s} {'cells w/ true≠0':>16s}", flush=True)
 rng = np.random.default_rng(5)
 res = []
 for delta in V2.DELTA_GRID[1:]:
@@ -121,7 +124,7 @@ ok3 = P1.bias.abs().max() < 1e-9
 print(f"\n    {'PASS' if ok3 else 'FAIL'} — planted θ recovered exactly "
       f"(max |bias| {P1.bias.abs().max():.2e}pp)", flush=True)
 print(f"    Overlapping cells acquire a real non-zero truth — {P1.n_leaked.mean():.1f} of the "
-      f"other 45 on average.\n    In v1 those were classified as OVERLAP_AFFECTED; here each "
+      f"other classes on average.\n    In v1 those were classified as OVERLAP_AFFECTED; here each "
       f"one has a computed value, so bias\n    is measurable for all 46 rather than "
       f"categorised for one.", flush=True)
 

@@ -37,6 +37,59 @@ def _lower_median(a: np.ndarray) -> float:
     return float(np.partition(a, k)[k])
 
 
+class SearchSpaceDegeneracyError(AssertionError):
+    """Two selectable hypotheses share a frozen membership signature."""
+
+
+def equivalence_classes(masks: dict, *, verbose: bool = True):
+    """46 names → 37 selectable classes, with every name kept as an alias.
+
+    All seven duplicate groups are STRUCTURAL, provable from the engine rather than observed on
+    this window:
+
+        edge_replay.py:749   lead_in_lag = rs_flag & sector_lag      (rs_flag IS rs_intact)
+        edge_replay.py:1107  h1_dr       = (h1_today | h1_yest) & rs_intact
+
+    so conjoining either with rs narrows nothing, and the remaining groups follow. None needs an
+    `equivalent_on_H` caveat — they are theorems about the feature contract, not facts about
+    2021-2026.
+
+    The names survive because "46 formulations were written and nine turned out redundant" is
+    provenance. Silently rewriting history into "there were always 37" would erase the fact that
+    the space was designed with a blind spot in it.
+    """
+    by_sig: dict = {}
+    for cid, m in masks.items():
+        by_sig.setdefault(m.tobytes(), []).append(cid)
+    classes = []
+    for sig, names in by_sig.items():
+        classes.append(dict(class_id=f"EQ_{len(classes):02d}", representative=names[0],
+                            aliases=tuple(names), n=int(masks[names[0]].sum())))
+    if verbose:
+        red = sum(len(c["aliases"]) - 1 for c in classes)
+        print(f"  search space · {len(masks)} manifest entries → {len(classes)} selectable "
+              f"classes · {red} redundant aliases", flush=True)
+        for c in classes:
+            if len(c["aliases"]) > 1:
+                print(f"      {c['class_id']} n={c['n']:>7,d}  "
+                      + " ≡ ".join(c["aliases"]), flush=True)
+    return classes
+
+
+def assert_no_degeneracy(cells, masks) -> None:
+    """A duplicate must be an error at construction, never a tie the ranking interprets later."""
+    seen = {}
+    for cid in cells:
+        sig = masks[cid].tobytes()
+        if sig in seen:
+            raise SearchSpaceDegeneracyError(
+                f"{cid!r} and {seen[sig]!r} have identical frozen membership. Two selectable "
+                f"hypotheses with the same support are not two hypotheses — they occupy two "
+                f"top-K slots, crowd other claims out, and produce a tie the ranking then has "
+                f"to break on sort order rather than on data.")
+        seen[sig] = cid
+
+
 class Support:
     """E_c and w_cs, built from membership and dates only. No outcome is visible here."""
 

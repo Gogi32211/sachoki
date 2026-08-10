@@ -147,13 +147,55 @@ WORLDS = {
 LADDER = ("incremental estimator control", "incremental decision control", "incremental needle",
           "incremental structured null", "sealed acceptance")
 
+# ── AMENDMENT, after N1/N2/P1 and before any search ──────────────────────────
+# P1 reported "max truth among the other 45 = exactly δ", which is impossible unless another
+# cell shares the planted cell's support exactly. It does: the 46 manifest entries carry only
+# 37 DISTINCT membership patterns.
+#
+# All seven duplicate groups are STRUCTURAL, provable from the engine rather than observed on
+# this history:
+#
+#     edge_replay.py:749   lead_in_lag = _rs_flag & _sec_lag        (_rs_flag IS rs_intact)
+#     edge_replay.py:1107  h1_dr       = (h1_today | h1_yest) & rs_intact
+#
+# so lead_in_lag ⊆ rs_intact and h1_dr ⊆ rs_intact by definition, and conjoining either with rs
+# narrows nothing. No `equivalent_on_H` flag is needed for any of them.
+#
+# Fixing only the "needle found" criterion would repair the metric and leave the degeneracy
+# inside the instrument: twins still occupy top-K slots, crowd other claims out of the ranking,
+# and produce deterministic ties. P(rank=1) = 0.592 at δ = 6 in v1's sealed acceptance already
+# showed that is not cosmetic.
+#
+# SEARCH UNIT IS THE EQUIVALENCE CLASS. All 46 names survive as aliases, because the fact that
+# 46 formulations were written down is itself provenance and must not be quietly rewritten into
+# "there were always 37".
+MANIFEST_ENTRIES = 46
+DISTINCT_SELECTABLE_CLAIMS = 37
+REDUNDANT_ALIASES = 9
+SEARCH_UNIT = "equivalence_class"
+K_SEARCH = DISTINCT_SELECTABLE_CLAIMS
+
+# Invariant, not a convention: two selectable hypotheses may not share a frozen membership
+# signature. A duplicate becomes an error at construction rather than a tie the ranking has to
+# interpret afterwards.
+DEGENERACY_IS_AN_ERROR = True
+
+# What this does and does not say about v1, stated precisely:
+#   chance-band maximum   UNAFFECTED — max(T₁…T₄₆) ≡ max(T₁…T₃₇) for exact duplicates
+#   explicit-k mechanisms potentially conservative (DSR/FDR were told 46)
+#   ranking metrics       contaminated by deterministic ties and slot crowding
+# The first line corrects an earlier claim of mine that the band was "if anything strict".
+# It is identical, not stricter.
+
 
 def digest() -> str:
     return hashlib.sha256(json.dumps({
         "estimand": ESTIMAND, "stratum": STRATUM, "weights": PRIMARY_WEIGHTS,
         "eligibility": ELIGIBILITY, "support_floor": SUPPORT_FLOOR,
         "delta_grid": list(DELTA_GRID), "worlds": WORLDS, "ladder": list(LADDER),
-        "expectation": EXPECTATION,
+        "expectation": EXPECTATION, "search_unit": SEARCH_UNIT, "k_search": K_SEARCH,
+        "manifest_entries": MANIFEST_ENTRIES, "redundant_aliases": REDUNDANT_ALIASES,
+        "degeneracy_is_an_error": DEGENERACY_IS_AN_ERROR,
     }, sort_keys=True).encode()).hexdigest()
 
 
