@@ -58,34 +58,56 @@ def facts(*, raw: bool = False, **kw) -> pd.DataFrame:
     return df
 
 
-def as_of(tickers, concept: str, dates, *, unit: str | None = None) -> pd.Series:
-    """The value a reader could have had on each date. Backwards only, by `filed`.
-
-    `dates` is the DECISION time, not the period. Two facts that share a period_end but were
-    filed months apart are two different pieces of information, and this returns whichever
-    one existed yet.
-    """
+def _load(concept: str, unit: str | None = None) -> pd.DataFrame:
     if concept not in CONCEPTS:
         raise ContractError(f"unknown concept {concept!r} — have {list(CONCEPTS)}")
-    left = pd.DataFrame({"ticker": pd.Series(tickers).astype(str).to_numpy(),
-                         "_dt": pd.to_datetime(pd.Series(dates)).astype("datetime64[ns]")})
     con = _con()
-    q = ("SELECT ticker, cast(filed AS DATE) filed, val, unit FROM facts "
-         f"WHERE concept = '{concept}'" + (f" AND unit = '{unit}'" if unit else ""))
-    f = con.execute(q).fetch_df()
+    f = con.execute(
+        "SELECT ticker, cast(filed AS DATE) filed, cast(period_end AS DATE) period_end, "
+        f"val, unit FROM facts WHERE concept = '{concept}'"
+        + (f" AND unit = '{unit}'" if unit else "")).fetch_df()
     con.close()
     if f.empty:
-        return pd.Series(np.nan, index=left.index, name=concept)
-    # Where a filing carries several units (shares vs USD) keep the most common one, and say
-    # so rather than silently mixing scales.
+        return f
     if unit is None and f["unit"].nunique() > 1:
-        keep = f["unit"].value_counts().idxmax()
+        keep = f["unit"].value_counts().idxmax()      # never mix scales silently
         f = f[f["unit"] == keep]
-    # The same accession can restate a period more than once; the latest filing wins, which
-    # is what "as of" means — but only among filings that had already happened.
-    f = (f.sort_values(["ticker", "filed"], kind="stable")
-           .drop_duplicates(["ticker", "filed"], keep="last"))
     f["filed"] = pd.to_datetime(f["filed"]).astype("datetime64[ns]")
+    f["period_end"] = pd.to_datetime(f["period_end"]).astype("datetime64[ns]")
+    return f
+
+
+def as_of(tickers, concept: str, dates, *, unit: str | None = None) -> pd.Series:
+    """The most recently REPORTED value a reader could have had on each date.
+
+    A single filing carries several periods — the quarter being reported and the prior-year
+    comparative — so "the latest filing" is not enough to identify a number. DJCO's 10-Q of
+    2024-05-15 contains cash for BOTH 2024-03-31 ($10.56M) and 2023-09-30 ($20.84M), and an
+    earlier version of this function kept whichever row happened to sort last. It returned
+    values that belonged to no period anyone had asked about, and the known-answer test
+    caught it on the first run.
+
+    Two questions were being conflated, and both are legitimate:
+
+        as_of()         what is the company's latest reported figure, as known on D
+                        → the FEATURE. Frontier period, latest vintage of it.
+        as_of_period()  what was believed about a SPECIFIC period on D
+                        → the AUDIT. Used to verify vintages, not to build features.
+
+    Here the frontier is a running maximum of period_end over filings ordered by `filed`, so
+    a later filing that restates an OLDER period updates that period's vintage without
+    dragging the company's reported position backwards in time.
+    """
+    f = _load(concept, unit)
+    left = pd.DataFrame({"ticker": pd.Series(tickers).astype(str).to_numpy(),
+                         "_dt": pd.to_datetime(pd.Series(dates)).astype("datetime64[ns]")})
+    if f.empty:
+        return pd.Series(np.nan, index=left.index, name=concept)
+
+    f = f.sort_values(["ticker", "filed", "period_end"], kind="stable")
+    frontier = f.groupby("ticker", sort=False)["period_end"].cummax()
+    f = f[f["period_end"].to_numpy() >= frontier.to_numpy()]          # only the frontier
+    f = f.drop_duplicates(["ticker", "filed"], keep="last")           # newest period wins
 
     out = pd.merge_asof(left.sort_values("_dt", kind="stable"),
                         f.sort_values("filed", kind="stable"),
@@ -94,6 +116,32 @@ def as_of(tickers, concept: str, dates, *, unit: str | None = None) -> pd.Series
     if leak:
         raise ContractError(f"as_of({concept}): {leak:,} rows resolved to a filing dated "
                             f"after the decision — the join leaked")
+    return out.sort_index()["val"].rename(concept)
+
+
+def as_of_period(tickers, concept: str, period_end, dates,
+                 *, unit: str | None = None) -> pd.Series:
+    """What was believed about ONE period on each date — the vintage, not the frontier.
+
+    762,851 facts in the table are re-filings of a period already reported, so this is the
+    function that makes the append-only design checkable: the same period asked on two dates
+    must return the two different numbers that were current then.
+    """
+    f = _load(concept, unit)
+    left = pd.DataFrame({"ticker": pd.Series(tickers).astype(str).to_numpy(),
+                         "pe": pd.to_datetime(pd.Series(period_end)).astype("datetime64[ns]"),
+                         "_dt": pd.to_datetime(pd.Series(dates)).astype("datetime64[ns]")})
+    if f.empty:
+        return pd.Series(np.nan, index=left.index, name=concept)
+    f = (f.sort_values(["ticker", "period_end", "filed"], kind="stable")
+           .drop_duplicates(["ticker", "period_end", "filed"], keep="last")
+           .rename(columns={"period_end": "pe"}))
+    # merge_asof takes `by` OR (left_by, right_by), never both — so the right side is
+    # renamed to share the key name rather than passing two spellings of it
+    out = pd.merge_asof(left.sort_values("_dt", kind="stable"),
+                        f.sort_values("filed", kind="stable"),
+                        left_on="_dt", right_on="filed", by=["ticker", "pe"],
+                        direction="backward")
     return out.sort_index()["val"].rename(concept)
 
 
