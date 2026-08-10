@@ -11,11 +11,11 @@ This module refuses that by construction, in three ways:
    spacing, no $5/$3M screen, no $21-89 bucket. The constructor asserts the module is absent
    from the process, so the guarantee is checkable rather than promised.
 
-2. It loads an ALLOWLIST of primitives, not everything minus a denylist. The bars table has
-   415 columns and most of them encode a conclusion; enumerating what to ban would never be
-   complete, so instead nothing arrives unless it is a raw description of the bar. Anything
-   else raises — including our own forward labels (fwd_*, mfe_*, hit_*), which bake in
-   horizon and definition choices that this module is meant to re-make from OHLC.
+2. Every byte arrives through sources.bars(), the single door: it deduplicates the grain,
+   drops index rows, enforces an ALLOWLIST of primitives rather than a denylist (the bars
+   table has 415 columns and most store a conclusion of ours), attaches calendar adjacency
+   and asserts the data contract before returning. This module used to load its own data and
+   got the dedup wrong; two loaders with two contracts is the fault, not the cure.
 
 3. It has no exit rule. Positions are never closed early, so no stop, trail, target or cap
    can flatter or spoil the answer. What you get is what the market did:
@@ -41,39 +41,17 @@ import os
 import sys
 from dataclasses import dataclass
 
-import duckdb
 import numpy as np
 import pandas as pd
 
 sys.path.insert(0, os.path.expanduser("~/.claude/skills/quant-study/scripts"))
 from analysis_kit import GuardError, bootstrap_ci_clustered, effective_n  # noqa: E402
+import sources as srcs                                    # noqa: E402
 from data_contract import assert_contract, verify_sample  # noqa: E402
 
-DB = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data",
-                  "studio_analytics.duckdb")
-
-# ── the allowlist ────────────────────────────────────────────────────────────
-# Raw description of a bar: what it IS, never what we think it is worth.
-IDENT = ("ticker", "date")
-OHLCV = ("open", "high", "low", "close", "volume")
-PRIMITIVE = {
-    # mechanical pattern labels — the tokens a bar carries, no scoring attached
-    "t_sig", "z_sig", "l_sig", "g_sig", "b_sig", "fly_sig", "vol_sig", "combo_sig",
-    "ne_suffix", "wick_suffix", "penetration_suffix", "close_suffix", "full_suffix",
-    "bar_body_wick", "bar_gap_range", "bar_gap_class", "bar_range_class",
-    "setup_tokens", "context_tokens", "swing_type", "swing_type_3", "swing_type_5",
-    # standard public indicators — not ours, and no threshold implied
-    "rsi_14", "cci_20", "atr_14", "avg_vol_20d", "change_pct",
-    # plain facts about the instrument
-    "sector", "universe",
-}
-# Named so the error message can be specific about WHY something is refused.
-_CONCLUSION_HINT = (
-    "scores, tiers, zones, book setups, gates and our precomputed forward labels are "
-    "conclusions from earlier research, not observations of the bar"
-)
-
-_CACHE: dict = {}
+# The allowlist, the dedup and the contract now live in sources.py — ONE door. Keeping a
+# second copy here is precisely the fault this module was caught by: edge_replay deduped and
+# NakedStudy did not, because each owned its own loader.
 
 
 class NakedViolation(GuardError):
@@ -85,41 +63,6 @@ def _check_clean_room():
         raise NakedViolation(
             "edge_replay is loaded in this process. NakedStudy exists to measure without "
             "the book's setups, gates and exit law; run it in its own process.")
-
-
-def _load(columns: tuple, start: str | None, end: str | None) -> pd.DataFrame:
-    bad = [c for c in columns if c not in PRIMITIVE]
-    if bad:
-        raise NakedViolation(
-            f"refused columns {bad} — not in the primitive allowlist. {_CONCLUSION_HINT}. "
-            f"If one of these really is a raw property of the bar, add it to PRIMITIVE "
-            f"deliberately, in a commit, with the reason.")
-    key = (columns, start, end)
-    if key in _CACHE:
-        return _CACHE[key]
-    cols = ", ".join(IDENT + OHLCV + tuple(columns))
-    where = ["universe <> 'index'"]      # ETFs and indices are not stocks
-    if start:
-        where.append(f"date >= DATE '{start}'")
-    if end:
-        where.append(f"date <= DATE '{end}'")
-    # ONE ROW PER (ticker, date). The bars table carries a row per index membership, so a
-    # name in three universes appears three times with identical OHLCV — 39.6% of all rows.
-    # Sorted by (ticker, date) those copies land next to each other, which made shift(-1)
-    # return the SAME bar: "next open" became this bar's open, so gap = O/C−1 and the next
-    # return = C/O−1 were exact mirrors of one another by construction. That arithmetic, not
-    # microstructure, produced the 73%/26% gap asymmetry and every result built on it.
-    # edge_replay._pull has always done this; NakedStudy did not, and a chart the user
-    # checked by hand is what exposed it.
-    q = (f"SELECT {cols} FROM ("
-         f"  SELECT *, row_number() OVER (PARTITION BY ticker, date ORDER BY universe) rn"
-         f"  FROM bars WHERE " + " AND ".join(where) + ") WHERE rn = 1"
-         + " ORDER BY ticker, date")
-    con = duckdb.connect(DB, read_only=True)
-    df = con.execute(q).fetch_df()
-    con.close()
-    _CACHE[key] = df
-    return df
 
 
 @dataclass
@@ -146,23 +89,20 @@ class NakedStudy:
     def __init__(self, question: str, n_trials: int, columns: tuple = (),
                  horizons: tuple = (5, 10, 20, 60), start: str | None = None,
                  end: str | None = None, min_price: float | None = None,
-                 min_dollar_vol: float | None = None, seed: int = 0):
+                 min_dollar_vol: float | None = None, tf: str = "1d",
+                 seed: int = 0):
         _check_clean_room()
         self.q, self.n_trials, self.hor, self.seed = question, n_trials, horizons, seed
+        self.tf = tf
         self.n_cells = 0
         self.rng = np.random.default_rng(seed)
-        df = _load(tuple(columns), start, end).copy()
-
-        # research-derived filters are allowed but never silent
-        self.filters = {}
-        if min_price is not None:
-            df = df[df["close"] >= min_price]
-            self.filters["min_price"] = min_price
-        if min_dollar_vol is not None:
-            dv = df["close"] * df["volume"]
-            df = df[dv >= min_dollar_vol]
-            self.filters["min_dollar_vol"] = min_dollar_vol
-        df = df.sort_values(["ticker", "date"], ignore_index=True)
+        # ONE DOOR. sources.bars() dedupes, excludes index rows, enforces the primitive
+        # allowlist, attaches prev_ok and asserts the contract before returning. This module
+        # used to do its own loading and got the dedup wrong — see feedback-data-contract-first.
+        df = srcs.bars(tf, columns=tuple(columns), start=start, end=end,
+                       min_price=min_price, min_dollar_vol=min_dollar_vol,
+                       require_adjacency=None, verbose=False)
+        self.filters = dict(df.attrs.get("filters", {}))
 
         self.df = self._forward(df)
         # The contract runs before a single number is produced. Every statistical guard in
@@ -204,9 +144,7 @@ class NakedStudy:
         # middle of a ticker's history, so the previous ROW can be months away; a "3-bar
         # sequence" measured on rows can be three quarters apart. Callers that build
         # sequences must use `prev_ok` rather than assuming adjacency.
-        df["_dt"] = pd.to_datetime(df["date"])
-        gapdays = df.groupby("ticker", sort=False)["_dt"].diff().dt.days
-        df["prev_ok"] = (gapdays <= 4).fillna(False)
+        df["_dt"] = pd.to_datetime(df["date"])   # prev_ok arrives from sources.bars()
         df["yr"] = df["_dt"].dt.year
         df["dstr"] = df["_dt"].dt.strftime("%Y-%m-%d")
         keep = np.isfinite(df[f"r{H}"].to_numpy()) & np.isfinite(ent) & (ent > 0)
