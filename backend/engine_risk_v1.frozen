@@ -1,0 +1,44 @@
+==========================================================================================================================
+  risk_v1 FROZEN · positive control · 100 replications per Δp
+==========================================================================================================================
+  population $21-89 · 288,936 trades · 1,302 dates
+  baseline P(loss -10% before gain +10%) = 34.21%
+  R2 (RR ≥ 1.5) therefore demands Δp ≥ 17.10pp on this baseline — a threshold nobody declared
+  R3 (ARR ≥ 0.25pp) demands Δp ≥ 0.25pp · binding gate: R2
+
+   Δp true   ARR est    bias  RR est |  ESTIMATOR  VERDICT  coverage |    R1    R2    R3    R4    R6
+       0.0     +0.05   +0.05    1.00 |       6.0%     0.0%     94.0% |   11%    0%    6%  100%   75%
+       2.0     +1.94   -0.06    1.06 |      44.0%     0.0%     91.0% |   61%    0%   44%  100%   75%
+       4.0     +4.21   +0.21    1.12 |      99.0%     0.0%     95.0% |   98%    0%   99%  100%   67%
+       6.0     +6.01   +0.01    1.18 |     100.0%     0.0%     93.0% |  100%    0%  100%  100%   72%
+      12.0    +11.91   -0.09    1.35 |     100.0%     0.0%     88.0% |  100%    0%  100%  100%   69%
+      20.0    +19.98   -0.02    1.58 |     100.0%    76.0%     91.0% |  100%   99%  100%  100%   77%
+
+==========================================================================================================================
+  WHICH HALF IS BROKEN — the question the return branch taught us to ask first
+==========================================================================================================================
+  Δp =   2.0pp   estimator  44.0%   verdict   0.0%   ⚠ INFERENCE — the estimator cannot resolve it; the gates are not the issue
+  Δp =   4.0pp   estimator  99.0%   verdict   0.0%   🔴 GOVERNANCE — the estimator sees it and the gates refuse
+  Δp =   6.0pp   estimator 100.0%   verdict   0.0%   🔴 GOVERNANCE — the estimator sees it and the gates refuse
+  Δp =  12.0pp   estimator 100.0%   verdict   0.0%   🔴 GOVERNANCE — the estimator sees it and the gates refuse
+  Δp =  20.0pp   estimator 100.0%   verdict  76.0%   — mixed
+
+==========================================================================================================================
+  GATE SENSITIVITY — Shapley over R1/R2/R3/R4/R6
+==========================================================================================================================
+  Δp =   2.0pp   full verdict power   0.0%   R1  13.7pp · R2  53.2pp · R3  22.0pp · R4   0.0pp · R6  11.2pp   → largest tax: R2
+  Δp =   4.0pp   full verdict power   0.0%   R1   0.8pp · R2  82.3pp · R3   0.3pp · R4   0.0pp · R6  16.5pp   → largest tax: R2
+  Δp =   6.0pp   full verdict power   0.0%   R1   0.0pp · R2  86.0pp · R3   0.0pp · R4   0.0pp · R6  14.0pp   → largest tax: R2
+  Δp =  12.0pp   full verdict power   0.0%   R1   0.0pp · R2  84.5pp · R3   0.0pp · R4   0.0pp · R6  15.5pp   → largest tax: R2
+  Δp =  20.0pp   full verdict power  76.0%   R1   0.0pp · R2   1.0pp · R3   0.0pp · R4   0.0pp · R6  23.0pp   → largest tax: R6
+
+==========================================================================================================================
+  SCOPE
+==========================================================================================================================
+    baseline p0 34.21% · event = loss -10% before gain +10% within 60 bars
+    severity EQUAL between arms by construction → ΔTEL = Δp × L exactly
+    the event flag is planted, not the price path — this control tests the FREQUENCY machinery
+    (estimator, clustering, gates) and not the path→label step
+    injection is date-clustered (40% of dates treated), which is the shape real risk takes
+
+DONE
