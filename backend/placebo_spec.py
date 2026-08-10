@@ -35,10 +35,13 @@ prevent coupled STREAMS, not coincident MODELS.
 
 ═══ NULL B — CONDITIONAL ════════════════════════════════════════════════════
 
-    H₀ᴮ¹ : Y ⊥ Cell | Date, BaseSetup
-    H₀ᴮ² : Y ⊥ Cell | Date, BaseSetup, PriceBucket
+    target H₀ᴮ¹ : Y ⊥ Cell | Date, BaseSetup
+    target H₀ᴮ² : Y ⊥ Cell | Date, BaseSetup, PriceBucket
 
 Outcomes permuted within strata that preserve the nuisance structure the marginal band erases.
+These are TARGETS, not what the generator delivers on every row: see RARE STRATA and the
+Amendment below. Where a stratum is too small the generator falls back a level, so what it
+actually implements is a MIXTURE, and the names say so.
 
     PROMOTIONS UNDER B ARE NOT FALSE DISCOVERIES for ComboLab as specified.
 
@@ -64,7 +67,7 @@ transform wearing a null's name:
                                                              rows in strata <8: 32.3%
 
 A median stratum of 2 permutes to the identity half the time. Left unaddressed, B2 would return
-a comfortable FWER because the world was barely shuffled.
+a comfortable number because the world was barely shuffled.
 
 Rule: hierarchical fallback, never silent freezing. A stratum below MIN_PERMUTABLE falls back
 one conditioning level, and again if still too small. The fraction of rows permuted at each
@@ -84,6 +87,20 @@ the later gates can only filter further, so the other two are bounded above, not
 
 Tolerance is registered as an interval BEFORE the run — a demand for ≤ 5.000% would be false
 precision given finite permutations and a bootstrap in the path.
+
+═══ AMENDMENT, before any results ═══════════════════════════════════════════
+
+The first freeze named B2 `conditional_date_setup_price_v1` with H₀ written as the pure
+`Y ⊥ Cell | Date, BaseSetup, PriceBucket`, while the generator already carried a fallback for
+the 17% of rows whose full stratum is too small. On those rows it does not implement that H₀ —
+it implements a mixture. The name promised more than the generator delivers, and a result read
+under the pure name would be over-claimed.
+
+Neither ComboLab nor the fallback rule changed. What changed is that the names and the stated
+H₀ now describe the mixture the generator actually is, and the fallback profile moved from
+technical appendix to part of the result: a B2 run that permuted 61% of rows at full
+conditioning is a different experiment from one that permuted 95%, and without that line the
+number cannot be read at all.
 
 ═══ WHAT MAY NOT INFORM THESE CRITERIA ══════════════════════════════════════
 
@@ -112,19 +129,42 @@ GENERATORS = {
         purpose="false-discovery test for the marginal claim ComboLab makes; also the model "
                 "its own chance band implements, so A alone tests implementation",
         promotions_are="FALSE DISCOVERIES"),
-    "conditional_date_setup_v1": dict(
-        h0="Y ⊥ Cell | Date, BaseSetup",
+    # AMENDED before any results — see "Amendment" in the module docstring. These two are
+    # HIERARCHICAL generators, and their names now say so. A generator that falls back for 7%
+    # or 17% of its rows does not implement the pure conditional H₀ on those rows; it implements
+    # a mixture, and calling it by the pure name would licence reading the result as a literal
+    # test of Y ⊥ Cell | Date, BaseSetup, PriceBucket on every row.
+    "conditional_hierarchical_setup_v1": dict(
+        h0="MIXTURE — Y ⊥ Cell | Date, BaseSetup where the stratum permits; "
+           "Y ⊥ Cell | Date on rows that fall back",
+        h0_target="Y ⊥ Cell | Date, BaseSetup",
         strata=("date", "family"),
         fallback=(("date",),),
         purpose="how much of ComboLab's promotion survives holding setup family fixed",
         promotions_are="TRUE MARGINAL EFFECTS EXPLAINED BY NUISANCE — not errors"),
-    "conditional_date_setup_price_v1": dict(
-        h0="Y ⊥ Cell | Date, BaseSetup, PriceBucket",
+    "conditional_hierarchical_setup_price_v1": dict(
+        h0="MIXTURE — Y ⊥ Cell | Date, BaseSetup, PriceBucket where the stratum permits; "
+           "then | Date, BaseSetup; then | Date on rows that fall back twice",
+        h0_target="Y ⊥ Cell | Date, BaseSetup, PriceBucket",
         strata=("date", "family", "price_bucket"),
         fallback=(("date", "family"), ("date",)),
         purpose="same, additionally holding the price bucket fixed",
         promotions_are="TRUE MARGINAL EFFECTS EXPLAINED BY NUISANCE — not errors"),
 }
+
+# Metric names differ by world ON PURPOSE. Under A a promotion is an error, so FWER is the right
+# word. Under B1/B2 it is not, and P(any promotion) is still computable — which is precisely the
+# danger: in six months `FWER_B2 = 18%` would read as an error rate to anyone who did not read
+# this file. So B reports survival, and the word FWER does not appear in its output at all.
+METRICS_A = ("FWER_band", "FWER_search", "FWER_final", "E_n_promoted",
+             "p_zero", "p_one", "p_two_plus", "max_promoted")
+METRICS_B = ("promotion_survival_rate_band", "promotion_survival_rate_search",
+             "promotion_survival_rate_final", "E_n_promoted",
+             "p_zero", "p_one", "p_two_plus", "max_promoted")
+
+# Falsifiable on A, and not a matter of interpretation: later gates can only filter, so
+STRUCTURAL_INEQUALITY = "FWER_final <= FWER_search <= FWER_band"
+# A violation is an implementation or decision-flow defect, not a finding.
 
 RNG_STREAMS = ("outer_null_world", "inner_chance_band", "inner_bootstrap")
 # Invariant, tested rather than promised: changing the outer replication count must not alter
@@ -138,8 +178,7 @@ REQUIRED_DIAGNOSTICS = (
     "median_permutable_stratum_size",
 )
 
-METRICS = ("FWER_band", "FWER_search", "FWER_final", "E_n_promoted",
-           "p_zero", "p_one", "p_two_plus", "max_promoted")
+
 
 SAMPLING_TARGET_KIND = "structured_permutation_null"
 # Named so that sampling_target.py cannot let any of this be reported as a universal search FPR.
@@ -151,7 +190,9 @@ def digest() -> str:
     return hashlib.sha256(json.dumps({
         "generators": GENERATORS, "min_permutable": MIN_PERMUTABLE,
         "price_buckets": PRICE_BUCKETS, "n_replications": N_REPLICATIONS,
-        "alpha": ALPHA, "tolerance": list(TOLERANCE_BAND), "metrics": list(METRICS),
+        "alpha": ALPHA, "tolerance": list(TOLERANCE_BAND),
+        "metrics_a": list(METRICS_A), "metrics_b": list(METRICS_B),
+        "structural_inequality": STRUCTURAL_INEQUALITY,
         "diagnostics": list(REQUIRED_DIAGNOSTICS), "streams": list(RNG_STREAMS),
     }, sort_keys=True).encode()).hexdigest()
 
