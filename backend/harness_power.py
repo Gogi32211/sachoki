@@ -55,6 +55,7 @@ HOR = 10                       # bars held, the horizon everything is measured a
 DELTA_STAR = 0.30              # pp — the smallest effect worth acting on (2× round-trip cost)
 N_SIM = 120
 N_BOOT = 200
+MAGNITUDE_BAR = 1.0     # the L2 threshold, named so it can be varied
 SEED = 0
 pd.set_option("display.width", 200)
 
@@ -159,9 +160,15 @@ def simulate(delta: float, rng) -> dict:
     eff = effective_n(a, da)
 
     L1 = bool(len(per) and (per > 0).sum() >= len(per) - 2 and per.min() >= -2)
-    L2 = bool(est >= 1.0 and (lo > 0 or hi < 0))
+    # L2 was one boolean and is two questions. `est >= 1.0` is a threshold I wrote;
+    # `CI excludes 0` is what the data and the estimator can support. Reporting them together
+    # attributed the whole sensitivity cost to a governance rule when part of it may be an
+    # over-wide interval — and the two have completely different remedies.
+    L2a = bool(est >= MAGNITUDE_BAR)          # governance
+    L2b = bool(lo > 0 or hi < 0)              # inference
+    L2 = bool(L2a and L2b)
     L3 = bool(eff["n_eff"] >= 80)
-    return dict(est=est, lo=lo, hi=hi, L1=L1, L2=L2, L3=L3,
+    return dict(est=est, lo=lo, hi=hi, L1=L1, L2=L2, L2a=L2a, L2b=L2b, L3=L3,
                 n_eff=int(eff["n_eff"]), n=len(a))
 
 
@@ -175,7 +182,8 @@ def run_grid(deltas, n_sim=N_SIM):
             rows.append(r)
         R = pd.DataFrame([x for x in rows if x["delta"] == d])
         passed = (R.L1 & R.L2 & R.L3).mean()
-        print(f"  δ = {d:+.2f}pp   power {passed:>6.1%}   est {R.est.mean():>+6.3f} "
+        print(f"  δ = {d:+.2f}pp   verdict {passed:>6.1%}   estimator "
+              f"{R.L2b.mean():>6.1%}   est {R.est.mean():>+6.3f} "
               f"(bias {R.est.mean()-d:>+6.3f})   coverage "
               f"{((R.lo <= d) & (R.hi >= d)).mean():>6.1%}   n_eff {R.n_eff.median():>7,.0f}",
               flush=True)
@@ -206,7 +214,7 @@ print(f"      engine FPR at δ=0 (full verdict): {(z.L1 & z.L2 & z.L3).mean():.2
 print("\n" + "=" * 118, flush=True)
 print("  GATE SENSITIVITY — Shapley over L1/L2/L3, computed from stored outcomes", flush=True)
 print("=" * 118, flush=True)
-GATES = ["L1", "L2", "L3"]
+GATES = ["L1", "L2a", "L2b", "L3"]
 for d in GRID[1:]:
     S = R[R.delta == d]
     def power_of(subset):
@@ -238,15 +246,34 @@ for d in GRID[1:]:
 print("\n" + "=" * 118, flush=True)
 print("  MDE — the smallest effect this engine can see", flush=True)
 print("=" * 118, flush=True)
-pw = R.groupby("delta").apply(lambda g: (g.L1 & g.L2 & g.L3).mean(), include_groups=False)
-print("   " + " · ".join(f"δ={k:+.2f} → {v:.0%}" for k, v in pw.items()), flush=True)
-hit = pw[pw >= 0.8]
-if len(hit):
-    print(f"\n  MDE@80% ≤ {hit.index[0]:+.2f}pp", flush=True)
-else:
-    print(f"\n  MDE@80% > {GRID[-1]:+.2f}pp — the engine cannot reach 80% power anywhere on "
-          f"this grid.\n  Every NULL at or below that size is UNRESOLVED, not evidence of "
-          f"absence.", flush=True)
+# Two MDEs, because they answer different questions. The first is what the data and the
+# inference can resolve; the second is what the engine will admit once its rules apply. The
+# gap between them is the price of governance, not of evidence.
+pw_v = R.groupby("delta").apply(lambda g: (g.L1 & g.L2 & g.L3).mean(), include_groups=False)
+pw_e = R.groupby("delta").apply(lambda g: g.L2b.mean(), include_groups=False)
+print("  verdict   " + " · ".join(f"δ={k:+.2f} → {v:.0%}" for k, v in pw_v.items()), flush=True)
+print("  estimator " + " · ".join(f"δ={k:+.2f} → {v:.0%}" for k, v in pw_e.items()), flush=True)
+
+
+def mde(pw, label):
+    hit = pw[pw >= 0.8]
+    if len(hit):
+        below = pw[pw.index < hit.index[0]]
+        lowbnd = below.index[-1] if len(below) else 0.0
+        print(f"  MDE@80% {label:<10s} {lowbnd:+.2f} < δ ≤ {hit.index[0]:+.2f}pp", flush=True)
+        return hit.index[0]
+    print(f"  MDE@80% {label:<10s} > {GRID[-1]:+.2f}pp — never reaches 80% on this grid",
+          flush=True)
+    return np.nan
+
+
+m_e = mde(pw_e, "estimator")
+m_v = mde(pw_v, "verdict")
+if np.isfinite(m_e) and np.isfinite(m_v):
+    print(f"\n  the gap {m_v - m_e:+.2f}pp is the cost of our own rules, not of the evidence",
+          flush=True)
+print("\n  Every NULL for an effect below the VERDICT MDE is UNRESOLVED, not evidence of "
+      "absence.", flush=True)
 print("\n  NOTE: this is MDE for an ADDITIVE CONSTANT effect. An effect concentrated in a few "
       "regimes,\n  or living only in an interaction, is a different shape and this number does "
       "not describe it.", flush=True)

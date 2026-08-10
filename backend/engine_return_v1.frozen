@@ -1,0 +1,59 @@
+loading the frame once — every simulation reuses it
+  2,828,538 trades · 1,295 dates
+
+  exposure = T6 · 54,797 treated (1.9%) · 1,284 distinct dates
+  control arm subsampled to 273,985 (5x treated) · median at 10 bars +0.179%
+
+======================================================================================================================
+  OPERATING CHARACTERISTICS · 120 replications per δ · horizon 10 bars
+======================================================================================================================
+  δ = +0.00pp   verdict   0.0%   estimator   0.0%   est -0.032 (bias -0.032)   coverage 100.0%   n_eff   6,776
+  δ = +0.30pp   verdict   0.0%   estimator  27.5%   est +0.255 (bias -0.045)   coverage 100.0%   n_eff   6,720
+  δ = +0.60pp   verdict   0.0%   estimator  95.8%   est +0.547 (bias -0.053)   coverage 100.0%   n_eff   6,718
+  δ = +1.20pp   verdict  95.0%   estimator 100.0%   est +1.157 (bias -0.043)   coverage  99.2%   n_eff   6,808
+
+======================================================================================================================
+  THE THREE PREDICTIONS
+======================================================================================================================
+  1 · coverage at δ>0: 99.7%   (predicted 88-92%, nominal 95%)  ❌ prediction wrong
+  3 · size at δ=0:     0.0%   (predicted >5%)                 ❌ prediction wrong
+      engine FPR at δ=0 (full verdict): 0.00%  — a conjunctive verdict is far stricter than its primary test
+
+======================================================================================================================
+  GATE SENSITIVITY — Shapley over L1/L2/L3, computed from stored outcomes
+======================================================================================================================
+  δ = +0.30pp   full power   0.0%
+      L1 costs    6.5pp of sensitivity  (raw failure rate 19.2%)
+      L2a costs   51.2pp of sensitivity  (raw failure rate 100.0%)
+      L2b costs   28.7pp of sensitivity  (raw failure rate 72.5%)
+      L3 costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      → largest tax: L2a   ❌ prediction 2 wrong
+  δ = +0.60pp   full power   0.0%
+      L1 costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      L2a costs   81.6pp of sensitivity  (raw failure rate 100.0%)
+      L2b costs    1.7pp of sensitivity  (raw failure rate  4.2%)
+      L3 costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      → largest tax: L2a   ❌ prediction 2 wrong
+  δ = +1.20pp   full power  95.0%
+      L1 costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      L2a costs    4.2pp of sensitivity  (raw failure rate  5.0%)
+      L2b costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      L3 costs    0.0pp of sensitivity  (raw failure rate  0.0%)
+      → largest tax: L2a   ❌ prediction 2 wrong
+
+======================================================================================================================
+  MDE — the smallest effect this engine can see
+======================================================================================================================
+  verdict   δ=+0.00 → 0% · δ=+0.30 → 0% · δ=+0.60 → 0% · δ=+1.20 → 95%
+  estimator δ=+0.00 → 0% · δ=+0.30 → 28% · δ=+0.60 → 96% · δ=+1.20 → 100%
+  MDE@80% estimator  +0.30 < δ ≤ +0.60pp
+  MDE@80% verdict    +0.60 < δ ≤ +1.20pp
+
+  the gap +0.60pp is the cost of our own rules, not of the evidence
+
+  Every NULL for an effect below the VERDICT MDE is UNRESOLVED, not evidence of absence.
+
+  NOTE: this is MDE for an ADDITIVE CONSTANT effect. An effect concentrated in a few regimes,
+  or living only in an interaction, is a different shape and this number does not describe it.
+
+DONE
