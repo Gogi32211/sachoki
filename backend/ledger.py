@@ -113,12 +113,25 @@ class Trial:
 
 
 def log_trial(question: str, *, family: str = "", n_cells: int = 1, verdict: str = "",
+              hypothesis_family: str = "return", risk_target: str = "",
               est: float | None = None, n_obs: int | None = None,
               n_eff: int | None = None, sharpe: float | None = None,
               dsr: float | None = None, universe: str = "", params: dict | None = None,
               as_of: str = "", rerun_of: str = "", script: str = "") -> Trial:
     """Append one trial. Never edits or deletes — that is what append-only means."""
     fam = family or question
+    # A return target and a risk target are TWO hypotheses. Measuring both and reporting
+    # whichever came out prettier doubles k, and the only place that can notice is here.
+    if hypothesis_family not in ("return", "risk", "regime", "allocation"):
+        raise ValueError(f"hypothesis_family {hypothesis_family!r} must be one of "
+                         f"return/risk/regime/allocation")
+    if hypothesis_family == "risk" and not risk_target:
+        raise ValueError("a risk hypothesis must declare its target (threshold AND horizon) "
+                         "before the result is seen — 'P(MAE<-25%) at 5 bars', not 'risk'. "
+                         "The target space is large and unregistered targets are how a "
+                         "312,189-cell search gets rebuilt.")
+    params = dict(params or {}, hypothesis_family=hypothesis_family,
+                  risk_target=risk_target or None)
     t = Trial(ts=time.strftime("%Y-%m-%dT%H:%M:%S"), question=question,
               family=fam, parent=family_of(fam),
               spec=spec_hash({"q": question, "f": fam, "p": params or {}, "u": universe}),

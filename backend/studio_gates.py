@@ -37,6 +37,33 @@ incidents. Each is here because a specific thing went wrong, not because it read
     good — but the collapsing RULE was invented during the audit, looking at results.
     Multiplicity leaks exactly there, so the family and its declared k are registered with
     the spec.
+
+7 · THREE KINDS OF EDGE, THREE VERDICTS. The gates above ask one question — does this raise
+    expected return — and our strongest findings do not answer it. The season gate kills all
+    14 setups in Dec-Mar; the sub-200 rally suppressor hurts every one of them, era-
+    independently; ⚡ATR×12 improved 45 of 49 worst years; 🏆RS is described in our own notes
+    as a "worst-year rescuer". Not one of those raises a median, and `verdict()` as written
+    would return NULL on every one.
+
+    So `edge` was the wrong word for a single thing. A finding can be:
+
+        RETURN     raises expected return
+        RISK       lowers the chance of a bad path at no cost to return
+        PORTFOLIO  improves what a portfolio earns per unit of drawdown
+
+    and the same finding can be NULL in one and VETO in another. post-earnings ≤5d is
+    exactly that: NULL for return, VETO for risk.
+
+    The risk gates are NOT the return gates with a different threshold. Two things change:
+
+      · a relative risk of 2.54 sounds decisive and says little on its own. Our own numbers:
+        1.50% vs 0.59% is RR 2.54, but the ABSOLUTE difference is 0.91pp — one catastrophe
+        avoided per ~110 filtered trades, worth ≈0.23pp each. That is the same order as the
+        return effects we spend all our time measuring, which is the argument for the branch
+        AND the reason not to oversell it.
+      · catastrophes cluster harder than ordinary trades — they happen on panic days. 190 tail
+        events across ~50 dates are ~50 facts, not 190. The risk branch has WORSE effective n
+        than the return branch, not better.
 """
 from __future__ import annotations
 
@@ -224,6 +251,12 @@ def register_family(family_id: str, space: dict, *, mined_window: str, oos_windo
 # ── verdict, with INVALID and an evidence level ──────────────────────────────
 VERDICTS = ("BUILD", "BOOSTER", "WATCH", "NULL", "VETO", "INVALID")
 
+# A hypothesis is one of these BEFORE it is measured. Looking at both a return target and a
+# risk target and reporting whichever came out prettier is two trials, not one, and the
+# ledger has to see it that way.
+RETURN, RISK, REGIME, ALLOCATION = "return", "risk", "regime", "allocation"
+HYPOTHESIS_FAMILIES = (RETURN, RISK, REGIME, ALLOCATION)
+
 
 def verdict(*, label: str, integrity: Integrity, lift: float, ci: tuple,
             periods_positive: int, periods: int, worst: float, n_eff: int,
@@ -272,5 +305,101 @@ def verdict(*, label: str, integrity: Integrity, lift: float, ci: tuple,
     if evidence == BACKTEST:
         print("    → a backtest-only verdict is a CANDIDATE for freeze, never a promotion",
               flush=True)
+    print("=" * 118, flush=True)
+    return v
+
+
+# ── RISK VERDICT ─────────────────────────────────────────────────────────────
+def risk_stats(bad, dates, mask, *, n_boot: int = 600, seed: int = 0) -> dict:
+    """Relative and absolute risk with a date-clustered interval.
+
+    `bad` is a boolean outcome (a catastrophe, a stop before target), `mask` selects the
+    exposed group. The interval resamples whole DATES because tail events are the most
+    clustered thing in the data — they happen on panic days, so a hundred of them can be a
+    handful of facts.
+    """
+    b = np.asarray(bad, bool)
+    m = np.asarray(mask, bool)
+    d = pd.Series(np.asarray(dates)).astype(str).to_numpy()
+    p1, p0 = b[m].mean(), b[~m].mean()
+    rng = np.random.default_rng(seed)
+    uniq, gi = np.unique(d, return_inverse=True)
+    ng = len(uniq)
+    rr, arr = [], []
+    for _ in range(n_boot):
+        w = rng.multinomial(ng, np.full(ng, 1 / ng))[gi].astype(float)
+        a1, a0 = (w * m).sum(), (w * ~m).sum()
+        if a1 < 1 or a0 < 1:
+            continue
+        q1, q0 = (w * m * b).sum() / a1, (w * ~m * b).sum() / a0
+        arr.append((q1 - q0) * 100)
+        if q0 > 0:
+            rr.append(q1 / q0)
+    rr, arr = np.asarray(rr), np.asarray(arr)
+    ev_dates = len(np.unique(d[m & b]))
+    return dict(
+        n_exposed=int(m.sum()), n_control=int((~m).sum()),
+        rate_exposed=p1 * 100, rate_control=p0 * 100,
+        rr=p1 / p0 if p0 else np.nan,
+        rr_lo=float(np.percentile(rr, 2.5)) if len(rr) else np.nan,
+        rr_hi=float(np.percentile(rr, 97.5)) if len(rr) else np.nan,
+        arr=(p1 - p0) * 100,
+        arr_lo=float(np.percentile(arr, 2.5)), arr_hi=float(np.percentile(arr, 97.5)),
+        n_events=int(b[m].sum()), n_event_dates=ev_dates,
+        nnt=1 / abs(p1 - p0) if p1 != p0 else np.inf)
+
+
+def risk_verdict(*, label: str, stats: dict, integrity: Integrity, per_period,
+                 return_effect: float, return_ci: tuple, evidence: str = BACKTEST,
+                 human_checked: bool = False, min_clusters: int = 25,
+                 min_rr: float = 1.5, min_arr: float = 0.25,
+                 non_inferiority: float = -0.25) -> str:
+    """Seven gates. Deliberately not the return gates with different numbers.
+
+    R4 counts EVENT DATES, not events: 190 catastrophes on 50 panic days are 50 facts.
+    R6 is the one that stops a veto being celebrated for simply trading less — a filter that
+    removes risk by also removing return has not found anything.
+    """
+    print("\n" + "=" * 118, flush=True)
+    integrity.report()
+    if integrity.invalid:
+        print(f"RISK VERDICT: INVALID   ({label})", flush=True)
+        print("=" * 118, flush=True)
+        return "INVALID"
+    if not human_checked:
+        print("  🔴 REFUSED: no verdict without verify_sample", flush=True)
+        print("=" * 118, flush=True)
+        return "INVALID"
+
+    s = stats
+    pos = int((np.asarray(per_period) > 0).sum())
+    per = len(per_period)
+    R1 = pos >= per - 1
+    R2 = (s["rr"] >= min_rr and s["rr_lo"] > 1.0) or (s["rr"] <= 1 / min_rr and s["rr_hi"] < 1.0)
+    R3 = abs(s["arr"]) >= min_arr and (s["arr_lo"] > 0 or s["arr_hi"] < 0)
+    R4 = s["n_event_dates"] >= min_clusters
+    R6 = return_ci[0] >= non_inferiority          # veto must not cost alpha
+
+    v = ("VETO" if (R1 and R2 and R3 and R4 and R6 and s["rr"] > 1) else
+         "BOOSTER" if (R1 and R2 and R3 and R4 and R6) else
+         "WATCH" if (R2 and R3) else "NULL")
+
+    print(f"RISK VERDICT: {v}   ({label})", flush=True)
+    print(f"  exposed {s['rate_exposed']:.2f}% vs control {s['rate_control']:.2f}%  "
+          f"on {s['n_exposed']:,} / {s['n_control']:,}", flush=True)
+    print(f"  R1 direction stable {pos}/{per} periods → {'PASS' if R1 else 'FAIL'}",
+          flush=True)
+    print(f"  R2 RR {s['rr']:.2f} [{s['rr_lo']:.2f},{s['rr_hi']:.2f}] (need ≥{min_rr} clear "
+          f"of 1.0) → {'PASS' if R2 else 'FAIL'}", flush=True)
+    print(f"  R3 ARR {s['arr']:+.2f}pp [{s['arr_lo']:+.2f},{s['arr_hi']:+.2f}] · one event "
+          f"per {s['nnt']:.0f} filtered → {'PASS' if R3 else 'FAIL'}", flush=True)
+    print(f"  R4 {s['n_events']:,} events on {s['n_event_dates']} DATES (need ≥{min_clusters} "
+          f"dates — events are not facts) → {'PASS' if R4 else 'FAIL'}", flush=True)
+    print(f"  R6 return effect {return_effect:+.2f} CI [{return_ci[0]:+.2f},"
+          f"{return_ci[1]:+.2f}] (need ≥{non_inferiority:+.2f}) → "
+          f"{'PASS' if R6 else 'FAIL — the filter costs alpha'}", flush=True)
+    print(f"  evidence: {evidence} — {EVIDENCE_NOTE.get(evidence,'')}", flush=True)
+    print("  R5 calibration and R7 forward are checked separately; a VETO here is a "
+          "candidate for freeze, not a promotion", flush=True)
     print("=" * 118, flush=True)
     return v
