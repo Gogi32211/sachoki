@@ -1,0 +1,13 @@
+{
+  "freeze_commit": "6f7e5ee496551ab2bdb10dfa3170ed0e9efa6c1f",
+  "frozen_at": "2026-08-10",
+  "spec_digest": "fc70130c7d9faaec7a61d9b476b8d35167fb07f30f3c216f6ced015c79b73c10",
+  "seed_commitment": "90bfafc7021d958d31bd0b2bb118488c756dabca71ba0f0cae02dd47f400a2e9",
+  "file_sha256": {
+    "combo_lab.py": "2f689aedc8a44ce08e5c6a8abe99807eceb1c9173e7fed021699fa904000132d",
+    "combolab_spec.py": "0c865d8fe2ce63cfefde636616f7c826dd2cbc4ac3ea90296c720a1d2d40b934",
+    "needle_test.py": "9777525ae47bc59022a101162fa295d965fcae6d4e7b4d3d4a5ff3923e5176f7"
+  },
+  "rule": "acceptance seeds = sha256('combolab-acceptance:'+freeze_commit) -> default_rng -> 120 ints",
+  "note": "Editing any listed file invalidates this marker. The acceptance runner recomputes these hashes and refuses to start on a mismatch, so a second look at the sealed set after changing the engine cannot be passed off as the first."
+}
