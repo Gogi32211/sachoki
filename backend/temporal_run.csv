@@ -1,0 +1,12 @@
+layer,test,ok,detail
+ACCESS,T1 own future record visible,False,"51 of 265,832 attached rows carried their own exit record"
+ACCESS,T1 any record available>decision,True,0 rows carried a record whose raw publication date is after the decision date
+ACCESS,T1b available = decision − 1d,True,"visible=True, contract says True"
+ACCESS,T1b available = decision (equal),True,"visible=True, contract says True"
+ACCESS,T1b available = decision + 1d,True,"visible=False, contract says False"
+ACCESS,T2 exposure before filed,True,0 facts visible before their filing date under the correct anchor (day resolution)
+ACCESS,T3 pre-publication visibility,True,0 rows saw their own record one day before publication
+ACCESS,T3 post-publication retrieval,True,100.0% of rows retrieved their own record on the publication date
+ACCESS,T3 audit: raw pub <= decision,True,0 retrieved records have a raw publication date after the decision
+INTEGRATION,T3 effect recovered after pub,True,median lift +4.06pp vs injected +4.00pp
+INTEGRATION,T3 effect absent before pub,True,median lift using the previous record -0.04pp
