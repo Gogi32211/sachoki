@@ -108,6 +108,19 @@ DIAGNOSTICS = ("corr(D1_acceptance_c, S1_search_recall_c)",
 
 RNG_STREAMS = ("needle_location", "needle_effect", "search_chanceband", "search_bootstrap")
 
+# ── what may not change after the S1-31 reveal ───────────────────────────────
+# S1 is DEVELOPMENT EVIDENCE, including in its corrected 31-class form. After its numbers are
+# seen, none of these may move, because moving them would let the sealed run be designed around
+# the result it is meant to test:
+FROZEN_AFTER_S1_REVEAL = ("delta_grid", "rank_cutoff_top_k", "n_acceptance_seeds",
+                          "acceptable_recall_threshold", "primary_aggregation")
+# And the loophole that list alone leaves open, closed explicitly: it is possible to keep every
+# existing metric untouched and simply notice a prettier one in the diagnostics, then name THAT
+# the primary for sealed.
+NO_NEW_PRIMARY_ENDPOINT_AFTER_REVEAL = True
+# Diagnostics may be studied without limit. The primary sealed interpretation must exist before
+# the S1-31 reveal, not be selected from it.
+
 SAMPLING_TARGET = "synthetic_dgp(incremental_composition_generator_v1)"
 # Kept distinct from N0's structured-null generator. Two null models, two numbers, and
 # sampling_target refuses the comparison between them.
@@ -120,6 +133,8 @@ def digest() -> str:
         "location": LOCATION_DESIGN, "per_run": list(PER_RUN), "per_class": list(PER_CLASS),
         "diagnostics": list(DIAGNOSTICS), "streams": list(RNG_STREAMS),
         "sampling_target": SAMPLING_TARGET,
+        "frozen_after_reveal": list(FROZEN_AFTER_S1_REVEAL),
+        "no_new_primary_endpoint": NO_NEW_PRIMARY_ENDPOINT_AFTER_REVEAL,
     }, sort_keys=True).encode()).hexdigest()
 
 
