@@ -39,21 +39,32 @@ the chance band implements; it is correct for the 31 classes whose features vary
 
 ═══ G2 · DATE-LEVEL LABEL PERMUTATION ══════════════════════════════════════
 
-    H₀ : Y ⊥ DayProperty
+    H₀ : Y ⊥ DayProperty, with the property's own temporal geometry preserved
 
-The day-property's VALUE is permuted across dates; outcomes are never touched. This is the
-"permute the labels" form, and it is exact here for the reason it was NOT exact in v1: a
+The daily label sequence is CIRCULARLY SHIFTED by a random offset; outcomes are never touched.
+This is the "permute the labels" form, exact here for the reason it was NOT exact in v1: a
 date-level feature HAS a single label per date, so there is something to exchange. v1's cells
 overlapped and no single label existed, which is why outcomes were permuted there instead.
 
-Preserved: every outcome exactly as observed, the within-date correlation structure, family
-composition, and the number of day-property days. Destroyed: the link between the market-day
-property and returns — which is the whole and only content of H₀ᴳ².
+An iid shuffle across dates was considered and REJECTED, on a measurement rather than a
+preference — the flag is far from exchangeable across days (lag-1 +0.387, runs 63% longer than
+iid, yearly prevalence 11.6-22.6%). Scattering vix-up days one at a time builds an easier world
+than the one we trade in. A circular shift preserves runs, autocorrelation and prevalence
+exactly and breaks only the alignment between the property and the returns of those days.
 
-Membership is RECOMPUTED under the permuted labels, and that is deliberate: for these classes
-membership is exactly what carries the tested association, so freezing it would freeze the thing
-being nulled. For G1 the opposite holds and membership stays frozen. The two generators differ
-in what they hold fixed because they null different objects.
+Preserved: every outcome as observed, the within-date correlation structure, family composition,
+the number of day-property days AND their clustering. Destroyed: the link between the market-day
+property and returns — the whole and only content of H₀ᴳ².
+
+THE DESIGN IS RECOMPUTED INSIDE THE NULL. G2 permutes the PREDICTOR, so membership moves — and
+eligibility, strata and weights all follow from membership. Freezing the weights while the
+membership moves would produce a hybrid: null-world membership carrying real-world weights, an
+object with no scientific meaning. So the whole deterministic X → design mapping is part of the
+test statistic. What does NOT move is the POLICY: n_min, dates_min and the concentration cap are
+the same frozen numbers in every world, only their consequences differ.
+
+G1 needs none of this because X is fixed there and the estimand is literally unchanged. The
+asymmetry is real and is carried through to the end rather than stopped at membership.
 
 ═══ WHAT MAY NOT BE COMPARED ══════════════════════════════════════════════
 
@@ -83,14 +94,59 @@ GENERATORS = {
         membership="FROZEN",
         applies_to="classes with no date-level feature",
         n_classes=N_CLASSES_G1),
-    "date_level_label_v1": dict(
-        h0="Y ⊥ DayProperty",
-        permutes="the day-property's value across dates; outcomes untouched",
-        membership="RECOMPUTED under the permuted labels — for these classes membership IS "
-                   "the association under test, so freezing it would freeze the null",
+    "date_level_label_circular_v1": dict(
+        h0="Y ⊥ DayProperty, with the day-property's own temporal geometry preserved",
+        permutes="the daily label sequence is CIRCULARLY SHIFTED by a random offset; "
+                 "outcomes untouched",
+        membership="RECOMPUTED, and so are eligibility, strata and weights — variant A below",
         applies_to="classes containing any date-level feature",
         n_classes=N_CLASSES_G2),
 }
+
+# ── why circular and not iid, measured rather than chosen ────────────────────
+# An iid shuffle of the daily labels preserves prevalence and destroys everything else. The flag
+# is nowhere near exchangeable across days:
+#
+#     prevalence            16.1% of 1,304 days
+#     lag-1 autocorrelation +0.387
+#     vix-up runs           mean 1.94 vs 1.19 expected under iid   (+63%)
+#     ordinary runs         mean 10.04 vs 6.21 expected            (+62%)
+#     yearly prevalence     11.6% … 22.6%
+#
+# Volatility clusters; that is the best-known fact about it. A null that scatters vix-up days
+# one at a time across the calendar is an easier world than the one we live in, and a rate
+# measured against it would flatter the engine.
+#
+# A circular shift of the label sequence preserves runs, autocorrelation and prevalence EXACTLY
+# and breaks only the alignment between the day-property and the returns of those days — which
+# is the whole content of H₀. It draws from 1,304 distinct offsets, ample for 200 replications.
+#
+# `date_level_label_iid_v1` is REJECTED, and recorded as rejected rather than omitted, because
+# the two generators answer different probabilistic experiments and a later reader must be able
+# to see that the choice was made deliberately.
+REJECTED_GENERATORS = {
+    "date_level_label_iid_v1": "destroys the flag's own clustering; lag-1 +0.387 and runs 63% "
+                               "longer than iid make that a materially easier world",
+}
+
+# ── variant A: the design is recomputed inside the null, thresholds are not ──
+# G1 permutes Y with X fixed, so E_c and w_cs stay frozen and the estimand is literally
+# unchanged. G2 permutes the PREDICTOR, so membership changes — and then eligibility, strata and
+# weights all follow from it. Freezing the weights while the membership moves would produce a
+# hybrid object, null-world membership carrying real-world weights, with no scientific meaning.
+#
+# So the whole deterministic X → design mapping is part of the test statistic and is recomputed:
+#
+#     permuted DayProperty → membership → eligible strata → opportunity weights → statistic
+#
+# What is NOT recomputed is the POLICY. n_min = 100, dates_min = 25 and concentration ≤ 0.20 are
+# the same frozen numbers in every null world; only their consequences move.
+DESIGN_RECOMPUTED_IN_G2 = ("membership", "eligible_strata", "opportunity_weights")
+POLICY_FROZEN_IN_G2 = ("n_min=100", "dates_min=25", "max_single_date_share=0.20")
+
+# A permutation can push a claim out of eligibility. That must be visible, not silently absent.
+REQUIRED_G2_DIAGNOSTICS = ("selectable_classes_per_world", "support_coverage_per_world",
+                           "worlds_where_claim_uncomputable")
 
 METRICS = ("FWER_band", "FWER_search", "FWER_final", "E_n_promoted",
            "p_zero", "p_one", "p_two_plus", "max_promoted")
@@ -110,6 +166,10 @@ def digest() -> str:
         "tolerance": list(TOLERANCE_BAND), "metrics": list(METRICS),
         "inequality": STRUCTURAL_INEQUALITY, "streams": list(RNG_STREAMS),
         "reported_separately": REPORTED_SEPARATELY,
+        "rejected_generators": REJECTED_GENERATORS,
+        "design_recomputed_in_g2": list(DESIGN_RECOMPUTED_IN_G2),
+        "policy_frozen_in_g2": list(POLICY_FROZEN_IN_G2),
+        "g2_diagnostics": list(REQUIRED_G2_DIAGNOSTICS),
     }, sort_keys=True).encode()).hexdigest()
 
 
