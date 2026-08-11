@@ -74,9 +74,8 @@ def _perm_once(p: int) -> float:
 
 def main():
     print(BAR, flush=True)
-    print(f"  S1 · INCREMENTAL NEEDLE — {S1.N_CLASSES} classes × {S1.M_PER_CLASS} × "
-          f"{len(S1.DELTA_GRID)} δ = {S1.N_CLASSES*S1.M_PER_CLASS*len(S1.DELTA_GRID)} "
-          f"replications", flush=True)
+    print(f"  S1 · INCREMENTAL NEEDLE (31-class rerun) — {S1.M_PER_CLASS} per class × "
+          f"{len(S1.DELTA_GRID)} δ", flush=True)
     print(BAR, flush=True)
     print(f"  s1 digest {S1.digest()[:16]}… · v2 digest {V2.digest()[:16]}… · "
           f"δ* {DELTA_STAR}", flush=True)
@@ -84,6 +83,14 @@ def main():
     ma = CL.build_masks(O)
     classes = E.equivalence_classes(ma)
     masks = {c["representative"]: ma[c["representative"]] for c in classes}
+    # N0 amendment: the search space is the family whose null is valid. The six DAY_LEVEL claims
+    # are DEFERRED — not rejected, not null, not failed: unsupported by this instrument, because
+    # a band that permutes outcomes within (date x family) cannot null a predictor that is
+    # constant within a date. Mixing them into one max-band family gave FWER 0.685.
+    masks = {c: m for c, m in masks.items() if E.null_family(c) == "OPPORTUNITY_LEVEL"}
+    fam = E.assert_one_null_family(list(masks))
+    print(f"  search family {fam} · {len(masks)} classes "
+          f"({V2.DEFERRED_DAY_LEVEL} DAY_LEVEL deferred)", flush=True)
     E.assert_no_degeneracy(list(masks), masks)
     sup = E.Support(O, dates, masks)
     _, gi = np.unique(dates, return_inverse=True)

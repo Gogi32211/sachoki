@@ -37,6 +37,36 @@ def _lower_median(a: np.ndarray) -> float:
     return float(np.partition(a, k)[k])
 
 
+class IncompatibleNullFamilyError(AssertionError):
+    """Two claims needing different null mechanisms were put in one max-band family."""
+
+
+def null_family(cell_id: str, date_level_features=("sig_macro_vix_up",)) -> str:
+    """Which null can actually break this claim's association — a property of the CLAIM.
+
+    N0's finding in one function. A predictor constant within a trading date cannot be nulled by
+    permuting outcomes inside (date × family): the whole block sits in one arm. Such a claim
+    belongs to a different null family, and mixing the two inside one max-statistic band is what
+    produced FWER 0.685 against a nominal 0.05.
+    """
+    return "DAY_LEVEL" if any(f in cell_id or f.replace("sig_", "") in cell_id
+                              for f in date_level_features) else "OPPORTUNITY_LEVEL"
+
+
+def assert_one_null_family(cells) -> str:
+    """A max-band family must be homogeneous in its null mechanism."""
+    fams = {c: null_family(c) for c in cells}
+    kinds = set(fams.values())
+    if len(kinds) > 1:
+        bad = sorted(c for c, f in fams.items() if f == "DAY_LEVEL")
+        raise IncompatibleNullFamilyError(
+            f"a single max-band family cannot mix null mechanisms: {sorted(kinds)}. "
+            f"{len(bad)} DAY_LEVEL claim(s) present, e.g. {bad[:3]}. Two separately calibrated "
+            f"5% bands do not compose into 5% over their union, and N0 measured what happens "
+            f"when they are mixed: FWER 0.685 against a nominal 0.05.")
+    return kinds.pop()
+
+
 class SearchSpaceDegeneracyError(AssertionError):
     """Two selectable hypotheses share a frozen membership signature."""
 

@@ -169,6 +169,52 @@ LADDER = ("incremental estimator control", "incremental decision control", "incr
 # SEARCH UNIT IS THE EQUIVALENCE CLASS. All 46 names survive as aliases, because the fact that
 # 46 formulations were written down is itself provenance and must not be quietly rewritten into
 # "there were always 37".
+# ── AMENDMENT after N0, before sealed acceptance ─────────────────────────────
+# N0 measured the same engine under two registered nulls and got two different worlds:
+#
+#     G1  31 opportunity-level claims   FWER 0.065   inside [0.02, 0.10]
+#     G2   6 day-level claims           FWER 0.685   nowhere near it
+#
+# The mechanism was already named by S1 from the opposite side. ComboLab's band permutes outcomes
+# within (date × family); for a predictor constant within a trading date the whole block belongs
+# to ONE arm, so no outcome ever moves between arms and the band has no null to build. S1 saw a
+# planted needle unable to clear its own barrier; N0 saw noise clearing it freely.
+#
+# The tempting repair is to give the band a matched permutation for those six. It is not a local
+# fix. Two separately calibrated 5% bands do NOT compose into FWER = 5% over their union, and
+# taking statistics generated from two differently transformed worlds into one max() is not a
+# common band without a preregistered joint-null semantics. That is a new multiplicity design —
+# ComboLab v2.1 — not a patch.
+#
+# So the search space is cut to the family whose null is valid, and the other six are DEFERRED.
+# The distinction that matters:
+#
+#     NOT rejected · NOT null · NOT failed
+#     UNSUPPORTED_BY_THIS_SEARCH_INSTRUMENT
+#
+# This version of the instrument has no valid common null for their automatic search. That is a
+# boundary of the tool, stated, rather than six hypotheses quietly declared uninteresting.
+#
+# THE ARCHITECTURAL FINDING, which is larger than the six claims: the null mechanism is a
+# PROPERTY OF THE CLAIM, not a global setting of ComboLab. The original 37 turned out to be two
+# statistical kinds of object, and one null was being asked to answer for both.
+SEARCH_ELIGIBLE = 31
+DEFERRED_DAY_LEVEL = 6
+G1_MANIFEST_HASH = "3600ae3dd52a25e6"          # sha256 over the sorted 31 class ids
+G1_MEMBERSHIP_HASH = "1f0e2b02d6a073c7"        # sha256 over their frozen membership vectors
+
+CLAIM_CONTRACT = ("claim_id", "estimand", "sampling_unit", "null_generator_family",
+                  "search_family")
+NULL_FAMILY = {
+    "OPPORTUNITY_LEVEL": dict(n=31, null="within-stratum outcome permutation",
+                              automatic_search="ENABLED", fwer=0.065),
+    "DAY_LEVEL": dict(n=6, null="temporal-preserving predictor permutation",
+                      automatic_search="DEFERRED", fwer=None),
+}
+# The search engine may not place two claims in one max-band family when their
+# null_generator_family differs. That is IncompatibleNullFamilyError in combolab_v2.py — a
+# regression fix on the failure N0 found, so it stops being something a person must remember.
+
 MANIFEST_ENTRIES = 46
 DISTINCT_SELECTABLE_CLAIMS = 37
 REDUNDANT_ALIASES = 9
@@ -196,6 +242,9 @@ def digest() -> str:
         "expectation": EXPECTATION, "search_unit": SEARCH_UNIT, "k_search": K_SEARCH,
         "manifest_entries": MANIFEST_ENTRIES, "redundant_aliases": REDUNDANT_ALIASES,
         "degeneracy_is_an_error": DEGENERACY_IS_AN_ERROR,
+        "search_eligible": SEARCH_ELIGIBLE, "deferred_day_level": DEFERRED_DAY_LEVEL,
+        "g1_manifest_hash": G1_MANIFEST_HASH, "g1_membership_hash": G1_MEMBERSHIP_HASH,
+        "claim_contract": list(CLAIM_CONTRACT), "null_family": NULL_FAMILY,
     }, sort_keys=True).encode()).hexdigest()
 
 
