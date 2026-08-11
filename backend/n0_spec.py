@@ -124,6 +124,30 @@ GENERATORS = {
 # `date_level_label_iid_v1` is REJECTED, and recorded as rejected rather than omitted, because
 # the two generators answer different probabilistic experiments and a later reader must be able
 # to see that the choice was made deliberately.
+# WHAT THE CIRCULAR SHIFT DOES NOT PRESERVE, stated so it cannot later be over-read. The shift
+# moves whole blocks along the calendar, so a run of vix-up days from 2022 can land in 2025 and
+# the yearly prevalence travels with the sequence. Preserved: global prevalence, the cyclic run
+# structure, the lag geometry of the flag itself. NOT preserved: calendar-era composition. So the
+# hypothesis tested is
+#
+#     H₀ : Y ⊥ DayProperty            with the property's own serial structure held
+#
+# and NOT the stronger
+#
+#     H₀ : Y ⊥ DayProperty | Year, Regime
+#
+# That is a deliberate scope, not an oversight, and the runner prints all four facts every run.
+CIRCULAR_PRESERVES = {"global_prevalence": True, "cyclic_run_structure": True,
+                      "flag_lag_geometry": True, "calendar_year_prevalence": False,
+                      "wrap_around_used": True}
+
+# No date-level claim may vanish from the denominator: in every G2 world,
+#     evaluated + ineligible + uncomputable == 6
+G2_ACCOUNTING_IDENTITY = "evaluated + ineligible + uncomputable == N_CLASSES_G2"
+# and each world records a design_hash over (membership, strata, weights), so a real-world weight
+# reused by accident is caught by provenance and not only by a test.
+G2_RECORDS_DESIGN_HASH = True
+
 REJECTED_GENERATORS = {
     "date_level_label_iid_v1": "destroys the flag's own clustering; lag-1 +0.387 and runs 63% "
                                "longer than iid make that a materially easier world",
@@ -170,6 +194,8 @@ def digest() -> str:
         "design_recomputed_in_g2": list(DESIGN_RECOMPUTED_IN_G2),
         "policy_frozen_in_g2": list(POLICY_FROZEN_IN_G2),
         "g2_diagnostics": list(REQUIRED_G2_DIAGNOSTICS),
+        "circular_preserves": CIRCULAR_PRESERVES,
+        "g2_accounting": G2_ACCOUNTING_IDENTITY,
     }, sort_keys=True).encode()).hexdigest()
 
 
