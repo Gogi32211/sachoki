@@ -34,6 +34,7 @@ from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
                          DataAccessLayer, DataAccessSpec, SourceUnavailableError,
                          duckdb_bars_provider)
 import data_gateway as GW                                          # noqa: E402
+import parameter_surface as PSURF                                  # noqa: E402
 from evidence_boundary import (EvidenceBoundary,  # noqa: E402
                                EvidenceBoundaryDriftError, EvidenceBoundaryError,
                                freeze_boundary)
@@ -238,6 +239,85 @@ def accounting(sid: str) -> dict:
     return {"session": asdict(to_view(_get(sid)))}
 
 
+# ── the full parameter surface ──────────────────────────────────────────────
+_SURFACES: dict = {}
+
+
+def _surface(sid: str, s: ResearchSession) -> PSURF.ParameterSurface:
+    """The session's current settings. Reconstructed from its ledger, not held in a variable.
+
+    A restart must not silently reset the knobs to their defaults while the ledger remembers
+    every change that was made to them — that is the third time this shape of bug would appear,
+    so the values are replayed from CONDITION_CHANGED events.
+    """
+    if sid in _SURFACES:
+        return _SURFACES[sid]
+    surface = PSURF.ParameterSurface.initial(horizon="20", conditioning_tolerance="5",
+                                             selection_top_k="31", displayed_top_k="5")
+    for e in s.events:
+        if e.event_type == "CONDITION_CHANGED" and e.payload.get("parameter_id"):
+            pid = e.payload["parameter_id"]
+            if pid in PSURF.REGISTRY and "value" in e.payload:
+                surface = surface.with_value(pid, e.payload["value"])
+    _SURFACES[sid] = surface
+    return surface
+
+
+def parameters() -> dict:
+    """The canonical record for every knob. The UI renders this; it does not classify."""
+    out = []
+    for pid in sorted(PSURF.REGISTRY):
+        r = PSURF.REGISTRY[pid]
+        out.append({"parameter_id": pid, "semantic_role": r.semantic_role,
+                    "affects_claim_identity": str(r.affects_claim_identity),
+                    "affects_search_space": str(r.affects_search_space),
+                    "affects_decision_policy": str(r.affects_decision_policy),
+                    "allowed_in_explore": str(r.allowed_in_explore),
+                    "allowed_after_register": str(r.allowed_after_register),
+                    "multiplicity_effect": r.effects["multiplicity_effect"],
+                    "registered_effect": r.effects["registered_effect"],
+                    "note": r.effects["note"]})
+    return {"parameters": out, "roles": {role: list(PSURF.by_role(role))
+                                         for role in PSURF.ROLE_EFFECTS}}
+
+
+def preview_parameter(sid: str, parameter_id: str, new_value: str) -> dict:
+    """What this knob costs, answered BEFORE it is turned. The UI never decides this."""
+    s = _get(sid)
+    return PSURF.classify(_surface(sid, s), parameter_id, new_value, state=s.state)
+
+
+def set_parameter(sid: str, parameter_id: str, new_value: str,
+                  space_size: int = 31, displayed: int = 5) -> dict:
+    """Turn a knob. Behaviour comes from the role, so there is no per-parameter branch here."""
+    s = _get(sid)
+    surface = _surface(sid, s)
+    after, c = PSURF.apply(surface, parameter_id, new_value, state=s.state)
+    _SURFACES[sid] = after
+
+    if c["no_op"] or c["multiplicity_effect"] == "NONE":
+        # A view. It is recorded nowhere, because recording it would make a free action cost a
+        # ledger entry and the whole point of the role is that it does not.
+        return {"session": asdict(to_view(s)), "classification": c,
+                "surface": dict(after.values), "recorded": "NO"}
+
+    s.change_parameter(parameter_id, c["old_claim_hash"], c["new_claim_hash"],
+                       value=c["new_value"])
+
+    if c["role"] in (PSURF.SEARCH_SPACE_CHANGE,):
+        s.search_run("combolab_v2", int(new_value) if str(new_value).isdigit() else space_size,
+                     c["new_search_space_hash"], displayed)
+    else:
+        claim = _claim(after.values.get("horizon", "20"),
+                       after.values.get("conditioning_tolerance", "5"))
+        s.execute(claim)
+        s.expose(claim)
+        s.search_run("combolab_v2", space_size, "3600ae3dd52a25e6", displayed)
+    _touch(s)
+    return {"session": asdict(to_view(s)), "classification": c,
+            "surface": dict(after.values), "recorded": "YES"}
+
+
 # ── preregistration and the way back out of it ──────────────────────────────
 SPACE = ("combolab_v2", 31, "3600ae3dd52a25e6")
 
@@ -339,10 +419,15 @@ def refusal(e: Exception) -> dict:
     # loop. FORK continues the work; NEW_SESSION is the only route back into the confirmatory
     # track, and it is deliberately not a shortcut — nothing is carried over.
     next_action = {
+        "ParameterSurfaceError": "FORK",
         "SessionStateError": "FORK",
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "ParameterSurfaceError":
+            "This control is frozen with the study. Its role means turning it would change what "
+            "is being claimed, so a registered session refuses it — fork into a new exploratory "
+            "session to continue from here.",
         "EvidenceBoundaryDriftError":
             "This study froze the data it may be confirmed on. Evaluating it against a different "
             "window would be a different study; open a new session to ask that question.",
@@ -432,6 +517,14 @@ class RegisterBody(BaseModel):
     idempotency_key: str = ""
 
 
+class ParameterBody(BaseModel):
+    parameter_id: str
+    new_value: str
+    space_size: int = 31
+    displayed: int = 5
+    idempotency_key: str = ""
+
+
 class ValidateBody(BaseModel):
     # optional, and only so a caller can state which boundary it thinks it is evaluating; a
     # mismatch is fatal rather than accepted
@@ -450,6 +543,13 @@ def build_router():
             sp = {"source_id": b.source_id, "universe": b.universe,
                   "start": b.window_start, "end": b.window_end}
         return create(b.family_id if b else "", sp)
+
+    # Declared BEFORE `/{sid}`, and that is not style. FastAPI matches routes in declaration
+    # order, so a path parameter declared first swallows every literal that comes after it —
+    # GET /parameters answered "no session parameters" until this moved up.
+    @router.get("/parameters")
+    def _parameters():
+        return parameters()
 
     @router.get("/{sid}")
     def _get_session(sid: str):
@@ -521,6 +621,27 @@ def build_router():
         except RS.IdempotencyConflictError as e:
             raise HTTPException(409, refusal(e))
         except SessionStateError as e:
+            raise HTTPException(409, refusal(e))
+
+    @router.post("/{sid}/parameter/preview")
+    def _param_preview(sid: str, b: ParameterBody):
+        try:
+            return preview_parameter(sid, b.parameter_id, b.new_value)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+
+    @router.post("/{sid}/parameter")
+    def _param_set(sid: str, b: ParameterBody):
+        try:
+            return _idempotent(b.idempotency_key, "parameter", sid,
+                               {"parameter_id": b.parameter_id, "new_value": b.new_value},
+                               lambda: set_parameter(sid, b.parameter_id, b.new_value,
+                                                     b.space_size, b.displayed))
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        except RS.IdempotencyConflictError as e:
+            raise HTTPException(409, refusal(e))
+        except (PSURF.ParameterSurfaceError, SessionStateError) as e:
             raise HTTPException(409, refusal(e))
 
     @router.get("/{sid}/family")

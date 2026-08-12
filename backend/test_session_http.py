@@ -546,6 +546,94 @@ def t28f_a_second_genuine_registration_is_refused_not_duplicated():
     assert r.status_code == 409, f"a session froze twice: {r.status_code}"
 
 
+# ── the parameter surface ───────────────────────────────────────────────────
+def _param(sid, pid, val, **kw):
+    body = {"parameter_id": pid, "new_value": val}
+    body.update(kw)
+    return C.post(f"/api/studio/session/{sid}/parameter", json=body)
+
+
+def _param_preview(sid, pid, val):
+    return C.post(f"/api/studio/session/{sid}/parameter/preview",
+                  json={"parameter_id": pid, "new_value": val}).json()
+
+
+def t29_a_literal_route_is_not_swallowed_by_a_path_parameter():
+    """GET /parameters answered 'no session parameters' until it was declared first
+
+    FastAPI matches in declaration order, so `/{sid}` registered earlier consumes every literal
+    that follows it. Nothing in the type system or the tests below would have noticed; the route
+    simply resolved to the wrong handler and returned a plausible 404.
+    """
+    r = C.get("/api/studio/session/parameters")
+    assert r.status_code == 200, f"{r.status_code}: {r.text[:120]}"
+    d = r.json()
+    assert len(d["parameters"]) == 22, len(d["parameters"])
+    assert set(d["roles"]) == {"PRESENTATION_ONLY", "CLAIM_CHANGE", "DESIGN_CHANGE",
+                               "SEARCH_SPACE_CHANGE", "POLICY_CHANGE"}, d["roles"]
+
+
+def t30_every_parameter_of_a_role_costs_the_same_over_http():
+    """the acceptance statement, exercised through routing rather than in-process"""
+    spec = C.get("/api/studio/session/parameters").json()
+    by_role = {}
+    for p in spec["parameters"]:
+        by_role.setdefault(p["semantic_role"], []).append(
+            (p["multiplicity_effect"], p["registered_effect"], p["allowed_after_register"]))
+    for role, shapes in by_role.items():
+        assert len(set(shapes)) == 1, f"{role} members disagree over the wire: {shapes}"
+
+
+def t31_preview_and_commit_agree_over_the_wire():
+    sid = _new_session()
+    for pid, val in (("horizon", "40"), ("layout", "list"), ("selection_top_k", "37"),
+                     ("equivalence_margin", "1.0"), ("support_cutoff", "250")):
+        previewed = _param_preview(sid, pid, val)
+        committed = _param(sid, pid, val)
+        assert committed.status_code == 200, committed.text
+        assert previewed == committed.json()["classification"], (pid, previewed)
+
+
+def t32_a_cosmetic_knob_reaches_no_ledger_even_ten_times():
+    sid = _new_session()
+    before = _acc(sid)
+    for i in range(10):
+        r = _param(sid, "sort_by_displayed_column", f"col{i}")
+        assert r.json()["recorded"] == "NO", r.json()
+    after = _acc(sid)
+    assert after["events"] == before["events"], \
+        f"a view reached the ledger: {before['events']} -> {after['events']}"
+    assert after["k_exposed"] == before["k_exposed"]
+
+
+def t33_a_frozen_study_refuses_by_role_and_offers_the_fork():
+    sid = _new_session()
+    assert _register(sid).status_code == 200
+    r = _param(sid, "horizon", "60")
+    assert r.status_code == 409, r.status_code
+    d = r.json()["detail"]
+    assert d["error"] == "ParameterSurfaceError" and d["next_action"] == "FORK", d
+    # and the cosmetic set stays live, because its role says it cannot change the answer
+    ok = _param(sid, "layout", "grid")
+    assert ok.status_code == 200 and ok.json()["recorded"] == "NO", ok.text
+
+
+def t34_the_settings_survive_a_restart():
+    """a knob whose value lives only in a variable is a knob a restart resets silently"""
+    sid = _new_session()
+    _param(sid, "horizon", "40")
+    _param(sid, "selection_top_k", "37")
+    before = _param_preview(sid, "horizon", "40")
+    assert before["no_op"] is True, before
+
+    SESS._SURFACES.clear()                       # the process restarts; the cache is gone
+    after = _param_preview(sid, "horizon", "40")
+    assert after["no_op"] is True, (
+        f"the settings were replayed wrong after a restart, so turning the knob to the value it "
+        f"already holds looked like a new claim: {after}")
+    assert after["old_value"] == "40", after
+
+
 # ── the neighbouring surface, same routing layer ────────────────────────────
 def t12_semantics_screen_serves_and_carries_no_operand():
     r = C.get("/api/studio/semantics/n0")
@@ -609,6 +697,12 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t28d_the_boundary_and_the_footprint_survive_a_restart,
                         t28e_a_retried_registration_does_not_freeze_twice,
                         t28f_a_second_genuine_registration_is_refused_not_duplicated,
+                        t29_a_literal_route_is_not_swallowed_by_a_path_parameter,
+                        t30_every_parameter_of_a_role_costs_the_same_over_http,
+                        t31_preview_and_commit_agree_over_the_wire,
+                        t32_a_cosmetic_knob_reaches_no_ledger_even_ten_times,
+                        t33_a_frozen_study_refuses_by_role_and_offers_the_fork,
+                        t34_the_settings_survive_a_restart,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

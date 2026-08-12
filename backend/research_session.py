@@ -143,6 +143,11 @@ PARAMETERS: dict = {p.parameter_id: p for p in (
     # the space changes
     ParameterDefinition("setup_subset", SEARCH_SPACE_CHANGE, False, True, False),
     ParameterDefinition("top_k", SEARCH_SPACE_CHANGE, False, True, False),
+    # The pair that proves a UI number carries no role by itself. Showing 5 rows instead of 10
+    # out of the same ranked 31 is a view; letting the algorithm choose among 37 instead of 31
+    # changes the multiplicity a verdict must survive. Both read as "a number went up".
+    ParameterDefinition("displayed_top_k", PRESENTATION_ONLY, False, False, False),
+    ParameterDefinition("selection_top_k", SEARCH_SPACE_CHANGE, False, True, False),
     ParameterDefinition("rank_metric", SEARCH_SPACE_CHANGE, False, True, False),
     # the rules change
     ParameterDefinition("null_family", POLICY_CHANGE, False, False, True),
@@ -485,7 +490,14 @@ class ResearchSession:
         return self
 
     # ── activity ────────────────────────────────────────────────────────────
-    def change_parameter(self, parameter_id: str, old, new):
+    def change_parameter(self, parameter_id: str, old, new, value: str = ""):
+        """`value` is the setting itself, and it travels IN the event.
+
+        The first version of the caller appended the event and then patched `payload["value"]`
+        onto the in-memory object. The row on disk did not have it, so a restart replayed the
+        ledger into the wrong settings — the same shape as the three incidents already recorded.
+        An event carries what a reader will need, at the moment it is written.
+        """
         d = classify_change(parameter_id)
         if self.state in (REGISTERED, ACTIVE_REGISTERED) and d.semantic_role != PRESENTATION_ONLY:
             raise SessionStateError(
@@ -493,7 +505,7 @@ class ResearchSession:
                 f"registered study does not mutate; changing this creates a different claim and "
                 f"belongs to a new exploration session.")
         self._append(CONDITION_CHANGED, parameter_id=parameter_id, role=d.semantic_role,
-                     old=str(old), new=str(new))
+                     old=str(old), new=str(new), value=str(value))
         return d
 
     def execute(self, claim: ClaimIdentity):
