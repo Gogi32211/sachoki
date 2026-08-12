@@ -180,6 +180,163 @@ REGISTRY: dict = {pid: _record(d) for pid, d in PARAMETERS.items()}
 def registry_has_one_home() -> bool:
     return set(REGISTRY) == set(PARAMETERS)
 
+def registry_hash() -> str:
+    """The declared semantics of every knob, as one value.
+
+    A plan approved against one registry must not be committed against another. Roles are code,
+    so a deployment can change them between a preview and a commit, and the person who approved
+    the preview approved what it said the change would cost.
+    """
+    blob = json.dumps({pid: [r.semantic_role, r.affects_claim_identity, r.affects_search_space,
+                             r.affects_decision_policy, r.allowed_after_register]
+                       for pid, r in sorted(REGISTRY.items())}, sort_keys=True)
+    return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+# ── presentation metadata ───────────────────────────────────────────────────
+#
+# Deliberately separate from `semantic_role`, and served alongside it. The frontend needs to know
+# how to render an input; it must never work out what the input COSTS. `ui_kind` answers the
+# first question and nothing else — a NUMBER control looks the same whether the number is a view
+# or a multiplicity, which is exactly why the role travels beside it instead of being inferred.
+HYPOTHESIS, POPULATION, SEARCH, DECISION, VIEW = (
+    "Hypothesis", "Population & design", "Search", "Decision", "View")
+
+PRESENTATION: dict = {
+    "horizon": (HYPOTHESIS, "Horizon", "NUMBER", "bars held before the outcome is read",
+                {"min": 5, "max": 120, "step": 5}),
+    "conditioning_tolerance": (HYPOTHESIS, "RSI tolerance", "NUMBER",
+                               "half-width of the RSI band the claim conditions on",
+                               {"min": 1, "max": 10, "step": 1}),
+    "outcome_metric": (HYPOTHESIS, "Outcome", "ENUM", "what the claim is about",
+                       {"options": ["median_return", "mean_return", "win_rate", "mtm"]}),
+    "conditioning_feature": (HYPOTHESIS, "Conditioning feature", "ENUM",
+                             "the feature the band is measured on",
+                             {"options": ["rsi_14", "rsi_2", "atr_14", "vol_20"]}),
+    "date_range": (POPULATION, "Date range", "ENUM", "the slice the claim is made over",
+                   {"options": ["2021-2023", "2021-2026", "2024-2026"]}),
+    "universe": (POPULATION, "Universe", "ENUM", "which names are in scope",
+                 {"options": ["russell", "sp500", "nasdaq100", "all"]}),
+    "base_setup_conditioning": (POPULATION, "Base setup", "ENUM",
+                                "the setup the increment is measured against",
+                                {"options": ["none", "capitulation", "engulf", "spring"]}),
+    "weighting": (POPULATION, "Weighting", "ENUM", "how observations are weighted",
+                  {"options": ["equal", "by_name", "by_date"]}),
+    "support_cutoff": (POPULATION, "Support minimum", "NUMBER",
+                       "smallest cell that may carry an estimate",
+                       {"min": 25, "max": 500, "step": 25}),
+    "setup_subset": (SEARCH, "Search classes", "MULTI",
+                     "which setup classes the algorithm may rank",
+                     {"options": ["a", "b", "c", "d", "e"]}),
+    "selection_top_k": (SEARCH, "Selection top-K", "NUMBER",
+                        "how many classes the algorithm may choose a winner from",
+                        {"min": 5, "max": 60, "step": 1}),
+    "top_k": (SEARCH, "Legacy top-K", "NUMBER", "kept for the frozen v2 spaces",
+              {"min": 5, "max": 60, "step": 1}),
+    "rank_metric": (SEARCH, "Rank metric", "ENUM", "how candidates are ordered",
+                    {"options": ["ic", "rank_ic", "median", "sharpe"]}),
+    "sort_by_new_outcome_metric": (SEARCH, "Re-rank by new metric", "ENUM",
+                                   "ranking an existing list by a NEW outcome is a selection "
+                                   "path, not a view",
+                                   {"options": ["", "sharpe", "pf", "mae"]}),
+    "equivalence_margin": (DECISION, "Materiality margin", "NUMBER",
+                           "how large an effect has to be to matter",
+                           {"min": 0.0, "max": 5.0, "step": 0.25}),
+    "null_family": (DECISION, "Null family", "ENUM",
+                    "which null model the p-value is read against",
+                    {"options": ["opportunity_level", "day_level"]}),
+    "direction": (DECISION, "Direction", "ENUM", "which tail the verdict is read from",
+                  {"options": ["long", "short", "two_sided"]}),
+    "displayed_top_k": (VIEW, "Displayed top-K", "NUMBER",
+                        "how many of the ranked results are drawn on screen",
+                        {"min": 1, "max": 50, "step": 1}),
+    "sort_by_displayed_column": (VIEW, "Sort", "ENUM", "re-orders what is already computed",
+                                 {"options": ["score", "effect", "n", "pf"]}),
+    "column_order": (VIEW, "Column order", "MULTI", "which columns, in which order",
+                     {"options": ["score", "effect", "n", "pf", "dsr"]}),
+    "layout": (VIEW, "Layout", "ENUM", "how the results are arranged",
+               {"options": ["grid", "list", "compact"]}),
+    "theme": (VIEW, "Theme", "ENUM", "light or dark", {"options": ["dark", "light"]}),
+}
+
+GROUP_ORDER = (HYPOTHESIS, POPULATION, SEARCH, DECISION, VIEW)
+
+
+def presentation(parameter_id: str) -> dict:
+    g, label, kind, desc, extra = PRESENTATION.get(
+        parameter_id, (VIEW, parameter_id, "TEXT", "", {}))
+    return {"group": g, "label": label, "ui_kind": kind, "description": desc, **extra}
+
+
+class StaleChangePlanError(RuntimeError):
+    """The session or the registry moved between the preview and the commit."""
+
+
+@dataclass(frozen=True)
+class ChangePlan:
+    """What a preview promised, in a form a commit can be checked against.
+
+    Sharing the classifier removes one disagreement and not the other. A person reads a preview
+    computed at state S1, thinks, and clicks; by then the session may be at S2. Same classifier,
+    different transition — and the change applied is not the one anybody approved.
+
+    So the preview returns a plan pinned to `prior_state_hash` and to the registry it was
+    classified under, and the commit presents `plan_hash`. A mismatch is refused rather than
+    silently recomputed: the correct answer to "the world moved" is a new preview, not a quietly
+    different action.
+    """
+    plan_id: str
+    session_id: str
+    prior_state_hash: str
+    parameter_id: str
+    old_value: str
+    new_value: str
+    semantic_role: str
+    old_claim_hash: str
+    new_claim_hash: str
+    old_search_space_hash: str
+    new_search_space_hash: str
+    old_decision_policy_hash: str
+    new_decision_policy_hash: str
+    multiplicity_effect: str
+    registered_effect: str
+    parameter_registry_hash: str
+    no_op: str
+
+    @property
+    def plan_hash(self) -> str:
+        blob = "|".join(str(v) for v in (
+            self.session_id, self.prior_state_hash, self.parameter_id, self.old_value,
+            self.new_value, self.semantic_role, self.new_claim_hash,
+            self.new_search_space_hash, self.new_decision_policy_hash,
+            self.multiplicity_effect, self.registered_effect, self.parameter_registry_hash))
+        return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+    def as_dict(self) -> dict:
+        from dataclasses import asdict as _asdict
+        d = _asdict(self)
+        d["plan_hash"] = self.plan_hash
+        return d
+
+
+def plan_for(session_id: str, prior_state_hash: str, surface: "ParameterSurface",
+             parameter_id: str, new_value, *, state: str = "EXPLORE") -> ChangePlan:
+    c = classify(surface, parameter_id, new_value, state=state)
+    return ChangePlan(
+        plan_id=f"{session_id}:{parameter_id}:{prior_state_hash}",
+        session_id=session_id, prior_state_hash=prior_state_hash,
+        parameter_id=parameter_id, old_value=c["old_value"], new_value=c["new_value"],
+        semantic_role=c["role"],
+        old_claim_hash=c["old_claim_hash"], new_claim_hash=c["new_claim_hash"],
+        old_search_space_hash=c["old_search_space_hash"],
+        new_search_space_hash=c["new_search_space_hash"],
+        old_decision_policy_hash=c["old_decision_policy_hash"],
+        new_decision_policy_hash=c["new_decision_policy_hash"],
+        multiplicity_effect=c["multiplicity_effect"],
+        registered_effect=c["registered_effect"],
+        parameter_registry_hash=registry_hash(), no_op="YES" if c["no_op"] else "NO")
+
+
 
 def record(parameter_id: str) -> ParameterRecord:
     if parameter_id not in REGISTRY:

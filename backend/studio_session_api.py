@@ -102,6 +102,7 @@ class ResearchSessionView:
     revisits: str
     displayed_at_most: str
     changes_claim: str
+    changes_design: str
     changes_search_space: str
     changes_policy: str
     changes_presentation: str
@@ -128,6 +129,10 @@ def to_view(s: ResearchSession) -> ResearchSessionView:
         k_selectable=str(a["k_selectable"]), revisits=str(a["revisits"]),
         displayed_at_most=str(a["displayed_at_most"]),
         changes_claim=str(c["CLAIM_CHANGE"]),
+        # DESIGN_CHANGE existed in the ledger and stopped at the transport boundary, so a whole
+        # accounting category was uncountable on screen. Found by driving all 22 controls rather
+        # than one representative per role — the representative for DESIGN was the only member.
+        changes_design=str(c["DESIGN_CHANGE"]),
         changes_search_space=str(c["SEARCH_SPACE_CHANGE"]),
         changes_policy=str(c["POLICY_CHANGE"]),
         changes_presentation=str(c["PRESENTATION_ONLY"]),
@@ -135,13 +140,41 @@ def to_view(s: ResearchSession) -> ResearchSessionView:
         events=str(a["events"]), state_hash=s._state_hash())
 
 
-# ── the claim under study in this slice: two knobs, both CLAIM_CHANGE ────────
+# ── the claim under study ───────────────────────────────────────────────────
 def _claim(horizon: str, tolerance: str) -> ClaimIdentity:
+    """The two-knob form, kept for callers that only move those two."""
     return ClaimIdentity(
         estimand="incremental_return_pp", outcome="median_return", horizon=str(horizon),
         population="price_21_89", conditioning_hash=f"rsi45pm{tolerance}",
         feature_rule_hash="rsi_14", support_policy_hash="6f825ca4763fea76",
         null_family="OPPORTUNITY_LEVEL", decision_policy_version="verdict_v2")
+
+
+def _claim_from(surface) -> ClaimIdentity:
+    """The claim as the WHOLE surface defines it.
+
+    The exhaustive browser matrix found this: six of the eight CLAIM_CHANGE parameters moved the
+    surface's claim_hash and exposed an identity built from `horizon` and `tolerance` alone, so
+    the ledger saw the same claim twice and `k_exposed` did not move. Two notions of "the claim",
+    and the one that counted was the smaller — which under-counts multiplicity, the direction
+    that flatters a result.
+
+    `conditioning_hash` now carries `surface.claim_hash`, which covers every claim-identity
+    parameter by construction, and `decision_policy_version` carries the policy hash. A policy
+    change therefore also produces a distinct exposed claim; that counts MORE, and between the
+    two directions the conservative one is the only defensible default.
+    """
+    v = surface.values
+    return ClaimIdentity(
+        estimand="incremental_return_pp",
+        outcome=v.get("outcome_metric") or "median_return",
+        horizon=v.get("horizon") or "20",
+        population=v.get("universe") or "price_21_89",
+        conditioning_hash=surface.claim_hash,
+        feature_rule_hash=v.get("conditioning_feature") or "rsi_14",
+        support_policy_hash=v.get("support_cutoff") or "6f825ca4763fea76",
+        null_family=v.get("null_family") or "OPPORTUNITY_LEVEL",
+        decision_policy_version=surface.decision_policy_hash)
 
 
 def _next_id() -> str:
@@ -263,36 +296,85 @@ def _surface(sid: str, s: ResearchSession) -> PSURF.ParameterSurface:
     return surface
 
 
-def parameters() -> dict:
-    """The canonical record for every knob. The UI renders this; it does not classify."""
+# Plans live for as long as the state they were computed against. Losing them on a restart is
+# correct: a plan whose session moved is stale anyway, and an unknown plan is refused the same
+# way as a stale one rather than being reconstructed from what the request happens to say.
+_PLANS: dict = {}
+
+
+def parameters(sid: str = "") -> dict:
+    """Every knob: how to render it, and what it costs. The UI reads both and decides neither."""
+    s = _get(sid) if sid else None
+    surface = _surface(sid, s) if s else None
     out = []
     for pid in sorted(PSURF.REGISTRY):
         r = PSURF.REGISTRY[pid]
-        out.append({"parameter_id": pid, "semantic_role": r.semantic_role,
-                    "affects_claim_identity": str(r.affects_claim_identity),
-                    "affects_search_space": str(r.affects_search_space),
-                    "affects_decision_policy": str(r.affects_decision_policy),
-                    "allowed_in_explore": str(r.allowed_in_explore),
-                    "allowed_after_register": str(r.allowed_after_register),
-                    "multiplicity_effect": r.effects["multiplicity_effect"],
-                    "registered_effect": r.effects["registered_effect"],
-                    "note": r.effects["note"]})
-    return {"parameters": out, "roles": {role: list(PSURF.by_role(role))
-                                         for role in PSURF.ROLE_EFFECTS}}
+        pres = PSURF.presentation(pid)
+        out.append({
+            "parameter_id": pid, "label": pres["label"], "description": pres["description"],
+            "ui_kind": pres["ui_kind"], "group": pres["group"],
+            "options": [str(o) for o in pres.get("options", [])],
+            "min": str(pres.get("min", "")), "max": str(pres.get("max", "")),
+            "step": str(pres.get("step", "")),
+            "current_value": (surface.values.get(pid, "") if surface else ""),
+            # the statistical half. Served, never derived on the other side of the wire.
+            "semantic_role": r.semantic_role,
+            "mutable_in_explore": "YES" if r.allowed_in_explore else "NO",
+            "mutable_in_registered": "YES" if r.allowed_after_register else "NO",
+            "multiplicity_effect": r.effects["multiplicity_effect"],
+            "registered_effect": r.effects["registered_effect"],
+            "note": r.effects["note"]})
+    return {"parameters": out,
+            "groups": list(PSURF.GROUP_ORDER),
+            "roles": {role: list(PSURF.by_role(role)) for role in PSURF.ROLE_EFFECTS},
+            "parameter_registry_hash": PSURF.registry_hash()}
 
 
 def preview_parameter(sid: str, parameter_id: str, new_value: str) -> dict:
-    """What this knob costs, answered BEFORE it is turned. The UI never decides this."""
+    """A ChangePlan, pinned to the state and the registry it was computed under."""
     s = _get(sid)
-    return PSURF.classify(_surface(sid, s), parameter_id, new_value, state=s.state)
+    plan = PSURF.plan_for(sid, s._state_hash(), _surface(sid, s), parameter_id, new_value,
+                          state=s.state)
+    _PLANS[plan.plan_hash] = plan
+    return {"plan": plan.as_dict()}
+
+
+def _check_plan(s: ResearchSession, plan_hash: str, parameter_id: str, new_value: str):
+    """A commit must be the transition that was approved, not merely the same request."""
+    if not plan_hash:
+        return None
+    plan = _PLANS.get(plan_hash)
+    if plan is None:
+        raise PSURF.StaleChangePlanError(
+            f"plan {plan_hash} is unknown here. It was issued against a state this process no "
+            f"longer holds, so what it promised cannot be checked. Take a fresh preview.")
+    if plan.prior_state_hash != s._state_hash():
+        raise PSURF.StaleChangePlanError(
+            f"the preview was computed at state {plan.prior_state_hash} and the session is now "
+            f"at {s._state_hash()}. The classifier is the same; the transition is not. What was "
+            f"approved is not what would happen, so it is refused rather than recomputed.")
+    if plan.parameter_registry_hash != PSURF.registry_hash():
+        raise PSURF.StaleChangePlanError(
+            f"the plan was classified under registry {plan.parameter_registry_hash} and this "
+            f"process runs {PSURF.registry_hash()}. A knob's declared role changed between the "
+            f"preview and the commit.")
+    if plan.parameter_id != parameter_id or plan.new_value != PSURF.record(
+            parameter_id).canonical(new_value):
+        raise PSURF.StaleChangePlanError(
+            f"plan {plan_hash} approves {plan.parameter_id}={plan.new_value}, and the commit "
+            f"asks for {parameter_id}={new_value}")
+    return plan
 
 
 def set_parameter(sid: str, parameter_id: str, new_value: str,
-                  space_size: int = 31, displayed: int = 5) -> dict:
+                  space_size: int = 31, displayed: int = 5, plan_hash: str = "") -> dict:
     """Turn a knob. Behaviour comes from the role, so there is no per-parameter branch here."""
     s = _get(sid)
+    plan = _check_plan(s, plan_hash, parameter_id, new_value)
     surface = _surface(sid, s)
     after, c = PSURF.apply(surface, parameter_id, new_value, state=s.state)
+    if plan is not None:
+        _PLANS.pop(plan_hash, None)          # single use; a second commit needs a fresh preview
     _SURFACES[sid] = after
 
     if c["no_op"] or c["multiplicity_effect"] == "NONE":
@@ -308,14 +390,13 @@ def set_parameter(sid: str, parameter_id: str, new_value: str,
         s.search_run("combolab_v2", int(new_value) if str(new_value).isdigit() else space_size,
                      c["new_search_space_hash"], displayed)
     else:
-        claim = _claim(after.values.get("horizon", "20"),
-                       after.values.get("conditioning_tolerance", "5"))
+        claim = _claim_from(after)
         s.execute(claim)
         s.expose(claim)
         s.search_run("combolab_v2", space_size, "3600ae3dd52a25e6", displayed)
     _touch(s)
     return {"session": asdict(to_view(s)), "classification": c,
-            "surface": dict(after.values), "recorded": "YES"}
+            "surface": dict(after.values), "recorded": "YES", "plan_hash": plan_hash}
 
 
 # ── preregistration and the way back out of it ──────────────────────────────
@@ -419,11 +500,15 @@ def refusal(e: Exception) -> dict:
     # loop. FORK continues the work; NEW_SESSION is the only route back into the confirmatory
     # track, and it is deliberately not a shortcut — nothing is carried over.
     next_action = {
+        "StaleChangePlanError": "REPREVIEW",
         "ParameterSurfaceError": "FORK",
         "SessionStateError": "FORK",
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "StaleChangePlanError":
+            "The session moved between the preview and this click, so the change you approved is "
+            "not the change that would happen. Nothing was applied; take a fresh preview.",
         "ParameterSurfaceError":
             "This control is frozen with the study. Its role means turning it would change what "
             "is being claimed, so a registered session refuses it — fork into a new exploratory "
@@ -522,6 +607,9 @@ class ParameterBody(BaseModel):
     new_value: str
     space_size: int = 31
     displayed: int = 5
+    # the plan the user actually approved. Empty is accepted for the preview endpoint and for
+    # callers that do not preview; a plan that IS supplied must still be current.
+    plan_hash: str = ""
     idempotency_key: str = ""
 
 
@@ -550,6 +638,13 @@ def build_router():
     @router.get("/parameters")
     def _parameters():
         return parameters()
+
+    @router.get("/{sid}/parameters")
+    def _session_parameters(sid: str):
+        try:
+            return parameters(sid)
+        except KeyError:
+            raise HTTPException(404, f"no session {sid}")
 
     @router.get("/{sid}")
     def _get_session(sid: str):
@@ -636,10 +731,12 @@ def build_router():
             return _idempotent(b.idempotency_key, "parameter", sid,
                                {"parameter_id": b.parameter_id, "new_value": b.new_value},
                                lambda: set_parameter(sid, b.parameter_id, b.new_value,
-                                                     b.space_size, b.displayed))
+                                                     b.space_size, b.displayed, b.plan_hash))
         except KeyError as e:
             raise HTTPException(404, str(e))
         except RS.IdempotencyConflictError as e:
+            raise HTTPException(409, refusal(e))
+        except PSURF.StaleChangePlanError as e:
             raise HTTPException(409, refusal(e))
         except (PSURF.ParameterSurfaceError, SessionStateError) as e:
             raise HTTPException(409, refusal(e))

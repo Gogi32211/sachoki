@@ -555,7 +555,7 @@ def _param(sid, pid, val, **kw):
 
 def _param_preview(sid, pid, val):
     return C.post(f"/api/studio/session/{sid}/parameter/preview",
-                  json={"parameter_id": pid, "new_value": val}).json()
+                  json={"parameter_id": pid, "new_value": val}).json()["plan"]
 
 
 def t29_a_literal_route_is_not_swallowed_by_a_path_parameter():
@@ -579,7 +579,7 @@ def t30_every_parameter_of_a_role_costs_the_same_over_http():
     by_role = {}
     for p in spec["parameters"]:
         by_role.setdefault(p["semantic_role"], []).append(
-            (p["multiplicity_effect"], p["registered_effect"], p["allowed_after_register"]))
+            (p["multiplicity_effect"], p["registered_effect"], p["mutable_in_registered"]))
     for role, shapes in by_role.items():
         assert len(set(shapes)) == 1, f"{role} members disagree over the wire: {shapes}"
 
@@ -588,10 +588,15 @@ def t31_preview_and_commit_agree_over_the_wire():
     sid = _new_session()
     for pid, val in (("horizon", "40"), ("layout", "list"), ("selection_top_k", "37"),
                      ("equivalence_margin", "1.0"), ("support_cutoff", "250")):
-        previewed = _param_preview(sid, pid, val)
-        committed = _param(sid, pid, val)
+        plan = _param_preview(sid, pid, val)
+        committed = _param(sid, pid, val, plan_hash=plan["plan_hash"])
         assert committed.status_code == 200, committed.text
-        assert previewed == committed.json()["classification"], (pid, previewed)
+        c = committed.json()["classification"]
+        for a, b in (("semantic_role", "role"), ("new_claim_hash", "new_claim_hash"),
+                     ("multiplicity_effect", "multiplicity_effect"),
+                     ("new_search_space_hash", "new_search_space_hash"),
+                     ("registered_effect", "registered_effect")):
+            assert plan[a] == c[b], (pid, a, plan[a], c[b])
 
 
 def t32_a_cosmetic_knob_reaches_no_ledger_even_ten_times():
@@ -624,14 +629,74 @@ def t34_the_settings_survive_a_restart():
     _param(sid, "horizon", "40")
     _param(sid, "selection_top_k", "37")
     before = _param_preview(sid, "horizon", "40")
-    assert before["no_op"] is True, before
+    assert before["no_op"] == "YES", before
 
     SESS._SURFACES.clear()                       # the process restarts; the cache is gone
     after = _param_preview(sid, "horizon", "40")
-    assert after["no_op"] is True, (
+    assert after["no_op"] == "YES", (
         f"the settings were replayed wrong after a restart, so turning the knob to the value it "
         f"already holds looked like a new claim: {after}")
     assert after["old_value"] == "40", after
+
+
+# ── the plan between preview and commit ─────────────────────────────────────
+def t35_a_preview_returns_a_plan_pinned_to_the_state_it_saw():
+    sid = _new_session()
+    plan = _param_preview(sid, "horizon", "40")
+    assert plan["plan_hash"] and plan["prior_state_hash"], plan
+    assert plan["parameter_registry_hash"], plan
+    assert plan["prior_state_hash"] == _acc(sid)["state_hash"], plan
+
+
+def t36_a_plan_approved_at_one_state_cannot_commit_at_another():
+    """TOCTOU: the classifier is the same and the transition is not
+
+    Nothing here is a race in the request; the gap is human. A person reads what a change will
+    cost, thinks about it, and clicks — and in between, the session moved. Recomputing silently
+    would apply a change nobody approved, so it is refused.
+    """
+    sid = _new_session()
+    plan = _param_preview(sid, "horizon", "40")
+    _param(sid, "conditioning_tolerance", "1")          # the session moves underneath
+    r = _param(sid, "horizon", "40", plan_hash=plan["plan_hash"])
+    assert r.status_code == 409, r.status_code
+    d = r.json()["detail"]
+    assert d["error"] == "StaleChangePlanError", d
+    assert d["next_action"] == "REPREVIEW", d
+    assert "not what would happen" in d["detail"], d
+    # and nothing was applied
+    assert _param_preview(sid, "horizon", "40")["old_value"] == "20", "the refusal still applied it"
+
+
+def t37_a_plan_is_single_use():
+    sid = _new_session()
+    plan = _param_preview(sid, "selection_top_k", "37")
+    assert _param(sid, "selection_top_k", "37", plan_hash=plan["plan_hash"]).status_code == 200
+    again = _param(sid, "selection_top_k", "37", plan_hash=plan["plan_hash"])
+    assert again.status_code == 409, "a plan committed twice"
+
+
+def t38_a_plan_cannot_be_pointed_at_a_different_knob():
+    sid = _new_session()
+    plan = _param_preview(sid, "horizon", "40")
+    r = _param(sid, "universe", "sp500", plan_hash=plan["plan_hash"])
+    assert r.status_code == 409, "a plan approved for one parameter committed another"
+
+
+def t39_the_session_parameter_list_carries_current_values_and_roles():
+    """everything the UI needs to render 22 controls, and nothing it needs to classify them"""
+    sid = _new_session()
+    _param(sid, "horizon", "40")
+    d = C.get(f"/api/studio/session/{sid}/parameters").json()
+    assert len(d["parameters"]) == 22, len(d["parameters"])
+    assert d["parameter_registry_hash"], d
+    by_id = {p["parameter_id"]: p for p in d["parameters"]}
+    assert by_id["horizon"]["current_value"] == "40", by_id["horizon"]
+    for p in d["parameters"]:
+        assert p["ui_kind"] in ("NUMBER", "ENUM", "MULTI", "BOOLEAN", "TEXT"), p
+        assert p["group"] in d["groups"], p
+        assert p["semantic_role"], p
+        assert p["label"], p
 
 
 # ── the neighbouring surface, same routing layer ────────────────────────────
@@ -703,6 +768,11 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t32_a_cosmetic_knob_reaches_no_ledger_even_ten_times,
                         t33_a_frozen_study_refuses_by_role_and_offers_the_fork,
                         t34_the_settings_survive_a_restart,
+                        t35_a_preview_returns_a_plan_pinned_to_the_state_it_saw,
+                        t36_a_plan_approved_at_one_state_cannot_commit_at_another,
+                        t37_a_plan_is_single_use,
+                        t38_a_plan_cannot_be_pointed_at_a_different_knob,
+                        t39_the_session_parameter_list_carries_current_values_and_roles,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

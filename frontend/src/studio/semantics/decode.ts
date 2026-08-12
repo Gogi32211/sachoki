@@ -152,7 +152,8 @@ const SESSION_FIELDS = [
   'session_id', 'mode', 'k_declared', 'k_exposed', 'k_exposed_lineage',
   'inherited_exposed', 'parent_session_id', 'lineage_depth', 'k_selectable', 'revisits',
   'displayed_at_most', 'changes_claim', 'changes_search_space', 'changes_policy',
-  'changes_presentation', 'confirmatory_eligible', 'events', 'state_hash',
+  'changes_design', 'changes_presentation', 'confirmatory_eligible', 'events',
+  'state_hash',
 ] as const;
 
 export function decodeSession(raw: unknown): import('./types').ResearchSessionView {
@@ -203,4 +204,47 @@ export function decodeRefusal(raw: unknown): import('./types').Refusal {
     remedy: String(d.remedy ?? ''), next_action: String(d.next_action ?? 'NONE'),
     offers_fork: String(d.offers_fork ?? 'NO'),
   };
+}
+
+const PARAM_FIELDS = [
+  'parameter_id', 'label', 'description', 'ui_kind', 'group', 'min', 'max', 'step',
+  'current_value', 'semantic_role', 'mutable_in_explore', 'mutable_in_registered',
+  'multiplicity_effect', 'registered_effect', 'note',
+] as const;
+
+const PLAN_FIELDS = [
+  'plan_id', 'session_id', 'prior_state_hash', 'parameter_id', 'old_value', 'new_value',
+  'semantic_role', 'old_claim_hash', 'new_claim_hash', 'old_search_space_hash',
+  'new_search_space_hash', 'old_decision_policy_hash', 'new_decision_policy_hash',
+  'multiplicity_effect', 'registered_effect', 'parameter_registry_hash', 'no_op', 'plan_hash',
+] as const;
+
+export function decodeCatalogue(raw: unknown): import('./types').ParameterCatalogue {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  if (!Array.isArray(o.parameters)) {
+    throw new TransportContractError('parameter catalogue carries no parameters array');
+  }
+  const parameters = o.parameters.map((row) => {
+    const r = row as Record<string, unknown>;
+    const out: Record<string, unknown> = {};
+    for (const f of PARAM_FIELDS) out[f] = str(r, f, 'parameter');
+    if (!Array.isArray(r.options)) {
+      throw new TransportContractError(`parameter ${String(r.parameter_id)} has no options list`);
+    }
+    out.options = r.options.map((x) => String(x));
+    return out as unknown as import('./types').ParameterDefinitionView;
+  });
+  return {
+    parameters,
+    groups: (Array.isArray(o.groups) ? o.groups : []).map((g) => String(g)),
+    parameter_registry_hash: str(o, 'parameter_registry_hash', 'catalogue'),
+  };
+}
+
+export function decodePlan(raw: unknown): import('./types').ChangePlanView {
+  const outer = (raw ?? {}) as Record<string, unknown>;
+  const p = (outer.plan ?? outer) as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const f of PLAN_FIELDS) out[f] = str(p, f, 'plan');
+  return out as unknown as import('./types').ChangePlanView;
 }

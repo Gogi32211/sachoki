@@ -96,6 +96,7 @@ export interface ResearchSessionView {
   readonly revisits: string;
   readonly displayed_at_most: string;
   readonly changes_claim: string;
+  readonly changes_design: string;
   readonly changes_search_space: string;
   readonly changes_policy: string;
   readonly changes_presentation: string;
@@ -133,4 +134,65 @@ export interface ForkResult {
   readonly parent: ResearchSessionView;
   readonly inherited: { readonly horizon: string; readonly tolerance: string };
   readonly reason: string;
+}
+
+/**
+ * A knob, as the backend describes it.
+ *
+ * Two halves that must not be confused. `ui_kind` says how to render an input — a NUMBER control
+ * looks the same whether the number is a view or a multiplicity. `semantic_role` says what
+ * turning it costs, and it is SERVED, never inferred here. The frontend picks a widget; it does
+ * not decide what a widget means.
+ */
+export interface ParameterDefinitionView {
+  readonly parameter_id: string;
+  readonly label: string;
+  readonly description: string;
+  readonly ui_kind: string;          // NUMBER · ENUM · MULTI · BOOLEAN · TEXT
+  readonly group: string;
+  readonly options: readonly string[];
+  readonly min: string;
+  readonly max: string;
+  readonly step: string;
+  readonly current_value: string;
+  readonly semantic_role: string;
+  readonly mutable_in_explore: string;
+  readonly mutable_in_registered: string;
+  readonly multiplicity_effect: string;
+  readonly registered_effect: string;
+  readonly note: string;
+}
+
+export interface ParameterCatalogue {
+  readonly parameters: readonly ParameterDefinitionView[];
+  readonly groups: readonly string[];
+  readonly parameter_registry_hash: string;
+}
+
+/**
+ * What a preview promised, in a form the commit can be checked against.
+ *
+ * The screen holds this between the click that asks and the click that confirms. It is opaque
+ * here: the frontend forwards `plan_hash` and never recomputes any field of it, because a plan
+ * the UI could rebuild is a plan the UI could quietly alter.
+ */
+export interface ChangePlanView {
+  readonly plan_id: string;
+  readonly session_id: string;
+  readonly prior_state_hash: string;
+  readonly parameter_id: string;
+  readonly old_value: string;
+  readonly new_value: string;
+  readonly semantic_role: string;
+  readonly old_claim_hash: string;
+  readonly new_claim_hash: string;
+  readonly old_search_space_hash: string;
+  readonly new_search_space_hash: string;
+  readonly old_decision_policy_hash: string;
+  readonly new_decision_policy_hash: string;
+  readonly multiplicity_effect: string;
+  readonly registered_effect: string;
+  readonly parameter_registry_hash: string;
+  readonly no_op: string;
+  readonly plan_hash: string;
 }

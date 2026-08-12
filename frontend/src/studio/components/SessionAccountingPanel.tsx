@@ -87,6 +87,7 @@ export function SessionAccountingPanel({ session }: { session: ResearchSessionVi
              hint={`displayed ≤ ${session.displayed_at_most}`} />
         <Row label="Revisits" value={session.revisits} />
         <Row label="Claim changes" value={session.changes_claim} />
+        <Row label="Design changes" value={session.changes_design} />
         <Row label="Search-space changes" value={session.changes_search_space} />
         <Row label="Declared space" value={session.k_declared} />
         <Row label="Confirmatory" value={session.confirmatory_eligible} />

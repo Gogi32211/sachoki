@@ -1,6 +1,11 @@
 /** Session HTTP. Every action asks the backend to classify it before it runs. */
-import { decodePreview, decodeRefusal, decodeSession, TransportContractError } from './decode';
-import type { ChangePreview, ForkResult, Refusal, ResearchSessionView } from './types';
+import {
+  decodeCatalogue, decodePlan, decodePreview, decodeRefusal, decodeSession,
+  TransportContractError,
+} from './decode';
+import type {
+  ChangePlanView, ChangePreview, ForkResult, ParameterCatalogue, Refusal, ResearchSessionView,
+} from './types';
 
 /**
  * A governed refusal, distinct from a transport failure.
@@ -95,5 +100,47 @@ export async function forkSession(
     parent: decodeSession(d.parent),
     inherited: { horizon: String(inh.horizon), tolerance: String(inh.tolerance) },
     reason: String(d.reason ?? ''),
+  };
+}
+
+export async function fetchCatalogue(sid: string): Promise<ParameterCatalogue> {
+  const res = await fetch(`${BASE}/${sid}/parameters`);
+  if (!res.ok) throw new TransportContractError(`${res.status} parameters: ${await res.text()}`);
+  return decodeCatalogue(await res.json());
+}
+
+/** Ask what a knob costs. The answer is a plan, and the screen does not recompute any of it. */
+export async function previewParameter(
+  sid: string, parameterId: string, newValue: string,
+): Promise<ChangePlanView> {
+  return decodePlan(await post(`/${sid}/parameter/preview`,
+                               { parameter_id: parameterId, new_value: newValue }));
+}
+
+export interface ParameterResult {
+  readonly session: ResearchSessionView;
+  readonly recorded: string;
+  readonly surface: Record<string, string>;
+  readonly role: string;
+  readonly multiplicity_effect: string;
+}
+
+/** Commit the plan that was approved — by its hash, not by re-sending what it said. */
+export async function commitParameter(
+  sid: string, plan: ChangePlanView,
+): Promise<ParameterResult> {
+  const raw = await post(`/${sid}/parameter`, {
+    parameter_id: plan.parameter_id, new_value: plan.new_value, plan_hash: plan.plan_hash,
+  });
+  const d = raw as Record<string, unknown>;
+  const c = (d.classification ?? {}) as Record<string, unknown>;
+  return {
+    session: decodeSession(d.session),
+    recorded: String(d.recorded),
+    surface: Object.fromEntries(
+      Object.entries((d.surface ?? {}) as Record<string, unknown>)
+        .map(([k, v]) => [k, String(v)])),
+    role: String(c.role ?? ''),
+    multiplicity_effect: String(c.multiplicity_effect ?? ''),
   };
 }
