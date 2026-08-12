@@ -43,9 +43,11 @@ interface Props {
 
 export function ResultsTable({ run, onInspect, onPromote }: Props) {
   const stale = run.freshness === 'STALE';
-  // The server decides what this evidence supports. The screen renders that decision; it does
-  // not soften it into a button that will answer 409.
-  const canPromote = run.allowed_actions.includes('promote');
+  // `allowed_actions` is the origin CEILING, not permission. A row within the ceiling can still
+  // be refused by the gates behind it — staleness, integrity, whether the row was ever exposed —
+  // and the server is the only thing that knows. So the button appears when the action is not
+  // categorically impossible, and the refusal remains a sentence rather than a dead control.
+  const withinCeiling = run.allowed_actions.includes('promote');
   return (
     <div data-run={run.run_id} data-freshness={run.freshness}
          className="rounded-lg border border-md-outline-var p-4">
@@ -61,7 +63,7 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
           <div data-origin={run.evidence_origin} className="uppercase tracking-wider">
             {run.evidence_origin}
           </div>
-          <div className="lowercase">{run.allowed_actions.join(' · ')}</div>
+          <div className="lowercase">ceiling: {run.allowed_actions.join(' · ')}</div>
         </div>
       </div>
 
@@ -117,7 +119,7 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
                   {r.verdict}
                 </td>
                 <td className="py-1.5">
-                  {canPromote ? (
+                  {withinCeiling ? (
                     <button type="button" data-promote={r.claim_id}
                             onClick={() => onPromote(r)}
                             className="rounded border border-md-outline-var px-2 py-0.5

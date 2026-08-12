@@ -156,26 +156,58 @@ def t6c_origin_decides_which_actions_exist():
 
     for v in (fixture, historical, forward):
         for action in SR.READ_ONLY_ACTIONS:
-            SR.assert_action_allowed(v, action)
+            SR.assert_origin_permits(v, action)
 
     for action in SR.CONSEQUENTIAL_ACTIONS:
         try:
-            SR.assert_action_allowed(fixture, action)
+            SR.assert_origin_permits(fixture, action)
         except SR.SyntheticEvidenceActionError:
             pass
         else:
             raise AssertionError(f"a fixture allowed {action}")
-        SR.assert_action_allowed(forward, action)
+        SR.assert_origin_permits(forward, action)
 
-    SR.assert_action_allowed(historical, SR.PROMOTE)
+    SR.assert_origin_permits(historical, SR.PROMOTE)
+    SR.assert_origin_permits(historical, SR.RECORD_HISTORICAL_VERDICT)
     for action in (SR.FORWARD, SR.BOOK):
         try:
-            SR.assert_action_allowed(historical, action)
+            SR.assert_origin_permits(historical, action)
         except SR.SyntheticEvidenceActionError:
             continue
         raise AssertionError(
             f"historical evidence committed {action}; that is a claim about the future which "
             f"backtested evidence cannot make on its own")
+
+
+def t6e_the_ceiling_is_not_a_grant():
+    """stamping an artifact FROZEN_FORWARD must not vault over every other contract"""
+    forward = view(artifact(origin=SR.FROZEN_FORWARD), "SPEC-A")
+    SR.assert_origin_permits(forward, SR.BOOK)            # the ceiling allows it
+    SR.authorise(forward, SR.BOOK, {"integrity_valid": True, "boundary_matches": True,
+                                    "verdict_permits": True, "portfolio_gates": True})
+    try:
+        SR.authorise(forward, SR.BOOK, {"integrity_valid": True, "boundary_matches": False,
+                                        "verdict_permits": True, "portfolio_gates": True})
+    except SR.SyntheticEvidenceActionError as e:
+        assert "boundary_matches did not pass" in str(e)
+        assert "never a grant" in str(e)
+        return
+    raise AssertionError("an origin label authorised an action its other gates refused")
+
+
+def t6f_preregistration_is_not_an_action_on_a_row():
+    """no origin reaches it, including the strongest one"""
+    for origin in (SR.SYNTHETIC_FIXTURE, SR.HISTORICAL_RESEARCH, SR.FROZEN_FORWARD):
+        v = view(artifact(origin=origin), "SPEC-A")
+        assert SR.REGISTER_CONFIRMATORY_STUDY not in v.allowed_actions, origin
+        try:
+            SR.assert_origin_permits(v, SR.REGISTER_CONFIRMATORY_STUDY)
+        except SR.SyntheticEvidenceActionError as e:
+            assert "has seen nothing" in str(e)
+            continue
+        raise AssertionError(f"{origin} offered preregistration from a results row")
+    # and the two are different names on purpose
+    assert SR.RECORD_HISTORICAL_VERDICT != SR.REGISTER_CONFIRMATORY_STUDY
 
 
 def t6d_the_view_publishes_its_own_rights():
@@ -272,6 +304,8 @@ for i, fn in enumerate([t1_the_payload_carries_the_authorised_set_and_not_the_ra
                         t6_a_stale_run_may_be_read_and_not_promoted,
                         t6b_origin_is_checked_before_freshness,
                         t6c_origin_decides_which_actions_exist,
+                        t6e_the_ceiling_is_not_a_grant,
+                        t6f_preregistration_is_not_an_action_on_a_row,
                         t6d_the_view_publishes_its_own_rights,
                         t7_no_statistical_value_crosses_as_a_number,
                         t8_the_counters_are_still_numbers_because_they_are_metadata,

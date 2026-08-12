@@ -435,7 +435,15 @@ def promote(sid: str, run_id: str, claim_id: str) -> dict:
     claim = _claim_from(surface)
     view = SR.to_view(artifact, surface.specification_hash, claim.evidence_claim_hash,
                       claim.decision_spec_hash)
-    SR.assert_promotable(view)   # SyntheticEvidenceActionError, then StaleSearchRunError
+    # Origin is the ceiling; these are the gates. Naming them here rather than folding them into
+    # the origin check is the point of the correction: a label must never be able to stand in
+    # for the contracts it sits above.
+    SR.authorise(view, SR.PROMOTE, {
+        "run_is_current": view.freshness == SR.FRESH,
+        "integrity_valid": view.integrity_status == "VALID",
+        "row_was_exposed": claim_id in artifact.authorised_ids,
+    })
+    SR.assert_promotable(view)   # keeps the specific stale message for the UI
     if claim_id not in artifact.authorised_ids:
         raise SR.ExposureAuthorisationError(
             f"{claim_id} was ranked but never authorised for display, so nobody saw it and it "

@@ -62,19 +62,35 @@ HISTORICAL_RESEARCH = "HISTORICAL_RESEARCH"
 FROZEN_FORWARD = "FROZEN_FORWARD"
 
 INSPECT, RERUN, CHANGE_CONTROLS = "inspect", "rerun", "change_controls"
-PROMOTE, FREEZE, REGISTER_VERDICT, FORWARD, BOOK = (
-    "promote", "freeze", "register_verdict", "forward", "book")
+PROMOTE, FREEZE, FORWARD, BOOK = "promote", "freeze", "forward", "book"
+
+# Two things that were nearly called one thing. Recording what a historical study concluded is
+# ordinary bookkeeping. Turning an already-seen result into a preregistered confirmatory claim is
+# the exact move `CannotRegisterAfterExposureError` exists to refuse, and it must not become
+# reachable from a results row just because the row is in front of someone.
+RECORD_HISTORICAL_VERDICT = "record_historical_verdict"
+REGISTER_CONFIRMATORY_STUDY = "register_confirmatory_study"
 
 READ_ONLY_ACTIONS = (INSPECT, RERUN, CHANGE_CONTROLS)
-CONSEQUENTIAL_ACTIONS = (PROMOTE, FREEZE, REGISTER_VERDICT, FORWARD, BOOK)
+CONSEQUENTIAL_ACTIONS = (PROMOTE, FREEZE, RECORD_HISTORICAL_VERDICT, FORWARD, BOOK)
 
-ACTION_RIGHTS = {
+# THE CEILING, NOT THE AUTHORISATION.
+#
+# This table says what an origin can never exceed. It does not say that an action is permitted —
+# reading it that way would mean stamping an artifact FROZEN_FORWARD is enough to vault over
+# every other contract in the system. `authorise()` below is the only thing that grants, and it
+# requires the ceiling AND every gate the action actually depends on.
+ORIGIN_CEILING = {
     SYNTHETIC_FIXTURE: set(READ_ONLY_ACTIONS),
-    # historical research may be promoted and frozen; committing it forward or to the book is a
-    # claim about the future that historical evidence cannot make on its own
-    HISTORICAL_RESEARCH: set(READ_ONLY_ACTIONS) | {PROMOTE, FREEZE, REGISTER_VERDICT},
+    # historical research can be promoted, frozen and have its verdict recorded; committing it
+    # forward or to the book is a claim about the future that backtested evidence cannot make
+    HISTORICAL_RESEARCH: set(READ_ONLY_ACTIONS) | {PROMOTE, FREEZE, RECORD_HISTORICAL_VERDICT},
     FROZEN_FORWARD: set(READ_ONLY_ACTIONS) | set(CONSEQUENTIAL_ACTIONS),
 }
+
+# No origin reaches it. Preregistration is a property of a session that has seen nothing, not a
+# button on a table of results, and there is no evidence quality that changes that.
+NEVER_FROM_A_RESULT_ROW = {REGISTER_CONFIRMATORY_STUDY}
 
 FRESH, STALE = "FRESH", "STALE"
 
@@ -270,13 +286,24 @@ def to_view(artifact: SearchRunArtifact, current_state_hash: str,
         sampling_target=artifact.sampling_target, null_family=artifact.null_family,
         integrity_status=artifact.integrity_status, data_provenance=artifact.data_provenance,
         evidence_origin=artifact.evidence_origin,
-        allowed_actions=tuple(sorted(ACTION_RIGHTS.get(artifact.evidence_origin, set()))),
+        # what the ORIGIN does not forbid — the ceiling, which the screen must not present as
+        # permission. Every one of these still has its own gates behind it.
+        allowed_actions=tuple(sorted(ORIGIN_CEILING.get(artifact.evidence_origin, set()))),
         artifact_hash=artifact.artifact_hash, rows=rows)
 
 
-def assert_action_allowed(view: SearchRunView, action: str) -> None:
-    """Origin decides rights. Checked here so no endpoint has to remember to check it."""
-    allowed = ACTION_RIGHTS.get(view.evidence_origin, set())
+def assert_origin_permits(view: SearchRunView, action: str) -> None:
+    """The CEILING check, and on its own it authorises nothing.
+
+    Deliberately named so that a caller reaching for it alone reads as incomplete. Passing here
+    means the origin does not forbid the action; whether the action may happen is `authorise()`.
+    """
+    if action in NEVER_FROM_A_RESULT_ROW:
+        raise SyntheticEvidenceActionError(
+            f"{action!r} is not an action on a result. Preregistration belongs to a session that "
+            f"has seen nothing, and offering it beside a table of results is exactly the move "
+            f"CannotRegisterAfterExposureError refuses. Open a new session instead.")
+    allowed = ORIGIN_CEILING.get(view.evidence_origin, set())
     if action in allowed:
         return
     why = ""
@@ -284,13 +311,30 @@ def assert_action_allowed(view: SearchRunView, action: str) -> None:
         why = ("These rows are a fixture: they are derived from claim identities so the contract "
                "can be exercised end to end, and no search produced them. ")
     raise SyntheticEvidenceActionError(
-        f"{action!r} is not available on evidence of origin {view.evidence_origin}. {why}"
-        f"Available here: {', '.join(sorted(allowed))}.")
+        f"{action!r} is above the ceiling for evidence of origin {view.evidence_origin}. {why}"
+        f"At most, here: {', '.join(sorted(allowed))}.")
+
+
+def authorise(view: SearchRunView, action: str, gates: dict) -> None:
+    """The only thing that GRANTS. Ceiling first, then every gate the action depends on.
+
+    `gates` is a mapping of gate name → bool, supplied by the caller that owns those contracts.
+    Booking a result is not "origin says FROZEN_FORWARD"; it is that AND the study being
+    readable AND integrity VALID AND the registered boundary matching AND the verdict permitting
+    promotion AND the portfolio gates passing. An origin that authorised on its own would be a
+    single label that jumps every other contract in the system.
+    """
+    assert_origin_permits(view, action)
+    failed = sorted(name for name, passed in gates.items() if not passed)
+    if failed:
+        raise SyntheticEvidenceActionError(
+            f"{action!r} is within the ceiling for {view.evidence_origin} and is refused: "
+            f"{', '.join(failed)} did not pass. Origin is a ceiling, never a grant.")
 
 
 def assert_promotable(view: SearchRunView) -> None:
     """A stale table stays readable and stops being actionable. Those are different rights."""
-    assert_action_allowed(view, PROMOTE)
+    assert_origin_permits(view, PROMOTE)
     if view.freshness != FRESH:
         raise StaleSearchRunError(
             f"run {view.run_id} was produced under state {view.input_state_hash} and the session "
