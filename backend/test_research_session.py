@@ -15,11 +15,23 @@ import os
 import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from data_access import CATALOG, DataAccessSpec, VALIDATION           # noqa: E402
+from evidence_boundary import freeze_boundary                        # noqa: E402
 from research_session import (CLAIM_CHANGE, PRESENTATION_ONLY, SEARCH_SPACE_CHANGE,  # noqa: E402
                              CannotRegisterAfterExposureError, ClaimIdentity,
                              ResearchSession, SearchSpaceDriftError, SessionStateError,
                              UnregisteredSelectionError, classify_change,
                              preview_design_change)
+
+CATALOG.register("bars_1d", lambda: ("snap-session-tests", "2026-08-11"))
+_DEV = DataAccessSpec("bars_1d", "russell", "2021-01-01", "2023-12-31")
+_VAL = DataAccessSpec("bars_1d", "russell", "2026-09-01", "2026-12-31", purpose=VALIDATION)
+
+
+def boundary() -> dict:
+    """Every registration now declares what may answer it, so the helper does it once here."""
+    return freeze_boundary(_DEV, _VAL, now="2026-08-12T12:00:00", catalog=CATALOG).as_dict()
+
 
 ok = fail = 0
 
@@ -98,6 +110,7 @@ def tD_search_multiplicity_is_the_space_not_the_screen():
 def tE_cannot_register_after_seeing():
     """looking first and registering afterwards is refused, not warned about"""
     s = ResearchSession("E").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
     c = claim()
     s.execute(c).expose(c)
@@ -122,6 +135,7 @@ def tF_registration_needs_a_declared_space():
 def tG_registered_sessions_do_not_mutate():
     """a claim-changing knob is refused once frozen; a cosmetic one is not"""
     s = ResearchSession("G").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     s.change_parameter("layout", "grid", "list")          # cosmetic: allowed
     for p in ("conditioning_tolerance", "horizon", "top_k", "equivalence_margin"):
@@ -135,6 +149,7 @@ def tG_registered_sessions_do_not_mutate():
 # ── the two fatal contracts ──────────────────────────────────────────────────
 def tH_unregistered_selection_is_fatal():
     s = ResearchSession("H").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     inside = claim("5")
     outside = claim("1")
@@ -149,6 +164,7 @@ def tH_unregistered_selection_is_fatal():
 
 def tI_search_space_drift_is_fatal():
     s = ResearchSession("I").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     s.search_run("combolab_v2", 31, "3600ae3dd52a25e6", 5)         # the declared space
     try:
@@ -227,6 +243,7 @@ def tO_exploration_can_never_become_confirmatory():
 def tP_fork_carries_the_lineage_not_a_clean_slate():
     """P · the child starts empty but the lineage remembers what was seen"""
     s = ResearchSession("P").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     for tol in ("5", "1", "2"):
         s.expose(claim(tol))
@@ -256,6 +273,7 @@ def tQ_a_fork_cannot_launder_multiplicity():
     for i in range(40):
         s.expose(claim(tol=str(i)))
     child = s.fork("Q-fork", reason="new hypothesis")
+    child.declare_evidence_boundary(boundary())
     child.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
     try:
         child.register()
@@ -270,9 +288,11 @@ def tQ_a_fork_cannot_launder_multiplicity():
 def tQ2_even_a_fork_of_a_clean_parent_stays_exploratory():
     """Q2 · a fork inherits a CHOICE of specification, not only numbers"""
     s = ResearchSession("Q2").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()   # nothing seen
     child = s.fork("Q2-fork", reason="different horizon")
     assert child.inherited_exposed == 0, child.inherited_exposed
+    child.declare_evidence_boundary(boundary())
     child.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
     try:
         child.register()
@@ -300,6 +320,7 @@ def tR_a_fork_must_say_why():
 def tS_a_preregistration_is_not_inheritable():
     """S · the child inherits a starting point, not the parent's declared space"""
     s = ResearchSession("S").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     child = s.fork("S-fork", reason="widen the price band")
     assert child.declared_space == {}, child.declared_space
@@ -323,6 +344,7 @@ def tT_forks_of_forks_accumulate():
 def tU_the_refused_mutation_leaves_the_parent_unchanged():
     """U · a rejected change is not a silent new claim inside a registered session"""
     s = ResearchSession("U").start_exploration()
+    s.declare_evidence_boundary(boundary())
     s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
     before_hash, before_events = s._state_hash(), len(s.events)
     try:

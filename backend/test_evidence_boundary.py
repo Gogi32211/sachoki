@@ -27,18 +27,30 @@ import tempfile
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import research_store as RS                                          # noqa: E402
+from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
+                         DataAccessLayer, DataAccessSpec, SourceUnavailableError)
 from evidence_boundary import (CLEAN, CONTAMINATED, FORWARD, UNKNOWN,  # noqa: E402
-                               DataWindow, EvidenceBoundary, EvidenceBoundaryError,
-                               ExposureRegistry, confirmatory_verdict)
+                               EvidenceBoundary, EvidenceBoundaryDriftError,
+                               EvidenceBoundaryError, ExposureRegistry,
+                               confirmatory_verdict, freeze_boundary)
 from research_family import ResearchFamily                           # noqa: E402
+
+# a source the server can speak for, without a database
+CUTOFF = "2026-08-11"
+CATALOG.register("bars_1d", lambda: ("snap-test-0001", CUTOFF))
 
 ok = fail = 0
 TMP = tempfile.mkdtemp(prefix="evidence_")
 
-HISTORY = DataWindow("bars_1d", "2021-01-01", "2026-08-01")
-DEV = DataWindow("bars_1d", "2021-01-01", "2023-12-31")
-OOS = DataWindow("bars_1d", "2024-01-01", "2026-08-01")
-FUTURE = DataWindow("bars_1d", "2026-09-01", "2026-12-31")
+def spec(start, end, purpose=DEVELOPMENT, universe="russell"):
+    return DataAccessSpec(source_id="bars_1d", universe=universe, start=start, end=end,
+                          temporal_resolution="1d", purpose=purpose)
+
+
+HISTORY = spec("2021-01-01", "2026-08-01")
+DEV = spec("2021-01-01", "2023-12-31")
+OOS = spec("2024-01-01", "2026-08-01", VALIDATION)
+FUTURE = spec("2026-09-01", "2026-12-31", VALIDATION)
 TODAY = "2026-08-12"
 
 
@@ -57,15 +69,25 @@ def ledger(name: str) -> RS.DurableLedger:
     return RS.DurableLedger(os.path.join(TMP, f"{name}.jsonl"))
 
 
-def explore(L, session, family, claims, window):
-    """A session that looks at several specifications on a window of data."""
+def explore(L, session, family, claims, declared, actually=None):
+    """A session that looks at several specifications, and a footprint of what it really read.
+
+    `actually` is the whole point of the access layer: what a session DECLARES and what it TOUCHES
+    are separate facts, and only the second one contaminates.
+    """
     L.append(session, family, "SESSION_CREATED", event_id=0, prior_state_hash="",
              new_state_hash=f"{session}0")
     h, eid = f"{session}0", 1
+    layer = DataAccessLayer(declared, CATALOG)
+    lo, hi = actually or (declared.start, declared.end)
+    layer.record(lo, hi, dates=1)
+    fp = layer.footprint()
+    L.append(session, family, "DATA_ACCESSED", event_id=eid, prior_state_hash=h,
+             new_state_hash=f"{session}{eid}", payload={"footprint": fp.as_dict()})
+    h, eid = f"{session}{eid}", eid + 1
     for c in claims:
         L.append(session, family, "RESULT_EXPOSED", event_id=eid, prior_state_hash=h,
-                 new_state_hash=f"{session}{eid}", claim_hash=c,
-                 payload={"window": window.as_dict()})
+                 new_state_hash=f"{session}{eid}", claim_hash=c)
         h, eid = f"{session}{eid}", eid + 1
     return h, eid
 
@@ -78,10 +100,9 @@ def register(L, session, family, claim):
              payload={"space_id": "combolab_v2", "size": 31, "hash": "3600ae3dd52a25e6"})
 
 
-def boundary(validation: DataWindow, available: str = TODAY) -> EvidenceBoundary:
-    return EvidenceBoundary(development=DEV, validation=validation,
-                            claim_registered_at=f"{TODAY}T12:00:00",
-                            data_available_at_registration=available)
+def boundary(validation: DataAccessSpec, development: DataAccessSpec = DEV) -> EvidenceBoundary:
+    """Built the way the server builds it: cutoff and clock come from outside the caller."""
+    return freeze_boundary(development, validation, now=f"{TODAY}T12:00:00", catalog=CATALOG)
 
 
 # ── THE ACCEPTANCE STATEMENT ────────────────────────────────────────────────
@@ -197,27 +218,143 @@ def t7_forward_beats_an_incomplete_ledger():
 
 def t8_a_boundary_that_contains_itself_is_refused():
     try:
-        EvidenceBoundary(development=HISTORY, validation=OOS,
-                         claim_registered_at=f"{TODAY}T12:00:00",
-                         data_available_at_registration=TODAY)
+        boundary(OOS, development=HISTORY)      # development covers the validation window
     except EvidenceBoundaryError as e:
         assert "not a boundary" in str(e)
         return
     raise AssertionError("development and validation were allowed to overlap")
 
 
-def t9_forward_is_decided_by_data_availability_not_by_the_clock():
-    """registering today against a window that already exists is not forward validation"""
-    already = boundary(OOS, available=TODAY)
-    assert already.is_forward is False
-    truly = boundary(FUTURE, available=TODAY)
+def t8b_the_server_fields_cannot_be_supplied_by_the_caller():
+    """registered_at and the cutoff decide FORWARD, so they are produced, not asserted"""
+    for missing in ("registered_at", "data_snapshot_id", "data_cutoff_at_registration"):
+        kw = {"development_access_spec": DEV, "validation_access_spec": FUTURE,
+              "registered_at": f"{TODAY}T12:00:00", "data_snapshot_id": "snap",
+              "data_cutoff_at_registration": CUTOFF}
+        kw[missing] = ""
+        try:
+            EvidenceBoundary(**kw)
+        except EvidenceBoundaryError as e:
+            assert "cannot be defaulted or supplied by the caller" in str(e), str(e)
+            continue
+        raise AssertionError(f"a boundary was built with an empty {missing}")
+
+
+def t8c_a_source_that_cannot_state_its_cutoff_blocks_the_freeze():
+    """no cutoff, no boundary — the alternative is trusting the caller on exactly this field"""
+    mute = DataAccessSpec(source_id="nowhere", universe="russell", start="2027-01-01",
+                          end="2027-12-31", purpose=VALIDATION)
+    try:
+        freeze_boundary(DEV, mute, now=f"{TODAY}T12:00:00", catalog=CATALOG)
+    except SourceUnavailableError as e:
+        assert "no provider" in str(e)
+        return
+    raise AssertionError("a boundary was frozen against a source with no server-side cutoff")
+
+
+def t9_forwardness_comes_from_the_source_not_from_the_caller():
+    """the hole t9 used to record: forwardness was an assertion, and now it is derived
+
+    The earlier version of this test proved the opposite point — that backdating
+    `data_available_at_registration` manufactured FORWARD — and left it as a known gap. The
+    field no longer exists on the caller's side of the wire. `freeze_boundary` asks the catalog,
+    so the only way to move it is to move the data.
+    """
+    already = boundary(OOS)
+    assert already.is_forward is False, "a window inside the source cutoff was called forward"
+    truly = boundary(FUTURE)
     assert truly.is_forward is True
-    # backdating what was available cannot manufacture forwardness in the other direction either
-    fake = boundary(OOS, available="2023-12-31")
-    assert fake.is_forward is True, (
-        "is_forward reads data_available_at_registration, so that field is a commitment. It is "
-        "carried in boundary_hash and belongs in the ledger, not in a form field nobody checks.")
-    assert fake.boundary_hash != already.boundary_hash
+    assert already.data_cutoff_at_registration == CUTOFF == truly.data_cutoff_at_registration
+
+    # move the SOURCE and forwardness moves with it, which is the only lever that should exist
+    CATALOG.register("bars_1d", lambda: ("snap-test-0002", "2026-12-31"))
+    try:
+        after = boundary(FUTURE)
+        assert after.is_forward is False, \
+            "the window stopped being in the future and the verdict did not follow"
+        assert after.boundary_hash != truly.boundary_hash, \
+            "two different source states produced the same boundary hash"
+    finally:
+        CATALOG.register("bars_1d", lambda: ("snap-test-0001", CUTOFF))
+
+
+# ── the boundary is part of the freeze ──────────────────────────────────────
+def t9b_a_registered_session_cannot_be_evaluated_against_another_boundary():
+    """the drift error: the boundary declared is the boundary paid for"""
+    import studio_session_api as API
+    API.LEDGER = RS.DurableLedger(os.path.join(TMP, "drift.jsonl"))
+    API.RESPONSES = RS.ResponseLog(os.path.join(TMP, "drift_resp.jsonl"))
+    sid = API.create()["session"]["session_id"]
+    API.register(sid, validation={"source_id": "bars_1d", "universe": "russell",
+                                  "start": "2026-09-01", "end": "2026-12-31"})
+    frozen = API.validate(sid)
+    assert frozen["status"] == FORWARD, frozen
+    try:
+        API.validate(sid, boundary_hash="deadbeefdeadbeef")
+    except EvidenceBoundaryDriftError as e:
+        assert "different study" in str(e)
+        return
+    raise AssertionError("a registered session was evaluated against a boundary it never froze")
+
+
+def t9c_registration_without_a_boundary_is_refused():
+    from research_session import ResearchSession, SessionStateError
+    s = ResearchSession("NB").start_exploration()
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
+    try:
+        s.register()
+    except SessionStateError as e:
+        assert "evidence boundary declared in advance" in str(e)
+        return
+    raise AssertionError("a study froze a claim without declaring what may answer it")
+
+
+def t9d_the_boundary_is_immutable_after_the_freeze():
+    from research_session import ResearchSession, SessionStateError
+    s = ResearchSession("IM").start_exploration()
+    s.declare_evidence_boundary(boundary(FUTURE).as_dict())
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
+    try:
+        s.declare_evidence_boundary(boundary(OOS).as_dict())
+    except SessionStateError as e:
+        assert "does not change" in str(e)
+        return
+    raise AssertionError("the evidence boundary was replaced after the claim was frozen")
+
+
+# ── declared window vs actual access ────────────────────────────────────────
+def t9e_a_read_beyond_the_declared_window_still_contaminates():
+    """declare 2024-2025, let a helper touch March 2026, validate from January 2026
+
+    On the declaration this is CLEAN. On the truth it is CONTAMINATED, and the truth is what the
+    access layer records. Same asymmetry as k_declared against k_actual.
+    """
+    L = ledger("overreach")
+    declared = spec("2024-01-01", "2025-12-31")
+    explore(L, "s1", "FX", ["A"], declared, actually=("2024-01-01", "2026-03-01"))
+    register(L, "s2", "FX", "A")
+
+    later = spec("2026-01-01", "2026-06-30", VALIDATION)
+    v = ResearchFamily("FX", L.read_all()).confirmatory(boundary(later, development=declared))
+    assert v["status"] == CONTAMINATED, f"the declared window was trusted over the footprint: {v}"
+    assert v["overreaching_reads"] >= 1, v
+    assert "beyond what their session declared" in v["why"], v
+
+
+def t9f_REPRODUCTION_checking_the_declared_window_would_pass_this():
+    """the guard shown its defect: compare against the declaration and t9e goes green"""
+    declared = spec("2024-01-01", "2025-12-31")
+    later = spec("2026-01-01", "2026-06-30", VALIDATION)
+    # what a declaration-based check would conclude: no overlap, therefore clean
+    assert not (declared.start <= later.end and later.start <= declared.end), (
+        "the reproduction failed to reproduce: the declared window must NOT overlap the "
+        "validation window, or t9e would pass for the wrong reason")
+    layer = DataAccessLayer(declared, CATALOG)
+    layer.record("2024-01-01", "2026-03-01", dates=1)
+    fp = layer.footprint()
+    assert fp.exceeded_declaration is True
+    assert fp.overlaps_range("bars_1d", "russell", later.start, later.end), \
+        "the actual footprint must overlap what the declaration does not"
 
 
 def t10_the_multiplicity_a_verdict_must_survive_is_the_family():
@@ -246,7 +383,14 @@ for i, fn in enumerate([t1_a_new_session_does_not_make_seen_evidence_fresh,
                         t6_an_unregistered_family_has_nothing_to_confirm,
                         t7_forward_beats_an_incomplete_ledger,
                         t8_a_boundary_that_contains_itself_is_refused,
-                        t9_forward_is_decided_by_data_availability_not_by_the_clock,
+                        t8b_the_server_fields_cannot_be_supplied_by_the_caller,
+                        t8c_a_source_that_cannot_state_its_cutoff_blocks_the_freeze,
+                        t9_forwardness_comes_from_the_source_not_from_the_caller,
+                        t9b_a_registered_session_cannot_be_evaluated_against_another_boundary,
+                        t9c_registration_without_a_boundary_is_refused,
+                        t9d_the_boundary_is_immutable_after_the_freeze,
+                        t9e_a_read_beyond_the_declared_window_still_contaminates,
+                        t9f_REPRODUCTION_checking_the_declared_window_would_pass_this,
                         t10_the_multiplicity_a_verdict_must_survive_is_the_family], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 104, flush=True)

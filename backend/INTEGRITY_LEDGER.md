@@ -282,3 +282,66 @@ answer, so a guard that stops discriminating fails loudly instead of going quiet
 ```
 DefectReproduction  →  must fail  →  Guard  →  Fix  →  must pass
 ```
+
+---
+
+## 2026-08-12 · THE SAME DEFECT SHAPE, THREE TIMES: STATE THAT DID NOT TRAVEL IN AN EVENT
+
+```
+type        SESSION_STATE_NOT_PERSISTED
+occurrences 3
+symptom     a restored session silently lost a property and behaved differently from a live one
+detected_by the hash chain (1), a fail-closed verdict (2, 3)
+remedy      anything a session needs after a restart travels in an event, or it does not survive
+status      RESOLVED — and recorded as a shape, not as three bugs
+```
+
+1. `start_exploration()` set `self.state = EXPLORE` and appended nothing. A restored session read
+   back `NEW`. Caught by `ChainBreakError` on the first durable append: the prior hash described
+   a state no event had created. Fixed by moving the transition inside `_append`, so a state
+   change and its record cannot come apart.
+
+2. The data window was stamped only on exposure events. A session restored before its first
+   exposure lost it and wrote footprint-less exposures from then on. Caught by `UNKNOWN`
+   reporting "39 exposures with no data footprint" instead of approving evidence it could not
+   vouch for.
+
+3. `access_spec` was set on the session object after construction and never written to an event.
+   After a restart the access layer was never constructed, so no footprint was recorded at all —
+   and the contamination check that should have said CONTAMINATED said UNKNOWN. Same cause, same
+   detector, one milestone later.
+
+The third occurrence is the reason this is recorded as a shape. Two of the three were found by a
+contract refusing something rather than by anyone looking, which is the argument for fail-closed
+in one line: the weakest bookkeeping produced the weakest verdict, and the weakest verdict was
+loud.
+
+**Rule.** A session property that survives a restart must be written into an event at the moment
+it is set. Assigning it to the object is not persistence, and the gap is invisible until the
+process dies.
+
+---
+
+## 2026-08-12 · TWO ASSERTIONS THAT WERE COMMITMENTS
+
+Recorded because both were caller-supplied, both decided a verdict, and neither looked wrong.
+
+```
+data_available_at_registration    decided FORWARD, the strongest verdict in the system
+DEV_WINDOW / declared window      decided CONTAMINATED vs CLEAN
+```
+
+The first arrived in the request body. A caller could state any cutoff and certify a historical
+window as forward validation — and the earlier `t9` documented this as a known gap rather than
+fixing it, which is worth noting: a test that records a hole keeps it visible and does not close
+it. It is now derived by the server from the source itself, and a source that cannot state its
+cutoff blocks the freeze rather than falling back.
+
+The second was subtler because a declaration feels like data. Declare 2024–2025, let a helper
+read March 2026, validate from January 2026: CLEAN on the declaration, CONTAMINATED on the
+truth. The fix is the same distinction the search side already had — `k_declared` against
+`k_actual` — so the evidence side now carries `DataAccessSpec` against `ExposureFootprint`, and
+the actual one governs.
+
+**Rule.** If a field decides a verdict, ask who supplies it. A value asserted by the party the
+verdict is about is a commitment to be recorded and checked, never an input to be trusted.

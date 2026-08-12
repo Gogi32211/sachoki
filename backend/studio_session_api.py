@@ -30,8 +30,12 @@ from research_session import (ClaimIdentity, ResearchSession,  # noqa: E402
                              preview_design_change)
 
 import research_store as RS                                        # noqa: E402
-from evidence_boundary import (DataWindow, EvidenceBoundary,  # noqa: E402
-                               EvidenceBoundaryError)
+from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
+                         DataAccessLayer, DataAccessSpec, SourceUnavailableError,
+                         duckdb_bars_provider)
+from evidence_boundary import (EvidenceBoundary,  # noqa: E402
+                               EvidenceBoundaryDriftError, EvidenceBoundaryError,
+                               freeze_boundary)
 from research_family import ResearchFamily                          # noqa: E402
 
 # Durable, because REGISTERED is a promise. Sessions are no longer held in a dict that a restart
@@ -42,10 +46,24 @@ LEDGER = RS.DurableLedger(os.path.join(_DIR, "research_events.jsonl"))
 RESPONSES = RS.ResponseLog(os.path.join(_DIR, "response_log.jsonl"))
 _CODE = "research_session@0e45b53"
 
-# What this slice reads. Declared, not assumed: an exposure whose footprint is unknown is what
-# EvidenceBoundary must treat as contamination, so the window is part of the session from the
-# first event rather than something added later when someone remembers.
-DEV_WINDOW = {"data_id": "bars_1d", "start": "2021-01-01", "end": "2023-12-31"}
+# The source the server can speak for. Registering the provider here rather than inside the
+# boundary code keeps the cutoff a fact about THIS deployment's database, and read-only because
+# the bars writer is the nightly launchd job and must stay the only one.
+_BARS_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                        "data", "studio_analytics.duckdb")
+CATALOG.register("bars_1d", duckdb_bars_provider(_BARS_DB))
+
+# The default DECLARATION for this slice. It is a starting point for the form, not a global
+# truth: what governs contamination is the footprint the access layer records, and a session may
+# declare something else entirely.
+DEFAULT_DEV_SPEC = {"source_id": "bars_1d", "universe": "russell", "start": "2021-01-01",
+                    "end": "2023-12-31", "temporal_resolution": "1d", "purpose": DEVELOPMENT}
+
+
+def _now() -> str:
+    """Server clock. Never the browser's — `registered_at` is half of what makes FORWARD real."""
+    from datetime import datetime, timezone
+    return datetime.now(timezone.utc).isoformat(timespec="seconds")
 
 
 @dataclass(frozen=True)
@@ -109,7 +127,7 @@ def _next_id() -> str:
     return f"s{len(LEDGER.sessions()) + 1:04d}"
 
 
-def create(family_id: str = "", window: dict | None = None) -> dict:
+def create(family_id: str = "", spec: dict | None = None) -> dict:
     """A new session. `family_id` decides whether this continues a selection history.
 
     Two different questions wear the same button in most tools. Opening a fresh session to keep
@@ -120,10 +138,14 @@ def create(family_id: str = "", window: dict | None = None) -> dict:
     sid = _next_id()
     fam = family_id or f"F{sid[1:]}"
     s = ResearchSession(sid, code_hash=_CODE, store=LEDGER, family_id=fam)
-    s.data_window = dict(window or DEV_WINDOW)
+    d = dict(spec or DEFAULT_DEV_SPEC)
+    d["purpose"] = DEVELOPMENT
+    access = DataAccessSpec.from_dict(d)
+    s.access_spec = access.as_dict()
+    s.data_window = {"data_id": access.source_id, "start": access.start, "end": access.end}
     s.start_exploration()
     return {"session": asdict(to_view(s)), "family_id": fam,
-            "data_window": dict(s.data_window)}
+            "access_spec": s.access_spec}
 
 
 def _get(sid: str) -> ResearchSession:
@@ -141,7 +163,8 @@ def preview(sid: str, parameter_id: str, horizon: str, tolerance: str,
 
 
 def change_and_run(sid: str, parameter_id: str, horizon: str, tolerance: str,
-                   new_value: str, space_size: int = 31, displayed: int = 5) -> dict:
+                   new_value: str, space_size: int = 31, displayed: int = 5,
+                   over: tuple = ()) -> dict:
     """One user action, end to end: classify → record → execute → expose → search."""
     s = _get(sid)
     before = _claim(horizon, tolerance)
@@ -158,8 +181,28 @@ def change_and_run(sid: str, parameter_id: str, horizon: str, tolerance: str,
     # the algorithm ranked `space_size` and the screen will show `displayed`; the ledger records
     # the first, which is the number multiplicity is paid on
     s.search_run("combolab_v2", space_size, "3600ae3dd52a25e6", displayed)
+    _touch(s, over)
     return {"session": asdict(to_view(s)), "claim_hash": after.claim_hash,
             "change_type": d.semantic_role, "horizon": str(horizon), "tolerance": str(tolerance)}
+
+
+def _touch(s: ResearchSession, over: tuple = ()) -> None:
+    """Run the read through the access layer so the ACTUAL range is what gets recorded.
+
+    `over` exists for the case this whole layer is here to catch: a helper that reads outside
+    what the session declared. It is a parameter rather than an impossibility because pretending
+    it cannot happen is precisely how the declared window became the thing being trusted.
+    """
+    if not s.access_spec:
+        return
+    spec = DataAccessSpec.from_dict(s.access_spec)
+    layer = DataAccessLayer(spec, CATALOG)
+    layer.record(spec.start, spec.end, dates=0)
+    if over:
+        layer.record(over[0], over[1], dates=0)
+    fp = layer.footprint()
+    if fp:
+        s.record_footprint(fp.as_dict())
 
 
 def revisit(sid: str, horizon: str, tolerance: str) -> dict:
@@ -168,6 +211,7 @@ def revisit(sid: str, horizon: str, tolerance: str) -> dict:
     c = _claim(horizon, tolerance)
     s.execute(c)
     s.expose(c)
+    _touch(s)
     return {"session": asdict(to_view(s)), "claim_hash": c.claim_hash}
 
 
@@ -179,13 +223,24 @@ def accounting(sid: str) -> dict:
 SPACE = ("combolab_v2", 31, "3600ae3dd52a25e6")
 
 
-def register(sid: str) -> dict:
-    """Declare the space, then freeze. Irreversible, and refused once anything has been seen."""
+def register(sid: str, validation: dict, horizon: str = "20", tolerance: str = "5") -> dict:
+    """Declare the space AND the evidence boundary, then freeze. All three or none.
+
+    The validation window is named here, before any result exists, and the two fields that decide
+    FORWARD — the clock and the source cutoff — are filled in by the server on the way past.
+    """
     s = _get(sid)
-    s.assert_registerable()      # refuse BEFORE declaring, so a refusal leaves no trace
+    v = dict(validation)
+    v["purpose"] = VALIDATION
+    dev = DataAccessSpec.from_dict(s.access_spec or DEFAULT_DEV_SPEC)
+    val = DataAccessSpec.from_dict(v)
+    b = freeze_boundary(dev, val, now=_now(), catalog=CATALOG)   # raises if the source is mute
+
+    s.assert_registerable_shape()   # everything except the boundary, before anything is written
+    s.declare_evidence_boundary(b.as_dict())
     s.declare_search_space(*SPACE)
-    s.register()
-    return {"session": asdict(to_view(s))}
+    s.register(claim_hash=_claim(horizon, tolerance).claim_hash)
+    return {"session": asdict(to_view(s)), "boundary": b.as_dict()}
 
 
 def _idempotent(key: str, action: str, sid: str, payload: dict, fn):
@@ -201,35 +256,30 @@ def _idempotent(key: str, action: str, sid: str, payload: dict, fn):
     return out
 
 
-def confirmatory(sid: str, validation_start: str, validation_end: str,
-                 data_id: str = "bars_1d", available: str = "",
-                 development: dict | None = None) -> dict:
-    """May this family's registered claim be reported as confirmatory, and on what evidence."""
+def validate(sid: str, boundary_hash: str = "") -> dict:
+    """Evaluate a registered session. Takes a session id and nothing else.
+
+    It used to take a boundary, which meant the window could be chosen after the answer was
+    known. The boundary now comes out of the frozen ledger; `boundary_hash` is accepted only so
+    a caller can state which boundary it believes it is evaluating, and a mismatch is fatal.
+    """
     s = _get(sid)
+    if not s.boundary:
+        return {"eligible": False, "status": "NO_BOUNDARY",
+                "why": ("this session never froze an evidence boundary, so there is no declared "
+                        "evidence to evaluate against")}
+    b = EvidenceBoundary.from_dict(s.boundary)
+    if boundary_hash and boundary_hash != b.boundary_hash:
+        raise EvidenceBoundaryDriftError(
+            f"session {sid} froze boundary {b.boundary_hash} and is being evaluated against "
+            f"{boundary_hash}. The boundary declared is the boundary paid for; a different one "
+            f"is a different study.")
     fam = ResearchFamily(s.family_id, LEDGER.read_all())
-    if not available:
-        # No default is safe here. Defaulting to the end of the development window would make
-        # every historical holdout look FORWARD, which is the strongest verdict in the system
-        # produced by a missing field. This is a commitment about what data existed when the
-        # claim was frozen; the caller states it or gets nothing.
-        return {"eligible": False, "status": "INVALID_BOUNDARY",
-                "why": ("data_available_at_registration was not supplied. It cannot be defaulted: "
-                        "any default would decide FORWARD or CLEAN on the system's behalf, and "
-                        "FORWARD is the one verdict that does not depend on the ledger being "
-                        "complete.")}
-    try:
-        b = EvidenceBoundary(
-            development=DataWindow(**(development or DEV_WINDOW)),
-            validation=DataWindow(data_id, validation_start, validation_end),
-            claim_registered_at=f"{available}T00:00:00",
-            data_available_at_registration=available)
-    except EvidenceBoundaryError as e:
-        return {"eligible": False, "status": "INVALID_BOUNDARY", "why": str(e)}
     v = fam.confirmatory(b)
     acc = fam.accounting()
     v["family_id"] = s.family_id
-    v["k_family_selectable_is_bound"] = acc.k_family_selectable_is_bound
     v["k_family_selectable"] = acc.k_family_selectable
+    v["k_family_selectable_is_bound"] = acc.k_family_selectable_is_bound
     return v
 
 
@@ -274,6 +324,14 @@ def refusal(e: Exception) -> dict:
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "EvidenceBoundaryDriftError":
+            "This study froze the data it may be confirmed on. Evaluating it against a different "
+            "window would be a different study; open a new session to ask that question.",
+        "SourceUnavailableError":
+            "The server could not establish this source's cutoff, and without it a validation "
+            "window cannot be certified as forward. Nothing was frozen.",
+        "EvidenceBoundaryError":
+            "The declared boundary cannot support a confirmatory claim as stated.",
         "IdempotencyConflictError":
             "This action key was already used for a different request. Reload the screen so it "
             "can issue a fresh key rather than replaying an old one.",
@@ -311,6 +369,11 @@ class ChangeBody(BaseModel):
     new_value: str
     space_size: int = 31
     displayed: int = 5
+    # a read outside the declared spec. It is expressible on purpose: the whole reason the access
+    # layer records rather than refuses is that overreach happens, and a system that cannot even
+    # represent it cannot be tested against it.
+    overreach_start: str = ""
+    overreach_end: str = ""
     # generated by the CLIENT, once per user action. Absent means "not retryable", which is
     # honest; a server-side default would silently coalesce two deliberate repeats.
     idempotency_key: str = ""
@@ -331,18 +394,29 @@ class ForkBody(BaseModel):
 
 class CreateBody(BaseModel):
     family_id: str = ""
-    # what this session will READ. A session that does not say leaves every exposure with an
-    # unknown footprint, which EvidenceBoundary must read as contamination.
-    data_id: str = "bars_1d"
+    # what this session DECLARES it will read. What it actually reads is recorded by the access
+    # layer, and the second one is what contaminates.
+    source_id: str = "bars_1d"
+    universe: str = "russell"
     window_start: str = ""
     window_end: str = ""
 
 
-class BoundaryBody(BaseModel):
+class RegisterBody(BaseModel):
+    """Preregistration names the validation window. The clock and the cutoff are the server's."""
     validation_start: str
     validation_end: str
-    data_id: str = "bars_1d"
-    data_available_at_registration: str = ""
+    source_id: str = "bars_1d"
+    universe: str = "russell"
+    horizon: str = "20"
+    tolerance: str = "5"
+    idempotency_key: str = ""
+
+
+class ValidateBody(BaseModel):
+    # optional, and only so a caller can state which boundary it thinks it is evaluating; a
+    # mismatch is fatal rather than accepted
+    boundary_hash: str = ""
 
 
 def build_router():
@@ -352,10 +426,11 @@ def build_router():
 
     @router.post("/create")
     def _create(b: CreateBody | None = None):
-        w = None
+        sp = None
         if b and b.window_start and b.window_end:
-            w = {"data_id": b.data_id, "start": b.window_start, "end": b.window_end}
-        return create(b.family_id if b else "", w)
+            sp = {"source_id": b.source_id, "universe": b.universe,
+                  "start": b.window_start, "end": b.window_end}
+        return create(b.family_id if b else "", sp)
 
     @router.get("/{sid}")
     def _get_session(sid: str):
@@ -379,7 +454,9 @@ def build_router():
                 {"parameter_id": b.parameter_id, "horizon": b.horizon,
                  "tolerance": b.tolerance, "new_value": b.new_value},
                 lambda: change_and_run(sid, b.parameter_id, b.horizon, b.tolerance, b.new_value,
-                                       b.space_size, b.displayed))
+                                       b.space_size, b.displayed,
+                                       over=((b.overreach_start, b.overreach_end)
+                                             if b.overreach_start and b.overreach_end else ())))
         except KeyError as e:
             raise HTTPException(404, str(e))
         except RS.IdempotencyConflictError as e:
@@ -398,11 +475,20 @@ def build_router():
             raise HTTPException(404, str(e))
 
     @router.post("/{sid}/register")
-    def _register(sid: str):
+    def _register(sid: str, b: RegisterBody):
         try:
-            return register(sid)
+            return _idempotent(
+                b.idempotency_key, "register", sid,
+                {"validation_start": b.validation_start, "validation_end": b.validation_end},
+                lambda: register(sid, {"source_id": b.source_id, "universe": b.universe,
+                                       "start": b.validation_start, "end": b.validation_end},
+                                 b.horizon, b.tolerance))
         except KeyError as e:
             raise HTTPException(404, str(e))
+        except RS.IdempotencyConflictError as e:
+            raise HTTPException(409, refusal(e))
+        except (EvidenceBoundaryError, SourceUnavailableError) as e:
+            raise HTTPException(409, refusal(e))
         except (SessionStateError, CannotRegisterAfterExposureError) as e:
             raise HTTPException(409, refusal(e))
 
@@ -425,12 +511,13 @@ def build_router():
         except KeyError:
             raise HTTPException(404, f"no session {sid}")
 
-    @router.post("/{sid}/confirmatory")
-    def _confirmatory(sid: str, b: BoundaryBody):
+    @router.post("/{sid}/validate")
+    def _validate(sid: str, b: ValidateBody | None = None):
         try:
-            return confirmatory(sid, b.validation_start, b.validation_end, b.data_id,
-                                b.data_available_at_registration)
+            return validate(sid, b.boundary_hash if b else "")
         except KeyError:
             raise HTTPException(404, f"no session {sid}")
+        except EvidenceBoundaryDriftError as e:
+            raise HTTPException(409, refusal(e))
 
     return router

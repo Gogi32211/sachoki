@@ -36,6 +36,21 @@ import hashlib
 import json
 from dataclasses import asdict, dataclass, field
 
+
+def _spec_hash(spec: dict | None) -> str:
+    if not spec:
+        return ""
+    from data_access import DataAccessSpec
+    return DataAccessSpec.from_dict(spec).spec_hash
+
+
+def _join_hash(hashes) -> str:
+    """One hash over the footprints that existed at freeze time, in order."""
+    hs = [h for h in hashes if h]
+    if not hs:
+        return ""
+    return hashlib.sha256("|".join(hs).encode()).hexdigest()[:16]
+
 # ── errors that stop execution rather than annotate it ───────────────────────
 class CannotRegisterAfterExposureError(RuntimeError):
     """Results were seen; registration would be a claim about the past."""
@@ -157,6 +172,8 @@ SEARCH_RUN = "SEARCH_RUN"
 PROMOTION_REQUESTED = "PROMOTION_REQUESTED"
 SESSION_FROZEN = "SESSION_FROZEN"
 SESSION_FORKED = "SESSION_FORKED"
+EVIDENCE_BOUNDARY_DECLARED = "EVIDENCE_BOUNDARY_DECLARED"
+DATA_ACCESSED = "DATA_ACCESSED"
 SESSION_CLOSED = "SESSION_CLOSED"
 
 
@@ -197,7 +214,11 @@ class ResearchSession:
         self.parent_state_hash: str = ""
         self.lineage: tuple = ()          # ancestors, oldest first
         self.inherited_exposed: int = 0   # results already seen upstream
-        self.data_window: dict | None = None   # what this session reads; stamped on exposures
+        self.registered_claim_hash: str = ""
+        self.data_window: dict | None = None   # legacy declared window, kept for restore
+        self.access_spec: dict | None = None   # DataAccessSpec, declared
+        self.boundary: dict | None = None      # EvidenceBoundary, frozen with the claim
+        self.footprints: list = []             # ExposureFootprint, actual
         if not _restoring:
             self._append(SESSION_CREATED)
 
@@ -224,6 +245,13 @@ class ResearchSession:
         # rebuilds `data_window` from its events, so a session persisted before its first
         # exposure would come back with no footprint and stamp nothing from then on. The
         # UNKNOWN verdict caught exactly that, which is the whole argument for failing closed.
+        # The declared access spec rides on SESSION_STARTED for the same reason the window does:
+        # a restored session that lost it would run every later query through no access layer at
+        # all, and record nothing. That was the second time this exact shape of bug appeared, so
+        # the rule is now explicit — anything the session needs after a restart travels in an
+        # event, or it does not survive.
+        if self.access_spec and etype == SESSION_STARTED and "access_spec" not in payload:
+            payload["access_spec"] = dict(self.access_spec)
         if (self.data_window and "window" not in payload
                 and etype in (RESULT_EXPOSED, SEARCH_RUN, SESSION_STARTED)):
             payload["window"] = dict(self.data_window)
@@ -274,8 +302,16 @@ class ResearchSession:
                 s.parent_state_hash = r.payload.get("parent_state_hash", "")
                 s.inherited_exposed = int(r.payload.get("inherited_k_exposed", 0))
                 s.lineage = tuple(r.payload.get("lineage", ())) or (s.parent_session_id,)
+            elif r.event_type == EVIDENCE_BOUNDARY_DECLARED and r.payload.get("boundary"):
+                s.boundary = dict(r.payload["boundary"])
+            elif r.event_type == DATA_ACCESSED and r.payload.get("footprint"):
+                s.footprints.append(dict(r.payload["footprint"]))
+            elif r.event_type == SESSION_FROZEN:
+                s.registered_claim_hash = r.claim_hash or s.registered_claim_hash
             if r.payload.get("window"):
                 s.data_window = dict(r.payload["window"])
+            if r.payload.get("access_spec"):
+                s.access_spec = dict(r.payload["access_spec"])
             if not r.state:
                 raise LedgerStateUnrecoverableError(
                     f"event {r.event_id} of {session_id} does not record the state it produced. "
@@ -304,6 +340,33 @@ class ResearchSession:
         """What the algorithm will be permitted to choose among. Size, not what is displayed."""
         self.declared_space = {"space_id": space_id, "size": int(size), "hash": space_hash}
         self._append(SEARCH_SPACE_DECLARED, space_id=space_id, size=int(size), hash=space_hash)
+        return self
+
+    def declare_evidence_boundary(self, boundary_dict: dict):
+        """Declared BEFORE the freeze, and immutable after it.
+
+        Accepting a boundary at validation time was the remaining hole: a researcher could see a
+        result and then choose the window that made it look best, presenting the choice as the
+        plan. Declaring it here means the commitment exists before the answer does.
+        """
+        if self.state in (REGISTERED, ACTIVE_REGISTERED, CLOSED):
+            raise SessionStateError(
+                f"session {self.session_id} is {self.state}; the evidence boundary was frozen "
+                f"with the claim and does not change. Evaluating against a different one is "
+                f"drift, not a correction.")
+        self.boundary = dict(boundary_dict)
+        self._append(EVIDENCE_BOUNDARY_DECLARED,
+                     boundary_hash=boundary_dict.get("boundary_hash", ""),
+                     boundary=dict(boundary_dict))
+        return self
+
+    def record_footprint(self, footprint_dict: dict):
+        """What was actually read. Emitted by the access layer, never asserted by a caller."""
+        self.footprints.append(dict(footprint_dict))
+        self._append(DATA_ACCESSED,
+                     footprint=dict(footprint_dict),
+                     footprint_hash=footprint_dict.get("footprint_hash", ""),
+                     exceeded_declaration=bool(footprint_dict.get("exceeded_declaration")))
         return self
 
     def assert_registerable(self):
@@ -344,14 +407,53 @@ class ResearchSession:
                 f"with no parent — open one and state the specification from nothing.")
         if self.state not in (NEW, EXPLORE):
             raise SessionStateError(f"cannot register from {self.state}")
+        if not self.boundary:
+            raise SessionStateError(
+                "a registered study needs an evidence boundary declared in advance. Freezing a "
+                "claim without one only promises which question will be asked; it says nothing "
+                "about which data may answer it, and that second promise is the one that makes "
+                "the verdict confirmatory.")
         return self
 
-    def register(self):
+    def assert_registerable_shape(self):
+        """Everything `assert_registerable` checks EXCEPT the boundary.
+
+        The API declares the boundary as part of the same freeze, so it has to know the session
+        is registerable BEFORE writing anything — otherwise a refused registration leaves a
+        boundary declaration behind, which is the same defect the search-space check already had.
+        """
+        b, self.boundary = self.boundary, {"_probe": True}
+        try:
+            self.assert_registerable()
+        finally:
+            self.boundary = b
+        return self
+
+    def register(self, claim_hash: str = ""):
         """Freeze. Impossible once anything has been seen — that is the point of the module."""
         self.assert_registerable()
+        self.registered_claim_hash = claim_hash or self.registered_claim_hash
         if not self.declared_space:
             raise SessionStateError("a registered session needs a declared search space")
-        self._append(SESSION_FROZEN, _new_state=REGISTERED, **self.declared_space)
+        # The registration record: everything a reader would need to check that this study is
+        # the study that was declared. A state machine flag is not a commitment; this is.
+        fps = [f.get("footprint_hash", "") for f in self.footprints]
+        self._append(
+            SESSION_FROZEN, _new_state=REGISTERED,
+            claim_hash=self.registered_claim_hash,
+            search_space_hash=self.declared_space.get("hash", ""),
+            search_space_size=self.declared_space.get("size", 0),
+            research_family_id=self.family_id,
+            evidence_boundary_hash=self.boundary.get("boundary_hash", ""),
+            development_access_spec_hash=(
+                self.boundary.get("development_access_spec", {}) or {}).get("spec_hash", "")
+            or _spec_hash(self.boundary.get("development_access_spec")),
+            development_footprint_hash=_join_hash(fps),
+            validation_target_id=(
+                self.boundary.get("validation_access_spec", {}) or {}).get("source_id", ""),
+            registered_at_server=self.boundary.get("registered_at", ""),
+            data_snapshot_at_registration=self.boundary.get("data_snapshot_id", ""),
+            **self.declared_space)
         return self
 
     # ── activity ────────────────────────────────────────────────────────────

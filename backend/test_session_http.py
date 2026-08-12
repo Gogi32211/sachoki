@@ -229,8 +229,11 @@ def t11_exploration_is_never_confirmatory_over_the_wire():
 
 
 # ── REGISTERED and the fork, over HTTP ──────────────────────────────────────
-def _register(sid: str):
-    return C.post(f"/api/studio/session/{sid}/register")
+def _register(sid: str, start: str = "2026-09-01", end: str = "2026-12-31", **kw):
+    """Preregistration names the validation window; the clock and cutoff are the server's."""
+    body = {"validation_start": start, "validation_end": end}
+    body.update(kw)
+    return C.post(f"/api/studio/session/{sid}/register", json=body)
 
 
 def t14_register_then_freeze():
@@ -397,10 +400,10 @@ def t24_a_key_reused_for_different_arguments_is_refused():
 
 
 # ── confirmatory standing, the acceptance statement over HTTP ───────────────
-def _confirm(sid, start, end, available=""):
-    return C.post(f"/api/studio/session/{sid}/confirmatory",
-                  json={"validation_start": start, "validation_end": end,
-                        "data_available_at_registration": available}).json()
+def _validate(sid, boundary_hash=""):
+    """Takes a session id. The window it is judged on came from the freeze, not from here."""
+    return C.post(f"/api/studio/session/{sid}/validate",
+                  json={"boundary_hash": boundary_hash}).json()
 
 
 def _session_reading(start, end, family_id=""):
@@ -428,8 +431,9 @@ def t25_seen_history_cannot_become_fresh_confirmatory_evidence():
 
     clean_looking = C.post("/api/studio/session/create",
                            json={"family_id": fam}).json()["session"]["session_id"]
-    assert _register(clean_looking).status_code == 200
-    v = _confirm(clean_looking, "2024-01-01", "2026-08-01", available="2026-08-12")
+    # the winner is preregistered against the very window that was already read
+    assert _register(clean_looking, "2024-01-01", "2026-08-01").status_code == 200
+    v = _validate(clean_looking)
     assert v["status"] == "CONTAMINATED", f"already-read data was not flagged: {v}"
     assert v["eligible"] is False, v
     assert "has been seen" in v["why"], v
@@ -442,27 +446,104 @@ def t26_a_new_family_over_the_same_data_is_still_contaminated():
            json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
                  "new_value": "40"})
     independent = _new_session()                       # its own family entirely
-    _register(independent)
-    v = _confirm(independent, "2024-01-01", "2026-08-01", available="2026-08-12")
+    _register(independent, "2024-01-01", "2026-08-01")
+    v = _validate(independent)
     assert v["status"] == "CONTAMINATED", f"a new family_id laundered the exposure: {v}"
     assert v["eligible"] is False, v
 
 
 def t27_forward_evidence_is_eligible():
     sid = _new_session()
-    _register(sid)
-    v = _confirm(sid, "2026-09-01", "2026-12-31", available="2026-08-12")
+    r = _register(sid)
+    assert r.status_code == 200, r.text
+    b = r.json()["boundary"]
+    assert b["data_cutoff_at_registration"] and b["registered_at"], \
+        "the two server-derived fields are empty; forwardness would be an assertion again"
+    v = _validate(sid)
     assert v["status"] == "FORWARD" and v["eligible"] is True, v
-    assert v["k_family_selectable"] >= 0 and "family_id" in v, v
+    assert v["boundary_hash"] == b["boundary_hash"], "validated against a different boundary"
 
 
-def t28_the_availability_commitment_cannot_be_defaulted():
-    """a missing field must not be able to produce the strongest verdict in the system"""
+def t28_validation_uses_the_frozen_boundary_and_nothing_else():
+    """the hole this milestone closed: the window can no longer be chosen after the answer"""
     sid = _new_session()
     _register(sid)
-    v = _confirm(sid, "2026-09-01", "2026-12-31")      # no availability stated
-    assert v["eligible"] is False and v["status"] == "INVALID_BOUNDARY", v
-    assert "cannot be defaulted" in v["why"], v
+    r = C.post(f"/api/studio/session/{sid}/validate",
+               json={"boundary_hash": "deadbeefdeadbeef"})
+    assert r.status_code == 409, r.status_code
+    d = r.json()["detail"]
+    assert d["error"] == "EvidenceBoundaryDriftError", d
+    assert "different study" in d["detail"], d
+
+
+def t28b_registering_without_a_validation_window_is_refused():
+    sid = _new_session()
+    r = C.post(f"/api/studio/session/{sid}/register", json={})
+    assert r.status_code == 422, f"a study froze with no declared evidence: {r.status_code}"
+
+
+def t28c_a_declared_window_narrower_than_the_read_still_contaminates():
+    """the access layer governs: what was touched, not what was announced"""
+    over = _session_reading("2024-01-01", "2025-12-31")
+    C.post(f"/api/studio/session/{over}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                 "new_value": "40", "overreach_start": "2026-01-01",
+                 "overreach_end": "2026-03-01"})
+    later = _new_session()
+    _register(later, "2026-01-01", "2026-06-30")
+    v = _validate(later)
+    assert v["status"] == "CONTAMINATED", f"the declaration was trusted over the footprint: {v}"
+    assert v["overreaching_reads"] >= 1, v
+
+
+def t28d_the_boundary_and_the_footprint_survive_a_restart():
+    """a frozen boundary a restart can forget is not a boundary"""
+    sid = _session_reading("2024-01-01", "2026-08-01")
+    C.post(f"/api/studio/session/{sid}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                 "new_value": "40"})
+    reg = _register(sid, "2026-09-01", "2026-12-31")
+    assert reg.status_code == 409, "the explorer had already exposed a result"
+
+    fresh_sid = _new_session()
+    frozen = _register(fresh_sid).json()["boundary"]
+    before = _validate(fresh_sid)
+
+    restarted = TestClient(_app(), raise_server_exceptions=False)
+    after = restarted.post(f"/api/studio/session/{fresh_sid}/validate", json={}).json()
+    assert after["boundary_hash"] == frozen["boundary_hash"] == before["boundary_hash"], \
+        f"the boundary changed across a restart: {before} -> {after}"
+    assert after["status"] == before["status"], after
+
+    # and the footprint the access layer recorded is still what contamination reads
+    contaminated = _new_session()
+    _register(contaminated, "2024-01-01", "2026-08-01")
+    v = restarted.post(f"/api/studio/session/{contaminated}/validate", json={}).json()
+    assert v["status"] == "CONTAMINATED", f"the footprint did not survive the restart: {v}"
+
+
+def t28e_a_retried_registration_does_not_freeze_twice():
+    """one action, one freeze, however many times the request is delivered"""
+    sid = _new_session()
+    body = {"validation_start": "2026-09-01", "validation_end": "2026-12-31",
+            "idempotency_key": f"freeze-{sid}"}
+    first = C.post(f"/api/studio/session/{sid}/register", json=body)
+    assert first.status_code == 200, first.text
+    again = C.post(f"/api/studio/session/{sid}/register", json=body)
+    assert again.status_code == 200, again.text
+    assert again.json() == first.json(), "the retry produced a different freeze"
+    s = _acc(sid)
+    assert s["mode"] == "REGISTERED", s
+    assert s["events"] == first.json()["session"]["events"], \
+        f"the retry appended events: {s['events']} vs {first.json()['session']['events']}"
+
+
+def t28f_a_second_genuine_registration_is_refused_not_duplicated():
+    """without a key, the state machine is what stops it — and it must, not the response log"""
+    sid = _new_session()
+    assert _register(sid).status_code == 200
+    r = _register(sid, "2027-01-01", "2027-06-30")
+    assert r.status_code == 409, f"a session froze twice: {r.status_code}"
 
 
 # ── the neighbouring surface, same routing layer ────────────────────────────
@@ -522,7 +603,12 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t25_seen_history_cannot_become_fresh_confirmatory_evidence,
                         t26_a_new_family_over_the_same_data_is_still_contaminated,
                         t27_forward_evidence_is_eligible,
-                        t28_the_availability_commitment_cannot_be_defaulted,
+                        t28_validation_uses_the_frozen_boundary_and_nothing_else,
+                        t28b_registering_without_a_validation_window_is_refused,
+                        t28c_a_declared_window_narrower_than_the_read_still_contaminates,
+                        t28d_the_boundary_and_the_footprint_survive_a_restart,
+                        t28e_a_retried_registration_does_not_freeze_twice,
+                        t28f_a_second_genuine_registration_is_refused_not_duplicated,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

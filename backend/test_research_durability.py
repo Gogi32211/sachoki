@@ -21,7 +21,9 @@ import tempfile
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import research_store as RS                                          # noqa: E402
 from research_family import ResearchFamily                           # noqa: E402
-from evidence_boundary import DataWindow                             # noqa: E402
+from data_access import CATALOG, DataAccessLayer, DataAccessSpec      # noqa: E402
+
+CATALOG.register("bars_1d", lambda: ("snap-durability", "2026-08-11"))
 
 ok = fail = 0
 TMP = tempfile.mkdtemp(prefix="research_store_")
@@ -42,7 +44,11 @@ def ledger(name: str) -> RS.DurableLedger:
     return RS.DurableLedger(os.path.join(TMP, f"{name}.jsonl"))
 
 
-WIN = DataWindow("bars_1d", "2021-01-01", "2023-12-31").as_dict()
+_SPEC = DataAccessSpec(source_id="bars_1d", universe="russell", start="2021-01-01",
+                       end="2023-12-31", temporal_resolution="1d")
+_L = DataAccessLayer(_SPEC, CATALOG)
+_L.record(_SPEC.start, _SPEC.end, dates=1)
+WIN = _L.footprint().as_dict()
 
 
 def build(L, session="s1", family="F1", n=3, start_id=0, prior=""):
