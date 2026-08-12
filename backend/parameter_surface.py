@@ -47,7 +47,7 @@ from dataclasses import dataclass, field, replace
 
 from research_session import (CLAIM_CHANGE, DESIGN_CHANGE, PARAMETERS,  # noqa: E402
                               POLICY_CHANGE, PRESENTATION_ONLY, SEARCH_SPACE_CHANGE,
-                              classify_change)
+                              SELECTION_PATH_CHANGE, classify_change)
 
 # ── what a role does, stated once ───────────────────────────────────────────
 #
@@ -77,6 +77,13 @@ ROLE_EFFECTS = {
         "changes": ("search_space_hash",),
         "registered_effect": "REJECT",
         "note": "the algorithm may now choose from a different set; multiplicity moves with it",
+    },
+    SELECTION_PATH_CHANGE: {
+        "multiplicity_effect": "SELECTION_PATH_CHANGED",
+        "changes": ("search_space_hash",),
+        "registered_effect": "REJECT",
+        "note": ("re-ranking a list a person can act on, by an outcome. The algorithm's space "
+                 "did not move; the set a human picks the winner from did"),
     },
     POLICY_CHANGE: {
         "multiplicity_effect": "DECISION_POLICY_CHANGED",
@@ -320,8 +327,8 @@ class ChangePlan:
 
 
 def plan_for(session_id: str, prior_state_hash: str, surface: "ParameterSurface",
-             parameter_id: str, new_value, *, state: str = "EXPLORE") -> ChangePlan:
-    c = classify(surface, parameter_id, new_value, state=state)
+             parameter_id: str, new_value, *, state: str = "EXPLORE", caps=None) -> ChangePlan:
+    c = classify(surface, parameter_id, new_value, state=state, caps=caps)
     return ChangePlan(
         plan_id=f"{session_id}:{parameter_id}:{prior_state_hash}",
         session_id=session_id, prior_state_hash=prior_state_hash,
@@ -394,8 +401,12 @@ class ParameterSurface:
 
 
 # ── the one classifier both callers use ─────────────────────────────────────
+def identical_probe(surface: "ParameterSurface", parameter_id: str, new_value) -> bool:
+    return surface.values.get(parameter_id, "") == record(parameter_id).canonical(new_value)
+
+
 def classify(surface: ParameterSurface, parameter_id: str, new_value, *,
-             state: str = "EXPLORE") -> dict:
+             state: str = "EXPLORE", caps=None) -> dict:
     """What this change means, decided once.
 
     `preview` returns this and `apply` acts on it. They cannot disagree, because there is only
@@ -403,12 +414,20 @@ def classify(surface: ParameterSurface, parameter_id: str, new_value, *,
     and the ledger does not keep.
     """
     r = record(parameter_id)
+    caps = caps if caps is not None else CONTROL_SURFACE
+    role = effective_role(parameter_id, new_value, caps)
+    effects = ROLE_EFFECTS[role]
     after = surface.with_value(parameter_id, new_value)
     before_h, after_h = surface.hashes, after.hashes
     moved = tuple(k for k in before_h if before_h[k] != after_h[k])
+    # A conditional parameter moves a hash its DECLARED slice does not include: display sorting
+    # is not part of any of the three hashes, and yet as a selection path it changes the set a
+    # winner is chosen from. The effect table is the authority on what moved.
+    if role_is_conditional(parameter_id) and not identical_probe(surface, parameter_id, new_value):
+        moved = tuple(effects["changes"])
 
     registered = state in ("REGISTERED", "ACTIVE_REGISTERED")
-    permitted = r.allowed_after_register if registered else r.allowed_in_explore
+    permitted = (role == PRESENTATION_ONLY) if registered else r.allowed_in_explore
 
     # A change whose value did not actually change is a no-op whatever its role: reselecting the
     # horizon that is already set is not a new claim, and charging for it would let k grow by
@@ -417,7 +436,10 @@ def classify(surface: ParameterSurface, parameter_id: str, new_value, *,
 
     return {
         "parameter_id": parameter_id,
-        "role": r.semantic_role,
+        "role": role,
+        "declared_role": r.semantic_role,
+        "role_is_conditional": role_is_conditional(parameter_id),
+        "surface_capabilities": caps.capabilities_hash,
         "old_value": surface.values.get(parameter_id, ""),
         "new_value": r.canonical(new_value),
         "no_op": identical,
@@ -427,17 +449,17 @@ def classify(surface: ParameterSurface, parameter_id: str, new_value, *,
         "old_decision_policy_hash": before_h["decision_policy_hash"],
         "new_decision_policy_hash": after_h["decision_policy_hash"],
         "hashes_moved": moved,
-        "multiplicity_effect": "NONE" if identical else r.effects["multiplicity_effect"],
+        "multiplicity_effect": "NONE" if identical else effects["multiplicity_effect"],
         "registered_effect": "ALLOW" if permitted else "REJECT",
         "permitted": permitted,
-        "note": r.effects["note"],
+        "note": effects["note"],
     }
 
 
 def apply(surface: ParameterSurface, parameter_id: str, new_value, *,
-          state: str = "EXPLORE") -> tuple:
+          state: str = "EXPLORE", caps=None) -> tuple:
     """(new_surface, classification). Refuses exactly what `classify` said it would refuse."""
-    c = classify(surface, parameter_id, new_value, state=state)
+    c = classify(surface, parameter_id, new_value, state=state, caps=caps)
     if not c["permitted"]:
         raise ParameterSurfaceError(
             f"{parameter_id} is {c['role']} and this session is {state}. "
@@ -459,3 +481,86 @@ def declared_effects_are_consistent() -> list:
         if r.allowed_after_register != (r.semantic_role == PRESENTATION_ONLY):
             problems.append((pid, "a non-cosmetic parameter is turnable after the freeze"))
     return problems
+
+
+# ── when a display sort is genuinely free ───────────────────────────────────
+#
+# `sort_by_displayed_column` was declared PRESENTATION_ONLY, and that is true only while the
+# ordering cannot reach a decision. The contract, stated as a predicate rather than as a habit:
+#
+#     DISPLAY_SORT is PRESENTATION_ONLY
+#       IFF it cannot change eligibility, promotion order, the selection set,
+#           or which claims become inspectable.
+#
+# Two facts decide it, and neither is the parameter's name:
+#
+#   the SORT KEY        ordering by an outcome-derived column ranks candidates BY THEIR ANSWER.
+#                       Ordering by ticker or by support cannot, because those are fixed before
+#                       any outcome is read.
+#
+#   the SURFACE         if a row can be inspected, promoted or frozen, the person reading the
+#                       top of the list is choosing from it. Where no row can be acted on at
+#                       all, the ordering reaches nothing.
+#
+# The results table is exactly what makes this live: until now sorting reordered nothing anyone
+# could act on. A screen that gains an affordance re-classifies its own sort control, which is
+# why the capabilities are declared data and not an assumption in a component.
+OUTCOME_DERIVED_SORT_KEYS = frozenset({
+    "effect", "score", "pf", "sharpe", "dsr", "median", "mean", "ic", "rank_ic",
+    "p", "pvalue", "t", "tstat", "mae", "mfe", "win_rate", "return", "verdict",
+})
+
+OUTCOME_INDEPENDENT_SORT_KEYS = frozenset({
+    "", "ticker", "name", "n", "support", "class", "label", "rank_id", "date",
+})
+
+
+@dataclass(frozen=True)
+class SurfaceCapabilities:
+    """What a screen lets a person DO with a row. Declared, because it decides a role."""
+    rows_inspectable: bool = False
+    rows_promotable: bool = False
+    rows_freezable: bool = False
+
+    @property
+    def any_selection_affordance(self) -> bool:
+        return self.rows_inspectable or self.rows_promotable or self.rows_freezable
+
+    @property
+    def capabilities_hash(self) -> str:
+        return hashlib.sha256(
+            f"{self.rows_inspectable}|{self.rows_promotable}|{self.rows_freezable}".encode()
+        ).hexdigest()[:16]
+
+
+# The surface as it exists today: controls and accounting, no rows to act on. The results table
+# will declare `rows_inspectable=True`, and that single flag reclassifies outcome-derived sorting
+# from free to costed — which is the whole point of deriving the role instead of asserting it.
+CONTROL_SURFACE = SurfaceCapabilities()
+RESULTS_SURFACE = SurfaceCapabilities(rows_inspectable=True, rows_promotable=True)
+
+
+def display_sort_role(value, caps: SurfaceCapabilities) -> str:
+    key = canon_lower(value)
+    if key in OUTCOME_INDEPENDENT_SORT_KEYS:
+        return PRESENTATION_ONLY
+    if key not in OUTCOME_DERIVED_SORT_KEYS:
+        # An unrecognised key is treated as outcome-derived. The failure mode of guessing wrong
+        # in the other direction is a free selection path, so the unknown case fails closed.
+        return SELECTION_PATH_CHANGE if caps.any_selection_affordance else PRESENTATION_ONLY
+    return SELECTION_PATH_CHANGE if caps.any_selection_affordance else PRESENTATION_ONLY
+
+
+CONDITIONAL_ROLE = {"sort_by_displayed_column": display_sort_role}
+
+
+def effective_role(parameter_id: str, value, caps: SurfaceCapabilities = CONTROL_SURFACE) -> str:
+    """The role this change actually has, here, now. Declared role unless a rule says otherwise."""
+    rule = CONDITIONAL_ROLE.get(parameter_id)
+    if rule is None:
+        return record(parameter_id).semantic_role
+    return rule(value, caps)
+
+
+def role_is_conditional(parameter_id: str) -> bool:
+    return parameter_id in CONDITIONAL_ROLE

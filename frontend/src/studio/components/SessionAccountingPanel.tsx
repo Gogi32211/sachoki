@@ -79,6 +79,10 @@ export function SessionAccountingPanel({ session }: { session: ResearchSessionVi
 
       <div className="mt-3 divide-y divide-md-outline-var">
         <Row label="Claims exposed" value={session.k_exposed} />
+        {/* k counts the (evidence, decision) pair. Without these two, "k = 7" cannot say whether
+            seven effects were looked at or one effect under seven decision rules. */}
+        <Row label="  · evidence claims" value={session.distinct_evidence_claims} />
+        <Row label="  · decision specs" value={session.distinct_decision_specs} />
         {lineageDiffers && (
           <Row label="Exposed in lineage" value={session.k_exposed_lineage} strong
                hint={`depth ${session.lineage_depth}`} />
@@ -89,6 +93,7 @@ export function SessionAccountingPanel({ session }: { session: ResearchSessionVi
         <Row label="Claim changes" value={session.changes_claim} />
         <Row label="Design changes" value={session.changes_design} />
         <Row label="Search-space changes" value={session.changes_search_space} />
+        <Row label="Selection-path changes" value={session.changes_selection_path} />
         <Row label="Declared space" value={session.k_declared} />
         <Row label="Confirmatory" value={session.confirmatory_eligible} />
         <Row label="Ledger" value={`TRACKED · ${session.events} events`} />
@@ -96,6 +101,9 @@ export function SessionAccountingPanel({ session }: { session: ResearchSessionVi
 
       <div className="mt-3 font-mono text-[10px] text-md-on-surface-var">
         {session.session_id} · {session.state_hash}
+      </div>
+      <div className="font-mono text-[10px] text-md-on-surface-var">
+        {session.accounting_policy}
       </div>
     </div>
   );

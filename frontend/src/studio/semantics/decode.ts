@@ -149,10 +149,11 @@ export function decodeArtifact(raw: unknown): ComparisonArtifact {
 }
 
 const SESSION_FIELDS = [
-  'session_id', 'mode', 'k_declared', 'k_exposed', 'k_exposed_lineage',
+  'session_id', 'mode', 'k_declared', 'k_exposed', 'distinct_evidence_claims',
+  'distinct_decision_specs', 'accounting_policy', 'k_exposed_lineage',
   'inherited_exposed', 'parent_session_id', 'lineage_depth', 'k_selectable', 'revisits',
   'displayed_at_most', 'changes_claim', 'changes_search_space', 'changes_policy',
-  'changes_design', 'changes_presentation', 'confirmatory_eligible', 'events',
+  'changes_design', 'changes_selection_path', 'changes_presentation', 'confirmatory_eligible', 'events',
   'state_hash',
 ] as const;
 

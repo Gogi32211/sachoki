@@ -28,7 +28,7 @@ import sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parameter_surface as PS                                       # noqa: E402
 from research_session import (CLAIM_CHANGE, DESIGN_CHANGE, POLICY_CHANGE,  # noqa: E402
-                              PRESENTATION_ONLY, SEARCH_SPACE_CHANGE,
+                              PRESENTATION_ONLY, SEARCH_SPACE_CHANGE, SELECTION_PATH_CHANGE,
                               ClaimIdentity, ResearchSession)
 
 ok = fail = 0
@@ -304,6 +304,99 @@ def t15_the_free_action_in_the_middle_really_was_free():
     assert after["events"] == before["events"], "a cosmetic change reached the ledger"
 
 
+# ── evidence vs decision ────────────────────────────────────────────────────
+def _ci(tol="5", nf="opportunity_level", horizon="20"):
+    return ClaimIdentity("inc", "median_return", horizon, "russell", f"rsi45pm{tol}",
+                         "rsi_14", "100", nf, "verdict_v2")
+
+
+def t16_k_can_say_what_multiplied_it():
+    """seven different effects, or one effect under seven decision rules — not the same search"""
+    same_evidence_new_rule = (_ci(), _ci(nf="day_level"))
+    a, b = same_evidence_new_rule
+    assert a.evidence_claim_hash == b.evidence_claim_hash, "a decision rule moved the estimand"
+    assert a.decision_spec_hash != b.decision_spec_hash
+    assert a.claim_hash != b.claim_hash, "the pair must still differ; that is the conservative bit"
+
+    c = _ci(tol="1")
+    assert c.evidence_claim_hash != a.evidence_claim_hash
+    assert c.decision_spec_hash == a.decision_spec_hash, "a conditioning change moved the rule"
+
+    s = ResearchSession("EV").start_exploration()
+    for claim in (a, b, c):
+        s.execute(claim).expose(claim)
+    acc = s.accounting()
+    assert acc["k_exposed"] == 3, acc
+    assert acc["distinct_evidence_claims_exposed"] == 2, acc
+    assert acc["distinct_decision_specs_exposed"] == 2, acc
+    assert acc["accounting_policy_version"].endswith("EVIDENCE_AND_DECISION"), acc
+
+
+def t16b_REPRODUCTION_one_hash_cannot_answer_the_question():
+    """the guard shown its defect: with only claim_hash, k=3 explains nothing"""
+    a, b, c = _ci(), _ci(nf="day_level"), _ci(tol="1")
+    pairs = {x.claim_hash for x in (a, b, c)}
+    assert len(pairs) == 3
+    # the two different searches that produce the same k
+    one_effect_two_rules = {_ci().claim_hash, _ci(nf="day_level").claim_hash}
+    two_effects_one_rule = {_ci().claim_hash, _ci(tol="1").claim_hash}
+    assert len(one_effect_two_rules) == len(two_effects_one_rule) == 2, (
+        "the reproduction failed: these two searches were supposed to be indistinguishable by "
+        "claim_hash alone, which is why the components had to be recorded separately")
+    assert ({_ci().evidence_claim_hash, _ci(nf="day_level").evidence_claim_hash} !=
+            {_ci().evidence_claim_hash, _ci(tol="1").evidence_claim_hash}), \
+        "the components do not separate the two searches either"
+
+
+# ── when a display sort is free ─────────────────────────────────────────────
+def t17_display_sort_is_free_only_while_it_reaches_nothing():
+    """PRESENTATION_ONLY iff it cannot change eligibility, promotion order or inspectability"""
+    s = surface()
+    for key in ("ticker", "support", "n"):
+        for caps in (PS.CONTROL_SURFACE, PS.RESULTS_SURFACE):
+            c = PS.classify(s, "sort_by_displayed_column", key, caps=caps)
+            assert c["role"] == PRESENTATION_ONLY, (key, caps, c["role"])
+            assert c["hashes_moved"] == (), c
+
+    for key in ("effect", "pf", "dsr"):
+        free = PS.classify(s, "sort_by_displayed_column", key, caps=PS.CONTROL_SURFACE)
+        assert free["role"] == PRESENTATION_ONLY, (
+            f"sorting by {key} on a surface with nothing to click reaches no decision")
+        costed = PS.classify(s, "sort_by_displayed_column", key, caps=PS.RESULTS_SURFACE)
+        assert costed["role"] == SELECTION_PATH_CHANGE, (key, costed["role"])
+        assert costed["multiplicity_effect"] == "SELECTION_PATH_CHANGED", costed
+        assert costed["hashes_moved"] == ("search_space_hash",), costed
+
+
+def t17b_an_unknown_sort_key_fails_closed():
+    """guessing wrong the other way would hand out a free selection path"""
+    s = surface()
+    c = PS.classify(s, "sort_by_displayed_column", "some_new_column", caps=PS.RESULTS_SURFACE)
+    assert c["role"] == SELECTION_PATH_CHANGE, c["role"]
+
+
+def t17c_the_reclassification_is_caused_by_one_declared_flag():
+    """adding a row affordance changes the role, with no new classification code"""
+    s = surface()
+    before = PS.classify(s, "sort_by_displayed_column", "effect",
+                         caps=PS.SurfaceCapabilities())
+    after = PS.classify(s, "sort_by_displayed_column", "effect",
+                        caps=PS.SurfaceCapabilities(rows_inspectable=True))
+    assert before["role"] == PRESENTATION_ONLY and after["role"] == SELECTION_PATH_CHANGE
+    assert before["surface_capabilities"] != after["surface_capabilities"]
+    assert before["role_is_conditional"] is True, "the plan must say the role was derived"
+
+
+def t17d_a_frozen_study_refuses_a_selection_path():
+    s = surface()
+    c = PS.classify(s, "sort_by_displayed_column", "effect", state="ACTIVE_REGISTERED",
+                    caps=PS.RESULTS_SURFACE)
+    assert c["registered_effect"] == "REJECT", c
+    ok_ = PS.classify(s, "sort_by_displayed_column", "ticker", state="ACTIVE_REGISTERED",
+                      caps=PS.RESULTS_SURFACE)
+    assert ok_["registered_effect"] == "ALLOW", ok_
+
+
 print("=" * 104, flush=True)
 print("  PARAMETER SURFACE — twenty-two knobs, five behaviours", flush=True)
 print("=" * 104, flush=True)
@@ -322,7 +415,13 @@ for i, fn in enumerate([t1_two_knobs_of_one_role_behave_identically,
                         t12_preview_and_commit_cannot_disagree,
                         t13_an_undeclared_knob_is_still_refused,
                         t14_returning_to_the_starting_point_does_not_return_the_history,
-                        t15_the_free_action_in_the_middle_really_was_free], 1):
+                        t15_the_free_action_in_the_middle_really_was_free,
+                        t16_k_can_say_what_multiplied_it,
+                        t16b_REPRODUCTION_one_hash_cannot_answer_the_question,
+                        t17_display_sort_is_free_only_while_it_reaches_nothing,
+                        t17b_an_unknown_sort_key_fails_closed,
+                        t17c_the_reclassification_is_caused_by_one_declared_flag,
+                        t17d_a_frozen_study_refuses_a_selection_path], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 104, flush=True)
 print(f"  {ok} passed · {fail} failed", flush=True)

@@ -570,7 +570,13 @@ def t29_a_literal_route_is_not_swallowed_by_a_path_parameter():
     d = r.json()
     assert len(d["parameters"]) == 22, len(d["parameters"])
     assert set(d["roles"]) == {"PRESENTATION_ONLY", "CLAIM_CHANGE", "DESIGN_CHANGE",
-                               "SEARCH_SPACE_CHANGE", "POLICY_CHANGE"}, d["roles"]
+                               "SEARCH_SPACE_CHANGE", "SELECTION_PATH_CHANGE",
+                               "POLICY_CHANGE"}, d["roles"]
+    # SELECTION_PATH_CHANGE is DERIVED, never declared: no parameter is born with it, and
+    # `sort_by_displayed_column` acquires it when the surface gains a row you can act on.
+    assert d["roles"]["SELECTION_PATH_CHANGE"] == [], d["roles"]["SELECTION_PATH_CHANGE"]
+    conditional = [p for p in d["parameters"] if p["role_is_conditional"] == "YES"]
+    assert [p["parameter_id"] for p in conditional] == ["sort_by_displayed_column"], conditional
 
 
 def t30_every_parameter_of_a_role_costs_the_same_over_http():

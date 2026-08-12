@@ -87,6 +87,10 @@ export interface ResearchSessionView {
   readonly mode: string;
   readonly k_declared: string;
   readonly k_exposed: string;
+  /** which of the two degrees of freedom multiplied k. Reported, never derived here. */
+  readonly distinct_evidence_claims: string;
+  readonly distinct_decision_specs: string;
+  readonly accounting_policy: string;
   /** what the whole lineage has seen. Equal to k_exposed until a fork happens. */
   readonly k_exposed_lineage: string;
   readonly inherited_exposed: string;
@@ -98,6 +102,7 @@ export interface ResearchSessionView {
   readonly changes_claim: string;
   readonly changes_design: string;
   readonly changes_search_space: string;
+  readonly changes_selection_path: string;
   readonly changes_policy: string;
   readonly changes_presentation: string;
   readonly confirmatory_eligible: string;

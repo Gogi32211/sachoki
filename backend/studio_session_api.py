@@ -94,6 +94,11 @@ class ResearchSessionView:
     mode: str
     k_declared: str
     k_exposed: str
+    # k_exposed counts the (evidence, decision) pair. These two say WHICH of them multiplied it,
+    # so "k = 7" can be answered rather than only reported.
+    distinct_evidence_claims: str
+    distinct_decision_specs: str
+    accounting_policy: str
     k_exposed_lineage: str
     inherited_exposed: str
     parent_session_id: str
@@ -104,6 +109,7 @@ class ResearchSessionView:
     changes_claim: str
     changes_design: str
     changes_search_space: str
+    changes_selection_path: str
     changes_policy: str
     changes_presentation: str
     confirmatory_eligible: str
@@ -123,6 +129,9 @@ def to_view(s: ResearchSession) -> ResearchSessionView:
     return ResearchSessionView(
         session_id=a["session_id"], mode=a["state"],
         k_declared=str(a["k_declared"]), k_exposed=str(a["k_exposed"]),
+        distinct_evidence_claims=str(a["distinct_evidence_claims_exposed"]),
+        distinct_decision_specs=str(a["distinct_decision_specs_exposed"]),
+        accounting_policy=a["accounting_policy_version"],
         k_exposed_lineage=str(a["k_exposed_lineage"]),
         inherited_exposed=str(a["inherited_exposed"]),
         parent_session_id=a["parent_session_id"], lineage_depth=str(a["lineage_depth"]),
@@ -134,6 +143,7 @@ def to_view(s: ResearchSession) -> ResearchSessionView:
         # than one representative per role — the representative for DESIGN was the only member.
         changes_design=str(c["DESIGN_CHANGE"]),
         changes_search_space=str(c["SEARCH_SPACE_CHANGE"]),
+        changes_selection_path=str(c["SELECTION_PATH_CHANGE"]),
         changes_policy=str(c["POLICY_CHANGE"]),
         changes_presentation=str(c["PRESENTATION_ONLY"]),
         confirmatory_eligible="YES" if a["confirmatory_eligible"] else "NO",
@@ -319,6 +329,7 @@ def parameters(sid: str = "") -> dict:
             "current_value": (surface.values.get(pid, "") if surface else ""),
             # the statistical half. Served, never derived on the other side of the wire.
             "semantic_role": r.semantic_role,
+            "role_is_conditional": "YES" if PSURF.role_is_conditional(pid) else "NO",
             "mutable_in_explore": "YES" if r.allowed_in_explore else "NO",
             "mutable_in_registered": "YES" if r.allowed_after_register else "NO",
             "multiplicity_effect": r.effects["multiplicity_effect"],
@@ -330,11 +341,17 @@ def parameters(sid: str = "") -> dict:
             "parameter_registry_hash": PSURF.registry_hash()}
 
 
+# What the Combo Lab screen lets a person do with a row today: nothing, because there are no
+# rows. The results table will pass RESULTS_SURFACE, and that one flag reclassifies outcome
+# sorting from free to costed without a line of new classification logic.
+SURFACE_CAPS = PSURF.CONTROL_SURFACE
+
+
 def preview_parameter(sid: str, parameter_id: str, new_value: str) -> dict:
     """A ChangePlan, pinned to the state and the registry it was computed under."""
     s = _get(sid)
     plan = PSURF.plan_for(sid, s._state_hash(), _surface(sid, s), parameter_id, new_value,
-                          state=s.state)
+                          state=s.state, caps=SURFACE_CAPS)
     _PLANS[plan.plan_hash] = plan
     return {"plan": plan.as_dict()}
 
@@ -372,7 +389,7 @@ def set_parameter(sid: str, parameter_id: str, new_value: str,
     s = _get(sid)
     plan = _check_plan(s, plan_hash, parameter_id, new_value)
     surface = _surface(sid, s)
-    after, c = PSURF.apply(surface, parameter_id, new_value, state=s.state)
+    after, c = PSURF.apply(surface, parameter_id, new_value, state=s.state, caps=SURFACE_CAPS)
     if plan is not None:
         _PLANS.pop(plan_hash, None)          # single use; a second commit needs a fresh preview
     _SURFACES[sid] = after
@@ -384,9 +401,9 @@ def set_parameter(sid: str, parameter_id: str, new_value: str,
                 "surface": dict(after.values), "recorded": "NO"}
 
     s.change_parameter(parameter_id, c["old_claim_hash"], c["new_claim_hash"],
-                       value=c["new_value"])
+                       value=c["new_value"], role=c["role"])
 
-    if c["role"] in (PSURF.SEARCH_SPACE_CHANGE,):
+    if c["role"] in (PSURF.SEARCH_SPACE_CHANGE, PSURF.SELECTION_PATH_CHANGE):
         s.search_run("combolab_v2", int(new_value) if str(new_value).isdigit() else space_size,
                      c["new_search_space_hash"], displayed)
     else:

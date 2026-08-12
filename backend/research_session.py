@@ -98,8 +98,38 @@ class ClaimIdentity:
                 raise ValueError(f"ClaimIdentity.{f} is empty — an identity with a hole in it "
                                  f"cannot tell two claims apart, which is its only job")
 
+    # Two independent degrees of freedom live in these nine fields, and collapsing them into one
+    # hash was convenient until it had to be explained. `k_exposed = 7` must be able to answer
+    # whether seven different EFFECTS were looked at, or one effect under seven different rules
+    # for calling it a result. Those are not the same search and they do not deserve the same
+    # sentence in an inspector.
+    EVIDENCE_FIELDS = ("estimand", "outcome", "horizon", "population", "conditioning_hash",
+                       "feature_rule_hash", "support_policy_hash")
+    DECISION_FIELDS = ("null_family", "decision_policy_version")
+
+    @property
+    def evidence_claim_hash(self) -> str:
+        """What is being estimated, on whom. Independent of how a verdict is called."""
+        return hashlib.sha256(json.dumps(
+            {f: getattr(self, f) for f in self.EVIDENCE_FIELDS}, sort_keys=True
+        ).encode()).hexdigest()[:16]
+
+    @property
+    def decision_spec_hash(self) -> str:
+        """The rule that turns an estimate into a verdict. Independent of the estimate."""
+        return hashlib.sha256(json.dumps(
+            {f: getattr(self, f) for f in self.DECISION_FIELDS}, sort_keys=True
+        ).encode()).hexdigest()[:16]
+
     @property
     def claim_hash(self) -> str:
+        """The pair. Still the unit `k_exposed` counts, and no longer the only thing recorded.
+
+        Counting the pair is the conservative choice and it stays — a decision rule chosen after
+        seeing the estimate is a real degree of freedom. What changes is that the ledger can now
+        say WHICH one multiplied the search instead of reporting a number that answers neither
+        question on its own.
+        """
         return hashlib.sha256(
             json.dumps(asdict(self), sort_keys=True).encode()).hexdigest()[:16]
 
@@ -110,6 +140,11 @@ DESIGN_CHANGE = "DESIGN_CHANGE"
 CLAIM_CHANGE = "CLAIM_CHANGE"
 SEARCH_SPACE_CHANGE = "SEARCH_SPACE_CHANGE"
 POLICY_CHANGE = "POLICY_CHANGE"
+# The human-mediated twin of SEARCH_SPACE_CHANGE. Re-ranking a displayed list by an OUTCOME, on
+# a surface where a row can be inspected or promoted, re-orders the set a person picks from.
+# Nothing about the algorithm's space changed; the selection path did, and a person choosing the
+# top row of a list they sorted by effect is selecting on the outcome just as surely.
+SELECTION_PATH_CHANGE = "SELECTION_PATH_CHANGE"
 
 
 @dataclass(frozen=True)
@@ -196,6 +231,11 @@ class Event:
     new_state_hash: str = ""
     code_hash: str = ""
 
+
+# Which degrees of freedom `k_exposed` charges for. Frozen and named, because "k = 7" is only
+# interpretable next to the rule that produced it. EVIDENCE_AND_DECISION counts the pair: an
+# estimate looked at under a second decision rule is a second thing looked at.
+ACCOUNTING_POLICY_VERSION = "k_policy_v1:EVIDENCE_AND_DECISION"
 
 NEW, EXPLORE, REGISTERED, ACTIVE_REGISTERED, CLOSED, CLOSED_EXPLORATORY = (
     "NEW", "EXPLORE", "REGISTERED", "ACTIVE_REGISTERED", "CLOSED", "CLOSED_EXPLORATORY")
@@ -490,7 +530,7 @@ class ResearchSession:
         return self
 
     # ── activity ────────────────────────────────────────────────────────────
-    def change_parameter(self, parameter_id: str, old, new, value: str = ""):
+    def change_parameter(self, parameter_id: str, old, new, value: str = "", role: str = ""):
         """`value` is the setting itself, and it travels IN the event.
 
         The first version of the caller appended the event and then patched `payload["value"]`
@@ -499,13 +539,19 @@ class ResearchSession:
         An event carries what a reader will need, at the moment it is written.
         """
         d = classify_change(parameter_id)
-        if self.state in (REGISTERED, ACTIVE_REGISTERED) and d.semantic_role != PRESENTATION_ONLY:
+        # A conditional parameter's EFFECTIVE role can differ from its declared one — display
+        # sorting is presentation until the surface lets a person act on the order. The caller
+        # that computed it passes it in; it is never re-derived here, because two derivations of
+        # one role is the defect this whole layer exists to prevent.
+        effective = role or d.semantic_role
+        if self.state in (REGISTERED, ACTIVE_REGISTERED) and effective != PRESENTATION_ONLY:
             raise SessionStateError(
-                f"{parameter_id} is {d.semantic_role} and this session is {self.state}. A "
+                f"{parameter_id} is {effective} and this session is {self.state}. A "
                 f"registered study does not mutate; changing this creates a different claim and "
                 f"belongs to a new exploration session.")
-        self._append(CONDITION_CHANGED, parameter_id=parameter_id, role=d.semantic_role,
-                     old=str(old), new=str(new), value=str(value))
+        self._append(CONDITION_CHANGED, parameter_id=parameter_id, role=effective,
+                     declared_role=d.semantic_role, old=str(old), new=str(new),
+                     value=str(value))
         return d
 
     def execute(self, claim: ClaimIdentity):
@@ -517,7 +563,9 @@ class ResearchSession:
     def expose(self, claim: ClaimIdentity):
         """The moment a result becomes knowable. Everything before this is still preregisterable."""
         nxt = ACTIVE_REGISTERED if self.state == REGISTERED else ""
-        self._append(RESULT_EXPOSED, claim_hash=claim.claim_hash, _new_state=nxt)
+        self._append(RESULT_EXPOSED, claim_hash=claim.claim_hash, _new_state=nxt,
+                     evidence_claim_hash=claim.evidence_claim_hash,
+                     decision_spec_hash=claim.decision_spec_hash)
         return self
 
     def search_run(self, space_id: str, space_size: int, space_hash: str, displayed: int):
@@ -608,6 +656,10 @@ class ResearchSession:
         """Three k, computed from events. A caller cannot assert any of them."""
         exposed = {e.claim_hash for e in self.events
                    if e.event_type == RESULT_EXPOSED and e.claim_hash}
+        ev_exposed = {e.payload.get("evidence_claim_hash") for e in self.events
+                      if e.event_type == RESULT_EXPOSED and e.payload.get("evidence_claim_hash")}
+        ds_exposed = {e.payload.get("decision_spec_hash") for e in self.events
+                      if e.event_type == RESULT_EXPOSED and e.payload.get("decision_spec_hash")}
         executed = {e.claim_hash for e in self.events
                     if e.event_type == QUERY_EXECUTED and e.claim_hash}
         runs = [e for e in self.events if e.event_type == SEARCH_RUN]
@@ -619,6 +671,10 @@ class ResearchSession:
             "session_id": self.session_id, "state": self.state,
             "k_declared": self.declared_space.get("size", 0),
             "k_exposed": len(exposed),
+            # the two components, so a number can be explained rather than only reported
+            "distinct_evidence_claims_exposed": len(ev_exposed),
+            "distinct_decision_specs_exposed": len(ds_exposed),
+            "accounting_policy_version": ACCOUNTING_POLICY_VERSION,
             # what the whole lineage has seen. For an unforked session the two are equal, and
             # the moment they differ is the moment `k_exposed` alone understates the search.
             "k_exposed_lineage": len(exposed) + self.inherited_exposed,
@@ -631,7 +687,8 @@ class ResearchSession:
             "displayed_at_most": displayed,
             "changes_by_role": {r: sum(1 for e in changes if e.payload["role"] == r)
                                 for r in (PRESENTATION_ONLY, DESIGN_CHANGE, CLAIM_CHANGE,
-                                          SEARCH_SPACE_CHANGE, POLICY_CHANGE)},
+                                          SEARCH_SPACE_CHANGE, SELECTION_PATH_CHANGE,
+                                          POLICY_CHANGE)},
             "confirmatory_eligible": self.state in (REGISTERED, ACTIVE_REGISTERED, CLOSED),
             "events": len(self.events),
         }

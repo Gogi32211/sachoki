@@ -21,6 +21,7 @@ const ROLE_BADGE: Record<string, { label: string; cls: string }> = {
   CLAIM_CHANGE: { label: 'claim', cls: 'border-md-warning text-md-warning' },
   DESIGN_CHANGE: { label: 'design', cls: 'border-md-warning text-md-warning' },
   SEARCH_SPACE_CHANGE: { label: 'search space', cls: 'border-md-error text-md-error' },
+  SELECTION_PATH_CHANGE: { label: 'selection path', cls: 'border-md-error text-md-error' },
   POLICY_CHANGE: { label: 'policy', cls: 'border-md-error text-md-error' },
 };
 
