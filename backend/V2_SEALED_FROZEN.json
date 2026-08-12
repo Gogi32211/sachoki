@@ -1,0 +1,7 @@
+{
+  "freeze_commit": "9ba14584d6c06d5f90f9c55f2d56ff6439e652b3",
+  "frozen_at": "2026-08-12",
+  "reveal_contract_blob": "e6a6e5ada48b7242fa671eca03b928418ea11490",
+  "seed_rule": "sha256('combolab-v2-sealed:'+freeze_commit) -> default_rng",
+  "note": "seeds did not exist before this commit; they are derivable from it by anyone"
+}
