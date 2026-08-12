@@ -45,18 +45,40 @@ def t1_the_inventory_is_stable():
         "or a dependency appearing; either way it is not silent.")
 
 
-def t2_boot_reads_the_sealed_experiments_coordinates():
-    """the finding: `boot` keys its RNG on (world, delta, rep) — needle coordinates
+def t2_the_coordinates_moved_out_of_the_kernel_and_not_out_of_existence():
+    """3B.2 · `boot` no longer reads world/delta/rep; the provider does
 
-    A historical run has no planted δ, no synthetic world and no replicate index. Moving `boot`
-    unchanged would carry the capability experiment's coordinate system into the historical
-    engine, where those arguments have no meaning and would have to be invented.
+    Before the inversion the closure keyed its RNG on the capability experiment's coordinates.
+    They have not been deleted — a historical run still must not have them, and the sealed run
+    still must. They moved to the object whose whole purpose is to hold them.
     """
-    d = frozen()["targets"]["boot"]
-    assert set(d["capability_coordinates_read"]) == {"world", "delta", "rep"}, d
-    assert d["extractable_verbatim"] is False
-    # and it is the RNG that carries them, which is why the policy/material split already exists
-    assert "S1R" in d["free_names"], d["free_names"]
+    t = frozen()["targets"]
+    assert t["boot"]["capability_coordinates_read"] == [], t["boot"]
+    assert "provider" in t["boot"]["free_names"], t["boot"]["free_names"]
+    assert "S1R" not in t["boot"]["free_names"], "the closure still reaches the key function"
+
+    kernel = t["bootstrap_cell"]
+    assert kernel["file"] == "v2_kernel.py"
+    assert kernel["capability_coordinates_read"] == [], kernel
+    assert set(kernel["free_names"]) == {"Estimate", "np"}, kernel["free_names"]
+    assert "rng_stream" in kernel["params"], kernel["params"]
+
+    for name in ("open_stream", "semantic_key"):
+        d = t[name]
+        assert set(d["capability_coordinates_read"]) == {"world", "delta", "rep"}, (name, d)
+
+
+def t2b_the_detector_counts_attribute_reads():
+    """the guard shown its own defect: the provider looked spotless because it holds them as self.*
+
+    The first version of the inventory read free NAMES only, so `self.world` was invisible and
+    the provider — the one object that must carry the coordinates — reported none. A guard that
+    cannot see the thing it was extended to watch is worse than no guard, because it reports
+    clean.
+    """
+    d = frozen()["targets"]["open_stream"]
+    assert "world" in d["attribute_reads"], d["attribute_reads"]
+    assert set(d["free_names"]) == {"S1R"}, d["free_names"]
 
 
 def t3_the_moved_verdict_reads_only_what_it_was_given():
@@ -86,19 +108,26 @@ def t4_frozen_layout_carries_no_experiment_state():
 def t5_the_expected_dependency_diff_and_nothing_else():
     """the diff was predicted before the move; anything extra stops the extraction
 
-    Predicted: the kernel loses nothing it should keep and gains no capability coordinate, and
-    `boot` is untouched. An unexpected name here means a dependency arrived or vanished during
-    the move, and that has to be explained before a green oracle is worth reading.
+    Predicted for 3B.2, written before it was made:
+
+        BOOT KERNEL      - world, - delta, - rep, + rng stream
+        SEALED PROVIDER  + world, + delta, + rep, + the exact legacy key_rng call
+
+    An unexpected name on either side means a dependency arrived or vanished during the
+    inversion, and that has to be explained before a green ladder is worth reading.
     """
     t = frozen()["targets"]
-    assert set(t) == {"boot", "verdict", "Frozen", "support_hash"}, sorted(t)
+    assert set(t) == {"boot", "verdict", "Frozen", "support_hash", "bootstrap_cell",
+                      "open_stream", "semantic_key"}, sorted(t)
     kernel = {k: v for k, v in t.items() if v["file"] == "v2_kernel.py"}
-    assert sorted(kernel) == ["Frozen", "support_hash", "verdict"], sorted(kernel)
+    assert sorted(kernel) == ["Frozen", "bootstrap_cell", "support_hash", "verdict"], \
+        sorted(kernel)
     for name, d in kernel.items():
         assert d["capability_coordinates_read"] == [], (name, d)
-        assert d["extractable_verbatim"] is True, name
-    assert t["boot"]["file"] == "v2_sealed_run.py", "boot was moved; 3B.1 must not touch it"
-    assert t["boot"]["extractable_verbatim"] is False
+    provider = {k: v for k, v in t.items() if v["nested_in"] == "SealedBootstrapRNGProvider"}
+    assert sorted(provider) == ["open_stream", "semantic_key"], sorted(provider)
+    for name, d in provider.items():
+        assert set(d["capability_coordinates_read"]) == {"world", "delta", "rep"}, (name, d)
 
 
 def t5b_the_sealed_closure_became_a_thin_client():
@@ -123,32 +152,42 @@ def t5c_the_kernel_and_the_old_module_are_the_same_object():
     assert K.support_hash is D.support_hash
 
 
-def t6_REPRODUCTION_reading_the_source_would_have_missed_it():
-    """the guard shown its defect: `boot`'s leak is one line deep inside a call
-
-    It is not a parameter and not an obvious global. It arrives through
-    `S1R.key_rng(world, delta, cell, rep, ...)`, four positional arguments into a helper, and a
-    reviewer scanning for "does this function use delta" reads `delta_star` two lines later and
-    moves on.
-    """
+def t6_the_legacy_key_call_survives_verbatim_inside_the_provider():
+    """the arguments and their order are the thing being preserved, not the call site"""
     with open(os.path.join(HERE, "v2_sealed_run.py")) as f:
         src = f.read()
-    assert "key_rng(world, delta, cell, rep" in src, (
-        "the reproduction failed: the leak was supposed to be inside a call's arguments, which "
-        "is what makes a static inventory worth more than a careful read")
+    assert 'S1R.key_rng(self.world, self.delta, cell, self.rep, "claim_bootstrap")' in src, (
+        "the legacy key call changed shape. Its arguments and their order ARE the sealed RNG "
+        "geometry; a tidier signature here would be a different experiment.")
+    assert "def open_stream" in src and "def semantic_key" in src
+
+
+def t7_the_kernel_never_learns_the_planted_delta():
+    """`delta` and `delta_star` are close enough that this is asserted, not assumed"""
+    with open(os.path.join(HERE, "v2_kernel.py")) as f:
+        src = f.read()
+    import ast
+    tree = ast.parse(src)
+    names = {n.id for n in ast.walk(tree) if isinstance(n, ast.Name)}
+    attrs = {n.attr for n in ast.walk(tree) if isinstance(n, ast.Attribute)}
+    for forbidden in ("world", "rep", "delta"):
+        assert forbidden not in names and forbidden not in attrs, forbidden
+    assert "delta_star" in names, "the decision kernel legitimately reads the materiality margin"
 
 
 print("=" * 100, flush=True)
 print("  V2 KERNEL DEPENDENCIES — the inventory, frozen before the move", flush=True)
 print("=" * 100, flush=True)
 for i, fn in enumerate([t1_the_inventory_is_stable,
-                        t2_boot_reads_the_sealed_experiments_coordinates,
+                        t2_the_coordinates_moved_out_of_the_kernel_and_not_out_of_existence,
+                        t2b_the_detector_counts_attribute_reads,
                         t3_the_moved_verdict_reads_only_what_it_was_given,
                         t4_frozen_layout_carries_no_experiment_state,
                         t5_the_expected_dependency_diff_and_nothing_else,
                         t5b_the_sealed_closure_became_a_thin_client,
                         t5c_the_kernel_and_the_old_module_are_the_same_object,
-                        t6_REPRODUCTION_reading_the_source_would_have_missed_it], 1):
+                        t6_the_legacy_key_call_survives_verbatim_inside_the_provider,
+                        t7_the_kernel_never_learns_the_planted_delta], 1):
     check(f"{i} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 100, flush=True)
 print(f"  {ok} passed · {fail} failed", flush=True)

@@ -59,6 +59,26 @@ class SealedIntegrityError(RuntimeError):
     """This is not the registered experiment."""
 
 
+class SealedBootstrapRNGProvider:
+    """3B.2 · the sealed experiment's RNG geometry, held outside the generic kernel.
+
+    `world`, `delta` and `rep` are coordinates of a capability experiment: which synthetic world,
+    how large the planted needle, which replication. A historical run has none of them and would
+    have to invent them. So they live here, and `open_stream` calls the legacy key function with
+    exactly the arguments it always received, in exactly the same order.
+    """
+
+    def __init__(self, world, delta, rep):
+        self.world, self.delta, self.rep = world, delta, rep
+
+    def semantic_key(self, cell) -> tuple:
+        """The key tuple, for comparison BEFORE any generator is built or consumed."""
+        return (self.world, self.delta, cell, self.rep, "claim_bootstrap")
+
+    def open_stream(self, cell):
+        return S1R.key_rng(self.world, self.delta, cell, self.rep, "claim_bootstrap")
+
+
 def sealed_seeds(freeze_commit: str, n: int) -> tuple:
     if not freeze_commit or len(freeze_commit) < 40:
         raise SealedIntegrityError(
@@ -172,20 +192,14 @@ def main():
             truth = pd.Series({c: froz[c].theta(y) - froz[c].theta(y0) for c in sup.cells})
             rank = int(th.rank(ascending=False)[planted])
 
+            provider = SealedBootstrapRNGProvider(world, delta, rep)
+
             def boot(cell):
-                f = froz[cell]
-                rng = S1R.key_rng(world, delta, cell, rep, "claim_bootstrap")
-                p = np.full(n_dates, 1 / n_dates)
-                d = np.array([f.theta(y, rng.multinomial(n_dates, p).astype(float))
-                              for _ in range(S1.N_BOOT)])
-                good = d[np.isfinite(d)]
-                lo, hi = np.percentile(good, [2.5, 97.5])
-                est = f.theta(y)
-                return Estimate(estimate=float(min(max(est, lo), hi)), ci_low=float(lo),
-                                ci_high=float(hi), level=0.95, estimand=V2.ESTIMAND,
-                                method="clustered bootstrap", cluster_unit="trading_date",
-                                n_raw=int(meta.loc[cell, "eligible_cell_opportunities"]),
-                                n_eff=int(meta.loc[cell, "eligible_dates"]))
+                # 3B.2 · the capability coordinates moved into the provider; the stream it opens
+                # is the same generator this closure used to build, and it is consumed in the
+                # same order. The call sites below are untouched.
+                return K.bootstrap_cell(y, froz[cell], cell, provider.open_stream(cell),
+                                        n_dates, S1.N_BOOT, meta, V2.ESTIMAND)
 
             def verdict(e, cell):
                 # 3B.1 · the decision moved to `v2_kernel` unchanged; `meta` and `DELTA_STAR`

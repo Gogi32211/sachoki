@@ -1,8 +1,36 @@
 {
- "inventory_hash": "416a8c982a241bf7",
+ "inventory_hash": "7a5f3c9c00f8990e",
  "inventory_version": "v2_kernel_dependencies_v1",
  "targets": {
   "Frozen": {
+   "attribute_reads": [
+    "Support",
+    "_lower_median",
+    "append",
+    "argsort",
+    "arm",
+    "array",
+    "asarray",
+    "bounds",
+    "cell",
+    "concatenate",
+    "cumsum",
+    "empty",
+    "flat",
+    "gflat",
+    "hash",
+    "idx",
+    "int64",
+    "nan",
+    "ndarray",
+    "r_",
+    "searchsorted",
+    "seg",
+    "sizes",
+    "strata",
+    "w",
+    "weights"
+   ],
    "capability_coordinates_read": [],
    "extractable_verbatim": true,
    "file": "v2_kernel.py",
@@ -15,6 +43,67 @@
    "params": []
   },
   "boot": {
+   "attribute_reads": [
+    "ESTIMAND",
+    "N_BOOT",
+    "bootstrap_cell",
+    "open_stream"
+   ],
+   "capability_coordinates_read": [],
+   "extractable_verbatim": true,
+   "file": "v2_sealed_run.py",
+   "free_names": [
+    "K",
+    "S1",
+    "V2",
+    "froz",
+    "meta",
+    "n_dates",
+    "provider",
+    "y"
+   ],
+   "nested_in": "main",
+   "params": [
+    "cell"
+   ]
+  },
+  "bootstrap_cell": {
+   "attribute_reads": [
+    "array",
+    "astype",
+    "full",
+    "isfinite",
+    "loc",
+    "multinomial",
+    "percentile",
+    "theta"
+   ],
+   "capability_coordinates_read": [],
+   "extractable_verbatim": true,
+   "file": "v2_kernel.py",
+   "free_names": [
+    "Estimate",
+    "np"
+   ],
+   "nested_in": null,
+   "params": [
+    "y",
+    "f",
+    "cell",
+    "rng_stream",
+    "n_dates",
+    "n_boot",
+    "meta",
+    "estimand"
+   ]
+  },
+  "open_stream": {
+   "attribute_reads": [
+    "delta",
+    "key_rng",
+    "rep",
+    "world"
+   ],
    "capability_coordinates_read": [
     "delta",
     "rep",
@@ -23,25 +112,44 @@
    "extractable_verbatim": false,
    "file": "v2_sealed_run.py",
    "free_names": [
-    "Estimate",
-    "S1",
-    "S1R",
-    "V2",
-    "delta",
-    "froz",
-    "meta",
-    "n_dates",
-    "np",
-    "rep",
-    "world",
-    "y"
+    "S1R"
    ],
-   "nested_in": "main",
+   "nested_in": "SealedBootstrapRNGProvider",
    "params": [
+    "self",
+    "cell"
+   ]
+  },
+  "semantic_key": {
+   "attribute_reads": [
+    "delta",
+    "rep",
+    "world"
+   ],
+   "capability_coordinates_read": [
+    "delta",
+    "rep",
+    "world"
+   ],
+   "extractable_verbatim": false,
+   "file": "v2_sealed_run.py",
+   "free_names": [],
+   "nested_in": "SealedBootstrapRNGProvider",
+   "params": [
+    "self",
     "cell"
    ]
   },
   "support_hash": {
+   "attribute_reads": [
+    "Support",
+    "encode",
+    "hexdigest",
+    "sha256",
+    "strata",
+    "update",
+    "weights"
+   ],
    "capability_coordinates_read": [],
    "extractable_verbatim": true,
    "file": "v2_kernel.py",
@@ -56,6 +164,10 @@
    ]
   },
   "verdict": {
+   "attribute_reads": [
+    "loc",
+    "status"
+   ],
    "capability_coordinates_read": [],
    "extractable_verbatim": true,
    "file": "v2_kernel.py",

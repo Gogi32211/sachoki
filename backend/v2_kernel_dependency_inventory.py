@@ -39,7 +39,12 @@ TARGETS = [("v2_sealed_run.py", "main", "boot"),
            ("v2_sealed_run.py", "main", "verdict"),
            ("v2_kernel.py", None, "Frozen"),
            ("v2_kernel.py", None, "verdict"),
-           ("v2_kernel.py", None, "support_hash")]
+           ("v2_kernel.py", None, "support_hash"),
+           ("v2_kernel.py", None, "bootstrap_cell"),
+           # 3B.2 · the capability coordinates did not disappear; they moved here, which is the
+           # whole shape of the inversion and therefore part of the inventory.
+           ("v2_sealed_run.py", "SealedBootstrapRNGProvider", "open_stream"),
+           ("v2_sealed_run.py", "SealedBootstrapRNGProvider", "semantic_key")]
 
 # Coordinates that exist only because a needle was planted. A kernel that reads one of these is
 # a capability harness wearing a kernel's name.
@@ -101,7 +106,8 @@ def _find(tree: ast.AST, outer: str | None, name: str):
                 return n
         return None
     for n in ast.walk(tree):
-        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef)) and n.name == outer:
+        if isinstance(n, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)) \
+                and n.name == outer:
             for m in ast.walk(n):
                 if isinstance(m, (ast.FunctionDef, ast.AsyncFunctionDef)) and m.name == name:
                     return m
@@ -119,12 +125,17 @@ def build() -> dict:
             out[name] = {"error": f"{name} not found in {filename}"}
             continue
         free = _free_names(fn)
-        leaks = sorted(set(free) & CAPABILITY_COORDINATES)
+        # Attribute reads count too. `self.world` is the same dependency as a free `world`, and
+        # the first version of this detector missed it — the provider looked spotless precisely
+        # because it holds the coordinates as attributes, which is the point of the inversion.
+        attrs = sorted({n.attr for n in ast.walk(fn) if isinstance(n, ast.Attribute)})
+        leaks = sorted((set(free) | set(attrs)) & CAPABILITY_COORDINATES)
         out[name] = {
             "file": filename,
             "nested_in": outer,
             "params": [a.arg for a in fn.args.args] if hasattr(fn, "args") else [],
             "free_names": free,
+            "attribute_reads": attrs,
             "capability_coordinates_read": leaks,
             "extractable_verbatim": not leaks,
         }

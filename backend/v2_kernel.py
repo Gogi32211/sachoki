@@ -35,7 +35,7 @@ import hashlib
 import numpy as np
 
 import combolab_v2 as E
-from studio_verdict import decide
+from studio_verdict import Estimate, decide
 
 
 def support_hash(sup: E.Support, cell: str) -> str:
@@ -97,3 +97,32 @@ def verdict(e, cell, meta, delta_star) -> str:
                   direction="positive",
                   support_ok=bool(meta.loc[cell, "support_fraction"] >= 0.50),
                   setups_ok=bool(meta.loc[cell, "eligible_setups"] >= 5)).status
+
+
+def bootstrap_cell(y, f, cell, rng_stream, n_dates, n_boot, meta, estimand):
+    """3B.2 · the same bootstrap, with the stream handed in instead of keyed here.
+
+    ONE STREAM, CONSUMED IN ORDER. The old closure built a single generator from
+    `(world, delta, cell, rep)` and drew from it `n_boot` times inside one comprehension. Keying
+    a fresh generator per iteration would be tidier, more obviously reproducible, and a DIFFERENT
+    RNG geometry — the sequence of draws would no longer come from one advancing state. That is
+    outside this extraction's claim, so the interface takes a stream and consumes it exactly as
+    before.
+
+    What left: `world`, `delta`, `rep` — coordinates that exist only because a needle was
+    planted. They now live in the provider that opened the stream, which is where the sealed
+    experiment's geometry belongs. What did not leave: `y`, `meta`, `n_dates` and the estimand
+    label, because removing those would mean changing computation structure rather than
+    inverting a dependency.
+    """
+    p = np.full(n_dates, 1 / n_dates)
+    d = np.array([f.theta(y, rng_stream.multinomial(n_dates, p).astype(float))
+                  for _ in range(n_boot)])
+    good = d[np.isfinite(d)]
+    lo, hi = np.percentile(good, [2.5, 97.5])
+    est = f.theta(y)
+    return Estimate(estimate=float(min(max(est, lo), hi)), ci_low=float(lo),
+                    ci_high=float(hi), level=0.95, estimand=estimand,
+                    method="clustered bootstrap", cluster_unit="trading_date",
+                    n_raw=int(meta.loc[cell, "eligible_cell_opportunities"]),
+                    n_eff=int(meta.loc[cell, "eligible_dates"]))
