@@ -346,6 +346,125 @@ def t20_an_anonymous_fork_is_refused():
     assert "must say why" in r.json()["detail"]["detail"], r.json()
 
 
+# ── durability and idempotency, over the same routing layer ─────────────────
+def t21_a_registration_survives_a_process_restart():
+    """the reason the ledger went to disk: a promise a restart can forget is a note"""
+    sid = _new_session()
+    _register(sid)
+    before = _acc(sid)
+    # a new app object over the SAME durable store is what a restart looks like from here
+    fresh = TestClient(_app(), raise_server_exceptions=False)
+    after = fresh.get(f"/api/studio/session/{sid}").json()["session"]
+    assert after == before, f"state changed across a restart:\n{before}\n{after}"
+    assert after["mode"] == "REGISTERED" and after["k_declared"] == "31", after
+
+
+def t22_a_retried_change_is_not_a_second_claim():
+    """the response was lost and the browser sent the same action again"""
+    sid = _new_session()
+    body = {"parameter_id": "conditioning_tolerance", "horizon": "20", "tolerance": "5",
+            "new_value": "1", "idempotency_key": f"key-{sid}-1"}
+    first = C.post(f"/api/studio/session/{sid}/change", json=body)
+    assert first.status_code == 200, first.text
+    again = C.post(f"/api/studio/session/{sid}/change", json=body)
+    assert again.status_code == 200, again.text
+    assert again.json() == first.json(), "the retry produced a different answer"
+    s = _acc(sid)
+    assert s["k_exposed"] == "1" and s["changes_claim"] == "1", \
+        f"a lost response inflated the accounting: {s}"
+
+
+def t23_the_same_action_without_a_key_is_a_second_claim():
+    """the contract is explicit: no key means not retryable, and that is honest"""
+    sid = _new_session()
+    body = {"parameter_id": "horizon", "horizon": "20", "tolerance": "5", "new_value": "40"}
+    C.post(f"/api/studio/session/{sid}/change", json=body)
+    C.post(f"/api/studio/session/{sid}/change", json=dict(body, horizon="40", new_value="60"))
+    assert _acc(sid)["changes_claim"] == "2", _acc(sid)
+
+
+def t24_a_key_reused_for_different_arguments_is_refused():
+    sid = _new_session()
+    k = f"key-{sid}-x"
+    C.post(f"/api/studio/session/{sid}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                 "new_value": "40", "idempotency_key": k})
+    r = C.post(f"/api/studio/session/{sid}/change",
+               json={"parameter_id": "horizon", "horizon": "40", "tolerance": "5",
+                     "new_value": "60", "idempotency_key": k})
+    assert r.status_code == 409, r.status_code
+    assert r.json()["detail"]["error"] == "IdempotencyConflictError", r.json()
+
+
+# ── confirmatory standing, the acceptance statement over HTTP ───────────────
+def _confirm(sid, start, end, available=""):
+    return C.post(f"/api/studio/session/{sid}/confirmatory",
+                  json={"validation_start": start, "validation_end": end,
+                        "data_available_at_registration": available}).json()
+
+
+def _session_reading(start, end, family_id=""):
+    """A session that declares which slice of data it reads, so its exposures have a footprint."""
+    body = {"window_start": start, "window_end": end}
+    if family_id:
+        body["family_id"] = family_id
+    return C.post("/api/studio/session/create", json=body).json()["session"]["session_id"]
+
+
+def t25_seen_history_cannot_become_fresh_confirmatory_evidence():
+    """explore a winner on 2024-2026, open a NEW session, register it, evaluate on 2024-2026
+
+    The first version of this test asserted `status in (CONTAMINATED, INVALID_BOUNDARY)` and
+    passed on INVALID_BOUNDARY, because the validation window it chose overlapped the declared
+    development window. It was green and it proved nothing. The window here is disjoint from
+    development, so CONTAMINATED is the only way to pass and the guard has to earn it.
+    """
+    explorer = _session_reading("2024-01-01", "2026-08-01")
+    for v in ("40", "60"):
+        C.post(f"/api/studio/session/{explorer}/change",
+               json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                     "new_value": v})
+    fam = C.get(f"/api/studio/session/{explorer}/family").json()["family"]["family_id"]
+
+    clean_looking = C.post("/api/studio/session/create",
+                           json={"family_id": fam}).json()["session"]["session_id"]
+    assert _register(clean_looking).status_code == 200
+    v = _confirm(clean_looking, "2024-01-01", "2026-08-01", available="2026-08-12")
+    assert v["status"] == "CONTAMINATED", f"already-read data was not flagged: {v}"
+    assert v["eligible"] is False, v
+    assert "has been seen" in v["why"], v
+
+
+def t26_a_new_family_over_the_same_data_is_still_contaminated():
+    """'independent research' is a declaration, and it does not unsee anything"""
+    explorer = _session_reading("2024-01-01", "2026-08-01")
+    C.post(f"/api/studio/session/{explorer}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                 "new_value": "40"})
+    independent = _new_session()                       # its own family entirely
+    _register(independent)
+    v = _confirm(independent, "2024-01-01", "2026-08-01", available="2026-08-12")
+    assert v["status"] == "CONTAMINATED", f"a new family_id laundered the exposure: {v}"
+    assert v["eligible"] is False, v
+
+
+def t27_forward_evidence_is_eligible():
+    sid = _new_session()
+    _register(sid)
+    v = _confirm(sid, "2026-09-01", "2026-12-31", available="2026-08-12")
+    assert v["status"] == "FORWARD" and v["eligible"] is True, v
+    assert v["k_family_selectable"] >= 0 and "family_id" in v, v
+
+
+def t28_the_availability_commitment_cannot_be_defaulted():
+    """a missing field must not be able to produce the strongest verdict in the system"""
+    sid = _new_session()
+    _register(sid)
+    v = _confirm(sid, "2026-09-01", "2026-12-31")      # no availability stated
+    assert v["eligible"] is False and v["status"] == "INVALID_BOUNDARY", v
+    assert "cannot be defaulted" in v["why"], v
+
+
 # ── the neighbouring surface, same routing layer ────────────────────────────
 def t12_semantics_screen_serves_and_carries_no_operand():
     r = C.get("/api/studio/semantics/n0")
@@ -396,6 +515,14 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t19_a_fork_cannot_launder_the_counter_over_http,
                         t20_an_anonymous_fork_is_refused,
                         t20b_a_fork_of_a_clean_parent_still_cannot_preregister,
+                        t21_a_registration_survives_a_process_restart,
+                        t22_a_retried_change_is_not_a_second_claim,
+                        t23_the_same_action_without_a_key_is_a_second_claim,
+                        t24_a_key_reused_for_different_arguments_is_refused,
+                        t25_seen_history_cannot_become_fresh_confirmatory_evidence,
+                        t26_a_new_family_over_the_same_data_is_still_contaminated,
+                        t27_forward_evidence_is_eligible,
+                        t28_the_availability_commitment_cannot_be_defaulted,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

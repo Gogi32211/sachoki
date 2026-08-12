@@ -34,3 +34,4 @@ backend/*.out
 
 # DSR family cache (regenerable, keyed to frame date)
 backend/.dsr_family.json
+backend/research_ledger/

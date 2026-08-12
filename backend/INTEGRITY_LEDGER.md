@@ -215,3 +215,70 @@ And a second rule, from how the diagnosis went wrong:
 **A regression guard must be run against the reintroduced defect before it is trusted.** The
 first version of `t1` passed on the broken code. A guard is a claim about a failure it has never
 been shown to detect until someone shows it one.
+
+---
+
+## 2026-08-12 · THREE DEFECTS THE CONTRACTS CAUGHT, AND ONE GREEN TEST THAT PROVED NOTHING
+
+Recorded together because they were found the same way: by a rule refusing something, rather
+than by anyone looking.
+
+### 1 · A state change with no event · caught by the hash chain
+
+`start_exploration()` assigned `self.state = EXPLORE` and appended nothing. Invisible while the
+ledger lived in RAM, and fatal the moment it went to disk: a restored session would read back
+`NEW` and refuse every action a live one allowed.
+
+The store refused the very first durable append with `ChainBreakError` — the prior hash
+described a state no event had ever created. The fix is stronger than adding an event: the
+transition now happens INSIDE `_append` (`_new_state=`), so a state change and its record cannot
+come apart. Nothing else in the system had noticed; the chain did.
+
+### 2 · A data footprint lost on restore · caught by failing closed
+
+Sessions stamped their data window onto exposure events only. A session persisted before its
+first exposure was restored with no window, and from then on every exposure it wrote had an
+unknown footprint.
+
+`EvidenceBoundary` reads unknown as contaminated, so instead of silently approving evidence it
+could not vouch for, it answered `UNKNOWN — 39 exposures were recorded without a data
+footprint`. That message is what found the bug. Had `UNKNOWN` been treated as clean for
+convenience, the defect would have produced confirmatory verdicts on data nobody could account
+for. The window is now carried on `SESSION_STARTED` and restored with the session.
+
+### 3 · A test that passed for the wrong reason · caught by asserting the exact verdict
+
+`t25` — the acceptance statement of the whole milestone — asserted
+
+```
+status in ("CONTAMINATED", "INVALID_BOUNDARY")
+```
+
+and passed on `INVALID_BOUNDARY`, because the validation window it picked overlapped the
+declared development window. The laundering path it claimed to test was never exercised. Green,
+and worth nothing.
+
+That is the THIRD false PASS in this project:
+
+```
+string-vs-structure     a test read rendered text across a line wrap
+OpenAPI guard           could not run when OpenAPI was the broken thing
+this one                a disjunction satisfied by the uninteresting branch
+```
+
+All three share a shape: the assertion was wider than the claim. The rule that follows sits
+beside the reproduction rule and is not the same one —
+
+**An acceptance test asserts the exact verdict it is named after. A disjunction in an assertion
+is a place where the test can pass without the system working.**
+
+### The reproduction discipline, now applied
+
+`test_evidence_boundary.py` carries two `REPRODUCTION` cases that fail on the defect before the
+guard is trusted: a family-scoped exposure registry (which wrongly approves the laundering path)
+and an `UNKNOWN` ranked below `CLEAN`. Each asserts that the broken version returns the wrong
+answer, so a guard that stops discriminating fails loudly instead of going quiet.
+
+```
+DefectReproduction  →  must fail  →  Guard  →  Fix  →  must pass
+```

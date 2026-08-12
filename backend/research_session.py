@@ -53,6 +53,10 @@ class SessionStateError(RuntimeError):
     """An event was appended that this state does not permit."""
 
 
+class LedgerStateUnrecoverableError(RuntimeError):
+    """The durable history does not say what the state was. INVALID, not reconstructed."""
+
+
 # ── what makes two questions the same question ───────────────────────────────
 @dataclass(frozen=True)
 class ClaimIdentity:
@@ -142,6 +146,7 @@ def classify_change(parameter_id: str) -> ParameterDefinition:
 
 # ── the ledger ───────────────────────────────────────────────────────────────
 SESSION_CREATED = "SESSION_CREATED"
+SESSION_STARTED = "SESSION_STARTED"
 SEARCH_SPACE_DECLARED = "SEARCH_SPACE_DECLARED"
 CONDITION_CHANGED = "CONDITION_CHANGED"
 CLAIM_REGISTERED = "CLAIM_REGISTERED"
@@ -174,9 +179,16 @@ NEW, EXPLORE, REGISTERED, ACTIVE_REGISTERED, CLOSED, CLOSED_EXPLORATORY = (
 class ResearchSession:
     """Event-sourced. `k` is computed from the ledger, never reported by a caller."""
 
-    def __init__(self, session_id: str, code_hash: str = "unset"):
+    def __init__(self, session_id: str, code_hash: str = "unset", store=None,
+                 family_id: str = "", _restoring: bool = False):
         self.session_id = session_id
         self.code_hash = code_hash
+        # A session with a store is durable: every event is on disk before the caller is told it
+        # happened. Without one it is an in-memory working object, which is still the right
+        # shape for a test but never for anything that can freeze.
+        self.store = store
+        self.family_id = family_id or session_id
+        self._restoring = _restoring
         self.state = NEW
         self.events: list = []
         self.declared_space: dict = {}
@@ -185,27 +197,107 @@ class ResearchSession:
         self.parent_state_hash: str = ""
         self.lineage: tuple = ()          # ancestors, oldest first
         self.inherited_exposed: int = 0   # results already seen upstream
-        self._append(SESSION_CREATED)
+        self.data_window: dict | None = None   # what this session reads; stamped on exposures
+        if not _restoring:
+            self._append(SESSION_CREATED)
 
     # ── ledger mechanics ────────────────────────────────────────────────────
     def _state_hash(self) -> str:
         return hashlib.sha256(
             f"{self.state}|{len(self.events)}|{self.session_id}".encode()).hexdigest()[:16]
 
-    def _append(self, etype: str, claim_hash: str = "", **payload) -> Event:
+    def _append(self, etype: str, claim_hash: str = "", _new_state: str = "",
+                **payload) -> Event:
+        """The state transition happens INSIDE the append, or it does not happen.
+
+        Assigning `self.state` next to an `_append` call looks equivalent and is not: the state
+        hash covers the state, so a field set before the append produces an event whose
+        prior_state_hash describes a state no event ever created. The durable store rejected
+        exactly that on the first restore attempt — the chain is the thing that noticed.
+        """
         prior = self._state_hash()
+        if _new_state:
+            self.state = _new_state
+        # every exposure carries the data it was produced from; an exposure without a footprint
+        # is what EvidenceBoundary has to read as UNKNOWN, so the default is to always stamp it
+        # SESSION_STARTED carries the window too, and that is not decoration: a restored session
+        # rebuilds `data_window` from its events, so a session persisted before its first
+        # exposure would come back with no footprint and stamp nothing from then on. The
+        # UNKNOWN verdict caught exactly that, which is the whole argument for failing closed.
+        if (self.data_window and "window" not in payload
+                and etype in (RESULT_EXPOSED, SEARCH_RUN, SESSION_STARTED)):
+            payload["window"] = dict(self.data_window)
         e = Event(event_id=len(self.events), session_id=self.session_id, event_type=etype,
                   claim_hash=claim_hash, payload=payload, prior_state_hash=prior,
                   new_state_hash="", code_hash=self.code_hash)
         self.events.append(e)
         object.__setattr__(e, "new_state_hash", self._state_hash())
+        if self.store is not None and not self._restoring:
+            # disk first, in the sense that the caller is never told an event happened unless it
+            # is durable — an exception here propagates instead of being logged and swallowed
+            self.store.append(
+                self.session_id, self.family_id, etype, event_id=e.event_id,
+                prior_state_hash=prior, new_state_hash=e.new_state_hash,
+                claim_hash=claim_hash, payload=e.payload, state=self.state,
+                code_hash=self.code_hash)
         return e
+
+    # ── restoring from the durable history ──────────────────────────────────
+    @classmethod
+    def restore(cls, session_id: str, store) -> "ResearchSession":
+        """Rebuild from disk. Nothing is inferred that the ledger does not state.
+
+        The state after each event is recorded rather than re-derived, because a re-derivation is
+        a second implementation of the state machine and the two would drift. If the ledger does
+        not say what the state was, this refuses instead of guessing — an unrecoverable session
+        that reports INVALID is safe, and one that guesses EXPLORE is not.
+        """
+        rows = store.read_session(session_id)
+        if not rows:
+            raise KeyError(session_id)
+        s = cls(session_id, code_hash=rows[0].code_hash, store=store,
+                family_id=rows[0].family_id, _restoring=True)
+        for r in rows:
+            e = Event(event_id=r.event_id, session_id=r.session_id, event_type=r.event_type,
+                      claim_hash=r.claim_hash, payload=dict(r.payload),
+                      prior_state_hash=r.prior_state_hash, new_state_hash=r.new_state_hash,
+                      code_hash=r.code_hash)
+            s.events.append(e)
+            if r.event_type == SEARCH_SPACE_DECLARED:
+                s.declared_space = {"space_id": r.payload.get("space_id"),
+                                    "size": int(r.payload.get("size", 0)),
+                                    "hash": r.payload.get("hash")}
+            elif r.event_type == SESSION_FORKED and r.payload.get("child_session_id") != session_id:
+                pass
+            elif r.event_type == SESSION_FORKED:
+                s.parent_session_id = r.payload.get("parent_session_id", "")
+                s.parent_state_hash = r.payload.get("parent_state_hash", "")
+                s.inherited_exposed = int(r.payload.get("inherited_k_exposed", 0))
+                s.lineage = tuple(r.payload.get("lineage", ())) or (s.parent_session_id,)
+            if r.payload.get("window"):
+                s.data_window = dict(r.payload["window"])
+            if not r.state:
+                raise LedgerStateUnrecoverableError(
+                    f"event {r.event_id} of {session_id} does not record the state it produced. "
+                    f"The session cannot be restored and is INVALID; it is not re-derived, "
+                    f"because a second implementation of the state machine would drift from the "
+                    f"first one exactly when it matters.")
+            s.state = r.state
+        s._restoring = False
+        return s
 
     # ── mode ────────────────────────────────────────────────────────────────
     def start_exploration(self):
+        """Entering exploration is a transition and therefore an event.
+
+        It used to set the field silently, which was invisible right up until the ledger became
+        durable: a restored session would have read back NEW and quietly refused every action a
+        live one allowed. A state change with no event is a state change the record cannot
+        describe.
+        """
         if self.state != NEW:
             raise SessionStateError(f"cannot start exploration from {self.state}")
-        self.state = EXPLORE
+        self._append(SESSION_STARTED, _new_state=EXPLORE)
         return self
 
     def declare_search_space(self, space_id: str, size: int, space_hash: str):
@@ -259,8 +351,7 @@ class ResearchSession:
         self.assert_registerable()
         if not self.declared_space:
             raise SessionStateError("a registered session needs a declared search space")
-        self.state = REGISTERED
-        self._append(SESSION_FROZEN, **self.declared_space)
+        self._append(SESSION_FROZEN, _new_state=REGISTERED, **self.declared_space)
         return self
 
     # ── activity ────────────────────────────────────────────────────────────
@@ -283,9 +374,8 @@ class ResearchSession:
 
     def expose(self, claim: ClaimIdentity):
         """The moment a result becomes knowable. Everything before this is still preregisterable."""
-        if self.state == REGISTERED:
-            self.state = ACTIVE_REGISTERED
-        self._append(RESULT_EXPOSED, claim_hash=claim.claim_hash)
+        nxt = ACTIVE_REGISTERED if self.state == REGISTERED else ""
+        self._append(RESULT_EXPOSED, claim_hash=claim.claim_hash, _new_state=nxt)
         return self
 
     def search_run(self, space_id: str, space_size: int, space_hash: str, displayed: int):
@@ -296,10 +386,9 @@ class ResearchSession:
                     f"registered space {self.declared_space.get('hash')} but searched "
                     f"{space_hash}. The multiplicity that was declared is not the multiplicity "
                     f"that was paid.")
-            if self.state == REGISTERED:
-                self.state = ACTIVE_REGISTERED
+        nxt = ACTIVE_REGISTERED if self.state == REGISTERED and self.declared_space else ""
         self._append(SEARCH_RUN, space_id=space_id, space_size=int(space_size),
-                     space_hash=space_hash, displayed=int(displayed))
+                     space_hash=space_hash, displayed=int(displayed), _new_state=nxt)
         return self
 
     def request_promotion(self, claim: ClaimIdentity, registered_claims=None):
@@ -342,7 +431,11 @@ class ResearchSession:
         parent_hash = self._state_hash()          # the state that is being inherited
         upstream = self.accounting()["k_exposed"] + self.inherited_exposed
 
-        child = ResearchSession(child_session_id, code_hash=self.code_hash)
+        # the child is durable if the parent is, and it belongs to the SAME family: a fork is by
+        # definition one selection history continuing, not a new one starting
+        child = ResearchSession(child_session_id, code_hash=self.code_hash, store=self.store,
+                                family_id=self.family_id)
+        child.data_window = dict(self.data_window) if self.data_window else None
         child.parent_session_id = self.session_id
         child.parent_state_hash = parent_hash
         child.lineage = tuple(self.lineage) + (self.session_id,)
@@ -351,7 +444,8 @@ class ResearchSession:
         child._append(SESSION_FORKED, parent_session_id=self.session_id,
                       parent_state_hash=parent_hash, child_session_id=child_session_id,
                       reason=reason.strip(), inherited_k_exposed=upstream,
-                      parent_state=self.state, lineage_depth=len(child.lineage))
+                      parent_state=self.state, lineage=list(child.lineage),
+                      lineage_depth=len(child.lineage))
         child.start_exploration()
 
         # the parent records it too: being forked is a fact about the parent, and a ledger that
@@ -363,9 +457,8 @@ class ResearchSession:
         return child
 
     def close(self):
-        self.state = CLOSED if self.state in (REGISTERED, ACTIVE_REGISTERED) \
-            else CLOSED_EXPLORATORY
-        self._append(SESSION_CLOSED, final_state=self.state)
+        nxt = CLOSED if self.state in (REGISTERED, ACTIVE_REGISTERED) else CLOSED_EXPLORATORY
+        self._append(SESSION_CLOSED, _new_state=nxt, final_state=nxt)
         return self
 
     # ── the accountant ──────────────────────────────────────────────────────

@@ -29,9 +29,23 @@ from research_session import (ClaimIdentity, ResearchSession,  # noqa: E402
                              SessionStateError, UnregisteredSelectionError, classify_change,
                              preview_design_change)
 
-# in-memory for now; a session is a working object, not a record to survive a restart
-_SESSIONS: dict = {}
-_CODE = "research_session@fd0aa1b"
+import research_store as RS                                        # noqa: E402
+from evidence_boundary import (DataWindow, EvidenceBoundary,  # noqa: E402
+                               EvidenceBoundaryError)
+from research_family import ResearchFamily                          # noqa: E402
+
+# Durable, because REGISTERED is a promise. Sessions are no longer held in a dict that a restart
+# empties; they are restored from the ledger on every request, which is slower and is the only
+# version that can be trusted after the process dies.
+_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "research_ledger")
+LEDGER = RS.DurableLedger(os.path.join(_DIR, "research_events.jsonl"))
+RESPONSES = RS.ResponseLog(os.path.join(_DIR, "response_log.jsonl"))
+_CODE = "research_session@0e45b53"
+
+# What this slice reads. Declared, not assumed: an exposure whose footprint is unknown is what
+# EvidenceBoundary must treat as contamination, so the window is part of the session from the
+# first event rather than something added later when someone remembers.
+DEV_WINDOW = {"data_id": "bars_1d", "start": "2021-01-01", "end": "2023-12-31"}
 
 
 @dataclass(frozen=True)
@@ -91,17 +105,29 @@ def _claim(horizon: str, tolerance: str) -> ClaimIdentity:
         null_family="OPPORTUNITY_LEVEL", decision_policy_version="verdict_v2")
 
 
-def create() -> dict:
-    sid = f"s{len(_SESSIONS) + 1:04d}"
-    s = ResearchSession(sid, code_hash=_CODE).start_exploration()
-    _SESSIONS[sid] = s
-    return {"session": asdict(to_view(s))}
+def _next_id() -> str:
+    return f"s{len(LEDGER.sessions()) + 1:04d}"
+
+
+def create(family_id: str = "", window: dict | None = None) -> dict:
+    """A new session. `family_id` decides whether this continues a selection history.
+
+    Two different questions wear the same button in most tools. Opening a fresh session to keep
+    working is the normal case and belongs to the same family; declaring the work independent
+    mints a new one. The system records which was claimed and never lets that claim decide
+    confirmatory standing on its own — that is what EvidenceBoundary is for.
+    """
+    sid = _next_id()
+    fam = family_id or f"F{sid[1:]}"
+    s = ResearchSession(sid, code_hash=_CODE, store=LEDGER, family_id=fam)
+    s.data_window = dict(window or DEV_WINDOW)
+    s.start_exploration()
+    return {"session": asdict(to_view(s)), "family_id": fam,
+            "data_window": dict(s.data_window)}
 
 
 def _get(sid: str) -> ResearchSession:
-    if sid not in _SESSIONS:
-        raise KeyError(sid)
-    return _SESSIONS[sid]
+    return ResearchSession.restore(sid, LEDGER)
 
 
 def preview(sid: str, parameter_id: str, horizon: str, tolerance: str,
@@ -162,6 +188,58 @@ def register(sid: str) -> dict:
     return {"session": asdict(to_view(s))}
 
 
+def _idempotent(key: str, action: str, sid: str, payload: dict, fn):
+    """One user action, one outcome, however many times the request is delivered."""
+    if not key:
+        return fn()
+    rh = RS.request_hash(sid, action, payload)
+    cached = RESPONSES.recall(key, rh)      # raises IdempotencyConflictError on a reused key
+    if cached is not None:
+        return cached
+    out = fn()
+    RESPONSES.remember(key, rh, out)
+    return out
+
+
+def confirmatory(sid: str, validation_start: str, validation_end: str,
+                 data_id: str = "bars_1d", available: str = "",
+                 development: dict | None = None) -> dict:
+    """May this family's registered claim be reported as confirmatory, and on what evidence."""
+    s = _get(sid)
+    fam = ResearchFamily(s.family_id, LEDGER.read_all())
+    if not available:
+        # No default is safe here. Defaulting to the end of the development window would make
+        # every historical holdout look FORWARD, which is the strongest verdict in the system
+        # produced by a missing field. This is a commitment about what data existed when the
+        # claim was frozen; the caller states it or gets nothing.
+        return {"eligible": False, "status": "INVALID_BOUNDARY",
+                "why": ("data_available_at_registration was not supplied. It cannot be defaulted: "
+                        "any default would decide FORWARD or CLEAN on the system's behalf, and "
+                        "FORWARD is the one verdict that does not depend on the ledger being "
+                        "complete.")}
+    try:
+        b = EvidenceBoundary(
+            development=DataWindow(**(development or DEV_WINDOW)),
+            validation=DataWindow(data_id, validation_start, validation_end),
+            claim_registered_at=f"{available}T00:00:00",
+            data_available_at_registration=available)
+    except EvidenceBoundaryError as e:
+        return {"eligible": False, "status": "INVALID_BOUNDARY", "why": str(e)}
+    v = fam.confirmatory(b)
+    acc = fam.accounting()
+    v["family_id"] = s.family_id
+    v["k_family_selectable_is_bound"] = acc.k_family_selectable_is_bound
+    v["k_family_selectable"] = acc.k_family_selectable
+    return v
+
+
+def family(sid: str) -> dict:
+    s = _get(sid)
+    a = ResearchFamily(s.family_id, LEDGER.read_all()).accounting()
+    return {"family": {k: (list(v) if isinstance(v, tuple) else v)
+                       for k, v in asdict(a).items()}, "family_hash": a.family_hash}
+
+
 def fork(sid: str, reason: str, horizon: str, tolerance: str) -> dict:
     """A new exploratory session that starts where this one stopped.
 
@@ -171,9 +249,7 @@ def fork(sid: str, reason: str, horizon: str, tolerance: str) -> dict:
     state, which is the part that could otherwise be denied.
     """
     parent = _get(sid)
-    child_id = f"s{len(_SESSIONS) + 1:04d}"
-    child = parent.fork(child_id, reason=reason)
-    _SESSIONS[child_id] = child
+    child = parent.fork(_next_id(), reason=reason)
     return {"session": asdict(to_view(child)),
             "parent": asdict(to_view(parent)),
             "inherited": {"horizon": str(horizon), "tolerance": str(tolerance)},
@@ -198,6 +274,9 @@ def refusal(e: Exception) -> dict:
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "IdempotencyConflictError":
+            "This action key was already used for a different request. Reload the screen so it "
+            "can issue a fresh key rather than replaying an old one.",
         "SessionStateError":
             "This study is frozen. Changing a claim-defining parameter would silently turn a "
             "preregistered result into an exploratory one. Fork it into a new exploratory "
@@ -232,17 +311,38 @@ class ChangeBody(BaseModel):
     new_value: str
     space_size: int = 31
     displayed: int = 5
+    # generated by the CLIENT, once per user action. Absent means "not retryable", which is
+    # honest; a server-side default would silently coalesce two deliberate repeats.
+    idempotency_key: str = ""
 
 
 class RevisitBody(BaseModel):
     horizon: str
     tolerance: str
+    idempotency_key: str = ""
 
 
 class ForkBody(BaseModel):
     reason: str
     horizon: str
     tolerance: str
+    idempotency_key: str = ""
+
+
+class CreateBody(BaseModel):
+    family_id: str = ""
+    # what this session will READ. A session that does not say leaves every exposure with an
+    # unknown footprint, which EvidenceBoundary must read as contamination.
+    data_id: str = "bars_1d"
+    window_start: str = ""
+    window_end: str = ""
+
+
+class BoundaryBody(BaseModel):
+    validation_start: str
+    validation_end: str
+    data_id: str = "bars_1d"
+    data_available_at_registration: str = ""
 
 
 def build_router():
@@ -251,8 +351,11 @@ def build_router():
     router = APIRouter(prefix="/api/studio/session", tags=["studio-session"])
 
     @router.post("/create")
-    def _create():
-        return create()
+    def _create(b: CreateBody | None = None):
+        w = None
+        if b and b.window_start and b.window_end:
+            w = {"data_id": b.data_id, "start": b.window_start, "end": b.window_end}
+        return create(b.family_id if b else "", w)
 
     @router.get("/{sid}")
     def _get_session(sid: str):
@@ -271,10 +374,16 @@ def build_router():
     @router.post("/{sid}/change")
     def _change(sid: str, b: ChangeBody):
         try:
-            return change_and_run(sid, b.parameter_id, b.horizon, b.tolerance, b.new_value,
-                                  b.space_size, b.displayed)
+            return _idempotent(
+                b.idempotency_key, "change", sid,
+                {"parameter_id": b.parameter_id, "horizon": b.horizon,
+                 "tolerance": b.tolerance, "new_value": b.new_value},
+                lambda: change_and_run(sid, b.parameter_id, b.horizon, b.tolerance, b.new_value,
+                                       b.space_size, b.displayed))
         except KeyError as e:
             raise HTTPException(404, str(e))
+        except RS.IdempotencyConflictError as e:
+            raise HTTPException(409, refusal(e))
         except (SessionStateError, CannotRegisterAfterExposureError,
                 UnregisteredSelectionError, SearchSpaceDriftError) as e:
             raise HTTPException(409, refusal(e))
@@ -282,7 +391,9 @@ def build_router():
     @router.post("/{sid}/revisit")
     def _revisit(sid: str, b: RevisitBody):
         try:
-            return revisit(sid, b.horizon, b.tolerance)
+            return _idempotent(b.idempotency_key, "revisit", sid,
+                               {"horizon": b.horizon, "tolerance": b.tolerance},
+                               lambda: revisit(sid, b.horizon, b.tolerance))
         except KeyError as e:
             raise HTTPException(404, str(e))
 
@@ -298,10 +409,28 @@ def build_router():
     @router.post("/{sid}/fork")
     def _fork(sid: str, b: ForkBody):
         try:
-            return fork(sid, b.reason, b.horizon, b.tolerance)
+            return _idempotent(b.idempotency_key, "fork", sid, {"reason": b.reason},
+                               lambda: fork(sid, b.reason, b.horizon, b.tolerance))
         except KeyError as e:
             raise HTTPException(404, str(e))
+        except RS.IdempotencyConflictError as e:
+            raise HTTPException(409, refusal(e))
         except SessionStateError as e:
             raise HTTPException(409, refusal(e))
+
+    @router.get("/{sid}/family")
+    def _family(sid: str):
+        try:
+            return family(sid)
+        except KeyError:
+            raise HTTPException(404, f"no session {sid}")
+
+    @router.post("/{sid}/confirmatory")
+    def _confirmatory(sid: str, b: BoundaryBody):
+        try:
+            return confirmatory(sid, b.validation_start, b.validation_end, b.data_id,
+                                b.data_available_at_registration)
+        except KeyError:
+            raise HTTPException(404, f"no session {sid}")
 
     return router
