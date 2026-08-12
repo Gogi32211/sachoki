@@ -147,3 +147,42 @@ export function decodeArtifact(raw: unknown): ComparisonArtifact {
     compatibility_proof: str(o, 'compatibility_proof', 'artifact'),
   };
 }
+
+const SESSION_FIELDS = [
+  'session_id', 'mode', 'k_declared', 'k_exposed', 'k_selectable', 'revisits',
+  'displayed_at_most', 'changes_claim', 'changes_search_space', 'changes_policy',
+  'changes_presentation', 'confirmatory_eligible', 'events', 'state_hash',
+] as const;
+
+export function decodeSession(raw: unknown): import('./types').ResearchSessionView {
+  if (!raw || typeof raw !== 'object') {
+    throw new TransportContractError('session view is not an object');
+  }
+  const o = raw as Record<string, unknown>;
+  for (const forbidden of ['ledger', 'events_list', 'history', 'claims']) {
+    if (forbidden in o) {
+      throw new TransportContractError(
+        `session view carries '${forbidden}'. The event stream stays on the server; a frontend ` +
+        `holding it would eventually count k its own way.`,
+      );
+    }
+  }
+  const leaks = numericLeaves(o);
+  if (leaks.length) {
+    throw new TransportContractError(`numeric leaves in the session view: ${leaks.join(', ')}`);
+  }
+  const out: Record<string, string> = {};
+  for (const f of SESSION_FIELDS) out[f] = str(o, f, 'session');
+  return out as unknown as import('./types').ResearchSessionView;
+}
+
+export function decodePreview(raw: unknown): import('./types').ChangePreview {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  return {
+    parameter_id: str(o, 'parameter_id', 'preview'),
+    change_type: str(o, 'change_type', 'preview'),
+    old_claim_hash: str(o, 'old_claim_hash', 'preview'),
+    new_claim_hash: str(o, 'new_claim_hash', 'preview'),
+    multiplicity_effect: str(o, 'multiplicity_effect', 'preview'),
+  };
+}

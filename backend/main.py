@@ -338,6 +338,8 @@ except Exception as _aij_exc:  # never block app startup on the journal
 try:
     from studio_semantics_api import build_router as _studio_semantics_router
     app.include_router(_studio_semantics_router())
+    from studio_session_api import build_router as _studio_session_router
+    app.include_router(_studio_session_router())
 except Exception as _sem_exc:  # a new surface must never block the existing app from starting
     log.warning("studio semantics router not loaded: %s", _sem_exc)
 

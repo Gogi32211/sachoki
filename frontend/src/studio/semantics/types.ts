@@ -73,3 +73,36 @@ export interface ComparisonArtifact {
   readonly ratio_display: string;
   readonly compatibility_proof: string;
 }
+
+/**
+ * Session accounting, sanctioned. Every count is a string for the same reason the statistical
+ * values were: a number in the browser invites the browser to derive one, and `k` has exactly
+ * one accountant.
+ *
+ * The append-only ledger never crosses. A frontend holding the events could count claims its own
+ * way, and the first time the two counts differed, the convenient one would win.
+ */
+export interface ResearchSessionView {
+  readonly session_id: string;
+  readonly mode: string;
+  readonly k_declared: string;
+  readonly k_exposed: string;
+  readonly k_selectable: string;
+  readonly revisits: string;
+  readonly displayed_at_most: string;
+  readonly changes_claim: string;
+  readonly changes_search_space: string;
+  readonly changes_policy: string;
+  readonly changes_presentation: string;
+  readonly confirmatory_eligible: string;
+  readonly events: string;
+  readonly state_hash: string;
+}
+
+export interface ChangePreview {
+  readonly parameter_id: string;
+  readonly change_type: string;
+  readonly old_claim_hash: string;
+  readonly new_claim_hash: string;
+  readonly multiplicity_effect: string;
+}
