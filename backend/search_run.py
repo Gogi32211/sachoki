@@ -1,0 +1,245 @@
+"""A search run, and the difference between what the server knows and what the browser gets.
+
+EXPOSURE IS DELIVERY, NOT EYEBALLS. The definition is frozen here because everything downstream
+depends on it:
+
+    a claim is EXPOSED when its result is made available to the researcher through a sanctioned
+    research surface.
+
+Not "someone read it". Whether a person's eyes reached the fifth row is unmeasurable and
+unreproducible, and a system that tried would be guessing in the direction that suits it. If the
+server authorised five rows and the tab was closed before the last one was read, five were
+exposed. We pay for information made available, not for attention.
+
+WHICH IS WHY THE PAYLOAD IS THE AUTHORISED SET, NOT THE RANKING. If the server ships thirty-one
+rows and React renders `rows.slice(0, 5)`, thirty-one were exposed — they are in the response, in
+memory, in devtools. The other twenty-six are one keystroke from being read and nothing recorded
+them. So `SearchRunView.rows` contains exactly the rows that may be exposed and no others, and
+the invariant `displayed_count == len(rows)` is asserted at construction.
+
+This is the same rule already applied to raw statistical values on N0: what the browser must not
+use, the browser does not receive. There it stopped a subtraction; here it stops an exposure.
+
+    SearchRunArtifact   server-only. Knows all 31 ranked ids, the policy, the provenance.
+    SearchRunView       crosses the wire. The authorised subset, and counts.
+
+TWO NUMBERS THAT ARE NOT THE SAME, and the results table is the first place a person can see it:
+
+    selectable_count   what the algorithm could pick a winner from      multiplicity
+    displayed_count    what was made available to a person              exposure
+
+RANKING BELONGS TO THE SERVER. A frontend that sorts and slices the full result set is a second
+search engine, and the first thing a second engine does is disagree with the accounting. The
+frontend may reorder rows it already holds, because that cannot change which rows it holds; it
+may not decide which rows those are.
+
+STALENESS IS PART OF THE RUN. Every run records the session state it was computed from. When the
+session moves, the table does not silently keep sitting next to controls it no longer matches —
+it is marked STALE, stays readable as history, and refuses to be promoted.
+
+THE NUMBERS HERE ARE A FIXTURE. There is no search engine behind this yet. Rows are derived
+deterministically from claim identities so the contract can be exercised end to end, and every
+artifact carries `data_provenance = SYNTHETIC_FIXTURE` so that a screenshot of this table can
+never be mistaken for a finding.
+"""
+from __future__ import annotations
+
+import hashlib
+from dataclasses import asdict, dataclass, field
+
+SYNTHETIC_FIXTURE = "SYNTHETIC_FIXTURE"
+FRESH, STALE = "FRESH", "STALE"
+
+
+class StaleSearchRunError(RuntimeError):
+    """A run computed under a specification the session no longer has."""
+
+
+class ExposureAuthorisationError(RuntimeError):
+    """More rows were about to cross the wire than the display policy authorised."""
+
+
+# ── the server's object ─────────────────────────────────────────────────────
+@dataclass(frozen=True)
+class SearchRunArtifact:
+    """Everything the run knows. None of it crosses the wire unfiltered."""
+    run_id: str
+    session_id: str
+    family_id: str
+    input_state_hash: str
+    search_space_hash: str
+    ranking_policy_hash: str
+    selectable_count: int
+    ranked_claim_ids: tuple           # all of them — server side only
+    display_policy: str
+    displayed_count: int
+    sampling_target: str
+    null_family: str
+    integrity_status: str = "VALID"
+    data_provenance: str = SYNTHETIC_FIXTURE
+
+    @property
+    def ranked_count(self) -> int:
+        return len(self.ranked_claim_ids)
+
+    @property
+    def authorised_ids(self) -> tuple:
+        """The prefix the display policy permits. Everything else stays here."""
+        return self.ranked_claim_ids[:self.displayed_count]
+
+    @property
+    def artifact_hash(self) -> str:
+        blob = "|".join([self.run_id, self.input_state_hash, self.search_space_hash,
+                         self.ranking_policy_hash, str(self.selectable_count),
+                         ",".join(self.ranked_claim_ids), self.display_policy,
+                         str(self.displayed_count)])
+        return hashlib.sha256(blob.encode()).hexdigest()[:16]
+
+
+# ── what a person is allowed to see ─────────────────────────────────────────
+@dataclass(frozen=True)
+class SemanticCell:
+    """One statistical value, as text. The same rule as N0: no operand crosses."""
+    display_value: str
+    display_units: str
+    label: str
+    semantic_type: str
+    inspector_ref: str
+
+    def as_dict(self) -> dict:
+        return asdict(self)
+
+
+@dataclass(frozen=True)
+class ResultRowView:
+    claim_id: str
+    rank: int                          # deterministic metadata, and a number on purpose
+    label: str
+    evidence_claim_hash: str
+    decision_spec_hash: str
+    effect: SemanticCell
+    uncertainty: SemanticCell
+    support: SemanticCell
+    verdict: str
+    inspector_ref: str
+
+    def as_dict(self) -> dict:
+        return {"claim_id": self.claim_id, "rank": self.rank, "label": self.label,
+                "evidence_claim_hash": self.evidence_claim_hash,
+                "decision_spec_hash": self.decision_spec_hash,
+                "effect": self.effect.as_dict(), "uncertainty": self.uncertainty.as_dict(),
+                "support": self.support.as_dict(), "verdict": self.verdict,
+                "inspector_ref": self.inspector_ref}
+
+
+@dataclass(frozen=True)
+class SearchRunView:
+    run_id: str
+    input_state_hash: str
+    current_state_hash: str
+    freshness: str
+    selectable_count: int
+    ranked_count: int
+    displayed_count: int
+    display_policy: str
+    sampling_target: str
+    null_family: str
+    integrity_status: str
+    data_provenance: str
+    artifact_hash: str
+    rows: tuple = field(default_factory=tuple)
+
+    def __post_init__(self):
+        if len(self.rows) != self.displayed_count:
+            raise ExposureAuthorisationError(
+                f"the view claims {self.displayed_count} displayed rows and carries "
+                f"{len(self.rows)}. A row in the payload is an exposed claim whether or not it "
+                f"is drawn, so the two numbers are the same number or the accounting is wrong.")
+
+    def as_dict(self) -> dict:
+        d = asdict(self)
+        d["rows"] = [r.as_dict() for r in self.rows]
+        return d
+
+
+# ── ranking, on the server ──────────────────────────────────────────────────
+RANKING_POLICY = "rank_v1:effect_desc"
+
+
+def _cell(value: str, units: str, label: str, kind: str, ref: str) -> SemanticCell:
+    return SemanticCell(display_value=value, display_units=units, label=label,
+                        semantic_type=kind, inspector_ref=ref)
+
+
+def _pseudo(claim_id: str, salt: str) -> int:
+    return int(hashlib.sha256(f"{claim_id}|{salt}".encode()).hexdigest()[:8], 16)
+
+
+def _row(claim_id: str, rank: int, evidence_hash: str, decision_hash: str) -> ResultRowView:
+    """A deterministic stand-in. Labelled SYNTHETIC_FIXTURE everywhere it can be."""
+    eff = (_pseudo(claim_id, "effect") % 400 - 120) / 100.0
+    half = (_pseudo(claim_id, "ci") % 90 + 25) / 100.0
+    n = 200 + _pseudo(claim_id, "n") % 4000
+    verdict = "BUILD" if eff - half > 0 else ("REJECT" if eff + half < 0 else "UNRESOLVED")
+    ref = f"row:{claim_id}"
+    return ResultRowView(
+        claim_id=claim_id, rank=rank, label=f"class {claim_id[:8]}",
+        evidence_claim_hash=evidence_hash, decision_spec_hash=decision_hash,
+        effect=_cell(f"{eff:+.2f}", "pp", "incremental median return", "INFERENTIAL", ref),
+        uncertainty=_cell(f"[{eff - half:+.2f}, {eff + half:+.2f}]", "pp",
+                          "95% interval", "INFERENTIAL", ref),
+        support=_cell(f"{n:,}", "obs", "opportunities in cell", "DESCRIPTIVE", ref),
+        verdict=verdict, inspector_ref=ref)
+
+
+def rank_and_authorise(*, run_id: str, session_id: str, family_id: str, input_state_hash: str,
+                       search_space_hash: str, selectable_count: int, displayed_count: int,
+                       evidence_hash: str, decision_hash: str, sort_key: str = "effect",
+                       null_family: str = "OPPORTUNITY_LEVEL",
+                       sampling_target: str = "opportunity_bootstrap") -> SearchRunArtifact:
+    """Rank the whole space here, and decide what may leave.
+
+    Both halves are deliberately on this side. Shipping the ranking and letting the client cut it
+    would make the client the authority on how many claims were exposed, and it would be wrong by
+    twenty-six.
+    """
+    ids = [hashlib.sha256(f"{search_space_hash}|{i}".encode()).hexdigest()[:16]
+           for i in range(selectable_count)]
+    if sort_key in ("effect", "score", "pf", "dsr"):
+        ids.sort(key=lambda c: -_pseudo(c, sort_key))
+    else:
+        ids.sort(key=lambda c: _pseudo(c, sort_key or "ticker"))
+    return SearchRunArtifact(
+        run_id=run_id, session_id=session_id, family_id=family_id,
+        input_state_hash=input_state_hash, search_space_hash=search_space_hash,
+        ranking_policy_hash=f"{RANKING_POLICY}|{sort_key}",
+        selectable_count=selectable_count, ranked_claim_ids=tuple(ids),
+        display_policy=f"top_{displayed_count}_by_{sort_key}",
+        displayed_count=min(displayed_count, len(ids)),
+        sampling_target=sampling_target, null_family=null_family)
+
+
+def to_view(artifact: SearchRunArtifact, current_state_hash: str,
+            evidence_hash: str, decision_hash: str) -> SearchRunView:
+    """Domain → transport. The only place the authorised subset is cut, and it is cut here."""
+    rows = tuple(_row(cid, i + 1, evidence_hash, decision_hash)
+                 for i, cid in enumerate(artifact.authorised_ids))
+    fresh = FRESH if artifact.input_state_hash == current_state_hash else STALE
+    return SearchRunView(
+        run_id=artifact.run_id, input_state_hash=artifact.input_state_hash,
+        current_state_hash=current_state_hash, freshness=fresh,
+        selectable_count=artifact.selectable_count, ranked_count=artifact.ranked_count,
+        displayed_count=artifact.displayed_count, display_policy=artifact.display_policy,
+        sampling_target=artifact.sampling_target, null_family=artifact.null_family,
+        integrity_status=artifact.integrity_status, data_provenance=artifact.data_provenance,
+        artifact_hash=artifact.artifact_hash, rows=rows)
+
+
+def assert_promotable(view: SearchRunView) -> None:
+    """A stale table stays readable and stops being actionable. Those are different rights."""
+    if view.freshness != FRESH:
+        raise StaleSearchRunError(
+            f"run {view.run_id} was produced under state {view.input_state_hash} and the session "
+            f"is now at {view.current_state_hash}. It remains part of the research history and "
+            f"can still be read; promoting it would attach a verdict to a specification that is "
+            f"no longer the one on screen.")

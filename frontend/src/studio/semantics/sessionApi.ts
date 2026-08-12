@@ -1,10 +1,11 @@
 /** Session HTTP. Every action asks the backend to classify it before it runs. */
 import {
-  decodeCatalogue, decodePlan, decodePreview, decodeRefusal, decodeSession,
+  decodeCatalogue, decodePlan, decodePreview, decodeRefusal, decodeRun, decodeSession,
   TransportContractError,
 } from './decode';
 import type {
   ChangePlanView, ChangePreview, ForkResult, ParameterCatalogue, Refusal, ResearchSessionView,
+  SearchRunView,
 } from './types';
 
 /**
@@ -143,4 +144,30 @@ export async function commitParameter(
     role: String(c.role ?? ''),
     multiplicity_effect: String(c.multiplicity_effect ?? ''),
   };
+}
+
+export interface RunResult {
+  readonly run: SearchRunView;
+  readonly session: ResearchSessionView;
+}
+
+/** Ask the server to search. It ranks, it authorises, and it charges the exposure. */
+export async function runSearch(sid: string): Promise<RunResult> {
+  const raw = await post(`/${sid}/search`, {}) as Record<string, unknown>;
+  return { run: decodeRun(raw.run), session: decodeSession(raw.session) };
+}
+
+/** Re-read a run. Freshness is recomputed by the server against the CURRENT specification. */
+export async function fetchRun(sid: string, runId: string): Promise<RunResult> {
+  const res = await fetch(`${BASE}/${sid}/run/${runId}`);
+  if (!res.ok) throw new TransportContractError(`${res.status} run: ${await res.text()}`);
+  const raw = await res.json() as Record<string, unknown>;
+  return { run: decodeRun(raw.run), session: decodeSession(raw.session) };
+}
+
+export async function promoteRow(
+  sid: string, runId: string, claimId: string,
+): Promise<ResearchSessionView> {
+  const raw = await post(`/${sid}/promote`, { run_id: runId, claim_id: claimId });
+  return decodeSession((raw as Record<string, unknown>).session);
 }

@@ -79,11 +79,16 @@ ROLE_EFFECTS = {
         "note": "the algorithm may now choose from a different set; multiplicity moves with it",
     },
     SELECTION_PATH_CHANGE: {
-        "multiplicity_effect": "SELECTION_PATH_CHANGED",
-        "changes": ("search_space_hash",),
+        "multiplicity_effect": "EXPOSURE_CHANGED",
+        # No hash moves. That was wrong in the first version and the results table made it
+        # obvious: re-ranking does not change the algorithm's space — thirty-one stays
+        # thirty-one — and neither does showing ten rows instead of five. What changes is WHICH
+        # claims, and HOW MANY, become available to a person. The consequence is exposure, and
+        # exposure is counted by the ledger rather than carried in a specification hash.
+        "changes": (),
         "registered_effect": "REJECT",
-        "note": ("re-ranking a list a person can act on, by an outcome. The algorithm's space "
-                 "did not move; the set a human picks the winner from did"),
+        "note": ("changes which results a person can reach. The algorithm's space did not move; "
+                 "the set that becomes available to choose from did"),
     },
     POLICY_CHANGE: {
         "multiplicity_effect": "DECISION_POLICY_CHANGED",
@@ -389,6 +394,23 @@ class ParameterSurface:
         return _hash(self._slice("affects_decision_policy"))
 
     @property
+    def specification_hash(self) -> str:
+        """Everything a run was computed from, including what it was allowed to show.
+
+        Staleness has to be anchored to the SPECIFICATION, not to the session's event counter.
+        The first version compared against the ledger state hash and every run was stale the
+        instant it existed — the run appends its own events, so the counter had always moved by
+        the time anyone could look. Growing the ledger is not changing the question.
+
+        Display policy is in here on purpose: showing ten rows instead of five is a different
+        authorised set, so the previous table really is no longer the current one.
+        """
+        return _hash({"claim": self.claim_hash, "space": self.search_space_hash,
+                      "policy": self.decision_policy_hash,
+                      "display": self.values.get("displayed_top_k", ""),
+                      "sort": self.values.get("sort_by_displayed_column", "")})
+
+    @property
     def hashes(self) -> dict:
         return {"claim_hash": self.claim_hash, "search_space_hash": self.search_space_hash,
                 "decision_policy_hash": self.decision_policy_hash}
@@ -551,7 +573,26 @@ def display_sort_role(value, caps: SurfaceCapabilities) -> str:
     return SELECTION_PATH_CHANGE if caps.any_selection_affordance else PRESENTATION_ONLY
 
 
-CONDITIONAL_ROLE = {"sort_by_displayed_column": display_sort_role}
+def displayed_count_role(value, caps: SurfaceCapabilities) -> str:
+    """Showing more rows is free only while there are no rows.
+
+    On a control surface `displayed_top_k` moves an abstract number and nothing is displayed by
+    it. On a results surface, five rows becoming ten means five more claims become readable and
+    inspectable — exactly what the display-sort predicate already forbids calling presentation.
+    The same rule, applied to the parameter that looks most obviously cosmetic.
+
+    It is NOT `selection_top_k`, and the difference is the whole lesson of the pair:
+
+        displayed_top_k   the exposed set grows      k_exposed moves, k_selectable does not
+        selection_top_k   the selectable set grows   k_selectable and search_space_hash move
+    """
+    return SELECTION_PATH_CHANGE if caps.any_selection_affordance else PRESENTATION_ONLY
+
+
+CONDITIONAL_ROLE = {
+    "sort_by_displayed_column": display_sort_role,
+    "displayed_top_k": displayed_count_role,
+}
 
 
 def effective_role(parameter_id: str, value, caps: SurfaceCapabilities = CONTROL_SURFACE) -> str:
@@ -564,3 +605,21 @@ def effective_role(parameter_id: str, value, caps: SurfaceCapabilities = CONTROL
 
 def role_is_conditional(parameter_id: str) -> bool:
     return parameter_id in CONDITIONAL_ROLE
+
+
+def strictest_role(parameter_id: str, caps: SurfaceCapabilities = CONTROL_SURFACE) -> str:
+    """The most expensive role this knob can have HERE, over every value it accepts.
+
+    The catalogue needs one role per control and a conditional parameter has several — the sort
+    key decides. Reporting the declared role would put a `view` badge on a control that, for the
+    value a user is about to pick, costs exposure. So the badge shows the strictest reachable
+    role and the plan remains authoritative for the specific value: the label may over-warn, and
+    it can never under-warn.
+    """
+    rule = CONDITIONAL_ROLE.get(parameter_id)
+    if rule is None:
+        return record(parameter_id).semantic_role
+    pres = presentation(parameter_id)
+    candidates = [str(o) for o in pres.get("options", [])] or ["effect"]
+    roles = {rule(v, caps) for v in candidates}
+    return SELECTION_PATH_CHANGE if SELECTION_PATH_CHANGE in roles else PRESENTATION_ONLY

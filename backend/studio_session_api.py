@@ -35,6 +35,7 @@ from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
                          duckdb_bars_provider)
 import data_gateway as GW                                          # noqa: E402
 import parameter_surface as PSURF                                  # noqa: E402
+import search_run as SR                                            # noqa: E402
 from evidence_boundary import (EvidenceBoundary,  # noqa: E402
                                EvidenceBoundaryDriftError, EvidenceBoundaryError,
                                freeze_boundary)
@@ -320,6 +321,7 @@ def parameters(sid: str = "") -> dict:
     for pid in sorted(PSURF.REGISTRY):
         r = PSURF.REGISTRY[pid]
         pres = PSURF.presentation(pid)
+        eff = PSURF.strictest_role(pid, SURFACE_CAPS)
         out.append({
             "parameter_id": pid, "label": pres["label"], "description": pres["description"],
             "ui_kind": pres["ui_kind"], "group": pres["group"],
@@ -328,13 +330,16 @@ def parameters(sid: str = "") -> dict:
             "step": str(pres.get("step", "")),
             "current_value": (surface.values.get(pid, "") if surface else ""),
             # the statistical half. Served, never derived on the other side of the wire.
-            "semantic_role": r.semantic_role,
+            # the EFFECTIVE role on this surface, not the declared one. A `view` badge on a
+            # control that costs exposure here would be the screen telling a comfortable lie.
+            "semantic_role": eff,
+            "declared_role": r.semantic_role,
             "role_is_conditional": "YES" if PSURF.role_is_conditional(pid) else "NO",
             "mutable_in_explore": "YES" if r.allowed_in_explore else "NO",
-            "mutable_in_registered": "YES" if r.allowed_after_register else "NO",
-            "multiplicity_effect": r.effects["multiplicity_effect"],
-            "registered_effect": r.effects["registered_effect"],
-            "note": r.effects["note"]})
+            "mutable_in_registered": "YES" if eff == PSURF.PRESENTATION_ONLY else "NO",
+            "multiplicity_effect": PSURF.ROLE_EFFECTS[eff]["multiplicity_effect"],
+            "registered_effect": PSURF.ROLE_EFFECTS[eff]["registered_effect"],
+            "note": PSURF.ROLE_EFFECTS[eff]["note"]})
     return {"parameters": out,
             "groups": list(PSURF.GROUP_ORDER),
             "roles": {role: list(PSURF.by_role(role)) for role in PSURF.ROLE_EFFECTS},
@@ -344,7 +349,98 @@ def parameters(sid: str = "") -> dict:
 # What the Combo Lab screen lets a person do with a row today: nothing, because there are no
 # rows. The results table will pass RESULTS_SURFACE, and that one flag reclassifies outcome
 # sorting from free to costed without a line of new classification logic.
-SURFACE_CAPS = PSURF.CONTROL_SURFACE
+# The screen now has rows a person can inspect and promote, so `displayed_top_k` and an
+# outcome sort stop being free — by the predicate, not by a decision taken here.
+SURFACE_CAPS = PSURF.RESULTS_SURFACE
+
+# run_id → SearchRunArtifact. Server side only, and never serialised: it holds all 31 ranked ids
+# and shipping it would expose twenty-six claims nobody accounted for.
+_RUNS: dict = {}
+
+
+def _int(v, default: int) -> int:
+    try:
+        return int(float(str(v)))
+    except (TypeError, ValueError):
+        return default
+
+
+def search(sid: str, sort_key: str = "") -> dict:
+    """Run the search, record the exposure, return only what may be seen.
+
+    The exposure accounting is transactional with delivery: the rows that leave this function are
+    the rows the ledger just charged for, in the same call. Charging afterwards would leave a
+    window in which a payload existed and the accounting did not; charging more would count
+    claims nobody could reach.
+    """
+    s = _get(sid)
+    surface = _surface(sid, s)
+    v = surface.values
+    selectable = _int(v.get("selection_top_k"), 31)
+    displayed = _int(v.get("displayed_top_k"), 5)
+    key = sort_key or v.get("sort_by_displayed_column") or "effect"
+
+    claim = _claim_from(surface)
+    run_id = f"{sid}-r{len([e for e in s.events if e.event_type == 'SEARCH_RUN']) + 1:03d}"
+    artifact = SR.rank_and_authorise(
+        run_id=run_id, session_id=sid, family_id=s.family_id,
+        input_state_hash=surface.specification_hash,
+        search_space_hash=surface.search_space_hash,
+        selectable_count=selectable, displayed_count=displayed,
+        evidence_hash=claim.evidence_claim_hash, decision_hash=claim.decision_spec_hash,
+        sort_key=key, null_family=v.get("null_family") or "OPPORTUNITY_LEVEL")
+
+    _touch(s)
+    s.search_run("combolab_v2", artifact.selectable_count, artifact.search_space_hash,
+                 artifact.displayed_count)
+    # one exposure per authorised row, because one row is one claim made available
+    for cid in artifact.authorised_ids:
+        row_claim = ClaimIdentity(
+            estimand="incremental_return_pp", outcome=v.get("outcome_metric") or "median_return",
+            horizon=v.get("horizon") or "20", population=v.get("universe") or "russell",
+            conditioning_hash=f"{surface.claim_hash}:{cid}",
+            feature_rule_hash=v.get("conditioning_feature") or "rsi_14",
+            support_policy_hash=v.get("support_cutoff") or "100",
+            null_family=v.get("null_family") or "OPPORTUNITY_LEVEL",
+            decision_policy_version=surface.decision_policy_hash)
+        s.execute(row_claim)
+        s.expose(row_claim)
+
+    _RUNS[run_id] = artifact
+    view = SR.to_view(artifact, surface.specification_hash, claim.evidence_claim_hash,
+                      claim.decision_spec_hash)
+    return {"run": view.as_dict(), "session": asdict(to_view(s))}
+
+
+def get_run(sid: str, run_id: str) -> dict:
+    """Re-read an existing run. Freshness is recomputed against the session as it is NOW."""
+    s = _get(sid)
+    artifact = _RUNS.get(run_id)
+    if artifact is None:
+        raise KeyError(run_id)
+    surface = _surface(sid, s)
+    claim = _claim_from(surface)
+    view = SR.to_view(artifact, surface.specification_hash, claim.evidence_claim_hash,
+                      claim.decision_spec_hash)
+    return {"run": view.as_dict(), "session": asdict(to_view(s))}
+
+
+def promote(sid: str, run_id: str, claim_id: str) -> dict:
+    """Acting on a row. A stale table may be read and may not be promoted."""
+    s = _get(sid)
+    artifact = _RUNS.get(run_id)
+    if artifact is None:
+        raise KeyError(run_id)
+    surface = _surface(sid, s)
+    claim = _claim_from(surface)
+    view = SR.to_view(artifact, surface.specification_hash, claim.evidence_claim_hash,
+                      claim.decision_spec_hash)
+    SR.assert_promotable(view)                       # raises StaleSearchRunError
+    if claim_id not in artifact.authorised_ids:
+        raise SR.ExposureAuthorisationError(
+            f"{claim_id} was ranked but never authorised for display, so nobody saw it and it "
+            f"cannot be promoted from this run.")
+    return {"promoted": claim_id, "run_id": run_id, "session": asdict(to_view(s))}
 
 
 def preview_parameter(sid: str, parameter_id: str, new_value: str) -> dict:
@@ -517,12 +613,19 @@ def refusal(e: Exception) -> dict:
     # loop. FORK continues the work; NEW_SESSION is the only route back into the confirmatory
     # track, and it is deliberately not a shortcut — nothing is carried over.
     next_action = {
+        "StaleSearchRunError": "RERUN",
         "StaleChangePlanError": "REPREVIEW",
         "ParameterSurfaceError": "FORK",
         "SessionStateError": "FORK",
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "StaleSearchRunError":
+            "These results were produced under a specification the session no longer has. They "
+            "stay readable as history; run the search again to act on the current one.",
+        "ExposureAuthorisationError":
+            "That result was ranked but never made available, so nothing was seen and there is "
+            "nothing to act on.",
         "StaleChangePlanError":
             "The session moved between the preview and this click, so the change you approved is "
             "not the change that would happen. Nothing was applied; take a fresh preview.",
@@ -628,6 +731,15 @@ class ParameterBody(BaseModel):
     # callers that do not preview; a plan that IS supplied must still be current.
     plan_hash: str = ""
     idempotency_key: str = ""
+
+
+class SearchBody(BaseModel):
+    sort_key: str = ""
+
+
+class PromoteBody(BaseModel):
+    run_id: str
+    claim_id: str
 
 
 class ValidateBody(BaseModel):
@@ -756,6 +868,29 @@ def build_router():
         except PSURF.StaleChangePlanError as e:
             raise HTTPException(409, refusal(e))
         except (PSURF.ParameterSurfaceError, SessionStateError) as e:
+            raise HTTPException(409, refusal(e))
+
+    @router.post("/{sid}/search")
+    def _search(sid: str, b: SearchBody | None = None):
+        try:
+            return search(sid, b.sort_key if b else "")
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+
+    @router.get("/{sid}/run/{run_id}")
+    def _run(sid: str, run_id: str):
+        try:
+            return get_run(sid, run_id)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+
+    @router.post("/{sid}/promote")
+    def _promote(sid: str, b: PromoteBody):
+        try:
+            return promote(sid, b.run_id, b.claim_id)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        except (SR.StaleSearchRunError, SR.ExposureAuthorisationError) as e:
             raise HTTPException(409, refusal(e))
 
     @router.get("/{sid}/family")

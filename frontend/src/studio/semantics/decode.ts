@@ -249,3 +249,68 @@ export function decodePlan(raw: unknown): import('./types').ChangePlanView {
   for (const f of PLAN_FIELDS) out[f] = str(p, f, 'plan');
   return out as unknown as import('./types').ChangePlanView;
 }
+
+const CELL_FIELDS = ['display_value', 'display_units', 'label', 'semantic_type',
+                     'inspector_ref'] as const;
+
+function decodeCell(raw: unknown, where: string): import('./types').SemanticCellView {
+  const o = (raw ?? {}) as Record<string, unknown>;
+  const out: Record<string, string> = {};
+  for (const f of CELL_FIELDS) out[f] = str(o, f, where);
+  for (const forbidden of ['value', 'estimate', 'ci_low', 'ci_high', 'point', 'raw']) {
+    if (forbidden in o) {
+      throw new TransportContractError(
+        `${where} carries '${forbidden}'. A statistical cell crosses as text; a number here ` +
+        `would hand the screen an operand, which is the thing the N0 boundary exists to stop.`,
+      );
+    }
+  }
+  return out as unknown as import('./types').SemanticCellView;
+}
+
+/**
+ * Decoding a run also enforces its central invariant. If the payload ever carries more rows than
+ * it admits to displaying, the extra ones were exposed and nobody counted them — so the decoder
+ * refuses rather than rendering the first five and hoping.
+ */
+export function decodeRun(raw: unknown): import('./types').SearchRunView {
+  const outer = (raw ?? {}) as Record<string, unknown>;
+  const o = (outer.run ?? outer) as Record<string, unknown>;
+  if (!Array.isArray(o.rows)) throw new TransportContractError('run carries no rows array');
+  const num = (f: string) => {
+    const v = o[f];
+    if (typeof v !== 'number') throw new TransportContractError(`run.${f} is not a number`);
+    return v;
+  };
+  const displayed = num('displayed_count');
+  if (o.rows.length !== displayed) {
+    throw new TransportContractError(
+      `run says displayed_count=${displayed} and carries ${o.rows.length} rows. Every row in ` +
+      `the payload is an exposed claim whether or not it is drawn.`,
+    );
+  }
+  const rows = o.rows.map((row) => {
+    const r = row as Record<string, unknown>;
+    return {
+      claim_id: str(r, 'claim_id', 'row'), rank: Number(r.rank), label: str(r, 'label', 'row'),
+      evidence_claim_hash: str(r, 'evidence_claim_hash', 'row'),
+      decision_spec_hash: str(r, 'decision_spec_hash', 'row'),
+      effect: decodeCell(r.effect, 'row.effect'),
+      uncertainty: decodeCell(r.uncertainty, 'row.uncertainty'),
+      support: decodeCell(r.support, 'row.support'),
+      verdict: str(r, 'verdict', 'row'), inspector_ref: str(r, 'inspector_ref', 'row'),
+    } as import('./types').ResultRowView;
+  });
+  return {
+    run_id: str(o, 'run_id', 'run'), input_state_hash: str(o, 'input_state_hash', 'run'),
+    current_state_hash: str(o, 'current_state_hash', 'run'),
+    freshness: str(o, 'freshness', 'run'),
+    selectable_count: num('selectable_count'), ranked_count: num('ranked_count'),
+    displayed_count: displayed, display_policy: str(o, 'display_policy', 'run'),
+    sampling_target: str(o, 'sampling_target', 'run'),
+    null_family: str(o, 'null_family', 'run'),
+    integrity_status: str(o, 'integrity_status', 'run'),
+    data_provenance: str(o, 'data_provenance', 'run'),
+    artifact_hash: str(o, 'artifact_hash', 'run'), rows,
+  };
+}

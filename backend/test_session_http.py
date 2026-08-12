@@ -575,8 +575,15 @@ def t29_a_literal_route_is_not_swallowed_by_a_path_parameter():
     # SELECTION_PATH_CHANGE is DERIVED, never declared: no parameter is born with it, and
     # `sort_by_displayed_column` acquires it when the surface gains a row you can act on.
     assert d["roles"]["SELECTION_PATH_CHANGE"] == [], d["roles"]["SELECTION_PATH_CHANGE"]
-    conditional = [p for p in d["parameters"] if p["role_is_conditional"] == "YES"]
-    assert [p["parameter_id"] for p in conditional] == ["sort_by_displayed_column"], conditional
+    conditional = sorted(p["parameter_id"] for p in d["parameters"]
+                         if p["role_is_conditional"] == "YES")
+    assert conditional == ["displayed_top_k", "sort_by_displayed_column"], conditional
+    for p in d["parameters"]:
+        if p["role_is_conditional"] == "YES":
+            assert p["declared_role"] == "PRESENTATION_ONLY", p
+            assert p["semantic_role"] == "SELECTION_PATH_CHANGE", (
+                f"{p['parameter_id']} is declared cosmetic and costs exposure on this surface; "
+                f"the catalogue must report what it costs HERE")
 
 
 def t30_every_parameter_of_a_role_costs_the_same_over_http():
@@ -586,6 +593,11 @@ def t30_every_parameter_of_a_role_costs_the_same_over_http():
     for p in spec["parameters"]:
         by_role.setdefault(p["semantic_role"], []).append(
             (p["multiplicity_effect"], p["registered_effect"], p["mutable_in_registered"]))
+    # the catalogue reports the EFFECTIVE role for this surface
+    eff = {p["parameter_id"]: p["semantic_role"] for p in spec["parameters"]}
+    assert eff["displayed_top_k"] == "SELECTION_PATH_CHANGE", eff["displayed_top_k"]
+    assert eff["sort_by_displayed_column"] == "SELECTION_PATH_CHANGE", eff
+    assert eff["layout"] == "PRESENTATION_ONLY", eff
     for role, shapes in by_role.items():
         assert len(set(shapes)) == 1, f"{role} members disagree over the wire: {shapes}"
 
@@ -606,15 +618,26 @@ def t31_preview_and_commit_agree_over_the_wire():
 
 
 def t32_a_cosmetic_knob_reaches_no_ledger_even_ten_times():
+    """`layout` is cosmetic everywhere; sorting stopped being cosmetic when rows appeared"""
     sid = _new_session()
     before = _acc(sid)
     for i in range(10):
-        r = _param(sid, "sort_by_displayed_column", f"col{i}")
+        r = _param(sid, "layout", ["grid", "list", "compact"][i % 3])
         assert r.json()["recorded"] == "NO", r.json()
     after = _acc(sid)
     assert after["events"] == before["events"], \
         f"a view reached the ledger: {before['events']} -> {after['events']}"
     assert after["k_exposed"] == before["k_exposed"]
+
+    # and the control that USED to be free here is not, now that a row can be acted on
+    sorted_ = _param(sid, "sort_by_displayed_column", "effect")
+    assert sorted_.json()["classification"]["role"] == "SELECTION_PATH_CHANGE", sorted_.json()
+    assert _acc(sid)["changes_selection_path"] == "1", _acc(sid)
+
+    # and the control that USED to be free here is not, now that a row can be acted on
+    sorted_ = _param(sid, "sort_by_displayed_column", "effect")
+    assert sorted_.json()["classification"]["role"] == "SELECTION_PATH_CHANGE", sorted_.json()
+    assert _acc(sid)["changes_selection_path"] == "1", _acc(sid)
 
 
 def t33_a_frozen_study_refuses_by_role_and_offers_the_fork():

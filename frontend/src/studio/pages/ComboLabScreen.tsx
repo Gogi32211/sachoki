@@ -18,13 +18,14 @@
  */
 import { useCallback, useEffect, useState } from 'react';
 import {
-  commitParameter, createSession, fetchCatalogue, forkSession, previewParameter,
-  registerSession, revisit, SessionRefusedError,
+  commitParameter, createSession, fetchCatalogue, fetchRun, forkSession, previewParameter,
+  promoteRow, registerSession, revisit, runSearch, SessionRefusedError,
 } from '../semantics/sessionApi';
 import { SessionAccountingPanel } from '../components/SessionAccountingPanel';
 import { ParameterControl, RoleBadge } from '../components/ParameterControl';
+import { ResultsTable } from '../components/ResultsTable';
 import type {
-  ChangePlanView, ParameterCatalogue, Refusal, ResearchSessionView,
+  ChangePlanView, ParameterCatalogue, Refusal, ResearchSessionView, ResultRowView, SearchRunView,
 } from '../semantics/types';
 
 export function ComboLabScreen() {
@@ -35,6 +36,8 @@ export function ComboLabScreen() {
   const [refusal, setRefusal] = useState<Refusal | null>(null);
   const [forkReason, setForkReason] = useState('');
   const [lineage, setLineage] = useState('');
+  const [run, setRun] = useState<SearchRunView | null>(null);
+  const [inspected, setInspected] = useState<ResultRowView | null>(null);
   const [error, setError] = useState('');
 
   const failed = useCallback((e: unknown) => {
@@ -64,14 +67,32 @@ export function ComboLabScreen() {
   /** Step two. By hash, so a session that moved in between refuses instead of improvising. */
   const confirm = () => {
     if (!session || !plan) return;
-    commitParameter(session.session_id, plan)
+    const sid = session.session_id;
+    commitParameter(sid, plan)
       .then((r) => {
         setSession(r.session);
         setLastApplied(plan);
         setPlan(null);
-        load(session.session_id);
+        load(sid);
+        // the previous table was computed from a specification that just moved; ask the server
+        // whether it is still current rather than deciding here
+        if (run) fetchRun(sid, run.run_id).then((x) => setRun(x.run)).catch(failed);
       })
       .catch(failed);
+  };
+
+  const search = () => {
+    if (!session) return;
+    setRefusal(null);
+    runSearch(session.session_id)
+      .then((r) => { setRun(r.run); setSession(r.session); })
+      .catch(failed);
+  };
+
+  const promote = (row: ResultRowView) => {
+    if (!session || !run) return;
+    setRefusal(null);
+    promoteRow(session.session_id, run.run_id, row.claim_id).then(setSession).catch(failed);
   };
 
   const reopen = () => {
@@ -158,6 +179,11 @@ export function ComboLabScreen() {
           })}
 
           <div className="flex flex-wrap items-center gap-2">
+            <button type="button" onClick={search} data-run-search="1"
+                    className="rounded border border-md-warning px-3 py-1 text-xs text-md-warning
+                               hover:bg-md-warning-con">
+              run search
+            </button>
             <button type="button" onClick={reopen}
                     className="rounded border border-md-outline-var px-3 py-1 text-xs
                                text-md-on-surface-var hover:text-md-on-surface">
@@ -177,6 +203,37 @@ export function ComboLabScreen() {
         </div>
 
         <div className="space-y-4">
+          {inspected && (
+            <div data-inspector={inspected.claim_id}
+                 className="rounded-lg border border-md-outline-var bg-md-surface-con p-4">
+              <div className="flex items-baseline justify-between">
+                <span className="text-xs font-semibold uppercase tracking-widest
+                                 text-md-on-surface-var">
+                  passport
+                </span>
+                <button type="button" onClick={() => setInspected(null)}
+                        className="text-[10px] text-md-on-surface-var">close</button>
+              </div>
+              <div className="mt-2 space-y-1 text-[11px] text-md-on-surface-var">
+                <div className="text-md-on-surface">{inspected.label}</div>
+                <div>{inspected.effect.label}: <span className="font-mono text-md-on-surface">
+                  {inspected.effect.display_value} {inspected.effect.display_units}</span></div>
+                <div>{inspected.uncertainty.label}: <span className="font-mono">
+                  {inspected.uncertainty.display_value}</span></div>
+                <div>{inspected.support.label}: <span className="font-mono">
+                  {inspected.support.display_value}</span></div>
+                <div className="pt-1">sampling target <span className="font-mono">
+                  {run?.sampling_target}</span></div>
+                <div>null family <span className="font-mono">{run?.null_family}</span></div>
+                <div>evidence claim <span className="font-mono">
+                  {inspected.evidence_claim_hash}</span></div>
+                <div>decision spec <span className="font-mono">
+                  {inspected.decision_spec_hash}</span></div>
+                <div>provenance <span className="font-mono">{run?.data_provenance}</span></div>
+              </div>
+            </div>
+          )}
+
           {plan && (
             <div data-plan={plan.plan_hash}
                  className="rounded-lg border border-md-warning bg-md-warning-con p-4">
@@ -286,6 +343,12 @@ export function ComboLabScreen() {
           <SessionAccountingPanel session={session} />
         </div>
       </div>
+
+      {run && (
+        <div className="mt-6">
+          <ResultsTable run={run} onInspect={setInspected} onPromote={promote} />
+        </div>
+      )}
     </div>
   );
 }

@@ -364,8 +364,11 @@ def t17_display_sort_is_free_only_while_it_reaches_nothing():
             f"sorting by {key} on a surface with nothing to click reaches no decision")
         costed = PS.classify(s, "sort_by_displayed_column", key, caps=PS.RESULTS_SURFACE)
         assert costed["role"] == SELECTION_PATH_CHANGE, (key, costed["role"])
-        assert costed["multiplicity_effect"] == "SELECTION_PATH_CHANGED", costed
-        assert costed["hashes_moved"] == ("search_space_hash",), costed
+        assert costed["multiplicity_effect"] == "EXPOSURE_CHANGED", costed
+        # No hash moves, and that is the correction the results table forced: re-ranking does
+        # not change the algorithm's space. It changes which claims a person can reach, and
+        # exposure is counted by the ledger rather than carried in a specification hash.
+        assert costed["hashes_moved"] == (), costed
 
 
 def t17b_an_unknown_sort_key_fails_closed():

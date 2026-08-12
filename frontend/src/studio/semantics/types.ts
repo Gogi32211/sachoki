@@ -201,3 +201,49 @@ export interface ChangePlanView {
   readonly no_op: string;
   readonly plan_hash: string;
 }
+
+/** One statistical cell. Text and a passport reference — never an operand. */
+export interface SemanticCellView {
+  readonly display_value: string;
+  readonly display_units: string;
+  readonly label: string;
+  readonly semantic_type: string;
+  readonly inspector_ref: string;
+}
+
+export interface ResultRowView {
+  readonly claim_id: string;
+  readonly rank: number;              // deterministic metadata, not a statistical value
+  readonly label: string;
+  readonly evidence_claim_hash: string;
+  readonly decision_spec_hash: string;
+  readonly effect: SemanticCellView;
+  readonly uncertainty: SemanticCellView;
+  readonly support: SemanticCellView;
+  readonly verdict: string;
+  readonly inspector_ref: string;
+}
+
+/**
+ * A search run, as the browser is allowed to know it.
+ *
+ * `rows` is the AUTHORISED set, not the ranking. The server ranked `ranked_count` claims and
+ * released `displayed_count`; the rest never crossed. So this type cannot express "sort the
+ * full results and take the top five" — there is no full result set here to sort.
+ */
+export interface SearchRunView {
+  readonly run_id: string;
+  readonly input_state_hash: string;
+  readonly current_state_hash: string;
+  readonly freshness: string;         // FRESH · STALE
+  readonly selectable_count: number;
+  readonly ranked_count: number;
+  readonly displayed_count: number;
+  readonly display_policy: string;
+  readonly sampling_target: string;
+  readonly null_family: string;
+  readonly integrity_status: string;
+  readonly data_provenance: string;
+  readonly artifact_hash: string;
+  readonly rows: readonly ResultRowView[];
+}
