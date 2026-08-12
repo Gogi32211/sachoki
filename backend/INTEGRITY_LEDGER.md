@@ -345,3 +345,70 @@ the actual one governs.
 
 **Rule.** If a field decides a verdict, ask who supplies it. A value asserted by the party the
 verdict is about is a commitment to be recorded and checked, never an input to be trusted.
+
+---
+
+## 2026-08-12 · THE GUARD FIRED ON THE ACCOUNTING ITSELF
+
+```
+type        GATEWAY_GUARD_CAUGHT_ITS_OWN_MACHINERY
+symptom     SourceUnavailableError: source 'bars_1d' could not be read —
+            duckdb.connect was called while an execution is open
+cause       the cutoff provider reads the same protected database
+remedy      a shared `internal()` marker in the LOWER module, used by both
+status      RESOLVED — and kept as evidence
+```
+
+The first real execution through the gateway failed because establishing the source cutoff
+opens the very database the guard defends. The instinct is to read this as an over-broad guard
+needing an exception. It is the opposite: a barrier that lets its own author's infrastructure
+through by accident is a barrier with a shape, and a shape is something to route around. This
+one had no shape — it stopped everything, including the code that measures.
+
+The marker lives in `data_access`, the lower module, rather than in `data_gateway`. Putting it
+in the gateway would have made `data_access` import the gateway to ask permission, and a cycle
+between the thing being measured and the thing measuring it is its own kind of defect.
+
+---
+
+## 2026-08-12 · WHAT "CANNOT BYPASS" ACTUALLY MEANS HERE
+
+Two words are kept apart deliberately, and every receipt carries which one applies:
+
+```
+ENFORCED_IN_PROCESS   while an execution is open, the direct constructors into protected
+                      sources raise. Research code in this process has no other route.
+                      Someone who removes the guard obviously does — same process.
+
+ISOLATED              a separate data service; the research worker holds no OS-level access
+                      to the files at all. Then "every read is observable" is a property of
+                      the deployment, not of a patched function.
+```
+
+This milestone implements the first. `test_research_path_isolation.py` adds a static scan that
+does not depend on execution timing, and its own docstring states the limit: it covers a
+DECLARED list of modules, so a new research module has to be added to be covered. That is a
+maintenance weakness, recorded rather than hidden behind a green tick.
+
+### The distinction the milestone is actually about
+
+```
+footprints   what was read
+receipt      proof that the reads were completely registered
+```
+
+Fail-closed on a MISSING footprint defends against obvious incompleteness. It cannot see the
+dangerous case:
+
+```
+recorded A · recorded B · unrecorded C
+```
+
+Nothing is absent, so nothing looks wrong, and the verdict is CLEAN while C has already read the
+validation window. Hence `AccessCompleteness` as a separate axis that GATES contamination rather
+than being weighed against it, and hence `read_count=0, complete=true` being a positive statement
+distinct from "no footprints were recorded".
+
+Both guards were shown their defects before being trusted: dropping the completeness gate
+certifies the bypass as FORWARD, and dropping lineage propagation leaves the raw window clean
+after a derived artifact was read.

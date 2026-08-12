@@ -34,7 +34,35 @@ from __future__ import annotations
 
 import hashlib
 import os
+import threading
 from dataclasses import asdict, dataclass, field
+
+# ── the one flag both layers share ──────────────────────────────────────────
+# The gateway's guard blocks direct reads of protected sources while a study is running. The
+# accounting machinery itself reads those same files — the source cutoff comes from the database
+# — so it needs a way to say "this read IS the accounting". It lives here, in the lower module,
+# because the alternative was data_access importing data_gateway to ask permission, and a cycle
+# between the thing being measured and the thing measuring it is its own kind of defect.
+#
+# The guard firing on the cutoff provider was not a nuisance. It was evidence the barrier is
+# blanket rather than selective, which is the property being claimed.
+_LOCAL = threading.local()
+
+
+def inside_gateway() -> bool:
+    return bool(getattr(_LOCAL, "inside", False))
+
+
+class internal:
+    """Marks a read as part of the accounting rather than part of a study."""
+
+    def __enter__(self):
+        self._prev = inside_gateway()
+        _LOCAL.inside = True
+
+    def __exit__(self, *a):
+        _LOCAL.inside = self._prev
+        return False
 
 DEVELOPMENT, VALIDATION = "DEVELOPMENT", "VALIDATION"
 
@@ -165,7 +193,8 @@ class SourceCatalog:
                 f"source whose cutoff the server cannot establish — the alternative is trusting "
                 f"the caller on the one field that decides FORWARD.")
         try:
-            snap, cutoff = self._providers[source_id]()
+            with internal():          # establishing a cutoff is accounting, not research
+                snap, cutoff = self._providers[source_id]()
         except Exception as e:                                       # noqa: BLE001
             raise SourceUnavailableError(f"source {source_id!r} could not be read: {e}") from e
         if not snap or not cutoff:

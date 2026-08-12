@@ -33,7 +33,9 @@ from evidence_boundary import (CLEAN, CONTAMINATED, FORWARD, UNKNOWN,  # noqa: E
                                EvidenceBoundary, EvidenceBoundaryDriftError,
                                EvidenceBoundaryError, ExposureRegistry,
                                confirmatory_verdict, freeze_boundary)
+import data_gateway as GW                                            # noqa: E402
 from research_family import ResearchFamily                           # noqa: E402
+from research_session import ResearchSession                         # noqa: E402
 
 # a source the server can speak for, without a database
 CUTOFF = "2026-08-11"
@@ -69,35 +71,55 @@ def ledger(name: str) -> RS.DurableLedger:
     return RS.DurableLedger(os.path.join(TMP, f"{name}.jsonl"))
 
 
-def explore(L, session, family, claims, declared, actually=None):
-    """A session that looks at several specifications, and a footprint of what it really read.
+# A stand-in source. Its reader is reachable only from inside the gateway, which is the property
+# the fixtures below depend on: an exposure here is backed by a real, attested execution.
+_READ_LOG: list = []
 
-    `actually` is the whole point of the access layer: what a session DECLARES and what it TOUCHES
-    are separate facts, and only the second one contaminates.
+
+def _reader(path, start, end, columns=()):
+    _READ_LOG.append((start, end))
+    return [{"date": start}], 1
+
+
+GW.REGISTRY.register(GW.SourceRegistration(
+    source_id="bars_1d", path=os.path.join(TMP, "bars.db"), reader=_reader, universe="russell"))
+
+
+def explore(L, session, family, claims, declared, actually=None, read=True):
+    """A session that looks at several specifications, through the gateway.
+
+    These fixtures used to append DATA_ACCESSED by hand, which stopped being legitimate the
+    moment completeness became a gate: a footprint with no execution receipt is exactly the
+    partial-attestation case the gateway milestone exists to refuse. They now run the real path,
+    so what they exercise is what production does.
+
+    `actually` is the point of the access layer — declared and touched are separate facts, and
+    only the second one contaminates. `read=False` gives an execution that attests reading
+    nothing, which is how a contamination-level UNKNOWN is reached with COMPLETE access.
     """
-    L.append(session, family, "SESSION_CREATED", event_id=0, prior_state_hash="",
-             new_state_hash=f"{session}0")
-    h, eid = f"{session}0", 1
-    layer = DataAccessLayer(declared, CATALOG)
-    lo, hi = actually or (declared.start, declared.end)
-    layer.record(lo, hi, dates=1)
-    fp = layer.footprint()
-    L.append(session, family, "DATA_ACCESSED", event_id=eid, prior_state_hash=h,
-             new_state_hash=f"{session}{eid}", payload={"footprint": fp.as_dict()})
-    h, eid = f"{session}{eid}", eid + 1
+    s = ResearchSession(session, code_hash="eb-test", store=L, family_id=family)
+    s.access_spec = declared.as_dict()
+    s.start_exploration()
+    cap = GW.capability_for(s, f"{session}-x1", ("bars_1d",))
+    with GW.ExecutionContext(s, cap, code_hash="study@v1") as ex:
+        if read:
+            lo, hi = actually or (declared.start, declared.end)
+            ex.open("bars_1d").read(lo, hi)
+    from research_session import RESULT_EXPOSED
     for c in claims:
-        L.append(session, family, "RESULT_EXPOSED", event_id=eid, prior_state_hash=h,
-                 new_state_hash=f"{session}{eid}", claim_hash=c)
-        h, eid = f"{session}{eid}", eid + 1
-    return h, eid
+        s._append(RESULT_EXPOSED, claim_hash=c)
+    return s
 
 
 def register(L, session, family, claim):
-    L.append(session, family, "SESSION_CREATED", event_id=0, prior_state_hash="",
-             new_state_hash=f"{session}0")
-    L.append(session, family, "SESSION_FROZEN", event_id=1, prior_state_hash=f"{session}0",
-             new_state_hash=f"{session}1", claim_hash=claim,
-             payload={"space_id": "combolab_v2", "size": 31, "hash": "3600ae3dd52a25e6"})
+    """A registered session. It declares a boundary because register() now requires one."""
+    s = ResearchSession(session, code_hash="eb-test", store=L, family_id=family)
+    s.access_spec = DEV.as_dict()
+    s.start_exploration()
+    s.registered_claim_hash = claim
+    s.declare_evidence_boundary(boundary(FUTURE).as_dict())
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register(claim_hash=claim)
+    return s
 
 
 def boundary(validation: DataAccessSpec, development: DataAccessSpec = DEV) -> EvidenceBoundary:
@@ -166,11 +188,14 @@ def t3_untouched_historical_oos_is_clean():
 
 
 def t4_an_exposure_with_no_footprint_is_treated_as_contamination():
-    """UNKNOWN must not read as clean: the weakest bookkeeping cannot license the strongest claim"""
+    """UNKNOWN must not read as clean, even when access itself is fully attested
+
+    The execution here is COMPLETE — it demonstrably read nothing — and a result was exposed
+    anyway. Access completeness is satisfied and the exposure still has no footprint behind it,
+    which is the case that keeps the two axes genuinely separate.
+    """
     L = ledger("unknown")
-    L.append("s1", "F4", "SESSION_CREATED", event_id=0, prior_state_hash="", new_state_hash="x0")
-    L.append("s1", "F4", "RESULT_EXPOSED", event_id=1, prior_state_hash="x0",
-             new_state_hash="x1", claim_hash="A")          # no window recorded
+    explore(L, "s1", "F4", ["A"], DEV, read=False)
     register(L, "s2", "F4", "A")
     v = ResearchFamily("F4", L.read_all()).confirmatory(boundary(OOS))
     assert v["status"] == UNKNOWN and v["eligible"] is False, v
@@ -205,9 +230,7 @@ def t6_an_unregistered_family_has_nothing_to_confirm():
 def t7_forward_beats_an_incomplete_ledger():
     """FORWARD does not depend on the ledger being complete, and CLEAN does"""
     L = ledger("forward")
-    L.append("s1", "F7", "SESSION_CREATED", event_id=0, prior_state_hash="", new_state_hash="y0")
-    L.append("s1", "F7", "RESULT_EXPOSED", event_id=1, prior_state_hash="y0",
-             new_state_hash="y1", claim_hash="A")          # footprint unknown → poisons CLEAN
+    explore(L, "s1", "F7", ["A"], DEV, read=False)         # attested, and read nothing
     register(L, "s2", "F7", "A")
     fam = ResearchFamily("F7", L.read_all())
     assert fam.confirmatory(boundary(OOS))["status"] == UNKNOWN

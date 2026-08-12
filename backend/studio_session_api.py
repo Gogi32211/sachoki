@@ -33,6 +33,7 @@ import research_store as RS                                        # noqa: E402
 from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
                          DataAccessLayer, DataAccessSpec, SourceUnavailableError,
                          duckdb_bars_provider)
+import data_gateway as GW                                          # noqa: E402
 from evidence_boundary import (EvidenceBoundary,  # noqa: E402
                                EvidenceBoundaryDriftError, EvidenceBoundaryError,
                                freeze_boundary)
@@ -52,6 +53,25 @@ _CODE = "research_session@0e45b53"
 _BARS_DB = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
                         "data", "studio_analytics.duckdb")
 CATALOG.register("bars_1d", duckdb_bars_provider(_BARS_DB))
+
+
+def _bars_reader(path, start, end, columns=()):
+    """The ONLY way this slice reaches bars. Read-only; the nightly job stays the sole writer."""
+    import duckdb
+    con = duckdb.connect(path, read_only=True)
+    try:
+        rows = con.execute(
+            "SELECT date FROM bars WHERE date BETWEEN ? AND ? LIMIT 1", [start, end]).fetchall()
+    finally:
+        con.close()
+    return rows, len(rows)
+
+
+GW.REGISTRY.register(GW.SourceRegistration(
+    source_id="bars_1d", path=_BARS_DB, reader=_bars_reader, universe="russell"))
+# Armed only while an execution is open, so the rest of the application keeps reading its own
+# databases normally. See data_gateway for why this is ENFORCED_IN_PROCESS and not ISOLATED.
+GW.install_guards()
 
 # The default DECLARATION for this slice. It is a starting point for the form, not a global
 # truth: what governs contamination is the footprint the access layer records, and a session may
@@ -186,23 +206,22 @@ def change_and_run(sid: str, parameter_id: str, horizon: str, tolerance: str,
             "change_type": d.semantic_role, "horizon": str(horizon), "tolerance": str(tolerance)}
 
 
-def _touch(s: ResearchSession, over: tuple = ()) -> None:
-    """Run the read through the access layer so the ACTUAL range is what gets recorded.
+def _touch(s: ResearchSession, over: tuple = (), execution_id: str = "") -> None:
+    """The study's read, through the gateway. There is no other path from here to the data.
 
-    `over` exists for the case this whole layer is here to catch: a helper that reads outside
-    what the session declared. It is a parameter rather than an impossibility because pretending
-    it cannot happen is precisely how the declared window became the thing being trusted.
+    `over` is a read outside the declared window. It stays expressible on purpose: the reason
+    this layer records instead of refusing is that overreach happens, and a system that cannot
+    represent it cannot be tested against it.
     """
     if not s.access_spec:
         return
     spec = DataAccessSpec.from_dict(s.access_spec)
-    layer = DataAccessLayer(spec, CATALOG)
-    layer.record(spec.start, spec.end, dates=0)
-    if over:
-        layer.record(over[0], over[1], dates=0)
-    fp = layer.footprint()
-    if fp:
-        s.record_footprint(fp.as_dict())
+    cap = GW.capability_for(s, execution_id or f"{s.session_id}-e{len(s.events)}", ("bars_1d",))
+    with GW.ExecutionContext(s, cap, code_hash=_CODE) as ex:
+        h = ex.open("bars_1d")
+        h.read(spec.start, spec.end)
+        if over:
+            h.read(over[0], over[1])
 
 
 def revisit(sid: str, horizon: str, tolerance: str) -> dict:

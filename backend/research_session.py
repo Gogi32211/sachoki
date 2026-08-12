@@ -174,6 +174,9 @@ SESSION_FROZEN = "SESSION_FROZEN"
 SESSION_FORKED = "SESSION_FORKED"
 EVIDENCE_BOUNDARY_DECLARED = "EVIDENCE_BOUNDARY_DECLARED"
 DATA_ACCESSED = "DATA_ACCESSED"
+EXECUTION_STARTED = "EXECUTION_STARTED"
+EXECUTION_RECEIPT = "EXECUTION_RECEIPT"
+DIRECT_ACCESS_ATTEMPT = "DIRECT_ACCESS_ATTEMPT"
 SESSION_CLOSED = "SESSION_CLOSED"
 
 
@@ -367,6 +370,31 @@ class ResearchSession:
                      footprint=dict(footprint_dict),
                      footprint_hash=footprint_dict.get("footprint_hash", ""),
                      exceeded_declaration=bool(footprint_dict.get("exceeded_declaration")))
+        return self
+
+    def record_execution_started(self, capability):
+        self._append(EXECUTION_STARTED, execution_id=capability.execution_id,
+                     capability_hash=capability.capability_hash,
+                     allowed_sources=list(capability.allowed_sources),
+                     purpose=capability.purpose,
+                     issued_state_hash=capability.issued_state_hash)
+        return self
+
+    def record_execution_receipt(self, receipt: dict):
+        """Proof that this execution's reads were completely registered — or that they were not."""
+        self._append(EXECUTION_RECEIPT, receipt=dict(receipt),
+                     receipt_hash=receipt.get("receipt_hash", ""),
+                     complete=bool(receipt.get("complete")),
+                     read_count=int(receipt.get("read_count", 0)))
+        return self
+
+    def record_direct_access_attempt(self, execution_id: str, violation: dict):
+        """A read that tried to go around the gateway. Recorded even though it was refused.
+
+        The attempt matters more than its outcome: the read failed, and the code path that made
+        it is still there, so nothing computed by this execution can be vouched for.
+        """
+        self._append(DIRECT_ACCESS_ATTEMPT, execution_id=execution_id, **violation)
         return self
 
     def assert_registerable(self):

@@ -112,9 +112,13 @@ class ResearchFamily:
         return ExposureRegistry.from_events(self.all_events)
 
     def confirmatory(self, boundary: EvidenceBoundary | None) -> dict:
+        from data_gateway import access_completeness
         acc = self.accounting()
+        # completeness is asked of the WHOLE durable history, for the same reason contamination
+        # is: a read that went around the gateway in another family is still a read
         v = confirmatory_verdict(registered=bool(acc.registered_sessions), boundary=boundary,
-                                 registry=self.registry())
+                                 registry=self.registry(),
+                                 completeness=access_completeness(self.all_events))
         v["k_family_selectable"] = acc.k_family_selectable
         v["k_family_exposed"] = acc.k_family_exposed
         v["sessions_in_family"] = len(acc.session_ids)

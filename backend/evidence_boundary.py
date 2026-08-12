@@ -234,8 +234,23 @@ CONFIRMATORY_OK = (CLEAN, FORWARD)
 
 
 def confirmatory_verdict(*, registered: bool, boundary: EvidenceBoundary | None,
-                         registry: ExposureRegistry) -> dict:
-    """The single place that answers 'may this be reported as confirmatory'."""
+                         registry: ExposureRegistry, completeness: tuple = ()) -> dict:
+    """The single place that answers 'may this be reported as confirmatory'.
+
+    `completeness` is a separate axis and it gates this one. Contamination answers "was this
+    window read"; completeness answers whether that question can be answered at all. A study
+    with an unobserved read path produces a perfectly clean-looking contamination check, and
+    that false CLEAN is exactly what this gate refuses.
+    """
+    if completeness:
+        status_c, why_c = completeness
+        if status_c != "COMPLETE":
+            return {"eligible": False, "status": f"ACCESS_{status_c}", "why": why_c,
+                    "access_completeness": status_c,
+                    "boundary_hash": boundary.boundary_hash if boundary else "",
+                    "validation": boundary.validation.label if boundary else "",
+                    "development": boundary.development.label if boundary else "",
+                    "overreaching_reads": len(registry.overreaching())}
     if not registered:
         return {"eligible": False, "status": "NOT_REGISTERED",
                 "why": "no claim was frozen in advance, so there is nothing to confirm"}
@@ -245,6 +260,7 @@ def confirmatory_verdict(*, registered: bool, boundary: EvidenceBoundary | None,
                         "needs evidence that was not used to choose it.")}
     status, why = registry.status_for(boundary)
     return {"eligible": status in CONFIRMATORY_OK, "status": status, "why": why,
+            "access_completeness": completeness[0] if completeness else "UNATTESTED",
             "boundary_hash": boundary.boundary_hash,
             "validation": boundary.validation.label,
             "development": boundary.development.label,
