@@ -333,6 +333,14 @@ try:
 except Exception as _aij_exc:  # never block app startup on the journal
     log.warning("ai_journal router not loaded: %s", _aij_exc)
 
+# Analytic Studio · semantics transport. Read-only, and deliberately arithmetic-free: the views
+# it serves carry display_value as a STRING, so no component downstream ever receives an operand.
+try:
+    from studio_semantics_api import build_router as _studio_semantics_router
+    app.include_router(_studio_semantics_router())
+except Exception as _sem_exc:  # a new surface must never block the existing app from starting
+    log.warning("studio semantics router not loaded: %s", _sem_exc)
+
 
 def _normalise_date(idx) -> list[str]:
     try:
