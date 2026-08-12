@@ -37,7 +37,9 @@ INVENTORY = os.path.join(HERE, "V2_KERNEL_DEPENDENCIES.json")
 # The functions the extraction will move, and where they live today.
 TARGETS = [("v2_sealed_run.py", "main", "boot"),
            ("v2_sealed_run.py", "main", "verdict"),
-           ("v2_decision_run.py", None, "Frozen")]
+           ("v2_kernel.py", None, "Frozen"),
+           ("v2_kernel.py", None, "verdict"),
+           ("v2_kernel.py", None, "support_hash")]
 
 # Coordinates that exist only because a needle was planted. A kernel that reads one of these is
 # a capability harness wearing a kernel's name.

@@ -59,31 +59,68 @@ def t2_boot_reads_the_sealed_experiments_coordinates():
     assert "S1R" in d["free_names"], d["free_names"]
 
 
-def t3_verdict_is_outcome_agnostic_and_moves_as_it_is():
-    """it reads a materiality threshold and support metadata, and nothing about the needle"""
+def t3_the_moved_verdict_reads_only_what_it_was_given():
+    """after 3B.1 its closure reads `decide` and nothing else
+
+    Before the move its free names were {DELTA_STAR, decide, meta}. Both of the others are now
+    parameters, which is what "passing dependencies that were already read" means: the set
+    shrank by exactly those two and gained nothing.
+    """
     d = frozen()["targets"]["verdict"]
+    assert d["file"] == "v2_kernel.py", d["file"]
+    assert set(d["free_names"]) == {"decide"}, d["free_names"]
+    assert d["params"] == ["e", "cell", "meta", "delta_star"], d["params"]
     assert d["capability_coordinates_read"] == [], d
-    assert d["extractable_verbatim"] is True
-    assert set(d["free_names"]) == {"DELTA_STAR", "decide", "meta"}, d["free_names"]
-    # DELTA_STAR is the materiality threshold a verdict is read against, not the planted delta.
-    # The names are one character apart, which is exactly why this is asserted rather than
-    # assumed: `delta` would have been a leak and `DELTA_STAR` is not.
+    # `delta_star` is the materiality threshold, not the planted δ. The names are close enough
+    # that the distinction is asserted rather than left to a reader.
     assert "delta" not in d["free_names"]
 
 
 def t4_frozen_layout_carries_no_experiment_state():
     d = frozen()["targets"]["Frozen"]
+    assert d["file"] == "v2_kernel.py"
+    assert set(d["free_names"]) == {"E", "np", "support_hash"}, d["free_names"]
     assert d["capability_coordinates_read"] == [], d
-    assert d["extractable_verbatim"] is True
 
 
-def t5_the_cut_line_is_where_the_inventory_says_it_is():
-    """3B may move what reads nothing capability-specific, and must parameterise the rest"""
+def t5_the_expected_dependency_diff_and_nothing_else():
+    """the diff was predicted before the move; anything extra stops the extraction
+
+    Predicted: the kernel loses nothing it should keep and gains no capability coordinate, and
+    `boot` is untouched. An unexpected name here means a dependency arrived or vanished during
+    the move, and that has to be explained before a green oracle is worth reading.
+    """
     t = frozen()["targets"]
-    verbatim = sorted(k for k, v in t.items() if v.get("extractable_verbatim"))
-    needs_parameterising = sorted(k for k, v in t.items() if not v.get("extractable_verbatim"))
-    assert verbatim == ["Frozen", "verdict"], verbatim
-    assert needs_parameterising == ["boot"], needs_parameterising
+    assert set(t) == {"boot", "verdict", "Frozen", "support_hash"}, sorted(t)
+    kernel = {k: v for k, v in t.items() if v["file"] == "v2_kernel.py"}
+    assert sorted(kernel) == ["Frozen", "support_hash", "verdict"], sorted(kernel)
+    for name, d in kernel.items():
+        assert d["capability_coordinates_read"] == [], (name, d)
+        assert d["extractable_verbatim"] is True, name
+    assert t["boot"]["file"] == "v2_sealed_run.py", "boot was moved; 3B.1 must not touch it"
+    assert t["boot"]["extractable_verbatim"] is False
+
+
+def t5b_the_sealed_closure_became_a_thin_client():
+    """the call sites are unchanged; only what the wrapper reads changed, and to the predicted set"""
+    import ast
+    with open(os.path.join(HERE, "v2_sealed_run.py")) as f:
+        tree = ast.parse(f.read())
+    found = None
+    for n in ast.walk(tree):
+        if isinstance(n, ast.FunctionDef) and n.name == "verdict":
+            found = n
+    assert found is not None, "the sealed verdict wrapper disappeared"
+    reads = {x.id for x in ast.walk(found) if isinstance(x, ast.Name)} - {"e", "cell"}
+    assert reads == {"K", "meta", "DELTA_STAR"}, sorted(reads)
+
+
+def t5c_the_kernel_and_the_old_module_are_the_same_object():
+    """re-export, not a copy — two Frozen classes would be two engines"""
+    import v2_kernel as K                                            # noqa: PLC0415
+    import v2_decision_run as D                                      # noqa: PLC0415
+    assert K.Frozen is D.Frozen
+    assert K.support_hash is D.support_hash
 
 
 def t6_REPRODUCTION_reading_the_source_would_have_missed_it():
@@ -106,9 +143,11 @@ print("  V2 KERNEL DEPENDENCIES — the inventory, frozen before the move", flus
 print("=" * 100, flush=True)
 for i, fn in enumerate([t1_the_inventory_is_stable,
                         t2_boot_reads_the_sealed_experiments_coordinates,
-                        t3_verdict_is_outcome_agnostic_and_moves_as_it_is,
+                        t3_the_moved_verdict_reads_only_what_it_was_given,
                         t4_frozen_layout_carries_no_experiment_state,
-                        t5_the_cut_line_is_where_the_inventory_says_it_is,
+                        t5_the_expected_dependency_diff_and_nothing_else,
+                        t5b_the_sealed_closure_became_a_thin_client,
+                        t5c_the_kernel_and_the_old_module_are_the_same_object,
                         t6_REPRODUCTION_reading_the_source_would_have_missed_it], 1):
     check(f"{i} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 100, flush=True)

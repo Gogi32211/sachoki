@@ -43,6 +43,7 @@ import combolab_v2 as E                                             # noqa: E402
 import combolab_v2_spec as V2                                       # noqa: E402
 import s1_run as S1R                                                # noqa: E402
 import s1_spec as S1                                                # noqa: E402
+import v2_kernel as K                                               # noqa: E402
 from v2_decision_run import Frozen                                  # noqa: E402
 from studio_verdict import Estimate, decide                         # noqa: E402
 
@@ -187,10 +188,10 @@ def main():
                                 n_eff=int(meta.loc[cell, "eligible_dates"]))
 
             def verdict(e, cell):
-                return decide(branch="return", effect=e, delta_star=DELTA_STAR,
-                              direction="positive",
-                              support_ok=bool(meta.loc[cell, "support_fraction"] >= 0.50),
-                              setups_ok=bool(meta.loc[cell, "eligible_setups"] >= 5)).status
+                # 3B.1 · the decision moved to `v2_kernel` unchanged; `meta` and `DELTA_STAR`
+                # were closure reads and are now arguments. The call sites below are untouched,
+                # which is what keeps this a source-mechanical extraction rather than a rewrite.
+                return K.verdict(e, cell, meta, DELTA_STAR)
 
             e_pl = boot(planted)
             known = verdict(e_pl, planted) == "BUILD"

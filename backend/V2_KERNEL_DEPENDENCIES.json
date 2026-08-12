@@ -1,11 +1,11 @@
 {
- "inventory_hash": "9fb5999c015ceb8e",
+ "inventory_hash": "416a8c982a241bf7",
  "inventory_version": "v2_kernel_dependencies_v1",
  "targets": {
   "Frozen": {
    "capability_coordinates_read": [],
    "extractable_verbatim": true,
-   "file": "v2_decision_run.py",
+   "file": "v2_kernel.py",
    "free_names": [
     "E",
     "np",
@@ -41,19 +41,33 @@
     "cell"
    ]
   },
+  "support_hash": {
+   "capability_coordinates_read": [],
+   "extractable_verbatim": true,
+   "file": "v2_kernel.py",
+   "free_names": [
+    "E",
+    "hashlib"
+   ],
+   "nested_in": null,
+   "params": [
+    "sup",
+    "cell"
+   ]
+  },
   "verdict": {
    "capability_coordinates_read": [],
    "extractable_verbatim": true,
-   "file": "v2_sealed_run.py",
+   "file": "v2_kernel.py",
    "free_names": [
-    "DELTA_STAR",
-    "decide",
-    "meta"
+    "decide"
    ],
-   "nested_in": "main",
+   "nested_in": null,
    "params": [
     "e",
-    "cell"
+    "cell",
+    "meta",
+    "delta_star"
    ]
   }
  }

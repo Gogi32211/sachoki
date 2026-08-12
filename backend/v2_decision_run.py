@@ -60,51 +60,11 @@ N_BOOT, N_SEED, DELTA_STAR = 200, 5, 0.50
 BAR = "=" * 128
 
 
-def support_hash(sup: E.Support, cell: str) -> str:
-    h = hashlib.sha256()
-    for (s, i, j), w in zip(sup.strata[cell], sup.weights[cell]):
-        h.update(f"{s}|{len(i)}|{len(j)}|{w:.12f}".encode())
-    return h.hexdigest()
-
-
-class Frozen:
-    """Precomputed layout for one class, so the bootstrap only resamples dates."""
-
-    def __init__(self, sup: E.Support, cell: str, gi: np.ndarray):
-        self.cell, self.w = cell, sup.weights[cell]
-        self.idx, self.seg, self.arm = [], [], []
-        for k, (_, i, j) in enumerate(sup.strata[cell]):
-            for arm, ix in ((0, i), (1, j)):
-                self.idx.append(ix)
-                self.seg.append(k)
-                self.arm.append(arm)
-        self.sizes = np.array([len(x) for x in self.idx])
-        self.flat = np.concatenate(self.idx)
-        self.gflat = gi[self.flat]
-        self.bounds = np.r_[0, np.cumsum(self.sizes)]
-        self.seg = np.asarray(self.seg)
-        self.arm = np.asarray(self.arm)
-        self.hash = support_hash(sup, cell)
-
-    def theta(self, y: np.ndarray, w_date: np.ndarray | None = None) -> float:
-        """Weighted within-stratum median differences, aggregated with FROZEN weights."""
-        vals = y[self.flat]
-        order = np.empty(len(vals), dtype=np.int64)
-        med = np.empty(len(self.sizes))
-        for k in range(len(self.sizes)):
-            a, b = self.bounds[k], self.bounds[k + 1]
-            v = vals[a:b]
-            if w_date is None:
-                med[k] = E._lower_median(v)
-            else:
-                ww = w_date[self.gflat[a:b]]
-                o = np.argsort(v, kind="stable")
-                c = np.cumsum(ww[o])
-                if c[-1] <= 0:
-                    return np.nan                  # arm unrepresented → replication INVALID
-                med[k] = v[o[np.searchsorted(c, c[-1] / 2.0)]]
-        d = med[self.arm == 0] - med[self.arm == 1]
-        return float(self.w @ d)
+# 3B.1 · `support_hash` and `Frozen` moved to `v2_kernel` unchanged. Re-exported here so every
+# existing caller — including the frozen core oracle — keeps importing from where it always did.
+# The oracle reproducing after this commit is therefore evidence that the move was invisible to
+# the computation, not evidence that the oracle was edited to agree with it.
+from v2_kernel import Frozen, support_hash                          # noqa: E402,F401
 
 
 def main():
