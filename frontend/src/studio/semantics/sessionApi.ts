@@ -1,6 +1,22 @@
 /** Session HTTP. Every action asks the backend to classify it before it runs. */
-import { decodePreview, decodeSession, TransportContractError } from './decode';
-import type { ChangePreview, ResearchSessionView } from './types';
+import { decodePreview, decodeRefusal, decodeSession, TransportContractError } from './decode';
+import type { ChangePreview, ForkResult, Refusal, ResearchSessionView } from './types';
+
+/**
+ * A governed refusal, distinct from a transport failure.
+ *
+ * 409 here is not an error in the usual sense — it is the system working. The screen must be
+ * able to tell "the server refused this, and here is the sentence and the legal alternative"
+ * apart from "the request did not arrive", because only one of those is the user's business.
+ */
+export class SessionRefusedError extends Error {
+  readonly refusal: Refusal;
+  constructor(refusal: Refusal) {
+    super(refusal.detail);
+    this.name = 'SessionRefusedError';
+    this.refusal = refusal;
+  }
+}
 
 const BASE = '/api/studio/session';
 
@@ -12,6 +28,7 @@ async function post(path: string, body?: unknown): Promise<unknown> {
                               headers: { 'Content-Type': 'application/json' } };
   if (body !== undefined) init.body = JSON.stringify(body);
   const res = await fetch(`${BASE}${path}`, init);
+  if (res.status === 409) throw new SessionRefusedError(decodeRefusal(await res.json()));
   if (!res.ok) throw new TransportContractError(`${res.status} ${path}: ${await res.text()}`);
   return res.json();
 }
@@ -55,4 +72,28 @@ export async function revisit(
   const raw = await post(`/${sid}/revisit`, { horizon, tolerance });
   const d = raw as Record<string, unknown>;
   return decodeSession(d.session);
+}
+
+/** Irreversible. Refused with a readable cause once anything in the lineage has been seen. */
+export async function registerSession(sid: string): Promise<ResearchSessionView> {
+  const d = await post(`/${sid}/register`) as Record<string, unknown>;
+  return decodeSession(d.session);
+}
+
+/**
+ * The legal way out of a frozen study. The child starts where the parent stopped and inherits
+ * the two knob positions — never the parent's registration, and never a clean counter.
+ */
+export async function forkSession(
+  sid: string, reason: string, horizon: string, tolerance: string,
+): Promise<ForkResult> {
+  const raw = await post(`/${sid}/fork`, { reason, horizon, tolerance });
+  const d = raw as Record<string, unknown>;
+  const inh = (d.inherited ?? {}) as Record<string, unknown>;
+  return {
+    session: decodeSession(d.session),
+    parent: decodeSession(d.parent),
+    inherited: { horizon: String(inh.horizon), tolerance: String(inh.tolerance) },
+    reason: String(d.reason ?? ''),
+  };
 }

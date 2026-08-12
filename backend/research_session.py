@@ -151,6 +151,7 @@ CLAIM_REVISITED = "CLAIM_REVISITED"
 SEARCH_RUN = "SEARCH_RUN"
 PROMOTION_REQUESTED = "PROMOTION_REQUESTED"
 SESSION_FROZEN = "SESSION_FROZEN"
+SESSION_FORKED = "SESSION_FORKED"
 SESSION_CLOSED = "SESSION_CLOSED"
 
 
@@ -179,6 +180,11 @@ class ResearchSession:
         self.state = NEW
         self.events: list = []
         self.declared_space: dict = {}
+        # lineage: what this session inherited from the one it was forked out of
+        self.parent_session_id: str = ""
+        self.parent_state_hash: str = ""
+        self.lineage: tuple = ()          # ancestors, oldest first
+        self.inherited_exposed: int = 0   # results already seen upstream
         self._append(SESSION_CREATED)
 
     # ── ledger mechanics ────────────────────────────────────────────────────
@@ -208,16 +214,49 @@ class ResearchSession:
         self._append(SEARCH_SPACE_DECLARED, space_id=space_id, size=int(size), hash=space_hash)
         return self
 
-    def register(self):
-        """Freeze. Impossible once anything has been seen — that is the point of the module."""
+    def assert_registerable(self):
+        """Every reason registration would be refused, checked without touching the ledger.
+
+        Split out of `register()` because a caller has to declare a search space before freezing,
+        and a caller that declares first and is refused second has appended an event describing
+        a registration that never happened. A refusal must cost nothing — the same rule as a
+        preview.
+        """
         if any(e.event_type == RESULT_EXPOSED for e in self.events):
             raise CannotRegisterAfterExposureError(
                 f"session {self.session_id} has already exposed "
                 f"{sum(1 for e in self.events if e.event_type == RESULT_EXPOSED)} result(s). "
                 f"Registering now would claim these hypotheses were declared in advance. Open a "
                 f"NEW session to preregister; this one stays exploratory forever.")
+        if self.parent_session_id:
+            # A fork is an exploratory instrument by construction, and this holds even when the
+            # parent exposed nothing. What a fork inherits is not only numbers, it is a CHOICE of
+            # specification — made by someone who had been looking at something, in a session
+            # that existed for a reason. Preregistering that choice would claim it arrived from
+            # nowhere.
+            #
+            # The first version of this rule only refused when `inherited_exposed > 0`, which let
+            # a fork of a clean parent register. That also opened a path nothing accounts for:
+            # two registered studies, siblings in one lineage, each declaring k = 31 with no
+            # record connecting them. Cross-session multiplicity does not exist yet, so the
+            # honest move is to keep forks out of the confirmatory track entirely.
+            #
+            # The cost is one extra step: to preregister, open a session with no parent and state
+            # the specification from nothing. That step is the point.
+            seen = (f", and {self.inherited_exposed} result(s) were already exposed upstream"
+                    if self.inherited_exposed else "")
+            raise CannotRegisterAfterExposureError(
+                f"session {self.session_id} was forked from {self.parent_session_id}{seen}. A "
+                f"fork inherits a starting point, never a clean slate, and a starting point is "
+                f"itself a choice someone made while looking. Preregistration requires a session "
+                f"with no parent — open one and state the specification from nothing.")
         if self.state not in (NEW, EXPLORE):
             raise SessionStateError(f"cannot register from {self.state}")
+        return self
+
+    def register(self):
+        """Freeze. Impossible once anything has been seen — that is the point of the module."""
+        self.assert_registerable()
         if not self.declared_space:
             raise SessionStateError("a registered session needs a declared search space")
         self.state = REGISTERED
@@ -274,6 +313,55 @@ class ResearchSession:
         self._append(PROMOTION_REQUESTED, claim_hash=claim.claim_hash)
         return self
 
+    def fork(self, child_session_id: str, reason: str) -> "ResearchSession":
+        """The legal way out of a frozen session.
+
+        A registered study does not mutate, and a user who wants to change one anyway will find
+        a way — reopen the app, retype the parameters, and the ledger never learns that the new
+        "study" grew out of the old one's results. A prohibition without a sanctioned path is a
+        prohibition that gets routed around, so governance has to offer the path.
+
+        The child inherits a STARTING POINT and nothing else:
+
+            new session_id, its own ledger, state EXPLORE
+            parent_session_id + parent_state_hash, so the lineage is a chain and not a rumour
+            inherited_exposed, carried and accumulated — the reason a fork cannot launder k
+            NO registration and NO declared space; a preregistration is not inheritable
+
+        `reason` is mandatory. The fork is a legitimate move and it is also the move most worth
+        being able to read back later, so it does not happen anonymously.
+        """
+        if self.state == NEW:
+            raise SessionStateError(
+                f"session {self.session_id} has not started; there is no starting point to fork")
+        if not reason or not reason.strip():
+            raise SessionStateError(
+                "a fork must say why. This is the one action that carries results across a "
+                "freeze boundary, and an unexplained one is indistinguishable from a reset.")
+
+        parent_hash = self._state_hash()          # the state that is being inherited
+        upstream = self.accounting()["k_exposed"] + self.inherited_exposed
+
+        child = ResearchSession(child_session_id, code_hash=self.code_hash)
+        child.parent_session_id = self.session_id
+        child.parent_state_hash = parent_hash
+        child.lineage = tuple(self.lineage) + (self.session_id,)
+        child.inherited_exposed = upstream
+        # deliberately NOT inherited: declared_space, state, events, confirmatory standing
+        child._append(SESSION_FORKED, parent_session_id=self.session_id,
+                      parent_state_hash=parent_hash, child_session_id=child_session_id,
+                      reason=reason.strip(), inherited_k_exposed=upstream,
+                      parent_state=self.state, lineage_depth=len(child.lineage))
+        child.start_exploration()
+
+        # the parent records it too: being forked is a fact about the parent, and a ledger that
+        # only the child knows about is a lineage one side can deny
+        self._append(SESSION_FORKED, parent_session_id=self.session_id,
+                     parent_state_hash=parent_hash, child_session_id=child_session_id,
+                     reason=reason.strip(), inherited_k_exposed=upstream,
+                     parent_state=self.state, lineage_depth=len(child.lineage))
+        return child
+
     def close(self):
         self.state = CLOSED if self.state in (REGISTERED, ACTIVE_REGISTERED) \
             else CLOSED_EXPLORATORY
@@ -296,6 +384,12 @@ class ResearchSession:
             "session_id": self.session_id, "state": self.state,
             "k_declared": self.declared_space.get("size", 0),
             "k_exposed": len(exposed),
+            # what the whole lineage has seen. For an unforked session the two are equal, and
+            # the moment they differ is the moment `k_exposed` alone understates the search.
+            "k_exposed_lineage": len(exposed) + self.inherited_exposed,
+            "inherited_exposed": self.inherited_exposed,
+            "parent_session_id": self.parent_session_id,
+            "lineage_depth": len(self.lineage),
             "k_selectable": k_selectable,
             "distinct_claims_executed": len(executed),
             "revisits": sum(1 for e in self.events if e.event_type == CLAIM_REVISITED),

@@ -223,6 +223,127 @@ def tO_exploration_can_never_become_confirmatory():
     assert s.accounting()["confirmatory_eligible"] is False
 
 
+# ── the fork: a legal path out of a freeze, and the laundering it must not allow ──
+def tP_fork_carries_the_lineage_not_a_clean_slate():
+    """P · the child starts empty but the lineage remembers what was seen"""
+    s = ResearchSession("P").start_exploration()
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
+    for tol in ("5", "1", "2"):
+        s.expose(claim(tol))
+    parent_hash = s._state_hash()
+
+    child = s.fork("P-fork", reason="horizon 20 no longer plausible after the 2022 slice")
+
+    a = child.accounting()
+    assert child.state == "EXPLORE", child.state
+    assert a["k_exposed"] == 0, "the child pretends to have run something"
+    assert a["k_exposed_lineage"] == 3, f"three results were seen upstream and vanished: {a}"
+    assert a["parent_session_id"] == "P" and a["lineage_depth"] == 1, a
+    # the parent is untouched as a study; it only learned that a fork was taken
+    assert s.state == "ACTIVE_REGISTERED", s.state
+    assert s.accounting()["k_exposed"] == 3, s.accounting()
+    # both ledgers carry the same anchor, so neither side can deny the lineage
+    pe = [e for e in s.events if e.event_type == "SESSION_FORKED"]
+    ce = [e for e in child.events if e.event_type == "SESSION_FORKED"]
+    assert len(pe) == 1 and len(ce) == 1
+    assert pe[0].payload["parent_state_hash"] == ce[0].payload["parent_state_hash"] == parent_hash
+    assert ce[0].payload["reason"].startswith("horizon 20")
+
+
+def tQ_a_fork_cannot_launder_multiplicity():
+    """Q · look at forty cells, fork, and the child still cannot preregister"""
+    s = ResearchSession("Q").start_exploration()
+    for i in range(40):
+        s.expose(claim(tol=str(i)))
+    child = s.fork("Q-fork", reason="new hypothesis")
+    child.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
+    try:
+        child.register()
+    except CannotRegisterAfterExposureError as e:
+        assert "40 result(s) were already exposed upstream" in str(e), str(e)
+        assert "no parent" in str(e), str(e)
+        assert child.accounting()["confirmatory_eligible"] is False
+        return
+    raise AssertionError("a fork reset the exposure counter and became registerable")
+
+
+def tQ2_even_a_fork_of_a_clean_parent_stays_exploratory():
+    """Q2 · a fork inherits a CHOICE of specification, not only numbers"""
+    s = ResearchSession("Q2").start_exploration()
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()   # nothing seen
+    child = s.fork("Q2-fork", reason="different horizon")
+    assert child.inherited_exposed == 0, child.inherited_exposed
+    child.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6")
+    try:
+        child.register()
+    except CannotRegisterAfterExposureError as e:
+        assert "was forked from Q2" in str(e), str(e)
+        assert "already exposed upstream" not in str(e), \
+            "reported exposures that never happened"
+        return
+    raise AssertionError(
+        "a fork of a clean parent became registerable; two sibling preregistrations would then "
+        "exist in one lineage with nothing accounting for the pair")
+
+
+def tR_a_fork_must_say_why():
+    s = ResearchSession("R").start_exploration()
+    s.expose(claim())
+    for bad in ("", "   "):
+        try:
+            s.fork("R-fork", reason=bad)
+        except SessionStateError:
+            continue
+        raise AssertionError("an anonymous fork was allowed")
+
+
+def tS_a_preregistration_is_not_inheritable():
+    """S · the child inherits a starting point, not the parent's declared space"""
+    s = ResearchSession("S").start_exploration()
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
+    child = s.fork("S-fork", reason="widen the price band")
+    assert child.declared_space == {}, child.declared_space
+    assert child.accounting()["k_declared"] == 0, child.accounting()
+
+
+def tT_forks_of_forks_accumulate():
+    """T · the counter follows the chain, not the last hop"""
+    a = ResearchSession("T").start_exploration()
+    a.expose(claim("5"))
+    b = a.fork("T-2", reason="first")
+    b.expose(claim("1"))
+    b.expose(claim("2"))
+    c = b.fork("T-3", reason="second")
+    acc = c.accounting()
+    assert acc["k_exposed_lineage"] == 3, acc
+    assert acc["lineage_depth"] == 2, acc
+    assert c.lineage == ("T", "T-2"), c.lineage
+
+
+def tU_the_refused_mutation_leaves_the_parent_unchanged():
+    """U · a rejected change is not a silent new claim inside a registered session"""
+    s = ResearchSession("U").start_exploration()
+    s.declare_search_space("combolab_v2", 31, "3600ae3dd52a25e6").register()
+    before_hash, before_events = s._state_hash(), len(s.events)
+    try:
+        s.change_parameter("horizon", "20", "40")
+    except SessionStateError:
+        pass
+    else:
+        raise AssertionError("a registered study mutated")
+    assert s._state_hash() == before_hash and len(s.events) == before_events, \
+        "the refusal itself moved the ledger"
+
+
+def tV_nothing_to_fork_from_a_new_session():
+    try:
+        ResearchSession("V").fork("V-fork", reason="why not")
+    except SessionStateError as e:
+        assert "no starting point" in str(e)
+        return
+    raise AssertionError("forked a session that never started")
+
+
 print("=" * 104, flush=True)
 print("  RESEARCH SESSION — multiplicity accounting, adversarial", flush=True)
 print("=" * 104, flush=True)
@@ -233,7 +354,13 @@ for fn in (tA_reopening_the_same_claim_costs_nothing, tB_tolerance_changes_are_n
            tI_search_space_drift_is_fatal, tJ_undeclared_knob_is_refused,
            tK_sorting_is_not_uniformly_harmless, tL_preview_classifies_before_the_result_exists,
            tM_identity_refuses_holes, tN_every_meaningful_change_leaves_a_classified_event,
-           tO_exploration_can_never_become_confirmatory):
+           tO_exploration_can_never_become_confirmatory,
+           tP_fork_carries_the_lineage_not_a_clean_slate,
+           tQ_a_fork_cannot_launder_multiplicity,
+           tQ2_even_a_fork_of_a_clean_parent_stays_exploratory, tR_a_fork_must_say_why,
+           tS_a_preregistration_is_not_inheritable, tT_forks_of_forks_accumulate,
+           tU_the_refused_mutation_leaves_the_parent_unchanged,
+           tV_nothing_to_fork_from_a_new_session):
     check((fn.__doc__ or fn.__name__).splitlines()[0], fn)
 print("=" * 104, flush=True)
 print(f"  {ok} passed · {fail} failed", flush=True)

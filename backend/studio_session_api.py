@@ -41,6 +41,10 @@ class ResearchSessionView:
     mode: str
     k_declared: str
     k_exposed: str
+    k_exposed_lineage: str
+    inherited_exposed: str
+    parent_session_id: str
+    lineage_depth: str
     k_selectable: str
     revisits: str
     displayed_at_most: str
@@ -65,6 +69,9 @@ def to_view(s: ResearchSession) -> ResearchSessionView:
     return ResearchSessionView(
         session_id=a["session_id"], mode=a["state"],
         k_declared=str(a["k_declared"]), k_exposed=str(a["k_exposed"]),
+        k_exposed_lineage=str(a["k_exposed_lineage"]),
+        inherited_exposed=str(a["inherited_exposed"]),
+        parent_session_id=a["parent_session_id"], lineage_depth=str(a["lineage_depth"]),
         k_selectable=str(a["k_selectable"]), revisits=str(a["revisits"]),
         displayed_at_most=str(a["displayed_at_most"]),
         changes_claim=str(c["CLAIM_CHANGE"]),
@@ -142,6 +149,74 @@ def accounting(sid: str) -> dict:
     return {"session": asdict(to_view(_get(sid)))}
 
 
+# ── preregistration and the way back out of it ──────────────────────────────
+SPACE = ("combolab_v2", 31, "3600ae3dd52a25e6")
+
+
+def register(sid: str) -> dict:
+    """Declare the space, then freeze. Irreversible, and refused once anything has been seen."""
+    s = _get(sid)
+    s.assert_registerable()      # refuse BEFORE declaring, so a refusal leaves no trace
+    s.declare_search_space(*SPACE)
+    s.register()
+    return {"session": asdict(to_view(s))}
+
+
+def fork(sid: str, reason: str, horizon: str, tolerance: str) -> dict:
+    """A new exploratory session that starts where this one stopped.
+
+    The spec travels back to the client rather than living in the session object: the ledger
+    accounts for claims, and the current position of two sliders is the client's business. What
+    the ledger does carry is that this position was inherited from a named parent at a named
+    state, which is the part that could otherwise be denied.
+    """
+    parent = _get(sid)
+    child_id = f"s{len(_SESSIONS) + 1:04d}"
+    child = parent.fork(child_id, reason=reason)
+    _SESSIONS[child_id] = child
+    return {"session": asdict(to_view(child)),
+            "parent": asdict(to_view(parent)),
+            "inherited": {"horizon": str(horizon), "tolerance": str(tolerance)},
+            "reason": reason.strip()}
+
+
+def refusal(e: Exception) -> dict:
+    """A refusal the UI can render as a sentence, not as a disabled button.
+
+    A control that is merely greyed out teaches nothing; the user concludes the app is broken,
+    or worse, works out which sequence of clicks avoids the grey. Every refusal here says what
+    happened, why the rule exists, and what the legitimate next move is — and `offers_fork` is
+    how the UI knows a legitimate next move exists at all.
+    """
+    kind = type(e).__name__
+    # Which legal move exists is a property of WHICH rule fired, and getting it wrong is worse
+    # than saying nothing: telling someone to fork when forking cannot help sends them around a
+    # loop. FORK continues the work; NEW_SESSION is the only route back into the confirmatory
+    # track, and it is deliberately not a shortcut — nothing is carried over.
+    next_action = {
+        "SessionStateError": "FORK",
+        "CannotRegisterAfterExposureError": "NEW_SESSION",
+    }.get(kind, "NONE")
+    remedy = {
+        "SessionStateError":
+            "This study is frozen. Changing a claim-defining parameter would silently turn a "
+            "preregistered result into an exploratory one. Fork it into a new exploratory "
+            "session to continue from here.",
+        "CannotRegisterAfterExposureError":
+            "This lineage can never become confirmatory — either results have been seen in it, "
+            "or it starts from a specification someone else chose. Preregistration needs a "
+            "session with no parent and no history; forking will not get you there.",
+        "UnregisteredSelectionError":
+            "This claim is outside the frozen search space. A confirmatory verdict on it would "
+            "not be a weak result — it would be an unaccounted one.",
+        "SearchSpaceDriftError":
+            "The space actually searched is not the space that was registered, so the "
+            "multiplicity declared is not the multiplicity paid.",
+    }.get(kind, "")
+    return {"error": kind, "detail": str(e), "remedy": remedy, "next_action": next_action,
+            "offers_fork": "YES" if next_action == "FORK" else "NO"}
+
+
 # Request models live at MODULE level, not inside build_router(). FastAPI resolves handler
 # annotations against the module globals; a class defined in a local scope is invisible there and
 # the parameter silently degrades to a query field, which surfaces as 422 "Field required" on a
@@ -160,6 +235,12 @@ class ChangeBody(BaseModel):
 
 
 class RevisitBody(BaseModel):
+    horizon: str
+    tolerance: str
+
+
+class ForkBody(BaseModel):
+    reason: str
     horizon: str
     tolerance: str
 
@@ -196,7 +277,7 @@ def build_router():
             raise HTTPException(404, str(e))
         except (SessionStateError, CannotRegisterAfterExposureError,
                 UnregisteredSelectionError, SearchSpaceDriftError) as e:
-            raise HTTPException(409, {"error": type(e).__name__, "detail": str(e)})
+            raise HTTPException(409, refusal(e))
 
     @router.post("/{sid}/revisit")
     def _revisit(sid: str, b: RevisitBody):
@@ -204,5 +285,23 @@ def build_router():
             return revisit(sid, b.horizon, b.tolerance)
         except KeyError as e:
             raise HTTPException(404, str(e))
+
+    @router.post("/{sid}/register")
+    def _register(sid: str):
+        try:
+            return register(sid)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        except (SessionStateError, CannotRegisterAfterExposureError) as e:
+            raise HTTPException(409, refusal(e))
+
+    @router.post("/{sid}/fork")
+    def _fork(sid: str, b: ForkBody):
+        try:
+            return fork(sid, b.reason, b.horizon, b.tolerance)
+        except KeyError as e:
+            raise HTTPException(404, str(e))
+        except SessionStateError as e:
+            raise HTTPException(409, refusal(e))
 
     return router

@@ -228,6 +228,124 @@ def t11_exploration_is_never_confirmatory_over_the_wire():
     assert _acc(sid)["confirmatory_eligible"] == "NO"
 
 
+# ── REGISTERED and the fork, over HTTP ──────────────────────────────────────
+def _register(sid: str):
+    return C.post(f"/api/studio/session/{sid}/register")
+
+
+def t14_register_then_freeze():
+    sid = _new_session()
+    r = _register(sid)
+    assert r.status_code == 200, r.text
+    s = r.json()["session"]
+    assert s["mode"] == "REGISTERED" and s["confirmatory_eligible"] == "YES", s
+    assert s["k_declared"] == "31", s
+
+
+def t15_register_after_seeing_is_refused_with_a_sentence():
+    """the refusal must be readable, not a disabled button with no explanation"""
+    sid = _new_session()
+    C.post(f"/api/studio/session/{sid}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5", "new_value": "40"})
+    r = _register(sid)
+    assert r.status_code == 409, r.status_code
+    d = r.json()["detail"]
+    assert d["error"] == "CannotRegisterAfterExposureError", d
+    assert "exploratory forever" in d["detail"], d
+    assert d["remedy"], "a refusal arrived with no remedy for the UI to show"
+    assert d["next_action"] == "NEW_SESSION", \
+        f"the refusal pointed at a move that cannot help: {d['next_action']}"
+
+
+def t16_a_refused_registration_leaves_no_trace():
+    """the bug found while writing this: declaring the space before the check"""
+    sid = _new_session()
+    C.post(f"/api/studio/session/{sid}/change",
+           json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5", "new_value": "40"})
+    before = _acc(sid)
+    assert _register(sid).status_code == 409
+    after = _acc(sid)
+    assert after["state_hash"] == before["state_hash"], \
+        f"a refused registration moved the ledger: {before['state_hash']} -> {after['state_hash']}"
+    assert after["k_declared"] == "0", \
+        f"a search space was declared by a registration that never happened: {after}"
+
+
+def t17_a_frozen_study_refuses_mutation_and_offers_the_fork():
+    sid = _new_session()
+    _register(sid)
+    before = _acc(sid)
+    r = C.post(f"/api/studio/session/{sid}/change",
+               json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                     "new_value": "40"})
+    assert r.status_code == 409, r.status_code
+    d = r.json()["detail"]
+    assert d["offers_fork"] == "YES" and d["next_action"] == "FORK", d
+    assert "Fork it into a new exploratory session" in d["remedy"], d
+    assert _acc(sid)["state_hash"] == before["state_hash"], "the refusal itself mutated the study"
+
+
+def t18_the_fork_is_a_new_session_carrying_the_lineage():
+    sid = _new_session()
+    _register(sid)
+    C.post(f"/api/studio/session/{sid}/revisit", json={"horizon": "20", "tolerance": "5"})
+    r = C.post(f"/api/studio/session/{sid}/fork",
+               json={"reason": "horizon 20 no longer plausible", "horizon": "20",
+                     "tolerance": "5"})
+    assert r.status_code == 200, r.text
+    d = r.json()
+    child, parent = d["session"], d["parent"]
+    assert child["session_id"] != sid and child["parent_session_id"] == sid, child
+    assert child["mode"] == "EXPLORE" and child["confirmatory_eligible"] == "NO", child
+    assert child["k_exposed"] == "0", "the child claims to have run something"
+    assert child["k_exposed_lineage"] == "1", f"the upstream exposure vanished: {child}"
+    assert child["k_declared"] == "0", "a preregistration was inherited"
+    assert d["inherited"] == {"horizon": "20", "tolerance": "5"}, d["inherited"]
+    assert parent["mode"] == "ACTIVE_REGISTERED", parent
+
+
+def t19_a_fork_cannot_launder_the_counter_over_http():
+    """the whole point of the fork contract, exercised through routing"""
+    sid = _new_session()
+    for v in ("40", "60"):
+        C.post(f"/api/studio/session/{sid}/change",
+               json={"parameter_id": "horizon", "horizon": "20", "tolerance": "5",
+                     "new_value": v})
+    r = C.post(f"/api/studio/session/{sid}/fork",
+               json={"reason": "start again", "horizon": "60", "tolerance": "5"})
+    child = r.json()["session"]
+    assert child["k_exposed"] == "0" and child["k_exposed_lineage"] == "2", child
+    rr = _register(child["session_id"])
+    assert rr.status_code == 409, "a fork reset the counter and became registerable"
+    assert "upstream" in rr.json()["detail"]["detail"], rr.json()
+
+
+def t20b_a_fork_of_a_clean_parent_still_cannot_preregister():
+    """no result was ever exposed in this lineage, and the fork is still exploratory"""
+    sid = _new_session()
+    _register(sid)
+    r = C.post(f"/api/studio/session/{sid}/fork",
+               json={"reason": "different horizon", "horizon": "20", "tolerance": "5"})
+    child = r.json()["session"]
+    assert child["k_exposed_lineage"] == "0", child
+    rr = _register(child["session_id"])
+    assert rr.status_code == 409, "a fork of a clean parent entered the confirmatory track"
+    d = rr.json()["detail"]
+    assert "no parent" in d["detail"], d
+    assert d["next_action"] == "NEW_SESSION" and d["offers_fork"] == "NO", \
+        f"a fork was offered to a session that forking cannot help: {d}"
+    assert "forking will not get you there" in d["remedy"], d
+
+
+def t20_an_anonymous_fork_is_refused():
+    sid = _new_session()
+    _register(sid)
+    r = C.post(f"/api/studio/session/{sid}/fork",
+               json={"reason": "   ", "horizon": "20", "tolerance": "5"})
+    assert r.status_code == 409, r.status_code
+    assert "must say why" in r.json()["detail"]["detail"], r.json()
+
+
 # ── the neighbouring surface, same routing layer ────────────────────────────
 def t12_semantics_screen_serves_and_carries_no_operand():
     r = C.get("/api/studio/semantics/n0")
@@ -270,6 +388,14 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t9_revisiting_is_free_and_recorded_as_free,
                         t10_preview_costs_nothing,
                         t11_exploration_is_never_confirmatory_over_the_wire,
+                        t14_register_then_freeze,
+                        t15_register_after_seeing_is_refused_with_a_sentence,
+                        t16_a_refused_registration_leaves_no_trace,
+                        t17_a_frozen_study_refuses_mutation_and_offers_the_fork,
+                        t18_the_fork_is_a_new_session_carrying_the_lineage,
+                        t19_a_fork_cannot_launder_the_counter_over_http,
+                        t20_an_anonymous_fork_is_refused,
+                        t20b_a_fork_of_a_clean_parent_still_cannot_preregister,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

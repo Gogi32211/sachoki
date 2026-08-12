@@ -149,7 +149,8 @@ export function decodeArtifact(raw: unknown): ComparisonArtifact {
 }
 
 const SESSION_FIELDS = [
-  'session_id', 'mode', 'k_declared', 'k_exposed', 'k_selectable', 'revisits',
+  'session_id', 'mode', 'k_declared', 'k_exposed', 'k_exposed_lineage',
+  'inherited_exposed', 'parent_session_id', 'lineage_depth', 'k_selectable', 'revisits',
   'displayed_at_most', 'changes_claim', 'changes_search_space', 'changes_policy',
   'changes_presentation', 'confirmatory_eligible', 'events', 'state_hash',
 ] as const;
@@ -184,5 +185,22 @@ export function decodePreview(raw: unknown): import('./types').ChangePreview {
     old_claim_hash: str(o, 'old_claim_hash', 'preview'),
     new_claim_hash: str(o, 'new_claim_hash', 'preview'),
     multiplicity_effect: str(o, 'multiplicity_effect', 'preview'),
+  };
+}
+
+/**
+ * A 409 body. Decoded, not rendered from `JSON.stringify` — the screen shows the backend's
+ * sentence, and a missing remedy is a contract violation rather than an empty paragraph.
+ */
+export function decodeRefusal(raw: unknown): import('./types').Refusal {
+  const outer = (raw ?? {}) as Record<string, unknown>;
+  const d = (outer.detail ?? outer) as Record<string, unknown>;
+  if (!d || typeof d !== 'object' || typeof d.error !== 'string') {
+    throw new TransportContractError('a refusal arrived with no machine-readable cause');
+  }
+  return {
+    error: String(d.error), detail: String(d.detail ?? ''),
+    remedy: String(d.remedy ?? ''), next_action: String(d.next_action ?? 'NONE'),
+    offers_fork: String(d.offers_fork ?? 'NO'),
   };
 }

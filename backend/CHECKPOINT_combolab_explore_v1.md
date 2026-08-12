@@ -97,3 +97,68 @@ guard passed on the broken code.
 
 `v2.1 DAY_LEVEL` is methodological backlog and is deliberately untouched: this line builds a
 research interface around a v2 that is already closed.
+
+---
+
+# Addendum · SessionFork and the REGISTERED state
+
+Added after the tag above, in the order agreed: fork contract → registered UI → adversarial paths.
+
+## The rule the browser corrected
+
+The fork was first implemented so that a child could still preregister when the lineage had
+exposed nothing — the same rule as `register()`, read over the lineage instead of the session.
+That looked principled and the browser showed it was wrong: a fork of a freshly registered
+parent walked straight into the confirmatory track.
+
+The rule now is the one that was specified: **a forked session can never register**, whatever
+the parent had seen. Two reasons, and the second is the one the first version missed.
+
+- A fork inherits a CHOICE of specification. The parent existed for a reason and someone had
+  been looking at something. Preregistering that starting point claims it arrived from nowhere.
+- Allowing it opens a path nothing accounts for: two registered studies, siblings in one
+  lineage, each declaring `k = 31`, with no record connecting the pair. Cross-session
+  multiplicity does not exist yet, so forks stay out of the confirmatory track entirely.
+
+The cost is one extra step — to preregister, open a session with no parent and state the
+specification from nothing. That step is the point.
+
+## What a refusal has to contain
+
+Nothing on the screen is disabled. The register button stays live on a session that can never
+register; the knobs stay live on a frozen study. A greyed control teaches nothing and invites
+the user to find the click order that avoids the grey. Pressing it returns the backend's own
+sentence plus `next_action`:
+
+```
+SessionStateError                    → FORK          continue the work, exploratory
+CannotRegisterAfterExposureError     → NEW_SESSION   the only route back to confirmatory
+anything else                        → NONE          the move has no honest form
+```
+
+`next_action` exists because the first version offered a fork to a session that forking cannot
+help, which sends the user around a loop. Which legal move exists is a property of the rule that
+fired, not of the error class.
+
+## Adversarial paths, in the browser
+
+```
+1  fresh EXPLORE            declared 0  · confirmatory NO
+2  preregister              declared 31 · confirmatory YES · mode REGISTERED
+3  turn a knob              REFUSED SessionStateError · offers FORK
+                            state_hash unchanged — the refusal did not move the ledger
+4  fork with no reason      REFUSED · "a fork must say why"
+5  fork with a reason       s0001 → s0002 · EXPLORE · declared 0 · confirmatory NO
+                            panel shows the parent and what was inherited
+6  child preregisters       REFUSED CannotRegisterAfterExposureError
+                            offers NEW_SESSION, not FORK
+```
+
+Suites after the addendum: domain 23/23 · transport 9/9 · HTTP 21/21 · semantics 12/12.
+
+## Also fixed here
+
+`register()` declared the search space before checking whether registration was allowed, so a
+refused registration left a `SEARCH_SPACE_DECLARED` event describing a registration that never
+happened. Split into `assert_registerable()`, which raises without touching the ledger. A
+refusal must cost nothing, the same rule as a preview. Guarded by `t16`.

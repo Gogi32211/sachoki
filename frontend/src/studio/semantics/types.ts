@@ -87,6 +87,11 @@ export interface ResearchSessionView {
   readonly mode: string;
   readonly k_declared: string;
   readonly k_exposed: string;
+  /** what the whole lineage has seen. Equal to k_exposed until a fork happens. */
+  readonly k_exposed_lineage: string;
+  readonly inherited_exposed: string;
+  readonly parent_session_id: string;
+  readonly lineage_depth: string;
   readonly k_selectable: string;
   readonly revisits: string;
   readonly displayed_at_most: string;
@@ -105,4 +110,27 @@ export interface ChangePreview {
   readonly old_claim_hash: string;
   readonly new_claim_hash: string;
   readonly multiplicity_effect: string;
+}
+
+/**
+ * A refusal the screen can read out loud.
+ *
+ * A disabled control with no explanation teaches nothing: the user concludes the app is broken,
+ * or learns which click order avoids the grey. Every refusal arrives with what happened, why the
+ * rule exists, and whether a legitimate next move exists.
+ */
+export interface Refusal {
+  readonly error: string;
+  readonly detail: string;
+  readonly remedy: string;
+  /** FORK · NEW_SESSION · NONE — which legal move exists, decided by the rule that fired. */
+  readonly next_action: string;
+  readonly offers_fork: string;
+}
+
+export interface ForkResult {
+  readonly session: ResearchSessionView;
+  readonly parent: ResearchSessionView;
+  readonly inherited: { readonly horizon: string; readonly tolerance: string };
+  readonly reason: string;
 }
