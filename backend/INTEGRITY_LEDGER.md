@@ -83,3 +83,50 @@ STRUCTURAL INTEGRITY
 The same logical priority already registered for sealed acceptance: integrity outranks
 capability, and a number computed by an experiment that was not the registered experiment has no
 operating characteristics to discuss.
+
+---
+
+## 2026-08-12 · TAILWIND_CONTENT_SCOPE_GAP
+
+```
+type        TAILWIND_CONTENT_SCOPE_GAP
+cause       content glob covered js/jsx but not ts/tsx
+effect      Studio classes absent from the generated CSS
+symptom     transparent Inspector drawer overlaying the cards
+detected_by browser inspection of the production build
+remedy      include ts/tsx in the content glob; move components onto project MD3 tokens
+status      RESOLVED
+```
+
+`tailwind.config.js` scanned `./src/**/*.{js,jsx}`. The Analytic Studio island is `.ts/.tsx`, so
+not one of its classes was generated, and the passport drawer rendered with no background over
+the cards it was meant to sit beside.
+
+### The fourth integrity layer
+
+Everything below the browser passed:
+
+```
+tsc                 PASS
+vite build          PASS
+transport tests     12/12, payload correct, zero numeric leaves
+integration gate    6/6 over HTTP
+```
+
+Correct computation, correct artifacts, correct transport — and the meaning still arrived
+unreadable. That is a layer this project had not named:
+
+```
+computation → artifact → transport → PRESENTATION
+```
+
+The first three were already defended by contracts. The fourth has no test below the browser
+that can see it, which is why "open the production build and look at it" is a step of its own
+and not a formality. It found this on the first try.
+
+### Also recorded
+
+Components were moved off the foreign `neutral-*` palette onto the project's own MD3 tokens
+(`bg-md-surface-con`, `text-md-on-surface-var`, `border-md-warning`). An island should speak the
+application's language rather than import its own; the transparent drawer was the visible half
+of that mistake and the palette mismatch was the other.

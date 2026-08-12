@@ -1,0 +1,66 @@
+{
+  "backend_blobs": {
+    "sampling_target.py": "5c2afc458a854876b94bcc3833142b026025ac78",
+    "semantic_inspector.py": "79cc600d4cb4c1aa25fb7d8983ec02833bcf001b",
+    "semantic_metric.py": "e0e6031246cbbd45f6f2a606f23621b9b225734c",
+    "studio_semantics_api.py": "6a3c1e815b6e90f09ad8d949c1ae88c790ff61f4"
+  },
+  "boundaries": {
+    "comparison": "G1 vs G2 blocked by the server with SAMPLING_TARGET_MISMATCH (409)",
+    "compile": "src/studio/** strict TypeScript; .value does not exist on the transport type",
+    "domain": "SemanticMetric(value: float) stays server-side",
+    "presentation": "production build inspected in a browser; inspector readable, boundary visible, tailwind scans ts/tsx",
+    "transport": "SemanticMetricView(display_value: str); numeric leaves in payload = 0"
+  },
+  "browser_acceptance": {
+    "G1 0.065 visible": true,
+    "G1 inspector opens": true,
+    "G2 0.685 visible": true,
+    "G2 generator limitation visible": true,
+    "G2 inspector opens": true,
+    "both semantic types visible": true,
+    "comparison boundary visible": true,
+    "drawer opaque and readable": "rgb(23, 24, 31)",
+    "legacy navigation unchanged": "86 nav controls",
+    "no delta / ratio / winner": true
+  },
+  "checkpoint": "analytic-studio-semantic-ui-v1",
+  "frontend_blobs": {
+    "src/studio/__typetests__/no_arithmetic.ts": "729a84d738f3ce9f94c0eff52f151e363fc8dc83",
+    "src/studio/components/ComparisonBoundary.tsx": "c82dc07fe05c323d0fd7aaf71df86e42e73eb60b",
+    "src/studio/components/MetricCard.tsx": "66081927790c39a7bdcd133f62369c28e4584029",
+    "src/studio/components/SemanticsInspector.tsx": "ccb16b2b53ba104d9021dc56337ef48ebb0bb5e5",
+    "src/studio/pages/N0Screen.tsx": "ef01c4ba4fcefd73cf0183cf2704a575ff914ea6",
+    "src/studio/semantics/api.ts": "c297fa618de062930d57ec1ea503d36a5a02bccf",
+    "src/studio/semantics/decode.ts": "2dabbf3fd9bf61b65d7e211625e22c0245efe4c5",
+    "src/studio/semantics/types.ts": "c3c36005f8637fa024206f9b540c60c2df939329",
+    "tsconfig.studio.json": "cd998725c9e61b9affd6d4362ccf43f9710173dc",
+    "tsconfig.typetests.json": "85fd9aeb996a87cf4b91ae68e00f854871c96c4b"
+  },
+  "incident": {
+    "cause": "content glob covered js/jsx but not ts/tsx",
+    "detected_by": "browser inspection of the production build",
+    "effect": "Studio classes absent from the generated CSS",
+    "remedy": "include ts/tsx in the content glob; move components onto project MD3 tokens",
+    "status": "RESOLVED",
+    "symptom": "transparent Inspector drawer overlaying the cards",
+    "type": "TAILWIND_CONTENT_SCOPE_GAP",
+    "why_it_matters": "a fourth integrity layer: computation -> artifact -> transport -> presentation. Correct JSON and correct types do not guarantee correctly displayed meaning, and nothing below the browser could see it"
+  },
+  "next": "Combo Lab + ResearchSession. The question that opens there: which user action is merely a look, and which creates a new selectable hypothesis and must enter the ledger. EXPLORE/REGISTERED, conditioning_hash, search_space_hash, k_declared/k_actual.",
+  "previous": "analytic-studio-semantic-foundation-v1",
+  "tests": {
+    "browser acceptance": "10/10",
+    "inspector": "8/8",
+    "integration gate": "6/6",
+    "semantic core": "10/10",
+    "transport": "12/12"
+  },
+  "walls_proved_by_breaking": {
+    "build_gate": "npm run build = typecheck && typecheck:negative && vite build",
+    "compile": "metric.value * 2 -> TS2339",
+    "negative_fixture": "reintroducing value -> TS2578 x2 + TS2741, three sites at once",
+    "runtime_decoder": "payload with numeric value -> TransportContractError",
+    "server": "/compare/G1/G2 -> 409 COMPARISON_BLOCKED"
+  }
+}
