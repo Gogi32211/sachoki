@@ -43,6 +43,9 @@ interface Props {
 
 export function ResultsTable({ run, onInspect, onPromote }: Props) {
   const stale = run.freshness === 'STALE';
+  // The server decides what this evidence supports. The screen renders that decision; it does
+  // not soften it into a button that will answer 409.
+  const canPromote = run.allowed_actions.includes('promote');
   return (
     <div data-run={run.run_id} data-freshness={run.freshness}
          className="rounded-lg border border-md-outline-var p-4">
@@ -55,7 +58,10 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
         <div className="text-right text-[10px] text-md-on-surface-var">
           <div className="font-mono">{run.display_policy}</div>
           <div className="font-mono">{run.artifact_hash}</div>
-          <div className="uppercase tracking-wider">{run.data_provenance}</div>
+          <div data-origin={run.evidence_origin} className="uppercase tracking-wider">
+            {run.evidence_origin}
+          </div>
+          <div className="lowercase">{run.allowed_actions.join(' · ')}</div>
         </div>
       </div>
 
@@ -111,13 +117,21 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
                   {r.verdict}
                 </td>
                 <td className="py-1.5">
-                  <button type="button" data-promote={r.claim_id}
-                          onClick={() => onPromote(r)}
-                          className="rounded border border-md-outline-var px-2 py-0.5
-                                     text-[10px] uppercase tracking-wider
-                                     text-md-on-surface-var hover:text-md-on-surface">
-                    promote
-                  </button>
+                  {canPromote ? (
+                    <button type="button" data-promote={r.claim_id}
+                            onClick={() => onPromote(r)}
+                            className="rounded border border-md-outline-var px-2 py-0.5
+                                       text-[10px] uppercase tracking-wider
+                                       text-md-on-surface-var hover:text-md-on-surface">
+                      promote
+                    </button>
+                  ) : (
+                    <span data-no-promote={r.claim_id}
+                          className="text-[10px] uppercase tracking-wider
+                                     text-md-on-surface-var">
+                      read only
+                    </span>
+                  )}
                 </td>
               </tr>
             ))}

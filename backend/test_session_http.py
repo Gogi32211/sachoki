@@ -728,6 +728,65 @@ def t39_the_session_parameter_list_carries_current_values_and_roles():
         assert p["label"], p
 
 
+# ── the results surface ─────────────────────────────────────────────────────
+def t40_a_synthetic_fixture_may_be_read_and_not_acted_on():
+    """the label was a badge; it is now a server-side prohibition
+
+    The table said SYNTHETIC_FIXTURE in its header and promote answered 200, so the screenshot
+    was defended and the workflow was not.
+    """
+    sid = _new_session()
+    run = C.post(f"/api/studio/session/{sid}/search", json={}).json()["run"]
+    assert run["evidence_origin"] == "SYNTHETIC_FIXTURE", run["evidence_origin"]
+    assert set(run["allowed_actions"]) == {"inspect", "rerun", "change_controls"}, run
+    r = C.post(f"/api/studio/session/{sid}/promote",
+               json={"run_id": run["run_id"], "claim_id": run["rows"][0]["claim_id"]})
+    assert r.status_code == 409, f"a fixture was promoted: {r.status_code}"
+    d = r.json()["detail"]
+    assert d["error"] == "SyntheticEvidenceActionError", d
+    assert "not a finding" in d["remedy"], d
+
+
+def t41_re_running_one_specification_does_not_double_the_exposure():
+    """the identity is (evidence, decision) — not the run that delivered it"""
+    sid = _new_session()
+    first = C.post(f"/api/studio/session/{sid}/search", json={}).json()
+    a = first["session"]
+    second = C.post(f"/api/studio/session/{sid}/search", json={}).json()
+    b = second["session"]
+    assert a["k_exposed"] == b["k_exposed"], (
+        f"the same five results, delivered twice, were charged twice: "
+        f"{a['k_exposed']} -> {b['k_exposed']}")
+    assert int(b["revisits"]) >= int(a["revisits"]) + 5, (
+        f"the re-delivery left no revisit trail: {a['revisits']} -> {b['revisits']}")
+    assert second["run"]["run_id"] != first["run"]["run_id"], "the second run reused the first id"
+
+
+def t42_a_wider_window_charges_only_the_new_rows():
+    """displayed 5 → 10 over one ranking is five new claims, not ten"""
+    sid = _new_session()
+    C.post(f"/api/studio/session/{sid}/search", json={})
+    before = _acc(sid)
+    assert before["k_exposed"] == "5", before
+    _param(sid, "displayed_top_k", "10")
+    C.post(f"/api/studio/session/{sid}/search", json={})
+    after = _acc(sid)
+    assert after["k_exposed"] == "10", f"expected 10 distinct, got {after['k_exposed']}"
+    assert int(after["revisits"]) >= 5, (
+        f"the first five were re-delivered and should read as revisits: {after['revisits']}")
+
+
+def t43_the_payload_never_carries_more_than_it_admits():
+    sid = _new_session()
+    run = C.post(f"/api/studio/session/{sid}/search", json={}).json()["run"]
+    assert len(run["rows"]) == run["displayed_count"] == 5, run["displayed_count"]
+    assert run["ranked_count"] == 31 and run["selectable_count"] == 31, run
+    for row in run["rows"]:
+        for cell in ("effect", "uncertainty", "support"):
+            assert isinstance(row[cell]["display_value"], str), row
+            assert "value" not in row[cell], row[cell]
+
+
 # ── the neighbouring surface, same routing layer ────────────────────────────
 def t12_semantics_screen_serves_and_carries_no_operand():
     r = C.get("/api/studio/semantics/n0")
@@ -802,6 +861,10 @@ for i, fn in enumerate([t1_the_schema_can_be_built_at_all,
                         t37_a_plan_is_single_use,
                         t38_a_plan_cannot_be_pointed_at_a_different_knob,
                         t39_the_session_parameter_list_carries_current_values_and_roles,
+                        t40_a_synthetic_fixture_may_be_read_and_not_acted_on,
+                        t41_re_running_one_specification_does_not_double_the_exposure,
+                        t42_a_wider_window_charges_only_the_new_rows,
+                        t43_the_payload_never_carries_more_than_it_admits,
                         t12_semantics_screen_serves_and_carries_no_operand,
                         t13_the_blocked_comparison_is_blocked_at_the_http_layer_too], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)

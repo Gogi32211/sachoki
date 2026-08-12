@@ -47,12 +47,44 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, dataclass, field
 
+# ── where the evidence came from, and what may be done with it ──────────────
+#
+# A label is not a control. The table said SYNTHETIC_FIXTURE in its header and the promote
+# endpoint answered 200, so the screenshot was defended and the workflow was not — the screen
+# said "this is not a finding" while the server let it be treated as one.
+#
+# Origin now decides rights on the server. Reading, re-running and turning controls are
+# available under every origin, because exploring a fixture is how the fixture is useful. Every
+# CONSEQUENTIAL action — anything that carries a result outward into a verdict, a freeze, a
+# forward commitment or the book — is refused unless the evidence can support it.
 SYNTHETIC_FIXTURE = "SYNTHETIC_FIXTURE"
+HISTORICAL_RESEARCH = "HISTORICAL_RESEARCH"
+FROZEN_FORWARD = "FROZEN_FORWARD"
+
+INSPECT, RERUN, CHANGE_CONTROLS = "inspect", "rerun", "change_controls"
+PROMOTE, FREEZE, REGISTER_VERDICT, FORWARD, BOOK = (
+    "promote", "freeze", "register_verdict", "forward", "book")
+
+READ_ONLY_ACTIONS = (INSPECT, RERUN, CHANGE_CONTROLS)
+CONSEQUENTIAL_ACTIONS = (PROMOTE, FREEZE, REGISTER_VERDICT, FORWARD, BOOK)
+
+ACTION_RIGHTS = {
+    SYNTHETIC_FIXTURE: set(READ_ONLY_ACTIONS),
+    # historical research may be promoted and frozen; committing it forward or to the book is a
+    # claim about the future that historical evidence cannot make on its own
+    HISTORICAL_RESEARCH: set(READ_ONLY_ACTIONS) | {PROMOTE, FREEZE, REGISTER_VERDICT},
+    FROZEN_FORWARD: set(READ_ONLY_ACTIONS) | set(CONSEQUENTIAL_ACTIONS),
+}
+
 FRESH, STALE = "FRESH", "STALE"
 
 
 class StaleSearchRunError(RuntimeError):
     """A run computed under a specification the session no longer has."""
+
+
+class SyntheticEvidenceActionError(RuntimeError):
+    """An action that treats a fixture as a finding."""
 
 
 class ExposureAuthorisationError(RuntimeError):
@@ -77,6 +109,7 @@ class SearchRunArtifact:
     null_family: str
     integrity_status: str = "VALID"
     data_provenance: str = SYNTHETIC_FIXTURE
+    evidence_origin: str = SYNTHETIC_FIXTURE
 
     @property
     def ranked_count(self) -> int:
@@ -146,6 +179,8 @@ class SearchRunView:
     null_family: str
     integrity_status: str
     data_provenance: str
+    evidence_origin: str
+    allowed_actions: tuple
     artifact_hash: str
     rows: tuple = field(default_factory=tuple)
 
@@ -196,7 +231,8 @@ def rank_and_authorise(*, run_id: str, session_id: str, family_id: str, input_st
                        search_space_hash: str, selectable_count: int, displayed_count: int,
                        evidence_hash: str, decision_hash: str, sort_key: str = "effect",
                        null_family: str = "OPPORTUNITY_LEVEL",
-                       sampling_target: str = "opportunity_bootstrap") -> SearchRunArtifact:
+                       sampling_target: str = "opportunity_bootstrap",
+                       evidence_origin: str = SYNTHETIC_FIXTURE) -> SearchRunArtifact:
     """Rank the whole space here, and decide what may leave.
 
     Both halves are deliberately on this side. Shipping the ranking and letting the client cut it
@@ -216,7 +252,8 @@ def rank_and_authorise(*, run_id: str, session_id: str, family_id: str, input_st
         selectable_count=selectable_count, ranked_claim_ids=tuple(ids),
         display_policy=f"top_{displayed_count}_by_{sort_key}",
         displayed_count=min(displayed_count, len(ids)),
-        sampling_target=sampling_target, null_family=null_family)
+        sampling_target=sampling_target, null_family=null_family,
+        evidence_origin=evidence_origin)
 
 
 def to_view(artifact: SearchRunArtifact, current_state_hash: str,
@@ -232,11 +269,28 @@ def to_view(artifact: SearchRunArtifact, current_state_hash: str,
         displayed_count=artifact.displayed_count, display_policy=artifact.display_policy,
         sampling_target=artifact.sampling_target, null_family=artifact.null_family,
         integrity_status=artifact.integrity_status, data_provenance=artifact.data_provenance,
+        evidence_origin=artifact.evidence_origin,
+        allowed_actions=tuple(sorted(ACTION_RIGHTS.get(artifact.evidence_origin, set()))),
         artifact_hash=artifact.artifact_hash, rows=rows)
+
+
+def assert_action_allowed(view: SearchRunView, action: str) -> None:
+    """Origin decides rights. Checked here so no endpoint has to remember to check it."""
+    allowed = ACTION_RIGHTS.get(view.evidence_origin, set())
+    if action in allowed:
+        return
+    why = ""
+    if view.evidence_origin == SYNTHETIC_FIXTURE:
+        why = ("These rows are a fixture: they are derived from claim identities so the contract "
+               "can be exercised end to end, and no search produced them. ")
+    raise SyntheticEvidenceActionError(
+        f"{action!r} is not available on evidence of origin {view.evidence_origin}. {why}"
+        f"Available here: {', '.join(sorted(allowed))}.")
 
 
 def assert_promotable(view: SearchRunView) -> None:
     """A stale table stays readable and stops being actionable. Those are different rights."""
+    assert_action_allowed(view, PROMOTE)
     if view.freshness != FRESH:
         raise StaleSearchRunError(
             f"run {view.run_id} was produced under state {view.input_state_hash} and the session "

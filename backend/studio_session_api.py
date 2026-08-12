@@ -435,7 +435,7 @@ def promote(sid: str, run_id: str, claim_id: str) -> dict:
     claim = _claim_from(surface)
     view = SR.to_view(artifact, surface.specification_hash, claim.evidence_claim_hash,
                       claim.decision_spec_hash)
-    SR.assert_promotable(view)                       # raises StaleSearchRunError
+    SR.assert_promotable(view)   # SyntheticEvidenceActionError, then StaleSearchRunError
     if claim_id not in artifact.authorised_ids:
         raise SR.ExposureAuthorisationError(
             f"{claim_id} was ranked but never authorised for display, so nobody saw it and it "
@@ -613,6 +613,7 @@ def refusal(e: Exception) -> dict:
     # loop. FORK continues the work; NEW_SESSION is the only route back into the confirmatory
     # track, and it is deliberately not a shortcut — nothing is carried over.
     next_action = {
+        "SyntheticEvidenceActionError": "NONE",
         "StaleSearchRunError": "RERUN",
         "StaleChangePlanError": "REPREVIEW",
         "ParameterSurfaceError": "FORK",
@@ -620,6 +621,9 @@ def refusal(e: Exception) -> dict:
         "CannotRegisterAfterExposureError": "NEW_SESSION",
     }.get(kind, "NONE")
     remedy = {
+        "SyntheticEvidenceActionError":
+            "These results are a fixture, not a finding. They can be read and re-run; carrying "
+            "one outward into a verdict, a freeze or the book needs evidence a search produced.",
         "StaleSearchRunError":
             "These results were produced under a specification the session no longer has. They "
             "stay readable as history; run the search again to act on the current one.",
@@ -890,7 +894,8 @@ def build_router():
             return promote(sid, b.run_id, b.claim_id)
         except KeyError as e:
             raise HTTPException(404, str(e))
-        except (SR.StaleSearchRunError, SR.ExposureAuthorisationError) as e:
+        except (SR.SyntheticEvidenceActionError, SR.StaleSearchRunError,
+                SR.ExposureAuthorisationError) as e:
             raise HTTPException(409, refusal(e))
 
     @router.get("/{sid}/family")

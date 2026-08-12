@@ -41,11 +41,13 @@ def check(name, fn):
         fail += 1
 
 
-def artifact(selectable=31, displayed=5, sort_key="effect", spec="SPEC-A"):
+def artifact(selectable=31, displayed=5, sort_key="effect", spec="SPEC-A",
+             origin=SR.SYNTHETIC_FIXTURE):
     return SR.rank_and_authorise(
         run_id="r001", session_id="s0001", family_id="F1", input_state_hash=spec,
         search_space_hash="space-aaa", selectable_count=selectable,
-        displayed_count=displayed, evidence_hash="ev1", decision_hash="ds1", sort_key=sort_key)
+        displayed_count=displayed, evidence_hash="ev1", decision_hash="ds1", sort_key=sort_key,
+        evidence_origin=origin)
 
 
 def view(a, current="SPEC-A"):
@@ -113,14 +115,73 @@ def t5_a_run_is_stale_when_the_specification_moved():
 
 
 def t6_a_stale_run_may_be_read_and_not_promoted():
-    """two different rights, and collapsing them loses the history"""
-    SR.assert_promotable(view(artifact(), "SPEC-A"))
+    """two different rights, and collapsing them loses the history
+
+    Run on HISTORICAL_RESEARCH evidence on purpose. A synthetic fixture is refused by the origin
+    gate before staleness is ever consulted, which would make this test pass for the wrong
+    reason — the same trap as the disjunction in t25 of the HTTP suite.
+    """
+    fresh = artifact(origin=SR.HISTORICAL_RESEARCH)
+    SR.assert_promotable(view(fresh, "SPEC-A"))
     try:
-        SR.assert_promotable(view(artifact(), "SPEC-B"))
+        SR.assert_promotable(view(fresh, "SPEC-B"))
     except SR.StaleSearchRunError as e:
         assert "can still be read" in str(e)
         return
     raise AssertionError("a verdict was attached to a specification no longer on screen")
+
+
+def t6b_origin_is_checked_before_freshness():
+    """a fixture cannot be promoted even when it is perfectly current
+
+    The precedence is deliberate. Staleness asks whether THIS run is current; origin asks whether
+    this evidence can ever support the action at all. A fresh fixture answering "you may promote
+    once you re-run" would be a lie in the helpful direction.
+    """
+    current = view(artifact(origin=SR.SYNTHETIC_FIXTURE), "SPEC-A")
+    assert current.freshness == SR.FRESH
+    try:
+        SR.assert_promotable(current)
+    except SR.SyntheticEvidenceActionError as e:
+        assert "no search produced them" in str(e)
+        return
+    raise AssertionError("a fixture was promotable because it happened to be fresh")
+
+
+def t6c_origin_decides_which_actions_exist():
+    """reading and re-running are available everywhere; carrying a result outward is not"""
+    fixture = view(artifact(origin=SR.SYNTHETIC_FIXTURE), "SPEC-A")
+    historical = view(artifact(origin=SR.HISTORICAL_RESEARCH), "SPEC-A")
+    forward = view(artifact(origin=SR.FROZEN_FORWARD), "SPEC-A")
+
+    for v in (fixture, historical, forward):
+        for action in SR.READ_ONLY_ACTIONS:
+            SR.assert_action_allowed(v, action)
+
+    for action in SR.CONSEQUENTIAL_ACTIONS:
+        try:
+            SR.assert_action_allowed(fixture, action)
+        except SR.SyntheticEvidenceActionError:
+            pass
+        else:
+            raise AssertionError(f"a fixture allowed {action}")
+        SR.assert_action_allowed(forward, action)
+
+    SR.assert_action_allowed(historical, SR.PROMOTE)
+    for action in (SR.FORWARD, SR.BOOK):
+        try:
+            SR.assert_action_allowed(historical, action)
+        except SR.SyntheticEvidenceActionError:
+            continue
+        raise AssertionError(
+            f"historical evidence committed {action}; that is a claim about the future which "
+            f"backtested evidence cannot make on its own")
+
+
+def t6d_the_view_publishes_its_own_rights():
+    """the screen renders the server's decision instead of guessing at it"""
+    assert view(artifact(), "SPEC-A").allowed_actions == ("change_controls", "inspect", "rerun")
+    assert SR.PROMOTE in view(artifact(origin=SR.HISTORICAL_RESEARCH), "SPEC-A").allowed_actions
 
 
 # ── the transport rule, narrower than N0 on purpose ─────────────────────────
@@ -209,6 +270,9 @@ for i, fn in enumerate([t1_the_payload_carries_the_authorised_set_and_not_the_ra
                         t4_displayed_exposed_and_selectable_are_three_numbers,
                         t5_a_run_is_stale_when_the_specification_moved,
                         t6_a_stale_run_may_be_read_and_not_promoted,
+                        t6b_origin_is_checked_before_freshness,
+                        t6c_origin_decides_which_actions_exist,
+                        t6d_the_view_publishes_its_own_rights,
                         t7_no_statistical_value_crosses_as_a_number,
                         t8_the_counters_are_still_numbers_because_they_are_metadata,
                         t9_every_statistical_cell_is_text_with_a_passport,

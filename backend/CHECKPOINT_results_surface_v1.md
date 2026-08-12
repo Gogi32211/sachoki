@@ -124,6 +124,45 @@ parameter_surface      22/22     search_run             12/12
 research_path_isolation 6/6      semantics_api          12/12
 ```
 
+## Hardening, added after the checkpoint was first written
+
+**The fixture label became a prohibition.** It was a badge: the header said SYNTHETIC_FIXTURE
+and `promote` answered 200. The screenshot was defended and the workflow was not — the screen
+said "this is not a finding" while the server let one be treated as a finding.
+
+```
+evidence_origin      SYNTHETIC_FIXTURE · HISTORICAL_RESEARCH · FROZEN_FORWARD
+
+read-only  inspect · rerun · change_controls        available under every origin
+outward    promote · freeze · register_verdict · forward · book
+
+SYNTHETIC_FIXTURE     read-only
+HISTORICAL_RESEARCH   + promote · freeze · register_verdict
+FROZEN_FORWARD        + forward · book
+```
+
+Origin is checked BEFORE freshness, and that order matters: staleness asks whether this run is
+current, origin asks whether the evidence can ever support the action. A fresh fixture answering
+"re-run and you may promote" would be a lie in the helpful direction. The view publishes
+`allowed_actions`, and the table renders that decision rather than offering a button that will
+answer 409.
+
+**Exposure identity, proven on controlled overlap.** `k_exposed 5 → 10` was the right number and
+that is not the same as the rule being right. The identity is
+`(evidence_claim_hash, decision_spec_hash)` — never `run_id`, `rank` or a row position, all of
+which change for free between neighbouring specifications.
+
+```
+run A exposes  A B C D E      k_exposed 5 · revisits 0
+run B exposes  C D E F G      k_exposed 7 · revisits 3        not 10
+same set reversed             k_exposed unchanged · revisits +5
+same rows, new decision rule  k_exposed +3 · revisits 0
+```
+
+Live: one specification searched twice leaves `k_exposed` at 5 and grows revisits. Real ranking
+makes this acute — adjacent top-N windows overlap heavily, and a run-keyed counter would charge
+full price for a list that moved by one.
+
 ## Not done, named
 
 - The rows are synthetic. Connecting a real search is the next thing, and it changes no contract

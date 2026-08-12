@@ -244,6 +244,9 @@ export interface SearchRunView {
   readonly null_family: string;
   readonly integrity_status: string;
   readonly data_provenance: string;
+  /** where the evidence came from, and therefore what may be done with it. Server-decided. */
+  readonly evidence_origin: string;
+  readonly allowed_actions: readonly string[];
   readonly artifact_hash: string;
   readonly rows: readonly ResultRowView[];
 }

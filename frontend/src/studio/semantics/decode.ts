@@ -311,6 +311,8 @@ export function decodeRun(raw: unknown): import('./types').SearchRunView {
     null_family: str(o, 'null_family', 'run'),
     integrity_status: str(o, 'integrity_status', 'run'),
     data_provenance: str(o, 'data_provenance', 'run'),
+    evidence_origin: str(o, 'evidence_origin', 'run'),
+    allowed_actions: (Array.isArray(o.allowed_actions) ? o.allowed_actions : []).map(String),
     artifact_hash: str(o, 'artifact_hash', 'run'), rows,
   };
 }
