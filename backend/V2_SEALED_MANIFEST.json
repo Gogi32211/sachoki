@@ -1,0 +1,97 @@
+{
+  "claim_manifest": {
+    "deferred_day_level": [
+      "sig_conso+sig_macro_vix_up",
+      "sig_h1_dr+sig_macro_vix_up",
+      "sig_lead_in_lag+sig_macro_vix_up",
+      "sig_macro_vix_up",
+      "sig_rs_intact+sig_macro_vix_up",
+      "\u00acsig_macro_vix_up"
+    ],
+    "manifest_hash": "3600ae3dd52a25e6bb2cf1c55896840ad9e18e4f0b621314e7d52f7e540cd4f8",
+    "membership_hash": "1f0e2b02d6a073c791300dfd5a257dfad2554a471b995738a14a851e3aa588dd",
+    "n_search_eligible": 31,
+    "null_family": "OPPORTUNITY_LEVEL"
+  },
+  "delta_grid": [
+    0.0,
+    0.6,
+    1.5,
+    3.0,
+    6.0
+  ],
+  "n0_g1_provenance": {
+    "fwer_band": 0.065,
+    "fwer_final": 0.065,
+    "fwer_search": 0.065,
+    "generator": "within_stratum_outcome_v1",
+    "k": 31,
+    "transfer": "computation identity proven old-vs-new module, 31/31 theta and 648/648 weights bitwise, plus 5/5 artifact replay",
+    "worlds": 200
+  },
+  "outcome_semantics": {
+    "capability_fail": "VALID EXPERIMENT / FAILED ACCEPTANCE \u2014 the generation closes with that verdict; it is not rerun under the same name",
+    "integrity_fail": "SEALED = INVALID, CAPABILITY = NOT INTERPRETABLE, even if the results file exists and the numbers look good"
+  },
+  "primary_endpoints": {
+    "funnel": "KnownLocation -> Rank -> SearchScreen -> Final",
+    "paired_tax": "P(Known = 1, Final = 0)",
+    "retention": "P(FinalSearchAccept = 1 | KnownLocationAccept = 1)"
+  },
+  "protocol": "SEALED v2 FINAL",
+  "sampling_targets": {
+    "n0_g1": "structured_permutation_null(within_stratum_outcome_v1)",
+    "note": "different targets; sampling_target refuses to compare them",
+    "sealed_run": "synthetic_dgp(incremental_composition_generator_v1)"
+  },
+  "seed_derivation": "sha256('combolab-v2-sealed:' + freeze_commit) -> default_rng -> integers; the freeze commit does not exist yet, which is the point",
+  "semantic_digests": {
+    "combolab_v2_spec": "38f2665d653beb6447f4118384702397039b28f2f5e691437b248fa7b3201071",
+    "n0_spec": "3c6ccda05dde7eb03ec4f278407e99e4f579d1356304fade53e041f6b41e5118",
+    "s1_spec": "d4a9bb1e722282006dbb5cfb6c8972c7a1ff43deed3a1a0b51ea412367264ac2"
+  },
+  "source_blobs": {
+    "combo_lab.py": "5164b3753d92ac0f413b96f12a5a8232a977e8d5",
+    "combolab_v2.py": "93e201710b7d43ee59ffc553a7d8ebbc288d78f2",
+    "combolab_v2_spec.py": "10cb4c07ad956883bcb58ee181a4d937c8148157",
+    "n0_run.py": "630204a6d541cf397b26f79cf34d97201fe1e50b",
+    "n0_spec.py": "ff02e7c7d379d72e60b420cbab733b44178ae781",
+    "s1_reveal_contract.py": "e6a6e5ada48b7242fa671eca03b928418ea11490",
+    "s1_run.py": "da2e14c8193ae798f33b70648015054dbc3908ed",
+    "s1_spec.py": "617680e15c01db5fb45b26db4132a0d27121f446",
+    "sampling_target.py": "5c2afc458a854876b94bcc3833142b026025ac78",
+    "sources.py": "31489bd02549ff14a997e2d5334da5bd20a30072",
+    "studio_verdict.py": "e400a91808dcdf88603ac8a97da80c0846fbf859",
+    "v2_decision_run.py": "1f4b994b46c9fcb7c9ed4fd19acab1e071a4e8c1",
+    "v2_sealed_run.py": "2954bdc2ea1f90d6e0c020777320df10d7b757a6"
+  },
+  "source_sha256": {
+    "combo_lab.py": "2f689aedc8a44ce08e5c6a8abe99807eceb1c9173e7fed021699fa904000132d",
+    "combolab_v2.py": "c3c74670a1d4acbbe526679cb57ef5d47fca7c0c0770321aad8a644cea4fdaa6",
+    "combolab_v2_spec.py": "2bd8bfe6458d4e1c414c3df15b02339f06d411b2c1535281f05ce4d47a51515e",
+    "n0_run.py": "d330e4bea36fc4dc1b82c870fae872b8f46d4648832812d40aeeb98b1eb8dfad",
+    "n0_spec.py": "6c592a55d82eae48979538bf84ea98664b6928ef30877a99d1eda3d95dd6dd4c",
+    "s1_reveal_contract.py": "c484b836506b81401cc6054d0fa0574171ad1da87026da248325d10991fb8148",
+    "s1_run.py": "81f79c1b15fd6732873ead7a3b45ee9141ba8750162fa6a5578f3f3df95eb5ed",
+    "s1_spec.py": "e7a34957d32f1de51d577cbc92f1a0e0884145240d19f234ebfedfd77152e1ad",
+    "sampling_target.py": "32faf463fe0204e16c04aefadf48f87a05561aa1a73f7c01cf439b992855d74c",
+    "sources.py": "28a7d86ea398526aaca08239a0ffee535bd43634700cce8d2832429ebba79171",
+    "studio_verdict.py": "450a0441b0e68fbf968c432664001c49fc87653dcc6bd88b474e558c18ff52d8",
+    "v2_decision_run.py": "1fa681357c7c282e14452fe1e22da5624b411eed043b6e92fd98901748601457",
+    "v2_sealed_run.py": "6102477faea41443f7a6f6f3cc72c7352f10ce12cd3dde1a8d81b746d1072218"
+  },
+  "structural_implications": [
+    "FinalSearchAccept => SearchScreenPass",
+    "SearchScreenPass => Rank <= 5",
+    "FinalSearchAccept => KnownLocationAccept"
+  ],
+  "support_policy": {
+    "hash": "6f825ca4763fea76605ddd872717bfd6f1f6e2f0c660d704728577653ea2f12c",
+    "values": {
+      "applies_to": "both arms of every stratum",
+      "dates_min": 25,
+      "max_single_date_share": 0.2,
+      "n_min": 100
+    }
+  }
+}
