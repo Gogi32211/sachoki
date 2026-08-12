@@ -1,0 +1,154 @@
+{
+  "adversarial_suite": "15/15",
+  "canonical_lesson": {
+    "case": "D",
+    "displayed": 5,
+    "k_selectable": 31,
+    "statement": "UI history is not multiplicity. Five results were displayed and thirty-one were selectable; k is thirty-one."
+  },
+  "checkpoint": "analytic-studio-research-session-v1",
+  "claim_identity": {
+    "fields": [
+      "estimand",
+      "outcome",
+      "horizon",
+      "population",
+      "conditioning_hash",
+      "feature_rule_hash",
+      "support_policy_hash",
+      "null_family",
+      "decision_policy_version"
+    ],
+    "rule": "a statistically meaningful change creates a new identity; an empty field raises, because a hole defeats the identity's only job"
+  },
+  "fatal_gates": [
+    "CannotRegisterAfterExposureError",
+    "UnregisteredSelectionError",
+    "SearchSpaceDriftError",
+    "unknown parameter -> blocked"
+  ],
+  "golden_accounting": {
+    "A_reopen_same_claim": {
+      "changes_by_role": {
+        "CLAIM_CHANGE": 0,
+        "DESIGN_CHANGE": 0,
+        "POLICY_CHANGE": 0,
+        "PRESENTATION_ONLY": 0,
+        "SEARCH_SPACE_CHANGE": 0
+      },
+      "confirmatory_eligible": false,
+      "displayed_at_most": 0,
+      "distinct_claims_executed": 1,
+      "events": 7,
+      "k_declared": 0,
+      "k_exposed": 1,
+      "k_selectable": 1,
+      "revisits": 2,
+      "session_id": "A",
+      "state": "EXPLORE"
+    },
+    "B_tolerance_changes": {
+      "changes_by_role": {
+        "CLAIM_CHANGE": 3,
+        "DESIGN_CHANGE": 0,
+        "POLICY_CHANGE": 0,
+        "PRESENTATION_ONLY": 0,
+        "SEARCH_SPACE_CHANGE": 0
+      },
+      "confirmatory_eligible": false,
+      "displayed_at_most": 0,
+      "distinct_claims_executed": 3,
+      "events": 10,
+      "k_declared": 0,
+      "k_exposed": 3,
+      "k_selectable": 3,
+      "revisits": 0,
+      "session_id": "B",
+      "state": "EXPLORE"
+    },
+    "C_technical_reruns": {
+      "changes_by_role": {
+        "CLAIM_CHANGE": 0,
+        "DESIGN_CHANGE": 0,
+        "POLICY_CHANGE": 0,
+        "PRESENTATION_ONLY": 0,
+        "SEARCH_SPACE_CHANGE": 0
+      },
+      "confirmatory_eligible": false,
+      "displayed_at_most": 0,
+      "distinct_claims_executed": 1,
+      "events": 7,
+      "k_declared": 0,
+      "k_exposed": 1,
+      "k_selectable": 1,
+      "revisits": 4,
+      "session_id": "C",
+      "state": "EXPLORE"
+    },
+    "D_search_space_not_screen": {
+      "changes_by_role": {
+        "CLAIM_CHANGE": 0,
+        "DESIGN_CHANGE": 0,
+        "POLICY_CHANGE": 0,
+        "PRESENTATION_ONLY": 0,
+        "SEARCH_SPACE_CHANGE": 0
+      },
+      "confirmatory_eligible": false,
+      "displayed_at_most": 5,
+      "distinct_claims_executed": 0,
+      "events": 7,
+      "k_declared": 0,
+      "k_exposed": 5,
+      "k_selectable": 31,
+      "revisits": 0,
+      "session_id": "D",
+      "state": "EXPLORE"
+    }
+  },
+  "irreversible_edge": "no registration after RESULT_EXPOSED — registration opens a NEW session and the exposed one stays exploratory forever",
+  "ledger": "append-only chain, each event carrying prior_state_hash and new_state_hash",
+  "module_sha256": {
+    "research_session.py": "502820a526b52ce0ffaa24106d98660e1303ae21acd7b0af6a637de79ed17d18",
+    "sampling_target.py": "32faf463fe0204e16c04aefadf48f87a05561aa1a73f7c01cf439b992855d74c",
+    "semantic_inspector.py": "2c76c981e65fc0fdb7fbf3d50dd244ea6d66c02d4c5b2e6bd8faf05dcb303e10",
+    "semantic_metric.py": "30bd6f8f193b5f2b4a5fe3d578acbbe050731093024ba817a987175991c882a2",
+    "studio_semantics_api.py": "3f8ae8a6be1b55bf95e22d26c1eccbfeaf28dc700f3e90f32e4ae90c4728a1aa"
+  },
+  "modules": {
+    "research_session.py": "190972c19870b0fd08a649260f0f447b281a0c7b",
+    "sampling_target.py": "5c2afc458a854876b94bcc3833142b026025ac78",
+    "semantic_inspector.py": "79cc600d4cb4c1aa25fb7d8983ec02833bcf001b",
+    "semantic_metric.py": "e0e6031246cbbd45f6f2a606f23621b9b225734c",
+    "studio_semantics_api.py": "6a3c1e815b6e90f09ad8d949c1ae88c790ff61f4"
+  },
+  "multiplicity": {
+    "k_declared": "what the frozen search space permitted",
+    "k_exposed": "distinct claims whose results were seen",
+    "k_selectable": "the space the ALGORITHM could pick a winner from; SEARCH_RUN can make it exceed the number of visible results"
+  },
+  "next": "Combo Lab UI as a separate phase. Its first acceptance is not 'shows 31 claims nicely' but: can a user change horizon or tolerance, see a result, and watch session accounting move exactly as the backend said it would.",
+  "parameter_registry": {
+    "count": 20,
+    "roles": [
+      "CLAIM_CHANGE",
+      "DESIGN_CHANGE",
+      "POLICY_CHANGE",
+      "PRESENTATION_ONLY",
+      "SEARCH_SPACE_CHANGE"
+    ],
+    "rule": "every UI degree of freedom is classified before it can be turned; an undeclared parameter raises"
+  },
+  "previous": [
+    "analytic-studio-semantic-foundation-v1",
+    "analytic-studio-semantic-ui-v1"
+  ],
+  "proves": "the semantics of a research ACTION, not of a number",
+  "session_states": [
+    "NEW",
+    "EXPLORE",
+    "REGISTERED",
+    "ACTIVE_REGISTERED",
+    "CLOSED",
+    "CLOSED_EXPLORATORY"
+  ]
+}
