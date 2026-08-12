@@ -1,0 +1,593 @@
+{
+  "blocked_pair": {
+    "detail": "two different generators: 'within_stratum_outcome_v1' vs 'date_level_label_circular_v1' — a rate under one null model says nothing about the other",
+    "left": "G1",
+    "result": "SAMPLING_TARGET_MISMATCH",
+    "right": "G2"
+  },
+  "checkpoint": "analytic-studio-semantic-foundation-v1",
+  "fixtures": [
+    "G1",
+    "G2",
+    "INVALID_BUILD",
+    "N1",
+    "N2"
+  ],
+  "goldens": {
+    "G1": {
+      "badge": "INFERENTIAL · VALID",
+      "banner": "",
+      "headline": "0.065",
+      "sections": [
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "estimand",
+              "family_wise_false_promotion_rate",
+              ""
+            ]
+          ],
+          "title": "MEANING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "interval / design",
+              "200 null worlds · nominal 0.05",
+              ""
+            ]
+          ],
+          "title": "UNCERTAINTY"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "sampling target",
+              "structured_permutation_null · by trading_date · | within_stratum_outcome_v1",
+              ""
+            ],
+            [
+              "null model",
+              "Y ⊥ Cell | Date, BaseSetup",
+              ""
+            ],
+            [
+              "mechanism",
+              "outcomes permuted inside (date × family); membership frozen",
+              ""
+            ]
+          ],
+          "title": "EXPERIMENT"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "Date",
+              "IS trading date",
+              "hash 66742e940f6f"
+            ],
+            [
+              "BaseSetup",
+              "IS family",
+              "hash 5ee0bb3ec7c0"
+            ],
+            [
+              "condition set",
+              "3bcf9447b7fc",
+              "a tolerance is part of the research specification; changing it creates a different conditioning object"
+            ]
+          ],
+          "title": "CONDITIONING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "scope",
+              "31 OPPORTUNITY_LEVEL claim classes",
+              ""
+            ]
+          ],
+          "title": "POPULATION"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "experiment",
+              "N0-2026-08-11",
+              ""
+            ],
+            [
+              "spec",
+              "3c6ccda05dde7eb0",
+              ""
+            ],
+            [
+              "code",
+              "n0_run@2591906",
+              ""
+            ],
+            [
+              "data",
+              "bars@2026-08-10",
+              ""
+            ]
+          ],
+          "title": "PROVENANCE"
+        }
+      ],
+      "subhead": "Structured-null FWER"
+    },
+    "G2": {
+      "badge": "INFERENTIAL · VALID",
+      "banner": "",
+      "headline": "0.685",
+      "sections": [
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "estimand",
+              "family_wise_false_promotion_rate",
+              ""
+            ]
+          ],
+          "title": "MEANING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "interval / design",
+              "200 null worlds · nominal 0.05",
+              ""
+            ]
+          ],
+          "title": "UNCERTAINTY"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "sampling target",
+              "structured_permutation_null · by trading_date · | date_level_label_circular_v1",
+              ""
+            ],
+            [
+              "null model",
+              "Y ⊥ DayProperty, serial geometry of the property held",
+              ""
+            ],
+            [
+              "mechanism",
+              "daily label sequence circularly shifted; outcomes untouched; membership, strata and weights recomputed",
+              ""
+            ],
+            [
+              "preserves",
+              "global prevalence · cyclic run structure · flag lag geometry",
+              ""
+            ],
+            [
+              "does not preserve",
+              "calendar-year prevalence — NOT a test conditional on Year/Regime",
+              ""
+            ]
+          ],
+          "title": "EXPERIMENT"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "Date",
+              "IS trading date",
+              "hash 66742e940f6f"
+            ],
+            [
+              "BaseSetup",
+              "IS family",
+              "hash 5ee0bb3ec7c0"
+            ],
+            [
+              "condition set",
+              "3bcf9447b7fc",
+              "a tolerance is part of the research specification; changing it creates a different conditioning object"
+            ]
+          ],
+          "title": "CONDITIONING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "scope",
+              "6 DAY_LEVEL claim classes",
+              ""
+            ]
+          ],
+          "title": "POPULATION"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "experiment",
+              "N0-2026-08-11",
+              ""
+            ],
+            [
+              "spec",
+              "3c6ccda05dde7eb0",
+              ""
+            ],
+            [
+              "code",
+              "n0_run@2591906",
+              ""
+            ],
+            [
+              "data",
+              "bars@2026-08-10",
+              ""
+            ]
+          ],
+          "title": "PROVENANCE"
+        }
+      ],
+      "subhead": "Structured-null FWER"
+    },
+    "INVALID_BUILD": {
+      "badge": "INFERENTIAL · INVALID",
+      "banner": "NOT INTERPRETABLE — the conclusion was computed, but the underlying experiment failed integrity requirements",
+      "headline": "BUILD",
+      "sections": [
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "estimand",
+              "incremental_return_pp",
+              ""
+            ]
+          ],
+          "title": "MEANING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "interval / design",
+              "95% clustered bootstrap",
+              ""
+            ]
+          ],
+          "title": "UNCERTAINTY"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "sampling target",
+              "synthetic_dgp · by trading_date · | incremental_composition_generator_v1",
+              ""
+            ],
+            [
+              "null model",
+              "synthetic world: Y = μ_setup + γ_date + ε, incremental truth planted",
+              ""
+            ],
+            [
+              "mechanism",
+              "operating characteristics under a generator we wrote — tests the code, never the market",
+              ""
+            ]
+          ],
+          "title": "EXPERIMENT"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "Date",
+              "IS trading date",
+              "hash 66742e940f6f"
+            ],
+            [
+              "BaseSetup",
+              "IS family",
+              "hash 5ee0bb3ec7c0"
+            ],
+            [
+              "condition set",
+              "3bcf9447b7fc",
+              "a tolerance is part of the research specification; changing it creates a different conditioning object"
+            ]
+          ],
+          "title": "CONDITIONING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "scope",
+              "UNKNOWN",
+              "manifest hash did not match at run time"
+            ]
+          ],
+          "title": "POPULATION"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "experiment",
+              "HYPOTHETICAL",
+              ""
+            ],
+            [
+              "spec",
+              "spec@x",
+              ""
+            ],
+            [
+              "code",
+              "code@y",
+              ""
+            ],
+            [
+              "data",
+              "bars@z",
+              ""
+            ]
+          ],
+          "title": "PROVENANCE"
+        }
+      ],
+      "subhead": "recorded conclusion, not a result"
+    },
+    "N1": {
+      "badge": "DETERMINISTIC · VALID",
+      "banner": "",
+      "headline": "0pp",
+      "sections": [
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "kind",
+              "a property of the construction, not an estimate",
+              ""
+            ],
+            [
+              "estimand",
+              "incremental_effect_in_composition_only_world",
+              ""
+            ]
+          ],
+          "title": "BASIS"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "uncertainty",
+              "NOT APPLICABLE",
+              "algebraically determined by the construction: within a stratum every row shares one outcome"
+            ]
+          ],
+          "title": "UNCERTAINTY"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "sampling target",
+              "synthetic_dgp · by trading_date · | incremental_composition_generator_v1",
+              ""
+            ],
+            [
+              "null model",
+              "synthetic world: Y = μ_setup + γ_date + ε, incremental truth planted",
+              ""
+            ],
+            [
+              "mechanism",
+              "operating characteristics under a generator we wrote — tests the code, never the market",
+              ""
+            ]
+          ],
+          "title": "EXPERIMENT"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "Date",
+              "IS trading date",
+              "hash 66742e940f6f"
+            ],
+            [
+              "BaseSetup",
+              "IS family",
+              "hash 5ee0bb3ec7c0"
+            ],
+            [
+              "condition set",
+              "3bcf9447b7fc",
+              "a tolerance is part of the research specification; changing it creates a different conditioning object"
+            ]
+          ],
+          "title": "CONDITIONING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "scope",
+              "31 classes, deterministic world",
+              ""
+            ]
+          ],
+          "title": "POPULATION"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "experiment",
+              "N1N2P1-2026-08-11",
+              ""
+            ],
+            [
+              "spec",
+              "38f2665d653beb64",
+              ""
+            ],
+            [
+              "code",
+              "combolab_v2@2e4257a",
+              ""
+            ],
+            [
+              "data",
+              "bars@2026-08-10",
+              ""
+            ]
+          ],
+          "title": "PROVENANCE"
+        }
+      ],
+      "subhead": "θ in a composition-only world"
+    },
+    "N2": {
+      "badge": "INFERENTIAL · VALID",
+      "banner": "",
+      "headline": "0.0038pp",
+      "sections": [
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "estimand",
+              "incremental_effect_estimate",
+              ""
+            ]
+          ],
+          "title": "MEANING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "interval / design",
+              "mean over 40 worlds · RMSE 0.124pp",
+              ""
+            ]
+          ],
+          "title": "UNCERTAINTY"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "sampling target",
+              "synthetic_dgp · by trading_date · | incremental_composition_generator_v1",
+              ""
+            ],
+            [
+              "null model",
+              "synthetic world: Y = μ_setup + γ_date + ε, incremental truth planted",
+              ""
+            ],
+            [
+              "mechanism",
+              "operating characteristics under a generator we wrote — tests the code, never the market",
+              ""
+            ]
+          ],
+          "title": "EXPERIMENT"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "Date",
+              "IS trading date",
+              "hash 66742e940f6f"
+            ],
+            [
+              "BaseSetup",
+              "IS family",
+              "hash 5ee0bb3ec7c0"
+            ],
+            [
+              "condition set",
+              "3bcf9447b7fc",
+              "a tolerance is part of the research specification; changing it creates a different conditioning object"
+            ]
+          ],
+          "title": "CONDITIONING"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "scope",
+              "31 classes",
+              ""
+            ]
+          ],
+          "title": "POPULATION"
+        },
+        {
+          "emphasis": "",
+          "rows": [
+            [
+              "experiment",
+              "N1N2P1-2026-08-11",
+              ""
+            ],
+            [
+              "spec",
+              "38f2665d653beb64",
+              ""
+            ],
+            [
+              "code",
+              "combolab_v2@2e4257a",
+              ""
+            ],
+            [
+              "data",
+              "bars@2026-08-10",
+              ""
+            ]
+          ],
+          "title": "PROVENANCE"
+        }
+      ],
+      "subhead": "θ̂ under stochastic composition"
+    }
+  },
+  "module_sha256": {
+    "sampling_target.py": "32faf463fe0204e16c04aefadf48f87a05561aa1a73f7c01cf439b992855d74c",
+    "semantic_inspector.py": "2c76c981e65fc0fdb7fbf3d50dd244ea6d66c02d4c5b2e6bd8faf05dcb303e10",
+    "semantic_metric.py": "30bd6f8f193b5f2b4a5fe3d578acbbe050731093024ba817a987175991c882a2"
+  },
+  "modules": {
+    "sampling_target.py": "5c2afc458a854876b94bcc3833142b026025ac78",
+    "semantic_inspector.py": "79cc600d4cb4c1aa25fb7d8983ec02833bcf001b",
+    "semantic_metric.py": "e0e6031246cbbd45f6f2a606f23621b9b225734c"
+  },
+  "note": "goldens are drawer STRUCTURE, never rendered text — a rendered string carries wrapping and column widths, and comparing those breaks on the first change of screen size",
+  "tests": {
+    "test_semantic_core.py": "10/10",
+    "test_semantic_inspector.py": "8/8"
+  }
+}
