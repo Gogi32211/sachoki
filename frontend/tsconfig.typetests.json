@@ -1,0 +1,5 @@
+{
+  "extends": "./tsconfig.studio.json",
+  "include": ["src/studio/**/*.ts", "src/studio/**/*.tsx", "src/studio/__typetests__/**/*.ts"],
+  "exclude": []
+}

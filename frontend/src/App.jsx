@@ -30,6 +30,8 @@ const EdgeReplayPanel       = lazy(() => import('./components/EdgeReplayPanel'))
 const SeqRulesPanel         = lazy(() => import('./components/SeqRulesPanel'))
 const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPanel'))
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
+// Analytic Studio · semantics island (TypeScript, strict). Additive: nothing existing changes.
+const N0Screen              = lazy(() => import('./studio/pages/N0Screen').then(m => ({ default: m.N0Screen })))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
 const TZIntelligencePanel   = lazy(() => import('./components/TZIntelligencePanel'))
 const RareReversalPanel     = lazy(() => import('./components/RareReversalPanel'))
@@ -125,6 +127,7 @@ const TAB_GROUPS = [
     label: 'Analytics',
     tabs: [
       { id: 'studio',    label: '📊 Studio' },
+      { id: 'semantics', label: '🔬 Semantics' },
       { id: 'qlib',      label: '🧪 QLIB' },
       { id: 'combolab',  label: '🧬 Combo Lab' },
       { id: 'aijournal', label: '🤖 AI Journal' },
@@ -145,7 +148,7 @@ const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge', 'semantics'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -348,6 +351,7 @@ export default function App() {
           </div>
 
           {activeTab === 'watchlist'      && <PersonalWatchlistPanel watchlistTickers={watchlist} onSelectTicker={handleSelect} onAddTicker={handleAddTicker} onRemoveTicker={handleRemoveTicker} />}
+          {activeTab === 'semantics'      && <N0Screen />}
           {activeTab === 'combined'       && <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />}
           {activeTab === 'predictor'      && <PredictorPanel ticker={selected} tf={tf} />}
           {activeTab === 'scanner'        && <ScannerPanel tf={tf} onSelectTicker={handleSelect} />}
