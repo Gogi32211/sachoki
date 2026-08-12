@@ -130,3 +130,88 @@ Components were moved off the foreign `neutral-*` palette onto the project's own
 (`bg-md-surface-con`, `text-md-on-surface-var`, `border-md-warning`). An island should speak the
 application's language rather than import its own; the transparent drawer was the visible half
 of that mistake and the palette mismatch was the other.
+
+---
+
+## 2026-08-12 · FASTAPI_LOCAL_MODEL_RESOLUTION
+
+```
+INTEGRATION_INTEGRITY_INCIDENT
+type        FASTAPI_LOCAL_MODEL_RESOLUTION
+cause       PEP 563 string annotations + request model in local function scope
+            (neither is a defect alone; the pair is)
+effect      body parameter degraded to a query field → HTTP 422
+            AND the OpenAPI schema could not be built → /openapi.json 500, app-wide
+detected_by real browser → FastAPI request path
+missed_by   direct Python tests / TS / transport unit tests
+remedy      request models moved to module scope
+status      RESOLVED
+```
+
+### The first diagnosis was wrong, and the test that proved it
+
+The entry above originally read `cause: request-body model declared in local function scope`.
+That is not sufficient. The claim was checked by reintroducing the defect in a throwaway module,
+and a locally scoped pydantic model **works**:
+
+```
+plain annotations + local model    openapi HTTP 200    POST 200
+PEP563 (future) + local model      openapi HTTP 500    POST 422 loc ["query","b"]
+```
+
+`studio_session_api.py` carries `from __future__ import annotations`. PEP 563 makes every
+annotation a string, FastAPI resolves it against the module globals, a class defined inside a
+function is not there, and the parameter becomes
+`Annotated[ForwardRef('ChangeBody'), Query(...)]` — a query field with an unresolvable type.
+
+A guard that passes on the fixed code proves nothing. This one was run against the reintroduced
+defect, and the first version of it was **blind** — it read `/openapi.json` and asserted on the
+list of offending parameters, but under the real defect that request 500s before any list
+exists. The guard was rewritten only after watching it fail.
+
+### The symptom nobody noticed
+
+Two things broke, and only the visible one was diagnosed. The 422 was on three endpoints; the
+schema failure was on the entire application, because `get_openapi()` walks every route and
+raises on the first it cannot resolve. `/docs` was down for the whole backend, and no test,
+no browser check and no person noticed — the defect was found through the one endpoint someone
+happened to be clicking.
+
+A single unresolvable annotation is an app-wide outage of the schema surface. That is now `t1`.
+
+### The fifth integrity layer
+
+```
+computation → artifact → transport → presentation → INTEGRATION
+```
+
+Tailwind was `presentation`: everything arrived at the browser correctly and the meaning was
+destroyed visually. This is `integration`: the domain functions, the transport models and the
+frontend were each correct in isolation, and the real framework binding between them was
+something other than what all three assumed.
+
+That is why nothing below the browser could see it. The tests called the Python functions
+directly, so they exercised every layer except the one that was broken:
+
+```
+research_session tests   15/15   never touched the router
+transport tests           9/9    called to_view() and change_and_run() directly
+tsc / vite build          PASS   the frontend was correct
+```
+
+### The regression rule this produces
+
+**An HTTP API acceptance test must travel the real ASGI routing layer, not call the handler or
+domain function directly.** A test that imports the function proves the function; only a test
+that issues a request proves the endpoint. `TestClient` is enough — this did not need a browser,
+and the browser should not be the first thing that discovers a binding defect.
+
+Implemented as `test_session_http.py` (13 checks), which drives the mounted app through
+`TestClient`: schema generation, the binding malformation stated structurally, the four-action
+golden fixture, and the 404/409 paths.
+
+And a second rule, from how the diagnosis went wrong:
+
+**A regression guard must be run against the reintroduced defect before it is trusted.** The
+first version of `t1` passed on the broken code. A guard is a claim about a failure it has never
+been shown to detect until someone shows it one.
