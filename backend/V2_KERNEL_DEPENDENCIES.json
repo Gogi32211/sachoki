@@ -1,0 +1,60 @@
+{
+ "inventory_hash": "9fb5999c015ceb8e",
+ "inventory_version": "v2_kernel_dependencies_v1",
+ "targets": {
+  "Frozen": {
+   "capability_coordinates_read": [],
+   "extractable_verbatim": true,
+   "file": "v2_decision_run.py",
+   "free_names": [
+    "E",
+    "np",
+    "support_hash"
+   ],
+   "nested_in": null,
+   "params": []
+  },
+  "boot": {
+   "capability_coordinates_read": [
+    "delta",
+    "rep",
+    "world"
+   ],
+   "extractable_verbatim": false,
+   "file": "v2_sealed_run.py",
+   "free_names": [
+    "Estimate",
+    "S1",
+    "S1R",
+    "V2",
+    "delta",
+    "froz",
+    "meta",
+    "n_dates",
+    "np",
+    "rep",
+    "world",
+    "y"
+   ],
+   "nested_in": "main",
+   "params": [
+    "cell"
+   ]
+  },
+  "verdict": {
+   "capability_coordinates_read": [],
+   "extractable_verbatim": true,
+   "file": "v2_sealed_run.py",
+   "free_names": [
+    "DELTA_STAR",
+    "decide",
+    "meta"
+   ],
+   "nested_in": "main",
+   "params": [
+    "e",
+    "cell"
+   ]
+  }
+ }
+}
