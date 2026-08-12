@@ -246,6 +246,10 @@ export interface SearchRunView {
   readonly data_provenance: string;
   /** where the evidence came from, and therefore what may be done with it. Server-decided. */
   readonly evidence_origin: string;
+  /** three more axes, because one enum could not answer four questions without lying */
+  readonly instrument_validation_basis: string;
+  readonly application_maturity: string;
+  readonly result_role: string;
   readonly allowed_actions: readonly string[];
   readonly artifact_hash: string;
   readonly rows: readonly ResultRowView[];

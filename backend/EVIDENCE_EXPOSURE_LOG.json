@@ -1,0 +1,53 @@
+{
+ "exposures": [
+  {
+   "captured_at_commit": "b6b43be5217337d30dca245fb5458051f2858708",
+   "cells": [
+    "adx-1",
+    "adx0",
+    "adx1",
+    "adx1&rs",
+    "adx2",
+    "adx2&rs",
+    "adx3",
+    "adx3&rs",
+    "rsi35-50",
+    "rsi35-50&conso",
+    "rsi35-50&rs",
+    "rsi50-65",
+    "rsi50-65&conso",
+    "rsi50-65&rs",
+    "rsi<35",
+    "rsi<35&conso",
+    "rsi<35&rs",
+    "rsi>=65",
+    "sig_conso",
+    "sig_conso+sig_h1_dr",
+    "sig_conso+sig_lead_in_lag",
+    "sig_conso+sig_lead_in_lag+sig_h1_dr",
+    "sig_h1_dr",
+    "sig_lead_in_lag",
+    "sig_lead_in_lag+sig_h1_dr",
+    "sig_rs_intact",
+    "sig_rs_intact+sig_conso",
+    "\u00acsig_conso",
+    "\u00acsig_h1_dr",
+    "\u00acsig_lead_in_lag",
+    "\u00acsig_rs_intact"
+   ],
+   "evidence_status": {
+    "application_maturity": "FIRST_HISTORICAL_APPLICATION",
+    "evidence_origin": "HISTORICAL_RESEARCH",
+    "instrument_validation_basis": "SYNTHETIC_CAPABILITY_VALIDATED",
+    "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+   },
+   "exposure_id": "v2-core-oracle-2026-08-12",
+   "immutable": true,
+   "legitimate_path": "freeze_forward_spec: freeze a specification these results suggested and evaluate it on evidence that has not been seen",
+   "oracle_hash": "7c421ae062742d06",
+   "record_hash": "4ce7fa6381974b21",
+   "what": "31 real-y theta estimates for the OPPORTUNITY_LEVEL equivalence classes, made available while establishing that the ComboLab v2 core extraction is faithful",
+   "why": "exposed means made available, not read. These estimates were made available for a purpose, and a later successful qualification of the engine does not re-label them. Instrument qualification is not evidence qualification."
+  }
+ ]
+}

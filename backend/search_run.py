@@ -47,50 +47,22 @@ from __future__ import annotations
 import hashlib
 from dataclasses import asdict, dataclass, field
 
-# ── where the evidence came from, and what may be done with it ──────────────
-#
-# A label is not a control. The table said SYNTHETIC_FIXTURE in its header and the promote
-# endpoint answered 200, so the screenshot was defended and the workflow was not — the screen
-# said "this is not a finding" while the server let it be treated as one.
-#
-# Origin now decides rights on the server. Reading, re-running and turning controls are
-# available under every origin, because exploring a fixture is how the fixture is useful. Every
-# CONSEQUENTIAL action — anything that carries a result outward into a verdict, a freeze, a
-# forward commitment or the book — is refused unless the evidence can support it.
-SYNTHETIC_FIXTURE = "SYNTHETIC_FIXTURE"
-HISTORICAL_RESEARCH = "HISTORICAL_RESEARCH"
-FROZEN_FORWARD = "FROZEN_FORWARD"
+import evidence_status as ES
 
-INSPECT, RERUN, CHANGE_CONTROLS = "inspect", "rerun", "change_controls"
-PROMOTE, FREEZE, FORWARD, BOOK = "promote", "freeze", "forward", "book"
-
-# Two things that were nearly called one thing. Recording what a historical study concluded is
-# ordinary bookkeeping. Turning an already-seen result into a preregistered confirmatory claim is
-# the exact move `CannotRegisterAfterExposureError` exists to refuse, and it must not become
-# reachable from a results row just because the row is in front of someone.
-RECORD_HISTORICAL_VERDICT = "record_historical_verdict"
-REGISTER_CONFIRMATORY_STUDY = "register_confirmatory_study"
-
-READ_ONLY_ACTIONS = (INSPECT, RERUN, CHANGE_CONTROLS)
-CONSEQUENTIAL_ACTIONS = (PROMOTE, FREEZE, RECORD_HISTORICAL_VERDICT, FORWARD, BOOK)
-
-# THE CEILING, NOT THE AUTHORISATION.
-#
-# This table says what an origin can never exceed. It does not say that an action is permitted —
-# reading it that way would mean stamping an artifact FROZEN_FORWARD is enough to vault over
-# every other contract in the system. `authorise()` below is the only thing that grants, and it
-# requires the ceiling AND every gate the action actually depends on.
-ORIGIN_CEILING = {
-    SYNTHETIC_FIXTURE: set(READ_ONLY_ACTIONS),
-    # historical research can be promoted, frozen and have its verdict recorded; committing it
-    # forward or to the book is a claim about the future that backtested evidence cannot make
-    HISTORICAL_RESEARCH: set(READ_ONLY_ACTIONS) | {PROMOTE, FREEZE, RECORD_HISTORICAL_VERDICT},
-    FROZEN_FORWARD: set(READ_ONLY_ACTIONS) | set(CONSEQUENTIAL_ACTIONS),
-}
-
-# No origin reaches it. Preregistration is a property of a session that has seen nothing, not a
-# button on a table of results, and there is no evidence quality that changes that.
-NEVER_FROM_A_RESULT_ROW = {REGISTER_CONFIRMATORY_STUDY}
+# Where the evidence came from, what the instrument was validated on, how tested this USE of it
+# is, and what this particular result was produced for. Four questions; see `evidence_status`
+# for why one enum could not answer them and why authorisation is their intersection.
+SYNTHETIC_FIXTURE = ES.SYNTHETIC_FIXTURE
+HISTORICAL_RESEARCH = ES.HISTORICAL_RESEARCH
+FROZEN_FORWARD = ES.FROZEN_FORWARD
+INSPECT, RERUN, CHANGE_CONTROLS = ES.INSPECT, ES.RERUN, ES.CHANGE_CONTROLS
+PROMOTE = ES.PROMOTE_AS_VALIDATED_EDGE
+RECORD_HISTORICAL_VERDICT = ES.RECORD_HISTORICAL_VERDICT
+REGISTER_CONFIRMATORY_STUDY = ES.REGISTER_CONFIRMATORY_STUDY
+FREEZE_FORWARD_SPEC = ES.FREEZE_FORWARD_SPEC
+BOOK = ES.BOOK
+READ_ONLY_ACTIONS = ES.READ_ONLY
+CONSEQUENTIAL_ACTIONS = ES.CONSEQUENTIAL
 
 FRESH, STALE = "FRESH", "STALE"
 
@@ -125,7 +97,11 @@ class SearchRunArtifact:
     null_family: str
     integrity_status: str = "VALID"
     data_provenance: str = SYNTHETIC_FIXTURE
-    evidence_origin: str = SYNTHETIC_FIXTURE
+    status: ES.EvidenceStatus = ES.FIXTURE
+
+    @property
+    def evidence_origin(self) -> str:
+        return self.status.evidence_origin
 
     @property
     def ranked_count(self) -> int:
@@ -141,7 +117,8 @@ class SearchRunArtifact:
         blob = "|".join([self.run_id, self.input_state_hash, self.search_space_hash,
                          self.ranking_policy_hash, str(self.selectable_count),
                          ",".join(self.ranked_claim_ids), self.display_policy,
-                         str(self.displayed_count)])
+                         str(self.displayed_count), self.status.evidence_origin,
+                         self.status.application_maturity, self.status.result_role])
         return hashlib.sha256(blob.encode()).hexdigest()[:16]
 
 
@@ -196,6 +173,9 @@ class SearchRunView:
     integrity_status: str
     data_provenance: str
     evidence_origin: str
+    instrument_validation_basis: str
+    application_maturity: str
+    result_role: str
     allowed_actions: tuple
     artifact_hash: str
     rows: tuple = field(default_factory=tuple)
@@ -248,7 +228,7 @@ def rank_and_authorise(*, run_id: str, session_id: str, family_id: str, input_st
                        evidence_hash: str, decision_hash: str, sort_key: str = "effect",
                        null_family: str = "OPPORTUNITY_LEVEL",
                        sampling_target: str = "opportunity_bootstrap",
-                       evidence_origin: str = SYNTHETIC_FIXTURE) -> SearchRunArtifact:
+                       status: ES.EvidenceStatus = ES.FIXTURE) -> SearchRunArtifact:
     """Rank the whole space here, and decide what may leave.
 
     Both halves are deliberately on this side. Shipping the ranking and letting the client cut it
@@ -268,8 +248,7 @@ def rank_and_authorise(*, run_id: str, session_id: str, family_id: str, input_st
         selectable_count=selectable_count, ranked_claim_ids=tuple(ids),
         display_policy=f"top_{displayed_count}_by_{sort_key}",
         displayed_count=min(displayed_count, len(ids)),
-        sampling_target=sampling_target, null_family=null_family,
-        evidence_origin=evidence_origin)
+        sampling_target=sampling_target, null_family=null_family, status=status)
 
 
 def to_view(artifact: SearchRunArtifact, current_state_hash: str,
@@ -285,34 +264,35 @@ def to_view(artifact: SearchRunArtifact, current_state_hash: str,
         displayed_count=artifact.displayed_count, display_policy=artifact.display_policy,
         sampling_target=artifact.sampling_target, null_family=artifact.null_family,
         integrity_status=artifact.integrity_status, data_provenance=artifact.data_provenance,
-        evidence_origin=artifact.evidence_origin,
-        # what the ORIGIN does not forbid — the ceiling, which the screen must not present as
-        # permission. Every one of these still has its own gates behind it.
-        allowed_actions=tuple(sorted(ORIGIN_CEILING.get(artifact.evidence_origin, set()))),
+        evidence_origin=artifact.status.evidence_origin,
+        instrument_validation_basis=artifact.status.instrument_validation_basis,
+        application_maturity=artifact.status.application_maturity,
+        result_role=artifact.status.result_role,
+        # the INTERSECTION of the four ceilings — still not permission. Every action here has
+        # its own gates behind it, and `authorise()` is the only thing that grants.
+        allowed_actions=tuple(sorted(artifact.status.ceiling())),
         artifact_hash=artifact.artifact_hash, rows=rows)
 
 
-def assert_origin_permits(view: SearchRunView, action: str) -> None:
-    """The CEILING check, and on its own it authorises nothing.
+def status_of(view: SearchRunView) -> ES.EvidenceStatus:
+    return ES.EvidenceStatus(view.evidence_origin, view.instrument_validation_basis,
+                             view.application_maturity, view.result_role)
 
-    Deliberately named so that a caller reaching for it alone reads as incomplete. Passing here
-    means the origin does not forbid the action; whether the action may happen is `authorise()`.
+
+def assert_origin_permits(view: SearchRunView, action: str) -> None:
+    """The CEILING check across all four axes, and on its own it authorises nothing.
+
+    Deliberately named so that a caller reaching for it alone reads as incomplete. Passing means
+    no axis forbids the action; whether it may happen is `authorise()`.
     """
-    if action in NEVER_FROM_A_RESULT_ROW:
-        raise SyntheticEvidenceActionError(
-            f"{action!r} is not an action on a result. Preregistration belongs to a session that "
-            f"has seen nothing, and offering it beside a table of results is exactly the move "
-            f"CannotRegisterAfterExposureError refuses. Open a new session instead.")
-    allowed = ORIGIN_CEILING.get(view.evidence_origin, set())
-    if action in allowed:
-        return
-    why = ""
-    if view.evidence_origin == SYNTHETIC_FIXTURE:
-        why = ("These rows are a fixture: they are derived from claim identities so the contract "
-               "can be exercised end to end, and no search produced them. ")
-    raise SyntheticEvidenceActionError(
-        f"{action!r} is above the ceiling for evidence of origin {view.evidence_origin}. {why}"
-        f"At most, here: {', '.join(sorted(allowed))}.")
+    try:
+        status_of(view).assert_permits(action)
+    except ES.EvidenceStatusError as e:
+        why = ""
+        if view.evidence_origin == SYNTHETIC_FIXTURE:
+            why = (" These rows are a fixture: they are derived from claim identities so the "
+                   "contract can be exercised end to end, and no search produced them.")
+        raise SyntheticEvidenceActionError(f"{e}{why}") from e
 
 
 def authorise(view: SearchRunView, action: str, gates: dict) -> None:

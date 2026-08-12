@@ -35,6 +35,7 @@ from data_access import (CATALOG, DEVELOPMENT, VALIDATION,  # noqa: E402
                          duckdb_bars_provider)
 import data_gateway as GW                                          # noqa: E402
 import parameter_surface as PSURF                                  # noqa: E402
+import evidence_status as ES                                       # noqa: E402
 import search_run as SR                                            # noqa: E402
 from evidence_boundary import (EvidenceBoundary,  # noqa: E402
                                EvidenceBoundaryDriftError, EvidenceBoundaryError,
@@ -388,7 +389,8 @@ def search(sid: str, sort_key: str = "") -> dict:
         search_space_hash=surface.search_space_hash,
         selectable_count=selectable, displayed_count=displayed,
         evidence_hash=claim.evidence_claim_hash, decision_hash=claim.decision_spec_hash,
-        sort_key=key, null_family=v.get("null_family") or "OPPORTUNITY_LEVEL")
+        sort_key=key, null_family=v.get("null_family") or "OPPORTUNITY_LEVEL",
+        status=ES.FIXTURE)
 
     _touch(s)
     s.search_run("combolab_v2", artifact.selectable_count, artifact.search_space_hash,
@@ -438,7 +440,7 @@ def promote(sid: str, run_id: str, claim_id: str) -> dict:
     # Origin is the ceiling; these are the gates. Naming them here rather than folding them into
     # the origin check is the point of the correction: a label must never be able to stand in
     # for the contracts it sits above.
-    SR.authorise(view, SR.PROMOTE, {
+    SR.authorise(view, ES.PROMOTE_AS_VALIDATED_EDGE, {
         "run_is_current": view.freshness == SR.FRESH,
         "integrity_valid": view.integrity_status == "VALID",
         "row_was_exposed": claim_id in artifact.authorised_ids,

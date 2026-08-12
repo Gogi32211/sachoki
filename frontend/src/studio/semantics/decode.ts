@@ -312,6 +312,9 @@ export function decodeRun(raw: unknown): import('./types').SearchRunView {
     integrity_status: str(o, 'integrity_status', 'run'),
     data_provenance: str(o, 'data_provenance', 'run'),
     evidence_origin: str(o, 'evidence_origin', 'run'),
+    instrument_validation_basis: str(o, 'instrument_validation_basis', 'run'),
+    application_maturity: str(o, 'application_maturity', 'run'),
+    result_role: str(o, 'result_role', 'run'),
     allowed_actions: (Array.isArray(o.allowed_actions) ? o.allowed_actions : []).map(String),
     artifact_hash: str(o, 'artifact_hash', 'run'), rows,
   };

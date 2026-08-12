@@ -47,7 +47,7 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
   // be refused by the gates behind it — staleness, integrity, whether the row was ever exposed —
   // and the server is the only thing that knows. So the button appears when the action is not
   // categorically impossible, and the refusal remains a sentence rather than a dead control.
-  const withinCeiling = run.allowed_actions.includes('promote');
+  const withinCeiling = run.allowed_actions.includes('promote_as_validated_edge');
   return (
     <div data-run={run.run_id} data-freshness={run.freshness}
          className="rounded-lg border border-md-outline-var p-4">
@@ -62,6 +62,18 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
           <div className="font-mono">{run.artifact_hash}</div>
           <div data-origin={run.evidence_origin} className="uppercase tracking-wider">
             {run.evidence_origin}
+          </div>
+          {/* four sentences, not one. Where the data came from, what the instrument was
+              validated on, how tested this use of it is, and what this result was produced
+              for — a single label could not have said all of it without lying about part. */}
+          <div data-maturity={run.application_maturity} className="lowercase">
+            instrument {run.instrument_validation_basis.toLowerCase()}
+          </div>
+          <div className="lowercase">
+            application {run.application_maturity.toLowerCase()}
+          </div>
+          <div data-role={run.result_role} className="lowercase">
+            role {run.result_role.toLowerCase()}
           </div>
           <div className="lowercase">ceiling: {run.allowed_actions.join(' · ')}</div>
         </div>

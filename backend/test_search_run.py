@@ -21,7 +21,15 @@ import sys
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import parameter_surface as PS                                       # noqa: E402
+import evidence_status as ES                                         # noqa: E402
 import search_run as SR                                              # noqa: E402
+
+# a qualified historical application, so staleness can be tested without the maturity ceiling
+# answering first — the trap that made the old t6 pass for the wrong reason
+_HIST = ES.EvidenceStatus(ES.HISTORICAL_RESEARCH, ES.SYNTHETIC_CAPABILITY_VALIDATED,
+                          ES.HISTORICAL_APPLICATION_QUALIFIED, ES.REGISTERED_VALIDATION_EVIDENCE)
+_FWD = ES.EvidenceStatus(ES.FROZEN_FORWARD, ES.HISTORICAL_APPLICATION_VALIDATED,
+                         ES.HISTORICAL_APPLICATION_QUALIFIED, ES.FROZEN_FORWARD_EVIDENCE)
 
 ok = fail = 0
 
@@ -42,12 +50,12 @@ def check(name, fn):
 
 
 def artifact(selectable=31, displayed=5, sort_key="effect", spec="SPEC-A",
-             origin=SR.SYNTHETIC_FIXTURE):
+             origin=None):
     return SR.rank_and_authorise(
         run_id="r001", session_id="s0001", family_id="F1", input_state_hash=spec,
         search_space_hash="space-aaa", selectable_count=selectable,
         displayed_count=displayed, evidence_hash="ev1", decision_hash="ds1", sort_key=sort_key,
-        evidence_origin=origin)
+        status=origin or ES.FIXTURE)
 
 
 def view(a, current="SPEC-A"):
@@ -121,7 +129,7 @@ def t6_a_stale_run_may_be_read_and_not_promoted():
     gate before staleness is ever consulted, which would make this test pass for the wrong
     reason — the same trap as the disjunction in t25 of the HTTP suite.
     """
-    fresh = artifact(origin=SR.HISTORICAL_RESEARCH)
+    fresh = artifact(origin=_HIST)
     SR.assert_promotable(view(fresh, "SPEC-A"))
     try:
         SR.assert_promotable(view(fresh, "SPEC-B"))
@@ -138,7 +146,7 @@ def t6b_origin_is_checked_before_freshness():
     this evidence can ever support the action at all. A fresh fixture answering "you may promote
     once you re-run" would be a lie in the helpful direction.
     """
-    current = view(artifact(origin=SR.SYNTHETIC_FIXTURE), "SPEC-A")
+    current = view(artifact(origin=ES.FIXTURE), "SPEC-A")
     assert current.freshness == SR.FRESH
     try:
         SR.assert_promotable(current)
@@ -150,9 +158,9 @@ def t6b_origin_is_checked_before_freshness():
 
 def t6c_origin_decides_which_actions_exist():
     """reading and re-running are available everywhere; carrying a result outward is not"""
-    fixture = view(artifact(origin=SR.SYNTHETIC_FIXTURE), "SPEC-A")
-    historical = view(artifact(origin=SR.HISTORICAL_RESEARCH), "SPEC-A")
-    forward = view(artifact(origin=SR.FROZEN_FORWARD), "SPEC-A")
+    fixture = view(artifact(origin=ES.FIXTURE), "SPEC-A")
+    historical = view(artifact(origin=_HIST), "SPEC-A")
+    forward = view(artifact(origin=_FWD), "SPEC-A")
 
     for v in (fixture, historical, forward):
         for action in SR.READ_ONLY_ACTIONS:
@@ -169,7 +177,7 @@ def t6c_origin_decides_which_actions_exist():
 
     SR.assert_origin_permits(historical, SR.PROMOTE)
     SR.assert_origin_permits(historical, SR.RECORD_HISTORICAL_VERDICT)
-    for action in (SR.FORWARD, SR.BOOK):
+    for action in (SR.BOOK,):
         try:
             SR.assert_origin_permits(historical, action)
         except SR.SyntheticEvidenceActionError:
@@ -181,7 +189,7 @@ def t6c_origin_decides_which_actions_exist():
 
 def t6e_the_ceiling_is_not_a_grant():
     """stamping an artifact FROZEN_FORWARD must not vault over every other contract"""
-    forward = view(artifact(origin=SR.FROZEN_FORWARD), "SPEC-A")
+    forward = view(artifact(origin=_FWD), "SPEC-A")
     SR.assert_origin_permits(forward, SR.BOOK)            # the ceiling allows it
     SR.authorise(forward, SR.BOOK, {"integrity_valid": True, "boundary_matches": True,
                                     "verdict_permits": True, "portfolio_gates": True})
@@ -197,15 +205,15 @@ def t6e_the_ceiling_is_not_a_grant():
 
 def t6f_preregistration_is_not_an_action_on_a_row():
     """no origin reaches it, including the strongest one"""
-    for origin in (SR.SYNTHETIC_FIXTURE, SR.HISTORICAL_RESEARCH, SR.FROZEN_FORWARD):
+    for origin in (ES.FIXTURE, _HIST, _FWD):
         v = view(artifact(origin=origin), "SPEC-A")
-        assert SR.REGISTER_CONFIRMATORY_STUDY not in v.allowed_actions, origin
+        assert SR.REGISTER_CONFIRMATORY_STUDY not in v.allowed_actions, origin.result_role
         try:
             SR.assert_origin_permits(v, SR.REGISTER_CONFIRMATORY_STUDY)
         except SR.SyntheticEvidenceActionError as e:
             assert "has seen nothing" in str(e)
             continue
-        raise AssertionError(f"{origin} offered preregistration from a results row")
+        raise AssertionError(f"{origin.result_role} offered preregistration from a row")
     # and the two are different names on purpose
     assert SR.RECORD_HISTORICAL_VERDICT != SR.REGISTER_CONFIRMATORY_STUDY
 
@@ -213,7 +221,7 @@ def t6f_preregistration_is_not_an_action_on_a_row():
 def t6d_the_view_publishes_its_own_rights():
     """the screen renders the server's decision instead of guessing at it"""
     assert view(artifact(), "SPEC-A").allowed_actions == ("change_controls", "inspect", "rerun")
-    assert SR.PROMOTE in view(artifact(origin=SR.HISTORICAL_RESEARCH), "SPEC-A").allowed_actions
+    assert SR.PROMOTE in view(artifact(origin=_HIST), "SPEC-A").allowed_actions
 
 
 # ── the transport rule, narrower than N0 on purpose ─────────────────────────
