@@ -1,0 +1,847 @@
+{
+ "axes": {
+  "damp_phi": {
+   "finite_pct": 86.0,
+   "icc_between_ticker": 0.035,
+   "persistence": {
+    "ac1": 0.961,
+    "ac20": 0.409,
+    "ac5": 0.83,
+    "ac60": -0.001,
+    "half_life_bars": 17.4
+   },
+   "resolution": {
+    "distinct_per_1000": 11.32,
+    "iqr": 0.10067,
+    "iqr_over_std": 1.097,
+    "std": 0.0918
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 4,
+    "per_pair": [
+     0.004,
+     0.016,
+     0.105,
+     0.022
+    ],
+    "tickers_median": 589,
+    "yoy_max": 0.105,
+    "yoy_min": 0.004,
+    "yoy_rank_rho": 0.037
+   }
+  },
+  "decl_C": {
+   "finite_pct": 95.4,
+   "icc_between_ticker": 0.008,
+   "persistence": {
+    "ac1": 0.783,
+    "ac20": -0.019,
+    "ac5": 0.372,
+    "ac60": -0.001,
+    "half_life_bars": 2.8
+   },
+   "resolution": {
+    "distinct_per_1000": 14.38,
+    "iqr": 0.42942,
+    "iqr_over_std": 1.476,
+    "std": 0.29093
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.016,
+     -0.024,
+     0.103,
+     0.164,
+     0.089
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.164,
+    "yoy_min": -0.024,
+    "yoy_rank_rho": 0.069
+   }
+  },
+  "decl_E": {
+   "finite_pct": 60.0,
+   "icc_between_ticker": 0.095,
+   "persistence": {
+    "ac1": 0.962,
+    "ac20": 0.406,
+    "ac5": 0.807,
+    "ac60": 0.292,
+    "half_life_bars": 17.9
+   },
+   "resolution": {
+    "distinct_per_1000": 21.15,
+    "iqr": 1.23602,
+    "iqr_over_std": 0.698,
+    "std": 1.76973
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 3,
+    "per_pair": [
+     0.072,
+     0.037,
+     0.06
+    ],
+    "tickers_median": 582,
+    "yoy_max": 0.072,
+    "yoy_min": 0.037,
+    "yoy_rank_rho": 0.056
+   }
+  },
+  "decl_E_depth": {
+   "finite_pct": 60.0,
+   "icc_between_ticker": 0.074,
+   "persistence": {
+    "ac1": 0.971,
+    "ac20": 0.439,
+    "ac5": 0.816,
+    "ac60": 0.364,
+    "half_life_bars": 23.6
+   },
+   "resolution": {
+    "distinct_per_1000": 1.23,
+    "iqr": 0.58,
+    "iqr_over_std": 1.848,
+    "std": 0.31381
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 3,
+    "per_pair": [
+     0.163,
+     0.279,
+     0.296
+    ],
+    "tickers_median": 582,
+    "yoy_max": 0.296,
+    "yoy_min": 0.163,
+    "yoy_rank_rho": 0.246
+   }
+  },
+  "decl_E_duration": {
+   "finite_pct": 100.0,
+   "icc_between_ticker": 0.05,
+   "persistence": {
+    "ac1": 0.971,
+    "ac20": 0.531,
+    "ac5": 0.858,
+    "ac60": 0.279,
+    "half_life_bars": 23.6
+   },
+   "resolution": {
+    "distinct_per_1000": 0.26,
+    "iqr": 0.0,
+    "iqr_over_std": 0.0,
+    "std": 10.10379
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     NaN,
+     NaN,
+     0.139,
+     0.017,
+     0.06
+    ],
+    "tickers_median": 591,
+    "yoy_max": NaN,
+    "yoy_min": NaN,
+    "yoy_rank_rho": NaN
+   }
+  },
+  "decl_H": {
+   "finite_pct": 97.0,
+   "icc_between_ticker": 0.024,
+   "persistence": {
+    "ac1": 0.947,
+    "ac20": 0.252,
+    "ac5": 0.755,
+    "ac60": -0.015,
+    "half_life_bars": 12.7
+   },
+   "resolution": {
+    "distinct_per_1000": 0.02,
+    "iqr": 0.02725,
+    "iqr_over_std": 1.079,
+    "std": 0.02525
+   },
+   "verdict": "NOISE_OR_TOO_COARSE \u2014 goes no further",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.006,
+     -0.03,
+     0.024,
+     -0.008,
+     0.052
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.052,
+    "yoy_min": -0.03,
+    "yoy_rank_rho": 0.009
+   }
+  },
+  "decl_K": {
+   "finite_pct": 99.0,
+   "icc_between_ticker": 0.017,
+   "persistence": {
+    "ac1": 0.895,
+    "ac20": 0.105,
+    "ac5": 0.577,
+    "ac60": -0.042,
+    "half_life_bars": 6.2
+   },
+   "resolution": {
+    "distinct_per_1000": 100.03,
+    "iqr": 1.9794,
+    "iqr_over_std": 1.36,
+    "std": 1.45523
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     -0.18,
+     -0.188,
+     0.324,
+     0.217,
+     0.177
+    ],
+    "tickers_median": 591,
+    "yoy_max": 0.324,
+    "yoy_min": -0.188,
+    "yoy_rank_rho": 0.07
+   }
+  },
+  "decl_M": {
+   "finite_pct": 95.4,
+   "icc_between_ticker": 0.001,
+   "persistence": {
+    "ac1": -0.001,
+    "ac20": -0.001,
+    "ac5": -0.001,
+    "ac60": -0.001,
+    "half_life_bars": null
+   },
+   "resolution": {
+    "distinct_per_1000": 11.12,
+    "iqr": 0.01893,
+    "iqr_over_std": 0.024,
+    "std": 0.80432
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     -0.003,
+     -0.194,
+     0.258,
+     0.328,
+     0.201
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.328,
+    "yoy_min": -0.194,
+    "yoy_rank_rho": 0.118
+   }
+  },
+  "decl_R": {
+   "finite_pct": 99.9,
+   "icc_between_ticker": 0.702,
+   "persistence": {
+    "ac1": 0.162,
+    "ac20": 0.155,
+    "ac5": 0.168,
+    "ac60": 0.128,
+    "half_life_bars": 0.4
+   },
+   "resolution": {
+    "distinct_per_1000": 140.31,
+    "iqr": 2.8612,
+    "iqr_over_std": 1.323,
+    "std": 2.16285
+   },
+   "verdict": "STABLE_PROPERTY \u2014 use DEVIATION from the name's own level",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.972,
+     0.982,
+     0.978,
+     0.97,
+     0.956
+    ],
+    "tickers_median": 591,
+    "yoy_max": 0.982,
+    "yoy_min": 0.956,
+    "yoy_rank_rho": 0.972
+   }
+  },
+  "decl_S": {
+   "finite_pct": 99.9,
+   "icc_between_ticker": 0.002,
+   "persistence": {
+    "ac1": 0.547,
+    "ac20": -0.031,
+    "ac5": 0.161,
+    "ac60": -0.017,
+    "half_life_bars": 1.1
+   },
+   "resolution": {
+    "distinct_per_1000": 0.01,
+    "iqr": 0.5,
+    "iqr_over_std": 1.392,
+    "std": 0.35922
+   },
+   "verdict": "NOISE_OR_TOO_COARSE \u2014 goes no further",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     -0.019,
+     0.034,
+     -0.041,
+     -0.009,
+     -0.069
+    ],
+    "tickers_median": 591,
+    "yoy_max": 0.034,
+    "yoy_min": -0.069,
+    "yoy_rank_rho": -0.021
+   }
+  },
+  "dis_hurst": {
+   "finite_pct": 90.6,
+   "icc_between_ticker": 0.026,
+   "persistence": {
+    "ac1": 0.697,
+    "ac20": 0.068,
+    "ac5": 0.098,
+    "ac60": 0.0,
+    "half_life_bars": 1.9
+   },
+   "resolution": {
+    "distinct_per_1000": 19.96,
+    "iqr": 0.22995,
+    "iqr_over_std": 1.266,
+    "std": 0.1817
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.177,
+     0.084,
+     0.146,
+     0.188,
+     0.071
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.188,
+    "yoy_min": 0.071,
+    "yoy_rank_rho": 0.133
+   }
+  },
+  "dis_perm_entropy": {
+   "finite_pct": 96.9,
+   "icc_between_ticker": 0.02,
+   "persistence": {
+    "ac1": 0.953,
+    "ac20": 0.179,
+    "ac5": 0.74,
+    "ac60": -0.028,
+    "half_life_bars": 14.4
+   },
+   "resolution": {
+    "distinct_per_1000": 0.99,
+    "iqr": 0.02322,
+    "iqr_over_std": 1.069,
+    "std": 0.02173
+   },
+   "verdict": "NOISE_OR_TOO_COARSE \u2014 goes no further",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     -0.025,
+     0.003,
+     -0.021,
+     0.02,
+     0.018
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.02,
+    "yoy_min": -0.025,
+    "yoy_rank_rho": -0.001
+   }
+  },
+  "dis_switch_rate": {
+   "finite_pct": 97.0,
+   "icc_between_ticker": 0.04,
+   "persistence": {
+    "ac1": 0.974,
+    "ac20": 0.489,
+    "ac5": 0.869,
+    "ac60": -0.044,
+    "half_life_bars": 26.3
+   },
+   "resolution": {
+    "distinct_per_1000": 0.04,
+    "iqr": 0.1,
+    "iqr_over_std": 1.274,
+    "std": 0.07848
+   },
+   "verdict": "NOISE_OR_TOO_COARSE \u2014 goes no further",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.146,
+     0.074,
+     0.09,
+     0.125,
+     0.042
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.146,
+    "yoy_min": 0.042,
+    "yoy_rank_rho": 0.095
+   }
+  },
+  "impact_efficiency": {
+   "finite_pct": 98.5,
+   "icc_between_ticker": 0.032,
+   "persistence": {
+    "ac1": 0.949,
+    "ac20": 0.003,
+    "ac5": 0.747,
+    "ac60": 0.008,
+    "half_life_bars": 13.2
+   },
+   "resolution": {
+    "distinct_per_1000": 5.59,
+    "iqr": 0.07934,
+    "iqr_over_std": 1.361,
+    "std": 0.05829
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.167,
+     0.234,
+     0.116,
+     0.162,
+     0.14
+    ],
+    "tickers_median": 591,
+    "yoy_max": 0.234,
+    "yoy_min": 0.116,
+    "yoy_rank_rho": 0.164
+   }
+  },
+  "impact_range_lambda": {
+   "finite_pct": 90.8,
+   "icc_between_ticker": 0.448,
+   "persistence": {
+    "ac1": 0.987,
+    "ac20": 0.669,
+    "ac5": 0.921,
+    "ac60": 0.121,
+    "half_life_bars": 53.0
+   },
+   "resolution": {
+    "distinct_per_1000": 1.69,
+    "iqr": 0.01109,
+    "iqr_over_std": 1.057,
+    "std": 0.01049
+   },
+   "verdict": "STABLE_PROPERTY \u2014 use DEVIATION from the name's own level",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.685,
+     0.706,
+     0.759,
+     0.759,
+     0.74
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.759,
+    "yoy_min": 0.685,
+    "yoy_rank_rho": 0.73
+   }
+  },
+  "impact_range_r2": {
+   "finite_pct": 90.8,
+   "icc_between_ticker": 0.265,
+   "persistence": {
+    "ac1": 0.981,
+    "ac20": 0.6,
+    "ac5": 0.896,
+    "ac60": 0.016,
+    "half_life_bars": 36.1
+   },
+   "resolution": {
+    "distinct_per_1000": 10.84,
+    "iqr": 0.20522,
+    "iqr_over_std": 1.441,
+    "std": 0.14243
+   },
+   "verdict": "STABLE_PROPERTY \u2014 use DEVIATION from the name's own level",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.485,
+     0.508,
+     0.648,
+     0.619,
+     0.494
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.648,
+    "yoy_min": 0.485,
+    "yoy_rank_rho": 0.551
+   }
+  },
+  "impact_response": {
+   "finite_pct": 90.7,
+   "icc_between_ticker": 0.166,
+   "persistence": {
+    "ac1": 0.976,
+    "ac20": 0.645,
+    "ac5": 0.902,
+    "ac60": -0.083,
+    "half_life_bars": 28.5
+   },
+   "resolution": {
+    "distinct_per_1000": 91.22,
+    "iqr": 0.48486,
+    "iqr_over_std": 0.309,
+    "std": 1.56843
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.203,
+     0.033,
+     -0.018,
+     -0.002,
+     0.038
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.203,
+    "yoy_min": -0.018,
+    "yoy_rank_rho": 0.051
+   }
+  },
+  "impact_response_r2": {
+   "finite_pct": 90.7,
+   "icc_between_ticker": 0.048,
+   "persistence": {
+    "ac1": 0.957,
+    "ac20": 0.462,
+    "ac5": 0.824,
+    "ac60": -0.034,
+    "half_life_bars": 15.8
+   },
+   "resolution": {
+    "distinct_per_1000": 3.76,
+    "iqr": 0.02498,
+    "iqr_over_std": 0.868,
+    "std": 0.02878
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.149,
+     -0.014,
+     0.022,
+     0.053,
+     0.053
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.149,
+    "yoy_min": -0.014,
+    "yoy_rank_rho": 0.053
+   }
+  },
+  "land_barrier_dn": {
+   "finite_pct": 84.2,
+   "icc_between_ticker": 0.058,
+   "persistence": {
+    "ac1": 0.9,
+    "ac20": 0.412,
+    "ac5": 0.716,
+    "ac60": 0.112,
+    "half_life_bars": 6.6
+   },
+   "resolution": {
+    "distinct_per_1000": 105.5,
+    "iqr": 16.28639,
+    "iqr_over_std": 2.011,
+    "std": 8.09776
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.084,
+     0.137,
+     0.126,
+     0.168,
+     0.102
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.168,
+    "yoy_min": 0.084,
+    "yoy_rank_rho": 0.124
+   }
+  },
+  "land_barrier_up": {
+   "finite_pct": 80.6,
+   "icc_between_ticker": 0.069,
+   "persistence": {
+    "ac1": 0.902,
+    "ac20": 0.397,
+    "ac5": 0.711,
+    "ac60": 0.102,
+    "half_life_bars": 6.7
+   },
+   "resolution": {
+    "distinct_per_1000": 110.57,
+    "iqr": 16.34518,
+    "iqr_over_std": 2.028,
+    "std": 8.05847
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.231,
+     0.178,
+     0.113,
+     0.211,
+     0.097
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.231,
+    "yoy_min": 0.097,
+    "yoy_rank_rho": 0.166
+   }
+  },
+  "land_density_here": {
+   "finite_pct": 90.7,
+   "icc_between_ticker": 0.03,
+   "persistence": {
+    "ac1": 0.641,
+    "ac20": 0.195,
+    "ac5": 0.421,
+    "ac60": 0.016,
+    "half_life_bars": 1.6
+   },
+   "resolution": {
+    "distinct_per_1000": 4.74,
+    "iqr": 0.04385,
+    "iqr_over_std": 1.194,
+    "std": 0.03672
+   },
+   "verdict": "FAST_STATE \u2014 the level itself, no meaningful 'normal' to deviate from",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     -0.087,
+     0.004,
+     0.082,
+     0.082,
+     0.129
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.129,
+    "yoy_min": -0.087,
+    "yoy_rank_rho": 0.042
+   }
+  },
+  "land_dist_mode_atr": {
+   "finite_pct": 90.7,
+   "icc_between_ticker": 0.065,
+   "persistence": {
+    "ac1": 0.962,
+    "ac20": 0.558,
+    "ac5": 0.853,
+    "ac60": 0.059,
+    "half_life_bars": 17.9
+   },
+   "resolution": {
+    "distinct_per_1000": 281.92,
+    "iqr": 5.37295,
+    "iqr_over_std": 1.144,
+    "std": 4.69611
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.15,
+     -0.091,
+     0.256,
+     0.189,
+     0.179
+    ],
+    "tickers_median": 590,
+    "yoy_max": 0.256,
+    "yoy_min": -0.091,
+    "yoy_rank_rho": 0.136
+   }
+  },
+  "scale_atr_pct": {
+   "finite_pct": 99.0,
+   "icc_between_ticker": 0.485,
+   "persistence": {
+    "ac1": 0.968,
+    "ac20": 0.418,
+    "ac5": 0.809,
+    "ac60": 0.334,
+    "half_life_bars": 21.3
+   },
+   "resolution": {
+    "distinct_per_1000": 2.42,
+    "iqr": 0.01477,
+    "iqr_over_std": 0.898,
+    "std": 0.01645
+   },
+   "verdict": "STABLE_PROPERTY \u2014 use DEVIATION from the name's own level",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     0.868,
+     0.885,
+     0.887,
+     0.895,
+     0.84
+    ],
+    "tickers_median": 591,
+    "yoy_max": 0.895,
+    "yoy_min": 0.84,
+    "yoy_rank_rho": 0.875
+   }
+  },
+  "scale_compression_len": {
+   "finite_pct": 100.0,
+   "icc_between_ticker": 0.05,
+   "persistence": {
+    "ac1": 0.971,
+    "ac20": 0.531,
+    "ac5": 0.858,
+    "ac60": 0.279,
+    "half_life_bars": 23.6
+   },
+   "resolution": {
+    "distinct_per_1000": 0.26,
+    "iqr": 0.0,
+    "iqr_over_std": 0.0,
+    "std": 10.10379
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 5,
+    "per_pair": [
+     NaN,
+     NaN,
+     0.139,
+     0.017,
+     0.06
+    ],
+    "tickers_median": 591,
+    "yoy_max": NaN,
+    "yoy_min": NaN,
+    "yoy_rank_rho": NaN
+   }
+  },
+  "scale_vol_pctile": {
+   "finite_pct": 60.0,
+   "icc_between_ticker": 0.074,
+   "persistence": {
+    "ac1": 0.971,
+    "ac20": 0.439,
+    "ac5": 0.816,
+    "ac60": 0.364,
+    "half_life_bars": 23.6
+   },
+   "resolution": {
+    "distinct_per_1000": 1.23,
+    "iqr": 0.58,
+    "iqr_over_std": 1.848,
+    "std": 0.31381
+   },
+   "verdict": "SLOW_STATE \u2014 persistent within a name, level usable directly",
+   "yoy": {
+    "pairs": 3,
+    "per_pair": [
+     0.163,
+     0.279,
+     0.296
+    ],
+    "tickers_median": 582,
+    "yoy_max": 0.296,
+    "yoy_min": 0.163,
+    "yoy_rank_rho": 0.246
+   }
+  }
+ },
+ "min_bars_per_ticker": 300,
+ "rows": 771197,
+ "seconds": 56.7,
+ "spec": {
+  "axes_declared": [
+   "decl_R",
+   "decl_C",
+   "decl_H",
+   "decl_M",
+   "decl_E",
+   "decl_E_depth",
+   "decl_E_duration",
+   "decl_K",
+   "decl_S"
+  ],
+  "axes_proposed": [
+   "impact_range_lambda",
+   "impact_range_r2",
+   "impact_response",
+   "impact_response_r2",
+   "impact_efficiency",
+   "land_dist_mode_atr",
+   "land_density_here",
+   "land_barrier_up",
+   "land_barrier_dn",
+   "dis_perm_entropy",
+   "dis_hurst",
+   "dis_switch_rate",
+   "scale_atr_pct",
+   "scale_vol_pctile",
+   "scale_compression_len",
+   "damp_phi"
+  ],
+  "circularity_found_and_split": "the first impact draft regressed a bar's return on its own close-location flow; both are built from the same close (corr +0.52 contemporaneous vs +0.01 lagged), so it measured an identity. Split into a sign-free magnitude impact and an explicitly lagged response function.",
+  "signed_flow_proxy": "daily OHLCV carries no signed order flow. Every impact column rests on the close-location proxy \u2014 where the bar closed inside its own range, times volume. A bar that closed high because it was bought and one that closed high because a seller stopped are the same number to it.",
+  "stage": "0 \u2014 MEASUREMENT ONLY. No interpretation, no outcome, no claim.",
+  "windows": {
+   "damping": 60,
+   "entropy": 40,
+   "hurst": 120,
+   "impact": 60,
+   "perm_order": 3,
+   "profile": 120,
+   "profile_bins": 24,
+   "scale": 500
+  }
+ },
+ "stage": "2 \u2014 INVARIANCE. Descriptive: no outcome column was read, no k charged. Verdicts are about HOW an axis may be used, not about whether it works.",
+ "tickers": 603,
+ "universe": "sp500"
+}

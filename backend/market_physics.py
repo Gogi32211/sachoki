@@ -333,8 +333,23 @@ def _declared(g: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
         / np.log(2)
     # M — p = m·v with dollar volume as mass, signed
     out["decl_M"] = (b["dollar_vol"] / _roll(b["dollar_vol"], 60).mean()) * b["ret"]
-    # E — compression as stored energy: the inverse of current volatility percentile
-    out["decl_E"] = 1.0 - _roll(b["atr_pct"], WIN_SCALE).rank(pct=True)
+    # E — DEPTH AND DURATION, which is what was actually described.
+    #
+    # The first draft was `1 − volatility percentile`, i.e. the proposed scale axis negated,
+    # and stage 1 duly reported R² = 1.000 between them. That was my tautology, not a finding
+    # about the concept: what was described is "not just low ATR — depth PLUS duration of
+    # compression". Depth alone cannot tell a market that has been quiet for three days from
+    # one quiet for three months, and the difference is the whole idea.
+    #
+    # Still NOT called energy, and the multiplication is a declared composition rather than a
+    # physical law: no conservation principle says depth × time must be released.
+    depth = 1.0 - _roll(b["atr_pct"], WIN_SCALE).rank(pct=True)
+    quiet = (depth > 0.75).astype(int)
+    run_id = (quiet != quiet.shift()).cumsum()
+    dur = quiet.groupby(run_id).cumsum()
+    out["decl_E"] = depth * np.sqrt(dur)
+    out["decl_E_depth"] = depth
+    out["decl_E_duration"] = dur
     # K — stretch from an EMA equilibrium, in ATR
     ema = g["close"].ewm(span=20, adjust=False).mean()
     out["decl_K"] = (g["close"] - ema) / pd.Series(atr, index=g.index)
@@ -354,7 +369,8 @@ AXES_PROPOSED = ["impact_range_lambda", "impact_range_r2", "impact_response",
                  "land_dist_mode_atr", "land_density_here", "land_barrier_up",
                  "land_barrier_dn", "dis_perm_entropy", "dis_hurst", "dis_switch_rate",
                  "scale_atr_pct", "scale_vol_pctile", "scale_compression_len", "damp_phi"]
-AXES_DECLARED = ["decl_R", "decl_C", "decl_H", "decl_M", "decl_E", "decl_K", "decl_S"]
+AXES_DECLARED = ["decl_R", "decl_C", "decl_H", "decl_M", "decl_E", "decl_E_depth",
+                 "decl_E_duration", "decl_K", "decl_S"]
 
 
 def compute(df: pd.DataFrame, verbose: bool = True) -> pd.DataFrame:
@@ -385,6 +401,29 @@ def load_and_compute(universe: str = "sp500", start: str | None = None,
         print(f"  {len(df):,} bars · {df.ticker.nunique():,} tickers · "
               f"{df.date.min()} → {df.date.max()}", flush=True)
     return compute(df, verbose=verbose)
+
+
+def resolution(df: pd.DataFrame, cols: list) -> dict:
+    """How much each axis actually VARIES.
+
+    Rank-based diagnostics normalise, so a column with ten distinct values per thousand rows
+    counts as a full independent dimension. Stage 1 reported 6.41 of 7 partly on that basis.
+    Effective resolution is reported beside every later statistic so a confident number about a
+    near-constant column is visibly a number about a near-constant column.
+    """
+    out = {}
+    for c in cols:
+        v = df[c].replace([np.inf, -np.inf], np.nan).dropna()
+        if not len(v):
+            out[c] = {"finite": 0}
+            continue
+        q = v.quantile([.25, .75])
+        out[c] = {"std": round(float(v.std()), 5),
+                  "iqr": round(float(q.iloc[1] - q.iloc[0]), 5),
+                  "distinct_per_1000": round(float(v.round(4).nunique() / len(v) * 1000), 2),
+                  "iqr_over_std": round(float((q.iloc[1] - q.iloc[0]) / v.std()), 3)
+                  if v.std() > 0 else None}
+    return out
 
 
 def spec() -> dict:
