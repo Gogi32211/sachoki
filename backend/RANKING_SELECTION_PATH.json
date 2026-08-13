@@ -1,0 +1,14 @@
+{
+ "policy": "every distinct ranking policy applied to a given evidence set is a selection-path trial, whether or not the claims under it are old",
+ "trials": [
+  {
+   "evidence_fingerprint": "cdc71f5e4de103bc",
+   "note": "Gate 3B \u2014 theta descending over the 31 cells exposed by the oracle and the numerical qualification",
+   "ranking_hash": "e65cac5b2ac1e9e2",
+   "ranking_metric": "incremental median return effect, theta descending",
+   "ranking_policy_hash": "2aef967dc92786ce",
+   "recorded_at": "2026-08-13T00:00:00Z",
+   "trial_index": 1
+  }
+ ]
+}

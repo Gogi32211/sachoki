@@ -1,0 +1,341 @@
+{
+ "artifact": "RankingRunArtifact",
+ "claim_exposure_delta": 0,
+ "decision_policy_invariant": true,
+ "display_banner": [
+  "EXPLORATORY RANKING",
+  "Policy registered after evidence exposure",
+  "Not preregistered for this snapshot"
+ ],
+ "input_evidence_fingerprint": "cdc71f5e4de103bc",
+ "input_evidence_standing": "ALREADY_EXPOSED",
+ "input_evidence_status": {
+  "application_maturity": "FIRST_HISTORICAL_APPLICATION",
+  "evidence_origin": "HISTORICAL_RESEARCH",
+  "instrument_validation_basis": "SYNTHETIC_CAPABILITY_VALIDATED",
+  "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+ },
+ "input_exposure_ids": [
+  "v2-core-oracle-2026-08-12",
+  "v2-real-y-numerical-qualification-2026-08-13"
+ ],
+ "permitted_actions": [
+  "change_controls",
+  "freeze_forward_spec",
+  "inspect",
+  "nominate_for_forward_validation",
+  "record_exploratory_ranking",
+  "record_historical_verdict",
+  "rerun"
+ ],
+ "ranking_hash": "e65cac5b2ac1e9e2",
+ "ranking_metric": "incremental median return effect, theta descending",
+ "ranking_policy_hash": "2aef967dc92786ce",
+ "ranking_policy_version": "historical_ranking_policy_v1",
+ "ranking_use": "POST_EXPOSURE_EXPLORATORY",
+ "recorded_at": "2026-08-13T00:00:00Z",
+ "refused_actions": [
+  "book",
+  "label_preregistered_selection",
+  "promote_as_validated_edge",
+  "retroactive_register"
+ ],
+ "rows": [
+  {
+   "cell_identity": "rsi<35&rs",
+   "interval_display_only": [
+    2.090998325995914,
+    3.5894614593124494
+   ],
+   "rank": 1,
+   "theta": 2.8694504370120493
+  },
+  {
+   "cell_identity": "sig_lead_in_lag",
+   "interval_display_only": [
+    1.1615892732423299,
+    2.0056038653011115
+   ],
+   "rank": 2,
+   "theta": 1.6167588079594897
+  },
+  {
+   "cell_identity": "sig_conso+sig_lead_in_lag",
+   "interval_display_only": [
+    1.1528817031965932,
+    1.944557374455256
+   ],
+   "rank": 3,
+   "theta": 1.56633212978675
+  },
+  {
+   "cell_identity": "sig_lead_in_lag+sig_h1_dr",
+   "interval_display_only": [
+    0.8369442981904013,
+    2.028635103052284
+   ],
+   "rank": 4,
+   "theta": 1.3952868076650526
+  },
+  {
+   "cell_identity": "adx2&rs",
+   "interval_display_only": [
+    0.8256240618683923,
+    1.9077218682219357
+   ],
+   "rank": 5,
+   "theta": 1.3588317057446642
+  },
+  {
+   "cell_identity": "sig_conso+sig_lead_in_lag+sig_h1_dr",
+   "interval_display_only": [
+    0.7356953250491269,
+    1.8752051785397437
+   ],
+   "rank": 6,
+   "theta": 1.309113226457293
+  },
+  {
+   "cell_identity": "sig_rs_intact",
+   "interval_display_only": [
+    0.7450249395433122,
+    1.3692643188277
+   ],
+   "rank": 7,
+   "theta": 1.0455725184309028
+  },
+  {
+   "cell_identity": "rsi35-50&rs",
+   "interval_display_only": [
+    0.5951596572937522,
+    1.456680977414145
+   ],
+   "rank": 8,
+   "theta": 1.0003957090853444
+  },
+  {
+   "cell_identity": "sig_h1_dr",
+   "interval_display_only": [
+    0.4946990427753596,
+    1.389677867063897
+   ],
+   "rank": 9,
+   "theta": 0.9531328219461818
+  },
+  {
+   "cell_identity": "rsi<35",
+   "interval_display_only": [
+    0.26932393084762135,
+    1.5271461658702539
+   ],
+   "rank": 10,
+   "theta": 0.8880220277268382
+  },
+  {
+   "cell_identity": "adx3&rs",
+   "interval_display_only": [
+    0.5520067530817628,
+    1.2429077521712621
+   ],
+   "rank": 11,
+   "theta": 0.8794840531551621
+  },
+  {
+   "cell_identity": "sig_conso+sig_h1_dr",
+   "interval_display_only": [
+    0.26532275755076806,
+    1.1298458401803835
+   ],
+   "rank": 12,
+   "theta": 0.7367776509307363
+  },
+  {
+   "cell_identity": "adx3",
+   "interval_display_only": [
+    0.36389125946142165,
+    0.8632050059326932
+   ],
+   "rank": 13,
+   "theta": 0.6246302973182836
+  },
+  {
+   "cell_identity": "sig_rs_intact+sig_conso",
+   "interval_display_only": [
+    0.27092928585244835,
+    0.8945855389560939
+   ],
+   "rank": 14,
+   "theta": 0.5821267544705436
+  },
+  {
+   "cell_identity": "adx2",
+   "interval_display_only": [
+    0.030300037975919705,
+    0.8141347899329334
+   ],
+   "rank": 15,
+   "theta": 0.4083540033844577
+  },
+  {
+   "cell_identity": "rsi<35&conso",
+   "interval_display_only": [
+    -0.5014524492392478,
+    1.3756293609146335
+   ],
+   "rank": 16,
+   "theta": 0.30495273598919237
+  },
+  {
+   "cell_identity": "rsi50-65&conso",
+   "interval_display_only": [
+    0.03969329336998897,
+    0.561097165416397
+   ],
+   "rank": 17,
+   "theta": 0.29095105300841856
+  },
+  {
+   "cell_identity": "rsi50-65&rs",
+   "interval_display_only": [
+    -0.06146849383360011,
+    0.6261754698876459
+   ],
+   "rank": 18,
+   "theta": 0.2641367670910183
+  },
+  {
+   "cell_identity": "sig_conso",
+   "interval_display_only": [
+    -0.19817845726396632,
+    0.8033569669108456
+   ],
+   "rank": 19,
+   "theta": 0.26156235043694914
+  },
+  {
+   "cell_identity": "rsi50-65",
+   "interval_display_only": [
+    -0.21281525488085615,
+    0.3366750838422376
+   ],
+   "rank": 20,
+   "theta": 0.0729245547741249
+  },
+  {
+   "cell_identity": "adx1&rs",
+   "interval_display_only": [
+    -0.4550894508410868,
+    0.317373299493172
+   ],
+   "rank": 21,
+   "theta": -0.08115087688326253
+  },
+  {
+   "cell_identity": "rsi35-50&conso",
+   "interval_display_only": [
+    -0.4921190332912497,
+    0.29895398474569146
+   ],
+   "rank": 22,
+   "theta": -0.10852770624338554
+  },
+  {
+   "cell_identity": "\u00acsig_conso",
+   "interval_display_only": [
+    -0.7866798192424093,
+    0.33643084585462857
+   ],
+   "rank": 23,
+   "theta": -0.20467253684842884
+  },
+  {
+   "cell_identity": "rsi35-50",
+   "interval_display_only": [
+    -0.5669229447718289,
+    0.15081653116655003
+   ],
+   "rank": 24,
+   "theta": -0.2097017729755951
+  },
+  {
+   "cell_identity": "adx0",
+   "interval_display_only": [
+    -0.5176320741689046,
+    -0.1410887291093237
+   ],
+   "rank": 25,
+   "theta": -0.31806779674656127
+  },
+  {
+   "cell_identity": "rsi>=65",
+   "interval_display_only": [
+    -0.9360383431885215,
+    -0.2363722814029181
+   ],
+   "rank": 26,
+   "theta": -0.5692791977743374
+  },
+  {
+   "cell_identity": "adx1",
+   "interval_display_only": [
+    -0.9813077155958,
+    -0.25915951049356123
+   ],
+   "rank": 27,
+   "theta": -0.6240684103112306
+  },
+  {
+   "cell_identity": "\u00acsig_h1_dr",
+   "interval_display_only": [
+    -1.6802529468925589,
+    -0.7812319300564099
+   ],
+   "rank": 28,
+   "theta": -1.2693476977895815
+  },
+  {
+   "cell_identity": "\u00acsig_rs_intact",
+   "interval_display_only": [
+    -1.820336311286008,
+    -1.101282778238874
+   ],
+   "rank": 29,
+   "theta": -1.4647450517556597
+  },
+  {
+   "cell_identity": "\u00acsig_lead_in_lag",
+   "interval_display_only": [
+    -2.250899855082039,
+    -1.3823494131892995
+   ],
+   "rank": 30,
+   "theta": -1.870690947864129
+  },
+  {
+   "cell_identity": "adx-1",
+   "interval_display_only": [
+    -2.9430200275599647,
+    -1.42216705219418
+   ],
+   "rank": 31,
+   "theta": -2.111487350739597
+  }
+ ],
+ "selection_path_accounting": {
+  "distinct_ranking_policies_tried": 1,
+  "new_claim_exposure": 0,
+  "ranking_metrics_tried": [
+   "incremental median return effect, theta descending"
+  ],
+  "selection_path_operations": 1,
+  "why_zero_and_not_zero": "no (evidence_claim, decision_spec) pair became available that was not already available, so k_exposed does not move. An order over them is a new selection operation, and trying a second order is a search over orders"
+ },
+ "selection_path_effect": "SELECTION_PATH_CHANGE",
+ "trial_index": 1,
+ "what_this_is_not": [
+  "not a preregistered selection \u2014 the policy was registered after these 31 were exposed",
+  "not new evidence \u2014 no claim became available that was not already available",
+  "not a promotion \u2014 the 31 keep result_role ENGINE_QUALIFICATION_EVIDENCE permanently",
+  "not a ranking by certainty \u2014 the interval is displayed and never sorted on"
+ ]
+}

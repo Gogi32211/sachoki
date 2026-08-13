@@ -1,0 +1,52 @@
+{
+ "entries": [
+  {
+   "components": {
+    "claim_identity": "ca94eed9a66e3e3a",
+    "data_content_hash": "e6bc341a9bd8a9c0",
+    "estimand": "stratified_within_setup_median_difference_pp",
+    "identity_version": "evidence_fingerprint_v1",
+    "outcome_definition": "O['ret'] * 100 within frozen strata",
+    "population": "support_policy:6f825ca4763fea76"
+   },
+   "data_lineage": {
+    "content_digest": "3def5b3dd1ea715428039b57b85adfaa",
+    "content_hash": "e6bc341a9bd8a9c0",
+    "coverage_end": "2026-08-06",
+    "coverage_start": "2021-05-27",
+    "dates": 1304,
+    "rows": 289467,
+    "snapshot_id": "opportunities-parquet-2026-08-12",
+    "snapshot_id_in_hash": false
+   },
+   "derived_from": {
+    "artifacts": [
+     "V2_CORE_ORACLE.json",
+     "V2_REAL_Y_QUALIFICATION.json"
+    ],
+    "declared_population": {
+     "oracle_dates": 1304,
+     "oracle_rows": 289467,
+     "qualification_rows_total": 289467,
+     "qualification_rows_used": 287017
+    },
+    "lineage_completeness": "COMPLETE",
+    "measured_at": "2026-08-13T-derivation",
+    "measurement": "digest and coverage of the outcome vector; no estimator was called"
+   },
+   "evidence_status": {
+    "application_maturity": "FIRST_HISTORICAL_APPLICATION",
+    "evidence_origin": "HISTORICAL_RESEARCH",
+    "instrument_validation_basis": "SYNTHETIC_CAPABILITY_VALIDATED",
+    "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+   },
+   "exposure_ids": [
+    "v2-core-oracle-2026-08-12",
+    "v2-real-y-numerical-qualification-2026-08-13"
+   ],
+   "fingerprint": "cdc71f5e4de103bc",
+   "note": "both exposures ran CL.load_base + E.Support + f.theta over the same data; one evidence item, exposed twice"
+  }
+ ],
+ "identity_version": "evidence_fingerprint_v1"
+}

@@ -145,6 +145,24 @@ def maturity_for_new_results() -> str:
             else ES.FIRST_HISTORICAL_APPLICATION)
 
 
+def maturity_for(evidence_verdict: dict | None = None) -> str:
+    """The same answer, except for evidence that was already exposed before this gate opened.
+
+    NEW RESULTS is doing real work in the function above, and nothing enforced it. A rerun of the
+    31 already-exposed cells looks like a new result to every field except its identity — same
+    data, same claims, same estimand, new timestamp — and would have collected
+    HISTORICAL_APPLICATION_QUALIFIED for numbers exposed before this gate existed. That is the
+    laundering route the gate itself opened, and it closes here rather than in the estimator,
+    because re-executing is allowed; profiting from having re-executed is not.
+    """
+    if evidence_verdict is None:
+        return maturity_for_new_results()
+    import evidence_fingerprint as FP                                 # noqa: PLC0415
+    proposed = {"application_maturity": maturity_for_new_results()}
+    FP.assert_no_replay_laundering(evidence_verdict, proposed)
+    return proposed["application_maturity"]
+
+
 def status() -> dict:
     ok, reasons = can_open()
     return {"engine_extraction": "QUALIFIED",
