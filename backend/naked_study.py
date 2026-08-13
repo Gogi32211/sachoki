@@ -90,7 +90,7 @@ class NakedStudy:
                  horizons: tuple = (5, 10, 20, 60), start: str | None = None,
                  end: str | None = None, min_price: float | None = None,
                  min_dollar_vol: float | None = None, tf: str = "1d",
-                 seed: int = 0):
+                 universe: str | None = None, seed: int = 0):
         _check_clean_room()
         self.q, self.n_trials, self.hor, self.seed = question, n_trials, horizons, seed
         self.tf = tf
@@ -101,7 +101,7 @@ class NakedStudy:
         # used to do its own loading and got the dedup wrong — see feedback-data-contract-first.
         df = srcs.bars(tf, columns=tuple(columns), start=start, end=end,
                        min_price=min_price, min_dollar_vol=min_dollar_vol,
-                       require_adjacency=None, verbose=False)
+                       require_adjacency=None, universe=universe, verbose=False)
         self.filters = dict(df.attrs.get("filters", {}))
 
         self.df = self._forward(df)

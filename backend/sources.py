@@ -122,14 +122,14 @@ _CACHE: dict = {}
 def bars(tf: str = "1d", *, columns: tuple = (), start: str | None = None,
          end: str | None = None, min_price: float | None = None,
          min_dollar_vol: float | None = None, require_adjacency: float | None = None,
-         verbose: bool = True) -> pd.DataFrame:
+         universe: str | None = None, verbose: bool = True) -> pd.DataFrame:
     """Bars for one timeframe, deduplicated, contract-asserted, with prev_ok attached.
 
     Filters that came from research are allowed but never silent: pass them explicitly and
     they are recorded on the frame's `.attrs` so a study can print what it inherited.
     """
     BARS.check(tuple(columns))
-    key = (tf, tuple(columns), start, end, min_price, min_dollar_vol)
+    key = (tf, tuple(columns), start, end, min_price, min_dollar_vol, universe)
     if key in _CACHE:
         return _CACHE[key].copy()
     if tf not in DB:
@@ -138,6 +138,13 @@ def bars(tf: str = "1d", *, columns: tuple = (), start: str | None = None,
     sel = ", ".join(("ticker", "date", "open", "high", "low", "close", "volume")
                     + tuple(columns))
     where = ["universe <> 'index'"]           # ETFs and indices are not stocks
+    if universe:
+        # ADDITIVE (2026-08-13): restrict to one index membership BEFORE the dedup. Added for
+        # the measurement console, whose resident worker cannot afford the full ~12M-row
+        # all-universe frame; a caller that wants everything simply does not pass it.
+        if universe not in ("sp500", "nasdaq", "russell2k"):
+            raise ContractError(f"unknown universe {universe!r}")
+        where.append(f"universe = '{universe}'")
     if start:
         where.append(f"date >= DATE '{start}'")
     if end:

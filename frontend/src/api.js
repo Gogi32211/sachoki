@@ -381,6 +381,10 @@ export const api = {
   studioDescribeColumns: ()                    => get('/api/studio/describe/columns'),
   studioDescribe:        (body)                => post('/api/studio/describe', body),
 
+  // Measurement console — matched-control measurement of one expression; charges k on delivery
+  studioMeasureColumns:  ()                    => get('/api/studio/measure/columns'),
+  studioMeasure:         (body)                => post('/api/studio/measure', body),
+
   predictSequence:     (ticker, body)          => post(`/api/predict-sequence/${ticker}`, body),
 
   // Pre-market price + % change (TTL 15 min, Massive snapshot)

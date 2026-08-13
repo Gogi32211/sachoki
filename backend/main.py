@@ -334,6 +334,13 @@ try:
 except Exception as _e:                                              # noqa: BLE001
     print(f"studio describe surface unavailable: {_e}", flush=True)
 try:
+    # the measurement console — expression in, matched-control measurement out, k charged.
+    # The statistics run in a separate worker process (NakedStudy's clean room).
+    from measure_api import build_router as _measure_router
+    app.include_router(_measure_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"measure surface unavailable: {_e}", flush=True)
+try:
     # the forward day-counter. Its own router, so it cannot be shadowed by the session
     # routes' /{sid} catch-all — the same ordering trap that hid /parameters once already.
     from forward_status_api import build_router as _forward_status_router
