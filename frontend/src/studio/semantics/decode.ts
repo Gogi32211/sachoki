@@ -268,6 +268,70 @@ function decodeCell(raw: unknown, where: string): import('./types').SemanticCell
   return out as unknown as import('./types').SemanticCellView;
 }
 
+const RANKING_USAGES: readonly string[] = ['POST_EXPOSURE_EXPLORATORY', 'PROSPECTIVE_REGISTERED'];
+const POLICY_TIMINGS: readonly string[] = [
+  'REGISTERED_AFTER_EVIDENCE_EXPOSURE', 'REGISTERED_BEFORE_EVIDENCE_EXISTED',
+];
+
+/**
+ * Ranking provenance, decoded as STATE. The banner is copy and is treated as copy.
+ *
+ * Three failure modes, and they are answered differently on purpose:
+ *
+ *     block missing            throw. A payload with no ranking provenance is broken, and a
+ *                              table rendered from it would be a ranking with no standing.
+ *     value not recognised     UNKNOWN. The server and this build are out of step, which is not
+ *                              the payload's fault and must not be silently resolved either way.
+ *     fields disagree          throw. `preregistered_for_snapshot` is redundant so that a
+ *                              payload cannot say two things at once and have one of them drawn.
+ *
+ * `preregistered_for_snapshot` must be a boolean and the check is not pedantry: the string
+ * "false" is truthy in JavaScript, so a server that stringified this field would render every
+ * exploratory ranking as preregistered, and nothing would look wrong.
+ */
+export function decodeRankingProvenance(raw: unknown): import('./types').RankingProvenanceView {
+  if (!raw || typeof raw !== 'object') {
+    throw new TransportContractError(
+      'run carries no ranking_provenance. An order over results has a standing — exploratory or ' +
+      'preregistered — and a table that renders without one is asserting the stronger of the two ' +
+      'by omission.',
+    );
+  }
+  const o = raw as Record<string, unknown>;
+  if (typeof o.preregistered_for_snapshot !== 'boolean') {
+    throw new TransportContractError(
+      `ranking_provenance.preregistered_for_snapshot is ${typeof o.preregistered_for_snapshot}, ` +
+      `expected boolean. The string "false" is truthy here, so a stringified field would show ` +
+      `every exploratory ranking as preregistered and look entirely normal doing it.`,
+    );
+  }
+  const usage = str(o, 'ranking_usage', 'ranking_provenance');
+  const timing = str(o, 'policy_timing', 'ranking_provenance');
+  const known = RANKING_USAGES.includes(usage) && POLICY_TIMINGS.includes(timing);
+  if (known) {
+    const expectPrereg = usage === 'PROSPECTIVE_REGISTERED';
+    const expectTiming = expectPrereg
+      ? 'REGISTERED_BEFORE_EVIDENCE_EXISTED' : 'REGISTERED_AFTER_EVIDENCE_EXPOSURE';
+    if (o.preregistered_for_snapshot !== expectPrereg || timing !== expectTiming) {
+      throw new TransportContractError(
+        `ranking_provenance is internally inconsistent: ${usage} implies ${expectTiming} and ` +
+        `preregistered=${expectPrereg}, and the payload carries ${timing} / ` +
+        `${String(o.preregistered_for_snapshot)}.`,
+      );
+    }
+  }
+  const banner = Array.isArray(o.display_banner) ? o.display_banner.map(String) : [];
+  return {
+    ranking_usage: (known ? usage : 'UNKNOWN') as import('./types').RankingUsage,
+    policy_timing: (known ? timing : 'UNKNOWN') as import('./types').PolicyTiming,
+    // fail closed: an unrecognised state is never preregistered, whatever the flag said
+    preregistered_for_snapshot: known ? o.preregistered_for_snapshot : false,
+    ranking_policy_hash: str(o, 'ranking_policy_hash', 'ranking_provenance'),
+    ranking_policy_version: str(o, 'ranking_policy_version', 'ranking_provenance'),
+    display_banner: banner,
+  };
+}
+
 /**
  * Decoding a run also enforces its central invariant. If the payload ever carries more rows than
  * it admits to displaying, the extra ones were exposed and nobody counted them — so the decoder
@@ -316,6 +380,7 @@ export function decodeRun(raw: unknown): import('./types').SearchRunView {
     application_maturity: str(o, 'application_maturity', 'run'),
     result_role: str(o, 'result_role', 'run'),
     allowed_actions: (Array.isArray(o.allowed_actions) ? o.allowed_actions : []).map(String),
-    artifact_hash: str(o, 'artifact_hash', 'run'), rows,
+    artifact_hash: str(o, 'artifact_hash', 'run'),
+    ranking_provenance: decodeRankingProvenance(o.ranking_provenance), rows,
   };
 }

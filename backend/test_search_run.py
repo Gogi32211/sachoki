@@ -301,6 +301,61 @@ def t12_the_display_policy_is_recorded_on_the_run():
     assert "pf" in a.ranking_policy_hash
 
 
+
+def t13_ranking_provenance_crosses_as_state_not_as_a_sentence():
+    """the banner is copy; the standing is fields"""
+    a = artifact()
+    v = SR.to_view(a, a.input_state_hash, "ev", "ds")
+    p = v.ranking_provenance
+    assert p.ranking_usage == SR.POST_EXPOSURE_EXPLORATORY, p.ranking_usage
+    assert p.preregistered_for_snapshot is False
+    d = v.as_dict()["ranking_provenance"]
+    for f in ("ranking_usage", "policy_timing", "preregistered_for_snapshot",
+              "ranking_policy_hash", "ranking_policy_version"):
+        assert f in d, f
+    # the copy is generated FROM the state, so removing it loses nothing but words
+    assert d["display_banner"][0] == "EXPLORATORY RANKING"
+
+
+def t14_an_unregistered_ranking_defaults_to_the_strict_state():
+    """'nobody wired it up' must not read the same as 'this was planned in advance'"""
+    assert SR.UNREGISTERED_RANKING.ranking_usage == SR.POST_EXPOSURE_EXPLORATORY
+    assert SR.UNREGISTERED_RANKING.preregistered_for_snapshot is False
+    a = artifact()
+    assert a.ranking_provenance.preregistered_for_snapshot is False
+
+
+def t15_a_payload_cannot_say_two_things_at_once():
+    """the redundant field exists to be checked, not to be trusted"""
+    for kwargs in ({"ranking_usage": SR.POST_EXPOSURE_EXPLORATORY,
+                    "policy_timing": SR.REGISTERED_AFTER_EVIDENCE_EXPOSURE,
+                    "preregistered_for_snapshot": True},
+                   {"ranking_usage": SR.PROSPECTIVE_REGISTERED,
+                    "policy_timing": SR.REGISTERED_AFTER_EVIDENCE_EXPOSURE,
+                    "preregistered_for_snapshot": True},
+                   {"ranking_usage": "SEMI_PREREGISTERED",
+                    "policy_timing": SR.REGISTERED_AFTER_EVIDENCE_EXPOSURE,
+                    "preregistered_for_snapshot": False}):
+        try:
+            SR.RankingProvenance(ranking_policy_hash="h", ranking_policy_version="v", **kwargs)
+        except SR.RankingProvenanceError:
+            continue
+        raise AssertionError(f"a self-contradicting provenance was constructed: {kwargs}")
+
+
+def t16_the_ranking_standing_is_inside_the_artifact_hash():
+    """otherwise the same rows could be re-served under a stronger standing, unchanged"""
+    a = artifact()
+    b = SR.rank_and_authorise(
+        run_id=a.run_id, session_id=a.session_id, family_id=a.family_id,
+        input_state_hash=a.input_state_hash, search_space_hash=a.search_space_hash,
+        selectable_count=a.selectable_count, displayed_count=a.displayed_count,
+        evidence_hash="ev", decision_hash="ds",
+        ranking_provenance=SR.prospective_ranking("2aef967dc92786ce", "historical_ranking_policy_v1"))
+    assert a.artifact_hash != b.artifact_hash, (
+        "the same rows hashed identically under exploratory and prospective standing")
+
+
 print("=" * 100, flush=True)
 print("  SEARCH RUN — the payload IS the exposure", flush=True)
 print("=" * 100, flush=True)
@@ -320,7 +375,11 @@ for i, fn in enumerate([t1_the_payload_carries_the_authorised_set_and_not_the_ra
                         t9_every_statistical_cell_is_text_with_a_passport,
                         t10_the_fixture_says_it_is_a_fixture,
                         t11_the_sort_key_changes_which_rows_are_authorised,
-                        t12_the_display_policy_is_recorded_on_the_run], 1):
+                        t12_the_display_policy_is_recorded_on_the_run,
+                        t13_ranking_provenance_crosses_as_state_not_as_a_sentence,
+                        t14_an_unregistered_ranking_defaults_to_the_strict_state,
+                        t15_a_payload_cannot_say_two_things_at_once,
+                        t16_the_ranking_standing_is_inside_the_artifact_hash], 1):
     check(f"{i:>2d} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 100, flush=True)
 print(f"  {ok} passed · {fail} failed", flush=True)

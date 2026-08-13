@@ -1,0 +1,12 @@
+{
+  "extends": "./tsconfig.studio.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "outDir": ".decodetests",
+    "rootDir": "src",
+    "noUnusedLocals": false
+  },
+  "include": ["src/studio/semantics/decode.ts", "src/studio/semantics/types.ts",
+              "src/studio/__tests__/**/*.ts"],
+  "exclude": []
+}

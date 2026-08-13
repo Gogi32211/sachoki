@@ -252,5 +252,26 @@ export interface SearchRunView {
   readonly result_role: string;
   readonly allowed_actions: readonly string[];
   readonly artifact_hash: string;
+  /** what standing the ORDER has, as state. The banner is copy generated from it. */
+  readonly ranking_provenance: RankingProvenanceView;
   readonly rows: readonly ResultRowView[];
+}
+
+/**
+ * UNKNOWN is a decoded state and not an error. A value the server sends and this build does not
+ * recognise means the two are out of step, and the honest rendering is the loudest one — not a
+ * hidden banner, and not a blank table either.
+ */
+export type RankingUsage = 'POST_EXPOSURE_EXPLORATORY' | 'PROSPECTIVE_REGISTERED' | 'UNKNOWN';
+export type PolicyTiming =
+  'REGISTERED_AFTER_EVIDENCE_EXPOSURE' | 'REGISTERED_BEFORE_EVIDENCE_EXISTED' | 'UNKNOWN';
+
+export interface RankingProvenanceView {
+  readonly ranking_usage: RankingUsage;
+  readonly policy_timing: PolicyTiming;
+  readonly preregistered_for_snapshot: boolean;
+  readonly ranking_policy_hash: string;
+  readonly ranking_policy_version: string;
+  /** server-generated presentation copy. Never the carrier of the state above it. */
+  readonly display_banner: readonly string[];
 }

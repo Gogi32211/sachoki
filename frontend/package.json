@@ -4,10 +4,11 @@
   "type": "module",
   "scripts": {
     "dev": "vite",
-    "build": "npm run typecheck && npm run typecheck:negative && vite build",
+    "build": "npm run typecheck && npm run typecheck:negative && npm run test:decode && vite build",
     "preview": "vite preview --port 8080",
     "typecheck": "tsc -p tsconfig.studio.json",
-    "typecheck:negative": "tsc -p tsconfig.typetests.json"
+    "typecheck:negative": "tsc -p tsconfig.typetests.json",
+    "test:decode": "tsc -p tsconfig.decodetests.json && node .decodetests/studio/__tests__/ranking_provenance.js"
   },
   "dependencies": {
     "date-fns": "^4.3.0",

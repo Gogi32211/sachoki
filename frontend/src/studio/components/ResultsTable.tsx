@@ -17,7 +17,58 @@
  * previous table no longer matches the controls; leaving it clickable would let a verdict attach
  * to a specification nobody is looking at.
  */
-import type { ResultRowView, SearchRunView } from '../semantics/types';
+import type { RankingProvenanceView, ResultRowView, SearchRunView } from '../semantics/types';
+
+/**
+ * The ranking banner, drawn from `ranking_provenance` and never from the sentence beside it.
+ *
+ * The tempting version of this component reads `display_banner` and renders it. That works until
+ * the copy changes — a translation, a shorter line, a designer trimming three lines to one — and
+ * then the standing of the ranking leaves the screen without anything failing. So the headline
+ * below is derived from `ranking_usage`, and the server's copy is rendered underneath as detail.
+ * Delete `display_banner` from the payload entirely and the banner still says what this is.
+ *
+ *     POST_EXPOSURE_EXPLORATORY   banner required
+ *     PROSPECTIVE_REGISTERED      exploratory banner forbidden, and its absence is the signal
+ *     UNKNOWN                     loudest banner. Fail closed: an unrecognised standing is not
+ *                                 a reason to show less, it is a reason to show more.
+ */
+function RankingBanner({ p }: { p: RankingProvenanceView }) {
+  if (p.ranking_usage === 'PROSPECTIVE_REGISTERED') {
+    return (
+      <div data-ranking-usage={p.ranking_usage} data-exploratory="0"
+           className="mt-3 text-[10px] uppercase tracking-widest text-md-on-surface-var">
+        prospective ranking · policy <span className="font-mono">{p.ranking_policy_hash}</span>{' '}
+        registered before this evidence existed
+      </div>
+    );
+  }
+  const unknown = p.ranking_usage === 'UNKNOWN';
+  return (
+    <div data-ranking-usage={p.ranking_usage} data-exploratory="1"
+         data-preregistered={String(p.preregistered_for_snapshot)}
+         className="mt-3 rounded border border-md-warning bg-md-warning-container p-3">
+      <div className="text-xs font-semibold uppercase tracking-widest text-md-warning">
+        {unknown ? 'ranking standing unknown' : 'exploratory ranking'}
+      </div>
+      <p className="mt-1 text-[11px] leading-relaxed text-md-on-surface">
+        {unknown
+          ? 'This build does not recognise the standing the server sent for this ranking, so it '
+            + 'is shown as the weaker of the two. Nothing here is a preregistered selection.'
+          : 'The ranking policy was registered after this evidence was exposed, so the order is '
+            + 'exploratory and not a preregistered selection for this snapshot.'}
+      </p>
+      {p.display_banner.length > 0 && (
+        <ul data-banner-copy="1" className="mt-1 text-[10px] text-md-on-surface-var">
+          {p.display_banner.map((line) => <li key={line}>{line}</li>)}
+        </ul>
+      )}
+      <div className="mt-1 text-[10px] font-mono text-md-on-surface-var">
+        {p.ranking_policy_version} · {p.ranking_policy_hash}
+      </div>
+    </div>
+  );
+}
 
 const VERDICT_CLS: Record<string, string> = {
   BUILD: 'text-md-warning',
@@ -78,6 +129,8 @@ export function ResultsTable({ run, onInspect, onPromote }: Props) {
           <div className="lowercase">ceiling: {run.allowed_actions.join(' · ')}</div>
         </div>
       </div>
+
+      <RankingBanner p={run.ranking_provenance} />
 
       {stale && (
         <div data-stale="1"
