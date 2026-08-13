@@ -90,6 +90,16 @@ BAR_PRIMITIVES = frozenset({
     # description the existing nine lines do not carry. It lives in its own parquet, NOT in the
     # bars table, because bars has two writers already and that is two by design.
     "land_token",
+    # Market-physics bar fields, ported 1:1 from the 260814 Pine studies. Mechanical labels
+    # over OHLCV with declared thresholds — no fitted score, no forward information, the same
+    # class as bar_body_wick and bar_gap_range. phys_gap_true is the CORRECTED gap class:
+    # bar_gap_range measures from the previous close and overstates on 49.5% of gaps (median
+    # 1.80x, never under); this one measures from the empty-space edge.
+    "phys_r", "phys_regime", "phys_c", "phys_h", "phys_line6",
+    "phys_m", "phys_e", "phys_k", "phys_s",
+    "phys_gap_true", "phys_ad", "phys_wyc",
+    "phys_r_raw", "phys_c_raw", "phys_h_raw", "phys_m_raw", "phys_e_raw", "phys_k_x",
+    "phys_e_release", "phys_s_net",
     "setup_tokens", "context_tokens", "swing_type", "swing_type_3", "swing_type_5",
     # standard public indicators — not ours, and no threshold implied
     "rsi_14", "cci_20", "atr_14", "avg_vol_20d", "change_pct",

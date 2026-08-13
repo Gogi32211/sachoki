@@ -37,6 +37,10 @@ from sources import BAR_FORBIDDEN, BAR_PRIMITIVES
 # columns an expression may name: the shared allowlist plus the raw bar itself
 OHLCV = ("open", "high", "low", "close", "volume")
 NUMERIC_PRIMITIVES = frozenset({"rsi_14", "cci_20", "atr_14", "avg_vol_20d", "change_pct",
+                                # the physics raws: thresholds are opinions, these are the
+                                # measurements, so an expression can re-cut them freely
+                                "phys_r_raw", "phys_c_raw", "phys_h_raw", "phys_m_raw",
+                                "phys_e_raw", "phys_k_x", "phys_s_net", "phys_e_release",
                                 *OHLCV})
 ALLOWED_NAMES = frozenset(BAR_PRIMITIVES) | frozenset(OHLCV)
 
