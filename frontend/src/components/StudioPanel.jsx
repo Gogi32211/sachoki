@@ -163,6 +163,7 @@ const SUBTABS = [
   { id: 'edge',      label: '🔥 Today\'s Edge' },
   { id: 'playbook',  label: '📒 Playbook'     },
   { id: 'sigstats',  label: '📈 Signal Stats' },
+  { id: 'columns',   label: '🔤 Columns'      },
   { id: 'exact',     label: '🎯 Exact Sequence' },
   { id: 'seqlab',    label: '🧬 Seq Lab'      },
   { id: 'dbchart',   label: '🕯️ DB Chart'     },
@@ -951,6 +952,145 @@ const EXACT_LINE_LABELS = {
 }
 
 const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '', line5: '', vol: '', ema: '', rsi: '' }
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// Column breakdown — what the alphabet actually contains.
+//
+// This is the query I kept running by hand and pasting back into a chat window: how often each
+// L code occurs, which suffixes go with T and which with Z, how much of the L x suffix grid
+// actually exists. Pasted answers live in a transcript, cannot be re-run, and are gone when the
+// conversation moves on.
+//
+// STRICTLY DESCRIPTIVE. Counts and co-occurrence only — no forward return, no win rate, no
+// verdict. That boundary is why this screen does not charge k: counting how many bars carry L34
+// exposes no claim about what L34 does. Put an outcome column in here and it becomes a search
+// surface, and the k-charge the sequence builder now has would have to apply to it too.
+//
+// The column list is fetched from the server. Hardcoding it here would be a second copy of the
+// allowlist, and the copy is what drifts.
+// ═══════════════════════════════════════════════════════════════════════════════
+function ColumnBreakdownTab() {
+  const [cols, setCols]   = useState([])
+  const [unis, setUnis]   = useState(['sp500'])
+  const [colA, setColA]   = useState('l_sig')
+  const [colB, setColB]   = useState('full_suffix')
+  const [uni,  setUni]    = useState('sp500')
+  const [res,  setRes]    = useState(null)
+  const [err,  setErr]    = useState(null)
+  const [busy, setBusy]   = useState(false)
+
+  useEffect(() => {
+    api.studioDescribeColumns()
+      .then(d => { setCols(d.columns || []); setUnis(d.universes || ['sp500']) })
+      .catch(e => setErr(e.message))
+  }, [])
+
+  const run = async () => {
+    setBusy(true); setErr(null); setRes(null)
+    try {
+      setRes(await api.studioDescribe({ col_a: colA, col_b: colB || '', universe: uni }))
+    } catch (e) { setErr(e.message) } finally { setBusy(false) }
+  }
+
+  const label = (c) => (cols.find(x => x.column === c) || {}).label || c
+
+  return (
+    <div className="space-y-3">
+      <Card>
+        <div className="text-sm font-bold text-md-on-surface mb-1">Column breakdown</div>
+        <p className="text-[11px] text-md-on-surface-var leading-relaxed">
+          Counts and co-occurrence over the bar alphabet, one row per (ticker, date).
+          Descriptive only — no forward return, no win rate, no verdict, and therefore no
+          k charged. Scores, tiers and our forward labels are not selectable: they are excluded
+          by the same allowlist <span className="font-mono">sources.bars()</span> uses, because
+          grouping by them would describe our own past conclusions rather than the market.
+        </p>
+      </Card>
+
+      <div className="flex items-end gap-2 flex-wrap">
+        <label className="text-[10px] text-md-on-surface-var">
+          <div className="mb-0.5">column A</div>
+          <select value={colA} onChange={e => setColA(e.target.value)}
+            className="bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface">
+            {cols.map(c => <option key={c.column} value={c.column}>{c.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[10px] text-md-on-surface-var">
+          <div className="mb-0.5">column B (optional — crosstab)</div>
+          <select value={colB} onChange={e => setColB(e.target.value)}
+            className="bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface">
+            <option value="">— none —</option>
+            {cols.map(c => <option key={c.column} value={c.column}>{c.label}</option>)}
+          </select>
+        </label>
+        <label className="text-[10px] text-md-on-surface-var">
+          <div className="mb-0.5">universe</div>
+          <select value={uni} onChange={e => setUni(e.target.value)}
+            className="bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface">
+            {unis.map(u => <option key={u} value={u}>{u}</option>)}
+          </select>
+        </label>
+        <Btn onClick={run} disabled={busy} size="sm">{busy ? <><Spinner /> Counting…</> : '▶ Count'}</Btn>
+      </div>
+
+      {err && (
+        <div data-describe-error="1"
+             className="rounded border border-md-error bg-md-error-container p-2 text-[11px] text-md-on-surface">
+          {err}
+        </div>
+      )}
+
+      {res && res.mode === 'cross' && (
+        <div data-describe-summary="1" className="flex gap-5 flex-wrap text-[11px] font-mono text-md-on-surface-var">
+          <span>rows <span className="text-md-on-surface">{res.total.toLocaleString()}</span></span>
+          <span>grid <span className="text-md-on-surface">{res.distinct_a} × {res.distinct_b} = {res.grid}</span></span>
+          <span>realised <span className="text-emerald-300">{res.realised}</span></span>
+          <span>n≥100 <span className="text-emerald-300">{res.realised_100}</span></span>
+          <span>n≥1000 <span className="text-emerald-300">{res.realised_1000}</span></span>
+        </div>
+      )}
+      {res && res.mode === 'single' && (
+        <div data-describe-summary="1" className="flex gap-5 flex-wrap text-[11px] font-mono text-md-on-surface-var">
+          <span>rows <span className="text-md-on-surface">{res.total.toLocaleString()}</span></span>
+          <span>distinct <span className="text-md-on-surface">{res.distinct}</span></span>
+        </div>
+      )}
+
+      {res && (
+        <div className="overflow-auto max-h-[560px] rounded border border-md-outline-var">
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-md-surface-con text-[10px] uppercase tracking-wider text-md-on-surface-var">
+              <tr>
+                <th className="text-left px-2 py-1 font-normal">{label(res.col_a)}</th>
+                {res.mode === 'cross' && <th className="text-left px-2 py-1 font-normal">{label(res.col_b)}</th>}
+                <th className="text-right px-2 py-1 font-normal">n</th>
+                <th className="text-right px-2 py-1 font-normal">%</th>
+              </tr>
+            </thead>
+            <tbody>
+              {res.rows.map((r, i) => (
+                <tr key={i} data-describe-row={i} className="border-t border-md-outline-var/40">
+                  <td className="px-2 py-0.5 font-mono text-md-on-surface">{res.mode === 'cross' ? r.a : r.value}</td>
+                  {res.mode === 'cross' && <td className="px-2 py-0.5 font-mono text-md-on-surface">{r.b}</td>}
+                  <td className="px-2 py-0.5 text-right font-mono text-md-on-surface-var">{r.n.toLocaleString()}</td>
+                  <td className="px-2 py-0.5 text-right font-mono text-md-on-surface-var">{r.pct}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+
+      {res && res.truncated > 0 && (
+        <div data-describe-truncated={String(res.truncated)}
+             className="text-[11px] text-amber-300">
+          {res.truncated.toLocaleString()} further combinations are not shown. Said out loud
+          rather than cut quietly — a capped table that does not admit it reads as a complete one.
+        </div>
+      )}
+    </div>
+  )
+}
 
 function ExactBarSlot({ idx, isLast, bar, onChange, totalBars }) {
   const upd = (k, v) => onChange({ ...bar, [k]: v })
@@ -4467,6 +4607,7 @@ export default function StudioPanel() {
         {activeTab === 'edge'      && <EdgeScannerTab tf={tf} />}
         {activeTab === 'playbook'  && <PlaybookTab tf={tf} />}
         {activeTab === 'sigstats'  && <SignalStatsTab tf={tf} />}
+        {activeTab === 'columns'   && <ColumnBreakdownTab />}
         {activeTab === 'exact'     && <ExactSequenceTab tf={tf} />}
         {activeTab === 'seqlab'    && <SeqLabTab tf={tf} />}
         {activeTab === 'dbchart'   && <DbChartTab tf={tf} />}

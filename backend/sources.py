@@ -79,6 +79,10 @@ BAR_PRIMITIVES = frozenset({
     "t_sig", "z_sig", "l_sig", "g_sig", "b_sig", "fly_sig", "vol_sig", "combo_sig",
     "ne_suffix", "wick_suffix", "penetration_suffix", "close_suffix", "full_suffix",
     "bar_body_wick", "bar_gap_range", "bar_gap_class", "bar_range_class",
+    # bar_line5 = PSAR side · RSI2 zone · VIX regime, encoded as a token. Same class as the
+    # labels above and as rsi_14, which is already allowed: a public indicator's state, with no
+    # score of ours attached. Added 2026-08-13 so L6 can be counted like the other eight lines.
+    "bar_line5",
     "setup_tokens", "context_tokens", "swing_type", "swing_type_3", "swing_type_5",
     # standard public indicators — not ours, and no threshold implied
     "rsi_14", "cci_20", "atr_14", "avg_vol_20d", "change_pct",

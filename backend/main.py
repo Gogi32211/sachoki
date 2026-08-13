@@ -328,6 +328,12 @@ if _STUDIO_AVAILABLE:
 if _QLIB_AVAILABLE:
     app.include_router(qlib_router)
 try:
+    # column breakdowns — descriptive counts over the shared primitive allowlist
+    from studio_describe import build_router as _describe_router
+    app.include_router(_describe_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"studio describe surface unavailable: {_e}", flush=True)
+try:
     # the forward day-counter. Its own router, so it cannot be shadowed by the session
     # routes' /{sid} catch-all — the same ordering trap that hid /parameters once already.
     from forward_status_api import build_router as _forward_status_router

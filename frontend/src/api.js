@@ -376,6 +376,11 @@ export const api = {
   studioIntradayConfirmScore: (trigger)        => get(`/api/studio/intraday-confirm-score?trigger=${encodeURIComponent(trigger || '')}`),
   studioExactSeq1hFilter: (body)               => post('/api/studio/exact-sequence-1h-filter', body),
 
+  // Column breakdowns — descriptive counts only. The column list is SERVED, never hardcoded
+  // here, so the allowlist has one home (sources.py) instead of a copy that drifts.
+  studioDescribeColumns: ()                    => get('/api/studio/describe/columns'),
+  studioDescribe:        (body)                => post('/api/studio/describe', body),
+
   predictSequence:     (ticker, body)          => post(`/api/predict-sequence/${ticker}`, body),
 
   // Pre-market price + % change (TTL 15 min, Massive snapshot)
