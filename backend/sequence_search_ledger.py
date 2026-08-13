@@ -34,6 +34,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 
 import research_store as RS
 
@@ -46,6 +47,10 @@ QUERY_EVENT = "SEQUENCE_QUERY"
 
 # The one field that describes how a result is shown rather than what was asked.
 PRESENTATION_ONLY_FIELDS = ("match_rows",)
+
+# the same append race the shared counter was caught by: two requests finishing one
+# single-flight computation together must not both read the head and both write event 0
+_RECORD_LOCK = threading.Lock()
 
 
 def _ledger() -> RS.DurableLedger:
@@ -105,6 +110,11 @@ def accounting() -> dict:
 
 def record(req, *, matches: int | None = None) -> dict:
     """Append one query. Returns the accounting AFTER it, plus whether this claim is new."""
+    with _RECORD_LOCK:
+        return _record_locked(req, matches=matches)
+
+
+def _record_locked(req, *, matches: int | None = None) -> dict:
     spec = claim_spec(req)
     h = claim_hash(spec)
     events = _events()

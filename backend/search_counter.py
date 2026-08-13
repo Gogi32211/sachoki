@@ -19,6 +19,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import threading
 
 import research_store as RS
 
@@ -32,6 +33,10 @@ class SearchCounter:
     def __init__(self, filename: str, session: str, note: str = ""):
         self.path = os.path.join(LEDGER_DIR, filename)
         self.session = session
+        # Found the hard way: two requests stuck behind one single-flight computation finish
+        # together, both read the empty ledger, both append event_id 0, and the chain is CORRUPT
+        # from its first two lines. read-head → append must be atomic per counter.
+        self._lock = threading.Lock()
         self.note = note or ("k counts DIFFERENT claims; re-running the same one is the same "
                              "claim looked at twice.")
 
@@ -61,6 +66,7 @@ class SearchCounter:
                 "ledger_status": status, "note": self.note}
 
     def record(self, spec: dict, extra: dict | None = None) -> dict:
+      with self._lock:
         h = self.claim_hash(spec)
         events = self._events()
         seen = sum(1 for e in events if e.claim_hash == h)

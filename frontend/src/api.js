@@ -384,6 +384,7 @@ export const api = {
   // Measurement console — matched-control measurement of one expression; charges k on delivery
   studioMeasureColumns:  ()                    => get('/api/studio/measure/columns'),
   studioMeasure:         (body)                => post('/api/studio/measure', body),
+  studioReplay2:         (body)                => post('/api/studio/replay2', body),
 
   predictSequence:     (ticker, body)          => post(`/api/predict-sequence/${ticker}`, body),
 

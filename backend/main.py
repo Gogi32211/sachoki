@@ -334,6 +334,13 @@ try:
 except Exception as _e:                                              # noqa: BLE001
     print(f"studio describe surface unavailable: {_e}", flush=True)
 try:
+    # Edge Replay 2 — the same edge_replay computation (shared cache key) plus evidence
+    # passports, deflation columns and a k counter. Labels, not a second engine.
+    from edge_replay2_api import build_router as _replay2_router
+    app.include_router(_replay2_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"replay2 surface unavailable: {_e}", flush=True)
+try:
     # the measurement console — expression in, matched-control measurement out, k charged.
     # The statistics run in a separate worker process (NakedStudy's clean room).
     from measure_api import build_router as _measure_router

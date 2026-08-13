@@ -32,6 +32,7 @@ const TABS = [
   { id: 'columns', label: '🔤 Columns'   },
   { id: 'seq',     label: '🎯 Sequences' },
   { id: 'combo',   label: '🧬 ComboLab'  },
+  { id: 'replay2', label: '🔁 Replay 2'  },
 ]
 
 
@@ -192,6 +193,109 @@ function MeasurePanel() {
   )
 }
 
+
+// ═══════════════════════════════════════════════════════════════════════════════
+// 🔁 Replay 2 — the same edge_replay computation, wearing its passport.
+//
+// Not a second engine: the backend serves the identical cached result /api/edge-replay
+// computes, and adds what those numbers never carried — the evidence axes, per-setup DSR,
+// the family PBO, and a k counter for the exit-knob search space. A strong PF here is a
+// hypothesis, not an edge, and the passport says so above the table instead of in a doc.
+// ═══════════════════════════════════════════════════════════════════════════════
+function Replay2Panel() {
+  const [months, setMonths] = useState(36)
+  const [res, setRes] = useState(null)
+  const [err, setErr] = useState(null)
+  const [busy, setBusy] = useState(false)
+
+  const run = async () => {
+    setBusy(true); setErr(null)
+    try { setRes(await api.studioReplay2({ months })) }
+    catch (e) { setErr(String(e.message || e)) }
+    finally { setBusy(false) }
+  }
+
+  const acc = res?.search_accounting
+  const p = res?.passport
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center gap-2 flex-wrap">
+        <select value={months} onChange={e => setMonths(Number(e.target.value))}
+          className="bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface">
+          {[12, 36, 62].map(m => <option key={m} value={m}>{m} months</option>)}
+        </select>
+        <button onClick={run} disabled={busy} data-replay2-run="1"
+          className="px-3 py-1 rounded text-[12px] font-medium bg-md-primary text-md-on-primary disabled:opacity-50">
+          {busy ? 'running… (cold path-sim can take ~2 min)' : '▶ Replay'}
+        </button>
+        {acc && (
+          <span data-replay2-k="1" className="px-2 py-0.5 rounded text-[10px] font-mono border
+            bg-md-surface-high text-md-on-surface-var border-md-outline-var">
+            {acc.k_distinct == null ? 'k unknown — not counted'
+              : `k ${acc.k_distinct} distinct · ${acc.queries} queries`}
+            {acc.claim_is_new === false && <span className="text-emerald-400"> · repeat</span>}
+          </span>
+        )}
+      </div>
+
+      {err && <div className="rounded border border-md-error bg-md-error-container p-2
+                              text-[11px] text-md-on-surface">{err}</div>}
+
+      {p && (
+        <div data-replay2-passport="1"
+             className="rounded border border-md-warning bg-md-warning-container p-3">
+          <div className="text-xs font-semibold uppercase tracking-widest text-md-warning">
+            exploratory historical evidence
+          </div>
+          <p className="mt-1 text-[11px] leading-relaxed text-md-on-surface">
+            {p.evidence_origin.toLowerCase()} · instrument {p.instrument_validation_basis.toLowerCase()} ·
+            {' '}{p.result_role.toLowerCase().replaceAll('_', ' ')}.
+            {' '}{p.why_exploratory_forever}
+          </p>
+          <div className="mt-1 text-[10px] font-mono text-md-on-surface-var">
+            ceiling: {p.ceiling.join(' · ')}
+          </div>
+          {res.deflation?.family_pbo != null && (
+            <div className="mt-1 text-[10px] font-mono text-md-on-surface-var">
+              family PBO {res.deflation.family_pbo} · OOS/IS {res.deflation.oos_is_ratio} ·
+              {' '}{res.deflation.source}
+            </div>
+          )}
+        </div>
+      )}
+
+      {res && (
+        <div className="overflow-auto max-h-[560px] rounded border border-md-outline-var">
+          <table className="w-full text-[11px]">
+            <thead className="sticky top-0 bg-md-surface-con text-[10px] uppercase tracking-wider text-md-on-surface-var">
+              <tr>{['setup', 'n', 'med%', 'win%', 'pf', 'worst yr', 'yrs+', 'dsr', 'claim']
+                .map(h => <th key={h} className="text-right px-2 py-1 font-normal first:text-left">{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {res.rows.map(r => (
+                <tr key={r.setup} data-replay2-row={r.setup}
+                    className="border-t border-md-outline-var/40 font-mono">
+                  <td className="px-2 py-0.5 text-left text-md-on-surface">{r.setup}</td>
+                  <td className="px-2 py-0.5 text-right">{r.n.toLocaleString()}</td>
+                  <td className="px-2 py-0.5 text-right">{r.median > 0 ? '+' : ''}{r.median}</td>
+                  <td className="px-2 py-0.5 text-right">{r.win}</td>
+                  <td className="px-2 py-0.5 text-right">{r.pf ?? '—'}</td>
+                  <td className={'px-2 py-0.5 text-right ' +
+                    (r.worst_year < 0 ? 'text-rose-300' : 'text-emerald-300')}>{r.worst_year}</td>
+                  <td className="px-2 py-0.5 text-right">{r.pos_years}/{r.total_years}</td>
+                  <td className={'px-2 py-0.5 text-right ' +
+                    ((r.dsr ?? 0) <= 0 ? 'text-rose-300' : '')}>{r.dsr ?? '—'}</td>
+                  <td className="px-2 py-0.5 text-right text-md-on-surface-var/60">{r.claim_hash}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
+    </div>
+  )
+}
+
 function StatePanel() {
   return (
     <div className="space-y-3">
@@ -241,6 +345,7 @@ export default function ResearchPanel() {
       <Suspense fallback={<div className="text-[11px] text-md-on-surface-var">loading…</div>}>
         {tab === 'state'   && <StatePanel />}
         {tab === 'measure' && <MeasurePanel />}
+        {tab === 'replay2' && <Replay2Panel />}
         {tab === 'columns' && <ColumnBreakdownTab />}
         {tab === 'seq'     && <ExactSequenceTab tf="1d" />}
         {tab === 'combo'   && <ComboLabScreen />}
