@@ -43,6 +43,8 @@ import combolab_v2 as E                                             # noqa: E402
 import combolab_v2_spec as V2                                       # noqa: E402
 import s1_run as S1R                                                # noqa: E402
 import s1_spec as S1                                                # noqa: E402
+import v2_engine as EN                                              # noqa: E402
+import v2_engine_contract as C                                      # noqa: E402
 import v2_kernel as K                                               # noqa: E402
 from v2_decision_run import Frozen                                  # noqa: E402
 from studio_verdict import Estimate, decide                         # noqa: E402
@@ -57,6 +59,39 @@ pd.set_option("display.width", 215)
 
 class SealedIntegrityError(RuntimeError):
     """This is not the registered experiment."""
+
+
+class SealedCoordinateMismatchError(RuntimeError):
+    """The outcome was built for coordinates other than the ones about to run."""
+
+
+def sealed_outcome(y, world, delta, snapshot_id: str, alignment: str):
+    """Build the OutcomeVector for one capability unit, stamped with the coordinates it is for.
+
+    After the dependency inversion the kernel can no longer confuse `world`, `delta` and `rep` —
+    it never sees them. That moved the only remaining place they can be mixed up into this
+    wrapper, so the coordinates are hashed into the outcome's construction identity and checked
+    against the execution context before anything runs. Nothing else in the system now knows
+    enough to catch a δ=1.5 outcome computed under a δ=0.6 context.
+    """
+    kind = C.SYNTHETIC_INJECTED_WORLD if delta > 0 else C.SYNTHETIC_COMPOSITION_WORLD
+    constr = hashlib.sha256(f"composition_world|{world}|{delta}".encode()).hexdigest()[:16]
+    return C.OutcomeVector(
+        values=y, outcome_id=f"w{world}-d{delta}", units="pp",
+        outcome_semantics=("Y = mu_setup + gamma_date + eps"
+                           + (f" + delta={delta} injected" if delta > 0 else "")),
+        source_kind=kind, source_snapshot_id=snapshot_id,
+        row_alignment_hash=alignment, construction_hash=constr)
+
+
+def assert_outcome_matches_coordinates(outcome, world, delta) -> None:
+    expected = hashlib.sha256(f"composition_world|{world}|{delta}".encode()).hexdigest()[:16]
+    if outcome.construction_hash != expected:
+        raise SealedCoordinateMismatchError(
+            f"outcome {outcome.outcome_id} was constructed as {outcome.construction_hash} and "
+            f"this unit runs at (world={world}, delta={delta}), which expects {expected}. The "
+            f"spec hash, the space hash and the snapshot would all still match — this is the one "
+            f"mismatch nothing else in the system is able to see.")
 
 
 class SealedBootstrapRNGProvider:

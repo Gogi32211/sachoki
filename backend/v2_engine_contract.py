@@ -333,3 +333,18 @@ class EngineResultArtifact:
         return _h({"comp": self.computation_hash, "spec": self.spec_hash,
                    "outcome": self.input_outcome_hash, "mode": self.execution_mode,
                    "rng": self.rng_provenance_hash, "snap": self.data_snapshot_id})
+
+    def legacy_projection(self) -> dict:
+        """The new artifact seen through the old result's schema. A test helper, not a feature.
+
+        The new artifact is richer — provenance fields exist now that did not before — so
+        demanding byte-identical output would force the new object to be shaped by the old one.
+        Projecting instead keeps the claim clean: the artifact grew, and its projection onto the
+        previously proven semantics is identical.
+        """
+        return {c.cell_identity: {"theta_hex": c.computation.theta_hex,
+                                  "ci_low_hex": c.computation.interval_hex[0],
+                                  "ci_high_hex": c.computation.interval_hex[1],
+                                  "verdict": c.decision.final_verdict,
+                                  "support_hash": c.computation.support_identity}
+                for c in self.cell_results}
