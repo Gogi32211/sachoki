@@ -934,7 +934,10 @@ const EXACT_UNI_OPTS = [
   { value: 'russell2k', label: 'Russell 2K' },
   { value: 'both',      label: 'All (SP+NQ+R2K)' },
 ]
-const EXACT_N_OPTS   = [2, 3, 4, 5]
+// 6 added 2026-08-13. The backend was never the limit: query_exact_sequence builds its
+// LAG columns in `for lag in range(n)`, so N is whatever len(bars) is — verified live at
+// 2,3,4,5,6,7 bars. Only this array was capping it.
+const EXACT_N_OPTS   = [2, 3, 4, 5, 6]
 const EXACT_LINE_LABELS = {
   line1: 'L1 — T/Z signal',
   line2: 'L2 — L (WLNBB)',
