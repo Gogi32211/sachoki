@@ -1,0 +1,52 @@
+{
+ "cell_family": [
+  "FaV",
+  "FaS",
+  "AaV",
+  "AaS"
+ ],
+ "cells_declared": 12,
+ "contrast_family": [
+  "FbV",
+  "FbS",
+  "F=V",
+  "F=S",
+  "AbV",
+  "AbS",
+  "A=V",
+  "A=S"
+ ],
+ "evidence_status": "EXPLORATORY forever \u2014 this data is already exposed. The only path to a stronger word is a frozen forward spec.",
+ "gates": {
+  "L1": "years >= 4/6 positive AND worst year >= -2",
+  "L2": "matched-control delta >= +1pp",
+  "L3": "n per bucket, plateau across the threshold, DSR over 12 cells"
+ },
+ "hypothesis": "a liquidity vacuum ABOVE price \u2014 the volume-at-price landscape showing a lower barrier up than down, thin density \u2014 adds forward return beyond the same position WITHOUT the vacuum",
+ "k_note": "12 further cells, charged. The 12 spent on v1 are not recoverable: they were looked at, and a labelling error does not un-look them.",
+ "kill_criterion": "dies if the vacuum does not beat the SAME position without the vacuum by >= 1pp, or does not reproduce on the reserved window, or DSR <= 0",
+ "mandatory": [
+  "price-bucket split",
+  "per-year breakdown"
+ ],
+ "measurement": "outcome recomputed from OHLC, entry next open, no exit rule; control matched on price x liquidity x year strata; bootstrap clustered by trading date",
+ "mining_window": {
+  "end": "2025-08-12",
+  "start": "2021-05-27"
+ },
+ "registered_at": "2026-08-13",
+ "reserved_before_any_result": true,
+ "spec_hash": "1dcaf2cbc26a99a7",
+ "study": "FREE_FLIGHT_v2",
+ "supersedes": {
+  "spec_hash": "77ade3d1930e4731",
+  "study": "FREE_FLIGHT_v1",
+  "why": "v1 selected FuV/FuS/AuV/AuS believing `u` meant a vacuum above. It meant the opposite: barrier_up SMALL, i.e. dense trading above and the void BELOW. The token values were correct and every label about them was inverted, so v1 measured structure-above and reported it as free flight. Its DEAD verdict is a true measurement of the wrong cell."
+ },
+ "token_version": "line10_landscape_v2",
+ "validation_window": {
+  "end": "2026-08-06",
+  "start": "2025-08-13"
+ },
+ "why_reduced_from_the_original": "the composite as first described needed strong momentum and high multiscale coherence. Stage 2 killed both as physics: decl_M is re-encoded by the nine lines at OOS R2 0.857, decl_S carries 0.01 distinct values per 1000 rows with no persistence at any horizon. Only the vacuum survived, so direction and confirmation come from the incumbent alphabet and the test asks exactly whether the landscape ADDS to it."
+}

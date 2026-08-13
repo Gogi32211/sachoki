@@ -52,13 +52,25 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 OUT_PARQUET = os.path.join(srcs.DATA, "market_physics_line10.parquet")
 SPEC_JSON = os.path.join(HERE, "MARKET_PHYSICS_LINE10.json")
 
-TOKEN_VERSION = "line10_landscape_v1"
+TOKEN_VERSION = "line10_landscape_v2"
 
 # ── the cuts. Declared, round, and never fitted ─────────────────────────────
 POS_NEAR = 0.5           # ATR from the profile mode: inside this is equilibrium
 POS_FAR = 2.0            # ATR: beyond this is far
-BARRIER_LOW = 2.0 / 3    # up/down barrier ratio below which escaping UP is easier
-BARRIER_HIGH = 3.0 / 2   # ... above which escaping DOWN is easier
+# A BARRIER IS A VOID, NOT A WALL — the correction that produced v2.
+#
+# barrier = the highest −log(volume share) on the path, i.e. the EMPTIEST point that must be
+# crossed. In physics a high barrier is hard to get over; in a market a thin region is crossed
+# FAST, because nothing is there to trade against. v1 carried the physical reading into the
+# letters and labelled `u` as "less structure above" when `u` is precisely the case where
+# barrier_up is SMALL — dense trading above, and the void BELOW. The values were right and every
+# human-readable word about them was backwards, which is worse than a wrong number: FREE FLIGHT
+# v1 selected structure-above and called it a liquidity vacuum.
+#
+# So the letters now name WHERE THE VOID IS and cannot be read two ways:
+#     a = void above (barrier_up large)     b = void below (barrier_dn large)     = comparable
+BARRIER_LOW = 2.0 / 3    # up/dn below this: barrier_up small, barrier_dn large → VOID BELOW
+BARRIER_HIGH = 3.0 / 2   # up/dn above this: barrier_up large → VOID ABOVE
 UNIFORM_SHARE = 1.0 / MP.PROFILE_BINS    # what a flat profile would put in one bin
 
 POSITION = {"D": f"deeper than {POS_FAR} ATR below the volume mode",
@@ -66,9 +78,10 @@ POSITION = {"D": f"deeper than {POS_FAR} ATR below the volume mode",
             "E": f"within {POS_NEAR} ATR of the mode — at equilibrium",
             "A": f"{POS_NEAR}–{POS_FAR} ATR above the mode",
             "F": f"further than {POS_FAR} ATR above the mode"}
-ESCAPE = {"u": f"barrier up / down < {BARRIER_LOW:.2f} — less structure above",
-          "d": f"barrier up / down > {BARRIER_HIGH:.2f} — less structure below",
-          "=": "barriers comparable in both directions"}
+VOID = {"b": f"up/down < {BARRIER_LOW:.2f} — the thin region is BELOW; dense trading above",
+        "a": f"up/down > {BARRIER_HIGH:.2f} — the thin region is ABOVE; price would move up "
+             f"through air",
+        "=": "comparably thin in both directions"}
 DENSITY = {"V": f"volume share here below {UNIFORM_SHARE:.3f} — thinner than a flat profile",
            "S": f"volume share here at or above {UNIFORM_SHARE:.3f} — structure under price"}
 
@@ -80,6 +93,12 @@ def spec() -> dict:
              "stage 2.5 found decl_M re-encoded by the nine lines at OOS R² 0.857 and decl_K at "
              "0.586; stage 2 found no law-like invariant anywhere and decl_R to be a size proxy. "
              "The landscape is the one description the alphabet does not already carry."),
+         "v1_correction": (
+             "v1 labelled the escape letters by a physical reading of 'barrier' and got them "
+             "backwards. A barrier here is the emptiest point on the path — a VOID — and a "
+             "market crosses a void fast rather than slowly. v1's `u` meant dense-above/"
+             "void-below and was described as 'less structure above'. Values unchanged; letters "
+             "renamed to a/b so the direction of the void is unambiguous."),
          "cuts": {"pos_near_atr": POS_NEAR, "pos_far_atr": POS_FAR,
                   "barrier_ratio_low": round(BARRIER_LOW, 4),
                   "barrier_ratio_high": round(BARRIER_HIGH, 4),
@@ -88,8 +107,8 @@ def spec() -> dict:
                                           "reference point, not a threshold fitted to the sample"},
          "windows": {"profile_bars": MP.WIN_PROFILE, "profile_bins": MP.PROFILE_BINS,
                      "atr": 14},
-         "alphabet": {"position": POSITION, "escape": ESCAPE, "density": DENSITY},
-         "levels": len(POSITION) * len(ESCAPE) * len(DENSITY),
+         "alphabet": {"position": POSITION, "void": VOID, "density": DENSITY},
+         "levels": len(POSITION) * len(VOID) * len(DENSITY),
          "written_to": os.path.basename(OUT_PARQUET),
          "not_written_to": "the DuckDB bars table — single-writer rule",
          "outcome_touched": "none. This is a description of a bar, not a claim about it."}
@@ -111,7 +130,7 @@ def tokenise(phys: pd.DataFrame) -> pd.Series:
     # ratio of the barrier above to the barrier below; both are in log-potential units and a
     # zero barrier is a real state, so the denominator is floored rather than dropped
     ratio = up / dn.clip(lower=1e-3)
-    esc = pd.Series(np.select([ratio < BARRIER_LOW, ratio > BARRIER_HIGH], ["u", "d"],
+    esc = pd.Series(np.select([ratio < BARRIER_LOW, ratio > BARRIER_HIGH], ["b", "a"],
                               default="="), index=phys.index)
     den = pd.Series(np.where(dens < UNIFORM_SHARE, "V", "S"), index=phys.index)
 
@@ -168,7 +187,7 @@ if __name__ == "__main__":
     tot = sum(s["distribution"].values())
     for t, n in sorted(s["distribution"].items(), key=lambda kv: -kv[1]):
         print(f"  {t:<8}{n:>10,}{100 * n / tot:>7.1f}%   "
-              f"{POSITION[t[0]].split(' —')[0]} · {ESCAPE[t[1]].split(' —')[0]} · "
+              f"{POSITION[t[0]].split(' —')[0]} · {VOID[t[1]].split(';')[0]} · "
               f"{'thin' if t[2] == 'V' else 'structure'}", flush=True)
     print(f"\n  written to {os.path.basename(OUT_PARQUET)} and "
           f"{os.path.basename(SPEC_JSON)}", flush=True)
