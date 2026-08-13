@@ -132,6 +132,16 @@ export default function CodeCandleChart({
   const [showPumpSetup,    setShowPumpSetup]    = useState(false)
   const [pumpSetupMarks,   setPumpSetupMarks]   = useState(null)   // {marks:[]}
   const [pumpSetupLoading, setPumpSetupLoading] = useState(false)
+  // 🗺 Landscape — volume-at-price mode as a line, and bars with thin air overhead.
+  // Ships WITH its measured verdict: no standalone edge (FREE FLIGHT died twice at the declared
+  // gate). It is drawn because the nine lines do not carry it — position R² 0.086 out of sample
+  // — and because "worthless alone" is not "worthless": this book's MTF-EMA stack and 🏆RS gate
+  // are both weak standalone and useful as conditioners. Whether a void conditions an edge is
+  // the measurement that comes next; the overlay is how one would notice it.
+  const [showLand, setShowLand] = useState(false)
+  const [landData, setLandData] = useState(null)
+  const [landLoading, setLandLoading] = useState(false)
+  const landLinesRef = useRef([])
   // Zone events overlay — EXIT/RETEST markers (+ T/Z-flip ✓) from the Zone Edge analysis.
   const [showZoneEvents, setShowZoneEvents] = useState(false)
   const [zoneEvents, setZoneEvents] = useState([])
@@ -587,6 +597,38 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showScSuper])
 
+  // 🗺 Landscape fetch — one ticker, computed fresh so the chart cannot disagree with a
+  // stale parquet.
+  useEffect(() => {
+    if (!showLand || !ticker || tf !== '1d') { setLandData(null); return }
+    let dead = false
+    setLandLoading(true)
+    fetch(`/api/studio/landscape/${ticker}?limit=400`)
+      .then(r => r.json())
+      .then(d => { if (!dead) setLandData(d?.error ? null : d) })
+      .catch(() => { if (!dead) setLandData(null) })
+      .finally(() => { if (!dead) setLandLoading(false) })
+    return () => { dead = true }
+  }, [ticker, tf, showLand])
+
+  // the volume-mode price line — the equilibrium price actually traded at, rather than a
+  // smoothing constant. Redrawn on every data load, cleared when the overlay is off.
+  useEffect(() => {
+    const series = seriesRef.current
+    if (!series) return
+    for (const l of landLinesRef.current) { try { series.removePriceLine(l) } catch {} }
+    landLinesRef.current = []
+    const mode = landData?.mode_line
+    if (!showLand || !mode?.length) return
+    const last = mode[mode.length - 1]
+    try {
+      landLinesRef.current.push(series.createPriceLine({
+        price: last.price, color: '#38bdf8', lineWidth: 1, lineStyle: 2,
+        axisLabelVisible: true, title: '🗺 vol mode',
+      }))
+    } catch {}
+  }, [showLand, landData, dataTick])
+
   // 📐 MTF-EMA fetch — SMX/RGTI multi-tf EMA-stack fires (1D only; heavy — lazy).
   useEffect(() => {
     if (!showMtfEma || !ticker || tf !== '1d') { setMtfEmaMarks(null); return }
@@ -854,6 +896,13 @@ export default function CodeCandleChart({
       const cfg = { K0: ['#22d3ee', 'K0'], SMX: ['#84cc16', 'SMX'], ORANGE: ['#f97316', 'ORG'], UP: ['#3b82f6', 'UP'],
                     UPUP: ['#6366f1', 'UP2'], UPUPUP: ['#8b5cf6', 'UP3'], LL: ['#a855f7', 'LL'] }[m.variant] || ['#94a3b8', m.variant]
       markers.push({ time: m.date, position: 'aboveBar', shape: 'circle', color: cfg[0], text: '📐' + cfg[1] })
+    }
+    // 2c) 🗺 Landscape — mark only the void-above bars (the FREE FLIGHT cell). Text carries the
+    //     token so the state is readable, not just coloured.
+    for (const m of (showLand ? (landData?.marks || []) : [])) {
+      if (!m?.free_flight) continue
+      markers.push({ time: m.date, position: 'aboveBar', shape: 'circle', color: '#38bdf8',
+        text: `🗺${m.token}` })
     }
     // 3) Capit→Atom markers — 🔥 capit (red below) + ⚛ atom (violet below, 🔥 if post-capit)
     for (const c of (capitAtomMarks?.capit || [])) {
@@ -1214,6 +1263,26 @@ export default function CodeCandleChart({
                 </button>
                 {showMtfEma && mtfEmaMarks && (
                   <span className="text-lime-300">{mtfEmaMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* 🗺 Landscape — volume-mode line + void-above bars. The badge carries the
+                verdict, because a marker with no verdict beside it reads as a setup. */}
+            {isDbTf(tf) && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title={'Volume-at-price landscape: dashed line = the volume MODE (where trade actually happened, a more defensible equilibrium than an EMA); 🗺 markers = bars far above the mode with thin air overhead.\n\nNO STANDALONE EDGE — measured twice, Δ −0.004 vs the same position without the void, and the whole above-the-mode family runs +0.12 against +0.34 for all bars. Shown because the nine lines do not carry it (R² 0.086) and because weak-alone is not worthless: whether a void CONDITIONS an existing edge is not yet measured.'}>
+                <button onClick={() => setShowLand(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showLand
+                      ? 'bg-sky-900/50 text-sky-200 border-sky-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  {landLoading ? '⏳' : '🗺'} Land
+                </button>
+                {showLand && !landLoading && landData && (
+                  <span className="text-sky-300" title="bars with thin air overhead">
+                    {landData.marks.filter(m => m.free_flight).length}
+                    <span className="text-md-on-surface-var/60"> · no edge</span>
+                  </span>
                 )}
               </div>
             )}

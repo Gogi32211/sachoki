@@ -334,6 +334,12 @@ try:
 except Exception as _e:                                              # noqa: BLE001
     print(f"studio describe surface unavailable: {_e}", flush=True)
 try:
+    # 🗺 landscape overlay — volume-at-price mode and the void, per ticker, computed on the fly
+    from landscape_api import build_router as _landscape_router
+    app.include_router(_landscape_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"landscape surface unavailable: {_e}", flush=True)
+try:
     # Edge Replay 2 — the same edge_replay computation (shared cache key) plus evidence
     # passports, deflation columns and a k counter. Labels, not a second engine.
     from edge_replay2_api import build_router as _replay2_router

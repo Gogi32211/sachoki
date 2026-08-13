@@ -157,6 +157,7 @@ def _landscape(g: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
     atr = b["atr"].to_numpy(float)
     n = len(c)
     dist = np.full(n, np.nan)
+    mode_px = np.full(n, np.nan)          # the equilibrium itself, for drawing it
     barrier_up = np.full(n, np.nan)
     barrier_dn = np.full(n, np.nan)
     density = np.full(n, np.nan)
@@ -182,6 +183,7 @@ def _landscape(g: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
         here = int(np.clip(np.digitize(c[i], edges) - 1, 0, PROFILE_BINS - 1))
         mode = int(np.argmax(share))
         dist[i] = (c[i] - centres[mode]) / a
+        mode_px[i] = centres[mode]
         density[i] = share[here]
         # Barrier = the highest potential between here and the edge, in each direction.
         #
@@ -199,6 +201,7 @@ def _landscape(g: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
 
     out = pd.DataFrame(index=g.index)
     out["land_dist_mode_atr"] = dist          # the honest "stretch": distance to where trade happened
+    out["land_mode_price"] = mode_px          # where the volume mode sits, in price
     out["land_density_here"] = density        # structure under the current price
     out["land_barrier_up"] = barrier_up
     out["land_barrier_dn"] = barrier_dn
