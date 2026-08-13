@@ -44,10 +44,17 @@ import numpy as np
 import forward_evaluation as FE
 import forward_v2_adapter as AD
 import historical_ranking_policy as RP
+import research_store as RS
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 RECORD = os.path.join(HERE, "FORWARD_OBSERVATION_POLICY.json")
-LOOK_LEDGER = os.path.join(HERE, "FORWARD_LOOK_LEDGER.json")
+# The look ledger is durable, checksummed and hash-chained — the same store the rest of the
+# governance uses — and it is witnessed by a second file that must agree with it.
+LOOK_LEDGER = os.path.join(HERE, "FORWARD_LOOK_LEDGER.jsonl")
+LOOK_WITNESS = os.path.join(HERE, "FORWARD_LOOK_WITNESS.json")
+
+LOOK_SESSION = "forward-observation-v1"
+LOOK_TAKEN_EVENT = "FORWARD_LOOK_TAKEN"
 
 POLICY_VERSION = "forward_observation_policy_v1"
 FIRST_LOOK_TRADING_DAYS = 30
@@ -70,6 +77,10 @@ class PrematureLookError(RuntimeError):
 
 class RepeatedLookError(RuntimeError):
     """A second look under a policy that registered one."""
+
+
+class LookLedgerTamperError(RuntimeError):
+    """The look record does not verify, or its two witnesses disagree."""
 
 
 class OutcomeLeakError(RuntimeError):
@@ -188,36 +199,137 @@ def look_population(dates) -> np.ndarray:
     return np.flatnonzero(np.isin(d, list(window))) if window else np.array([], dtype=int)
 
 
-# ── the look ledger ─────────────────────────────────────────────────────────
-def _looks() -> dict:
+# ── the look ledger · durable, chained, and witnessed twice ─────────────────
+# A plain JSON list was enough to record a look and not enough to make one irreversible: delete
+# the file and the system reads "no look has been taken" and looks again. That is the same
+# failure as a torn ledger elsewhere in this project, so it gets the same store — checksummed
+# per line, hash-chained, CORRUPT on damage before the end.
+#
+# The chain alone still cannot see its own deletion, so the look is witnessed by a SECOND file
+# and the two must agree. Any surviving witness blocks a second look:
+#
+#     ledger 1 · witness 1     the look happened
+#     ledger 1 · witness 0     tampering, or a crash mid-record → REFUSE
+#     ledger 0 · witness 1     tampering → REFUSE
+#     ledger CORRUPT           REFUSE — absence cannot be proven from damage
+#     ledger 0 · witness 0     no look has been taken
+#
+# The write order is ledger first, then witness, so an interrupted record leaves ledger > witness
+# — the state that REFUSES. A crash can therefore wedge the system into needing a human, and that
+# is the correct direction to fail: a wedged system asks, a permissive one looks twice.
+#
+# What this does NOT claim: a coordinated deletion of every witness is indistinguishable from
+# never having looked. No local file can prove its own absence was not chosen. The out-of-band
+# record is git, where the ledger, the witness and the artifact are committed together.
+
+
+def _ledger() -> RS.DurableLedger:
+    return RS.DurableLedger(LOOK_LEDGER)
+
+
+def _chain_state(n_looks: int, last_artifact: str) -> str:
+    return hashlib.sha256(f"{LOOK_SESSION}|{n_looks}|{last_artifact}".encode()).hexdigest()[:16]
+
+
+def _witness() -> dict:
+    """An unreadable witness is DAMAGED, not absent.
+
+    Found by the crash test: `open(path, "w")` truncates before `json.dump` writes, so an
+    interrupted witness write leaves a zero-byte file. Parsing it raised, which is the one
+    outcome worse than either answer — a raw JSONDecodeError from a governance gate says nothing
+    about whether a look happened.
+    """
+    if not os.path.exists(LOOK_WITNESS):
+        return {"looks": 0, "last_artifact_hash": "", "chain_head": "", "status": "ABSENT"}
+    try:
+        with open(LOOK_WITNESS) as f:
+            w = json.load(f)
+    except Exception:                                                # noqa: BLE001
+        return {"looks": -1, "last_artifact_hash": "", "chain_head": "", "status": "DAMAGED"}
+    w["status"] = "PRESENT"
+    return w
+
+
+def _write_witness(payload: dict) -> None:
+    """Atomically. A torn witness would be indistinguishable from a missing one."""
+    tmp = LOOK_WITNESS + ".tmp"
+    with open(tmp, "w") as f:
+        json.dump(payload, f, indent=1, sort_keys=True)
+        f.flush()
+        os.fsync(f.fileno())
+    os.replace(tmp, LOOK_WITNESS)
+
+
+def ledger_health() -> dict:
+    """Everything that must line up before the gate will answer at all."""
+    w = _witness()
     if not os.path.exists(LOOK_LEDGER):
-        return {"policy_version": POLICY_VERSION, "looks": []}
-    with open(LOOK_LEDGER) as f:
-        return json.load(f)
+        return {"ledger": "ABSENT", "ledger_looks": 0, "witness_looks": w["looks"],
+                "witness": w["status"], "agree": w["looks"] == 0 and w["status"] != "DAMAGED",
+                "chain_head": ""}
+    status, events = _ledger().status()
+    looks = [e for e in events if e.event_type == LOOK_TAKEN_EVENT]
+    head = looks[-1].new_state_hash if looks else ""
+    return {"ledger": status, "ledger_looks": len(looks), "witness_looks": w["looks"],
+            "witness": w["status"],
+            "agree": (status != RS.CORRUPT and w["status"] != "DAMAGED"
+                      and len(looks) == w["looks"] and head == w.get("chain_head", "")),
+            "chain_head": head}
+
+
+def assert_look_record_verifies() -> dict:
+    h = ledger_health()
+    if h["ledger"] == RS.CORRUPT:
+        raise LookLedgerTamperError(
+            f"{os.path.basename(LOOK_LEDGER)} does not verify. Whether a look has already been "
+            f"taken cannot be established from damaged history, and the permissive reading — "
+            f"'probably none' — is exactly the one that would produce a second look.")
+    if not h["agree"]:
+        raise LookLedgerTamperError(
+            f"the look ledger records {h['ledger_looks']} look(s) and the witness records "
+            f"{h['witness_looks']}. Either one was removed or a record was interrupted between "
+            f"the two writes. This refuses rather than picking the smaller number, because the "
+            f"smaller number is always the one that permits another look.")
+    return h
 
 
 def looks_taken() -> list:
-    return _looks()["looks"]
+    """The recorded looks, after both witnesses have agreed."""
+    assert_look_record_verifies()
+    if not os.path.exists(LOOK_LEDGER):
+        return []
+    return [{"look_index": e.event_id + 1, **e.payload}
+            for e in _ledger().read_all() if e.event_type == LOOK_TAKEN_EVENT]
 
 
 def record_look(*, taken_at: str, artifact_hash: str, novel_days_available: int,
                 look_window_end: str, note: str = "") -> dict:
-    log = _looks()
-    entry = {"look_index": len(log["looks"]) + 1, "taken_at": taken_at,
-             "artifact_hash": artifact_hash,
-             "novel_trading_days_available_at_look": novel_days_available,
-             "look_window_end": look_window_end,
-             "policy_hash": record()["policy_hash"], "note": note}
-    log["looks"].append(entry)
-    with open(LOOK_LEDGER, "w") as f:
-        json.dump(log, f, indent=1, sort_keys=True)
-    return entry
+    """Ledger first, then the witness. The gap between them fails closed."""
+    h = assert_look_record_verifies()
+    n = h["ledger_looks"]
+    payload = {"taken_at": taken_at, "artifact_hash": artifact_hash,
+               "novel_trading_days_available_at_look": novel_days_available,
+               "look_window_end": look_window_end, "policy_hash": record()["policy_hash"],
+               "note": note}
+    ev = _ledger().append(
+        LOOK_SESSION, LOOK_SESSION, LOOK_TAKEN_EVENT, event_id=n,
+        prior_state_hash=h["chain_head"], new_state_hash=_chain_state(n + 1, artifact_hash),
+        payload=payload, state="LOOK_TAKEN", code_hash=record()["policy_hash"],
+        idempotency_key=f"{LOOK_SESSION}:look:{n}",
+        request_hash=RS.request_hash(LOOK_SESSION, "look", payload))
+    _write_witness({"looks": n + 1, "last_artifact_hash": artifact_hash,
+                    "chain_head": ev.new_state_hash, "taken_at": taken_at,
+                    "policy_hash": record()["policy_hash"],
+                    "why": "a second witness, so that deleting the ledger is detected rather "
+                           "than read as 'no look has been taken'"})
+    return {"look_index": n + 1, **payload}
 
 
 # ── the gate ────────────────────────────────────────────────────────────────
 def assert_look_permitted(dates) -> dict:
     """The only thing that permits a first prospective evaluation to run."""
     p = assert_bound()
+    assert_look_record_verifies()          # a damaged or half-deleted record refuses outright
     if looks_taken():
         raise RepeatedLookError(
             f"look {len(looks_taken())} was already taken under {p['policy_version']}, which "
@@ -252,7 +364,12 @@ def operational_status(dates=None) -> dict:
     p = record()
     need = p["first_look"]["n_novel_trading_days"]
     days = novel_trading_days(dates) if dates is not None else []
-    taken = looks_taken()
+    h = ledger_health()
+    try:
+        taken = looks_taken()
+    except LookLedgerTamperError:
+        # the counter still counts days; it does not get to claim the look is available
+        taken = [{"look_index": "UNVERIFIED"}] * max(h["ledger_looks"], h["witness_looks"])
     state = CONSUMED if taken else (READY if len(days) >= need else WAITING)
     out = {
         "policy_version": p["policy_version"], "policy_hash": p["policy_hash"],
@@ -264,6 +381,8 @@ def operational_status(dates=None) -> dict:
         "first_novel_day": days[0] if days else "",
         "latest_novel_day": days[-1] if days else "",
         "looks_taken": len(taken),
+        "look_record_integrity": "OK" if h["agree"] else "DISAGREES",
+        "look_record_status": h["ledger"],
         "repeated_looks": p["repeated_looks"],
         "binds_to": p["binds_to"],
         "displayed_between_looks": ("novel trading days only — no estimate, interval, verdict or "

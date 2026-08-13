@@ -295,5 +295,8 @@ export interface ForwardStatusView {
   readonly latest_novel_day: string;
   readonly looks_taken: number;
   readonly repeated_looks: string;
+  /** OK · DISAGREES — the two look witnesses either match or they do not. */
+  readonly look_record_integrity: string;
+  readonly look_record_status: string;
   readonly note: string;
 }

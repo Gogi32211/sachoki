@@ -151,6 +151,7 @@ const FORWARD = {
   novel_trading_days: 0, novel_trading_days_required: 30, novel_trading_days_remaining: 30,
   first_novel_day: '', latest_novel_day: '', looks_taken: 0,
   repeated_looks: 'FORBIDDEN_IN_V1', binds_to: {},
+  look_record_integrity: 'OK', look_record_status: 'ABSENT',
   displayed_between_looks: 'novel trading days only',
 };
 
@@ -172,6 +173,14 @@ check('12 · an unrecognised forward state never reads as LOOK_TAKEN', () => {
   assert(s.state === 'UNKNOWN', s.state);
   assert(s.state !== 'LOOK_TAKEN',
          '"the look already happened" is the reading that would license a second one');
+});
+
+check('13 · a missing integrity field reads as DISAGREES, never as fine', () => {
+  const stripped = { ...FORWARD };
+  delete (stripped as Record<string, unknown>).look_record_integrity;
+  const s = decodeForwardStatus(stripped);
+  assert(s.look_record_integrity === 'DISAGREES',
+         '"the field is missing" and "the witnesses match" read the same');
 });
 
 console.log(`  ${ok} passed · ${bad} failed`);

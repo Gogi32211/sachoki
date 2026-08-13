@@ -49,8 +49,11 @@ export function ForwardStatusPanel() {
   const need = status.novel_trading_days_required;
   const pct = need > 0 ? Math.min(100, Math.round((done / need) * 100)) : 0;
 
+  const tampered = status.look_record_integrity !== 'OK';
+
   return (
     <div data-forward-state={status.state} data-forward-days={String(done)}
+         data-look-integrity={status.look_record_integrity}
          className="rounded-lg border border-md-outline-var p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-3">
         <span className="text-xs font-semibold uppercase tracking-widest text-md-on-surface">
@@ -83,6 +86,19 @@ export function ForwardStatusPanel() {
         <div><dt className="uppercase tracking-wider">repeated looks</dt>
           <dd className="font-mono">{status.repeated_looks}</dd></div>
       </dl>
+
+      {tampered && (
+        <div data-look-tampered="1"
+             className="mt-3 rounded border border-md-error bg-md-error-container p-2
+                        text-[11px] leading-relaxed text-md-on-surface">
+          <span className="font-semibold uppercase tracking-widest text-md-error">
+            look record does not verify
+          </span>{' '}
+          — the ledger and its witness disagree ({status.look_record_status}). Whether the
+          registered look has already been taken cannot be established, so no look is permitted
+          until a person reconciles the record.
+        </div>
+      )}
 
       <p className="mt-2 text-[10px] leading-relaxed text-md-on-surface-var">{status.note}</p>
     </div>

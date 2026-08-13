@@ -36,3 +36,4 @@ backend/*.out
 backend/.dsr_family.json
 backend/research_ledger/
 .decodetests/
+backend/.test_look_*

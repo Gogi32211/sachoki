@@ -433,6 +433,11 @@ export function decodeForwardStatus(raw: unknown): import('./types').ForwardStat
     latest_novel_day: str(o, 'latest_novel_day', 'forward'),
     looks_taken: num('looks_taken'),
     repeated_looks: str(o, 'repeated_looks', 'forward'),
+    // fail closed: a payload that omits the integrity fields is treated as disagreeing, not as
+    // fine. "The field is missing" and "the witnesses match" must not read the same.
+    look_record_integrity: typeof o.look_record_integrity === 'string'
+      ? o.look_record_integrity : 'DISAGREES',
+    look_record_status: typeof o.look_record_status === 'string' ? o.look_record_status : 'UNKNOWN',
     note: String(o.displayed_between_looks ?? ''),
   };
 }

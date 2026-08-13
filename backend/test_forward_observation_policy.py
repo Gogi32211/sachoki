@@ -11,6 +11,8 @@ from __future__ import annotations
 import os
 import sys
 
+import json
+
 import numpy as np
 import pandas as pd
 
@@ -18,11 +20,20 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import forward_evaluation as FE                                       # noqa: E402
 import forward_observation_policy as OP                               # noqa: E402
 import forward_v2_adapter as AD                                       # noqa: E402
+import research_store as RS                                           # noqa: E402
 
 HERE = os.path.dirname(os.path.abspath(__file__))
-OP.LOOK_LEDGER = os.path.join(HERE, ".test_look_ledger.json")
-if os.path.exists(OP.LOOK_LEDGER):
-    os.remove(OP.LOOK_LEDGER)
+OP.LOOK_LEDGER = os.path.join(HERE, ".test_look_ledger.jsonl")
+OP.LOOK_WITNESS = os.path.join(HERE, ".test_look_witness.json")
+
+
+def clear_look_record():
+    for p in (OP.LOOK_LEDGER, OP.LOOK_WITNESS):
+        if os.path.exists(p):
+            os.remove(p)
+
+
+clear_look_record()
 
 ok = fail = 0
 CUTOFF = FE.record()["data_cutoff_at_registration"]
@@ -39,8 +50,7 @@ def check(name, fn):
         print(f"  FAIL  {name}: {e}", flush=True)
         fail += 1
     finally:
-        if os.path.exists(OP.LOOK_LEDGER):
-            os.remove(OP.LOOK_LEDGER)
+        clear_look_record()
 
 
 def day(offset: int) -> str:
@@ -203,11 +213,106 @@ def t9_the_policy_cannot_be_edited_after_freezing():
 # ── 10 ──────────────────────────────────────────────────────────────────────
 def t10_no_look_has_been_taken_on_real_data():
     """the whole point of this commit is to be waiting, correctly"""
-    real = os.path.join(HERE, "FORWARD_LOOK_LEDGER.json")
+    real = os.path.join(HERE, "FORWARD_LOOK_LEDGER.jsonl")
     assert not os.path.exists(real), (
         "a forward look has been recorded; the first prospective evaluation happened before this "
         "policy was meant to be waiting")
     assert OP.operational_status()["state"] == OP.WAITING
+
+
+
+# ── the look record, hardened ───────────────────────────────────────────────
+def t11_the_look_record_is_hash_chained_and_checksummed():
+    """a plain JSON list recorded a look; it did not make one irreversible"""
+    O, dates, y, masks = novel_world(NEED)
+    OP.run_first_prospective_look(O=O, dates=dates, y=y, masks=masks, taken_at="t")
+    h = OP.ledger_health()
+    assert h["ledger"] == RS.OK and h["agree"], h
+    assert h["ledger_looks"] == 1 and h["witness_looks"] == 1, h
+
+    raw = open(OP.LOOK_LEDGER).read()
+    rec = json.loads(raw.splitlines()[0])
+    assert "c" in rec and "e" in rec, "the look event carries no checksum"
+    rec["e"]["payload"]["artifact_hash"] = "tampered"
+    with open(OP.LOOK_LEDGER, "w") as f:
+        f.write(json.dumps(rec, sort_keys=True, separators=(",", ":")) + "\n")
+    # a rewritten single line reads as an interrupted append, and the witness then disagrees
+    try:
+        OP.assert_look_record_verifies()
+    except OP.LookLedgerTamperError as e:
+        assert "refuses rather than picking the smaller number" in str(e) or "does not verify" in str(e)
+        return
+    raise AssertionError("an edited look event verified")
+
+
+def t12_deleting_the_ledger_does_not_read_as_no_look():
+    """the failure this hardening exists for"""
+    O, dates, y, masks = novel_world(NEED)
+    OP.run_first_prospective_look(O=O, dates=dates, y=y, masks=masks, taken_at="t")
+    os.remove(OP.LOOK_LEDGER)                       # the obvious move
+    assert os.path.exists(OP.LOOK_WITNESS)
+    try:
+        OP.assert_look_permitted(dates)
+    except OP.LookLedgerTamperError as e:
+        assert "always the one that permits another look" in str(e)
+        return
+    raise AssertionError("deleting the look ledger reopened the look")
+
+
+def t13_deleting_the_witness_is_caught_too():
+    O, dates, y, masks = novel_world(NEED)
+    OP.run_first_prospective_look(O=O, dates=dates, y=y, masks=masks, taken_at="t")
+    os.remove(OP.LOOK_WITNESS)
+    try:
+        OP.assert_look_permitted(dates)
+    except OP.LookLedgerTamperError:
+        return
+    raise AssertionError("deleting the witness reopened the look")
+
+
+def t14_a_crash_between_the_two_writes_wedges_rather_than_permits():
+    """a wedged system asks a human; a permissive one looks twice"""
+    O, dates, y, masks = novel_world(NEED)
+    real = OP._write_witness
+    OP._write_witness = lambda payload: (_ for _ in ()).throw(
+        OSError("crash between the ledger append and the witness write"))
+    try:
+        OP.run_first_prospective_look(O=O, dates=dates, y=y, masks=masks, taken_at="t")
+    except OSError:
+        pass
+    finally:
+        OP._write_witness = real
+    h = OP.ledger_health()
+    assert h["ledger_looks"] == 1 and h["witness_looks"] == 0, h
+    try:
+        OP.assert_look_permitted(dates)
+    except OP.LookLedgerTamperError:
+        return
+    raise AssertionError("an interrupted record permitted another look")
+
+
+def t14b_a_torn_witness_is_damaged_and_not_absent():
+    """found by the crash test: open(w) truncates before dump writes"""
+    O, dates, y, masks = novel_world(NEED)
+    OP.run_first_prospective_look(O=O, dates=dates, y=y, masks=masks, taken_at="t")
+    with open(OP.LOOK_WITNESS, "w"):
+        pass                                    # a zero-byte witness, as a crash would leave
+    h = OP.ledger_health()
+    assert h["witness"] == "DAMAGED", h
+    assert not h["agree"], h
+    try:
+        OP.assert_look_permitted(dates)
+    except OP.LookLedgerTamperError:
+        return
+    raise AssertionError("a torn witness read as no witness, which reopens the look")
+
+
+def t15_the_operational_status_reports_the_record_integrity():
+    _, dates, _, _ = novel_world(3)
+    s = OP.operational_status(dates)
+    assert s["look_record_integrity"] == "OK", s
+    assert s["look_record_status"] in ("ABSENT", RS.OK), s
+    OP.assert_no_outcome_fields(s)
 
 
 TESTS = [t1_the_policy_is_frozen_and_bound_to_every_other_frozen_object,
@@ -219,7 +324,13 @@ TESTS = [t1_the_policy_is_frozen_and_bound_to_every_other_frozen_object,
          t7_the_operational_status_can_count_days_and_nothing_else,
          t8_the_state_machine_is_waiting_then_ready_then_taken,
          t9_the_policy_cannot_be_edited_after_freezing,
-         t10_no_look_has_been_taken_on_real_data]
+         t10_no_look_has_been_taken_on_real_data,
+         t11_the_look_record_is_hash_chained_and_checksummed,
+         t12_deleting_the_ledger_does_not_read_as_no_look,
+         t13_deleting_the_witness_is_caught_too,
+         t14_a_crash_between_the_two_writes_wedges_rather_than_permits,
+         t14b_a_torn_witness_is_damaged_and_not_absent,
+         t15_the_operational_status_reports_the_record_integrity]
 
 print("=" * 100, flush=True)
 print("  FORWARD OBSERVATION POLICY · everything above is frozen; this is the looking", flush=True)
