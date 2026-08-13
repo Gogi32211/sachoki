@@ -40,6 +40,7 @@ import json
 import numpy as np
 
 import combolab_v2 as E
+import historical_application_gate as GATE
 import v2_engine_contract as C
 import v2_kernel as K
 
@@ -73,13 +74,15 @@ def assert_compatible(spec: C.V2RunSpec, context: C.ExecutionContext, outcome: C
                       *, registered_space_hash: str, expected_alignment: str, n_rows: int
                       ) -> None:
     """Every refusal that must happen before a single bootstrap draw."""
-    if context.execution_mode == C.HISTORICAL_RESEARCH:
+    if context.execution_mode == C.HISTORICAL_RESEARCH and not GATE.is_open():
+        ok, reasons = GATE.can_open()
         raise HistoricalApplicationNotQualifiedError(
-            "HISTORICAL_RESEARCH is defined and not yet permitted. Two gates stand in front of "
+            "HISTORICAL_RESEARCH is defined and not permitted here. Two gates stand in front of "
             "it: sealed execution equivalence for the extraction, and the registered real-y "
-            "numerical qualification for the application. Extraction being qualified does not "
-            "open the historical client — that is the whole point of keeping the two axes "
-            "apart.")
+            "numerical qualification for the application. "
+            + (f"Both hold; what is missing is the recorded transition — a mode that opens "
+               f"because its preconditions happen to be true is a decision nobody dated or "
+               f"attributed." if ok else "Blocking: " + "; ".join(reasons)))
 
     C.assert_outcome_allowed(context.execution_mode, outcome)
     C.assert_row_alignment(outcome, expected_alignment, n_rows)

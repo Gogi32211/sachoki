@@ -132,8 +132,27 @@ def t6_the_legacy_projection_is_the_old_schema_and_nothing_more():
     assert proj["cellA"]["verdict"] == "BUILD"
 
 
-def t7_the_historical_mode_is_still_shut():
-    """4B changes the wrapper, not the gate"""
+def t7_the_wrapper_rewiring_did_not_open_the_gate():
+    """4B changes the wrapper, not the gate — asserted as a mechanism, not as a state
+
+    Third test in this project to assert "X is blocked" and be falsified by X being legitimately
+    unblocked later. The state was true when written and Gate 2 is a real transition. What
+    survives a legitimate change is the MECHANISM: the path is shut when no record exists, and
+    rewiring the wrapper is not what opens it.
+    """
+    import historical_application_gate as GATE                      # noqa: PLC0415
+    stashed = GATE.RECORD + ".stashed-by-test"
+    had = os.path.exists(GATE.RECORD)
+    if had:
+        os.rename(GATE.RECORD, stashed)
+    try:
+        _assert_historical_blocked()
+    finally:
+        if had:
+            os.rename(stashed, GATE.RECORD)
+
+
+def _assert_historical_blocked():
     import v2_engine as EN                                           # noqa: PLC0415
     spec = C.V2RunSpec("e", "A", "sp", "OPPORTUNITY_LEVEL", "dp", "bp", "def")
     ctx = C.ExecutionContext(C.HISTORICAL_RESEARCH, SNAP, "code",
@@ -146,7 +165,7 @@ def t7_the_historical_mode_is_still_shut():
                              expected_alignment=ALIGN, n_rows=8)
     except EN.HistoricalApplicationNotQualifiedError:
         return
-    raise AssertionError("the historical path opened while the wrapper was being rewired")
+    raise AssertionError("the historical path was open with no governance record")
 
 
 print("=" * 100, flush=True)
@@ -158,7 +177,7 @@ for i, fn in enumerate([t1_the_outcome_is_stamped_with_the_coordinates_it_was_bu
                         t4_the_wrong_rep_produces_a_different_rng_stream,
                         t5_the_capability_loop_stays_in_the_harness,
                         t6_the_legacy_projection_is_the_old_schema_and_nothing_more,
-                        t7_the_historical_mode_is_still_shut], 1):
+                        t7_the_wrapper_rewiring_did_not_open_the_gate], 1):
     check(f"{i} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 100, flush=True)
 print(f"  {ok} passed · {fail} failed", flush=True)

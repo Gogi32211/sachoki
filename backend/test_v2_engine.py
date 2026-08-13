@@ -65,15 +65,36 @@ def outcome(kind=C.SYNTHETIC_COMPOSITION_WORLD, n=8, snap=SNAP, align=ALIGN) -> 
 
 
 # ── the gate that keeps a mode from being a licence ─────────────────────────
-def t1_the_historical_mode_exists_and_is_refused():
-    """an enum member is not permission to run"""
+def t1_the_historical_mode_is_governed_by_the_record_not_by_the_type():
+    """written before Gate 2 and updated by it, which is the point
+
+    The original assertion was that the mode is refused. After the recorded transition it is
+    permitted, and re-asserting the refusal would have meant asserting that a governance
+    decision had not happened. What must still hold is the shape: the mode is open BECAUSE a
+    record exists, so hiding the record must close it again — not because a `raise` is hard-wired,
+    and not because the preconditions happen to be true.
+    """
+    import historical_application_gate as GATE                       # noqa: PLC0415
+    assert GATE.is_open() is True, "Gate 2 record missing; this test describes the open state"
+    EN.assert_compatible(spec(), historical_context(), outcome(C.HISTORICAL_OBSERVED),
+                         registered_space_hash=SPACE, expected_alignment=ALIGN, n_rows=8)
+
+    stashed = GATE.RECORD + ".stashed-by-test"
+    os.rename(GATE.RECORD, stashed)
     try:
-        EN.assert_compatible(spec(), historical_context(), outcome(C.HISTORICAL_OBSERVED),
-                             registered_space_hash=SPACE, expected_alignment=ALIGN, n_rows=8)
-    except EN.HistoricalApplicationNotQualifiedError as e:
-        assert "does not open the historical client" in str(e)
-        return
-    raise AssertionError("the historical mode ran because its type existed")
+        can, _ = GATE.can_open()
+        assert can, "the preconditions still hold, so only the record is missing"
+        try:
+            EN.assert_compatible(spec(), historical_context(), outcome(C.HISTORICAL_OBSERVED),
+                                 registered_space_hash=SPACE, expected_alignment=ALIGN, n_rows=8)
+        except EN.HistoricalApplicationNotQualifiedError as e:
+            assert "nobody dated or" in str(e)
+        else:
+            raise AssertionError(
+                "the mode stayed open without its record, so it is open because its "
+                "preconditions hold — a decision nobody made")
+    finally:
+        os.rename(stashed, GATE.RECORD)
 
 
 def t2_sealed_mode_refuses_real_returns():
@@ -212,7 +233,7 @@ def t12_the_artifact_separates_computation_from_decision():
 print("=" * 100, flush=True)
 print("  run_v2 — orchestration, mostly by refusing", flush=True)
 print("=" * 100, flush=True)
-for i, fn in enumerate([t1_the_historical_mode_exists_and_is_refused,
+for i, fn in enumerate([t1_the_historical_mode_is_governed_by_the_record_not_by_the_type,
                         t2_sealed_mode_refuses_real_returns,
                         t3_the_snapshot_must_agree_with_the_outcome,
                         t4_alignment_is_checked_before_anything_is_computed,

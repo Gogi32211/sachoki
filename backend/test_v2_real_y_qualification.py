@@ -89,24 +89,42 @@ def t6_the_gate_never_read_the_answer():
         assert named in not_criteria, named
 
 
-def t7_the_historical_mode_is_still_blocked():
-    """passing the numerical gate does not open the engine path — that is a separate decision"""
-    assert "remains blocked" in report()["execution_mode"]
-    import v2_engine as EN                                          # noqa: PLC0415
-    import v2_engine_contract as C                                  # noqa: PLC0415
-    spec = C.V2RunSpec("e", "A", "sp", "OPPORTUNITY_LEVEL", "dp", "bp", "d")
-    ctx = C.ExecutionContext(C.HISTORICAL_RESEARCH, "s", "c", C.RESEARCH_RNG,
-                             C.research_rng_material(spec, "s"), "x")
-    o = C.OutcomeVector(values=__import__("numpy").zeros(3), outcome_id="r",
-                        outcome_semantics="ret", source_kind=C.HISTORICAL_OBSERVED,
-                        source_snapshot_id="s", units="pp", row_alignment_hash="a",
-                        construction_hash="c")
+def t7_the_numerical_gate_did_not_open_the_engine_path_by_itself():
+    """the qualification run recorded that it left the path shut; Gate 2 opened it later
+
+    This test asserted a blocked path when it was written, and Gate 2 is a real transition that
+    happened afterwards. Re-asserting the block would be asserting that a governance decision
+    did not occur. What must still hold is that the numerical gate is not what opened it — so
+    the Gate 2 record is hidden and the path must close again.
+    """
+    assert "remains blocked" in report()["execution_mode"], (
+        "the qualification run must record that it did not open anything")
+
+    import historical_application_gate as GATE                      # noqa: PLC0415
+    stashed = GATE.RECORD + ".stashed-by-test"
+    had_record = os.path.exists(GATE.RECORD)
+    if had_record:
+        os.rename(GATE.RECORD, stashed)
     try:
-        EN.assert_compatible(spec, ctx, o, registered_space_hash="A", expected_alignment="a",
-                             n_rows=3)
-    except EN.HistoricalApplicationNotQualifiedError:
-        return
-    raise AssertionError("the numerical gate opened the historical engine path by itself")
+        import v2_engine as EN                                      # noqa: PLC0415
+        import v2_engine_contract as C                              # noqa: PLC0415
+        spec = C.V2RunSpec("e", "A", "sp", "OPPORTUNITY_LEVEL", "dp", "bp", "d")
+        ctx = C.ExecutionContext(C.HISTORICAL_RESEARCH, "s", "c", C.RESEARCH_RNG,
+                                 C.research_rng_material(spec, "s"), "x")
+        o = C.OutcomeVector(values=__import__("numpy").zeros(3), outcome_id="r",
+                            outcome_semantics="ret", source_kind=C.HISTORICAL_OBSERVED,
+                            source_snapshot_id="s", units="pp", row_alignment_hash="a",
+                            construction_hash="c")
+        try:
+            EN.assert_compatible(spec, ctx, o, registered_space_hash="A",
+                                 expected_alignment="a", n_rows=3)
+        except EN.HistoricalApplicationNotQualifiedError:
+            pass
+        else:
+            raise AssertionError("the numerical gate opened the historical engine path by itself")
+    finally:
+        if had_record:
+            os.rename(stashed, GATE.RECORD)
 
 
 def t8_the_exposure_was_recorded_and_is_immutable():
@@ -130,7 +148,7 @@ for i, fn in enumerate([t1_it_ran_against_the_registered_spec,
                         t4_no_replicate_was_dropped_without_a_reason,
                         t5_the_rerun_is_bit_identical_and_the_rng_is_not_sealed,
                         t6_the_gate_never_read_the_answer,
-                        t7_the_historical_mode_is_still_blocked,
+                        t7_the_numerical_gate_did_not_open_the_engine_path_by_itself,
                         t8_the_exposure_was_recorded_and_is_immutable], 1):
     check(f"{i} · {(fn.__doc__ or fn.__name__).splitlines()[0]}", fn)
 print("=" * 100, flush=True)

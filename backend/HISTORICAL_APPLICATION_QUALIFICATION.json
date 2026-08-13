@@ -1,0 +1,32 @@
+{
+ "does_not_open": [
+  "historical ranking \u2014 ComboLab v2 has no registered production ranking for historical cells; choosing one after seeing the results is Gate 3",
+  "promotion of any already-exposed qualification evidence"
+ ],
+ "does_not_relabel": [
+  "V2_CORE_ORACLE.json \u00b7 31 real-y theta \u00b7 ENGINE_QUALIFICATION_EVIDENCE",
+  "V2_REAL_Y_QUALIFICATION.json \u00b7 31 intervals \u00b7 ENGINE_QUALIFICATION_EVIDENCE"
+ ],
+ "gate": "HISTORICAL_APPLICATION",
+ "note": "Gate 1 passed on the registered spec 601f359bf5f47184 and the extraction is equivalent in one process and across two fresh ones. This transition raises maturity for results produced from now on and relabels nothing already exposed.",
+ "opened_at": "2026-08-13",
+ "opened_by": "sachoki (decision) \u00b7 Claude Code (execution)",
+ "raises_maturity_for": "results produced after this record",
+ "record_hash": "b0c9fadc4af8086f",
+ "rests_on": {
+  "extraction_equivalence": {
+   "fresh_process_exact": true,
+   "one_process_exact": true,
+   "oracle_hash": "7c421ae062742d06"
+  },
+  "numerical_qualification": {
+   "cells": 31,
+   "deterministic_rerun": true,
+   "failures": [],
+   "publishable": 31,
+   "spec_hash": "601f359bf5f47184",
+   "status": "PASSED"
+  }
+ },
+ "status": "QUALIFIED"
+}
