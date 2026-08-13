@@ -975,6 +975,10 @@ function ColumnBreakdownTab() {
   const [colA, setColA]   = useState('l_sig')
   const [colB, setColB]   = useState('full_suffix')
   const [uni,  setUni]    = useState('sp500')
+  const [years,  setYears]  = useState([])
+  const [months, setMonths] = useState([])
+  const [minPrice, setMinPrice] = useState('')
+  const [maxPrice, setMaxPrice] = useState('')
   const [res,  setRes]    = useState(null)
   const [err,  setErr]    = useState(null)
   const [busy, setBusy]   = useState(false)
@@ -988,7 +992,13 @@ function ColumnBreakdownTab() {
   const run = async () => {
     setBusy(true); setErr(null); setRes(null)
     try {
-      setRes(await api.studioDescribe({ col_a: colA, col_b: colB || '', universe: uni }))
+      setRes(await api.studioDescribe({
+        col_a: colA, col_b: colB || '', universe: uni,
+        years:  years.length  ? years  : null,
+        months: months.length ? months : null,
+        min_price: minPrice === '' ? null : Number(minPrice),
+        max_price: maxPrice === '' ? null : Number(maxPrice),
+      }))
     } catch (e) { setErr(e.message) } finally { setBusy(false) }
   }
 
@@ -1030,13 +1040,40 @@ function ColumnBreakdownTab() {
             {unis.map(u => <option key={u} value={u}>{u}</option>)}
           </select>
         </label>
+        <label className="text-[10px] text-md-on-surface-var">
+          <div className="mb-0.5">price $</div>
+          <div className="flex items-center gap-1">
+            <input type="number" value={minPrice} onChange={e => setMinPrice(e.target.value)}
+              placeholder="min" title="min close price"
+              className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface" />
+            <span className="text-md-on-surface-var/50">–</span>
+            <input type="number" value={maxPrice} onChange={e => setMaxPrice(e.target.value)}
+              placeholder="max" title="max close price"
+              className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] px-1.5 py-1 text-md-on-surface" />
+          </div>
+        </label>
         <Btn onClick={run} disabled={busy} size="sm">{busy ? <><Spinner /> Counting…</> : '▶ Count'}</Btn>
       </div>
+
+      {/* The same chips Exact Sequence, Seq Lab and Signal Stats use. Reused rather than
+          rewritten: a second copy would eventually disagree about what "all" means. */}
+      <YearMonthChips years={years} setYears={setYears} months={months} setMonths={setMonths} />
 
       {err && (
         <div data-describe-error="1"
              className="rounded border border-md-error bg-md-error-container p-2 text-[11px] text-md-on-surface">
           {err}
+        </div>
+      )}
+
+      {res && (
+        /* Which population these counts are OF. A filtered table that does not say it is
+           filtered gets read as the whole alphabet — the same failure as a truncated one. */
+        <div data-describe-population="1" className="text-[10px] font-mono text-md-on-surface-var">
+          population: {uni}
+          {years.length  ? ` · years ${years.slice().sort().join(',')}` : ' · all years'}
+          {months.length ? ` · months ${months.slice().sort((a,b)=>a-b).join(',')}` : ' · all months'}
+          {(minPrice !== '' || maxPrice !== '') ? ` · price ${minPrice || '0'}–${maxPrice || '∞'}` : ' · all prices'}
         </div>
       )}
 
