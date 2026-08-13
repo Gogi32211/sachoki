@@ -43,6 +43,10 @@ import os
 from dataclasses import asdict, dataclass, field
 
 OK, TORN_TAIL, CORRUPT = "OK", "TORN_TAIL_DISCARDED", "CORRUPT"
+# A ledger that was created and is now gone. Distinct from CORRUPT, and very
+# distinct from empty: an empty ledger says "nothing has been looked at", and that
+# is the reading a vanished file must never be given for free.
+ABSENT = "ABSENT"
 
 
 class LedgerCorruptError(Exception):
@@ -51,6 +55,10 @@ class LedgerCorruptError(Exception):
 
 class ChainBreakError(LedgerCorruptError):
     """An event does not continue the state it claims to continue."""
+
+
+class LedgerMissingError(LedgerCorruptError):
+    """The ledger file existed when this process started and does not exist now."""
 
 
 class IdempotencyConflictError(Exception):
@@ -156,6 +164,12 @@ class DurableLedger:
     # ── reading ─────────────────────────────────────────────────────────────
     def status(self) -> tuple[str, list[StoredEvent]]:
         """Classify the file before trusting it. TORN_TAIL is survivable; CORRUPT is not."""
+        if not os.path.exists(self.path):
+            # The constructor creates this file, so its absence here means it was removed while
+            # the process was running. Reported as ABSENT rather than raised from `open()`,
+            # because a bare FileNotFoundError from four frames down says nothing about what
+            # was lost — and answering "zero events" would silently reset k to nothing.
+            return ABSENT, []
         with open(self.path, "r") as f:
             raw = f.read()
         lines = raw.split("\n")
@@ -185,6 +199,13 @@ class DurableLedger:
 
     def read_all(self) -> list[StoredEvent]:
         st, events = self.status()
+        if st == ABSENT:
+            raise LedgerMissingError(
+                f"{self.path} existed when this process started and is gone now. Every session "
+                f"it recorded is unaccounted for, and the convenient reading — 'then nothing has "
+                f"been looked at' — would reset k to zero, which is the answer that always "
+                f"flatters. Restore the file, or restart the process to start a new ledger "
+                f"deliberately rather than by accident.")
         if st == CORRUPT:
             raise LedgerCorruptError(
                 f"{self.path} does not verify. Every session it describes is INVALID. The history "
