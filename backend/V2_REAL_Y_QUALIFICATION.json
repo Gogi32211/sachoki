@@ -1,0 +1,506 @@
+{
+ "cells": [
+  {
+   "cell": "sig_rs_intact",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.7450249395433122,
+    1.3692643188277
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "\u00acsig_rs_intact",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -1.820336311286008,
+    -1.101282778238874
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.19817845726396632,
+    0.8033569669108456
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "\u00acsig_conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.7866798192424093,
+    0.33643084585462857
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_lead_in_lag",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    1.1615892732423299,
+    2.0056038653011115
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "\u00acsig_lead_in_lag",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -2.250899855082039,
+    -1.3823494131892995
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_h1_dr",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.4946990427753596,
+    1.389677867063897
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "\u00acsig_h1_dr",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -1.6802529468925589,
+    -0.7812319300564099
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_rs_intact+sig_conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.27092928585244835,
+    0.8945855389560939
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_conso+sig_lead_in_lag",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    1.1528817031965932,
+    1.944557374455256
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_conso+sig_h1_dr",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.26532275755076806,
+    1.1298458401803835
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_lead_in_lag+sig_h1_dr",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.8369442981904013,
+    2.028635103052284
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "sig_conso+sig_lead_in_lag+sig_h1_dr",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.7356953250491269,
+    1.8752051785397437
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi<35",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.26932393084762135,
+    1.5271461658702539
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi35-50",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.5669229447718289,
+    0.15081653116655003
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi50-65",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.21281525488085615,
+    0.3366750838422376
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi>=65",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.9360383431885215,
+    -0.2363722814029181
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx-1",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -2.9430200275599647,
+    -1.42216705219418
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx0",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.5176320741689046,
+    -0.1410887291093237
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx1",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.9813077155958,
+    -0.25915951049356123
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx2",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.030300037975919705,
+    0.8141347899329334
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx3",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.36389125946142165,
+    0.8632050059326932
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi<35&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    2.090998325995914,
+    3.5894614593124494
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi35-50&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.5951596572937522,
+    1.456680977414145
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi50-65&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.06146849383360011,
+    0.6261754698876459
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi<35&conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.5014524492392478,
+    1.3756293609146335
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi35-50&conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.4921190332912497,
+    0.29895398474569146
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "rsi50-65&conso",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.03969329336998897,
+    0.561097165416397
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx1&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    -0.4550894508410868,
+    0.317373299493172
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx2&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.8256240618683923,
+    1.9077218682219357
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  },
+  {
+   "cell": "adx3&rs",
+   "degeneracy": "WELL_POSED",
+   "interval": [
+    0.5520067530817628,
+    1.2429077521712621
+   ],
+   "publishable": true,
+   "rejection_reasons": {},
+   "reps_rejected": 0,
+   "reps_requested": 2000,
+   "reps_valid": 2000,
+   "theta_finite": true,
+   "uncomputable_reason": ""
+  }
+ ],
+ "cells_degenerate_but_valid": 0,
+ "cells_numerically_invalid": 0,
+ "cells_publishable": 31,
+ "cells_requested": 31,
+ "cells_theta_finite": 31,
+ "cells_uncomputable": 0,
+ "claim": "REAL_Y_NUMERICAL_QUALIFICATION",
+ "deferred_day_level": [
+  "sig_conso+sig_macro_vix_up",
+  "sig_h1_dr+sig_macro_vix_up",
+  "sig_lead_in_lag+sig_macro_vix_up",
+  "sig_macro_vix_up",
+  "sig_rs_intact+sig_macro_vix_up",
+  "\u00acsig_macro_vix_up"
+ ],
+ "deterministic_rerun": true,
+ "evidence_status": {
+  "application_maturity": "FIRST_HISTORICAL_APPLICATION",
+  "evidence_origin": "HISTORICAL_RESEARCH",
+  "instrument_validation_basis": "SYNTHETIC_CAPABILITY_VALIDATED",
+  "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+ },
+ "execution_mode": "QUALIFICATION_ONLY \u2014 run_v2(HISTORICAL_RESEARCH) remains blocked",
+ "failures": [],
+ "nonfinite_y": 0,
+ "outcome_rows_total": 289467,
+ "outcome_rows_used": 287017,
+ "reps_requested": 2000,
+ "rng_is_sealed_lineage": false,
+ "rng_policy_id": "historical_research_rng_v1",
+ "rng_provenance": "derived:spec+snapshot",
+ "seconds": 985.0,
+ "spec_hash": "601f359bf5f47184",
+ "spec_hash_registered": "601f359bf5f47184",
+ "spec_version": "real_y_qualification_v1",
+ "status": "PASSED",
+ "valid_floor": 1.0
+}
