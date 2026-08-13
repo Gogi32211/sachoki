@@ -1599,6 +1599,20 @@ class ExactSequenceRequest(BaseModel):
     months:     Optional[list[int]] = None   # restrict entry bar to these months (1-12)
 
 
+def _with_search_accounting(req, result: dict) -> dict:
+    """Attach how many DIFFERENT sequences have been asked before this one was read.
+
+    Nine lines over up to six bars is a space where almost anything eventually looks
+    interesting, and until now nothing recorded how many were tried. The number rides with the
+    result rather than living on a separate screen, because a k a reader has to go and find is a
+    k nobody finds.
+    """
+    import sequence_search_ledger as SSL
+    result = dict(result or {})
+    result["search_accounting"] = SSL.safe_record(req, matches=result.get("matches"))
+    return result
+
+
 @router.post("/exact-sequence")
 def exact_sequence(req: ExactSequenceRequest):
     """
@@ -1634,9 +1648,9 @@ def exact_sequence(req: ExactSequenceRequest):
             finally:
                 ctf.close()
             r["tf"] = tf
-            return r
+            return _with_search_accounting(req, r)
         # default: 1D (fast)
-        return query_exact_sequence(
+        return _with_search_accounting(req, query_exact_sequence(
             bars       = req.bars,
             universe   = req.universe,
             strictness = req.strictness,
@@ -1646,7 +1660,7 @@ def exact_sequence(req: ExactSequenceRequest):
             max_price  = req.max_price,
             years      = req.years,
             months     = req.months,
-        )
+        ))
     except Exception as e:
         log.exception("exact_sequence failed")
         raise HTTPException(500, detail=str(e))

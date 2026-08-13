@@ -1492,7 +1492,27 @@ function ExactSequenceTab({ tf: tfProp = '1d' } = {}) {
             placeholder="max" title="max close price on the entry bar"
             className="w-16 bg-md-surface-high border border-md-outline-var rounded text-[11px] text-md-on-surface px-1.5 py-0.5" />
 
-          <Btn onClick={run} disabled={loading} size="sm" className="ml-auto">
+          {/* How many DIFFERENT sequences have been asked. Nine lines over up to six bars is a
+              space where almost anything eventually looks interesting; until this chip there was
+              nothing on screen saying which attempt you were reading. It rides next to the
+              button, because a k you have to go and find is a k nobody finds. */}
+          {result?.search_accounting && (
+            <span data-seq-k={String(result.search_accounting.k_distinct ?? 'unknown')}
+              title={result.search_accounting.note || ''}
+              className={cls('px-2 py-0.5 rounded text-[10px] font-mono ml-auto border',
+                result.search_accounting.k_distinct == null
+                  ? 'bg-rose-900/30 text-rose-300 border-rose-800/60'
+                  : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var')}>
+              {result.search_accounting.k_distinct == null
+                ? 'k unknown — not counted'
+                : `k ${result.search_accounting.k_distinct} distinct · ${result.search_accounting.queries} queries`}
+              {result.search_accounting.claim_is_new === false &&
+                <span className="text-emerald-400"> · repeat</span>}
+            </span>
+          )}
+
+          <Btn onClick={run} disabled={loading} size="sm"
+               className={result?.search_accounting ? 'ml-2' : 'ml-auto'}>
             {loading ? <><Spinner /> Searching...</> : '▶ Find Matches'}
           </Btn>
         </div>
