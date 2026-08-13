@@ -183,9 +183,19 @@ def _landscape(g: pd.DataFrame, b: pd.DataFrame) -> pd.DataFrame:
         mode = int(np.argmax(share))
         dist[i] = (c[i] - centres[mode]) / a
         density[i] = share[here]
-        # barrier = the highest potential between here and the edge, in each direction
-        barrier_up[i] = U[here:].max() - U[here] if here < PROFILE_BINS - 1 else np.nan
-        barrier_dn[i] = U[:here + 1].max() - U[here] if here > 0 else np.nan
+        # Barrier = the highest potential between here and the edge, in each direction.
+        #
+        # NO GUARD, AND THAT IS THE FIX. The first version returned NaN when price sat in the
+        # extreme bin, on the reasoning that there was "no bin above to measure". That deleted
+        # the token for 16.6% of otherwise-valid bars — and not at random: they are precisely
+        # the bars at a new high or new low within the window, which is the liquidity-vacuum
+        # state the whole landscape idea exists to find. Systematically discarding the most
+        # interesting rows is worse than any threshold choice in this file.
+        #
+        # The formula already gives the right answer unguarded: at the top bin `U[here:]` is a
+        # single element, so the barrier is exactly 0 — nothing traded above, nothing to climb.
+        barrier_up[i] = U[here:].max() - U[here]
+        barrier_dn[i] = U[:here + 1].max() - U[here]
 
     out = pd.DataFrame(index=g.index)
     out["land_dist_mode_atr"] = dist          # the honest "stretch": distance to where trade happened

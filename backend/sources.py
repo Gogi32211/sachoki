@@ -83,6 +83,13 @@ BAR_PRIMITIVES = frozenset({
     # labels above and as rsi_14, which is already allowed: a public indicator's state, with no
     # score of ours attached. Added 2026-08-13 so L6 can be counted like the other eight lines.
     "bar_line5",
+    # land_token — Market Physics line 10: the volume-at-price landscape as a token, built by a
+    # frozen rule from OHLCV alone (position vs the profile mode · which barrier is lower ·
+    # density against a uniform reference). No fitted score, no forward information; the same
+    # class as the labels above. Added 2026-08-13 after stage 2.5 showed it is the one
+    # description the existing nine lines do not carry. It lives in its own parquet, NOT in the
+    # bars table, because bars has two writers already and that is two by design.
+    "land_token",
     "setup_tokens", "context_tokens", "swing_type", "swing_type_3", "swing_type_5",
     # standard public indicators — not ours, and no threshold implied
     "rsi_14", "cci_20", "atr_14", "avg_vol_20d", "change_pct",
@@ -118,6 +125,24 @@ BARS = Contract(
 
 _CACHE: dict = {}
 
+# primitives that are NOT columns of the bars table and arrive by join
+_JOINED = ("land_token",)
+
+
+def _attach_line10(df: "pd.DataFrame") -> "pd.DataFrame":
+    """Left-join Market Physics line 10. Absent file → the column is all-NA, never an error:
+    a study that asked for it will see empty rather than a silently different population."""
+    path = os.path.join(DATA, "market_physics_line10.parquet")
+    if not os.path.exists(path):
+        df["land_token"] = pd.NA
+        return df
+    tok = pd.read_parquet(path, columns=["ticker", "date", "land_token"])
+    tok["date"] = pd.to_datetime(tok["date"])
+    left = df.copy()
+    left["_d"] = pd.to_datetime(left["date"])
+    out = left.merge(tok.rename(columns={"date": "_d"}), on=["ticker", "_d"], how="left")
+    return out.drop(columns=["_d"])
+
 
 def bars(tf: str = "1d", *, columns: tuple = (), start: str | None = None,
          end: str | None = None, min_price: float | None = None,
@@ -136,7 +161,7 @@ def bars(tf: str = "1d", *, columns: tuple = (), start: str | None = None,
         raise ContractError(f"unknown timeframe {tf!r} — have {list(DB)}")
 
     sel = ", ".join(("ticker", "date", "open", "high", "low", "close", "volume")
-                    + tuple(columns))
+                    + tuple(c for c in columns if c not in _JOINED))
     where = ["universe <> 'index'"]           # ETFs and indices are not stocks
     if universe:
         # ADDITIVE (2026-08-13): restrict to one index membership BEFORE the dedup. Added for
@@ -168,6 +193,10 @@ def bars(tf: str = "1d", *, columns: tuple = (), start: str | None = None,
     # A liquidity floor deletes bars from the MIDDLE of a history, so the previous ROW can
     # be months from the previous BAR. Sequences must use this, never a bare shift.
     df["prev_ok"] = (gapd <= (4 if tf in ("1d", "1w") else 1)).fillna(False)
+    if "land_token" in columns:
+        # joined, never selected from the table: line 10 is materialised beside the DB rather
+        # than inside it, so the single-writer rule on `bars` stays a rule.
+        df = _attach_line10(df)
     df.attrs["source"] = "bars"
     df.attrs["tf"] = tf
     df.attrs["filters"] = {k: v for k, v in

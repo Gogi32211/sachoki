@@ -1,0 +1,76 @@
+{
+ "alphabet": {
+  "density": {
+   "S": "volume share here at or above 0.042 \u2014 structure under price",
+   "V": "volume share here below 0.042 \u2014 thinner than a flat profile"
+  },
+  "escape": {
+   "=": "barriers comparable in both directions",
+   "d": "barrier up / down > 1.50 \u2014 less structure below",
+   "u": "barrier up / down < 0.67 \u2014 less structure above"
+  },
+  "position": {
+   "A": "0.5\u20132.0 ATR above the mode",
+   "B": "0.5\u20132.0 ATR below the mode",
+   "D": "deeper than 2.0 ATR below the volume mode",
+   "E": "within 0.5 ATR of the mode \u2014 at equilibrium",
+   "F": "further than 2.0 ATR above the mode"
+  }
+ },
+ "carries": "the volume-at-price landscape only",
+ "coverage_pct": 90.13,
+ "cuts": {
+  "barrier_ratio_high": 1.5,
+  "barrier_ratio_low": 0.6667,
+  "density_reference": 0.04167,
+  "density_reference_is": "the share a UNIFORM profile puts in one bin \u2014 a reference point, not a threshold fitted to the sample",
+  "pos_far_atr": 2.0,
+  "pos_near_atr": 0.5
+ },
+ "distribution": {
+  "A=S": 95362,
+  "A=V": 41473,
+  "AdS": 194437,
+  "AdV": 81461,
+  "AuS": 119720,
+  "AuV": 77212,
+  "B=S": 91934,
+  "B=V": 39968,
+  "BdS": 233370,
+  "BdV": 110165,
+  "BuS": 99977,
+  "BuV": 53722,
+  "D=S": 86241,
+  "D=V": 78383,
+  "DdS": 469370,
+  "DdV": 579521,
+  "DuS": 60150,
+  "DuV": 72528,
+  "E=S": 135321,
+  "E=V": 13193,
+  "EdS": 280066,
+  "EdV": 28394,
+  "EuS": 148433,
+  "EuV": 20128,
+  "F=S": 107628,
+  "F=V": 109684,
+  "FdS": 126117,
+  "FdV": 120266,
+  "FuS": 272504,
+  "FuV": 508491
+ },
+ "levels": 30,
+ "not_written_to": "the DuckDB bars table \u2014 single-writer rule",
+ "outcome_touched": "none. This is a description of a bar, not a claim about it.",
+ "rows": 4943021,
+ "spec_hash": "53fc1e792ed8c733",
+ "token_version": "line10_landscape_v1",
+ "tokens_present": 30,
+ "why_only_landscape": "stage 2.5 found decl_M re-encoded by the nine lines at OOS R\u00b2 0.857 and decl_K at 0.586; stage 2 found no law-like invariant anywhere and decl_R to be a size proxy. The landscape is the one description the alphabet does not already carry.",
+ "windows": {
+  "atr": 14,
+  "profile_bars": 120,
+  "profile_bins": 24
+ },
+ "written_to": "market_physics_line10.parquet"
+}

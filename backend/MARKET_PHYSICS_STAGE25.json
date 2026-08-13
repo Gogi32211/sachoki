@@ -119,15 +119,15 @@
    "verdict": "new description"
   },
   "land_barrier_dn": {
-   "n_test": 208661,
-   "n_train": 440867,
-   "oos_r2": 0.01,
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": 0.032,
    "verdict": "new description"
   },
   "land_barrier_up": {
-   "n_test": 200203,
-   "n_train": 421063,
-   "oos_r2": -0.007,
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": 0.035,
    "verdict": "new description"
   },
   "land_density_here": {
@@ -163,7 +163,7 @@
  },
  "n_dummies": 107,
  "rows": 771197,
- "seconds": 163.7,
+ "seconds": 164.1,
  "split_date": "2025-02-01",
  "stage": "2.5 \u2014 REDUNDANCY AGAINST THE INCUMBENT. Descriptive: no outcome column was read, no k charged.",
  "universe": "sp500"
