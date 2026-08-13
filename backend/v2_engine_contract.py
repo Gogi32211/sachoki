@@ -256,16 +256,35 @@ def arm_computability_mask(treated_rows: np.ndarray, comparator_rows: np.ndarray
 
 # ── what came out ───────────────────────────────────────────────────────────
 @dataclass(frozen=True)
+class CellComputation:
+    """What was measured. No policy here."""
+    theta_hex: str
+    interval_hex: tuple
+    bootstrap_summary: dict
+    support_identity: str
+    eligibility: dict
+
+
+@dataclass(frozen=True)
+class CellDecision:
+    """What the measurement was called. No estimate here."""
+    stages: tuple
+    final_verdict: str
+    decision_policy_hash: str
+
+
+@dataclass(frozen=True)
 class CellResult:
+    """Identity, computation and decision, kept apart for the same reason as everywhere else.
+
+    Merging them is how "k = 7" stopped answering whether seven effects were looked at or one
+    effect under seven rules. The same split, one level down.
+    """
     cell_identity: str
     evidence_claim_hash: str
     decision_spec_hash: str
-    eligibility: dict
-    support_identity: str
-    theta_hex: str
-    bootstrap_summary: dict
-    verdict_stages: tuple
-    final_verdict: str
+    computation: CellComputation
+    decision: CellDecision
 
 
 @dataclass(frozen=True)
@@ -284,6 +303,7 @@ class EngineResultArtifact:
     data_snapshot_id: str
     registered_search_space_hash: str
     executed_search_space_hash: str
+    executed_cell_order_hash: str
     estimand_version: str
     support_policy_hash: str
     null_family: str
@@ -304,7 +324,8 @@ class EngineResultArtifact:
 
     @property
     def computation_hash(self) -> str:
-        return _h({"cells": [(c.cell_identity, c.theta_hex, c.support_identity, c.final_verdict)
+        return _h({"cells": [(c.cell_identity, c.computation.theta_hex,
+                              c.computation.support_identity, c.decision.final_verdict)
                              for c in self.cell_results]})
 
     @property

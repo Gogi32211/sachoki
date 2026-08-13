@@ -129,6 +129,7 @@ def t7_search_space_identity_is_not_a_count():
     kw = dict(engine_version="v2", execution_mode=EC.HISTORICAL_RESEARCH, spec_hash="s",
               input_outcome_hash="o", data_snapshot_id="snap-1",
               registered_search_space_hash="AAA", executed_search_space_hash="BBB",
+              executed_cell_order_hash="ORDER",
               estimand_version="e", support_policy_hash="sp", null_family="OPPORTUNITY_LEVEL",
               decision_policy_hash="dp", bootstrap_policy_hash="bp", rng_policy_id="r",
               rng_provenance_hash="rp")
