@@ -24,6 +24,7 @@ import {
 import { SessionAccountingPanel } from '../components/SessionAccountingPanel';
 import { ParameterControl, RoleBadge } from '../components/ParameterControl';
 import { ResultsTable } from '../components/ResultsTable';
+import { ForwardStatusPanel } from '../components/ForwardStatusPanel';
 import type {
   ChangePlanView, ParameterCatalogue, Refusal, ResearchSessionView, ResultRowView, SearchRunView,
 } from '../semantics/types';
@@ -341,6 +342,11 @@ export function ComboLabScreen() {
           )}
 
           <SessionAccountingPanel session={session} />
+
+          {/* the forward counter sits beside the session accounting rather than inside the
+              results, because it is not a result. It says how many novel trading days have
+              accumulated and stops there. */}
+          <ForwardStatusPanel />
         </div>
       </div>
 

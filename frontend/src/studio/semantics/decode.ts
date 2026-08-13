@@ -384,3 +384,55 @@ export function decodeRun(raw: unknown): import('./types').SearchRunView {
     ranking_provenance: decodeRankingProvenance(o.ranking_provenance), rows,
   };
 }
+
+const FORWARD_STATES: readonly string[] = [
+  'WAITING_FOR_NOVEL_EVIDENCE', 'READY_FOR_REGISTERED_LOOK', 'LOOK_TAKEN',
+];
+
+const OUTCOME_FIELDS: readonly string[] = [
+  'theta', 'theta_hex', 'interval', 'interval_hex', 'ci', 'ci_low', 'ci_high', 'verdict',
+  'ranking', 'rank', 'effect', 'estimate', 'p_value', 'cells',
+];
+
+/**
+ * The forward counter, decoded with one extra rule the other decoders do not need: if a
+ * statistical field is present at all, this is REFUSED rather than rendered without it.
+ *
+ * The server already applies the same check to its own payload. Doing it again here is not
+ * belt-and-braces for its own sake — the failure this catches is a future "just a small preview"
+ * field added upstream, and the whole value of the waiting screen is that it cannot show one.
+ * An unrecognised state decodes as UNKNOWN and is displayed as such; it is never treated as
+ * LOOK_TAKEN, because "the look already happened" is the reading that would license a second one.
+ */
+export function decodeForwardStatus(raw: unknown): import('./types').ForwardStatusView {
+  if (!raw || typeof raw !== 'object') {
+    throw new TransportContractError('forward status is not an object');
+  }
+  const o = raw as Record<string, unknown>;
+  const leaked = OUTCOME_FIELDS.filter((k) => k in o);
+  if (leaked.length) {
+    throw new TransportContractError(
+      `the forward status carries ${leaked.join(', ')}. Between the frozen boundary and the ` +
+      `registered look a person may know how many novel trading days have accumulated and ` +
+      `nothing else; a visible interval is a look whatever the screen calls it.`,
+    );
+  }
+  const num = (f: string) => {
+    const v = o[f];
+    if (typeof v !== 'number') throw new TransportContractError(`forward status.${f} is not a number`);
+    return v;
+  };
+  const state = str(o, 'state', 'forward');
+  return {
+    state: (FORWARD_STATES.includes(state) ? state : 'UNKNOWN') as import('./types').ForwardState,
+    policy_hash: str(o, 'policy_hash', 'forward'),
+    evidence_boundary: str(o, 'evidence_boundary', 'forward'),
+    novel_trading_days: num('novel_trading_days'),
+    novel_trading_days_required: num('novel_trading_days_required'),
+    novel_trading_days_remaining: num('novel_trading_days_remaining'),
+    latest_novel_day: str(o, 'latest_novel_day', 'forward'),
+    looks_taken: num('looks_taken'),
+    repeated_looks: str(o, 'repeated_looks', 'forward'),
+    note: String(o.displayed_between_looks ?? ''),
+  };
+}

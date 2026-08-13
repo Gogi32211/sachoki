@@ -328,6 +328,13 @@ if _STUDIO_AVAILABLE:
 if _QLIB_AVAILABLE:
     app.include_router(qlib_router)
 try:
+    # the forward day-counter. Its own router, so it cannot be shadowed by the session
+    # routes' /{sid} catch-all — the same ordering trap that hid /parameters once already.
+    from forward_status_api import build_router as _forward_status_router
+    app.include_router(_forward_status_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"forward status surface unavailable: {_e}", flush=True)
+try:
     from ai_journal.api import router as ai_journal_router
     app.include_router(ai_journal_router)
 except Exception as _aij_exc:  # never block app startup on the journal

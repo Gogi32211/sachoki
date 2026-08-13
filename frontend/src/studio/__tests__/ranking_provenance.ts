@@ -13,7 +13,9 @@
 // in for one call. The runner needs a non-zero exit or a failing decoder test is green in CI.
 declare const process: { exit(code: number): never };
 
-import { decodeRankingProvenance, decodeRun, TransportContractError } from '../semantics/decode.js';
+import {
+  decodeForwardStatus, decodeRankingProvenance, decodeRun, TransportContractError,
+} from '../semantics/decode.js';
 
 let ok = 0;
 let bad = 0;
@@ -141,6 +143,35 @@ check('9 · a whole run carries the provenance through', () => {
   const decoded = decodeRun({ run: run(EXPLORATORY) });
   assert(decoded.ranking_provenance.ranking_usage === 'POST_EXPOSURE_EXPLORATORY',
          'the run decoder dropped the ranking provenance');
+});
+
+const FORWARD = {
+  policy_version: 'forward_observation_policy_v1', policy_hash: 'a1a9801bddc6b71d',
+  state: 'WAITING_FOR_NOVEL_EVIDENCE', evidence_boundary: '2026-08-06',
+  novel_trading_days: 0, novel_trading_days_required: 30, novel_trading_days_remaining: 30,
+  first_novel_day: '', latest_novel_day: '', looks_taken: 0,
+  repeated_looks: 'FORBIDDEN_IN_V1', binds_to: {},
+  displayed_between_looks: 'novel trading days only',
+};
+
+check('10 · the forward counter decodes to counts', () => {
+  const s = decodeForwardStatus(FORWARD);
+  assert(s.state === 'WAITING_FOR_NOVEL_EVIDENCE', s.state);
+  assert(s.novel_trading_days_remaining === 30, 'the remaining count was lost');
+});
+
+check('11 · a statistical field on the waiting screen is REFUSED, not dropped', () => {
+  for (const leak of ['theta', 'ci_low', 'verdict', 'ranking', 'cells']) {
+    throws(() => decodeForwardStatus({ ...FORWARD, [leak]: 1 }),
+           `the waiting screen accepted ${leak}; a visible interval is a look`);
+  }
+});
+
+check('12 · an unrecognised forward state never reads as LOOK_TAKEN', () => {
+  const s = decodeForwardStatus({ ...FORWARD, state: 'ALMOST_READY_V2' });
+  assert(s.state === 'UNKNOWN', s.state);
+  assert(s.state !== 'LOOK_TAKEN',
+         '"the look already happened" is the reading that would license a second one');
 });
 
 console.log(`  ${ok} passed · ${bad} failed`);

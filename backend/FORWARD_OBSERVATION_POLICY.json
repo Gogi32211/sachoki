@@ -1,0 +1,36 @@
+{
+ "between_looks": "no theta, interval, verdict or ranking is produced or displayed",
+ "binds_to": {
+  "forward_adapter_hash": "9280a5e88427af6b",
+  "forward_evaluation_spec_hash": "6605b766e07b6863",
+  "ranking_policy_hash": "2aef967dc92786ce"
+ },
+ "evaluation_population": "pure-forward only",
+ "evidence_boundary": "2026-08-06",
+ "first_look": {
+  "forbidden_triggers": [
+   "when the interval clears zero",
+   "when the first BUILD appears",
+   "when N cells look attractive",
+   "when the ranking looks stable",
+   "any rule that reads theta, an interval or a verdict"
+  ],
+  "n_novel_trading_days": 30,
+  "population_at_the_look": "exactly the first N novel trading days, whichever day the look is actually run on. Waiting longer adds no rows, so delaying the look gains nothing",
+  "rule": "after N novel trading days beyond the frozen boundary",
+  "trigger_is_outcome_independent": true,
+  "why_this_n": "the frozen eligibility needs 25 distinct dates in both arms, so a look before then can only return INSUFFICIENT_FORWARD_SUPPORT and would exist purely as an opportunity to peek"
+ },
+ "insufficient_support": {
+  "historical_backfill": "FORBIDDEN",
+  "result": "INSUFFICIENT_FORWARD_SUPPORT",
+  "the_look_is_not_postponed_for_it": true
+ },
+ "note": "frozen before any novel observation exists; one look, outcome-independent trigger, fixed population",
+ "policy_hash": "a1a9801bddc6b71d",
+ "policy_version": "forward_observation_policy_v1",
+ "registered_at": "2026-08-13T15:10:00+04:00",
+ "registered_by": "forward-observation-freeze",
+ "repeated_looks": "FORBIDDEN_IN_V1",
+ "why_repeated_looks_are_forbidden": "a second look needs a sequential design \u2014 alpha spending, a stopping boundary, a stated error rate \u2014 and writing that after the first look is choosing the correction with the answer visible. A second look is v2, registered before the first look is taken"
+}

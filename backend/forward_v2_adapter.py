@@ -215,8 +215,16 @@ def evaluate(*, O, dates, y, masks, cutoff: str, purpose: str,
             f"from the frozen cutoff. Offering one is how a chosen slice would enter a run that "
             f"claims to be prospective.")
 
-    idx = (np.asarray(population, dtype=int) if population is not None
-           else FE.forward_index(dates, cutoff))
+    if prospective:
+        # WHEN we look is frozen too, and the gate is consulted here rather than remembered by
+        # whoever runs it. The population is the look window — the FIRST N novel trading days —
+        # so waiting longer adds no rows and delaying the look gains nothing.
+        import forward_observation_policy as OP                       # noqa: PLC0415
+        OP.assert_look_permitted(dates)
+        idx = OP.look_population(dates)
+    else:
+        idx = (np.asarray(population, dtype=int) if population is not None
+               else FE.forward_index(dates, cutoff))
     if prospective:
         FE.assert_pure_forward(dates, idx, cutoff)
     if idx.size == 0:

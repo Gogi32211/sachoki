@@ -275,3 +275,25 @@ export interface RankingProvenanceView {
   /** server-generated presentation copy. Never the carrier of the state above it. */
   readonly display_banner: readonly string[];
 }
+
+/**
+ * The forward day counter — everything a person may know between the frozen boundary and the
+ * registered look. There is no field here for an estimate, an interval, a verdict or a ranking,
+ * and that absence is the contract rather than an oversight: a screen that showed θ drifting
+ * while we waited would be a nightly look with a progress bar attached.
+ */
+export type ForwardState =
+  'WAITING_FOR_NOVEL_EVIDENCE' | 'READY_FOR_REGISTERED_LOOK' | 'LOOK_TAKEN' | 'UNKNOWN';
+
+export interface ForwardStatusView {
+  readonly state: ForwardState;
+  readonly policy_hash: string;
+  readonly evidence_boundary: string;
+  readonly novel_trading_days: number;
+  readonly novel_trading_days_required: number;
+  readonly novel_trading_days_remaining: number;
+  readonly latest_novel_day: string;
+  readonly looks_taken: number;
+  readonly repeated_looks: string;
+  readonly note: string;
+}

@@ -148,7 +148,11 @@ def t3_no_exposed_row_can_enter_a_prospective_computation():
                       purpose=AD.FIRST_PROSPECTIVE_EVALUATION, forward_spec_hash=SPEC_HASH,
                       adapter_hash=ADAPTER_HASH)
     assert art["forward_window"][0] > CUTOFF, art["forward_window"]
-    assert art["forward_rows"] == 60 * 24, art["forward_rows"]
+    # 30 and not 60 days: a prospective run's population is the frozen LOOK WINDOW, so the
+    # forward rows available are not the same thing as the forward rows evaluated. See
+    # test_forward_observation_policy.t4 — waiting longer must add nothing.
+    import forward_observation_policy as OP                           # noqa: PLC0415
+    assert art["forward_rows"] == OP.FIRST_LOOK_TRADING_DAYS * 24, art["forward_rows"]
 
 
 # ── 4 · the metamorphic core, on the FULL v2 pipeline ───────────────────────
