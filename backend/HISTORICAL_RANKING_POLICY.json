@@ -1,0 +1,36 @@
+{
+ "current_snapshot_usage": "POST_EXPOSURE_EXPLORATORY_ONLY",
+ "evidence_that_predates_this_policy": [
+  {
+   "cells": 31,
+   "exposure_id": "v2-core-oracle-2026-08-12",
+   "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+  },
+  {
+   "cells": 31,
+   "exposure_id": "v2-real-y-numerical-qualification-2026-08-13",
+   "result_role": "ENGINE_QUALIFICATION_EVIDENCE"
+  }
+ ],
+ "future_usage": "PROSPECTIVELY_REGISTERED",
+ "note": "Registered prospectively. The current 31-cell historical evidence predates this policy and may be ordered only as exploratory.",
+ "policy": {
+  "decision_policy_invariant": "a change of decision policy must not change the order; if it does, this is a decision ranking and not an evidence one",
+  "direction": "descending",
+  "eligible_population": "all OPPORTUNITY_LEVEL cells passing the frozen support eligibility; nothing else enters the ranking universe",
+  "policy_version": "historical_ranking_policy_v1",
+  "ranking_estimand": "incremental median return effect, theta",
+  "support_affects_rank": "eligibility_only",
+  "tie_break": "canonical cell_identity ascending",
+  "top_k": "not part of this policy \u2014 how many rows are authorised for display is an exposure policy and lives with the search run",
+  "uncertainty_affects_rank": false,
+  "verdict_affects_rank": false,
+  "what_rank_one_means": "the largest estimated incremental median-return effect among eligible cells. NOT the most certain, NOT the most supported, NOT the most likely to be an edge"
+ },
+ "policy_hash": "2aef967dc92786ce",
+ "record_hash": "e8e056b6251e56af",
+ "registered_after_current_historical_exposure": true,
+ "registered_at": "2026-08-13",
+ "registered_by": "sachoki (decision) \u00b7 Claude Code (execution)",
+ "why": "the qualification made 31 theta and 31 intervals available before this order was fixed. Whether anyone opened a table is irrelevant \u2014 exposure is delivery. A policy frozen afterwards cannot be preregistered with respect to a universe that was already seen."
+}
