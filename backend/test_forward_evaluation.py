@@ -23,6 +23,11 @@ ok = fail = 0
 CUTOFF = "2026-08-06"
 
 
+def day(offset: int) -> str:
+    """`offset` days from the frozen cutoff."""
+    return str(np.datetime64(CUTOFF) + np.timedelta64(offset, "D"))
+
+
 def check(name, fn):
     global ok, fail
     try:
@@ -120,13 +125,10 @@ def t3_an_extending_snapshot_is_novel_only_in_its_tail():
 # ── 4 · the repair that suggests itself ─────────────────────────────────────
 def t4_one_exposed_row_in_a_prospective_population_is_refused():
     """the contamination that arrives wearing a helpful face"""
-    dates, member, y = world(n_days=40, start_day=6, seed=1)
-    idx = FE.forward_index(dates, CUTOFF)
-    smuggled = np.concatenate([np.array([0]), idx])          # one row from the exposed window
-    dates_with_history = np.concatenate([np.array(["2026-08-01"]), dates[1:]])
+    dates = np.array([day(-1)] + [day(k) for k in range(1, 40)])
+    population = np.arange(len(dates))                  # index 0 is inside the exposed window
     try:
-        FE.evaluate_forward(dates=dates_with_history, membership={"c": member},
-                            estimator=lambda c, i: 0.0, cutoff=CUTOFF, population=smuggled)
+        FE.assert_pure_forward(dates, population, CUTOFF)
     except FE.ProspectiveEvidenceContaminationError as e:
         assert "never more history" in str(e)
         return
@@ -134,56 +136,40 @@ def t4_one_exposed_row_in_a_prospective_population_is_refused():
 
 
 # ── 5 ───────────────────────────────────────────────────────────────────────
-def t5_a_thin_forward_window_returns_insufficient_support_and_not_a_number():
-    """underpowered is the result, and the fix must not be available"""
-    dates, member, y = world(n_days=8, start_day=7, seed=2)          # 8 days, 96 rows
-    out = FE.evaluate_forward(dates=dates, membership={"c": member},
-                              estimator=estimator_factory(y), cutoff=CUTOFF)
-    row = out["cells"]["c"]
-    assert row["status"] == FE.INSUFFICIENT_FORWARD_SUPPORT, row
-    assert "theta" not in row, "a cell below the frozen floors still produced an estimate"
-    assert out["computable"] == 0 and out["insufficient"] == 1, out
-    assert out["ranking"] == [], "an ineligible cell was ranked"
-    assert row["reasons"], "no reason was given for refusing to compute"
-    assert out["historical_backfill"] == "FORBIDDEN"
+def t5_a_thin_forward_window_is_thin_and_stays_thin():
+    """underpowered is the result; the rescue must not be reachable
+
+    The frozen eligibility is applied by `E.Support`, which is the single implementation and
+    lives behind the adapter — the full-pipeline version of this test is
+    `test_forward_v2_adapter.t6`. What belongs HERE is the population fact underneath it: the
+    forward window is what it is, and attaching history does not make it larger.
+    """
+    thin = np.array([day(k) for k in range(1, 9)])                    # eight days
+    assert FE.forward_index(thin, CUTOFF).size == 8
+    with_history = np.concatenate([np.array([day(-k) for k in range(400, 0, -1)]), thin])
+    assert FE.forward_index(with_history, CUTOFF).size == 8, (
+        "attached history enlarged the forward window, which is where the rescue would enter")
 
 
 # ── 6 · the invariant the other five cannot see ─────────────────────────────
-def t6_the_prospective_result_does_not_move_with_attached_history():
-    """same future rows, more old history bolted on, identical answer"""
-    fut_dates, fut_member, fut_y = world(n_days=40, start_day=7, seed=3)
+def t6_the_forward_population_does_not_move_with_attached_history():
+    """same future rows, more old history bolted on, identical population
 
-    results = []
-    for hist_days in (0, 60, 400):
-        if hist_days:
-            h_dates, h_member, h_y = world(n_days=hist_days, start_day=-hist_days - 40, seed=9)
-            # exposed history, dated strictly before the cutoff
-            h_dates = np.array([f"2025-{(i % 12) + 1:02d}-{(i % 28) + 1:02d}"
-                                for i in range(len(h_dates))])
-            dates = np.concatenate([h_dates, fut_dates])
-            member = np.concatenate([h_member, fut_member])
-            y = np.concatenate([h_y, fut_y])
-        else:
-            dates, member, y = fut_dates, fut_member, fut_y
-
-        est = estimator_factory(y)
-        out = FE.evaluate_forward(
-            dates=dates, membership={"c": member},
-            estimator=lambda c, i, m=member: est(c, i, m), cutoff=CUTOFF)
-        results.append(out)
-
-    base = results[0]
-    assert base["computable"] == 1, base
-    for out in results[1:]:
-        assert out["forward_rows"] == base["forward_rows"], (
-            f"the forward population changed with attached history: {out['forward_rows']} vs "
-            f"{base['forward_rows']}")
-        assert out["forward_window"] == base["forward_window"], out["forward_window"]
-        assert out["cells"]["c"]["theta"] == base["cells"]["c"]["theta"], (
-            f"theta moved with how much exposed history came along "
-            f"({out['cells']['c']['theta']} vs {base['cells']['c']['theta']}). This is not "
-            f"forward evaluation — the old data is inside the estimate.")
-        assert out["ranking"] == base["ranking"]
+    Population-level here; the same invariant is asserted on theta, the bootstrap interval, the
+    verdict and the rank in `test_forward_v2_adapter.t4`, and against +100,000 outcomes in `t5`.
+    """
+    future = np.array([day(k) for k in range(1, 41)])
+    base = None
+    for hist in (0, 60, 400):
+        dates = (future if not hist
+                 else np.concatenate([np.array([day(-k) for k in range(hist, 0, -1)]), future]))
+        idx = FE.forward_index(dates, CUTOFF)
+        chosen = tuple(dates[idx].tolist())
+        if base is None:
+            base = chosen
+            assert len(base) == 40, len(base)
+        assert chosen == base, (
+            f"the forward population changed with attached history: {len(chosen)} vs {len(base)}")
 
 
 # ── the spec itself ─────────────────────────────────────────────────────────
@@ -234,8 +220,8 @@ TESTS = [t1_a_new_snapshot_id_over_identical_rows_is_not_novel,
          t2_a_repackaged_subset_of_exposed_rows_is_not_novel,
          t3_an_extending_snapshot_is_novel_only_in_its_tail,
          t4_one_exposed_row_in_a_prospective_population_is_refused,
-         t5_a_thin_forward_window_returns_insufficient_support_and_not_a_number,
-         t6_the_prospective_result_does_not_move_with_attached_history,
+         t5_a_thin_forward_window_is_thin_and_stays_thin,
+         t6_the_forward_population_does_not_move_with_attached_history,
          t7_the_spec_is_frozen_and_says_what_it_forbids,
          t8_the_cutoff_is_server_derived_and_the_spec_cannot_be_edited_after_freezing,
          t9_the_current_exposed_rows_are_not_a_prospective_evaluation]

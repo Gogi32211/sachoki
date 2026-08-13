@@ -187,66 +187,17 @@ def assert_pure_forward(dates, population, cutoff: str) -> None:
             f"is too small, the answer is {INSUFFICIENT_FORWARD_SUPPORT}, never more history.")
 
 
-# ── eligibility, on the forward window only ─────────────────────────────────
-def assess_forward_support(dates, in_cell) -> dict:
-    """The frozen floors, applied to the forward slice. Failing them is a result, not an error."""
-    d = np.asarray([str(x) for x in dates])
-    m = np.asarray(in_cell, dtype=bool)
-    el = V2.ELIGIBILITY
-    arms = {}
-    for name, mask in (("treatment", m), ("control", ~m)):
-        dd = d[mask]
-        uniq, counts = np.unique(dd, return_counts=True)
-        arms[name] = {"n": int(mask.sum()), "dates": int(uniq.size),
-                      "top_date_share": float(counts.max() / dd.size) if dd.size else 1.0}
-    reasons = []
-    for name, a in arms.items():
-        if a["n"] < el["n_min"]:
-            reasons.append(f"{name} n={a['n']} < {el['n_min']}")
-        if a["dates"] < el["dates_min"]:
-            reasons.append(f"{name} dates={a['dates']} < {el['dates_min']}")
-        if a["top_date_share"] > el["max_single_date_share"]:
-            reasons.append(f"{name} top-date share={a['top_date_share']:.2f} > "
-                           f"{el['max_single_date_share']}")
-    return {"status": INSUFFICIENT_FORWARD_SUPPORT if reasons else COMPUTABLE,
-            "arms": arms, "reasons": reasons}
-
-
-# ── the evaluation ──────────────────────────────────────────────────────────
-def evaluate_forward(*, dates, membership: dict, estimator, cutoff: str,
-                     population=None) -> dict:
-    """Evaluate the registered claims on the forward window and nothing else.
-
-    `population` exists so that a caller CAN offer one, and so that offering a contaminated one
-    is refused loudly rather than silently honoured. `estimator(cell, idx)` receives only indices
-    already proven to be forward.
-    """
-    idx = forward_index(dates, cutoff) if population is None else np.asarray(population, dtype=int)
-    assert_pure_forward(dates, idx, cutoff)
-
-    d = np.asarray([str(x) for x in dates])[idx]
-    cells, computable = {}, {}
-    for cell in sorted(membership):
-        m = np.asarray(membership[cell], dtype=bool)[idx]
-        sup = assess_forward_support(d, m)
-        row = {"cell_identity": cell, "status": sup["status"], "reasons": sup["reasons"],
-               "arms": sup["arms"]}
-        if sup["status"] == COMPUTABLE:
-            theta = float(estimator(cell, idx))
-            row["theta"] = theta
-            computable[cell] = {"theta": theta}
-        cells[cell] = row
-
-    return {"spec_version": SPEC_VERSION, "cutoff": cutoff,
-            "forward_rows": int(idx.size),
-            "forward_window": (min(d.tolist()), max(d.tolist())) if idx.size else ("", ""),
-            "registered": len(membership), "computable": len(computable),
-            "insufficient": len(membership) - len(computable),
-            "ranking": RP.rank(computable) if computable else [],
-            "ranking_policy_hash": RP.policy_hash(),
-            "cells": cells,
-            "historical_backfill": "FORBIDDEN",
-            "population_hash": _h(sorted(int(i) for i in idx))}
+# ── evaluation lives in the adapter, not here ───────────────────────────────
+# `evaluate_forward(..., estimator=callback)` used to live at this point in the file, and it was
+# too wide a contract: any estimator at all could be handed in, which left the statistical choice
+# open until the moment the data arrives. Execution is `forward_v2_adapter`, whose computational
+# path is frozen and hashed. This module keeps the specification and the population rule — the
+# two things that must be true before an estimator is chosen at all.
+#
+# Eligibility is deliberately NOT reimplemented here either. `E.Support` applies the frozen
+# floors itself, so building it on the forward slice gives pure-forward eligibility and a
+# pure-forward estimand from one implementation. A second one in this file would be two rules
+# waiting to disagree, which is the mistake `run_v2` already names about building Support twice.
 
 
 # ── freezing it, from what is already on record ─────────────────────────────

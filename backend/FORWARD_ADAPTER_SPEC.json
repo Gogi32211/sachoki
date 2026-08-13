@@ -1,0 +1,35 @@
+{
+ "adapter_hash": "9280a5e88427af6b",
+ "adapter_version": "forward_v2_adapter_v1",
+ "binds_to_forward_evaluation_spec": "6605b766e07b6863",
+ "bootstrap": {
+  "keyed_on": "forward spec hash \u00b7 adapter hash \u00b7 digest of the FORWARD rows",
+  "not_keyed_on": "session, run id, wall clock, or the snapshot digest",
+  "replicates": 2000,
+  "rng_policy_id": "historical_research_rng_v1",
+  "uncomputable_policy": "a replication whose arm is unrepresented returns NaN and is dropped by the frozen bootstrap; the percentile is taken over the survivors"
+ },
+ "claim_universe": "the frozen 31 OPPORTUNITY_LEVEL cells; 6 DAY_LEVEL deferred",
+ "decision": {
+  "delta_star": 0.5,
+  "kernel": "v2_kernel.verdict",
+  "policy_hash": "verdict_v2"
+ },
+ "eligibility": {
+  "applies_to": "both arms of every stratum",
+  "dates_min": 25,
+  "max_single_date_share": 0.2,
+  "n_min": 100
+ },
+ "estimand": "stratified_within_setup_median_difference_pp",
+ "historical_backfill": "FORBIDDEN",
+ "historical_support_role": "DESIGN ONLY \u2014 fixes which claims exist, contributes no rows",
+ "population": "pure-forward rows only",
+ "ranking": {
+  "metric": "theta descending",
+  "policy_hash": "2aef967dc92786ce",
+  "policy_version": "historical_ranking_policy_v1"
+ },
+ "statistical_freedom": "NONE \u2014 every choice above is a constant in forward_v2_adapter.py",
+ "support_policy": "v2 Support, rebuilt on the forward rows. Eligibility and estimand share one implementation, so they cannot disagree"
+}

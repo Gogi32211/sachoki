@@ -165,6 +165,14 @@ class Support:
                   f"max {self.meta.eligible_setups.max()} · "
                   f"coverage min {self.meta.support_fraction.min():.1%}", flush=True)
         floor = V2.SUPPORT_FLOOR
+        if not len(self.meta):
+            # No cell cleared the eligibility floors, so there is no frame to filter. Historically
+            # unreachable — every cell survived on six years of rows — and the forward path
+            # reaches it on week one, where "nothing is eligible yet" is the expected answer
+            # rather than an error. Only this branch is new; with any eligible cell the code
+            # below runs exactly as before, which is why the frozen oracle still reproduces.
+            self.below_floor = []
+            return
         bad = self.meta[(self.meta.support_fraction < floor["min_coverage_of_cell_opportunities"])
                         | (self.meta.eligible_setups < floor["min_eligible_setups"])]
         self.below_floor = list(bad["cell"])
