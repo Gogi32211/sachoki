@@ -1,0 +1,170 @@
+{
+ "alphabet": [
+  "t_sig",
+  "z_sig",
+  "l_sig",
+  "full_suffix",
+  "bar_body_wick",
+  "bar_gap_range",
+  "bar_line5",
+  "vol_sig"
+ ],
+ "axes": {
+  "damp_phi": {
+   "n_test": 224629,
+   "n_train": 438631,
+   "oos_r2": -0.028,
+   "verdict": "new description"
+  },
+  "decl_C": {
+   "n_test": 224664,
+   "n_train": 510956,
+   "oos_r2": 0.027,
+   "verdict": "new description"
+  },
+  "decl_E": {
+   "n_test": 222523,
+   "n_train": 239947,
+   "oos_r2": -0.11,
+   "verdict": "new description"
+  },
+  "decl_E_depth": {
+   "n_test": 222523,
+   "n_train": 239947,
+   "oos_r2": 0.054,
+   "verdict": "new description"
+  },
+  "decl_E_duration": {
+   "n_test": 224664,
+   "n_train": 546533,
+   "oos_r2": -0.004,
+   "verdict": "new description"
+  },
+  "decl_H": {
+   "n_test": 224664,
+   "n_train": 523016,
+   "oos_r2": -0.016,
+   "verdict": "new description"
+  },
+  "decl_K": {
+   "n_test": 224664,
+   "n_train": 538694,
+   "oos_r2": 0.586,
+   "verdict": "overlaps the alphabet"
+  },
+  "decl_M": {
+   "n_test": 224664,
+   "n_train": 510956,
+   "oos_r2": 0.857,
+   "verdict": "RE-ENCODED \u2014 the alphabet already knows this"
+  },
+  "decl_R": {
+   "n_test": 224664,
+   "n_train": 545930,
+   "oos_r2": 0.049,
+   "verdict": "new description"
+  },
+  "decl_S": {
+   "n_test": 224664,
+   "n_train": 545930,
+   "oos_r2": 0.007,
+   "verdict": "new description"
+  },
+  "dis_hurst": {
+   "n_test": 224664,
+   "n_train": 474173,
+   "oos_r2": -0.031,
+   "verdict": "new description"
+  },
+  "dis_perm_entropy": {
+   "n_test": 224664,
+   "n_train": 522413,
+   "oos_r2": -0.05,
+   "verdict": "new description"
+  },
+  "dis_switch_rate": {
+   "n_test": 224664,
+   "n_train": 523016,
+   "oos_r2": -0.015,
+   "verdict": "new description"
+  },
+  "impact_efficiency": {
+   "n_test": 224664,
+   "n_train": 535076,
+   "oos_r2": 0.005,
+   "verdict": "new description"
+  },
+  "impact_range_lambda": {
+   "n_test": 224664,
+   "n_train": 475379,
+   "oos_r2": -0.026,
+   "verdict": "new description"
+  },
+  "impact_range_r2": {
+   "n_test": 224664,
+   "n_train": 475379,
+   "oos_r2": 0.035,
+   "verdict": "new description"
+  },
+  "impact_response": {
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": -0.015,
+   "verdict": "new description"
+  },
+  "impact_response_r2": {
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": -0.007,
+   "verdict": "new description"
+  },
+  "land_barrier_dn": {
+   "n_test": 208661,
+   "n_train": 440867,
+   "oos_r2": 0.01,
+   "verdict": "new description"
+  },
+  "land_barrier_up": {
+   "n_test": 200203,
+   "n_train": 421063,
+   "oos_r2": -0.007,
+   "verdict": "new description"
+  },
+  "land_density_here": {
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": 0.06,
+   "verdict": "new description"
+  },
+  "land_dist_mode_atr": {
+   "n_test": 224664,
+   "n_train": 474776,
+   "oos_r2": 0.086,
+   "verdict": "new description"
+  },
+  "scale_atr_pct": {
+   "n_test": 224664,
+   "n_train": 538694,
+   "oos_r2": -0.01,
+   "verdict": "new description"
+  },
+  "scale_compression_len": {
+   "n_test": 224664,
+   "n_train": 546533,
+   "oos_r2": -0.004,
+   "verdict": "new description"
+  },
+  "scale_vol_pctile": {
+   "n_test": 222523,
+   "n_train": 239947,
+   "oos_r2": 0.04,
+   "verdict": "new description"
+  }
+ },
+ "n_dummies": 107,
+ "rows": 771197,
+ "seconds": 163.7,
+ "split_date": "2025-02-01",
+ "stage": "2.5 \u2014 REDUNDANCY AGAINST THE INCUMBENT. Descriptive: no outcome column was read, no k charged.",
+ "universe": "sp500"
+}
