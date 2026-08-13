@@ -163,7 +163,6 @@ const SUBTABS = [
   { id: 'edge',      label: '🔥 Today\'s Edge' },
   { id: 'playbook',  label: '📒 Playbook'     },
   { id: 'sigstats',  label: '📈 Signal Stats' },
-  { id: 'columns',   label: '🔤 Columns'      },
   { id: 'exact',     label: '🎯 Exact Sequence' },
   { id: 'seqlab',    label: '🧬 Seq Lab'      },
   { id: 'dbchart',   label: '🕯️ DB Chart'     },
@@ -969,7 +968,9 @@ const EXACT_EMPTY_BAR = { tz: '', l: '', suffix: '', body_wick: '', gap_range: '
 // The column list is fetched from the server. Hardcoding it here would be a second copy of the
 // allowlist, and the copy is what drifts.
 // ═══════════════════════════════════════════════════════════════════════════════
-function ColumnBreakdownTab() {
+// Exported so 🔬 Research can host it. The same component, not a second copy —
+// a duplicated panel is the UI version of the duplicated allowlist.
+export function ColumnBreakdownTab() {
   const [cols, setCols]   = useState([])
   const [unis, setUnis]   = useState(['sp500'])
   const [colA, setColA]   = useState('l_sig')
@@ -1455,7 +1456,7 @@ function IntradayConfirmScore({ ics, trigger }) {
   )
 }
 
-function ExactSequenceTab({ tf: tfProp = '1d' } = {}) {
+export function ExactSequenceTab({ tf: tfProp = '1d' } = {}) {
   const [bars, setBars] = useState([
     { ...EXACT_EMPTY_BAR },
     { ...EXACT_EMPTY_BAR },
@@ -4644,7 +4645,6 @@ export default function StudioPanel() {
         {activeTab === 'edge'      && <EdgeScannerTab tf={tf} />}
         {activeTab === 'playbook'  && <PlaybookTab tf={tf} />}
         {activeTab === 'sigstats'  && <SignalStatsTab tf={tf} />}
-        {activeTab === 'columns'   && <ColumnBreakdownTab />}
         {activeTab === 'exact'     && <ExactSequenceTab tf={tf} />}
         {activeTab === 'seqlab'    && <SeqLabTab tf={tf} />}
         {activeTab === 'dbchart'   && <DbChartTab tf={tf} />}

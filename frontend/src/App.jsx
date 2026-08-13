@@ -32,7 +32,9 @@ const SectorAnalysisPanel   = lazy(() => import('./components/SectorAnalysisPane
 const ReplayPanel           = lazy(() => import('./components/ReplayPanel'))
 // Analytic Studio · semantics island (TypeScript, strict). Additive: nothing existing changes.
 const N0Screen              = lazy(() => import('./studio/pages/N0Screen').then(m => ({ default: m.N0Screen })))
-const ComboLabSlice         = lazy(() => import('./studio/pages/ComboLabScreen').then(m => ({ default: m.ComboLabScreen })))
+// 🔬 Research — one home for the measurement work. It hosts ComboLabScreen, the column
+// breakdown and the sequence builder rather than each living at its own level.
+const ResearchPanel         = lazy(() => import('./components/ResearchPanel'))
 const TZWLNBBPanel          = lazy(() => import('./components/TZWLNBBPanel'))
 const TZIntelligencePanel   = lazy(() => import('./components/TZIntelligencePanel'))
 const RareReversalPanel     = lazy(() => import('./components/RareReversalPanel'))
@@ -129,7 +131,7 @@ const TAB_GROUPS = [
     tabs: [
       { id: 'studio',    label: '📊 Studio' },
       { id: 'semantics', label: '🔬 Semantics' },
-      { id: 'comboslice', label: '🧪 Combo Slice' },
+      { id: 'research',  label: '🔬 Research'    },
       { id: 'qlib',      label: '🧪 QLIB' },
       { id: 'combolab',  label: '🧬 Combo Lab' },
       { id: 'aijournal', label: '🤖 AI Journal' },
@@ -150,7 +152,7 @@ const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge', 'semantics', 'comboslice'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge', 'semantics', 'research'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -354,7 +356,7 @@ export default function App() {
 
           {activeTab === 'watchlist'      && <PersonalWatchlistPanel watchlistTickers={watchlist} onSelectTicker={handleSelect} onAddTicker={handleAddTicker} onRemoveTicker={handleRemoveTicker} />}
           {activeTab === 'semantics'      && <N0Screen />}
-          {activeTab === 'comboslice'     && <ComboLabSlice />}
+          {activeTab === 'research'       && <ResearchPanel />}
           {activeTab === 'combined'       && <CombinedScanPanel tf={tf} onSelectTicker={handleSelect} />}
           {activeTab === 'predictor'      && <PredictorPanel ticker={selected} tf={tf} />}
           {activeTab === 'scanner'        && <ScannerPanel tf={tf} onSelectTicker={handleSelect} />}
