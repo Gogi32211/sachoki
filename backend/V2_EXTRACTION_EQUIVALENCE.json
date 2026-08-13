@@ -1,0 +1,37 @@
+{
+ "artifact": {
+  "artifact_hash": "42bfb43714d34b30",
+  "computation_hash": "15487bf03ee48f22",
+  "deferred": {
+   "DAY_LEVEL": {
+    "count": 6,
+    "reason": "INCOMPATIBLE_NULL_FAMILY / ComboLab v2.1",
+    "status": "NOT_IN_SEARCH_SPACE"
+   }
+  },
+  "executed_cell_order_hash": "c78eb60d713c64eb"
+ },
+ "candidate_code_hash": "d6d152b9a3ceedd0",
+ "cells": 31,
+ "claim": "V2_EXTRACTION_EQUIVALENCE",
+ "code": {
+  "v2_engine": "d6d152b9a3ceedd0",
+  "v2_kernel": "32b3e1abd25213a8"
+ },
+ "deferred_day_level": 6,
+ "delta": 0.0,
+ "execution_mode": "SEALED_ACCEPTANCE",
+ "fresh_process_exact": true,
+ "historical_execution": "BLOCKED",
+ "negative_controls": {
+  "change_verdict": true,
+  "flip_theta_bit": true,
+  "swap_cells": true
+ },
+ "one_process_exact": true,
+ "oracle_hash": "7c421ae062742d06",
+ "reference_code_hash": "32b3e1abd25213a8",
+ "rep": 0,
+ "spec_hash": "e871d35dd667b120",
+ "world": 4242
+}
