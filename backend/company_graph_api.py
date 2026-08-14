@@ -156,16 +156,14 @@ def classify(edge: dict, ticker: str) -> str:
     THE EDGE THE TARGET IS ON flips it. "FN SUPPLIES_TO NVDA" and "NVDA CUSTOMER_OF FN"
     describe the same arrangement and both put FN upstream of NVDA.
     """
-    from company_graph.contract import UPSTREAM_RELS, DOWNSTREAM_RELS
+    from company_graph.contract import upstream_side
 
-    rel, src, dst = edge["rel_type"], edge["src"], edge["dst"]
-    if rel in UPSTREAM_RELS:
-        # src is upstream of dst
-        return "UPSTREAM" if dst == ticker else "DOWNSTREAM"
-    if rel in DOWNSTREAM_RELS:
-        # src buys from dst → dst is upstream of src
-        return "DOWNSTREAM" if dst == ticker else "UPSTREAM"
-    return "LATERAL"
+    side = upstream_side(edge["rel_type"])
+    if not side:
+        return "LATERAL"
+    up_end = edge["src"] if side == "src" else edge["dst"]
+    # the counterparty is upstream when the TARGET is not the upstream end
+    return "DOWNSTREAM" if up_end == ticker else "UPSTREAM"
 
 
 def counterparty(edge: dict, ticker: str) -> str:

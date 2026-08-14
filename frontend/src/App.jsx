@@ -50,6 +50,7 @@ const IndustryPulsePanel    = lazy(() => import('./components/IndustryPulsePanel
 const HVZonesPanel          = lazy(() => import('./components/HVZonesPanel'))
 const GannZonesPanel        = lazy(() => import('./components/GannZonesPanel'))
 const ZoneEdgePanel         = lazy(() => import('./components/ZoneEdgePanel'))
+const CompanyIntelPanel     = lazy(() => import('./components/CompanyIntelPanel'))
 const PumpLogPanel          = lazy(() => import('./components/PumpLogPanel'))
 const EdgeBoardPanel        = lazy(() => import('./components/EdgeBoardPanel'))
 
@@ -117,6 +118,7 @@ const TAB_GROUPS = [
       { id: 'hvzones', label: '🎯 HV-Zones' },
       { id: 'gannzones', label: '📐 Gann Zones' },
       { id: 'zoneedge', label: '📊 Zone Edge' },
+      { id: 'companyintel', label: '🏢 Company Intel' },
     ],
   },
   {
@@ -152,7 +154,7 @@ const TF_OPTIONS = ['1w', '1d', '4h', '1h', '30m', '15m']
 
 // Tabs that manage their own chart or don't need the global chart
 // superchart now embeds its own unified CodeCandleChart, so hide the global one there
-const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge', 'semantics', 'research'])
+const NO_CHART_TABS = new Set(['turbo', 'dashboard', 'brain', 'studio', 'superchart', 'day1h', 'qlib', 'aijournal', 'pulse', 'combolab', 'hvzones', 'gannzones', 'zoneedge', 'setups', 'atomic', 'atomicjournal', 'capitjournal', 'capitatomjournal', 'pumplog', 'edge', 'semantics', 'research', 'companyintel'])
 
 export default function App() {
   const [watchlist, setWatchlist] = useState(
@@ -385,6 +387,7 @@ export default function App() {
           {activeTab === 'hvzones'        && <HVZonesPanel />}
           {activeTab === 'gannzones'      && <GannZonesPanel />}
           {activeTab === 'zoneedge'       && <ZoneEdgePanel onSelectTicker={handleOpenChart} />}
+          {activeTab === 'companyintel'   && <CompanyIntelPanel onSelectTicker={handleSelect} />}
           {activeTab === 'edge'           && <EdgeBoardPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'edgereplay'     && <EdgeReplayPanel onSelectTicker={handleOpenChart} />}
           {activeTab === 'seqrules'       && <SeqRulesPanel onSelectTicker={(t) => handleSelect(t)} />}

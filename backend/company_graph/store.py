@@ -93,8 +93,54 @@ CREATE TABLE IF NOT EXISTS harvest_run (
 """
 
 
+_db = None                        # one DuckDB instance for the process
+_db_lock = threading.Lock()
+
+
+def _database():
+    global _db
+    with _db_lock:
+        if _db is None:
+            _db = duckdb.connect(db_path(DB_FILE))
+            _db.execute(_DDL)
+        return _db
+
+
+class _Cursor:
+    """Context manager yielding a thread-local cursor on the one shared database."""
+
+    def __enter__(self):
+        self._c = _database().cursor()
+        return self._c
+
+    def __exit__(self, *exc):
+        try:
+            self._c.close()
+        except Exception:                                             # noqa: BLE001
+            pass
+        return False
+
+
 def connect(read_only: bool = False):
-    return duckdb.connect(db_path(DB_FILE), read_only=read_only)
+    """A cursor on the single process-wide database handle.
+
+    `read_only` is accepted and ignored, on purpose. DuckDB refuses to open the same file
+    twice with DIFFERENT configuration, so read-only readers and a read-write writer in
+    one process are mutually exclusive — and the failure is at connect time, in whichever
+    one arrives second.
+
+    That is not theoretical. It killed a live harvest: the page polls progress every three
+    seconds, each poll opened a read-only connection, and the background thread's next
+    entity write raised
+
+        Can't open a connection to same database file with a different configuration
+
+    The whole point of harvesting in the background is that the page stays usable while it
+    runs, so the reads that make the feature worthwhile were the reads that broke it.
+    Cursors off one handle share the instance and are the documented way to use DuckDB
+    from several threads.
+    """
+    return _Cursor()
 
 
 def _columns_of(ddl: str, table: str) -> list[tuple]:
@@ -148,7 +194,11 @@ def upsert_entity(ent: dict, is_target: bool = False) -> None:
     with _lock, connect() as c:
         c.execute(_DDL); _migrate(c)
         c.execute("DELETE FROM entity WHERE cik = ?", [ent["cik"]])
-        c.execute("""INSERT INTO entity VALUES (?,?,?,?,?,?,?,?,?,?,?)""", [
+        # columns named, never positional — see the note above save_edges
+        c.execute("""INSERT INTO entity
+            (cik, ticker, name, sic, sic_description, country, state, city, exchanges,
+             is_target, updated_at)
+            VALUES (?,?,?,?,?,?,?,?,?,?,?)""", [
             ent["cik"], ent.get("ticker", ""), ent.get("name", ""), str(ent.get("sic", "")),
             ent.get("sic_description", ""), ent.get("hq_country", "") or ent.get("country", ""),
             ent.get("hq_state", "") or ent.get("state", ""),
@@ -157,28 +207,41 @@ def upsert_entity(ent: dict, is_target: bool = False) -> None:
             datetime.now(timezone.utc)])
 
 
+# Every INSERT in this file names its columns. Positional inserts are only safe while the
+# table's PHYSICAL column order matches the declared one, and _migrate guarantees it will
+# not: ALTER TABLE ADD COLUMN appends to the end, while the DDL declares new columns where
+# they belong. Adding share_basis in the middle of the DDL therefore shifted every
+# positional value one place on an already-migrated table, and the harvest died with
+#
+#     Conversion Error: Could not convert string 'HIGH' to BOOL
+#
+# — confidence landing in ceiling_applied, three columns downstream of the real mistake.
+# The migration that was added to make schema changes safe is what created the hazard.
+_EDGE_COLS = ["edge_id", "graph_ticker", "tier", "src", "dst", "rel_type", "direction",
+              "component", "product", "share_pct", "share_basis", "confidence",
+              "claimed_confidence", "ceiling_applied", "status", "evidence_tier",
+              "source_url", "source_label", "quote", "doc_date", "retrieved_at",
+              "valid_from", "extractor", "contract_version"]
+
+
 def save_edges(graph_ticker: str, edges: Iterable, tier: int = 1) -> int:
     rows = [e.to_row() if hasattr(e, "to_row") else e for e in edges]
     if not rows:
         return 0
+    sql = (f"INSERT INTO edge ({', '.join(_EDGE_COLS)}) "
+           f"VALUES ({', '.join('?' * len(_EDGE_COLS))})")
     with _lock, connect() as c:
         c.execute(_DDL); _migrate(c)
         nid = _next_id(c, "edge", "edge_id")
         for i, r in enumerate(rows):
-            c.execute("""INSERT INTO edge VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)""", [
-                nid + i, graph_ticker, tier, r["src"], r["dst"], r["rel_type"],
-                r["direction"], r["component"], r["product"], r["share_pct"],
-                r.get("share_basis", ""),
-                r["confidence"], r["claimed_confidence"], r["ceiling_applied"],
-                r["status"], r["evidence_tier"], r["source_url"], r["source_label"],
-                r["quote"], r["doc_date"], r["retrieved_at"], r["valid_from"],
-                r["extractor"], r["contract_version"]])
+            vals = {**r, "edge_id": nid + i, "graph_ticker": graph_ticker, "tier": tier}
+            c.execute(sql, [vals.get(col) for col in _EDGE_COLS])
     return len(rows)
 
 
 def current_edges(graph_ticker: str) -> list[dict]:
     """Latest evidence per distinct relationship. See the module note on why not at write."""
-    with connect(read_only=True) as c:
+    with connect() as c:
         try:
             df = c.execute("""
                 SELECT * FROM (
@@ -195,7 +258,7 @@ def current_edges(graph_ticker: str) -> list[dict]:
 
 
 def entities(ciks: Optional[list] = None) -> list[dict]:
-    with connect(read_only=True) as c:
+    with connect() as c:
         try:
             if ciks:
                 q = "SELECT * FROM entity WHERE cik IN (" + ",".join("?" * len(ciks)) + ")"
@@ -230,7 +293,7 @@ def finish_run(run_id: int, **kw) -> None:
 
 
 def last_run(ticker: str) -> Optional[dict]:
-    with connect(read_only=True) as c:
+    with connect() as c:
         try:
             df = c.execute("SELECT * FROM harvest_run WHERE ticker = ? "
                            "ORDER BY run_id DESC LIMIT 1", [ticker]).fetchdf()

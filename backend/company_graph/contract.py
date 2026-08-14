@@ -66,14 +66,33 @@ REL_TYPES = {
     "DEPENDS_ON":           "asserted dependency with no more specific type known",
 }
 
-# which direction the risk flows: if the edge breaks, who feels it
-# DEPENDS_ON belongs here: "A depends on B" puts B upstream of A, which is the whole
-# point of recording it. Leaving it lateral made a single-source GPU dependency render as
-# a sideways relationship in the first live run.
-UPSTREAM_RELS = {"SUPPLIES_TO", "PROVIDES_EQUIPMENT_TO", "PROVIDES_MATERIAL_TO",
-                 "MANUFACTURES_FOR", "DEPENDS_ON"}
-DOWNSTREAM_RELS = {"CUSTOMER_OF"}
+# WHICH SIDE OF THE EDGE IS UPSTREAM. Named this way because the obvious naming — an
+# "upstream relations" set — is genuinely ambiguous about whether it means the relation
+# points upstream or the SOURCE is upstream, and that ambiguity has already produced one
+# wrong answer here.
+#
+# DEPENDS_ON was put with SUPPLIES_TO on the reasoning that a dependency is an upstream
+# thing. It is, but in the OTHER direction: "A supplies B" puts A above B, while
+# "A depends on B" puts B above A. So every "X DEPENDS_ON NVDA" — Supermicro, CoreWeave,
+# the lidar makers — rendered as NVIDIA's suppliers when they are its customers. The
+# entire risk reading was inverted, and it looked completely plausible.
+SRC_UPSTREAM_RELS = {"SUPPLIES_TO", "PROVIDES_EQUIPMENT_TO", "PROVIDES_MATERIAL_TO",
+                     "MANUFACTURES_FOR"}
+DST_UPSTREAM_RELS = {"CUSTOMER_OF", "DEPENDS_ON"}
 LATERAL_RELS = {"COMPETES_WITH", "SUBSTITUTE_FOR", "PARTNER_OF"}
+
+# kept for callers that only need the edge-intrinsic sense (src's point of view)
+UPSTREAM_RELS = SRC_UPSTREAM_RELS
+DOWNSTREAM_RELS = DST_UPSTREAM_RELS
+
+
+def upstream_side(rel_type: str) -> str:
+    """'src', 'dst', or '' — which end of this relation sits upstream of the other."""
+    if rel_type in SRC_UPSTREAM_RELS:
+        return "src"
+    if rel_type in DST_UPSTREAM_RELS:
+        return "dst"
+    return ""
 
 
 # ── evidence tiers and the ceilings they impose ───────────────────────────────
@@ -217,10 +236,13 @@ class Edge:
 
     @property
     def direction(self) -> str:
-        if self.rel_type in UPSTREAM_RELS:
-            return "UPSTREAM"
-        if self.rel_type in DOWNSTREAM_RELS:
-            return "DOWNSTREAM"
+        """Where DST sits relative to SRC. For a target-relative view use the API's
+        classify(), which additionally accounts for which end the target is on."""
+        side = upstream_side(self.rel_type)
+        if side == "src":
+            return "DOWNSTREAM"      # src is upstream, so dst is below it
+        if side == "dst":
+            return "UPSTREAM"        # dst is upstream of src
         return "LATERAL"
 
     def key(self) -> tuple:
@@ -264,5 +286,5 @@ COUNTRY_ROLES = {
 }
 
 __all__ = ["CONTRACT_VERSION", "REL_TYPES", "UPSTREAM_RELS", "DOWNSTREAM_RELS",
-           "LATERAL_RELS", "EVIDENCE_TIERS", "EVIDENCED_TIERS", "CONFIDENCE_ORDER",
+           "LATERAL_RELS", "SRC_UPSTREAM_RELS", "DST_UPSTREAM_RELS", "upstream_side", "EVIDENCE_TIERS", "EVIDENCED_TIERS", "CONFIDENCE_ORDER",
            "Evidence", "Edge", "ContractViolation", "model_prior", "COUNTRY_ROLES"]
