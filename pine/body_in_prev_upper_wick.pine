@@ -24,7 +24,16 @@
 //  minWickPct sets how much of the previous bar's range the wick has to be
 //  before the question is worth asking at all.
 // ─────────────────────────────────────────────────────────────────────────────
-indicator("Body inside previous upper wick", overlay = true, max_labels_count = 500)
+//  TWO OUTCOMES FROM THE SAME START, and they cannot both happen
+//
+//    orange  opened in the band and CLOSED IN IT   — the refused zone accepted
+//    blue    opened in the band and CLOSED ABOVE   — the refused zone taken out
+//
+//  Both begin with the open inside the band. The difference is only where the
+//  close landed, so one excludes the other by arithmetic, not by a priority
+//  rule that could drift.
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("Previous upper wick — held or broken", overlay = true, max_labels_count = 500)
 
 minWickPct = input.float(20.0, "Previous upper wick ≥ % of its bar's range",
              minval = 0, maxval = 90, step = 5,
@@ -42,23 +51,39 @@ wick      = prevHigh - prevTop
 
 hasBand   = prevRange > 0 and wick > 0 and wick >= prevRange * (minWickPct / 100.0)
 
-// ── this bar inside it ───────────────────────────────────────────────────────
-bodyIn  = open >= prevTop and open <= prevHigh and close >= prevTop and close <= prevHigh
+// ── this bar against it ──────────────────────────────────────────────────────
+openIn  = open >= prevTop and open <= prevHigh          // both cases start here
+bodyIn  = openIn and close >= prevTop and close <= prevHigh
 wholeIn = bodyIn and low >= prevTop and high <= prevHigh
 
-signal = hasBand and (strict ? wholeIn : bodyIn)
+held   = hasBand and (strict ? wholeIn : bodyIn)        // orange — closed inside
+broke  = hasBand and openIn and close > prevHigh        // blue   — closed above
 
 // ── output ───────────────────────────────────────────────────────────────────
-if showBand and signal
+if showBand and (held or broke)
     box.new(bar_index - 1, prevHigh, bar_index, prevTop,
-            border_color = color.new(color.orange, 40),
-            bgcolor = color.new(color.orange, 88))
+            border_color = color.new(broke ? color.blue : color.orange, 40),
+            bgcolor = color.new(broke ? color.blue : color.orange, 88))
 
-plotshape(signal, title = "body in prev upper wick", style = shape.triangledown,
+plotshape(held, title = "held inside the wick", style = shape.triangledown,
           location = location.abovebar, color = color.new(color.orange, 0),
           size = size.small, text = "IN")
 
-if showLabels and signal and barstate.isconfirmed
+plotshape(broke, title = "closed above the wick", style = shape.triangleup,
+          location = location.belowbar, color = color.new(color.blue, 0),
+          size = size.small, text = "OUT")
+
+if showLabels and broke and barstate.isconfirmed
+    // how far past the old high it closed, in units of the wick it just cleared —
+    // "1.0×" means it added a second wick's worth on top of taking the first
+    over = wick > 0 ? (close - prevHigh) / wick : na
+    label.new(bar_index, low, yloc = yloc.belowbar,
+      text = "OUT +" + str.tostring(over * 100, "#") + "% of the wick above it" +
+             "\nwick was " + str.tostring(wick / prevRange * 100, "#") + "% of its bar",
+      style = label.style_label_up, color = color.new(color.blue, 25),
+      textcolor = color.white, size = size.tiny)
+
+if showLabels and held and barstate.isconfirmed
     // where in the band the body settled: 0% = sitting on the old body top,
     // 100% = right at the old high. High values mean the spike is being held.
     mid = (open + close) / 2
@@ -69,7 +94,9 @@ if showLabels and signal and barstate.isconfirmed
       style = label.style_label_down, color = color.new(color.orange, 25),
       textcolor = color.white, size = size.tiny)
 
-barcolor(signal ? color.new(color.orange, 20) : na)
+barcolor(broke ? color.new(color.blue, 20) : held ? color.new(color.orange, 20) : na)
 
-alertcondition(signal, "Body inside previous upper wick",
-     "{{ticker}} — body closed inside the previous bar's upper wick at {{close}}")
+alertcondition(held, "Held inside the previous upper wick",
+     "{{ticker}} — opened and closed inside the previous bar's upper wick at {{close}}")
+alertcondition(broke, "Closed above the previous upper wick",
+     "{{ticker}} — opened in the previous upper wick and closed above it at {{close}}")
