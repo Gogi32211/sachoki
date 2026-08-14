@@ -26,12 +26,19 @@
 // ─────────────────────────────────────────────────────────────────────────────
 //  TWO OUTCOMES FROM THE SAME START, and they cannot both happen
 //
-//    orange  opened in the band and CLOSED IN IT   — the refused zone accepted
-//    blue    opened in the band and CLOSED ABOVE   — the refused zone taken out
+//    orange  opened in the band and CLOSED IN IT     — the refused zone accepted
+//    blue    opened in the band and CLOSED ABOVE      — the refused zone taken out
+//    red     opened in the band and CLOSED BELOW      — the refused zone refused again
 //
-//  Both begin with the open inside the band. The difference is only where the
-//  close landed, so one excludes the other by arithmetic, not by a priority
-//  rule that could drift.
+//  All three begin with the open inside the band, and differ only in where the
+//  close landed. They exclude each other by arithmetic, not by a priority rule
+//  that could drift — and together they cover EVERY bar that opened in the band,
+//  so nothing falls between them.
+//
+//  Measured on 774,129 sp500 bars: 120,446 opened in the band (15.6% of all
+//  bars) and resolved held 27.3% · broke 32.8% · fell 39.9%. The most common
+//  outcome is the red one, which is why leaving it out was worth fixing —
+//  a chart showing only two of three reads as if the third never happened.
 // ─────────────────────────────────────────────────────────────────────────────
 indicator("Previous upper wick — held or broken", overlay = true, max_labels_count = 500)
 
@@ -39,9 +46,13 @@ minWickPct = input.float(20.0, "Previous upper wick ≥ % of its bar's range",
              minval = 0, maxval = 90, step = 5,
              tooltip = "How big the previous bar's upper wick must be before the band counts. At 0 a one-tick wick qualifies and the signal becomes arithmetic.")
 strict     = input.bool(false, "Require the WHOLE bar inside (high and low too)",
-             tooltip = "Off: open and close inside — where the auction settled. On: the entire range inside — the bar never left the band at all. Much rarer.")
+             tooltip = "Applies to the ORANGE case only. Off: open and close inside — where the auction settled (4.25% of bars). On: the entire range inside, the bar never left the band at all (0.12% — 35× rarer). NOTE: with this on the three outcomes no longer cover every bar that opened in the band, because a bar that closed inside but poked outside becomes unmarked.")
+
+showHeld   = input.bool(true,  "🟠 held — closed inside the band")
+showBroke  = input.bool(true,  "🔵 broke — closed above the band")
+showFell   = input.bool(true,  "🔴 fell — closed below the band")
 showBand   = input.bool(true,  "Draw the band")
-showLabels = input.bool(true,  "Label with where the body sits in the band")
+showLabels = input.bool(true,  "Label with where the close landed")
 
 // ── the previous bar's upper wick ────────────────────────────────────────────
 prevTop   = math.max(open[1], close[1])       // top of the previous body
@@ -52,18 +63,25 @@ wick      = prevHigh - prevTop
 hasBand   = prevRange > 0 and wick > 0 and wick >= prevRange * (minWickPct / 100.0)
 
 // ── this bar against it ──────────────────────────────────────────────────────
-openIn  = open >= prevTop and open <= prevHigh          // both cases start here
+openIn  = open >= prevTop and open <= prevHigh          // all three start here
 bodyIn  = openIn and close >= prevTop and close <= prevHigh
 wholeIn = bodyIn and low >= prevTop and high <= prevHigh
 
-held   = hasBand and (strict ? wholeIn : bodyIn)        // orange — closed inside
-broke  = hasBand and openIn and close > prevHigh        // blue   — closed above
+// The three outcomes, then the display switches applied on top. Kept separate so
+// turning a colour off hides it without changing what the other two mean.
+heldRaw  = hasBand and (strict ? wholeIn : bodyIn)      // closed inside
+brokeRaw = hasBand and openIn and close > prevHigh      // closed above
+fellRaw  = hasBand and openIn and close < prevTop       // closed below
+
+held  = heldRaw  and showHeld
+broke = brokeRaw and showBroke
+fell  = fellRaw  and showFell
 
 // ── output ───────────────────────────────────────────────────────────────────
-if showBand and (held or broke)
+bandCol = broke ? color.blue : fell ? color.red : color.orange
+if showBand and (held or broke or fell)
     box.new(bar_index - 1, prevHigh, bar_index, prevTop,
-            border_color = color.new(broke ? color.blue : color.orange, 40),
-            bgcolor = color.new(broke ? color.blue : color.orange, 88))
+            border_color = color.new(bandCol, 40), bgcolor = color.new(bandCol, 88))
 
 plotshape(held, title = "held inside the wick", style = shape.triangledown,
           location = location.abovebar, color = color.new(color.orange, 0),
@@ -72,6 +90,10 @@ plotshape(held, title = "held inside the wick", style = shape.triangledown,
 plotshape(broke, title = "closed above the wick", style = shape.triangleup,
           location = location.belowbar, color = color.new(color.blue, 0),
           size = size.small, text = "OUT")
+
+plotshape(fell, title = "closed below the wick", style = shape.triangledown,
+          location = location.abovebar, color = color.new(color.red, 0),
+          size = size.small, text = "DN")
 
 if showLabels and broke and barstate.isconfirmed
     // how far past the old high it closed, in units of the wick it just cleared —
@@ -94,9 +116,21 @@ if showLabels and held and barstate.isconfirmed
       style = label.style_label_down, color = color.new(color.orange, 25),
       textcolor = color.white, size = size.tiny)
 
-barcolor(broke ? color.new(color.blue, 20) : held ? color.new(color.orange, 20) : na)
+if showLabels and fell and barstate.isconfirmed
+    // how far below the band it closed, in units of the wick it failed to hold
+    under = wick > 0 ? (prevTop - close) / wick : na
+    label.new(bar_index, high, yloc = yloc.abovebar,
+      text = "DN −" + str.tostring(under * 100, "#") + "% of the wick below it" +
+             "\nwick was " + str.tostring(wick / prevRange * 100, "#") + "% of its bar",
+      style = label.style_label_down, color = color.new(color.red, 25),
+      textcolor = color.white, size = size.tiny)
+
+barcolor(broke ? color.new(color.blue, 20) : fell ? color.new(color.red, 20)
+       : held ? color.new(color.orange, 20) : na)
 
 alertcondition(held, "Held inside the previous upper wick",
      "{{ticker}} — opened and closed inside the previous bar's upper wick at {{close}}")
 alertcondition(broke, "Closed above the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed above it at {{close}}")
+alertcondition(fell, "Closed below the previous upper wick",
+     "{{ticker}} — opened in the previous upper wick and closed back below it at {{close}}")
