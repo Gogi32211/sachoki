@@ -78,6 +78,11 @@ export default function CodeCandleChart({
   const volRef       = useRef(null)
   const signalsRef   = useRef([])           // [{time, low, high, isBull, neutral, lines, vol}]
   const showCodesRef = useRef(codes)
+  // ⚛ physics strip — ONE line per bar, not a stack. Follows the 260814_PHYS script's own
+  // default: only bars where something is NOT normal. Every bar carries physics, so drawing
+  // all of them would paper the chart with RN·C1·H1·M1·E1·K0 and hide the ones that matter.
+  const showPhysRef = useRef(false)
+  const rowsRef = useRef([])
   const zoneLinesRef = useRef([])           // active priceLines for HV-zone overlay
   const tradeLinesRef = useRef([])          // active priceLines for journal entry/exit overlay
   const histLinesRef = useRef([])           // grey/white history overlay (HV + Gann, merged)
@@ -210,6 +215,8 @@ export default function CodeCandleChart({
   }, [])
   const [limit, setLimit]     = useState(initialLimit)
   const [showCodes, setShowCodes] = useState(codes)
+  const [showPhys, setShowPhys] = useState(false)
+  const [physMode, setPhysMode] = useState('rare')   // rare | ra | all
   const [error, setError]     = useState(null)
   const [loading, setLoading] = useState(false)
   const [meta, setMeta]       = useState(null) // {n, dmin, dmax, src}
@@ -219,13 +226,80 @@ export default function CodeCandleChart({
   const intraday = isIntradayTf(tf)
   const useDb    = isDbTf(tf)                 // 1d + 1w → Studio DB; intraday → live signals
 
+  // The strip. Normal values are dropped on purpose: RN·C1·H1·M1·E1·K0 is the majority of bars
+  // and printing it is the same as printing nothing, except it costs the reader attention.
+  // Wyckoff shows only its EVENTS — MARKUP/MKDN sit on most bars and are regime, not signal.
+  // EVENTS are printed on the bar they happen. REGIMES are printed on the bar they CHANGE.
+  //
+  // The first draft ignored that distinction and put a strip on 1,307 of 1,309 bars: K1
+  // (|stretch| ≥ 1 ATR) and S3 (full EMA alignment) persist for weeks, so printing them every
+  // bar restates the same fact hundreds of times and buries the events between them. A strip
+  // that marks every bar marks nothing.
+  // WHAT GOES IN THE STRIP WAS MEASURED, NOT GUESSED. Density over sp500, 8.7M bars:
+  //
+  //     S3 full resonance   57.1%      K1 ordinary stretch  45.6%
+  //     E2 or ★             32.5%      RA absorbed effort   24.9%
+  //     M2 heavy trend      19.6%      AD ★/★★/★A            6.8%
+  //     gap G3               3.7%      K2 past the limit     3.6%
+  //     E★ release           2.5%      Wyckoff events        1.9%
+  //
+  // R, E and M are three-way splits around a rolling median, so "not the middle" is two thirds
+  // of every chart by construction — they are not extremes. S3 and K1 are regimes that hold for
+  // weeks, and printing their transitions is no better: K oscillates across ±1 ATR every few
+  // bars, so its transitions are as frequent as the bars themselves. Three drafts each papered
+  // 77-93% of the chart before this was measured rather than estimated.
+  //
+  // DEFAULT = the rare set, 16.8% of bars — roughly one strip per week of trading:
+  //     E★ release · K2 past the elastic limit · AD flip · G3 gap · Wyckoff event
+  // "+RA" adds absorbed effort (24.9%) → 38.2%, because it is the book's first confluence law
+  // and is worth seeing even though it is common. "all" shows everything.
+  const physStrip = (r, prev, mode) => {
+    if (!r) return ''
+    const all = mode === 'all'
+    const p = []
+    // rare events — always
+    if ((r.phys_e || '').includes('★')) p.push(r.phys_e)
+    if ((r.phys_k || '').startsWith('K2')) p.push(r.phys_k)
+    if (r.phys_ad) p.push(r.phys_ad)
+    if (r.phys_gap_true === 'G3') p.push('gG3')
+    if (['SPRING', 'SPRING★', 'UTAD', 'SOS★'].includes(r.phys_wyc)) p.push(r.phys_wyc)
+    // absorbed effort — common, and the one common state worth the space
+    if (r.phys_r === 'RA' && (mode === 'ra' || all)) {
+      p.push('RA' + (r.phys_regime ? '·' + r.phys_regime : ''))
+    }
+    if (all) {
+      const chg = (f) => !prev || r[f] !== prev[f]
+      if (r.phys_r && r.phys_r !== 'RA') p.push(r.phys_r + (r.phys_regime ? '·' + r.phys_regime : ''))
+      if (r.phys_m) p.push(r.phys_m)
+      if (r.phys_e && !r.phys_e.includes('★')) p.push(r.phys_e)
+      if (r.phys_k && !r.phys_k.startsWith('K2')) p.push(r.phys_k)
+      if (r.phys_c) p.push(r.phys_c)
+      if (r.phys_h) p.push(r.phys_h)
+      if (r.phys_s && chg('phys_s')) p.push(r.phys_s)
+      if (r.phys_gap_true && r.phys_gap_true !== 'G3') p.push('g' + r.phys_gap_true)
+    }
+    return p.join(' ')
+  }
+
+  // colour by what dominates, same priority the Pine pane uses
+  const physColor = (r) => {
+    if (!r) return '#93c5fd'
+    if (r.phys_e_release) return '#c084fc'                       // spring released
+    if ((r.phys_k || '').startsWith('K2')) return '#f87171'       // past the elastic limit
+    if (r.phys_e === 'E2') return '#fbbf24'                       // loaded
+    if (r.phys_s === 'S3U') return '#4ade80'
+    if (r.phys_s === 'S3D') return '#fca5a5'
+    if (r.phys_m === 'M2') return '#60a5fa'                       // heavy fast trend
+    return '#93c5fd'
+  }
+
   // ── per-bar 6-line code overlay (positioned imperatively from the coordinate
   //    API so it tracks pan / zoom / resize). Only populated for DB (1d) data. ──
   const renderOverlay = useCallback(() => {
     const ov = overlayRef.current, chart = chartRef.current, series = seriesRef.current
     if (!ov || !chart || !series) return
     ov.innerHTML = ''
-    if (!showCodesRef.current) return
+    if (!showCodesRef.current && !showPhysRef.current) return
     const ts = chart.timeScale()
     for (const s of signalsRef.current) {
       const x = ts.timeToCoordinate(s.time)
@@ -243,9 +317,15 @@ export default function CodeCandleChart({
       el.style.transform = below
         ? 'translate(-50%, 10px)'
         : 'translate(-50%, calc(-100% - 10px))'
-      el.innerHTML = s.lines.map((l, i) =>
-        `<div style="${i === 0 ? 'font-weight:700;' : 'opacity:.9;'}">${l}</div>`).join('')
-        + (s.vol ? `<div style="font-weight:700;">${s.vol}</div>` : '')
+      const codeHtml = showCodesRef.current
+        ? s.lines.map((l, i) =>
+            `<div style="${i === 0 ? 'font-weight:700;' : 'opacity:.9;'}">${l}</div>`).join('')
+          + (s.vol ? `<div style="font-weight:700;">${s.vol}</div>` : '')
+        : ''
+      const physHtml = (showPhysRef.current && s.phys)
+        ? `<div style="color:${s.physColor};letter-spacing:-.2px;">${s.phys}</div>` : ''
+      if (!codeHtml && !physHtml) continue
+      el.innerHTML = codeHtml + physHtml
       ov.appendChild(el)
     }
   }, [])
@@ -374,25 +454,29 @@ export default function CodeCandleChart({
       const asc = Object.keys(byTime).sort().map(t => byTime[t])
       if (!asc.length) return loadSignals('1d')      // ticker not in DB → live fallback
       // build a signal-overlay object from a row (DB or live forming bar)
-      const mkSig = (r) => {
+      const mkSig = (r, prev) => {
         const time = fmtDate(r.date)
         const tz = r.t_sig || r.z_sig
         const suffix = r.composite_full_suffix || r.full_suffix || ''
-        if (!(tz || r.l_sig || suffix)) return null
+        const phys = physStrip(r, prev, physMode)
+        if (!(tz || r.l_sig || suffix) && !phys) return null
         const lines = [
           tz ? `${tz}${r.l_sig || ''}` : (r.l_sig || ''),
           suffix, r.bar_body_wick || '', r.bar_gap_range || '', r.bar_line5 || '',
         ].filter(Boolean)
-        return { time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines, vol: r.vol_bucket || '' }
+        return { time, low: +r.low, high: +r.high, isBull: !!r.t_sig, neutral: !tz, lines,
+                 vol: r.vol_bucket || '', phys, physColor: physColor(r) }
       }
       const candles = [], volumes = [], signals = []
-      for (const r of asc) {
+      for (let i = 0; i < asc.length; i++) {
+        const r = asc[i]
         const time = fmtDate(r.date)
         candles.push({ time, open: +r.open, high: +r.high, low: +r.low, close: +r.close })
         volumes.push({ time, value: +r.volume || 0, color: BUCKET_HEX[r.vol_bucket] ?? '#374151' })
-        const s = mkSig(r); if (s) signals.push(s)
+        const s = mkSig(r, asc[i - 1]); if (s) signals.push(s)
       }
       signalsRef.current = signals
+      rowsRef.current = asc
       candlesRef.current = candles
       seriesRef.current.setData(candles)
       seriesRef.current.setMarkers([])
@@ -432,6 +516,20 @@ export default function CodeCandleChart({
 
   // toggle codes on/off
   useEffect(() => { showCodesRef.current = showCodes; renderOverlay() }, [showCodes, renderOverlay])
+  useEffect(() => { showPhysRef.current = showPhys; renderOverlay() }, [showPhys, renderOverlay])
+  // physAll changes what mkSig BUILDS, not just what renderOverlay draws, so the strips are
+  // rebuilt from the rows already held rather than refetched.
+  useEffect(() => {
+    if (!rowsRef.current?.length) return
+    for (const s2 of signalsRef.current) {
+      const i = rowsRef.current.findIndex(x => fmtDate(x.date) === s2.time)
+      if (i >= 0) {
+        s2.phys = physStrip(rowsRef.current[i], rowsRef.current[i - 1], physMode)
+        s2.physColor = physColor(rowsRef.current[i])
+      }
+    }
+    renderOverlay()
+  }, [physMode, renderOverlay])
 
   // Combined HV + Gann history overlay. Both sources are grey by default; when
   // a price level appears in BOTH (within rounding tolerance), it's drawn
@@ -1100,13 +1198,27 @@ export default function CodeCandleChart({
             })()}
           </span>
           <div className="flex items-center gap-3">
-            {(
+            {(<>
               <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
                      title="Show the chart code on every signal bar">
                 <input type="checkbox" checked={showCodes} onChange={e => setShowCodes(e.target.checked)} />
                 <span>codes</span>
               </label>
-            )}
+              <label className="flex items-center gap-1 text-xs text-md-on-surface-var cursor-pointer select-none"
+                title={'⚛ physics strip — one line per bar: R·regime · C · H · M · E · K · S · AD · gap · Wyckoff events.\n\nNormal values (RN C1 H1 M1 E1 K0) are hidden, as in the 260814_PHYS script: they sit on most bars and printing them hides the ones that matter. Tick “all” to see them.\n\nColour: violet = spring released · red = past the elastic limit · amber = loaded · green/red = full resonance · blue = heavy trend.\n\ngG1/gG2/gG3 is the CORRECTED gap class — the stored bar_gap_range measures from the previous close and overstates on 49.5% of gaps.'}>
+                <input type="checkbox" checked={showPhys} onChange={e => setShowPhys(e.target.checked)} />
+                <span>⚛ phys</span>
+              </label>
+              {showPhys && (
+                <select value={physMode} onChange={e => setPhysMode(e.target.value)}
+                  title="how much of the tape to print — the percentages are measured over 8.7M sp500 bars"
+                  className="bg-md-surface-high border border-md-outline-var rounded text-[10px] px-1 py-0.5 text-md-on-surface-var">
+                  <option value="rare">rare · 17%</option>
+                  <option value="ra">+RA · 38%</option>
+                  <option value="all">all</option>
+                </select>
+              )}
+            </>)}
             {/* Recent-N limiter — draw only the last N occurrences of EACH signal */}
             <div className="flex items-center gap-0.5 text-[10px]"
                  title="Show only the most recent N occurrences of each enabled overlay signal (HV / Gann / VB / W). Blank = all.">
