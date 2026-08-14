@@ -1544,7 +1544,25 @@ export default function SuperchartPanel({
                 {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => (
                   <ChipRow key={row.key} bars={barsPhys}
                            row={{ ...row,
-                                  label: row.label,
+                                  // The control sits ON the row it governs. It was only in the
+                                  // toolbar at the top of the page, while this row is below the
+                                  // chart — so at the moment you are looking at an empty row and
+                                  // wondering why, the thing that explains it is off screen. An
+                                  // invisible filter reads as missing data, and did.
+                                  label: (
+                                    <span onClick={() => setPhysRowMode(
+                                            m => m === 'rare' ? 'ra' : m === 'ra' ? 'all' : 'rare')}
+                                          className="cursor-pointer select-none hover:text-md-on-surface"
+                                          title={`⚛ physics — showing ${
+                                            physRowMode === 'rare' ? 'rare events only (17% of bars)'
+                                            : physRowMode === 'ra' ? 'rare events + absorbed effort (38%)'
+                                            : 'the FULL per-bar state, as the Pine pane draws it'
+                                          }. Click to cycle: rare → +RA → all. The database holds every physics field on EVERY bar; this only decides how much is printed.`}>
+                                      ⚛<span className="text-[9px] ml-px opacity-60">
+                                        {physRowMode === 'rare' ? '·' : physRowMode === 'ra' ? ':' : '⋯'}
+                                      </span>
+                                    </span>
+                                  ),
                                   getSigs: (b, prev) => row.getSigs(b, prev, physRowMode) }} />
                 ))}
                 {/* ⏱ TtRow removed 2026-07-26 (user: adds nothing) — within ONE ticker the ATR%
