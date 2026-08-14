@@ -26,6 +26,7 @@ const SECTIONS = [
   { id: 'overview',    label: 'Overview' },
   { id: 'supply',      label: 'Supply chain' },
   { id: 'competitors', label: 'Competitors' },
+  { id: 'peers',       label: 'Price · 2 months' },
   { id: 'ownership',   label: 'Ownership & partners' },
   { id: 'countries',   label: 'Countries' },
   { id: 'risk',        label: 'Risk' },
@@ -192,6 +193,169 @@ function emptyReason(cov, kind) {
   return `None found. All ${cov.filers_naming_target} filers that named this company were read, and none stated a ${kind} relationship. That is a finding about what companies disclose, not a gap.`
 }
 
+/* Nine weekly candles, drawn in PERCENT from the window's first open.
+
+   Prices are not comparable across companies — a $220 stock and a $2 stock on one axis
+   are two unrelated pictures sharing a frame. Percent from the window start is what makes
+   the rows readable against each other, which is the entire point of putting them in one
+   table.
+
+   All rows share one vertical scale for the same reason. Per-row autoscaling would make a
+   +2% drift and a +40% run look identical, which is precisely the comparison being asked
+   for. */
+function WeeklyBars({ bars, lo, hi, w = 150, h = 34 }) {
+  if (!bars?.length) return <span className="text-[10px] text-md-on-surface-var/60">no bars</span>
+  const base = bars[0].o
+  const span = (hi - lo) || 1
+  // Clipped, not autoscaled. One +35% name stretched the shared scale until every other
+  // row was a flat line — technically comparable and visually useless. The scale now
+  // covers the bulk of the field and anything past it is drawn to the edge and marked,
+  // so an outlier stays legible AS an outlier instead of flattening everyone else.
+  const clip = (v) => Math.max(lo, Math.min(hi, v))
+  const y = (v) => h - ((clip(v) - lo) / span) * h
+  const isClipped = (b) => (b.h / base - 1) * 100 > hi || (b.l / base - 1) * 100 < lo
+  const cw = w / bars.length
+  const bw = Math.max(2, cw * 0.55)
+  const zero = y(0)
+  return (
+    <svg width={w} height={h} className="block">
+      <line x1="0" y1={zero} x2={w} y2={zero} stroke="currentColor"
+            className="text-md-outline-var/40" strokeWidth="1" strokeDasharray="2 2" />
+      {bars.map((b, i) => {
+        const o = (b.o / base - 1) * 100, c = (b.c / base - 1) * 100
+        const hiV = (b.h / base - 1) * 100, loV = (b.l / base - 1) * 100
+        const up = c >= o
+        const x = i * cw + cw / 2
+        const top = y(Math.max(o, c)), bot = y(Math.min(o, c))
+        return (
+          <g key={i} className={up ? 'text-emerald-400' : 'text-rose-400'}>
+            <line x1={x} y1={y(hiV)} x2={x} y2={y(loV)} stroke="currentColor" strokeWidth="1" />
+            <rect x={x - bw / 2} y={top} width={bw} height={Math.max(1.5, bot - top)}
+                  fill="currentColor" />
+            {isClipped(b) && (
+              <rect x={x - bw / 2} y={hiV > hi ? 0 : h - 1.5} width={bw} height="1.5"
+                    fill="currentColor" opacity="0.9" />
+            )}
+          </g>
+        )
+      })}
+    </svg>
+  )
+}
+
+function PeerTable({ data, nameOf, onSelectTicker }) {
+  const [shared, setShared] = useState(true)
+  if (!data) return <p className="text-[12px] text-md-on-surface-var">loading…</p>
+  if (!data.rows?.length)
+    return <p className="text-[12px] text-md-on-surface-var/70 italic">
+      No listed company in this graph has weekly bars yet — harvest the graph first.
+    </p>
+
+  // A robust bound rather than the extremes: the 85th percentile of absolute move across
+  // every bar of every row, symmetric around zero and never tighter than ±5%. Raw min/max
+  // hands the whole scale to the single biggest mover.
+  const mags = data.rows.flatMap(r => r.bars.flatMap(b => [
+    Math.abs((b.h / r.bars[0].o - 1) * 100), Math.abs((b.l / r.bars[0].o - 1) * 100)]))
+    .sort((a, b) => a - b)
+  const p85 = mags.length ? mags[Math.floor(mags.length * 0.85)] : 5
+  const bound = Math.max(5, p85)
+  const gLo = -bound, gHi = bound
+  const nClipped = data.rows.filter(r => r.bars.some(b =>
+    Math.abs((b.h / r.bars[0].o - 1) * 100) > bound ||
+    Math.abs((b.l / r.bars[0].o - 1) * 100) > bound)).length
+
+  return (
+    <div>
+      <div className="flex items-baseline gap-3 flex-wrap mb-2">
+        <span className="text-[11.5px] text-md-on-surface-var">
+          {data.weeks?.length} weekly bars · {data.n_priced} listed companies · latest bar {data.as_of}
+          {data.weeks_behind > 0 && (
+            <span className="text-amber-300" title="The weekly database is written by the nightly job; its last bar is not today.">
+              {' '}· {data.weeks_behind} week{data.weeks_behind > 1 ? 's' : ''} behind today
+            </span>
+          )}
+        </span>
+        <button onClick={() => setShared(v => !v)}
+          className="text-[11px] px-2 py-0.5 rounded border border-md-outline-var/50
+                     text-md-on-surface-var hover:bg-white/5"
+          title={shared
+            ? 'All rows share one vertical scale, so the shapes are directly comparable.'
+            : 'Each row is autoscaled to its own range — shapes look similar regardless of size.'}>
+          {shared ? 'shared scale' : 'own scale'}
+        </button>
+      </div>
+      <p className="text-[11px] text-md-on-surface-var/70 mb-2 max-w-3xl">
+        {data.basis}.{shared && (
+          <> Scale ±{bound.toFixed(0)}%{nClipped > 0 && (
+            <span title="Bars beyond the scale are drawn to the edge with a cap, so one large mover cannot flatten every other row.">
+              {' '}· {nClipped} row{nClipped > 1 ? 's' : ''} clipped (capped bar = off scale)
+            </span>)}</>
+        )}
+      </p>
+
+      <table className="w-full text-[12px]">
+        <thead className="text-[10.5px] text-md-on-surface-var">
+          <tr className="border-b border-md-outline-var/40">
+            <th className="text-left font-normal py-1">company</th>
+            <th className="text-left font-normal">link</th>
+            <th className="text-center font-normal">9 weekly bars</th>
+            <th className="text-right font-normal pr-1">change</th>
+          </tr>
+        </thead>
+        <tbody>
+          {data.rows.map(r => {
+            const lo = shared ? gLo : Math.min(0, ...r.bars.map(b => (b.l / r.bars[0].o - 1) * 100))
+            const hi = shared ? gHi : Math.max(0, ...r.bars.map(b => (b.h / r.bars[0].o - 1) * 100))
+            const rels = [...new Set(r.relations.map(x => REL_LABEL[x.rel_type] || x.rel_type))]
+            return (
+              <tr key={r.ticker}
+                  className={`border-b border-md-outline-var/20 ${r.is_target ? 'bg-md-primary/10' : ''}`}>
+                <td className="py-1">
+                  <span className="font-mono font-semibold text-md-on-surface cursor-pointer hover:underline"
+                        onClick={() => onSelectTicker?.(r.ticker)}>{r.ticker}</span>
+                  {r.is_target && <span className="ml-1 text-[10px] text-md-primary">target</span>}
+                  <span className="ml-2 text-[11px] text-md-on-surface-var/70">{nameOf?.(r.ticker)}</span>
+                </td>
+                <td className="text-[11px] text-md-on-surface-var">
+                  {r.is_target ? '—' : rels.join(', ')}
+                  {r.side?.length > 0 && (
+                    <span className="ml-1 text-[10px] opacity-60">{r.side.join('/').toLowerCase()}</span>
+                  )}
+                </td>
+                <td className="px-2"><WeeklyBars pct={r.pct} bars={r.bars} lo={lo} hi={hi} /></td>
+                <td className={`text-right pr-1 font-semibold tabular-nums ${
+                  r.change_pct > 0 ? 'text-emerald-400' : r.change_pct < 0 ? 'text-rose-400'
+                                                                          : 'text-md-on-surface-var'}`}>
+                  {r.change_pct > 0 ? '+' : ''}{r.change_pct?.toFixed(1)}%
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+
+      {data.unpriced?.length > 0 && (
+        <div className="mt-4">
+          <h4 className="text-[12px] font-semibold text-md-on-surface mb-1">
+            In the graph, not in the table — {data.unpriced.length}
+          </h4>
+          <p className="text-[11px] text-md-on-surface-var/70 mb-1.5 max-w-3xl">
+            These have no price to plot. They are listed here rather than dropped: leaving
+            them out would turn “the competitive field” into “the part of it that happens to
+            be listed”, with nothing on screen to mark the difference.
+          </p>
+          {data.unpriced.map((u, i) => (
+            <div key={i} className="text-[11.5px] text-md-on-surface-var py-0.5">
+              <span className="text-md-on-surface">{u.name}</span>
+              <span className="opacity-70"> — {u.why}</span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 function Group({ title, hint, rows, ticker, onSelectTicker, empty, nameOf }) {
   return (
     <div className="mb-5">
@@ -257,6 +421,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
   const [err, setErr]       = useState(null)
   const [section, setSection] = useState('overview')
   const pollRef = useRef(null)
+  const [peers, setPeers] = useState(null)
 
   const load = useCallback((tk) => {
     setLoading(true); setErr(null)
@@ -268,6 +433,14 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
   }, [])
 
   useEffect(() => { load(ticker) }, [ticker, load])
+
+  // fetched lazily: it is a second DuckDB read and most visits never open the tab
+  useEffect(() => {
+    if (section !== 'peers' || !data?.ok) return
+    setPeers(null)
+    fetch(`/api/company-intel/${data.ticker}/peers?weeks=9`)
+      .then(r => r.json()).then(setPeers).catch(e => setErr(String(e)))
+  }, [section, data?.ticker, data?.coverage?.edges])
 
   // While a harvest runs, poll. The graph fills in rather than appearing at the end —
   // a 40-second blank screen with a spinner tells the user nothing about what is arriving.
@@ -472,6 +645,10 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="joint development, licensing, co-selling"
                  empty={emptyReason(data?.coverage, 'partnership')} />
         </div>
+      )}
+
+      {section === 'peers' && (
+        <PeerTable data={peers} nameOf={nameOf} onSelectTicker={onSelectTicker} />
       )}
 
       {section === 'countries' && (

@@ -269,6 +269,18 @@ def _run_dict(run) -> Optional[dict]:
     return {k: (None if (isinstance(v, float) and v != v) else v) for k, v in run.items()}
 
 
+@router.get("/{ticker}/peers")
+def get_peers(ticker: str, weeks: int = Query(9, ge=2, le=52)):
+    """Weekly bars for every listed company in the ecosystem, on one comparable scale."""
+    from company_graph import store
+    from company_graph.peers import peer_table
+
+    ticker = ticker.upper().strip()
+    store.init()
+    edges = _clean(store.current_edges(ticker))
+    return peer_table(ticker, edges, classify, counterparty, weeks=weeks)
+
+
 @router.get("/{ticker}/evidence")
 def get_evidence(ticker: str, src: str = Query(...), dst: str = Query(...),
                  rel_type: str = Query("")):
