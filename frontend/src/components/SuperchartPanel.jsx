@@ -932,7 +932,17 @@ export default function SuperchartPanel({
   // mode-aware it inherited the chart strip's default of 'rare', and that silently dropped
   // RA — the row went from 109 filled cells to 42 and looked broken. Adding a control is
   // not licence to change what the control starts at.
-  const [physRowMode, setPhysRowMode] = useState('ra')
+  //
+  // PERSISTED, because it is a preference and not a per-visit decision. Held only in
+  // component state it reset to 'ra' on every reload and every ticker change, so someone
+  // who wants the full per-bar state had to re-select it each time and reasonably read the
+  // reset as the setting not working.
+  const [physRowMode, setPhysRowMode] = useState(() => {
+    try { return localStorage.getItem('sc_phys_mode') || 'ra' } catch { return 'ra' }
+  })
+  useEffect(() => {
+    try { localStorage.setItem('sc_phys_mode', physRowMode) } catch { /* private mode */ }
+  }, [physRowMode])
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
