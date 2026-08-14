@@ -32,7 +32,9 @@ minWickPct  = input.float(30.0, "Dominant wick ≥ % of the bar's range", minval
 maxOppPct   = input.float(25.0, "Opposite wick ≤ % of the bar's range", minval = 0, maxval = 50, step = 5,
               tooltip = "'Small or no wick' on the other end. 0 demands none at all. Default is 25%, raised from my original 15% — twice you pointed at a bar that plainly showed the pattern and was rejected by that number, and 15% was my invention, not part of what you described.")
 minBodyPct  = input.float(0.0,  "Body ≥ % of range (0 = ignore)",   minval = 0, maxval = 80, step = 5,
-              tooltip = "Optional. Above 0 this rejects dojis, whose wicks are long at both ends by construction.")
+              tooltip = "Optional floor. Above 0 this rejects dojis, whose wicks are long at both ends by construction.")
+maxBodyPct  = input.float(0.0,  "Body ≤ % of range (0 = ignore)",   minval = 0, maxval = 90, step = 5,
+              tooltip = "Optional ceiling — 'take the narrow-bodied ones'. A small body means the bar closed near where it opened after travelling: the range was rejected rather than converted into a move. The WF label prints each bar's ▬body% so you can read a threshold off the chart instead of guessing one.")
 requireDown = input.bool(false, "Only after a down move",
               tooltip = "Restricts to context where a low-rejection could turn something. Off by default — measure first.")
 lookback    = input.int(5,      "…measured over N bars", minval = 2, maxval = 20)
@@ -57,7 +59,9 @@ valid   = rng > 0
 // continuation rules are fussy, and each clause is worth being able to read on its own.
 minWick = rng * (minWickPct / 100.0)
 maxOpp  = rng * (maxOppPct  / 100.0)
-bodyOk  = minBodyPct == 0 or body >= rng * (minBodyPct / 100.0)
+bodyPct = valid ? body / rng * 100 : 0.0
+// a floor and a ceiling, each optional and independent — 0 switches either off
+bodyOk  = (minBodyPct == 0 or bodyPct >= minBodyPct) and (maxBodyPct == 0 or bodyPct <= maxBodyPct)
 
 upDominates = upWick >= mult * dnWick and upWick >= minWick and dnWick <= maxOpp
 
@@ -85,7 +89,8 @@ if showLabels and signal and barstate.isconfirmed
     dnR = upWick     > 0 ? dnWick   / upWick    : na
     label.new(bar_index, low,
       text = "WF\n▲" + (na(upR) ? "no lower wick" : str.tostring(upR, "#.#") + "×") +
-             "\n▼" + (na(dnR) ? "no upper wick" : str.tostring(dnR, "#.#") + "×"),
+             "\n▼" + (na(dnR) ? "no upper wick" : str.tostring(dnR, "#.#") + "×") +
+             "\n▬" + str.tostring(bodyPct[1], "#") + "/" + str.tostring(bodyPct, "#") + "%",
       style = label.style_label_up, color = color.new(color.teal, 20),
       textcolor = color.white, size = size.small)
 
@@ -96,10 +101,14 @@ barcolor(topHeavy ? color.new(color.orange, 30) : botHeavy ? color.new(color.tea
 // useful thing on this chart: it is where a threshold is arguable rather than
 // where the pattern is absent. Marking them keeps the disagreement on screen
 // instead of leaving a silent gap that reads as the script being broken.
-failWick = topHeavy[1] and dnPctOk == false
-failOpp  = topHeavy[1] and upPctOk == false
-failMult = topHeavy[1] and multOk  == false
-nFails   = (failWick ? 1 : 0) + (failOpp ? 1 : 0) + (failMult ? 1 : 0)
+// bodyOk is counted here too. Without it, a bar rejected purely by the new body
+// ceiling would fail silently — which is the exact failure this marker exists to end,
+// and adding a filter without adding it to the counter would have re-created it.
+failWick = topHeavy[1] and not dnPctOk
+failOpp  = topHeavy[1] and not upPctOk
+failMult = topHeavy[1] and not multOk
+failBody = topHeavy[1] and not bodyOk
+nFails   = (failWick ? 1 : 0) + (failOpp ? 1 : 0) + (failMult ? 1 : 0) + (failBody ? 1 : 0)
 nearMiss = topHeavy[1] and not botHeavy and nFails == 1
 
 plotshape(nearMiss, title = "near miss", style = shape.xcross, location = location.belowbar,
@@ -119,10 +128,11 @@ if diagnose and barstate.isconfirmed
         why := dnPct < minWickPct  ? "lower wick only " + str.tostring(dnPct, "#") + "% of range (need ≥" + str.tostring(minWickPct, "#") + "%)"
              : upPct > maxOppPct   ? "upper wick " + str.tostring(upPct, "#") + "% of range (need ≤" + str.tostring(maxOppPct, "#") + "%)"
              : dnWick < mult * upWick ? "lower ÷ upper = " + str.tostring(upWick > 0 ? dnWick / upWick : 999, "#.#") + "× (need ≥" + str.tostring(mult, "#.#") + "×)"
-             : not bodyOk          ? "body too small for the body filter"
+             : minBodyPct > 0 and bodyPct < minBodyPct ? "body " + str.tostring(bodyPct, "#") + "% of range (need ≥" + str.tostring(minBodyPct, "#") + "%)"
+             : maxBodyPct > 0 and bodyPct > maxBodyPct ? "body " + str.tostring(bodyPct, "#") + "% of range (need ≤" + str.tostring(maxBodyPct, "#") + "%)"
              : na
     label.new(bar_index, high, yloc = yloc.abovebar,
-      text = "▲" + str.tostring(upPct, "#") + "%  ▼" + str.tostring(dnPct, "#") + "%" +
+      text = "▲" + str.tostring(upPct, "#") + "%  ▼" + str.tostring(dnPct, "#") + "%  ▬" + str.tostring(bodyPct, "#") + "%" +
              (na(why) ? "" : "\n✗ " + why),
       style = label.style_label_down,
       color = na(why) ? color.new(color.gray, 75) : color.new(color.maroon, 25),
