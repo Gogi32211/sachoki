@@ -172,6 +172,22 @@ function EdgeRow({ e, ticker, onSelectTicker, nameOf }) {
   )
 }
 
+/* What "nothing here" actually means, which is never the same thing twice.
+
+   The first version said "Harvest filings, or they are in filings not yet read" for every
+   empty group. On UMAC that was simply false: the harvest had completed and read all six
+   filers that named the company. The page told the user to do work that was already done,
+   and blamed missing data for what was really "nobody stated this kind of relationship".
+
+   An empty state is a claim about the world, so it has to be derived from coverage rather
+   than written once and reused. */
+function emptyReason(cov, kind) {
+  if (!cov?.harvested) return `Nothing harvested yet — press “Harvest filings” to search SEC for companies that name this one.`
+  if (cov.filers_not_read > 0)
+    return `No ${kind} among the ${cov.filers_read} filers read. ${cov.filers_not_read} more named this company and were not read — this is a gap in coverage, not a finding.`
+  return `None found. All ${cov.filers_naming_target} filers that named this company were read, and none of them stated a ${kind} relationship. That is a finding about what companies disclose, not a gap.`
+}
+
 function Group({ title, hint, rows, ticker, onSelectTicker, empty, nameOf }) {
   return (
     <div className="mb-5">
@@ -272,6 +288,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
   const p = data?.profile
   const v = data?.views || {}
   const risk = data?.risk
+  const totalEdges = data?.edges?.length || 0
 
   // ticker -> name, and CIK<digits> -> name for filers that have no ticker at all
   const nameOf = useCallback((code) => {
@@ -360,18 +377,33 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
 
       {section === 'overview' && (
         <div>
-          <Group title="Upstream — this company depends on them" ticker={ticker}
-                 rows={v.upstream || []} onSelectTicker={onSelectTicker} nameOf={nameOf}
-                 hint="suppliers, foundries, equipment, stated dependencies"
-                 empty="Nothing evidenced yet. Harvest filings, or the relationships are in filings not yet read." />
-          <Group title="Downstream — they depend on this company" ticker={ticker}
-                 rows={v.downstream || []} onSelectTicker={onSelectTicker} nameOf={nameOf}
-                 hint="customers, and firms that named it as a concentration risk"
-                 empty="No downstream dependency found in the filings read." />
-          <Group title="Competitors" rows={(v.competitors || []).slice(0, 8)} ticker={ticker}
-                 onSelectTicker={onSelectTicker} nameOf={nameOf}
-                 hint="named as a competitor in someone's own filing"
-                 empty="None named yet." />
+          {/* Every non-empty group appears here. Ownership and partners used to be omitted,
+              which made the landing screen blank for any company whose relationships are
+              mostly equity stakes and partnerships — UMAC held 7 relationships and the
+              Overview showed 1. The tabs below still slice it; this is the whole picture. */}
+          {totalEdges === 0 && (
+            <p className="text-[12px] text-md-on-surface-var/80 italic mb-4">
+              {emptyReason(data?.coverage, 'relationship')}
+            </p>
+          )}
+          {[['Upstream — this company depends on them', v.upstream,
+             'suppliers, foundries, equipment, stated dependencies', 'supplier'],
+            ['Downstream — they depend on this company', v.downstream,
+             'customers, and firms that named it as a concentration risk', 'customer'],
+            ['Competitors', v.competitors,
+             "named as a competitor in someone's own filing", 'competitive'],
+            ['Ownership', v.ownership, 'equity stakes, either direction', 'ownership'],
+            ['Partners', v.partners, 'joint development, licensing, co-selling', 'partnership'],
+          ].filter(([, rows]) => (rows || []).length > 0)
+           .map(([title, rows, hint]) => (
+             <Group key={title} title={title} rows={rows} hint={hint} ticker={ticker}
+                    onSelectTicker={onSelectTicker} nameOf={nameOf} empty="" />
+           ))}
+          {totalEdges > 0 && (v.upstream?.length || 0) + (v.downstream?.length || 0) === 0 && (
+            <p className="text-[11.5px] text-md-on-surface-var/70 max-w-3xl mt-2">
+              {emptyReason(data?.coverage, 'supply or customer')}
+            </p>
+          )}
         </div>
       )}
 
@@ -379,10 +411,10 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
         <div>
           <Group title="Upstream" rows={v.upstream || []} ticker={ticker} onSelectTicker={onSelectTicker} nameOf={nameOf}
                  hint="if one of these breaks, this company feels it"
-                 empty="Nothing evidenced yet." />
+                 empty={emptyReason(data?.coverage, 'supplier')} />
           <Group title="Downstream" rows={v.downstream || []} ticker={ticker} onSelectTicker={onSelectTicker} nameOf={nameOf}
                  hint="if this company breaks, these feel it"
-                 empty="Nothing evidenced yet." />
+                 empty={emptyReason(data?.coverage, 'customer')} />
         </div>
       )}
 
@@ -390,17 +422,17 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
         <Group title="Competitors" rows={v.competitors || []} ticker={ticker}
                onSelectTicker={onSelectTicker} nameOf={nameOf}
                hint="every one of these is a company that named this one as a competitor in its own filing — not an industry-code guess"
-               empty="None named yet." />
+               empty={emptyReason(data?.coverage, 'competitive')} />
       )}
 
       {section === 'ownership' && (
         <div>
           <Group title="Equity stakes" rows={v.ownership || []} ticker={ticker}
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="who holds whom"
-                 empty="No stake disclosed in the filings read." />
+                 empty={emptyReason(data?.coverage, 'ownership')} />
           <Group title="Partners" rows={v.partners || []} ticker={ticker}
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="joint development, licensing, co-selling"
-                 empty="None named yet." />
+                 empty={emptyReason(data?.coverage, 'partnership')} />
         </div>
       )}
 
