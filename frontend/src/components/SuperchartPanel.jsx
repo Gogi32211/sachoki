@@ -926,8 +926,13 @@ export default function SuperchartPanel({
   // threshold moved — the same reason the chart strip and this row share one rule set.
   const [physMap, setPhysMap]     = useState({})
   // rare | ra | all — same three settings as the chart strip's ⚛ selector, because the
-  // two surfaces share one rule and must share its control too
-  const [physRowMode, setPhysRowMode] = useState('rare')
+  // two surfaces share one rule and must share its control too.
+  //
+  // Defaults to 'ra', which is what this row ALWAYS showed. When the row was made
+  // mode-aware it inherited the chart strip's default of 'rare', and that silently dropped
+  // RA — the row went from 109 filled cells to 42 and looked broken. Adding a control is
+  // not licence to change what the control starts at.
+  const [physRowMode, setPhysRowMode] = useState('ra')
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
