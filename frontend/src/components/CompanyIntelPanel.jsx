@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useRef, useState } from 'react'
 
 /*
   Company Intelligence — the dependency graph around a ticker.
@@ -24,6 +24,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 
 const SECTIONS = [
   { id: 'overview',    label: 'Overview' },
+  { id: 'all',         label: 'All relationships' },
   { id: 'supply',      label: 'Supply chain' },
   { id: 'competitors', label: 'Competitors' },
   { id: 'peers',       label: 'Price · 2 months' },
@@ -243,6 +244,189 @@ function WeeklyBars({ bars, lo, hi, w = 150, h = 34 }) {
   )
 }
 
+/* Mirrors the backend's classify(). Kept deliberately tiny and in one place: the backend
+   already had this logic in two places once and they disagreed about which of NVIDIA's
+   mandated disclosures were upstream. */
+const SRC_UPSTREAM = new Set(['SUPPLIES_TO', 'PROVIDES_EQUIPMENT_TO', 'PROVIDES_MATERIAL_TO', 'MANUFACTURES_FOR'])
+const DST_UPSTREAM = new Set(['CUSTOMER_OF', 'DEPENDS_ON'])
+function classifySide(e, ticker) {
+  const upEnd = SRC_UPSTREAM.has(e.rel_type) ? e.src : DST_UPSTREAM.has(e.rel_type) ? e.dst : null
+  if (!upEnd) return 'LATERAL'
+  return upEnd === ticker ? 'DOWNSTREAM' : 'UPSTREAM'
+}
+
+const SIDE_CLS = { UPSTREAM: 'text-sky-300', DOWNSTREAM: 'text-amber-300', LATERAL: 'text-md-on-surface-var' }
+
+/* Every relationship of this company in one sortable table.
+
+   The sectioned views answer "who are the suppliers"; this answers "what do we have on
+   this company at all", which is a different question and the one you ask when you do not
+   yet know what you are looking for.
+
+   ONE ROW PER RELATIONSHIP, unlike the price table which is one row per company. A
+   company reached three ways appears three times here on purpose — the unit of this table
+   is the claim and its evidence, and merging them would hide that two of the three rest on
+   the same filing.
+
+   MODEL_PRIOR rows stay visually distinct even here, where the uniform grid is doing its
+   best to make everything look equally solid. A sortable table is the easiest place on the
+   page to lose the difference between a citation and a guess. */
+function AllTable({ edges, ticker, peers, nameOf, onSelectTicker }) {
+  const [sort, setSort] = useState({ key: 'doc_date', dir: -1 })
+  const [side, setSide] = useState('ALL')
+  const [open, setOpen] = useState(null)
+
+  const chg = {}
+  ;(peers?.rows || []).forEach(r => { chg[r.ticker] = r.change_pct })
+
+  const rows = (edges || []).map((e, i) => {
+    const other = e.src === ticker ? e.dst : e.src
+    const listed = other && !other.startsWith('CIK') && !other.startsWith('NAME:')
+    return {
+      i, e, other, listed,
+      label: listed ? other : (nameOf?.(other) || other),
+      name: listed ? (nameOf?.(other) || '') : '',
+      side: classifySide(e, ticker),
+      change: listed ? chg[other] : undefined,
+    }
+  })
+
+  const filtered = side === 'ALL' ? rows : rows.filter(r => r.side === side)
+  const sorted = [...filtered].sort((a, b) => {
+    const k = sort.key
+    const get = (r) => k === 'company' ? r.label
+      : k === 'change' ? (r.change ?? -Infinity)
+      : k === 'side' ? r.side
+      : k === 'rel' ? r.e.rel_type
+      : k === 'conf' ? ['LOW','MEDIUM','HIGH','CONFIRMED'].indexOf(r.e.confidence)
+      : r.e[k] ?? ''
+    const av = get(a), bv = get(b)
+    if (av === bv) return 0
+    return (av > bv ? 1 : -1) * sort.dir
+  })
+
+  const Th = ({ k, children, align = 'left' }) => (
+    <th className={`text-${align} font-normal py-1 cursor-pointer select-none hover:text-md-on-surface`}
+        onClick={() => setSort(s => ({ key: k, dir: s.key === k ? -s.dir : -1 }))}>
+      {children}{sort.key === k ? (sort.dir === 1 ? ' ▲' : ' ▼') : ''}
+    </th>
+  )
+
+  const counts = { ALL: rows.length }
+  rows.forEach(r => { counts[r.side] = (counts[r.side] || 0) + 1 })
+
+  return (
+    <div>
+      <div className="flex items-center gap-2 mb-2 flex-wrap">
+        {['ALL', 'UPSTREAM', 'DOWNSTREAM', 'LATERAL'].map(sd => (
+          <button key={sd} onClick={() => setSide(sd)}
+            className={`text-[11px] px-2 py-0.5 rounded border ${side === sd
+              ? 'bg-md-primary/20 border-md-primary/50 text-md-primary'
+              : 'bg-white/5 border-md-outline-var/40 text-md-on-surface-var hover:bg-white/10'}`}>
+            {sd.toLowerCase()} {counts[sd] || 0}
+          </button>
+        ))}
+        <span className="text-[11px] text-md-on-surface-var/70 ml-2">
+          one row per relationship — a company reached several ways appears several times,
+          because the unit here is the claim and its evidence
+        </span>
+      </div>
+
+      <table className="w-full text-[12px]">
+        <thead className="text-[10.5px] text-md-on-surface-var">
+          <tr className="border-b border-md-outline-var/40">
+            <Th k="company">company</Th>
+            <Th k="rel">relationship</Th>
+            <Th k="side">side</Th>
+            <th className="text-left font-normal">what</th>
+            <Th k="conf">confidence</Th>
+            <th className="text-left font-normal">source</th>
+            <Th k="doc_date">filed</Th>
+            <Th k="change" align="right">2 months</Th>
+          </tr>
+        </thead>
+        <tbody>
+          {sorted.map(r => {
+            const e = r.e
+            const prior = e.status === 'MODEL_PRIOR'
+            return (
+              <Fragment key={`${e.src}-${e.dst}-${e.rel_type}-${r.i}`}>
+                <tr onClick={() => setOpen(open === r.i ? null : r.i)}
+                    className={`border-b border-md-outline-var/20 cursor-pointer hover:bg-white/5
+                                ${prior ? 'opacity-70 italic' : ''}`}>
+                  <td className="py-1">
+                    <span className={`font-mono font-semibold ${r.listed
+                        ? 'text-md-on-surface hover:underline' : 'text-md-on-surface-var'}`}
+                      onClick={ev => { ev.stopPropagation(); r.listed && onSelectTicker?.(r.other) }}>
+                      {r.label}
+                    </span>
+                    {!r.listed && <span className="ml-1 text-[10px] text-md-on-surface-var/70">unlisted</span>}
+                    {r.name && <span className="ml-2 text-[11px] text-md-on-surface-var/60">{r.name}</span>}
+                  </td>
+                  <td className="text-md-on-surface-var" title={REL_HINT[e.rel_type] || ''}>
+                    {e.src === ticker ? '' : '← '}{REL_LABEL[e.rel_type] || e.rel_type}
+                  </td>
+                  <td className={`text-[11px] ${SIDE_CLS[r.side] || ''}`}>{r.side.toLowerCase()}</td>
+                  <td className="text-[11px] text-md-on-surface-var max-w-[220px] truncate"
+                      title={e.component || ''}>
+                    {e.component || ''}
+                    {e.share_pct != null && (
+                      <span className="ml-1 text-emerald-300 font-semibold"
+                            title={e.share_basis || 'basis not recorded'}>
+                        {e.share_pct.toFixed(1)}%
+                      </span>
+                    )}
+                  </td>
+                  <td><ConfBadge conf={e.confidence} ceiling={e.ceiling_applied} /></td>
+                  <td className="text-[10.5px] text-md-on-surface-var">
+                    {prior ? 'no source — model only' : (TIER_LABEL[e.evidence_tier] || e.evidence_tier)}
+                  </td>
+                  <td className="text-[10.5px] text-md-on-surface-var tabular-nums">{e.doc_date || ''}</td>
+                  <td className={`text-right tabular-nums font-semibold ${
+                    r.change > 0 ? 'text-emerald-400' : r.change < 0 ? 'text-rose-400'
+                                                                    : 'text-md-on-surface-var/50'}`}>
+                    {r.change == null ? '—' : `${r.change > 0 ? '+' : ''}${r.change.toFixed(1)}%`}
+                  </td>
+                </tr>
+                {open === r.i && (
+                  <tr className="border-b border-md-outline-var/20">
+                    <td colSpan={8} className="px-3 py-2 bg-md-surface-con/30">
+                      {e.quote
+                        ? <blockquote className="text-[12px] italic text-md-on-surface-var
+                                                 border-l-2 border-md-outline-var/60 pl-2.5 mb-1.5">
+                            “{e.quote}”
+                          </blockquote>
+                        : <p className="text-[12px] text-amber-300/80 mb-1.5">
+                            No quote stored — treat as unverified.
+                          </p>}
+                      <div className="flex gap-3 flex-wrap text-[11px] text-md-on-surface-var">
+                        {e.source_url
+                          ? <a href={e.source_url} target="_blank" rel="noreferrer"
+                               className="text-sky-400 hover:underline"
+                               onClick={ev => ev.stopPropagation()}>
+                              {e.source_label || 'source filing'} ↗
+                            </a>
+                          : <span className="text-zinc-500">no document — model assertion only</span>}
+                        {e.share_basis && <span>{e.share_pct?.toFixed(1)}% — {e.share_basis}</span>}
+                        {e.ceiling_applied && <span>capped from {e.claimed_confidence}</span>}
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </Fragment>
+            )
+          })}
+        </tbody>
+      </table>
+      {sorted.length === 0 && (
+        <p className="text-[12px] text-md-on-surface-var/70 italic mt-2">
+          Nothing in this slice.
+        </p>
+      )}
+    </div>
+  )
+}
+
 function PeerTable({ data, nameOf, onSelectTicker }) {
   const [shared, setShared] = useState(true)
   if (!data) return <p className="text-[12px] text-md-on-surface-var">loading…</p>
@@ -436,7 +620,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
 
   // fetched lazily: it is a second DuckDB read and most visits never open the tab
   useEffect(() => {
-    if (section !== 'peers' || !data?.ok) return
+    if ((section !== 'peers' && section !== 'all') || !data?.ok) return
     setPeers(null)
     fetch(`/api/company-intel/${data.ticker}/peers?weeks=9`)
       .then(r => r.json()).then(setPeers).catch(e => setErr(String(e)))
@@ -645,6 +829,11 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="joint development, licensing, co-selling"
                  empty={emptyReason(data?.coverage, 'partnership')} />
         </div>
+      )}
+
+      {section === 'all' && (
+        <AllTable edges={data?.edges || []} ticker={perspective} peers={peers}
+                  nameOf={nameOf} onSelectTicker={onSelectTicker} />
       )}
 
       {section === 'peers' && (
