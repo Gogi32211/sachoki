@@ -37,6 +37,8 @@ requireDown = input.bool(false, "Only after a down move",
               tooltip = "Restricts to context where a low-rejection could turn something. Off by default — measure first.")
 lookback    = input.int(5,      "…measured over N bars", minval = 2, maxval = 20)
 showLabels  = input.bool(true,  "Label the pair")
+diagnose    = input.bool(false, "Diagnose: show every bar's measurements",
+              tooltip = "Prints ▲upper% ▼lower% on each bar, and on a bar that follows a valid first bar but does NOT complete the pair, names the test that failed. Turn this on when a bar looks right and did not colour — the answer is always one of three numbers, and guessing from the picture is how the wrong threshold gets blamed.")
 
 // ── the two ends of every bar ────────────────────────────────────────────────
 rng     = high - low
@@ -83,6 +85,29 @@ if showLabels and signal and barstate.isconfirmed
       textcolor = color.white, size = size.small)
 
 barcolor(topHeavy ? color.new(color.orange, 30) : botHeavy ? color.new(color.teal, 30) : na)
+
+// ── diagnosis ────────────────────────────────────────────────────────────────
+// A bar that looks like a hammer and did not colour failed exactly one of three
+// numeric tests, and which one is not visible in the drawing — the eye reads the
+// wick against the BODY, while every test here measures it against the bar's full
+// RANGE. A candle whose lower tail dwarfs its body can still be 25% of range.
+upPct = valid ? upWick / rng * 100 : 0.0
+dnPct = valid ? dnWick / rng * 100 : 0.0
+
+if diagnose and barstate.isconfirmed
+    string why = na
+    if topHeavy[1] and not botHeavy
+        why := dnPct < minWickPct  ? "lower wick only " + str.tostring(dnPct, "#") + "% of range (need ≥" + str.tostring(minWickPct, "#") + "%)"
+             : upPct > maxOppPct   ? "upper wick " + str.tostring(upPct, "#") + "% of range (need ≤" + str.tostring(maxOppPct, "#") + "%)"
+             : dnWick < mult * upWick ? "lower ÷ upper = " + str.tostring(upWick > 0 ? dnWick / upWick : 999, "#.#") + "× (need ≥" + str.tostring(mult, "#.#") + "×)"
+             : not bodyOk          ? "body too small for the body filter"
+             : na
+    label.new(bar_index, high, yloc = yloc.abovebar,
+      text = "▲" + str.tostring(upPct, "#") + "%  ▼" + str.tostring(dnPct, "#") + "%" +
+             (na(why) ? "" : "\n✗ " + why),
+      style = label.style_label_down,
+      color = na(why) ? color.new(color.gray, 75) : color.new(color.maroon, 25),
+      textcolor = color.white, size = size.tiny)
 
 alertcondition(signal, "Wick-Flip",
      "Wick-Flip on {{ticker}} — upper-wick bar followed by lower-wick bar at {{close}}")
