@@ -427,8 +427,117 @@ function AllTable({ edges, ticker, peers, nameOf, onSelectTicker }) {
   )
 }
 
+/* All companies on ONE chart, as percent from the window's first open.
+
+   THE PROBLEM THIS SHAPE HAS TO SOLVE
+   Thirty-two lines on one axis is spaghetti — every line is drawn, none is readable, and
+   the chart looks informative while telling you nothing. Three things make it legible
+   without hiding anything:
+
+     · every line IS drawn, faintly, so the shape of the whole field is visible
+     · the target is always bold, because "where do I sit in my own ecosystem" is the
+       question the chart exists for
+     · only the extremes are labelled — the names you can actually act on — and hovering
+       any line or any table row brings that one forward
+
+   Colour is the RELATIONSHIP, not the performance: upstream sky, downstream amber,
+   lateral grey. Colouring by gain would encode in the most salient channel the one thing
+   the y-axis already says, and waste it.
+
+   Unlike the row sparklines this uses the true full range. Clipping a line chart bends
+   the path itself, which is a lie about the shape rather than a note in the margin. */
+function OverlayChart({ rows, weeks, hover, setHover, nameOf }) {
+  const W = 760, H = 260, PADL = 44, PADR = 62, PADT = 12, PADB = 22
+  if (!rows?.length || !weeks?.length) return null
+
+  const series = rows.filter(r => r.bars?.length).map(r => ({
+    ticker: r.ticker, is_target: r.is_target, side: (r.side || [])[0] || 'LATERAL',
+    pts: r.bars.map(b => (b.c / r.bars[0].o - 1) * 100),
+    change: r.change_pct,
+  }))
+  const all = series.flatMap(s => s.pts)
+  const lo = Math.min(0, ...all), hi = Math.max(0, ...all)
+  const n = Math.max(...series.map(s => s.pts.length))
+  const x = (i) => PADL + (i / Math.max(1, n - 1)) * (W - PADL - PADR)
+  const y = (v) => PADT + (1 - (v - lo) / ((hi - lo) || 1)) * (H - PADT - PADB)
+
+  const colour = (s) => s.is_target ? 'var(--md-primary)'
+    : s.side === 'UPSTREAM' ? 'rgb(125 211 252)'
+    : s.side === 'DOWNSTREAM' ? 'rgb(252 211 77)'
+    : 'rgb(148 163 184)'
+
+  const sorted = [...series].sort((a, b) => (b.change ?? 0) - (a.change ?? 0))
+  const labelled = new Set([...sorted.slice(0, 3), ...sorted.slice(-3)]
+    .map(s => s.ticker).concat(series.filter(s => s.is_target).map(s => s.ticker)))
+
+  const path = (pts) => pts.map((v, i) => `${i ? 'L' : 'M'}${x(i).toFixed(1)},${y(v).toFixed(1)}`).join('')
+  const ticks = [hi, (hi + lo) / 2, 0, lo].filter((v, i, a) => a.indexOf(v) === i)
+
+  return (
+    <svg viewBox={`0 0 ${W} ${H}`} className="w-full" style={{ maxHeight: 300 }}
+         onMouseLeave={() => setHover(null)}>
+      {ticks.map((t, i) => (
+        <g key={i}>
+          <line x1={PADL} y1={y(t)} x2={W - PADR} y2={y(t)} stroke="currentColor"
+                className={t === 0 ? 'text-md-outline-var/60' : 'text-md-outline-var/25'}
+                strokeWidth="1" strokeDasharray={t === 0 ? '' : '3 3'} />
+          <text x={PADL - 6} y={y(t) + 3} textAnchor="end" fontSize="9"
+                className="fill-current text-md-on-surface-var">{t > 0 ? '+' : ''}{t.toFixed(0)}%</text>
+        </g>
+      ))}
+      {weeks.map((w, i) => (i % 2 === 0 || i === weeks.length - 1) && (
+        <text key={w} x={x(i)} y={H - 6} textAnchor="middle" fontSize="8.5"
+              className="fill-current text-md-on-surface-var/70">{w.slice(5)}</text>
+      ))}
+
+      {/* faint first, emphasised second — so the highlighted line is never buried */}
+      {series.filter(s => !s.is_target && s.ticker !== hover).map(s => (
+        <path key={s.ticker} d={path(s.pts)} fill="none" stroke={colour(s)}
+              strokeWidth="1" opacity={hover ? 0.12 : 0.34}
+              onMouseEnter={() => setHover(s.ticker)} style={{ cursor: 'pointer' }} />
+      ))}
+      {series.filter(s => s.is_target || s.ticker === hover).map(s => (
+        <g key={s.ticker}>
+          <path d={path(s.pts)} fill="none" stroke={colour(s)}
+                strokeWidth={s.ticker === hover ? 2.4 : 2} opacity="1" />
+          <circle cx={x(s.pts.length - 1)} cy={y(s.pts[s.pts.length - 1])} r="2.6" fill={colour(s)} />
+        </g>
+      ))}
+
+      {/* Labels are nudged apart before drawing. Two companies that finish within a
+          couple of percent of each other overlap into an unreadable smear at exactly the
+          moment their closeness is the interesting fact — LCID +35% and AMBA +31% landed
+          7px apart on the first render. */}
+      {(() => {
+        const lab = series.filter(s => labelled.has(s.ticker) || s.ticker === hover)
+          .map(s => ({ s, y0: y(s.pts[s.pts.length - 1]) }))
+          .sort((a, b) => a.y0 - b.y0)
+        const MIN = 11
+        for (let i = 1; i < lab.length; i++)
+          if (lab[i].y0 - lab[i - 1].y0 < MIN) lab[i].y0 = lab[i - 1].y0 + MIN
+        return lab.map(({ s, y0 }) => {
+          const anchor = y(s.pts[s.pts.length - 1])
+          return (
+            <g key={s.ticker}>
+              {Math.abs(y0 - anchor) > 2 && (
+                <line x1={W - PADR + 1} y1={anchor} x2={W - PADR + 4} y2={y0 - 3}
+                      stroke={colour(s)} strokeWidth="0.7" opacity="0.6" />
+              )}
+              <text x={W - PADR + 5} y={y0} fontSize="9.5" fill={colour(s)}
+                    fontWeight={s.is_target || s.ticker === hover ? 700 : 500}>
+                {s.ticker} {s.change > 0 ? '+' : ''}{s.change?.toFixed(0)}%
+              </text>
+            </g>
+          )
+        })
+      })()}
+    </svg>
+  )
+}
+
 function PeerTable({ data, nameOf, onSelectTicker }) {
   const [shared, setShared] = useState(true)
+  const [hover, setHover] = useState(null)
   if (!data) return <p className="text-[12px] text-md-on-surface-var">loading…</p>
   if (!data.rows?.length)
     return <p className="text-[12px] text-md-on-surface-var/70 italic">
@@ -468,6 +577,19 @@ function PeerTable({ data, nameOf, onSelectTicker }) {
           {shared ? 'shared scale' : 'own scale'}
         </button>
       </div>
+      <div className="mb-3 rounded border border-md-outline-var/30 bg-md-surface-con/20 p-2">
+        <div className="flex items-center gap-3 text-[10.5px] text-md-on-surface-var mb-1 flex-wrap">
+          <span className="font-medium text-md-on-surface">all {data.n_priced} on one chart</span>
+          <span><span className="inline-block w-3 h-[2px] align-middle" style={{background:'var(--md-primary)'}} /> target</span>
+          <span><span className="inline-block w-3 h-[2px] align-middle bg-sky-300" /> upstream</span>
+          <span><span className="inline-block w-3 h-[2px] align-middle bg-amber-300" /> downstream</span>
+          <span><span className="inline-block w-3 h-[2px] align-middle bg-slate-400" /> lateral</span>
+          <span className="opacity-70">hover a line or a row · only the extremes are labelled</span>
+          {hover && <span className="text-md-on-surface font-mono">{hover} {nameOf?.(hover)}</span>}
+        </div>
+        <OverlayChart rows={data.rows} weeks={data.weeks} hover={hover} setHover={setHover}
+                      nameOf={nameOf} />
+      </div>
       <p className="text-[11px] text-md-on-surface-var/70 mb-2 max-w-3xl">
         {data.basis}.{shared && (
           <> Scale ±{bound.toFixed(0)}%{nClipped > 0 && (
@@ -493,7 +615,9 @@ function PeerTable({ data, nameOf, onSelectTicker }) {
             const rels = [...new Set(r.relations.map(x => REL_LABEL[x.rel_type] || x.rel_type))]
             return (
               <tr key={r.ticker}
-                  className={`border-b border-md-outline-var/20 ${r.is_target ? 'bg-md-primary/10' : ''}`}>
+                  onMouseEnter={() => setHover(r.ticker)} onMouseLeave={() => setHover(null)}
+                  className={`border-b border-md-outline-var/20 ${r.is_target ? 'bg-md-primary/10' : ''}
+                              ${hover === r.ticker ? 'bg-white/10' : ''}`}>
                 <td className="py-1">
                   <span className="font-mono font-semibold text-md-on-surface cursor-pointer hover:underline"
                         onClick={() => onSelectTicker?.(r.ticker)}>{r.ticker}</span>
