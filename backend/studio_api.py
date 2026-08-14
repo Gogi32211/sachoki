@@ -1200,7 +1200,14 @@ def get_ticker_bars(
                       -- served so the chart can show the correction rather than hide it.
                       phys_line6, phys_r, phys_regime, phys_c, phys_h,
                       phys_m, phys_e, phys_k, phys_s, phys_gap_true, phys_ad, phys_wyc,
-                      phys_k_x, phys_r_raw, phys_s_net, phys_e_release,
+                      -- ALL SIX raw measures, not the two that happened to get typed. The
+                      -- first version listed phys_k_x and phys_r_raw only, so m/e/c/h_raw
+                      -- were fully populated in the DB and arrived as empty columns in the
+                      -- CSV export — the classification letters were there, the numbers
+                      -- behind four of them were not, and an empty column reads as "this
+                      -- was never measured" rather than "this was never sent".
+                      phys_r_raw, phys_m_raw, phys_e_raw, phys_c_raw, phys_h_raw,
+                      phys_k_x, phys_s_net, phys_e_release,
                       swing_type_3, is_pivot_low_3, is_pivot_high_3,
                       w2_accum, w2_break, w2_tr_quality, wt_valid_tr,
                       CASE WHEN w2_sc=1 THEN 'SC' WHEN w2_ar=1 THEN 'AR'
