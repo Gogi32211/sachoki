@@ -940,11 +940,20 @@ export default function SuperchartPanel({
   // PERSISTED, because it is a preference and not a per-visit decision. Held only in
   // component state it reset on every reload and every ticker change, so re-selecting it
   // each time reasonably read as the setting not working.
+  // The key is versioned, and that is not decoration. Persistence was added while the
+  // default was still the sparse set, so anyone using the row at that moment had '+RA'
+  // written to storage — and a stored value beats a default. Changing the default then did
+  // nothing at all for exactly the person who had asked for the change, which is the worst
+  // possible audience for a no-op. Bumping the key retires those saved values once; every
+  // choice made from here is kept.
   const [physRowMode, setPhysRowMode] = useState(() => {
-    try { return localStorage.getItem('sc_phys_mode') || 'all' } catch { return 'all' }
+    try { return localStorage.getItem('sc_phys_mode_v2') || 'all' } catch { return 'all' }
   })
   useEffect(() => {
-    try { localStorage.setItem('sc_phys_mode', physRowMode) } catch { /* private mode */ }
+    try {
+      localStorage.setItem('sc_phys_mode_v2', physRowMode)
+      localStorage.removeItem('sc_phys_mode')
+    } catch { /* private mode */ }
   }, [physRowMode])
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
