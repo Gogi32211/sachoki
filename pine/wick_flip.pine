@@ -29,8 +29,8 @@ mult        = input.float(3.0,  "Long wick ÷ short wick, at least",  minval = 1
               tooltip = "How many times longer the dominant wick must be. 3 is strict; 2 fires far more often.")
 minWickPct  = input.float(30.0, "Dominant wick ≥ % of the bar's range", minval = 5, maxval = 90, step = 5,
               tooltip = "Stops a ratio being satisfied by two tiny tails. This is what makes it a rejection.")
-maxOppPct   = input.float(15.0, "Opposite wick ≤ % of the bar's range", minval = 0, maxval = 50, step = 5,
-              tooltip = "'Small or no wick' on the other end. 0 demands none at all.")
+maxOppPct   = input.float(25.0, "Opposite wick ≤ % of the bar's range", minval = 0, maxval = 50, step = 5,
+              tooltip = "'Small or no wick' on the other end. 0 demands none at all. Default is 25%, raised from my original 15% — twice you pointed at a bar that plainly showed the pattern and was rejected by that number, and 15% was my invention, not part of what you described.")
 minBodyPct  = input.float(0.0,  "Body ≥ % of range (0 = ignore)",   minval = 0, maxval = 80, step = 5,
               tooltip = "Optional. Above 0 this rejects dojis, whose wicks are long at both ends by construction.")
 requireDown = input.bool(false, "Only after a down move",
@@ -60,7 +60,12 @@ maxOpp  = rng * (maxOppPct  / 100.0)
 bodyOk  = minBodyPct == 0 or body >= rng * (minBodyPct / 100.0)
 
 upDominates = upWick >= mult * dnWick and upWick >= minWick and dnWick <= maxOpp
-dnDominates = dnWick >= mult * upWick and dnWick >= minWick and upWick <= maxOpp
+
+// bar-2's three tests kept separate, so a near miss can name the one that failed
+dnPctOk = dnWick >= minWick          // the lower wick is a real share of the range
+upPctOk = upWick <= maxOpp           // little or nothing above
+multOk  = dnWick >= mult * upWick    // several times longer
+dnDominates = dnPctOk and upPctOk and multOk
 
 topHeavy = valid and upDominates and bodyOk
 botHeavy = valid and dnDominates and bodyOk
@@ -85,6 +90,20 @@ if showLabels and signal and barstate.isconfirmed
       textcolor = color.white, size = size.small)
 
 barcolor(topHeavy ? color.new(color.orange, 30) : botHeavy ? color.new(color.teal, 30) : na)
+
+// ── near misses, shown by default ────────────────────────────────────────────
+// A bar that follows a valid first bar and fails exactly ONE test is the most
+// useful thing on this chart: it is where a threshold is arguable rather than
+// where the pattern is absent. Marking them keeps the disagreement on screen
+// instead of leaving a silent gap that reads as the script being broken.
+failWick = topHeavy[1] and dnPctOk == false
+failOpp  = topHeavy[1] and upPctOk == false
+failMult = topHeavy[1] and multOk  == false
+nFails   = (failWick ? 1 : 0) + (failOpp ? 1 : 0) + (failMult ? 1 : 0)
+nearMiss = topHeavy[1] and not botHeavy and nFails == 1
+
+plotshape(nearMiss, title = "near miss", style = shape.xcross, location = location.belowbar,
+          color = color.new(color.gray, 40), size = size.tiny)
 
 // ── diagnosis ────────────────────────────────────────────────────────────────
 // A bar that looks like a hammer and did not colour failed exactly one of three
