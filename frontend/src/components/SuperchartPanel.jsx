@@ -1014,11 +1014,18 @@ export default function SuperchartPanel({
             if (r?.date == null) continue
             const k = String(r.date).slice(0, 10)
             if (r.prebreak_v2 != null) m[k] = { v2: r.prebreak_v2, band: r.prebreak_v2_band }
-            ph[k] = {
-              phys_r: r.phys_r, phys_regime: r.phys_regime, phys_e: r.phys_e,
-              phys_k: r.phys_k, phys_ad: r.phys_ad, phys_gap_true: r.phys_gap_true,
-              phys_wyc: r.phys_wyc,
-            }
+            // EVERY phys_* column, copied by prefix rather than by a hand-written list.
+            //
+            // The list version carried seven fields — the ones the rare set happened to
+            // need when it was written. phys_m, phys_c, phys_h and phys_s were never
+            // fetched, so the 'all' mode read them, found undefined, and printed nothing:
+            // it claimed to show the full per-bar state while silently missing four of its
+            // nine lines, and the CSV export inherited the same hole. A hand-maintained
+            // copy list goes stale the moment a column is added and fails by omission,
+            // which is the failure mode nobody sees.
+            const ps = {}
+            for (const key in r) if (key.startsWith('phys_')) ps[key] = r[key]
+            ph[k] = ps
           }
           setV2Map(m); setPhysMap(ph)
         })
@@ -1190,10 +1197,21 @@ export default function SuperchartPanel({
       // the near-miss — far more common than a completion, and the reason the row exists.
       'DIV_R_BULL_STAGE','DIV_R_BEAR_STAGE','DIV_C_BULL_STAGE','DIV_C_BEAR_STAGE',
       'DIV_PIVOT_RSI','DIV_PIVOT_CCI','DIV_RS_INTACT',
+      // ── ⚛ physics, straight from the DB columns.
+      // Exported RAW — every field on every bar, never the ⚛ row's display filter. The
+      // filter is a reading aid for a screen; a CSV is for work done elsewhere, and a
+      // export that silently dropped three quarters of the rows to match what was on
+      // screen would be discovered as missing data long after the analysis was written.
+      'PHYS_R','PHYS_REGIME','PHYS_M','PHYS_E','PHYS_K','PHYS_C','PHYS_H','PHYS_S',
+      'PHYS_AD','PHYS_GAP_TRUE','PHYS_WYC','PHYS_LINE6',
+      'PHYS_R_RAW','PHYS_M_RAW','PHYS_E_RAW','PHYS_K_X','PHYS_C_RAW','PHYS_H_RAW',
+      'PHYS_E_RELEASE','PHYS_S_NET',
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
     const _atrArr = computeAtr14(bars)
+    // physics lives in a separate fetch keyed by date; barsPhys is bars already merged
+    const _phys = Object.fromEntries(barsPhys.map(b => [b.date, b]))
     const rows = bars.map((b, _bi) => [
       b.date,
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
@@ -1412,6 +1430,13 @@ export default function SuperchartPanel({
       b.dvr_b ?? 0, b.dvr_t ?? 0, b.dvc_b ?? 0, b.dvc_t ?? 0,
       b.dv_rlo ?? b.dv_rhi ?? '', b.dv_clo ?? b.dv_chi ?? '',
       b.dv_rs == null ? '' : (b.dv_rs ? 1 : 0),
+      ...(() => {
+        const p = _phys[b.date] || {}
+        return ['phys_r', 'phys_regime', 'phys_m', 'phys_e', 'phys_k', 'phys_c', 'phys_h',
+                'phys_s', 'phys_ad', 'phys_gap_true', 'phys_wyc', 'phys_line6',
+                'phys_r_raw', 'phys_m_raw', 'phys_e_raw', 'phys_k_x', 'phys_c_raw',
+                'phys_h_raw', 'phys_e_release', 'phys_s_net'].map(k => p[k] ?? '')
+      })(),
     ])
     const csv = [headers, ...rows]
       .map(r => r.map(v => `"${String(v ?? '').replace(/"/g, '""')}"`).join(','))
@@ -1422,7 +1447,7 @@ export default function SuperchartPanel({
     a.download = `${ticker}_${tf}_signals.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-  }, [bars, ticker, tf, v2Map])
+  }, [bars, barsPhys, ticker, tf, v2Map])
 
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
 
