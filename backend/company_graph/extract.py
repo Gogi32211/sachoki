@@ -134,6 +134,7 @@ Return JSON:
       "confidence": "LOW|MEDIUM|HIGH|CONFIRMED",
       "is_mandated_disclosure": false,
       "share_pct": null,
+      "share_basis": "",
       "quote": "<exact substring of the passage>"
     }}
   ]
@@ -147,6 +148,11 @@ Rules for the fields that decide how much this edge is trusted:
 quantifies dependence — a named customer as a percentage of revenue, a stated \
 single-source supplier, a segment concentration. Not for ordinary prose.
   share_pct            a number ONLY when the passage states a percentage; else null.
+  share_basis          WHOSE figure the percentage is, in words, taken from the passage:
+                       "28% of Fabrinet's revenue", "10% of accounts receivable".
+                       Required whenever share_pct is set. A bare percentage next to a
+                       ticker is read as that ticker's own share, which is usually the
+                       opposite of what the filing said.
 
 If the passages state several distinct relationships, return several entries. The same \
 pair of companies can legitimately be both a customer and an investee.
@@ -235,6 +241,7 @@ def extract_edges(target: dict, filer: dict, passages: list[dict],
                 claimed_confidence=(rel.get("confidence") or "MEDIUM").upper(),
                 component=(rel.get("component") or "")[:120],
                 share_pct=float(share) if share is not None else None,
+                share_basis=(rel.get("share_basis") or "")[:160],
                 valid_from=date or None,
                 extractor=EXTRACTOR_VERSION,
                 evidence=Evidence(

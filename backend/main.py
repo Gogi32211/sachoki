@@ -361,6 +361,13 @@ try:
 except Exception as _e:                                              # noqa: BLE001
     print(f"forward status surface unavailable: {_e}", flush=True)
 try:
+    # Company Intelligence — the dependency graph. Reads are instant and harvests are
+    # detached, so a first-time ticker never holds a request open for a document crawl.
+    from company_graph_api import build_router as _company_graph_router
+    app.include_router(_company_graph_router())
+except Exception as _e:                                              # noqa: BLE001
+    print(f"company intel surface unavailable: {_e}", flush=True)
+try:
     from ai_journal.api import router as ai_journal_router
     app.include_router(ai_journal_router)
 except Exception as _aij_exc:  # never block app startup on the journal

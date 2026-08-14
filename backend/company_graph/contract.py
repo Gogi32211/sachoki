@@ -161,6 +161,11 @@ class Edge:
     component: str = ""             # what flows along the edge ("HBM memory", "foundry")
     product: str = ""               # which of dst's products it feeds
     share_pct: Optional[float] = None   # only from FILING_DISCLOSURE; else None
+    # A percentage with no stated basis is worse than no percentage. Fabrinet discloses
+    # that NVIDIA is 28% of ITS revenue; rendered beside NVDA the same "28%" reads as a
+    # share of NVIDIA's spending, which is a different and much larger claim. The basis
+    # travels with the number or the number does not travel.
+    share_basis: str = ""               # e.g. "28% of Fabrinet's revenue"
     valid_from: Optional[str] = None
     extractor: str = ""             # who made this claim, so a bad extractor is revocable
 
@@ -193,6 +198,12 @@ class Edge:
                 f"share_pct={self.share_pct} on a {self.evidence.tier} edge. A revenue "
                 f"share is a mandated disclosure; from any other source it is a guess "
                 f"with a decimal point on it.")
+        if self.share_pct is not None and not self.share_basis:
+            raise ContractViolation(
+                f"share_pct={self.share_pct} with no share_basis. '28%' beside a ticker "
+                f"is read as that ticker's own share; the disclosure usually means the "
+                f"opposite side. An unlabelled percentage is a misreading waiting to be "
+                f"rendered.")
 
     @property
     def counts_toward_risk(self) -> bool:
@@ -221,6 +232,7 @@ class Edge:
             "src": self.src, "dst": self.dst, "rel_type": self.rel_type,
             "direction": self.direction, "component": self.component,
             "product": self.product, "share_pct": self.share_pct,
+            "share_basis": self.share_basis,
             "confidence": self.confidence, "status": self.status,
             "ceiling_applied": self.ceiling_applied,
             "claimed_confidence": self.claimed_confidence,
