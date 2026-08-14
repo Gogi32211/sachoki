@@ -1573,8 +1573,14 @@ export default function SuperchartPanel({
                                             : physRowMode === 'ra' ? 'rare events + absorbed effort (38%)'
                                             : 'the FULL per-bar state, as the Pine pane draws it'
                                           }. Click to cycle: rare → +RA → all. The database holds every physics field on EVERY bar; this only decides how much is printed.`}>
-                                      ⚛<span className="text-[9px] ml-px opacity-60">
-                                        {physRowMode === 'rare' ? '·' : physRowMode === 'ra' ? ':' : '⋯'}
+                                      {/* The mode is spelled out, not encoded. '· : ⋯' told
+                                          you a setting existed and not which one you were in,
+                                          so there was no way to tell "already on all" from
+                                          "the click did nothing" — and the click target was
+                                          one character wide in a narrow sticky column. */}
+                                      ⚛<span className="text-[9px] ml-0.5 px-1 py-px rounded
+                                                        bg-white/10 text-md-on-surface-var">
+                                        {physRowMode === 'rare' ? 'rare' : physRowMode === 'ra' ? '+RA' : 'all'}
                                       </span>
                                     </span>
                                   ),

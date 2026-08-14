@@ -8769,5 +8769,31 @@ def api_premarket(tickers: str = Query("", description="Comma-separated ticker l
 
 
 _static = os.path.join(os.path.dirname(__file__), "static")
+
+
+class _SpaStatic(StaticFiles):
+    """Static files, with index.html always revalidated.
+
+    Vite fingerprints every bundle (index-BmUz-Pab.js), so the ASSETS are safe to cache
+    forever — a new build is a new filename. index.html is the opposite: same URL, and the
+    only thing that names the new bundle. Served without a Cache-Control header it falls
+    under heuristic caching, and a browser can keep serving an old index.html that points
+    at an old bundle. The symptom is a frontend fix that is deployed, verified, and still
+    absent for the person looking at it — with no error anywhere and a version chip that is
+    hardcoded and therefore reassuring.
+
+    no-cache does not mean "do not store"; the ETag still saves the transfer on a 304. It
+    means "ask first", which is exactly right for the one file that must never be stale.
+    """
+
+    async def get_response(self, path, scope):
+        resp = await super().get_response(path, scope)
+        if path in ("", ".", "/", "index.html") or path.endswith("/index.html"):
+            resp.headers["Cache-Control"] = "no-cache, must-revalidate"
+        elif path.startswith("assets/"):
+            resp.headers["Cache-Control"] = "public, max-age=31536000, immutable"
+        return resp
+
+
 if os.path.isdir(_static):
-    app.mount("/", StaticFiles(directory=_static, html=True), name="static")
+    app.mount("/", _SpaStatic(directory=_static, html=True), name="static")
