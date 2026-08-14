@@ -21,6 +21,11 @@ export const api = {
   signals: (ticker, tf = '1d', bars = 150) =>
     get(`/api/signals/${ticker}?tf=${tf}&bars=${bars}`),
 
+  // per-day GEX/VRP from the forward-accumulated log — sparse by construction, see
+  // /api/gex-history: a day exists only if the ticker fired an edge that day
+  gexHistory: (ticker, days = 400) =>
+    get(`/api/gex-history/${ticker}?days=${days}`),
+
   tickerInfo: (ticker) =>
     get(`/api/ticker-info/${ticker}`),
 

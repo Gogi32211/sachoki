@@ -166,33 +166,81 @@ function VrpLine({ ticker }) {
   )
 }
 
-// ⚖️ VRP matrix row (2026-07-26, user request: after the L row): IV↔ATR-realized dissonance.
-// NO IV history exists (snapshot-only, accumulating in gex_edge_log) → only the LATEST bar
-// can show a value; earlier cells stay empty until forward history builds up.
+// ⚖️ VRP matrix row — IV↔ATR-realized dissonance, now across history.
+//
+// It showed one cell for three weeks and the comment here explained why: the options
+// provider sells a SNAPSHOT, there is no chain history to buy, so nothing could be
+// backfilled. True when written, and it stopped being true without anyone noticing —
+// gex_edge_logger has been writing a row per edge-fire since 2026-07-22 and the history
+// it was waiting for now exists. A "not yet" left in a comment does not expire on its own.
+//
+// SPARSE, AND FOR A REASON WORTH SHOWING
+// A day is captured when the ticker fired an edge that day. AAPL: 8 days of 18. So a gap
+// means NOTHING FIRED — not a holiday, not a failed fetch — and the row says so on hover
+// rather than leaving the reader to assume breakage.
 function VrpRow({ bars, ticker }) {
   const [, force] = useReducer(x => x + 1, 0)
+  const [hist, setHist] = useState(null)
   useEffect(() => { requestGex(ticker); return subscribeGex(force) }, [ticker])
+  useEffect(() => {
+    let live = true
+    setHist(null)
+    api.gexHistory(ticker).then(h => { if (live) setHist(h) }).catch(() => {})
+    return () => { live = false }
+  }, [ticker])
+
   const g = getGex(ticker)
-  const has = g && g.available && g.vrp != null
-  const st = has ? g.vrp_state : null
-  const badge = has ? (
+  const byDate = {}
+  for (const r of (hist?.rows || [])) byDate[r.date] = r
+
+  const state = (vrp) => vrp == null ? null
+    : vrp >= 1.35 ? 'EVENT-PRICED' : vrp <= 0.65 ? 'COMPLACENT' : 'BALANCED'
+
+  const chip = (vrp, st, tip) => (
     <span className="rounded px-1 font-bold" style={{ fontSize: 10,
         background: st === 'EVENT-PRICED' ? '#78350f' : st === 'COMPLACENT' ? '#4c1d95' : '#1f2937',
         color: st === 'EVENT-PRICED' ? '#fcd34d' : st === 'COMPLACENT' ? '#ddd6fe' : '#9ca3af' }}
-      title={`⚖️ VRP ${g?.vrp} — ATM IV ${g?.atm_iv}% vs ATR-realized ${g?.rv_atr}%. ${st === 'EVENT-PRICED' ? 'EVENT-PRICED: options expensive, a move is already priced in (event/earnings risk?)' : st === 'COMPLACENT' ? 'COMPLACENT: the stock actually moves MORE than options price in (cheap options)' : 'balanced'}. Snapshot-only (no IV history — accumulating forward). Descriptive, NOT a signal.`}>
-      ⚖️{g?.vrp?.toFixed(2)}
-    </span>
-  ) : null
+      title={tip}>⚖️{vrp.toFixed(2)}</span>
+  )
+
+  const cell = (b, isLast) => {
+    const key = String(b.date).slice(0, 10)
+    const h = byDate[key]
+    if (h && h.vrp != null) {
+      const st = state(h.vrp)
+      return chip(h.vrp, st, `⚖️ VRP ${h.vrp.toFixed(2)} on ${key} — ATM IV ${h.atm_iv}% vs ` +
+        `ATR-realized ${h.rv_atr}%. ${st}. GEX regime ${h.regime}` +
+        (h.edges?.length ? ` · captured because ${h.edges.join(', ')} fired that day` : '') +
+        `. Captured live at the time; options history cannot be backfilled.`)
+    }
+    // today's live snapshot, for the bar the log has not been written for yet
+    if (isLast && g?.available && g.vrp != null) {
+      return chip(g.vrp, g.vrp_state,
+        `⚖️ VRP ${g.vrp} — ATM IV ${g.atm_iv}% vs ATR-realized ${g.rv_atr}%. ${g.vrp_state}. ` +
+        `LIVE snapshot, not from the log (today has not been written yet).`)
+    }
+    return null
+  }
+
+  const captured = hist?.captured_days ?? 0
+  const label = hist
+    ? `⚖️ VRP — ATM IV ÷ ATR-realized vol. ${captured} day${captured === 1 ? '' : 's'} captured ` +
+      `for ${ticker}, out of ${hist.log_days ?? 0} the log has been running (${hist.log_from} → ${hist.log_to}). ` +
+      `A day is recorded only when this ticker fired an edge, so an empty cell means NOTHING FIRED — ` +
+      `not missing data. Options history cannot be bought, only accumulated forward. ` +
+      `Amber = EVENT-PRICED (≥1.35) · violet = COMPLACENT (≤0.65). Descriptive, not a signal.`
+    : '⚖️ VRP — loading captured history…'
+
   return (
     <tr className="border-t border-white/[0.06] hover:bg-md-surface-high/20">
       <td className="sticky left-0 z-10 bg-md-surface-con text-md-on-surface-var px-1 text-right
                      border-r border-white/[0.08] font-mono whitespace-nowrap"
           style={{ width: HDR_W, minWidth: HDR_W, fontSize: 12, lineHeight: 1 }}
-          title="⚖️ VRP — options implied vol (ATM IV) ÷ ATR-realized vol. Amber = EVENT-PRICED (≥1.3, options expensive / move priced in) · violet = COMPLACENT (≤0.75, stock moves more than options price in). Only TODAY's bar has a value — no IV history exists yet (accumulating forward in gex_edge_log). Descriptive, not a signal.">⚖️</td>
+          title={label}>⚖️<span className="text-[9px] opacity-60">{captured || ''}</span></td>
       {bars.map((b, i) => (
         <td key={i} className="px-0 py-px text-center border-r border-white/[0.05]"
             style={{ width: CELL_W, minWidth: CELL_W }}>
-          {i === bars.length - 1 ? badge : null}
+          {cell(b, i === bars.length - 1)}
         </td>
       ))}
     </tr>

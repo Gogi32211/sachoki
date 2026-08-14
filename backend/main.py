@@ -458,6 +458,67 @@ def api_gex(ticker: str, max_dte: int = 60, expiration: str = None, source: str 
         return {"available": False, "ticker": ticker.upper(), "error": str(e)}
 
 
+@app.get("/api/gex-history/{ticker}")
+def api_gex_history(ticker: str, days: int = 400):
+    """Per-day GEX/VRP for one ticker, from the forward-accumulated log.
+
+    The options provider sells a SNAPSHOT — there is no historical chain to buy, so this
+    history cannot be backfilled and exists only because gex_edge_logger has been writing
+    one row per edge-fire since 2026-07-22.
+
+    WHICH MAKES IT SPARSE, AND SPARSE IN A PARTICULAR WAY
+    A day is present when this ticker fired an edge that day, and absent otherwise. So a
+    missing day means "nothing fired", not "the market was shut" and not "the fetch
+    failed". That distinction has to survive the trip to the UI or the gaps get read as
+    breakage, which is why `captured_days` and the log's own start date travel with the
+    rows.
+
+    Several edges can fire on one day and they share the ticker's GEX for that day, so
+    rows are collapsed per date with the edge names kept.
+    """
+    import pandas as pd                                               # noqa: PLC0415
+    from studio.paths import PROJECT_ROOT                             # noqa: PLC0415
+
+    ticker = ticker.upper().strip()
+    path = os.path.join(PROJECT_ROOT, "data", "gex_edge_log.parquet")
+    if not os.path.exists(path):
+        return {"ticker": ticker, "available": False,
+                "reason": "no gex_edge_log yet — nothing has been captured"}
+    try:
+        df = pd.read_parquet(path)
+        log_from, log_to = str(df["date"].min()), str(df["date"].max())
+        total_days = int(df["date"].nunique())
+        d = df[df["ticker"] == ticker]
+        if not len(d):
+            return {"ticker": ticker, "available": True, "rows": [], "captured_days": 0,
+                    "log_from": log_from, "log_to": log_to, "log_days": total_days,
+                    "note": "this ticker has never fired an edge while the log was running"}
+
+        cols = ["vrp", "atm_iv", "rv_atr", "regime", "net_gex", "spot",
+                "gamma_flip", "dist_flip", "power_zone", "call_wall", "put_wall",
+                "max_pain", "total_oi"]
+        cols = [c for c in cols if c in d.columns]
+        rows = []
+        for date, g in d.groupby("date"):
+            first = g.iloc[0]
+            row = {"date": str(date)[:10],
+                   "edges": sorted({str(e) for e in g["edge"].dropna()})}
+            for c in cols:
+                v = first[c]
+                row[c] = None if pd.isna(v) else (float(v) if hasattr(v, "item") and
+                                                  not isinstance(v, str) else v)
+            rows.append(row)
+        rows.sort(key=lambda r: r["date"])
+        return {"ticker": ticker, "available": True, "rows": rows[-days:],
+                "captured_days": len(rows), "log_from": log_from, "log_to": log_to,
+                "log_days": total_days,
+                "note": "a day is present only if this ticker fired an edge that day — "
+                        "a gap means nothing fired, not missing data"}
+    except Exception as exc:                                          # noqa: BLE001
+        log.warning("api_gex_history %s failed: %s", ticker, exc)
+        return {"ticker": ticker, "available": False, "reason": str(exc)}
+
+
 @app.get("/api/gex-batch")
 def api_gex_batch(tickers: str, max_dte: int = 45, cap: int = 30):
     """Compact GEX regime for many tickers at once (Edge board / scanner badges).
