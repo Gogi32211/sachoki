@@ -99,7 +99,7 @@ function EdgeRow({ e, ticker, onSelectTicker, nameOf }) {
   return (
     <div className={`border rounded-md mb-1.5 ${prior
       ? 'border-dashed border-zinc-700 bg-zinc-900/30'
-      : 'border-md-outline-var/40 bg-md-surface-2/40'}`}>
+      : 'border-md-outline-var/40 bg-md-surface-con/40'}`}>
       <button
         onClick={() => setOpen(o => !o)}
         className="w-full text-left px-2.5 py-2 flex items-center gap-2 flex-wrap hover:bg-white/5"
@@ -184,10 +184,12 @@ function EdgeRow({ e, ticker, onSelectTicker, nameOf }) {
    An empty state is a claim about the world, so it has to be derived from coverage rather
    than written once and reused. */
 function emptyReason(cov, kind) {
-  if (!cov?.harvested) return `Nothing harvested yet — press “Harvest filings” to search SEC for companies that name this one.`
+  if (!cov?.harvested) return `Reading SEC filings for this company — nothing to show yet. This takes under a minute and the page fills in as it goes.`
   if (cov.filers_not_read > 0)
     return `No ${kind} among the ${cov.filers_read} filers read. ${cov.filers_not_read} more named this company and were not read — this is a gap in coverage, not a finding.`
-  return `None found. All ${cov.filers_naming_target} filers that named this company were read, and none of them stated a ${kind} relationship. That is a finding about what companies disclose, not a gap.`
+  if (!cov.filers_naming_target)
+    return `No other SEC filer named this company in the search window, and its own annual report named no ${kind}. For a small or newly listed company that is common — most of its counterparties simply do not file with the SEC.`
+  return `None found. All ${cov.filers_naming_target} filers that named this company were read, and none stated a ${kind} relationship. That is a finding about what companies disclose, not a gap.`
 }
 
 function Group({ title, hint, rows, ticker, onSelectTicker, empty, nameOf }) {
@@ -225,7 +227,9 @@ function CoverageStrip({ cov, progress, running }) {
         </div>
       )}
       {!cov.harvested ? (
-        <span>{cov.note}</span>
+        <span>{running
+          ? 'Reading SEC filings for this company — the graph fills in as they are read.'
+          : cov.note}</span>
       ) : (
         <>
           <span className="font-medium">
@@ -280,12 +284,30 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
     if (t) { setTicker(t); setSection('overview') }
   }
 
-  const harvest = () => {
-    fetch(`/api/company-intel/${ticker}/build`, {
+  const harvest = useCallback((tk) => {
+    fetch(`/api/company-intel/${tk || ticker}/build`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ lookback_days: 400, max_candidates: 40 }),
-    }).then(() => load(ticker)).catch(e => setErr(String(e)))
-  }
+    }).then(() => load(tk || ticker)).catch(e => setErr(String(e)))
+  }, [ticker, load])
+
+  // A ticker nobody has harvested yet renders a profile and nothing else, and "nothing
+  // else" is indistinguishable from "this company has no relationships" no matter how the
+  // empty state is worded. Typing a ticker is the request; making the user press a second
+  // button to get an answer was a design mistake, not a safeguard.
+  //
+  // Auto-starting is safe here only because harvesting is detached: the POST returns
+  // immediately, the profile is already on screen, and progress streams in. It fires once
+  // per ticker, on an explicit Load, and only when SEC resolved the ticker — a typo never
+  // reaches it, so a mistyped symbol cannot spend a harvest.
+  const autoStarted = useRef(new Set())
+  useEffect(() => {
+    if (!data?.ok || !data.profile) return
+    const tk = data.ticker
+    if (data.coverage?.harvested || data.harvesting || autoStarted.current.has(tk)) return
+    autoStarted.current.add(tk)
+    harvest(tk)
+  }, [data, harvest])
 
   const p = data?.profile
   const v = data?.views || {}
@@ -320,8 +342,9 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
         <input
           value={input} onChange={e => setInput(e.target.value)}
           placeholder="ticker"
-          className="w-28 px-2 py-1 rounded bg-md-surface-2 border border-md-outline-var/50
-                     text-md-on-surface font-mono text-sm uppercase"
+          className="w-28 px-2 py-1 rounded bg-md-surface-high border border-md-outline-var/50
+                     text-md-on-surface placeholder:text-md-on-surface-var/60
+                     font-mono text-sm uppercase focus:outline-none focus:border-md-primary/60"
         />
         <button type="submit"
           className="px-3 py-1 rounded bg-md-primary/20 border border-md-primary/40
@@ -393,9 +416,9 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
               which made the landing screen blank for any company whose relationships are
               mostly equity stakes and partnerships — UMAC held 7 relationships and the
               Overview showed 1. The tabs below still slice it; this is the whole picture. */}
-          {totalEdges === 0 && (
+          {totalEdges === 0 && !data?.harvesting && (
             <p className="text-[12px] text-md-on-surface-var/80 italic mb-4">
-              {emptyReason(data?.coverage, 'relationship')}
+              {emptyReason(data?.coverage, 'relationship of any kind')}
             </p>
           )}
           {[['Upstream — this company depends on them', v.upstream,
@@ -411,7 +434,10 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
              <Group key={title} title={title} rows={rows} hint={hint} ticker={perspective}
                     onSelectTicker={onSelectTicker} nameOf={nameOf} empty="" />
            ))}
-          {totalEdges > 0 && (v.upstream?.length || 0) + (v.downstream?.length || 0) === 0 && (
+          {/* suppressed while harvesting: the line explains an ABSENCE, and mid-run it
+              contradicted the rows already on screen above it */}
+          {!data?.harvesting && totalEdges > 0
+            && (v.upstream?.length || 0) + (v.downstream?.length || 0) === 0 && (
             <p className="text-[11.5px] text-md-on-surface-var/70 max-w-3xl mt-2">
               {emptyReason(data?.coverage, 'supply or customer')}
             </p>
@@ -485,7 +511,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
               ['upstream dependencies', risk.upstream_dependencies],
               ['mandated disclosures', risk.mandated_disclosures?.length || 0],
               ['unverified (model only)', risk.model_prior_edges]].map(([k, n]) => (
-              <div key={k} className="px-2.5 py-2 rounded border border-md-outline-var/40 bg-md-surface-2/40">
+              <div key={k} className="px-2.5 py-2 rounded border border-md-outline-var/40 bg-md-surface-con/40">
                 <div className="text-lg font-semibold text-md-on-surface">{n}</div>
                 <div className="text-[11px] text-md-on-surface-var">{k}</div>
               </div>

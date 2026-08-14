@@ -124,6 +124,12 @@ def _coverage(run: Optional[dict]) -> dict:
     if not run:
         return {"harvested": False,
                 "note": "nothing harvested yet — the graph below is empty, not sparse"}
+    # A RUNNING row has null counters. Reporting it as harvested made the page state
+    # "all 0 filers were read and none stated a relationship" — a confident conclusion
+    # drawn from a run that had not finished its first document.
+    if run.get("status") == "RUNNING":
+        return {"harvested": False, "in_progress": True,
+                "note": "reading SEC filings now — counts appear as documents are read"}
     processed = run.get("n_processed") or 0
     found = run.get("n_candidates") or 0
     return {
