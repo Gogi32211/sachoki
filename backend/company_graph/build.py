@@ -36,7 +36,7 @@ from concurrent.futures import ThreadPoolExecutor, as_completed
 
 from company_graph import harvest_sec as H
 from company_graph import store
-from company_graph.extract import extract_edges
+from company_graph.extract import extract_edges, extract_self_edges
 
 log = logging.getLogger(__name__)
 
@@ -99,6 +99,66 @@ def _one(target: dict, c: dict, needle: str) -> dict:
                 "skipped": f"{type(exc).__name__}: {exc}"[:160]}
 
 
+# Where a company describes its own world. "Competition" is a required part of Item 1, so
+# every operating company has one; the others are common section headings rather than
+# guaranteed ones.
+SELF_NEEDLES = ["Competition", "we compete", "our suppliers", "principal suppliers",
+                "our customers", "significant customers", "sole source", "single source"]
+
+
+def harvest_self(prof: dict) -> dict:
+    """Read the target's OWN latest annual report for the companies IT names.
+
+    The co-mention search only ever finds companies that wrote this one's name down. That
+    is the wrong half of the world for a small company: Unusual Machines' own 10-K names
+    DJI, T-Motor, Orqa, ModalAI and ARK Electronics as its competitors, none of them files
+    with the SEC, and the page therefore showed zero competitors for a company that had
+    just listed five.
+
+    The target's own filings were being actively discarded — 171 of them on UMAC, dropped
+    as 'self' — while the section that answers "who do you compete with" sat inside them.
+    """
+    cik = prof.get("cik")
+    if not cik:
+        return {"edges": [], "rejected": [], "error": "no cik"}
+    sub = H.submissions(cik)
+    if not sub:
+        return {"edges": [], "rejected": [], "error": "submissions unavailable"}
+
+    rec = (sub.get("filings") or {}).get("recent") or {}
+    forms_ = rec.get("form") or []
+    # the annual report, because Item 1 Business is where Competition lives; a 10-Q has
+    # no such section and searching one finds only XBRL noise
+    idx = next((i for i, f in enumerate(forms_) if f in ("10-K", "20-F", "40-F")), None)
+    if idx is None:
+        return {"edges": [], "rejected": [], "error": "no annual report on record"}
+
+    url = H.document_url(cik, rec["accessionNumber"][idx], rec["primaryDocument"][idx])
+    date = rec["filingDate"][idx]
+    form = forms_[idx]
+
+    seen, passages = set(), []
+    for needle in SELF_NEEDLES:
+        ex = H.extract_passages(url, needle, window=760, max_passages=2)
+        for ps in ex.get("passages", []):
+            # windows around different needles overlap constantly in a 10-K
+            bucket = ps["offset"] // 900
+            if bucket not in seen:
+                seen.add(bucket)
+                passages.append(ps)
+        if len(passages) >= 6:
+            break
+
+    if not passages:
+        return {"edges": [], "rejected": [], "url": url, "form": form, "date": date,
+                "error": "no matching sections found in the annual report"}
+
+    res = extract_self_edges({"name": prof.get("name"), "ticker": prof.get("ticker")},
+                             passages, form=form, date=date, url=url)
+    res.update({"url": url, "form": form, "date": date, "n_passages": len(passages)})
+    return res
+
+
 def build_graph(ticker: str, forms: tuple = DEFAULT_FORMS, lookback_days: int = DEFAULT_LOOKBACK_DAYS,
                 max_candidates: int = 40, pages: int = 3) -> dict:
     """Harvest one ticker end to end. Blocking; call via `build_async` from a request."""
@@ -123,7 +183,15 @@ def build_graph(ticker: str, forms: tuple = DEFAULT_FORMS, lookback_days: int = 
             return {"ok": False, "error": f"{ticker} not found in SEC ticker index"}
         store.upsert_entity(prof, is_target=True)
 
-        _set(ticker, phase="searching", profile=prof.get("name"))
+        _set(ticker, phase="own filing", profile=prof.get("name"))
+        self_res = harvest_self(prof)
+        self_edges = self_res.get("edges") or []
+        if self_edges:
+            store.save_edges(ticker, self_edges, tier=0)
+        _set(ticker, edges=len(self_edges), self_edges=len(self_edges),
+             unlisted=len(self_res.get("unlisted") or []))
+
+        _set(ticker, phase="searching")
         found = H.candidate_filers(prof["search_names"], prof["cik"], forms=forms,
                                    start=start, end=end, pages=pages)
         if not found.get("ok"):
@@ -145,7 +213,8 @@ def build_graph(ticker: str, forms: tuple = DEFAULT_FORMS, lookback_days: int = 
         # search the passages for the spelling most likely to appear in prose
         needle = prof["search_names"][-1] if prof["search_names"] else prof["name"]
 
-        all_edges, all_rej, skipped, done = [], [], [], 0
+        all_edges, all_rej = [], list(self_res.get("rejected") or [])
+        skipped, done = [], 0
         with ThreadPoolExecutor(max_workers=MAX_WORKERS) as pool:
             futs = {pool.submit(_one, target, c, needle): c for c in cands}
             for fut in as_completed(futs):
@@ -166,15 +235,19 @@ def build_graph(ticker: str, forms: tuple = DEFAULT_FORMS, lookback_days: int = 
                 _set(ticker, done=done, edges=len(all_edges), rejected=len(all_rej))
 
         store.save_edges(ticker, all_edges, tier=1)
+        total_edges = len(all_edges) + len(self_edges)
         store.finish_run(run_id, status="OK", n_documents=n_docs, n_candidates=n_found,
-                         n_processed=len(cands), n_edges=len(all_edges),
+                         n_processed=len(cands), n_edges=total_edges,
                          n_rejected=len(all_rej), rejections=all_rej[:50])
-        _set(ticker, phase="done", done=done, edges=len(all_edges),
+        _set(ticker, phase="done", done=done, edges=total_edges,
              seconds=round(time.time() - t0, 1))
 
         return {"ok": True, "ticker": ticker, "run_id": run_id,
                 "documents": n_docs, "candidates": n_found, "processed": len(cands),
-                "capped": capped, "edges": len(all_edges), "rejected": len(all_rej),
+                "capped": capped, "edges": total_edges, "rejected": len(all_rej),
+                "self": {k: self_res.get(k) for k in
+                         ("form", "date", "url", "n_passages", "unlisted", "error")}
+                       | {"edges": len(self_edges)},
                 "skipped": skipped, "per_variant": found["per_variant"],
                 "dropped": found["dropped"], "seconds": round(time.time() - t0, 1)}
     except Exception as exc:                                          # noqa: BLE001

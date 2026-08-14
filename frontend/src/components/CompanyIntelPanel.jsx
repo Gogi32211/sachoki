@@ -86,11 +86,13 @@ function ConfBadge({ conf, ceiling }) {
 function EdgeRow({ e, ticker, onSelectTicker, nameOf }) {
   const [open, setOpen] = useState(false)
   const other = e.src === ticker ? e.dst : e.src
-  // Unlisted filers have no ticker and are stored as CIK<digits>. They are kept rather
-  // than dropped — a private single-source supplier is exactly the dependency worth
-  // knowing about — but a bare CIK is not a name, so resolve it to one.
+  // Two kinds of node have no ticker and both are worth keeping. CIK<digits> is an SEC
+  // filer with no listed shares; NAME:<text> is a company named inside someone's filing
+  // that is not registered with the SEC at all — DJI, T-Motor, Orqa. The most important
+  // competitor a small manufacturer has is routinely private, and dropping it because it
+  // is not tradeable would be measuring what is convenient rather than what is true.
   const otherName = nameOf?.(other)
-  const listed = other && !other.startsWith('CIK')
+  const listed = other && !other.startsWith('CIK') && !other.startsWith('NAME:')
   const forward = e.src === ticker
   const prior = e.status === 'MODEL_PRIOR'
 
@@ -200,7 +202,7 @@ function Group({ title, hint, rows, ticker, onSelectTicker, empty, nameOf }) {
         ? <p className="text-[12px] text-md-on-surface-var/70 italic">{empty}</p>
         : rows.map((e, i) => (
             <EdgeRow key={`${e.src}-${e.dst}-${e.rel_type}-${i}`} e={e} nameOf={nameOf}
-                     ticker={ticker} onSelectTicker={onSelectTicker} nameOf={nameOf} />
+                     ticker={ticker} onSelectTicker={onSelectTicker} />
           ))}
     </div>
   )
@@ -290,9 +292,19 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
   const risk = data?.risk
   const totalEdges = data?.edges?.length || 0
 
+  // The perspective ticker comes from the LOADED DATA, never from the input box.
+  //
+  // Every row is drawn as "the other company", computed as src === ticker ? dst : src.
+  // While a new ticker loads, the previous company's edges are still on screen — and with
+  // the new ticker as the perspective, NVIDIA's own rows started rendering NVDA as their
+  // own counterparty: "NVDA ← buys from 10.2% of FormFactor's revenues". A page built to
+  // avoid misleading readings cannot afford one during every load.
+  const perspective = data?.ticker || ticker
+
   // ticker -> name, and CIK<digits> -> name for filers that have no ticker at all
   const nameOf = useCallback((code) => {
     if (!code || !data) return ''
+    if (code.startsWith('NAME:')) return code.slice(5)
     if (code.startsWith('CIK')) {
       const cik = code.slice(3)
       const hit = (data.entities || []).find(x => x.cik === cik || Number(x.cik) === Number(cik))
@@ -396,7 +408,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
             ['Partners', v.partners, 'joint development, licensing, co-selling', 'partnership'],
           ].filter(([, rows]) => (rows || []).length > 0)
            .map(([title, rows, hint]) => (
-             <Group key={title} title={title} rows={rows} hint={hint} ticker={ticker}
+             <Group key={title} title={title} rows={rows} hint={hint} ticker={perspective}
                     onSelectTicker={onSelectTicker} nameOf={nameOf} empty="" />
            ))}
           {totalEdges > 0 && (v.upstream?.length || 0) + (v.downstream?.length || 0) === 0 && (
@@ -409,17 +421,17 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
 
       {section === 'supply' && (
         <div>
-          <Group title="Upstream" rows={v.upstream || []} ticker={ticker} onSelectTicker={onSelectTicker} nameOf={nameOf}
+          <Group title="Upstream" rows={v.upstream || []} ticker={perspective} onSelectTicker={onSelectTicker} nameOf={nameOf}
                  hint="if one of these breaks, this company feels it"
                  empty={emptyReason(data?.coverage, 'supplier')} />
-          <Group title="Downstream" rows={v.downstream || []} ticker={ticker} onSelectTicker={onSelectTicker} nameOf={nameOf}
+          <Group title="Downstream" rows={v.downstream || []} ticker={perspective} onSelectTicker={onSelectTicker} nameOf={nameOf}
                  hint="if this company breaks, these feel it"
                  empty={emptyReason(data?.coverage, 'customer')} />
         </div>
       )}
 
       {section === 'competitors' && (
-        <Group title="Competitors" rows={v.competitors || []} ticker={ticker}
+        <Group title="Competitors" rows={v.competitors || []} ticker={perspective}
                onSelectTicker={onSelectTicker} nameOf={nameOf}
                hint="every one of these is a company that named this one as a competitor in its own filing — not an industry-code guess"
                empty={emptyReason(data?.coverage, 'competitive')} />
@@ -427,10 +439,10 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
 
       {section === 'ownership' && (
         <div>
-          <Group title="Equity stakes" rows={v.ownership || []} ticker={ticker}
+          <Group title="Equity stakes" rows={v.ownership || []} ticker={perspective}
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="who holds whom"
                  empty={emptyReason(data?.coverage, 'ownership')} />
-          <Group title="Partners" rows={v.partners || []} ticker={ticker}
+          <Group title="Partners" rows={v.partners || []} ticker={perspective}
                  onSelectTicker={onSelectTicker} nameOf={nameOf} hint="joint development, licensing, co-selling"
                  empty={emptyReason(data?.coverage, 'partnership')} />
         </div>
@@ -544,7 +556,7 @@ export default function CompanyIntelPanel({ onSelectTicker }) {
             needs and who might provide it — useful as a list of things to go and look for,
             and not usable as findings. They are excluded from every count in Risk.
           </div>
-          <Group title="Unverified" rows={v.model_priors || []} ticker={ticker}
+          <Group title="Unverified" rows={v.model_priors || []} ticker={perspective}
                  onSelectTicker={onSelectTicker} nameOf={nameOf}
                  hint="hypotheses, not relationships"
                  empty="No hypotheses generated yet." />

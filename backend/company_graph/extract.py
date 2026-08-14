@@ -160,6 +160,148 @@ If none, return {{"relationships": []}}.
 """
 
 
+SELF_SYSTEM = """\
+You read a company's OWN SEC filing and report the other companies it names, and how it \
+says it stands to them.
+
+Report ONLY companies named in the passage. Do not add companies you know about, do not \
+complete a list the filing left partial, do not expand "and others". If the filing names \
+four competitors, report four.
+
+NEVER output a ticker symbol. You do not know which listed company a name refers to and \
+guessing is the single most damaging error available here — a wrong ticker attaches a \
+real quote to the wrong company. Report the name exactly as the filing writes it and \
+nothing else.
+
+Every entry must include `quote`: an EXACT substring of the passage, copied character for \
+character. Entries whose quote is not found verbatim are discarded.
+
+Respond with valid JSON only."""
+
+_SELF_PROMPT = """\
+THIS COMPANY (author of the filing): {name}{tick}
+
+PASSAGES FROM ITS OWN {form} filed {date}:
+{passages}
+
+Relationship vocabulary, from THIS COMPANY's point of view:
+  COMPETES_WITH         it and the named company sell into the same demand
+  SUPPLIES_TO           it sells the named company goods or services
+  CUSTOMER_OF           it buys from the named company
+  PROVIDES_EQUIPMENT_TO / PROVIDES_MATERIAL_TO / MANUFACTURES_FOR
+  PARTNER_OF            joint development, licensing, co-selling
+  OWNS                  it holds equity in the named company
+  DEPENDS_ON            a dependency it states with no more specific type
+
+Return JSON:
+{{
+  "relationships": [
+    {{
+      "other_name": "<company name EXACTLY as the filing writes it — never a ticker>",
+      "rel_type": "<one of the above>",
+      "component": "<what the relationship is about, if named; else \\"\\">",
+      "confidence": "LOW|MEDIUM|HIGH",
+      "quote": "<exact substring of the passage>"
+    }}
+  ]
+}}
+
+A company's own competition section is a good source for WHO it treats as a rival and \
+a poor source for who dominates — treat marketing claims about leadership as LOW. If the \
+passage names no other company, return {{"relationships": []}}.
+"""
+
+
+def extract_self_edges(target: dict, passages: list[dict], form: str = "",
+                       date: str = "", url: str = "", model: str | None = None) -> dict:
+    """Read the target's OWN filing for the companies IT names.
+
+    The inbound half of the graph — who writes this company's name down — misses everyone
+    who simply never mentions it, and that turns out to be most of a small company's
+    world. Unusual Machines' own 10-K names DJI, T-Motor, Orqa, ModalAI and ARK
+    Electronics as its competitors. Not one of them files with the SEC, so not one could
+    ever appear via co-mention, and the page showed zero competitors for a company that
+    had just listed five.
+
+    NAMES COME FROM THE MODEL, TICKERS NEVER DO
+    In the inbound direction the counterparty is fixed by EDGAR's filer index and the
+    model only classifies. Here there is no index entry — the company being named may be
+    private, foreign, or a subsidiary — so the model must read a name out of the prose.
+    That is safe, because the quote gate still applies and the name has to sit in the
+    quoted sentence.
+
+    Resolving that name to a TICKER is done afterwards, by lookup against SEC's own table,
+    never by the model. A guessed ticker would attach a real quote to the wrong listed
+    company, which is the most damaging single error this page could make. Names that do
+    not resolve are kept as unlisted nodes — DJI dominating the drone market is worth
+    knowing precisely because it is not investable.
+    """
+    from claude_client import ask                                     # noqa: PLC0415
+    from company_graph.harvest_sec import resolve_name                # noqa: PLC0415
+
+    if not passages:
+        return {"edges": [], "rejected": [], "n_passages": 0, "error": "no passages"}
+
+    joined = "\n\n---\n\n".join(p["text"] for p in passages)
+    prompt = _SELF_PROMPT.format(
+        name=target.get("name", ""),
+        tick=f" ({target['ticker']})" if target.get("ticker") else "",
+        form=form or "filing", date=date or "", passages=joined)
+
+    raw = ask(prompt, system=SELF_SYSTEM, max_tokens=2000, model=model or _MODEL)
+    if raw is None:
+        return {"edges": [], "rejected": [], "n_passages": len(passages),
+                "error": "model unavailable"}
+    data = _parse_json(raw)
+    if not data or "relationships" not in data:
+        return {"edges": [], "rejected": [], "n_passages": len(passages),
+                "error": "unparseable model output", "raw": (raw or "")[:400]}
+
+    haystack = _norm(joined)
+    edges, rejected, unlisted = [], [], []
+
+    for rel in data.get("relationships") or []:
+        quote = (rel.get("quote") or "").strip()
+        other = (rel.get("other_name") or "").strip()
+        if not other:
+            rejected.append({"reason": "no company named", "quote": quote[:120]})
+            continue
+        if not quote or _norm(quote) not in haystack:
+            rejected.append({"reason": "quote not found in passages",
+                             "rel_type": rel.get("rel_type"), "quote": quote[:200]})
+            continue
+        # the named company must appear in its own quote, or the quote supports something else
+        if _norm(other.split(",")[0].split("(")[0])[:14] not in _norm(quote):
+            rejected.append({"reason": f"named company {other!r} absent from its own quote",
+                             "quote": quote[:160]})
+            continue
+
+        hit = resolve_name(other)
+        node = hit.get("ticker") if hit else None
+        dst = node or f"NAME:{other[:60]}"
+        if not node:
+            unlisted.append(other)
+
+        try:
+            edges.append(Edge(
+                src=target["ticker"], dst=dst,
+                rel_type=rel.get("rel_type", ""),
+                claimed_confidence=(rel.get("confidence") or "MEDIUM").upper(),
+                component=(rel.get("component") or "")[:120],
+                valid_from=date or None, extractor=EXTRACTOR_VERSION + "/self",
+                evidence=Evidence(
+                    tier="FILING_MENTION", source_url=url,
+                    source_label=f"{target.get('ticker','')} {form} {date}".strip(),
+                    quote=quote, doc_date=date or None),
+            ))
+        except (ContractViolation, ValueError, TypeError) as exc:
+            rejected.append({"reason": f"contract: {exc}", "quote": quote[:160]})
+
+    return {"edges": edges, "rejected": rejected, "unlisted": unlisted,
+            "n_passages": len(passages), "model": model or _MODEL,
+            "extractor": EXTRACTOR_VERSION + "/self"}
+
+
 def _parse_json(txt: str) -> Optional[dict]:
     if not txt:
         return None

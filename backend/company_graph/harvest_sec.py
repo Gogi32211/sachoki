@@ -263,7 +263,8 @@ def ticker_map(retries: int = 3) -> dict[str, dict]:
                 for row in r.json().values():
                     t = (row.get("ticker") or "").upper()
                     if t:
-                        out[t] = {"cik": str(row.get("cik_str", "")).zfill(10),
+                        out[t] = {"ticker": t,
+                                  "cik": str(row.get("cik_str", "")).zfill(10),
                                   "name": row.get("title", "")}
                 if out:
                     _ticker_map = out
@@ -277,6 +278,53 @@ def ticker_map(retries: int = 3) -> dict[str, dict]:
 
 def resolve(ticker: str) -> Optional[dict]:
     return ticker_map().get(ticker.upper())
+
+
+# ── name → ticker ─────────────────────────────────────────────────────────────
+# A company's own filing names its competitors in prose — "T-Motor, Orqa, ModalAI" — with
+# no ticker and no CIK. Turning those words into a listed company is the step that must
+# never be guessed, so it is a lookup against SEC's own registry, keyed by NAME.
+_name_index: dict[str, dict] | None = None
+_name_lock = threading.Lock()
+
+_NAME_NOISE = re.compile(
+    r"\b(inc|incorporated|corp|corporation|co|company|ltd|limited|plc|holdings?|group|"
+    r"technologies|technology|the|sa|nv|ag|se|ab|lp|llc)\b\.?", re.I)
+
+
+def _norm_name(s: str) -> str:
+    s = (s or "").lower().replace("&", "and")
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = _NAME_NOISE.sub(" ", s)
+    return re.sub(r"\s+", " ", s).strip()
+
+
+def name_index() -> dict[str, dict]:
+    global _name_index
+    with _name_lock:
+        if _name_index is None:
+            idx: dict[str, dict] = {}
+            for row in ticker_map().values():
+                k = _norm_name(row.get("name", ""))
+                # first registrant wins; SEC lists share classes under the same name and
+                # the alternative is picking one arbitrarily on every lookup
+                if k and k not in idx:
+                    idx[k] = row
+            _name_index = idx
+        return _name_index
+
+
+def resolve_name(name: str) -> Optional[dict]:
+    """A company NAME to its SEC registration, or None. Exact on the normalised form only.
+
+    Deliberately strict. Fuzzy matching here would occasionally attach a real quotation
+    about one company to a different listed company's row — the most damaging error this
+    page can make, and one that looks entirely credible because the citation is genuine.
+    Failing to resolve merely leaves the node unlisted, which is the safe direction.
+    """
+    if not name:
+        return None
+    return name_index().get(_norm_name(name))
 
 
 # ── the filer's own profile ───────────────────────────────────────────────────
