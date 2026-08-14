@@ -434,14 +434,33 @@ const ROWS = [
     // bar marks nothing.
     key: 'phys',
     label: '⚛',
-    getSigs: (b) => {
+    // `mode` is injected at render from the ⚛ selector, so this row and the chart strip
+    // stay one rule. 'all' prints the FULL per-bar state — what the Pine pane shows — and
+    // is the honest answer to "why is my bar empty": nothing was missing, the row was
+    // filtered. The DB carries every field on every bar.
+    getSigs: (b, prev, mode = 'rare') => {
+      const all = mode === 'all'
       const p = []
       if ((b.phys_e || '').includes('★')) p.push(b.phys_e)
       if ((b.phys_k || '').startsWith('K2')) p.push(b.phys_k)
       if (b.phys_ad) p.push(b.phys_ad)
       if (b.phys_gap_true === 'G3') p.push('gG3')
       if (['SPRING', 'SPRING★', 'UTAD', 'SOS★'].includes(b.phys_wyc)) p.push(b.phys_wyc)
-      if (b.phys_r === 'RA') p.push('RA' + (b.phys_regime ? '·' + b.phys_regime : ''))
+      if (b.phys_r === 'RA' && (mode === 'ra' || all)) {
+        p.push('RA' + (b.phys_regime ? '·' + b.phys_regime : ''))
+      }
+      if (all) {
+        // S is a regime that holds for weeks — printed on TRANSITION, not on every bar,
+        // or it becomes a solid wall of identical chips that hides the events beside it
+        if (b.phys_r && b.phys_r !== 'RA') p.push(b.phys_r + (b.phys_regime ? '·' + b.phys_regime : ''))
+        if (b.phys_m) p.push(b.phys_m)
+        if (b.phys_e && !b.phys_e.includes('★')) p.push(b.phys_e)
+        if (b.phys_k && !b.phys_k.startsWith('K2')) p.push(b.phys_k)
+        if (b.phys_c) p.push(b.phys_c)
+        if (b.phys_h) p.push(b.phys_h)
+        if (b.phys_s && (!prev || b.phys_s !== prev.phys_s)) p.push(b.phys_s)
+        if (b.phys_gap_true && b.phys_gap_true !== 'G3') p.push('g' + b.phys_gap_true)
+      }
       return p
     },
     sigTitle: (s, b) => {
@@ -453,6 +472,14 @@ const ROWS = [
       if (s === 'SPRING' || s === 'SPRING★') return 'Wyckoff spring — undercut of 20-bar support reclaimed on rising volume in a down macro. ★ = the bar was absorbed.'
       if (s === 'UTAD') return 'Wyckoff UTAD — upthrust after distribution: 20-bar resistance exceeded then lost, in an up macro.'
       if (s === 'SOS★') return 'Wyckoff SOS — AD-fresh flip during a VIX spike in a down macro.'
+      if (/^R[123AB]/.test(s)) return 'R — resistance to motion: where this bar\'s range sits against its own recent baseline. ·U/·D = above/below EMA20.'
+      if (/^M[0-9]/.test(s)) return 'M — momentum class: displacement carried per unit of effort. M2 = heavy and fast (19.6% of bars).'
+      if (/^E[0-9]/.test(s)) return 'E — stored energy: how far the range is compressed below its own baseline. E2 = loaded spring (32.5%).'
+      if (/^K[013]/.test(s)) return 'K — extension from EMA20 in ATR. K1 = inside the elastic zone (45.6% of bars), K2 = past it.'
+      if (/^C/.test(s)) return 'C — coulomb: distance to the nearest confirmed pivot, which is only known three bars after the pivot printed.'
+      if (/^H/.test(s)) return 'H — entropy of the last 20 bars: how disordered the price path is.'
+      if (/^S[0-9]/.test(s)) return 'S — resonance regime, printed only when it CHANGES. S3 holds for weeks (57.1% of bars), so marking every bar would say nothing.'
+      if (/^g[A-Z0-9]/.test(s)) return 'Gap class measured from the empty-space edge, not the previous close.'
       return undefined
     },
     chipCls: (s) => {
@@ -464,6 +491,13 @@ const ROWS = [
       if (s === 'gG3')                          return 'bg-amber-900 text-amber-300'
       if (s.startsWith('★'))                    return 'bg-fuchsia-900 text-fuchsia-300 font-semibold'
       if (s.startsWith('RA'))                   return 'bg-sky-900 text-sky-300'
+      if (s === 'M2')                           return 'bg-blue-950 text-blue-300'
+      if (s === 'E2')                           return 'bg-amber-950 text-amber-400'
+      if (s === 'S3U')                          return 'bg-emerald-950 text-emerald-400'
+      if (s === 'S3D')                          return 'bg-rose-950 text-rose-400'
+      // the full-state fields are context, not events: dimmer than everything above so a
+      // real signal still stands out when every bar is filled
+      if (/^[RMEKCHS]/.test(s))                 return 'bg-slate-900 text-slate-400'
       return 'bg-slate-800 text-slate-300'
     },
   },
@@ -806,7 +840,7 @@ function ChipRow({ row, bars }) {
         {row.label}
       </td>
       {bars.map((b, i) => {
-        const sigs = row.getSigs(b)
+        const sigs = row.getSigs(b, bars[i - 1])
         return (
           <td key={i}
             className="px-0 py-px text-center border-r border-white/[0.05] align-top"
@@ -891,6 +925,9 @@ export default function SuperchartPanel({
   // implementation of the physics there would drift from the stored columns the moment a
   // threshold moved — the same reason the chart strip and this row share one rule set.
   const [physMap, setPhysMap]     = useState({})
+  // rare | ra | all — same three settings as the chart strip's ⚛ selector, because the
+  // two surfaces share one rule and must share its control too
+  const [physRowMode, setPhysRowMode] = useState('rare')
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
@@ -1408,6 +1445,19 @@ export default function SuperchartPanel({
               : 'bg-md-surface-high border-white/[0.10] text-md-on-surface-var hover:text-md-on-surface'}`}>
           📊 Stats
         </button>
+        {tf === '1d' && (
+          <label className="flex items-center gap-1 text-xs text-md-on-surface-var"
+                 title="How much of the ⚛ physics row to print. The database holds every physics field on EVERY bar — this only decides how much of it is shown. 'rare' marks the 6 uncommon events; 'all' prints the full per-bar state, the same thing the Pine pane draws.">
+            <span>⚛</span>
+            <select value={physRowMode} onChange={e => setPhysRowMode(e.target.value)}
+              className="bg-md-surface-high border border-white/[0.10] rounded px-1 py-0.5
+                         text-xs text-md-on-surface-var">
+              <option value="rare">rare · 17%</option>
+              <option value="ra">+RA · 38%</option>
+              <option value="all">all bars</option>
+            </select>
+          </label>
+        )}
         {bars.length > 0 && (
           <button
             onClick={exportCsv}
@@ -1487,8 +1537,16 @@ export default function SuperchartPanel({
 
               <tbody>
                 {/* z / T-D / L — then ALL score rows (screener column order), then the rest */}
+                {/* ⚛ density. The default marks only rare events, which is why a bar can look
+                    empty: the DB holds every physics field on EVERY bar, and "all" prints the
+                    full per-bar state the Pine pane shows. Nothing is missing — it is filtered. */}
                 {ROWS.filter(r => ['z', 'td', 'l'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
-                {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => <ChipRow key={row.key} row={row} bars={barsPhys} />)}
+                {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => (
+                  <ChipRow key={row.key} bars={barsPhys}
+                           row={{ ...row,
+                                  label: row.label,
+                                  getSigs: (b, prev) => row.getSigs(b, prev, physRowMode) }} />
+                ))}
                 {/* ⏱ TtRow removed 2026-07-26 (user: adds nothing) — within ONE ticker the ATR%
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
