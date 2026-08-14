@@ -928,17 +928,20 @@ export default function SuperchartPanel({
   // rare | ra | all — same three settings as the chart strip's ⚛ selector, because the
   // two surfaces share one rule and must share its control too.
   //
-  // Defaults to 'ra', which is what this row ALWAYS showed. When the row was made
-  // mode-aware it inherited the chart strip's default of 'rare', and that silently dropped
-  // RA — the row went from 109 filled cells to 42 and looked broken. Adding a control is
-  // not licence to change what the control starts at.
+  // Defaults to 'all' — the full per-bar state, matching the Pine pane.
+  //
+  // I defaulted this to the sparse set twice and defended it twice: R/E/M are three-way
+  // splits so "not the middle" is two thirds of every chart, S3 and K1 hold for weeks, and
+  // a row that marks every bar marks nothing. All measured, all true, and all beside the
+  // point — the row was asked for as a port of the Pine script, and the Pine script prints
+  // every bar. Density is a reading preference and it is the reader's to set, not a
+  // conclusion I get to bake in from a percentage table.
   //
   // PERSISTED, because it is a preference and not a per-visit decision. Held only in
-  // component state it reset to 'ra' on every reload and every ticker change, so someone
-  // who wants the full per-bar state had to re-select it each time and reasonably read the
-  // reset as the setting not working.
+  // component state it reset on every reload and every ticker change, so re-selecting it
+  // each time reasonably read as the setting not working.
   const [physRowMode, setPhysRowMode] = useState(() => {
-    try { return localStorage.getItem('sc_phys_mode') || 'ra' } catch { return 'ra' }
+    try { return localStorage.getItem('sc_phys_mode') || 'all' } catch { return 'all' }
   })
   useEffect(() => {
     try { localStorage.setItem('sc_phys_mode', physRowMode) } catch { /* private mode */ }
