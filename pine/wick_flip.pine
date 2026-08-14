@@ -51,17 +51,17 @@ valid   = rng > 0
 // ── bar shapes ───────────────────────────────────────────────────────────────
 // Written as multiplications, never divisions: a zero opposite wick is the
 // strongest case and must not be an exception to the rule.
-topHeavy = valid
-     and upWick >= mult * dnWick                    // several times longer …
-     and upWick >= rng * (minWickPct / 100.0)       // … and long in its own right
-     and dnWick <= rng * (maxOppPct  / 100.0)       // little or nothing below
-     and (minBodyPct == 0 or body >= rng * (minBodyPct / 100.0))
+// Broken into named steps rather than one multi-line expression: Pine's line
+// continuation rules are fussy, and each clause is worth being able to read on its own.
+minWick = rng * (minWickPct / 100.0)
+maxOpp  = rng * (maxOppPct  / 100.0)
+bodyOk  = minBodyPct == 0 or body >= rng * (minBodyPct / 100.0)
 
-botHeavy = valid
-     and dnWick >= mult * upWick
-     and dnWick >= rng * (minWickPct / 100.0)
-     and upWick <= rng * (maxOppPct  / 100.0)
-     and (minBodyPct == 0 or body >= rng * (minBodyPct / 100.0))
+upDominates = upWick >= mult * dnWick and upWick >= minWick and dnWick <= maxOpp
+dnDominates = dnWick >= mult * upWick and dnWick >= minWick and upWick <= maxOpp
+
+topHeavy = valid and upDominates and bodyOk
+botHeavy = valid and dnDominates and bodyOk
 
 // ── the pair ─────────────────────────────────────────────────────────────────
 // Fires on bar 2, the bar that completes it. Nothing here looks forward: both
