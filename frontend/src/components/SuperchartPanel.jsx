@@ -418,6 +418,55 @@ const ROWS = [
       return 'bg-blue-900 text-blue-300'
     },
   },
+  {
+    // ⚛ PHYSICS (2026-08-14) — the 260814 Pine fields, one row directly under L.
+    //
+    // The chart strip and this row show the SAME set, because two surfaces with two ideas of
+    // "what counts as a physics signal" would disagree the first time a threshold moved. What
+    // is in it was measured over 8.7M sp500 bars rather than chosen by eye:
+    //
+    //   S3 resonance 57.1% · K1 stretch 45.6% · E2/★ 32.5% · RA 24.9% · M2 19.6%
+    //   AD 6.8% · gap G3 3.7% · K2 3.6% · E★ 2.5% · Wyckoff events 1.9%
+    //
+    // R, E and M are three-way splits around a rolling median, so "not the middle" is two
+    // thirds of every chart by construction — they were never extremes. S3 and K1 are regimes
+    // that hold for weeks. Only the rare set plus RA is shown, because a row that marks every
+    // bar marks nothing.
+    key: 'phys',
+    label: '⚛',
+    getSigs: (b) => {
+      const p = []
+      if ((b.phys_e || '').includes('★')) p.push(b.phys_e)
+      if ((b.phys_k || '').startsWith('K2')) p.push(b.phys_k)
+      if (b.phys_ad) p.push(b.phys_ad)
+      if (b.phys_gap_true === 'G3') p.push('gG3')
+      if (['SPRING', 'SPRING★', 'UTAD', 'SOS★'].includes(b.phys_wyc)) p.push(b.phys_wyc)
+      if (b.phys_r === 'RA') p.push('RA' + (b.phys_regime ? '·' + b.phys_regime : ''))
+      return p
+    },
+    sigTitle: (s, b) => {
+      if (s.startsWith('RA')) return 'RA — absorbed effort: heavy volume, little displacement. The book\'s first confluence law. ·U/·D = close above/below EMA20.'
+      if (s.startsWith('K2')) return 'K2 — past the elastic limit (|close−EMA20| ≥ 3 ATR). The plastic zone: the spring no longer pulls back. 3.6% of bars.'
+      if (s.includes('★') && s.startsWith('E')) return 'E★ — a loaded compression released: range expanded beyond the ATR baseline after the spring was charged. 2.5% of bars.'
+      if (s === 'gG3') return 'gG3 — a LARGE gap, measured from the empty-space edge. The stored bar_gap_range measures from the previous close and overstates on 49.5% of gaps (median 1.80×, never under), so this is the corrected class.'
+      if (s.startsWith('★')) return 'AD-FRESH — Z1G/Z2G exhaustion followed by a T-flip low in the range. ★A = the exhaustion bar was absorbed (RA). ★★ = clustered.'
+      if (s === 'SPRING' || s === 'SPRING★') return 'Wyckoff spring — undercut of 20-bar support reclaimed on rising volume in a down macro. ★ = the bar was absorbed.'
+      if (s === 'UTAD') return 'Wyckoff UTAD — upthrust after distribution: 20-bar resistance exceeded then lost, in an up macro.'
+      if (s === 'SOS★') return 'Wyckoff SOS — AD-fresh flip during a VIX spike in a down macro.'
+      return undefined
+    },
+    chipCls: (s) => {
+      if (s.includes('★') && s.startsWith('E')) return 'bg-violet-900 text-violet-300 font-semibold'
+      if (s.startsWith('K2'))                   return 'bg-red-900 text-red-300 font-bold'
+      if (s === 'SPRING★' || s === 'SOS★')      return 'bg-lime-900 text-lime-300 font-bold'
+      if (s === 'SPRING')                       return 'bg-lime-900 text-lime-400'
+      if (s === 'UTAD')                         return 'bg-rose-900 text-rose-300 font-semibold'
+      if (s === 'gG3')                          return 'bg-amber-900 text-amber-300'
+      if (s.startsWith('★'))                    return 'bg-fuchsia-900 text-fuchsia-300 font-semibold'
+      if (s.startsWith('RA'))                   return 'bg-sky-900 text-sky-300'
+      return 'bg-slate-800 text-slate-300'
+    },
+  },
   // F-row (F1–F11) retired from display — matches ULTRA (still computed backend-side).
   // FLY row folded into EDGE 2026-07-29 (user) — one row instead of two. The FLY chips keep
   // their purple palette so they stay instantly separable from the emerald edge codes.
@@ -837,6 +886,11 @@ export default function SuperchartPanel({
   const [tf, setTf]               = useState(initialTf)
   const [bars, setBars]           = useState([])
   const [v2Map, setV2Map]         = useState({})   // date(YYYY-MM-DD) → {v2, band} from DB (daily only)
+  // date → the bar's physics fields. Merged from the studio DB rather than recomputed in
+  // /api/bar-signals: that endpoint derives its signals from OHLCV in-process, and a second
+  // implementation of the physics there would drift from the stored columns the moment a
+  // threshold moved — the same reason the chart strip and this row share one rule set.
+  const [physMap, setPhysMap]     = useState({})
   const [day1hMap, setDay1hMap]   = useState({})   // date(YYYY-MM-DD) → {up, hours[]} (with1H only)
   const [loading, setLoading]     = useState(false)
   const [error, setError]         = useState(null)
@@ -866,6 +920,13 @@ export default function SuperchartPanel({
   // Notify parent so global chart follows Superchart ticker/tf
   useEffect(() => { onTickerChange?.(ticker, tf) }, [ticker, tf])
 
+  // bars carrying their physics. Kept as a derived value rather than merged into `bars`
+  // state: the two fetches resolve independently, and mutating the signal rows in place
+  // would make the row that renders first show whichever arrived first.
+  const barsPhys = useMemo(
+    () => bars.map(b => ({ ...b, ...(physMap[String(b.date).slice(0, 10)] || {}) })),
+    [bars, physMap])
+
   const load = useCallback((t, f) => {
     setLoading(true)
     setError(null)
@@ -884,15 +945,22 @@ export default function SuperchartPanel({
       api.studioBars(t, 400)
         .then(rows => {
           const m = {}
+          const ph = {}
           for (const r of (rows || [])) {
-            if (r?.date != null && r.prebreak_v2 != null)
-              m[String(r.date).slice(0, 10)] = { v2: r.prebreak_v2, band: r.prebreak_v2_band }
+            if (r?.date == null) continue
+            const k = String(r.date).slice(0, 10)
+            if (r.prebreak_v2 != null) m[k] = { v2: r.prebreak_v2, band: r.prebreak_v2_band }
+            ph[k] = {
+              phys_r: r.phys_r, phys_regime: r.phys_regime, phys_e: r.phys_e,
+              phys_k: r.phys_k, phys_ad: r.phys_ad, phys_gap_true: r.phys_gap_true,
+              phys_wyc: r.phys_wyc,
+            }
           }
-          setV2Map(m)
+          setV2Map(m); setPhysMap(ph)
         })
-        .catch(() => setV2Map({}))
+        .catch(() => { setV2Map({}); setPhysMap({}) })
     } else {
-      setV2Map({})
+      setV2Map({}); setPhysMap({})
     }
     // Bottom-Anatomy + (with1H) 1H-decomposition — each day → its 1H bars + anatomy
     // verdict. Fetched on EVERY daily load so the ▽△ anatomy row shows on the main
@@ -1420,6 +1488,7 @@ export default function SuperchartPanel({
               <tbody>
                 {/* z / T-D / L — then ALL score rows (screener column order), then the rest */}
                 {ROWS.filter(r => ['z', 'td', 'l'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => <ChipRow key={row.key} row={row} bars={barsPhys} />)}
                 {/* ⏱ TtRow removed 2026-07-26 (user: adds nothing) — within ONE ticker the ATR%
                     bucket is stable, so the per-bar row is ~constant (AMD +108% breakout sat at
                     "13d" throughout). The forecast's value is CROSS-SECTIONAL (Ultra ⏱ column,
@@ -1779,7 +1848,9 @@ export default function SuperchartPanel({
                 </tr>
 
                 {/* the remaining signal families */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {/* 'phys' is excluded here because it is rendered above, directly under L —
+                    this catch-all is what silently drew it a second time at the bottom. */}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 
