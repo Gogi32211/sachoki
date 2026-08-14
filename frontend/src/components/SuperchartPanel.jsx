@@ -1057,8 +1057,50 @@ export default function SuperchartPanel({
       .finally(() => setStatsLoading(false))
   }, [])
 
-  const exportCsv = useCallback(() => {
-    if (!bars.length) return
+  // The matrix renders 300 bars because 300 columns is already more than anyone scrolls.
+  // The CSV is not a screen, so it fetches the FULL history at click time instead of
+  // inheriting that number. AAPL: 300 → 1255 bars, ~5s, and the chart's own 2000-bar
+  // setting never had anything to do with either.
+  const EXPORT_LIMIT = 5000        // bar-signals: no server cap, returns whatever exists
+  const STUDIO_LIMIT = 2500        // /api/studio/bars rejects anything above this with 422
+  const [csvBusy, setCsvBusy] = useState(false)
+
+  const exportCsv = useCallback(async () => {
+    if (!bars.length || csvBusy) return
+    setCsvBusy(true)
+    // Fall back to what is on screen if the wider fetch fails — a 300-bar export beats no
+    // export, as long as it is the fallback and not the design.
+    let src = bars, srcPhys = barsPhys
+    // allSettled, NOT all. The first version awaited both together, so when studio/bars
+    // rejected — it caps limit at 2500 and 422s above it — the whole thing fell into the
+    // catch and the export silently shrank back to the 300 bars on screen. It looked like
+    // the wider fetch had simply not been wired up. One optional enrichment failing must
+    // not discard a request that succeeded.
+    const [sigRes, physRes] = await Promise.allSettled([
+      api.barSignals(ticker, tf, EXPORT_LIMIT),
+      tf === '1d' ? api.studioBars(ticker, STUDIO_LIMIT) : Promise.resolve([]),
+    ])
+    const full = sigRes.status === 'fulfilled' ? sigRes.value : null
+    if (full?.length) {
+      const ph = {}
+      if (physRes.status === 'fulfilled') {
+        for (const r of (physRes.value || [])) {
+          if (r?.date == null) continue
+          const ps = {}
+          for (const key in r) if (key.startsWith('phys_')) ps[key] = r[key]
+          ph[String(r.date).slice(0, 10)] = ps
+        }
+      } else {
+        // said out loud rather than exported as empty columns, which would read as
+        // "this was never measured"
+        setError(`CSV: physics could not be fetched (${physRes.reason}); PHYS_ columns will be blank`)
+      }
+      src = full
+      srcPhys = full.map(b => ({ ...b, ...(ph[String(b.date).slice(0, 10)] || {}) }))
+    } else if (sigRes.status === 'rejected') {
+      setError(`CSV: full history fetch failed (${sigRes.reason}) — exporting the ${bars.length} bars on screen`)
+    }
+    try {
     const join = (arr) => (arr ?? []).join(' ')
     const headers = [
       'date','open','high','low','close','vol_bucket','turbo_score',
@@ -1209,10 +1251,10 @@ export default function SuperchartPanel({
     ]
     const ctx = (b, tok) => (b.context ?? []).includes(tok) ? 1 : 0
     const s = (b, k) => b[k] ?? 0
-    const _atrArr = computeAtr14(bars)
-    // physics lives in a separate fetch keyed by date; barsPhys is bars already merged
-    const _phys = Object.fromEntries(barsPhys.map(b => [b.date, b]))
-    const rows = bars.map((b, _bi) => [
+    const _atrArr = computeAtr14(src)
+    // physics lives in a separate fetch keyed by date; srcPhys is src already merged
+    const _phys = Object.fromEntries(srcPhys.map(b => [b.date, b]))
+    const rows = src.map((b, _bi) => [
       b.date,
       b.open?.toFixed(2), b.high?.toFixed(2), b.low?.toFixed(2), b.close?.toFixed(2),
       b.vol_bucket ?? '',
@@ -1447,7 +1489,8 @@ export default function SuperchartPanel({
     a.download = `${ticker}_${tf}_signals.csv`
     a.click()
     URL.revokeObjectURL(a.href)
-  }, [bars, barsPhys, ticker, tf, v2Map])
+    } finally { setCsvBusy(false) }
+  }, [bars, barsPhys, ticker, tf, v2Map, csvBusy])
 
   useEffect(() => { load(ticker, tf) }, [ticker, tf, load])
 
@@ -1513,9 +1556,10 @@ export default function SuperchartPanel({
         {bars.length > 0 && (
           <button
             onClick={exportCsv}
-            title={`Download ${ticker} ${tf.toUpperCase()} signal data as CSV`}
+            disabled={csvBusy}
+            title={`Download the FULL ${ticker} ${tf.toUpperCase()} history as CSV — not the ${bars.length} bars shown in the matrix, which is a display limit`}
             className="text-xs px-2 py-1 rounded border border-white/[0.10] bg-md-surface-high text-md-on-surface-var hover:text-md-on-surface transition-colors">
-            ⬇ CSV
+            {csvBusy ? '⬇ preparing…' : '⬇ CSV'}
           </button>
         )}
         {loading && <span className="text-xs text-md-on-surface-var/60 animate-pulse">loading…</span>}
