@@ -1,0 +1,88 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+//  WICK-FLIP  —  a two-bar rejection pair
+//
+//  bar 1   long UPPER wick, little or no lower wick     → highs rejected
+//  bar 2   long LOWER wick, little or no upper wick     → lows rejected
+//
+//  Both bars say the same thing about effort meeting resistance, one at each
+//  end. Bar 1 is sellers refusing higher prices; bar 2 is buyers refusing lower
+//  ones. The pair is the turn.
+//
+//  WHY THE RATIO IS NOT ENOUGH ON ITS OWN
+//  "upper wick N times the lower" is trivially true when the lower wick is one
+//  tick — a bar with a 2-cent tail and a 4-cent tail passes at any multiple you
+//  like, and means nothing. So the long wick must ALSO be a real share of the
+//  bar's own range (minWickPct), which is what makes it a rejection rather than
+//  a rounding artefact.
+//
+//  AND WHY DIVISION IS AVOIDED
+//  "no lower wick at all" is the strongest version of the setup and also the one
+//  that divides by zero. Every test here is written as a multiplication
+//  (up >= mult * dn) so the zero case passes naturally instead of needing a
+//  special branch that behaves differently.
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("Wick-Flip · 2-bar rejection", overlay = true, max_labels_count = 500)
+
+// ── inputs ───────────────────────────────────────────────────────────────────
+mult        = input.float(3.0,  "Long wick ÷ short wick, at least",  minval = 1.0, step = 0.5,
+              tooltip = "How many times longer the dominant wick must be. 3 is strict; 2 fires far more often.")
+minWickPct  = input.float(30.0, "Dominant wick ≥ % of the bar's range", minval = 5, maxval = 90, step = 5,
+              tooltip = "Stops a ratio being satisfied by two tiny tails. This is what makes it a rejection.")
+maxOppPct   = input.float(15.0, "Opposite wick ≤ % of the bar's range", minval = 0, maxval = 50, step = 5,
+              tooltip = "'Small or no wick' on the other end. 0 demands none at all.")
+minBodyPct  = input.float(0.0,  "Body ≥ % of range (0 = ignore)",   minval = 0, maxval = 80, step = 5,
+              tooltip = "Optional. Above 0 this rejects dojis, whose wicks are long at both ends by construction.")
+requireDown = input.bool(false, "Only after a down move",
+              tooltip = "Restricts to context where a low-rejection could turn something. Off by default — measure first.")
+lookback    = input.int(5,      "…measured over N bars", minval = 2, maxval = 20)
+showLabels  = input.bool(true,  "Label the pair")
+
+// ── the two ends of every bar ────────────────────────────────────────────────
+rng     = high - low
+bodyHi  = math.max(open, close)
+bodyLo  = math.min(open, close)
+upWick  = high - bodyHi
+dnWick  = bodyLo - low
+body    = math.abs(close - open)
+
+valid   = rng > 0
+
+// ── bar shapes ───────────────────────────────────────────────────────────────
+// Written as multiplications, never divisions: a zero opposite wick is the
+// strongest case and must not be an exception to the rule.
+topHeavy = valid
+     and upWick >= mult * dnWick                    // several times longer …
+     and upWick >= rng * (minWickPct / 100.0)       // … and long in its own right
+     and dnWick <= rng * (maxOppPct  / 100.0)       // little or nothing below
+     and (minBodyPct == 0 or body >= rng * (minBodyPct / 100.0))
+
+botHeavy = valid
+     and dnWick >= mult * upWick
+     and dnWick >= rng * (minWickPct / 100.0)
+     and upWick <= rng * (maxOppPct  / 100.0)
+     and (minBodyPct == 0 or body >= rng * (minBodyPct / 100.0))
+
+// ── the pair ─────────────────────────────────────────────────────────────────
+// Fires on bar 2, the bar that completes it. Nothing here looks forward: both
+// bars are closed when the condition is evaluated.
+context = not requireDown or close[1] < close[lookback]
+signal  = topHeavy[1] and botHeavy and context
+
+// ── output ───────────────────────────────────────────────────────────────────
+plotshape(signal, title = "Wick-Flip", style = shape.triangleup, location = location.belowbar,
+          color = color.new(color.teal, 0), size = size.small, text = "WF")
+
+if showLabels and signal and barstate.isconfirmed
+    upR = dnWick[1] > 0 ? upWick[1] / dnWick[1] : na
+    dnR = upWick     > 0 ? dnWick   / upWick    : na
+    label.new(bar_index, low,
+      text = "WF\n▲" + (na(upR) ? "no lower wick" : str.tostring(upR, "#.#") + "×") +
+             "\n▼" + (na(dnR) ? "no upper wick" : str.tostring(dnR, "#.#") + "×"),
+      style = label.style_label_up, color = color.new(color.teal, 20),
+      textcolor = color.white, size = size.small)
+
+barcolor(topHeavy ? color.new(color.orange, 30) : botHeavy ? color.new(color.teal, 30) : na)
+
+alertcondition(signal, "Wick-Flip",
+     "Wick-Flip on {{ticker}} — upper-wick bar followed by lower-wick bar at {{close}}")
