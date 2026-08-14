@@ -509,6 +509,14 @@ ENRICH_COLUMNS = [
     "bars_to_next_hl_5", "bars_to_next_hh_5",
     # L digits
     "sig_l1", "sig_l2", "sig_l3", "sig_l4", "sig_l5", "sig_l6",
+    # Market physics (260814 Pine port). Listed here so the NIGHTLY path maintains them.
+    # A one-off backfill would have rotted from the first new trading day: bars arrive daily
+    # and would carry NULL physics forever while every column beside them stayed current.
+    "phys_r", "phys_regime", "phys_c", "phys_h", "phys_line6",
+    "phys_m", "phys_e", "phys_k", "phys_s",
+    "phys_gap_true", "phys_ad", "phys_wyc",
+    "phys_r_raw", "phys_c_raw", "phys_h_raw", "phys_m_raw", "phys_e_raw", "phys_k_x",
+    "phys_e_release", "phys_s_net",
     # ULTRA extras
     "tz_bull", "avg_vol_20d", "sweet_spot_active", "late_warning",
     "profile_category", "profile_score",
@@ -623,6 +631,23 @@ def _compute_prebreak_extra(df: pd.DataFrame) -> pd.DataFrame:
     return df
 
 
+def _add_physics(df: pd.DataFrame) -> pd.DataFrame:
+    """Market-physics fields, appended to the per-ticker enrichment.
+
+    Runs LAST because it reads atr_14 and the sig_l* flags that the steps above produce; running
+    it earlier would compute R and the Wyckoff phase against a column that is not there yet, and
+    the result would be silently degraded rather than wrong-looking.
+    """
+    try:
+        from studio.bar_physics import compute as _phys_compute, ALL_COLS as _PHYS_COLS
+        phys = _phys_compute(df)
+        for c in _PHYS_COLS:
+            df[c] = phys[c].to_numpy()
+    except Exception as e:                                            # noqa: BLE001
+        log.warning("physics enrichment skipped: %s", e)
+    return df
+
+
 def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
     """Run full enrichment pipeline on one ticker's bars (must be sorted by date)."""
     if len(df) < 2:
@@ -645,6 +670,7 @@ def enrich_ticker_df(df: pd.DataFrame) -> pd.DataFrame:
     df = _compute_pine_engines(df)    # 260308/L88 + ULTRA v2 + PARA + FLY + Delta (sets eb_bull)
     df = _compute_wyckoff_structure(df)  # 260529 Wyckoff V2 (state machine + triggers)
     df = _compute_seq_signals(df)     # seq_l34_eb (prev-bar L34 → current EB; needs eb_bull above)
+    df = _add_physics(df)             # R·regime·C·H·M·E·K·S — LAST: reads atr_14 and sig_l*
     df["enrich_version"] = ENRICH_VERSION
     return df
 
