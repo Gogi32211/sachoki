@@ -11,8 +11,9 @@ because nothing about it looks wrong.
 The safety contour is deliberately identical to physics_backfill's, and imported from
 it rather than re-implemented — three copies of a guard is how the third one drifts:
 
-    ADDITIVE-SCOPED   the UPDATE names only the three sig_cisd_* columns. No other
-                      column appears on the left of a SET.
+    ADDITIVE-SCOPED   the UPDATE names only sig_cisd_* columns, and new ones are
+                      created with ALTER TABLE ADD COLUMN. No other column appears
+                      on the left of a SET, and none is ever dropped or retyped.
     PROVEN UNHARMED   a fingerprint of the columns other work depends on is taken
                       before and after; if one moves the run is reported DAMAGED.
     ONE WRITER        refuses to start inside the nightly window; takes one DB at a
@@ -49,11 +50,17 @@ PROGRESS = "/tmp/studio_cisd_backfill.json"
 TIMEFRAMES = ["studio_1w.duckdb", "studio_analytics.duckdb", "studio_4h.duckdb",
               "studio_1h.duckdb", "studio_15m.duckdb"]
 
-# engine output → stored column. Only these three exist in the schema; CISD_SEQ and
-# CISD_MPM are computed and dropped, which is a separate decision and not this run's.
+# engine output → stored column. Columns absent from a database are ADDED, so this map
+# is the single place a new CISD output becomes a stored one.
 COLMAP = {"sig_cisd_cplus": "PLUS_CISD",
           "sig_cisd_cplus_minus": "CISD_PPM",
-          "sig_cisd_cplus_mm": "CISD_PMM"}
+          "sig_cisd_cplus_mm": "CISD_PMM",
+          # [260815] added: the structural half on its own, its control, and the two
+          # sequences the engine has always produced and the schema never kept
+          "sig_cisd_plus_struct": "PLUS_STRUCT",
+          "sig_cisd_minus_struct": "MINUS_STRUCT",
+          "sig_cisd_seq": "CISD_SEQ",
+          "sig_cisd_mpm": "CISD_MPM"}
 COLS = list(COLMAP)
 
 
@@ -68,9 +75,18 @@ def backfill_tf(db_file: str, limit_tickers: int | None = None,
     try:
         before = fingerprint(conn)
         have = {r[0] for r in conn.execute("DESCRIBE bars").fetchall()}
-        missing = [c for c in COLS if c not in have]
-        if missing:
-            raise RuntimeError(f"{db_file} has no {missing} — nothing to correct here")
+        # ADD the new ones rather than refusing. Additive only — ALTER TABLE ADD
+        # COLUMN cannot disturb a column it does not name, and the fingerprint below
+        # proves it did not.
+        added = []
+        for c in COLS:
+            if c not in have:
+                conn.execute(f"ALTER TABLE bars ADD COLUMN {c} SMALLINT")
+                added.append(c)
+        if added:
+            conn.commit()
+            if verbose:
+                print(f"  added {len(added)} columns: {', '.join(added)}", flush=True)
 
         was = conn.execute(
             f"SELECT {', '.join(f'SUM(CASE WHEN {c}=1 THEN 1 ELSE 0 END)' for c in COLS)} "

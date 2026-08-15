@@ -5502,6 +5502,10 @@ def api_bar_signals(ticker: str, tf: str = "1d", bars: int = 150, universe: str 
             "sig_cisd_cplus":       int(_b(_cisd_df, "PLUS_CISD")),
             "sig_cisd_cplus_minus": int(_b(_cisd_df, "CISD_PPM")),
             "sig_cisd_cplus_mm":    int(_b(_cisd_df, "CISD_PMM")),
+            "sig_cisd_plus_struct":  int(_b(_cisd_df, "PLUS_STRUCT")),
+            "sig_cisd_minus_struct": int(_b(_cisd_df, "MINUS_STRUCT")),
+            "sig_cisd_seq":          int(_b(_cisd_df, "CISD_SEQ")),
+            "sig_cisd_mpm":          int(_b(_cisd_df, "CISD_MPM")),
             # ── PARA context ──────────────────────────────────────────────────
             "sig_para_prep":   int(bool(_para_df.iloc[i]["para_prep"])   if _para_df is not None and i < len(_para_df) and "para_prep"   in _para_df.columns else 0),
             "sig_para_start":  int(bool(_para_df.iloc[i]["para_start"])  if _para_df is not None and i < len(_para_df) and "para_start"  in _para_df.columns else 0),

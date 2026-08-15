@@ -165,6 +165,7 @@ _DB_BOOL_COLS = {
     "sig_nd_delta","sig_va","sig_vol_5x","sig_vol_10x","sig_vol_20x",
     "sig_flp_up","sig_org_up","sig_dd_up_red","sig_d_up_red","sig_d_dn_green",
     "sig_dd_dn_green","sig_cisd_cplus","sig_cisd_cplus_minus","sig_cisd_cplus_mm",
+    "sig_cisd_plus_struct","sig_cisd_minus_struct","sig_cisd_seq","sig_cisd_mpm",
     "sig_para_prep","sig_para_start","sig_para_plus","sig_para_retest",
     "sig_not_ext","already_extended_flag","l34","l43","l22","be_up","bo_up",
     "bx_up","vbo_up","g1p","g2p","g3p","g1l","g2l","g1c","g2c","g3c",

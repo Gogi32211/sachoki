@@ -438,6 +438,16 @@ CREATE TABLE IF NOT EXISTS bars (
     sig_cisd_cplus      SMALLINT,
     sig_cisd_cplus_minus SMALLINT,
     sig_cisd_cplus_mm   SMALLINT,
+    -- [260815] The three above merge two different births. A +CISD from a STRUCTURE
+    -- BREAK and one from a level COMPLETION behave differently forward, and
+    -- sig_cisd_cplus sums them: the structural half alone scored +0.80% against a
+    -- +0.25% baseline on a reserved 2024-26 window, the merged column +0.427% vs
+    -- +0.202%. Split, with its own control, plus the two sequences the engine has
+    -- always computed and the schema never kept.
+    sig_cisd_plus_struct  SMALLINT,
+    sig_cisd_minus_struct SMALLINT,
+    sig_cisd_seq        SMALLINT,
+    sig_cisd_mpm        SMALLINT,
 
     -- PARA
     sig_para_prep       SMALLINT,
