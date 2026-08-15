@@ -1117,6 +1117,22 @@ export default function UltraScanPanel({ onSelectTicker }) {
   const [mtfEmaMap,  setMtfEmaMap]  = useState({})    // { TICKER: [variants] } from /api/mtf-ema-scan
   const [mtfEmaAgeMap, setMtfEmaAgeMap] = useState({}) // { TICKER: {variant: age_days} } — age-aware N filtering
   const [selSigs,    setSelSigs]    = useState(new Set())   // AND filter
+  // ⛓ SEQUENCE  [260815] — three per-bar filter sets, oldest first: bar−2, bar−1, today.
+  //
+  // The N lookback asks "did this fire ANYWHERE in the last N bars"; a sequence asks
+  // "was it THIS then THAT then THIS". N cannot express order, and order is most of
+  // what a setup is.
+  //
+  // seqTarget routes a chip click: 'main' keeps the existing behaviour, 0/1/2 put the
+  // chip in that bar's set. The chip grid is not duplicated — every filter that exists
+  // gains a per-bar form because the same predicate is run against seq3[k] instead of
+  // against the row.
+  const [seqSlots,   setSeqSlots]   = useState([new Set(), new Set(), new Set()])
+  const [seqTarget,  setSeqTarget]  = useState('main')
+  // derived here, NOT below the filter memo: useMemo's factory runs during render, so a
+  // const declared later is still in its temporal dead zone when the memo reads it.
+  const seqActive = seqSlots.some(x => x.size > 0)
+  const clearSeq  = () => { setSeqSlots([new Set(), new Set(), new Set()]); setSeqTarget('main') }
   const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
   const [exported,   setExported]   = useState(false)
   const [tvExported, setTvExported] = useState(false)
@@ -1576,6 +1592,29 @@ export default function UltraScanPanel({ onSelectTicker }) {
       if (vol3t5Filter   && !(r.vol3t5_match  && r.vol3t5_age  != null && r.vol3t5_age  < (lookbackN || 1))) return false
       if (vol3t9Filter   && !(r.vol3t9_match  && r.vol3t9_age  != null && r.vol3t9_age  < (lookbackN || 1))) return false
       if (vol3t12Filter  && !(r.vol3t12_match && r.vol3t12_age != null && r.vol3t12_age < (lookbackN || 1))) return false
+      // ⛓ sequence: every non-empty slot must be satisfied by ITS bar. seq3 arrives
+      // oldest→newest, so slot i lines up with seq3[i] and the labels read the way the
+      // chart does, left to right. An empty slot constrains nothing, which is what makes
+      // a two-bar rule expressible without a second UI.
+      if (seqActive) {
+        const bars = r.seq3
+        if (!Array.isArray(bars) || bars.length < 3) return false
+        for (let i = 0; i < 3; i++) {
+          if (seqSlots[i].size === 0) continue
+          const bar = bars[i]
+          const ok = [...seqSlots[i]].every(k => {
+            const sig = SIG_GROUPS.find(x => !x.divider && x.key === k)
+            // N is meaningless inside a sequence — each slot IS one bar, so the
+            // predicate is evaluated with lookback 1 against that bar alone.
+            if (sig?.custom) { try { return !!sig.custom(bar, 1) } catch { return false } }
+            // no custom predicate → an age-based chip. There is no age inside a
+            // sequence, so the bar carries the filter keys that were true on it.
+            if (Array.isArray(bar.k)) return bar.k.includes(k)
+            return !!bar[k]
+          })
+          if (!ok) return false
+        }
+      }
       if (selSigs.size > 0) {
         // parse ages once per row (cached on the object)
         if (!r._ages && r.sig_ages) {
@@ -1619,7 +1658,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
       })
     }
     return filtered
-  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter])
+  }, [allResults, mtfEmaMap, mtfEmaAgeMap, pmData, scoreBands, direction, selSigs, lookbackN, sortBy, sortDir, gexTick, anatTick, effectiveScoreCol, volMin, volMax, priceMin, priceMax, secFilter, sectorMap, rtbPhase, sweetSpotFilter, buyFilter, buildingFilter, watchFilter, adFreshFilter, adClusterFilter, wycPhaseFilter, swingTypeFilter, prebreakTier, pbLvbo, pbStopCause, pbWvfConfirm, pbPpRtv, pbFlyCdC, pbFollow, pbMacroPen, wycInTr, zoneTiers, zoneTierSets, gannFilter, gannSet, vbwFilter, atomicFilter, shortFilter, capFilter, momFilter, postCapitFilter, vol3t5Filter, vol3t9Filter, vol3t12Filter, seqSlots, seqActive])
 
   const toggleSort = (col) => {
     if (sortBy === col) setSortDir(d => d === 'desc' ? 'asc' : 'desc')
@@ -1637,11 +1676,17 @@ export default function UltraScanPanel({ onSelectTicker }) {
     </th>
   )
 
-  const toggleSig = key => setSelSigs(prev => {
-    const n = new Set(prev)
-    n.has(key) ? n.delete(key) : n.add(key)
-    return n
-  })
+  const toggleSig = key => {
+    if (seqTarget === 'main') {
+      setSelSigs(prev => { const n = new Set(prev); n.has(key) ? n.delete(key) : n.add(key); return n })
+      return
+    }
+    setSeqSlots(prev => prev.map((set, i) => {
+      if (i !== seqTarget) return set
+      const n = new Set(set); n.has(key) ? n.delete(key) : n.add(key); return n
+    }))
+  }
+
 
   // In DB-instant mode, hide the live-only chips entirely (they have no DB
   // column → 0 matches). Also drop any divider whose whole section becomes
@@ -2650,6 +2695,37 @@ export default function UltraScanPanel({ onSelectTicker }) {
               className={`px-2 py-0.5 rounded text-xs shrink-0 ${selSigs.size === 0 ? 'bg-blue-600 text-white' : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
               All
             </button>
+            {/* ⛓ SEQUENCE — pick the bar a chip lands on. The grid below is not
+                duplicated: the same chips, routed to a different set. */}
+            <div className="w-full flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-white/[0.07]">
+              <span className="text-[10px] text-md-on-surface-var/70 font-semibold uppercase tracking-wide">⛓ seq</span>
+              {[['main', 'ANY bar (N)'], [0, 'bar −2'], [1, 'bar −1'], [2, 'today']].map(([t, lbl]) => {
+                const n = t === 'main' ? selSigs.size : seqSlots[t].size
+                const on = seqTarget === t
+                return (
+                  <button key={String(t)} onClick={() => setSeqTarget(t)}
+                    title={t === 'main'
+                      ? 'The existing behaviour: a chip matches if it fired anywhere in the last N bars. Order is not checked.'
+                      : 'Chips clicked now apply to THIS bar only. Leave a slot empty and it constrains nothing, so a two-bar rule is a three-slot rule with one blank.'}
+                    className={`px-2 py-0.5 rounded text-xs shrink-0 border transition-colors ${
+                      on ? 'bg-indigo-800 text-indigo-100 border-indigo-400'
+                         : 'bg-md-surface-high text-md-on-surface-var border-md-outline-var hover:text-white'}`}>
+                    {lbl}{n > 0 ? ` · ${n}` : ''}
+                  </button>
+                )
+              })}
+              {seqActive && (
+                <>
+                  <span className="text-[10px] text-md-on-surface-var/60 ml-1">
+                    {seqSlots.map((x, i) => x.size ? ['−2', '−1', '0'][i] : '·').join(' ')}
+                  </span>
+                  <button onClick={clearSeq}
+                    className="px-2 py-0.5 rounded text-xs bg-red-900/40 text-red-400 hover:bg-red-900/60">
+                    ✕ seq
+                  </button>
+                </>
+              )}
+            </div>
             {visibleSigGroups.map((s, i) =>
               s.divider
                 ? (s.label
@@ -2658,7 +2734,9 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 : (
                   <button key={s.key} onClick={() => toggleSig(s.key)}
                     className={`px-2 py-0.5 rounded text-xs shrink-0 transition-colors
-                      ${selSigs.has(s.key) ? `${s.cls} bg-gray-700 font-semibold` : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
+                      ${(seqTarget === 'main' ? selSigs : seqSlots[seqTarget]).has(s.key)
+                          ? `${s.cls} ${seqTarget === 'main' ? 'bg-gray-700' : 'bg-indigo-800 ring-1 ring-indigo-400'} font-semibold`
+                          : 'bg-md-surface-high text-md-on-surface-var hover:text-white'}`}>
                     {s.label}
                   </button>
                 )

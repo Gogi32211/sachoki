@@ -593,6 +593,125 @@ def _seq34_map() -> dict:
     return m
 
 
+# ── ⛓ per-bar sequence window  [260815] ──────────────────────────────────────────
+# The screener's N filter asks "did this fire ANYWHERE in the last N bars". A
+# sequence is a different question: "was it THIS on the bar before last, THAT
+# yesterday, and THIS today". N cannot express order, and order is most of what a
+# setup is.
+#
+# Rather than invent per-bar filter keys, this returns the last three bars' FIELDS
+# under the same names the latest-bar row uses. The frontend then runs its existing
+# chip predicates against seq3[k] instead of against the row — so every filter that
+# already works gains a per-bar form for free, and a new chip needs no sequence code.
+_SEQ3_STR = ("t_sig", "z_sig", "l_sig", "full_suffix", "close_suffix", "ne_suffix",
+             "wick_suffix", "bar_body_wick", "bar_gap_range", "bar_line5", "vol_bucket",
+             "phys_r", "phys_regime", "phys_m", "phys_e", "phys_k", "phys_c", "phys_h",
+             "phys_s", "phys_ad", "phys_gap_true", "phys_wyc", "wyc_phase")
+_SEQ3_NUM = ("sig_cisd_plus_struct", "sig_cisd_minus_struct", "sig_cisd_seq",
+             "sig_cisd_mpm", "rsi_14")
+# the string columns the UI reads under a tz_wlnbb_ alias
+# the age-based chips: T/Z/L/GOG/PREUP-PREDN and the common toggles. These are the
+# ones with no custom predicate, so without them a sequence slot holding "ANY T"
+# would match nothing at all.
+_SEQ3_FLAGS = (*(f"sig_t{n}" for n in range(1, 13)), "sig_t1g", "sig_t2g", "sig_t",
+               *(f"sig_z{n}" for n in range(1, 13)), "sig_z1g", "sig_z2g", "sig_z",
+               "sig_tz_flip", "sig_l_any", "l34", "l43", "l22",
+               "be_up", "bo_up", "bx_up", "vbo_up",
+               "sig_g1", "sig_g2", "sig_g4", "sig_g6", "sig_g11",
+               "sig_buy", "sig_3g", "sig_conso", "sig_svs", "sig_va",
+               "sig_vol_5x", "sig_vol_10x", "sig_vol_20x",
+               "sig_p2", "sig_p3", "sig_p50", "sig_p55", "sig_p66", "sig_p89", "sig_any_p",
+               "sig_d2", "sig_d3", "sig_d50", "sig_d55", "sig_d66", "sig_d89", "sig_any_d",
+               "ad_fresh", "ad_cluster")
+_SEQ3_ALIAS = {"l_sig": "tz_wlnbb_l_signal", "full_suffix": "tz_wlnbb_full_suffix",
+               "ne_suffix": "tz_wlnbb_ne_suffix", "wick_suffix": "tz_wlnbb_wick_suffix",
+               "bar_body_wick": "tz_wlnbb_bar_body_wick",
+               "bar_gap_range": "tz_wlnbb_bar_gap_range",
+               "bar_line5": "tz_wlnbb_bar_line5", "vol_bucket": "tz_wlnbb_volume_bucket",
+               "sig_cisd_plus_struct": "cisd_plus_struct",
+               "sig_cisd_minus_struct": "cisd_minus_struct",
+               "sig_cisd_seq": "cisd_seq", "sig_cisd_mpm": "cisd_mpm"}
+
+
+def _seq3_filter_key(sig_col: str) -> str:
+    """sig_* DB column → the frontend filter key. Same mapping the ages use.
+
+    Kept as a module function rather than copied into _enrich_seq3 because the ages
+    path already owns this translation; two copies would drift the first time a
+    signal is renamed, and the symptom would be a sequence slot that silently
+    matches nothing — which is exactly how this function came to exist."""
+    if sig_col == "sig_t":       return "tz_any_t"
+    if sig_col == "sig_z":       return "tz_any_z"
+    if sig_col == "sig_tz_flip": return "tz_bull_flip"
+    if sig_col.startswith("sig_t"): return "tz_t" + sig_col[5:]
+    if sig_col.startswith("sig_z"): return "tz_z" + sig_col[5:]
+    if sig_col.startswith("sig_"):  return sig_col[4:]
+    return sig_col
+
+
+def _enrich_seq3(results: list, universes) -> None:
+    """Attach seq3 = [bar-2, bar-1, today] of filterable fields, per ticker.
+
+    Three bars, not N: the ask was a three-bar sequence, and every extra bar is
+    another full field set on every row of the payload. Widening this is one
+    constant, but it should be a decision rather than a default."""
+    if not results:
+        return
+    import json as _json                                             # noqa: PLC0415
+    from ai_journal.db import get_analytics_conn                     # noqa: PLC0415
+    tks = sorted({str(r.get("ticker")) for r in results if r.get("ticker")})
+    if not tks:
+        return
+    # Most screener chips carry NO custom predicate — they are age-based, and the
+    # frontend resolves them through sig_ages. Inside a sequence there is no age to
+    # consult, so each bar carries the list of filter keys that are TRUE on it. Only
+    # the true ones: a bar typically has a handful, so this stays small where a full
+    # boolean matrix would not.
+    from ai_journal.db import get_analytics_conn as _gac                # noqa: PLC0415
+    _c = _gac()
+    try:
+        _avail = {r[0] for r in _c.execute("DESCRIBE bars").fetchall()}
+    finally:
+        _c.close()
+    flags = [c for c in _SEQ3_FLAGS if c in _avail]
+    cols = ", ".join(f"coalesce(CAST({c} AS VARCHAR),'') AS {c}" for c in _SEQ3_STR) \
+           + ", " + ", ".join(f"{c}" for c in _SEQ3_NUM) \
+           + (", " + ", ".join(f"coalesce({c},0) AS {c}" for c in flags) if flags else "")
+    ph = ",".join("?" * len(tks))
+    conn = get_analytics_conn()
+    try:
+        df = conn.execute(f"""
+            WITH d AS (
+              SELECT ticker, date, {cols},
+                     row_number() OVER (PARTITION BY ticker, date ORDER BY
+                       CASE universe WHEN 'sp500' THEN 0 WHEN 'nasdaq' THEN 1 ELSE 2 END) rn
+              FROM bars WHERE ticker IN ({ph})
+            ), u AS (SELECT * EXCLUDE rn FROM d WHERE rn = 1),
+            k AS (SELECT *, row_number() OVER (PARTITION BY ticker ORDER BY date DESC) age
+                  FROM u)
+            SELECT * FROM k WHERE age <= 3 ORDER BY ticker, date
+        """, tks).fetchdf()
+    finally:
+        conn.close()
+    by: dict = {}
+    for row in df.to_dict("records"):
+        bar = {}
+        on = [_seq3_filter_key(c) for c in flags if row.get(c)]
+        if on:
+            bar["k"] = on
+        for c in (*_SEQ3_STR, *_SEQ3_NUM):
+            v = row.get(c)
+            if v is None or (isinstance(v, float) and v != v):
+                continue
+            bar[_SEQ3_ALIAS.get(c, c)] = v
+        by.setdefault(row["ticker"], []).append(bar)
+    # oldest → newest, exactly how the user reads the chart left to right
+    for r in results:
+        seq = by.get(str(r.get("ticker")))
+        if seq:
+            r["seq3"] = seq[-3:]
+
+
 def _enrich_buy_flags(results: list) -> None:
     """🟢 REV / 🔵 BRK buy-flags on the latest bar (validated 2026-07-18, flagval.py; the
     actionable output of the two-zone study). Needs 5-bar RSI lag features not in the
@@ -1297,6 +1416,11 @@ def run_ultra_db_scan(
         _enrich_seq_patterns(results, lookback_n=age_lookback)
     except Exception as exc:
         log.warning("_enrich_seq_patterns failed: %s", exc)
+
+    try:
+        _enrich_seq3(results, universes)
+    except Exception as exc:
+        log.warning("_enrich_seq3 failed: %s", exc)
 
     try:
         _enrich_buy_flags(results)
