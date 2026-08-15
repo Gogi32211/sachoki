@@ -40,14 +40,19 @@
 //  outcome is the red one, which is why leaving it out was worth fixing —
 //  a chart showing only two of three reads as if the third never happened.
 //
-//  A FIFTH, STARTING FROM BELOW THE BAND
+//  TWO MORE, STARTING FROM BELOW THE BAND
 //
-//    green   opened inside the previous BODY and closed inside the upper wick
-//            band — rose into the rejected zone without clearing it
+//    green   opened inside the previous BODY, closed INSIDE the upper wick band
+//            — rose into the rejected zone without clearing it
+//    navy    opened inside the previous BODY, closed ABOVE the whole band
+//            — crossed the rejected zone end to end in one bar
 //
-//  The orange case starts inside the band and stays; this one arrives from
-//  underneath. Same close, different origin, and they cannot overlap because the
-//  open is either in the body or in the band, never both.
+//  The orange case starts inside the band and stays; these two arrive from
+//  underneath and differ only in whether they cleared it. Green is to navy what
+//  orange is to blue — the same pair of outcomes, one starting lower.
+//
+//  Nothing here can overlap: the open is either inside the body or inside the
+//  band, never both, and the close is either under prevHigh or over it.
 //
 //  AND THE LOWER WICK, one case of it
 //
@@ -71,6 +76,8 @@ strict     = input.bool(false, "Require the WHOLE bar inside (high and low too)"
 showHeld   = input.bool(true,  "🟠 held — closed inside the UPPER band")
 showBroke  = input.bool(true,  "🔵 broke — closed above the band")
 showFell   = input.bool(true,  "🔴 fell — closed below the UPPER band")
+showSurge  = input.bool(true,  "🔷 surged — opened in the previous BODY, closed ABOVE the band",
+             tooltip = "The full version of the green case: from inside the previous body, through the whole rejected zone, closing above the previous high. Green and this differ only in whether the band was cleared.")
 showRise   = input.bool(true,  "🟢 rose — opened in the previous BODY, closed in the upper band",
              tooltip = "Arrives at the same place as the orange case but from underneath: the open sits inside the previous bar's body [min(open[1],close[1]) … max(open[1],close[1])] and the close lands in the upper wick band without exceeding it. A previous bar with no body makes this impossible rather than trivial — the open would have to match one exact price — so it needs no separate guard.")
 showLower  = input.bool(true,  "🟣 opened and closed inside the LOWER wick band",
@@ -106,8 +113,9 @@ fellRaw  = hasBand and openIn and close < prevTop       // closed below
 // opened in the previous BODY, closed in the upper wick band. Mutually exclusive
 // with every upper-band case above by construction: those all require the open
 // inside the band, this one requires it below.
-riseRaw = hasBand and open >= prevBot and open <= prevTop
-                  and close >= prevTop and close <= prevHigh
+openInBody = open >= prevBot and open <= prevTop
+riseRaw  = hasBand and openInBody and close >= prevTop and close <= prevHigh
+surgeRaw = hasBand and openInBody and close > prevHigh
 
 // the lower-wick mirror of heldRaw. `strict` is not applied here: it is an
 // option on the orange case and silently extending it would change a setting's
@@ -116,14 +124,16 @@ loHeldRaw = hasLoBand and open >= prevLow and open <= prevBot
                       and close >= prevLow and close <= prevBot
 
 rise   = riseRaw   and showRise
+surge  = surgeRaw  and showSurge
 held   = heldRaw   and showHeld
 broke  = brokeRaw  and showBroke
 fell   = fellRaw   and showFell
 loHeld = loHeldRaw and showLower
 
 // ── output ───────────────────────────────────────────────────────────────────
-bandCol = broke ? color.blue : fell ? color.red : rise ? color.green : color.orange
-if showBand and (held or broke or fell or rise)
+bandCol = broke ? color.blue : surge ? color.navy : fell ? color.red
+        : rise ? color.green : color.orange
+if showBand and (held or broke or fell or rise or surge)
     box.new(bar_index - 1, prevHigh, bar_index, prevTop,
             border_color = color.new(bandCol, 40), bgcolor = color.new(bandCol, 88))
 
@@ -143,6 +153,10 @@ plotshape(broke, title = "closed above the wick", style = shape.triangleup,
 plotshape(fell, title = "closed below the wick", style = shape.triangledown,
           location = location.abovebar, color = color.new(color.red, 0),
           size = size.small, text = "DN")
+
+plotshape(surge, title = "crossed the upper wick", style = shape.triangleup,
+          location = location.belowbar, color = color.new(color.navy, 0),
+          size = size.small, text = "SURGE")
 
 plotshape(rise, title = "rose into the upper wick", style = shape.triangleup,
           location = location.belowbar, color = color.new(color.green, 0),
@@ -182,6 +196,18 @@ if showLabels and fell and barstate.isconfirmed
       style = label.style_label_down, color = color.new(color.red, 25),
       textcolor = color.white, size = size.tiny)
 
+if showLabels and surge and barstate.isconfirmed
+    // how far past the old high, in units of the wick it crossed — the same
+    // measure the blue case uses, so the two read against each other
+    sOver = wick > 0 ? (close - prevHigh) / wick * 100 : na
+    sSpan = prevTop - prevBot
+    sOpen = sSpan > 0 ? (open - prevBot) / sSpan * 100 : na
+    label.new(bar_index, low, yloc = yloc.belowbar,
+      text = "SURGE +" + str.tostring(sOver, "#") + "% of the wick above it" +
+             "\nopened " + str.tostring(sOpen, "#") + "% up the body",
+      style = label.style_label_up, color = color.new(color.navy, 25),
+      textcolor = color.white, size = size.tiny)
+
 if showLabels and rise and barstate.isconfirmed
     // where the close landed in the band, and where the open started in the body
     rPos = wick > 0 ? (close - prevTop) / wick * 100 : na
@@ -206,7 +232,8 @@ if showLabels and loHeld and barstate.isconfirmed
 // A bar can satisfy an upper-band case and the lower-band case only if both wicks
 // are large and the body is tiny — the upper cases win the bar colour so the
 // three-way split above stays readable, and the 🟣 marker still prints.
-barcolor(broke ? color.new(color.blue, 20) : fell ? color.new(color.red, 20)
+barcolor(broke ? color.new(color.blue, 20) : surge ? color.new(color.navy, 20)
+       : fell ? color.new(color.red, 20)
        : held ? color.new(color.orange, 20) : rise ? color.new(color.green, 20)
        : loHeld ? color.new(color.purple, 20) : na)
 
@@ -216,6 +243,8 @@ alertcondition(broke, "Closed above the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed above it at {{close}}")
 alertcondition(fell, "Closed below the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed back below it at {{close}}")
+alertcondition(surge, "Crossed the previous upper wick",
+     "{{ticker}} — opened in the previous body and closed above its high at {{close}}")
 alertcondition(rise, "Rose into the previous upper wick",
      "{{ticker}} — opened in the previous body and closed inside its upper wick at {{close}}")
 alertcondition(loHeld, "Inside the previous lower wick",
