@@ -467,6 +467,47 @@ const ROWS = [
     },
   },
   {
+    // ── ▭ body + wick shape, straight from bar_body_wick ──────────────────────
+    // The TZ script's third label line, which the table has never shown. Already
+    // served by /api/bar_signals — no engine, no column, no backfill: the data was
+    // here and only the display was missing, the same gap the ⚛ row had.
+    //
+    // Two letters doing two jobs, and the second is the load-bearing one:
+    //   body   X expanded (≥1.5× the previous body) · S normal · M minimal (≤0.5×)
+    //   wick   TB upper wick ≥50% of range · BB lower ≥50% · J doji (body ≤20%)
+    //          F both wicks under 30% — a flat bar that went nowhere at either end
+    //
+    // BB is the "hammer" this session measured: on the reserved 2024-26 window it
+    // returned +2.09% under path simulation against +1.08% for random entries at the
+    // same rate — and it BEAT the two-bar Wick-Flip pair (+1.47%) that contains it.
+    // The pair discards 97% of BB's trades for a worse median, so the single letter
+    // is the one worth watching.
+    key: 'bodywick',
+    label: '▭',
+    getSigs: (b) => (b.bar_body_wick ? [b.bar_body_wick] : []),
+    sigTitle: (s) => {
+      const body = s.startsWith('X') ? 'X — body expanded, at least 1.5× the previous bar\'s'
+                 : s.startsWith('M') ? 'M — body minimal, at most half the previous bar\'s'
+                 : s.startsWith('S') ? 'S — body normal, between those'
+                 : ''
+      const w = s.replace(/^[XSM]/, '')
+      const wick = w === 'TB' ? 'TB — upper wick is at least half the bar\'s range: highs rejected'
+                 : w === 'BB' ? 'BB — lower wick is at least half the range: lows rejected. This is the hammer; measured on 2024-26 it beat the two-bar Wick-Flip pair that contains it.'
+                 : w === 'J'  ? 'J — doji: body at most 20% of range, so both ends are wick by construction'
+                 : w === 'F'  ? 'F — flat: both wicks under 30% of range, the bar went nowhere at either end'
+                 : w ? w : 'no dominant wick shape'
+      return `${body}${body && wick ? ' · ' : ''}${wick}`
+    },
+    chipCls: (s) => {
+      const w = s.replace(/^[XSM]/, '')
+      if (w === 'BB') return 'bg-teal-900 text-teal-300 font-semibold'
+      if (w === 'TB') return 'bg-orange-900 text-orange-300 font-semibold'
+      if (w === 'J')  return 'bg-slate-800 text-slate-300'
+      if (w === 'F')  return 'bg-slate-900 text-slate-500'
+      return 'bg-slate-900 text-slate-400'
+    },
+  },
+  {
     // ⚛ PHYSICS (2026-08-14) — the 260814 Pine fields, one row directly under L.
     //
     // The chart strip and this row show the SAME set, because two surfaces with two ideas of
@@ -1685,6 +1726,9 @@ export default function SuperchartPanel({
                     empty: the DB holds every physics field on EVERY bar, and "all" prints the
                     full per-bar state the Pine pane shows. Nothing is missing — it is filtered. */}
                 {ROWS.filter(r => ['z', 'td', 'l'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {/* ▭ sits directly under L, where it was asked for. Reads bars, not
+                    barsPhys — bar_body_wick comes from /api/bar_signals already. */}
+                {ROWS.filter(r => r.key === 'bodywick').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
                 {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => (
                   <ChipRow key={row.key} bars={barsPhys}
                            row={{ ...row,
@@ -2076,7 +2120,7 @@ export default function SuperchartPanel({
                 {/* the remaining signal families */}
                 {/* 'phys' is excluded here because it is rendered above, directly under L —
                     this catch-all is what silently drew it a second time at the bottom. */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 
