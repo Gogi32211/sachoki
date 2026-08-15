@@ -74,6 +74,12 @@ _DB_TO_UI_COL_MAP = {
     "bar_body_wick":     "tz_wlnbb_bar_body_wick",
     "bar_gap_range":     "tz_wlnbb_bar_gap_range",
     "bar_line5":         "tz_wlnbb_bar_line5",
+    # ⟂ CISD  [260815] — the structural half is the one that carries; the merged
+    # sig_cisd_cplus mixes it with completion-born events and dilutes it
+    "sig_cisd_plus_struct":  "cisd_plus_struct",
+    "sig_cisd_minus_struct": "cisd_minus_struct",
+    "sig_cisd_seq":          "cisd_seq",
+    "sig_cisd_mpm":          "cisd_mpm",
     # RTB
     "rtb_phase":         "rtb_phase",
     "rtb_total":         "rtb_total",
@@ -368,12 +374,31 @@ def _row_to_dict(row: pd.Series) -> dict:
     if lsig is not None and not pd.isna(lsig):
         out["tz_wlnbb_l_signal"] = str(lsig)
     # NE suffix / wick suffix / body-wick / gap-range / line5
+    # [260815] ⚛ physics and ⟂ CISD, added to the screener because they were added to
+    # the superchart the same day. A column the chart marks and the screener cannot
+    # filter is half a feature: you can see the state on one name and not go looking
+    # for it across the universe.
+    #
+    # Passed through under their own DB names rather than a tz_wlnbb_ alias — those
+    # aliases exist for columns that predate the naming, and inventing new ones would
+    # add a translation layer with nothing on the other side of it.
     for db_col, ui_key in (
         ("ne_suffix",        "tz_wlnbb_ne_suffix"),
         ("wick_suffix",      "tz_wlnbb_wick_suffix"),
         ("bar_body_wick",    "tz_wlnbb_bar_body_wick"),
         ("bar_gap_range",    "tz_wlnbb_bar_gap_range"),
         ("bar_line5",        "tz_wlnbb_bar_line5"),
+        ("phys_r",           "phys_r"),
+        ("phys_regime",      "phys_regime"),
+        ("phys_m",           "phys_m"),
+        ("phys_e",           "phys_e"),
+        ("phys_k",           "phys_k"),
+        ("phys_c",           "phys_c"),
+        ("phys_h",           "phys_h"),
+        ("phys_s",           "phys_s"),
+        ("phys_ad",          "phys_ad"),
+        ("phys_gap_true",    "phys_gap_true"),
+        ("phys_wyc",         "phys_wyc"),
     ):
         if db_col in row.index:
             v = row[db_col]

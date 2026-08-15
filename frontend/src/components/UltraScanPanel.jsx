@@ -205,6 +205,74 @@ const SIG_GROUPS = [
     custom: r => r.tz_wlnbb_bar_body_wick === 'XF' },
   { key: '_bw_mf', label: 'MF',  cls: 'text-yellow-400',
     custom: r => r.tz_wlnbb_bar_body_wick === 'MF' },
+  { divider: true, label: '⚛ physics (260815)' },
+  // ── ⚛ Market-physics state, the same fields the superchart ⚛ row prints ──────
+  // Added the day the row was, because a state the chart marks and the screener
+  // cannot filter is half a feature — you can see it on one name and have no way
+  // to go looking for it across the universe.
+  //
+  // What each is worth was measured today and is deliberately NOT encoded here as
+  // a ranking: on 3.3M rows crossed against the book's edges, only three states
+  // held their sign across both a 2021-23 mining window and a reserved 2024-26 one
+  // (RN and C0 mildly positive, RF consistently negative). BB led the mining
+  // window and inverted out of sample. These are filters, not recommendations.
+  { key: '_ph_ra', label: 'RA',  cls: 'text-sky-300 font-semibold',
+    custom: r => r.phys_r === 'RA' },
+  { key: '_ph_rn', label: 'RN',  cls: 'text-slate-300',
+    custom: r => r.phys_r === 'RN' },
+  { key: '_ph_rf', label: 'RF',  cls: 'text-orange-300',
+    custom: r => r.phys_r === 'RF' },
+  { key: '_ph_u',  label: '·U',  cls: 'text-emerald-300',
+    custom: r => r.phys_regime === 'U' },
+  { key: '_ph_d',  label: '·D',  cls: 'text-rose-300',
+    custom: r => r.phys_regime === 'D' },
+  { key: '_ph_e2', label: 'E2',  cls: 'text-amber-300',
+    custom: r => (r.phys_e || '').startsWith('E2') },
+  { key: '_ph_es', label: 'E★',  cls: 'text-violet-300 font-bold',
+    custom: r => (r.phys_e || '').includes('★') },
+  { key: '_ph_k2', label: 'K2',  cls: 'text-red-300 font-bold',
+    custom: r => (r.phys_k || '').startsWith('K2') },
+  { key: '_ph_k1', label: 'K1',  cls: 'text-red-200',
+    custom: r => (r.phys_k || '').startsWith('K1') },
+  { key: '_ph_k0', label: 'K0',  cls: 'text-gray-400',
+    custom: r => r.phys_k === 'K0' },
+  { key: '_ph_c0', label: 'C0',  cls: 'text-teal-300',
+    custom: r => r.phys_c === 'C0' },
+  { key: '_ph_c1', label: 'C1',  cls: 'text-gray-400',
+    custom: r => r.phys_c === 'C1' },
+  { key: '_ph_c2', label: 'C2',  cls: 'text-fuchsia-300',
+    custom: r => r.phys_c === 'C2' },
+  { key: '_ph_h0', label: 'H0',  cls: 'text-emerald-300',
+    custom: r => r.phys_h === 'H0' },
+  { key: '_ph_h2', label: 'H2',  cls: 'text-rose-300',
+    custom: r => r.phys_h === 'H2' },
+  { key: '_ph_m2', label: 'M2',  cls: 'text-blue-300',
+    custom: r => r.phys_m === 'M2' },
+  { key: '_ph_s3u', label: 'S3U', cls: 'text-green-300',
+    custom: r => r.phys_s === 'S3U' },
+  { key: '_ph_s3d', label: 'S3D', cls: 'text-red-300',
+    custom: r => r.phys_s === 'S3D' },
+  { key: '_ph_ad', label: 'AD★', cls: 'text-fuchsia-300 font-bold',
+    custom: r => !!r.phys_ad },
+  { key: '_ph_gg3', label: 'gG3', cls: 'text-amber-300',
+    custom: r => r.phys_gap_true === 'G3' },
+  { key: '_ph_spr', label: 'SPRING⚛', cls: 'text-lime-300 font-bold',
+    custom: r => (r.phys_wyc || '').startsWith('SPRING') },
+  { key: '_ph_utad', label: 'UTAD⚛', cls: 'text-rose-300 font-bold',
+    custom: r => r.phys_wyc === 'UTAD' },
+  { divider: true, label: '⟂ CISD (260815)' },
+  // ── ⟂ Change in state of delivery ────────────────────────────────────────────
+  // +S is the structural half. Until today's engine fix it could never fire at all
+  // (the market structure seeded from 0.0, so `low < bottomPrice` meant `low < 0`),
+  // which is also why the ++- sequence had never been true in 773,606 bars.
+  { key: '_ci_ps', label: '+S',  cls: 'text-emerald-300 font-bold',
+    custom: r => !!r.cisd_plus_struct },
+  { key: '_ci_ms', label: '−S',  cls: 'text-slate-400',
+    custom: r => !!r.cisd_minus_struct },
+  { key: '_ci_sq', label: '⟂seq', cls: 'text-gray-400',
+    custom: r => !!r.cisd_seq },
+  { key: '_ci_mp', label: '⟂mpm', cls: 'text-gray-400',
+    custom: r => !!r.cisd_mpm },
   { divider: true, label: 'L4 gap·range' },
   // ── Line 4 — gap/range vs ATR ────────────────────────────────────────
   { key: '_gr_g1', label: 'G1',  cls: 'text-sky-300',
