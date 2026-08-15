@@ -649,12 +649,17 @@ def _seq3_filter_key(sig_col: str) -> str:
     return sig_col
 
 
-def _enrich_seq3(results: list, universes) -> None:
-    """Attach seq3 = [bar-2, bar-1, today] of filterable fields, per ticker.
+SEQ_BARS = 5   # how deep a sequence can reach. One constant, deliberately visible:
+               # every extra bar is another field set on every row of the payload.
 
-    Three bars, not N: the ask was a three-bar sequence, and every extra bar is
-    another full field set on every row of the payload. Widening this is one
-    constant, but it should be a decision rather than a default."""
+
+def _enrich_seq3(results: list, universes) -> None:
+    """Attach seqbars = the last SEQ_BARS bars of filterable fields, oldest first.
+
+    The array is ALIGNED TO THE END: the last element is always today. A ticker with
+    a shorter history returns a shorter array rather than a padded one, and the
+    frontend indexes from the end — so a rule that only constrains the recent bars
+    still matches a name that has not been listed long enough to fill the window."""
     if not results:
         return
     import json as _json                                             # noqa: PLC0415
@@ -689,7 +694,7 @@ def _enrich_seq3(results: list, universes) -> None:
             ), u AS (SELECT * EXCLUDE rn FROM d WHERE rn = 1),
             k AS (SELECT *, row_number() OVER (PARTITION BY ticker ORDER BY date DESC) age
                   FROM u)
-            SELECT * FROM k WHERE age <= 3 ORDER BY ticker, date
+            SELECT * FROM k WHERE age <= {SEQ_BARS} ORDER BY ticker, date
         """, tks).fetchdf()
     finally:
         conn.close()
@@ -705,11 +710,11 @@ def _enrich_seq3(results: list, universes) -> None:
                 continue
             bar[_SEQ3_ALIAS.get(c, c)] = v
         by.setdefault(row["ticker"], []).append(bar)
-    # oldest → newest, exactly how the user reads the chart left to right
+    # oldest → newest, exactly how the chart reads left to right
     for r in results:
         seq = by.get(str(r.get("ticker")))
         if seq:
-            r["seq3"] = seq[-3:]
+            r["seqbars"] = seq[-SEQ_BARS:]
 
 
 def _enrich_buy_flags(results: list) -> None:

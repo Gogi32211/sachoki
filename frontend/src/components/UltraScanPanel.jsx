@@ -1127,12 +1127,13 @@ export default function UltraScanPanel({ onSelectTicker }) {
   // chip in that bar's set. The chip grid is not duplicated — every filter that exists
   // gains a per-bar form because the same predicate is run against seq3[k] instead of
   // against the row.
-  const [seqSlots,   setSeqSlots]   = useState([new Set(), new Set(), new Set()])
+  const SEQ_BARS = 5
+  const [seqSlots,   setSeqSlots]   = useState(() => Array.from({length: 5}, () => new Set()))
   const [seqTarget,  setSeqTarget]  = useState('main')
   // derived here, NOT below the filter memo: useMemo's factory runs during render, so a
   // const declared later is still in its temporal dead zone when the memo reads it.
   const seqActive = seqSlots.some(x => x.size > 0)
-  const clearSeq  = () => { setSeqSlots([new Set(), new Set(), new Set()]); setSeqTarget('main') }
+  const clearSeq  = () => { setSeqSlots(Array.from({length: SEQ_BARS}, () => new Set())); setSeqTarget('main') }
   const [rtbPhase,    setRtbPhase]    = useState('')      // '' = all phases
   const [exported,   setExported]   = useState(false)
   const [tvExported, setTvExported] = useState(false)
@@ -1597,11 +1598,16 @@ export default function UltraScanPanel({ onSelectTicker }) {
       // chart does, left to right. An empty slot constrains nothing, which is what makes
       // a two-bar rule expressible without a second UI.
       if (seqActive) {
-        const bars = r.seq3
-        if (!Array.isArray(bars) || bars.length < 3) return false
-        for (let i = 0; i < 3; i++) {
+        const bars = r.seqbars
+        if (!Array.isArray(bars) || bars.length === 0) return false
+        // ALIGNED TO THE END: the last element is always today, so slot SEQ_BARS-1 is
+        // today whatever the array's length. A ticker listed four bars ago still
+        // satisfies a rule that only constrains the recent ones — padding from the
+        // front would have silently excluded exactly the young names worth finding.
+        for (let i = 0; i < SEQ_BARS; i++) {
           if (seqSlots[i].size === 0) continue
-          const bar = bars[i]
+          const bar = bars[bars.length - SEQ_BARS + i]
+          if (!bar) return false
           const ok = [...seqSlots[i]].every(k => {
             const sig = SIG_GROUPS.find(x => !x.divider && x.key === k)
             // N is meaningless inside a sequence — each slot IS one bar, so the
@@ -2699,7 +2705,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
                 duplicated: the same chips, routed to a different set. */}
             <div className="w-full flex items-center gap-1.5 mb-1.5 pb-1.5 border-b border-white/[0.07]">
               <span className="text-[10px] text-md-on-surface-var/70 font-semibold uppercase tracking-wide">⛓ seq</span>
-              {[['main', 'ANY bar (N)'], [0, 'bar −2'], [1, 'bar −1'], [2, 'today']].map(([t, lbl]) => {
+              {[['main', 'ANY bar (N)'],
+                ...Array.from({length: SEQ_BARS}, (_, i) =>
+                  [i, i === SEQ_BARS - 1 ? 'today' : `bar −${SEQ_BARS - 1 - i}`])
+               ].map(([t, lbl]) => {
                 const n = t === 'main' ? selSigs.size : seqSlots[t].size
                 const on = seqTarget === t
                 return (
@@ -2717,7 +2726,7 @@ export default function UltraScanPanel({ onSelectTicker }) {
               {seqActive && (
                 <>
                   <span className="text-[10px] text-md-on-surface-var/60 ml-1">
-                    {seqSlots.map((x, i) => x.size ? ['−2', '−1', '0'][i] : '·').join(' ')}
+                    {seqSlots.map((x, i) => x.size ? (i === SEQ_BARS - 1 ? '0' : `−${SEQ_BARS - 1 - i}`) : '·').join(' ')}
                   </span>
                   <button onClick={clearSeq}
                     className="px-2 py-0.5 rounded text-xs bg-red-900/40 text-red-400 hover:bg-red-900/60">
