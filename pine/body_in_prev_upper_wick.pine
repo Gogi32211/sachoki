@@ -54,6 +54,17 @@
 //  Nothing here can overlap: the open is either inside the body or inside the
 //  band, never both, and the close is either under prevHigh or over it.
 //
+//  AND ONE CASE WITH NO ZONE AT ALL
+//
+//    aqua    the previous bar had (almost) no upper wick — it closed at its own
+//            high — and this bar opened in its body and closed above that high
+//
+//  Every other mark here describes a zone the previous bar spiked into and gave
+//  back. This one is its complement: nothing was given back, so there is nothing
+//  to hold or clear, and closing above is continuation rather than resolution.
+//  It exists because the band-size guard was rejecting these silently and the
+//  rejection kept being read as a fault.
+//
 //  AND THE LOWER WICK, one case of it
 //
 //    purple  opened AND closed inside the previous LOWER wick band
@@ -82,6 +93,8 @@ showRise   = input.bool(true,  "🟢 rose — opened in the previous BODY, close
              tooltip = "Arrives at the same place as the orange case but from underneath: the open sits inside the previous bar's body [min(open[1],close[1]) … max(open[1],close[1])] and the close lands in the upper wick band without exceeding it. A previous bar with no body makes this impossible rather than trivial — the open would have to match one exact price — so it needs no separate guard.")
 showLower  = input.bool(true,  "🟣 opened and closed inside the LOWER wick band",
              tooltip = "The mirror of the orange case, on the previous bar's lower wick: [low[1] … min(open[1], close[1])]. Uses the same minimum-wick threshold, measured against the lower wick.")
+showPush   = input.bool(true,  "🩵 push — previous bar closed at its high, this one closed above it",
+             tooltip = "The complement of the surge case. The previous bar has no meaningful upper wick (below the same minWickPct threshold), so there is no rejected zone; this bar opens inside its body and closes above its high. Continuation over a strong close, not a zone being taken.")
 showNear   = input.bool(true,  "× mark bars stopped ONLY by the band-size rule",
              tooltip = "A bar that satisfies its case in every respect except that the previous bar's wick was too small to count as a band. Without this the rejection is silent, and a silent rejection reads as the script being broken — which is how this option came to exist.")
 showBand   = input.bool(true,  "Draw the band")
@@ -138,8 +151,15 @@ loHeld = loHeldRaw and showLower
 // a wick, i.e. a zone too thin to be crossed or held. Worth seeing, because the
 // fix is then a judgement about the threshold rather than about the bar.
 wickPct   = prevRange > 0 ? wick / prevRange * 100 : 0.0
+
+// promoted out of the near-miss set: no zone, opened in the body, closed above
+pushRaw = prevRange > 0 and not hasBand and openInBody and close > prevHigh
+push    = pushRaw and showPush
+
+// the × keeps what is left — the cases the band rule blocked that are NOT push,
+// so a bar never carries a mark and a "blocked" cross at the same time
 wouldFire = openIn or (open >= prevBot and open <= prevTop and close >= prevTop)
-nearBand  = showNear and not hasBand and wick > 0 and wouldFire
+nearBand  = showNear and not hasBand and wick > 0 and wouldFire and not pushRaw
 
 plotshape(nearBand, title = "blocked by band size", style = shape.xcross,
           location = location.belowbar, color = color.new(color.gray, 45),
@@ -176,6 +196,10 @@ plotshape(broke, title = "closed above the wick", style = shape.triangleup,
 plotshape(fell, title = "closed below the wick", style = shape.triangledown,
           location = location.abovebar, color = color.new(color.red, 0),
           size = size.small, text = "DN")
+
+plotshape(push, title = "closed above a wickless bar", style = shape.triangleup,
+          location = location.belowbar, color = color.new(color.aqua, 0),
+          size = size.small, text = "PUSH")
 
 plotshape(surge, title = "crossed the upper wick", style = shape.triangleup,
           location = location.belowbar, color = color.new(color.navy, 0),
@@ -219,6 +243,13 @@ if showLabels and fell and barstate.isconfirmed
       style = label.style_label_down, color = color.new(color.red, 25),
       textcolor = color.white, size = size.tiny)
 
+if showLabels and push and barstate.isconfirmed
+    pOver = prevRange > 0 ? (close - prevHigh) / prevRange * 100 : na
+    label.new(bar_index, low, yloc = yloc.belowbar,
+      text = "PUSH closed " + str.tostring(pOver, "#.#") + "% of the previous range above its high" + "\nprevious wick was only " + str.tostring(wickPct, "#.#") + "%",
+      style = label.style_label_up, color = color.new(color.aqua, 25),
+      textcolor = color.black, size = size.tiny)
+
 if showLabels and surge and barstate.isconfirmed
     // how far past the old high, in units of the wick it crossed — the same
     // measure the blue case uses, so the two read against each other
@@ -255,7 +286,7 @@ if showLabels and loHeld and barstate.isconfirmed
 // A bar can satisfy an upper-band case and the lower-band case only if both wicks
 // are large and the body is tiny — the upper cases win the bar colour so the
 // three-way split above stays readable, and the 🟣 marker still prints.
-barCol = broke ? color.blue : surge ? color.navy : fell ? color.red : held ? color.orange : rise ? color.green : loHeld ? color.purple : na
+barCol = broke ? color.blue : surge ? color.navy : push ? color.aqua : fell ? color.red : held ? color.orange : rise ? color.green : loHeld ? color.purple : na
 barcolor(na(barCol) ? na : color.new(barCol, 20))
 
 alertcondition(held, "Held inside the previous upper wick",
@@ -264,6 +295,8 @@ alertcondition(broke, "Closed above the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed above it at {{close}}")
 alertcondition(fell, "Closed below the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed back below it at {{close}}")
+alertcondition(push, "Closed above a bar that had no upper wick",
+     "{{ticker}} — previous bar closed at its high; this one closed above it at {{close}}")
 alertcondition(surge, "Crossed the previous upper wick",
      "{{ticker}} — opened in the previous body and closed above its high at {{close}}")
 alertcondition(rise, "Rose into the previous upper wick",
