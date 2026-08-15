@@ -82,6 +82,8 @@ showRise   = input.bool(true,  "🟢 rose — opened in the previous BODY, close
              tooltip = "Arrives at the same place as the orange case but from underneath: the open sits inside the previous bar's body [min(open[1],close[1]) … max(open[1],close[1])] and the close lands in the upper wick band without exceeding it. A previous bar with no body makes this impossible rather than trivial — the open would have to match one exact price — so it needs no separate guard.")
 showLower  = input.bool(true,  "🟣 opened and closed inside the LOWER wick band",
              tooltip = "The mirror of the orange case, on the previous bar's lower wick: [low[1] … min(open[1], close[1])]. Uses the same minimum-wick threshold, measured against the lower wick.")
+showNear   = input.bool(true,  "× mark bars stopped ONLY by the band-size rule",
+             tooltip = "A bar that satisfies its case in every respect except that the previous bar's wick was too small to count as a band. Without this the rejection is silent, and a silent rejection reads as the script being broken — which is how this option came to exist.")
 showBand   = input.bool(true,  "Draw the band")
 showLabels = input.bool(true,  "Label with where the close landed")
 
@@ -129,6 +131,25 @@ held   = heldRaw   and showHeld
 broke  = brokeRaw  and showBroke
 fell   = fellRaw   and showFell
 loHeld = loHeldRaw and showLower
+
+// ── stopped only by the band rule ────────────────────────────────────────────
+// Every case above requires hasBand. When that is the ONLY failing condition the
+// bar is not "no pattern" — it is the pattern over a previous bar that barely had
+// a wick, i.e. a zone too thin to be crossed or held. Worth seeing, because the
+// fix is then a judgement about the threshold rather than about the bar.
+wickPct   = prevRange > 0 ? wick / prevRange * 100 : 0.0
+wouldFire = openIn or (open >= prevBot and open <= prevTop and close >= prevTop)
+nearBand  = showNear and not hasBand and wick > 0 and wouldFire
+
+plotshape(nearBand, title = "blocked by band size", style = shape.xcross,
+          location = location.belowbar, color = color.new(color.gray, 45),
+          size = size.tiny)
+
+if showLabels and nearBand and barstate.isconfirmed
+    label.new(bar_index, low, yloc = yloc.belowbar,
+      text = "wick only " + str.tostring(wickPct, "#.#") + "% of the previous bar" + "\n(needs >=" + str.tostring(minWickPct, "#") + "%)",
+      style = label.style_label_up, color = color.new(color.gray, 30),
+      textcolor = color.white, size = size.tiny)
 
 // ── output ───────────────────────────────────────────────────────────────────
 // One line, deliberately. Pine rejects a continuation line that STARTS with an
