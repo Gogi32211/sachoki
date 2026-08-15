@@ -131,8 +131,10 @@ fell   = fellRaw   and showFell
 loHeld = loHeldRaw and showLower
 
 // ── output ───────────────────────────────────────────────────────────────────
-bandCol = broke ? color.blue : surge ? color.navy : fell ? color.red
-        : rise ? color.green : color.orange
+// One line, deliberately. Pine rejects a continuation line that STARTS with an
+// operator — "Mismatched input, expecting ':'" — and I wrote a comment about its
+// fussy continuation rules in the other script and then broke this the same way.
+bandCol = broke ? color.blue : surge ? color.navy : fell ? color.red : rise ? color.green : color.orange
 if showBand and (held or broke or fell or rise or surge)
     box.new(bar_index - 1, prevHigh, bar_index, prevTop,
             border_color = color.new(bandCol, 40), bgcolor = color.new(bandCol, 88))
@@ -232,10 +234,8 @@ if showLabels and loHeld and barstate.isconfirmed
 // A bar can satisfy an upper-band case and the lower-band case only if both wicks
 // are large and the body is tiny — the upper cases win the bar colour so the
 // three-way split above stays readable, and the 🟣 marker still prints.
-barcolor(broke ? color.new(color.blue, 20) : surge ? color.new(color.navy, 20)
-       : fell ? color.new(color.red, 20)
-       : held ? color.new(color.orange, 20) : rise ? color.new(color.green, 20)
-       : loHeld ? color.new(color.purple, 20) : na)
+barCol = broke ? color.blue : surge ? color.navy : fell ? color.red : held ? color.orange : rise ? color.green : loHeld ? color.purple : na
+barcolor(na(barCol) ? na : color.new(barCol, 20))
 
 alertcondition(held, "Held inside the previous upper wick",
      "{{ticker}} — opened and closed inside the previous bar's upper wick at {{close}}")
