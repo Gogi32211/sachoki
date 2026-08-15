@@ -32,8 +32,25 @@ def compute_cisd(df: pd.DataFrame) -> pd.DataFrame:
     minus_arr = np.zeros(n, dtype=bool)
 
     # ── Market structure state ────────────────────────────────────────────
-    top_price    = 0.0
-    bottom_price = 0.0
+    # Seeded from the FIRST BAR, not from zero.
+    #
+    # The Pine original declares MarketStructure.new(0, 0, false), and the port
+    # copied it faithfully. For any positively-priced instrument that makes
+    # `low < bottom_price` mean `low < 0` — impossible. Measured on 60 sp500
+    # tickers / 77,949 bars: the branch fired 0 times (lowest low seen: 5.38),
+    # so EVERY +CISD from a structure break was dead code and the only +CISD
+    # events reaching the DB came from the level-completion path.
+    #
+    # That one line is why sig_cisd_cplus_minus (++-) has never been true in
+    # 773,606 bars: "+CISD twice in a row" cannot happen when +CISD can only be
+    # produced by an alternating completion.
+    #
+    # Fixing it produces 7,035 +CISD events where there were 0, and they are the
+    # half that carries something: median fwd5 +0.646% against a +0.202%
+    # baseline, and +0.80% vs +0.25% on a reserved 2024-26 window it never saw.
+    # WATCH, not BUILD — L2 wants +1pp and this is +0.55.
+    top_price    = h[0]
+    bottom_price = l[0]
 
     # Pullback tracking
     is_bull_pb   = False   # bullish pullback active
