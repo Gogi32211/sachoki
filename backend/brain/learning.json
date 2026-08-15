@@ -358,5 +358,138 @@
     "kind": "combo_mined",
     "observation": "searched 314 combos, 4 passed OOS gate (family PBO 0.114)",
     "action": "promoted 4: M_z9hl_conf_anyfam, M_z1gt36_m15_zdom, M_z1gcrown_key_level, M_z1gcrown_m15_zdom"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "CCSI",
+    "observation": "fill_price: What price did you actually fill CCSI? (plan was $35.14)",
+    "action": "answer: 35.14 (corrected CCSI fill to $35.14)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "CCSI",
+    "observation": "catalyst: Does CCSI have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat the position as if an earnings/catalyst event could land before the $39.16 target; do not add to size, and if a confirmed earnings date falls before target, either trim to half size or accept the gap risk with the $33.13 stop understood as gap-through-able. (noted catalyst on CCSI)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "CMS",
+    "observation": "fill_price: What price did you actually fill CMS? (plan was $71.03)",
+    "action": "answer: 71.03 (corrected CMS fill to $71.03)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "CMS",
+    "observation": "catalyst: Does CMS have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat the position as if an earnings/catalyst event could land before the $76.71 target; keep size as-is, no adds, and treat the $68.19 stop as non-guaranteed through an event gap. CMS is a regulated utility, so rate-case/regulatory headlines are a known category of risk but no specific pending item is verifiable here. (noted catalyst on CMS)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "KDP",
+    "observation": "fill_price: What price did you actually fill KDP? (plan was $30.01)",
+    "action": "answer: $30.01 (corrected KDP fill to $30.01)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "KDP",
+    "observation": "catalyst: Does KDP have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — I have no earnings calendar or news feed here, so I cannot confirm or deny a KDP earnings date or other catalyst before the $32.41 target. Policy: treat the position as if an earnings/catalyst event may land inside the holding window — do not add to the position, keep the $28.81 stop hard, and size stays at the current 8 shares (~$240 notional, smallest line in the book). If the date is confirmed externally as pre-target, either flatten before the print or accept gap risk through the stop. (noted catalyst on KDP)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "AQN",
+    "observation": "fill_price: What price did you actually fill AQN? (plan was $5.74)",
+    "action": "answer: $5.74 (corrected AQN fill to $5.74)"
+  },
+  {
+    "date": "2026-08-10",
+    "kind": "user_data",
+    "edge": null,
+    "ticker": "AQN",
+    "observation": "catalyst: Does AQN have earnings or a known catalyst before your target?",
+    "action": "answer: Unverified — no earnings date or catalyst can be confirmed from the paper book; treat the window to the $6.20 target as carrying elevated event risk and size/manage accordingly (position is already tiny at 5 shares, ~$28.70 notional, risk ~$1.15 to stop). (noted catalyst on AQN)"
+  },
+  {
+    "date": "2026-08-11",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-11",
+    "kind": "revalidate_run",
+    "observation": "all 58 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-12",
+    "kind": "calibrate_run",
+    "observation": "no tier changes (no closed trades yet — outcome learning idle)",
+    "n_closed": 0
+  },
+  {
+    "date": "2026-08-12",
+    "kind": "revalidate_run",
+    "observation": "all 58 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-12",
+    "kind": "trade_autopsy",
+    "edge": "g3abs",
+    "ticker": "KDP",
+    "observation": "stopped_out / edge_miss (-4.0%, -1.0R)",
+    "action": "single loss within g3abs's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+  },
+  {
+    "date": "2026-08-13",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-08-13",
+    "kind": "revalidate_run",
+    "observation": "all 58 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-14",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-08-14",
+    "kind": "revalidate_run",
+    "observation": "all 58 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-15",
+    "kind": "calibrate_run",
+    "observation": "no tier changes",
+    "n_closed": 1
+  },
+  {
+    "date": "2026-08-15",
+    "kind": "revalidate_run",
+    "observation": "all 58 live edges healthy on recent data"
+  },
+  {
+    "date": "2026-08-15",
+    "kind": "combo_mined",
+    "observation": "searched 314 combos, 5 passed OOS gate (family PBO 0.086)",
+    "action": "promoted 5: M_l34cont_rs_ob_retest, M_z9hl_conf_anyfam, M_z1gt36_m15_zdom, M_z1gcrown_key_level, M_z1gcrown_m15_zdom"
   }
 ]

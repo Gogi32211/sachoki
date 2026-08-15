@@ -205,18 +205,18 @@
     "base_col": "E_z9hl",
     "cond_col": "conf_anyfam",
     "base": "z9hl",
-    "promoted": "2026-08-08",
+    "promoted": "2026-08-15",
     "stats": {
       "median": 17.81,
-      "lift": 4.57,
+      "lift": 5.02,
       "win": 85.0,
-      "pf": 15.85,
+      "pf": 15.79,
       "n": 40,
       "pos_years": "6/6",
       "worst_year": 1.4,
       "train_mean": 5.49,
-      "verify_mean": 14.88,
-      "dsr": 0.9933
+      "verify_mean": 14.33,
+      "dsr": 0.9932
     }
   },
   {
@@ -225,10 +225,10 @@
     "base_col": "E_z1gt36",
     "cond_col": "m15_zdom",
     "base": "z1gt36",
-    "promoted": "2026-08-08",
+    "promoted": "2026-08-15",
     "stats": {
       "median": 23.37,
-      "lift": 7.37,
+      "lift": 8.19,
       "win": 86.0,
       "pf": 16.91,
       "n": 43,
@@ -245,17 +245,17 @@
     "base_col": "E_z1gcrown",
     "cond_col": "key_level",
     "base": "z1gcrown",
-    "promoted": "2026-08-08",
+    "promoted": "2026-08-15",
     "stats": {
-      "median": 17.63,
-      "lift": 3.41,
-      "win": 76.9,
+      "median": 17.62,
+      "lift": 3.46,
+      "win": 77.1,
       "pf": 8.55,
-      "n": 885,
+      "n": 886,
       "pos_years": "6/6",
       "worst_year": 0.1,
       "train_mean": 0.73,
-      "verify_mean": 12.2,
+      "verify_mean": 12.14,
       "dsr": 1.0
     }
   },
@@ -265,18 +265,38 @@
     "base_col": "E_z1gcrown",
     "cond_col": "m15_zdom",
     "base": "z1gcrown",
-    "promoted": "2026-08-08",
+    "promoted": "2026-08-15",
     "stats": {
-      "median": 16.29,
-      "lift": 2.07,
-      "win": 74.9,
-      "pf": 7.14,
-      "n": 989,
+      "median": 16.25,
+      "lift": 2.09,
+      "win": 75.2,
+      "pf": 7.13,
+      "n": 990,
       "pos_years": "5/6",
       "worst_year": -0.2,
       "train_mean": 0.38,
-      "verify_mean": 11.95,
+      "verify_mean": 11.96,
       "dsr": 1.0
+    }
+  },
+  {
+    "id": "M_l34cont_rs_ob_retest",
+    "display": "l34cont_rs·🧱OB",
+    "base_col": "E_l34cont_rs",
+    "cond_col": "ob_retest",
+    "base": "l34cont_rs",
+    "promoted": "2026-08-15",
+    "stats": {
+      "median": 10.42,
+      "lift": 9.36,
+      "win": 66.7,
+      "pf": 4.71,
+      "n": 45,
+      "pos_years": "5/5",
+      "worst_year": 3.2,
+      "train_mean": 9.74,
+      "verify_mean": 16.3,
+      "dsr": 0.5323
     }
   }
 ]

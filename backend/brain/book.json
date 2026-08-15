@@ -113,7 +113,182 @@
       ],
       "filled": true,
       "catalyst": "Unverified — no catalyst or earnings information is contained in the paper book and I cannot verify external filings. Policy: for a low-priced, higher-volatility name, assume event risk is possible before the $7.54 target; hold the $6.01 stop and avoid increasing exposure on unconfirmed news."
+    },
+    {
+      "ticker": "CCSI",
+      "edge": "g3abs",
+      "edge_title": "⚡G3-Abs",
+      "tier": "core",
+      "shares": 37,
+      "entry": 35.14,
+      "stop": 33.13,
+      "target": 39.16,
+      "sector": "Technology",
+      "risk_dollars": 74.37,
+      "opened": "2026-08-07",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: ⚡G3-Abs [core] (also: ['g3_gap', 'highbase15'])",
+        "gates: ×1.1 (15 applied, 1 abstained) · 🗓️✓ ⛔✓ ⛔✓ 💥⚠ ⛔✓ 🕐✓ 🕐✓ 💠⚠ 📅✓ 🕯️✓ 🌀✓ 🏆⚠ 🥇✓ 🌡️✓ 📐✓",
+        "sizing: 34sh (stop structural (base low) 6%, risk 0.7%, R:R 2.0, x1.0) -> regime x1.0 · gates x1.1 = 37sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 1300.18,
+      "fingerprint": [
+        "T5",
+        "L4",
+        "L6",
+        "ev_l43",
+        "bo_dn",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:HB15"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat the position as if an earnings/catalyst event could land before the $39.16 target; do not add to size, and if a confirmed earnings date falls before target, either trim to half size or accept the gap risk with the $33.13 stop understood as gap-through-able."
+    },
+    {
+      "ticker": "CMS",
+      "edge": "g3abs",
+      "edge_title": "⚡G3-Abs",
+      "tier": "core",
+      "shares": 17,
+      "entry": 71.03,
+      "stop": 68.19,
+      "target": 76.71,
+      "sector": "Utilities",
+      "risk_dollars": 48.28,
+      "opened": "2026-08-07",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: ⚡G3-Abs [core] (also: ['g3_gap', 'rtb_base', 'zrt_l46'])",
+        "gates: ×1.1 (15 applied, 1 abstained) · 🗓️✓ ⛔✓ ⛔✓ 💥✓ ⛔✓ 🕐✓ 🕐✓ 💠✓ 📅✓ 🕯️✓ 🌀✓ 🏆⚠ 🥇✓ 🌡️✓ 📐✓",
+        "sizing: 16sh (stop structural (base low) 4%, risk 0.4%, R:R 2.0, x1.0) -> regime x1.0 · gates x1.1 = 17sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 1207.51,
+      "fingerprint": [
+        "T5",
+        "L4",
+        "L6",
+        "w2_accum",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:WSH🔎💥",
+        "EDGE:ZRT",
+        "EDGE:RTB",
+        "EDGE:🎯4",
+        "EDGE:ZRT🟢"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst can be confirmed from the paper book. Policy: treat the position as if an earnings/catalyst event could land before the $76.71 target; keep size as-is, no adds, and treat the $68.19 stop as non-guaranteed through an event gap. CMS is a regulated utility, so rate-case/regulatory headlines are a known category of risk but no specific pending item is verifiable here."
+    },
+    {
+      "ticker": "AQN",
+      "edge": "g3_gap",
+      "edge_title": "G3 gap reclaim",
+      "tier": "core",
+      "shares": 5,
+      "entry": 5.74,
+      "stop": 5.51,
+      "target": 6.2,
+      "sector": "",
+      "risk_dollars": 1.15,
+      "opened": "2026-08-07",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: G3 gap reclaim [core] (also: [])",
+        "gates: ×1.1 (15 applied, 1 abstained) · 🗓️✓ ⛔✓ ⛔✓ 💥⚠ ⛔✓ 🕐✓ 🕐✓ 💠✓ 🕯️✓ 🌀✓ ❄️✓ 🏆⚠ 🥇✓ 🌡️✓ 📐✓",
+        "sizing: 209sh (stop structural (base low) 4%, risk 0.5%, R:R 2.0, x1.0) -> regime x1.0 · gates x1.1 = 229sh",
+        "portfolio: x0.022 (cash binding) -> 5sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 28.7,
+      "fingerprint": [
+        "T5",
+        "L4",
+        "L6",
+        "w2_accum",
+        "ev_l43",
+        "NOT_EXT",
+        "L46",
+        "EDGE:G3",
+        "EDGE:ATM"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — no earnings date or catalyst can be confirmed from the paper book; treat the window to the $6.20 target as carrying elevated event risk and size/manage accordingly (position is already tiny at 5 shares, ~$28.70 notional, risk ~$1.15 to stop)."
     }
   ],
-  "closed": []
+  "closed": [
+    {
+      "ticker": "KDP",
+      "edge": "g3abs",
+      "edge_title": "⚡G3-Abs",
+      "tier": "core",
+      "shares": 8,
+      "entry": 30.01,
+      "stop": 28.81,
+      "target": 32.41,
+      "sector": "Consumer Staples",
+      "risk_dollars": 9.6,
+      "opened": "2026-08-07",
+      "log": [
+        "regime: risk×1.0 setups=all · clean uptrend + broad + in-season",
+        "candidate: ⚡G3-Abs [core] (also: ['g3_gap', 'highbase15'])",
+        "gates: ×1.1 (15 applied, 1 abstained) · 🗓️✓ ⛔✓ ⛔✓ 💥✓ ⛔✓ 🕐✓ 🕐✓ 💠✓ 📅✓ 🕯️✓ 🌀✓ 🏆⚠ 🥇✓ 🌡️✓ 📐✓",
+        "sizing: 39sh (stop structural (base low) 4%, risk 0.5%, R:R 2.0, x1.0) -> regime x1.0 · gates x1.1 = 42sh",
+        "portfolio: x0.214 (cash binding) -> 8sh"
+      ],
+      "regime_risk_mult": 1,
+      "position_value": 240.08,
+      "fingerprint": [
+        "T5",
+        "L5",
+        "w2_accum",
+        "NOT_EXT",
+        "EDGE:G3",
+        "EDGE:⚡G3A",
+        "EDGE:ATM",
+        "EDGE:ZRT",
+        "EDGE:HB15",
+        "EDGE:🎯3",
+        "EDGE:G3²"
+      ],
+      "filled": true,
+      "catalyst": "Unverified — I have no earnings calendar or news feed here, so I cannot confirm or deny a KDP earnings date or other catalyst before the $32.41 target. Policy: treat the position as if an earnings/catalyst event may land inside the holding window — do not add to the position, keep the $28.81 stop hard, and size stays at the current 8 shares (~$240 notional, smallest line in the book). If the date is confirmed externally as pre-target, either flatten before the print or accept gap risk through the stop.",
+      "exit": 28.81,
+      "pnl": -9.6,
+      "closed": "2026-08-12",
+      "reason": "structural stop",
+      "analysis": {
+        "verdict": "stopped_out",
+        "attribution": "edge_miss",
+        "quality": "failed_trade",
+        "ret_pct": -4.0,
+        "r_multiple": -1.0,
+        "planned_rr": 2.0,
+        "edge": "g3abs",
+        "edge_title": "⚡G3-Abs",
+        "tier": "core",
+        "expected": {
+          "median": 4.24,
+          "win": null,
+          "pf": 1.83
+        },
+        "factors": [
+          "planned R:R 2.0 · realized -1.00R",
+          "edge base median +4.24% (this trade -4.00%)",
+          "stop was tight (<5%) — check if the structural low gave more room"
+        ],
+        "lesson": "single loss within g3abs's base rate — no tier action on its own; calibrate() demotes only if the realized win-rate stays below the prior over ≥8 trades."
+      }
+    }
+  ]
 }
