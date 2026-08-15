@@ -252,14 +252,41 @@ const SIG_GROUPS = [
     custom: r => r.phys_s === 'S3U' },
   { key: '_ph_s3d', label: 'S3D', cls: 'text-red-300',
     custom: r => r.phys_s === 'S3D' },
-  { key: '_ph_ad', label: 'AD★', cls: 'text-fuchsia-300 font-bold',
+  // AD split by grade. The ⚛ row draws ★ / ★★ / ★A as different marks and the one
+  // chip collapsed all three; ★A (the exhaustion bar was absorbed) is 1,548 bars
+  // against ★★'s 31,788, so "any AD" is effectively "★★" and the rare one is
+  // unreachable through it.
+  { key: '_ph_ad',  label: 'AD any', cls: 'text-fuchsia-300',
     custom: r => !!r.phys_ad },
+  { key: '_ph_ad1', label: '★',      cls: 'text-fuchsia-300',
+    custom: r => r.phys_ad === '★' },
+  { key: '_ph_ad2', label: '★★',     cls: 'text-fuchsia-300 font-bold',
+    custom: r => r.phys_ad === '★★' },
+  { key: '_ph_ada', label: '★A',     cls: 'text-violet-300 font-bold',
+    custom: r => r.phys_ad === '★A' },
   { key: '_ph_gg3', label: 'gG3', cls: 'text-amber-300',
     custom: r => r.phys_gap_true === 'G3' },
-  { key: '_ph_spr', label: 'SPRING⚛', cls: 'text-lime-300 font-bold',
-    custom: r => (r.phys_wyc || '').startsWith('SPRING') },
-  { key: '_ph_utad', label: 'UTAD⚛', cls: 'text-rose-300 font-bold',
+  // ⚛ Wyckoff EVENTS. Not the same thing as the WYC: row above, which reads
+  // wyc_phase — the two agree on 97.4% of bars, and disagree exactly on the events:
+  // wyc_phase says UTAD on 390 bars where phys_wyc says it on 8,833, because the
+  // older column mostly reports the macro phase and this one marks the event on top
+  // of it. Selecting UTAD in one place and UTAD⚛ here are different questions.
+  { key: '_ph_spr',  label: 'SPRING⚛',  cls: 'text-lime-300',
+    custom: r => r.phys_wyc === 'SPRING' },
+  { key: '_ph_sprs', label: 'SPRING★⚛', cls: 'text-lime-300 font-bold',
+    custom: r => r.phys_wyc === 'SPRING★' },
+  { key: '_ph_utad', label: 'UTAD⚛',    cls: 'text-rose-300 font-bold',
     custom: r => r.phys_wyc === 'UTAD' },
+  { key: '_ph_sos',  label: 'SOS★⚛',    cls: 'text-green-300 font-bold',
+    custom: r => r.phys_wyc === 'SOS★' },
+  { key: '_ph_acc',  label: 'ACC-TR⚛',  cls: 'text-teal-300',
+    custom: r => r.phys_wyc === 'ACC-TR' },
+  { key: '_ph_dist', label: 'DIST-TR⚛', cls: 'text-amber-300',
+    custom: r => r.phys_wyc === 'DIST-TR' },
+  { key: '_ph_mkup', label: 'MARKUP⚛',  cls: 'text-emerald-300',
+    custom: r => r.phys_wyc === 'MARKUP' },
+  { key: '_ph_mkdn', label: 'MKDN⚛',    cls: 'text-rose-300',
+    custom: r => r.phys_wyc === 'MKDN' },
   { divider: true, label: '⟂ CISD (260815)' },
   // ── ⟂ Change in state of delivery ────────────────────────────────────────────
   // +S is the structural half. Until today's engine fix it could never fire at all
