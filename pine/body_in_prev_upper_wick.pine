@@ -40,6 +40,15 @@
 //  outcome is the red one, which is why leaving it out was worth fixing —
 //  a chart showing only two of three reads as if the third never happened.
 //
+//  A FIFTH, STARTING FROM BELOW THE BAND
+//
+//    green   opened inside the previous BODY and closed inside the upper wick
+//            band — rose into the rejected zone without clearing it
+//
+//  The orange case starts inside the band and stays; this one arrives from
+//  underneath. Same close, different origin, and they cannot overlap because the
+//  open is either in the body or in the band, never both.
+//
 //  AND THE LOWER WICK, one case of it
 //
 //    purple  opened AND closed inside the previous LOWER wick band
@@ -62,6 +71,8 @@ strict     = input.bool(false, "Require the WHOLE bar inside (high and low too)"
 showHeld   = input.bool(true,  "🟠 held — closed inside the UPPER band")
 showBroke  = input.bool(true,  "🔵 broke — closed above the band")
 showFell   = input.bool(true,  "🔴 fell — closed below the UPPER band")
+showRise   = input.bool(true,  "🟢 rose — opened in the previous BODY, closed in the upper band",
+             tooltip = "Arrives at the same place as the orange case but from underneath: the open sits inside the previous bar's body [min(open[1],close[1]) … max(open[1],close[1])] and the close lands in the upper wick band without exceeding it. A previous bar with no body makes this impossible rather than trivial — the open would have to match one exact price — so it needs no separate guard.")
 showLower  = input.bool(true,  "🟣 opened and closed inside the LOWER wick band",
              tooltip = "The mirror of the orange case, on the previous bar's lower wick: [low[1] … min(open[1], close[1])]. Uses the same minimum-wick threshold, measured against the lower wick.")
 showBand   = input.bool(true,  "Draw the band")
@@ -92,20 +103,27 @@ heldRaw  = hasBand and (strict ? wholeIn : bodyIn)      // closed inside
 brokeRaw = hasBand and openIn and close > prevHigh      // closed above
 fellRaw  = hasBand and openIn and close < prevTop       // closed below
 
+// opened in the previous BODY, closed in the upper wick band. Mutually exclusive
+// with every upper-band case above by construction: those all require the open
+// inside the band, this one requires it below.
+riseRaw = hasBand and open >= prevBot and open <= prevTop
+                  and close >= prevTop and close <= prevHigh
+
 // the lower-wick mirror of heldRaw. `strict` is not applied here: it is an
 // option on the orange case and silently extending it would change a setting's
 // meaning without saying so.
 loHeldRaw = hasLoBand and open >= prevLow and open <= prevBot
                       and close >= prevLow and close <= prevBot
 
+rise   = riseRaw   and showRise
 held   = heldRaw   and showHeld
 broke  = brokeRaw  and showBroke
 fell   = fellRaw   and showFell
 loHeld = loHeldRaw and showLower
 
 // ── output ───────────────────────────────────────────────────────────────────
-bandCol = broke ? color.blue : fell ? color.red : color.orange
-if showBand and (held or broke or fell)
+bandCol = broke ? color.blue : fell ? color.red : rise ? color.green : color.orange
+if showBand and (held or broke or fell or rise)
     box.new(bar_index - 1, prevHigh, bar_index, prevTop,
             border_color = color.new(bandCol, 40), bgcolor = color.new(bandCol, 88))
 
@@ -125,6 +143,10 @@ plotshape(broke, title = "closed above the wick", style = shape.triangleup,
 plotshape(fell, title = "closed below the wick", style = shape.triangledown,
           location = location.abovebar, color = color.new(color.red, 0),
           size = size.small, text = "DN")
+
+plotshape(rise, title = "rose into the upper wick", style = shape.triangleup,
+          location = location.belowbar, color = color.new(color.green, 0),
+          size = size.small, text = "RISE")
 
 plotshape(loHeld, title = "inside the lower wick", style = shape.triangleup,
           location = location.belowbar, color = color.new(color.purple, 0),
@@ -160,6 +182,17 @@ if showLabels and fell and barstate.isconfirmed
       style = label.style_label_down, color = color.new(color.red, 25),
       textcolor = color.white, size = size.tiny)
 
+if showLabels and rise and barstate.isconfirmed
+    // where the close landed in the band, and where the open started in the body
+    rPos = wick > 0 ? (close - prevTop) / wick * 100 : na
+    bSpan = prevTop - prevBot
+    oPos = bSpan > 0 ? (open - prevBot) / bSpan * 100 : na
+    label.new(bar_index, low, yloc = yloc.belowbar,
+      text = "RISE closed " + str.tostring(rPos, "#") + "% up the wick" +
+             "\nopened " + str.tostring(oPos, "#") + "% up the body",
+      style = label.style_label_up, color = color.new(color.green, 25),
+      textcolor = color.white, size = size.tiny)
+
 if showLabels and loHeld and barstate.isconfirmed
     // 0% = sitting on the old low, 100% = right at the old body bottom
     loMid = (open + close) / 2
@@ -174,7 +207,7 @@ if showLabels and loHeld and barstate.isconfirmed
 // are large and the body is tiny — the upper cases win the bar colour so the
 // three-way split above stays readable, and the 🟣 marker still prints.
 barcolor(broke ? color.new(color.blue, 20) : fell ? color.new(color.red, 20)
-       : held ? color.new(color.orange, 20)
+       : held ? color.new(color.orange, 20) : rise ? color.new(color.green, 20)
        : loHeld ? color.new(color.purple, 20) : na)
 
 alertcondition(held, "Held inside the previous upper wick",
@@ -183,5 +216,7 @@ alertcondition(broke, "Closed above the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed above it at {{close}}")
 alertcondition(fell, "Closed below the previous upper wick",
      "{{ticker}} — opened in the previous upper wick and closed back below it at {{close}}")
+alertcondition(rise, "Rose into the previous upper wick",
+     "{{ticker}} — opened in the previous body and closed inside its upper wick at {{close}}")
 alertcondition(loHeld, "Inside the previous lower wick",
      "{{ticker}} — opened and closed inside the previous bar's lower wick at {{close}}")
