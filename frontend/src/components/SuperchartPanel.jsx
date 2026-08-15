@@ -508,6 +508,44 @@ const ROWS = [
     },
   },
   {
+    // ── ⟂ CISD — change in state of delivery ──────────────────────────────────
+    // Split by ORIGIN, because the merged column hid the whole effect. A +CISD born
+    // from a structure break and one born from a level completion are different
+    // events; sig_cisd_cplus sums them and dilutes the first with the second.
+    //
+    //   +S   structure break        7,040 fires · median fwd5 +0.650% vs +0.202%
+    //   −S   its mirror            12,334 fires · +0.200% — flat, and that matters:
+    //                              an artefact would move both ends, not one
+    //   seq  ++--                     258 fires · +0.012% · 2/6 years — nothing
+    //   mpm  -+-                    5,850 fires · +0.239% · 5/6 — near baseline
+    //
+    // Every one of these was zero or wrong until 260815: the engine seeded its market
+    // structure from 0.0, so `low < bottomPrice` meant `low < 0` and the entire +CISD
+    // structural path was dead code. On the reserved 2024-26 window the recovered half
+    // scores +0.80% against a +0.25% baseline, 3/3 years. WATCH, not BUILD — the bar
+    // is +1pp and this is +0.55.
+    key: 'cisd',
+    label: '⟂',
+    getSigs: (b) => {
+      const p = []
+      if (b.sig_cisd_plus_struct)  p.push('+S')
+      if (b.sig_cisd_minus_struct) p.push('−S')
+      if (b.sig_cisd_seq)          p.push('seq')
+      if (b.sig_cisd_mpm)          p.push('mpm')
+      return p
+    },
+    sigTitle: (s) =>
+      s === '+S'  ? '+CISD from a STRUCTURE BREAK — the half that carries the effect. 7,040 fires on sp500 1D, median 5-bar forward +0.650% against a +0.202% baseline, 5/6 years. Replicated on a reserved 2024-26 window at +0.80% vs +0.25%. WATCH, not a build: +0.55pp against a +1pp bar.'
+    : s === '−S'  ? '−CISD from a structure break — the mirror, and it is FLAT (+0.200% vs a +0.202% baseline). That is the useful part: an artefact of the measurement would have moved both ends.'
+    : s === 'seq' ? 'CISD_SEQ (++--) — unreachable before the 260815 engine fix, and now measurable at nothing: 258 fires, +0.012%, 2/6 years.'
+    : s === 'mpm' ? 'CISD_MPM (-+-) — the engine has computed this since day one and the schema never kept it. 5,850 fires, +0.239%, 5/6 years — near baseline.'
+    : undefined,
+    chipCls: (s) =>
+      s === '+S'  ? 'bg-emerald-900 text-emerald-300 font-bold'
+    : s === '−S'  ? 'bg-slate-800 text-slate-400'
+    : 'bg-slate-900 text-slate-500',
+  },
+  {
     // ⚛ PHYSICS (2026-08-14) — the 260814 Pine fields, one row directly under L.
     //
     // The chart strip and this row show the SAME set, because two surfaces with two ideas of
@@ -1729,6 +1767,7 @@ export default function SuperchartPanel({
                 {/* ▭ sits directly under L, where it was asked for. Reads bars, not
                     barsPhys — bar_body_wick comes from /api/bar_signals already. */}
                 {ROWS.filter(r => r.key === 'bodywick').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {ROWS.filter(r => r.key === 'cisd').map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
                 {tf === '1d' && ROWS.filter(r => r.key === 'phys').map(row => (
                   <ChipRow key={row.key} bars={barsPhys}
                            row={{ ...row,
@@ -2120,7 +2159,7 @@ export default function SuperchartPanel({
                 {/* the remaining signal families */}
                 {/* 'phys' is excluded here because it is rendered above, directly under L —
                     this catch-all is what silently drew it a second time at the bottom. */}
-                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
+                {ROWS.filter(r => !['z', 'td', 'l', 'score', 'prebreak_v3', 'phys', 'bodywick', 'cisd'].includes(r.key)).map(row => <ChipRow key={row.key} row={row} bars={bars} />)}
 
                 {/* ULTRA row — computed per-bar (independent confluence ranking) */}
 
