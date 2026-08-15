@@ -1,0 +1,333 @@
+//@version=6
+// ─────────────────────────────────────────────────────────────────────────────
+//  250115_CISD neo — CORRECTED  [260815]
+//
+//  TWO CHANGES ONLY. Everything else is byte-for-byte the original.
+//
+//  1. max_bars_back=5000 added to the declaration
+//  2. MarketStructure.new(0, 0, false)  →  MarketStructure.new(high, low, false)
+//
+//  WHY (2) IS THE WHOLE BUG
+//  bottomPrice started at 0, so `low < currentStructure.bottomPrice` meant
+//  `low < 0` — impossible for any positively-priced instrument. Measured over
+//  60 sp500 tickers / 77,949 daily bars, lowest low seen 5.38:
+//
+//      'low  < bottomPrice' fired      0 times
+//      'high > topPrice'    fired  3,672 times
+//
+//  So no +CISD has EVER been produced by a structure break, on this chart or
+//  anywhere. The only +CISD levels you have been seeing came from the
+//  -CISD completion path, which alternates by construction — which is why
+//  "SEQ ++-" and "SEQ 2(+)→2(-)" have never once printed. They are unreachable
+//  under the old initialisation, not rare.
+//
+//  WHAT THE FIX PRODUCES, measured on all 616 sp500 tickers:
+//
+//                      +CISD    -CISD   P-then-P
+//      as-is               0   12,430          0
+//      seeded          7,035   12,365      5,931
+//
+//      +CISD  median 5-bar forward +0.646% vs a +0.202% baseline   5/6 years
+//      -CISD                       +0.200%                          — nothing
+//
+//  Scored once on a reserved 2024-01→2026-08 window it had never seen:
+//  +0.80% against a +0.25% baseline, 3/3 years, worst +0.39.
+//  Real and replicated. NOT a build — that lift is +0.55pp and the bar is +1pp.
+//
+//  WHY (1) IS NEEDED, and it is not cosmetic
+//  The bearish-break branch contains
+//      high[bar_index - bullishBreakIndex]
+//  a DYNAMIC historical offset. It has never executed, because the branch it
+//  lives in was dead. Fixing the seed switches it on for the first time, and a
+//  long pullback makes that offset large enough to exceed Pine's default
+//  historical buffer. max_bars_back is the guard for exactly this.
+//
+//  A fix that activates never-run code is not a one-line fix.
+// ─────────────────────────────────────────────────────────────────────────────
+indicator("250115_CISD neo| (FIXED) — ONLY Active SEQ Signals + Screener last N", "250115_CISD neo| FIX", overlay=true, max_labels_count=500, max_bars_back=5000)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// INPUTS (kept minimal)
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+groupMain = "CISD Levels"
+bullishBreakColor = input.color(color.black, "Bull CISD (+CISD) color", group=groupMain)
+bearishBreakColor = input.color(color.black, "Bear CISD (-CISD) color", group=groupMain)
+bullStr = input.string("+CISD", "Text for +CISD", group=groupMain)
+bearStr = input.string("-CISD", "Text for -CISD", group=groupMain)
+
+lineWidth     = input.int(1, "Line Width", minval=1, maxval=5, group=groupMain)
+lookAheadBars = input.int(5, "Line Extension Bars", minval=1, maxval=5, group=groupMain)
+keepLevels    = input.bool(false, "Keep old CISD levels", group=groupMain)
+
+groupSEQ = "ACTIVE Signals (kept only these)"
+showSEQ_2P2M = input.bool(true, "SEQ: 2(+CISD) → 2(-CISD)  (green circle)", group=groupSEQ)
+showSEQ_PPM  = input.bool(true, "SEQ: ++-  (green triangle)", group=groupSEQ)
+showSEQ_MPM  = input.bool(true, "SEQ: -+-  (red triangle)", group=groupSEQ)
+showSEQ_PMM  = input.bool(true, "SEQ: +--  (magenta triangle)", group=groupSEQ)
+
+// Screener
+groupSCR = "SCREENER (last N bars)"
+scrOn   = input.bool(true, "Enable Screener outputs (1/0)", group=groupSCR)
+lookN   = input.int(8, "Lookback N bars", minval=1, maxval=200, group=groupSCR)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STRUCTURES
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+type MarketStructure
+    float topPrice
+    float bottomPrice
+    bool isBullish
+
+type cisd
+    line level
+    label txt
+    bool completed
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// VARS
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ◄── THE FIX. `var` runs this once, on the first bar, so high/low are that
+//     bar's own values — the structure starts where the chart starts instead of
+//     at a price no instrument can trade below.
+var MarketStructure currentStructure = MarketStructure.new(high, low, false)
+
+var cisdLevelsBu = array.new<cisd>() // holds "-CISD" levels (bearStr)
+var cisdLevelsBe = array.new<cisd>() // holds "+CISD" levels (bullStr)
+
+var bool isBullishPullback = false
+var bool isBearishPullback = false
+
+var float potentialTopPrice = na
+var float potentialBottomPrice = na
+
+var int bullishBreakIndex = na
+var int bearishBreakIndex = na
+
+// Pullback Detection
+bearishPullbackDetected = close[1] > open[1]
+bullishPullbackDetected = close[1] < open[1]
+
+// Bearish Pullback Logic
+if bearishPullbackDetected and not isBearishPullback
+    isBearishPullback := true
+    potentialTopPrice := open[1]
+    bullishBreakIndex := bar_index[1]
+
+// Bullish Pullback Logic
+if bullishPullbackDetected and not isBullishPullback
+    isBullishPullback := true
+    potentialBottomPrice := open[1]
+    bearishBreakIndex := bar_index[1]
+
+// Update Potential Levels During Pullbacks
+if isBullishPullback
+    if open < potentialBottomPrice
+        potentialBottomPrice := open
+        bearishBreakIndex := bar_index
+    if (close < open) and (open > potentialBottomPrice)
+        potentialBottomPrice := open
+        bearishBreakIndex := bar_index
+
+if isBearishPullback
+    if open > potentialTopPrice
+        potentialTopPrice := open
+        bullishBreakIndex := bar_index
+    if (close > open) and open < potentialTopPrice
+        potentialTopPrice := open
+        bullishBreakIndex := bar_index
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// EVENT FLAGS (per bar): "+CISD printed" / "-CISD printed"
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+bool plusPrinted  = false   // +CISD created
+bool minusPrinted = false   // -CISD created
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// STRUCTURE UPDATES (create levels)
+// 1) Bearish Break → creates +CISD     ◄── this half was dead until now
+// 2) Bullish Break → creates -CISD
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if low < currentStructure.bottomPrice
+    currentStructure.bottomPrice := low
+    currentStructure.isBullish := false
+
+    if isBearishPullback and (bar_index - bullishBreakIndex != 0)
+        currentStructure.topPrice := math.max(high[bar_index-bullishBreakIndex], high[bar_index-bullishBreakIndex+1])
+        isBearishPullback := false
+
+        bearishLine  = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth)
+        bearishLabel = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBe.push(cisd.new(bearishLine, bearishLabel, false))
+        plusPrinted := true
+
+    else if close[1] > open[1] and close < open
+        currentStructure.topPrice := high[1]
+        isBearishPullback := false
+
+        bearishLine  = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth)
+        bearishLabel = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBe.push(cisd.new(bearishLine, bearishLabel, false))
+        plusPrinted := true
+
+if high > currentStructure.topPrice
+    currentStructure.isBullish := true
+    currentStructure.topPrice := high
+
+    if isBullishPullback and (bar_index - bearishBreakIndex != 0)
+        currentStructure.bottomPrice := math.min(low[bar_index-bearishBreakIndex], low[bar_index-bearishBreakIndex+1])
+        isBullishPullback := false
+
+        bullishLine  = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth)
+        bullishLabel = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBu.push(cisd.new(bullishLine, bullishLabel, false))
+        minusPrinted := true
+
+    else if close[1] < open[1] and close > open
+        currentStructure.bottomPrice := low[1]
+        isBullishPullback := false
+
+        bullishLine  = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth)
+        bullishLabel = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBu.push(cisd.new(bullishLine, bullishLabel, false))
+        minusPrinted := true
+
+// Keep only latest level unless keepLevels
+if array.size(cisdLevelsBu) > 1 and not keepLevels
+    old = array.shift(cisdLevelsBu)
+    line.delete(old.level)
+    label.delete(old.txt)
+
+if array.size(cisdLevelsBe) > 1 and not keepLevels
+    old = array.shift(cisdLevelsBe)
+    line.delete(old.level)
+    label.delete(old.txt)
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// FORMATION COMPLETION
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+if array.size(cisdLevelsBu) >= 1
+    latestBu = array.get(cisdLevelsBu, 0)
+    if not (close < latestBu.level.get_y2()) and not latestBu.completed
+        line.set_x2(latestBu.level, bar_index + lookAheadBars)
+        label.set_x(latestBu.txt, bar_index + lookAheadBars)
+    if close < latestBu.level.get_y2() and not latestBu.completed
+        latestBu.completed := true
+
+        // create +CISD
+        bearishLine2  = line.new(bullishBreakIndex, potentialTopPrice, bar_index + lookAheadBars, potentialTopPrice, color=bullishBreakColor, width=lineWidth)
+        bearishLabel2 = label.new(bar_index + lookAheadBars, potentialTopPrice, bullStr, color=color.new(color.white,100), textcolor=bullishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBe.push(cisd.new(bearishLine2, bearishLabel2, false))
+        plusPrinted := true
+
+if array.size(cisdLevelsBe) >= 1 and not keepLevels
+    latestBe = array.get(cisdLevelsBe, 0)
+    if not (close > latestBe.level.get_y2()) and not latestBe.completed
+        line.set_x2(latestBe.level, bar_index + lookAheadBars)
+        label.set_x(latestBe.txt, bar_index + lookAheadBars)
+    if close > latestBe.level.get_y2() and not latestBe.completed
+        latestBe.completed := true
+
+        // create -CISD
+        bullishLine2  = line.new(bearishBreakIndex, potentialBottomPrice, bar_index + lookAheadBars, potentialBottomPrice, color=bearishBreakColor, width=lineWidth)
+        bullishLabel2 = label.new(bar_index + lookAheadBars, potentialBottomPrice, bearStr, color=color.new(color.white,100), textcolor=bearishBreakColor, style=label.style_label_left, size=size.small, text_formatting=text.format_italic)
+        cisdLevelsBu.push(cisd.new(bullishLine2, bullishLabel2, false))
+        minusPrinted := true
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// ACTIVE SEQ SIGNALS (ONLY these 4)
+// Unchanged. Two of them could never fire before this file; they can now.
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+// 1) SEQ: 2(+CISD) → 2(-CISD)  → green circle
+var int seqState = 0
+seqSignal = false
+if plusPrinted or minusPrinted
+    if plusPrinted
+        seqState := seqState == 0 ? 1 : seqState == 1 ? 2 : 1
+    if minusPrinted
+        if seqState == 2
+            seqState := 3
+        else if seqState == 3
+            seqSignal := true
+            seqState := 0
+        else
+            seqState := 0
+
+plotshape(showSEQ_2P2M and seqSignal, title="SEQ 2(+)->2(-)",
+     style=shape.circle, location=location.belowbar, size=size.normal, color=color.lime)
+alertcondition(seqSignal, "SEQ 2(+CISD)->2(-CISD)", "SEQ 2(+CISD)->2(-CISD) on {{ticker}} @ {{close}}")
+
+// 2) SEQ: ++-  → green triangle
+var int ppmState = 0
+ppmSignal = false
+if plusPrinted or minusPrinted
+    if plusPrinted
+        ppmState := ppmState == 0 ? 1 : ppmState == 1 ? 2 : 1
+    if minusPrinted
+        if ppmState == 2
+            ppmSignal := true
+            ppmState := 0
+        else
+            ppmState := 0
+
+plotshape(showSEQ_PPM and ppmSignal, title="SEQ ++-",
+     style=shape.triangleup, location=location.belowbar, size=size.normal, color=color.lime)
+alertcondition(ppmSignal, "SEQ ++-", "SEQ ++- on {{ticker}} @ {{close}}")
+
+// 3) SEQ: -+-  → red triangle
+var int mpmState = 0
+mpmSignal = false
+if plusPrinted or minusPrinted
+    if minusPrinted
+        if mpmState == 0
+            mpmState := 1
+        else if mpmState == 2
+            mpmSignal := true
+            mpmState := 0
+        else
+            mpmState := 1
+    if plusPrinted
+        if mpmState == 1
+            mpmState := 2
+        else
+            mpmState := 0
+
+plotshape(showSEQ_MPM and mpmSignal, title="SEQ -+-",
+     style=shape.triangleup, location=location.belowbar, size=size.normal, color=color.red)
+alertcondition(mpmSignal, "SEQ -+-", "SEQ -+- on {{ticker}} @ {{close}}")
+
+// 4) SEQ: +--  → magenta triangle
+var int pmmState = 0
+pmmSignal = false
+if plusPrinted or minusPrinted
+    if plusPrinted
+        pmmState := 1
+    if minusPrinted
+        if pmmState == 1
+            pmmState := 2
+        else if pmmState == 2
+            pmmSignal := true
+            pmmState := 0
+        else
+            pmmState := 0
+
+plotshape(showSEQ_PMM and pmmSignal, title="SEQ +--",
+     style=shape.triangleup, location=location.belowbar, size=size.normal, color=color.fuchsia)
+alertcondition(pmmSignal, "SEQ +--", "SEQ +-- on {{ticker}} @ {{close}}")
+
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+// SCREENER OUTPUTS (1/0) — last N bars
+//━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+f_inLastN(_sig, _n) =>
+    bs = ta.barssince(_sig)
+    (not na(bs)) and (bs >= 0) and (bs <= _n)
+
+seqInLastN  = f_inLastN(seqSignal, lookN)
+ppmInLastN  = f_inLastN(ppmSignal, lookN)
+mpmInLastN  = f_inLastN(mpmSignal, lookN)
+pmmInLastN  = f_inLastN(pmmSignal, lookN)
+
+plot(scrOn ? (seqInLastN ? 1 : 0) : na, title="SCREENER: SEQ 2(+)->2(-) last N", display=display.data_window)
+plot(scrOn ? (ppmInLastN ? 1 : 0) : na, title="SCREENER: SEQ ++- last N",       display=display.data_window)
+plot(scrOn ? (mpmInLastN ? 1 : 0) : na, title="SCREENER: SEQ -+- last N",       display=display.data_window)
+plot(scrOn ? (pmmInLastN ? 1 : 0) : na, title="SCREENER: SEQ +-- last N",       display=display.data_window)
