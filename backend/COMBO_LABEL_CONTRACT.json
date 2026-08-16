@@ -1,0 +1,27 @@
+{
+  "label_as_of": "2026-08-07",
+  "maxh": 60,
+  "market_bars_in_snapshot": 1306,
+  "maturity_cutoff": "2026-05-12",
+  "maturity_rule": "60 complete MARKET bars after entry inside the snapshot; calendar only, independent of whether the trail fired",
+  "base_population": 289467,
+  "counts": {
+    "ORDINARY_TRAIL_EXIT": 11681,
+    "ORDINARY_MAXH_TIMER": 263626,
+    "CORPORATE_ACTION_TERMINAL": 318,
+    "DATA_GAP": 0,
+    "NOT_YET_MATURE": 13842,
+    "INVALID_PATH": 0
+  },
+  "reconciliation_ok": true,
+  "research_population": 275307,
+  "terminal": {
+    "n": 318,
+    "tickers": 33,
+    "payoff_resolved": 0,
+    "payoff_unresolved": 318,
+    "payoff_source": "NONE AVAILABLE \u2014 corporate_actions.csv is a splice detector; Massive /v3/reference/tickers returns a ticker reference, not merger consideration"
+  },
+  "outcome_read": "NONE \u2014 prices, dates and the ATR trail width only",
+  "seconds": 11.8
+}

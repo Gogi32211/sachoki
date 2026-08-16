@@ -1,0 +1,63 @@
+{
+  "population_hash": "287464f95cc49774",
+  "registry_digest": "08b73d474f17a778",
+  "k_selectable": 4839,
+  "n_perm": 121,
+  "samples": [
+    {
+      "n_claims": 50,
+      "selectable": 50,
+      "support_build_s": 15.43,
+      "theta_once_s": 0.125,
+      "support_gb": 0.061,
+      "peak_rss_gb": 1.67,
+      "theta_abs_median": 0.069,
+      "theta_abs_max": 0.4894
+    },
+    {
+      "n_claims": 100,
+      "selectable": 100,
+      "support_build_s": 32.19,
+      "theta_once_s": 0.277,
+      "support_gb": 0.136,
+      "peak_rss_gb": 1.67,
+      "theta_abs_median": 0.0701,
+      "theta_abs_max": 0.4894
+    },
+    {
+      "n_claims": 200,
+      "selectable": 200,
+      "support_build_s": 65.01,
+      "theta_once_s": 0.558,
+      "support_gb": 0.271,
+      "peak_rss_gb": 1.67,
+      "theta_abs_median": 0.0662,
+      "theta_abs_max": 0.6647
+    },
+    {
+      "n_claims": 400,
+      "selectable": 400,
+      "support_build_s": 131.9,
+      "theta_once_s": 1.25,
+      "support_gb": 0.587,
+      "peak_rss_gb": 1.67,
+      "theta_abs_median": 0.0794,
+      "theta_abs_max": 0.7591
+    }
+  ],
+  "extrapolation": {
+    "k_selectable": 4839,
+    "support_build_s": 1610.3,
+    "band_121_perm_s": 1882.0,
+    "band_121_perm_min": 31.4,
+    "peak_rss_gb": 8.9,
+    "fixed_rss_gb": 1.61,
+    "per_claim_rss_mb": 1.5,
+    "basis": "slope between n=50 and n=400"
+  },
+  "world": "composition_only_negative (\u03b4=0)",
+  "null_generator": "G1 \u00b7 REUSED, previously qualified on 31 claims",
+  "band_status": "NOT QUALIFIED for this universe \u2014 FWER 0.065 is a property of the 31-claim space, not of this one",
+  "outcome_exposure": "NONE \u2014 synthetic Y only",
+  "seconds": 254.9
+}

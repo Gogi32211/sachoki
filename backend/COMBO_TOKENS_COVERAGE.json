@@ -1,0 +1,2103 @@
+{
+  "spec_version": "combo_tokens_v1",
+  "registry_digest": "08b73d474f17a778",
+  "rows": 570669,
+  "n_tokens": 172,
+  "grain": "(ticker, sig_date)",
+  "availability": "signal_bar_close",
+  "dedup": "one row per (ticker, date); universe priority sp500 < nasdaq < other",
+  "signal_bar_coverage": 1.0,
+  "prevalence": {
+    "T1": 42532,
+    "T2": 33451,
+    "T3": 46558,
+    "T4": 34919,
+    "T5": 67393,
+    "T6": 10884,
+    "T9": 40380,
+    "T10": 7572,
+    "T11": 5313,
+    "T12": 16846,
+    "T1G": 29776,
+    "T2G": 62687,
+    "ANY_T": 398311,
+    "TZ_FLIP": 25405,
+    "Z1": 12024,
+    "Z2": 25081,
+    "Z3": 9633,
+    "Z4": 10067,
+    "Z5": 13377,
+    "Z6": 6981,
+    "Z7": 1793,
+    "Z9": 7097,
+    "Z10": 7964,
+    "Z11": 7721,
+    "Z12": 368,
+    "Z1G": 15386,
+    "Z2G": 54853,
+    "ANY_Z": 160620,
+    "L1": 166843,
+    "L2": 212657,
+    "L3": 163567,
+    "L4": 210399,
+    "L5": 94352,
+    "L6": 143462,
+    "L34x": 65838,
+    "L46x": 143462,
+    "ANY_L": 570668,
+    "VOL_VB": 13635,
+    "VOL_B": 106729,
+    "VOL_N": 159721,
+    "VOL_L": 253756,
+    "VOL_W": 36828,
+    "NE_N": 259745,
+    "NE_E": 310924,
+    "WK_U": 207487,
+    "WK_D": 253699,
+    "WK_B": 54415,
+    "PEN_P": 67296,
+    "PEN_R": 86550,
+    "PEN_H": 17339,
+    "CL_A": 231167,
+    "CL_O": 208036,
+    "CL_I": 131466,
+    "BW_X": 227117,
+    "BW_M": 164240,
+    "BW_S": 179312,
+    "BW_J": 116030,
+    "BW_TB": 37852,
+    "BW_BB": 42748,
+    "BW_F": 202819,
+    "BW_XF": 130598,
+    "BW_MF": 8428,
+    "GR_G1": 32995,
+    "GR_G2": 96753,
+    "GR_G3": 85488,
+    "GR_V": 64621,
+    "GR_C": 26495,
+    "GR_N": 303673,
+    "L5_VX": 74340,
+    "L5_VR": 119558,
+    "L5_PB": 191774,
+    "L5_PS": 378895,
+    "L5_R2H": 105118,
+    "L5_R2L": 163218,
+    "L5_R2X": 130475,
+    "L5_R2D": 29151,
+    "L5_ANY": 570669,
+    "RA": 138838,
+    "RN": 268489,
+    "RF": 151586,
+    "REG_U": 206485,
+    "REG_D": 364184,
+    "E2": 188026,
+    "ESTAR": 23165,
+    "K2": 20602,
+    "K1": 309046,
+    "K0": 241021,
+    "C0": 150870,
+    "C1": 257604,
+    "C2": 138839,
+    "H0": 193194,
+    "H2": 129197,
+    "M2": 121691,
+    "S3U": 130905,
+    "S3D": 175611,
+    "AD_ANY": 59530,
+    "AD_1": 26523,
+    "AD_2": 30656,
+    "AD_A": 2351,
+    "gG3": 36770,
+    "WYC_SPRING": 8144,
+    "WYC_SPRING\u2605": 6916,
+    "WYC_UTAD": 5880,
+    "WYC_SOS\u2605": 565,
+    "WYC_ACC-TR": 3141,
+    "WYC_DIST-TR": 1748,
+    "WYC_MARKUP": 306016,
+    "WYC_MKDN": 238225,
+    "PH_ACC_TR": 3366,
+    "PH_MARKUP": 311183,
+    "PH_DIST_TR": 1778,
+    "PH_MKDN": 252685,
+    "PH_NEUTRAL": 32,
+    "PH_SOS": 870,
+    "PH_UTAD": 300,
+    "PH_SPRING": 455,
+    "CISD_PS": 7577,
+    "CISD_MS": 9106,
+    "CISD_SEQ": 232,
+    "CISD_MPM": 4876,
+    "CISD_CP": 14334,
+    "CISD_CPM": 2109,
+    "CISD_CMM": 3199,
+    "RSI_0_30": 44790,
+    "RSI_30_40": 160022,
+    "RSI_40_50": 157596,
+    "RSI_50_60": 108670,
+    "RSI_60_70": 75001,
+    "RSI_70_101": 24590,
+    "VBO_UP": 50664,
+    "VOL5X": 1976,
+    "VOL10X": 636,
+    "VOL20X": 330,
+    "BE_UP": 36021,
+    "BO_UP": 47437,
+    "BX_UP": 38171,
+    "L34": 59003,
+    "L43": 53009,
+    "L22": 6835,
+    "G1": 9913,
+    "G2": 9069,
+    "G4": 9527,
+    "G6": 1529,
+    "G11": 15598,
+    "BUY": 9703,
+    "3G": 1060,
+    "CONSO": 410669,
+    "SVS": 43540,
+    "VA": 26862,
+    "P2": 18180,
+    "P3": 17048,
+    "P50": 15210,
+    "P55": 39476,
+    "P66": 16801,
+    "P89": 46885,
+    "ANY_P": 76331,
+    "D2": 8961,
+    "D3": 4040,
+    "D50": 15254,
+    "D55": 7370,
+    "D66": 4549,
+    "D89": 14598,
+    "ANY_D": 30587,
+    "AD_FRESH": 59938,
+    "AD_CLUSTER": 28568,
+    "RS_INTACT": 196203,
+    "LEAD_IN_LAG": 69422,
+    "H1_DR": 69596,
+    "H1_QUIET": 350055,
+    "M15_ZDOM": 226121,
+    "IV_VSPIKE": 410766,
+    "MACRO_VIX_UP": 119942
+  },
+  "empty_tokens": [],
+  "near_universal": [
+    "ANY_L",
+    "L5_ANY"
+  ],
+  "date_constancy": {
+    "by_token": {
+      "T1": 0.0245,
+      "T2": 0.0176,
+      "T3": 0.0192,
+      "T4": 0.0215,
+      "T5": 0.0092,
+      "T6": 0.1005,
+      "T9": 0.0169,
+      "T10": 0.1879,
+      "T11": 0.2707,
+      "T12": 0.0637,
+      "T1G": 0.0391,
+      "T2G": 0.0123,
+      "ANY_T": 0.0,
+      "TZ_FLIP": 0.036,
+      "Z1": 0.1212,
+      "Z2": 0.0345,
+      "Z3": 0.1104,
+      "Z4": 0.1166,
+      "Z5": 0.0844,
+      "Z6": 0.1956,
+      "Z7": 0.2968,
+      "Z9": 0.1457,
+      "Z10": 0.184,
+      "Z11": 0.1572,
+      "Z12": 0.7906,
+      "Z1G": 0.102,
+      "Z2G": 0.0207,
+      "ANY_Z": 0.0,
+      "L1": 0.0008,
+      "L2": 0.0,
+      "L3": 0.0,
+      "L4": 0.0,
+      "L5": 0.0008,
+      "L6": 0.0008,
+      "L34x": 0.0015,
+      "L46x": 0.0008,
+      "ANY_L": 0.9992,
+      "VOL_VB": 0.0253,
+      "VOL_B": 0.0008,
+      "VOL_N": 0.0,
+      "VOL_L": 0.0,
+      "VOL_W": 0.0161,
+      "NE_N": 0.0,
+      "NE_E": 0.0,
+      "WK_U": 0.0008,
+      "WK_D": 0.0,
+      "WK_B": 0.0,
+      "PEN_P": 0.0008,
+      "PEN_R": 0.0,
+      "PEN_H": 0.0107,
+      "CL_A": 0.0,
+      "CL_O": 0.0,
+      "CL_I": 0.0,
+      "BW_X": 0.0,
+      "BW_M": 0.0,
+      "BW_S": 0.0,
+      "BW_J": 0.0,
+      "BW_TB": 0.0038,
+      "BW_BB": 0.0069,
+      "BW_F": 0.0,
+      "BW_XF": 0.0,
+      "BW_MF": 0.0567,
+      "GR_G1": 0.0031,
+      "GR_G2": 0.0,
+      "GR_G3": 0.0,
+      "GR_V": 0.0008,
+      "GR_C": 0.0161,
+      "GR_N": 0.0,
+      "L5_VX": 0.0077,
+      "L5_VR": 0.0,
+      "L5_PB": 0.0,
+      "L5_PS": 0.0,
+      "L5_R2H": 0.0008,
+      "L5_R2L": 0.0,
+      "L5_R2X": 0.0031,
+      "L5_R2D": 0.0199,
+      "L5_ANY": 1.0,
+      "RA": 0.0215,
+      "RN": 0.0215,
+      "RF": 0.0215,
+      "REG_U": 0.0,
+      "REG_D": 0.0,
+      "E2": 0.0475,
+      "ESTAR": 0.0767,
+      "K2": 0.013,
+      "K1": 0.0,
+      "K0": 0.0,
+      "C0": 0.0368,
+      "C1": 0.0368,
+      "C2": 0.0368,
+      "H0": 0.0138,
+      "H2": 0.0138,
+      "M2": 0.1127,
+      "S3U": 0.0,
+      "S3D": 0.0,
+      "AD_ANY": 0.0192,
+      "AD_1": 0.0468,
+      "AD_2": 0.0337,
+      "AD_A": 0.3873,
+      "gG3": 0.0023,
+      "WYC_SPRING": 0.2078,
+      "WYC_SPRING\u2605": 0.2477,
+      "WYC_UTAD": 0.2017,
+      "WYC_SOS\u2605": 0.7715,
+      "WYC_ACC-TR": 0.1802,
+      "WYC_DIST-TR": 0.3865,
+      "WYC_MARKUP": 0.0,
+      "WYC_MKDN": 0.0,
+      "PH_ACC_TR": 0.1679,
+      "PH_MARKUP": 0.0,
+      "PH_DIST_TR": 0.3781,
+      "PH_MKDN": 0.0,
+      "PH_NEUTRAL": 0.9793,
+      "PH_SOS": 0.7201,
+      "PH_UTAD": 0.8451,
+      "PH_SPRING": 0.8152,
+      "CISD_PS": 0.25,
+      "CISD_MS": 0.0974,
+      "CISD_SEQ": 0.8765,
+      "CISD_MPM": 0.135,
+      "CISD_CP": 0.069,
+      "CISD_CPM": 0.5368,
+      "CISD_CMM": 0.2699,
+      "RSI_0_30": 0.0061,
+      "RSI_30_40": 0.0008,
+      "RSI_40_50": 0.0008,
+      "RSI_50_60": 0.0008,
+      "RSI_60_70": 0.0031,
+      "RSI_70_101": 0.0322,
+      "VBO_UP": 0.0077,
+      "VOL5X": 0.3597,
+      "VOL10X": 0.6641,
+      "VOL20X": 0.7998,
+      "BE_UP": 0.0092,
+      "BO_UP": 0.0046,
+      "BX_UP": 0.0054,
+      "L34": 0.0031,
+      "L43": 0.0092,
+      "L22": 0.1557,
+      "G1": 0.1388,
+      "G2": 0.1603,
+      "G4": 0.1365,
+      "G6": 0.5637,
+      "G11": 0.0844,
+      "BUY": 0.0951,
+      "3G": 0.6281,
+      "CONSO": 0.0015,
+      "SVS": 0.0031,
+      "VA": 0.0061,
+      "P2": 0.0215,
+      "P3": 0.0376,
+      "P50": 0.0176,
+      "P55": 0.0077,
+      "P66": 0.0368,
+      "P89": 0.0031,
+      "ANY_P": 0.0031,
+      "D2": 0.0782,
+      "D3": 0.2485,
+      "D50": 0.0376,
+      "D55": 0.1181,
+      "D66": 0.2063,
+      "D89": 0.033,
+      "ANY_D": 0.0077,
+      "AD_FRESH": 0.0084,
+      "AD_CLUSTER": 0.0253,
+      "RS_INTACT": 0.1166,
+      "LEAD_IN_LAG": 0.1166,
+      "H1_DR": 0.1212,
+      "H1_QUIET": 0.0268,
+      "M15_ZDOM": 0.0192,
+      "IV_VSPIKE": 0.0192,
+      "MACRO_VIX_UP": 1.0
+    },
+    "disagreements": [
+      {
+        "token": "ANY_L",
+        "declared": "OPPORTUNITY_LEVEL",
+        "constancy": 0.9992331288343558
+      },
+      {
+        "token": "L5_ANY",
+        "declared": "OPPORTUNITY_LEVEL",
+        "constancy": 1.0
+      }
+    ]
+  },
+  "parquet_mb": 9.5,
+  "seconds": 13.2,
+  "coverage": {
+    "registry_digest": "08b73d474f17a778",
+    "spec_version": "combo_tokens_v1",
+    "n_declared": 172,
+    "n_materialized": 172,
+    "by_family": {
+      "PATTERN_T": {
+        "expected": 14,
+        "materialized": 14,
+        "coverage": 1.0
+      },
+      "PATTERN_Z": {
+        "expected": 14,
+        "materialized": 14,
+        "coverage": 1.0
+      },
+      "VOLUME_L": {
+        "expected": 9,
+        "materialized": 9,
+        "coverage": 1.0
+      },
+      "VOLUME_BUCKET": {
+        "expected": 5,
+        "materialized": 5,
+        "coverage": 1.0
+      },
+      "SUFFIX_NE": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "SUFFIX_WICK": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "SUFFIX_PEN": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "SUFFIX_CLOSE": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "BODYWICK": {
+        "expected": 9,
+        "materialized": 9,
+        "coverage": 1.0
+      },
+      "GAPRANGE": {
+        "expected": 6,
+        "materialized": 6,
+        "coverage": 1.0
+      },
+      "LINE5": {
+        "expected": 9,
+        "materialized": 9,
+        "coverage": 1.0
+      },
+      "PHYS_IMPACT": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "PHYS_REGIME": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "PHYS_ENERGY": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "PHYS_STRETCH": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "PHYS_LANDSCAPE": {
+        "expected": 3,
+        "materialized": 3,
+        "coverage": 1.0
+      },
+      "PHYS_DISORDER": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "PHYS_MOMENTUM": {
+        "expected": 1,
+        "materialized": 1,
+        "coverage": 1.0
+      },
+      "PHYS_COHERENCE": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "PHYS_AD": {
+        "expected": 4,
+        "materialized": 4,
+        "coverage": 1.0
+      },
+      "PHYS_GAP": {
+        "expected": 1,
+        "materialized": 1,
+        "coverage": 1.0
+      },
+      "PHYS_WYC": {
+        "expected": 8,
+        "materialized": 8,
+        "coverage": 1.0
+      },
+      "WYC_PHASE": {
+        "expected": 8,
+        "materialized": 8,
+        "coverage": 1.0
+      },
+      "CISD": {
+        "expected": 7,
+        "materialized": 7,
+        "coverage": 1.0
+      },
+      "RSI_BAND": {
+        "expected": 6,
+        "materialized": 6,
+        "coverage": 1.0
+      },
+      "FLOW": {
+        "expected": 4,
+        "materialized": 4,
+        "coverage": 1.0
+      },
+      "STRUCTURE": {
+        "expected": 6,
+        "materialized": 6,
+        "coverage": 1.0
+      },
+      "GOG": {
+        "expected": 5,
+        "materialized": 5,
+        "coverage": 1.0
+      },
+      "STATE_FLAG": {
+        "expected": 5,
+        "materialized": 5,
+        "coverage": 1.0
+      },
+      "PD_LADDER": {
+        "expected": 14,
+        "materialized": 14,
+        "coverage": 1.0
+      },
+      "AD_FLAG": {
+        "expected": 2,
+        "materialized": 2,
+        "coverage": 1.0
+      },
+      "CONTEXT_GATE": {
+        "expected": 6,
+        "materialized": 6,
+        "coverage": 1.0
+      },
+      "MACRO": {
+        "expected": 1,
+        "materialized": 1,
+        "coverage": 1.0
+      }
+    },
+    "tokens": [
+      {
+        "token_id": "T1",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t1",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T2",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t2",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T3",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t3",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T4",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t4",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T5",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t5",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T6",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t6",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T9",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t9",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T10",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t10",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T11",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t11",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T12",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t12",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T1G",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t1g",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "T2G",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t2g",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ANY_T",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_t",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "TZ_FLIP",
+        "family": "PATTERN_T",
+        "source": "bars",
+        "column": "sig_tz_flip",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z1",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z1",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z2",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z2",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z3",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z3",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z4",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z4",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z5",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z5",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z6",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z6",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z7",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z7",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z9",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z9",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z10",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z10",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z11",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z11",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z12",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z12",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z1G",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z1g",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "Z2G",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z2g",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ANY_Z",
+        "family": "PATTERN_Z",
+        "source": "bars",
+        "column": "sig_z",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L1",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L2",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L3",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L4",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L6",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L34x",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L46x",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ANY_L",
+        "family": "VOLUME_L",
+        "source": "bars",
+        "column": "l_sig",
+        "kind": "ldig",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL_VB",
+        "family": "VOLUME_BUCKET",
+        "source": "bars",
+        "column": "vol_bucket",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL_B",
+        "family": "VOLUME_BUCKET",
+        "source": "bars",
+        "column": "vol_bucket",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL_N",
+        "family": "VOLUME_BUCKET",
+        "source": "bars",
+        "column": "vol_bucket",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL_L",
+        "family": "VOLUME_BUCKET",
+        "source": "bars",
+        "column": "vol_bucket",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL_W",
+        "family": "VOLUME_BUCKET",
+        "source": "bars",
+        "column": "vol_bucket",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "NE_N",
+        "family": "SUFFIX_NE",
+        "source": "bars",
+        "column": "ne_suffix",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "NE_E",
+        "family": "SUFFIX_NE",
+        "source": "bars",
+        "column": "ne_suffix",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WK_U",
+        "family": "SUFFIX_WICK",
+        "source": "bars",
+        "column": "wick_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WK_D",
+        "family": "SUFFIX_WICK",
+        "source": "bars",
+        "column": "wick_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WK_B",
+        "family": "SUFFIX_WICK",
+        "source": "bars",
+        "column": "wick_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PEN_P",
+        "family": "SUFFIX_PEN",
+        "source": "bars",
+        "column": "full_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PEN_R",
+        "family": "SUFFIX_PEN",
+        "source": "bars",
+        "column": "full_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PEN_H",
+        "family": "SUFFIX_PEN",
+        "source": "bars",
+        "column": "full_suffix",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CL_A",
+        "family": "SUFFIX_CLOSE",
+        "source": "bars",
+        "column": "close_suffix",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CL_O",
+        "family": "SUFFIX_CLOSE",
+        "source": "bars",
+        "column": "close_suffix",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CL_I",
+        "family": "SUFFIX_CLOSE",
+        "source": "bars",
+        "column": "close_suffix",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_X",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_M",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_S",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_J",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_TB",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_BB",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_F",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_XF",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BW_MF",
+        "family": "BODYWICK",
+        "source": "bars",
+        "column": "bar_body_wick",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_G1",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_G2",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_G3",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_V",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_C",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "GR_N",
+        "family": "GAPRANGE",
+        "source": "bars",
+        "column": "bar_gap_range",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_VX",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_VR",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_PB",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_PS",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_R2H",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_R2L",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_R2X",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_R2D",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L5_ANY",
+        "family": "LINE5",
+        "source": "bars",
+        "column": "bar_line5",
+        "kind": "ne",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RA",
+        "family": "PHYS_IMPACT",
+        "source": "bars",
+        "column": "phys_r",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RN",
+        "family": "PHYS_IMPACT",
+        "source": "bars",
+        "column": "phys_r",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RF",
+        "family": "PHYS_IMPACT",
+        "source": "bars",
+        "column": "phys_r",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "REG_U",
+        "family": "PHYS_REGIME",
+        "source": "bars",
+        "column": "phys_regime",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "REG_D",
+        "family": "PHYS_REGIME",
+        "source": "bars",
+        "column": "phys_regime",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "E2",
+        "family": "PHYS_ENERGY",
+        "source": "bars",
+        "column": "phys_e",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ESTAR",
+        "family": "PHYS_ENERGY",
+        "source": "bars",
+        "column": "phys_e",
+        "kind": "ct",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "K2",
+        "family": "PHYS_STRETCH",
+        "source": "bars",
+        "column": "phys_k",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "K1",
+        "family": "PHYS_STRETCH",
+        "source": "bars",
+        "column": "phys_k",
+        "kind": "sw",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "K0",
+        "family": "PHYS_STRETCH",
+        "source": "bars",
+        "column": "phys_k",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "C0",
+        "family": "PHYS_LANDSCAPE",
+        "source": "bars",
+        "column": "phys_c",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "C1",
+        "family": "PHYS_LANDSCAPE",
+        "source": "bars",
+        "column": "phys_c",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "C2",
+        "family": "PHYS_LANDSCAPE",
+        "source": "bars",
+        "column": "phys_c",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "H0",
+        "family": "PHYS_DISORDER",
+        "source": "bars",
+        "column": "phys_h",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "H2",
+        "family": "PHYS_DISORDER",
+        "source": "bars",
+        "column": "phys_h",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "M2",
+        "family": "PHYS_MOMENTUM",
+        "source": "bars",
+        "column": "phys_m",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "S3U",
+        "family": "PHYS_COHERENCE",
+        "source": "bars",
+        "column": "phys_s",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "S3D",
+        "family": "PHYS_COHERENCE",
+        "source": "bars",
+        "column": "phys_s",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_ANY",
+        "family": "PHYS_AD",
+        "source": "bars",
+        "column": "phys_ad",
+        "kind": "ne",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_1",
+        "family": "PHYS_AD",
+        "source": "bars",
+        "column": "phys_ad",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_2",
+        "family": "PHYS_AD",
+        "source": "bars",
+        "column": "phys_ad",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_A",
+        "family": "PHYS_AD",
+        "source": "bars",
+        "column": "phys_ad",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "gG3",
+        "family": "PHYS_GAP",
+        "source": "bars",
+        "column": "phys_gap_true",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_SPRING",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_SPRING\u2605",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_UTAD",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_SOS\u2605",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_ACC-TR",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_DIST-TR",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_MARKUP",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "WYC_MKDN",
+        "family": "PHYS_WYC",
+        "source": "bars",
+        "column": "phys_wyc",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_ACC_TR",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_MARKUP",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_DIST_TR",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_MKDN",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_NEUTRAL",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_SOS",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_UTAD",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "PH_SPRING",
+        "family": "WYC_PHASE",
+        "source": "bars",
+        "column": "wyc_phase",
+        "kind": "eq",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_PS",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_plus_struct",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_MS",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_minus_struct",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_SEQ",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_seq",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_MPM",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_mpm",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_CP",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_cplus",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_CPM",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_cplus_minus",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CISD_CMM",
+        "family": "CISD",
+        "source": "bars",
+        "column": "sig_cisd_cplus_mm",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_0_30",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_30_40",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_40_50",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_50_60",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_60_70",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RSI_70_101",
+        "family": "RSI_BAND",
+        "source": "bars",
+        "column": "rsi_14",
+        "kind": "band",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VBO_UP",
+        "family": "FLOW",
+        "source": "bars",
+        "column": "vbo_up",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL5X",
+        "family": "FLOW",
+        "source": "bars",
+        "column": "sig_vol_5x",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL10X",
+        "family": "FLOW",
+        "source": "bars",
+        "column": "sig_vol_10x",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VOL20X",
+        "family": "FLOW",
+        "source": "bars",
+        "column": "sig_vol_20x",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BE_UP",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "be_up",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BO_UP",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "bo_up",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BX_UP",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "bx_up",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L34",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "l34",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L43",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "l43",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "L22",
+        "family": "STRUCTURE",
+        "source": "bars",
+        "column": "l22",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "G1",
+        "family": "GOG",
+        "source": "bars",
+        "column": "sig_g1",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "G2",
+        "family": "GOG",
+        "source": "bars",
+        "column": "sig_g2",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "G4",
+        "family": "GOG",
+        "source": "bars",
+        "column": "sig_g4",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "G6",
+        "family": "GOG",
+        "source": "bars",
+        "column": "sig_g6",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "G11",
+        "family": "GOG",
+        "source": "bars",
+        "column": "sig_g11",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "BUY",
+        "family": "STATE_FLAG",
+        "source": "bars",
+        "column": "sig_buy",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "3G",
+        "family": "STATE_FLAG",
+        "source": "bars",
+        "column": "sig_3g",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "CONSO",
+        "family": "STATE_FLAG",
+        "source": "bars",
+        "column": "sig_conso",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "SVS",
+        "family": "STATE_FLAG",
+        "source": "bars",
+        "column": "sig_svs",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "VA",
+        "family": "STATE_FLAG",
+        "source": "bars",
+        "column": "sig_va",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P2",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p2",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P3",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p3",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P50",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p50",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P55",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p55",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P66",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p66",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "P89",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_p89",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ANY_P",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_any_p",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D2",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d2",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D3",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d3",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D50",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d50",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D55",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d55",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D66",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d66",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "D89",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_d89",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "ANY_D",
+        "family": "PD_LADDER",
+        "source": "bars",
+        "column": "sig_any_d",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_FRESH",
+        "family": "AD_FLAG",
+        "source": "bars",
+        "column": "ad_fresh",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "AD_CLUSTER",
+        "family": "AD_FLAG",
+        "source": "bars",
+        "column": "ad_cluster",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "RS_INTACT",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_rs_intact",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "LEAD_IN_LAG",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_lead_in_lag",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "H1_DR",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_h1_dr",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "H1_QUIET",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_h1_quiet",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "M15_ZDOM",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_m15_zdom",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "IV_VSPIKE",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_iv_vspike",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "OPPORTUNITY_LEVEL"
+      },
+      {
+        "token_id": "MACRO_VIX_UP",
+        "family": "MACRO",
+        "source": "opportunities",
+        "column": "sig_macro_vix_up",
+        "kind": "flag",
+        "materialized": true,
+        "null_requirement": "DAY_LEVEL"
+      }
+    ],
+    "missing": []
+  }
+}

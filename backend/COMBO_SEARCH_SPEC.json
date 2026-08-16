@@ -1,0 +1,125 @@
+{
+  "spec_id": "COMBO_MINER_V1_SEARCH_SPEC",
+  "frozen_before": "any read of a historical outcome column",
+  "population": {
+    "ontology_rows": 275625,
+    "return_observable_rows": 275307,
+    "population_hash": "ca2c502963ce9b85",
+    "setup_families": 57,
+    "dates": 1244,
+    "feature_data_as_of": "2026-08-07",
+    "label_source_snapshot_as_of": "2026-08-07",
+    "maturity_rule": "60 complete MARKET bars after entry inside the frozen snapshot; calendar only; NO exception for cohorts whose trail happened to fire early",
+    "maturity_cutoff": "2026-05-12",
+    "maturity_cutoff_derivation": "market calendar (union of trading dates across non-index names), not hardcoded"
+  },
+  "outcome": {
+    "outcome_id": "REALIZED_RETURN_TRAIL12_TIMER60_V1",
+    "return_source": "ret_true (unfiltered-bar path)",
+    "ordinary_exit": "ATR \u00d7 12 trailing exit",
+    "fallback_exit": "close at bar 60",
+    "max_hold_bars": 60,
+    "empirical_exit_mix_at_qualification_snapshot": {
+      "trail_exit": 11681,
+      "timer60_exit": 263626,
+      "note": "descriptive property of this snapshot, NOT part of the outcome's identity. 91% of exits are the timer, so this is in practice a 60-bar return policy with a rarely-firing trailing stop, and the name says so."
+    },
+    "selection_basis": "corrected implementation of the intended trade-path label",
+    "selection_basis_is_not": "superior historical performance",
+    "legacy": {
+      "ret": "LEGACY_REPRODUCTION_ONLY \u2014 not selectable in v1"
+    }
+  },
+  "terminal_events": {
+    "class": "CORPORATE_ACTION_TERMINAL",
+    "n": 318,
+    "tickers": 33,
+    "terminal_payoff": "UNRESOLVED",
+    "payoff_data_available": false,
+    "payoff_data_checked": "corporate_actions.csv is a splice detector; Massive /v3/reference/tickers returns a ticker reference, not merger consideration",
+    "return_treatment": "excluded from the RETURN numerical estimand",
+    "ontology_treatment": "retained as a competing event, not as censoring",
+    "selection_risk": "NOT_ESTIMATED_IN_V1",
+    "return_coverage": "275,307 / 275,625 = 0.99885",
+    "limitation": "the RETURN estimand is CONDITIONAL on a resolvable non-terminal outcome. Terminal events are not assumed to carry zero return or zero selection effect.",
+    "concentration_audit": {
+      "treated_share_median": 0.0010598031794095382,
+      "treated_share_p90": 0.0019641077538872518,
+      "treated_share_p99": 0.0034561765224057624,
+      "treated_share_max": 0.008045052292839904,
+      "claims_above_1pct": 0,
+      "claims_audited": 4713
+    }
+  },
+  "search": {
+    "grammar": "BaseSetup + 0..2 contextual tokens, distinct families, base setup REQUIRED",
+    "universe": "fixed exhaustive, enumerated before any outcome exists",
+    "adaptive_beam": "NOT USED \u2014 the universe is enumerable, so the search is not outcome-adaptive and the null needs no search replay",
+    "null_family_admitted": "OPPORTUNITY_LEVEL only",
+    "deferred": {
+      "MIXED_LEVEL": 97,
+      "DAY_LEVEL": 1,
+      "reason": "no calibrated null; two separately calibrated 5% bands do not compose into 5% over their union"
+    },
+    "syntactic_opportunity_claims": 4713,
+    "k_selectable_opportunity": 4636,
+    "k_used_for": [
+      "search-wide max band",
+      "DSR",
+      "FDR",
+      "power-test universe"
+    ],
+    "registry_digest": "08b73d474f17a778",
+    "eligibility": {
+      "n_min": 100,
+      "dates_min": 25,
+      "max_single_date_share": 0.2,
+      "applies_to": "both arms of every stratum"
+    },
+    "support_floor": {
+      "min_coverage_of_cell_opportunities": 0.5,
+      "min_eligible_setups": 5
+    },
+    "ranking_statistic": "theta_hat descending \u2014 no stability, novelty or composite score, whose weights would themselves be a fitted model",
+    "null_generator": "G1 within-stratum outcome permutation \u00b7 REUSED, previously qualified for opportunity-level claims",
+    "band": "Monte-Carlo max statistic over the full fixed universe from 120 permutations \u2014 NOT an exact quantile",
+    "n_perm": 120
+  },
+  "power_protocol": {
+    "primary": {
+      "needle_location": "q50 eligible-support claim, chosen X-only before any synthetic outcome exists",
+      "delta_pp": 1.5,
+      "worlds": 20,
+      "PASS": ">= 18 / 20",
+      "PARTIAL": "16-17 / 20",
+      "FAIL": "<= 15 / 20"
+    },
+    "detection": "T_needle > band_p95 over the FULL opportunity universe \u2014 not top-K, not a positive theta",
+    "stress_only": {
+      "locations": [
+        "q10",
+        "q90"
+      ],
+      "deltas": [
+        0.6,
+        1.5,
+        3.0,
+        6.0
+      ],
+      "note": "NOT an alternative route to PASS. One primary gate."
+    },
+    "world": "composition_only_negative + planted delta (combolab_v2)"
+  },
+  "mc_boundary": {
+    "record": [
+      "candidate_stat",
+      "band_draws[120]",
+      "band_threshold",
+      "distance_to_band"
+    ],
+    "decision": "from the registered band only: PASS / FAIL",
+    "mc_boundary_status": "DESCRIPTIVE DIAGNOSTIC ONLY in v1 \u2014 a finite-permutation decision procedure is a separate registration, and opening it here would start a new statistical branch on the eve of the search"
+  },
+  "historical_outcome_exposure": "NONE at freeze time",
+  "spec_digest": "fa7b938d01258644"
+}
