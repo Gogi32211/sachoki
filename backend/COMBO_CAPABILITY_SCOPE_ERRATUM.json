@@ -1,0 +1,85 @@
+{
+  "erratum_id": "COMBO_CAPABILITY_SCOPE_ERRATUM_V1",
+  "what_this_is": "A scope correction, not a retraction. The capability run was executed exactly as registered and its result stands. What was wrong was the INFERENCE carried from it to M4 — a statement qualified in one stochastic environment was read as if it held in another.",
+  "refers_to": {
+    "capability_artifact": "COMBO_CAPABILITY_PRIMARY.json",
+    "capability_spec": "COMBO_CAPABILITY_SPEC.json",
+    "capability_spec_digest": "f1194df7be07c3ee",
+    "m4_artifact": "COMBO_M4_RESULT.json",
+    "m4_result_digest": "e53a792e70bc07ff",
+    "note": "Neither sealed artifact is modified by this erratum. Both remain exactly as written."
+  },
+
+  "capability_result_as_qualified": {
+    "verdict": "PASS",
+    "detected": "20/20",
+    "delta_pp": 1.5,
+    "needle": "L1+H1_DR",
+    "universe": 4636,
+    "scope": "composition_world — the registered ComboLab v2 negative world",
+    "qualified_statement": "delta = +1.5 pp is detectable against the full 4,636-claim band UNDER THE REGISTERED COMPOSITION-WORLD PROCESS",
+    "NOT_qualified": "sensitivity under the empirical historical return distribution",
+    "still_valid": true
+  },
+
+  "the_measured_gap": {
+    "synthetic_outcome_sd_pp": 7.23,
+    "synthetic_outcome_iqr_pp": 9.73,
+    "synthetic_outcome_p1_p99_pp": [-16.03, 17.88],
+    "historical_outcome_sd_pp": 21.26,
+    "historical_outcome_iqr_pp": 21.41,
+    "historical_outcome_p1_p99_pp": [-47.39, 64.0],
+    "sd_ratio": 2.94,
+    "synthetic_band_p95_median_pp": 1.034,
+    "historical_band_p95_pp": 4.8302,
+    "band_ratio": 4.67,
+    "why_band_ratio_exceeds_sd_ratio": "the empirical distribution has far heavier tails (p1 -47 / p99 +64 against -16 / +18), and a within-stratum median difference on small arms is more sensitive to tail weight than the standard deviation alone suggests"
+  },
+
+  "what_went_wrong": "combolab_v2.composition_world draws Y = mu_setup(sd 4.0) + gamma_date(sd 3.0) + eps(sd 6.0). Those constants were set for ComboLab v2's own world and were never checked against REALIZED_RETURN_TRAIL12_TIMER60_V1. Using the registered negative world was correct by protocol; failing to verify that its dispersion matched the outcome the search would actually run on was not, and nothing in the protocol required that check — which is why it is recorded here rather than treated as a slip.",
+
+  "consequences": {
+    "for_the_capability_run": "none — its scope is now stated explicitly instead of implied",
+    "for_M4": "M4 is unchanged and is NOT re-interpreted. What changes is what may be SAID alongside it.",
+    "retracted_sentence": "capability was qualified separately at 20/20 for a +1.5pp effect against this same band",
+    "why_it_was_false": "the capability band was ~+1.03 pp; the M4 band is +4.83 pp. They are not the same band.",
+    "also_too_strong": "no combination carries an incremental effect above +4.83 pp",
+    "why_that_is_too_strong": "theta_hat is noisy in both directions. A true +5 can be observed at +4.2 and a true +4 at +5. The data support a statement about ESTIMATES against a band, not about which true effects exist."
+  },
+
+  "what_M4_actually_supports": "max theta_hat = +4.411 < band_p95 = +4.830, so none of the 4,636 estimated incremental effects crossed the registered search-wide band on this population. Nothing more.",
+
+  "what_remains_unmeasured": "the detection capability of this instrument under the empirical noise structure. There is no single threshold X to report, because detection depends on support as well as effect size; the missing object is a surface DetectionRate(delta, support), not a number.",
+
+  "next_work_is_not_a_requalification": {
+    "name": "POST-M4 EMPIRICAL-NOISE SENSITIVITY CHARACTERIZATION",
+    "status": "POST-EXPOSURE — historical Y is already open, so this carries no confirmatory standing",
+    "may_not": [
+      "change the M4 verdict",
+      "re-open or re-run M4",
+      "become a new PASS/FAIL gate applied backwards",
+      "choose delta to match the observed band"
+    ],
+    "noise_generator": "the real historical outcome vector, G1-permuted — keeping the true tails, scale and block heteroskedasticity while destroying any token-to-outcome association. Preferable to inventing a parametric simulator with sd 21.26, which would reproduce one moment and guess the rest.",
+    "design": "nested: an outer G1 permutation builds each empirical-noise null world, delta is planted in a frozen needle, and 120 INNER G1 permutations build that world's band. Outer and inner RNG streams frozen and independent.",
+    "grid_frozen_in_advance": {
+      "delta_pp": [1.5, 3.0, 4.5, 6.0],
+      "support_locations": ["q10", "q50", "q90"],
+      "worlds_per_cell": 20,
+      "primary_if_cost_bound": "q50 x all four deltas, then q10/q90"
+    },
+    "output": "a DetectionRate(delta, support) surface, reported as a measured rate in a finite suite and never as a threshold"
+  },
+
+  "a_result_that_needed_no_new_computation": "search tax was identical in both runs — the same 4,636 claims, the same k. Only the noise geometry changed, and the band moved 4.67x. Detection difficulty is therefore not a function of k alone but of k together with outcome scale, tail weight, stratification and support. That is a property of the whole system, not of this study.",
+
+  "standing_of_rank_1": {
+    "claim": "GR_G3+RSI_0_30",
+    "theta_pp": 4.411,
+    "distance_to_band_pp": -0.419,
+    "status": "NOT_PROMOTED",
+    "may_not": "be bootstrapped separately, tested without the search tax, given a different horizon, or have k reduced around it in order to rescue it",
+    "may": "be described as the rank-1 historical candidate in post-search characterization"
+  },
+  "K2_note": "K2 appears in 7 of the top 15 rows. That is one exploratory structure seen seven times, not seven independent pieces of evidence for K2."
+}
