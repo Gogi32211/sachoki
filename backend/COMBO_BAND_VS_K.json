@@ -1,0 +1,106 @@
+{
+  "spec": "POST_M4_BAND_VS_K_V1",
+  "status": "POST_EXPOSURE_CHARACTERIZATION",
+  "confirmatory_standing": "NONE",
+  "m4_digest": "e53a792e70bc07ff",
+  "m4_band": 4.83018,
+  "m4_max_theta_hat": 4.41142,
+  "m4_verdict": "IMMUTABLE",
+  "population_hash": "ca2c502963ce9b85",
+  "k_full": 4636,
+  "n_perm": 120,
+  "seed": 20260818,
+  "draws_per_k": 50,
+  "subset_rule": "uniform random without replacement from the frozen universe, seeded; the median over draws is reported because 'a universe of k' is a size, not a particular subset",
+  "null_generator": "within_stratum_outcome_v1",
+  "curve": [
+    {
+      "k": 1,
+      "draws": 50,
+      "band_median": 0.3682,
+      "band_p10": -0.2228,
+      "band_p90": 0.8604
+    },
+    {
+      "k": 2,
+      "draws": 50,
+      "band_median": 0.5985,
+      "band_p10": 0.1636,
+      "band_p90": 0.9695
+    },
+    {
+      "k": 5,
+      "draws": 50,
+      "band_median": 0.9065,
+      "band_p10": 0.4723,
+      "band_p90": 1.5261
+    },
+    {
+      "k": 10,
+      "draws": 50,
+      "band_median": 1.0766,
+      "band_p10": 0.6827,
+      "band_p90": 2.1211
+    },
+    {
+      "k": 25,
+      "draws": 50,
+      "band_median": 1.5495,
+      "band_p10": 1.096,
+      "band_p90": 2.4304
+    },
+    {
+      "k": 50,
+      "draws": 50,
+      "band_median": 1.8831,
+      "band_p10": 1.2802,
+      "band_p90": 2.8888
+    },
+    {
+      "k": 100,
+      "draws": 50,
+      "band_median": 2.3317,
+      "band_p10": 1.7262,
+      "band_p90": 2.8761
+    },
+    {
+      "k": 250,
+      "draws": 50,
+      "band_median": 2.871,
+      "band_p10": 2.2879,
+      "band_p90": 3.4619
+    },
+    {
+      "k": 500,
+      "draws": 50,
+      "band_median": 3.2176,
+      "band_p10": 2.6498,
+      "band_p90": 4.7872
+    },
+    {
+      "k": 1000,
+      "draws": 50,
+      "band_median": 3.336,
+      "band_p10": 3.0069,
+      "band_p90": 4.7872
+    },
+    {
+      "k": 2500,
+      "draws": 50,
+      "band_median": 4.7872,
+      "band_p10": 3.3433,
+      "band_p90": 4.7872
+    },
+    {
+      "k": 4636,
+      "draws": 1,
+      "band_median": 4.7872,
+      "band_p10": 4.7872,
+      "band_p90": 4.7872
+    }
+  ],
+  "band_full_universe": 4.7872,
+  "may_not": "be read backwards \u2014 finding the k at which band(k) falls below M4's top estimate and concluding a smaller search 'would have found something' is post-selection reuse and confers nothing",
+  "use": "designing the next instrument on an untouched population or forward",
+  "seconds": 1420.0
+}
