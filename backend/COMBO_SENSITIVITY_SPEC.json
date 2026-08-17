@@ -1,0 +1,97 @@
+{
+  "spec_id": "POST_M4_EMPIRICAL_NOISE_SENSITIVITY_V1",
+  "status": "POST_EXPOSURE_CHARACTERIZATION",
+  "confirmatory_standing": "NONE \u2014 historical Y was opened by M4",
+  "historical_m4_digest": "e53a792e70bc07ff",
+  "m4_verdict": "IMMUTABLE \u00b7 0/4,636 survivors \u00b7 max theta_hat +4.411 \u00b7 band +4.8302",
+  "search_universe": 4636,
+  "population_hash": "ca2c502963ce9b85",
+  "historical_outcome": "REALIZED_RETURN_TRAIL12_TIMER60_V1",
+  "noise_generator": "the real historical outcome vector, G1-permuted (outcomes inside (date x family)) \u2014 real tails, scale and block heteroskedasticity kept; token-to-outcome association destroyed",
+  "deltas_pp": [
+    1.5,
+    3.0,
+    4.5,
+    6.0
+  ],
+  "support_locations": [
+    "q10",
+    "q50",
+    "q90"
+  ],
+  "worlds_per_cell": 20,
+  "n_inner_perm": 120,
+  "needles": {
+    "q10": {
+      "claim_id": "T10+IV_VSPIKE",
+      "membership_hash": "159f7fc4ff1355b7",
+      "support_total": 2680,
+      "eligible_setups": 7,
+      "treated_n": 2872,
+      "treated_dates": 709,
+      "top_date_share": 0.0231,
+      "support_quantile": 0.1,
+      "n_tied": 2,
+      "tie_break": "lowest membership hash"
+    },
+    "q50": {
+      "claim_id": "L1+H1_DR",
+      "membership_hash": "853e016e57af832f",
+      "support_total": 10474,
+      "eligible_setups": 14,
+      "treated_n": 11053,
+      "treated_dates": 1007,
+      "top_date_share": 0.0106,
+      "support_quantile": 0.5,
+      "n_tied": 1,
+      "tie_break": "lowest membership hash"
+    },
+    "q90": {
+      "claim_id": "L6+L5_R2L",
+      "membership_hash": "33d40fbf5d31b8cb",
+      "support_total": 47481,
+      "eligible_setups": 16,
+      "treated_n": 47941,
+      "treated_dates": 1228,
+      "top_date_share": 0.0123,
+      "support_quantile": 0.9,
+      "n_tied": 1,
+      "tie_break": "lowest membership hash"
+    }
+  },
+  "outer_root_seed": 20260817,
+  "outer_seed_rule": "outer_seed_i = OUTER_ROOT * 1000 + i",
+  "outer_seeds": [
+    20260817000,
+    20260817001,
+    20260817002,
+    20260817003,
+    20260817004,
+    20260817005,
+    20260817006,
+    20260817007,
+    20260817008,
+    20260817009,
+    20260817010,
+    20260817011,
+    20260817012,
+    20260817013,
+    20260817014,
+    20260817015,
+    20260817016,
+    20260817017,
+    20260817018,
+    20260817019
+  ],
+  "outer_rng": "np.random.default_rng([outer_seed, 0xA1])",
+  "inner_rng": "np.random.default_rng([outer_seed, delta_key, perm]) \u2014 independent of the outer stream",
+  "paired_design": "the same 20 outer worlds are reused across every delta and every support location, so a cell-to-cell difference is the planted effect and not a different noise draw. Declared, not discovered.",
+  "detection": "theta_needle > band_p95 of that world. No rank cut, no CI, no secondary filter.",
+  "may_not": [
+    "change the M4 verdict",
+    "re-run or re-open M4",
+    "become a PASS/FAIL gate applied backwards",
+    "be reported as a single threshold"
+  ],
+  "spec_digest": "3a72d8993a81195f"
+}
