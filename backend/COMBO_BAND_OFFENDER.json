@@ -1,0 +1,207 @@
+{
+  "spec": "POST_M4_BAND_OFFENDER_V1",
+  "status": "POST_EXPOSURE_CHARACTERIZATION",
+  "confirmatory_standing": "NONE",
+  "m4_verdict": "IMMUTABLE",
+  "m4_digest": "e53a792e70bc07ff",
+  "population_hash": "ca2c502963ce9b85",
+  "n_perm": 120,
+  "seed": 20260818,
+  "full_band": 4.7872,
+  "argmax_counts": {
+    "GR_G3+RSI_0_30": 120
+  },
+  "leave_worst_out": [
+    {
+      "removed": 0,
+      "band": 4.7872,
+      "gain": 0.0
+    },
+    {
+      "removed": 1,
+      "band": 3.5248,
+      "gain": 1.2624
+    },
+    {
+      "removed": 2,
+      "band": 3.3804,
+      "gain": 1.4068
+    },
+    {
+      "removed": 5,
+      "band": 3.1781,
+      "gain": 1.6091
+    },
+    {
+      "removed": 10,
+      "band": 2.966,
+      "gain": 1.8213
+    },
+    {
+      "removed": 25,
+      "band": 2.6631,
+      "gain": 2.1241
+    }
+  ],
+  "highest_variance_claims": [
+    {
+      "claim_id": "GR_G3+RSI_0_30",
+      "permuted_p95": 4.7872,
+      "permuted_sd": 0.3047,
+      "times_max": 120,
+      "eligible_setups": 7,
+      "support_total": 2950,
+      "treated_n": 3478,
+      "treated_dates": 590,
+      "top_date_share": 0.0841
+    },
+    {
+      "claim_id": "S3D+H1_DR",
+      "permuted_p95": 3.4619,
+      "permuted_sd": 0.3499,
+      "times_max": 0,
+      "eligible_setups": 5,
+      "support_total": 1783,
+      "treated_n": 2642,
+      "treated_dates": 291,
+      "top_date_share": 0.028
+    },
+    {
+      "claim_id": "Z1G+C0",
+      "permuted_p95": 3.3214,
+      "permuted_sd": 0.3724,
+      "times_max": 0,
+      "eligible_setups": 5,
+      "support_total": 2138,
+      "treated_n": 2352,
+      "treated_dates": 594,
+      "top_date_share": 0.1099
+    },
+    {
+      "claim_id": "T5+RSI_0_30",
+      "permuted_p95": 3.3197,
+      "permuted_sd": 0.3334,
+      "times_max": 0,
+      "eligible_setups": 5,
+      "support_total": 2431,
+      "treated_n": 2558,
+      "treated_dates": 579,
+      "top_date_share": 0.072
+    },
+    {
+      "claim_id": "K2+S3D",
+      "permuted_p95": 3.1096,
+      "permuted_sd": 0.3065,
+      "times_max": 0,
+      "eligible_setups": 6,
+      "support_total": 3583,
+      "treated_n": 4179,
+      "treated_dates": 833,
+      "top_date_share": 0.0246
+    },
+    {
+      "claim_id": "L6+K2",
+      "permuted_p95": 3.0925,
+      "permuted_sd": 0.3295,
+      "times_max": 0,
+      "eligible_setups": 5,
+      "support_total": 2834,
+      "treated_n": 3368,
+      "treated_dates": 662,
+      "top_date_share": 0.0423
+    },
+    {
+      "claim_id": "C0+gG3",
+      "permuted_p95": 3.0166,
+      "permuted_sd": 0.271,
+      "times_max": 0,
+      "eligible_setups": 8,
+      "support_total": 4316,
+      "treated_n": 4893,
+      "treated_dates": 922,
+      "top_date_share": 0.0684
+    },
+    {
+      "claim_id": "GR_G3+K2",
+      "permuted_p95": 2.9649,
+      "permuted_sd": 0.3414,
+      "times_max": 0,
+      "eligible_setups": 7,
+      "support_total": 2237,
+      "treated_n": 2726,
+      "treated_dates": 667,
+      "top_date_share": 0.089
+    },
+    {
+      "claim_id": "L4+K2",
+      "permuted_p95": 2.9048,
+      "permuted_sd": 0.3249,
+      "times_max": 0,
+      "eligible_setups": 6,
+      "support_total": 3184,
+      "treated_n": 3790,
+      "treated_dates": 744,
+      "top_date_share": 0.0377
+    },
+    {
+      "claim_id": "K2+H1_QUIET",
+      "permuted_p95": 2.8662,
+      "permuted_sd": 0.2852,
+      "times_max": 0,
+      "eligible_setups": 6,
+      "support_total": 3552,
+      "treated_n": 4333,
+      "treated_dates": 864,
+      "top_date_share": 0.0236
+    }
+  ],
+  "spearman_p95_support": -0.2276,
+  "spearman_p95_eligible_setups": -0.1836,
+  "support_floor_ladder": [
+    {
+      "min_eligible_setups": 5,
+      "k": 4636,
+      "k_share": 1.0,
+      "band": 4.7872,
+      "gain": 0.0
+    },
+    {
+      "min_eligible_setups": 6,
+      "k": 3972,
+      "k_share": 0.8568,
+      "band": 4.7872,
+      "gain": 0.0
+    },
+    {
+      "min_eligible_setups": 7,
+      "k": 3469,
+      "k_share": 0.7483,
+      "band": 4.7872,
+      "gain": 0.0
+    },
+    {
+      "min_eligible_setups": 8,
+      "k": 3060,
+      "k_share": 0.6601,
+      "band": 3.0166,
+      "gain": 1.7706
+    },
+    {
+      "min_eligible_setups": 10,
+      "k": 2477,
+      "k_share": 0.5343,
+      "band": 2.4583,
+      "gain": 2.3289
+    },
+    {
+      "min_eligible_setups": 12,
+      "k": 2025,
+      "k_share": 0.4368,
+      "band": 2.3958,
+      "gain": 2.3914
+    }
+  ],
+  "may_not": "be applied backwards. M4's universe was frozen and its verdict is immutable; removing a claim after seeing the result and recomputing the band is post-selection reuse whatever the claim's provenance.",
+  "may": "inform the declared support floor of the NEXT instrument, because the offender is identified from PERMUTED outcomes and so the finding is not outcome-driven",
+  "seconds": 1242.4
+}
