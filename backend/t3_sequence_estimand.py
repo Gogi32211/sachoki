@@ -11,8 +11,10 @@ temporarily renamed to its vocabulary (t3_date -> t5_date), so the pre-treatment
 and the deterministic split run byte-identical. Membership is recomputed with T3 literals via
 the same adjacency kernel the grammar used.
 
-Support floors here add the CONTROL side (>=300 control episodes in overlap blocks) and the
-overlap-retention requirement, exactly as T5's estimand did. Mobility quantities are reported
+Support floors here add the CONTROL side (>=300 control episodes in overlap blocks). UNLIKE
+T5's estimand, there is NO overlap-retention requirement: T5 registered >=0.80 in its own
+freeze, this family's registration did not and forbids post-hoc mobility cutoffs — the
+inherited filter was removed before this module ever ran. Mobility quantities are reported
 as DIAGNOSTICS of operational permutation freedom — not proof of exchangeability; the
 exchangeability assumption is stated verbatim in the artifact.
 
@@ -162,7 +164,13 @@ def main():
         t_all, t_ov = int(s.sum()), int((s & inov).sum())
         c_ov = int(((~s) & inov).sum())
         ret = t_ov / t_all if t_all else 0.0
-        ok = (t_ov >= MIN_EP and c_ov >= MIN_EP and ret >= MIN_OVERLAP_RETENTION)
+        # RETENTION IS DIAGNOSTIC, NOT A FILTER — enforced before first use, at the user's
+        # catch. T5's estimand registered treated_overlap_retention >= 0.80 in its own
+        # freeze; the T3 registration did NOT, and explicitly forbids a post-hoc mobility
+        # cutoff. The inherited constant was silently sitting in the k_final path and was
+        # removed BEFORE any T3 estimand ever ran. Retention is computed, stored per claim
+        # and reported as a distribution — never selected on.
+        ok = (t_ov >= MIN_EP and c_ov >= MIN_EP)
         if ok:
             e = np.flatnonzero(s & inov)
             ok = (len(np.unique(tcode[e])) >= MIN_TK
@@ -206,8 +214,13 @@ def main():
         anchor="T3 - 2 sessions · dv20 median dollar volume · ATR14/close · reused "
                "byte-identical from the qualified T5 estimand on renamed frames",
         support=dict(treated=MIN_EP, control=MIN_EP, tickers=MIN_TK, dates=MIN_DT,
-                     max_date_share=MAX_DATE_SHARE,
-                     overlap_retention=MIN_OVERLAP_RETENTION),
+                     max_date_share=MAX_DATE_SHARE),
+        retention_is_not_a_gate=dict(
+            rule="treated_overlap_retention is DIAGNOSTIC ONLY in this family",
+            t5_contrast="T5 registered >=0.80 in its own estimand freeze; this family's "
+                        "registration did not and forbids post-hoc mobility cutoffs",
+            corrected="the inherited 0.80 filter was removed BEFORE the first estimand run "
+                      "of this family, at the user's catch"),
         mobility=dict(role="DIAGNOSTIC of operational permutation freedom — NOT proof of "
                            "exchangeability; no post-hoc mobility cutoff is invented",
                       treated_permutable_retention=mob,
