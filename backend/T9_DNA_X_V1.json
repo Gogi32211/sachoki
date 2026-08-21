@@ -1,0 +1,22 @@
+{
+  "spec_id": "T9_DNA_X_V1",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "setup": "FINAL_PRIORITY_RESOLVED_T9",
+  "t9_definition_hash": "afe380362cde2ee5",
+  "t9_definition": "t_sig=='T9' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==7). Raw semantics: prev1IsBear = close[1]<open[1] OR doji[1]; isBull = close>open strict; isInside = BODY-inside non-strict (max(o,c)<=max(o1,c1) AND min(o,c)>=min(o1,c1)); wicks excluded. Canonical = raw with T4,T6,T1G,T2G,T1,T2 resolved first. Reconstruction agreement 240,579/243,562 = 98.78%; 2,983 canonical residual + 2,733 raw-carrying-T3 residual, same feed/tick-boundary class as T5's 1,460. Universe rows deduplicated to one per (ticker,date) with priority sp500<nasdaq<russell2k.",
+  "token_registry_hash": "08b73d474f17a778",
+  "registry_total": 172,
+  "bars_applicable_tokens": 165,
+  "frame_computed_excluded": 7,
+  "full_T9_population": 243562,
+  "T9_day_1H_observable": 160576,
+  "cross_day_observable": 160164,
+  "coverage_role": "OBSERVED_1H_SUBPOPULATION",
+  "future_outcomes": "FORBIDDEN",
+  "artifacts": {
+    "t9_episodes.parquet": "cf005e63ccb5ab1f",
+    "t9_1h_microstructure.parquet": "a5d0d2871e3ac249",
+    "T9_DNA_AUDIT.json": "1a59b3f5b3ce3cbb"
+  },
+  "freeze_digest": "7c0b45f80ab3141d"
+}

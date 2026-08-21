@@ -1,0 +1,60 @@
+{
+  "spec_id": "T9_DNA_AUDIT_V1",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "definition": "t_sig=='T9' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==7). Raw semantics: prev1IsBear = close[1]<open[1] OR doji[1]; isBull = close>open strict; isInside = BODY-inside non-strict (max(o,c)<=max(o1,c1) AND min(o,c)>=min(o1,c1)); wicks excluded. Canonical = raw with T4,T6,T1G,T2G,T1,T2 resolved first. Reconstruction agreement 240,579/243,562 = 98.78%; 2,983 canonical residual + 2,733 raw-carrying-T3 residual, same feed/tick-boundary class as T5's 1,460. Universe rows deduplicated to one per (ticker,date) with priority sp500<nasdaq<russell2k.",
+  "definition_hash": "afe380362cde2ee5",
+  "token_registry_hash": "08b73d474f17a778",
+  "n_tokens_1h": 165,
+  "reconstruction": {
+    "canonical": 243562,
+    "raw": 248966,
+    "agree": 240579,
+    "agree_pct": 98.78,
+    "canonical_residual": 2983,
+    "raw_t3_residual": 2733
+  },
+  "episodes": 243562,
+  "tickers": 5259,
+  "yearly": {
+    "2021": 25068,
+    "2022": 37388,
+    "2023": 43347,
+    "2024": 48437,
+    "2025": 53650,
+    "2026": 35672
+  },
+  "funnel": {
+    "BOTH": 160164,
+    "T9_ONLY": 412,
+    "PREV_ONLY": 774,
+    "NONE": 82212
+  },
+  "episode_id_unique": true,
+  "coverage_bias": {
+    "price": {
+      "covered_median": 31.9,
+      "missing_median": 8.19
+    },
+    "prev_price": {
+      "covered_median": 31.41,
+      "missing_median": 7.99
+    }
+  },
+  "m_rows": 2228325,
+  "m_episodes": 161350,
+  "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+  "runtime_min": 5.9,
+  "no_future": {
+    "cutoff": "2024-12-31",
+    "episodes_full_pre_cutoff": 154240,
+    "episodes_truncated_build": 154240,
+    "identical_ids": true,
+    "identical_x_pit": true,
+    "non_pit_convenience_columns": [
+      "in_nasdaq",
+      "in_russell2k",
+      "in_sp500"
+    ],
+    "non_pit_rule": "excluded from the X research contract \u2014 never a feature, block variable or filter"
+  }
+}
