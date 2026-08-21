@@ -268,3 +268,81 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+# ══════════════════════════════════════════════════════════════════════════
+# SEMANTIC UPSTREAM — the audit question, answered YES
+# ══════════════════════════════════════════════════════════════════════════
+UPSTREAM_ENTRIES = ["derive_intraday.py", "update_intraday_db.py", "build_15m_base.py",
+                    "backfill_intraday_fwd.py", "build_intraday_db.py"]
+
+
+def _resolve_local(name, root):
+    p = os.path.join(root, name.replace(".", os.sep) + ".py")
+    if os.path.exists(p):
+        return os.path.relpath(p, root)
+    p = os.path.join(root, name.replace(".", os.sep), "__init__.py")
+    if os.path.exists(p):
+        return os.path.relpath(p, root)
+    return None
+
+
+def semantic_upstream(root=None):
+    """Does changing bar-production code alter the values the frozen producer consumes for
+    identical vendor input?
+
+    YES. D.SRC_COLS carries sig_*, phys_*, l_sig, wyc_phase, vol_bucket, rsi_14 — DERIVED signal
+    columns read straight out of the bar stores, not recomputed by the T5 producer. So
+    derive_intraday.py and friends are upstream SEMANTICS, not transport, and the audit answer
+    is not 'transport layer, dev checkout acceptable'.
+
+    The closure is computed by walking local imports rather than declared by hand, because a
+    hand-written list goes stale silently. It comes out broad — ~245 modules, because _process
+    does `import main` and main.py pulls the whole API surface in with it.
+
+    That breadth is why this is a PROVENANCE FIELD ON EVERY data_version rather than a blocking
+    gate. A gate on a hash that moves whenever an unrelated endpoint is edited would fire
+    constantly and be routed around, which is worse than no gate. The real protection is
+    elsewhere and is structural: a forward run consumes ONE immutable data_version, so an
+    upstream change mid-accrual cannot alter a snapshot that already exists. It can only
+    produce a NEW version carrying a different upstream hash — and that heterogeneity is then
+    visible per episode at lock time instead of being invisible.
+    """
+    import ast
+    root = root or HERE
+    seen, stack = set(), list(UPSTREAM_ENTRIES)
+    while stack:
+        f = stack.pop()
+        if f in seen or not os.path.exists(os.path.join(root, f)):
+            continue
+        seen.add(f)
+        try:
+            tree = ast.parse(open(os.path.join(root, f), "rb").read())
+        except Exception:
+            continue
+        for n in ast.walk(tree):
+            mods = []
+            if isinstance(n, ast.Import):
+                mods = [a.name for a in n.names]
+            elif isinstance(n, ast.ImportFrom) and n.module and not n.level:
+                mods = [n.module] + [f"{n.module}.{a.name}" for a in n.names]
+            for m in mods:
+                r = _resolve_local(m, root)
+                if r and r not in seen:
+                    stack.append(r)
+    h = hashlib.sha256()
+    for f in sorted(seen):
+        h.update(f.encode())
+        h.update(open(os.path.join(root, f), "rb").read())
+    return dict(hash=h.hexdigest()[:16], n_modules=len(seen), entries=UPSTREAM_ENTRIES,
+                closure="transitive local-module imports, computed not declared",
+                answer_to_audit_question="YES — bar-production code changes the values the "
+                                         "frozen producer consumes for identical vendor input, "
+                                         "because D.SRC_COLS reads derived signal columns",
+                role="PROVENANCE FIELD per data_version, not a blocking gate",
+                why_not_a_gate="the closure is broad because _process imports main; a gate on a "
+                               "hash that moves with unrelated edits fires constantly and gets "
+                               "routed around",
+                real_protection="a forward run consumes ONE immutable data_version, so an "
+                                "upstream change mid-accrual produces a NEW version rather than "
+                                "altering an existing snapshot")
