@@ -1,0 +1,177 @@
+{
+  "spec_id": "T9_SURVIVOR_CHARACTERIZATION_V1",
+  "status": "POST_EXPOSURE_DESCRIPTIVE",
+  "selection_rule": "outcome-blind medoid selection WITHIN the post-exposure survivor set — membership geometry only, tie-break lowest sealed j; the survivor set itself is Y-selected and this wording says so",
+  "n_survivors": 6,
+  "jaccard_threshold": 0.5,
+  "n_clusters": 4,
+  "cluster_structure": [
+    [
+      "j125"
+    ],
+    [
+      "j293",
+      "j443"
+    ],
+    [
+      "j602",
+      "j751"
+    ],
+    [
+      "j697"
+    ]
+  ],
+  "containment": [
+    "j443 ⊂ j293",
+    "j751 ⊂ j602"
+  ],
+  "nearest_neighbor_jaccard": {
+    "j125": 0.008,
+    "j293": 0.514,
+    "j443": 0.514,
+    "j602": 0.731,
+    "j697": 0.029,
+    "j751": 0.731
+  },
+  "jaccard_matrix": [
+    [
+      0.0,
+      0.008,
+      0.004,
+      0.008,
+      0.007,
+      0.006
+    ],
+    [
+      0.008,
+      0.0,
+      0.514,
+      0.026,
+      0.006,
+      0.022
+    ],
+    [
+      0.004,
+      0.514,
+      0.0,
+      0.022,
+      0.003,
+      0.02
+    ],
+    [
+      0.008,
+      0.026,
+      0.022,
+      0.0,
+      0.029,
+      0.731
+    ],
+    [
+      0.007,
+      0.006,
+      0.003,
+      0.029,
+      0.0,
+      0.021
+    ],
+    [
+      0.006,
+      0.022,
+      0.02,
+      0.731,
+      0.021,
+      0.0
+    ]
+  ],
+  "medoid_characterization": [
+    {
+      "cluster": 0,
+      "members": [
+        "j125·VOL_W→L3"
+      ],
+      "medoid": "CROSS_DAY|2|VOL_W→L3",
+      "j": 125,
+      "support": 630,
+      "z_rank": 5.005,
+      "theta_mfe_pp": 8.27,
+      "theta_mfe_atr": 0.567,
+      "theta_mae_pp": -4.04,
+      "theta_ret10_pp": 1.54,
+      "d_pre_atr_pct": 3.168,
+      "d_liq_ratio": -1.553,
+      "ret10_over_mfe": 0.186
+    },
+    {
+      "cluster": 1,
+      "members": [
+        "j293·BUY→Z2",
+        "j443·BUY→Z2→L2"
+      ],
+      "medoid": "PREV_INTRADAY|2|BUY→Z2",
+      "j": 293,
+      "support": 671,
+      "z_rank": 5.587,
+      "theta_mfe_pp": 5.53,
+      "theta_mfe_atr": 0.629,
+      "theta_mae_pp": -2.26,
+      "theta_ret10_pp": 1.83,
+      "d_pre_atr_pct": 0.92,
+      "d_liq_ratio": -0.142,
+      "ret10_over_mfe": 0.331
+    },
+    {
+      "cluster": 2,
+      "members": [
+        "j602·BUY→T2",
+        "j751·BUY→T2→GR_N"
+      ],
+      "medoid": "T9_INTRADAY|2|BUY→T2",
+      "j": 602,
+      "support": 442,
+      "z_rank": 5.739,
+      "theta_mfe_pp": 5.72,
+      "theta_mfe_atr": 0.686,
+      "theta_mae_pp": -2.77,
+      "theta_ret10_pp": 1.14,
+      "d_pre_atr_pct": 0.837,
+      "d_liq_ratio": -0.605,
+      "ret10_over_mfe": 0.199
+    },
+    {
+      "cluster": 3,
+      "members": [
+        "j697·SVS→T2"
+      ],
+      "medoid": "T9_INTRADAY|2|SVS→T2",
+      "j": 697,
+      "support": 8470,
+      "z_rank": 4.192,
+      "theta_mfe_pp": 1.65,
+      "theta_mfe_atr": 0.223,
+      "theta_mae_pp": -1.03,
+      "theta_ret10_pp": 0.67,
+      "d_pre_atr_pct": 0.383,
+      "d_liq_ratio": -0.431,
+      "ret10_over_mfe": 0.406
+    }
+  ],
+  "aggregate": {
+    "theta_mfe_median_pp": 5.62,
+    "theta_ret10_median_pp": 1.34,
+    "ret10_over_mfe_median": 0.265
+  },
+  "buy_enrichment_POST_HOC_DESCRIPTIVE": {
+    "buy_in_890": 4,
+    "buy_in_survivors": 4,
+    "label": "post-hoc descriptive only — the survivor set is outcome-selected and this is not an enrichment test"
+  },
+  "t5_echo_DESCRIPTIVE_ONLY": {
+    "observations": [
+      "PREV_INTRADAY|2|BUY→Z2 appears verbatim among both T5 and T9 survivors",
+      "CROSS_DAY VOL_W→* appears in both families"
+    ],
+    "label": "cross-family STRUCTURAL RECURRENCE — same market, same period, same token ecosystem, overlapping tickers/dates; NOT replication, NOT confirmation, NOT independent evidence; formal comparison is a separate, separately-logged family-wide analysis"
+  },
+  "branch": "T9 HISTORICAL CHARACTERIZATION CLOSED",
+  "seconds": 49.2
+}

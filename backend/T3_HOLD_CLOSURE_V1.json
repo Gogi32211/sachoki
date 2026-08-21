@@ -1,0 +1,69 @@
+{
+  "spec_id": "T3_HOLD_CLOSURE_V1",
+  "result": "PASS",
+  "item1": {
+    "gate": "SAME_INPUT_SEMANTIC_IDENTITY",
+    "result": "PASS",
+    "route": "A — engine vs independent pandas mirror of the Pine spec, identical DB bars",
+    "bars_tested": 104168,
+    "tickers": 80,
+    "necessity_violations": 0,
+    "sufficiency_violations": 0,
+    "sufficiency_predicate": "raw_T3 -> bc in {1..9}. The original sufficiency predicate omitted the bullCode==0 failure state; the predicate was corrected during pre-capability review before historical outcome exposure.",
+    "bc_census_among_raw": {
+      "bc>7": 4348
+    },
+    "priority_exclusions_by_bc": {},
+    "first_violations": [],
+    "scope": "pins the T3 primitive and the priority DIRECTION; the six higher-priority patterns themselves are exercised as exclusions, not reimplemented",
+    "cross_vintage": {
+      "current_store_raw_vs_materialized": "CROSS-VINTAGE DIAGNOSTIC ONLY (207,296/213,742 = 96.98% (raw is an EXACT subset of canonical; priority exclusions 0) reconciliation, NOT a semantic PASS)",
+      "canonical_population": "materialized t_sig='T9'",
+      "historical_membership_repair": "FORBIDDEN"
+    }
+  },
+  "item2": {
+    "gate": "K_ACCOUNTING",
+    "result": "PASS",
+    "syntactic": {
+      "support_qualified_grammar": 980,
+      "at_estimand": 945,
+      "removed_names": 38,
+      "removed_census": {
+        "TREATED_FLOOR": 33,
+        "DATE_SHARE": 3,
+        "TREATED_FLOOR,DATE_SHARE": 2
+      },
+      "final_names": 907
+    },
+    "distinct": {
+      "k_provisional": 885,
+      "k_final": 853,
+      "provisional_classes_fully_lost": 32,
+      "provisional_classes_merged_away": 0,
+      "merge_events": 0,
+      "class_splits": 0,
+      "final_aliases": 54
+    },
+    "identities": {
+      "names_eq_classes_plus_aliases": "907 = 853 + 54 -> True",
+      "provisional_to_final": "885 - lost 32 - merged 0 + splits 0 = 853 -> True"
+    },
+    "why_20_vs_22": "answered numerically above: name removals and class arithmetic differ whenever removed names are non-representative aliases, or when restriction merges or splits memberships"
+  },
+  "item3": {
+    "gate": "CLOCK_ANCHORING",
+    "result": "PASS",
+    "checks": {
+      "position_is_timestamp_rank": true,
+      "shuffle_invariant": true,
+      "missing_bar_shifts_and_validity_excludes": true,
+      "early_close_sessions_present_and_valid": true,
+      "early_close_example": "2021-11-26 expected 4 bars (global mode 7)",
+      "seam_semantics": "200/200 exact on both-side episodes (0 one-sided coverage, no seam to test)"
+    }
+  },
+  "item4": "sealed separately: T3_CAPABILITY_PROTOCOL_V1",
+  "y_status": "NO OUTCOME VALUE READ",
+  "seconds": 32.2
+}

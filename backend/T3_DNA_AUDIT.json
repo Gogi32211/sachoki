@@ -45,5 +45,18 @@
   "m_rows": 2020306,
   "m_episodes": 146404,
   "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
-  "runtime_min": 4.6
+  "runtime_min": 4.6,
+  "no_future": {
+    "cutoff": "2024-12-31",
+    "episodes_full_pre_cutoff": 135850,
+    "episodes_truncated_build": 135850,
+    "identical_ids": true,
+    "identical_x_pit": true,
+    "non_pit_convenience_columns": [
+      "in_nasdaq",
+      "in_russell2k",
+      "in_sp500"
+    ],
+    "source": "t3dna.log line, persisted post-run"
+  }
 }
