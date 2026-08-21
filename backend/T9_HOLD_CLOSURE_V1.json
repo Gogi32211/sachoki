@@ -1,0 +1,67 @@
+{
+  "spec_id": "T9_HOLD_CLOSURE_V1",
+  "result": "PASS",
+  "item1": {
+    "gate": "SAME_INPUT_SEMANTIC_IDENTITY",
+    "result": "PASS",
+    "route": "A — engine vs independent pandas mirror of the Pine spec, identical DB bars",
+    "bars_tested": 104168,
+    "tickers": 80,
+    "necessity_violations": 0,
+    "sufficiency_violations": 0,
+    "priority_exclusions_by_bc": {
+      "bc=1": 7
+    },
+    "first_violations": [],
+    "scope": "pins the T9 primitive and the priority DIRECTION; the six higher-priority patterns themselves are exercised as exclusions, not reimplemented",
+    "cross_vintage": {
+      "current_store_raw_vs_materialized": "CROSS-VINTAGE DIAGNOSTIC ONLY (240,579/243,562 = 98.78% reconciliation, NOT a semantic PASS)",
+      "canonical_population": "materialized t_sig='T9'",
+      "historical_membership_repair": "FORBIDDEN"
+    }
+  },
+  "item2": {
+    "gate": "K_ACCOUNTING",
+    "result": "PASS",
+    "syntactic": {
+      "support_qualified_grammar": 980,
+      "at_estimand": 980,
+      "removed_names": 22,
+      "removed_census": {
+        "TREATED_FLOOR": 16,
+        "DATE_SHARE": 4,
+        "TREATED_FLOOR,DATE_SHARE": 2
+      },
+      "final_names": 958
+    },
+    "distinct": {
+      "k_provisional": 910,
+      "k_final": 890,
+      "provisional_classes_fully_lost": 20,
+      "provisional_classes_merged_away": 0,
+      "merge_events": 0,
+      "class_splits": 0,
+      "final_aliases": 68
+    },
+    "identities": {
+      "names_eq_classes_plus_aliases": "958 = 890 + 68 -> True",
+      "provisional_to_final": "910 - lost 20 - merged 0 + splits 0 = 890 -> True"
+    },
+    "why_20_vs_22": "answered numerically above: name removals and class arithmetic differ whenever removed names are non-representative aliases, or when restriction merges or splits memberships"
+  },
+  "item3": {
+    "gate": "CLOCK_ANCHORING",
+    "result": "PASS",
+    "checks": {
+      "position_is_timestamp_rank": true,
+      "shuffle_invariant": true,
+      "missing_bar_shifts_and_validity_excludes": true,
+      "early_close_sessions_present_and_valid": true,
+      "early_close_example": "2021-11-26 expected 4 bars (global mode 7)",
+      "seam_semantics": "199/199 exact on both-side episodes (1 one-sided coverage, no seam to test)"
+    }
+  },
+  "item4": "sealed separately: T9_CAPABILITY_PROTOCOL_V1",
+  "y_status": "NO OUTCOME VALUE READ",
+  "seconds": 77.8
+}

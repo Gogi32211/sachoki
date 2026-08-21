@@ -1,0 +1,42 @@
+{
+  "spec_id": "T9_CAPABILITY_PROTOCOL_V1",
+  "status": "FROZEN",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "frozen_before": "any T9 capability code exists and before any observed statistic",
+  "the_invariant": "a capability world may NOT begin from the observed T9 sequence-Y association. Real historical MFE may supply the NOISE; the observed association must be DESTROYED first.",
+  "pipeline": [
+    "sealed T9 X / membership + historical raw MFE",
+    "DESTROY sequence<->Y association under the registered block-preserving null mechanism (permute Y within blocks BEFORE anything else)",
+    "inject homogeneous additive delta ONLY into the frozen needle membership",
+    "rebuild raw-MFE ranks",
+    "rebuild tie-corrected analytic SD",
+    "999 inner max-Z permutations",
+    "detection yes/no"
+  ],
+  "hard_gates": [
+    "NO observed historical T9 Z_rank is computed, stored or printed",
+    "NO survivor ranking",
+    "NO winner inspection"
+  ],
+  "distinction": "Y values used for capability noise != historical T9 result exposed. The engine may open Y to build empirical-noise worlds; the human-facing record sees detections/20 and band geometry only.",
+  "needles": {
+    "rule": "q10/q50/q90 from the SEALED final claim order, sort by support, tie-break sealed j, nearest-rank ceil(q*k)-1",
+    "k_final": 890
+  },
+  "grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds_per_needle": 20,
+  "inner_permutations": 999,
+  "wording_allowed": "Under the registered homogeneous additive MFE-shift alternative, the qXX needle detected +Xpp in Y/20 finite capability worlds.",
+  "wording_forbidden": [
+    "true power",
+    "guaranteed detection",
+    "universal sensitivity"
+  ]
+}
