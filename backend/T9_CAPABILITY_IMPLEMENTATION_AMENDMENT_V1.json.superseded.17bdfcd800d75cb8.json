@@ -46,16 +46,5 @@
     "seed_manifest": "PASS · 7204d1c6eb314028 identical across PYTHONHASHSEED=0/12345 fresh processes",
     "world_replay": "PASS · injected Y, ranks, SD, full 999-perm max-Z vector bit-identical",
     "source_sweep": "PASS · no builtin hash() on the stochastic path"
-  },
-  "immutable_diff_evidence": {
-    "old_engine_code_hash": "90c0041c0c7ee2ef",
-    "new_engine_code_hash": "ad9d89dfdcff78a5",
-    "unified_diff_file": "T9_CAPABILITY_SPEC_DIFF_0e5954e_1b58cf4.diff",
-    "unified_diff_digest": "464fbd1bcc3678fb",
-    "changed_lines": 58,
-    "classified_lines": 58,
-    "unclassified_lines": 0,
-    "allowed_categories_only": "PASS",
-    "note": "the full diff is stored immutably (git-committed) so the amendment's basis can be re-checked without re-running the classifier"
   }
 }

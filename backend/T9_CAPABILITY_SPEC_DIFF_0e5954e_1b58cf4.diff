@@ -1,0 +1,102 @@
+diff --git a/backend/t9_capability_run.py b/backend/t9_capability_run.py
+index d54ef37..7291bde 100644
+--- a/backend/t9_capability_run.py
++++ b/backend/t9_capability_run.py
+@@ -39,12 +39,36 @@ import t5_artifact as ART, t9_dna as D9                                # noqa: E
+ import t9_sequence_grammar as G9, t9_sequence_estimand as E9           # noqa: E402
+ 
+ OUT = "T9_CAPABILITY_RESULT_V1.json"
++RUN_TAG = "T9_CAPABILITY_EVIDENCE_V2"          # the SHA256-derived, fully replayable run
+ ORDER_PARQ = os.path.join(D9.ROOT, "data", "t9_claim_order_v1.parquet")
+ POP_PARQ = os.path.join(D9.ROOT, "data", "t9_estimand_population.parquet")
+ DELTAS = (0.5, 1.0, 2.0, 3.0, 4.0, 5.0)          # pp on raw MFE (which is a fraction)
+ WORLDS = 20
+ NPERM = 999
+-SEED0 = 20260821
++SEED0 = 20260821                              # superseded engineering run's root; kept for
++                                              # the record only — the stochastic path below
++                                              # never uses it and never uses builtin hash()
++
++
++def _u64(digest_bytes):
++    return int.from_bytes(digest_bytes[:8], "big")
++
++
++def world_seed(hashes, needle_membership_hash, delta, w):
++    m = hashlib.sha256()
++    for part in ("T9_CAPABILITY_WORLD_V1", hashes["claim_order_hash"],
++                 hashes["population_hash"], hashes["block_assignment_hash"],
++                 hashes["capability_protocol_hash"], needle_membership_hash,
++                 f"{delta:.1f}", str(w)):
++        m.update(part.encode()); m.update(b"|")
++    return m.digest()
++
++
++def perm_seed(wseed_bytes, p):
++    m = hashlib.sha256()
++    m.update(b"T9_CAPABILITY_PERM_V1|"); m.update(wseed_bytes)
++    m.update(b"|"); m.update(str(p).encode())
++    return _u64(m.digest())
+ 
+ 
+ def build_state(verbose=True):
+@@ -164,7 +188,12 @@ def main():
+         rp[border] = r[return_positions]
+         return rp
+ 
+-    rng0 = np.random.default_rng(SEED0)
++    hashes = dict(claim_order_hash=CO["claim_order_hash"],
++                  population_hash=CO["population_hash"],
++                  block_assignment_hash=CO["block_assignment_hash"],
++                  capability_protocol_hash=ART.file_digest(
++                      "T9_CAPABILITY_PROTOCOL_V1.json"))
++    seed_manifest = {}
+     results, p95s = [], {}
+     det_tbl = {}
+     for nk, nd in needles.items():
+@@ -175,8 +204,9 @@ def main():
+             det = 0
+             bands = []
+             for w in range(WORLDS):
+-                seed = SEED0 + hash((nk, delta, w)) % (2**31)
+-                rng = np.random.default_rng(abs(seed))
++                wseed = world_seed(hashes, nd["membership_hash"], delta, w)
++                seed_manifest[f"{nk}|{delta:.1f}|{w}"] = wseed.hex()[:16]
++                rng = np.random.default_rng(_u64(wseed))
+                 # 1) DESTROY the observed association: permute Y within blocks
+                 y = y_hist.copy()
+                 for b in range(nb):
+@@ -193,7 +223,8 @@ def main():
+                 mx = np.empty(NPERM)
+                 inv_sd = 1.0 / np.where(sd > 0, sd, 1.0)
+                 for p in range(NPERM):
+-                    rp = shuffle_within_blocks(r, rng)
++                    rng_p = np.random.default_rng(perm_seed(wseed, p))
++                    rp = shuffle_within_blocks(r, rng_p)
+                     mx[p] = (((A @ rp) - c_s) * inv_sd).max()
+                 p95 = np.sort(mx)[math.ceil(0.95 * NPERM) - 1]
+                 bands.append(float(p95))
+@@ -223,7 +254,22 @@ def main():
+                              "no winner inspection — the engine permutes before any "
+                              "statistic touches the historical assignment"],
+         runtime_min=round((time.time() - t0) / 60, 1), peak_rss_gb=round(peak_gb, 2),
+-        seed=SEED0),
++        rng=dict(scheme="SHA256-derived, namespaces T9_CAPABILITY_WORLD_V1 / "
++                        "T9_CAPABILITY_PERM_V1; first 8 digest bytes as unsigned int; "
++                        "builtin hash() nowhere in the stochastic path",
++                 seed_manifest_digest=hashlib.sha256(json.dumps(
++                     seed_manifest, sort_keys=True).encode()).hexdigest()[:16],
++                 n_world_seeds=len(seed_manifest)),
++        superseded_engineering_run=dict(
++            commit="0e5954e", status="SUPERSEDED / ENGINEERING / NON-EVIDENTIARY",
++            defect="world seeds derived via process-salted builtin hash(); externally "
++                   "non-replayable",
++            observed_cells={"q10|+0.5pp": "4/20", "q10|+1.0pp": "19/20",
++                            "q10|+2.0pp": "20/20", "q10|+3.0pp": "20/20",
++                            "q10|+4.0pp": "20/20"},
++            exclusion="Observed during superseded non-replayable engineering run; excluded "
++                      "from capability qualification and not used to modify protocol, "
++                      "needles, grid, worlds, permutations, or acceptance.")),
+         OUT, required=("spec_id", "detections", "max_null_p95", "needles"))
+     print(f"\nT9_CAPABILITY_RESULT_V1 · {ART.file_digest(OUT)} · "
+           f"{(time.time()-t0)/60:.1f} min · peak {peak_gb:.2f} GB")
