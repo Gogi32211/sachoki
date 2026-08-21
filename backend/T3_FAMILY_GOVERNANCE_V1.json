@@ -1,0 +1,88 @@
+{
+  "spec_id": "T3_FAMILY_GOVERNANCE_V1",
+  "status": "FROZEN",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "frozen_before": "any T3 outcome value exists",
+  "setup": "FINAL_PRIORITY_RESOLVED_T9",
+  "definition_hash": "fb27e73eef390533",
+  "relationship_to_t5": {
+    "reused": [
+      "token registry (identical, hash recorded)",
+      "episode/microstructure builders (byte-identical code)",
+      "qualified V2 bounded blockwise Mann-Whitney/AUC rank statistic",
+      "capability protocol SHAPE (needles, worlds, delta grid)",
+      "support gates as frozen starting rules",
+      "artifact writer and gate discipline"
+    ],
+    "cited_as": "methodological precedent ONLY"
+  },
+  "forbidden_design_inputs": [
+    "T5 BUY→L5",
+    "T5 VOL_W→L46x",
+    "T5 L43→T2",
+    "T5 BUY→Z2",
+    "T5 VA→*",
+    "T5 L4/L6→*",
+    "T5 15m medoids",
+    "T5 survivor Z",
+    "T5 theta",
+    "T5 historical band",
+    "T5 forward result",
+    "ANY T9 winner discovered in the parallel T9 research",
+    "T9 Z_rank",
+    "T9 theta",
+    "T9 survivor identity",
+    "T9 overlap clusters",
+    "T9 historical band"
+  ],
+  "natural_occurrence_rule": "if a forbidden-list pattern occurs naturally in the complete frozen T3 grammar it is evaluated normally with every other eligible claim — it is never preferentially selected",
+  "no_narrative_rule": "no hypothesis (absorption, reclaim, failed gap, volume expansion, breakout, oversold reversal, VA, VOL_W, BUY, L43) is privileged because the T3 candle visually suggests it; the full frozen grammar decides, and economic interpretation is POST-EXPOSURE only",
+  "forbidden_meaning": "none of these may select, seed, weight or preferentially order any T3 hypothesis; the full grammar is enumerated and the data speaks",
+  "historical_cutoff_rule": "the T3 max-null band MUST come from T9's own permutation distribution; neither T5's nor T9's band is ever reused",
+  "capability_rule": "T5 capability does NOT qualify T3 — own population, support distribution, block geometry, k and null dependence",
+  "cross_family_selection": "comparing T5 vs T3 and picking the better signal is a SEPARATE selection problem, logged separately when it happens",
+  "support_gates": {
+    "treated_episodes": 300,
+    "control_episodes": 300,
+    "treated_tickers": 50,
+    "control_tickers": 50,
+    "treated_dates": 50,
+    "control_dates": 50,
+    "max_single_date_treated_share": 0.1,
+    "revision_rule": "never changed because the realized X distribution is inconvenient; an X-only feasibility problem STOPS the run and is documented as a pre-Y feasibility decision, not a preregistered gate"
+  },
+  "outcome_spec": {
+    "signal": "canonical T3 daily close",
+    "decision": "after T3 session close",
+    "entry": "NEXT regular trading session OPEN",
+    "primary": "MFE_10D %",
+    "secondary_registered": "MFE_ATR_10D",
+    "descriptive_only": [
+      "MAE_10D %",
+      "terminal R_10D %"
+    ],
+    "not_promotion_paths": [
+      "MAE_10D",
+      "R_10D"
+    ],
+    "exit_policy": "NONE",
+    "y_status": "NOT EXPOSED"
+  },
+  "estimand": {
+    "delta": "median(MFE_10D|S=1,b) - median(MFE_10D|S=0,b)",
+    "theta": "sum_b w_sb * Delta_sb, treated-episode weights",
+    "blocks": "exact T3 date x pre-window liquidity LOW/HIGH x pre-window volatility LOW/HIGH, all pre-treatment",
+    "anchor": "T3 - 2 sessions",
+    "liquidity": "20-session median dollar volume ending T9-2, full pre-window required",
+    "volatility": "ATR14/close at T9-2",
+    "split": "deterministic value-then-ticker tie-break, rank(method='first')",
+    "filter_order": "sequence-analyzable filtering BEFORE block construction"
+  },
+  "inference": {
+    "statistic": "Z_rank (bounded blockwise MW/AUC, analytic tie-corrected null SE)",
+    "direction": "one-sided positive",
+    "multiplicity": "search-wide max-Z_rank permutation control",
+    "theta_role": "magnitude only; cannot rescue a Z_rank failure"
+  },
+  "token_registry_hash": "08b73d474f17a778"
+}

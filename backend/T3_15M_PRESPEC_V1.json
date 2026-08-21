@@ -1,0 +1,21 @@
+{
+  "spec_id": "T3_15M_PRESPEC_V1",
+  "status": "FROZEN",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "frozen_before": "T3 historical outcome exposure — and before the 1H phase is sealed",
+  "primary_scope": "OPENING HOUR ONLY",
+  "position_families": [
+    "M1→M2",
+    "M2→M3",
+    "M3→M4"
+  ],
+  "grammar": "position-anchored 2-bar claims only",
+  "excluded": "the 3-bar grammar (million-claim scale) is NOT in T3 V1",
+  "why_excluded": "pre-existing computational/multiplicity feasibility knowledge from the T5 ENGINEERING record — a lesson about cost, learned before any T3 outcome was seen; not any T3 outcome and not any T5 WINNER",
+  "tokens": "same canonical registry",
+  "token_registry_hash": "08b73d474f17a778",
+  "support_rules": "same frozen floors initially",
+  "evidence_status": "a SEPARATE localization family; NOT independent evidence from 1H — same episode universe, same outcome",
+  "sequencing": "no 15m outcome statistic is enumerated until the T3 1H phase is sealed per the registered sequence",
+  "definition_hash": "fb27e73eef390533"
+}
