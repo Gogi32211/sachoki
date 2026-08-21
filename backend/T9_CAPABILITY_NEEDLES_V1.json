@@ -1,0 +1,59 @@
+{
+  "spec_id": "T9_CAPABILITY_NEEDLES_V1",
+  "status": "SEALED_BY_EXTRACTION",
+  "parent": "T9_1H_CLAIM_ORDER_V1",
+  "parent_digest": "616942b6d5d15550",
+  "binding_seal": "the PARENT's, at its own seal time (23:10:01 local, 2026-08-21) — this file is a verbatim extraction that adds NO selection; it exists so a future claim-order serialization change cannot alter needle meaning, because the identities below are frozen by VALUE",
+  "identities": {
+    "k": 890,
+    "unique_j": 890,
+    "unique_membership_hash": 890,
+    "two_build_determinism": "two builds identical",
+    "claim_order_hash": "0c2721fba089bb47",
+    "population_hash": "b8a264697867c9a3",
+    "block_assignment_hash": "d04667806c44c62d"
+  },
+  "needle_rule": "sort support ASCENDING, tie-break sealed j, nearest-rank ceil(q*k)-1 zero-based (q10->88, q50->444, q90->800)",
+  "needles": {
+    "q10": {
+      "quantile": "q10",
+      "sealed_position": 88,
+      "j": 469,
+      "claim_id": "9f8e3c9310493416",
+      "membership_hash": "43d8692e4948c476",
+      "representative": "D2→T1→NE_N",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 326
+    },
+    "q50": {
+      "quantile": "q50",
+      "sealed_position": 444,
+      "j": 149,
+      "claim_id": "7f16c31b857b337b",
+      "membership_hash": "783a00aa15beabec",
+      "representative": "AD_1→T2→T2G",
+      "family": "CROSS_DAY",
+      "length": 3,
+      "support": 1011
+    },
+    "q90": {
+      "quantile": "q90",
+      "sealed_position": 800,
+      "j": 645,
+      "claim_id": "9661e10a58e5937c",
+      "membership_hash": "2dcf757a7f05524b",
+      "representative": "H2→T1",
+      "family": "T9_INTRADAY",
+      "length": 2,
+      "support": 10050
+    }
+  },
+  "lineage_proof": {
+    "seal_time": "23:10:01 (json + order parquet + population parquet, same second)",
+    "capability_start": "23:13:31 (ps lstart == log birth)",
+    "inequality": "claim_order_seal < first_Y_read AND needle_seal < first_Y_read: TRUE",
+    "structural": "the engine json.loads the sealed order and read_parquets the sealed population at startup — it cannot run without the seal existing",
+    "smoke_classification": "the pre-launch sanity call (midranks only, no needle statistic) also postdates the seal and is classified ENGINEERING FIXTURE regardless"
+  }
+}
