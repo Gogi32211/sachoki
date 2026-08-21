@@ -1,0 +1,104 @@
+{
+  "spec_id": "T5_FORWARD_DATA_PRODUCER_V1",
+  "status": "FROZEN",
+  "role": "ADDITIVE — pins the PRODUCER of forward X. No frozen artifact below is touched.",
+  "why": "membership rules can be frozen to the byte and still change meaning if the input features are rebuilt by whatever happens to be checked out. The remaining risk is provenance drift of X and concurrent data mutation, not selection leakage.",
+  "raw_input": [
+    "studio_analytics.duckdb (1D)",
+    "studio_1h.duckdb",
+    "studio_4h.duckdb",
+    "studio_15m.duckdb"
+  ],
+  "producer_commit": "461f9935dabab44585da7cbc3a0d1a7e2015ce01",
+  "producer_identity": "the commit SHA of the pinned runtime worktree, never a branch name",
+  "producer_sources": [
+    "t5_dna.py",
+    "t5_15m_enumerate.py"
+  ],
+  "produces": [
+    "episodes",
+    "microstructure_1h",
+    "opening_hour_15m"
+  ],
+  "product_paths": {
+    "episodes": "t5_episodes.parquet",
+    "microstructure_1h": "t5_1h_microstructure.parquet",
+    "opening_hour_15m": "t5_15m_opening_hour.parquet"
+  },
+  "output_schema_hashes": {
+    "episodes": "da220296801956f1",
+    "microstructure_1h": "87956d91d3398171",
+    "opening_hour_15m": "9a94fab7d024d8e0"
+  },
+  "output_digests": {
+    "episodes": "ab5d09d89fa44da8",
+    "microstructure_1h": "06445de9bd2a367b",
+    "opening_hour_15m": "9e5e0f5edd527f2c"
+  },
+  "feature_pipeline_hash": "86fb91ec514f2b76",
+  "t5_definition_hash": "2775322838e81bd7",
+  "publication": {
+    "mode": "ATOMIC SNAPSHOT ONLY",
+    "sequence": [
+      "build into a temp snapshot",
+      "validate every product",
+      "compute source digests",
+      "atomic rename to publish",
+      "assign data_version"
+    ],
+    "why": "the runtime reads a shared data/ that the updater can write concurrently; a forward process must never observe a mixture of old and new files",
+    "all_or_nothing": "nothing is renamed until every product has passed, so a reader never sees half a snapshot"
+  },
+  "data_version": {
+    "immutable": true,
+    "rebuild": "a rebuild is a NEW data_version, never a correction of a published one",
+    "registry": "t5_forward_data_versions.parquet",
+    "episode_provenance": [
+      "data_version",
+      "producer_commit",
+      "source_digest_1h",
+      "source_digest_15m",
+      "feature_pipeline_hash"
+    ],
+    "why": "an episode carries its provenance immutably, so a bar update an hour later cannot change an episode that already exists",
+    "current_tables_predate_this_spec": {
+      "feature_data_as_of": "2026-08-17",
+      "label": "PRE_PRODUCER_PIN",
+      "note": "the tables on disk were produced before this contract existed. The first pinned rebuild establishes the first governed data_version; the existing ones are labelled rather than retroactively certified."
+    }
+  },
+  "coverage_gap": {
+    "sessions": [
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20"
+    ],
+    "episode_eligible": false,
+    "lock_eligible": false,
+    "context_eligible": true,
+    "context_rule": "the rows REMAIN available wherever the frozen feature definition requires prior-session information",
+    "why": "a T5 episode spans PREV_DAY and T5_DAY, so the first genuine forward episode (2026-08-21) needs 2026-08-20 as its PREV_DAY. Implementing the gap by dropping rows would build it with a missing prior session or with silently altered semantics.",
+    "not_backfill": "this supplies the point-in-time context the definition already demanded; it admits no evidence and no episode",
+    "asserted": {
+      "gap": [
+        "2026-08-18",
+        "2026-08-19",
+        "2026-08-20"
+      ],
+      "present_as_context": [],
+      "present_as_episode_t5_date": [],
+      "episodes_with_gap_prev_day": 0,
+      "microstructure_reaches": "2026-08-17",
+      "context_eligible": true,
+      "episode_eligible": false,
+      "lock_eligible": false
+    }
+  },
+  "consumed_by": {
+    "evaluator": "T5_FORWARD_MEMBERSHIP_EVALUATOR_V1",
+    "evaluator_hash": "fbb79d0a2bad3854",
+    "contract": "the forward evaluator opens exactly ONE immutable data_version"
+  },
+  "activation_manifest_digest": "ba190c8830a79412",
+  "base_chain_digest": "45d42d761a5434e9"
+}
