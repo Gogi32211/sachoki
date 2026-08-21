@@ -61,8 +61,20 @@ def code_commit():
 
 
 def tree_clean():
+    """CODE cleanliness, not artifact cleanliness — and the distinction is load-bearing.
+
+    The runtime legitimately re-seals artifacts into its own tracked tree, which makes that
+    tree dirty and would block the runtime for doing its job. The two guards have different
+    subjects and must not be collapsed:
+
+        assert_runtime_pinned   guards CODE identity      (this function)
+        startup_audit           guards ARTIFACT identity  (digest per artifact)
+
+    A tampered artifact is therefore still caught — by the digest check, which is the guard
+    that can actually tell a tampered artifact from a legitimately re-sealed one."""
     try:
-        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
+                              "--", "*.py", "*.sh", "*.toml", "*.cfg"],
                              capture_output=True, text=True, cwd=HERE, timeout=20).stdout
         return not out.strip(), [l for l in out.splitlines()[:5]]
     except Exception as e:
