@@ -1,0 +1,26 @@
+{
+  "spec_id": "T9_HISTORICAL_SPEC_V1",
+  "status": "FROZEN",
+  "t9_definition_hash": "afe380362cde2ee5",
+  "token_registry_hash": "08b73d474f17a778",
+  "claim_order": "T9_1H_CLAIM_ORDER_V1",
+  "claim_order_digest": "616942b6d5d15550",
+  "claim_order_hash": "0c2721fba089bb47",
+  "population_hash": "b8a264697867c9a3",
+  "block_assignment_hash": "d04667806c44c62d",
+  "k": 890,
+  "outcome_spec": "T9_OUTCOME_SPEC_V1",
+  "outcome_spec_digest": "e8030a648aa4442e",
+  "inference": "qualified V2 — bounded blockwise Mann-Whitney/AUC, analytic tie-corrected null SE, Z_rank",
+  "direction": "ONE-SIDED POSITIVE",
+  "permutations": 999,
+  "promotion": "STRICT: Z_obs > p95(max-Z_null), T9's OWN distribution",
+  "capability_result_digest": "8bf51a959e5d78ed",
+  "amendments": {
+    "implementation": "0a755848ae740c45",
+    "needles": "d14c61c07227f5d4",
+    "hold_closure": "38a44367eb971ddf"
+  },
+  "historical_rng_root": "aab3b09891c4e1b3",
+  "rng_rule": "root = SHA256('T9_HISTORICAL_EVIDENCE_V1' | claim_order_hash | population_hash | block_assignment_hash | capability_result_digest); perm_seed(p) = SHA256('T9_HISTORICAL_PERM_V1' | root | p)[:8] — derived from sealed hashes, never hand-chosen"
+}

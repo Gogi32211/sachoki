@@ -1,0 +1,65 @@
+{
+  "spec_id": "T9_HISTORICAL_EXPOSED_V1",
+  "status": "EXPOSED",
+  "spec_digest": "20ec9cc18759e10d",
+  "k": 890,
+  "p95_max_z_null": 3.779579,
+  "max_observed_z_rank": 5.738617,
+  "median_observed_z_rank": -0.135331,
+  "n_survivors": 6,
+  "survivors": [
+    {
+      "j": 602,
+      "representative": "BUY→T2",
+      "family": "T9_INTRADAY",
+      "length": 2,
+      "support": 442,
+      "z_rank": 5.7386
+    },
+    {
+      "j": 293,
+      "representative": "BUY→Z2",
+      "family": "PREV_INTRADAY",
+      "length": 2,
+      "support": 671,
+      "z_rank": 5.587
+    },
+    {
+      "j": 125,
+      "representative": "VOL_W→L3",
+      "family": "CROSS_DAY",
+      "length": 2,
+      "support": 630,
+      "z_rank": 5.0048
+    },
+    {
+      "j": 443,
+      "representative": "BUY→Z2→L2",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 345,
+      "z_rank": 4.6634
+    },
+    {
+      "j": 751,
+      "representative": "BUY→T2→GR_N",
+      "family": "T9_INTRADAY",
+      "length": 3,
+      "support": 323,
+      "z_rank": 4.4649
+    },
+    {
+      "j": 697,
+      "representative": "SVS→T2",
+      "family": "T9_INTRADAY",
+      "length": 2,
+      "support": 8470,
+      "z_rank": 4.1919
+    }
+  ],
+  "max_null_vector": "t9_historical_maxnull.parquet · bb2a4c7ef2287be9",
+  "vectors": "t9_historical_vectors.parquet · 10999f72172ee65b",
+  "reconciliation": "survives == (Z_obs > persisted p95) for all 890: PASS",
+  "theta": "NOT COMPUTED HERE — magnitude only, post-exposure descriptive for the survivor set, as approved",
+  "runtime_s": 24.6
+}
