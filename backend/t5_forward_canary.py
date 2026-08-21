@@ -119,9 +119,10 @@ def build_corpus(keys, verbose=True):
     try:
         for tk, sd in keys:
             df = c.execute(f"""
-                SELECT ticker, any_value(universe) universe, date,
-                       any_value(open) open, any_value(high) high, any_value(low) low,
-                       any_value(close) close, any_value(volume) volume
+                SELECT ticker, any_value(universe) AS universe, date,
+                       any_value(open) AS "open", any_value(high) AS "high",
+                       any_value(low) AS "low", any_value(close) AS "close",
+                       any_value(volume) AS "volume"
                 FROM bars
                 WHERE ticker = ? AND CAST(date AS DATE) <= DATE '{sd}'
                 GROUP BY ticker, date ORDER BY date DESC LIMIT {HISTORY}
