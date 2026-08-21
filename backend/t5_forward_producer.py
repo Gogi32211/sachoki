@@ -287,6 +287,21 @@ def _resolve_local(name, root):
     return None
 
 
+def environment_fingerprint():
+    """The versions that can change chain output with byte-identical sources. A numpy or
+    pandas upgrade can move a floating-point tail; hashing source alone would report
+    'unchanged' and the SLOW tier would never arm. So the environment is part of the
+    upstream identity, not a footnote."""
+    import platform
+    import duckdb as _dk, numpy as _np, pandas as _pd, pyarrow as _pa
+    parts = dict(python=sys.version.split()[0], numpy=_np.__version__,
+                 pandas=_pd.__version__, duckdb=_dk.__version__, pyarrow=_pa.__version__,
+                 machine=platform.machine())
+    fp = hashlib.sha256("|".join(f"{k}={v}" for k, v in sorted(parts.items()))
+                        .encode()).hexdigest()[:16]
+    return dict(fingerprint=fp, **parts)
+
+
 def semantic_upstream(root=None):
     """Does changing bar-production code alter the values the frozen producer consumes for
     identical vendor input?
@@ -334,7 +349,16 @@ def semantic_upstream(root=None):
     for f in sorted(seen):
         h.update(f.encode())
         h.update(open(os.path.join(root, f), "rb").read())
+    env = environment_fingerprint()
     return dict(hash=h.hexdigest()[:16], n_modules=len(seen), entries=UPSTREAM_ENTRIES,
+                environment=env,
+                closure_hash=hashlib.sha256(
+                    (h.hexdigest() + "|" + env["fingerprint"]).encode()).hexdigest()[:16],
+                closure_scope="source modules + interpreter + numeric library versions + "
+                              "platform. NOT hashed and stated so: env vars the chain reads "
+                              "(SACHOKI_BARS_ONLY is set explicitly by every gate invocation), "
+                              "DuckDB store internals, OS-level numerics outside the listed "
+                              "libraries. The FAST canary is the backstop for that residue.",
                 closure="transitive local-module imports, computed not declared",
                 answer_to_audit_question="YES — bar-production code changes the values the "
                                          "frozen producer consumes for identical vendor input, "

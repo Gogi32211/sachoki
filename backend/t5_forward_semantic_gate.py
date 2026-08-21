@@ -190,11 +190,15 @@ def evaluate(verbose=True):
     """The frozen decision table, executed. Returns (allow, verdict_dict)."""
     spec = json.load(open(OUT))
     sealed_hash = spec["sealed_upstream_hash"]
-    cur = PR.semantic_upstream()["hash"]
+    sealed_env = spec.get("sealed_environment_fingerprint")
+    up = PR.semantic_upstream()
+    cur, cur_env = up["hash"], up["environment"]["fingerprint"]
     fast_ok, fast = CN.check(verbose=False)
     if fast_ok is None:
         return False, dict(verdict="HOLD", why="no sealed canary reference")
-    if cur == sealed_hash:
+    # 'unchanged' means source AND environment: a numpy upgrade with identical sources must
+    # arm the SLOW tier, or the provenance contract is stronger than what is checked
+    if cur == sealed_hash and (sealed_env is None or cur_env == sealed_env):
         v = dict(verdict="ALLOW" if fast_ok else "HOLD",
                  tier="FAST", upstream_hash="unchanged", fast=fast["status"])
         return bool(fast_ok), v
@@ -263,6 +267,23 @@ def seal(slow_meta, verbose=True):
                         "reproducible even by identical code; chain-vs-chain on fixed sealed "
                         "inputs IS deterministic, so that is the reference"),
         sealed_upstream_hash=PR.semantic_upstream()["hash"],
+        sealed_environment_fingerprint=PR.semantic_upstream()["environment"]["fingerprint"],
+        sealed_environment=PR.semantic_upstream()["environment"],
+        unchanged_means="source closure hash AND environment fingerprint; either moving arms "
+                        "the SLOW tier",
+        frozen_x_doctrine="Frozen X is a VERSIONED DERIVED-DATA STATE. Forward admissibility "
+                          "is based on semantic compatibility with the sealed chain process, "
+                          "not bytewise reconstruction of historical derived features from raw "
+                          "OHLCV — measured: 58/1,554 probe cells differ under byte-identical "
+                          "RAW because store signals are window-vintage-dependent. Any future "
+                          "attempt to 'repair' historical X by recomputation would silently "
+                          "change evidence identity and is forbidden.",
+        operational_path=["08-21 session final", "nightly ingest completes",
+                          "stable_for condition satisfied", "finalizer completes",
+                          "37 guarded-column stabilization digest",
+                          "publish candidate snapshot", "SEMANTIC_GATE",
+                          "only on ALLOW: membership evaluation, accrual ledger append, "
+                          "cumulative mature-forward count update, completion marker"],
         dependency_digest=ART.file_digest("T5_FORWARD_RULE_FEATURE_DEPENDENCY_V1.json"),
         producer_commit=pin["pin"])
     d = ART.seal(body, OUT, required=("spec_id", "decision_table", "sealed_upstream_hash",

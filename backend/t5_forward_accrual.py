@@ -186,8 +186,34 @@ def accrue(as_of=None, verbose=True):
     n_new = int(len(F))
     n_mature = int(F.horizon_elapsed.sum()) if len(F) else 0
 
+    # ── snapshot provenance · machine fields only, outcome-blind ──────────
+    # what a later continuity proof needs: which data_version, which gate verdict, which
+    # digests. No outcome-derived field, not even aggregated.
+    snap_prov = dict(data_version=None, snapshot_digest=None, semantic_gate_decision=None,
+                     fast_gate_status=None, slow_gate_status=None,
+                     finalizer_stabilization_digest=None, upstream_closure_hash=None)
+    try:
+        import t5_forward_snapshot as SNAP, t5_forward_producer as PR
+        cur = SNAP.resolve_current()
+        if cur:
+            m = cur["manifest"]
+            v = m.get("semantic_gate_verdict", {})
+            snap_prov.update(
+                data_version=m.get("data_version"),
+                snapshot_digest=hashlib.sha256(json.dumps(
+                    m.get("product_digests", {}), sort_keys=True).encode()).hexdigest()[:16],
+                semantic_gate_decision=v.get("verdict"),
+                fast_gate_status=v.get("fast"),
+                slow_gate_status=(v.get("slow") or {}).get("status") if isinstance(
+                    v.get("slow"), dict) else None,
+                finalizer_stabilization_digest=(m.get("session_context") or {}).get(
+                    "source_digest"),
+                upstream_closure_hash=(m.get("semantic_upstream") or {}).get("closure_hash"))
+    except Exception:
+        pass          # no snapshot yet is a normal pre-forward state, not an error
+
     # ── ledger row · blind ─────────────────────────────────────────────────
-    row = dict(as_of_session=as_of, cutoff=CUTOFF,
+    row = dict(as_of_session=as_of, cutoff=CUTOFF, **snap_prov,
                n_new_t5=n_new, n_total_t5=n_new,
                n_new_mature=n_mature, n_total_mature=n_mature,
                lock_target=LOCK_N,
