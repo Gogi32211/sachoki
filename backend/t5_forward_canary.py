@@ -91,7 +91,10 @@ def select_corpus(verbose=True):
     pick, why = [], {}
 
     def take(mask, label, n):
-        sub = S[mask].sort_values(["sd", "ticker"]).head(n)
+        # LATEST sessions first: the store opens mid-2021, so ascending order selected keys
+        # with no prior history and two regimes silently died in build_corpus. Descending is
+        # equally deterministic and keeps every regime alive.
+        sub = S[mask].sort_values(["sd", "ticker"], ascending=[False, True]).head(n)
         for r in sub.itertuples():
             pick.append((r.ticker, r.sd))
             why.setdefault(f"{r.ticker}|{r.sd}", []).append(label)
@@ -287,6 +290,22 @@ def seal(verbose=True):
                               columns=len(cols), consumed_columns=cols[:20],
                               n_consumed_columns=len(cols),
                               columns_missing_from_enricher=missing),
+        deliberately_unguarded=dict(
+            columns=["sig_cisd_plus_struct", "sig_cisd_minus_struct", "sig_cisd_seq",
+                     "sig_cisd_mpm"],
+            why="these four are written by studio/cisd_backfill.py, a SEPARATE batch job that "
+                "is not part of the nightly pipeline and not part of the semantic chain the "
+                "canary runs. In the 1H store they are stale since 2026-08-06 and entirely "
+                "NULL from 2026-08-14 on, so forward bars would carry NULL where historical "
+                "bars carried values — a measurement-regime seam that predates any code "
+                "change.",
+            impact_on_frozen_protocol="NONE — 0 of the 175 frozen claims use the CISD_PS / "
+                                      "CISD_MS / CISD_SEQ / CISD_MPM tokens, verified against "
+                                      "the sealed family table",
+            consequence="the canary cannot and does not guard them; they are excluded "
+                        "EXPLICITLY rather than discovered missing later. Any future protocol "
+                        "wanting these tokens must first bring cisd_backfill into the governed "
+                        "pipeline."),
         comparison=dict(grain="(canary_key, date) x consumed column",
                         equality="EXACT — NaN==NaN counts as equal, nothing else is tolerated",
                         diagnostic="the report names the first changed cell per column; an "
