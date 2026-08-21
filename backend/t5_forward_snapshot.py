@@ -67,6 +67,19 @@ def build_and_publish(sources: dict, session_context: dict, dry_run=True):
     Nothing is visible until every product is written, validated and digested, the manifest is
     written, everything is fsynced, and the DIRECTORY is renamed as one operation."""
     pin = ACT.assert_runtime_pinned()
+    # ── the semantic canary is a PUBLICATION gate, not a bystander ────────
+    import t5_forward_canary as CN
+    ok, canary = CN.check(verbose=False)
+    if ok is None:
+        raise SnapshotError("no sealed canary reference — seal the canary before publishing "
+                            "any data_version")
+    if not ok:
+        raise CN.UpstreamSemanticsChanged(
+            f"UPSTREAM_SEMANTICS_CHANGED — refusing to publish a data_version whose measuring "
+            f"function differs from the sealed reference. forward_eligible=false, accrual "
+            f"HELD, and the change must be classified as an amendment or a new validation "
+            f"regime BEFORE the primary 20,000 continues. Diagnosis: "
+            f"{canary.get('diagnosis')}")
     missing = [p for p in PRODUCTS if p not in sources]
     if missing:
         raise SnapshotError(f"incomplete snapshot, refusing to publish: missing {missing}")
@@ -93,6 +106,10 @@ def build_and_publish(sources: dict, session_context: dict, dry_run=True):
         producer_commit=pin["pin"],
         feature_pipeline_hash=PR.feature_pipeline_hash(),
         semantic_upstream=PR.semantic_upstream(),
+        semantic_canary=dict(status=canary["status"],
+                             reference_digest=canary["reference_digest"],
+                             candidate_digest=canary["candidate_digest"],
+                             cells=canary["cells"]),
         t5_definition_hash=D.T5_DEF_HASH,
         product_digests=digests, product_rows=rows,
         session_context=session_context,

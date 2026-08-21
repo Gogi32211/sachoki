@@ -1,0 +1,93 @@
+{
+  "spec_id": "T5_FORWARD_UPSTREAM_SEMANTIC_CANARY_V1",
+  "status": "FROZEN",
+  "role": "BLOCKING GATE on upstream SEMANTICS, per data_version",
+  "why": "an immutable data_version protects an episode, not the sample. Without this, the first 8,000 episodes could be measured by one feature function and the next 12,000 by another, and the mixture would only surface at lock time.",
+  "separation": {
+    "semantic_upstream_hash": "PROVENANCE, recorded on every data_version, never blocking",
+    "canary": "GATE, blocking, tests OUTPUT rather than source text",
+    "allow": "broad code hash changed + canary identical",
+    "block": "canary changed -> UPSTREAM_SEMANTICS_CHANGED -> forward_eligible false, accrual HELD",
+    "why_not_hash_gate": "the closure is 245 modules because _process imports main; a gate that fires on unrelated edits gets routed around"
+  },
+  "method": {
+    "runs": "the CANDIDATE code on SEALED inputs",
+    "not_": "reading already-derived DB rows, which would pass whenever old sessions were simply not re-derived while new sessions silently got new semantics",
+    "entry": "studio.enricher.enrich_ticker_df",
+    "chain": "sealed raw OHLCV -> enricher -> D.SRC_COLS -> cell comparison"
+  },
+  "corpus": {
+    "file": "t5_canary_corpus.parquet",
+    "digest": "7c3fdebb5410bc98",
+    "cases": 16,
+    "bars": 2166,
+    "history_bars_per_case": 220,
+    "regimes": {
+      "normal_full_session": 8,
+      "short_irregular_session": 8,
+      "missing_bars": 8,
+      "high_volatility": 8,
+      "low_volume": 8
+    },
+    "cross_day": "every case carries prior sessions, so cross-day boundaries are exercised by construction",
+    "selection": "deterministic, pre-cutoff only, no randomness and no outcome",
+    "cutoff": "2026-08-20"
+  },
+  "reference_digest": "d16963f27c09ee33",
+  "reference_matrix": {
+    "file": "t5_canary_reference.parquet",
+    "rows": 88,
+    "columns": 91,
+    "consumed_columns": [
+      "ad_cluster",
+      "ad_fresh",
+      "bar_body_wick",
+      "bar_gap_range",
+      "bar_line5",
+      "be_up",
+      "bo_up",
+      "bx_up",
+      "close_suffix",
+      "full_suffix",
+      "l22",
+      "l34",
+      "l43",
+      "l_sig",
+      "ne_suffix",
+      "phys_ad",
+      "phys_c",
+      "phys_e",
+      "phys_gap_true",
+      "phys_h"
+    ],
+    "n_consumed_columns": 91,
+    "columns_missing_from_enricher": [
+      "sig_cisd_minus_struct",
+      "sig_cisd_mpm",
+      "sig_cisd_plus_struct",
+      "sig_cisd_seq"
+    ]
+  },
+  "comparison": {
+    "grain": "(canary_key, date) x consumed column",
+    "equality": "EXACT — NaN==NaN counts as equal, nothing else is tolerated",
+    "diagnostic": "the report names the first changed cell per column; an aggregate digest alone invites re-sealing the reference to make the red light stop"
+  },
+  "semantic_upstream_at_seal": {
+    "hash": "3a349c65efe69cd7",
+    "n_modules": 245,
+    "entries": [
+      "derive_intraday.py",
+      "update_intraday_db.py",
+      "build_15m_base.py",
+      "backfill_intraday_fwd.py",
+      "build_intraday_db.py"
+    ],
+    "closure": "transitive local-module imports, computed not declared",
+    "answer_to_audit_question": "YES — bar-production code changes the values the frozen producer consumes for identical vendor input, because D.SRC_COLS reads derived signal columns",
+    "role": "PROVENANCE FIELD per data_version, not a blocking gate",
+    "why_not_a_gate": "the closure is broad because _process imports main; a gate on a hash that moves with unrelated edits fires constantly and gets routed around",
+    "real_protection": "a forward run consumes ONE immutable data_version, so an upstream change mid-accrual produces a NEW version rather than altering an existing snapshot"
+  },
+  "producer_commit": "5eab35730ecb626300b9172b999a235ed490cd10"
+}
