@@ -38,28 +38,6 @@
     "consequence": "the frozen X is one vintage of that process and is not exactly reproducible even by identical code; chain-vs-chain on fixed sealed inputs IS deterministic, so that is the reference"
   },
   "sealed_upstream_hash": "3a349c65efe69cd7",
-  "sealed_environment_fingerprint": "66f6ed8f1de1f8c1",
-  "sealed_environment": {
-    "fingerprint": "66f6ed8f1de1f8c1",
-    "python": "3.11.15",
-    "numpy": "1.26.4",
-    "pandas": "2.2.2",
-    "duckdb": "1.5.3",
-    "pyarrow": "24.0.0",
-    "machine": "arm64"
-  },
-  "unchanged_means": "source closure hash AND environment fingerprint; either moving arms the SLOW tier",
-  "frozen_x_doctrine": "Frozen X is a VERSIONED DERIVED-DATA STATE. Forward admissibility is based on semantic compatibility with the sealed chain process, not bytewise reconstruction of historical derived features from raw OHLCV — measured: 58/1,554 probe cells differ under byte-identical RAW because store signals are window-vintage-dependent. Any future attempt to 'repair' historical X by recomputation would silently change evidence identity and is forbidden.",
-  "operational_path": [
-    "08-21 session final",
-    "nightly ingest completes",
-    "stable_for condition satisfied",
-    "finalizer completes",
-    "37 guarded-column stabilization digest",
-    "publish candidate snapshot",
-    "SEMANTIC_GATE",
-    "only on ALLOW: membership evaluation, accrual ledger append, cumulative mature-forward count update, completion marker"
-  ],
   "dependency_digest": "873512b8607c55ac",
-  "producer_commit": "5710597c010810850f4f8482acaced6d5c2525c1"
+  "producer_commit": "a010190da31200f3e922543b0736c60b1be49f9f"
 }
