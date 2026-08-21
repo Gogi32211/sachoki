@@ -55,10 +55,5 @@
     "inequality": "claim_order_seal < first_Y_read AND needle_seal < first_Y_read: TRUE",
     "structural": "the engine json.loads the sealed order and read_parquets the sealed population at startup — it cannot run without the seal existing",
     "smoke_classification": "the pre-launch sanity call (midranks only, no needle statistic) also postdates the seal and is classified ENGINEERING FIXTURE regardless"
-  },
-  "authoritative_freeze": {
-    "AUTHORITATIVE_PRE_Y_NEEDLE_FREEZE": "embedded in T9_1H_CLAIM_ORDER_V1 parent seal, timestamp 23:10:01",
-    "STANDALONE_THIS_FILE": "post-seal convenience extraction; non-authoritative for freeze timing; must reproduce embedded identities exactly",
-    "machine_assertion": "standalone_needles == embedded_parent_needles — PASS on all semantic fields (j, claim_id, membership_hash, representative, family, length, support, sealed_position) for q10/q50/q90"
   }
 }
