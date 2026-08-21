@@ -1,0 +1,55 @@
+{
+  "spec_id": "T5_FORWARD_ACTIVATION_MANIFEST_V1",
+  "status": "FROZEN",
+  "question_it_answers": "which complete configuration entered forward mode",
+  "base_chain_digest": "45d42d761a5434e9",
+  "base_chain": {
+    "T5_FORWARD_VALIDATION_V1": "c39c651868c727f4",
+    "T5_FORWARD_ACCRUAL_LEDGER_V1": "9a61d6365ba612b7",
+    "T5_FORWARD_ACCRUAL_LEDGER_V1_AMENDMENT_1": "92f3a4ecc1d4ce2e",
+    "T5_FORWARD_MEMBERSHIP_REPLAY_V1": "24bc2e67ce06d27f",
+    "T5_FORWARD_MEMBERSHIP_EVALUATOR_V1": "9bf68a61627e34c8",
+    "T5_FORWARD_OCCURRENCE_SCHEMA_V1": "6a79d581962594e2",
+    "T5_FORWARD_SESSION_LENGTH_V1": "b873b7f153a1e124",
+    "T5_FORWARD_LOCK_MANIFEST_V1": "9ee0afc66385b3de"
+  },
+  "base_chain_scope": "the eight scientific artifacts ONLY. It was computed before the coverage-gap note existed and is left unchanged on purpose: base identity is fixed, activation identity is what this file adds.",
+  "coverage_gap_digest": "08e99157190fa8f0",
+  "ledger_amendment_digest": "92f3a4ecc1d4ce2e",
+  "session_length_digest": "b873b7f153a1e124",
+  "evaluator_hash": "fbb79d0a2bad3854",
+  "runtime_commit": "aa7ff37248493f235fa1febe7f08cf1277de4a9d",
+  "runtime_pinned": true,
+  "runtime_identity": "the commit SHA, never a branch name — `main` moves, a SHA does not",
+  "activation_timestamp": "2026-08-21T10:05:00Z",
+  "forward_episode_count": 0,
+  "superseded": {
+    "digest": "021c53cd32236cd3",
+    "status": "SUPERSEDED_BUT_BYTES_NOT_PRESERVED",
+    "reason": "the legacy seal() overwrote a fixed path; the predecessor's bytes are unrecoverable and are NOT reconstructed, because rebuilding an artifact after the fact is fabrication rather than preservation",
+    "successor": "b873b7f153a1e124",
+    "fixed_by": "seal() now refuses to overwrite differing content unless supersede=True, which archives the predecessor first"
+  },
+  "floors_naming": {
+    "call_it": "prospective conservative eligibility restriction",
+    "not_": "historical equivalence",
+    "why": "the frozen historical table applied no floor at all; the forward rule does, so forward is strictly narrower and must not be described as reproducing historical semantics"
+  },
+  "coverage": {
+    "nominal_discovery_cutoff": "2026-08-20",
+    "effective_t5_microstructure_evidence_end": "2026-08-17",
+    "pre_forward_excluded_gap": "2026-08-18 through 2026-08-20",
+    "estimated_episodes": 448,
+    "neither": "not used in discovery, not admitted to forward accrual",
+    "denominator_note": "448 is 2.24% OF THE 20,000 LOCK TARGET. It is not '2.24% of historical data lost' — those are different denominators and must not be conflated.",
+    "say_this_not_that": "report 'nominal cutoff 2026-08-20, effective T5 evidence through 2026-08-17' rather than 'historical data through 2026-08-20', which is true of the 1D bar store and no longer true of T5"
+  },
+  "fail_closed": [
+    "HEAD mismatch",
+    "dirty tree",
+    "artifact digest mismatch",
+    "unknown session",
+    "session length not committed"
+  ],
+  "no_warn_and_continue": true
+}
