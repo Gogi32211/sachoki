@@ -70,18 +70,19 @@ def select_corpus(verbose=True):
     try:
         S = c.execute(f"""
             WITH b AS (
-              SELECT ticker, CAST(date AS DATE) sd, date, open, high, low, close, volume,
+              SELECT ticker, universe, CAST(date AS DATE) sd, date, open, high, low, close, volume,
                      count(*) OVER (PARTITION BY ticker, CAST(date AS DATE)) n_bars
               FROM bars WHERE CAST(date AS DATE) <= DATE '{CUTOFF}'
             ), per AS (
-              SELECT ticker, sd, max(n_bars) n_bars, sum(volume) vol,
+              SELECT ticker, any_value(universe) universe, sd, max(n_bars) n_bars, sum(volume) vol,
                      (max(high)-min(low))/nullif(avg(close),0) rng
               FROM b GROUP BY ticker, sd
             ), modal AS (
               SELECT sd, mode(n_bars) m FROM per GROUP BY sd
             )
-            SELECT p.ticker, CAST(p.sd AS VARCHAR) sd, p.n_bars, m.m modal, p.vol, p.rng
-            FROM per p JOIN modal m USING (sd)
+            SELECT p.ticker, CAST(p.sd AS VARCHAR) sd, p.n_bars, m.m modal, p.vol, p.rng,
+                   any_value(p.universe) universe
+            FROM per p JOIN modal m USING (sd) GROUP BY ALL
         """).fetchdf()
     finally:
         c.close()
@@ -118,9 +119,12 @@ def build_corpus(keys, verbose=True):
     try:
         for tk, sd in keys:
             df = c.execute(f"""
-                SELECT ticker, date, open, high, low, close, volume FROM bars
+                SELECT ticker, any_value(universe) universe, date,
+                       any_value(open) open, any_value(high) high, any_value(low) low,
+                       any_value(close) close, any_value(volume) volume
+                FROM bars
                 WHERE ticker = ? AND CAST(date AS DATE) <= DATE '{sd}'
-                ORDER BY date DESC LIMIT {HISTORY}
+                GROUP BY ticker, date ORDER BY date DESC LIMIT {HISTORY}
             """, [tk]).fetchdf()
             if len(df) < 30:
                 continue
@@ -137,18 +141,35 @@ def build_corpus(keys, verbose=True):
 
 
 # ══════════════════════════════════════════════════════════════════════════
-def run_candidate(C):
-    """Feed the sealed raw bars to the LIVE enricher and keep only the consumed columns."""
-    from studio.enricher import enrich_ticker_df
+def run_candidate(C, verbose=False):
+    """Feed the sealed raw bars to the LIVE semantic chain and keep only the consumed columns.
+
+    The chain is _process, not enrich_ticker_df alone: api_bar_signals is what produces l_sig,
+    sig_*, phys_* and the rest, and the enricher assumes they already exist. Calling the
+    enricher directly fails on a KeyError for l_sig, which is the pipeline telling you where
+    its semantics actually live."""
+    os.environ.setdefault("SACHOKI_BARS_ONLY", "1")     # keep the universe loaders out of RAM
+    import build_intraday_db as B
     out = []
     for key, g in C.groupby("canary_key", sort=True):
-        raw = g.drop(columns=["canary_key", "target_session"]).reset_index(drop=True)
-        en = enrich_ticker_df(raw.copy())
-        en = en[en.date.isin(g.date[g.date.dt.strftime("%Y-%m-%d")
-                                    == g.target_session.iloc[0]])] \
-            if "date" in en.columns else en
-        en = en.assign(canary_key=key)
-        out.append(en)
+        tk = g.ticker.iloc[0]
+        u = g.universe.iloc[0]
+        raw = g[["date", "open", "high", "low", "close", "volume"]].copy()
+        raw = raw.set_index(pd.to_datetime(raw.pop("date"), utc=True))
+        try:
+            en = B._process(tk, u, raw, "1h")
+        except Exception as e:
+            if verbose:
+                print(f"    {key}: {type(e).__name__} {str(e)[:70]}")
+            continue
+        if en is None or not len(en):
+            continue
+        tgt = str(g.target_session.iloc[0])
+        en = en[pd.to_datetime(en.date).dt.strftime("%Y-%m-%d") == tgt]
+        if len(en):
+            out.append(en.assign(canary_key=key))
+    if not out:
+        raise RuntimeError("the semantic chain produced nothing for any corpus case")
     E = pd.concat(out, ignore_index=True)
     cols = [c for c in D.SRC_COLS if c in E.columns]
     missing = [c for c in D.SRC_COLS if c not in E.columns]
