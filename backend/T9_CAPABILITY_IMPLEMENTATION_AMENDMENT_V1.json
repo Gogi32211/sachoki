@@ -1,0 +1,50 @@
+{
+  "spec_id": "T9_CAPABILITY_IMPLEMENTATION_AMENDMENT_V1",
+  "status": "FROZEN",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "Trigger": "non-replayable Python salted str-hash RNG discovered during capability execution.",
+  "Observed_before_correction": "partial outputs from the superseded engineering run existed (q10 at +0.5/+1/+2/+3/+4 pp).",
+  "Correction": "stochastic seed derivation replaced by deterministic SHA256 namespaces (T9_CAPABILITY_WORLD_V1 / T9_CAPABILITY_PERM_V1).",
+  "Invariant": [
+    "protocol",
+    "claim order",
+    "needle identities",
+    "delta grid",
+    "worlds",
+    "permutations",
+    "statistic",
+    "nullization procedure",
+    "injection rule",
+    "acceptance logic",
+    "— all unchanged"
+  ],
+  "Historical_T9_observed_ranking": "NOT EXPOSED.",
+  "Classification": "objective implementation correction before historical exposure; the corrected run is the evidentiary capability run. It is not a pristine pre-peek run — it is an EVIDENTIARY AMENDED capability run, defensible because the trigger was an independently identified implementation defect, not a detection result.",
+  "engineering_outputs_rule": "the superseded run's cells are never mixed into the new conclusion: no comparison table, no pooled result, no 'reproduced effect' claim; they live only in the superseded engineering log",
+  "frozen_non_rng_spec_equality": {
+    "result": "PASS",
+    "changed_lines": 58,
+    "category_census": {
+      "RNG_DERIVATION": 38,
+      "RNG_PROVENANCE_METADATA": 7,
+      "COMMENT_OR_BLANK": 6,
+      "SUPERSEDE_CLASSIFICATION": 7
+    },
+    "old_source_sha": "e66b9fb9fa3b5c85",
+    "new_source_sha": "ea2ab4e04f6e771c",
+    "method": "line-level unified diff 0e5954e -> 1b58cf4; every changed line must classify into a whitelisted category, zero-tolerance remainder",
+    "allowed_changes": [
+      "RNG derivation",
+      "RNG provenance metadata",
+      "run identity",
+      "supersede/log classification",
+      "comments/blanks"
+    ],
+    "forbidden": "everything else — zero tolerance"
+  },
+  "rng_gates": {
+    "seed_manifest": "PASS · 7204d1c6eb314028 identical across PYTHONHASHSEED=0/12345 fresh processes",
+    "world_replay": "PASS · injected Y, ranks, SD, full 999-perm max-Z vector bit-identical",
+    "source_sweep": "PASS · no builtin hash() on the stochastic path"
+  }
+}
