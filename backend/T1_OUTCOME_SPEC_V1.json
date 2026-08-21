@@ -1,0 +1,60 @@
+{
+  "spec_id": "T1_OUTCOME_SPEC_V1",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "signal": "canonical T1 daily close",
+  "decision": "after T1 session close",
+  "entry_semantics": "NEXT_SESSION_OPEN_V1",
+  "primary": "MFE_10D percent",
+  "secondary_registered": "MFE_ATR_10D",
+  "descriptive_only": [
+    "MAE_10D percent",
+    "terminal R_10D percent"
+  ],
+  "not_promotion_paths": [
+    "MAE_10D",
+    "R_10D"
+  ],
+  "exit_policy": "NONE",
+  "formulas": {
+    "MFE": "max(High_j/EntryOpen - 1)",
+    "MAE": "min(Low_j/EntryOpen - 1)",
+    "R": "Close_h/EntryOpen - 1"
+  },
+  "t1_definition_hash": "a1c9b7eb94331751",
+  "builder": "t5_outcomes.build_outcomes \u2014 REUSED byte-identical, output path overridden; a second implementation of entry/maturity semantics is how families drift",
+  "availability": {
+    "1d": {
+      "AVAILABLE": 220273,
+      "NO_NEXT_SESSION_OPEN": 78
+    },
+    "3d": {
+      "AVAILABLE": 219724,
+      "NOT_YET_MATURE": 532,
+      "NO_NEXT_SESSION_OPEN": 78,
+      "TERMINAL_DURING_HORIZON": 17
+    },
+    "5d": {
+      "AVAILABLE": 219388,
+      "NOT_YET_MATURE": 851,
+      "NO_NEXT_SESSION_OPEN": 78,
+      "TERMINAL_DURING_HORIZON": 33,
+      "DATA_GAP": 1
+    },
+    "10d": {
+      "AVAILABLE": 218186,
+      "NOT_YET_MATURE": 2015,
+      "NO_NEXT_SESSION_OPEN": 78,
+      "TERMINAL_DURING_HORIZON": 67,
+      "DATA_GAP": 5
+    },
+    "20d": {
+      "AVAILABLE": 215828,
+      "NOT_YET_MATURE": 4323,
+      "TERMINAL_DURING_HORIZON": 115,
+      "NO_NEXT_SESSION_OPEN": 78,
+      "DATA_GAP": 7
+    }
+  },
+  "exposure": "NOT EXPOSED \u2014 this phase prints availability counts only; no outcome VALUE appears in any log or artifact of the X phase",
+  "spec_digest": "9e02b360fb4e7b14"
+}

@@ -1,0 +1,78 @@
+{
+  "spec_digest": "55d8ef4178a6edca",
+  "universe": {
+    "T4_INTRADAY|2": {
+      "adjacencies": 888252,
+      "stage1_candidates": 17243,
+      "support_ok": 152,
+      "distinct": 149,
+      "aliases": 3,
+      "support_quantiles": {
+        "q10": 539,
+        "median": 5700,
+        "q90": 21439
+      }
+    },
+    "T4_INTRADAY|3": {
+      "adjacencies": 739443,
+      "stage1_candidates": 9198,
+      "support_ok": 158,
+      "distinct": 152,
+      "aliases": 6,
+      "support_quantiles": {
+        "q10": 319,
+        "median": 1689,
+        "q90": 6271
+      }
+    },
+    "PREV_INTRADAY|2": {
+      "adjacencies": 888378,
+      "stage1_candidates": 17300,
+      "support_ok": 156,
+      "distinct": 151,
+      "aliases": 5,
+      "support_quantiles": {
+        "q10": 408,
+        "median": 2708,
+        "q90": 15114
+      }
+    },
+    "PREV_INTRADAY|3": {
+      "adjacencies": 739670,
+      "stage1_candidates": 7961,
+      "support_ok": 160,
+      "distinct": 156,
+      "aliases": 4,
+      "support_quantiles": {
+        "q10": 312,
+        "median": 498,
+        "q90": 2710
+      }
+    },
+    "CROSS_DAY|2": {
+      "adjacencies": 146694,
+      "stage1_candidates": 12288,
+      "support_ok": 163,
+      "distinct": 145,
+      "aliases": 18,
+      "support_quantiles": {
+        "q10": 366,
+        "median": 752,
+        "q90": 3094
+      }
+    },
+    "CROSS_DAY|3": {
+      "adjacencies": 293388,
+      "stage1_candidates": 7573,
+      "support_ok": 156,
+      "distinct": 138,
+      "aliases": 18,
+      "support_quantiles": {
+        "q10": 328,
+        "median": 476,
+        "q90": 2187
+      }
+    }
+  },
+  "seconds": 1841.6
+}

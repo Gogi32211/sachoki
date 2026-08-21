@@ -1,0 +1,22 @@
+{
+  "spec_id": "T4_DNA_X_V1",
+  "family_id": "T4_MICROSTRUCTURE_DNA_V1",
+  "setup": "FINAL_PRIORITY_RESOLVED_T4",
+  "t4_definition_hash": "10a19cd627d940cd",
+  "t4_definition": "t_sig=='T4' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==1, FIRST in bullish priority). Raw: prevBear(close[1]<open[1] OR doji[1]) AND close>open AND max(o,c)>=max(o1,c1) AND min(o1,c1)>=min(o,c) AND |c-o|/max(|c1-o1|,1e-10)>=1.0 with use_wick=False, min_body_ratio=1.0 (T4_ENGULF_CONFIG_V1, from production config.py/signal_engine.py). Engine-vs-SQL on identical DB bars: 78,181/78,181 exact \u2014 semantics proven; bilateral store residual (667 canon-not-raw 0.27%; 10,518 raw-not-canon, 88.9% within 0.01 of the engulf boundary, median margin 0) is INPUT-VINTAGE, visible bilaterally only because T4 is priority-first. Prev-doji 31,276 (12.5%) is structural and descriptive-only. Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "token_registry_hash": "08b73d474f17a778",
+  "registry_total": 172,
+  "bars_applicable_tokens": 165,
+  "frame_computed_excluded": 7,
+  "full_T4_population": 250161,
+  "T4_day_1H_observable": 153383,
+  "cross_day_observable": 152839,
+  "coverage_role": "OBSERVED_1H_SUBPOPULATION",
+  "future_outcomes": "FORBIDDEN",
+  "artifacts": {
+    "t4_episodes.parquet": "0ed190521f4569f6",
+    "t4_1h_microstructure.parquet": "0b3604273d56aa3a",
+    "T4_DNA_AUDIT.json": "4d971c37a532d80d"
+  },
+  "freeze_digest": "b714276d0809c3f2"
+}

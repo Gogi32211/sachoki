@@ -1,0 +1,46 @@
+{
+  "spec_id": "T4_SEQUENCE_GRAMMAR_V1",
+  "family_id": "T4_MICROSTRUCTURE_DNA_V1",
+  "x_freeze_digest": "b714276d0809c3f2",
+  "adjacency": "STRICT_ADJACENT",
+  "lengths": [
+    2,
+    3
+  ],
+  "four_bar": "NOT_IN_V1",
+  "families": [
+    "T4_INTRADAY",
+    "PREV_INTRADAY",
+    "CROSS_DAY"
+  ],
+  "element_semantics": "atomic canonical token presence on a bar",
+  "occurrence_unit": "episode-level binary membership",
+  "support": {
+    "min_episodes_treated": 300,
+    "min_unique_tickers": 50,
+    "min_unique_dates": 50,
+    "max_single_date_share": 0.1,
+    "control_floors": "applied at the estimand stage, as in T5"
+  },
+  "searchable_token_count": 158,
+  "totals": {
+    "support_qualified": 945,
+    "distinct": 891,
+    "aliases": 54
+  },
+  "membership_class_digest": "ea4626c938e663ed",
+  "gates": {
+    "A": "PASS",
+    "B": {
+      "x2": true,
+      "x5": true,
+      "x10": true
+    },
+    "C": "PASS",
+    "D": "inherited: row_number over ts within session; validity = modal calendar length",
+    "E": "PASS",
+    "F": "loaded columns only: ['episode_id', 'ticker', 't4_date', 'relative_day', 'session_date', 'session_position', 'bars_in_session', 'token_set']"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "spec_digest": "55d8ef4178a6edca"
+}

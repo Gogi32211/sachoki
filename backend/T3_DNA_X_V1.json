@@ -1,0 +1,22 @@
+{
+  "spec_id": "T3_DNA_X_V1",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "setup": "FINAL_PRIORITY_RESOLVED_T3",
+  "t3_definition_hash": "fb27e73eef390533",
+  "t3_definition": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>open AND open<open[1] AND open<close[1] AND close<open[1] AND close>close[1]. Canonical = raw with T4,T6,T1G,T2G,T1,T2,T9,T10 resolved first. Machine-verified: raw 207,296 is an EXACT subset of canonical 213,742 (priority exclusions 0); canonical residual 6,446 (3.0%) is feed/tick class; RAW_T3_WITH_PREV_DOJI=0 proves the doji impossibility; the 284 canonical prev-doji rows are PRECISION_RESIDUAL_PREV_DOJI (97% sub-$5, DB tick collapse). Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "token_registry_hash": "08b73d474f17a778",
+  "registry_total": 172,
+  "bars_applicable_tokens": 165,
+  "frame_computed_excluded": 7,
+  "full_T3_population": 213742,
+  "T3_day_1H_observable": 145557,
+  "cross_day_observable": 145197,
+  "coverage_role": "OBSERVED_1H_SUBPOPULATION",
+  "future_outcomes": "FORBIDDEN",
+  "artifacts": {
+    "t3_episodes.parquet": "47b6b3136394122f",
+    "t3_1h_microstructure.parquet": "9a76787143abebf9",
+    "T3_DNA_AUDIT.json": "d43366f0adb609df"
+  },
+  "freeze_digest": "2734672558e1a717"
+}

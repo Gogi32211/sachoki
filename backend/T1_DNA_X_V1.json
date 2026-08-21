@@ -1,0 +1,22 @@
+{
+  "spec_id": "T1_DNA_X_V1",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "setup": "FINAL_PRIORITY_RESOLVED_T1",
+  "t1_definition_hash": "a1c9b7eb94331751",
+  "t1_definition": "t_sig=='T1' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==5). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND open>=close[1] AND open[1]>=open AND close>open[1] AND close>open. Canonical = raw with T4,T6,T1G,T2G resolved first. Machine-verified: overlap 219,016/220,351 = 99.39%; residual 1,335 (0.61%) feed/tick class; priority exclusions T4 46,160 / T1G 2,008 / T6 632 / T2G 313; raw-carrying-T2 725 same residual class. Prev-doji is POSSIBLE and measured: raw 12,619, canonical 682 (0.31%) vs strict-bear 219,669 \u2014 descriptive audit split only, never a separate inferential family in V1. Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "token_registry_hash": "08b73d474f17a778",
+  "registry_total": 172,
+  "bars_applicable_tokens": 165,
+  "frame_computed_excluded": 7,
+  "full_T1_population": 220351,
+  "T1_day_1H_observable": 157771,
+  "cross_day_observable": 157403,
+  "coverage_role": "OBSERVED_1H_SUBPOPULATION",
+  "future_outcomes": "FORBIDDEN",
+  "artifacts": {
+    "t1_episodes.parquet": "a800921dae0a460a",
+    "t1_1h_microstructure.parquet": "e2e83bf9606b46df",
+    "T1_DNA_AUDIT.json": "831da6b6be153692"
+  },
+  "freeze_digest": "8565cbfb93c331e0"
+}
