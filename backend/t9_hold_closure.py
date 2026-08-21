@@ -57,6 +57,7 @@ def item1_same_input():
     tot = 0
     nec_viol = suf_viol = 0
     excl = {}
+    census = {}
     samples = []
     for tk in tks:
         df = conn.execute("""SELECT date, any_value(open) AS "open", any_value(high) AS "high",
@@ -69,8 +70,15 @@ def item1_same_input():
         raw = raw_t9_mirror(df).to_numpy()
         tot += len(df)
         n = (bc == 7) & ~raw                    # resolved T9 without raw geometry
-        s = raw & (bc > 7)                      # raw T9 resolving BELOW T9
+        # PRIORITY CLOSURE, exact form: raw_T9 must resolve to SOME code in {1..7}. The first
+        # predicate was raw & (bc > 7), which catches lower bull codes and bear/Z codes but
+        # NOT bc==0 — a raw_T9 bar the engine assigned NOTHING would have slipped through.
+        # sufficiency_bad = raw & ~(bc in {1..7}) closes the hole.
+        s = raw & ~np.isin(bc, (1, 2, 3, 4, 5, 6, 7))
         nec_viol += int(n.sum()); suf_viol += int(s.sum())
+        for b in np.unique(bc[raw]):
+            key = f"bc={int(b)}" if b <= 7 else "bc>7"
+            census[key] = census.get(key, 0) + int((bc[raw] == b).sum())
         for i in np.flatnonzero(n | s)[:2]:
             samples.append((tk, str(df.date.iloc[i])[:10], int(bc[i]), bool(raw[i])))
         hi = raw & (bc >= 1) & (bc <= 6)        # declared priority exclusions
@@ -83,6 +91,9 @@ def item1_same_input():
                       "identical DB bars",
                 bars_tested=tot, tickers=len(tks),
                 necessity_violations=nec_viol, sufficiency_violations=suf_viol,
+                sufficiency_predicate="raw_T9 -> bc in {1..7}; bc==0 hole closed at the "
+                                      "user's second review",
+                bc_census_among_raw=census,
                 priority_exclusions_by_bc=excl, first_violations=samples[:5],
                 scope="pins the T9 primitive and the priority DIRECTION; the six "
                       "higher-priority patterns themselves are exercised as exclusions, not "

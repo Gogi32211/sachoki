@@ -9,11 +9,6 @@
     "tickers": 80,
     "necessity_violations": 0,
     "sufficiency_violations": 0,
-    "sufficiency_predicate": "raw_T9 -> bc in {1..7}; bc==0 hole closed at the user's second review",
-    "bc_census_among_raw": {
-      "bc=7": 4479,
-      "bc=1": 7
-    },
     "priority_exclusions_by_bc": {
       "bc=1": 7
     },
@@ -68,5 +63,5 @@
   },
   "item4": "sealed separately: T9_CAPABILITY_PROTOCOL_V1",
   "y_status": "NO OUTCOME VALUE READ",
-  "seconds": 68.6
+  "seconds": 77.8
 }
