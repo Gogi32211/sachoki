@@ -159,8 +159,10 @@ def accrue(as_of=None, verbose=True):
     # A drifted digest is not something an ingest may decide to tolerate.
     import t5_forward_activate as ACT
     chain = ACT.startup_audit(verbose=verbose)
+    pin = ACT.assert_runtime_pinned()
     if verbose:
-        print(f"  chain {chain} verified · proceeding", flush=True)
+        print(f"  chain {chain} · runtime pinned @ {pin['pin'][:7]} · tree clean · proceeding",
+              flush=True)
     rules, fam_dig = family_rules()
     cal = trading_sessions()
     as_of = as_of or cal[-1]

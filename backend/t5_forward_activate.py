@@ -60,6 +60,46 @@ def code_commit():
         return "UNKNOWN"
 
 
+def tree_clean():
+    try:
+        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no"],
+                             capture_output=True, text=True, cwd=HERE, timeout=20).stdout
+        return not out.strip(), [l for l in out.splitlines()[:5]]
+    except Exception as e:
+        return False, [f"git status failed: {e}"]
+
+
+def runtime_pin():
+    """A branch name is not a scientific identity — `main` will move next week. The runtime is a
+    dedicated detached worktree carrying T5_RUNTIME_PIN with the commit it was created at, and
+    identity is that SHA.
+
+    Absence of the pin file is NOT a failure of the audit: reading the audit from a development
+    checkout is legitimate. It IS a failure of accrual — assert_runtime_pinned() below is what
+    the ingest calls, and it refuses anywhere but the pinned runtime. The threat here is no
+    longer statistical leakage, it is deployment drift."""
+    f = os.path.join(os.path.dirname(HERE), "T5_RUNTIME_PIN")
+    if not os.path.exists(f):
+        return dict(pinned=False, reason="no T5_RUNTIME_PIN — this is a development checkout",
+                    head=code_commit())
+    want = open(f).read().strip()
+    head = code_commit()
+    clean, dirt = tree_clean()
+    return dict(pinned=(head == want and clean), pin=want, head=head,
+                head_matches=(head == want), tree_clean=clean, dirty_sample=dirt)
+
+
+def assert_runtime_pinned():
+    """Called by the ingest, not by the audit. No warn-and-continue."""
+    p = runtime_pin()
+    if not p["pinned"]:
+        raise ChainDrift(
+            f"refusing to accrue outside the pinned runtime: {p}. Forward accrual runs only "
+            f"from the dedicated worktree at its pinned commit with a clean tree, so that a "
+            f"branch switch can never silently run the frozen protocol on different code.")
+    return p
+
+
 def startup_audit(verbose=True):
     bad = {}
     for name, want in sorted(CHAIN.items()):
@@ -150,3 +190,72 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+
+def activation_manifest(activation_timestamp, out="T5_FORWARD_ACTIVATION_MANIFEST_V1.json"):
+    """WHICH COMPLETE CONFIGURATION ENTERED FORWARD MODE.
+
+    The base chain digest deliberately does NOT cover everything: it was computed over the
+    eight scientific artifacts, before T5_FORWARD_COVERAGE_GAP_V1 existed. Rather than re-hash
+    or re-seal the base chain — which would disturb artifacts nothing should disturb — the
+    configuration is named one level up. Base identity stays fixed; activation identity is new.
+
+    activation_timestamp is passed in rather than read from the clock, so the manifest is a
+    function of its inputs and can be re-derived.
+    """
+    import pandas as _pd
+    base = startup_audit(verbose=False)
+    pin = runtime_pin()
+    occ_rows = int(len(_pd.read_parquet(OCC))) if os.path.exists(OCC) else 0
+    body = dict(
+        spec_id="T5_FORWARD_ACTIVATION_MANIFEST_V1", status="FROZEN",
+        question_it_answers="which complete configuration entered forward mode",
+        base_chain_digest=base,
+        base_chain=dict(CHAIN),
+        base_chain_scope="the eight scientific artifacts ONLY. It was computed before the "
+                         "coverage-gap note existed and is left unchanged on purpose: base "
+                         "identity is fixed, activation identity is what this file adds.",
+        coverage_gap_digest=ART.file_digest("T5_FORWARD_COVERAGE_GAP_V1.json"),
+        ledger_amendment_digest=ART.file_digest(
+            "T5_FORWARD_ACCRUAL_LEDGER_V1_AMENDMENT_1.json"),
+        session_length_digest=ART.file_digest("T5_FORWARD_SESSION_LENGTH_V1.json"),
+        evaluator_hash=EVALUATOR_HASH,
+        runtime_commit=pin.get("pin") or pin.get("head"),
+        runtime_pinned=bool(pin["pinned"]),
+        runtime_identity="the commit SHA, never a branch name — `main` moves, a SHA does not",
+        activation_timestamp=activation_timestamp,
+        forward_episode_count=occ_rows,
+        superseded=dict(
+            digest="021c53cd32236cd3",
+            status="SUPERSEDED_BUT_BYTES_NOT_PRESERVED",
+            reason="the legacy seal() overwrote a fixed path; the predecessor's bytes are "
+                   "unrecoverable and are NOT reconstructed, because rebuilding an artifact "
+                   "after the fact is fabrication rather than preservation",
+            successor="b873b7f153a1e124",
+            fixed_by="seal() now refuses to overwrite differing content unless supersede=True, "
+                     "which archives the predecessor first"),
+        floors_naming=dict(
+            call_it="prospective conservative eligibility restriction",
+            not_="historical equivalence",
+            why="the frozen historical table applied no floor at all; the forward rule does, "
+                "so forward is strictly narrower and must not be described as reproducing "
+                "historical semantics"),
+        coverage=dict(
+            nominal_discovery_cutoff="2026-08-20",
+            effective_t5_microstructure_evidence_end="2026-08-17",
+            pre_forward_excluded_gap="2026-08-18 through 2026-08-20",
+            estimated_episodes=448,
+            neither="not used in discovery, not admitted to forward accrual",
+            denominator_note="448 is 2.24% OF THE 20,000 LOCK TARGET. It is not '2.24% of "
+                             "historical data lost' — those are different denominators and "
+                             "must not be conflated.",
+            say_this_not_that="report 'nominal cutoff 2026-08-20, effective T5 evidence "
+                              "through 2026-08-17' rather than 'historical data through "
+                              "2026-08-20', which is true of the 1D bar store and no longer "
+                              "true of T5"),
+        fail_closed=["HEAD mismatch", "dirty tree", "artifact digest mismatch",
+                     "unknown session", "session length not committed"],
+        no_warn_and_continue=True)
+    d = ART.seal(body, out, required=("spec_id", "base_chain_digest", "runtime_commit",
+                                      "activation_timestamp"))
+    return d, body
