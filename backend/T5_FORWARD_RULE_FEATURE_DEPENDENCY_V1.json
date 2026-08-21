@@ -1,0 +1,2224 @@
+{
+  "spec_id": "T5_FORWARD_RULE_FEATURE_DEPENDENCY_V1",
+  "status": "FROZEN",
+  "why": "'0/175 rules depend on CISD' was a grep over rule texts; this is set arithmetic over the dependency graph, so a rule cannot depend on a CISD-derived feature without the intersection below being non-empty",
+  "n_claims": 175,
+  "token_registry_size": 165,
+  "per_claim": [
+    {
+      "claim_id": "T5_INTRADAY|2|BUY→L5",
+      "family": "1H",
+      "tokens": [
+        "BUY",
+        "L5"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_buy"
+      ]
+    },
+    {
+      "claim_id": "CROSS_DAY|2|VOL_W→L46x",
+      "family": "1H",
+      "tokens": [
+        "VOL_W",
+        "L46x"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "T5_INTRADAY|2|L43→T2",
+      "family": "1H",
+      "tokens": [
+        "L43",
+        "T2"
+      ],
+      "direct_features": [
+        "l43",
+        "sig_t2"
+      ]
+    },
+    {
+      "claim_id": "PREV_INTRADAY|2|BUY→Z2",
+      "family": "1H",
+      "tokens": [
+        "BUY",
+        "Z2"
+      ],
+      "direct_features": [
+        "sig_buy",
+        "sig_z2"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→H0",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "H0"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_h"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→RN",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "RN"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→K1",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "K1"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_k"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→ESTAR",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "ESTAR"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_e"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→REG_D",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "REG_D"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_regime"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→GR_V",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→RA",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "RA"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→E2",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "E2"
+      ],
+      "direct_features": [
+        "phys_e",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→PH_MARKUP",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "PH_MARKUP"
+      ],
+      "direct_features": [
+        "l_sig",
+        "wyc_phase"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|H0→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "H0",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→H0",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→C2",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "C2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_c"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→BW_F",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "BW_F"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→WYC_MARKUP",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "WYC_MARKUP"
+      ],
+      "direct_features": [
+        "phys_wyc",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→BW_F",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "BW_F"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→RA",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "RA"
+      ],
+      "direct_features": [
+        "phys_r",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→L5",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "L5"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→BW_M",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "BW_M"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→GR_V",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→K1",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "K1"
+      ],
+      "direct_features": [
+        "phys_k",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→C0",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "C0"
+      ],
+      "direct_features": [
+        "phys_c",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|REG_D→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "REG_D",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|H0→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "H0",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→BW_J",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "BW_J"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→PEN_H",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "PEN_H"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→PEN_H",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "PEN_H"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→BW_X",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "BW_X"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→L5_VX",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "L5_VX"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_N→H0",
+      "family": "15M",
+      "tokens": [
+        "VOL_N",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "sig_va",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|REG_D→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "REG_D",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→RN",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "RN"
+      ],
+      "direct_features": [
+        "phys_r",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→H0",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "H0"
+      ],
+      "direct_features": [
+        "l43",
+        "phys_h"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→WK_D",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "WK_D"
+      ],
+      "direct_features": [
+        "l_sig",
+        "wick_suffix"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→C1",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "C1"
+      ],
+      "direct_features": [
+        "phys_c",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→M2",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "M2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_m"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→BW_S",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "BW_S"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→L2",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "L2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→K2",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "K2"
+      ],
+      "direct_features": [
+        "phys_k",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|L1→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "L1",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_N→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "VOL_N",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→BW_J",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "BW_J"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→RN",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "RN"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→VBO_UP",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "VBO_UP"
+      ],
+      "direct_features": [
+        "sig_va",
+        "vbo_up"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→PH_MARKUP",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "PH_MARKUP"
+      ],
+      "direct_features": [
+        "vol_bucket",
+        "wyc_phase"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→GR_V",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "l43"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→K0",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "K0"
+      ],
+      "direct_features": [
+        "phys_k",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→E2",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "E2"
+      ],
+      "direct_features": [
+        "l43",
+        "phys_e"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→BW_S",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "BW_S"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|RSI_0_30→NE_E",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "NE_E"
+      ],
+      "direct_features": [
+        "ne_suffix",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "sig_va",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→RA",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "RA"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→PEN_R",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "PEN_R"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→ESTAR",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "ESTAR"
+      ],
+      "direct_features": [
+        "phys_e",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→H0",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "sig_vol_5x"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|REG_D→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "REG_D",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|RN→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→T2G",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "T2G"
+      ],
+      "direct_features": [
+        "sig_t2g",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→BW_J",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "BW_J"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→REG_D",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "REG_D"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "sig_vol_5x"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→RSI_40_50",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "RSI_40_50"
+      ],
+      "direct_features": [
+        "l_sig",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→BW_F",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "BW_F"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l43"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→T2",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "T2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_t2"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|BW_F→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "BW_F",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→RN",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "RN"
+      ],
+      "direct_features": [
+        "l43",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→VOL_VB",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "VOL_VB"
+      ],
+      "direct_features": [
+        "sig_va",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→C1",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "C1"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_c"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→C2",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "C2"
+      ],
+      "direct_features": [
+        "phys_c",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|RN→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|REG_D→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "REG_D",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→BW_X",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "BW_X"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→C1",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "C1"
+      ],
+      "direct_features": [
+        "phys_c",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|NE_E→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "NE_E",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "ne_suffix",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→AD_FRESH",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "AD_FRESH"
+      ],
+      "direct_features": [
+        "ad_fresh",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "l43",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|CL_O→RA",
+      "family": "15M",
+      "tokens": [
+        "CL_O",
+        "RA"
+      ],
+      "direct_features": [
+        "close_suffix",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|RN→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|WYC_MARKUP→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "WYC_MARKUP",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_wyc",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|GR_V→RSI_0_30",
+      "family": "15M",
+      "tokens": [
+        "GR_V",
+        "RSI_0_30"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→VBO_UP",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "VBO_UP"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vbo_up"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|CL_O→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "CL_O",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "close_suffix",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L5_R2D→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "L5_R2D",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→CL_O",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "CL_O"
+      ],
+      "direct_features": [
+        "close_suffix",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→GR_V",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "sig_vol_5x"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_N→L5_R2L",
+      "family": "15M",
+      "tokens": [
+        "VOL_N",
+        "L5_R2L"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|BW_X→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "BW_X",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|H0→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "H0",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|K1→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "K1",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_k",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|RN→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|L5→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "L5",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→NE_E",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "NE_E"
+      ],
+      "direct_features": [
+        "ne_suffix",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_B→RN",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "RN"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→BW_TB",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "BW_TB"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→AD_FRESH",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "AD_FRESH"
+      ],
+      "direct_features": [
+        "ad_fresh",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL_B→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|GR_V→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "GR_V",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→PEN_P",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "PEN_P"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→VOL_VB",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "VOL_VB"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|Z1G→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "Z1G",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "sig_z1g",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|H0→GR_V",
+      "family": "15M",
+      "tokens": [
+        "H0",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "phys_h"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|NE_E→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "NE_E",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "ne_suffix",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|NE_E→H0",
+      "family": "15M",
+      "tokens": [
+        "NE_E",
+        "H0"
+      ],
+      "direct_features": [
+        "ne_suffix",
+        "phys_h"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_B→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|L5_R2L→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "L5_R2L",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|BW_F→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "BW_F",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|CISD_CP→C0",
+      "family": "15M",
+      "tokens": [
+        "CISD_CP",
+        "C0"
+      ],
+      "direct_features": [
+        "phys_c",
+        "sig_cisd_cplus"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|BW_M→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "BW_M",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→K1",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "K1"
+      ],
+      "direct_features": [
+        "phys_k",
+        "sig_vol_5x"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|K1→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "K1",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_k",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→PEN_R",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "PEN_R"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→GR_V",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|RN→RSI_0_30",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "RSI_0_30"
+      ],
+      "direct_features": [
+        "phys_r",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|PH_MARKUP→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "PH_MARKUP",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "vol_bucket",
+        "wyc_phase"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|REG_D→RSI_0_30",
+      "family": "15M",
+      "tokens": [
+        "REG_D",
+        "RSI_0_30"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|CISD_CP→M2",
+      "family": "15M",
+      "tokens": [
+        "CISD_CP",
+        "M2"
+      ],
+      "direct_features": [
+        "phys_m",
+        "sig_cisd_cplus"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→T4",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "T4"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_t4"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|RSI_0_30→RA",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "RA"
+      ],
+      "direct_features": [
+        "phys_r",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL10X→REG_D",
+      "family": "15M",
+      "tokens": [
+        "VOL10X",
+        "REG_D"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "sig_vol_10x"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→L5_PB",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "L5_PB"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L3→NE_N",
+      "family": "15M",
+      "tokens": [
+        "L3",
+        "NE_N"
+      ],
+      "direct_features": [
+        "l_sig",
+        "ne_suffix"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_N→H0",
+      "family": "15M",
+      "tokens": [
+        "VOL_N",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→WK_U",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "WK_U"
+      ],
+      "direct_features": [
+        "sig_vol_5x",
+        "wick_suffix"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→RF",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "RF"
+      ],
+      "direct_features": [
+        "phys_r",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|C2→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "C2",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_c",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|GR_V→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "GR_V",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|PEN_H→H0",
+      "family": "15M",
+      "tokens": [
+        "PEN_H",
+        "H0"
+      ],
+      "direct_features": [
+        "full_suffix",
+        "phys_h"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|K1→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "K1",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_k",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL_VB→Z9",
+      "family": "15M",
+      "tokens": [
+        "VOL_VB",
+        "Z9"
+      ],
+      "direct_features": [
+        "sig_z9",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|GR_V→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "GR_V",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|WK_D→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "WK_D",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "vol_bucket",
+        "wick_suffix"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|E2→RSI_0_30",
+      "family": "15M",
+      "tokens": [
+        "E2",
+        "RSI_0_30"
+      ],
+      "direct_features": [
+        "phys_e",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|RN→H0",
+      "family": "15M",
+      "tokens": [
+        "RN",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|NE_E→GR_V",
+      "family": "15M",
+      "tokens": [
+        "NE_E",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "ne_suffix"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|RSI_0_30→GR_V",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "GR_V"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|BW_J→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "BW_J",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|K0→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "K0",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_k",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|E2→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "E2",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_e",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|GR_N→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "GR_N",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_gap_range",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|RA→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "RA",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_r",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|WYC_MARKUP→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "WYC_MARKUP",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_wyc",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|E2→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "E2",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_e",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|RSI_0_30→L5_R2X",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "L5_R2X"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L43→BW_XF",
+      "family": "15M",
+      "tokens": [
+        "L43",
+        "BW_XF"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "l43"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|M2→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "M2",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "phys_m",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_B→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|C1→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "C1",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_c",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|SVS→L2",
+      "family": "15M",
+      "tokens": [
+        "SVS",
+        "L2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_svs"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|L5_PS→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "L5_PS",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|WK_U→VOL_N",
+      "family": "15M",
+      "tokens": [
+        "WK_U",
+        "VOL_N"
+      ],
+      "direct_features": [
+        "vol_bucket",
+        "wick_suffix"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|RSI_0_30→L2",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "L2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→AD_1",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "AD_1"
+      ],
+      "direct_features": [
+        "l_sig",
+        "phys_ad"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|K1→RSI_0_30",
+      "family": "15M",
+      "tokens": [
+        "K1",
+        "RSI_0_30"
+      ],
+      "direct_features": [
+        "phys_k",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL_VB→RSI_40_50",
+      "family": "15M",
+      "tokens": [
+        "VOL_VB",
+        "RSI_40_50"
+      ],
+      "direct_features": [
+        "rsi_14",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→C2",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "C2"
+      ],
+      "direct_features": [
+        "phys_c",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→M2",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "M2"
+      ],
+      "direct_features": [
+        "phys_m",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|Z2G→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "Z2G",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "sig_z2g",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|VOL_B→L4",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "L4"
+      ],
+      "direct_features": [
+        "l_sig",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL_B→H0",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "H0"
+      ],
+      "direct_features": [
+        "phys_h",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VOL5X→VOL_VB",
+      "family": "15M",
+      "tokens": [
+        "VOL5X",
+        "VOL_VB"
+      ],
+      "direct_features": [
+        "sig_vol_5x",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_B→BW_S",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "BW_S"
+      ],
+      "direct_features": [
+        "bar_body_wick",
+        "vol_bucket"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→L5_PB",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "L5_PB"
+      ],
+      "direct_features": [
+        "bar_line5",
+        "l_sig"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|RSI_0_30→RN",
+      "family": "15M",
+      "tokens": [
+        "RSI_0_30",
+        "RN"
+      ],
+      "direct_features": [
+        "phys_r",
+        "rsi_14"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L6→T9",
+      "family": "15M",
+      "tokens": [
+        "L6",
+        "T9"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_t9"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|VA→REG_U",
+      "family": "15M",
+      "tokens": [
+        "VA",
+        "REG_U"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "sig_va"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|VOL_B→WK_D",
+      "family": "15M",
+      "tokens": [
+        "VOL_B",
+        "WK_D"
+      ],
+      "direct_features": [
+        "vol_bucket",
+        "wick_suffix"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|L4→Z2",
+      "family": "15M",
+      "tokens": [
+        "L4",
+        "Z2"
+      ],
+      "direct_features": [
+        "l_sig",
+        "sig_z2"
+      ]
+    },
+    {
+      "claim_id": "M1→M2|2|WYC_SPRING★→REG_D",
+      "family": "15M",
+      "tokens": [
+        "WYC_SPRING★",
+        "REG_D"
+      ],
+      "direct_features": [
+        "phys_regime",
+        "phys_wyc"
+      ]
+    },
+    {
+      "claim_id": "M3→M4|2|H0→RA",
+      "family": "15M",
+      "tokens": [
+        "H0",
+        "RA"
+      ],
+      "direct_features": [
+        "phys_h",
+        "phys_r"
+      ]
+    },
+    {
+      "claim_id": "M2→M3|2|E2→VOL_B",
+      "family": "15M",
+      "tokens": [
+        "E2",
+        "VOL_B"
+      ],
+      "direct_features": [
+        "phys_e",
+        "vol_bucket"
+      ]
+    }
+  ],
+  "guarded_feature_set": [
+    "ad_fresh",
+    "bar_body_wick",
+    "bar_gap_range",
+    "bar_line5",
+    "close_suffix",
+    "full_suffix",
+    "l43",
+    "l_sig",
+    "ne_suffix",
+    "phys_ad",
+    "phys_c",
+    "phys_e",
+    "phys_h",
+    "phys_k",
+    "phys_m",
+    "phys_r",
+    "phys_regime",
+    "phys_wyc",
+    "rsi_14",
+    "sig_buy",
+    "sig_cisd_cplus",
+    "sig_svs",
+    "sig_t2",
+    "sig_t2g",
+    "sig_t4",
+    "sig_t9",
+    "sig_va",
+    "sig_vol_10x",
+    "sig_vol_5x",
+    "sig_z1g",
+    "sig_z2",
+    "sig_z2g",
+    "sig_z9",
+    "vbo_up",
+    "vol_bucket",
+    "wick_suffix",
+    "wyc_phase"
+  ],
+  "n_guarded_features": 37,
+  "transitive_argument": {
+    "chain_input": "raw OHLCV only — _process(tk, u, df, tf) receives nothing else",
+    "consequence": "no chain-produced column can transitively depend on a store column that is not itself chain-produced",
+    "out_of_band_writers": {
+      "cisd_backfill": [
+        "sig_cisd_cplus",
+        "sig_cisd_cplus_minus",
+        "sig_cisd_cplus_mm",
+        "sig_cisd_minus_struct",
+        "sig_cisd_mpm",
+        "sig_cisd_plus_struct",
+        "sig_cisd_seq"
+      ]
+    },
+    "transitive_roots": [
+      "open",
+      "high",
+      "low",
+      "close",
+      "volume",
+      "date"
+    ]
+  },
+  "proof": {
+    "struct_cisd_intersection": [],
+    "statement": "STRUCT_CISD ∩ GUARDED = ∅ — no frozen rule reaches a backfill-ONLY column, directly or transitively (chain input is OHLCV only)",
+    "holds": true
+  },
+  "dual_writer": {
+    "columns": [
+      "sig_cisd_cplus"
+    ],
+    "claims": [
+      "M1→M2|2|CISD_CP→C0",
+      "M1→M2|2|CISD_CP→M2"
+    ],
+    "fact": "these columns are chain-produced on every ingest AND rewritable by studio/cisd_backfill.py — two writers, one cell",
+    "why_admissible": "membership is computed ONCE from an immutable snapshot, so a later backfill rewrite cannot alter an evaluated episode; the canary guards the CHAIN semantics of these columns; and the finalizer's stability digest now covers guarded signal columns, so a rewrite landing between the two stability reads HOLDS the session instead of slipping through",
+    "correction": "the earlier summary statement '0/175 frozen claims use CISD tokens' was true only of the four struct columns; the cplus family is used by these claims and the overgeneralization is corrected here"
+  },
+  "canary_must_cover": [
+    "ad_fresh",
+    "bar_body_wick",
+    "bar_gap_range",
+    "bar_line5",
+    "close_suffix",
+    "full_suffix",
+    "l43",
+    "l_sig",
+    "ne_suffix",
+    "phys_ad",
+    "phys_c",
+    "phys_e",
+    "phys_h",
+    "phys_k",
+    "phys_m",
+    "phys_r",
+    "phys_regime",
+    "phys_wyc",
+    "rsi_14",
+    "sig_buy",
+    "sig_cisd_cplus",
+    "sig_svs",
+    "sig_t2",
+    "sig_t2g",
+    "sig_t4",
+    "sig_t9",
+    "sig_va",
+    "sig_vol_10x",
+    "sig_vol_5x",
+    "sig_z1g",
+    "sig_z2",
+    "sig_z2g",
+    "sig_z9",
+    "vbo_up",
+    "vol_bucket",
+    "wick_suffix",
+    "wyc_phase"
+  ],
+  "families_digest": "c197c88a22cdcaff"
+}

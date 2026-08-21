@@ -59,19 +59,29 @@ class NotReady(RuntimeError):
     pass
 
 
+GUARDED = json.load(open("T5_FORWARD_RULE_FEATURE_DEPENDENCY_V1.json"))["guarded_feature_set"]
+
+
 def source_snapshot(session_date):
     """Read the session's bars from the store RIGHT NOW and digest them. Called twice, with a
-    genuine refresh in between — that is the whole point."""
+    genuine refresh in between — that is the whole point.
+
+    The digest covers OHLCV AND every guarded signal column. OHLCV alone would declare
+    SOURCE_FINAL while an out-of-band writer (the delta re-derivation was OBSERVED rewriting
+    rsi_14 for ZM 2026-08-17 after the frozen build; cisd_backfill can rewrite sig_cisd_cplus)
+    changes the very values the producer is about to consume. A rewrite landing between the two
+    stability reads now HOLDS the session instead of slipping through."""
     # session_position / bars_in_session are NOT columns — the producer derives them with a
     # window over (ticker, session_date). This mirrors that derivation exactly rather than
     # inventing a second one, because a finalizer that computes session length differently from
     # the producer is worse than one that does not compute it at all.
     import duckdb
+    gcols = ", ".join('"' + g + '"' for g in GUARDED)
     c = duckdb.connect(D.DB1H, read_only=True)
     try:
         df = c.execute(
-            """
-            SELECT ticker, date, open, high, low, close, volume,
+            f"""
+            SELECT ticker, date, open, high, low, close, volume, {gcols},
                    row_number() OVER (PARTITION BY ticker, CAST(date AS DATE)
                                       ORDER BY date)               session_position,
                    count(*)     OVER (PARTITION BY ticker, CAST(date AS DATE))
