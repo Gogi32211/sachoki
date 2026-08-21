@@ -1,0 +1,121 @@
+{
+  "spec_id": "NULL_VARIANCE_DECOMPOSITION_V1",
+  "status": "DIAGNOSTIC_ONLY",
+  "estimand_digest": "16673802bb2b6159",
+  "k": 840,
+  "identity": "Var(theta_s) = sum_b w_sb^2 Var(Delta_sb) \u2014 exact under within-block permutation, blocks independent",
+  "var_delta_method": {
+    "n_t_1": "exact leave-one-out",
+    "n_t_ge2": "MC 400 draws",
+    "cells": 35876,
+    "exact_share": 0.1347
+  },
+  "reconstruction": {
+    "spearman": 0.9869,
+    "pearson_log": 0.9912,
+    "loglog_slope": 0.992,
+    "ratio_p10": 0.881,
+    "ratio_median": 0.992,
+    "ratio_p90": 1.13,
+    "note": "predicted_sd is an analytic identity under within-block permutation; residual spread is Monte-Carlo error in Var(Delta_b) plus the 200-perm sampling error of the MEASURED null_sd, which is itself ~5%."
+  },
+  "reconstruction_R2_log": 0.9825,
+  "sequential_attribution": [
+    {
+      "term": "log(support)",
+      "cumulative_R2": 0.569,
+      "gain": 0.569
+    },
+    {
+      "term": "log(effective_blocks)",
+      "cumulative_R2": 0.5846,
+      "gain": 0.0156
+    },
+    {
+      "term": "log(weighted_block_MFE_scale)",
+      "cumulative_R2": 0.828,
+      "gain": 0.2434
+    },
+    {
+      "term": "max_block_weight",
+      "cumulative_R2": 0.8289,
+      "gain": 0.0009
+    },
+    {
+      "term": "share_blocks_nt1",
+      "cumulative_R2": 0.8296,
+      "gain": 0.0007
+    }
+  ],
+  "top20_vs_rest": {
+    "support": {
+      "top20": 326.5,
+      "rest820": 709.5,
+      "ratio": 0.46
+    },
+    "n_overlap_blocks": {
+      "top20": 286.0,
+      "rest820": 548.5,
+      "ratio": 0.52
+    },
+    "effective_blocks": {
+      "top20": 258.2729,
+      "rest820": 396.6616,
+      "ratio": 0.65
+    },
+    "weight_hhi": {
+      "top20": 0.0039,
+      "rest820": 0.0025,
+      "ratio": 1.54
+    },
+    "max_block_weight": {
+      "top20": 0.0126,
+      "rest820": 0.0108,
+      "ratio": 1.17
+    },
+    "median_treated_per_block": {
+      "top20": 1.0,
+      "rest820": 1.0,
+      "ratio": 1.0
+    },
+    "share_blocks_nt1": {
+      "top20": 0.8687,
+      "rest820": 0.799,
+      "ratio": 1.09
+    },
+    "median_control_per_block": {
+      "top20": 33.5,
+      "rest820": 30.0,
+      "ratio": 1.12
+    },
+    "weighted_block_MFE_scale": {
+      "top20": 12.1283,
+      "rest820": 8.3157,
+      "ratio": 1.46
+    },
+    "weighted_block_IQR": {
+      "top20": 5.9713,
+      "rest820": 6.0567,
+      "ratio": 0.99
+    },
+    "weighted_median_spacing": {
+      "top20": 2.7371,
+      "rest820": 2.7984,
+      "ratio": 0.98
+    },
+    "null_sd": {
+      "top20": 4.0118,
+      "rest820": 0.7109,
+      "ratio": 5.64
+    },
+    "predicted_sd": {
+      "top20": 3.6884,
+      "rest820": 0.7106,
+      "ratio": 5.19
+    }
+  },
+  "density_proxy_caveat": "weighted_median_spacing is reported for comparison only. With ~1 treated episode per block the asymptotic median-density variance does not apply; the exact leave-one-out variance is what enters predicted_sd.",
+  "historical_theta": "NOT COMPUTED, NOT EXPOSED",
+  "standardized_hurdle": "Z=7.61 remains a diagnostic indication only \u2014 self-standardized on the same 200 permutations, not a calibrated critical value.",
+  "minutes": 3.3
+}

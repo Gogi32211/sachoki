@@ -1,0 +1,87 @@
+{
+  "spec_id": "T5_CAPABILITY_Q50_V1",
+  "status": "FROZEN",
+  "title": "Median-support empirical-noise capability qualification",
+  "not_a": "full support-sensitivity surface",
+  "supersedes": [
+    "T5_CAPABILITY_SPEC_V1",
+    "T5_CAPABILITY_SPEC_V1_PAIRED"
+  ],
+  "superseded_status": "SUPERSEDED_BEFORE_CAPABILITY_RESULT_EXPOSURE",
+  "superseded_reason": "COMPUTATIONAL_FEASIBILITY",
+  "measured_cost": {
+    "elements_per_theta_pass": 34213732,
+    "control_arm_share": "94%",
+    "seconds_per_pass": 9.1,
+    "full_spec_passes": 359640,
+    "full_spec_core_hours": 909,
+    "this_spec_passes": 119880,
+    "this_spec_core_hours": 303
+  },
+  "honesty_note": "Y WAS ALREADY READ BY THE MACHINE in the timing/equivalence probe, so this is NOT 'before Y access'. The adaptation was driven by measured RUNTIME only \u2014 no capability result, no theta value, no historical ranking was inspected. Those are separate facts and both are recorded.",
+  "design_error_recorded": "The original spec was frozen without a feasibility measurement. Combo Miner did this correctly (Gate C priced the band before the design was fixed); that step was skipped here and the cost only surfaced after freezing.",
+  "needle": {
+    "rank_index": 419,
+    "sealed_j": 692,
+    "membership_hash": "d501e7cbb9a901c3",
+    "claim": "CROSS_DAY|2|AD_FRESH\u2192T2",
+    "aliases": "",
+    "treated_overlap": 682
+  },
+  "needle_claim": "CROSS_DAY|2|AD_FRESH\u2192T2",
+  "needle_support": 682,
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "n_perm_inner": 999,
+  "k": 840,
+  "population": 118849,
+  "estimand_digest": "16673802bb2b6159",
+  "claim_order_hash": "8286de69150fa226",
+  "population_hash": "e500f6f158e23719",
+  "block_assignment_hash": "8f786b5cdd63e815",
+  "base_noise": "the real mfe_10d vector, permuted within the registered blocks \u2014 real scale, tails, date shocks and heteroskedasticity kept; sequence-outcome association destroyed",
+  "injection": "delta added ONLY to the frozen needle's membership, inside its overlap blocks",
+  "detection": "theta_needle > p95 of that world's max-null across all 840 claims",
+  "not_detection": [
+    "positive theta",
+    "top-K rank",
+    "best claim in world",
+    "nominal significance"
+  ],
+  "band": "recomputed separately for every (world, delta); never shared across deltas",
+  "pairing": {
+    "outer": "ONE outer base world per (needle, world_index): default_rng([20260820, needle_index, world_index]). The SAME base world is used for all six deltas of that needle/world.",
+    "inner": "ONE set of 999 inner permutation mappings per (needle, world_index): default_rng([20260821, needle_index, world_index, perm_index]). The SAME mappings are applied at every delta.",
+    "band": "theta_perm[999 x 840] and max_null[999] are RECOMPUTED separately for every delta, because the injected Y differs by delta and the permuted maxima may too. SHARED RANDOMNESS, SEPARATE BANDS \u2014 never one band reused across deltas."
+  },
+  "rng": {
+    "outer_world_seed": "default_rng([20260820, cell_index, world_index])",
+    "inner_null_seed": "default_rng([20260821, cell_index, world_index, perm_index])",
+    "separation": "outer and inner streams are independent so that the randomness making a world is not tied to the randomness building that world's band"
+  },
+  "deferred": {
+    "q10": "DEFERRED_COMPUTE_STRESS_CHARACTERIZATION",
+    "q90": "DEFERRED_COMPUTE_STRESS_CHARACTERIZATION",
+    "rule": "if completed BEFORE historical EXPOSE they extend the pre-exposure qualification; if run after, they are POST-EXPOSURE SENSITIVITY CHARACTERIZATION and cannot strengthen it"
+  },
+  "verdict_scope": "At approximately median claim support (treated n=682), the registered search has the measured empirical-noise detection profile below. Sensitivity at low and high support was NOT qualified pre-exposure.",
+  "forbidden_claim": "T5 sequence miner is well powered",
+  "may_not": [
+    "change k=840",
+    "change support floors",
+    "change the grammar",
+    "change the null",
+    "remove or reweight claims",
+    "become a promotion route for any claim"
+  ],
+  "interpretation_contract": "Validity = whole 840-claim design \u00b7 Sensitivity = qualified only around q50 support \u00b7 Historical result = whole 840-claim search",
+  "gate_before_historical_compute": "the detection surface must be read before the sealed historical compute is launched; a poor surface does not change k, grammar, support, null or estimand \u2014 it fixes the language the historical result may be read in",
+  "spec_digest": "72e5e5e3f6e8f287"
+}

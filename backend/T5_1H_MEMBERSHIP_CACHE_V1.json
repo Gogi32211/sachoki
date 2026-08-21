@@ -1,0 +1,17 @@
+{
+  "source_role": "FROZEN_1H_RESEARCH_STATE",
+  "source_population_hash": "e500f6f158e23719",
+  "claim_order_hash": "8286de69150fa226",
+  "block_assignment_hash": "8f786b5cdd63e815",
+  "t5_definition_hash": "2775322838e81bd7",
+  "survivor_overlap_digest": "cb907e7fb09e58e3",
+  "cluster_assignment_digest": "566a42f368cbcf5c",
+  "builder_code_digest": "6c2ab8f068cc9141",
+  "spec_id": "T5_1H_MEMBERSHIP_CACHE_V1",
+  "n_population": 118849,
+  "n_claims_used": 9,
+  "episode_id_digest": "e500f6f158e23719",
+  "cache_file_digest": "ad93a3069ef72ed3",
+  "population_hash_guard": "build_state raises on population-hash drift; that guard is what makes the live EST.anchors() query safe",
+  "live_db_touched": "EST.anchors() reads studio_analytics.duckdb for the T5-2 liquidity and volatility used in the population filter"
+}

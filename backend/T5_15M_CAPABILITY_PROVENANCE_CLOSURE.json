@@ -1,0 +1,51 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_PROVENANCE_CLOSURE",
+  "run_pid": 58567,
+  "ledger": "t5_15m_capability_ledger.parquet",
+  "ledger_final_digest": "1a5ba40c6e0dae29",
+  "ledger_rows": 360,
+  "needles_present": [
+    "q10",
+    "q50",
+    "q90"
+  ],
+  "first_world": 0,
+  "last_world": 19,
+  "n_completed_cells": 60,
+  "expected_cells": 60,
+  "complete": true,
+  "outcome_source_digest": "0a1652754e937d79",
+  "vintage_attestation": "T5_15M_CAPABILITY_DATA_VINTAGE_V2.json",
+  "vintage_attestation_digest": "b2347f2bc3e5b2a5",
+  "audit": "T5_15M_CAPABILITY_AUDIT.json",
+  "audit_digest": "d2fe0190ecf265f0",
+  "population_hash": "2a0e320a0d8e0b14",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "claim_order_hash": "3a0c637ae5828243",
+  "capability_spec_digest": "918d274553594289",
+  "legacy_rows_have_embedded_run_identity": false,
+  "legacy_row_scope_basis": "sole-writer process exclusivity + ledger boundary + vintage attestation",
+  "ledger_rows_before_run": 0,
+  "ledger_rows_before_run_basis": "the ledger file did not exist; the only earlier launch (pid 58204) raised at the preflight gate, which precedes the cell loop",
+  "ledger_rows_after_run": 360,
+  "runner_file_digest_at_closure": "c35794281409d767",
+  "runner_hash_caveat": "running process pid 58567 loaded the PRE-PATCH module image; this digest identifies the on-disk runner at closure time, NOT a byte-exact attestation of the code image already loaded by the running process.",
+  "pre_patch_runner_digest": null,
+  "pre_patch_runner_digest_unavailable": "the file was untracked in git and overwritten in place, so its bytes cannot be recovered. The patch scope is enumerated in the V2 attestation and touches no statistical path, but that is a documented assertion, not a recomputable hash.",
+  "db_maintenance_overlap": {
+    "nightly_job": "com.sachoki.dbupdate, 03:00 Tbilisi",
+    "overlapped": false,
+    "overlap_avoided_by": "com.sachoki.dbupdate was launchctl-unloaded at 18:30 on 2026-08-20, before the run reached 03:00, so no DB maintenance competed with the capability at any point",
+    "db_currency_at_run": "bars current through 2026-08-19; the 2026-08-20 update was deferred to a manual run and the agent must be reloaded",
+    "affects_statistical_semantics": "NO — the run reads the outcome sidecar once into memory and never touches the DuckDB stores the nightly job writes",
+    "affects_wall_clock_and_cpu": "YES",
+    "consequence": "world timings recorded after 03:00 must NOT be used to judge engine performance as if the resource environment were unchanged"
+  },
+  "timing_reference": {
+    "kernel_qualification_t6_ms": 402.0,
+    "note": "402 ms is the KERNEL qualification metric. The production wall-clock reference is the empirical per-world runtime measured here, which carries the serial orchestration the kernel figure excludes."
+  },
+  "result_artifact": "T5_15M_CAPABILITY_RANK_V2_RESULT.json",
+  "result_digest": "5107997534a24ac2",
+  "sealed_at": "2026-08-20 23:04:30 +0400"
+}

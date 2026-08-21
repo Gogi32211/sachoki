@@ -1,0 +1,28 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_AUDIT",
+  "defects": [
+    {
+      "id": "DATA_VINTAGE_PROVENANCE_GAP",
+      "found": "mid-run, before any resume occurred",
+      "description": "ledger rows carried no outcome_source_digest, so a resume could have joined rows computed on two different outcome vintages without any check noticing",
+      "effect_on_statistic": "NONE — the running process reads the sidecar once and holds it in memory for every world",
+      "effect_on_resumability_and_auditability": "YES",
+      "remediation": "vintage attestation (V1, widened to V2) plus inline provenance on every row written by the patched runner"
+    },
+    {
+      "id": "SELF_DIGEST_FIELD_RESUME_BUG",
+      "found": "at the preflight gate, before the first cell",
+      "description": "the runner looked for a spec_digest field inside the spec JSON. ART.seal returns the digest and does not store it, because a field holding its own content hash cannot be consistent, so the lookup returned None",
+      "effect_on_statistic": "NONE — the current process was never restarted, so no Z, permutation or detection depends on it",
+      "effect_on_resume": "completed worlds would have compared against None and been recomputed from scratch",
+      "remediation": "ART.file_digest() — the artifact's identity is the hash of its bytes"
+    }
+  ],
+  "neither_defect_altered": [
+    "Z_rank",
+    "permutations",
+    "detections",
+    "bands"
+  ],
+  "cpu_utilization_note": "427% on an 8-thread engine is not a threading fault: a world carries substantial serial work outside the kernel — permutation generation, rank setup, orchestration — so whole-process average utilisation sits well below 8x by construction."
+}

@@ -1,0 +1,77 @@
+{
+  "spec_id": "T5_CAPABILITY_RANK_V2",
+  "status": "FROZEN_BEFORE_RUN",
+  "inference_spec": "SEQUENCE_INFERENCE_V2",
+  "inference_digest": "a3392966068fab40",
+  "estimand_digest": "16673802bb2b6159",
+  "claim_order_hash": "8286de69150fa226",
+  "population_hash": "e500f6f158e23719",
+  "block_assignment_hash": "8f786b5cdd63e815",
+  "k": 840,
+  "engine_qualification": {
+    "gates": {
+      "estimand_seal": true,
+      "k_840": true,
+      "A_registered_SE_reproduced": true,
+      "B_identity_on_injected_path": true,
+      "C_injection_reranks": true,
+      "D_cost_measured": true
+    },
+    "minutes_per_world": 1.12,
+    "projected_total_hours": 1.12,
+    "note": "qualification produced no capability statistic; its fixture world used seeds disjoint from this run's"
+  },
+  "needles": {
+    "q10": {
+      "rank_index": 83,
+      "sealed_j": 726,
+      "membership_hash": "db90a1593f6dffe4",
+      "claim": "T5_INTRADAY|2|G6→Z9",
+      "aliases": "",
+      "treated_overlap": 324
+    },
+    "q50": {
+      "rank_index": 419,
+      "sealed_j": 692,
+      "membership_hash": "d501e7cbb9a901c3",
+      "claim": "CROSS_DAY|2|AD_FRESH→T2",
+      "aliases": "",
+      "treated_overlap": 682
+    },
+    "q90": {
+      "rank_index": 755,
+      "sealed_j": 248,
+      "membership_hash": "4da2b478fd9264a9",
+      "claim": "T5_INTRADAY|2|PEN_P→T1",
+      "aliases": "",
+      "treated_overlap": 7134
+    }
+  },
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "n_perm_inner": 999,
+  "logical_cells": 360,
+  "why_three_needles": "q10 and q90 were deferred in V1 for compute cost alone. The rank engine removes that constraint, and running them now keeps them PRE-exposure: after historical exposure they could only be post-exposure characterization and could not strengthen the qualification.",
+  "detection_rule": "Z_rank(needle, delta) > p95( max_s Z_rank over 840 claims ) in the same inner-null world, one-sided positive",
+  "denominator": "registered analytic SE, identical at every delta and in every world",
+  "injection": "delta added to the raw outcome, midranks recomputed within block",
+  "rng": {
+    "outer": "[20260903, needle_index, world]",
+    "inner": "[20260904, needle_index, world, p], shared across the six deltas"
+  },
+  "verdict_scope": "Detection of additive raw-MFE injections at low, median and high claim support for the V2 rank selection statistic. This is instrument sensitivity, not evidence that any sequence effect exists.",
+  "forbidden_claims": [
+    "the rank statistic is more powerful (a lower band is not more power; the numerator changed too)",
+    "V1's estimand was wrong (only its decision statistic failed)",
+    "T5 sequence miner is well powered"
+  ],
+  "y_status": "HISTORICAL RANKING NOT COMPUTED, NOT EXPOSED",
+  "spec_digest": "e16ea5101b4cbd85"
+}

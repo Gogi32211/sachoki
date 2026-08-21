@@ -1,0 +1,74 @@
+{
+  "spec_id": "T5_15M_SEALED_HISTORICAL",
+  "status": "SEALED — NOT EXPOSED",
+  "historical_spec": "/Users/sachoki/Desktop/sachoki-desktop/backend/T5_15M_HISTORICAL_SPEC.json",
+  "historical_spec_digest": "d2ee555e9a8f88f9",
+  "se_gate_digest": "88fef48e1ba2538a",
+  "population_hash": "2a0e320a0d8e0b14",
+  "claim_order_hash": "3a0c637ae5828243",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "outcome_source_digest": "0a1652754e937d79",
+  "n_population": 112621,
+  "n_claims": 31583,
+  "n_permutations": 999,
+  "n_blocks": 5017,
+  "observed_shapes": {
+    "R_rank_obs": [
+      31583
+    ],
+    "Z_rank_obs": [
+      31583
+    ],
+    "analytic_sd": [
+      31583
+    ]
+  },
+  "permutation_shapes": {
+    "Z_rank_perm": [
+      999,
+      31583
+    ],
+    "max_null": [
+      999
+    ]
+  },
+  "theta_computed_for": 733,
+  "rng": {
+    "null_stream": "[20260931, p]",
+    "distinct_mappings": 999
+  },
+  "integrity": {
+    "se_gates": {
+      "sd_positive": true,
+      "sd_finite": true,
+      "treated_overlap_matches_order": true,
+      "n_overlap_blocks_matches_order": true,
+      "deterministic_rebuild": true,
+      "population_hash": true,
+      "k_31583": true,
+      "threads_8": true,
+      "sd_vs_blockwise_reference": true
+    },
+    "finite_observed": true,
+    "finite_null": true,
+    "null_matrix_complete": true,
+    "rng_streams_unique": true,
+    "batch_lanes": 8,
+    "threads": 8
+  },
+  "artifact_hash": "3c7433561acfa54a",
+  "artifacts": {
+    "observed": "t5_15m_hist_observed.parquet",
+    "Z_rank_perm": "t5_15m_hist_Z_rank_perm.parquet"
+  },
+  "z_perm_dtype": "float32 on disk (252 MB as float64); the max-null and every gate above were computed in float64 before the cast",
+  "contains_but_does_not_report": [
+    "claim ranking",
+    "the observed maximum",
+    "the band",
+    "the survivor count",
+    "any claim's Z or theta"
+  ],
+  "exposure": "REQUIRES A SEPARATE EXPOSE COMMAND",
+  "minutes": 1.2
+}

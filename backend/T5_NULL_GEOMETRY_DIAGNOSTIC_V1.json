@@ -1,0 +1,283 @@
+{
+  "spec_id": "NULL_GEOMETRY_DIAGNOSTIC_V1",
+  "status": "DIAGNOSTIC_ONLY",
+  "estimand_digest": "16673802bb2b6159",
+  "claim_order_hash": "8286de69150fa226",
+  "population_hash": "e500f6f158e23719",
+  "k": 840,
+  "n_perm": 200,
+  "delta_pp": 0.0,
+  "rng_outer": "[20260822, 0, 0]",
+  "rng_inner": "[20260823, 0]+[p]",
+  "theta_perm_hash": "56299572eb1d1652",
+  "null_sd_distribution": {
+    "p0": 0.062,
+    "p10": 0.237,
+    "p25": 0.44,
+    "p50": 0.72,
+    "p75": 1.216,
+    "p90": 1.893,
+    "p95": 2.738,
+    "p100": 8.062
+  },
+  "sd_vs_support": {
+    "loglog_slope": -0.525,
+    "spearman_sd_support": -0.691,
+    "sqrt_n_prediction": -0.5,
+    "by_support_decile": [
+      {
+        "dec": 0,
+        "n": 85,
+        "support_med": 311.0,
+        "sd_med": 1.025,
+        "sd_max": 8.062
+      },
+      {
+        "dec": 1,
+        "n": 84,
+        "support_med": 342.0,
+        "sd_med": 1.385,
+        "sd_max": 6.375
+      },
+      {
+        "dec": 2,
+        "n": 83,
+        "support_med": 383.0,
+        "sd_med": 1.06,
+        "sd_max": 6.253
+      },
+      {
+        "dec": 3,
+        "n": 84,
+        "support_med": 471.0,
+        "sd_med": 0.996,
+        "sd_max": 4.812
+      },
+      {
+        "dec": 4,
+        "n": 84,
+        "support_med": 604.0,
+        "sd_med": 0.935,
+        "sd_max": 3.923
+      },
+      {
+        "dec": 5,
+        "n": 84,
+        "support_med": 828.5,
+        "sd_med": 0.822,
+        "sd_max": 3.057
+      },
+      {
+        "dec": 6,
+        "n": 84,
+        "support_med": 1319.5,
+        "sd_med": 0.66,
+        "sd_max": 1.939
+      },
+      {
+        "dec": 7,
+        "n": 84,
+        "support_med": 2304.0,
+        "sd_med": 0.476,
+        "sd_max": 1.239
+      },
+      {
+        "dec": 8,
+        "n": 84,
+        "support_med": 4822.5,
+        "sd_med": 0.356,
+        "sd_max": 0.81
+      },
+      {
+        "dec": 9,
+        "n": 84,
+        "support_med": 11699.5,
+        "sd_med": 0.18,
+        "sd_max": 0.408
+      }
+    ]
+  },
+  "max_domination": {
+    "claims_ever_winning_max": 54,
+    "top10_cumulative_share": 0.645,
+    "top20_cumulative_share": 0.8,
+    "top": [
+      {
+        "j": 816,
+        "claim_id": "PREV_INTRADAY|2|BW_MF\u2192T1",
+        "support": 651,
+        "null_sd": 3.923,
+        "argmax_count": 21,
+        "argmax_share": 0.105
+      },
+      {
+        "j": 541,
+        "claim_id": "T5_INTRADAY|2|VOL10X\u2192T2",
+        "support": 324,
+        "null_sd": 8.062,
+        "argmax_count": 20,
+        "argmax_share": 0.1
+      },
+      {
+        "j": 298,
+        "claim_id": "PREV_INTRADAY|3|BX_UP\u2192T2\u2192L2",
+        "support": 380,
+        "null_sd": 6.253,
+        "argmax_count": 14,
+        "argmax_share": 0.07
+      },
+      {
+        "j": 424,
+        "claim_id": "CROSS_DAY|3|P2\u2192T11\u2192CONSO",
+        "support": 307,
+        "null_sd": 6.306,
+        "argmax_count": 12,
+        "argmax_share": 0.06
+      },
+      {
+        "j": 316,
+        "claim_id": "CROSS_DAY|2|D89\u2192T3",
+        "support": 358,
+        "null_sd": 5.213,
+        "argmax_count": 11,
+        "argmax_share": 0.055
+      },
+      {
+        "j": 149,
+        "claim_id": "T5_INTRADAY|3|BE_UP\u2192T2\u2192T2",
+        "support": 815,
+        "null_sd": 2.674,
+        "argmax_count": 11,
+        "argmax_share": 0.055
+      },
+      {
+        "j": 779,
+        "claim_id": "PREV_INTRADAY|3|RSI_70_101\u2192T1\u2192REG_U",
+        "support": 312,
+        "null_sd": 7.084,
+        "argmax_count": 11,
+        "argmax_share": 0.055
+      },
+      {
+        "j": 753,
+        "claim_id": "PREV_INTRADAY|3|WYC_UTAD\u2192T3\u2192PH_MARKUP",
+        "support": 329,
+        "null_sd": 5.423,
+        "argmax_count": 10,
+        "argmax_share": 0.05
+      },
+      {
+        "j": 792,
+        "claim_id": "T5_INTRADAY|3|D50\u2192T1\u2192L2",
+        "support": 440,
+        "null_sd": 4.101,
+        "argmax_count": 10,
+        "argmax_share": 0.05
+      },
+      {
+        "j": 303,
+        "claim_id": "CROSS_DAY|3|S3U\u2192T2\u2192T12",
+        "support": 652,
+        "null_sd": 2.754,
+        "argmax_count": 9,
+        "argmax_share": 0.045
+      },
+      {
+        "j": 583,
+        "claim_id": "PREV_INTRADAY|3|CISD_MS\u2192L2\u2192CL_O",
+        "support": 311,
+        "null_sd": 6.832,
+        "argmax_count": 4,
+        "argmax_share": 0.02
+      },
+      {
+        "j": 260,
+        "claim_id": "PREV_INTRADAY|3|AD_A\u2192T2\u2192CONSO",
+        "support": 300,
+        "null_sd": 2.046,
+        "argmax_count": 4,
+        "argmax_share": 0.02
+      },
+      {
+        "j": 634,
+        "claim_id": "PREV_INTRADAY|3|T12\u2192T2\u2192CONSO",
+        "support": 303,
+        "null_sd": 2.756,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 28,
+        "claim_id": "CROSS_DAY|2|VOL_W\u2192CL_O",
+        "support": 427,
+        "null_sd": 2.419,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 543,
+        "claim_id": "T5_INTRADAY|3|T10\u2192T2\u2192L2",
+        "support": 423,
+        "null_sd": 5.345,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 292,
+        "claim_id": "CROSS_DAY|2|Z5\u2192T5",
+        "support": 331,
+        "null_sd": 5.895,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 717,
+        "claim_id": "PREV_INTRADAY|3|K2\u2192T1\u2192T2",
+        "support": 305,
+        "null_sd": 1.605,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 615,
+        "claim_id": "PREV_INTRADAY|3|G1\u2192T2\u2192NE_N",
+        "support": 311,
+        "null_sd": 2.508,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 479,
+        "claim_id": "PREV_INTRADAY|3|L43\u2192T2\u2192L2",
+        "support": 311,
+        "null_sd": 2.184,
+        "argmax_count": 3,
+        "argmax_share": 0.015
+      },
+      {
+        "j": 308,
+        "claim_id": "CROSS_DAY|3|Z12\u2192NE_E\u2192L2",
+        "support": 311,
+        "null_sd": 1.542,
+        "argmax_count": 2,
+        "argmax_share": 0.01
+      }
+    ]
+  },
+  "raw_max_null": {
+    "q50": 16.359,
+    "q90": 27.999,
+    "q95": 28.617,
+    "max": 33.986
+  },
+  "standardized_max_null": {
+    "q50": 5.467,
+    "q90": 6.924,
+    "q95": 7.607,
+    "max": 9.496
+  },
+  "standardization_caveat": "Z uses mean_j and sd_j from the SAME 200 permutations it is maximised over. Self-standardized: a diagnostic comparison of geometry, NOT a calibrated threshold and not a registered test.",
+  "historical_theta": "NOT COMPUTED, NOT EXPOSED",
+  "capability_scope": "Established: median-support claim, +0.5..+5.0pp injections detected 0/20 \u2014 the detector is practically insensitive in that range. NOT established: the position of historical theta[840] relative to the band, which has never been computed.",
+  "minutes": 5.6
+}

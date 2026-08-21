@@ -1,0 +1,80 @@
+{
+  "spec_id": "RANK_NULL_GEOMETRY_DIAGNOSTIC_V1",
+  "status": "EXPLORATORY_DIAGNOSTIC_ONLY",
+  "estimand_digest": "16673802bb2b6159",
+  "k": 840,
+  "n_perm": 1999,
+  "mappings": "identical RNG streams to NULL_SHAPE_DIAGNOSTIC_V1 \u2014 only the block contrast differs",
+  "block_score": "U_b = [#(Y_T>Y_C) + 0.5#(Y_T=Y_C)]/(n_t n_c); R_b = U_b - 1/2",
+  "denominator": "exact combinatorial Var(U_b) with rank-sum tie correction; no MFE magnitude and no calibration permutations enter it",
+  "blocks_with_ties": {
+    "n": 387,
+    "share": 0.0772
+  },
+  "equivalence_gate": {
+    "segments": 400,
+    "max_abs_diff": 0.0,
+    "passed": true
+  },
+  "sd_Z": {
+    "p10": 0.982,
+    "p50": 1.002,
+    "p90": 1.019
+  },
+  "mean_Z_p50": -0.0038,
+  "excess_kurtosis": {
+    "p10": -0.14,
+    "p50": -0.01,
+    "p90": 0.15,
+    "p99": 0.3
+  },
+  "skew": {
+    "p10": -0.07,
+    "p50": 0.0,
+    "p90": 0.07
+  },
+  "max_Z": {
+    "observed_p95": 3.861,
+    "observed_max": 4.998,
+    "gaussianized_p95": 3.481,
+    "independent_gaussian_p95": 3.842,
+    "note": "gaussianization preserves the rank-dependence and normalises the marginals; a large drop indicates a marginal-tail mechanism. This is an attribution reading, NOT an additive decomposition of quantiles."
+  },
+  "max_Z_concentration": {
+    "claims_ever_winning": 736,
+    "top10_share": 0.038,
+    "top20_share": 0.071
+  },
+  "raw_vs_rank": {
+    "max_Z_p95": {
+      "raw": 7.362,
+      "rank": 3.861
+    },
+    "gaussianized_p95": {
+      "raw": 3.481,
+      "rank": 3.481
+    },
+    "median_excess_kurtosis": {
+      "raw": 5.35,
+      "rank": -0.01
+    },
+    "P_gt3_median": {
+      "raw": 0.02401,
+      "rank": 0.0015,
+      "gaussian": 0.00135
+    },
+    "P_gt4_median": {
+      "raw": 0.0065,
+      "rank": 0.0,
+      "gaussian": 3.17e-05
+    },
+    "top20_max_share": {
+      "raw": 0.233,
+      "rank": 0.071
+    }
+  },
+  "tail_resolution": "P(Z>x) resolves only to 1/1999 = 5.00e-04",
+  "historical_theta": "NOT COMPUTED, NOT EXPOSED",
+  "selection_vs_effect": "If a claim is ever selected by a rank statistic, an ordinary bootstrap interval on theta is NOT a selection-adjusted 95% interval. Descriptive only unless a simultaneous or selective interval is built.",
+  "minutes": 3.1
+}

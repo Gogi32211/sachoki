@@ -1,0 +1,124 @@
+{
+  "covered": 123193,
+  "missing": 72391,
+  "covered_share": 0.6299,
+  "numeric": [
+    {
+      "field": "t5_close",
+      "covered_median": 33.64,
+      "missing_median": 8.42,
+      "ratio": 3.995
+    },
+    {
+      "field": "volume",
+      "covered_median": 689646.0,
+      "missing_median": 19730.0,
+      "ratio": 34.954
+    },
+    {
+      "field": "dollar_volume",
+      "covered_median": 22847074.2,
+      "missing_median": 138288.48,
+      "ratio": 165.213
+    },
+    {
+      "field": "atr_pct",
+      "covered_median": 3.518528753830457,
+      "missing_median": 6.8374872743455235,
+      "ratio": 0.515
+    },
+    {
+      "field": "t5_range_pct",
+      "covered_median": 2.6864818519576956,
+      "missing_median": 4.51977401129944,
+      "ratio": 0.594
+    },
+    {
+      "field": "t5_body_pct",
+      "covered_median": 18.91891891891899,
+      "missing_median": 23.076923076923077,
+      "ratio": 0.82
+    },
+    {
+      "field": "prev_range_pct",
+      "covered_median": 3.082533589251451,
+      "missing_median": 5.185185185185174,
+      "ratio": 0.594
+    },
+    {
+      "field": "rsi_14",
+      "covered_median": 45.7,
+      "missing_median": 44.6,
+      "ratio": 1.025
+    },
+    {
+      "field": "n_sessions",
+      "covered_median": 1312.0,
+      "missing_median": 1288.0,
+      "ratio": 1.019
+    },
+    {
+      "field": "t5_per_ticker",
+      "covered_median": 46.0,
+      "missing_median": 48.0,
+      "ratio": 0.958
+    }
+  ],
+  "categorical": [
+    {
+      "field": "primary_universe",
+      "level": "nasdaq",
+      "covered": 0.4217,
+      "missing": 0.8186
+    },
+    {
+      "field": "primary_universe",
+      "level": "russell2k",
+      "covered": 0.3524,
+      "missing": 0.1722
+    },
+    {
+      "field": "primary_universe",
+      "level": "sp500",
+      "covered": 0.2259,
+      "missing": 0.0092
+    },
+    {
+      "field": "year",
+      "level": "2021",
+      "covered": 0.0867,
+      "missing": 0.0829
+    },
+    {
+      "field": "year",
+      "level": "2022",
+      "covered": 0.1972,
+      "missing": 0.1515
+    },
+    {
+      "field": "year",
+      "level": "2023",
+      "covered": 0.1784,
+      "missing": 0.1645
+    },
+    {
+      "field": "year",
+      "level": "2024",
+      "covered": 0.1997,
+      "missing": 0.189
+    },
+    {
+      "field": "year",
+      "level": "2025",
+      "covered": 0.2092,
+      "missing": 0.2309
+    },
+    {
+      "field": "year",
+      "level": "2026",
+      "covered": 0.1287,
+      "missing": 0.1812
+    }
+  ],
+  "interpretation": "COVERED is not a random subsample. Any later result is transportable to '1D T5 episodes with observable 1H microstructure', not to '1D T5'."
+}

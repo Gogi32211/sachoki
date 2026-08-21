@@ -1,0 +1,140 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_RANK_V2",
+  "status": "FROZEN_BEFORE_ANY_15M_Y_ACCESS",
+  "governing": {
+    "base_spec": "T5_15M_OPENING_HOUR_V1",
+    "inference_amendment": "a3d0152180a7938c",
+    "search_scope": "3140f1ab6c617318",
+    "claim_order": "3a0c637ae5828243",
+    "population_hash": "2a0e320a0d8e0b14",
+    "block_assignment_hash": "e1b3cbffbe1d25f0"
+  },
+  "search_universe": {
+    "k": 31583,
+    "families": [
+      "M1→M2",
+      "M2→M3",
+      "M3→M4"
+    ],
+    "deferred": [
+      "M1→M2→M3",
+      "M2→M3→M4"
+    ]
+  },
+  "selection_statistic": "bounded blockwise Mann-Whitney / AUC, analytically studentized",
+  "multiplicity": "search-wide max Z_rank over all k claims, one permutation mapping applied to every claim",
+  "direction": "one-sided positive",
+  "needles": {
+    "q10": {
+      "quantile": 0.1,
+      "nearest_rank_index": 3158,
+      "sealed_j": 27804,
+      "membership_hash": "e0f73810608753d5",
+      "representative": "M2→M3|2|SVS→VBO_UP",
+      "position_family": "M2→M3",
+      "treated_overlap": 438,
+      "control_overlap": 17514,
+      "n_overlap_blocks": 349,
+      "n_names": 1
+    },
+    "q50": {
+      "quantile": 0.5,
+      "nearest_rank_index": 15791,
+      "sealed_j": 16847,
+      "membership_hash": "87f1910b41c7b79e",
+      "representative": "M1→M2|2|WYC_MARKUP→T3",
+      "position_family": "M1→M2",
+      "treated_overlap": 1913,
+      "control_overlap": 43385,
+      "n_overlap_blocks": 1108,
+      "n_names": 1
+    },
+    "q90": {
+      "quantile": 0.9,
+      "nearest_rank_index": 28424,
+      "sealed_j": 4401,
+      "membership_hash": "23a8cec08aea1e72",
+      "representative": "M2→M3|2|L2→L5_R2X",
+      "position_family": "M2→M3",
+      "treated_overlap": 14827,
+      "control_overlap": 84114,
+      "n_overlap_blocks": 3324,
+      "n_names": 1
+    }
+  },
+  "needle_selection_rule": {
+    "source": "sealed 15m claim order",
+    "variable": "treated_overlap on the final estimand population",
+    "order": "support ascending, tie-break sealed j",
+    "nearest_rank": "idx(q) = ceil(q * k) - 1",
+    "independence": "1H survivors play no part in needle selection"
+  },
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "n_perm_inner": 999,
+  "logical_cells": 360,
+  "outer_noise": "real MFE_10D with the sequence<->Y association destroyed first by permutation within the frozen blocks",
+  "injection": "additive shift of the raw MFE_10D on the needle's treated episodes; never on U or R",
+  "detection": "Z_rank(needle, delta) > p95( max_s Z_rank ) in the same inner-null world",
+  "denominator": {
+    "form": "exact combinatorial null variance with the rank-sum tie correction",
+    "formula": "Var_0(U_sb) = [ (N+1) - sum(t^3-t)/(N(N-1)) ] / (12 n_t n_c)",
+    "recomputation": "RECOMPUTED PER (needle, world, delta) on that injected multiset. Injection can break or create ties, and the conditional randomization variance must belong to the multiset it divides.",
+    "fixed_within": "the 999 inner permutations of a (needle, world, delta) cell share that one SE",
+    "not_empirical": "never estimated from the permutation numerator; this is not studentization by resampling",
+    "gate": {
+      "cases": 165,
+      "max_abs_mean_dev": 1.1102230246251565e-16,
+      "max_abs_var_dev": 2.7755575615628914e-17,
+      "passed": true,
+      "method": "exhaustive enumeration of all C(N,n_t) splits; no formula on the reference side",
+      "grid": "N 4..9 x every n_t x {no ties, one pair, one triple, two pairs, all identical}"
+    }
+  },
+  "engine": {
+    "kernel": "Numba fused segmented, prange over claims",
+    "threads": 8,
+    "batch_B": 8,
+    "measured_t6_ms": 402.0,
+    "wasted_lanes": 2,
+    "wasted_lanes_note": "B=8 computes eight lanes for a six-delta grid. It is still the measured winner on t6: six lanes cost MORE (590.6 ms) than eight (531.0 ms), consistent with SIMD width. Measured, not chosen on theoretical efficiency.",
+    "serial_ms": 622.8,
+    "parallel_ms": 108.8,
+    "qualifications": [
+      "15M_RANK_ENGINE_QUALIFICATION_V1",
+      "15M_PARALLEL_QUALIFICATION_V1",
+      "15M_BATCH_QUALIFICATION_V1"
+    ]
+  },
+  "expected_inner_workload_hours": 6.69,
+  "workload_excludes": "per-(needle, world, delta) rank rebuild and SE recomputation, outer-world setup, checkpoint I/O",
+  "frozen_and_may_not_change": [
+    "support floors",
+    "2-bar scope",
+    "tokens",
+    "position families",
+    "k = 31,583",
+    "worlds and permutations once the capability begins",
+    "needle identities now that they are sealed",
+    "delta grid"
+  ],
+  "remaining_gate_before_exposure": {
+    "when": "after SEALED Y ACCESS, before any outcome exposure",
+    "what": "the production analytic_sd built on the real block multisets must pass internal integrity checks",
+    "forbidden": "no claim's Z, theta or ranking may be printed by that gate"
+  },
+  "forbidden_claims": [
+    "the 15m result confirms or validates any 1H claim",
+    "15m is an independent replication (same T5 episode universe, same 10-day outcome)",
+    "a lower band is more power"
+  ],
+  "y_status": "NO 15m Y ACCESS AT THE TIME OF THIS FREEZE",
+  "minutes": 0.0
+}

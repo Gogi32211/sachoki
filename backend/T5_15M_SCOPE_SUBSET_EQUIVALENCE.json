@@ -1,0 +1,21 @@
+{
+  "spec_id": "T5_15M_SCOPE_SUBSET_EQUIVALENCE",
+  "property": "removing 3-bar families may remove claims, but may not alter any surviving 2-bar claim before final cross-family equivalence resolution",
+  "full_rows": 1041704,
+  "full_two_bar_rows": 31749,
+  "two_bar_rows": 31749,
+  "A_identical_claim_sets": true,
+  "A_identical_columns": true,
+  "A_differing_columns": {},
+  "A_identity_hash": {
+    "full": "84f5a065c73d7f6e",
+    "two_bar": "84f5a065c73d7f6e"
+  },
+  "B_final_representative_identical": true,
+  "cross_family_alias_absorption_n_names_differs": 1159,
+  "expected_difference": [
+    "n_names"
+  ],
+  "prediction_stated_before_run": "PAIRS are swept before TRIPLES and both dedup dictionaries keep the first name per hash, so a 2-bar claim wins every cross-length tie and B was predicted identical",
+  "passed": true
+}

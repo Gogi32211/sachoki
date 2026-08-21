@@ -1,0 +1,39 @@
+{
+  "spec_id": "RANK_CAPABILITY_ENGINE_QUALIFICATION",
+  "status": "FIXTURE \u2014 every Z computed here is discarded; this is not capability evidence and produces no detection surface",
+  "inference_spec": "SEQUENCE_INFERENCE_V2",
+  "inference_digest": "a3392966068fab40",
+  "gates": {
+    "estimand_seal": true,
+    "k_840": true,
+    "A_registered_SE_reproduced": true,
+    "B_identity_on_injected_path": true,
+    "C_injection_reranks": true,
+    "D_cost_measured": true
+  },
+  "A_max_abs_sd_diff": 0.0,
+  "B_max_abs_U_diff": 0.0,
+  "C_needle_Z_monotone_in_delta": {
+    "q10": true,
+    "q50": true,
+    "q90": true
+  },
+  "cost": {
+    "probe_perms": 60,
+    "rerank_ms_per_delta": 20.6,
+    "ms_per_perm_all_deltas": 66.9,
+    "minutes_per_world": 1.12,
+    "worlds": 20,
+    "needles": 3,
+    "n_perm_inner": 999,
+    "deltas": 6,
+    "projected_total_hours": 1.12,
+    "v1_q50_actual_hours": 8.3,
+    "speedup_vs_v1_per_needle": 22.3
+  },
+  "peak_rss_gb": 6.67,
+  "discarded": "all Z values, all maxima, all detection outcomes",
+  "y_status": "HISTORICAL RANKING NOT COMPUTED, NOT EXPOSED",
+  "passed": true,
+  "minutes": 1.1
+}

@@ -1,0 +1,16 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_DATA_VINTAGE",
+  "purpose": "attests the outcome vintage the in-flight capability rows were computed on. The ledger schema at launch carried no outcome_source_digest, so a resume could not have told two data vintages apart. This file supplies that missing attestation for the rows already written; every row written after the patch carries the digest inline.",
+  "outcome_source": "t5_episode_outcomes.parquet",
+  "outcome_source_digest": "0a1652754e937d79",
+  "outcome_mtime": "2026-08-18 17:46:10",
+  "outcome_bytes": 44573733,
+  "run_started": "2026-08-20 16:47 +04",
+  "run_pid": 58567,
+  "nightly_db_update_finished": "2026-08-20 13:50:20 +04",
+  "untouched_by_nightly": "the nightly update writes the DuckDB stores; this derived sidecar predates it by two days and was not rewritten",
+  "population_hash": "2a0e320a0d8e0b14",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "claim_order_hash": "3a0c637ae5828243",
+  "capability_spec_digest": "918d274553594289"
+}

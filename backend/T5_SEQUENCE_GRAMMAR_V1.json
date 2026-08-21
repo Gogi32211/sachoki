@@ -1,0 +1,105 @@
+{
+  "spec_id": "SEQUENCE_GRAMMAR_V1",
+  "x_freeze_digest": "60d8e3fe88e77033",
+  "adjacency": "STRICT_ADJACENT \u2014 no WITHIN-k in V1",
+  "lengths": [
+    2,
+    3
+  ],
+  "four_bar": "DEFERRED_TO_V2",
+  "element_semantics": "atomic canonical token presence on a bar; the bar may carry others",
+  "bar_state_sequences": "DESCRIPTIVE_ONLY \u2014 not searchable claims in V1",
+  "occurrence_unit": "episode-level binary membership; counts are descriptive",
+  "families": [
+    "T5_INTRADAY",
+    "PREV_INTRADAY",
+    "CROSS_DAY"
+  ],
+  "session_validity": "complete per exchange calendar (modal bar count for the date), NOT bars_in_session == 7 \u2014 early closes are valid",
+  "support": {
+    "min_episodes_treated": 300,
+    "min_episodes_control": 300,
+    "min_unique_tickers": 50,
+    "min_unique_dates": 50,
+    "max_single_date_share": 0.1
+  },
+  "primary_future_target": "MFE_10D percent",
+  "secondary_future_target": "MFE_ATR_10D",
+  "other_horizons": "1D/3D/5D/20D descriptive secondary, NOT equal discovery targets",
+  "estimand": "deferred to SEQUENCE_ESTIMAND_V1",
+  "outcome_exposure": "NOT_EXPOSED",
+  "excluded_tokens": [
+    {
+      "token": "ANY_T",
+      "family": "PATTERN_T",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "ANY_Z",
+      "family": "PATTERN_Z",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "ANY_L",
+      "family": "VOLUME_L",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "L5_ANY",
+      "family": "LINE5",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "AD_ANY",
+      "family": "PHYS_AD",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "ANY_P",
+      "family": "PD_LADDER",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "ANY_D",
+      "family": "PD_LADDER",
+      "reason": "umbrella union of registry members; its sequences are implied"
+    },
+    {
+      "token": "RS_INTACT",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "LEAD_IN_LAG",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "H1_DR",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "H1_QUIET",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "M15_ZDOM",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "IV_VSPIKE",
+      "family": "CONTEXT_GATE",
+      "reason": "frame-computed; no 1H counterpart"
+    },
+    {
+      "token": "MACRO_VIX_UP",
+      "family": "MACRO",
+      "reason": "frame-computed; no 1H counterpart"
+    }
+  ],
+  "searchable_token_count": 158,
+  "spec_digest": "ccdeb2b7a03e81d0"
+}

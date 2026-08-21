@@ -1,0 +1,85 @@
+{
+  "spec_id": "T5_CAPABILITY_SPEC_V1",
+  "status": "FROZEN",
+  "purpose": "Measure, on the real MFE_10D noise with the historical sequence-outcome association destroyed first, what effect size this instrument can detect after paying for all k=840 claims. It cannot change k, support, grammar or null.",
+  "estimand_digest": "16673802bb2b6159",
+  "claim_order_hash": "8286de69150fa226",
+  "population_hash": "e500f6f158e23719",
+  "block_assignment_hash": "8f786b5cdd63e815",
+  "k": 840,
+  "population": 118849,
+  "quantile_selection_rule": "sort canonical classes by treated_overlap ascending, tie-break by sealed j; nearest-rank index = ceil(q*n)-1. The RESULTING claim ids are recorded below so the needles survive any future change in library quantile behaviour.",
+  "needle_claim_ids": {
+    "q10": "T5_INTRADAY|2|G6\u2192Z9",
+    "q50": "CROSS_DAY|2|AD_FRESH\u2192T2",
+    "q90": "T5_INTRADAY|2|PEN_P\u2192T1"
+  },
+  "needle_support_values": {
+    "q10": 324,
+    "q50": 682,
+    "q90": 7134
+  },
+  "needles": {
+    "q10": {
+      "rank_index": 83,
+      "sealed_j": 726,
+      "membership_hash": "db90a1593f6dffe4",
+      "claim": "T5_INTRADAY|2|G6\u2192Z9",
+      "aliases": "",
+      "treated_overlap": 324
+    },
+    "q50": {
+      "rank_index": 419,
+      "sealed_j": 692,
+      "membership_hash": "d501e7cbb9a901c3",
+      "claim": "CROSS_DAY|2|AD_FRESH\u2192T2",
+      "aliases": "",
+      "treated_overlap": 682
+    },
+    "q90": {
+      "rank_index": 755,
+      "sealed_j": 248,
+      "membership_hash": "4da2b478fd9264a9",
+      "claim": "T5_INTRADAY|2|PEN_P\u2192T1",
+      "aliases": "",
+      "treated_overlap": 7134
+    }
+  },
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds_per_cell": 20,
+  "base_noise": "the real mfe_10d vector, permuted within the registered blocks \u2014 real scale, tails, date shocks and heteroskedasticity kept; sequence-outcome association destroyed",
+  "injection": "delta added ONLY to the frozen needle's membership, inside its overlap blocks",
+  "detection": "theta_needle > p95 of that world's max-null across all 840 claims",
+  "not_detection": [
+    "positive theta",
+    "top-K rank",
+    "best claim in world",
+    "nominal significance"
+  ],
+  "rng": {
+    "outer_world_seed": "default_rng([20260820, cell_index, world_index])",
+    "inner_null_seed": "default_rng([20260821, cell_index, world_index, perm_index])",
+    "separation": "outer and inner streams are independent so that the randomness making a world is not tied to the randomness building that world's band"
+  },
+  "n_perm_inner": 999,
+  "primary_outcome": "MFE_10D %",
+  "reporting": "measured finite-suite detection rate \u2014 never 'true power'",
+  "may_not": [
+    "change k=840",
+    "change support floors",
+    "change the grammar",
+    "change the null",
+    "remove or reweight claims",
+    "become a promotion route for any claim"
+  ],
+  "interpretation_contract": "VALIDITY != SENSITIVITY != HISTORICAL RESULT",
+  "y_status": "capability may read mfe_10d; historical ranking stays unexposed",
+  "spec_digest": "ccd16b23945d262a"
+}

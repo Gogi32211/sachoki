@@ -1,0 +1,119 @@
+{
+  "spec_id": "SEQUENCE_INFERENCE_V2",
+  "status": "FROZEN_SEMANTICS — capability not yet qualified, historical Y not exposed",
+  "supersedes": "SEQUENCE_INFERENCE_V1",
+  "inherited_unchanged": {
+    "estimand_seal": "16673802bb2b6159",
+    "claim_order_hash": "8286de69150fa226",
+    "population_hash": "e500f6f158e23719",
+    "block_assignment_hash": "8f786b5cdd63e815",
+    "k": 840,
+    "population": 118849,
+    "blocks": 5010,
+    "grammar": "SEQUENCE_GRAMMAR_V1",
+    "weights": "w_sb = treated_n_sb / total treated, identical to V1",
+    "note": "nothing about which episodes are comparable to which changes. Only the function that turns a block contrast into a number changes."
+  },
+  "effect_size": {
+    "statistic": "theta_s = sum_b w_sb [ median(Y|S=1,b) - median(Y|S=0,b) ]",
+    "units": "MFE_10D percentage points",
+    "outcome": "mfe_10d, entry NEXT_SESSION_OPEN_V1",
+    "role": "ECONOMIC MAGNITUDE ONLY — never a promotion criterion",
+    "unchanged_from_v1": true
+  },
+  "selection_statistic": {
+    "block_score": "U_sb = [ #(Y_T > Y_C) + 0.5 #(Y_T = Y_C) ] / (n_t n_c)",
+    "centred": "R_sb = U_sb - 1/2",
+    "claim": "R_s = sum_b w_sb R_sb",
+    "null_moments": "E_0[U_sb] = 1/2 exactly; Var_0(U_sb) = [ (N+1) - sum(t^3-t)/(N(N-1)) ] / (12 n_t n_c), N = n_t + n_c, tie groups t from the block's own Y multiset",
+    "variance": "V_s = sum_b w_sb^2 Var_0(U_sb) — blocks independent under within-block permutation",
+    "standardized": "Z_rank_s = R_s / sqrt(V_s)",
+    "denominator_rule": "REGISTERED ONCE from the frozen population. Never re-estimated per delta, per world, or from an injected vector — all deltas must share one calibrated ruler.",
+    "moments_verified": "exact against exhaustive enumeration, with and without ties"
+  },
+  "direction": "one-sided positive",
+  "multiplicity": {
+    "statistic": "max_s Z_rank_s over all k=840 claims",
+    "mapping": "one permutation mapping applied to all 840 claims simultaneously, so the dependence among claims is carried by the null rather than modelled",
+    "band": "p95 of the search-wide max-null"
+  },
+  "promotion_rule": {
+    "rule": "observed Z_rank_s > registered p95( max-null Z_rank )",
+    "theta_cannot_rescue": "a large raw theta on a claim whose Z_rank does not clear the band is NOT an alternative route to promotion",
+    "no_second_chance": "no per-family, per-support or step-down variant may be substituted after seeing the result"
+  },
+  "injection_semantics": {
+    "rule": "delta is injected on the RAW outcome, never on U or R",
+    "path": "base null world -> Y_delta = Y + delta * needle_membership -> recompute within-block midranks -> Z_rank[840]",
+    "why": "adding an artificial effect directly to the bounded score would measure sensitivity to rank displacement, not to an MFE effect in percentage points, and the delta grid would stop meaning pp",
+    "band_per_delta": "the injection enters the inner-null world, so each delta carries its own band — identical to frozen V1 capability semantics"
+  },
+  "reporting_contract": {
+    "selection_evidence": "Z_rank with search-wide maxT-adjusted status",
+    "economic_magnitude": "raw theta in MFE pp",
+    "uncertainty_on_theta": "descriptive bootstrap interval, EXPLICITLY NOT a selection-adjusted 95% interval. A claim chosen by the rank statistic has no post-selection coverage guarantee unless a simultaneous or selective interval is separately built.",
+    "secondary": "MFE_ATR_10D, characterization only",
+    "two_columns": "evidence_rank (by Z_rank) and effect_size (theta pp) are reported as SEPARATE columns. Silent substitution of one for the other is a reporting defect."
+  },
+  "supporting_diagnostics": {
+    "variance_decomposition": {
+      "reconstruction_R2": 0.9825,
+      "finding": "block tail scale separates raw-max dominators; weight and arm geometry do not"
+    },
+    "raw_shape": {
+      "max_Z_p95": 7.362,
+      "gaussianized_p95": 3.481,
+      "median_excess_kurtosis": 5.35
+    },
+    "rank_shape": {
+      "max_Z_p95": 3.861,
+      "gaussianized_p95": 3.481,
+      "median_excess_kurtosis": -0.01,
+      "sd_Z_p50": 1.002
+    },
+    "status": "NULL GEOMETRY ONLY — these qualify the instrument, not its power"
+  },
+  "needles": {
+    "q10": {
+      "rank_index": 83,
+      "sealed_j": 726,
+      "membership_hash": "db90a1593f6dffe4",
+      "claim": "T5_INTRADAY|2|G6→Z9",
+      "aliases": "",
+      "treated_overlap": 324
+    },
+    "q50": {
+      "rank_index": 419,
+      "sealed_j": 692,
+      "membership_hash": "d501e7cbb9a901c3",
+      "claim": "CROSS_DAY|2|AD_FRESH→T2",
+      "aliases": "",
+      "treated_overlap": 682
+    },
+    "q90": {
+      "rank_index": 755,
+      "sealed_j": 248,
+      "membership_hash": "4da2b478fd9264a9",
+      "claim": "T5_INTRADAY|2|PEN_P→T1",
+      "aliases": "",
+      "treated_overlap": 7134
+    }
+  },
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "delta_grid_rationale": "identical to V1 so V1 and V2 sensitivity are directly comparable",
+  "forbidden_claims": [
+    "the rank statistic is more powerful (a lower band is not more power; the numerator changed too)",
+    "V1's estimand was wrong (only its decision statistic failed)",
+    "T5 sequence miner is well powered"
+  ],
+  "y_status": "HISTORICAL RANKING NOT COMPUTED, NOT EXPOSED",
+  "next_gate": "RANK_CAPABILITY_ENGINE_QUALIFICATION — equivalence and cost only, no capability statistic produced",
+  "spec_digest": "a3392966068fab40"
+}

@@ -1,0 +1,24 @@
+{
+  "spec_id": "T5_DNA_X_V1",
+  "setup": "FINAL_PRIORITY_RESOLVED_T5",
+  "t5_definition_hash": "2775322838e81bd7",
+  "t5_definition": "t_sig=='T5' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==11). Reproducible from daily OHLC as: prev_close<=prev_open AND close>=open AND open<prev_open AND open<prev_close AND close<prev_open AND prev_close>=close (NON-STRICT bull/bear, 99.25% agreement, 1,460 residual). Universe rows deduplicated to one per (ticker,date) with priority sp500<nasdaq<russell2k.",
+  "token_registry_hash": "08b73d474f17a778",
+  "registry_total": 172,
+  "bars_applicable_tokens": 165,
+  "frame_computed_excluded": 7,
+  "full_T5_population": 195584,
+  "T5_day_1H_observable": 123193,
+  "cross_day_observable": 122864,
+  "coverage_role": "OBSERVED_1H_SUBPOPULATION",
+  "coverage_statement": "1D T5 episodes with observable 1H microstructure \u2014 a coverage-selected subset that is substantially more liquid, higher-priced and lower-volatility than uncovered T5 episodes (median dollar volume 165x, price 4.0x, ATR%% ratio 0.51).",
+  "future_outcomes": "FORBIDDEN",
+  "artifacts": {
+    "t5_episodes.parquet": "ab5d09d89fa44da8",
+    "t5_1h_microstructure.parquet": "06445de9bd2a367b",
+    "T5_DNA_AUDIT.json": "d0854d022b904b3f",
+    "T5_COVERAGE_BIAS.json": "9c914538266199bc"
+  },
+  "feature_data_as_of": "2026-08-17",
+  "freeze_digest": "60d8e3fe88e77033"
+}

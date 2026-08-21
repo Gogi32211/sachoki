@@ -1,0 +1,28 @@
+{
+  "spec_id": "T5_15M_PRODUCTION_SE_GATE",
+  "status": "PASS",
+  "built_on": "the real historical MFE_10D multiset, once",
+  "formula": "Var_0(U_sb) = [ (N+1) - sum(t^3-t)/(N(N-1)) ] / (12 n_t n_c); V_s = sum_b w_sb^2 Var_0(U_sb)",
+  "not_covered_by": "the engine qualification used the NO-TIES variance; the capability rebuilt an SE per injected multiset. Neither certifies this one.",
+  "gates": {
+    "sd_positive": true,
+    "sd_finite": true,
+    "treated_overlap_matches_order": true,
+    "n_overlap_blocks_matches_order": true,
+    "deterministic_rebuild": true,
+    "population_hash": true,
+    "k_31583": true,
+    "threads_8": true,
+    "sd_vs_blockwise_reference": true
+  },
+  "sample_claims": 400,
+  "max_relative_diff": 9.352820513886552e-15,
+  "reference_method": "per claim, per block: tie groups recounted from the block's raw Y, weights formed per block — not read from the precomputed arrays",
+  "analytic_sd_digest": "b4e6c520f3019268",
+  "blocks_with_ties": 351,
+  "blocks": 5017,
+  "outcome_source_digest": "0a1652754e937d79",
+  "population_hash": "2a0e320a0d8e0b14",
+  "claim_order_hash": "3a0c637ae5828243",
+  "k": 31583
+}

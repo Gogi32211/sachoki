@@ -1,0 +1,7 @@
+{
+  "spec_id": "T5_CAPABILITY_SPEC_V1",
+  "action": "WITHDRAWN_BEFORE_Y_ACCESS",
+  "superseded_by": "T5_CAPABILITY_SPEC_V1_PAIRED",
+  "superseding_digest": "b87f73790705e3d5",
+  "v1_file_untouched": true
+}

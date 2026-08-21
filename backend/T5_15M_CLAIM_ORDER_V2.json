@@ -1,0 +1,30 @@
+{
+  "spec_id": "T5_15M_CLAIM_ORDER_V2",
+  "status": "SEALED — X-ONLY, NO MFE VALUE READ",
+  "scope_spec": "T5_15M_SEARCH_SCOPE_V2",
+  "scope_digest": "3140f1ab6c617318",
+  "enumeration": "T5_15M_X_ONLY_ENUMERATION_2BAR",
+  "enumeration_class_digest": "ddebd619fa19d8bf",
+  "subset_equivalence_passed": true,
+  "order_rule": "ascending estimand_membership_hash, stable — independent of the order the sweep visited token pairs",
+  "k": 31583,
+  "population": 112621,
+  "blocks": 5017,
+  "claim_order_hash": "3a0c637ae5828243",
+  "population_hash": "2a0e320a0d8e0b14",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "nnz_treated_memberships": 167502137,
+  "n_segments": 48181884,
+  "nnz_per_claim": 5303.6,
+  "nnz_per_segment": 3.48,
+  "segments_per_claim": 1525.6,
+  "support": {
+    "min": 300,
+    "q25": 759,
+    "median": 1913,
+    "q75": 5895,
+    "max": 83571
+  },
+  "y_status": "NO MFE VALUE READ; path_status_10d consulted for availability only",
+  "minutes": 1.2
+}

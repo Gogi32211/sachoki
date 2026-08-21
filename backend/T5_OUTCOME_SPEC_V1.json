@@ -1,0 +1,33 @@
+{
+  "spec_id": "T5_OUTCOME_SPEC_V1",
+  "entry_semantics": "NEXT_SESSION_OPEN_V1",
+  "signal_time": "T5 regular-session close",
+  "decision_time": "after T5 regular-session close",
+  "entry_time": "ticker's next regular session open",
+  "horizons": [
+    1,
+    3,
+    5,
+    10,
+    20
+  ],
+  "horizon_semantics": "horizon_h spans h sessions IN TOTAL, the entry session counted as the first",
+  "primary_outcome": "mfe_{h}d \u2014 MFE in percent",
+  "secondary_outcome": "mfe_atr_{h}d \u2014 MFE normalised by entry-session ATR",
+  "mae": "mae_{h}d and mae_atr_{h}d",
+  "forward_close": "ret_{h}d = close_h / entry_open - 1",
+  "exit_policy": "NONE \u2014 pure price potential. A trailing policy answers a different question and is a separate outcome family.",
+  "maturity": "global market calendar; termination is a separate status",
+  "path_status_enum": [
+    "AVAILABLE",
+    "NOT_YET_MATURE",
+    "NO_NEXT_SESSION_OPEN",
+    "TERMINAL_DURING_HORIZON",
+    "DATA_GAP",
+    "INVALID_ENTRY"
+  ],
+  "snapshot_as_of": "2026-08-17",
+  "x_freeze_digest": "60d8e3fe88e77033",
+  "exposure": "NOT_EXPOSED \u2014 no value, median, quantile or ranking may be read until SEQUENCE_GRAMMAR_V1 is frozen",
+  "spec_digest": "338d3e7fbccdeedd"
+}

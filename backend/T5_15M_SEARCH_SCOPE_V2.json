@@ -1,0 +1,108 @@
+{
+  "spec_id": "T5_15M_SEARCH_SCOPE_V2",
+  "status": "POST_1H_EXPOSURE · PRE_15M_Y · X-ONLY FEASIBILITY REVISION",
+  "supersedes_scope_of": "T5_15M_OPENING_HOUR_V1",
+  "base_spec_digest": "2871358f25d62f47",
+  "amendment_digest": "a3d0152180a7938c",
+  "decision_type": "DOCUMENTED PRE-Y FEASIBILITY DECISION — not a formal gate. No numeric feasibility threshold was registered in advance, so this artifact does NOT claim that a preregistered cutoff was crossed.",
+  "feasibility_finding": "The FULL search scope was judged operationally infeasible after X-only enumeration because the realized hypothesis space implied prohibitive memory, permutation and capability cost relative to the qualified compute architecture.",
+  "trigger": {
+    "reason": "the frozen enumeration produced ~1.03M membership-distinct final claims, ~97% of them arising from the 3-bar grammar",
+    "evidence": {
+      "source": "T5_15M_X_ONLY_ENUMERATION",
+      "syntactic_support_qualified": 1084896,
+      "two_bar": 32450,
+      "three_bar": 1052446,
+      "three_bar_share": 0.9701,
+      "k_15m_provisional": 1041704,
+      "k_15m_final": 1032323,
+      "class_digest": "f7118fc0c379133a"
+    },
+    "not_a_trigger": [
+      "1H survivor identities",
+      "1H ranking",
+      "1H theta magnitude",
+      "1H motif clusters",
+      "any 15m outcome"
+    ]
+  },
+  "primary_search": {
+    "families": [
+      "M1→M2",
+      "M2→M3",
+      "M3→M4"
+    ],
+    "rationale": "the primary localization question — in which quarter-hour of the opening hour does the change occur — is answered by the direct position-anchored transition"
+  },
+  "deferred": {
+    "families": [
+      "M1→M2→M3",
+      "M2→M3→M4"
+    ],
+    "status": "DEFERRED_FROM_PRIMARY_INFERENCE",
+    "reason": "combinatorial / compute feasibility",
+    "explicitly_not": "deleted, judged, or found wanting on evidence",
+    "no_y": "no outcome value and no descriptive outcome ranking may be produced for these families under this spec",
+    "future_paths": [
+      "a separate 3-bar research family on a different period or dataset",
+      "a pre-specified smaller token vocabulary justified on domain grounds — never derived from 1H winners",
+      "an inference architecture built for ~1M-hypothesis search"
+    ]
+  },
+  "unchanged": {
+    "support_floors": {
+      "min_episodes_treated": 300,
+      "min_episodes_control": 300,
+      "min_unique_tickers": 50,
+      "min_unique_dates": 50,
+      "max_single_date_share": 0.1,
+      "min_treated_overlap_retention": 0.8,
+      "note": "identical to SEQUENCE_GRAMMAR_V1/ESTIMAND_V1 and fixed BEFORE enumeration"
+    },
+    "tokens": "unchanged",
+    "positions": "unchanged",
+    "window": {
+      "session": "T5 session only",
+      "bars": "first 4 regular-session 15m bars (09:30-10:30 ET)",
+      "requirement": "complete opening hour required; incomplete -> excluded with a reason"
+    },
+    "estimand": {
+      "comparator": "stratified incremental median difference",
+      "block": "exact T5 date x pre-window liquidity LOW/HIGH x pre-window volatility LOW/HIGH",
+      "anchor": "T5-2 session close (20-session median dollar volume; ATR14/close)",
+      "weights": "treated-episode weights",
+      "direction": "one-sided positive",
+      "null": "Y permutation within registered blocks, one map across all claims",
+      "n_perm": 999
+    },
+    "occurrence_unit": "episode-level binary membership",
+    "adjacency": "STRICT_ADJACENT",
+    "selection_statistic": "per T5_15M_INFERENCE_AMENDMENT_V2 — bounded blockwise Mann-Whitney, analytic null variance, search-wide max Z_rank",
+    "multiplicity_family": {
+      "role": "SEPARATE_LOCALIZATION_FAMILY",
+      "may_not": "upgrade or confirm any 1H claim; a 15m result cannot change a 1H verdict",
+      "ledger": "both exposures are recorded; k is accounted per family, not pooled, ONLY because the decision rule is declared per family in advance rather than \"take whichever search looks best\""
+    },
+    "note": "no threshold was fitted to the observed X distribution"
+  },
+  "rejected_alternatives": {
+    "raise_support_floor": "would fit a threshold to the observed X distribution to reach a convenient k; outcome-free but still data-tuned",
+    "hierarchical_2_then_3": "would assume strong heredity — that a real 3-bar effect must have a detectable 2-bar parent. A->B can be null while A->B->C shifts the distribution."
+  },
+  "may_not_use": [
+    "1H survivor identity",
+    "1H ranking",
+    "1H theta magnitude",
+    "1H motif clusters"
+  ],
+  "provenance_statement": "The 15m grammar and positional design predated 1H outcome exposure. The final inferential scope was reduced post-1H-exposure but pre-15m-Y, solely on documented 15m X-only computational and multiplicity feasibility grounds.",
+  "forbidden_phrasing": "the 15m test was fully specified before the 1H result",
+  "mobility_rule": "mobility is recomputed on the 2-bar-only final population and reported. No mobility floor is invented now; none was registered in advance, so min retention below 0.90 is reported, not failed.",
+  "next_steps": [
+    "recompute the 2-bar-only funnel, exact re-equivalence, k_15m_2bar_final, mobility and gates",
+    "STOP",
+    "then: sealed claim order, q10/q50/q90 needles chosen by the frozen support rule from THAT order, 15m's own rank capability qualification"
+  ],
+  "y_status": "NO 15m Y ACCESS",
+  "scope_digest": "3140f1ab6c617318"
+}

@@ -1,0 +1,109 @@
+{
+  "spec_id": "T5_15M_INFERENCE_AMENDMENT_V2",
+  "status": "FROZEN — inferential layer only. 15m remains UN-ENUMERATED with NO Y access.",
+  "amends": "T5_15M_OPENING_HOUR_V1",
+  "amends_digest": "2871358f25d62f47",
+  "reason": "PRE-HISTORICAL-EXPOSURE INSTRUMENT QUALIFICATION",
+  "trigger": "Amendment triggered by pre-exposure failure of the V1 detector and successful pre-exposure qualification of V2; NOT by any observed 1H or 15m historical ranking.",
+  "trigger_evidence": {
+    "v1_failure": {
+      "artifact": "T5_CAPABILITY_Q50_RESULT_V1",
+      "surface": {
+        "+0.5": "0/20",
+        "+1.0": "0/20",
+        "+2.0": "0/20",
+        "+3.0": "0/20",
+        "+4.0": "0/20",
+        "+5.0": "0/20"
+      },
+      "reading": "median-support needle, +0.5..+5.0pp injections, 0/20 at every delta"
+    },
+    "v2_qualification": {
+      "artifact": "T5_CAPABILITY_RANK_V2",
+      "digest": "e16ea5101b4cbd85",
+      "inference_digest": "a3392966068fab40"
+    }
+  },
+  "supersedes": "raw-theta unstudentized maxT decision layer",
+  "unchanged": {
+    "window": {
+      "session": "T5 session only",
+      "bars": "first 4 regular-session 15m bars (09:30-10:30 ET)",
+      "requirement": "complete opening hour required; incomplete -> excluded with a reason"
+    },
+    "position_anchored": true,
+    "sequences": {
+      "two_bar": [
+        "M1->M2",
+        "M2->M3",
+        "M3->M4"
+      ],
+      "three_bar": [
+        "M1->M2->M3",
+        "M2->M3->M4"
+      ],
+      "four_bar": "DESCRIPTIVE ONLY in V1"
+    },
+    "adjacency": "STRICT_ADJACENT",
+    "element": "atomic canonical token presence (bars-source tokens)",
+    "occurrence_unit": "episode-level binary membership",
+    "support": {
+      "min_episodes_treated": 300,
+      "min_episodes_control": 300,
+      "min_unique_tickers": 50,
+      "min_unique_dates": 50,
+      "max_single_date_share": 0.1,
+      "min_treated_overlap_retention": 0.8,
+      "note": "identical to SEQUENCE_GRAMMAR_V1/ESTIMAND_V1 and fixed BEFORE enumeration"
+    },
+    "outcome": {
+      "primary": "MFE_10D %",
+      "secondary": "MFE_ATR_10D (characterization only)",
+      "entry": "NEXT_SESSION_OPEN_V1",
+      "exit_policy": "NONE — pure price potential"
+    },
+    "estimand_comparator": {
+      "comparator": "stratified incremental median difference",
+      "block": "exact T5 date x pre-window liquidity LOW/HIGH x pre-window volatility LOW/HIGH",
+      "anchor": "T5-2 session close (20-session median dollar volume; ATR14/close)",
+      "weights": "treated-episode weights",
+      "direction": "one-sided positive",
+      "null": "Y permutation within registered blocks, one map across all claims",
+      "n_perm": 999
+    },
+    "multiplicity_family": {
+      "role": "SEPARATE_LOCALIZATION_FAMILY",
+      "may_not": "upgrade or confirm any 1H claim; a 15m result cannot change a 1H verdict",
+      "ledger": "both exposures are recorded; k is accounted per family, not pooled, ONLY because the decision rule is declared per family in advance rather than \"take whichever search looks best\""
+    },
+    "forbidden_pattern": "Taking the 1H winner and then searching 15m variants around it. That is post-selection refinement, not confirmation, and this spec exists precisely so the 15m design predates knowledge of the 1H outcome.",
+    "depends_on": {
+      "x_freeze": "60d8e3fe88e77033",
+      "grammar": "ccdeb2b7a03e81d0",
+      "outcome_spec": "338d3e7fbccdeedd"
+    },
+    "source": "data/studio_15m.duckdb — 3,203 tickers (identical to the 1H store), 418 columns, 2021-07-02..2026-08-17, 26 bars/session",
+    "note": "tokens, lengths, support floors, population rules, blocks and the separate-family multiplicity role all stand exactly as frozen"
+  },
+  "changed": {
+    "selection_statistic": {
+      "block_score": "U_sb = [ #(Y_T > Y_C) + 0.5 #(Y_T = Y_C) ] / (n_t n_c)",
+      "centred": "R_sb = U_sb - 1/2",
+      "claim": "R_s = sum_b w_sb R_sb",
+      "variance": "V_s = sum_b w_sb^2 Var_0(U_sb), Var_0(U_sb) = [ (N+1) - sum(t^3-t)/(N(N-1)) ] / (12 n_t n_c)",
+      "standardized": "Z_rank_s = R_s / sqrt(V_s)",
+      "denominator_rule": "registered once from the frozen 15m population; never re-estimated per delta or from an injected vector"
+    },
+    "multiplicity_statistic": "max_s Z_rank_s over the 15m family's own k, with one permutation mapping applied to all claims",
+    "promotion_rule": "observed Z_rank_s > registered p95( max-null Z_rank ), one-sided positive; a large raw theta cannot substitute",
+    "effect_size_reporting": "raw theta in MFE_10D percentage points, reported as a SEPARATE column from evidence_rank; never interchanged"
+  },
+  "still_required_before_15m_runs": [
+    "the 15m family's OWN rank capability qualification — the 1H needles qualify the 1H family only, and the 15m population, blocks and k all differ",
+    "1H primary result sealed, per the unchanged y_exposure clause"
+  ],
+  "y_exposure": "FORBIDDEN until the 1H primary result is sealed",
+  "y_status_15m": "NOT ENUMERATED, NO Y ACCESS",
+  "y_status_1h": "HISTORICAL RANKING NOT COMPUTED, NOT EXPOSED at the time of this amendment",
+  "amendment_digest": "a3d0152180a7938c"
+}

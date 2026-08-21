@@ -1,0 +1,54 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_DATA_VINTAGE_V2",
+  "purpose": "attests the outcome vintage the in-flight capability rows were computed on. The ledger schema at launch carried no outcome_source_digest, so a resume could not have told two data vintages apart. This file supplies that missing attestation for the rows already written; every row written after the patch carries the digest inline.",
+  "outcome_source": "t5_episode_outcomes.parquet",
+  "outcome_source_digest": "0a1652754e937d79",
+  "outcome_mtime": "2026-08-18 17:46:10",
+  "outcome_bytes": 44573733,
+  "run_started": "2026-08-20 16:47 +04",
+  "run_pid": 58567,
+  "nightly_db_update_finished": "2026-08-20 13:50:20 +04",
+  "untouched_by_nightly": "the nightly update writes the DuckDB stores; this derived sidecar predates it by two days and was not rewritten",
+  "population_hash": "2a0e320a0d8e0b14",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "claim_order_hash": "3a0c637ae5828243",
+  "capability_spec_digest": "918d274553594289",
+  "supersedes": "T5_15M_CAPABILITY_DATA_VINTAGE",
+  "supersedes_digest": "1d9a03aa3d86fe62",
+  "applies_to": "EVERY row produced by pid 58567, not merely the rows that existed when V1 was sealed. The running process carries the pre-patch code, so its later checkpoints are also legacy-format.",
+  "scope_is_checkable": "the earlier launch (pid 58204) raised at the preflight gate, which precedes the cell loop, and wrote no ledger; every row in t5_15m_capability_ledger.parquet therefore belongs to pid 58567",
+  "legacy_row_format": "no inline outcome_source_digest / population_hash / block_assignment_hash",
+  "patch_scope": {
+    "touched": [
+      "ledger columns",
+      "resume vintage check",
+      "ART.file_digest"
+    ],
+    "not_touched": [
+      "kernel",
+      "analytic SE",
+      "injection path",
+      "permutation stream",
+      "RNG seeds",
+      "delta grid",
+      "worlds",
+      "detection rule"
+    ],
+    "consequence": "legacy and post-patch rows are the same statistical object"
+  },
+  "legacy_row_attribution_method": "EXTERNAL_PROCESS_EXCLUSIVITY_ASSERTION",
+  "legacy_row_attribution_verifiable_from_row": false,
+  "sole_writer_pid": 58567,
+  "known_nonwriter_pid": 58204,
+  "resume_contract": {
+    "legacy_row_eligibility": [
+      "a valid data-vintage attestation exists",
+      "the attested outcome_source_digest equals the current source digest",
+      "population_hash, block_assignment_hash, claim_order_hash and the spec digest all match",
+      "the row lies within the ledger region covered by the attestation",
+      "process exclusivity for that region is established externally: pid 58204 produced no rows and pid 58567 was the sole writer"
+    ],
+    "attribution_caveat": "A legacy row carries no embedded run_id and therefore cannot be cryptographically or field-wise attributed to a specific process. The process attribution in item 5 is an AUDITED PROVENANCE ASSERTION, not a property verified from the legacy row itself.",
+    "new_row": "must carry outcome_source_digest, population_hash and block_assignment_hash inline, and those ARE checked from the row"
+  }
+}

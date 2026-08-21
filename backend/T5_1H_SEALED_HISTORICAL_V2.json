@@ -1,0 +1,81 @@
+{
+  "spec_id": "T5_1H_SEALED_HISTORICAL_V2",
+  "status": "SEALED \u2014 NOT EXPOSED",
+  "inference_spec": "SEQUENCE_INFERENCE_V2",
+  "inference_digest": "a3392966068fab40",
+  "capability_spec": "T5_CAPABILITY_RANK_V2",
+  "capability_digest": "e16ea5101b4cbd85",
+  "estimand_digest": "16673802bb2b6159",
+  "population_hash": "e500f6f158e23719",
+  "claim_order_hash": "8286de69150fa226",
+  "block_assignment_hash": "8f786b5cdd63e815",
+  "n_population": 118849,
+  "n_claims": 840,
+  "n_permutations": 999,
+  "n_blocks": 5010,
+  "observed_shapes": {
+    "Z_rank_obs": [
+      840
+    ],
+    "R_rank_obs": [
+      840
+    ],
+    "theta_raw_obs": [
+      840
+    ],
+    "weighted_treated_median": [
+      840
+    ],
+    "weighted_control_median": [
+      840
+    ]
+  },
+  "permutation_shapes": {
+    "Z_rank_perm": [
+      999,
+      840
+    ],
+    "theta_perm": [
+      999,
+      840
+    ]
+  },
+  "rng": {
+    "null_stream": "[20260905]+[p], p in 0..998",
+    "distinct_mappings": 999
+  },
+  "integrity": {
+    "identity_gates": {
+      "estimand_digest": true,
+      "inference_v2_digest": true,
+      "capability_v2_digest": true,
+      "population_hash": true,
+      "claim_order_hash": true,
+      "block_assignment_hash": true,
+      "k_840": true,
+      "registered_SE_unchanged": true,
+      "capability_qualified": true
+    },
+    "finite_values": true,
+    "null_matrix_complete": true,
+    "rng_streams_unique": true,
+    "engine_equivalence": "JitTheta6 gated to atol 1e-10 against reference",
+    "rank_identity": "rank-sum identity gated in RANK_CAPABILITY_ENGINE_QUALIFICATION"
+  },
+  "artifact_hash": "39b2203ecc90439c",
+  "artifacts": {
+    "observed": "t5_hist_observed.parquet",
+    "Z_rank_perm": "t5_hist_Z_rank_perm.parquet",
+    "theta_perm": "t5_hist_theta_perm.parquet"
+  },
+  "theta_perm_note": "stored for reuse; NO registered decision consults it. Promotion is decided by max Z_rank alone.",
+  "contains_but_does_not_report": [
+    "claim ranking",
+    "observed maxima",
+    "band",
+    "survivor count",
+    "any claim's Z or theta"
+  ],
+  "exposure": "REQUIRES A SEPARATE EXPOSE COMMAND",
+  "minutes": 9.5
+}

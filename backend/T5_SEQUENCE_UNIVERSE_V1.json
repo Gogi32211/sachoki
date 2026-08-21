@@ -1,0 +1,490 @@
+{
+  "spec_digest": "ccdeb2b7a03e81d0",
+  "universe": {
+    "T5_INTRADAY|2": {
+      "adjacencies": 710307,
+      "syntactic": 24964,
+      "stage1_candidates": 16546,
+      "support_ok": 152,
+      "distinct": 148,
+      "aliases": 4,
+      "support_quantiles": {
+        "q10": 465,
+        "q25": 931,
+        "median": 3718,
+        "q75": 9857,
+        "q90": 16466
+      }
+    },
+    "T5_INTRADAY|3": {
+      "adjacencies": 591541,
+      "syntactic": 3944312,
+      "stage1_candidates": 8220,
+      "support_ok": 140,
+      "distinct": 137,
+      "aliases": 3,
+      "support_quantiles": {
+        "q10": 337,
+        "q25": 418,
+        "median": 1024,
+        "q75": 2535,
+        "q90": 3850
+      }
+    },
+    "PREV_INTRADAY|2": {
+      "adjacencies": 711825,
+      "syntactic": 24964,
+      "stage1_candidates": 16668,
+      "support_ok": 153,
+      "distinct": 148,
+      "aliases": 5,
+      "support_quantiles": {
+        "q10": 362,
+        "q25": 671,
+        "median": 1998,
+        "q75": 6747,
+        "q90": 11130
+      }
+    },
+    "PREV_INTRADAY|3": {
+      "adjacencies": 592758,
+      "syntactic": 3944312,
+      "stage1_candidates": 6948,
+      "support_ok": 164,
+      "distinct": 156,
+      "aliases": 8,
+      "support_quantiles": {
+        "q10": 310,
+        "q25": 331,
+        "median": 410,
+        "q75": 1008,
+        "q90": 1788
+      }
+    },
+    "CROSS_DAY|2": {
+      "adjacencies": 117221,
+      "syntactic": 24964,
+      "stage1_candidates": 10670,
+      "support_ok": 140,
+      "distinct": 135,
+      "aliases": 5,
+      "support_quantiles": {
+        "q10": 341,
+        "q25": 385,
+        "median": 557,
+        "q75": 810,
+        "q90": 1244
+      }
+    },
+    "CROSS_DAY|3": {
+      "adjacencies": 234442,
+      "syntactic": 3944312,
+      "stage1_candidates": 6483,
+      "support_ok": 144,
+      "distinct": 139,
+      "aliases": 5,
+      "support_quantiles": {
+        "q10": 312,
+        "q25": 333,
+        "median": 390,
+        "q75": 510,
+        "q90": 642
+      }
+    }
+  },
+  "top_sequences": {
+    "T5_INTRADAY|2": [
+      {
+        "sequence": "L5_R2X\u2192T2",
+        "episodes": 33123
+      },
+      {
+        "sequence": "AD_FRESH\u2192T2",
+        "episodes": 30407
+      },
+      {
+        "sequence": "CONSO\u2192T1",
+        "episodes": 28722
+      },
+      {
+        "sequence": "REG_D\u2192T1",
+        "episodes": 28153
+      },
+      {
+        "sequence": "L5_PS\u2192T1",
+        "episodes": 26901
+      },
+      {
+        "sequence": "AD_2\u2192T2",
+        "episodes": 21417
+      },
+      {
+        "sequence": "AD_CLUSTER\u2192T2",
+        "episodes": 21145
+      },
+      {
+        "sequence": "CL_O\u2192T1",
+        "episodes": 20672
+      },
+      {
+        "sequence": "VOL_L\u2192T1",
+        "episodes": 18383
+      },
+      {
+        "sequence": "GR_N\u2192T1",
+        "episodes": 18118
+      },
+      {
+        "sequence": "L5_R2L\u2192T1",
+        "episodes": 18083
+      },
+      {
+        "sequence": "NE_N\u2192T1",
+        "episodes": 17872
+      }
+    ],
+    "T5_INTRADAY|3": [
+      {
+        "sequence": "L5_R2X\u2192T2\u2192T2",
+        "episodes": 8282
+      },
+      {
+        "sequence": "REG_D\u2192T1\u2192T2",
+        "episodes": 6928
+      },
+      {
+        "sequence": "CONSO\u2192T1\u2192T2",
+        "episodes": 6863
+      },
+      {
+        "sequence": "L5_PS\u2192T1\u2192T2",
+        "episodes": 6714
+      },
+      {
+        "sequence": "AD_FRESH\u2192T2\u2192T2",
+        "episodes": 6685
+      },
+      {
+        "sequence": "CL_O\u2192T1\u2192T2",
+        "episodes": 4987
+      },
+      {
+        "sequence": "L5_R2L\u2192T1\u2192T2",
+        "episodes": 4758
+      },
+      {
+        "sequence": "K1\u2192T1\u2192T2",
+        "episodes": 4409
+      },
+      {
+        "sequence": "L5\u2192T1\u2192T2",
+        "episodes": 4337
+      },
+      {
+        "sequence": "AD_2\u2192T2\u2192T2",
+        "episodes": 4234
+      },
+      {
+        "sequence": "GR_N\u2192T1\u2192T2",
+        "episodes": 4207
+      },
+      {
+        "sequence": "VOL_L\u2192T1\u2192T2",
+        "episodes": 4163
+      }
+    ],
+    "PREV_INTRADAY|2": [
+      {
+        "sequence": "CONSO\u2192T1",
+        "episodes": 22116
+      },
+      {
+        "sequence": "REG_D\u2192T1",
+        "episodes": 17415
+      },
+      {
+        "sequence": "CL_O\u2192T1",
+        "episodes": 16988
+      },
+      {
+        "sequence": "L5_PS\u2192T1",
+        "episodes": 15997
+      },
+      {
+        "sequence": "GR_N\u2192T1",
+        "episodes": 14794
+      },
+      {
+        "sequence": "VOL_L\u2192T1",
+        "episodes": 14113
+      },
+      {
+        "sequence": "L5_R2L\u2192T1",
+        "episodes": 13346
+      },
+      {
+        "sequence": "NE_N\u2192T1",
+        "episodes": 13038
+      },
+      {
+        "sequence": "WK_D\u2192T1",
+        "episodes": 12859
+      },
+      {
+        "sequence": "L34\u2192T2",
+        "episodes": 11915
+      },
+      {
+        "sequence": "L5\u2192T1",
+        "episodes": 11878
+      },
+      {
+        "sequence": "T9\u2192T2",
+        "episodes": 11483
+      }
+    ],
+    "PREV_INTRADAY|3": [
+      {
+        "sequence": "CONSO\u2192T1\u2192T2",
+        "episodes": 3573
+      },
+      {
+        "sequence": "REG_D\u2192T1\u2192T2",
+        "episodes": 2963
+      },
+      {
+        "sequence": "CL_O\u2192T1\u2192T2",
+        "episodes": 2760
+      },
+      {
+        "sequence": "L5_PS\u2192T1\u2192T2",
+        "episodes": 2690
+      },
+      {
+        "sequence": "GR_N\u2192T1\u2192T2",
+        "episodes": 2429
+      },
+      {
+        "sequence": "L5_R2L\u2192T1\u2192T2",
+        "episodes": 2322
+      },
+      {
+        "sequence": "VOL_L\u2192T1\u2192T2",
+        "episodes": 2310
+      },
+      {
+        "sequence": "T9\u2192T2\u2192T2",
+        "episodes": 2183
+      },
+      {
+        "sequence": "WK_D\u2192T1\u2192T2",
+        "episodes": 2094
+      },
+      {
+        "sequence": "L5\u2192T1\u2192T2",
+        "episodes": 2087
+      },
+      {
+        "sequence": "NE_N\u2192T1\u2192T2",
+        "episodes": 2085
+      },
+      {
+        "sequence": "K1\u2192T1\u2192T2",
+        "episodes": 1887
+      }
+    ],
+    "CROSS_DAY|2": [
+      {
+        "sequence": "L6\u2192T3",
+        "episodes": 4801
+      },
+      {
+        "sequence": "L46x\u2192T3",
+        "episodes": 4801
+      },
+      {
+        "sequence": "CL_O\u2192T3",
+        "episodes": 4591
+      },
+      {
+        "sequence": "WK_D\u2192T3",
+        "episodes": 3883
+      },
+      {
+        "sequence": "L5_R2L\u2192T3",
+        "episodes": 3413
+      },
+      {
+        "sequence": "BW_J\u2192T4",
+        "episodes": 2680
+      },
+      {
+        "sequence": "T9\u2192T6",
+        "episodes": 1758
+      },
+      {
+        "sequence": "CONSO\u2192T2",
+        "episodes": 1694
+      },
+      {
+        "sequence": "Z2\u2192T3",
+        "episodes": 1685
+      },
+      {
+        "sequence": "PEN_P\u2192T3",
+        "episodes": 1604
+      },
+      {
+        "sequence": "L3\u2192T2",
+        "episodes": 1526
+      },
+      {
+        "sequence": "GR_N\u2192T2",
+        "episodes": 1460
+      }
+    ],
+    "CROSS_DAY|3": [
+      {
+        "sequence": "L6\u2192T3\u2192T2",
+        "episodes": 1098
+      },
+      {
+        "sequence": "L46x\u2192T3\u2192T2",
+        "episodes": 1098
+      },
+      {
+        "sequence": "CL_O\u2192T3\u2192T2",
+        "episodes": 1064
+      },
+      {
+        "sequence": "WK_D\u2192T3\u2192T2",
+        "episodes": 884
+      },
+      {
+        "sequence": "BW_BB\u2192T4\u2192L2",
+        "episodes": 865
+      },
+      {
+        "sequence": "L5_R2L\u2192T3\u2192T2",
+        "episodes": 813
+      },
+      {
+        "sequence": "WYC_MKDN\u2192T2\u2192T6",
+        "episodes": 747
+      },
+      {
+        "sequence": "Z7\u2192T4\u2192L2",
+        "episodes": 745
+      },
+      {
+        "sequence": "L4\u2192T2\u2192T6",
+        "episodes": 695
+      },
+      {
+        "sequence": "K1\u2192T2\u2192T6",
+        "episodes": 668
+      },
+      {
+        "sequence": "D2\u2192T3\u2192L2",
+        "episodes": 667
+      },
+      {
+        "sequence": "S3U\u2192T2\u2192T12",
+        "episodes": 666
+      }
+    ]
+  },
+  "top_single_tokens": [
+    {
+      "token": "CONSO",
+      "family": "STATE_FLAG",
+      "bar_count": 1602804,
+      "bar_share": 0.965565
+    },
+    {
+      "token": "REG_D",
+      "family": "PHYS_REGIME",
+      "bar_count": 1287075,
+      "bar_share": 0.775363
+    },
+    {
+      "token": "L5_PS",
+      "family": "LINE5",
+      "bar_count": 1251176,
+      "bar_share": 0.753736
+    },
+    {
+      "token": "GR_N",
+      "family": "GAPRANGE",
+      "bar_count": 1034634,
+      "bar_share": 0.623287
+    },
+    {
+      "token": "NE_N",
+      "family": "SUFFIX_NE",
+      "bar_count": 890714,
+      "bar_share": 0.536586
+    },
+    {
+      "token": "VOL_L",
+      "family": "VOLUME_BUCKET",
+      "bar_count": 888552,
+      "bar_share": 0.535284
+    },
+    {
+      "token": "K0",
+      "family": "PHYS_STRETCH",
+      "bar_count": 839496,
+      "bar_share": 0.505731
+    },
+    {
+      "token": "PH_MKDN",
+      "family": "WYC_PHASE",
+      "bar_count": 837497,
+      "bar_share": 0.504527
+    },
+    {
+      "token": "WYC_MKDN",
+      "family": "PHYS_WYC",
+      "bar_count": 823620,
+      "bar_share": 0.496167
+    },
+    {
+      "token": "WYC_MARKUP",
+      "family": "PHYS_WYC",
+      "bar_count": 794762,
+      "bar_share": 0.478782
+    },
+    {
+      "token": "PH_MARKUP",
+      "family": "WYC_PHASE",
+      "bar_count": 794331,
+      "bar_share": 0.478523
+    },
+    {
+      "token": "NE_E",
+      "family": "SUFFIX_NE",
+      "bar_count": 768773,
+      "bar_share": 0.463126
+    },
+    {
+      "token": "C1",
+      "family": "PHYS_LANDSCAPE",
+      "bar_count": 741873,
+      "bar_share": 0.446921
+    },
+    {
+      "token": "K1",
+      "family": "PHYS_STRETCH",
+      "bar_count": 738177,
+      "bar_share": 0.444694
+    },
+    {
+      "token": "RN",
+      "family": "PHYS_IMPACT",
+      "bar_count": 708222,
+      "bar_share": 0.426649
+    }
+  ],
+  "seconds": 973.1
+}

@@ -1,0 +1,100 @@
+{
+  "spec_id": "T5_CAPABILITY_SPEC_V1_PAIRED",
+  "status": "FROZEN",
+  "supersedes": "T5_CAPABILITY_SPEC_V1",
+  "v1_status": "WITHDRAWN_BEFORE_Y_ACCESS",
+  "v1_digest": "ccd16b23945d262a",
+  "withdrawal_reason": "COMPUTATIONAL_FEASIBILITY. 360 independent cell-worlds x 999 inner permutations is ~4-7 single-thread days. The paired design cuts Monte-Carlo noise between deltas and shares the expensive indexing, without changing the detection rule.",
+  "what_is_inherited_unchanged": {
+    "estimand_digest": "16673802bb2b6159",
+    "claim_order_hash": "8286de69150fa226",
+    "population_hash": "e500f6f158e23719",
+    "block_assignment_hash": "8f786b5cdd63e815",
+    "k": 840,
+    "population": 118849,
+    "needles": {
+      "q10": {
+        "rank_index": 83,
+        "sealed_j": 726,
+        "membership_hash": "db90a1593f6dffe4",
+        "claim": "T5_INTRADAY|2|G6\u2192Z9",
+        "aliases": "",
+        "treated_overlap": 324
+      },
+      "q50": {
+        "rank_index": 419,
+        "sealed_j": 692,
+        "membership_hash": "d501e7cbb9a901c3",
+        "claim": "CROSS_DAY|2|AD_FRESH\u2192T2",
+        "aliases": "",
+        "treated_overlap": 682
+      },
+      "q90": {
+        "rank_index": 755,
+        "sealed_j": 248,
+        "membership_hash": "4da2b478fd9264a9",
+        "claim": "T5_INTRADAY|2|PEN_P\u2192T1",
+        "aliases": "",
+        "treated_overlap": 7134
+      }
+    },
+    "needle_claim_ids": {
+      "q10": "T5_INTRADAY|2|G6\u2192Z9",
+      "q50": "CROSS_DAY|2|AD_FRESH\u2192T2",
+      "q90": "T5_INTRADAY|2|PEN_P\u2192T1"
+    },
+    "needle_support_values": {
+      "q10": 324,
+      "q50": 682,
+      "q90": 7134
+    },
+    "delta_grid_pp": [
+      0.5,
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0
+    ],
+    "worlds_per_cell": 20,
+    "n_perm_inner": 999,
+    "base_noise": "the real mfe_10d vector, permuted within the registered blocks \u2014 real scale, tails, date shocks and heteroskedasticity kept; sequence-outcome association destroyed",
+    "injection": "delta added ONLY to the frozen needle's membership, inside its overlap blocks",
+    "detection": "theta_needle > p95 of that world's max-null across all 840 claims",
+    "not_detection": [
+      "positive theta",
+      "top-K rank",
+      "best claim in world",
+      "nominal significance"
+    ],
+    "reporting": "measured finite-suite detection rate \u2014 never 'true power'",
+    "may_not": [
+      "change k=840",
+      "change support floors",
+      "change the grammar",
+      "change the null",
+      "remove or reweight claims",
+      "become a promotion route for any claim"
+    ],
+    "interpretation_contract": "VALIDITY != SENSITIVITY != HISTORICAL RESULT"
+  },
+  "pairing": {
+    "outer": "ONE outer base world per (needle, world_index): default_rng([20260820, needle_index, world_index]). The SAME base world is used for all six deltas of that needle/world.",
+    "inner": "ONE set of 999 inner permutation mappings per (needle, world_index): default_rng([20260821, needle_index, world_index, perm_index]). The SAME mappings are applied at every delta.",
+    "band": "theta_perm[999 x 840] and max_null[999] are RECOMPUTED separately for every delta, because the injected Y differs by delta and the permuted maxima may too. SHARED RANDOMNESS, SEPARATE BANDS \u2014 never one band reused across deltas."
+  },
+  "logical_band_count": 360,
+  "shared_permutation_mapping_sets": 60,
+  "per_cell_artifact": [
+    "needle",
+    "delta_pp",
+    "world_id",
+    "needle_theta",
+    "band_p95",
+    "detected",
+    "inner_max_null_hash"
+  ],
+  "aggregate_artifact": "detection surface: detected/20 per (needle, delta)",
+  "y_status": "may read mfe_10d for compute; historical ranking stays unexposed",
+  "spec_digest": "b87f73790705e3d5"
+}

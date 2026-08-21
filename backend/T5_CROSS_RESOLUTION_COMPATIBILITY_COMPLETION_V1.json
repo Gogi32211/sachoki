@@ -1,0 +1,94 @@
+{
+  "spec_id": "T5_CROSS_RESOLUTION_COMPATIBILITY_COMPLETION_V1",
+  "status": "POST_EXPOSURE_DESCRIPTIVE",
+  "promotion": "UNCHANGED",
+  "completes": "T5_CROSS_RESOLUTION_COMPATIBILITY_V1",
+  "completes_digest": "24a70c85aa6f9d71",
+  "why": "the earlier run stored only the top 40 pairs by Jaccard, which left two of the four 1H clusters with no visible distribution and made the verdict unwritable",
+  "pairs_stored": 684,
+  "pairs_expected": 684,
+  "reporting_hierarchy": {
+    "primary": [
+      "P(15m | 1H)",
+      "observed/expected"
+    ],
+    "secondary": [
+      "P(1H | 15m)"
+    ],
+    "geometry_context": [
+      "Jaccard"
+    ],
+    "why": "a 1H cluster holds 311-5,451 episodes while a 15m medoid can cover 10-30% of U; at that asymmetry high containment with low Jaccard is normal, so Jaccard must not lead"
+  },
+  "two_baselines": {
+    "independence": "observed/expected, the ratio reported per pair",
+    "own_typical": "that cluster's median o/e across its 171 candidate medoids",
+    "earlier_error": "the first report called a 21-29x independence ratio '21-29x its own baseline'. Those are different denominators and both are now reported per cluster."
+  },
+  "common_universe": 111788,
+  "per_cluster": [
+    {
+      "cluster_1h": 0,
+      "representative": "T5_INTRADAY|2|BUY→L5",
+      "n_1h_in_U": 311,
+      "max_oe": 16.866,
+      "median_oe": 1.869,
+      "p90_oe": 6.054,
+      "top_over_median": 9.02,
+      "top_pair_percentile": 100.0,
+      "max_p15_given_1h": 0.4469,
+      "argmax_oe_medoid": "M1→M2|2|VA→REG_U",
+      "argmax_oe_prevalence_15m": 0.00305,
+      "argmax_oe_p15_given_1h": 0.0514,
+      "max_jaccard": 0.0279
+    },
+    {
+      "cluster_1h": 1,
+      "representative": "CROSS_DAY|2|VOL_W→L46x",
+      "n_1h_in_U": 566,
+      "max_oe": 29.392,
+      "median_oe": 3.849,
+      "p90_oe": 21.744,
+      "top_over_median": 7.64,
+      "top_pair_percentile": 100.0,
+      "max_p15_given_1h": 0.7085,
+      "argmax_oe_medoid": "M1→M2|2|VA→VOL_B",
+      "argmax_oe_prevalence_15m": 0.00643,
+      "argmax_oe_p15_given_1h": 0.189,
+      "max_jaccard": 0.1017
+    },
+    {
+      "cluster_1h": 2,
+      "representative": "T5_INTRADAY|2|L43→T2",
+      "n_1h_in_U": 5451,
+      "max_oe": 5.075,
+      "median_oe": 2.189,
+      "p90_oe": 3.566,
+      "top_over_median": 2.32,
+      "top_pair_percentile": 100.0,
+      "max_p15_given_1h": 0.4634,
+      "argmax_oe_medoid": "M1→M2|2|VOL5X→WK_U",
+      "argmax_oe_prevalence_15m": 0.00351,
+      "argmax_oe_p15_given_1h": 0.0178,
+      "max_jaccard": 0.1236
+    },
+    {
+      "cluster_1h": 3,
+      "representative": "PREV_INTRADAY|2|BUY→Z2",
+      "n_1h_in_U": 414,
+      "max_oe": 10.375,
+      "median_oe": 1.96,
+      "p90_oe": 4.193,
+      "top_over_median": 5.29,
+      "top_pair_percentile": 100.0,
+      "max_p15_given_1h": 0.3744,
+      "argmax_oe_medoid": "M1→M2|2|VA→WYC_MARKUP",
+      "argmax_oe_prevalence_15m": 0.00908,
+      "argmax_oe_p15_given_1h": 0.0942,
+      "max_jaccard": 0.0281
+    }
+  ],
+  "artifact": "t5_cross_resolution_pairs_all.parquet",
+  "cache": "t5_1h_survivor_membership.parquet",
+  "minutes": 1.1
+}

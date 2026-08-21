@@ -1,0 +1,27 @@
+{
+  "spec_id": "T5_CAPABILITY_Q50_V1",
+  "spec_digest": "72e5e5e3f6e8f287",
+  "needle": "CROSS_DAY|2|AD_FRESH\u2192T2",
+  "needle_support": 682,
+  "k": 840,
+  "n_perm": 999,
+  "worlds": 20,
+  "surface": {
+    "+0.5": "0/20",
+    "+1.0": "0/20",
+    "+2.0": "0/20",
+    "+3.0": "0/20",
+    "+4.0": "0/20",
+    "+5.0": "0/20"
+  },
+  "scope": "At approximately median claim support (treated n=682), the registered search has the measured empirical-noise detection profile below. Sensitivity at low and high support was NOT qualified pre-exposure.",
+  "forbidden_claim": "T5 sequence miner is well powered",
+  "deferred": {
+    "q10": "DEFERRED_COMPUTE_STRESS_CHARACTERIZATION",
+    "q90": "DEFERRED_COMPUTE_STRESS_CHARACTERIZATION",
+    "rule": "if completed BEFORE historical EXPOSE they extend the pre-exposure qualification; if run after, they are POST-EXPOSURE SENSITIVITY CHARACTERIZATION and cannot strengthen it"
+  },
+  "engine": "JitTheta6 (equivalence-gated, 32.7x)",
+  "historical_ranking": "NOT COMPUTED, NOT EXPOSED",
+  "hours": 8.3
+}

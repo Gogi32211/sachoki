@@ -1,0 +1,67 @@
+{
+  "spec_id": "T5_15M_OPENING_HOUR_V1",
+  "status": "FROZEN_SPEC_ONLY \u2014 not enumerated, no Y access, no results",
+  "question": "How does the T5 opening hour form at 15-minute resolution?",
+  "not_the_question": "Repeat the 1H sequence miner four times finer.",
+  "rationale": "The 1H work localized the signal: 1H T5 at h1 is +0.21..+0.31 against control while h2..h7 sit within +-0.009. A full-day 15m window would instead saturate \u2014 26 bars give 25 adjacencies, and episode-level \"ever occurred\" membership explodes: a claim at 28% prevalence on 1H reaches ~75% at 15m, which stops being a sequence question and becomes a marginal-token one. k would grow while the number of distinct ideas would not.",
+  "window": {
+    "session": "T5 session only",
+    "bars": "first 4 regular-session 15m bars (09:30-10:30 ET)",
+    "requirement": "complete opening hour required; incomplete -> excluded with a reason"
+  },
+  "position_anchored": true,
+  "position_anchoring_note": "Sequences are ANCHORED to their position, so M1->M2 and M2->M3 are different claims. This is required by the question \u2014 \"does the reversal happen in the first quarter-hour or the second\" is unanswerable with position-agnostic membership. Consequence, declared now: the syntactic space is ~3x the position-agnostic one for 2-bar and ~2x for 3-bar.",
+  "sequences": {
+    "two_bar": [
+      "M1->M2",
+      "M2->M3",
+      "M3->M4"
+    ],
+    "three_bar": [
+      "M1->M2->M3",
+      "M2->M3->M4"
+    ],
+    "four_bar": "DESCRIPTIVE ONLY in V1"
+  },
+  "adjacency": "STRICT_ADJACENT",
+  "element": "atomic canonical token presence (bars-source tokens)",
+  "occurrence_unit": "episode-level binary membership",
+  "support": {
+    "min_episodes_treated": 300,
+    "min_episodes_control": 300,
+    "min_unique_tickers": 50,
+    "min_unique_dates": 50,
+    "max_single_date_share": 0.1,
+    "min_treated_overlap_retention": 0.8,
+    "note": "identical to SEQUENCE_GRAMMAR_V1/ESTIMAND_V1 and fixed BEFORE enumeration"
+  },
+  "outcome": {
+    "primary": "MFE_10D %",
+    "secondary": "MFE_ATR_10D (characterization only)",
+    "entry": "NEXT_SESSION_OPEN_V1",
+    "exit_policy": "NONE \u2014 pure price potential"
+  },
+  "estimand": {
+    "comparator": "stratified incremental median difference",
+    "block": "exact T5 date x pre-window liquidity LOW/HIGH x pre-window volatility LOW/HIGH",
+    "anchor": "T5-2 session close (20-session median dollar volume; ATR14/close)",
+    "weights": "treated-episode weights",
+    "direction": "one-sided positive",
+    "null": "Y permutation within registered blocks, one map across all claims",
+    "n_perm": 999
+  },
+  "multiplicity": {
+    "role": "SEPARATE_LOCALIZATION_FAMILY",
+    "may_not": "upgrade or confirm any 1H claim; a 15m result cannot change a 1H verdict",
+    "ledger": "both exposures are recorded; k is accounted per family, not pooled, ONLY because the decision rule is declared per family in advance rather than \"take whichever search looks best\""
+  },
+  "forbidden_pattern": "Taking the 1H winner and then searching 15m variants around it. That is post-selection refinement, not confirmation, and this spec exists precisely so the 15m design predates knowledge of the 1H outcome.",
+  "y_exposure": "FORBIDDEN until the 1H primary result is sealed",
+  "depends_on": {
+    "x_freeze": "60d8e3fe88e77033",
+    "grammar": "ccdeb2b7a03e81d0",
+    "outcome_spec": "338d3e7fbccdeedd"
+  },
+  "source": "data/studio_15m.duckdb \u2014 3,203 tickers (identical to the 1H store), 418 columns, 2021-07-02..2026-08-17, 26 bars/session",
+  "spec_digest": "2871358f25d62f47"
+}

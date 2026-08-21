@@ -1,0 +1,57 @@
+{
+  "spec_id": "T5_15M_HISTORICAL_SPEC",
+  "status": "FROZEN_BEFORE_COMPUTE",
+  "population_hash": "2a0e320a0d8e0b14",
+  "claim_order_hash": "3a0c637ae5828243",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "k": 31583,
+  "statistic": "one-sided Z_rank = R_s / sqrt(V_s), bounded blockwise Mann-Whitney",
+  "direction": "one-sided positive",
+  "multiplicity": "search-wide max Z_rank over all k claims, one permutation mapping applied to every claim",
+  "n_perm": 999,
+  "promotion": "Z_rank_obs > p95( max-null Z_rank ) from THIS run's own permutations, STRICTLY greater",
+  "band_note": "the capability's ~4.60 is calibration and sanity only, never the cutoff",
+  "primary_outcome": "MFE_10D",
+  "raw_theta": "magnitude only; never a promotion criterion",
+  "mfe_atr": "registered secondary characterization only; cannot alter promotion",
+  "theta_scope": "computed for survivors plus the top 500 by Z_rank. All k would need 1,481,544,346 control indices (5.9 GB) and 48.2M median pairs — a new unvalidated kernel. Stated limit, not a silent one.",
+  "capability": {
+    "artifact": "T5_15M_CAPABILITY_RANK_V2_RESULT",
+    "digest": "5107997534a24ac2",
+    "surface": {
+      "q10": {
+        "+0.5": "3/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q50": {
+        "+0.5": "19/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q90": {
+        "+0.5": "20/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      }
+    },
+    "scope": "Under the registered homogeneous additive MFE-shift alternative, the q50 needle detected +1pp in 20/20 finite capability worlds. Measured finite-suite sensitivity, NOT guaranteed power against any real +1pp effect."
+  },
+  "se_gate": "88fef48e1ba2538a",
+  "outcome_source_digest": "0a1652754e937d79",
+  "forbidden_claims": [
+    "the 15m result confirms or validates any 1H claim",
+    "15m is an independent replication",
+    "a surviving claim is a 15m edge"
+  ],
+  "y_status": "HISTORICAL 15m RANKING NOT COMPUTED AT THE TIME OF THIS FREEZE"
+}

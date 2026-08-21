@@ -1,0 +1,179 @@
+{
+  "spec_id": "T5_15M_CAPABILITY_RANK_V2_RESULT",
+  "capability_spec": "918d274553594289",
+  "claim_order_hash": "3a0c637ae5828243",
+  "k": 31583,
+  "worlds": 20,
+  "n_perm": 999,
+  "needles": {
+    "q10": {
+      "sealed_j": 27804,
+      "representative": "M2→M3|2|SVS→VBO_UP",
+      "support": 438
+    },
+    "q50": {
+      "sealed_j": 16847,
+      "representative": "M1→M2|2|WYC_MARKUP→T3",
+      "support": 1913
+    },
+    "q90": {
+      "sealed_j": 4401,
+      "representative": "M2→M3|2|L2→L5_R2X",
+      "support": 14827
+    }
+  },
+  "surface": {
+    "q10": {
+      "+0.5": "3/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q50": {
+      "+0.5": "19/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q90": {
+      "+0.5": "20/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    }
+  },
+  "null_band_summary": {
+    "q10": {
+      "+0.5": {
+        "p95_median": 4.611,
+        "p95_min": 4.536,
+        "p95_max": 4.647
+      },
+      "+1.0": {
+        "p95_median": 4.612,
+        "p95_min": 4.536,
+        "p95_max": 4.643
+      },
+      "+2.0": {
+        "p95_median": 4.608,
+        "p95_min": 4.549,
+        "p95_max": 4.633
+      },
+      "+3.0": {
+        "p95_median": 4.605,
+        "p95_min": 4.547,
+        "p95_max": 4.644
+      },
+      "+4.0": {
+        "p95_median": 4.609,
+        "p95_min": 4.551,
+        "p95_max": 4.645
+      },
+      "+5.0": {
+        "p95_median": 4.608,
+        "p95_min": 4.551,
+        "p95_max": 4.644
+      }
+    },
+    "q50": {
+      "+0.5": {
+        "p95_median": 4.598,
+        "p95_min": 4.576,
+        "p95_max": 4.657
+      },
+      "+1.0": {
+        "p95_median": 4.61,
+        "p95_min": 4.57,
+        "p95_max": 4.667
+      },
+      "+2.0": {
+        "p95_median": 4.61,
+        "p95_min": 4.579,
+        "p95_max": 4.673
+      },
+      "+3.0": {
+        "p95_median": 4.605,
+        "p95_min": 4.571,
+        "p95_max": 4.653
+      },
+      "+4.0": {
+        "p95_median": 4.615,
+        "p95_min": 4.581,
+        "p95_max": 4.657
+      },
+      "+5.0": {
+        "p95_median": 4.615,
+        "p95_min": 4.57,
+        "p95_max": 4.66
+      }
+    },
+    "q90": {
+      "+0.5": {
+        "p95_median": 4.61,
+        "p95_min": 4.547,
+        "p95_max": 4.649
+      },
+      "+1.0": {
+        "p95_median": 4.606,
+        "p95_min": 4.544,
+        "p95_max": 4.662
+      },
+      "+2.0": {
+        "p95_median": 4.606,
+        "p95_min": 4.573,
+        "p95_max": 4.645
+      },
+      "+3.0": {
+        "p95_median": 4.623,
+        "p95_min": 4.538,
+        "p95_max": 4.671
+      },
+      "+4.0": {
+        "p95_median": 4.611,
+        "p95_min": 4.553,
+        "p95_max": 4.676
+      },
+      "+5.0": {
+        "p95_median": 4.616,
+        "p95_min": 4.555,
+        "p95_max": 4.674
+      }
+    }
+  },
+  "engine": {
+    "kernel": "Numba fused segmented",
+    "threads": 8,
+    "batch_B": 8,
+    "padding_lanes": 2
+  },
+  "denominator": "tie-corrected exact randomization variance, rebuilt per (needle, world, delta) on that injected multiset",
+  "integrity": {
+    "preflight": {
+      "capability_spec_hash": true,
+      "claim_order_hash": true,
+      "population_hash": true,
+      "engine_config": true,
+      "k_31583": true,
+      "no_historical_exposure": true,
+      "tie_corrected_se_path": true
+    },
+    "tie_gate": {
+      "cases": 165,
+      "max_abs_mean_dev": 1.1102230246251565e-16,
+      "max_abs_var_dev": 2.7755575615628914e-17,
+      "passed": true,
+      "method": "exhaustive enumeration of all C(N,n_t) splits; no formula on the reference side",
+      "grid": "N 4..9 x every n_t x {no ties, one pair, one triple, two pairs, all identical}"
+    },
+    "cells": 360,
+    "expected_cells": 360
+  },
+  "contains_no": "historical observed Z, theta, ranking or winner — every world destroys the association before injecting, so no historical quantity exists here",
+  "hours": 5.64
+}

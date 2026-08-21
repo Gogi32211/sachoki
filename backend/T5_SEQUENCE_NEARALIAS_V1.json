@@ -1,0 +1,52 @@
+{
+  "jaccard_counts": {
+    "0.99": 1,
+    "0.95": 29,
+    "0.9": 61,
+    "0.8": 114,
+    "0.7": 186
+  },
+  "clusters_at_090": 814,
+  "classes": 863,
+  "largest_clusters": [
+    5,
+    4,
+    4,
+    3,
+    3,
+    3,
+    3,
+    2,
+    2,
+    2
+  ],
+  "note": "descriptive only \u2014 the grammar is frozen and no claim is removed on the strength of this diagnostic",
+  "interpretation_corrections": [
+    {
+      "item": "Z7 semantics",
+      "wrong": "bearish exhaustion -> strongest bullish reversal",
+      "right": "clean doji / indecision -> bullish engulfing (T4): compression then expansion",
+      "why": "Z7_raw == isDoji. Z7_clean is a doji not overlapping another T/Z pattern, and it sits in the bearish lane only because of the priority engine. It is not a directional bearish bar. The wrong reading was inferred from the letter Z, not measured."
+    },
+    {
+      "item": "replication claim",
+      "wrong": "independently confirmed twice (T5_INTRADAY and PREV_INTRADAY)",
+      "right": "reproduces across two distinct episode windows",
+      "why": "same database, same tickers, same token definitions, overlapping episodes. Two windows of one dataset are not two pieces of evidence."
+    },
+    {
+      "item": "effective ideas 814",
+      "wrong": "reads as a reduced multiplicity count",
+      "right": "near-alias DIAGNOSTIC clustering at J>=0.90 only",
+      "why": "0.90 was neither the grammar dedup rule (exact membership) nor a multiplicity rule. grammar distinct = 863; k_final is decided only after exact equivalence on the estimand population."
+    }
+  ],
+  "x_only_summary": {
+    "continuation_path": "T1 -> T2",
+    "cross_day_seam": "L6 / CL_O / WK_D / L5_R2L -> T3 -> T2",
+    "enriched_transition": "Z7 (clean doji) -> T4 (bullish engulfing), lift 3.76-3.98",
+    "near_alias_mechanism_1": "highly prevalent CONSO appended as a 3rd suffix",
+    "near_alias_mechanism_2": "WYC_* ~ PH_* states",
+    "ladder": "frequency != transition enrichment != future edge"
+  }
+}

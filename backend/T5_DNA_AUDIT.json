@@ -1,0 +1,1280 @@
+{
+  "A_events": {
+    "total": 195584,
+    "tickers": 5298,
+    "date_min": "2021-05-27",
+    "date_max": "2026-08-17",
+    "per_year": {
+      "2021": 16685,
+      "2022": 35268,
+      "2023": 33889,
+      "2024": 38290,
+      "2025": 42483,
+      "2026": 28969
+    },
+    "unique_episode_id": true,
+    "t5_definition_hash": "2775322838e81bd7"
+  },
+  "B_alignment": {
+    "episodes": 195584,
+    "with_any_1h": 123649,
+    "with_both_sessions": 122864,
+    "with_only_t5": 329,
+    "with_only_prev": 456,
+    "with_no_1h": 71935,
+    "duplicate_grain_rows": 0,
+    "sessions_serving_two_roles": 0,
+    "note": "a session legitimately serves two roles: it is the T5 day of one episode and the previous day of the next. That is not a duplicate grain \u2014 the primary key carries episode_id.",
+    "reconciles": true
+  },
+  "C_tokens": {
+    "registry_total": 172,
+    "applicable_to_1h": 165,
+    "excluded_from_1h": 7,
+    "applicability_rule": "token.source == 'bars' \u2014 the 1H store carries the same source columns as the 1D store, so a registry token is 1H-applicable iff it reads one of them",
+    "excluded": [
+      {
+        "token": "RS_INTACT",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_rs_intact",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "LEAD_IN_LAG",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_lead_in_lag",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "H1_DR",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_h1_dr",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "H1_QUIET",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_h1_quiet",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "M15_ZDOM",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_m15_zdom",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "IV_VSPIKE",
+        "family": "CONTEXT_GATE",
+        "source": "opportunities",
+        "column": "sig_iv_vspike",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      },
+      {
+        "token": "MACRO_VIX_UP",
+        "family": "MACRO",
+        "source": "opportunities",
+        "column": "sig_macro_vix_up",
+        "reason": "frame-computed column that lives in opportunities.parquet, not in `bars`; it has no 1H-granularity counterpart",
+        "applicability_rule": "token.source == 'bars'"
+      }
+    ],
+    "registry_hash": "08b73d474f17a778",
+    "materialized": 165,
+    "never_true": [],
+    "tokens": [
+      {
+        "token": "T1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 58587,
+        "bar_share": 0.034483
+      },
+      {
+        "token": "T2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 151715,
+        "bar_share": 0.089296
+      },
+      {
+        "token": "T3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 81204,
+        "bar_share": 0.047795
+      },
+      {
+        "token": "T4",
+        "declared": true,
+        "materialized": true,
+        "true_count": 108839,
+        "bar_share": 0.06406
+      },
+      {
+        "token": "T5",
+        "declared": true,
+        "materialized": true,
+        "true_count": 54725,
+        "bar_share": 0.03221
+      },
+      {
+        "token": "T6",
+        "declared": true,
+        "materialized": true,
+        "true_count": 22780,
+        "bar_share": 0.013408
+      },
+      {
+        "token": "T9",
+        "declared": true,
+        "materialized": true,
+        "true_count": 115359,
+        "bar_share": 0.067897
+      },
+      {
+        "token": "T10",
+        "declared": true,
+        "materialized": true,
+        "true_count": 17101,
+        "bar_share": 0.010065
+      },
+      {
+        "token": "T11",
+        "declared": true,
+        "materialized": true,
+        "true_count": 7980,
+        "bar_share": 0.004697
+      },
+      {
+        "token": "T12",
+        "declared": true,
+        "materialized": true,
+        "true_count": 22401,
+        "bar_share": 0.013185
+      },
+      {
+        "token": "T1G",
+        "declared": true,
+        "materialized": true,
+        "true_count": 21651,
+        "bar_share": 0.012743
+      },
+      {
+        "token": "T2G",
+        "declared": true,
+        "materialized": true,
+        "true_count": 111615,
+        "bar_share": 0.065694
+      },
+      {
+        "token": "ANY_T",
+        "declared": true,
+        "materialized": true,
+        "true_count": 773957,
+        "bar_share": 0.455531
+      },
+      {
+        "token": "TZ_FLIP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 7251,
+        "bar_share": 0.004268
+      },
+      {
+        "token": "Z1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 64804,
+        "bar_share": 0.038142
+      },
+      {
+        "token": "Z2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 194719,
+        "bar_share": 0.114607
+      },
+      {
+        "token": "Z3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 68165,
+        "bar_share": 0.04012
+      },
+      {
+        "token": "Z4",
+        "declared": true,
+        "materialized": true,
+        "true_count": 103994,
+        "bar_share": 0.061208
+      },
+      {
+        "token": "Z5",
+        "declared": true,
+        "materialized": true,
+        "true_count": 24576,
+        "bar_share": 0.014465
+      },
+      {
+        "token": "Z6",
+        "declared": true,
+        "materialized": true,
+        "true_count": 34848,
+        "bar_share": 0.020511
+      },
+      {
+        "token": "Z7",
+        "declared": true,
+        "materialized": true,
+        "true_count": 52919,
+        "bar_share": 0.031147
+      },
+      {
+        "token": "Z9",
+        "declared": true,
+        "materialized": true,
+        "true_count": 106141,
+        "bar_share": 0.062472
+      },
+      {
+        "token": "Z10",
+        "declared": true,
+        "materialized": true,
+        "true_count": 18129,
+        "bar_share": 0.01067
+      },
+      {
+        "token": "Z11",
+        "declared": true,
+        "materialized": true,
+        "true_count": 15039,
+        "bar_share": 0.008852
+      },
+      {
+        "token": "Z12",
+        "declared": true,
+        "materialized": true,
+        "true_count": 5233,
+        "bar_share": 0.00308
+      },
+      {
+        "token": "Z1G",
+        "declared": true,
+        "materialized": true,
+        "true_count": 42517,
+        "bar_share": 0.025024
+      },
+      {
+        "token": "Z2G",
+        "declared": true,
+        "materialized": true,
+        "true_count": 193491,
+        "bar_share": 0.113884
+      },
+      {
+        "token": "ANY_Z",
+        "declared": true,
+        "materialized": true,
+        "true_count": 924575,
+        "bar_share": 0.544181
+      },
+      {
+        "token": "L1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 364681,
+        "bar_share": 0.214642
+      },
+      {
+        "token": "L2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 620941,
+        "bar_share": 0.36547
+      },
+      {
+        "token": "L3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 371063,
+        "bar_share": 0.218398
+      },
+      {
+        "token": "L4",
+        "declared": true,
+        "materialized": true,
+        "true_count": 675280,
+        "bar_share": 0.397452
+      },
+      {
+        "token": "L5",
+        "declared": true,
+        "materialized": true,
+        "true_count": 461723,
+        "bar_share": 0.271758
+      },
+      {
+        "token": "L6",
+        "declared": true,
+        "materialized": true,
+        "true_count": 463780,
+        "bar_share": 0.272969
+      },
+      {
+        "token": "L34x",
+        "declared": true,
+        "materialized": true,
+        "true_count": 193377,
+        "bar_share": 0.113817
+      },
+      {
+        "token": "L46x",
+        "declared": true,
+        "materialized": true,
+        "true_count": 463780,
+        "bar_share": 0.272969
+      },
+      {
+        "token": "ANY_L",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1698016,
+        "bar_share": 0.999408
+      },
+      {
+        "token": "VOL_VB",
+        "declared": true,
+        "materialized": true,
+        "true_count": 54015,
+        "bar_share": 0.031792
+      },
+      {
+        "token": "VOL_B",
+        "declared": true,
+        "materialized": true,
+        "true_count": 215797,
+        "bar_share": 0.127013
+      },
+      {
+        "token": "VOL_N",
+        "declared": true,
+        "materialized": true,
+        "true_count": 356377,
+        "bar_share": 0.209754
+      },
+      {
+        "token": "VOL_L",
+        "declared": true,
+        "materialized": true,
+        "true_count": 914670,
+        "bar_share": 0.538351
+      },
+      {
+        "token": "VOL_W",
+        "declared": true,
+        "materialized": true,
+        "true_count": 158162,
+        "bar_share": 0.09309
+      },
+      {
+        "token": "NE_N",
+        "declared": true,
+        "materialized": true,
+        "true_count": 904918,
+        "bar_share": 0.532611
+      },
+      {
+        "token": "NE_E",
+        "declared": true,
+        "materialized": true,
+        "true_count": 793605,
+        "bar_share": 0.467095
+      },
+      {
+        "token": "WK_U",
+        "declared": true,
+        "materialized": true,
+        "true_count": 486653,
+        "bar_share": 0.286431
+      },
+      {
+        "token": "WK_D",
+        "declared": true,
+        "materialized": true,
+        "true_count": 681406,
+        "bar_share": 0.401058
+      },
+      {
+        "token": "WK_B",
+        "declared": true,
+        "materialized": true,
+        "true_count": 168909,
+        "bar_share": 0.099415
+      },
+      {
+        "token": "PEN_P",
+        "declared": true,
+        "materialized": true,
+        "true_count": 318859,
+        "bar_share": 0.187672
+      },
+      {
+        "token": "PEN_R",
+        "declared": true,
+        "materialized": true,
+        "true_count": 304161,
+        "bar_share": 0.179021
+      },
+      {
+        "token": "PEN_H",
+        "declared": true,
+        "materialized": true,
+        "true_count": 146870,
+        "bar_share": 0.086444
+      },
+      {
+        "token": "CL_A",
+        "declared": true,
+        "materialized": true,
+        "true_count": 495041,
+        "bar_share": 0.291368
+      },
+      {
+        "token": "CL_O",
+        "declared": true,
+        "materialized": true,
+        "true_count": 702597,
+        "bar_share": 0.41353
+      },
+      {
+        "token": "CL_I",
+        "declared": true,
+        "materialized": true,
+        "true_count": 500885,
+        "bar_share": 0.294808
+      },
+      {
+        "token": "BW_X",
+        "declared": true,
+        "materialized": true,
+        "true_count": 641470,
+        "bar_share": 0.377553
+      },
+      {
+        "token": "BW_M",
+        "declared": true,
+        "materialized": true,
+        "true_count": 555443,
+        "bar_share": 0.326919
+      },
+      {
+        "token": "BW_S",
+        "declared": true,
+        "materialized": true,
+        "true_count": 502108,
+        "bar_share": 0.295528
+      },
+      {
+        "token": "BW_J",
+        "declared": true,
+        "materialized": true,
+        "true_count": 376181,
+        "bar_share": 0.22141
+      },
+      {
+        "token": "BW_TB",
+        "declared": true,
+        "materialized": true,
+        "true_count": 139481,
+        "bar_share": 0.082095
+      },
+      {
+        "token": "BW_BB",
+        "declared": true,
+        "materialized": true,
+        "true_count": 135693,
+        "bar_share": 0.079865
+      },
+      {
+        "token": "BW_F",
+        "declared": true,
+        "materialized": true,
+        "true_count": 582726,
+        "bar_share": 0.342978
+      },
+      {
+        "token": "BW_XF",
+        "declared": true,
+        "materialized": true,
+        "true_count": 346748,
+        "bar_share": 0.204087
+      },
+      {
+        "token": "BW_MF",
+        "declared": true,
+        "materialized": true,
+        "true_count": 44111,
+        "bar_share": 0.025963
+      },
+      {
+        "token": "GR_G1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 79393,
+        "bar_share": 0.046729
+      },
+      {
+        "token": "GR_G2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 63825,
+        "bar_share": 0.037566
+      },
+      {
+        "token": "GR_G3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 171448,
+        "bar_share": 0.10091
+      },
+      {
+        "token": "GR_V",
+        "declared": true,
+        "materialized": true,
+        "true_count": 202809,
+        "bar_share": 0.119368
+      },
+      {
+        "token": "GR_C",
+        "declared": true,
+        "materialized": true,
+        "true_count": 304382,
+        "bar_share": 0.179151
+      },
+      {
+        "token": "GR_N",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1041268,
+        "bar_share": 0.612864
+      },
+      {
+        "token": "L5_VX",
+        "declared": true,
+        "materialized": true,
+        "true_count": 170615,
+        "bar_share": 0.10042
+      },
+      {
+        "token": "L5_VR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 265680,
+        "bar_share": 0.156372
+      },
+      {
+        "token": "L5_PB",
+        "declared": true,
+        "materialized": true,
+        "true_count": 421324,
+        "bar_share": 0.24798
+      },
+      {
+        "token": "L5_PS",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1277697,
+        "bar_share": 0.75202
+      },
+      {
+        "token": "L5_R2H",
+        "declared": true,
+        "materialized": true,
+        "true_count": 167819,
+        "bar_share": 0.098774
+      },
+      {
+        "token": "L5_R2L",
+        "declared": true,
+        "materialized": true,
+        "true_count": 541912,
+        "bar_share": 0.318955
+      },
+      {
+        "token": "L5_R2X",
+        "declared": true,
+        "materialized": true,
+        "true_count": 252023,
+        "bar_share": 0.148334
+      },
+      {
+        "token": "L5_R2D",
+        "declared": true,
+        "materialized": true,
+        "true_count": 117228,
+        "bar_share": 0.068997
+      },
+      {
+        "token": "L5_ANY",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1699021,
+        "bar_share": 1.0
+      },
+      {
+        "token": "RA",
+        "declared": true,
+        "materialized": true,
+        "true_count": 472601,
+        "bar_share": 0.278161
+      },
+      {
+        "token": "RN",
+        "declared": true,
+        "materialized": true,
+        "true_count": 720403,
+        "bar_share": 0.424011
+      },
+      {
+        "token": "RF",
+        "declared": true,
+        "materialized": true,
+        "true_count": 493086,
+        "bar_share": 0.290218
+      },
+      {
+        "token": "REG_U",
+        "declared": true,
+        "materialized": true,
+        "true_count": 384737,
+        "bar_share": 0.226446
+      },
+      {
+        "token": "REG_D",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1314284,
+        "bar_share": 0.773554
+      },
+      {
+        "token": "E2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 529939,
+        "bar_share": 0.311908
+      },
+      {
+        "token": "ESTAR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 60822,
+        "bar_share": 0.035798
+      },
+      {
+        "token": "K2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 83637,
+        "bar_share": 0.049227
+      },
+      {
+        "token": "K1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 752789,
+        "bar_share": 0.443072
+      },
+      {
+        "token": "K0",
+        "declared": true,
+        "materialized": true,
+        "true_count": 862591,
+        "bar_share": 0.507699
+      },
+      {
+        "token": "C0",
+        "declared": true,
+        "materialized": true,
+        "true_count": 472596,
+        "bar_share": 0.278158
+      },
+      {
+        "token": "C1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 759090,
+        "bar_share": 0.446781
+      },
+      {
+        "token": "C2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 451631,
+        "bar_share": 0.265818
+      },
+      {
+        "token": "H0",
+        "declared": true,
+        "materialized": true,
+        "true_count": 624285,
+        "bar_share": 0.367438
+      },
+      {
+        "token": "H2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 367261,
+        "bar_share": 0.21616
+      },
+      {
+        "token": "M2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 418301,
+        "bar_share": 0.246201
+      },
+      {
+        "token": "S3U",
+        "declared": true,
+        "materialized": true,
+        "true_count": 289951,
+        "bar_share": 0.170658
+      },
+      {
+        "token": "S3D",
+        "declared": true,
+        "materialized": true,
+        "true_count": 641065,
+        "bar_share": 0.377314
+      },
+      {
+        "token": "AD_ANY",
+        "declared": true,
+        "materialized": true,
+        "true_count": 239067,
+        "bar_share": 0.140709
+      },
+      {
+        "token": "AD_1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 67857,
+        "bar_share": 0.039939
+      },
+      {
+        "token": "AD_2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 163052,
+        "bar_share": 0.095968
+      },
+      {
+        "token": "AD_A",
+        "declared": true,
+        "materialized": true,
+        "true_count": 8158,
+        "bar_share": 0.004802
+      },
+      {
+        "token": "gG3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 126230,
+        "bar_share": 0.074296
+      },
+      {
+        "token": "WYC_SPRING",
+        "declared": true,
+        "materialized": true,
+        "true_count": 9508,
+        "bar_share": 0.005596
+      },
+      {
+        "token": "WYC_SPRING\u2605",
+        "declared": true,
+        "materialized": true,
+        "true_count": 8338,
+        "bar_share": 0.004908
+      },
+      {
+        "token": "WYC_UTAD",
+        "declared": true,
+        "materialized": true,
+        "true_count": 3539,
+        "bar_share": 0.002083
+      },
+      {
+        "token": "WYC_SOS\u2605",
+        "declared": true,
+        "materialized": true,
+        "true_count": 2762,
+        "bar_share": 0.001626
+      },
+      {
+        "token": "WYC_ACC-TR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 13776,
+        "bar_share": 0.008108
+      },
+      {
+        "token": "WYC_DIST-TR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 5680,
+        "bar_share": 0.003343
+      },
+      {
+        "token": "WYC_MARKUP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 812377,
+        "bar_share": 0.478144
+      },
+      {
+        "token": "WYC_MKDN",
+        "declared": true,
+        "materialized": true,
+        "true_count": 842928,
+        "bar_share": 0.496126
+      },
+      {
+        "token": "PH_ACC_TR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 16381,
+        "bar_share": 0.009641
+      },
+      {
+        "token": "PH_MARKUP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 812037,
+        "bar_share": 0.477944
+      },
+      {
+        "token": "PH_DIST_TR",
+        "declared": true,
+        "materialized": true,
+        "true_count": 7423,
+        "bar_share": 0.004369
+      },
+      {
+        "token": "PH_MKDN",
+        "declared": true,
+        "materialized": true,
+        "true_count": 857151,
+        "bar_share": 0.504497
+      },
+      {
+        "token": "PH_NEUTRAL",
+        "declared": true,
+        "materialized": true,
+        "true_count": 509,
+        "bar_share": 0.0003
+      },
+      {
+        "token": "PH_SOS",
+        "declared": true,
+        "materialized": true,
+        "true_count": 3238,
+        "bar_share": 0.001906
+      },
+      {
+        "token": "PH_UTAD",
+        "declared": true,
+        "materialized": true,
+        "true_count": 936,
+        "bar_share": 0.000551
+      },
+      {
+        "token": "PH_SPRING",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1346,
+        "bar_share": 0.000792
+      },
+      {
+        "token": "CISD_PS",
+        "declared": true,
+        "materialized": true,
+        "true_count": 8845,
+        "bar_share": 0.005206
+      },
+      {
+        "token": "CISD_MS",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1004,
+        "bar_share": 0.000591
+      },
+      {
+        "token": "CISD_SEQ",
+        "declared": true,
+        "materialized": true,
+        "true_count": 19,
+        "bar_share": 1.1e-05
+      },
+      {
+        "token": "CISD_MPM",
+        "declared": true,
+        "materialized": true,
+        "true_count": 2002,
+        "bar_share": 0.001178
+      },
+      {
+        "token": "CISD_CP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 17989,
+        "bar_share": 0.010588
+      },
+      {
+        "token": "CISD_CPM",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1058,
+        "bar_share": 0.000623
+      },
+      {
+        "token": "CISD_CMM",
+        "declared": true,
+        "materialized": true,
+        "true_count": 343,
+        "bar_share": 0.000202
+      },
+      {
+        "token": "RSI_0_30",
+        "declared": true,
+        "materialized": true,
+        "true_count": 192529,
+        "bar_share": 0.113318
+      },
+      {
+        "token": "RSI_30_40",
+        "declared": true,
+        "materialized": true,
+        "true_count": 475814,
+        "bar_share": 0.280052
+      },
+      {
+        "token": "RSI_40_50",
+        "declared": true,
+        "materialized": true,
+        "true_count": 609103,
+        "bar_share": 0.358502
+      },
+      {
+        "token": "RSI_50_60",
+        "declared": true,
+        "materialized": true,
+        "true_count": 314723,
+        "bar_share": 0.185238
+      },
+      {
+        "token": "RSI_60_70",
+        "declared": true,
+        "materialized": true,
+        "true_count": 86125,
+        "bar_share": 0.050691
+      },
+      {
+        "token": "RSI_70_101",
+        "declared": true,
+        "materialized": true,
+        "true_count": 20229,
+        "bar_share": 0.011906
+      },
+      {
+        "token": "VBO_UP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 84887,
+        "bar_share": 0.049962
+      },
+      {
+        "token": "VOL5X",
+        "declared": true,
+        "materialized": true,
+        "true_count": 33444,
+        "bar_share": 0.019684
+      },
+      {
+        "token": "VOL10X",
+        "declared": true,
+        "materialized": true,
+        "true_count": 11086,
+        "bar_share": 0.006525
+      },
+      {
+        "token": "VOL20X",
+        "declared": true,
+        "materialized": true,
+        "true_count": 4014,
+        "bar_share": 0.002363
+      },
+      {
+        "token": "BE_UP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 52284,
+        "bar_share": 0.030773
+      },
+      {
+        "token": "BO_UP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 93278,
+        "bar_share": 0.054901
+      },
+      {
+        "token": "BX_UP",
+        "declared": true,
+        "materialized": true,
+        "true_count": 38148,
+        "bar_share": 0.022453
+      },
+      {
+        "token": "L34",
+        "declared": true,
+        "materialized": true,
+        "true_count": 180141,
+        "bar_share": 0.106026
+      },
+      {
+        "token": "L43",
+        "declared": true,
+        "materialized": true,
+        "true_count": 37765,
+        "bar_share": 0.022228
+      },
+      {
+        "token": "L22",
+        "declared": true,
+        "materialized": true,
+        "true_count": 13236,
+        "bar_share": 0.00779
+      },
+      {
+        "token": "G1",
+        "declared": true,
+        "materialized": true,
+        "true_count": 8792,
+        "bar_share": 0.005175
+      },
+      {
+        "token": "G2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 4833,
+        "bar_share": 0.002845
+      },
+      {
+        "token": "G4",
+        "declared": true,
+        "materialized": true,
+        "true_count": 17087,
+        "bar_share": 0.010057
+      },
+      {
+        "token": "G6",
+        "declared": true,
+        "materialized": true,
+        "true_count": 2349,
+        "bar_share": 0.001383
+      },
+      {
+        "token": "G11",
+        "declared": true,
+        "materialized": true,
+        "true_count": 14288,
+        "bar_share": 0.00841
+      },
+      {
+        "token": "BUY",
+        "declared": true,
+        "materialized": true,
+        "true_count": 4017,
+        "bar_share": 0.002364
+      },
+      {
+        "token": "3G",
+        "declared": true,
+        "materialized": true,
+        "true_count": 2453,
+        "bar_share": 0.001444
+      },
+      {
+        "token": "CONSO",
+        "declared": true,
+        "materialized": true,
+        "true_count": 1639985,
+        "bar_share": 0.965253
+      },
+      {
+        "token": "SVS",
+        "declared": true,
+        "materialized": true,
+        "true_count": 101106,
+        "bar_share": 0.059508
+      },
+      {
+        "token": "VA",
+        "declared": true,
+        "materialized": true,
+        "true_count": 115821,
+        "bar_share": 0.068169
+      },
+      {
+        "token": "P2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 39728,
+        "bar_share": 0.023383
+      },
+      {
+        "token": "P3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 16853,
+        "bar_share": 0.009919
+      },
+      {
+        "token": "P50",
+        "declared": true,
+        "materialized": true,
+        "true_count": 23718,
+        "bar_share": 0.01396
+      },
+      {
+        "token": "P55",
+        "declared": true,
+        "materialized": true,
+        "true_count": 23053,
+        "bar_share": 0.013568
+      },
+      {
+        "token": "P66",
+        "declared": true,
+        "materialized": true,
+        "true_count": 13533,
+        "bar_share": 0.007965
+      },
+      {
+        "token": "P89",
+        "declared": true,
+        "materialized": true,
+        "true_count": 37743,
+        "bar_share": 0.022215
+      },
+      {
+        "token": "ANY_P",
+        "declared": true,
+        "materialized": true,
+        "true_count": 109732,
+        "bar_share": 0.064585
+      },
+      {
+        "token": "D2",
+        "declared": true,
+        "materialized": true,
+        "true_count": 76724,
+        "bar_share": 0.045158
+      },
+      {
+        "token": "D3",
+        "declared": true,
+        "materialized": true,
+        "true_count": 25156,
+        "bar_share": 0.014806
+      },
+      {
+        "token": "D50",
+        "declared": true,
+        "materialized": true,
+        "true_count": 65960,
+        "bar_share": 0.038822
+      },
+      {
+        "token": "D55",
+        "declared": true,
+        "materialized": true,
+        "true_count": 31315,
+        "bar_share": 0.018431
+      },
+      {
+        "token": "D66",
+        "declared": true,
+        "materialized": true,
+        "true_count": 18234,
+        "bar_share": 0.010732
+      },
+      {
+        "token": "D89",
+        "declared": true,
+        "materialized": true,
+        "true_count": 48326,
+        "bar_share": 0.028443
+      },
+      {
+        "token": "ANY_D",
+        "declared": true,
+        "materialized": true,
+        "true_count": 148629,
+        "bar_share": 0.087479
+      },
+      {
+        "token": "AD_FRESH",
+        "declared": true,
+        "materialized": true,
+        "true_count": 247382,
+        "bar_share": 0.145603
+      },
+      {
+        "token": "AD_CLUSTER",
+        "declared": true,
+        "materialized": true,
+        "true_count": 163501,
+        "bar_share": 0.096232
+      }
+    ]
+  },
+  "D_sessions": {
+    "bars_per_session": {
+      "1": 564,
+      "2": 764,
+      "3": 951,
+      "4": 2867,
+      "5": 1805,
+      "6": 3351,
+      "7": 236211
+    },
+    "normal_7": 236211,
+    "early_close_4": 2867,
+    "abnormal": 7435,
+    "et_first": "09:30",
+    "et_last": "15:30"
+  },
+  "E_no_future": {
+    "cutoff": "2025-06-30",
+    "episodes_before_cutoff": 146151,
+    "rebuilt": 146151,
+    "identical_episode_ids": true,
+    "differing_field_values": 0,
+    "passed": true
+  },
+  "registry_hash": "08b73d474f17a778",
+  "seconds": 37.8
+}

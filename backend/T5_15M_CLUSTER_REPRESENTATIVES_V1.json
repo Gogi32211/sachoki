@@ -1,0 +1,17 @@
+{
+  "spec_id": "T5_15M_CLUSTER_REPRESENTATIVES_V1",
+  "status": "POST_EXPOSURE_DESCRIPTIVE",
+  "promotion": "FROZEN / UNCHANGED",
+  "rule": "within each frozen J>=0.50 cluster, the member with the highest MEAN Jaccard to the other members (membership medoid); tie-break lowest sealed j; singleton = itself",
+  "selection_is_x_only": "Jaccard is membership only and sealed j is membership only. No outcome enters the choice — picking by max Z or max theta would make the loudest result the face of each family and every downstream number would inherit that selection.",
+  "full_matrix_note": "single linkage lets two members of one cluster have low pairwise Jaccard, so the medoid uses the FULL within-cluster matrix, not the J>=0.10 pair file",
+  "overlap_audit_digest": "1364aa6a1ef88a65",
+  "clusters": 171,
+  "representatives": 171,
+  "mean_jaccard": {
+    "p10": 0.5948,
+    "p50": 1.0,
+    "p90": 1.0
+  },
+  "artifact": "t5_15m_cluster_representatives.parquet"
+}

@@ -1,0 +1,11 @@
+{
+  "spec_id": "T5_15M_CLUSTER_REPRESENTATIVES_V1_LABEL_AMENDMENT",
+  "amends": "T5_15M_CLUSTER_REPRESENTATIVES_V1",
+  "amends_digest": "9b272bfad46b2faa",
+  "reason": "the sealed artifact and my report described the selection as \"medoid, X-only\". That overstates it. The 171-cluster universe is itself Y-SELECTED: those clusters exist only because their members survived the historical test. What is outcome-blind is the CHOICE OF REPRESENTATIVE within an already outcome-selected set.",
+  "correct_wording": "outcome-blind medoid selection within frozen post-exposure survivor clusters",
+  "wrong_wording": "medoid, X-only",
+  "what_is_still_true": "Jaccard and sealed j carry no outcome information, so no representative was chosen for having the loudest result",
+  "what_is_not_true": "that the representative set is an X-only object",
+  "effect_on_any_number": "NONE — this is a labelling correction; the selection rule and every downstream figure are unchanged"
+}

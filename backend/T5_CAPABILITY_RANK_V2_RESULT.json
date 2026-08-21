@@ -1,0 +1,57 @@
+{
+  "spec_id": "T5_CAPABILITY_RANK_V2",
+  "spec_digest": "e16ea5101b4cbd85",
+  "inference_spec": "SEQUENCE_INFERENCE_V2",
+  "inference_digest": "a3392966068fab40",
+  "needles": {
+    "q10": {
+      "claim": "T5_INTRADAY|2|G6\u2192Z9",
+      "support": 324
+    },
+    "q50": {
+      "claim": "CROSS_DAY|2|AD_FRESH\u2192T2",
+      "support": 682
+    },
+    "q90": {
+      "claim": "T5_INTRADAY|2|PEN_P\u2192T1",
+      "support": 7134
+    }
+  },
+  "worlds": 20,
+  "n_perm": 999,
+  "k": 840,
+  "surface": {
+    "q10": {
+      "+0.5": "2/20",
+      "+1.0": "19/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q50": {
+      "+0.5": "13/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q90": {
+      "+0.5": "20/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    }
+  },
+  "verdict_scope": "Detection of additive raw-MFE injections at low, median and high claim support for the V2 rank selection statistic. This is instrument sensitivity, not evidence that any sequence effect exists.",
+  "forbidden_claims": [
+    "the rank statistic is more powerful (a lower band is not more power; the numerator changed too)",
+    "V1's estimand was wrong (only its decision statistic failed)",
+    "T5 sequence miner is well powered"
+  ],
+  "historical_ranking": "NOT COMPUTED, NOT EXPOSED",
+  "hours": 1.11
+}

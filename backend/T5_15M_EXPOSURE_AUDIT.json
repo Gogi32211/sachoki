@@ -1,0 +1,33 @@
+{
+  "spec_id": "T5_15M_EXPOSURE_AUDIT",
+  "defects": [
+    {
+      "id": "PRE_EXPOSURE_METADATA_LEAK",
+      "field": "theta_scope_count = 733",
+      "logical_consequence": "theta_scope = survivors ∪ top500_by_the_same_Z. If survivors <= 500 every survivor would lie inside top500 and the union would be exactly 500. The union is 733, so survivors > 500, so top500 is entirely inside survivors, so the union IS the survivor set: survivor_count = 733 exactly, not a lower bound.",
+      "effect_on_sealed_inference": "NONE — the spec was frozen before the compute and the result was sealed before this was noticed",
+      "effect_on_exposure_status": "the survivor count was exposed before the EXPOSE command",
+      "remediation": "no redesign and no extra slicing; proceed directly to the registered exposure",
+      "my_error": "I first reported this as '>= 233', which understates it. The deduction is exact."
+    },
+    {
+      "id": "CUTOFF_NOT_PERSISTED",
+      "description": "the sealed run computed max_null and the p95 band in float64 and used them for the survives flags, but stored only the flags and a float32 copy of the permutation matrix. The band itself was never written.",
+      "hazard": "recovering the band from the float32 matrix could move a claim across the boundary",
+      "effect_on_sealed_inference": "NONE — the stored flags were always float64-derived",
+      "remediation": "the band is recomputed in float64 from the same deterministic RNG stream and reconciled against the stored flags on every claim; a single disagreement aborts the exposure",
+      "reconciliation_disagreements": 0
+    }
+  ],
+  "promotion_source": "SEALED_FLOAT64_MAX_NULL, recomputed deterministically and reconciled",
+  "gates": {
+    "population_hash": true,
+    "claim_order_hash": true,
+    "outcome_source_digest": true,
+    "se_gate_digest": true,
+    "historical_spec_digest": true,
+    "threads_8": true,
+    "promotion_source_float64": true,
+    "stored_flags_reconcile": true
+  }
+}

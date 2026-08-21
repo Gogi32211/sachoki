@@ -1,0 +1,80 @@
+{
+  "spec_id": "15M_RANK_ENGINE_QUALIFICATION_V1",
+  "status": "FIXTURE — NO Y ACCESS",
+  "claim_order_hash": "3a0c637ae5828243",
+  "population_hash": "2a0e320a0d8e0b14",
+  "block_assignment_hash": "e1b3cbffbe1d25f0",
+  "k": 31583,
+  "nnz": 167502137,
+  "n_seg": 48181884,
+  "nnz_per_seg": 3.48,
+  "variance_form": "NO-TIES (N+1)/(12 n_t n_c) — X-only. The tie correction needs the block Y multiset and is NOT certified by this run.",
+  "equivalence": {
+    "rtol": 0,
+    "atol": 1e-10,
+    "sub_claims": 500,
+    "sub_mappings": 50,
+    "verdict": {
+      "A": true,
+      "B": true,
+      "C": true
+    },
+    "max_abs_diff": {
+      "A": {
+        "sub_500x50": 1.3144867139214256e-15,
+        "full_k": 3.8746783559417963e-13
+      },
+      "B": {
+        "sub_500x50": 1.2814185476606177e-15,
+        "full_k": 6.146194664324867e-13
+      },
+      "C": {
+        "sub_500x50": 1.3817614587241511e-14,
+        "full_k": 7.540412738649138e-12
+      }
+    }
+  },
+  "benchmark": {
+    "A": {
+      "median_ms": 3432.3,
+      "p95_ms": 4448.5,
+      "min_ms": 2756.6,
+      "max_ms": 4544.7,
+      "steady_rss_gb": 4.13,
+      "peak_rss_gb": 5.36,
+      "transient_gb": 0.477,
+      "nnz_per_sec": 48.8,
+      "seg_per_sec": 14.0
+    },
+    "B": {
+      "median_ms": 1526.8,
+      "p95_ms": 1799.2,
+      "min_ms": 1156.5,
+      "max_ms": 1877.2,
+      "steady_rss_gb": 4.06,
+      "peak_rss_gb": 5.36,
+      "transient_gb": 0.0,
+      "nnz_per_sec": 109.7,
+      "seg_per_sec": 31.6
+    },
+    "C": {
+      "median_ms": 624.7,
+      "p95_ms": 635.8,
+      "min_ms": 622.8,
+      "max_ms": 644.9,
+      "steady_rss_gb": 2.44,
+      "peak_rss_gb": 5.36,
+      "transient_gb": 0.0,
+      "nnz_per_sec": 268.1,
+      "seg_per_sec": 77.1
+    }
+  },
+  "winner": "C",
+  "single_delta_median_ms": 624.7,
+  "six_delta_perm_seconds": 3.748,
+  "registered_capability_workload_hours": 62.41,
+  "workload_note": "60 = 3 needles x 20 worlds; excludes per-(needle,delta,world) rank rebuilds and outer-world overhead, which are small but not zero",
+  "batching": "NOT TESTED — a separate batch qualification runs on the winner only",
+  "y_status": "NO Y ACCESS; all rank mappings synthetic and deterministic",
+  "minutes": 8.3
+}

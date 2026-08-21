@@ -1,0 +1,60 @@
+{
+  "spec_id": "T5_15M_X_ONLY_ENUMERATION_TWO_BAR",
+  "scope": "TWO_BAR",
+  "scope_note": "TWO_BAR — primary search reduced to position-anchored 2-bar transitions under T5_15M_SEARCH_SCOPE_V2. 3-bar families are DEFERRED_FROM_PRIMARY_INFERENCE on X-only feasibility grounds, not deleted and not judged.",
+  "status": "X_ONLY — NO MFE VALUE READ",
+  "governed_by": {
+    "spec": "2871358f25d62f47",
+    "amendment": "a3d0152180a7938c"
+  },
+  "firewall": "the frozen 15m universe was enumerated unchanged after the 1H exposure; no 1H survivor shaped grammar, support, window or horizon",
+  "population_funnel": {
+    "episodes_1d_total": 195584,
+    "with_any_15m": 123216,
+    "with_complete_opening_hour": 114295,
+    "excluded_no_15m": {
+      "n": 72368,
+      "reason": "no 15m bar at any of 09:30/09:45/10:00/10:15 ET on the T5 session"
+    },
+    "excluded_partial_opening_hour": {
+      "n": 8921,
+      "reason": "fewer than four clock-anchored opening-hour bars; the spec requires a complete opening hour"
+    },
+    "estimand_population": {
+      "complete_opening_hour": 114295,
+      "mfe10_available": 113192,
+      "anchor_available": 112621,
+      "blocks": 5017
+    }
+  },
+  "searchable_tokens": {
+    "n": 157,
+    "of": 165
+  },
+  "syntactic_claims": 32450,
+  "by_position_family": {
+    "M1→M2": 9791,
+    "M2→M3": 11441,
+    "M3→M4": 11218
+  },
+  "k_15m_provisional": 31749,
+  "k_15m_final": 31583,
+  "membership_matrix_not_written": "31583 classes x 112621 episodes is infeasible at this scale",
+  "class_digest": "ddebd619fa19d8bf",
+  "mobility": {
+    "min": 0.8822,
+    "p05": 0.9937,
+    "median": 0.9975,
+    "max_block_constant_treated_share": 0.1178
+  },
+  "gates": {
+    "reproducible_class_digest": true,
+    "duplicate_grain_fails_hard": true,
+    "membership_invariant_to_source_row_order": true,
+    "positions_clock_anchored": true,
+    "no_mfe_value_read": true
+  },
+  "next_gate": "15m needles chosen from THIS sealed claim order by the frozen support rule, then timing qualification, then T5_15M_CAPABILITY_RANK_V2. The 1H capability does NOT transfer.",
+  "y_status": "NO MFE VALUES, NO HISTORICAL Z",
+  "minutes": 8.8
+}

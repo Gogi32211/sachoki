@@ -1,0 +1,249 @@
+{
+  "spec_id": "NULL_SHAPE_DIAGNOSTIC_V1",
+  "status": "EXPLORATORY_DIAGNOSTIC_ONLY",
+  "estimand_digest": "16673802bb2b6159",
+  "k": 840,
+  "n_perm": 1999,
+  "delta_pp": 0.0,
+  "theta_perm_hash": "1b0b01768d522382",
+  "denominator": "analytic predicted_sd from NULL_VARIANCE_DECOMPOSITION_V1 (permutation-invariant; not self-standardized)",
+  "max_Z": {
+    "observed_p95": 7.362,
+    "observed_p50": 5.599,
+    "observed_max": 9.972,
+    "gaussianized_p95": 3.481,
+    "independent_gaussian_p95": 3.842,
+    "shape_excess": 3.881,
+    "dependence_effect": -0.361,
+    "implied_effective_tests": 205.0,
+    "reading": "observed - gaussianized is pure marginal tail shape; gaussianized - independent is pure dependence and should be <= 0"
+  },
+  "marginal_shape": {
+    "sd_Z": {
+      "p10": 0.96,
+      "p50": 0.999,
+      "p90": 1.043
+    },
+    "excess_kurtosis": {
+      "p10": 1.25,
+      "p50": 5.35,
+      "p90": 15.67,
+      "p99": 29.53
+    },
+    "skew": {
+      "p10": 0.88,
+      "p50": 2.1,
+      "p90": 3.66
+    },
+    "P_gt3": {
+      "median": 0.02401,
+      "gaussian": 0.00135
+    },
+    "P_gt4": {
+      "median": 0.0065,
+      "gaussian": 3.17e-05
+    },
+    "P_gt5": {
+      "median": 0.001,
+      "gaussian": 2.87e-07,
+      "resolution_floor": 0.0005
+    }
+  },
+  "max_Z_concentration": {
+    "claims_ever_winning": 459,
+    "top10_share": 0.132,
+    "top20_share": 0.233,
+    "top": [
+      {
+        "j": 730,
+        "claim_id": "CROSS_DAY|3|AD_A\u2192L5\u2192L5_PS",
+        "support": 300,
+        "share_blocks_nt1": 0.86,
+        "excess_kurtosis": 28.782,
+        "max_Z": 7.856,
+        "argmax_Z_share": 0.022
+      },
+      {
+        "j": 411,
+        "claim_id": "T5_INTRADAY|2|CISD_CPM\u2192NE_N",
+        "support": 357,
+        "share_blocks_nt1": 0.804,
+        "excess_kurtosis": 23.65,
+        "max_Z": 8.321,
+        "argmax_Z_share": 0.015
+      },
+      {
+        "j": 775,
+        "claim_id": "PREV_INTRADAY|3|D66\u2192T3\u2192T2",
+        "support": 328,
+        "share_blocks_nt1": 0.922,
+        "excess_kurtosis": 29.462,
+        "max_Z": 9.395,
+        "argmax_Z_share": 0.014
+      },
+      {
+        "j": 267,
+        "claim_id": "PREV_INTRADAY|3|Z9\u2192T1\u2192T2",
+        "support": 323,
+        "share_blocks_nt1": 0.919,
+        "excess_kurtosis": 33.771,
+        "max_Z": 7.387,
+        "argmax_Z_share": 0.013
+      },
+      {
+        "j": 400,
+        "claim_id": "CROSS_DAY|3|T3\u2192T6\u2192Z9",
+        "support": 342,
+        "share_blocks_nt1": 0.832,
+        "excess_kurtosis": 18.386,
+        "max_Z": 6.971,
+        "argmax_Z_share": 0.013
+      },
+      {
+        "j": 551,
+        "claim_id": "T5_INTRADAY|3|T12\u2192T2\u2192T2",
+        "support": 1074,
+        "share_blocks_nt1": 0.749,
+        "excess_kurtosis": 18.492,
+        "max_Z": 6.502,
+        "argmax_Z_share": 0.012
+      },
+      {
+        "j": 451,
+        "claim_id": "CROSS_DAY|2|T6\u2192T12",
+        "support": 303,
+        "share_blocks_nt1": 0.851,
+        "excess_kurtosis": 21.352,
+        "max_Z": 6.139,
+        "argmax_Z_share": 0.012
+      },
+      {
+        "j": 717,
+        "claim_id": "PREV_INTRADAY|3|K2\u2192T1\u2192T2",
+        "support": 305,
+        "share_blocks_nt1": 0.825,
+        "excess_kurtosis": 30.331,
+        "max_Z": 6.605,
+        "argmax_Z_share": 0.012
+      },
+      {
+        "j": 178,
+        "claim_id": "T5_INTRADAY|3|WYC_SPRING\u2192T2\u2192T2",
+        "support": 368,
+        "share_blocks_nt1": 0.852,
+        "excess_kurtosis": 17.923,
+        "max_Z": 6.414,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 305,
+        "claim_id": "CROSS_DAY|3|Z5\u2192T5\u2192L5_PS",
+        "support": 341,
+        "share_blocks_nt1": 0.869,
+        "excess_kurtosis": 12.541,
+        "max_Z": 6.883,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 408,
+        "claim_id": "PREV_INTRADAY|3|GR_G3\u2192T1\u2192Z9",
+        "support": 366,
+        "share_blocks_nt1": 0.813,
+        "excess_kurtosis": 21.011,
+        "max_Z": 7.251,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 726,
+        "claim_id": "T5_INTRADAY|2|G6\u2192Z9",
+        "support": 324,
+        "share_blocks_nt1": 0.881,
+        "excess_kurtosis": 26.581,
+        "max_Z": 7.212,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 218,
+        "claim_id": "PREV_INTRADAY|3|BW_TB\u2192T1\u2192T2",
+        "support": 390,
+        "share_blocks_nt1": 0.882,
+        "excess_kurtosis": 21.507,
+        "max_Z": 6.94,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 510,
+        "claim_id": "PREV_INTRADAY|3|Z7\u2192T4\u2192T2",
+        "support": 552,
+        "share_blocks_nt1": 0.861,
+        "excess_kurtosis": 19.742,
+        "max_Z": 6.448,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 503,
+        "claim_id": "PREV_INTRADAY|3|AD_1\u2192T2\u2192T2",
+        "support": 889,
+        "share_blocks_nt1": 0.771,
+        "excess_kurtosis": 15.236,
+        "max_Z": 6.778,
+        "argmax_Z_share": 0.011
+      },
+      {
+        "j": 302,
+        "claim_id": "T5_INTRADAY|3|VA\u2192T1\u2192L1",
+        "support": 355,
+        "share_blocks_nt1": 0.887,
+        "excess_kurtosis": 27.944,
+        "max_Z": 8.307,
+        "argmax_Z_share": 0.01
+      },
+      {
+        "j": 315,
+        "claim_id": "CROSS_DAY|3|VOL5X\u2192T5\u2192VOL_L",
+        "support": 350,
+        "share_blocks_nt1": 0.835,
+        "excess_kurtosis": 16.692,
+        "max_Z": 7.462,
+        "argmax_Z_share": 0.01
+      },
+      {
+        "j": 32,
+        "claim_id": "PREV_INTRADAY|2|WYC_SPRING\u2192T2",
+        "support": 764,
+        "share_blocks_nt1": 0.748,
+        "excess_kurtosis": 17.389,
+        "max_Z": 6.778,
+        "argmax_Z_share": 0.01
+      },
+      {
+        "j": 105,
+        "claim_id": "T5_INTRADAY|3|CISD_CP\u2192T1\u2192L2",
+        "support": 406,
+        "share_blocks_nt1": 0.821,
+        "excess_kurtosis": 18.401,
+        "max_Z": 7.134,
+        "argmax_Z_share": 0.01
+      },
+      {
+        "j": 208,
+        "claim_id": "CROSS_DAY|3|Z2\u2192T3\u2192T2",
+        "support": 385,
+        "share_blocks_nt1": 0.833,
+        "excess_kurtosis": 19.447,
+        "max_Z": 6.524,
+        "argmax_Z_share": 0.009
+      }
+    ]
+  },
+  "kurtosis_correlates": {
+    "vs_share_blocks_nt1": 0.346,
+    "vs_log_support": -0.381,
+    "vs_log_effective_blocks": -0.401,
+    "vs_block_tail_ratio": 0.256
+  },
+  "sd_Z_check": "sd_Z near 1.0 confirms the analytic SE is the right SCALE; any max-Z excess above the gaussianized reference is then shape, not scale.",
+  "tail_resolution": "P(Z>x) resolves only to 1/1999 = 5.00e-04; rarer events read as zero and that is not evidence of a light tail.",
+  "historical_theta": "NOT COMPUTED, NOT EXPOSED",
+  "minutes": 16.9
+}

@@ -1,0 +1,13 @@
+{
+  "spec_id": "SEQUENCE_INFERENCE_V1_RETIREMENT",
+  "v1_status": "RETIRED FOR PROMOTION",
+  "retained_for": "effect-size reporting and every frozen artifact built under it",
+  "reason": "unstudentized raw-max detector failed empirical sensitivity qualification",
+  "evidence": {
+    "capability": "T5_CAPABILITY_Q50_RESULT_V1 \u2014 median-support needle, +0.5..+5.0pp injections detected 0/20 at every delta",
+    "mechanism_scale": "NULL_VARIANCE_DECOMPOSITION_V1 \u2014 Var(theta)=sum w^2 Var(Delta_b) reconstructs measured null sd at R2 0.98; block tail scale, not weight or arm geometry, separates the raw-max dominators",
+    "mechanism_shape": "NULL_SHAPE_DIAGNOSTIC_V1 \u2014 after exact studentization the standardized family is still not pivotal: median excess kurtosis 5.35, P(Z>3) 17.8x gaussian, max-Z p95 7.36 vs 3.84 independent"
+  },
+  "not_demonstrated": "raw theta was NOT shown to fail as an effect-size estimand. Only its use as the search-wide decision statistic failed. Historical theta has never been computed; its sampling and post-selection properties remain a separate, open question.",
+  "superseded_by": "SEQUENCE_INFERENCE_V2"
+}

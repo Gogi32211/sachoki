@@ -1,0 +1,10 @@
+{
+  "spec_id": "T5_CAPABILITY_SPEC_V1",
+  "digest": "ccd16b23945d262a",
+  "action": "SUPERSEDED_BEFORE_CAPABILITY_RESULT_EXPOSURE",
+  "reason": "COMPUTATIONAL_FEASIBILITY",
+  "superseded_by": "T5_CAPABILITY_Q50_V1",
+  "superseding_digest": "72e5e5e3f6e8f287",
+  "original_file_untouched": true,
+  "note": "Y WAS ALREADY READ BY THE MACHINE in the timing/equivalence probe, so this is NOT 'before Y access'. The adaptation was driven by measured RUNTIME only \u2014 no capability result, no theta value, no historical ranking was inspected. Those are separate facts and both are recorded."
+}
