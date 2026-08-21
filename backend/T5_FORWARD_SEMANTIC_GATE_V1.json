@@ -1,0 +1,43 @@
+{
+  "spec_id": "T5_FORWARD_SEMANTIC_GATE_V1",
+  "status": "FROZEN",
+  "precision_of_claim": "the canary proves 'no semantic drift detected on the frozen canary corpus' — NOT global semantic invariance. The slow tier exists because code can keep 40 cases identical while a post-cutoff combination of X behaves differently.",
+  "decision_table": {
+    "unchanged + fast PASS": "ALLOW",
+    "changed + fast FAIL": "HOLD",
+    "changed + fast PASS + slow exact": "ALLOW as SEMANTICALLY_REPLAY_EQUIVALENT",
+    "changed + slow differs": "HOLD — the primary 20,000 regime cannot silently continue"
+  },
+  "frozen_before": "any upstream change existed that anyone might want to wave through",
+  "fast_tier": {
+    "runs": "every data_version",
+    "what": "frozen canary, exact cell equality",
+    "schema_contract": "column names, order, dtypes fingerprinted; float64->float32, tz-drop, NULL->NaN, category->string all change the fingerprint while leaving values looking identical",
+    "canary_digest": "1076a22c52f32f88"
+  },
+  "slow_tier": {
+    "runs": "only when semantic_upstream_hash changes",
+    "corpus": {
+      "file": "t5_slow_corpus.parquet",
+      "pairs": 238,
+      "rows": 1647,
+      "cells": 60939,
+      "selection": "240 (ticker, session) pairs spread deterministically over the whole frozen evidence by linspace over the sorted pair list — no randomness, no outcome",
+      "digest": "cc7f6b48b6c594d7"
+    },
+    "reference": {
+      "file": "t5_slow_reference.parquet",
+      "digest": "35c86fa65a3bf205",
+      "schema_fingerprint": "15129da1a5ed6963"
+    },
+    "columns": "guarded feature set only, from T5_FORWARD_RULE_FEATURE_DEPENDENCY_V1"
+  },
+  "why_reference_is_chain_generated": {
+    "measured": "a probe replayed 6 frozen (ticker, session) pairs through the pinned chain: 58/1,554 cells differed while RAW OHLCV was byte-identical, and for ZM 2026-08-17 the store's own rsi_14 today differs from what the frozen build captured",
+    "mechanism": "the incremental delta re-derives a rolling window; Wilder-type recursions differ slightly with the window start, so store-derived columns are WINDOW-VINTAGE-DEPENDENT for recently-touched sessions",
+    "consequence": "the frozen X is one vintage of that process and is not exactly reproducible even by identical code; chain-vs-chain on fixed sealed inputs IS deterministic, so that is the reference"
+  },
+  "sealed_upstream_hash": "3a349c65efe69cd7",
+  "dependency_digest": "873512b8607c55ac",
+  "producer_commit": "a010190da31200f3e922543b0736c60b1be49f9f"
+}
