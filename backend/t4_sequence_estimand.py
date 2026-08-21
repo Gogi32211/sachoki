@@ -179,16 +179,29 @@ def main():
         # cutoff. The inherited constant was silently sitting in the k_final path and was
         # removed BEFORE any T4 estimand ever ran. Retention is computed, stored per claim
         # and reported as a distribution — never selected on.
-        ok = support_eligible(t_ov, c_ov)
+        # every registered condition evaluated UNCONDITIONALLY and stored per claim, so the
+        # k_provisional -> k_final reduction decomposes exactly at the STOP report and any
+        # other inherited gate would surface QUANTITATIVELY, not by trust. Diagnostic fields
+        # only — the eligibility predicate is support_eligible() plus the three floors below,
+        # nothing else.
+        e = np.flatnonzero(s & inov)
+        n_tk_ov = len(np.unique(tcode[e])) if len(e) else 0
+        n_dt_ov = len(np.unique(dcode[e])) if len(e) else 0
+        if len(e):
+            _, dcnt = np.unique(dcode[e], return_counts=True)
+            mds_ov = float(dcnt.max() / len(e))
+        else:
+            mds_ov = float("nan")
+        fails = []
+        if not support_eligible(t_ov, c_ov):
+            if t_ov < MIN_EP: fails.append("TREATED_FLOOR")
+            if c_ov < MIN_EP: fails.append("CONTROL_FLOOR")
+        if n_tk_ov < MIN_TK: fails.append("TICKER_FLOOR")
+        if n_dt_ov < MIN_DT: fails.append("DATE_FLOOR")
+        if not (mds_ov <= MAX_DATE_SHARE): fails.append("DATE_SHARE")
+        ok = not fails
         if ok:
-            e = np.flatnonzero(s & inov)
-            ok = (len(np.unique(tcode[e])) >= MIN_TK
-                  and len(np.unique(dcode[e])) >= MIN_DT)
-            if ok:
-                _, dcnt = np.unique(dcode[e], return_counts=True)
-                ok = dcnt.max() / len(e) <= MAX_DATE_SHARE
-            if ok:
-                keep_sig.setdefault((s & inov).tobytes(), []).append(c)
+            keep_sig.setdefault((s & inov).tobytes(), []).append(c)
         e_ov = np.flatnonzero(s & inov)
         tk, tc = (np.unique(tcode[e_ov], return_counts=True)
                   if len(e_ov) else (np.array([]), np.array([])))
@@ -198,6 +211,9 @@ def main():
                          treated_overlap_retention=round(ret, 4),
                          block_constant_treated_share=round(1.0 - ret, 4),
                          n_overlap_blocks=int(ov.sum()),
+                         n_tickers_overlap=int(n_tk_ov), n_dates_overlap=int(n_dt_ov),
+                         max_date_share_overlap=round(mds_ov, 5) if mds_ov == mds_ov else None,
+                         fail_reasons=",".join(fails),
                          max_treated_ticker_share=round(float(tc.max() / tc.sum()), 5)
                          if len(tc) else np.nan,
                          treated_ticker_hhi=round(hhi, 6) if len(tc) else np.nan,
