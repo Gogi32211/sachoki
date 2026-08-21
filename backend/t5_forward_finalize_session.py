@@ -45,13 +45,22 @@ class NotReady(RuntimeError):
 def source_snapshot(session_date):
     """Read the session's bars from the store RIGHT NOW and digest them. Called twice, with a
     genuine refresh in between — that is the whole point."""
+    # session_position / bars_in_session are NOT columns — the producer derives them with a
+    # window over (ticker, session_date). This mirrors that derivation exactly rather than
+    # inventing a second one, because a finalizer that computes session length differently from
+    # the producer is worse than one that does not compute it at all.
     import duckdb
     c = duckdb.connect(D.DB1H, read_only=True)
     try:
         df = c.execute(
-            "SELECT ticker, date, open, high, low, close, volume, session_position, "
-            "bars_in_session FROM bars WHERE CAST(date AS DATE) = ? ORDER BY ticker, date",
-            [session_date]).fetchdf()
+            """
+            SELECT ticker, date, open, high, low, close, volume,
+                   row_number() OVER (PARTITION BY ticker, CAST(date AS DATE)
+                                      ORDER BY date)               session_position,
+                   count(*)     OVER (PARTITION BY ticker, CAST(date AS DATE))
+                                                                   bars_in_session
+            FROM bars WHERE CAST(date AS DATE) = ? ORDER BY ticker, date
+            """, [session_date]).fetchdf()
     finally:
         c.close()
     if not len(df):
@@ -135,8 +144,9 @@ def finalize(session_date, now_ts, do_refresh=True, dry_run=True, verbose=True):
     import duckdb
     c = duckdb.connect(D.DB1H, read_only=True)
     try:
-        rows = c.execute("SELECT ticker, bars_in_session FROM bars WHERE CAST(date AS DATE) = ?",
-                         [session_date]).fetchdf()
+        rows = c.execute(
+            "SELECT ticker, count(*) bars_in_session FROM bars "
+            "WHERE CAST(date AS DATE) = ? GROUP BY ticker", [session_date]).fetchdf()
     finally:
         c.close()
     min_t, min_s = SL.floors()
