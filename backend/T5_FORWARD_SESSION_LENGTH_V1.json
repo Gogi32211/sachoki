@@ -1,0 +1,254 @@
+{
+  "spec_id": "T5_FORWARD_SESSION_LENGTH_V1",
+  "status": "FROZEN",
+  "reseal_note": {
+    "supersedes_digest": "021c53cd32236cd3",
+    "why": "the first seal recorded the floors without their measured cost. Nothing referenced that digest and no forward X had been evaluated, so the artifact is completed rather than annotated. The re-seal is recorded here instead of being silent — a habit of quietly re-sealing what one has just learned about is the thing worth guarding against, not the single completion.",
+    "changed": "added guards.measured_cost; no gate, floor, rule or threshold altered"
+  },
+  "depends_on": {
+    "evaluator": "T5_FORWARD_MEMBERSHIP_EVALUATOR_V1",
+    "evaluator_digest": "9bf68a61627e34c8",
+    "replay": "T5_FORWARD_MEMBERSHIP_REPLAY_V1",
+    "replay_digest": "24bc2e67ce06d27f",
+    "ledger_amendment": "T5_FORWARD_ACCRUAL_LEDGER_V1_AMENDMENT_1",
+    "ledger_amendment_digest": "92f3a4ecc1d4ce2e",
+    "why_amendment_first": "the amendment is what authorises the ledger to carry SESSION_LENGTH_LATE_FOR_DECISION and commit_latency, which this spec's G6B guard emits, so it is sealed before this one and referenced by digest"
+  },
+  "added_on_top": "this layer decides the session_len ARGUMENT the frozen evaluator already accepts. t5_forward_eval.py is unchanged and no earlier artifact is regenerated: a new dependency is added above, never by re-producing a freeze below.",
+  "problem": "the frozen table covers 1,275 historical sessions; 2026-08-21 is not one. UnknownSession is the right failure, but a failure is not a rule, and the tempting patch — mode(current_forward_rows) — is the frame-dependence the cell-level replay just caught, in a new form.",
+  "rule": "mode over tickers of bars_in_session over session_length_population(D), computed ONCE after SOURCE_FINAL and BEFORE any membership evaluation for D, committed append-only, never recomputed",
+  "population": {
+    "definition": "every ticker with at least one 1H microstructure row for session_date D",
+    "bars_in_session": "asserted CONSTANT within (session_date, ticker); two values for one ticker-day is a data fault, not a tie, and .first() would have hidden it",
+    "identical_to_historical": "by construction, not by resemblance"
+  },
+  "state_machine": {
+    "states": [
+      "OPEN",
+      "INGESTING",
+      "SOURCE_FINAL",
+      "SESSION_LENGTH_COMMITTED"
+    ],
+    "mode_computed_in": "SOURCE_FINAL",
+    "source_final": {
+      "is_a_proxy": true,
+      "why": "the source exposes no finality flag, so finality is evidenced rather than guaranteed, and is labelled as evidence",
+      "conditions": [
+        "ingest completed without error",
+        "settle window of 6h elapsed after the close",
+        "two reads across that window return an identical row digest"
+      ]
+    },
+    "late_correction": "does NOT rewrite a committed row. It becomes a new data_version and an audit event; the committed value for this validation run stands, because rewriting it would make the forward sample partly retrospective."
+  },
+  "decision_time_causality": {
+    "why": "the rule reads the COMPLETE session D, which is causal only if every episode it decides makes its decision after D closes. A historical replay knows the whole day at once and can pass 20 million cells with a temporal leak underneath.",
+    "entry_semantics": "NEXT_SESSION_OPEN_V1",
+    "structural_argument": "the decision is the NEXT session's open, so every session the rule reads is already closed; T5_INTRADAY and CROSS_DAY bind on the T5 close, PREV_INTRADAY earlier",
+    "runtime_assertions": [
+      "session_length_commit_ts <= membership_eval_ts",
+      "session length available at or before decision time"
+    ],
+    "result": {
+      "gate": "G6A_HISTORICAL_CAUSAL_HEADROOM",
+      "proves": "market-time feasibility only",
+      "does_not_prove": "vendor ingest latency — the timestamps at which historical data ARRIVED were never recorded, so no historical test can speak to it. That question is answered forward by G6B, on observed timestamps.",
+      "commit_ts_basis": "COUNTERFACTUAL: last_bar_ts + settle window. Historical sessions have no observed commit time; the bulk-load time would fail every episode and mean nothing. This tests the RULE against historical timing.",
+      "entry_ts": "next_session_open",
+      "decision_deadline_ts": "next_session_open, as an EXCLUSIVE causal upper bound",
+      "binding_inequality": "session_length_commit_ts < decision_deadline_ts",
+      "why_exclusive": "equality would let the opening print inform the decision. The strict bound says only that every input is in hand before the next session opens, and adds no arbitrary hour to a specification that never contained one.",
+      "episodes_checked": 123050,
+      "violations_order": 0,
+      "violations_late_for_decision": 0,
+      "first_late": [],
+      "headroom_hours_binding": {
+        "min": 11.75,
+        "p01": 11.75,
+        "p05": 12.0,
+        "median": 12.0
+      },
+      "market_gap_hours": {
+        "min": 17.75,
+        "p01": 17.75,
+        "p05": 18.0,
+        "median": 18.0
+      },
+      "settle_hours": 6,
+      "max_tolerable_settle_hours": 17.75,
+      "settle_window_role": "OPERATIONAL FINALITY PROXY, not a feature parameter. Draft-frozen at 6h BEFORE these numbers were computed; headroom is diagnostics and must never become a tuning target.",
+      "diagnostics_non_binding": {
+        "headroom_to_08_00_ET_entry_day": {
+          "binding": false,
+          "min": 10.25,
+          "p01": 10.25,
+          "p05": 10.5,
+          "median": 10.5,
+          "would_fail": 0
+        },
+        "headroom_to_20_00_ET_t5_day": {
+          "binding": false,
+          "min": -1.75,
+          "p01": -1.75,
+          "p05": -1.5,
+          "median": -1.5,
+          "would_fail": 121814
+        }
+      },
+      "why_diagnostics": "publishing alternative cutoffs makes the binding choice visible and prevents a later 'use the permissive one, the strict one failed'",
+      "opening_print_exclusion": {
+        "episodes_checked": 123050,
+        "violations": 0,
+        "first": [],
+        "rule": "no rule may read the entry session, so the opening print cannot inform the decision"
+      },
+      "g6b_guard_tests": {
+        "passes_when_early": true,
+        "rejects_late": true,
+        "rejects_equal": true,
+        "rejects_negative_settle": true
+      }
+    }
+  },
+  "guards": {
+    "min_tickers": 22,
+    "min_modal_share": 0.74,
+    "calibrated_on": "pre-cutoff distribution only (<= 2026-08-20)",
+    "why_now": "choosing floors after seeing 08-21 coverage would be forward-X-informed discretion",
+    "never_recomputed": "runtime reads them from this artifact",
+    "measured_cost": {
+      "historical_sessions_refused": 19,
+      "historical_sessions_total": 1275,
+      "pct_sessions": 1.49,
+      "historical_episodes_held": 1354,
+      "historical_episodes_total": 195584,
+      "pct_episodes": 0.69,
+      "refused_lengths": [
+        7
+      ],
+      "interpretation": "on this sample the refused sessions all resolve to the modal full-session length, so the floors cost COVERAGE rather than correctness here. Prospectively that is the point: forward you cannot know whether thin evidence happens to be right.",
+      "asymmetry": "the frozen historical table applied no floor; the forward rule does. Forward is therefore stricter than historical, in the conservative direction.",
+      "not_tuned": "the p01 rule was declared before this cost was computed and is not being relaxed now that it is known"
+    },
+    "on_failure": "SESSION_LENGTH_NOT_ESTABLISHED — the session's episodes are HELD: not evaluated, not counted toward the 20,000, reported in the DQ ledger. Never a fallback, never a default.",
+    "may_be_established_later": "yes, once the data completes and SOURCE_FINAL is reached; committed once, then immutable"
+  },
+  "forbidden": [
+    "mode over the current evaluation chunk",
+    "any default or fallback length",
+    "recomputing or overwriting a committed session length",
+    "re-deriving the floors after any forward session is observed"
+  ],
+  "why_not_a_calendar_template": "chunk-independent but NOT the historical statistic. Historical membership came from a modal bar count; a published close time is a different rule, and the seam at 2026-08-21 would be a semantic discontinuity rather than a continuation.",
+  "gates": {
+    "self_replay": {
+      "sessions": 1275,
+      "disagreements": 0,
+      "exact": true
+    },
+    "causality": {
+      "gate": "G6A_HISTORICAL_CAUSAL_HEADROOM",
+      "proves": "market-time feasibility only",
+      "does_not_prove": "vendor ingest latency — the timestamps at which historical data ARRIVED were never recorded, so no historical test can speak to it. That question is answered forward by G6B, on observed timestamps.",
+      "commit_ts_basis": "COUNTERFACTUAL: last_bar_ts + settle window. Historical sessions have no observed commit time; the bulk-load time would fail every episode and mean nothing. This tests the RULE against historical timing.",
+      "entry_ts": "next_session_open",
+      "decision_deadline_ts": "next_session_open, as an EXCLUSIVE causal upper bound",
+      "binding_inequality": "session_length_commit_ts < decision_deadline_ts",
+      "why_exclusive": "equality would let the opening print inform the decision. The strict bound says only that every input is in hand before the next session opens, and adds no arbitrary hour to a specification that never contained one.",
+      "episodes_checked": 123050,
+      "violations_order": 0,
+      "violations_late_for_decision": 0,
+      "first_late": [],
+      "headroom_hours_binding": {
+        "min": 11.75,
+        "p01": 11.75,
+        "p05": 12.0,
+        "median": 12.0
+      },
+      "market_gap_hours": {
+        "min": 17.75,
+        "p01": 17.75,
+        "p05": 18.0,
+        "median": 18.0
+      },
+      "settle_hours": 6,
+      "max_tolerable_settle_hours": 17.75,
+      "settle_window_role": "OPERATIONAL FINALITY PROXY, not a feature parameter. Draft-frozen at 6h BEFORE these numbers were computed; headroom is diagnostics and must never become a tuning target.",
+      "diagnostics_non_binding": {
+        "headroom_to_08_00_ET_entry_day": {
+          "binding": false,
+          "min": 10.25,
+          "p01": 10.25,
+          "p05": 10.5,
+          "median": 10.5,
+          "would_fail": 0
+        },
+        "headroom_to_20_00_ET_t5_day": {
+          "binding": false,
+          "min": -1.75,
+          "p01": -1.75,
+          "p05": -1.5,
+          "median": -1.5,
+          "would_fail": 121814
+        }
+      },
+      "why_diagnostics": "publishing alternative cutoffs makes the binding choice visible and prevents a later 'use the permissive one, the strict one failed'",
+      "opening_print_exclusion": {
+        "episodes_checked": 123050,
+        "violations": 0,
+        "first": [],
+        "rule": "no rule may read the entry session, so the opening print cannot inform the decision"
+      },
+      "g6b_guard_tests": {
+        "passes_when_early": true,
+        "rejects_late": true,
+        "rejects_equal": true,
+        "rejects_negative_settle": true
+      }
+    },
+    "seam": {
+      "sessions_tested": 20,
+      "episodes_eligible": 2991,
+      "episodes_excluded_window_edge": 61,
+      "cross_day_coverage": {
+        "CROSS_DAY|2|VOL_W→L46x": 14
+      },
+      "unknown_sessions": 0,
+      "refused": [],
+      "session_length_mismatches": 0,
+      "membership_cell_mismatches": 0,
+      "per_claim": {
+        "T5_INTRADAY|2|BUY→L5": 0,
+        "CROSS_DAY|2|VOL_W→L46x": 0,
+        "T5_INTRADAY|2|L43→T2": 0,
+        "PREV_INTRADAY|2|BUY→Z2": 0
+      },
+      "edge_limitation": "a T5 episode spans PREV_DAY and T5_DAY, so an episode with a leg outside the window cannot be evaluated from the window alone. CROSS_DAY is the least covered claim family at the first date, and that weakness is printed rather than absorbed into PASS."
+    }
+  },
+  "historical_distribution": {
+    "n_tickers": {
+      "min": 9,
+      "p01": 22.740000000000002,
+      "median": 144.0
+    },
+    "modal_share": {
+      "min": 0.5833333333333334,
+      "p01": 0.7483333333333333,
+      "median": 0.9603174603174603
+    },
+    "lengths": [
+      4,
+      7
+    ]
+  },
+  "table": {
+    "file": "t5_forward_session_length.parquet",
+    "rows": 1275,
+    "append_only": true,
+    "immutable_prefix": "rows with origin == HISTORICAL",
+    "digest": "e229757e35da58fe"
+  },
+  "evaluator_hash": "fbb79d0a2bad3854"
+}

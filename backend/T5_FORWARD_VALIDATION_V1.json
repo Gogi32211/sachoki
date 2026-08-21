@@ -1,0 +1,113 @@
+{
+  "spec_id": "T5_FORWARD_VALIDATION_V1",
+  "status": "FROZEN — NO POST-CUTOFF OUTCOME EXISTS AT THE TIME OF THIS FREEZE",
+  "what_this_is": "The forward families were selected FROM historical survivors, but their membership and decision rules were frozen before any post-2026-08-20 outcome was observed. This is NOT an untouched hypothesis and must not be described as one.",
+  "what_came_before": "every prior artifact in this chain is HISTORICAL evidence, however carefully gated",
+  "discovery_cutoff": {
+    "last_eligible_historical_signal_session": "2026-08-20",
+    "rationale": "the historical database reached 2026-08-20 on the update that completed before this freeze"
+  },
+  "forward_eligibility": {
+    "signal_session": "> 2026-08-20",
+    "no_backfill": "an episode whose signal session is on or before the cutoff can never enter, regardless of when it is processed",
+    "pit_semantics": "same point-in-time availability and entry semantics as the historical work: NEXT_SESSION_OPEN_V1",
+    "outcome": "MFE_10D, identical definition",
+    "maturity": "10 observable sessions after entry; an episode is counted only once its MFE_10D is fully observable"
+  },
+  "families": {
+    "H1": {
+      "k": 4,
+      "members": [
+        "T5_INTRADAY|2|BUY→L5",
+        "CROSS_DAY|2|VOL_W→L46x",
+        "T5_INTRADAY|2|L43→T2",
+        "PREV_INTRADAY|2|BUY→Z2"
+      ],
+      "source": "the 4 frozen 1H overlap-cluster medoids"
+    },
+    "M15": {
+      "k": 171,
+      "source": "the 171 frozen 15m survivor-cluster medoids",
+      "members_artifact": "t5_forward_families.parquet"
+    },
+    "separate": "1H and 15m are SEPARATE forward families. Neither is an independent confirmation of the other — they read the same episode universe and the same outcome.",
+    "digest": "b329d0f38ce65ca2"
+  },
+  "statistic": {
+    "primary": "blockwise bounded Mann-Whitney / AUC Z_rank, unchanged",
+    "direction": "one-sided positive",
+    "multiplicity_1h": "search-wide max Z_rank over the 4 fixed 1H claims",
+    "multiplicity_15m": "search-wide max Z_rank over the 171 fixed 15m claims",
+    "raw_theta": "magnitude only; a large theta cannot rescue a Z failure",
+    "denominator": "exact combinatorial null variance with the rank-sum tie correction, rebuilt on the forward multiset",
+    "blocks": "T5 date x pre-window liquidity LOW/HIGH x pre-window volatility LOW/HIGH, anchored at the T5-2 close, cut cross-sectionally WITHIN the forward window",
+    "inherits": {
+      "inference_spec": "SEQUENCE_INFERENCE_V2",
+      "inference_digest": "3407b6edc4cb4f88",
+      "estimand_seal": "16673802bb2b6159"
+    }
+  },
+  "stopping_rule": {
+    "lock": "the first 20,000 mature forward T5 episodes",
+    "mature": "MFE_10D fully observable",
+    "why_not_a_date": "a calendar lock lets market activity decide the sample size; an episode-count lock does not",
+    "no_interim_test": "the prospective tests are run ONCE, after the lock condition is met. No weekly peeking, no early stop, no extension."
+  },
+  "support_eligibility": {
+    "floors": {
+      "treated": 300,
+      "control": 300
+    },
+    "same_as_historical": true,
+    "scope": "counted on maturity-complete forward episodes inside overlap blocks",
+    "below_floor": "INSUFFICIENT_FORWARD_SUPPORT — the claim leaves its family",
+    "is_x_only": "support never consults an outcome, so this exclusion is not an outcome-dependent selection",
+    "k_eff": "the family max-Z is taken over the ELIGIBLE members only, and k_eff is reported alongside the original k",
+    "declared_before_any_forward_outcome": true
+  },
+  "blind_accrual": {
+    "visible": [
+      "n new T5 episodes",
+      "n mature",
+      "coverage",
+      "missingness",
+      "per-claim occurrence counts",
+      "data-quality failures"
+    ],
+    "forbidden": [
+      "MFE",
+      "Z_rank",
+      "theta",
+      "ret_10d",
+      "survivor status",
+      "any ranking"
+    ],
+    "why": "so that nobody looks at 12,000 episodes and decides that is enough"
+  },
+  "outcome_statuses": {
+    "FORWARD_STATISTICAL_PASS": "the claim survives its prospective family max-Z control",
+    "FORWARD_DIRECTIONAL_CONSISTENCY": "theta_raw > 0; DESCRIPTIVE ONLY",
+    "TRADEABILITY": "NOT TESTED BY THIS PROTOCOL",
+    "why_three": "the historical work found an MFE association whose median translation into a 10-day terminal return was about 20%. Forward replication of the association still says nothing about a profitable exit policy."
+  },
+  "cross_resolution_excluded": {
+    "observation": "VOL_W <-> the 15m VA-> family, p90 o/e 21.7 and 71% containment",
+    "status": "POST-EXPOSURE HISTORICAL OBSERVATION",
+    "not_in_primary_gate": true,
+    "why": "hand-picking it as a refinement of the 171-medoid family is exactly the adaptation this protocol exists to prevent",
+    "if_wanted": "register it separately as SECONDARY_FORWARD_HYPOTHESIS with its own claim, joint-event definition, outcome and statistic, before any forward outcome is seen"
+  },
+  "external_validation": {
+    "not_this": "recomputing over the same 2021-2026 history from a different file is NOT external validation",
+    "requires": "independence in at least one substantive dimension declared in advance",
+    "examples": [
+      "a security universe absent from discovery",
+      "a different market or geography",
+      "an independent raw-data vendor with disjoint forward dates",
+      "another genuinely untouched population"
+    ],
+    "relation_to_this_spec": "forward validation is cleaner than a mislabelled 'external' dataset that is really the same market and period"
+  },
+  "y_status": "NO POST-CUTOFF OUTCOME OBSERVED",
+  "next_step": "build the BLIND forward accrual ledger; expose nothing until the lock"
+}

@@ -1,0 +1,61 @@
+{
+  "spec_id": "T5_FORWARD_ACCRUAL_LEDGER_V1_AMENDMENT_1",
+  "status": "FROZEN",
+  "parent": "T5_FORWARD_ACCRUAL_LEDGER_V1",
+  "parent_digest": "9a61d6365ba612b7",
+  "parent_not_regenerated": true,
+  "why_an_artifact": "adding the field to the writer alone would leave the sealed ledger spec describing a process that no longer exists — verifying against itself while silently ceasing to describe the writer",
+  "effective": "before the first forward episode",
+  "amendment_is_pre_forward_data": true,
+  "pre_data_evidence": {
+    "ledger_rows": 2,
+    "n_total_t5": 0,
+    "n_total_mature": 0,
+    "forward_outcomes": "SEALED",
+    "statistical_testing": "LOCKED",
+    "occurrence_scaffold_rows": 175,
+    "forward_occurrence_total": 0,
+    "forward_occurrence_mature": 0,
+    "episode_store_rows": 0,
+    "post_cutoff_episodes_in_source": 0
+  },
+  "why_that_matters": "no forward observation exists, so this amendment cannot have been shaped by one. It is asserted from the stores, not claimed in prose.",
+  "adds_dq_code": {
+    "code": "SESSION_LENGTH_LATE_FOR_DECISION",
+    "meaning": "the session length was not committed strictly before decision_deadline_ts",
+    "effect": [
+      "episode HELD / ineligible",
+      "not evaluated",
+      "not counted toward the 20,000",
+      "reported in the DQ ledger"
+    ],
+    "no_backfill": "evaluating later with a length that arrived after the decision is the retrospection the protocol exists to prevent",
+    "is_x_only": true,
+    "required_by": "T5_FORWARD_SESSION_LENGTH_V1 gate G6B"
+  },
+  "adds_blind_metric": {
+    "name": "commit_latency",
+    "definition": "session_length_commit_ts - last_bar_ts",
+    "outcome_blind": true,
+    "why": "it makes 'sessions committed before the deadline' vs 'held for late finality' visible without touching MFE"
+  },
+  "adds_correction_audit": {
+    "columns": [
+      "original_source_digest",
+      "correction_source_digest",
+      "correction_detected_ts",
+      "affected_session"
+    ],
+    "membership_not_recomputed": true,
+    "why": "the system must use the information it had at decision time, not a history corrected afterwards"
+  },
+  "does_not_change": [
+    "lock target (20,000 mature episodes)",
+    "support floors (300 treated / 300 control)",
+    "families (1H k=4, 15m k=171) and the family digest",
+    "membership rules and the frozen evaluator",
+    "outcome definition (MFE_10D)",
+    "the statistical tests and the multiplicity control"
+  ],
+  "why_that_list": "an amendment reaching any of those would be a new protocol wearing V1's digest"
+}

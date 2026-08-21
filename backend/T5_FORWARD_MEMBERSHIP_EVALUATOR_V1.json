@@ -1,0 +1,126 @@
+{
+  "spec_id": "T5_FORWARD_MEMBERSHIP_EVALUATOR_V1",
+  "status": "FROZEN",
+  "parent_spec": "T5_FORWARD_VALIDATION_V1",
+  "parent_digest": "c39c651868c727f4",
+  "frozen_before": "any post-cutoff X exists",
+  "why_now": "writing the evaluator after seeing forward X is not outcome leakage but is a real discretionary channel: boundary inclusivity, missing-value handling, timestamp alignment, session-validity edge cases and tie semantics would all be settled while looking at the data the rules must be applied to",
+  "inputs_allowed": [
+    "historical fixtures <= 2026-08-20",
+    "synthetic fixtures",
+    "frozen rule definitions"
+  ],
+  "inputs_forbidden": [
+    "any post-cutoff episode",
+    "any post-cutoff feature distribution",
+    "all outcomes"
+  ],
+  "evaluator_hash": "fbb79d0a2bad3854",
+  "evaluator_file": "t5_forward_eval.py",
+  "property_tests": {
+    "deterministic": true,
+    "row_order_invariant": true,
+    "outcome_column_inert": true,
+    "expected_members": true,
+    "wrong_slot_excluded": true,
+    "partial_hour_excluded": true,
+    "empty_tokens_excluded": true
+  },
+  "synthetic_members": [
+    "both_tokens_both_bars",
+    "full_hit"
+  ],
+  "historical_replay": {
+    "m15": {
+      "rules": 171,
+      "mismatches": 0,
+      "exact": true,
+      "method": "raw rule evaluation, restricted to the sealed population and to overlap blocks recomputed from the sealed block labels, compared to the sealed membership from the engine bundle"
+    },
+    "h1": {
+      "rules": 4,
+      "sealed_members_not_reproduced": 0,
+      "detail": [
+        {
+          "claim": "T5_INTRADAY|2|BUY→L5",
+          "sealed": 322,
+          "evaluated": 407,
+          "missing": 0,
+          "extra_before_overlap": 85
+        },
+        {
+          "claim": "CROSS_DAY|2|VOL_W→L46x",
+          "sealed": 596,
+          "evaluated": 611,
+          "missing": 0,
+          "extra_before_overlap": 15
+        },
+        {
+          "claim": "T5_INTRADAY|2|L43→T2",
+          "sealed": 5670,
+          "evaluated": 5749,
+          "missing": 0,
+          "extra_before_overlap": 79
+        },
+        {
+          "claim": "PREV_INTRADAY|2|BUY→Z2",
+          "sealed": 423,
+          "evaluated": 436,
+          "missing": 0,
+          "extra_before_overlap": 13
+        }
+      ],
+      "method": "necessary condition only: every sealed member must be reproduced. The 1H block assignment was never persisted separately, so the overlap restriction cannot be re-applied and the extra episodes are REPORTED, not asserted to be zero.",
+      "weaker_than_15m": true
+    },
+    "asymmetry_is_stated": "the two families are not replayed with equal strength"
+  },
+  "reference_vs_candidate": {
+    "spec": "T5_FORWARD_MEMBERSHIP_REPLAY_V1",
+    "digest": "24bc2e67ce06d27f",
+    "result": "PASS",
+    "cells_compared": 20039041,
+    "cell_mismatches": 0,
+    "reference": "eval_15m / eval_1h — canonical scalar, RETAINED as the frozen oracle",
+    "candidate": "eval_15m_batch / eval_1h_chunked — production",
+    "equality": "exact bitwise at (episode x claim) grain; no tolerance, membership is boolean",
+    "not_re_derived_here": "restating this gate more weakly inside the freeze would be the very hole it exists to close",
+    "session_length_table": {
+      "n_sessions": 1275,
+      "frozen_table_reproduces_derivation": true,
+      "why": "derived from the frame, the modal session length makes 1H membership SESSION-local rather than episode-local: evaluate a subset of episodes and the mode could move. Supplied as a frozen input it is episode-local by construction, which is what makes chunked ingestion safe. The derivation is empirically robust — a 40-ticker subset reproduced it on 959/959 shared sessions — but robustness is not invariance, and the forward path is chunked.",
+      "tie_rule": "ties resolve to the smallest modal value; fixed so it cannot be re-decided",
+      "unknown_session": "raises UnknownSession rather than silently excluding the whole day",
+      "digest": "6daa77b056434522",
+      "chunked_without_frozen_table_mismatches": {
+        "episode_chunk_64": 188,
+        "episode_chunk_4096": 40
+      }
+    },
+    "invariance": {
+      "claims_15m": {
+        "claim_batch_1": 0,
+        "claim_batch_16": 0,
+        "claim_batch_171": 0,
+        "episode_chunk_64": 0,
+        "episode_chunk_4096": 0,
+        "episode_chunk_1_sampled": 0,
+        "episode_chunk_1_n_sampled": 200,
+        "episode_chunk_1_why_sampled": "chunk=1 over the full frame is 114,295 evaluator calls; a 200-episode sample is reported rather than silently skipped",
+        "row_order_shuffled": 0,
+        "row_order_reverse_sorted": 0
+      },
+      "claims_1h": {
+        "episode_chunk_64": 0,
+        "episode_chunk_4096": 0,
+        "row_order_shuffled": 0
+      },
+      "why": "ingestion batch size is an operational parameter and must never become a scientific one"
+    }
+  },
+  "implementations": {
+    "reference_never_deleted": "eval_15m / eval_1h stay in the module unchanged, so any future optimisation is checked against an oracle that has not moved",
+    "production": "eval_15m_batch / eval_1h_chunked",
+    "licence": "extensional equivalence on every admissible input"
+  }
+}

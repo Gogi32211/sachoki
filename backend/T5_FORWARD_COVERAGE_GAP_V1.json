@@ -1,0 +1,31 @@
+{
+  "spec_id": "T5_FORWARD_COVERAGE_GAP_V1",
+  "status": "RECORDED",
+  "role": "ADDITIVE NOTE — touches no frozen artifact and changes no rule",
+  "parent": "T5_FORWARD_VALIDATION_V1",
+  "parent_digest": "c39c651868c727f4",
+  "finding": "the frozen cutoff rationale reads 'the historical database reached 2026-08-20', which is true of the 1D bar store but NOT of the evidence the discovery actually used: the episode and 1H microstructure tables stop at 2026-08-17 (feature_data_as_of = 2026-08-17).",
+  "consequence": {
+    "sessions": [
+      "2026-08-18",
+      "2026-08-19",
+      "2026-08-20"
+    ],
+    "excluded_from_forward": "signal session <= cutoff, so no_backfill excludes them permanently",
+    "absent_from_historical": "the frozen evidence ends at 2026-08-17, so they were in no search",
+    "net": "these sessions belong to neither side and are simply never used"
+  },
+  "magnitude": {
+    "sessions_lost": 3,
+    "episodes_per_session": 149.2,
+    "estimated_episodes_lost": 448,
+    "lock_target": 20000,
+    "pct_of_lock_target": 2.24
+  },
+  "decision": "the cutoff is NOT moved to 2026-08-17",
+  "why": "reopening the root frozen artifact to recover roughly 448 episodes (2.24% of the lock target) would change discovery_cutoff, the family digest and every artifact hanging off them. A pre-registration that is adjusted to recover sample is no longer one. The loss is conservative in direction — the episodes are used by neither side — so it costs coverage, never validity.",
+  "contamination": "none: nothing about these sessions enters any computation",
+  "operational_prerequisite": "the episode and microstructure tables are 3 sessions behind the 1D store and MUST be rebuilt before any forward ingestion; until then no post-cutoff episode can exist at all",
+  "recorded_before": "the first forward occurrence row",
+  "artifact_chain_digest": "45d42d761a5434e9"
+}

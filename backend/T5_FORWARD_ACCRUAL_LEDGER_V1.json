@@ -1,0 +1,106 @@
+{
+  "spec_id": "T5_FORWARD_ACCRUAL_LEDGER_V1",
+  "parent_spec": "T5_FORWARD_VALIDATION_V1",
+  "parent_digest": "c39c651868c727f4",
+  "mode": "OUTCOME_BLIND",
+  "state": "APPEND_ONLY",
+  "discovery_cutoff": "2026-08-20",
+  "lock_target": 20000,
+  "blindness": {
+    "mechanism": "code-level guard: assert_no_outcome() on every frame, and the outcome sidecar is never opened by this module",
+    "is_not_a_privilege_boundary": "a real boundary would be a database role that cannot SELECT the outcome schema, so a mistake fails at the connection rather than at a check someone can delete. DuckDB single-file has no GRANT/DENY, so this weaker guarantee is recorded rather than glossed over.",
+    "forbidden_columns": [
+      "band_p95",
+      "effect_size",
+      "mae_10d",
+      "mae_atr_10d",
+      "max_z",
+      "mean_return",
+      "median_return",
+      "mfe_10d",
+      "mfe_1d",
+      "mfe_20d",
+      "mfe_3d",
+      "mfe_5d",
+      "mfe_atr_10d",
+      "needle_z",
+      "p_value",
+      "rank",
+      "ret_10d",
+      "survives",
+      "survivor_forward",
+      "theta",
+      "theta_raw_obs",
+      "win_rate",
+      "z",
+      "z_rank",
+      "z_rank_obs"
+    ]
+  },
+  "maturity": {
+    "rule": "the tenth forward TRADING session after entry has elapsed AND the bars for the horizon are present AND no blocking DQ failure",
+    "not_calendar_days": true,
+    "incomplete": "MATURITY_DATA_INCOMPLETE — does not count toward the lock"
+  },
+  "lock_counter": "mature forward T5 episodes; not signals, not calendar days, not valid memberships",
+  "no_eta": "deliberately not computed",
+  "support_eligibility": {
+    "treated": 300,
+    "control": 300,
+    "below": "INSUFFICIENT_FORWARD_SUPPORT — leaves the family",
+    "no_replacement": "no replacement medoid, no threshold lowering, no family refill"
+  },
+  "families": {
+    "k_1h_original": 4,
+    "k_15m_original": 171,
+    "digest": "b329d0f38ce65ca2"
+  },
+  "dq_codes": [
+    "NO_1H_MICROSTRUCTURE",
+    "INCOMPLETE_OPENING_HOUR_15M",
+    "SESSION_GAP",
+    "DUPLICATE_BAR",
+    "BAD_TIMESTAMP_ALIGNMENT",
+    "CORPORATE_ACTION_UNRESOLVED",
+    "UNIVERSE_MAPPING_FAILURE",
+    "FEATURE_BUILD_FAILURE",
+    "MEMBERSHIP_EVAL_FAILURE",
+    "MATURITY_DATA_INCOMPLETE"
+  ],
+  "invariants": {
+    "signal_after_cutoff": true,
+    "membership_rule_hash_matches_frozen": true,
+    "no_outcome_field_reachable": "enforced by assert_no_outcome on every frame",
+    "mature_count_monotone": "checked against the previous ledger row on every append",
+    "membership_immutable_after_insert": "a changed pipeline is a new data_version, never a rewrite",
+    "no_duplicate_episode_id": true,
+    "support_threshold": "300/300",
+    "lock_target": 20000,
+    "no_test_before_lock": "run_forward_test() raises ForwardLockNotReached"
+  },
+  "current_ledger_row": {
+    "as_of_session": "2026-08-20",
+    "cutoff": "2026-08-20",
+    "n_new_t5": 0,
+    "n_total_t5": 0,
+    "n_new_mature": 0,
+    "n_total_mature": 0,
+    "lock_target": 20000,
+    "lock_progress_pct": 0.0,
+    "coverage_1h": null,
+    "coverage_15m": null,
+    "data_quality_failures": 0,
+    "family_digest": "b329d0f38ce65ca2",
+    "parent_digest": "c39c651868c727f4",
+    "forward_outcomes": "SEALED",
+    "statistical_testing": "LOCKED"
+  },
+  "artifacts": {
+    "ledger": "t5_forward_ledger.parquet",
+    "occurrence": "t5_forward_membership.parquet",
+    "dq": "t5_forward_dq.parquet",
+    "lock_manifest": "t5_forward_lock_manifest.parquet"
+  },
+  "lock_manifest_rule": "when mature == 20,000, the FIRST 20,000 mature episodes are frozen into the manifest with a lock hash; episode 20,001 onward is not in the validation run",
+  "y_status": "NO POST-CUTOFF OUTCOME OBSERVED"
+}

@@ -1,0 +1,18 @@
+{
+  "spec_id": "T5_FORWARD_OCCURRENCE_SCHEMA_V1",
+  "status": "FROZEN",
+  "grain": "one row per (episode_id, claim_id) for every forward episode evaluated",
+  "columns": {
+    "episode_id": "string",
+    "claim_id": "string",
+    "is_treated": "bool — the rule fired on this episode",
+    "is_control": "bool — the episode is in an overlap block of this claim and is not treated",
+    "support_block_id": "int — T5 date x liq LOW/HIGH x vol LOW/HIGH, cut within the forward window",
+    "evaluator_hash": "string — which executable semantics produced this row",
+    "data_version": "string",
+    "rule_digest": "string"
+  },
+  "why_long_form": "175 members as a wide table would make support and overlap audits awkward; long form counts treated and control with a filtered COUNT",
+  "immutability": "a row is written once. A changed pipeline is a new data_version, never a correction of an existing row.",
+  "support_counts": "COUNT(*) FILTER (WHERE is_treated) and FILTER (WHERE is_control), on maturity-complete episodes only"
+}

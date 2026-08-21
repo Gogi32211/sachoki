@@ -1,0 +1,100 @@
+{
+  "spec_id": "T5_FORWARD_MEMBERSHIP_REPLAY_V1",
+  "reference_implementation": "eval_15m / eval_1h — canonical scalar. NEVER DELETED: it stays the frozen oracle so any future optimisation is checked against an implementation that has not moved.",
+  "candidate_implementation": "eval_15m_batch / eval_1h_chunked — production, vectorised",
+  "licence": "the candidate is admissible ONLY while it is extensionally equivalent to the reference; a faster path is an optimisation, never new semantics",
+  "equality": "EXACT BITWISE, at (episode x claim) grain. Membership is boolean, so no tolerance and no allclose() is involved.",
+  "why_not_counts": "treated_count equality is satisfied by two errors that cancel",
+  "feature_pipeline_parity": {
+    "tested_separately": true,
+    "both_read": "the same materialised frozen X, never recomputed features",
+    "why": "rebuilding features inside the replay would test the pipeline and the evaluator at once, and a mismatch would have no attributable source",
+    "input_digests": {
+      "m15_opening_hour": "9e5e0f5edd527f2c",
+      "h1_microstructure": "06445de9bd2a367b",
+      "representatives": "73a607624cc2973f"
+    }
+  },
+  "evaluator_hash": "fbb79d0a2bad3854",
+  "evaluator_file": "t5_forward_eval.py",
+  "pre_cutoff_only": {
+    "family": "15M",
+    "max_signal_session": "2026-08-17",
+    "cutoff": "2026-08-20",
+    "ok": true
+  },
+  "equivalence_15m": {
+    "cells_compared": 19544445,
+    "cell_mismatches": 0,
+    "episode_mismatches": 0,
+    "claim_mismatches": 0,
+    "first_offending_claims": [],
+    "first_offending_episodes": [],
+    "episodes_replayed": 114295,
+    "claims": 171
+  },
+  "invariance_15m": {
+    "claim_batch_1": 0,
+    "claim_batch_16": 0,
+    "claim_batch_171": 0,
+    "episode_chunk_64": 0,
+    "episode_chunk_4096": 0,
+    "episode_chunk_1_sampled": 0,
+    "episode_chunk_1_n_sampled": 200,
+    "episode_chunk_1_why_sampled": "chunk=1 over the full frame is 114,295 evaluator calls; a 200-episode sample is reported rather than silently skipped",
+    "row_order_shuffled": 0,
+    "row_order_reverse_sorted": 0
+  },
+  "pre_cutoff_only_1h": {
+    "family": "1H",
+    "max_signal_session": "2026-08-17",
+    "cutoff": "2026-08-20",
+    "ok": true
+  },
+  "session_length_table": {
+    "n_sessions": 1275,
+    "frozen_table_reproduces_derivation": true,
+    "why": "derived from the frame, the modal session length makes 1H membership SESSION-local rather than episode-local: evaluate a subset of episodes and the mode could move. Supplied as a frozen input it is episode-local by construction, which is what makes chunked ingestion safe. The derivation is empirically robust — a 40-ticker subset reproduced it on 959/959 shared sessions — but robustness is not invariance, and the forward path is chunked.",
+    "tie_rule": "ties resolve to the smallest modal value; fixed so it cannot be re-decided",
+    "unknown_session": "raises UnknownSession rather than silently excluding the whole day",
+    "digest": "6daa77b056434522",
+    "chunked_without_frozen_table_mismatches": {
+      "episode_chunk_64": 188,
+      "episode_chunk_4096": 40
+    }
+  },
+  "equivalence_1h": {
+    "cells_compared": 494596,
+    "cell_mismatches": 0,
+    "episode_mismatches": 0,
+    "claim_mismatches": 0,
+    "first_offending_claims": [],
+    "first_offending_episodes": [],
+    "episodes_replayed": 123649,
+    "claims": 4
+  },
+  "invariance_1h": {
+    "episode_chunk_64": 0,
+    "episode_chunk_4096": 0,
+    "row_order_shuffled": 0
+  },
+  "per_claim_signatures": {
+    "file": "t5_forward_replay_signatures.parquet",
+    "rows": 175,
+    "columns": [
+      "family",
+      "claim_id",
+      "n_treated_reference",
+      "n_treated_candidate",
+      "xor_mismatch_count",
+      "membership_digest_reference",
+      "membership_digest_candidate",
+      "passed"
+    ],
+    "n_failed": 0,
+    "digest": "1d76d9b33da1b1a5",
+    "why": "on a 0.3%-prevalence rule a one-episode deviation is a large relative error, so every claim is audited individually rather than through a pooled count"
+  },
+  "invariance_failures": {},
+  "result": "PASS"
+}

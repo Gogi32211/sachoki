@@ -1,0 +1,37 @@
+{
+  "spec_id": "T5_FORWARD_LOCK_MANIFEST_V1",
+  "status": "FROZEN_SPECIFICATION_ONLY",
+  "manifest_not_yet_created": "the manifest is written when mature_count first reaches 20,000; only the rule is frozen now",
+  "eligible_for_lock": [
+    "signal_ts > 2026-08-20",
+    "maturity_complete",
+    "data_quality_status == PASS"
+  ],
+  "ordering": [
+    "maturity_completion_session ASC",
+    "signal_session ASC",
+    "episode_id ASC"
+  ],
+  "why_tie_breakers": "around the 20,000th episode several will complete maturity on the same session. Without a declared ordering, which one is #20,000 becomes a choice made at the moment it matters.",
+  "locked_set": "the first 20,000 rows under the frozen ordering",
+  "excluded": "episode 20,001 onward is not in the validation run, whatever it looks like",
+  "manifest_columns": [
+    "episode_id",
+    "signal_session",
+    "maturity_completion_session",
+    "membership_hash",
+    "evaluator_hash",
+    "data_version_hash",
+    "calendar_hash"
+  ],
+  "lock_hash": "sha256 over the ordered episode_id list plus the four hashes above",
+  "after_lock": [
+    "support eligibility",
+    "k_eff",
+    "frozen primary tests",
+    "max-Z correction over eligible members only",
+    "STATISTICAL_PASS / FAIL",
+    "directional consistency"
+  ],
+  "one_deterministic_run": "the input manifest hash is known before the test is run"
+}
