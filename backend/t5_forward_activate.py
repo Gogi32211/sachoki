@@ -192,7 +192,8 @@ if __name__ == "__main__":
     main()
 
 
-def activation_manifest(activation_timestamp, out="T5_FORWARD_ACTIVATION_MANIFEST_V1.json"):
+def activation_manifest(activation_timestamp, activation_record_commit,
+                        out="T5_FORWARD_ACTIVATION_MANIFEST_V1.json"):
     """WHICH COMPLETE CONFIGURATION ENTERED FORWARD MODE.
 
     The base chain digest deliberately does NOT cover everything: it was computed over the
@@ -221,8 +222,18 @@ def activation_manifest(activation_timestamp, out="T5_FORWARD_ACTIVATION_MANIFES
         session_length_digest=ART.file_digest("T5_FORWARD_SESSION_LENGTH_V1.json"),
         evaluator_hash=EVALUATOR_HASH,
         runtime_commit=pin.get("pin") or pin.get("head"),
+        activation_record_commit=activation_record_commit,
+        activation_manifest_self_reference="NOT ATTEMPTED — this file is written after the "
+                                           "commit it names and cannot be inside it. The three "
+                                           "identities are kept as three fields rather than "
+                                           "collapsed: runtime_commit is what EXECUTES, "
+                                           "activation_record_commit is where this record "
+                                           "LIVES, and the manifest's own digest is what the "
+                                           "runtime verifies.",
         runtime_pinned=bool(pin["pinned"]),
         runtime_identity="the commit SHA, never a branch name — `main` moves, a SHA does not",
+        data_producer_digest=(ART.file_digest("T5_FORWARD_DATA_PRODUCER_V1.json")
+                              if os.path.exists("T5_FORWARD_DATA_PRODUCER_V1.json") else None),
         activation_timestamp=activation_timestamp,
         forward_episode_count=occ_rows,
         superseded=dict(
@@ -257,5 +268,5 @@ def activation_manifest(activation_timestamp, out="T5_FORWARD_ACTIVATION_MANIFES
                      "unknown session", "session length not committed"],
         no_warn_and_continue=True)
     d = ART.seal(body, out, required=("spec_id", "base_chain_digest", "runtime_commit",
-                                      "activation_timestamp"))
+                                      "activation_timestamp"), supersede=True)
     return d, body
