@@ -1,0 +1,14 @@
+{
+  "spec_id": "T_FAMILY_CAPABILITY_RNG_RULE_V1",
+  "status": "FROZEN",
+  "applies_to": [
+    "T3_MICROSTRUCTURE_DNA_V1",
+    "T1_MICROSTRUCTURE_DNA_V1",
+    "T4_MICROSTRUCTURE_DNA_V1",
+    "any future family"
+  ],
+  "rule": "rng_root = SHA256('<FAMILY>_CAPABILITY_EVIDENCE_V1' | claim_order_hash | population_hash | block_assignment_hash | needle_artifact_hash | capability_protocol_hash) — derived, never hand-chosen",
+  "why": "after any capability cell has been seen anywhere, a hand-picked seed can no longer be proven innocent; a root derived from sealed hashes can",
+  "t9_status": "T9's run 0e5954e keeps its own seed 20260821: it was committed BEFORE the first cell was observed, so its seed-choice channel was already closed; switching seeds after the q10 peek would itself be a post-peek change",
+  "peek_rule": "no capability protocol, delta grid, needle set, world count, permutation count or acceptance logic may change after any cell has been observed"
+}
