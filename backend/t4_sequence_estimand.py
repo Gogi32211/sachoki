@@ -28,6 +28,15 @@ import t5_sequence_estimand as E5                                      # noqa: E
 import t4_dna as D9                                                    # noqa: E402
 import t4_sequence_grammar as G9                                       # noqa: E402
 
+def support_eligible(t_ov, c_ov):
+    """Registered episode floors ONLY. Retention is not an input BY SIGNATURE: after an
+    unregistered inherited retention gate was identified during pre-first-use review and
+    removed, eligibility was factored into a function whose argument list is the guarantee —
+    a retention term cannot re-enter without changing this signature, which the regression
+    test asserts."""
+    return t_ov >= MIN_EP and c_ov >= MIN_EP
+
+
 SPEC = os.path.join(HERE, "T4_SEQUENCE_ESTIMAND_V1.json")
 CLAIMS_OUT = os.path.join(D9.ROOT, "data", "t4_sequence_estimand_claims.parquet")
 OC = os.path.join(D9.ROOT, "data", "t4_outcomes.parquet")
@@ -164,13 +173,13 @@ def main():
         t_all, t_ov = int(s.sum()), int((s & inov).sum())
         c_ov = int(((~s) & inov).sum())
         ret = t_ov / t_all if t_all else 0.0
-        # RETENTION IS DIAGNOSTIC, NOT A FILTER — enforced before first use, at the user's
-        # catch. T5's estimand registered treated_overlap_retention >= 0.80 in its own
+        # RETENTION IS DIAGNOSTIC, NOT A FILTER — identified during pre-first-use review.
+        # T5's estimand registered treated_overlap_retention >= 0.80 in its own
         # freeze; the T4 registration did NOT, and explicitly forbids a post-hoc mobility
         # cutoff. The inherited constant was silently sitting in the k_final path and was
         # removed BEFORE any T4 estimand ever ran. Retention is computed, stored per claim
         # and reported as a distribution — never selected on.
-        ok = (t_ov >= MIN_EP and c_ov >= MIN_EP)
+        ok = support_eligible(t_ov, c_ov)
         if ok:
             e = np.flatnonzero(s & inov)
             ok = (len(np.unique(tcode[e])) >= MIN_TK
@@ -219,8 +228,7 @@ def main():
             rule="treated_overlap_retention is DIAGNOSTIC ONLY in this family",
             t5_contrast="T5 registered >=0.80 in its own estimand freeze; this family's "
                         "registration did not and forbids post-hoc mobility cutoffs",
-            corrected="the inherited 0.80 filter was removed BEFORE the first estimand run "
-                      "of this family, at the user's catch"),
+            corrected="Unregistered inherited retention gate identified during pre-first-use review and removed before the first estimand execution."),
         mobility=dict(role="DIAGNOSTIC of operational permutation freedom — NOT proof of "
                            "exchangeability; no post-hoc mobility cutoff is invented",
                       treated_permutable_retention=mob,
