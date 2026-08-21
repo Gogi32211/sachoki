@@ -151,6 +151,15 @@ def run_candidate(C, verbose=False):
     its semantics actually live."""
     os.environ.setdefault("SACHOKI_BARS_ONLY", "1")     # keep the universe loaders out of RAM
     import build_intraday_db as B
+    if B._DB_COLS is None:
+        # _DB_COLS is normally set by the pool initializer via ensure_schema(), which can ALTER
+        # the store. The canary must not write anything, so the column set is taken read-only.
+        import duckdb
+        c = duckdb.connect(D.DB1H, read_only=True)
+        try:
+            B._DB_COLS = {r[0] for r in c.execute("DESCRIBE bars").fetchall()}
+        finally:
+            c.close()
     out = []
     for key, g in C.groupby("canary_key", sort=True):
         tk = g.ticker.iloc[0]
