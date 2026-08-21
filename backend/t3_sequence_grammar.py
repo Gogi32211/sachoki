@@ -56,13 +56,13 @@ def freeze_x():
     sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()[:16]
     fz = dict(
         spec_id="T3_DNA_X_V1", family_id="T3_MICROSTRUCTURE_DNA_V1",
-        setup="FINAL_PRIORITY_RESOLVED_T9",
+        setup="FINAL_PRIORITY_RESOLVED_T3",
         t3_definition_hash=D9.T3_DEF_HASH, t3_definition=D9.T3_DEFINITION,
         token_registry_hash=TS.digest(), registry_total=len(TS.REGISTRY),
         bars_applicable_tokens=len(D9.TOKENS_1H),
         frame_computed_excluded=len(TS.REGISTRY) - len(D9.TOKENS_1H),
         full_T3_population=int(len(E)),
-        T3_day_1H_observable=int(has_t9.sum()),
+        T3_day_1H_observable=int(has_t3.sum()),
         cross_day_observable=int((has_t3 & has_pv).sum()),
         coverage_role="OBSERVED_1H_SUBPOPULATION",
         future_outcomes="FORBIDDEN",

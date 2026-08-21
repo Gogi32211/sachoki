@@ -1,0 +1,57 @@
+{
+  "spec_id": "T9_SEQUENCE_ESTIMAND_V1",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "funnel": {
+    "episodes_total": 243562,
+    "sequence_analyzable": 158933,
+    "mfe10_available": 157826,
+    "anchored_full_prewindow": 157031,
+    "n_primary_population": 157031,
+    "n_blocks": 5053,
+    "median_block_size": 21,
+    "grammar_claims": 910,
+    "support_qualified": 958,
+    "k_final": 890
+  },
+  "split_rule": "within each T5 date, rank(anchor value, method='first') after sorting by (value, ticker); LOW = rank <= n/2. Ties resolve by ticker alphabetically so parquet row order can never be a hidden input.",
+  "anchor": "T9 - 2 sessions \u00b7 dv20 median dollar volume \u00b7 ATR14/close \u00b7 reused byte-identical from the qualified T5 estimand on renamed frames",
+  "support": {
+    "treated": 300,
+    "control": 300,
+    "tickers": 50,
+    "dates": 50,
+    "max_date_share": 0.1
+  },
+  "retention_is_not_a_gate": {
+    "rule": "treated_overlap_retention is DIAGNOSTIC ONLY in this family",
+    "t5_contrast": "T5 registered >=0.80 in its own estimand freeze; this family's registration did not and forbids post-hoc mobility cutoffs",
+    "corrected": "Unregistered inherited retention gate identified during pre-first-use review and removed before the first estimand execution."
+  },
+  "mobility": {
+    "role": "DIAGNOSTIC of operational permutation freedom \u2014 NOT proof of exchangeability; no post-hoc mobility cutoff is invented",
+    "treated_permutable_retention": {
+      "q0": 0.9899,
+      "q10": 0.9977,
+      "q25": 0.9991,
+      "q50": 0.9998,
+      "q75": 1.0,
+      "q90": 1.0,
+      "q100": 1.0
+    },
+    "block_constant_treated_share": {
+      "q0": 0.0,
+      "q10": 0.0,
+      "q25": 0.0,
+      "q50": 0.0002,
+      "q75": 0.0009,
+      "q90": 0.0023,
+      "q100": 0.0101
+    }
+  },
+  "exchangeability_assumption": "Within the registered date x pre-liquidity x pre-volatility blocks, episode outcomes are exchangeable with respect to sequence membership under the null. This does NOT claim ticker heterogeneity is controlled: one ticker contributes many episodes, and both sequence propensity and future MFE may be ticker-specific.",
+  "k_final": 890,
+  "n_perm_planned": 999,
+  "primary": "mfe_10d",
+  "outcome_exposure": "NOT_EXPOSED \u2014 only path_status_10d was read",
+  "seconds": 28.7
+}
