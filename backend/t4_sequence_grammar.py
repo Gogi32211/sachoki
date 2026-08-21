@@ -1,12 +1,12 @@
-"""T3 1H sequence grammar — X-only enumeration, frozen before any T3 Y access.
+"""T4 1H sequence grammar — X-only enumeration, frozen before any T4 Y access.
 
-Reuses the T5 grammar machinery with T3 literals. Differences from t5_sequence_grammar are
-exactly: input tables (t3_*), day label (T3_DAY), artifact names, and the reproducibility
+Reuses the T5 grammar machinery with T4 literals. Differences from t5_sequence_grammar are
+exactly: input tables (t4_*), day label (T4_DAY), artifact names, and the reproducibility
 gate — T5's hardcoded (863, ccdeb2b7a03e81d0) is replaced by gate E's two-run digest equality,
 because T9's constants do not exist until this run creates them. After the first sealed run
 the digest becomes T9's own frozen expectation.
 
-    families    T3_INTRADAY · PREV_INTRADAY · CROSS_DAY (exactly one seam)
+    families    T4_INTRADAY · PREV_INTRADAY · CROSS_DAY (exactly one seam)
     lengths     2, 3 — no 4-bar primary search
     adjacency   STRICT_ADJACENT
     element     atomic canonical token presence on one 1H bar
@@ -33,37 +33,37 @@ import numpy as np, pandas as pd                                       # noqa: E
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
 import combo_tokens_spec as TS                                         # noqa: E402
 import t5_sequence_grammar as G5                                       # noqa: E402
-import t3_dna as D9                                                    # noqa: E402
+import t4_dna as D9                                                    # noqa: E402
 
-SPEC = os.path.join(HERE, "T3_SEQUENCE_GRAMMAR_V1.json")
-OUT = os.path.join(HERE, "T3_SEQUENCE_UNIVERSE_V1.json")
-XFREEZE = os.path.join(HERE, "T3_DNA_X_V1.json")
-SURV = os.path.join(D9.ROOT, "data", "t3_sequence_survivors_v1.parquet")
-TOKS = os.path.join(D9.ROOT, "data", "t3_sequence_tokens_v1.parquet")
+SPEC = os.path.join(HERE, "T4_SEQUENCE_GRAMMAR_V1.json")
+OUT = os.path.join(HERE, "T4_SEQUENCE_UNIVERSE_V1.json")
+XFREEZE = os.path.join(HERE, "T4_DNA_X_V1.json")
+SURV = os.path.join(D9.ROOT, "data", "t4_sequence_survivors_v1.parquet")
+TOKS = os.path.join(D9.ROOT, "data", "t4_sequence_tokens_v1.parquet")
 
 MIN_EP, MIN_TK, MIN_DT, MAX_DATE_SHARE = G5.MIN_EP, G5.MIN_TK, G5.MIN_DT, G5.MAX_DATE_SHARE
 LENGTHS = G5.LENGTHS
-FAMILIES = ("T3_INTRADAY", "PREV_INTRADAY", "CROSS_DAY")
-LOAD_COLS = ["episode_id", "ticker", "t3_date", "relative_day", "session_date",
+FAMILIES = ("T4_INTRADAY", "PREV_INTRADAY", "CROSS_DAY")
+LOAD_COLS = ["episode_id", "ticker", "t4_date", "relative_day", "session_date",
              "session_position", "bars_in_session", "token_set"]     # gate F: X only
 
 
 def freeze_x():
-    """T3_DNA_X_V1 — mirror of the T5 X-layer freeze, from t3 tables."""
+    """T4_DNA_X_V1 — mirror of the T5 X-layer freeze, from t4 tables."""
     E = pd.read_parquet(D9.OUT_EP)
-    has_t3 = E.n_t3_day_1h_bars.fillna(0) > 0
+    has_t4 = E.n_t4_day_1h_bars.fillna(0) > 0
     has_pv = E.n_prev_day_1h_bars.fillna(0) > 0
     sha = lambda p: hashlib.sha256(open(p, "rb").read()).hexdigest()[:16]
     fz = dict(
-        spec_id="T3_DNA_X_V1", family_id="T3_MICROSTRUCTURE_DNA_V1",
+        spec_id="T4_DNA_X_V1", family_id="T4_MICROSTRUCTURE_DNA_V1",
         setup="FINAL_PRIORITY_RESOLVED_T9",
-        t3_definition_hash=D9.T3_DEF_HASH, t3_definition=D9.T3_DEFINITION,
+        t4_definition_hash=D9.T4_DEF_HASH, t4_definition=D9.T4_DEFINITION,
         token_registry_hash=TS.digest(), registry_total=len(TS.REGISTRY),
         bars_applicable_tokens=len(D9.TOKENS_1H),
         frame_computed_excluded=len(TS.REGISTRY) - len(D9.TOKENS_1H),
-        full_T3_population=int(len(E)),
-        T3_day_1H_observable=int(has_t9.sum()),
-        cross_day_observable=int((has_t3 & has_pv).sum()),
+        full_T4_population=int(len(E)),
+        T4_day_1H_observable=int(has_t9.sum()),
+        cross_day_observable=int((has_t4 & has_pv).sum()),
         coverage_role="OBSERVED_1H_SUBPOPULATION",
         future_outcomes="FORBIDDEN",
         artifacts={os.path.basename(p): sha(p) for p in (D9.OUT_EP, D9.OUT_MS, D9.AUDIT)})
@@ -72,7 +72,7 @@ def freeze_x():
     if os.path.exists(XFREEZE):
         old = json.load(open(XFREEZE))
         if old.get("freeze_digest") != fz["freeze_digest"]:
-            raise RuntimeError("T3_DNA_X_V1 exists and differs — the X layer is frozen")
+            raise RuntimeError("T4_DNA_X_V1 exists and differs — the X layer is frozen")
     else:
         json.dump(fz, open(XFREEZE, "w"), indent=2, default=str)
     return fz
@@ -91,12 +91,12 @@ def load_ms(shuffle_seed=None):
 
 
 def enumerate_grammar(M, verbose=True, collect_occ=False):
-    """The T5 pipeline with T3 literals. Returns (universe, CLAIMS df, tokens)."""
+    """The T5 pipeline with T4 literals. Returns (universe, CLAIMS df, tokens)."""
     modal = (M.groupby(["session_date", "ticker"])["bars_in_session"].first()
              .groupby("session_date").agg(lambda s: s.mode().iloc[0]))
     M = M[M.bars_in_session == M.session_date.map(modal)]
 
-    M2 = M.rename(columns={"t3_date": "t5_date"})     # searchable_tokens speaks T5 names
+    M2 = M.rename(columns={"t4_date": "t5_date"})     # searchable_tokens speaks T5 names
     REG = G5.searchable_tokens(M2)
     toks = REG.loc[REG.searchable_in_sequence_v1, "token"].tolist()
     tix = {t: i for i, t in enumerate(toks)}
@@ -112,13 +112,13 @@ def enumerate_grammar(M, verbose=True, collect_occ=False):
     ep_codes, ep_uniq = pd.factorize(M.episode_id)
     _first = M.drop_duplicates("episode_id").set_index("episode_id")
     ep_ticker = pd.factorize(_first.loc[ep_uniq, "ticker"])[0]
-    ep_date = pd.factorize(_first.loc[ep_uniq, "t3_date"])[0]
+    ep_date = pd.factorize(_first.loc[ep_uniq, "t4_date"])[0]
     order = np.lexsort((M.session_position.to_numpy(),
-                        (M.relative_day == "T3_DAY").to_numpy(), ep_codes))
+                        (M.relative_day == "T4_DAY").to_numpy(), ep_codes))
     Ms = M.iloc[order].reset_index(drop=True)
     Bs = B[order]
     ep = ep_codes[order]
-    rd = (Ms.relative_day == "T3_DAY").to_numpy()
+    rd = (Ms.relative_day == "T4_DAY").to_numpy()
     pos = Ms.session_position.to_numpy()
 
     def adjacencies(family, span):
@@ -127,7 +127,7 @@ def enumerate_grammar(M, verbose=True, collect_occ=False):
         ok = np.ones(len(idx), bool)
         for j in range(span):
             ok &= ep[idx + j] == ep[idx]
-        if family == "T3_INTRADAY":
+        if family == "T4_INTRADAY":
             for j in range(span):
                 ok &= rd[idx + j]
             for j in range(span - 1):
@@ -275,8 +275,8 @@ def gate_b_replication(M, factors=(2, 5, 10), n_episodes=3000, verbose=True):
 def main():
     t0 = time.time()
     fz = freeze_x()
-    print(f"T3 grammar · X freeze {fz['freeze_digest']} · pop {fz['full_T3_population']:,} · "
-          f"1H {fz['T3_day_1H_observable']:,} · cross-day {fz['cross_day_observable']:,}",
+    print(f"T4 grammar · X freeze {fz['freeze_digest']} · pop {fz['full_T4_population']:,} · "
+          f"1H {fz['T4_day_1H_observable']:,} · cross-day {fz['cross_day_observable']:,}",
           flush=True)
 
     M = load_ms()                                     # gate A inside
@@ -300,7 +300,7 @@ def main():
     pd.DataFrame(dict(token=toks)).to_parquet(TOKS, index=False)
 
     spec = dict(
-        spec_id="T3_SEQUENCE_GRAMMAR_V1", family_id="T3_MICROSTRUCTURE_DNA_V1",
+        spec_id="T4_SEQUENCE_GRAMMAR_V1", family_id="T4_MICROSTRUCTURE_DNA_V1",
         x_freeze_digest=fz["freeze_digest"],
         adjacency="STRICT_ADJACENT", lengths=list(LENGTHS), four_bar="NOT_IN_V1",
         families=list(FAMILIES),
@@ -326,7 +326,7 @@ def main():
     json.dump(dict(spec_digest=spec["spec_digest"], universe=rep,
                    seconds=round(time.time() - t0, 1)),
               open(OUT, "w"), indent=2, default=str)
-    print(f"\n  T3_SEQUENCE_GRAMMAR_V1 {spec['spec_digest']} · "
+    print(f"\n  T4_SEQUENCE_GRAMMAR_V1 {spec['spec_digest']} · "
           f"support-qualified {len(C1):,} · distinct {spec['totals']['distinct']:,} · "
           f"aliases {spec['totals']['aliases']} · {time.time()-t0:.0f}s · NO OUTCOME JOINED",
           flush=True)

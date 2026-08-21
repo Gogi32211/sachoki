@@ -90,7 +90,7 @@ def load_ms(shuffle_seed=None):
     return M
 
 
-def enumerate_grammar(M, verbose=True):
+def enumerate_grammar(M, verbose=True, collect_occ=False):
     """The T5 pipeline with T9 literals. Returns (universe, CLAIMS df, tokens)."""
     modal = (M.groupby(["session_date", "ticker"])["bars_in_session"].first()
              .groupby("session_date").agg(lambda s: s.mode().iloc[0]))
@@ -147,7 +147,7 @@ def enumerate_grammar(M, verbose=True):
             ok &= trans == 1
         return idx[ok]
 
-    universe, CLAIMS = {}, []
+    universe, CLAIMS, OCC = {}, [], []
     for fam in FAMILIES:
         for L in LENGTHS:
             a = adjacencies(fam, L)
@@ -186,6 +186,11 @@ def enumerate_grammar(M, verbose=True):
                 surv.append(c)
                 sup.append(len(e))
                 name = "→".join(toks[x] for x in c)
+                if collect_occ:
+                    # one row PER WINDOW INSTANCE — the true occurrence grain. An episode with
+                    # three qualifying windows contributes three rows; aggregation to episode
+                    # support MUST collapse them, and gate B verifies exactly that.
+                    OCC.append((f"{fam}|{L}|{name}", np.asarray(ep_uniq)[ep[a[m]]]))
                 # membership_hash over the REAL episode ids, sorted. The first version hashed
                 # factorize's local integer codes — first-appearance labels that change under
                 # row shuffle — and gate C/E correctly refused: run1 eed0565a vs run2 f16f8664
@@ -217,6 +222,10 @@ def enumerate_grammar(M, verbose=True):
                                                  sort=False).ngroup().astype(str))
         C["syntactic_aliases"] = C.groupby("equivalence_class_id")["canonical_sequence"] \
                                   .transform("size") - 1
+    if collect_occ:
+        occ = pd.DataFrame([(c, e) for c, arr in OCC for e in arr],
+                           columns=["claim", "episode_id"])
+        return universe, C, toks, occ
     return universe, C, toks
 
 
@@ -227,26 +236,39 @@ def class_digest(C):
 
 
 def gate_b_replication(M, factors=(2, 5, 10), n_episodes=3000, verbose=True):
-    """Replicate occurrence rows xF on a deterministic subpopulation; episode-level 2-bar
-    membership must be unchanged. STRICT adjacency makes duplicated bars a real threat."""
+    """Gate B — aggregation invariance at the OCCURRENCE-ROW grain.
+
+    THE FIRST VERSION TESTED THE WRONG GRAIN AND FAILED HONESTLY. It replicated SOURCE BARS
+    and re-ran the strict-adjacency detector: under replication a sorted episode reads
+    [p1,p1,p2,p2,p3,p3], so every 3-bar window (p1,p2,p3) disappears by construction and the
+    x2/x5/x10 runs all failed. That is not an aggregation bug — duplicated source grain is
+    CORRUPT INPUT, and gate A already hard-fails it before the detector ever runs.
+
+    What section B of the contract actually protects (the historical T5 bug: occurrence rows
+    silently became episode support) is the aggregation AFTER detection. So the gate now
+    collects the true occurrence rows — one row per qualifying window instance, an episode
+    with three windows contributes three rows — replicates THOSE x2/x5/x10 with a shuffle,
+    and requires episode-level support and membership to be identical. A pipeline that counts
+    rows instead of distinct episodes fails this immediately."""
     eps = sorted(pd.unique(M.episode_id))[:n_episodes]
     Msub = M[M.episode_id.isin(set(eps))]
-    _, C0, _ = enumerate_grammar(Msub, verbose=False)
-    base = set((C0.family + "|" + C0.canonical_sequence).tolist()) if len(C0) else set()
-    base_memb = class_digest(C0) if len(C0) else "EMPTY"
+    _, C0, _, occ = enumerate_grammar(Msub, verbose=False, collect_occ=True)
+
+    def agg(df):
+        g = df.groupby("claim")["episode_id"]
+        return {c: (frozenset(v), len(set(v))) for c, v in g.apply(set).items()}
+
+    base = agg(occ)
+    multi = int((occ.groupby(["claim", "episode_id"]).size() > 1).sum())
     out = {}
     for f in factors:
-        Mrep = pd.concat([Msub] * f, ignore_index=True)
-        # replication breaks gate A by construction; that gate is asserted on the SOURCE,
-        # so the metamorphic build calls the enumerator directly
-        _, Cf, _ = enumerate_grammar(Mrep.sample(frac=1.0, random_state=f)
-                                     .reset_index(drop=True), verbose=False)
-        got = set((Cf.family + "|" + Cf.canonical_sequence).tolist()) if len(Cf) else set()
-        ok = got == base and (class_digest(Cf) if len(Cf) else "EMPTY") == base_memb
-        out[f"x{f}"] = bool(ok)
+        rep = pd.concat([occ] * f, ignore_index=True).sample(
+            frac=1.0, random_state=f).reset_index(drop=True)
+        out[f"x{f}"] = bool(agg(rep) == base)
         if verbose:
-            print(f"  gate B ×{f}: {'PASS' if ok else 'FAIL'} "
-                  f"({len(base)} base claims on {n_episodes} episodes)", flush=True)
+            print(f"  gate B ×{f}: {'PASS' if out[f'x{f}'] else 'FAIL'} "
+                  f"({len(base)} claims · {len(occ):,} occurrence rows · "
+                  f"{multi:,} multi-window (claim,episode) pairs exercised)", flush=True)
     return out, len(base)
 
 

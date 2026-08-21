@@ -1,0 +1,22 @@
+{
+  "spec_id": "T4_ENGULF_CONFIG_V1",
+  "status": "FROZEN",
+  "family_id": "T4_MICROSTRUCTURE_DNA_V1",
+  "use_wick": false,
+  "min_body_ratio": 1.0,
+  "mintick_semantics": "prevBodySafe = max(prevBody, 1e-10); ratio = currBody/prevBodySafe",
+  "doji_semantics": "isDoji = (close == open) EXACTLY; doji_thresh=0.05 exists as a parameter but does not participate in isDoji (verified in source)",
+  "source_identity": [
+    "analyzers/tz_wlnbb/config.py:51-55 (USE_WICK, MIN_BODY_RATIO, DOJI_THRESH)",
+    "signal_engine.py:67-69,97-122 (defaults + kernel)"
+  ],
+  "located_not_assumed": "both call sites pass the config constants; no caller overrides",
+  "config_digest": null,
+  "invariant_amended": {
+    "invalid": "raw_T4(current_store_OHLC) == materialized_canonical_T4 — the two sides do not share an input vintage",
+    "valid": "identical input bars + identical config + identical implementation => raw_T4 == canonical_T4",
+    "result": "PASSED — engine_vs_SQL_same_input 78,181/78,181, 0 mismatches",
+    "population": "materialized t_sig='T4' (250,162) remains canonical; current-OHLC reconstruction (260,013) is DIAGNOSTIC ONLY and never repairs membership",
+    "no_earlier_y": "this amendment reformulates the gate; it grants no earlier access to T4 outcomes"
+  }
+}

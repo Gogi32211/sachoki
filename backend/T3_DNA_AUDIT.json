@@ -1,0 +1,49 @@
+{
+  "spec_id": "T3_DNA_AUDIT_V1",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "definition": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>open AND open<open[1] AND open<close[1] AND close<open[1] AND close>close[1]. Canonical = raw with T4,T6,T1G,T2G,T1,T2,T9,T10 resolved first. Machine-verified: raw 207,296 is an EXACT subset of canonical 213,742 (priority exclusions 0); canonical residual 6,446 (3.0%) is feed/tick class; RAW_T3_WITH_PREV_DOJI=0 proves the doji impossibility; the 284 canonical prev-doji rows are PRECISION_RESIDUAL_PREV_DOJI (97% sub-$5, DB tick collapse). Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "definition_hash": "fb27e73eef390533",
+  "token_registry_hash": "08b73d474f17a778",
+  "n_tokens_1h": 165,
+  "reconstruction": {
+    "canonical": 213742,
+    "raw": 207296,
+    "agree": 207296,
+    "raw_subset_of_canonical": true,
+    "priority_exclusions": 0,
+    "canonical_residual": 6446,
+    "raw_prev_doji": 0,
+    "canonical_prev_doji_precision_residual": 284
+  },
+  "episodes": 213742,
+  "tickers": 5189,
+  "yearly": {
+    "2021": 20269,
+    "2022": 38282,
+    "2023": 38576,
+    "2024": 38723,
+    "2025": 46560,
+    "2026": 31332
+  },
+  "funnel": {
+    "BOTH": 145197,
+    "T3_ONLY": 360,
+    "PREV_ONLY": 847,
+    "NONE": 67338
+  },
+  "episode_id_unique": true,
+  "coverage_bias": {
+    "price": {
+      "covered_median": 34.65,
+      "missing_median": 8.76
+    },
+    "prev_price": {
+      "covered_median": 34.34,
+      "missing_median": 8.6
+    }
+  },
+  "m_rows": 2020306,
+  "m_episodes": 146404,
+  "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+  "runtime_min": 4.6
+}

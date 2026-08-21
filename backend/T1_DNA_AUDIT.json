@@ -1,0 +1,56 @@
+{
+  "spec_id": "T1_DNA_AUDIT_V1",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "definition": "t_sig=='T1' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==5). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND open>=close[1] AND open[1]>=open AND close>open[1] AND close>open. Canonical = raw with T4,T6,T1G,T2G resolved first. Machine-verified: overlap 219,016/220,351 = 99.39%; residual 1,335 (0.61%) feed/tick class; priority exclusions T4 46,160 / T1G 2,008 / T6 632 / T2G 313; raw-carrying-T2 725 same residual class. Prev-doji is POSSIBLE and measured: raw 12,619, canonical 682 (0.31%) vs strict-bear 219,669 \u2014 descriptive audit split only, never a separate inferential family in V1. Universe rows deduplicated one per (ticker,date), sp500<nasdaq<russell2k.",
+  "definition_hash": "a1c9b7eb94331751",
+  "token_registry_hash": "08b73d474f17a778",
+  "n_tokens_1h": 165,
+  "reconstruction": {
+    "canonical": 220351,
+    "raw": 268854,
+    "agree": 219016,
+    "agree_pct": 99.39,
+    "canonical_residual": 1335,
+    "priority_exclusions": {
+      "T4": 46160,
+      "T1G": 2008,
+      "T6": 632,
+      "T2G": 313
+    },
+    "raw_carrying_T2": 725,
+    "prev_doji_raw": 12619,
+    "prev_doji_canonical": 682,
+    "prev_strict_bear_canonical": 219669
+  },
+  "episodes": 220351,
+  "tickers": 5243,
+  "yearly": {
+    "2021": 23999,
+    "2022": 35385,
+    "2023": 38379,
+    "2024": 42177,
+    "2025": 47330,
+    "2026": 33081
+  },
+  "funnel": {
+    "BOTH": 157403,
+    "T1_ONLY": 368,
+    "PREV_ONLY": 695,
+    "NONE": 61885
+  },
+  "episode_id_unique": true,
+  "coverage_bias": {
+    "price": {
+      "covered_median": 35.16,
+      "missing_median": 9.59
+    },
+    "prev_price": {
+      "covered_median": 34.12,
+      "missing_median": 9.07
+    }
+  },
+  "m_rows": 2192831,
+  "m_episodes": 158466,
+  "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+  "runtime_min": 5.0
+}
