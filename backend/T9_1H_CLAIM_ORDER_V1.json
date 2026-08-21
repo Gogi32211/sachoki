@@ -1,0 +1,56 @@
+{
+  "spec_id": "T9_1H_CLAIM_ORDER_V1",
+  "status": "SEALED",
+  "family_id": "T9_MICROSTRUCTURE_DNA_V1",
+  "k_final": 890,
+  "unique_j": 890,
+  "unique_membership_hash": 890,
+  "order_rule": "classes sorted by (family, length, representative) lexicographic; representative = lexicographically smallest canonical sequence in the class — X-only, deterministic",
+  "claim_order_hash": "0c2721fba089bb47",
+  "deterministic": "two builds identical",
+  "population_hash": "b8a264697867c9a3",
+  "n_population": 157031,
+  "block_assignment_hash": "d04667806c44c62d",
+  "n_blocks": 5053,
+  "needles": {
+    "q10": {
+      "index_zero_based": 88,
+      "j": 469,
+      "claim_id": "9f8e3c9310493416",
+      "membership_hash": "43d8692e4948c476",
+      "representative": "D2→T1→NE_N",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 326
+    },
+    "q50": {
+      "index_zero_based": 444,
+      "j": 149,
+      "claim_id": "7f16c31b857b337b",
+      "membership_hash": "783a00aa15beabec",
+      "representative": "AD_1→T2→T2G",
+      "family": "CROSS_DAY",
+      "length": 3,
+      "support": 1011
+    },
+    "q90": {
+      "index_zero_based": 800,
+      "j": 645,
+      "claim_id": "9661e10a58e5937c",
+      "membership_hash": "2dcf757a7f05524b",
+      "representative": "H2→T1",
+      "family": "T9_INTRADAY",
+      "length": 2,
+      "support": 10050
+    }
+  },
+  "needle_rule": "sort support ASCENDING, tie-break sealed j, nearest-rank ceil(q*k)-1 zero-based (q10->88, q50->444, q90->800)",
+  "artifacts": {
+    "order": "t9_claim_order_v1.parquet",
+    "order_digest": "8691c66c3cba599e",
+    "population": "t9_estimand_population.parquet",
+    "population_digest": "d65a01776ec91bd1"
+  },
+  "provenance_note": "The original sufficiency predicate omitted the bullCode==0 failure state; the predicate was corrected during pre-capability review before historical outcome exposure.",
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read"
+}

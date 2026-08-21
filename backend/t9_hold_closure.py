@@ -91,8 +91,10 @@ def item1_same_input():
                       "identical DB bars",
                 bars_tested=tot, tickers=len(tks),
                 necessity_violations=nec_viol, sufficiency_violations=suf_viol,
-                sufficiency_predicate="raw_T9 -> bc in {1..7}; bc==0 hole closed at the "
-                                      "user's second review",
+                sufficiency_predicate="raw_T9 -> bc in {1..7}. The original sufficiency predicate "
+                                      "omitted the bullCode==0 failure state; the predicate "
+                                      "was corrected during pre-capability review before "
+                                      "historical outcome exposure.",
                 bc_census_among_raw=census,
                 priority_exclusions_by_bc=excl, first_violations=samples[:5],
                 scope="pins the T9 primitive and the priority DIRECTION; the six "
