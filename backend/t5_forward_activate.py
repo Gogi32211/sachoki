@@ -119,7 +119,39 @@ def startup_audit(verbose=True):
         raise ChainDrift(
             f"frozen chain drift, refusing to run: {bad}. Either an artifact was regenerated or "
             f"the code moved. Neither is something a forward ingest may decide to tolerate.")
+    man = verify_manifest()
+    if verbose:
+        print(f"       activation manifest {man.get('digest', 'ABSENT')} · producer "
+              f"{man.get('data_producer_digest', '—')}")
     return chain_digest()
+
+
+def verify_manifest(path="T5_FORWARD_ACTIVATION_MANIFEST_V1.json"):
+    """Verify the manifest by its CONTENTS against reality, not against a hardcoded hash of
+    itself. Pinning the manifest's own digest in code would make every re-seal require a code
+    change, which moves the runtime commit, which changes the manifest again — churn with no
+    added guarantee. What matters is that what it claims is still true."""
+    if not os.path.exists(path):
+        return dict(present=False,
+                    note="no activation manifest — legitimate before activation, and NOT "
+                         "sufficient to accrue")
+    m = json.load(open(path))
+    bad = {}
+    if m.get("base_chain_digest") != chain_digest():
+        bad["base_chain_digest"] = (m.get("base_chain_digest"), chain_digest())
+    if m.get("evaluator_hash") != EVALUATOR_HASH:
+        bad["evaluator_hash"] = (m.get("evaluator_hash"), EVALUATOR_HASH)
+    prod = "T5_FORWARD_DATA_PRODUCER_V1.json"
+    if m.get("data_producer_digest") and os.path.exists(prod):
+        got = ART.file_digest(prod)
+        if m["data_producer_digest"] != got:
+            bad["data_producer_digest"] = (m["data_producer_digest"], got)
+    if bad:
+        raise ChainDrift(f"activation manifest no longer describes reality: {bad}")
+    return dict(present=True, digest=ART.file_digest(path),
+                runtime_commit=m.get("runtime_commit"),
+                activation_record_commit=m.get("activation_record_commit"),
+                data_producer_digest=m.get("data_producer_digest"))
 
 
 def blind_audit(row):
