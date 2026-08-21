@@ -1,0 +1,61 @@
+{
+  "spec_id": "T3_LABEL_AMENDMENT_V1",
+  "result": "PASS",
+  "status": "AMENDMENT — descriptive text only",
+  "scope": "five T9->T3 typos in artifact text; originals remain sealed and are not rewritten; producing sources left byte-frozen",
+  "corrections": [
+    {
+      "artifact": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": "setup",
+      "was": "FINAL_PRIORITY_RESOLVED_T9",
+      "now": "FINAL_PRIORITY_RESOLVED_T3",
+      "why": "family label; the X freeze T3_DNA_X_V1.setup already reads FINAL_PRIORITY_RESOLVED_T3, so the two now agree"
+    },
+    {
+      "artifact": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": "historical_cutoff_rule",
+      "was": "the T3 max-null band MUST come from T9's own permutation distribution; neither T5's nor T9's band is ever reused",
+      "now": "the T3 max-null band MUST come from T3's own permutation distribution; neither T5's nor T9's band is ever reused",
+      "why": "the first clause named the wrong family; the rule always meant T3's OWN distribution, and the second clause (never reuse T5's or T9's) was already correct and is unchanged"
+    },
+    {
+      "artifact": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": "estimand.liquidity",
+      "was": "20-session median dollar volume ending T9-2, full pre-window required",
+      "now": "20-session median dollar volume ending T3-2, full pre-window required",
+      "why": "anchor description; the computation is E5.anchors on the T3 frame and was always T3-2"
+    },
+    {
+      "artifact": "T3_FAMILY_GOVERNANCE_V1.json",
+      "path": "estimand.volatility",
+      "was": "ATR14/close at T9-2",
+      "now": "ATR14/close at T3-2",
+      "why": "same anchor description"
+    },
+    {
+      "artifact": "T3_HOLD_CLOSURE_V1.json",
+      "path": "item1.cross_vintage.canonical_population",
+      "was": "materialized t_sig='T9'",
+      "now": "materialized t_sig='T3'",
+      "why": "already flagged in T3_STOP_CLOSURE_2_V1.item3.supersedes; recorded here as the single amendment of record"
+    }
+  ],
+  "inertness": "established by T3_SEMANTIC_SWEEP_V1 (e7c6b1f9b2542001): no executable reads the governance artifact, setup_1d is never read, episode identity uses SETUP=='T3', episode SQL selects t_sig='T3'",
+  "computational_effect": "NONE — no episode, claim, membership, block, hash, count or index changes; k_final stays 853 and the sealed claim order is untouched",
+  "checks": {
+    "T3_FAMILY_GOVERNANCE_V1.json:setup still reads the sealed original": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:setup correction is T9-free": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:historical_cutoff_rule still reads the sealed original": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:historical_cutoff_rule correction is T9-free": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:estimand.liquidity still reads the sealed original": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:estimand.liquidity correction is T9-free": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:estimand.volatility still reads the sealed original": true,
+    "T3_FAMILY_GOVERNANCE_V1.json:estimand.volatility correction is T9-free": true,
+    "T3_HOLD_CLOSURE_V1.json:item1.cross_vintage.canonical_population still reads the sealed original": true,
+    "T3_HOLD_CLOSURE_V1.json:item1.cross_vintage.canonical_population correction is T9-free": true,
+    "all corrections are strings": true,
+    "no correction touches a hash, count or index": true
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 0.0
+}
