@@ -60,25 +60,35 @@ def code_commit():
         return "UNKNOWN"
 
 
-def tree_clean():
-    """CODE cleanliness, not artifact cleanliness — and the distinction is load-bearing.
+CODE_PATHS = ["*.py", "*.sh", "studio", "analyzers", "ai_journal"]
 
-    The runtime legitimately re-seals artifacts into its own tracked tree, which makes that
-    tree dirty and would block the runtime for doing its job. The two guards have different
-    subjects and must not be collapsed:
 
-        assert_runtime_pinned   guards CODE identity      (this function)
-        startup_audit           guards ARTIFACT identity  (digest per artifact)
+def tree_clean(pin=None):
+    """CODE identity against the PIN, not a glob-based status — and the index too.
 
-    A tampered artifact is therefore still caught — by the digest check, which is the guard
-    that can actually tell a tampered artifact from a legitimately re-sealed one."""
+    The earlier version ran `git status --porcelain -- '*.py' ...`, which reports a modified
+    .py but says nothing about a tracked source RENAMED, DELETED, or replaced under another
+    extension, and nothing at all about changes already staged. Comparing against the pinned
+    commit closes both: a rename shows as a delete plus an add, and --cached catches a staged
+    modification that a dirty-tree check would miss once it is staged.
+
+    CODE cleanliness only. The runtime legitimately re-seals artifacts into its own tracked
+    tree; artifact identity is startup_audit's job, by digest, because that is the guard that
+    can tell tampering from a legitimate re-seal."""
+    if pin is None:
+        return True, ["no pin supplied — code comparison skipped"]
     try:
-        out = subprocess.run(["git", "status", "--porcelain", "--untracked-files=no",
-                              "--", "*.py", "*.sh", "*.toml", "*.cfg"],
-                             capture_output=True, text=True, cwd=HERE, timeout=20).stdout
-        return not out.strip(), [l for l in out.splitlines()[:5]]
+        diffs = []
+        for extra in ([], ["--cached"]):
+            r = subprocess.run(["git", "diff", "--name-status", *extra, pin, "--", *CODE_PATHS],
+                               capture_output=True, text=True, cwd=HERE, timeout=30)
+            if r.returncode not in (0, 1):
+                return False, [f"git diff failed: {r.stderr.strip()[:120]}"]
+            if r.stdout.strip():
+                diffs += [("staged " if extra else "") + l for l in r.stdout.splitlines()]
+        return not diffs, diffs[:5]
     except Exception as e:
-        return False, [f"git status failed: {e}"]
+        return False, [f"git diff failed: {e}"]
 
 
 def runtime_pin():
@@ -96,7 +106,7 @@ def runtime_pin():
                     head=code_commit())
     want = open(f).read().strip()
     head = code_commit()
-    clean, dirt = tree_clean()
+    clean, dirt = tree_clean(want)
     return dict(pinned=(head == want and clean), pin=want, head=head,
                 head_matches=(head == want), tree_clean=clean, dirty_sample=dirt)
 

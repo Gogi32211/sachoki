@@ -15,8 +15,25 @@ that the vendor issued no correction. The stability check must therefore straddl
     close -> ingest -> digest_A -> wait to last_bar_ts + SETTLE -> REFRESH SOURCE -> digest_B
 
     digest_A == digest_B  ->  SOURCE_FINAL
-    digest_A != digest_B  ->  the new snapshot BECOMES the reference and the stability window
-                              restarts from it. No membership evaluation until it settles.
+    digest_A != digest_B  ->  the new snapshot becomes the reference and the clock restarts
+                              FROM THE CHANGE. No membership evaluation until it settles.
+
+WHAT "RESTARTS" ACTUALLY MEANS, SPELLED OUT
+
+Saying the window restarts changes the rule, so the rule is written rather than implied:
+
+    minimum_settle_deadline  = last_bar_ts            + SETTLE_HOURS
+    stability_reference_ts   = the latest OBSERVED source change for this session
+    commit allowed iff       now >= minimum_settle_deadline
+                             AND a fresh source read was performed
+                             AND now >= stability_reference_ts + SETTLE_HOURS   (stable_for)
+                             AND commit_ts < decision_deadline_ts
+
+so the effective condition is commit_ts >= last_source_change_ts + SETTLE_HOURS, which is
+STRICTER than the last_bar_ts + SETTLE_HOURS that G6A tested historically. The extra strictness
+is safe — a session that cannot settle in time is simply HELD by G6B — but historical G6A and
+this forward state machine would otherwise be describing subtly different rules, and that
+difference belongs in writing, not in a docstring's silence.
 
 The existing 03:00 job cannot satisfy the proxy alone: it runs three hours before the deadline.
 That is why finality is a separate step rather than a side effect of the nightly.
@@ -105,8 +122,21 @@ def finalize(session_date, now_ts, do_refresh=True, dry_run=True, verbose=True):
         out.update(status="HELD", dq="SESSION_NOT_INGESTED")
         return write_state(out) and out
     deadline = pd.Timestamp(last_bar) + pd.Timedelta(hours=SETTLE_HOURS)
-    out.update(last_bar_ts=str(last_bar), settle_deadline=str(deadline),
-               digest_a=dig_a, rows_a=n_a)
+    prior = read_state()
+    ref_ts = None
+    if len(prior) and "stability_reference_ts" in prior.columns:
+        r = prior[prior.session_date == session_date]
+        if len(r) and pd.notna(r.stability_reference_ts.iloc[0]):
+            ref_ts = pd.Timestamp(r.stability_reference_ts.iloc[0])
+    out.update(last_bar_ts=str(last_bar), minimum_settle_deadline=str(deadline),
+               stability_reference_ts=str(ref_ts) if ref_ts is not None else None,
+               digest_a=dig_a, rows_a=n_a,
+               settle_rule="commit_ts >= max(last_bar_ts, last_source_change_ts) + "
+                           f"{SETTLE_HOURS}h — STRICTER than the last_bar_ts + {SETTLE_HOURS}h "
+                           "that G6A tested historically")
+    if ref_ts is not None:
+        deadline = max(deadline, ref_ts + pd.Timedelta(hours=SETTLE_HOURS))
+        out["effective_deadline"] = str(deadline)
     if pd.Timestamp(now_ts) < deadline:
         out.update(status="HELD", dq="SETTLE_WINDOW_OPEN",
                    note=f"settle ends {deadline}; no-op, not a failure")
@@ -130,10 +160,11 @@ def finalize(session_date, now_ts, do_refresh=True, dry_run=True, verbose=True):
     out.update(digest_b=dig_b, rows_b=n_b, last_bar_after_refresh=str(last_b))
     if dig_a != dig_b:
         out.update(status="HELD", dq="SOURCE_STILL_MOVING",
-                   why="the refresh changed the session; the NEW snapshot becomes the reference "
-                       "and the stability window restarts from it. No membership evaluation "
-                       "until it settles.",
-                   stability_window_restarts_from=dig_b)
+                   why=f"the refresh changed the session, so the clock restarts FROM THE "
+                       f"CHANGE: the next commit needs stable_for >= {SETTLE_HOURS}h measured "
+                       f"from now, not from last_bar_ts. No membership evaluation until then.",
+                   stability_reference_ts=str(now_ts),
+                   stability_reference_digest=dig_b)
         if verbose:
             print(f"  {session_date} · source moved {dig_a} -> {dig_b} · HELD, window restarts")
         write_state(out)
