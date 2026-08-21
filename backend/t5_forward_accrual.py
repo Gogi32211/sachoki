@@ -154,6 +154,13 @@ def maturity(F, cal):
 def accrue(as_of=None, verbose=True):
     t0 = time.time()
     ART.smoke_test(verbose=False)
+    # The frozen chain is verified BEFORE anything is read, and startup_audit raises rather
+    # than warns: an unattended nightly job that warns has failed silently with extra steps.
+    # A drifted digest is not something an ingest may decide to tolerate.
+    import t5_forward_activate as ACT
+    chain = ACT.startup_audit(verbose=verbose)
+    if verbose:
+        print(f"  chain {chain} verified · proceeding", flush=True)
     rules, fam_dig = family_rules()
     cal = trading_sessions()
     as_of = as_of or cal[-1]
