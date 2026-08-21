@@ -2416,3 +2416,51 @@ def pump_screener(
         return {"results": results, "count": len(results), "min_score": min_score, "max_score": max_score}
     finally:
         conn.close()
+
+
+# ═══════════════════════════════════════════════════════════════════════════
+# PT5 · Preview T5 — research preview over the FROZEN T5 research (PT5_PREVIEW_V1)
+# ═══════════════════════════════════════════════════════════════════════════
+_PT5_CACHE: dict = {"mtime": None, "df": None}
+_PT5_PARQ = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),
+                         "data", "pt5_signals.parquet")
+PT5_CUTOFF = "2026-08-20"        # official prospective validation cutoff — default boundary
+
+
+def _pt5_df():
+    """pt5_signals.parquet, cached by mtime. Built by pt5_build.py from the SEALED membership
+    artifacts (never re-evaluated); membership digest + gates live in PT5_PREVIEW_V1.json."""
+    try:
+        mt = os.path.getmtime(_PT5_PARQ)
+    except OSError:
+        return None
+    if _PT5_CACHE["mtime"] != mt:
+        _PT5_CACHE["df"] = pd.read_parquet(_PT5_PARQ)
+        _PT5_CACHE["mtime"] = mt
+    return _PT5_CACHE["df"]
+
+
+@router.get("/pt5-marks/{ticker}")
+def pt5_marks(ticker: str, include_post_cutoff: bool = Query(False)):
+    """Preview-T5 chart markers (1D). HISTORICAL research preview — not forward validation.
+
+    Default hard-filters to signal_session <= 2026-08-20 (the official prospective cutoff), so
+    looking at charts cannot quietly break human outcome blindness on forward episodes.
+    include_post_cutoff=true is OBSERVATIONAL MODE: it changes nothing in the machine forward
+    ledger, but observations must not be used to modify the frozen validation design."""
+    df = _pt5_df()
+    if df is None:
+        return {"marks": [], "cutoff": PT5_CUTOFF, "note": "pt5_signals.parquet not built"}
+    sub = df[df.ticker == ticker.upper()]
+    if not include_post_cutoff:
+        sub = sub[sub.date <= PT5_CUTOFF]
+    marks = [dict(date=r.date, cls=r.pt5_class,
+                  h1=r.pt5_h1_families, h1_names=r.pt5_h1_family,
+                  h1_n=int(r.pt5_h1_match_count),
+                  m15_n=int(r.pt5_m15_match_count),
+                  m15_clusters=r.pt5_m15_cluster_ids,
+                  m15_reps=r.pt5_m15_representatives,
+                  xr=bool(r.pt5_xr_volw_va))
+             for r in sub.itertuples()]
+    return {"marks": marks, "cutoff": PT5_CUTOFF,
+            "post_cutoff_included": bool(include_post_cutoff)}

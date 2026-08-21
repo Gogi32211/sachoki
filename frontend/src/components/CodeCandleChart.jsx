@@ -126,6 +126,14 @@ export default function CodeCandleChart({
   const [showSeq5,    setShowSeq5]    = useState(false)  // 🟡 the five 2026-08-04 sequence edges
   const [seqMarks,    setSeqMarks]    = useState(null)   // [{date, code}]
   const [edgeMarks,   setEdgeMarks]   = useState(null)   // [{date, setup}]
+  // PT5 · Preview T5 — HISTORICAL research preview over the frozen T5 research. NOT a new
+  // trading rule, NOT forward validation. Default shows only signal_session <= 2026-08-20
+  // (the official prospective cutoff); post-cutoff is OBSERVATIONAL MODE behind its own toggle.
+  const [showPt5,   setShowPt5]   = useState(false)
+  const [pt5Post,   setPt5Post]   = useState(false)   // "Show post-cutoff PT5" — default OFF
+  const [pt5Marks,  setPt5Marks]  = useState(null)
+  const [pt5Hover,  setPt5Hover]  = useState(null)    // crosshair-selected PT5 detail
+  const pt5MapRef = useRef({})
   // 🌀 SC-SUPER markers — bars where an Edge setup fired in the Wyckoff SC zone (±5% support).
   const [showScSuper, setShowScSuper] = useState(false)
   const [scSuperMarks, setScSuperMarks] = useState(null) // [{date, setup}] filtered to sc_super
@@ -673,6 +681,38 @@ export default function CodeCandleChart({
     return () => { dead = true }
   }, [ticker, tf, showEdge])
 
+  // PT5 fetch — 1D only; the endpoint hard-filters to <= 2026-08-20 unless observational mode
+  useEffect(() => {
+    if (!showPt5 || !ticker || tf !== '1d') { setPt5Marks(null); pt5MapRef.current = {}; setPt5Hover(null); return }
+    let dead = false
+    fetch(`/api/studio/pt5-marks/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`)
+      .then(r => r.json())
+      .then(d => {
+        if (dead) return
+        const marks = d?.marks || []
+        setPt5Marks(marks)
+        const m = {}; for (const x of marks) m[x.date] = x
+        pt5MapRef.current = m
+      })
+      .catch(() => { if (!dead) { setPt5Marks([]); pt5MapRef.current = {} } })
+    return () => { dead = true }
+  }, [ticker, tf, showPt5, pt5Post])
+
+  // PT5 hover detail — crosshair over a PT5 bar surfaces the frozen-structure breakdown
+  useEffect(() => {
+    const chart = chartRef.current
+    if (!chart || !showPt5) { setPt5Hover(null); return }
+    const onMove = (param) => {
+      const t = param?.time
+      const key = typeof t === 'string' ? t.slice(0, 10)
+        : typeof t === 'number' ? new Date(t * 1000).toISOString().slice(0, 10)
+        : t && t.year ? `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` : null
+      setPt5Hover(key ? (pt5MapRef.current[key] ? { date: key, ...pt5MapRef.current[key] } : null) : null)
+    }
+    chart.subscribeCrosshairMove(onMove)
+    return () => { try { chart.unsubscribeCrosshairMove(onMove) } catch {} }
+  }, [showPt5, pt5Marks])
+
   // 🟡 Seq-edges fetch — the five user-built sequence setups (1D only).
   useEffect(() => {
     if (!showSeq5 || !ticker || tf !== '1d') { setSeqMarks(null); return }
@@ -983,7 +1023,17 @@ export default function CodeCandleChart({
                       '🧺SEQ🟡': '🧺SEQ', '👑Z1G🟡': '👑Z1G' }[m.code] || m.code
       markers.push({ time: m.date, position: 'aboveBar', shape: 'arrowDown', color: '#fbbf24', text: short })
     }
-    // 2h) 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar, sky.
+// 2g3) PT5 · Preview T5 — below bar so the canonical T5 marker above stays untouched.
+    //      PT5 base gray · PT5·1H violet · PT5·15 cyan · PT5+ (both) green. Classification,
+    //      not ranking: no Z/θ/outcome is displayed on the marker.
+    for (const m of (pt5Marks || [])) {
+      if (!m?.date) continue
+      const cfg = { PT5_STRONG: ['#22c55e', 'PT5+'], PT5_1H: ['#a78bfa', 'PT5·1H'],
+                    PT5_15M: ['#22d3ee', 'PT5·15'], PT5_BASE: ['#94a3b8', 'PT5'] }[m.cls]
+                  || ['#94a3b8', 'PT5']
+      markers.push({ time: m.date, position: 'belowBar', shape: 'square', color: cfg[0], text: cfg[1] })
+    }
+        // 2h) 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar, sky.
     for (const m of (scSuperMarks || [])) {
       if (!m?.date) continue
       markers.push({ time: m.date, position: 'belowBar', shape: 'circle', color: '#38bdf8', text: '🌀SC' })
@@ -1069,7 +1119,7 @@ export default function CodeCandleChart({
     // setMarkers needs chronological order, else lightweight-charts warns.
     markers.sort((a, b) => String(a.time).localeCompare(String(b.time)))
     try { series.setMarkers(markers) } catch {}
-  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, edgeMarks, seqMarks, scSuperMarks, pumpSetupMarks, tradeMarkers, tradeHistory, dataTick])
+  }, [zoneMarkers, hvZones, insiderMarks, zoneEvents, capitAtomMarks, edgeMarks, seqMarks, scSuperMarks, pumpSetupMarks, tradeMarkers, tradeHistory, pt5Marks, dataTick])
 
   // Journal trade price lines — horizontal entry (green) / exit (red) levels.
   useEffect(() => {
@@ -1128,6 +1178,27 @@ export default function CodeCandleChart({
 
   const chartBody = (
     <div className={fullscreen ? 'relative flex-1 min-h-0' : 'relative'}>
+      {showPt5 && pt5Hover && (
+        <div className="absolute left-2 top-2 z-20 rounded border border-emerald-700/60 bg-gray-950/95 px-2.5 py-2 text-[10px] leading-4 font-mono text-gray-200 shadow-lg pointer-events-none max-w-[270px]">
+          <div className="text-emerald-300 font-bold">Preview T5 · {pt5Hover.date}</div>
+          <div className="mt-1 text-gray-400">1D:&nbsp;<span className="text-gray-100">T5 ✓</span></div>
+          <div className="mt-0.5 text-gray-400">1H:</div>
+          {[['H1_A', 'BUY→L5'], ['H1_B', 'VOL_W→L46x'], ['H1_C', 'L43→T2'], ['H1_D', 'BUY→Z2']].map(([k, n]) => (
+            <div key={k} className="pl-2">{n.padEnd(12, ' ')} {(pt5Hover.h1 || '').includes(k)
+              ? <span className="text-emerald-300">✓</span> : <span className="text-gray-600">–</span>}</div>
+          ))}
+          <div className="mt-0.5 text-gray-400">15m opening hour:</div>
+          <div className="pl-2">matched clusters: <span className="text-cyan-300">{pt5Hover.m15_n}</span></div>
+          {(pt5Hover.m15_reps || '').split(';').filter(Boolean).slice(0, 4).map((r, i) => (
+            <div key={i} className="pl-2 text-cyan-200/80 truncate">{r}</div>
+          ))}
+          {pt5Hover.m15_n > 4 && <div className="pl-2 text-gray-500">… +{pt5Hover.m15_n - 4} more</div>}
+          <div className="mt-0.5 text-gray-400">Cross-resolution:</div>
+          <div className="pl-2">VOL_W ↔ VA {pt5Hover.xr
+            ? <span className="text-amber-300">✓</span> : <span className="text-gray-600">–</span>}</div>
+          <div className="mt-1 text-gray-500">Historical preview · Not forward validated</div>
+        </div>
+      )}
       <div ref={containerRef}
            className={fullscreen ? 'w-full h-full' : 'w-full'}
            style={fullscreen ? undefined : { height }} />
@@ -1343,6 +1414,32 @@ export default function CodeCandleChart({
                 </button>
                 {showSeq5 && seqMarks && (
                   <span className="text-amber-300">{seqMarks.length}</span>
+                )}
+              </div>
+            )}
+            {/* PT5 · Preview T5 — historical research preview; not forward validation */}
+            {tf === '1d' && (
+              <div className="flex items-center gap-0.5 text-[10px]"
+                   title="PT5 · Preview T5 — historical lower-timeframe T5 structure. Marks canonical 1D T5 days whose FROZEN 1H (BUY→L5 · VOL_W→L46x · L43→T2 · BUY→Z2) and/or frozen opening-hour 15m survivor-cluster medoids matched. Historical preview only — NOT forward validated, no outcome shown. Default hides dates after the 2026-08-20 validation cutoff.">
+                <button onClick={() => setShowPt5(v => !v)}
+                  className={`px-1.5 py-0.5 rounded font-mono border ${
+                    showPt5
+                      ? 'bg-emerald-900/50 text-emerald-200 border-emerald-500'
+                      : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                  PT5
+                </button>
+                {showPt5 && pt5Marks && (
+                  <span className="text-emerald-300">{pt5Marks.length}</span>
+                )}
+                {showPt5 && (
+                  <button onClick={() => setPt5Post(v => !v)}
+                    title={"OBSERVATIONAL MODE\nViewing post-cutoff PT5 episodes breaks human outcome blindness.\nIt does not change the machine forward-validation ledger,\nbut observations must not be used to modify the frozen validation design.\nDefault OFF."}
+                    className={`px-1 py-0.5 rounded font-mono border ${
+                      pt5Post
+                        ? 'bg-rose-900/60 text-rose-200 border-rose-500'
+                        : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                    ⚠︎post
+                  </button>
                 )}
               </div>
             )}

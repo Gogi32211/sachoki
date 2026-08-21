@@ -92,6 +92,14 @@ const SIG_GROUPS = [
   { key: 'um_2809',    label: 'UM',     cls: 'text-teal-300'    },
   { key: 'svs_2809',   label: 'SVS',    cls: 'text-orange-300'  },
   { key: 'conso_2809', label: 'CON',    cls: 'text-yellow-300'  },
+  // PT5 · Preview T5 — HISTORICAL research preview over the frozen T5 research (not a new
+  // trading rule, not forward validation, never injected into EDGE ranking). Rows after the
+  // 2026-08-20 validation cutoff carry no PT5 by default.
+  { key: 'pt5',        label: 'PT5',    cls: 'text-emerald-300' },
+  { key: 'pt5_h1_any', label: 'PT5·1H', cls: 'text-violet-300'  },
+  { key: 'pt5_m15_any',label: 'PT5·15', cls: 'text-cyan-300'    },
+  { key: 'pt5_strong', label: 'PT5+',   cls: 'text-emerald-400' },
+  { key: 'pt5_xr_volw_va', label: 'XR:VOL_W↔VA', cls: 'text-amber-300' },
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
@@ -1842,6 +1850,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
     if (r.um_2809)    out.push('UM')
     if (r.svs_2809)   out.push('SVS')
     if (r.conso_2809) out.push('CON')
+    // PT5 badges — classification only; alias overlap never strengthens a PT5
+    if (r.pt5_strong) out.push('PT5+')
+    else if (r.pt5_h1_any && r.pt5) out.push('PT5·1H')
+    else if (r.pt5_m15_any && r.pt5) out.push('PT5·15')
+    else if (r.pt5) out.push('PT5')
+    if (r.pt5_xr_volw_va) out.push('XR:VOL_W↔VA')
     if (r.cd) out.push('CD')
     else if (r.ca) out.push('CA')
     else if (r.cw) out.push('CW')
@@ -2019,6 +2033,8 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'buy_2809','rocket','sig3g','rtv','hilo_buy','hilo_sell',
       'atr_brk','bb_brk','bias_up','bias_down','cons_atr',
       'um_2809','svs_2809','conso_2809',
+      'pt5','pt5_class','pt5_h1_any','pt5_m15_any','pt5_strong',
+      'pt5_h1_family','pt5_m15_clusters','pt5_m15_n','pt5_xr_volw_va',
       'ca','cd','cw','seq_bcont','any_f',
       'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11',
       // B

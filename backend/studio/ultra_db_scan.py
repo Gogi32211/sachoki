@@ -930,6 +930,47 @@ def _enrich_buy_flags(results: list) -> None:
         r["buy_flag"] = _flag + ("▲" if r["h4_rev_today"] and _flag else "")
 
 
+_PT5_CACHE: dict = {"mtime": None, "map": None}
+_PT5_CUTOFF = "2026-08-20"
+
+
+def _enrich_pt5(results: list, include_post_cutoff: bool = False) -> None:
+    """PT5 · Preview T5 — HISTORICAL research preview over the frozen T5 research.
+
+    In-place, additive, and a research annotation only: PT5 fields are never injected into the
+    existing EDGE ranking. Rows dated after the official prospective cutoff (2026-08-20) get no
+    PT5 by default, so the live screener cannot quietly break human outcome blindness on
+    forward episodes; include_post_cutoff is OBSERVATIONAL MODE and changes nothing in the
+    machine forward-validation ledger."""
+    import os as _os
+    parq = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
+        _os.path.abspath(__file__)))), "data", "pt5_signals.parquet")
+    try:
+        mt = _os.path.getmtime(parq)
+    except OSError:
+        return
+    if _PT5_CACHE["mtime"] != mt:
+        P = pd.read_parquet(parq)
+        _PT5_CACHE["map"] = {(r.ticker, r.date): r for r in P.itertuples()}
+        _PT5_CACHE["mtime"] = mt
+    m = _PT5_CACHE["map"]
+    for r in results:
+        d = str(r.get("date", ""))[:10]
+        hit = m.get((r.get("ticker"), d))
+        if hit is None or (not include_post_cutoff and d > _PT5_CUTOFF):
+            r["pt5"] = False
+            continue
+        r["pt5"] = True
+        r["pt5_class"] = hit.pt5_class
+        r["pt5_h1_any"] = bool(hit.pt5_h1_any)
+        r["pt5_m15_any"] = bool(hit.pt5_m15_any)
+        r["pt5_strong"] = hit.pt5_class == "PT5_STRONG"
+        r["pt5_h1_family"] = hit.pt5_h1_family
+        r["pt5_m15_clusters"] = hit.pt5_m15_cluster_ids
+        r["pt5_m15_n"] = int(hit.pt5_m15_match_count)
+        r["pt5_xr_volw_va"] = bool(hit.pt5_xr_volw_va)
+
+
 def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
     """In-place enrichment: tzt4 / ttt6 / t1seq patterns for DB-mode scan results.
     Runs one DuckDB query per universe group. Sets *_match/*_age/*_tier/*_suffix/*_rsi."""
@@ -1431,6 +1472,11 @@ def run_ultra_db_scan(
         _enrich_buy_flags(results)
     except Exception as exc:
         log.warning("_enrich_buy_flags failed: %s", exc)
+
+    try:
+        _enrich_pt5(results)
+    except Exception as exc:
+        log.warning("_enrich_pt5 failed: %s", exc)
 
     duration = time.time() - started
     return {
