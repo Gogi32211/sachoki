@@ -1,0 +1,23 @@
+{
+  "spec_id": "SESSION_MODE_TIE_POLICY_V1",
+  "status": "FROZEN",
+  "trigger": "the registered market-wide modal rule does not say what to do when several bar counts attain the same maximum frequency; the function is therefore not total, and an implementation must complete it",
+  "policy": "select the LARGEST modal bar count",
+  "classification": "IMPLEMENTATION-COMPLETION AMENDMENT — a deterministic completion of an underspecified registered rule. It is NOT a restoration of the registered rule, and it is NOT an outcome-informed research choice.",
+  "honest_provenance_note": "the rationale (never resolve downward) is informed by the OBSERVED defect on 2022-06-10, where downward resolution admitted a two-bar gapped session. No outcome, Z, theta or survivor was visible when this policy was fixed, and no corrected claim-level impact had been opened — but the policy is still an amendment, and is labelled as one rather than presented as 'nothing outside the defect changed'.",
+  "timing": {
+    "frozen_before": [
+      "corrected claim-level impact inspection",
+      "any corrected Y or statistic computation"
+    ],
+    "sealed_at": "2026-08-22 11:32 +04"
+  },
+  "scope": "the session-validity reference builder only",
+  "forbidden": [
+    "family-specific tie rules",
+    "outcome-dependent tie resolution",
+    "post-impact modification of this policy"
+  ],
+  "binding": "every corrected run must reference THIS policy version by digest",
+  "outcome_exposure": "NOT_EXPOSED"
+}

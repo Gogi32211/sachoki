@@ -1,0 +1,165 @@
+{
+  "spec_id": "SESSION_REFERENCE_COMPLETENESS_V1",
+  "status": "AUDIT",
+  "purpose": "classify the reference universe's thin dates before any corrected freeze; this is an audit, NOT a new eligibility rule",
+  "tickers_per_date": {
+    "min": 1,
+    "q01": 2472,
+    "q05": 2537,
+    "median": 2780,
+    "q95": 3112,
+    "max": 3149
+  },
+  "collapse_threshold": "< 50% of the median (1390)",
+  "n_collapsed_dates": 8,
+  "collapsed_dates": [
+    {
+      "session_date": "2026-07-20",
+      "tickers_now": 2,
+      "expected_bars": 7,
+      "mode_freq": 2,
+      "second_mode_freq": 0,
+      "tie": false,
+      "families": {},
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-07-21",
+      "tickers_now": 1,
+      "expected_bars": 7,
+      "mode_freq": 1,
+      "second_mode_freq": 0,
+      "tie": false,
+      "families": {},
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-07-24",
+      "tickers_now": 1,
+      "expected_bars": 7,
+      "mode_freq": 1,
+      "second_mode_freq": 0,
+      "tie": false,
+      "families": {},
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-07-27",
+      "tickers_now": 1,
+      "expected_bars": 7,
+      "mode_freq": 1,
+      "second_mode_freq": 0,
+      "tie": false,
+      "families": {},
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-08-03",
+      "tickers_now": 2,
+      "expected_bars": 7,
+      "mode_freq": 1,
+      "second_mode_freq": 1,
+      "tie": true,
+      "families": {
+        "T1": {
+          "tickers_at_build": 1,
+          "episodes": 1
+        }
+      },
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-08-04",
+      "tickers_now": 2,
+      "expected_bars": 7,
+      "mode_freq": 1,
+      "second_mode_freq": 1,
+      "tie": true,
+      "families": {},
+      "classification": "SPARSE_IN_SOURCE — thin in the store at build time too; no family evidence of loss"
+    },
+    {
+      "session_date": "2026-08-14",
+      "tickers_now": 4,
+      "expected_bars": 7,
+      "mode_freq": 3,
+      "second_mode_freq": 1,
+      "tie": false,
+      "families": {
+        "T5": {
+          "tickers_at_build": 256,
+          "episodes": 256
+        }
+      },
+      "classification": "DATA_VERSION_INCOMPLETE — the current store holds far fewer tickers than the vintage the frozen microstructure was built from"
+    },
+    {
+      "session_date": "2026-08-17",
+      "tickers_now": 7,
+      "expected_bars": 7,
+      "mode_freq": 7,
+      "second_mode_freq": 0,
+      "tie": false,
+      "families": {
+        "T5": {
+          "tickers_at_build": 145,
+          "episodes": 145
+        },
+        "T9": {
+          "tickers_at_build": 192,
+          "episodes": 192
+        },
+        "T3": {
+          "tickers_at_build": 179,
+          "episodes": 179
+        },
+        "T1": {
+          "tickers_at_build": 155,
+          "episodes": 155
+        }
+      },
+      "classification": "DATA_VERSION_INCOMPLETE — the current store holds far fewer tickers than the vintage the frozen microstructure was built from"
+    }
+  ],
+  "ties": [
+    {
+      "session_date": "2026-08-03",
+      "n_tickers": 2
+    },
+    {
+      "session_date": "2026-08-04",
+      "n_tickers": 2
+    }
+  ],
+  "business_days_absent_entirely": {
+    "n": 56,
+    "last": [
+      "2026-01-01",
+      "2026-01-19",
+      "2026-02-16",
+      "2026-04-03",
+      "2026-05-25",
+      "2026-06-19",
+      "2026-07-03",
+      "2026-07-28",
+      "2026-07-31",
+      "2026-08-07",
+      "2026-08-10",
+      "2026-08-11"
+    ],
+    "note": "this list mixes genuine market holidays (Presidents Day, Good Friday, Memorial Day, Juneteenth, the observed July 4) with recent ingestion gaps (2026-07-28, 07-31, 08-07, 08-10, 08-11) — the audit reports them together and classifies nothing automatically"
+  },
+  "effect_on_expected_bars": {
+    "all_collapsed_dates_still_expect_7": true,
+    "reading": "the thin dates do not change any expected_bars value — every one of them still resolves to the regular 7-slot session, so no family's session-validity classification depends on the collapse"
+  },
+  "consequence": "the completeness question sits ABOVE session-length inference, in the data contract: whether a date whose store coverage collapsed after the frozen microstructures were built should be admissible in that snapshot at all. This audit does not decide it.",
+  "not_decided": [
+    "excluding any date",
+    "rebuilding the 1H store",
+    "pinning a store vintage",
+    "any change to family eligibility"
+  ],
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 5.8
+}
