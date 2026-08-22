@@ -1,0 +1,59 @@
+{
+  "spec_id": "PT3_1H_MEMBERSHIP_CACHE_V1",
+  "status": "FROZEN",
+  "source_role": "FROZEN_1H_RESEARCH_STATE",
+  "family": "T3",
+  "source_population_hash": "3b7c7665f7423c9c",
+  "claim_order_hash": "71f24ed991283d38",
+  "block_assignment_hash": "6676af767944b165",
+  "definition_hash": "fb27e73eef390533",
+  "historical_exposure": "97e2b7b568b4d3d4",
+  "characterization": "7dc712198a5fc214",
+  "builder_code_digest": "08bb73ce1b939589",
+  "n_population": 142263,
+  "n_survivors_sealed": 8,
+  "n_medoids_used": 7,
+  "medoid_detail": {
+    "CROSS_DAY|2|VOL_L→T2": {
+      "j": 107,
+      "members": 1106,
+      "membership_hash": "c5a74a7497065a35"
+    },
+    "CROSS_DAY|2|VOL_W→L3": {
+      "j": 110,
+      "members": 360,
+      "membership_hash": "cc72cb28f7053de5"
+    },
+    "PREV_INTRADAY|2|BUY→Z2": {
+      "j": 280,
+      "members": 552,
+      "membership_hash": "46c26d154f9b40ec"
+    },
+    "PREV_INTRADAY|3|VOL20X→L2→VOL_L": {
+      "j": 536,
+      "members": 342,
+      "membership_hash": "39d524ddf9875742"
+    },
+    "T3_INTRADAY|2|BUY→T2": {
+      "j": 575,
+      "members": 317,
+      "membership_hash": "a2675bfcca013127"
+    },
+    "T3_INTRADAY|2|L43→T2": {
+      "j": 625,
+      "members": 3924,
+      "membership_hash": "f34a291211eb52c3"
+    },
+    "T3_INTRADAY|3|L43→T2→T2": {
+      "j": 767,
+      "members": 1117,
+      "membership_hash": "eedf4af049468087"
+    }
+  },
+  "why_medoids_only": "within-cluster aliases must not make a preview stronger; only the frozen overlap-cluster medoids enter",
+  "cache_file": "t3_1h_survivor_membership.parquet",
+  "cache_file_digest": "ec39c5cb439f6f22",
+  "membership_definition": "OVERLAP-RESTRICTED memberships on the estimand population — exactly what the frozen historical evidence used",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:23 +04"
+}

@@ -2440,6 +2440,91 @@ def _pt5_df():
     return _PT5_CACHE["df"]
 
 
+# ── PT family engine (T5 / T9 / T3 / T1) — additive; /pt5-marks stays as it is ────────
+_PT_FAM_CACHE: dict = {}
+PT_FAMILIES = ("T5", "T9", "T3", "T1")
+
+
+def _pt_family_df(fam: str):
+    """pt{N}_signals.parquet, cached by mtime. Built by pt_build.py from the SEALED
+    membership caches; PT5 is a translation of its own sealed preview, never a recompute."""
+    fam = fam.upper()
+    if fam not in PT_FAMILIES:
+        return None
+    path = os.path.join(os.path.dirname(_PT5_PARQ), f"pt{fam[1:]}_signals.parquet")
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return None
+    ent = _PT_FAM_CACHE.get(fam)
+    if not ent or ent["mtime"] != mt:
+        _PT_FAM_CACHE[fam] = dict(df=pd.read_parquet(path), mtime=mt)
+    return _PT_FAM_CACHE[fam]["df"]
+
+
+def _pt_family_meta(fam: str):
+    """Phase availability and forward state, served from the sealed artifacts so the
+    browser never infers evidence status from a date."""
+    fam = fam.upper()
+    here = os.path.dirname(os.path.abspath(__file__))
+    meta = dict(family=fam, phases={}, forward=None, source_gate=None)
+    try:
+        spec = json.load(open(os.path.join(here, "PT_FAMILY_PREVIEW_V1.json")))
+        meta["phases"] = spec["families"].get(fam, {}).get("phases", {})
+        meta["medoids"] = spec["families"].get(fam, {}).get("medoids")
+    except Exception:
+        pass
+    fwd = os.path.join(here, f"{fam}_FORWARD_1H_V1.json")
+    if os.path.exists(fwd):
+        try:
+            d = json.load(open(fwd))
+            meta["forward"] = dict(seal_date=d["no_backfill"]["seal_date"], k=d["k"],
+                                   accrual=d["source_gate_state"]["verdict"])
+        except Exception:
+            pass
+    src = os.path.join(here, "FORWARD_1H_SOURCE_V1.json")
+    if os.path.exists(src):
+        try:
+            meta["source_gate"] = json.load(open(src))["verdict"]
+        except Exception:
+            pass
+    return meta
+
+
+@router.get("/pt-families")
+def pt_families():
+    """Which PT families exist and what each one HAS — availability is three-valued."""
+    return {"families": [_pt_family_meta(f) for f in PT_FAMILIES]}
+
+
+@router.get("/pt-marks/{family}/{ticker}")
+def pt_marks(family: str, ticker: str, include_post_cutoff: bool = Query(False)):
+    """PT chart markers for any family. HISTORICAL research preview, never forward
+    validation and never a ranking input.
+
+    Every mark carries the server-derived provenance state; 15M/STRONG are reported as
+    UNAVAILABLE for families whose 15m phase does not exist yet, which is NOT the same as
+    reporting them absent."""
+    fam = family.upper()
+    meta = _pt_family_meta(fam)
+    df = _pt_family_df(fam)
+    if df is None:
+        return {"marks": [], "meta": meta,
+                "note": f"pt{fam[1:]}_signals.parquet not built"}
+    sub = df[df.ticker == ticker.upper()]
+    cutoff = (meta.get("forward") or {}).get("seal_date") or PT5_CUTOFF
+    if not include_post_cutoff:
+        sub = sub[sub.date <= cutoff]
+    marks = [dict(date=r.date, cls=r.pt_class, provenance=r.provenance,
+                  h1_state=r.h1_state, h1=r.h1_keys, h1_names=r.h1_medoids,
+                  h1_n=int(r.h1_match_count),
+                  m15_state=r.m15_state, m15_n=int(r.m15_match_count),
+                  strong_state=r.strong_state)
+             for r in sub.itertuples()]
+    return {"marks": marks, "meta": meta, "cutoff": cutoff,
+            "post_cutoff_included": bool(include_post_cutoff)}
+
+
 @router.get("/pt5-marks/{ticker}")
 def pt5_marks(ticker: str, include_post_cutoff: bool = Query(False)):
     """Preview-T5 chart markers (1D). HISTORICAL research preview — not forward validation.

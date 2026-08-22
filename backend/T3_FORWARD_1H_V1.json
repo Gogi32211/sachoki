@@ -1,0 +1,98 @@
+{
+  "spec_id": "T3_FORWARD_1H_V1",
+  "status": "SEALED",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "mode": "PROSPECTIVE — outcome-blind accrual",
+  "k": 7,
+  "inferential_family": [
+    {
+      "key": "j107",
+      "claim_id": "CROSS_DAY|2|VOL_L→T2",
+      "j": 107,
+      "sealed_members": 1106,
+      "membership_hash": "c5a74a7497065a35"
+    },
+    {
+      "key": "j110",
+      "claim_id": "CROSS_DAY|2|VOL_W→L3",
+      "j": 110,
+      "sealed_members": 360,
+      "membership_hash": "cc72cb28f7053de5"
+    },
+    {
+      "key": "j280",
+      "claim_id": "PREV_INTRADAY|2|BUY→Z2",
+      "j": 280,
+      "sealed_members": 552,
+      "membership_hash": "46c26d154f9b40ec"
+    },
+    {
+      "key": "j536",
+      "claim_id": "PREV_INTRADAY|3|VOL20X→L2→VOL_L",
+      "j": 536,
+      "sealed_members": 342,
+      "membership_hash": "39d524ddf9875742"
+    },
+    {
+      "key": "j575",
+      "claim_id": "T3_INTRADAY|2|BUY→T2",
+      "j": 575,
+      "sealed_members": 317,
+      "membership_hash": "a2675bfcca013127"
+    },
+    {
+      "key": "j625",
+      "claim_id": "T3_INTRADAY|2|L43→T2",
+      "j": 625,
+      "sealed_members": 3924,
+      "membership_hash": "f34a291211eb52c3"
+    },
+    {
+      "key": "j767",
+      "claim_id": "T3_INTRADAY|3|L43→T2→T2",
+      "j": 767,
+      "sealed_members": 1117,
+      "membership_hash": "eedf4af049468087"
+    }
+  ],
+  "why_medoids_not_survivors": "the forward family is the frozen overlap-cluster medoid set, not every historical survivor: within-cluster aliases carry the same membership and would inflate k without adding an independent structure. T9 6->4, T3 8->7, T1 9->9 (nine singleton components).",
+  "bound": {
+    "definition_hash": "fb27e73eef390533",
+    "membership_cache": "242472038266550d",
+    "claim_order": "d3716d45b04b10c0",
+    "historical_exposure": "97e2b7b568b4d3d4",
+    "characterization": "7dc712198a5fc214",
+    "outcome_spec": "d79174fdcc939b72",
+    "session_semantics": "0b3d1963c50c1033",
+    "source_gate": "0d100cdad3c4d377"
+  },
+  "decision_spec": {
+    "signal": "a canonical 1D episode of this family whose frozen 1H microstructure matches at least one medoid membership",
+    "evaluation": "membership is READ from the sealed cache semantics, never re-derived by a second implementation",
+    "entry": "next regular-session open after the episode date",
+    "horizon_sessions": 10,
+    "primary": "MFE_10D",
+    "secondary": "MFE_ATR_10D",
+    "maturity": "an episode is evidence-eligible only after its full 10-session path exists; before that it is FORWARD_X_UNMATURED and its outcome is not read"
+  },
+  "no_backfill": {
+    "rule": "forward evidence begins ONLY from signal episodes whose decision date is strictly AFTER this seal date",
+    "seal_date": "2026-08-22",
+    "seal_timestamp": "2026-08-22T17:26:33+0400",
+    "last_historical_episode_in_store": "2026-08-20",
+    "explicitly_not_evidence": "every episode dated 2026-08-20 or earlier, including today's, is historical — it cannot become prospective evidence by being noticed after the seal",
+    "t5_cutoff_not_reused": "the T5 discovery cutoff (2026-08-20) is a different family's instant and is not inherited here"
+  },
+  "source_gate_state": {
+    "verdict": "HOLD",
+    "consequence": "spec SEALED and the clock runs; prospective evidence accrual is HELD until the source qualifies. Signals may be shown as an explicitly labelled operational preview and counted nowhere."
+  },
+  "forbidden": [
+    "counting any pre-seal episode as prospective evidence",
+    "reading a forward outcome before maturity",
+    "re-deriving membership with a second implementation",
+    "changing the medoid set, entry, horizon or outcome after the seal"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22T17:26:33+0400"
+}

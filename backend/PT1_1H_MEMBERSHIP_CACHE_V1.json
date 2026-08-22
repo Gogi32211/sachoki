@@ -1,0 +1,69 @@
+{
+  "spec_id": "PT1_1H_MEMBERSHIP_CACHE_V1",
+  "status": "FROZEN",
+  "source_role": "FROZEN_1H_RESEARCH_STATE",
+  "family": "T1",
+  "source_population_hash": "1959eb5a9e938b6c",
+  "claim_order_hash": "6d71fb362eff7280",
+  "block_assignment_hash": "4f7406cefaf3ba69",
+  "definition_hash": "a1c9b7eb94331751",
+  "historical_exposure": "97fc948c29c57204",
+  "characterization": "15e85de74ea7a44b",
+  "builder_code_digest": "08bb73ce1b939589",
+  "n_population": 154786,
+  "n_survivors_sealed": 9,
+  "n_medoids_used": 9,
+  "medoid_detail": {
+    "CROSS_DAY|2|L2→T1": {
+      "j": 64,
+      "members": 897,
+      "membership_hash": "2072926d751bc95f"
+    },
+    "CROSS_DAY|2|VOL_L→T1": {
+      "j": 140,
+      "members": 2825,
+      "membership_hash": "62da494ef5f8c201"
+    },
+    "CROSS_DAY|3|VOL_L→T1→T2": {
+      "j": 295,
+      "members": 1065,
+      "membership_hash": "add75b12af0d9ba0"
+    },
+    "T1_INTRADAY|2|BUY→T2": {
+      "j": 632,
+      "members": 3014,
+      "membership_hash": "187dc68f0307dc7c"
+    },
+    "T1_INTRADAY|2|SVS→T2": {
+      "j": 726,
+      "members": 17201,
+      "membership_hash": "27f8cd12601a6cbd"
+    },
+    "T1_INTRADAY|2|VOL10X→T2": {
+      "j": 742,
+      "members": 847,
+      "membership_hash": "2f098c614c996c19"
+    },
+    "T1_INTRADAY|3|BUY→T2→T2": {
+      "j": 781,
+      "members": 774,
+      "membership_hash": "189a6ff6731c172e"
+    },
+    "T1_INTRADAY|3|SVS→T2→T2": {
+      "j": 869,
+      "members": 4094,
+      "membership_hash": "9c61c97050aef676"
+    },
+    "T1_INTRADAY|3|VOL10X→T2→L2": {
+      "j": 883,
+      "members": 378,
+      "membership_hash": "46da4aebac115a52"
+    }
+  },
+  "why_medoids_only": "within-cluster aliases must not make a preview stronger; only the frozen overlap-cluster medoids enter",
+  "cache_file": "t1_1h_survivor_membership.parquet",
+  "cache_file_digest": "d0f3a67e0c7f1bde",
+  "membership_definition": "OVERLAP-RESTRICTED memberships on the estimand population — exactly what the frozen historical evidence used",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:24 +04"
+}

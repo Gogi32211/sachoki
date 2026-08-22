@@ -1,0 +1,44 @@
+{
+  "spec_id": "PT9_1H_MEMBERSHIP_CACHE_V1",
+  "status": "FROZEN",
+  "source_role": "FROZEN_1H_RESEARCH_STATE",
+  "family": "T9",
+  "source_population_hash": "b8a264697867c9a3",
+  "claim_order_hash": "0c2721fba089bb47",
+  "block_assignment_hash": "d04667806c44c62d",
+  "definition_hash": "afe380362cde2ee5",
+  "historical_exposure": "70deb15c8f15f4dc",
+  "characterization": "ef4e2120380283b0",
+  "builder_code_digest": "08bb73ce1b939589",
+  "n_population": 157031,
+  "n_survivors_sealed": 6,
+  "n_medoids_used": 4,
+  "medoid_detail": {
+    "CROSS_DAY|2|VOL_W→L3": {
+      "j": 125,
+      "members": 630,
+      "membership_hash": "7bec12010632b662"
+    },
+    "PREV_INTRADAY|2|BUY→Z2": {
+      "j": 293,
+      "members": 671,
+      "membership_hash": "446cbe5c72252608"
+    },
+    "T9_INTRADAY|2|BUY→T2": {
+      "j": 602,
+      "members": 442,
+      "membership_hash": "f2fff9294ab6ce5f"
+    },
+    "T9_INTRADAY|2|SVS→T2": {
+      "j": 697,
+      "members": 8470,
+      "membership_hash": "38f320a6a625f8a5"
+    }
+  },
+  "why_medoids_only": "within-cluster aliases must not make a preview stronger; only the frozen overlap-cluster medoids enter",
+  "cache_file": "t9_1h_survivor_membership.parquet",
+  "cache_file_digest": "42e019cbc1494276",
+  "membership_definition": "OVERLAP-RESTRICTED memberships on the estimand population — exactly what the frozen historical evidence used",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:23 +04"
+}

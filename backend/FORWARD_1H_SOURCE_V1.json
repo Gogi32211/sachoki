@@ -1,0 +1,96 @@
+{
+  "spec_id": "FORWARD_1H_SOURCE_V1",
+  "verdict": "HOLD",
+  "store": {
+    "path": "studio_1h.duckdb",
+    "rows": 24838705,
+    "tickers": 3203,
+    "sessions": 1285,
+    "date_range": [
+      "2021-07-02",
+      "2026-08-21"
+    ],
+    "file_mtime": "2026-08-22 06:19",
+    "identity_note": "a DuckDB file has no content digest that survives compaction, so the row / ticker / session counts above ARE the recorded snapshot identity"
+  },
+  "session_mapping": {
+    "source": "4b6af06f107bb00c",
+    "mapping_digest": "0d99e85d817dcaba",
+    "tie_policy": "ee7e3d6fffa395a9"
+  },
+  "completeness": {
+    "tickers_per_session": {
+      "median": 2780,
+      "min": 1,
+      "q05": 2537
+    },
+    "recent_window_days": 60,
+    "recent_collapsed_sessions": [
+      {
+        "session_date": "2026-07-20",
+        "tickers": 2
+      },
+      {
+        "session_date": "2026-07-21",
+        "tickers": 1
+      },
+      {
+        "session_date": "2026-07-24",
+        "tickers": 1
+      },
+      {
+        "session_date": "2026-07-27",
+        "tickers": 1
+      },
+      {
+        "session_date": "2026-08-03",
+        "tickers": 2
+      },
+      {
+        "session_date": "2026-08-04",
+        "tickers": 2
+      },
+      {
+        "session_date": "2026-08-14",
+        "tickers": 4
+      },
+      {
+        "session_date": "2026-08-17",
+        "tickers": 7
+      }
+    ]
+  },
+  "grain": {
+    "duplicate_rows": 0,
+    "rule": "duplicates are fatal, never deduplicated silently"
+  },
+  "revision_policy": {
+    "status": "NOT ESTABLISHED",
+    "required": "a signal generated under source version X must stay reconstructable from X; today the store is rewritten in place by the nightly delta, so a past bar can change after a signal used it and nothing records that it did",
+    "consequence": "this alone blocks QUALIFIED"
+  },
+  "availability_timestamps": {
+    "status": "NOT ESTABLISHED",
+    "required": "when each session became readable, so a forward decision can be shown to have used only what existed at decision time"
+  },
+  "build_provenance": {
+    "writer": "launchd com.sachoki.dbupdate nightly 03:00 Tbilisi plus a manual admin endpoint",
+    "known_incident": "3fbd6bf5bfba6bfd"
+  },
+  "checks": {
+    "grain: one row per (ticker, timestamp, universe)": true,
+    "every recent session has an expected length": true,
+    "no recent session collapsed below half the median ticker count": false,
+    "the store reproduces its own frozen research vintage": false
+  },
+  "consequence_of_hold": [
+    "forward specifications MAY be sealed and the clock MAY start",
+    "the UI may show an explicitly labelled operational preview",
+    "the prospective evidence counter does NOT move",
+    "no forward episode may be promoted to evidence",
+    "historical frozen X is never repaired or reinterpreted from this store"
+  ],
+  "outcome_exposure": "NOT_EXPOSED",
+  "runtime_s": 1.1,
+  "sealed_at": "2026-08-22 17:25 +04"
+}

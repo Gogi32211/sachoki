@@ -130,6 +130,8 @@ export default function CodeCandleChart({
   // trading rule, NOT forward validation. Default shows only signal_session <= 2026-08-20
   // (the official prospective cutoff); post-cutoff is OBSERVATIONAL MODE behind its own toggle.
   const [showPt5,   setShowPt5]   = useState(false)
+  const [ptFamily,  setPtFamily]  = useState('T5')    // PT family selector: T5|T9|T3|T1
+  const [ptMeta,    setPtMeta]    = useState(null)    // server-derived phase availability
   const [pt5Post,   setPt5Post]   = useState(false)   // "Show post-cutoff PT5" — default OFF
   const [pt5Marks,  setPt5Marks]  = useState(null)
   const [pt5Hover,  setPt5Hover]  = useState(null)    // crosshair-selected PT5 detail
@@ -685,7 +687,10 @@ export default function CodeCandleChart({
   useEffect(() => {
     if (!showPt5 || !ticker || tf !== '1d') { setPt5Marks(null); pt5MapRef.current = {}; setPt5Hover(null); return }
     let dead = false
-    fetch(`/api/studio/pt5-marks/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`)
+    const ptUrl = ptFamily === 'T5'
+      ? `/api/studio/pt5-marks/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`
+      : `/api/studio/pt-marks/${ptFamily}/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`
+    fetch(ptUrl)
       .then(r => r.json())
       .then(d => {
         if (dead) return
@@ -693,10 +698,11 @@ export default function CodeCandleChart({
         setPt5Marks(marks)
         const m = {}; for (const x of marks) m[x.date] = x
         pt5MapRef.current = m
+        setPtMeta(d?.meta || null)
       })
       .catch(() => { if (!dead) { setPt5Marks([]); pt5MapRef.current = {} } })
     return () => { dead = true }
-  }, [ticker, tf, showPt5, pt5Post])
+  }, [ticker, tf, showPt5, pt5Post, ptFamily])
 
   // PT5 hover detail — crosshair over a PT5 bar surfaces the frozen-structure breakdown
   useEffect(() => {
@@ -1028,9 +1034,14 @@ export default function CodeCandleChart({
     //      not ranking: no Z/θ/outcome is displayed on the marker.
     for (const m of (pt5Marks || [])) {
       if (!m?.date) continue
-      const cfg = { PT5_STRONG: ['#22c55e', 'PT5+'], PT5_1H: ['#a78bfa', 'PT5·1H'],
-                    PT5_15M: ['#22d3ee', 'PT5·15'], PT5_BASE: ['#94a3b8', 'PT5'] }[m.cls]
-                  || ['#94a3b8', 'PT5']
+      // the PT5 colour ladder, reused verbatim for every family: STRONG green ·
+      // 1H violet · 15M cyan · BASE grey. The family prefix comes from the class id,
+      // so nothing here decides what a class MEANS.
+      const fam = (m.cls || 'PT5_BASE').split('_')[0]
+      const kind = (m.cls || 'PT5_BASE').slice(fam.length + 1)
+      const cfg = { STRONG: ['#22c55e', fam + '+'], '1H': ['#a78bfa', fam + '·1H'],
+                    '15M': ['#22d3ee', fam + '·15'], BASE: ['#94a3b8', fam] }[kind]
+                  || ['#94a3b8', fam]
       markers.push({ time: m.date, position: 'belowBar', shape: 'square', color: cfg[0], text: cfg[1] })
     }
         // 2h) 🌀 SC-SUPER markers — Edge fires in the Wyckoff SC zone (±5% support), below bar, sky.
@@ -1426,10 +1437,30 @@ export default function CodeCandleChart({
                     showPt5
                       ? 'bg-emerald-900/50 text-emerald-200 border-emerald-500'
                       : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
-                  PT5
+                  PT
                 </button>
+                {showPt5 && (
+                  <span className="flex items-center gap-0.5 ml-0.5">
+                    {['T5', 'T9', 'T3', 'T1'].map(f => (
+                      <button key={f} onClick={() => setPtFamily(f)}
+                        title={`PT preview over the frozen ${f} research`}
+                        className={`px-1 py-0.5 rounded font-mono border ${
+                          ptFamily === f
+                            ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500'
+                            : 'bg-md-surface text-md-on-surface-var border-white/10 hover:text-white'}`}>
+                        {f}
+                      </button>
+                    ))}
+                  </span>
+                )}
                 {showPt5 && pt5Marks && (
                   <span className="text-emerald-300">{pt5Marks.length}</span>
+                )}
+                {showPt5 && ptMeta?.phases && !ptMeta.phases.M15 && (
+                  <span className="text-amber-300/80 font-mono"
+                        title={"15M and STRONG are UNAVAILABLE for this family - its 15m localization phase has not been built yet. UNAVAILABLE is not the same as 'no signal': nothing has been looked at."}>
+                    15M -
+                  </span>
                 )}
                 {showPt5 && (
                   <button onClick={() => setPt5Post(v => !v)}
