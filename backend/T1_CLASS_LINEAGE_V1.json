@@ -1,0 +1,73 @@
+{
+  "spec_id": "T1_CLASS_LINEAGE_V1",
+  "status": "X_ONLY_PRE_Y",
+  "level_A_pre_estimand": {
+    "scope": "pre-estimand syntactic claims and their memberships — NOT the final restriction-equivalent universe",
+    "syntactic_claims_old": 1002,
+    "syntactic_claims_corrected": 1002,
+    "changed_claims": 10,
+    "changed_with_identical_support": 0,
+    "membership_cells_added": 9,
+    "membership_cells_removed": 1,
+    "support_qualified_old": 985,
+    "support_qualified_corrected": 985,
+    "support_threshold_crossings": 0,
+    "crossing_claims": [],
+    "reading": "a crossing is a claim whose ELIGIBILITY flipped; zero crossings means the change reaches the equivalence topology through membership composition only, never through eligibility"
+  },
+  "level_B_final_restriction_equivalent": {
+    "scope": "the final restriction-equivalent claim universe — the multiplicity surface capability and inference actually run on",
+    "summary": {
+      "UNCHANGED": 911,
+      "MEMBERSHIP_CHANGED_SAME_CLASS": 0,
+      "MERGE_LOST": 0,
+      "MERGE_CREATED": 0,
+      "SPLIT_CREATED": 0,
+      "DROPPED": 0,
+      "NEWLY_QUALIFIED": 0,
+      "old_side_total": 911,
+      "old_final_classes": 911,
+      "reconciles": true,
+      "topology_moved": false,
+      "rule": "every old final class receives exactly one status; NEWLY_QUALIFIED is a new-side count and is therefore excluded from the old-side total"
+    }
+  },
+  "class_lineage_summary": {
+    "UNCHANGED": 911,
+    "MEMBERSHIP_CHANGED_SAME_CLASS": 0,
+    "MERGE_LOST": 0,
+    "MERGE_CREATED": 0,
+    "SPLIT_CREATED": 0,
+    "DROPPED": 0,
+    "NEWLY_QUALIFIED": 0,
+    "old_side_total": 911,
+    "old_final_classes": 911,
+    "reconciles": true,
+    "topology_moved": false,
+    "rule": "every old final class receives exactly one status; NEWLY_QUALIFIED is a new-side count and is therefore excluded from the old-side total"
+  },
+  "invariant_1": {
+    "statement": "support equality is not membership equality",
+    "changed_claims": 10,
+    "changed_with_identical_support": 0,
+    "examples_same_support": [],
+    "holds": true
+  },
+  "invariant_2": {
+    "statement": "restriction-equivalence rebuilt from corrected memberships; representative, alias relation, merge relation and final order are never carried forward",
+    "note": "corrected equivalence_class_id, representative and alias sets come from the corrected enumeration; final signatures come from the corrected overlap-restricted memberships; no old label is read on the corrected path",
+    "holds": true
+  },
+  "old_final_classes": 911,
+  "corrected_final_classes": 911,
+  "status_counts": {
+    "UNCHANGED": 911,
+    "NEWLY_QUALIFIED": 0
+  },
+  "non_trivial_lineage": [],
+  "n_non_trivial": 0,
+  "newly_qualified": [],
+  "reading": "identical k does not mean an identical claim universe; the statuses above are the actual mapping",
+  "outcome_exposure": "NOT_EXPOSED",
+  "runtime_min": 0.5
+}
