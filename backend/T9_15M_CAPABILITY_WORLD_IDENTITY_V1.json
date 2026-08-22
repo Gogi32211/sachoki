@@ -1,0 +1,371 @@
+{
+  "spec_id": "T9_15M_CAPABILITY_WORLD_IDENTITY_V1",
+  "status": "X_ONLY_STRUCTURAL",
+  "question": "what exactly defines a stochastic world in the qualified T5 15m capability, and does T9 use the same key structure?",
+  "method": "AST of the qualified implementation — the actual np.random.default_rng argument expressions and the actual loop nesting. Not a docstring, not a field name, not prose.",
+  "verdict": {
+    "option": "A",
+    "meaning": "A stochastic world is (needle, replicate). The six delta lanes are DETERMINISTIC injections evaluated on that one nullized Y, and they share the same 999 permutation mappings.",
+    "consequence": "T9 matches; the run continues unchanged."
+  },
+  "reference": {
+    "path": "t5_15m_capability.py",
+    "code_digest": "c35794281409d767",
+    "rng_keys": [
+      {
+        "key": "[RNG_OUTER, ni, wi]",
+        "arity": 3,
+        "elements": [
+          "RNG_OUTER",
+          "ni",
+          "wi"
+        ],
+        "contains_delta_var": [],
+        "enclosing_loops": [
+          [
+            "ni",
+            "nm",
+            "nd"
+          ],
+          [
+            "wi"
+          ]
+        ]
+      },
+      {
+        "key": "[RNG_INNER, ni, wi, p]",
+        "arity": 4,
+        "elements": [
+          "RNG_INNER",
+          "ni",
+          "wi",
+          "p"
+        ],
+        "contains_delta_var": [],
+        "enclosing_loops": [
+          [
+            "ni",
+            "nm",
+            "nd"
+          ],
+          [
+            "wi"
+          ],
+          [
+            "p"
+          ]
+        ]
+      }
+    ],
+    "delta_loop_vars": [
+      "d",
+      "di"
+    ],
+    "loops": [
+      {
+        "targets": [
+          "_v"
+        ],
+        "iter": "('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "c"
+        ],
+        "iter": "prange(csp.shape[0] - 1)",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "s"
+        ],
+        "iter": "range(csp[c], csp[c + 1])",
+        "depth": 2
+      },
+      {
+        "targets": [
+          "b"
+        ],
+        "iter": "range(nb)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "i"
+        ],
+        "iter": "range(seg_ptr[s], seg_ptr[s + 1])",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "b"
+        ],
+        "iter": "range(nb)",
+        "depth": 4
+      },
+      {
+        "targets": [
+          "b"
+        ],
+        "iter": "range(nb)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "b"
+        ],
+        "iter": "range(nb)",
+        "depth": 2
+      },
+      {
+        "targets": [
+          "kk",
+          "vv"
+        ],
+        "iter": "g.items()",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "grp",
+          "nn",
+          "wi"
+        ],
+        "iter": "L.groupby(['needle', 'world_id'])",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "ni",
+          "nm",
+          "nd"
+        ],
+        "iter": "enumerate(NEEDLES)",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "wi"
+        ],
+        "iter": "range(NW)",
+        "depth": 2
+      },
+      {
+        "targets": [
+          "di",
+          "d"
+        ],
+        "iter": "enumerate(DL)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "di"
+        ],
+        "iter": "range(len(DL), BATCH_B)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "p"
+        ],
+        "iter": "range(NP_)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "di"
+        ],
+        "iter": "range(len(DL))",
+        "depth": 4
+      },
+      {
+        "targets": [
+          "di",
+          "d"
+        ],
+        "iter": "enumerate(DL)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "nm",
+          "nd"
+        ],
+        "iter": "NEEDLES",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "d"
+        ],
+        "iter": "DL",
+        "depth": 2
+      }
+    ]
+  },
+  "candidate": {
+    "path": "t15m_capability.py",
+    "code_digest": "95185d0fbecb40bc",
+    "rng_keys": [
+      {
+        "key": "[RNG_OUTER, ni, wi]",
+        "arity": 3,
+        "elements": [
+          "RNG_OUTER",
+          "ni",
+          "wi"
+        ],
+        "contains_delta_var": [],
+        "enclosing_loops": [
+          [
+            "ni",
+            "nm",
+            "nd"
+          ],
+          [
+            "wi"
+          ]
+        ]
+      },
+      {
+        "key": "[RNG_INNER, ni, wi, p]",
+        "arity": 4,
+        "elements": [
+          "RNG_INNER",
+          "ni",
+          "wi",
+          "p"
+        ],
+        "contains_delta_var": [],
+        "enclosing_loops": [
+          [
+            "ni",
+            "nm",
+            "nd"
+          ],
+          [
+            "wi"
+          ],
+          [
+            "p"
+          ]
+        ]
+      }
+    ],
+    "delta_loop_vars": [
+      "d",
+      "di"
+    ],
+    "loops": [
+      {
+        "targets": [
+          "_v"
+        ],
+        "iter": "('OMP_NUM_THREADS', 'MKL_NUM_THREADS', 'OPENBLAS_NUM_THREADS', 'VECLIB_MAXIMUM_THREADS')",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "kk",
+          "vv"
+        ],
+        "iter": "g.items()",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "ni",
+          "nm",
+          "nd"
+        ],
+        "iter": "enumerate(NEEDLES)",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "wi"
+        ],
+        "iter": "range(NW)",
+        "depth": 2
+      },
+      {
+        "targets": [
+          "di",
+          "d"
+        ],
+        "iter": "enumerate(DL)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "di"
+        ],
+        "iter": "range(len(DL), BATCH_B)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "p"
+        ],
+        "iter": "range(NP_)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "di"
+        ],
+        "iter": "range(len(DL))",
+        "depth": 4
+      },
+      {
+        "targets": [
+          "di",
+          "d"
+        ],
+        "iter": "enumerate(DL)",
+        "depth": 3
+      },
+      {
+        "targets": [
+          "nm",
+          "_"
+        ],
+        "iter": "NEEDLES",
+        "depth": 1
+      },
+      {
+        "targets": [
+          "f"
+        ],
+        "iter": "sys.argv[1:] or ['t9']",
+        "depth": 1
+      }
+    ]
+  },
+  "checks": {
+    "reference_keys_carry_no_delta": true,
+    "candidate_keys_carry_no_delta": true,
+    "same_key_arity": true,
+    "same_positional_roles": true,
+    "two_rng_keys_each": true
+  },
+  "counts": {
+    "independent_nullization_worlds": 60,
+    "delta_lanes_per_world": 6,
+    "capability_cells": 360,
+    "permutations_per_world": 999,
+    "protocol_logical_cells": 360,
+    "cells_match_protocol": true
+  },
+  "nomenclature_correction": "'360 worlds' was loose wording in my report. The registered design is 60 STOCHASTIC BASE WORLDS x 6 delta lanes = 360 REGISTERED CAPABILITY CELLS, with 999 permutations per base world shared across its lanes. The cell count is unchanged; only the name was wrong.",
+  "namespace_constants": {
+    "reference": "RNG_OUTER, RNG_INNER = 20260921, 20260922",
+    "candidate": "RNG_OUTER, RNG_INNER = 0xA9F1, 0x5C3D",
+    "note": "the namespace CONSTANTS differ by design — a different family must not reuse another family's draws. What must match, and does, is the KEY STRUCTURE: which indices enter the key and in which positions."
+  },
+  "outcome_exposure": "NOT_EXPOSED — no ledger, no outcome sidecar, no result artifact was opened by this module",
+  "result": "PASS",
+  "runtime_min": 0.0
+}
