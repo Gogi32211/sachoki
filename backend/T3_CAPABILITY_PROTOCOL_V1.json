@@ -1,0 +1,96 @@
+{
+  "spec_id": "T3_CAPABILITY_PROTOCOL_V1",
+  "status": "FROZEN",
+  "family_id": "T3_MICROSTRUCTURE_DNA_V1",
+  "frozen_before": "any T3 capability code exists and before any observed statistic",
+  "the_invariant": "a capability world may NOT begin from the observed T3 sequence-Y association. Real historical MFE may supply the NOISE; the observed association must be DESTROYED first.",
+  "pipeline": [
+    "sealed T3 X / membership + historical raw MFE",
+    "DESTROY sequence<->Y association under the registered block-preserving null mechanism (permute Y within blocks BEFORE anything else)",
+    "inject homogeneous additive delta ONLY into the frozen needle membership",
+    "rebuild raw-MFE ranks",
+    "rebuild tie-corrected analytic SD",
+    "999 inner max-Z permutations",
+    "detection yes/no"
+  ],
+  "hard_gates": [
+    "NO observed historical T3 Z_rank is computed, stored or printed",
+    "NO survivor ranking",
+    "NO winner inspection"
+  ],
+  "distinction": "Y values used for capability noise != historical T3 result exposed. The engine may open Y to build empirical-noise worlds; the human-facing record sees detections/20 and band geometry only.",
+  "needles": {
+    "rule": "q10/q50/q90 from the SEALED final claim order, sort by support, tie-break sealed j, nearest-rank ceil(q*k)-1",
+    "k_final": 853,
+    "indices": {
+      "q10": 85,
+      "q50": 426,
+      "q90": 767
+    },
+    "identities": {
+      "q10": {
+        "j": 376,
+        "claim_id": "1154862b563850e3",
+        "membership_hash": "7791cf04f3e279d3",
+        "representative": "T12→T2",
+        "family": "PREV_INTRADAY",
+        "length": 2,
+        "support": 328
+      },
+      "q50": {
+        "j": 297,
+        "claim_id": "54c7c0c1c5d41fbd",
+        "membership_hash": "2efc5b5d5641d302",
+        "representative": "CISD_PS→T3",
+        "family": "PREV_INTRADAY",
+        "length": 2,
+        "support": 910
+      },
+      "q90": {
+        "j": 692,
+        "claim_id": "88812c1394228e80",
+        "membership_hash": "eb3f71598c59b51f",
+        "representative": "WK_U→T1",
+        "family": "T3_INTRADAY",
+        "length": 2,
+        "support": 8833
+      }
+    },
+    "needle_artifact": "T3_1H_CLAIM_ORDER_V1 (the needles are sealed inside the claim order itself; no separate extraction)"
+  },
+  "grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds_per_needle": 20,
+  "inner_permutations": 999,
+  "rng": {
+    "rule": "T_FAMILY_CAPABILITY_RNG_RULE_V1: root = SHA256('T3_CAPABILITY_EVIDENCE_V1' | claim_order_hash | population_hash | block_assignment_hash | needle_artifact_hash | capability_protocol_hash) — derived, never hand-chosen",
+    "rule_digest": "b5ad7907523e5370",
+    "world_namespace": "T3_CAPABILITY_WORLD_V1",
+    "perm_namespace": "T3_CAPABILITY_PERM_V1",
+    "builtin_hash": "FORBIDDEN on the stochastic path (process-salted, non-replayable) — swept by gate 3",
+    "note": "the root closes over this very artifact's digest, so it is computed by the runner after this protocol is sealed"
+  },
+  "wording_allowed": "Under the registered homogeneous additive MFE-shift alternative, the qXX needle detected +Xpp in Y/20 finite capability worlds.",
+  "wording_forbidden": [
+    "true power",
+    "guaranteed detection",
+    "universal sensitivity"
+  ],
+  "upstream": {
+    "claim_order_digest": "d3716d45b04b10c0",
+    "claim_order_hash": "71f24ed991283d38",
+    "population_hash": "3b7c7665f7423c9c",
+    "block_assignment_hash": "6676af767944b165",
+    "semantic_sweep": "e7c6b1f9b2542001",
+    "stop_closure_1": "719bcab208f05791",
+    "stop_closure_2": "271a02f57087ba70",
+    "label_amendment": "3a0f5c9a5a1401c0"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read"
+}

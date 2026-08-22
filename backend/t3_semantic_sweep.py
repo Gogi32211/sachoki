@@ -30,12 +30,17 @@ import t5_artifact as ART                                             # noqa: E4
 OUT = "T3_SEMANTIC_SWEEP_V1.json"
 T3_SOURCES = ["t3_dna.py", "t3_family_freeze.py", "t3_outcomes.py",
               "t3_sequence_grammar.py", "t3_sequence_estimand.py",
-              "t3_claim_order.py", "t3_stop_closure.py", "t3_stop_closure_2.py"]
+              "t3_claim_order.py", "t3_stop_closure.py", "t3_stop_closure_2.py",
+              "t3_capability_protocol.py", "t3_capability_run.py",
+              "t3_capability_gates.py", "t3_capability_amendment.py",
+              "t3_label_amendment.py"]
 T3_ARTIFACTS = ["T3_DNA_X_V1.json", "T3_DNA_AUDIT.json", "T3_OUTCOME_SPEC_V1.json",
                 "T3_SEQUENCE_GRAMMAR_V1.json", "T3_SEQUENCE_UNIVERSE_V1.json",
                 "T3_SEQUENCE_ESTIMAND_V1.json", "T3_FAMILY_GOVERNANCE_V1.json",
                 "T3_15M_PRESPEC_V1.json", "T3_HOLD_CLOSURE_V1.json",
-                "T3_STOP_CLOSURE_2_V1.json", "T3_1H_CLAIM_ORDER_V1.json"]
+                "T3_STOP_CLOSURE_2_V1.json", "T3_1H_CLAIM_ORDER_V1.json",
+                "T3_CAPABILITY_PROTOCOL_V1.json", "T3_CAPABILITY_RESULT_V1.json",
+                "T3_CAPABILITY_AMENDMENT_V1.json", "T3_LABEL_AMENDMENT_V1.json"]
 CO_ARTIFACT = "T3_1H_CLAIM_ORDER_V1.json"
 
 T9_TXT = re.compile(r"\b[Tt]9[_A-Za-z0-9]*|\b[A-Za-z_]+_[Tt]9\b")
@@ -174,7 +179,9 @@ KNOWN_MISLABELS = {
         "materialized t_sig='T3'",
 }
 DELIBERATE_KEYS = ("forbidden_design_inputs", "supersedes", "relation", "note",
-                   "provenance", "reused", "cited_as", "forbidden")
+                   "provenance", "reused", "cited_as", "forbidden",
+                   "struck_content", "struck_field", "finding", "truth", "corrections",
+                   "amends", "item1_false_history", "inertness", "t9_status")
 
 
 def scan_artifact(path, hashes):
@@ -186,8 +193,12 @@ def scan_artifact(path, hashes):
         if isinstance(node, dict):
             for k, v in node.items():
                 if T9_TXT.search(str(k)):
+                    # a key with whitespace is a human-readable label, not an identifier
+                    # a program could ever look up — only identifier-shaped keys can act
+                    label = bool(re.search(r"\s", str(k)))
                     out.append(dict(file=base, path=f"{p}.{k}", role="KEY",
-                                    classification="ACTIVE", value=str(k)[:120]))
+                                    classification="REFERENCE" if label else "ACTIVE",
+                                    value=str(k)[:120]))
                 walk(v, f"{p}.{k}")
         elif isinstance(node, list):
             for i, v in enumerate(node):
@@ -230,11 +241,14 @@ def main():
 
     # ── inertness proofs for the label-only residues ──────────────────
     repo = {f: open(f).read() for f in os.listdir(".") if f.endswith(".py")}
+    # a READ is an actual load, not a mention: naming the artifact in an audit module
+    # proves nothing about the pipeline consuming it
+    GOV_READ = re.compile(r'(?:open|load|file_digest)\s*\(\s*["\']T3_FAMILY_GOVERNANCE_V1')
     reads_governance = sorted(f for f, s in repo.items()
-                              if "T3_FAMILY_GOVERNANCE_V1" in s
-                              and f not in ("t3_family_freeze.py", "t3_semantic_sweep.py"))
+                              if GOV_READ.search(s) and f != "t3_family_freeze.py")
+    SETUP_READ = re.compile(r'(?:\[["\']setup_1d["\']\]|\.setup_1d\b)(?!\s*=)')
     reads_setup_col = sorted(f for f, s in repo.items()
-                             if re.search(r'\bsetup_1d\b', s) and "= SETUP" not in s)
+                             if SETUP_READ.search(s) and f != "t3_semantic_sweep.py")
     import t3_dna as D3
     proofs = {
         "episode identity uses SETUP == 'T3'": D3.SETUP == "T3",

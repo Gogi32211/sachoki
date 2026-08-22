@@ -1,0 +1,174 @@
+{
+  "spec_id": "T3_CAPABILITY_RESULT_V1",
+  "status": "COMPLETE",
+  "protocol_digest": "2aa4566f068b023f",
+  "claim_order_digest": "d3716d45b04b10c0",
+  "k": 853,
+  "population": 142263,
+  "blocks": 5052,
+  "needles": {
+    "q10": {
+      "j": 376,
+      "representative": "T12→T2",
+      "support": 328
+    },
+    "q50": {
+      "j": 297,
+      "representative": "CISD_PS→T3",
+      "support": 910
+    },
+    "q90": {
+      "j": 692,
+      "representative": "WK_U→T1",
+      "support": 8833
+    }
+  },
+  "deltas_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "inner_permutations": 999,
+  "detections": {
+    "q10|+0.5pp": 4,
+    "q10|+1.0pp": 19,
+    "q10|+2.0pp": 20,
+    "q10|+3.0pp": 20,
+    "q10|+4.0pp": 20,
+    "q10|+5.0pp": 20,
+    "q50|+0.5pp": 13,
+    "q50|+1.0pp": 20,
+    "q50|+2.0pp": 20,
+    "q50|+3.0pp": 20,
+    "q50|+4.0pp": 20,
+    "q50|+5.0pp": 20,
+    "q90|+0.5pp": 20,
+    "q90|+1.0pp": 20,
+    "q90|+2.0pp": 20,
+    "q90|+3.0pp": 20,
+    "q90|+4.0pp": 20,
+    "q90|+5.0pp": 20
+  },
+  "max_null_p95": {
+    "q10|+0.5pp": {
+      "median": 3.7851145592204083,
+      "min": 3.748104937578744,
+      "max": 3.855626631374609
+    },
+    "q10|+1.0pp": {
+      "median": 3.798190307269164,
+      "min": 3.7524888378375127,
+      "max": 3.8601845890930186
+    },
+    "q10|+2.0pp": {
+      "median": 3.8124119162654506,
+      "min": 3.7651808743406012,
+      "max": 3.8670839027748936
+    },
+    "q10|+3.0pp": {
+      "median": 3.814299021358526,
+      "min": 3.7547110513047004,
+      "max": 3.8708527869280625
+    },
+    "q10|+4.0pp": {
+      "median": 3.806510209074596,
+      "min": 3.731243310668846,
+      "max": 3.870729365115953
+    },
+    "q10|+5.0pp": {
+      "median": 3.818516692511529,
+      "min": 3.76432391950081,
+      "max": 3.920667788066171
+    },
+    "q50|+0.5pp": {
+      "median": 3.801158188690314,
+      "min": 3.7454080261734273,
+      "max": 3.873158108438115
+    },
+    "q50|+1.0pp": {
+      "median": 3.8139438778100248,
+      "min": 3.7573939629239494,
+      "max": 3.919387102545004
+    },
+    "q50|+2.0pp": {
+      "median": 3.8051430081437094,
+      "min": 3.750352012342952,
+      "max": 3.8880967029433298
+    },
+    "q50|+3.0pp": {
+      "median": 3.807435215744783,
+      "min": 3.746945753273124,
+      "max": 3.87298454357566
+    },
+    "q50|+4.0pp": {
+      "median": 3.806288510124962,
+      "min": 3.744464763143798,
+      "max": 3.857566712033552
+    },
+    "q50|+5.0pp": {
+      "median": 3.809348616527253,
+      "min": 3.7352761105234533,
+      "max": 3.8751191497711046
+    },
+    "q90|+0.5pp": {
+      "median": 3.815091973872753,
+      "min": 3.741659218399017,
+      "max": 3.857776496359806
+    },
+    "q90|+1.0pp": {
+      "median": 3.8090047958754205,
+      "min": 3.7481642845641763,
+      "max": 3.8515259387116747
+    },
+    "q90|+2.0pp": {
+      "median": 3.8034462726088414,
+      "min": 3.750599331619938,
+      "max": 3.876586282070079
+    },
+    "q90|+3.0pp": {
+      "median": 3.8041658873953623,
+      "min": 3.734952158470188,
+      "max": 3.863851409668961
+    },
+    "q90|+4.0pp": {
+      "median": 3.8062009118202464,
+      "min": 3.744510648520659,
+      "max": 3.8693872635061193
+    },
+    "q90|+5.0pp": {
+      "median": 3.8020855407914755,
+      "min": 3.761484439672431,
+      "max": 3.888227108072295
+    }
+  },
+  "wording": "Under the registered homogeneous additive MFE-shift alternative, each cell reports detections out of 20 finite capability worlds.",
+  "forbidden_confirmed": [
+    "no observed Z_rank computed",
+    "no survivor ranking",
+    "no winner inspection — the engine permutes before any statistic touches the historical assignment"
+  ],
+  "runtime_min": 55.4,
+  "peak_rss_gb": 1.8,
+  "rng": {
+    "scheme": "SHA256-derived, namespaces T3_CAPABILITY_WORLD_V1 / T3_CAPABILITY_PERM_V1; first 8 digest bytes as unsigned int; builtin hash() nowhere in the stochastic path",
+    "seed_manifest_digest": "4049c486aa40692e",
+    "n_world_seeds": 360
+  },
+  "superseded_engineering_run": {
+    "commit": "0e5954e",
+    "status": "SUPERSEDED / ENGINEERING / NON-EVIDENTIARY",
+    "defect": "world seeds derived via process-salted builtin hash(); externally non-replayable",
+    "observed_cells": {
+      "q10|+0.5pp": "4/20",
+      "q10|+1.0pp": "19/20",
+      "q10|+2.0pp": "20/20",
+      "q10|+3.0pp": "20/20",
+      "q10|+4.0pp": "20/20"
+    },
+    "exclusion": "Observed during superseded non-replayable engineering run; excluded from capability qualification and not used to modify protocol, needles, grid, worlds, permutations, or acceptance."
+  }
+}

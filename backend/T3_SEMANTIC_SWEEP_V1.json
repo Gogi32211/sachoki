@@ -11,7 +11,12 @@
     "t3_sequence_estimand.py",
     "t3_claim_order.py",
     "t3_stop_closure.py",
-    "t3_stop_closure_2.py"
+    "t3_stop_closure_2.py",
+    "t3_capability_protocol.py",
+    "t3_capability_run.py",
+    "t3_capability_gates.py",
+    "t3_capability_amendment.py",
+    "t3_label_amendment.py"
   ],
   "artifacts_scanned": [
     "T3_DNA_X_V1.json",
@@ -24,7 +29,11 @@
     "T3_15M_PRESPEC_V1.json",
     "T3_HOLD_CLOSURE_V1.json",
     "T3_STOP_CLOSURE_2_V1.json",
-    "T3_1H_CLAIM_ORDER_V1.json"
+    "T3_1H_CLAIM_ORDER_V1.json",
+    "T3_CAPABILITY_PROTOCOL_V1.json",
+    "T3_CAPABILITY_RESULT_V1.json",
+    "T3_CAPABILITY_AMENDMENT_V1.json",
+    "T3_LABEL_AMENDMENT_V1.json"
   ],
   "forbidden": {
     "identifiers": "t9_* module import/attribute",
@@ -151,6 +160,83 @@
       "kind": "PROSE",
       "reason": "descriptive text",
       "text": "the T3_DNA audit phrase 'canonical prev-doji = 284' is to be read ONLY under the split above; T3_HOLD_CLOSURE_V1.item1.c"
+    },
+    {
+      "file": "t3_capability_amendment.py",
+      "line": 55,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the block is T9's record (commit 0e5954e, T9's builtin-hash defect, T9's observed q10 cells) carried into a T3 artifact "
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 24,
+      "kind": "IDENTIFIER_LITERAL",
+      "reason": "upper-case T9 identifier literal — inert only if stored as an artifact value; verified against readers below",
+      "text": "FINAL_PRIORITY_RESOLVED_T9"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 28,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the T3 max-null band MUST come from T9's own permutation distribution; neither T5's nor T9's band is ever reused"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 30,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the T3 max-null band MUST come from T3's own permutation distribution; neither T5's nor T9's band is ever reused"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 32,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "the first clause named the wrong family; the rule always meant T3's OWN distribution, and the second clause (never reuse"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 36,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "20-session median dollar volume ending T9-2, full pre-window required"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 41,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "ATR14/close at T9-2"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 44,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "materialized t_sig='T9'"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 64,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": " correction is T9-free"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 64,
+      "kind": "IDENTIFIER_LITERAL",
+      "reason": "upper-case T9 identifier literal — inert only if stored as an artifact value; verified against readers below",
+      "text": "T9"
+    },
+    {
+      "file": "t3_label_amendment.py",
+      "line": 80,
+      "kind": "PROSE",
+      "reason": "descriptive text",
+      "text": "five T9->T3 typos in artifact text; originals remain sealed and are not rewritten; producing sources left byte-frozen"
     }
   ],
   "artifact_mislabels": [
@@ -197,7 +283,7 @@
   ],
   "deliberate_references": {
     "n_source_comments": 2,
-    "n_artifact_reference_values": 8,
+    "n_artifact_reference_values": 21,
     "other_t9_text_values": [
       {
         "file": "T3_DNA_X_V1.json",
@@ -214,6 +300,14 @@
         "classification": "VALUE_T9_TEXT",
         "corrected_to": null,
         "value": "t_sig=='T3' as materialized in bars (priority-resolved import of the Pine 'T' column; bullCode==9). Raw: prev1IsBear (close[1]<open[1] OR doji[1]) AND close>ope"
+      },
+      {
+        "file": "T3_LABEL_AMENDMENT_V1.json",
+        "path": ".scope",
+        "role": "VALUE",
+        "classification": "VALUE_T9_TEXT",
+        "corrected_to": null,
+        "value": "five T9->T3 typos in artifact text; originals remain sealed and are not rewritten; producing sources left byte-frozen"
       }
     ]
   },

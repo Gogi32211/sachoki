@@ -1,0 +1,62 @@
+{
+  "spec_id": "T3_CAPABILITY_AMENDMENT_V1",
+  "result": "PASS",
+  "amends": "T3_CAPABILITY_RESULT_V1.json",
+  "amends_digest": "7f960516dceda88a",
+  "status": "AMENDMENT — record only; no number in the amended artifact changes",
+  "item1_false_history": {
+    "gate": "FALSE_HISTORY_FIELD",
+    "result": "STRUCK",
+    "struck_field": "superseded_engineering_run",
+    "struck_content": {
+      "commit": "0e5954e",
+      "status": "SUPERSEDED / ENGINEERING / NON-EVIDENTIARY",
+      "defect": "world seeds derived via process-salted builtin hash(); externally non-replayable",
+      "observed_cells": {
+        "q10|+0.5pp": "4/20",
+        "q10|+1.0pp": "19/20",
+        "q10|+2.0pp": "20/20",
+        "q10|+3.0pp": "20/20",
+        "q10|+4.0pp": "20/20"
+      },
+      "exclusion": "Observed during superseded non-replayable engineering run; excluded from capability qualification and not used to modify protocol, needles, grid, worlds, permutations, or acceptance."
+    },
+    "finding": "the block is T9's record (commit 0e5954e, T9's builtin-hash defect, T9's observed q10 cells) carried into a T3 artifact by literal swap",
+    "truth": "T3 has no engineering run. Its first and only capability execution is the evidentiary run sealed in T3_CAPABILITY_RESULT_V1, launched after gate 1 (seed manifest, cross-PYTHONHASHSEED), gate 2 (world replay bit-identical) and gate 3 (source sweep) all passed. Nothing was observed before it and nothing was excluded from it.",
+    "no_effect_on_numbers": "the field is a literal written into the final seal call and is read by no expression in the module — detections, max_null_p95, seeds and runtime are untouched",
+    "checks": {
+      "field_present_in_sealed_artifact": true,
+      "field_names_a_t9_commit": true,
+      "field_is_write_only": true,
+      "no_prior_t3_capability_artifact_in_git": true,
+      "exactly_one_completion_line": true
+    }
+  },
+  "item2_seed_projections": {
+    "gate": "SEED_MANIFEST_PROJECTIONS",
+    "result": "RECONCILED",
+    "one_seed_set": {
+      "n_world_seeds": 360,
+      "root": "bb407d4b12356d7c",
+      "rule": "T_FAMILY_CAPABILITY_RNG_RULE_V1"
+    },
+    "projections": {
+      "gate_1": {
+        "definition": "{full world-seed hex, perm_seed(0), perm_seed(998)} per cell",
+        "digest": "3c5a2015d232c8fd",
+        "matches_gate_log": true
+      },
+      "runner": {
+        "definition": "{first 16 hex chars of the world seed} per cell",
+        "digest": "4049c486aa40692e",
+        "sealed_in_result": "4049c486aa40692e",
+        "matches_sealed": true
+      }
+    },
+    "tie": "both projections are rebuilt here from the same sealed hashes in one process; the runner projection is exactly the 16-char prefix of the gate projection's world seeds, so the two digests differ by definition, not by seed",
+    "prefix_consistency": true
+  },
+  "source_correction": "t3_capability_run.py has the struck field removed and now emits both projections; a replay under the corrected source reproduces every detection, band and seed bit-identically and simply omits the struck block",
+  "outcome_exposure": "NOT_EXPOSED — capability only; no observed T3 Z_rank, survivor or theta is computed anywhere",
+  "runtime_s": 0.3
+}
