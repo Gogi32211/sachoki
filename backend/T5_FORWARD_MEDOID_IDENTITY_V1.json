@@ -1,0 +1,104 @@
+{
+  "spec_id": "T5_FORWARD_MEDOID_IDENTITY_V1",
+  "result": "PASS",
+  "question": "do the frozen 1H forward rule memberships survive the session-validity correction unchanged?",
+  "answer": "YES — the corrected rule reclassifies no T5 session, the enumeration input frame is bit-identical, and every episode in the frozen forward membership still sits inside a complete session.",
+  "provenance": "all comparisons are on the SAME sealed T5 microstructure vintage; the currently mutable 1H store is never used to regenerate family X — only expected_bars(date) is taken, from the sealed calendar",
+  "sealed_identity": {
+    "source_population_hash": "e500f6f158e23719",
+    "claim_order_hash": "8286de69150fa226",
+    "block_assignment_hash": "8f786b5cdd63e815",
+    "cache_file_digest": "ad93a3069ef72ed3",
+    "episode_id_digest": "e500f6f158e23719",
+    "n_claims_used": 9,
+    "n_population": 118849
+  },
+  "session_validity": {
+    "sessions": 246513,
+    "old_valid": 237833,
+    "corrected_valid": 237833,
+    "flips": 0
+  },
+  "input_frames": {
+    "rows_old": 1659965,
+    "rows_corrected": 1659965,
+    "digest_old": "06160bf4cefaaf1a",
+    "digest_corrected": "06160bf4cefaaf1a",
+    "bit_identical": true,
+    "invariant_D": 0
+  },
+  "forward_memberships": {
+    "file": "t5_1h_survivor_membership.parquet",
+    "digest": "ad93a3069ef72ed3",
+    "n_population": 118849,
+    "n_member_rows": 9436,
+    "n_claims": 9,
+    "population_episodes_outside_corrected": 0,
+    "per_claim": {
+      "j28|CROSS_DAY|2|VOL_W→CL_O": {
+        "n": 427,
+        "j": 28,
+        "membership_hash": "65356229655c90c1"
+      },
+      "j707|CROSS_DAY|2|VOL_W→L4": {
+        "n": 662,
+        "j": 707,
+        "membership_hash": "35b0ccc8a5875154"
+      },
+      "j134|CROSS_DAY|2|VOL_W→L46x": {
+        "n": 596,
+        "j": 134,
+        "membership_hash": "8214a7e2e5f9892a"
+      },
+      "j385|CROSS_DAY|2|VOL_W→NE_E": {
+        "n": 508,
+        "j": 385,
+        "membership_hash": "2e87f1ed2b5ed2f3"
+      },
+      "j306|PREV_INTRADAY|2|BUY→Z2": {
+        "n": 423,
+        "j": 306,
+        "membership_hash": "7409d335300482b8"
+      },
+      "j455|PREV_INTRADAY|3|BUY→Z2→GR_N": {
+        "n": 336,
+        "j": 455,
+        "membership_hash": "94b2fcc6c777351b"
+      },
+      "j251|T5_INTRADAY|2|BUY→L2": {
+        "n": 492,
+        "j": 251,
+        "membership_hash": "1f5109bf39e7324e"
+      },
+      "j85|T5_INTRADAY|2|BUY→L5": {
+        "n": 322,
+        "j": 85,
+        "membership_hash": "d2fef6773ac4cebd"
+      },
+      "j333|T5_INTRADAY|2|L43→T2": {
+        "n": 5670,
+        "j": 333,
+        "membership_hash": "5d190db83f82ac79"
+      }
+    },
+    "episodes_outside_corrected_complete_sessions": 0
+  },
+  "checks": {
+    "cache file digest matches the sealed identity": true,
+    "episode_id digest matches the sealed identity": true,
+    "claim count matches the sealed identity": true,
+    "session-validity flips on the T5 microstructure": true,
+    "sealed vs corrected input frames are bit-identical": true,
+    "invariant D on the corrected frame": true,
+    "no forward-membership episode falls outside a corrected complete session": true,
+    "no frozen-population episode falls outside a corrected complete session": true,
+    "corrected rule admits no episode the old rule excluded": true
+  },
+  "scope": {
+    "unblocks": "the SESSION-SEMANTICS reason for the T5 forward hold, and nothing else",
+    "still_held": "SOURCE DATA VERSION — ONE_HOUR_DATA_VERSION_DIVERGENCE_V1 is an independent incident and keeps forward outcome finalization, promotion and status computation on hold",
+    "code_environment": "prior status unchanged; this artifact makes no statement about the code/environment axis"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 3.5
+}
