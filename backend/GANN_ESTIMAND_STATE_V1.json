@@ -1,0 +1,61 @@
+{
+  "spec_id": "GANN_ESTIMAND_STATE_V1",
+  "status": "X_ONLY",
+  "x_freeze": "c82591109bc45da0",
+  "estimand_spec": "000aa1edce0ffc89",
+  "phase_code": "52ed09ad4227e22d",
+  "rows_total": 2915049,
+  "rows_outcome_eligible": 2869721,
+  "availability": {
+    "rule": "the next session open and 10 further sessions must EXIST, and the D-1 anchors must be complete",
+    "note": "counting sessions is a STATUS, not an outcome value"
+  },
+  "blocks": {
+    "dimensions": [
+      "decision_date",
+      "direction",
+      "pre_liquidity LOW/HIGH",
+      "pre_volatility LOW/HIGH"
+    ],
+    "anchors": "dv20 and ATR%/close at D-1",
+    "split": "LOW/HIGH within each decision date"
+  },
+  "claims": {
+    "GANN_ASC_TOUCH_V1": {
+      "rows_valid_direction": 2865304,
+      "treated": 141505,
+      "control": 2723799,
+      "long": 1447199,
+      "short": 1418105,
+      "blocks": 6408,
+      "invalid_equality": 4417,
+      "invalid_conflict": 0
+    },
+    "GANN_DESC_TOUCH_V1": {
+      "rows_valid_direction": 2865310,
+      "treated": 138569,
+      "control": 2726741,
+      "long": 1414505,
+      "short": 1450805,
+      "blocks": 6408,
+      "invalid_equality": 4411,
+      "invalid_conflict": 0
+    },
+    "GANN_CONFLUENCE_TOUCH_V1": {
+      "rows_valid_direction": 1523625,
+      "treated": 80711,
+      "control": 1442914,
+      "long": 760013,
+      "short": 763612,
+      "blocks": 6408,
+      "invalid_equality": 4422,
+      "invalid_conflict": 1341674
+    }
+  },
+  "table": {
+    "path": "gann_estimand_state.parquet",
+    "digest": "127d3c69c63eba8e"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_min": 0.1
+}

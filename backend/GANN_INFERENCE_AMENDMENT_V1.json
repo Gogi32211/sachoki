@@ -43,11 +43,13 @@
     "answers": "is there a directional excursion association at all, conditional on the registered structure?"
   },
   "gate_B": {
-    "name": "REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE",
+    "name": "REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE",
     "worlds": 999,
     "mechanism": "the already sealed ticker-local shared-phase worlds, retained verbatim — one phi per ticker, both families, every date",
-    "statistic": "Z(phi = 0) versus the distribution of Z over shifted worlds, per claim; family-wise as the advantage of phi = 0 over the shifted geometry",
-    "threshold": "Z_phi0(claim) > p95(Z_shifted(claim))",
+    "statistic": "for every shifted world w, maxZ_shift[w] = max(Z_ASC_shift[w], Z_DESC_shift[w], Z_CONF_shift[w]) — the FAMILY-WISE maximum, exactly as gate A takes its own",
+    "threshold": "GATE B PASS for claim c iff Z_phi0[c] > p95(maxZ_shift), strictly",
+    "why_family_wise": "three claims are compared at once, so a claim-specific threshold would let 'which of the three beat the shifted reference?' be answered after looking. Multiplicity is a cross-cutting rule here and gate B does not get an exemption.",
+    "claim_specific_percentile": "may be reported DESCRIPTIVELY as claim_specific_shifted_percentile, but it can never upgrade the interpretation — the strong GANN-SPECIFIC label requires the family-wise threshold",
     "wording_forbidden": [
       "exact phase-exchangeability p-value",
       "randomization p-value",
@@ -118,5 +120,5 @@
     "note": "an earlier progress message labelled the ACTIVE digest as superseded; that was a reporting error, not an artifact error — the file has carried the direction-neutral definition since it was re-sealed"
   },
   "outcome_exposure": "NOT_EXPOSED",
-  "sealed_at": "2026-08-22 17:37 +04"
+  "sealed_at": "2026-08-22 18:08 +04"
 }

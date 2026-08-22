@@ -1,0 +1,79 @@
+{
+  "spec_id": "GANN_CAPABILITY_PREY_CLOSURE_V1",
+  "result": "PASS",
+  "scope": "engine qualification on SYNTHETIC outcomes; no real Y is read anywhere",
+  "capability_code": "1b1824f062f85c8f",
+  "rank_code": "c9086f25703db35b",
+  "estimand_state": "435ad0db51c93ba5",
+  "protocol": "1f36fdb0c97c739d",
+  "inference_amendment": "92067b36eb5626fd",
+  "rng_root": "827698b533703452",
+  "sample": {
+    "rows": 40000,
+    "treated": 1982,
+    "comparison_blocks": 6393,
+    "nullization_blocks": 3204
+  },
+  "A_rng_manifest": {
+    "seed_manifest_digest": "5f34f78ad47e9850",
+    "cross_process_identical": true,
+    "n_seeds": 1440,
+    "builtin_hash_hits": []
+  },
+  "B_full_world_replay": {
+    "bit_identical": {
+      "nullized_long": true,
+      "nullized_short": true,
+      "injected_long": true,
+      "injected_short": true,
+      "z_obs": true,
+      "maxz_vector": true,
+      "p95": true,
+      "detection": true
+    },
+    "replay_digest": "b22bc80d46387458",
+    "z_obs": 20.33111017176798,
+    "p95": 1.7438966661176312,
+    "detected": true,
+    "perm_vector_length": 999
+  },
+  "C_paired_permutation": {
+    "checks": {
+      "pair_ratio_preserved": true,
+      "rows_actually_moved": true,
+      "independent_permutation_would_break_it": true,
+      "direction_not_a_nullization_block": true
+    },
+    "rows_moved": 36776,
+    "nullization_block_key": "date | liq_half | vol_half — no direction",
+    "fixture": "LONG = k, SHORT = 10k; the pair identity is recoverable from the ratio, so an independent permutation of the components is detected exactly"
+  },
+  "D_forbidden_reachability": {
+    "reachable_modules": [
+      "gann_capability",
+      "gann_rank",
+      "t5_artifact"
+    ],
+    "import_edges": {
+      "gann_capability": [
+        "gann_rank",
+        "t5_artifact"
+      ],
+      "gann_rank": [],
+      "t5_artifact": []
+    },
+    "forbidden_modules": [
+      "gann_expose",
+      "gann_historical",
+      "gann_phase",
+      "gann_phase_qualification",
+      "gann_survivor"
+    ],
+    "forbidden_reachable": [],
+    "banned_identifiers_in_code": [],
+    "identifier_scope": "AST identifiers only — the module's own prohibition docstring names these concepts and must not be read as a code path",
+    "note": "the historical statistic lives in a module the capability engine does not import; there is also no code path here that computes Z before nullization"
+  },
+  "outcome_exposure": "NOT_EXPOSED — synthetic outcomes only",
+  "runtime_min": 0.8
+}

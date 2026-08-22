@@ -73,14 +73,23 @@ def amendment():
             answers="is there a directional excursion association at all, conditional on "
                     "the registered structure?"),
         gate_B=dict(
-            name="REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE",
+            name="REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE",
             worlds=N_PHASE,
             mechanism="the already sealed ticker-local shared-phase worlds, retained "
                       "verbatim — one phi per ticker, both families, every date",
-            statistic="Z(phi = 0) versus the distribution of Z over shifted worlds, per "
-                      "claim; family-wise as the advantage of phi = 0 over the shifted "
-                      "geometry",
-            threshold="Z_phi0(claim) > p95(Z_shifted(claim))",
+            statistic="for every shifted world w, maxZ_shift[w] = max(Z_ASC_shift[w], "
+                      "Z_DESC_shift[w], Z_CONF_shift[w]) — the FAMILY-WISE maximum, "
+                      "exactly as gate A takes its own",
+            threshold="GATE B PASS for claim c iff Z_phi0[c] > p95(maxZ_shift), strictly",
+            why_family_wise="three claims are compared at once, so a claim-specific "
+                            "threshold would let 'which of the three beat the shifted "
+                            "reference?' be answered after looking. Multiplicity is a "
+                            "cross-cutting rule here and gate B does not get an exemption.",
+            claim_specific_percentile="may be reported DESCRIPTIVELY as "
+                                      "claim_specific_shifted_percentile, but it can never "
+                                      "upgrade the interpretation — the strong "
+                                      "GANN-SPECIFIC label requires the family-wise "
+                                      "threshold",
             wording_forbidden=["exact phase-exchangeability p-value",
                                "randomization p-value",
                                "probability that the Gann construction is false"],
@@ -140,7 +149,8 @@ def amendment():
 
 def reseal_phase_null(amend_digest):
     d = json.load(open("GANN_PHASE_NULL_V1.json"))
-    d["role"] = "REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE (gate B)"
+    d["role"] = ("REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE "
+                 "(gate B)")
     d["amended_by"] = amend_digest
     d["not_the_primary_null"] = ("the primary inferential null is the outcome permutation "
                                  "of GANN_INFERENCE_AMENDMENT_V1 gate A; phi = 0 is not "
@@ -152,7 +162,9 @@ def reseal_phase_null(amend_digest):
                         "the same geometry")
     d["p_value_wording"] = ("a shifted-lattice placebo tail probability — NEVER an exact "
                             "or randomization p-value")
-    d["promotion"] = "gate B: Z_phi0(claim) > p95(Z_shifted(claim))"
+    d["promotion"] = ("gate B: Z_phi0(claim) > p95(maxZ_shift) where maxZ_shift[w] = "
+                      "max over the three claims in shifted world w — family-wise, strict")
+    d["family_wise"] = "maxZ_shift[w] = max(Z_ASC_shift[w], Z_DESC_shift[w], Z_CONF_shift[w])"
     return ART.seal(d, "GANN_PHASE_NULL_V1.json",
                     required=("spec_id", "H0", "mechanism"), supersede=True)
 

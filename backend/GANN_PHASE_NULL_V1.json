@@ -35,14 +35,14 @@
     ]
   },
   "worlds": 999,
-  "family_wise": "maxZ_null[w] = max(Z_ASC[w], Z_DESC[w], Z_CONF[w])",
-  "promotion": "gate B: Z_phi0(claim) > p95(Z_shifted(claim))",
+  "family_wise": "maxZ_shift[w] = max(Z_ASC_shift[w], Z_DESC_shift[w], Z_CONF_shift[w])",
+  "promotion": "gate B: Z_phi0(claim) > p95(maxZ_shift) where maxZ_shift[w] = max over the three claims in shifted world w — family-wise, strict",
   "p_value_wording": "a shifted-lattice placebo tail probability — NEVER an exact or randomization p-value",
   "why_this_null": "a dense enough lattice touches something constantly, so 'touch vs no touch' is not the question. The question is whether the anchored integer phase carries information an equally dense shifted lattice does not.",
   "outcome_exposure": "NOT_EXPOSED",
   "sealed_at": "2026-08-22 17:12 +04",
-  "role": "REGISTERED SHIFTED-LATTICE PLACEBO REFERENCE (gate B)",
-  "amended_by": "3d731903e4f0aa9e",
+  "role": "REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE (gate B)",
+  "amended_by": "92067b36eb5626fd",
   "not_the_primary_null": "the primary inferential null is the outcome permutation of GANN_INFERENCE_AMENDMENT_V1 gate A; phi = 0 is not exchangeable with uniform shifted phases in event geometry, so this distribution is a placebo reference",
   "H0_restated": "conditional on the frozen anchors, spacing, slopes and pre-treatment structure, any directional association found at phi = 0 is no stronger than at a ticker-local shifted phase of the same geometry"
 }
