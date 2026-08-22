@@ -1,0 +1,17 @@
+{
+  "spec_id": "GANN_DESIGN_EXPOSURE_LEDGER_V1",
+  "status": "OPEN",
+  "rule": "a ticker enters this ledger BEFORE it is inspected, never after; entries are excluded from the primary confirmatory population and may appear only in a separately labelled descriptive set",
+  "entries": [
+    {
+      "ticker": "USAR",
+      "reason": "the grid hypothesis and its Pine rendering were developed while looking at this chart",
+      "declared_at": "family opening, before any Gann V1 computation",
+      "status": "DESIGN_EXPOSED — excluded from the primary confirmatory evidence population"
+    }
+  ],
+  "n_entries": 1,
+  "opened_at": "2026-08-22 15:37 +04",
+  "updated_at": "2026-08-22 15:37 +04",
+  "outcome_exposure": "NOT_EXPOSED"
+}
