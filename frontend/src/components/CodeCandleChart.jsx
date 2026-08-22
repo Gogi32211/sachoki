@@ -6,6 +6,9 @@ import { api } from '../api'
 // Volume-bucket colours (shared palette)
 const BUCKET_HEX = { W: '#c3c0d3', L: '#0099ff', N: '#ffd000', B: '#e48100', VB: '#b02020' }
 const BAR_OPTIONS = [120, 200, 300, 500, 1000, 2000, 5000]
+// PT preview families, in the order their research was frozen. 'ALL' is a view mode, not a
+// family — it never merges the families, it just draws each one's own marks together.
+const PT_FAMILIES = ['T5', 'T9', 'T3', 'T1']
 
 const fmtDate = (d) => String(d ?? '').slice(0, 10)
 const isIntradayTf = (tf) => ['30m', '15m', '1h', '4h'].includes(tf)
@@ -130,7 +133,7 @@ export default function CodeCandleChart({
   // trading rule, NOT forward validation. Default shows only signal_session <= 2026-08-20
   // (the official prospective cutoff); post-cutoff is OBSERVATIONAL MODE behind its own toggle.
   const [showPt5,   setShowPt5]   = useState(false)
-  const [ptFamily,  setPtFamily]  = useState('T5')    // PT family selector: T5|T9|T3|T1
+  const [ptFamily,  setPtFamily]  = useState('T5')    // T5|T9|T3|T1|ALL
   const [ptMeta,    setPtMeta]    = useState(null)    // server-derived phase availability
   const [pt5Post,   setPt5Post]   = useState(false)   // "Show post-cutoff PT5" — default OFF
   const [pt5Marks,  setPt5Marks]  = useState(null)
@@ -687,18 +690,28 @@ export default function CodeCandleChart({
   useEffect(() => {
     if (!showPt5 || !ticker || tf !== '1d') { setPt5Marks(null); pt5MapRef.current = {}; setPt5Hover(null); return }
     let dead = false
-    const ptUrl = ptFamily === 'T5'
-      ? `/api/studio/pt5-marks/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`
-      : `/api/studio/pt-marks/${ptFamily}/${ticker}?include_post_cutoff=${pt5Post ? 'true' : 'false'}`
-    fetch(ptUrl)
-      .then(r => r.json())
-      .then(d => {
+    // ONE endpoint for every family, T5 included. T5 used to be routed to the legacy
+    // /pt5-marks route, which still expected the pre-unification column names and so
+    // returned nothing once pt5_signals.parquet was rebuilt in the shared schema.
+    const q = `include_post_cutoff=${pt5Post ? 'true' : 'false'}`
+    const fams = ptFamily === 'ALL' ? PT_FAMILIES : [ptFamily]
+    Promise.all(fams.map(f =>
+      fetch(`/api/studio/pt-marks/${f}/${ticker}?${q}`).then(r => r.json())
+        .then(d => ({ f, d })).catch(() => ({ f, d: null }))))
+      .then(res => {
         if (dead) return
-        const marks = d?.marks || []
+        // family is carried on every mark so ALL mode can colour and group them; in
+        // single-family mode this is the same value for every row.
+        const marks = res.flatMap(({ f, d }) =>
+          (d?.marks || []).map(x => ({ ...x, family: f })))
+        marks.sort((a, b) => (a.date < b.date ? -1 : a.date > b.date ? 1 : 0))
         setPt5Marks(marks)
-        const m = {}; for (const x of marks) m[x.date] = x
+        // a date can carry a mark from several families at once, so the hover map holds
+        // a LIST — dropping the collision would silently hide families in ALL mode
+        const m = {}
+        for (const x of marks) (m[x.date] = m[x.date] || []).push(x)
         pt5MapRef.current = m
-        setPtMeta(d?.meta || null)
+        setPtMeta(ptFamily === 'ALL' ? null : (res[0]?.d?.meta || null))
       })
       .catch(() => { if (!dead) { setPt5Marks([]); pt5MapRef.current = {} } })
     return () => { dead = true }
@@ -713,7 +726,9 @@ export default function CodeCandleChart({
       const key = typeof t === 'string' ? t.slice(0, 10)
         : typeof t === 'number' ? new Date(t * 1000).toISOString().slice(0, 10)
         : t && t.year ? `${t.year}-${String(t.month).padStart(2, '0')}-${String(t.day).padStart(2, '0')}` : null
-      setPt5Hover(key ? (pt5MapRef.current[key] ? { date: key, ...pt5MapRef.current[key] } : null) : null)
+      const hit = key ? pt5MapRef.current[key] : null
+      // the map holds a list per date; the panel details the first and names the rest
+      setPt5Hover(hit && hit.length ? { date: key, ...hit[0], all: hit } : null)
     }
     chart.subscribeCrosshairMove(onMove)
     return () => { try { chart.unsubscribeCrosshairMove(onMove) } catch {} }
@@ -1194,11 +1209,18 @@ export default function CodeCandleChart({
       {showPt5 && pt5Hover && (
         <div className="absolute left-2 top-2 z-20 rounded border border-emerald-700/60 bg-gray-950/95 px-2.5 py-2 text-[10px] leading-4 font-mono text-gray-200 shadow-lg pointer-events-none max-w-[270px]">
           <div className="text-emerald-300 font-bold">
-            Preview {ptFamily} · Historical 1H research match · {pt5Hover.date}
+            Preview {pt5Hover.family || ptFamily} · Historical 1H research match · {pt5Hover.date}
           </div>
-          <div className="mt-1 text-gray-400">1D:&nbsp;<span className="text-gray-100">{ptFamily} ✓</span></div>
+          {(pt5Hover.all || []).length > 1 && (
+            <div className="mt-0.5 text-gray-400">also on this bar:&nbsp;
+              <span className="text-emerald-200">
+                {pt5Hover.all.slice(1).map(x => x.family).join(' · ')}</span>
+              <div className="text-gray-500">separate families, not one stronger signal</div>
+            </div>
+          )}
+          <div className="mt-1 text-gray-400">1D:&nbsp;<span className="text-gray-100">{pt5Hover.family || ptFamily} ✓</span></div>
           <div className="mt-0.5 text-gray-400">1H structures:</div>
-          {ptFamily === 'T5'
+          {(pt5Hover.family || ptFamily) === 'T5'
             ? [['H1_A', 'BUY→L5'], ['H1_B', 'VOL_W→L46x'], ['H1_C', 'L43→T2'], ['H1_D', 'BUY→Z2']].map(([k, n]) => (
                 <div key={k} className="pl-2">{n.padEnd(12, ' ')} {(pt5Hover.h1 || '').includes(k)
                   ? <span className="text-emerald-300">✓</span> : <span className="text-gray-600">–</span>}</div>
@@ -1221,9 +1243,13 @@ export default function CodeCandleChart({
             <div key={i} className="pl-2 text-cyan-200/80 truncate">{r}</div>
           ))}
           {pt5Hover.m15_n > 4 && <div className="pl-2 text-gray-500">… +{pt5Hover.m15_n - 4} more</div>}
-          <div className="mt-0.5 text-gray-400">Cross-resolution:</div>
-          <div className="pl-2">VOL_W ↔ VA {pt5Hover.xr
-            ? <span className="text-amber-300">✓</span> : <span className="text-gray-600">–</span>}</div>
+          {pt5Hover.xr !== undefined && (
+            <>
+              <div className="mt-0.5 text-gray-400">Cross-resolution:</div>
+              <div className="pl-2">VOL_W ↔ VA {pt5Hover.xr
+                ? <span className="text-amber-300">✓</span> : <span className="text-gray-600">–</span>}</div>
+            </>
+          )}
           <div className="mt-1 pt-1 border-t border-white/10 text-gray-400">
             <div>Evidence state:&nbsp;<span className="text-gray-200">
               {pt5Hover.provenance === 'HISTORICAL' ? 'historical characterization'
@@ -1465,9 +1491,11 @@ export default function CodeCandleChart({
                 </button>
                 {showPt5 && (
                   <span className="flex items-center gap-0.5 ml-0.5">
-                    {['T5', 'T9', 'T3', 'T1'].map(f => (
+                    {[...PT_FAMILIES, 'ALL'].map(f => (
                       <button key={f} onClick={() => setPtFamily(f)}
-                        title={`PT preview over the frozen ${f} research`}
+                        title={f === 'ALL'
+                          ? 'Show every PT family at once. Each mark keeps its own family prefix and colour ladder; a bar carrying several families gets one mark per family.'
+                          : `PT preview over the frozen ${f} research`}
                         className={`px-1 py-0.5 rounded font-mono border ${
                           ptFamily === f
                             ? 'bg-emerald-900/60 text-emerald-200 border-emerald-500'

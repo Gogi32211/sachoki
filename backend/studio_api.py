@@ -2532,20 +2532,14 @@ def pt5_marks(ticker: str, include_post_cutoff: bool = Query(False)):
     Default hard-filters to signal_session <= 2026-08-20 (the official prospective cutoff), so
     looking at charts cannot quietly break human outcome blindness on forward episodes.
     include_post_cutoff=true is OBSERVATIONAL MODE: it changes nothing in the machine forward
-    ledger, but observations must not be used to modify the frozen validation design."""
-    df = _pt5_df()
-    if df is None:
-        return {"marks": [], "cutoff": PT5_CUTOFF, "note": "pt5_signals.parquet not built"}
-    sub = df[df.ticker == ticker.upper()]
-    if not include_post_cutoff:
-        sub = sub[sub.date <= PT5_CUTOFF]
-    marks = [dict(date=r.date, cls=r.pt5_class,
-                  h1=r.pt5_h1_families, h1_names=r.pt5_h1_family,
-                  h1_n=int(r.pt5_h1_match_count),
-                  m15_n=int(r.pt5_m15_match_count),
-                  m15_clusters=r.pt5_m15_cluster_ids,
-                  m15_reps=r.pt5_m15_representatives,
-                  xr=bool(r.pt5_xr_volw_va))
-             for r in sub.itertuples()]
-    return {"marks": marks, "cutoff": PT5_CUTOFF,
-            "post_cutoff_included": bool(include_post_cutoff)}
+    ledger, but observations must not be used to modify the frozen validation design.
+
+    DEPRECATED: pt5_signals.parquet was rebuilt in the shared PT schema (pt_class,
+    h1_keys, h1_medoids, m15_state, ...), so this route's original column reads now fail.
+    It delegates to the unified /pt-marks/T5/{ticker} rather than 500-ing, and says so in
+    the payload. New callers should use the unified route.
+    """
+    out = pt_marks("T5", ticker, include_post_cutoff)
+    out["deprecated"] = ("use /pt-marks/T5/{ticker} — this route now returns the shared PT "
+                         "schema, not the pre-unification pt5_* column names")
+    return out
