@@ -1,0 +1,163 @@
+{
+  "spec_id": "T1_CAPABILITY_RESULT_V1",
+  "status": "COMPLETE",
+  "protocol_digest": "f9c0d5a5dbb90c80",
+  "claim_order_digest": "cc650aa6761e39c2",
+  "k": 911,
+  "population": 154786,
+  "blocks": 5040,
+  "needles": {
+    "q10": {
+      "j": 546,
+      "representative": "P3→T2→L46x",
+      "support": 334
+    },
+    "q50": {
+      "j": 788,
+      "representative": "BW_TB→T1→T2",
+      "support": 1308
+    },
+    "q90": {
+      "j": 802,
+      "representative": "CONSO→T1→T2",
+      "support": 11446
+    }
+  },
+  "deltas_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "inner_permutations": 999,
+  "detections": {
+    "q10|+0.5pp": 2,
+    "q10|+1.0pp": 20,
+    "q10|+2.0pp": 20,
+    "q10|+3.0pp": 20,
+    "q10|+4.0pp": 20,
+    "q10|+5.0pp": 20,
+    "q50|+0.5pp": 19,
+    "q50|+1.0pp": 20,
+    "q50|+2.0pp": 20,
+    "q50|+3.0pp": 20,
+    "q50|+4.0pp": 20,
+    "q50|+5.0pp": 20,
+    "q90|+0.5pp": 20,
+    "q90|+1.0pp": 20,
+    "q90|+2.0pp": 20,
+    "q90|+3.0pp": 20,
+    "q90|+4.0pp": 20,
+    "q90|+5.0pp": 20
+  },
+  "max_null_p95": {
+    "q10|+0.5pp": {
+      "median": 3.8399630011724897,
+      "min": 3.780990466711979,
+      "max": 3.881329513447899
+    },
+    "q10|+1.0pp": {
+      "median": 3.8298259469485485,
+      "min": 3.771948463367837,
+      "max": 3.8793328732646057
+    },
+    "q10|+2.0pp": {
+      "median": 3.8126568723003835,
+      "min": 3.7456024793340883,
+      "max": 3.896985837872535
+    },
+    "q10|+3.0pp": {
+      "median": 3.8376364542051853,
+      "min": 3.7565457298060045,
+      "max": 3.906826515609695
+    },
+    "q10|+4.0pp": {
+      "median": 3.826936267821525,
+      "min": 3.7751388677247735,
+      "max": 3.8998998684125668
+    },
+    "q10|+5.0pp": {
+      "median": 3.831963126140668,
+      "min": 3.768790490160481,
+      "max": 3.8924418091003608
+    },
+    "q50|+0.5pp": {
+      "median": 3.813808916201504,
+      "min": 3.7452463004215475,
+      "max": 3.8907929215445756
+    },
+    "q50|+1.0pp": {
+      "median": 3.83627306876965,
+      "min": 3.7577095153625817,
+      "max": 3.8828667814800637
+    },
+    "q50|+2.0pp": {
+      "median": 3.8272454553543276,
+      "min": 3.7696555150496955,
+      "max": 3.9075084271903644
+    },
+    "q50|+3.0pp": {
+      "median": 3.823186636703118,
+      "min": 3.786541634207061,
+      "max": 3.897932423971323
+    },
+    "q50|+4.0pp": {
+      "median": 3.8103599749577377,
+      "min": 3.766691823404278,
+      "max": 3.8810864883031746
+    },
+    "q50|+5.0pp": {
+      "median": 3.8137719079443624,
+      "min": 3.7780827861207067,
+      "max": 3.8582790671920875
+    },
+    "q90|+0.5pp": {
+      "median": 3.8162613787822917,
+      "min": 3.7664189581250405,
+      "max": 3.8637145779962685
+    },
+    "q90|+1.0pp": {
+      "median": 3.8183817237140625,
+      "min": 3.733636896510797,
+      "max": 3.862676890976118
+    },
+    "q90|+2.0pp": {
+      "median": 3.833661650556882,
+      "min": 3.7635846308802674,
+      "max": 3.907193942203597
+    },
+    "q90|+3.0pp": {
+      "median": 3.822027266692927,
+      "min": 3.751445933046679,
+      "max": 3.868124388383159
+    },
+    "q90|+4.0pp": {
+      "median": 3.8458891498195187,
+      "min": 3.7509973270858907,
+      "max": 3.8913343798582205
+    },
+    "q90|+5.0pp": {
+      "median": 3.8252989507013,
+      "min": 3.7638275768142617,
+      "max": 3.8937738685888355
+    }
+  },
+  "wording": "Under the registered homogeneous additive MFE-shift alternative, each cell reports detections out of 20 finite capability worlds.",
+  "forbidden_confirmed": [
+    "no observed Z_rank computed",
+    "no survivor ranking",
+    "no winner inspection — the engine permutes before any statistic touches the historical assignment"
+  ],
+  "runtime_min": 47.7,
+  "peak_rss_gb": 4.04,
+  "rng": {
+    "scheme": "SHA256-derived, namespaces T1_CAPABILITY_WORLD_V1 / T1_CAPABILITY_PERM_V1; first 8 digest bytes as unsigned int; builtin hash() nowhere in the stochastic path",
+    "seed_manifest_digest": "f6e0dd7e0e04dd41",
+    "seed_manifest_projection": "{first 16 hex chars of the world seed} per cell — gate 1 digests a WIDER projection ({full hex, perm 0, perm 998}); the two are tied in T1_CAPABILITY_AMENDMENT_V1",
+    "gate_projection_digest": "749f5db06688f4fe",
+    "n_world_seeds": 360
+  }
+}
