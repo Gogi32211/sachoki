@@ -1,0 +1,59 @@
+{
+  "spec_id": "T5_FORWARD_MEDOID_IDENTITY_ONTOLOGY_AMENDMENT_V1",
+  "status": "AMENDMENT",
+  "amends": "T5_FORWARD_MEDOID_IDENTITY_V1",
+  "amends_digest": "b619b06a3528abdf",
+  "result": "PASS — the amended artifact's verdict is unchanged",
+  "correction": {
+    "was": "the nine checked memberships were described as 'the frozen forward rule memberships', which reads as if the forward family had nine members",
+    "is_": "the nine are the frozen 1H RESEARCH survivor memberships held in T5_1H_MEMBERSHIP_CACHE_V1; the forward inferential family registered in T5_FORWARD_VALIDATION_V1 is H1 with k = 4, the four 1H overlap-cluster medoids",
+    "correct_statement": "All nine sealed historical 1H survivor memberships were identity-checked; therefore, in particular, all four 1H medoids registered in T5_FORWARD_VALIDATION_V1 are unchanged.",
+    "why_it_matters": "forward multiplicity is 4; no downstream account may inherit a forward family of 9 from a superset identity proof"
+  },
+  "forward_family": {
+    "spec": "T5_FORWARD_VALIDATION_V1.families.H1",
+    "k": 4,
+    "members": [
+      "T5_INTRADAY|2|BUY→L5",
+      "CROSS_DAY|2|VOL_W→L46x",
+      "T5_INTRADAY|2|L43→T2",
+      "PREV_INTRADAY|2|BUY→Z2"
+    ],
+    "source": "the 4 frozen 1H overlap-cluster medoids"
+  },
+  "coverage": {
+    "T5_INTRADAY|2|BUY→L5": {
+      "checked": true,
+      "n": 322,
+      "membership_hash": "d2fef6773ac4cebd"
+    },
+    "CROSS_DAY|2|VOL_W→L46x": {
+      "checked": true,
+      "n": 596,
+      "membership_hash": "8214a7e2e5f9892a"
+    },
+    "T5_INTRADAY|2|L43→T2": {
+      "checked": true,
+      "n": 5670,
+      "membership_hash": "5d190db83f82ac79"
+    },
+    "PREV_INTRADAY|2|BUY→Z2": {
+      "checked": true,
+      "n": 423,
+      "membership_hash": "7409d335300482b8"
+    }
+  },
+  "superset": {
+    "n_checked": 9,
+    "n_required": 4,
+    "reading": "9/9 identity is strictly stronger than the 4/4 the forward family needs"
+  },
+  "unchanged": {
+    "verdict": "PASS",
+    "session_axis": "the SESSION-SEMANTICS reason for the T5 forward hold is lifted",
+    "still_held": "SOURCE DATA VERSION — ONE_HOUR_DATA_VERSION_DIVERGENCE_V1",
+    "code_environment": "prior status unchanged"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 12:06 +04"
+}
