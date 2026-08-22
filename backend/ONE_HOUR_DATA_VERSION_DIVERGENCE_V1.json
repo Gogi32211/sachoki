@@ -1,0 +1,139 @@
+{
+  "spec_id": "ONE_HOUR_DATA_VERSION_DIVERGENCE_V1",
+  "status": "INCIDENT",
+  "classification": "SOURCE-DATA VERSION DIVERGENCE / ROW LOSS",
+  "statement": "the current mutable 1H store cannot reproduce the data version the frozen family microstructures were built from, row for row",
+  "cause": "NOT DETERMINED — deliberately unassigned until the ingestion pipeline's own provenance proves it; pruning, a failed refresh, a retention window and a provider revision are all consistent with the measurements below",
+  "evidence_by_date": {
+    "2026-08-14": {
+      "tickers_now": 4,
+      "families": {
+        "T5": 256
+      }
+    },
+    "2026-08-17": {
+      "tickers_now": 7,
+      "families": {
+        "T5": 145,
+        "T9": 192,
+        "T3": 179,
+        "T1": 155
+      }
+    }
+  },
+  "per_family": {
+    "T5": {
+      "microstructure": "t5_1h_microstructure.parquet",
+      "microstructure_digest": "06445de9bd2a367b",
+      "dates_covered": 1275,
+      "dates_with_row_loss": 2,
+      "episodes_on_lost_dates": 401,
+      "detail": [
+        {
+          "session_date": "2026-08-14",
+          "tickers_at_build": 256,
+          "tickers_now": 4,
+          "episodes": 256
+        },
+        {
+          "session_date": "2026-08-17",
+          "tickers_at_build": 145,
+          "tickers_now": 7,
+          "episodes": 145
+        }
+      ]
+    },
+    "T9": {
+      "microstructure": "t9_1h_microstructure.parquet",
+      "microstructure_digest": "a5d0d2871e3ac249",
+      "dates_covered": 1277,
+      "dates_with_row_loss": 1,
+      "episodes_on_lost_dates": 192,
+      "detail": [
+        {
+          "session_date": "2026-08-17",
+          "tickers_at_build": 192,
+          "tickers_now": 7,
+          "episodes": 192
+        }
+      ]
+    },
+    "T3": {
+      "microstructure": "t3_1h_microstructure.parquet",
+      "microstructure_digest": "9a76787143abebf9",
+      "dates_covered": 1277,
+      "dates_with_row_loss": 1,
+      "episodes_on_lost_dates": 179,
+      "detail": [
+        {
+          "session_date": "2026-08-17",
+          "tickers_at_build": 179,
+          "tickers_now": 7,
+          "episodes": 179
+        }
+      ]
+    },
+    "T1": {
+      "microstructure": "t1_1h_microstructure.parquet",
+      "microstructure_digest": "e2e83bf9606b46df",
+      "dates_covered": 1278,
+      "dates_with_row_loss": 1,
+      "episodes_on_lost_dates": 155,
+      "detail": [
+        {
+          "session_date": "2026-08-17",
+          "tickers_at_build": 155,
+          "tickers_now": 7,
+          "episodes": 155
+        }
+      ]
+    }
+  },
+  "current_store": {
+    "path": "studio_1h.duckdb",
+    "rows": 24838705,
+    "tickers": 3203,
+    "dates": 1285,
+    "file_mtime": "2026-08-22 06:19",
+    "note": "a DuckDB file has no content digest that survives compaction, so the row/ticker/date counts above are the snapshot identity recorded here"
+  },
+  "trading_dates_absent_entirely": {
+    "n": 56,
+    "last": [
+      "2026-01-01",
+      "2026-01-19",
+      "2026-02-16",
+      "2026-04-03",
+      "2026-05-25",
+      "2026-06-19",
+      "2026-07-03",
+      "2026-07-28",
+      "2026-07-31",
+      "2026-08-07",
+      "2026-08-10",
+      "2026-08-11"
+    ],
+    "note": "mixes genuine market holidays with ingestion gaps; not classified here"
+  },
+  "consequences": [
+    "the current 1H store is NOT an oracle for historical family X — any audit of the form 'rebuild family X from the current store and compare to the frozen artifact' is apples-to-oranges and must not be run as a semantic check",
+    "frozen family X artifacts remain authoritative for their own vintage; this incident does not invalidate them",
+    "the remediation comparisons stay valid because they read the SEALED microstructure and take only expected_bars(date) from the current store — and every collapsed date still resolves to expected_bars = 7",
+    "forward evidence is different in kind: there the mutable store IS the supply chain, so a data-version admissibility gate is needed before any forward outcome is finalized or promoted"
+  ],
+  "proposed_admissibility_axes": {
+    "note": "stated as a consequence of this incident, not enacted here",
+    "axes": [
+      "CODE SEMANTICS",
+      "ENVIRONMENT",
+      "SOURCE DATA VERSION"
+    ],
+    "reading": "a source-code semantic gate cannot see row loss; admissibility needs the third axis"
+  },
+  "related": {
+    "completeness_audit": "00614594d5161975",
+    "reference_universe": "4b6af06f107bb00c"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 4.9
+}
