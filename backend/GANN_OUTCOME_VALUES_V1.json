@@ -1,0 +1,38 @@
+{
+  "spec_id": "GANN_OUTCOME_VALUES_V1",
+  "status": "MATERIALISED",
+  "outcome_spec": "af4b205e152c9d43",
+  "estimand_state": "435ad0db51c93ba5",
+  "entry_semantics": {
+    "id": "NEXT_SESSION_OPEN_V1",
+    "source": "t5_outcomes.ENTRY_SEMANTICS — the lab's single frozen definition, imported rather than re-implemented",
+    "k": "sessions STRICTLY after D; entry is the open at k = 1",
+    "path": "k = 1..10, the entry session's own high and low INCLUDED"
+  },
+  "availability_note": {
+    "sealed_state_rule": "the next session open and 10 further sessions must EXIST (n_fwd >= 11)",
+    "outcome_consumes": "sessions k = 1..10",
+    "relation": "the sealed availability is STRICTLY STRONGER than the outcome needs; it is not relaxed here"
+  },
+  "normaliser_deviation": {
+    "spec_says": "ATR20 at D-1",
+    "store_has": "atr_14 — the 1D bars table carries no ATR20 column",
+    "resolution": "the ATR-normalised components are built from atr_14 and NAMED MFE_ATR14_* so an ATR14 number can never be read as an ATR20 one",
+    "impact": "NONE on the capability — the registered statistic reads the return-scale pair, because the registered injection is additive in percentage points"
+  },
+  "rows": 2869721,
+  "path_complete": 2869721,
+  "path_incomplete": 0,
+  "columns": [
+    "MFE_LONG_10D",
+    "MFE_SHORT_10D",
+    "MFE_ATR14_LONG_10D",
+    "MFE_ATR14_SHORT_10D"
+  ],
+  "reported": "COVERAGE COUNTS ONLY — no outcome value, moment, quantile or treated/control comparison is computed or printed anywhere in this module",
+  "table": {
+    "path": "gann_outcomes.parquet",
+    "digest": "3d9b8dff6c641c69"
+  },
+  "runtime_min": 0.5
+}
