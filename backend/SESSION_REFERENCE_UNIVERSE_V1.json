@@ -1,0 +1,127 @@
+{
+  "spec_id": "SESSION_REFERENCE_UNIVERSE_V1",
+  "status": "FROZEN",
+  "registered_rule": "expected_bars(date) = modal bar count across ALL TICKERS that traded that date; a ticker-session is complete iff its observed bar count equals that",
+  "source": {
+    "store": "studio_1h.duckdb",
+    "table": "bars",
+    "timezone": "bar timestamps converted UTC -> America/New_York before the session date is taken",
+    "inclusion_predicate": "every ticker with at least one 1H bar on that ET session date — no universe, liquidity or family filter, because the rule says ALL TICKERS",
+    "date_range": [
+      "2021-07-02",
+      "2026-08-21"
+    ],
+    "n_dates": 1285
+  },
+  "grain_assertion": {
+    "statement": "one bar per (ticker, timestamp); the bar count equals the distinct timestamp count for every ticker-session",
+    "holds": true
+  },
+  "tickers_per_date": {
+    "min": 1,
+    "q10": 2606,
+    "median": 2780,
+    "max": 3149,
+    "dates_under_100_tickers": 8
+  },
+  "expected_bars_distribution": {
+    "4": 10,
+    "7": 1275
+  },
+  "share_of_tickers_at_expected": {
+    "min": 0.5,
+    "median": 0.9688
+  },
+  "tie_rule": {
+    "rule": "on a tie for the modal bar count, take the LARGEST tied value",
+    "why": "a tie must resolve deterministically and must never resolve DOWNWARD — resolving to the smallest tied value is exactly the failure mode that admitted a 2-bar gapped session on 2022-06-10",
+    "n_dates_with_a_tie": 2,
+    "ties": [
+      {
+        "session_date": "2026-08-03",
+        "tied_values": [
+          2,
+          7
+        ],
+        "tied_at_count": 1,
+        "n_tickers": 2,
+        "chosen": 7
+      },
+      {
+        "session_date": "2026-08-04",
+        "tied_values": [
+          1,
+          7
+        ],
+        "tied_at_count": 1,
+        "n_tickers": 2,
+        "chosen": 7
+      }
+    ],
+    "effect": "see the list"
+  },
+  "short_sessions": {
+    "note": "dates whose expected length is below the regular 7 are early closes and stay VALID; the remediation does not reclassify them",
+    "dates": [
+      {
+        "session_date": "2021-11-26",
+        "calendar_len": 4,
+        "n_tickers": 2594
+      },
+      {
+        "session_date": "2022-11-25",
+        "calendar_len": 4,
+        "n_tickers": 2689
+      },
+      {
+        "session_date": "2023-07-03",
+        "calendar_len": 4,
+        "n_tickers": 2739
+      },
+      {
+        "session_date": "2023-11-24",
+        "calendar_len": 4,
+        "n_tickers": 2771
+      },
+      {
+        "session_date": "2024-07-03",
+        "calendar_len": 4,
+        "n_tickers": 2850
+      },
+      {
+        "session_date": "2024-11-29",
+        "calendar_len": 4,
+        "n_tickers": 2894
+      },
+      {
+        "session_date": "2024-12-24",
+        "calendar_len": 4,
+        "n_tickers": 2895
+      },
+      {
+        "session_date": "2025-07-03",
+        "calendar_len": 4,
+        "n_tickers": 2969
+      },
+      {
+        "session_date": "2025-11-28",
+        "calendar_len": 4,
+        "n_tickers": 3036
+      },
+      {
+        "session_date": "2025-12-24",
+        "calendar_len": 4,
+        "n_tickers": 3047
+      }
+    ]
+  },
+  "not_repaired": "anything that is not part of this defect is left exactly as the registered rule computes it — including any date whose market-wide modal is unusual; changing that would be a design review, not a remediation",
+  "artifact": {
+    "path": "session_calendar_1h.parquet",
+    "digest": "312c637c44d398d3",
+    "rows": 1285,
+    "changed_vs_previous_build": 1
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 5.7
+}

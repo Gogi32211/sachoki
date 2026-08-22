@@ -1,0 +1,69 @@
+{
+  "spec_id": "T5_15M_GAP_CLOSURE_V1",
+  "result": "PASS",
+  "question": "is the 15m grammar exposed to the 1H session-validity / dense-rank adjacency defect class?",
+  "answer": "NO. Bars are selected by exact ET clock time and mapped to fixed named positions M1..M4, so a missing slot simply means that claim cannot fire; no observed bar can slide into a vacant position because no position is derived from observation order.",
+  "selector": {
+    "exact_times": [
+      "09:30",
+      "09:45",
+      "10:00",
+      "10:15"
+    ],
+    "mapping": {
+      "09:30": 1,
+      "09:45": 2,
+      "10:00": 3,
+      "10:15": 4
+    },
+    "pairs": [
+      [
+        "M1",
+        "M2"
+      ],
+      [
+        "M2",
+        "M3"
+      ],
+      [
+        "M3",
+        "M4"
+      ]
+    ],
+    "source_digest": "ef7d60dd85a53e6d"
+  },
+  "synthetic_removal": {
+    "episodes_tested": 2753,
+    "baseline": {
+      "M1->M2": 2709,
+      "M2->M3": 2699,
+      "M3->M4": 2696
+    },
+    "without_M2": {
+      "M1->M2": 0,
+      "M2->M3": 0,
+      "M3->M4": 2696
+    },
+    "without_M3": {
+      "M1->M2": 2709,
+      "M2->M3": 0,
+      "M3->M4": 0
+    }
+  },
+  "checks": {
+    "selector is exact ET clock time": true,
+    "positions are named M1..M4 by clock time, not by observed order": true,
+    "no dense rank / cumcount / argsort over observed bars": true,
+    "claims are named position pairs": true,
+    "missing M2 -> M1->M2 occurrences vanish": true,
+    "missing M2 -> M2->M3 occurrences vanish": true,
+    "missing M3 -> M2->M3 occurrences vanish": true,
+    "missing M3 -> M3->M4 occurrences vanish": true,
+    "missing M2 does not create new M1->M3 style bridges": true,
+    "no backfill: removing M3 leaves M1->M2 untouched": true
+  },
+  "conclusion": "15m adjacency/session defect impact = NONE",
+  "scope_note": "this closes the DEFECT CLASS for 15m; it makes no statement about any 15m result, which is untouched",
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 1.7
+}
