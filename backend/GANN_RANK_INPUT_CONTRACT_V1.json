@@ -1,0 +1,28 @@
+{
+  "spec_id": "GANN_RANK_INPUT_CONTRACT_V1",
+  "status": "FROZEN",
+  "applies_to": "every outcome vector entering gann_rank.z_rank or any qualified twin of it",
+  "contract": [
+    "isfinite(Y) == TRUE for every row of the evaluated population",
+    "any NaN or +/-inf: HARD FAIL before ranking",
+    "no imputation",
+    "no NaN ordering semantics",
+    "no silent row removal"
+  ],
+  "why": "gann_rank has no NaN policy. Under NaN its result depends on how its stable lexsort orders the NaN rows among themselves — each NaN is its own tie group, so consecutive ranks fall to particular rows and the treated midrank sum moves with that ordering. Rather than define NaN semantics after the fact, the evidentiary domain is restricted to where the reference is well defined.",
+  "discovered_by": "the vectorised twin, whose sort is not stable, disagreed with the reference on synthetic NaN input; the disagreement is a property of the reference, not a defect of the twin",
+  "enforcement": {
+    "module": "gann_fast.assert_finite",
+    "called": "once per world in gann_capability_run.load_common, on both components of the direction-neutral pair before any world runs",
+    "behaviour": "raises; no world executes on a non-finite outcome"
+  },
+  "evidentiary_state": {
+    "outcome_values": "dae6a9f1efa13b55",
+    "nan_count": 0,
+    "path_complete": "2,869,721 of 2,869,721",
+    "note": "the contract is currently vacuous on this data, which is exactly the state it is meant to guarantee"
+  },
+  "reference_untouched": "gann_rank.py is not modified; the contract sits in front of it",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 19:53 +04"
+}

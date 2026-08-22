@@ -1,0 +1,68 @@
+{
+  "spec_id": "T15M_ELIGIBILITY_RULING_V1",
+  "status": "FROZEN",
+  "ruling": "ADOPT_FROZEN_PREDICATE_SURFACE",
+  "eligibility_surface": "FINAL_ESTIMAND_POPULATION",
+  "registered_predicate": [
+    "support_eligible(t_ov, c_ov)",
+    "ticker floor",
+    "date floor",
+    "max-date-share floor"
+  ],
+  "predicate_source": "t9/t3/t1_sequence_estimand — the same predicate these three families are already sealed under at 1H, evaluated on the same overlap-restricted surface",
+  "grammar": "UNCHANGED",
+  "token_set": "UNCHANGED",
+  "position_families": "UNCHANGED",
+  "outcome_exposure": "NONE",
+  "rationale": "implementation reconciliation to the already registered eligibility semantics; NOT a multiplicity-driven narrowing. The generated runner measured support on the broader opening-hour surface and never evaluated the registered control floor at all, so retaining it would have kept claims that cannot pass eligibility on the very population the registered estimand and inference live on.",
+  "k_semantics": {
+    "k_generated_membership_distinct": "the whole search grammar burden; stays in provenance and is never dropped",
+    "k_final_inferential": "the claims a future statistic could actually inspect or select — the k family-wise max-Z uses",
+    "which_k_is_used": "k = k_final_inferential"
+  },
+  "families": {
+    "T9": {
+      "k_generated_membership_distinct": 36833,
+      "k_final_inferential": 36676,
+      "needles_zero_based": {
+        "q10": 3667,
+        "q50": 18337,
+        "q90": 33008
+      },
+      "k_closure": "fad1ea1edcac1fcc",
+      "x_freeze": "98f5b84cf8b80456"
+    },
+    "T3": {
+      "k_generated_membership_distinct": 35480,
+      "k_final_inferential": 35291,
+      "needles_zero_based": {
+        "q10": 3529,
+        "q50": 17645,
+        "q90": 31761
+      },
+      "k_closure": "1cb13a4945b1c414",
+      "x_freeze": "13b4a30825478a87"
+    },
+    "T1": {
+      "k_generated_membership_distinct": 35715,
+      "k_final_inferential": 35587,
+      "needles_zero_based": {
+        "q10": 3558,
+        "q50": 17793,
+        "q90": 32028
+      },
+      "k_closure": "40afcda5945eb44e",
+      "x_freeze": "c7f8b448fb04b3ef"
+    }
+  },
+  "claim_order_rule": {
+    "order_by": "t_ov ASCENDING — the FINAL estimand surface treated support",
+    "tie_break": "the sealed deterministic claim/j order",
+    "forbidden": "ordering by the broader S0 opening-hour support; needle quantiles and eligibility must stand on ONE support definition or the semantic split reopens",
+    "needle_rule": "nearest rank, i_q = ceil(q*k) - 1, zero-based"
+  },
+  "reason_census_note": "each family's machine-readable census lives in its {F}_15M_K_CLOSURE_V1 under reason_census; all_reasons is non-exclusive and must not be summed",
+  "sequencing": "family by family — T9 fully closed to capability, then T3, then T1. Shared code may be ready for all three; the evidentiary run is not.",
+  "historical_y": "CLOSED for all three families",
+  "sealed_at": "2026-08-22 19:55 +04"
+}

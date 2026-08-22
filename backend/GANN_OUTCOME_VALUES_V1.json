@@ -34,5 +34,30 @@
     "path": "gann_outcomes.parquet",
     "digest": "3d9b8dff6c641c69"
   },
-  "runtime_min": 0.5
+  "runtime_min": 0.5,
+  "component_status": {
+    "MFE_LONG_10D": "MATERIALISED / CONFORMANT",
+    "MFE_SHORT_10D": "MATERIALISED / CONFORMANT",
+    "MFE_ATR20_LONG_10D": "NOT MATERIALISED — SOURCE FEATURE UNAVAILABLE",
+    "MFE_ATR20_SHORT_10D": "NOT MATERIALISED — SOURCE FEATURE UNAVAILABLE",
+    "MFE_ATR14_LONG_10D": "AUXILIARY / NON-REGISTERED — CANNOT SUBSTITUTE FOR ATR20",
+    "MFE_ATR14_SHORT_10D": "AUXILIARY / NON-REGISTERED — CANNOT SUBSTITUTE FOR ATR20"
+  },
+  "registered_secondary_outcome": {
+    "spec_name": [
+      "MFE_ATR_LONG_10D",
+      "MFE_ATR_SHORT_10D"
+    ],
+    "anchor": "ATR20 at D-1",
+    "status": "UNAVAILABLE",
+    "reason": "the 1D store carries atr_14 and no ATR20 column; the registered quantity was never computed",
+    "supersedes_wording": "an earlier note called this a 'normaliser deviation'. It is not a deviation, it is an absence — the registered component does not exist in any form",
+    "permitted_futures": [
+      "add a PIT-correct ATR20[D-1] and materialise the registered secondary exactly",
+      "leave the registered secondary formally UNAVAILABLE"
+    ],
+    "forbidden": "a post-Y amendment redefining the ATR anchor from ATR20 to ATR14, and any use of MFE_ATR14 in the place, column or characterization wording the registered secondary would have held"
+  },
+  "capability_impact": "NONE — the registered capability reads only the percentage-scale pair, because the registered injection is additive in percentage points",
+  "amended_at": "2026-08-22 19:53 +04"
 }

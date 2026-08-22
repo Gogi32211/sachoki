@@ -17,18 +17,6 @@
   },
   "CLASS_IDENTITY_SURFACE": "FINAL_ESTIMAND_POPULATION",
   "class_identity_evidence": "every membership_hash in this closure and in the sealed X run is sha256 over the S2 overlap-restricted index set; the population and block digests above are asserted equal to the sealed run's, so it is the same S2",
-  "funnel": {
-    "CANONICAL_EPISODES": 220351,
-    "FIFTEEN_M_OBSERVABLE": 159142,
-    "FULL_M1_M4_COMPLETE": 149854,
-    "ANY_REGISTERED_PAIR_ANALYZABLE": 156169,
-    "ESTIMAND_POPULATION": 157038,
-    "ESTIMAND_AND_ANY_REGISTERED_PAIR": 154083,
-    "ESTIMAND_AND_FULL_M1_M4": 147834,
-    "blocks": 5062,
-    "pair_bearing_note": "the estimand rows that can host NO registered pair are still population — they can only ever be controls, never treated, which is what ESTIMAND_AND_ANY_REGISTERED_PAIR measures",
-    "naming_note": "the sealed X artifact called ESTIMAND_POPULATION 'sequence_analyzable', which read as a slot-coverage step and made the funnel look non-monotone. It is not a slot filter at all: it is the outcome-status/anchor/block filter. ANY_REGISTERED_PAIR_ANALYZABLE is computed here for the first time and is the number the old name suggested."
-  },
   "identity_on_sealed_surface": {
     "support_qualified_syntactic_names": 36385,
     "membership_distinct_classes": 35715,
@@ -85,5 +73,52 @@
   },
   "verdict": "IDENTITY RECONCILED — but the two predicates give different k",
   "y_status": "NO OUTCOME VALUE READ — only path_status_10d, as a status",
-  "runtime_min": 2.3
+  "runtime_min": 2.3,
+  "population_census": {
+    "CANONICAL_EPISODES": 220351,
+    "FIFTEEN_M_OBSERVABLE": 159142,
+    "FULL_M1_M4_COMPLETE": 149854,
+    "ANY_REGISTERED_PAIR_ANALYZABLE": 156169,
+    "ESTIMAND_POPULATION": 157038,
+    "ESTIMAND_AND_ANY_REGISTERED_PAIR": 154083,
+    "ESTIMAND_AND_FULL_M1_M4": 147834,
+    "blocks": 5062,
+    "pair_bearing_note": "the estimand rows that can host NO registered pair are still population — they can only ever be controls, never treated, which is what ESTIMAND_AND_ANY_REGISTERED_PAIR measures",
+    "naming_note": "the sealed X artifact called ESTIMAND_POPULATION 'sequence_analyzable', which read as a slot-coverage step and made the funnel look non-monotone. It is not a slot filter at all: it is the outcome-status/anchor/block filter. ANY_REGISTERED_PAIR_ANALYZABLE is computed here for the first time and is the number the old name suggested.",
+    "naming": "renamed from 'funnel'. FULL_M1_M4_COMPLETE, ANY_REGISTERED_PAIR_ANALYZABLE and ESTIMAND_POPULATION are different AXES over the same episodes, not nested stages of one pipeline; 'funnel' invited a monotonicity that was never claimed"
+  },
+  "reason_census": {
+    "k_generated_membership_distinct": 35715,
+    "k_final_inferential": 35587,
+    "support_qualified_syntactic_names": 36385,
+    "aliases": 670,
+    "s0_distinct_memberships": 35719,
+    "restriction_merges": 4,
+    "restriction_splits": 0,
+    "whole_classes_removed": 128,
+    "partial_class_removals": 0,
+    "names_dropped": 129,
+    "names_admitted_only_on_final_surface": 0,
+    "all_reasons": {
+      "TREATED_FLOOR": 127,
+      "CONTROL_FLOOR": 0,
+      "TICKER_FLOOR": 0,
+      "DATE_FLOOR": 0,
+      "DATE_SHARE": 2
+    },
+    "primary_reason": {
+      "TREATED_FLOOR": 127,
+      "DATE_SHARE": 2
+    },
+    "reason_arithmetic": "all_reasons is NON-EXCLUSIVE and must not be summed — a claim can fail several floors at once. primary_reason IS exclusive and sums to names_dropped; it is assigned by the registered evaluation order ['TREATED_FLOOR', 'CONTROL_FLOOR', 'TICKER_FLOOR', 'DATE_FLOOR', 'DATE_SHARE']",
+    "two_operations": {
+      "membership_deduplication": "35719 -> 35715",
+      "eligibility_filtering": "35715 -> 35587",
+      "note": "deduplication is not filtering; they are reported separately and never netted against each other"
+    }
+  },
+  "ruling": "ADOPT_FROZEN_PREDICATE_SURFACE — see T15M_ELIGIBILITY_RULING_V1",
+  "k_generated_membership_distinct": 35715,
+  "k_final_inferential": 35587,
+  "amended_at": "2026-08-22 19:55 +04"
 }

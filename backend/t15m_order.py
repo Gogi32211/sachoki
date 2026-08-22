@@ -52,11 +52,16 @@ def run(fam: str):
         raise SystemExit(f"{RULING} is absent — the eligibility surface is a sealed ruling, "
                          "not a runtime choice. Nothing runs until it exists.")
     rule = json.load(open(RULING))
-    surface = rule["eligibility_surface"]          # 'S0' or 'S2'
-    okcol, supcol = f"{surface.lower()}_ok", f"{surface.lower()}_support"
+    assert rule["ruling"] == "ADOPT_FROZEN_PREDICATE_SURFACE", rule["ruling"]
+    surface = rule["eligibility_surface"]
+    assert surface == "FINAL_ESTIMAND_POPULATION", surface
+    # the closure's S2 columns ARE the final estimand surface; s2_support IS t_ov, which
+    # the ruling requires the order to sort on — never the broader S0 support
+    okcol, supcol = "s2_ok", "s2_support"
     kclosure = f"{F}_15M_K_CLOSURE_V1.json"
     KC = json.load(open(kclosure))
-    expect_k = rule["sealed_k"][F]
+    expect_k = rule["families"][F]["k_final_inferential"]
+    expect_needles = rule["families"][F]["needles_zero_based"]
 
     C = pd.read_parquet(os.path.join(D.ROOT, "data", f"{fam}_15m_k_closure.parquet"))
     C = C[C[okcol]].rename(columns={"s2_hash": "membership_hash", supcol: "support"})
@@ -72,6 +77,8 @@ def run(fam: str):
     needles = {}
     for q in (0.10, 0.50, 0.90):
         idx = math.ceil(q * k) - 1
+        assert idx == expect_needles[f"q{int(q*100)}"], (
+            f"{F} q{int(q*100)}: computed {idx} != ruling {expect_needles}")
         r = srt.iloc[idx]
         needles[f"q{int(q*100)}"] = dict(
             index_zero_based=int(idx), j=int(r.j), claim_uid=r.claim_uid,
