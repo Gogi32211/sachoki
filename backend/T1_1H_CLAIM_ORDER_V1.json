@@ -1,0 +1,95 @@
+{
+  "spec_id": "T1_1H_CLAIM_ORDER_V1",
+  "status": "SEALED",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "k_final": 911,
+  "unique_j": 911,
+  "unique_membership_hash": 911,
+  "order_rule": "classes sorted by (family, length, representative) lexicographic; representative = lexicographically smallest canonical sequence in the class — X-only, deterministic",
+  "claim_order_hash": "6d71fb362eff7280",
+  "deterministic": "two builds identical",
+  "population_hash": "1959eb5a9e938b6c",
+  "n_population": 154786,
+  "block_assignment_hash": "4f7406cefaf3ba69",
+  "n_blocks": 5040,
+  "needles": {
+    "q10": {
+      "index_zero_based": 91,
+      "j": 546,
+      "claim_id": "8ec991825fa4039d",
+      "membership_hash": "d0da7965c32454a9",
+      "representative": "P3→T2→L46x",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 334
+    },
+    "q50": {
+      "index_zero_based": 455,
+      "j": 788,
+      "claim_id": "5cdd03043c1dcdc8",
+      "membership_hash": "f735bf8051bf35e4",
+      "representative": "BW_TB→T1→T2",
+      "family": "T1_INTRADAY",
+      "length": 3,
+      "support": 1308
+    },
+    "q90": {
+      "index_zero_based": 819,
+      "j": 802,
+      "claim_id": "eaac120b9346e01b",
+      "membership_hash": "34991eb2299ae4e0",
+      "representative": "CONSO→T1→T2",
+      "family": "T1_INTRADAY",
+      "length": 3,
+      "support": 11446
+    }
+  },
+  "needle_rule": "sort support ASCENDING, tie-break sealed j, nearest-rank ceil(q*k)-1 zero-based (q10->91, q50->455, q90->819)",
+  "artifacts": {
+    "order": "t1_claim_order_v1.parquet",
+    "order_digest": "565548caec43c528",
+    "population": "t1_estimand_population.parquet",
+    "population_digest": "4bb7d9372cee1a6b"
+  },
+  "session_semantics": {
+    "rule": "market-wide expected_bars(date); one authoritative helper for grammar, analyzable population and estimand membership",
+    "unification_amendment": "0b3d1963c50c1033",
+    "unified_path_closure": "9dbe61c9510bb34a",
+    "reference_universe": "4b6af06f107bb00c",
+    "tie_policy": "ee7e3d6fffa395a9",
+    "mapping_digest": "0d99e85d817dcaba",
+    "why_k_911_is_admissible": "the upstream grammar defect was real, but the unified production path reproduced the sealed evidence surface exactly — population, blocks, memberships and k are identical, so the original inferential claim universe is RETAINED, not superseded",
+    "old_upstream_session_implementations": "SUPERSEDED",
+    "sealed_final_inference_universe": "RETAINED"
+  },
+  "quantile_rule": {
+    "formula": "i_q = ceil(q*k) - 1, zero-based",
+    "arithmetic": "exact rational: -((-num*k)//den) - 1, cross-checked with Decimal",
+    "k": 911,
+    "indices": {
+      "q10": 91,
+      "q50": 455,
+      "q90": 819
+    },
+    "cross_family_regression": {
+      "k=890": [
+        88,
+        444,
+        800
+      ],
+      "k=853": [
+        85,
+        426,
+        767
+      ],
+      "k=911": [
+        91,
+        455,
+        819
+      ]
+    },
+    "note": "an earlier review message quoted q10 = 90 from ceil(91.1) = 91; the frozen rule gives ceil(91.1) = 92 -> 91, and that slip is recorded here so it cannot re-enter any artifact"
+  },
+  "provenance_note": "The original sufficiency predicate omitted the bullCode==0 failure state; the predicate was corrected during pre-capability review before historical outcome exposure.",
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read"
+}

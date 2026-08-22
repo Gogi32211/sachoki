@@ -1,0 +1,103 @@
+{
+  "spec_id": "T1_CAPABILITY_PROTOCOL_V1",
+  "status": "FROZEN",
+  "family_id": "T1_MICROSTRUCTURE_DNA_V1",
+  "frozen_before": "any T1 capability code exists and before any observed statistic",
+  "the_invariant": "a capability world may NOT begin from the observed T1 sequence-Y association. Real historical MFE may supply the NOISE; the observed association must be DESTROYED first.",
+  "pipeline": [
+    "sealed T1 X / membership + historical raw MFE",
+    "DESTROY sequence<->Y association under the registered block-preserving null mechanism (permute Y within blocks BEFORE anything else)",
+    "inject homogeneous additive delta ONLY into the frozen needle membership",
+    "rebuild raw-MFE ranks",
+    "rebuild tie-corrected analytic SD",
+    "999 inner max-Z permutations",
+    "detection yes/no"
+  ],
+  "hard_gates": [
+    "NO observed historical T1 Z_rank is computed, stored or printed",
+    "NO survivor ranking",
+    "NO winner inspection"
+  ],
+  "distinction": "Y values used for capability noise != historical T1 result exposed. The engine may open Y to build empirical-noise worlds; the human-facing record sees detections/20 and band geometry only.",
+  "needles": {
+    "rule": "q10/q50/q90 from the SEALED final claim order, sort by support, tie-break sealed j, nearest-rank ceil(q*k)-1",
+    "k_final": 911,
+    "indices": {
+      "q10": 91,
+      "q50": 455,
+      "q90": 819
+    },
+    "identities": {
+      "q10": {
+        "j": 546,
+        "claim_id": "8ec991825fa4039d",
+        "membership_hash": "d0da7965c32454a9",
+        "representative": "P3→T2→L46x",
+        "family": "PREV_INTRADAY",
+        "length": 3,
+        "support": 334
+      },
+      "q50": {
+        "j": 788,
+        "claim_id": "5cdd03043c1dcdc8",
+        "membership_hash": "f735bf8051bf35e4",
+        "representative": "BW_TB→T1→T2",
+        "family": "T1_INTRADAY",
+        "length": 3,
+        "support": 1308
+      },
+      "q90": {
+        "j": 802,
+        "claim_id": "eaac120b9346e01b",
+        "membership_hash": "34991eb2299ae4e0",
+        "representative": "CONSO→T1→T2",
+        "family": "T1_INTRADAY",
+        "length": 3,
+        "support": 11446
+      }
+    },
+    "needle_artifact": "T1_1H_CLAIM_ORDER_V1 (the needles are sealed inside the claim order itself; no separate extraction)"
+  },
+  "grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds_per_needle": 20,
+  "inner_permutations": 999,
+  "rng": {
+    "rule": "T_FAMILY_CAPABILITY_RNG_RULE_V1: root = SHA256('T1_CAPABILITY_EVIDENCE_V1' | claim_order_hash | population_hash | block_assignment_hash | needle_artifact_hash | capability_protocol_hash) — derived, never hand-chosen",
+    "rule_digest": "b5ad7907523e5370",
+    "world_namespace": "T1_CAPABILITY_WORLD_V1",
+    "perm_namespace": "T1_CAPABILITY_PERM_V1",
+    "builtin_hash": "FORBIDDEN on the stochastic path (process-salted, non-replayable) — swept by gate 3",
+    "note": "the root closes over this very artifact's digest, so it is computed by the runner after this protocol is sealed"
+  },
+  "wording_allowed": "Under the registered homogeneous additive MFE-shift alternative, the qXX needle detected +Xpp in Y/20 finite capability worlds.",
+  "wording_forbidden": [
+    "true power",
+    "guaranteed detection",
+    "universal sensitivity"
+  ],
+  "session_semantics": {
+    "unification_amendment": "0b3d1963c50c1033",
+    "unified_path_closure": "9dbe61c9510bb34a",
+    "mapping_digest": "0d99e85d817dcaba",
+    "status": "T1 final inference universe RETAINED at k=911; the upstream session implementations are SUPERSEDED"
+  },
+  "upstream": {
+    "claim_order_digest": "cc650aa6761e39c2",
+    "claim_order_hash": "6d71fb362eff7280",
+    "population_hash": "1959eb5a9e938b6c",
+    "block_assignment_hash": "4f7406cefaf3ba69",
+    "stop_closure": "12c3dd0c0f9eb6b8",
+    "stop_extras": "a71037077fabaddd",
+    "corrected_x_reconciliation": "a38f3847acce4de4",
+    "class_lineage": "5cf5e6bddc9847fd",
+    "impact_report": "9497bc658a6c7c8f"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read"
+}
