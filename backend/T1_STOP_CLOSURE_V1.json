@@ -1,0 +1,187 @@
+{
+  "spec_id": "T1_STOP_CLOSURE_V1",
+  "result": "PASS",
+  "item1_same_input": {
+    "gate": "SAME_INPUT_SEMANTIC_IDENTITY",
+    "result": "PASS",
+    "route": "independent pandas mirror written from the Pine T1 spec (not a literal swap of another family's mirror), engine and mirror on identical DB bars",
+    "bars_tested": 104246,
+    "tickers": 80,
+    "engine_canonical_T1": 4853,
+    "mirror_raw_T1": 5129,
+    "necessity_violations": 0,
+    "necessity_predicate": "bc == 5 (T1) -> raw_T1",
+    "sufficiency_violations": 0,
+    "sufficiency_predicate": "raw_T1 -> bc in {T4, T6, T1G, T2G, T1} — T1 is fifth in the bull priority order, so exactly four codes may absorb it; anything else is a violation",
+    "higher_priority_exclusion_census": {
+      "T1": 4853,
+      "T4": 276
+    },
+    "unexpected_codes_among_raw": {},
+    "prev_doji_census_DESCRIPTIVE": {
+      "raw_prev_doji": 12,
+      "canonical_prev_doji": 0,
+      "role": "DESCRIPTIVE ONLY. T1 can mechanically follow a previous doji, so unlike T3 there is no impossibility to prove and no zero gate is applied. Splitting prev-bear from prev-doji would be a NEW family and a NEW multiplicity decision, not part of V1."
+    },
+    "configuration": {
+      "callable": "signal_engine.compute_signals",
+      "defaults": {
+        "use_wick": false,
+        "min_body_ratio": 1.0,
+        "doji_thresh": 0.05
+      },
+      "doji_rule": "isDoji = (close == open) — EXACT equality; the doji_thresh parameter exists in the signature but is not consumed on this path",
+      "engulf_rule": "engOk = cBody/max(pBody, 1e-10) >= min_body_ratio AND cTop >= pTop AND pBot >= cBot, with use_wick=False so the extremes are body extremes — this is what T4/T6 need, and T4/T6 are two of the four codes that outrank T1",
+      "mintick": 1e-10,
+      "source_digest": "aca4c3e43daea7d4",
+      "why_attached": "T1's canonical membership depends on this configuration through the priority resolution, so the definition is not reproducible without it"
+    },
+    "first_violations": [],
+    "cross_vintage": {
+      "current_store_raw_vs_materialized": "CROSS-VINTAGE DIAGNOSTIC ONLY — the sealed build vintage recorded overlap 219,016 / 220,351 = 99.39% with residual 1,335; a reconciliation figure, never a semantic PASS",
+      "canonical_population": "materialized t_sig='T1'",
+      "historical_membership_repair": "FORBIDDEN"
+    }
+  },
+  "item2_k_accounting": {
+    "gate": "K_ACCOUNTING",
+    "result": "PASS",
+    "restriction_effects": {
+      "merges": 2,
+      "classes_absorbed_by_merges": 2,
+      "splits": 0,
+      "classes_gained_by_splits": 0,
+      "reading": "two grammar classes with different full memberships can share one OVERLAP-RESTRICTED membership signature; the estimand counts the restricted signature, so such a pair collapses to one final claim. This is the estimand definition working, not a defect — it is reported as a count and carried in the identity below."
+    },
+    "initial": {
+      "names": 1002,
+      "classes": 929,
+      "aliases": 73
+    },
+    "final": {
+      "names": 985,
+      "classes": 911,
+      "aliases": 74
+    },
+    "removed": {
+      "names": 17,
+      "whole_classes_lost": 16,
+      "names_in_lost_classes": 17,
+      "aliases_in_lost_classes": 1,
+      "alias_names_lost_from_surviving_classes": 0,
+      "lost_class_size_distribution": {
+        "1_name_classes": 15,
+        "2_name_classes": 1
+      },
+      "fail_census": {
+        "TREATED_FLOOR": 17
+      },
+      "retention_caused_exclusions": 0
+    },
+    "eligibility_uniformity": {
+      "classes_with_mixed_support_ok": 0,
+      "classes_with_mixed_fail_reasons": 0,
+      "law": "aliases share an exact membership_hash, hence identical overlap statistics, hence identical eligibility — removal is CLASS-WHOLE by construction"
+    },
+    "identities": {
+      "initial_names == initial_classes + initial_aliases": true,
+      "final_names == k_final + final_aliases": true,
+      "initial_names - final_names == removed_names": true,
+      "initial_classes - lost_classes - merge_loss + split_gain == k_final": true,
+      "removed_names == names_in_lost_classes": true,
+      "class-whole removal (surviving classes lose 0 names)": true,
+      "removed_names == lost_classes + aliases_in_lost_classes": true,
+      "fail census totals removed_names": true,
+      "merge/split bookkeeping is complete": true,
+      "eligibility uniform within every exact membership class": true,
+      "retention appears in no fail reason": true,
+      "k_final matches the sealed estimand": true
+    },
+    "k_final": 911
+  },
+  "item3_retention": {
+    "gate": "RETENTION_GOVERNANCE",
+    "result": "PASS",
+    "by_signature": {
+      "function": "support_eligible",
+      "arguments": [
+        "t_ov",
+        "c_ov"
+      ],
+      "names_referenced": [
+        "MIN_EP",
+        "c_ov",
+        "t_ov"
+      ],
+      "retention_is_an_argument": false
+    },
+    "by_ast": {
+      "mentions_retention": false,
+      "reading": "the eligibility function references only the two overlap counts and the registered floors"
+    },
+    "by_sweep": {
+      "0.01": {
+        "eligible_identical": true,
+        "n_eligible": 985,
+        "would_be_removed_if_gated": 0
+      },
+      "0.50": {
+        "eligible_identical": true,
+        "n_eligible": 985,
+        "would_be_removed_if_gated": 0
+      },
+      "0.80": {
+        "eligible_identical": true,
+        "n_eligible": 985,
+        "would_be_removed_if_gated": 0
+      },
+      "0.99": {
+        "eligible_identical": true,
+        "n_eligible": 985,
+        "would_be_removed_if_gated": 3
+      }
+    },
+    "note": "the sweep is not vacuous: the same table shows how many eligible claims a retention gate WOULD remove at each threshold, and the sealed eligible set is the ungated one",
+    "provenance": "an unregistered inherited retention gate was identified during pre-first-use review and removed before the first estimand execution; retention has been a stored diagnostic ever since"
+  },
+  "item4_clock": {
+    "gate": "CLOCK_ANCHORING",
+    "result": "PASS",
+    "explicit": "computed for T1 in this module — not inherited from another family's gate",
+    "relative_days": [
+      "PREV_DAY",
+      "T1_DAY"
+    ],
+    "modal_session_length": 7,
+    "n_sessions": 315869,
+    "n_both_side_episodes": 157403,
+    "checks": {
+      "position is a dense 1-based rank of ts_et within the session": true,
+      "ts_et is strictly ordered inside every session": true,
+      "row order does not affect the reconstructed session": true,
+      "bars_in_session equals the observed bar count": true,
+      "short (early-close / gapped) sessions exist and keep their true length": true,
+      "no session exceeds the modal calendar length": true,
+      "both-side episodes present": true
+    }
+  },
+  "item5_determinism": {
+    "gate": "DETERMINISM_TWO_RUN",
+    "result": "PASS",
+    "run1_digest": "5a0644342937593a",
+    "run2_digest": "5a0644342937593a",
+    "sealed_digest": "5a0644342937593a",
+    "frozen_expectation": "5a0644342937593a",
+    "equality": {
+      "class_digest": true,
+      "claim_set": true,
+      "membership_hash": true,
+      "representative": true,
+      "alias_sets": true,
+      "full_claim_table": true
+    },
+    "note": "run2 consumes a row-shuffled source under a NEW seed (811), so the equality is both a rerun proof and an order-independence proof"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read",
+  "runtime_s": 1190.9
+}
