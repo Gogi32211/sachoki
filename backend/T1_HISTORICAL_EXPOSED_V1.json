@@ -1,0 +1,89 @@
+{
+  "spec_id": "T1_HISTORICAL_EXPOSED_V1",
+  "status": "EXPOSED",
+  "spec_digest": "d19ea75cf4da4818",
+  "k": 911,
+  "p95_max_z_null": 3.85001,
+  "max_observed_z_rank": 10.76137,
+  "median_observed_z_rank": -0.135281,
+  "n_survivors": 9,
+  "survivors": [
+    {
+      "j": 632,
+      "representative": "BUY→T2",
+      "family": "T1_INTRADAY",
+      "length": 2,
+      "support": 3014,
+      "z_rank": 10.7614
+    },
+    {
+      "j": 726,
+      "representative": "SVS→T2",
+      "family": "T1_INTRADAY",
+      "length": 2,
+      "support": 17201,
+      "z_rank": 9.8341
+    },
+    {
+      "j": 140,
+      "representative": "VOL_L→T1",
+      "family": "CROSS_DAY",
+      "length": 2,
+      "support": 2825,
+      "z_rank": 7.6506
+    },
+    {
+      "j": 781,
+      "representative": "BUY→T2→T2",
+      "family": "T1_INTRADAY",
+      "length": 3,
+      "support": 774,
+      "z_rank": 6.6988
+    },
+    {
+      "j": 869,
+      "representative": "SVS→T2→T2",
+      "family": "T1_INTRADAY",
+      "length": 3,
+      "support": 4094,
+      "z_rank": 6.1063
+    },
+    {
+      "j": 883,
+      "representative": "VOL10X→T2→L2",
+      "family": "T1_INTRADAY",
+      "length": 3,
+      "support": 378,
+      "z_rank": 5.6902
+    },
+    {
+      "j": 742,
+      "representative": "VOL10X→T2",
+      "family": "T1_INTRADAY",
+      "length": 2,
+      "support": 847,
+      "z_rank": 5.5892
+    },
+    {
+      "j": 295,
+      "representative": "VOL_L→T1→T2",
+      "family": "CROSS_DAY",
+      "length": 3,
+      "support": 1065,
+      "z_rank": 5.2176
+    },
+    {
+      "j": 64,
+      "representative": "L2→T1",
+      "family": "CROSS_DAY",
+      "length": 2,
+      "support": 897,
+      "z_rank": 4.7053
+    }
+  ],
+  "max_null_vector": "t1_historical_maxnull.parquet · 9ae5b42f744aabc0",
+  "vectors": "t1_historical_vectors.parquet · 389dda53182dbd23",
+  "reconciliation": "survives == (Z_obs > persisted p95) for all 911: PASS",
+  "theta": "NOT COMPUTED HERE — magnitude only, post-exposure descriptive for the survivor set, as approved",
+  "runtime_s": 23.8
+}
