@@ -1,0 +1,114 @@
+{
+  "spec_id": "SESSION_VALIDITY_REMEDIATION_AMENDMENT_V1",
+  "status": "FROZEN",
+  "amends": "ADJACENCY_REMEDIATION_V1",
+  "amends_digest": "eceb57488f51b983",
+  "frozen_before": "any claim-level corrected enumeration result is opened",
+  "trigger": "family-local modal bars_in_session was found to be an implementation substitute for the registered market-wide calendar rule",
+  "registered_rule": {
+    "text": "The exchange's session length for a date is taken as the modal bar count across all tickers that traded it; a ticker's session is complete when it matches that. A ticker with 2 bars on a day the market ran 7 is incomplete — a data gap, not a short session.",
+    "source": "t5_sequence_grammar.py module docstring — the frozen grammar contract",
+    "source_digest": "5709ab8b11ef2537",
+    "reading": "session validity comes from the exchange calendar as evidenced by the modal bar count ACROSS ALL TICKERS THAT TRADED THAT DATE, never from the empirical distribution of bars among one family's episodes"
+  },
+  "registered_adjacency": {
+    "text": "adjacency means adjacent observed bars inside the declared window",
+    "consequence": "inside a session that is complete under the registered rule, adjacent observed bars ARE adjacent scheduled slots; slot adjacency is the invariant, not a new definition"
+  },
+  "forbidden": [
+    "family-specific mode",
+    "date-local mode over an episode subset",
+    "smallest-value tie-breaking of a mode",
+    "using observed peer episodes of the same family to determine expected session length",
+    "redefining adjacency as slot arithmetic in place of the registered rule",
+    "widening completeness from session-complete to merely window-complete because it is more convenient"
+  ],
+  "corrected_procedure": [
+    "1 compute expected session length per date from the 1H store across ALL tickers that traded that date (the registered population)",
+    "2 a ticker-session is COMPLETE iff its bar count equals that date's expected length — early closes stay valid, data gaps do not",
+    "3 enumerate adjacency over observed bars inside complete sessions, exactly as registered",
+    "4 verify acceptance invariant D: admitted windows with slot delta > 1 == 0"
+  ],
+  "decision_rule_frozen_now": {
+    "note": "fixed BEFORE the impact table is opened, so neither branch can be chosen to suit a result",
+    "BRANCH_A": {
+      "condition": "the corrected implementation produces EXACTLY the same eligible population, block assignment, claim identities and order, every claim membership set, k, and outcome sidecar identity",
+      "consequence": "the evidence inputs never moved; the existing capability and historical statistics stand",
+      "required_proof": [
+        "exact hash identity of population, blocks, claim order and every membership set",
+        "deterministic replay under the ORIGINAL frozen RNG and permutation identities",
+        "observed Z, max-null vector and survivor booleans bit-identical"
+      ],
+      "forbidden": [
+        "new needle selection",
+        "new RNG root",
+        "any new statistical search"
+      ],
+      "status_wording": "Registered implementation defect confirmed, but no realized evidence-input impact for this family; original result retained after exact deterministic remediation replay."
+    },
+    "BRANCH_B": {
+      "condition": "even one claim membership, eligibility, block or k changes",
+      "consequence": "old artifact -> SUPERSEDED_FOR_REGISTERED_SESSION_SEMANTICS",
+      "sequence": [
+        "rebuild the full grammar",
+        "recompute k",
+        "reseal the claim order",
+        "reseal the capability needles from the corrected universe",
+        "rerun capability",
+        "seal the corrected historical spec",
+        "rerun the historical inference",
+        "compare old vs corrected descriptively"
+      ]
+    }
+  },
+  "t1_status": "Branch B is already determined for T1 on the evidence in hand: one admitted gap-spanning adjacency and a mis-classified session on 2022-06-10. T1 has never had an outcome exposed, so this remains a clean pre-Y remediation.",
+  "t5_t9_t3_status": "UNDETERMINED pending the exact corrected-input identity proof; gap-spanning admitted == 0 alone is NOT sufficient — the calendar validity correction must also pass the full comparison",
+  "regression_fixture": {
+    "name": "INTG_2022_06_10",
+    "date": "2022-06-10",
+    "ticker": "INTG",
+    "observed_family_session_lengths": {
+      "7": 1,
+      "2": 1,
+      "6": 1
+    },
+    "old_behaviour": "family mode -> 2; the 2-bar session with an interior gap (09:30 slot 0, 12:45 slot 3) was admitted and the 7-bar complete session was rejected",
+    "corrected_behaviour": "the market-wide expected length governs; the interior-gap session is rejected and the calendar-complete session is retained",
+    "purpose": "a permanent regression fixture that catches BOTH defects together"
+  },
+  "fifteen_minute": {
+    "preliminary": "the 15m enumeration selects bars by exact ET time (09:30/09:45/10:00/10:15 -> M1..M4) and claims are position-anchored names, so no dense re-ranking exists",
+    "required_machine_proof": [
+      "missing M2 -> M1->M2 absent and 10:00 never falls back into M2",
+      "missing M3 -> M2->M3 absent, no positional compression",
+      "selector is exact-time only; fallback-to-next-observed count == 0"
+    ],
+    "status": "PASS THIS DEFECT CLASS pending that closure"
+  },
+  "impact_report_requirements": {
+    "session_validity": [
+      "dates examined",
+      "family-local modal expected length",
+      "calendar expected length",
+      "dates where modal != calendar",
+      "episodes affected",
+      "old-valid -> corrected-invalid",
+      "old-invalid -> corrected-valid",
+      "of those: sequence-analyzable affected, membership cells affected"
+    ],
+    "grammar": [
+      "old/new names",
+      "old/new support-qualified",
+      "old/new classes",
+      "old/new k",
+      "membership unchanged/changed",
+      "cells added/removed",
+      "merges",
+      "splits",
+      "support threshold crossings",
+      "Jaccard old vs corrected"
+    ]
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value read; no Z, theta or survivor is computed anywhere in this remediation phase",
+  "sealed_at": "2026-08-22 10:51 +04"
+}
