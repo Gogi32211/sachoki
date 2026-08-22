@@ -1,0 +1,51 @@
+{
+  "spec_id": "GANN_ESTIMAND_V1",
+  "status": "FROZEN",
+  "family_id": "GANN_VIBRATION_GRID_V1",
+  "x_freeze": "c82591109bc45da0",
+  "outcome_spec": "af4b205e152c9d43",
+  "claims": [
+    "GANN_ASC_TOUCH_V1",
+    "GANN_DESC_TOUCH_V1",
+    "GANN_CONFLUENCE_TOUCH_V1"
+  ],
+  "k": 3,
+  "multiplicity": "k = 3 is FIXED. No claim may be dropped on support after any outcome is seen; support is a validity diagnostic. If a claim's engine validity breaks in some phase world, the RUN holds — the claim does not disappear.",
+  "treated": {
+    "definition": "a registered phase-specific onset event for that claim",
+    "direction": "the frozen touched-line direction, evaluated at D-1"
+  },
+  "control": {
+    "definition": "same phase, same claim, onset == FALSE, grid observable on D and outcome-eligible",
+    "direction_rule": "X-ONLY from D-1. A non-touch row has no contacted line, so the direction comes from the phase-specific lattice line NEAREST to Close[D-1], evaluated at D-1:",
+    "ASC": "nearest ASC line at D-1 -> LONG if Close[D-1] > line, SHORT if below",
+    "DESC": "nearest DESC line at D-1 -> same rule",
+    "CONFLUENCE": "nearest ASC and nearest DESC at D-1; same sign -> valid consensus; opposite -> INVALID_CONFLICT; exact equality -> INVALID_EQUALITY",
+    "forbidden": "D's own OHLC may not be used to assign control direction"
+  },
+  "directional_population": "rows with direction in {LONG, SHORT}; for CONFLUENCE that additionally means consensus",
+  "inference_blocks": {
+    "dimensions": [
+      "decision_date",
+      "direction",
+      "pre_liquidity LOW/HIGH",
+      "pre_volatility LOW/HIGH"
+    ],
+    "anchors": "liquidity and volatility are taken at D-1",
+    "why_direction_is_a_block": "LONG market drift must not be compared with SHORT rows; putting direction in the block makes the comparison within-side by construction"
+  },
+  "statistic": {
+    "module": "gann_rank.py",
+    "code_digest": "c9086f25703db35b",
+    "form": "blockwise Mann-Whitney/AUC with analytic tie-corrected null SE",
+    "U_b": "(sum treated midranks - n_t(N_b+1)/2)/(n_t n_c) + 0.5",
+    "weights": "w_b = n_t,b / sum over ELIGIBLE blocks",
+    "variance": "Var0(U_b) = [(N_b+1) - sum(t^3-t)/(N_b(N_b-1))] / (12 n_t n_c)",
+    "Z": "R / sqrt(sum w_b^2 Var0(U_b)),  R = sum w_b (U_b - 0.5)",
+    "eligibility": "a block contributes only with >=1 treated AND >=1 control and N_b >= 2; degenerate blocks enter neither the numerator nor the weight normaliser",
+    "degenerate": "a claim whose every block is degenerate yields Z = nan and is REPORTED, never silently zeroed",
+    "binding": "the code digest above is the definition; prose parity with another family is not sufficient, because every phase world recomputes memberships"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 17:12 +04"
+}
