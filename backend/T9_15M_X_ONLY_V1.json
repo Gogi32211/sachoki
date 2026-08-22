@@ -1,0 +1,78 @@
+{
+  "spec_id": "T9_15M_X_ONLY_V1",
+  "status": "X_ONLY_PRE_Y",
+  "family": "T9",
+  "prespec": {
+    "digest": "39d4d287dd2cc4d7",
+    "definition_hash": "afe380362cde2ee5",
+    "scope": "OPENING HOUR ONLY",
+    "position_families": [
+      "M1→M2",
+      "M2→M3",
+      "M3→M4"
+    ],
+    "three_bar": "EXCLUDED from V1"
+  },
+  "funnel": {
+    "canonical_episodes": 243562,
+    "fifteen_m_observable": 161805,
+    "opening_hour_complete": 151025,
+    "sequence_analyzable": 159598,
+    "blocks": 5078,
+    "median_block_size": 21
+  },
+  "slot_coverage": {
+    "M1": 160740,
+    "M2": 156035,
+    "M3": 156768,
+    "M4": 156443
+  },
+  "tokens": {
+    "registry": 165,
+    "searchable": 157
+  },
+  "enumeration": {
+    "candidates": 73633,
+    "support_qualified_names": 37557,
+    "membership_distinct_classes": 36833,
+    "aliases": 724,
+    "k_final_candidate": 36833
+  },
+  "support": {
+    "floors": {
+      "min_episodes": 300,
+      "min_tickers": 50,
+      "min_dates": 50,
+      "max_date_share": 0.1
+    },
+    "support_quantiles": {
+      "q10": 457,
+      "median": 2189,
+      "q90": 18159
+    },
+    "max_date_concentration": 0.099162
+  },
+  "by_position_family": {
+    "M1→M2": 12081,
+    "M2→M3": 12815,
+    "M3→M4": 12661
+  },
+  "gates": {
+    "exact-time selector only (no fallback to the next observed bar)": true,
+    "positions are named by clock, so a missing slot cannot be bridged": true,
+    "duplicate (episode, position) grain": true,
+    "row reorder leaves the opening-hour frame identical": true,
+    "no outcome column in the 15m query": true,
+    "only path_status_10d is read from the outcome sidecar, as a STATUS": true
+  },
+  "digests": {
+    "population": "c2f3ed0cd22fb9df",
+    "blocks": "7ebd931ee3ad0627",
+    "claims_table": "54aa521468f342aa",
+    "membership_class": "a65de47407d06cc8",
+    "definition": "afe380362cde2ee5"
+  },
+  "multiplicity": "NOT pooled with any other family — three separately governed studies",
+  "y_status": "NO OUTCOME VALUE READ — only path_status_10d, as a status",
+  "runtime_min": 2.0
+}
