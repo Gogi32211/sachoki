@@ -35,8 +35,11 @@ def seal(fam: str):
     cache = json.load(open(cache_art))
     E = pd.read_parquet(D.OUT_EP, columns=["episode_id", dcol])
     last_hist = str(E[dcol].max())[:10]
+    now_utc = time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())
     now = time.strftime("%Y-%m-%dT%H:%M:%S%z")
     seal_date = time.strftime("%Y-%m-%d")
+    src = json.load(open("FORWARD_1H_SOURCE_V1.json"))
+    src_qualified = src["verdict"] == "QUALIFIED"
 
     body = dict(
         spec_id=f"{F}_FORWARD_1H_V1", status="SEALED",
@@ -74,10 +77,32 @@ def seal(fam: str):
             maturity="an episode is evidence-eligible only after its full 10-session path "
                      "exists; before that it is FORWARD_X_UNMATURED and its outcome is "
                      "not read"),
+        clocks=dict(
+            protocol_sealed_at_utc=now_utc,
+            protocol_sealed_at_local=now,
+            source_qualified_at=None if not src_qualified else now_utc,
+            forward_spec_clock="STARTED",
+            prospective_evidence_clock="NOT STARTED" if not src_qualified else "STARTED",
+            effective_forward_start="the first eligible decision session after BOTH the "
+                                    "protocol seal AND source activation; it does not "
+                                    "exist yet because the source is not qualified"),
+        evidence_eligibility=dict(
+            rule="forward_evidence_eligible = signal_decision_time > protocol_sealed_at "
+                 "AND signal_decision_time >= source_qualified_at AND "
+                 "source_version_is_qualified",
+            both_must_have_been_true_before="the signal was generated — never established "
+                                            "afterwards",
+            during_source_hold="an episode generated while the source is not qualified may "
+                               "be retained OPERATIONALLY and shown as "
+                               "FORWARD_SOURCE_HOLD / OPERATIONAL_PREVIEW, but it can "
+                               "NEVER be promoted to evidence later. Fixing the source "
+                               "next week does not reach back and rescue it.",
+            second_no_backfill_invariant="episodes generated while source_status != "
+                                         "QUALIFIED are NEVER EVIDENCE_ELIGIBLE"),
         no_backfill=dict(
-            rule="forward evidence begins ONLY from signal episodes whose decision date is "
-                 "strictly AFTER this seal date",
-            seal_date=seal_date, seal_timestamp=now,
+            rule="forward evidence begins ONLY from signal episodes whose decision time is "
+                 "strictly AFTER the protocol seal AND at or after source activation",
+            seal_date=seal_date, seal_timestamp=now, seal_timestamp_utc=now_utc,
             last_historical_episode_in_store=last_hist,
             explicitly_not_evidence=f"every episode dated {last_hist} or earlier, including "
                                     f"today's, is historical — it cannot become prospective "
@@ -85,11 +110,12 @@ def seal(fam: str):
             t5_cutoff_not_reused="the T5 discovery cutoff (2026-08-20) is a different "
                                  "family's instant and is not inherited here"),
         source_gate_state=dict(
-            verdict=json.load(open("FORWARD_1H_SOURCE_V1.json"))["verdict"],
+            verdict=src["verdict"],
             consequence="spec SEALED and the clock runs; prospective evidence accrual is "
                         "HELD until the source qualifies. Signals may be shown as an "
                         "explicitly labelled operational preview and counted nowhere."),
         forbidden=["counting any pre-seal episode as prospective evidence",
+                   "promoting a source-HOLD episode to evidence after the source is fixed",
                    "reading a forward outcome before maturity",
                    "re-deriving membership with a second implementation",
                    "changing the medoid set, entry, horizon or outcome after the seal"],
@@ -97,10 +123,11 @@ def seal(fam: str):
         sealed_at=now)
     d = ART.seal(body, f"{F}_FORWARD_1H_V1.json",
                  required=("spec_id", "inferential_family", "no_backfill",
-                           "decision_spec"),
+                           "decision_spec", "clocks", "evidence_eligibility"),
                  supersede=os.path.exists(f"{F}_FORWARD_1H_V1.json"))
-    print(f"{F}_FORWARD_1H_V1 · {d} · k={len(meds)} · seal {seal_date} · "
-          f"last historical episode {last_hist} · source {body['source_gate_state']['verdict']}")
+    print(f"{F}_FORWARD_1H_V1 · {d} · k={len(meds)} · sealed {now_utc} · "
+          f"last historical {last_hist} · spec clock STARTED · evidence clock "
+          f"{body['clocks']['prospective_evidence_clock']}")
     return d
 
 

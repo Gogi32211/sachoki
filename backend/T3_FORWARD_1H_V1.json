@@ -75,10 +75,25 @@
     "secondary": "MFE_ATR_10D",
     "maturity": "an episode is evidence-eligible only after its full 10-session path exists; before that it is FORWARD_X_UNMATURED and its outcome is not read"
   },
+  "clocks": {
+    "protocol_sealed_at_utc": "2026-08-22T13:40:42Z",
+    "protocol_sealed_at_local": "2026-08-22T17:40:42+0400",
+    "source_qualified_at": null,
+    "forward_spec_clock": "STARTED",
+    "prospective_evidence_clock": "NOT STARTED",
+    "effective_forward_start": "the first eligible decision session after BOTH the protocol seal AND source activation; it does not exist yet because the source is not qualified"
+  },
+  "evidence_eligibility": {
+    "rule": "forward_evidence_eligible = signal_decision_time > protocol_sealed_at AND signal_decision_time >= source_qualified_at AND source_version_is_qualified",
+    "both_must_have_been_true_before": "the signal was generated — never established afterwards",
+    "during_source_hold": "an episode generated while the source is not qualified may be retained OPERATIONALLY and shown as FORWARD_SOURCE_HOLD / OPERATIONAL_PREVIEW, but it can NEVER be promoted to evidence later. Fixing the source next week does not reach back and rescue it.",
+    "second_no_backfill_invariant": "episodes generated while source_status != QUALIFIED are NEVER EVIDENCE_ELIGIBLE"
+  },
   "no_backfill": {
-    "rule": "forward evidence begins ONLY from signal episodes whose decision date is strictly AFTER this seal date",
+    "rule": "forward evidence begins ONLY from signal episodes whose decision time is strictly AFTER the protocol seal AND at or after source activation",
     "seal_date": "2026-08-22",
-    "seal_timestamp": "2026-08-22T17:26:33+0400",
+    "seal_timestamp": "2026-08-22T17:40:42+0400",
+    "seal_timestamp_utc": "2026-08-22T13:40:42Z",
     "last_historical_episode_in_store": "2026-08-20",
     "explicitly_not_evidence": "every episode dated 2026-08-20 or earlier, including today's, is historical — it cannot become prospective evidence by being noticed after the seal",
     "t5_cutoff_not_reused": "the T5 discovery cutoff (2026-08-20) is a different family's instant and is not inherited here"
@@ -89,10 +104,11 @@
   },
   "forbidden": [
     "counting any pre-seal episode as prospective evidence",
+    "promoting a source-HOLD episode to evidence after the source is fixed",
     "reading a forward outcome before maturity",
     "re-deriving membership with a second implementation",
     "changing the medoid set, entry, horizon or outcome after the seal"
   ],
   "outcome_exposure": "NOT_EXPOSED",
-  "sealed_at": "2026-08-22T17:26:33+0400"
+  "sealed_at": "2026-08-22T17:40:42+0400"
 }

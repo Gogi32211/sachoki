@@ -1189,17 +1189,34 @@ export default function CodeCandleChart({
 
   const chartBody = (
     <div className={fullscreen ? 'relative flex-1 min-h-0' : 'relative'}>
+      {/* PT hover detail — provenance is stated, never implied. No "strong buy", no
+          "validated signal": the mark says what the research state IS. */}
       {showPt5 && pt5Hover && (
         <div className="absolute left-2 top-2 z-20 rounded border border-emerald-700/60 bg-gray-950/95 px-2.5 py-2 text-[10px] leading-4 font-mono text-gray-200 shadow-lg pointer-events-none max-w-[270px]">
-          <div className="text-emerald-300 font-bold">Preview T5 · {pt5Hover.date}</div>
-          <div className="mt-1 text-gray-400">1D:&nbsp;<span className="text-gray-100">T5 ✓</span></div>
-          <div className="mt-0.5 text-gray-400">1H:</div>
-          {[['H1_A', 'BUY→L5'], ['H1_B', 'VOL_W→L46x'], ['H1_C', 'L43→T2'], ['H1_D', 'BUY→Z2']].map(([k, n]) => (
-            <div key={k} className="pl-2">{n.padEnd(12, ' ')} {(pt5Hover.h1 || '').includes(k)
-              ? <span className="text-emerald-300">✓</span> : <span className="text-gray-600">–</span>}</div>
-          ))}
+          <div className="text-emerald-300 font-bold">
+            Preview {ptFamily} · Historical 1H research match · {pt5Hover.date}
+          </div>
+          <div className="mt-1 text-gray-400">1D:&nbsp;<span className="text-gray-100">{ptFamily} ✓</span></div>
+          <div className="mt-0.5 text-gray-400">1H structures:</div>
+          {ptFamily === 'T5'
+            ? [['H1_A', 'BUY→L5'], ['H1_B', 'VOL_W→L46x'], ['H1_C', 'L43→T2'], ['H1_D', 'BUY→Z2']].map(([k, n]) => (
+                <div key={k} className="pl-2">{n.padEnd(12, ' ')} {(pt5Hover.h1 || '').includes(k)
+                  ? <span className="text-emerald-300">✓</span> : <span className="text-gray-600">–</span>}</div>
+              ))
+            : ((pt5Hover.h1_names || '').split(',').filter(Boolean).map((n, i) => (
+                <div key={i} className="pl-2 text-emerald-300">{n}</div>
+              )).concat((pt5Hover.h1_names ? [] : [
+                <div key="none" className="pl-2 text-gray-600">– none</div>]))
+              )}
           <div className="mt-0.5 text-gray-400">15m opening hour:</div>
-          <div className="pl-2">matched clusters: <span className="text-cyan-300">{pt5Hover.m15_n}</span></div>
+          {pt5Hover.m15_state === 'UNAVAILABLE' && (
+            <div className="pl-2 text-amber-300/80">UNAVAILABLE — phase not built
+              <div className="text-gray-500">(not the same as "no match")</div>
+            </div>
+          )}
+          {pt5Hover.m15_state !== 'UNAVAILABLE' && (
+            <div className="pl-2">matched clusters: <span className="text-cyan-300">{pt5Hover.m15_n}</span></div>
+          )}
           {(pt5Hover.m15_reps || '').split(';').filter(Boolean).slice(0, 4).map((r, i) => (
             <div key={i} className="pl-2 text-cyan-200/80 truncate">{r}</div>
           ))}
@@ -1207,7 +1224,14 @@ export default function CodeCandleChart({
           <div className="mt-0.5 text-gray-400">Cross-resolution:</div>
           <div className="pl-2">VOL_W ↔ VA {pt5Hover.xr
             ? <span className="text-amber-300">✓</span> : <span className="text-gray-600">–</span>}</div>
-          <div className="mt-1 text-gray-500">Historical preview · Not forward validated</div>
+          <div className="mt-1 pt-1 border-t border-white/10 text-gray-400">
+            <div>Evidence state:&nbsp;<span className="text-gray-200">
+              {pt5Hover.provenance === 'HISTORICAL' ? 'historical characterization'
+                : pt5Hover.provenance === 'FORWARD_SOURCE_HOLD' ? 'operational preview · source hold'
+                : pt5Hover.provenance || 'historical characterization'}</span></div>
+            <div>Forward validated:&nbsp;<span className="text-gray-200">no</span></div>
+            <div>Tradeability:&nbsp;<span className="text-gray-200">not established</span></div>
+          </div>
         </div>
       )}
       <div ref={containerRef}
