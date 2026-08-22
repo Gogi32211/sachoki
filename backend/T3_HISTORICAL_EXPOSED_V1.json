@@ -1,0 +1,81 @@
+{
+  "spec_id": "T3_HISTORICAL_EXPOSED_V1",
+  "status": "EXPOSED",
+  "spec_digest": "c9b6292179b29577",
+  "k": 853,
+  "p95_max_z_null": 3.852003,
+  "max_observed_z_rank": 6.214734,
+  "median_observed_z_rank": -0.020001,
+  "n_survivors": 8,
+  "survivors": [
+    {
+      "j": 280,
+      "representative": "BUY→Z2",
+      "family": "PREV_INTRADAY",
+      "length": 2,
+      "support": 552,
+      "z_rank": 6.2147
+    },
+    {
+      "j": 427,
+      "representative": "BUY→Z2→VOL_L",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 340,
+      "z_rank": 5.3667
+    },
+    {
+      "j": 575,
+      "representative": "BUY→T2",
+      "family": "T3_INTRADAY",
+      "length": 2,
+      "support": 317,
+      "z_rank": 4.9257
+    },
+    {
+      "j": 110,
+      "representative": "VOL_W→L3",
+      "family": "CROSS_DAY",
+      "length": 2,
+      "support": 360,
+      "z_rank": 4.9099
+    },
+    {
+      "j": 107,
+      "representative": "VOL_L→T2",
+      "family": "CROSS_DAY",
+      "length": 2,
+      "support": 1106,
+      "z_rank": 4.7
+    },
+    {
+      "j": 767,
+      "representative": "L43→T2→T2",
+      "family": "T3_INTRADAY",
+      "length": 3,
+      "support": 1117,
+      "z_rank": 4.3561
+    },
+    {
+      "j": 625,
+      "representative": "L43→T2",
+      "family": "T3_INTRADAY",
+      "length": 2,
+      "support": 3924,
+      "z_rank": 3.9237
+    },
+    {
+      "j": 536,
+      "representative": "VOL20X→L2→VOL_L",
+      "family": "PREV_INTRADAY",
+      "length": 3,
+      "support": 342,
+      "z_rank": 3.9237
+    }
+  ],
+  "max_null_vector": "t3_historical_maxnull.parquet · e90b6e6afc07b2cf",
+  "vectors": "t3_historical_vectors.parquet · 1c81ab1c87cba527",
+  "reconciliation": "survives == (Z_obs > persisted p95) for all 853: PASS",
+  "theta": "NOT COMPUTED HERE — magnitude only, post-exposure descriptive for the survivor set, as approved",
+  "runtime_s": 22.1
+}
