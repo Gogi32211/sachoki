@@ -64,6 +64,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import combo_tokens_spec as TS                                       # noqa: E402
 import t5_dna as D                                                   # noqa: E402
+import session_calendar as SC                                            # noqa: E402
 
 SPEC = os.path.join(D.HERE, "T5_SEQUENCE_GRAMMAR_V1.json")
 OUT = os.path.join(D.HERE, "T5_SEQUENCE_UNIVERSE_V1.json")
@@ -112,10 +113,9 @@ def build():
           flush=True)
 
     # session validity: the exchange's length for a date is its modal bar count
-    modal = (M.groupby(["session_date", "ticker"])["bars_in_session"].first()
-             .groupby("session_date").agg(lambda s: s.mode().iloc[0]))
-    M["session_expected"] = M["session_date"].map(modal)
-    M["session_complete"] = M["bars_in_session"] == M["session_expected"]
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1 — the ONE authoritative helper
+    M["session_expected"] = M["session_date"].astype(str).map(SC.expected_bars_by_date())
+    M["session_complete"] = SC.session_is_complete(M)
     inc = int((~M.session_complete).sum())
     print(f"  session validity: expected-length from the calendar · incomplete bars "
           f"{inc:,} ({inc/len(M):.2%})", flush=True)

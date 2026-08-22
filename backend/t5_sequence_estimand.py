@@ -60,6 +60,7 @@ import pandas as pd
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import t5_dna as D                                                   # noqa: E402
 import t5_sequence_grammar as G                                      # noqa: E402
+import session_calendar as SC                                            # noqa: E402
 
 SPEC = os.path.join(D.HERE, "T5_SEQUENCE_ESTIMAND_V1.json")
 OUT_MEM = os.path.join(D.ROOT, "data", "t5_sequence_membership.parquet")
@@ -79,8 +80,8 @@ def analyzable_episodes() -> set:
     population. Computed BEFORE block construction: ranking LOW/HIGH over episodes that are
     then dropped would make the halves depend on rows the analysis never sees."""
     M = pd.read_parquet(D.OUT_MS, columns=["episode_id", "session_date", "bars_in_session"])
-    modal = M.groupby("session_date")["bars_in_session"].agg(lambda s: s.mode().iloc[0])
-    return set(M.loc[M.bars_in_session == M.session_date.map(modal), "episode_id"])
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1 — same helper as the grammar
+    return set(SC.complete_sessions(M)["episode_id"])
 
 
 def anchors(E: pd.DataFrame) -> pd.DataFrame:
@@ -123,9 +124,8 @@ def membership(claims_by_fam) -> pd.DataFrame:
     M = pd.read_parquet(D.OUT_MS, columns=[
         "episode_id", "relative_day", "session_position", "bars_in_session", "token_set",
         "session_date"])
-    modal = (M.groupby(["session_date"])["bars_in_session"]
-             .agg(lambda s: s.mode().iloc[0]))
-    M = M[M["bars_in_session"] == M["session_date"].map(modal)].reset_index(drop=True)
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1 — same helper as the grammar
+    M = SC.complete_sessions(M).reset_index(drop=True)
     if M.duplicated(["episode_id", "relative_day", "session_position"]).any():
         raise DuplicateGrainError(
             "duplicate (episode_id, relative_day, session_position) in the microstructure. "

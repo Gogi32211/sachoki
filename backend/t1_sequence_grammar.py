@@ -30,6 +30,7 @@ METAMORPHIC GATES (§6) — run here, not promised for later
 from __future__ import annotations
 import hashlib, json, os, sys, time                                    # noqa: E402
 import numpy as np, pandas as pd                                       # noqa: E402
+import session_calendar as SC                                            # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
 import combo_tokens_spec as TS                                         # noqa: E402
 import t5_sequence_grammar as G5                                       # noqa: E402
@@ -92,9 +93,10 @@ def load_ms(shuffle_seed=None):
 
 def enumerate_grammar(M, verbose=True, collect_occ=False):
     """The T5 pipeline with T1 literals. Returns (universe, CLAIMS df, tokens)."""
-    modal = (M.groupby(["session_date", "ticker"])["bars_in_session"].first()
-             .groupby("session_date").agg(lambda s: s.mode().iloc[0]))
-    M = M[M.bars_in_session == M.session_date.map(modal)]
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1: the ONE authoritative helper. The
+    # family-local modal that used to stand here is forbidden — a family's own episode
+    # mix must never decide how long the exchange session was.
+    M = SC.complete_sessions(M)
 
     M2 = M.rename(columns={"t1_date": "t5_date"})     # searchable_tokens speaks T5 names
     REG = G5.searchable_tokens(M2)

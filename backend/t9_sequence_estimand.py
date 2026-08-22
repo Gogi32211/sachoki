@@ -23,6 +23,7 @@ NO OUTCOME VALUE IS READ. The sidecar contributes path_status_10d — availabili
 from __future__ import annotations
 import hashlib, json, os, sys, time                                    # noqa: E402
 import numpy as np, pandas as pd                                       # noqa: E402
+import session_calendar as SC                                            # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
 import t5_sequence_estimand as E5                                      # noqa: E402
 import t9_dna as D9                                                    # noqa: E402
@@ -48,16 +49,16 @@ N_PERM, PRIMARY = E5.N_PERM, E5.PRIMARY
 
 def analyzable_episodes() -> set:
     M = pd.read_parquet(D9.OUT_MS, columns=["episode_id", "session_date", "bars_in_session"])
-    modal = M.groupby("session_date")["bars_in_session"].agg(lambda s: s.mode().iloc[0])
-    return set(M.loc[M.bars_in_session == M.session_date.map(modal), "episode_id"])
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1 — same helper as the grammar
+    return set(SC.complete_sessions(M)["episode_id"])
 
 
 def membership(toks, C) -> pd.DataFrame:
     M = pd.read_parquet(D9.OUT_MS, columns=[
         "episode_id", "relative_day", "session_position", "bars_in_session",
         "token_set", "session_date"])
-    modal = M.groupby("session_date")["bars_in_session"].agg(lambda s: s.mode().iloc[0])
-    M = M[M.bars_in_session == M.session_date.map(modal)].reset_index(drop=True)
+    # SESSION_FILTER_UNIFICATION_AMENDMENT_V1 — same helper as the grammar
+    M = SC.complete_sessions(M).reset_index(drop=True)
     if M.duplicated(["episode_id", "relative_day", "session_position"]).any():
         raise RuntimeError("duplicate source grain in the microstructure")
     tix = {t: i for i, t in enumerate(toks)}
