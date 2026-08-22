@@ -1,0 +1,85 @@
+{
+  "spec_id": "GANN_X_FREEZE_V1",
+  "status": "FROZEN",
+  "family_id": "GANN_VIBRATION_GRID_V1",
+  "phase": "X ONLY — no outcome, no Z, no ranking",
+  "construction": {
+    "hist_lookback": 504,
+    "auto_levels": 6,
+    "min_bars_per_step": 20,
+    "onset_quiet_bars": 5,
+    "anchors": "L = min Low, H = max High in the 504-session window ending D-1, ties to the MOST RECENT occurrence",
+    "price_vibration": "M = (H/L)^(1/6)",
+    "time_vibration": "B = max(20, floor(|tH-tL|/6))",
+    "families": "BOTH anchored at the LOW: asc L*M^(i+dt/B), desc L*M^(i-dt/B); H and tH calibrate M and B only",
+    "levels": "integer lattice i in Z, solved analytically; half steps are not V1 evidence",
+    "level_price_form": "L * M**e — never exp(logL + e*logM), which is off by an ulp even at e = 0",
+    "pit": "the grid on D is frozen on data through D-1; D's own H/L/C never enter the choice of L, H, tL, tH, M or B",
+    "onset": "a family touch opens an opportunity only when the claim state is OBSERVABLE on D and on each of D-1..D-5 and FALSE on all five; missing is not FALSE",
+    "direction": "Close[D-1] vs the same line at D-1; exact equality is INVALID",
+    "confluence_direction": "CONSENSUS — LONG only if both families say LONG, SHORT only if both say SHORT, INVALID_CONFLICT on disagreement, INVALID_EQUALITY if either line sits on Close[D-1]"
+  },
+  "bound_artifacts": {
+    "b_rule": "2f507527411ef87d",
+    "x_integrity": "8d23deee77e1ce31",
+    "x_audit": "7fad508764bd7e31",
+    "design_exposure": "bd3269d7c82e88c1",
+    "builder_code": "55f0ee245a420f94",
+    "integrity_code": "ac273913407b8e26"
+  },
+  "tables": {
+    "events": "gann_grid_events_v1.parquet",
+    "events_digest": "192e28f5418dbb03",
+    "events_rows": 394263,
+    "grid": "gann_grid_state_v1.parquet",
+    "grid_digest": "53d760949c070f0c",
+    "grid_rows": 2915049
+  },
+  "claims": {
+    "k": 3,
+    "ids": [
+      "GANN_ASC_TOUCH_V1",
+      "GANN_CONFLUENCE_TOUCH_V1",
+      "GANN_DESC_TOUCH_V1"
+    ],
+    "events": {
+      "GANN_ASC_TOUCH_V1": 143784,
+      "GANN_CONFLUENCE_TOUCH_V1": 109229,
+      "GANN_DESC_TOUCH_V1": 141250
+    },
+    "grain": "(ticker, claim_id, decision_date) — duplicate grain hard-fails",
+    "multiplicity": "k = 3 is FIXED; no claim may be dropped later on support, and support is a validity diagnostic, never a selection gate"
+  },
+  "confluence_census": {
+    "SHORT": 41514,
+    "LONG": 40255,
+    "INVALID_CONFLICT": 26699,
+    "INVALID_EQUALITY": 761
+  },
+  "confluence_directional_valid": 81769,
+  "universe": {
+    "tickers_with_grid": 4076,
+    "decision_window": [
+      "2023-05-26",
+      "2026-08-21"
+    ],
+    "scope": "evidence applies to the 504-session-observable subpopulation over the resulting eligible historical decision window"
+  },
+  "superseded_pre_fix_x_build": {
+    "events": {
+      "GANN_ASC_TOUCH_V1": 146140,
+      "GANN_DESC_TOUCH_V1": 143694,
+      "GANN_CONFLUENCE_TOUCH_V1": 110354
+    },
+    "status": "SUPERSEDED_PRE_FIX_X_BUILD",
+    "why": [
+      "onset treated an unobservable prior day as a quiet day",
+      "confluence direction used the nearest line instead of consensus",
+      "level prices used exp(logL + e*logM), an ulp off at e = 0"
+    ],
+    "usable_downstream": false
+  },
+  "y_status": "NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-22 16:54 +04"
+}
