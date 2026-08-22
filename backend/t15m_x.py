@@ -88,6 +88,24 @@ def searchable(M, T, D):
     return pd.DataFrame(rows), np.array(keep)
 
 
+def build_population(fam, D, E1, ep_ids):
+    """The estimand population and its blocks — ONE implementation.
+
+    Extracted verbatim so the k-closure evaluates the SAME surface the X run sealed; the
+    closure asserts digest equality against the sealed artifact rather than trusting this.
+    """
+    dcol = f"{fam}_date"
+    O = pd.read_parquet(E1.OC, columns=["episode_id", "path_status_10d"])   # STATUS only
+    P = pd.DataFrame(dict(episode_id=ep_ids)).merge(
+        pd.read_parquet(D.OUT_EP, columns=["episode_id", "ticker", dcol]),
+        on="episode_id", how="left").merge(O, on="episode_id", how="left")
+    P = P[P.path_status_10d == "AVAILABLE"]
+    P = P.rename(columns={dcol: "t5_date"})
+    P = P.merge(E5.anchors(P), on="episode_id", how="inner")
+    P = P[P.n20 >= 20]
+    return E5.blocks(P)
+
+
 def run(fam: str):
     t0 = time.time()
     F = fam.upper()
@@ -131,15 +149,7 @@ def run(fam: str):
     MAX_DS = G1.MAX_DATE_SHARE
 
     # ── estimand population and blocks, fixed BEFORE the sweep ─────────────
-    O = pd.read_parquet(E1.OC, columns=["episode_id", "path_status_10d"])   # STATUS only
-    P = pd.DataFrame(dict(episode_id=ep_ids)).merge(
-        pd.read_parquet(D.OUT_EP, columns=["episode_id", "ticker", dcol]),
-        on="episode_id", how="left").merge(O, on="episode_id", how="left")
-    P = P[P.path_status_10d == "AVAILABLE"]
-    P = P.rename(columns={dcol: "t5_date"})
-    P = P.merge(E5.anchors(P), on="episode_id", how="inner")
-    P = P[P.n20 >= 20]
-    P = E5.blocks(P)
+    P = build_population(fam, D, E1, ep_ids)
     pop = set(P.episode_id)
     in_pop = np.array([e in pop for e in ep_ids])
     idx_pop = np.flatnonzero(in_pop)                 # rows that ARE in the estimand
