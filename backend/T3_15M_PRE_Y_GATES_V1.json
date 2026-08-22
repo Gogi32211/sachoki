@@ -1,0 +1,208 @@
+{
+  "spec_id": "T3_15M_PRE_Y_GATES_V1",
+  "status": "X_ONLY_PRE_Y",
+  "family": "T3",
+  "result": "PASS",
+  "A_rng": {
+    "rng_root": "914aeee81abbc334",
+    "manifest_digest": "214c5c092acf6f91",
+    "cross_process_identical": true,
+    "n_seeds": 1080,
+    "builtin_hash_hits": [],
+    "derivation": [
+      "prespec",
+      "x_only",
+      "k_closure",
+      "ruling",
+      "claim_order"
+    ]
+  },
+  "B_replay": {
+    "checks": {
+      "k": true,
+      "order_hash": true,
+      "needles": true,
+      "unique_j": true,
+      "unique_membership": true
+    },
+    "k": 35291,
+    "order_hash": "ccdde8ecbcba3407",
+    "needles": {
+      "q10": {
+        "j": 26645,
+        "claim_uid": "7128fc5bdc3ea390",
+        "membership_hash": "59f29b7effdd1bf1",
+        "support": 450
+      },
+      "q50": {
+        "j": 21588,
+        "claim_uid": "04ee38fdc1f85e0e",
+        "membership_hash": "4cdb679493ebd6c0",
+        "support": 2202
+      },
+      "q90": {
+        "j": 3886,
+        "claim_uid": "72df0d906c15e30e",
+        "membership_hash": "204e03fde7a13b97",
+        "support": 16939
+      }
+    }
+  },
+  "C_source": {
+    "chain": {
+      "prespec": "a1c630c8c9274b4a",
+      "x_only": "13b4a30825478a87",
+      "k_closure": "1cb13a4945b1c414",
+      "ruling": "862aff45f5c7278e",
+      "claim_order": "bdab79083935dae8",
+      "claims_table": "334e59f92c8a8284",
+      "order_table": "e85aa8592112fa0c",
+      "definition": "fb27e73eef390533"
+    },
+    "checks": {
+      "order_binds_k_closure": true,
+      "order_binds_ruling": true,
+      "ruling_binds_k_closure": true,
+      "ruling_k_matches_order": true,
+      "surface_is_final_estimand": true,
+      "population_same_as_x": true,
+      "blocks_same_as_x": true,
+      "definition_matches_prespec": true
+    },
+    "support_definition": "t_ov on the FINAL estimand surface — the same support the eligibility predicate used"
+  },
+  "D_no_y": {
+    "checks": {
+      "no_forbidden_module_reachable": true,
+      "no_outcome_column_loaded": true,
+      "no_outcome_column_in_sql": true,
+      "no_outcome_column_in_token_sources": true,
+      "outcome_sidecar_read_is_status_only": true,
+      "x_only_gates_all_passed": true,
+      "claim_order_declares_no_y": true
+    },
+    "reachable_modules": [
+      "combo_tokens",
+      "combo_tokens_spec",
+      "session_calendar",
+      "t15m_k_closure",
+      "t15m_order",
+      "t15m_x",
+      "t5_artifact",
+      "t5_dna",
+      "t5_sequence_estimand",
+      "t5_sequence_grammar"
+    ],
+    "import_edges": {
+      "t15m_x": [
+        "combo_tokens",
+        "t5_artifact",
+        "t5_sequence_estimand"
+      ],
+      "t5_sequence_estimand": [
+        "session_calendar",
+        "t5_dna",
+        "t5_sequence_grammar"
+      ],
+      "t5_dna": [
+        "combo_tokens",
+        "combo_tokens_spec"
+      ],
+      "combo_tokens": [
+        "combo_tokens_spec"
+      ],
+      "combo_tokens_spec": [],
+      "t5_sequence_grammar": [
+        "combo_tokens_spec",
+        "session_calendar",
+        "t5_dna"
+      ],
+      "session_calendar": [],
+      "t5_artifact": [],
+      "t15m_k_closure": [
+        "t15m_x",
+        "t5_artifact"
+      ],
+      "t15m_order": [
+        "t5_artifact"
+      ]
+    },
+    "forbidden_modules": [
+      "t1_historical",
+      "t1_survivor_char",
+      "t3_historical",
+      "t3_survivor_char",
+      "t5_15m_expose",
+      "t5_15m_historical",
+      "t5_15m_mechanism",
+      "t5_15m_sign_audit",
+      "t9_historical",
+      "t9_survivor_char"
+    ],
+    "forbidden_reachable": [],
+    "columns_loaded": [
+      "episode_id",
+      "path_status_10d",
+      "ticker"
+    ],
+    "outcome_derived_columns": [
+      "path_status_10d"
+    ],
+    "token_source_columns": 95,
+    "sql_literals": 1,
+    "method": "AST column lists + SQL literals + the runtime token-source column list — NOT a substring scan of the source text, which matches this chain's own no-Y auditor and fails on the detector",
+    "note": "path_status_10d is read as a STATUS — whether a 10-day path EXISTS, never what it did"
+  },
+  "k": 35291,
+  "needles": {
+    "q10": {
+      "index_zero_based": 3529,
+      "j": 26645,
+      "claim_uid": "7128fc5bdc3ea390",
+      "membership_hash": "59f29b7effdd1bf1",
+      "representative": "M3→M4|GR_G3→PEN_H",
+      "position_family": "M3→M4",
+      "support": 450
+    },
+    "q50": {
+      "index_zero_based": 17645,
+      "j": 21588,
+      "claim_uid": "04ee38fdc1f85e0e",
+      "membership_hash": "4cdb679493ebd6c0",
+      "representative": "M2→M3|VOL_N→L5_VX",
+      "position_family": "M2→M3",
+      "support": 2202
+    },
+    "q90": {
+      "index_zero_based": 31761,
+      "j": 3886,
+      "claim_uid": "72df0d906c15e30e",
+      "membership_hash": "204e03fde7a13b97",
+      "representative": "M1→M2|K0→RSI_50_60",
+      "position_family": "M1→M2",
+      "support": 16939
+    }
+  },
+  "capability_matrix": {
+    "needles": 3,
+    "deltas": [
+      0.5,
+      1.0,
+      2.0,
+      3.0,
+      4.0,
+      5.0
+    ],
+    "worlds": 20,
+    "total_worlds": 360,
+    "permutations_per_world": 999
+  },
+  "not_launched": "the capability run is NOT started here; these gates end before Y",
+  "hard_state": {
+    "T3 15M HISTORICAL Y": "CLOSED",
+    "T3 15M OBSERVED Z": "NOT COMPUTED",
+    "T3 15M SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "runtime_min": 0.0
+}

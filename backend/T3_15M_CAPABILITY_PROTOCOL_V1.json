@@ -1,0 +1,149 @@
+{
+  "spec_id": "T3_15M_CAPABILITY_PROTOCOL_V1",
+  "status": "FROZEN_BEFORE_ANY_15M_Y_ACCESS",
+  "family": "T3",
+  "governing": {
+    "prespec": "a1c630c8c9274b4a",
+    "definition_hash": "fb27e73eef390533",
+    "x_only": "13b4a30825478a87",
+    "k_closure": "1cb13a4945b1c414",
+    "eligibility_ruling": "862aff45f5c7278e",
+    "claim_order": "bdab79083935dae8",
+    "pre_y_gates": "4feba0c9cf876633",
+    "population_hash": "f47673279fedfcaf",
+    "block_assignment_hash": "882ab8561b09d944",
+    "claim_order_hash": "ccdde8ecbcba3407",
+    "rank_implementation": "c044438cd9a0887f",
+    "order_code": "5e6801ca63c0240a",
+    "x_code": "2e88c4f8b04e8845",
+    "estimand": "b1c0f5c19f23a99c"
+  },
+  "search_universe": {
+    "k": 35291,
+    "families": [
+      "M1→M2",
+      "M2→M3",
+      "M3→M4"
+    ],
+    "deferred": [
+      "M1→M2→M3",
+      "M2→M3→M4"
+    ]
+  },
+  "selection_statistic": "bounded blockwise Mann-Whitney / AUC, analytically studentized",
+  "multiplicity": "search-wide max Z_rank over all k claims, one permutation mapping applied to every claim",
+  "direction": "one-sided positive",
+  "needles": {
+    "q10": {
+      "quantile": 0.1,
+      "nearest_rank_index": 3529,
+      "sealed_j": 26645,
+      "claim_uid": "7128fc5bdc3ea390",
+      "membership_hash": "59f29b7effdd1bf1",
+      "membership_hash_rebuilt_from_X": true,
+      "representative": "M3→M4|GR_G3→PEN_H",
+      "position_family": "M3→M4",
+      "treated_overlap": 450,
+      "control_overlap": 18925,
+      "n_overlap_blocks": 400,
+      "n_tickers": 388,
+      "n_dates": 344,
+      "n_names": 1
+    },
+    "q50": {
+      "quantile": 0.5,
+      "nearest_rank_index": 17645,
+      "sealed_j": 21588,
+      "claim_uid": "04ee38fdc1f85e0e",
+      "membership_hash": "4cdb679493ebd6c0",
+      "membership_hash_rebuilt_from_X": true,
+      "representative": "M2→M3|VOL_N→L5_VX",
+      "position_family": "M2→M3",
+      "treated_overlap": 2202,
+      "control_overlap": 50876,
+      "n_overlap_blocks": 1156,
+      "n_tickers": 1500,
+      "n_dates": 664,
+      "n_names": 1
+    },
+    "q90": {
+      "quantile": 0.9,
+      "nearest_rank_index": 31761,
+      "sealed_j": 3886,
+      "claim_uid": "72df0d906c15e30e",
+      "membership_hash": "204e03fde7a13b97",
+      "membership_hash_rebuilt_from_X": true,
+      "representative": "M1→M2|K0→RSI_50_60",
+      "position_family": "M1→M2",
+      "treated_overlap": 16939,
+      "control_overlap": 112926,
+      "n_overlap_blocks": 3874,
+      "n_tickers": 2989,
+      "n_dates": 1222,
+      "n_names": 1
+    }
+  },
+  "needle_selection_rule": {
+    "source": "sealed 15m claim order",
+    "variable": "treated_overlap on the final estimand population",
+    "order": "support ascending, tie-break sealed j",
+    "nearest_rank": "idx(q) = ceil(q * k) - 1",
+    "independence": "1H survivors play no part in needle selection"
+  },
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "worlds": 20,
+  "n_perm_inner": 999,
+  "logical_cells": 360,
+  "outer_noise": "real MFE_10D with the sequence<->Y association destroyed first by permutation within the frozen blocks",
+  "injection": "additive shift of the raw MFE_10D on the needle's treated episodes; never on U or R",
+  "detection": "Z_rank(needle, delta) > p95( max_s Z_rank ) in the same inner-null world",
+  "denominator": {
+    "form": "exact combinatorial null variance with the rank-sum tie correction",
+    "formula": "Var_0(U_sb) = [ (N+1) - sum(t^3-t)/(N(N-1)) ] / (12 n_t n_c)",
+    "recomputation": "RECOMPUTED PER (needle, world, delta) on that injected multiset — injection can break or create ties, and the conditional randomization variance must belong to the multiset it divides",
+    "fixed_within": "the 999 inner permutations of a (needle, world, delta) cell share that one SE",
+    "not_empirical": "never estimated from the permutation numerator"
+  },
+  "rng": {
+    "root": "914aeee81abbc334",
+    "rule": "SHA256 over the sealed chain (prespec, x_only, k_closure, ruling, claim_order) — derived, never chosen",
+    "manifest_digest": "214c5c092acf6f91",
+    "n_seeds": 1080,
+    "namespaces": [
+      "T15M_NULL_V1",
+      "T15M_PERM_V1"
+    ],
+    "builtin_hash_on_stochastic_path": 0
+  },
+  "acceptance": {
+    "at_0_5pp": "descriptive sensitivity only",
+    "at_1pp": "reported per needle; the T5 precedent read q50 +1pp 20/20",
+    "note": "the capability measures finite-suite sensitivity under a registered homogeneous additive shift. It is NOT guaranteed power against any real alternative and is never the promotion cutoff."
+  },
+  "frozen_and_may_not_change": [
+    "support floors",
+    "2-bar scope",
+    "tokens",
+    "position families",
+    "k = 35,291",
+    "worlds and permutations once the capability begins",
+    "needle identities now that they are sealed",
+    "delta grid",
+    "the eligibility surface fixed by T15M_ELIGIBILITY_RULING_V1"
+  ],
+  "forbidden_claims": [
+    "the 15m result confirms or validates any 1H claim",
+    "15m is an independent replication (same T3 episode universe, same 10-day outcome)",
+    "a lower band is more power"
+  ],
+  "not_launched": "the capability run is NOT started here",
+  "y_status": "NO OUTCOME VALUE READ",
+  "sealed_at": "2026-08-22 20:40 +04"
+}

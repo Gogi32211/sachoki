@@ -1,0 +1,62 @@
+{
+  "spec_id": "T3_15M_ESTIMAND_V1",
+  "status": "FROZEN_BEFORE_ANY_15M_Y_ACCESS",
+  "family": "T3",
+  "governing": {
+    "prespec": "a1c630c8c9274b4a",
+    "definition_hash": "fb27e73eef390533",
+    "x_only": "13b4a30825478a87",
+    "k_closure": "1cb13a4945b1c414",
+    "eligibility_ruling": "862aff45f5c7278e",
+    "claim_order": "bdab79083935dae8",
+    "pre_y_gates": "4feba0c9cf876633",
+    "population_hash": "f47673279fedfcaf",
+    "block_assignment_hash": "882ab8561b09d944",
+    "claim_order_hash": "ccdde8ecbcba3407",
+    "rank_implementation": "c044438cd9a0887f",
+    "order_code": "5e6801ca63c0240a",
+    "x_code": "2e88c4f8b04e8845"
+  },
+  "k": 35291,
+  "eligibility_surface": "FINAL_ESTIMAND_POPULATION",
+  "support_variable": "t_ov — treated overlap on the final estimand population",
+  "population": {
+    "episodes": 144602,
+    "blocks": 5076,
+    "census": {
+      "CANONICAL_EPISODES": 213742,
+      "FIFTEEN_M_OBSERVABLE": 146731,
+      "FULL_M1_M4_COMPLETE": 136588,
+      "ANY_REGISTERED_PAIR_ANALYZABLE": 143339,
+      "ESTIMAND_POPULATION": 144602,
+      "ESTIMAND_AND_ANY_REGISTERED_PAIR": 141245,
+      "ESTIMAND_AND_FULL_M1_M4": 134583,
+      "blocks": 5076,
+      "pair_bearing_note": "the estimand rows that can host NO registered pair are still population — they can only ever be controls, never treated, which is what ESTIMAND_AND_ANY_REGISTERED_PAIR measures",
+      "naming_note": "the sealed X artifact called ESTIMAND_POPULATION 'sequence_analyzable', which read as a slot-coverage step and made the funnel look non-monotone. It is not a slot filter at all: it is the outcome-status/anchor/block filter. ANY_REGISTERED_PAIR_ANALYZABLE is computed here for the first time and is the number the old name suggested.",
+      "naming": "renamed from 'funnel'. FULL_M1_M4_COMPLETE, ANY_REGISTERED_PAIR_ANALYZABLE and ESTIMAND_POPULATION are different AXES over the same episodes, not nested stages of one pipeline; 'funnel' invited a monotonicity that was never claimed"
+    }
+  },
+  "blocks": {
+    "dimensions": [
+      "decision_date",
+      "pre_liquidity",
+      "pre_volatility"
+    ],
+    "source": "t5_sequence_estimand.blocks on the family's own episodes",
+    "overlap_rule": "a block contributes only with >=1 treated AND >=1 control"
+  },
+  "primary_outcome": "MFE_10D",
+  "secondary_outcome": {
+    "name": "MFE_ATR_10D",
+    "role": "registered secondary CHARACTERIZATION only; cannot alter promotion"
+  },
+  "statistic": "one-sided Z_rank = R_s / sqrt(V_s), bounded blockwise Mann-Whitney / AUC, analytically studentized",
+  "direction": "one-sided positive",
+  "multiplicity": "search-wide max Z_rank over all k claims, ONE permutation mapping applied to every claim",
+  "n_perm": 999,
+  "promotion": "Z_rank_obs > p95( max-null Z_rank ) from THIS run's own permutations, STRICTLY greater",
+  "raw_theta": "magnitude only; never a promotion criterion",
+  "y_status": "NO OUTCOME VALUE READ — this artifact defines the estimand, it does not evaluate it",
+  "sealed_at": "2026-08-22 20:40 +04"
+}

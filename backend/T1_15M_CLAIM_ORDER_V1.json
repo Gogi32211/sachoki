@@ -1,0 +1,71 @@
+{
+  "spec_id": "T1_15M_CLAIM_ORDER_V1",
+  "status": "X_ONLY_PRE_Y",
+  "family": "T1",
+  "k": 35587,
+  "eligibility_surface": "FINAL_ESTIMAND_POPULATION",
+  "eligibility_ruling": "862aff45f5c7278e",
+  "k_closure": "40afcda5945eb44e",
+  "class_identity_surface": "FINAL_ESTIMAND_POPULATION",
+  "order": {
+    "rule": "classes sorted by (position_family, representative); j is the position in that order",
+    "representative": "lexicographically smallest claim_id in the class",
+    "claim_order_hash": "a9592a674130c559",
+    "deterministic_two_builds": true
+  },
+  "identities": {
+    "unique_j": 35587,
+    "unique_membership_hash": 35587,
+    "syntactic_names": 36256,
+    "aliases": 669,
+    "reconciles": true
+  },
+  "needles": {
+    "rule": "support ASCENDING, tie-break the sealed j, nearest rank i_q = ceil(q*k) - 1",
+    "q10": {
+      "index_zero_based": 3558,
+      "j": 21316,
+      "claim_uid": "d2affa147a032217",
+      "membership_hash": "7a7af61308f216c1",
+      "representative": "M2→M3|T9→P50",
+      "position_family": "M2→M3",
+      "support": 453
+    },
+    "q50": {
+      "index_zero_based": 17793,
+      "j": 35228,
+      "claim_uid": "fe3ec864db63db0d",
+      "membership_hash": "431c38bfc90e0dd3",
+      "representative": "M3→M4|Z5→GR_N",
+      "position_family": "M3→M4",
+      "support": 2186
+    },
+    "q90": {
+      "index_zero_based": 32028,
+      "j": 17611,
+      "claim_uid": "90b0a2055a64091d",
+      "membership_hash": "6753a6865f9c7cb1",
+      "representative": "M2→M3|L5→WYC_MARKUP",
+      "position_family": "M2→M3",
+      "support": 17472
+    }
+  },
+  "by_position_family": {
+    "M1→M2": 11491,
+    "M2→M3": 12191,
+    "M3→M4": 11905
+  },
+  "support_quantiles": {
+    "q0": 300,
+    "q10": 453,
+    "q50": 2186,
+    "q90": 17458,
+    "q100": 117257
+  },
+  "table": {
+    "path": "t1_15m_claim_order.parquet",
+    "digest": "77e356c302ecf50a"
+  },
+  "y_status": "NO OUTCOME VALUE READ",
+  "runtime_min": 0.0
+}

@@ -2462,6 +2462,23 @@ def _pt_family_df(fam: str):
     return _PT_FAM_CACHE[fam]["df"]
 
 
+_PT_OP_CACHE = {}
+
+
+def _pt_operational_df():
+    """pt_operational_preview.parquet — the CURRENT-bar layer. Built without recomputing
+    any sealed artifact; a row here is a view, never forward evidence."""
+    path = os.path.join(os.path.dirname(_PT5_PARQ), "pt_operational_preview.parquet")
+    try:
+        mt = os.path.getmtime(path)
+    except OSError:
+        return None
+    if _PT_OP_CACHE.get("mtime") != mt:
+        _PT_OP_CACHE["df"] = pd.read_parquet(path)
+        _PT_OP_CACHE["mtime"] = mt
+    return _PT_OP_CACHE["df"]
+
+
 def _pt_family_meta(fam: str):
     """Phase availability and forward state, served from the sealed artifacts so the
     browser never infers evidence status from a date."""
@@ -2498,7 +2515,8 @@ def pt_families():
 
 
 @router.get("/pt-marks/{family}/{ticker}")
-def pt_marks(family: str, ticker: str, include_post_cutoff: bool = Query(False)):
+def pt_marks(family: str, ticker: str, include_post_cutoff: bool = Query(False),
+             include_operational: bool = Query(True)):
     """PT chart markers for any family. HISTORICAL research preview, never forward
     validation and never a ranking input.
 
@@ -2515,14 +2533,40 @@ def pt_marks(family: str, ticker: str, include_post_cutoff: bool = Query(False))
     cutoff = (meta.get("forward") or {}).get("seal_date") or PT5_CUTOFF
     if not include_post_cutoff:
         sub = sub[sub.date <= cutoff]
-    marks = [dict(date=r.date, cls=r.pt_class, provenance=r.provenance,
+    marks = [dict(date=r.date, cls=r.pt_class, provenance=r.provenance, layer="SEALED",
                   h1_state=r.h1_state, h1=r.h1_keys, h1_names=r.h1_medoids,
                   h1_n=int(r.h1_match_count),
                   m15_state=r.m15_state, m15_n=int(r.m15_match_count),
                   strong_state=r.strong_state)
              for r in sub.itertuples()]
+
+    # the OPERATIONAL layer — dates past this family's sealed boundary, read from the
+    # current mutable store. Same cutoff rule as the sealed layer: no new policy, and
+    # observational mode is still the only way past it.
+    op_n = 0
+    if include_operational:
+        OP = _pt_operational_df()
+        if OP is not None:
+            o = OP[(OP.family == fam) & (OP.ticker == ticker.upper())]
+            if not include_post_cutoff:
+                o = o[o.decision_date <= cutoff]
+            op_n = len(o)
+            marks += [dict(date=r.decision_date, cls=f"{fam}_BASE",
+                           provenance=r.evidence_status, layer="OPERATIONAL",
+                           h1_state="UNEVALUATED", h1="", h1_names="", h1_n=0,
+                           m15_state="UNEVALUATED", m15_n=0,
+                           strong_state="UNEVALUATED",
+                           source_version=r.source_version, source_status=r.source_status)
+                      for r in o.itertuples()]
+            marks.sort(key=lambda m: m["date"])
     return {"marks": marks, "meta": meta, "cutoff": cutoff,
-            "post_cutoff_included": bool(include_post_cutoff)}
+            "post_cutoff_included": bool(include_post_cutoff),
+            "sealed_boundary": (str(df[df.family == fam].date.max())
+                                if "family" in df.columns else None),
+            "operational_marks": op_n,
+            "layers": {"SEALED": "historical research, frozen",
+                       "OPERATIONAL": "current-bar preview; NOT forward evidence and it "
+                                      "does not backfill if the source later qualifies"}}
 
 
 @router.get("/pt5-marks/{ticker}")

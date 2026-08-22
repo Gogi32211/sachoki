@@ -1054,6 +1054,14 @@ export default function CodeCandleChart({
       // so nothing here decides what a class MEANS.
       const fam = (m.cls || 'PT5_BASE').split('_')[0]
       const kind = (m.cls || 'PT5_BASE').slice(fam.length + 1)
+      // OPERATIONAL marks are the current-bar layer read from the mutable store. They are
+      // NOT sealed research and NOT forward evidence, so they never borrow the sealed
+      // ladder's colours or its square: amber hollow circle, trailing '?'.
+      if (m.layer === 'OPERATIONAL') {
+        markers.push({ time: m.date, position: 'belowBar', shape: 'circle',
+                       color: '#f59e0b', text: fam + '?' })
+        continue
+      }
       const cfg = { STRONG: ['#22c55e', fam + '+'], '1H': ['#a78bfa', fam + '·1H'],
                     '15M': ['#22d3ee', fam + '·15'], BASE: ['#94a3b8', fam] }[kind]
                   || ['#94a3b8', fam]
@@ -1208,9 +1216,18 @@ export default function CodeCandleChart({
           "validated signal": the mark says what the research state IS. */}
       {showPt5 && pt5Hover && (
         <div className="absolute left-2 top-2 z-20 rounded border border-emerald-700/60 bg-gray-950/95 px-2.5 py-2 text-[10px] leading-4 font-mono text-gray-200 shadow-lg pointer-events-none max-w-[270px]">
-          <div className="text-emerald-300 font-bold">
-            Preview {pt5Hover.family || ptFamily} · Historical 1H research match · {pt5Hover.date}
-          </div>
+          {pt5Hover.layer === 'OPERATIONAL' ? (
+            <div className="text-amber-300 font-bold">
+              Preview {pt5Hover.family || ptFamily} · OPERATIONAL current-bar · {pt5Hover.date}
+              <div className="font-normal text-amber-200/80">
+                past this family's sealed boundary — read from the current mutable store
+              </div>
+            </div>
+          ) : (
+            <div className="text-emerald-300 font-bold">
+              Preview {pt5Hover.family || ptFamily} · Historical 1H research match · {pt5Hover.date}
+            </div>
+          )}
           {(pt5Hover.all || []).length > 1 && (
             <div className="mt-0.5 text-gray-400">also on this bar:&nbsp;
               <span className="text-emerald-200">
@@ -1251,10 +1268,20 @@ export default function CodeCandleChart({
             </>
           )}
           <div className="mt-1 pt-1 border-t border-white/10 text-gray-400">
+            <div>Layer:&nbsp;<span className={pt5Hover.layer === 'OPERATIONAL'
+              ? 'text-amber-300' : 'text-emerald-300'}>
+              {pt5Hover.layer === 'OPERATIONAL' ? 'OPERATIONAL PREVIEW' : 'HISTORICAL SEALED'}
+            </span></div>
             <div>Evidence state:&nbsp;<span className="text-gray-200">
               {pt5Hover.provenance === 'HISTORICAL' ? 'historical characterization'
-                : pt5Hover.provenance === 'FORWARD_SOURCE_HOLD' ? 'operational preview · source hold'
+                : pt5Hover.provenance === 'FORWARD_SOURCE_HOLD' ? 'forward source HOLD'
                 : pt5Hover.provenance || 'historical characterization'}</span></div>
+            {pt5Hover.layer === 'OPERATIONAL' && (
+              <div className="text-amber-200/70">
+                not forward evidence · does not backfill if the source later qualifies
+                <div className="text-gray-500">1H structures UNEVALUATED — not "no match"</div>
+              </div>
+            )}
             <div>Forward validated:&nbsp;<span className="text-gray-200">no</span></div>
             <div>Tradeability:&nbsp;<span className="text-gray-200">not established</span></div>
           </div>
@@ -1506,7 +1533,14 @@ export default function CodeCandleChart({
                   </span>
                 )}
                 {showPt5 && pt5Marks && (
-                  <span className="text-emerald-300">{pt5Marks.length}</span>
+                  // MARKS, not bars. In ALL mode one bar can carry several families, so
+                  // the count is a sum of per-family marks and must not be read as a
+                  // number of trading days.
+                  <span className="text-emerald-300"
+                        title={`${pt5Marks.length} marks on ${
+                          new Set(pt5Marks.map(m => m.date)).size} distinct bars`}>
+                    {pt5Marks.length} marks
+                  </span>
                 )}
                 {showPt5 && ptMeta?.phases && !ptMeta.phases.M15 && (
                   <span className="text-amber-300/80 font-mono"

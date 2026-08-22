@@ -1,0 +1,87 @@
+{
+  "spec_id": "PT_OPERATIONAL_PREVIEW_V1",
+  "status": "OPERATIONAL_NOT_EVIDENCE",
+  "purpose": "let the chart reach the current bar WITHOUT recomputing any sealed historical artifact",
+  "sealed_artifacts_touched": "NONE — the episode tables and pt{N}_signals parquets are read for their boundary only, never rewritten",
+  "layers": {
+    "<= sealed boundary": "HISTORICAL_SEALED — served from pt{N}_signals, unchanged",
+    "> boundary, qualified source": "prospective states — none exist yet",
+    "> boundary, current unqualified 1H": "FORWARD_SOURCE_HOLD — this file"
+  },
+  "base_match": {
+    "evaluated": true,
+    "method": "each family's own build_episodes (the priority-resolved t_sig SQL), imported rather than reimplemented, run against the current 1D store"
+  },
+  "h1_match": {
+    "evaluated": false,
+    "value": "UNEVALUATED",
+    "why": "the frozen 1H membership caches cover only episodes whose 10-day path is AVAILABLE, so a post-boundary episode has no 1H evaluation. Reporting False would claim 'looked and found nothing' when nothing has been looked at.",
+    "to_enable": "materialise the 1H microstructure for these episodes from the current 1H store — which is itself under a qualification HOLD"
+  },
+  "no_backfill": "a mark produced during FORWARD_SOURCE_HOLD does NOT become evidence if the source later qualifies; this file is a view, not an accrual ledger",
+  "source_version": {
+    "store": "studio_analytics.duckdb::bars (1D)",
+    "max_date": "2026-08-21",
+    "rows": 8746790,
+    "tickers": 5409,
+    "mutability": "MUTABLE — rewritten nightly",
+    "digest": "eaca145378a0eec9"
+  },
+  "families": {
+    "T5": {
+      "sealed_boundary": "2026-08-17",
+      "sealed_rows": 195584,
+      "current_episodes": 196293,
+      "new_after_boundary": 708,
+      "new_max_date": "2026-08-21",
+      "source_gate": {
+        "h1_source": "UNQUALIFIED",
+        "verdict": "NO_FORWARD_ARTIFACT",
+        "seal_date": null
+      }
+    },
+    "T9": {
+      "sealed_boundary": "2026-08-20",
+      "sealed_rows": 243562,
+      "current_episodes": 243988,
+      "new_after_boundary": 426,
+      "new_max_date": "2026-08-21",
+      "source_gate": {
+        "h1_source": "UNQUALIFIED",
+        "verdict": "HOLD",
+        "seal_date": "2026-08-22"
+      }
+    },
+    "T3": {
+      "sealed_boundary": "2026-08-20",
+      "sealed_rows": 213742,
+      "current_episodes": 213837,
+      "new_after_boundary": 95,
+      "new_max_date": "2026-08-21",
+      "source_gate": {
+        "h1_source": "UNQUALIFIED",
+        "verdict": "HOLD",
+        "seal_date": "2026-08-22"
+      }
+    },
+    "T1": {
+      "sealed_boundary": "2026-08-20",
+      "sealed_rows": 220351,
+      "current_episodes": 220751,
+      "new_after_boundary": 400,
+      "new_max_date": "2026-08-21",
+      "source_gate": {
+        "h1_source": "UNQUALIFIED",
+        "verdict": "HOLD",
+        "seal_date": "2026-08-22"
+      }
+    }
+  },
+  "rows": 1629,
+  "table": {
+    "path": "pt_operational_preview.parquet",
+    "digest": "55a51bf550822e7e"
+  },
+  "outcome_exposure": "NOT_EXPOSED — no outcome value is read",
+  "runtime_min": 0.1
+}
