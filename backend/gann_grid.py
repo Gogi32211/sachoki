@@ -163,8 +163,11 @@ def build_ticker(df: pd.DataFrame) -> pd.DataFrame:
         cnt = np.maximum(0, (i1 - i0 + 1)).astype(int)
         x_tgt = (np.log(c[d - 1]) - logL) / logM - phase  # closest to Close[D-1]
         pick = np.clip(np.round(x_tgt), i0, i1)
-        line_prev = np.exp(logL + (pick + phase_prev) * logM)
-        line_at_d = np.exp(logL + (pick + phase) * logM)
+        # multiplicative form, not exp(logL + ...): the log/exp round-trip is off by an
+        # ulp even when the exponent is 0, which manufactured "price exactly on the line"
+        # cases and made them flip under a pure rescale
+        line_prev = L * np.power(M, pick + phase_prev)
+        line_at_d = L * np.power(M, pick + phase)
         out[f"{name}_n"] = cnt
         out[f"{name}_i"] = np.where(cnt > 0, pick, np.nan)
         out[f"{name}_line_prev"] = np.where(cnt > 0, line_prev, np.nan)
@@ -188,9 +191,11 @@ def events_from_grid(G: pd.DataFrame) -> pd.DataFrame:
     opportunity, not five.
 
     Direction: the contacted line is evaluated at D-1 and compared with Close[D-1].
-    CONFLUENCE has two contacted lines, so it takes the one closer to Close[D-1] in log
-    price — the same tie-break the per-family line pick already uses. That extension is
-    NOT in the registered decisions and is flagged in the STOP report.
+    CONFLUENCE takes a CONSENSUS of the two families: LONG only when both lines say LONG,
+    SHORT only when both say SHORT, INVALID_CONFLICT when they disagree and
+    INVALID_EQUALITY when either line sits exactly at Close[D-1]. The claim itself is
+    unchanged — only the directional outcome population is restricted to {LONG, SHORT},
+    which adds no claim and no multiplicity.
     """
     G = G.sort_values(["ticker", "di"], kind="stable").reset_index(drop=True)
     out = []
@@ -203,27 +208,44 @@ def events_from_grid(G: pd.DataFrame) -> pd.DataFrame:
         H = G[hit].copy()
         if not len(H):
             continue
-        # onset: no touch of this claim within the previous 5 SESSIONS (by bar index)
+        # onset: the claim must be OBSERVABLE on D and on each of D-1..D-5, and FALSE on
+        # all five. An unobservable day is not a quiet day: at a ticker's first observable
+        # grid bars the previous states do not exist, so no onset may be recorded there.
+        first_di = G.groupby("ticker").di.transform("min")
+        H = H.assign(first_di=first_di[hit].to_numpy())
+        observable_window = H.di - ONSET_QUIET_BARS >= H.first_di
         H["prev_di"] = H.groupby("ticker").di.shift(1)
-        H = H[(H.prev_di.isna()) | (H.di - H.prev_di > ONSET_QUIET_BARS)]
+        quiet = (H.prev_di.isna()) | (H.di - H.prev_di > ONSET_QUIET_BARS)
+        H = H[observable_window & quiet]
         if col is None:
-            da = (np.log(H.asc_line_prev) - np.log(H.prev_close)).abs()
-            dd = (np.log(H.desc_line_prev) - np.log(H.prev_close)).abs()
-            use_asc = da <= dd
-            line_prev = np.where(use_asc, H.asc_line_prev, H.desc_line_prev)
-            line_d = np.where(use_asc, H.asc_line_d, H.desc_line_d)
-            level_i = np.where(use_asc, H.asc_i, H.desc_i)
-            n_lines = H.asc_n + H.desc_n
-            side = np.where(use_asc, "ASC", "DESC")
+            # CONSENSUS, not nearest-line: confluence means two independent families agree
+            # on the same spot, so a disagreement must be visible, never hidden by picking
+            # whichever line sits marginally closer to Close[D-1].
+            pc = H.prev_close.to_numpy()
+            da = np.where(pc > H.asc_line_prev.to_numpy(), "LONG",
+                          np.where(pc < H.asc_line_prev.to_numpy(), "SHORT", "INVALID"))
+            dd = np.where(pc > H.desc_line_prev.to_numpy(), "LONG",
+                          np.where(pc < H.desc_line_prev.to_numpy(), "SHORT", "INVALID"))
+            direction = np.where((da == "INVALID") | (dd == "INVALID"), "INVALID_EQUALITY",
+                                 np.where(da == dd, da, "INVALID_CONFLICT"))
+            use_asc = direction == "LONG"          # reporting side only, never the verdict
+            line_prev = np.where(da == direction, H.asc_line_prev, H.desc_line_prev)
+            line_d = np.where(da == direction, H.asc_line_d, H.desc_line_d)
+            level_i = np.where(da == direction, H.asc_i, H.desc_i)
+            n_lines = (H.asc_n + H.desc_n).to_numpy()
+            side = np.where(da == direction, "ASC", "DESC")
+            asc_dir, desc_dir = da, dd
         else:
             line_prev = H[f"{col}_line_prev"].to_numpy()
             line_d = H[f"{col}_line_d"].to_numpy()
             level_i = H[f"{col}_i"].to_numpy()
             n_lines = H[f"{col}_n"].to_numpy()
             side = np.full(len(H), col.upper())
-        direction = np.where(H.prev_close.to_numpy() > line_prev, "LONG",
-                             np.where(H.prev_close.to_numpy() < line_prev, "SHORT",
-                                      "INVALID"))
+        if col is not None:
+            direction = np.where(H.prev_close.to_numpy() > line_prev, "LONG",
+                                 np.where(H.prev_close.to_numpy() < line_prev, "SHORT",
+                                          "INVALID"))
+            asc_dir = desc_dir = np.full(len(H), "")
         out.append(pd.DataFrame(dict(
             ticker=H.ticker.to_numpy(), claim_id=claim, decision_date=H.date.to_numpy(),
             bar_index=H.di.to_numpy(), direction=direction, side=side,
@@ -234,7 +256,8 @@ def events_from_grid(G: pd.DataFrame) -> pd.DataFrame:
             anchor_L=H.L.to_numpy(), anchor_H=H.H.to_numpy(),
             anchor_iL=H.iL.to_numpy(), anchor_iH=H.iH.to_numpy(),
             M=H.M.to_numpy(), B=H.B.to_numpy(), bars_diff=H.bars_diff.to_numpy(),
-            dt=H["dt"].to_numpy())))
+            dt=H["dt"].to_numpy(), asc_direction=asc_dir,
+            desc_direction=desc_dir)))
     E = pd.concat(out, ignore_index=True)
     dup = E.duplicated(["ticker", "claim_id", "decision_date"])
     if dup.any():

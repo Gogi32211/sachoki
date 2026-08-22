@@ -1,0 +1,120 @@
+{
+  "spec_id": "GANN_X_INTEGRITY_V1",
+  "result": "PASS",
+  "scope": "engine qualification before the X evidence state is frozen; no research gate is added or changed",
+  "tickers_tested": 300,
+  "events_in_sample": 21822,
+  "sample_digest": "1251b3c33feacac9",
+  "future_mutation": {
+    "cutoff": "2025-06-30",
+    "mutation": "every OHLC after the cutoff scaled by U(0.3, 3.0) per bar, high/low repaired",
+    "events_compared": 13386,
+    "identical": true
+  },
+  "row_reorder": {
+    "identical": true,
+    "digest": "1251b3c33feacac9"
+  },
+  "price_rescale": {
+    "constant": 7.3197,
+    "invariant": true,
+    "note": "the lattice is multiplicative, so level index, membership and direction are exactly scale-invariant while the level PRICES scale by the same constant"
+  },
+  "two_fresh_builds": {
+    "identical": true,
+    "digest": "1251b3c33feacac9"
+  },
+  "no_y_manifest": {
+    "columns_loaded_from_db": [
+      "close",
+      "date",
+      "high",
+      "low",
+      "open",
+      "ticker"
+    ],
+    "outcome_columns_selected": [],
+    "builder_guard_present": true,
+    "outcome_columns_in_artifacts": [],
+    "artifact_columns": [
+      "B",
+      "H",
+      "L",
+      "M",
+      "anchor_H",
+      "anchor_L",
+      "anchor_iH",
+      "anchor_iL",
+      "asc_direction",
+      "asc_i",
+      "asc_line_d",
+      "asc_line_prev",
+      "asc_n",
+      "bar_index",
+      "bars_diff",
+      "claim_id",
+      "date",
+      "decision_date",
+      "desc_direction",
+      "desc_i",
+      "desc_line_d",
+      "desc_line_prev",
+      "desc_n",
+      "design_exposed",
+      "di",
+      "direction",
+      "dt",
+      "high_d",
+      "iH",
+      "iL",
+      "level_i",
+      "line_at_d",
+      "line_at_prev",
+      "low_d",
+      "n_lines_touched",
+      "prev_close",
+      "side",
+      "ticker"
+    ]
+  },
+  "onset_observability": {
+    "rule": "onset requires the claim state OBSERVABLE on D and on each of D-1..D-5, and FALSE on all five; an unobservable day is not a quiet day",
+    "events_violating": 0
+  },
+  "coverage": {
+    "tickers_scanned": 5409,
+    "with_grid": 4076,
+    "without_grid": 1333,
+    "without_grid_fewer_than_506_dates": 1331,
+    "without_grid_with_506plus_dates": 2,
+    "reconciles": true,
+    "the_506plus_cases": [
+      {
+        "ticker": "SOLS",
+        "distinct_dates": 548,
+        "rows_after_dedup": 548,
+        "grid_rows": 0,
+        "reason": "no bar window produced a valid H > L > 0 anchor pair"
+      },
+      {
+        "ticker": "MINE",
+        "distinct_dates": 588,
+        "rows_after_dedup": 588,
+        "grid_rows": 0,
+        "reason": "no bar window produced a valid H > L > 0 anchor pair"
+      }
+    ],
+    "note": "the earlier report stated both '1,333 have fewer than 506 bars' and '2 have 506+ but no grid'; those cannot both hold and the machine-reconciled split above replaces them"
+  },
+  "checks": {
+    "1 future mutation leaves pre-cutoff X identical": true,
+    "2 row reorder leaves X identical": true,
+    "3 price rescale leaves levels/membership/direction invariant": true,
+    "4 two fresh builds identical": true,
+    "5 no outcome column loaded or written": true,
+    "onset never recorded before 5 observable prior states": true,
+    "coverage census reconciles": true
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "runtime_min": 0.0
+}

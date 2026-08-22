@@ -23,36 +23,46 @@
  },
  "claims": {
   "GANN_ASC_TOUCH_V1": {
-   "events": 146140,
-   "tickers": 4062,
-   "dates": 812
+   "events": 143784,
+   "tickers": 4057,
+   "dates": 807
   },
   "GANN_CONFLUENCE_TOUCH_V1": {
-   "events": 110354,
-   "tickers": 4046,
-   "dates": 812
+   "events": 109229,
+   "tickers": 4044,
+   "dates": 807
   },
   "GANN_DESC_TOUCH_V1": {
-   "events": 143694,
-   "tickers": 4067,
-   "dates": 812
+   "events": 141250,
+   "tickers": 4058,
+   "dates": 807
   }
  },
  "direction_census": {
   "INVALID": {
-   "GANN_ASC_TOUCH_V1": 134,
-   "GANN_CONFLUENCE_TOUCH_V1": 581,
-   "GANN_DESC_TOUCH_V1": 516
+   "GANN_ASC_TOUCH_V1": 178,
+   "GANN_CONFLUENCE_TOUCH_V1": 0,
+   "GANN_DESC_TOUCH_V1": 680
+  },
+  "INVALID_CONFLICT": {
+   "GANN_ASC_TOUCH_V1": 0,
+   "GANN_CONFLUENCE_TOUCH_V1": 26699,
+   "GANN_DESC_TOUCH_V1": 0
+  },
+  "INVALID_EQUALITY": {
+   "GANN_ASC_TOUCH_V1": 0,
+   "GANN_CONFLUENCE_TOUCH_V1": 761,
+   "GANN_DESC_TOUCH_V1": 0
   },
   "LONG": {
-   "GANN_ASC_TOUCH_V1": 96064,
-   "GANN_CONFLUENCE_TOUCH_V1": 54853,
-   "GANN_DESC_TOUCH_V1": 46236
+   "GANN_ASC_TOUCH_V1": 94698,
+   "GANN_CONFLUENCE_TOUCH_V1": 40255,
+   "GANN_DESC_TOUCH_V1": 45313
   },
   "SHORT": {
-   "GANN_ASC_TOUCH_V1": 49942,
-   "GANN_CONFLUENCE_TOUCH_V1": 54920,
-   "GANN_DESC_TOUCH_V1": 96942
+   "GANN_ASC_TOUCH_V1": 48908,
+   "GANN_CONFLUENCE_TOUCH_V1": 41514,
+   "GANN_DESC_TOUCH_V1": 95257
   }
  },
  "n_lines_touched": {
@@ -80,77 +90,36 @@
  "artifacts": {
   "grid": "gann_grid_state_v1.parquet",
   "events": "gann_grid_events_v1.parquet",
-  "grid_digest": "63ff0eee492e7bca",
-  "events_digest": "9b2c99584f449e35"
+  "grid_digest": "53d760949c070f0c",
+  "events_digest": "192e28f5418dbb03"
  },
  "runtime_min": 0.2,
- "no_future": {
-  "cutoff": "2025-12-31",
-  "tickers_tested": 400,
-  "events_full_pre_cutoff": 23981,
-  "events_truncated_build": 23981,
-  "identical_ids": true,
-  "identical_x_columns": true,
-  "columns_compared": [
-   "direction",
-   "level_i",
-   "n_lines_touched",
-   "line_at_prev",
-   "line_at_d",
-   "M",
-   "B",
-   "anchor_L",
-   "anchor_H"
-  ]
+ "confluence_direction": {
+  "rule": "CONSENSUS \u2014 LONG only when both families say LONG, SHORT only when both say SHORT, INVALID_CONFLICT on disagreement, INVALID_EQUALITY when either line sits exactly at Close[D-1]",
+  "census": {
+   "SHORT": 41514,
+   "LONG": 40255,
+   "INVALID_CONFLICT": 26699,
+   "INVALID_EQUALITY": 761
+  },
+  "directional_valid": 81769,
+  "directional_valid_share": 0.7486,
+  "note": "the claim is unchanged and k stays 3; only the directional outcome population is restricted to {LONG, SHORT}. The nearest-line rule is withdrawn \u2014 it hid disagreement instead of showing it."
  },
  "onset": {
   "quiet_bars": 5,
-  "raw_touch_share": {
-   "asc": 0.247,
-   "desc": 0.256
+  "observability_rule": "onset requires the claim state OBSERVABLE on D and on each of D-1..D-5 and FALSE on all five; missing is not FALSE",
+  "events_before_observability_fix": {
+   "asc": 146140,
+   "desc": 143694,
+   "conf": 110354
   },
-  "compression_vs_raw": {
-   "asc": 0.2,
-   "desc": 0.19
-  },
-  "reading": "a raw touch happens on a quarter of all grid bars; the 5-session onset rule collapses roughly five raw touches into one opportunity"
- },
- "coverage": {
-  "tickers_scanned": 5409,
-  "tickers_with_grid": 4076,
-  "tickers_without_grid": 1333,
-  "reason": "a decision date needs 504 complete prior sessions plus the day itself; every ticker without a grid has fewer than 506 bars in the store (max 588 among them is a listing that starts late in the window)",
-  "tickers_with_506plus_bars_but_no_grid": 2,
-  "eligible_decision_window": [
-   "2023-05-26",
-   "2026-08-21"
-  ],
-  "consequence": "the 504-bar lookback consumes the first two years of a 2021-05-26 store, so the eligible decision window is about 3.25 years, not 5"
- },
- "yearly": {
-  "GANN_ASC_TOUCH_V1": {
-   "2023": 24672,
-   "2024": 44729,
-   "2025": 45753,
-   "2026": 30986
-  },
-  "GANN_CONFLUENCE_TOUCH_V1": {
-   "2023": 16759,
-   "2024": 32684,
-   "2025": 35574,
-   "2026": 25337
-  },
-  "GANN_DESC_TOUCH_V1": {
-   "2023": 24856,
-   "2024": 43185,
-   "2025": 45145,
-   "2026": 30508
+  "events_after": {
+   "GANN_ASC_TOUCH_V1": 143784,
+   "GANN_CONFLUENCE_TOUCH_V1": 109229,
+   "GANN_DESC_TOUCH_V1": 141250
   }
  },
- "open_decision_flagged": {
-  "item": "CONFLUENCE direction",
-  "situation": "CONFLUENCE_TOUCH has two contacted lines and the registered decisions fix direction only for 'the contacted line'",
-  "resolution_applied": "the line closer to Close[D-1] in log price \u2014 the same tie-break the per-family pick already uses",
-  "status": "FLAGGED FOR CONFIRMATION \u2014 a consistent extension, but not itself registered"
- }
+ "integrity": "8d23deee77e1ce31",
+ "level_price_form": "L * M**e, not exp(logL + e*logM) \u2014 the log/exp round-trip is off by an ulp even at e = 0, which manufactured spurious price-exactly-on-line cases that flipped under a pure rescale"
 }

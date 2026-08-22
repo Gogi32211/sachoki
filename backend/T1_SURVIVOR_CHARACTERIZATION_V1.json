@@ -1,0 +1,409 @@
+{
+  "spec_id": "T1_SURVIVOR_CHARACTERIZATION_V1",
+  "status": "POST_EXPOSURE_DESCRIPTIVE",
+  "selection_rule": "outcome-blind medoid selection WITHIN the post-exposure survivor set — membership geometry only, tie-break lowest sealed j; the survivor set itself is Y-selected and this wording says so",
+  "n_survivors": 9,
+  "jaccard_threshold": 0.5,
+  "n_clusters": 9,
+  "n_singleton_clusters": 9,
+  "cluster_sizes": [
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1,
+    1
+  ],
+  "cluster_structure": [
+    [
+      "j64"
+    ],
+    [
+      "j140"
+    ],
+    [
+      "j295"
+    ],
+    [
+      "j632"
+    ],
+    [
+      "j726"
+    ],
+    [
+      "j742"
+    ],
+    [
+      "j781"
+    ],
+    [
+      "j869"
+    ],
+    [
+      "j883"
+    ]
+  ],
+  "containment": [
+    "j781 ⊂ j632",
+    "j883 ⊂ j742"
+  ],
+  "nearest_neighbor_jaccard": {
+    "j64": 0.127,
+    "j140": 0.326,
+    "j295": 0.326,
+    "j632": 0.257,
+    "j726": 0.238,
+    "j742": 0.446,
+    "j781": 0.257,
+    "j869": 0.238,
+    "j883": 0.446
+  },
+  "jaccard_matrix": [
+    [
+      0.0,
+      0.127,
+      0.064,
+      0.008,
+      0.008,
+      0.01,
+      0.005,
+      0.006,
+      0.006
+    ],
+    [
+      0.127,
+      0.0,
+      0.326,
+      0.02,
+      0.027,
+      0.009,
+      0.01,
+      0.02,
+      0.007
+    ],
+    [
+      0.064,
+      0.326,
+      0.0,
+      0.024,
+      0.024,
+      0.013,
+      0.017,
+      0.025,
+      0.012
+    ],
+    [
+      0.008,
+      0.02,
+      0.024,
+      0.0,
+      0.102,
+      0.033,
+      0.257,
+      0.084,
+      0.022
+    ],
+    [
+      0.008,
+      0.027,
+      0.024,
+      0.102,
+      0.0,
+      0.039,
+      0.028,
+      0.238,
+      0.019
+    ],
+    [
+      0.01,
+      0.009,
+      0.013,
+      0.033,
+      0.039,
+      0.0,
+      0.014,
+      0.031,
+      0.446
+    ],
+    [
+      0.005,
+      0.01,
+      0.017,
+      0.257,
+      0.028,
+      0.014,
+      0.0,
+      0.098,
+      0.01
+    ],
+    [
+      0.006,
+      0.02,
+      0.025,
+      0.084,
+      0.238,
+      0.031,
+      0.098,
+      0.0,
+      0.018
+    ],
+    [
+      0.006,
+      0.007,
+      0.012,
+      0.022,
+      0.019,
+      0.446,
+      0.01,
+      0.018,
+      0.0
+    ]
+  ],
+  "medoid_characterization": [
+    {
+      "cluster": 0,
+      "members": [
+        "j64·L2→T1"
+      ],
+      "medoid": "CROSS_DAY|2|L2→T1",
+      "j": 64,
+      "support": 897,
+      "z_rank": 4.705,
+      "theta_mfe_pp": 7.08,
+      "theta_mfe_atr": 0.715,
+      "theta_mae_pp": -2.26,
+      "theta_ret10_pp": 2.14,
+      "d_pre_atr_pct": 1.679,
+      "d_pre_rv20_pct": 1.079,
+      "d_liq_log": -1.234,
+      "d_price_log": -0.791,
+      "median_pre_atr_pct": 5.015,
+      "median_pre_rv20_pct": 3.117,
+      "median_price": 15.9,
+      "ret10_over_mfe": 0.302
+    },
+    {
+      "cluster": 1,
+      "members": [
+        "j140·VOL_L→T1"
+      ],
+      "medoid": "CROSS_DAY|2|VOL_L→T1",
+      "j": 140,
+      "support": 2825,
+      "z_rank": 7.651,
+      "theta_mfe_pp": 6.62,
+      "theta_mfe_atr": 0.493,
+      "theta_mae_pp": -1.88,
+      "theta_ret10_pp": 2.78,
+      "d_pre_atr_pct": 1.609,
+      "d_pre_rv20_pct": 1.147,
+      "d_liq_log": -0.836,
+      "d_price_log": -0.839,
+      "median_pre_atr_pct": 5.609,
+      "median_pre_rv20_pct": 3.575,
+      "median_price": 15.27,
+      "ret10_over_mfe": 0.42
+    },
+    {
+      "cluster": 2,
+      "members": [
+        "j295·VOL_L→T1→T2"
+      ],
+      "medoid": "CROSS_DAY|3|VOL_L→T1→T2",
+      "j": 295,
+      "support": 1065,
+      "z_rank": 5.218,
+      "theta_mfe_pp": 4.77,
+      "theta_mfe_atr": 0.465,
+      "theta_mae_pp": -2.28,
+      "theta_ret10_pp": 1.13,
+      "d_pre_atr_pct": 1.724,
+      "d_pre_rv20_pct": 1.256,
+      "d_liq_log": -0.658,
+      "d_price_log": -0.865,
+      "median_pre_atr_pct": 5.609,
+      "median_pre_rv20_pct": 3.561,
+      "median_price": 14.78,
+      "ret10_over_mfe": 0.237
+    },
+    {
+      "cluster": 3,
+      "members": [
+        "j632·BUY→T2"
+      ],
+      "medoid": "T1_INTRADAY|2|BUY→T2",
+      "j": 632,
+      "support": 3014,
+      "z_rank": 10.761,
+      "theta_mfe_pp": 4.28,
+      "theta_mfe_atr": 0.484,
+      "theta_mae_pp": -2.61,
+      "theta_ret10_pp": 0.59,
+      "d_pre_atr_pct": 0.926,
+      "d_pre_rv20_pct": 0.991,
+      "d_liq_log": -0.662,
+      "d_price_log": -0.793,
+      "median_pre_atr_pct": 5.434,
+      "median_pre_rv20_pct": 3.843,
+      "median_price": 16.02,
+      "ret10_over_mfe": 0.138
+    },
+    {
+      "cluster": 4,
+      "members": [
+        "j726·SVS→T2"
+      ],
+      "medoid": "T1_INTRADAY|2|SVS→T2",
+      "j": 726,
+      "support": 17201,
+      "z_rank": 9.834,
+      "theta_mfe_pp": 1.29,
+      "theta_mfe_atr": 0.15,
+      "theta_mae_pp": -1.01,
+      "theta_ret10_pp": -0.06,
+      "d_pre_atr_pct": 0.457,
+      "d_pre_rv20_pct": 0.286,
+      "d_liq_log": -0.403,
+      "d_price_log": -0.492,
+      "median_pre_atr_pct": 4.12,
+      "median_pre_rv20_pct": 2.731,
+      "median_price": 22.44,
+      "ret10_over_mfe": -0.047
+    },
+    {
+      "cluster": 5,
+      "members": [
+        "j742·VOL10X→T2"
+      ],
+      "medoid": "T1_INTRADAY|2|VOL10X→T2",
+      "j": 742,
+      "support": 847,
+      "z_rank": 5.589,
+      "theta_mfe_pp": 6.39,
+      "theta_mfe_atr": 0.623,
+      "theta_mae_pp": -3.35,
+      "theta_ret10_pp": 0.57,
+      "d_pre_atr_pct": 2.332,
+      "d_pre_rv20_pct": 1.041,
+      "d_liq_log": -2.819,
+      "d_price_log": -0.956,
+      "median_pre_atr_pct": 5.41,
+      "median_pre_rv20_pct": 3.301,
+      "median_price": 13.49,
+      "ret10_over_mfe": 0.089
+    },
+    {
+      "cluster": 6,
+      "members": [
+        "j781·BUY→T2→T2"
+      ],
+      "medoid": "T1_INTRADAY|3|BUY→T2→T2",
+      "j": 781,
+      "support": 774,
+      "z_rank": 6.699,
+      "theta_mfe_pp": 6.18,
+      "theta_mfe_atr": 0.719,
+      "theta_mae_pp": -2.9,
+      "theta_ret10_pp": 1.73,
+      "d_pre_atr_pct": 1.034,
+      "d_pre_rv20_pct": 1.117,
+      "d_liq_log": -0.482,
+      "d_price_log": -0.891,
+      "median_pre_atr_pct": 5.528,
+      "median_pre_rv20_pct": 3.894,
+      "median_price": 14.38,
+      "ret10_over_mfe": 0.28
+    },
+    {
+      "cluster": 7,
+      "members": [
+        "j869·SVS→T2→T2"
+      ],
+      "medoid": "T1_INTRADAY|3|SVS→T2→T2",
+      "j": 869,
+      "support": 4094,
+      "z_rank": 6.106,
+      "theta_mfe_pp": 3.06,
+      "theta_mfe_atr": 0.38,
+      "theta_mae_pp": -1.74,
+      "theta_ret10_pp": 0.6,
+      "d_pre_atr_pct": 0.785,
+      "d_pre_rv20_pct": 0.547,
+      "d_liq_log": -0.228,
+      "d_price_log": -0.597,
+      "median_pre_atr_pct": 4.384,
+      "median_pre_rv20_pct": 2.874,
+      "median_price": 19.49,
+      "ret10_over_mfe": 0.196
+    },
+    {
+      "cluster": 8,
+      "members": [
+        "j883·VOL10X→T2→L2"
+      ],
+      "medoid": "T1_INTRADAY|3|VOL10X→T2→L2",
+      "j": 883,
+      "support": 378,
+      "z_rank": 5.69,
+      "theta_mfe_pp": 8.97,
+      "theta_mfe_atr": 0.829,
+      "theta_mae_pp": -4.09,
+      "theta_ret10_pp": 1.12,
+      "d_pre_atr_pct": 3.252,
+      "d_pre_rv20_pct": 1.351,
+      "d_liq_log": -2.687,
+      "d_price_log": -1.23,
+      "median_pre_atr_pct": 6.038,
+      "median_pre_rv20_pct": 3.609,
+      "median_price": 10.23,
+      "ret10_over_mfe": 0.125
+    }
+  ],
+  "aggregate": {
+    "theta_mfe_median_pp": 6.18,
+    "theta_ret10_median_pp": 1.12,
+    "ret10_over_mfe_median": 0.196
+  },
+  "buy_occurrence_POST_HOC_DESCRIPTIVE": {
+    "buy_in_grammar": 7,
+    "k": 911,
+    "buy_in_survivors": 2,
+    "label": "within-T1 post-hoc description only — the survivor set is outcome-selected, so this is not an enrichment test; no comparison with any other family is made or implied here"
+  },
+  "family_wise_maxT_p_value": {
+    "rule": "p = (1 + #{max-Z_null >= max Z_obs}) / (1 + B), the plus-one finite-permutation convention; B = 999 permutations registered before exposure",
+    "B": 999,
+    "max_z_obs": 10.7614,
+    "n_null_ge_obs": 0,
+    "p_value": 0.001,
+    "scope": "ONE family-wise number for the maximum statistic over all k claims — it is not a per-claim p-value and says nothing about the other survivors"
+  },
+  "volatility_scale_reading": [
+    "CROSS_DAY|2|L2→T1: raw θMFE +7.08pp with pre-treatment ATR +1.679pp and rv20 +1.079pp vs controls; ATR-normalized θMFE_ATR +0.715 — the association SURVIVES volatility normalization",
+    "CROSS_DAY|2|VOL_L→T1: raw θMFE +6.62pp with pre-treatment ATR +1.609pp and rv20 +1.147pp vs controls; ATR-normalized θMFE_ATR +0.493 — the association SURVIVES volatility normalization",
+    "CROSS_DAY|3|VOL_L→T1→T2: raw θMFE +4.77pp with pre-treatment ATR +1.724pp and rv20 +1.256pp vs controls; ATR-normalized θMFE_ATR +0.465 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|2|BUY→T2: raw θMFE +4.28pp with pre-treatment ATR +0.926pp and rv20 +0.991pp vs controls; ATR-normalized θMFE_ATR +0.484 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|2|SVS→T2: raw θMFE +1.29pp with pre-treatment ATR +0.457pp and rv20 +0.286pp vs controls; ATR-normalized θMFE_ATR +0.150 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|2|VOL10X→T2: raw θMFE +6.39pp with pre-treatment ATR +2.332pp and rv20 +1.041pp vs controls; ATR-normalized θMFE_ATR +0.623 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|3|BUY→T2→T2: raw θMFE +6.18pp with pre-treatment ATR +1.034pp and rv20 +1.117pp vs controls; ATR-normalized θMFE_ATR +0.719 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|3|SVS→T2→T2: raw θMFE +3.06pp with pre-treatment ATR +0.785pp and rv20 +0.547pp vs controls; ATR-normalized θMFE_ATR +0.380 — the association SURVIVES volatility normalization",
+    "T1_INTRADAY|3|VOL10X→T2→L2: raw θMFE +8.97pp with pre-treatment ATR +3.252pp and rv20 +1.351pp vs controls; ATR-normalized θMFE_ATR +0.829 — the association SURVIVES volatility normalization"
+  ],
+  "terminal_return_reading": [
+    "CROSS_DAY|2|L2→T1: θRET10 +2.14pp against θMFE +7.08pp — terminal capture 0.302",
+    "CROSS_DAY|2|VOL_L→T1: θRET10 +2.78pp against θMFE +6.62pp — terminal capture 0.42",
+    "CROSS_DAY|3|VOL_L→T1→T2: θRET10 +1.13pp against θMFE +4.77pp — terminal capture 0.237",
+    "T1_INTRADAY|2|BUY→T2: θRET10 +0.59pp against θMFE +4.28pp — terminal capture 0.138",
+    "T1_INTRADAY|2|SVS→T2: θRET10 -0.06pp against θMFE +1.29pp — terminal capture -0.047",
+    "T1_INTRADAY|2|VOL10X→T2: θRET10 +0.57pp against θMFE +6.39pp — terminal capture 0.089",
+    "T1_INTRADAY|3|BUY→T2→T2: θRET10 +1.73pp against θMFE +6.18pp — terminal capture 0.28",
+    "T1_INTRADAY|3|SVS→T2→T2: θRET10 +0.60pp against θMFE +3.06pp — terminal capture 0.196",
+    "T1_INTRADAY|3|VOL10X→T2→L2: θRET10 +1.12pp against θMFE +8.97pp — terminal capture 0.125"
+  ],
+  "cross_family": "NOT EXAMINED HERE — any recurrence of a structure across families is a separate, separately-logged family-wide analysis with its own multiplicity surface; the words replication, confirmation and independent evidence are not used in this artifact",
+  "branch": "T1 HISTORICAL CHARACTERIZATION CLOSED",
+  "seconds": 39.2
+}
