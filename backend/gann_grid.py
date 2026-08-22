@@ -12,7 +12,8 @@ would make every "touch" self-confirming.
     L   = minimum Low in the window,  tL = MOST RECENT occurrence
     H   = maximum High in the window, tH = MOST RECENT occurrence
     M   = (H/L)^(1/6)
-    B   = max(20, barsDiff/6),  barsDiff = |tH - tL|      <- integer semantics PENDING
+    B   = max(20, floor(barsDiff/6)),  barsDiff = |tH - tL|   (GANN_B_RULE_V1,
+                       LEGACY_INTENT_OPERATIONALIZATION — not runtime parity)
 
     ascending    P(t,i) = L * M^( i + (t - tL)/B )
     descending   P(t,i) = L * M^( i - (t - tL)/B )
@@ -51,7 +52,10 @@ UNIVERSES = ("sp500", "nasdaq", "russell2k")
 # Pine's finalBarsPerStep is an int. floor(), round() and int() differ on 119/6, 121/6,
 # 125/6, 131/6 — so the rule is NOT guessed here. Until the Pine fixture parity is
 # sealed, B_RULE stays PENDING and freeze() refuses to run.
-B_RULE = os.environ.get("GANN_B_RULE", "PENDING")
+# bound to GANN_B_RULE_V1 (LEGACY_INTENT_OPERATIONALIZATION): B = max(20, floor(d/6)).
+# The env var can only NARROW to the sealed rule; anything else is refused below.
+B_RULE = os.environ.get("GANN_B_RULE", "floor")
+_SEALED_RULE = "floor"
 B_RULES = {
     "floor": lambda d: math.floor(d / AUTO_LEVELS),
     "round": lambda d: int(round(d / AUTO_LEVELS)),
@@ -62,11 +66,11 @@ B_RULES = {
 
 def bars_per_step(bars_diff: int) -> float:
     """B = max(MIN_BARS_PER_STEP, reduce(barsDiff / AUTO_LEVELS))."""
-    if B_RULE not in B_RULES:
+    if B_RULE != _SEALED_RULE:
         raise RuntimeError(
-            "GANN_B_RULE is PENDING: the legacy Pine integer semantics for "
-            "finalBarsPerStep must be established by fixture parity before any grid is "
-            "built. Set GANN_B_RULE only from a sealed parity artifact.")
+            f"B rule '{B_RULE}' is not the sealed one. GANN_B_RULE_V1 freezes "
+            f"'{_SEALED_RULE}' (B = max(20, floor(barsDiff/6))) as a legacy-intent "
+            "operationalization; searching alternative reductions is forbidden in V1.")
     return max(MIN_BARS_PER_STEP, B_RULES[B_RULE](bars_diff))
 
 
@@ -119,98 +123,223 @@ def integer_levels_in_range(logL, logM, phase, lo, hi):
 
 
 def build_ticker(df: pd.DataFrame) -> pd.DataFrame:
-    """One ticker: grid state per decision day and the raw per-family touch flags."""
-    o, h, l, c = (df.open.to_numpy(), df.high.to_numpy(),
-                  df.low.to_numpy(), df.close.to_numpy())
+    """One ticker, fully vectorised: grid state and per-family touch flags per decision day.
+
+    The nearest touched line needs no search. Minimising |logL + (i+phase)logM - logTarget|
+    over integer i is just rounding the real solution and clamping it into the touched
+    range, so the whole family reduces to array arithmetic.
+    """
+    h, l, c = df.high.to_numpy(), df.low.to_numpy(), df.close.to_numpy()
     n = len(df)
     if n < HIST_LOOKBACK + 2:
         return pd.DataFrame()
-    # window ENDS at D-1: the extremes are computed on bars [D-504 .. D-1]
-    amin = rolling_argmin(l, HIST_LOOKBACK)
+    amin = rolling_argmin(l, HIST_LOOKBACK)     # window [d-504 .. d-1] via index d-1
     amax = rolling_argmax(h, HIST_LOOKBACK)
-    rows = []
-    for d in range(HIST_LOOKBACK, n):
-        j = d - 1                                   # last bar of the frozen window
-        iL, iH = amin[j], amax[j]
-        if iL < 0 or iH < 0:
-            continue
-        L, H = l[iL], h[iH]
-        if not (L > 0 and H > 0 and H > L):
-            continue
-        M = (H / L) ** (1.0 / AUTO_LEVELS)
-        if not (M > 1.0):
-            continue
-        logL, logM = math.log(L), math.log(M)
-        B = bars_per_step(abs(int(iH) - int(iL)))
-        dt = d - iL                                  # Delta t from the LOW anchor
-        rows.append((d, iL, iH, L, H, M, B, dt, logL, logM))
-    if not rows:
+    d = np.arange(HIST_LOOKBACK, n)
+    iL, iH = amin[d - 1], amax[d - 1]
+    ok = (iL >= 0) & (iH >= 0)
+    L, H = l[iL], h[iH]
+    ok &= (L > 0) & (H > 0) & (H > L) & (l[d] > 0) & (h[d] >= l[d]) & (c[d - 1] > 0)
+    if not ok.any():
         return pd.DataFrame()
-    G = pd.DataFrame(rows, columns=["di", "iL", "iH", "L", "H", "M", "B", "dt",
-                                    "logL", "logM"])
-    asc, desc = [], []
-    for r in G.itertuples():
-        d = int(r.di)
-        lo, hi = l[d], h[d]
-        if not (lo > 0 and hi >= lo):
-            asc.append((0, np.nan, np.nan)); desc.append((0, np.nan, np.nan)); continue
-        pa = r.dt / r.B
-        for phase, bag in ((+pa, asc), (-pa, desc)):
-            i0, i1, cnt = integer_levels_in_range(r.logL, r.logM, phase, lo, hi)
-            if cnt == 0:
-                bag.append((0, np.nan, np.nan)); continue
-            # deterministic pick: the touched line whose projected log-price is closest
-            # to log(Close[D-1]) — no outcome is consulted
-            target = math.log(c[d - 1])
-            best_i, best_gap = None, None
-            for i in range(i0, i1 + 1):
-                lp = r.logL + (i + phase) * r.logM
-                gap = abs(lp - target)
-                if best_gap is None or gap < best_gap:
-                    best_i, best_gap = i, gap
-            # the SAME line evaluated at D-1 fixes the direction, again outcome-blind
-            phase_prev = ((d - 1) - r.iL) / r.B * (1 if phase > 0 or phase == 0 else -1)
-            phase_prev = phase_prev if phase >= 0 else -abs(phase_prev)
-            line_prev = math.exp(r.logL + (best_i + phase_prev) * r.logM)
-            bag.append((cnt, best_i, line_prev))
-    G["asc_n"], G["asc_i"], G["asc_line_prev"] = zip(*asc)
-    G["desc_n"], G["desc_i"], G["desc_line_prev"] = zip(*desc)
-    G["date"] = df.date.to_numpy()[G.di.to_numpy()]
-    G["prev_close"] = c[G.di.to_numpy() - 1]
+    d, iL, iH, L, H = d[ok], iL[ok], iH[ok], L[ok], H[ok]
+    M = (H / L) ** (1.0 / AUTO_LEVELS)
+    good = M > 1.0
+    d, iL, iH, L, H, M = d[good], iL[good], iH[good], L[good], H[good], M[good]
+    logL, logM = np.log(L), np.log(M)
+    bars_diff = np.abs(iH - iL)
+    B = np.maximum(MIN_BARS_PER_STEP,
+                   np.floor(bars_diff / AUTO_LEVELS)).astype(float)
+    if B_RULE != _SEALED_RULE:                  # the sealed rule, asserted on the vector path
+        raise RuntimeError(f"B rule '{B_RULE}' != sealed '{_SEALED_RULE}'")
+    dt = (d - iL).astype(float)
+    out = dict(di=d, iL=iL, iH=iH, L=L, H=H, M=M, B=B, bars_diff=bars_diff, dt=dt)
+    for name, sign in (("asc", +1.0), ("desc", -1.0)):
+        phase = sign * dt / B                             # at D
+        phase_prev = sign * (dt - 1.0) / B                # the SAME line at D-1
+        x_lo = (np.log(l[d]) - logL) / logM - phase
+        x_hi = (np.log(h[d]) - logL) / logM - phase
+        i0, i1 = np.ceil(x_lo), np.floor(x_hi)
+        cnt = np.maximum(0, (i1 - i0 + 1)).astype(int)
+        x_tgt = (np.log(c[d - 1]) - logL) / logM - phase  # closest to Close[D-1]
+        pick = np.clip(np.round(x_tgt), i0, i1)
+        line_prev = np.exp(logL + (pick + phase_prev) * logM)
+        line_at_d = np.exp(logL + (pick + phase) * logM)
+        out[f"{name}_n"] = cnt
+        out[f"{name}_i"] = np.where(cnt > 0, pick, np.nan)
+        out[f"{name}_line_prev"] = np.where(cnt > 0, line_prev, np.nan)
+        out[f"{name}_line_d"] = np.where(cnt > 0, line_at_d, np.nan)
+    G = pd.DataFrame(out)
+    G["date"] = df.date.to_numpy()[d]
+    G["prev_close"] = c[d - 1]
+    G["low_d"], G["high_d"] = l[d], h[d]
     G["ticker"] = df.ticker.iloc[0]
     return G
 
 
-def main():
-    t0 = time.time()
-    if B_RULE not in B_RULES:
-        raise SystemExit(
-            "GANN_B_RULE is PENDING — seal the Pine parity fixtures first "
-            "(gann_b_parity.py). Refusing to build a grid on a guessed rule.")
-    conn = duckdb.connect(DB1D, read_only=True)
-    tks = [r[0] for r in conn.execute(
-        "SELECT DISTINCT ticker FROM bars WHERE universe IN "
-        f"{UNIVERSES} ORDER BY ticker").fetchall()]
-    print(f"tickers {len(tks):,} · lookback {HIST_LOOKBACK} · B rule {B_RULE}", flush=True)
+def events_from_grid(G: pd.DataFrame) -> pd.DataFrame:
+    """The three predeclared claims, with onset and direction — both outcome-blind.
+
+    ASC_TOUCH / DESC_TOUCH  an integer line of that family intersects D's High-Low range
+    CONFLUENCE_TOUCH        both families touch on the same D
+
+    Onset: a family touch opens a new opportunity only when that family had no touch in
+    the previous ONSET_QUIET_BARS sessions, so a week of rubbing along one line is one
+    opportunity, not five.
+
+    Direction: the contacted line is evaluated at D-1 and compared with Close[D-1].
+    CONFLUENCE has two contacted lines, so it takes the one closer to Close[D-1] in log
+    price — the same tie-break the per-family line pick already uses. That extension is
+    NOT in the registered decisions and is flagged in the STOP report.
+    """
+    G = G.sort_values(["ticker", "di"], kind="stable").reset_index(drop=True)
     out = []
+    for claim, col in (("GANN_ASC_TOUCH_V1", "asc"), ("GANN_DESC_TOUCH_V1", "desc"),
+                       ("GANN_CONFLUENCE_TOUCH_V1", None)):
+        if col is None:
+            hit = (G.asc_n > 0) & (G.desc_n > 0)
+        else:
+            hit = G[f"{col}_n"] > 0
+        H = G[hit].copy()
+        if not len(H):
+            continue
+        # onset: no touch of this claim within the previous 5 SESSIONS (by bar index)
+        H["prev_di"] = H.groupby("ticker").di.shift(1)
+        H = H[(H.prev_di.isna()) | (H.di - H.prev_di > ONSET_QUIET_BARS)]
+        if col is None:
+            da = (np.log(H.asc_line_prev) - np.log(H.prev_close)).abs()
+            dd = (np.log(H.desc_line_prev) - np.log(H.prev_close)).abs()
+            use_asc = da <= dd
+            line_prev = np.where(use_asc, H.asc_line_prev, H.desc_line_prev)
+            line_d = np.where(use_asc, H.asc_line_d, H.desc_line_d)
+            level_i = np.where(use_asc, H.asc_i, H.desc_i)
+            n_lines = H.asc_n + H.desc_n
+            side = np.where(use_asc, "ASC", "DESC")
+        else:
+            line_prev = H[f"{col}_line_prev"].to_numpy()
+            line_d = H[f"{col}_line_d"].to_numpy()
+            level_i = H[f"{col}_i"].to_numpy()
+            n_lines = H[f"{col}_n"].to_numpy()
+            side = np.full(len(H), col.upper())
+        direction = np.where(H.prev_close.to_numpy() > line_prev, "LONG",
+                             np.where(H.prev_close.to_numpy() < line_prev, "SHORT",
+                                      "INVALID"))
+        out.append(pd.DataFrame(dict(
+            ticker=H.ticker.to_numpy(), claim_id=claim, decision_date=H.date.to_numpy(),
+            bar_index=H.di.to_numpy(), direction=direction, side=side,
+            level_i=level_i, n_lines_touched=n_lines,
+            line_at_prev=line_prev, line_at_d=line_d,
+            prev_close=H.prev_close.to_numpy(),
+            low_d=H.low_d.to_numpy(), high_d=H.high_d.to_numpy(),
+            anchor_L=H.L.to_numpy(), anchor_H=H.H.to_numpy(),
+            anchor_iL=H.iL.to_numpy(), anchor_iH=H.iH.to_numpy(),
+            M=H.M.to_numpy(), B=H.B.to_numpy(), bars_diff=H.bars_diff.to_numpy(),
+            dt=H["dt"].to_numpy())))
+    E = pd.concat(out, ignore_index=True)
+    dup = E.duplicated(["ticker", "claim_id", "decision_date"])
+    if dup.any():
+        raise RuntimeError(f"opportunity grain broken: {int(dup.sum())} duplicate "
+                           "(ticker, claim_id, decision_date) rows")
+    return E
+
+
+def load_ticker(conn, tk):
+    return conn.execute("""
+        SELECT date, any_value(open) AS "open", any_value(high) AS "high",
+               any_value(low) AS "low", any_value(close) AS "close", ? AS ticker
+        FROM bars WHERE ticker=? AND universe IN {u}
+        GROUP BY date ORDER BY date""".format(u=str(UNIVERSES)), [tk, tk]).fetchdf()
+
+
+def build_all(conn, cutoff=None, tickers=None, verbose=True):
+    tks = tickers or [r[0] for r in conn.execute(
+        f"SELECT DISTINCT ticker FROM bars WHERE universe IN {UNIVERSES} "
+        "ORDER BY ticker").fetchall()]
+    out, t0 = [], time.time()
     for k, tk in enumerate(tks):
-        df = conn.execute("""
-            SELECT date, any_value(open) AS "open", any_value(high) AS "high",
-                   any_value(low) AS "low", any_value(close) AS "close",
-                   ? AS ticker
-            FROM bars WHERE ticker=? AND universe IN {u}
-            GROUP BY date ORDER BY date""".format(u=str(UNIVERSES)),
-            [tk, tk]).fetchdf()
+        df = load_ticker(conn, tk)
+        if cutoff is not None:
+            df = df[df.date.astype(str) <= cutoff]
         g = build_ticker(df)
         if len(g):
             out.append(g)
-        if (k + 1) % 250 == 0:
-            print(f"  {k+1:,}/{len(tks):,} · rows {sum(len(x) for x in out):,} · "
-                  f"{time.time()-t0:.0f}s", flush=True)
-    conn.close()
-    G = pd.concat(out, ignore_index=True)
+        if verbose and (k + 1) % 500 == 0:
+            print(f"  {k+1:,}/{len(tks):,} · {time.time()-t0:.0f}s", flush=True)
+    return (pd.concat(out, ignore_index=True) if out else pd.DataFrame()), len(tks)
+
+
+def main():
+    t0 = time.time()
+    if B_RULE != _SEALED_RULE:
+        raise SystemExit(f"B rule '{B_RULE}' != sealed '{_SEALED_RULE}' — refusing.")
+    r = json.load(open("GANN_B_RULE_V1.json"))
+    assert r["rule"]["formula"] == "B = max(20, floor(barsDiff / 6))", r["rule"]
+    assert r["classification"] == "LEGACY_INTENT_OPERATIONALIZATION"
+    ledger = json.load(open("GANN_DESIGN_EXPOSURE_LEDGER_V1.json"))
+    exposed = {e["ticker"] for e in ledger["entries"]}
+
+    conn = duckdb.connect(DB1D, read_only=True)
+    print(f"lookback {HIST_LOOKBACK} · levels {AUTO_LEVELS} · B = max(20, floor(d/6))",
+          flush=True)
+    G, n_tk = build_all(conn, verbose=True)
+    print(f"grid rows {len(G):,} over {G.ticker.nunique():,} tickers · "
+          f"{time.time()-t0:.0f}s", flush=True)
+    E = events_from_grid(G)
+    E["design_exposed"] = E.ticker.isin(exposed)
     G.to_parquet(OUT_GRID, index=False, compression="zstd")
-    print(f"grid state rows {len(G):,} · {time.time()-t0:.0f}s", flush=True)
+    E.to_parquet(OUT_EVENTS, index=False, compression="zstd")
+
+    fwd = [c for c in list(E.columns) + list(G.columns)
+           if c.startswith(("fwd_", "mfe", "mae", "ret", "mtm"))]
+    if fwd:
+        raise RuntimeError(f"outcome columns leaked into the X tables: {fwd}")
+
+    per = E.groupby("claim_id").agg(events=("ticker", "size"),
+                                    tickers=("ticker", "nunique"),
+                                    dates=("decision_date", "nunique"))
+    audit = dict(
+        spec_id="GANN_GRID_X_AUDIT_V1", family_id="GANN_VIBRATION_GRID_V1",
+        status="X_ONLY_PRE_Y",
+        construction=dict(hist_lookback=HIST_LOOKBACK, auto_levels=AUTO_LEVELS,
+                          min_bars_per_step=MIN_BARS_PER_STEP,
+                          b_rule=ART.file_digest("GANN_B_RULE_V1.json"),
+                          onset_quiet_bars=ONSET_QUIET_BARS,
+                          anchors="both families anchored at the LOW; H and tH calibrate "
+                                  "M and B only",
+                          levels="integer lattice i in Z, solved analytically; half steps "
+                                 "excluded from V1 evidence",
+                          pit="grid frozen on data through D-1; D's own H/L/C never enter "
+                              "the choice of L, H, tL, tH, M or B"),
+        universe=dict(tickers_scanned=n_tk, tickers_with_grid=int(G.ticker.nunique()),
+                      grid_rows=int(len(G)),
+                      date_range=[str(G.date.min()), str(G.date.max())]),
+        claims={c: dict(events=int(r_.events), tickers=int(r_.tickers),
+                        dates=int(r_.dates)) for c, r_ in per.iterrows()},
+        direction_census=E.groupby(["claim_id", "direction"]).size()
+                          .unstack(fill_value=0).to_dict(),
+        n_lines_touched=dict(
+            median=float(E.n_lines_touched.median()),
+            q90=float(E.n_lines_touched.quantile(.9)),
+            max=int(E.n_lines_touched.max())),
+        anchors=dict(bars_diff_median=float(G.bars_diff.median()),
+                     B_median=float(G.B.median()), B_at_floor=float((G.B == 20).mean()),
+                     M_median=float(G.M.median()),
+                     M_q10=float(G.M.quantile(.1)), M_q90=float(G.M.quantile(.9))),
+        design_exposure=dict(ledger=ART.file_digest(
+            "GANN_DESIGN_EXPOSURE_LEDGER_V1.json"), excluded_tickers=sorted(exposed),
+            events_marked=int(E.design_exposed.sum())),
+        grain="(ticker, claim_id, decision_date) — duplicate grain hard-fails",
+        y_status="NO OUTCOME COLUMN EXISTS IN THESE TABLES",
+        artifacts=dict(grid=os.path.basename(OUT_GRID), events=os.path.basename(OUT_EVENTS),
+                       grid_digest=ART.file_digest(OUT_GRID),
+                       events_digest=ART.file_digest(OUT_EVENTS)),
+        runtime_min=round((time.time() - t0) / 60, 1))
+    json.dump(audit, open(AUDIT, "w"), indent=1, default=str)
+    print("\nclaims:")
+    for c, r_ in per.iterrows():
+        print(f"  {c:<26} events {int(r_.events):>8,} · tickers {int(r_.tickers):>5,} · "
+              f"dates {int(r_.dates):>5,}")
+    print(f"\nGANN_GRID_X_AUDIT_V1 written · {(time.time()-t0)/60:.1f} min")
 
 
 if __name__ == "__main__":

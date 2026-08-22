@@ -1,0 +1,72 @@
+{
+  "spec_id": "GANN_B_RULE_V1",
+  "status": "FROZEN",
+  "classification": "LEGACY_INTENT_OPERATIONALIZATION",
+  "not_claimed": "exact Pine runtime parity — no compiler/runtime fixture was executed",
+  "statement": "The legacy source consistently declares the bars-per-step state as integer; V1 freezes the corresponding truncating integer operationalization before X construction and before any Y access.",
+  "legacy_source_declarations": [
+    "int barsDiff = math.abs(finalHighBar - finalLowBar)",
+    "int bpsA     = math.max(minBarsPerStep, barsDiff / autoLevels)",
+    "var int lockedBarsPerStep = na",
+    "var int finalBarsPerStep  = na"
+  ],
+  "runtime_ambiguity": "Pine v5 integer division is qualifier-dependent: with a series or input operand a fractional remainder can survive, so the literal source does not by itself fix the runtime semantics",
+  "rule": {
+    "auto_levels": 6,
+    "min_bars_per_step": 20,
+    "formula": "B = max(20, floor(barsDiff / 6))",
+    "note": "barsDiff >= 0, so floor == truncation toward zero"
+  },
+  "fixtures": {
+    "119": 20,
+    "120": 20,
+    "121": 20,
+    "125": 20,
+    "131": 21,
+    "137": 22,
+    "143": 23
+  },
+  "fixtures_reproduced": true,
+  "alternatives_considered": {
+    "floor": {
+      "119": 20,
+      "120": 20,
+      "121": 20,
+      "125": 20,
+      "131": 21,
+      "137": 22,
+      "143": 23
+    },
+    "round": {
+      "119": 20,
+      "120": 20,
+      "121": 20,
+      "125": 21,
+      "131": 22,
+      "137": 23,
+      "143": 24
+    },
+    "trunc": {
+      "119": 20,
+      "120": 20,
+      "121": 20,
+      "125": 20,
+      "131": 21,
+      "137": 22,
+      "143": 23
+    },
+    "exact": {
+      "119": 20,
+      "120": 20,
+      "121": 20.166666666666668,
+      "125": 20.833333333333332,
+      "131": 21.833333333333332,
+      "137": 22.833333333333332,
+      "143": 23.833333333333332
+    }
+  },
+  "alternatives_forbidden": "no alternative B rule (round / exact / other lookback or level counts) may be searched in V1 — running several and keeping the best would create four grid hypotheses and their multiplicity",
+  "binding": "gann_grid.bars_per_step consumes GANN_B_RULE='floor' bound to this artifact; the module refuses to build a grid on any unsealed rule",
+  "outcome_exposure": "NOT_EXPOSED — frozen before X construction and before any Y",
+  "sealed_at": "2026-08-22 15:41 +04"
+}
