@@ -1,0 +1,38 @@
+{
+  "spec_id": "T9_15M_ENGINE_STATE_V1",
+  "status": "X_ONLY_PRE_Y",
+  "family": "T9",
+  "role": "index structure DERIVED from the sealed claim order; the order artifact is not rewritten",
+  "governing": {
+    "claim_order": "a5ef183b520d8da6",
+    "claim_order_hash": "6674095165d26f2f",
+    "capability_protocol": "542db7425ee3f27f",
+    "estimand": "6ceec7f0eb25a93c",
+    "reference_state_code": "0e18c2e261e1b653"
+  },
+  "k": 36676,
+  "nE": 159598,
+  "n_blocks": 5078,
+  "nnz_treated_memberships": 224157054,
+  "n_segments": 62891176,
+  "population_hash": "c2f3ed0cd22fb9df",
+  "structure_digest": "232cdd1e2c2d5902",
+  "per_claim_totals_recorded": [
+    "N_T",
+    "n_segments",
+    "const",
+    "sd"
+  ],
+  "overlap_restriction": "blocks with n_c == 0 are dropped — no control arm, no contrast",
+  "se_form": {
+    "built_here": "NO-TIES X-only form",
+    "used_at_run": "tie-corrected SE recomputed per (needle, world, delta) on that injected multiset"
+  },
+  "verification": "every claim's built treated count was asserted equal to the SEALED order's support; a claim that could not be rebuilt from X to its sealed number is a hard failure",
+  "bundle": {
+    "path": "t9_15m_engine_state.npz",
+    "size_gb": 1.65
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "runtime_min": 5.0
+}
