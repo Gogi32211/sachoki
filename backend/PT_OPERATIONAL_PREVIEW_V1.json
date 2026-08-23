@@ -83,5 +83,14 @@
     "digest": "55a51bf550822e7e"
   },
   "outcome_exposure": "NOT_EXPOSED — no outcome value is read",
-  "runtime_min": 0.1
+  "runtime_min": 0.1,
+  "evidentiary_status": {
+    "statement": "NON-EVIDENTIARY. Every row in this file was produced while the 1H source was on qualification HOLD.",
+    "not_forward_evidence": "a FORWARD_SOURCE_HOLD mark is not weak forward evidence — it is not forward evidence at all",
+    "no_promotion": "these rows can never be promoted or backfilled into the canonical forward record when the source later qualifies; the HOLD interval stays permanently outside it",
+    "why": "source qualification must be satisfied BEFORE signal and X are constructed. Allowing retroactive promotion would make the gate optional in practice, which is the same as having no gate.",
+    "governed_by": "572ef8136ca28279"
+  },
+  "amended_by": "additive evidentiary-status clarification; no row or computed value changed",
+  "amended_at": "2026-08-24 00:01 +04"
 }
