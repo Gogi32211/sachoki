@@ -32,7 +32,7 @@ detected are never selected.
 from __future__ import annotations
 import json, os, subprocess, sys, time                                  # noqa: E402
 HERE = os.path.dirname(os.path.abspath(__file__)); os.chdir(HERE); sys.path.insert(0, HERE)
-import pandas as pd                                                     # noqa: E402
+import pandas as pd, psutil                                             # noqa: E402
 import t5_artifact as ART                                               # noqa: E402
 import t15m_gates as G                                                  # noqa: E402
 import t9_sequence_estimand as E9                                       # noqa: E402
@@ -61,7 +61,24 @@ def main():
 
     # ── PROCESS ─────────────────────────────────────────────────────────────
     lstart, state, cmd = _ps(pid, "lstart="), _ps(pid, "state="), _ps(pid, "command=")
+    # OS-level start identity: the kernel's own microsecond start stamp. ps lstart is only
+    # second-resolution, so two processes could in principle share it; proc_pidinfo's
+    # pbi_start_tvsec/tvusec (what psutil.create_time reads on macOS, the equivalent of
+    # Linux /proc/<pid>/stat start ticks) closes PID reuse far more tightly.
+    osid = B.get("os_start_identity") or {}
+    try:
+        _p = psutil.Process(pid)
+        ct_now, ppid_now, pstatus = _p.create_time(), _p.ppid(), _p.status()
+    except Exception:
+        ct_now, ppid_now, pstatus = None, None, "GONE"
     proc = dict(
+        os_start_identity=dict(
+            expected=osid.get("create_time"), observed=repr(ct_now),
+            matches=(ct_now is not None
+                     and repr(ct_now) == osid.get("create_time")),
+            resolution="microsecond", ppid_at_launch=osid.get("ppid"), ppid_now=ppid_now,
+            psutil_status=pstatus,
+            source=osid.get("source")),
         pid=pid, alive=bool(state), state=state,
         start_time_now=lstart, start_time_at_launch=B["lstart"],
         start_time_matches=lstart == B["lstart"],
@@ -120,6 +137,7 @@ def main():
     checks = dict(
         process_alive_and_stopped=proc["alive"] and proc["still_stopped"],
         process_start_time_matches=proc["start_time_matches"],
+        os_start_identity_matches=proc["os_start_identity"]["matches"],
         process_command_matches=proc["command_matches"],
         outcome_digest_unchanged=outcome["matches"],
         ledger_single_outcome_vintage=ledger["all_rows_carry_expected_outcome_digest"],
@@ -131,6 +149,9 @@ def main():
     print(f"T9_15M_RESUME_IDENTITY [{occasion}] · pid {pid} · state {state or 'GONE'}")
     print(f"  start time  launch {B['lstart']} · now {lstart or '—'} · "
           f"{'MATCH' if proc['start_time_matches'] else 'MISMATCH'}")
+    _o = proc["os_start_identity"]
+    print(f"  kernel stamp {_o['expected']} vs {_o['observed']} · "
+          f"{'MATCH' if _o['matches'] else 'MISMATCH'} (microsecond)")
     print(f"  outcome     {expect_y} · {'MATCH' if outcome['matches'] else 'MISMATCH'}")
     print(f"  ledger      {ledger['rows']} rows · {ledger['completed_cells']} cell(s) "
           f"{ledger['checkpoint_key']} · dup {ledger['duplicate_needle_world_delta']}")

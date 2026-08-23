@@ -8,6 +8,16 @@
   "purpose": "the gate that must pass before SIGCONT",
   "pause_artifact": "703fc810dc60e15c",
   "process": {
+    "os_start_identity": {
+      "expected": "1787420209.883168",
+      "observed": "1787420209.883168",
+      "matches": true,
+      "resolution": "microsecond",
+      "ppid_at_launch": 1,
+      "ppid_now": 1,
+      "psutil_status": "stopped",
+      "source": "psutil.Process.create_time() — macOS proc_pidinfo pbi_start_tvsec/tvusec, the equivalent of Linux /proc/<pid>/stat start-time ticks"
+    },
     "pid": 94877,
     "alive": true,
     "state": "TN",
@@ -120,6 +130,7 @@
   "checks": {
     "process_alive_and_stopped": true,
     "process_start_time_matches": true,
+    "os_start_identity_matches": true,
     "process_command_matches": true,
     "outcome_digest_unchanged": true,
     "ledger_single_outcome_vintage": true,
@@ -134,6 +145,6 @@
     "T9 15M theta": "NOT COMPUTED",
     "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
   },
-  "sealed_at": "2026-08-23 08:23 +04",
+  "sealed_at": "2026-08-23 08:27 +04",
   "runtime_min": 0.0
 }
