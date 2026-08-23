@@ -1,0 +1,39 @@
+{
+  "spec_id": "T9_15M_CLUSTER_REPRESENTATIVES_V1",
+  "status": "POST_EXPOSURE_DESCRIPTIVE",
+  "family": "T9",
+  "promotion": "FROZEN / UNCHANGED — this artifact promotes nothing; the survivor set was sealed by the historical exposure and is not revisited",
+  "rule": "within each frozen J>=0.50 component, the member with the highest MEAN Jaccard to the other members (membership medoid); tie-break the frozen claim order",
+  "selection_is_x_only": "the representative WITHIN a component is chosen on membership geometry and claim order alone — never on Z, magnitude or support. Survivor selection already used Y once.",
+  "source": {
+    "survivor_structure": "997e1bb2119ac4e5",
+    "historical_exposed": "f8df59f6fbca3795",
+    "engine_state": "a9968dcbb4ef4197",
+    "claim_order": "a5ef183b520d8da6"
+  },
+  "survivors": 533,
+  "clusters": 260,
+  "representatives": 260,
+  "cluster_size": {
+    "largest": 34,
+    "singletons": 191,
+    "median": 1
+  },
+  "reproduction_gate": "the PT builder rebuilds each representative's membership from the sealed engine bundle and requires exactly the support below; a mismatch refuses the build rather than warning",
+  "support": {
+    "min": 317,
+    "median": 2552,
+    "max": 48750
+  },
+  "by_position_family": {
+    "M1→M2": 166,
+    "M2→M3": 66,
+    "M3→M4": 28
+  },
+  "artifact": {
+    "path": "t9_15m_cluster_representatives.parquet",
+    "digest": "44d7acfee8385ef8"
+  },
+  "outcome_exposure": "NOT_EXPOSED — membership, claim order and component structure only",
+  "sealed_at": "2026-08-23 20:48 +04"
+}

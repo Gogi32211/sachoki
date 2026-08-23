@@ -82,6 +82,30 @@ def build_family(fam: str) -> pd.DataFrame:
         for e in s:
             hits.setdefault(e, []).append(key)
     ph = PF.phases(fam)
+
+    # ── 15m phase, when the family has one ────────────────────────────────
+    # Same reconstruction T5 uses: the sealed engine bundle segments, gated on the sealed
+    # support. A mismatch refuses the build; it does not warn and continue.
+    m15_hits = {}
+    if ph["M15"]:
+        REP = pd.read_parquet(os.path.join(
+            DATA, f"{fam.lower()}_15m_cluster_representatives.parquet"))
+        z = np.load(os.path.join(DATA, f"{fam.lower()}_15m_engine_state.npz"))
+        eidx, seg_ptr, csp = z["eidx"], z["seg_ptr"], z["claim_seg_ptr"]
+        P15 = pd.read_parquet(os.path.join(
+            DATA, f"{fam.lower()}_15m_population.parquet"))
+        P15 = P15.sort_values(["block", "episode_id"], kind="stable").reset_index(drop=True)
+        ids15 = P15.episode_id.to_numpy()
+        for r in REP.itertuples():
+            a, b = csp[r.j], csp[r.j + 1]
+            s15 = set(ids15[eidx[seg_ptr[a]:seg_ptr[b]]])
+            if len(s15) != int(r.support):
+                raise PTGateFailure(
+                    f"{fam}: 15m membership does not reproduce the sealed representative "
+                    f"membership: cluster {int(r.cluster)} has {len(s15)}, sealed "
+                    f"{int(r.support)}")
+            for e in s15:
+                m15_hits.setdefault(e, []).append(int(r.cluster))
     seal_date, src = forward_state(fam)
 
     rows = []
@@ -89,8 +113,13 @@ def build_family(fam: str) -> pd.DataFrame:
         e = r.episode_id
         fams = sorted(hits.get(e, []))
         h1_any = bool(fams)
+        cl15 = sorted(m15_hits.get(e, []))
+        m15_any = bool(cl15)
         date = str(getattr(r, dcol))[:10]
-        klass = f"PT{fam[1:]}_1H" if h1_any else f"PT{fam[1:]}_BASE"
+        n = fam[1:]
+        klass = (f"PT{n}_STRONG" if h1_any and m15_any else
+                 f"PT{n}_15M" if m15_any else
+                 f"PT{n}_1H" if h1_any else f"PT{n}_BASE")
         if seal_date is None or date <= seal_date:
             prov = HISTORICAL
         elif src != "QUALIFIED":
@@ -105,16 +134,27 @@ def build_family(fam: str) -> pd.DataFrame:
             h1_medoids=",".join(meds[f].split("|")[2] for f in fams),
             h1_keys=",".join(fams),
             m15_state="UNAVAILABLE" if not ph["M15"] else
-                      ("AVAILABLE_TRUE" if False else "AVAILABLE_FALSE"),
-            m15_match_count=0,
-            strong_state="UNAVAILABLE" if not ph["STRONG"] else "AVAILABLE_FALSE"))
+                      ("AVAILABLE_TRUE" if m15_any else "AVAILABLE_FALSE"),
+            m15_match_count=len(cl15),
+            strong_state="UNAVAILABLE" if not ph["STRONG"] else
+                         ("AVAILABLE_TRUE" if h1_any and m15_any else "AVAILABLE_FALSE")))
     return pd.DataFrame(rows).sort_values(["ticker", "date"]).reset_index(drop=True)
 
 
 def translate_t5() -> pd.DataFrame:
-    """T5 is not recomputed — its sealed preview is mapped into the shared schema."""
+    """T5 is not recomputed — its sealed preview is mapped into the shared schema.
+
+    IDEMPOTENT BY NECESSITY. This reads pt5_signals.parquet and the builder WRITES to that
+    same path, so the first translation overwrote its own input and the second run crashed
+    on the legacy column names. Rather than leave a builder that only works once, the schema
+    is detected: a file already in the shared schema is passed through unchanged, and only a
+    legacy pt5_* file is translated. Re-running pt5_build.py restores the legacy form and
+    this still handles it.
+    """
     p = os.path.join(DATA, "pt5_signals.parquet")
     df = pd.read_parquet(p)
+    if "pt_class" in df.columns and "pt5_class" not in df.columns:
+        return df.sort_values(["ticker", "date"]).reset_index(drop=True)
     seal_date, src = forward_state("T5")
     out = pd.DataFrame(dict(
         family="T5", ticker=df.ticker, date=df.date.astype(str).str[:10],

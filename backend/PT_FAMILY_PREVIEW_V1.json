@@ -45,8 +45,10 @@
     "T9": {
       "rows": 243562,
       "classes": {
-        "PT9_1H": 9828,
-        "PT9_BASE": 233734
+        "PT9_15M": 122263,
+        "PT9_1H": 1068,
+        "PT9_BASE": 111471,
+        "PT9_STRONG": 8760
       },
       "provenance": {
         "HISTORICAL": 243562
@@ -54,13 +56,13 @@
       "phases": {
         "BASE": "AVAILABLE",
         "H1": "AVAILABLE",
-        "M15": "UNAVAILABLE",
-        "STRONG": "UNAVAILABLE"
+        "M15": "AVAILABLE",
+        "STRONG": "AVAILABLE"
       },
       "medoids": 4,
-      "membership_digest": "6bef8d6003fc0fac",
+      "membership_digest": "b56674cc96aeac9b",
       "parquet": "pt9_signals.parquet",
-      "parquet_digest": "14f4a736cf0b0ac8"
+      "parquet_digest": "f0d994c04adaef54"
     },
     "T3": {
       "rows": 213742,
@@ -105,5 +107,5 @@
   },
   "t5_treatment": "translated from the sealed pt5_signals.parquet, never recomputed",
   "outcome_exposure": "NOT_EXPOSED",
-  "built_at": "2026-08-22 17:27 +04"
+  "built_at": "2026-08-23 20:50 +04"
 }
