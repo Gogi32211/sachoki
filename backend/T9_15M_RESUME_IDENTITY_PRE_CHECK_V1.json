@@ -143,6 +143,9 @@
     "checkpoint_identity_reproduced": true,
     "frozen_digests_unchanged": true
   },
+  "authorized_sigcont": false,
+  "sigcont_issued_at": null,
+  "sigcont_semantics": "PRE_CHECK can never authorise a resume; authorized_sigcont is false here by construction",
   "on_pass": "SIGCONT -> same process -> same in-memory Y -> same RNG progression -> the resume skips exactly the checkpointed work",
   "outcome_exposure": "NOT_EXPOSED — file hashes and identity columns only; no detection value was selected from the ledger",
   "hard_state": {
@@ -150,6 +153,6 @@
     "T9 15M theta": "NOT COMPUTED",
     "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
   },
-  "sealed_at": "2026-08-23 08:30 +04",
+  "sealed_at": "2026-08-23 08:36 +04",
   "runtime_min": 0.0
 }

@@ -61,6 +61,12 @@ def main():
     # hours earlier can never be mistaken for the gate that actually authorised the resume.
     occasion = (sys.argv[1] if len(sys.argv) > 1 else "PRE_CHECK").upper()
     assert occasion in ("PRE_CHECK", "AT_RESUME"), occasion
+    # --issue-sigcont makes the gate and the action ONE transaction: the checks run, and
+    # only on PASS is SIGCONT actually sent, in the same invocation that seals the record.
+    # That is why the artifact can honestly carry both fields — an authorisation cannot
+    # drift away from the issuance it authorised.
+    issue = "--issue-sigcont" in sys.argv
+    assert not (issue and occasion != "AT_RESUME"), "SIGCONT may only be issued at AT_RESUME"
     B = json.load(open(BASELINE))
     PAUSE = json.load(open("T9_15M_EXECUTION_PAUSE_V1.json"))
     pid = B["pid"]
@@ -167,6 +173,17 @@ def main():
     for k, v in checks.items():
         print(f"    {'PASS' if v else 'FAIL'}  {k}")
 
+    authorized = bool(ok and occasion == "AT_RESUME")
+    sigcont_issued_at = None
+    if issue:
+        if not authorized:
+            raise SystemExit("identity gate did not pass — SIGCONT NOT issued")
+        os.kill(pid, __import__("signal").SIGCONT)
+        sigcont_issued_at = time.strftime("%Y-%m-%d %H:%M:%S %Z")
+        time.sleep(2)
+        print(f"  SIGCONT issued at {sigcont_issued_at} · state now "
+              f"{_ps(pid, 'state=') or 'GONE'}")
+
     d = ART.seal(dict(
         spec_id=f"T9_15M_RESUME_IDENTITY_{occasion}_V1",
         status="EXECUTION_CLOSURE", family="T9",
@@ -185,6 +202,16 @@ def main():
         code_provenance=dict(modules=code, binding=code_note,
                              baseline_captured_at=B["captured_at"]),
         checks=checks,
+        authorized_sigcont=authorized,
+        sigcont_issued_at=sigcont_issued_at,
+        sigcont_semantics=("PRE_CHECK can never authorise a resume; authorized_sigcont is "
+                           "false here by construction"
+                           if occasion == "PRE_CHECK" else
+                           "authorized_sigcont records that this contemporaneous gate "
+                           "passed; sigcont_issued_at records that the signal was ACTUALLY "
+                           "sent. A PASS with sigcont_issued_at = null means the resume was "
+                           "authorised but not performed by this invocation — the two must "
+                           "never be conflated in audit."),
         on_pass="SIGCONT -> same process -> same in-memory Y -> same RNG progression -> "
                 "the resume skips exactly the checkpointed work",
         outcome_exposure="NOT_EXPOSED — file hashes and identity columns only; no detection "
