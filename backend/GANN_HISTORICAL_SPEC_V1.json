@@ -1,0 +1,82 @@
+{
+  "spec_id": "GANN_HISTORICAL_SPEC_V1",
+  "status": "FROZEN_BEFORE_COMPUTE",
+  "family": "GANN",
+  "governing": {
+    "x_freeze": "c82591109bc45da0",
+    "estimand": "000aa1edce0ffc89",
+    "estimand_state": "435ad0db51c93ba5",
+    "outcome_spec": "af4b205e152c9d43",
+    "outcome_values": "dae6a9f1efa13b55",
+    "inference_amendment": "92067b36eb5626fd",
+    "phase_null": "965f59f097dde9a4",
+    "capability_result": "c7b0c4277d7e04bf",
+    "prey_closure": "447f76d4a805f114",
+    "rank_input_contract": "3509a4b8ee39eca2",
+    "theta_status": "5ee199b6916b82af",
+    "rank_code": "c9086f25703db35b",
+    "fast_twin": "d40a8cbd0b91c74c"
+  },
+  "k_actual": 3,
+  "claims": [
+    "GANN_ASC_TOUCH_V1",
+    "GANN_DESC_TOUCH_V1",
+    "GANN_CONFLUENCE_TOUCH_V1"
+  ],
+  "phi": 0,
+  "observed": "the frozen phi = 0 statistic on the real direction-neutral pair; LONG rows read MFE_LONG_10D and SHORT rows MFE_SHORT_10D, by the frozen X direction",
+  "gate_A": {
+    "name": "PRIMARY INFERENTIAL NULL — paired outcome permutation",
+    "unit": "the (LONG, SHORT) pair, permuted JOINTLY — one row, never two halves",
+    "blocks": [
+      "decision_date",
+      "pre_liquidity LOW/HIGH",
+      "pre_volatility LOW/HIGH"
+    ],
+    "direction_not_a_block": "direction is derived from X, so it is not a permutation dimension; it stays a block of the comparison",
+    "n_perm": 999,
+    "statistic": "maxZ_perm = max(Z_ASC, Z_DESC, Z_CONF) per permutation",
+    "promotion": "Z_obs(claim) > p95(maxZ_perm), STRICTLY greater — family-wise"
+  },
+  "gate_B": {
+    "name": "REGISTERED SHIFTED-LATTICE FAMILY-WISE PLACEBO REFERENCE",
+    "worlds": 999,
+    "mechanism": "one phi per ticker per world, shared by both families and every date",
+    "statistic": "maxZ_shift[w] = max(Z_ASC_shift, Z_DESC_shift, Z_CONF_shift)",
+    "threshold": "Z_phi0(claim) > p95(maxZ_shift), strictly",
+    "forbidden_wording": [
+      "exact phase-exchangeability p-value",
+      "randomization p-value",
+      "a second p-value",
+      "probability the Gann construction is false"
+    ],
+    "required_wording": "registered shifted-lattice placebo reference",
+    "not_a_retraction": "a gate-B failure does not retract gate A; gate B alone establishes nothing"
+  },
+  "theta": {
+    "status": "SKIPPED BY DESIGN",
+    "reason": "NO FROZEN ESTIMAND EXISTS — OFFICIALLY UNDEFINED — INTENTIONALLY NOT COMPUTED",
+    "governed_by": "5ee199b6916b82af"
+  },
+  "rng": {
+    "root": "827698b533703452",
+    "gate_A_namespace": "GANN_HISTORICAL_PERM_V1",
+    "gate_B_namespace": "GANN_HISTORICAL_PHASE_V1",
+    "rule": "derived from the sealed chain — never chosen"
+  },
+  "one_shot": {
+    "statement": "this exposure is ONE SHOT",
+    "forbidden": "seeing a result and then adjusting a tolerance, a block definition, a horizon or a claim and re-running",
+    "why": "such a re-run is not a corrected version of this test; it is a new search branch, and it cannot inherit this frozen inference"
+  },
+  "frozen_and_may_not_change": [
+    "X",
+    "the outcome definition",
+    "blocks",
+    "k = 3",
+    "permutation logic",
+    "the promotion rule"
+  ],
+  "y_status": "NO OUTCOME STATISTIC COMPUTED — this artifact freezes the rule",
+  "sealed_at": "2026-08-24 03:16 +04"
+}

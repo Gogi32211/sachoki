@@ -1,0 +1,45 @@
+{
+  "spec_id": "GANN_GATE_B_READING_RULE_V1",
+  "status": "FROZEN_BEFORE_GATE_B_RESULT",
+  "family": "GANN",
+  "purpose": "fix how gate B will be read BEFORE its number exists, so the reading cannot be fitted to whatever arrives",
+  "gate_A_state": {
+    "p95": 2.0932,
+    "ASC": "PASS",
+    "DESC": "PASS",
+    "CONF": "PASS",
+    "observed": {
+      "ASC": 18.0392,
+      "DESC": 21.2192,
+      "CONF": 21.4619
+    },
+    "answers": "do the frozen GANN claims beat a randomized paired-outcome null? Currently YES, by a very large margin.",
+    "does_not_answer": "whether the association is specific to the Gann lattice"
+  },
+  "competing_explanation": {
+    "observation": "ASC and DESC are opposite-direction claims and BOTH carry very large Z",
+    "plausible_alternative": "a lattice touch may simply occur in high-volatility / high-excursion locations, and directional MFE becomes large on either side. That would produce exactly this pattern without any geometric specificity.",
+    "which_gate_settles_it": "gate B, and only gate B"
+  },
+  "readings": {
+    "CASE 1 — observed >> shifted-lattice reference": "evidence compatible with Gann-specific spatial structure. Still HISTORICAL, and still says nothing about tradeability.",
+    "CASE 2 — observed ordinary within the shifted-lattice reference": "the gate-A effect is likely NOT Gann-specific; a volatility / excursion / location explanation remains sufficient.",
+    "CASE 3 — mixed (e.g. ASC special but DESC not, or CONF but not the singles)": "claim-level interpretation ONLY. No family-wide story is to be invented from a subset."
+  },
+  "prohibitions": [
+    "no post-hoc threshold on gate B — its registered role is a placebo/reference diagnostic and the result is read with the frozen semantics already specified",
+    "gate B is NOT an exact null and NOT a second p-value",
+    "a gate-B failure does not retract gate A",
+    "gate B alone establishes nothing",
+    "no family-wide narrative from a claim-level pattern"
+  ],
+  "wording_correction": {
+    "about": "gate A's p95 = 2.0932 against the capability's ~2.07-2.13 geometry",
+    "correct": "REASSURING CONSISTENCY — the two are different runs but use the same registered inference machinery",
+    "incorrect": "independent validation, or a new proof",
+    "why": "agreement between two applications of one machine is a sanity check on the machine, not corroborating evidence about the world"
+  },
+  "tradeability": "NOT ADDRESSED by any outcome of this exposure. Neither gate speaks to it.",
+  "outcome_exposure": "gate A exposed; gate B pending at seal time",
+  "sealed_at": "2026-08-24 03:45 +04"
+}
