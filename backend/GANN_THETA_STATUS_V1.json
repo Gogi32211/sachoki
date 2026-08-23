@@ -1,0 +1,61 @@
+{
+  "spec_id": "GANN_THETA_STATUS_V1",
+  "status": "FROZEN_BEFORE_HISTORICAL_EXPOSURE",
+  "family": "GANN",
+  "finding": "No theta / magnitude estimand was defined in GANN_ESTIMAND_V1 or GANN_OUTCOME_SPEC_V1. The word appears in this family's artifacts only inside hard-state lines reading 'GANN theta: NOT COMPUTED' — never as a definition.",
+  "audit": {
+    "GANN_ESTIMAND_V1": {
+      "digest": "000aa1edce0ffc89",
+      "statistic_keys": [
+        "module",
+        "code_digest",
+        "form",
+        "U_b",
+        "weights",
+        "variance",
+        "Z",
+        "eligibility",
+        "degenerate",
+        "binding"
+      ],
+      "defines_theta": false
+    },
+    "GANN_OUTCOME_SPEC_V1": {
+      "digest": "af4b205e152c9d43",
+      "components": [
+        "MFE_LONG_10D",
+        "MFE_SHORT_10D",
+        "MFE_ATR_LONG_10D (NOT MATERIALISED)",
+        "MFE_ATR_SHORT_10D (NOT MATERIALISED)"
+      ],
+      "post_exposure_descriptive": [
+        "MAE_LONG_10D",
+        "MAE_SHORT_10D",
+        "RET_LONG_10D",
+        "RET_SHORT_10D"
+      ],
+      "defines_theta": false
+    }
+  },
+  "decision": "theta = UNDEFINED_FOR_GANN_V1",
+  "consequence": "theta will NOT be computed for this historical exposure",
+  "reason": "No frozen theta existed before outcome exposure. No new magnitude estimand will be invented immediately before or after observing historical outcomes.",
+  "wording_required": {
+    "correct": [
+      "theta: NO FROZEN ESTIMAND EXISTS",
+      "theta: OFFICIALLY UNDEFINED",
+      "theta: INTENTIONALLY NOT COMPUTED"
+    ],
+    "insufficient": "'theta: NOT COMPUTED' on its own — a later reader could take it to mean the computation was simply forgotten",
+    "why": "the distinction between 'we did not define it' and 'we did not run it' is the whole provenance content of this artifact"
+  },
+  "promotion": "theta is NOT a promotion criterion, and was not one under any earlier version of this family's protocol",
+  "rejected_alternatives": {
+    "freeze_one_now": "technically possible since Y is unopened, but it would add an estimand to the design solely because its absence was noticed just before exposure. The capability protocol never tested theta recoverability, and the aggregation semantics would themselves need specifying.",
+    "principle": "if a frozen estimand does not exist, do not invent it merely because you discovered its absence on the way to exposure"
+  },
+  "future_work": "any later magnitude analysis requires a separately specified research/descriptive branch — GANN_MAGNITUDE_CHARACTERIZATION_POST_EXPOSURE_V1 — carrying POST-EXPOSURE / DESCRIPTIVE / NOT PRE-REGISTERED / NOT PROMOTION EVIDENCE. It cannot be retroactively treated as part of this frozen historical test. If magnitude is ever wanted inferentially, a new estimand is frozen and tested on a fresh evidence universe; pre-registered status is not restored to an outcome already observed.",
+  "sealed_before": "any GANN outcome statistic is computed",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-24 03:11 +04"
+}
