@@ -529,5 +529,14 @@
     "digest": "28f510a827b52996"
   },
   "runtime_min": 2.7,
-  "sealed_at": "2026-08-23 19:50 +04"
+  "sealed_at": "2026-08-23 19:50 +04",
+  "family_wise_maxT_p_value": {
+    "form": "(#{null max >= observed max} + 1) / (n_perm + 1)",
+    "n_null_ge_observed": 0,
+    "n_perm": 999,
+    "value": 0.001,
+    "basis": "observed max 12.8082 exceeds the largest of the 999 null worlds (5.4163), so the count is zero by inspection",
+    "note": "a consistency field, not a new test — promotion was and remains Z_obs > p95(max-null). It is also FLOOR-LIMITED: 0.001 is the smallest value 999 permutations can express, so it means 'no null world reached it', not 'the true p is 0.001'."
+  },
+  "amended_by": "additive consistency field; no value written by the run was changed"
 }
