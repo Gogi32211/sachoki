@@ -44,6 +44,28 @@ def main():
     distinct = len(set(dig.values())) == 4
     at = body["at_resume"]
     pre = body["pre_check"]
+
+    # POST-RESUME LEDGER. Rows beyond those present at AT_RESUME were written after the
+    # SIGCONT. They must carry the SAME outcome vintage, and (needle, world_id, delta_pp)
+    # must still be duplicate-free — a resume that re-ran a committed cell would show up
+    # here as a duplicate rather than being silently absorbed.
+    import pandas as pd
+    LED = os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "data",
+                       "t9_15m_capability_ledger.parquet")
+    L = pd.read_parquet(LED, columns=["needle", "world_id", "delta_pp",
+                                      "outcome_source_digest"])
+    at_resume_rows = at["ledger"]["rows"]
+    post = dict(
+        rows_at_at_resume=at_resume_rows,
+        rows_now=int(len(L)),
+        rows_written_after_sigcont=int(len(L) - at_resume_rows),
+        distinct_outcome_digests=sorted(set(L.outcome_source_digest)),
+        single_vintage=bool(set(L.outcome_source_digest)
+                            == {at["outcome"]["expected"]}),
+        duplicate_needle_world_delta=int(
+            len(L) - len(L.drop_duplicates(["needle", "world_id", "delta_pp"]))),
+        completed_cells_now=int(L.groupby(["needle", "world_id"]).ngroups),
+        detection_values_read="NO — identity columns only")
     checks = dict(
         four_links_present=True,
         all_digests_distinct=distinct,
@@ -58,6 +80,8 @@ def main():
             == body["result"]["integrity"]["outcome_source_digest"]),
         checkpoint_survived_pause=(
             at["ledger"]["checkpoint_identity_reproduced"] is True),
+        post_resume_single_outcome_vintage=post["single_vintage"],
+        post_resume_no_duplicates=post["duplicate_needle_world_delta"] == 0,
     )
     ok = all(checks.values())
 
@@ -88,6 +112,7 @@ def main():
             rule="a PASS is not an issuance. PRE_CHECK can never authorise a resume; only "
                  "the contemporaneous AT_RESUME gate can, and the signal is recorded as "
                  "sent only when it was actually sent."),
+        post_resume_ledger=post,
         execution_pause=body["pause"]["execution_pause"],
         code_provenance_binding=(
             "the result binds LAUNCH-TIME module digests, captured while the running process "
