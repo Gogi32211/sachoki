@@ -1,10 +1,15 @@
 {
-  "spec_id": "T9_15M_RESUME_IDENTITY_V1",
-  "status": "SPLIT_BY_OCCASION",
+  "spec_id": "T9_15M_RESUME_IDENTITY_PRE_CHECK_V1",
+  "status": "EXECUTION_CLOSURE",
   "family": "T9",
   "result": "PASS",
   "gate_occasion": "PRE_CHECK",
   "occasion_meaning": "dry run while still paused — NOT the gate that authorises SIGCONT",
+  "occasion_artifacts": {
+    "PRE_CHECK": "T9_15M_RESUME_IDENTITY_PRE_CHECK_V1.json",
+    "AT_RESUME": "T9_15M_RESUME_IDENTITY_AT_RESUME_V1.json"
+  },
+  "separation_rationale": "PRE_CHECK and AT_RESUME are separate artifacts so neither can supersede the other; a PASS taken hours earlier must never be readable as the authorisation for the resume",
   "purpose": "the gate that must pass before SIGCONT",
   "pause_artifact": "703fc810dc60e15c",
   "process": {
@@ -145,13 +150,6 @@
     "T9 15M theta": "NOT COMPUTED",
     "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
   },
-  "sealed_at": "2026-08-23 08:27 +04",
-  "runtime_min": 0.0,
-  "superseded_by": {
-    "PRE_CHECK": "T9_15M_RESUME_IDENTITY_PRE_CHECK_V1",
-    "AT_RESUME": "T9_15M_RESUME_IDENTITY_AT_RESUME_V1"
-  },
-  "why_split": "this single path would have let the AT_RESUME seal supersede the PRE_CHECK, so the history would read as one gate revised rather than two distinct events. A check run hours before the resume must never be readable as the authorisation for it. Content moved to occasion-specific artifacts; this file is retained only so the earlier PRE_CHECK seals (98505559299ada5d, a9c23a4aeb564c40) are not orphaned.",
-  "at_resume_status": "NOT YET PERFORMED — no SIGCONT has been issued",
-  "split_at": "2026-08-23 08:31 +04"
+  "sealed_at": "2026-08-23 08:30 +04",
+  "runtime_min": 0.0
 }

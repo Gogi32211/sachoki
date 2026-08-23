@@ -41,6 +41,12 @@ BASELINE = ("/private/tmp/claude-501/-Users-sachoki-Desktop-sachoki-desktop/"
             "4dae8c94-36b8-47ac-89bb-fc7415e08193/scratchpad/t9_launch_baseline.json")
 LEDGER = os.path.join(os.path.dirname(HERE), "data", "t9_15m_capability_ledger.parquet")
 IDENT_COLS = ["needle", "world_id", "delta_pp", "outcome_source_digest"]
+# SEPARATE artifacts per occasion, deliberately. One shared path would let the AT_RESUME
+# seal supersede the PRE_CHECK, and the history would then read as though a single gate had
+# simply been revised — leaving the impression that a check run hours earlier authorised the
+# resume. Two files, two events, neither overwriting the other.
+OUT_FOR = {"PRE_CHECK": "T9_15M_RESUME_IDENTITY_PRE_CHECK_V1.json",
+           "AT_RESUME": "T9_15M_RESUME_IDENTITY_AT_RESUME_V1.json"}
 
 
 def _ps(pid, fmt):
@@ -162,12 +168,17 @@ def main():
         print(f"    {'PASS' if v else 'FAIL'}  {k}")
 
     d = ART.seal(dict(
-        spec_id="T9_15M_RESUME_IDENTITY_V1", status="EXECUTION_CLOSURE", family="T9",
+        spec_id=f"T9_15M_RESUME_IDENTITY_{occasion}_V1",
+        status="EXECUTION_CLOSURE", family="T9",
         result="PASS" if ok else "FAIL",
         gate_occasion=occasion,
         occasion_meaning=("dry run while still paused — NOT the gate that authorises SIGCONT"
                           if occasion == "PRE_CHECK" else
                           "taken immediately before SIGCONT — this is the operative gate"),
+        occasion_artifacts=OUT_FOR,
+        separation_rationale="PRE_CHECK and AT_RESUME are separate artifacts so neither can "
+                             "supersede the other; a PASS taken hours earlier must never be "
+                             "readable as the authorisation for the resume",
         purpose="the gate that must pass before SIGCONT",
         pause_artifact=ART.file_digest("T9_15M_EXECUTION_PAUSE_V1.json"),
         process=proc, outcome=outcome, ledger=ledger, frozen_digests=frozen,
@@ -183,10 +194,10 @@ def main():
                     "T9 15M WINNERS/SURVIVORS": "UNKNOWN"},
         sealed_at=time.strftime("%Y-%m-%d %H:%M %Z"),
         runtime_min=round((time.time() - t0) / 60, 2)),
-        "T9_15M_RESUME_IDENTITY_V1.json",
+        OUT_FOR[occasion],
         required=("spec_id", "result", "process", "outcome", "ledger", "checks"),
-        supersede=os.path.exists("T9_15M_RESUME_IDENTITY_V1.json"))
-    print(f"\nT9_15M_RESUME_IDENTITY_V1 · {d} · {'PASS' if ok else 'FAIL'}")
+        supersede=os.path.exists(OUT_FOR[occasion]))
+    print(f"\n{os.path.basename(OUT_FOR[occasion])} · {d} · {'PASS' if ok else 'FAIL'}")
     if not ok:
         raise SystemExit(1)
 
