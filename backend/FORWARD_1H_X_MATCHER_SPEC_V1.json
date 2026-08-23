@@ -33,7 +33,8 @@
     "microstructure_ends": "2026-08-20",
     "first_post_boundary_episode": "2026-08-21",
     "consequence": "building X for a new episode requires reading the CURRENT mutable 1H store, which is the source under qualification HOLD",
-    "therefore": "until that source qualifies, this matcher can produce engineering previews only"
+    "therefore": "until that source qualifies, this matcher can produce engineering previews only",
+    "severity": "canonical source-qualified execution is TECHNICALLY IMPOSSIBLE with the existing 1H evidence source — not merely 'not started'. There is no qualified 1H data covering any post-boundary episode, so the QUALIFIED branch has nothing it could run on."
   },
   "source_gate_state": {
     "T9": {
@@ -55,5 +56,40 @@
   },
   "not_authorised": "this artifact freezes an architecture; it does not authorise building the matcher, materialising 1H microstructure for post-boundary episodes, or touching the 1H source",
   "outcome_exposure": "NOT_EXPOSED",
-  "sealed_at": "2026-08-24 00:01 +04"
+  "sealed_at": "2026-08-24 00:01 +04",
+  "namespace_separation": {
+    "rule": "preview and canonical results MUST NOT differ only by an evidence_state column",
+    "why": "a column is a convention; a path is a constraint. If the two live in one table, the only thing preventing a preview row from being read as canonical is that every future reader remembers to filter — and one query that forgets is enough.",
+    "layout": {
+      "preview/": "PT_OPERATIONAL_PREVIEW_V1",
+      "canonical_forward/": "FORWARD_1H_X_MATCHES"
+    },
+    "hard_constraint": "the preview pipeline has NO write path into the canonical ledger — not a guarded one, not a flagged one. It must be structurally unable to write there.",
+    "status": "REQUIRED BEFORE IMPLEMENTATION"
+  },
+  "required_conformance_gate": {
+    "artifact": "FORWARD_1H_X_MATCHER_IMPLEMENTATION_CONFORMANCE_V1",
+    "when": "after implementation, before the matcher is trusted for anything",
+    "must_prove": {
+      "SOURCE=HOLD": [
+        "canonical X construction NOT CALLED",
+        "canonical match NOT WRITTEN",
+        "preview optional only"
+      ],
+      "SOURCE=QUALIFIED": [
+        "immutable snapshot created FIRST",
+        "X constructed ONLY from that snapshot",
+        "frozen predicate applied",
+        "canonical row written"
+      ]
+    },
+    "negative_fixture": {
+      "design": "a deliberate HOLD episode driven through the full matcher",
+      "assertion": "canonical output is EXACTLY 0 rows",
+      "why": "a guard that has only ever been exercised on the passing path is not a guard. The HOLD branch must be shown to produce nothing canonical, not merely believed to."
+    },
+    "status": "REQUIRED — the guard is not trusted until this gate passes"
+  },
+  "amended_by": "two guards added before implementation: physical namespace separation and a required post-implementation conformance gate",
+  "amended_at": "2026-08-24 00:05 +04"
 }
