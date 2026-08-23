@@ -1,0 +1,60 @@
+{
+  "spec_id": "GANN_CAPABILITY_EXECUTION_PAUSE_V2_ERRATUM_V1",
+  "status": "ERRATUM",
+  "family": "GANN",
+  "corrects": {
+    "artifact": "GANN_CAPABILITY_EXECUTION_PAUSE_V2",
+    "digest": "7333e99cb779ea80",
+    "field": "state_at_pause.progress_last_printed"
+  },
+  "recorded_value": "100 / 360",
+  "correct_value": "120 / 360",
+  "cause": "the value was written as a hardcoded literal in the sealing script instead of being read from the run log. It was already one print interval stale when sealed.",
+  "evidence": {
+    "method": "each progress line carries the runner's own elapsed minutes; added to the process create_time this reconstructs when the line was printed",
+    "process_t0": "Sat 22 19:32:24",
+    "progress_lines": [
+      {
+        "worlds": 20,
+        "elapsed_min": 43.0,
+        "printed_at": "Sat 22 20:15"
+      },
+      {
+        "worlds": 40,
+        "elapsed_min": 74.0,
+        "printed_at": "Sat 22 20:46"
+      },
+      {
+        "worlds": 60,
+        "elapsed_min": 109.0,
+        "printed_at": "Sat 22 21:21"
+      },
+      {
+        "worlds": 80,
+        "elapsed_min": 154.0,
+        "printed_at": "Sat 22 22:06"
+      },
+      {
+        "worlds": 100,
+        "elapsed_min": 897.0,
+        "printed_at": "Sun 23 10:29"
+      },
+      {
+        "worlds": 120,
+        "elapsed_min": 936.0,
+        "printed_at": "Sun 23 11:08"
+      }
+    ],
+    "pause_issued_at": "2026-08-23 11:15:33 +04",
+    "conclusion": "120/360 was printed at ~11:08 and the pause was issued at 11:15:33, so the last printed progress at the pause was 120, not 100"
+  },
+  "why_not_rewritten": "PAUSE_V2 is an immutable event record. Correcting it in place would change its digest and destroy the chronology the immutability exists to protect, so the correction is a separate event instead.",
+  "impact": {
+    "on_the_run": "NONE — no computation, seed, outcome or protocol is touched by a progress annotation",
+    "on_provenance": "the pause record now reads with this erratum beside it",
+    "reinforces": "a progress print is DIAGNOSTIC, not evidence. GANN has no ledger, so even the corrected 120 is only 'last printed' — the true in-memory count at the pause lies between 120 and 139, because progress prints every 20 worlds."
+  },
+  "true_inmemory_count_at_pause": "between 120 and 139 — not readable, and not guessed",
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-23 19:08 +04"
+}
