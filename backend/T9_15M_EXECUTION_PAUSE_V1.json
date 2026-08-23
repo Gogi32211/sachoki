@@ -1,0 +1,51 @@
+{
+  "spec_id": "T9_15M_EXECUTION_PAUSE_V1",
+  "status": "OPERATIONAL_RECORD",
+  "family": "T9",
+  "execution_pause": {
+    "method": "SIGSTOP/SIGCONT",
+    "reason": "resource isolation — the app and the GANN capability needed the machine",
+    "RNG_state_changed": "NO",
+    "outcome_vintage_changed": "NO",
+    "protocol_changed": "NO",
+    "completed_checkpoints_rewritten": "NO",
+    "process_restarted": "NO",
+    "reseeded": "NO"
+  },
+  "why_it_is_inert": "SIGSTOP suspends scheduling only. The process keeps its address space, so every Generator object, the loaded rank state and the already-read outcome vector are byte-identical on SIGCONT. Scheduling and memory bandwidth move runtime, never a value — the same reason thread count is engineering rather than protocol.",
+  "process": {
+    "pid": 94877,
+    "state_at_seal": "TN",
+    "state_legend": "T = stopped; TN = stopped, niced",
+    "suspended_at": "2026-08-23 08:08 +04"
+  },
+  "progress_at_pause": {
+    "ledger_exists": true,
+    "completed_needle_world_cells": 1,
+    "note": "checkpoints are written per (needle, world); a cell in flight when the pause began is simply finished on resume, from the same in-memory state"
+  },
+  "resume_identity_check": {
+    "required_before_continuing": [
+      "the outcome sidecar still hashes to outcome_source_digest below",
+      "the ledger, if any, carries only that same digest",
+      "the process is still alive and in state T/TN — a dead process may not be SIGCONTed and would have to be re-run from the ledger instead"
+    ],
+    "outcome_source": "t9_outcomes.parquet",
+    "outcome_source_digest": "2a32d7e1e81f5892",
+    "outcome_source_mtime": "2026-08-21 22:28 +04",
+    "why": "if anything rebuilt the outcome sidecar during the pause, the in-memory y is a different vintage from the file on disk and the run may not continue"
+  },
+  "sequencing": "GANN capability seals FIRST; then SIGCONT here, provided the identity check above still passes",
+  "governing": {
+    "capability_protocol": "542db7425ee3f27f",
+    "engine_state": "a9968dcbb4ef4197",
+    "world_identity": "f12ca2aaf770d829"
+  },
+  "hard_state": {
+    "T9 15M OBSERVED Z": "NOT COMPUTED",
+    "T9 15M theta": "NOT COMPUTED",
+    "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "NOT_EXPOSED — a file hash is recorded, never a value",
+  "sealed_at": "2026-08-23 08:08 +04"
+}
