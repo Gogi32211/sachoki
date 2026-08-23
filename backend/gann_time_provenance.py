@@ -36,6 +36,7 @@ RESULT = "GANN_CAPABILITY_RESULT_V1.json"
 # A hardcoded 708 would silently under-report the second one.
 PAUSE_V1_MIN = 708.0
 PAUSE_V2 = "GANN_CAPABILITY_EXECUTION_PAUSE_V2.json"
+AT_RESUME_V2 = "GANN_CAPABILITY_RESUME_IDENTITY_AT_RESUME_V2.json"
 
 
 def main():
@@ -51,12 +52,20 @@ def main():
     last_ts, n_workers, cpu_s = int(samples[-1][0]), int(samples[-1][1]), float(samples[-1][2])
     counts = sorted({int(r[1]) for r in samples})
     wall = float(d.get("runtime_hours", 0)) * 60.0 or float(d.get("runtime_min", 0))
+    # DERIVED from two immutable events, never stored inside either of them
     v2 = json.load(open(PAUSE_V2))
-    v2_min = v2["pause"].get("duration_min")
-    if v2_min is None:
-        raise SystemExit(f"{PAUSE_V2} has no duration_min — record the GANN resume before "
-                         "computing time provenance, or stopped_wall will under-report.")
-    stopped = PAUSE_V1_MIN + float(v2_min)
+    if not os.path.exists(AT_RESUME_V2):
+        raise SystemExit(f"{AT_RESUME_V2} does not exist — GANN has not been resumed, so the "
+                         "second pause has no end and stopped_wall cannot be computed.")
+    ar = json.load(open(AT_RESUME_V2))
+    if not ar.get("sigcont_issued_at"):
+        raise SystemExit("AT_RESUME_V2 records no sigcont_issued_at — the resume was "
+                         "authorised but not performed; stopped_wall is not yet defined.")
+    fmt = "%Y-%m-%d %H:%M:%S"
+    t0_ = time.mktime(time.strptime(v2["pause"]["suspended_at"].rsplit(" ", 1)[0], fmt))
+    t1_ = time.mktime(time.strptime(ar["sigcont_issued_at"].rsplit(" ", 1)[0], fmt))
+    v2_min = (t1_ - t0_) / 60.0
+    stopped = PAUSE_V1_MIN + v2_min
 
     stamp = (lambda t: time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(t))
              if t else None)
@@ -65,7 +74,10 @@ def main():
         stopped_wall_min=round(stopped, 1),
         stopped_wall_breakdown={
             "V1_accidental_cause_unestablished_min": PAUSE_V1_MIN,
-            "V2_deliberate_t9_first_min": round(float(v2_min), 1)},
+            "V2_deliberate_t9_first_min": round(float(v2_min), 1),
+            "V2_derivation": "PAUSE_V2.suspended_at -> AT_RESUME_V2.sigcont_issued_at; both "
+                             "artifacts immutable, duration derived and never stored in "
+                             "either"},
         active_wall_min=round(wall - stopped, 1),
         aggregate_worker_cpu_last_sample_min=round(cpu_s / 60.0, 1),
         sampling_interval_min=5,

@@ -1,6 +1,6 @@
 {
-  "spec_id": "GANN_CAPABILITY_RESUME_IDENTITY_V2",
-  "status": "SPLIT_BY_OCCASION",
+  "spec_id": "GANN_CAPABILITY_RESUME_IDENTITY_PRE_CHECK_V2",
+  "status": "EXECUTION_CLOSURE",
   "family": "GANN",
   "result": "PASS",
   "pause_artifact": "7333e99cb779ea80",
@@ -105,9 +105,16 @@
     "outcome_source_digest_unchanged": true,
     "rng_root_unchanged": true
   },
+  "gate_occasion": "PRE_CHECK",
+  "occasion_meaning": "dry run while still paused — cannot authorise SIGCONT",
+  "occasion_artifacts": {
+    "PRE_CHECK": "GANN_CAPABILITY_RESUME_IDENTITY_PRE_CHECK_V2.json",
+    "AT_RESUME": "GANN_CAPABILITY_RESUME_IDENTITY_AT_RESUME_V2.json"
+  },
   "authorized_sigcont": false,
   "sigcont_issued_at": null,
-  "pause_duration_min": null,
+  "pause_started_at": "2026-08-23 11:15:33 +04",
+  "pause_duration_derivation": "PAUSE_V2.suspended_at -> sigcont_issued_at here; the pause artifact is immutable and is never rewritten",
   "sigcont_semantics": "authorized_sigcont records that this gate passed AND the signal was sent in the same transaction; a PASS without an issuance timestamp means the resume was authorised but not performed",
   "checkpoint_continuity": {
     "checkable": false,
@@ -117,11 +124,5 @@
   "no_restart": true,
   "no_reseed": true,
   "outcome_exposure": "NOT_EXPOSED",
-  "sealed_at": "2026-08-23 11:21 +04",
-  "superseded_by": {
-    "PRE_CHECK": "GANN_CAPABILITY_RESUME_IDENTITY_PRE_CHECK_V2",
-    "AT_RESUME": "GANN_CAPABILITY_RESUME_IDENTITY_AT_RESUME_V2"
-  },
-  "why_split": "this single path would have let the actual resume seal supersede the dry run, so a PASS taken while GANN was merely paused could later read as the authorisation for its resume — the same trap already caught on T9. Retained only so the dry-run seal 2e15c57a70bafa65 is not orphaned.",
-  "at_resume_status": "NOT YET PERFORMED — no SIGCONT has been issued to GANN"
+  "sealed_at": "2026-08-23 12:20 +04"
 }

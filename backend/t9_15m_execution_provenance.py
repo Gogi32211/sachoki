@@ -54,8 +54,26 @@ def main():
                        "t9_15m_capability_ledger.parquet")
     L = pd.read_parquet(LED, columns=["needle", "world_id", "delta_pp",
                                       "outcome_source_digest"])
+    # FULL-CELL INTEGRITY, stronger than duplicate-free: a committed base world must appear
+    # with ALL SIX registered delta lanes or not at all. Duplicate == 0 alone would not
+    # catch a base world sitting in the ledger with four lanes.
+    REG_DELTAS = set(json.load(open("T9_15M_CAPABILITY_PROTOCOL_V1.json"))["delta_grid_pp"])
+    g = L.groupby(["needle", "world_id"])
+    cell_rows = g.size()
+    cell_deltas = g.delta_pp.nunique()
+    cell_sets_ok = all(set(sub.delta_pp) == REG_DELTAS for _, sub in g)
+    partial = int(((cell_rows != 6) | (cell_deltas != 6)).sum())
     at_resume_rows = at["ledger"]["rows"]
     post = dict(
+        cell_invariant=dict(
+            every_cell_row_count_6=bool((cell_rows == 6).all()),
+            every_cell_distinct_delta_6=bool((cell_deltas == 6).all()),
+            every_cell_delta_set_matches_registered=bool(cell_sets_ok),
+            registered_deltas=sorted(REG_DELTAS),
+            partial_committed_base_worlds=partial,
+            unique_key="(needle, world_id, delta_pp)",
+            duplicate_full_cells=int(len(cell_rows) - len(set(cell_rows.index))),
+            rule="a base world is in the ledger with all six lanes, or not at all"),
         rows_at_at_resume=at_resume_rows,
         rows_now=int(len(L)),
         rows_written_after_sigcont=int(len(L) - at_resume_rows),
@@ -82,6 +100,11 @@ def main():
             at["ledger"]["checkpoint_identity_reproduced"] is True),
         post_resume_single_outcome_vintage=post["single_vintage"],
         post_resume_no_duplicates=post["duplicate_needle_world_delta"] == 0,
+        every_cell_has_six_lanes=post["cell_invariant"]["every_cell_row_count_6"],
+        every_cell_delta_set_registered=post["cell_invariant"][
+            "every_cell_delta_set_matches_registered"],
+        no_partial_committed_base_worlds=post["cell_invariant"][
+            "partial_committed_base_worlds"] == 0,
     )
     ok = all(checks.values())
 
