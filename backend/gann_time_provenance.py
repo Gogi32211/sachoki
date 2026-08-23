@@ -30,7 +30,12 @@ SCRATCH = ("/private/tmp/claude-501/-Users-sachoki-Desktop-sachoki-desktop/"
            "4dae8c94-36b8-47ac-89bb-fc7415e08193/scratchpad")
 CPU_TSV = os.path.join(SCRATCH, "gann_worker_cpu.tsv")
 RESULT = "GANN_CAPABILITY_RESULT_V1.json"
-STOPPED_WALL_MIN = 708.0          # 22:06 -> 09:54, established by the interruption record
+# There are now TWO pauses, and stopped_wall is their SUM — not a single constant.
+#   V1  accidental, cause never established, 22:06 -> 09:54          708 min
+#   V2  deliberate, user-directed: T9 runs to completion first       measured at resume
+# A hardcoded 708 would silently under-report the second one.
+PAUSE_V1_MIN = 708.0
+PAUSE_V2 = "GANN_CAPABILITY_EXECUTION_PAUSE_V2.json"
 
 
 def main():
@@ -46,13 +51,22 @@ def main():
     last_ts, n_workers, cpu_s = int(samples[-1][0]), int(samples[-1][1]), float(samples[-1][2])
     counts = sorted({int(r[1]) for r in samples})
     wall = float(d.get("runtime_hours", 0)) * 60.0 or float(d.get("runtime_min", 0))
+    v2 = json.load(open(PAUSE_V2))
+    v2_min = v2["pause"].get("duration_min")
+    if v2_min is None:
+        raise SystemExit(f"{PAUSE_V2} has no duration_min — record the GANN resume before "
+                         "computing time provenance, or stopped_wall will under-report.")
+    stopped = PAUSE_V1_MIN + float(v2_min)
 
     stamp = (lambda t: time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(t))
              if t else None)
     d["time_provenance"] = dict(
         wall_elapsed_min=round(wall, 1),
-        stopped_wall_min=STOPPED_WALL_MIN,
-        active_wall_min=round(wall - STOPPED_WALL_MIN, 1),
+        stopped_wall_min=round(stopped, 1),
+        stopped_wall_breakdown={
+            "V1_accidental_cause_unestablished_min": PAUSE_V1_MIN,
+            "V2_deliberate_t9_first_min": round(float(v2_min), 1)},
+        active_wall_min=round(wall - stopped, 1),
         aggregate_worker_cpu_last_sample_min=round(cpu_s / 60.0, 1),
         sampling_interval_min=5,
         n_pool_workers=n_workers,
@@ -73,8 +87,9 @@ def main():
         worker_filter="cmdline contains 'spawn_main' — exact: it matches the 9 pool workers "
                       "and NOT multiprocessing's resource_tracker, the sampler script, or "
                       "any other child. Verified against the live pool before arming.",
-        stopped_wall_source=ART.file_digest(
-            "GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1.json"),
+        stopped_wall_sources=[
+            ART.file_digest("GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1.json"),
+            ART.file_digest(PAUSE_V2)],
         four_concepts_are_separate="wall_elapsed, stopped_wall, active_wall and "
                                    "aggregate_worker_cpu_last_sample are distinct and none "
                                    "is derived into runtime_min")

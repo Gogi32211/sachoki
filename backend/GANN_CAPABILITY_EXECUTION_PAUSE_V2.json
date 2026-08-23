@@ -1,0 +1,70 @@
+{
+  "spec_id": "GANN_CAPABILITY_EXECUTION_PAUSE_V2",
+  "status": "OPERATIONAL_RECORD",
+  "family": "GANN",
+  "pause": {
+    "method": "SIGSTOP/SIGCONT",
+    "reason": "DELIBERATE, user-directed sequencing change — T9 15m capability runs to completion first, then GANN resumes",
+    "directed_by": "user",
+    "suspended_at": "2026-08-23 11:15:33 +04",
+    "RNG_state_changed": "NO",
+    "outcome_vintage_changed": "NO",
+    "protocol_changed": "NO",
+    "process_restarted": "NO",
+    "reseeded": "NO",
+    "results_discarded": "NO"
+  },
+  "distinct_from": "GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1 — that one was accidental and its cause was never established; this one is deliberate and instructed",
+  "state_at_pause": {
+    "parent_pid": 89110,
+    "parent_create_time": "1787412744.231972",
+    "n_pool_workers": 9,
+    "worker_pids": [
+      89136,
+      89137,
+      89138,
+      89139,
+      89140,
+      89141,
+      89142,
+      89143,
+      89144
+    ],
+    "worker_create_times": [
+      "1787412786.530851",
+      "1787412786.532951",
+      "1787412786.534836",
+      "1787412786.536685",
+      "1787412786.538216",
+      "1787412786.539667",
+      "1787412786.541536",
+      "1787412786.543822",
+      "1787412786.546186"
+    ],
+    "progress_last_printed": "100 / 360",
+    "aggregate_worker_cpu_last_sample_min": 1641.5
+  },
+  "resume_identity_check": {
+    "required": [
+      "parent 89110 alive, state T/TN, create_time unchanged",
+      "all 9 worker pids and create_times unchanged",
+      "gann_outcomes.parquet digest unchanged",
+      "read-at-launch code/data digests unchanged"
+    ],
+    "outcome_source_digest": "3d9b8dff6c641c69"
+  },
+  "standing_risk": {
+    "GANN_CAPABILITY_CHECKPOINTING": "MISSING",
+    "exposure": "nothing is checkpointed, so losing the parent during this pause loses all completed worlds",
+    "recompute_cost_if_lost_hours": 3.6,
+    "note": "this pause EXTENDS that exposure window by roughly the length of the T9 run"
+  },
+  "hard_state": {
+    "GANN OBSERVED phi=0 Z": "NOT COMPUTED",
+    "GANN GATE B": "NOT EVALUATED",
+    "GANN theta": "NOT COMPUTED",
+    "GANN WINNERS / SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-23 11:15 +04"
+}
