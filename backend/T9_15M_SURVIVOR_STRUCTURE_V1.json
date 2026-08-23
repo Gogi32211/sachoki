@@ -719,5 +719,25 @@
     "path": "t9_15m_survivor_structure.parquet",
     "digest": "f161c8db375b5ce9"
   },
-  "runtime_min": 0.1
+  "runtime_min": 0.1,
+  "interpretation_limits": {
+    "graph_distinct_is_not_independent": {
+      "correct": "M1:L3 survivors 59 · distinct overlap components 42 · distinct medoids 42 — RECURRENT ACROSS 42 GRAPH-DISTINCT STRUCTURES",
+      "incorrect": "42 statistically independent discoveries",
+      "why": "components are separated only by the absence of a J >= 0.50 membership edge. Two components can still be correlated through shared episodes, tickers or dates; the graph prices membership overlap, not statistical dependence."
+    },
+    "position_family_enrichment": {
+      "correct": "M1->M2 has materially higher POST-EXPOSURE SURVIVOR INCIDENCE (2.98% vs 0.98% and 0.47%, roughly 3x and 6x); supply imbalance is not the explanation, since the eligible populations are near-equal (11,839 / 12,505 / 12,332)",
+      "incorrect": "a position-specific mechanism",
+      "why": "claim dependence and support composition differ across position families and could contribute to the incidence gap; the denominators rule out one explanation, not every explanation."
+    },
+    "m1_l3_lift": {
+      "figure": "70.24% vs 1.30%, lift ~54x",
+      "status": "POST-EXPOSURE DESCRIPTIVE CHARACTERIZATION",
+      "not_a": "confirmatory p-value, or any new promotion test",
+      "why": "the survivor set it describes was itself selected on Y; an incidence ratio computed inside that set cannot be read as fresh evidence."
+    }
+  },
+  "amended_by": "additive interpretation limits; no computed value was changed",
+  "amended_at": "2026-08-23 20:12 +04"
 }
