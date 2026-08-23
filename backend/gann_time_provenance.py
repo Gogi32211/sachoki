@@ -73,8 +73,12 @@ def main():
         wall_elapsed_min=round(wall, 1),
         stopped_wall_min=round(stopped, 1),
         stopped_wall_breakdown={
-            "V1_accidental_cause_unestablished_min": PAUSE_V1_MIN,
-            "V2_deliberate_t9_first_min": round(float(v2_min), 1),
+            "unexpected_interruption_wall_min": PAUSE_V1_MIN,
+            "deliberate_pause_v2_wall_min": round(float(v2_min), 1),
+            "stopped_wall_total_min": round(stopped, 1),
+            "components_kept": "the total is correct either way, but an audit still needs to "
+                               "see WHY the process stood still — one cause was never "
+                               "established, the other was instructed",
             "V2_derivation": "PAUSE_V2.suspended_at -> AT_RESUME_V2.sigcont_issued_at; both "
                              "artifacts immutable, duration derived and never stored in "
                              "either"},

@@ -84,8 +84,26 @@ def main():
             len(L) - len(L.drop_duplicates(["needle", "world_id", "delta_pp"]))),
         completed_cells_now=int(L.groupby(["needle", "world_id"]).ngroups),
         detection_values_read="NO — identity columns only")
+    # RESULT COMPLETENESS. 60/60 base worlds is NOT sufficient on its own: each must carry
+    # its six lanes, so 60 worlds MUST mean 360 rows. A result showing 60/60 with fewer than
+    # 360 rows is incomplete and may not stand as PASS.
+    res_int = body["result"].get("integrity", {})
+    expected_worlds = res_int.get("expected_worlds")
+    completed_worlds = res_int.get("completed_worlds")
+    expected_rows = res_int.get("expected_rows")
+    result_rows = res_int.get("rows")
+    completeness = dict(
+        expected_base_worlds=expected_worlds, completed_base_worlds=completed_worlds,
+        expected_cells=expected_rows, cells_present=result_rows,
+        ledger_cells_now=post["completed_cells_now"], ledger_rows_now=post["rows_now"],
+        rule="60/60 base worlds AND 360/360 cells. Worlds alone is not completeness — a "
+             "world missing lanes would still count as a world.")
     checks = dict(
         four_links_present=True,
+        all_base_worlds_complete=completed_worlds == expected_worlds == 60,
+        all_cells_complete=result_rows == expected_rows == 360,
+        ledger_agrees_with_result=(post["completed_cells_now"] == completed_worlds
+                                   and post["rows_now"] == result_rows),
         all_digests_distinct=distinct,
         pre_check_cannot_authorize=pre["authorized_sigcont"] is False,
         at_resume_authorized=at["authorized_sigcont"] is True,
@@ -135,6 +153,7 @@ def main():
             rule="a PASS is not an issuance. PRE_CHECK can never authorise a resume; only "
                  "the contemporaneous AT_RESUME gate can, and the signal is recorded as "
                  "sent only when it was actually sent."),
+        result_completeness=completeness,
         post_resume_ledger=post,
         execution_pause=body["pause"]["execution_pause"],
         code_provenance_binding=(
