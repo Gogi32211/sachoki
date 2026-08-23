@@ -1,0 +1,66 @@
+{
+  "spec_id": "GANN_GATE_B_CLASSIFICATION_V1",
+  "status": "FROZEN_BEFORE_RESULT",
+  "family": "GANN",
+  "gap_this_closes": "the reading rule said 'observed >> shifted reference' without defining >>. If a result of, say, the 96.8th percentile arrived, deciding then whether that is '>>' or 'ordinary' would leave the rule formally frozen and the classification post-hoc anyway.",
+  "gate_B_has_no_pass_fail": {
+    "rule": "gate B is assigned NO PASS/FAIL semantics",
+    "only": "a pre-defined DESCRIPTIVE PLACEMENT of the observed value within the registered shifted-lattice reference",
+    "narrows": "GANN_INFERENCE_AMENDMENT_V1 registered a gate-B threshold (Z_phi0 > p95(maxZ_shift)). This artifact does not change any computation — it narrows what may be CONCLUDED from it to descriptive placement.",
+    "runner_note": "gann_historical.py is already running and will write a gate_B.result PASS/FAIL field from that threshold. That field is a raw threshold comparison, NOT a verdict, and this classification does not endorse it as one."
+  },
+  "report_fields": [
+    "observed Z",
+    "shifted median",
+    "shifted p95",
+    "shifted p99",
+    "shifted max",
+    "observed percentile / rank among the 999 + observed"
+  ],
+  "classification": {
+    "CASE 1 — CLEARLY OUTSIDE REFERENCE": {
+      "condition": "observed > max(999 shifted worlds)",
+      "interpretation": "compatible with Gann-specific spatial structure",
+      "explicitly_not": [
+        "tradeability",
+        "an exact-null rejection",
+        "a p-value",
+        "'p < .001' — > max shifted means only that the observed geometry fell outside the whole range of 999 registered shifted lattices"
+      ],
+      "scope": "HISTORICAL only"
+    },
+    "CASE 2 — ORDINARY WITHIN REFERENCE": {
+      "condition": "observed <= shifted p95",
+      "interpretation": "shifted lattices readily reproduce the observed scale; a Gann-specific explanation is not needed"
+    },
+    "CASE 2B — TAIL / INDETERMINATE": {
+      "condition": "shifted p95 < observed <= shifted max",
+      "interpretation": "unusually high relative to the shifted reference, but not clearly outside the registered placebo family",
+      "conclusion": "NO Gann-specific conclusion"
+    },
+    "CASE 3 — MIXED ACROSS CLAIMS": {
+      "condition": "different claims land in different categories",
+      "interpretation": "claim-level reading ONLY; no family-wide story"
+    }
+  },
+  "p95_is_not_a_threshold": "p95 here is a descriptive reference-bin boundary, not a significance threshold",
+  "joint_reading": {
+    "gate_A": "the effect is incompatible with the registered paired-outcome null",
+    "gate_B": "tests whether that effect appears spatially specific to the registered Gann lattice versus shifted-lattice placebo geometry",
+    "legitimate_outcome": "Gate A very strong PASS with Gate B ordinary is a coherent result: a strong historical association exists, but the registered evidence does not support attributing it specifically to Gann geometry. That is a failure of the MECHANISM/SPECIFICITY claim, not of the inference engine."
+  },
+  "rank_recovery": {
+    "problem": "the running exposure persists only the max-Z null's digest and summary stats (median, min, max, p95) — not the 999-element vector, and not p99 or the observed rank",
+    "computable_now": [
+      "CASE 1 / 2 / 2B, all three decidable from max and p95 alone"
+    ],
+    "not_computable_now": [
+      "exact percentile / rank",
+      "p99"
+    ],
+    "remedy": "gate B is fully deterministic — every world seed is derived from the sealed chain. If the exact rank is wanted, gate B may be REPLAYED and the regenerated vector verified BIT-FOR-BIT against the sealed null_digest. A digest-matching replay recovers a diagnostic; it re-runs nothing and decides nothing.",
+    "forbidden": "using a replay as an opportunity to change any parameter"
+  },
+  "outcome_exposure": "gate A exposed; gate B pending at seal time",
+  "sealed_at": "2026-08-24 03:57 +04"
+}
