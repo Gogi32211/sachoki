@@ -1,0 +1,128 @@
+{
+  "spec_id": "GANN_CAPABILITY_RESUME_IDENTITY_AT_RESUME_V2",
+  "status": "EXECUTION_CLOSURE",
+  "family": "GANN",
+  "result": "PASS",
+  "pause_artifact": "7333e99cb779ea80",
+  "parent": {
+    "pid": 89110,
+    "create_time_at_pause": "1787412744.231972",
+    "create_time_now": "1787412744.231972",
+    "status": "stopped"
+  },
+  "workers": [
+    {
+      "pid": 89136,
+      "create_time_at_pause": "1787412786.530851",
+      "create_time_now": "1787412786.530851",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89137,
+      "create_time_at_pause": "1787412786.532951",
+      "create_time_now": "1787412786.532951",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89138,
+      "create_time_at_pause": "1787412786.534836",
+      "create_time_now": "1787412786.534836",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89139,
+      "create_time_at_pause": "1787412786.536685",
+      "create_time_now": "1787412786.536685",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89140,
+      "create_time_at_pause": "1787412786.538216",
+      "create_time_now": "1787412786.538216",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89141,
+      "create_time_at_pause": "1787412786.539667",
+      "create_time_now": "1787412786.539667",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89142,
+      "create_time_at_pause": "1787412786.541536",
+      "create_time_now": "1787412786.541536",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89143,
+      "create_time_at_pause": "1787412786.543822",
+      "create_time_now": "1787412786.543822",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    },
+    {
+      "pid": 89144,
+      "create_time_at_pause": "1787412786.546186",
+      "create_time_now": "1787412786.546186",
+      "identity_matches": true,
+      "status": "stopped",
+      "was_stopped": true
+    }
+  ],
+  "launch_time_inputs": {
+    "gann_capability_run.py": "46aa7e458f7d99af",
+    "gann_capability.py": "1b1824f062f85c8f",
+    "gann_rank.py": "c9086f25703db35b",
+    "gann_fast.py": "d40a8cbd0b91c74c",
+    "t5_artifact.py": "18c16e20d5f9a7aa",
+    "gann_outcomes.parquet": "3d9b8dff6c641c69",
+    "gann_estimand_state.parquet": "127d3c69c63eba8e"
+  },
+  "rng_root": "827698b533703452",
+  "checks": {
+    "parent_alive": true,
+    "parent_stopped_before_resume": true,
+    "parent_create_time_matches": true,
+    "nine_workers_accounted": true,
+    "all_worker_identities_match": true,
+    "all_workers_stopped_before_resume": true,
+    "launch_time_inputs_unchanged": true,
+    "outcome_source_digest_unchanged": true,
+    "rng_root_unchanged": true
+  },
+  "gate_occasion": "AT_RESUME",
+  "occasion_meaning": "contemporaneous gate, taken immediately before SIGCONT",
+  "occasion_artifacts": {
+    "PRE_CHECK": "GANN_CAPABILITY_RESUME_IDENTITY_PRE_CHECK_V2.json",
+    "AT_RESUME": "GANN_CAPABILITY_RESUME_IDENTITY_AT_RESUME_V2.json"
+  },
+  "authorized_sigcont": true,
+  "sigcont_issued_at": "2026-08-23 19:57:00 +04",
+  "pause_started_at": "2026-08-23 11:15:33 +04",
+  "pause_duration_derivation": "PAUSE_V2.suspended_at -> sigcont_issued_at here; the pause artifact is immutable and is never rewritten",
+  "sigcont_semantics": "authorized_sigcont records that this gate passed AND the signal was sent in the same transaction; a PASS without an issuance timestamp means the resume was authorised but not performed",
+  "checkpoint_continuity": {
+    "checkable": false,
+    "why": "GANN writes nothing until all 360 worlds finish, so there is no on-disk state to compare across the pause",
+    "not_claimed": "a PASS here says the PROCESSES are identical, not that any intermediate result was verified — there are none to verify"
+  },
+  "no_restart": true,
+  "no_reseed": true,
+  "outcome_exposure": "NOT_EXPOSED",
+  "sealed_at": "2026-08-23 19:57 +04"
+}
