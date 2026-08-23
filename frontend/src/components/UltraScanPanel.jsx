@@ -100,6 +100,20 @@ const SIG_GROUPS = [
   { key: 'pt5_m15_any',label: 'PT5·15', cls: 'text-cyan-300'    },
   { key: 'pt5_strong', label: 'PT5+',   cls: 'text-emerald-400' },
   { key: 'pt5_xr_volw_va', label: 'XR:VOL_W↔VA', cls: 'text-amber-300' },
+  // PT9 / PT3 / PT1 — the same ladder over each family's own frozen research. Only T5 has a
+  // 15m phase, so a PT9·15 chip would filter on UNAVAILABLE rather than false; those are
+  // deliberately not offered.
+  { key: 'pt9',        label: 'PT9',    cls: 'text-emerald-300' },
+  { key: 'pt9_h1_any', label: 'PT9·1H', cls: 'text-violet-300'  },
+  { key: 'pt3',        label: 'PT3',    cls: 'text-emerald-300' },
+  { key: 'pt3_h1_any', label: 'PT3·1H', cls: 'text-violet-300'  },
+  { key: 'pt1',        label: 'PT1',    cls: 'text-emerald-300' },
+  { key: 'pt1_h1_any', label: 'PT1·1H', cls: 'text-violet-300'  },
+  // ALL — the UNION across families, never a strength score. Two families marking the same
+  // bar are two separate research previews, not one stronger signal.
+  { key: 'pt_any',        label: 'PT·ALL',   cls: 'text-teal-300'    },
+  { key: 'pt_any_h1',     label: 'PT·ALL1H', cls: 'text-violet-300'  },
+  { key: 'pt_any_strong', label: 'PT·ALL+',  cls: 'text-emerald-400' },
   { divider: true },
   // ── F / G signals ─────────────────────────────────────────────────────
   { key: 'cd',  label: 'CD',  cls: 'text-lime-300'    },
@@ -1856,6 +1870,12 @@ export default function UltraScanPanel({ onSelectTicker }) {
     else if (r.pt5_m15_any && r.pt5) out.push('PT5·15')
     else if (r.pt5) out.push('PT5')
     if (r.pt5_xr_volw_va) out.push('XR:VOL_W↔VA')
+    // one badge per family that marked this bar — never merged into a single score
+    for (const [f, n] of [['PT9','pt9'], ['PT3','pt3'], ['PT1','pt1']]) {
+      if (r[n + '_strong']) out.push(f + '+')
+      else if (r[n + '_h1_any'] && r[n]) out.push(f + '·1H')
+      else if (r[n]) out.push(f)
+    }
     if (r.cd) out.push('CD')
     else if (r.ca) out.push('CA')
     else if (r.cw) out.push('CW')
@@ -2035,6 +2055,10 @@ export default function UltraScanPanel({ onSelectTicker }) {
       'um_2809','svs_2809','conso_2809',
       'pt5','pt5_class','pt5_h1_any','pt5_m15_any','pt5_strong',
       'pt5_h1_family','pt5_m15_clusters','pt5_m15_n','pt5_xr_volw_va',
+      'pt9','pt9_class','pt9_h1_any','pt9_strong','pt9_h1_family',
+      'pt3','pt3_class','pt3_h1_any','pt3_strong','pt3_h1_family',
+      'pt1','pt1_class','pt1_h1_any','pt1_strong','pt1_h1_family',
+      'pt_any','pt_any_h1','pt_any_m15','pt_any_strong','pt_families','pt_n_families',
       'ca','cd','cw','seq_bcont','any_f',
       'f1','f2','f3','f4','f5','f6','f7','f8','f9','f10','f11',
       // B

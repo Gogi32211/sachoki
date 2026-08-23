@@ -930,45 +930,89 @@ def _enrich_buy_flags(results: list) -> None:
         r["buy_flag"] = _flag + ("▲" if r["h4_rev_today"] and _flag else "")
 
 
-_PT5_CACHE: dict = {"mtime": None, "map": None}
+_PT5_CACHE: dict = {"mtime": None, "map": None, "cutoffs": None}
 _PT5_CUTOFF = "2026-08-20"
 
 
 def _enrich_pt5(results: list, include_post_cutoff: bool = False) -> None:
-    """PT5 · Preview T5 — HISTORICAL research preview over the frozen T5 research.
+    """PT · Preview families — HISTORICAL research previews over frozen T5/T9/T3/T1 research.
 
-    In-place, additive, and a research annotation only: PT5 fields are never injected into the
-    existing EDGE ranking. Rows dated after the official prospective cutoff (2026-08-20) get no
-    PT5 by default, so the live screener cannot quietly break human outcome blindness on
-    forward episodes; include_post_cutoff is OBSERVATIONAL MODE and changes nothing in the
-    machine forward-validation ledger."""
-    import os as _os
-    parq = _os.path.join(_os.path.dirname(_os.path.dirname(_os.path.dirname(
-        _os.path.abspath(__file__)))), "data", "pt5_signals.parquet")
+    In-place, additive, and a research annotation only: PT fields are never injected into the
+    existing EDGE ranking. Rows dated after a family's own prospective cutoff get no PT mark
+    by default, so the live screener cannot quietly break human outcome blindness on forward
+    episodes; include_post_cutoff is OBSERVATIONAL MODE and changes nothing in the machine
+    forward-validation ledger.
+
+    SCHEMA. This used to read the pre-unification pt5_* column names. When pt5_signals.parquet
+    was rebuilt in the shared PT schema the read started raising, and the caller's except
+    swallowed it — so every PT5 chip in the screener had been silently dead. It now reads the
+    shared schema for all four families and keeps the pt5_* keys the UI already binds to.
+
+    SEALED LAYER ONLY. pt_operational_preview rows are deliberately NOT included: the chart
+    shows them clearly labelled, but a screener CHIP is a filter, and filtering on
+    FORWARD_SOURCE_HOLD marks is how an operational preview turns into a trading rule.
+    """
+    import os as _os, json as _json
+    base = _os.path.dirname(_os.path.dirname(_os.path.dirname(_os.path.abspath(__file__))))
+    here = _os.path.join(base, "backend")
+    fams = [("T5", "5"), ("T9", "9"), ("T3", "3"), ("T1", "1")]
+    paths = {f: _os.path.join(base, "data", f"pt{n}_signals.parquet") for f, n in fams}
     try:
-        mt = _os.path.getmtime(parq)
+        mt = tuple(_os.path.getmtime(p) for p in paths.values())
     except OSError:
         return
     if _PT5_CACHE["mtime"] != mt:
-        P = pd.read_parquet(parq)
-        _PT5_CACHE["map"] = {(r.ticker, r.date): r for r in P.itertuples()}
+        maps, cutoffs = {}, {}
+        for f, n in fams:
+            P = pd.read_parquet(paths[f], columns=[
+                "ticker", "date", "pt_class", "h1_state", "m15_state", "h1_medoids",
+                "h1_match_count", "m15_match_count"])
+            maps[f] = {(r.ticker, r.date): r for r in P.itertuples()}
+            cut = _PT5_CUTOFF
+            fwd = _os.path.join(here, f"{f}_FORWARD_1H_V1.json")
+            if _os.path.exists(fwd):
+                try:
+                    cut = _json.load(open(fwd))["no_backfill"]["seal_date"] or cut
+                except Exception:
+                    pass
+            cutoffs[f] = cut
+        _PT5_CACHE["map"] = maps
+        _PT5_CACHE["cutoffs"] = cutoffs
         _PT5_CACHE["mtime"] = mt
-    m = _PT5_CACHE["map"]
+    maps, cutoffs = _PT5_CACHE["map"], _PT5_CACHE["cutoffs"]
+
     for r in results:
         d = str(r.get("date", ""))[:10]
-        hit = m.get((r.get("ticker"), d))
-        if hit is None or (not include_post_cutoff and d > _PT5_CUTOFF):
-            r["pt5"] = False
-            continue
-        r["pt5"] = True
-        r["pt5_class"] = hit.pt5_class
-        r["pt5_h1_any"] = bool(hit.pt5_h1_any)
-        r["pt5_m15_any"] = bool(hit.pt5_m15_any)
-        r["pt5_strong"] = hit.pt5_class == "PT5_STRONG"
-        r["pt5_h1_family"] = hit.pt5_h1_family
-        r["pt5_m15_clusters"] = hit.pt5_m15_cluster_ids
-        r["pt5_m15_n"] = int(hit.pt5_m15_match_count)
-        r["pt5_xr_volw_va"] = bool(hit.pt5_xr_volw_va)
+        tk = r.get("ticker")
+        any_base = any_h1 = any_m15 = any_strong = False
+        hit_fams = []
+        for f, n in fams:
+            hit = maps[f].get((tk, d))
+            if hit is None or (not include_post_cutoff and d > cutoffs[f]):
+                r[f"pt{n}"] = False
+                continue
+            h1 = hit.h1_state == "AVAILABLE_TRUE"
+            m15 = hit.m15_state == "AVAILABLE_TRUE"
+            strong = str(hit.pt_class).endswith("_STRONG")
+            r[f"pt{n}"] = True
+            r[f"pt{n}_class"] = hit.pt_class
+            r[f"pt{n}_h1_any"] = h1
+            r[f"pt{n}_m15_any"] = m15
+            r[f"pt{n}_strong"] = strong
+            r[f"pt{n}_h1_family"] = hit.h1_medoids
+            r[f"pt{n}_m15_n"] = int(hit.m15_match_count)
+            any_base = True
+            any_h1 |= h1; any_m15 |= m15; any_strong |= strong
+            hit_fams.append(f)
+        # ALL — the union across families. It is a union, never a strength score: two
+        # families marking the same bar are two separate research previews, not one
+        # stronger signal.
+        r["pt_any"] = any_base
+        r["pt_any_h1"] = any_h1
+        r["pt_any_m15"] = any_m15
+        r["pt_any_strong"] = any_strong
+        r["pt_families"] = ",".join(hit_fams)
+        r["pt_n_families"] = len(hit_fams)
 
 
 def _enrich_seq_patterns(results: list, lookback_n: int = 10) -> None:
