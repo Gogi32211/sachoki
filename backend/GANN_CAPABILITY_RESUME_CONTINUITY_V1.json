@@ -4,6 +4,49 @@
   "family": "GANN",
   "result": "PASS",
   "interruption_record": "d20a2d6386883b40",
+  "launch_time_inputs": {
+    "rule": "the result's evidentiary input provenance must bind what the process ACTUALLY READ AT LAUNCH — not the end-of-run working tree and not a metadata file amended afterwards",
+    "established_by": "each file's mtime precedes the process start stamp, so the digest on disk now IS the launch-time digest",
+    "outcome_source": {
+      "digest": "3d9b8dff6c641c69",
+      "predates_process_start": true
+    },
+    "estimand_state": {
+      "digest": "127d3c69c63eba8e",
+      "predates_process_start": true
+    },
+    "rank_implementation": {
+      "digest": "c9086f25703db35b",
+      "predates_process_start": true
+    },
+    "fast_twin": {
+      "digest": "d40a8cbd0b91c74c",
+      "predates_process_start": true
+    },
+    "capability_engine": {
+      "digest": "1b1824f062f85c8f",
+      "predates_process_start": true
+    },
+    "runner": {
+      "digest": "46aa7e458f7d99af",
+      "predates_process_start": true
+    },
+    "capability_protocol_at_launch": {
+      "digest": "1f36fdb0c97c739d",
+      "predates_process_start": true
+    },
+    "metadata_amended_after_launch": {
+      "file": "GANN_OUTCOME_VALUES_V1.json",
+      "why_harmless": "the capability reads the percentage-scale MFE pair from the PARQUET and never reads any ATR outcome; this JSON is a metadata/seal artifact the runner hashes at seal time"
+    }
+  },
+  "engineering_debt": {
+    "GANN_CAPABILITY_CHECKPOINTING": "MISSING",
+    "impact": "a parent crash loses the entire computation. Protocol and evidence are not corrupted — the run would simply have to start over.",
+    "scope": "recoverability and performance, NOT statistical validity",
+    "for_next_runner": "atomic checkpoint on base-world completion",
+    "not_changed_now": "no checkpoint code is added to the running GANN process"
+  },
   "process_identity": {
     "parent": {
       "pid": 89110,
@@ -16,55 +59,55 @@
         "pid": 89136,
         "create_time": "1787412786.530851",
         "status": "running",
-        "cpu_delta_45s": 32.22
+        "cpu_delta_45s": 33.73
       },
       {
         "pid": 89137,
         "create_time": "1787412786.532951",
         "status": "running",
-        "cpu_delta_45s": 31.91
+        "cpu_delta_45s": 33.7
       },
       {
         "pid": 89138,
         "create_time": "1787412786.534836",
         "status": "running",
-        "cpu_delta_45s": 31.85
+        "cpu_delta_45s": 33.71
       },
       {
         "pid": 89139,
         "create_time": "1787412786.536685",
         "status": "running",
-        "cpu_delta_45s": 32.15
+        "cpu_delta_45s": 34.07
       },
       {
         "pid": 89140,
         "create_time": "1787412786.538216",
         "status": "running",
-        "cpu_delta_45s": 31.85
+        "cpu_delta_45s": 33.82
       },
       {
         "pid": 89141,
         "create_time": "1787412786.539667",
         "status": "running",
-        "cpu_delta_45s": 32.23
+        "cpu_delta_45s": 33.55
       },
       {
         "pid": 89142,
         "create_time": "1787412786.541536",
         "status": "running",
-        "cpu_delta_45s": 32.16
+        "cpu_delta_45s": 33.5
       },
       {
         "pid": 89143,
         "create_time": "1787412786.543822",
         "status": "running",
-        "cpu_delta_45s": 32.43
+        "cpu_delta_45s": 33.6
       },
       {
         "pid": 89144,
         "create_time": "1787412786.546186",
         "status": "running",
-        "cpu_delta_45s": 32.17
+        "cpu_delta_45s": 33.76
       }
     ],
     "n_pool_workers": 9,
@@ -155,13 +198,15 @@
       "'previous 80 unchanged' cannot be verified against disk",
       "'no overwritten worlds' cannot be verified against disk"
     ],
-    "commit_semantics": "ATOMIC, in memory — a world enters the result list only when its worker RETURNS a complete _task result",
-    "partial_world_handling": "a world interrupted mid-computation was never appended and is recomputed by its worker from the same frozen seed; a partial world produces no value that could be merged",
-    "partial_world_never_treated_as_evidence": true,
-    "printed_counter_at_stop": 80,
-    "true_inmemory_count_at_stop": "between 80 and 99 — progress prints only every 20 worlds, so the exact number is not readable and is not guessed",
-    "progress_now": 100,
-    "progress_advanced_during_check": true,
+    "commit_semantics": "ATOMIC, in memory — a world enters the parent's completed-result collection ONLY after the full _task result returns",
+    "sigstop_semantics": "if SIGSTOP occurs during a world, the worker's in-memory computation is SUSPENDED and continues from the preserved execution state after SIGCONT. No restart and no recomputation occurred: the same worker continued the same computation.",
+    "worker_death_is_a_different_case": "a worker that DIED would have its task re-dispatched by the multiprocessing layer, and deterministic seed/retry semantics would have to be checked. That did not happen in this incident.",
+    "partial_world_never_committed_or_merged": true,
+    "last_printed_progress_before_interruption": "80 / 360",
+    "exact_completed_count_at_stop": "UNKNOWN — bounded by the implementation's progress behaviour (prints every 20 worlds). Not asserted as a number, and 'previous 80 unchanged = PASS' is NOT claimed, because there is nothing on disk against which it could be checked.",
+    "on_disk_intermediate_results": "NONE",
+    "in_memory_process_state": "PRESERVED by SIGSTOP/SIGCONT",
+    "post_resume_progress": "100 / 360",
     "standing_risk": "nothing is checkpointed, so the death of the parent would lose every completed world. The interruption did not create this risk, it made it visible."
   },
   "checks": {
@@ -176,6 +221,6 @@
   },
   "verdict": "same run, same process, same frozen inputs — the capability remains admissible and requires no restart",
   "outcome_exposure": "NOT_EXPOSED",
-  "sealed_at": "2026-08-23 10:34 +04",
+  "sealed_at": "2026-08-23 10:45 +04",
   "runtime_min": 0.76
 }

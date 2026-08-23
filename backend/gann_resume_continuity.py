@@ -21,9 +21,15 @@ WHAT THIS CANNOT PROVE, and says so instead of pretending:
     on disk — there is nothing on disk to check against.
 
     Commit semantics are nevertheless atomic, just in memory: a world enters the result list
-    only when its worker RETURNS a complete _task result. A world interrupted mid-computation
-    was never appended, and is simply recomputed by its worker from the same frozen seed. No
-    partial world can be merged, because a partial world produces no value to merge.
+    only when its worker RETURNS a complete _task result. No partial world can be merged,
+    because a partial world produces no value to merge.
+
+    WHAT SIGSTOP DID, precisely — an earlier draft of this file said an interrupted world was
+    "recomputed from the same frozen seed", and that is WRONG for this incident. SIGSTOP does
+    not kill a worker and nothing was recomputed. It freezes execution state; on SIGCONT the
+    SAME worker continued the SAME computation from the preserved state. A worker DEATH would
+    be a different case entirely — multiprocessing would re-dispatch the task, and deterministic
+    seed/retry semantics would then have to be checked. That did not happen here.
 
     The printed counter said 80/360. The true in-memory count at the stop lies between 80
     and 99, because progress prints only every 20 worlds. That range is stated rather than
@@ -137,18 +143,27 @@ def main():
         consequences=["'completed worlds before the stop' cannot be read from disk",
                       "'previous 80 unchanged' cannot be verified against disk",
                       "'no overwritten worlds' cannot be verified against disk"],
-        commit_semantics="ATOMIC, in memory — a world enters the result list only when its "
-                         "worker RETURNS a complete _task result",
-        partial_world_handling="a world interrupted mid-computation was never appended and "
-                               "is recomputed by its worker from the same frozen seed; a "
-                               "partial world produces no value that could be merged",
-        partial_world_never_treated_as_evidence=True,
-        printed_counter_at_stop=80,
-        true_inmemory_count_at_stop="between 80 and 99 — progress prints only every 20 "
-                                    "worlds, so the exact number is not readable and is not "
-                                    "guessed",
-        progress_now=p2, progress_advanced_during_check=bool(p2 is not None and p1 is not None
-                                                             and p2 >= p1),
+        commit_semantics="ATOMIC, in memory — a world enters the parent's completed-result "
+                         "collection ONLY after the full _task result returns",
+        sigstop_semantics=(
+            "if SIGSTOP occurs during a world, the worker's in-memory computation is "
+            "SUSPENDED and continues from the preserved execution state after SIGCONT. No "
+            "restart and no recomputation occurred: the same worker continued the same "
+            "computation."),
+        worker_death_is_a_different_case=(
+            "a worker that DIED would have its task re-dispatched by the multiprocessing "
+            "layer, and deterministic seed/retry semantics would have to be checked. That "
+            "did not happen in this incident."),
+        partial_world_never_committed_or_merged=True,
+        last_printed_progress_before_interruption="80 / 360",
+        exact_completed_count_at_stop="UNKNOWN — bounded by the implementation's progress "
+                                      "behaviour (prints every 20 worlds). Not asserted as "
+                                      "a number, and 'previous 80 unchanged = PASS' is NOT "
+                                      "claimed, because there is nothing on disk against "
+                                      "which it could be checked.",
+        on_disk_intermediate_results="NONE",
+        in_memory_process_state="PRESERVED by SIGSTOP/SIGCONT",
+        post_resume_progress=f"{p2} / 360",
         standing_risk="nothing is checkpointed, so the death of the parent would lose every "
                       "completed world. The interruption did not create this risk, it made "
                       "it visible.")
@@ -169,6 +184,34 @@ def main():
         family="GANN", result="PASS" if ok else "FAIL",
         interruption_record=ART.file_digest(
             "GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1.json"),
+        launch_time_inputs=dict(
+            rule="the result's evidentiary input provenance must bind what the process "
+                 "ACTUALLY READ AT LAUNCH — not the end-of-run working tree and not a "
+                 "metadata file amended afterwards",
+            established_by="each file's mtime precedes the process start stamp, so the "
+                           "digest on disk now IS the launch-time digest",
+            outcome_source=read_at_launch.get("gann_outcomes.parquet"),
+            estimand_state=read_at_launch.get("gann_estimand_state.parquet"),
+            rank_implementation=read_at_launch.get("gann_rank.py"),
+            fast_twin=read_at_launch.get("gann_fast.py"),
+            capability_engine=read_at_launch.get("gann_capability.py"),
+            runner=read_at_launch.get("gann_capability_run.py"),
+            capability_protocol_at_launch=dict(
+                digest=ART.file_digest("GANN_CAPABILITY_PROTOCOL_V1.json"),
+                predates_process_start=os.path.getmtime(
+                    "GANN_CAPABILITY_PROTOCOL_V1.json") < start),
+            metadata_amended_after_launch=dict(
+                file="GANN_OUTCOME_VALUES_V1.json",
+                why_harmless="the capability reads the percentage-scale MFE pair from the "
+                             "PARQUET and never reads any ATR outcome; this JSON is a "
+                             "metadata/seal artifact the runner hashes at seal time")),
+        engineering_debt=dict(
+            GANN_CAPABILITY_CHECKPOINTING="MISSING",
+            impact="a parent crash loses the entire computation. Protocol and evidence are "
+                   "not corrupted — the run would simply have to start over.",
+            scope="recoverability and performance, NOT statistical validity",
+            for_next_runner="atomic checkpoint on base-world completion",
+            not_changed_now="no checkpoint code is added to the running GANN process"),
         process_identity=proc, read_at_launch=read_at_launch,
         sealed_at_end=sealed_at_end,
         input_class_rationale="files the process READ must predate its start; files it only "
