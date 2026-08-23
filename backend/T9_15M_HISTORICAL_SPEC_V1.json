@@ -1,0 +1,83 @@
+{
+  "spec_id": "T9_15M_HISTORICAL_SPEC_V1",
+  "status": "FROZEN_BEFORE_COMPUTE",
+  "family": "T9",
+  "governing": {
+    "estimand": "6ceec7f0eb25a93c",
+    "claim_order": "a5ef183b520d8da6",
+    "engine_state": "a9968dcbb4ef4197",
+    "capability_protocol": "542db7425ee3f27f",
+    "capability_result": "b32447b6896bee05",
+    "eligibility_ruling": "862aff45f5c7278e",
+    "population_hash": "c2f3ed0cd22fb9df",
+    "claim_order_hash": "6674095165d26f2f"
+  },
+  "k": 36676,
+  "primary_outcome": "MFE_10D",
+  "secondary_outcome": {
+    "name": "MFE_ATR_10D",
+    "role": "registered secondary CHARACTERIZATION only; cannot alter promotion"
+  },
+  "statistic": "one-sided Z_rank = R_s / sqrt(V_s), bounded blockwise Mann-Whitney / AUC, analytically studentized",
+  "direction": "one-sided positive",
+  "multiplicity": "search-wide max Z_rank over all k claims, ONE permutation mapping applied to every claim",
+  "why_one_mapping": "the search-wide maximum prices the joint dependence between claims; independent per-claim permutations would destroy exactly the structure the maximum exists to account for",
+  "n_perm": 999,
+  "promotion": "Z_rank_obs > p95( max-null Z_rank ) from THIS run's own permutations, STRICTLY greater",
+  "band_note": "the capability's ~4.64 band is calibration and sanity only, never the cutoff — the cutoff comes from this run's own permutations",
+  "raw_theta": "NOT computed in this run. Magnitude only, never a promotion criterion.",
+  "se_treatment": "midranks and the tie-corrected SE are properties of each block's multiset; within-block permutation leaves every multiset untouched, so both are computed ONCE and the permutations re-index the rank vector",
+  "rng": {
+    "root": "9270f9e91d22dd76",
+    "namespace": "T15M_HISTORICAL_PERM_V1",
+    "rule": "SHA256 over the sealed chain (prespec, x_only, k_closure, ruling, claim_order) — derived, never chosen",
+    "per_permutation_key": "[T15M_HISTORICAL_PERM_V1, root, p]"
+  },
+  "capability_evidence": {
+    "detections": {
+      "q10": {
+        "+0.5": "1/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q50": {
+        "+0.5": "20/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q90": {
+        "+0.5": "20/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      }
+    },
+    "note": "the capability establishes that the design CAN detect a registered additive shift; it says nothing about whether one is present"
+  },
+  "frozen_and_may_not_change": [
+    "k",
+    "claim order",
+    "population",
+    "blocks",
+    "statistic",
+    "direction",
+    "n_perm",
+    "the promotion rule",
+    "the outcome definition"
+  ],
+  "forbidden": [
+    "choosing the threshold after seeing the observed statistic",
+    "using theta or any magnitude for promotion",
+    "reporting a survivor before the max-null is computed"
+  ],
+  "y_status": "NO OUTCOME STATISTIC COMPUTED — this artifact freezes the rule, it does not apply it",
+  "sealed_at": "2026-08-23 19:47 +04"
+}
