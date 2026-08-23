@@ -5,15 +5,19 @@ through the 11.8-hour execution interruption, so it is NOT active compute durati
 never be read as one. It is left exactly as the runner wrote it — its meaning is not
 rewritten after the fact — and the four honest fields are ADDED beside it:
 
-    wall_elapsed          the same clock the runner used
-    stopped_wall          time the run spent in state T/TN
-    active_wall           wall_elapsed - stopped_wall
-    aggregate_worker_cpu  summed across the 9 pool workers
+    wall_elapsed                          the same clock the runner used
+    stopped_wall                          time the run spent in state T/TN
+    active_wall                           wall_elapsed - stopped_wall
+    aggregate_worker_cpu_last_sample      summed across the 9 pool workers
 
-aggregate_worker_cpu comes from a sampler that ran WHILE the pool was alive: worker CPU time
-is unreadable once the pool tears down, and pool workers are never recycled here, so their
-cumulative CPU only grows and the last sample before teardown is the honest aggregate. It is
-labelled as a last-sample figure, not claimed as an exact total.
+The CPU figure is a LOWER BOUND, and is named so. It comes from a sampler that ran WHILE the
+pool was alive, because worker CPU is unreadable once the pool tears down. Pool workers are
+never recycled here, so cumulative CPU only grows — but up to 5 minutes can elapse between
+the last sample and teardown, so with 9 workers at most ~45 worker-minutes go unobserved.
+The lag is measured against a TEARDOWN marker rather than assumed.
+
+runtime_min is NEVER reassigned. `runtime_min := active_wall` would be a post-hoc semantic
+rewrite, so the runner's field is left untouched and carries a warning instead.
 
 No outcome value is read.
 """
@@ -37,34 +41,60 @@ def main():
         print("time provenance already recorded"); return
 
     rows = [l.split("\t") for l in open(CPU_TSV).read().strip().split("\n") if l]
-    n_workers, cpu_s = int(rows[-1][1]), float(rows[-1][2])
+    teardown = next((int(r[1]) for r in rows if r[0] == "TEARDOWN"), None)
+    samples = [r for r in rows if r[0] != "TEARDOWN"]
+    last_ts, n_workers, cpu_s = int(samples[-1][0]), int(samples[-1][1]), float(samples[-1][2])
+    counts = sorted({int(r[1]) for r in samples})
     wall = float(d.get("runtime_hours", 0)) * 60.0 or float(d.get("runtime_min", 0))
-    active = wall - STOPPED_WALL_MIN
 
+    stamp = (lambda t: time.strftime("%Y-%m-%d %H:%M:%S %Z", time.localtime(t))
+             if t else None)
     d["time_provenance"] = dict(
         wall_elapsed_min=round(wall, 1),
         stopped_wall_min=STOPPED_WALL_MIN,
-        active_wall_min=round(active, 1),
-        aggregate_worker_cpu_min=round(cpu_s / 60.0, 1),
+        active_wall_min=round(wall - STOPPED_WALL_MIN, 1),
+        aggregate_worker_cpu_last_sample_min=round(cpu_s / 60.0, 1),
+        sampling_interval_min=5,
         n_pool_workers=n_workers,
-        cpu_source="sampled every 5 min while the pool was alive; the last sample before "
-                   "teardown. Worker CPU is unreadable once the pool exits, and pool workers "
-                   "are never recycled here, so cumulative CPU only grows.",
-        cpu_caveat="a last-sample figure, not claimed as an exact total",
+        worker_counts_seen=counts,
+        last_sample_at=stamp(last_ts),
+        pool_teardown_at=stamp(teardown),
+        lag_to_teardown_min=(round((teardown - last_ts) / 60.0, 1)
+                             if teardown else None),
+        interpretation=(
+            "LOWER-BOUND observation of aggregate worker CPU consumption. NOT an exact "
+            "final CPU total. Maximum sampling lag is 5 minutes per worker, so with 9 "
+            "workers the unobserved remainder is at most ~45 worker-minutes, and only if "
+            "every worker computed through the entire final interval."),
+        max_unobserved_worker_min=45,
+        cpu_source="sampled while the pool was alive. Worker CPU is unreadable once the "
+                   "pool exits, and pool workers are never recycled here, so cumulative CPU "
+                   "only grows.",
+        worker_filter="cmdline contains 'spawn_main' — exact: it matches the 9 pool workers "
+                      "and NOT multiprocessing's resource_tracker, the sampler script, or "
+                      "any other child. Verified against the live pool before arming.",
         stopped_wall_source=ART.file_digest(
-            "GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1.json"))
+            "GANN_CAPABILITY_EXECUTION_INTERRUPTION_V1.json"),
+        four_concepts_are_separate="wall_elapsed, stopped_wall, active_wall and "
+                                   "aggregate_worker_cpu_last_sample are distinct and none "
+                                   "is derived into runtime_min")
     d["runtime_min_warning"] = (
         "runtime_min / runtime_hours as written by the runner INCLUDES the execution "
         "interruption and MUST NOT be interpreted as active compute duration. The field is "
-        "left exactly as the runner wrote it; use time_provenance instead.")
+        "left exactly as the runner wrote it — it is a legacy/raw execution field. It is "
+        "explicitly NOT reassigned: runtime_min := active_wall was NOT performed, because "
+        "that would be a post-hoc semantic rewrite. Use time_provenance instead.")
     d["amended_by"] = ("gann_time_provenance.py — additive only; no value written by the "
                        "runner was changed")
     dg = ART.seal(d, RESULT, required=("spec_id", "detections", "integrity", "hard_state"),
                   supersede=True)
     tp = d["time_provenance"]
     print(f"  wall {tp['wall_elapsed_min']:.0f}m · stopped {tp['stopped_wall_min']:.0f}m · "
-          f"active {tp['active_wall_min']:.0f}m · worker CPU "
-          f"{tp['aggregate_worker_cpu_min']:.0f}m over {tp['n_pool_workers']} workers")
+          f"active {tp['active_wall_min']:.0f}m")
+    print(f"  worker CPU (last sample, LOWER BOUND) "
+          f"{tp['aggregate_worker_cpu_last_sample_min']:.0f}m over "
+          f"{tp['n_pool_workers']} workers · lag to teardown "
+          f"{tp['lag_to_teardown_min']}m · counts seen {tp['worker_counts_seen']}")
     print(f"GANN_CAPABILITY_RESULT_V1 (time provenance added) · {dg}")
 
 
