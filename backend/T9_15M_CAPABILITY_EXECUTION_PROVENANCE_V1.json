@@ -1,0 +1,113 @@
+{
+  "spec_id": "T9_15M_CAPABILITY_EXECUTION_PROVENANCE_V1",
+  "status": "EXECUTION_PROVENANCE_CLOSURE",
+  "family": "T9",
+  "result": "PASS",
+  "role": "execution provenance linkage — NOT a methodological gate",
+  "binds": {
+    "pause": {
+      "artifact": "T9_15M_EXECUTION_PAUSE_V1.json",
+      "digest": "703fc810dc60e15c"
+    },
+    "pre_check": {
+      "artifact": "T9_15M_RESUME_IDENTITY_PRE_CHECK_V1.json",
+      "digest": "c5797576be16c2f1"
+    },
+    "at_resume": {
+      "artifact": "T9_15M_RESUME_IDENTITY_AT_RESUME_V1.json",
+      "digest": "c8d40574dca3c024"
+    },
+    "result": {
+      "artifact": "T9_15M_CAPABILITY_RESULT_V1.json",
+      "digest": "b32447b6896bee05"
+    }
+  },
+  "invariant": {
+    "statement": "PRE_CHECK, AT_RESUME, pause and result digests are all four distinct and immutable",
+    "all_distinct": true,
+    "distinct_count": 4,
+    "why_distinct": "a shared path would have let one supersede another, and the history would read as a single gate revised over time rather than four separate events",
+    "why_immutable": "the chain is evidence only if none of its links can be rewritten after the fact"
+  },
+  "authorization_vs_issuance": {
+    "authorized_sigcont": true,
+    "sigcont_issued_at": "2026-08-23 11:15:48 +04",
+    "pre_check_authorized_sigcont": false,
+    "rule": "a PASS is not an issuance. PRE_CHECK can never authorise a resume; only the contemporaneous AT_RESUME gate can, and the signal is recorded as sent only when it was actually sent."
+  },
+  "result_completeness": {
+    "expected_base_worlds": 60,
+    "completed_base_worlds": 60,
+    "expected_cells": 360,
+    "cells_present": 360,
+    "ledger_cells_now": 60,
+    "ledger_rows_now": 360,
+    "rule": "60/60 base worlds AND 360/360 cells. Worlds alone is not completeness — a world missing lanes would still count as a world."
+  },
+  "post_resume_ledger": {
+    "cell_invariant": {
+      "every_cell_row_count_6": true,
+      "every_cell_distinct_delta_6": true,
+      "every_cell_delta_set_matches_registered": true,
+      "registered_deltas": [
+        0.5,
+        1.0,
+        2.0,
+        3.0,
+        4.0,
+        5.0
+      ],
+      "partial_committed_base_worlds": 0,
+      "unique_key": "(needle, world_id, delta_pp)",
+      "duplicate_full_cells": 0,
+      "rule": "a base world is in the ledger with all six lanes, or not at all"
+    },
+    "rows_at_at_resume": 6,
+    "rows_now": 360,
+    "rows_written_after_sigcont": 354,
+    "distinct_outcome_digests": [
+      "2a32d7e1e81f5892"
+    ],
+    "single_vintage": true,
+    "duplicate_needle_world_delta": 0,
+    "completed_cells_now": 60,
+    "detection_values_read": "NO — identity columns only"
+  },
+  "execution_pause": {
+    "method": "SIGSTOP/SIGCONT",
+    "reason": "resource isolation — the app and the GANN capability needed the machine",
+    "RNG_state_changed": "NO",
+    "outcome_vintage_changed": "NO",
+    "protocol_changed": "NO",
+    "completed_checkpoints_rewritten": "NO",
+    "process_restarted": "NO",
+    "reseeded": "NO"
+  },
+  "code_provenance_binding": "the result binds LAUNCH-TIME module digests, captured while the running process was still their only reader — never the resume-time working tree",
+  "checks": {
+    "four_links_present": true,
+    "all_base_worlds_complete": true,
+    "all_cells_complete": true,
+    "ledger_agrees_with_result": true,
+    "all_digests_distinct": true,
+    "pre_check_cannot_authorize": true,
+    "at_resume_authorized": true,
+    "sigcont_actually_issued": true,
+    "at_resume_is_contemporaneous": true,
+    "result_after_resume": true,
+    "outcome_vintage_single": true,
+    "checkpoint_survived_pause": true,
+    "post_resume_single_outcome_vintage": true,
+    "post_resume_no_duplicates": true,
+    "every_cell_has_six_lanes": true,
+    "every_cell_delta_set_registered": true,
+    "no_partial_committed_base_worlds": true
+  },
+  "hard_state": {
+    "T9 15M OBSERVED Z": "NOT COMPUTED",
+    "T9 15M theta": "NOT COMPUTED",
+    "T9 15M WINNERS/SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "NOT_EXPOSED — this module reads digests and execution metadata; it selects no detection value",
+  "sealed_at": "2026-08-23 18:38 +04"
+}
