@@ -1,0 +1,52 @@
+{
+  "spec_id": "T3_15M_SURVIVOR_STRUCTURE_SPEC_V1",
+  "status": "FROZEN_BEFORE_COMPUTE",
+  "family": "T3",
+  "question": "how many DISTINCT structures are in the survivor set?",
+  "governing": {
+    "historical_exposed": "56659dd8c2d8c783",
+    "claim_order": "bdab79083935dae8",
+    "engine_state": "2163f992b791a9f1"
+  },
+  "overlap": {
+    "measure": "pairwise Jaccard on the overlap-restricted treated membership",
+    "edge_threshold": 0.5,
+    "near_alias_threshold": 0.9,
+    "components": "connected components of the J >= 0.50 graph",
+    "subset": "A is a strict subset of B iff |A & B| == |A| and |A| < |B|"
+  },
+  "medoid": {
+    "rule": "the member with the MAXIMUM MEAN JACCARD to the other members of its component",
+    "tie_break": "frozen claim order (sealed j), ascending",
+    "forbidden": "choosing the representative by Z, by magnitude, or by support — survivor selection already used Y once; a second selection inside the component would compound it",
+    "singletons": "a one-member component is its own medoid"
+  },
+  "outcome_free": {
+    "reads": [
+      "membership sets",
+      "frozen claim order",
+      "position family",
+      "support"
+    ],
+    "does_not_read": [
+      "MFE_10D",
+      "MFE_ATR",
+      "MAE",
+      "RET",
+      "theta",
+      "Z_obs"
+    ],
+    "why": "the survivor set is already a selection on Y; structure must not add a second one"
+  },
+  "denominators_required": [
+    "survivors per position family DIVIDED BY eligible claims per position family",
+    "P(survive | claim contains M1:L3) vs P(survive | it does not)"
+  ],
+  "interpretation_limits": [
+    "a survivor count is not a count of independent discoveries",
+    "position-family dominance is not established without its denominator",
+    "a motif appearing at the top of a Z-ordered table may be one correlated cluster rather than a repeated structure"
+  ],
+  "descriptive_only": "every incidence statistic here is POST-EXPOSURE DESCRIPTIVE CHARACTERIZATION, never a new promotion test",
+  "sealed_at": "2026-08-24 12:49 +04"
+}

@@ -1,0 +1,86 @@
+{
+  "spec_id": "T3_15M_HISTORICAL_SPEC_V1",
+  "status": "FROZEN_BEFORE_COMPUTE",
+  "family": "T3",
+  "governing": {
+    "estimand": "b1c0f5c19f23a99c",
+    "claim_order": "bdab79083935dae8",
+    "engine_state": "2163f992b791a9f1",
+    "capability_protocol": "0b644f591e495ab7",
+    "capability_result": "ef3bc20bbb54afc5",
+    "eligibility_ruling": "862aff45f5c7278e",
+    "population_hash": "f47673279fedfcaf",
+    "claim_order_hash": "ccdde8ecbcba3407"
+  },
+  "k": 35291,
+  "primary_outcome": "MFE_10D",
+  "secondary_outcome": {
+    "name": "MFE_ATR_10D",
+    "role": "registered secondary CHARACTERIZATION only; cannot alter promotion"
+  },
+  "statistic": "one-sided Z_rank = R_s / sqrt(V_s), bounded blockwise Mann-Whitney / AUC, analytically studentized",
+  "direction": "one-sided positive",
+  "multiplicity": "search-wide max Z_rank over all k claims, ONE permutation mapping applied to every claim",
+  "why_one_mapping": "the search-wide maximum prices the joint dependence between claims; independent per-claim permutations would destroy exactly the structure the maximum exists to account for",
+  "n_perm": 999,
+  "promotion": "Z_rank_obs > p95( max-null Z_rank ) from THIS run's own permutations, STRICTLY greater",
+  "band_note": "the capability's ~4.64 band is calibration and sanity only, never the cutoff — the cutoff comes from this run's own permutations",
+  "raw_theta": "theta = SUM_b w_b * median(y | treated in b) - SUM_b w_b * median(y | control in b)",
+  "theta_governed_by": "8449ecef9c973eba",
+  "theta_computed_in": "a separate sealed step AFTER the survivor set and its structure are frozen — never in the same pass that decides survivorship",
+  "mid_run_defect_rule": "if an implementation defect surfaces mid-run there is NO silent patch-and-continue. The run stops, the defect is recorded, and replay/restart admissibility is decided separately.",
+  "se_treatment": "midranks and the tie-corrected SE are properties of each block's multiset; within-block permutation leaves every multiset untouched, so both are computed ONCE and the permutations re-index the rank vector",
+  "rng": {
+    "root": "914aeee81abbc334",
+    "namespace": "T15M_HISTORICAL_PERM_V1",
+    "rule": "SHA256 over the sealed chain (prespec, x_only, k_closure, ruling, claim_order) — derived, never chosen",
+    "per_permutation_key": "[T15M_HISTORICAL_PERM_V1, root, p]"
+  },
+  "capability_evidence": {
+    "detections": {
+      "q10": {
+        "+0.5": "1/20",
+        "+1.0": "18/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q50": {
+        "+0.5": "19/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      },
+      "q90": {
+        "+0.5": "20/20",
+        "+1.0": "20/20",
+        "+2.0": "20/20",
+        "+3.0": "20/20",
+        "+4.0": "20/20",
+        "+5.0": "20/20"
+      }
+    },
+    "note": "the capability establishes that the design CAN detect a registered additive shift; it says nothing about whether one is present"
+  },
+  "frozen_and_may_not_change": [
+    "k",
+    "claim order",
+    "population",
+    "blocks",
+    "statistic",
+    "direction",
+    "n_perm",
+    "the promotion rule",
+    "the outcome definition"
+  ],
+  "forbidden": [
+    "choosing the threshold after seeing the observed statistic",
+    "using theta or any magnitude for promotion",
+    "reporting a survivor before the max-null is computed"
+  ],
+  "y_status": "NO OUTCOME STATISTIC COMPUTED — this artifact freezes the rule, it does not apply it",
+  "sealed_at": "2026-08-24 12:39 +04"
+}

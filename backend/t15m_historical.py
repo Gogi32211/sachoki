@@ -77,7 +77,19 @@ def seal_spec(fam):
                   "STRICTLY greater",
         band_note="the capability's ~4.64 band is calibration and sanity only, never the "
                   "cutoff — the cutoff comes from this run's own permutations",
-        raw_theta="NOT computed in this run. Magnitude only, never a promotion criterion.",
+        raw_theta=(json.load(open(f"{F}_15M_THETA_INHERITANCE_V1.json"))["theta_formula"]
+                   if os.path.exists(f"{F}_15M_THETA_INHERITANCE_V1.json")
+                   else "NOT computed in this run. Magnitude only, never a promotion "
+                        "criterion."),
+        theta_governed_by=(ART.file_digest(f"{F}_15M_THETA_INHERITANCE_V1.json")
+                           if os.path.exists(f"{F}_15M_THETA_INHERITANCE_V1.json")
+                           else None),
+        theta_computed_in="a separate sealed step AFTER the survivor set and its structure "
+                          "are frozen — never in the same pass that decides survivorship",
+        mid_run_defect_rule=(
+            "if an implementation defect surfaces mid-run there is NO silent patch-and-"
+            "continue. The run stops, the defect is recorded, and replay/restart "
+            "admissibility is decided separately."),
         se_treatment="midranks and the tie-corrected SE are properties of each block's "
                      "multiset; within-block permutation leaves every multiset untouched, so "
                      "both are computed ONCE and the permutations re-index the rank vector",

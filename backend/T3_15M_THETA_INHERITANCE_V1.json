@@ -80,5 +80,13 @@
     "direction_of_inference": "Z / registered inference -> survivor or rank; THEN selected set -> theta magnitude characterization. No arrow runs backwards — a large theta can never rescue a weak-Z claim."
   },
   "outcome_exposure": "NOT_EXPOSED — sealed before Y is opened",
-  "sealed_at": "2026-08-24 12:08 +04"
+  "sealed_at": "2026-08-24 12:08 +04",
+  "selected_theta_scope": {
+    "definition": "UNIQUE UNION( survivors , top_500_by_frozen_Z_rank )",
+    "duplicate_rule": "a claim appearing in BOTH sets is evaluated EXACTLY ONCE",
+    "not_concatenation": "'survivors + top500' does not mean concatenation with duplicates",
+    "implementation": "np.unique over the union of the two index sets, before any theta is computed",
+    "why_sealed_now": "this closes the last scope ambiguity BEFORE Y is opened, so it cannot be fitted to the result"
+  },
+  "amended_at": "2026-08-24 12:39 +04"
 }
