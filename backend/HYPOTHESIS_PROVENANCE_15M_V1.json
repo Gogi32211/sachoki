@@ -16,6 +16,13 @@
         "M1->M2 concentration 4.00% vs 1.62% / 0.84%",
         "M1:L3 65% vs ~2.00%, lift ~32x, 21 components"
       ]
+    },
+    "T1_15M": {
+      "artifact": "d1df0ef8b419596e",
+      "observations": [
+        "M1->M2 concentration 5.10% vs 2.85% / 2.48% — the FLATTEST gradient of the three",
+        "M1:L3 77.6% vs ~3.27%, lift ~23.7x, 42 components — highest conditional survival, lowest relative lift"
+      ]
     }
   },
   "status_of_these_observations": "POST-EXPOSURE DESCRIPTIVE · HYPOTHESIS-GENERATING",
@@ -32,5 +39,60 @@
     "why": "a hypothesis discovered in this history and then confirmed on this history is not confirmed; it is restated. Only a fresh evidence universe can test it."
   },
   "outcome_exposure": "NOT_EXPOSED — this artifact records provenance, not results",
-  "sealed_at": "2026-08-24 13:02 +04"
+  "sealed_at": "2026-08-24 13:02 +04",
+  "three_family_recurrence": {
+    "table": {
+      "T9": {
+        "M1_L3_survival": "70.2%",
+        "baseline_ex_L3": "~1.30%",
+        "lift": "~54x"
+      },
+      "T3": {
+        "M1_L3_survival": "65.0%",
+        "baseline_ex_L3": "~2.00%",
+        "lift": "~32x"
+      },
+      "T1": {
+        "M1_L3_survival": "77.6%",
+        "baseline_ex_L3": "~3.27%",
+        "lift": "~23.7x"
+      }
+    },
+    "correct_statement": "M1:L3 repeatedly appears as an unusually survivor-enriched morphology across three exposed 15m signal families",
+    "not_statement": [
+      "L3 is good",
+      "replication",
+      "independent confirmation"
+    ],
+    "why": "all three were seen on the SAME historical universe with related machinery, so the recurrence is compatibility — not replication and not independent confirmation"
+  },
+  "fresh_program_framing": {
+    "wrong_question": "can we find L3 again?",
+    "right_form": "PRE-REGISTERED HYPOTHESIS: among fresh / genuinely prospective episodes, does an M1->M2 transition with the PRE-SPECIFIED L3 state show a different registered future-outcome distribution than its PRE-SPECIFIED comparison population?",
+    "why": "there the hypothesis is known in advance, the search space is fixed by a different rule, and a historical discovery is not passed off as a new one"
+  },
+  "theta_asymmetry_across_families": {
+    "state": {
+      "T9": "CLOSED · NOT COMPUTED",
+      "T3": "COMPUTED",
+      "T1": "COMPUTED"
+    },
+    "rules": [
+      "T1 <-> T3 theta comparison MAY be descriptive",
+      "T9's theta must NOT be reconstructed or retrospectively computed merely to fill a table",
+      "structural comparisons across all three REMAIN available on the metrics already sealed"
+    ],
+    "why": "computing T9's theta now would be choosing a magnitude estimand after seeing two other families' magnitudes. The asymmetry is preserved deliberately."
+  },
+  "program_status": {
+    "T_family_15m": "CLOSED — T9, T3 and T1 historical exposure and structure complete",
+    "totals": {
+      "T9": "533 / 36,676 -> 260 components",
+      "T3": "744 / 35,291 -> 343 components",
+      "T1": "1,228 / 35,587 -> 543 components"
+    },
+    "no_further_value": "further cutting of T9/T3/T1 on this same history has no research value",
+    "where_value_lies": "carrying this exposed anatomy into a PRE-REGISTERED Massive 1m state-transition program that requires fresh / forward confirmation"
+  },
+  "amended_at": "2026-08-24 18:32 +04"
 }

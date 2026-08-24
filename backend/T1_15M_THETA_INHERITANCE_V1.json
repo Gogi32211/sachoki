@@ -98,5 +98,17 @@
     "claim_order": "e56ef6be7bfa54c7",
     "capability_result": "411fb7c1150141c2"
   },
-  "sealed_at": "2026-08-24 17:27 +04"
+  "sealed_at": "2026-08-24 17:27 +04",
+  "admissibility_reasoning_correction": {
+    "incorrect_reason": "declaring theta UNDEFINED for T1 while T3 carries it would make the two families non-comparable",
+    "why_that_is_wrong": "COMPARABILITY NEVER JUSTIFIES ADDING AN ESTIMAND. Wanting two families to line up is a convenience, and convenience is exactly the pressure these gates exist to resist.",
+    "correct_reason": [
+      "T1's theta ROLE was already frozen pre-Y in T1_15M_ESTIMAND_V1",
+      "the T5 15m precedent was named in advance, not chosen afterwards",
+      "the ambiguity was closed BEFORE Y was opened",
+      "the implementation passed a conformance gate"
+    ],
+    "comparability_status": "a beneficial CONSEQUENCE of admissibility, never its justification"
+  },
+  "amended_at": "2026-08-24 18:31 +04"
 }

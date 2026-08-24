@@ -719,5 +719,36 @@
     "path": "t1_15m_survivor_structure.parquet",
     "digest": "99774a31914c8941"
   },
-  "runtime_min": 0.5
+  "runtime_min": 0.5,
+  "frozen_wording": {
+    "inferential_result": "1,228 registered T1-15m claims survive the frozen family-wise historical max-null threshold (Z > 4.6367). That is the inferential layer; components, L3, position distribution and theta are all characterization after it.",
+    "max_z_caveat": "observed max 19.0256 far exceeds p95, but that does NOT mean 1,228 independent edges. Both the survivor count and the max-Z must be read inside the frozen family and its inference machinery.",
+    "components": {
+      "correct": "543 GRAPH-DISTINCT COMPONENTS",
+      "incorrect": "543 independent discoveries",
+      "singletons": "the 399 singletons are not automatically independent discoveries either",
+      "collapse": "~44% of the raw survivor count remains as component count — a description of redundancy and geometry, nothing more"
+    },
+    "position_distribution": {
+      "correct": "T1 survivors are disproportionately concentrated in M1->M2 relative to the claim population of each transition lane, WHILE THE CROSS-LANE GRADIENT IS WEAKER than in T9/T3 (5.10 / 2.85 / 2.48)",
+      "incorrect": "M1->M2 contains more edge",
+      "status": "post-exposure morphology"
+    },
+    "M1_L3": {
+      "figures": "66/85 = 77.6% vs ~3.27% · lift ~23.7x · 42 components",
+      "tension_explained": "highest conditional survival of the three families, lowest relative lift — not a contradiction: T1's ex-L3 baseline is simply higher",
+      "status": "strongly enriched POST-EXPOSURE characteristic · hypothesis-generating only"
+    },
+    "theta_asymmetry": {
+      "observation": "T3 had 9/744 negative theta; T1 has 0/1,228",
+      "correct": "T1's selected survivor set exhibited uniformly positive registered theta characterization. The cause is UNKNOWN.",
+      "incorrect": [
+        "T1 is a cleaner family",
+        "T1 is more robust"
+      ],
+      "why": "both thetas are computed on a Z-selected survivor population, and Z and theta are related summaries of the same outcome. No test is being run here and no mechanism is being named."
+    }
+  },
+  "branch_status": "CLOSED",
+  "amended_at": "2026-08-24 18:31 +04"
 }
