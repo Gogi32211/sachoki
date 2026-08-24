@@ -144,5 +144,40 @@
     "what_failed": "the MECHANISM / SPECIFICITY claim, not the test"
   },
   "amended_by": "additive semantic layer per GANN_GATE_B_CLASSIFICATION_V1; no value written by the runner was changed or removed",
-  "amended_at": "2026-08-24 09:26 +04"
+  "amended_at": "2026-08-24 09:30 +04",
+  "mechanism_wording_correction": {
+    "incorrect": "Gate B confirmed a location / volatility effect",
+    "correct": "Gate B shows that Gann-specific geometry is UNNECESSARY to reproduce the observed scale. That is compatible with a generic location / excursion / volatility-selection explanation, but it does NOT distinguish which of those mechanisms is actually causal.",
+    "why": "the shifted-lattice reference removes one candidate explanation; it does not identify the true one. Naming a mechanism would be inventing a positive finding out of a negative specificity result."
+  },
+  "distinctions_to_preserve": {
+    "Gate A PASS": "!= Gann works",
+    "Gate B CASE 2": "!= the association does not exist",
+    "joint result": "the association exists; Gann-specificity is unsupported"
+  },
+  "descriptive_placement_note": "the observed values are not merely below p95 — all three sit AT OR BELOW the shifted family's median (21.5213). The observed Gann placement is not in an unusual upper tail of the reference: randomly shifted versions of the lattice commonly generate effects of comparable or larger scale.",
+  "why_gate_B_mattered": "without gate B, Z ~ 18-21 would have looked spectacular and attributing it to Gann geometry would have been extremely tempting. The placebo reference is what shows that conclusion would have been wrong.",
+  "final_branch_status": {
+    "HISTORICAL ASSOCIATION": "SUPPORTED",
+    "GANN-SPECIFIC SPATIAL ATTRIBUTION": "UNSUPPORTED",
+    "TRADEABILITY": "UNKNOWN / NOT TESTED",
+    "ECONOMIC MAGNITUDE theta": "UNDEFINED BY DESIGN",
+    "INFERENCE ENGINE": "QUALIFIED / FUNCTIONED AS REGISTERED",
+    "GATE A": "PASS x3",
+    "GATE B": "CASE_2_ORDINARY_WITHIN x3 · NOT MIXED",
+    "FINAL": "HISTORICAL BRANCH CLOSED"
+  },
+  "key_conceptual_result": "something about the selected / touched locations is strongly associated with large directional excursion, but the registered evidence does not show that the special Gann placement of those locations is responsible.",
+  "no_rescue_analysis": {
+    "forbidden": [
+      "alternative lattice spacing",
+      "a different shift family",
+      "a new threshold",
+      "a horizon change",
+      "re-running any gate with adjusted parameters"
+    ],
+    "reason": "each would be an attempt to rehabilitate Gann after seeing a negative specificity result, and none could inherit this frozen inference",
+    "permitted_instead": "if the question 'why do shifted lattices also produce huge excursion statistics?' is worth pursuing, it is a SEPARATELY LABELLED POST-EXPOSURE DESCRIPTIVE MECHANISM STUDY — not a rescue of this claim",
+    "status": "this is a clean negative specificity result and is scientifically useful as it stands"
+  }
 }
