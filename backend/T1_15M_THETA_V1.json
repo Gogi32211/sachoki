@@ -1,0 +1,135 @@
+{
+  "spec_id": "T1_15M_THETA_V1",
+  "status": "POST_SELECTION_DESCRIPTIVE",
+  "family": "T1",
+  "governed_by": "9f5ed336120a3d75",
+  "historical_exposed": "8f6b95602ad4072a",
+  "survivor_structure": "578425e1e2d36950",
+  "conformance_gate": {
+    "hand_vs_reference": true,
+    "reference_vs_implementation": true,
+    "treated_leg": true,
+    "control_leg": true,
+    "tie_break_is_sealed_j": true,
+    "tie_break_is_repeatable": true
+  },
+  "scope": {
+    "rule": "UNIQUE UNION(survivors, top_500_by_frozen_Z_rank)",
+    "survivors": 1228,
+    "top_n": 500,
+    "overlap_counted_once": 500,
+    "evaluated": 1228,
+    "tie_break": "np.lexsort((j, -Z)) — sealed claim order"
+  },
+  "theta_among_survivors": {
+    "median": 3.1653,
+    "min": 0.1773,
+    "max": 34.3411,
+    "negative": 0,
+    "n": 1228
+  },
+  "top10": [
+    {
+      "j": 4872,
+      "representative": "M1→M2|L3→L5_PB",
+      "support": 11633,
+      "z_obs": 19.0256,
+      "theta": 4.0492,
+      "treated_median": 10.9444,
+      "control_median": 6.8952
+    },
+    {
+      "j": 4889,
+      "representative": "M1→M2|L3→REG_U",
+      "support": 11503,
+      "z_obs": 18.6024,
+      "theta": 3.94,
+      "treated_median": 10.8521,
+      "control_median": 6.912
+    },
+    {
+      "j": 4860,
+      "representative": "M1→M2|L3→GR_V",
+      "support": 7118,
+      "z_obs": 16.5466,
+      "theta": 5.4018,
+      "treated_median": 12.4194,
+      "control_median": 7.0177
+    },
+    {
+      "j": 4875,
+      "representative": "M1→M2|L3→L5_R2H",
+      "support": 8605,
+      "z_obs": 16.5448,
+      "theta": 4.7774,
+      "treated_median": 11.7414,
+      "control_median": 6.9639
+    },
+    {
+      "j": 10056,
+      "representative": "M1→M2|VOL_VB→L5_PB",
+      "support": 14076,
+      "z_obs": 15.7875,
+      "theta": 2.9326,
+      "treated_median": 9.5558,
+      "control_median": 6.6232
+    },
+    {
+      "j": 4909,
+      "representative": "M1→M2|L3→WK_U",
+      "support": 6689,
+      "z_obs": 15.6941,
+      "theta": 4.532,
+      "treated_median": 11.5312,
+      "control_median": 6.9992
+    },
+    {
+      "j": 4867,
+      "representative": "M1→M2|L3→L2",
+      "support": 10402,
+      "z_obs": 15.6513,
+      "theta": 3.5937,
+      "treated_median": 10.4571,
+      "control_median": 6.8634
+    },
+    {
+      "j": 10080,
+      "representative": "M1→M2|VOL_VB→REG_U",
+      "support": 13829,
+      "z_obs": 15.4988,
+      "theta": 2.9286,
+      "treated_median": 9.5547,
+      "control_median": 6.6261
+    },
+    {
+      "j": 4855,
+      "representative": "M1→M2|L3→E2",
+      "support": 6653,
+      "z_obs": 15.253,
+      "theta": 4.1466,
+      "treated_median": 11.2253,
+      "control_median": 7.0787
+    },
+    {
+      "j": 10044,
+      "representative": "M1→M2|VOL_VB→GR_V",
+      "support": 9549,
+      "z_obs": 15.0442,
+      "theta": 3.8547,
+      "treated_median": 10.5917,
+      "control_median": 6.737
+    }
+  ],
+  "units": "MFE_10D in percentage points",
+  "post_selection_status": {
+    "statement": "theta is conditional on post-inference selected claims",
+    "means": "theta describes magnitude among the registered survivor / top-rank characterization set",
+    "does_not": [
+      "provide independent confirmation",
+      "alter survivor status",
+      "constitute a second test"
+    ],
+    "direction_of_inference": "Z / registered inference -> survivor or rank; THEN selected set -> theta magnitude characterization. No arrow runs backwards — a large theta can never rescue a weak-Z claim."
+  },
+  "runtime_min": 0.6
+}

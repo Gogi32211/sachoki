@@ -1,0 +1,533 @@
+{
+  "spec_id": "T1_15M_HISTORICAL_EXPOSED_V1",
+  "status": "HISTORICAL_EXPOSED",
+  "family": "T1",
+  "spec": "86caf32be4d370ca",
+  "claim_order": "e56ef6be7bfa54c7",
+  "engine_state": "1b20e17f952d7378",
+  "capability_result": "411fb7c1150141c2",
+  "k": 35587,
+  "n_perm": 999,
+  "population_hash": "042983da029038ff",
+  "outcome_source_digest": "cc0ff34254ee680d",
+  "max_null": {
+    "p95": 4.6367,
+    "median": 4.0475,
+    "min": 3.4096,
+    "max": 5.7409,
+    "p99": 4.9245,
+    "digest": "9ecf1abbf5330b67"
+  },
+  "observed": {
+    "max": 19.0256,
+    "p99": 7.6907,
+    "median": 0.1436,
+    "min": -12.7777,
+    "n_nan": 0
+  },
+  "promotion": "Z_obs > p95(max-null), STRICTLY greater",
+  "survivors": {
+    "n": 1228,
+    "claims": [
+      {
+        "j": 4872,
+        "representative": "M1→M2|L3→L5_PB",
+        "position_family": "M1→M2",
+        "support": 11633,
+        "z_obs": 19.0256
+      },
+      {
+        "j": 4889,
+        "representative": "M1→M2|L3→REG_U",
+        "position_family": "M1→M2",
+        "support": 11503,
+        "z_obs": 18.6024
+      },
+      {
+        "j": 4860,
+        "representative": "M1→M2|L3→GR_V",
+        "position_family": "M1→M2",
+        "support": 7118,
+        "z_obs": 16.5466
+      },
+      {
+        "j": 4875,
+        "representative": "M1→M2|L3→L5_R2H",
+        "position_family": "M1→M2",
+        "support": 8605,
+        "z_obs": 16.5448
+      },
+      {
+        "j": 10056,
+        "representative": "M1→M2|VOL_VB→L5_PB",
+        "position_family": "M1→M2",
+        "support": 14076,
+        "z_obs": 15.7875
+      },
+      {
+        "j": 4909,
+        "representative": "M1→M2|L3→WK_U",
+        "position_family": "M1→M2",
+        "support": 6689,
+        "z_obs": 15.6941
+      },
+      {
+        "j": 4867,
+        "representative": "M1→M2|L3→L2",
+        "position_family": "M1→M2",
+        "support": 10402,
+        "z_obs": 15.6513
+      },
+      {
+        "j": 10080,
+        "representative": "M1→M2|VOL_VB→REG_U",
+        "position_family": "M1→M2",
+        "support": 13829,
+        "z_obs": 15.4988
+      },
+      {
+        "j": 4855,
+        "representative": "M1→M2|L3→E2",
+        "position_family": "M1→M2",
+        "support": 6653,
+        "z_obs": 15.253
+      },
+      {
+        "j": 10044,
+        "representative": "M1→M2|VOL_VB→GR_V",
+        "position_family": "M1→M2",
+        "support": 9549,
+        "z_obs": 15.0442
+      },
+      {
+        "j": 4885,
+        "representative": "M1→M2|L3→PH_MARKUP",
+        "position_family": "M1→M2",
+        "support": 5825,
+        "z_obs": 14.9047
+      },
+      {
+        "j": 4848,
+        "representative": "M1→M2|L3→CL_A",
+        "position_family": "M1→M2",
+        "support": 6892,
+        "z_obs": 14.755
+      },
+      {
+        "j": 4910,
+        "representative": "M1→M2|L3→WYC_MARKUP",
+        "position_family": "M1→M2",
+        "support": 5766,
+        "z_obs": 14.6788
+      },
+      {
+        "j": 10059,
+        "representative": "M1→M2|VOL_VB→L5_R2H",
+        "position_family": "M1→M2",
+        "support": 10011,
+        "z_obs": 14.5622
+      },
+      {
+        "j": 4907,
+        "representative": "M1→M2|L3→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 2644,
+        "z_obs": 14.2018
+      },
+      {
+        "j": 4887,
+        "representative": "M1→M2|L3→RA",
+        "position_family": "M1→M2",
+        "support": 4129,
+        "z_obs": 14.1478
+      },
+      {
+        "j": 4878,
+        "representative": "M1→M2|L3→NE_N",
+        "position_family": "M1→M2",
+        "support": 8056,
+        "z_obs": 13.9826
+      },
+      {
+        "j": 10039,
+        "representative": "M1→M2|VOL_VB→E2",
+        "position_family": "M1→M2",
+        "support": 8936,
+        "z_obs": 13.9337
+      },
+      {
+        "j": 9459,
+        "representative": "M1→M2|VA→L5_PB",
+        "position_family": "M1→M2",
+        "support": 2585,
+        "z_obs": 13.9122
+      },
+      {
+        "j": 10051,
+        "representative": "M1→M2|VOL_VB→L2",
+        "position_family": "M1→M2",
+        "support": 13920,
+        "z_obs": 13.6813
+      },
+      {
+        "j": 9472,
+        "representative": "M1→M2|VA→REG_U",
+        "position_family": "M1→M2",
+        "support": 2519,
+        "z_obs": 13.6489
+      },
+      {
+        "j": 10102,
+        "representative": "M1→M2|VOL_VB→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 3006,
+        "z_obs": 13.6362
+      },
+      {
+        "j": 9449,
+        "representative": "M1→M2|VA→GR_V",
+        "position_family": "M1→M2",
+        "support": 1601,
+        "z_obs": 13.5577
+      },
+      {
+        "j": 4838,
+        "representative": "M1→M2|L3→BW_M",
+        "position_family": "M1→M2",
+        "support": 6707,
+        "z_obs": 13.557
+      },
+      {
+        "j": 4856,
+        "representative": "M1→M2|L3→ESTAR",
+        "position_family": "M1→M2",
+        "support": 4337,
+        "z_obs": 13.4584
+      },
+      {
+        "j": 6249,
+        "representative": "M1→M2|NE_E→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 5598,
+        "z_obs": 13.3318
+      },
+      {
+        "j": 10078,
+        "representative": "M1→M2|VOL_VB→RA",
+        "position_family": "M1→M2",
+        "support": 4925,
+        "z_obs": 13.2594
+      },
+      {
+        "j": 2157,
+        "representative": "M1→M2|CL_A→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 5411,
+        "z_obs": 13.1252
+      },
+      {
+        "j": 4864,
+        "representative": "M1→M2|L3→K1",
+        "position_family": "M1→M2",
+        "support": 6293,
+        "z_obs": 13.0998
+      },
+      {
+        "j": 4877,
+        "representative": "M1→M2|L3→NE_E",
+        "position_family": "M1→M2",
+        "support": 4847,
+        "z_obs": 12.997
+      },
+      {
+        "j": 1436,
+        "representative": "M1→M2|BW_X→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 4816,
+        "z_obs": 12.9565
+      },
+      {
+        "j": 6246,
+        "representative": "M1→M2|NE_E→VOL_B",
+        "position_family": "M1→M2",
+        "support": 11483,
+        "z_obs": 12.9518
+      },
+      {
+        "j": 4891,
+        "representative": "M1→M2|L3→RN",
+        "position_family": "M1→M2",
+        "support": 5714,
+        "z_obs": 12.9
+      },
+      {
+        "j": 7777,
+        "representative": "M1→M2|REG_U→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 5249,
+        "z_obs": 12.7771
+      },
+      {
+        "j": 4866,
+        "representative": "M1→M2|L3→L1",
+        "position_family": "M1→M2",
+        "support": 6087,
+        "z_obs": 12.6594
+      },
+      {
+        "j": 3902,
+        "representative": "M1→M2|GR_V→VOL_B",
+        "position_family": "M1→M2",
+        "support": 11972,
+        "z_obs": 12.657
+      },
+      {
+        "j": 10104,
+        "representative": "M1→M2|VOL_VB→WK_U",
+        "position_family": "M1→M2",
+        "support": 8102,
+        "z_obs": 12.6425
+      },
+      {
+        "j": 4904,
+        "representative": "M1→M2|L3→VOL_B",
+        "position_family": "M1→M2",
+        "support": 3681,
+        "z_obs": 12.6241
+      },
+      {
+        "j": 10076,
+        "representative": "M1→M2|VOL_VB→PH_MARKUP",
+        "position_family": "M1→M2",
+        "support": 7444,
+        "z_obs": 12.6047
+      },
+      {
+        "j": 10447,
+        "representative": "M1→M2|WK_U→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 4928,
+        "z_obs": 12.5799
+      },
+      {
+        "j": 1433,
+        "representative": "M1→M2|BW_X→VOL_B",
+        "position_family": "M1→M2",
+        "support": 9778,
+        "z_obs": 12.5688
+      },
+      {
+        "j": 22077,
+        "representative": "M2→M3|VOL_VB→L5_PB",
+        "position_family": "M2→M3",
+        "support": 5641,
+        "z_obs": 12.5359
+      },
+      {
+        "j": 4886,
+        "representative": "M1→M2|L3→PH_MKDN",
+        "position_family": "M1→M2",
+        "support": 7014,
+        "z_obs": 12.5131
+      },
+      {
+        "j": 10040,
+        "representative": "M1→M2|VOL_VB→ESTAR",
+        "position_family": "M1→M2",
+        "support": 6135,
+        "z_obs": 12.4904
+      },
+      {
+        "j": 5142,
+        "representative": "M1→M2|L5_PB→VOL_VB",
+        "position_family": "M1→M2",
+        "support": 5203,
+        "z_obs": 12.4573
+      },
+      {
+        "j": 4911,
+        "representative": "M1→M2|L3→WYC_MKDN",
+        "position_family": "M1→M2",
+        "support": 6999,
+        "z_obs": 12.4466
+      },
+      {
+        "j": 10021,
+        "representative": "M1→M2|VOL_VB→BW_M",
+        "position_family": "M1→M2",
+        "support": 8634,
+        "z_obs": 12.4436
+      },
+      {
+        "j": 10066,
+        "representative": "M1→M2|VOL_VB→NE_N",
+        "position_family": "M1→M2",
+        "support": 10583,
+        "z_obs": 12.4415
+      },
+      {
+        "j": 22091,
+        "representative": "M2→M3|VOL_VB→REG_U",
+        "position_family": "M2→M3",
+        "support": 5587,
+        "z_obs": 12.4075
+      },
+      {
+        "j": 10031,
+        "representative": "M1→M2|VOL_VB→CL_A",
+        "position_family": "M1→M2",
+        "support": 8424,
+        "z_obs": 12.4019
+      }
+    ]
+  },
+  "top20_by_z": [
+    {
+      "j": 4872,
+      "representative": "M1→M2|L3→L5_PB",
+      "support": 11633,
+      "z_obs": 19.0256,
+      "survivor": true
+    },
+    {
+      "j": 4889,
+      "representative": "M1→M2|L3→REG_U",
+      "support": 11503,
+      "z_obs": 18.6024,
+      "survivor": true
+    },
+    {
+      "j": 4860,
+      "representative": "M1→M2|L3→GR_V",
+      "support": 7118,
+      "z_obs": 16.5466,
+      "survivor": true
+    },
+    {
+      "j": 4875,
+      "representative": "M1→M2|L3→L5_R2H",
+      "support": 8605,
+      "z_obs": 16.5448,
+      "survivor": true
+    },
+    {
+      "j": 10056,
+      "representative": "M1→M2|VOL_VB→L5_PB",
+      "support": 14076,
+      "z_obs": 15.7875,
+      "survivor": true
+    },
+    {
+      "j": 4909,
+      "representative": "M1→M2|L3→WK_U",
+      "support": 6689,
+      "z_obs": 15.6941,
+      "survivor": true
+    },
+    {
+      "j": 4867,
+      "representative": "M1→M2|L3→L2",
+      "support": 10402,
+      "z_obs": 15.6513,
+      "survivor": true
+    },
+    {
+      "j": 10080,
+      "representative": "M1→M2|VOL_VB→REG_U",
+      "support": 13829,
+      "z_obs": 15.4988,
+      "survivor": true
+    },
+    {
+      "j": 4855,
+      "representative": "M1→M2|L3→E2",
+      "support": 6653,
+      "z_obs": 15.253,
+      "survivor": true
+    },
+    {
+      "j": 10044,
+      "representative": "M1→M2|VOL_VB→GR_V",
+      "support": 9549,
+      "z_obs": 15.0442,
+      "survivor": true
+    },
+    {
+      "j": 4885,
+      "representative": "M1→M2|L3→PH_MARKUP",
+      "support": 5825,
+      "z_obs": 14.9047,
+      "survivor": true
+    },
+    {
+      "j": 4848,
+      "representative": "M1→M2|L3→CL_A",
+      "support": 6892,
+      "z_obs": 14.755,
+      "survivor": true
+    },
+    {
+      "j": 4910,
+      "representative": "M1→M2|L3→WYC_MARKUP",
+      "support": 5766,
+      "z_obs": 14.6788,
+      "survivor": true
+    },
+    {
+      "j": 10059,
+      "representative": "M1→M2|VOL_VB→L5_R2H",
+      "support": 10011,
+      "z_obs": 14.5622,
+      "survivor": true
+    },
+    {
+      "j": 4907,
+      "representative": "M1→M2|L3→VOL_VB",
+      "support": 2644,
+      "z_obs": 14.2018,
+      "survivor": true
+    },
+    {
+      "j": 4887,
+      "representative": "M1→M2|L3→RA",
+      "support": 4129,
+      "z_obs": 14.1478,
+      "survivor": true
+    },
+    {
+      "j": 4878,
+      "representative": "M1→M2|L3→NE_N",
+      "support": 8056,
+      "z_obs": 13.9826,
+      "survivor": true
+    },
+    {
+      "j": 10039,
+      "representative": "M1→M2|VOL_VB→E2",
+      "support": 8936,
+      "z_obs": 13.9337,
+      "survivor": true
+    },
+    {
+      "j": 9459,
+      "representative": "M1→M2|VA→L5_PB",
+      "support": 2585,
+      "z_obs": 13.9122,
+      "survivor": true
+    },
+    {
+      "j": 10051,
+      "representative": "M1→M2|VOL_VB→L2",
+      "support": 13920,
+      "z_obs": 13.6813,
+      "survivor": true
+    }
+  ],
+  "theta": "NOT COMPUTED — magnitude only, never a promotion criterion",
+  "table": {
+    "path": "t1_15m_historical.parquet",
+    "digest": "e00dbd928425c6e5"
+  },
+  "runtime_min": 2.7,
+  "sealed_at": "2026-08-24 17:30 +04"
+}
