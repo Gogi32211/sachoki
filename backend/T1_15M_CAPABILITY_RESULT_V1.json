@@ -1,0 +1,188 @@
+{
+  "spec_id": "T1_15M_CAPABILITY_RESULT_V1",
+  "status": "CAPABILITY_ONLY",
+  "family": "T1",
+  "capability_protocol": "10574827da776ea8",
+  "estimand": "aa3ff9f958dcb9e6",
+  "engine_state": "1b20e17f952d7378",
+  "claim_order": "e56ef6be7bfa54c7",
+  "k": 35587,
+  "worlds": 20,
+  "n_perm": 999,
+  "delta_grid_pp": [
+    0.5,
+    1.0,
+    2.0,
+    3.0,
+    4.0,
+    5.0
+  ],
+  "needles": {
+    "q10": {
+      "sealed_j": 21316,
+      "representative": "M2→M3|T9→P50",
+      "support": 453
+    },
+    "q50": {
+      "sealed_j": 35228,
+      "representative": "M3→M4|Z5→GR_N",
+      "support": 2186
+    },
+    "q90": {
+      "sealed_j": 17611,
+      "representative": "M2→M3|L5→WYC_MARKUP",
+      "support": 17472
+    }
+  },
+  "detections": {
+    "q10": {
+      "+0.5": "2/20",
+      "+1.0": "19/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q50": {
+      "+0.5": "20/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    },
+    "q90": {
+      "+0.5": "20/20",
+      "+1.0": "20/20",
+      "+2.0": "20/20",
+      "+3.0": "20/20",
+      "+4.0": "20/20",
+      "+5.0": "20/20"
+    }
+  },
+  "max_null_geometry": {
+    "q10": {
+      "+0.5": {
+        "p95_median": 4.641,
+        "p95_min": 4.588,
+        "p95_max": 4.706
+      },
+      "+1.0": {
+        "p95_median": 4.639,
+        "p95_min": 4.583,
+        "p95_max": 4.708
+      },
+      "+2.0": {
+        "p95_median": 4.637,
+        "p95_min": 4.577,
+        "p95_max": 4.695
+      },
+      "+3.0": {
+        "p95_median": 4.64,
+        "p95_min": 4.58,
+        "p95_max": 4.707
+      },
+      "+4.0": {
+        "p95_median": 4.639,
+        "p95_min": 4.58,
+        "p95_max": 4.711
+      },
+      "+5.0": {
+        "p95_median": 4.636,
+        "p95_min": 4.572,
+        "p95_max": 4.71
+      }
+    },
+    "q50": {
+      "+0.5": {
+        "p95_median": 4.64,
+        "p95_min": 4.568,
+        "p95_max": 4.682
+      },
+      "+1.0": {
+        "p95_median": 4.641,
+        "p95_min": 4.566,
+        "p95_max": 4.688
+      },
+      "+2.0": {
+        "p95_median": 4.629,
+        "p95_min": 4.548,
+        "p95_max": 4.705
+      },
+      "+3.0": {
+        "p95_median": 4.63,
+        "p95_min": 4.546,
+        "p95_max": 4.697
+      },
+      "+4.0": {
+        "p95_median": 4.628,
+        "p95_min": 4.56,
+        "p95_max": 4.7
+      },
+      "+5.0": {
+        "p95_median": 4.628,
+        "p95_min": 4.565,
+        "p95_max": 4.702
+      }
+    },
+    "q90": {
+      "+0.5": {
+        "p95_median": 4.639,
+        "p95_min": 4.549,
+        "p95_max": 4.678
+      },
+      "+1.0": {
+        "p95_median": 4.634,
+        "p95_min": 4.566,
+        "p95_max": 4.672
+      },
+      "+2.0": {
+        "p95_median": 4.625,
+        "p95_min": 4.571,
+        "p95_max": 4.682
+      },
+      "+3.0": {
+        "p95_median": 4.634,
+        "p95_min": 4.59,
+        "p95_max": 4.684
+      },
+      "+4.0": {
+        "p95_median": 4.634,
+        "p95_min": 4.587,
+        "p95_max": 4.692
+      },
+      "+5.0": {
+        "p95_median": 4.644,
+        "p95_min": 4.595,
+        "p95_max": 4.687
+      }
+    }
+  },
+  "integrity": {
+    "expected_worlds": 60,
+    "completed_worlds": 60,
+    "missing": 0,
+    "duplicates": 0,
+    "permutations_per_world": [
+      999
+    ],
+    "distinct_null_max_vectors": 360,
+    "expected_rows": 360,
+    "rows": 360,
+    "one_mapping_per_permutation": "a single pm re-indexes the whole rank matrix, so all 35,587 claims and all 6 delta lanes share it",
+    "membership_identity": "each needle's rebuilt membership was asserted equal to the sealed treated_overlap before its worlds ran",
+    "outcome_source_digest": "cc0ff34254ee680d",
+    "population_hash": "042983da029038ff",
+    "claim_order_hash": "a9592a674130c559",
+    "engine_equivalence": "kernels imported from t5_15m_capability — the implementation the 15m rank-engine / parallel / batch qualifications cover; no second implementation exists to diverge",
+    "threads": 8,
+    "threads_note": "engineering only; not in frozen_and_may_not_change, and the kernel writes disjoint per-claim outputs so it cannot change a value"
+  },
+  "hard_state": {
+    "T1 15M OBSERVED Z": "NOT COMPUTED",
+    "T1 15M theta": "NOT COMPUTED",
+    "T1 15M WINNERS/SURVIVORS": "UNKNOWN"
+  },
+  "outcome_exposure": "CAPABILITY ONLY — every Z here is on an outcome whose association was destroyed by within-block permutation before anything was injected; no historical association is computed",
+  "runtime_hours": 5.95
+}
