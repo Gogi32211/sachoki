@@ -144,7 +144,7 @@
     "what_failed": "the MECHANISM / SPECIFICITY claim, not the test"
   },
   "amended_by": "additive semantic layer per GANN_GATE_B_CLASSIFICATION_V1; no value written by the runner was changed or removed",
-  "amended_at": "2026-08-24 09:30 +04",
+  "amended_at": "2026-08-24 09:33 +04",
   "mechanism_wording_correction": {
     "incorrect": "Gate B confirmed a location / volatility effect",
     "correct": "Gate B shows that Gann-specific geometry is UNNECESSARY to reproduce the observed scale. That is compatible with a generic location / excursion / volatility-selection explanation, but it does NOT distinguish which of those mechanisms is actually causal.",
@@ -165,9 +165,11 @@
     "INFERENCE ENGINE": "QUALIFIED / FUNCTIONED AS REGISTERED",
     "GATE A": "PASS x3",
     "GATE B": "CASE_2_ORDINARY_WITHIN x3 · NOT MIXED",
-    "FINAL": "HISTORICAL BRANCH CLOSED"
+    "FINAL": "HISTORICAL BRANCH CLOSED",
+    "UNDERLYING MECHANISM": "UNIDENTIFIED",
+    "RESCUE ANALYSIS": "PROHIBITED FOR THIS BRANCH"
   },
-  "key_conceptual_result": "something about the selected / touched locations is strongly associated with large directional excursion, but the registered evidence does not show that the special Gann placement of those locations is responsible.",
+  "key_conceptual_result": "The registered touch-selection procedure identifies observations with unusually large directional excursion relative to the paired-outcome null, but comparable excursion enrichment is routinely reproduced by shifted lattices. Therefore the historical association is real under Gate A, while attribution to the specific Gann lattice geometry is unsupported. The mechanism producing that association remains UNIDENTIFIED.",
   "no_rescue_analysis": {
     "forbidden": [
       "alternative lattice spacing",
@@ -179,5 +181,16 @@
     "reason": "each would be an attempt to rehabilitate Gann after seeing a negative specificity result, and none could inherit this frozen inference",
     "permitted_instead": "if the question 'why do shifted lattices also produce huge excursion statistics?' is worth pursuing, it is a SEPARATELY LABELLED POST-EXPOSURE DESCRIPTIVE MECHANISM STUDY — not a rescue of this claim",
     "status": "this is a clean negative specificity result and is scientifically useful as it stands"
+  },
+  "key_conceptual_result_supersedes": "an earlier phrasing — 'something about the selected/touched locations is strongly associated with large directional excursion' — which could still be read as though LOCATION were established as the mechanism. Nothing here identifies a mechanism.",
+  "no_further_characterization": {
+    "scope": "GANN is not to be touched further under this branch",
+    "specifically_excluded": [
+      "additional characterization of the Z ~ 18-21 survivors",
+      "shifted-world anatomy",
+      "any 'why did this happen' analysis"
+    ],
+    "reason": "each would be a new post-exposure branch, and none may borrow this frozen inference or its pre-registered status",
+    "if_ever_wanted": "a separately labelled post-exposure descriptive study, opened deliberately and not as a continuation of this one"
   }
 }
