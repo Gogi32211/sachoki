@@ -719,5 +719,34 @@
     "path": "t3_15m_survivor_structure.parquet",
     "digest": "6844d5e8cc97bf95"
   },
-  "runtime_min": 0.5
+  "runtime_min": 0.5,
+  "frozen_wording": {
+    "inferential_result": "744 registered T3-15m claims survive the family-wise historical max-null threshold (Z > 4.6096). That is the inferential result; everything after survivor identification is a different layer.",
+    "components": {
+      "correct": "343 GRAPH-DISTINCT COMPONENTS",
+      "incorrect": "343 independent discoveries",
+      "singletons": "the 250 singletons are structurally useful but are NOT automatically statistically independent either"
+    },
+    "position_distribution": {
+      "correct": "survivors are disproportionately concentrated in M1->M2 RELATIVE TO EACH LANE'S OWN CLAIM POPULATION (4.00% / 1.62% / 0.84%)",
+      "incorrect": "early transition causes or contains more edge",
+      "status": "post-exposure morphology observation"
+    },
+    "M1_L3": {
+      "correct": "M1:L3 is a STRONGLY ENRICHED POST-EXPOSURE SURVIVOR CHARACTERISTIC within T3-15m (39/60 = 65% vs ~2.00%, descriptive lift ~32x, across 21 components)",
+      "incorrect": [
+        "M1:L3 predicts T3 success",
+        "any new promotion rule applied to the same history"
+      ],
+      "why": "this is exactly the kind of number that could seduce a reopening of the search"
+    },
+    "T9_comparison": {
+      "correct": "descriptive structural COMPATIBILITY with T9-15m",
+      "incorrect": "T3 structurally repeats T9 / replication",
+      "why": "different signal families over the same historical universe with related machinery; a post-exposure structural comparison is hypothesis-generating, not replication",
+      "recurrence": "T9: M1->M2 concentration + L3 enrichment · T3: M1->M2 concentration + L3/L4 enrichment"
+    }
+  },
+  "branch_status": "CLOSED — no survivor rescue, no L3-conditioned rerun, no altered family, no theta-filtering",
+  "amended_at": "2026-08-24 13:02 +04"
 }
